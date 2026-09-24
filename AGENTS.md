@@ -830,6 +830,48 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   su propio snapshot y pisa con un toast que revierte todo junto, que es la unidad en la que
   la persona decidió.
 
+# Una regla que se aplica AL ESCRIBIR no arregla ni una fila ya escrita
+
+Toda regla nueva sobre los datos —derivar un campo, sanear un formato, poner un default—
+empieza a valer para lo que se escriba de ahora en más. Las filas que ya están sólo se
+arreglan si alguien vuelve a tocarlas, y en un tablero la mayoría no se toca nunca. Para el
+que mira la pantalla eso es indistinguible de que la regla no se implementó.
+
+Medido el 24/09/2026: el 23 se escribió «si la tarea tiene deadline, el Quarter sale de la
+fecha» y al día siguiente el dueño lo reclamó de nuevo — **«te había pedido antes…»**. Las
+dos mitades que faltaban:
+
+- **El choke point de un campo DERIVADO es el mapper de la fila, no el handler del
+  formulario.** La regla vivía en `useBoard.setDeadline`, o sea en el único camino que pasa
+  por el navegador. Todo deadline que pone el SERVER —el Perro al priorizar, una reunión al
+  crear la tarea, un lote— seguía naciendo sin Quarter, y ese es el camino por el que entra
+  la mayoría. Ahora se deriva en `taskToRow` / `labelToRow` (`lib/plan-board.ts`), por donde
+  pasan TODAS las escrituras.
+- **Y después se hace el BACKFILL**, en el mismo commit, contando las filas que arregló y
+  verificando lo que el producto va a LEER. Eran 6 tareas y 22 proyectos con fecha y sin
+  trimestre: nada dramático, y suficiente para que la pantalla siguiera dándole la razón a
+  quien decía que no andaba.
+
+⚠️ **Y el ORDEN del backfill importa cuando hay dos arreglos en la misma corrida.** Acá se
+borraban además los deadlines vencidos hace 6+ días: derivar primero habría inventado un
+trimestre a partir de una fecha que el mismo script estaba por declarar muerta.
+
+# Un `<select>` cuyo `value` no está entre sus `<option>` no muestra nada — y el primer click lo borra
+
+No es un error ni un warning: el control queda mostrando la PRIMERA opción (típicamente
+«Sin asignar») sobre una fila que tiene el dato guardado, y en cuanto alguien lo toca se
+escribe esa primera opción. O sea que una lista de opciones que se calcula puede BORRAR
+datos sin que nadie lo haya pedido.
+
+Pasa siempre que la lista se calcula y el valor viene de la base: trimestres futuros, sólo
+clientes activos, sólo miembros del equipo que siguen, sólo categorías vigentes. Todas esas
+reglas son correctas **para ELEGIR** y ninguna vale **para MOSTRAR**: que algo ya no se pueda
+elegir no es lo mismo que esconder lo que ya está elegido.
+
+La cura es una línea: el valor actual entra a la lista aunque no cumpla la regla, marcado
+(`Q2 2026 (pasado)`). Molde: `quartersElegibles(hoy, cuantos, incluir)` en
+`app/plan/board/cuando.ts`.
+
 # Un layout que se auto-mide tiene que acertar SIEMPRE; uno fijo no tiene casos
 
 Antes de escribir una medición que decide el layout —«¿pliego los botones?», «¿escondo el

@@ -9,7 +9,10 @@
 // rojo parecido, que es cómo se termina con dos avisos que no significan lo mismo.
 // =============================================================================
 
+import type { CSSProperties } from 'react';
 import type { BoardTask } from './types';
+
+const MONO = "'Geist Mono', monospace";
 
 /** Progreso agregado de un proyecto (promedio del avance de sus tareas). */
 export function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number } {
@@ -70,4 +73,39 @@ export function plazoTexto(dias: number): { texto: string; color: string; fuerte
   if (dias === 1) return { texto: 'falta 1 día', color: 'var(--warn, #C8870C)', fuerte: true };
   if (dias <= 7) return { texto: `faltan ${dias} días`, color: 'var(--warn, #C8870C)', fuerte: false };
   return { texto: `faltan ${dias} días`, color: 'var(--faint)', fuerte: false };
+}
+
+/**
+ * LA FECHA CON SU PLAZO: «◷ vie 24 jul · 62 días atrasado».
+ *
+ * Una pieza y no cuatro parecidas. El 24/09/2026 el dueño pidió que la tarjeta del Kanban
+ * dijera lo mismo que la del proyecto —«me gusta este formato, que también dice los días
+ * faltantes y atrasados»— y lo que había ahí era `deadline.slice(5)`: **«09-25»**, que no
+ * dice el día de la semana, no dice el año y sobre todo NO DICE SI YA SE VENCIÓ. Una fecha
+ * sola obliga a hacer la cuenta; lo que se lee de un vistazo es el plazo.
+ *
+ * ⚠️ `hoy` viaja como PROP y no se calcula acá. Es la misma razón por la que `fechaConDia`
+ * parsea el ISO a mano: la fecha de hoy depende de la zona horaria de la máquina, y este
+ * repo ya paga que eso se resuelva en un solo lugar.
+ */
+export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(--faint)', plazo = true, style }: {
+  iso: string; hoy: string;
+  tam?: number;
+  /** false = tipografía de texto (el detalle), donde esto se lee como una frase. */
+  mono?: boolean;
+  color?: string;
+  /** false = sólo la fecha, para listas densas donde el plazo empujaría el título. */
+  plazo?: boolean;
+  style?: CSSProperties;
+}) {
+  const p = plazo ? plazoTexto(diasHasta(iso, hoy)) : null;
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontFamily: mono ? MONO : undefined, fontSize: tam, color, ...style }}>
+      {/* El que CEDE es la FECHA. Si el ancho no alcanza, lo que no se puede perder es
+          «62 días atrasado»: la fecha se puede mirar en el detalle, el atraso no se
+          deduce de nada. */}
+      <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>◷ {fechaConDia(iso)}</span>
+      {p && <span style={{ flex: 'none', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>}
+    </span>
+  );
 }

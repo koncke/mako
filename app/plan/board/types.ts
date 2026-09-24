@@ -150,6 +150,13 @@ export type BoardTask = {
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
   /**
+   * Para cuándo se PLANIFICÓ el proyecto (`2026-Q3`), que no es lo mismo que cuándo vence
+   * (mig 0162). Se deriva del `deadline` cuando está vacío y nunca lo pisa: si no
+   * coinciden, la pantalla avisa — puede ser un error de tipeo o una decisión, y quien
+   * sabe cuál de las dos es, es la persona.
+   */
+  quarter?: string;
+  /**
    * true = este score lo decidiste VOS discutiéndolo con el Perro (mig 0143). La corrida
    * automática puede proponer moverlo —lo escribe en la razón— pero no lo pisa. Sin esta
    * marca, un número que salió de una discusión que ganaste es indistinguible de uno que

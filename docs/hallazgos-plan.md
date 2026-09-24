@@ -3614,3 +3614,86 @@ Resultado medido: `TAREAS abiertas con 6+ días de atraso: 0`.
 - **El tablero sigue midiendo 19.630px de alto con 334 tarjetas sin virtualizar.** Medido el
   23/09 y sin cambios. No rompe nada —el auto-scroll del arrastre ya está— pero es el techo
   de cualquier cosa que quiera medir el tablero entero.
+
+## El Quarter de un proyecto, y la fecha que no decía nada (24/09/2026, segunda tanda)
+
+### ⚠️ «09-25»: una fecha sin su plazo obliga a hacer la cuenta
+
+La tarjeta del Kanban pintaba `t.deadline.slice(5)`. Eso es **«09-25»**: sin día de la
+semana, sin año y —lo que importa— **sin decir si ya se venció**. La tarjeta del PROYECTO,
+tres pantallas más allá, ya lo hacía bien desde el 23/09: `◷ vie 24 jul · 62 días
+atrasado`. El dueño lo reportó señalando la que estaba bien: «me gusta este formato, que
+también dice los días faltantes y atrasados».
+
+- **Eran CUATRO renders de la misma idea** —tarjeta, tarjeta de proyecto, detalle y lista del
+  detalle— compartiendo los dos helpers (`fechaConDia`, `plazoTexto`) y componiendo cada uno
+  a su manera. Lo que se comparte ahora es la composición: `<LineaDeadline>` en
+  `app/plan/board/piezas.tsx`. La cuarta —la lista densa del detalle— pasa `plazo={false}`,
+  que es una decisión escrita y no una copia que se quedó vieja.
+- **Y va en un renglón propio.** Al lado del botón «Completar» no entra: en una tarjeta de
+  281px, `◷ vie 24 jul · 62 días atrasado` mide ~200px y el botón ~85. El que CEDE es la
+  fecha (`flex: 0 1 auto` + ellipsis); lo que no se puede perder es el atraso, que no se
+  deduce de nada.
+
+**Verificado en el navegador:** 4 tarjetas leyendo `jue 13 ago · 42 días atrasado`, `vie 25
+sep · falta 1 día`, y **cero** con el formato viejo.
+
+**Vive en:** app/plan/board/piezas.tsx (`LineaDeadline`) · *2026-09-24*
+
+### El Quarter existía para las TAREAS y no para los PROYECTOS — que es donde más sirve
+
+La mig 0155 le puso `quarter` a `plan_tareas` y la 0156 a `experimento_tareas`. Los
+proyectos quedaron afuera, y es donde la pregunta más sentido tiene: una tarea cae en un
+trimestre casi siempre **porque su proyecto lo decidió**. Lo cierra la mig 0162.
+
+⚠️ **Las DOS tablas en la misma migración** (`plan_proyectos` y `tarea_categorias`). El
+tablero es UNO y lo montan el dueño y cada cliente: agregar el selector en el componente
+compartido y la columna en una sola tabla deja a la otra mitad con un control que no puede
+guardar nada. Es exactamente el bug del slider de prioridad del 23/09, que ya está escrito
+tres secciones más arriba — y aun así había que acordarse.
+
+**Vive en:** supabase/migrations/0162_proyectos_quarter.sql · lib/plan-board.ts · lib/todo.ts · *2026-09-24*
+
+### «(este)» → «(Actual)», y dos años de ventana
+
+El rótulo del trimestre en curso ya salía del cálculo y no de una lista escrita a mano, así
+que «configuralo para los próximos años» no requería nada: el día que empieza el Q4 se muda
+solo, y en 2030 también. Lo que sí cambió: la ventana pasó de 4 trimestres a **8**, porque
+un proyecto se planifica más lejos que una tarea.
+
+**Vive en:** app/plan/board/cuando.ts (`quartersElegibles`) · *2026-09-24*
+
+### La dirección con la que arranca un orden no es la misma para los cuatro criterios
+
+Los cuatro arrancaban en `desc`, y eso deja dos de los cuatro al revés de lo único que
+alguien quiere ver: **«Alfabético» empezaba por la Z** y **«Por deadline» por lo que vence
+más LEJOS**. Un orden que hay que invertir a mano apenas se elige no es un orden: es un paso
+de más. Va en una tabla (`DIR_NATURAL`), no en el handler: prioridad y creación arrancan
+descendente (lo más alto, lo más nuevo), deadline y alfabético ascendente.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`DIR_NATURAL`) · *2026-09-24*
+
+### El orden de la LISTA DE UN FILTRO no es el orden del tablero
+
+«Aún no se puede ordenar el filtro de proyectos, son muchos y cuesta buscarlos sin
+ordenamiento allí.» El menú ya tenía «Ordenar» —y por eso la primera lectura fue que ya
+estaba resuelto— pero eso ordena **lo que se ve en el tablero**, no la lista donde uno va a
+BUSCAR. Atarlas sería reordenar el tablero entero por abrir un filtro.
+
+- Son dos estados distintos, los dos recordados (`filtro.proyectos.orden` / `.dir`).
+- **Arranca en A-Z**, no en prioridad: el trabajo de esa lista es encontrar un nombre.
+- **El dato de la derecha es el del criterio activo.** Una lista ordenada por deadline que
+  muestra el score no se puede leer: no hay forma de verificar con el ojo que el orden es el
+  que dice ser.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`FilterMenu`) · *2026-09-24*
+
+### Lo que quedó SIN hacer
+
+- **57 tareas y 2 proyectos DE CLIENTES tienen deadline y siguen sin Quarter.** El backfill
+  se corrió sólo sobre el tablero del dueño (`plan_tareas`, `plan_proyectos`). El código
+  nuevo se los va poniendo a medida que alguien los edita, pero eso no es «arreglado»: es
+  «se arregla solo si alguien los toca». Escribir en el workspace de un cliente es una
+  decisión suya, no mía.
+- **Un proyecto quedó con deadline vencido hace 4 días** (`Feature: General`, dom 20 sep): la
+  regla es 6+ días, y un atraso reciente todavía informa.

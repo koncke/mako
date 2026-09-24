@@ -14,6 +14,7 @@ import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, Gu
 import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app/plan/board/types';
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
+import { quarterDeFecha } from '@/app/plan/board/cuando';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntuarProyectos, type ProyParaPuntuar } from '@/lib/mako-guardian';
 import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
@@ -43,6 +44,24 @@ const int = (v: unknown, d = 0): number => { const n = Math.round(Number(v)); re
 const optInt = (v: unknown): number | undefined => { if (v == null) return undefined; const n = Math.round(Number(v)); return Number.isFinite(n) ? n : undefined; };
 const optFuente = (v: unknown): Fuente | undefined => (v && typeof v === 'object' && (v as Fuente).tipo ? (v as Fuente) : undefined);
 
+/**
+ * EL QUARTER VA DONDE PASAN TODAS LAS ESCRITURAS, no en el formulario.
+ *
+ * «Te había pedido antes que si ya tiene deadline con fecha, que se ponga automáticamente
+ * el Quarter» (24/09/2026), y la primera vez se escribió SOLO en el handler del navegador
+ * (`useBoard.setDeadline`). Con eso, todo deadline que pone el server —el Perro al
+ * priorizar, una reunión al crear la tarea, un lote— seguía naciendo sin Quarter, que es
+ * justamente el camino por el que entra la mayoría. Acá lo hereda cualquier escritura
+ * futura sin que nadie se acuerde.
+ *
+ * ⚠️ SÓLO RELLENA LO VACÍO. Un Quarter elegido a mano no se pisa: son dos preguntas
+ * distintas —cuándo VENCE y para cuándo se PLANIFICÓ— y hay casos legítimos en que no
+ * coinciden. Cuando no coinciden, la pantalla AVISA; corregir sería decidir por la
+ * persona.
+ */
+const quarterEfectivo = (deadline: string | undefined, quarter: string | undefined): string | null =>
+  quarter || quarterDeFecha(deadline || '') || null;
+
 // ── row ⇄ modelo ─────────────────────────────────────────────────────────────
 function rowToTask(r: Row): BoardTask {
   return {
@@ -67,7 +86,7 @@ function taskToRow(t: BoardTask): Row {
     priority: t.priority, score: int(t.score), score_base: int(t.scoreBase ?? t.score), score_razon: t.scoreRazon ?? null,
     deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
-    deadline: t.deadline || '', quarter: t.quarter || null, labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
+    deadline: t.deadline || '', quarter: quarterEfectivo(t.deadline, t.quarter), labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad, score_manual: !!t.scoreManual,
     orden: t.num, updated_at: new Date().toISOString(),
   };
@@ -78,6 +97,7 @@ function rowToLabel(r: Row): Label {
     name: str(r.name, 'Proyecto'), color: str(r.color, '#2F6FED'), score: int(r.score, 50),
     scoreRazon: r.score_razon ? str(r.score_razon) : undefined, impacto: optInt(r.impacto),
     esfuerzo: optInt(r.esfuerzo), deadline: r.deadline ? str(r.deadline) : undefined,
+    quarter: r.quarter ? str(r.quarter) : undefined,
     detalle: str(r.detalle), notas: str(r.notas), historial: sanearHist(r.historial), fuente: optFuente(r.fuente),
     escalon: optInt(r.escalon), desbloquea: r.desbloquea ? str(r.desbloquea) : undefined,
     scoreManual: !!r.score_manual,
@@ -87,7 +107,7 @@ function labelToRow(l: Label, orden = 0): Row {
   return {
     id: l.id, pid: l.pid ?? null, emoji: l.emoji || '📁', name: l.name || 'Proyecto', color: l.color || '#2F6FED',
     score: int(l.score, 50), score_razon: l.scoreRazon ?? null, impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null,
-    deadline: l.deadline || '', detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
+    deadline: l.deadline || '', quarter: quarterEfectivo(l.deadline, l.quarter), detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
     escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null, score_manual: !!l.scoreManual,
     orden, updated_at: new Date().toISOString(),
   };

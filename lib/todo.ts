@@ -9,6 +9,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { quarterDeFecha } from '@/app/plan/board/cuando';
 import {
   esEstado, esResponsableTipo, estadoTrasProgreso,
   type EstadoTarea, type ResponsableTipo, type CriterioVeredicto,
@@ -75,7 +76,7 @@ export type CamposResponsable = Partial<Pick<Tarea,
 /** Los del CRITERIO: solo en el alta. Son lo que dijo el juez; una persona no los edita. */
 export type CamposCriterio = Partial<Pick<Tarea, 'criterio_veredicto' | 'criterio_regla' | 'criterio_razon' | 'cita'>>;
 
-export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; score_razon: string | null; deadline: string | null; detalle: string; historial: HistEntry[]; created_at: string };
+export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; score_razon: string | null; deadline: string | null; /** `2026-Q3`; se deriva del deadline cuando está vacío (mig 0162). */ quarter: string | null; detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
 const rowTo = (r: Record<string, unknown>): Tarea => {
@@ -171,6 +172,13 @@ const dateOk = (d: unknown): string | null =>
  */
 const quarterOk = (q: unknown): string | null =>
   typeof q === 'string' && /^\d{4}-Q[1-4]$/.test(q.trim()) ? q.trim() : null;
+/**
+ * El Quarter elegido, o el que le toca por su deadline. SÓLO rellena lo vacío: el que
+ * alguien eligió a mano no se pisa nunca — la pantalla avisa si no coinciden.
+ * Gemelo de `quarterEfectivo` en `lib/plan-board.ts`, que hace lo mismo del lado del dueño.
+ */
+const quarterDeDeadline = (q: unknown, deadline: unknown): string | null =>
+  quarterOk(q) ?? (typeof deadline === 'string' ? (quarterDeFecha(deadline) || null) : null);
 const catsOk = (c: unknown): number[] =>
   Array.isArray(c) ? c.map(Number).filter((n) => Number.isFinite(n)) : [];
 
@@ -410,6 +418,7 @@ const catRow = (r: Record<string, unknown>): Categoria => {
   c.prioridad = Math.max(1, Math.min(100, Math.round(Number(r.prioridad) || 50)));
   c.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
   c.deadline = dateOk(r.deadline);
+  c.quarter = quarterOk(r.quarter);
   c.detalle = typeof r.detalle === 'string' ? (r.detalle as string) : '';
   c.historial = histOk(r.historial);
   return c;
@@ -422,16 +431,16 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null): Promise<Categoria> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: dateOk(deadline), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: dateOk(deadline), quarter: quarterDeDeadline(quarter, deadline), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
@@ -439,6 +448,9 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(100, Math.round(patch.prioridad)));
   if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
+  // El Quarter se manda SIEMPRE que se toque la fecha, aunque el formulario no lo edite:
+  // si no, un proyecto del cliente con deadline queda para siempre sin trimestre.
+  if (patch.quarter !== undefined || patch.deadline !== undefined) upd.quarter = quarterDeDeadline(patch.quarter, patch.deadline);
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());

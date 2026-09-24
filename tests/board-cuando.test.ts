@@ -97,8 +97,35 @@ test('EL PEDIDO: el selector no ofrece Quarters PASADOS', () => {
   // en una ventana que no existe.
   const ops = quartersElegibles(HOY);
   assert.equal(ops[0].key, '2026-Q3', 'el primero es el Q en curso');
-  assert.ok(ops[0].label.includes('(este)'));
+  assert.ok(ops[0].label.includes('(Actual)'), `el rótulo del Q en curso: ${ops[0].label}`);
   assert.ok(!ops.some((o) => o.key < '2026-Q3'), `hay Quarters pasados: ${ops.map((o) => o.key).join(', ')}`);
+  // Dos años de ventana: un proyecto se planifica más lejos que una tarea, y el rótulo
+  // sale del cálculo, así que cruza de año solo.
+  assert.equal(ops.length, 8);
+  assert.equal(ops[ops.length - 1].key, '2028-Q2');
+  assert.ok(!ops.slice(1).some((o) => o.label.includes('(Actual)')), 'SÓLO el primero es el actual');
+});
+
+test('EL QUE YA ESTÁ ELEGIDO ENTRA AUNQUE SEA PASADO (si no, el select lo borra)', () => {
+  // Un `<select>` cuyo `value` no matchea ninguna `<option>` no muestra nada: la pantalla
+  // dice «Sin asignar» sobre una fila que tiene `2026-Q2` guardado, y el primer click lo
+  // pisa. Que no se pueda ELEGIR un trimestre pasado no es lo mismo que esconder el que
+  // ya está.
+  //
+  // ⚠️ Probado ROMPIÉNDOLO: anulando el `unshift` de `quartersElegibles` este archivo da
+  // `pass 12 / fail 1` (revienta en la primera aserción, `ops[0].key`); con el arreglo
+  // puesto, `pass 13 / fail 0`.
+  const ops = quartersElegibles(HOY, 8, '2026-Q2');
+  assert.equal(ops[0].key, '2026-Q2', 'el elegido va primero');
+  assert.equal(ops[0].label, 'Q2 2026 (pasado)');
+  assert.equal(ops[1].key, '2026-Q3', 'y el actual queda detrás');
+  assert.equal(ops.length, 9);
+  // El que YA está en la ventana no se duplica.
+  assert.equal(quartersElegibles(HOY, 8, '2026-Q4').filter((o) => o.key === '2026-Q4').length, 1);
+  // Basura no entra: un string libre acá dejaría la fila en una ventana que ninguna vista
+  // sabe leer, y el síntoma no es un error — es que desaparece de todos los filtros.
+  assert.equal(quartersElegibles(HOY, 8, 'el que viene').length, 8);
+  assert.equal(quartersElegibles(HOY, 8, '').length, 8);
 });
 
 test('el selector cruza bien el fin de año', () => {

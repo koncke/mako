@@ -448,12 +448,34 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     if (r?.ok && r.deps) setDeps(r.deps);
   };
 
+  /**
+   * EL DEADLINE DE UN PROYECTO, Y SU QUARTER. Igual que en una tarea, y por el mismo
+   * motivo: «si ya tiene deadline con fecha, que se ponga automáticamente el Quarter»
+   * (23 y 24/09/2026). Existe como función y no como dos `patchLabelLog` en cada
+   * pantalla porque hay DOS lugares que ponen la fecha de un proyecto —la tabla y el
+   * detalle— y el tercero que aparezca la hereda sin que nadie se acuerde.
+   *
+   * ⚠️ SÓLO SI ESTÁ VACÍO: un Quarter elegido a mano no se pisa.
+   */
+  const setLabelDeadline = (id: string, deadline: string) => {
+    const l = labels.find((x) => x.id === id);
+    if (!l || (l.deadline ?? '') === deadline) return;
+    const q = quarterDeFecha(deadline);
+    const ponerQ = !!q && !l.quarter;
+    patchLabelLog(id, ponerQ ? { deadline, quarter: q } : { deadline }, deadline ? `Deadline ${deadline}` : 'Quitó el deadline');
+  };
+  const setLabelQuarter = (id: string, quarter: string) => {
+    const l = labels.find((x) => x.id === id);
+    if (!l || (l.quarter ?? '') === quarter) return;
+    patchLabelLog(id, { quarter: quarter || undefined }, quarter ? `Lo planificó para el ${quarter.replace('-', ' ')}` : 'Le sacó el Quarter');
+  };
+
   return {
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
+    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

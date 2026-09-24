@@ -127,13 +127,24 @@ export function quarterDeFecha(iso: string): string {
   return quarterKey(quarterDe(iso));
 }
 
-export function quartersElegibles(hoy: string, cuantos = 4): Array<{ key: string; label: string }> {
+export function quartersElegibles(hoy: string, cuantos = 8, incluir?: string): Array<{ key: string; label: string }> {
   const actual = quarterDe(hoy);
   const out: Array<{ key: string; label: string }> = [];
   let q = actual;
   for (let i = 0; i < cuantos; i++) {
-    out.push({ key: quarterKey(q), label: `Q${q.q} ${q.anio}${i === 0 ? ' (este)' : ''}` });
+    // «(Actual)», no «(este)» — y sale del CÁLCULO, no de una lista escrita a mano: el día
+    // que empieza el Q4 el rótulo se muda solo, y en 2027 y en 2030 también.
+    out.push({ key: quarterKey(q), label: `Q${q.q} ${q.anio}${i === 0 ? ' (Actual)' : ''}` });
     q = q.q === 4 ? { anio: q.anio + 1, q: 1 } : { anio: q.anio, q: q.q + 1 };
+  }
+  // ⚠️ EL QUE YA ESTÁ ELEGIDO ENTRA AUNQUE SEA PASADO. Si no, un `<select>` cuyo `value`
+  // no matchea ninguna `<option>` no muestra nada: la pantalla dice «Sin asignar» sobre
+  // una fila que tiene `2026-Q2` guardado, y el primer click lo borra sin que nadie lo
+  // haya pedido. Que no se pueda ELEGIR un trimestre pasado no es lo mismo que esconder
+  // el que ya está.
+  if (incluir && /^\d{4}-Q[1-4]$/.test(incluir) && !out.some((o) => o.key === incluir)) {
+    const [anio, q4] = incluir.split('-');
+    out.unshift({ key: incluir, label: `${q4} ${anio} (pasado)` });
   }
   return out;
 }

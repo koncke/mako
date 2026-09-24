@@ -56,7 +56,7 @@ import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
-import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto } from './piezas';
+import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline } from './piezas';
 import { TablaProyectos, TablaTareas } from './Tablas';
 
 const MONO = "'Geist Mono', monospace";
@@ -1505,6 +1505,17 @@ function PlanIcon({ size = 24 }: { size?: number }) {
  */
 type OrdenModo = 'score' | 'creacion' | 'deadline' | 'az';
 const ORDEN_OPS: Array<[OrdenModo, string]> = [['score', 'Por prioridad'], ['deadline', 'Por deadline'], ['creacion', 'Por creación'], ['az', 'Alfabético']];
+/** El mismo rótulo, corto, para los chips del filtro de proyectos. */
+const ORDEN_CORTO: Record<OrdenModo, string> = { score: 'Prioridad', deadline: 'Deadline', creacion: 'Creación', az: 'A-Z' };
+/**
+ * LA DIRECCIÓN CON LA QUE ARRANCA CADA CRITERIO, que no es la misma para los cuatro.
+ *
+ * Arrancaban todos en `desc`, y eso deja dos de los cuatro al revés de lo único que alguien
+ * quiere ver: «Alfabético» empezaba por la Z, y «Por deadline» por lo que vence MÁS LEJOS.
+ * Un orden que hay que invertir a mano apenas se elige no es un orden: es un paso de más.
+ * Invertirlo sigue estando a un click.
+ */
+const DIR_NATURAL: Record<OrdenModo, 'desc' | 'asc'> = { score: 'desc', deadline: 'asc', creacion: 'desc', az: 'asc' };
 
 /**
  * ⛔ ACÁ ESTABA `comenzadas` («progreso entre 1 y 99»), y se fue el 24/09/2026: «elimina el
@@ -1979,12 +1990,18 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       {/* título a 2 líneas máx (recortado) → todas las cards miden igual */}
       <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>{t.title}</div>
       <span style={{ flex: 1 }} />
-      {/* footer fijo: deadline a la izquierda, el CHECK a la derecha.
-          Sin el % y sin la barra: «una tarea se completa o no se completa», y el check
-          está siempre a la vista porque el estado tenía que verse sin entrar al detalle
-          («no me dice si está terminado o no»). */}
+      {/* ⚠️ EL DEADLINE VA EN SU PROPIO RENGLÓN, y dice el plazo. Acá había un
+          `deadline.slice(5)` — «09-25»: sin día de la semana, sin año y, sobre todo, sin
+          decir si ya se venció. «Me gusta este formato, que también dice los días
+          faltantes y atrasados» (24/09/2026), señalando la tarjeta del PROYECTO, que ya lo
+          hacía bien. Es la misma pieza para las dos, así que no pueden volver a divergir.
+          Y va en un renglón propio porque al lado del botón de completar no entra: en una
+          tarjeta de 281px, «◷ vie 24 jul · 62 días atrasado» + «Completar» se pisan. */}
+      {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ marginBottom: 5 }} />}
+      {/* footer fijo: el CHECK a la derecha. Sin el % y sin la barra: «una tarea se
+          completa o no se completa», y el check está siempre a la vista porque el estado
+          tenía que verse sin entrar al detalle («no me dice si está terminado o no»). */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 22 }}>
-        {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
         <span style={{ flex: 1 }} />
         <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={done ? 'Marcar sin completar' : 'Marcar completada'}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: done ? 'var(--good)' : 'var(--faint)' }}>
@@ -2475,10 +2492,7 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
                     la checklist («una tarea se completa o no se completa»), y lo que
                     faltaba era justamente cuándo vence y cuánto falta. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  {t.deadline && (() => {
-                    const p = plazoTexto(diasHasta(t.deadline, hoyISO()));
-                    return <span style={{ fontSize: 13, color: 'var(--dim)' }}>◷ {fechaConDia(t.deadline)} <span style={{ color: p.color, fontWeight: p.fuerte ? 700 : 500 }}>· {p.texto}</span></span>;
-                  })()}
+                  {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
                   <span style={{ flex: 1 }} />
                   <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title="Marcar como completada"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
@@ -2550,6 +2564,20 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   // lugar, con un "‹ volver". Así nunca hay más de una categoría en pantalla a la vez.
   const [vista, setVista] = useState<FiltroVista>('root');
   const [buscaProy, setBuscaProy] = useState('');
+  /**
+   * CÓMO SE ORDENA LA LISTA DEL FILTRO, que NO es cómo se ordena el tablero.
+   *
+   * «Aún no se puede ordenar el filtro de proyectos, son muchos y cuesta buscarlos sin
+   * ordenamiento allí» (24/09/2026). Es una pregunta distinta de la del menú «Ordenar»:
+   * aquella ordena LO QUE SE VE en el tablero, ésta ordena la lista donde uno va a BUSCAR.
+   * Atarlas sería reordenar el tablero entero por abrir un filtro.
+   *
+   * ⚠️ Y arranca en A-Z, no en prioridad: el trabajo de esta lista es ENCONTRAR un
+   * proyecto por su nombre. Se recuerda (`usePref`), así que quien prefiera verlos por
+   * prioridad lo cambia una vez.
+   */
+  const [ordenProy, setOrdenProy] = usePref<OrdenModo>('filtro.proyectos.orden', 'az', esUnoDe('score', 'deadline', 'creacion', 'az'));
+  const [dirProy, setDirProy] = usePref<'desc' | 'asc'>('filtro.proyectos.dir', 'asc', esUnoDe('desc', 'asc'));
   const cerrar = () => { setOpen(false); setVista('root'); };
   const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
@@ -2642,19 +2670,46 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
               {vista === 'proyecto' && labels && (() => {
                 const q = buscaProy.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
                 const limpio = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/^(feature|agente|vender mako|cliente)\s*:\s*/, '');
+                const cmp = comparar(ordenProy, dirProy === 'asc' ? 1 : -1);
                 const lista = labels
                   .filter((l) => fLabels?.has(l.id) || !q || limpio(l.name).includes(q) || l.name.toLowerCase().includes(q))
-                  .sort((a, b) => (fLabels?.has(b.id) ? 1 : 0) - (fLabels?.has(a.id) ? 1 : 0) || b.score - a.score);
+                  // Los ELEGIDOS primero, y después el criterio. Que lo marcado se mueva de
+                  // lugar al reordenar es cómo se pierde de vista lo que uno acaba de elegir.
+                  .sort((a, b) => (fLabels?.has(b.id) ? 1 : 0) - (fLabels?.has(a.id) ? 1 : 0)
+                    || cmp({ score: a.score, titulo: a.name, deadline: a.deadline ?? '', creado: creTsLabel(a) },
+                           { score: b.score, titulo: b.name, deadline: b.deadline ?? '', creado: creTsLabel(b) }));
                 return (
                   <>
                     <input value={buscaProy} onChange={(e) => setBuscaProy(e.target.value)} autoFocus placeholder="Buscar proyecto…"
                       style={{ width: '100%', padding: '7px 9px', marginBottom: 6, borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }} />
+                    {/* Los chips PLIEGAN a un segundo renglón si no entran (`flexWrap`): no
+                        son una barra de navegación, así que envolver no esconde nada — y
+                        acertarle a la suma de cuatro rótulos en cualquier zoom no se puede. */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 7 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginRight: 2 }}>Ordenar</span>
+                      {ORDEN_OPS.map(([v]) => {
+                        const on = ordenProy === v;
+                        return (
+                          <button key={v} type="button" title={`Ordenar la lista por ${ORDEN_CORTO[v]}${on ? ' (invertir)' : ''}`}
+                            onClick={() => { if (on) setDirProy(dirProy === 'desc' ? 'asc' : 'desc'); else { setOrdenProy(v); setDirProy(DIR_NATURAL[v]); } }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '3px 7px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 11, lineHeight: 1.5,
+                              border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'transparent',
+                              color: on ? 'var(--primary)' : 'var(--dim)', fontWeight: on ? 700 : 500 }}>
+                            {ORDEN_CORTO[v]}{on && <span style={{ fontSize: 12 }}>{dirProy === 'asc' ? '↑' : '↓'}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                     {lista.length === 0 && <div style={{ padding: '10px 9px', fontSize: 12, color: 'var(--faint)' }}>Ninguno coincide.</div>}
                     {lista.map((l) => (
                       <button key={l.id} onClick={() => toggle(l.id)} style={rowBtn}>
                         <span style={check(!!fLabels?.has(l.id))}>{fLabels?.has(l.id) ? '✓' : ''}</span>
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.emoji} {l.name}</span>
-                        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>{l.score}</span>
+                        {/* El dato de la DERECHA es el del criterio activo: una lista
+                            ordenada por deadline que muestra el score no se puede leer. */}
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>
+                          {ordenProy === 'deadline' ? (l.deadline ? fechaConDia(l.deadline) : '—') : l.score}
+                        </span>
                       </button>
                     ))}
                   </>
@@ -2678,7 +2733,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                 ORDEN_OPS.map(([v, label]) => {
                   const activo = sortMode === v;
                   return (
-                    <button key={v} onClick={() => { if (activo) setSortDir?.(sortDir === 'desc' ? 'asc' : 'desc'); else { setSortMode?.(v); setSortDir?.('desc'); } }}
+                    <button key={v} onClick={() => { if (activo) setSortDir?.(sortDir === 'desc' ? 'asc' : 'desc'); else { setSortMode?.(v); setSortDir?.(DIR_NATURAL[v]); } }}
                       style={{ ...rowBtn, justifyContent: 'space-between', background: activo ? 'var(--primary-bg)' : 'transparent', fontWeight: activo ? 700 : 500 }}>
                       <span>{label}</span>
                       <span style={{ fontSize: 15, lineHeight: 1, color: activo ? 'var(--primary)' : 'var(--faint)', width: 14, textAlign: 'center' }}>{activo ? (sortDir === 'asc' ? '↑' : '↓') : ''}</span>
@@ -2871,7 +2926,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 style={selStyle}
               >
                 <option value="">Sin asignar</option>
-                {quartersElegibles(hoyISO()).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
+                {quartersElegibles(hoyISO(), 8, t.quarter).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
               </select>
               {/* ⚠️ AVISA, NO CORRIGE. Que el deadline caiga en otro trimestre que el
                   planificado puede ser un error de tipeo o una decisión (una entrega de Q3
@@ -3026,15 +3081,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }:
           los proyectos» (23/09/2026). Estaba sólo en la tabla y en el detalle, así que la
           vista por defecto —la de tarjetas— era la única que no decía para cuándo es. Va con
           el plazo al lado y no sólo la fecha: «12 oct» no dice si ya se venció. */}
-      {l.deadline && (() => {
-        const p = plazoTexto(diasHasta(l.deadline, hoyISO()));
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
-            <span>◷ {fechaConDia(l.deadline)}</span>
-            <span style={{ color: p.color, fontWeight: p.fuerte ? 700 : 500 }}>· {p.texto}</span>
-          </div>
-        );
-      })()}
+      {l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} />}
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
       <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
         {prog.total ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
@@ -3076,6 +3123,12 @@ function HistorialDeLaTab({ labels, board }: { labels: Label[]; board: Board }) 
  * siempre es el score: con 334 tarjetas, dos que caen el mismo día tienen que salir en un
  * orden estable y que signifique algo.
  */
+/**
+ * Cuándo NACIÓ un proyecto. Sale de su historial porque es el único rastro que tiene:
+ * `created_at` no viaja al modelo. Sin historial da 0, o sea «el más viejo».
+ */
+const creTsLabel = (l: Label) => (l.historial?.length ? Math.min(...l.historial.map((h) => h.ts)) : 0);
+
 function comparar(modo: OrdenModo, dir: number) {
   return (a: { score: number; titulo: string; deadline: string; creado: number }, b: { score: number; titulo: string; deadline: string; creado: number }): number => {
     if (modo === 'az') return dir * a.titulo.localeCompare(b.titulo, 'es') || b.score - a.score;
@@ -3101,11 +3154,10 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   // Orden por PRIORIDAD (score) o por CREACIÓN (ts más viejo del historial), en la
   // dirección elegida. dir=-1 → desc (mayor score / más nuevo primero); +1 → asc.
   const dir = sortDir === 'asc' ? 1 : -1;
-  const creTs = (l: Label) => (l.historial?.length ? Math.min(...l.historial.map((h) => h.ts)) : 0);
   const cmpProy = comparar(sortMode, dir);
   const ordenados = labels.slice().sort((a, b) => cmpProy(
-    { score: a.score, titulo: a.name, deadline: a.deadline ?? '', creado: creTs(a) },
-    { score: b.score, titulo: b.name, deadline: b.deadline ?? '', creado: creTs(b) },
+    { score: a.score, titulo: a.name, deadline: a.deadline ?? '', creado: creTsLabel(a) },
+    { score: b.score, titulo: b.name, deadline: b.deadline ?? '', creado: creTsLabel(b) },
   ));
   const origenDe = (l: Label) => fuenteEfectiva({ origen: l.historial[l.historial.length - 1]?.actor ?? 'user', fuente: l.fuente }).tipo;
   // Un proyecto pasa el filtro de ORIGEN si lo creó esa fuente O si TIENE tareas de
@@ -3142,7 +3194,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
           <TablaProyectos
             filas={shown} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={repo.labelPlural}
             onOpen={onOpen}
-            onDeadline={(id, v) => board.patchLabelLog(id, { deadline: v }, v ? `Deadline ${v}` : 'Quitó el deadline')} />
+            onDeadline={(id, v) => board.setLabelDeadline(id, v)} />
           <HistorialDeLaTab labels={labels} board={board} />
         </div>
       </div>
@@ -3248,7 +3300,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                     <ScoreBadge score={t.score} />
                     <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', minWidth: 0 }}>{t.title}</span>
                     {t.deadline
-                      ? <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)', flex: 'none' }}>◷ {fechaConDia(t.deadline)}</span>
+                      ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} color="var(--dim)" plazo={false} style={{ flex: 'none' }} />
                       : t.progress < 100 && <WarnMark title="Falta el deadline" size={13} />}
                   </div>
                 </div>
@@ -3319,7 +3371,25 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               chip={<ProjScore score={proj.score} color={proj.color} />}
               razon={proj.scoreRazon} impacto={proj.impacto} esfuerzo={proj.esfuerzo}
               puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
-            <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
+            <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.setLabelDeadline(proj.id, e.target.value)} style={selStyle} /></div>
+            {/* ⚠️ EL QUARTER DE UN PROYECTO (mig 0162). «Falta agregar la opción de Quarter
+                en los proyectos» (24/09/2026), y es donde más sentido tiene: una tarea cae
+                en un trimestre casi siempre porque su proyecto lo decidió.
+                Mismo molde que el de una tarea —mismo selector, mismo aviso— porque es la
+                misma pregunta; dos moldes para lo mismo divergen a la primera. */}
+            <div>
+              <label style={rowLabel}>Quarter</label>
+              <select value={proj.quarter ?? ''} onChange={(e) => board.setLabelQuarter(proj.id, e.target.value)} style={selStyle}>
+                <option value="">Sin asignar</option>
+                {quartersElegibles(hoyISO(), 8, proj.quarter).map((q) => <option key={q.key} value={q.key}>{q.label}</option>)}
+              </select>
+              {proj.quarter && proj.deadline && quarterDeFecha(proj.deadline) !== proj.quarter && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: 11.5, color: 'var(--warn, #B4762A)', lineHeight: 1.35, marginTop: 6 }}>
+                  <WarnMark title="El Quarter y la fecha no coinciden" size={13} blink={false} />
+                  <span>La fecha cae en el {quarterDeFecha(proj.deadline).replace('-', ' ')}, no en el {proj.quarter.replace('-', ' ')}.</span>
+                </div>
+              )}
+            </div>
 
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             <span style={{ flex: 1 }} />
