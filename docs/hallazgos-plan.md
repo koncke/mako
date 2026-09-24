@@ -3403,6 +3403,31 @@ No una pregunta abierta —«¿qué ves?» ya lo había contestado él tres vece
 una con las lecturas posibles enumeradas, porque el que reporta no tiene por qué saber que
 «transparente» puede significar tres cosas distintas en tres capas distintas.
 
+### ⚠️ Y `setDragImage` con el nodo FUERA DEL VIEWPORT no hace nada — sin avisar
+
+El arreglo de arriba se desplegó y el reporte volvió igual. Lo que faltaba se vio en **Chrome
+real con ventana** (no en Chromium headless, que es donde había verificado todo): espiando
+`DataTransfer.prototype.setDragImage` y leyendo el rectángulo del nodo que recibe:
+
+```
+antes : { w: 281, h: 138, top: -10000, left: -10000 }   ← fuera del viewport
+ahora : { w: 281, h: 138, top: 0,      left: 0     }
+```
+
+El clon estaba montado en `top: -10000px`, que es la receta que circula por todos lados para
+«esconderlo». **Un nodo completamente fuera del viewport no tiene capa pintada**, así que el
+compositor no tiene de dónde sacar la imagen y vuelve a la del sistema operativo — la
+translúcida. La llamada ocurre, no tira error, devuelve normal: **falla en silencio**.
+
+Va en `top: 0; left: 0; z-index: -1`: el renderer lo pinta, el ojo no lo ve porque queda
+detrás de todo, y vive un solo tick.
+
+⚠️ **Y esto NO se podía ver en headless.** Las cinco verificaciones anteriores corrieron en
+Chromium headless, donde el dibujo de la imagen de arrastre no pasa por el compositor del
+SO. Para cualquier cosa que el SISTEMA OPERATIVO dibuje —la imagen de un arrastre, un menú
+nativo, un selector de archivos— hay que verificar con `channel: 'chrome'` y `headless:
+false`.
+
 ### Lo que faltaba: la imagen del arrastre la dibuja el SISTEMA OPERATIVO
 
 La copia que sigue al cursor **no es un elemento del DOM y no la gobierna ninguna regla

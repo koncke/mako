@@ -1898,7 +1898,16 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
           const clon = nodo.cloneNode(true) as HTMLElement;
           const fondo = getComputedStyle(nodo).backgroundColor;
           Object.assign(clon.style, {
-            position: 'fixed', top: '-10000px', left: '-10000px',
+            // ⚠️ DENTRO DEL VIEWPORT, Y ACÁ ESTABA EL BUG. Medido en Chrome REAL el
+            // 24/09/2026: con el clon en `top: -10000px` la llamada a `setDragImage` ocurre
+            // —se puede espiar, devuelve sin error— y la copia igual sale translúcida,
+            // porque un nodo completamente FUERA DEL VIEWPORT no tiene capa pintada y el
+            // compositor no tiene de dónde sacar la imagen. Falla en silencio: la API no se
+            // queja, simplemente vuelve la imagen por defecto del sistema operativo.
+            //
+            // Va en 0,0 y detrás de todo (`zIndex: -1`): el renderer lo pinta, el ojo no lo
+            // ve, y vive un solo tick.
+            position: 'fixed', top: '0', left: '0', zIndex: '-1',
             width: `${r.width}px`, height: `${r.height}px`, margin: '0',
             // OPACO de verdad: si el fondo computado fuese transparente, la copia hereda el
             // gris del escritorio y se ve exactamente como el fantasma que se reportó.

@@ -624,9 +624,16 @@ puede dar `opacity: 1` mientras en pantalla se ve un fantasma — son dos cosas 
 
 La única forma de controlarla es `e.dataTransfer.setDragImage(nodo, x, y)`:
 
-- El nodo tiene que estar **en el documento y visible** en ese instante. Con `display: none`
-  el navegador **ignora el pedido en silencio** y vuelve a la imagen por defecto. Va fuera de
-  pantalla con `position: fixed; top: -10000px`.
+- El nodo tiene que estar **en el documento y DENTRO DEL VIEWPORT** en ese instante. Con
+  `display: none` —o en `top: -10000px`, que es la receta que circula por todos lados— el
+  navegador **ignora el pedido en silencio**: la llamada no falla, no avisa, y vuelve la
+  imagen por defecto. Un nodo fuera del viewport no tiene capa pintada y el compositor no
+  tiene de dónde sacar la imagen. Va en `position: fixed; top: 0; left: 0; z-index: -1`: el
+  renderer lo pinta, el ojo no lo ve, y vive un solo tick.
+- ⚠️ **Y esto NO se ve en Chromium headless.** Ahí el dibujo del arrastre no pasa por el
+  compositor del sistema operativo, así que la verificación da verde sobre algo roto. Para
+  cualquier cosa que dibuje el SO —la imagen de un arrastre, un menú nativo, un diálogo de
+  archivos— se verifica con `channel: 'chrome'` y `headless: false`.
 - **El fondo se fuerza opaco.** Si el fondo computado del original es transparente, la copia
   hereda lo que haya detrás y se ve igual de fantasmal.
 - El offset es `cursor − borde del elemento`, o la copia salta a una esquina.
