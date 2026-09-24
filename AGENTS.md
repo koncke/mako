@@ -622,7 +622,28 @@ No es un nodo del DOM y **no la gobierna ninguna regla CSS**: en Windows, Chrome
 semitransparente y la ancla donde quiere. Por eso un `getComputedStyle` sobre el elemento
 puede dar `opacity: 1` mientras en pantalla se ve un fantasma — son dos cosas distintas.
 
-La única forma de controlarla es `e.dataTransfer.setDragImage(nodo, x, y)`:
+`setDragImage(nodo, x, y)` la reemplaza, y eso alcanza para muchos casos — pero **sigue
+dejando el dibujo del lado del SO**: cambia QUÉ se fotografía, no CÓMO se pinta. Si lo que
+molesta es que se vea translúcida, fantasmal o torcida, `setDragImage` no lo arregla.
+
+**La salida es no usar la imagen del navegador: se le pasa una VACÍA y la copia la
+dibujamos nosotros.**
+
+```tsx
+const vacio = document.createElement('canvas'); vacio.width = 1; vacio.height = 1;
+e.dataTransfer.setDragImage(vacio, 0, 0);   // el SO no pinta nada
+// y el contenedor monta un clon en position:fixed, z-index alto, fondo opaco,
+// movido con translate3d desde un `dragover` en `document` EN CAPTURA.
+```
+
+- **La copia se mueve escribiendo `transform` sobre un ref, NUNCA con `setState`.** Un
+  `setState` por `dragover` redibuja el tablero 60 veces por segundo, que es el otro bug
+  clásico de esta familia.
+- **El listener va en `document` y en captura.** El `dragover` de las columnas no cubre los
+  huecos entre ellas ni el fondo de la página, y ahí la copia se queda clavada.
+- **Se saca en `dragend` Y en `drop`**, los dos, o queda un nodo colgado por arrastre.
+
+Si aún así usás `setDragImage` con un nodo real, estas cuatro siguen valiendo:
 
 - El nodo tiene que estar **en el documento y DENTRO DEL VIEWPORT** en ese instante. Con
   `display: none` —o en `top: -10000px`, que es la receta que circula por todos lados— el
@@ -698,6 +719,15 @@ saca la foto del arrastre al terminar el handler de `dragstart` — es verdad, e
 regla propia, y no era esto: el CRM hace lo mismo y funciona. Una explicación que no
 distingue el caso que anda del que no anda, no explica nada.
 
+⚠️ **Y «allá funciona» es una HIPÓTESIS de quien reporta, no un dato — volvé a
+preguntarla si el reporte se repite.** El mismo arrastre se reportó SIETE veces, y las seis
+primeras rondas compararon contra un CRM que **también estaba mal**: era la referencia, y una
+referencia no se audita. Lo cerró el dueño mirando las dos pantallas: «me doy cuenta que en
+el CRM pasa lo mismo… es un problema de diseño». La pregunta que faltaba es de una línea:
+**«¿allá se ve BIEN, o se ve igual de mal y no te habías fijado?»**. Comparar sirve mucho
+—ahí salieron cuatro bugs reales— y deja de servir en el momento en que la diferencia que
+buscás no existe.
+
 # En HTML5 drag-and-drop, el navegador saca la FOTO al terminar tu handler
 
 Lo que sigue al cursor mientras arrastrás no es el elemento: es una foto que el navegador
@@ -742,6 +772,14 @@ yendo a buscarlas de a una.
 
 Un `grep` del componente compartido (`WizardShell`, `IntroBody`) las lista en segundos. La
 pregunta al cerrar no es «¿lo saqué de acá?» sino **«¿dónde más está esto?»**.
+
+⚠️ **Y la otra mitad, que no sale con ningún grep del componente: «¿quién MIRA el campo que
+esto llenaba?»** Lo que alimentás se va con la feature; lo que la consumía se queda, en otro
+archivo y con otro nombre. Las checklists salieron del producto el 22/09/2026 y el filtro
+«Comenzadas» del board —progreso entre 1 y 99— sobrevivió dos días **seleccionando siempre
+cero tarjetas**: no tira, no avisa, contesta «no hay nada», que es indistinguible de un
+tablero vacío. Un consumidor huérfano de un campo que ya nadie escribe no falla: **miente en
+silencio y en la dirección tranquilizadora**.
 
 # Antes de optimizar algo lento, preguntá si el CAMINO es el correcto
 

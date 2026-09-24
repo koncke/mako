@@ -24,6 +24,7 @@ import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
+import { AccionesLote } from './AccionesLote';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -149,13 +150,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // acababas de elegir — y no se leía como dos estados: se leía como que el filtro no
   // funciona. Los rótulos siguen siendo distintos (Activas/Activos) porque el sustantivo
   // cambia; la elección es la misma.
-  const [doneFilter, setDoneFilter] = usePref<DoneFilter>('tablero.estado', 'all', esUnoDe('all', 'activas', 'comenzadas', 'hechas'));
+  const [doneFilter, setDoneFilter] = usePref<DoneFilter>('tablero.estado', 'all', esUnoDe('all', 'activas', 'hechas'));
   const [fOrigen, setFOrigen] = usePrefSet('tablero.origen');  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
   // CUANDO cae la tarea: hoy / esta semana / este Quarter / sin planificar (tarea #635).
   // Es un Set y no un valor unico porque «hoy Y esta semana» es una pregunta legitima
   // —lo urgente mas lo que se viene— y con un radio habria que elegir una.
   const [fCuando, setFCuando] = usePrefSet<Cuando>('tablero.cuando', esCuando);
-  const [sortMode, setSortMode] = usePref<'score' | 'creacion'>('orden.modo', 'score', esUnoDe('score', 'creacion')); // orden de tareas/proyectos
+  const [sortMode, setSortMode] = usePref<OrdenModo>('orden.modo', 'score', esUnoDe('score', 'creacion', 'deadline', 'az')); // orden de tareas/proyectos
   const [sortDir, setSortDir] = usePref<'desc' | 'asc'>('orden.dir', 'desc', esUnoDe('desc', 'asc')); // dirección: desc = mayor/más nuevo primero
   // TARJETAS o TABLA, una preferencia por vista. «Sí me parece bien que haya una vista
   // tabla tanto para proyectos como para el kanban, pero NO reemplaces lo que hay ahora,
@@ -963,7 +964,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
           <VistaToggle tabla={tabla} onSet={setTabla} />
           {view === 'tareas'
             ? <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
-            : <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
+            : <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         </>}
         </div>
         {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
@@ -1050,7 +1051,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
@@ -1494,12 +1495,29 @@ function PlanIcon({ size = 24 }: { size?: number }) {
 
 
 // filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas
-type DoneFilter = 'all' | 'activas' | 'comenzadas' | 'hechas';
-const ESTADO_OPS: Array<[DoneFilter, string]> = [['all', 'Todas'], ['activas', 'Activas'], ['comenzadas', 'Comenzadas'], ['hechas', 'Completadas']];
+/**
+ * Cómo se ordena el tablero. Los cuatro valen para tareas Y para proyectos, que es lo que
+ * pedía «ordenar por varias cosas, ya sea por prioridad, por deadline, por creación, por Az».
+ *
+ * ⚠️ `deadline` pone lo SIN FECHA al final SIEMPRE, en las dos direcciones. Una tarjeta sin
+ * deadline no es «la más lejana»: es una que no contestó la pregunta, y mezclarla entre las
+ * que sí tienen fecha hace que el orden deje de significar «qué vence antes».
+ */
+type OrdenModo = 'score' | 'creacion' | 'deadline' | 'az';
+const ORDEN_OPS: Array<[OrdenModo, string]> = [['score', 'Por prioridad'], ['deadline', 'Por deadline'], ['creacion', 'Por creación'], ['az', 'Alfabético']];
+
+/**
+ * ⛔ ACÁ ESTABA `comenzadas` («progreso entre 1 y 99»), y se fue el 24/09/2026: «elimina el
+ * estado Comenzadas, como ya no hay checklist, no tiene sentido». Y es exacto — ese estado
+ * existía porque el avance se calculaba tildando pasos, y desde que las checklists salieron
+ * del producto (22/09) el progreso sólo vale 0 o 100. El filtro seleccionaba SIEMPRE cero
+ * tarjetas: un filtro que no puede devolver nada se lee como que el tablero está vacío.
+ */
+type DoneFilter = 'all' | 'activas' | 'hechas';
+const ESTADO_OPS: Array<[DoneFilter, string]> = [['all', 'Todas'], ['activas', 'Activas'], ['hechas', 'Completadas']];
 function pasaEstado(progress: number, f: DoneFilter): boolean {
   if (f === 'all') return true;
   if (f === 'hechas') return progress >= 100;
-  if (f === 'comenzadas') return progress > 0 && progress < 100;
   return progress < 100; // activas
 }
 
@@ -1839,14 +1857,19 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
-function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, tactil, onAgarrar, oculta = false }: {
+function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, tactil, onAgarrar, oculta = false, elegida = false, haySeleccion = false, onElegir }: {
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
   /** el arrastre con el dedo (sólo en el Kanban; en el resto de las vistas no existe) */
   tactil?: ArrastreTactil;
-  /** avisa al Kanban qué tarjeta está en la mano (para dibujar el hueco y ocultar ésta) */
-  onAgarrar?: (id: string | null) => void;
+  /** avisa al Kanban qué tarjeta está en la mano, y con qué nodo y offset dibujar la copia */
+  onAgarrar?: (id: string | null, desde?: { nodo: HTMLElement; dx: number; dy: number }) => void;
   /** se está arrastrando: la tarjeta se desvanece y el que ocupa su lugar es el HUECO */
   oculta?: boolean;
+  /** está seleccionada para una acción en lote */
+  elegida?: boolean;
+  /** ya hay algo seleccionado: la casilla se queda a la vista en todas */
+  haySeleccion?: boolean;
+  onElegir?: (id: string) => void;
 }) {
   const done = t.progress >= 100;
   const levantada = tactil?.arrastrando === t.id;
@@ -1856,6 +1879,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
   // navegador. «Al intentar agarrar una tarea del kanban, debería tener la misma animación
   // que tenemos hoy en día en el CRM» (23/09/2026) — y son los mismos tres valores que usa
   // `CrmBoard.tsx`: se atenúa, se achica un poco y se despega con una sombra.
+  const [hover, setHover] = useState(false);
   // ⚠️ `oculta` YA NO PINTA NADA en la tarjeta (ver el `style`): el Kanban lo sigue
   // pasando porque lo necesita para saber cuál excluir al calcular el hueco, pero acá
   // adentro lo único que cambia de aspecto durante un arrastre con mouse es NADA.
@@ -1875,53 +1899,29 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
       draggable={!!board.repo.prioridadManual}
       data-card
-      // ⚠️ LA COPIA QUE VIAJA CON EL CURSOR LA PONEMOS NOSOTROS, y ésta es la razón.
+      // ⚠️ LA COPIA QUE VIAJA CON EL CURSOR NO LA DIBUJA EL NAVEGADOR: LA DIBUJAMOS NOSOTROS.
       //
-      // Preguntado y contestado el 24/09/2026, después de cinco rondas adivinando: lo que se
-      // veía mal era «la copia que sigue al cursor» (translúcida y corrida) y «la tarjeta
-      // original queda fantasma». La imagen por defecto la dibuja el SISTEMA OPERATIVO —en
-      // Windows, Chrome la pinta semitransparente— y la ancla donde se le ocurre; eso no se
-      // puede cambiar con CSS, sólo reemplazando la imagen con `setDragImage`.
+      // Siete rondas de reportes sobre lo mismo, y el que lo cerró fue el dueño: «me doy
+      // cuenta que en el CRM pasa lo mismo… es un problema de diseño». Tenía razón. La
+      // imagen del arrastre la pinta el SISTEMA OPERATIVO —en Windows, translúcida— y no la
+      // gobierna ninguna regla CSS. Se puede reemplazar con `setDragImage`, pero eso sigue
+      // dejando el dibujo del lado del SO: cambia QUÉ se fotografía, no CÓMO se pinta.
       //
-      // El clon se monta fuera de pantalla porque `setDragImage` exige un nodo que esté EN
-      // EL DOCUMENTO y visible en ese instante: con `display: none` el navegador ignora el
-      // pedido y vuelve a la imagen por defecto, en silencio.
-      //
-      // Y el offset es `cursor - borde de la tarjeta`: así la copia queda agarrada del mismo
-      // punto donde pusiste el mouse, en vez de saltar a una esquina.
+      // Así que acá se le pasa una imagen VACÍA (1×1 transparente) y la copia real es un
+      // nodo nuestro que sigue al cursor — opaco, nítido, con la sombra que queremos. Lo
+      // monta y lo mueve el Kanban (`agarrar`), en DOM puro y sin estado de React: moverlo
+      // con `setState` sería un re-render del tablero por píxel, que es el otro bug que ya
+      // costó tres rondas.
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', t.id);
         e.dataTransfer.effectAllowed = 'move';
         try {
-          const nodo = e.currentTarget;
-          const r = nodo.getBoundingClientRect();
-          const clon = nodo.cloneNode(true) as HTMLElement;
-          const fondo = getComputedStyle(nodo).backgroundColor;
-          Object.assign(clon.style, {
-            // ⚠️ DENTRO DEL VIEWPORT, Y ACÁ ESTABA EL BUG. Medido en Chrome REAL el
-            // 24/09/2026: con el clon en `top: -10000px` la llamada a `setDragImage` ocurre
-            // —se puede espiar, devuelve sin error— y la copia igual sale translúcida,
-            // porque un nodo completamente FUERA DEL VIEWPORT no tiene capa pintada y el
-            // compositor no tiene de dónde sacar la imagen. Falla en silencio: la API no se
-            // queja, simplemente vuelve la imagen por defecto del sistema operativo.
-            //
-            // Va en 0,0 y detrás de todo (`zIndex: -1`): el renderer lo pinta, el ojo no lo
-            // ve, y vive un solo tick.
-            position: 'fixed', top: '0', left: '0', zIndex: '-1',
-            width: `${r.width}px`, height: `${r.height}px`, margin: '0',
-            // OPACO de verdad: si el fondo computado fuese transparente, la copia hereda el
-            // gris del escritorio y se ve exactamente como el fantasma que se reportó.
-            background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface-2)',
-            opacity: '1', boxShadow: '0 14px 34px rgba(18,21,27,.30)', pointerEvents: 'none',
-            transform: 'none', transition: 'none',
-          });
-          document.body.appendChild(clon);
-          e.dataTransfer.setDragImage(clon, e.clientX - r.left, e.clientY - r.top);
-          // Se saca en el tick siguiente: el navegador ya sacó la foto y dejarlo colgado
-          // suma un nodo por cada arrastre.
-          setTimeout(() => clon.remove(), 0);
-        } catch { /* si el navegador no deja, queda la imagen por defecto */ }
-        onAgarrar?.(t.id);
+          const vacio = document.createElement('canvas');
+          vacio.width = 1; vacio.height = 1;
+          e.dataTransfer.setDragImage(vacio, 0, 0);
+        } catch { /* si no deja, queda la del navegador y se ve como antes */ }
+        const r = e.currentTarget.getBoundingClientRect();
+        onAgarrar?.(t.id, { nodo: e.currentTarget, dx: e.clientX - r.left, dy: e.clientY - r.top });
       }}
       onDragEnd={() => { onAgarrar?.(null); }}
       // ⚠️ MIENTRAS SE ARRASTRA, ESTA TARJETA NO CAMBIA NADA. Preguntado y contestado el
@@ -1938,7 +1938,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       // Linear). Medido: sacar del flujo el nodo ORIGEN del arrastre deja el gesto sin
       // salida — el arnés no pudo completar un solo drop y se colgó hasta el timeout,
       // mientras la misma página cargaba perfecto.
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s',
+      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${elegida ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -1950,10 +1950,15 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
         // Con el DEDO sí se levanta: el dedo tapa la tarjeta y hay que verla salir. Con el
         // mouse no, porque ahí lo que se ve viajar es la copia.
         ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' } : {}) }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}>
-      {/* header: proyecto + #id + [aviso] + prioridad */}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; setHover(true); }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; setHover(false); }}>
+      {/* header: [casilla] + proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
+        {onElegir && (hover || haySeleccion) && (
+          <input type="checkbox" checked={elegida} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(t.id)}
+            title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
+            style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', margin: 0 }} />
+        )}
         {proys.length > 0
           ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
               {/* Con más de un proyecto entra también el "+N": el chip cede ancho para
@@ -2147,8 +2152,8 @@ function scoreEntre(items: BoardTask[], idx: number, destino: Prio): number {
   return scoreFromPrio[destino];
 }
 
-function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen, onNew, onWarn, onOpenProj, onSoltar }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, onOpen, onNew, onWarn, onOpenProj, onSoltar }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; ask: (msg: string, onOk: () => void) => void; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void;
   /** soltaste una tarjeta: NO se fija sola, se pregunta el número — con el que sugiere la POSICIÓN */
   onSoltar: (id: string, destino: Prio, sugerido?: number) => void;
 }) {
@@ -2156,6 +2161,20 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
   // las tarjetas es la única forma de saber dónde va a caer antes de soltarla.
   const [ins, setIns] = useState<Insercion | null>(null);
   const [arrastrado, setArrastrado] = useState<string | null>(null);
+  /**
+   * LO SELECCIONADO EN EL KANBAN. «Que pueda seleccionar varias tarjetas también en la vista
+   * kanban» (24/09/2026).
+   *
+   * ⚠️ La casilla aparece SÓLO al pasar el mouse o cuando ya hay algo elegido. En una tabla
+   * una casilla en la primera columna es el control de selección y se espera; en una tarjeta
+   * es un control más compitiendo con el check de completar, el chip del proyecto y el
+   * aviso de fecha. Apareciendo al hover no le saca lugar a nada hasta que hace falta.
+   */
+  const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
+  const alternarSel = useCallback((id: string) => {
+    setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
+  const elegidas = tasks.filter((t) => sel.has(t.id));
   /**
    * El punto MEDIO de cada tarjeta, por columna y en coordenadas de PÁGINA.
    *
@@ -2208,9 +2227,57 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
     // necesitás y hace algo cuando no, se saca.
   }, [pararScroll]);
   useEffect(() => () => pararScroll(), [pararScroll]);
-  const agarrar = useCallback((id: string | null) => {
+
+  /**
+   * LA COPIA QUE SIGUE AL CURSOR. Un nodo nuestro, no la imagen del navegador.
+   *
+   * Se mueve escribiendo `transform` sobre el ref, sin pasar por React: un `setState` por
+   * cada `dragover` vuelve a redibujar el tablero 60 veces por segundo, que es exactamente
+   * el bug que hizo que el arrastre se sintiera roto tres rondas atrás.
+   */
+  const copia = useRef<HTMLElement | null>(null);
+  const soltarCopia = useCallback(() => {
+    copia.current?.remove();
+    copia.current = null;
+  }, []);
+  useEffect(() => soltarCopia, [soltarCopia]);
+
+  const agarrar = useCallback((id: string | null, desde?: { nodo: HTMLElement; dx: number; dy: number }) => {
     setArrastrado(id);
-    if (!id) { setIns(null); rects.current = {}; pararScroll(); return; }
+    if (!id) { setIns(null); rects.current = {}; pararScroll(); soltarCopia(); return; }
+    if (desde) {
+      soltarCopia();
+      const r = desde.nodo.getBoundingClientRect();
+      const nodo = desde.nodo.cloneNode(true) as HTMLElement;
+      const fondo = getComputedStyle(desde.nodo).backgroundColor;
+      Object.assign(nodo.style, {
+        position: 'fixed', top: '0', left: '0', margin: '0',
+        width: `${r.width}px`, height: `${r.height}px`,
+        // Opaca de verdad: si el fondo computado fuese transparente, la copia deja ver el
+        // tablero por debajo y se ve igual de fantasmal que la del navegador.
+        background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface-2)',
+        opacity: '1', pointerEvents: 'none', zIndex: '3000',
+        boxShadow: '0 18px 40px rgba(18,21,27,.34)', transform: `translate3d(${r.left}px, ${r.top}px, 0) rotate(1.5deg)`,
+        transition: 'none', cursor: 'grabbing',
+      });
+      document.body.appendChild(nodo);
+      copia.current = nodo;
+      const mover = (e: DragEvent) => {
+        if (!copia.current) { document.removeEventListener('dragover', mover, true); return; }
+        copia.current.style.transform = `translate3d(${e.clientX - desde.dx}px, ${e.clientY - desde.dy}px, 0) rotate(1.5deg)`;
+      };
+      // En `document` y en captura: el `dragover` de las columnas no cubre los huecos entre
+      // ellas ni el fondo de la página, y ahí la copia se quedaría clavada.
+      document.addEventListener('dragover', mover, true);
+      const fin = () => {
+        document.removeEventListener('dragover', mover, true);
+        document.removeEventListener('dragend', fin, true);
+        document.removeEventListener('drop', fin, true);
+        soltarCopia();
+      };
+      document.addEventListener('dragend', fin, true);
+      document.addEventListener('drop', fin, true);
+    }
     const out: Record<string, number[]> = {};
     for (const col of document.querySelectorAll<HTMLElement>('[data-prio]')) {
       const prio = col.dataset.prio ?? '';
@@ -2220,7 +2287,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
       });
     }
     rects.current = out;
-  }, [pararScroll]);
+  }, [pararScroll, soltarCopia]);
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
@@ -2235,8 +2302,20 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', flex: '1 0 auto', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
+      {/* La barra ocupa el ancho de las cuatro columnas y queda pegada arriba mientras
+          scrolleás: con un tablero de 19.000px, una barra que se va con el scroll obliga a
+          volver arriba para usarla. */}
+      {elegidas.length > 0 && (
+        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 8, zIndex: 20 }}>
+          <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+        </div>
+      )}
       {PRIOS.map((p) => {
-        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? dir * (a.num - b.num) : (dir * (a.score - b.score) || b.num - a.num)));
+        const cmp = comparar(sortMode, dir);
+        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) =>
+          (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0)
+          || cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num })
+          || b.num - a.num);
         // El hueco se dibuja en la posición exacta donde va a caer, y sólo en la columna
         // sobre la que está el puntero.
         const hueco = (i: number) => (ins?.destino === p && ins.idx === i
@@ -2301,7 +2380,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, onOpen
               {hueco(0)}
               {items.map((t, i) => (
                 <Fragment key={t.id}>
-                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} onAgarrar={agarrar} oculta={arrastrado === t.id} />
+                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} tactil={tactil} onAgarrar={agarrar} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
                   {hueco(i + 1)}
                 </Fragment>
               ))}
@@ -2462,7 +2541,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
   fOrigen?: Set<string>; setFOrigen?: (s: Set<string>) => void;
   fCuando?: Set<Cuando>; setFCuando?: (s: Set<Cuando>) => void;
-  sortMode?: 'score' | 'creacion'; setSortMode?: (m: 'score' | 'creacion') => void;
+  sortMode?: OrdenModo; setSortMode?: (m: OrdenModo) => void;
   sortDir?: 'desc' | 'asc'; setSortDir?: (d: 'desc' | 'asc') => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -2470,6 +2549,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   // ven las 4 categorías; al tocar una, su contenido reemplaza el panel EN EL MISMO
   // lugar, con un "‹ volver". Así nunca hay más de una categoría en pantalla a la vez.
   const [vista, setVista] = useState<FiltroVista>('root');
+  const [buscaProy, setBuscaProy] = useState('');
   const cerrar = () => { setOpen(false); setVista('root'); };
   const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
@@ -2486,7 +2566,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   const origenResumen = !fOrigen?.size ? 'Todos' : (fOrigen.size === 1 ? (ORIGEN_OPS.find(([t]) => fOrigen.has(t))?.[1].replace(/^\S+\s/, '') ?? '1') : `${fOrigen.size} elegidos`);
   const cuandoResumen = !fCuando?.size ? 'Todas'
     : fCuando.size === 1 ? CUANDO_LABEL[[...fCuando][0]] : `${fCuando.size} ventanas`;
-  const modeLabel = sortMode === 'creacion' ? 'Por creación' : 'Por prioridad';
+  const modeLabel = ORDEN_OPS.find(([v]) => v === sortMode)?.[1] ?? 'Por prioridad';
   const ordenResumen = `${modeLabel} ${sortDir === 'asc' ? '↑' : '↓'}`;
 
   // Categorías del menú. ORDENAR va PRIMERO (pedido de Martín). El resto: las que
@@ -2552,12 +2632,34 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                   <span style={radio(doneFilter === v)} /><span>{label}</span>
                 </button>
               ))}
-              {vista === 'proyecto' && labels && labels.map((l) => (
-                <button key={l.id} onClick={() => toggle(l.id)} style={rowBtn}>
-                  <span style={check(!!fLabels?.has(l.id))}>{fLabels?.has(l.id) ? '✓' : ''}</span>
-                  <span>{l.emoji} {l.name}</span>
-                </button>
-              ))}
+              {/* ⚠️ CON 70 PROYECTOS, UNA LISTA PLANA NO ES UN FILTRO: es un scroll. «En el
+                  filtro de proyectos debería poder ordenar o buscar, porque si no son muchos
+                  y es difícil» (24/09/2026). Se busca sin acentos y sin el prefijo, así
+                  «landing» encuentra «Feature: Landing Analyst» y escribir «feature» no
+                  devuelve los 47. Los ELEGIDOS quedan arriba y no los filtra nada: si el
+                  buscador escondiera lo que ya marcaste, la pantalla mentiría sobre lo que
+                  está filtrando. */}
+              {vista === 'proyecto' && labels && (() => {
+                const q = buscaProy.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                const limpio = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/^(feature|agente|vender mako|cliente)\s*:\s*/, '');
+                const lista = labels
+                  .filter((l) => fLabels?.has(l.id) || !q || limpio(l.name).includes(q) || l.name.toLowerCase().includes(q))
+                  .sort((a, b) => (fLabels?.has(b.id) ? 1 : 0) - (fLabels?.has(a.id) ? 1 : 0) || b.score - a.score);
+                return (
+                  <>
+                    <input value={buscaProy} onChange={(e) => setBuscaProy(e.target.value)} autoFocus placeholder="Buscar proyecto…"
+                      style={{ width: '100%', padding: '7px 9px', marginBottom: 6, borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }} />
+                    {lista.length === 0 && <div style={{ padding: '10px 9px', fontSize: 12, color: 'var(--faint)' }}>Ninguno coincide.</div>}
+                    {lista.map((l) => (
+                      <button key={l.id} onClick={() => toggle(l.id)} style={rowBtn}>
+                        <span style={check(!!fLabels?.has(l.id))}>{fLabels?.has(l.id) ? '✓' : ''}</span>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.emoji} {l.name}</span>
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>{l.score}</span>
+                      </button>
+                    ))}
+                  </>
+                );
+              })()}
               {vista === 'cuando' && CUANDO_OPS.map((v) => (
                 <button key={v} onClick={() => toggleCuando(v)} style={rowBtn}>
                   <span style={check(!!fCuando?.has(v))}>{fCuando?.has(v) ? '✓' : ''}</span>
@@ -2573,7 +2675,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
               {vista === 'orden' && (
                 // Toggle clásico: 1 clic ordena, otro clic sobre el MISMO invierte la
                 // dirección (flecha ↓/↑). Clic en el otro criterio arranca en ↓ (desc).
-                ([['score', 'Por prioridad'], ['creacion', 'Por creación']] as Array<['score' | 'creacion', string]>).map(([v, label]) => {
+                ORDEN_OPS.map(([v, label]) => {
                   const activo = sortMode === v;
                   return (
                     <button key={v} onClick={() => { if (activo) setSortDir?.(sortDir === 'desc' ? 'asc' : 'desc'); else { setSortMode?.(v); setSortDir?.('desc'); } }}
@@ -2967,8 +3069,30 @@ function HistorialDeLaTab({ labels, board }: { labels: Label[]; board: Board }) 
   );
 }
 
+/**
+ * El comparador del tablero. UNO para las cuatro formas de ordenar y para las dos entidades.
+ *
+ * `dir` es -1 para descendente (lo más alto primero) y +1 para ascendente. El desempate
+ * siempre es el score: con 334 tarjetas, dos que caen el mismo día tienen que salir en un
+ * orden estable y que signifique algo.
+ */
+function comparar(modo: OrdenModo, dir: number) {
+  return (a: { score: number; titulo: string; deadline: string; creado: number }, b: { score: number; titulo: string; deadline: string; creado: number }): number => {
+    if (modo === 'az') return dir * a.titulo.localeCompare(b.titulo, 'es') || b.score - a.score;
+    if (modo === 'creacion') return dir * (a.creado - b.creado) || b.score - a.score;
+    if (modo === 'deadline') {
+      // Sin fecha, al final SIEMPRE — no es «la más lejana», es una que no contestó.
+      if (!a.deadline && !b.deadline) return b.score - a.score;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return dir * a.deadline.localeCompare(b.deadline) || b.score - a.score;
+    }
+    return dir * (a.score - b.score) || b.score - a.score;
+  };
+}
+
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir, tabla }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; tabla: boolean }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir, tabla }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; tabla: boolean }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
   const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
@@ -2978,7 +3102,11 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   // dirección elegida. dir=-1 → desc (mayor score / más nuevo primero); +1 → asc.
   const dir = sortDir === 'asc' ? 1 : -1;
   const creTs = (l: Label) => (l.historial?.length ? Math.min(...l.historial.map((h) => h.ts)) : 0);
-  const ordenados = labels.slice().sort((a, b) => (sortMode === 'creacion' ? dir * (creTs(a) - creTs(b)) : dir * (a.score - b.score)));
+  const cmpProy = comparar(sortMode, dir);
+  const ordenados = labels.slice().sort((a, b) => cmpProy(
+    { score: a.score, titulo: a.name, deadline: a.deadline ?? '', creado: creTs(a) },
+    { score: b.score, titulo: b.name, deadline: b.deadline ?? '', creado: creTs(b) },
+  ));
   const origenDe = (l: Label) => fuenteEfectiva({ origen: l.historial[l.historial.length - 1]?.actor ?? 'user', fuente: l.fuente }).tipo;
   // Un proyecto pasa el filtro de ORIGEN si lo creó esa fuente O si TIENE tareas de
   // esa fuente. Antes solo miraba el origen del proyecto en sí, y como los proyectos

@@ -27,6 +27,7 @@ import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './typ
 import type { Board } from './useBoard';
 import { WarnMark, fechaConDia, diasHasta, plazoTexto } from './piezas';
 import { usePref, esUnoDe } from './prefs';
+import { AccionesLote } from './AccionesLote';
 import { ScoreIcon } from './guardian-form';
 
 const SANS = "'Geist', sans-serif";
@@ -188,11 +189,6 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-const btnLote: CSSProperties = {
-  border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)',
-  borderRadius: 8, padding: '6px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS,
-};
-
 export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
   tareas: BoardTask[];
   board: Board;
@@ -247,21 +243,6 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
   const alternar = (id: string) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const elegidas = tareas.filter((t) => sel.has(t.id));
 
-  /**
-   * Una acción sobre TODAS las elegidas, con UN solo arrepentimiento.
-   *
-   * ⚠️ Cada cambio individual ofrece su propio deshacer (va en el choke point de
-   * `useBoard`), así que sin esto una acción sobre 12 tareas dispara 12 toasts y el que
-   * queda arriba deshace UNA. Acá se guarda el estado anterior de todas y se pisa con un
-   * toast que las revierte juntas — que es la unidad en la que la persona decidió.
-   */
-  const enLote = (texto: string, aplicar: (t: BoardTask) => void) => {
-    const snaps = elegidas.map((t) => ({ ...t }));
-    elegidas.forEach(aplicar);
-    setSel(new Set());
-    board.showUndo(texto, () => snaps.forEach((snap) => board.replaceTask(snap)));
-  };
-
   const fila = (t: BoardTask, hecha: boolean) => {
     const proy = board.labelById(t.labels[0]);
     const c = PCOLOR[prioFromScore(t.score)];
@@ -303,33 +284,9 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
 
   return (
     <div style={cajaStyle} className="mk-scroll-x">
-      {elegidas.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 12px', marginBottom: 10, borderRadius: 11, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{elegidas.length} seleccionada{elegidas.length === 1 ? '' : 's'}</span>
-          <span style={{ width: 1, height: 20, background: 'var(--border)' }} />
-          <button type="button" onClick={() => enLote(`${elegidas.length} completada${elegidas.length === 1 ? '' : 's'}`, (t) => { if (t.progress < 100) board.toggleDone(t.id); })} style={btnLote}>✓ Completar</button>
-          <button type="button" onClick={() => enLote(`${elegidas.length} reabierta${elegidas.length === 1 ? '' : 's'}`, (t) => { if (t.progress >= 100) board.toggleDone(t.id); })} style={btnLote}>Reabrir</button>
-          <label style={{ ...btnLote, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            Deadline
-            <input type="date" onChange={(e) => { const v = e.target.value; if (v) enLote(`Deadline ${v} en ${elegidas.length}`, (t) => board.setDeadline(t.id, v, t.deadline)); }}
-              aria-label="Ponerles la misma fecha a todas" style={{ border: 'none', background: 'transparent', font: 'inherit', color: 'var(--ink)', cursor: 'pointer' }} />
-          </label>
-          <select value="" aria-label="Moverlas a un proyecto"
-            onChange={(e) => { const id = e.target.value; if (!id) return; const l = board.labelById(id); enLote(`${elegidas.length} a «${l?.name ?? ''}»`, (t) => board.setTaskLabels(t.id, [id], `Movida a «${l?.name ?? ''}»`)); }}
-            style={{ ...btnLote, maxWidth: 190 }}>
-            <option value="">Mover a un proyecto…</option>
-            {board.labels.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}
-          </select>
-          <span style={{ flex: 1 }} />
-          {/* Borrar NO ofrece deshacer en lote y por eso PREGUNTA: restaurar N tareas es
-              volver a crearlas en el server una por una, y a mitad de camino puede fallar
-              dejando la mitad. Un botón que promete deshacer y a veces no puede es peor que
-              uno que avisa antes. */}
-          <button type="button" onClick={() => ask(`¿Eliminar ${elegidas.length} tarea${elegidas.length === 1 ? '' : 's'}? Esto no se puede deshacer en lote.`, () => { elegidas.forEach((t) => board.removeSilent(t.id)); setSel(new Set()); })}
-            style={{ ...btnLote, borderColor: 'var(--bad)', color: 'var(--bad)' }}>Eliminar</button>
-          <button type="button" onClick={() => setSel(new Set())} style={{ ...btnLote, border: 'none', background: 'transparent', color: 'var(--dim)' }}>Quitar selección</button>
-        </div>
-      )}
+      {/* La barra vive en `AccionesLote`: la usa también el Kanban desde el 24/09/2026, y
+          dos copias de una barra de acciones divergen a la primera acción nueva. */}
+      <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />
       <table style={tablaStyle}>
         <thead>
           <tr>

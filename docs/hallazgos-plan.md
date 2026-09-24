@@ -3465,3 +3465,152 @@ durante todo el gesto, y el pop-up abriendo tanto al soltar en otra columna como
 reordenar dentro de la misma.
 
 **Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · *2026-09-24*
+
+## La séptima ronda la cerró el dueño: «en el CRM pasa lo mismo… es un problema de diseño» (24/09/2026)
+
+Seis rondas arreglando el arrastre del Kanban, cada una midiendo algo real, y el séptimo
+reporte fue el que cambió la pregunta:
+
+> «Sigue igual, pero me doy cuenta que en el CRM pasa lo mismo… Es un problema de diseño.»
+
+Hasta ahí, el método de la casa —«allá funciona y acá no» es el método— estaba apuntando a
+las DIFERENCIAS entre el CRM y el plan, y encontró cuatro bugs de verdad (el re-render por
+píxel, el auto-scroll, la opacidad, el `setDragImage` fuera del viewport). Lo que ninguna de
+esas seis rondas podía encontrar es que **el CRM también estaba mal**: era la referencia, y
+una referencia no se audita. El dueño la auditó mirando las dos.
+
+**La cura no fue arreglar el `setDragImage`: fue dejar de usarlo.** Se le pasa una imagen
+VACÍA (un canvas de 1×1 transparente) y la copia que sigue al cursor es un **nodo nuestro**:
+
+```tsx
+const vacio = document.createElement('canvas'); vacio.width = 1; vacio.height = 1;
+e.dataTransfer.setDragImage(vacio, 0, 0);          // el SO no dibuja nada
+onAgarrar?.(t.id, { nodo: e.currentTarget, dx, dy });  // y el Kanban monta la copia
+```
+
+El Kanban clona la tarjeta, la monta en `position: fixed` con `z-index: 3000`, le fuerza el
+fondo opaco y la mueve con `translate3d(...) rotate(1.5deg)` desde un `dragover` en
+`document` **en captura**. Con eso la copia deja de ser una foto del sistema operativo y
+pasa a ser un elemento: opaca, nítida, con la sombra que queremos y con la rotación del CRM.
+
+Tres cosas que hacen que funcione y que costaron las rondas anteriores:
+
+- **La copia se mueve escribiendo `transform` sobre un `ref`, NUNCA con `setState`.** Un
+  `setState` por `dragover` es un re-render del tablero 60 veces por segundo — el bug de la
+  ronda 2, servido de nuevo por la puerta del arreglo.
+- **El listener va en `document` y en captura.** El `dragover` de las columnas no cubre los
+  huecos entre ellas ni el fondo de la página: ahí la copia se queda clavada.
+- **El fondo se fuerza opaco.** Si el computado del original es transparente, la copia deja
+  ver el tablero por debajo y se ve igual de fantasmal que la del SO.
+
+⚠️ **Y la lección de método, que es la que ahorra tiempo:** cuando el usuario dice «allá
+funciona», eso es una **hipótesis suya**, no un dato. Vale muchísimo como punto de partida —
+encontró cuatro bugs— y hay que volver a preguntarla si el reporte se repite: «¿allá se ve
+BIEN, o se ve igual de mal y no te habías fijado?». Es la pregunta que en la ronda 6 no se
+hizo porque el CRM ya estaba dado por bueno.
+
+**Verificado en Chrome real con ventana:** `{"copia":true,"opacity":"1","zIndex":"3000",
+"transform":"matrix(0.999657, 0.0261769, …)","fondo":"rgb(245, 247, 250)","huecos":1}`
+durante el gesto, y `{"copiasColgadas":0,"popup":true}` después de soltar.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`CardTile.onDragStart`, `agarrar`) · *2026-09-24*
+
+### Una barra de acciones en lote es UNA, la monten dos vistas o seis
+
+La selección múltiple salió primero en la tabla (23/09) y al día siguiente hizo falta en el
+Kanban. La barra se mudó a `app/plan/board/AccionesLote.tsx` **antes** de montarla en el
+segundo lugar, no después: dos copias de una barra de acciones divergen a la primera acción
+nueva que se agregue en una sola, y la que queda vieja es la que nadie está mirando.
+
+Lo que la mudanza obligó a decidir, y que con una copia por vista se habría decidido dos
+veces distinto:
+
+- **Un botón para las dos direcciones, no dos.** «Elimina el "Reabrir", sería lo mismo que
+  "completar" solo que si lo aprieto a la inversa se descompleta, pero no debe haber 2
+  botones». Con dos, uno siempre está de más: sobre una selección de tareas abiertas
+  «Reabrir» no hace nada, y **un botón que no puede hacer nada se lee como que la app está
+  rota**. El sentido lo decide la selección (`todasHechas ? descompletar : completar`).
+- **Un lote, un deshacer.** Ya estaba escrito como regla; acá se hereda solo.
+- **Y borrar pregunta y no promete deshacer**: restaurar N tareas es recrearlas una por una
+  en el server y a mitad de camino puede fallar dejando la mitad.
+
+En el Kanban la casilla aparece **al pasar el mouse** o cuando ya hay algo elegido. En una
+tabla una casilla en la primera columna es el control de selección y se espera; en una
+tarjeta es un control más compitiendo con el check de completar, el chip del proyecto y el
+aviso de fecha.
+
+**Vive en:** app/plan/board/AccionesLote.tsx · app/plan/board/BoardShell.tsx · *2026-09-24*
+
+### Un filtro que no puede devolver NADA se lee como un tablero vacío
+
+«Comenzadas» (progreso entre 1 y 99) existía porque el avance se calculaba tildando pasos de
+una checklist. Las checklists salieron del producto el 22/09, así que desde entonces el
+progreso sólo vale 0 o 100 y ese filtro **seleccionaba siempre cero tarjetas**. El dueño lo
+reportó él: «elimina el estado Comenzadas, como ya no hay checklist, no tiene sentido».
+
+⚠️ **El punto que vale para cualquier feature que se saca: lo que la alimentaba se va, y lo
+que la CONSUMÍA se queda.** Sacar la checklist fue una decisión tomada y bien ejecutada; el
+filtro que dependía de ella no estaba en la lista porque no vive en el mismo archivo ni se
+llama parecido. Y su modo de falla es mudo: no tira, no avisa, contesta «no hay nada» — que
+es indistinguible de un tablero sin tareas en ese estado.
+
+Al sacar algo, la pregunta no es sólo «¿dónde se dibuja?» sino **«¿quién MIRA el campo que
+esto llenaba?»**.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`DoneFilter`, `ESTADO_OPS`) · *2026-09-24*
+
+### Con 70 proyectos, una lista de casillas no es un filtro: es un scroll
+
+«En el filtro de proyectos debería poder ordenar o buscar, porque si no son muchos y es
+difícil». El filtro listaba los 70 proyectos como casillas planas, ordenados por score.
+
+- **Se busca sin acentos y sin el prefijo de familia**, así «landing» encuentra «Feature:
+  Landing Analyst» y escribir «feature» no devuelve los 47.
+- **Los ya elegidos quedan arriba y no los filtra nada.** Si el buscador escondiera lo que ya
+  marcaste, la pantalla mentiría sobre lo que está filtrando — y quitar un filtro que no se
+  ve es imposible.
+- **Y el orden pasó a ser uno solo para las dos entidades**: `comparar(modo, dir)` sirve a
+  tareas y a proyectos, con `'score' | 'deadline' | 'creacion' | 'az'`.
+
+⚠️ **Ordenar por deadline pone lo SIN FECHA al final en las DOS direcciones.** Una tarjeta
+sin deadline no es «la más lejana»: es una que no contestó la pregunta, y mezclarla entre las
+que sí tienen fecha hace que el orden deje de significar «qué vence antes». El desempate
+siempre es el score: con 334 tarjetas, dos que caen el mismo día tienen que salir en un orden
+estable y que signifique algo.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`comparar`, `ORDEN_OPS`, el filtro de proyectos) · *2026-09-24*
+
+### ⚠️ La columna `deadline` es NOT NULL: «borrar la fecha» se escribe `''`, no `null`
+
+«Elimina el deadline de los que tienen 6 o más días atrasados» — una fecha que venció hace
+una semana no informa nada y empuja la prioridad con un dato muerto.
+
+El primer intento falló **70 de 70**, todas con el mismo error:
+
+```
+null value in column "deadline" of relation "plan_tareas" violates not-null constraint
+```
+
+La columna es `text NOT NULL DEFAULT ''`, así que **la ausencia de deadline se representa con
+la cadena vacía**, no con NULL. Todo el código del board ya lo sabía (`t.deadline` se compara
+contra `''` en todos lados); lo que no lo sabía era el script de una sola vez.
+
+- **Un script que toca datos de producción falla en lote o no falla**: 70 errores idénticos
+  son una condición, no mala suerte — la misma regla de «¿qué comparten TODOS los que
+  fallaron?», aplicada a una escritura.
+- **Con respaldo antes de tocar nada.** `backups/deadlines-borrados-*.json` tiene id,
+  título y fecha vieja de las 70 — en `backups/`, que está en el `.gitignore` con su porqué
+  escrito: son filas de clientes, y un respaldo versionado es una fuga con historial.
+
+Resultado medido: `TAREAS abiertas con 6+ días de atraso: 0`.
+
+**Vive en:** el script fue de una sola vez · el respaldo, en `backups/` · la representación, en app/plan/board/cuando.ts · *2026-09-24*
+
+### Lo que quedó SIN hacer en esta tanda
+
+- **Los PROYECTOS con 6+ días de atraso siguen con su deadline: son 7.** La limpieza se
+  corrió sólo sobre tareas, que es lo que se pidió. Un proyecto atrasado es una decisión más
+  cara que una tarea atrasada (arrastra a todas las suyas), así que no se toca sin decirlo.
+- **El tablero sigue midiendo 19.630px de alto con 334 tarjetas sin virtualizar.** Medido el
+  23/09 y sin cambios. No rompe nada —el auto-scroll del arrastre ya está— pero es el techo
+  de cualquier cosa que quiera medir el tablero entero.
