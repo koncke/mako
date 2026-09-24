@@ -3381,3 +3381,62 @@ primario y un `scale(1.02)`; el hueco dice a dónde va. Nada transparente en pan
 borde ahora significa «ésta es la que estás moviendo» y un `onMouseEnter` lo pisaba.
 
 **Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · *2026-09-23*
+
+
+## Seis rondas sobre el mismo arrastre, y lo que lo cerró fue PREGUNTAR (24/09/2026)
+
+«Sigue sin andar» seis veces sobre la misma interacción. Las cinco primeras respuestas
+fueron hipótesis mías: la foto que el navegador saca al terminar el handler, el re-render
+por píxel, el auto-scroll, la opacidad, el colapso del nodo. **Cuatro de las cinco eran
+problemas reales y ninguna era la que él estaba viendo.**
+
+Lo que lo cerró fue una pregunta con opciones concretas, contestada en un mensaje:
+
+- **Qué se ve mal:** «la copia que sigue al cursor» **y** «la tarjeta original queda
+  fantasma».
+- **Qué del CRM hay que replicar:** «que la tarjeta no cambie nada».
+
+Con eso, el arreglo es de diez líneas. Sin eso, seis rondas y seis deploys.
+
+⚠️ **La regla operativa: al SEGUNDO «sigue igual» sobre la misma interacción, se pregunta.**
+No una pregunta abierta —«¿qué ves?» ya lo había contestado él tres veces a su manera— sino
+una con las lecturas posibles enumeradas, porque el que reporta no tiene por qué saber que
+«transparente» puede significar tres cosas distintas en tres capas distintas.
+
+### Lo que faltaba: la imagen del arrastre la dibuja el SISTEMA OPERATIVO
+
+La copia que sigue al cursor **no es un elemento del DOM y no la gobierna ninguna regla
+CSS**. La pinta el navegador con ayuda del SO, y en Windows Chrome la dibuja
+semitransparente y anclada donde se le ocurre. Eso es lo que se reportó como «se ve
+transparente» en las últimas tres rondas, y por eso ninguna de mis mediciones de
+`getComputedStyle` lo iba a encontrar: **el elemento estaba opaco y la copia no**.
+
+La única forma de controlarla es `setDragImage` con un nodo propio:
+
+- El nodo tiene que estar **en el documento y visible** en ese instante. Con `display: none`
+  el navegador **ignora el pedido en silencio** y vuelve a la imagen por defecto. Va montado
+  fuera de pantalla (`position: fixed; top: -10000px`).
+- El fondo se toma del `getComputedStyle` del original y se fuerza opaco: si el fondo
+  computado fuese transparente, la copia hereda lo que haya detrás y se ve exactamente igual
+  de fantasmal que antes.
+- El offset es `cursor − borde de la tarjeta`, así la copia queda **agarrada del punto donde
+  pusiste el mouse** en vez de saltar a una esquina.
+- Y se saca en el tick siguiente: el navegador ya tomó la foto, y dejarlo suma un nodo por
+  cada arrastre.
+
+### Y la tarjeta de origen no cambia NADA
+
+De todo lo que el CRM hace, lo que había que replicar era eso. Cada efecto que se le fue
+agregando acá era ruido que allá no existe: `opacity: .5` («se ve transparente»), después
+borde de color + `scale(1.02)` + sombra («no se visualiza correctamente la animación»).
+
+**Lo que se mueve es la copia; lo que dice a dónde va es el hueco; y la columna destino se
+tiñe.** La tarjeta de origen es el lugar del que salió, no un estado que haya que comunicar
+tres veces.
+
+**Verificado en el navegador antes de subir:** `setDragImage` llamado una vez, cero clones
+colgados, hueco presente, la tarjeta con `opacity: 1 / transform: none / box-shadow: none`
+durante todo el gesto, y el pop-up abriendo tanto al soltar en otra columna como al
+reordenar dentro de la misma.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · *2026-09-24*

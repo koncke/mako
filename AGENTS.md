@@ -598,6 +598,40 @@ CEDE.** Fila con `flex-wrap: nowrap`, lo que menos informa con `flex: 0 1 auto` 
 cualquier ancho y con cualquier zoom, sin depender de una cuenta que acierta hoy y falla
 mañana.
 
+# Al SEGUNDO «sigue igual», se pregunta — con las lecturas enumeradas
+
+Un reporte que se repite sobre la misma interacción no significa que falte una hipótesis
+más: significa que la palabra que usa quien reporta abarca varias cosas y estás arreglando
+la que no es.
+
+Medido el 24/09/2026: el arrastre del Kanban del plan se reportó roto **seis veces**. Las
+cinco primeras respuestas fueron hipótesis propias —la foto del `dragstart`, el re-render
+por píxel, el auto-scroll, la opacidad, colapsar el nodo—; cuatro eran problemas reales y
+ninguna era la que él veía. Lo cerró una pregunta con opciones concretas, contestada en un
+mensaje: «la copia que sigue al cursor» + «la tarjeta original queda fantasma», y del CRM
+«que la tarjeta no cambie nada». El arreglo fueron diez líneas.
+
+**La pregunta no es «¿qué ves?»** —eso ya lo contestó a su manera y no se entendió— sino una
+con las lecturas posibles enumeradas: quien reporta no tiene por qué saber que
+«transparente» puede significar tres cosas en tres capas distintas (el elemento, la copia
+que dibuja el SO, el placeholder).
+
+# La imagen que sigue al cursor en un arrastre la dibuja el SISTEMA OPERATIVO
+
+No es un nodo del DOM y **no la gobierna ninguna regla CSS**: en Windows, Chrome la pinta
+semitransparente y la ancla donde quiere. Por eso un `getComputedStyle` sobre el elemento
+puede dar `opacity: 1` mientras en pantalla se ve un fantasma — son dos cosas distintas.
+
+La única forma de controlarla es `e.dataTransfer.setDragImage(nodo, x, y)`:
+
+- El nodo tiene que estar **en el documento y visible** en ese instante. Con `display: none`
+  el navegador **ignora el pedido en silencio** y vuelve a la imagen por defecto. Va fuera de
+  pantalla con `position: fixed; top: -10000px`.
+- **El fondo se fuerza opaco.** Si el fondo computado del original es transparente, la copia
+  hereda lo que haya detrás y se ve igual de fantasmal.
+- El offset es `cursor − borde del elemento`, o la copia salta a una esquina.
+- Y se quita en el tick siguiente: la foto ya está tomada.
+
 # Al nodo ORIGEN de un arrastre no se le toca el tamaño
 
 Colapsarlo a altura cero mientras se arrastra —la forma en que Trello y Linear hacen que la

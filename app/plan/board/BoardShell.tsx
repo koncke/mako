@@ -1856,9 +1856,10 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
   // navegador. «Al intentar agarrar una tarea del kanban, debería tener la misma animación
   // que tenemos hoy en día en el CRM» (23/09/2026) — y son los mismos tres valores que usa
   // `CrmBoard.tsx`: se atenúa, se achica un poco y se despega con una sombra.
-  // `oculta` lo decide el Kanban (es el que sabe cuál está en la mano). Antes había además
-  // un `agarrada` local que decía lo mismo, y las dos opacidades se multiplicaban.
-  const enMano = levantada || oculta;
+  // ⚠️ `oculta` YA NO PINTA NADA en la tarjeta (ver el `style`): el Kanban lo sigue
+  // pasando porque lo necesita para saber cuál excluir al calcular el hueco, pero acá
+  // adentro lo único que cambia de aspecto durante un arrastre con mouse es NADA.
+  void oculta;
   // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
   // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
   // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
@@ -1874,26 +1875,61 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
       draggable={!!board.repo.prioridadManual}
       data-card
-      // ⚠️ IGUAL QUE `CrmBoard.tsx`, LÍNEA POR LÍNEA. «No entiendo por qué en CRM funciona
-      // bien y aquí no» (23/09/2026): la diferencia no estaba acá —el CRM también cambia el
-      // estado adentro del handler— sino en cuánto re-renderiza el tablero MIENTRAS
-      // arrastrás. Ver el `onDragOver` de la columna.
-      onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; onAgarrar?.(t.id); }}
+      // ⚠️ LA COPIA QUE VIAJA CON EL CURSOR LA PONEMOS NOSOTROS, y ésta es la razón.
+      //
+      // Preguntado y contestado el 24/09/2026, después de cinco rondas adivinando: lo que se
+      // veía mal era «la copia que sigue al cursor» (translúcida y corrida) y «la tarjeta
+      // original queda fantasma». La imagen por defecto la dibuja el SISTEMA OPERATIVO —en
+      // Windows, Chrome la pinta semitransparente— y la ancla donde se le ocurre; eso no se
+      // puede cambiar con CSS, sólo reemplazando la imagen con `setDragImage`.
+      //
+      // El clon se monta fuera de pantalla porque `setDragImage` exige un nodo que esté EN
+      // EL DOCUMENTO y visible en ese instante: con `display: none` el navegador ignora el
+      // pedido y vuelve a la imagen por defecto, en silencio.
+      //
+      // Y el offset es `cursor - borde de la tarjeta`: así la copia queda agarrada del mismo
+      // punto donde pusiste el mouse, en vez de saltar a una esquina.
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', t.id);
+        e.dataTransfer.effectAllowed = 'move';
+        try {
+          const nodo = e.currentTarget;
+          const r = nodo.getBoundingClientRect();
+          const clon = nodo.cloneNode(true) as HTMLElement;
+          const fondo = getComputedStyle(nodo).backgroundColor;
+          Object.assign(clon.style, {
+            position: 'fixed', top: '-10000px', left: '-10000px',
+            width: `${r.width}px`, height: `${r.height}px`, margin: '0',
+            // OPACO de verdad: si el fondo computado fuese transparente, la copia hereda el
+            // gris del escritorio y se ve exactamente como el fantasma que se reportó.
+            background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface-2)',
+            opacity: '1', boxShadow: '0 14px 34px rgba(18,21,27,.30)', pointerEvents: 'none',
+            transform: 'none', transition: 'none',
+          });
+          document.body.appendChild(clon);
+          e.dataTransfer.setDragImage(clon, e.clientX - r.left, e.clientY - r.top);
+          // Se saca en el tick siguiente: el navegador ya sacó la foto y dejarlo colgado
+          // suma un nodo por cada arrastre.
+          setTimeout(() => clon.remove(), 0);
+        } catch { /* si el navegador no deja, queda la imagen por defecto */ }
+        onAgarrar?.(t.id);
+      }}
       onDragEnd={() => { onAgarrar?.(null); }}
-      // ⚠️ LA TARJETA QUE SE ARRASTRA NO SE PONE TRANSPARENTE. «Se ve transparente»
-      // (23/09/2026), y era cierto — aunque no por donde busqué las primeras rondas: la
-      // foto que sigue al cursor sale OPACA (medido en el navegador: `opacity: 1` en el
-      // instante exacto en que el navegador la toma). Lo transparente era ESTA, la original,
-      // al 50% en su lugar. El CRM hace eso y ahí está bien porque no tiene hueco; acá sí,
-      // y con las dos cosas juntas el mismo ítem aparecía TRES veces (fantasma + foto +
-      // hueco).
+      // ⚠️ MIENTRAS SE ARRASTRA, ESTA TARJETA NO CAMBIA NADA. Preguntado y contestado el
+      // 24/09/2026: de lo que hace el CRM, lo que había que replicar era exactamente eso —
+      // «que la tarjeta no cambie nada». Cada efecto que se le fue agregando acá era ruido
+      // que allá no existe: primero `opacity: .5` («se ve transparente»), después borde de
+      // color + `scale(1.02)` + sombra («no se visualiza correctamente la animación»).
+      //
+      // Lo que se mueve es la COPIA; lo que dice a dónde va es el HUECO; y la columna
+      // destino se tiñe. La tarjeta de origen se queda como está: es el lugar del que salió,
+      // no un estado que haya que comunicar tres veces.
       //
       // ⛔ Y NO SE COLAPSA A ALTURA CERO, que era la salida obvia (es lo que hacen Trello y
       // Linear). Medido: sacar del flujo el nodo ORIGEN del arrastre deja el gesto sin
-      // salida — el arnés no pudo completar un solo drop, se colgó hasta el timeout,
-      // mientras la misma página cargaba perfecto. Lo que marca cuál se está moviendo es el
-      // BORDE, y a dónde va, el hueco.
-      style={{ background: 'var(--surface-2)', border: `2px solid ${enMano ? 'var(--primary)' : 'transparent'}`, outline: enMano ? 'none' : '1px solid var(--border)', outlineOffset: -1, borderRadius: 11, padding: '11px 13px', cursor: board.repo.prioridadManual ? (oculta ? 'grabbing' : 'grab') : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s',
+      // salida — el arnés no pudo completar un solo drop y se colgó hasta el timeout,
+      // mientras la misma página cargaba perfecto.
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -1902,9 +1938,11 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
         // Con el mouse se HUNDE (se achica y se atenúa), igual que en el CRM: lo que se
         // mueve es la miniatura que dibuja el navegador, y la tarjeta de abajo es el hueco
         // que dejó.
-        ...(enMano ? { transform: 'scale(1.02)', boxShadow: '0 8px 22px rgba(18,21,27,.18)' } : {}) }}
-      onMouseEnter={(e) => { if (!enMano) e.currentTarget.style.outlineColor = 'var(--border-strong)'; }}
-      onMouseLeave={(e) => { if (!enMano) e.currentTarget.style.outlineColor = 'var(--border)'; }}>
+        // Con el DEDO sí se levanta: el dedo tapa la tarjeta y hay que verla salir. Con el
+        // mouse no, porque ahí lo que se ve viajar es la copia.
+        ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' } : {}) }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}>
       {/* header: proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
         {proys.length > 0
