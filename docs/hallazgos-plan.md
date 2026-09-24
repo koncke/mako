@@ -3335,3 +3335,49 @@ pantalla»— y la parte que faltaba es que vale igual para los GESTOS: un arras
 verifica leyendo el handler.
 
 **Vive en:** app/plan/board/BoardShell.tsx (`empujarScroll`) · *2026-09-23*
+
+
+## «Se ve transparente»: dos hipótesis, las dos medidas, una sola cierta (23/09/2026)
+
+Quinta ronda sobre el arrastre, ya con el navegador de por medio. Dos cosas que sólo se
+pudieron cerrar midiendo:
+
+### La foto del arrastre sale OPACA — la hipótesis de la ronda 1 era falsa
+
+Instrumentando la página con un listener de `dragstart` en `window` (que corre DESPUÉS del
+de React) y leyendo el estilo computado en ese instante:
+
+```
+fin-handlers : opacity 1 · transform none · opacidad efectiva 1.000 · sin filtros
+microtask    : opacity 1
+timeout 0    : opacity 1
+```
+
+La tarjeta está entera cuando el navegador toma la foto, así que **lo que sigue al cursor no
+es transparente**. La hipótesis de la primera ronda —«el navegador saca la foto al terminar
+tu handler, y `setAgarrada` la atenúa»— es cierta como mecánica y **no era lo que pasaba
+acá**: React aplica el estilo un frame después, así que el snapshot siempre se toma opaco.
+Costó tres rondas descartarla a ojo y diez minutos con un `getComputedStyle`.
+
+Lo transparente era la tarjeta **original**, al 50% en su lugar. El CRM hace eso y ahí está
+bien porque no tiene hueco; acá sí, y con las dos cosas juntas el mismo ítem aparecía TRES
+veces: fantasma en el origen, foto en el cursor, hueco en el destino.
+
+### ⛔ Y colapsar el nodo ORIGEN a altura cero rompe el arrastre
+
+La salida obvia —lo que hacen Trello y Linear: la tarjeta desaparece y su lugar lo ocupa el
+hueco— **no se puede acá**. Medido: con `height: 0` + `opacity: 0` en la tarjeta que se
+arrastra, el arnés no pudo completar **un solo drop**; el gesto se colgaba hasta el timeout
+(exit 124) mientras la misma página cargaba perfecto y el resto de las pruebas pasaban. Al
+revertirlo, el drop volvió a funcionar en el primer intento.
+
+Sacar del flujo el nodo que originó el arrastre lo deja sin salida. No es `display: none`
+contra `height: 0`: es tocarle el tamaño al origen.
+
+**Lo que quedó:** la tarjeta se queda opaca y en su lugar, marcada con un **borde** del color
+primario y un `scale(1.02)`; el hueco dice a dónde va. Nada transparente en pantalla.
+
+⚠️ **Y el hover tuvo que dejar de pintar el borde.** Pasó a ser el `outline`, porque el
+borde ahora significa «ésta es la que estás moviendo» y un `onMouseEnter` lo pisaba.
+
+**Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · *2026-09-23*

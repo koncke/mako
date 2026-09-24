@@ -598,6 +598,23 @@ CEDE.** Fila con `flex-wrap: nowrap`, lo que menos informa con `flex: 0 1 auto` 
 cualquier ancho y con cualquier zoom, sin depender de una cuenta que acierta hoy y falla
 mañana.
 
+# Al nodo ORIGEN de un arrastre no se le toca el tamaño
+
+Colapsarlo a altura cero mientras se arrastra —la forma en que Trello y Linear hacen que la
+tarjeta «se vaya» y quede sólo el hueco— deja el gesto sin salida: medido el 23/09/2026 en
+el Kanban del plan, con `height: 0` + `opacity: 0` en la tarjeta arrastrada el arnés no pudo
+completar un solo drop (se colgaba hasta el timeout) mientras la misma página cargaba
+perfecto; al revertirlo, funcionó en el primer intento.
+
+Lo que se está moviendo se marca sin tocar su caja: un **borde**, una sombra, un `scale`
+chico. Y si además hay un hueco en el destino, la tarjeta de origen **no se atenúa**: con
+las dos cosas el mismo ítem aparece tres veces (fantasma, foto del cursor, hueco).
+
+⚠️ **Y la foto que sigue al cursor sale OPACA aunque atenúes la tarjeta en el mismo
+handler.** Medido con un listener de `dragstart` en `window` y `getComputedStyle`: el
+snapshot se toma con `opacity: 1` porque React aplica el estilo un frame después. Es una
+hipótesis que suena bien, se sostiene tres rondas y no es la causa de nada.
+
 # Un GESTO no se verifica leyendo el handler: se arrastra en un navegador
 
 Al segundo «sigue sin andar» sobre la misma interacción, se abre el navegador. No al cuarto.

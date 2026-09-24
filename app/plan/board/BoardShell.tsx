@@ -1880,7 +1880,20 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
       // arrastrás. Ver el `onDragOver` de la columna.
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; onAgarrar?.(t.id); }}
       onDragEnd={() => { onAgarrar?.(null); }}
-      style={{ background: 'var(--surface-2)', border: `1px solid ${enMano ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual ? (oculta ? 'grabbing' : 'grab') : 'pointer', opacity: oculta ? 0.5 : done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s, opacity .15s',
+      // ⚠️ LA TARJETA QUE SE ARRASTRA NO SE PONE TRANSPARENTE. «Se ve transparente»
+      // (23/09/2026), y era cierto — aunque no por donde busqué las primeras rondas: la
+      // foto que sigue al cursor sale OPACA (medido en el navegador: `opacity: 1` en el
+      // instante exacto en que el navegador la toma). Lo transparente era ESTA, la original,
+      // al 50% en su lugar. El CRM hace eso y ahí está bien porque no tiene hueco; acá sí,
+      // y con las dos cosas juntas el mismo ítem aparecía TRES veces (fantasma + foto +
+      // hueco).
+      //
+      // ⛔ Y NO SE COLAPSA A ALTURA CERO, que era la salida obvia (es lo que hacen Trello y
+      // Linear). Medido: sacar del flujo el nodo ORIGEN del arrastre deja el gesto sin
+      // salida — el arnés no pudo completar un solo drop, se colgó hasta el timeout,
+      // mientras la misma página cargaba perfecto. Lo que marca cuál se está moviendo es el
+      // BORDE, y a dónde va, el hueco.
+      style={{ background: 'var(--surface-2)', border: `2px solid ${enMano ? 'var(--primary)' : 'transparent'}`, outline: enMano ? 'none' : '1px solid var(--border)', outlineOffset: -1, borderRadius: 11, padding: '11px 13px', cursor: board.repo.prioridadManual ? (oculta ? 'grabbing' : 'grab') : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, transform .15s, box-shadow .15s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -1889,9 +1902,9 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
         // Con el mouse se HUNDE (se achica y se atenúa), igual que en el CRM: lo que se
         // mueve es la miniatura que dibuja el navegador, y la tarjeta de abajo es el hueco
         // que dejó.
-        ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' }
-          : oculta ? { transform: 'scale(0.97)', boxShadow: '0 10px 26px rgba(18,21,27,.20)' } : {}) }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+        ...(enMano ? { transform: 'scale(1.02)', boxShadow: '0 8px 22px rgba(18,21,27,.18)' } : {}) }}
+      onMouseEnter={(e) => { if (!enMano) e.currentTarget.style.outlineColor = 'var(--border-strong)'; }}
+      onMouseLeave={(e) => { if (!enMano) e.currentTarget.style.outlineColor = 'var(--border)'; }}>
       {/* header: proyecto + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, minWidth: 0 }}>
         {proys.length > 0
