@@ -2183,12 +2183,15 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
         {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
-      {/* TÍTULO DE UNA SOLA LÍNEA, con el título entero en el `title`. «Los títulos son muy
-          largos, tiene que poner una cantidad máxima de caracteres» (25/09/2026). El tope no
-          se escribe en caracteres sino en ANCHO: un `slice(0, 60)` corta igual de feo con un
-          título de palabras cortas y se queda corto con uno de palabras largas, y además
-          miente en el `title`. Con una línea más el ellipsis, el corte lo decide la card. */}
-      <div title={t.title} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+      {/* TÍTULO DE DOS LÍNEAS, con el entero en el `title`. Primero fue una sola —«los
+          títulos son muy largos, tiene que poner una cantidad máxima de caracteres»— y con
+          eso se cortaban demasiadas: «como hay algunas que están cortadas, permite el salto
+          de línea 1 vez» (25/09/2026). Dos es el número: con una se pierde la mitad de los
+          títulos del tablero, con tres la card deja de medir lo mismo que sus vecinas.
+          El tope no se escribe en CARACTERES sino en líneas: un `slice(0, 60)` corta igual
+          de feo con palabras cortas, se queda corto con palabras largas, y además miente en
+          el `title`. Con el clamp, el corte lo decide el ancho real de la card. */}
+      <div title={t.title} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
       {/* ⚠️ EL DEADLINE VA EN SU PROPIO RENGLÓN, y dice el plazo. Acá había un
           `deadline.slice(5)` — «09-25»: sin día de la semana, sin año y, sobre todo, sin
           decir si ya se venció. «Me gusta este formato, que también dice los días
@@ -2695,11 +2698,11 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                   {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
                   <ScoreBadge score={t.score} />
                 </div>
-                {/* UNA SOLA LÍNEA, con el título entero en el `title`. «Los títulos son muy
-                    largos, tiene que poner una cantidad máxima de caracteres» (25/09/2026):
-                    un título de tres renglones a 19px empuja el deadline y el check fuera de
-                    la vista y hace que dos tarjetas de la misma lista midan distinto. */}
-                <div title={t.title} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                {/* DOS LÍNEAS: «permite el salto de línea 1 vez» (25/09/2026). A 19px una
+                    sola cortaba casi todos los títulos, y tres renglones empujan el deadline
+                    y el check fuera de la vista y hacen que dos tarjetas de la misma lista
+                    midan distinto. El entero sigue en el `title`. */}
+                <div title={t.title} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
                 {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
                     barra de avance, el % y la checklist plegable: los tres se fueron con
                     la checklist («una tarea se completa o no se completa»), y lo que
