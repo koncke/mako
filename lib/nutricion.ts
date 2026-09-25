@@ -11,7 +11,7 @@
 // histórico del cron simula los canales apagados ('simulado', avanza).
 // =============================================================================
 
-import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, secuenciasParaElLead } from '@/lib/nutricion-familias';
+import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, preparaUnaReunion, secuenciasParaElLead } from '@/lib/nutricion-familias';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
@@ -1156,7 +1156,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // cierra sin enviar (un recordatorio tardío es peor que ninguno). (2) Si el
       // objetivo re-calculado quedó en el futuro (reagenda, drift por espera de
       // canal), el paso se re-ancla y espera su hora.
-      if (paso.ancla === 'reunion') {
+      // Lo de «sin reunión futura no hay nada que mandar» vale para el paso anclado Y para
+      // toda la post-agenda, cuyos pasos NO están anclados (salen 1 h y 24 h después de
+      // agendarse). Ver `preparaUnaReunion`: con la línea caída, el reintento diario empujó a
+      // dos leads reales de Mauricio hasta DESPUÉS de su reunión.
+      if (paso.ancla === 'reunion' || preparaUnaReunion(sec.trigger_tipo)) {
         if (reunionFuturaMs(lead) == null) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
@@ -1164,6 +1168,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() }).eq('id', insc.id);
           continue;
         }
+      }
+      if (paso.ancla === 'reunion') {
         const objetivo = proximoEnvioDePaso(paso, lead);
         if (Date.parse(objetivo) > Date.now() + 5 * 60 * 1000) {
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 're-anclado a la reunión' });

@@ -28,8 +28,26 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from './Button';
 
-/** Por encima de cualquier modal de la pila (Z_BASE 130 + niveles). */
-const Z_CONFIRM = 500;
+/**
+ * Por encima de TODO modal, no solo de los de la pila.
+ *
+ * ⚠️ Estaba en 500, que alcanza para la pila (`pila-modales.ts`, Z_BASE 130 + niveles) y es
+ * CIEGO a los modales escritos a mano, que no pasan por la pila y eligen su z-index solos.
+ * Medido el 25/09/2026: `app/whatsapp/EvolutionConnect.tsx:300` usa 1000,
+ * `app/whatsapp/EmpresaInbox.tsx` hasta 2500 y `app/email/EmailApp.tsx` 1000. En los tres, el
+ * «¿seguro?» se dibujaba DETRÁS del modal que lo abrió: la acción no se podía completar nunca
+ * y no había forma de darse cuenta, porque el fondo oscuro del confirm sí se veía.
+ *
+ * No es cosmético: el único camino para recuperar una línea de WhatsApp desvinculada (403) es
+ * «Desconectar» y volver a vincular —`conectar()` sobre la instancia zombi devuelve un QR
+ * nulo—, y ese botón pide confirmación desde un modal de z-index 1000. Con el cartel detrás,
+ * la línea de un cliente no se puede recuperar desde la app. La de Mauricio lleva así 22 días.
+ *
+ * 3500 = arriba del techo de modales medido en el repo (3000: MakoConfirmGate,
+ * DestinatariosModal) y abajo de los carteles flotantes y del login (4000 y 9999), que no
+ * tapan una pregunta a pantalla completa.
+ */
+const Z_CONFIRM = 3500;
 
 export function Confirm({
   title,

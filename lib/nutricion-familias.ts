@@ -33,6 +33,29 @@ export function mitadPostAgenda(yaLeHablamos: boolean): string {
   return yaLeHablamos ? TRIGGER_AGENDA_CONOCIDO : TRIGGER_AGENDA_NUEVO;
 }
 
+/** La post-agenda vieja, de una sola secuencia, antes de partirse en dos (2b6f693e). */
+export const TRIGGER_AGENDA_SIN_CONFIRMAR = 'agendado_sin_confirmar';
+
+/**
+ * ¿Todo lo que esta secuencia tiene para decir es SOBRE una reunión que todavía no pasó?
+ *
+ * ⚠️ NO alcanza con mirar `paso.ancla === 'reunion'`, que era lo único que había. Los pasos de
+ * la post-agenda NO están anclados: salen 1 h y 24 h después de AGENDARSE, no antes de la
+ * reunión. Así que la guarda de «la reunión ya pasó» no los tocaba.
+ *
+ * Medido en producción el 25/09/2026, y por eso existe esto: los dos únicos leads en cola de
+ * todo el sistema eran de Mauricio (2439 y 2400, secuencia 213) con la reunión el 23/09 y el
+ * 25/09 a las 20:00 — y su primer audio estaba programado para el 25/09 a las 21:00, o sea
+ * DESPUÉS. Con la línea caída 22 días, el reintento diario los fue empujando hasta pasarse de
+ * largo. El mensaje que iban a recibir es «te dejo el video para que llegues con contexto».
+ *
+ * Es la misma regla que ya estaba escrita para el paso anclado —un recordatorio tardío es peor
+ * que ninguno—, que acá además llega con la voz del dueño.
+ */
+export function preparaUnaReunion(triggerTipo: string): boolean {
+  return FAMILIA_POST_AGENDA.includes(triggerTipo) || triggerTipo === TRIGGER_AGENDA_SIN_CONFIRMAR;
+}
+
 /**
  * De las secuencias que un evento dispara, las que le corresponden a ESTE lead.
  *
