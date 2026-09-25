@@ -830,6 +830,53 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   su propio snapshot y pisa con un toast que revierte todo junto, que es la unidad en la que
   la persona decidió.
 
+# Un tablero auditado contra SÍ MISMO reproduce sus propios errores
+
+El `detalle` de un proyecto, su `score_razon` y su «Qué falta» son un DOCUMENTO FECHADO:
+describen el mundo del día en que se escribieron. Auditar el tablero leyendo el tablero
+contesta «¿es coherente consigo mismo?», que no es la pregunta — y cuando la respuesta se
+usa para reordenar prioridades, **reinstala como trabajo pendiente lo que ya se había
+descartado**.
+
+Medido el 24-25/09/2026. La auditoría de los 70 proyectos salió del `detalle` de cada uno
+(más el código, para verificar lo construido). De ahí se crearon 14 tarjetas para los dos
+proyectos comerciales, y el dueño las rechazó una por una:
+
+- El detalle de «Cobros y planes» describe el modelo de **suscripción de 47 USD** con Free,
+  tiers y contador de tokens. En la sesión del 20/09 ese modelo se había **matado**: «MaKo
+  47 deja de existir, el mínimo pasa a USD 500 por 3 meses y USD 1.500 el grupal». Las cinco
+  tarjetas nuevas resucitaron el modelo muerto, y el proyecto subió al segundo puesto del
+  tablero por tener trabajo nuevo adentro.
+- El detalle de «Oferta y precios» hizo lo mismo con el freemium y la estructura de 49/400.
+- Y el orden quedó al revés de las **tres fases** que el dueño había dictado: «Landing y
+  VSL» en el puesto 5 cuando su fase empieza el 11/10, después de todo lo técnico.
+
+**La regla: la prioridad NO sale del tablero.** Sale de las decisiones —audios, reuniones,
+la sesión donde se puntuó proyecto por proyecto— y **esas fuentes no están en el repo**: el
+consolidado del 20/09 es `accionables-mako-20-sep.html` (110 accionables con su cita
+textual, su estado medido contra el código y su cruce con el board), y el criterio de
+extracción del cliente vive en `C:\Users\marti\Downloads\`. Antes de tocar una prioridad, se abren.
+
+⚠️ **Y el olor que lo delata a tiempo: dos fuentes con fecha distinta que se contradicen.**
+Un detalle que enumera un modelo de negocio y una sesión posterior que lo descarta no son
+«dos opiniones»: gana la más NUEVA, siempre. Si no sabés cuál es más nueva, todavía no
+tenés el contexto para reordenar nada.
+
+# Crear tareas dispara al Perro, y el Perro re-curva TODOS los proyectos
+
+`aplicarPropuesta` corre la priorización sobre el tablero entero, no sólo sobre lo que
+acabás de crear: al volver, los scores que habías fijado a mano ya no están. Medido el
+25/09/2026 — se ordenaron los 70 proyectos por las tres fases, se crearon nueve tareas, y
+el tablero volvió con el más alto en **70** y un proyecto de fase 2 primero.
+
+- **El orden a mano va DESPUÉS de crear**, nunca antes. Si hay que hacer las dos cosas, se
+  crea, se deja correr al Perro, y recién ahí se escribe el orden.
+- **Y el ruteo de una tarea nueva lo decide el Perro por TEMA**, que no siempre es el
+  proyecto donde el dueño la espera: las tres del «criterio de Mau» se fueron a «Agente:
+  Lector de reuniones» —correcto por tema— cuando el compromiso con el cliente las agrupa
+  en «el Plan y el Perro Guardián», que es el que tiene la fecha. Después de crear, se
+  comprueba DÓNDE cayó cada una.
+
 # Una regla que se aplica AL ESCRIBIR no arregla ni una fila ya escrita
 
 Toda regla nueva sobre los datos —derivar un campo, sanear un formato, poner un default—

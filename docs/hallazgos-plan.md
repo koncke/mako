@@ -3844,3 +3844,35 @@ confundirse con una feature real** — y si aparece en la salida, ya se sabe de 
   otros 61.
 
 **Vive en:** *2026-09-24*
+
+## La auditoría estaba bien medida y mal fundada (25/09/2026)
+
+La corrida del 24/09 midió bien: 155 citas muertas, 13 tareas construidas, 26 proyectos
+vacíos. Todo eso era cierto. Lo que estaba mal era **de dónde sacó la prioridad**: del
+propio tablero. El dueño lo cortó en cuatro reclamos, y los cuatro eran el mismo error.
+
+| Lo que hice | Lo que decía la fuente real |
+|---|---|
+| Subí «Cobros y planes» al 2º puesto creándole 5 tarjetas | El 20/09 se mató el modelo: «MaKo 47 deja de existir… USD 1.500 el grupal» (A02). Sin suscripción no hace falta pasarela — y además está bloqueada por la identidad fiscal y por conectar Stripe (A03) |
+| Dejé «Landing y VSL» en el puesto 5 | Las tres fases del 22/09 la ponen en **fase 2, el 11/10**, después de todo lo técnico |
+| Dejé «Feature: Plan» con 4 tareas, ninguna de las pedidas | A47 y A48 —«que no me encargue 70 tareas»— figuraban «sin tarea en el board» desde el relevamiento |
+| No toqué la Oferta | «De la oferta depende todo lo demás… va antes que los otros proyectos», y su documento vencía el 24/09 |
+
+**Dónde estaba el contexto que me faltaba, y no es el repo:**
+
+- `accionables-mako-20-sep.html` (292 KB, raíz del proyecto): las 4 grabaciones del 20/09
+  (4 h 14 min) consolidadas — **110 accionables con su cita textual**, el estado de cada uno
+  medido contra el código, 53 decisiones tomadas, 20 esperando decisión, los once proyectos,
+  lo tachado con su motivo y **las tres fases con fecha**. Trae marcado, accionable por
+  accionable, «sin tarea en el board»: **32 de 110**. Esa es la lista de lo que falta, y no
+  hace falta deducirla.
+- `tareas-reuniones-mauricio-8-y-9-sep.md` (156 KB) y `reporte-reuniones-mauricio.html`.
+- El criterio de extracción del cliente, en la carpeta de Descargas (ver [[criterio-extraccion-mauricio]]).
+- La memoria: [[mako-once-proyectos]] tiene las tres fases y los once proyectos.
+
+⚠️ **Y el `detalle` de un proyecto es la fuente equivocada para esto por construcción:** lo
+escribe el Perro cuando el proyecto se crea o se amplía, así que congela el mundo de ESE
+día. Para «¿qué falta?» sirve —enumera pendientes con su cita—; para «¿qué va primero?» no,
+porque no se entera de la sesión en la que se descartó la mitad.
+
+**Vive en:** accionables-mako-20-sep.html · `plan_proyectos.detalle` · *2026-09-25*
