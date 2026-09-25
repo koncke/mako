@@ -830,6 +830,49 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   su propio snapshot y pisa con un toast que revierte todo junto, que es la unidad en la que
   la persona decidió.
 
+# Un ACCIONABLE no es una TAREA, y volcar una lista de accionables al tablero lo arruina
+
+Lo que sale de una reunión es lo que se DIJO: decisiones tomadas, decisiones pendientes,
+intenciones, cosas que ya están hechas y algún trabajo de verdad. Una tarea es otra cosa:
+**algo con un entregable que se puede completar**. Volcar lo primero como si fuera lo
+segundo llena el tablero de tarjetas que nadie puede cerrar — y tapa lo único que sí hay
+que entregar.
+
+Medido el 25/09/2026 sobre «Vender MaKo: Oferta y precios», el proyecto #1 del tablero. Se
+le habían creado 12 tarjetas desde la lista de accionables del 20/09. El dueño las miró:
+
+> «Una cantidad impresionante de tareas innecesarias, que muchas YA están finalizadas o que
+> directamente no deberían ser tareas… ¿Subir el precio? ¿Cómo se completa esa tarea?… Una
+> cantidad de tareas de decisión que se podrían agrupar en una sola… **Y lo peor es que lo
+> que SÍ es importante no está**: bajar a tierra la oferta en un documento.»
+
+Las tres preguntas, antes de convertir un accionable en una tarjeta:
+
+1. **¿Se puede completar?** «Subir el precio» no: la decisión ya está tomada y no hay nada
+   que tildar. Lo que se puede completar es **dónde se aplica** — sacar el plan viejo de
+   `modelo.ts`, escribir el escalón nuevo en la landing, avisarle a los dos clientes que
+   compraron con el precio viejo. Ésa es la tarjeta.
+2. **¿Es una decisión?** Entonces no son N tarjetas: es UNA, y su entregable es el
+   documento donde se escriben. Seis «decidir si…» sueltas no se pueden cerrar por separado
+   —son piezas de la misma definición— y juntas tapan el documento, que era lo que la fase
+   había fechado.
+3. **¿Ya está decidido o ya está hecho?** Se cierra. Una decisión tomada arrastrada como
+   pendiente es ruido con cara de trabajo.
+
+**El resultado de aplicar las tres: 13 tarjetas abiertas → 5**, y arriba de todo la que
+faltaba (el documento de oferta y precio), con las seis decisiones enumeradas adentro para
+que no se pierda ni una.
+
+⚠️ **Y lo que delata el problema en el resto del tablero se mide en una consulta:**
+**24 de 248 tareas abiertas dicen EN SU PROPIO DETALLE que el trabajo ya está hecho**
+(«ya está construido», «YA ESTÁ HECHO en el repo», «nada nuevo»). No hace falta juicio para
+encontrarlas — el que escribió el detalle ya lo dijo.
+
+⚠️ **Y ojo con el proxy fácil:** buscar los títulos que empiezan con «decidir / definir /
+evaluar» cazó **13 de 248 (5%)**, y eso NO significa que el problema no esté: significa que
+el patrón que se mide es el que uno mismo acaba de crear. Lo que encuentra el resto es mirar
+proyecto por proyecto con las tres preguntas, con la fuente al lado.
+
 # Un tablero auditado contra SÍ MISMO reproduce sus propios errores
 
 El `detalle` de un proyecto, su `score_razon` y su «Qué falta» son un DOCUMENTO FECHADO:
