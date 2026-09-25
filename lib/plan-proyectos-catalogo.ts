@@ -144,6 +144,10 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Landing Generator', emoji: '🧱', familia: 'producto', que: 'El generador de landing pages: estructura, secciones y copy de una landing para el cliente.' },
   { nombre: 'Competitor Spy', emoji: '🕵️', familia: 'producto', que: 'El análisis de competencia: qué anuncia la competencia, qué ofertas hay en el mercado. (Se llamaba Market Analyst.)' },
   { nombre: 'Offer Analyst', emoji: '🏷️', familia: 'producto', que: 'El analista de la oferta del cliente: precio, promesa, garantía y qué la hace comprable.' },
+  // Offer ANALYST y Offer GENERATOR son dos features distintas, igual que Landing Analyst y
+  // Landing Generator: una mira la oferta que YA existe y la otra la PRODUCE. Decisión de
+  // Martín del 25/09/2026, y entra en la fase 1.2.
+  { nombre: 'Offer Generator', emoji: '📜', familia: 'producto', que: 'El generador de la oferta del cliente: entrega un DOCUMENTO con la promesa, el paquete, el precio, la garantía y para quién es — que se lee dentro de MaKo y se puede descargar. No es el Offer Analyst: aquél puntúa la oferta que ya existe, éste la escribe.' },
   { nombre: 'Chat Analyst', emoji: '💭', familia: 'producto', que: 'El analista de las conversaciones: dónde se caen los chats, qué objeción aparece, qué responde mejor.' },
   // Estaba en el tablero con 5 tareas y NO en el catálogo: un proyecto huérfano al que
   // el ruteo no puede mandar nada, así que su trabajo se iba a desparramar solo.
