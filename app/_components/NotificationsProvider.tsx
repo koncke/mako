@@ -275,7 +275,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setToast(null);
     noOfLeidoRef.current.set(chatJid, noOfSnapRef.current.get(chatJid) ?? Date.now());
     guardarLeidoEmpresa(noOfLeidoRef.current);
-    router.push(`/whatsapp?canal=empresa&n=${Date.now()}`);
+    router.push(`/whatsapp?canal=no-oficial&n=${Date.now()}`);
   };
 
   const setOpenChat = (id: string | null) => { openChatRef.current = id; };

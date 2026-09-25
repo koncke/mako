@@ -1342,7 +1342,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                         </span>
                       </button>
 
-                      <a href={`/whatsapp?canal=empresa&chat=${encodeURIComponent(c.jids[0] ?? '')}`} target="_blank" rel="noreferrer"
+                      <a href={`/whatsapp?canal=no-oficial&chat=${encodeURIComponent(c.jids[0] ?? '')}`} target="_blank" rel="noreferrer"
                         title="Abrir el chat" aria-label={`Abrir el chat con ${nombre}`}
                         style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)' }}>
                         <Icon name="whatsapp" size={14} />

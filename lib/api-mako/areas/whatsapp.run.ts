@@ -401,7 +401,7 @@ export const RUNNERS: Runners = {
       return json({
         pendientes, devueltos: lista.length,
         ...(pendientes > lista.length ? { advertencia: `Hay ${pendientes} pendientes y se listan los ${lista.length} más viejos.` } : {}),
-        url_bandeja: `${APP_BASE_URL}/whatsapp?canal=empresa`,
+        url_bandeja: `${APP_BASE_URL}/whatsapp?canal=no-oficial`,
         borradores: lista.map((b) => ({ id: b.id, lead_id: b.leadId, lead_nombre: b.leadNombre, telefono: b.telefono, texto: corto(b.texto, 800), origen: b.origen, secuencia_id: b.secuenciaId, paso: b.paso, creado: b.createdAt })),
       });
     },
@@ -684,7 +684,7 @@ export const RUNNERS: Runners = {
       // ESA; si no, la cola. EmpresaInbox, con un ?chat= que no está en su lista, abre
       // la primera conversación: la de OTRA persona, al lado del borrador.
       const chat = await chatEmpresaPorUltimos10(u10);
-      const url = chat ? `${APP_BASE_URL}/whatsapp?canal=empresa&chat=${encodeURIComponent(chat.chatJid)}` : `${APP_BASE_URL}/whatsapp?canal=empresa`;
+      const url = chat ? `${APP_BASE_URL}/whatsapp?canal=no-oficial&chat=${encodeURIComponent(chat.chatJid)}` : `${APP_BASE_URL}/whatsapp?canal=no-oficial`;
       // crearBorrador sin inscripción inserta a secas: un reintento apilaría el mismo
       // mensaje dos veces. Un borrador idéntico pendiente es LA propuesta.
       const igual = await borradorPendienteIgual(u10, texto);

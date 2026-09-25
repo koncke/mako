@@ -152,7 +152,7 @@ async function proponerBorrador(input: In, tipo: Tipo) {
   // con un ?chat= que no está en su lista, EmpresaInbox abre la PRIMERA conversación,
   // la de otra persona, al lado del borrador. Se abre la real o la cola.
   const chat = tel.length >= 10 ? await chatEmpresaPorUltimos10(tel.slice(-10)) : null;
-  const url = chat ? `${APP_BASE_URL}/whatsapp?canal=empresa&chat=${encodeURIComponent(chat.chatJid)}` : `${APP_BASE_URL}/whatsapp?canal=empresa`;
+  const url = chat ? `${APP_BASE_URL}/whatsapp?canal=no-oficial&chat=${encodeURIComponent(chat.chatJid)}` : `${APP_BASE_URL}/whatsapp?canal=no-oficial`;
   // crearBorrador inserta a secas: un reintento apilaría el mismo aviso dos veces.
   const ya = await borradorIgual(cliente.id, marca, clases);
   if (ya) return { id: String(ya.id), url, nueva: false };

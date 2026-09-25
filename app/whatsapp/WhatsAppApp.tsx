@@ -378,11 +378,33 @@ function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
   useEffect(() => () => setOpenChat(null), [setOpenChat]);
 
-  // Deep-link ?canal=empresa (desde el pop-up del canal no oficial) → abrir el
-  // inbox no oficial en la sección Conversaciones.
+  /**
+   * El canal vive en la URL, y la URL se ACTUALIZA al cambiar de canal.
+   *
+   * Los dos inbox comparten la ruta /whatsapp, así que sin esto la barra de direcciones decía
+   * lo mismo estando en uno o en el otro: copiar el link y mandárselo a alguien lo dejaba
+   * siempre en el oficial. Ahora `?canal=oficial` / `?canal=no-oficial` es el link correcto.
+   *
+   * `empresa` se sigue aceptando: es el valor que usan los avisos y los links ya mandados.
+   */
   useEffect(() => {
-    if (searchParamsWA.get('canal') === 'empresa') setCanal('empresa');
+    const c = searchParamsWA.get('canal');
+    if (c === 'empresa' || c === 'no-oficial' || c === 'no_oficial') setCanal('empresa');
+    else if (c === 'oficial') setCanal('oficial');
   }, [searchParamsWA]);
+
+  const irACanal = useCallback((c: 'oficial' | 'empresa') => {
+    setCanal(c);
+    const p = new URLSearchParams(searchParamsWA.toString());
+    p.set('canal', c === 'empresa' ? 'no-oficial' : 'oficial');
+    // `chat`, `lead` y `tpl` son «abrí ESTO», y lo que se abre pertenece al canal del que se
+    // está saliendo: arrastrarlos al otro canal reabriría una conversación que no está ahí.
+    // `n` es el cache-buster de los avisos y no tiene por qué viajar en un link que se comparte.
+    for (const k of ['chat', 'lead', 'tpl', 'stab', 'n']) p.delete(k);
+    // `replace` y no `push`: alternar entre los dos canales no tiene que llenar el historial
+    // de pasos que el botón «atrás» después hay que deshacer uno por uno.
+    router.replace(`/whatsapp?${p.toString()}`, { scroll: false });
+  }, [router, searchParamsWA]);
 
   // Reloj para el contador de la ventana de 24h (cada 30s alcanza).
   useEffect(() => {
@@ -894,13 +916,13 @@ function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
             El boton ES el indicador: titila en rojo cuando ese canal esta caido, y al
             entrar se abre su pantalla de conexion (el QR grande, en el no oficial). */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-          <button onClick={() => { if (canal === 'oficial' && oficialProblema) setModalOficial(true); else setCanal('oficial'); }}
+          <button onClick={() => { if (canal === 'oficial' && oficialProblema) setModalOficial(true); else irACanal('oficial'); }}
             title={oficialProblema ? 'La detección de respuestas no está activa — toca para arreglarla' : 'Número oficial de Meta: el verificado, para el tráfico frío de los anuncios'}
             className={oficialProblema ? 'mk-tab-alarma' : undefined}
             style={{ ...(canal === 'oficial' ? tabActive : tabIdle), ...(oficialProblema ? avisoRojo : null), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}
           </button>
-          <button onClick={() => { if (canal === 'empresa' && canalNoOficial === 'conectado') setModalNoOficial(true); else setCanal('empresa'); }}
+          <button onClick={() => { if (canal === 'empresa' && canalNoOficial === 'conectado') setModalNoOficial(true); else irACanal('empresa'); }}
             title={noOficialOk ? 'El número que usa el chatbot. Tócalo de nuevo para sincronizar, desconectar o borrar el historial.' : 'Tu WhatsApp no oficial está desconectado: el chatbot no manda nada. Entra para volver a vincularlo.'}
             className={noOficialOk ? undefined : 'mk-tab-alarma'}
             style={{ ...(canal === 'empresa' ? tabActive : tabIdle), ...(noOficialOk ? null : avisoRojo), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
