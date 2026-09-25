@@ -2711,3 +2711,34 @@ voz habla y se apaga al terminar.
   anuncios». ⚠️ Con su trampa medida: `video-generator.costo-clip` vale **150 en
   ws1** por un bug del lote, así que hay que leerlo por `costoPorClip()` —que lo
   descarta— y nunca la key cruda.
+
+
+## El «¿seguro?» se dibujaba DETRÁS del modal que lo abrió, y con eso una acción destructiva no se podía completar
+
+**Vive en:** `app/_ui/Confirm.tsx` (`Z_CONFIRM`) · `tests/confirm-encima-de-modales.test.ts`
+
+`Z_CONFIRM` era 500, con un comentario correcto: «por encima de cualquier modal de la pila»
+(`app/_components/pila-modales.ts`, `Z_BASE = 130` + niveles). El problema es lo que la frase NO
+cubría: **los modales escritos a mano no pasan por la pila y eligen su z-index solos.** Medido el
+25/09/2026 barriendo `app/`: /whatsapp usa 1000, la bandeja de empresa hasta 2500, /email 1000,
+la ficha del lead del CRM 1000 y /perfil 3000. En todos ellos el confirm quedaba debajo, y el
+síntoma es de los peores: **el fondo oscuro del confirm SÍ se ve**, así que parece que la app se
+colgó, no que falte un clic en otro lado.
+
+**No era cosmético.** El único camino para recuperar una línea de WhatsApp desvinculada (403) es
+«Desconectar» y volver a vincular, y ese botón confirma desde el modal de z-index 1000: la línea
+de Mauricio llevaba 22 días caída con su chatbot venciendo el domingo. La otra acción atrapada
+era «borrar el historial» de la bandeja.
+
+**La regla que queda: un confirm no es un modal más, es la pregunta de la acción que estás por
+hacer, y va arriba de TODO overlay.** Hoy `Z_CONFIRM = 3500`: arriba del techo de modales medido
+(3000) y abajo de los carteles flotantes y del login (4000 y 9999), que no tapan una pregunta
+centrada a pantalla completa.
+
+⚠️ **Y el guard barre el árbol, no lleva una lista.** `tests/confirm-encima-de-modales.test.ts`
+busca los overlays de pantalla completa (`position: 'fixed'` + `inset: 0` + su `zIndex`) en todo
+`app/` y falla si alguno llega al z-index del confirm. La prueba de que una lista no servía: al
+romperlo a propósito aparecieron DOS archivos más de los tres que había encontrado a mano.
+
+*(25/09/2026, auditando el proyecto del Chatbot: el bug estaba cargado como una tarjeta de 18
+puntos sobre 100 y era el candado del entregable de esa semana.)*

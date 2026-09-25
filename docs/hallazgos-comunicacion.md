@@ -5105,3 +5105,63 @@ preguntá si ese campo varía entre dos eventos del mismo tipo; si es una consta
 catálogo, el resumen no resume, enumera.
 
 **Vive en:** lib/avisos-agrupables.ts (`lineaDeAviso`) · lib/avisos.ts (`emitirDelCatalogo`) · tests/avisos-agrupables.test.ts · *2026-09-23*
+
+
+## La post-agenda mandaba «llegá con contexto» DESPUÉS de la reunión, y el chatbot nunca mandó un solo mensaje
+
+Auditoría del proyecto «Agente: Chatbot» contra el código y producción (25/09/2026, 28 agentes:
+17 miden una tarjeta cada uno, 4 refutan los «ya está hecho», 3 juzgan prioridad con lentes
+distintas, 1 consolida, 2 buscan lo que no tiene tarjeta, 1 critica la corrida).
+
+**Vive en:** `lib/nutricion.ts` (el loop de `procesarEnvios`) · `lib/nutricion-familias.ts`
+(`preparaUnaReunion`) · `lib/chat-agent-handoff.ts:78` · `lib/canal-vigilante.ts:100` ·
+`lib/evolution.ts:238-251` · `tests/reunion-ya-paso.test.ts`
+
+⚠️ **UN REINTENTO DIARIO CONVIERTE UN MENSAJE A TIEMPO EN UN MENSAJE TARDE.** La guarda «sin
+reunión futura no hay nada que mandar» existía, pero solo para el paso con `ancla: 'reunion'`.
+Los pasos de la post-agenda NO están anclados: salen 1 h y 24 h después de AGENDARSE. Con la
+línea caída, cada fallo reprogramaba +24 h, y los dos únicos leads en cola de todo el sistema
+—de Mauricio, secuencia 213— terminaron con la reunión el 23/09 y el 25/09 a las 20:00 y el
+audio programado para el 25/09 a las 21:00. El mensaje que iban a recibir, con la voz del
+dueño: «te dejo el video para que llegues con contexto». Arreglado (277dac8d): la pregunta por
+la reunión cubre la familia entera, no solo el paso que la declara.
+
+**La regla que queda: un envío que habla de un MOMENTO tiene que re-preguntar por ese momento al
+salir, no al programarse.** Y el corolario, que es el que no se ve: mientras el canal está
+caído, el reintento conserva el texto del mensaje pero no su sentido.
+
+⚠️ **«Termina en borrador» era falso: termina en SILENCIO.** El reporte del 20/09 y el detalle de
+tres tarjetas afirmaban que cuando un lead contesta, MaKo redacta y deja un borrador para
+aprobar. Medido: `asistirRespuesta` llama a `clasificarEscenario` ANTES de redactar, y el
+clasificador es fail-closed (`lib/chat-agent-handoff.ts:78`: sin escenarios, `encaja: false`).
+Las cuatro secuencias de ws1 (212, 213, 198, 199) tienen **cero escenarios**, y
+`chat_agent_handoffs` tiene **cero filas**. O sea: el camino asistido nunca corrió, y no por
+falta de inscripciones, sino por dos candados en serie, de los que el repo documentaba uno.
+Consecuencia de prioridad: la tarjeta de cargar los escenarios tenía score 3 sobre 100 y es el
+portón de todo el entregable conversacional (hoy 88).
+
+⚠️ **El chatbot no mandó UN mensaje en toda su vida, y nadie lo sabía.** `nutricion_envios` de
+ws1: 12 filas, las 12 en `fallo`. En TODO el producto no hay una sola fila `enviado`. La causa
+de fondo no es la línea caída: es que **las instancias de los CLIENTES no están vigiladas**.
+`lib/canal-vigilante.ts:100` sondea solo la línea de la voz de MaKo, así que la línea de un
+cliente puede estar muerta 22 días y el único rastro es una fila de fallo por día que nadie lee.
+
+**Y recuperar una línea desvinculada (403) no es escanear el QR.** `conectar()`
+(`lib/evolution.ts:238-251`) sobre una instancia que ya existe pide `/instance/connect`, que en
+una sesión zombi devuelve `base64: null`: el modal dice «conectando» y no muestra nada. El único
+camino que funciona es `desconectar()` (logout + delete) y volver a conectar, y eso no lo dice
+ninguna pantalla. La línea de MaKo tiene esa rotación desde el 11/09
+(`lib/mako-canal.ts:212-258`); las de los clientes no. Peor: el botón «Desconectar» pedía una
+confirmación que se dibujaba DETRÁS del modal (ver `hallazgos-ui.md`), así que **la línea de un
+cliente no se podía recuperar desde la app**. Las dos cosas se arreglaron el 25/09; la
+recuperación en un clic quedó como tarjeta #785.
+
+**Lo que quedó SIN hacer**, con su tarjeta: vigilar la línea del cliente (#784), la recuperación
+en un clic (#785), prender la bienvenida con tope de antigüedad y resolver que la secuencia
+SEMBRADA #1 comparte trigger con la #198 —hoy un lead nuevo entraría a las dos y recibiría el
+audio más los tres textos— (#786), decidir si la respuesta redactada sale sola (#787), que MaKo
+pueda contestar más de una vez por lead (#788: `pausarPorRespuesta` solo mira inscripciones
+`activa`, así que el segundo mensaje del lead no dispara nada), rescatar a los 5 agendados con
+la inscripción cerrada y cero envíos (#789) y la cohorte del residuo (#790).
+
+*(Corrida del 25/09/2026, auditando el proyecto contra el reporte de accionables del 20/09.)*

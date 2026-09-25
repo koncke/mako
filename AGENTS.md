@@ -1629,6 +1629,30 @@ lo abrió el cron, lo abrió `app/integraciones/page.tsx` al dibujarse. Un cron 
 siempre y deja log; una escritura colgada de un render depende de que alguien haya
 mirado, así que no queda ningún rastro de por qué empezó ese día y no otro.
 
+# Un mensaje que habla de un MOMENTO se re-pregunta al salir, no al programarse
+
+Un reintento conserva el texto del mensaje, no su sentido. «Te dejo el video para que llegues
+con contexto» es verdad cuando se programa y mentira cuando sale dos días después de la reunión
+— y la cola no se entera, porque para ella es la misma fila esperando.
+
+Medido el 25/09/2026 en el ws 1. Con la línea de WhatsApp caída 22 días, cada fallo reprogramaba
+el envío +24 h. Los dos únicos leads en cola de todo el producto terminaron con la reunión el
+23/09 y el 25/09 a las 20:00 y su primer audio programado para el 25/09 a las 21:00: una
+preparación que llegaba después de la llamada, con la voz del dueño.
+
+La guarda «sin reunión futura no hay nada que mandar» ya existía… para el paso con
+`ancla: 'reunion'`. Y los pasos de la post-agenda NO están anclados: salen 1 h y 24 h después de
+AGENDARSE, así que no la tocaban. **Una guarda no cubre a los pasos que HABLAN de la condición,
+sino a los que la DECLARAN** — y esos dos conjuntos casi nunca son el mismo.
+
+- **Preguntá qué condición hace falsa al mensaje** (la reunión pasó, el lead ya pagó, el anuncio
+  ya se aprobó) y volvé a evaluarla en el momento del envío, no solo al encolar.
+- **Si la condición ya no vale, cerrá sin mandar y sin dejar `proximo_envio_at`**: un reintento
+  es lo que produjo el atraso, así que reintentar lo empeora.
+- **El alcance va por PROPÓSITO, no por campo declarado.** Acá: `preparaUnaReunion(trigger)` en
+  `lib/nutricion-familias.ts` cubre la familia entera de la post-agenda, y el guard de
+  `tests/reunion-ya-paso.test.ts` falla si el motor vuelve a mirar solo `paso.ancla`.
+
 # Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
 
 Un mensaje de error puede explicar la causa. Lo que no puede es **traer la causa

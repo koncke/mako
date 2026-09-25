@@ -3876,3 +3876,37 @@ día. Para «¿qué falta?» sirve —enumera pendientes con su cita—; para «
 porque no se entera de la sesión en la que se descartó la mitad.
 
 **Vive en:** accionables-mako-20-sep.html · `plan_proyectos.detalle` · *2026-09-25*
+
+
+## Auditar un tablero: el score se ve, el avance miente, y las tarjetas que un reporte cita se borran
+
+De auditar «Agente: Chatbot» (25/09/2026, 28 agentes) contra el reporte de accionables del 20/09.
+Tres cosas que valen para cualquier auditoría del board, no solo para esa.
+
+⚠️ **LAS 17 TARJETAS ABIERTAS DECÍAN 0% DE AVANCE. EL RANGO REAL ERA 0 A 90%.** Nadie escribe
+`progress` cuando avanza: se escribe el score, y el avance queda en cero para siempre. Con eso el
+tablero afirma que no se hizo nada sobre trabajo terminado hace seis semanas (una tarjeta medida
+al 90%, con su commit y sus 7 tests) y el dueño no tiene forma de ver dónde está parado.
+**Regla: una auditoría que solo repriorice deja la mentira intacta — hay que escribir el avance
+medido, con la evidencia en el historial.**
+
+⚠️ **NINGUNA de las 17 se pudo cerrar, y dos parecían cerradas.** Los dos «ya está hecho» que
+sobrevivieron a la medición cayeron en la refutación: en un caso el arreglo cubría el síntoma
+declarado pero el estado corrupto seguía vivo en dos workspaces (un paso marcado no se
+re-verifica nunca), en el otro el mismo reproductor seguía roto por otro camino. **Vale el costo:
+cerrar una tarjeta que sigue rota es lo que hace que el dueño deje de revisar el board.**
+
+⚠️ **UN REPORTE QUE CITA NÚMEROS DE TAREA SE VENCE.** El reporte del 20/09 mandaba a cinco
+tarjetas (#505, #55, #419, #114, #267) que la poda del 23/09 borró. De esas, dos describían
+pendientes reales que quedaron sin dueño. **Regla: al borrar una tarjeta que un documento cita,
+el pendiente se muda o se declara muerto en el mismo movimiento.**
+
+**Y la inversión de prioridad más cara no la encontró ninguna medición por tarjeta: la encontró
+correr la CADENA.** 17 agentes midieron una tarjeta cada uno y ninguno vio que la última de la
+lista (score 3 sobre 100) era el portón de todas las demás: el clasificador es fail-closed y sin
+escenarios cargados el chatbot no contesta nada. Lo vio el crítico de completitud, que preguntó
+qué pasa de punta a punta cuando un lead escribe. **Regla: además de medir cada ítem, alguien
+tiene que recorrer el camino completo del usuario.**
+
+*(La corrida quedó en `docs/hallazgos-comunicacion.md`; acá va solo lo que se aprendió del
+método.)*

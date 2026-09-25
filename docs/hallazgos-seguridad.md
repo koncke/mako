@@ -904,3 +904,23 @@ se lee igual que «se rompió». Son cuatro rutas hoy (`app/crm/[id]`, `app/crm/
 cuatro de una.
 
 **Vive en:** app/analisis/trimestre/page.tsx · lib/workspace.ts (`esWorkspaceDueno`) · *2026-09-10*
+
+
+## Los audios de un cliente apuntaban a los binarios de OTRO: su lead escucharía a Mauricio presentándose
+
+**Vive en:** `lib/clonar-config.ts` · `app/api/onboarding/route.ts:428` (`clonarConfigDelDueno`) ·
+tabla `setting_audios` (`media_path`)
+
+Medido el 25/09/2026 en producción, abriendo las filas que otra medición había citado como prueba
+de lo contrario: `setting_audios` 25, 26 y 27 pertenecen al workspace 4, pero su `media_path`
+empieza con `1/setting-audios/...` —la carpeta del workspace 1— y el transcript dice «te habla
+Mauricio Bustos Eguía». Un lead de ese cliente escucharía al dueño de OTRO negocio presentándose
+con su nombre. Sale del botón «Completar como Mauricio».
+
+**La regla: un id por workspace no prueba aislamiento; lo que hay que mirar es a dónde APUNTA el
+dato.** La medición que lo declaró resuelto verificó la numeración (ids de ws4) y dio por
+verificada la sustancia (el binario). Es el mismo vicio que la refutación viene a cazar, y por
+eso las citas se abren: `#25 ws4 → media_path 1/setting-audios/...`.
+
+Queda como tarjeta #791. El path cruzado entre tenants es lo primero a cortar: el clon no puede
+copiar binarios ajenos ni referenciar la carpeta de otro.
