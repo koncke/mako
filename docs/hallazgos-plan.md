@@ -3795,6 +3795,38 @@ segunda, el día que vence el proyecto no hay nada que mirar salvo el proyecto e
 
 **Vive en:** el board · *2026-09-24*
 
+### ⚠️ Una tarea puede colgar de un módulo que no existe — y el único otro lugar donde ese nombre aparece es un EJEMPLO del prompt que la escribió
+
+**#680 «Desarrollar funcionalidad de OBJETIVOS»** dice, en su detalle: «vinculada al
+**módulo de capacidad operativa**», «vincular los objetivos con los **datos de capacidad
+operativa** del usuario». Ese módulo no existe en el producto. Y las únicas otras dos
+apariciones de la frase en todo el repo son el MISMO ejemplo inventado, dentro del prompt
+que el Perro usa para decidir si abre un proyecto:
+
+```
+lib/mako-guardian.ts:561        «Agregar un módulo de capacidad operativa EN el Focus
+lib/plan-proyecto-necesidad.ts:155   Tracker» no funda «Focus Tracker»…
+```
+
+Las únicas dos tareas del tablero que nombran «capacidad operativa» son **#680 y #681**, y
+las dos salieron del **mismo audio**.
+
+⚠️ **No está medido de dónde salió la frase**, y las dos explicaciones son plausibles: que
+el modelo reciclara el vocabulario de su propio ejemplo al redactar el detalle, o que el
+dueño dijera «capacidad operativa» en el audio. Lo que distingue una de otra es el
+transcript, y no lo miré. Lo que SÍ es seguro, y es lo accionable: **la tarea depende de un
+módulo que no está construido, no está en el catálogo de proyectos y nadie lo está
+haciendo.**
+
+La sospecha vale la pena igual, porque el modo de falla es barato de tener y carísimo de
+ver: **un ejemplo dentro de un prompt es texto que el modelo está leyendo cuando escribe**,
+y si el ejemplo nombra cosas que suenan a features de este producto, puede volver como
+DATO. Es la familia de «el fuente y lo que se sirve no son el mismo texto», del lado de la
+entrada. Al escribir un ejemplo en un prompt, conviene que nombre algo que **no pueda
+confundirse con una feature real** — y si aparece en la salida, ya se sabe de dónde vino.
+
+**Vive en:** lib/mako-guardian.ts · lib/plan-proyecto-necesidad.ts · *2026-09-24*
+
 ### Lo que aprendió la corrida sobre el MÉTODO
 
 - **Donde las dos vías coincidieron, acertaron.** Los agentes marcaron #632, #681, #635,
