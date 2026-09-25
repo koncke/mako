@@ -43,8 +43,8 @@ import { Button } from './Button';
  * nulo—, y ese botón pide confirmación desde un modal de z-index 1000. Con el cartel detrás,
  * la línea de un cliente no se puede recuperar desde la app. La de Mauricio lleva así 22 días.
  *
- * 3500 = arriba del techo de modales medido en el repo (3000: MakoConfirmGate,
- * DestinatariosModal) y abajo de los carteles flotantes y del login (4000 y 9999), que no
+ * 3500 = arriba del techo de modales medido en el repo (3000: DestinatariosModal,
+ * PanelAgencia) y abajo de los carteles flotantes y del login (4000 y 9999), que no
  * tapan una pregunta a pantalla completa.
  */
 const Z_CONFIRM = 3500;

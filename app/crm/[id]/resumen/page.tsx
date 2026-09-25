@@ -13,7 +13,7 @@
 //  2. UNA COLUMNA. Nada de tabs, nada de tarjetas al costado: en un teléfono
 //     una segunda columna es una fila más abajo que nadie ve.
 //  3. SIN CHROME. El sidebar no tiene tratamiento móvil y `MakoConfirmGate`
-//     dispara un modal bloqueante en todo /crm — los dos se desmontan acá vía
+//     suma su tarjeta de cambios en todo /crm — los dos se desmontan acá vía
 //     `esVistaSinChrome` (app/_components/PublicRouteGate.tsx).
 //
 // No gasta un peso de IA: todo sale de lo ya analizado (ver lib/lead-resumen.ts).

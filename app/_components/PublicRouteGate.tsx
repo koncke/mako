@@ -36,8 +36,9 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
  * El caso que lo trajo: el link que MaKo manda por WhatsApp antes y después de
  * cada reunión se abre EN EL CELULAR, con la reunión por empezar. Ahí el sidebar
  * se come el ancho (no tiene tratamiento móvil: el riel es fijo) y, peor,
- * `MakoConfirmGate` dispara su modal bloqueante en todo `/crm*` — así que la
- * pantalla que existe para leerse de un vistazo arrancaba tapada.
+ * `MakoConfirmGate` tapaba `/crm*` entero con un modal bloqueante — así que la
+ * pantalla que existe para leerse de un vistazo arrancaba tapada. Ese modal ya no
+ * bloquea (25/09), pero su tarjeta tampoco pinta acá: esta vista es para leer.
  */
 export function esVistaSinChrome(pathname: string | null | undefined): boolean {
   const p = pathname ?? '';
