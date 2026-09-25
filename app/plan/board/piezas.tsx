@@ -33,8 +33,10 @@ export const MODAL_DETALLE = 820;
  * no pueden verse distinto.
  *
  * «Que la sidebar derecha sea un poco más angosta» (25/09/2026). El número NO se elige a
- * ojo: lo fija el formulario de «+ Agregar» de `DependenciasBloque`, que ahora vive en
- * esta columna en las dos pantallas. El elemento más ancho de ahí adentro es el botón
+ * ojo: lo fija el formulario que abre el LÁPIZ de `DependenciasBloque`, que ahora vive en
+ * esta columna en las dos pantallas. (Ese botón fue «+ Agregar» hasta el 25/09/2026 y pasó
+ * a ser el mismo lápiz que «PROYECTOS ✎»; el formulario que abre, y por lo tanto el NÚMERO,
+ * no cambiaron.) El elemento más ancho de ahí adentro es el botón
  * «Sí — no se puede empezar antes» (≈199px con su padding, a 12.5px), y el ancho útil
  * dentro del formulario es `COL_DER − 36` (el padding de la columna) `− 26` (el borde y
  * el padding del propio formulario). Con 264 quedan 202: entra.
@@ -62,15 +64,27 @@ export const COL_DER = 264;
  *   − 2  el borde de la caja de la tabla (`cajaStyle`)
  *   − 3  colchón, porque con el zoom puesto los anchos son fraccionarios
  *
- * ⚠️ EL QUE CEDE ES EL TÍTULO, y es una decisión, no un descuido: las otras cuatro
- * columnas visibles adentro de un proyecto suman 384 fijos (34 selección + 124 prioridad
- * + 150 deadline + 76 acciones), así que al título le quedan ~112px y se recorta con «…»
- * —el texto entero sigue en su `title`—. «Intenta evitar al MÁXIMO el scroll… pero que se
- * siga entendiendo todo» (25/09/2026) son dos pedidos que acá se cruzan, y el corte se
- * eligió del lado de no scrollear.
+ * ⚠️ ESTO ES UN TECHO, NO EL PISO DE LA TABLA — y cambió el 25/09/2026, después de que la
+ * barra horizontal volviera con la tabla declarando exactamente este número. Declarar como
+ * piso el ancho DISPONIBLE no deja margen para nada: el zoom achica el modal, una palabra
+ * más larga estira su columna, un borde nuevo suma 2px, y la barra reaparece «sin que nadie
+ * tocara nada». El piso lo declara la tabla como la SUMA DE LO QUE SUS COLUMNAS PIDEN
+ * (`ANCHO_MINIMO`, en Tablas.tsx: 444 adentro de un proyecto) y usa este número sólo para
+ * toparse: `Math.min(ANCHO_MINIMO, ANCHO_TABLA_EN_PROYECTO)`. Los 52px de diferencia son el
+ * aire, y son la razón por la que no hay barra.
+ *
+ * ⚠️ EL QUE CEDE ES EL TÍTULO, y es una decisión, no un descuido. «Intenta evitar al MÁXIMO
+ * el scroll… pero que se siga entendiendo todo» (25/09/2026) son dos pedidos que acá se
+ * cruzan, y el corte se eligió del lado de no scrollear: el título se recorta con «…» en
+ * dos líneas y el texto entero sigue en su `title`.
  *
  * ⚠️ SI EL TÍTULO QUEDA DEMASIADO CORTO, EL LEVER ES `COL_DER` O EL PADDING DE LA COLUMNA
  * — no volver a subir este número, que es lo que reinstala la barra horizontal.
+ *
+ * ⚠️ Y NO SE COPIAN ACÁ LOS ANCHOS DE LAS COLUMNAS. Estuvieron («34 selección + 124
+ * prioridad + 150 deadline + 76 acciones»), los cuatro se movieron en Tablas.tsx el mismo
+ * día, y este comentario quedó afirmando una suma que ya no existía. Viven en `C_SEL`,
+ * `C_PRIO`, `C_FECHA` y `C_ACC`, que es donde se usan.
  */
 export const ANCHO_TABLA_EN_PROYECTO = MODAL_DETALLE - 2 - COL_DER - 44 - 9 - 2 - 3;
 

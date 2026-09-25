@@ -70,8 +70,34 @@ export function mdAHtml(texto: string): string {
   return out.join('');
 }
 
-export function RichText({ value, onChange, placeholder, style }: {
+/**
+ * LA SEÑAL DE FOCO DE UN CAMPO DE TEXTO DEL DETALLE, Y ES UNA SOLA.
+ *
+ * «No tiene que aparecer ningún recuadro de texto, tal cual como la descripción, que no
+ * parezca un input que esté flotando el título» (25/09/2026). Lo que había en el título
+ * —borde gris al pasar el mouse, fondo `--surface-2` al enfocar, todo con `borderRadius`—
+ * es literalmente un recuadro, y el doc de al lado no tenía ninguno: las dos cosas se
+ * editan igual y se veían distinto.
+ *
+ * ⚠️ PERO UN CONTROL SIN NINGUNA SEÑAL DE FOCO ES INACCESIBLE POR TECLADO. Así que no se
+ * saca la señal: se saca la CAJA. Queda una barra de 2px en el borde izquierdo, que es la
+ * misma pieza que ya marca el margen del doc, no un rectángulo alrededor del texto.
+ *
+ * Y vive ACÁ, exportada, para que el título y el doc usen el MISMO valor: dos campos que
+ * se editan igual no pueden señalar el foco de dos maneras. El `:focus` de abajo la aplica
+ * al editor; el título la escribe con este mismo string.
+ */
+export const FOCO_BARRA = 'inset 2px 0 0 var(--primary)';
+
+export function RichText({ value, onChange, placeholder, style, encabezados = false, onFormato }: {
   value: string; onChange: (html: string) => void; placeholder?: string; style?: CSSProperties;
+  /** dibuja el botón que convierte el renglón del cursor en ENCABEZADO (y al revés). Sólo
+   *  lo pide el doc del detalle: en una nota no hay nada que plegar. */
+  encabezados?: boolean;
+  /** avisa que el botón de arriba tocó la estructura, para que quien decora el plegado
+   *  vuelva a pasar. Trae el texto del encabezado RECIÉN CREADO (o `null` al quitarlo):
+   *  sin eso, el encabezado nuevo nace plegado y esconde lo que se está escribiendo. */
+  onFormato?: (encabezadoNuevo: string | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
@@ -94,21 +120,70 @@ export function RichText({ value, onChange, placeholder, style }: {
     if (html !== value && html !== mdAHtml(value || '')) onChange(html);
   };
   const cmd = (c: string) => { document.execCommand(c, false); ref.current?.focus(); };
+
+  /**
+   * EL BOTÓN QUE CREA UN DESPLEGABLE. «Si es formato, debo poder poner otros desplegables,
+   * de alguna manera» (25/09/2026): hasta hoy los chevrones salían de los encabezados que
+   * YA venían en el texto (los que escribe la extracción) y no había forma de crear uno.
+   *
+   * ⚠️ USA LA MISMA REGLA CON LA QUE `DetalleDoc` RECONOCE UN ENCABEZADO, y por eso emite
+   * un `<h3>` y no una negrita: el reconocedor acepta cualquier `h1-h6` SIN pasar por la
+   * heurística del texto (≤60 caracteres, sin punto ni dos puntos al final). Con una
+   * negrita, un renglón largo o terminado en punto se vería en negrita y no se plegaría
+   * —el creador y el reconocedor diciendo cosas distintas, que es cómo se escribe algo que
+   * no anda y no da ningún error—. Un `<h3>` puesto a mano es una DECLARACIÓN, no una
+   * adivinanza, así que siempre pliega.
+   */
+  const bloqueDelCursor = (): HTMLElement | null => {
+    const ed = ref.current;
+    const sel = window.getSelection();
+    if (!ed || !sel || !sel.anchorNode || !ed.contains(sel.anchorNode)) return null;
+    let n: Node | null = sel.anchorNode;
+    while (n && n.parentNode && n.parentNode !== ed) n = n.parentNode;
+    return n && n.nodeType === 1 && n.parentNode === ed ? (n as HTMLElement) : null;
+  };
+  const alternarEncabezado = () => {
+    const antes = bloqueDelCursor();
+    const eraH = !!antes && /^H[1-6]$/.test(antes.tagName);
+    document.execCommand('formatBlock', false, eraH ? '<div>' : '<h3>');
+    const ahora = bloqueDelCursor();
+    // Al QUITARLO hay que sacarle también la negrita: casi todos los encabezados del
+    // detalle nacen de un `**…**` del markdown, así que un bloque desformateado que sigue
+    // entero en negrita lo vuelve a reconocer la otra mitad de la regla y el botón no
+    // haría nada visible.
+    // Probado ROMPIÉNDOLO en Chrome (25/09/2026) sobre `<div><strong>Por qué</strong></div>`:
+    // con sólo `formatBlock('<div>')` queda `<div><strong>Por qué</strong></div>` y el
+    // reconocedor sigue diciendo que SÍ (el chevrón no se va); con este bloque puesto queda
+    // `<div>Por qué</div>` y dice que NO. Uno y uno.
+    if (eraH && ahora && ahora.querySelector('strong,b') && (ahora.textContent || '').trim() === (ahora.querySelector('strong,b')?.textContent || '').trim()) {
+      const r = document.createRange(); r.selectNodeContents(ahora);
+      const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(r);
+      document.execCommand('bold');
+      sel?.collapseToEnd();
+    }
+    ref.current?.focus();
+    onFormato?.(!eraH && ahora ? (ahora.textContent || '').trim() : null);
+  };
+
   const btn: CSSProperties = { width: 26, height: 24, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontFamily: SANS, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
 
   return (
     <div>
-      <style>{`.mako-rt[contenteditable]:empty:before{content:attr(data-ph);color:var(--faint);pointer-events:none}.mako-rt b,.mako-rt strong{font-weight:700}.mako-rt u{text-decoration:underline}.mako-rt code{font-family:'Geist Mono',monospace;font-size:.9em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}.mako-rt ul{margin:4px 0;padding-left:20px}.mako-rt li{margin:2px 0}`}</style>
+      <style>{`.mako-rt[contenteditable]:empty:before{content:attr(data-ph);color:var(--faint);pointer-events:none}.mako-rt b,.mako-rt strong{font-weight:700}.mako-rt u{text-decoration:underline}.mako-rt code{font-family:'Geist Mono',monospace;font-size:.9em;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}.mako-rt ul{margin:4px 0;padding-left:20px}.mako-rt li{margin:2px 0}.mako-rt h1,.mako-rt h2,.mako-rt h3,.mako-rt h4,.mako-rt h5,.mako-rt h6{font-size:1em;font-weight:700;margin:11px 0 2px;color:var(--ink)}.mako-rt:focus{box-shadow:${FOCO_BARRA}}`}</style>
       {/* mini toolbar: aparece al enfocar */}
       <div style={{ display: 'flex', gap: 5, height: focused ? 30 : 0, opacity: focused ? 1 : 0, overflow: 'hidden', transition: 'height .12s, opacity .12s', marginBottom: focused ? 6 : 0 }}>
         <button type="button" title="Negrita" onMouseDown={(e) => { e.preventDefault(); cmd('bold'); }} style={{ ...btn, fontWeight: 800 }}>B</button>
         <button type="button" title="Subrayado" onMouseDown={(e) => { e.preventDefault(); cmd('underline'); }} style={{ ...btn, textDecoration: 'underline' }}>U</button>
         <button type="button" title="Lista" onMouseDown={(e) => { e.preventDefault(); cmd('insertUnorderedList'); }} style={btn}>•</button>
+        {encabezados && <button type="button" title="Convertir este renglón en desplegable (y al revés)" aria-label="Convertir este renglón en desplegable"
+          onMouseDown={(e) => { e.preventDefault(); alternarEncabezado(); }} style={{ ...btn, width: 'auto', padding: '0 8px', gap: 4, fontWeight: 800 }}>
+          <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M3.4 1.4 L7 5 L3.4 8.6" /></svg>H
+        </button>}
       </div>
       <div ref={ref} className="mako-rt" contentEditable suppressContentEditableWarning role="textbox" aria-multiline
         data-ph={placeholder || 'Escribe aquí…'}
         onFocus={() => setFocused(true)} onBlur={commit}
-        style={{ outline: 'none', border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 14, lineHeight: 1.65, fontFamily: SANS, minHeight: 24, whiteSpace: 'pre-wrap', ...style }} />
+        style={{ outline: 'none', border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 14, lineHeight: 1.65, fontFamily: SANS, minHeight: 24, whiteSpace: 'pre-wrap', paddingLeft: 10, ...style }} />
     </div>
   );
 }

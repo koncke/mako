@@ -4400,3 +4400,139 @@ barra chica adentro del proyecto, el lever es `COL_DER` o el padding de la colum
 volver a subir `ANCHO_TABLA_EN_PROYECTO` — que es lo que reinstala la barra.
 
 **Vive en:** `app/plan/board/piezas.tsx` · `app/plan/board/Tablas.tsx` · `app/plan/board/BoardShell.tsx` · `app/plan/board/EliminarModal.tsx` · `app/plan/board/DependenciasBloque.tsx` · *2026-09-25*
+
+## La CUARTA tanda del mismo día: el gesto que se escribió entero y no se ofrecía (25/09/2026)
+
+Tres paquetes en paralelo, un archivo cada uno (`BoardShell.tsx` · `Tablas.tsx` ·
+`DependenciasBloque.tsx`), sobre nueve pedidos de Martín mirando las capturas del mismo modal.
+
+### El gesto completo que no existía para nadie
+
+El paquete de tablas escribió el arrastre de filas entero —marca de destino, auto-scroll,
+copia que sigue al cursor, número sugerido por la posición— y **`onSoltar` terminó con CERO
+call sites**. El typecheck pasa (la prop es opcional), los tests pasan, y en pantalla no hay
+nada que agarrar. Es «Escribir la salida no es ofrecerla» de AGENTS.md, y lo nuevo es que
+acá **no fue un descuido: fue estructural**. El repartidor le dio a cada agente un archivo, y
+en React la capacidad vive en un archivo y el call site en OTRO — o sea que un reparto por
+archivo *garantiza* que toda prop nueva nazca huérfana, porque el único que podía enchufarla
+tenía prohibido tocar ese archivo.
+
+Lo mismo mordió en la tanda anterior con otra cara (dos paquetes citando el mismo ancho con
+valores distintos), así que son dos rondas seguidas.
+
+- **El que cierra la corrida grepea cada prop nueva y cuenta sus call sites**, antes del
+  commit. Son treinta segundos y es lo único que separa «lo escribí» de «se puede usar».
+- **Y el agente que no puede enchufar su propia salida lo tiene que decir en su reporte, en
+  positivo, con las líneas exactas.** Éste lo hizo («BLOQUEANTE — FALTA EL CALL SITE», con
+  los tres lugares y el código), y por eso el cableado costó minutos en vez de una ronda.
+  Sin ese renglón, un paquete «hecho» con el gesto muerto se commitea sin que nada avise.
+
+### Plegar sobre un `contentEditable` puede BORRAR lo que está plegado
+
+El síntoma de Martín: «saqué los desplegables sin querer borrando 1». Eran dos bugs, y el
+segundo es el irreversible.
+
+- **Lo plegado sigue adentro del editable.** Con `display: none` el cuerpo no se ve y aun así
+  entra en el rango de una selección igual que si estuviera a la vista: con tres encabezados
+  plegados y pegados, la pantalla muestra tres renglones cortos, seleccionarlos de punta a
+  punta y apretar Backspace **se lleva los párrafos escondidos entre ellos**. Sin error, sin
+  rastro, y el editor commitea al blur. Medido: sin guardia **2 párrafos perdidos / 0 eventos
+  frenados**; con guardia **0 perdidos / 2 frenados**, y las partes desplegadas con su texto a
+  la vista para que la persona decida de nuevo.
+- **La guardia es `beforeinput` NATIVA, no de React.** El dato que hace falta —qué rango va a
+  tocar la edición— sale de `getTargetRanges()`, que sólo trae el evento nativo: el sintético
+  de React no lo expone. Va con `addEventListener` y su `removeEventListener`.
+- **Un reconocedor calcado de lo que EMITE tu generador se rompe con la primera edición.** El
+  plegado pedía la forma exacta de `mdAHtml` (`children.length === 1` + un `<strong>`), y
+  Chrome deja formas normales que esa condición no ve: `<strong>X</strong><br>` (lo que queda
+  al borrar hasta el final de un renglón) y `<strong>Por</strong><strong> qué</strong>`
+  (editar en el medio parte el `strong` en dos). La pregunta correcta es la que ve la persona
+  —«¿todo el texto de este bloque está en negrita?»—, no la forma del HTML.
+- **Un `textContent` leído sobre un nodo que vos mismo decoraste incluye tu decoración.** La
+  clave del plegado salía del encabezado YA decorado; hoy el chevron es un `<svg>` y no aporta
+  letras, así que «funcionaba» por casualidad. En el arnés, donde el chevron era un `›`, la
+  clave pasaba a ser `›por que` y la guardia frenaba el borrado **sin desplegar nada** — el
+  peor resultado posible de un bloqueo: para la persona, el gesto «no hace nada».
+- **Si el creador y el reconocedor usan reglas distintas, lo que creás no se pliega y no hay
+  ningún error.** Por eso el botón nuevo emite `<h3>` (una declaración) y el reconocedor
+  acepta cualquier `h1-h6` salteando la heurística de ≤60 caracteres (una adivinanza). Con
+  negrita se vería en negrita y no plegaría, en silencio.
+
+### El arrastre, tres superficies y tres formas de equivocarse
+
+- **`rAF` y los timers están congelados durante un arrastre nativo** — ya está en AGENTS.md y
+  volvió a morder de una forma nueva: esperar con un `requestAnimationFrame` del `dragstart` a
+  que el «Ver más» termine de desplegarse **no corre nunca**. Se mide desde el `dragover`.
+- **La condición que habilita un drop no puede colgar del ESTADO de React.** El primer
+  `dragover` puede llegar antes de que se commitee el render del `dragstart` (los eventos de
+  arrastre son de prioridad continua), y sin `preventDefault()` en ese primer evento el
+  navegador decide que no es un destino válido: el gesto arranca muerto. Va en un `ref`.
+- **Una copia de arrastre no puede ser un `<tr>` clonado.** `position` no aplica a
+  `display: table-row`, así que la copia es un `<div>` fijo con su propia tablita adentro y
+  los anchos de celda clavados en lo medido. Y los `value`/`checked` se copian **a mano**:
+  `cloneNode` copia el ATRIBUTO y React escribe los inputs por PROPIEDAD, así que sin eso la
+  copia viaja con la fecha vacía.
+- **El auto-scroll empuja la caja que SCROLLEA, no la ventana.** La regla de AGENTS.md («va
+  adentro del `dragover`») sigue valiendo y le faltaba la otra mitad: adentro de un modal el
+  que scrollea es un `div` con `overflow-y`, y ahí `window.scrollBy` mueve 0px.
+- **Que una fila sea `draggable` no rompe los botones de adentro, rompe los `<input>`.** Un
+  click sin movimiento no es un arrastre, así que casillas y tachos conviven (ya estaba
+  probado en `CardTile`); con lo que se pelea es con un campo de texto, donde arrastrar
+  significa seleccionar. Se marca ESA celda, no se baja el `draggable` a un agarre chiquito —
+  que además costaría una columna, o sea la barra horizontal de vuelta.
+- **El índice del drop se corre cuando bajás algo dentro de su propia lista.** El índice se
+  mide contra los rectángulos DIBUJADOS, que incluyen a la tarjeta agarrada (al nodo origen no
+  se le toca el tamaño), y el número se calcula contra la lista SIN ella: cada posición de
+  abajo se corre una. Sin el corrimiento, la tarjeta cae un lugar más arriba del hueco que se
+  estuvo viendo todo el arrastre. **El Kanban era el único de las tres superficies que no lo
+  hacía** y se descubrió al escribir las otras dos — la señal fue tener tres implementaciones
+  del mismo gesto y poder compararlas, que es justo lo que la duplicación permite y lo que la
+  duplicación va a hacer divergir.
+
+### El ancho: el piso no es lo que hay, es lo que se pide
+
+La barra horizontal de adentro del detalle de un proyecto se reportó por tercera vez.
+
+- **Declarar como piso el ancho DISPONIBLE es lo que la devuelve.** Una tabla que pide
+  exactamente lo que hay no tiene margen para nada: el zoom achica el modal, una palabra más
+  larga estira su columna, un borde nuevo suma 2px. El piso es la **suma de lo que las
+  columnas piden** (`ANCHO_MINIMO`, 444 adentro de un proyecto) topeada contra lo disponible
+  (`ANCHO_TABLA_EN_PROYECTO`, 496): los 52px de diferencia son la razón por la que no hay
+  barra. `ANCHO_TABLA_EN_PROYECTO` pasó de ser el piso a ser el TECHO.
+- **Un ancho declarado se prueba con el valor MÁS LARGO del conjunto** — otra vez, y esta vez
+  costó la barra: la celda de prioridad estaba declarada en 124 midiendo «Alta/Media/Baja», y
+  «A futuro» pedía ~129, así que la columna se estiraba sola y empujaba la tabla más allá de
+  su `minWidth`. El olor: un `inline-flex` (no puede envolver) con un chip y una palabra.
+- **Dos datos que son el MISMO dato se dicen una sola vez**, y acá eso valía 48px de la
+  columna más apretada del producto: la palabra de la prioridad era `PLABEL[prioFromScore(score)]`,
+  o sea una función pura del número que tenía al lado. Y el que lo delataba estaba a la vista —
+  la tabla de PROYECTOS nunca la había dibujado.
+- **Cambiar la POLÍTICA de un número deja mintiendo al comentario del archivo que lo exporta.**
+  `piezas.tsx` seguía explicando la resta como el piso de la tabla, con los cuatro anchos de
+  columna copiados (34 + 124 + 150 + 76) — los cuatro se movieron el mismo día en `Tablas.tsx`
+  y el comentario quedó afirmando una suma que ya no existía. Los anchos ya no se copian ahí:
+  viven donde se usan.
+
+### Lo que quedó SIN hacer
+
+- **NADA de esto se vio en un navegador**, y es la tercera tanda seguida en la misma
+  situación: bootear local escribe en la Supabase de producción y hay otra sesión sobre este
+  clon. Lo que hay que mirar, en orden: que adentro del detalle de un proyecto no aparezca la
+  barra de abajo al 100% y al 125% de zoom; que un título largo se corte en la segunda línea
+  con «…»; arrastrar una fila y ver la línea de destino y la copia opaca; que al llevar el
+  cursor al borde de abajo la columna scrollee sola; y que empezando el arrastre sobre el
+  `input` de la fecha NO arranque el gesto.
+- **La fila de una tabla sólo se agarra con la tabla ordenada por PRIORIDAD**, y el default de
+  la tabla de proyectos es `deadline`. Con cualquier otro orden la posición entre dos filas no
+  dice ningún número, así que el agarre se apaga y el `title` del encabezado «Prioridad» lo
+  explica — pero lo primero que se ve ahí es una tabla que no se agarra. Si molesta, la
+  decisión es de Martín.
+- **El molde del arrastre quedó escrito dos veces.** `useArrastreCopia` (BoardShell, para el
+  Kanban y la grilla de proyectos) y `useArrastreFilas` (Tablas). Corresponde sacarlos a un
+  `app/plan/board/arrastre-copia.ts` que importen los dos; el reparto por archivo lo impidió.
+  Cuando se haga, llevarse lo que uno tiene y el otro no: el auto-scroll contra la caja que
+  scrollea, y el corrimiento del índice.
+- **El arrastre de filas es sólo con mouse.** `useArrastreTactil` está hecho para columnas
+  (`data-prio`, mide cuatro rectángulos) y no sirve para filas.
+
+**Vive en:** `app/plan/board/BoardShell.tsx` · `app/plan/board/Tablas.tsx` · `app/plan/board/RichText.tsx` · `app/plan/board/DependenciasBloque.tsx` · `app/plan/board/piezas.tsx` · *2026-09-25*

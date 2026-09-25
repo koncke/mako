@@ -39,7 +39,7 @@ import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { BuscadorTareas } from './BuscadorTareas';
 import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
-import { RichText, mdAHtml, stripHtml } from './RichText';
+import { RichText, mdAHtml, stripHtml, FOCO_BARRA } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
@@ -1067,9 +1067,17 @@ export function BoardShell({ board, scope, vistaInicial }: {
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
-          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId} /></div>
+          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId}
+              /* «Que en el formato tabla también pueda arrastrar y cambiar la prioridad»
+                 (25/09/2026). Soltar dice DÓNDE y abre el MISMO pop-up del 1 al 100 que el
+                 Kanban, el lápiz y la grilla de proyectos: la persona dice CUÁNTO.
+                 ⚠️ LA PROP **ES** LA CAPACIDAD (`repo.prioridadManual`): el tablero del
+                 cliente no tiene con qué escribir una prioridad a mano, así que ahí la
+                 tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
+              onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla} />}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
+          onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -1078,7 +1086,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
-        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId}
+        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
         onClose={() => setPeekProjId(null)} />}
       {/* LA AUDIENCIA. Reemplaza a `DebateModal` en el camino del SCORE (la FECHA se sigue
           debatiendo aparte: es otra pregunta). Tres cosas cambian y las tres importan: la
@@ -1118,7 +1126,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
-        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onClose={() => setOpenProj(null)} />}
+        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {/* ⛔ ACÁ SE MONTABA `FechaDebateModal`, y se fue el 23/09/2026 con el botón que lo
           abría: la fecha se cambia en el selector y listo. El archivo queda en el repo —el
@@ -1515,6 +1523,75 @@ const sinDosPuntos = (txt: string) => txt.replace(/\s*:\s*$/, '');
 const claveHead = (txt: string) => sinTilde(sinDosPuntos(txt));
 
 /**
+ * ¿ESTE BLOQUE DEL EDITOR ES UN ENCABEZADO? Devuelve su texto, o `null`.
+ *
+ * ⚠️ ACÁ ESTABA EL BUG DE «SAQUÉ LOS DESPLEGABLES SIN QUERER BORRANDO 1» (25/09/2026).
+ * La condición vieja era `hijo.children.length === 1` y ese único hijo un `<strong>`, o
+ * sea: la forma EXACTA que emite `mdAHtml`. Pero esto se decora sobre el DOM de un
+ * `contentEditable`, donde la persona parte, fusiona y reescribe renglones todo el tiempo,
+ * y Chrome deja formas perfectamente normales que esa condición no reconoce. Medido en
+ * Chrome el 25/09/2026 con el mismo doc de cuatro partes:
+ *
+ *   · `<div><strong>Por qué</strong><br></div>`      → 2 hijos → sin chevrón (y `<br>` es
+ *     lo que Chrome deja al borrar hasta el final de un renglón)
+ *   · `<div><strong>Por</strong><strong> qué</strong></div>` → 2 hijos → sin chevrón
+ *     (editar en el medio de un encabezado parte el `<strong>` en dos)
+ *   · `<h3>Por qué</h3>`                              → el botón del toolbar (pedido 3)
+ *
+ * Ninguna de las tres pierde una letra y en las tres el chevrón desaparecía. La pregunta
+ * correcta no es «¿tiene exactamente un hijo?» sino «¿TODO el texto de este bloque está en
+ * negrita?», que es lo que la persona ve.
+ *
+ * ⚠️ Y UN `h1-h6` NO PASA POR LA HEURÍSTICA de `esEncabezado` (≤60 caracteres, sin punto ni
+ * dos puntos al final). Esa heurística existe para no confundir un párrafo en negrita con
+ * un título; un `<h3>` lo pone el botón del toolbar a propósito, y si el creador y el
+ * reconocedor no usan la misma regla, lo que creás no se pliega y no hay ningún error.
+ * UN SOLO encabezado alcanza: no hay ningún mínimo de dos: eso era de cuando el detalle se
+ * PARTÍA en secciones, y partir en uno no tiene sentido. Poner un chevrón, sí.
+ */
+/**
+ * El texto de un bloque SIN el chevron que le montamos encima.
+ *
+ * ⚠️ Hace falta porque un encabezado YA DECORADO tiene el botón adentro, y `textContent` lo
+ * incluye. Hoy el chevron es un `<svg>` y no aporta ni una letra, así que leer `textContent`
+ * a secas «funciona» — por casualidad: el día que el botón lleve un carácter (un `›`, una
+ * flecha, un contador) la clave del plegado pasa a ser «›por qué» y deja de coincidir con la
+ * que guardó el toggle. Medido el 25/09/2026 en el arnés, donde el chevron SÍ era un `›`: la
+ * guardia frenaba bien el borrado y las partes NO se desplegaban, o sea que para la persona
+ * el gesto «no hacía nada», que es el peor resultado posible de un bloqueo.
+ */
+function textoSinChevron(el: Element): string {
+  return Array.from(el.childNodes)
+    .filter((n) => !(n.nodeType === Node.ELEMENT_NODE && (n as Element).getAttribute('data-mk') === 'c'))
+    .map((n) => n.textContent || '').join('').trim();
+}
+
+function encabezadoDeBloque(hijo: HTMLElement): string | null {
+  // Sin el chevron, por la misma razón que arriba: el texto que sale de acá es la CLAVE con
+  // la que se recuerda si esta parte está plegada.
+  const txt = textoSinChevron(hijo);
+  if (!txt) return null;
+  if (/^H[1-6]$/.test(hijo.tagName)) return txt;
+  let negrita = false;
+  for (const n of Array.from(hijo.childNodes)) {
+    if (n.nodeType === Node.TEXT_NODE) {
+      if ((n.textContent || '').trim()) return null; // texto pelado fuera de la negrita
+      continue;
+    }
+    if (n.nodeType !== Node.ELEMENT_NODE) continue;
+    const el = n as HTMLElement;
+    if (el.tagName === 'BR' || el.getAttribute('data-mk') === 'c') continue;
+    if (/^(STRONG|B)$/.test(el.tagName)) { negrita = true; continue; }
+    // Un envoltorio (span/em/u) cuenta sólo si TODO su texto está adentro de una negrita.
+    const propio = (el.textContent || '').trim();
+    const enNegrita = Array.from(el.querySelectorAll('strong,b')).map((x) => (x.textContent || '').trim()).join('');
+    if (propio && enNegrita === propio) { negrita = true; continue; }
+    return null;
+  }
+  return negrita && esEncabezado(sinDosPuntos(txt)) ? txt : null;
+}
+
+/**
  * Saca la decoración del plegado de un HTML ANTES de guardarlo.
  *
  * ⚠️ EL ORDEN IMPORTA. Los botones se borran enteros PRIMERO, porque se reconocen por su
@@ -1540,7 +1617,10 @@ const CHEVRON_HTML = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidde
 const CSS_DOC = [
   '.mk-doc [data-mk="x"]{display:none}',
   '.mk-doc [data-mk="h"],.mk-doc [data-mk="ho"]{position:relative}',
-  '.mk-doc button[data-mk="c"]{position:absolute;left:-23px;top:.12em;width:19px;height:19px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:transparent;color:var(--faint);cursor:pointer;user-select:none}',
+  // `left:-24px` y no -23: la canaleta pasó a 27px para dejarle los 2 primeros píxeles a
+  // `FOCO_BARRA` (la barra de foco del editor, ver RichText). Sin ese respiro el chevrón
+  // se dibuja encima de la barra y el foco del doc queda tapado justo al escribir.
+  '.mk-doc button[data-mk="c"]{position:absolute;left:-24px;top:.12em;width:19px;height:19px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:transparent;color:var(--faint);cursor:pointer;user-select:none}',
   '.mk-doc button[data-mk="c"]:hover{background:var(--surface-2);color:var(--ink)}',
   '.mk-doc button[data-mk="c"] svg{transition:transform .14s}',
   '.mk-doc [data-mk="ho"] button[data-mk="c"] svg{transform:rotate(90deg)}',
@@ -1600,16 +1680,12 @@ function DetalleDoc({ valor, onChange, placeholder }: { valor: string; onChange:
     let plegando = false;   // ¿venimos escondiendo el cuerpo del encabezado anterior?
     let primero = true;     // el primer encabezado del documento arranca abierto
     for (const hijo of Array.from(ed.children) as HTMLElement[]) {
-      const txt = (hijo.textContent || '').trim();
-      // Un encabezado es un bloque cuyo contenido ENTERO es el nombre en negrita: así lo
-      // emite `mdAHtml` para un `**…**` y así queda cuando alguien lo edita a mano.
-      const uno = hijo.children.length === 1 ? hijo.children[0] : null;
-      const soloNegrita = !!uno && /^(STRONG|B)$/.test(uno.tagName) && (uno.textContent || '').trim() === txt;
-      // ⚠️ Los dos puntos del final se sacan ANTES de preguntar: `esEncabezado` descarta
-      // todo lo que termina en `:` (para no comerse un párrafo introductorio), así que un
-      // «**Lo que ya está decidido:**» —que es como los escribe media extracción— no
-      // llevaría chevron. La partición vieja lo normalizaba en su regex; acá también.
-      if (!txt || !(soloNegrita || /^H[1-6]$/.test(hijo.tagName)) || !esEncabezado(sinDosPuntos(txt))) {
+      // ⚠️ Los dos puntos del final los saca `encabezadoDeBloque` ANTES de preguntar:
+      // `esEncabezado` descarta todo lo que termina en `:` (para no comerse un párrafo
+      // introductorio), así que un «**Lo que ya está decidido:**» —que es como los escribe
+      // media extracción— no llevaría chevron.
+      const txt = encabezadoDeBloque(hijo);
+      if (!txt) {
         if (plegando) hijo.setAttribute('data-mk', 'x');
         continue;
       }
@@ -1634,12 +1710,75 @@ function DetalleDoc({ valor, onChange, placeholder }: { valor: string; onChange:
     }
   }, [base, tocados, pulso]);
 
+  /**
+   * ⚠️ LO QUE ESTÁ PLEGADO NO SE PUEDE BORRAR SIN VERLO. Ésta es la mitad IRREVERSIBLE del
+   * «saqué los desplegables sin querer borrando 1», y se midió en Chrome el 25/09/2026:
+   *
+   * con el doc de cuatro partes y tres de ellas plegadas, la pantalla muestra tres
+   * renglones cortos y pegados («Por qué», «Detalles concretos», «Listo cuando»). Seleccionar
+   * del primero al último —que a la vista es seleccionar tres palabras— y apretar Backspace
+   * se llevó también los DOS párrafos escondidos entre ellos: el cuerpo plegado sigue dentro
+   * del `contentEditable` y entra en el rango igual que si estuviera a la vista. El texto no
+   * lo pierde el plegado ni `sinMarcas` —eso se comprobó y vuelve entero—, lo pierde ESTE
+   * gesto, y no queda ningún rastro de lo que había.
+   *
+   * La cura es la regla de la casa: lo irreversible se muestra ANTES. Si lo que se va a
+   * escribir o borrar toca un cuerpo plegado, el navegador NO lo hace y esas partes se
+   * despliegan. La persona ve aparecer el texto que estaba por borrar y decide de nuevo; un
+   * `deshacer` acá no alcanzaría, porque el editor commitea al blur y lo que se guarda ya
+   * viene sin el texto.
+   *
+   * Va como listener NATIVO y no como `onBeforeInput` de React: lo único que distingue
+   * «Backspace pegado a una parte plegada» de «Backspace en el medio de un renglón» es
+   * `getTargetRanges()`, que sólo trae el evento nativo.
+   *
+   * Probado ROMPIÉNDOLO en Chrome (25/09/2026), con el mismo gesto —clic en «Por qué»,
+   * shift-clic en «Listo cuando», Backspace—: SIN esta guardia se perdieron los 2 párrafos
+   * escondidos y no se bloqueó nada (0 eventos frenados); CON ella, 2 eventos frenados,
+   * 0 párrafos perdidos, y las dos partes quedaron desplegadas con su texto a la vista.
+   */
+  useEffect(() => {
+    const ed = cajaRef.current?.querySelector('.mako-rt') as HTMLElement | null;
+    if (!ed) return;
+    const guardia = (e: Event) => {
+      const ev = e as InputEvent;
+      const st = typeof ev.getTargetRanges === 'function' ? ev.getTargetRanges()[0] : undefined;
+      let rango: Range | null = null;
+      if (st) { rango = document.createRange(); rango.setStart(st.startContainer, st.startOffset); rango.setEnd(st.endContainer, st.endOffset); }
+      else { const s = window.getSelection(); rango = s && s.rangeCount ? s.getRangeAt(0) : null; }
+      if (!rango || rango.collapsed) return;
+      const tapados = Array.from(ed.querySelectorAll('[data-mk="x"]')).filter((n) => rango!.intersectsNode(n));
+      if (!tapados.length) return;
+      e.preventDefault();
+      const claves = new Set<string>();
+      for (const n of tapados) {
+        let p: Element | null = n;
+        while (p && p.getAttribute('data-mk') !== 'h') p = p.previousElementSibling;
+        if (p) claves.add(claveHead(textoSinChevron(p)));
+      }
+      setTocados((prev) => { const m = new Map(prev); claves.forEach((k) => m.set(k, true)); return m; });
+    };
+    ed.addEventListener('beforeinput', guardia);
+    return () => ed.removeEventListener('beforeinput', guardia);
+  }, []);
+
   return (
     <div ref={cajaRef} className="mk-doc" onBlurCapture={() => setPulso((n) => n + 1)}>
       <style>{CSS_DOC}</style>
       {/* El `paddingLeft` es la CANALETA donde vive el chevron: sin él, el botón queda
-          fuera de la caja del editor y lo puede recortar la columna. */}
-      <RichText value={base} placeholder={placeholder} style={{ paddingLeft: 23 }}
+          fuera de la caja del editor y lo puede recortar la columna. Son 27 y no 23 porque
+          los 2 primeros píxeles son de `FOCO_BARRA`. */}
+      <RichText value={base} placeholder={placeholder} style={{ paddingLeft: 27 }}
+        encabezados
+        /* El encabezado recién creado nace ABIERTO: si cayera plegado, el botón escondería
+           el renglón que la persona está escribiendo. El `pulso` es para el caso inverso
+           —quitar el encabezado—, donde no hay clave nueva que anotar y hay que redecorar
+           igual; el toolbar no dispara blur (cancela su `mousedown` para no perder el
+           cursor), así que sin esto la pasada no vuelve a correr. */
+        onFormato={(nuevo) => {
+          if (nuevo) setTocados((prev) => { const m = new Map(prev); m.set(claveHead(nuevo), true); return m; });
+          setPulso((n) => n + 1);
+        }}
         onChange={(html) => {
           const limpio = sinMarcas(html);
           // La misma guarda que `RichText` hace contra `value`, pero sobre el texto limpio:
@@ -2073,6 +2212,20 @@ function FuenteChip({ fuente }: { fuente: Fuente }) {
  * Lo usan la tarea y el proyecto, sin una sola diferencia: «al igual que el formateo de
  * change history, aplica todo en ambos, que no haya discordancia» (25/09/2026).
  */
+/** El chip de origen CON su rótulo. Va junto y no suelto porque el rótulo sin chip no dice
+ *  nada y el chip sin rótulo es lo que se reportó: se dibujan o los dos o ninguno — una
+ *  tarjeta cargada a mano no tiene origen que contar (`FuenteChip` devuelve `null`) y un
+ *  «ORIGEN» solo, colgado al lado del botón, sería un rótulo sin valor. */
+function FuenteRotulada({ fuente }: { fuente: Fuente }) {
+  if (!FUENTE_META[fuente.tipo]) return null; // manual: no hay origen que contar
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      <span style={{ ...rowLabel, marginBottom: 0, flex: 'none' }}>Origen</span>
+      <FuenteChip fuente={fuente} />
+    </span>
+  );
+}
+
 function BloqueHistorial({ n, fuente, children }: { n: number; fuente: Fuente; children: ReactNode }) {
   const [abierto, setAbierto] = useState(false);
   return (
@@ -2088,7 +2241,13 @@ function BloqueHistorial({ n, fuente, children }: { n: number; fuente: Fuente; c
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>
           Movimientos
         </button>
-        <FuenteChip fuente={fuente} />
+        {/* ⚠️ EL CHIP NO SE EXPLICA SOLO. «El origen no sólo el ícono con la palabra, sino
+            que también que diga "Origen" en algún lado, para que se entienda» (25/09/2026):
+            el chip dice «Fathom · Reunión con…» y nada decía que eso ES el origen — al lado
+            de un botón que cuenta movimientos, se lee como un movimiento más. El rótulo usa
+            el mismo `rowLabel` que los campos de la columna derecha (DEADLINE, QUARTER…):
+            un rótulo de campo ya significa eso en esta pantalla, no hace falta uno nuevo. */}
+        <FuenteRotulada fuente={fuente} />
       </div>
       {abierto && <div style={{ marginTop: 12 }}>{children}</div>}
     </div>
@@ -2126,17 +2285,24 @@ const pieAcciones: CSSProperties = { display: 'flex', justifyContent: 'flex-end'
 const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
 /**
- * El título de una tarjeta, editable — SIN el recuadro azul.
+ * El título de una tarjeta, editable — SIN NINGUNA CAJA.
  *
- * «Cuando le doy click al título no debe aparecer el recuadro azul» (25/09/2026): al
- * enfocarse se pintaba un borde `var(--primary)` alrededor.
+ * «No tiene que aparecer ningún recuadro de texto, tal cual como la descripción, que no
+ * parezca un input que esté flotando el título» (25/09/2026). Lo de la tanda anterior
+ * —borde gris al pasar el mouse, fondo `--surface-2` al enfocar, `borderRadius: 9`— era
+ * exactamente eso: un input dibujado alrededor del título, mientras el doc de abajo, que
+ * se edita igual, era texto pelado. Ahora el título ES texto: sin borde, sin fondo, sin
+ * radio, sin padding propio.
  *
- * ⚠️ PERO EL FOCO TIENE QUE SEGUIR VIÉNDOSE. Un control sin ninguna señal de foco es
- * inaccesible por teclado —no se sabe dónde se está escribiendo—, así que lo que se saca
- * es el color, no la señal: al enfocar queda un fondo apenas distinto, y el cursor de
- * texto adentro. Al pasar el mouse, un borde gris, que es lo que dice «esto se edita»
- * (se había reportado como «no se puede cambiar el nombre de una tarea»: se podía, pero
- * un campo sin borde ni fondo se lee como un título impreso).
+ * ⚠️ PERO EL FOCO TIENE QUE SEGUIR VIÉNDOSE — un control sin ninguna señal de foco es
+ * inaccesible por teclado. Lo que se saca es la CAJA, no la señal, y la que queda no es
+ * inventada: es `FOCO_BARRA`, LA MISMA que usa el doc (`RichText`, regla `.mako-rt:focus`).
+ * Dos campos que se editan igual no pueden señalar el foco de dos maneras.
+ *
+ * ⛔ Y NO QUEDA NADA EN EL HOVER. La tanda anterior le había puesto un borde gris al pasar
+ * el mouse, con su porqué escrito («se había reportado como "no se puede cambiar el nombre
+ * de una tarea"»); ese borde es un recuadro y el pedido nuevo lo saca. Lo que queda diciendo
+ * que se edita es el `cursor: text`, el `title` y el placeholder — lo mismo que tiene el doc.
  */
 /*
  * ⚠️ LA TAREA LO MONTA EN UN `<textarea rows={2}>` Y EL PROYECTO EN UN `<input>`, y es la
@@ -2149,11 +2315,9 @@ const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing:
  * es regalar un renglón vacío arriba de todo en el modal que más scroll tiene.
  * `resize: 'none'` es por el `<textarea>`: en el `input` no significa nada.
  */
-const tituloEditable: CSSProperties = { width: '100%', border: '1px solid transparent', borderRadius: 9, outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', padding: '4px 8px', marginLeft: -8, marginBottom: 6, transition: 'border-color .12s, background .12s' };
-const tituloFoco = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.background = 'var(--surface-2)'; };
-const tituloBlur = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; };
-const tituloHover = (e: { currentTarget: HTMLElement }) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'var(--border-strong)'; };
-const tituloSale = (e: { currentTarget: HTMLElement }) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'transparent'; };
+const tituloEditable: CSSProperties = { width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent', boxShadow: 'none', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', cursor: 'text', padding: 0, paddingLeft: 10, marginLeft: -10, marginBottom: 6, transition: 'box-shadow .12s' };
+const tituloFoco = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.boxShadow = FOCO_BARRA; };
+const tituloBlur = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.boxShadow = 'none'; };
 
 // El alta se muestra con una frase que nombra al autor ("Creada por MaKo") en vez
 // del texto crudo. Pero cuando MaKo además dejó asentado QUÉ hizo (todo lo que va
@@ -2252,11 +2416,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', t.id);
         e.dataTransfer.effectAllowed = 'move';
-        try {
-          const vacio = document.createElement('canvas');
-          vacio.width = 1; vacio.height = 1;
-          e.dataTransfer.setDragImage(vacio, 0, 0);
-        } catch { /* si no deja, queda la del navegador y se ve como antes */ }
+        fotoVaciaDeArrastre(e.dataTransfer);
         const r = e.currentTarget.getBoundingClientRect();
         onAgarrar?.(t.id, { nodo: e.currentTarget, dx: e.clientX - r.left, dy: e.clientY - r.top });
       }}
@@ -2516,7 +2676,7 @@ type Insercion = { destino: Prio; idx: number };
  * el pop-up para cambiar la prioridad del 1 al 100» — soltar dice dónde, la persona dice
  * cuánto.
  */
-function scoreEntre(items: BoardTask[], idx: number, destino: Prio): number {
+function scoreEntre(items: { score: number }[], idx: number, destino: Prio): number {
   const arriba = items[idx - 1];
   const abajo = items[idx];
   const clamp = (n: number) => Math.max(1, Math.min(100, Math.round(n)));
@@ -2524,6 +2684,101 @@ function scoreEntre(items: BoardTask[], idx: number, destino: Prio): number {
   if (abajo) return clamp(abajo.score + 2);
   if (arriba) return clamp(arriba.score - 2);
   return scoreFromPrio[destino];
+}
+
+/**
+ * LA FOTO QUE EL SISTEMA OPERATIVO PINTA DETRÁS DEL CURSOR, VACÍA.
+ *
+ * No la gobierna ninguna regla CSS: en Windows Chrome la dibuja translúcida y la ancla
+ * donde quiere, y `setDragImage(nodo)` cambia QUÉ se fotografía, no CÓMO se pinta. Así que
+ * se le pasa una imagen de 1×1 y la copia de verdad la monta `useArrastreCopia`.
+ *
+ * Está acá suelto —y no adentro del hook— porque lo llama el `dragstart` de cada TARJETA y
+ * el hook vive en el contenedor. Lo usan el Kanban y la vista de proyectos: un segundo
+ * `try/catch` copiado es el que se queda sin el `catch` la primera vez que alguien lo toca.
+ */
+function fotoVaciaDeArrastre(dt: DataTransfer) {
+  try {
+    const vacio = document.createElement('canvas');
+    vacio.width = 1; vacio.height = 1;
+    dt.setDragImage(vacio, 0, 0);
+  } catch { /* si no deja, queda la del navegador y se ve como antes */ }
+}
+
+/**
+ * EL MOLDE DEL ARRASTRE CON MOUSE — UNO SOLO PARA TODO EL TABLERO.
+ *
+ * Nació adentro del Kanban y se midió a lo largo de SIETE rondas de reportes; cuando la
+ * vista de proyectos también tuvo que arrastrar (25/09/2026) se extrajo acá en vez de
+ * escribir un segundo. Las cuatro cosas que tiene y por qué, que es lo que costó:
+ *
+ * 1. **La copia la dibujamos nosotros** (`montarCopia`), opaca y nítida, porque la del
+ *    sistema operativo se ve fantasmal y no hay CSS que la toque (ver `fotoVaciaDeArrastre`).
+ * 2. **Se mueve escribiendo `transform` sobre un ref, NUNCA con `setState`.** Un `setState`
+ *    por `dragover` redibuja el tablero 60 veces por segundo, que es el bug que hizo que el
+ *    arrastre se sintiera roto tres rondas seguidas.
+ * 3. **El listener va en `document` y EN CAPTURA.** El `dragover` de las columnas no cubre
+ *    los huecos entre ellas ni el fondo de la página, y ahí la copia se queda clavada.
+ * 4. **El auto-scroll va adentro del `dragover`.** Medido el 23/09/2026: mientras Chrome
+ *    corre su bucle nativo de arrastre no entrega frames de animación **ni corre los
+ *    timers** — sobre `requestAnimationFrame`, 1,2 s en el borde movieron 0 px (y su único
+ *    tick llegó DESPUÉS de soltar); con `setInterval`, 0 px y 112 px de scroll largados con
+ *    el gesto ya terminado. Lo único que el navegador sigue entregando es `dragover`.
+ *
+ * ⚠️ Y AL NODO ORIGEN NO SE LE TOCA EL TAMAÑO: colapsarlo a altura cero —lo que hacen
+ * Trello y Linear— dejó el gesto sin salida (el arnés no completó un solo drop). Eso no vive
+ * acá porque acá no se toca ninguna tarjeta: se menciona para que no vuelva.
+ */
+function useArrastreCopia() {
+  const scrollDir = useRef(0);
+  const pararScroll = useCallback(() => { scrollDir.current = 0; }, []);
+  const empujarScroll = useCallback((clientY: number) => {
+    const BORDE = 110;
+    const dir = clientY < BORDE ? -1 : clientY > window.innerHeight - BORDE ? 1 : 0;
+    scrollDir.current = dir;
+    if (!dir) { pararScroll(); return; }
+    window.scrollBy(0, dir * 18);
+  }, [pararScroll]);
+  useEffect(() => () => pararScroll(), [pararScroll]);
+
+  const copia = useRef<HTMLElement | null>(null);
+  const soltarCopia = useCallback(() => { copia.current?.remove(); copia.current = null; }, []);
+  useEffect(() => soltarCopia, [soltarCopia]);
+
+  const montarCopia = useCallback((origen: HTMLElement, dx: number, dy: number) => {
+    soltarCopia();
+    const r = origen.getBoundingClientRect();
+    const nodo = origen.cloneNode(true) as HTMLElement;
+    const fondo = getComputedStyle(origen).backgroundColor;
+    Object.assign(nodo.style, {
+      position: 'fixed', top: '0', left: '0', margin: '0',
+      width: `${r.width}px`, height: `${r.height}px`,
+      // Opaca de verdad: si el fondo computado fuese transparente, la copia deja ver el
+      // tablero por debajo y se ve igual de fantasmal que la del navegador.
+      background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface-2)',
+      opacity: '1', pointerEvents: 'none', zIndex: '3000',
+      boxShadow: '0 18px 40px rgba(18,21,27,.34)', transform: `translate3d(${r.left}px, ${r.top}px, 0) rotate(1.5deg)`,
+      transition: 'none', cursor: 'grabbing',
+    });
+    document.body.appendChild(nodo);
+    copia.current = nodo;
+    const mover = (e: DragEvent) => {
+      if (!copia.current) { document.removeEventListener('dragover', mover, true); return; }
+      copia.current.style.transform = `translate3d(${e.clientX - dx}px, ${e.clientY - dy}px, 0) rotate(1.5deg)`;
+    };
+    document.addEventListener('dragover', mover, true);
+    // Se saca en `dragend` Y en `drop`, los dos, o queda un nodo colgado por arrastre.
+    const fin = () => {
+      document.removeEventListener('dragover', mover, true);
+      document.removeEventListener('dragend', fin, true);
+      document.removeEventListener('drop', fin, true);
+      soltarCopia();
+    };
+    document.addEventListener('dragend', fin, true);
+    document.addEventListener('drop', fin, true);
+  }, [soltarCopia]);
+
+  return { empujarScroll, pararScroll, montarCopia, soltarCopia };
 }
 
 function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, onOpen, onNew, onWarn, onOpenProj, onEliminar, onSoltar }: {
@@ -2560,98 +2815,23 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, o
   const rects = useRef<Record<string, number[]>>({});
 
   /**
-   * EMPUJAR LA PÁGINA MIENTRAS ARRASTRÁS. Sin esto el arrastre sirve para lo que ya se ve.
+   * EMPUJAR LA PÁGINA MIENTRAS ARRASTRÁS, Y LA COPIA QUE SIGUE AL CURSOR. Las dos salen de
+   * `useArrastreCopia` —el molde compartido con la vista de proyectos—, donde está escrito
+   * por qué cada una es así.
    *
-   * Medido el 23/09/2026 con el tablero real: la columna «Media» mide **9.801 px** de alto
-   * (66 tarjetas de 138 px). En una ventana de 1000 px eso es el 10% del contenido a la
-   * vista, así que mover una tarjeta a casi cualquier lado exige scrollear — y con el botón
-   * apretado la rueda es lo único que queda. Se reporta como «no funciona»: agarrás la
-   * tarjeta y no la podés llevar a ningún lado.
-   *
-   * El CRM lo tiene desde siempre (`onBoardDragOver` + `tickAutoScroll`) y el arrastre CON
-   * EL DEDO de este mismo tablero también (`arrastre-tactil.ts`): el camino del mouse era
-   * el único de los tres sin esto. Eje Y y no X porque acá las columnas están fijas y lo
-   * que scrollea es la PÁGINA.
+   * Lo que sí es de acá: sin auto-scroll el arrastre sirve para lo que ya se ve. Medido el
+   * 23/09/2026 con el tablero real: la columna «Media» mide **9.801 px** de alto (66
+   * tarjetas de 138 px), o sea el 10% del contenido a la vista en una ventana de 1000 px.
    *
    * Los rectángulos cacheados no se invalidan al scrollear porque están en coordenadas de
    * página — ésa es justamente la razón por la que se guardan así.
    */
-  const scrollDir = useRef(0);
-  const pararScroll = useCallback(() => { scrollDir.current = 0; }, []);
-  const empujarScroll = useCallback((clientY: number) => {
-    const BORDE = 110;
-    const dir = clientY < BORDE ? -1 : clientY > window.innerHeight - BORDE ? 1 : 0;
-    scrollDir.current = dir;
-    if (!dir) { pararScroll(); return; }
-    // ⚠️ SE SCROLLEA ACÁ ADENTRO, EN EL PROPIO `dragover`. Medido en el navegador el
-    // 23/09/2026, que es lo que había que hacer tres rondas antes: mientras Chrome tiene
-    // activo su bucle NATIVO de drag-and-drop no entrega frames de animación **ni corre los
-    // timers**, así que un auto-scroll montado sobre `requestAnimationFrame` (1,2 s en el
-    // borde = 0 px, y el único tick llegando DESPUÉS de soltar) o sobre `setInterval` (0 px)
-    // no corre justo cuando se lo necesita.
-    //
-    // Lo único que el navegador SÍ sigue entregando durante el arrastre es `dragover`. Así
-    // que el empujón va acá: cada evento mueve la página un poco, y como los eventos llegan
-    // mientras movés el mouse, el scroll acompaña el gesto.
-    window.scrollBy(0, dir * 18);
-    // ⛔ Y ACÁ NO VA NINGÚN TIMER. Se probó con `setInterval` como complemento para el caso
-    // de quedarse quieto en el borde: el navegador lo congela igual durante el arrastre
-    // —aportaba 0 px— y después de soltar largaba los ticks acumulados, o sea 112 px de
-    // scroll cuando el gesto ya había terminado. Una pieza que no hace nada cuando la
-    // necesitás y hace algo cuando no, se saca.
-  }, [pararScroll]);
-  useEffect(() => () => pararScroll(), [pararScroll]);
-
-  /**
-   * LA COPIA QUE SIGUE AL CURSOR. Un nodo nuestro, no la imagen del navegador.
-   *
-   * Se mueve escribiendo `transform` sobre el ref, sin pasar por React: un `setState` por
-   * cada `dragover` vuelve a redibujar el tablero 60 veces por segundo, que es exactamente
-   * el bug que hizo que el arrastre se sintiera roto tres rondas atrás.
-   */
-  const copia = useRef<HTMLElement | null>(null);
-  const soltarCopia = useCallback(() => {
-    copia.current?.remove();
-    copia.current = null;
-  }, []);
-  useEffect(() => soltarCopia, [soltarCopia]);
+  const { empujarScroll, pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
 
   const agarrar = useCallback((id: string | null, desde?: { nodo: HTMLElement; dx: number; dy: number }) => {
     setArrastrado(id);
     if (!id) { setIns(null); rects.current = {}; pararScroll(); soltarCopia(); return; }
-    if (desde) {
-      soltarCopia();
-      const r = desde.nodo.getBoundingClientRect();
-      const nodo = desde.nodo.cloneNode(true) as HTMLElement;
-      const fondo = getComputedStyle(desde.nodo).backgroundColor;
-      Object.assign(nodo.style, {
-        position: 'fixed', top: '0', left: '0', margin: '0',
-        width: `${r.width}px`, height: `${r.height}px`,
-        // Opaca de verdad: si el fondo computado fuese transparente, la copia deja ver el
-        // tablero por debajo y se ve igual de fantasmal que la del navegador.
-        background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface-2)',
-        opacity: '1', pointerEvents: 'none', zIndex: '3000',
-        boxShadow: '0 18px 40px rgba(18,21,27,.34)', transform: `translate3d(${r.left}px, ${r.top}px, 0) rotate(1.5deg)`,
-        transition: 'none', cursor: 'grabbing',
-      });
-      document.body.appendChild(nodo);
-      copia.current = nodo;
-      const mover = (e: DragEvent) => {
-        if (!copia.current) { document.removeEventListener('dragover', mover, true); return; }
-        copia.current.style.transform = `translate3d(${e.clientX - desde.dx}px, ${e.clientY - desde.dy}px, 0) rotate(1.5deg)`;
-      };
-      // En `document` y en captura: el `dragover` de las columnas no cubre los huecos entre
-      // ellas ni el fondo de la página, y ahí la copia se quedaría clavada.
-      document.addEventListener('dragover', mover, true);
-      const fin = () => {
-        document.removeEventListener('dragover', mover, true);
-        document.removeEventListener('dragend', fin, true);
-        document.removeEventListener('drop', fin, true);
-        soltarCopia();
-      };
-      document.addEventListener('dragend', fin, true);
-      document.addEventListener('drop', fin, true);
-    }
+    if (desde) montarCopia(desde.nodo, desde.dx, desde.dy);
     const out: Record<string, number[]> = {};
     for (const col of document.querySelectorAll<HTMLElement>('[data-prio]')) {
       const prio = col.dataset.prio ?? '';
@@ -2661,7 +2841,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, o
       });
     }
     rects.current = out;
-  }, [pararScroll, soltarCopia]);
+  }, [pararScroll, soltarCopia, montarCopia]);
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
   const dir = sortDir === 'asc' ? 1 : -1;
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
@@ -2729,13 +2909,25 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, o
               const id = e.dataTransfer.getData('text/plain');
               rects.current = {};
               pararScroll();
-              pararScroll();
-              const idx = ins?.destino === p ? ins.idx : items.length;
+              const crudo = ins?.destino === p ? ins.idx : items.length;
               setIns(null);
               setArrastrado(null);
               // La lista SIN la que se está moviendo: si se la deja adentro, el punto medio
               // se calcula contra su propio número y la tarjeta «no se mueve».
-              if (id) onSoltar(id, p, scoreEntre(items.filter((t) => t.id !== id), idx, p));
+              //
+              // ⚠️ Y POR ESO EL ÍNDICE HAY QUE CORRERLO. `idx` se midió contra los
+              // rectángulos DIBUJADOS, que incluyen a la tarjeta agarrada —al nodo origen no
+              // se le toca el tamaño, así que sigue ocupando su lugar—, y el número se
+              // calcula contra la lista sin ella: bajando una tarjeta dentro de su propia
+              // columna, cada posición de abajo se corre una. Sin el corrimiento el punto
+              // medio sale entre el par equivocado y la tarjeta cae un lugar más arriba del
+              // hueco que se estuvo viendo todo el arrastre — «la solté acá y quedó allá».
+              // La grilla de proyectos y las tablas ya lo hacían; el Kanban era el único de
+              // los tres que no, y un mismo gesto no puede dar tres números distintos.
+              const otros = items.filter((t) => t.id !== id);
+              const iYo = items.findIndex((t) => t.id === id);
+              const idx = Math.max(0, Math.min(iYo >= 0 && crudo > iYo ? crudo - 1 : crudo, otros.length));
+              if (id) onSoltar(id, p, scoreEntre(otros, idx, p));
             }}
             // `data-prio` es cómo el arrastre táctil sabe dónde está cada columna: al armarse
             // el gesto mide estos cuatro rectángulos UNA vez y después no vuelve a leer layout.
@@ -3198,7 +3390,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 enfocarlo. El molde (y el porqué de cada estado) está en `tituloEditable`. */}
             <textarea value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
               onBlur={(e) => { tituloBlur(e); board.setTitle(t.id, titleDraft, t.title); }}
-              onFocus={tituloFoco} onMouseEnter={tituloHover} onMouseLeave={tituloSale}
+              onFocus={tituloFoco}
               title="Edita el título" aria-label="Título de la tarea" placeholder="Título de la tarea…" rows={2}
               style={tituloEditable} />
 
@@ -3438,10 +3630,32 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // La card de proyecto (misma en la vista Proyectos y en el modal "MaKo cargó", así son
 // IDÉNTICAS). `verDetalle` muestra descripción + razón del Perro (para el modal); en la
 // grilla queda apagado (es para barrer de un vistazo).
-export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }: { l: Label; prog: { total: number; done: number; pct: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void }) {
+export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse }: {
+  l: Label; prog: { total: number; done: number; pct: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void;
+  /** LA TARJETA SE PUEDE ARRASTRAR, y quien la monta dice si se puede: el tablero del
+   *  CLIENTE no tiene con qué escribir una prioridad a mano, así que ahí no se dibuja el
+   *  control (`repo.prioridadManual`). Sin esta prop, la tarjeta no es `draggable` — que es
+   *  cómo se ve desde afuera que ese tablero no pasó la capacidad. */
+  onAgarrar?: (nodo: HTMLElement, dx: number, dy: number) => void;
+  onSoltarse?: () => void;
+}) {
   const completo = prog.total > 0 && prog.done === prog.total;
+  const arrastrable = !!onAgarrar;
   return (
-    <div onClick={onOpen} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s' }}
+    <div onClick={onOpen} data-projcard={arrastrable ? l.id : undefined} draggable={arrastrable}
+      // ⚠️ MISMO MOLDE QUE EL KANBAN, no uno nuevo: foto vacía del sistema operativo + la
+      // copia que monta `useArrastreCopia`. Y la tarjeta de origen NO cambia nada mientras
+      // viaja («que la tarjeta no cambie nada», 24/09/2026): lo que se mueve es la copia y
+      // lo que dice dónde va a caer es el hueco.
+      onDragStart={arrastrable ? (e) => {
+        e.dataTransfer.setData('text/plain', l.id);
+        e.dataTransfer.effectAllowed = 'move';
+        fotoVaciaDeArrastre(e.dataTransfer);
+        const r = e.currentTarget.getBoundingClientRect();
+        onAgarrar(e.currentTarget, e.clientX - r.left, e.clientY - r.top);
+      } : undefined}
+      onDragEnd={arrastrable ? () => onSoltarse?.() : undefined}
+      style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s' }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 22 }}>{l.emoji}</span>
@@ -3523,9 +3737,45 @@ function comparar(modo: OrdenModo, dir: number) {
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir, tabla }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; tabla: boolean }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir, tabla, onSoltar }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; tabla: boolean;
+  /** soltaste un proyecto: NO se fija solo, dispara el MISMO pop-up del 1 al 100 que el
+   *  Kanban y que el lápiz del panel (`setSoltada`), con el número que sugiere la posición. */
+  onSoltar: (id: string, sugerido: number) => void }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
+  /**
+   * ⚠️ TODOS LOS HOOKS DE ESTA VISTA VAN ACÁ ARRIBA, antes del `return` de la vista TABLA:
+   * un hook detrás de un `return` temprano se llama en unos renders y en otros no, y eso es
+   * el «Minified React error #300» — la pantalla entera en blanco, sin archivo ni línea.
+   *
+   * ARRASTRAR UN PROYECTO. «Que pueda mover los proyectos como en el kanban, arrastrando y
+   * cambiándole la prioridad» (25/09/2026). Reusa `useArrastreCopia` —el molde medido del
+   * Kanban— y al soltar dispara `onSoltar`, que es el pop-up que ya existe: soltar dice
+   * DÓNDE, la persona dice CUÁNTO.
+   */
+  const { empujarScroll, pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
+  const [arrastrado, setArrastrado] = useState<string | null>(null);
+  const [insProy, setInsProy] = useState<number | null>(null);
+  /**
+   * EL «VER MÁS» SE ABRE SOLO AL AGARRAR UNA TARJETA. «Lo único que habría que
+   * automáticamente desplegar el "ver más" si agarro uno. Y si me arrepiento y lo suelto,
+   * que se pliegue nuevamente» (25/09/2026) — y no es cosmético: con 6 a la vista y el resto
+   * escondido, la mitad de los destinos no se puede soltar porque no está dibujada.
+   *
+   * `abriPorArrastre` es la mitad que hace falta para NO pisar una decisión de la persona:
+   * si ya lo había desplegado, al soltar se queda como estaba.
+   */
+  const abriPorArrastre = useRef(false);
+  /** ⚠️ EL MISMO DATO QUE `arrastrado`, PERO EN UN REF, y lo mira el `dragover` de la
+   *  grilla. El estado se lee en el render SIGUIENTE al `dragstart`, y el primer `dragover`
+   *  puede llegar antes: con la condición colgada del estado, el primer evento no llama a
+   *  `preventDefault()` y el navegador decide ahí mismo que esto no es un destino válido —
+   *  el gesto arranca «muerto» y se lee como que el arrastre no anda. */
+  const arrastradoRef = useRef<string | null>(null);
+  /** Los centros de cada tarjeta, en coordenadas de PÁGINA y medidos UNA sola vez por gesto:
+   *  leer layout en cada `dragover` es lo que hace que un arrastre se sienta pegajoso, y en
+   *  coordenadas de página para que sobrevivan al auto-scroll. */
+  const rects = useRef<Array<{ id: string; x: number; y1: number; y2: number }>>([]);
   const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
   const REALES = TOPE - 1;
   const needle = q.trim();
@@ -3560,6 +3810,59 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
+
+  /**
+   * ARRASTRAR SÓLO TIENE SENTIDO ORDENADO POR PRIORIDAD. Con «Alfabético» o «Por deadline»
+   * la posición donde soltás no dice nada del score, así que el punto medio entre los dos
+   * vecinos sería un número inventado con cara de decisión. Fuera de ese orden la tarjeta no
+   * es `draggable` y el cursor lo dice.
+   *
+   * Y lo escribe `repo.prioridadManual`: el tablero del CLIENTE no tiene esa escritura
+   * —`score_manual` es una columna que su tabla no tiene—, y un control que sólo puede
+   * contestar «solo admin» se lee como que la app está rota.
+   */
+  const sePuedeArrastrar = !!repo.prioridadManual && sortMode === 'score';
+  const agarrarProy = (id: string, nodo: HTMLElement, dx: number, dy: number) => {
+    arrastradoRef.current = id;
+    setArrastrado(id);
+    montarCopia(nodo, dx, dy);
+    rects.current = [];
+    if (!verTodos && !needle && shown.length > REALES) { abriPorArrastre.current = true; setVerTodos(true); }
+  };
+  const terminarProy = () => {
+    arrastradoRef.current = null;
+    setArrastrado(null); setInsProy(null); rects.current = []; pararScroll(); soltarCopia();
+    if (abriPorArrastre.current) { abriPorArrastre.current = false; setVerTodos(false); }
+  };
+  /**
+   * LOS RECTÁNGULOS SE MIDEN UNA VEZ POR GESTO, Y DESDE EL `dragover`.
+   *
+   * ⚠️ NO desde un `requestAnimationFrame` del `dragstart`, que era la salida obvia para
+   * esperar a que el «Ver más» se dibujara: durante un arrastre NATIVO el navegador congela
+   * rAF y los timers (medido y escrito en AGENTS.md), así que ese callback llega DESPUÉS de
+   * soltar y la medición nunca ocurre — con la lista vacía, el hueco se queda clavado en la
+   * posición 0 y el número que propone el pop-up sale de una posición que nadie eligió.
+   *
+   * Se re-mide sólo si CAMBIÓ LA CANTIDAD de tarjetas, que es exactamente lo que pasa una
+   * vez, cuando el «Ver más» se despliega solo. `querySelectorAll` no fuerza layout; el
+   * `getBoundingClientRect` de adentro sí, y por eso corre una vez y no sesenta por segundo.
+   */
+  const medirSiHaceFalta = () => {
+    const nodos = document.querySelectorAll<HTMLElement>('[data-projcard]');
+    if (rects.current.length === nodos.length) return;
+    rects.current = [...nodos].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { id: el.dataset.projcard ?? '', x: r.left + r.width / 2, y1: r.top + window.scrollY, y2: r.bottom + window.scrollY };
+    });
+  };
+  /** Dónde caería si soltaras ahora, en ORDEN DE LECTURA: la grilla tiene filas y columnas,
+   *  así que no alcanza con comparar la Y — una tarjeta «antes» es la que está en una fila
+   *  de más arriba, o en la misma fila y más a la izquierda. */
+  const indiceEn = (px: number, py: number) => {
+    const m = rects.current;
+    for (let i = 0; i < m.length; i++) if (py < m[i].y1 || (py <= m[i].y2 && px < m[i].x)) return i;
+    return m.length;
+  };
   // En TABLA entran todos de una: el «Ver más…» existe porque una tarjeta ocupa media
   // pantalla, que es justo lo que la tabla viene a resolver.
   if (tabla) {
@@ -3572,6 +3875,12 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
           <TablaProyectos
             filas={shown} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={repo.labelPlural}
             onOpen={onOpen}
+            /* EL MISMO `onSoltar` QUE LA GRILLA: el pedido 9 es el 8 en la otra vista, así
+               que las dos abren el mismo pop-up y no hay dos formas de mover un proyecto.
+               Acá NO se mira `sortMode` —como sí hace `sePuedeArrastrar` para la grilla—
+               porque la tabla se ordena por su cuenta (su propia pref por navegador) y ella
+               misma apaga el agarre cuando no está ordenada por prioridad. */
+            onSoltar={repo.prioridadManual ? onSoltar : undefined}
             onDeadline={(id, v) => board.setLabelDeadline(id, v)} />
           <HistorialDeLaTab labels={labels} board={board} />
         </div>
@@ -3581,15 +3890,61 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}
+          // `preventDefault` en dragOver es lo que HABILITA el drop: sin él el navegador lo
+          // rechaza y no pasa nada, que se lee exactamente como que el arrastre no anda.
+          onDragOver={sePuedeArrastrar ? (e) => {
+            if (!arrastradoRef.current) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            empujarScroll(e.clientY);
+            medirSiHaceFalta();
+            const idx = indiceEn(e.clientX, e.clientY + window.scrollY);
+            setInsProy((prev) => (prev === idx ? prev : idx));
+          } : undefined}
+          onDrop={sePuedeArrastrar ? (e) => {
+            const enMano = arrastradoRef.current;
+            if (!enMano) return;
+            e.preventDefault();
+            const id = e.dataTransfer.getData('text/plain') || enMano;
+            // ⚠️ EL ÍNDICE VIENE DE UNA LISTA QUE TODAVÍA CONTIENE AL QUE SE ESTÁ MOVIENDO
+            // —al nodo origen no se le toca el tamaño, así que sigue ocupando su celda—, y
+            // el número se calcula contra la lista SIN él: dejarlo adentro haría el punto
+            // medio contra su propio score y el proyecto «no se movería». Soltarlo más
+            // abajo de donde estaba corre una posición.
+            const iYo = rects.current.findIndex((r) => r.id === id);
+            const crudo = insProy ?? rects.current.length;
+            const otros = visibles.map(({ l }) => l).filter((l) => l.id !== id);
+            const donde = Math.max(0, Math.min(iYo >= 0 && crudo > iYo ? crudo - 1 : crudo, otros.length));
+            // `scoreEntre` asume la lista de MAYOR a MENOR (es la del Kanban). Con el orden
+            // invertido, la misma posición mirada al revés es `largo - idx`.
+            const lista = sortDir === 'asc' ? otros.slice().reverse() : otros;
+            const pos = sortDir === 'asc' ? otros.length - donde : donde;
+            const yo = labels.find((l) => l.id === id);
+            terminarProy();
+            if (id && yo) onSoltar(id, scoreEntre(lista, pos, prioFromScore(yo.score)));
+          } : undefined}>
           {/* #1: "Crear proyecto" PRIMERO y del mismo tamaño que el resto (cuenta como 1 celda) */}
           <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 360, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>
             <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
           </button>
-          {visibles.map(({ l, prog }) => (
-            <ProyectoCardTile key={l.id} l={l} prog={prog} isTop={l.id === topProjectId} onOpen={() => onOpen(l.id)} />
+          {/* EL HUECO: es lo que convierte «lo estoy soltando en la lista» en «lo estoy
+              soltando ACÁ». Sin él, el número que propone el pop-up sale de una posición que
+              nadie vio. Mismo gesto que el hueco del Kanban, con la forma de esta grilla.
+              Va DESPUÉS del botón de crear: la posición 0 es la del primer PROYECTO, y el
+              botón no es uno — los rectángulos se miden sobre `[data-projcard]`, que no lo
+              incluye, así que dibujarlo antes correría el hueco una celda respecto de lo
+              que el número va a decir. */}
+          {arrastrado && insProy === 0 && <div style={{ minHeight: 360, borderRadius: 14, border: '2px dashed var(--primary)', background: 'var(--primary-bg)' }} />}
+          {visibles.map(({ l, prog }, i) => (
+            <Fragment key={l.id}>
+              <ProyectoCardTile l={l} prog={prog} isTop={l.id === topProjectId} onOpen={() => onOpen(l.id)}
+                onAgarrar={sePuedeArrastrar ? (nodo, dx, dy) => agarrarProy(l.id, nodo, dx, dy) : undefined}
+                onSoltarse={terminarProy} />
+              {arrastrado && insProy === i + 1 && <div style={{ minHeight: 360, borderRadius: 14, border: '2px dashed var(--primary)', background: 'var(--primary-bg)' }} />}
+            </Fragment>
           ))}
           {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '10px 0 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
         </div>
@@ -3607,7 +3962,11 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onEliminarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
+  /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
+   *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
+   *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */
+  onSoltarTask?: (id: string, sugerido: number) => void;
   /** borrar UNA tarea del proyecto. Sin esto, la fila de la tabla no dibuja el tacho — que
    *  es cómo se ve desde afuera que este modal no pasó la capacidad. */
   onEliminarTask?: (id: string) => void; onClose: () => void;
@@ -3655,7 +4014,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 azul: dos pantallas que muestran lo mismo se ven igual. */}
             <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)}
               onBlur={(e) => { tituloBlur(e); if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
-              onFocus={tituloFoco} onMouseEnter={tituloHover} onMouseLeave={tituloSale}
+              onFocus={tituloFoco}
               title="Edita el nombre" aria-label="Nombre del proyecto" style={tituloEditable} />
             {/* ⚠️ EL DETALLE VUELVE ARRIBA, Y ES UN SOLO DOCUMENTO. Tres pedidos del mismo
                 día y hay que leer los tres juntos: primero «yo no veo el detalle, yo veo las
@@ -3700,7 +4059,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {suyas.length === 0
                 ? <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>
-                : <TablaTareas tareas={suyas} board={board} hoy={hoyISO()} onOpen={onOpenTask} ask={ask} ocultarProyecto onEliminar={onEliminarTask} />}
+                : <TablaTareas tareas={suyas} board={board} hoy={hoyISO()} onOpen={onOpenTask} ask={ask} ocultarProyecto onEliminar={onEliminarTask} onSoltar={onSoltarTask} />}
             </div>
 
             {/* Un proyecto SIN tareas abiertas: lo que le falta es TRABAJO, no prioridad.

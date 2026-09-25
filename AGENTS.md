@@ -1106,6 +1106,27 @@ treinta segundos:
 `titulo` apuntaban al mismo renglón; el render eligió uno y el otro quedó vivo en
 el tipo, aceptando asignaciones, para siempre.
 
+⚠️ **Y REPARTIR TRABAJO POR ARCHIVO GARANTIZA SALIDAS HUÉRFANAS.** Cuando una corrida
+le da a cada agente su propio archivo para que no se pisen —que es lo correcto—, en React
+la CAPACIDAD queda en un archivo y el CALL SITE en otro: el único que podía enchufar la
+prop nueva tenía prohibido tocar el archivo donde se enchufa. No es un descuido del
+agente, es la forma del reparto.
+
+Medido el 25/09/2026 en `/plan`: un paquete escribió el arrastre de filas entero —marca
+de destino, auto-scroll, copia que sigue al cursor, número sugerido— y `onSoltar` terminó
+con **cero call sites**. La prop es opcional, así que el typecheck pasa, los tests pasan, y
+en pantalla no hay nada que agarrar. La tanda anterior lo había pagado con otra cara (dos
+paquetes dimensionando contra el mismo ancho con valores distintos).
+
+- **El que CIERRA la corrida grepea cada prop nueva y cuenta sus call sites antes del
+  commit.** Son treinta segundos, y es lo único que separa «lo escribí» de «se puede
+  usar». Un `grep` de la prop que devuelve sólo la declaración y el destructuring es el
+  síntoma exacto.
+- **Y al agente se le PIDE que declare en positivo lo que no pudo enchufar**, con las
+  líneas exactas del archivo ajeno. Un paquete que vuelve diciendo «hecho» sobre un gesto
+  muerto se commitea sin que nada avise; uno que vuelve con «BLOQUEANTE — falta el call
+  site» cuesta minutos.
+
 # Un `console.warn` no es un control, y un «no» tiene que sobrevivir al fallback
 
 Dos mitades del mismo error, medidas el 12/8/2026 sobre cinco proyectos que el Perro

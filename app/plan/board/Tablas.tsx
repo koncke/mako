@@ -27,18 +27,29 @@
 // para las dos pantallas: «dos pantallas que muestran lo mismo se ven igual». Lo que
 // cambia entre las dos son dos props, y las dos existen para no reimplementar nada:
 //   · `ocultarProyecto` — adentro de un proyecto esa columna repite el mismo nombre en
-//     todas las filas, así que no se dibuja y el `minWidth` baja con ella (a
-//     `ANCHO_TABLA_EN_PROYECTO`, que sale de la geometría del modal y vive en ./piezas).
-//     Sin eso, la tabla declaraba 720px en una columna de ~500 y era scroll horizontal
-//     SIEMPRE.
+//     todas las filas, así que no se dibuja y el `minWidth` baja con ella. Sin eso, la
+//     tabla declaraba 720px en una columna de ~500 y era scroll horizontal SIEMPRE.
 //   · `onEliminar` — el tacho de la fila. Abre la pregunta de dos botones de quien llama;
 //     sin la prop, la fila no lo dibuja (un control que no se puede cumplir no se pinta).
+//   · `onSoltar` — arrastrar una fila para cambiarle la prioridad. Misma regla: sin la
+//     prop la fila no se puede agarrar, porque el pop-up del 1 al 100 lo abre quien llama.
 // Quien la USA no reimplementa nada de lo que la tabla hace: ni el desplegable de las
 // completadas (`FilaPlegada`, que pide que le pasen TODAS las tareas juntas), ni el tinte
 // del deadline, ni el orden. Dos copias de esto divergen a la primera corrección.
+//
+// ⚠️ EL ANCHO QUE DECLARA LA TABLA ES LO QUE LAS COLUMNAS PIDEN, NO LO QUE HAY. Hasta el
+// 25/09/2026 el `minWidth` de adentro de un proyecto ERA el ancho disponible
+// (`ANCHO_TABLA_EN_PROYECTO`): pedir exactamente lo que hay deja cero margen, así que
+// cualquier cosa que corra el número un píxel —el zoom, que achica el modal; una palabra
+// más larga que la medida; un borde nuevo— devuelve la barra de abajo. Ahora se declara la
+// SUMA DE LO QUE CADA COLUMNA NECESITA (`ANCHO_MINIMO`), topeada contra lo disponible: pedir
+// menos que lo que hay es lo único que hace que la barra no aparezca. Ver `ANCHO_MINIMO`.
 // =============================================================================
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+// ⚠️ `DragEvent` de React se importa con OTRO nombre a propósito: el del arrastre en
+// `document` es el DragEvent del DOM, y con el de React importado a secas el global queda
+// tapado y el listener nativo deja de tipar.
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
 import { fechaConDia, diasHasta, plazoTexto, IconoTacho, ANCHO_TABLA_EN_PROYECTO } from './piezas';
@@ -66,19 +77,325 @@ const cajaStyle: CSSProperties = { width: '100%', overflowX: 'auto', border: '1p
 // El número de adentro de un proyecto es `ANCHO_TABLA_EN_PROYECTO` (./piezas) y NO se
 // escribe acá: depende del ancho de la columna derecha del modal, que vive en otro archivo.
 const tablaStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontFamily: SANS, fontSize: 13.5 };
-const thBase: CSSProperties = { textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap' };
-const tdBase: CSSProperties = { padding: '9px 12px', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' };
-// 126 y no 138: un `input type=date` a 12.5px dibuja «dd/mm/aaaa» (~62px) más el ícono del
-// calendario (~18px); lo demás era hueco, y ese hueco se pagaba en scroll.
-const fechaInput: CSSProperties = { width: 126, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS };
+// ── LO QUE CADA COLUMNA PIDE DE VERDAD ───────────────────────────────────────────────
+// Son los números con los que se calcula `ANCHO_MINIMO`, y por eso están acá arriba y no
+// tipeados adentro de cada `<Th>`: un ancho declarado en un lado y sumado en otro se
+// desincroniza al primer ajuste, y lo que se rompe es justo la barra horizontal que esto
+// viene a matar.
+//
+// Cada uno es CONTENIDO + los 20px de padding horizontal de la celda (10+10):
+//   · 28  la casilla de selección: 16 de casilla + 12 de padding izquierdo (la celda no
+//         lleva padding derecho, ver la fila).
+//   · 76  la prioridad: el chip `Score` mide ~51 con tres dígitos (borde 2 + padding 13 +
+//         ícono 11 + gap 3 + «100» a 12px mono ≈ 22). Eran 124 porque al lado iba la
+//         PALABRA; ver `Score`, que ahora la dice en su `title`.
+//   · 138 el deadline: el `input type=date` (118) + 20.
+//   · 72  las dos acciones: check 22 + gap 4 + tacho 24 + 20. Sin `onEliminar` son 48, y
+//         esos 24 se los queda el título.
+//   · 190 el proyecto: el chip topea en 170 + 20. No se dibuja adentro de un proyecto.
+//   · 130 el avance de un proyecto: la barra (56) + «12/30» + 20.
+//   · 130 el título de una tarea y 200 el nombre de un proyecto: el PISO, no lo que les
+//         toca. Son las únicas columnas elásticas, así que se quedan con todo lo que
+//         sobre; el piso es lo mínimo para que el recorte con «…» siga diciendo algo. El
+//         que cede es el título, a propósito.
+const C_SEL = 28, C_PRIO = 76, C_FECHA = 138, C_ACC = 72, C_ACC_SOLA = 48, C_PROY = 190, C_TITULO = 130, C_AVANCE = 130, C_NOMBRE = 200;
+const thBase: CSSProperties = { textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '9px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap' };
+// 5px y no 9 de padding vertical: es lo que PAGA la segunda línea del título. «Pon las
+// tareas en doble línea como máximo… pero que no haya tanto scroll, mejor que no haya casi
+// nada o nada» (25/09/2026) son dos pedidos que se cruzan, y la cuenta cierra sólo si la
+// fila se aprieta en la misma pasada. Lo que gobierna el alto de una fila es lo más alto
+// que tenga adentro:
+//   · el título a DOS líneas: 13.5px × 1.2 × 2 = 32
+//   · el `input` de la fecha: 25 (era 27)
+//   · los dos íconos de acción: 24
+// Con 18 de padding, TODA fila medía 45. Con 10, una de dos líneas mide 42 y una de UNA
+// mide 35. O sea que ninguna fila queda más alta que antes, ni siquiera la que ahora ocupa
+// el doble de líneas — y la mayoría baja un 22%.
+const tdBase: CSSProperties = { padding: '5px 10px', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' };
+// 118 y no 126: un `input type=date` a 12.5px dibuja «dd/mm/aaaa» (~62px) más el ícono del
+// calendario (~18px) más su padding y su borde (~16); lo demás era hueco, y ese hueco se
+// pagaba en scroll. No se baja más: por debajo de ~110 Chrome recorta «aaaa» y el dato se
+// deja de leer, que es peor que la barra.
+const fechaInput: CSSProperties = { width: 118, padding: '4px 7px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS };
 /** El botón de una acción de fila: un ícono, sin rótulo, con el nombre en `title`. */
 const accionBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flex: 'none', padding: 0, border: 'none', background: 'transparent', borderRadius: 7, cursor: 'pointer' };
 
-function Th({ children, orden, activo, dir, onSort, ancho }: { children: ReactNode; orden?: string; activo?: boolean; dir?: 'asc' | 'desc'; onSort?: () => void; ancho?: number }) {
+// ── ARRASTRAR UNA FILA PARA CAMBIARLE LA PRIORIDAD ───────────────────────────────────
+/**
+ * «Que en el formato tabla también pueda arrastrar y cambiar la prioridad» (25/09/2026).
+ *
+ * Es el MISMO gesto que en el Kanban y termina en el MISMO pop-up: soltar dice DÓNDE, la
+ * persona dice CUÁNTO. Lo que cambia es qué significa «dónde»: en el Kanban es una columna
+ * (la banda) más la posición; en una tabla no hay columnas, así que el número sale
+ * enteramente de ENTRE QUÉ DOS FILAS cae.
+ *
+ * ⚠️ SÓLO SE PUEDE AGARRAR CUANDO LA TABLA ESTÁ ORDENADA POR PRIORIDAD, y no es una
+ * limitación técnica: es la regla de la casa de no pintar un control que no se puede
+ * cumplir. Con la tabla ordenada por deadline, la posición entre dos filas no dice ningún
+ * número —los scores de las vecinas están en cualquier orden— y peor: la fila soltada no se
+ * movería de lugar, porque el orden lo decide la fecha. Un gesto que hace su trabajo y
+ * después te muestra la pantalla igual es indistinguible de uno roto. La pista de cómo
+ * habilitarlo va en el `title` del encabezado «Prioridad», que es el que hay que tocar.
+ *
+ * El molde del arrastre es el de `CardTile` + `Kanban` (BoardShell), medido a lo largo de
+ * siete rondas, y acá se repite con las mismas cuatro piezas:
+ *   · imagen de arrastre VACÍA (la que pinta el sistema operativo no la gobierna el CSS),
+ *   · una copia NUESTRA que sigue al cursor, movida por `transform` desde un `dragover` en
+ *     `document` y EN CAPTURA (el de la tabla no cubre los huecos ni el fondo),
+ *   · el nodo ORIGEN no se toca (colapsarlo deja el gesto sin salida),
+ *   · auto-scroll adentro del propio `dragover` (durante un arrastre nativo el navegador
+ *     congela `requestAnimationFrame` Y los timers).
+ *
+ * ⚠️ Y UNA DIFERENCIA QUE NO ES CAPRICHO: acá el auto-scroll empuja la CAJA QUE SCROLLEA,
+ * no la ventana. Adentro del detalle de un proyecto esta tabla vive en la columna principal
+ * del modal, que es la que tiene el `overflow-y`; un `window.scrollBy` ahí mueve 0px y el
+ * arrastre vuelve a servir para lo que ya se ve, que es el mismo bug que el Kanban pagó el
+ * 23/09/2026 con la página.
+ *
+ * ⚠️ Está escrito acá y no importado porque el molde del Kanban vive DENTRO del componente
+ * `Kanban` (`agarrar`, `empujarScroll`, `soltarCopia` son sus `useCallback`) y no se exporta.
+ * O sea que hoy el molde está en dos archivos. Lo que corresponde es sacarlo a un
+ * `arrastre-copia.ts` que importen los dos; queda anotado, no hecho, porque BoardShell no es
+ * de esta pasada.
+ */
+const MARCA_ARRIBA: CSSProperties = { boxShadow: 'inset 0 2px 0 var(--primary)' };
+const MARCA_ABAJO: CSSProperties = { boxShadow: 'inset 0 -2px 0 var(--primary)' };
+
+/**
+ * La caja que de verdad scrollea arriba de esta fila: la columna del modal, o nada (y
+ * entonces scrollea la ventana). Se pregunta UNA vez, al agarrar.
+ */
+function cajaQueScrollea(n: HTMLElement | null): HTMLElement | null {
+  for (let e = n?.parentElement ?? null; e && e !== document.body; e = e.parentElement) {
+    const o = getComputedStyle(e).overflowY;
+    if ((o === 'auto' || o === 'scroll') && e.scrollHeight > e.clientHeight + 1) return e;
+  }
+  return null;
+}
+
+/**
+ * El número que le corresponde a una fila soltada ENTRE otras dos: el punto medio.
+ *
+ * Los bordes dependen de la DIRECCIÓN del orden, que es lo que no tiene el Kanban (allá una
+ * columna siempre va de mayor a menor). Con la tabla en `desc`, arriba de todo es +2 sobre
+ * la primera; en `asc` es −2, porque ahí «arriba» es el número más chico.
+ *
+ * Sale una SUGERENCIA, no el número final: el pop-up siempre pregunta del 1 al 100.
+ */
+function scoreEntreFilas(resto: Array<{ score: number }>, pos: number, dir: 'asc' | 'desc', actual: number): number {
+  const clamp = (n: number) => Math.max(1, Math.min(100, Math.round(n)));
+  const paso = dir === 'asc' ? -2 : 2;
+  const arriba = resto[pos - 1];
+  const abajo = resto[pos];
+  if (arriba && abajo) return clamp((arriba.score + abajo.score) / 2);
+  if (abajo) return clamp(abajo.score + paso);
+  if (arriba) return clamp(arriba.score - paso);
+  return clamp(actual);
+}
+
+function useArrastreFilas(
+  /** las filas EN JUEGO, en el orden en que se dibujan (las terminadas no entran) */
+  filas: Array<{ id: string; score: number }>,
+  dir: 'asc' | 'desc',
+  /** el orden visible permite leer la posición como un número */
+  porPrioridad: boolean,
+  onSoltar?: (id: string, sugerido: number) => void,
+) {
+  const activo = !!onSoltar && porPrioridad;
+  // QUE HAY UNA FILA EN LA MANO ES UN REF, NO ESTADO: no se dibuja con eso (el nodo origen
+  // no se toca) y un `setState` en el `dragstart` es un re-render de la tabla entera justo
+  // en el frame en que arranca el gesto. Además evita la carrera: los eventos de arrastre
+  // son de prioridad CONTINUA en React, así que un estado escrito en `dragstart` puede no
+  // estar commiteado cuando llega el primer `dragover` — y ahí el guard de abajo rebota el
+  // primer evento y el destino arranca tarde.
+  const agarrada = useRef<string | null>(null);
+  const [ins, setIns] = useState<number | null>(null);
+  /** el punto medio de cada fila, en coordenadas de la CAJA QUE SCROLLEA. Se mide una sola
+   *  vez, al agarrar: leer layout en cada movimiento es lo que hace que un arrastre se
+   *  sienta pegajoso (ya medido en el Kanban y en `arrastre-tactil.ts`). */
+  const medios = useRef<number[]>([]);
+  const caja = useRef<HTMLElement | null>(null);
+  const copia = useRef<HTMLElement | null>(null);
+  useEffect(() => () => { copia.current?.remove(); copia.current = null; }, []);
+
+  /**
+   * De `clientY` (la ventana) a la coordenada de la CAJA QUE SCROLLEA, que es la única que
+   * no se mueve durante el gesto: por eso los puntos medios se guardan así y no hace falta
+   * volver a medir las filas cuando la caja se corre sola.
+   *
+   * El borde de la caja se relee en cada llamada en vez de cachearse al agarrar: es UNA
+   * lectura de layout por evento (lo que costaba caro eran las 55 del Kanban) y a cambio no
+   * hay ningún caso en que el número quede viejo —una caja que no es `fixed` se mueve
+   * cuando scrollea la página, y ahí un `top` cacheado corre el destino sin avisar—.
+   */
+  const posDe = (clientY: number) => {
+    const el = caja.current;
+    return el ? clientY - el.getBoundingClientRect().top + el.scrollTop : clientY + window.scrollY;
+  };
+  const limpiar = () => {
+    setIns(null);
+    medios.current = [];
+    agarrada.current = null;
+    caja.current = null;
+    copia.current?.remove();
+    copia.current = null;
+  };
+  const empujar = (clientY: number) => {
+    const el = caja.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const d = clientY < r.top + 70 ? -1 : clientY > r.bottom - 70 ? 1 : 0;
+      if (d) el.scrollTop += d * 14;
+      return;
+    }
+    const d = clientY < 110 ? -1 : clientY > window.innerHeight - 110 ? 1 : 0;
+    if (d) window.scrollBy(0, d * 18);
+  };
+
+  const agarrar = (e: DragReact<HTMLTableRowElement>, id: string) => {
+    // ⚠️ DONDE SE ESCRIBE TEXTO NO ARRANCA EL ARRASTRE. La fila entera es agarrable —igual
+    // que la tarjeta del Kanban, que tiene adentro su casilla y su tacho y no se pelean con
+    // nada: un click sin movimiento no es un arrastre—. Lo que SÍ se pelea es un `<input>`,
+    // donde arrastrar significa seleccionar texto: ahí el `draggable` de arriba se come el
+    // gesto que la pieza ya tenía. Por eso la única celda marcada con `data-nodrag` es la
+    // del deadline, y no la casilla ni los botones.
+    if ((e.target as HTMLElement | null)?.closest?.('[data-nodrag]')) { e.preventDefault(); return; }
+    const tr = e.currentTarget;
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      const vacio = document.createElement('canvas');
+      vacio.width = 1; vacio.height = 1;
+      e.dataTransfer.setDragImage(vacio, 0, 0);
+    } catch { /* si no deja, queda la del navegador y se ve translúcida como antes */ }
+
+    caja.current = cajaQueScrollea(tr);
+    const cuerpo = tr.parentElement;
+    medios.current = [...(cuerpo?.querySelectorAll<HTMLElement>('[data-fila]') ?? [])].map((f) => {
+      const r = f.getBoundingClientRect();
+      return posDe(r.top + r.height / 2);
+    });
+
+    // LA COPIA. Un `<tr>` suelto no se puede posicionar (`position` no aplica a
+    // `display: table-row`), así que la copia es un `<div>` fijo con su propia tablita
+    // adentro y los anchos de celda clavados en lo medido — si no, el `table-layout` los
+    // reparte de nuevo y la copia no se parece a lo que agarraste.
+    const r = tr.getBoundingClientRect();
+    const fondo = getComputedStyle(tr).backgroundColor;
+    const cont = document.createElement('div');
+    Object.assign(cont.style, {
+      position: 'fixed', top: '0', left: '0', width: `${r.width}px`,
+      background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface)',
+      border: '1px solid var(--border-strong)', borderRadius: '10px', overflow: 'hidden',
+      boxShadow: '0 18px 40px rgba(18,21,27,.34)', pointerEvents: 'none', zIndex: '3000',
+      transform: `translate3d(${r.left}px, ${r.top}px, 0)`, transition: 'none',
+    });
+    const tabla = document.createElement('table');
+    Object.assign(tabla.style, { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: SANS, fontSize: '13.5px' });
+    const cpo = document.createElement('tbody');
+    const clon = tr.cloneNode(true) as HTMLElement;
+    [...tr.children].forEach((celda, i) => {
+      const h = clon.children[i] as HTMLElement | undefined;
+      if (!h) return;
+      h.style.width = `${(celda as HTMLElement).getBoundingClientRect().width}px`;
+      h.style.borderBottom = 'none';
+      h.style.boxShadow = 'none';
+    });
+    // `cloneNode` copia el ATRIBUTO, y React escribe los `input` por PROPIEDAD: sin esto la
+    // copia viaja con la fecha vacía y la casilla desmarcada.
+    const origen = tr.querySelectorAll('input');
+    clon.querySelectorAll('input').forEach((inp, i) => {
+      const o = origen[i];
+      if (!o) return;
+      inp.value = o.value;
+      inp.checked = o.checked;
+    });
+    cpo.appendChild(clon);
+    tabla.appendChild(cpo);
+    cont.appendChild(tabla);
+    document.body.appendChild(cont);
+    copia.current = cont;
+
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const mover = (ev: globalThis.DragEvent) => {
+      if (!copia.current) { document.removeEventListener('dragover', mover, true); return; }
+      copia.current.style.transform = `translate3d(${ev.clientX - dx}px, ${ev.clientY - dy}px, 0)`;
+    };
+    document.addEventListener('dragover', mover, true);
+    const fin = () => {
+      document.removeEventListener('dragover', mover, true);
+      document.removeEventListener('dragend', fin, true);
+      document.removeEventListener('drop', fin, true);
+      copia.current?.remove();
+      copia.current = null;
+    };
+    document.addEventListener('dragend', fin, true);
+    document.addEventListener('drop', fin, true);
+    agarrada.current = id;
+  };
+
+  return {
+    activo,
+    /** lo que va en cada `<tr>` que se puede agarrar */
+    fila: (id: string) => (activo
+      ? { draggable: true, 'data-fila': '', onDragStart: (e: DragReact<HTMLTableRowElement>) => agarrar(e, id), onDragEnd: limpiar }
+      : {}),
+    /** lo que va en el `<tbody>`: sin `preventDefault` el navegador RECHAZA el drop y no
+     *  pasa nada, que se lee como que el arrastre no anda. */
+    cuerpo: (activo
+      ? {
+        onDragOver: (e: DragReact<HTMLTableSectionElement>) => {
+          if (!agarrada.current) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          empujar(e.clientY);
+          const y = posDe(e.clientY);
+          const m = medios.current;
+          let idx = m.length;
+          for (let i = 0; i < m.length; i++) { if (y < m[i]) { idx = i; break; } }
+          // Sólo se re-renderiza cuando el destino CAMBIA de verdad: un `setState` por
+          // cada `dragover` redibuja la tabla 60 veces por segundo y el gesto se siente roto.
+          setIns((p) => (p === idx ? p : idx));
+        },
+        onDrop: (e: DragReact<HTMLTableSectionElement>) => {
+          e.preventDefault();
+          const id = e.dataTransfer.getData('text/plain') || agarrada.current;
+          const idx = ins ?? filas.length;
+          limpiar();
+          if (!id || !onSoltar) return;
+          const j = filas.findIndex((f) => f.id === id);
+          // La lista SIN la que se está moviendo: si se la deja adentro, el punto medio se
+          // calcula contra su propio número y la fila «no se mueve». Y el índice se corre
+          // uno cuando venía de más arriba, o soltar hacia abajo cae un lugar antes.
+          const resto = filas.filter((f) => f.id !== id);
+          const pos = j >= 0 && j < idx ? idx - 1 : idx;
+          onSoltar(id, scoreEntreFilas(resto, pos, dir, filas[j]?.score ?? 50));
+        },
+        onDragLeave: (e: DragReact<HTMLTableSectionElement>) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns(null);
+        },
+      }
+      : {}),
+    /** la línea de 2px que dice dónde va a caer. Es una línea y no un hueco como en el
+     *  Kanban: un hueco del alto de una fila en una tabla que se está apretando para que no
+     *  scrollee es exactamente lo que no puede pasar. */
+    marca: (i: number, ultima: boolean): CSSProperties | null => {
+      if (ins == null) return null;
+      if (ins === i) return MARCA_ARRIBA;
+      if (ultima && ins === i + 1) return MARCA_ABAJO;
+      return null;
+    },
+  };
+}
+
+function Th({ children, orden, activo, dir, onSort, ancho, ayuda }: { children: ReactNode; orden?: string; activo?: boolean; dir?: 'asc' | 'desc'; onSort?: () => void; ancho?: number;
+  /** lo que dice el `title` cuando ordenar por esta columna HABILITA algo más (hoy:
+   *  arrastrar las filas, que sólo tiene sentido con la tabla ordenada por prioridad). */
+  ayuda?: string }) {
   if (!onSort) return <th style={{ ...thBase, width: ancho }}>{children}</th>;
   return (
     <th style={{ ...thBase, width: ancho }} aria-sort={activo ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" onClick={onSort} title={`Ordenar por ${orden}`}
+      <button type="button" onClick={onSort} title={ayuda ?? `Ordenar por ${orden}`}
         style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: activo ? 'var(--primary)' : 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {children}{activo && <span aria-hidden>{dir === 'asc' ? '▲' : '▼'}</span>}
       </button>
@@ -162,8 +479,27 @@ function CheckHecha({ hecha, onToggle, titulo }: { hecha: boolean; onToggle: () 
   );
 }
 
-function Score({ score, color }: { score: number; color: string }) {
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: '2px 7px 2px 6px' }}><ScoreIcon size={11} color={color} />{score}</span>;
+/**
+ * La prioridad: UN chip con el número, teñido por la banda.
+ *
+ * ⚠️ AL LADO IBA LA PALABRA («Alta», «Media», «A futuro») y se fue. Es el mismo dato dos
+ * veces —la banda sale del número, `prioFromScore`— y es exactamente lo que se sacó de la
+ * celda del deadline el mismo día: «esto es tres veces el mismo dato nada más que
+ * representado de forma diferente, no me interesa verlo de forma diferente» (25/09/2026).
+ * Además la tabla de PROYECTOS nunca la dibujó: dos tablas hermanas mostrando lo mismo de
+ * dos formas distintas.
+ *
+ * Y costaba 48px de ancho en la columna más apretada del producto — con «A futuro», que es
+ * el valor más largo del conjunto, la celda pedía 129px sobre los 124 declarados, así que
+ * la columna se estiraba sola y devolvía la barra horizontal que el resto de la pasada
+ * estaba sacando.
+ *
+ * ⚠️ El color NO es el único portador: `titulo` dice la banda en palabras, y va en el
+ * `title` y en el `aria-label` —que es lo único que lee un lector de pantalla y lo único
+ * que sobrevive a un daltonismo—.
+ */
+function Score({ score, color, titulo }: { score: number; color: string; titulo?: string }) {
+  return <span title={titulo} aria-label={titulo} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: '2px 7px 2px 6px' }}><ScoreIcon size={11} color={color} />{score}</span>;
 }
 
 function Barra({ pct, color }: { pct: number; color: string }) {
@@ -206,13 +542,22 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
 
 // ── PROYECTOS ────────────────────────────────────────────────────────────────────────
 
-export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, labelPlural }: {
+export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar }: {
   filas: Array<{ l: Label; prog: { pct: number; total: number; done: number } }>;
   topProjectId: string | null;
   hoy: string;
   onOpen: (id: string) => void;
   onDeadline: (id: string, iso: string) => void;
   labelPlural: string;
+  /**
+   * Soltaste una fila en otra posición: NO se fija sola, se abre el pop-up del 1 al 100 con
+   * el número que sugiere la POSICIÓN. Es el mismo `setSoltada` que ya usan el Kanban y los
+   * dos detalles (`{ entidad: 'proyecto', id, sugerido }`), no otro.
+   *
+   * ⚠️ Sin esta prop la fila no se puede agarrar, igual que el tacho sin `onEliminar`: la
+   * prop ES la capacidad, y el tablero que no puede fijar una prioridad a mano no la pasa.
+   */
+  onSoltar?: (id: string, sugerido: number) => void;
 }) {
   const [orden, setOrden] = usePref<OrdenProy>('proyectos.tabla.orden', 'deadline', esUnoDe('deadline', 'score', 'nombre', 'avance'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('proyectos.tabla.dir', 'asc', esUnoDe('asc', 'desc'));
@@ -247,47 +592,67 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
     };
   }, [filas, orden, dir]);
 
-  const fila = ({ l, prog }: { l: Label; prog: { pct: number; total: number; done: number } }, hecho: boolean) => (
-    <tr key={l.id} style={{ background: hecho ? 'var(--surface-2)' : undefined }}>
-      <td style={{ ...tdBase, maxWidth: 340 }}>
-        <button type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
-          <span style={{ flex: 'none' }}>{l.emoji}</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: l.color, fontWeight: 700, flex: 'none' }}>{l.pid}</span>
-          <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: hecho ? 'line-through' : 'none', opacity: hecho ? .7 : 1 }}>{l.name}</span>
-          {l.id === topProjectId && <span title="Objetivo Principal" style={{ flex: 'none' }}>🎯</span>}
-        </button>
-      </td>
-      <td style={tdBase}><Score score={l.score} color={l.color} /></td>
-      <td style={tdBase}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Barra pct={prog.pct} color={l.color} />
-          <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)', whiteSpace: 'nowrap' }}>{prog.done}/{prog.total}</span>
-        </div>
-      </td>
-      <td style={tdBase}>
-        <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
-      </td>
-    </tr>
-  );
+  // Arrastrar una fila para cambiarle la prioridad, igual que en el Kanban. Sólo con la
+  // tabla ordenada por prioridad: ver `useArrastreFilas`.
+  const arr = useArrastreFilas(vivos.map(({ l }) => ({ id: l.id, score: l.score })), dir, orden === 'score', onSoltar);
+
+  const fila = ({ l, prog }: { l: Label; prog: { pct: number; total: number; done: number } }, hecho: boolean, i = -1, ultima = false) => {
+    // Lo terminado está al fondo y plegado: no se agarra ni marca posición.
+    const marca = hecho ? null : arr.marca(i, ultima);
+    const td = marca ? { ...tdBase, ...marca } : tdBase;
+    return (
+      <tr key={l.id} {...(hecho ? {} : arr.fila(l.id))}
+        style={{ background: hecho ? 'var(--surface-2)' : undefined, cursor: !hecho && arr.activo ? 'grab' : undefined }}>
+        <td style={{ ...td, maxWidth: 340 }}>
+          <button type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
+            <span style={{ flex: 'none' }}>{l.emoji}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: l.color, fontWeight: 700, flex: 'none' }}>{l.pid}</span>
+            <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: hecho ? 'line-through' : 'none', opacity: hecho ? .7 : 1 }}>{l.name}</span>
+            {l.id === topProjectId && <span title="Objetivo Principal" style={{ flex: 'none' }}>🎯</span>}
+          </button>
+        </td>
+        {/* El chip va teñido con el color del PROYECTO, no con el de la banda, así que acá
+            el color no dice la prioridad: la dice el número y la dice el `title`. */}
+        <td style={td}><Score score={l.score} color={l.color} titulo={`Prioridad ${l.score} de 100 · ${PLABEL[prioFromScore(l.score)]}`} /></td>
+        <td style={td}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Barra pct={prog.pct} color={l.color} />
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)', whiteSpace: 'nowrap' }}>{prog.done}/{prog.total}</span>
+          </div>
+        </td>
+        {/* `data-nodrag`: acá adentro se escribe una fecha, y empezar el arrastre desde el
+            `input` se come el gesto que esa pieza ya tenía. */}
+        <td style={td} data-nodrag>
+          <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div style={cajaStyle} className="mk-scroll-x">
-      {/* 600 y no 720: son 200 para el nombre + las tres columnas de ancho declarado. El
-          número sale de sumar lo que las columnas necesitan, no de copiar el de al lado. */}
-      <table style={{ ...tablaStyle, minWidth: 600 }}>
+      {/* El piso es la SUMA de lo que las columnas piden (ver arriba), no un número
+          copiado de la tabla de al lado. Bajó de 600 a 544 al irse la palabra de la
+          prioridad y al apretarse el padding: lo que sobra se lo queda el nombre. */}
+      <table style={{ ...tablaStyle, minWidth: C_NOMBRE + C_PRIO + C_AVANCE + C_FECHA }}>
         <thead>
           <tr>
             <Th orden="nombre" activo={orden === 'nombre'} dir={dir} onSort={() => sortear('nombre')}>{labelPlural}</Th>
-            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={110}>Prioridad</Th>
-            <Th orden="avance" activo={orden === 'avance'} dir={dir} onSort={() => sortear('avance')} ancho={130}>Tareas</Th>
+            {/* ⚠️ EL `title` DE ESTE ENCABEZADO ES LA PISTA DE CÓMO SE HABILITA EL
+                ARRASTRE. Ordenar por deadline o por nombre deja la posición entre filas sin
+                significado, así que ahí no se puede agarrar nada — y un control que
+                desaparece sin decir por qué se lee como una pantalla rota. */}
+            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
+              ayuda={onSoltar && orden !== 'score' ? 'Ordenar por prioridad — hace falta para poder arrastrar las filas' : 'Ordenar por prioridad'}>Prioridad</Th>
+            <Th orden="avance" activo={orden === 'avance'} dir={dir} onSort={() => sortear('avance')} ancho={C_AVANCE}>Tareas</Th>
             {/* 330 era el ancho de cuando la celda decía la fecha tres veces; 160, el de
-                cuando el `input` medía 138. Con un solo dato y el input en 126, son 150. */}
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={150}>Deadline</Th>
+                cuando el `input` medía 138; 150, el de cuando medía 126. */}
+            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>
           </tr>
         </thead>
-        <tbody>
-          {vivos.map((f) => fila(f, false))}
+        <tbody {...arr.cuerpo}>
+          {vivos.map((f, i) => fila(f, false, i, i === vivos.length - 1))}
           {vivos.length === 0 && hechos.length === 0 && (
             <tr><td colSpan={4} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay {labelPlural.toLowerCase()} para este filtro.</td></tr>
           )}
@@ -301,7 +666,7 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar }: {
+export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar }: {
   /** TODAS: abiertas Y terminadas. La tabla las separa sola (ver `FilaPlegada`). */
   tareas: BoardTask[];
   board: Board;
@@ -315,6 +680,18 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
   ocultarProyecto?: boolean;
   /** abre la pregunta de borrar. Sin esto, la fila no dibuja el tacho. */
   onEliminar?: (id: string) => void;
+  /**
+   * Soltaste una fila en otra posición: abre el MISMO pop-up del 1 al 100 que el Kanban
+   * (`setSoltada({ entidad: 'tarea', id, sugerido })`), con el número que sugiere la
+   * posición. Sin esta prop la fila no se puede agarrar.
+   *
+   * ⚠️ LA PROP **ES** LA CAPACIDAD, y por eso la tabla no consulta `repo.prioridadManual`
+   * por su cuenta: el tablero del CLIENTE no tiene esa escritura (ni la columna
+   * `score_manual`), así que no pasa la prop y la fila no dibuja el agarre. Un componente
+   * compartido que decide solo qué puede escribir es cómo el slider de prioridad salió a
+   * producción contestándole «solo admin» a todos los clientes.
+   */
+  onSoltar?: (id: string, sugerido: number) => void;
 }) {
   /**
    * LO SELECCIONADO. La casilla de la primera columna SELECCIONA, no completa.
@@ -372,38 +749,59 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tareas, orden, dir, board.labels]);
 
+  // Arrastrar una fila para cambiarle la prioridad. Sólo lo ABIERTO entra en juego y sólo
+  // con la tabla ordenada por prioridad: ver `useArrastreFilas`.
+  const arr = useArrastreFilas(vivas.map((t) => ({ id: t.id, score: t.score })), dir, orden === 'score', onSoltar);
+
   // Sobre lo VISIBLE, nunca sobre el tablero entero: si hay un filtro puesto, «todas» son
   // las que se ven. Seleccionar lo que no está en pantalla es cómo se borra de más.
   const visiblesIds = (verHechas ? [...vivas, ...hechas] : vivas).map((t) => t.id);
   const todasSel = visiblesIds.length > 0 && visiblesIds.every((id) => sel.has(id));
   const alternar = (id: string) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const elegidas = tareas.filter((t) => sel.has(t.id));
+  /** La suma de lo que las columnas que se DIBUJAN necesitan. Ver el `minWidth` de abajo. */
+  const ANCHO_MINIMO = C_SEL + C_TITULO + (ocultarProyecto ? 0 : C_PROY) + C_PRIO + C_FECHA + (onEliminar ? C_ACC : C_ACC_SOLA);
 
-  const fila = (t: BoardTask, hecha: boolean) => {
+  const fila = (t: BoardTask, hecha: boolean, i = -1, ultima = false) => {
     const proy = board.labelById(t.labels[0]);
     const c = PCOLOR[prioFromScore(t.score)];
+    // Lo terminado está al fondo y plegado: no se agarra ni marca posición.
+    const marca = hecha ? null : arr.marca(i, ultima);
+    const td = marca ? { ...tdBase, ...marca } : tdBase;
     return (
-      <tr key={t.id} style={{ background: hecha ? 'var(--surface-2)' : undefined }}>
-        <td style={{ ...tdBase, width: 34, paddingRight: 0 }}>
+      <tr key={t.id} {...(hecha ? {} : arr.fila(t.id))}
+        style={{ background: hecha ? 'var(--surface-2)' : undefined, cursor: !hecha && arr.activo ? 'grab' : undefined }}>
+        <td style={{ ...td, width: C_SEL, paddingRight: 0 }}>
           <input type="checkbox" checked={sel.has(t.id)} onChange={() => alternar(t.id)}
             title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
         </td>
-        <td style={{ ...tdBase, maxWidth: 420 }}>
+        <td style={{ ...td, maxWidth: 420 }}>
           {/* SIN EL #ID. «El ID lo quitaría… el ID de la tabla de tareas» (25/09/2026):
               en una columna que ya cede ancho, el número se comía el principio del título
               en todas las filas para contestar una pregunta que nadie le hace a la tabla
-              —el # se usa adentro del detalle, que es donde sigue estando—. */}
+              —el # se usa adentro del detalle, que es donde sigue estando—.
+              ⚠️ DOS LÍNEAS COMO MÁXIMO, con «…» y el título entero en el `title`. Era UNA
+              sola, y adentro de un proyecto —donde la columna cede ancho contra las otras
+              cuatro— eso dejaba tareas cortadas a la mitad: «que no haya tanto scroll…
+              pero que se siga entendiendo todo» (25/09/2026). Lo que paga la segunda línea
+              es el padding de la fila, no más alto (ver `tdBase`).
+              El recorte es `-webkit-line-clamp`, que es lo único que recorta POR LÍNEAS y
+              pone el «…» al final de la última; con `overflow: hidden` a secas la segunda
+              línea se corta al medio y sin puntos. */}
+          {/* El `title` es el título ENTERO y nada más: es lo que recupera lo que el «…»
+              se comió. Que la fila se puede arrastrar lo dice el cursor, igual que en el
+              Kanban — ponerlo también acá son 50 tooltips repitiendo lo mismo. */}
           <button type="button" onClick={() => onOpen(t.id)} title={t.title}
             style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: hecha ? 'line-through' : 'none', opacity: hecha ? .7 : 1 }}>{t.title}</span>
+            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere', lineHeight: 1.2, textDecoration: hecha ? 'line-through' : 'none', opacity: hecha ? .7 : 1 }}>{t.title}</span>
           </button>
         </td>
         {/* ⚠️ ADENTRO DE UN PROYECTO ESTA COLUMNA NO SE DIBUJA: son 190px repitiendo el
             nombre del proyecto que estás mirando en todas las filas, y en la columna
             principal del detalle (~538px) es la que quedaba cortada al medio. */}
         {!ocultarProyecto && (
-          <td style={tdBase}>
+          <td style={td}>
             {proy && (
               <button type="button" onClick={() => onOpenProj?.(proy.id)} title={`Abrir «${proy.name}»`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: 170, border: `1px solid ${proy.color}33`, background: proy.color + '14', color: proy.color, borderRadius: 7, padding: '3px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
@@ -413,13 +811,12 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             )}
           </td>
         )}
-        <td style={tdBase}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Score score={t.score} color={c} />
-            <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>{PLABEL[prioFromScore(t.score)]}</span>
-          </span>
-        </td>
-        <td style={tdBase}>
+        {/* UN chip y nada más: la palabra al lado era el mismo dato dos veces y costaba
+            48px de la columna más apretada del producto. La banda va en el color y en el
+            `title` — ver `Score`. */}
+        <td style={td}><Score score={t.score} color={c} titulo={`Prioridad ${t.score} de 100 · ${PLABEL[prioFromScore(t.score)]}`} /></td>
+        {/* `data-nodrag`: acá adentro se escribe una fecha. */}
+        <td style={td} data-nodrag>
           <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />
         </td>
         {/* LAS DOS ACCIONES QUE CIERRAN UNA TAREA, JUNTAS: el check y el tacho.
@@ -436,7 +833,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             primera: dos controles parecidos pegados es cómo se volvieron a confundir.
             ⚠️ El tacho NO borra: llama a `onEliminar`, que abre la pregunta de dos botones.
             Borrar de un click en una fila de una lista densa es borrar la de al lado. */}
-        <td style={{ ...tdBase, textAlign: 'right' }}>
+        <td style={{ ...td, textAlign: 'right' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <CheckHecha hecha={hecha} onToggle={() => board.toggleDone(t.id)} titulo={t.title} />
             {onEliminar && (
@@ -459,21 +856,24 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
       {/* La barra vive en `AccionesLote`: la usa también el Kanban desde el 24/09/2026, y
           dos copias de una barra de acciones divergen a la primera acción nueva. */}
       <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />
-      {/* ⚠️ EL PISO DE ADENTRO DE UN PROYECTO NO ES UN NÚMERO ELEGIDO ACÁ: es
-          `ANCHO_TABLA_EN_PROYECTO` (./piezas), que sale de restarle al modal la columna
-          derecha, el padding y las barras. Estuvo en 520 unas horas del 25/09/2026, sumando
-          lo que las columnas «necesitan» (34 selección + 150 título + 124 prioridad + 150
-          deadline + 76 acciones = 534, redondeado abajo) — y 520 no entra: la columna
-          derecha del detalle subió de 236 a 264 el MISMO día, en el otro archivo, así que
-          quedaban ~499px útiles y la barra horizontal volvía. Sumar lo que uno quiere no
-          contesta si entra; restar lo que hay, sí. El que cede es el título, con «…» y el
-          texto entero en su `title`.
-          A lo ancho de la pantalla el problema no existe, así que ahí el piso sigue siendo
-          la suma (700, con los 190 de la columna «Proyecto»). */}
-      <table style={{ ...tablaStyle, minWidth: ocultarProyecto ? ANCHO_TABLA_EN_PROYECTO : 700 }}>
+      {/* ⚠️ EL PISO ES LO QUE LAS COLUMNAS PIDEN, Y ADENTRO DE UN PROYECTO SE TOPEA CONTRA
+          LO QUE HAY. Las dos mitades importan y cada una se aprendió rompiendo la otra:
+          · Sumar lo que uno QUIERE no contesta si entra. El 25/09/2026 el piso fue 520
+            sumando anchos deseados, y 520 no entraba: la columna derecha del detalle subió
+            de 236 a 264 ese mismo día, en otro archivo.
+          · Pero pedir EXACTAMENTE lo disponible (`ANCHO_TABLA_EN_PROYECTO`, la resta contra
+            el modal) tampoco sirve: deja cero margen, así que cualquier cosa que mueva el
+            número un píxel —el zoom, que achica el modal; «A futuro», que pedía 129 en una
+            columna declarada en 124— devuelve la barra de abajo. Y la barra NO se esconde
+            (`scrollbar-width: none` está prohibido): se hace que no haga falta.
+          Ahora se pide la SUMA DE LO NECESARIO (444 adentro de un proyecto contra 496
+          disponibles: 52px de aire) y se topea contra lo disponible, que es lo que evita
+          declarar más de lo que hay si mañana la columna derecha vuelve a crecer. Lo que
+          sobra se lo queda el título, que es la única columna elástica. */}
+      <table style={{ ...tablaStyle, minWidth: ocultarProyecto ? Math.min(ANCHO_MINIMO, ANCHO_TABLA_EN_PROYECTO) : ANCHO_MINIMO }}>
         <thead>
           <tr>
-            <th style={{ ...thBase, width: 34 }}>
+            <th style={{ ...thBase, width: C_SEL, paddingRight: 0 }}>
               <input type="checkbox" checked={todasSel} ref={(el) => { if (el) el.indeterminate = sel.size > 0 && !todasSel; }}
                 onChange={() => setSel(todasSel ? new Set() : new Set(visiblesIds))}
                 title={todasSel ? 'Quitar la selección' : 'Seleccionar todas'} aria-label="Seleccionar todas"
@@ -483,22 +883,26 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
                 «creación» y no «número» desde que el #ID salió de la fila: ofrecer ordenar
                 por una columna que ya no se ve es ofrecer una incógnita. */}
             <Th orden="creación" activo={orden === 'num'} dir={dir} onSort={() => sortear('num')}>Tarea</Th>
-            {!ocultarProyecto && <Th orden="proyecto" activo={orden === 'proyecto'} dir={dir} onSort={() => sortear('proyecto')} ancho={190}>Proyecto</Th>}
-            {/* 150 y 160 eran anchos heredados: la celda de prioridad mide 99px de
-                contenido (el chip + la palabra) y la del deadline, 126 (el `input`). El
-                resto era hueco, y el hueco de una tabla se paga en scroll horizontal. */}
-            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={124}>Prioridad</Th>
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={150}>Deadline</Th>
+            {!ocultarProyecto && <Th orden="proyecto" activo={orden === 'proyecto'} dir={dir} onSort={() => sortear('proyecto')} ancho={C_PROY}>Proyecto</Th>}
+            {/* 150 y 160 eran anchos heredados; 124 era el chip MÁS la palabra. Con un solo
+                chip son 76. El hueco de una tabla se paga en scroll horizontal.
+                ⚠️ Y su `title` es la pista de cómo se habilita el arrastre de filas, que
+                sólo se puede ofrecer con la tabla ordenada por prioridad. */}
+            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
+              ayuda={onSoltar && orden !== 'score' ? 'Ordenar por prioridad — hace falta para poder arrastrar las filas' : 'Ordenar por prioridad'}>Prioridad</Th>
+            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>
             {/* SIN RÓTULO. Decía «Estado» cuando la celda era sólo el check; ahora trae
                 también el tacho, así que la palabra pasó a nombrar mal a la mitad de la
                 columna — y un encabezado que miente es peor que ninguno. Las dos acciones
                 se anuncian por su `title` y su `aria-label`, que es donde el texto no
-                ocupa lugar; el nombre de la columna vive en el `aria-label` del `th`. */}
-            <th aria-label="Acciones" style={{ ...thBase, width: 76 }} />
+                ocupa lugar; el nombre de la columna vive en el `aria-label` del `th`.
+                Y mide lo que DIBUJA: sin `onEliminar` es un ícono solo, y los 24px del
+                tacho se los queda el título. */}
+            <th aria-label="Acciones" style={{ ...thBase, width: onEliminar ? C_ACC : C_ACC_SOLA }} />
           </tr>
         </thead>
-        <tbody>
-          {vivas.map((t) => fila(t, false))}
+        <tbody {...arr.cuerpo}>
+          {vivas.map((t, i) => fila(t, false, i, i === vivas.length - 1))}
           {vivas.length === 0 && hechas.length === 0 && (
             <tr><td colSpan={cols} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay tareas para este filtro.</td></tr>
           )}

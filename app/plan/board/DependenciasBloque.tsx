@@ -7,22 +7,51 @@
 // los dos niveles: la anatomía es idéntica y mantener dos copias es garantizar que
 // diverjan (es la regla de `.mk-fila` de AGENTS.md aplicada acá).
 //
-// Muestra las DOS direcciones, y no es simetría por prolijidad:
-//   · «Espera a…»   → por qué esto no se puede empezar hoy.
-//   · «Destraba a…» → por qué ESTO importa más de lo que su título sugiere. Es la mitad
-//     que explica el ranking: una tarea chica que destraba tres cosas grandes sube, y sin
-//     ver esta lista ese salto parece arbitrario.
+// Dibuja UNA sola lista: «Depende de» — qué frena a esto y por eso no se puede empezar hoy.
 //
-// La lista inversa NO se guarda: se deriva recorriendo las aristas. Dos listas guardadas
-// se desincronizan, que es el mismo motivo por el que el score de un proyecto se deriva de
-// sus tareas en vez de escribirse aparte.
+// ⚠️ ACÁ HABÍA UNA SEGUNDA LISTA, «DESTRABA A», Y LO QUE SE FUE ES LA LISTA, NO LA FEATURE.
+// «La parte de "Depende de" debería ser solo depende de, nada de "destraba"» (25/09/2026).
+// «Destraba a» era la vista INVERSA de la misma arista: las dos salían del MISMO
+// `deps[]`, una filtrando por `deId` y la otra por `aId`. Sacar el render no toca ni una
+// arista, así que la herencia de urgencia sigue viva y sigue moviendo el ranking:
+//
+//   · la urgencia heredada la calcula `resolverDeps` en `dependencias.ts`
+//     (`u(A) = max(score(A), max{ u(B) : B espera a A }`) y sale en `EstadoDeps.urgencia`,
+//     que es lo que come `curveTaskScores`. No mira esta pantalla ni sabe que existe.
+//   · el candado del Kanban y la exclusión de Prioridades salen de `bloqueantes`, del
+//     mismo resolvedor.
+//
+// O sea: si mañana una tarjeta sube de prioridad «sin motivo», el motivo puede seguir
+// siendo que destraba algo grande — se ve en `score_razon`, ya no en una lista de acá.
+//
+// Y la arista NO queda huérfana al sacar la lista inversa: toda arista se dibuja, con su
+// ×, en el detalle del que ESPERA. Desde el otro extremo nunca fue el único camino para
+// borrarla, sólo el segundo.
 // =============================================================================
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
+import { LapizPrioridad } from './PrioridadAMano';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
+
+/**
+ * EL RÓTULO DE LA SECCIÓN, IDÉNTICO AL DE LOS CAMPOS DE AL LADO.
+ *
+ * «Que se vea como en las tareas» (25/09/2026). Este bloque vive en la columna derecha de
+ * los dos detalles, pegado arriba de PROYECTOS, y hasta hoy se rotulaba distinto que sus
+ * vecinos (11px / .14em / --dim / bold contra 10px / .08em / --faint). Dos cosas del mismo
+ * rango en la misma columna no pueden verse distinto.
+ *
+ * ⚠️ ES UNA COPIA DE `rowLabel` (BoardShell.tsx), valor por valor, y no un import porque
+ * ahí es una `const` de módulo sin exportar. Si alguno de los dos cambia, cambian los dos
+ * — o vuelve la discordancia que este bloque acaba de pagar.
+ */
+const rotuloSeccion: CSSProperties = {
+  fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
+  color: 'var(--faint)', display: 'inline-flex', alignItems: 'center', gap: 2,
+};
 
 export type Candidato = { id: string; titulo: string; sub?: string; terminado?: boolean };
 
@@ -45,9 +74,9 @@ export function DependenciasBloque({ entidad, id, deps, candidatos, impacto, onA
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  const mias = deps.filter((d) => d.entidad === entidad);
-  const espera = mias.filter((d) => d.deId === id);
-  const destraba = mias.filter((d) => d.aId === id);
+  // Sólo la dirección «yo espero a…». El filtro inverso (`d.aId === id`) ya no se calcula
+  // acá: lo que ESTO destraba lo resuelve `resolverDeps`, no esta pantalla (ver cabecera).
+  const espera = deps.filter((d) => d.entidad === entidad && d.deId === id);
   const nombre = (x: string) => candidatos.find((c) => c.id === x)?.titulo ?? x;
   const listo = (x: string) => candidatos.find((c) => c.id === x)?.terminado ?? false;
 
@@ -73,21 +102,30 @@ export function DependenciasBloque({ entidad, id, deps, candidatos, impacto, onA
     setAbriendo(false); setElegido(null); setRazon(''); setQ(''); setClase('bloquea');
   };
 
-  const Fila = ({ d, dir }: { d: Dep; dir: 'espera' | 'destraba' }) => {
-    const otro = dir === 'espera' ? d.aId : d.deId;
-    const hecho = listo(otro);
+  const Fila = ({ d }: { d: Dep }) => {
+    const hecho = listo(d.aId);
+    // ⚠️ EL ÍCONO LLEVA SU FRASE EN EL `title`, NO EN UN RENGLÓN PROPIO. «Van juntas — no
+    // frena el arranque» se dibujaba como una línea más debajo de cada fila `ordena`: una
+    // glosa enlatada, repetida por fila, que es justo el «texto innecesario» que el dueño
+    // pidió sacar (25/09/2026). El significado no se perdió —ahora los TRES estados lo
+    // dicen al pasar por encima, que antes no hacía ninguno—; lo que se fue es el renglón.
+    const senal = d.clase === 'ordena'
+      ? { glifo: '↔', que: 'Van juntas — no frena el arranque' }
+      : hecho
+        ? { glifo: '✓', que: 'Ya está terminada — no frena nada' }
+        : { glifo: '🔒', que: 'Todavía no está terminada — frena a esto' };
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: '1px solid var(--border)' }}>
-        <span style={{ flex: 'none', fontSize: 12, marginTop: 1 }}>{d.clase === 'ordena' ? '↔' : hecho ? '✓' : '🔒'}</span>
+        <span title={senal.que} style={{ flex: 'none', fontSize: 12, marginTop: 1 }}>{senal.glifo}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: hecho ? 'var(--dim)' : 'var(--ink)', textDecoration: hecho ? 'line-through' : 'none', wordBreak: 'break-word' }}>{nombre(otro)}</div>
+          <div style={{ fontSize: 13, color: hecho ? 'var(--dim)' : 'var(--ink)', textDecoration: hecho ? 'line-through' : 'none', wordBreak: 'break-word' }}>{nombre(d.aId)}</div>
           {/* La razón es lo único que hace auditable la arista a las seis semanas: sin
               ella, el candado solo puede decir «falta terminarla» y nadie sabe por qué
-              existe el vínculo. */}
+              existe el vínculo. NO es «texto innecesario»: no es un rótulo nuestro, es lo
+              que escribió la persona que creó el vínculo. */}
           {d.razon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', marginTop: 2 }}>{d.razon}</div>}
-          {d.clase === 'ordena' && <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>Van juntas — no frena el arranque.</div>}
         </div>
-        <button onClick={() => void onDel(entidad, d.deId, d.aId)} title="Sacar esta dependencia"
+        <button onClick={() => void onDel(entidad, d.deId, d.aId)} title="Sacar esta dependencia" aria-label="Sacar esta dependencia"
           style={{ flex: 'none', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 15, lineHeight: 1, padding: '0 2px' }}>×</button>
       </div>
     );
@@ -95,45 +133,44 @@ export function DependenciasBloque({ entidad, id, deps, candidatos, impacto, onA
 
   return (
     <div style={{ fontFamily: SANS }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>Depende de</div>
-        <span style={{ flex: 1 }} />
+      {/* ⚠️ EL LÁPIZ VA PEGADO AL RÓTULO, ADENTRO DEL `<label>`. «En lugar de "Agregar" en
+          depende de, el botón del lápiz» (25/09/2026). Es EL MISMO `LapizPrioridad` que
+          dibuja «PROYECTOS ✎» dos campos más abajo, con el mismo `tam={20}` — no una copia
+          con otra cara: un control que significa «editá esto» tiene que verse igual en
+          todos lados. Y no va con `flex: 1` en el medio: colgado del borde de la columna
+          queda flotando lejos de lo que edita, que es el error que PROYECTOS ya pagó dos
+          veces el mismo día.
+          El `titulo` viaja a `title` Y a `aria-label`: un botón cuyo único contenido es un
+          ícono se anuncia como «botón», a secas. */}
+      <label style={{ ...rotuloSeccion, marginBottom: 6 }}>
+        Depende de
         {!abriendo && (
-          <button onClick={() => setAbriendo(true)}
-            style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', borderRadius: 8, padding: '4px 9px', cursor: 'pointer', fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--dim)' }}>+ Agregar</button>
+          <LapizPrioridad tam={20} onClick={() => setAbriendo(true)}
+            titulo={espera.length ? 'Agregar otra dependencia' : 'Agregar una dependencia'} />
         )}
-      </div>
+      </label>
 
       {/* EL VACÍO, EN UNA LÍNEA. «En lugar de "Nada la frena y no frena nada. Se puede
           empezar hoy." simplemente "No depende de ninguna tarea"» (25/09/2026). Lo que
           se fue es la segunda mitad —que ESTO tampoco frena a nadie— y la conclusión
           («se puede empezar hoy»), que el vacío ya dice solo.
 
+          La condición ya no mira la lista inversa (antes era `espera` Y `destraba` vacías):
+          esta sección muestra una sola dirección, así que «no depende de nada» es toda la
+          verdad sobre lo que dibuja. Que además destrabe algo sigue siendo cierto y sigue
+          contando para el ranking — ver la cabecera del archivo.
+
           ⚠️ EL SUSTANTIVO LO DECIDE `entidad`, no se escribe fijo: este componente es UNO
           para los dos niveles y los candidatos de un proyecto son PROYECTOS. «No depende
           de ninguna tarea» en el detalle de un proyecto sería falso sobre lo único que la
           frase afirma. */}
-      {espera.length === 0 && destraba.length === 0 && !abriendo && (
+      {espera.length === 0 && !abriendo && (
         <div style={{ fontSize: 12.5, color: 'var(--faint)', paddingBottom: 4 }}>
           No depende de {entidad === 'proyecto' ? 'ningún proyecto' : 'ninguna tarea'}
         </div>
       )}
 
-      {espera.length > 0 && (
-        <div style={{ marginBottom: destraba.length ? 12 : 0 }}>
-          {espera.map((d) => <Fila key={d.aId} d={d} dir="espera" />)}
-        </div>
-      )}
-
-      {destraba.length > 0 && (
-        <>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginTop: 4 }}>Destraba a</div>
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>
-            Por esto sube de prioridad: vale al menos lo que vale lo mejor que destraba.
-          </div>
-          {destraba.map((d) => <Fila key={d.deId} d={d} dir="destraba" />)}
-        </>
-      )}
+      {espera.map((d) => <Fila key={d.aId} d={d} />)}
 
       {abriendo && (
         <div style={{ marginTop: 8, border: '1px solid var(--border-strong)', borderRadius: 10, padding: 12, background: 'var(--surface-2)' }}>
