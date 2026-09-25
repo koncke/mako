@@ -4148,6 +4148,22 @@ lo descartado. El proyecto en ALTA y su trabajo leyéndose como lo último de la
 que lo que se quedó arriba siga estando arriba — y eso es una consulta, no una intuición:
 «¿qué tarjeta de un proyecto ALTA tiene score menor que el techo que le puse a lo bajado?».
 
+⚠️ **Y la mitad espejo: bajar el PROYECTO no baja sus tareas, y el Kanban agrupa por la
+banda de la TAREA.** Al mandar a A FUTURO los 53 proyectos que no son de ninguna fase
+quedaron **59 de sus tarjetas leyéndose como trabajo activo**, seis de ellas en ALTA — o sea
+trabajo dormido arriba de todo, que es justo lo que la bajada venía a evitar. Cada vez que
+muevas un contenedor, preguntá qué agrupa la pantalla: si agrupa por el hijo, mover al padre
+no se ve. Al bajarlas se comprimió el score dividiendo por 5 (conserva el orden que ya tenían
+adentro del proyecto y entra entero abajo de 25) en vez de aplastarlas todas al mismo número.
+
+**Y abajo, los empates dejan de ser un defecto.** 53 proyectos no entran en 24 números, y
+repartirlos igual sería inventar un orden que miente: entre cosas que nadie va a tocar, el
+puesto 31 contra el 32 no informa nada. Lo único que abajo informa es POR QUÉ están abajo, y
+eso son tres grupos — con trabajo abierto (24→18, por cuánto tiene), sin trabajo abierto (5)
+y tachado con su motivo (2). **«Prohibido empatar» sigue entero arriba de 75**, que es donde
+el orden decide qué se hace hoy. Y el guard del verificador se mudó a esa banda: uno que
+denuncia empates deliberados cría lobos, y eso cuesta una vuelta de diagnóstico.
+
 **Vive en:** `backups/_scores-tareas.mjs` · *2026-09-25*
 
 ### Lo que el barrido encontró, en números
