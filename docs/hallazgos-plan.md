@@ -4063,6 +4063,19 @@ alguien lo va a citar — y si no lo cazan, queda una decisión del dueño rever
 por una lectura tuya. Lo que se hace con la duda es preguntarla, no resolverla: la tarjeta
 quedó creada, bajada de prioridad y con la pregunta escrita adentro.
 
+✅ **Y el final confirma la regla por el lado barato: la pregunta costó una línea y contestó
+que SÍ** («subilos, los dos entran en la 1.2»). O sea que mi lectura del audio era correcta **y
+aun así estaba mal hacerla valer sin preguntar**: el costo de preguntar fue un renglón, y el de
+no preguntar habría sido una decisión suya revertida sin que se entere. Lo que decide no es
+quién tenía razón, es quién decide.
+
+Al subirlos apareció la otra mitad, que subir un proyecto NO resuelve: adentro quedan tarjetas
+puntuadas con la premisa vieja, y una prometía cuatro veces más de lo que la fase nombra. La
+fase dice «el Generator, que es el GUIÓN»; la tarjeta decía «Creador de VSL en 4 fases» (guión →
+stock → gráficos → avatar), o sea un editor de video que ninguna fase pide. **Mover un proyecto
+de banda es la mitad del trabajo: la otra es acotar lo que tiene adentro a lo que la fase
+nombra** — y lo que se saca del alcance se escribe DENTRO de la tarjeta, no se borra.
+
 **Vive en:** *2026-09-25*
 
 ### El tope del detalle recortó 4 de 7 fusiones EN SILENCIO, y el historial declaró las 7
