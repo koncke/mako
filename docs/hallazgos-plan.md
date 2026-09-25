@@ -4165,3 +4165,26 @@ porque la premisa no se sostenía contra el código**. Validar antes de crear ev
 ruido sobre 22 — el 41%.
 
 **Vive en:** el board · *2026-09-25*
+
+
+## Revisar un cambio propio con agentes: lo que encuentra es lo que uno ya no puede ver
+
+Del 25/09/2026, revisando el rework de la tab de WhatsApp (300 líneas borradas) con 40 agentes:
+4 lentes —qué se perdió · el camino nuevo · el copy · la pantalla— y un refutador por hallazgo.
+36 hallazgos, **23 confirmados y 13 refutados**.
+
+**Los dos más caros eran del código que yo acababa de escribir**, y ninguno de los dos aparece
+mirando el diff: salían de recorrer el camino completo (qué pasa si abro la tab dos veces
+mientras el QR está en pantalla) y de comparar el momento de la lectura con el momento del uso
+(una foto de dos round-trips antes). **La lente que los encontró no fue «revisá esto», fue
+«tratá de romperlo desde el usuario».**
+
+⚠️ **Y la refutación pagó sola otra vez: 13 de 36.** Entre ellas, la que decía que las
+plantillas quedaban inalcanzables en 7 de 9 workspaces — cierto el mecanismo, falso el impacto:
+en esos workspaces no había credenciales de Chatwoot, así que las plantillas tampoco existían
+antes. Se arregló igual (un botón que no pinta nada es un defecto), pero no era «rompe».
+**Sin refutación, esa habría entrado al reporte como una regresión grave y habría costado una
+tarde de otro.**
+
+**La regla que queda: al revisar un cambio propio, la lente tiene que ser el USUARIO haciendo
+algo dos veces, no el diff.** El diff ya lo leíste cuando lo escribiste.

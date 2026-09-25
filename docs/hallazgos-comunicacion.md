@@ -5165,3 +5165,35 @@ pueda contestar más de una vez por lead (#788: `pausarPorRespuesta` solo mira i
 la inscripción cerrada y cero envíos (#789) y la cohorte del residuo (#790).
 
 *(Corrida del 25/09/2026, auditando el proyecto contra el reporte de accionables del 20/09.)*
+
+
+## Recrear una instancia de WhatsApp: el «connecting» no distingue una zombi de una que está por vincularse
+
+**Vive en:** `lib/evolution-sonda.ts` (`hayQueRecrear`) · `lib/evolution.ts` (`conectar`) ·
+`tests/recrear-instancia-zombi.test.ts`
+
+Del mismo día en que se le dio a la app la capacidad de recuperar sola una línea desvinculada
+(logout + delete + create). La revisión adversarial del cambio —40 agentes, 4 lentes y una
+refutación por hallazgo— encontró que la primera versión borraba de más, por dos caminos
+distintos, y los dos le costaban el WhatsApp a un cliente:
+
+1. **No miraba POR QUÉ se cayó.** Una instancia recién creada esperando el escaneo y una que
+   WhatsApp desvinculó dicen las dos `connecting`, y las dos pueden no devolver QR por un
+   instante. Sin distinguirlas, **abrir la tab dos veces durante el pairing le borraba al dueño
+   el QR que tenía en la mano** — justo el momento en que más mira la pantalla. El
+   discriminador ya estaba en la misma respuesta: `disconnectionReasonCode` 403/401.
+2. **Decidía con una foto vieja.** `fetchInstances` se lee al principio de `conectar()`, y el
+   `if` que borra está dos round-trips después (setWebhook, setSettings y el connect en el
+   medio): alguien pudo escanear entre medio. Ahora manda el estado que devuelve el propio
+   connect, y la foto es solo el respaldo.
+
+**La regla: antes de borrar algo del mundo real, preguntá por qué está como está — y con el
+dato más fresco que tengas, no con el que trajiste al entrar.** Un estado ambiguo
+(`connecting`) no alcanza para una acción irreversible; hace falta el motivo.
+
+**Y una medición que corrige lo que este mismo documento decía:** el 25/09, sobre la instancia
+desvinculada de ws1 (403 desde el 3/09), `/instance/connect` **SÍ devolvió un QR escaneable**.
+La recuperación no hizo falta y no se disparó — la instancia en Evolution seguía siendo la del
+16/07. O sea que «una zombi nunca da QR» es más fuerte de lo que se midió: a veces lo da. Lo
+que no hay es forma de saberlo de antemano, así que el camino de recuperación se queda, pero
+como respaldo y con las dos guardas de arriba.

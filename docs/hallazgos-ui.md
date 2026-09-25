@@ -2742,3 +2742,39 @@ romperlo a propósito aparecieron DOS archivos más de los tres que había encon
 
 *(25/09/2026, auditando el proyecto del Chatbot: el bug estaba cargado como una tarjeta de 18
 puntos sobre 100 y era el candado del entregable de esa semana.)*
+
+
+## Un pop-up para un estado que BLOQUEA se lee como «sacate esto de encima»
+
+**Vive en:** `app/whatsapp/EvolutionConnect.tsx` (modo `inline`) · `app/whatsapp/WhatsAppApp.tsx`
+· `app/globals.css` (`.mk-tab-alarma`)
+
+El 25/09/2026 la tab de WhatsApp pasó a abrir sola la pantalla de conexión cuando el número
+está caído. Primera versión: un modal con el QR sobre la bandeja. El dueño lo miró y dijo lo
+único que importaba: **«el usuario que entra rápido quiere quitar el pop-up»**. Un cartel
+encima de los chats compite con los chats y pierde: se cierra sin leer, y el que lo cerró se
+queda sin saber que su chatbot no manda nada.
+
+**La regla: si el estado impide usar la pantalla, el estado ES la pantalla.** El panel ocupa
+el lugar de la bandeja —no tapa nada útil: con el número caído lo de atrás son conversaciones
+viejas— y no se puede ignorar. El modal queda para lo que sí es opcional: gestionar un número
+que YA funciona (sincronizar, desconectar, borrar historial), y se abre tocando la tab en la
+que ya estás.
+
+**Y el texto, al mínimo.** Título, la línea que dice dónde tocar en el celular, el QR. Nada de
+«número no oficial (por QR)», ni «el QR se renueva solo, esta ventana lo detecta». La única
+frase que se conservó es la que nombra un HECHO del mundo del dueño —«WhatsApp cerró la sesión
+el 3 de septiembre; tu teléfono está bien»—, que es la que evita el «no entiendo, mi teléfono
+anda perfecto».
+
+⚠️ **DOS PREDICADOS PARA EL MISMO HECHO SE CONTRADICEN EN PANTALLA.** El botón de la tab
+titilaba en rojo (`canalNoOficial === 'desconectado'`) al lado del chip diciendo «Chatbot: ON»
+en verde, porque cada uno tenía su propia cuenta de qué significa «caído». Ahora hay un solo
+`canalCaido` y los dos lo leen. Dos fuentes para el mismo hecho no es redundancia: es una
+contradicción esperando el día en que difieran.
+
+⚠️ **Y UN TITILEO QUE ANIMA LA OPACIDAD ESCONDE LO QUE QUIERE MOSTRAR.** `blinkRed` baja a
+`opacity: .45`: sobre el fondo claro la etiqueta quedaba en 1,75:1 —para leerla había que
+esperar al pulso— y `prefers-reduced-motion` no la alcanzaba, porque la animación estaba
+inline. La alarma de una tab va por clase (`.mk-tab-alarma`), late en el BORDE y la sombra, y
+con movimiento reducido se queda en rojo fijo: dice lo mismo sin moverse.
