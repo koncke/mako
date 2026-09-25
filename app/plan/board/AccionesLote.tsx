@@ -214,9 +214,12 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
     //
     // ⚠️ POR ESO NO HAY NINGÚN `<span style={{ flex: 1 }} />`. Un espaciador empuja a los de
     // un lado contra un borde y deja TODO el aire en un solo lugar, que es exactamente el
-    // apilamiento que este pedido saca. `space-between` divide el aire en partes iguales, y
-    // es lo único que mantiene el reparto parejo cuando cambia el ancho: la misma barra se
-    // dibuja en una columna de 499 y en el Kanban, que mide el tablero entero.
+    // apilamiento que este pedido saca. El aire lo dividen en partes iguales los DOS grupos
+    // de los costados, que son `flex: 1` (uno alineado al principio y el otro al final) con
+    // el del medio en `flex: none`: así el medio queda en el medio de verdad y sigue ahí con
+    // cualquier ancho — la misma barra se dibuja en una columna de 499 y en el Kanban, que
+    // mide el tablero entero. El `space-between` del contenedor queda como respaldo para el
+    // caso en que los costados no puedan crecer; no es lo que centra.
     //
     // ⚠️ EL `flexWrap: 'wrap'` NO ES EL DE ANTES, aunque sea la misma línea. Antes era el
     // CAMINO —la barra pedía 899 px donde hay 499, así que se partía en dos renglones
@@ -241,12 +244,12 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
     //
     // LA CUENTA, contra los ~499 del lugar más angosto (el detalle de un proyecto):
     //   izquierda  16 casilla + 8 + 24 número               =  48
-    //   medio      ~96 «Deadline» (118 abierto) + 6 + ~108 «Proyecto» = ~210 / ~232
+    //   medio      ~96 «Deadline» (118 abierto) + 14 + ~108 «Proyecto» = ~218 / ~240
     //   derecha    34 tilde + 6 + 34 tacho                  =  74
-    //   los dos huecos del space-between, como mínimo       =  12
-    //   padding 20 + borde 2                                =  22
+    //   los dos huecos entre grupos, como mínimo            =  20
+    //   padding 24 + borde 2                                =  26
     //   ───────────────────────────────────────────────────────────
-    //   ~366 cerrada · ~388 con el calendario abierto, o sea >110 px de aire.
+    //   ~386 cerrada · ~408 con el calendario abierto, o sea >90 px de aire.
     //
     // Las palabras cuestan ~116 px sobre la versión de sólo íconos y se pagan con eso. El
     // tilde y el tacho se quedan SIN palabra a propósito y no es por ahorrar: significan lo
@@ -256,7 +259,7 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
     <div role="group" aria-label={`Acciones sobre ${tareas}`}
       style={{
         display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between',
-        gap: 6, flexWrap: 'wrap', padding: '6px 10px', borderRadius: 11,
+        gap: 10, flexWrap: 'wrap', padding: '7px 12px', borderRadius: 11,
         border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)',
         fontFamily: SANS, ...estilo,
       }}>
@@ -279,7 +282,13 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
 
           El número va al lado y NO es clicable: el `role="status"` lo canta a medida que se
           tildan tarjetas, que es lo único que le queda a quien no ve la barra. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+      {/* ⚠️ `flex: 1` EN LOS DOS COSTADOS, y no `flex: none`. Con `space-between` a secas el
+          grupo del medio no queda centrado: queda donde sobra, o sea corrido hacia el lado
+          del grupo más angosto —la izquierda mide ~48 px y la derecha ~74, así que el medio
+          salía 13 px a la izquierda del centro real—. Dos costados elásticos, uno alineado al
+          principio y el otro al final, dejan el medio exactamente en el medio, y siguen ahí
+          con cualquier ancho: es el molde de tres ranuras de toda barra de herramientas. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
         <input type="checkbox" checked readOnly
           onClick={() => { setEditandoFecha(false); onLimpiar(); }}
           title="Quitar la selección" aria-label={`${rotCuenta}. Quitar la selección`}
@@ -302,7 +311,12 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
           Dropdown de ~54 a ~108, o sea +116 sobre los 216 de antes. Con los tres grupos y sus
           dos huecos mínimos da ~365 cerrada y ~391 con el calendario abierto: entran, con más
           de 100 px de aire. Los otros dos se quedan como íconos justamente para pagar esto. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 1 auto', minWidth: 0 }}>
+      {/* ⚠️ `gap: 14` Y NO 6. «No los pongas tan juntos a los del medio» (25/09/2026): son
+          los DOS ÚNICOS controles de la barra que tienen borde Y palabra, y a 6 px sus dos
+          cajas se tocan y se leen como un solo bloque partido por una raya. Los de los
+          costados pueden ir apretados porque son íconos sueltos sin caja —ahí el aire lo pone
+          el propio botón—; dos pastillas necesitan el doble. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 'none', justifyContent: 'center' }}>
 
         {/* ⚠️ EL CALENDARIO ABIERTO MIDE 118 EN VEZ DE 34, y con `space-between` eso ya no
             corre a nadie de lugar: lo que se achica es el AIRE repartido, no la posición de los
@@ -397,7 +411,7 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
           tarjeta del Kanban: un control significa lo mismo en todos lados. Van lejos de la
           casilla de la izquierda a propósito: dos controles parecidos pegados es cómo se
           volvieron a confundir seleccionar y completar. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
 
         <BtnIcono rotulo={rotEstado} tono={todasHechas ? 'good' : 'dim'} pressed={todasHechas}
           onClick={() => enLote(
