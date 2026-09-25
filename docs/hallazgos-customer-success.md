@@ -955,6 +955,156 @@ visto nada». Pero **para el sincronizador del programa lo parcial era PEOR que 
 cortada la vuelve a crear — duplicada, en el Whop de Mauricio. Alumnos e interacciones,
 que crecen con la cartera, suben su tope a 400 páginas.
 
+## «Mauricio me manda el curso y lo subo» era el diagnóstico obvio, y le falta el primer paso
+
+**Vive en:** `lib/programa-catalogo.ts` · `lib/cs-sync-whop.ts` · la planilla
+`Arquitectura_Tutoriales_NqE` del Drive de Mauricio (`1F8E5beBmNt2mpRYrj8AZto2gZBJOomm6dw9jyoqRZ14`)
+
+**El síntoma:** el 24/09 se daba por hecho que lo único pendiente era recibir los videos y
+colgarlos en Whop.
+
+**Lo que hay de verdad:** compiten **cuatro** estructuras del programa, y un video grabado
+sobre una no tiene a qué clase ni a qué formulario engancharse en otra:
+
+| Estructura | Fecha | Forma |
+|---|---|---|
+| El catálogo de MaKo (el que tiene Whop) | 11-12/08 | 12 módulos, 44 clases, 31 grabaciones, 114 campos |
+| «Proceso de proceso en el servicio» | ~20/08 | 13 módulos, 0-12 (`lib/banco-skills.ts:36-62`): desde el 5 el número significa otra cosa |
+| Las «6 fases» | 7/9 | Contexto, Norte, Criterio, Palancas, Tablero, Ritmo |
+| `Arquitectura_Tutoriales_NqE` | 15/09 | 62 videos, 351 min, fases 0-11, tipos Concepto / Demostración / Clínica |
+
+La planilla del 15/09 es la más nueva y dice **«Videos grabados: 0»**, con una condición
+propia: las plantillas P0-P11 terminadas antes de grabar (las 12 en «Pendiente»). Sólo la
+ve su dueño.
+
+**Y lo que Mauricio prometió no era mandar videos.** El 9/9 (rec 181523988
+[02:15:48]-[02:16:20]) se comprometió a grabar el sábado 19/09 y a mandar **el documento
+de clases y temarios**. El canal de los videos nunca se acordó: el 7/9 la pregunta
+«¿dónde los subo?» quedó en «me avisas». Al 24/09 no hay rastro de ninguna de las dos
+cosas en Drive, Gmail, Calendar, Fathom ni Whop.
+
+⚠️ **El falso positivo que parece la grabación:** el 19/09 entraron ~40 videos y varios GB
+al Drive de Mauricio. Son B-roll de un video de presentación (`04_Marketing/Media`),
+capacitación de TEXX y los módulos RM-01 a RM-07 de HMO. «Módulo_RM-06.mp4» es de un
+cliente, no del programa.
+
+**La regla:** antes de mover un solo video se fija qué estructura manda. Cambiar clases
+después le renumera el temario a un cliente que ya lo tiene abierto (ver «agrupar no
+reordena», más arriba).
+
+---
+
+## Whop no está «cargado y esperando videos»
+
+**Vive en:** `lib/cs-sync-whop.ts:50-116` · `lib/whop.ts:207-289` ·
+`app/customer-success/programa/page.tsx:43`
+
+Medido con GET el 24/09. El curso `cors_MChFCUZK1T2e8` está `hidden` y tiene 12
+capítulos del programa más el «Chapter 1 / Lesson 1» que Whop crea por defecto (vacía y
+visible). Son 46 lecciones de texto, **ninguna con video**. Quedó congelado en el
+programa del 11/08: **29 de las 44 clases** tienen su lección vigente por título. Las
+otras 15 (m1c6, m2c1, m5c1-m5c7, m8c1, m9c3, m10c1-m10c3, m11c2) cambiaron de título en
+`fcf1750a`, `5f6501d9` o `294d8915`. Y el mapa guardado apunta a m8c2, m8c3 y m11c1, que
+ya no existen.
+
+Tres cosas que parecen resolverlo y no lo resuelven:
+
+- **«Sincronizar a Whop» no limpia.** Busca por título y no borra ni renombra. Correrlo
+  hoy crea «Módulo 10 · Diseñando las juntas» al lado de «Módulo 10 · La cadencia», y 12
+  lecciones nuevas al lado de las viejas. Con `require_completing_lessons_in_order` el
+  alumno tendría que pasar por las viejas. `lib/whop.ts` no tiene PATCH de curso ni DELETE:
+  limpiar es a mano en el panel de Whop, o código nuevo.
+- **`--visible` sólo actúa al CREAR el curso**, y publicar no alcanza. La experiencia
+  `exp_9cQ9noHCiNyuvO` no está en ningún producto: hay 0 products, 0 plans y 0
+  memberships. Aunque el curso fuera visible, nadie tiene por dónde entrar. No hay código
+  que dé de alta: es manual y necesita antes un producto.
+- **La pantalla dice «44 en Whop» y son 29.** `page.tsx:43` cuenta los valores del mapa
+  del 11/08, no las lecciones que existen hoy.
+
+**El video:** el código sólo sabe embeber YouTube o Loom (`lib/whop.ts:250`, `:277-284`),
+nadie le pasa `embed`, y `Clase` no tiene un campo que diga qué video va en qué clase.
+Whop acepta `mux_asset_id` en el PATCH, pero no hay un camino documentado de un `.mp4` a
+un `mux_asset_id`. Las salidas reales son subirlo a mano en el editor de Whop, o YouTube
+no listado / Loom + embed.
+
+---
+
+## El primer alumno real quedaría anotado en la clase equivocada
+
+**Vive en:** `lib/cs-avance.ts:137-150` · `supabase/migrations/0125_cs_respuestas.sql:31`
+
+`registrarAvanceDeClase` toma el `claseId` del mapa guardado y se lo pasa a `anotarVisto`
+sin preguntarle a `claseDe()` si existe, y la base tampoco lo frena (`clase_id text`, sin
+check). Con el mapa del 11/08 fallan dos cosas, y ninguna da error:
+
+- Un evento de `lesn_iYmJ92Hijxd5Z` escribe una fila con `clase_id = 'm8c2'`, una clase
+  que ya no existe.
+- Una lección con título viejo cae en la clase NUEVA que heredó su id. Por ejemplo, «5.1 ·
+  Por qué seguirían» se anota como m5c1, que hoy es «El origen».
+
+Hoy no pasa porque hay cero alumnos. **El orden no es opcional:** limpiar Whop y
+resincronizar ANTES de dar de alta a nadie.
+
+⚠️ **Y el respaldo que prometen los comentarios no existe.** `lib/whop.ts:116-117` y
+`app/api/webhooks/whop/route.ts:6` dicen que «el avance llega igual en la pasada del
+cron». Ningún cron lee Whop: lo que se pierda del webhook sólo entra corriendo
+`scripts/cs-backfill-vistos.ts` a mano.
+
+---
+
+## La reescritura le devuelve al cliente mexicano su respuesta en voseo
+
+**Vive en:** `lib/cs-reescritura.ts:57`
+
+El prompt por defecto de `cs.bloque.reescritura` cierra con «Voseo, directo, sin lenguaje
+motivacional». Lo que reescribe es **la respuesta del cliente**, que tiene que «sonar a
+él», y los clientes de Mauricio son mexicanos. Es la regla de AGENTS.md («La voz de MaKo
+es rioplatense, y el texto DEL CLIENTE no») aplicada en un writer que se escribió antes.
+No hay override en `app_settings` (`mako.prompt-overrides` vacío). Sin arreglar.
+
+---
+
+## Los módulos por área se contestan una sola vez
+
+**Vive en:** `app/compartido/[token]/TareaCliente.tsx:66-70` · `lib/cs-tarea-vista.ts:61-63`
+
+El backend soporta el área (`app/api/compartido/tarea/route.ts:38,47`, `areaDe` en
+`lib/cs-respuestas.ts`). La pantalla no la manda, ni en el POST ni en el `sendBeacon`, y
+tampoco muestra las filas que la tienen. m6-m9 son `porArea`, y Whop le anuncia al
+cliente «una vez por cada área». Y el m8 lo contesta «el líder de área», pero el único
+link que existe es el del dueño.
+
+---
+
+## Leer las reuniones de Customer Success: las trampas de las fuentes
+
+**Vive en:** las dos cuentas de Fathom (ver [sprint-servicio-mauricio.md](sprint-servicio-mauricio.md)) · los conectores de la sesión
+
+- **Whop casi nunca sale como «whop» en el transcript**: sale como Google, group, Whoop,
+  Woo, Hupo, UU, «esta U» o Wub. «La plataforma de Google» es Whop, no Drive ni
+  Classroom. Un grep por `whop` pierde la mayoría de las menciones.
+- **La diarización invierte justo los compromisos.** El «yo voy a mandarte ese
+  documento» del 9/9 está etiquetado como Martín y lo dijo Mauricio. El índice de
+  `tareas-reuniones-mauricio-8-y-9-sep.md` atribuye mal 09-T71.
+- **Una llamada, tres ids.** La del 9/9 es call 817420774 (la copia de Mauricio, rec
+  181525344) y rec 181523988 (la de Martín, call 817413645). Los timestamps están corridos
+  un tramo que no es constante.
+- **Fathom fecha en UTC.** La «Mau <> Martin: CUSTOMER SUCCESS» (172397528) figura el 12/08
+  y fue el martes 11/08 a la noche. Por eso el commit `fcf1750a` habla del feedback «del
+  12/08».
+- **«Impromptu» no dice con quién.** Las de septiembre de la cuenta de Mauricio son juntas
+  con sus clientes, y la del 9/9 **con** Martín también se llama «Impromptu Google Meet
+  Meeting». Filtrar por el invitado `martinkoncke` la pierde.
+- **Los conectores de Drive, Gmail, Calendar y Fathom de la sesión son de Mauricio**
+  cuando la cuenta activa es claude1. Sirven para ver lo que él subió o mandó. Su silencio
+  no dice nada del WhatsApp personal de Martín, y `mako_ws1` está desconectada desde el
+  03/09 (403): MaKo tampoco registró nada del WhatsApp de ws1 desde entonces.
+
+*2026-09-24 · `contexto-customer-success` (wf_e4f011c2-23e: 6 relevos + consolidación + 3
+refutadores, 20 afirmaciones verificadas contra la fuente)*
+
+---
+
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
 - **`cartera()` cuenta «vio y no contestó» mirando solo las filas sin área**
@@ -973,3 +1123,27 @@ que crecen con la cartera, suben su tope a 400 páginas.
 - **La vista con filas no se verificó en el navegador**, porque no existe una sola fila
   que mostrar. Está cubierta por tests; el día que haya alumnos en Whop, abrir la ficha
   de uno en `/customer-success?ws=1`.
+
+**Agregado el 2026-09-24** (corrida `contexto-customer-success`):
+
+- **Validar el `claseId` antes de anotar el visto** (`lib/cs-avance.ts:137-150`, con
+  `claseDe`), y que `app/customer-success/programa/page.tsx:43` cuente «en Whop» por
+  título vigente y no por el mapa. Corregir los comentarios del cron que no existe
+  (`lib/whop.ts:116-117`, `app/api/webhooks/whop/route.ts:6`).
+- **Enganchar el video:** un lugar que diga qué video va en qué clase (campo en `Clase`
+  o un mapa `claseId → {tipo, id}`, respetando `mismoVideoQue`), que `lib/cs-sync-whop.ts`
+  le pase `embed` a `actualizarLeccion`, y PATCH de curso (visibilidad) + DELETE de
+  lección en `lib/whop.ts`. Depende de decidir dónde vive el archivo de video.
+- **Sacar el voseo** del prompt de reescritura (`lib/cs-reescritura.ts:57`).
+- **Contestar por área** en `TareaCliente.tsx`, y decidir si hay link para el líder de área (m8).
+- **El seguimiento automático no existe:** ningún cron llama a `borradorVioYNoContesto`
+  (`lib/cs-mensajes.ts:77`); lo único automático es el borrador de «hay que aprobar» que
+  deja el cron `fathom-plan` después de una junta. Faltan el recordatorio de clases no
+  vistas (A62 del 20/09, tarea #780 del board) y el aviso a Mauricio antes de cada junta
+  (11/08, rec 172397528 [02:22:07]). No duplicar el aviso 24 h antes de la junta, que el
+  8/9 se decidió para el Kanban del Plan (08-T45).
+- **Documentos que mienten sobre el estado:** `docs/programa-mauricio.md:256` dice «nada
+  de esto está aplicado al catálogo» (falso desde `fcf1750a`) y `:22-212` describe el
+  temario viejo; `app/admin/dev/customer-success/roadmap-cs.ts` dice que emitir y mandar
+  el link «no existe» (existe: `app/customer-success/actions.ts:53-97`); «25 videos / 118
+  preguntas» en `ProgramaApp.tsx:200` y `programa/page.tsx:8` (son 31 y 114).
