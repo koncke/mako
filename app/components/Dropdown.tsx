@@ -213,7 +213,29 @@ export function Dropdown({
       if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
       setOpen(false);
     };
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    /**
+     * ⚠️ EN CAPTURA, Y CORTANDO EL EVENTO. Un `<select>` nativo se come el Escape mientras
+     * su popup está abierto; este menú no lo hacía, así que abrir un desplegable adentro de
+     * un modal y apretar Escape para arrepentirse **cerraba el modal entero**. Medido el
+     * 25/09/2026 con la barra de selección del /plan adentro del detalle de un proyecto: el
+     * `onKey` del modal (`BoardShell.tsx`) también vive en `document` y también en burbuja,
+     * y como se registró al montarse corre ANTES que éste — así que un `stopPropagation`
+     * desde acá no llega a tiempo, y un `stopImmediatePropagation` en burbuja tampoco.
+     * La captura corre antes que TODA la fase de burbuja del documento, así que es el único
+     * lugar desde donde este menú puede quedarse con la tecla.
+     *
+     * Sólo mientras está abierto: el efecto entero sale con `if (!open) return`, así que un
+     * desplegable cerrado no toca el Escape de nadie.
+     */
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setOpen(false);
+      // El foco vuelve al botón que abrió: si se queda en el aire, el siguiente Tab
+      // arranca desde el principio del documento.
+      ref.current?.querySelector('button')?.focus();
+    };
     // Al scrollear/redimensionar el menú fijo se despegaría del botón → cerrar.
     // PERO si el scroll ocurre DENTRO del propio menú (lista larga), NO cerrar.
     const onScrollResize = (e?: Event) => {
@@ -221,12 +243,12 @@ export function Dropdown({
       setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onEsc);
+    document.addEventListener('keydown', onEsc, true);
     window.addEventListener('scroll', onScrollResize, true);
     window.addEventListener('resize', onScrollResize);
     return () => {
       document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onEsc);
+      document.removeEventListener('keydown', onEsc, true);
       window.removeEventListener('scroll', onScrollResize, true);
       window.removeEventListener('resize', onScrollResize);
     };

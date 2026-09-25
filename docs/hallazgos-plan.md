@@ -4536,3 +4536,88 @@ La barra horizontal de adentro del detalle de un proyecto se reportó por tercer
   (`data-prio`, mide cuatro rectángulos) y no sirve para filas.
 
 **Vive en:** `app/plan/board/BoardShell.tsx` · `app/plan/board/Tablas.tsx` · `app/plan/board/RichText.tsx` · `app/plan/board/DependenciasBloque.tsx` · `app/plan/board/piezas.tsx` · *2026-09-25*
+
+## La barra de selección múltiple: un renglón de íconos (25/09/2026)
+
+«Utiliza iconos para ahorrar espacio, solo 1 linea, no 2 lineas». La barra pedía **899 px
+donde hay ~499** (el detalle de un proyecto) y por eso se partía siempre en dos renglones,
+comiéndose 106 px de alto arriba de la tabla que la ronda anterior había apretado fila por
+fila. Quedó en **216 px cerrada y 300 con el calendario abierto**, 48 px de alto, medidos en
+Chrome sobre el componente real con las hojas reales.
+
+### Sacar un `<select>` nativo pierde dos cosas que el navegador daba gratis
+
+Y ninguna la ve un typecheck, un test de DOM ni una captura.
+
+- **El popup nativo se come el Escape.** El `Dropdown` de la casa no, así que abrir «Mover a
+  un proyecto» adentro del detalle de un proyecto y apretar Escape para arrepentirse
+  **cerraba el modal entero**, con la selección adentro. Se reporta como «se me cierra solo».
+  ⚠️ Y el arreglo no es un `stopPropagation`: los dos handlers viven en `document` y los dos
+  en burbuja, y el del modal se registró al montarse, o sea que corre ANTES. Ni siquiera un
+  `stopImmediatePropagation` en burbuja llega a tiempo. **Va en CAPTURA**, que es la única
+  fase que corre antes de toda la burbuja del documento. Y como vive en `Dropdown.tsx`, lo
+  heredan las ~30 pantallas que lo usan — que es donde tenía que estar, no en quien lo llama.
+- **Las opciones del popup nativo se navegan con teclado siempre.** Las del `Dropdown` sólo
+  si hay buscador, y el buscador aparece **pasadas las 8 opciones**
+  (`conBusqueda = search ?? flat.length > 8`). Con 8 o menos el foco se queda en el botón y
+  el siguiente Tab se va al control de al lado: el menú queda abierto y sin foco adentro.
+  **Sigue abierto** (ver abajo).
+
+### `nowrap` no es lo contrario de un bug de `wrap`
+
+La barra se partía en dos renglones **porque no entraba**, no porque tuviera `flexWrap`.
+Sacarle el `wrap` sin hacerla entrar no arregla nada: convierte «dos renglones» en
+**desborde**, y el Kanban no tiene ningún ancestro con `overflow`, así que la barra
+horizontal se la come la PÁGINA. Lo que se arregla es el ancho (899 → 216); el `wrap` vuelve
+como RED, y en las tres pantallas donde Martín la mira no se dispara nunca.
+
+- **Es la misma línea de código que el bug y significa lo contrario**, así que el comentario
+  tiene que decir cuál de las dos es: camino o red. Sin eso, el próximo lo saca «porque era
+  el bug».
+- **Y un `flex: 0 1 auto` sobre algo sin texto no cede.** El «quien CEDE» declarado era el
+  envoltorio del Dropdown, y adentro el rótulo está VACÍO (`placeholder=""`) y el ícono y el
+  caret son `flex: none`: el botón toca fondo en ~54 px y de ahí no baja. Ceder en el tipo no
+  es ceder en píxeles — la regla de AGENTS.md pide `ellipsis` porque pide algo que se pueda
+  RECORTAR, y un ícono no se recorta.
+
+### El peso del trazo de un ícono es relativo a sus VECINOS
+
+El trazo efectivo es `strokeWidth × (tamaño / viewBox)`. Los cinco íconos de la barra salieron
+con **1.23 a 1.80** —el tilde 46% más grueso que la cruz— porque cada uno venía de un lugar
+donde iba solo. El mismo ícono está bien en la tarjeta y mal en un renglón de cinco: lo que
+cambió no es el ícono, es el vecindario. Se emparejan al efectivo, no al `strokeWidth`.
+
+### Y el comentario que copia el ancho del vecino, otra vez
+
+El archivo nuevo abrió su cabecera diciendo «899 donde hay **499**» cuando
+`ANCHO_TABLA_EN_PROYECTO` calcula **496**. La regla —«no se copian acá los anchos, viven donde
+se usan»— se había escrito **una hora antes**, en `piezas.tsx`, que es el archivo de al lado.
+Un número copiado nace viejo aunque quien lo copie acabe de escribir la regla que lo prohíbe.
+
+### Lo que quedó SIN hacer
+
+- **La MISMA barra existe escrita inline en `app/ads-manager/CampanasBrowser.tsx:589-604`**,
+  con texto, emoji y colores invertidos, y con DOS controles que limpian la selección con dos
+  nombres distintos. «Tanto para dentro del proyecto como en cualquier lista» se puede leer
+  incluyéndola; sus acciones son otras (Activar / Pausar), así que es una decisión de Martín
+  y no un refactor obvio. Es la única otra superficie con selección múltiple del repo: las
+  tres del /plan (tarjeta del Kanban, las dos tablas) ya comparten `AccionesLote`.
+- **El teclado del `Dropdown` con ≤8 opciones** (arriba). Hace falta foco al abrir, flechas y
+  devolución del foco al cerrar; y su contenedor declara `role="listbox"` con hijos `<button>`
+  sin `role="option"`, o sea ARIA inválida. Vive en `app/components/Dropdown.tsx` y lo
+  heredan las ~30 pantallas que lo usan, así que no es un arreglo de esta barra.
+- **Nada se vio en la app.** Lo que sí se midió es el componente REAL renderizado en Chrome
+  con `globals.css`, `ui.css` y la fuente que carga el layout — geometría real, no una maqueta.
+  Falta el comportamiento: que el calendario abra y vuelva a ser ícono, y que Escape con el
+  menú abierto ya no cierre el modal.
+
+### Y sobre la corrida
+
+Diez agentes en cuatro fases para un archivo de 95 líneas, con Martín preguntando por segunda
+vez en el día por qué tardaba. **Lo que costó el tiempo son las BARRERAS**, no los agentes:
+cuatro fases en serie suman cada una su agente más lento. Y el panel de diseño fue ceremonia —
+él ya había decidido «íconos, un renglón», que es una restricción del problema y no una opción,
+lo cual AGENTS.md dice explícitamente. Lo que sí valió: medir el ancho, y los refutadores, que
+encontraron siete defectos reales de los cuales tres habrían llegado a producción.
+
+**Vive en:** `app/plan/board/AccionesLote.tsx` · `app/components/Dropdown.tsx` · `app/ads-manager/CampanasBrowser.tsx` · *2026-09-25*
