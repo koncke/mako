@@ -873,6 +873,29 @@ evaluar» cazó **13 de 248 (5%)**, y eso NO significa que el problema no esté:
 el patrón que se mide es el que uno mismo acaba de crear. Lo que encuentra el resto es mirar
 proyecto por proyecto con las tres preguntas, con la fuente al lado.
 
+# Si la pantalla agrupa por BANDAS, un reorden que no cambia de banda es invisible
+
+El Kanban del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
+MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO < 25**. Con 40 proyectos arriba de 75, ordenarlos entre
+sí de 99 a 76 no mueve ni una columna — y para el que mira es indistinguible de no haber
+hecho nada. El dueño reportó el mismo problema dos veces sobre un orden que ya estaba bien
+escrito: «la Fase 1 no debería incluir absolutamente todo lo técnico».
+
+**Al reordenar algo que la pantalla agrupa, el corte se escribe en el GRUPO.** Acá: ALTA
+quedó con exactamente los 15 proyectos de la etapa (100 → 86) y los números 85-75 vacíos a
+propósito, para que la columna se termine ahí. Y la escalera se escribe ENTERA de una vez:
+empujar de a uno hace que el resolvedor de empates camine un proyecto de vuelta a su valor
+viejo (medido: 81 → 88 → 81).
+
+⚠️ **Y el corolario del catálogo: dos proyectos del mismo tema, y el que no tiene trabajo
+abierto adentro, no son dos proyectos.** «Feature: CRM» (24 abiertas) y «Agente: CRM
+automático» (0) partían en dos la respuesta a «¿dónde está lo del CRM?». Se funden mudando
+las tareas al que tiene la fecha y tachando el vacío al fondo con su motivo — nada se
+borra. Lo que decide es **tema compartido + cero trabajo abierto**, las dos juntas: contar
+tareas solo no sirve (9 proyectos con cero y 14 con una son legítimos), y dos proyectos del
+mismo tema con trabajo abierto distinto —el WhatsApp del cliente y la línea propia de
+MaKo— no se tocan.
+
 # Un tablero auditado contra SÍ MISMO reproduce sus propios errores
 
 El `detalle` de un proyecto, su `score_razon` y su «Qué falta» son un DOCUMENTO FECHADO:

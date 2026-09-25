@@ -3910,3 +3910,84 @@ tiene que recorrer el camino completo del usuario.**
 
 *(La corrida quedó en `docs/hallazgos-comunicacion.md`; acá va solo lo que se aprendió del
 método.)*
+
+## El orden de 70 proyectos no se ve si no cruza una BANDA (25/09/2026)
+
+El dueño dictó las tres fases en los audios del 22/09 y el tablero se ordenó por ellas dos
+veces. Las dos veces volvió a reportar lo mismo: **«la Fase 1 NO debería incluir absolutamente
+todo lo técnico; desde Feature: Conocimientos en adelante eso no se va a realizar ahora»**.
+
+El orden estaba bien y no se veía. `prioFromScore` (`app/plan/board/types.ts:395`) parte el
+tablero en **ALTA ≥ 75 · MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO < 25**, y el Kanban agrupa por eso.
+Con 40 proyectos arriba de 75, ordenarlos entre sí de 99 a 76 no cambia **ni una** columna: el
+dueño sigue viendo la fase 1 llena de cosas que no entran en la fase 1.
+
+**La regla: si la pantalla agrupa por bandas, un reordenamiento que no mueve a nadie de banda
+es invisible — y para quien mira, indistinguible de no haber hecho nada.** El corte se escribe
+en la banda: ALTA quedó con **exactamente los 15 proyectos de esta etapa** (100 → 86) y los diez
+números entre 85 y 75 quedaron **vacíos a propósito**, para que la columna se termine ahí.
+Conocimientos, Infraestructura, Dashboard, Integraciones y Seguridad bajaron a MEDIA; lo tachado
+en las sesiones del 20 y el 25/09 bajó a A FUTURO con su motivo escrito.
+
+⚠️ **Y el orden a mano se escribe DESPUÉS de crear tareas**, porque `aplicarPropuesta` re-curva
+los 70 proyectos (ya está arriba, en AGENTS.md). Acá la secuencia que funcionó fue: fusionar →
+crear → dejar correr al Perro → escribir la escalera entera de una vez. **Escribir la escalera
+ENTERA, no empujar de a uno:** el resolvedor de empates de la primera versión caminaba un
+proyecto de vuelta a su score viejo (P17: 81 → 88 → 81) porque cada nudge chocaba con el
+siguiente.
+
+**Vive en:** `app/plan/board/types.ts` (`prioFromScore`) · `plan_proyectos.score` · *2026-09-25*
+
+## Dos proyectos del mismo tema, y el que no tiene trabajo adentro parte la respuesta en dos
+
+Reportado así: **«Hay 2 proyectos de CRM, uno tiene una sola tarea»**. Eran «Feature: CRM» (24
+abiertas) y «Agente: CRM automático» (0 abiertas, 1 tarea y hecha). Ninguno de los dos estaba
+mal creado —el motor de reglas ES otra cosa que el CRM—, y aun así el tablero no puede
+contestar «¿dónde está lo del CRM?» en un solo lugar.
+
+El mismo patrón, dos veces más: «Agente: Lector de reuniones» (1 abierta, el pipeline de Fathom)
+contra «Feature: Plan», que es donde vive el compromiso con fecha; y «Feature: Sales Email» (1)
+contra «Feature: Email» (1), dos proyectos de email sin empezar.
+
+**La regla: un proyecto que comparte tema con otro y no tiene trabajo abierto adentro no es un
+proyecto, es una faceta.** Se funde: las tareas se MUDAN al que tiene la fecha, y el vacío queda
+tachado al fondo con su motivo — nada se borra. Y la contraparte, que es la que evita fusionar
+de más: «Feature: WhatsApp» y «Feature: WhatsApp de MaKo» **no** se tocan, porque uno es el canal
+del cliente y el otro la línea propia; los dos tienen trabajo abierto distinto.
+
+⚠️ **El umbral que NO sirve para esto es contar tareas.** Ya está medido arriba en este mismo
+documento: 9 proyectos con cero tareas y 14 con una sola son legítimos. Lo que decide es
+**tema compartido + cero trabajo abierto**, las dos cosas juntas.
+
+**Vive en:** `lib/plan-proyectos-catalogo.ts` · `plan_proyectos` · *2026-09-25*
+
+## «Ya está hecho» en un detalle tiene DOS formas, y sólo una se cierra
+
+Buscar las tarjetas abiertas cuyo detalle se declara terminado parece un `grep` y no lo es.
+Medido sobre las 256 abiertas del ws9:
+
+```
+detalle que contiene «ya existe / ya está hecho / nada nuevo»  : 64   ← el grep ingenuo
+el PRIMER párrafo de «Qué hay que hacer» lo declara            : 20
+…y de esas, sin trabajo abierto: se cierran                    : 10
+…que declaran una MITAD hecha y otra pendiente: se quedan      : 10
+```
+
+Los dos filtros que sobran son distintos y los dos importan:
+
+- **Adentro del detalle, «ya existe» casi siempre nombra una pieza que la tarea va a REUSAR**,
+  no a la tarea. «El canal de aviso ya está construido: sumar el aviso de baja es agregar una
+  entrada al catálogo» describe trabajo **pendiente**. Por eso la señal se lee en el primer
+  párrafo de «Qué hay que hacer», que es donde el que escribió el detalle puso su veredicto.
+- **Y la mitad hecha no se cierra.** «La mitad principal YA ESTÁ HECHA: falta el último lector
+  de la setting vieja» (#171), «el corte por insistencia YA ESTÁ HECHO pero en producción no
+  puede dispararse» (#360). Cerrarlas es exactamente lo que hace que el dueño deje de mirar el
+  tablero.
+
+**Lo que costaba no cerrarlas no era el desorden: era el lugar.** #352 («la lógica de espera de
+confirmación») estaba en **score 90**, segunda del proyecto más alto del tablero, sobre algo que
+su propio detalle declaraba implementado con el archivo y la línea al lado. Una tarjeta hecha en
+el puesto 2 tapa trabajo real; una tarjeta hecha en el puesto 200 no molesta a nadie. **Al
+barrer, ordená por el score del PROYECTO: ahí están las caras.**
+
+**Vive en:** `plan_tareas.detalle` · `backups/_cerrables.mjs` · *2026-09-25*
