@@ -3697,3 +3697,118 @@ BUSCAR. Atarlas sería reordenar el tablero entero por abrir un filtro.
   decisión suya, no mía.
 - **Un proyecto quedó con deadline vencido hace 4 días** (`Feature: General`, dom 20 sep): la
   regla es 6+ días, y un atraso reciente todavía informa.
+
+## La auditoría del tablero entero: 70 proyectos, 241 tareas abiertas (24/09/2026)
+
+Ocho auditores sobre los 70 proyectos con su detalle completo, ocho escépticos tumbando
+hallazgos (cayeron 40), y en paralelo chequeos deterministas sobre los datos. Lo que sigue
+es lo que sobrevivió a las dos vías — y lo que ninguna de las dos habría visto sola.
+
+### ⚠️ El detalle de un proyecto CITA TAREAS POR `#`, y la poda las borra: 155 de 260 citas apuntan a la nada
+
+El Perro escribe en el `detalle` de cada proyecto un «Qué falta» que enumera el trabajo
+pendiente **citando el número de cada tarea**: «- el freemium de captación masiva con sus
+límites (#391)». Es el índice que conecta lo que se habló en una reunión con lo que está en
+el tablero.
+
+El tablero se podó dos veces (553 → 241 abiertas). La numeración va del #1 al #751 y quedan
+334 filas: **417 tareas borradas**. Los detalles no se tocaron. Resultado medido:
+
+```
+citas a tareas en los detalles : 260
+  abiertas en ese proyecto     :  51
+  ya hechas                    :  11
+  en OTRO proyecto             :  43
+  NO EXISTEN                   : 155   ← el 60%
+```
+
+Es la regla de **«una ruta que apunta a la nada no rompe nada, y por eso es cara»** aplicada
+a ids de tareas: no falla, no avisa, y el proyecto sigue mostrando un «Qué falta» impecable
+sobre trabajo que no está en ningún lado. Peor: se lee como que el tablero está completo.
+
+⚠️ **Y la mitad que se salvó muestra la cura: el detalle ES el respaldo, si guarda el
+TÍTULO.** Ocho proyectos escribieron «se sacaron del tablero, están en el respaldo del
+20/09» **con los títulos completos** (`- #251 Crear una cuenta de Instagram independiente
+para la marca…`): ahí el trabajo se puede reponer leyendo el propio detalle. Los otros 37
+guardaron sólo el número y una descripción en prosa — recuperable, pero sólo porque el
+Perro escribe prosa larga. Si hubiera citado nada más que `(#391)`, ese trabajo estaría
+perdido y nadie lo sabría.
+
+**La regla: si un texto generado cita entidades por id, o el borrado de la entidad
+actualiza el texto, o el texto guarda lo suficiente para reconstruirla.** Un id suelto es
+un puntero, y los punteros se cuelgan.
+
+**Vive en:** `plan_proyectos.detalle` · lib/plan-board.ts · *2026-09-24*
+
+### El síntoma que delata una tarea ya construida: sus vecinas le están arreglando bugs
+
+13 tareas abiertas están hechas. La que mejor enseña a encontrarlas es **#383 «Permitir
+importación y exportación de leads mediante CSV»**, abierta en «Feature: CRM» — con
+**#621** (corregir el mapeo del apellido en la importación de CSV), **#622** (detectar leads
+ya ganados en la importación) y **#623** (enriquecer duplicados al reimportar) abiertas al
+lado. No se puede estar arreglando el mapeo de una importación que no existe.
+
+- **La contradicción está DENTRO del mismo proyecto**, así que se encuentra ordenando las
+  tareas de cada uno y leyendo los verbos: si conviven «implementar X» y «corregir X», la
+  primera sobra.
+- Y el caso extremo se anuncia solo: **#32 «Editor de funnel + rediseño del proceso + Fathom
+  (hecho)»**, con el «(hecho)» escrito en el título, abierta desde entonces.
+- ⚠️ **El tablero no se entera de lo que se construye.** Seis de las diez tareas abiertas de
+  «Feature: Plan» —el proyecto #1, que vence en tres días— están construidas: los Quarters
+  (#632, #681, que además son la misma), la vista por Quarter (#635), el aviso de planificar
+  el siguiente (#634) y los OKRs (#680, #633). Cerrar una tarjeta es un paso manual que
+  nadie hace, y el costo no es el desorden: es que la tarjeta que vence mañana está tapada
+  por seis que ya no existen.
+
+**Vive en:** el board · *2026-09-24*
+
+### Un proyecto sin una sola tarea puntúa igual que uno con trabajo adentro
+
+**26 de 70 proyectos no tienen ninguna tarea abierta**, y 20 no tuvieron nunca ninguna
+—nacieron el 8/8 al sembrar el catálogo—. El score no lo nota: P49 «Modelos IA» está en
+**87** con cero, P29 «Configuraciones» en **86** con su propio detalle diciendo «está
+terminado», P20 «Offer Analyst» en **79** con «Qué ya está: nada todavía».
+
+Y al mismo tiempo **P31 «Ads Analyst» es el ÚLTIMO de los 70 con cinco tareas abiertas**, y
+P50 «WhatsApp de MaKo» está en 34 con cinco, una de ellas en 68.
+
+Es la regla que ya estaba escrita —«un proyecto se juzga por lo que tiene ADENTRO, no por su
+nombre»— con la forma que toma cuando nadie la mide: **el tercio de arriba del tablero
+ocupado por proyectos vacíos empuja el trabajo real fuera de la vista**, que es justamente
+lo que un tablero ordenado por prioridad viene a evitar.
+
+⚠️ **La brecha se mide en dos números y no hace falta un modelo:** score del proyecto contra
+el score de su MEJOR tarea abierta. Con 40+ puntos de diferencia, el número del proyecto no
+lo sostiene nada. Salieron cinco, encabezados por «Feature: Plan» (100 contra 48) y «Vender
+MaKo: Ads» (91 contra 41, y esa tarea ni siquiera es de ese proyecto).
+
+**Vive en:** el board · app/plan/board/metodologia.ts · *2026-09-24*
+
+### Un compromiso con fecha que no bajó a ninguna tarea con fecha no es un plan
+
+Cuatro proyectos vencían el 27/09 con **45 tareas abiertas entre los cuatro y ninguna con
+fecha propia**. En todo el tablero, **4 de 241 tareas abiertas tienen deadline**, y **56 de
+70 proyectos no tienen ninguno** — incluido el segundo del tablero, «Cobros y planes» (98).
+
+La fecha del proyecto es una intención; la de la tarea es lo que se puede perseguir. Sin la
+segunda, el día que vence el proyecto no hay nada que mirar salvo el proyecto entero.
+
+**Vive en:** el board · *2026-09-24*
+
+### Lo que aprendió la corrida sobre el MÉTODO
+
+- **Donde las dos vías coincidieron, acertaron.** Los agentes marcaron #632, #681, #635,
+  #680, #633, #32, #383 y #381 como «ya hechas» leyendo sólo los títulos y los detalles;
+  yo las verifiqué después contra el código (`cuando.ts`, `lib/objectives.ts`,
+  `app/funnel/FunnelEditor.tsx`, `app/crm/ImportarLeadsModal.tsx`). Las ocho coincidieron.
+  Cruzar un método que lee prosa con uno que lee el repo es lo que convierte un hallazgo en
+  un hecho.
+- **Y el escéptico ganó su lugar: tumbó 40 de 277 hallazgos.** El molde de refutar por lote
+  —un escéptico por cada auditor, obligado a volver al archivo— cuesta 8 agentes más y es lo
+  único que impide que «falta X» sea una opinión bien escrita.
+- ⚠️ **El chequeo determinista encontró lo que ningún agente podía:** las 155 citas muertas
+  salen de cruzar los `#` de 70 detalles contra los `num` de la tabla. Ningún auditor con un
+  lote de 9 proyectos puede ver que el #391 que cita el suyo no existe en ninguno de los
+  otros 61.
+
+**Vive en:** *2026-09-24*
