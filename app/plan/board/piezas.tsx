@@ -27,6 +27,12 @@ export function projProgress(tasks: BoardTask[], labelId: string): { pct: number
  *
  * ⚠️ Es TAMBIÉN la forma de decir «esto no tiene fecha»: «no pongas "Sin deadline" cuando
  * ya existe un signo de warning que utilizamos en esos casos» (22/09/2026).
+ *
+ * ⚠️ Pero es la ALARMA, no el hueco. El triangulito parpadea: dice «esto es un riesgo».
+ * En una lista densa, donde la mitad de las filas no tiene fecha todavía, eso es una
+ * pantalla titilando. Para decir sólo «el campo está vacío» está el GUION de
+ * `LineaDeadline` (25/09/2026). Ninguno de los dos escribe «Sin deadline»: lo que no se
+ * lee, estorba.
  */
 export function WarnMark({ title, onClick, size = 15, blink = true }: { title: string; onClick?: (e: import('react').MouseEvent) => void; size?: number; blink?: boolean }) {
   return (
@@ -75,6 +81,8 @@ export function plazoTexto(dias: number): { texto: string; color: string; fuerte
   return { texto: `faltan ${dias} días`, color: 'var(--faint)', fuerte: false };
 }
 
+const SIN_FECHA = 'Falta el deadline';
+
 /**
  * LA FECHA CON SU PLAZO: «◷ vie 24 jul · 62 días atrasado».
  *
@@ -87,25 +95,52 @@ export function plazoTexto(dias: number): { texto: string; color: string; fuerte
  * ⚠️ `hoy` viaja como PROP y no se calcula acá. Es la misma razón por la que `fechaConDia`
  * parsea el ISO a mano: la fecha de hoy depende de la zona horaria de la máquina, y este
  * repo ya paga que eso se resuelva en un solo lugar.
+ *
+ * SIN FECHA dibuja un GUION: «un guion que justamente muestre que el campo no está
+ * completado» (25/09/2026). No escribe «Sin deadline» —eso es texto que nadie lee— y no
+ * parpadea: el triangulito de `WarnMark` es la ALARMA, esto es el hueco.
  */
 export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(--faint)', plazo = true, style }: {
-  iso: string; hoy: string;
+  /** Vacío = el campo no está completado: se dibuja el guion. */
+  iso: string | null | undefined; hoy: string;
   tam?: number;
   /** false = tipografía de texto (el detalle), donde esto se lee como una frase. */
   mono?: boolean;
   color?: string;
-  /** false = sólo la fecha, para listas densas donde el plazo empujaría el título. */
+  /**
+   * `true` escribe el plazo al lado («· faltan 5 días»).
+   * `false` = sólo la fecha, para listas densas donde el plazo empujaría el título.
+   *
+   * ⚠️ NO HAY UNA VARIANTE QUE TIÑA LA FECHA EN VEZ DE ESCRIBIR EL PLAZO. Se escribió el
+   * 25/09/2026 y se sacó el mismo día sin haber tenido nunca un call site: donde el plazo
+   * va como COLOR es en la tabla, y ahí la celda es un `<input type=date>` editable que
+   * esta pieza no puede dibujar (`CeldaFecha`, Tablas.tsx). O sea que habrían quedado dos
+   * implementaciones del mismo código de colores y sólo una viva — la forma exacta en que
+   * dos copias divergen. Si algún día hace falta acá, la escala sale de `plazoTexto`.
+   */
   plazo?: boolean;
   style?: CSSProperties;
 }) {
+  // El guion sale ANTES de cualquier cuenta de fechas: sin ISO no hay plazo que calcular.
+  if (!iso) return (
+    <span title={SIN_FECHA} aria-label={SIN_FECHA}
+      style={{ display: 'inline-flex', flex: 'none', fontFamily: mono ? MONO : undefined, fontSize: tam, color: 'var(--faint)', ...style }}>—</span>
+  );
+
   const p = plazo ? plazoTexto(diasHasta(iso, hoy)) : null;
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontFamily: mono ? MONO : undefined, fontSize: tam, color, ...style }}>
       {/* El que CEDE es la FECHA. Si el ancho no alcanza, lo que no se puede perder es
           «62 días atrasado»: la fecha se puede mirar en el detalle, el atraso no se
-          deduce de nada. */}
-      <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>◷ {fechaConDia(iso)}</span>
-      {p && <span style={{ flex: 'none', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>}
+          deduce de nada. Por eso la fecha se achica 999 veces más rápido que el plazo:
+          es prioridad, no reparto proporcional (con `flex: 0 1 auto` en los dos el flex
+          achica MÁS al más largo, que acá es justo el que no puede ceder). */}
+      <span style={{ flex: '0 999 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>◷ {fechaConDia(iso)}</span>
+      {/* Y el plazo cede ÚLTIMO, pero cede. El valor más largo del conjunto no es «faltan
+          5 días»: es el atraso, que crece sin tope («999 días atrasado», 17 caracteres
+          contra los 10 fijos de la fecha). Con `flex: none` + `nowrap` esa fila no entraba
+          en ningún ancho — empujaba la fila entera en vez de recortarse. */}
+      {p && <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>}
     </span>
   );
 }

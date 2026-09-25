@@ -13,19 +13,21 @@
 // Kanban; esto se prende en la barra de arriba y se recuerda por navegador.
 //
 // Tres cosas que la tabla hace y las tarjetas no:
-//  1. El DEADLINE con su día de la semana, cuántos días faltan y si está atrasado.
+//  1. El DEADLINE, teñido por lo que falta (ver `CeldaFecha`).
 //  2. Se ordena por deadline (click en el encabezado), no solo por prioridad.
 //  3. Lo COMPLETADO se va al fondo, plegado: «un proyecto marcado completo tiene que
 //     desaparecer o bajar — me queda acá».
 //
-// ⚠️ Y NO DICE «Sin deadline». Su corrección: «no pongas "Sin deadline" cuando ya existe
-// un signo de warning que utilizamos en esos casos». El triangulito es el que avisa.
+// ⚠️ ES LA VISTA QUE MÁS USA. «A mí me gusta mucho más esta vista, yo la entiendo mucho
+// más… esto me da mucha claridad de qué es lo que tengo que priorizar» (25/09/2026). Por
+// eso la pasada de ese día fue sacar, no agregar: el mismo dato dicho una sola vez, un
+// ícono en vez de una palabra, y la columna del ID afuera.
 // =============================================================================
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
-import { WarnMark, fechaConDia, diasHasta, plazoTexto } from './piezas';
+import { fechaConDia, diasHasta, plazoTexto } from './piezas';
 import { usePref, esUnoDe } from './prefs';
 import { AccionesLote } from './AccionesLote';
 import { ScoreIcon } from './guardian-form';
@@ -58,18 +60,79 @@ function Th({ children, orden, activo, dir, onSort, ancho }: { children: ReactNo
   );
 }
 
-/** La celda del deadline: editable, con el día de la semana y el triangulito si falta. */
-function CeldaFecha({ iso, hoy, onSet, titulo }: { iso: string; hoy: string; onSet: (v: string) => void; titulo: string }) {
+/**
+ * La celda del deadline: UN solo dato —la fecha, editable— teñido por lo que falta.
+ *
+ * Antes decía lo mismo TRES veces: el `input`, «mié 30 sep» al lado y «faltan 5 días»
+ * al final. Textual (25/09/2026): «acá dice deadline y acá dice 30 del 9, acá miércoles
+ * 30 de septiembre, o sea esto es tres veces el mismo dato nada más que representado de
+ * forma diferente, no me interesa verlo de forma diferente». Queda la fecha; los días que
+ * faltan «lo pondría en base a un código de COLORES».
+ *
+ * ⚠️ El color NUNCA es el único portador: el `title` y el `aria-label` dicen el plazo en
+ * palabras («mié 30 sep · faltan 5 días»), que además es lo único que lee un lector de
+ * pantalla y lo único que sobrevive a un daltonismo.
+ *
+ * ⚠️ Y SIN FECHA VA UN GUIÓN, no un cartel ni un triángulo: «un guion que justamente
+ * muestre que el campo no está completado». Reemplaza al `WarnMark` **sólo en la tabla**:
+ * una columna entera de triangulitos rojos parpadeando es exactamente el ruido que esta
+ * vista vino a sacar. En las tarjetas, donde el aviso va solo y es la única señal, el
+ * triangulito sigue.
+ */
+function CeldaFecha({ iso, hoy, onSet, nombre }: { iso: string; hoy: string; onSet: (v: string) => void; nombre: string }) {
+  // El guión es un BOTÓN: al tocarlo aparece el `input`. Un `input type=date` vacío dibuja
+  // «dd/mm/aaaa», que es justo el texto de más que el guión vino a reemplazar.
+  const [editando, setEditando] = useState(false);
+  const pickerAbierto = useRef(false);
   const dias = iso ? diasHasta(iso, hoy) : null;
   const plazo = dias == null ? null : plazoTexto(dias);
+  // La escala sale de `plazoTexto`, la misma que usan las tarjetas: vencido y hoy en rojo,
+  // esta semana en ámbar, más lejos neutro. Lo único que se cambia es ese último tramo:
+  // `--faint` sobre el dato principal de una celda lo vuelve ilegible, y «falta mucho» no
+  // necesita un color propio — necesita no gritar.
+  const tinta = dias == null || plazo == null ? 'var(--ink)' : dias > 7 ? 'var(--dim)' : plazo.color;
+  const enPalabras = plazo ? `${fechaConDia(iso)} · ${plazo.texto}` : 'sin deadline';
+
+  if (!iso && !editando) {
+    return (
+      <button type="button" onClick={() => { pickerAbierto.current = false; setEditando(true); }}
+        title={`${nombre}: sin deadline`} aria-label={`${nombre}: sin deadline. Ponerle una fecha`}
+        style={{ border: 'none', background: 'transparent', padding: '5px 10px', cursor: 'pointer', fontFamily: MONO, fontSize: 15, lineHeight: 1, color: 'var(--faint)' }}>—</button>
+    );
+  }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <input type="date" value={iso} onChange={(e) => onSet(e.target.value)} style={fechaInput} aria-label={titulo} />
-      {iso
-        ? <span style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap' }}>{fechaConDia(iso)}</span>
-        : <WarnMark title={titulo} size={14} />}
-      {plazo && <span style={{ fontSize: 12, color: plazo.color, fontWeight: plazo.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {plazo.texto}</span>}
-    </div>
+    <input type="date" value={iso} onChange={(e) => onSet(e.target.value)} autoFocus={editando}
+      // Viniendo del guión, el calendario se abre solo: si no, el guión costaría dos
+      // clicks donde antes costaba uno. `showPicker` no existe en Safari viejo y tira si
+      // la llamada no cuelga de un gesto, así que va opcional y adentro de un try.
+      ref={(el) => {
+        if (!el || !editando || pickerAbierto.current) return;
+        pickerAbierto.current = true;
+        try { el.showPicker?.(); } catch { /* sin picker nativo queda el input, que igual se edita */ }
+      }}
+      onBlur={() => setEditando(false)}
+      title={`${nombre}: ${enPalabras}`} aria-label={`Deadline de ${nombre}: ${enPalabras}`}
+      style={{ ...fechaInput, color: tinta, fontWeight: plazo?.fuerte ? 700 : 500, borderColor: plazo?.fuerte ? tinta : 'var(--border)' }} />
+  );
+}
+
+/**
+ * COMPLETAR. Es un CHECK, y la casilla cuadrada de la primera columna SELECCIONA.
+ *
+ * Son dos controles distintos en la misma fila y el reclamo principal de los dos audios
+ * del 25/09/2026 es que no se puedan confundir: «acá lo que falta es una checkbox, porque
+ * acá selecciono pero no es… si voy a individual me falta la checkbox de completar», más
+ * la regla general —«que un mismo control signifique lo mismo en toda la app»—. Por eso la
+ * forma es distinta a propósito: **cuadrado = seleccionar, redondo con tilde = completar**.
+ *
+ * Y es un ícono sin rótulo: «un check y un tacho», no dos botones con texto. Lo que el
+ * ícono no dice lo dice el `title`, que es donde el texto no ocupa lugar.
+ */
+function CheckHecha({ hecha, onToggle, titulo }: { hecha: boolean; onToggle: () => void; titulo: string }) {
+  const texto = hecha ? `Completada — reabrir «${titulo}»` : `Marcar «${titulo}» como completada`;
+  return (
+    <button type="button" onClick={onToggle} title={texto} aria-label={texto} aria-pressed={hecha}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flex: 'none', padding: 0, cursor: 'pointer', borderRadius: 999, border: `1.5px solid ${hecha ? 'var(--good)' : 'var(--border-strong)'}`, background: hecha ? 'var(--good)' : 'transparent', color: hecha ? '#fff' : 'var(--faint)', fontSize: 12, lineHeight: 1 }}>✓</button>
   );
 }
 
@@ -158,7 +221,7 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
         </div>
       </td>
       <td style={tdBase}>
-        <CeldaFecha iso={l.deadline || ''} hoy={hoy} titulo={`«${l.name}» no tiene deadline`} onSet={(v) => onDeadline(l.id, v)} />
+        <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
       </td>
     </tr>
   );
@@ -171,7 +234,9 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
             <Th orden="nombre" activo={orden === 'nombre'} dir={dir} onSort={() => sortear('nombre')}>{labelPlural}</Th>
             <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={110}>Prioridad</Th>
             <Th orden="avance" activo={orden === 'avance'} dir={dir} onSort={() => sortear('avance')} ancho={130}>Tareas</Th>
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={330}>Deadline</Th>
+            {/* 330 era el ancho de cuando la celda decía la fecha tres veces. Con un solo
+                dato, el `input` mide 138 y lo demás era hueco. */}
+            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={160}>Deadline</Th>
           </tr>
         </thead>
         <tbody>
@@ -206,6 +271,12 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
    * doble: en una tabla, una casilla en la primera columna ES el control de selección —lo es
    * en Gmail, en Drive y en cualquier tabla— así que la lectura no era un error de nadie.
    * Lo que faltaba era que hiciera lo que parecía que hacía.
+   *
+   * ⚠️ Y COMPLETAR NO SE FUE: volvió como CHECK, en la última columna (`CheckHecha`).
+   * Sacarlo de acá dejó la fila sin ninguna forma de cerrar una tarea, y eso se reportó al
+   * mes siguiente: «si voy a individual me falta la checkbox de completar» (25/09/2026).
+   * Las dos conviven porque tienen forma distinta —cuadrado selecciona, redondo completa—,
+   * que es la única manera de que un mismo control signifique lo mismo en toda la app.
    */
   const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
   const [orden, setOrden] = usePref<OrdenTarea>('kanban.tabla.orden', 'score', esUnoDe('deadline', 'score', 'proyecto', 'num'));
@@ -254,9 +325,12 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
         </td>
         <td style={{ ...tdBase, maxWidth: 420 }}>
+          {/* SIN EL #ID. «El ID lo quitaría… el ID de la tabla de tareas» (25/09/2026):
+              en una columna que ya cede ancho, el número se comía el principio del título
+              en todas las filas para contestar una pregunta que nadie le hace a la tabla
+              —el # se usa adentro del detalle, que es donde sigue estando—. */}
           <button type="button" onClick={() => onOpen(t.id)} title={t.title}
             style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: hecha ? 'line-through' : 'none', opacity: hecha ? .7 : 1 }}>{t.title}</span>
           </button>
         </td>
@@ -276,7 +350,16 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
           </span>
         </td>
         <td style={tdBase}>
-          <CeldaFecha iso={t.deadline || ''} hoy={hoy} titulo={`«${t.title}» no tiene deadline`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />
+          <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />
+        </td>
+        {/* EL ESTADO, y se cambia desde acá: «otra columna para cambiar el estado»
+            (25/09/2026). En este tablero el estado de una tarea es uno solo —activa o
+            completada, que es lo que filtra el botón «Filtrar»—, así que la columna no
+            inventa un tercer valor: es el check, que lo muestra y lo cambia en un click.
+            Va última y separada de la casilla de selección, que vive en la primera: dos
+            controles parecidos pegados es cómo se volvieron a confundir. */}
+        <td style={{ ...tdBase, textAlign: 'center' }}>
+          <CheckHecha hecha={hecha} onToggle={() => board.toggleDone(t.id)} titulo={t.title} />
         </td>
       </tr>
     );
@@ -296,18 +379,22 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
                 title={todasSel ? 'Quitar la selección' : 'Seleccionar todas'} aria-label="Seleccionar todas"
                 style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
             </th>
-            <Th orden="número" activo={orden === 'num'} dir={dir} onSort={() => sortear('num')}>Tarea</Th>
+            {/* Ordena por `num`, que es el orden de CREACIÓN. El rótulo del tooltip dice
+                «creación» y no «número» desde que el #ID salió de la fila: ofrecer ordenar
+                por una columna que ya no se ve es ofrecer una incógnita. */}
+            <Th orden="creación" activo={orden === 'num'} dir={dir} onSort={() => sortear('num')}>Tarea</Th>
             <Th orden="proyecto" activo={orden === 'proyecto'} dir={dir} onSort={() => sortear('proyecto')} ancho={210}>Proyecto</Th>
             <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={150}>Prioridad</Th>
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={330}>Deadline</Th>
+            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={160}>Deadline</Th>
+            <th style={{ ...thBase, width: 76, textAlign: 'center' }}>Estado</th>
           </tr>
         </thead>
         <tbody>
           {vivas.map((t) => fila(t, false))}
           {vivas.length === 0 && hechas.length === 0 && (
-            <tr><td colSpan={5} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay tareas para este filtro.</td></tr>
+            <tr><td colSpan={6} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay tareas para este filtro.</td></tr>
           )}
-          <FilaPlegada n={hechas.length} abierto={verHechas} onToggle={() => setVerHechas((v) => !v)} cols={5} texto={`completada${hechas.length === 1 ? '' : 's'}`} />
+          <FilaPlegada n={hechas.length} abierto={verHechas} onToggle={() => setVerHechas((v) => !v)} cols={6} texto={`completada${hechas.length === 1 ? '' : 's'}`} />
           {verHechas && hechas.map((t) => fila(t, true))}
         </tbody>
       </table>

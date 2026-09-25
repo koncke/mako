@@ -39,7 +39,7 @@ import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { BuscadorTareas } from './BuscadorTareas';
 import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/lib/buscar-tareas';
-import { RichText, stripHtml } from './RichText';
+import { RichText, mdAHtml, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
@@ -52,6 +52,10 @@ import Link from '@/app/_ui/Link';
 import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
 import { NotasLista } from './NotasLista';
+// Los cuatro títulos del `detalle` salen del contrato, no de una copia local: son
+// EXACTOS y el que los escribe, el que los valida y el que ahora los pliega tienen que
+// mirar la misma lista (AGENTS.md → «Una cosa, un lugar»).
+import { PARTES_DETALLE } from '@/lib/detalle-contrato';
 import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
@@ -525,12 +529,25 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // puede empezar, y una lista de «hacé esto» con cosas que no se pueden hacer es peor que
   // una lista corta. Lo que sí sube es lo que las DESTRABA, por la urgencia heredada.
   const pendientesTodas = tasks.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps));
-  const delTop = topProjectId ? pendientesTodas.filter((t) => t.labels.includes(topProjectId)) : [];
-  const resto = pendientesTodas
-    .filter((t) => !topProjectId || !t.labels.includes(topProjectId))
-    .sort((a, b) => scoreProy(b) - scoreProy(a) || (estDeps.urgencia[b.id] ?? b.score) - (estDeps.urgencia[a.id] ?? a.score));
-  const enPrio = [...delTop.sort((a, b) => (estDeps.urgencia[b.id] ?? b.score) - (estDeps.urgencia[a.id] ?? a.score)), ...resto].slice(0, MAX_PRIORIDAD);
-  const bloqueadasN = tasks.filter((t) => t.progress < 100 && estaBloqueada(t.id, estDeps)).length;
+  // ⚠️ MANDA LA BANDA, Y EL PROYECTO TOP DESEMPATA ADENTRO DE ELLA.
+  //
+  // Acá entraban primero TODAS las pendientes del proyecto top ordenadas por score y el
+  // resto del plan completaba atrás, así que una tarea floja del norte le ganaba a una
+  // fuerte de cualquier otro proyecto. Medido el 25/09/2026 en el tablero del dueño: la
+  // #3 de la lista salía con prioridad **20** al lado de 90, 91, 79 y 71 — y una lista de
+  // «qué hago ahora» con una tarea a futuro en el podio deja de ser una respuesta.
+  //
+  // La banda es la misma que agrupa el Kanban (`prioFromScore`: alta ≥ 75 · media ≥ 50 ·
+  // baja ≥ 25 · futuro < 25), así que las dos vistas no se pueden contradecir. Una ALTA de
+  // otro proyecto siempre le gana a una BAJA del proyecto top; empatada la banda, sí manda
+  // el norte. El score que se mira es el EFECTIVO (la urgencia heredada de lo que destraba),
+  // que es el mismo con el que después se ordena.
+  const urg = (t: BoardTask) => estDeps.urgencia[t.id] ?? t.score;
+  const banda = (t: BoardTask) => PRIOS.indexOf(prioFromScore(urg(t)));   // 0 = alta … 3 = a futuro
+  const esDelTop = (t: BoardTask) => (topProjectId ? t.labels.includes(topProjectId) : false);
+  const enPrio = [...pendientesTodas]
+    .sort((a, b) => banda(a) - banda(b) || Number(esDelTop(b)) - Number(esDelTop(a)) || scoreProy(b) - scoreProy(a) || urg(b) - urg(a))
+    .slice(0, MAX_PRIORIDAD);
   const prioAvg = enPrio.length ? Math.round(enPrio.reduce((s, t) => s + t.progress, 0) / enPrio.length) : 0;
   // agregado de proyectos (para el chip del header en la vista Proyectos)
   const projAgg = labels.map((l) => projProgress(tasks, l.id));
@@ -1048,7 +1065,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
           El patrón que sí funciona en los dos: el padre es columna y el hijo estira
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} bloqueadas={bloqueadasN} onOpen={setOpenId} onOpenProj={setOpenProj} />}
+        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
@@ -1418,6 +1435,139 @@ function ExportarBoton({ onAbrir }: { onAbrir: () => void }) {
  */
 function Separador() {
   return <div style={{ height: 1, background: 'var(--border)', margin: '26px 0 22px' }} />;
+}
+
+/**
+ * El CHECK de completar.
+ *
+ * ⚠️ NO ES UNA CASILLA, Y ESA ES TODA LA PIEZA. En esta app un cuadrado que se tilda
+ * significa SELECCIONAR — es lo que hace la casilla del lote en el Kanban — y nada más:
+ * «vos tenés que saber de que la checkbox en todos los lugares de la aplicación tiene que
+ * significar una cosa… y el de completar tiene que ser un check» (25/09/2026). Había un
+ * cuadrado de 15-16px haciendo de «completar» en CUATRO pantallas (la tarjeta del Kanban,
+ * la de Prioridades, el header del detalle y la lista de un proyecto), o sea el mismo
+ * dibujo para dos acciones opuestas y a un click de distancia.
+ *
+ * Vive en un solo lugar para que no vuelvan a divergir: si mañana el check cambia, cambia
+ * en las cuatro.
+ */
+function CheckHecho({ done, size = 16 }: { done: boolean; size?: number }) {
+  return (
+    <span aria-hidden style={{ width: size, height: size, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: done ? 'var(--good)' : 'var(--faint)' }}>
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={done ? 2.4 : 1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 8.6 6.3 11.9 13 4.4" /></svg>
+    </span>
+  );
+}
+
+/**
+ * El tacho. «Simplemente puede ser un check y un ícono de tacho de basura para que sea más
+ * intuitivo» (25/09/2026): un ícono se entiende más rápido que una palabra y, al lado del
+ * check, dos acciones ocupan el lugar de un botón con texto.
+ *
+ * ⚠️ Quien lo use lleva `aria-label` Y `title`: un botón cuyo único contenido es un SVG no
+ * tiene nombre accesible — el lector de pantalla anuncia «botón», a secas.
+ */
+function IconoTacho({ size = 15 }: { size?: number }) {
+  return <svg aria-hidden width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M2.6 4.2h10.8M6.4 4.2V2.9h3.2v1.3M4.3 4.2l.6 8.3a1 1 0 0 0 1 .9h4.2a1 1 0 0 0 1-.9l.6-8.3M6.6 6.7v4.3M9.4 6.7v4.3" /></svg>;
+}
+
+/**
+ * Una sección plegable, CERRADA por default.
+ *
+ * «Tiene que estar compactada, es decir, tiene que ser un botón desplegable, porque si no
+ * es muchísimo texto y es bastante molesto» (25/09/2026), sobre el historial — y lo mismo
+ * vale para el detalle largo y para lo que no se lee casi nunca.
+ *
+ * ⚠️ EL RÓTULO LLEVA EL CONTEO. Plegar esconde el contenido; esconder CUÁNTO hay es otra
+ * cosa, y es la que convierte un desplegable en «acá no hay nada». Es la misma regla con
+ * la que ya se pliegan las tareas terminadas de un proyecto.
+ *
+ * `open` no se pasa como prop controlada: el estado vive acá y se sincroniza con `onToggle`,
+ * así abrir y cerrar sobrevive a los re-renders del tablero.
+ */
+function Plegable({ titulo, abierta = false, children }: { titulo: ReactNode; abierta?: boolean; children: ReactNode }) {
+  const [abierto, setAbierto] = useState(abierta);
+  return (
+    <details className="mk-det" open={abierto} onToggle={(e) => setAbierto((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, userSelect: 'none' }}>{titulo}</summary>
+      <div style={{ marginTop: 10 }}>{children}</div>
+    </details>
+  );
+}
+
+// Un título del contrato se reconoce sin tildes y sin mayúsculas: lo escriben cinco
+// caminos distintos (Fathom, WhatsApp, un archivo, Claude Code, a mano) y «Que hay que
+// hacer» sin tilde es el mismo título que «Qué hay que hacer».
+const sinTilde = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const TITULOS_DETALLE = new Set(PARTES_DETALLE.map(sinTilde));
+type ParteDetalle = { head: string; titulo: string; cuerpo: string };
+
+/**
+ * Parte el `detalle` en las partes del contrato, para poder plegarlas.
+ *
+ * El campo guarda HTML (viene del contentEditable) pero MaKo escribe MARKDOWN, así que se
+ * normaliza primero con el MISMO `mdAHtml` que usa el editor para mostrarlo: de ahí para
+ * adentro hay un solo formato y el rearmado es una concatenación.
+ *
+ * ⚠️ EL ENCABEZADO SE GUARDA TAL CUAL (`head`) y se vuelve a emitir sin tocarlo. Rearmar
+ * con un título «equivalente» es cómo un editor se come el formato de lo que no editó.
+ *
+ * ⚠️ Y SI NO RECONOCE AL MENOS DOS TÍTULOS, NO PARTE NADA. Medido en producción sobre 475
+ * tareas: el molde de cuatro partes lo cumple el 43% en el mejor de los cinco orígenes y el
+ * 0% en tres de ellos (lib/detalle-contrato.ts). Una partición a medias no sería una vista
+ * más prolija: sería un editor que se come texto al guardar.
+ *
+ * Probado ROMPIÉNDOLO (25/09/2026, arnés que importa esta misma función del fuente, sin
+ * transcribirla): con los cuatro títulos da 4 partes y rearmar sin editar devuelve el html
+ * idéntico carácter por carácter; cambiando dos títulos por otros ajenos baja a 2 y lo que
+ * quedó afuera viaja en la `intro` — cero pérdida; con un detalle suelto (el molde lo
+ * cumple menos de la mitad del tablero) devuelve 0 partes y cae en el editor entero.
+ */
+function partirDetalle(valor: string): { intro: string; partes: ParteDetalle[] } {
+  const html = mdAHtml(valor || '');
+  if (!html) return { intro: '', partes: [] };
+  // Un título es un bloque cuyo contenido entero es el nombre en negrita: así lo emite
+  // `mdAHtml` para un `**…**` y así queda cuando alguien lo edita en el contentEditable.
+  const re = /<(div|p|h[1-6])(?:\s[^>]*)?>\s*<(strong|b)(?:\s[^>]*)?>\s*([^<]{2,60}?)\s*:?\s*<\/\2>\s*<\/\1>/gi;
+  const cortes: Array<{ ini: number; fin: number; head: string; titulo: string }> = [];
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    const titulo = m[3].trim();
+    if (!TITULOS_DETALLE.has(sinTilde(titulo))) continue;
+    cortes.push({ ini: m.index, fin: m.index + m[0].length, head: m[0], titulo });
+  }
+  if (cortes.length < 2) return { intro: html, partes: [] };
+  const partes = cortes.map((c, i) => ({ head: c.head, titulo: c.titulo, cuerpo: html.slice(c.fin, i + 1 < cortes.length ? cortes[i + 1].ini : html.length) }));
+  return { intro: html.slice(0, cortes[0].ini), partes };
+}
+
+/**
+ * El detalle, partido en secciones plegables.
+ *
+ * «También haría colapsables "hay que hacer", "detalles concretos", porque también es un
+ * montón de texto que por lo general no se va a leer» (25/09/2026). Queda abierta la
+ * primera —«Qué hay que hacer», el orden del contrato— que es la única que contesta
+ * «¿qué hago?»; el resto se abre si hace falta.
+ *
+ * Cada sección es editable por separado y al guardar se rearma el campo COMPLETO, así que
+ * lo que no se tocó vuelve idéntico. Sin títulos reconocidos, es el editor de siempre.
+ */
+function DetalleSecciones({ valor, onChange, placeholder }: { valor: string; onChange: (html: string) => void; placeholder?: string }) {
+  const { intro, partes } = useMemo(() => partirDetalle(valor), [valor]);
+  if (partes.length === 0) return <RichText value={valor} onChange={onChange} placeholder={placeholder} />;
+  // `i === -1` es el texto que viene ANTES del primer título (raro, pero existe): se edita
+  // igual que una sección y se reemite en su lugar.
+  const rearmar = (i: number, html: string) =>
+    onChange((i === -1 ? html : intro) + partes.map((p, k) => p.head + (k === i ? html : p.cuerpo)).join(''));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {intro.trim() && <RichText value={intro} onChange={(h) => rearmar(-1, h)} placeholder={placeholder} />}
+      {partes.map((p, i) => (
+        <Plegable key={i} titulo={p.titulo} abierta={i === 0}>
+          <RichText value={p.cuerpo} onChange={(h) => rearmar(i, h)} placeholder="Escribe aquí…" />
+        </Plegable>
+      ))}
+    </div>
+  );
 }
 
 function NotasBox({ valor, onGuardar }: { valor: string; onGuardar: (v: string) => void }) {
@@ -1810,7 +1960,11 @@ const FUENTE_META: Record<FuenteTipo, { label: string; icon: () => ReactNode; ac
   retro: { label: 'Retro', icon: () => <span>🔎</span>, accent: true },
   experimento: { label: 'Experimento', icon: () => <span>🧪</span>, accent: true },
 };
-function FuenteChip({ fuente }: { fuente: Fuente }) {
+/** `soloIcono`: el chip sin una sola palabra. «Que sea simplemente el ícono de Fathom o que
+ *  sea simplemente el ícono de WhatsApp» (25/09/2026) — el logo ya dice de dónde salió, y
+ *  el nombre de la reunión o del archivo viaja en el `title`, que es donde se lo busca.
+ *  El nombre accesible NO se pierde: va en `aria-label` con el texto completo. */
+function FuenteChip({ fuente, soloIcono = false }: { fuente: Fuente; soloIcono?: boolean }) {
   const m = FUENTE_META[fuente.tipo];
   if (!m) return null; // manual (del usuario) → sin chip
   const clickable = !!fuente.url;
@@ -1818,18 +1972,18 @@ function FuenteChip({ fuente }: { fuente: Fuente }) {
     display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700,
     color: m.accent ? 'var(--accent)' : 'var(--dim)', background: 'var(--surface)',
     border: `1px solid ${m.accent ? 'var(--primary-weak)' : 'var(--border-strong)'}`,
-    borderRadius: 6, padding: '2px 7px', maxWidth: 250, minWidth: 0, textDecoration: 'none',
+    borderRadius: 6, padding: soloIcono ? '4px 6px' : '2px 7px', maxWidth: 250, minWidth: 0, textDecoration: 'none',
     cursor: clickable ? 'pointer' : 'default',
   };
   const cuerpo = <>
     <span style={{ flex: 'none', display: 'inline-flex', lineHeight: 0 }}>{m.icon()}</span>
-    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}{fuente.etiqueta ? ` · ${fuente.etiqueta}` : ''}</span>
+    {!soloIcono && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}{fuente.etiqueta ? ` · ${fuente.etiqueta}` : ''}</span>}
     {clickable && <span style={{ flex: 'none', opacity: 0.7 }}>↗</span>}
   </>;
   const title = `${m.label}${fuente.etiqueta ? ` · ${fuente.etiqueta}` : ''}${clickable ? ' — abrir' : ''}`;
   return clickable
-    ? <a href={fuente.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={title} style={style}>{cuerpo}</a>
-    : <span title={title} style={style}>{cuerpo}</span>;
+    ? <a href={fuente.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={title} aria-label={title} style={style}>{cuerpo}</a>
+    : <span title={title} aria-label={soloIcono ? title : undefined} style={style}>{cuerpo}</span>;
 }
 // El alta se muestra con una frase que nombra al autor ("Creada por MaKo") en vez
 // del texto crudo. Pero cuando MaKo además dejó asentado QUÉ hizo (todo lo que va
@@ -1974,10 +2128,17 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
           ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
               {/* Con más de un proyecto entra también el "+N": el chip cede ancho para
                   que #id, el aviso y el score no queden sin lugar en una card de 249px. */}
-              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 74 : 96} onOpen={onOpenProj} />
+              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 100 : 130} onOpen={onOpenProj} />
             </span>
           : <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
-        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
+        {/* ⛔ ACÁ IBA `#{t.num}` Y SE FUE EL 25/09/2026. «El ID de la tarea es algo que no es
+            relevante en esta vista de tarjetas, ocupa más espacio que otra cosa» — y el
+            motivo real lo dijo un renglón antes: «el ID está justo en el medio y no permite
+            que se vea el nombre del proyecto completo». Los ~35px que ocupaba (el número más
+            su gap) se los queda el chip, que por eso sube de 96 a 130.
+            EL CHIP DEL PROYECTO SE QUEDA: Mauricio tiene proyectos que son clientes y
+            necesita verlos sin abrir la tarjeta. El número sigue en el detalle, que es donde
+            se usa para nombrar una tarjeta. */}
         <span style={{ flex: 1, minWidth: 0 }} />
         {/* El candado va COMPACTO en la tarjeta: la card mide 138px fijos y el título
             necesita sus dos líneas. El nombre de lo que la frena vive en el tooltip y en
@@ -1987,8 +2148,12 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
         {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
-      {/* título a 2 líneas máx (recortado) → todas las cards miden igual */}
-      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>{t.title}</div>
+      {/* TÍTULO DE UNA SOLA LÍNEA, con el título entero en el `title`. «Los títulos son muy
+          largos, tiene que poner una cantidad máxima de caracteres» (25/09/2026). El tope no
+          se escribe en caracteres sino en ANCHO: un `slice(0, 60)` corta igual de feo con un
+          título de palabras cortas y se queda corto con uno de palabras largas, y además
+          miente en el `title`. Con una línea más el ellipsis, el corte lo decide la card. */}
+      <div title={t.title} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
       <span style={{ flex: 1 }} />
       {/* ⚠️ EL DEADLINE VA EN SU PROPIO RENGLÓN, y dice el plazo. Acá había un
           `deadline.slice(5)` — «09-25»: sin día de la semana, sin año y, sobre todo, sin
@@ -2003,9 +2168,11 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, ta
           tenía que verse sin entrar al detalle («no me dice si está terminado o no»). */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 22 }}>
         <span style={{ flex: 1 }} />
-        <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={done ? 'Marcar sin completar' : 'Marcar completada'}
+        <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+          aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
+          title={done ? 'Marcar sin completar' : 'Marcar completada'}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: done ? 'var(--good)' : 'var(--faint)' }}>
-          <span style={{ width: 15, height: 15, borderRadius: 4, border: `1.5px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{done ? '✓' : ''}</span>
+          <CheckHecho done={done} size={15} />
           {done ? 'Hecha' : 'Completar'}
         </button>
       </div>
@@ -2422,7 +2589,7 @@ function ColHeader({ p, count }: { p: Prio; count: number }) {
 
 // ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
 // 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
-function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; bloqueadas?: number; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
+function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
   return (
     // FLUIDA, no de ancho fijo. Antes era `maxWidth: 1060` + una columna clavada en
     // 336px y una media query a 840: con el zoom del navegador (que cambia el ancho en
@@ -2448,11 +2615,12 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
         <div style={{ flex: '2 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
-            {/* Una lista más corta de lo esperado sin explicación se lee como «no hay nada
-                más que hacer», que es lo contrario de lo que pasa. Si algo quedó afuera por
-                estar frenado, se dice acá — el número es el aviso de que la cadena está
-                trabada y de que lo que conviene atacar es lo que la destraba. */}
-            {bloqueadas > 0 && <span style={{ fontSize: 12, color: 'var(--dim)' }}>🔒 {bloqueadas} {bloqueadas === 1 ? 'frenada' : 'frenadas'} por otra cosa · no entran aquí hasta que se destraben</span>}
+            {/* ⛔ ACÁ IBA «🔒 N frenadas por otra cosa · no entran aquí hasta que se destraben»,
+                y se fue el 25/09/2026. «No me dice qué tareas son, y todas las que están —las
+                cinco principales— no tienen ninguna tarea bloqueante. Ese texto de por sí no
+                debería estar ahí.» Un número que no nombra a nadie no se puede accionar: lo
+                que frena a una tarjeta se ve en su detalle, que es donde está el nombre.
+                El dato NO se perdió — lo bloqueado sigue fuera de esta lista, como siempre. */}
           </div>
           {tasks.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
@@ -2486,7 +2654,11 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
                   {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
                   <ScoreBadge score={t.score} />
                 </div>
-                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12 }}>{t.title}</div>
+                {/* UNA SOLA LÍNEA, con el título entero en el `title`. «Los títulos son muy
+                    largos, tiene que poner una cantidad máxima de caracteres» (25/09/2026):
+                    un título de tres renglones a 19px empuja el deadline y el check fuera de
+                    la vista y hace que dos tarjetas de la misma lista midan distinto. */}
+                <div title={t.title} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                 {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
                     barra de avance, el % y la checklist plegable: los tres se fueron con
                     la checklist («una tarea se completa o no se completa»), y lo que
@@ -2494,9 +2666,10 @@ function Prioridades({ tasks, board, objetivo, bloqueadas = 0, onOpen, onOpenPro
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
                   <span style={{ flex: 1 }} />
-                  <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title="Marcar como completada"
+                  <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+                    aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-                    <span style={{ width: 15, height: 15, borderRadius: 4, border: '1.5px solid var(--border-strong)', flex: 'none' }} />
+                    <CheckHecho done={t.progress >= 100} size={15} />
                     Completar
                   </button>
                 </div>
@@ -2823,19 +2996,31 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600, flex: 'none' }}>#{t.num}</span>
           {/* en el header, compacto (la lista completa está en el sidebar "Proyectos") */}
           <LabelChips chips={chips} max={1} cap={230} onOpen={onOpenProj} />
-          <FuenteChip fuente={fuenteEfectiva(t)} />
+          {/* ⛔ ACÁ IBA EL CHIP DE ORIGEN con su palabra al lado («Fathom · Reunión con…»).
+              Se fue a la columna derecha y como ícono pelado: «que sea simplemente el ícono de
+              Fathom o que sea simplemente el ícono de WhatsApp» + «no lo pondría en el punto
+              principal, lo pondría en la columna derecha que diga origen» (25/09/2026). */}
           <span style={{ flex: 1 }} />
-          {/* ⚠️ COMPLETAR VIVE ACÁ, en el lugar más caro del modal. «Que "Marcar como
-              completada" esté donde hoy está "✦ MaKo ✓ optimizada"» (23/09/2026).
-              Y el chip de MaKo se fue: «ya no tiene sentido». Decía que una tarjeta había
-              pasado por el Perro —que hoy es TODAS, porque pasa en el alta— así que había
-              dejado de distinguir nada. Pedirle ayuda a MaKo sigue estando, en el ✦ de al
-              lado del título, que es donde se edita el texto que MaKo mejora. */}
+          {/* ⚠️ COMPLETAR Y ELIMINAR, JUNTOS Y COMO ÍCONOS: un check y un tacho.
+              «Deberían estar juntos… simplemente puede ser un check y un ícono de tacho de
+              basura para que sea más intuitivo» (25/09/2026). Estaban en las dos puntas del
+              modal —uno arriba a la derecha con la palabra «Marcar completada» y el otro al
+              fondo de la columna lateral con «Eliminar tarea»— así que las dos únicas
+              acciones que cierran una tarjeta no se veían nunca juntas.
+              Completar sigue en el lugar más caro del modal (23/09/2026: «que "Marcar como
+              completada" esté donde hoy está "✦ MaKo ✓ optimizada"»), y el chip de MaKo que
+              vivía ahí se fue porque hoy pasan TODAS por el Perro y no distinguía nada.
+              ⚠️ Los dos llevan `aria-label` Y `title`: un botón cuyo único contenido es un SVG
+              se anuncia como «botón», sin decir de qué. */}
           <button onClick={() => board.toggleDone(t.id)}
+            aria-label={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar la tarea como completada'}
             title={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar como completada'}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--ink)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, whiteSpace: 'nowrap', flex: 'none' }}>
-            <span style={{ width: 16, height: 16, borderRadius: 5, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
-            {t.progress >= 100 ? 'Completada' : 'Marcar completada'}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, padding: 0, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', borderRadius: 9, cursor: 'pointer', flex: 'none' }}>
+            <CheckHecho done={t.progress >= 100} size={17} />
+          </button>
+          <button onClick={onDelete} aria-label="Eliminar la tarea" title="Eliminar la tarea"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, padding: 0, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', borderRadius: 9, cursor: 'pointer', flex: 'none' }}>
+            <IconoTacho size={15} />
           </button>
           <button aria-label="Cerrar" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
@@ -2850,8 +3035,20 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
               onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'transparent'; }}
               title="Edita el título" aria-label="Título de la tarea" placeholder="Título de la tarea…" rows={2}
               style={{ width: '100%', border: '1px solid transparent', borderRadius: 9, outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16, padding: '4px 8px', marginLeft: -8, transition: 'border-color .12s, background .12s' }} />
+            {/* LAS NOTAS, AL INICIO DE TODO. «Al igual que el Notion lo pondría al inicio de
+                todo, solamente si uno quiere agregar notas particulares… por si hay algo
+                importante» (25/09/2026). Estaban al fondo, entre el detalle y el historial:
+                el único lugar de la tarjeta que escribe la PERSONA quedaba abajo de todo lo
+                que escribe la IA. No se pliega a propósito — plegado es lo mismo que estar
+                abajo: hay que ir a buscarlo. */}
+            <NotasLista valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
+
+            <Separador />
             <label style={rowLabel}>Detalle · doc</label>
-            <div style={{ marginBottom: 22 }}><RichText value={t.detalle} onChange={(html) => board.setDetalle(t.id, html, t.detalle)} placeholder="El doc de esta tarea…" /></div>
+            {/* EN SECCIONES PLEGABLES, con «Qué hay que hacer» abierta y el resto cerrado.
+                Si el detalle no trae los títulos del contrato, `DetalleSecciones` devuelve el
+                editor entero de siempre. */}
+            <DetalleSecciones valor={t.detalle} onChange={(html) => board.setDetalle(t.id, html, t.detalle)} placeholder="El doc de esta tarea…" />
 
             {/* ⚠️ ACÁ VIVÍAN EL AVANCE Y LA CHECKLIST, y se fueron los dos el 22/09/2026.
                 Textual: «que no existan checklists, quitan mucho tiempo, son incómodas e
@@ -2863,13 +3060,37 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                   invisible… tan incómodo» era que viviera acá abajo, entre el doc y el
                   historial. */}
 
-            {/* NOTAS y «se hace en MaKo» viven ACÁ, en la columna principal y ARRIBA del
-                historial. Estaban en la barra lateral, apretadas contra la prioridad y
-                el deadline: el cuaderno de la tarea es contenido, no metadata. */}
-            {/* Las dependencias van ARRIBA de las notas y del historial, en la columna
-                principal: «qué me frena» y «qué destrabo» son contenido de la tarea, no
-                metadata — cambian qué se hace hoy. */}
+            {t.haceloEn && <><Separador /><HaceloEnMaKo id={t.haceloEn} /></>}
+
             <Separador />
+            {/* EL HISTORIAL, PLEGADO. «Tiene que estar compactada, es decir, tiene que ser un
+                botón desplegable, porque si no es muchísimo texto y es bastante molesto»
+                (25/09/2026): una tarjeta que pasó por dos corridas del Perro llega con
+                decenas de entradas, y son lo último que alguien abre y lo primero que empuja
+                todo lo demás fuera de la vista. El conteo va en el rótulo. */}
+            <Plegable titulo={`Historial · ${t.historial.length}`}>
+              <ChangeHistory t={t} board={board} ask={ask} />
+            </Plegable>
+          </div>
+          {/* 280 y no 236: acá entró el bloque de dependencias, que trae un buscador y dos
+              botones que nombran su acción. Con 236 el formulario de agregar quedaba
+              partiendo palabras. El ancho del modal no cambia. */}
+          <div style={{ width: 280, flex: 'none', minWidth: 0, borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
+            {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
+            <BloquePrioridad
+              etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} titulo={t.title}
+              chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: PCOLOR[prioEfectiva], whiteSpace: 'nowrap' }}><ScoreIcon size={12} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
+              razon={t.scoreRazon} impacto={t.impacto} esfuerzo={t.esfuerzo}
+              tiempo={<TiempoLinea t={t} />}
+              puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
+            {/* ⚠️ «DEPENDE DE» Y «DESTRABA A» VIVEN ACÁ, NO ABAJO DE TODO. «Debería estar como
+                mínimo en el costado, en la columna derecha, porque es algo que es importante
+                verlo de una forma rápida y no scrolleando todo desde abajo» (25/09/2026).
+                Estaban al final de la columna principal, después del detalle: lo que decide
+                si la tarea se puede empezar HOY se veía último, o no se veía.
+                Va pegado a la prioridad porque contesta la misma pregunta —¿esto va ahora?—
+                y porque la urgencia heredada de lo que destraba es justo lo que mueve ese
+                número de arriba. */}
             <DependenciasBloque
               entidad="tarea" id={t.id} deps={board.deps}
               candidatos={board.tasks.filter((x) => x.id !== t.id).map((x) => ({
@@ -2878,23 +3099,6 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 terminado: x.progress >= 100,
               }))}
               onAdd={board.addDep} onDel={board.delDep} />
-            <Separador />
-            <NotasLista valor={t.notas ?? ''} onGuardar={(v) => board.patch(t.id, { notas: v })} />
-
-            {t.haceloEn && <><Separador /><HaceloEnMaKo id={t.haceloEn} /></>}
-
-            <Separador />
-            <label style={rowLabel}>Historial</label>
-            <ChangeHistory t={t} board={board} ask={ask} />
-          </div>
-          <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
-            {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
-            <BloquePrioridad
-              etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} titulo={t.title}
-              chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: PCOLOR[prioEfectiva], whiteSpace: 'nowrap' }}><ScoreIcon size={12} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
-              razon={t.scoreRazon} impacto={t.impacto} esfuerzo={t.esfuerzo}
-              tiempo={<TiempoLinea t={t} />}
-              puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
             {/* La FECHA la decide el Perro igual que la prioridad: la propone al crear la
                 tarea, deja escrito por qué, y para moverla hay que discutírsela. */}
             <div>
@@ -2973,7 +3177,18 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
             </div>
 
             <span style={{ flex: 1 }} />
-            <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
+            {/* EL ORIGEN: SOLO EL ÍCONO, Y ACÁ. De dónde salió la tarjeta es metadata — se
+                consulta una vez y después no se mira más— así que va al pie de la columna,
+                lejos de lo que se decide. El nombre de la reunión o del archivo viaja en el
+                `title` y en el `aria-label`; si la fuente es `manual`, `FuenteChip` devuelve
+                null y el rótulo tampoco se dibuja (un «ORIGEN» vacío es peor que nada).
+                ⛔ Y el botón «Eliminar tarea» que vivía acá se fue al header, pegado al check. */}
+            {FUENTE_META[fuenteEfectiva(t).tipo] && (
+              <div>
+                <label style={rowLabel}>Origen</label>
+                <FuenteChip fuente={fuenteEfectiva(t)} soloIcono />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3269,11 +3484,13 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
             <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
               style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16 }} />
-            <label style={rowLabel}>Detalle · doc</label>
-            <div style={{ marginBottom: 22 }}><RichText value={proj.detalle} onChange={(html) => { if (html !== proj.detalle) board.patchLabelLog(proj.id, { detalle: html }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" /></div>
-
-            {/* AVANCE arriba de las tareas (#4) */}
-            <Separador />
+            {/* ⚠️ LAS TAREAS VAN PRIMERO Y EL DETALLE SE PLIEGA. «Yo no veo el detalle, yo veo
+                las tareas que tiene este proyecto» (25/09/2026). Evaluó partirlo en dos
+                pestañas y cerró con «yo prefiero que sea un desplegable», así que el doc —que
+                lo escribe el Perro al crear el proyecto y en cada corrida, y que casi nunca
+                cambia— dejó de ser el primer scroll: vive más abajo, plegado.
+                El AVANCE se queda arriba porque es un renglón y contesta lo mismo que las
+                tareas: cómo viene esto. */}
             <label style={rowLabel}>Avance · {prog.pct}%{prog.total ? ` · ${prog.done}/${prog.total} tareas` : ''}</label>
             <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
 
@@ -3295,10 +3512,19 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                   {/* Sin % ni barra: el estado es el CHECK, y el deadline es el dato que
                       hay que ver sin abrir la tarea. */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={t.progress >= 100 ? 'Reabrir' : 'Marcar como completada'}
-                      style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 10, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>{t.progress >= 100 ? '✓' : ''}</button>
+                    {/* ⚠️ UN CHECK, NO UNA CASILLA. Acá había un cuadrado de 16px idéntico al
+                        de SELECCIONAR del Kanban: «la checkbox en todos los lugares de la
+                        aplicación tiene que significar una cosa… y el de completar tiene que
+                        ser un check» (25/09/2026). */}
+                    <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+                      aria-label={t.progress >= 100 ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
+                      title={t.progress >= 100 ? 'Reabrir' : 'Marcar como completada'}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', padding: 0 }}><CheckHecho done={t.progress >= 100} size={16} /></button>
                     <ScoreBadge score={t.score} />
-                    <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', minWidth: 0 }}>{t.title}</span>
+                    {/* Una línea con ellipsis y el título entero en el `title`: «los títulos son
+                        muy largos» (25/09/2026), y uno que envuelve corre el deadline de la
+                        fila y hace que dos tareas de la misma lista midan distinto. */}
+                    <span title={t.title} style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                     {t.deadline
                       ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} color="var(--dim)" plazo={false} style={{ flex: 'none' }} />
                       : t.progress < 100 && <WarnMark title="Falta el deadline" size={13} />}
@@ -3314,10 +3540,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                     {hechas.map((t) => (
                       <div key={t.id} onClick={() => onOpenTask(t.id)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', cursor: 'pointer', opacity: 0.62 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                          <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title="Reabrir"
-                            style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid var(--good)', background: 'var(--good)', color: '#fff', fontSize: 10, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✓</button>
+                          <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+                            aria-label={`Reabrir «${t.title}»`} title="Reabrir"
+                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', padding: 0 }}><CheckHecho done size={16} /></button>
                           <ScoreBadge score={t.score} />
-                          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: 'line-through', minWidth: 0 }}>{t.title}</span>
+                          <span title={t.title} style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: 'line-through', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                         </div>
                       </div>
                     ))}
@@ -3330,6 +3557,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 Va ARRIBA de todo en su detalle porque es la única acción que tiene sentido
                 acá — dejarlo como una fila más entre las notas y el historial es esconderlo. */}
             {abiertas.length === 0 && <ProyectoVacioBloque proj={proj} />}
+
+            <Separador />
+            <Plegable titulo="Detalle del proyecto">
+              <RichText value={proj.detalle} onChange={(html) => { if (html !== proj.detalle) board.patchLabelLog(proj.id, { detalle: html }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" />
+            </Plegable>
 
             {/* Una dependencia de PROYECTO frena todas sus tareas abiertas de un saque: es
                 la escritura de mayor palanca del tablero, y por eso el radio se dice antes
@@ -3360,8 +3592,12 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             <NotasLista valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, 'Escribió una nota', 'user')} />
 
             <Separador />
-            <label style={rowLabel}>Historial del proyecto</label>
-            <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
+            {/* Plegado, igual que el de una tarea: los proyectos que pasaron por varios
+                scripts de reordenamiento tienen decenas de entradas. El conteo va en el
+                rótulo para que plegar no esconda cuánto hay. */}
+            <Plegable titulo={`Historial del proyecto · ${proj.historial.length}`}>
+              <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
+            </Plegable>
           </div>
           {/* sidebar */}
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
