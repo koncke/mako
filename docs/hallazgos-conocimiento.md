@@ -7039,3 +7039,76 @@ si el pipeline no los compara, la pérdida es muda.
 
 **El olor que lo delata:** `find . -type f ! -iname "*.pdf" ! -iname "*.mp4"` en la
 carpeta de destino. Si aparece algo, el renombrador está mordiendo la extensión.
+
+## Minar los 130 cursos por un tema: qué encontró y las cuatro trampas (25/09/2026)
+
+22 agentes sobre el corpus entero buscando material para una feature nueva (el Offer
+Generator): 4 rastreadores barriendo los 130 cursos, 15 mineros leyendo las transcripciones
+de los que traían algo, y una síntesis. **130 revisados · 15 con un marco real de oferta ·
+12 con plantillas descargables.**
+
+El número que importa no es 15: es que **nadie sabía que estaban**. El corpus se compró
+curso por curso y se indexó por título; la pregunta «¿qué de todo esto enseña a construir
+una oferta?» no se podía contestar sin leerlo. Ahora se puede, y el resultado alimenta una
+feature en vez de quedarse en una carpeta.
+
+### ⚠️ Buscar por PALABRA sobre un corpus de cursos da la respuesta al revés
+
+El ranking por conteo de keywords (`oferta|precio|garantía|bonus|upsell|ticket`) puso arriba
+a **«Libertad Inmobiliaria» con 324 apariciones** y a «BlueHacker» con 289. El primero no
+enseña nada de ofertas: vende inmuebles y dice «precio» todo el tiempo. El segundo tiene el
+sistema más completo del corpus.
+
+**La regla: sobre material didáctico, la señal no es la palabra sino el MARCO.** Lo que hay
+que preguntarle a cada curso es «¿esto le da a alguien una estructura que pueda seguir?», y
+eso lo contesta leer los títulos de las clases y los módulos, no contar términos. El conteo
+sirve para ordenar por dónde empezar, nunca para decidir.
+
+### `recursos[]` vacío NO significa que el curso no tenga plantillas
+
+Cuatro de las plantillas más útiles no están ingestadas: el «Documento de la Oferta
+Irresistible» de Julián Otálora (8 casillas, el molde más corto del corpus), el one-sheeter
+de Growing AMG, la hoja de trabajo de Growth Partner y los SOPs de ATV Advantage. Las cuatro
+viven como **Google Docs linkeados debajo de la clase**, con `recursos[]` del curso en cero.
+
+O sea que el campo contesta «qué se bajó», no «qué tiene el curso», y la diferencia es
+invisible: un curso con plantillas y uno sin ellas se ven igual desde la ficha. Cuando el
+material de un curso alimente una feature, la lista de recursos **se verifica contra la
+transcripción** — el autor las nombra en voz alta («te dejo el documento abajo de esta
+clase») y ahí aparecen las que faltan.
+
+### Un PDF de 5,4 MB puede tener CERO texto
+
+`123 - Definición de Nicho y Cliente Ideal.pdf` pesa 5,4 MB y `pdftotext` devuelve **1 byte**:
+es un PDF de imágenes escaneadas. **El peso del archivo no dice nada sobre si hay texto
+adentro**, y un pipeline de ingesta que filtre por tamaño mínimo lo va a dar por bueno y a
+indexar en vacío — con el agravante de que después la búsqueda no encuentra nada y parece que
+el material no existe. Se mide la EXTRACCIÓN, nunca el tamaño; y si da cero sobre un archivo
+grande, es un PDF de imagen y hace falta OCR o no hace falta nada.
+
+### ⚠️ El ASR reescribe los nombres propios, y ahí se muere toda búsqueda por el nombre
+
+El marco central de BlueHacker se llama **NTPV** (y NTPVS) en los documentos del curso. En
+**TODAS** las transcripciones de `public/cono-tx/` el reconocimiento de voz lo escribe
+**«NTPB»/«NTPBS»**. Buscar «NTPV» sobre las transcripciones devuelve **cero** sobre material
+que está ahí entero.
+
+Es la trampa más cara de este corpus porque no deja síntoma: un cero es una respuesta
+plausible. Y escala mal — cada curso trae sus siglas, sus marcas y los apellidos de sus
+autores, y el ASR los escribe como suenan.
+
+- **Un nombre propio se busca por el DOCUMENTO, no por la transcripción**, cuando existen los
+  dos: el PDF lo trae bien escrito.
+- **Y si hay que buscarlo en la transcripción, se busca también por cómo SUENA.** Acá alcanza
+  con probar las consonantes que el ASR confunde (v/b, c/k/q, s/z/c); un índice de alias por
+  curso sería mejor, y hoy no existe.
+- Lo mismo vale para cualquier RAG que se monte sobre este corpus: la pregunta del usuario va
+  a traer el nombre bien escrito y el índice lo tiene mal.
+
+### Lo que quedó SIN hacer
+
+Las cuatro plantillas no ingestadas siguen sin bajar (tarjeta #809 del tablero, «Traer a MaKo
+las plantillas de oferta que hoy no están ingestadas»), y no existe ningún índice de alias
+fonéticos para las siglas de los cursos — hoy cada búsqueda paga la trampa del ASR de nuevo.
+
+**Vive en:** `app/conocimientos/curso-*.ts` (`recursos[]`) · `public/cono-tx/` · *2026-09-25*
