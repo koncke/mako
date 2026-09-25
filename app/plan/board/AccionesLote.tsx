@@ -32,7 +32,6 @@ import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { BoardTask } from './types';
 import type { Board } from './useBoard';
 import { IconoTacho } from './piezas';
-import { Icon } from '@/app/_components/icons';
 import { Dropdown } from '@/app/components/Dropdown';
 
 const SANS = "'Geist', sans-serif";
@@ -115,8 +114,13 @@ function CalendarioLote() {
  *
  *  ⚠️ `title` Y `aria-label` con el MISMO string, siempre: un botón cuyo único contenido es
  *  un SVG se anuncia «botón», a secas. */
-function BtnIcono({ rotulo, tono = 'dim', pressed, onClick, children }: {
+function BtnIcono({ rotulo, texto, tono = 'dim', pressed, onClick, children }: {
   rotulo: string;
+  /** La palabra al lado del ícono. Sin esto el botón es el cuadrado de 34 de siempre.
+   *  ⚠️ Lo ÚNICO que se pisa de la clase es la GEOMETRÍA (ancho auto y padding): el color y
+   *  el fondo siguen saliendo de `.mk-icon-btn` + `data-tone`, porque un inline le gana a
+   *  cualquier clase y esta misma familia de barra ya pagó ese error con el color. */
+  texto?: string;
   tono?: 'dim' | 'bad' | 'good' | 'primary';
   pressed?: boolean;
   onClick: () => void;
@@ -125,8 +129,12 @@ function BtnIcono({ rotulo, tono = 'dim', pressed, onClick, children }: {
   return (
     <button type="button" className="mk-icon-btn" data-tone={tono}
       title={rotulo} aria-label={rotulo} aria-pressed={pressed}
-      onClick={onClick} style={{ cursor: 'pointer' }}>
+      onClick={onClick}
+      style={texto
+        ? { cursor: 'pointer', width: 'auto', padding: '0 11px', gap: 6, fontFamily: SANS, fontSize: 12.5, fontWeight: 600 }
+        : { cursor: 'pointer' }}>
       {children}
+      {texto}
     </button>
   );
 }
@@ -193,9 +201,14 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
     // Estuvo en `fit-content` unas horas del mismo día, y el razonamiento parecía correcto:
     // la caja azul vacía de la captura era el hueco de una banda al 100 % con todo apretado
     // contra un borde, así que encogerla al contenido lo hacía desaparecer. Y desapareció —
-    // junto con la mitad de la barra. Encogida, seis íconos de 34 px quedan en una pastilla
-    // de 216 px pegada a la izquierda de una columna de 499: el hueco sigue ahí, sólo que
-    // ahora está AFUERA de la barra en vez de adentro, y encima sin fondo.
+    // junto con la mitad de la barra: los controles quedaron en una pastilla pegada a la
+    // izquierda de una columna de 499, o sea el hueco seguía ahí, sólo que AFUERA de la barra
+    // en vez de adentro y encima sin fondo.
+    //
+    // ⚠️ Y `space-between` sobre los seis controles SUELTOS tampoco era: con la barra al
+    // ancho del Kanban (~1.900 px) los repartió uno por esquina, cada uno a 300 px del
+    // siguiente. «No tiene sentido esta distribución» (25/09/2026). Lo que se reparte son
+    // TRES GRUPOS, no seis piezas — y cada grupo se mantiene junto por dentro.
     //
     // El hueco no se saca achicando la caja: se saca repartiendo lo que hay adentro.
     //
@@ -218,18 +231,28 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
     // una barra que no entra —baja de renglón, nunca scrollea de costado— y es gratis:
     // en las tres pantallas donde Martín la mira, nunca se dispara.
     //
-    // ⚠️ Y por eso mismo el `flex: 0 1 auto` del Dropdown no alcanzaba como red: adentro no
-    // hay texto que elipsar (`placeholder=""` deja el rótulo vacío) y el ícono y el caret
-    // son `flex: none`, así que el botón no baja de ~54 px — cede en el tipo y no en los
-    // píxeles. Se queda porque no molesta; el que salva de verdad es el `wrap`.
+    // ⚠️ Y EL QUE CEDE ES EL GRUPO DEL MEDIO, que ahora sí puede: desde que la fecha y el
+    // proyecto llevan su palabra hay algo que RECORTAR. Mientras fueron íconos pelados, el
+    // `flex: 0 1 auto` era una red decorativa —un ícono no se elipsa, y el botón tocaba
+    // fondo en ~54 px—, que es justo lo que la regla de la casa quiere decir con «declará
+    // quién cede»: ceder en el tipo no es ceder en píxeles. Los grupos de los costados van
+    // `flex: none` porque son los que no se pueden perder: con qué se está trabajando, y
+    // las dos acciones que cierran.
     //
-    // La cuenta vieja, para que no se repita: 278 px contra 499 en el lugar
-    // más angosto. Todo lo de adentro es de ancho fijo —`.mk-icon-btn` trae `flex: none`—,
-    // así que no hay una suma a la que acertarle ni nada que medir en pantalla. El único
-    // elástico declarado es el envoltorio del `Dropdown` (`flex: 0 1 auto` + `minWidth: 0`):
-    // si algún día el contenedor fuera más chico, ÉL es el que CEDE, nunca el tacho ni la
-    // cruz. Con 221 px de aire por delante no se dispara nunca, y eso es lo que se quiere:
-    // es la red, no el camino.
+    // LA CUENTA, contra los ~499 del lugar más angosto (el detalle de un proyecto):
+    //   izquierda  16 casilla + 8 + 24 número               =  48
+    //   medio      ~96 «Deadline» (118 abierto) + 6 + ~108 «Proyecto» = ~210 / ~232
+    //   derecha    34 tilde + 6 + 34 tacho                  =  74
+    //   los dos huecos del space-between, como mínimo       =  12
+    //   padding 20 + borde 2                                =  22
+    //   ───────────────────────────────────────────────────────────
+    //   ~366 cerrada · ~388 con el calendario abierto, o sea >110 px de aire.
+    //
+    // Las palabras cuestan ~116 px sobre la versión de sólo íconos y se pagan con eso. El
+    // tilde y el tacho se quedan SIN palabra a propósito y no es por ahorrar: significan lo
+    // mismo en la fila, en la tarjeta y al pie del detalle, así que ahí el ícono ya es el
+    // nombre. La fecha y el proyecto no tienen esa suerte — un calendario suelto no dice
+    // QUÉ fecha.
     <div role="group" aria-label={`Acciones sobre ${tareas}`}
       style={{
         display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between',
@@ -238,134 +261,163 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
         fontFamily: SANS, ...estilo,
       }}>
 
-      {/* El número solo. `minWidth: 28` cubre el peor caso de tres dígitos («000» = 27,03 a
-          13/700), así que la barra no se mueve al pasar de 9 a 10 ni de 99 a 100; con cuatro
-          crece a 36 y siguen sobrando 213. El rótulo entero vive en `title` y en
-          `aria-label`; el `role="status"` es lo que hace que ese nombre se exponga sobre un
-          `<span>` —y de paso canta el conteo a medida que se tildan tarjetas, que es lo único
-          que le queda a quien no ve la barra. No es un botón: quitar la selección tiene el
-          suyo, y un número clicable que borra lo que estás contando es una trampa. */}
-      <span role="status" title={rotCuenta} aria-label={rotCuenta}
-        style={{ flex: 'none', minWidth: 28, textAlign: 'center', fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
-        {n}
-      </span>
 
-      <BtnIcono rotulo={rotEstado} tono={todasHechas ? 'good' : 'dim'} pressed={todasHechas}
-        onClick={() => enLote(
-          todasHechas ? `${n} reabierta${plural}` : `${n} completada${plural}`,
-          (t) => { if (todasHechas ? t.progress >= 100 : t.progress < 100) board.toggleDone(t.id); },
-        )}>
-        <TildeLote hecho={todasHechas} />
-      </BtnIcono>
+      {/* ── IZQUIERDA: la casilla, marcada, y el número. ───────────────────────────────
+          «El botón de quitar selección no debe existir, solamente el check en el mismo
+          lugar, a la izquierda del todo, marcado, como seleccionado, y al lado el número de
+          cantidad de items que agarró. Y si lo vuelvo a marcar se deselecciona» (25/09/2026).
 
-      {/* ⚠️ ACÁ HABÍA UN `<select>` NATIVO, y la casa lo prohíbe con todas las letras
-          (app/_ui/Select.tsx:10-12). Además su `maxWidth: 190` no sólo lo techaba: por
-          Flexbox §4.5 el max-width clampea el tamaño mínimo automático, así que costaba 190
-          px CLAVADOS —no podía encogerse ni crecer— mientras su opción más larga pedía 267.
-          El `Dropdown` de la casa cuesta ~52 y trae lo que una lista plana de 70 proyectos
-          necesita: buscador (sale solo pasadas las 8 opciones, con el foco entrando solo en
-          el campo), el punto de color de cada proyecto, y el menú en un PORTAL
-          `position: fixed` con z-index 1000 — lo único que lo salva del `overflow` de
-          `cajaStyle` y del modal. `resetAfterSelect` está documentado textualmente para
-          esto: «Para selects-acción (ej. "Mover a…")».
-          ⚠️ SIN `width`: el ancho va AUTO. Forzarlo no entra — el botón del Dropdown es
-          `space-between` con un `gap: 8` hardcodeado en su span interno, así que por debajo
-          de ~54 el caret se come al ícono.
-          ⚠️ El `title` va en el `<span>` de afuera porque el `Dropdown` NO tiene prop `title`
-          y un control se anuncia con los dos. El arreglo de verdad es agregarle `title` AL
-          Dropdown, que es lo que manda su propia regla; queda como pendiente.
-          El ícono se envuelve en un span que le pisa el `--faint` que el componente le pone
-          por dentro, para que el lápiz tenga el mismo `--dim` que los otros cuatro. */}
-      <span title={rotMover} style={{ flex: '0 1 auto', minWidth: 0, display: 'inline-flex' }}>
-        <Dropdown
-          value=""
-          resetAfterSelect
-          placeholder=""
-          align="right"
-          ariaLabel={rotMover}
-          icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><LapizLote /></span>}
-          buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
-          options={board.labels.map((l) => ({ value: l.id, label: `${l.emoji} ${l.name}`, color: l.color }))}
-          onChange={(id) => {
-            if (!id) return;
-            const l = board.labelById(id);
-            enLote(`${n} a «${l?.name ?? ''}»`, (t) => board.setTaskLabels(t.id, [id], `Movida a «${l?.name ?? ''}»`));
-          }} />
-      </span>
+          La ✕ que había acá era un segundo control para lo mismo: en la tabla, lo que
+          selecciona ES una casilla —la de cada fila y la de «todas» del encabezado—, así que
+          destildar la casilla ya significaba «ninguna». Un botón aparte para eso es partir la
+          respuesta en dos, y encima con otra forma.
 
-      {/* ⚠️ EL CALENDARIO ABIERTO MIDE 118 EN VEZ DE 34, y con `space-between` eso ya no
-          corre a nadie de lugar: lo que se achica es el AIRE repartido, no la posición de los
-          vecinos. (Con la barra encogida a su contenido sí los corría, y por eso estaba
-          puesto último del grupo; el orden se queda igual porque agrupa por significado —
-          primero lo que cambia la tarea, al final lo que la saca de encima.)
-          Cómo un ícono abre un calendario: el botón monta el `<input type=date>` de verdad y
-          el ref le llama `showPicker()`. Es el mecanismo de `CeldaFecha` (Tablas.tsx:425-461)
-          —las dos únicas líneas de todo el repo que llaman a `showPicker`— con sus dos
-          gotchas intactos:
-          · `pickerAbierto` es un `useRef` y NO estado: el ref callback corre en cada render y
-            sin el flag `showPicker()` se volvería a llamar. Se resetea en el `onClick` del
-            BOTÓN, no en un efecto.
-          · `showPicker?.()` va dentro de un `try` con el catch vacío a propósito: no existe
-            en Safari viejo y tira si la llamada no cuelga de un gesto. Sin picker nativo
-            queda el input, que igual se edita — por eso el input es real y visible, y no uno
-            escondido detrás del ícono: escondido, ese respaldo no existiría.
-          El `height: 34` (border-box, globals.css) es lo que hace que abrirlo NO cambie el
-          ALTO de la barra, que es lo que esta ronda vino a cuidar. Y los 118 son los mismos
-          de `fechaInput` (Tablas.tsx:119): por debajo de ~110 Chrome recorta «aaaa».
-          No va en un flotante absoluto porque `cajaStyle` computa `overflow` en los DOS ejes
-          (`overflow-x: auto` + `overflow-y: visible` → el Y pasa a auto) y lo recortaría, o
-          devolvería la barra de scroll que la ronda anterior mató. */}
-      {editandoFecha ? (
-        <input type="date" autoFocus
-          ref={(el) => {
-            if (!el || pickerAbierto.current) return;
-            pickerAbierto.current = true;
-            try { el.showPicker?.(); } catch { /* sin picker nativo queda el input, que igual se edita */ }
-          }}
-          onChange={(e) => {
-            const v = e.target.value;
-            setEditandoFecha(false);
-            if (v) enLote(`Deadline ${v} en ${n}`, (t) => board.setDeadline(t.id, v, t.deadline));
-          }}
-          onBlur={() => setEditandoFecha(false)}
-          // El Escape se queda acá: con el picker abierto se lo come el navegador, y con el
-          // picker cerrado tiene que cerrar el editor y NO el modal del proyecto que lo
-          // contiene. Gana lo más de adentro.
-          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditandoFecha(false); } }}
-          title={rotFecha} aria-label={rotFecha}
-          style={{
-            flex: 'none', boxSizing: 'border-box', width: 118, height: 34, padding: '4px 7px',
-            borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
-            color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS, cursor: 'pointer',
-          }} />
-      ) : (
-        <BtnIcono rotulo={rotFecha}
-          onClick={() => { pickerAbierto.current = false; setEditandoFecha(true); }}>
-          <CalendarioLote />
+          ⚠️ Por eso es un `<input type="checkbox">` de verdad y no un botón dibujado como
+          casilla: es el MISMO control que las filas, se anuncia como casilla marcada y el
+          teclado la conoce. `checked` es siempre true —la barra sólo existe con algo
+          seleccionado— y destildarla limpia.
+
+          El número va al lado y NO es clicable: el `role="status"` lo canta a medida que se
+          tildan tarjetas, que es lo único que le queda a quien no ve la barra. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+        <input type="checkbox" checked readOnly
+          onClick={() => { setEditandoFecha(false); onLimpiar(); }}
+          title="Quitar la selección" aria-label={`${rotCuenta}. Quitar la selección`}
+          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
+        <span role="status" title={rotCuenta} aria-label={rotCuenta}
+          style={{ flex: 'none', minWidth: 24, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
+          {n}
+        </span>
+      </div>
+
+
+      {/* ── MEDIO: lo que CAMBIA la tarea, y acá sí con su palabra. ────────────────────
+          «En el medio la fecha y el proyecto, que sería bueno que no sean solo íconos, pero
+          cuida que entre bien todo» (25/09/2026). Son los dos únicos controles de la barra
+          que no se adivinan por su forma: un tilde y un tacho significan lo mismo en toda la
+          app, y un calendario y un lápiz sueltos no dicen QUÉ fecha ni qué se edita.
+
+          El ancho que cuesta la palabra está medido contra el lugar más angosto (~499 px, el
+          detalle de un proyecto): «Deadline» lleva el botón de 34 a ~96 y «Proyecto» el
+          Dropdown de ~54 a ~108, o sea +116 sobre los 216 de antes. Con los tres grupos y sus
+          dos huecos mínimos da ~365 cerrada y ~391 con el calendario abierto: entran, con más
+          de 100 px de aire. Los otros dos se quedan como íconos justamente para pagar esto. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 1 auto', minWidth: 0 }}>
+
+        {/* ⚠️ EL CALENDARIO ABIERTO MIDE 118 EN VEZ DE 34, y con `space-between` eso ya no
+            corre a nadie de lugar: lo que se achica es el AIRE repartido, no la posición de los
+            vecinos. (Con la barra encogida a su contenido sí los corría, y por eso estaba
+            puesto último del grupo; el orden se queda igual porque agrupa por significado —
+            primero lo que cambia la tarea, al final lo que la saca de encima.)
+            Cómo un ícono abre un calendario: el botón monta el `<input type=date>` de verdad y
+            el ref le llama `showPicker()`. Es el mecanismo de `CeldaFecha` (Tablas.tsx:425-461)
+            —las dos únicas líneas de todo el repo que llaman a `showPicker`— con sus dos
+            gotchas intactos:
+            · `pickerAbierto` es un `useRef` y NO estado: el ref callback corre en cada render y
+              sin el flag `showPicker()` se volvería a llamar. Se resetea en el `onClick` del
+              BOTÓN, no en un efecto.
+            · `showPicker?.()` va dentro de un `try` con el catch vacío a propósito: no existe
+              en Safari viejo y tira si la llamada no cuelga de un gesto. Sin picker nativo
+              queda el input, que igual se edita — por eso el input es real y visible, y no uno
+              escondido detrás del ícono: escondido, ese respaldo no existiría.
+            El `height: 34` (border-box, globals.css) es lo que hace que abrirlo NO cambie el
+            ALTO de la barra, que es lo que esta ronda vino a cuidar. Y los 118 son los mismos
+            de `fechaInput` (Tablas.tsx:119): por debajo de ~110 Chrome recorta «aaaa».
+            No va en un flotante absoluto porque `cajaStyle` computa `overflow` en los DOS ejes
+            (`overflow-x: auto` + `overflow-y: visible` → el Y pasa a auto) y lo recortaría, o
+            devolvería la barra de scroll que la ronda anterior mató. */}
+        {editandoFecha ? (
+          <input type="date" autoFocus
+            ref={(el) => {
+              if (!el || pickerAbierto.current) return;
+              pickerAbierto.current = true;
+              try { el.showPicker?.(); } catch { /* sin picker nativo queda el input, que igual se edita */ }
+            }}
+            onChange={(e) => {
+              const v = e.target.value;
+              setEditandoFecha(false);
+              if (v) enLote(`Deadline ${v} en ${n}`, (t) => board.setDeadline(t.id, v, t.deadline));
+            }}
+            onBlur={() => setEditandoFecha(false)}
+            // El Escape se queda acá: con el picker abierto se lo come el navegador, y con el
+            // picker cerrado tiene que cerrar el editor y NO el modal del proyecto que lo
+            // contiene. Gana lo más de adentro.
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditandoFecha(false); } }}
+            title={rotFecha} aria-label={rotFecha}
+            style={{
+              flex: 'none', boxSizing: 'border-box', width: 118, height: 34, padding: '4px 7px',
+              borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
+              color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS, cursor: 'pointer',
+            }} />
+        ) : (
+          <BtnIcono rotulo={rotFecha} texto="Deadline"
+            onClick={() => { pickerAbierto.current = false; setEditandoFecha(true); }}>
+            <CalendarioLote />
+          </BtnIcono>
+        )}
+        {/* ⚠️ ACÁ HABÍA UN `<select>` NATIVO, y la casa lo prohíbe con todas las letras
+            (app/_ui/Select.tsx:10-12). Además su `maxWidth: 190` no sólo lo techaba: por
+            Flexbox §4.5 el max-width clampea el tamaño mínimo automático, así que costaba 190
+            px CLAVADOS —no podía encogerse ni crecer— mientras su opción más larga pedía 267.
+            El `Dropdown` de la casa cuesta ~52 y trae lo que una lista plana de 70 proyectos
+            necesita: buscador (sale solo pasadas las 8 opciones, con el foco entrando solo en
+            el campo), el punto de color de cada proyecto, y el menú en un PORTAL
+            `position: fixed` con z-index 1000 — lo único que lo salva del `overflow` de
+            `cajaStyle` y del modal. `resetAfterSelect` está documentado textualmente para
+            esto: «Para selects-acción (ej. "Mover a…")».
+            ⚠️ SIN `width`: el ancho va AUTO. Forzarlo no entra — el botón del Dropdown es
+            `space-between` con un `gap: 8` hardcodeado en su span interno, así que por debajo
+            de ~54 el caret se come al ícono.
+            ⚠️ El `title` va en el `<span>` de afuera porque el `Dropdown` NO tiene prop `title`
+            y un control se anuncia con los dos. El arreglo de verdad es agregarle `title` AL
+            Dropdown, que es lo que manda su propia regla; queda como pendiente.
+            El ícono se envuelve en un span que le pisa el `--faint` que el componente le pone
+            por dentro, para que el lápiz tenga el mismo `--dim` que los otros cuatro. */}
+        <span title={rotMover} style={{ flex: '0 1 auto', minWidth: 0, display: 'inline-flex' }}>
+          <Dropdown
+            value=""
+            resetAfterSelect
+            placeholder="Proyecto"
+            align="right"
+            ariaLabel={rotMover}
+            icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><LapizLote /></span>}
+            buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
+            options={board.labels.map((l) => ({ value: l.id, label: `${l.emoji} ${l.name}`, color: l.color }))}
+            onChange={(id) => {
+              if (!id) return;
+              const l = board.labelById(id);
+              enLote(`${n} a «${l?.name ?? ''}»`, (t) => board.setTaskLabels(t.id, [id], `Movida a «${l?.name ?? ''}»`));
+            }} />
+        </span>
+      </div>
+
+      {/* ── DERECHA: las dos que CIERRAN la tarjeta, juntas y al final. ────────────────
+          «El completar tarea y eliminar al final del todo, juntos» (25/09/2026) — y es el
+          mismo par, en el mismo orden, que el pie del detalle, la fila de la tabla y la
+          tarjeta del Kanban: un control significa lo mismo en todos lados. Van lejos de la
+          casilla de la izquierda a propósito: dos controles parecidos pegados es cómo se
+          volvieron a confundir seleccionar y completar. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+
+        <BtnIcono rotulo={rotEstado} tono={todasHechas ? 'good' : 'dim'} pressed={todasHechas}
+          onClick={() => enLote(
+            todasHechas ? `${n} reabierta${plural}` : `${n} completada${plural}`,
+            (t) => { if (todasHechas ? t.progress >= 100 : t.progress < 100) board.toggleDone(t.id); },
+          )}>
+          <TildeLote hecho={todasHechas} />
         </BtnIcono>
-      )}
-
-      {/* El tacho se IMPORTA de `piezas`: es el mismo dibujo que la fila de la tabla
-          (Tablas.tsx:845), la tarjeta y el detalle. `piezas.tsx` sólo importa TIPOS, así que
-          no hay ciclo. La consecuencia va pegada al botón y ANTES del click, que es lo que un
-          `title` puede hacer donde ya no hay texto; el `ask()` no cambia una coma. */}
-      <BtnIcono rotulo={rotBorrar} tono="bad"
-        onClick={() => ask(
-          `¿Eliminar ${n} tarea${plural}? Esto no se puede deshacer en lote.`,
-          () => { elegidas.forEach((t) => board.removeSilent(t.id)); setEditandoFecha(false); onLimpiar(); },
-        )}>
-        <IconoTacho size={16} />
-      </BtnIcono>
-
-      {/* La ✕ del registro central (icons.tsx:75). SVG y no el CARÁCTER `✕` que usa hoy el
-          buscador (BuscadorTareas.tsx:114): ese no tiene glifo en Geist y lo dibuja la fuente
-          del sistema — al lado de cuatro SVG a 34 px se ve de otro peso y desalineado.
-          ⚠️ `Icon` con un nombre inventado dibuja un punto y no falla
-          (`{PATHS[name] ?? PATHS.dot}`, icons.tsx:301): `x` está verificada presente. */}
-      <BtnIcono rotulo="Quitar la selección"
-        onClick={() => { setEditandoFecha(false); onLimpiar(); }}>
-        <Icon name="x" size={16} />
-      </BtnIcono>
+        {/* El tacho se IMPORTA de `piezas`: es el mismo dibujo que la fila de la tabla
+            (Tablas.tsx:845), la tarjeta y el detalle. `piezas.tsx` sólo importa TIPOS, así que
+            no hay ciclo. La consecuencia va pegada al botón y ANTES del click, que es lo que un
+            `title` puede hacer donde ya no hay texto; el `ask()` no cambia una coma. */}
+        <BtnIcono rotulo={rotBorrar} tono="bad"
+          onClick={() => ask(
+            `¿Eliminar ${n} tarea${plural}? Esto no se puede deshacer en lote.`,
+            () => { elegidas.forEach((t) => board.removeSilent(t.id)); setEditandoFecha(false); onLimpiar(); },
+          )}>
+          <IconoTacho size={16} />
+        </BtnIcono>
+      </div>
     </div>
   );
 }
