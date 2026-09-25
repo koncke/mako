@@ -3108,6 +3108,50 @@ Una entrada por tema, se integra sin duplicar, se lee en 5 minutos. Si la lecci�
 gobierna código nuevo (no es un hallazgo sino una regla), va acá en `AGENTS.md`, que
 es lo que todos leen antes de escribir.
 
+# El default de un refutador es parte de la PREGUNTA, no de su rigor
+
+Un panel adversarial se calibra con una frase: «por default `refutado: true`; sólo `false`
+cuando fuiste al código y confirmaste que no queda nada». Eso es correcto para una afirmación
+CARA y difícil de revertir —«esto ya está hecho, ciérrenlo»— y es la vara equivocada para
+cualquier otra cosa.
+
+Medido el 25/09/2026 sobre el tablero: un mismo refutador recibió dos clases de afirmación
+mezcladas, «cerrar esta tarjeta» (fuerte, irreversible) y «este título promete otra cosa de la
+que queda» (débil, reversible, y que ni siquiera pregunta si está hecho). Resultado:
+**80 refutados de 87**, incluidos 54 de 57 títulos — el barrido entero quedaba en nada. Una
+tercera pasada con la pregunta correcta devolvió 35 reescrituras, 22 títulos intactos y **cero
+cierres nuevos**: el refutador tenía razón en lo suyo y estaba contestando otra cosa en el resto.
+
+- **Un refutador por CLASE de afirmación.** Si un lote mezcla dos, se parte en dos.
+- **El síntoma, en dos minutos:** una tasa de refutación arriba del 80% no es rigor, es una vara
+  mal puesta. Mirá qué clase de afirmación entró por la puerta.
+- ⚠️ **Y el trabajo del refutador no se tira con su veredicto.** Las refutaciones traen la
+  medición más cara de la corrida (archivo:línea, la puerta que falta, el caso que no cubre) y
+  eso vive sólo en el transcript de un agente. Cosechar no es guardar el veredicto: es guardar
+  lo que se midió para llegar a él.
+
+## Y un agente no distingue «inventado» de «decidido hace una hora»
+
+Es la otra mitad de «un agente no distingue "nunca estuvo roto" de "se arregló hace una hora"»,
+y es peor porque suena a integridad. Un refutador escribió, textual: *«La cita del auditor no
+aparece en ninguna parte del repo: grep sobre docs/ da CERO resultados. Es una afirmación, no
+evidencia.»* Tenía razón sobre el repo y estaba equivocado sobre la autoridad: la frase salía de
+una decisión que el dueño había tomado esa misma mañana.
+
+- **El contexto que les pasás viaja con su PROCEDENCIA** —qué audio, qué fecha, qué pregunta
+  contestó el dueño—, no sólo con su contenido. Sin eso, un agente escrupuloso lo trata como una
+  alucinación y lo tumba con buenos argumentos.
+- **Una refutación que ataca la decisión del dueño se REPORTA, no se ejecuta.**
+
+## Y tu propio documento de contexto te gobierna a vos
+
+El archivo que escribís para que todos los agentes midan contra lo mismo es una fuente, y te
+aplica. El 25/09 enumeré 24 proyectos «fuera de fase» en una pregunta al dueño, entre ellos
+«VSL Generator»; él contestó «todos a BAJA»; y más tarde subí ese mismo proyecto leyendo un
+audio. **Lo cazó un agente citando mi propio documento.** Si no lo hubiera cazado, quedaba una
+decisión del dueño revertida en silencio por una lectura mía. Con la duda se pregunta, no se
+resuelve.
+
 ## Un agente no distingue «nunca estuvo roto» de «se arregló hace una hora»
 
 Un subagente lee el código de **ahora**. Si un hallazgo escrito ayer describe un bug que se

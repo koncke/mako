@@ -3991,3 +3991,164 @@ el puesto 2 tapa trabajo real; una tarjeta hecha en el puesto 200 no molesta a n
 barrer, ordená por el score del PROYECTO: ahí están las caras.**
 
 **Vive en:** `plan_tareas.detalle` · `backups/_cerrables.mjs` · *2026-09-25*
+
+## El barrido de las 246 abiertas contra las tres fases (25/09/2026, 59 agentes)
+
+21 revisores (uno por proyecto de fase, lotes para el resto) → 20 refutadores adversariales
+contra el código → 3 críticos de completitud → y una segunda pasada de 15 que juzgó los
+títulos, salvó lo que midió cada refutación y validó los faltantes. Lo que sigue es lo que
+ninguna de las vías habría visto sola.
+
+### ⚠️ Refutar una REESCRITURA con la vara de un CIERRE tumba 80 de 87
+
+El refutador salió con el default correcto para un cierre: «por default `refutado: true`; sólo
+`false` cuando fuiste al código y confirmaste que no queda nada». Con esa vara se le pasaron
+dos clases de afirmación distintas:
+
+- **cerrar** = «el trabajo ya está hecho». Afirmación fuerte, cara de revertir, default duro.
+- **reescribir** = «el título promete otra cosa de la que queda». Afirmación débil, reversible
+  — y la pregunta ni siquiera es «¿está hecho?».
+
+Resultado medido: **80 de 87 refutados**, incluidos 54 de 57 títulos. Con eso el barrido
+quedaba en nada. Una tercera pasada con la pregunta correcta —«si el dueño lee SÓLO el título
+en el Kanban, ¿entiende lo que le queda?»— devolvió **35 reescrituras, 22 títulos intactos y
+CERO cierres nuevos**. O sea: el refutador tenía razón en lo suyo (no había más nada que
+cerrar) y estaba contestando otra cosa en el resto.
+
+**La regla: el default de un refutador es parte de la PREGUNTA, no de su rigor.** Un refutador
+por clase de afirmación, y si un lote mezcla dos clases, se parte. El síntoma que lo delata en
+dos minutos: una tasa de refutación arriba del 80% no es rigor, es una vara mal puesta.
+
+⚠️ **Y el trabajo del refutador no se tira con su veredicto.** Las 26 refutaciones de cierre
+que sobrevivieron traían la medición más cara de toda la corrida (archivo:línea, la puerta que
+falta, el caso que no cubre) y eso vivía sólo en el transcript de un agente. Se convirtieron
+en una nota dentro de cada tarjeta. Cosechar no es guardar el veredicto: es guardar lo que se
+midió para llegar a él.
+
+**Vive en:** `plan_tareas.detalle` · *2026-09-25*
+
+### Un agente no distingue «inventado» de «decidido hace una hora»
+
+Ya estaba escrito que un subagente no distingue «nunca estuvo roto» de «se arregló hace una
+hora». Falta la otra mitad, y es peor porque suena a integridad: **tampoco distingue una
+decisión del dueño de esta mañana de una invención tuya.**
+
+El refutador de la #328 escribió, textual: *«La cita del auditor («el post-agenda con audios es
+un BLOQUE APARTE fuera del 27/09») no aparece en ninguna parte del repo: grep sobre docs/ da
+CERO resultados para "BLOQUE APARTE". Es una afirmación, no evidencia.»* Tenía razón sobre el
+repo y estaba equivocado sobre la autoridad: esa frase salía de una respuesta que Martín había
+dado esa misma mañana, y vivía en el contrato del scratchpad, no en `docs/`.
+
+- **El contrato viaja con su PROCEDENCIA**, no sólo con su contenido: qué audio, qué fecha, qué
+  pregunta contestó el dueño. Sin eso, un agente escrupuloso lo trata como una alucinación.
+- **Y una refutación que ataca el contrato se REPORTA, no se ejecuta.** Es la regla del panel
+  al que le preguntás por una decisión ya tomada, vista desde el otro lado: lo que el dueño
+  decidió es una restricción del problema.
+
+**Vive en:** *2026-09-25*
+
+### El documento que escribís para los agentes después te gobierna a vos
+
+Al preguntarle a Martín qué hacer con los proyectos fuera de fase, enumeré 24 y entre ellos
+«VSL Generator». Él contestó «todos a BAJA». Más tarde, leyendo el audio del 22/09 —*«falta
+nomás lo que me había dicho Leila, que es el Generator, que es el guión»*— subí ese mismo
+proyecto a ALTA, con su porqué bien escrito.
+
+**Lo cazó el propio barrido, citándome:** *«"VSL Generator" está nombrado textual en la lista de
+los 24 a BAJA»*. Un agente leyendo el contrato encontró la contradicción entre lo que yo había
+preguntado y lo que yo había hecho después.
+
+**La regla: tu propio documento de contexto es una fuente, y te aplica.** Si lo contradecís,
+alguien lo va a citar — y si no lo cazan, queda una decisión del dueño revertida en silencio
+por una lectura tuya. Lo que se hace con la duda es preguntarla, no resolverla: la tarjeta
+quedó creada, bajada de prioridad y con la pregunta escrita adentro.
+
+**Vive en:** *2026-09-25*
+
+### El tope del detalle recortó 4 de 7 fusiones EN SILENCIO, y el historial declaró las 7
+
+Ocho tarjetas de la landing se fundieron en la #227 —eran una sola decisión de posicionamiento
+con seis lugares donde aterriza— y el aplicador hacía `slice(0, 6000)` al concatenar. Medido
+después: el detalle declaraba haber absorbido siete y **sólo entraron tres**. El historial decía
+«Absorbí la #242» para las siete.
+
+Es exactamente el caso que este documento ya tenía escrito («Un tope se aplica ANTES de decidir
+si hubo cambio») y se reprodujo igual, un día después, en el mismo tablero. Lo que faltaba no
+era la regla: era aplicarla en el camino nuevo.
+
+- **Cuando N tarjetas se funden en una, NO se pega el texto: se NOMBRAN.** Siete líneas de
+  `- **#240 · <título>** — <qué pedía>` entran en 1.935 caracteres; siete detalles pegados no
+  entran nunca. Y además es la forma correcta: lo que se conserva es el índice, y el texto
+  completo sigue vivo en cada tarjeta cerrada.
+- **La nota va SIEMPRE al historial, que no topea, y al detalle sólo si entra.** Si no entra, el
+  detalle lleva el puntero con el número de caracteres. Un descarte sin rastro hace
+  indistinguibles «no llegó» de «lo tiramos nosotros».
+- ⚠️ **Y el verificador que escribís para cazar esto se queda viejo con el arreglo.** El chequeo
+  buscaba el marcador `De la #N ` que usaba la fusión; al reescribir la #227 en formato compacto
+  (`- **#N · …`) el mismo chequeo la siguió denunciando. Un falso positivo de un verificador
+  propio cuesta una vuelta entera de diagnóstico.
+
+**Vive en:** `backups/_aplicar-barrido.mjs` · `lib/detalle-contrato.ts` (`TOPE_DETALLE`) · *2026-09-25*
+
+### Un proyecto TACHADO no sube por tener tarjetas adentro
+
+Dos tarjetas del reality se mudaron desde «Vender MaKo: Ads» a «Vender MaKo: Orgánico YouTube»
+—correcto: el reality es contenido de YouTube—, y con eso el proyecto tachado pasaba a tener
+trabajo abierto. La escalera ordena lo de fuera de fase por cantidad de trabajo, así que iba a
+subir a BAJA **por encima de proyectos vivos**: lo que se descartó volviendo a la vista por la
+puerta de atrás, sin que nadie lo decidiera.
+
+**Lo tachado se fija por su PID, no se deduce de lo que tiene adentro.** Y el mismo día pasó la
+versión gemela con el ruteo: el Perro mandó la vidriera de Instagram a «Orgánico Instagram» dos
+veces (#253 y #803), correcto por TEMA y equivocado por FASE — el contrato la pone en fase 2
+junto a la prospección. **Después de crear o mover, se comprueba dónde cayó cada una.**
+
+**Vive en:** `backups/_escalera.mjs` · *2026-09-25*
+
+### 70 proyectos no entran en la escalera si una banda queda vacía
+
+El corte pedido era «arriba lo de las fases, abajo todo lo demás», con MEDIA vacía a propósito.
+La cuenta no cierra: 15 en ALTA y 55 abajo, con BAJA (49-25) y A FUTURO (24-1) dando 49 lugares
+para 55 proyectos. El primer intento murió en `se acabaron los números: -6`.
+
+**La excepción quedó escrita, y es la única:** los proyectos que no tienen NI UNA tarea empatan
+en 1. Entre dos proyectos sin una sola tarjeta no hay nada que ordenar, y gastar números
+distintos en ellos es lo que deja sin lugar a los que sí tienen trabajo. «Prohibido empatar»
+sigue valiendo arriba del piso, que es donde el orden significa algo.
+
+⚠️ **Y la guarda de la banda no se escribe con el número, se escribe con la BANDA.** El primer
+guard decía `if (n !== 85) throw` —el 86 era el final de quince proyectos— y reventó al sumar
+dos. Va `if (n + 1 < 75)`: lo que hay que garantizar es que el último siga siendo ALTA, no que
+haya exactamente quince.
+
+**Vive en:** `backups/_escalera.mjs` · `app/plan/board/types.ts` (`prioFromScore`) · *2026-09-25*
+
+### Bajar un proyecto sin bajar sus tareas deja la inversión dada vuelta
+
+Al mandar a BAJA las 98 tareas que no mueven ninguna fase quedó el efecto espejo: dentro de los
+proyectos de fase, **31 tarjetas que SÍ son el trabajo de esa fase estaban por debajo del bloque
+que se acababa de bajar** — «Protocolo de graduación de un cliente» en 4, «Correr el piloto del
+CRM automático» en 13, «Bugs en la vista del cliente del Plan» en 10, contra un piso de 40 para
+lo descartado. El proyecto en ALTA y su trabajo leyéndose como lo último de la lista.
+
+**Toda bajada masiva necesita su piso.** Si se mueve un conjunto hacia abajo, hay que comprobar
+que lo que se quedó arriba siga estando arriba — y eso es una consulta, no una intuición:
+«¿qué tarjeta de un proyecto ALTA tiene score menor que el techo que le puse a lo bajado?».
+
+**Vive en:** `backups/_scores-tareas.mjs` · *2026-09-25*
+
+### Lo que el barrido encontró, en números
+
+```
+246 abiertas  →  30 fusiones · 12 mudanzas · 4 cierres · 35 títulos reescritos
+                 98 bajadas de prioridad · 83 notas medidas contra el código
+                 13 tarjetas nuevas que las fases nombran y el tablero no tenía
+                 0 borradas
+```
+
+De los 22 faltantes que propusieron los críticos de completitud, **8 ya existían** en otro
+proyecto o con otro nombre (el crítico mira su fase, no el tablero entero) y **1 se descartó
+porque la premisa no se sostenía contra el código**. Validar antes de crear evitó 9 tarjetas de
+ruido sobre 22 — el 41%.
+
+**Vive en:** el board · *2026-09-25*
