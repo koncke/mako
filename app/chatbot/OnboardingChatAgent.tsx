@@ -184,7 +184,7 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
 
   wa_oficial: {
     titulo: '¿Por qué el método oficial?',
-    intro: 'Es un número verificado por Meta a través de la API de WhatsApp Business. Está pensado para volumen alto y para campañas donde el número propio quedaría expuesto.',
+    intro: 'Es un número verificado por Meta (WhatsApp Business). Está pensado para volumen alto y para campañas donde el número propio quedaría expuesto.',
     secciones: [
       {
         titulo: 'Qué aporta',

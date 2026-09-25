@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// ChatwootWebhookChip — chip "API Oficial" del header de /whatsapp, ahora con
+// ChatwootWebhookChip — salud REAL del canal oficial de /whatsapp (Chatwoot).
 // salud REAL del webhook de Chatwoot (detección de respuestas del canal oficial).
 // =============================================================================
 // Antes era un span verde fijo: decía "conectado" aunque el webhook no existiera
@@ -40,9 +40,23 @@ const chipBase: CSSProperties = {
   fontFamily: "'Geist', sans-serif",
 };
 
-export function ChatwootWebhookChip() {
+export function ChatwootWebhookChip({ ocultarChip = false, abierto, onAbierto, onSalud }: {
+  /**
+   * Sin chip propio: quien avisa es el boton de la tab «Oficial», que titila en rojo.
+   * El componente sigue montado porque aca viven el chequeo de salud, la reparacion
+   * automatica al entrar y la pantalla que explica que hacer.
+   */
+  ocultarChip?: boolean;
+  /** Modal controlado desde afuera: entrar a la tab con la deteccion rota lo abre. */
+  abierto?: boolean;
+  onAbierto?: (v: boolean) => void;
+  /** `true` = hay un problema que el dueño tiene que ver. `null` = todavia no se sabe. */
+  onSalud?: (problema: boolean | null) => void;
+} = {}) {
   const [salud, setSalud] = useState<WhEstado | null>(null); // null = cargando / sin permiso / sin config
-  const [open, setOpen] = useState(false);
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = abierto ?? openLocal;
+  const setOpen = (v: boolean) => { setOpenLocal(v); onAbierto?.(v); };
   const [reparando, setReparando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const autoIntentado = useRef(false);
@@ -92,25 +106,28 @@ export function ChatwootWebhookChip() {
   }
 
   const problema = salud != null && salud !== 'ok';
+  // Un solo lugar le avisa al padre, y solo cuando YA se sabe: mientras carga manda
+  // `null`, que es distinto de «esta todo bien» (la regla de los tres estados).
+  useEffect(() => { onSalud?.(salud == null ? null : problema); }, [salud, problema, onSalud]);
   const chipStyle: CSSProperties = problema
     ? { ...chipBase, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', color: 'var(--warn)', cursor: 'pointer' }
     : { ...chipBase, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)' };
 
   return (
     <>
-      {problema ? (
+      {ocultarChip ? null : problema ? (
         <button onClick={() => setOpen(true)} style={chipStyle}
           title="La detección de respuestas del WhatsApp oficial necesita atención — toca para ver">
           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--warn)' }} />
-          API Oficial: revisar
+          Oficial: revisar
         </button>
       ) : (
         <span style={chipStyle}
           title={salud === 'ok'
-            ? 'Número oficial (Cloud API de Meta) — webhook de respuestas activo'
-            : 'Número oficial (Cloud API de Meta) — recibe el tráfico frío de los anuncios'}>
+            ? 'Número oficial de Meta — detección de respuestas activa'
+            : 'Número oficial de Meta — recibe el tráfico frío de los anuncios'}>
           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }} />
-          API Oficial
+          Oficial
         </span>
       )}
 

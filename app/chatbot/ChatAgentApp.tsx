@@ -28,6 +28,8 @@ import { SimuladorEmail } from './SimuladorEmail';
 import { DashboardChatAgent } from './DashboardChatAgent';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
+// Vive en app/whatsapp porque nacio ahi; lo que se mudo es DONDE se muestra.
+import { PlantillasPanel } from '../whatsapp/PlantillasPanel';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -108,7 +110,11 @@ function ChatAgentInner() {
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [vista, setVista] = useState<'whatsapp' | 'email' | 'dashboard'>('whatsapp');
+  // «plantillas» llego el 25/09 desde /whatsapp: las de Meta son parte de la automatizacion
+  // (un paso oficial no sale sin una plantilla aprobada), no de la bandeja de conversaciones.
+  const [vista, setVista] = useState<'whatsapp' | 'email' | 'plantillas' | 'dashboard'>('whatsapp');
+  // ?tpl=<nombre>: el aviso manda a UNA plantilla (ej. la que Meta rechazo).
+  const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
   const [emailSecuenciaId, setEmailSecuenciaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
@@ -206,7 +212,8 @@ function ChatAgentInner() {
   useEffect(() => {
     if (anclaAplicada.current) return;
     const stab = params.get('stab');
-    if (stab === 'whatsapp' || stab === 'email' || stab === 'dashboard') setVista(stab);
+    if (stab === 'whatsapp' || stab === 'email' || stab === 'plantillas' || stab === 'dashboard') setVista(stab);
+    if (stab === 'plantillas') setPlantillaTarget(params.get('tpl'));
 
     const sec = params.get('sec');
     if (!sec) { anclaAplicada.current = true; return; }
@@ -284,6 +291,7 @@ function ChatAgentInner() {
           <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 4, gap: 4 }}>
             <button onClick={() => setVista('whatsapp')} style={vista === 'whatsapp' ? tabActive : tabIdle}>WhatsApp</button>
             <button onClick={() => setVista('email')} style={vista === 'email' ? tabActive : tabIdle}>Email</button>
+            <button onClick={() => setVista('plantillas')} style={vista === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
             <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
           </div>
           {/* Antes se escondía justo en la vista WhatsApp, que es la vista por
@@ -401,6 +409,10 @@ function ChatAgentInner() {
                 <SimuladorEmail secuencia={emailSecuencia} nombreNegocio={negocio} />
               </div>
             </div>
+          )}
+
+          {vista === 'plantillas' && (
+            <PlantillasPanel initialSelect={plantillaTarget} onMakoSeedApplied={() => setPlantillaTarget(null)} />
           )}
 
           {vista === 'dashboard' && (

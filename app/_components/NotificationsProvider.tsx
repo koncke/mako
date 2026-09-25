@@ -295,7 +295,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   };
   const goToPlantilla = (name: string) => {
     setTplToast(null);
-    router.push(`/whatsapp?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
+    router.push(`/chatbot?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
   };
 
   // Carga inicial (lista completa) + baseline del snapshot. En /login y en la

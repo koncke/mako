@@ -15,16 +15,13 @@
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
 import { EmojiPicker } from './EmojiPicker';
-import { MakoChat } from '../_components/MakoChat';
 import { Icon } from '../_components/icons';
-import { PlantillasPanel } from './PlantillasPanel';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EvolutionConnect } from './EvolutionConnect';
 import { ChatwootWebhookChip } from './ChatwootWebhookChip';
-import { NutricionGenerar } from '@/app/_components/NutricionGenerar';
 import { EmpresaInbox } from './EmpresaInbox';
 import { crearLeadDesdeWhatsappAction } from '../crm/actions';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
@@ -63,32 +60,6 @@ interface Template {
   body: string;
 }
 
-interface Paso {
-  orden: number;
-  canal: string;
-  delay_horas: number;
-  asunto: string | null;
-  cuerpo: string;
-  proveedor?: 'oficial' | 'no_oficial'; // WhatsApp: oficial (plantilla Meta) | no_oficial (Evolution). Preservar en {...p}.
-  template_wa: string | null;
-  template_categoria?: string;
-  template_idioma?: string;
-  template_param?: string;
-}
-
-interface Secuencia {
-  id: number;
-  clave: string;
-  nombre: string;
-  etapa: string;
-  trigger_tipo: string;
-  activa: boolean;
-  pasos: Paso[];
-  inscriptos: number;
-  enviados: number;
-}
-
-type View = 'chats' | 'sequences';
 
 const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te comparto el video de nuevo'];
 
@@ -248,7 +219,15 @@ export function WhatsAppApp() {
 }
 
 function WhatsAppInner() {
-  const [view, setView] = useState<View>('chats');
+  // La tab es SOLO conversaciones: las secuencias viven en /chatbot, que lee las mismas
+  // filas de `nutricion_secuencias`. Tener el mismo tablero en dos pantallas era la
+  // forma mas facil de que una quedara vieja.
+  const router = useRouter();
+  // Modales de conexion de cada canal: los abre el boton de la tab cuando esta caido.
+  const [modalNoOficial, setModalNoOficial] = useState(false);
+  const [modalOficial, setModalOficial] = useState(false);
+  // `null` = todavia no se sabe si el canal oficial tiene un problema.
+  const [oficialProblema, setOficialProblema] = useState<boolean | null>(null);
   // Canal del inbox de Conversaciones: 'oficial' (Chatwoot/Bot) o 'empresa'
   // (no oficial/Evolution, leído del espejo en nuestra DB).
   const [canal, setCanal] = useState<'oficial' | 'empresa'>('oficial');
@@ -307,15 +286,6 @@ function WhatsAppInner() {
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recCancelRef = useRef(false);
 
-  const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
-  const [loadingSeqs, setLoadingSeqs] = useState(true);
-  const [selSeqId, setSelSeqId] = useState<number | null>(null);
-  const [editPasos, setEditPasos] = useState<Paso[] | null>(null);
-  const [savingSeq, setSavingSeq] = useState(false);
-  const [seqError, setSeqError] = useState<string | null>(null);
-  // Sub-secciones de "Secuencias automáticas": secuencias · plantillas · MaKo.
-  const [seqTab, setSeqTab] = useState<'secuencias' | 'plantillas' | 'mako'>('secuencias');
-  const [seqEtapaFiltro, setSeqEtapaFiltro] = useState('todas');
 
   // Interruptor de envío real de WhatsApp del workspace (tarea #5). El estado
   // del flag lo ve cualquiera (viene en el GET de secuencias); el toggle solo
@@ -326,6 +296,12 @@ function WhatsAppInner() {
   // estados que ese chip aplica adentro. Ver el ⚠️ del rótulo «Envío real».
   const [canalNoOficial, setCanalNoOficial] = useState<'desconectado' | 'conectando' | 'conectado' | 'error' | null>(null);
   const canalCaido = canalNoOficial === 'desconectado';
+  /**
+   * ⚠️ `null` (todavia no se sabe) NO titila. Es la regla de los tres estados que este
+   * repo ya aprendio a la mala con el chip viejo: entre que carga la pantalla y contesta
+   * el sondeo, afirmar «caido» seria una falsa alarma roja en cada F5.
+   */
+  const noOficialOk = canalNoOficial == null || canalNoOficial === 'conectado';
   const [envioAdmin, setEnvioAdmin] = useState(false);
   const [envioBusy, setEnvioBusy] = useState(false);
   const [envioErr, setEnvioErr] = useState<string | null>(null);
@@ -366,27 +342,10 @@ function WhatsAppInner() {
     }
   };
 
-  // ── Carga inicial (secuencias + plantillas; los contactos vienen del provider) ──
-  const reloadSecuencias = useCallback(async () => {
-    try {
-      const r = await fetch('/api/whatsapp/secuencias');
-      const j = await r.json();
-      const list: Secuencia[] = j.ok ? j.secuencias : [];
-      setSecuencias(list);
-      // seed-solo-si-null: /api/whatsapp/envio (GET/POST) es el único escritor
-      // autoritativo del toggle; este GET llena el estado inicial (setter y
-      // closer, cuyo GET /envio da 403 y no setea nada).
-      if (j.ok && typeof j.envioWhatsapp === 'boolean') setEnvioWaOn((prev) => (prev == null ? j.envioWhatsapp : prev));
-      setSelSeqId((prev) => (prev != null && list.some((s) => s.id === prev) ? prev : (list[0]?.id ?? null)));
-      // El copy pudo cambiar por afuera (MaKo aplicó): un borrador de edición
-      // abierto quedó viejo — se descarta para no pisar lo aprobado.
-      setEditPasos(null);
-    } finally {
-      setLoadingSeqs(false);
-    }
-  }, []);
+  // ── Carga inicial: las plantillas de Meta (para responder fuera de la ventana de
+  // 24 h) y el interruptor del chatbot. Las SECUENCIAS ya no se cargan acá: se
+  // administran en /chatbot, que lee las mismas filas.
   useEffect(() => {
-    void reloadSecuencias();
     void (async () => {
       try {
         const r = await fetch('/api/whatsapp/templates');
@@ -404,7 +363,33 @@ function WhatsAppInner() {
         // 403 = setter/closer: ven el estado pero sin toggle (config admin-only).
       } catch { /* sin toggle */ }
     })();
-  }, [reloadSecuencias]);
+  }, []);
+
+  /**
+   * Entrar a un canal CAÍDO abre su pantalla de conexión (en el no oficial, el QR grande).
+   *
+   * Va en un efecto y no en el onClick del botón a propósito: cuando se entra, el sondeo
+   * puede no haber contestado todavía (`null` = no se sabe), así que el clic leería un
+   * estado viejo y no abriría nada. Acá se dispara también cuando la respuesta llega, y
+   * cubre el deep-link `?canal=empresa` y la carga directa de la tab.
+   *
+   * El `ref` es para no reabrirlo cada vez que el polling revalida: si el dueño lo cerró
+   * para mirar los chats viejos, se queda cerrado hasta que cambie de canal.
+   */
+  const avisoNoOficial = useRef(false);
+  useEffect(() => {
+    if (canal !== 'empresa' || noOficialOk) { avisoNoOficial.current = false; return; }
+    if (avisoNoOficial.current) return;
+    avisoNoOficial.current = true;
+    setModalNoOficial(true);
+  }, [canal, noOficialOk]);
+  const avisoOficial = useRef(false);
+  useEffect(() => {
+    if (canal !== 'oficial' || !oficialProblema) { avisoOficial.current = false; return; }
+    if (avisoOficial.current) return;
+    avisoOficial.current = true;
+    setModalOficial(true);
+  }, [canal, oficialProblema]);
 
   // Al salir de /whatsapp, ningún chat queda "abierto" → el provider vuelve a
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
@@ -413,7 +398,7 @@ function WhatsAppInner() {
   // Deep-link ?canal=empresa (desde el pop-up del canal no oficial) → abrir el
   // inbox no oficial en la sección Conversaciones.
   useEffect(() => {
-    if (searchParamsWA.get('canal') === 'empresa') { setView('chats'); setCanal('empresa'); }
+    if (searchParamsWA.get('canal') === 'empresa') setCanal('empresa');
   }, [searchParamsWA]);
 
   // Reloj para el contador de la ventana de 24h (cada 30s alcanza).
@@ -427,18 +412,18 @@ function WhatsAppInner() {
   useEffect(() => {
     const s = searchParamsWA.toString();
     if (s !== lastSearchRef.current) {
-      const stab = searchParamsWA.get('stab');
-      if (stab === 'plantillas') {
+      // Las plantillas de Meta se mudaron a /chatbot con las secuencias. Los avisos
+      // viejos siguen mandando a /whatsapp?stab=plantillas: se redirige en vez de
+      // dejar al usuario en una pantalla que ya no tiene eso.
+      if (searchParamsWA.get('stab') === 'plantillas') {
         lastSearchRef.current = s;
-        setView('sequences');
-        setSeqTab('plantillas');
-        setPlantillaTarget(searchParamsWA.get('tpl') || null);
+        const tpl = searchParamsWA.get('tpl');
+        router.replace(`/chatbot?stab=plantillas${tpl ? `&tpl=${encodeURIComponent(tpl)}` : ''}`);
         return;
       }
       const target = searchParamsWA.get('chat');
       if (target && contactos.some((c) => c.id === target)) {
         lastSearchRef.current = s;
-        setView('chats');
         setSelId(target);
         return;
       }
@@ -449,7 +434,6 @@ function WhatsAppInner() {
         const c = contactos.find((x) => x.leadId === leadParam);
         if (c) {
           lastSearchRef.current = s;
-          setView('chats');
           setSelId(c.id);
           setLeadSinChat(null);
           return;
@@ -458,7 +442,6 @@ function WhatsAppInner() {
         // chat de otra persona) — mostrar el aviso y no seleccionar nada.
         if (contactos.length) {
           lastSearchRef.current = s;
-          setView('chats');
           setLeadSinChat(leadParam);
           return;
         }
@@ -474,12 +457,6 @@ function WhatsAppInner() {
     if (selId == null && contactos.length) setSelId(contactos[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactos, searchParamsWA]);
-
-  // ── Al cambiar de secuencia, descartar edición en curso ──
-  useEffect(() => {
-    setEditPasos(null);
-    setSeqError(null);
-  }, [selSeqId]);
 
 
   // ── Preview local del adjunto de imagen (revoca el object URL al cambiar) ──
@@ -852,84 +829,7 @@ function WhatsAppInner() {
     }
   }
 
-  async function toggleSeq(id: number, activa: boolean) {
-    setSecuencias((prev) => prev.map((s) => (s.id === id ? { ...s, activa } : s)));
-    await fetch('/api/whatsapp/secuencias', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, activa }),
-    });
-  }
-
-  // ── Edición de pasos ──
-  function startEditPasos() {
-    if (!seqSel) return;
-    setSeqError(null);
-    setEditPasos(seqSel.pasos.map((p) => ({ ...p })));
-  }
-
-  function patchPaso(i: number, patch: Partial<Paso>) {
-    setEditPasos((prev) => (prev ? prev.map((p, j) => (j === i ? { ...p, ...patch } : p)) : prev));
-  }
-
-  function pickTemplatePaso(i: number, name: string) {
-    const tpl = templates.find((t) => t.name === name);
-    if (!tpl) { patchPaso(i, { template_wa: name || null }); return; }
-    // Elegir una plantilla aprobada implica canal OFICIAL (Meta): fija proveedor
-    // para no dejar un paso contradictorio (no_oficial + plantilla).
-    patchPaso(i, {
-      proveedor: 'oficial',
-      template_wa: tpl.name,
-      cuerpo: tpl.body,
-      template_categoria: tpl.category,
-      template_idioma: tpl.language,
-    });
-  }
-
-  function addPaso() {
-    setEditPasos((prev) => [
-      ...(prev ?? []),
-      { orden: (prev?.length ?? 0) + 1, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '', proveedor: 'oficial', template_wa: null, template_param: 'nombre' },
-    ]);
-  }
-
-  function removePaso(i: number) {
-    setEditPasos((prev) => (prev ? prev.filter((_, j) => j !== i) : prev));
-  }
-
-  function movePaso(i: number, dir: -1 | 1) {
-    setEditPasos((prev) => {
-      if (!prev) return prev;
-      const j = i + dir;
-      if (j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
-  }
-
-  async function saveSeqPasos() {
-    if (!seqSel || !editPasos) return;
-    setSavingSeq(true);
-    setSeqError(null);
-    try {
-      const pasos = editPasos.map((p, i) => ({ ...p, orden: i + 1 }));
-      const r = await fetch('/api/whatsapp/secuencias', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: seqSel.id, pasos }),
-      });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
-      setSecuencias((prev) => prev.map((s) => (s.id === seqSel.id ? { ...s, pasos } : s)));
-      setEditPasos(null);
-    } catch (e) {
-      setSeqError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSavingSeq(false);
-    }
-  }
-
-
   // ── Derivados ──
-  const isChats = view === 'chats';
   const q = search.trim().toLowerCase();
   const etapasPresentes = [...new Map(contactos.filter((c) => c.etapaKey).map((c) => [c.etapaKey, c.etapaLabel])).entries()];
   const filtrados = contactos
@@ -947,23 +847,6 @@ function WhatsAppInner() {
       return b.ultimaActividad - a.ultimaActividad;
     });
   const sel = contactos.find((c) => c.id === selId) ?? null;
-  const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
-  // Feature 5: filtro por etapa de las secuencias.
-  const ETAPA_SEQ_LABEL: Record<string, string> = {
-    nutri: 'Nutrición', postagenda: 'Post-agenda', noshow: 'No-show', nopaga: 'No paga', manual: 'Manual',
-    // Stage keys del funnel derivado (secuencias funnel-agnósticas, trigger etapa_actual).
-    noshow_r1: 'No Show R1', noshow_r2: 'No Show R2', noshow_r3: 'No Show R3',
-    nocompro: 'No Compró', nutridiaria: 'Nutrición diaria', reactivacion: 'Reactivación',
-    reunion_excepcional: 'Reunión excepcional',
-  };
-  const seqEtapasPresentes = [...new Set(secuencias.map((s) => s.etapa).filter(Boolean))];
-  const seqFiltradas = seqEtapaFiltro === 'todas' ? secuencias : secuencias.filter((s) => s.etapa === seqEtapaFiltro);
-  // ¿Cuántas secuencias siguen con texto de relleno del seed? ([tu problema]…;
-  // los [tu link …] no cuentan: son placeholders del sistema). Dispara el banner
-  // de arranque "MaKo te arma toda la nutrición" (#46).
-  const seqConRelleno = secuencias.filter((s) =>
-    s.pasos.some((p) => /\[(?!tu link)[^\]\n]{2,80}\]/i.test(p.cuerpo) || /\[(?!tu link)[^\]\n]{2,80}\]/i.test(p.asunto ?? '')),
-  ).length;
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
   // Vencimiento de la ventana del chat abierto: 24h tras el último mensaje ENTRANTE
   // del hilo (exacto, aun si respondimos último); si no hay hilo, el del provider.
@@ -977,6 +860,9 @@ function WhatsAppInner() {
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-ink)' };
   const tabIdle: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
   const oficialUnread = contactos.reduce((s, c) => s + c.sinLeer, 0);
+  // El boton ES el indicador. `blinkRed` ya es el tintineo de alarma del resto de la app
+  // (cuotas vencidas, datos sin marcar): misma senal, mismo significado.
+  const avisoRojo: CSSProperties = { animation: 'blinkRed 1.4s infinite', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' };
   const badgeCanal: CSSProperties = { minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--bad)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
   const chipBtn = (active: boolean): CSSProperties => ({ padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
@@ -987,14 +873,18 @@ function WhatsAppInner() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '7px' }}>
             <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="whatsapp" size={34} /></span>
             <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>WhatsApp</h1>
-            <ChatwootWebhookChip />
-            <EvolutionConnect onEstado={setCanalNoOficial} />
+            {/* Los dos canales ya no tienen chip: el aviso es el BOTON de su tab, que
+                titila en rojo, y al entrar se abre su pantalla de conexion. Los
+                componentes siguen montados porque aca viven el sondeo, el QR y la
+                reparacion del espejo — sin ellos la tab no sabria si el canal esta vivo. */}
+            <ChatwootWebhookChip ocultarChip abierto={modalOficial} onAbierto={setModalOficial} onSalud={setOficialProblema} />
+            <EvolutionConnect ocultarChip abierto={modalNoOficial} onAbierto={setModalNoOficial} onEstado={setCanalNoOficial} />
             {envioAdmin && envioWaOn != null && (
               <button onClick={() => void toggleEnvioWa()} disabled={envioBusy} aria-pressed={envioWaOn}
                 title={
-                  !envioWaOn ? 'Las secuencias no envían: los pasos quedan esperando — clic para activar'
-                    : canalCaido ? 'El interruptor está encendido, pero tu WhatsApp no oficial está desconectado: no sale nada. Reconéctalo en el chip de al lado.'
-                      : 'El motor manda WhatsApps reales — clic para pausar'
+                  !envioWaOn ? 'El chatbot no envía: los pasos de las secuencias quedan esperando — clic para activar'
+                    : canalCaido ? 'El interruptor está encendido, pero tu WhatsApp no oficial está desconectado: no sale nada. Entra a la tab «No Oficial» para volver a vincularlo.'
+                      : 'El chatbot manda WhatsApps reales — clic para pausar'
                 }
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--border-strong)'), background: envioWaOn ? (canalCaido ? 'var(--warn-bg)' : 'var(--good-bg)') : 'var(--surface)', color: envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--dim)' }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: envioWaOn ? (canalCaido ? 'var(--warn)' : 'var(--good)') : 'var(--faint)' }} />
@@ -1008,31 +898,34 @@ function WhatsAppInner() {
                     Ahora, con el canal caído, el mismo chip dice qué falta. No se
                     apaga: el interruptor SÍ está en ON, y mentir en la otra dirección
                     haría que lo prendiera de nuevo sin efecto. */}
-                Envío real: {envioWaOn ? (canalCaido ? 'ON, pero el número está caído' : 'ON') : 'OFF'}
+                Chatbot: {envioWaOn ? (canalCaido ? 'ON, pero el número está caído' : 'ON') : 'OFF'}
               </button>
             )}
             {envioErr && <span style={{ fontSize: '12px', color: 'var(--bad)' }}>{envioErr}</span>}
           </div>
         </div>
+        {/* Los dos canales, en el lugar donde antes estaban Conversaciones/Secuencias.
+            El boton ES el indicador: titila en rojo cuando ese canal esta caido, y al
+            entrar se abre su pantalla de conexion (el QR grande, en el no oficial). */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-          <button onClick={() => setView('chats')} style={isChats ? tabActive : tabIdle}>Conversaciones</button>
-          <button onClick={() => setView('sequences')} style={!isChats ? tabActive : tabIdle}>Secuencias automáticas</button>
+          <button onClick={() => setCanal('oficial')}
+            title={oficialProblema ? 'La detección de respuestas del WhatsApp oficial no está activa — entra para arreglarla' : 'Número oficial de Meta: el verificado, para el tráfico frío de los anuncios'}
+            style={{ ...(canal === 'oficial' ? tabActive : tabIdle), ...(oficialProblema ? avisoRojo : null), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}
+          </button>
+          <button onClick={() => setCanal('empresa')}
+            title={noOficialOk ? 'Número no oficial (por QR): el que usa el chatbot' : 'Tu WhatsApp no oficial está desconectado: el chatbot no manda nada. Entra para volver a vincularlo.'}
+            style={{ ...(canal === 'empresa' ? tabActive : tabIdle), ...(noOficialOk ? null : avisoRojo), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            No Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}
+          </button>
         </div>
       </header>
 
-      {/* Toggle de canal del inbox (oficial Chatwoot / empresa no-oficial) */}
-      {isChats && (
-        <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px', marginBottom: '14px' }}>
-          <button onClick={() => setCanal('oficial')} style={{ ...(canal === 'oficial' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>API Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}</button>
-          <button onClick={() => setCanal('empresa')} style={{ ...(canal === 'empresa' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>API no Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}</button>
-        </div>
-      )}
-
       {/* ============= CONVERSACIONES — EMPRESA (no oficial, espejo en DB) ============= */}
-      {isChats && canal === 'empresa' && <EmpresaInbox />}
+      {canal === 'empresa' && <EmpresaInbox />}
 
       {/* ============= CONVERSACIONES — BOT OFICIAL (Chatwoot) ============= */}
-      {isChats && canal === 'oficial' && (
+      {canal === 'oficial' && (
         <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '330px 1fr 344px', gap: '16px' }}>
           {/* LISTA */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
@@ -1301,7 +1194,7 @@ function WhatsAppInner() {
                 mensajes={mensajes}
                 ventanaAbierta={ventanaAbierta}
                 onUsar={(t) => setDraft(draft.trim() ? `${draft.replace(/\s+$/, '')}\n\n${t}` : t)}
-                onRedactarPlantilla={(seed) => { if (seed) setPlantillaSeed(seed); setView('sequences'); setSeqTab('plantillas'); }}
+                onRedactarPlantilla={() => router.push('/chatbot?stab=plantillas')}
                 quickTemplates={QUICK}
               />
             ) : (
@@ -1311,171 +1204,9 @@ function WhatsAppInner() {
         </div>
       )}
 
-      {/* ============= SECUENCIAS AUTOMÁTICAS (3 sub-secciones) ============= */}
-      {!isChats && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {envioWaOn === false && (
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: 'var(--dim)' }}>
-              El <strong style={{ color: 'var(--ink)' }}>envío real de WhatsApp está apagado</strong>: las secuencias no mandan nada y los pasos quedan esperando.
-              {envioAdmin ? ' Se prende con el botón “Envío real” de arriba.' : ' Lo prende el admin del workspace.'}
-            </div>
-          )}
-          {seqConRelleno > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: 'var(--dim)' }}>
-              <span>
-                <strong style={{ color: 'var(--ink)' }}>{seqConRelleno === 1 ? 'Una secuencia sigue' : `${seqConRelleno} secuencias siguen`} con texto de relleno</strong> — MaKo puede escribirlas todas en la voz de tu negocio y tú solo las apruebas (botón «✍️ Nutrición»).
-              </span>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px' }}>
-              <button onClick={() => setSeqTab('secuencias')} style={seqTab === 'secuencias' ? tabActive : tabIdle}>Secuencias</button>
-              <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
-              <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Pregunta a MaKo</button>
-            </div>
-            <NutricionGenerar onAplicado={() => void reloadSecuencias()} />
-          </div>
-
-          {seqTab === 'plantillas' && <PlantillasPanel initialSelect={plantillaTarget} makoSeed={plantillaSeed} onMakoSeedApplied={() => setPlantillaSeed(null)} />}
-
-          {seqTab === 'mako' && (
-            <div style={{ flex: 1, minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
-              <MakoChat
-                chartKey="whatsapp-secuencias"
-                titulo="Secuencias y plantillas de WhatsApp"
-                sugerencias={['¿Esta secuencia tiene sentido para el funnel?', '¿Este mensaje lo aprobaría Meta?', '¿Qué plantilla me falta?', '¿Cómo reactivo a los que no agendaron?']}
-              />
-            </div>
-          )}
-
-          {seqTab === 'secuencias' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px' }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Secuencias por etapa</div>
-              <Dropdown
-                value={seqEtapaFiltro}
-                onChange={setSeqEtapaFiltro}
-                width="100%"
-                ariaLabel="Filtrar secuencias por etapa"
-                buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
-                options={[{ value: 'todas', label: 'Todas las etapas' }, ...seqEtapasPresentes.map((e) => ({ value: e, label: ETAPA_SEQ_LABEL[e] ?? e }))]}
-              />
-            </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {loadingSeqs && <div style={{ padding: '14px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
-              {!loadingSeqs && seqFiltradas.length === 0 && <div style={{ padding: '14px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay secuencias en esta etapa.</div>}
-              {seqFiltradas.map((s) => {
-                const active = s.id === selSeqId;
-                return (
-                  <div key={s.id} onClick={() => setSelSeqId(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 12px', borderRadius: '11px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
-                    <span style={{ width: '8px', height: '8px', flex: 'none', borderRadius: '50%', background: s.activa ? 'var(--good)' : 'var(--faint)' }}></span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nombre}</div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--faint)', marginTop: '1px' }}>{s.pasos.length} pasos · {s.activa ? 'activa' : 'pausada'} · {s.inscriptos} inscriptos</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            {!seqSel && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>Elige una secuencia</div>}
-            {seqSel && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-                      <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: seqSel.activa ? 'var(--good)' : 'var(--faint)' }}></span>
-                      <span style={{ fontWeight: 600, fontSize: '19px', letterSpacing: '-0.01em', color: 'var(--ink)' }}>{seqSel.nombre}</span>
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '4px' }}>{seqSel.enviados} enviados · {seqSel.inscriptos} inscriptos · trigger: <code style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{seqSel.trigger_tipo}</code></div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flex: 'none' }}>
-                    {editPasos ? (
-                      <>
-                        <button onClick={() => { setEditPasos(null); setSeqError(null); }} disabled={savingSeq} style={{ ...btnGhost, opacity: savingSeq ? 0.6 : 1 }}>Cancelar</button>
-                        <button onClick={() => void saveSeqPasos()} disabled={savingSeq} style={{ ...btnPrimary, opacity: savingSeq ? 0.6 : 1 }}>{savingSeq ? 'Guardando…' : '✓ Guardar pasos'}</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={startEditPasos} style={btnGhost}>✎ Editar pasos</button>
-                        <button onClick={() => void toggleSeq(seqSel.id, !seqSel.activa)} style={{ ...btnSeqBase, padding: '9px 16px', border: '1px solid ' + (seqSel.activa ? 'var(--border-strong)' : 'var(--good)'), background: seqSel.activa ? 'var(--surface)' : 'var(--good-bg)', color: seqSel.activa ? 'var(--dim)' : 'var(--good)' }}>{seqSel.activa ? '⏸ Pausar' : '▶ Activar'}</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px' }}>
-                  {seqError && (
-                    <div style={{ marginBottom: '12px', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{seqError}</div>
-                  )}
-                  {editPasos ? (
-                    <>
-                      {editPasos.map((st, i) => {
-                        const tplOptions = [
-                          { value: '', label: 'Sin plantilla' },
-                          ...templates.map((t) => ({ value: t.name, label: t.name })),
-                          ...(st.template_wa && !templates.some((t) => t.name === st.template_wa)
-                            ? [{ value: st.template_wa, label: `${st.template_wa} (no aprobada)` }]
-                            : []),
-                        ];
-                        return (
-                          <div key={i} style={{ border: '1px solid var(--border)', borderRadius: '13px', padding: '14px', marginBottom: '12px', background: 'var(--surface-2)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                              <span style={{ fontWeight: 700, fontFamily: "'Geist Mono', monospace", fontSize: '12.5px', color: 'var(--ink)' }}>Paso {i + 1}</span>
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button onClick={() => movePaso(i, -1)} disabled={i === 0} title="Subir" style={{ ...iconBtn, opacity: i === 0 ? 0.4 : 1 }}>↑</button>
-                                <button onClick={() => movePaso(i, 1)} disabled={i === editPasos.length - 1} title="Bajar" style={{ ...iconBtn, opacity: i === editPasos.length - 1 ? 0.4 : 1 }}>↓</button>
-                                <button onClick={() => removePaso(i)} title="Eliminar paso" style={{ ...iconBtn, color: 'var(--bad)' }}>✕</button>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
-                              <label style={{ fontSize: '12px', color: 'var(--dim)' }}>Demora</label>
-                              <input type="number" min={0} value={st.delay_horas} onChange={(e) => patchPaso(i, { delay_horas: Math.max(0, Number(e.target.value) || 0) })} style={numInput} />
-                              <span style={{ fontSize: '12px', color: 'var(--faint)' }}>horas → {fmtDelay(st.delay_horas)}</span>
-                            </div>
-                            <div style={{ marginBottom: '10px' }}>
-                              <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Plantilla de WhatsApp</label>
-                              <Dropdown value={st.template_wa ?? ''} options={tplOptions} onChange={(v) => pickTemplatePaso(i, v)} placeholder="Elige plantilla" width="100%" ariaLabel="Plantilla del paso" />
-                            </div>
-                            <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontSize: '13.5px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo || <span style={{ color: 'var(--faint)' }}>Elige una plantilla aprobada para previsualizar el texto.</span>}</div>
-                          </div>
-                        );
-                      })}
-                      <button onClick={addPaso} style={{ width: '100%', padding: '11px', borderRadius: '11px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600 }}>+ Agregar paso</button>
-                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '12px', lineHeight: 1.5 }}>Editas la <strong>demora</strong>, la <strong>plantilla</strong> y el orden de cada paso. El texto sale de la plantilla aprobada de Meta. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
-                    </>
-                  ) : (
-                    <>
-                      {seqSel.pasos.map((st, i) => (
-                        <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none', width: '34px' }}>
-                            <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'var(--auto-bubble)', border: '1px solid var(--warn-fill)', color: 'var(--warn)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: "'Geist Mono', monospace" }}>{i + 1}</span>
-                            {i < seqSel.pasos.length - 1 && <span style={{ width: '2px', flex: 1, minHeight: '30px', background: 'var(--border)' }}></span>}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0, paddingBottom: '18px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                              <span style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{fmtDelay(st.delay_horas)}</span>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--good)', fontWeight: 600 }}>⚡ {st.canal === 'whatsapp' ? 'WhatsApp' : st.canal}</span>
-                              {st.canal === 'whatsapp' && st.proveedor === 'no_oficial' && <span style={{ padding: '2px 8px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', fontSize: '11px', fontWeight: 600 }}>no oficial</span>}
-                              {st.template_wa && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11.5px', color: 'var(--dim)' }}>{st.template_wa}</span>}
-                            </div>
-                            <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: '14px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo}</div>
-                          </div>
-                        </div>
-                      ))}
-                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no aquí. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-          )}
-        </div>
-      )}
+      {/* Las SECUENCIAS y las PLANTILLAS de Meta se mudaron a /chatbot: son las mismas
+          filas de `nutricion_secuencias` y tenerlas en dos pantallas garantizaba que una
+          quedara vieja. Esta tab quedo con una sola cosa: las conversaciones. */}
 
       {/* DETALLE DEL LEAD — el MISMO modal editable del CRM (LeadDetail) */}
       {detalleLeadId != null && (

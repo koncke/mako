@@ -328,7 +328,7 @@ export function NotificacionesPanel() {
                 pie={trabaPlantilla ? (
                   <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <span>{ESTADO_PLANTILLA[plantilla] ?? ESTADO_PLANTILLA.error}.</span>
-                    <a href="/whatsapp?stab=plantillas&tpl=reporte_mako" style={{ ...btnLink, textDecoration: 'none' }}>Resolver →</a>
+                    <a href="/chatbot?stab=plantillas&tpl=reporte_mako" style={{ ...btnLink, textDecoration: 'none' }}>Resolver →</a>
                   </div>
                 ) : undefined}
                 canales={<>

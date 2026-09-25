@@ -60,3 +60,24 @@ export function veredictoSondeo(r: { ok: boolean; status?: number; error?: strin
   if (r.status === 404 && /does not exist/i.test(e)) return 'muerto';
   return 'sin_respuesta';
 }
+
+/**
+ * ¿Hay que RECREAR la instancia en vez de pedirle otro QR?
+ *
+ * ⚠️ Una sesión que WhatsApp desvinculó (403) queda ZOMBI: existe en Evolution, contesta
+ * `connecting` para siempre y `/instance/connect` devuelve `base64: null`. O sea que el
+ * único camino que la app ofrecía —«tocá para reconectar»— muestra un recuadro vacío, y el
+ * dueño no tiene forma de saber que lo que hace falta es borrarla y crearla de nuevo. Medido
+ * el 25/09/2026: la línea de un cliente llevaba 22 días así.
+ *
+ * `abierta` es el corte que hace que esto sea seguro: si la sesión está CONECTADA, pedir un
+ * QR tampoco devuelve uno (no hace falta) — y rotar ahí destruiría una sesión que anda.
+ *
+ * Pura: decide si se borra la línea de WhatsApp de un cliente, así que no puede quedarse
+ * sin test.
+ */
+export function hayQueRecrear(p: { abierta: boolean; qrBase64: string | null | undefined; conectarOk: boolean }): boolean {
+  if (p.abierta) return false;                 // anda: no se toca
+  if (!p.conectarOk) return true;              // Evolution rechazó el connect sobre una sesión muerta
+  return !p.qrBase64;                          // contestó, pero sin QR: zombi
+}

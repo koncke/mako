@@ -12,7 +12,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
-import { mensajeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
+import { hayQueRecrear, mensajeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
 
 // El veredicto de la sonda y el reconocedor de «sesión caída» viven en lib/evolution-sonda.ts
 // (puros, testeados con respuestas medidas). Se re-exportan para que nadie cambie su import.
@@ -218,7 +218,7 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
   const yaExiste = existe.ok && Array.isArray(existe.data)
     && existe.data.some((i) => (i.name ?? i.instanceName) === instance);
 
-  if (!yaExiste) {
+  const crearDeCero = async (): Promise<{ ok: true; qr: QrData; estado: EstadoConexion } | { ok: false; error: string }> => {
     const r = await evFetch<CreateResp>('/instance/create', {
       method: 'POST',
       body: JSON.stringify({ instanceName: instance, integration: 'WHATSAPP-BAILEYS', qrcode: true }),
@@ -233,7 +233,9 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
       estado: 'conectando',
       qr: { base64: r.data.qrcode?.base64 ?? null, code: r.data.qrcode?.code ?? null, pairingCode: r.data.qrcode?.pairingCode ?? null },
     };
-  }
+  };
+
+  if (!yaExiste) return crearDeCero();
 
   // Ya existe → pedir un QR fresco (re-vincular).
   await setWebhook(instance);
@@ -242,6 +244,22 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
   // cambio posterior era mudo para todos los clientes que ya existían.
   await setSettings(instance).catch(() => {});
   const c = await evFetch<ConnectResp>(`/instance/connect/${encodeURIComponent(instance)}`);
+
+  // ⚠️ SOBRE UNA SESIÓN DESVINCULADA (403) ESTO DEVUELVE `base64: null` Y NADA MÁS: el modal
+  // mostraba «Sin QR» para siempre y no había forma de recuperar la línea desde la app —
+  // había que adivinar «Desconectar» y volver a conectar, que además pedía una confirmación
+  // que se dibujaba detrás del modal. Ahora la app lo hace sola, y SOLO en el caso seguro
+  // (ver `hayQueRecrear`: una sesión ABIERTA no se toca nunca).
+  const fila = (Array.isArray(existe.data) ? existe.data : []).find((i) => (i.name ?? i.instanceName) === instance);
+  const abierta = String(fila?.connectionStatus ?? fila?.status ?? '') === 'open';
+  if (hayQueRecrear({ abierta, qrBase64: c.ok ? c.data.base64 : null, conectarOk: c.ok })) {
+    // Logout + delete SIN `revertirEstadoNoOficial`: esto es RE-VINCULAR la misma línea, no
+    // desvincularla — mandar al cliente de vuelta al onboarding sería otro problema.
+    await evFetch(`/instance/logout/${encodeURIComponent(instance)}`, { method: 'DELETE' }).catch(() => undefined);
+    await evFetch(`/instance/delete/${encodeURIComponent(instance)}`, { method: 'DELETE' }).catch(() => undefined);
+    return crearDeCero();
+  }
+
   if (!c.ok) return { ok: false, error: c.error };
   await upsertInstancia({ estado: 'conectando' });
   return {

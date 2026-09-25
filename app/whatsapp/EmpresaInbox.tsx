@@ -494,7 +494,7 @@ export function EmpresaInbox() {
           {loadingConvs && convs.length === 0 && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
           {!loadingConvs && convsOrdenados.length === 0 && !err && (
             <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13px', lineHeight: 1.5 }}>
-              {search.trim() ? 'Ningún lead ni conversación coincide con la búsqueda.' : 'Todavía no hay mensajes en el número no oficial. Conecta el número (chip API no Oficial, arriba) y las conversaciones van a aparecer aquí. También puedes buscar cualquier lead del CRM por nombre para escribirle.'}
+              {search.trim() ? 'Ningún lead ni conversación coincide con la búsqueda.' : 'Todavía no hay mensajes en el número no oficial. Conecta el número desde el botón «No Oficial» de arriba y las conversaciones van a aparecer aquí. También puedes buscar cualquier lead del CRM por nombre para escribirle.'}
             </div>
           )}
           {err && <div style={{ margin: '10px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '12.5px' }}>{err}</div>}
@@ -717,7 +717,7 @@ export function EmpresaInbox() {
               mensajes={msgs.map((m) => ({ saliente: m.fromMe, texto: m.texto }))}
               ventanaAbierta={true}
               onUsar={(t) => setDraft((d) => (d.trim() ? `${d.replace(/\s+$/, '')}\n\n${t}` : t))}
-              onRedactarPlantilla={() => router.push(`/whatsapp?stab=plantillas&n=${Date.now()}`)}
+              onRedactarPlantilla={() => router.push(`/chatbot?stab=plantillas&n=${Date.now()}`)}
               quickTemplates={QUICK}
             />
           </>

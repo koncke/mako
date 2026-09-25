@@ -48,11 +48,11 @@ const chipBase: CSSProperties = {
 };
 const MAX_FALLOS = 5; // tras N fallos seguidos del polling, cortar y avisar
 
-export function EvolutionConnect({ onEstado }: {
+export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbierto }: {
   /**
    * Le avisa al padre en qué estado quedó el canal.
    *
-   * Existe por el chip «Envío real: ON» de al lado, que estaba en VERDE con el
+   * Existe por el chip «Chatbot: ON» de al lado, que estaba en VERDE con el
    * número caído: es verdad sobre el FLAG y falso sobre el SISTEMA. Para que
    * pueda decir la verdad necesita saber esto, y el estado vive acá.
    *
@@ -60,6 +60,18 @@ export function EvolutionConnect({ onEstado }: {
    * 'desconectado' es el punto: no puede afirmar nada mientras no sepa.
    */
   onEstado?: (e: Estado | null) => void;
+  /**
+   * Sin chip propio: el estado lo muestra el botón de la tab «No Oficial», que
+   * titila en rojo cuando el número está caído.
+   *
+   * ⚠️ El componente SIGUE montado aunque no dibuje nada: acá viven el sondeo del
+   * estado, el QR y el modal entero. Desmontarlo para «limpiar el header» dejaría
+   * a la tab sin forma de saber si el número está vivo y sin pantalla de conexión.
+   */
+  ocultarChip?: boolean;
+  /** Modal controlado desde afuera (entrar a la tab con el número caído lo abre). */
+  abierto?: boolean;
+  onAbierto?: (v: boolean) => void;
 } = {}) {
   const { confirm, confirmNode } = useConfirm();
   const [estado, setEstado] = useState<Estado>('desconectado');
@@ -84,7 +96,10 @@ export function EvolutionConnect({ onEstado }: {
   const [numero, setNumero] = useState<string | null>(null);
   const [configurado, setConfigurado] = useState(true);
   const [visible, setVisible] = useState(false); // el admin lo ve; setter/closer no (403)
-  const [open, setOpen] = useState(false);
+  const [openLocal, setOpenLocal] = useState(false);
+  // Controlado (la tab lo abre al entrar con el numero caido) o propio (el chip).
+  const open = abierto ?? openLocal;
+  const setOpen = useCallback((v: boolean) => { setOpenLocal(v); onAbierto?.(v); }, [onAbierto]);
   const [qr, setQr] = useState<Qr | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -113,6 +128,20 @@ export function EvolutionConnect({ onEstado }: {
   // Un solo lugar avisa al padre: en el efecto y no adentro de cada setEstado,
   // que son cinco y el próximo se olvidaría.
   useEffect(() => { onEstado?.(cargado ? estado : null); }, [estado, cargado, onEstado]);
+
+  // Abierto DESDE AFUERA y sin conexion: hay que pedir el QR igual que hace el chip al
+  // tocarlo, o el modal se abre con el recuadro vacio y «Sin QR» — que es justo lo que el
+  // dueño leeria como «esto tampoco anda».
+  const pidioQr = useRef(false);
+  useEffect(() => {
+    if (!open) { pidioQr.current = false; return; }
+    if (pidioQr.current || !cargado || estado === 'conectado') return;
+    pidioQr.current = true;
+    void abrir();
+    // `abrir` se redefine en cada render (no es un callback memoizado); la guarda de una
+    // sola llamada es `pidioQr`, no la lista de dependencias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cargado, estado]);
 
   // Polling del estado (3s) + refresh del QR (20s) mientras el modal está abierto
   // sin conectar. Con backoff: tras MAX_FALLOS fallos seguidos corta y avisa.
@@ -265,11 +294,11 @@ export function EvolutionConnect({ onEstado }: {
     : null;
   const rotulo = conectado
     ? (confirmado
-      ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}`
-      : 'API no Oficial: conectada según el último registro (sin confirmar)')
-    : !cargado ? 'API no Oficial: comprobando…'
-      : estado === 'conectando' ? 'API no Oficial: conectando…'
-      : estado === 'error' ? 'API no Oficial: no pude comprobarlo'
+      ? `WhatsApp no oficial conectado${numero ? ` · ${numero}` : ''}`
+      : 'No Oficial: conectado según el último registro (sin confirmar)')
+    : !cargado ? 'No Oficial: comprobando…'
+      : estado === 'conectando' ? 'No Oficial: conectando…'
+      : estado === 'error' ? 'No Oficial: no pude comprobarlo'
         : caida?.desvinculado
           // ⚠️ «DESCONECTADA» describe NUESTRO lado y no le dice nada al que lo
           // lee. El dueño vio ese cartel, abrió WhatsApp en su teléfono, lo
@@ -278,12 +307,12 @@ export function EvolutionConnect({ onEstado }: {
           // «Se desvinculó el 3 de septiembre» nombra un hecho que puede ir a
           // comprobar en WhatsApp → Dispositivos vinculados.
           ? `WhatsApp se desvinculó${fechaCaida ? ` el ${fechaCaida}` : ''} — volver a vincular`
-          : 'API no Oficial DESCONECTADA — reconectar';
+          : 'WhatsApp no oficial DESCONECTADO — reconectar';
 
   return (
     <>
       {confirmNode}
-      <button onClick={() => { setOpen(true); if (!conectado) void abrir(); }} style={chipStyle}
+      {!ocultarChip && <button onClick={() => { setOpen(true); if (!conectado) void abrir(); }} style={chipStyle}
         title={
           conectado ? `WhatsApp no oficial conectado${numero ? ` (${numero})` : ''}`
             : !cargado ? 'Comprobando el estado del WhatsApp no oficial…'
@@ -294,7 +323,7 @@ export function EvolutionConnect({ onEstado }: {
         }>
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: puntoColor }} />
         {rotulo}
-      </button>
+      </button>}
 
       {open && (
         <div onClick={cerrar} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
@@ -307,7 +336,7 @@ export function EvolutionConnect({ onEstado }: {
               Número no oficial (por QR). En el celular de la empresa: <strong style={{ color: 'var(--ink)' }}>WhatsApp → Dispositivos vinculados → Vincular dispositivo</strong> y escanea.
             </div>
 
-            {!configurado && <div style={{ padding: '10px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px' }}>Evolution API no está configurado en el servidor.</div>}
+            {!configurado && <div style={{ padding: '10px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px' }}>El WhatsApp no oficial no está configurado en el servidor.</div>}
 
             {conectado ? (
               <div>
