@@ -7,6 +7,7 @@
 
 import { redirect } from 'next/navigation';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import { OnboardingCanalWhatsApp } from './OnboardingCanalWhatsApp';
 import { integracionConectada } from '@/lib/credenciales';
@@ -48,5 +49,11 @@ export default async function WhatsAppPage() {
   // reabierto: reemplazarla entera dejaría al cliente sin su inbox oficial —
   // que no tiene nada que ver con el número que desvinculó— y sin salida.
   if (faltaOnboarding && !noOficial && !oficial) return <OnboardingCanalWhatsApp />;
-  return <WhatsAppApp />;
+  // ¿Este usuario puede ABRIR /chatbot? Ahí viven ahora las plantillas de Meta, y /chatbot
+  // es setter+admin (app/chatbot/page.tsx). Un closer entra a /whatsapp pero rebota de
+  // /chatbot a /crm: ofrecerle «redactar plantilla» sería un botón que lo expulsa de la
+  // pantalla donde estaba, con el chat abierto perdido.
+  const rolWs = await getRolWsEfectivo();
+  const puedeChatbot = rolWs == null || rolWs === 'admin' || rolWs === 'setter';
+  return <WhatsAppApp puedeChatbot={puedeChatbot} />;
 }

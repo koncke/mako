@@ -48,7 +48,7 @@ const chipBase: CSSProperties = {
 };
 const MAX_FALLOS = 5; // tras N fallos seguidos del polling, cortar y avisar
 
-export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbierto }: {
+export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbierto, inline = false, panelVisible = true }: {
   /**
    * Le avisa al padre en qué estado quedó el canal.
    *
@@ -59,7 +59,7 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
    * `null` = todavía no se sabe. Que el padre reciba `null` y no
    * 'desconectado' es el punto: no puede afirmar nada mientras no sepa.
    */
-  onEstado?: (e: Estado | null) => void;
+  onEstado?: (e: Estado | null, caida?: { desvinculado: boolean; fecha: string | null }) => void;
   /**
    * Sin chip propio: el estado lo muestra el botón de la tab «No Oficial», que
    * titila en rojo cuando el número está caído.
@@ -69,9 +69,20 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
    * a la tab sin forma de saber si el número está vivo y sin pantalla de conexión.
    */
   ocultarChip?: boolean;
-  /** Modal controlado desde afuera (entrar a la tab con el número caído lo abre). */
+  /** Modal controlado desde afuera. Con `inline`, el modal es SOLO para gestionar un número ya conectado. */
   abierto?: boolean;
   onAbierto?: (v: boolean) => void;
+  /**
+   * El número caído se conecta EN LA PANTALLA, no en un pop-up.
+   *
+   * ⚠️ Era un modal sobre la bandeja y se leía como algo que hay que sacarse de encima: el
+   * que entra rápido cierra el cartel y se queda sin entender que el canal no manda nada.
+   * Un panel que OCUPA el lugar de los chats no se puede ignorar, y no tapa nada útil —
+   * con el número caído, lo de atrás son conversaciones viejas.
+   */
+  inline?: boolean;
+  /** Con `inline`: si esta tab es la que se está mirando (si no, sigue sondeando sin dibujar). */
+  panelVisible?: boolean;
 } = {}) {
   const { confirm, confirmNode } = useConfirm();
   const [estado, setEstado] = useState<Estado>('desconectado');
@@ -97,9 +108,17 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
   const [configurado, setConfigurado] = useState(true);
   const [visible, setVisible] = useState(false); // el admin lo ve; setter/closer no (403)
   const [openLocal, setOpenLocal] = useState(false);
+
   // Controlado (la tab lo abre al entrar con el numero caido) o propio (el chip).
   const open = abierto ?? openLocal;
   const setOpen = useCallback((v: boolean) => { setOpenLocal(v); onAbierto?.(v); }, [onAbierto]);
+  /**
+   * ¿Estamos en el trabajo de CONECTAR? De esto cuelgan pedir el QR, renovarlo y sondear.
+   *
+   * Colgaba de `open` (el modal). Con el panel en pantalla ya no hay modal que abrir, así
+   * que el QR nunca se pedía: la pantalla quedaba con el recuadro vacío para siempre.
+   */
+  const conectando = (inline ? visible && panelVisible !== false : open) && estado !== 'conectado';
   const [qr, setQr] = useState<Qr | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -127,28 +146,33 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
 
   // Un solo lugar avisa al padre: en el efecto y no adentro de cada setEstado,
   // que son cinco y el próximo se olvidaría.
-  useEffect(() => { onEstado?.(cargado ? estado : null); }, [estado, cargado, onEstado]);
+  // El estado solo no alcanza: una sesión que WhatsApp desvinculó se queda en `conectando`
+  // para siempre, y sin el motivo el botón de la tab no puede distinguirla de una que está
+  // a punto de engancharse. Por eso viaja también la caída.
+  useEffect(() => {
+    onEstado?.(cargado ? estado : null, caida ? { desvinculado: caida.desvinculado, fecha: caida.cuando } : undefined);
+  }, [estado, cargado, caida, onEstado]);
 
   // Abierto DESDE AFUERA y sin conexion: hay que pedir el QR igual que hace el chip al
   // tocarlo, o el modal se abre con el recuadro vacio y «Sin QR» — que es justo lo que el
   // dueño leeria como «esto tampoco anda».
   const pidioQr = useRef(false);
   useEffect(() => {
-    if (!open) { pidioQr.current = false; return; }
-    if (pidioQr.current || !cargado || estado === 'conectado') return;
+    if (!conectando) { pidioQr.current = false; return; }
+    if (pidioQr.current || !cargado) return;
     pidioQr.current = true;
     void abrir();
     // `abrir` se redefine en cada render (no es un callback memoizado); la guarda de una
     // sola llamada es `pidioQr`, no la lista de dependencias.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, cargado, estado]);
+  }, [conectando, cargado, estado]);
 
   // Polling del estado (3s) + refresh del QR (20s) mientras el modal está abierto
   // sin conectar. Con backoff: tras MAX_FALLOS fallos seguidos corta y avisa.
   const estadoRef = useRef(estado);
   estadoRef.current = estado;
   useEffect(() => {
-    if (!open || estado === 'conectado') return;
+    if (!conectando) return;
     let fallos = 0;
     const poll = setInterval(() => {
       void (async () => {
@@ -175,7 +199,7 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
       })();
     }, 20000);
     return () => { clearInterval(poll); clearInterval(refresh); };
-  }, [open, estado]);
+  }, [conectando, estado]);
 
   // Salud del espejo de mensajes: al abrir el modal ya conectado, verificamos que
   // el webhook esté activo (si no, los chats no aparecen aunque diga "conectado").
@@ -309,7 +333,52 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
           ? `WhatsApp se desvinculó${fechaCaida ? ` el ${fechaCaida}` : ''} — volver a vincular`
           : 'WhatsApp no oficial DESCONECTADO — reconectar';
 
-  return (
+  // ── El número caído se conecta ACÁ, en el lugar de los chats ────────────────
+  // Texto al mínimo a propósito: título, dónde tocar en el celular, y el QR. Todo lo
+  // demás (sincronizar, desconectar, salud del espejo) es para un número YA conectado y
+  // vive en el modal de gestión, que se abre tocando la tab.
+  if (inline) {
+    if (!visible) return null;                 // setter/closer: sin permiso, sin panel
+    // Conectado: sigue el render normal (sin chip), que es el que trae el modal de GESTIÓN
+    // —sincronizar, borrar historial, desconectar— y se abre tocando la tab.
+    if (conectado) return renderNormal();
+    if (!panelVisible) return null;            // otra tab a la vista: sondea, no dibuja
+    return (
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px' }}>
+        <div style={{ textAlign: 'center', maxWidth: '360px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--ink)' }}>Conecta tu WhatsApp</div>
+          {caida?.desvinculado && (
+            // El único texto que se agrega al mínimo, y es el que evita el «no entiendo, mi
+            // teléfono anda bien»: nombra el hecho del mundo del dueño, no nuestro estado.
+            <div style={{ fontSize: '13px', color: 'var(--warn)', marginTop: '4px' }}>
+              WhatsApp cerró la sesión{fechaCaida ? ` el ${fechaCaida}` : ''}. Tu teléfono está bien.
+            </div>
+          )}
+          <div style={{ fontSize: '13.5px', color: 'var(--dim)', marginTop: '6px' }}>
+            En tu celular: <strong style={{ color: 'var(--ink)' }}>Dispositivos vinculados → Vincular dispositivo</strong>
+          </div>
+          <div style={{ width: '260px', height: '260px', margin: '18px auto 0', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {caido ? (
+              <span style={{ fontSize: '13px', color: 'var(--bad)', padding: '0 16px' }}>El servicio de WhatsApp no responde ahora mismo.</span>
+            ) : busy && !qr ? (
+              <span style={{ fontSize: '13px', color: 'var(--dim)' }}>Generando QR…</span>
+            ) : qr?.base64 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qr.base64} alt="QR de WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <span style={{ fontSize: '13px', color: 'var(--faint)' }}>Sin QR</span>
+            )}
+          </div>
+          <button onClick={() => void abrir()} disabled={busy} style={{ marginTop: '12px', padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>↻ Nuevo QR</button>
+          {!configurado && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--warn)' }}>El WhatsApp no oficial no está configurado en el servidor.</div>}
+          {err && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--bad)' }}>{err}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  function renderNormal() {
+    return (
     <>
       {confirmNode}
       {!ocultarChip && <button onClick={() => { setOpen(true); if (!conectado) void abrir(); }} style={chipStyle}
@@ -413,5 +482,8 @@ export function EvolutionConnect({ onEstado, ocultarChip = false, abierto, onAbi
         </div>
       )}
     </>
-  );
+    );
+  }
+
+  return renderNormal();
 }

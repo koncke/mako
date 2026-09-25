@@ -412,6 +412,19 @@ select {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232, 176, 7, 0.6); }
   50% { opacity: 0.4; box-shadow: 0 0 0 6px rgba(232, 176, 7, 0); }
 }
+/* Aviso de una tab cuyo canal no manda nada. Late en el BORDE y la sombra, nunca en la
+   opacidad: animar la opacidad del botón bajaba la etiqueta a 1,75:1 sobre el fondo claro,
+   o sea que para leerla había que esperar al pulso. Con movimiento reducido se queda en rojo
+   fijo, que dice exactamente lo mismo sin moverse. */
+.mk-tab-alarma { animation: mkTabAlarma 1.5s ease-in-out infinite; }
+@keyframes mkTabAlarma {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(207, 78, 41, 0.55); border-color: var(--bad); }
+  50% { box-shadow: 0 0 0 5px rgba(207, 78, 41, 0); border-color: rgba(207, 78, 41, 0.45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mk-tab-alarma { animation: none; box-shadow: 0 0 0 2px rgba(207, 78, 41, 0.25); }
+}
+
 @keyframes blinkRed {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(207, 78, 41, 0.65); }
   50% { opacity: 0.45; box-shadow: 0 0 0 6px rgba(207, 78, 41, 0); }

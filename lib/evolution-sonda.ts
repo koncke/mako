@@ -70,14 +70,21 @@ export function veredictoSondeo(r: { ok: boolean; status?: number; error?: strin
  * dueño no tiene forma de saber que lo que hace falta es borrarla y crearla de nuevo. Medido
  * el 25/09/2026: la línea de un cliente llevaba 22 días así.
  *
- * `abierta` es el corte que hace que esto sea seguro: si la sesión está CONECTADA, pedir un
- * QR tampoco devuelve uno (no hace falta) — y rotar ahí destruiría una sesión que anda.
+ * Dos cortes la hacen segura, y los dos son para NO borrar:
+ *  · `abierta` — si la sesión está conectada, pedir un QR tampoco devuelve uno (no hace
+ *    falta), y rotar ahí le borraría el WhatsApp a un cliente que está trabajando.
+ *  · `desvinculada` — el 403/401 es lo ÚNICO que distingue una zombi de una instancia que
+ *    está esperando que alguien escanee. Las dos dicen `connecting` y las dos pueden no
+ *    devolver QR por un instante. Sin este corte, abrir la tab dos veces durante el pairing
+ *    borraba el QR que el dueño tenía en la mano — que es justo el momento en que más mira
+ *    la pantalla.
  *
  * Pura: decide si se borra la línea de WhatsApp de un cliente, así que no puede quedarse
  * sin test.
  */
-export function hayQueRecrear(p: { abierta: boolean; qrBase64: string | null | undefined; conectarOk: boolean }): boolean {
+export function hayQueRecrear(p: { abierta: boolean; desvinculada: boolean; qrBase64: string | null | undefined; conectarOk: boolean }): boolean {
   if (p.abierta) return false;                 // anda: no se toca
+  if (!p.desvinculada) return false;           // pairing en curso o corte pasajero: tampoco
   if (!p.conectarOk) return true;              // Evolution rechazó el connect sobre una sesión muerta
   return !p.qrBase64;                          // contestó, pero sin QR: zombi
 }

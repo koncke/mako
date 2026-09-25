@@ -165,7 +165,7 @@ type CreateResp = {
   instance?: { instanceName?: string; instanceId?: string; status?: string };
   qrcode?: { base64?: string; code?: string; pairingCode?: string | null };
 };
-type ConnectResp = { base64?: string; code?: string; pairingCode?: string | null; instance?: unknown; count?: number };
+type ConnectResp = { base64?: string; code?: string; pairingCode?: string | null; instance?: { state?: string; status?: string } | unknown; count?: number };
 type StateResp = { instance?: { instanceName?: string; state?: string } };
 
 function mapEstado(state: string | undefined): EstadoConexion {
@@ -251,8 +251,18 @@ export async function conectar(): Promise<{ ok: true; qr: QrData; estado: Estado
   // que se dibujaba detrás del modal. Ahora la app lo hace sola, y SOLO en el caso seguro
   // (ver `hayQueRecrear`: una sesión ABIERTA no se toca nunca).
   const fila = (Array.isArray(existe.data) ? existe.data : []).find((i) => (i.name ?? i.instanceName) === instance);
-  const abierta = String(fila?.connectionStatus ?? fila?.status ?? '') === 'open';
-  if (hayQueRecrear({ abierta, qrBase64: c.ok ? c.data.base64 : null, conectarOk: c.ok })) {
+  // ⚠️ `existe` es una foto de DOS round-trips antes (en el medio van setWebhook, setSettings y
+  // el propio connect): entre esa foto y este if, alguien pudo escanear y la sesión estar
+  // ABIERTA. Por eso manda lo que diga el connect que acabamos de hacer, y la foto solo se usa
+  // cuando el connect no dice nada del estado.
+  const estadoConnect = String(((c.ok ? (c.data.instance as { state?: string; status?: string } | undefined) : undefined)?.state
+    ?? (c.ok ? (c.data.instance as { state?: string; status?: string } | undefined) : undefined)?.status) ?? '');
+  const abierta = estadoConnect ? estadoConnect === 'open' : String(fila?.connectionStatus ?? fila?.status ?? '') === 'open';
+  // El 403/401 de Baileys es «WhatsApp cerró la sesión»: es lo único que distingue una zombi
+  // de una instancia que está esperando el escaneo. Las dos dicen `connecting`.
+  const codigoCaida = Number(fila?.disconnectionReasonCode ?? 0);
+  const desvinculada = codigoCaida === 403 || codigoCaida === 401;
+  if (hayQueRecrear({ abierta, desvinculada, qrBase64: c.ok ? c.data.base64 : null, conectarOk: c.ok })) {
     // Logout + delete SIN `revertirEstadoNoOficial`: esto es RE-VINCULAR la misma línea, no
     // desvincularla — mandar al cliente de vuelta al onboarding sería otro problema.
     await evFetch(`/instance/logout/${encodeURIComponent(instance)}`, { method: 'DELETE' }).catch(() => undefined);

@@ -99,7 +99,7 @@ function preview(c: Conv): string {
 const last10 = (tel: string | null) => (tel || '').replace(/\D/g, '').slice(-10);
 function leerLeido(): Record<string, number> { try { const raw = localStorage.getItem(LEIDO_KEY); return raw ? (JSON.parse(raw) as Record<string, number>) : {}; } catch { return {}; } }
 
-export function EmpresaInbox() {
+export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean } = {}) {
   const { setOpenChatNoOficial } = useNotifications();
   const { confirm, confirmNode } = useConfirm();
   const router = useRouter();
@@ -717,7 +717,7 @@ export function EmpresaInbox() {
               mensajes={msgs.map((m) => ({ saliente: m.fromMe, texto: m.texto }))}
               ventanaAbierta={true}
               onUsar={(t) => setDraft((d) => (d.trim() ? `${d.replace(/\s+$/, '')}\n\n${t}` : t))}
-              onRedactarPlantilla={() => router.push(`/chatbot?stab=plantillas&n=${Date.now()}`)}
+              onRedactarPlantilla={puedeChatbot ? () => router.push(`/chatbot?stab=plantillas&n=${Date.now()}`) : undefined}
               quickTemplates={QUICK}
             />
           </>

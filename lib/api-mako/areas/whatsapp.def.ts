@@ -145,7 +145,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'estado_envio_whatsapp', area: 'whatsapp', tipo: 'lectura',
     titulo: 'Interruptor de envío real',
-    descripcion: 'Si el interruptor «Envío real» de WhatsApp del negocio está prendido (decide si el motor de nutrición manda de verdad o simula) y qué transporte hay: oficial (Chatwoot) y de empresa (según la fila guardada, que puede estar desactualizada; el dato medido es estado_canal_whatsapp_empresa). No gobierna lo que una persona manda a mano.',
+    descripcion: 'Si el interruptor «Chatbot» de la tab WhatsApp está prendido (decide si el motor de nutrición manda de verdad o simula) y qué transporte hay: oficial (Chatwoot) y de empresa (según la fila guardada, que puede estar desactualizada; el dato medido es estado_canal_whatsapp_empresa). No gobierna lo que una persona manda a mano.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis',
     gating: { tab: 'whatsapp', rolMinimo: 'admin' },
@@ -461,7 +461,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'prender_envio_whatsapp', area: 'whatsapp', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Prender o apagar el envío real',
-    descripcion: 'Prende o apaga el interruptor «Envío real» de WhatsApp: con ON, toda secuencia de nutrición activa manda mensajes de verdad (y las plantillas oficiales las cobra Meta). Prender exige un número conectado. Solo el administrador, en pantalla.',
+    descripcion: 'Prende o apaga el interruptor «Chatbot» de la tab WhatsApp: con ON, toda secuencia de nutrición activa manda mensajes de verdad (y las plantillas oficiales las cobra Meta). Prender exige un número conectado. Solo el administrador, en pantalla.',
     escribe: 'app_settings.envio_whatsapp_enabled del negocio',
     parametros: [{ nombre: 'on', tipo: 'boolean', obligatorio: true, descripcion: 'true prende el envío real, false lo apaga.' }],
     canales: APP, costo: 'dinero',

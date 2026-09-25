@@ -3072,7 +3072,7 @@ curl -s "https://hola-mako.com/api/v1/whatsapp/variables_plantilla" -H "Authoriz
 
 ### `GET /api/v1/whatsapp/estado_envio_whatsapp` — Interruptor de envío real
 
-Si el interruptor «Envío real» de WhatsApp del negocio está prendido (decide si el motor de nutrición manda de verdad o simula) y qué transporte hay: oficial (Chatwoot) y de empresa (según la fila guardada, que puede estar desactualizada; el dato medido es estado_canal_whatsapp_empresa). No gobierna lo que una persona manda a mano.
+Si el interruptor «Chatbot» de la tab WhatsApp está prendido (decide si el motor de nutrición manda de verdad o simula) y qué transporte hay: oficial (Chatwoot) y de empresa (según la fila guardada, que puede estar desactualizada; el dato medido es estado_canal_whatsapp_empresa). No gobierna lo que una persona manda a mano.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json

@@ -115,6 +115,8 @@ function ChatAgentInner() {
   const [vista, setVista] = useState<'whatsapp' | 'email' | 'plantillas' | 'dashboard'>('whatsapp');
   // ?tpl=<nombre>: el aviso manda a UNA plantilla (ej. la que Meta rechazo).
   const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null);
+  // Lo que el asesor del inbox venía diciendo y se perdía al cambiar de pantalla.
+  const [plantillaSeed, setPlantillaSeed] = useState<{ objetivo: string; etapa: string } | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
   const [emailSecuenciaId, setEmailSecuenciaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
@@ -209,11 +211,26 @@ function ChatAgentInner() {
   // cuidado que `lastSearchRef` en /whatsapp.
   const params = useSearchParams();
   const anclaAplicada = useRef(false);
+  // ⚠️ El ancla se aplicaba UNA sola vez por montaje, y el App Router NO remonta el client
+  // component al cambiar el query: estando ya en /chatbot, el segundo aviso de plantilla
+  // rechazada no hacía nada. Se compara la query entera, como en /whatsapp.
+  const ultimaQuery = useRef('');
   useEffect(() => {
-    if (anclaAplicada.current) return;
+    const q = params.toString();
+    const cambio = q !== ultimaQuery.current;
+    ultimaQuery.current = q;
+    if (anclaAplicada.current && !cambio) return;
     const stab = params.get('stab');
     if (stab === 'whatsapp' || stab === 'email' || stab === 'plantillas' || stab === 'dashboard') setVista(stab);
-    if (stab === 'plantillas') setPlantillaTarget(params.get('tpl'));
+    if (stab === 'plantillas') {
+      setPlantillaTarget(params.get('tpl'));
+      // El asesor del inbox manda su diagnóstico (objetivo + etapa) para que MaKo redacte
+      // la plantilla con eso. Sin esto, «redactar plantilla con MaKo» abría el redactor
+      // vacío y el diagnóstico se tiraba a la basura.
+      const obj = params.get('obj');
+      const etapa = params.get('etapa');
+      setPlantillaSeed(obj || etapa ? { objetivo: obj ?? '', etapa: etapa ?? '' } : null);
+    }
 
     const sec = params.get('sec');
     if (!sec) { anclaAplicada.current = true; return; }
@@ -383,6 +400,13 @@ function ChatAgentInner() {
 
       {/* La biblioteca de audios no depende de que existan secuencias. */}
 
+      {/* Las plantillas de Meta TAMPOCO: vienen de /whatsapp, donde se montaban sueltas. Un
+          workspace sin secuencias (o que apretó «Archivar todas») tocaba «Plantillas» y no
+          se pintaba nada — un botón que no hace nada es peor que no tenerlo. */}
+      {vista === 'plantillas' && (
+        <PlantillasPanel initialSelect={plantillaTarget} makoSeed={plantillaSeed} onMakoSeedApplied={() => setPlantillaSeed(null)} />
+      )}
+
       {secuencias !== null && secuencias.length > 0 && (
         <>
           {vista === 'whatsapp' && (
@@ -409,10 +433,6 @@ function ChatAgentInner() {
                 <SimuladorEmail secuencia={emailSecuencia} nombreNegocio={negocio} />
               </div>
             </div>
-          )}
-
-          {vista === 'plantillas' && (
-            <PlantillasPanel initialSelect={plantillaTarget} onMakoSeedApplied={() => setPlantillaTarget(null)} />
           )}
 
           {vista === 'dashboard' && (

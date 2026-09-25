@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (body.on === true) {
       const estado = await estadoActual();
       if (!estado.oficialConectado && !estado.evolutionConectado) {
-        return Response.json({ ok: false, error: 'Primero conecta un número de WhatsApp (API oficial o el número de empresa).' }, { status: 400 });
+        return Response.json({ ok: false, error: 'Primero conecta un número de WhatsApp: el Oficial o el No Oficial.' }, { status: 400 });
       }
     }
     await setEnvioWhatsapp(body.on === true);

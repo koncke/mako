@@ -50,7 +50,8 @@ export function WhatsAppAdvisor({
   mensajes: WaMsgLite[];
   ventanaAbierta: boolean;
   onUsar: (texto: string) => void;
-  onRedactarPlantilla: (seed?: { objetivo: string; etapa: string }) => void;
+  /** Sin esto, el botón no se dibuja: un rol que no puede abrir /chatbot no tiene a dónde ir. */
+  onRedactarPlantilla?: (seed?: { objetivo: string; etapa: string }) => void;
   quickTemplates: string[];
 }) {
   const [tab, setTab] = useState<'consejo' | 'chat'>('consejo');
@@ -196,7 +197,7 @@ export function WhatsAppAdvisor({
 
               {!ventanaAbierta && (
                 <button
-                  onClick={() => onRedactarPlantilla({
+                  onClick={() => onRedactarPlantilla?.({
                     objetivo: `Reactivar a ${grupo.contacto}. ${rec.diagnostico}`,
                     etapa: ['pidio_info', 'vio_propuesta', 'objecion', 'frio', 'depuracion'].includes(rec.etapa) ? rec.etapa : 'frio',
                   })}

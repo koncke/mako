@@ -1237,7 +1237,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
             Meta revisa cada mensaje de apertura antes de dejarte usarlo (tarda de minutos a unas horas). Como ya escribiste tus secuencias de mensajes, mando una de esas a aprobar en vez de inventar una nueva.
           </div>
           <div style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-            Se manda desde la sub-tab <strong style={{ color: 'var(--ink)' }}>Plantillas</strong> de WhatsApp, o desde el paso de MaKo de cada secuencia de mensajes. Mientras Meta no apruebe, el motor no manda ese paso — nunca sale un mensaje que Meta rechazaría.
+            Se manda desde la sub-tab <strong style={{ color: 'var(--ink)' }}>Plantillas</strong> de esta misma tab, o desde el paso de MaKo de cada secuencia de mensajes. Mientras Meta no apruebe, el motor no manda ese paso — nunca sale un mensaje que Meta rechazaría.
           </div>
         </div>
       )}

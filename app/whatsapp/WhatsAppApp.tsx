@@ -209,16 +209,16 @@ function etapaChip(key: string | null, label: string | null): { style: CSSProper
 // Componente
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function WhatsAppApp() {
+export function WhatsAppApp({ puedeChatbot = true }: { puedeChatbot?: boolean }) {
   // useSearchParams (deep-link ?chat=) exige un boundary de Suspense en la página.
   return (
     <Suspense fallback={null}>
-      <WhatsAppInner />
+      <WhatsAppInner puedeChatbot={puedeChatbot} />
     </Suspense>
   );
 }
 
-function WhatsAppInner() {
+function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
   // La tab es SOLO conversaciones: las secuencias viven en /chatbot, que lee las mismas
   // filas de `nutricion_secuencias`. Tener el mismo tablero en dos pantallas era la
   // forma mas facil de que una quedara vieja.
@@ -295,13 +295,22 @@ function WhatsAppInner() {
   // sabe todavía, y con `null` acá NO se acusa nada: es la misma regla de tres
   // estados que ese chip aplica adentro. Ver el ⚠️ del rótulo «Envío real».
   const [canalNoOficial, setCanalNoOficial] = useState<'desconectado' | 'conectando' | 'conectado' | 'error' | null>(null);
-  const canalCaido = canalNoOficial === 'desconectado';
+  const [caidaNoOficial, setCaidaNoOficial] = useState<{ desvinculado: boolean; fecha: string | null } | null>(null);
+  const onEstadoNoOficial = useCallback((e: 'desconectado' | 'conectando' | 'conectado' | 'error' | null, c?: { desvinculado: boolean; fecha: string | null }) => {
+    setCanalNoOficial(e);
+    setCaidaNoOficial(c ?? null);
+  }, []);
   /**
-   * ⚠️ `null` (todavia no se sabe) NO titila. Es la regla de los tres estados que este
-   * repo ya aprendio a la mala con el chip viejo: entre que carga la pantalla y contesta
-   * el sondeo, afirmar «caido» seria una falsa alarma roja en cada F5.
+   * UN SOLO predicado para «este número no manda nada», y lo usan el botón que titila y el
+   * chip del interruptor. Estaban separados y se contradecían en pantalla: el botón en rojo
+   * al lado del chip verde diciendo «Chatbot: ON».
+   *
+   * ⚠️ 'error' (no se pudo comprobar) NO acusa: es el `null` de la regla de tres estados. Un
+   * 500 de nuestra propia API pintaba de rojo un canal sano. Y 'conectando' SÍ acusa cuando
+   * WhatsApp desvinculó el dispositivo: esa sesión se queda en `conectando` para siempre.
    */
-  const noOficialOk = canalNoOficial == null || canalNoOficial === 'conectado';
+  const canalCaido = canalNoOficial === 'desconectado' || (canalNoOficial === 'conectando' && caidaNoOficial?.desvinculado === true);
+  const noOficialOk = !canalCaido;
   const [envioAdmin, setEnvioAdmin] = useState(false);
   const [envioBusy, setEnvioBusy] = useState(false);
   const [envioErr, setEnvioErr] = useState<string | null>(null);
@@ -364,32 +373,6 @@ function WhatsAppInner() {
       } catch { /* sin toggle */ }
     })();
   }, []);
-
-  /**
-   * Entrar a un canal CAÍDO abre su pantalla de conexión (en el no oficial, el QR grande).
-   *
-   * Va en un efecto y no en el onClick del botón a propósito: cuando se entra, el sondeo
-   * puede no haber contestado todavía (`null` = no se sabe), así que el clic leería un
-   * estado viejo y no abriría nada. Acá se dispara también cuando la respuesta llega, y
-   * cubre el deep-link `?canal=empresa` y la carga directa de la tab.
-   *
-   * El `ref` es para no reabrirlo cada vez que el polling revalida: si el dueño lo cerró
-   * para mirar los chats viejos, se queda cerrado hasta que cambie de canal.
-   */
-  const avisoNoOficial = useRef(false);
-  useEffect(() => {
-    if (canal !== 'empresa' || noOficialOk) { avisoNoOficial.current = false; return; }
-    if (avisoNoOficial.current) return;
-    avisoNoOficial.current = true;
-    setModalNoOficial(true);
-  }, [canal, noOficialOk]);
-  const avisoOficial = useRef(false);
-  useEffect(() => {
-    if (canal !== 'oficial' || !oficialProblema) { avisoOficial.current = false; return; }
-    if (avisoOficial.current) return;
-    avisoOficial.current = true;
-    setModalOficial(true);
-  }, [canal, oficialProblema]);
 
   // Al salir de /whatsapp, ningún chat queda "abierto" → el provider vuelve a
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
@@ -862,7 +845,11 @@ function WhatsAppInner() {
   const oficialUnread = contactos.reduce((s, c) => s + c.sinLeer, 0);
   // El boton ES el indicador. `blinkRed` ya es el tintineo de alarma del resto de la app
   // (cuotas vencidas, datos sin marcar): misma senal, mismo significado.
-  const avisoRojo: CSSProperties = { animation: 'blinkRed 1.4s infinite', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' };
+  // El aviso va por CLASE, no por `animation` inline: `blinkRed` anima la OPACIDAD y dejaba
+  // la etiqueta en 1,75:1 sobre el fondo claro, y encima `prefers-reduced-motion` no lo
+  // podia apagar. `mk-tab-alarma` late en el borde y la sombra, y con movimiento reducido
+  // se queda quieta en rojo fijo — que sigue diciendo lo mismo.
+  const avisoRojo: CSSProperties = { border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' };
   const badgeCanal: CSSProperties = { minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--bad)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
   const chipBtn = (active: boolean): CSSProperties => ({ padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
@@ -878,7 +865,6 @@ function WhatsAppInner() {
                 componentes siguen montados porque aca viven el sondeo, el QR y la
                 reparacion del espejo — sin ellos la tab no sabria si el canal esta vivo. */}
             <ChatwootWebhookChip ocultarChip abierto={modalOficial} onAbierto={setModalOficial} onSalud={setOficialProblema} />
-            <EvolutionConnect ocultarChip abierto={modalNoOficial} onAbierto={setModalNoOficial} onEstado={setCanalNoOficial} />
             {envioAdmin && envioWaOn != null && (
               <button onClick={() => void toggleEnvioWa()} disabled={envioBusy} aria-pressed={envioWaOn}
                 title={
@@ -908,13 +894,15 @@ function WhatsAppInner() {
             El boton ES el indicador: titila en rojo cuando ese canal esta caido, y al
             entrar se abre su pantalla de conexion (el QR grande, en el no oficial). */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-          <button onClick={() => setCanal('oficial')}
-            title={oficialProblema ? 'La detección de respuestas del WhatsApp oficial no está activa — entra para arreglarla' : 'Número oficial de Meta: el verificado, para el tráfico frío de los anuncios'}
+          <button onClick={() => { if (canal === 'oficial' && oficialProblema) setModalOficial(true); else setCanal('oficial'); }}
+            title={oficialProblema ? 'La detección de respuestas no está activa — toca para arreglarla' : 'Número oficial de Meta: el verificado, para el tráfico frío de los anuncios'}
+            className={oficialProblema ? 'mk-tab-alarma' : undefined}
             style={{ ...(canal === 'oficial' ? tabActive : tabIdle), ...(oficialProblema ? avisoRojo : null), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}
           </button>
-          <button onClick={() => setCanal('empresa')}
-            title={noOficialOk ? 'Número no oficial (por QR): el que usa el chatbot' : 'Tu WhatsApp no oficial está desconectado: el chatbot no manda nada. Entra para volver a vincularlo.'}
+          <button onClick={() => { if (canal === 'empresa' && canalNoOficial === 'conectado') setModalNoOficial(true); else setCanal('empresa'); }}
+            title={noOficialOk ? 'El número que usa el chatbot. Tócalo de nuevo para sincronizar, desconectar o borrar el historial.' : 'Tu WhatsApp no oficial está desconectado: el chatbot no manda nada. Entra para volver a vincularlo.'}
+            className={noOficialOk ? undefined : 'mk-tab-alarma'}
             style={{ ...(canal === 'empresa' ? tabActive : tabIdle), ...(noOficialOk ? null : avisoRojo), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             No Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}
           </button>
@@ -922,7 +910,15 @@ function WhatsAppInner() {
       </header>
 
       {/* ============= CONVERSACIONES — EMPRESA (no oficial, espejo en DB) ============= */}
-      {canal === 'empresa' && <EmpresaInbox />}
+      {/* Canal no oficial: o la bandeja, o la pantalla de conexión EN SU LUGAR. Nunca un
+          pop-up encima de los chats: el que entra rápido lo cierra y se queda sin saber
+          que el número no manda nada. El componente queda montado siempre —también con la
+          otra tab a la vista— porque de él sale el estado que hace titilar el botón. */}
+      <EvolutionConnect inline panelVisible={canal === 'empresa'} abierto={modalNoOficial} onAbierto={setModalNoOficial} onEstado={onEstadoNoOficial} />
+      {/* La bandeja y el panel de conexión son excluyentes, y el corte es CONECTADO, no
+          «no está caído»: con el número a medio vincular manda la pantalla del QR.
+          Mientras no se sabe (null) se muestra la bandeja: el panel todavía no existe. */}
+      {canal === 'empresa' && (canalNoOficial == null || canalNoOficial === 'conectado') && <EmpresaInbox puedeChatbot={puedeChatbot} />}
 
       {/* ============= CONVERSACIONES — BOT OFICIAL (Chatwoot) ============= */}
       {canal === 'oficial' && (
@@ -1194,7 +1190,7 @@ function WhatsAppInner() {
                 mensajes={mensajes}
                 ventanaAbierta={ventanaAbierta}
                 onUsar={(t) => setDraft(draft.trim() ? `${draft.replace(/\s+$/, '')}\n\n${t}` : t)}
-                onRedactarPlantilla={() => router.push('/chatbot?stab=plantillas')}
+                onRedactarPlantilla={puedeChatbot ? (seed) => router.push(`/chatbot?stab=plantillas${seed ? `&obj=${encodeURIComponent(seed.objetivo)}&etapa=${encodeURIComponent(seed.etapa)}` : ''}`) : undefined}
                 quickTemplates={QUICK}
               />
             ) : (
