@@ -104,9 +104,18 @@ export function DependenciasBloque({ entidad, id, deps, candidatos, impacto, onA
         )}
       </div>
 
+      {/* EL VACÍO, EN UNA LÍNEA. «En lugar de "Nada la frena y no frena nada. Se puede
+          empezar hoy." simplemente "No depende de ninguna tarea"» (25/09/2026). Lo que
+          se fue es la segunda mitad —que ESTO tampoco frena a nadie— y la conclusión
+          («se puede empezar hoy»), que el vacío ya dice solo.
+
+          ⚠️ EL SUSTANTIVO LO DECIDE `entidad`, no se escribe fijo: este componente es UNO
+          para los dos niveles y los candidatos de un proyecto son PROYECTOS. «No depende
+          de ninguna tarea» en el detalle de un proyecto sería falso sobre lo único que la
+          frase afirma. */}
       {espera.length === 0 && destraba.length === 0 && !abriendo && (
         <div style={{ fontSize: 12.5, color: 'var(--faint)', paddingBottom: 4 }}>
-          Nada la frena y no frena nada. {entidad === 'proyecto' ? 'Se puede arrancar cuando quieras.' : 'Se puede empezar hoy.'}
+          No depende de {entidad === 'proyecto' ? 'ningún proyecto' : 'ninguna tarea'}
         </div>
       )}
 
@@ -168,9 +177,12 @@ export function DependenciasBloque({ entidad, id, deps, candidatos, impacto, onA
           )}
           {error && <div style={{ fontSize: 12.5, color: 'var(--bad, #C0392B)', marginBottom: 8 }}>{error}</div>}
 
-          {/* `wrap` porque este bloque se mudó a la columna derecha del detalle (280px) el
-              25/09: sin él los dos botones encogen y parten su propia etiqueta en dos
-              renglones. Un layout se prueba con el ancho más angosto donde va a vivir. */}
+          {/* `wrap` porque este bloque vive en la columna derecha de los DOS detalles
+              (`COL_DER` en BoardShell.tsx, 264px desde el 25/09 — el número sale de medir
+              justo el botón más largo de acá abajo): sin él los dos botones encogen y
+              parten su propia etiqueta en dos renglones. Un layout se prueba con el ancho
+              más angosto donde va a vivir, y acá el `wrap` es la red por si el cálculo
+              falla por unos píxeles. */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {/* Cada botón nombra su acción y su objeto — nada de «Aceptar» / «Cancelar». */}
             <button disabled={!elegido || guardando} onClick={() => void guardar()}

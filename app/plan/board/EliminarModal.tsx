@@ -55,7 +55,19 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, onBorrar, onCompletar
   const borrar = () => { onBorrar(motivo.trim().slice(0, 80) || 'sin motivo'); onClose(); };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+    // ⚠️ POR ENCIMA DE LA PILA DE MODALES, NO ADENTRO DE ELLA. Estaba en 130, que es
+    // exactamente `Z_BASE` de `app/_components/pila-modales.ts`: alcanzaba mientras esto se
+    // abriera desde el PRIMER modal de la pila, y cada nivel suma 2. Con el detalle de una
+    // tarea abierto (130) y el de su proyecto espiado encima (132), el tacho de una fila
+    // pedía confirmación DETRÁS del modal que la abrió — sin cartel, sin fondo oscuro y sin
+    // ninguna pista: se lee como un botón que no hace nada. El camino se abrió el 25/09 al
+    // pasarle `onEliminarTask` al detalle del proyecto («falta el botón de basura en la
+    // vista de tabla»), y ya existía desde antes por la tarea abierta DESDE un proyecto.
+    // 3400 es el mismo razonamiento que `Z_CONFIRM` (app/_ui/Confirm.tsx: 3500, arriba de
+    // los modales escritos a mano que eligen su z solos), un escalón abajo para que una
+    // pregunta del sistema siga pudiendo taparla. No se suma a la pila a propósito:
+    // preguntar «¿seguro?» escondiendo lo que estás por borrar sería absurdo.
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3400, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 470, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ padding: '20px 22px 4px' }}>
           <div style={{ fontSize: 16.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>

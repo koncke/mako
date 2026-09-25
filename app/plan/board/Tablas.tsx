@@ -22,12 +22,26 @@
 // más… esto me da mucha claridad de qué es lo que tengo que priorizar» (25/09/2026). Por
 // eso la pasada de ese día fue sacar, no agregar: el mismo dato dicho una sola vez, un
 // ícono en vez de una palabra, y la columna del ID afuera.
+//
+// ⚠️ ES TAMBIÉN LA LISTA DE TAREAS DE UN PROYECTO, y por eso `TablaTareas` es UNA sola
+// para las dos pantallas: «dos pantallas que muestran lo mismo se ven igual». Lo que
+// cambia entre las dos son dos props, y las dos existen para no reimplementar nada:
+//   · `ocultarProyecto` — adentro de un proyecto esa columna repite el mismo nombre en
+//     todas las filas, así que no se dibuja y el `minWidth` baja con ella (a
+//     `ANCHO_TABLA_EN_PROYECTO`, que sale de la geometría del modal y vive en ./piezas).
+//     Sin eso, la tabla declaraba 720px en una columna de ~500 y era scroll horizontal
+//     SIEMPRE.
+//   · `onEliminar` — el tacho de la fila. Abre la pregunta de dos botones de quien llama;
+//     sin la prop, la fila no lo dibuja (un control que no se puede cumplir no se pinta).
+// Quien la USA no reimplementa nada de lo que la tabla hace: ni el desplegable de las
+// completadas (`FilaPlegada`, que pide que le pasen TODAS las tareas juntas), ni el tinte
+// del deadline, ni el orden. Dos copias de esto divergen a la primera corrección.
 // =============================================================================
 
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
-import { fechaConDia, diasHasta, plazoTexto } from './piezas';
+import { fechaConDia, diasHasta, plazoTexto, IconoTacho, ANCHO_TABLA_EN_PROYECTO } from './piezas';
 import { usePref, esUnoDe } from './prefs';
 import { AccionesLote } from './AccionesLote';
 import { ScoreIcon } from './guardian-form';
@@ -43,10 +57,22 @@ type OrdenTarea = 'deadline' | 'score' | 'proyecto' | 'num';
 // permite (una BARRA DE NAVEGACIÓN no scrollea; una tabla sí). Sin esto, con el zoom al
 // 150% la tabla empuja el ancho del documento entero y se lleva puesto el header.
 const cajaStyle: CSSProperties = { width: '100%', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' };
-const tablaStyle: CSSProperties = { width: '100%', minWidth: 720, borderCollapse: 'collapse', fontFamily: SANS, fontSize: 13.5 };
+// ⚠️ EL `minWidth` NO ES UNA CONSTANTE: lo pasa cada tabla, porque lo que necesita depende
+// de las columnas que DIBUJA y de DÓNDE se dibuja. Los 720 de antes eran los de la tabla
+// completa a lo ancho de la pantalla, y adentro del detalle de un proyecto —una columna de
+// ~500px— eso era scroll horizontal SIEMPRE, con «Proyecto» cortada al medio. «Intenta
+// evitar al MÁXIMO el scroll» (25/09/2026). La barra NO se esconde (`scrollbar-width: none`
+// está prohibido en los dos ejes): el objetivo es que no haga falta, no taparla.
+// El número de adentro de un proyecto es `ANCHO_TABLA_EN_PROYECTO` (./piezas) y NO se
+// escribe acá: depende del ancho de la columna derecha del modal, que vive en otro archivo.
+const tablaStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontFamily: SANS, fontSize: 13.5 };
 const thBase: CSSProperties = { textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '10px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap' };
 const tdBase: CSSProperties = { padding: '9px 12px', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' };
-const fechaInput: CSSProperties = { width: 138, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS };
+// 126 y no 138: un `input type=date` a 12.5px dibuja «dd/mm/aaaa» (~62px) más el ícono del
+// calendario (~18px); lo demás era hueco, y ese hueco se pagaba en scroll.
+const fechaInput: CSSProperties = { width: 126, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS };
+/** El botón de una acción de fila: un ícono, sin rótulo, con el nombre en `title`. */
+const accionBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flex: 'none', padding: 0, border: 'none', background: 'transparent', borderRadius: 7, cursor: 'pointer' };
 
 function Th({ children, orden, activo, dir, onSort, ancho }: { children: ReactNode; orden?: string; activo?: boolean; dir?: 'asc' | 'desc'; onSort?: () => void; ancho?: number }) {
   if (!onSort) return <th style={{ ...thBase, width: ancho }}>{children}</th>;
@@ -144,15 +170,34 @@ function Barra({ pct, color }: { pct: number; color: string }) {
   return <span style={{ display: 'block', width: 56, height: 5, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: Math.max(0, Math.min(100, pct)) + '%', background: color }} /></span>;
 }
 
-/** La fila que pliega lo terminado. Se ve el número; lo que hay adentro, a un click. */
+/**
+ * La fila que pliega lo terminado. Se ve el número; lo que hay adentro, a un click.
+ *
+ * ⚠️ ES UNA FILA MÁS DE LA MISMA TABLA, NO OTRA TABLA. «Que las "18 completadas"
+ * simplemente sea otra fila más de una ÚNICA tabla, y al clickearlo ahí aparecen las otras
+ * filas, no otra tabla» (25/09/2026). Por eso `TablaTareas` recibe TODAS las tareas
+ * —abiertas y terminadas— y las parte ella: dos `<TablaTareas>` una arriba de la otra
+ * dibujan dos encabezados, dos barras de acciones y dos anchos distintos para lo mismo.
+ *
+ * ⚠️ `cols` NO tiene default y se calcula en quien llama. Estuvo hardcodeado en 6, que era
+ * cierto sólo mientras la tabla tuviera siempre las mismas seis columnas; con
+ * `ocultarProyecto` son cinco, y un `colSpan` de más deja la fila desbordando la tabla.
+ */
 function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto: boolean; onToggle: () => void; cols: number; texto: string }) {
   if (n === 0) return null;
+  // Que se ENTIENDA como clickeable: el chevron, el conteo, el `title` que dice la acción
+  // en palabras, `aria-expanded` para quien no ve el chevron, y el fondo que responde al
+  // pasar por encima. Sin eso es un renglón gris que parece un encabezado apagado.
+  const accion = `${abierto ? 'Ocultar' : 'Ver'} ${n} ${texto}`;
   return (
     <tr>
       <td colSpan={cols} style={{ ...tdBase, padding: 0 }}>
-        <button type="button" onClick={onToggle}
-          style={{ width: '100%', textAlign: 'left', border: 'none', background: 'var(--surface-2)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, padding: '9px 12px', cursor: 'pointer' }}>
-          {abierto ? '▾' : '▸'} {n} {texto}
+        <button type="button" onClick={onToggle} title={accion} aria-expanded={abierto}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.color = 'var(--ink)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--dim)'; }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', textAlign: 'left', border: 'none', background: 'var(--surface-2)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, padding: '9px 12px', cursor: 'pointer' }}>
+          <span aria-hidden style={{ flex: 'none', display: 'inline-block', width: 10, fontSize: 10, transform: abierto ? 'rotate(90deg)' : 'none', transition: 'transform .12s ease' }}>▸</span>
+          <span>{n} {texto}</span>
         </button>
       </td>
     </tr>
@@ -228,15 +273,17 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
 
   return (
     <div style={cajaStyle} className="mk-scroll-x">
-      <table style={tablaStyle}>
+      {/* 600 y no 720: son 200 para el nombre + las tres columnas de ancho declarado. El
+          número sale de sumar lo que las columnas necesitan, no de copiar el de al lado. */}
+      <table style={{ ...tablaStyle, minWidth: 600 }}>
         <thead>
           <tr>
             <Th orden="nombre" activo={orden === 'nombre'} dir={dir} onSort={() => sortear('nombre')}>{labelPlural}</Th>
             <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={110}>Prioridad</Th>
             <Th orden="avance" activo={orden === 'avance'} dir={dir} onSort={() => sortear('avance')} ancho={130}>Tareas</Th>
-            {/* 330 era el ancho de cuando la celda decía la fecha tres veces. Con un solo
-                dato, el `input` mide 138 y lo demás era hueco. */}
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={160}>Deadline</Th>
+            {/* 330 era el ancho de cuando la celda decía la fecha tres veces; 160, el de
+                cuando el `input` medía 138. Con un solo dato y el input en 126, son 150. */}
+            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={150}>Deadline</Th>
           </tr>
         </thead>
         <tbody>
@@ -254,7 +301,8 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
+export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar }: {
+  /** TODAS: abiertas Y terminadas. La tabla las separa sola (ver `FilaPlegada`). */
   tareas: BoardTask[];
   board: Board;
   hoy: string;
@@ -262,6 +310,11 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
   onOpenProj?: (id: string) => void;
   /** confirmar lo irreversible (lo trae el board) */
   ask: (msg: string, onOk: () => void) => void;
+  /** dentro de un proyecto la columna Proyecto es siempre la misma: se esconde y la
+   *  tabla baja su minWidth para no scrollear de costado. */
+  ocultarProyecto?: boolean;
+  /** abre la pregunta de borrar. Sin esto, la fila no dibuja el tacho. */
+  onEliminar?: (id: string) => void;
 }) {
   /**
    * LO SELECCIONADO. La casilla de la primera columna SELECCIONA, no completa.
@@ -279,9 +332,21 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
    * que es la única manera de que un mismo control signifique lo mismo en toda la app.
    */
   const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
-  const [orden, setOrden] = usePref<OrdenTarea>('kanban.tabla.orden', 'score', esUnoDe('deadline', 'score', 'proyecto', 'num'));
+  const [ordenPref, setOrden] = usePref<OrdenTarea>('kanban.tabla.orden', 'score', esUnoDe('deadline', 'score', 'proyecto', 'num'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('kanban.tabla.dir', 'desc', esUnoDe('asc', 'desc'));
   const [verHechas, setVerHechas] = useState(false);
+
+  // ⚠️ ORDENAR POR UNA COLUMNA QUE NO SE DIBUJA ES OFRECER UNA INCÓGNITA — es la misma
+  // razón por la que el tooltip de «Tarea» dice «creación» desde que el #ID salió de la
+  // fila. La preferencia se guarda por navegador y es la MISMA de la vista principal, así
+  // que adentro de un proyecto puede llegar puesta en «proyecto», que ahí es una columna
+  // escondida y un criterio constante. Cae al default de la tabla, sin pisar la
+  // preferencia: al volver a la vista completa, su orden sigue donde lo dejó.
+  const orden: OrdenTarea = ocultarProyecto && ordenPref === 'proyecto' ? 'score' : ordenPref;
+  // Con «Proyecto» escondida son cinco columnas, no seis. Se calcula UNA vez y lo usan la
+  // fila plegada y el cartel de «no hay tareas»: un `colSpan` hardcodeado es lo que hacía
+  // desbordar la fila de las completadas.
+  const cols = ocultarProyecto ? 5 : 6;
 
   const sortear = (col: OrdenTarea) => {
     if (col === orden) { setDir(dir === 'asc' ? 'desc' : 'asc'); return; }
@@ -334,15 +399,20 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: hecha ? 'line-through' : 'none', opacity: hecha ? .7 : 1 }}>{t.title}</span>
           </button>
         </td>
-        <td style={tdBase}>
-          {proy && (
-            <button type="button" onClick={() => onOpenProj?.(proy.id)} title={`Abrir «${proy.name}»`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: 190, border: `1px solid ${proy.color}33`, background: proy.color + '14', color: proy.color, borderRadius: 7, padding: '3px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-              <span style={{ flex: 'none' }}>{proy.emoji}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proy.name}</span>
-            </button>
-          )}
-        </td>
+        {/* ⚠️ ADENTRO DE UN PROYECTO ESTA COLUMNA NO SE DIBUJA: son 190px repitiendo el
+            nombre del proyecto que estás mirando en todas las filas, y en la columna
+            principal del detalle (~538px) es la que quedaba cortada al medio. */}
+        {!ocultarProyecto && (
+          <td style={tdBase}>
+            {proy && (
+              <button type="button" onClick={() => onOpenProj?.(proy.id)} title={`Abrir «${proy.name}»`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: 170, border: `1px solid ${proy.color}33`, background: proy.color + '14', color: proy.color, borderRadius: 7, padding: '3px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+                <span style={{ flex: 'none' }}>{proy.emoji}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proy.name}</span>
+              </button>
+            )}
+          </td>
+        )}
         <td style={tdBase}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Score score={t.score} color={c} />
@@ -352,14 +422,33 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
         <td style={tdBase}>
           <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />
         </td>
-        {/* EL ESTADO, y se cambia desde acá: «otra columna para cambiar el estado»
-            (25/09/2026). En este tablero el estado de una tarea es uno solo —activa o
-            completada, que es lo que filtra el botón «Filtrar»—, así que la columna no
-            inventa un tercer valor: es el check, que lo muestra y lo cambia en un click.
-            Va última y separada de la casilla de selección, que vive en la primera: dos
-            controles parecidos pegados es cómo se volvieron a confundir. */}
-        <td style={{ ...tdBase, textAlign: 'center' }}>
-          <CheckHecha hecha={hecha} onToggle={() => board.toggleDone(t.id)} titulo={t.title} />
+        {/* LAS DOS ACCIONES QUE CIERRAN UNA TAREA, JUNTAS: el check y el tacho.
+            · El ESTADO se cambia desde acá: «otra columna para cambiar el estado»
+              (25/09/2026). En este tablero el estado de una tarea es uno solo —activa o
+              completada, que es lo que filtra el botón «Filtrar»—, así que la columna no
+              inventa un tercer valor: es el check, que lo muestra y lo cambia en un click.
+            · Y EL TACHO: «falta el botón de basura en la vista de tabla». Van en la MISMA
+              celda y en el mismo orden que en la tarjeta y que al pie del detalle
+              —«deberían estar juntos… un check y un ícono de tacho de basura»—, porque un
+              control tiene que significar lo mismo en todos lados. Una columna propia para
+              el tacho costaba un encabezado y ~34px de scroll para dibujar un solo ícono.
+            Las dos van últimas y separadas de la casilla de selección, que vive en la
+            primera: dos controles parecidos pegados es cómo se volvieron a confundir.
+            ⚠️ El tacho NO borra: llama a `onEliminar`, que abre la pregunta de dos botones.
+            Borrar de un click en una fila de una lista densa es borrar la de al lado. */}
+        <td style={{ ...tdBase, textAlign: 'right' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <CheckHecha hecha={hecha} onToggle={() => board.toggleDone(t.id)} titulo={t.title} />
+            {onEliminar && (
+              <button type="button" onClick={() => onEliminar(t.id)}
+                title={`Eliminar «${t.title}»`} aria-label={`Eliminar «${t.title}»`}
+                style={{ ...accionBtn, color: 'var(--faint)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--bad)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--faint)'; }}>
+                <IconoTacho size={15} />
+              </button>
+            )}
+          </span>
         </td>
       </tr>
     );
@@ -370,7 +459,18 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
       {/* La barra vive en `AccionesLote`: la usa también el Kanban desde el 24/09/2026, y
           dos copias de una barra de acciones divergen a la primera acción nueva. */}
       <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />
-      <table style={tablaStyle}>
+      {/* ⚠️ EL PISO DE ADENTRO DE UN PROYECTO NO ES UN NÚMERO ELEGIDO ACÁ: es
+          `ANCHO_TABLA_EN_PROYECTO` (./piezas), que sale de restarle al modal la columna
+          derecha, el padding y las barras. Estuvo en 520 unas horas del 25/09/2026, sumando
+          lo que las columnas «necesitan» (34 selección + 150 título + 124 prioridad + 150
+          deadline + 76 acciones = 534, redondeado abajo) — y 520 no entra: la columna
+          derecha del detalle subió de 236 a 264 el MISMO día, en el otro archivo, así que
+          quedaban ~499px útiles y la barra horizontal volvía. Sumar lo que uno quiere no
+          contesta si entra; restar lo que hay, sí. El que cede es el título, con «…» y el
+          texto entero en su `title`.
+          A lo ancho de la pantalla el problema no existe, así que ahí el piso sigue siendo
+          la suma (700, con los 190 de la columna «Proyecto»). */}
+      <table style={{ ...tablaStyle, minWidth: ocultarProyecto ? ANCHO_TABLA_EN_PROYECTO : 700 }}>
         <thead>
           <tr>
             <th style={{ ...thBase, width: 34 }}>
@@ -383,18 +483,26 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask }: {
                 «creación» y no «número» desde que el #ID salió de la fila: ofrecer ordenar
                 por una columna que ya no se ve es ofrecer una incógnita. */}
             <Th orden="creación" activo={orden === 'num'} dir={dir} onSort={() => sortear('num')}>Tarea</Th>
-            <Th orden="proyecto" activo={orden === 'proyecto'} dir={dir} onSort={() => sortear('proyecto')} ancho={210}>Proyecto</Th>
-            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={150}>Prioridad</Th>
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={160}>Deadline</Th>
-            <th style={{ ...thBase, width: 76, textAlign: 'center' }}>Estado</th>
+            {!ocultarProyecto && <Th orden="proyecto" activo={orden === 'proyecto'} dir={dir} onSort={() => sortear('proyecto')} ancho={190}>Proyecto</Th>}
+            {/* 150 y 160 eran anchos heredados: la celda de prioridad mide 99px de
+                contenido (el chip + la palabra) y la del deadline, 126 (el `input`). El
+                resto era hueco, y el hueco de una tabla se paga en scroll horizontal. */}
+            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={124}>Prioridad</Th>
+            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={150}>Deadline</Th>
+            {/* SIN RÓTULO. Decía «Estado» cuando la celda era sólo el check; ahora trae
+                también el tacho, así que la palabra pasó a nombrar mal a la mitad de la
+                columna — y un encabezado que miente es peor que ninguno. Las dos acciones
+                se anuncian por su `title` y su `aria-label`, que es donde el texto no
+                ocupa lugar; el nombre de la columna vive en el `aria-label` del `th`. */}
+            <th aria-label="Acciones" style={{ ...thBase, width: 76 }} />
           </tr>
         </thead>
         <tbody>
           {vivas.map((t) => fila(t, false))}
           {vivas.length === 0 && hechas.length === 0 && (
-            <tr><td colSpan={6} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay tareas para este filtro.</td></tr>
+            <tr><td colSpan={cols} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay tareas para este filtro.</td></tr>
           )}
-          <FilaPlegada n={hechas.length} abierto={verHechas} onToggle={() => setVerHechas((v) => !v)} cols={6} texto={`completada${hechas.length === 1 ? '' : 's'}`} />
+          <FilaPlegada n={hechas.length} abierto={verHechas} onToggle={() => setVerHechas((v) => !v)} cols={cols} texto={`completada${hechas.length === 1 ? '' : 's'}`} />
           {verHechas && hechas.map((t) => fila(t, true))}
         </tbody>
       </table>

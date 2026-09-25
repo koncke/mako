@@ -4260,3 +4260,143 @@ sacar de la tabla. **El mismo hecho no se dibuja igual en una vista de uno que e
 de veinte:** lo que en singular informa, en plural es ruido y se aprende a ignorar.
 
 **Vive en:** `app/plan/board/BoardShell.tsx` · `app/plan/board/Tablas.tsx` · `app/plan/board/piezas.tsx` · *2026-09-25*
+
+## La TERCERA tanda del mismo día: dos paquetes, un archivo cada uno, otra vez (25/09/2026)
+
+Misma forma que la tanda anterior —un agente por archivo, un verificador al final— y los dos
+hallazgos caros volvieron a ser de los que **ningún agente por archivo puede ver**.
+
+### ⚠️ Repartir por archivo no reparte los NÚMEROS, y ahí los dos tienen razón y el producto está mal
+
+El paquete «boardshell» unificó el ancho de la columna derecha de los dos detalles: la tarea
+bajó de 280 y el proyecto **subió de 236 a 264**. El paquete «tablas», en el mismo rato, bajó
+el `minWidth` de la tabla de tareas a 520 «para que entre sin barra horizontal adentro de un
+proyecto», y dejó su cuenta escrita en el comentario: `820 − 236 − 44 = 538`.
+
+Los dos números son correctos **en su archivo**. Juntos, la columna principal quedó en ~499px
+útiles (820 − 2 del borde del modal − **264** − 44 de padding − 9 de la barra vertical − 2 del
+borde de la caja) con una tabla que declara 520: **la barra horizontal que el pedido venía a
+sacar volvió, con la cuenta que la justificaba mirando un ancho que ya no existía.**
+
+Y no hay síntoma del lado de nadie: el typecheck pasa, los tests pasan, cada comentario
+explica bien su propio número.
+
+- **La regla: si dos paquetes hacen aritmética sobre la misma medida, la medida vive en el
+  archivo que los dos importan** — acá `MODAL_DETALLE`, `COL_DER` y `ANCHO_TABLA_EN_PROYECTO`
+  en `app/plan/board/piezas.tsx`, que existe justamente porque `Tablas.tsx` no puede importar
+  de `BoardShell.tsx` (BoardShell importa las tablas y el ciclo deja el componente en
+  `undefined`).
+- **Y el olor que lo delata en el reporte, sin abrir el código: dos agentes citando el mismo
+  número con valores distintos.** Uno decía «la columna del proyecto estaba en 236 y ahora
+  tiene que hospedar el mismo bloque», el otro «820 − 236 − 44 = 538». Cruzar los dos informes
+  por sus NÚMEROS cuesta un minuto y encuentra esto antes de abrir un archivo.
+- **Sumar lo que uno quiere no contesta si entra; restar lo que hay, sí.** El 520 salió de
+  sumar lo que las columnas «necesitan» (534, redondeado abajo). Esa cuenta es sobre el
+  contenido y no sobre el contenedor, así que puede dar cualquier cosa y sentirse rigurosa.
+
+### ⚠️ Una capacidad nueva puede mudar un modal a una CAPA donde su confirmación no se ve
+
+El pedido era chico: «falta el botón de basura en la vista de tabla». La tabla ya sabía
+dibujarlo; lo que faltaba era pasarle `onEliminar`, y se le pasó también a la tabla que vive
+**adentro del detalle de un proyecto**.
+
+`EliminarModal` tiene el z-index escrito a mano en **130**, que es exactamente `Z_BASE` de
+`app/_components/pila-modales.ts`. Alcanzaba mientras se abriera desde el PRIMER modal de la
+pila. Cada nivel suma 2: con el detalle de una tarea abierto (130) y el de su proyecto
+espiado encima (132), el tacho de una fila pedía confirmación **a 130, debajo del modal que
+la abrió**. Sin cartel, sin fondo oscuro y sin ninguna pista — se lee como un botón que no
+hace nada.
+
+- **El camino ya existía** (una tarea abierta DESDE un proyecto tenía el mismo problema con su
+  propio tacho); lo que hizo la capacidad nueva fue volverlo el camino normal. Es «mover una
+  acción a un lugar más accesible cambia sus supuestos», aplicada al APILAMIENTO.
+- **Una pregunta de «¿seguro?» no se apila: se dibuja por encima de TODO.** `app/_ui/Confirm.tsx`
+  ya tenía la autopsia escrita y el número (3500, arriba de los modales escritos a mano que
+  eligen su z solos). `EliminarModal` es de esa familia y estaba fuera. Quedó en 3400.
+- **Cómo buscarlo sin navegador: un z-index literal en un modal, y la pila que empieza en ese
+  mismo número.** `grep` de `zIndex: 1[3-9]0` sobre la carpeta dio 130, 133, 140 y 150 — cuatro
+  modales eligiendo su capa a ojo contra una pila que crece sola.
+
+### El mismo componente creció una variante inalcanzable DOS DÍAS SEGUIDOS
+
+La tanda anterior dejó en `LineaDeadline` una variante `plazo="color"` con cero call sites y
+el verificador la sacó. Esta vez, en la misma pieza: el prop `plazo={false}` («sólo la fecha»)
+y la rama `if (!iso)` que dibuja el **guion** de «campo sin completar». Los dos, cero usos
+alcanzables — los tres call sites entran con `{x.deadline && <LineaDeadline …>}`, así que el
+guion no se puede ver desde ahí ni pasándole un vacío.
+
+Y el guion que Martín pidió SÍ existe: lo dibuja `CeldaFecha` en `Tablas.tsx`, como un botón
+que al tocarlo monta el `<input type=date>`. O sea que el comentario de `LineaDeadline`
+prometía una pantalla que nadie podía ver mientras el pedido estaba cumplido tres archivos más
+allá, y el de `WarnMark` mandaba a buscarlo al lugar equivocado.
+
+**La regla que queda, y es la segunda vez en dos días sobre el MISMO archivo: cuando dos
+paquetes trabajan sobre un pedido de UI, la pieza compartida acumula las dos interpretaciones
+del pedido — la que se usó y la que no.** El chequeo es de treinta segundos y hay que correrlo
+sobre la pieza compartida, no sobre los archivos que cambiaron: por cada prop opcional, `grep`
+del nombre con `=` en los call sites; si da cero, es una interpretación que no se usó.
+
+⚠️ Y el que más engaña no es el prop: es la RAMA. Un `if (!iso)` se lee como una guarda
+legítima y también puede ser una pantalla que nadie alcanza. Lo que las distingue es mirar
+**cómo entran los call sites**, no la firma.
+
+### Lo que se dibuja adentro de un `contentEditable` se GUARDA
+
+El detalle pasó a ser UN solo `<RichText>` con el plegado como decoración encima: un efecto le
+mete un `<button>` con el chevron a cada encabezado y esconde los bloques con `data-mk="x"`.
+Todo eso vive DENTRO del `contentEditable`, así que viaja en el `innerHTML` que `RichText`
+commitea en cada blur y termina en la base.
+
+- La salida es marcar **sólo** con un atributo propio (`data-mk`) más un botón reconocible, y
+  limpiarlo en el `onChange` del padre, que es el único camino a la persistencia.
+- **El ORDEN de dos `replace` que se limpian entre sí es un bug.** Los botones se borran
+  enteros PRIMERO, porque se reconocen por su propio `data-mk`; barriendo los atributos antes,
+  el `<button>` queda huérfano y se guarda. Reproducido a propósito leyendo la función del
+  fuente y corriéndola: con el orden correcto el ida y vuelta devuelve el HTML idéntico
+  carácter por carácter y es idempotente; invertidos, queda un
+  `<button contenteditable="false" …>` dentro del detalle guardado.
+- **Y la comparación de «¿cambió algo?» va contra el texto YA limpio y también contra
+  `mdAHtml(valor)`**: el campo guarda markdown en casi todas las tarjetas y el editor muestra
+  su conversión, así que sin las dos, abrir y cerrar el modal sin tocar nada estampa una
+  edición fantasma en el historial.
+
+### `RichText` reescribe su `innerHTML` cada vez que pierde el foco, no cuando cambia el valor
+
+Cualquier cosa que otro componente le dibuje encima desaparece con un blur **sin que cambie
+ningún estado**. El síntoma es «funciona hasta que hago click adentro y click afuera», que se
+lee como un bug del click y es un efecto del hijo pisando al padre. Se resuelve con un
+`onBlurCapture` en el contenedor que bumpea un contador y hace redecorar en el mismo commit.
+
+### Tres cosas chicas que costaron una vuelta cada una
+
+- **Un `colSpan` hardcodeado es un layout que afirma la forma de la tabla desde otro lugar.**
+  Estaba en 6; con `ocultarProyecto` son 5, y la fila de las completadas desbordaba la tabla.
+  No da error: desborda. En una tabla con columnas condicionales la cantidad se calcula UNA
+  vez y la usan todas las filas que hacen span — acá eran DOS (la fila plegada y el cartel de
+  «no hay tareas») y sólo una estaba señalada en el pedido.
+- **Una preferencia de orden guardada por navegador puede apuntar a una columna que ESTA
+  pantalla no dibuja** (`kanban.tabla.orden === 'proyecto'` adentro de un proyecto). Cae al
+  default para MOSTRAR, sin PISAR la preferencia: al volver a la vista completa su orden sigue
+  donde lo dejó. Es «localStorage restaura una PREFERENCIA, nunca pisa una DECISIÓN» vista
+  desde el otro lado.
+- **Un `<details><summary>` no puede hospedar un link.** El chip de origen se mudó al renglón
+  del historial y a veces es un link (la grabación de Fathom): adentro de un `<summary>` el
+  click del link dispara igual el plegado, porque la activación es del summary y no de un
+  listener, así que un `stopPropagation` no alcanza. Va un `<button>` con `aria-expanded`.
+
+### Lo que quedó SIN verificar
+
+**El plegado del detalle es un GESTO y no se probó en un navegador.** AGENTS.md es terminante
+con que un gesto no se verifica leyendo el handler, y no se levantó el dev server porque eso
+ESCRIBE en producción: un blur del detalle guarda en el tablero real de Mauricio. Lo que hay
+que mirar, en orden: (1) que el chevron aparezca en la canaleta de cada encabezado y rote al
+abrir; (2) que al plegar no se mueva el cursor de texto al encabezado (por eso el `mousedown`
+va cancelado); (3) **entrar al detalle y salir sin tocar nada** — ahí es donde podría aparecer
+un parpadeo de lo plegado si React separara los dos efectos; (4) que después de editar y salir
+el detalle guardado no tenga ni un `data-mk` ni un `<button>` adentro.
+
+Y **los anchos son una RESTA, no una medición en pantalla**: si al mirarlo todavía queda una
+barra chica adentro del proyecto, el lever es `COL_DER` o el padding de la columna, nunca
+volver a subir `ANCHO_TABLA_EN_PROYECTO` — que es lo que reinstala la barra.
+
+**Vive en:** `app/plan/board/piezas.tsx` · `app/plan/board/Tablas.tsx` · `app/plan/board/BoardShell.tsx` · `app/plan/board/EliminarModal.tsx` · `app/plan/board/DependenciasBloque.tsx` · *2026-09-25*

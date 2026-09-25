@@ -14,6 +14,66 @@ import type { BoardTask } from './types';
 
 const MONO = "'Geist Mono', monospace";
 
+// ── la geometría del detalle ─────────────────────────────────────────────────────────
+// ⚠️ ESTOS TRES NÚMEROS ESTÁN ATADOS Y POR ESO VIVEN JUNTOS. La tabla de tareas de un
+// proyecto se dibuja adentro de la columna PRINCIPAL del mismo modal que hospeda la
+// columna derecha, así que el ancho de una sale de restar el de la otra. Escrito en dos
+// archivos, eso se desincroniza al primer ajuste — y se desincronizó: el 25/09/2026 la
+// columna derecha pasó de 236 a 264 en `BoardShell` y `Tablas` siguió calculando su
+// `minWidth` contra 236, con lo cual «entra sin barra horizontal» quedó medido contra un
+// ancho que ya no existía. `Tablas.tsx` no puede importar de `BoardShell` (BoardShell
+// importa las tablas), y para eso existe este archivo.
+
+/** El `maxWidth` del modal de tarea y del de proyecto. Los dos, el mismo. */
+export const MODAL_DETALLE = 820;
+
+/**
+ * EL ANCHO DE LA COLUMNA DERECHA DE LOS DOS DETALLES — uno solo para la tarea y para el
+ * proyecto, que hasta el 25/09/2026 eran 280 y 236: dos pantallas que muestran lo mismo
+ * no pueden verse distinto.
+ *
+ * «Que la sidebar derecha sea un poco más angosta» (25/09/2026). El número NO se elige a
+ * ojo: lo fija el formulario de «+ Agregar» de `DependenciasBloque`, que ahora vive en
+ * esta columna en las dos pantallas. El elemento más ancho de ahí adentro es el botón
+ * «Sí — no se puede empezar antes» (≈199px con su padding, a 12.5px), y el ancho útil
+ * dentro del formulario es `COL_DER − 36` (el padding de la columna) `− 26` (el borde y
+ * el padding del propio formulario). Con 264 quedan 202: entra.
+ *
+ * ⚠️ Y desde que esos dos botones van con `flex-wrap`, quedarse corto ya no parte una
+ * palabra en dos: lo peor que puede pasar es una etiqueta en dos renglones. La red es el
+ * `wrap`; esto es la medida.
+ *
+ * ⚠️ TOCARLO MUEVE `ANCHO_TABLA_EN_PROYECTO`, que es justo lo que se quiere: subirlo le
+ * come ancho al título de las tareas, bajarlo se lo devuelve.
+ */
+export const COL_DER = 264;
+
+/**
+ * Lo que le queda a la TABLA DE TAREAS adentro del detalle de un proyecto. Es una RESTA,
+ * no una medición en pantalla: un layout que se auto-mide tiene que acertar siempre, uno
+ * fijo no tiene casos (AGENTS.md).
+ *
+ *   820  el modal (`MODAL_DETALLE`, border-box)
+ *   − 2  su borde
+ *   −264 la columna derecha (`COL_DER`, que ya incluye su `borderLeft`)
+ *   − 44 el padding de la columna principal (`20px 22px`)
+ *   − 9  la barra de scroll VERTICAL de esa columna, que aparece sí o sí: adentro van el
+ *        doc, el avance, la tabla, las notas y el historial (9px, `app/globals.css`)
+ *   − 2  el borde de la caja de la tabla (`cajaStyle`)
+ *   − 3  colchón, porque con el zoom puesto los anchos son fraccionarios
+ *
+ * ⚠️ EL QUE CEDE ES EL TÍTULO, y es una decisión, no un descuido: las otras cuatro
+ * columnas visibles adentro de un proyecto suman 384 fijos (34 selección + 124 prioridad
+ * + 150 deadline + 76 acciones), así que al título le quedan ~112px y se recorta con «…»
+ * —el texto entero sigue en su `title`—. «Intenta evitar al MÁXIMO el scroll… pero que se
+ * siga entendiendo todo» (25/09/2026) son dos pedidos que acá se cruzan, y el corte se
+ * eligió del lado de no scrollear.
+ *
+ * ⚠️ SI EL TÍTULO QUEDA DEMASIADO CORTO, EL LEVER ES `COL_DER` O EL PADDING DE LA COLUMNA
+ * — no volver a subir este número, que es lo que reinstala la barra horizontal.
+ */
+export const ANCHO_TABLA_EN_PROYECTO = MODAL_DETALLE - 2 - COL_DER - 44 - 9 - 2 - 3;
+
 /** Progreso agregado de un proyecto (promedio del avance de sus tareas). */
 export function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number } {
   const suyas = tasks.filter((t) => t.labels.includes(labelId));
@@ -30,9 +90,11 @@ export function projProgress(tasks: BoardTask[], labelId: string): { pct: number
  *
  * ⚠️ Pero es la ALARMA, no el hueco. El triangulito parpadea: dice «esto es un riesgo».
  * En una lista densa, donde la mitad de las filas no tiene fecha todavía, eso es una
- * pantalla titilando. Para decir sólo «el campo está vacío» está el GUION de
- * `LineaDeadline` (25/09/2026). Ninguno de los dos escribe «Sin deadline»: lo que no se
- * lee, estorba.
+ * pantalla titilando. Para decir sólo «el campo está vacío» está el GUION, y el guion vive
+ * en `CeldaFecha` (Tablas.tsx) —no acá y no en `LineaDeadline`—, porque es un botón que al
+ * tocarlo abre el `<input type=date>` de la celda. O sea que el reparto es por VISTA: en la
+ * tabla, guion; en las tarjetas, donde el aviso va solo y es la única señal, este
+ * triangulito. Ninguno de los dos escribe «Sin deadline»: lo que no se lee, estorba.
  */
 export function WarnMark({ title, onClick, size = 15, blink = true }: { title: string; onClick?: (e: import('react').MouseEvent) => void; size?: number; blink?: boolean }) {
   return (
@@ -96,38 +158,38 @@ const SIN_FECHA = 'Falta el deadline';
  * parsea el ISO a mano: la fecha de hoy depende de la zona horaria de la máquina, y este
  * repo ya paga que eso se resuelva en un solo lugar.
  *
- * SIN FECHA dibuja un GUION: «un guion que justamente muestre que el campo no está
- * completado» (25/09/2026). No escribe «Sin deadline» —eso es texto que nadie lee— y no
- * parpadea: el triangulito de `WarnMark` es la ALARMA, esto es el hueco.
+ * ⚠️ EL GUION DE «SIN FECHA» NO SE VE DESDE ACÁ, Y NO ES UN OLVIDO. «Un guion que
+ * justamente muestre que el campo no está completado» (25/09/2026) es un pedido sobre la
+ * TABLA, y ahí la celda es un `<input type=date>` editable que esta pieza no puede dibujar:
+ * lo implementa `CeldaFecha` (Tablas.tsx). En las TARJETAS el hueco lo sigue diciendo el
+ * `WarnMark`, porque ahí el aviso va solo y es la única señal. Los tres call sites de esta
+ * pieza son tarjetas y los tres entran con `{x.deadline && …}`, así que el `!iso` de abajo
+ * es una GUARDA, no una pantalla: si empieza a verse un «—» en una tarjeta, lo que cambió
+ * es quién llama.
+ *
+ * ⛔ Y NO HAY UN `plazo={false}` («sólo la fecha, sin “faltan 5 días”»). Existió desde el
+ * 25/09/2026 sin un solo call site: las tres tarjetas quieren el plazo —es lo que se pidió
+ * para las tres— y la única vista que muestra la fecha pelada es la tabla, que no usa esta
+ * pieza. Es el mismo motivo por el que tampoco hay una variante que TIÑA la fecha en vez de
+ * escribir el plazo: sería la segunda implementación del código de colores de `CeldaFecha`,
+ * con una sola viva. Si algún día hace falta, la escala sale de `plazoTexto`.
  */
-export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(--faint)', plazo = true, style }: {
-  /** Vacío = el campo no está completado: se dibuja el guion. */
+export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(--faint)', style }: {
+  /** Vacío = el campo no está completado. Ver la guarda, arriba. */
   iso: string | null | undefined; hoy: string;
   tam?: number;
   /** false = tipografía de texto (el detalle), donde esto se lee como una frase. */
   mono?: boolean;
   color?: string;
-  /**
-   * `true` escribe el plazo al lado («· faltan 5 días»).
-   * `false` = sólo la fecha, para listas densas donde el plazo empujaría el título.
-   *
-   * ⚠️ NO HAY UNA VARIANTE QUE TIÑA LA FECHA EN VEZ DE ESCRIBIR EL PLAZO. Se escribió el
-   * 25/09/2026 y se sacó el mismo día sin haber tenido nunca un call site: donde el plazo
-   * va como COLOR es en la tabla, y ahí la celda es un `<input type=date>` editable que
-   * esta pieza no puede dibujar (`CeldaFecha`, Tablas.tsx). O sea que habrían quedado dos
-   * implementaciones del mismo código de colores y sólo una viva — la forma exacta en que
-   * dos copias divergen. Si algún día hace falta acá, la escala sale de `plazoTexto`.
-   */
-  plazo?: boolean;
   style?: CSSProperties;
 }) {
-  // El guion sale ANTES de cualquier cuenta de fechas: sin ISO no hay plazo que calcular.
+  // Sin ISO no hay plazo que calcular, así que la guarda va ANTES de cualquier cuenta.
   if (!iso) return (
     <span title={SIN_FECHA} aria-label={SIN_FECHA}
       style={{ display: 'inline-flex', flex: 'none', fontFamily: mono ? MONO : undefined, fontSize: tam, color: 'var(--faint)', ...style }}>—</span>
   );
 
-  const p = plazo ? plazoTexto(diasHasta(iso, hoy)) : null;
+  const p = plazoTexto(diasHasta(iso, hoy));
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontFamily: mono ? MONO : undefined, fontSize: tam, color, ...style }}>
       {/* El que CEDE es la FECHA. Si el ancho no alcanza, lo que no se puede perder es
@@ -140,7 +202,24 @@ export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(
           5 días»: es el atraso, que crece sin tope («999 días atrasado», 17 caracteres
           contra los 10 fijos de la fecha). Con `flex: none` + `nowrap` esa fila no entraba
           en ningún ancho — empujaba la fila entera en vez de recortarse. */}
-      {p && <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>}
+      <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>
     </span>
   );
+}
+
+/**
+ * El tacho. «Simplemente puede ser un check y un ícono de tacho de basura para que sea más
+ * intuitivo» (25/09/2026) — y después, sobre la tabla: «falta el botón de basura en la
+ * vista de tabla».
+ *
+ * ⚠️ Vive acá y no en `BoardShell` por la razón del encabezado de este archivo: las tablas
+ * no pueden importar de `BoardShell`, que importa las tablas. Que la tarjeta y la fila
+ * dibujen el MISMO tacho es el pedido de que «un control signifique lo mismo en todos
+ * lados»; con dos copias, la segunda se queda vieja.
+ *
+ * ⚠️ Quien lo use lleva `aria-label` Y `title`: un botón cuyo único contenido es un SVG no
+ * tiene nombre accesible — el lector de pantalla anuncia «botón», a secas.
+ */
+export function IconoTacho({ size = 15 }: { size?: number }) {
+  return <svg aria-hidden width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M2.6 4.2h10.8M6.4 4.2V2.9h3.2v1.3M4.3 4.2l.6 8.3a1 1 0 0 0 1 .9h4.2a1 1 0 0 0 1-.9l.6-8.3M6.6 6.7v4.3M9.4 6.7v4.3" /></svg>;
 }
