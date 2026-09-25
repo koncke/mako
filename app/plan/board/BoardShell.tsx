@@ -3527,7 +3527,14 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                     <span title={t.title} style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
                     {t.deadline
                       ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} color="var(--dim)" plazo={false} style={{ flex: 'none' }} />
-                      : t.progress < 100 && <WarnMark title="Falta el deadline" size={13} />}
+                      : t.progress < 100 && (
+                          /* Un GUION, no la alarma. Acá vivía un `WarnMark`, que PARPADEA: un
+                             proyecto con 20 abiertas sin fecha era una columna de triangulitos
+                             rojos titilando — el mismo ruido que Martín mandó sacar de la tabla
+                             el 25/09 («un guion que justamente muestre que el campo no está
+                             completado»). La alarma se gana; el hueco se muestra y ya. */
+                          <span title="Sin deadline" style={{ flex: 'none', fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>—</span>
+                        )}
                   </div>
                 </div>
               ))}

@@ -4204,3 +4204,59 @@ tarde de otro.**
 
 **La regla que queda: al revisar un cambio propio, la lente tiene que ser el USUARIO haciendo
 algo dos veces, no el diff.** El diff ya lo leíste cuando lo escribiste.
+
+## Aplicar feedback de UI en paralelo: tres agentes, un archivo cada uno (25/09/2026)
+
+Martín grabó dos audios revisando el detalle del plan y salieron ~25 cambios. Se repartieron
+en tres paquetes por ARCHIVO —BoardShell, Tablas, piezas— porque BoardShell tiene 3493 líneas
+y dos agentes editándolo se pisan. Funcionó, y lo que falló es lo que enseña.
+
+### ⚠️ Dos agentes con archivos distintos igual escriben DOS VECES el mismo código
+
+El paquete de `piezas.tsx` y el de `Tablas.tsx` no compartían un solo archivo, y los dos
+implementaron el código de colores del deadline: uno como variante `plazo="color"` de la
+pieza compartida, el otro inline en su celda. **Los dos se dieron cuenta y lo reportaron** —
+«ahora hay DOS implementaciones del mismo código de colores»— y ninguno pudo arreglarlo,
+porque arreglarlo era tocar el archivo del otro.
+
+Lo cerró el verificador: la variante de la pieza tenía **cero call sites**, así que la sacó.
+
+**La regla: repartir por ARCHIVO evita el conflicto de edición y NO evita la duplicación.**
+Lo que se reparte de verdad es el ENTREGABLE: si dos paquetes tocan el mismo concepto (acá,
+«cuánto falta para el deadline»), uno lo implementa y el otro lo importa — y eso se decide al
+escribir los paquetes, no después. El síntoma en el reporte es literal: dos agentes
+escribiendo «vale la pena que el otro importe lo mío».
+
+⚠️ **Y por eso el verificador NO es opcional en una corrida que escribe código.** Ninguno de
+los tres podía ver el código muerto que dejaron entre los tres: cada uno veía su archivo.
+
+### El scratchpad lo COMPARTEN los subagentes, y un nombre corto se pisa
+
+Un agente del barrido de cursos escribió su propio `tx.mjs` en el scratchpad de la sesión y
+pisó el transcriptor de audios que vivía ahí con ese nombre. No hubo error: el script siguió
+existiendo y haciendo otra cosa, y falló recién al usarlo, con un `ENOENT` sobre una ruta
+compuesta que no se parecía al problema.
+
+**Los archivos de trabajo de la sesión van con nombre largo y propio**
+(`transcribir-audios-martin.mjs`, no `tx.mjs`). El scratchpad no es privado.
+
+### «Tres veces el mismo dato» empieza por no mirar qué dibuja el control
+
+Martín: «acá dice deadline y acá dice 30 del 9, acá miércoles 30 de septiembre… es tres veces
+el mismo dato». La celda tenía un `<input type="date">` —que YA muestra la fecha— y al lado un
+formateador lindo y el plazo en palabras. **Al poner un formateador al lado de un input,
+mirá primero qué dibuja el input.**
+
+Y el corolario del vacío: **un `<input type="date">` vacío NO se ve vacío**, dibuja
+«dd/mm/aaaa». Si el hueco tiene que leerse como hueco, hay que taparlo con otra cosa — acá un
+guion que monta el input al tocarlo.
+
+### Una alarma que parpadea se gana; un hueco se muestra y ya
+
+El mismo dato —«esta tarea no tiene fecha»— estaba dibujado como un `WarnMark` que PARPADEA.
+En una tarjeta suelta es un aviso; en la lista de un proyecto con 20 tareas abiertas es una
+columna de triangulitos rojos titilando, que es exactamente el ruido que el guion vino a
+sacar de la tabla. **El mismo hecho no se dibuja igual en una vista de uno que en una lista
+de veinte:** lo que en singular informa, en plural es ruido y se aprende a ignorar.
+
+**Vive en:** `app/plan/board/BoardShell.tsx` · `app/plan/board/Tablas.tsx` · `app/plan/board/piezas.tsx` · *2026-09-25*

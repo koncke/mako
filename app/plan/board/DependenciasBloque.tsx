@@ -168,7 +168,10 @@ export function DependenciasBloque({ entidad, id, deps, candidatos, impacto, onA
           )}
           {error && <div style={{ fontSize: 12.5, color: 'var(--bad, #C0392B)', marginBottom: 8 }}>{error}</div>}
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* `wrap` porque este bloque se mudó a la columna derecha del detalle (280px) el
+              25/09: sin él los dos botones encogen y parten su propia etiqueta en dos
+              renglones. Un layout se prueba con el ancho más angosto donde va a vivir. */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {/* Cada botón nombra su acción y su objeto — nada de «Aceptar» / «Cancelar». */}
             <button disabled={!elegido || guardando} onClick={() => void guardar()}
               style={{ border: 'none', background: elegido ? 'var(--primary)' : 'var(--border-strong)', color: '#fff', borderRadius: 9, padding: '8px 14px', cursor: elegido ? 'pointer' : 'not-allowed', fontFamily: SANS, fontSize: 13, fontWeight: 700 }}>
