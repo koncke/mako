@@ -182,9 +182,32 @@ function cajaQueScrollea(n: HTMLElement | null): HTMLElement | null {
  *
  * Sale una SUGERENCIA, no el número final: el pop-up siempre pregunta del 1 al 100.
  */
-function scoreEntreFilas(resto: Array<{ score: number }>, pos: number, dir: 'asc' | 'desc', actual: number): number {
+/**
+ * El número que SUGIERE la posición donde soltaste. Sale de los scores de las dos filas
+ * vecinas, no del orden de la tabla: soltar entre un 93 y un 43 propone 68 esté la tabla
+ * ordenada por prioridad, por deadline o por nombre.
+ *
+ * ⚠️ ESO ES LO QUE HACE QUE EL ARRASTRE NO NECESITE UN CANDADO. Estuvo atado a
+ * `orden === 'score'` unas horas del 25/09/2026, con el argumento de que «entre dos filas
+ * que no están ordenadas por prioridad, la posición no dice ningún número». El argumento
+ * era falso: las dos vecinas TIENEN su score igual, y el promedio de los dos es tan
+ * significativo como en cualquier otro orden. Lo único que no significaba nada era el
+ * `paso` de los bordes — ver abajo.
+ *
+ * Y el costo del candado fue el de siempre: la tabla de tareas se dibuja ordenada por
+ * DEADLINE (la preferencia por navegador de Martín), así que las filas ni siquiera nacían
+ * `draggable` y el gesto no hacía absolutamente nada. Se reportó como «aún no funciona lo
+ * de agarrar una fila y arrastrarla». Un control que se ofrece y no responde no se lee como
+ * «acá no aplica»: se lee como que la app está rota.
+ *
+ * @param porPrioridad si la lista está ordenada por score. Sólo cambia los BORDES: soltar
+ *   arriba de todo en una lista por prioridad significa «más que el primero» (de ahí el
+ *   ±2), y en una lista por deadline no significa nada, así que se propone el score del
+ *   único vecino y la persona decide en el pop-up.
+ */
+function scoreEntreFilas(resto: Array<{ score: number }>, pos: number, dir: 'asc' | 'desc', actual: number, porPrioridad: boolean): number {
   const clamp = (n: number) => Math.max(1, Math.min(100, Math.round(n)));
-  const paso = dir === 'asc' ? -2 : 2;
+  const paso = porPrioridad ? (dir === 'asc' ? -2 : 2) : 0;
   const arriba = resto[pos - 1];
   const abajo = resto[pos];
   if (arriba && abajo) return clamp((arriba.score + abajo.score) / 2);
@@ -197,11 +220,14 @@ function useArrastreFilas(
   /** las filas EN JUEGO, en el orden en que se dibujan (las terminadas no entran) */
   filas: Array<{ id: string; score: number }>,
   dir: 'asc' | 'desc',
-  /** el orden visible permite leer la posición como un número */
+  /** si la lista está ordenada por score. NO habilita ni deshabilita el gesto: sólo cambia
+   *  qué se sugiere al soltar en un borde (ver `scoreEntreFilas`). */
   porPrioridad: boolean,
   onSoltar?: (id: string, sugerido: number) => void,
 ) {
-  const activo = !!onSoltar && porPrioridad;
+  // La ÚNICA condición es que quien monta la tabla haya pasado la capacidad. El orden de la
+  // tabla no entra: ver el porqué, medido, en `scoreEntreFilas`.
+  const activo = !!onSoltar;
   // QUE HAY UNA FILA EN LA MANO ES UN REF, NO ESTADO: no se dibuja con eso (el nodo origen
   // no se toca) y un `setState` en el `dragstart` es un re-render de la tabla entera justo
   // en el frame en que arranca el gesto. Además evita la carrera: los eventos de arrastre
@@ -369,7 +395,7 @@ function useArrastreFilas(
           // uno cuando venía de más arriba, o soltar hacia abajo cae un lugar antes.
           const resto = filas.filter((f) => f.id !== id);
           const pos = j >= 0 && j < idx ? idx - 1 : idx;
-          onSoltar(id, scoreEntreFilas(resto, pos, dir, filas[j]?.score ?? 50));
+          onSoltar(id, scoreEntreFilas(resto, pos, dir, filas[j]?.score ?? 50, porPrioridad));
         },
         onDragLeave: (e: DragReact<HTMLTableSectionElement>) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns(null);
@@ -644,7 +670,7 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
                 significado, así que ahí no se puede agarrar nada — y un control que
                 desaparece sin decir por qué se lee como una pantalla rota. */}
             <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
-              ayuda={onSoltar && orden !== 'score' ? 'Ordenar por prioridad — hace falta para poder arrastrar las filas' : 'Ordenar por prioridad'}>Prioridad</Th>
+              ayuda="Ordenar por prioridad">Prioridad</Th>
             <Th orden="avance" activo={orden === 'avance'} dir={dir} onSort={() => sortear('avance')} ancho={C_AVANCE}>Tareas</Th>
             {/* 330 era el ancho de cuando la celda decía la fecha tres veces; 160, el de
                 cuando el `input` medía 138; 150, el de cuando medía 126. */}
@@ -889,7 +915,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
                 ⚠️ Y su `title` es la pista de cómo se habilita el arrastre de filas, que
                 sólo se puede ofrecer con la tabla ordenada por prioridad. */}
             <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
-              ayuda={onSoltar && orden !== 'score' ? 'Ordenar por prioridad — hace falta para poder arrastrar las filas' : 'Ordenar por prioridad'}>Prioridad</Th>
+              ayuda="Ordenar por prioridad">Prioridad</Th>
             <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>
             {/* SIN RÓTULO. Decía «Estado» cuando la celda era sólo el check; ahora trae
                 también el tacho, así que la palabra pasó a nombrar mal a la mitad de la

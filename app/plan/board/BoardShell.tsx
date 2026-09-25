@@ -1067,7 +1067,25 @@ export function BoardShell({ board, scope, vistaInicial }: {
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
-          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px' }}><TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId}
+          ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* ⚠️ EL BOTÓN DE CREAR, QUE ACÁ NO ESTABA. «Falta el botón de crear tarea en la
+                vista tabla» (25/09/2026). En el Kanban cada columna trae el suyo —y por eso
+                nadie lo echó de menos mientras la tabla fue la vista secundaria—, así que al
+                pasar a tabla la única forma de crear una tarea desaparecía de la pantalla.
+                Es el mismo tratamiento y el mismo lugar que el de la tabla de PROYECTOS
+                (`＋ Crear proyecto`): dos tablas hermanas no ofrecen la misma acción de dos
+                formas distintas.
+                Sin prioridad preelegida (`setNuevaTareaPrio(null)`): en el Kanban el botón
+                vive DENTRO de una columna y por eso hereda su banda; acá no hay columna de
+                dónde heredarla, y la pone el Perro en la misma corrida en la que escribe el
+                detalle — que es la regla de no pedir un número sobre algo que no existe. */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setNuevaTareaPrio(null); setNuevaTarea(true); }}
+                style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+                ＋ Nueva tarea
+              </button>
+            </div>
+            <TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId}
               /* «Que en el formato tabla también pueda arrastrar y cambiar la prioridad»
                  (25/09/2026). Soltar dice DÓNDE y abre el MISMO pop-up del 1 al 100 que el
                  Kanban, el lápiz y la grilla de proyectos: la persona dice CUÁNTO.
@@ -1609,14 +1627,28 @@ function encabezadoDeBloque(hijo: HTMLElement): string | null {
  * huérfano DENTRO del detalle guardado.
  */
 const sinMarcas = (html: string) => html
+  // El encabezado del intro es INVENTADO —no lo escribió nadie— así que se va ENTERO, y
+  // primero: si se fuera sólo su `data-mk`, quedaría un «Resumen» escrito dentro del
+  // detalle guardado, y a la vuelta siguiente el documento tendría un encabezado de verdad
+  // que nadie puso. Es la misma razón y el mismo orden que el del botón de acá abajo.
+  .replace(/<div class="mk-intro"[\s\S]*?<\/div>/gi, '')
   .replace(/<button[^>]*\sdata-mk="c"[^>]*>[\s\S]*?<\/button>/gi, '')
   .replace(/\s*data-mk="[^"]*"/gi, '');
+
+/** El rótulo del desplegable que envuelve al intro. No se guarda: ver `sinMarcas`. */
+const ROT_INTRO = 'Resumen';
+/** Su clave en el mapa de plegados. Empieza con un carácter que ningún encabezado real
+ *  puede tener, así que no puede chocar con `claveHead` de una sección que se llame así. */
+const CLAVE_INTRO = '\u0000intro';
 
 const CHEVRON_HTML = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 1.4 L7 5 L3.4 8.6"/></svg>';
 
 const CSS_DOC = [
   '.mk-doc [data-mk="x"]{display:none}',
   '.mk-doc [data-mk="h"],.mk-doc [data-mk="ho"]{position:relative}',
+  // El encabezado del intro se dibuja como los de verdad: mismo peso, misma canaleta. Lo
+  // único distinto es que no es texto del documento, y por eso va `contenteditable=false`.
+  '.mk-doc .mk-intro{font-weight:700;color:var(--ink);margin:0 0 .35em}',
   // `left:-24px` y no -23: la canaleta pasó a 27px para dejarle los 2 primeros píxeles a
   // `FOCO_BARRA` (la barra de foco del editor, ver RichText). Sin ese respiro el chevrón
   // se dibuja encima de la barra y el foco del doc queda tapado justo al escribir.
@@ -1674,24 +1706,49 @@ function DetalleDoc({ valor, onChange, placeholder }: { valor: string; onChange:
     if (!ed) return;
     // La pasada anterior se borra entera: los botones se vuelven a crear con su listener.
     ed.querySelectorAll('button[data-mk="c"]').forEach((b) => b.remove());
+    ed.querySelectorAll('.mk-intro').forEach((e) => e.remove());
     ed.querySelectorAll('[data-mk]').forEach((e) => e.removeAttribute('data-mk'));
+
+    /**
+     * ⚠️ EL INTRO TAMBIÉN SE PLIEGA, Y PARA ESO HAY QUE INVENTARLE UN ENCABEZADO. «Todas las
+     * intro de las descripciones deben estar dentro de un desplegable, que no esté plegado»
+     * (25/09/2026). Lo que va antes del primer encabezado no es una sección —nadie le puso
+     * título— y hasta hoy era la única parte del documento que NO se podía cerrar: un muro
+     * de texto permanente arriba de una lista de renglones plegados.
+     *
+     * El encabezado lo pone el código y NO se guarda (`sinMarcas` lo borra entero, ver allá).
+     * Va `contenteditable=false` para que escribir no caiga adentro, y se borra y se vuelve
+     * a crear en cada pasada, igual que los chevrones — un nodo decorativo que sobrevive a
+     * una edición es un nodo que la próxima edición deja corrupto.
+     */
+    const primerHijo = ed.firstElementChild as HTMLElement | null;
+    if (primerHijo && !encabezadoDeBloque(primerHijo)) {
+      const h = document.createElement('div');
+      h.className = 'mk-intro';
+      h.setAttribute('contenteditable', 'false');
+      h.textContent = ROT_INTRO;
+      ed.insertBefore(h, primerHijo);
+    }
     const toggle = (k: string, abiertoAhora: boolean) =>
       setTocados((prev) => { const m = new Map(prev); m.set(k, !abiertoAhora); return m; });
     let plegando = false;   // ¿venimos escondiendo el cuerpo del encabezado anterior?
-    let primero = true;     // el primer encabezado del documento arranca abierto
     for (const hijo of Array.from(ed.children) as HTMLElement[]) {
+      // El intro es el ÚNICO que arranca abierto. Antes arrancaba abierto el primer
+      // encabezado de verdad, que es lo que en la captura dejaba «Lo que ya está decidido»
+      // desplegado con siete renglones debajo, encima del muro del intro: dos bloques largos
+      // antes de poder ver de qué partes se compone el documento.
+      const esIntro = hijo.classList.contains('mk-intro');
       // ⚠️ Los dos puntos del final los saca `encabezadoDeBloque` ANTES de preguntar:
       // `esEncabezado` descarta todo lo que termina en `:` (para no comerse un párrafo
       // introductorio), así que un «**Lo que ya está decidido:**» —que es como los escribe
       // media extracción— no llevaría chevron.
-      const txt = encabezadoDeBloque(hijo);
+      const txt = esIntro ? ROT_INTRO : encabezadoDeBloque(hijo);
       if (!txt) {
         if (plegando) hijo.setAttribute('data-mk', 'x');
         continue;
       }
-      const k = claveHead(txt);
-      const abierto = tocados.get(k) ?? primero;
-      primero = false;
+      const k = esIntro ? CLAVE_INTRO : claveHead(txt);
+      const abierto = tocados.get(k) ?? esIntro;
       plegando = !abierto;
       hijo.setAttribute('data-mk', abierto ? 'ho' : 'h');
       const b = document.createElement('button');
@@ -3444,6 +3501,8 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
               puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
             {/* La FECHA la decide el Perro igual que la prioridad: la propone al crear la
                 tarea, deja escrito por qué, y para moverla hay que discutírsela. */}
+            {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
+            <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
             <div>
               <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label>
               <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} />
@@ -3491,6 +3550,8 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 rápida y no scrolleando todo desde abajo») y el mismo día se acomodó acá:
                 «Depende de… arriba de proyecto». Arriba de todo se comía la primera pantalla
                 con su buscador; acá queda al lado de lo otro que dice DÓNDE vive la tarea. */}
+            {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
+            <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
             <DependenciasBloque
               entidad="tarea" id={t.id} deps={board.deps}
               candidatos={board.tasks.filter((x) => x.id !== t.id).map((x) => ({
@@ -4091,6 +4152,8 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               chip={<ProjScore score={proj.score} color={proj.color} />}
               razon={proj.scoreRazon} impacto={proj.impacto} esfuerzo={proj.esfuerzo}
               puedeEditar={!!board.repo.prioridadManual} onEditar={onPrioridad} />
+            {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
+            <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.setLabelDeadline(proj.id, e.target.value)} style={selStyle} /></div>
             {/* ⚠️ EL QUARTER DE UN PROYECTO (mig 0162). «Falta agregar la opción de Quarter
                 en los proyectos» (24/09/2026), y es donde más sentido tiene: una tarea cae
@@ -4117,6 +4180,8 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 Una dependencia de PROYECTO frena todas sus tareas abiertas de un saque: es
                 la escritura de mayor palanca del tablero, y por eso el radio se dice antes
                 del click y no después. */}
+            {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
+            <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
             <DependenciasBloque
               entidad="proyecto" id={proj.id} deps={board.deps}
               candidatos={board.labels.filter((l) => l.id !== proj.id).map((l) => {
@@ -4138,6 +4203,8 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               }}
               onAdd={board.addDep} onDel={board.delDep} />
 
+            {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
+            <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             {/* ELIMINAR, AL PIE DE LA COLUMNA DERECHA Y COMO TACHO: el mismo control, en el
                 mismo lugar y con la misma cara que en una tarea. Lo que se borra y cuántas

@@ -186,13 +186,24 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
   const rotFecha = `Ponerle${plural} deadline a ${tareas}`;
   const rotBorrar = `Eliminar ${tareas} — no se puede deshacer`;
 
-  const divisor = <span aria-hidden style={{ width: 1, height: 18, flex: 'none', background: 'var(--primary-weak)' }} />;
-
   return (
-    // ⚠️ `width: 'fit-content'` ES LA MITAD DEL ARREGLO. Con la barra al 100 % del ancho, los
-    // 221 px que sobran son la caja azul vacía de la captura — era un `<span style={{flex:1}}/>`
-    // empujando el tacho contra el borde derecho de una banda de 499. Encogida a su contenido
-    // no hay hueco que llenar y el espaciador desaparece.
+    // ⚠️ LA BARRA OCUPA EL ANCHO Y REPARTE: `width: '100%'` + `space-between`. «Que no se
+    // agrupe todo a la izquierda, que sea proporcional» (25/09/2026).
+    //
+    // Estuvo en `fit-content` unas horas del mismo día, y el razonamiento parecía correcto:
+    // la caja azul vacía de la captura era el hueco de una banda al 100 % con todo apretado
+    // contra un borde, así que encogerla al contenido lo hacía desaparecer. Y desapareció —
+    // junto con la mitad de la barra. Encogida, seis íconos de 34 px quedan en una pastilla
+    // de 216 px pegada a la izquierda de una columna de 499: el hueco sigue ahí, sólo que
+    // ahora está AFUERA de la barra en vez de adentro, y encima sin fondo.
+    //
+    // El hueco no se saca achicando la caja: se saca repartiendo lo que hay adentro.
+    //
+    // ⚠️ POR ESO NO HAY NINGÚN `<span style={{ flex: 1 }} />`. Un espaciador empuja a los de
+    // un lado contra un borde y deja TODO el aire en un solo lugar, que es exactamente el
+    // apilamiento que este pedido saca. `space-between` divide el aire en partes iguales, y
+    // es lo único que mantiene el reparto parejo cuando cambia el ancho: la misma barra se
+    // dibuja en una columna de 499 y en el Kanban, que mide el tablero entero.
     //
     // ⚠️ EL `flexWrap: 'wrap'` NO ES EL DE ANTES, aunque sea la misma línea. Antes era el
     // CAMINO —la barra pedía 899 px donde hay 499, así que se partía en dos renglones
@@ -221,8 +232,8 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
     // es la red, no el camino.
     <div role="group" aria-label={`Acciones sobre ${tareas}`}
       style={{
-        display: 'flex', width: 'fit-content', maxWidth: '100%', alignItems: 'center',
-        gap: 6, flexWrap: 'wrap', padding: '6px 8px', borderRadius: 11,
+        display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between',
+        gap: 6, flexWrap: 'wrap', padding: '6px 10px', borderRadius: 11,
         border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)',
         fontFamily: SANS, ...estilo,
       }}>
@@ -238,8 +249,6 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
         style={{ flex: 'none', minWidth: 28, textAlign: 'center', fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
         {n}
       </span>
-
-      {divisor}
 
       <BtnIcono rotulo={rotEstado} tono={todasHechas ? 'good' : 'dim'} pressed={todasHechas}
         onClick={() => enLote(
@@ -284,9 +293,11 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
           }} />
       </span>
 
-      {/* ⚠️ EL CALENDARIO VA ÚLTIMO DEL GRUPO A PROPÓSITO. Abierto mide 118 en vez de 34:
-          puesto acá, los únicos que se corren son el tacho y la cruz, y nunca el tilde ni el
-          lápiz.
+      {/* ⚠️ EL CALENDARIO ABIERTO MIDE 118 EN VEZ DE 34, y con `space-between` eso ya no
+          corre a nadie de lugar: lo que se achica es el AIRE repartido, no la posición de los
+          vecinos. (Con la barra encogida a su contenido sí los corría, y por eso estaba
+          puesto último del grupo; el orden se queda igual porque agrupa por significado —
+          primero lo que cambia la tarea, al final lo que la saca de encima.)
           Cómo un ícono abre un calendario: el botón monta el `<input type=date>` de verdad y
           el ref le llama `showPicker()`. Es el mecanismo de `CeldaFecha` (Tablas.tsx:425-461)
           —las dos únicas líneas de todo el repo que llaman a `showPicker`— con sus dos
@@ -333,8 +344,6 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
           <CalendarioLote />
         </BtnIcono>
       )}
-
-      {divisor}
 
       {/* El tacho se IMPORTA de `piezas`: es el mismo dibujo que la fila de la tabla
           (Tablas.tsx:845), la tarjeta y el detalle. `piezas.tsx` sólo importa TIPOS, así que
