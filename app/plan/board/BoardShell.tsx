@@ -2562,11 +2562,10 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
           hacía bien. Es la misma pieza para las dos, así que no pueden volver a divergir.
           Y va en un renglón propio porque al lado del botón de completar no entra: en una
           tarjeta de 281px, «◷ vie 24 jul · 62 días atrasado» + «Completar» se pisan. */}
-      {/* PEGADO AL TÍTULO: «el deadline y los días faltantes más pegado al título»
-          (25/09/2026). Antes un `flex: 1` lo empujaba al pie de la card, así que en una
-          tarjeta corta quedaba flotando lejos de lo que fecha. El espaciador pasó abajo:
-          el que se estira es el hueco ANTES del footer, no el que separa fecha de título. */}
-      {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ marginTop: 3 }} />}
+      {/* ⛔ ACÁ ESTUVO EL DEADLINE, PEGADO AL TÍTULO, unas horas del 25/09 —«el deadline y
+          los días faltantes más pegado al título»— y el MISMO día bajó al pie: «en la preview
+          de la tarea, que el deadline con los días faltantes, mejor que esté al final de
+          todo, abajo, no pegado al título». Gana el pedido nuevo. Vive en el pie, acá abajo. */}
       <span style={{ flex: 1 }} />
       {/* footer fijo: el CHECK a la derecha. Sin el % y sin la barra: «una tarea se
           completa o no se completa», y el check está siempre a la vista porque el estado
@@ -2577,6 +2576,16 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
           anuncia como «botón», a secas. El tacho abre la MISMA pregunta de dos botones que
           el detalle: borrar no se hace de un click en una tarjeta que se arrastra. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 22 }}>
+        {/* EL DEADLINE, AL PIE Y A LA IZQUIERDA (25/09/2026, ver arriba). Entra al lado de
+            los dos botones PORQUE son íconos desde hoy: con la palabra «Completar» no
+            entraba —«◷ vie 24 jul · 62 días atrasado» son ~150 px sobre una tarjeta de 281—
+            y eso es lo que en su momento lo mandó a un renglón propio. Con 26+26 de botones
+            quedan ~200 para la fecha, así que ya no se pisan.
+            ⚠️ `flex: '0 1 auto'` + `minWidth: 0`: si un plazo largo no entrara, el que CEDE
+            es la fecha y nunca los botones — un botón encogido deja de ser clickeable. */}
+        {t.deadline
+          ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
+          : <span style={{ flex: 'none' }} />}
         <span style={{ flex: 1 }} />
         <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
           aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
@@ -3428,7 +3437,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
 
   return (
     <div onClick={salir} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, height: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           {onBack && <button onClick={onBack} title="Volver al proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← Volver</button>}
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600, flex: 'none' }}>#{t.num}</span>
@@ -4050,7 +4059,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
     // `z` sigue existiendo como piso para el caso proyecto-debajo-de-tarea, pero quien
     // manda es la pila: el de arriba se ve, los de abajo se esconden.
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: Math.max(z, capa.z), background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible || taskAbierta ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, height: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
           {onBack && <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>}

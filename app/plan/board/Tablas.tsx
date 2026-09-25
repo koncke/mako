@@ -627,8 +627,23 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
     const marca = hecho ? null : arr.marca(i, ultima);
     const td = marca ? { ...tdBase, ...marca } : tdBase;
     return (
+      /* ⚠️ LA FILA ENTERA ABRE EL DETALLE. «Si le aprieto a cualquier lugar debería abrir el
+          detail, no solo en el título… excepto los botones, claro» (25/09/2026). El único
+          blanco era el texto del título: en una fila de ~450 px eso es un blanco de ~130 y
+          el resto no respondía, lo cual se lee como una tabla muerta.
+
+          ⚠️ EL CORTE VA EN LA CELDA, NO EN CADA CONTROL. Un `onClick` por celda —o un
+          `stopPropagation` por botón— es la lista que se queda vieja: la columna o el botón
+          que se agregue mañana nace sin el corte y abre el modal cuando no tiene que. Con
+          `data-parar` en la celda, lo que se agregue adentro lo hereda.
+
+          ⚠️ `onMouseDown` con `detail > 1` cancelado: sin eso, doble-clickear para
+          seleccionar el texto de un título abre el modal en el segundo click. */
       <tr key={l.id} {...(hecho ? {} : arr.fila(l.id))}
-        style={{ background: hecho ? 'var(--surface-2)' : undefined, cursor: !hecho && arr.activo ? 'grab' : undefined }}>
+        onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-parar]')) onOpen(l.id); }}
+        onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
+        title={`Abrir «${l.name}»`}
+        style={{ background: hecho ? 'var(--surface-2)' : undefined, cursor: !hecho && arr.activo ? 'grab' : 'pointer' }}>
         <td style={{ ...td, maxWidth: 340 }}>
           <button type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`}
             style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
@@ -649,7 +664,7 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
         </td>
         {/* `data-nodrag`: acá adentro se escribe una fecha, y empezar el arrastre desde el
             `input` se come el gesto que esa pieza ya tenía. */}
-        <td style={td} data-nodrag>
+        <td style={td} data-nodrag data-parar>
           <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
         </td>
       </tr>
@@ -795,9 +810,24 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
     const marca = hecha ? null : arr.marca(i, ultima);
     const td = marca ? { ...tdBase, ...marca } : tdBase;
     return (
+      /* ⚠️ LA FILA ENTERA ABRE EL DETALLE. «Si le aprieto a cualquier lugar debería abrir el
+          detail, no solo en el título… excepto los botones, claro» (25/09/2026). El único
+          blanco era el texto del título: en una fila de ~450 px eso es un blanco de ~130 y
+          el resto no respondía, lo cual se lee como una tabla muerta.
+
+          ⚠️ EL CORTE VA EN LA CELDA, NO EN CADA CONTROL. Un `onClick` por celda —o un
+          `stopPropagation` por botón— es la lista que se queda vieja: la columna o el botón
+          que se agregue mañana nace sin el corte y abre el modal cuando no tiene que. Con
+          `data-parar` en la celda, lo que se agregue adentro lo hereda.
+
+          ⚠️ `onMouseDown` con `detail > 1` cancelado: sin eso, doble-clickear para
+          seleccionar el texto de un título abre el modal en el segundo click. */
       <tr key={t.id} {...(hecha ? {} : arr.fila(t.id))}
-        style={{ background: hecha ? 'var(--surface-2)' : undefined, cursor: !hecha && arr.activo ? 'grab' : undefined }}>
-        <td style={{ ...td, width: C_SEL, paddingRight: 0 }}>
+        onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-parar]')) onOpen(t.id); }}
+        onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
+        title={`Abrir «${t.title}»`}
+        style={{ background: hecha ? 'var(--surface-2)' : undefined, cursor: !hecha && arr.activo ? 'grab' : 'pointer' }}>
+        <td data-parar style={{ ...td, width: C_SEL, paddingRight: 0 }}>
           <input type="checkbox" checked={sel.has(t.id)} onChange={() => alternar(t.id)}
             title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
@@ -829,7 +859,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
         {!ocultarProyecto && (
           <td style={td}>
             {proy && (
-              <button type="button" onClick={() => onOpenProj?.(proy.id)} title={`Abrir «${proy.name}»`}
+              <button type="button" data-parar onClick={(e) => { e.stopPropagation(); onOpenProj?.(proy.id); }} title={`Abrir «${proy.name}»`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: 170, border: `1px solid ${proy.color}33`, background: proy.color + '14', color: proy.color, borderRadius: 7, padding: '3px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
                 <span style={{ flex: 'none' }}>{proy.emoji}</span>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proy.name}</span>
@@ -842,7 +872,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             `title` — ver `Score`. */}
         <td style={td}><Score score={t.score} color={c} titulo={`Prioridad ${t.score} de 100 · ${PLABEL[prioFromScore(t.score)]}`} /></td>
         {/* `data-nodrag`: acá adentro se escribe una fecha. */}
-        <td style={td} data-nodrag>
+        <td style={td} data-nodrag data-parar>
           <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />
         </td>
         {/* LAS DOS ACCIONES QUE CIERRAN UNA TAREA, JUNTAS: el check y el tacho.
@@ -859,7 +889,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             primera: dos controles parecidos pegados es cómo se volvieron a confundir.
             ⚠️ El tacho NO borra: llama a `onEliminar`, que abre la pregunta de dos botones.
             Borrar de un click en una fila de una lista densa es borrar la de al lado. */}
-        <td style={{ ...td, textAlign: 'right' }}>
+        <td data-parar style={{ ...td, textAlign: 'right' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <CheckHecha hecha={hecha} onToggle={() => board.toggleDone(t.id)} titulo={t.title} />
             {onEliminar && (
