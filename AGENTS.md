@@ -858,6 +858,23 @@ Las tres preguntas, antes de convertir un accionable en una tarjeta:
    había fechado.
 3. **¿Ya está decidido o ya está hecho?** Se cierra. Una decisión tomada arrastrada como
    pendiente es ruido con cara de trabajo.
+4. **¿Se repite para siempre?** Entonces no es una tarea de este tablero. Es el criterio de
+   Mauricio y lo dijo con su nombre el 16/07/2026: *«tienes reunión todos los miércoles con
+   X clientes… eso sí es una tarea, pero es como, yo cuando trabajaba en el mundo
+   corporativo le llamábamos **BAU, Business As Usual**. Una tarea recurrente que se repite
+   infinitamente… Acá lo que entran son tareas que tienen un inicio y tienen un fin»*.
+   Reaparece el 18/08 sobre el seguimiento diario a los leads: *«esto es un bau»*.
+
+   ⚠️ **Esta pregunta NO la cubren las tres de arriba, y por eso hay que hacerla aparte.**
+   «Reunión de los miércoles» *sí* se puede completar —esta semana—, no es una decisión y no
+   está hecha: pasa las tres y no debería estar en el tablero igual. Lo que la delata es que
+   al cerrarla haya que volver a crearla.
+
+   ⚠️ Y el producto **no tiene recurrencia**: no hay una sola línea de código que la
+   modele, así que hoy una BAU que entra por WhatsApp o por una reunión se crea como
+   cualquier otra y el Perro la puntúa como cualquier otra. Mientras eso siga así, lo único
+   que hay es este criterio al extraer. La regla hermana a nivel proyecto ya estaba escrita
+   desde el 13/07 —«un proyecto tiene inicio y fin»— y le faltaba la mitad de las tareas.
 
 **El resultado de aplicar las tres: 13 tarjetas abiertas → 5**, y arriba de todo la que
 faltaba (el documento de oferta y precio), con las seis decisiones enumeradas adentro para
