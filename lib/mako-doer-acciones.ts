@@ -171,7 +171,23 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // derecho a la base (todo.ts).
         const arr = Array.isArray(payload.tareas) ? (payload.tareas as Array<Record<string, unknown>>) : [];
         const items = arr
-          .map((t) => ({ titulo: String(t.titulo ?? '').trim(), prioridad: prioOk(t.prioridad), proyecto: t.proyecto ? String(t.proyecto).trim() : undefined, deadline: typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined, detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined }))
+          .map((t) => {
+            // ⚠️ SI SE REPITE, NO LLEVA FECHA, Y ACÁ EL BOOLEANO LE GANA AL DEADLINE. Son dos
+            // señales que se contradicen y la regla de la casa dice que gana la MÁS CARA de
+            // producir... salvo que una sea imposible: una fecha de fin sobre algo que no
+            // termina no es un dato caro, es una contradicción. El modelo puede mandar las
+            // dos (`recurrente: true` + «todos los lunes» resuelto a un lunes concreto) y lo
+            // que hay que conservar es lo que la persona dijo: que se repite.
+            const recurrente = t.recurrente === true;
+            return {
+              titulo: String(t.titulo ?? '').trim(),
+              prioridad: prioOk(t.prioridad),
+              proyecto: t.proyecto ? String(t.proyecto).trim() : undefined,
+              deadline: !recurrente && typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined,
+              detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined,
+              recurrente,
+            };
+          })
           .filter((t) => t.titulo);
         if (!items.length) return { ok: false, resumen: 'No había tareas válidas para agregar.' };
         const nN = `${items.length} tarea${items.length === 1 ? '' : 's'}`;
@@ -179,7 +195,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
 
         if (ws === OWNER_WS) {
           const { ids, proyectoIds } = await agregarTareasPlanOwner(
-            items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle })),
+            items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle, recurrente: it.recurrente })),
             { tipo: 'whatsapp' },
           );
           const links = ids.map((id) => `${APP_URL}/plan/agencia?tarea=${id}`);
@@ -438,6 +454,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             properties: {
               titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
+              recurrente: { type: 'boolean', description: 'opcional; true SOLO si se repite para siempre y no tiene un final: asistir a la junta de los miércoles, el seguimiento diario a los leads. NO lo pongas en algo que se hace UNA vez aunque monte un ritual — «diseñar la estructura de la junta semanal» se completa y se termina, así que es false. Si es true, NO mandes deadline: una recurrente no tiene fecha de fin.' },
               proyecto: { type: 'string', description: `opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, pon su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, pon igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.
 
 CÓMO SE LLAMA UN PROYECTO NUEVO (la misma regla que aplica el Perro — si propones un nombre que no la cumple, no lo va a reconocer como proyecto nuevo y va a reusar el más parecido):

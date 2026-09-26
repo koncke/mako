@@ -411,7 +411,18 @@ export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcia
   });
 }
 
-export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente };
+/**
+ * ⚠️ `recurrente` VIAJA DESDE EL ALTA, y no es un detalle: mientras el único camino fue un
+ * interruptor en el detalle, una reunión extraída metía «Reunión semanal con Esquer» como
+ * tarea normal, el Perro le ponía score y deadline, se llevaba un puesto del ranking y
+ * titilaba pidiendo una fecha que nunca iba a tener. O sea que el síntoma que la feature
+ * vino a eliminar seguía entrando por la puerta principal todos los días.
+ *
+ * ⚠️ Y UNA RECURRENTE NACE SIN FECHA, acá mismo. No alcanza con que `taskToRow` la borre
+ * después: si el deadline llega hasta el objeto en memoria, el Perro lo ve en la misma
+ * corrida y razona con él. Se corta en el alta, que es donde entra.
+ */
+export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente; recurrente?: boolean };
 
 /** MaKo agrega tareas al board del dueño DIRECTO a la DB (antes iban a la bandeja
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
@@ -588,6 +599,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
           ...(motivoSin[i] ? [{ id: genId('h'), ts: ahora, actor, text: motivoSin[i]!.slice(0, 300) }] : []),
         ],
         origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,
+        recurrente: !!it.recurrente,
       };
     });
     const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));

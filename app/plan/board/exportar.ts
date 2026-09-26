@@ -16,6 +16,7 @@
 
 import type { BoardTask, Label } from './types';
 import { capacidad } from '@/lib/mako-capacidades';
+import { sinRecurrentes } from '@/lib/plan-recurrentes';
 
 /** «crm-lead» no le dice nada a nadie en una planilla: sale el nombre de la tab. */
 const dondeSeHace = (id?: string): string => {
@@ -122,7 +123,16 @@ export function proyectosACSV(labels: Label[], tasks: BoardTask[], campos: Campo
  * El tablero entero como documento: agrupado POR PROYECTO y ordenado por score, que
  * es como se lee de verdad. Las tareas hechas van al final de cada proyecto, tachadas.
  */
-export function tableroAMarkdown(tasks: BoardTask[], labels: Label[], titulo = 'Plan', campos: CampoExtra[] = CAMPOS_EXTRA.map((c) => c.id)): string {
+/**
+ * ⚠️ EL MARKDOWN CUENTA LO MISMO QUE LA TARJETA DEL PROYECTO. `projProgress` saca las
+ * recurrentes del avance —una tarea sin fin está clavada en 0% y hundiría el porcentaje
+ * para siempre—, así que si acá se contaran, el documento exportado diría «3 pendientes de
+ * 8» sobre un proyecto que en pantalla dice «5». Dos números del mismo hecho que no
+ * coinciden no son un detalle: son la pantalla o el export mintiendo, y no hay forma de
+ * saber cuál.
+ */
+export function tableroAMarkdown(tasksIn: BoardTask[], labels: Label[], titulo = 'Plan', campos: CampoExtra[] = CAMPOS_EXTRA.map((c) => c.id)): string {
+  const tasks = sinRecurrentes(tasksIn);
   const on = new Set(campos);
   const out: string[] = [`# ${titulo}`, '', `_${tasks.length} tareas · ${labels.length} proyectos · ${hoy()}_`, ''];
   const orden = [...labels].sort((a, b) => b.score - a.score);

@@ -218,6 +218,8 @@ export type NuevaTarea = {
   prioridad?: Prioridad;
   progreso?: number;
   deadline?: string | null;
+  /** «Se repite para siempre» (mig 0163). Nace sin fecha: ver `crearTarea`. */
+  recurrente?: boolean;
   categorias?: number[];
   origen?: OrigenTarea;
   /** de dónde salió (reunión de Fathom con su minuto, WhatsApp, archivo…). */
@@ -248,7 +250,11 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     estado,
     prioridad: prioridadOk(input.prioridad),
     progreso: input.progreso != null ? clampPct(input.progreso) : 0,
-    deadline: dateOk(input.deadline),
+    // ⚠️ UNA RECURRENTE NACE SIN FECHA. La misma regla que `editarTarea`, acá arriba del
+    // insert: si entra con deadline, el motor de vencimientos la hace titilar para siempre
+    // pidiendo que se cierre algo que por definición no cierra.
+    deadline: input.recurrente ? null : dateOk(input.deadline),
+    recurrente: !!input.recurrente,
     categorias: catsOk(input.categorias),
     checklist: [] as ChecklistItem[],
     historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],

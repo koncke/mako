@@ -305,7 +305,7 @@ function SinTrabajo({ nombre, huerfanos }: { nombre: string; huerfanos: Proyecto
     <div className="tr-vacio">
       <p className="t">Todavía no hay trabajo suyo en el tablero</p>
       <p className="d">
-        Las tareas de {nombre} aparecen solas acá cuando se archivan en un proyecto con su
+        Las tareas de {nombre} aparecen solas aquí cuando se archivan en un proyecto con su
         nombre, o cuando salen de una reunión con él.
       </p>
       {huerfanos.length > 0 && <Huerfanos huerfanos={huerfanos} deUnCliente />}
