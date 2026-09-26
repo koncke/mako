@@ -1195,7 +1195,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
               onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'recurrentes' && <RecurrentesView tareas={lasRecurrentes} proyectos={losProyectosRecurrentes} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} ask={ask} />}
         {view === 'graphics' && <GraphicsView board={board} />}
@@ -4234,7 +4234,11 @@ function GrupoRecurrente({ rotulo, n, conRotulo, children }: { rotulo: string; n
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir, tabla, onSoltar }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; tabla: boolean;
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, campos, fOrigen, sortMode, sortDir, tabla, onSoltar }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string;
+  /** DÓNDE mira la búsqueda. Es la MISMA elección que gobierna la de tareas (el chevrón al
+   *  lado de la lupa), que esta vista ignoraba: buscar acá miraba siempre el detalle, las
+   *  notas y los títulos de las tareas de adentro, hubiera pedido eso o no. */
+  campos: CampoBusqueda[]; fOrigen: Set<string>; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; tabla: boolean;
   /** soltaste un proyecto: NO se fija solo, dispara el MISMO pop-up del 1 al 100 que el
    *  Kanban y que el lápiz del panel (`setSoltada`), con el número que sugiere la posición. */
   onSoltar: (id: string, sugerido: number) => void }) {
@@ -4311,13 +4315,38 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
    *   1 · su descripción o sus notas             — habla de eso
    *   2 · el título de alguna de sus tareas      — tiene trabajo sobre eso
    */
+  /**
+   * ⚠️ POR DEFECTO SE BUSCA SÓLO EN EL NOMBRE. «Cómo es posible que busco idea y el proyecto
+   * de idea me sale último… debe estar buscando por la descripción, pero eso sólo debería
+   * pasar en la búsqueda avanzada» (26/09/2026).
+   *
+   * Tenía razón y el arreglo de la vuelta anterior —ordenar por relevancia— atacaba el
+   * síntoma: medido contra la base, «idea» devolvía 10 proyectos de 71 y UNO SOLO lo tiene
+   * en el nombre. Ordenarlos mejor deja nueve tarjetas que la persona no pidió.
+   *
+   * Lo que faltaba ya existía: la búsqueda de TAREAS mira sólo el título salvo que se
+   * agreguen campos en el desplegable de la lupa (`CAMPOS_POR_DEFECTO = ['titulo']`), y esta
+   * vista era la única que no respetaba esa elección. Ahora la comparte, así que el mismo
+   * control gobierna las dos — que es la regla de la casa de un control, un significado.
+   *
+   * El mapeo, con su porqué:
+   *   · `titulo`  → el pid y el NOMBRE. Es lo único del default.
+   *   · `detalle` → la descripción Y los títulos de las tareas de adentro: las dos son
+   *                 «mirar adentro del proyecto», y buscar «landing» y que aparezca el
+   *                 proyecto donde vive esa tarea sigue siendo útil — pero bajo pedido.
+   *   · `notas`   → las notas.
+   */
+  const ve = (c: CampoBusqueda) => campos.includes(c);
   const henoDe = (l: Label) => `${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name}`;
   const aguja = needle.replace(/^#/, '');
   const escalon = (l: Label, ts: BoardTask[]): number => {
-    if (coincide(henoDe(l), aguja)) return 0;
-    if (coincide(`${l.detalle ?? ''} ${l.notas ?? ''}`, aguja)) return 1;
-    if (coincide(ts.map((t) => t.title).join(' '), aguja)) return 2;
-    return 3;   // no coincide con nada
+    // El pid se busca SIEMPRE, como el `#número` de una tarea: escribir «P39» es pedir un
+    // proyecto puntual, no buscar texto.
+    if (ve('titulo') && coincide(henoDe(l), aguja)) return 0;
+    if (ve('detalle') && coincide(l.detalle ?? '', aguja)) return 1;
+    if (ve('notas') && coincide(l.notas ?? '', aguja)) return 1;
+    if (ve('detalle') && coincide(ts.map((t) => t.title).join(' '), aguja)) return 2;
+    return 3;   // no coincide con nada de lo que se pidió mirar
   };
   const conEscalon = needle ? withProg.map((x) => ({ ...x, esc: escalon(x.l, x.ts) })) : withProg.map((x) => ({ ...x, esc: 0 }));
   const shown = conEscalon
