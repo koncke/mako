@@ -31,7 +31,14 @@ export type TareaBuscable = {
   checklist?: Array<{ text?: string; texto?: string }>;
 };
 
-export type CampoBusqueda = 'titulo' | 'detalle' | 'checklist' | 'notas' | 'razones';
+/**
+ * ⚠️ `'checklist'` SE FUE EL 26/09/2026. Las checklists salieron del producto el 22/09
+ * —«que no existan checklists, quitan mucho tiempo, son incómodas»— y este campo sobrevivió
+ * cuatro días ofreciendo buscar adentro de algo que ya nadie escribe: el que lo tildaba no
+ * recibía un error, recibía CERO resultados, que es indistinguible de «no hay ninguna».
+ * Es la regla de AGENTS.md sobre el consumidor huérfano de un campo que ya nadie llena.
+ */
+export type CampoBusqueda = 'titulo' | 'detalle' | 'notas' | 'razones';
 
 /** Los campos, con su etiqueta y de dónde sale el texto. Es la lista que pinta la UI
  *  y la misma que le describe los campos a la IA: si acá se agrega uno, aparece en los
@@ -39,7 +46,6 @@ export type CampoBusqueda = 'titulo' | 'detalle' | 'checklist' | 'notas' | 'razo
 export const CAMPOS: Array<{ id: CampoBusqueda; label: string; ayuda: string; texto: (t: TareaBuscable) => string }> = [
   { id: 'titulo', label: 'Título', ayuda: 'el nombre de la tarea', texto: (t) => t.title ?? t.titulo ?? '' },
   { id: 'detalle', label: 'Detalle', ayuda: 'el doc completo de la tarea', texto: (t) => t.detalle ?? '' },
-  { id: 'checklist', label: 'Checklist', ayuda: 'los pasos de adentro', texto: (t) => (t.checklist ?? []).map((c) => c.text ?? c.texto ?? '').join(' ') },
   { id: 'notas', label: 'Notas', ayuda: 'tu cuaderno, que la IA nunca pisa', texto: (t) => t.notas ?? '' },
   { id: 'razones', label: 'Razones de MaKo', ayuda: 'por qué te puso ese puntaje y esa fecha', texto: (t) => `${t.scoreRazon ?? ''} ${t.deadlineRazon ?? ''}` },
 ];

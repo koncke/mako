@@ -566,6 +566,24 @@ export function BoardShell({ board, scope, vistaInicial }: {
    */
   const buscando = !!idsIA || !!q.trim();
   const visibles = (buscando ? tasks : conFin).filter(passes);
+
+  /**
+   * Lo que la vista «Recurrentes» dibuja de verdad: lo que se repite Y pasa el buscador y
+   * los filtros de la barra. Se arma acá y no adentro de la vista porque `passes` —el
+   * predicado de la vista Tareas— ya sabe cruzar texto, proyecto, origen y estado, y tener
+   * dos predicados para la misma barra es garantizar que un filtro nuevo funcione en una
+   * vista y en la otra no.
+   *
+   * ⚠️ `passes` mira `fCuando`, que sale del deadline. Para una recurrente eso siempre da
+   * «sin fecha», así que el filtro no se dibuja en esta vista y el `Set` queda vacío — y un
+   * `Set` vacío en `passes` es «no filtres». Si alguna vez se dibujara, esta lista se
+   * vaciaría entera sin que nada lo explique.
+   */
+  const recurrentesVisibles = lasRecurrentes.filter(passes);
+  const proyRecurrentesVisibles = losProyectosRecurrentes.filter((l) => (
+    (!q || coincide(`${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name}`, q.replace(/^#/, '')))
+    && (fLabels.size === 0 || fLabels.has(l.id))
+  ));
   // ── El header: SIEMPRE PLEGADO ───────────────────────────────────────────────
   //
   // Acá vivían ~90 líneas que medían el header para decidir si plegar los botones, y se
@@ -1058,14 +1076,17 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {!compacto && view === 'tareas' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {!compacto && view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {!compacto && view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
-        {/* ⚠️ «RECURRENTES» NO LLEVA BUSCADOR NI «FILTRAR», Y ES A PROPÓSITO. El filtro de
-            esta barra ordena por prioridad y por deadline y filtra por «Cuándo» (que se
-            deriva del deadline): las tres preguntas que una recurrente no puede contestar,
-            o sea tres controles que devolverían la lista igual o vacía. Lo que sí sirve
-            —ordenar por proyecto o por creación— ya lo da la propia tabla clickeando su
-            encabezado. Y el buscador global sigue encontrándolas: buscar en «Tareas» deja
-            de excluirlas mientras haya texto (ver `visibles`). */}
-        {(view === 'tareas' || view === 'proyectos') && (
+        {/* ⚠️ «RECURRENTES» SÍ LLEVA BUSCADOR Y FILTRO. Estuvo sin los dos unas horas, con
+            el argumento de que el filtro pregunta por prioridad, deadline y «Cuándo» —las
+            tres cosas que una recurrente no puede contestar—. El argumento era cierto sobre
+            ESOS TRES controles y falso sobre el resto: proyecto, origen y estado se
+            contestan igual, y una vista sin buscador es una vista que no se puede usar en
+            cuanto pasa de diez tarjetas. «Faltan los filtros y la barra de búsqueda en
+            Recurrentes» (26/09/2026).
+            Lo que se hizo con los tres que no aplican es no dibujarlos (ver el `FilterMenu`
+            de esta vista, más abajo): un control que devuelve la lista igual o vacía se lee
+            como que la app está rota. */}
+        {(view === 'tareas' || view === 'proyectos' || view === 'recurrentes') && (
           <BuscadorTareas
             q={q} onQ={setQ}
             campos={campos} onCampos={setCampos}
@@ -1084,6 +1105,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {(view === 'tareas' || view === 'proyectos' || view === 'recurrentes') && <VistaToggle tabla={tabla} onSet={setTabla} />}
         {view === 'tareas' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
         {view === 'proyectos' && <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
+        {/* ⚠️ SIN «CUÁNDO» Y SIN ORDENAR: los dos salen del deadline, y una recurrente no
+            tiene. Dibujarlos acá sería ofrecer tres controles que devuelven la lista igual.
+            Quedan los que sí contestan algo: por proyecto, por origen y por estado. */}
+        {view === 'recurrentes' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} />}
         </div>
         {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
             «+» que los despliega al costado. Antes se dibujaban encima de «Filtrar». */}
@@ -1197,7 +1222,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
-        {view === 'recurrentes' && <RecurrentesView tareas={lasRecurrentes} proyectos={losProyectosRecurrentes} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} ask={ask} />}
+        {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} ask={ask} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -2009,7 +2034,8 @@ function PlanIcon({ size = 24 }: { size?: number }) {
 // buscaban por subcadena. Dos buscadores en la misma pantalla que no se parecían.
 
 
-// filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas
+// filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Completadas.
+// ⛔ «Comenzadas» se fue con las checklists — el porqué, veinte líneas más abajo.
 /**
  * Cómo se ordena el tablero. Los cuatro valen para tareas Y para proyectos, que es lo que
  * pedía «ordenar por varias cosas, ya sea por prioridad, por deadline, por creación, por Az».

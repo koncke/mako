@@ -33,10 +33,12 @@ test('EL PEDIDO: por defecto NO busca en el detalle', () => {
 test('…y con la búsqueda avanzada sí, campo por campo', () => {
   assert.equal(matchTarea(T, 'semáforo', ['titulo', 'detalle']), true);
   assert.equal(matchTarea(T, 'Mauricio', ['titulo', 'notas']), true);
-  assert.equal(matchTarea(T, 'retención', ['titulo', 'checklist']), true);
   assert.equal(matchTarea(T, 'BYOK', ['titulo', 'razones']), true);
-  // Elegir un campo NO arrastra a los otros: pedir «detalle» no trae la checklist.
-  assert.equal(matchTarea(T, 'retención', ['titulo', 'detalle']), false);
+  // Elegir un campo NO arrastra a los otros: pedir «detalle» no trae las notas.
+  assert.equal(matchTarea(T, 'Mauricio', ['titulo', 'detalle']), false);
+  // ⛔ Acá se probaba el campo `checklist`, que se fue el 26/09/2026 con la opción de la
+  //    búsqueda avanzada: las checklists salieron del producto el 22/09 y el campo quedó
+  //    ofreciendo buscar adentro de algo que ya nadie escribe.
 });
 
 test('el #número se busca SIEMPRE, aunque el título no coincida', () => {
@@ -71,8 +73,8 @@ test('los campos sirven para los dos tableros (title y titulo)', () => {
   // El del dueño usa `title`; el de los clientes, `titulo`. Un solo buscador para los dos.
   assert.equal(matchTarea({ titulo: 'Conectar Meta Ads' }, 'meta'), true);
   assert.equal(matchTarea({ title: 'Conectar Meta Ads' }, 'meta'), true);
-  // Y la checklist de los clientes guarda `texto`, no `text`.
-  assert.equal(matchTarea({ titulo: 'x', checklist: [{ texto: 'pixel' }] }, 'pixel', ['checklist']), true);
+  // Y el DETALLE también, que es lo que quedó después de que las checklists salieran.
+  assert.equal(matchTarea({ titulo: 'x', detalle: 'pixel' }, 'pixel', ['detalle']), true);
 });
 
 // ---------------------------------------------------------------------------
