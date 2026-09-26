@@ -18,7 +18,8 @@
 // =============================================================================
 
 import { useCallback, useState, type ReactNode } from 'react';
-import type { AreaId, Cerebro } from '@/lib/cerebro-modelo';
+import { useSearchParams } from 'next/navigation';
+import { AREAS, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
 import { PageHeader } from '@/app/_ui';
 import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { Grafo } from './Grafo';
@@ -32,7 +33,13 @@ export function VistaCerebro({ cerebro, funnelPanel, agenteToken, appUrl }: {
   agenteToken: string | null;
   appUrl: string;
 }) {
-  const [abierta, setAbierta] = useState<AreaId | null>(null);
+  // `?area=oferta` abre esa sección de entrada. Existe porque otras pantallas
+  // mandan acá a hacer algo concreto —el selector de oferta del CRM manda a
+  // crear una—, y aterrizar en el mapa entero es aterrizar en «buscala vos».
+  // Se valida contra AREAS: un valor cualquiera en la URL no abre nada.
+  const areaPedida = useSearchParams()?.get('area');
+  const areaInicial = AREAS.find((a) => a.id === areaPedida)?.id ?? null;
+  const [abierta, setAbierta] = useState<AreaId | null>(areaInicial);
   /** Cuántas veces se pidió IR a la sección, no cuál. Abrir y saltar son dos cosas
    *  distintas —tocar un nodo abre sin mover la pantalla, tocar «Abrir» va— y con un
    *  solo booleano no se distinguen dos pedidos seguidos de salto a la MISMA sección:

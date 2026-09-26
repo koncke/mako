@@ -109,7 +109,10 @@ export function AreasHub({ abierta, onAbrir, salto, funnelPanel }: {
   // arranca scrolleada abajo. Y depende SOLO de `salto`: cuando existían las tarjetas,
   // cualquier re-render del padre volvía a disparar este scroll y la página se movía
   // sola cada vez que el mouse rozaba una.
-  const primera = useRef(true);
+  // La corrida de montaje se saltea SALVO que ya haya algo abierto: eso sólo pasa
+  // con un `?area=` en la URL, y ahí el que llegó vino a ver esa sección — dejarlo
+  // arriba del mapa con el panel abierto abajo es no haberlo llevado a ningún lado.
+  const primera = useRef(abierta === null);
   useEffect(() => {
     if (primera.current) { primera.current = false; return; }
     panelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });

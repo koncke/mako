@@ -3232,8 +3232,30 @@ Los pendientes propios de cada fase están arriba, en su entrada; esto es lo que
 - **`lead_magnets` nace con CRUD y sin lectores**: el imán sigue en
   `app_settings['mako.entregable']` (`lib/entregable.ts`, ~14 lectores). El dato y sus lectores
   se mudan juntos o no se mudan.
-- **El CRM no muestra ofertas ni funnels**, a propósito: el desplegable del pedido original vive
-  en el wizard de cierre y es F3.
+- **El wizard de cierre sigue sin preguntar por la oferta**: el desplegable que sí salió
+  (abajo) elige qué funnel DIBUJA el tablero, no a qué oferta pertenece un lead. Eso es F3.
 
 **Vive en:** `docs/productos-y-funnels-plan.md` (el estado, arriba de todo) ·
 *2026-09-26 cosecha F1+F2*
+
+## El selector de oferta del tablero elige el DIBUJO, no filtra los leads
+
+El pedido fue sacar «1.142 de 1.142» de al lado de «Descartado» y poner ahí el desplegable
+de producto/funnel/oferta. Lo que quedó: `/crm?funnel=<id>` lee las etapas y las
+transiciones de ESE funnel (`getFunnelDe`) en vez de las del negocio, y el tablero se dibuja
+con ellas. **Los leads son los mismos**: sin `lead_participaciones` (F3) no hay con qué
+decir que un lead pertenece a una oferta y no a otra, así que filtrarlos sería inventar.
+Cambiar de funnel es cambiar de página a propósito — las etapas se resuelven en el server y
+no hay estado de cliente que sincronizar.
+
+⚠️ **Y medido antes de escribir el control: los 9 workspaces tienen UN funnel («Funnel
+principal», el que les creó la 0170) y CERO ofertas.** O sea que el desplegable, tal cual lo
+pedía el enunciado, nacía con una sola opción y sin nada que elegir — un control que abre,
+muestra una cosa y no hace nada, que se lee como que está roto y no como que falta crear
+algo. Por eso la última fila no es un funnel sino una salida («Crear otra oferta»), y lleva
+al único lugar donde hoy se crean, que es el cerebro. Antes de poner un selector sobre una
+tabla nueva, **contá las filas que va a tener el día del deploy**, no las que va a tener
+cuando la feature esté completa.
+
+**Vive en:** `app/crm/CrmToolbar.tsx` (`SelectorFunnel`) · `app/crm/page.tsx` (el
+`searchParams.funnel`) · *2026-09-26*

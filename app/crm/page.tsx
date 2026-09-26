@@ -5,7 +5,7 @@
 import { listLeads, type Lead } from '@/lib/leads';
 // DEFAULT en las dos: el board pinta las COLUMNAS del negocio (la etapa de cada lead
 // se deriva de sus propias columnas con deriveStageKey, no del funnel).
-import { getPipelineStagesDefault, getFunnelTransitionsDefault } from '@/lib/funnels';
+import { getPipelineStagesDefault, getFunnelTransitionsDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
 import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
@@ -34,7 +34,11 @@ export const revalidate = 0;
 // dos veces.
 export const maxDuration = 60;
 
-export default async function LeadsPage() {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ funnel?: string }> }) {
+  // Qué funnel dibuja el tablero. Va por la URL y no por estado del cliente: las
+  // etapas se leen en el server, así que cambiar de funnel es cambiar de página.
+  const funnelPedido = Number((await searchParams)?.funnel);
+  const funnelId = Number.isInteger(funnelPedido) && funnelPedido > 0 ? funnelPedido : null;
   await requireCapa('crm');
 
   // Sin NINGUNA fuente de leads el Kanban es una bienvenida muerta, y encima es
@@ -64,6 +68,7 @@ export default async function LeadsPage() {
   // posible para el worklist, porque el usuario deja de mirar.
   let pendientesAviso = '';
   let stages: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
+  let funnels: Awaited<ReturnType<typeof listarFunnels>> = [];
   let transitions: FunnelTransition[] = generateFunnel(DEFAULT_PIPELINE).transitions;
   let errorMsg: string | null = null;
 
@@ -72,7 +77,8 @@ export default async function LeadsPage() {
     let stagesRaw: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
     let transitionsRaw: FunnelTransition[] | undefined;
     let pendRaw: { items: PendienteItem[]; aviso: string };
-    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw] = await Promise.all([
+    let funnelsRaw: Awaited<ReturnType<typeof listarFunnels>>;
+    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw, funnelsRaw] = await Promise.all([
       listLeads(),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
@@ -81,12 +87,15 @@ export default async function LeadsPage() {
         // La lista vacía se sigue devolviendo (el CRM no se cae por el worklist),
         // pero ahora VIENE DICHO que no se pudo calcular.
         .catch((e) => ({ items: [] as PendienteItem[], aviso: `No se pudieron calcular los datos sin marcar: ${e instanceof Error ? e.message : String(e)}` })),
-      getPipelineStagesDefault().catch(() => undefined),
-      getFunnelTransitionsDefault().catch(() => undefined),
+      // Con ?funnel= manda ese; sin él, el del negocio. Mismo dato, otra fila.
+      (funnelId ? getFunnelDe(funnelId).then((f) => f.stages) : getPipelineStagesDefault()).catch(() => undefined),
+      (funnelId ? getFunnelDe(funnelId).then((f) => f.transitions) : getFunnelTransitionsDefault()).catch(() => undefined),
+      listarFunnels().catch(() => []),
     ]);
     pendientesRaw = pendRaw.items;
     pendientesAviso = pendRaw.aviso;
     stages = stagesRaw;
+    funnels = funnelsRaw;
     if (transitionsRaw) transitions = transitionsRaw;
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -147,6 +156,8 @@ export default async function LeadsPage() {
       calendlyStages={calendlyStages}
       leads={crmLeads}
       stages={stages}
+      funnels={funnels}
+      funnelActivo={funnelId}
       juntas={juntas}
       marcar={marcar}
       marcarAviso={pendientesAviso}

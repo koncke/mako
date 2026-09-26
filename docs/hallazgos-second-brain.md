@@ -1543,3 +1543,22 @@ sin depender de que el modelo adivine.
 **La regla:** un artefacto que se entrega por copiar-y-pegar tiene que llevar adentro sus
 instrucciones de instalación. El tutorial de la app lo lee quien lo copia; el que lo
 recibe es otro —una persona en otra máquina, o un modelo— y ese solo tiene el texto.
+
+## Abrir un área por URL: el `?area=` y el `useRef` que lo hacía inútil
+
+Otras pantallas mandan al cerebro a hacer algo concreto —el selector de oferta del CRM manda
+a crear una— y hasta ahora aterrizaban en el mapa entero, o sea en «buscala vos». `?area=` lo
+abre: `VistaCerebro` inicializa `abierta` con el valor de la URL, validado contra `AREAS`
+(un valor cualquiera no abre nada).
+
+**Lo que casi lo deja decorativo:** el efecto que scrollea al panel tiene una guarda que
+saltea la corrida de montaje —existe porque sin ella la página arranca scrolleada abajo— y
+esa guarda se come justo el único caso del deep link. La cura es que la guarda mire el
+estado de montaje en vez de ser una constante: `useRef(abierta === null)`. Con algo ya
+abierto al montar, el scroll de la primera corrida es EL que se quería.
+
+Es la familia de «escribir la salida no es ofrecerla»: el `?area=` compilaba, el panel se
+abría, y el que llegaba desde otra pantalla quedaba igual de perdido que antes.
+
+**Vive en:** `app/second-brain/VistaCerebro.tsx` · `app/second-brain/AreasHub.tsx` ·
+*2026-09-26*

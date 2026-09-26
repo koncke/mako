@@ -18,7 +18,8 @@
 //    (URLs de campaña enteras): toda opción y todo chip lleva maxWidth + ellipsis +
 //    title con el valor completo.
 
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
 
@@ -431,12 +432,44 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAb
   );
 }
 
-// ── "12 de 340" — el resultado de los filtros, ya no vive en el H1 ───────────
-export function ConteoLeads({ visibles, total }: { visibles: number; total: number }) {
+// ── Qué funnel dibuja el tablero ─────────────────────────────────────────────
+// Acá vivía «1.142 de 1.142», que repetía los conteos de las bandas que están al
+// lado y no se usaba para nada. Pedido del dueño (26/09): ese lugar es para
+// elegir la oferta/funnel. Cambiar de funnel es cambiar de página (`?funnel=`):
+// las etapas se leen en el server, no hay estado que sincronizar.
+/** Valor centinela del renglón que no es un funnel sino una salida. */
+const NUEVA = '__nueva';
+
+export function SelectorFunnel({ funnels, activo }: {
+  funnels: { id: number; nombre: string; esDefault: boolean }[];
+  activo: number | null;
+}) {
+  const router = useRouter();
+  if (funnels.length === 0) return null;
+  const actual = funnels.find((f) => f.id === activo) ?? funnels.find((f) => f.esDefault) ?? funnels[0];
+  const opciones: DropdownOption[] = funnels.map((f) => ({
+    value: String(f.id),
+    label: f.nombre,
+    sub: f.esDefault ? 'el de tu negocio' : undefined,
+  }));
+  // Hoy todo workspace tiene UN funnel (mig 0170 le creó uno a cada uno) y cero
+  // ofertas, así que sin este renglón el desplegable abre, muestra una sola cosa y
+  // no hace nada — que se lee como que está roto, no como que falta crear algo.
+  // Las ofertas y sus funnels se crean en el cerebro; el `?area=` lo abre ahí mismo.
+  opciones.push({ value: NUEVA, label: 'Crear otra oferta', sub: 'con su propio funnel' });
   return (
-    <span style={{ flex: 'none', fontSize: 13, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
-      title={`Se muestran ${visibles} de ${total} leads del workspace`}>
-      <b style={{ fontWeight: 600, color: 'var(--ink)' }}>{visibles}</b> de {total}
+    <span style={{ flex: 'none', minWidth: 190 }}>
+      <Dropdown
+        value={String(actual.id)}
+        options={opciones}
+        ariaLabel="Oferta que dibuja el tablero"
+        onChange={(v) => {
+          if (v === NUEVA) { router.push('/second-brain?area=oferta'); return; }
+          const f = funnels.find((x) => x.id === Number(v));
+          // El del negocio va sin parámetro: la URL del CRM no se ensucia por defecto.
+          router.push(f?.esDefault ? '/crm' : `/crm?funnel=${v}`);
+        }}
+      />
     </span>
   );
 }

@@ -74,6 +74,7 @@ import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita } from './senal
 // La misma pieza que usan las fichas: los dos toques de Meta viven en UN lugar.
 import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
+import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { openCalendlyEn } from './calendly-widget';
 import { Icon } from '../_components/icons';
@@ -81,7 +82,7 @@ import {
   AccionesHeader,
   BandasToggle,
   Buscador,
-  ConteoLeads,
+  SelectorFunnel,
   CrmFilterMenu,
   CrmToolbarStyles,
   DivisorHeader,
@@ -241,6 +242,8 @@ export function CrmBoard({
   hoy,
   equipo = [],
   calendlyStages = [],
+  funnels = [],
+  funnelActivo = null,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -261,6 +264,10 @@ export function CrmBoard({
    * Vacío = este negocio no agenda por Calendly, y la opción no se ofrece.
    */
   calendlyStages?: string[];
+  /** Las ofertas/funnels del workspace. El selector reemplaza al viejo «N de N». */
+  funnels?: FunnelResumen[];
+  /** null = el funnel del negocio (sin `?funnel=` en la URL). */
+  funnelActivo?: number | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -1349,7 +1356,7 @@ export function CrmBoard({
             conteo={(band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length}
           />
         )}
-        {vista !== 'pendientes' && <ConteoLeads visibles={filtered.length} total={total} />}
+        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} />}
       </div>
 
       {/* Fila 2 — solo si hay filtros activos (el buscador no genera chip). */}

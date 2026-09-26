@@ -24,21 +24,21 @@ const MONO = "'Geist Mono', monospace";
 const DECISIONES = [
   {
     que: 'Agendar una reunión',
-    detalle: 'Menú de 3 opciones y asistente de 3 pasos para mover un lead una columna. Y si la agendaste por fuera, te obliga a escribir por qué.',
+    detalle: 'Arrastras a Carlos Mejía a Agenda R1 y no se mueve: primero un menú de 3 opciones, después un asistente de 3 pasos. Si eliges «ya está agendada», no te deja seguir hasta escribir por qué no usaste Calendly.',
     costo: '~10 clics',
     unidad: 'por día',
     pregunta: '¿Ese texto obligatorio lo quieres como freno a propósito, sabiendo que nada lo lee?',
   },
   {
     que: 'Confirmar cada arrastre',
-    detalle: 'Mueves una card y hay que confirmar. Lo pediste el 06/08.',
+    detalle: 'Arrastras a Gerardo Avila a Ganado y se abre «Mover a Ganado a Gerardo Avila»: hay que apretar otra vez. Lo pediste el 06/08, y desde entonces el toast «Deshacer» dura 5 segundos y el movimiento queda en el historial.',
     costo: '5 clics',
     unidad: 'por día',
     pregunta: '¿Vale también para algo que ya se deshace en 5 segundos y queda en el historial?',
   },
   {
     que: 'Corregir un teléfono',
-    detalle: 'La ficha no deja editar nada: otra pantalla, prender «Editar», guardar, confirmar en un modal. Al volver pierdes el scroll.',
+    detalle: 'A Alejandro Prado le quedó el teléfono con caracteres raros. En la ficha el teléfono es un botón de COPIAR: hay que ir a otra pantalla, prender «Editar», guardar, confirmar los cambios en un modal, y al volver el tablero se recarga entero.',
     costo: '5 clics + 2 recargas',
     unidad: 'cada vez',
     pregunta: '¿La previsualización del cambio la quieres antes, o un «deshacer» después?',
@@ -47,45 +47,70 @@ const DECISIONES = [
 
 /** Bugs y esperas: no protegen nada, no necesito permiso. */
 const SIN_PERMISO = [
-  'El «Revisando qué datos faltan…» que tapa el asistente y no se puede cerrar',
-  'La pantalla «✓ Datos actualizados», que solo repite lo que acabás de hacer',
-  'Escape cierra la ficha entera y se lleva lo que estabas escribiendo',
-  'El número rojo que late para siempre, y el punto rojo repetido 3 veces en la ficha',
+  'El «Revisando qué datos faltan…» que tapa el asistente: no avanza, no vuelve y no se puede cerrar',
+  'La pantalla «✓ Datos actualizados» al terminar: una pantalla más para decir lo que acabas de hacer',
+  'Aprietas Escape dentro de un cartel y se cierra la ficha entera, con lo que estabas escribiendo',
+  'El contador de Pendientes late en rojo sin parar, y en la ficha el mismo aviso aparece 3 veces',
 ];
 
-type Item = { que: string; dato: string };
+type Item = { que: string; ejemplo: string };
 const SACAR: Item[] = [
-  { que: 'Dos pantallas cuya única acción posible es «no lo tengo»', dato: '9 de cada 10 Ganados' },
-  { que: 'Un pendiente imposible de resolver: respuestas de Calendly (R2)', dato: '20 de 31 leads' },
-  { que: 'La pestaña «Deal Details» que solo avisa que está vacía', dato: '1.124 de 1.138 leads' },
-  { que: 'Siete de las ocho pestañas de la ficha, en inglés', dato: 'siempre' },
-  { que: 'La pestaña «Notas»', dato: '4 notas en toda la base' },
-  { que: 'El cartel que explica qué es una «ventana informativa»', dato: 'jerga nuestra' },
-  { que: '«Este dato entrena las campañas de Meta (CAPI)…»', dato: '26 leads hoy' },
-  { que: 'El rojo de Pendientes: el mismo color que «Perdido» y que los errores', dato: 'siempre' },
-  { que: 'Errores crudos que no se pueden cerrar ni resolver', dato: 'cuando algo falla' },
+  { que: 'Dos pantallas cuya única acción posible es «no lo tengo»',
+    ejemplo: 'Cerraste a Jesús Cendejas: el asistente pide documento fiscal y comprobante. No los tienes → dos toques a «No lo tengo». Pasa en 9 de cada 10 Ganados.' },
+  { que: 'Un pendiente que no se puede resolver nunca',
+    ejemplo: 'Gerardo Avila tuvo R2 y no llenó el formulario de Calendly: arrastra «faltan respuestas R2» para siempre. Le pasa a 20 de tus 31 leads con R2.' },
+  { que: 'Una pestaña entera que solo dice que está vacía',
+    ejemplo: 'Abres a Reemberto Fontes → «Deal Details» solo avisa que se habilita al pasar a Facturando. Es así en 1.124 de 1.138 leads.' },
+  { que: 'Siete de las ocho pestañas de la ficha, en inglés',
+    ejemplo: 'Overview · Tracking · Meetings · Chat · Insights · Deal Details · Change History. La única en español es «Notas».' },
+  { que: 'La pestaña «Notas»',
+    ejemplo: '4 notas en toda la base, de todos los clientes, en toda la historia. Ese seguimiento lo escribes en WhatsApp.' },
+  { que: 'Un cartel que explica jerga nuestra',
+    ejemplo: 'Tres frases arriba de la ficha explicando qué es una «ventana informativa». Y el texto ni siquiera es igual en el pop-up que en la ficha.' },
+  { que: 'Una amenaza en el subtítulo de una pregunta',
+    ejemplo: '«Este dato entrena las campañas de Meta (CAPI) y es la última vez que te lo podemos preguntar». Hoy la verían 26 leads.' },
+  { que: 'Pendientes pintado del color de los errores',
+    ejemplo: 'Borde rojo, contador rojo y botón «Solucionar» rojo lleno: el mismo rojo que «Perdido». La lista informa, el marco grita.' },
+  { que: 'Errores que no se pueden cerrar ni resolver',
+    ejemplo: '«No se pudo leer Supabase: <mensaje técnico>» en una barra que no se cierra. Y si falla el chat del lead, no hay botón de reintentar.' },
 ];
 
 const CAMBIAR: Item[] = [
-  { que: 'Entrar al CRM: pantalla vieja hasta que terminan tres olas de consultas', dato: 'cada entrada' },
-  { que: 'El tablero abre con 1.138 tarjetas; las que trabajas son ~34', dato: 'siempre' },
-  { que: 'El asistente pregunta si quieres que busque solo — ya busca solo', dato: 'cada «Solucionar»' },
-  { que: '«Ignorar» un aviso pide confirmación de 3 renglones, siendo reversible', dato: '21 leads ignorados' },
-  { que: 'Cada fila del worklist es un párrafo', dato: 'siempre' },
-  { que: 'El cartel del costo de IA tapa la tarjeta de MaKo', dato: 'todo el día' },
-  { que: 'Pop-up con sonido de WhatsApp encima del tablero', dato: 'cada mensaje' },
-  { que: '«+ Nuevo lead» se lleva la pantalla; al volver pierdes filtro y scroll', dato: 'cada alta' },
-  { que: 'Un Excel se rechaza y te manda a convertirlo a CSV', dato: 'cada lista' },
-  { que: 'Exportar: el botón gris mientras cuenta, y el formato se pregunta siempre', dato: 'cada exportación' },
+  { que: 'Entrar al CRM: pantalla vieja, sin aviso de que está cargando',
+    ejemplo: 'Haces clic y no pasa nada —ni esqueleto ni spinner— hasta que el servidor lee tus 1.142 leads. Y vuelve a pasar después de cada cambio.' },
+  { que: 'El tablero abre con todo',
+    ejemplo: 'Se dibujan 1.142 tarjetas: las 26 de Activo quedan entre 1.089 de nutrición y 23 descartadas. Apagar una banda es un clic DESPUÉS de dibujarla, y no se recuerda.' },
+  { que: 'El asistente pregunta si quieres que busque solo',
+    ejemplo: '«¿Buscamos los datos automáticamente?» — MaKo ya engancha Fathom solo en cada carga del CRM. La mitad de lo que ofrece ya pasó.' },
+  { que: '«Ignorar» un aviso pide confirmación',
+    ejemplo: 'Sacas un aviso de encima y hay una pantalla más, sobre algo que el propio texto dice que es reversible. Lo usas: 21 leads ignorados.' },
+  { que: 'Cada fila del worklist es un párrafo',
+    ejemplo: '«La Reunión 1 del 12/09 ya pasó y todavía no se marcó cómo salió · pendiente: Setter asignado · Empresa · Link de Fathom (R1)».' },
+  { que: 'El cartel del costo de IA tapa la tarjeta de MaKo',
+    ejemplo: 'Los dos viven abajo a la derecha: el cartel negro con los dólares se pone encima justo cuando aparece una confirmación nueva.' },
+  { que: 'Pop-up con sonido de WhatsApp encima del tablero',
+    ejemplo: 'Mientras miras el CRM salta una tarjeta con foto y «Te envió un mensaje», y suena. Se apaga, pero en otra pantalla.' },
+  { que: 'Cargar un lead a mano te saca del tablero',
+    ejemplo: '«+ Nuevo lead» navega a otra página; al volver perdiste el filtro, la búsqueda y el scroll, y se releen los 1.142 leads.' },
+  { que: 'Un Excel se rechaza',
+    ejemplo: 'Arrastras un .xlsx y dice «guárdala como CSV». Un PDF escaneado sí lo lee. Y las listas llegan en Excel.' },
+  { que: 'Exportar pregunta de más y espera de más',
+    ejemplo: 'Eliges una receta ya armada y todavía pregunta en qué formato; el botón de descargar queda gris hasta que termina de contar 1.142 leads.' },
 ];
 
 const MANTENER: Item[] = [
-  { que: 'Las dos preguntas de Meta al mover', dato: 'lo único que le llega a Meta' },
-  { que: 'El motivo de la pérdida, escrito a mano', dato: 'solo lo tienes tú' },
-  { que: 'La fecha límite de «Nutrición - Manual»', dato: 'el plazo ES la etapa' },
-  { que: 'La confirmación antes de generar Insights', dato: 'gasta plata de IA' },
-  { que: 'El comprobante al marcar una cuota', dato: 'da la fecha real del cobro' },
-  { que: 'La pantalla final del reagendado', dato: 'dice si Google movió el evento' },
+  { que: 'Las dos preguntas de Meta al mover un lead',
+    ejemplo: '«¿Asistió a la R1?» y «¿Era calificado?». Son los únicos dos datos del CRM que le llegan a Meta, y ya son opcionales: el botón mueve igual.' },
+  { que: 'El motivo de la pérdida, escrito a mano',
+    ejemplo: 'La categoría sola («Precio») no sirve después; el detalle es lo que se lee en el historial. Es el único dato que no se puede deducir de ningún lado.' },
+  { que: 'La fecha límite de «Nutrición - Manual»',
+    ejemplo: 'El plazo ES la etapa: cuando vence, el lead vuelve al worklist. Sin fecha queda invisible para siempre.' },
+  { que: 'La confirmación antes de generar Insights',
+    ejemplo: 'Gasta plata de IA y son dos llamadas encadenadas: si cierras la ficha a mitad, se pierde el resultado y se pagó igual.' },
+  { que: 'El comprobante al marcar una cuota pagada',
+    ejemplo: 'Da la fecha y hora REALES del cobro; sin él queda la fecha de cuando alguien se acordó de marcarlo. Ya se puede saltear con «Ingresar manual».' },
+  { que: 'La pantalla final del reagendado',
+    ejemplo: 'Dice si Google movió el evento y avisó al invitado — algo que no se sabía al confirmar, porque el CRM guarda primero y Google contesta hasta 28 s después.' },
 ];
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 22px' };
@@ -100,9 +125,11 @@ function Bloque({ titulo, punto, items }: { titulo: string; punto: string; items
         <span style={{ ...rotulo, marginLeft: 'auto' }}>{items.length}</span>
       </div>
       {items.map((i) => (
-        <div key={i.que} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 18, padding: '12px 22px', borderTop: '1px solid var(--border)' }}>
-          <span style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.45 }}>{i.que}</span>
-          <span style={{ flex: 'none', fontSize: 12.5, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{i.dato}</span>
+        <div key={i.que} style={{ padding: '13px 22px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{i.que}</div>
+          {/* El ejemplo con nombres de SU base es lo que hace entendible la línea de
+              arriba sin un párrafo: «no se entiende» fue el feedback de la v1. */}
+          <div style={{ marginTop: 3, fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{i.ejemplo}</div>
         </div>
       ))}
     </section>
