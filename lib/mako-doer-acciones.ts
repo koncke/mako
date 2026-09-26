@@ -31,6 +31,7 @@ import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
 import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
+import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { crearPropuesta } from '@/lib/plan-propuesta';
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
@@ -171,7 +172,33 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // derecho a la base (todo.ts).
         const arr = Array.isArray(payload.tareas) ? (payload.tareas as Array<Record<string, unknown>>) : [];
         const items = arr
-          .map((t) => ({ titulo: String(t.titulo ?? '').trim(), prioridad: prioOk(t.prioridad), proyecto: t.proyecto ? String(t.proyecto).trim() : undefined, deadline: typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined, detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined }))
+          .map((t) => {
+            // ⚠️ SI VIENEN LAS DOS SEÑALES, GANA LA FECHA — y el desempate NO se escribe acá:
+            // es `decidirRecurrente`, la misma que usa la extracción de reuniones. Dos
+            // caminos que resuelven la misma contradicción con dos criterios distintos son
+            // dos productos distintos según por dónde entró la tarea.
+            //
+            // Y gana la fecha por dos razones, la segunda decisiva: un booleano es un token
+            // que el modelo tira sin pensar, mientras que una fecha concreta sólo se escribe
+            // habiendo oído a alguien decirla (AGENTS.md: gana la señal más cara de
+            // producir). Y sobre todo, el error NO es simétrico: una recurrente que todavía
+            // compite se ve en el ranking y se arregla con el interruptor del detalle,
+            // mientras que si ganara el flag, `taskToRow` le BORRA el deadline a una tarea
+            // real — destruye el dato, en silencio y sin nada que lo diga.
+            const deadline = typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined;
+            const { recurrente, conflicto } = decidirRecurrente(t.recurrente, deadline);
+            // Un descarte sin rastro hace indistinguible «el modelo no la marcó» de «se la
+            // tiramos nosotros».
+            if (conflicto) console.warn('[mako-doer-acciones] «%s» vino marcada como que se repite Y con fecha %s: gana la fecha.', String(t.titulo ?? ''), deadline);
+            return {
+              titulo: String(t.titulo ?? '').trim(),
+              prioridad: prioOk(t.prioridad),
+              proyecto: t.proyecto ? String(t.proyecto).trim() : undefined,
+              deadline,
+              detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined,
+              recurrente,
+            };
+          })
           .filter((t) => t.titulo);
         if (!items.length) return { ok: false, resumen: 'No había tareas válidas para agregar.' };
         const nN = `${items.length} tarea${items.length === 1 ? '' : 's'}`;
@@ -179,7 +206,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
 
         if (ws === OWNER_WS) {
           const { ids, proyectoIds } = await agregarTareasPlanOwner(
-            items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle })),
+            items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle, recurrente: it.recurrente })),
             { tipo: 'whatsapp' },
           );
           const links = ids.map((id) => `${APP_URL}/plan/agencia?tarea=${id}`);
@@ -438,6 +465,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             properties: {
               titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
+              recurrente: { type: 'boolean', description: 'opcional; true SOLO si se repite para siempre y no tiene un final: asistir a la junta de los miércoles, el seguimiento diario a los leads. NO lo pongas en algo que se hace UNA vez aunque monte un ritual — «diseñar la estructura de la junta semanal» se completa y se termina, así que es false. Si es true, NO mandes deadline: una recurrente no tiene fecha de fin.' },
               proyecto: { type: 'string', description: `opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, pon su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica. Si el tema NO tiene proyecto todavía, pon igual el nombre que le pondrías: es una PROPUESTA que revisa el Perro Guardián antes de crear nada. ⛔ NUNCA le digas al dueño en qué proyecto quedó la tarea: todavía no está decidido.
 
 CÓMO SE LLAMA UN PROYECTO NUEVO (la misma regla que aplica el Perro — si propones un nombre que no la cumple, no lo va a reconocer como proyecto nuevo y va a reusar el más parecido):

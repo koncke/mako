@@ -80,6 +80,10 @@ export async function completarBorradorDeArchivos(opts: {
           detalle: String(t.detalle ?? ''),
           prioridad: t.prioridad,
           proyecto: t.proyectoNombre ? String(t.proyectoNombre) : undefined,
+          // «Se repite para siempre» (mig 0163). Un acta subida a mano trae las mismas
+          // recurrentes que una reunión de Fathom: si este map no la copia, el flag que
+          // el modelo escribió muere acá.
+          recurrente: t.recurrente,
         }));
 
       await marcarProcesado(borradorId, {

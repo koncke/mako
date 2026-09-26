@@ -88,8 +88,14 @@ export async function proponerCierresPorCommits(opts: { desdeISO?: string; dry?:
     // escondido cuyo recorte elegía Postgres. ws9 ya tiene 553 abiertas (17/09); pasada
     // la 600, las que caían afuera nunca se proponían para cerrar, sin aviso. Si el
     // prompt crece, la cascada ya mide su largo y elige el proveedor que lo aguanta.
+    // ⚠️ Y SIN LAS QUE SE REPITEN (mig 0163). A una recurrente no la cierra ningún commit —
+    // no tiene un fin que un commit pueda alcanzar—, así que mandarlas al modelo es gastar
+    // tokens todos los días por una respuesta que no puede existir. Y el riesgo no es sólo
+    // el gasto: lo que puede pasar es que proponga cerrar «la reunión de los miércoles»
+    // porque un commit tocó algo parecido, y cerrarla significa tener que volver a crearla.
+    // El filtro va en el SQL a propósito: lo que no viaja no se puede colar en el prompt.
     const tareas = await leerTodo<Row>(db, 'plan_tareas', 'id, num, title, detalle, progress', {
-      orden: 'id', filtros: (q) => q.lt('progress', 100),
+      orden: 'id', eq: { recurrente: false }, filtros: (q) => q.lt('progress', 100),
     }).catch((e: unknown) => { throw new Error(`leer plan_tareas: ${msg(e)}`); });
     if (!tareas.length) return { propuestas: 0, borradorId: '', motivo: 'no hay tareas abiertas' };
 

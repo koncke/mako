@@ -8,6 +8,10 @@ import { useUndoToast } from '../../_components/UndoToast';
 import { quarterDeFecha } from './cuando';
 import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './dependencias';
+// «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
+// salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
+// nuevo por qué algo no compite.
+import { esRecurrente, llevaDeadline, PORQUE_SIN_FECHA } from '@/lib/plan-recurrentes';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -98,7 +102,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // origen + fuente + texto del alta: por default es una tarjeta del usuario, pero
     // quien la crea desde otra fuente (Fathom/WhatsApp/archivo) los pasa por `meta`.
     const actor: Actor = meta?.origen ?? 'user';
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: meta?.detalle ?? '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false };
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: meta?.detalle ?? '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false, recurrente: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);
@@ -332,6 +336,14 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
    */
   const setDeadline = (id: string, deadline: string, prev: string) => {
     if (deadline === prev) return;
+    // ⚠️ UNA RECURRENTE NO LLEVA FECHA (mig 0163), Y EL CORTE VA TAMBIÉN ACÁ. El choke point
+    // de verdad es `taskToRow` (lib/plan-board.ts), que es por donde pasan TODAS las
+    // escrituras — pero sin este guard el estado optimista pintaría la fecha, el server la
+    // borraría al guardar, y al recargar habría desaparecido: un éxito falso, que es peor
+    // que un control deshabilitado. La pantalla además no dibuja el control (`Tablas.tsx`
+    // pone un «—» con el porqué en el `title`); esto es la red por si aparece otro camino.
+    const actual = byId(id);
+    if (actual && !llevaDeadline(actual)) return;
     patchLogExplicit(id, 'deadline', deadline, prev, deadline ? `Deadline ${deadline}` : 'Quitó el deadline');
     const t = byId(id);
     const q = quarterDeFecha(deadline);
@@ -345,7 +357,41 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
    * deshacer. Un campo que se escribe sin `prev` no se puede revertir, y en un
    * tablero donde la IA también escribe eso no es un lujo.
    */
-  const setQuarter = (id: string, quarter: string, prev: string) => { if (quarter !== prev) patchLogExplicit(id, 'quarter', quarter || undefined, prev, quarter ? `La planificó para el ${quarter.replace('-', ' ')}` : 'Le sacó el Quarter'); };
+  const setQuarter = (id: string, quarter: string, prev: string) => {
+    if (quarter === prev) return;
+    // El Quarter dice «para cuándo se planificó HACERLO». En algo que se repite para
+    // siempre eso no tiene respuesta, y el server lo escribe `null` igual (`taskToRow`).
+    const actual = byId(id);
+    if (actual && !llevaDeadline(actual)) return;
+    patchLogExplicit(id, 'quarter', quarter || undefined, prev, quarter ? `La planificó para el ${quarter.replace('-', ' ')}` : 'Le sacó el Quarter');
+  };
+  /**
+   * «SE REPITE PARA SIEMPRE»: marcarla y desmarcarla (mig 0163).
+   *
+   * ⚠️ VA POR `patchLogExplicit` Y NO POR UN `patch` PELADO, que es lo que la vuelve
+   * reversible. Por ese choke point pasan las tres cosas que la casa exige de TODO cambio:
+   * la entrada en el change history con el valor anterior, el toast de arrepentimiento de 5
+   * segundos, y el guardado. Escrito con `patch(id, { recurrente })` se guardaría igual y
+   * sería el único campo del tablero sin red — justo el que hace desaparecer una tarjeta
+   * del ranking.
+   *
+   * ⚠️ Y AL MARCARLA SE LE VA LA FECHA, en su propia entrada. No es un efecto colateral
+   * escondido: `taskToRow` la borra igual del lado del server, así que si acá no se
+   * escribiera, la pantalla seguiría mostrando un deadline que en la base ya no existe
+   * hasta el próximo F5. Con dos entradas separadas, deshacer «se repite» y deshacer «le
+   * saqué la fecha» son dos botones distintos y ninguno de los dos miente. La segunda va
+   * como `'ia'` a propósito: la decisión de la persona fue UNA, y dos toasts encima del
+   * mismo click son dos oportunidades de deshacer la mitad equivocada.
+   */
+  const setRecurrente = (id: string, v: boolean) => {
+    const t = byId(id);
+    if (!t || esRecurrente(t) === v) return;
+    patchLogExplicit(id, 'recurrente', v, t.recurrente ?? false,
+      v ? 'Se repite para siempre: sale del ranking' : 'Ya no se repite: vuelve al ranking');
+    if (!v) return;
+    if (t.deadline) patchLogExplicit(id, 'deadline', '', t.deadline, PORQUE_SIN_FECHA, 'ia');
+    if (t.quarter) patchLogExplicit(id, 'quarter', undefined, t.quarter, 'Y sin fecha no hay trimestre que derivar', 'ia');
+  };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 
   // deshacer una entrada del historial: revierte el campo Y borra la entrada
@@ -474,7 +520,10 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
-    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setTaskLabels, undoHist,
+    // ⚠️ `setRecurrente` VA EN ESTE `return` O NO EXISTE. Es el modo de falla que este repo
+    // ya pagó dos veces el 25/09/2026: la capacidad queda escrita, el typecheck pasa, los
+    // tests pasan, y en pantalla no hay nada que tocar porque el board nunca lo recibió.
+    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setTaskLabels, undoHist,
     createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };

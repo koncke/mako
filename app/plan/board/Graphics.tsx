@@ -11,6 +11,7 @@
 import { useMemo, useState } from 'react';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Hist, PCOLOR, PLABEL, prioFromScore, type Prio } from './types';
+import { sinRecurrentes } from '@/lib/plan-recurrentes';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -33,7 +34,13 @@ const deadlineMoves = (h: Hist[]): number => h.filter((x) => (x.text || '').star
 type DoneFilter = 'todos' | 'activos' | 'completados';
 
 export function GraphicsView({ board }: { board: Board }) {
-  const { tasks, labels } = board;
+  // ⚠️ SIN LAS RECURRENTES, igual que el resto del tablero. Todo lo que esta pantalla
+  // dibuja —cuántas activas, cuántas hechas, el avance por proyecto, los deadlines
+  // corridos— mide trabajo que EMPIEZA Y TERMINA. Una tarea que se repite para siempre
+  // está clavada en «activa» y en 0% por definición: contarla hunde todas las barras y el
+  // gráfico contesta otra pregunta que la que su título promete.
+  const { labels } = board;
+  const tasks = sinRecurrentes(board.tasks);
   const [filtro, setFiltro] = useState<DoneFilter>('activos');
 
   const m = useMemo(() => {

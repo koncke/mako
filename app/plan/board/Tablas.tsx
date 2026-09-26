@@ -52,7 +52,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
-import { fechaConDia, diasHasta, plazoTexto, IconoTacho, ANCHO_TABLA_EN_PROYECTO } from './piezas';
+import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, NoAplica, ANCHO_TABLA_EN_PROYECTO } from './piezas';
+// El predicado de «se repite» sale del modulo de datos, nunca de un `t.recurrente` suelto.
+import { esRecurrente } from '@/lib/plan-recurrentes';
 import { usePref, esUnoDe } from './prefs';
 import { AccionesLote } from './AccionesLote';
 import { ScoreIcon } from './guardian-form';
@@ -707,7 +709,7 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar }: {
+export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar, sinRanking = false }: {
   /** TODAS: abiertas Y terminadas. La tabla las separa sola (ver `FilaPlegada`). */
   tareas: BoardTask[];
   board: Board;
@@ -733,6 +735,27 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
    * producción contestándole «solo admin» a todos los clientes.
    */
   onSoltar?: (id: string, sugerido: number) => void;
+  /**
+   * LA TABLA DE ALGO QUE NO SE RANKEA: sin la columna Prioridad y sin la columna Deadline.
+   *
+   * La usa la vista RECURRENTES. Una tarea que «se repite para siempre» no tiene fin, asi
+   * que no tiene deadline real y no compite por un puesto en el ranking: dibujarle esas dos
+   * columnas es la tabla de siempre MINTIENDO dos veces por fila — un score que no ordena
+   * nada y una fecha que no puede existir. Y no alcanza con dejarlas vacias: una columna
+   * vacia se lee como un dato que falta, que es justo lo contrario.
+   *
+   * ⚠️ ES OPCIONAL Y POR DEFECTO ES `false`: la tabla de siempre no cambia en nada. Lo que
+   * se apaga se apaga entero —el encabezado, la celda, el ancho que esa columna pedia y la
+   * posibilidad de ordenar por ella—, porque una columna a medias es peor que las dos
+   * opciones. Ordenar por una columna que no se dibuja es ofrecer una incognita (es la misma
+   * regla que ya aplica `ocultarProyecto`).
+   *
+   * ⚠️ Y APAGA EL CHIP «Se repite» de las filas: adentro de la vista Recurrentes TODAS lo
+   * son, asi que el chip dejaria de distinguir nada y seria una columna de ruido. El chip
+   * existe para cuando una recurrente aparece MEZCLADA con tareas rankeadas (la lista de
+   * tareas de un proyecto), que es donde el hueco se lee como un dato perdido.
+   */
+  sinRanking?: boolean;
 }) {
   /**
    * LO SELECCIONADO. La casilla de la primera columna SELECCIONA, no completa.
@@ -760,11 +783,20 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
   // que adentro de un proyecto puede llegar puesta en «proyecto», que ahí es una columna
   // escondida y un criterio constante. Cae al default de la tabla, sin pisar la
   // preferencia: al volver a la vista completa, su orden sigue donde lo dejó.
-  const orden: OrdenTarea = ocultarProyecto && ordenPref === 'proyecto' ? 'score' : ordenPref;
-  // Con «Proyecto» escondida son cinco columnas, no seis. Se calcula UNA vez y lo usan la
-  // fila plegada y el cartel de «no hay tareas»: un `colSpan` hardcodeado es lo que hacía
-  // desbordar la fila de las completadas.
-  const cols = ocultarProyecto ? 5 : 6;
+  // ⚠️ QUE UNA COLUMNA ESTE VIVA ES UNA SOLA PREGUNTA, Y SE CONTESTA EN UN LUGAR. Antes
+  // era una sola condicion (`ocultarProyecto`); con `sinRanking` pasan a ser tres columnas
+  // que pueden faltar, y tres condiciones sueltas repartidas entre el orden, el `colSpan` y
+  // el `minWidth` es como se desincronizan: se esconde el encabezado y queda el `<td>`, o
+  // se descuenta el ancho de una columna que igual se dibuja.
+  const columnaViva = (c: OrdenTarea) => (c === 'proyecto' ? !ocultarProyecto : (c === 'score' || c === 'deadline') ? !sinRanking : true);
+  // Si la preferencia guardada apunta a una columna que esta tabla no dibuja, cae al mejor
+  // default que SI dibuja, sin pisar la preferencia: al volver a la vista completa, el orden
+  // sigue donde lo dejaron. Sin ranking el default es el proyecto —que es como se leen las
+  // recurrentes: la reunion semanal de CADA cliente— y, adentro de un proyecto, la creacion.
+  const orden: OrdenTarea = columnaViva(ordenPref) ? ordenPref : sinRanking ? (ocultarProyecto ? 'num' : 'proyecto') : 'score';
+  // Las columnas que SE DIBUJAN. Lo usan la fila plegada y el cartel de «no hay tareas»: un
+  // `colSpan` hardcodeado es lo que hacía desbordar la fila de las completadas.
+  const cols = 3 + (ocultarProyecto ? 0 : 1) + (sinRanking ? 0 : 2);
 
   const sortear = (col: OrdenTarea) => {
     if (col === orden) { setDir(dir === 'asc' ? 'desc' : 'asc'); return; }
@@ -801,13 +833,18 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
   const alternar = (id: string) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const elegidas = tareas.filter((t) => sel.has(t.id));
   /** La suma de lo que las columnas que se DIBUJAN necesitan. Ver el `minWidth` de abajo. */
-  const ANCHO_MINIMO = C_SEL + C_TITULO + (ocultarProyecto ? 0 : C_PROY) + C_PRIO + C_FECHA + (onEliminar ? C_ACC : C_ACC_SOLA);
+  const ANCHO_MINIMO = C_SEL + C_TITULO + (ocultarProyecto ? 0 : C_PROY) + (sinRanking ? 0 : C_PRIO + C_FECHA) + (onEliminar ? C_ACC : C_ACC_SOLA);
 
   const fila = (t: BoardTask, hecha: boolean, i = -1, ultima = false) => {
     const proy = board.labelById(t.labels[0]);
     const c = PCOLOR[prioFromScore(t.score)];
+    // ⚠️ UNA RECURRENTE NO SE ARRASTRA, y es la misma razon por la que no tiene columna de
+    // prioridad: soltarla entre dos filas escribe un score, o sea la mete en el ranking del
+    // que se la acaba de sacar. Se trata como lo terminado —ni agarre, ni marca de destino,
+    // ni cursor de `grab`—, que es el caso que la tabla ya sabia excluir.
+    const rec = esRecurrente(t);
     // Lo terminado está al fondo y plegado: no se agarra ni marca posición.
-    const marca = hecha ? null : arr.marca(i, ultima);
+    const marca = hecha || rec ? null : arr.marca(i, ultima);
     const td = marca ? { ...tdBase, ...marca } : tdBase;
     return (
       /* ⚠️ LA FILA ENTERA ABRE EL DETALLE. «Si le aprieto a cualquier lugar debería abrir el
@@ -822,11 +859,11 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
 
           ⚠️ `onMouseDown` con `detail > 1` cancelado: sin eso, doble-clickear para
           seleccionar el texto de un título abre el modal en el segundo click. */
-      <tr key={t.id} {...(hecha ? {} : arr.fila(t.id))}
+      <tr key={t.id} {...(hecha || rec ? {} : arr.fila(t.id))}
         onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-parar]')) onOpen(t.id); }}
         onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
         title={`Abrir «${t.title}»`}
-        style={{ background: hecha ? 'var(--surface-2)' : undefined, cursor: !hecha && arr.activo ? 'grab' : 'pointer' }}>
+        style={{ background: hecha ? 'var(--surface-2)' : undefined, cursor: !hecha && !rec && arr.activo ? 'grab' : 'pointer' }}>
         <td data-parar style={{ ...td, width: C_SEL, paddingRight: 0 }}>
           <input type="checkbox" checked={sel.has(t.id)} onChange={() => alternar(t.id)}
             title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
@@ -848,10 +885,18 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
           {/* El `title` es el título ENTERO y nada más: es lo que recupera lo que el «…»
               se comió. Que la fila se puede arrastrar lo dice el cursor, igual que en el
               Kanban — ponerlo también acá son 50 tooltips repitiendo lo mismo. */}
-          <button type="button" onClick={() => onOpen(t.id)} title={t.title}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
-            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere', lineHeight: 1.2, textDecoration: hecha ? 'line-through' : 'none', opacity: hecha ? .7 : 1 }}>{t.title}</span>
-          </button>
+          {/* ⚠️ EL CHIP «Se repite» VA PEGADO AL TITULO Y SOLO FUERA DE SU VISTA. Acá una
+              recurrente cae MEZCLADA con tareas rankeadas (es la lista de tareas de un
+              proyecto), y sin el chip sus dos guiones —prioridad y deadline— se leen como
+              una fila a la que le faltan datos. El que CEDE es el titulo: el chip mide
+              ~76px fijos y el titulo ya se recorta con «…» en dos lineas. */}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+            <button type="button" onClick={() => onOpen(t.id)} title={t.title}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%', flex: '0 1 auto', minWidth: 0 }}>
+              <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere', lineHeight: 1.2, textDecoration: hecha ? 'line-through' : 'none', opacity: hecha ? .7 : 1 }}>{t.title}</span>
+            </button>
+            {rec && !sinRanking && <RepiteChip />}
+          </span>
         </td>
         {/* ⚠️ ADENTRO DE UN PROYECTO ESTA COLUMNA NO SE DIBUJA: son 190px repitiendo el
             nombre del proyecto que estás mirando en todas las filas, y en la columna
@@ -870,11 +915,18 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
         {/* UN chip y nada más: la palabra al lado era el mismo dato dos veces y costaba
             48px de la columna más apretada del producto. La banda va en el color y en el
             `title` — ver `Score`. */}
-        <td style={td}><Score score={t.score} color={c} titulo={`Prioridad ${t.score} de 100 · ${PLABEL[prioFromScore(t.score)]}`} /></td>
+        {/* ⚠️ LAS DOS COLUMNAS QUE UNA RECURRENTE NO PUEDE CONTESTAR. Con `sinRanking` no
+            se dibujan para nadie (la vista Recurrentes); mezclada con tareas normales se
+            dibujan igual —la tabla tiene que seguir midiendo lo mismo en todas las filas—
+            pero la celda dice «—» con el porque en el `title`, en vez de un score que no
+            ordena nada y una fecha de fin de algo que no termina. */}
+        {!sinRanking && <td style={td}>{rec
+          ? <NoAplica porQue="Se repite: no compite en el ranking" />
+          : <Score score={t.score} color={c} titulo={`Prioridad ${t.score} de 100 · ${PLABEL[prioFromScore(t.score)]}`} />}</td>}
         {/* `data-nodrag`: acá adentro se escribe una fecha. */}
-        <td style={td} data-nodrag data-parar>
-          <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />
-        </td>
+        {!sinRanking && <td style={td} data-nodrag data-parar>{rec
+          ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
+          : <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />}</td>}
         {/* LAS DOS ACCIONES QUE CIERRAN UNA TAREA, JUNTAS: el check y el tacho.
             · El ESTADO se cambia desde acá: «otra columna para cambiar el estado»
               (25/09/2026). En este tablero el estado de una tarea es uno solo —activa o
@@ -944,9 +996,12 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
                 chip son 76. El hueco de una tabla se paga en scroll horizontal.
                 ⚠️ Y su `title` es la pista de cómo se habilita el arrastre de filas, que
                 sólo se puede ofrecer con la tabla ordenada por prioridad. */}
-            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
-              ayuda="Ordenar por prioridad">Prioridad</Th>
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>
+            {/* ⚠️ SE APAGAN LAS DOS JUNTAS con `sinRanking`, y con ellas su ancho: ver
+                `ANCHO_MINIMO`. Dejar el encabezado y vaciar la celda seria declarar 214px
+                para decir dos veces «—» por fila, que en una tabla se paga en scroll. */}
+            {!sinRanking && <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
+              ayuda="Ordenar por prioridad">Prioridad</Th>}
+            {!sinRanking && <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>}
             {/* SIN RÓTULO. Decía «Estado» cuando la celda era sólo el check; ahora trae
                 también el tacho, así que la palabra pasó a nombrar mal a la mitad de la
                 columna — y un encabezado que miente es peor que ninguno. Las dos acciones

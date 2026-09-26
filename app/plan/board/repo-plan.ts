@@ -37,6 +37,12 @@ export function repoPlan(): Repo {
   return {
     labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos', fathomExtract: true, debatePrioridad: true, catalogo: CATALOGO_PROYECTOS,
     createTask: async (d) => { const j = await apiPlan({ action: 'crear-tarea', tarea: d }); if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear'); return j.tarea; },
+    // ⚠️ `recurrente` (mig 0163) NO NECESITA UNA ACCIÓN PROPIA y no hay que agregársela:
+    // acá viaja el `BoardTask` ENTERO, la ruta lo castea entero (`app/api/plan-board/route.ts`
+    // no enumera campos) y `taskToRow` lo escribe. Es la contracara de `prioridadManual`,
+    // que sí tiene la suya porque el `score` NO puede viajar en el payload del navegador —
+    // ahí lo decide el server. `recurrente` lo decide una PERSONA, así que va por el camino
+    // normal, con su entrada de historial y su deshacer (`useBoard.setRecurrente`).
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
     createLabel: async (l) => { const j = await apiPlan({ action: 'crear-proyecto', proyecto: l }); return j.ok && j.proyecto ? j.proyecto : l; },

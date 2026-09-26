@@ -23,12 +23,23 @@ import type { ClienteCartera, EstadoCliente } from '@/lib/cs-cartera';
 // Solo el TIPO: un import de valor arrastraría el catálogo del programa al bundle.
 import type { AvanceClase } from '@/lib/cs-avance-clases';
 import { avanceDelClienteAction } from './actions';
+import { TrabajoDelCliente } from './TrabajoCliente';
+import type { ResumenTrabajo } from './trabajo';
 
-type TabKey = 'programa' | 'contrato' | 'sesiones' | 'cobros' | 'contacto';
+// ⚠️ SEIS ES EL TECHO (app/_ui/Tabs.tsx). «Trabajo» es la sexta y entra justa: de acá en
+// más, una tab nueva no es una tab, es que falta una decisión de arquitectura.
+//
+// Va SEGUNDA, después de «Programa». El corte de las tabs es por PREGUNTA: «¿cómo va con
+// el temario?» primero, «¿qué hay abierto con él?» después, y recién ahí el papeleo
+// (contrato, sesiones, cobros, contacto). Es la pregunta que se hace antes de una sesión.
+type TabKey = 'programa' | 'trabajo' | 'contrato' | 'sesiones' | 'cobros' | 'contacto';
 
-export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink, onMarcar }: {
+export function DetalleCliente({ cliente: c, totalClases, trabajo, onCerrar, onDarLink, onMarcar }: {
   cliente: ClienteCartera;
   totalClases: number;
+  /** Los números del tablero, que ya vinieron con la cartera. El badge sale de acá y no
+   *  de una carga: una tab cuyo badge aparece tres segundos después salta a la vista. */
+  trabajo: ResumenTrabajo | null;
   onCerrar: () => void;
   onDarLink: () => void;
   onMarcar: (estado: EstadoCliente) => void;
@@ -37,6 +48,9 @@ export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink, o
 
   const tabs: { key: TabKey; label: string; badge?: number }[] = [
     { key: 'programa', label: 'Programa', badge: c.esperandoSuOk || undefined },
+    // El badge cuenta las ABIERTAS, no las recurrentes: un número que incluye lo que se
+    // repite para siempre nunca baja, y un badge que nunca baja deja de leerse.
+    { key: 'trabajo', label: 'Trabajo', badge: trabajo?.abiertas || undefined },
     { key: 'contrato', label: 'Contrato' },
     { key: 'sesiones', label: 'Sesiones', badge: c.sesiones || undefined },
     { key: 'cobros', label: 'Cobros', badge: c.cuotasVencidas || undefined },
@@ -69,6 +83,9 @@ export function DetalleCliente({ cliente: c, totalClases, onCerrar, onDarLink, o
 
         <div className="dc-cuerpo">
           {tab === 'programa' && <Programa c={c} total={totalClases} onDarLink={onDarLink} />}
+          {/* `key` por cliente, igual que la lista de clases: sin eso, al saltar de un
+              cliente a otro se ve un instante el trabajo del anterior. */}
+          {tab === 'trabajo' && <TrabajoDelCliente key={c.leadId} leadId={c.leadId} nombre={c.nombre} resumen={trabajo} />}
           {tab === 'contrato' && <Contrato c={c} />}
           {tab === 'sesiones' && <Sesiones c={c} />}
           {tab === 'cobros' && <Cobros c={c} />}

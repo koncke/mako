@@ -21,6 +21,8 @@ La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La 
 - **El Perro no puede atajar un duplicado**: no ve las tareas al 100% y no recibe los ids para nombrar la que encontró; y el cruce anti-duplicados falla mudo → [Dedup](#dedup-nunca-duplicar-siempre-ampliar).
 - **Un 404 de Fathom no significa que la grabación no exista**: el call-id y el recording-id son dos espacios de ids distintos → [De la reunión a la tarea](#de-la-reunión-a-la-tarea-fathom).
 - **Las preguntas rotas del Perro no están en la base**: se generan al confirmar y no se persisten, así que dumpear `notas` muestra sólo las buenas y el bug parece no existir → [Las preguntas del Perro](#las-preguntas-del-perro-contrato-tipo--campo).
+- **Un campo nuevo de la extracción muere en TRES `map` escritos a mano, y ninguno da error**: entre «el modelo contestó» y «la tarea nació» hay cuatro saltos y dos altas distintas → [De la reunión a la tarea](#-un-campo-nuevo-de-la-extracción-muere-en-tres-map-escritos-a-mano-y-ninguno-da-error).
+- **El juez del criterio de compromisos de Mauricio tiene CERO call sites**: módulo entero, con prompt, saneo y 16 tests, que no corre sobre ninguna reunión → [De la reunión a la tarea](#-el-juez-del-criterio-de-mauricio-tiene-cero-call-sites).
 - **El texto del SEED de `PlanBoard.tsx` describe el pasado, no el presente**: un agente que lo grepea lee «el board vive en localStorage con el Repo en no-op» y lo reporta como estado actual, tres meses después de que dejó de ser cierto → [El board](#el-board-plan).
 
 ---
@@ -1115,6 +1117,93 @@ Lo que se dijo en una reunión puede ser impreciso; para dar por terminado un de
 
 **Vive en:** lib/cerrar-por-commits.ts · lib/plan-senales.ts · ver [Señales y auto-cierre](#señales-y-auto-cierre)
 
+### ⚠️ Un campo nuevo de la extracción muere en TRES `map` escritos a mano, y ninguno da error
+
+Síntoma a evitar: se agrega un campo al prompt de extracción y al tipo, el modelo lo
+contesta bien, el typecheck pasa, los tests pasan — y en el tablero no aparece nunca.
+
+Entre «el modelo contestó» y «la tarea nació» hay **cuatro saltos**, y tres de ellos son un
+objeto literal escrito a mano donde un campo que no se copia desaparece sin ruido (el
+literal no tiene que ser exhaustivo, así que el compilador calla):
+
+| # | Dónde | Qué hace |
+|---|---|---|
+| 1 | `coerceCandidatas` (lib/plan-fathom.ts) | JSON del modelo → `TareaCandidata` |
+| 2a | `asegurarBorrador` (app/api/plan-fathom/route.ts) | reunión leída **a mano** desde el modal → borrador |
+| 2b | el map de `propuestas` (lib/reunion-auto.ts) | **el cron**: por acá entra la mayoría de las tareas de reunión |
+| 2c | el map de `tareas` (lib/importar-en-segundo-plano.ts) | un acta subida como **archivo** |
+| 3 | `limpiarTarea` (lib/plan-propuesta.ts) | choke point: lo usan `crearPropuesta`, `rowToPropuesta`, `guardarRevision` y `marcarProcesado` |
+| 4 | `aplicarPropuestas` (lib/plan-propuesta.ts) | `agregarTareasPlanOwner` (dueño) **y** `crearTarea` (cliente) — son DOS altas |
+
+**No es hipotético: el `minuto` ya murió en 2b** («toda tarea que venía del cron nacía sin
+el deep-link, 25 de la reunión de Leila sin reloj»), y el 26/09/2026 `recurrente` iba a
+morir en los tres. La única capa que NO hay que repetir es la 3: ahí pasan todos los
+productores y también la relectura de la fila, así que **el saneo y toda regla determinista
+sobre el campo van ahí**, nunca en cada productor.
+
+Y las DOS altas del paso 4 son la trampa final: tocar sólo `agregarTareasPlanOwner` deja la
+feature viva para el super-admin y muerta para todos los clientes, que es exactamente el
+modo de falla de «lo que ves andar en el board del dueño puede estar muerto en el del
+cliente».
+
+**Vive en:** lib/plan-fathom.ts · app/api/plan-fathom/route.ts · lib/reunion-auto.ts · lib/importar-en-segundo-plano.ts · lib/plan-propuesta.ts · tests/plan-recurrente-nace.test.ts · *2026-09-26 · recurrentes: nacer desde la extracción*
+
+### ⚠️ El JUEZ del criterio de Mauricio tiene CERO call sites
+
+`juzgarConCriterio` (lib/plan-criterio-juez.ts) está escrito entero, con su prompt editable,
+su saneo determinista en `lib/plan-criterio-reglas.ts`, sus 16 tests y su entrada propia en
+`lib/model-catalogo.ts`. **No lo llama nadie**: un grep de `juzgarConCriterio` sobre todo el
+repo devuelve su propia definición y un comentario. O sea que el criterio de compromisos que
+Mauricio escribió el 8-9/9 —las cubetas, la verificación de la cita, los faltantes— no corre
+sobre ninguna reunión.
+
+Lo que sí está enchufado es el interruptor: `criterioDelWorkspace()` lo lee
+`lib/plan-propuesta.ts`, pero sólo para decidir el **tablero único** (que las tareas de
+otras personas entren igual al tablero del cliente). El juez que tenía que filtrarlas no
+corre, así que hoy el tablero único es la mitad de la feature: entra el ruido y no entra el
+filtro que lo saca.
+
+⚠️ **Medirlo cuesta un grep y no lo delata ninguna pantalla**: el pipeline funciona
+perfecto sin el juez, simplemente hace menos. Es el caso más puro de «escribir la salida no
+es ofrecerla», y sobrevivió a todo un módulo con tests en verde.
+
+**Vive en:** lib/plan-criterio-juez.ts (sin call sites) · lib/plan-criterio.ts · lib/plan-propuesta.ts:`tableroUnico` · *2026-09-26 · recurrentes: nacer desde la extracción*
+
+### La cuarta pregunta del criterio: el desempate es «gana la fecha», y no es una cubeta
+
+Dos decisiones que se tomaron al llevar «¿se repite para siempre?» (criterio de Mauricio,
+16/07/2026) al prompt de extracción, y las dos son el tipo de cosa que se re-discute sola
+dentro de tres meses si no queda escrita:
+
+1. **`recurrente: true` + `deadline` se contradicen, y gana la FECHA.** Lo resuelve
+   `decidirRecurrente` (lib/plan-criterio-reglas.ts), aplicado en `limpiarTarea`. El
+   criterio es el de AGENTS.md —entre dos señales que se contradicen gana la más cara de
+   producir—: un booleano es un token que el modelo tira sin pensar, una fecha concreta sólo
+   se escribe habiendo oído a alguien decirla. Y la asimetría del error lo confirma: dejar
+   una recurrente compitiendo se ve y se arregla con el interruptor del detalle; sacar del
+   ranking una tarea con fecha real es mudo, y encima `taskToRow` le borra el deadline.
+2. **No es una cubeta ni una regla nueva del juez.** Una reunión de los miércoles es un
+   compromiso de verdad: lo que cambia no es a qué cubeta va, sino que no compite. Meterla
+   como cubeta la sacaría del tablero, que es lo contrario de lo decidido. Y el enum
+   `ReglaCriterio` es **de Mauricio**: el `'4'` ya es su regla 4 (sugirió y el otro aceptó
+   más adelante), así que no hay id libre y pisarlo sería reescribir su criterio.
+
+⚠️ **El caso que más se confunde, y que hay que dejar escrito en cualquier prompt que
+pregunte esto:** «Diseñar la estructura de la junta semanal» e «Implementar la cadencia de
+juntas» son tareas **CON FIN** que montan un ritual — terminan el día que el ritual existe.
+Lo recurrente es **ASISTIR** a la junta cada semana. Si la charla dejó las dos, son dos
+tareas.
+
+⚠️ **Y el agujero que no cierra ningún cambio de plantilla: un workspace con OVERRIDE
+guardado no ve la pregunta nueva.** `renderPrompt` devuelve el override entero
+(`getPromptText` = `override ?? default`), así que editar
+`PLAN_FATHOM_SYSTEM_TEMPLATE` en el código no llega a quien tocó `plan-fathom.extraer.system`
+en /configuraciones. Peor: el `{{jsonShape}}` **sí** se inyecta desde el código, así que ese
+workspace recibe un JSON que declara `"recurrente"` y le dice «lee abajo el bloque ¿SE REPITE
+PARA SIEMPRE?»… sobre un prompt donde ese bloque no existe.
+
+**Vive en:** lib/plan-criterio-reglas.ts (`decidirRecurrente`) · lib/plan-fathom.ts (`PLAN_FATHOM_SYSTEM_TEMPLATE`) · lib/plan-propuesta.ts (`limpiarTarea`) · lib/prompt-render.ts · *2026-09-26 · recurrentes: nacer desde la extracción*
+
 ### Las decisiones tomadas sobre el pipeline de reuniones
 
 - **Las reuniones se cargan solas, siempre**, sin botón para prenderlo (2026-07-29).
@@ -1123,6 +1212,8 @@ Lo que se dijo en una reunión puede ser impreciso; para dar por terminado un de
 
 ### Lo que quedó sin hacer en reuniones
 
+- **`recurrente` NO entra por WhatsApp ni por la API del agente.** La cadena quedó cerrada para la reunión de Fathom, el cron y el archivo subido; los otros dos productores de borradores siguen sin preguntarlo ni mandarlo: `lib/mako-doer-acciones.ts:844` (el map a `crearPropuesta` del doer, y su prompt) y `app/api/agente/plan/route.ts:105` (Claude Code). También `tareasDesdeRespuestas` (`TareaExtra`, lib/plan-propuesta.ts): una tarea que nace de una respuesta del wizard no puede nacer recurrente. En los tres el campo se cae en el `map`, sin error (2026-09-26).
+- **Nadie llama a `juzgarConCriterio`** — ver la entrada de arriba. El juez del criterio de compromisos está completo y es código muerto (2026-09-26).
 - **Las tareas extraídas de una reunión de Fathom tienen que quedar guardadas ahí para siempre:** hoy si salís de la pantalla hay que volver a correr la extracción, y al volver atrás no se guardan las tareas creadas si no se cargan al plan (2026-08-05).
 - **El contexto extraído sigue pobre y no cita a los invitados**; y no deja cargar al plan de Mauricio una reunión con él (2026-08-05).
 - **Timestamp de la reunión dentro del detalle de cada tarea** venida de Fathom, para poder ir a escuchar lo que se dijo. Lo pidió al menos dos veces (2026-07-30).

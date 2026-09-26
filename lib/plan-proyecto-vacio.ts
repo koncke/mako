@@ -45,6 +45,16 @@ export type ProyectoVacio = { id: string; nombre: string; emoji: string; detalle
  *
  * Incluye a propósito los que tienen todas sus tareas terminadas: un proyecto cerrado sin
  * cerrar es también algo que hay que resolver, y la pantalla los distingue por el avance.
+ *
+ * ⚠️ ACÁ LAS RECURRENTES SÍ CUENTAN COMO TRABAJO, Y ES LO OPUESTO AL RANKING (mig 0163).
+ * No es una inconsistencia: la pregunta es OTRA. En el reparto se pregunta «¿esto compite
+ * por un puesto?» y la respuesta es no; acá se pregunta «¿este proyecto está vacío, hay que
+ * inventarle tareas?» y un cliente al que se le atiende todas las semanas NO está vacío.
+ * Restarlas sería mandar a `proponerTareasParaProyecto` —lo más especulativo que produce el
+ * producto, y el que más tokens gasta— justo sobre el proyecto más activo del tablero, y
+ * además con MaKo ofreciéndoselo al dueño. Por eso el filtro de abajo mira `progress < 100`
+ * a secas y NO usa `sinRecurrentes`: el que venga a «arreglar la inconsistencia» tiene que
+ * leer esto antes.
  */
 export async function proyectosSinTareas(): Promise<ProyectoVacio[]> {
   return enPlan(async () => {

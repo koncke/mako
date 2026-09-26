@@ -15,6 +15,9 @@ import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
 import { quarterDeFecha } from '@/app/plan/board/cuando';
+// «Se repite para siempre» (mig 0163). El predicado y el filtro salen de un módulo de
+// datos y NO se reescriben acá: es la misma regla que aplican las pantallas y el test.
+import { esRecurrente, sinRecurrentes, soloRecurrentes, llevaDeadline } from '@/lib/plan-recurrentes';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntuarProyectos, type ProyParaPuntuar } from '@/lib/mako-guardian';
 import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
@@ -76,6 +79,13 @@ function rowToTask(r: Row): BoardTask {
     historial: sanearHist(r.historial), origen: str(r.origen, 'user') as Actor,
     creadaEn: Date.parse(str(r.created_at)) || undefined,
     fuente: optFuente(r.fuente), enPrioridad: !!r.en_prioridad, scoreManual: !!r.score_manual,
+    // ⚠️ VA EN LOS DOS MAPPERS, Y SI FALTA EN ÉSTE ES DESTRUCTIVO. El valor saldría de la
+    // base como `undefined` en memoria y el próximo guardado del navegador es un
+    // `upsert(taskToRow(t))` de la FILA ENTERA (`:254`, `:962`): `!!undefined → false`
+    // BORRA la columna. Es el bug que `guardarPlanProyecto` documenta y cura sacando el
+    // score del payload del cliente — acá no aplica esa cura porque `recurrente` lo decide
+    // una PERSONA, no el server, así que tiene que poder viajar de ida y de vuelta.
+    recurrente: !!r.recurrente,
   };
 }
 function taskToRow(t: BoardTask): Row {
@@ -86,8 +96,19 @@ function taskToRow(t: BoardTask): Row {
     priority: t.priority, score: int(t.score), score_base: int(t.scoreBase ?? t.score), score_razon: t.scoreRazon ?? null,
     deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
-    deadline: t.deadline || '', quarter: quarterEfectivo(t.deadline, t.quarter), labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
+    // ⚠️ UNA RECURRENTE NO LLEVA FECHA, Y EL CORTE VA ACÁ (mig 0163). «Lo que se repite no
+    // vence»: una fecha en una tarea sin fin es la del próximo ciclo, no un deadline — y
+    // río abajo esa fecha se convierte en un empuje de +25 en el reparto, en un «vencida»
+    // en el aviso de WhatsApp y en un trimestre derivado, tres afirmaciones falsas sobre lo
+    // mismo. Se corta en el MAPPER y no en el formulario por la lección que pagó el Quarter
+    // el 24/09/2026: la regla vivía en `useBoard.setDeadline`, o sea en el único camino que
+    // pasa por el navegador, y todo deadline que pone el SERVER —el Perro, una reunión, un
+    // lote— pasaba de largo. Por acá pasan TODAS las escrituras.
+    deadline: llevaDeadline(t) ? (t.deadline || '') : '',
+    quarter: llevaDeadline(t) ? quarterEfectivo(t.deadline, t.quarter) : null,
+    labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad, score_manual: !!t.scoreManual,
+    recurrente: esRecurrente(t),
     orden: t.num, updated_at: new Date().toISOString(),
   };
 }
@@ -390,7 +411,18 @@ export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcia
   });
 }
 
-export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente };
+/**
+ * ⚠️ `recurrente` VIAJA DESDE EL ALTA, y no es un detalle: mientras el único camino fue un
+ * interruptor en el detalle, una reunión extraída metía «Reunión semanal con Esquer» como
+ * tarea normal, el Perro le ponía score y deadline, se llevaba un puesto del ranking y
+ * titilaba pidiendo una fecha que nunca iba a tener. O sea que el síntoma que la feature
+ * vino a eliminar seguía entrando por la puerta principal todos los días.
+ *
+ * ⚠️ Y UNA RECURRENTE NACE SIN FECHA, acá mismo. No alcanza con que `taskToRow` la borre
+ * después: si el deadline llega hasta el objeto en memoria, el Perro lo ve en la misma
+ * corrida y razona con él. Se corta en el alta, que es donde entra.
+ */
+export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente; recurrente?: boolean };
 
 /** MaKo agrega tareas al board del dueño DIRECTO a la DB (antes iban a la bandeja
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
@@ -567,6 +599,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
           ...(motivoSin[i] ? [{ id: genId('h'), ts: ahora, actor, text: motivoSin[i]!.slice(0, 300) }] : []),
         ],
         origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,
+        recurrente: !!it.recurrente,
       };
     });
     const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));
@@ -690,40 +723,76 @@ export async function ampliarTareasPlanOwner(items: AmpliarTareaPlan[], fuente?:
  * Acá esas tarjetas entran al reparto con su número tal cual (para que las otras se
  * ordenen ALREDEDOR de ellas) y salen sin que se les escriba nada.
  */
-export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number; fijadas: number }> {
+export async function recurvarPlanOwner(): Promise<{ movidas: number; total: number; conDeadline: number; quietas: number; frenadas: number; fijadas: number; repetidas: number }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const ahora = Date.now();
     const [tRes, dRes] = await Promise.all([
-      db.from('plan_tareas').select('id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at').order('num', { ascending: true }),
+      // ⚠️ `recurrente` VA EN ESTA LISTA porque este `select` enumera columnas a mano: lo
+      // que no se nombra acá no llega, y el filtro de abajo daría `false` para todas.
+      db.from('plan_tareas').select('id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at, recurrente').order('num', { ascending: true }),
       db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
     ]);
     const deps = (dRes.data ?? []).map(sanearDep).filter((x): x is Dep => x != null);
-    const filas = (tRes.data ?? []).filter((r) => int((r as Row).progress) < 100).map((r) => {
-      const row = r as Row;
+    /**
+     * ⚠️ LAS QUE SE REPITEN NO SE REPARTEN. ES LA RAZÓN DE SER DE LA 0163.
+     *
+     * Éste es el único cron que toca el orden del tablero, y le hace tres cosas a cada
+     * tarea que las tres MIENTEN sobre una recurrente:
+     *  · `empujeDeadline` le suma +25 por «vencida» — no puede vencer;
+     *  · `castigoQuietud` le resta hasta 20 por «30 días sin que nadie la mencione» — ése
+     *    es su estado NORMAL, así que la hundiría sola hasta el piso. Eso «funciona» por
+     *    accidente y es la peor forma de resolverlo: el número se mueve solo, de a poco,
+     *    todos los días, y nadie puede explicar por qué;
+     *  · `curveTaskScores` le reasigna un número por RANKING, o sea le da un puesto en una
+     *    pirámide donde no compite y se lo saca a algo que sí tiene un fin.
+     *
+     * ⚠️ PERO SÍ ENTRAN A `resolverDeps`, y eso NO es una excepción: es lo que hace que la
+     * respuesta sea una sola. El grafo necesita saber que un proyecto TIENE trabajo —
+     * aunque sea trabajo que se repite— para no tratarlo como vacío, y esa pregunta la
+     * contesta `dependencias.ts` en un solo lugar para los dos que lo llaman (acá y el
+     * board, que le pasa el tablero entero). El que decide quién compite ahí adentro es
+     * `esRecurrente`, no quién llama: dos universos distintos para el mismo grafo son dos
+     * respuestas distintas a «¿este proyecto está terminado?».
+     */
+    const abiertas = (tRes.data ?? []).map((r) => r as Row).filter((r) => int(r.progress) < 100).map((row) => {
+      const recurrente = !!row.recurrente;
       // La BASE es el juicio, no el número que se muestra: leer `score` acá sería leer la
       // salida de la corrida anterior y el ajuste se sumaría a sí mismo cada vez.
       const base = optInt(row.score_base) ?? int(row.score);
-      const dl = diasAlDeadline(str(row.deadline) || undefined, ahora);
+      const dl = recurrente ? null : diasAlDeadline(str(row.deadline) || undefined, ahora);
       const q = diasQuieta(sanearHist(row.historial), str(row.created_at), ahora);
       // Una decisión de una persona no la ajusta el tiempo: el que la fijó ya sabía cuándo
       // vencía y hace cuánto no se tocaba. Sin este corte, el candado se filtraba igual por
-      // el delta aunque después no se escribiera el número.
+      // el delta aunque después no se escribiera el número. Una recurrente sale por la
+      // misma puerta y por otro motivo: el tiempo no le pasa.
       const manual = row.score_manual === true;
-      const aj = manual ? { delta: 0, razon: '' } : ajusteTemporal({ quieta: q, alDeadline: dl });
+      const aj = manual || recurrente ? { delta: 0, razon: '' } : ajusteTemporal({ quieta: q, alDeadline: dl });
       return {
         id: str(row.id), num: int(row.num), score: Math.max(1, Math.min(100, base + aj.delta)),
         progress: int(row.progress), labels: asArr<unknown>(row.labels).map(String),
-        mostrado: int(row.score), dl, quieta: q, razon: aj.razon, manual,
+        mostrado: int(row.score), dl, quieta: q, razon: aj.razon, manual, recurrente,
       };
     });
-    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0, fijadas: 0 };
+    const filas = sinRecurrentes(abiertas);
+    // Se CUENTAN, no sólo se saltean: una exclusión que funciona y una que nadie disparó se
+    // ven exactamente iguales en el log si no hay un número al lado.
+    const repetidas = soloRecurrentes(abiertas).length;
+    // ⚠️ EL UMBRAL DE `curveTaskScores` (n < 20) SE MIDE SOBRE LAS QUE COMPITEN, A PROPÓSITO.
+    // Es el `n` honesto: si un tablero tiene 25 abiertas y 8 se repiten, las que se reparten
+    // son 17 y forzarles una pirámide de cuatro bandas es destruir el único juicio que hay
+    // (la autopsia del umbral está en `curveTaskScores`, app/plan/board/types.ts). Medirlo
+    // sobre el total daría una pirámide repartida entre menos tarjetas de las que la
+    // justifican — el reparto tiene que depender de cuánto hay que repartir.
+    if (filas.length < 20) return { movidas: 0, total: filas.length, conDeadline: 0, quietas: 0, frenadas: 0, fijadas: 0, repetidas };
 
     // El ORDEN lo fija el grafo de dependencias sobre los scores ya ajustados por tiempo, y
     // `curveTaskScores` solo reparte los números sobre ese orden. Importa que sea en este
     // orden: la urgencia heredada tiene que mirar la prioridad REAL de hoy, no la de antes
     // de que se venciera un deadline.
-    const est = resolverDeps({ tareas: filas, deps });
+    // `abiertas` y no `filas`: el grafo tiene que VER las recurrentes para saber que un
+    // proyecto está vivo, y quien no compite lo decide él (`est.orden` ya viene sin ellas).
+    const est = resolverDeps({ tareas: abiertas, deps });
     const curva = curveTaskScores(est.orden.map((t) => ({ id: t.id, score: est.urgencia[t.id] ?? t.score })));
     const cambian = filas.filter((t) => !t.manual && curva[t.id] != null && curva[t.id] !== t.mostrado);
     // De a tandas: 550 updates sueltos en paralelo saturan el pool de conexiones.
@@ -740,8 +809,8 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
     const quietas = filas.filter((t) => castigoQuietud(t.quieta) > 0).length;
     const frenadas = filas.filter((t) => estaBloqueada(t.id, est)).length;
     const fijadas = filas.filter((t) => t.manual).length;
-    if (cambian.length || fijadas) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas · ${fijadas} fijadas a mano (intactas)`);
-    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas, fijadas };
+    if (cambian.length || fijadas || repetidas) console.log(`[plan-board] recurvar: ${cambian.length}/${filas.length} movidas · ${conDeadline} por fecha · ${quietas} por quietud · ${frenadas} frenadas · ${fijadas} fijadas a mano (intactas) · ${repetidas} que se repiten (fuera del reparto)`);
+    return { movidas: cambian.length, total: filas.length, conDeadline, quietas, frenadas, fijadas, repetidas };
   });
 }
 
@@ -779,10 +848,12 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     const idSet = new Set(ids);
     const projSet = new Set(proyectoIds);
     const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('id, title, detalle, score, score_manual, progress, labels, historial, deadline'),
+      // `recurrente` va en la lista: este `select` enumera columnas y lo que no se nombra
+      // no llega — abajo decide quién se puntúa y quién es la vara contra la que se puntúa.
+      db.from('plan_tareas').select('id, title, detalle, score, score_manual, progress, labels, historial, deadline, recurrente'),
       db.from('plan_proyectos').select('id, name, score'),
     ]);
-    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; score_manual: boolean; progress: number; labels: unknown; historial: unknown; deadline: string | null }>;
+    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; score_manual: boolean; progress: number; labels: unknown; historial: unknown; deadline: string | null; recurrente: boolean }>;
     const filasP = (pRes.data ?? []) as Array<{ id: string; name: string; score: number }>;
     const nombreProy = new Map(filasP.map((p) => [p.id, str(p.name)]));
 
@@ -797,9 +868,27 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
         // Si la persona le puso el número al crearla, ESE manda: el Perro le escribe la
         // descripción igual, pero no le toca la prioridad (mig 0143).
         scoreManual: !!r.score_manual,
+        // Misma idea, otra razón: a una recurrente el Perro le escribe la descripción y la
+        // rutea a su proyecto, pero no le pone número ni fecha (mig 0163).
+        recurrente: !!r.recurrente,
       };
     });
-    const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score), deadline: str(r.deadline) }));
+    /**
+     * ⚠️ LAS QUE SE REPITEN SALEN POR LAS DOS PUNTAS, y las dos importan.
+     *
+     * · No se PUNTÚAN: `puntuarNuevas` devuelve un score 1-100 y una fecha, y las dos cosas
+     *   son mentiras sobre algo sin fin. Además cuestan tokens por una respuesta que no se
+     *   va a escribir.
+     * · No son la VARA: si entran en `existentes`, siguen definiendo la pirámide contra la
+     *   que se mide todo lo demás — el Perro compara lo nuevo contra «[85] Reunión de los
+     *   miércoles» y ancla el tablero entero a un número que no significa nada.
+     *
+     * Lo que SÍ conservan es el ruteo a proyecto y la descripción: rutear no es puntuar
+     * (una recurrente igual pertenece a un cliente o a un proyecto), y una tarjeta sin
+     * detalle es igual de inútil se repita o no.
+     */
+    const paraPuntuar = sinRecurrentes(nuevas);
+    const existentesT = sinRecurrentes(filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100)).map((r) => ({ titulo: str(r.title), score: int(r.score), deadline: str(r.deadline) }));
     const proyNuevos = filasP.filter((p) => projSet.has(p.id)).map((p) => ({ id: p.id, nombre: str(p.name, 'Proyecto') }));
     const existentesP = filasP.filter((p) => !projSet.has(p.id)).map((p) => ({ nombre: str(p.name), score: int(p.score) }));
     const tareasPorProy = proyNuevos.map((p) => {
@@ -832,7 +921,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     // 4 llamadas al Perro en paralelo (score tareas · checklists · proyectos · ruteo). Gemini gratis.
     const [scoreRes, checklistRes, proyRes, ruteoRes] = await Promise.all([
-      nuevas.length ? puntuarNuevas(nuevas, existentesT, brief, 'Priorización de tareas nuevas', { conCapacidades: false }) : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[], faltantes: [] as string[] }),
+      paraPuntuar.length ? puntuarNuevas(paraPuntuar, existentesT, brief, 'Priorización de tareas nuevas', { conCapacidades: false }) : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number; deadline?: string; deadlineRazon?: string; haceloEn?: string }[], faltantes: [] as string[] }),
       nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), contexto, 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, brief, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
       sinProyecto.length && destinos.length
@@ -864,7 +953,11 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       const enr = checklistRes[n.id];
       const patch: Row = { updated_at: new Date().toISOString() };
       const out: GuardPatch = { id: n.id };
-      if (g && !n.scoreManual) {
+      // `esRecurrente` es la SEGUNDA capa: arriba ya no se le pidió score al modelo, pero
+      // un id que vuelve de un JSON no es un dato hasta que el código lo comprueba — y lo
+      // que se escribiría acá es justo lo que la 0163 vino a que no exista (un número de
+      // ranking y una fecha de vencimiento sobre algo que no termina nunca).
+      if (g && !n.scoreManual && !esRecurrente(n)) {
         const prio = prioFromScore(g.score);
         cuenta[prio]++;
         // `score_base` es EL JUICIO del Perro (mig 0141). `score` se pisa después en el
@@ -917,7 +1010,9 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
       // dueño). Antes el Perro puntuaba en silencio y la tarjeta no decía quién la movió.
       // El historial dice lo que PASÓ, no lo que el modelo contestó: si la prioridad la
       // fijó la persona, el Perro no la movió y la entrada no puede decir que sí.
-      const texto = g && !n.scoreManual
+      // El historial dice lo que PASÓ, no lo que el modelo contestó. Para una recurrente
+      // «MaKo la priorizó» sería falso de la forma más cara: afirmaría que tiene un puesto.
+      const texto = g && !n.scoreManual && !esRecurrente(n)
         ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220)
         : 'MaKo le escribió la descripción';
       const entrada: Hist = { id: genId('h'), ts: ahora, actor: 'ia', text: texto };
@@ -996,7 +1091,9 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
   return enPlan(async () => {
     const db = await getTenantDb();
     const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('title, progress, score, labels'),
+      // `recurrente` va en la lista (este `select` enumera columnas): sin él, el Perro
+      // juzga un proyecto por trabajo que nunca se cierra.
+      db.from('plan_tareas').select('title, progress, score, labels, recurrente'),
       db.from('plan_proyectos').select('id, name, detalle, score, historial, score_manual'),
     ]);
     const proyectos = (pRes.data ?? []).map((r) => ({
@@ -1010,11 +1107,28 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
     const tareas = (tRes.data ?? []).map((r) => ({
       titulo: str((r as Row).title), progress: int((r as Row).progress),
       score: int((r as Row).score), labels: asArr<unknown>((r as Row).labels).map(String),
+      recurrente: !!(r as Row).recurrente,
     }));
 
     const payload: ProyParaPuntuar[] = proyectos.map((p) => {
       const suyas = tareas.filter((t) => t.labels.includes(p.id));
-      const abiertas = suyas.filter((t) => t.progress < 100);
+      /**
+       * ⚠️ `abiertas` CUENTA LO QUE SE PUEDE TERMINAR, y `repetidas` va aparte.
+       *
+       * Si las recurrentes se suman a `abiertas`, el Perro juzga el proyecto por trabajo
+       * que nunca se cierra: un cliente que se atiende todas las semanas se ve «con 12
+       * tareas abiertas» para siempre y el tamaño lo empuja hacia arriba — que es
+       * exactamente lo que `noRankeaPorTamano` (app/plan/board/metodologia.ts) audita, y
+       * que lee `nTareas` de ESTE campo.
+       *
+       * Pero restarlas y callarlas es la otra mitad del error: el proyecto de puras
+       * recurrentes le llegaría al modelo como `abiertas: 0, hechas: 0, tareas: []`, o sea
+       * indistinguible de uno abandonado, y lo mandaría al fondo del ranking. Por eso el
+       * conteo viaja adentro del `resumen`, que es texto que el modelo ya lee y entiende
+       * sin que haya que enseñarle un campo nuevo.
+       */
+      const abiertas = sinRecurrentes(suyas).filter((t) => t.progress < 100);
+      const repetidas = soloRecurrentes(suyas).length;
       // MUESTRA PAREJA, no el top. Mandar las 5 mejores le enseña al modelo a mirar el
       // máximo — que es exactamente el sesgo que produjo el bug anterior. Salteado sobre el
       // orden por score, ve de qué se trata el proyecto de punta a punta.
@@ -1022,8 +1136,11 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
       const paso = Math.max(1, Math.ceil(orden.length / 5));
       return {
         id: p.id, nombre: p.name,
-        resumen: resumenDeProyecto(p.detalle),
-        abiertas: abiertas.length, hechas: suyas.length - abiertas.length,
+        resumen: resumenDeProyecto(p.detalle, repetidas),
+        // `hechas` sale de `suyas` SIN las recurrentes: contarlas como hechas es la otra
+        // mentira posible («este cliente ya está atendido del todo»), y una recurrente no
+        // está ni hecha ni pendiente — está en marcha.
+        abiertas: abiertas.length, hechas: sinRecurrentes(suyas).length - abiertas.length,
         tareas: orden.filter((_, i) => i % paso === 0).slice(0, 5).map((t) => t.titulo.slice(0, 120)),
         scoreActual: p.score || undefined,
         // Un score que el dueño le ganó al Perro discutiendo NO es un score cualquiera. Sin
@@ -1107,14 +1224,30 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
  * Si el detalle no tiene el molde (los «Cliente: NOMBRE» no lo tienen), va el arranque
  * crudo: es mejor que nada, y nada es lo que el modelo tenía antes.
  */
-function resumenDeProyecto(detalle: string): string | undefined {
+/**
+ * @param repetidas cuántas de sus tareas SE REPITEN para siempre (mig 0163).
+ *
+ * ⚠️ VA EN EL RESUMEN Y NO EN UN CAMPO NUEVO, a propósito. `abiertas` cuenta sólo lo que
+ * tiene fin, así que sin esta línea un proyecto de puras recurrentes —el cliente al que se
+ * le atiende todas las semanas— le llega al Perro como `abiertas: 0, hechas: 0` y se lee
+ * igual que uno abandonado: lo mandaría al fondo del ranking justo por estar activo. Un
+ * número suelto en el JSON el modelo lo tendría que adivinar; una frase la entiende.
+ */
+function resumenDeProyecto(detalle: string, repetidas = 0): string | undefined {
   const d = (detalle ?? '').trim();
-  if (!d) return undefined;
+  const repite = repetidas > 0
+    ? `En marcha: ${repetidas} ${repetidas === 1 ? 'tarea que se repite' : 'tareas que se repiten'} para siempre (no tienen fin, no cuentan como trabajo abierto).`
+    : '';
+  if (!d) return repite || undefined;
   const partes: string[] = [];
   for (const titulo of ['Qué falta', 'Por qué importa']) {
     const re = new RegExp(`\\*\\*${titulo}\\*\\*\\s*([\\s\\S]*?)(?=\\n\\s*\\*\\*|$)`);
     const m = d.match(re);
     if (m?.[1]?.trim()) partes.push(`${titulo}: ${m[1].trim().replace(/\s+/g, ' ')}`);
   }
-  return (partes.join(' · ') || d.replace(/\s+/g, ' ')).slice(0, 400);
+  const base = partes.join(' · ') || d.replace(/\s+/g, ' ');
+  // El recorte se aplica al DETALLE, no al conjunto: si el resumen ya viene en el tope, lo
+  // que se perdería es justo la línea nueva. Es el mismo error que `ampliarTareasPlanOwner`
+  // pagó con el `slice` después de fusionar.
+  return repite ? `${base.slice(0, 400 - repite.length - 3)} · ${repite}` : base.slice(0, 400);
 }

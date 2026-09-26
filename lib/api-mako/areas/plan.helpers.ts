@@ -24,6 +24,9 @@ import { listPlanBoard } from '@/lib/plan-board';
 import { listTareas, listCategorias } from '@/lib/todo';
 import { APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
+// «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
+// reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
+import { esRecurrente } from '@/lib/plan-recurrentes';
 
 export type ItemChecklist = { id: string; text: string; done: boolean };
 export type EntradaHistorial = { ts: number; actor: string; text: string };
@@ -49,6 +52,15 @@ export type TareaPlan = {
   historial: EntradaHistorial[];
   fuente: { tipo: string; etiqueta?: string; url?: string } | null;
   enPrioridad: boolean;
+  /**
+   * true = se repite para siempre (mig 0163). No compite en el ranking, no lleva deadline
+   * y no cuenta para el avance de su proyecto.
+   *
+   * ⚠️ VIAJA MARCADA, NO ESCONDIDA. Un agente que no las ve propone CREARLAS de nuevo —
+   * «habría que armar un seguimiento diario a los leads»— sobre algo que ya está pasando
+   * todos los días. Lo que no puede es ocupar los lugares de una lista ordenada por score.
+   */
+  recurrente: boolean;
 };
 
 export type ProyectoPlan = {
@@ -103,6 +115,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
         checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
         quarter: t.quarter ?? null, historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.enPrioridad,
+        recurrente: esRecurrente(t),
       })),
       proyectos: b.proyectos.map((p) => ({
         id: p.id, pid: p.pid ?? null, nombre: p.name, emoji: p.emoji, detalle: p.detalle ?? '', score: p.score,
@@ -122,6 +135,12 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
       notas: '', scoreRazon: t.score_razon ?? null, deadlineRazon: null, quarter: t.quarter ?? null,
       historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.en_prioridad,
+      // ⚠️ EL CAST ES UN PUENTE Y SE SACA. `lib/todo.ts` (el tablero del CLIENTE) todavía no
+      // declara `recurrente` en su `Tarea`, así que sin esto no compila; la columna SÍ está
+      // en `experimento_tareas` desde la 0163. En cuanto el tipo lo tenga, queda
+      // `esRecurrente(t)` a secas — y hasta entonces la respuesta acá es `false`, que es la
+      // segura: una recurrente del cliente sigue compitiendo, no desaparece.
+      recurrente: esRecurrente(t as unknown as { recurrente?: boolean }),
     })),
     proyectos: cats.map((c) => ({
       id: String(c.id), pid: null, nombre: c.nombre, emoji: c.emoji, detalle: c.detalle ?? '', score: c.prioridad,
@@ -163,6 +182,11 @@ export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>)
   return {
     id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, score: t.score, prioridad: t.prioridad,
     avance_pct: t.avance, deadline: t.deadline, proyecto: t.proyectoId ? nombreProyecto.get(t.proyectoId) ?? null : null,
+    // ⚠️ LA MARCA VIAJA, Y CON SU EXPLICACIÓN. Lo único que un modelo sabe de esta tarea es
+    // este JSON: sin la nota, ve `score: 85` al lado de `se_repite: true` y no tiene forma
+    // de saber que ese número no significa nada acá. Y el campo sólo aparece cuando es
+    // true: una clave `se_repite: false` en las 300 tareas normales es ruido en el prompt.
+    ...(esRecurrente(t) ? { se_repite: true, se_repite_nota: 'Se repite para siempre (la reunión semanal, el seguimiento diario). No compite en el ranking ni lleva deadline: su score y su prioridad no se leen. Ya existe, no hay que volver a crearla.' } : {}),
     link: linkTarea(t.id),
   };
 }

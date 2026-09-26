@@ -337,6 +337,11 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // venía del cron nacía sin el deep-link (25 de la reunión de Leila, sin reloj).
         minuto: t.minuto,
         minutos: t.minutos,
+        // Y «se repite para siempre» (mig 0163), por la misma razón que el minuto: es el
+        // camino por el que entra la MAYORÍA de las tareas de reunión, así que una
+        // recurrente que no se copie acá nace compitiendo en el ranking y pidiendo una
+        // fecha que nunca va a tener.
+        recurrente: t.recurrente,
       }));
       const mias = cuantasSonMias(propuestas);
       const conQuien = r.participantes

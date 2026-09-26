@@ -11,6 +11,12 @@
 
 import type { CSSProperties } from 'react';
 import type { BoardTask } from './types';
+// El rotulo y el predicado de una tarea RECURRENTE salen del modulo de datos, no de acá:
+// «una cosa, un lugar». Nadie escribe `t.recurrente` suelto en una pantalla — si mañana
+// la recurrencia deja de ser un booleano, cambia un archivo y no once.
+// (El modulo NO lleva `server-only` a proposito, justamente para que lo pueda importar
+// un `'use client'` como éste.)
+import { ROTULO_RECURRENTE, esRecurrente } from '@/lib/plan-recurrentes';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -88,11 +94,77 @@ export const COL_DER = 264;
  */
 export const ANCHO_TABLA_EN_PROYECTO = MODAL_DETALLE - 2 - COL_DER - 44 - 9 - 2 - 3;
 
-/** Progreso agregado de un proyecto (promedio del avance de sus tareas). */
-export function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number } {
+/**
+ * Progreso agregado de un proyecto (promedio del avance de sus tareas CON FIN).
+ *
+ * ⚠️ LAS RECURRENTES NO ENTRAN AL PORCENTAJE, Y NO ES UN DETALLE DE CALCULO: es la
+ * decision que el pedido de las Recurrentes obliga a tomar a proposito. Una tarea que
+ * «se repite para siempre» esta clavada en 0% por definicion, asi que contarla baja el
+ * avance del proyecto de forma PERMANENTE y el numero nunca puede volver a 100 — un
+ * cliente al que se le atiende todas las semanas se veria peor cuanto mas se lo atiende.
+ *
+ * ⚠️ Y POR ESO SE DEVUELVE `recurrentes`. Sacarlas del promedio deja un caso nuevo: el
+ * proyecto de PURAS recurrentes cae en `total: 0` y desde afuera es indistinguible de uno
+ * vacio — pintaria «sin tareas» y «0%» sobre el proyecto mas activo del tablero, y el
+ * bloque que ofrece inventarle tareas se dibujaria justo ahi. El conteo es lo que permite
+ * decir «en marcha · N se repiten» en vez de mentir con un cero. Quien pinte `pct` tiene
+ * que mirar `total` primero, y quien pregunte «¿este proyecto esta vacio?» tiene que
+ * preguntar `total === 0 && recurrentes === 0`, que es «¿no tiene NADA?».
+ */
+export function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number; recurrentes: number } {
   const suyas = tasks.filter((t) => t.labels.includes(labelId));
-  if (!suyas.length) return { pct: 0, total: 0, done: 0 };
-  return { pct: Math.round(suyas.reduce((s, t) => s + t.progress, 0) / suyas.length), total: suyas.length, done: suyas.filter((t) => t.progress >= 100).length };
+  const conFin = suyas.filter((t) => !esRecurrente(t));
+  const recurrentes = suyas.length - conFin.length;
+  if (!conFin.length) return { pct: 0, total: 0, done: 0, recurrentes };
+  return { pct: Math.round(conFin.reduce((s, t) => s + t.progress, 0) / conFin.length), total: conFin.length, done: conFin.filter((t) => t.progress >= 100).length, recurrentes };
+}
+
+/**
+ * El bucle: el icono de «esto se repite». Es el `repeat` de Feather, no un emoji — un 🔁
+ * se dibuja distinto en cada sistema operativo y acá tiene que pesar lo mismo que el
+ * tacho y que el reloj del deadline, que son SVG por la misma razon.
+ */
+export function IconoRepite({ size = 13 }: { size?: number }) {
+  return <svg aria-hidden width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>;
+}
+
+/**
+ * «Se repite» — la marca de una tarea recurrente, para donde se la ve FUERA de su vista.
+ *
+ * Existe por una razon concreta: una recurrente no compite en el ranking, asi que cuando
+ * aparece al lado de tareas rankeadas (la lista de tareas de un proyecto, la tarjeta que
+ * devuelve una busqueda, el detalle) sin prioridad y sin fecha se lee como una tarea a la
+ * que se le perdieron los datos. El chip dice que el hueco es a proposito.
+ *
+ * ⚠️ ES GRIS Y NO TITILA. Es una CATEGORIA, no una alarma: el triangulito rojo pide una
+ * accion y esto no pide ninguna. Y por eso tampoco reemplaza al `WarnMark` — en una
+ * recurrente el `WarnMark` de «falta el deadline» directamente no se dibuja, porque
+ * titilaria para siempre sobre algo a lo que no le falta nada.
+ *
+ * ⚠️ `soloIcono` para las cajas apretadas (la tarjeta del Kanban mide 249px y el titulo
+ * necesita sus dos lineas). El rotulo no se pierde: viaja en el `title` y en el
+ * `aria-label`, que es donde el texto no ocupa lugar.
+ */
+export function RepiteChip({ soloIcono = false, tam = 10.5, style }: { soloIcono?: boolean; tam?: number; style?: CSSProperties }) {
+  const nombre = `${ROTULO_RECURRENTE} · no compite en el ranking ni en Prioridades`;
+  return (
+    <span title={nombre} aria-label={ROTULO_RECURRENTE}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flex: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--dim)', borderRadius: 6, padding: soloIcono ? '2px 4px' : '2px 7px', fontFamily: MONO, fontSize: tam, fontWeight: 700, lineHeight: 1.4, whiteSpace: 'nowrap', ...style }}>
+      <IconoRepite size={tam + 2} />
+      {!soloIcono && ROTULO_RECURRENTE}
+    </span>
+  );
+}
+
+/**
+ * El hueco HONESTO de una columna que no aplica: un guion, con el porque en el `title`.
+ *
+ * No es lo mismo que un campo vacio. «Prioridad —» en la fila de una recurrente no dice
+ * «todavia no se la puso»: dice «esto no se mide asi». Por eso la explicacion viaja
+ * pegada y no hay forma de dibujarlo sin darla.
+ */
+export function NoAplica({ porQue }: { porQue: string }) {
+  return <span title={porQue} aria-label={porQue} style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>—</span>;
 }
 
 /**

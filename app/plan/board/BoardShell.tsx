@@ -60,8 +60,13 @@ import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
-import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, COL_DER, MODAL_DETALLE } from './piezas';
+import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, COL_DER, MODAL_DETALLE } from './piezas';
 import { TablaProyectos, TablaTareas } from './Tablas';
+// LAS TAREAS QUE SE REPITEN. El rótulo, el predicado y el filtro salen del módulo de datos
+// —`ROTULO_RECURRENTE` / `esRecurrente` / `sinRecurrentes`—, no de un `t.recurrente` suelto
+// en una pantalla: es el mismo criterio que el catálogo de proyectos o la gramática de MaKo.
+// El módulo no lleva `server-only` a propósito, para que lo pueda importar este `'use client'`.
+import { ROTULO_RECURRENTE, PORQUE_NO_COMPITE, PORQUE_SIN_FECHA, esRecurrente, sinRecurrentes } from '@/lib/plan-recurrentes';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -83,7 +88,18 @@ const hoyISO = (): string => {
 // ⚠️ «tareas», NO «kanban», y la ruta también: «cambia el nombre y la ruta de kanban por
 // tareas, que es más preciso» (23/09/2026). Kanban es CÓMO se dibuja —y desde que existe la
 // vista de tabla ya ni siquiera es siempre un kanban—; lo que hay ahí son las tareas.
-const VISTAS = ['prioridades', 'tareas', 'proyectos', 'graphics'] as const;
+// ⚠️ «recurrentes» VA JUSTO DESPUÉS DE «proyectos», y el orden del array ES el orden de las
+// tabs. Es una vista y no un filtro de «Tareas» porque la razón de existir no es poder
+// verlas juntas: es que NO ENSUCIEN EL RANKING. El Perro puntúa por «qué mueve la aguja» y
+// le pone deadline a todo; algo que se repite para siempre no tiene fin ni deadline real,
+// así que competía por un puesto que no le corresponde. La vista es la consecuencia de
+// sacarlas; la causa es la exclusión — y por eso también salen de «Tareas» y de
+// «Prioridades», no sólo se agrupan acá.
+//
+// (El criterio es de Mauricio, 16/07/2026: «acá lo que entran son tareas que tienen un
+// inicio y tienen un fin». En el producto se llama RECURRENTES y en ninguna pantalla se
+// escribe la sigla con la que él lo nombró: «el nombre tal vez no es muy conocido».)
+const VISTAS = ['prioridades', 'tareas', 'proyectos', 'recurrentes', 'graphics'] as const;
 type Vista = (typeof VISTAS)[number];
 // ⚠️ `kanban` SIGUE RESOLVIENDO, para siempre. Es el nombre que tuvo la vista hasta el
 // 23/09/2026 y vive en links compartidos, en favoritos y en la barra de direcciones de
@@ -111,6 +127,26 @@ export function BoardShell({ board, scope, vistaInicial }: {
   
   // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
   const { tasks, labels, repo } = board;
+  /**
+   * EL TABLERO PARTIDO EN DOS UNIVERSOS, Y ACÁ ARRIBA PORQUE LO USAN SIETE LUGARES.
+   *
+   * `conFin` son las tareas que tienen un inicio y un fin: las únicas que se rankean, que
+   * se cuentan y que contestan «¿qué hago ahora?». `lasRecurrentes` son las que se repiten
+   * para siempre, y tienen su propia vista.
+   *
+   * ⚠️ NO ALCANZA CON SACARLAS DE LA VISTA: HAY QUE SACARLAS DE LOS CONTADORES. Es la
+   * trampa del «consumidor huérfano» de AGENTS.md, y acá había cuatro esperando:
+   *   · el avance «del plan» (`avg`): una recurrente clavada en 0% para siempre lo baja de
+   *     forma permanente, y el número nunca puede volver a 100.
+   *   · «N/M del plan»: el denominador contaría lo que la vista ya no muestra.
+   *   · el ⚠ de «tareas sin fecha» (`faltantes`): una recurrente no puede tener fecha, así
+   *     que el triangulito rojo titilaría para siempre sobre algo a lo que no le falta nada
+   *     — y el contador crecería solo con cada recurrente nueva.
+   *   · las 5 tarjetas de Prioridades: una recurrente ocupando 1 de 5 es el 20% de la
+   *     pantalla del día contestando otra pregunta.
+   */
+  const conFin = sinRecurrentes(tasks);
+  const lasRecurrentes = tasks.filter(esRecurrente);
   const [view, setView] = useState<Vista>(vistaValida(vistaInicial) ?? 'prioridades');
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [peekProjId, setPeekProjId] = useState<string | null>(null); // proyecto abierto DESDE una tarea (encima de ella; feedback jul-19)
@@ -264,7 +300,10 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // el norte del tablero cambiaría de proyecto por un motivo que no significa nada. Empata
   // el que tiene MÁS trabajo abierto: si dos cosas importan igual, se ataca donde hay más.
   const pendientesPorProy = new Map<string, number>();
-  for (const t of tasks) if (t.progress < 100) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
+  // Sobre `conFin`: de este conteo sale el OBJETIVO PRINCIPAL, y un proyecto al que solo
+  // se le hace la reunion semanal no es el norte del tablero. Es la misma particion que
+  // usa el avance, unas lineas mas abajo.
+  for (const t of conFin) if (t.progress < 100) for (const id of t.labels) pendientesPorProy.set(id, (pendientesPorProy.get(id) ?? 0) + 1);
 
   // ── Dependencias (mig 0140) ──
   // Se resuelven ACÁ, en el render, y NO se persiste ni un número. Es la decisión de
@@ -286,7 +325,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // Un proyecto está frenado cuando NINGUNA de sus tareas abiertas se puede empezar. Ojo
   // con el matiz: alcanza con que UNA sea arrancable para que el proyecto lo sea, porque
   // el norte del tablero tiene que ser algo en lo que hoy se puede poner una hora.
-  const proyArrancable = (id: string) => tasks.some((t) => t.progress < 100 && t.labels.includes(id) && !estaBloqueada(t.id, estDeps));
+  // Tambien sobre `conFin`: «arrancable» decide el desempate del objetivo principal, y
+  // una recurrente no es trabajo que se pueda arrancar y terminar.
+  const proyArrancable = (id: string) => conFin.some((t) => t.progress < 100 && t.labels.includes(id) && !estaBloqueada(t.id, estDeps));
 
   const porScore = labels.slice().sort((a, b) => b.score - a.score || (pendientesPorProy.get(b.id) ?? 0) - (pendientesPorProy.get(a.id) ?? 0));
   const tienePendientes = (id: string) => (pendientesPorProy.get(id) ?? 0) > 0;
@@ -346,7 +387,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
   };
   // Lo único que queda sin marcar es la FECHA: la checklist se fue del producto el
   // 22/09/2026 y con ella la mitad de este modal.
-  const faltantes: FaltanteItem[] = tasks
+  const faltantes: FaltanteItem[] = conFin
     .filter((t) => t.progress < 100)
     .map((t) => ({ task: t, needDl: !t.deadline && !dlDismiss.has(t.id) }))
     .filter((x) => x.needDl)
@@ -490,7 +531,19 @@ export function BoardShell({ board, scope, vistaInicial }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome]);
   const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter);
-  const visibles = tasks.filter(passes);
+  /**
+   * LO QUE SE VE EN «TAREAS» (Kanban y tabla): el universo CON FIN, salvo que estés
+   * buscando.
+   *
+   * ⚠️ LA EXCEPCIÓN DE LA BÚSQUEDA NO ES UN CAPRICHO. Sacar las recurrentes de la vista es
+   * correcto —tienen la suya— pero sacarlas también del buscador convierte «reunión de los
+   * miércoles» en CERO RESULTADOS sobre una tarea que existe, y un cero es indistinguible
+   * de «no está». Una búsqueda es una pregunta directa: esconder la respuesta es la peor
+   * forma de contestarla. Cuando aparecen así, cada tarjeta lleva el chip «Se repite», que
+   * es lo que explica por qué normalmente no están ahí.
+   */
+  const buscando = !!idsIA || !!q.trim();
+  const visibles = (buscando ? tasks : conFin).filter(passes);
   // ── El header: SIEMPRE PLEGADO ───────────────────────────────────────────────
   //
   // Acá vivían ~90 líneas que medían el header para decidir si plegar los botones, y se
@@ -515,8 +568,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const [diag, setDiag] = useState(false);
   useEffect(() => { try { setDiag(new URLSearchParams(window.location.search).get('diag') === '1'); } catch { /* no-op */ } }, []);
 
-  const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
-  const hechas = tasks.filter((t) => t.progress >= 100).length;
+  // Sobre `conFin`, NUNCA sobre `tasks`: ver el porqué arriba, donde se parte el tablero.
+  const avg = conFin.length ? Math.round(conFin.reduce((s, t) => s + t.progress, 0) / conFin.length) : 0;
+  const hechas = conFin.filter((t) => t.progress >= 100).length;
   // "En prioridad" = AUTOMÁTICO: las 3 tareas de mayor score del Objetivo Principal
   // (no lo elige el usuario). NUNCA se queda corta: si al proyecto top le quedan menos
   // de 3 pendientes, se completa con lo mejor del resto del plan (por score del
@@ -528,7 +582,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // valga menos —su score no se toca, y en el Kanban sigue donde estaba—: es que hoy no se
   // puede empezar, y una lista de «hacé esto» con cosas que no se pueden hacer es peor que
   // una lista corta. Lo que sí sube es lo que las DESTRABA, por la urgencia heredada.
-  const pendientesTodas = tasks.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps));
+  const pendientesTodas = conFin.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps));
   // ⚠️ MANDA LA BANDA, Y EL PROYECTO TOP DESEMPATA ADENTRO DE ELLA.
   //
   // Acá entraban primero TODAS las pendientes del proyecto top ordenadas por score y el
@@ -558,7 +612,15 @@ export function BoardShell({ board, scope, vistaInicial }: {
   // El avance de LA VISTA que se está mirando, en un solo lugar. Los tres chips del
   // header lo pintaban cada uno por su lado; cuando el header se pliega, este mismo dato
   // es el que viaja al menú — copiarlo allá era garantizar que uno de los dos mintiera.
-  const progresoDeLaVista = view === 'tareas' ? { pct: avg, hechas, total: tasks.length, label: 'del plan' }
+  //
+  // ⚠️ «RECURRENTES» NO TIENE PROGRESO, Y ES UNA DECISIÓN ESCRITA, NO UN OLVIDO. El chip
+  // dice «X% · N/M»: los tres números mienten sobre algo que se repite para siempre. `N/M`
+  // sería «cuántas de tus rutinas terminaste», que es una pregunta sin respuesta posible —
+  // al cerrarla hay que volver a crearla, que es justamente lo que la delata como
+  // recurrente—; y un 0% permanente se lee como «nadie hizo nada» sobre lo que más se hace.
+  // El único número que ahí significa algo es CUÁNTAS son, y ese va en el encabezado de la
+  // propia vista (`RecurrentesView`), donde se puede decir con su frase al lado.
+  const progresoDeLaVista = view === 'tareas' ? { pct: avg, hechas, total: conFin.length, label: 'del plan' }
     : view === 'prioridades' ? { pct: prioAvg, hechas: enPrio.length, total: MAX_PRIORIDAD, label: 'en prioridad' }
       : view === 'proyectos' ? { pct: avgProj, hechas: hechosProj, total: labels.length, label: 'proyectos ✓' }
         : undefined;
@@ -970,6 +1032,13 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {!compacto && view === 'tareas' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {!compacto && view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {!compacto && view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
+        {/* ⚠️ «RECURRENTES» NO LLEVA BUSCADOR NI «FILTRAR», Y ES A PROPÓSITO. El filtro de
+            esta barra ordena por prioridad y por deadline y filtra por «Cuándo» (que se
+            deriva del deadline): las tres preguntas que una recurrente no puede contestar,
+            o sea tres controles que devolverían la lista igual o vacía. Lo que sí sirve
+            —ordenar por proyecto o por creación— ya lo da la propia tabla clickeando su
+            encabezado. Y el buscador global sigue encontrándolas: buscar en «Tareas» deja
+            de excluirlas mientras haya texto (ver `visibles`). */}
         {(view === 'tareas' || view === 'proyectos') && <>
           <BuscadorTareas
             q={q} onQ={setQ}
@@ -1096,6 +1165,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
+        {view === 'recurrentes' && <RecurrentesView tareas={lasRecurrentes} board={board} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} ask={ask} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -2538,6 +2608,15 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
             necesita sus dos líneas. El nombre de lo que la frena vive en el tooltip y en
             el detalle, que es donde hay lugar para decirlo entero. */}
         <BloqueoChip porQue={frenanA} compacto />
+        {/* ⚠️ «Se repite», SÓLO EL ÍCONO. Una recurrente normalmente no está en el Kanban
+            —salen de la vista Tareas— pero SÍ aparece cuando la buscás, y también en los
+            modales que reusan esta tarjeta (lo que cargó MaKo, lo que salió de una
+            reunión). Sin el chip, una tarjeta sin fecha en una columna de prioridad se lee
+            como una tarea a la que se le perdieron los datos. Compacto por el mismo motivo
+            que el candado de al lado: la card mide 138px de alto fijos y 249 de ancho, y el
+            rótulo entero le come el nombre del proyecto. El texto no se pierde: va en el
+            `title` y en el `aria-label`. */}
+        {esRecurrente(t) && <RepiteChip soloIcono />}
         {/* ⛔ ACÁ IBA `<TiempoChip>` (◷ subió / 💤 bajó de prioridad) Y SE FUE EL
             25/09/2026: «quita los íconos de subió de prioridad o bajó». En una tarjeta de
             249px cada ícono le come ancho al nombre del proyecto, y el porqué del
@@ -3012,7 +3091,10 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, o
               {hueco(0)}
               {items.map((t, i) => (
                 <Fragment key={t.id}>
-                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={agarrar} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
+                  {/* `warn`: el triangulito rojo de «alta sin fecha». `!esRecurrente(t)`
+                      porque una recurrente no puede tener deadline, así que titilaría para
+                      siempre — es el mismo corte que el detalle hace en su rótulo. */}
+                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline && !esRecurrente(t)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={agarrar} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
                   {hueco(i + 1)}
                 </Fragment>
               ))}
@@ -3412,6 +3494,8 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
+  // ¿Se repite para siempre? Sale del contrato, nunca de `t.recurrente`.
+  const repite = esRecurrente(t);
   const [mako, setMako] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
 
@@ -3441,6 +3525,12 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           {onBack && <button onClick={onBack} title="Volver al proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← Volver</button>}
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600, flex: 'none' }}>#{t.num}</span>
+          {/* El chip va en el HEADER y no sólo en el interruptor de la columna derecha: es
+              lo primero que hay que saber de esta tarjeta —cambia el significado de su
+              prioridad, de su fecha y de dónde vive—, y la columna derecha puede estar
+              scrolleada. Este modal se monta también FUERA del tablero (`RoadmapCS`), donde
+              no hay ninguna otra pista de que la tarea no compite. */}
+          {repite && <RepiteChip />}
           {/* en el header, compacto (la lista completa está en el sidebar "Proyectos") */}
           <LabelChips chips={chips} max={1} cap={230} onOpen={onOpenProj} />
           {/* ⛔ ACÁ IBA EL CHIP DE ORIGEN con su palabra al lado («Fathom · Reunión con…»).
@@ -3512,9 +3602,30 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 tarea, deja escrito por qué, y para moverla hay que discutírsela. */}
             {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
             <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
+            {/* ⚠️ EL INTERRUPTOR VA ACÁ Y NO EN OTRO LADO, y abre el grupo del TIEMPO a
+                propósito: lo que decide es si el deadline y el Quarter de abajo significan
+                algo. Leído en orden dice «esta tarea se repite → por eso no tiene fecha»,
+                que es la frase entera; puesto después, las dos fechas se leen primero como
+                campos vacíos.
+
+                ⚠️ Y ES EL ÚNICO LUGAR DEL PRODUCTO DONDE SE PONE LA MARCA, por ahora, y es
+                una decisión: el detalle es donde la persona está mirando la tarea entera y
+                donde el cambio se explica solo (el chip aparece arriba, los dos campos de
+                fecha se apagan en el acto). El alta y la barra de selección múltiple viven
+                en otros archivos y no se tocaron en esta pasada — están declarados como
+                pendientes, con su archivo, porque una capacidad a medias es peor que
+                ninguna. Lo que NO puede pasar, y no pasa, es que la única forma de marcarla
+                sea la base de datos. */}
+            <BloqueRecurrente t={t} board={board} repite={repite} />
             <div>
-              <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label>
+              {/* ⚠️ EL TRIANGULITO NO SE DIBUJA SI SE REPITE. «Falta el deadline» sobre algo
+                  que no puede tener uno titilaría para siempre, y una alarma permanente es
+                  cómo se aprende a ignorar todas las demás. No le falta nada: no aplica. */}
+              <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && !repite && <WarnMark title="Falta el deadline" size={13} />}</label>
               <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} />
+              {repite && t.deadline && (
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginTop: 6 }}>{PORQUE_SIN_FECHA}</div>
+              )}
               {/* ⛔ ACÁ SE PINTABA `deadlineRazon`, la frase con la que el Perro justifica la
                   fecha que propuso («Es el paso 2 y 5 del bucle de 5 pasos, y Mauricio lo
                   necesita para escalar»). Se fue el 23/09/2026: «eso no tiene sentido».
@@ -3701,7 +3812,7 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // IDÉNTICAS). `verDetalle` muestra descripción + razón del Perro (para el modal); en la
 // grilla queda apagado (es para barrer de un vistazo).
 export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse }: {
-  l: Label; prog: { total: number; done: number; pct: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void;
+  l: Label; prog: { total: number; done: number; pct: number; recurrentes?: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void;
   /** LA TARJETA SE PUEDE ARRASTRAR, y quien la monta dice si se puede: el tablero del
    *  CLIENTE no tiene con qué escribir una prioridad a mano, así que ahí no se dibuja el
    *  control (`repo.prioridadManual`). Sin esta prop, la tarjeta no es `draggable` — que es
@@ -3745,8 +3856,18 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           el plazo al lado y no sólo la fecha: «12 oct» no dice si ya se venció. */}
       {l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} />}
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
+      {/* ⚠️ «SIN TAREAS» ES UNA AFIRMACIÓN, Y SOBRE UN PROYECTO DE PURAS RECURRENTES ES
+          FALSA. `projProgress` saca las recurrentes del porcentaje —una tarea que no
+          termina nunca dejaría el avance clavado en 0 para siempre—, así que un cliente al
+          que se le atiende todas las semanas cae en `total: 0` y esta línea decía «sin
+          tareas · 0%» sobre el proyecto más activo del tablero. No tiene trabajo QUE SE
+          PUEDA CERRAR, que es otra cosa: se dice lo que sí tiene. */}
       <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
-        {prog.total ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
+        {prog.total
+          ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></>
+          : prog.recurrentes
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><IconoRepite size={11} /> en marcha · {prog.recurrentes} se {prog.recurrentes === 1 ? 'repite' : 'repiten'}</span>
+            : <span>sin tareas</span>}
       </div>
     </div>
   );
@@ -3804,6 +3925,135 @@ function comparar(modo: OrdenModo, dir: number) {
     }
     return dir * (a.score - b.score) || b.score - a.score;
   };
+}
+
+/**
+ * EL INTERRUPTOR «Se repite», en el detalle de una tarea.
+ *
+ * Es la ÚNICA puerta del producto para marcar una recurrente, y por eso está donde la
+ * persona ya está mirando la tarea entera: acá el cambio se explica solo —aparece el chip
+ * en el header, el triangulito de «falta el deadline» se apaga, la tarjeta se va del
+ * Kanban— en vez de ser una casilla que hace desaparecer una tarjeta de otra pantalla.
+ *
+ * ⚠️ DICE QUÉ PASA AL PRENDERLO, ANTES DEL CLICK. Marcar una tarea la saca del ranking, de
+ * Prioridades y del avance del plan: es la clase de consecuencia que va pegada al control y
+ * en tinta normal, no en gris arriba de todo donde no la lee nadie. Y el texto de apagado
+ * no describe el mecanismo sino la PREGUNTA que hay que contestar —«¿al cerrarla hay que
+ * volver a crearla?»—, que es lo único que distingue una recurrente de una tarea que
+ * simplemente se repitió dos veces.
+ *
+ * ⚠️ ES UN `role="switch"`, NO UN CHECKBOX: prende y apaga un estado que ya existe, no
+ * elige un valor de un formulario. Y lleva su rótulo adentro (`Se repite` / `No se
+ * repite`), porque un interruptor sin estado escrito se lee al revés la mitad de las veces.
+ */
+function BloqueRecurrente({ t, board, repite }: { t: BoardTask; board: Board; repite: boolean }) {
+  return (
+    <div>
+      <label style={rowLabel}>¿Se repite para siempre?</label>
+      <button type="button" role="switch" aria-checked={repite}
+        onClick={() => board.setRecurrente(t.id, !repite)}
+        title={repite
+          ? `Sacarle la marca: vuelve al ranking y el Perro la puede volver a puntuar`
+          : `Marcarla como «${ROTULO_RECURRENTE}»: sale del ranking y pasa a la vista Recurrentes`}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+          border: `1px solid ${repite ? 'var(--primary-weak)' : 'var(--border-strong)'}`,
+          background: repite ? 'var(--primary-bg)' : 'var(--surface)',
+          color: repite ? 'var(--primary)' : 'var(--dim)',
+          borderRadius: 9, padding: '7px 10px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+        <IconoRepite size={14} />
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repite ? ROTULO_RECURRENTE : 'No se repite'}</span>
+        {/* La perilla. `aria-hidden` porque el estado ya viaja en `aria-checked` y en el
+            texto de al lado: anunciarlo tres veces es ruido para un lector de pantalla. */}
+        <span aria-hidden style={{ flex: 'none', width: 30, height: 17, borderRadius: 999, background: repite ? 'var(--primary)' : 'var(--border-strong)', display: 'inline-flex', alignItems: 'center', padding: 2, transition: 'background .12s' }}>
+          <span style={{ width: 13, height: 13, borderRadius: '50%', background: '#fff', transform: repite ? 'translateX(13px)' : 'translateX(0)', transition: 'transform .12s' }} />
+        </span>
+      </button>
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45, marginTop: 6 }}>
+        {repite
+          ? `${PORQUE_NO_COMPITE} Queda fuera de Prioridades y del avance del plan, y vive en la vista Recurrentes.`
+          : 'Márcala si al cerrarla hay que volver a crearla: la reunión de los miércoles, el seguimiento diario.'}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ── VISTA RECURRENTES ────────────────────────────────────────────────────────────────
+ *
+ * Las tareas que se repiten para siempre: la reunión de los miércoles, el seguimiento
+ * diario. El criterio es de Mauricio (16/07/2026): *«acá lo que entran son tareas que
+ * tienen un inicio y tienen un fin»*, y lo que delata a una recurrente es que **al
+ * cerrarla hay que volver a crearla**.
+ *
+ * ⚠️ LA VISTA ES LA CONSECUENCIA, NO LA CAUSA. Lo que hacía falta no era poder verlas
+ * juntas: era que dejaran de ensuciar el ranking. El Perro puntúa por «qué mueve la aguja»
+ * y le pone deadline a todo lo que no tiene; algo sin fin no puede tener ni score ni fecha,
+ * así que competía por un puesto que no le corresponde y encima hundía el avance del plan.
+ * Sacarlas deja un agujero —trabajo real que ya no se ve en ningún lado— y esta pantalla es
+ * el lugar donde ese trabajo sigue existiendo.
+ *
+ * Tres decisiones de diseño, y las tres son la misma:
+ *
+ *  1. **Es `TablaTareas`, no una tabla nueva.** Dos pantallas que muestran lo mismo se ven
+ *     igual, y una segunda tabla diverge a la primera corrección (el tinte del deadline, el
+ *     plegado de lo completado, la barra de selección). Lo único que cambia es una prop.
+ *  2. **Sin columna de prioridad y sin columna de deadline** (`sinRanking`). La tabla de
+ *     siempre le mentiría dos veces por fila: un score que no ordena nada y una fecha de fin
+ *     de algo que no termina.
+ *  3. **Sin progreso en el header y sin chip «Se repite» en las filas.** Acá todas lo son,
+ *     así que el chip no distinguiría nada; y el único número que significa algo —cuántas
+ *     son— se dice acá arriba con su frase al lado, en vez de disfrazado de porcentaje.
+ *
+ * ⚠️ Y NO HAY BOTÓN DE «NUEVA RECURRENTE». Una recurrente no es una entidad aparte: es una
+ * tarea marcada, y la marca se pone en su detalle. Un botón acá tendría que abrir el alta
+ * normal y dejar la marca sin poner —o sea, crear una tarea que no aparece en esta vista
+ * después de haberla creado desde esta vista—, que es peor que no tenerlo. El estado vacío
+ * dice dónde está el interruptor.
+ */
+function RecurrentesView({ tareas, board, onOpen, onOpenProj, onEliminar, ask }: {
+  tareas: BoardTask[]; board: Board;
+  onOpen: (id: string) => void; onOpenProj: (id: string) => void;
+  /** abre la pregunta de dos botones. Sin esto la fila no dibuja el tacho. */
+  onEliminar: (id: string) => void;
+  ask: (msg: string, onOk: () => void) => void;
+}) {
+  const n = tareas.length;
+  return (
+    <div style={{ flex: '1 0 auto', padding: '18px 30px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* El encabezado dice CUÁNTAS son y POR QUÉ están acá. La segunda mitad no es
+          decoración: sin ella, una pantalla con las tareas más constantes del negocio y sin
+          una sola prioridad se lee como un tablero roto. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)' }}>
+          <IconoRepite size={17} />
+          <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{ROTULO_RECURRENTE}</span>
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px' }}>{n}</span>
+        <span style={{ flex: 1, minWidth: 0 }} />
+        <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, flex: '0 1 560px', minWidth: 0 }}>
+          Tareas que no terminan nunca: se repiten. Por eso no tienen prioridad ni deadline, y por eso quedan fuera del ranking, de Prioridades y del avance del plan — para que no le saquen el puesto a lo que sí se puede cerrar.
+        </span>
+      </div>
+      {n === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--faint)', textAlign: 'center', padding: '34px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
+          {/* ⚠️ NACE VACÍA Y ESTÁ BIEN. No se puede rellenar buscando «semanal» o «diaria»
+              en los títulos: lo que eso encuentra es «Diseñar la estructura de la junta
+              semanal» o «Implementar la cadencia de juntas», que son tareas CON FIN que
+              montan un ritual — exactamente lo contrario de lo que esta vista busca. La
+              marca la pone una persona, o la extracción de una reunión. */}
+          <IconoRepite size={22} />
+          <div style={{ fontSize: 14, color: 'var(--dim)', maxWidth: 460, lineHeight: 1.55 }}>
+            Todavía no marcaste ninguna tarea como «{ROTULO_RECURRENTE}».
+          </div>
+          <div style={{ fontSize: 12.5, maxWidth: 460, lineHeight: 1.55 }}>
+            Abre cualquier tarea y prende <strong style={{ color: 'var(--dim)' }}>{ROTULO_RECURRENTE}</strong> en la columna de la derecha. Sale del ranking y aparece aquí.
+          </div>
+        </div>
+      ) : (
+        <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} sinRanking />
+      )}
+    </div>
+  );
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
@@ -4103,8 +4353,18 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 lo dice la tabla —N abiertas arriba, «M completadas» en su última fila— y
                 repetirlo es el mismo dato representado de otra forma, que es justo lo que
                 esta pasada vino a sacar. */}
-            <label style={rowLabel}>Avance · {prog.pct}%</label>
-            <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
+            {/* Ver el porqué en la tarjeta del proyecto: sin tareas CON FIN no hay
+                porcentaje que mostrar, y un 0% con su barra vacía se lee como «nadie hizo
+                nada». Lo que hay se dice con su nombre. */}
+            {prog.total === 0 && prog.recurrentes > 0 ? (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)', marginBottom: 20 }}>
+                <IconoRepite size={13} />
+                En marcha · {prog.recurrentes} tarea{prog.recurrentes === 1 ? '' : 's'} que se {prog.recurrentes === 1 ? 'repite' : 'repiten'}, sin nada con fecha de fin.
+              </div>
+            ) : (<>
+              <label style={rowLabel}>Avance · {prog.pct}%</label>
+              <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
+            </>)}
 
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
               {/* El conteo dice lo que queda ABIERTO y nada más: cuántas están hechas lo

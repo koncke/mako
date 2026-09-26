@@ -15,6 +15,10 @@
 //    se borra: Martín pidió explícitamente que el criterio no sea una forma de tirar tareas.
 //  · Un veredicto incompleto no se completa adivinando: queda en null = «no se juzgó», y
 //    esa tarea sigue el camino de siempre (entra como nueva).
+//  · La CUARTA pregunta del criterio —«¿se repite para siempre?», de Mauricio, 16/07/2026—
+//    tiene su desempate determinista acá (`decidirRecurrente`): una fecha y un «esto se
+//    repite» se contradicen, y gana la fecha. No es una cubeta ni una regla nueva; el
+//    porqué está escrito arriba de `ReglaCriterio` y de `Veredicto.recurrente`.
 //
 // SIN `server-only`: el test la importa, y prompt-registry lee las plantillas.
 // =============================================================================
@@ -26,7 +30,13 @@ export type Cubeta = 'compromiso' | 'acuerdo_interno' | 'descartado' | 'fuera';
 export const CUBETAS: readonly Cubeta[] = ['compromiso', 'acuerdo_interno', 'descartado', 'fuera'];
 
 /** Qué regla sacó a un descartado: las 5 numeradas del criterio, la definición, o que no
- *  alcanzó el contexto para decidir (el pedido «no hay suficiente contexto» del 8/9). */
+ *  alcanzó el contexto para decidir (el pedido «no hay suficiente contexto» del 8/9).
+ *
+ *  ⚠️ EL '4' YA ESTÁ TOMADO: es la regla 4 DE MAURICIO (el dueño sugirió y el otro aceptó
+ *  más adelante — ver lib/plan-criterio-juez.ts). Los ids de acá son los suyos y se
+ *  numeran como él los numeró; no hay uno libre para una regla nuestra. La cuarta
+ *  pregunta del criterio («¿se repite para siempre?») NO entra por este enum — ver
+ *  `decidirRecurrente` acá abajo. */
 export type ReglaCriterio = '1' | '2' | '3' | '4' | '5' | 'definicion' | 'contexto';
 const REGLAS: readonly ReglaCriterio[] = ['1', '2', '3', '4', '5', 'definicion', 'contexto'];
 
@@ -42,9 +52,57 @@ export type Veredicto = {
   cita: string | null;
   tema: string | null;
   estado: EstadoCompromiso | null;
+  /**
+   * ¿Se repite para siempre? La CUARTA pregunta del criterio, y NO es una cubeta.
+   *
+   * Una reunión de los miércoles es un compromiso de verdad —alguien con nombre dijo que
+   * la iba a sostener— así que no es «descartado» ni es «fuera»: lo que cambia no es a qué
+   * cubeta va, es que no compite en el ranking, no lleva deadline y no cuenta para el
+   * avance de su proyecto (lib/plan-recurrentes.ts). Meterla como cubeta la sacaría del
+   * tablero, que es justo lo contrario de lo que se decidió; meterla como `regla` pediría
+   * un id nuevo en un enum que es de Mauricio y donde el '4' ya es suyo. Por eso es un
+   * flag ortogonal, al lado de `estado`.
+   */
+  recurrente: boolean;
   /** el juez dijo otra cubeta y el código la bajó a descartado: la cita no apareció. */
   degradado?: 'cita';
 };
+
+/**
+ * ¿NACE recurrente? La segunda capa de la cuarta pregunta del criterio.
+ *
+ * Vive acá y no en el prompt porque «una regla en un prompt no es una regla»: el modelo
+ * acierta casi siempre, y este módulo es el «casi». Vive acá y no en `lib/plan-propuesta.ts`
+ * —que es `server-only`— para que un test la pueda importar y correr, que es el mismo
+ * motivo por el que este archivo no lleva `server-only`.
+ *
+ * Dos decisiones, y las dos tienen su porqué escrito:
+ *
+ * 1. **`=== true`, no truthy.** Idéntico a `esRecurrente` (lib/plan-recurrentes.ts): el
+ *    valor llega del JSON de un modelo, o sea cualquier cosa (`"true"`, `1`, `"sí"`). Ante
+ *    la duda la respuesta es NO — una tarea mal marcada desaparece del ranking sin que
+ *    nadie lo haya pedido, y eso es peor que una recurrente que todavía compite.
+ *
+ * 2. **SI HAY FECHA, GANA LA FECHA.** Son dos señales que se contradicen: lo que se repite
+ *    para siempre no vence. AGENTS.md ya decidió el desempate: «cuando el saneo tenga que
+ *    elegir entre dos señales que se contradicen, gana la más cara de producir». Un
+ *    booleano es un token que el modelo tira sin pensar; una fecha concreta sólo se escribe
+ *    habiendo oído a alguien decirla en la reunión, y se puede verificar contra la
+ *    transcripción. Así que la fecha se conserva y el flag se cae. El error que queda en
+ *    ese caso es el barato y visible (una recurrente compitiendo, que se arregla con el
+ *    interruptor del detalle), nunca el caro y mudo (la tarea con fecha real que sale del
+ *    ranking sola y pierde su deadline en `taskToRow`).
+ *
+ * `conflicto` existe para que quien llama lo pueda DEJAR ESCRITO: un descarte sin rastro
+ * hace indistinguibles «el modelo no la marcó» de «la marcamos y se la tiramos nosotros».
+ */
+export type DecisionRecurrente = { recurrente: boolean; conflicto: boolean };
+
+export function decidirRecurrente(crudo: unknown, deadline?: string | null): DecisionRecurrente {
+  const marcado = crudo === true;
+  if (marcado && typeof deadline === 'string' && deadline.trim()) return { recurrente: false, conflicto: true };
+  return { recurrente: marcado, conflicto: false };
+}
 
 // ── La cita ───────────────────────────────────────────────────────────────────
 
@@ -179,9 +237,13 @@ export function sanearVeredictos(obj: unknown, n: number, transcriptNorm: string
     const razon = txt(o.razon, 600);
     const tema = txt(o.tema, 80) || null;
     const citaCruda = txt(o.cita, 600);
+    // El juez no propone fechas, así que acá la cuarta pregunta no tiene con qué
+    // contradecirse: el desempate contra el deadline vive donde sí conviven los dos
+    // campos (`limpiarTarea` en lib/plan-propuesta.ts).
+    const { recurrente } = decidirRecurrente(o.recurrente);
 
     if (cubeta === 'fuera') {
-      out[i] = { cubeta, regla: null, parteDe: null, razon, cita: null, tema, estado: null };
+      out[i] = { cubeta, regla: null, parteDe: null, razon, cita: null, tema, estado: null, recurrente: false };
       continue;
     }
     const ok = !!citaCruda && citaVerificada(citaCruda, transcriptNorm);
@@ -191,14 +253,14 @@ export function sanearVeredictos(obj: unknown, n: number, transcriptNorm: string
         razon: citaCruda
           ? `El juez la puso en «${cubeta === 'compromiso' ? 'compromiso' : 'acuerdo interno'}», pero su cita no aparece en la transcripción: «${citaCruda.slice(0, 200)}».`
           : `El juez la puso en «${cubeta === 'compromiso' ? 'compromiso' : 'acuerdo interno'}» sin ninguna cita.`,
-        cita: null, tema, estado: null, degradado: 'cita',
+        cita: null, tema, estado: null, recurrente, degradado: 'cita',
       };
       continue;
     }
     const estado = cubeta === 'compromiso'
       ? (o.estado === 'solicitado_sin_respuesta' ? 'solicitado_sin_respuesta' : 'acordado')
       : null;
-    out[i] = { cubeta, regla: cubeta === 'descartado' ? regla : null, parteDe, razon, cita: ok ? citaCruda : null, tema, estado };
+    out[i] = { cubeta, regla: cubeta === 'descartado' ? regla : null, parteDe, razon, cita: ok ? citaCruda : null, tema, estado, recurrente };
   }
   return out;
 }
@@ -216,6 +278,9 @@ export type Faltante = {
   quien: string; titulo: string; producto: string | null;
   cubeta: 'compromiso' | 'acuerdo_interno';
   cita: string; tema: string | null; estado: EstadoCompromiso | null; razon: string;
+  /** ¿se repite para siempre? Mismo flag que en `Veredicto`, y por el mismo motivo: un
+   *  faltante que resulta ser la reunión de los miércoles nace recurrente o nace mal. */
+  recurrente: boolean;
 };
 
 export function sanearFaltantes(obj: unknown, transcriptNorm: string): Faltante[] {
@@ -238,6 +303,7 @@ export function sanearFaltantes(obj: unknown, transcriptNorm: string): Faltante[
       quien, titulo, producto: txt(o.producto, 200) || null, cubeta, cita,
       tema: txt(o.tema, 80) || null, razon: txt(o.razon, 600),
       estado: cubeta === 'compromiso' ? (o.estado === 'solicitado_sin_respuesta' ? 'solicitado_sin_respuesta' : 'acordado') : null,
+      recurrente: decidirRecurrente(o.recurrente).recurrente,
     });
   }
   return out;
@@ -258,12 +324,13 @@ export function resumenVeredictos(vs: Array<Veredicto | null>): Record<Cubeta | 
 
 export const CRITERIO_JUEZ_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown), con UN veredicto por cada índice de la lista:
 {"veredictos":[
-  {"i":0,"cubeta":"compromiso","regla":null,"parte_de":null,"razon":"<qué pasó en esta reunión>","cita":"<frase copiada tal cual de la transcripción>","tema":"<el asunto>","estado":"acordado"},
-  {"i":1,"cubeta":"descartado","regla":"2","parte_de":null,"razon":"<qué regla lo saca y por qué, en concreto>","cita":"<frase copiada tal cual>","tema":"<el asunto>","estado":null},
-  {"i":2,"cubeta":"fuera","regla":null,"parte_de":null,"razon":"<por qué no tiene forma de compromiso>","cita":null,"tema":"<el asunto>","estado":null}
+  {"i":0,"cubeta":"compromiso","regla":null,"parte_de":null,"razon":"<qué pasó en esta reunión>","cita":"<frase copiada tal cual de la transcripción>","tema":"<el asunto>","estado":"acordado","recurrente":false},
+  {"i":1,"cubeta":"descartado","regla":"2","parte_de":null,"razon":"<qué regla lo saca y por qué, en concreto>","cita":"<frase copiada tal cual>","tema":"<el asunto>","estado":null,"recurrente":false},
+  {"i":2,"cubeta":"fuera","regla":null,"parte_de":null,"razon":"<por qué no tiene forma de compromiso>","cita":null,"tema":"<el asunto>","estado":null,"recurrente":false},
+  {"i":3,"cubeta":"compromiso","regla":null,"parte_de":null,"razon":"<sostener la junta semanal de los miércoles>","cita":"<frase copiada tal cual>","tema":"<el asunto>","estado":"acordado","recurrente":true}
 ],
 "faltantes":[
-  {"quien":"<nombre, como aparece en la transcripción>","que":"<la acción, en una frase>","producto":"<lo concreto que queda>","cubeta":"compromiso","estado":"acordado","tema":"<el asunto>","razon":"<por qué cumple el criterio>","cita":"<frase copiada tal cual>"}
+  {"quien":"<nombre, como aparece en la transcripción>","que":"<la acción, en una frase>","producto":"<lo concreto que queda>","cubeta":"compromiso","estado":"acordado","tema":"<el asunto>","razon":"<por qué cumple el criterio>","cita":"<frase copiada tal cual>","recurrente":false}
 ]}`;
 
 export const CRITERIO_JUEZ_SYSTEM_TEMPLATE = `Eres MaKo. Te paso una lista de tareas que YA se sacaron de una reunión, y el CRITERIO DE COMPROMISOS de {{dueno}}, el dueño del tablero. No sacas tareas nuevas: decides en qué cubeta va CADA una de las que te paso.
@@ -283,6 +350,11 @@ CÓMO SE LLENA CADA VEREDICTO:
 3. "razon" dice qué pasó en ESTA reunión, en una o dos frases concretas. No repitas el texto de la regla.
 4. Si varias tareas de la lista son pasos hacia UN mismo producto final del MISMO dueño (regla 1), la principal va a "compromiso" y las otras a "descartado" con regla "1" y "parte_de" = el índice de la principal. Si son de dueños distintos, son compromisos distintos.
 5. "estado", solo en compromiso: "acordado", o "solicitado_sin_respuesta" si {{dueno}} lo pidió y el otro no lo aceptó explícitamente.
+5 bis. "recurrente": true SOLO si esto SE REPITE PARA SIEMPRE. Es la CUARTA pregunta del criterio, y las otras no la contestan: la reunión de los miércoles se puede completar esta semana, no es una decisión y no está hecha —pasa las tres— y aun así no tiene fin. Lo que la delata: al cerrarla hay que volver a crearla. {{dueno}} lo dijo así: «lo que entran son tareas que tienen un inicio y tienen un fin».
+   · SÍ se repite: asistir a la junta semanal con los clientes, el seguimiento diario a los leads, revisar el tablero todos los lunes, la llamada mensual de cada cuenta.
+   · NO se repite, aunque hable de algo que sí: «diseñar la estructura de la junta semanal», «implementar la cadencia de juntas», «armar por primera vez el reporte semanal». Montar un ritual es una tarea CON FIN: termina el día que el ritual existe. Lo que se repite es ASISTIR a la junta cada semana, no inventarla.
+   · Un compromiso recurrente SIGUE siendo "compromiso". No lo mandes a "descartado" ni a "fuera" por repetirse: sólo marca el flag.
+   · Ante la duda, false.
 6. "tema": el asunto, en pocas palabras.
 7. Un veredicto por CADA índice de la lista, sin saltearte ninguno.
 8. "faltantes": los compromisos y acuerdos internos que cumplen el criterio y NO están en la lista, cada uno con su cita. Revisa en especial lo que {{dueno}} promete hacer o mandar («te mando», «les voy a mandar», «yo te ayudo»): es lo que más se pierde. Solo lo que falta: no repitas con otras palabras una tarea que ya está en la lista. Si no falta nada, [].

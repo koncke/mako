@@ -14,6 +14,7 @@ import { whopConfigurado } from '@/lib/whop';
 import { esWorkspaceDueno } from '@/lib/workspace';
 import { ComingSoon } from '@/app/_components/ComingSoon';
 import { ClientesApp } from './ClientesApp';
+import { tableroDeLaCartera } from './trabajo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,5 +40,20 @@ export default async function CustomerSuccessPage() {
     cartera().catch(() => []),
     whopConfigurado().catch(() => false),
   ]);
-  return <ClientesApp clientes={clientes} totalClases={TOTAL_CLASES} whopConectado={whop} />;
+
+  // El TABLERO de cada uno: cuántos proyectos, tareas y recurrentes tiene. Sólo los
+  // números — el detalle lo pide la ficha al abrirse (./actions.ts).
+  //
+  // ⚠️ SE CRUZA CONTRA LA CARTERA ENTERA, no cliente por cliente. El cruce blando
+  // decide si una palabra distingue a alguien mirando a TODOS; con la lista recortada,
+  // cualquier palabra sería única y le metería a un cliente el trabajo de otro.
+  //
+  // ⚠️ Y SI FALLA, FALLA VISIBLE. `tableroDeLaCartera` devuelve `{ok:false, error}` en
+  // vez de una lista vacía: «no pude leer el tablero» y «nadie tiene trabajo cargado»
+  // son dos pantallas, y la segunda sobre la primera no la audita nadie.
+  const tablero = await tableroDeLaCartera(
+    clientes.map((c) => ({ leadId: c.leadId, nombre: c.nombre, empresa: c.empresa })),
+  ).catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No pude leer el tablero.' }));
+
+  return <ClientesApp clientes={clientes} totalClases={TOTAL_CLASES} whopConectado={whop} tablero={tablero} />;
 }

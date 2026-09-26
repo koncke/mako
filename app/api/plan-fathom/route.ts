@@ -73,6 +73,11 @@ async function asegurarBorrador(
         proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
         dueno: t.dueño || undefined, duenoEmail: t.dueñoEmail || undefined,
         esDeOtro: t.esDeOtro || undefined, minuto: t.minuto, minutos: t.minutos,
+        // «Se repite para siempre» (mig 0163). Este map es un eslabón de la cadena que
+        // arranca en el prompt de extracción y termina en el alta: lo que no se copie
+        // acá, el modelo lo escribió para nadie. Es el mismo agujero por el que se
+        // perdía el `minuto` hasta el 12/8.
+        recurrente: t.recurrente,
       })),
     });
   } catch (e) { console.error(`[api:plan-fathom] borrador: ${msg(e)}`); return ''; }

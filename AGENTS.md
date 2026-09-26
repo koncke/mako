@@ -870,11 +870,29 @@ Las tres preguntas, antes de convertir un accionable en una tarjeta:
    está hecha: pasa las tres y no debería estar en el tablero igual. Lo que la delata es que
    al cerrarla haya que volver a crearla.
 
-   ⚠️ Y el producto **no tiene recurrencia**: no hay una sola línea de código que la
-   modele, así que hoy una BAU que entra por WhatsApp o por una reunión se crea como
-   cualquier otra y el Perro la puntúa como cualquier otra. Mientras eso siga así, lo único
-   que hay es este criterio al extraer. La regla hermana a nivel proyecto ya estaba escrita
-   desde el 13/07 —«un proyecto tiene inicio y fin»— y le faltaba la mitad de las tareas.
+   ⚠️ **Y desde el 26/09/2026 el producto SÍ lo modela** (mig 0163): la columna
+   `recurrente` en `plan_tareas` y en `experimento_tareas`, el contrato compartido en
+   `lib/plan-recurrentes.ts` (`esRecurrente`, `sinRecurrentes`, `ROTULO_RECURRENTE`) y la
+   cuarta vista del tablero. **En el producto se llama RECURRENTES / «Se repite», nunca
+   BAU** — el nombre se descartó a propósito porque no lo conoce nadie fuera del mundo
+   corporativo.
+
+   Lo que esa columna hace, y es la razón de existir: una recurrente **no compite**. Sale
+   del reparto diario, de la herencia de urgencia, de Prioridades, del Perro, de los avisos,
+   del cierre por commits, de Graphics y del markdown exportado; no lleva deadline (se lo
+   borra el mapper, que es por donde pasan todas las escrituras) y no cuenta para el avance
+   de su proyecto. Un proyecto de puras recurrentes no dice 0% ni 100% —las dos mienten—
+   sino «en marcha · N se repiten».
+
+   ⚠️ **Y la pregunta sigue siendo tuya al extraer.** El flag existe, pero lo pone quien
+   crea la tarea: no hay backfill ni detección por palabra clave, y se midió por qué —
+   buscando «semanal / diaria / recurrente» en las 212 tareas del ws1 salieron 11 y NINGUNA
+   era una recurrencia: eran «Diseñar la estructura de la junta semanal», o sea trabajo CON
+   FIN que monta un ritual. Marcar por palabra clave llenaría la vista con lo contrario de
+   lo que busca. Lo recurrente es ASISTIR a la junta, no armarla.
+
+   La regla hermana a nivel proyecto ya estaba escrita desde el 13/07 —«un proyecto tiene
+   inicio y fin»— y le faltaba la mitad de las tareas.
 
 **El resultado de aplicar las tres: 13 tarjetas abiertas → 5**, y arriba de todo la que
 faltaba (el documento de oferta y precio), con las seis decisiones enumeradas adentro para
