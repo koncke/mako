@@ -76,6 +76,13 @@ export type ProyectoPlan = {
   /** true/false solo en el tablero del super-admin; null = ese dato no existe en el
    *  tablero de un cliente (null ≠ «no lo fijó»). */
   scoreManual: boolean | null;
+  /**
+   * «Se repite para siempre» (mig 0164): Customer Success, las reuniones de marketing.
+   * No entra al ranking, así que no puede ser el «objetivo principal» y su `score` no es
+   * un puesto. Existe en los DOS tableros — el del dueño (`plan_proyectos`) y el del
+   * cliente (`tarea_categorias`)—, por eso es `boolean` y no `boolean | null`.
+   */
+  recurrente: boolean;
   historial: EntradaHistorial[];
 };
 
@@ -120,6 +127,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       proyectos: b.proyectos.map((p) => ({
         id: p.id, pid: p.pid ?? null, nombre: p.name, emoji: p.emoji, detalle: p.detalle ?? '', score: p.score,
         scoreRazon: p.scoreRazon ?? null, deadline: p.deadline || null, scoreManual: !!p.scoreManual, historial: hist(p.historial),
+        recurrente: esRecurrente(p),
       })),
       deps: b.deps,
       recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS,
@@ -135,16 +143,15 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
       notas: '', scoreRazon: t.score_razon ?? null, deadlineRazon: null, quarter: t.quarter ?? null,
       historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.en_prioridad,
-      // ⚠️ EL CAST ES UN PUENTE Y SE SACA. `lib/todo.ts` (el tablero del CLIENTE) todavía no
-      // declara `recurrente` en su `Tarea`, así que sin esto no compila; la columna SÍ está
-      // en `experimento_tareas` desde la 0163. En cuanto el tipo lo tenga, queda
-      // `esRecurrente(t)` a secas — y hasta entonces la respuesta acá es `false`, que es la
-      // segura: una recurrente del cliente sigue compitiendo, no desaparece.
-      recurrente: esRecurrente(t as unknown as { recurrente?: boolean }),
+      // El cast que había acá era un puente hasta que `lib/todo.ts` declarara el campo, y
+      // ya lo declara: `Tarea.recurrente` desde la 0163, `Categoria.recurrente` desde la
+      // 0164. Un cast que sobrevive a su motivo esconde el próximo campo que falte.
+      recurrente: esRecurrente(t),
     })),
     proyectos: cats.map((c) => ({
       id: String(c.id), pid: null, nombre: c.nombre, emoji: c.emoji, detalle: c.detalle ?? '', score: c.prioridad,
       scoreRazon: c.score_razon ?? null, deadline: c.deadline ?? null, scoreManual: null, historial: hist(c.historial),
+      recurrente: esRecurrente(c),
     })),
     deps: [],
     recortado: tareas.length >= TOPE_FILAS || cats.length >= TOPE_FILAS,

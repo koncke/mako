@@ -45,6 +45,11 @@ export function repoPlan(): Repo {
     // normal, con su entrada de historial y su deshacer (`useBoard.setRecurrente`).
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
+    // ⚠️ Y LO MISMO A NIVEL PROYECTO (mig 0164): `Label.recurrente` tampoco necesita una
+    // acción propia. Acá viaja el `Label` ENTERO, la ruta lo castea entero y `labelToRow` lo
+    // escribe — y `guardarPlanProyecto` sólo saca del payload lo que decide el SERVER
+    // (score, razón, candado, impacto, esfuerzo). `recurrente` no está en esa lista a
+    // propósito: es una decisión de la persona, igual que el nombre o el emoji.
     createLabel: async (l) => { const j = await apiPlan({ action: 'crear-proyecto', proyecto: l }); return j.ok && j.proyecto ? j.proyecto : l; },
     saveLabel: async (l) => { await apiPlan({ action: 'guardar-proyecto', proyecto: l }); },
     deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },

@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, tarea: await crearTarea({
         titulo: t.titulo, detalle: t.detalle ?? null, prioridad: t.prioridad, estado: t.estado,
         progreso: t.progreso, deadline: t.deadline, categorias: t.categorias,
+        // ⚠️ `recurrente` VA EN EL ALTA, y faltaba: `NuevaTarea` lo soporta desde la 0163 y
+        // esta rama no lo nombraba, así que una tarea del cliente NACÍA compitiendo aunque
+        // quien la creó hubiera marcado que se repite — y recién al editarla se arreglaba.
+        // Esta rama arma el objeto campo por campo: lo que no se nombra, no llega.
+        recurrente: t.recurrente,
         origen: t.origen, retro_id: t.retro_id ?? null, experimento_id: t.experimento_id ?? null,
         // La fuente va EN EL ALTA: si se escribiera en un editar posterior, la tarjeta
         // nace sin chip y el Perro la puntúa sin saber de dónde salió.
@@ -120,12 +125,18 @@ export async function POST(req: NextRequest) {
       const scoreRazon = body.score_razon != null ? String(body.score_razon) : undefined;
       const deadline = body.deadline != null ? String(body.deadline) : undefined;
       const quarter = body.quarter != null ? String(body.quarter) : undefined;
+      // «Se repite para siempre» a nivel proyecto (mig 0164). Va en el alta y en el editar:
+      // sin esta línea el board del cliente puede marcar el interruptor y el proyecto nace
+      // compitiendo igual — el control se dibuja y no guarda nada.
+      const recurrente = body.recurrente != null ? Boolean(body.recurrente) : undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null }) ?? {};
+      // Este tipo es la PUERTA: `editarCategoria` arma su `upd` campo por campo, así que un
+      // campo que no esté acá tampoco llega, aunque el navegador lo mande.
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

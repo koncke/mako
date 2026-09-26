@@ -25,7 +25,10 @@ const toBoard = (t: Tarea): BoardTask => ({
   // De dónde salió: pinta el mismo chip que en el board del dueño (con link al minuto).
   fuente: (t.fuente as BoardTask['fuente']) ?? undefined,
 });
-const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, detalle: c.detalle, historial: c.historial });
+// ⚠️ `recurrente` VA ACÁ Y EN LOS DOS PAYLOADS DE ABAJO (mig 0164). Este mapper es la
+// puerta de ENTRADA del tablero del cliente: sin él, el interruptor nace apagado en cada
+// carga aunque la fila diga `true`, o sea que marcarlo «no hace nada» al recargar.
+const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, recurrente: c.recurrente, detalle: c.detalle, historial: c.historial });
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; patches?: GuardPatch[]; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -69,7 +72,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
       // chip de origen y su link al minuto de la grabación. Antes se perdía entera —
       // la ruta ni siquiera aceptaba el campo — y las tareas de una reunión quedaban
       // indistinguibles de una escrita a mano.
-      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null } });
+      // `recurrente` va en el ALTA: el server ya lo acepta, y sin esto la capacidad queda
+      // abierta y sin un solo call site — la tarea nace compitiendo y sólo se arregla si
+      // alguien la vuelve a editar.
+      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente } });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto
@@ -110,10 +116,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
     // El Perro server-side, igual que en el board del dueño. Sin esto, `usaServerPerro`
     // era false y TODO lo que entraba por el tablero del cliente (reunión, archivo,

@@ -78,7 +78,17 @@ export type CamposResponsable = Partial<Pick<Tarea,
 /** Los del CRITERIO: solo en el alta. Son lo que dijo el juez; una persona no los edita. */
 export type CamposCriterio = Partial<Pick<Tarea, 'criterio_veredicto' | 'criterio_regla' | 'criterio_razon' | 'cita'>>;
 
-export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; score_razon: string | null; deadline: string | null; /** `2026-Q3`; se deriva del deadline cuando está vacío (mig 0162). */ quarter: string | null; detalle: string; historial: HistEntry[]; created_at: string };
+export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; score_razon: string | null; deadline: string | null; /** `2026-Q3`; se deriva del deadline cuando está vacío (mig 0162). */ quarter: string | null;
+  /**
+   * «Se repite para siempre» a nivel PROYECTO (mig 0164): Customer Success, las reuniones
+   * de marketing. No lleva deadline ni quarter y no compite por un puesto.
+   *
+   * ⚠️ ESTA ES LA MITAD DEL CLIENTE, Y ES LA QUE SE OLVIDÓ LA VEZ PASADA. `BoardShell` es
+   * UNO y lo montan los dos tableros; si la columna, el mapper y el `upd` de acá no nombran
+   * el campo, el control se dibuja en el tablero de Mauricio y no guarda nada — que en este
+   * repo ya se leyó dos veces como que la app está rota.
+   */
+  recurrente: boolean; detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
 const rowTo = (r: Record<string, unknown>): Tarea => {
@@ -442,6 +452,10 @@ const catRow = (r: Record<string, unknown>): Categoria => {
   c.quarter = quarterOk(r.quarter);
   c.detalle = typeof r.detalle === 'string' ? (r.detalle as string) : '';
   c.historial = histOk(r.historial);
+  // `!!` por lo mismo que en `rowTo`: esto castea la fila entera, así que una columna
+  // ausente llegaría como `undefined` con el tipo diciendo `boolean`. Acá se normaliza una
+  // vez y nadie más tiene que acordarse (mig 0164).
+  c.recurrente = !!r.recurrente;
   return c;
 };
 
@@ -452,16 +466,20 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean): Promise<Categoria> {
   const supabase = (await getTenantDb());
+  // Un proyecto que se repite NACE sin fecha, acá mismo (mig 0164). No alcanza con que el
+  // editar la borre: si el alta la escribiera, la fila nacería con un deadline que después
+  // nadie va a poder ver ni sacar — y el aviso de vencimientos lo leería igual.
+  const repite = !!recurrente;
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: dateOk(deadline), quarter: quarterDeDeadline(quarter, deadline), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
@@ -472,6 +490,15 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   // El Quarter se manda SIEMPRE que se toque la fecha, aunque el formulario no lo edite:
   // si no, un proyecto del cliente con deadline queda para siempre sin trimestre.
   if (patch.quarter !== undefined || patch.deadline !== undefined) upd.quarter = quarterDeDeadline(patch.quarter, patch.deadline);
+  // ⚠️ ESTE `upd` SE ARMA CAMPO POR CAMPO: LO QUE NO SE NOMBRA NO LLEGA. Es la gemela de
+  // `editarTarea` (mig 0163) y va DESPUÉS de deadline/quarter a propósito — al marcarlo se
+  // los borra en la MISMA escritura, así que tiene que pisar lo que las dos líneas de
+  // arriba hayan puesto en este mismo patch. Sin esto el control se dibuja en el tablero
+  // del cliente, contesta 200, y no guarda nada.
+  if (patch.recurrente !== undefined) {
+    upd.recurrente = !!patch.recurrente;
+    if (upd.recurrente) { upd.deadline = null; upd.quarter = null; }
+  }
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());

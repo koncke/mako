@@ -183,7 +183,31 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    * marca, un número que salió de una discusión que ganaste es indistinguible de uno que
    * puso una corrida de las 9:10, y mañana se lo lleva puesto.
    */
-  scoreManual?: boolean };
+  scoreManual?: boolean;
+  /**
+   * true = ESTE PROYECTO SE REPITE PARA SIEMPRE (mig 0164): Customer Success, las reuniones
+   * de marketing. Es la regla hermana de `BoardTask.recurrente`, un nivel más arriba, y
+   * faltaba: el trabajo recurrente de verdad casi nunca es una tarea suelta, es el
+   * CONTENEDOR del que cuelgan las tareas de cada semana.
+   *
+   * No entra al ranking de proyectos (`priorizarProyectosOwner`), no lleva deadline ni
+   * quarter (se los borra `labelToRow`, que es por donde pasan TODAS las escrituras) y no
+   * cuenta como «✓» en el avance del plan: «hecho» no existe para algo que no termina.
+   *
+   * ⚠️ NO ARRASTRA A SUS TAREAS, Y ES LA DECISIÓN, NO UN OLVIDO. «Armar el documento de
+   * onboarding de Vertice» cuelga de Customer Success, tiene un entregable y se cierra una
+   * sola vez: sacarla del ranking por vivir en un contenedor que se repite la volvería
+   * invisible justo cuando hay que hacerla. Las dos marcas son independientes — la del
+   * proyecto dice «este contenedor no termina», la de la tarea dice «esta tarea no termina».
+   *
+   * ⚠️ NO SE LEE SUELTO: `esRecurrente` / `sinRecurrentes` de `lib/plan-recurrentes.ts`, que
+   * ya acepta cualquier `{ recurrente?: boolean }` y por eso sirve para un Label sin tocarlo.
+   *
+   * ⚠️ OPCIONAL por lo mismo que en `BoardTask`: el estado optimista del navegador crea el
+   * proyecto antes de que exista la fila, y `esRecurrente` contesta `false` ante `undefined`,
+   * que es la respuesta segura.
+   */
+  recurrente?: boolean };
 
 /**
  * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,

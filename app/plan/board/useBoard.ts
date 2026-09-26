@@ -506,6 +506,10 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const setLabelDeadline = (id: string, deadline: string) => {
     const l = labels.find((x) => x.id === id);
     if (!l || (l.deadline ?? '') === deadline) return;
+    // Mismo guard que `setDeadline` en una tarea, un nivel más arriba (mig 0164): el choke
+    // point de verdad es `labelToRow`, y sin esto la pantalla pintaría una fecha que el
+    // server borra al guardar — un éxito falso, que es peor que un control apagado.
+    if (!llevaDeadline(l)) return;
     const q = quarterDeFecha(deadline);
     const ponerQ = !!q && !l.quarter;
     patchLabelLog(id, ponerQ ? { deadline, quarter: q } : { deadline }, deadline ? `Deadline ${deadline}` : 'Quitó el deadline');
@@ -513,18 +517,45 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const setLabelQuarter = (id: string, quarter: string) => {
     const l = labels.find((x) => x.id === id);
     if (!l || (l.quarter ?? '') === quarter) return;
+    if (!llevaDeadline(l)) return;
     patchLabelLog(id, { quarter: quarter || undefined }, quarter ? `Lo planificó para el ${quarter.replace('-', ' ')}` : 'Le sacó el Quarter');
+  };
+  /**
+   * «SE REPITE PARA SIEMPRE», A NIVEL PROYECTO (mig 0164). La gemela de `setRecurrente`.
+   *
+   * ⚠️ VA POR `patchLabelLog`, que es el choke point de todo cambio de un proyecto: de ahí
+   * salen la entrada en el change history con el valor anterior, el toast de deshacer de 5
+   * segundos y el `repo.saveLabel`. Escrito con `patchLabel` pelado se guardaría igual y
+   * sería el único campo de un proyecto sin red — justo el que lo saca del ranking entero.
+   *
+   * ⚠️ Y AL MARCARLO SE LE VAN LA FECHA Y EL TRIMESTRE, EN LA MISMA ESCRITURA. Acá va UNA
+   * sola llamada y no tres como en una tarea, y la diferencia es del choke point, no del
+   * criterio: `patchLabelLog` guarda en `prev` TODOS los campos que cambian, así que un solo
+   * deshacer los devuelve los tres juntos. Con tres llamadas habría tres entradas y tres
+   * toasts encima del mismo click, y el que queda arriba deshace la mitad equivocada.
+   * `labelToRow` los borra igual del lado del server; si acá no se escribieran, la pantalla
+   * seguiría mostrando un deadline que en la base ya no existe hasta el próximo F5.
+   */
+  const setLabelRecurrente = (id: string, v: boolean) => {
+    const l = labels.find((x) => x.id === id);
+    if (!l || esRecurrente(l) === v) return;
+    const texto = v ? 'Se repite para siempre: sale del ranking de proyectos' : 'Ya no se repite: vuelve al ranking';
+    if (!v) { patchLabelLog(id, { recurrente: false }, texto); return; }
+    const sinFecha = l.deadline || l.quarter;
+    patchLabelLog(id, { recurrente: true, deadline: '', quarter: undefined },
+      sinFecha ? `${texto} · ${PORQUE_SIN_FECHA}` : texto);
   };
 
   return {
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
-    // ⚠️ `setRecurrente` VA EN ESTE `return` O NO EXISTE. Es el modo de falla que este repo
-    // ya pagó dos veces el 25/09/2026: la capacidad queda escrita, el typecheck pasa, los
-    // tests pasan, y en pantalla no hay nada que tocar porque el board nunca lo recibió.
+    // ⚠️ `setRecurrente` Y `setLabelRecurrente` VAN EN ESTE `return` O NO EXISTEN. Es el
+    // modo de falla que este repo ya pagó dos veces el 25/09/2026: la capacidad queda
+    // escrita, el typecheck pasa, los tests pasan, y en pantalla no hay nada que tocar
+    // porque el board nunca lo recibió.
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
+    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

@@ -155,7 +155,10 @@ export const RUNNERS: Runners = {
           recurrentes: repiten.slice(0, 50).map((t) => tareaCompacta(t, nombres)),
           recurrentes_nota: 'Tareas que se repiten para siempre. NO están en `tareas` ni en `total_abiertas` porque no compiten por un puesto ni se pueden terminar, pero EXISTEN: no propongas crearlas de nuevo.',
         } : {}),
-        proyectos: tab.proyectos.map((p) => ({ id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, score: p.score })),
+        // El `score` de un recurrente no es un puesto, así que va marcado: esta lista es de
+        // dónde el modelo saca a qué proyecto mandar una tarea nueva, y sin la marca elige
+        // por número (mig 0164).
+        proyectos: tab.proyectos.map((p) => ({ id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, score: p.score, ...(esRecurrente(p) ? { se_repite: true } : {}) })),
         ...aviso(tab),
       });
     },
@@ -212,6 +215,8 @@ export const RUNNERS: Runners = {
         board: tab.board,
         id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, emoji: p.emoji, link: linkProyecto(p.id),
         score: p.score, score_razon: p.scoreRazon, score_fijado_por_el_dueno: p.scoreManual, deadline: p.deadline,
+        // Mismo contrato que en la lista: la marca viaja con su nota, y sólo cuando es true.
+        ...(esRecurrente(p) ? { se_repite: true, se_repite_nota: 'Este proyecto se repite para siempre (mig 0164): no entra al ranking, no lleva deadline ni quarter y su score no es un puesto. No propongas cerrarlo ni volver a crearlo. Sus tareas con fin SÍ compiten.' } : {}),
         ...(p.scoreManual == null ? { score_fijado_nota: 'null = el tablero de este negocio no registra si el dueño fijó el score; no significa que no lo haya fijado.' } : {}),
         detalle: p.detalle,
         tareas_abiertas: abiertas.length, tareas_hechas: hechas.length,
@@ -228,7 +233,8 @@ export const RUNNERS: Runners = {
   listar_proyectos_plan: {
     leer: async (_input, ctx) => {
       const tab = await leerTablero(ctx.ws);
-      const proyectos = [...tab.proyectos].sort((a, b) => b.score - a.score).map((p) => {
+      const ordenados = [...tab.proyectos].sort((a, b) => b.score - a.score);
+      const proyectos = ordenados.map((p) => {
         const suyas = tab.tareas.filter((t) => t.proyectoId === p.id);
         return {
           id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, emoji: p.emoji, score: p.score,
@@ -236,14 +242,28 @@ export const RUNNERS: Runners = {
           abiertas: suyas.filter(compite).length, hechas: sinRecurrentes(suyas).filter((t) => !abierta(t)).length,
           se_repiten: soloRecurrentes(suyas.filter(abierta)).length,
           avance_pct: promedioAvance(suyas),
+          // ⚠️ LA MARCA VIAJA CON SU EXPLICACIÓN, igual que en `tareaCompacta`. Lo único que
+          // un modelo sabe de este proyecto es este JSON: sin la nota ve `score: 88` en el
+          // renglón de arriba de una lista ordenada por score y concluye —con toda razón—
+          // que es el foco del negocio. El campo sólo aparece cuando es true: una clave
+          // `se_repite: false` en los otros 70 es ruido en el prompt.
+          ...(esRecurrente(p) ? { se_repite: true, se_repite_nota: 'Este proyecto se repite para siempre: no entra al ranking, no puede ser el objetivo principal y su score NO es un puesto. Sus tareas con fin SÍ compiten normalmente.' } : {}),
         };
       });
+      // ⚠️ EL NORTE SALE DE LO QUE COMPITE (mig 0164), Y SE CALCULA SOBRE `ordenados`, NO
+      // sobre el array ya mapeado: ahí `recurrente` se convirtió en `se_repite` y
+      // `sinRecurrentes` no lo vería — contestaría que ninguno se repite y el filtro sería
+      // decorativo. El de mayor score es el primero, y un recurrente conserva el score que
+      // tenía de antes de marcarse: sin esto, el día que alguien marca Customer Success el
+      // objetivo principal del negocio pasa a ser una rutina, y eso es lo que lee el doer
+      // de WhatsApp para contestar «¿cuál es mi foco ahora?».
+      const norte = sinRecurrentes(ordenados)[0] ?? null;
       return json({
         board: tab.board,
-        objetivo_principal: proyectos[0] ? { id: proyectos[0].id, nombre: proyectos[0].nombre } : null,
+        objetivo_principal: norte ? { id: norte.id, nombre: norte.nombre } : null,
         proyectos,
         tareas_abiertas_sin_proyecto: tab.tareas.filter((t) => compite(t) && !t.proyectoId).length,
-        nota: 'avance_pct = promedio del avance de sus tareas CON FIN (null = no tiene ninguna; con se_repiten > 0 eso NO es «abandonado»). `abiertas` y `hechas` tampoco cuentan las que se repiten. score_fijado_por_el_dueno null = este tablero no registra ese dato (no es «no lo fijó»).',
+        nota: 'avance_pct = promedio del avance de sus tareas CON FIN (null = no tiene ninguna; con se_repiten > 0 eso NO es «abandonado»). `abiertas` y `hechas` tampoco cuentan las que se repiten. Los proyectos con `se_repite: true` están en la lista pero NO en objetivo_principal: no compiten. score_fijado_por_el_dueno null = este tablero no registra ese dato (no es «no lo fijó»).',
         ...aviso(tab),
       });
     },

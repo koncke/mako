@@ -145,13 +145,15 @@ export async function proponerReprio(pedido: Pedido): Promise<Propuesta> {
     const esProy = pedido.entidad === 'proyecto';
     const item = esProy ? proyectos.find((p) => p.id === pedido.itemId) : tareas.find((t) => t.id === pedido.itemId);
     if (!item) return { estado: 'error', scoreActual: 0, error: 'No encontré eso en el tablero.' };
-    // ⚠️ UNA RECURRENTE NO SE RE-PRIORIZA (mig 0163). Toda esta pantalla existe para
-    // discutir un PUESTO, y algo que se repite para siempre no tiene uno: la audiencia
-    // arrancaría, cobraría el razonamiento del modelo y escribiría un número que el reparto
-    // diario ni siquiera mira. El corte va en el SERVER porque es el que decide; que la
-    // pantalla no ofrezca el botón es la otra mitad, no el reemplazo.
-    if (!esProy && esRecurrente(item as BoardTask)) {
-      return { estado: 'error', scoreActual: (item as BoardTask).score || 0, error: PORQUE_NO_COMPITE };
+    // ⚠️ LO QUE SE REPITE NO SE RE-PRIORIZA — TAREA (mig 0163) O PROYECTO (mig 0164). Toda
+    // esta pantalla existe para discutir un PUESTO, y algo que se repite para siempre no
+    // tiene uno: la audiencia arrancaría, cobraría el razonamiento del modelo y escribiría
+    // un número que el reparto diario ni siquiera mira. El corte va en el SERVER porque es
+    // el que decide; que la pantalla no ofrezca el botón es la otra mitad, no el reemplazo.
+    // Y va SIN `!esProy`: la condición vieja era «una tarea recurrente», no «lo recurrente»,
+    // así que el proyecto entraba derecho a la audiencia el día que pudo marcarse.
+    if (esRecurrente(item)) {
+      return { estado: 'error', scoreActual: item.score || 0, error: PORQUE_NO_COMPITE };
     }
 
     const scoreActual = item.score || 0;
@@ -160,7 +162,9 @@ export async function proponerReprio(pedido: Pedido): Promise<Propuesta> {
     // pasar la razón que originó todo el problema: «vale lo que su mejor tarea» citaba una
     // tarea REAL, así que la validación la daba por buena.
     const universo: Puntuado[] = esProy
-      ? proyectos.filter((p) => p.id !== item.id).map((p) => ({ id: p.id, titulo: p.name, score: p.score || 0 }))
+      // Sin los proyectos que se repiten, por lo mismo que abajo con las tareas: su score no
+      // es un puesto, así que como vara no dice nada y como rival ocupa un lugar.
+      ? sinRecurrentes(proyectos.filter((p) => p.id !== item.id)).map((p) => ({ id: p.id, titulo: p.name, score: p.score || 0 }))
       // ⚠️ SIN LAS QUE SE REPITEN (mig 0163). El universo es «contra qué se compara este
       // número», y una recurrente ahí adentro se lleva un lugar del desempate y desplaza a
       // algo que sí tiene un fin — además de darle al Perro una vara que no significa nada.
@@ -334,8 +338,11 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     // ⚠️ MISMO CORTE QUE EN LA AUDIENCIA, Y POR ESTE CAMINO ENTRA EL ARRASTRE. Acá terminan
     // el slider del detalle y el pop-up de soltar una tarjeta en otra columna: los dos
     // escriben `score` + `score_manual`, o sea le CLAVAN un puesto a algo que no compite —
-    // y encima con el candado de la mig 0143, que el reparto ya no puede sacar.
-    if (!esProy && esRecurrente(item as BoardTask)) {
+    // y encima con el candado de la mig 0143, que el reparto ya no puede sacar. En un
+    // PROYECTO recurrente (mig 0164) es peor que en una tarea: acá abajo la cascada
+    // `fijarYDesempatar` reescribe la escalera contigua de los 70 proyectos, así que clavar
+    // uno que no compite corre de lugar a todos los que sí.
+    if (esRecurrente(item)) {
       return { ok: false as const, error: PORQUE_NO_COMPITE };
     }
 
@@ -383,7 +390,11 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     // El universo es del MISMO NIVEL, igual que en la audiencia: un proyecto se compara con
     // proyectos y una tarea con tareas abiertas.
     const universo: Puntuado[] = esProy
-      ? proyectos.filter((x) => x.id !== item.id).map((x) => ({ id: x.id, titulo: x.name, score: x.score || 0 }))
+      // ⚠️ SIN LOS PROYECTOS QUE SE REPITEN (mig 0164), Y ACÁ NO ES SÓLO UNA VARA: de este
+      // universo sale la CASCADA que se escribe. Con un recurrente adentro, fijar un
+      // proyecto a mano le reasignaría a él también un número —o se frenaría contra él— y
+      // el que no compite terminaría corriendo de puesto a los que sí.
+      ? sinRecurrentes(proyectos.filter((x) => x.id !== item.id)).map((x) => ({ id: x.id, titulo: x.name, score: x.score || 0 }))
       // ⚠️ SIN LAS QUE SE REPITEN (mig 0163). El universo es «contra qué se compara este
       // número», y una recurrente ahí adentro se lleva un lugar del desempate y desplaza a
       // algo que sí tiene un fin — además de darle al Perro una vara que no significa nada.

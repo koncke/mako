@@ -122,14 +122,30 @@ function rowToLabel(r: Row): Label {
     detalle: str(r.detalle), notas: str(r.notas), historial: sanearHist(r.historial), fuente: optFuente(r.fuente),
     escalon: optInt(r.escalon), desbloquea: r.desbloquea ? str(r.desbloquea) : undefined,
     scoreManual: !!r.score_manual,
+    // ⚠️ VA EN LOS DOS MAPPERS, Y SI FALTA EN ÉSTE ES DESTRUCTIVO — la misma trampa que
+    // `rowToTask` documenta para las tareas (mig 0163). `crearPlanProyecto` y
+    // `guardarPlanBulk` mandan `labelToRow(l)` de la FILA ENTERA: un `undefined` en memoria
+    // sale como `false` y BORRA la columna. `guardarPlanProyecto` saca del payload lo que
+    // decide el server (score, impacto…), y `recurrente` NO está ahí a propósito: lo decide
+    // una PERSONA, así que tiene que poder viajar de ida y de vuelta.
+    recurrente: !!r.recurrente,
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
   return {
     id: l.id, pid: l.pid ?? null, emoji: l.emoji || '📁', name: l.name || 'Proyecto', color: l.color || '#2F6FED',
     score: int(l.score, 50), score_razon: l.scoreRazon ?? null, impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null,
-    deadline: l.deadline || '', quarter: quarterEfectivo(l.deadline, l.quarter), detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
+    // ⚠️ UN PROYECTO QUE SE REPITE NO LLEVA FECHA, Y EL CORTE VA ACÁ (mig 0164). Mismo
+    // choke point y misma lección que `taskToRow`: la regla no puede vivir en el handler del
+    // formulario porque por acá pasan también el Perro, la extracción de una reunión y un
+    // lote, y ninguno de esos tres abre el navegador. Río abajo una fecha en algo sin fin se
+    // convierte en un «atrasado» en el WhatsApp de vencimientos y en un trimestre derivado,
+    // dos afirmaciones falsas sobre lo mismo.
+    deadline: llevaDeadline(l) ? (l.deadline || '') : '',
+    quarter: llevaDeadline(l) ? quarterEfectivo(l.deadline, l.quarter) : null,
+    detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
     escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null, score_manual: !!l.scoreManual,
+    recurrente: esRecurrente(l),
     orden, updated_at: new Date().toISOString(),
   };
 }
@@ -1086,7 +1102,7 @@ export async function guardarPlanBulk(tareas: BoardTask[], proyectos: Label[]): 
  * razón diría «95» y la pantalla mostraría otra cosa. Ver el comentario de `desempatar`.
  */
 export async function priorizarProyectosOwner(motivo?: string): Promise<{
-  movidos: number; total: number; norte: string; fallas?: string; error?: string;
+  movidos: number; total: number; norte: string; repetidos?: number; fallas?: string; error?: string;
 }> {
   return enPlan(async () => {
     const db = await getTenantDb();
@@ -1094,15 +1110,46 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
       // `recurrente` va en la lista (este `select` enumera columnas): sin él, el Perro
       // juzga un proyecto por trabajo que nunca se cierra.
       db.from('plan_tareas').select('title, progress, score, labels, recurrente'),
-      db.from('plan_proyectos').select('id, name, detalle, score, historial, score_manual'),
+      // Y acá lo MISMO un nivel más arriba (mig 0164): sin la columna, el proyecto que se
+      // repite entra al ranking y `esRecurrente` contesta false para todos.
+      db.from('plan_proyectos').select('id, name, detalle, score, historial, score_manual, recurrente'),
     ]);
-    const proyectos = (pRes.data ?? []).map((r) => ({
+    const todosLosProyectos = (pRes.data ?? []).map((r) => ({
       id: str((r as Row).id), name: str((r as Row).name, 'Proyecto'),
       detalle: str((r as Row).detalle), score: int((r as Row).score),
       historial: sanearHist((r as Row).historial),
       manual: !!(r as Row).score_manual,
+      recurrente: !!(r as Row).recurrente,
     }));
-    if (proyectos.length < 2) return { movidos: 0, total: proyectos.length, norte: '' };
+    /**
+     * ⚠️ EL RANKING ES SÓLO DE LO QUE TERMINA (mig 0164), Y ES LA RAZÓN DE SER DE LA MARCA.
+     *
+     * Esta lista ordena por «qué mueve la aguja PRIMERO», o sea por qué conviene terminar
+     * antes. Un proyecto que se repite para siempre no tiene un «antes»: no se puede
+     * adelantar ni atrasar, y el número que se le ponga no significa nada. Dejarlo adentro
+     * cuesta tres cosas medibles, no una:
+     *
+     *  1. `desempatar` reparte una escalera CONTIGUA (100..2 sin huecos): cada recurrente
+     *     adentro se lleva un escalón y empuja un escalón para abajo a todo lo que sí tiene
+     *     un fin — o sea, cambia el orden de lo que compite sin que nadie lo haya decidido.
+     *  2. El «norte» sale del más alto de esta lista. Un Customer Success arriba de todo
+     *     convierte el objetivo principal del tablero en una rutina.
+     *  3. `noRankeaPorTamano` (app/plan/board/metodologia.ts) audita la correlación con el
+     *     tamaño, y un contenedor de puras recurrentes es el más grande y el más quieto.
+     *
+     * NO ARRASTRA A SUS TAREAS: sus tareas con fin siguen compitiendo por su cuenta en
+     * `recurvarPlanOwner` y en `priorizarNuevasOwner`, y es lo correcto — «armar el
+     * documento de onboarding de Vertice» se cierra una sola vez viva donde viva. El corte
+     * es del CONTENEDOR.
+     *
+     * Su score viejo NO se toca ni se pone en cero: ponerle 0 lo mandaría al fondo del
+     * tablero como si estuviera abandonado, que es la mentira simétrica. Se lo deja donde
+     * está y se lo saca de la competencia; quién lo pinta y dónde es problema de la
+     * pantalla, no de esta función.
+     */
+    const proyectos = sinRecurrentes(todosLosProyectos);
+    const repetidos = todosLosProyectos.length - proyectos.length;
+    if (proyectos.length < 2) return { movidos: 0, total: proyectos.length, norte: '', repetidos };
 
     const tareas = (tRes.data ?? []).map((r) => ({
       titulo: str((r as Row).title), progress: int((r as Row).progress),
@@ -1161,15 +1208,22 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
       objetivosContextoTexto().catch(() => ''),
     ]);
     const contexto = [norteP, objetivosP].filter(Boolean).join('\n\n');
-    const r = await puntuarProyectos(payload, contexto, motivo || 'Priorizar los proyectos del plan');
+    const rawR = await puntuarProyectos(payload, contexto, motivo || 'Priorizar los proyectos del plan');
+    // ⚠️ LO QUE VUELVE DEL MODELO SE FILTRA CONTRA LO QUE SE LE MANDÓ. Al payload sólo
+    // entraron los que compiten, así que un id que no esté en `proyectos` es un id
+    // inventado o el de un recurrente que el modelo arrastró de una corrida anterior — y
+    // abajo se ESCRIBE por id. Sin esta línea, el guard de arriba se aplica al prompt y no
+    // a la escritura, que es la mitad que importa.
+    const r = { ...rawR, proyectos: rawR.proyectos.filter((p) => proyectos.some((x) => x.id === p.id)) };
     if (r.error || !r.proyectos.length) {
-      return { movidos: 0, total: proyectos.length, norte: '', error: r.error ?? 'El Perro no devolvió nada.' };
+      return { movidos: 0, total: proyectos.length, norte: '', repetidos, error: r.error ?? 'El Perro no devolvió nada.' };
     }
 
-    // ⚠️ EL DESEMPATE VA CONTRA TODOS LOS PROYECTOS, no solo contra los que el Perro
-    // devolvió. Si el modelo puntúa 66 de 71, los otros 5 conservan su score viejo — y un
-    // score nuevo puede caer justo encima de uno de esos. Medido en la primera corrida:
-    // 5 empates que `desempatar` no veía porque no estaban en la lista.
+    // ⚠️ EL DESEMPATE VA CONTRA TODOS LOS PROYECTOS QUE COMPITEN, no solo contra los que el
+    // Perro devolvió. Si el modelo puntúa 66 de 71, los otros 5 conservan su score viejo — y
+    // un score nuevo puede caer justo encima de uno de esos. Medido en la primera corrida:
+    // 5 empates que `desempatar` no veía porque no estaban en la lista. Los recurrentes NO
+    // entran: su score no es un puesto, así que un «empate» contra ellos no es un empate.
     const sinTocar = proyectos.filter((p) => !r.proyectos.some((x) => x.id === p.id));
     const limpio = desempatar([
       ...r.proyectos.map((p) => ({ id: p.id, titulo: '', score: p.score })),
@@ -1211,8 +1265,11 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
 
     const norteId = Object.entries(limpio).sort((a, b) => b[1] - a[1])[0]?.[0];
     const nombreNorte = proyectos.find((x) => x.id === norteId)?.name ?? '';
-    console.log(`[plan-board] proyectos priorizados: ${cambian.length}/${proyectos.length} movidos · norte → «${nombreNorte}»${r.fallas ? `\n${r.fallas}` : ''}`);
-    return { movidos: cambian.length, total: proyectos.length, norte: nombreNorte, fallas: r.fallas };
+    // `repetidos` se LOGEA, no se calla: un guard que funciona y uno que nadie disparó se
+    // ven iguales si no se cuentan — la misma razón por la que `recurvarPlanOwner` cuenta
+    // las `fijadas` que respetó.
+    console.log(`[plan-board] proyectos priorizados: ${cambian.length}/${proyectos.length} movidos · norte → «${nombreNorte}»${repetidos ? ` · ${repetidos} fuera del ranking porque se repiten` : ''}${r.fallas ? `\n${r.fallas}` : ''}`);
+    return { movidos: cambian.length, total: proyectos.length, norte: nombreNorte, repetidos, fallas: r.fallas };
   });
 }
 

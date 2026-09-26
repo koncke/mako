@@ -570,7 +570,7 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
 
 // ── PROYECTOS ────────────────────────────────────────────────────────────────────────
 
-export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar }: {
+export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, sinRanking = false }: {
   filas: Array<{ l: Label; prog: { pct: number; total: number; done: number } }>;
   topProjectId: string | null;
   hoy: string;
@@ -586,10 +586,33 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
    * prop ES la capacidad, y el tablero que no puede fijar una prioridad a mano no la pasa.
    */
   onSoltar?: (id: string, sugerido: number) => void;
+  /**
+   * EL GEMELO EXACTO DE `TablaTareas.sinRanking`, y existe por la misma razón: desde el
+   * 26/09/2026 un PROYECTO también se puede repetir, así que la vista Recurrentes lista
+   * proyectos igual que lista tareas y esas dos columnas —Prioridad y Deadline— son las dos
+   * preguntas que algo sin fin no puede contestar. Dibujarlas vacías es peor que no
+   * dibujarlas: una columna vacía se lee como un dato que falta.
+   *
+   * ⚠️ Se apaga TODO lo de la columna, no sólo la celda: el encabezado, el ancho que pedía y
+   * la posibilidad de ORDENAR por ella. Y con ella se apaga el arrastre, que sólo tiene
+   * sentido ordenando por prioridad — mismo criterio que la tabla de tareas.
+   *
+   * ⚠️ NO hay una tabla nueva: dos tablas que muestran lo mismo divergen a la primera
+   * corrección. Lo único que cambia es esta prop, y por defecto es `false` (la tabla de
+   * siempre no cambia en nada).
+   */
+  sinRanking?: boolean;
 }) {
-  const [orden, setOrden] = usePref<OrdenProy>('proyectos.tabla.orden', 'deadline', esUnoDe('deadline', 'score', 'nombre', 'avance'));
+  const [ordenPref, setOrden] = usePref<OrdenProy>('proyectos.tabla.orden', 'deadline', esUnoDe('deadline', 'score', 'nombre', 'avance'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('proyectos.tabla.dir', 'asc', esUnoDe('asc', 'desc'));
   const [verHechos, setVerHechos] = useState(false);
+  /**
+   * ⚠️ LA PREFERENCIA ES COMPARTIDA CON LA TABLA DE LA TAB PROYECTOS, así que puede llegar
+   * apuntando a una columna que ACÁ no se dibuja. Ordenar por una incógnita deja la tabla en
+   * un orden que nadie puede explicar y sin ningún encabezado activo — el mismo caso que ya
+   * resolvió `TablaTareas`. Se cae a «nombre», que es la única que sobrevive en los dos.
+   */
+  const orden: OrdenProy = sinRanking && (ordenPref === 'score' || ordenPref === 'deadline') ? 'nombre' : ordenPref;
 
   const sortear = (col: OrdenProy) => {
     if (col === orden) { setDir(dir === 'asc' ? 'desc' : 'asc'); return; }
@@ -657,7 +680,14 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
         </td>
         {/* El chip va teñido con el color del PROYECTO, no con el de la banda, así que acá
             el color no dice la prioridad: la dice el número y la dice el `title`. */}
-        <td style={td}><Score score={l.score} color={l.color} titulo={`Prioridad ${l.score} de 100 · ${PLABEL[prioFromScore(l.score)]}`} /></td>
+        {/* ⚠️ LAS DOS COLUMNAS QUE UN PROYECTO QUE SE REPITE NO PUEDE CONTESTAR. Con
+            `sinRanking` no se dibujan para nadie (la vista Recurrentes, donde TODOS lo son);
+            en la tabla de siempre se dibujan igual —una tabla tiene que medir lo mismo en
+            todas sus filas— pero la celda dice «—» con el porqué en el `title`, que es lo
+            mismo que ya hace la fila de una tarea recurrente mezclada con las demás. */}
+        {!sinRanking && <td style={td}>{esRecurrente(l)
+          ? <NoAplica porQue="Se repite: no compite en el ranking" />
+          : <Score score={l.score} color={l.color} titulo={`Prioridad ${l.score} de 100 · ${PLABEL[prioFromScore(l.score)]}`} />}</td>}
         <td style={td}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Barra pct={prog.pct} color={l.color} />
@@ -666,19 +696,26 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
         </td>
         {/* `data-nodrag`: acá adentro se escribe una fecha, y empezar el arrastre desde el
             `input` se come el gesto que esa pieza ya tenía. */}
-        <td style={td} data-nodrag data-parar>
-          <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
-        </td>
+        {!sinRanking && (
+          <td style={td} data-nodrag data-parar>{esRecurrente(l)
+            ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
+            : <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />}
+          </td>
+        )}
       </tr>
     );
   };
+  // Cuántas columnas quedan vivas: lo miran el `colSpan` del vacío y el de `FilaPlegada`.
+  // Escrito como cuenta y no como número suelto para que agregar una columna no deje dos
+  // constantes contradiciéndose (es el mismo molde que `cols` en la tabla de tareas).
+  const cols = 2 + (sinRanking ? 0 : 2);
 
   return (
     <div style={cajaStyle} className="mk-scroll-x">
       {/* El piso es la SUMA de lo que las columnas piden (ver arriba), no un número
           copiado de la tabla de al lado. Bajó de 600 a 544 al irse la palabra de la
           prioridad y al apretarse el padding: lo que sobra se lo queda el nombre. */}
-      <table style={{ ...tablaStyle, minWidth: C_NOMBRE + C_PRIO + C_AVANCE + C_FECHA }}>
+      <table style={{ ...tablaStyle, minWidth: C_NOMBRE + C_AVANCE + (sinRanking ? 0 : C_PRIO + C_FECHA) }}>
         <thead>
           <tr>
             <Th orden="nombre" activo={orden === 'nombre'} dir={dir} onSort={() => sortear('nombre')}>{labelPlural}</Th>
@@ -686,20 +723,22 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
                 ARRASTRE. Ordenar por deadline o por nombre deja la posición entre filas sin
                 significado, así que ahí no se puede agarrar nada — y un control que
                 desaparece sin decir por qué se lee como una pantalla rota. */}
-            <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
-              ayuda="Ordenar por prioridad">Prioridad</Th>
+            {/* ⚠️ SE APAGAN LAS DOS JUNTAS con `sinRanking`, y con ellas su ancho y su
+                orden: ver el porqué en la prop. */}
+            {!sinRanking && <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
+              ayuda="Ordenar por prioridad">Prioridad</Th>}
             <Th orden="avance" activo={orden === 'avance'} dir={dir} onSort={() => sortear('avance')} ancho={C_AVANCE}>Tareas</Th>
             {/* 330 era el ancho de cuando la celda decía la fecha tres veces; 160, el de
                 cuando el `input` medía 138; 150, el de cuando medía 126. */}
-            <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>
+            {!sinRanking && <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>}
           </tr>
         </thead>
         <tbody {...arr.cuerpo}>
           {vivos.map((f, i) => fila(f, false, i, i === vivos.length - 1))}
           {vivos.length === 0 && hechos.length === 0 && (
-            <tr><td colSpan={4} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay {labelPlural.toLowerCase()} para este filtro.</td></tr>
+            <tr><td colSpan={cols} style={{ ...tdBase, textAlign: 'center', color: 'var(--faint)' }}>No hay {labelPlural.toLowerCase()} para este filtro.</td></tr>
           )}
-          <FilaPlegada n={hechos.length} abierto={verHechos} onToggle={() => setVerHechos((v) => !v)} cols={4} texto={`completado${hechos.length === 1 ? '' : 's'}`} />
+          <FilaPlegada n={hechos.length} abierto={verHechos} onToggle={() => setVerHechos((v) => !v)} cols={cols} texto={`completado${hechos.length === 1 ? '' : 's'}`} />
           {verHechos && hechos.map((f) => fila(f, true))}
         </tbody>
       </table>

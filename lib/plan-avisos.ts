@@ -29,7 +29,14 @@ export async function vencimientosDelPlan(hoyISO: string): Promise<ResumenVencim
   return enPlan(async () => {
     const { proyectos, tareas } = await listPlanBoard();
     return clasificarVencimientos(
-      proyectos.map((p) => {
+      // ⚠️ UN PROYECTO QUE SE REPITE NO VENCE (mig 0164), Y EL FILTRO VA IGUAL AUNQUE
+      // `labelToRow` YA LE BORRE LA FECHA. Son dos preguntas distintas: aquella cubre lo que
+      // se escriba de ahora en más, y acá se LEE — las filas que ya tenían deadline el día
+      // que alguien las marcó sólo se arreglan si alguien las vuelve a guardar, y en un
+      // tablero la mayoría no se toca nunca. Sin esta línea, el WhatsApp diario diría
+      // «Customer Success está atrasado 40 días» sobre algo que no tiene fin, que es
+      // exactamente el aviso que enseña a ignorar todos los demás.
+      sinRecurrentes(proyectos).map((p) => {
         const suyas = tareas.filter((t) => t.labels.includes(p.id) && t.progress < 100);
         // ⚠️ LAS QUE SE REPITEN NO SON TRABAJO ABIERTO, PERO SÍ SON SEÑAL DE VIDA (mig 0163).
         // Contarlas en `abiertas` manda un WhatsApp que dice «3 tareas abiertas» cuando las

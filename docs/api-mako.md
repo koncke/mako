@@ -483,7 +483,7 @@ curl -s "https://hola-mako.com/api/v1/plan/ver_proyecto_plan?proyectoId=%E2%80%A
 
 ### `GET /api/v1/plan/listar_proyectos_plan` — Proyectos ordenados por prioridad
 
-Todos los proyectos del plan ordenados por score, de mayor a menor: el primero es el Objetivo Principal (el norte). Cada uno con tareas abiertas, hechas, avance en % y si su score lo fijó el dueño debatiéndolo. Responde «¿cuál es mi foco ahora?» y «¿en qué proyecto va esto?». No requiere parámetros.
+Todos los proyectos del plan ordenados por score, de mayor a menor. El norte viene aparte en `objetivo_principal`, y NO siempre es el primero de la lista: los que traen `se_repite: true` se repiten para siempre, no compiten por un puesto y su score no es un puesto. Cada uno con tareas abiertas, hechas, avance en % y si su score lo fijó el dueño debatiéndolo. Responde «¿cuál es mi foco ahora?» y «¿en qué proyecto va esto?». No requiere parámetros.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json

@@ -71,7 +71,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_proyectos_plan', area: 'plan', tipo: 'lectura',
     titulo: 'Proyectos ordenados por prioridad',
-    descripcion: 'Todos los proyectos del plan ordenados por score, de mayor a menor: el primero es el Objetivo Principal (el norte). Cada uno con tareas abiertas, hechas, avance en % y si su score lo fijó el dueño debatiéndolo. Responde «¿cuál es mi foco ahora?» y «¿en qué proyecto va esto?». No requiere parámetros.',
+    descripcion: 'Todos los proyectos del plan ordenados por score, de mayor a menor. El norte viene aparte en `objetivo_principal`, y NO siempre es el primero de la lista: los que traen `se_repite: true` se repiten para siempre, no compiten por un puesto y su score no es un puesto. Cada uno con tareas abiertas, hechas, avance en % y si su score lo fijó el dueño debatiéndolo. Responde «¿cuál es mi foco ahora?» y «¿en qué proyecto va esto?». No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
