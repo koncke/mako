@@ -218,7 +218,13 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     id: 'superadmin',
     nombre: 'SuperAdmin (agencia)',
     descripcion: 'El espacio propio del super-admin: su plan, sus reuniones y sus IA. Sin ads, sin CRM, sin VSL.',
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos'],
+    // ⚠️ `customer-success` ENTRA ACÁ EL 26/09/2026, y no es un permiso de más: MaKo TIENE
+    // clientes —Mauricio, Leila, Juanfran— y viven en ESTE workspace, que es el de la
+    // agencia. La tab se rehízo ese día para servir a cualquier workspace, así que dejarla
+    // afuera de la única capa que administra el producto era la última pieza del bug que
+    // hacía que Customer Success fuera «la tab de Mauricio»: sin esto, el super-admin sólo
+    // podía verla ENTRANDO al workspace de un cliente, o sea mirando la cartera de otro.
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],
