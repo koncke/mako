@@ -33,6 +33,7 @@ import type { BoardTask } from './types';
 import type { Board } from './useBoard';
 import { IconoTacho } from './piezas';
 import { Dropdown } from '@/app/components/Dropdown';
+import { esRecurrente } from '@/lib/plan-recurrentes';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -191,7 +192,26 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
   // fuente del sistema.
   const rotEstado = `${todasHechas ? 'Reabrir' : 'Completar'} ${tareas}`;
   const rotMover = `Mover ${tareas} a un proyecto`;
-  const rotFecha = `Ponerle${plural} deadline a ${tareas}`;
+  /**
+   * ⚠️ EL DEADLINE SE DECIDE POR LA SELECCIÓN, NO POR LA PANTALLA. Una recurrente no lleva
+   * fecha —`taskToRow` y `editarTarea` se la borran en el server—, así que ofrecer el
+   * control sobre una selección de puras recurrentes es prometer una escritura que no va a
+   * ocurrir: la barra diría «Deadline 2026-10-03 en 4» sobre cuatro tarjetas que siguen sin
+   * fecha. Es un éxito falso, que es el modo de falla más caro de todos.
+   *
+   * ⚠️ Y SE MIRA LA SELECCIÓN Y NO UN PROP. La tabla ya tiene `sinRanking` y podría pasarlo,
+   * pero eso sólo cubriría la vista «Recurrentes»: en el Kanban y en la tabla completa se
+   * pueden tildar recurrentes igual, y ahí el prop no llega. La pregunta correcta es sobre
+   * lo que se tildó, no sobre dónde está dibujada la barra.
+   *
+   * Con una selección MIXTA el control se queda: la fecha se le pone a las que pueden
+   * tenerla y el mensaje del deshacer dice ese número, no el total.
+   */
+  const conFecha = elegidas.filter((t) => !esRecurrente(t));
+  const puedeFechar = conFecha.length > 0;
+  const rotFecha = conFecha.length === n
+    ? `Ponerle${plural} deadline a ${tareas}`
+    : `Ponerle deadline a ${conFecha.length} de ${tareas} (las que se repiten no llevan fecha)`;
   const rotBorrar = `Eliminar ${tareas} — no se puede deshacer`;
 
   return (
@@ -340,7 +360,7 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
             No va en un flotante absoluto porque `cajaStyle` computa `overflow` en los DOS ejes
             (`overflow-x: auto` + `overflow-y: visible` → el Y pasa a auto) y lo recortaría, o
             devolvería la barra de scroll que la ronda anterior mató. */}
-        {editandoFecha ? (
+        {!puedeFechar ? null : editandoFecha ? (
           <input type="date" autoFocus
             ref={(el) => {
               if (!el || pickerAbierto.current) return;
@@ -350,7 +370,7 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
             onChange={(e) => {
               const v = e.target.value;
               setEditandoFecha(false);
-              if (v) enLote(`Deadline ${v} en ${n}`, (t) => board.setDeadline(t.id, v, t.deadline));
+              if (v) enLote(`Deadline ${v} en ${conFecha.length}`, (t) => { if (!esRecurrente(t)) board.setDeadline(t.id, v, t.deadline); });
             }}
             onBlur={() => setEditandoFecha(false)}
             // El Escape se queda acá: con el picker abierto se lo come el navegador, y con el

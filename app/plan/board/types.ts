@@ -5,6 +5,11 @@
 // localStorage, cliente en DB). Cada parent implementa un `Repo` que persiste;
 // useBoard tiene toda la lógica (optimista + change history + undo).
 
+// El predicado de «se repite para siempre» vive en un módulo de datos y se IMPORTA: acá
+// sólo se declara el campo. El módulo no lleva `server-only` a propósito (lo importan las
+// pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
+import { llevaDeadline } from '@/lib/plan-recurrentes';
+
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 // Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
 // mentir sobre el producto:
@@ -146,6 +151,22 @@ export type BoardTask = {
    * no está implementada.
    */
   scoreManual?: boolean;
+  /**
+   * true = ESTA TAREA SE REPITE PARA SIEMPRE (mig 0163): la reunión de los miércoles, el
+   * seguimiento diario. No es una tarea con inicio y fin, así que no compite en el ranking,
+   * no lleva deadline y no cuenta para el avance de su proyecto.
+   *
+   * ⚠️ NO SE LEE SUELTO. El predicado, el rótulo y el filtro viven en
+   * `lib/plan-recurrentes.ts` (`esRecurrente`, `sinRecurrentes`, `ROTULO_RECURRENTE`), que
+   * NO tiene `server-only` justamente para que lo puedan importar las pantallas. Escribir
+   * `t.recurrente === true` en una pantalla es la primera de las once copias.
+   *
+   * ⚠️ OPCIONAL, como `scoreManual`: el estado optimista del navegador crea la tarjeta
+   * antes de que exista la fila, y una tarea vieja se lee sin el campo hasta que la
+   * migración corra. `esRecurrente` contesta `false` en los dos casos, que es la respuesta
+   * segura — marcarla de más la saca del ranking sin que nadie lo haya pedido.
+   */
+  recurrente?: boolean;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
@@ -301,7 +322,12 @@ export function relTime(ts: number, nowMs: number): string {
 // 100% no cuentan (ya están hechas, no tiene sentido pedirles plan).
 // ⚠️ También miraba la CHECKLIST, hasta que las checklists salieron del producto
 // (22/09/2026). Hoy el único dato que el Perro no puede deducir solo es la fecha.
-export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progress < 100 && !t.deadline;
+// ⚠️ Y UNA RECURRENTE NO ESTÁ INCOMPLETA POR NO TENER FECHA (mig 0163): lo que se repite
+// no vence, así que pedirle un deadline es pedirle un dato que no existe — y esto alimenta
+// un triangulito rojo que TITILA, o sea una alarma permanente sobre algo a lo que no le
+// falta nada. Es el caso de manual de «un consumidor huérfano de un campo que ya nadie
+// escribe»: no falla, titila.
+export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progress < 100 && !t.deadline && llevaDeadline(t);
 
 // ── Score 1-100 ⇄ columna (el guardián pone el score; la columna se DERIVA) ──
 export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));

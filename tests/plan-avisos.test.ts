@@ -23,8 +23,8 @@ test('sin nada que deber, NO hay mensaje', () => {
 
 test('un atrasado y uno por vencer entran los dos, con su conteo de tareas', () => {
   const r: ResumenVencimientos = {
-    atrasados: [{ nombre: 'Feature: Plan', dias: 3, abiertas: 10 }],
-    porVencer: [{ nombre: 'Agente: Chatbot', dias: 1, abiertas: 20 }],
+    atrasados: [{ nombre: 'Feature: Plan', dias: 3, abiertas: 10, recurrentes: 0 }],
+    porVencer: [{ nombre: 'Agente: Chatbot', dias: 1, abiertas: 20, recurrentes: 0 }],
   };
   const m = textoVencimientos(r)!;
   assert.match(m.titulo, /1 proyecto atrasado y 1 por vencer/);
@@ -34,7 +34,7 @@ test('un atrasado y uno por vencer entran los dos, con su conteo de tareas', () 
 
 test('una lista larga se corta en 5 y dice cuántos quedan', () => {
   const r: ResumenVencimientos = {
-    atrasados: Array.from({ length: 8 }, (_, i) => ({ nombre: `P${i}`, dias: i + 1, abiertas: 1 })),
+    atrasados: Array.from({ length: 8 }, (_, i) => ({ nombre: `P${i}`, dias: i + 1, abiertas: 1, recurrentes: 0 })),
     porVencer: [],
   };
   const m = textoVencimientos(r)!;
@@ -44,7 +44,7 @@ test('una lista larga se corta en 5 y dice cuántos quedan', () => {
 });
 
 test('el singular y el plural no quedan mal escritos', () => {
-  const m = textoVencimientos({ atrasados: [], porVencer: [{ nombre: 'X', dias: 0, abiertas: 1 }] })!;
+  const m = textoVencimientos({ atrasados: [], porVencer: [{ nombre: 'X', dias: 0, abiertas: 1, recurrentes: 0 }] })!;
   assert.match(m.titulo, /1 proyecto vence esta semana/);
   assert.match(m.texto, /X — hoy, 1 tarea abierta/);
 });

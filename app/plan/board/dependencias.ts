@@ -42,6 +42,9 @@
 // =============================================================================
 
 import type { Actor } from './types';
+// «Se repite para siempre» (mig 0163). El predicado sale del módulo de datos y no se
+// reescribe acá: es el mismo que aplican el reparto diario, los avisos y las pantallas.
+import { esRecurrente } from '@/lib/plan-recurrentes';
 
 export type ClaseDep = 'bloquea' | 'ordena';
 export type EntidadDep = 'tarea' | 'proyecto';
@@ -128,7 +131,11 @@ export function puedeDepender(deps: Dep[], entidad: EntidadDep, de: string, a: s
 
 // ── El resolvedor ────────────────────────────────────────────────────────────────────
 
-export type TareaDep = { id: string; num: number; score: number; progress: number; labels: string[] };
+export type TareaDep = { id: string; num: number; score: number; progress: number; labels: string[];
+  /** true = se repite para siempre (mig 0163). No compite, no hereda urgencia y no frena a
+   *  nadie — pero SÍ cuenta como evidencia de que su proyecto tiene trabajo. Ver
+   *  `resolverDeps`, que es donde las dos mitades se separan. */
+  recurrente?: boolean };
 
 export type EstadoDeps = {
   /** por tarea: ids de lo que la frena y TODAVÍA está abierto. Vacío = se puede empezar. */
@@ -153,18 +160,41 @@ export type EstadoDeps = {
  * Lo que NO hace en silencio es tragarse un ciclo: ver `cortarCiclo` abajo.
  */
 export function resolverDeps(e: { tareas: TareaDep[]; deps: Dep[] }): EstadoDeps {
-  const abierta = (t: TareaDep) => t.progress < 100;
+  /**
+   * ⚠️ DOS PREGUNTAS DISTINTAS, Y HASTA LA 0163 ERAN UNA SOLA.
+   *
+   * `viva` = «¿queda algo pasando acá?» — la contestan TODAS las tareas sin terminar,
+   * incluidas las que se repiten para siempre.
+   * `compite` = «¿esto se puede entregar, y por lo tanto rankea, frena y hereda urgencia?»
+   * — sólo las que tienen un fin.
+   *
+   * Partirlas es lo único que resuelve el caso que el pedido de las Recurrentes levantó, y
+   * que fallaba por las DOS ramas:
+   *  · si una recurrente cuenta como «abierta», un proyecto con una sola reunión semanal
+   *    NUNCA termina y frena para siempre a todo lo que dependa de él;
+   *  · si directamente no se la cuenta, ese mismo proyecto cae en `!conTareas` —«no hay
+   *    evidencia de que se haya hecho nada»— y también queda pendiente para siempre.
+   *
+   * Con las dos preguntas separadas: `conTareas` la contestan todas (el proyecto existe y
+   * tiene trabajo), y `abiertasPorProy` sólo las que tienen fin. Un proyecto cuyo único
+   * trabajo se repite NO frena a nadie, que es lo correcto: esperar a que se deje de hacer
+   * la reunión de los miércoles es esperar para siempre.
+   */
+  const viva = (t: TareaDep) => t.progress < 100;
+  const compite = (t: TareaDep) => viva(t) && !esRecurrente(t);
   const porId = new Map(e.tareas.map((t) => [t.id, t]));
-  const abiertas = e.tareas.filter(abierta);
+  const abiertas = e.tareas.filter(compite);
 
-  // Un proyecto está TERMINADO cuando no le queda ninguna tarea abierta. Un proyecto SIN
-  // tareas NO cuenta como terminado: no hay evidencia de que se haya hecho nada, y tratar
-  // «vacío» como «listo» destrabaría media cadena sin que nadie hiciera el trabajo.
+  // Un proyecto está TERMINADO cuando no le queda ninguna tarea abierta CON FIN. Un
+  // proyecto SIN tareas NO cuenta como terminado: no hay evidencia de que se haya hecho
+  // nada, y tratar «vacío» como «listo» destrabaría media cadena sin que nadie hiciera el
+  // trabajo. Una recurrente SÍ es evidencia (suma a `conTareas`) y NO es trabajo pendiente
+  // (no suma a `abiertasPorProy`).
   const abiertasPorProy = new Map<string, number>();
   const conTareas = new Set<string>();
   for (const t of e.tareas) for (const p of t.labels) {
     conTareas.add(p);
-    if (abierta(t)) abiertasPorProy.set(p, (abiertasPorProy.get(p) ?? 0) + 1);
+    if (compite(t)) abiertasPorProy.set(p, (abiertasPorProy.get(p) ?? 0) + 1);
   }
   const proyPendiente = (p: string) => !conTareas.has(p) || (abiertasPorProy.get(p) ?? 0) > 0;
 
@@ -175,10 +205,17 @@ export function resolverDeps(e: { tareas: TareaDep[]; deps: Dep[] }): EstadoDeps
   const bloqueantesProy: Record<string, string[]> = {};
   for (const d of duras) {
     if (d.entidad === 'tarea') {
+      // ⚠️ `compite`, NO `viva`. Una recurrente como BLOQUEANTE es la vía de escape menos
+      // obvia de toda la exclusión, y es doble: nunca termina —así que lo que espera por
+      // ella queda frenado para siempre— y además HEREDA la urgencia de lo que la espera
+      // (`u(A) = max(score(A), u de los que lo esperan)`), o sea vuelve al top del ranking
+      // por la puerta de atrás, saltándose todo lo que se cortó más arriba. Del otro lado
+      // pasa lo mismo: una recurrente BLOQUEADA no está en `orden`, así que marcarla no
+      // significaría nada. Acá no se puede depender de algo que no va a terminar.
       const b = porId.get(d.aId);
-      if (!b || !abierta(b)) continue;                       // no existe o ya está hecha
+      if (!b || !compite(b)) continue;                       // no existe, ya está hecha, o se repite
       const t = porId.get(d.deId);
-      if (!t || !abierta(t)) continue;
+      if (!t || !compite(t)) continue;
       (bloqueantes[d.deId] ??= []).push(d.aId);
     } else {
       if (!proyPendiente(d.aId)) continue;
@@ -210,7 +247,7 @@ export function resolverDeps(e: { tareas: TareaDep[]; deps: Dep[] }): EstadoDeps
     let u = t.score;
     for (const b of esperanA.get(id) ?? []) {
       const tb = porId.get(b);
-      if (tb && abierta(tb)) u = Math.max(u, calcU(b));
+      if (tb && compite(tb)) u = Math.max(u, calcU(b));
     }
     enCurso.delete(id);
     urgencia[id] = u;

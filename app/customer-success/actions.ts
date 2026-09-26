@@ -27,6 +27,7 @@ import { getPerfil } from '@/lib/perfil';
 import { RECURSO_TAREA, type EstadoCliente } from '@/lib/cs-cartera';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { avancePorClase, vistasSinContestar, type AvanceClase } from '@/lib/cs-avance-clases';
+import { clientesGanados, trabajoDeCliente, type ResultadoTrabajo } from './trabajo';
 
 async function wsActual(): Promise<number> {
   return (await getWorkspaceActual()) ?? OWNER_WS;
@@ -176,6 +177,32 @@ export async function avanceDelClienteAction(leadId: number): Promise<ResultadoA
 
   const clases = avancePorClase((data ?? []) as Parameters<typeof avancePorClase>[0]);
   return { ok: true, clases, sinContestar: vistasSinContestar(clases).length };
+}
+
+// ── El trabajo de ese cliente en el tablero ─────────────────────────────────
+// El detalle NO viaja dentro de la cartera: son entre 2 y 55 tareas por cliente y la
+// grilla sólo necesita los números (ver `tableroDeLaCartera`). Se pide al abrir la tab,
+// igual que el avance clase por clase.
+//
+// ⚠️ EL CRUCE SE RESUELVE ACÁ, EN EL SERVER. `lib/todo.ts` y `lib/todo-rutear.ts` son
+// `server-only`, así que ningún componente cliente los puede importar — y aunque
+// pudiera, bajar las 212 tareas del workspace para filtrar tres en el navegador es
+// mandarle a la pantalla el trabajo de todos los clientes para mostrar el de uno.
+//
+// ⚠️ Y LA LISTA DE CLIENTES CONTRA LA QUE SE CRUZA NO PUEDE VENIR DEL NAVEGADOR. El
+// cruce blando (`atar`, ./cruce.ts) decide si una palabra es distintiva mirando a TODOS
+// los clientes y a TODOS los proyectos: con una lista recortada por quien pregunta,
+// cualquier palabra suya sería única y ataría cualquier cosa.
+
+export async function trabajoDelClienteAction(leadId: number): Promise<ResultadoTrabajo> {
+  const cliente = await clienteDelWorkspace(leadId);
+  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
+  try {
+    const clientes = await clientesGanados();
+    return await trabajoDeCliente(leadId, clientes);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el tablero.' };
+  }
 }
 
 // ── El estado del cliente dentro del programa ───────────────────────────────

@@ -35,6 +35,7 @@ import { prioFromScore, type Label, type BoardTask, type Hist, type Actor } from
 import { fijarYDesempatar, mismoOrdenRelativo, noPisaManuales, respetaElReclamo, sinEmpates, type Falla, type Puntuado } from '@/app/plan/board/metodologia';
 import { exigenciaDe, cumpleLaCarga, preguntaPorFaltante, type Prueba, type Exigencia } from '@/lib/plan-prueba';
 import { dictarAudiencia, type Antecedente } from '@/lib/mako-guardian';
+import { esRecurrente, sinRecurrentes, PORQUE_NO_COMPITE } from '@/lib/plan-recurrentes';
 import type { UsageInfo } from '@/lib/anthropic-usage';
 
 const genId = (p: string): string => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -144,6 +145,14 @@ export async function proponerReprio(pedido: Pedido): Promise<Propuesta> {
     const esProy = pedido.entidad === 'proyecto';
     const item = esProy ? proyectos.find((p) => p.id === pedido.itemId) : tareas.find((t) => t.id === pedido.itemId);
     if (!item) return { estado: 'error', scoreActual: 0, error: 'No encontré eso en el tablero.' };
+    // ⚠️ UNA RECURRENTE NO SE RE-PRIORIZA (mig 0163). Toda esta pantalla existe para
+    // discutir un PUESTO, y algo que se repite para siempre no tiene uno: la audiencia
+    // arrancaría, cobraría el razonamiento del modelo y escribiría un número que el reparto
+    // diario ni siquiera mira. El corte va en el SERVER porque es el que decide; que la
+    // pantalla no ofrezca el botón es la otra mitad, no el reemplazo.
+    if (!esProy && esRecurrente(item as BoardTask)) {
+      return { estado: 'error', scoreActual: (item as BoardTask).score || 0, error: PORQUE_NO_COMPITE };
+    }
 
     const scoreActual = item.score || 0;
     const scorePedido = Math.max(1, Math.min(100, Math.round(pedido.scorePedido)));
@@ -152,7 +161,10 @@ export async function proponerReprio(pedido: Pedido): Promise<Propuesta> {
     // tarea REAL, así que la validación la daba por buena.
     const universo: Puntuado[] = esProy
       ? proyectos.filter((p) => p.id !== item.id).map((p) => ({ id: p.id, titulo: p.name, score: p.score || 0 }))
-      : tareas.filter((t) => t.id !== item.id && t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, score: t.score || 0 }));
+      // ⚠️ SIN LAS QUE SE REPITEN (mig 0163). El universo es «contra qué se compara este
+      // número», y una recurrente ahí adentro se lleva un lugar del desempate y desplaza a
+      // algo que sí tiene un fin — además de darle al Perro una vara que no significa nada.
+      : sinRecurrentes(tareas.filter((t) => t.id !== item.id && t.progress < 100)).map((t) => ({ id: t.id, titulo: t.title, score: t.score || 0 }));
     const nombre = esProy ? (item as Label).name : (item as BoardTask).title;
     const topes = universo.slice().sort((a, b) => b.score - a.score);
     const esNorteHoy = topes.length > 0 && scoreActual > topes[0].score;
@@ -319,6 +331,13 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     const esProy = p.entidad === 'proyecto';
     const item = esProy ? proyectos.find((x) => x.id === p.itemId) : tareas.find((x) => x.id === p.itemId);
     if (!item) return { ok: false as const, error: 'No encontré eso en el tablero.' };
+    // ⚠️ MISMO CORTE QUE EN LA AUDIENCIA, Y POR ESTE CAMINO ENTRA EL ARRASTRE. Acá terminan
+    // el slider del detalle y el pop-up de soltar una tarjeta en otra columna: los dos
+    // escriben `score` + `score_manual`, o sea le CLAVAN un puesto a algo que no compite —
+    // y encima con el candado de la mig 0143, que el reparto ya no puede sacar.
+    if (!esProy && esRecurrente(item as BoardTask)) {
+      return { ok: false as const, error: PORQUE_NO_COMPITE };
+    }
 
     const nombre = esProy ? (item as Label).name : (item as BoardTask).title;
     const scoreActual = item.score || 0;
@@ -365,7 +384,10 @@ export async function fijarPrioridadAMano(p: { entidad: 'proyecto' | 'tarea'; it
     // proyectos y una tarea con tareas abiertas.
     const universo: Puntuado[] = esProy
       ? proyectos.filter((x) => x.id !== item.id).map((x) => ({ id: x.id, titulo: x.name, score: x.score || 0 }))
-      : tareas.filter((x) => x.id !== item.id && x.progress < 100).map((x) => ({ id: x.id, titulo: x.title, score: x.score || 0 }));
+      // ⚠️ SIN LAS QUE SE REPITEN (mig 0163). El universo es «contra qué se compara este
+      // número», y una recurrente ahí adentro se lleva un lugar del desempate y desplaza a
+      // algo que sí tiene un fin — además de darle al Perro una vara que no significa nada.
+      : sinRecurrentes(tareas.filter((x) => x.id !== item.id && x.progress < 100)).map((x) => ({ id: x.id, titulo: x.title, score: x.score || 0 }));
     const todos: Puntuado[] = [...universo, { id: item.id, titulo: nombre, score: scoreActual }];
     // ⚠️ ACÁ NO SE CLAVAN LOS OTROS `score_manual`, Y ES LO QUE HACE QUE ESTO FUNCIONE.
     //

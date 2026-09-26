@@ -45,6 +45,9 @@ import { listReunionesRecientes } from '@/lib/plan-fathom';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { createKnowledge, updateKnowledge } from '@/lib/mako-knowledge';
 import { hoyEnWorkspace } from '@/lib/timezone';
+// «Se repite para siempre» (mig 0163). Mismo módulo que usan el reparto, los avisos y las
+// pantallas: una lectura no puede tener su propia definición de qué compite.
+import { esRecurrente, sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
 import {
   leerTablero, usaPlanBoard, buscarTarea, buscarProyecto, tareaCompacta, nombresDeProyectos,
   linkTarea, linkProyecto, linkBorrador, soloFueraDeHttp, fuenteParaCanal, terminosDelGlosario,
@@ -70,7 +73,15 @@ const recortar = (s: string | null | undefined, n: number): string => {
   const t = (s ?? '').trim();
   return t.length > n ? `${t.slice(0, n)}…` : t;
 };
+/**
+ * ⚠️ DOS PREGUNTAS, NO UNA (mig 0163). `abierta` = «¿queda algo pasando?»; `compite` =
+ * «¿esto tiene un fin, y por lo tanto rankea, vence y cuenta para el avance?». Todo lo que
+ * ordene por score, cuente trabajo pendiente o persiga una fecha usa `compite`; lo que
+ * pregunta «¿esto ya existe en el plan?» usa `abierta`, porque una recurrente EXISTE y
+ * proponerla de nuevo es el error que la marca en el payload viene a evitar.
+ */
 const abierta = (t: TareaPlan): boolean => t.avance < 100;
+const compite = (t: TareaPlan): boolean => abierta(t) && !esRecurrente(t);
 const genHistId = (): string => 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const aviso = (tab: Tablero): Record<string, string> =>
   tab.recortado ? { advertencia: 'El tablero llegó al tope de 1000 filas por lectura: puede haber tareas o proyectos que no se vieron.' } : {};
@@ -83,13 +94,28 @@ const origenBorrador = (ctx: Ctx): string => (ctx.canal === 'whatsapp' ? 'whatsa
 const estadoDeps = (tab: Tablero): EstadoDeps | null => {
   if (tab.board !== 'plan' || !tab.deps.length) return null;
   return resolverDeps({
-    tareas: tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels })),
+    // `recurrente` VA: es lo que le dice al grafo que una tarea sin fin no frena a nadie y
+    // que un proyecto de puras recurrentes no está pendiente para siempre.
+    tareas: tab.tareas.map((t) => ({ id: t.id, num: t.num ?? 0, score: t.score, progress: t.avance, labels: t.labels, recurrente: t.recurrente })),
     deps: tab.deps,
   });
 };
 
-const promedioAvance = (ts: TareaPlan[]): number | null =>
-  ts.length ? Math.round(ts.reduce((a, t) => a + t.avance, 0) / ts.length) : null;
+/**
+ * El avance de un proyecto: promedio del avance de sus tareas CON FIN.
+ *
+ * ⚠️ LAS RECURRENTES NO ENTRAN, Y ES LA MISMA DECISIÓN QUE `projProgress` (piezas.tsx).
+ * Una tarea que se repite está clavada en 0% por definición: contarla baja el avance del
+ * proyecto de forma PERMANENTE y el número nunca puede volver a 100 — un cliente al que se
+ * le atiende todas las semanas se vería peor cuanto más se lo atiende. Contarlas como
+ * hechas sería la mentira simétrica. `null` (sin tareas con fin) es la tercera respuesta y
+ * la correcta para un proyecto que sólo tiene trabajo que se repite: no es 0%, es que la
+ * pregunta no aplica. Quien lo lea tiene `se_repiten` al lado para decir qué sí hay.
+ */
+const promedioAvance = (ts: TareaPlan[]): number | null => {
+  const conFin = sinRecurrentes(ts);
+  return conFin.length ? Math.round(conFin.reduce((a, t) => a + t.avance, 0) / conFin.length) : null;
+};
 
 const TOPE_LISTA = 300;
 
@@ -110,13 +136,25 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const tab = await leerTablero(ctx.ws);
       const nombres = nombresDeProyectos(tab);
-      const abiertas = tab.tareas.filter(abierta).sort((a, b) => b.score - a.score);
+      // ⚠️ LAS QUE SE REPITEN VAN EN SU PROPIA LISTA, NI ADENTRO NI AFUERA (mig 0163).
+      // Adentro ocupan lugares de una lista ORDENADA POR SCORE, que es el recurso escaso de
+      // esta lectura (el tope son 300): una recurrente con score 85 desplaza trabajo real.
+      // Afuera, un agente que no las ve propone crearlas otra vez. Y `total_abiertas` cuenta
+      // sólo lo que se puede terminar, porque es el número con el que después se dice
+      // «tenés N cosas pendientes».
+      const abiertas = tab.tareas.filter(compite).sort((a, b) => b.score - a.score);
+      const repiten = soloRecurrentes(tab.tareas.filter(abierta));
       return json({
         board: tab.board,
         total_abiertas: abiertas.length,
         mostradas: Math.min(abiertas.length, TOPE_LISTA),
         ...(abiertas.length > TOPE_LISTA ? { afuera: `${abiertas.length - TOPE_LISTA} tareas de menor score no se muestran` } : {}),
         tareas: abiertas.slice(0, TOPE_LISTA).map((t) => tareaCompacta(t, nombres)),
+        ...(repiten.length ? {
+          se_repiten: repiten.length,
+          recurrentes: repiten.slice(0, 50).map((t) => tareaCompacta(t, nombres)),
+          recurrentes_nota: 'Tareas que se repiten para siempre. NO están en `tareas` ni en `total_abiertas` porque no compiten por un puesto ni se pueden terminar, pero EXISTEN: no propongas crearlas de nuevo.',
+        } : {}),
         proyectos: tab.proyectos.map((p) => ({ id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, score: p.score })),
         ...aviso(tab),
       });
@@ -164,8 +202,12 @@ export const RUNNERS: Runners = {
       if (!p) return error(`No encuentro el proyecto «${str(input, 'proyectoId')}». Lista los que hay con listar_proyectos_plan.`);
       const nombres = nombresDeProyectos(tab);
       const suyas = tab.tareas.filter((t) => t.proyectoId === p.id);
-      const abiertas = suyas.filter(abierta).sort((a, b) => b.score - a.score);
-      const hechas = suyas.filter((t) => !abierta(t));
+      // `compite` y no `abierta`: las que se repiten no son trabajo pendiente ni trabajo
+      // hecho — están en marcha, y van contadas aparte para que el proyecto de puras
+      // recurrentes no le llegue al modelo como uno abandonado.
+      const abiertas = suyas.filter(compite).sort((a, b) => b.score - a.score);
+      const hechas = sinRecurrentes(suyas).filter((t) => !abierta(t));
+      const repiten = soloRecurrentes(suyas.filter(abierta));
       return json({
         board: tab.board,
         id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, emoji: p.emoji, link: linkProyecto(p.id),
@@ -173,8 +215,9 @@ export const RUNNERS: Runners = {
         ...(p.scoreManual == null ? { score_fijado_nota: 'null = el tablero de este negocio no registra si el dueño fijó el score; no significa que no lo haya fijado.' } : {}),
         detalle: p.detalle,
         tareas_abiertas: abiertas.length, tareas_hechas: hechas.length,
+        ...(repiten.length ? { se_repiten: repiten.length, recurrentes: repiten.slice(0, 30).map((t) => tareaCompacta(t, nombres)) } : {}),
         avance_pct: promedioAvance(suyas),
-        avance_nota: 'promedio del avance de todas sus tareas; null = el proyecto no tiene tareas',
+        avance_nota: 'promedio del avance de sus tareas CON FIN; null = no tiene ninguna. null con `se_repiten` > 0 NO es «abandonado»: es un proyecto cuyo trabajo se repite y por eso no tiene porcentaje.',
         abiertas: abiertas.slice(0, 100).map((t) => tareaCompacta(t, nombres)),
         hechas: hechas.slice(0, 30).map((t) => ({ id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo })),
         ...(abiertas.length > 100 || hechas.length > 30 ? { recorte: 'se muestran hasta 100 abiertas y 30 hechas' } : {}),
@@ -190,7 +233,8 @@ export const RUNNERS: Runners = {
         return {
           id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, emoji: p.emoji, score: p.score,
           score_razon: recortar(p.scoreRazon, 300) || null, score_fijado_por_el_dueno: p.scoreManual,
-          abiertas: suyas.filter(abierta).length, hechas: suyas.filter((t) => !abierta(t)).length,
+          abiertas: suyas.filter(compite).length, hechas: sinRecurrentes(suyas).filter((t) => !abierta(t)).length,
+          se_repiten: soloRecurrentes(suyas.filter(abierta)).length,
           avance_pct: promedioAvance(suyas),
         };
       });
@@ -198,8 +242,8 @@ export const RUNNERS: Runners = {
         board: tab.board,
         objetivo_principal: proyectos[0] ? { id: proyectos[0].id, nombre: proyectos[0].nombre } : null,
         proyectos,
-        tareas_abiertas_sin_proyecto: tab.tareas.filter((t) => abierta(t) && !t.proyectoId).length,
-        nota: 'avance_pct = promedio del avance de sus tareas (null = sin tareas). score_fijado_por_el_dueno null = este tablero no registra ese dato (no es «no lo fijó»).',
+        tareas_abiertas_sin_proyecto: tab.tareas.filter((t) => compite(t) && !t.proyectoId).length,
+        nota: 'avance_pct = promedio del avance de sus tareas CON FIN (null = no tiene ninguna; con se_repiten > 0 eso NO es «abandonado»). `abiertas` y `hechas` tampoco cuentan las que se repiten. score_fijado_por_el_dueno null = este tablero no registra ese dato (no es «no lo fijó»).',
         ...aviso(tab),
       });
     },
@@ -209,7 +253,11 @@ export const RUNNERS: Runners = {
     leer: async (input, ctx) => {
       const limite = num(input, 'limite') ?? 10;
       const tab = await leerTablero(ctx.ws);
-      let abiertas = tab.tareas.filter(abierta);
+      // «¿Qué hago hoy?» — y una tarea que se repite NO es una respuesta a eso: se hace
+      // cuando toca, no cuando la lista la pone arriba. Es el mismo criterio que las 5
+      // tarjetas de la vista Prioridades, y tiene que ser el mismo o las dos superficies
+      // contestan distinto a la misma pregunta.
+      let abiertas = tab.tareas.filter(compite);
       const ref = str(input, 'proyectoId');
       if (ref) {
         const p = buscarProyecto(tab, ref);
@@ -251,7 +299,10 @@ export const RUNNERS: Runners = {
       };
       const nombres = nombresDeProyectos(tab);
       const hits = tab.tareas
-        .filter(abierta)
+        // `compite`: una recurrente no puede estar vencida. Hoy además nace sin fecha
+        // (`taskToRow` la corta), pero una fila vieja marcada después puede conservar una
+        // — y aparecería acá como «vencida hace 40 días», que es falso y además urgente.
+        .filter(compite)
         .map((t) => ({ t, faltan: faltanDe(t.deadline) }))
         .filter((x): x is { t: TareaPlan; faltan: number } => x.faltan != null && x.faltan <= dias)
         .sort((a, b) => a.faltan - b.faltan);
@@ -271,7 +322,11 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const tab = await leerTablero(ctx.ws);
       const nombres = nombresDeProyectos(tab);
-      const abiertas = tab.tareas.filter(abierta).sort((a, b) => b.score - a.score);
+      // ⚠️ ES EL BUG DE `sin_checklist` OTRA VEZ, y el comentario que lo explica está tres
+      // líneas más abajo. A una recurrente NO le falta el deadline: no lleva. Dejándolas
+      // acá, esta lectura contesta «faltan completar N tareas» sobre tareas a las que no
+      // les falta nada, y el número CRECE SOLO con cada recurrente nueva.
+      const abiertas = tab.tareas.filter(compite).sort((a, b) => b.score - a.score);
       const sinDeadline = abiertas.filter((t) => !t.deadline);
       // ⛔ ACÁ SE DEVOLVÍA TAMBIÉN `sin_checklist`, y desde que las checklists salieron del
       // producto (22/09/2026) esa lista era TODAS las tareas abiertas: un agente que

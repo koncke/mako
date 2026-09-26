@@ -40,6 +40,8 @@ export type Tarea = {
   deadline: string | null;       // YYYY-MM-DD
   /** Quarter planificado, `2026-Q3`. NO se deriva del deadline (mig 0156). */
   quarter: string | null;
+  /** «Se repite para siempre»: no compite por un puesto ni lleva fecha (mig 0163). */
+  recurrente: boolean;
   categorias: number[];          // ids de tarea_categorias
   checklist: ChecklistItem[];    // ítems {id,text,done}
   historial: HistEntry[];        // change history {ts,actor,text} — user|ia
@@ -88,6 +90,10 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   t.checklist = checklistOk(r.checklist);
   t.historial = histOk(r.historial);
   t.en_prioridad = !!r.en_prioridad;
+  // `!!` y no el valor crudo: `rowTo` castea la fila entera, así que un campo ausente
+  // llegaría como `undefined` y cualquier `if (t.recurrente)` lo leería como false igual —
+  // pero el tipo diría `boolean` y mentiría. Acá se normaliza una vez.
+  t.recurrente = !!r.recurrente;
   t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
   t.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
   t.estado = estadoOk(r.estado);
@@ -323,7 +329,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null } & CamposResponsable,
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null } & CamposResponsable,
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString(), ...camposResponsableOk(patch) };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -349,6 +355,15 @@ export async function editarTarea(
   // Guardar un string libre dejaria una tarea en una ventana que ninguna vista sabe
   // leer, y el sintoma seria que la tarea desaparece de todos los filtros.
   if (patch.quarter !== undefined) upd.quarter = quarterOk(patch.quarter);
+  // ⚠️ MARCARLA «SE REPITE» LE SACA LA FECHA Y EL QUARTER, en la MISMA escritura. Una
+  // recurrente no tiene fin, así que una fecha suya es una promesa que nadie puede cumplir
+  // —y el motor de vencimientos la haría titilar para siempre—. Va acá, que es por donde
+  // pasan TODAS las ediciones de este tablero, y no en la pantalla: el mismo campo lo
+  // escriben el navegador, el Doer y los lotes.
+  if (patch.recurrente !== undefined) {
+    upd.recurrente = !!patch.recurrente;
+    if (upd.recurrente) { upd.deadline = null; upd.quarter = null; }
+  }
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
   if (patch.checklist !== undefined) upd.checklist = checklistOk(patch.checklist);
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);

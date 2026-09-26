@@ -25,6 +25,7 @@
 import { useState } from 'react';
 import { Pagina, PageHeader, Button, Modal, Banner, useToast, Toast } from '@/app/_ui';
 import type { ClienteCartera, Cancha, EstadoCliente } from '@/lib/cs-cartera';
+import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { emitirLinkAction, revocarLinksAction, marcarEstadoAction } from './actions';
 import { DetalleCliente } from './DetalleCliente';
 
@@ -47,10 +48,12 @@ const fecha = (iso: string | null) => {
   return Number.isFinite(d.getTime()) ? `${d.getUTCDate()} de ${MES[d.getUTCMonth()]}` : null;
 };
 
-export function ClientesApp({ clientes, totalClases, whopConectado }: {
+export function ClientesApp({ clientes, totalClases, whopConectado, tablero }: {
   clientes: ClienteCartera[];
   totalClases: number;
   whopConectado: boolean;
+  /** Qué sabe el TABLERO de cada uno. Números nada más; el detalle lo pide la ficha. */
+  tablero: TableroCartera;
 }) {
   const [emitido, setEmitido] = useState<Emitido | null>(null);
   const [cargando, setCargando] = useState<number | null>(null);
@@ -91,6 +94,8 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
 
   const activos = clientes.filter(c => c.estado === 'activo' || c.estado === 'pausado');
   const cerrados = clientes.filter(c => c.estado === 'graduado' || c.estado === 'baja');
+  const resumenDe = (leadId: number): ResumenTrabajo | null =>
+    (tablero.ok ? tablero.porLead[leadId] : null) ?? null;
 
   return (
     <Pagina ancho="completo">
@@ -98,6 +103,25 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
 
       {!whopConectado && (
         <Banner tono="warn">Whop no está conectado, así que MaKo no se entera de quién miró cada clase.</Banner>
+      )}
+
+      {/* ⚠️ «Cero resultados» no es «no hay». Si el tablero no se pudo leer, las cards
+          dirían «sin proyecto» sobre 14 clientes que sí tienen trabajo cargado. */}
+      {!tablero.ok && (
+        <Banner tono="bad">No pude leer el tablero, así que las fichas no van a mostrar su trabajo. {tablero.error}</Banner>
+      )}
+
+      {/* Lo que NO cruzó, arriba y no escondido: un cliente sin proyecto y un proyecto
+          sin cliente casi siempre son el mismo, con el nombre corrido una palabra. */}
+      {tablero.ok && tablero.huerfanos.length > 0 && (
+        <Banner tono="warn">
+          {tablero.huerfanos.length === 1
+            ? 'Hay 1 proyecto de cliente en el tablero que no cruza con nadie de la cartera'
+            : `Hay ${tablero.huerfanos.length} proyectos de cliente en el tablero que no cruzan con nadie de la cartera`}
+          {` (${tablero.huerfanos.map(h => h.nombre).join(' · ')})`}
+          {tablero.sinProyecto > 0 && `, y ${tablero.sinProyecto} ${tablero.sinProyecto === 1 ? 'cliente' : 'clientes'} sin ningún proyecto.`}
+          {' '}Casi siempre es el mismo con el nombre corrido: se arregla renombrando el proyecto.
+        </Banner>
       )}
 
       {activos.length === 0 ? (
@@ -119,7 +143,8 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
               {del.map((c) => (
                 <li key={c.leadId}>
                   <Card
-                    c={c} cargando={cargando === c.leadId}
+                    c={c} cargando={cargando === c.leadId} trabajo={resumenDe(c.leadId)}
+                    tableroOk={tablero.ok}
                     onAbrir={() => setAbierto(c)}
                     onDarLink={() => void emitir(c, false)}
                     onMandarLink={() => void emitir(c, false, true)}
@@ -156,7 +181,7 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
 
       {abierto && (
         <DetalleCliente
-          cliente={abierto} totalClases={totalClases}
+          cliente={abierto} totalClases={totalClases} trabajo={resumenDe(abierto.leadId)}
           onCerrar={() => setAbierto(null)}
           onDarLink={() => void emitir(abierto, false)}
           onMarcar={(e) => void marcar(abierto, e)}
@@ -201,8 +226,29 @@ export function ClientesApp({ clientes, totalClases, whopConectado }: {
   );
 }
 
-function Card({ c, cargando, onAbrir, onDarLink, onMandarLink, onRotar, onRevocar }: {
-  c: ClienteCartera; cargando: boolean;
+/**
+ * Lo que el tablero sabe de este cliente, en un renglón.
+ *
+ * ⚠️ Las RECURRENTES se dicen aparte y NO se suman a las abiertas. «Cliente X — 3 tareas
+ * abiertas» donde las 3 son la reunión de los miércoles es un aviso falso: eso no se
+ * puede terminar, así que contarlo como pendiente miente en la dirección tranquilizadora.
+ *
+ * ⚠️ Y los tres estados son DISTINTOS: no pude leer / no cruzó con ningún proyecto /
+ * cruzó y no tiene nada abierto. Pintar los tres iguales es lo que hace que nadie
+ * audite el primero.
+ */
+function textoTrabajo(t: ResumenTrabajo | null, tableroOk: boolean): string {
+  if (!tableroOk) return 'No pude leer su trabajo del tablero';
+  if (!t || (!t.proyectos && !t.abiertas && !t.recurrentes && !t.hechas)) return 'Sin trabajo suyo en el tablero';
+  const partes: string[] = [];
+  if (t.proyectos) partes.push(`${t.proyectos} ${t.proyectos === 1 ? 'proyecto' : 'proyectos'}`);
+  partes.push(`${t.abiertas} ${t.abiertas === 1 ? 'tarea abierta' : 'tareas abiertas'}`);
+  if (t.recurrentes) partes.push(`${t.recurrentes} ${t.recurrentes === 1 ? 'se repite' : 'se repiten'}`);
+  return partes.join(' · ');
+}
+
+function Card({ c, cargando, trabajo, tableroOk, onAbrir, onDarLink, onMandarLink, onRotar, onRevocar }: {
+  c: ClienteCartera; cargando: boolean; trabajo: ResumenTrabajo | null; tableroOk: boolean;
   onAbrir: () => void; onDarLink: () => void; onMandarLink: () => void;
   onRotar: () => void; onRevocar: () => void;
 }) {
@@ -248,6 +294,7 @@ function Card({ c, cargando, onAbrir, onDarLink, onMandarLink, onRotar, onRevoca
         )}
 
         <span className="razon">{c.razon}</span>
+        <span className="trab">{textoTrabajo(trabajo, tableroOk)}</span>
         <span className="sub">
           {c.ultimaSesionHace === null
             ? 'Todavía no tuvieron ninguna sesión'
@@ -335,6 +382,8 @@ const CSS = `
 .c-tuya .razon{ color:var(--ink); }
 .c-suya .razon, .c-al-dia .razon{ color:var(--dim); }
 .sub{ display:block; margin:4px 0 0; font-size:12.5px; line-height:1.45; color:var(--faint); }
+.trab{ display:block; margin:6px 0 0; font-size:12px; line-height:1.4; color:var(--faint);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .promesa{ display:flex; flex-direction:column; gap:3px; padding:11px 19px;
   background:var(--surface-2); border-top:1px solid var(--border); }

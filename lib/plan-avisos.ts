@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto';
 import { emitirAviso } from '@/lib/avisos';
 import { enPlan, listPlanBoard } from '@/lib/plan-board';
 import { clasificarVencimientos, textoVencimientos, huellaVencimientos, type ResumenVencimientos } from '@/lib/plan-vencimientos';
+import { sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
 
 /** Sin cambios, no se repite en 3 días. Cuando cambia algo, sale al otro día. */
 const TTL_MIN = 60 * 24 * 3;
@@ -28,11 +29,21 @@ export async function vencimientosDelPlan(hoyISO: string): Promise<ResumenVencim
   return enPlan(async () => {
     const { proyectos, tareas } = await listPlanBoard();
     return clasificarVencimientos(
-      proyectos.map((p) => ({
-        nombre: p.name,
-        deadline: p.deadline ?? '',
-        abiertas: tareas.filter((t) => t.labels.includes(p.id) && t.progress < 100).length,
-      })),
+      proyectos.map((p) => {
+        const suyas = tareas.filter((t) => t.labels.includes(p.id) && t.progress < 100);
+        // ⚠️ LAS QUE SE REPITEN NO SON TRABAJO ABIERTO, PERO SÍ SON SEÑAL DE VIDA (mig 0163).
+        // Contarlas en `abiertas` manda un WhatsApp que dice «3 tareas abiertas» cuando las
+        // tres son la reunión de los miércoles; no mandarlas en absoluto hace que un
+        // proyecto de puras recurrentes caiga en `abiertas === 0` y deje de avisar su
+        // vencimiento. Las dos son mentiras distintas, así que viajan por separado y quien
+        // redacta el renglón decide (`carga`, en plan-vencimientos.ts).
+        return {
+          nombre: p.name,
+          deadline: p.deadline ?? '',
+          abiertas: sinRecurrentes(suyas).length,
+          recurrentes: soloRecurrentes(suyas).length,
+        };
+      }),
       hoyISO,
     );
   });
