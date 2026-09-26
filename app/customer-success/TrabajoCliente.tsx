@@ -29,18 +29,23 @@
 // (`RepiteChip`), el formato de la fecha con su plazo (`LineaDeadline`) y el renderer
 // del detalle (`mdAHtml` + `sanitizeHtml`). Son los mismos que pinta el tablero, así
 // que la misma tarjeta no puede decir dos cosas distintas en dos pantallas.
+//
+// ⚠️ SE PODÓ EL 26/09/2026 y conviene no volver a plantarlo. Se fueron el bloque de
+// proyectos huérfanos, el chip de CÓMO se ató el proyecto al cliente y los párrafos que
+// explicaban el ranking. Nada de eso es un cliente, un proyecto, una tarea o una
+// recurrente — que es todo lo que esta pantalla muestra. El cruce sigue igual de blando
+// que antes (./cruce.ts): lo que se fue es el comentario en pantalla, no la regla.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Status, Button, MONO } from '@/app/_ui';
+import { Status, MONO } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import { RepiteChip, LineaDeadline } from '@/app/plan/board/piezas';
 import { mdAHtml, sanitizeHtml } from '@/app/plan/board/RichText';
 import { ROTULO_RECURRENTE } from '@/lib/plan-recurrentes';
-import { ROTULO_ATO, type ComoAto } from './cruce';
-import type { ProyectoCS, ProyectoHuerfano, TareaCS, ResumenTrabajo } from './trabajo';
+import type { ProyectoCS, TareaCS, ResumenTrabajo } from './trabajo';
 import { trabajoDelClienteAction } from './actions';
 
-type Cargado = { proyectos: ProyectoCS[]; tareas: TareaCS[]; recurrentes: TareaCS[]; huerfanos: ProyectoHuerfano[] };
+type Cargado = { proyectos: ProyectoCS[]; tareas: TareaCS[]; recurrentes: TareaCS[] };
 type Estado =
   | { fase: 'cargando' }
   | { fase: 'error'; error: string }
@@ -75,7 +80,7 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
 }) {
   const [e, setE] = useState<Estado>({ fase: 'cargando' });
   const [pila, setPila] = useState<Foco[]>([]);
-  const hoy = useMemo(hoyISO, []);
+  const hoy = useMemo(() => hoyISO(), []);
 
   useEffect(() => {
     let vivo = true;
@@ -83,7 +88,7 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
       .then((r) => {
         if (!vivo) return;
         setE(r.ok
-          ? { fase: 'lista', proyectos: r.proyectos, tareas: r.tareas, recurrentes: r.recurrentes, huerfanos: r.huerfanos }
+          ? { fase: 'lista', proyectos: r.proyectos, tareas: r.tareas, recurrentes: r.recurrentes }
           : { fase: 'error', error: r.error });
       })
       .catch((err) => { if (vivo) setE({ fase: 'error', error: err instanceof Error ? err.message : 'No pude leer el tablero.' }); });
@@ -107,10 +112,7 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
               ].filter(Boolean).join(' · ')}…`
             : 'Buscando su trabajo en el tablero…'}
         </p>
-        <p className="d">
-          Puede tardar unos segundos: se lee el tablero entero para cruzarlo con la cartera.
-          Si cierras la ficha no se pierde nada — todavía no se escribió nada.
-        </p>
+        <p className="d">Puede tardar unos segundos.</p>
       </div>
     );
   }
@@ -121,12 +123,11 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
       <div className="tr-vacio">
         <p className="t tr-error">No pude leer el tablero</p>
         <p className="d">{e.error}</p>
-        <p className="d">Esto no quiere decir que no tenga trabajo cargado: quiere decir que no lo pude averiguar.</p>
       </div>
     );
   }
 
-  const { proyectos, tareas, recurrentes, huerfanos } = e;
+  const { proyectos, tareas, recurrentes } = e;
   const abiertas = tareas.filter((t) => t.abierta);
   const hechas = tareas.filter((t) => !t.abierta);
   const vacio = !proyectos.length && !tareas.length && !recurrentes.length;
@@ -169,10 +170,10 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
   return (
     <div className="tr">
       {vacio ? (
-        <SinTrabajo nombre={nombre} huerfanos={huerfanos} />
+        <SinTrabajo nombre={nombre} />
       ) : (
         <>
-          <Grupo titulo="Proyectos" n={proyectos.length} vacio="No tiene ningún proyecto propio en el tablero.">
+          <Grupo titulo="Proyectos" n={proyectos.length} vacio="Ninguno.">
             {proyectos.map((p) => (
               <FilaProyecto key={p.id} p={p} hoy={hoy} onAbrir={() => abrir({ tipo: 'proyecto', id: p.id })} />
             ))}
@@ -181,24 +182,18 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
           <Grupo
             titulo="Tareas" n={abiertas.length} hay={tareas.length}
             sub={hechas.length ? `${hechas.length} ${hechas.length === 1 ? 'terminada' : 'terminadas'}` : undefined}
-            vacio="Ninguna tarea con fin: lo que hay es lo que se repite."
+            vacio="Ninguna."
           >
             {[...abiertas, ...hechas].map((t) => (
               <FilaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
             ))}
           </Grupo>
 
-          <Grupo
-            titulo="Recurrentes" n={recurrentes.length}
-            sub={recurrentes.length ? 'no compiten en el ranking' : undefined}
-            vacio="Nada que se repita para siempre con él."
-          >
+          <Grupo titulo="Recurrentes" n={recurrentes.length} vacio="Ninguna.">
             {recurrentes.map((t) => (
               <FilaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
             ))}
           </Grupo>
-
-          {huerfanos.length > 0 && <Huerfanos huerfanos={huerfanos} />}
         </>
       )}
 
@@ -248,7 +243,6 @@ function FilaProyecto({ p, hoy, onAbrir }: { p: ProyectoCS; hoy: string; onAbrir
           </span>
         </span>
         <span className="der">
-          <Ato como={p.como} />
           {p.deadline && <LineaDeadline iso={p.deadline} hoy={hoy} />}
         </span>
       </button>
@@ -286,61 +280,11 @@ function FilaTarea({ t, hoy, onAbrir }: { t: TareaCS; hoy: string; onAbrir: () =
   );
 }
 
-/** Cómo se ató este proyecto al cliente. Un parecido se dice que es un parecido. */
-function Ato({ como }: { como: ComoAto }) {
-  if (como === 'clave') return null;
-  return (
-    <span className={`tr-ato a-${como}`} title={
-      como === 'nombre'
-        ? 'El nombre del proyecto y el del cliente coinciden. Es fuerte, pero sigue siendo un nombre: la clave honesta es cliente_lead_id, y hoy casi ninguna tarea la trae escrita.'
-        : 'Comparten una palabra que no comparte nadie más. Es un PARECIDO: verifícalo antes de apoyarte en esto.'
-    }>
-      {ROTULO_ATO[como]}
-    </span>
-  );
-}
-
-function SinTrabajo({ nombre, huerfanos }: { nombre: string; huerfanos: ProyectoHuerfano[] }) {
+function SinTrabajo({ nombre }: { nombre: string }) {
   return (
     <div className="tr-vacio">
       <p className="t">Todavía no hay trabajo suyo en el tablero</p>
-      <p className="d">
-        Las tareas de {nombre} aparecen solas aquí cuando se archivan en un proyecto con su
-        nombre, o cuando salen de una reunión con él.
-      </p>
-      {huerfanos.length > 0 && <Huerfanos huerfanos={huerfanos} deUnCliente />}
-    </div>
-  );
-}
-
-/**
- * Los proyectos «Cliente: …» que no cruzaron con nadie. No se esconden, y el texto dice
- * la hipótesis correcta: un cliente sin proyecto y un proyecto sin cliente casi siempre
- * son el mismo, corrido — el nombre difiere en una palabra y el cruce por nombre no los
- * une. Medido en el ws1: 8 clientes sin proyecto y 3 proyectos sin cliente (30 tareas).
- */
-function Huerfanos({ huerfanos, deUnCliente = false }: { huerfanos: ProyectoHuerfano[]; deUnCliente?: boolean }) {
-  const tareas = huerfanos.reduce((n, h) => n + h.abiertas + h.recurrentes, 0);
-  return (
-    <div className="tr-huerfanos">
-      <p className="k">
-        {huerfanos.length === 1 ? 'Hay 1 proyecto de cliente' : `Hay ${huerfanos.length} proyectos de cliente`} que
-        no sé de quién {huerfanos.length === 1 ? 'es' : 'son'}
-        {tareas > 0 && `, con ${tareas} ${tareas === 1 ? 'tarea abierta' : 'tareas abiertas'}`}.
-        {deUnCliente && ' Puede que alguno sea el suyo con el nombre corrido.'}
-      </p>
-      <ul>
-        {huerfanos.map((h) => (
-          <li key={h.id}>
-            <span className="n">{h.nombre}</span>
-            <span className="c">
-              {h.abiertas} {h.abiertas === 1 ? 'abierta' : 'abiertas'}
-              {h.recurrentes > 0 && ` · ${h.recurrentes} ${h.recurrentes === 1 ? 'se repite' : 'se repiten'}`}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p className="p">Se arregla renombrando el proyecto con el nombre del cliente, en el tablero.</p>
+      <p className="d">Aparece solo cuando un proyecto del tablero lleva el nombre de {nombre}.</p>
     </div>
   );
 }
@@ -366,13 +310,12 @@ function CabDetalle({ tipo, titulo, volverA, onVolver, onCerrar }: {
 
 /** El pie: el único camino AFUERA, y abre en otra pestaña a propósito — la ficha del
  *  cliente queda donde está. Acá se mira; editar es del tablero. */
-function PieDetalle({ href, que }: { href: string; que: string }) {
+function PieDetalle({ href }: { href: string }) {
   return (
     <footer className="tr-pie">
       <Link href={href} target="_blank" rel="noopener noreferrer" className="tr-link">
-        Abrir{que} en el tablero para editarla ↗
+        Abrir en el tablero ↗
       </Link>
-      <span className="nota">Se abre en otra pestaña: esta ficha queda como está.</span>
     </footer>
   );
 }
@@ -398,14 +341,12 @@ function DetalleTarea({ t, hoy, proyectos, volverA, onVolver, onCerrar }: {
           {t.responsable && <span className="quien">{t.responsable}</span>}
           {t.deadline
             ? <LineaDeadline iso={t.deadline} hoy={hoy} tam={12} />
-            : t.recurrente
-              ? <span className="sinfecha" title="Una recurrente no vence: no le falta la fecha, no le corresponde.">Sin fecha, y está bien</span>
-              : <span className="sinfecha">Sin fecha</span>}
+            : !t.recurrente && <span className="sinfecha">Sin fecha</span>}
         </div>
 
         {!t.recurrente && t.abierta && <Barra pct={t.progreso} rotulo={`${t.progreso}% avanzado`} />}
 
-        <Doc texto={t.detalle} vacio="Esta tarea no tiene detalle cargado. Sin detalle, dentro de tres semanas hay que volver a la fuente — y a la fuente no se vuelve." />
+        <Doc texto={t.detalle} vacio="Sin detalle cargado." />
 
         {t.scoreRazon && !t.recurrente && (
           <section className="porque">
@@ -413,18 +354,8 @@ function DetalleTarea({ t, hoy, proyectos, volverA, onVolver, onCerrar }: {
             <p>{t.scoreRazon}</p>
           </section>
         )}
-        {t.recurrente && (
-          <section className="porque">
-            <h4>Por qué no tiene prioridad</h4>
-            <p>
-              Se repite para siempre, así que no tiene fin ni deadline real. Queda fuera del
-              ranking y de Prioridades a propósito: si compitiera, ocuparía un puesto que no
-              le corresponde y taparía lo que sí se puede terminar.
-            </p>
-          </section>
-        )}
       </div>
-      <PieDetalle href={`/plan?tarea=${t.id}`} que="la" />
+      <PieDetalle href={`/plan?tarea=${t.id}`} />
     </>
   );
 }
@@ -449,7 +380,6 @@ function DetalleProyecto({ p, hoy, tareas, volverA, onVolver, onCerrar, onTarea 
       <div className="tr-det">
         <div className="chips">
           <Status>Prioridad {p.score}</Status>
-          <Ato como={p.como} />
           {p.quarter && <span className="quien">{p.quarter}</span>}
           {p.deadline
             ? <LineaDeadline iso={p.deadline} hoy={hoy} tam={12} />
@@ -464,12 +394,12 @@ function DetalleProyecto({ p, hoy, tareas, volverA, onVolver, onCerrar, onTarea 
           : (
             <p className="tr-nota">
               {p.recurrentes > 0
-                ? `En marcha: ${p.recurrentes} ${p.recurrentes === 1 ? 'cosa que se repite' : 'cosas que se repiten'} y nada con fin. No tiene porcentaje porque no hay nada que terminar.`
-                : 'Todavía no tiene ninguna tarea.'}
+                ? `${p.recurrentes} ${p.recurrentes === 1 ? 'se repite' : 'se repiten'} · nada con fin`
+                : 'Sin tareas'}
             </p>
           )}
 
-        <Doc texto={p.detalle} vacio="Este proyecto no tiene detalle cargado." />
+        <Doc texto={p.detalle} vacio="Sin detalle cargado." />
 
         {p.scoreRazon && (
           <section className="porque">
@@ -482,7 +412,7 @@ function DetalleProyecto({ p, hoy, tareas, volverA, onVolver, onCerrar, onTarea 
         <ListaEnProyecto titulo="Se repiten" tareas={repiten} hoy={hoy} onTarea={onTarea} />
         <ListaEnProyecto titulo="Terminadas" tareas={hechas} hoy={hoy} onTarea={onTarea} />
       </div>
-      <PieDetalle href={`/plan?proyecto=${p.id}`} que="lo" />
+      <PieDetalle href={`/plan?proyecto=${p.id}`} />
     </>
   );
 }
@@ -552,10 +482,6 @@ const CSS = `
 .tr-filo{ display:block; height:2px; background:var(--border); }
 .tr-filo span{ display:block; height:100%; background:var(--ink); }
 
-.tr-ato{ font-size:10.5px; padding:2px 7px; border-radius:6px; white-space:nowrap;
-  border:1px solid var(--border-strong); color:var(--dim); background:var(--surface-2); }
-.tr-ato.a-parecido{ border-style:dashed; }
-
 .tr-cargando{ padding:16px 0; }
 .tr-cargando .q{ margin:0 0 6px; font-size:14px; line-height:1.5; }
 .tr-cargando .d{ margin:0; font-size:12.5px; line-height:1.5; color:var(--faint); }
@@ -566,15 +492,6 @@ const CSS = `
 .tr-vacio .t{ font-size:15px; font-weight:600; margin:0 0 5px; }
 .tr-vacio .d{ font-size:13.5px; line-height:1.5; color:var(--dim); margin:0 0 12px; }
 
-.tr-huerfanos{ margin:18px 0 0; padding:13px 15px; border-radius:11px;
-  background:var(--surface-2); border:1px solid var(--border); }
-.tr-huerfanos .k{ margin:0 0 9px; font-size:13px; line-height:1.5; }
-.tr-huerfanos ul{ list-style:none; margin:0; padding:0; }
-.tr-huerfanos li{ display:flex; align-items:baseline; gap:12px; padding:5px 0;
-  border-top:1px solid var(--border); font-size:13px; }
-.tr-huerfanos li .n{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tr-huerfanos li .c{ margin-left:auto; flex:none; font-size:12px; color:var(--faint); }
-.tr-huerfanos .p{ margin:10px 0 0; font-size:12.5px; line-height:1.5; color:var(--faint); }
 `;
 
 const CSS_DET = `
@@ -583,17 +500,19 @@ const CSS_DET = `
 .tr-cab{ position:sticky; top:-4px; z-index:2; display:flex; align-items:baseline; gap:10px;
   flex-wrap:wrap; background:var(--surface); border-bottom:1px solid var(--border); }
 /* ⚠️ El margen negativo NO es un ajuste fino: es lo que hace que la cabecera TAPE. El
-   cuerpo de la ficha tiene 18px de padding arriba (.dc-cuerpo), así que con top:0 y sin
-   esto queda una franja transparente encima por la que se ve pasar el texto que scrollea
-   por debajo — medido en el navegador, se lee como una línea de basura sobre el título.
-   Y el top:-4px son los 4px de padding-top de .mk-modal__cuerpo, MEDIDOS con
-   getComputedStyle: un sticky se pega al borde del PADDING box, así que con top:0 quedan
-   esos 4px por los que se ve pasar el texto. No se adivinó: se midió.
+   contenedor de scroll (.mk-modal__cuerpo) tiene 4px de padding arriba (app/_ui/ui.css),
+   así que sin el margen negativo queda una franja transparente encima por la que se ve
+   pasar el texto que scrollea por debajo — se lee como una línea de basura sobre el
+   título. El top:-4px es ESE mismo padding, MEDIDO con getComputedStyle: un sticky se
+   pega al borde del padding box. No se adivinó: se midió.
+   ⚠️ Los dos números son EL MISMO padding. Hasta el 26/09/2026 el margen valía -18px
+   porque el cuerpo de la ficha metía su propia caja (.dc-cuerpo) entre el modal y esto;
+   esa caja se fue con las tabs, y el margen tuvo que bajar con ella.
 
    (Y sin comillas invertidas en este comentario: adentro de un template literal cierran la
    cadena, y la pantalla contesta 200 sin cuerpo. Esto lo cazó el navegador y no el
    typecheck — AGENTS.md lo tiene escrito y pasó igual.) */
-.tr-cab{ margin:-18px 0 14px; padding:18px 0 10px; }
+.tr-cab{ margin:-4px 0 14px; padding:4px 0 10px; }
 .tr-cab .volver{ background:none; border:0; padding:4px 8px 4px 0; font:inherit; font-size:13px;
   color:var(--dim); cursor:pointer; }
 .tr-cab .volver:hover{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }

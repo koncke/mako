@@ -3,10 +3,19 @@
 // =============================================================================
 // Server actions de Customer Success
 // =============================================================================
-// Quedan dos, y las dos son universales: el TRABAJO de un cliente en el tablero
-// y su ESTADO en la entrega.
+// Queda UNA: el trabajo de un cliente en el tablero. Es lo único que la pantalla
+// hace, y la pantalla es una lista de clientes con sus proyectos, sus tareas y
+// sus recurrentes.
 //
-// ⚠️ SE FUERON TRES, Y EL PORQUÉ IMPORTA (26/09/2026). `emitirLinkAction`,
+// ⚠️ `marcarEstadoAction` SE FUE CON LOS BOTONES (26/09/2026). Ponía a un cliente
+// en pausa / terminado / baja en `cs_clientes`, y esos tres botones eran parte de
+// lo que esta pantalla nunca tuvo que tener. La CAPACIDAD no se perdió: MaKo la
+// sigue teniendo entera en `lib/api-mako/areas/cs.helpers.ts`
+// (`marcarEstadoCliente`), que es donde vive ese mecanismo. Si vuelve a hacer
+// falta un botón, el server action se reescribe en cuatro líneas; lo que no se
+// puede es dejarlo acá sin nadie que lo llame.
+//
+// ⚠️ SE FUERON TRES MÁS, Y EL PORQUÉ IMPORTA (26/09/2026). `emitirLinkAction`,
 // `revocarLinksAction`, `avanceDelClienteAction` y `sincronizarWhopAction` eran
 // del programa de 44 clases de UN cliente: el link abría SU cuestionario, el
 // avance leía `cs_respuestas` (0 filas en todo el producto) y el sync subía SU
@@ -20,9 +29,7 @@
 // el estado sobre la cartera de Mauricio. Es la misma pantalla para todos: el
 // inquilino lo resuelve `getTenantDb()`.
 
-import { revalidatePath } from 'next/cache';
 import { getTenantDb } from '@/lib/workspace';
-import { type EstadoCliente } from '@/lib/cs-cartera';
 import { clientesGanados, trabajoDeCliente, type ResultadoTrabajo } from './trabajo';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
@@ -60,33 +67,4 @@ export async function trabajoDelClienteAction(leadId: number): Promise<Resultado
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el tablero.' };
   }
-}
-
-// ── El estado del cliente en la entrega ─────────────────────────────────────
-// `graduado` y `baja` son DECISIONES, no cálculos: el contrato dice cuándo vence
-// el plazo, no si el trabajo se terminó. Una garantía del tipo «sesiones sin
-// costo hasta terminar» hace que pasarse del plazo no signifique nada por sí
-// solo — por eso la señal de atención dice «se le terminó el contrato» y no
-// «graduado».
-
-export async function marcarEstadoAction(
-  leadId: number, estado: EstadoCliente, motivo?: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const cliente = await clienteDelWorkspace(leadId);
-  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
-
-  const db = await getTenantDb();
-  const ahora = new Date().toISOString();
-  const { error } = await db
-    .from('cs_clientes')
-    .upsert({
-      lead_id: leadId, estado,
-      estado_at: estado === 'activo' ? null : ahora,
-      motivo: motivo?.trim() || null,
-      updated_at: ahora,
-    }, { onConflict: 'workspace_id,lead_id' });
-
-  if (error) return { ok: false, error: error.message };
-  revalidatePath('/customer-success');
-  return { ok: true };
 }

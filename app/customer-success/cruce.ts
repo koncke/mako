@@ -43,12 +43,6 @@ export type ComoAto =
   /** Comparten una palabra que no comparte nadie más. Es un PARECIDO y se dice. */
   | 'parecido';
 
-export const ROTULO_ATO: Record<ComoAto, string> = {
-  clave: 'atado por la ficha del cliente',
-  nombre: 'atado por el nombre',
-  parecido: 'se parece al nombre',
-};
-
 export type ClienteCruce = { leadId: number; nombre: string; empresa: string | null };
 export type ProyectoCruce = { id: number; nombre: string };
 
