@@ -53,6 +53,10 @@ type TablaClon = {
   neutralizar?: Record<string, (fila: Record<string, unknown>, i: number) => unknown>;
   /** Singleton por workspace (una fila, id = workspace_id). */
   singleton?: boolean;
+  /** El funnel DEFAULT del destino: se pisa su `data`, no se inserta una fila.
+   *  Tiene rama propia porque no es ni singleton (la tabla tiene N filas por
+   *  workspace) ni copiable (un segundo `es_default` lo rechaza el índice). */
+  funnelDefault?: boolean;
   /** Cuántas filas como mucho: alcanza para que la tab se vea viva. */
   limite?: number;
   /** Orden de traída (para que el límite se quede con lo más reciente). */
@@ -183,7 +187,9 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
     // pipeline_stages NO se copia: no tiene columna `id` y su PK es `key`
     // GLOBAL, sin workspace_id — copiarla choca con la del dueño. Además quedó
     // sin uso para el funnel (migración 0025).
-    tablas: [{ tabla: 'funnel_config', singleton: true }],
+    // No es `singleton`: `funnels` tiene N filas por workspace (mig 0170). Lo que
+    // se trae es la FORMA del embudo del dueño sobre el funnel default del destino.
+    tablas: [{ tabla: 'funnels', funnelDefault: true }],
   },
   creativos: {
     titulo: 'Avatares y ángulos',
@@ -509,6 +515,30 @@ function remapearJson(fila: Record<string, unknown>, r: NonNullable<TablaClon['r
 async function copiarTabla(t: TablaClon, destino: number, recibo: Recibo, avisos: string[], mapas: Mapas): Promise<number> {
   const sb = getSupabaseServer();
 
+  if (t.funnelDefault) {
+    // El funnel del dueño: su forma, encima del funnel default que el destino YA
+    // tiene. No se inserta una fila — `funnels_ws_default_uk` rechaza el segundo
+    // default, y ese índice es el guard de «un ws tiene exactamente uno».
+    const { data } = await sb.from(t.tabla).select('*').eq('workspace_id', OWNER_WS).eq('es_default', true).limit(1);
+    const fila = ((data ?? []) as Array<Record<string, unknown>>)[0];
+    if (!fila) return 0;
+    const nueva = prepararFila(fila, t, destino, 0);
+    delete nueva.id;          // el id es de la fila del dueño
+    delete nueva.es_default;  // el destino ya decide cuál es el suyo
+    delete nueva.created_at;
+    const { data: tocadas, error } = await sb.from(t.tabla)
+      .update({ ...nueva, updated_at: new Date().toISOString() })
+      .eq('workspace_id', destino).eq('es_default', true)
+      .select('id');
+    if (error) { avisos.push(`${t.tabla}: ${error.message}`); return 0; }
+    const id = ((tocadas ?? []) as Array<{ id: string | number }>)[0]?.id;
+    if (id == null) { avisos.push(`${t.tabla}: este cliente no tiene funnel default; entra a la pestaña Funnel y vuelve a traerlo.`); return 0; }
+    // Se anota para poder DEVOLVERLO. Ojo: devolver un funnel no es borrar la fila
+    // (dejaría al workspace sin ninguna): se vacía. Ver eliminarDatosDelDueno.
+    (recibo.filas[t.tabla] ??= []).push(id);
+    return 1;
+  }
+
   if (t.singleton) {
     const { data } = await sb.from(t.tabla).select('*').eq('workspace_id', OWNER_WS).limit(1);
     const fila = ((data ?? []) as Array<Record<string, unknown>>)[0];
@@ -772,6 +802,21 @@ export async function eliminarDatosDelDueno(ambito: AmbitoKey, destino: number):
   for (const tabla of tablas) {
     const ids = recibo.filas[tabla] ?? [];
     if (!ids.length) continue;
+    // El funnel NO se borra: se VACÍA. Un workspace siempre tiene exactamente un
+    // funnel default (mig 0170), así que borrar la fila lo dejaría en un estado que
+    // el modelo no contempla. Vaciarlo es el equivalente exacto de lo que hacía el
+    // `funnel_config` singleton al devolverse: volver a «sin declarar».
+    if (tabla === 'funnels') {
+      try {
+        const { error } = await sb.from('funnels')
+          .update({ data: {}, declarado: false, canal: null, plantilla: null, updated_at: new Date().toISOString() })
+          .eq('workspace_id', destino).in('id', ids);
+        if (error) throw new Error(error.message);
+        detalle[tabla] = ids.length;
+        borrado += ids.length;
+      } catch { /* el funnel ya no está: nada que vaciar */ }
+      continue;
+    }
     try {
       // De a tandas: una lista de 1200 ids en un solo .in() revienta la URL.
       for (let i = 0; i < ids.length; i += 200) {

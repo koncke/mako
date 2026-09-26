@@ -22,7 +22,7 @@ import { chatCheapCascade } from '@/lib/ai-cheap';
 import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
-import { getFunnel } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
 import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -46,7 +46,9 @@ export async function GET() {
   try {
     const [{ secuencias, serie }, funnel, leadMagnets, wsRow, huecos, instancia] = await Promise.all([
       getSettingData(),
-      getFunnel().catch(() => null),
+      // DEFAULT hoy: la pantalla trabaja sobre el funnel del negocio. Cuando haya
+      // varios, acá entra el desplegable y el funnel elegido.
+      getFunnelDefault().catch(() => null),
       getEntregables().catch(() => []),
       getWorkspace(ws).catch(() => null),
       // Las etapas de nutrición que quedaron sin secuencia. Reemplaza al seed:

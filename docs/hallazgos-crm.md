@@ -2686,3 +2686,554 @@ aparición de un patrón que existe dos veces es cómo un test mira el bloque eq
 verde.
 
 **Vive en:** `app/integraciones/ProbarTracking.tsx` · `tests/landing-optin.test.ts`
+
+### «Sin fila» no es «vacío»: el `origen` del funnel sale de una COLUMNA, no de la forma del jsonb
+
+La migración de `funnels` (0170, la 0126 del modelo) le da fila a TODOS los workspaces: a los
+que ya tenían `funnel_config` les copia su `data`, y a los tres que no tenían (ws **3, 5 y 9**)
+les crea una con `data = '{}'::jsonb` y `declarado = false`. El objetivo declarado de la fase es
+que nada cambie: «ningún prompt empieza a afirmar un funnel que nadie declaró».
+
+El lector viejo decidía así (`lib/leads.ts`, antes del rename):
+
+    if (!data || !data.data) return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'sin-fila' });
+
+**Y `{}` en JavaScript es TRUTHY.** Un `getFunnelDefault()` escrito por traducción directa lee
+`data.data = {}`, cae al camino de abajo y devuelve `origen: 'declarado'` con el
+`DEFAULT_PIPELINE`: tres workspaces pasan de «no declaró nada» a «declaró el funnel genérico»,
+sin error y sin un solo log.
+
+No es cosmético. Hay tres lectores de `origen` en producción —`lib/objectives.ts` (qué KPIs
+proponer), `lib/venta-por-llamada.ts` y `lib/acento-workspace.ts`— y el contrato que se rompe es
+el que impide que un prompt afirme «dejó sus datos en el anuncio» sobre alguien que nunca lo
+declaró.
+
+**La regla:** `origen` se deriva de la columna `funnels.declarado`, nunca de la forma de `data`.
+Es la misma familia que el otro caso ya escrito acá («sin fila» ≠ «vacío»), y por eso el mapeo
+fila → `FunnelConfig` vive en `lib/funnel-fila.ts`, **sin `server-only`**: la regla tiene que
+poder importarse desde un test.
+
+**Probado rompiéndolo:** cambiando `const declarado = f.declarado === true` por
+`const declarado = Boolean(f.data)`, `tests/funnel-declarado.test.ts` pasa de 6/6 a **2 fallos y
+4 pases** — caen exactamente los dos casos que la migración crea en prod.
+
+**Vive en:** `lib/funnel-fila.ts` · `lib/funnels.ts` · `supabase/migrations/0170_funnels.sql` ·
+`tests/funnel-declarado.test.ts` · *2026-09-26 F1 multi-funnel*
+
+### El orden de despliegue de la 0170 es el INVERSO del de la 0167/0168
+
+`0168_frecuencia_vieja_fuera.sql` dejó escrita la regla «agregar → desplegar → sacar»: una
+migración que DROPEA se aplica después del deploy. La 0170 es la otra mitad y se aplica **antes
+o junto** con su deploy: el código deja de leer `funnel_config` en el mismo commit, así que
+entre un deploy sin tabla y la migración `getFunnelDefault()` devuelve `origen:'error'` y todo
+el mundo ve el `DEFAULT_PIPELINE`.
+
+No se pierde nada (en esa ventana nadie escribe), pero el CRM pinta columnas genéricas y los
+prompts dejan de saber el embudo. Lo que hace fácil equivocarse es que el reflejo aprendido con
+la 0168 —«primero el código»— acá produce exactamente el síntoma que la fase venía a evitar.
+
+**La regla:** una migración ADITIVA cuyo código nuevo ya lee la tabla nueva va primero; una que
+SACA algo va después. El .sql lo dice en su cabecera, que es donde lo va a leer el que la aplique.
+
+**Vive en:** `supabase/migrations/0170_funnels.sql` · *2026-09-26 F1 multi-funnel*
+
+### Contar filas deja de distinguir en cuanto la migración le da una a todos
+
+La señal `funnel-cargado` (`lib/plan-senales.ts`) preguntaba «¿hay filas en `funnel_config` de
+este workspace?». Ya había fallado una vez —la tabla no estaba en `TENANT_TABLES`, contaba las
+filas de todos los inquilinos y la señal salía verde para los 6— y el arreglo fue el `.eq` a
+mano.
+
+Con `funnels`, ese mismo conteo vuelve a dar verde para los 9, por otro camino: el guard en
+positivo de la 0170 («un ws SIEMPRE tiene exactamente un funnel default») garantiza que la fila
+exista. **La existencia de la fila dejó de ser información.** Lo que la señal pregunta de verdad
+es si el cliente DECLARÓ su embudo, y eso es `declarado = true`.
+
+Lo mismo le pasa a `scripts/reparar-senal-funnel.ts`, que distinguía «tiene funnel propio» por
+la fila.
+
+**La regla, que vale para cualquier backfill:** cuando una migración le crea fila a todos, todo
+chequeo de existencia sobre esa tabla se invierte en silencio. Antes de escribir el INSERT,
+grepeá quién cuenta filas ahí.
+
+**Vive en:** `lib/plan-senales.ts` (`funnelDeclarado`) · `scripts/reparar-senal-funnel.ts` ·
+*2026-09-26 F1 multi-funnel*
+
+### El clon y «los datos de Mau» escribían el funnel por su `id = workspace_id`
+
+`funnel_config` era singleton y su `id` **es igual al `workspace_id`** en las 6 filas de prod
+(lo escribe `saveFunnel` con `{ id: ws, workspace_id: ws }`). De ahí salieron TRES upserts con
+`onConflict: 'workspace_id'` —`saveFunnel`, `clonarConfigDelDueno` y el ámbito `singleton` de
+`datos-mau`— y los tres suponen que la fila se puede identificar por el workspace.
+
+Con `funnels` eso deja de valer: la tabla tiene identity propia y N filas por workspace. Los
+tres pasaron a **UPDATE sobre el funnel default** (`.eq('workspace_id').eq('es_default', true)`),
+nunca a insertar una fila nueva — un segundo `es_default` lo rechaza `funnels_ws_default_uk`,
+que es justamente el guard de que hay uno solo.
+
+Y el que menos se ve: **«devolver los datos de Mau» BORRABA la fila**. Sobre `funnels`, borrar
+el default dejaría al workspace en cero funnels, que es un estado que el modelo no contempla. La
+devolución lo **vacía** (`data = {}`, `declarado = false`), que es el equivalente exacto de lo
+que hacía antes: volver a «sin declarar».
+
+**Lo que quedó SIN hacer:** el ámbito «El funnel» de datos-mau trae un solo funnel (el default
+del dueño). Con N funnels habrá que decidir si se traen todos.
+
+**Vive en:** `lib/clonar-config.ts` · `lib/datos-mau.ts` (`funnelDefault`,
+`eliminarDatosDelDueno`) · `lib/reset-workspace.ts` · `lib/workspace.ts` (`crearWorkspace`) ·
+*2026-09-26 F1 multi-funnel*
+
+### El diagnóstico obvio era el equivocado: ws3 ya no es el cliente de prueba con datos
+
+`docs/modelo-oferta-producto-funnel.md` mide, el 10/08: «1.000 leads (ws1 880, **ws3** 120)» y
+«2 productos en total (ws1 y **ws3**)». Medido de nuevo el 26/09 contra prod: **ws3 está en
+cero** — sin leads, sin productos, sin `funnel_config`, sin `answers`. Sus únicas dos filas en
+toda la base son dos `app_settings` de avisos.
+
+El clon de demo con los datos de Mauricio es **ws4 «Cliente de Diseño»**, creado el 16/08 (seis
+días después de esa medición): su blob `mako.onboarding.answers` es **byte-idéntico** al de ws1
+(1155 caracteres, `=` en SQL devuelve true) y tiene 300 leads.
+
+Cualquier query o script que use ws3 como «el workspace de prueba con datos» **mide cero y no
+falla**. Y la memoria del proyecto también dice ws3.
+
+**Vive en:** `docs/modelo-oferta-producto-funnel.md` (donde dice ws3, hoy hay que leer ws4) ·
+`lib/auth-session.ts` (`exigirClienteDePrueba`) · *2026-09-26 F1 multi-funnel*
+
+### `oferta_ticket` es texto libre: el precio del brief NO es un número
+
+Medido en los 6 workspaces que tienen el grupo `oferta` cargado: **4 de 6** tienen una frase
+donde el código espera un monto — «Entre USD 5,000 y USD 10,000» (ws1), «MVP $500 - $1,000 USD;
+escalado $5,000 USD o más» (ws10), «800 MXN/mes» (ws11, otra moneda), «2000 a 10000» (ws13).
+Solo ws14 («500») parsea limpio.
+
+El `parseFloat` de `seedProductosDesdeOferta` devuelve `NaN` en silencio y el producto queda con
+`monto_usd: null` — visible hoy en el producto id=1 de ws1. El mismo molde sobre
+`ofertas.precio_usd` (numeric) haría exactamente lo mismo.
+
+**La regla:** el ticket del brief va a un campo TEXT (`ofertas.precio_nota`). El numérico se
+pide aparte o no se pide.
+
+**Vive en:** `lib/productos.ts` (`seedProductosDesdeOferta`) · `lib/onboarding.ts` (grupo
+`oferta`) · `supabase/migrations/0169_ofertas.sql` · *2026-09-26 F1 multi-funnel*
+
+### Un guard de seed quemado no se vuelve a abrir, y no se distingue de un seed exitoso
+
+**ws4 tiene `mako.productos.seeded = '1'` y CERO productos.** El seed corrió, marcó su bandera y
+el producto no quedó. `seedProductosDesdeOferta` no va a volver a intentarlo nunca, aunque los 5
+campos `oferta_*` estén cargados.
+
+Todo seed idempotente por `app_settings` tiene este modo de falla, y no hay forma de distinguir
+«ya sembró» de «sembró y lo borraron»: la bandera es un booleano y lo sembrado es otra tabla.
+
+**Lo que quedó SIN hacer:** si `seedOfertaDesdeBrief()` copia el molde con un `SEED_KEY` propio,
+ws4 **sí** va a sembrar su oferta (la key nueva no existe en ningún ws) y el par oferta↔producto
+le va a quedar cojo, porque no hay producto al que ligarla en `oferta_productos`. Hay que decidir
+si el seed de la oferta crea también el producto faltante.
+
+**Vive en:** `lib/productos.ts:112-132` · *2026-09-26 F1 multi-funnel*
+
+### El diagnóstico obvio era el equivocado: el plan pide una pantalla de ofertas, y el dueño pidió lo contrario
+
+`docs/productos-y-funnels-plan.md` §F2 dice, escrito: «Pantalla propia con `Pagina` + `PageHeader`
++ `Section` y entrada en `app/_components/nav.ts`». Es lo primero que lee cualquiera que agarre la
+fase, y **hacerlo sería desobedecer una corrección explícita del dueño**: la oferta y el catálogo
+se cargan **dentro del ONBOARDING**, reusando el paso `productos` y el molde de `ProductosView`, y
+**NO** en Configuraciones ni en una tab nueva.
+
+Son dos fuentes con fecha distinta que se contradicen, y gana la más nueva. El documento del plan
+se escribió el 10/08; la corrección llegó después, con la misma frase que ya estaba en su intro
+(«el catálogo vive en el ONBOARDING y no en Configuraciones») y que la §F2 no había recogido.
+
+**Dónde quedó:** `app/onboarding/OfertasView.tsx`, montado en el paso `productos` de
+`OnboardingWizard.tsx` (arriba de `ProductosView`) y como sub-vista «La oferta» del área `oferta`
+de `/second-brain` (`AreasHub.tsx`). Cero entradas nuevas en el nav.
+
+**Vive en:** `docs/productos-y-funnels-plan.md` (§F2) · `app/onboarding/OfertasView.tsx` ·
+*2026-09-26 F2 ofertas*
+
+### `desde_brief` invierte otra vez a quien cuenta filas: tener una oferta dejó de significar que la declaró
+
+Es el mismo escalón que el backfill de `funnels`, un piso más arriba y con una diferencia que
+importa: acá el que reparte las filas **no es una migración, es un seed que corre en cada carga**
+(`seedOfertaDesdeBrief`, guard `mako.ofertas.seeded`). Todo workspace que tenga `oferta_nombre` en
+el brief —hoy 6 de 9— termina con una fila en `ofertas`, aunque nadie haya abierto la pantalla.
+
+O sea: `select count(*) from ofertas where workspace_id = N` contesta «tiene brief», no «declaró
+su oferta». Lo que distingue es la columna **`desde_brief`**:
+
+| `desde_brief` | Qué significa | De dónde salen los 5 campos |
+|---|---|---|
+| `true` | la fila la sembró el brief | del blob `app_settings['mako.onboarding.answers']` |
+| `false` | alguien la declaró de verdad | de las columnas; un NULL es **«no lo cargaron»** |
+
+⚠️ **Y el NULL no cae al brief cuando `desde_brief` es false**, a propósito: si cayera, una oferta
+nueva y vacía heredaría la promesa de la principal y ningún prompt podría distinguirlas. La regla
+entera vive en `resolverOfertaPrincipal()` (`lib/oferta-modelo.ts`, **sin `server-only`** para que
+se pueda testear) y la fija `tests/oferta-brief.test.ts`.
+
+**Probado rompiéndolo:** haciendo que la rama `desde_brief` lea las columnas en vez del blob,
+**1 fallo / 8 pases**; tratando «sin fila» como una fila declarada y vacía, **2 fallos / 7 pases**.
+
+**Vive en:** `lib/oferta-modelo.ts` · `lib/ofertas.ts` (`seedOfertaDesdeBrief`) ·
+`tests/oferta-brief.test.ts` · *2026-09-26 F2 ofertas*
+
+### «No puedo comprobarlo» no es «venció», y de eso cuelga si un ángulo de venta se usa
+
+El ángulo «Oferta directa (urgencia)» (`lib/guion-angulos.ts`) **exige** una restricción real
+documentada y **prohíbe** inventarla — y hasta la 0169 era un requisito de contrato **sin ningún
+campo donde cumplirse y sin ninguna línea que lo mirara**. Una regla que sólo vive en un prompt no
+es una regla.
+
+La segunda capa es `urgenciaVigente(oferta, hoy)`, y tiene **tres** salidas, no dos:
+
+- `true` — hay `urgencia_hasta` y no pasó.
+- `false` — hay `urgencia_hasta` y venció. Sólo acá se apaga el ángulo.
+- `null` — **no se puede comprobar**: los cupos, la capacidad y un «arranca pronto» sin fecha los
+  declara una persona y el sistema no tiene con qué verificarlos.
+
+Devolver `false` en el tercer caso —el reflejo— apagaría el ángulo de todo el que declaró cupos,
+que es la forma más común de urgencia legítima. Por eso el chip de urgencia en la pantalla es
+**cerrado** (fecha / cupos / capacidad / inicio) y lleva la fecha en un campo aparte: sobre un
+textarea libre no se puede contestar ninguna de las tres.
+
+**Probado rompiéndolo:** devolviendo `false` en vez de `null` sin `urgencia_hasta`, **2 fallos /
+7 pases**.
+
+**Vive en:** `lib/oferta-modelo.ts` (`urgenciaVigente`, `urgenciaUsable`) ·
+`app/onboarding/OfertasView.tsx` · *2026-09-26 F2 ofertas*
+
+### El resolver único y el ciclo de imports: las answers viajan por parámetro
+
+`perfilNegocioTexto()` (`lib/onboarding.ts`) tiene que llamar a `ofertaPrincipal()`, y
+`ofertaPrincipal()` necesita el blob de respuestas, que lo lee `getAnswers()` — en
+`lib/onboarding.ts`. Escrito de la forma obvia, los dos módulos se importan entre sí.
+
+El ciclo probablemente funcionaría (las dos son `export async function`, o sea hoisted), y eso es
+exactamente lo que lo vuelve caro: falla el día que alguien convierta una en `const` y el síntoma
+es un TDZ en runtime, en producción, sobre la función que alimenta ~20 features.
+
+**La regla que queda:** `lib/ofertas.ts` **no importa `lib/onboarding.ts`**. Las answers entran
+por parámetro (`ofertaPrincipal(answers)`), que además deja la dependencia a la vista en cada
+call-site en vez de esconderla adentro.
+
+**Vive en:** `lib/ofertas.ts` (cabecera) · `lib/onboarding.ts` (`perfilNegocioTexto`) ·
+*2026-09-26 F2 ofertas*
+
+### El seed de la oferta NO crea el producto que falta — y eso contesta la pregunta que dejó F1
+
+F1 dejó abierto qué hacer con **ws4**, que tiene `mako.productos.seeded = '1'` y **cero productos**:
+con un `SEED_KEY` propio, el seed de la oferta sí va a correr ahí y el par oferta↔producto le va a
+quedar cojo.
+
+**Decidido: queda cojo, y está bien.** El catálogo `productos` es lo que el CRM **factura**; crear
+un producto fantasma para llenar `oferta_productos` le mete al cliente una línea de facturación que
+él nunca cargó, y esa es la que después hereda el pricing de un cierre real. El seed liga la oferta
+al producto que YA exista con el mismo nombre normalizado (o al único, si hay uno solo) y, si no
+hay ninguno, deja el puente vacío para que el dueño lo ligue desde la pantalla.
+
+**Vive en:** `lib/ofertas.ts` (`seedOfertaDesdeBrief`) · *2026-09-26 F2 ofertas*
+
+### El detector de voseo también lee `lib/prompt-registry.ts`, no sólo las pantallas
+
+El test se llama «ninguna pantalla del repo le habla al cliente de vos» y el nombre engaña: barre
+también el campo `context` de cada prompt del registro. Es correcto —ese texto se pinta en
+`/configuraciones` y lo lee el cliente— y no es lo que uno espera al escribir la ficha de un
+prompt nuevo, que se siente documentación interna. Un «acá» ahí tira `npm test` entero.
+
+**Vive en:** `tests/puente-panel-copy.test.ts` · `lib/prompt-registry.ts` ·
+*2026-09-26 F2 ofertas*
+
+### Lo que quedó SIN hacer de F2, con el archivo donde vive
+
+- **`lib/clonar-config.ts` y `lib/datos-mau.ts` no conocen `ofertas`.** Clonar la config del dueño
+  al workspace de prueba se lleva `productos` y el `funnel`, y **no** la oferta: el clon queda con
+  catálogo y sin promesa. No se agregó en esta pasada a propósito — `ofertas` tiene dos índices
+  únicos parciales (`es_principal`, `desde_brief`) y el destino ya trae su propia oferta sembrada,
+  así que un insert ciego choca con 23505. Hay que clonar **sobre la fila que el destino ya tiene**,
+  como se resolvió con `funnels`.
+- **`lead_magnets` (mig 0169) nace con CRUD y sin lectores.** El imán sigue viviendo en
+  `app_settings['mako.entregable']` (`lib/entregable.ts`, ~14 lectores, y es un ARRAY desde el
+  30/07 — no el «blob singleton» que dice el doc del modelo). Mudar el dato y sus lectores en
+  pasadas distintas es cómo se arma la segunda copia que se queda vieja: van juntos o no van.
+- **`leads.oferta_id` (mig 0169) sigue sin un solo lector**, igual que `leads.producto_id` desde la
+  0117. Se escribe en F3, con las participaciones.
+- **El BOFU (`funnels.canal`) todavía no lo lee `encuentroGrabable()`** (`lib/encuentro-ws.ts`),
+  que sigue siendo workspace-wide. Está en el release-gate del modelo, no en esta fase.
+- **Las ofertas no se ven en el CRM**, a propósito: el pedido de esta corrida dice «sin tocar el
+  CRM todavía», y el wizard de cierre que elige oferta es F3.
+
+---
+
+## Revisión adversarial de F1+F2 (26/09) — leyendo el código, no los reportes
+
+### Una VISTA no tiene RLS, y fue el único objeto de las tres migraciones sin revoke
+
+`alter table … enable row level security` **no existe para una vista**, y una vista corre con los
+permisos de su DUEÑO: aunque `funnel_ofertas` y `oferta_productos` tengan RLS, quien pueda hacerle
+SELECT a `v_funnel_productos` lee las filas de TODOS los workspaces. Las tres migraciones revocan
+a `anon`/`authenticated` en cada tabla y la vista quedó sin su línea — no por descuido, sino
+porque el molde que se copia (`revoke all on <tabla>`) está mentalmente atado al
+`enable row level security` de al lado, que ahí no aplica.
+
+Medido en prod el 26/09, y es lo que lo vuelve real y no teórico:
+
+| objeto | ACL hoy |
+|---|---|
+| `v_cohortes_semanales` (vista, mig 0001) | `anon=arwdDxtm`, `security_invoker` apagado |
+| `funnel_config`, `productos` (tablas, migs numeradas) | sólo `postgres` + `service_role` |
+
+O sea que **el camino del grant a `anon` depende de QUIÉN aplique el DDL** (el `postgres` de
+`scripts/apply-migration.mjs` ya no lo da; `supabase_admin` y el editor de Supabase sí), y lo
+único que mantiene afuera a las tablas nuevas es el revoke explícito.
+
+Quedó `alter view … set (security_invoker = on)` + `revoke all`, y un test que barre **todas** las
+vistas de `supabase/migrations/`. La lista de excusas va por NOMBRE DE VISTA, no por archivo: las
+`v_cohortes_*` se re-crean en la 0013 y en la 0084, así que exceptuar un archivo dejaría entrar
+cualquier vista nueva escrita ahí.
+
+**Vive en:** `supabase/migrations/0171_funnel_ofertas.sql` · `tests/funnel-declarado.test.ts` ·
+*2026-09-26 revisión adversarial F1+F2*
+
+### El guard de «leer el funnel y volver a guardarlo» faltaba en el cuarto call-site
+
+F1 lo agregó en `declararEntradasAction` y ya estaba en `guardarEntradas` y en
+`saveFunnelDefault`. El que quedó afuera es el paso **«funnel por canal»** del onboarding
+(`app/api/onboarding/route.ts`, case `diagnostico`), y ahí el efecto se INVIERTE:
+
+    const actual = await getFunnelDefault();
+    const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && !actual.suppressed.length;
+    if (intacto) await saveFunnelDefault(tpl.pipeline, tpl.suppressed ?? []);
+
+Con `origen: 'error'`, `actual.pipeline` **ES** `DEFAULT_PIPELINE` y `suppressed` viene vacío, así
+que `intacto` da true SIEMPRE: una caída de Supabase convierte el guard en su contrario y siembra
+la plantilla del canal **encima del funnel editado del cliente**. El comentario de veinte líneas
+que está justo arriba dice textual que ese bloque no puede pisar un funnel existente.
+
+`saveFunnelDefault` relee y tira con `origen: 'error'`, así que la ventana real es angosta (la
+primera lectura falla y la segunda no), pero es la misma forma exacta del bug que F1 arregló al
+lado.
+
+**La regla que queda, y por eso hay test:** el guard no se cuenta por call-sites conocidos sino
+por la pregunta «¿este archivo LEE el funnel y también lo GUARDA?». `tests/funnel-declarado.test.ts`
+la hace sobre `lib/` y `app/`.
+
+⚠️ **Y la primera versión de ese test daba verde con el guard borrado**, porque los tres
+call-sites nombran `origen === 'error'` en su comentario explicativo. Un test que busca una
+condición sobre el archivo CRUDO encuentra la prosa. Va sobre el fuente sin comentarios.
+
+**Vive en:** `app/api/onboarding/route.ts` · `tests/funnel-declarado.test.ts` ·
+*2026-09-26 revisión adversarial F1+F2*
+
+### Una FK no mira DE QUIÉN es la fila, y en una tabla puente eso alcanza
+
+`getTenantDb` filtra los SELECT y estampa el `workspace_id` de los INSERT. Lo que **no** hace es
+verificar que el id referenciado sea de este workspace: para Postgres, una FK sólo pregunta si el
+id EXISTE. En `oferta_productos`, `funnel_ofertas` y `lead_magnets.oferta_id` —los tres nacidos en
+esta corrida, los tres alimentados por ids que vienen del body de un POST— eso deja crear, en MI
+workspace, una fila que apunta al producto o a la oferta de OTRO cliente.
+
+**Lo que se rompe no es la privacidad, es la integridad**, y por eso no tiene síntoma: `estado()`
+cruza las ligas contra `listProductos()` / `listarOfertas()`, que sí vienen scopeadas, así que el
+id ajeno no matchea nada y la liga **no se ve, no se puede desligar desde la pantalla** y ensucia
+`v_funnel_productos`.
+
+Quedó `esDelWorkspace(tabla, id)` en las tres puertas. Es el mismo criterio que ya usaban
+`saveFunnelDe` y `upsertOferta` con el UPDATE que no tocó ninguna fila: **nunca dar por buena una
+operación sobre una fila que el workspace no tiene**. De paso, `upsertLeadMagnet` era el único
+escritor de los tres sin ese guard de cero filas.
+
+**Vive en:** `lib/ofertas.ts` (`esDelWorkspace`, `ligarProducto`, `ligarOfertaAFunnel`,
+`upsertLeadMagnet`) · *2026-09-26 revisión adversarial F1+F2*
+
+### `urgenciaUsable()` no la llama nadie, y la bitácora del producto decía que sí
+
+El reporte de F2 y la bitácora de `/admin/dev` afirmaban que el chip de urgencia con fecha aparte
+existe «así `urgenciaUsable()` apaga el ángulo EN CÓDIGO cuando vence». Medido con un grep sobre
+`lib/`, `app/`, `scripts/` y `tests/`: los únicos usos son el test y dos comentarios. El catálogo
+de `lib/guion-angulos.ts` es una constante estática con `activo: true` y **ninguno de sus
+consumidores lee la oferta**.
+
+O sea que la regla «sin restricción real el ángulo no se usa» sigue viviendo SOLO en la prosa del
+prompt — exactamente lo que AGENTS.md § «Una regla en un prompt no es una regla» dice que no
+alcanza, y lo que esa línea de la bitácora afirmaba haber cerrado.
+
+**Lo hecho es el CAMPO (`urgencia_hasta`) y la función que lo evalúa; falta el call-site**, y va
+donde se arma el catálogo de ángulos para un pedido concreto. Se corrigió el texto en los dos
+lugares en vez de cablearlo: cablearlo toca el catálogo de ángulos, que no es de esta fase.
+
+**El olor, para la próxima:** una función exportada, con test, cuyo grep devuelve sólo la
+declaración y el test. Es «Escribir la salida no es ofrecerla» con una vuelta más — acá el
+call-site faltante estaba *documentado como existente*, así que leer la bitácora lo confirmaba.
+
+**Vive en:** `lib/oferta-modelo.ts` · `lib/ofertas-ia.ts` ·
+`app/admin/dev/products-offers/bitacora.ts` · *2026-09-26 revisión adversarial F1+F2*
+
+### `urgenciaVigente` compara en UTC, y el único llamador le pasa el reloj del navegador
+
+`hoy.toISOString().slice(0,10)` es la fecha **UTC**. `OfertasView` pasa `new Date()` del browser,
+así que para un cliente en México (UTC-6) desde las 18:00 locales el día UTC ya es el siguiente y
+una urgencia que vence hoy se rotula «vencida» unas horas antes.
+
+**No se arregló, y el motivo importa:** pasar la fecha local del navegador tampoco es correcto —el
+negocio puede estar en otra zona que quien mira—. Lo correcto es `hoyDelWorkspace(ws)`
+(`lib/api-mako/areas/crm.helpers.ts`), que es de donde sale «hoy» en el resto del repo; pero ese
+«hoy» es async y por-workspace, y `lib/oferta-modelo.ts` es PURO a propósito. La fecha tiene que
+seguir entrando por parámetro, **resuelta por el llamador**. Queda anotado en el docstring.
+
+**Vive en:** `lib/oferta-modelo.ts` (`urgenciaVigente`) · `app/onboarding/OfertasView.tsx` ·
+*2026-09-26 revisión adversarial F1+F2*
+
+### Las tres migraciones no decían su orden de DESPLIEGUE, y la 0169 sí lo necesita
+
+La 0170 lo traía en su cabecera; la 0169 y la 0171 sólo declaraban el orden entre migraciones. La
+regla que esta misma corrida escribió en `AGENTS.md` pide las dos cosas.
+
+Y la 0169 lo necesita de verdad: `GET /api/onboarding/ofertas` llama a `listarOfertas()`, que es
+el **único lector de estas tablas sin `.catch`** (a propósito: una lista de ofertas que falla en
+silencio se ve igual que un negocio sin ofertas). Sin la tabla devuelve 500 y `OfertasView` pinta
+el error en rojo en dos lugares que hoy no lo tienen — el paso `productos` del onboarding y
+`/second-brain` → área Oferta.
+
+Lo que NO se rompe en esa ventana, y es deliberado: `ofertaPrincipal()` cae al brief con un log,
+así que las ~20 features que leen `perfilNegocioTexto()` siguen recibiendo promesa y precio.
+
+**Vive en:** `supabase/migrations/0169_ofertas.sql` · `supabase/migrations/0171_funnel_ofertas.sql`
+· *2026-09-26 revisión adversarial F1+F2*
+
+### Lo que se REVISÓ y se descartó, con el porqué
+
+- **`nutricion_secuencias.funnel_id … on delete cascade` (0170).** Borrar un funnel borra sus
+  secuencias y, por cascada, sus envíos e inscripciones. Con una columna NULLABLE que significa
+  «sirve a todos», `on delete restrict` sería más honesto. **No se tocó: lo manda el documento**
+  (`docs/modelo-oferta-producto-funnel.md:302`), y hoy no existe ningún camino que borre un funnel
+  —`lib/funnels.ts` no tiene `borrarFunnel`—, así que es latente. El día que se escriba ese botón,
+  hay que decidir esto primero. Y `on delete set null` es PEOR: la secuencia pasaría a «sirve a
+  todos» y empezaría a enrolar a todo el mundo, que es justo el riesgo que la 0170 documenta.
+- **`getFunnelDefault` dejó de caer a `OWNER_WS` cuando no hay workspace.** El lector viejo hacía
+  `getWorkspaceActual() ?? OWNER_WS` con el `.eq` a mano; `funnels` está en TENANT_TABLES, así que
+  ahora el proxy filtra por `ws ?? -1` y un admin sin workspace ve `sin-fila` + `DEFAULT_PIPELINE`
+  en vez del funnel de ws1. Es un cambio de comportamiento **y es el correcto** (fail-closed), y
+  no es visible: `leads` también es tenant, así que ese board ya venía vacío.
+- **`filaDefault()` no filtra `activo = true` y `listarFunnels()` sí.** Un funnel default
+  desactivado se editaría sin estar en el desplegable. No hay UI para desactivar un funnel: se
+  deja.
+- **`perfilNegocioTexto()` NO emite el mismo texto que ayer**, contra lo que dice el reporte de F2
+  («sale idéntico»). Los rótulos del grupo `oferta` pasaron de la PREGUNTA del esquema («¿Cómo se
+  llama tu oferta?: X») al rótulo corto («Nombre: X») para ~20 features. El cambio es deliberado,
+  está explicado en el docstring de la función y es una mejora; lo que estaba mal era la
+  afirmación de paridad, que es la que apaga la revisión.
+- **Los call-sites del rename.** Se recorrieron los 40 usos de `*Default` uno por uno: los que
+  tienen un lead en la mano usan la variante del lead, y los mixtos (`leadsFiltrados`,
+  `conteoPorEtapa`, `_getPendientesDeMarcar`, el board del CRM) se quedan en el default **con el
+  comentario que dice qué hay que resolver por lead el día de F3**. No apareció ninguno mal
+  repartido.
+- **El tablero, el worklist y los reportes.** `app/crm/page.tsx` y `lib/queries.ts` cambiaron sólo
+  el nombre de la función y conservan sus `.catch(() => undefined)`; `deriveStageKey` —que es lo
+  que ubica a cada lead— es un switch puro que no lee ninguna de las dos tablas. El único cambio
+  visible de toda la corrida es la UI de ofertas, que era el entregable de F2.
+
+---
+
+## Cosecha de F1+F2 (26/09) — lo que el próximo no puede deducir leyendo
+
+### Las tres migraciones están ESCRITAS y SIN APLICAR, y el orden no es el del documento
+
+El modelo (`docs/modelo-oferta-producto-funnel.md`) numera de 0125 a 0131, pero el repo ya iba
+por **0168** cuando se escribieron. Quedaron renumeradas **manteniendo el orden de aplicación**
+que manda el modelo, y cada `.sql` dice en su cabecera a qué número del documento corresponde:
+
+| Aplicar | Archivo | Es la del doc | Cuándo, respecto del deploy |
+|---|---|---|---|
+| 1º | `supabase/migrations/0169_ofertas.sql` | 0125 | **ANTES.** `listarOfertas()` es el único lector nuevo sin `.catch`: sin la tabla, el GET da 500 y la vista de ofertas pinta error en rojo |
+| 2º | `supabase/migrations/0170_funnels.sql` | 0126 | **ANTES o JUNTO.** El código dejó de leer `funnel_config` en el mismo commit: deployar sin la tabla deja a todos en `origen:'error'` + `DEFAULT_PIPELINE` |
+| 3º | `supabase/migrations/0171_funnel_ofertas.sql` | 0127 | **ANTES o JUNTO** con la 0170: tiene FK contra `funnels.id` |
+
+Ninguna se aplicó: lo decide el humano después de mirar el deploy. Y **el orden es el inverso
+al de la 0167/0168**, que se aplicaban después porque SACABAN algo que el código ya no usaba.
+Acá las tres AGREGAN algo que el código ya lee.
+
+**Vive en:** las tres cabeceras de `supabase/migrations/0169..0171` · `AGENTS.md` (la regla) ·
+*2026-09-26 cosecha F1+F2*
+
+### El rename se hizo SIN alias, y ese es el mecanismo — no una preferencia de estilo
+
+**Qué cambió de forma.** `getFunnel()`, `getPipelineStages()`, `getFunnelTransitions()` y
+`saveFunnel()` **ya no existen** en `lib/leads.ts`. Viven en `lib/funnels.ts`, partidas en dos
+preguntas distintas: `getFunnelDefault()` («¿cómo vende este cliente?» — catálogos, prompts, el
+editor, las columnas del board) y `getFunnelDeLead(lead)` («¿qué recorrido le toca a ÉL?» —
+requisitos de etapa, validar un movimiento, la ficha). El mapeo fila → `FunnelConfig` quedó en
+`lib/funnel-fila.ts`, PURO y sin `server-only`, para poder testear la regla sin Supabase.
+
+**Por qué NO se dejó un alias.** Un `export const getFunnel = getFunnelDefault` compila, pasa
+los tests y no rompe nada — hoy, con un funnel por workspace, las dos funciones devuelven lo
+mismo. El día que un cliente cree el segundo, hay que revisar exactamente los mismos call-sites,
+pero sin el compilador señalándolos y sin nadie que recuerde por qué. El alias no ahorra el
+trabajo: lo posterga y lo vuelve invisible. Romper la compilación fue el único momento barato
+para decidir los 33 usos uno por uno — y la prueba de que hacía falta es que **aparecieron más
+de los relevados**: `etapasDelFunnel()` de la API de MaKo tenía 6 call-sites que el checklist no
+listaba, y hubo que partirla igual (`etapasDelFunnelDefault()` / `etapasDelFunnelDeLead(lead)`).
+
+**Regla.** Cuando una función se parte en dos significados y hoy los dos devuelven lo mismo, se
+renombra **sin alias**: el rojo del compilador ES la lista de tareas, y es la única que nadie
+puede ignorar. Corolario para el que busque: `getFunnel(` ya no existe en el repo, y
+`grep funnel_config` sobre `lib/`, `app/` y `scripts/` solo devuelve comentarios históricos —
+hay un test que lo fija (`tests/funnel-declarado.test.ts`).
+
+**Vive en:** `lib/funnels.ts` (el docstring lo explica) · `lib/funnel-fila.ts` ·
+`lib/api-mako/areas/crm.helpers.ts` · *2026-09-26 cosecha F1+F2*
+
+### El prerrequisito de F3 no es la tabla: es el choke point, y hoy son 47 escrituras, no 32
+
+F3 es `lead_participaciones` (la 0128 del modelo) y funciona por un **espejo**: `leads` sigue
+trayendo las ocho columnas del intento vigente, así que `pipelineStageOf()` y sus ~1.200
+lectores no se tocan. Pero un espejo necesita **un solo writer**, y por eso colapsar las
+escrituras a `leads` en un choke point va **ANTES** de la migración, no después.
+
+El modelo dice «≥32 escrituras en 15 archivos» y esa medición es del 10/08. **Medido hoy: 47 en
+17 archivos** (43 `update`, 3 `insert`, 1 `delete`), repartidas así:
+
+- `lib/leads.ts` **14** · `app/crm/actions.ts` **12** — las dos que concentran, y el candidato
+  natural a choke point.
+- `lib/pagos.ts` 3 · `lib/meta-write.ts`, `lib/mako-confirmaciones.ts`, `lib/crm-auto.ts`,
+  `lib/api-mako/areas/crm.helpers.ts` 2 cada uno.
+- Una cada uno: `lib/nutricion.ts`, `lib/etapa-historial.ts`, `lib/email-marketing.ts`,
+  `app/crm/[id]/deal-actions.ts`, `app/api/whatsapp/contacts/[id]/block/route.ts`,
+  `app/api/webhooks/chatwoot/route.ts`, `app/api/track/vsl/route.ts`,
+  `app/api/extract-deal-fiscal/route.ts`, `app/api/extract-contract/route.ts`,
+  `app/api/email/unsubscribe/route.ts`.
+
+**Dos trampas al medirlo.** (1) El número **crece solo**: nadie agrega un `.update()` pensando
+«estoy encareciendo F3», así que el conteo de cualquier documento está viejo el día que se lee —
+hay que volver a medirlo antes de empezar, no confiarlo. (2) Un grep de una sola línea
+(`from('leads')` y `.update(` en el mismo renglón) devuelve **35 de 47**: doce escrituras parten
+el encadenado en dos líneas (9 en `lib/leads.ts`, 2 en `lib/pagos.ts`, 1 en
+`app/api/track/vsl/route.ts`). Contar sin cubrir la forma multilínea deja afuera justo el
+archivo que más pesa.
+
+**Vive en:** `docs/modelo-oferta-producto-funnel.md` §3 «El prerrequisito que no se puede
+saltear» · `lib/leads.ts` · `app/crm/actions.ts` · *2026-09-26 cosecha F1+F2*
+
+### Lo que queda SIN hacer después de F1+F2, con el archivo donde vive
+
+Los pendientes propios de cada fase están arriba, en su entrada; esto es lo que bloquea seguir:
+
+- **F3 entero** — `lead_participaciones`, `leads.oferta_id` y `leads.producto_id` (las dos
+  columnas existen y no las lee una sola línea de TypeScript). Antes: el choke point de arriba.
+- **`nutricion_secuencias.funnel_id` tiene que estar en el MISMO release** en que un cliente
+  real pueda crear su segundo funnel. La columna la crea la 0170, pero nadie la lee todavía:
+  `lib/nutricion.ts`, `lib/crm-auto-plan.ts` y `lib/secuencias-huecos.ts` siguen siendo
+  funnel-ciegos. Es el único riesgo del proyecto que **sale de la pantalla y le llega a una
+  persona**: un WhatsApp del funnel equivocado.
+- **`encuentroGrabable()` sigue siendo workspace-wide** (`lib/encuentro-ws.ts`): no lee
+  `funnels.canal`, que es la mitad BOFU del modelo. Release-gate, no esta fase.
+- **El clon y «Datos de Mau» no conocen `ofertas`** (`lib/clonar-config.ts`, `lib/datos-mau.ts`):
+  hay que clonar SOBRE la fila que el destino ya tiene, como se resolvió con `funnels`.
+- **`lead_magnets` nace con CRUD y sin lectores**: el imán sigue en
+  `app_settings['mako.entregable']` (`lib/entregable.ts`, ~14 lectores). El dato y sus lectores
+  se mudan juntos o no se mudan.
+- **El CRM no muestra ofertas ni funnels**, a propósito: el desplegable del pedido original vive
+  en el wizard de cierre y es F3.
+
+**Vive en:** `docs/productos-y-funnels-plan.md` (el estado, arriba de todo) ·
+*2026-09-26 cosecha F1+F2*

@@ -44,15 +44,15 @@ async function resumenSecuencias(): Promise<string> {
     .filter(Boolean).join('\n\n');
 }
 
-// Resumen del FUNNEL real del negocio (funnel_config del workspace), para que MaKo
+// Resumen del FUNNEL real del negocio (su funnel default, tabla `funnels`), para que MaKo
 // razone con las etapas CONFIGURADAS y no con un embudo genérico de memoria. Es la
 // fuente de verdad del proceso comercial ([[funnel-fuente-de-verdad]]). Aditivo y
-// resiliente: getFunnel cae a DEFAULT_PIPELINE si no hay fila, así que nunca queda
+// resiliente: getFunnelDefault cae a DEFAULT_PIPELINE si no hay fila, así que nunca queda
 // vacío; con el funnel por defecto, el bloque describe el embudo base de siempre.
 export async function resumenFunnel(): Promise<string> {
-  const { getFunnel } = await import('./leads');
+  const { getFunnelDefault } = await import('./funnels');
   const { BAND_LABEL } = await import('./pipeline');
-  const funnel = await getFunnel().catch(() => null);
+  const funnel = await getFunnelDefault().catch(() => null);
   if (!funnel?.stages?.length) return '';
   const bandas: Array<'pipeline' | 'nutricion' | 'salidas'> = ['pipeline', 'nutricion', 'salidas'];
   const bloques = bandas.map((banda) => {
@@ -114,7 +114,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const exps = await resumenExperimentos().catch(() => '');
   if (exps) base += `\n\nESTADO DE EXPERIMENTOS DEL NEGOCIO:\n${exps}`;
 
-  // El funnel/proceso comercial real (funnel_config, editable en /funnel): que MaKo
+  // El funnel/proceso comercial real (tabla `funnels`, editable en /funnel): que MaKo
   // razone con las etapas del workspace y no con un embudo genérico. Aditivo — con
   // el funnel default el prompt describe el embudo base de siempre.
   const funnelTxt = await resumenFunnel().catch(() => '');

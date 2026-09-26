@@ -46,6 +46,7 @@ import { AvataresView } from '../onboarding/AvataresView';
 import { RazonesView } from '../onboarding/RazonesView';
 import { FormatosView } from '../onboarding/FormatosView';
 import { ProductosView } from '../onboarding/ProductosView';
+import { OfertasView } from '../onboarding/OfertasView';
 import { ResumenView } from '../onboarding/ResumenView';
 
 /** Qué se abre al tocar cada área. Es el ÚNICO dato nuevo de este archivo: la lista de
@@ -58,7 +59,15 @@ const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ nombre: string
   norte: [{ nombre: 'Diagnóstico', vista: <DiagnosticoView /> }],
   documentos: [{ nombre: 'El Archivero', vista: <Archivero /> }],
   panorama: [{ nombre: 'Panorama', vista: <ResumenView /> }],
-  oferta: [{ nombre: 'Oferta', vista: <CamposNegocio titulo="Tu oferta" subtitulo="Lo que MaKo entendió de tu negocio y tu oferta. Toca cualquier dato para corregirlo." keys={['negocio_que_hace']} prefijos={['oferta_']} /> }],
+  // Dos sub-vistas y no una: la OFERTA es la entidad (mig 0169) con sus funnels,
+  // sus bonos y su urgencia; el BRIEF son las 5 respuestas del formulario, que
+  // siguen siendo la fuente mientras la oferta tenga `desde_brief`. Se ven las
+  // dos porque son dos lugares distintos de donde puede salir el mismo dato, y
+  // esconder uno hace imposible entender por qué un prompt dice lo que dice.
+  oferta: [
+    { nombre: 'La oferta', vista: <OfertasView /> },
+    { nombre: 'El brief', vista: <CamposNegocio titulo="Tu oferta" subtitulo="Lo que MaKo entendió de tu negocio y tu oferta. Toca cualquier dato para corregirlo." keys={['negocio_que_hace']} prefijos={['oferta_']} /> },
+  ],
   cliente: [{ nombre: 'Cliente', vista: <CamposNegocio titulo="Tu cliente" subtitulo="A quién le vendes. Toca cualquier dato para corregirlo." keys={[]} prefijos={['avatar_']} /> }],
   productos: [{ nombre: 'Productos', vista: <ProductosView /> }],
   entregables: [{ nombre: 'Lead Magnet', vista: <EntregableView /> }],

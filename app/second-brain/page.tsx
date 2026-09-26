@@ -25,7 +25,7 @@ import { FunnelEditor } from '../funnel/FunnelEditor';
 import { Pagina, PageHeader } from '@/app/_ui';
 import { VistaCerebro } from './VistaCerebro';
 import { requireRolWs } from '@/lib/tab-access';
-import { getFunnel } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { BotonExportar } from './BotonExportar';
 import { BotonClaude } from './BotonClaude';
@@ -41,7 +41,8 @@ export const revalidate = 0;
 export default async function SecondBrainPage() {
   await requireRolWs([], { nav: 'second-brain' });
 
-  const [{ pipeline, suppressed }, cerebro] = await Promise.all([getFunnel(), construirCerebro()]);
+  // DEFAULT: el editor embebido edita el funnel del negocio.
+  const [{ pipeline, suppressed }, cerebro] = await Promise.all([getFunnelDefault(), construirCerebro()]);
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
   const ws = await getWorkspaceActual();

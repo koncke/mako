@@ -1,4 +1,4 @@
-// El eje ENTRADAS de funnel_config.data: su saneo y el merge del jsonb.
+// El eje ENTRADAS de funnels.data: su saneo y el merge del jsonb.
 //
 // Por qué hay tests de esto y no de otras cosas parecidas: lo que sale de acá
 // decide si un prompt puede afirmar «vi que dejaste tus datos en el anuncio».

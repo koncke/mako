@@ -290,7 +290,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Una config, fuente de verdad de todo el proceso comercial",
         bullets: [
-          "El funnel vive en <strong>una fila por workspace</strong> (funnel_config: pipeline + suppressed). La misma config alimenta el <strong>Kanban del CRM</strong>, las opciones de <strong>\"Datos sin marcar\"</strong>, el onboarding y el contexto que lee MaKo en su prompt.",
+          "Cada funnel guarda <strong>su pipeline y sus etapas apagadas</strong>, y el negocio tiene el suyo por defecto. La misma config alimenta el <strong>Kanban del CRM</strong>, las opciones de <strong>\"Datos sin marcar\"</strong>, el onboarding y el contexto que lee MaKo en su prompt.",
           "No es un diagrama que se desactualiza: es el <strong>embudo ejecutable</strong>. Tocas una etapa aquí y se mueve el tablero del equipo.",
           "Guarda solo en el fondo, con <strong>toast de 5 segundos y botón Deshacer</strong>. No hay botón guardar que se te olvide apretar.",
           "MaKo lee tu funnel como contexto: cuando te sugiere una nutrición o interpreta una señal, habla <em>en los términos de tu embudo</em>, no de uno genérico.",
@@ -375,7 +375,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "El botón ✨ MaKo abre un chat atado a ESE gráfico (marketing-funnel, comercial-scl, el anuncio puntual): pregunta específica, respuesta específica.",
           "MaKo recibe los números ya calculados server-side —impresiones, clicks, landing, VSL, CTR, CPM/CPC, spend; o en Comercial mes|sold|cash|spend|cierres|agendas— y razona sobre datos exactos, no sobre una imagen.",
-          "El consejo aterriza en TU negocio: MaKo inyecta tu perfil, tu fase (tu Norte), tu funnel_config real, tus experimentos validados y la metodología vía RAG. Cero consejo genérico.",
+          "El consejo aterriza en TU negocio: MaKo inyecta tu perfil, tu fase (tu Norte), tu funnel real, tus experimentos validados y la metodología vía RAG. Cero consejo genérico.",
           "Cada botón trae preguntas a medida del tema: en el funnel '¿Dónde pierdo más gente?' / '¿El CPM/CPC está caro?'; en un anuncio '¿Apago este anuncio o lo escalo?'; en el SCL '¿El ciclo de venta es largo?'.",
         ],
       },

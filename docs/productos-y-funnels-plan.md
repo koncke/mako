@@ -5,7 +5,34 @@
 > manda: el dueño contestó las 3 preguntas del final el 2026-08-10 y su respuesta invalidó
 > la sección 2 y la fase F3 de acá. No se copian los esquemas: se linkean.
 
-Estado al 2026-08-10: **F0 hecha** (commit `97f98ba`). Las 3 decisiones abiertas están
+## Estado al 2026-09-26 — leer esto primero
+
+**Hecho:** F0 (commit `97f98ba`) · **F1 y F2 están EN EL ÁRBOL, sin commitear**. El producto se
+ve igual que ayer: lo único nuevo que se ve es la carga de la oferta, y va adentro del
+onboarding (paso «productos») y del área Oferta de `/second-brain`. Nada nuevo en el nav.
+
+**Las tres migraciones están escritas y NO aplicadas.** Se renumeraron porque el repo ya iba por
+`0168`; el orden de aplicación es el que manda el modelo. **Aplicar en este orden:**
+
+| # | Archivo | Es la del modelo | Qué crea |
+|---|---|---|---|
+| 1 | `supabase/migrations/0169_ofertas.sql` | 0125 | `ofertas`, `oferta_productos`, `lead_magnets`, `leads.oferta_id` |
+| 2 | `supabase/migrations/0170_funnels.sql` | 0126 | `funnels` (copia `funnel_config`, que queda deprecada) + `nutricion_secuencias.funnel_id` |
+| 3 | `supabase/migrations/0171_funnel_ofertas.sql` | 0127 | `funnel_ofertas` + la vista `v_funnel_productos` |
+
+⛔ **Las tres van ANTES o JUNTO con su deploy, nunca después.** El código ya las lee: el rename
+sacó `funnel_config` de todo el repo en el mismo commit. Es el orden inverso al de la 0167/0168,
+que sacaban algo que ya nadie usaba. Sin la 0170, el CRM pinta las columnas genéricas; sin la
+0169, la vista de ofertas muestra error en rojo.
+
+**Falta F3** (`lead_participaciones`: el lead en dos funnels a la vez, y el desplegable de oferta
+al cerrar en el CRM) y, antes que eso, su prerrequisito: **un solo writer de `leads`**. Hoy hay
+**47 escrituras en 17 archivos** (medidas el 26/09). El detalle, en
+[hallazgos-crm.md](hallazgos-crm.md) → «Cosecha de F1+F2».
+
+---
+
+De dónde salió este plan (2026-08-10, cuando solo estaba F0). Las 3 decisiones abiertas están
 contestadas — ver §5. Salió de una corrida de 15 agentes (`~productos-x-funnels`) más una
 segunda de 11 (`~modelo-oferta-producto-funnel`) con las respuestas del dueño como premisa.
 Los hallazgos que la sostienen están en [hallazgos-crm.md](hallazgos-crm.md) → «El funnel:
@@ -156,7 +183,27 @@ Lo que quedó SIN hacer de F0, a propósito, y dónde vive: los retoques de UI d
 `app/onboarding/ProductosView.tsx` (copy a español neutro, emojis a `<Icon>`, borrado con
 `Confirm`, toggle `activo`). No bloquean nada y se hacen junto con la pantalla de ofertas.
 
-### F1 — La tabla `funnels`, sin cambio de comportamiento · migración 0126
+### F1 — La tabla `funnels`, sin cambio de comportamiento · migración 0126 → **0170** · ✅ ESCRITA (26/09, SIN APLICAR)
+
+> ⚠️ **Renumerada.** El repo ya iba por `0168`, así que las tres migraciones del modelo se
+> escribieron como **0169 (ofertas) → 0170 (funnels) → 0171 (funnel_ofertas)**, manteniendo el
+> orden de aplicación que manda el otro documento. Cada `.sql` dice a qué número del doc
+> corresponde.
+>
+> **Lo que quedó hecho en el árbol (sin commitear y sin aplicar la migración):** `lib/funnels.ts`
+> (`getFunnelDefault`, `getFunnelDe`, `getFunnelDeLead`, `saveFunnelDe`, `saveFunnelDefault`,
+> `crearFunnel`, `listarFunnels`, `umbralesDelFunnelDefault`), el mapeo puro en
+> `lib/funnel-fila.ts`, el rename con sus **33** call-sites decididos uno por uno, los seis
+> archivos del checklist + `scripts/reparar-senal-funnel.ts` y `scripts/reset-chatbot-leila.ts`
+> (que el checklist no listaba), `funnels` y las cuatro tablas de F2 en `TENANT_TABLES`, y
+> `tests/funnel-declarado.test.ts`.
+>
+> **Lo que NO se hizo:** F2 en TypeScript (`ofertaPrincipal()`, `seedOfertaDesdeBrief()`, la UI
+> de ofertas y el selector de funnel). De F2 solo están escritas las migraciones.
+>
+> ⛔ **La 0170 se aplica ANTES o JUNTO con su deploy**, no después: el código ya no lee
+> `funnel_config`. Es el orden inverso al de la 0167/0168.
+
 
 Es el andamio de todo lo demás. La 0126 copia `funnel_config` → `funnels` de forma no
 destructiva (una fila `'Funnel principal'` por workspace, `declarado=true` si tenía fila,
@@ -192,7 +239,34 @@ encuentra», da **los funnels de otro cliente**.
 **Terminada cuando:** cada workspace tiene exactamente un funnel, la pantalla se ve
 **idéntica** a hoy, `npm test` verde, y `grep funnel_config` solo devuelve la migración.
 
-### F2 — Las OFERTAS, y N funnels por oferta · migraciones 0125 + 0127
+### F2 — Las OFERTAS, y N funnels por oferta · migraciones 0169 + 0171 · ✅ HECHA (26/09, SIN APLICAR)
+
+> ⚠️ **Renumeradas**, igual que en F1: la 0125 del doc es **0169** y la 0127 es **0171**. El
+> orden de APLICACIÓN que manda el modelo no cambia: **0169 (ofertas) → 0170 (funnels) →
+> 0171 (funnel_ofertas)**. Las tres están escritas y **sin aplicar**.
+>
+> **Lo que quedó hecho en el árbol:** `lib/oferta-modelo.ts` (PURO, sin `server-only`: ahí viven
+> `resolverOfertaPrincipal` y `urgenciaVigente`, las dos reglas que hay que poder testear),
+> `lib/ofertas.ts` (CRUD scopeado de `ofertas`, `oferta_productos`, `funnel_ofertas` y
+> `lead_magnets`, más `ofertaPrincipal()` y `seedOfertaDesdeBrief()`), `lib/ofertas-ia.ts`
+> (`sugerirOferta`, prompt editable + entrada en el catálogo de modelos con default GRATIS),
+> `app/api/onboarding/ofertas/route.ts`, `app/onboarding/OfertasView.tsx`, el cambio en
+> `perfilNegocioTexto()`, el selector de funnel de `/funnel` (`?f=`, **que sólo se pinta con más
+> de uno**), las cuatro tablas nuevas en `TABLAS_RESET` y `tests/oferta-brief.test.ts`.
+
+> ⚠️ **CORRECCIÓN: lo que dice abajo sobre la PANTALLA está invalidado por el dueño.** No hay
+> pantalla propia ni entrada en `app/_components/nav.ts`: la oferta se carga **dentro del
+> ONBOARDING**, en el mismo paso `productos` y reusando el molde de `ProductosView`, y se ve
+> también como sub-vista «La oferta» del área `oferta` de `/second-brain`. Es la misma regla que
+> ya estaba en la intro de este documento («el catálogo vive en el ONBOARDING y no en
+> Configuraciones») y que esta sección no había recogido.
+
+> **Lo que NO se hizo, a propósito:** `ofertas` en `lib/clonar-config.ts` y `lib/datos-mau.ts`
+> (sus dos índices únicos parciales hacen que un insert ciego choque con 23505: hay que clonar
+> sobre la fila que el destino ya tiene, como se resolvió con `funnels`), los lectores de
+> `lead_magnets` (siguen en `app_settings['mako.entregable']`; el dato y sus ~14 lectores se
+> mudan juntos o no se mudan) y `leads.oferta_id`, que es F3.
+
 
 ⚠️ **La 0125 va ANTES que la 0126 de F1** (crea `ofertas`, `oferta_productos` y `lead_magnets`,
 y no depende de nada). El orden de trabajo sigue siendo F1 → F2 porque `funnel_ofertas` (0127)

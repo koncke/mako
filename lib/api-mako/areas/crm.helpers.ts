@@ -18,7 +18,8 @@ import 'server-only';
 import { revalidateTag } from 'next/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { TAG } from '@/lib/cache';
-import { listLeads, getFunnel, getLeadRespuestas, faltantesDeLead, saveFunnel, logLeadEvent, type Lead } from '@/lib/leads';
+import { listLeads, getLeadRespuestas, faltantesDeLead, logLeadEvent, type Lead } from '@/lib/leads';
+import { getFunnelDefault, getFunnelDeLead, saveFunnelDefault } from '@/lib/funnels';
 import { getPagosByLead } from '@/lib/pagos';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
@@ -52,9 +53,18 @@ export async function hoyDelWorkspace(ws: number): Promise<{ tz: string; hoy: st
 
 export const esFechaIso = (s: unknown): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(Date.parse(`${s}T12:00:00Z`));
 
-/** Las etapas GENERADAS del funnel (con `kind`): sin kind los requisitos dan nivel 0. */
-export async function etapasDelFunnel(): Promise<Stage[]> {
-  return (await getFunnel()).stages;
+/** Las etapas GENERADAS del funnel DEL NEGOCIO (con `kind`): sin kind los requisitos
+ *  dan nivel 0. Es la lista de CATÁLOGO: validar un filtro, contar por etapa, rotular
+ *  una cartera entera. */
+export async function etapasDelFunnelDefault(): Promise<Stage[]> {
+  return (await getFunnelDefault()).stages;
+}
+
+/** Las etapas del funnel DE ESE LEAD: las que deciden qué le falta y adónde puede ir.
+ *  Hoy devuelven lo mismo que las del negocio (un funnel por workspace); la diferencia
+ *  es qué pregunta hace cada call-site, y por eso son dos funciones y no una. */
+export async function etapasDelFunnelDeLead(lead: Lead): Promise<Stage[]> {
+  return (await getFunnelDeLead(lead)).stages;
 }
 
 /** Copia de getLeadFullAction (app/crm/actions.ts): los mismos insumos para faltantesDeLead. */
@@ -62,7 +72,7 @@ export async function faltantesDeUnLead(lead: Lead): Promise<Step[]> {
   const [pagos, respuestas, stages, grabable] = await Promise.all([
     getPagosByLead(lead.id).catch(() => []),
     getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] })),
-    etapasDelFunnel(),
+    etapasDelFunnelDeLead(lead),
     encuentroGrabable(),
   ]);
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
@@ -78,7 +88,12 @@ export type FiltroLeads = { etapas?: string[]; banda?: string; campoFecha?: stri
  *  pagina) y filtra en memoria por etapa EFECTIVA. Filtrar por la columna
  *  pipeline_stage devuelve 0 leads en nutrición: es un override, casi siempre null. */
 export async function leadsFiltrados(f: FiltroLeads) {
-  const [leads, stages] = await Promise.all([listLeads(), etapasDelFunnel()]);
+  // MIXTO, y por eso queda en el del NEGOCIO: el orden y el filtro de etapas son del
+  // catálogo, pero la etiqueta de cada fila sale de stageMetaOpt sobre ESTAS stages.
+  // Con dos funnels, un lead del otro embudo se rotularía con la etiqueta equivocada:
+  // ese día hay que resolver la etiqueta por lead (stageMetaOpt ya devuelve undefined
+  // en vez de stages[0], así que no inventa).
+  const [leads, stages] = await Promise.all([listLeads(), etapasDelFunnelDefault()]);
   const banda = f.banda ? BANDA[f.banda] : null;
   const campo = (f.campoFecha ?? 'created_at') as keyof Lead;
   const persona = f.persona?.trim().toLowerCase();
@@ -100,7 +115,8 @@ export async function leadsFiltrados(f: FiltroLeads) {
 
 /** Copia corta de getOpcionesExportAction: conteo por etapa efectiva, origen y sin asignar. */
 export async function conteoPorEtapa() {
-  const [leads, stages] = await Promise.all([listLeads(), etapasDelFunnel()]);
+  // DEFAULT: es un conteo del negocio entero, por las etapas del catálogo.
+  const [leads, stages] = await Promise.all([listLeads(), etapasDelFunnelDefault()]);
   const porEtapa = new Map<string, number>();
   const porOrigen = new Map<string, number>();
   let sinAsignar = 0;
@@ -140,14 +156,16 @@ export async function marcarPendientesIgnorados(leadId: number, ignorar: boolean
 }
 
 /** Copia de declararEntradasAction sin el evento: se conserva el que ya estaba.
- *  ⚠️ Con el funnel leído en ERROR, getFunnel devuelve el DEFAULT y guardarlo pisaría
+ *  ⚠️ Con el funnel leído en ERROR, getFunnelDefault devuelve el DEFAULT y guardarlo pisaría
  *  el funnel real del cliente con la plantilla: se corta antes. */
 export async function guardarEntradas(entradas: string[]): Promise<{ ok: true } | { ok: false; error: string }> {
   const limpias = parseEntradas(entradas);
   if (!limpias.length) return { ok: false, error: 'Elige al menos una forma en la que llega la gente.' };
-  const actual = await getFunnel();
+  // DEFAULT: se declara cómo entra la gente al NEGOCIO, y se guarda sobre el mismo
+  // funnel que se acaba de leer.
+  const actual = await getFunnelDefault();
   if (actual.origen === 'error') return { ok: false, error: 'No se pudo leer el funnel actual; no se guardó nada para no pisarlo. Vuelve a intentarlo.' };
-  await saveFunnel(actual.pipeline, actual.suppressed, { entradas: limpias, evento: actual.evento });
+  await saveFunnelDefault(actual.pipeline, actual.suppressed, { entradas: limpias, evento: actual.evento });
   invalidar('pipeline', 'leads');
   return { ok: true };
 }

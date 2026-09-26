@@ -33,11 +33,17 @@ const DIAS = [
 export type EventoDecl = { lugar: string | null; dias: number[]; hora: string | null; tz: string | null; cupo: number | null };
 
 export function EntradasCard({
-  initial, initialEvento, canal,
+  initial, initialEvento, canal, funnelId,
 }: {
   initial: EntradaId[];
   initialEvento: EventoDecl | null;
   canal: CanalId | null;
+  /**
+   * Cuál funnel declara esto. `undefined` = el del NEGOCIO. Con N funnels el
+   * TOFU es justamente lo que los diferencia: dos funnels que comparten el
+   * cierre y entran distinto son dos `data.entradas`, no uno del workspace.
+   */
+  funnelId?: number;
 }) {
   const [sel, setSel] = useState<EntradaId[]>(initial);
   const [lugar, setLugar] = useState(initialEvento?.lugar ?? '');
@@ -67,7 +73,7 @@ export function EntradasCard({
       const evento = pideEvento
         ? { lugar: lugar.trim() || null, dias, hora: hora.trim() || null, tz: null, cupo: cupo.trim() ? Number(cupo) : null }
         : null;
-      const r = await declararEntradasAction(sel, evento);
+      const r = await declararEntradasAction(sel, evento, funnelId);
       if (r.ok) setMsg('Listo. Con esto ya sabemos qué audios pedirte y qué NO decirle a tu gente.');
       else setErr(r.error);
     } catch (e) {

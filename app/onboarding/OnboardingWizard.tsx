@@ -28,6 +28,7 @@ import { Archivero } from './Archivero';
 import { AvataresView } from './AvataresView';
 import { EntregableView } from './EntregableView';
 import { ProductosView } from './ProductosView';
+import { OfertasView } from './OfertasView';
 import { PersonaView } from './PersonaView';
 import { PersonalidadView } from './PersonalidadView';
 import { MatrizView } from './MatrizView';
@@ -363,7 +364,10 @@ export function OnboardingWizard() {
     } else if (paso === 'archivero') {
       pantallas.push({ key: 'archivero', paso, pregunta: 'El Archivero', slides: SLIDES_MAKO });
     } else if (paso === 'productos') {
-      pantallas.push({ key: 'productos', paso, pregunta: 'Tus productos', slides: SLIDES_MAKO });
+      // El paso lleva las DOS mitades: la oferta (cómo se presenta) y los
+      // productos (lo que se factura). Separarlas en dos pasos obligaría a
+      // explicar la diferencia dos veces, y la oferta se arma mirando el catálogo.
+      pantallas.push({ key: 'productos', paso, pregunta: 'Tu oferta y tus productos', slides: SLIDES_MAKO });
     } else if (paso === 'entregable') {
       pantallas.push({ key: 'entregable', paso, pregunta: 'Tu lead magnet', slides: SLIDES_MAKO });
     } else if (paso === 'avatares') {
@@ -796,7 +800,12 @@ export function OnboardingWizard() {
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
         {p.key === 'archivero' && <Archivero key={`arch-${remonte}`} onEstado={setAnswers} onListo={setArchiveroListo} registro={archiveroRef} />}
 
-        {/* ── Productos/ofertas: MaKo los arma con el brief + El Archivero ── */}
+        {/* ── Oferta + productos: MaKo los arma con el brief + El Archivero ──
+            La OFERTA va primero porque es la que el dueño tiene en la cabeza; el
+            catálogo de abajo es lo que después cobra el CRM. El paso se cierra con
+            el catálogo (`productosListo`) y no con la oferta: la oferta se siembra
+            sola desde el brief, así que exigirla no pediría nada. */}
+        {p.key === 'productos' && <OfertasView key={`ofe-${remonte}`} />}
         {p.key === 'productos' && <ProductosView key={`prod-${remonte}`} onListo={setProductosListo} />}
 
         {/* ── Entregable tangible de la oferta (self-contained) ── */}

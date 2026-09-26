@@ -8,7 +8,7 @@
 // pipeline (generateFunnel) — la nutrición se puede quitar (queda "suprimida").
 // Cada camino muestra su disparador: ⚡ automático hoy · ◐ automatizable ·
 // ✋ requiere tu validación. Arriba, un mapa de solo lectura del funnel.
-// Autoguardado con toast de 5s + "Deshacer". (funnel_config en Supabase.)
+// Autoguardado con toast de 5s + "Deshacer". (tabla `funnels` en Supabase.)
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
@@ -17,6 +17,10 @@ import {
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../crm/actions';
 import { Dropdown } from '../components/Dropdown';
+// ⚠️ El router de `app/_ui/Link`, NUNCA el de next/navigation: el selector de
+// funnel navega, y una navegación que pierde el `?ws=` te deja mirando otra
+// cuenta (AGENTS.md § «Hay CUATRO formas de navegar»).
+import { useRouter } from '../_ui/Link';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -88,7 +92,7 @@ export function FunnelEditor({
   initialPipeline,
   initialSuppressed,
   embedded = false,
-  encabezado,
+  encabezado, funnelId, funnels = [],
 }: {
   initialPipeline: Stage[];
   initialSuppressed: string[];
@@ -101,7 +105,20 @@ export function FunnelEditor({
    * ancho y del padding de la pantalla, pegada al borde izquierdo.
    */
   encabezado?: React.ReactNode;
+  /**
+   * Cuál de los funnels del workspace se está editando. `undefined` = el del
+   * NEGOCIO, que es lo que hacen los editores embebidos y lo que pasaba siempre
+   * antes de la mig 0170.
+   */
+  funnelId?: number;
+  /**
+   * Los funnels del workspace, para el desplegable. Con UNO SOLO el selector NO
+   * SE PINTA y la pantalla se ve exactamente igual que antes de la 0170: un
+   * control que ofrece una sola opción no es una opción, es ruido.
+   */
+  funnels?: Array<{ id: number; nombre: string; esDefault: boolean }>;
 }) {
+  const router = useRouter();
   const [pipeline, setPipeline] = useState<Stage[]>(initialPipeline);
   const [suppressed, setSuppressed] = useState<string[]>(initialSuppressed);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
@@ -137,9 +154,9 @@ export function FunnelEditor({
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const { pipeline: p, suppressed: s } = ref.current;
-      saveFunnelAction(p, s).catch(() => flashToast('No se pudo guardar — aplica la migración 0025 en Supabase', undo, true));
+      saveFunnelAction(p, s, funnelId).catch(() => flashToast('No se pudo guardar — aplica la migración 0170 en Supabase', undo, true));
     }, 500);
-  }, [flashToast]);
+  }, [flashToast, funnelId]);
   const persist = useCallback((msg: string, undo?: () => void) => { flashToast(msg, undo); bgSave(undo); }, [flashToast, bgSave]);
   const snap = (): Snap => ({ pipeline: ref.current.pipeline, suppressed: ref.current.suppressed });
   const undoTo = useCallback((s: Snap) => { setPipeline(s.pipeline); setSuppressed(s.suppressed); flashToast('Cambio deshecho'); bgSave(); }, [flashToast, bgSave]);
@@ -231,6 +248,20 @@ export function FunnelEditor({
         )}
         <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▦ Plantillas</button>
       </header>
+
+      {funnels.length > 1 && (
+        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' }}>Editando</span>
+          <select
+            aria-label="Elige qué funnel editar"
+            value={String(funnelId ?? (funnels.find((f) => f.esDefault)?.id ?? funnels[0].id))}
+            onChange={(e) => router.push(`/funnel?f=${e.target.value}`)}
+            style={{ padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+          >
+            {funnels.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+          </select>
+        </div>
+      )}
 
       {encabezado && <div style={{ marginTop: 20 }}>{encabezado}</div>}
 

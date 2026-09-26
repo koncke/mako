@@ -10,7 +10,6 @@ import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
   getLead,
-  getPipelineStages,
   estadoMadurezLead,
   labelMadurez,
   textoCohorteJ1,
@@ -38,6 +37,7 @@ import { NotasCard } from '../lead-view/NotasCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
+import { getPipelineStagesDeLead } from '@/lib/funnels';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
@@ -63,7 +63,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     getPagosByLead(lead.id),
     getCampaignNameMap(),
     getAdNameMap().catch(() => ({} as Record<string, string>)),
-    getPipelineStages().catch(() => [] as Stage[]),
+    // DEL LEAD: la ficha muestra el recorrido de ESE lead.
+    getPipelineStagesDeLead(lead).catch(() => [] as Stage[]),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map<string, { total_visitas: number; dias_distintos: number }>()),
     getLeadInsights(idNum),
     getTrackingEvents(lead.visitor_id),

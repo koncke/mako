@@ -19,7 +19,7 @@
 import 'server-only';
 
 import { getTenantDb } from './workspace';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 
 // Etapas derivadas que NO cuentan como hueco: la nutrición manual es del setter
 // por definición y la reunión excepcional es un estacionamiento, no una etapa
@@ -59,7 +59,11 @@ export type HuecoSecuencia = {
  */
 export async function huecosDeSecuencias(): Promise<HuecoSecuencia[]> {
   const supabase = await getTenantDb();
-  const funnel = await getFunnel();
+  // DEFAULT: el aviso es del NEGOCIO, no de un lead. Con varios funnels hay que
+  // recorrerlos todos y ROTULAR cada hueco con el nombre de su funnel — sin el
+  // rótulo, «falta la secuencia de No Show R1» aparecería repetido y sin decir
+  // de cuál de los dos embudos habla.
+  const funnel = await getFunnelDefault();
   const etapasNutri = funnel.stages.filter((s) => s.band === 'nutricion' && !ETAPAS_SIN_SECUENCIA.has(s.key));
   if (!etapasNutri.length) return [];
 

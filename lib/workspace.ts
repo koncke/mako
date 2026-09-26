@@ -73,9 +73,14 @@ export function runWithWorkspace<T>(ws: number | null, fn: () => T): T {
   return wsStore.run(ws, fn);
 }
 
-// Tablas de datos por-cliente que el proxy scopea. app_settings, funnel_config
-// y credenciales NO están acá: se manejan con scoping explícito en sus libs
-// (settings.ts, leads.ts, credenciales.ts) por su semántica de key/singleton.
+// Tablas de datos por-cliente que el proxy scopea. app_settings y credenciales NO
+// están acá: se manejan con scoping explícito en sus libs (settings.ts,
+// credenciales.ts) por su semántica de key/singleton.
+//
+// `funnels` (mig 0170) SÍ está, y ese es el cambio: la tabla vieja era un
+// SINGLETON —una fila por workspace, con el .eq a mano en cada call-site— y
+// `funnels` tiene N filas. Con N filas, olvidarse el .eq ya no da «no encuentra»:
+// da los funnels de OTRO cliente. Lo mismo vale para las tablas de la oferta.
 const TENANT_TABLES = new Set<string>([
   // `agente_sesiones` va acá para que el CLIENTE, cuando mire su propio panel de «lo
   // que tu agente le contó a MaKo», vea solo lo suyo. El panel del DUEÑO la lee con
@@ -98,7 +103,11 @@ const TENANT_TABLES = new Set<string>([
   // escribe hoy, sino por de quién son las filas.
   'objectives', 'kpis', 'kpi_registros',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
-  'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros', 'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
+  'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
+  // El funnel y la oferta, desde el día uno de su migración (0169-0171). `funnels`
+  // reemplaza a `funnel_config`, que era singleton y por eso quedaba afuera.
+  'funnels', 'ofertas', 'oferta_productos', 'funnel_ofertas', 'lead_magnets',
+  'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
   // Canal Instagram vía Zernio (mig 0136). zernio_workspace es el mapeo
   // ws→profile: lib/zernio.ts lo lee con el cliente crudo y ws EXPLÍCITO (corre
@@ -359,7 +368,19 @@ export async function crearWorkspace(nombre: string, capa: CapaId = CAPA_DEFAULT
     .insert({ nombre: nombre.trim(), slug: slugify(nombre), estado: 'activo', capa })
     .select(WS_COLS).single();
   if (error) throw new Error(`workspaces: ${error.message}`);
-  return data as Workspace;
+  const ws = data as Workspace;
+  // Un workspace SIEMPRE tiene exactamente un funnel default (mig 0170). La
+  // migración se lo dio a los que ya existían; a los nuevos hay que dárselo acá,
+  // porque ya no hay upsert que lo cree solo en la primera escritura como hacía
+  // `funnel_config`. Nace SIN declarar (`declarado:false`): tiene fila, pero no
+  // afirma ningún embudo hasta que el cliente lo edite.
+  // El catch no es fatal a propósito: sin la migración aplicada, crear un cliente
+  // tiene que seguir funcionando — y saveFunnelDefault() recrea el funnel si falta.
+  const { error: eFunnel } = await getSupabaseServer()
+    .from('funnels')
+    .insert({ workspace_id: ws.id, nombre: 'Funnel principal', data: {}, declarado: false, es_default: true });
+  if (eFunnel) console.error(`[workspaces] el cliente ${ws.id} quedó sin funnel default: ${eFunnel.message}`);
+  return ws;
 }
 
 /**

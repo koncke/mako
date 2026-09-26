@@ -17,7 +17,7 @@
 // convierten en algo para revisar, nunca en un lead corrupto adentro del CRM.
 //
 // ⚠️ Y NO INGESTA SI EL NEGOCIO NO LO DECLARÓ. La puerta es `entradas` del
-// funnel del workspace (`funnel_config.data.entradas`, que se configura en
+// funnel del workspace (`funnels.data.entradas`, que se configura en
 // /funnel): si ese cliente no declaró que sus leads entran por una landing, el
 // opt-in se ACEPTA y se ignora. Así el mismo snippet se le puede dar a todos sin
 // que a nadie se le empiecen a llenar el CRM de contactos que no esperaba — la
@@ -30,7 +30,8 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
-import { createLead, duplicadosDeLead, getFunnel } from '@/lib/leads';
+import { createLead, duplicadosDeLead } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import { textoDuplicado } from '@/lib/leads-duplicados';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
@@ -76,9 +77,10 @@ export async function POST(req: NextRequest) {
   // La puerta del negocio. 200 y no 403: la página de un cliente que todavía no
   // declaró la landing como entrada no tiene por qué mostrar un error a SU
   // visitante — el formulario suyo tiene que seguir funcionando igual.
-  // `getFunnel()` es el MISMO lector que usa /funnel: la puerta se lee de donde
-  // el cliente la configura, no de una copia.
-  const entradas = await runWithWorkspace(ws, () => getFunnel())
+  // `getFunnelDefault()` es el MISMO lector que usa /funnel: la puerta se lee de
+  // donde el cliente la configura, no de una copia. DEFAULT: la puerta es del
+  // NEGOCIO — el lead todavía no existe cuando esto se evalúa.
+  const entradas = await runWithWorkspace(ws, () => getFunnelDefault())
     .then((f) => f.entradas as string[])
     .catch(() => [] as string[]);
   // ⚠️⚠️ CONECTAR UNA AGENDA ES DECLARAR LA ENTRADA. No hace falta pedirlo dos veces.

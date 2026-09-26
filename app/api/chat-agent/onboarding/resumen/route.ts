@@ -77,7 +77,8 @@ export async function GET() {
     // directa los dos audios de agendamiento no van, y listarlos como
     // "faltantes" es pedirle al dueño algo que no tiene dónde usar.
     const [funnel, diag] = await Promise.all([
-      import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null),
+      // DEFAULT: qué audios necesita ESTE negocio.
+      import('@/lib/funnels').then((m) => m.getFunnelDefault()).catch(() => null),
       import('@/lib/fase-store').then((m) => m.getDiagnosticoFase()).catch(() => null),
     ]);
     const sinGrabar = audiosDe(funnel?.entradas ?? [], diag?.canal ?? null)

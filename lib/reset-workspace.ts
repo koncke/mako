@@ -62,7 +62,19 @@ const TABLAS_RESET = [
   // 'productos' es el catálogo comercial del cliente: un reset que lo deja en pie
   // devuelve un workspace "vacío" que igual arrastra las ofertas del anterior, y
   // el paso de onboarding lo encuentra ya cargado y no vuelve a preguntar.
-  'pipeline_stages', 'funnel_config', 'productos',
+  // `funnels` se vacía como todo lo demás y después se le recrea el default (ver el
+  // paso 2b): un workspace SIEMPRE tiene exactamente un funnel, también recién
+  // reseteado. `funnel_config` sigue en la lista mientras la tabla exista: quedó de
+  // respaldo (mig 0170) y un reset que la deje llena arrastra el embudo viejo el día
+  // que alguien mire el respaldo.
+  'pipeline_stages', 'funnels', 'funnel_config', 'productos',
+  // Las tablas de la OFERTA (migs 0169/0171) van por el mismo motivo que
+  // `productos`, y los PUENTES van ANTES que `ofertas`: aunque las FK sean ON
+  // DELETE CASCADE, el borrado acá es por workspace y el orden explícito es lo
+  // que hace que el reset no dependa de una propiedad del esquema que mañana
+  // alguien cambie. `mako.ofertas.seeded` se va con `app_settings`, así que el
+  // seed de la oferta vuelve a correr en el workspace reseteado.
+  'funnel_ofertas', 'oferta_productos', 'lead_magnets', 'ofertas',
   'shares', 'branding_assets',
   // ── Credenciales: primero la auditoría, después la credencial ──
   'credenciales_auditoria', 'credenciales', 'webhook_routing',
@@ -167,6 +179,22 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
       }
     }
     pendientes = fallaron;
+  }
+
+  // ── 2b. El funnel default vuelve, vacío ──
+  //
+  // Un workspace SIEMPRE tiene exactamente un funnel default (guard en positivo,
+  // índice `funnels_ws_default_uk`, mig 0170). Vaciar la tabla lo deja en CERO, que
+  // es un estado que no existe en el modelo: sin fila, `saveFunnelDefault` tendría
+  // que inventarla y `getFunnelDefault` devuelve `origen:'sin-fila'` para siempre.
+  // Nace SIN declarar y con `data` vacío, que es justo lo que se quiere después de
+  // un reset: el cliente vuelve a declarar su embudo desde /funnel.
+  try {
+    const { error } = await sb.from('funnels')
+      .insert({ workspace_id: ws, nombre: 'Funnel principal', data: {}, declarado: false, es_default: true });
+    if (error) avisos.push(`No se pudo recrear el funnel vacío: ${error.message}. Créalo entrando a la pestaña Funnel.`);
+  } catch (e) {
+    avisos.push(`No se pudo recrear el funnel vacío: ${msg(e)}. Créalo entrando a la pestaña Funnel.`);
   }
 
   // ── 3. Binarios ──

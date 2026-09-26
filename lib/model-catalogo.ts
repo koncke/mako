@@ -149,6 +149,8 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'plan-seed-ia', label: 'Plan de arranque del cliente nuevo', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe el plan inicial desde el onboarding del cliente. Corre UNA vez por cliente, con la key del PROPIO cliente (cascada de IA barata), así que no le cuesta a la agencia.' },
   // Mismo trato que plan-seed-ia: lib/productos-ia.ts pasa el pin a chatCheapCascade.
   { feature: 'productos', label: 'Armar el catálogo de productos', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El paso "Tus productos" del onboarding: lee el brief y El Archivero y propone el catálogo. Corre a pedido del cliente, con la key del PROPIO cliente. Default GRATIS: es una extracción, no copy.' },
+  // Mismo trato: lib/ofertas-ia.ts pasa el pin a chatCheapCascade.
+  { feature: 'ofertas', label: 'Armar la oferta del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El paso "Tu oferta" del onboarding: lee el brief y El Archivero y propone promesa, garantía, prueba, objeciones y bonos. Corre a pedido del cliente, con la key del PROPIO cliente. Default GRATIS: es una extracción, no copy.' },
   // La MÁS cara de todas y la que disparó la regla: corre sola en cada reunión
   // nueva, con el transcript entero partido en 4 partes de ~40k tokens. En Sonnet
   // eran ~US$1 por reunión y nadie lo había pedido. Gemini Flash tiene 1M de
@@ -158,7 +160,6 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // cada cliente. Un cliente con 8 bloques abiertos son 8 llamadas por sesión.
   // Es exactamente el perfil de gasto silencioso de `plan-fathom` (US$37 en 30
   // días por caer en su default sin que nadie lo mirara), pero multiplicado.
-  { feature: 'cs-reescritura', label: 'Mejorar la tarea del cliente con lo hablado en la junta', grupo: 'Análisis', def: GEMINI(), nota: 'Reescribe la respuesta de un bloque con el resumen de la sesión. Es reescritura sobre material dado, no juicio: no hace falta pagar. Y corre en tanda, así que sale por la cascada gratis y no por un fallback que cobre al primer 429.' },
   // `fallback: []` — «cualquier modelo con contexto saca los action items» resultó FALSO,
   // medido el 12/8 sobre la misma llamada leída por dos workspaces con 65 s de
   // diferencia: gemini-flash 74% de precisión y 2 invenciones, mistral-small 46% y 12.

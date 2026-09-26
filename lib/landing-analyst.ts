@@ -23,7 +23,7 @@ import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { chatClaude } from './anthropic';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
 import { esPreviewDeEditor } from './landing-paginas';
@@ -347,7 +347,7 @@ async function briefNegocio(): Promise<string> {
   const [funnel, perfil] = await Promise.all([
     (async () => {
       try {
-        const f = await getFunnel();
+        const f = await getFunnelDefault();
         const etapas = f.pipeline.map((s) => `${s.label}${s.kind ? ` (${s.kind})` : ''}`).join(' → ');
         const entrada = f.pipeline.find((s) => s.kind === 'entrada');
         return `Etapas: ${etapas}.\nEntrada del funnel: ${entrada ? entrada.label : '—'}. El CTA de la landing tiene que empujar EXACTAMENTE a esa entrada.`;

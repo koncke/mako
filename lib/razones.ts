@@ -263,7 +263,7 @@ export async function siguientePasoDefault(): Promise<string> {
     carrito: 'llega al checkout y puede comprar directo',
     webinar: 'llega a la página de registro del webinar',
     // Sin fecha ni dirección: son datos del negocio y este texto viaja a un modelo,
-    // que los inventaría. El lugar y el día salen de `funnel_config.data.evento`,
+    // que los inventaría. El lugar y el día salen de `funnels.data.evento`,
     // y solo por código (ver guionDe en lib/audios-paso.ts).
     presencial: 'escribe por WhatsApp para ir a la sesión presencial',
   };

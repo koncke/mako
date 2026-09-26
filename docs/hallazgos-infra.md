@@ -3893,3 +3893,39 @@ un preview que estima: la rama de la R2 busca el lead por teléfono y por email 
 escritura, y dice `CREA` / `COMPLETA(campos)` / `NADA` / `R2 sin lead` con el id adelante.
 
 **Vive en:** scripts/backfill-calendly.ts · lib/calendly.ts (`clasificarJunta`) · app/api/webhooks/calendly/route.ts · *2026-09-23*
+
+### ⚠️ `v_cohortes_semanales` y `v_cohortes_mensuales` son legibles por `anon` HOY
+
+Medido el 26/09/2026 contra prod, con `DATABASE_URL` de `.env.local`:
+
+    relname               relkind  owner     relacl                              relrowsecurity  reloptions
+    v_cohortes_semanales  v        postgres  postgres | anon | authenticated …   false           null
+    v_cohortes_mensuales  v        postgres  postgres | anon | authenticated …   false           null
+    leads                 r        postgres  postgres | anon | authenticated …   true            (0 políticas)
+
+Las tres cosas juntas son el agujero: la vista tiene **SELECT concedido a `anon`**, no tiene
+`security_invoker` (así que corre con los permisos de `postgres`, dueño de `leads`, que **no**
+tiene `FORCE ROW LEVEL SECURITY`), y `leads` tiene RLS prendida con **cero políticas** — o sea que
+el acceso directo a `leads` con la anon key devuelve 0 filas, y **el mismo dato agregado, por la
+vista, sale entero y de todos los workspaces**. La anon key es pública (`NEXT_PUBLIC_…`), y las dos
+vistas están expuestas por PostgREST.
+
+El repo ya nombraba «el leak de `v_cohortes`» en la bitácora de `/admin/dev` como algo que un test
+de contrato habría cazado antes de la 0084. Lo que faltaba era la medición de que **sigue abierto**.
+
+**Un revoke no rompe la app**: los cuatro lectores (`lib/queries.ts:390, 405, 446, 555`) van por
+`getSupabaseServer()` con la service role, que tiene `BYPASSRLS`. Las dos vistas están además en
+`TENANT_TABLES`, así que el proxy les pone el `.eq('workspace_id')`.
+
+    -- no aplicada: la decide el humano, y cambia permisos en prod
+    alter view v_cohortes_semanales set (security_invoker = on);
+    alter view v_cohortes_mensuales set (security_invoker = on);
+    revoke all on v_cohortes_semanales, v_cohortes_mensuales from anon, authenticated;
+
+**La regla que queda, y ya está en AGENTS.md:** una vista no tiene RLS y hereda los permisos de su
+dueño, así que **toda vista de una migración lleva su `revoke` y su `security_invoker`**, igual que
+una tabla. Lo fija `tests/funnel-declarado.test.ts`, que barre `supabase/migrations/` y tiene a
+estas dos en su lista de excusas con el motivo escrito.
+
+**Vive en:** `supabase/migrations/0001_initial_schema.sql` · `supabase/migrations/0084_cohortes_workspace.sql`
+· `lib/queries.ts` · `tests/funnel-declarado.test.ts` · *2026-09-26 revisión adversarial F1+F2*

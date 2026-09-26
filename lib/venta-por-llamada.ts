@@ -4,7 +4,7 @@
 // Junta las tres fuentes que ya existen y devuelve los MOTIVOS (la regla vive en
 // lib/meta-conversiones.ts, que se prueba):
 //   · lo que el dueño DECLARÓ en su diagnóstico (`negocio.fase.diagnostico.canal`);
-//   · cómo DECLARÓ que entran sus leads (`funnel_config.data.entradas`);
+//   · cómo DECLARÓ que entran sus leads (`funnels.data.entradas`);
 //   · lo que se MIDIÓ en sus landings (`landing.snapshot`, pieza `embed-agenda`).
 //
 // Cualquiera de las tres que falle cuenta como «no dice nada»: la consecuencia de no
@@ -13,7 +13,7 @@
 
 import 'server-only';
 import { getDiagnosticoFase } from './fase-store';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { getSetting } from './settings';
 import { SNAPSHOT_KEY, parsearSnapshots } from './landing-snapshot';
 import { motivosVentaPorLlamada } from './meta-conversiones';
@@ -21,7 +21,7 @@ import { motivosVentaPorLlamada } from './meta-conversiones';
 export async function motivosDeVentaPorLlamada(): Promise<string[]> {
   const [diag, funnel, snap] = await Promise.all([
     getDiagnosticoFase().catch(() => null),
-    getFunnel().catch(() => null),
+    getFunnelDefault().catch(() => null),
     getSetting(SNAPSHOT_KEY).catch(() => null),
   ]);
   return motivosVentaPorLlamada({

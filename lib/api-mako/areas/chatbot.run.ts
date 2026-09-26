@@ -32,7 +32,7 @@ import { estadoPlantillasSecuencia, plantillaDesdePaso } from '@/lib/nutricion-p
 import { armarSecuenciasDeAudios } from '@/lib/secuencias-audios';
 import { getContactoReportes } from '@/lib/perfil';
 import { getSetting, setSetting } from '@/lib/settings';
-import { getFunnel } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import {
   secuenciaFila, inscripcionesVivas, handoffFila, inscripcionesDeLead, TOPE_INSCRIPCIONES_LEAD,
   estadoCanalWhatsapp, etapasParaSecuencia, leerObjetivosCustom, esObjetivoDelCatalogo, agregarObjetivoCustom, TOPE_OBJETIVOS_CUSTOM,
@@ -511,7 +511,10 @@ export const RUNNERS: Runners = {
           if (des[k] != null) { (nueva.desenlace as Record<string, unknown>)[k] = des[k]; cambios.push(`desenlace.${k}`); }
         }
         // El desenlace MUEVE leads desde el cron: una etapa o una secuencia inventada no puede entrar.
-        const etapasFunnel = new Set((await getFunnel()).stages.map((st) => st.key));
+        // ⚠️ Hoy valida contra el funnel DEL NEGOCIO porque hay uno solo. Con varios,
+        // acá va la UNIÓN de las etapas de todos: si no, una etapa válida del segundo
+        // funnel rebota contra el primero y el chatbot se queda sin desenlace.
+        const etapasFunnel = new Set((await getFunnelDefault()).stages.map((st) => st.key));
         for (const k of ['logradoEtapa', 'falloEtapa'] as const) {
           const v = des[k];
           if (typeof v === 'string' && !etapasFunnel.has(v)) return { error: `«${v}» (desenlace.${k}) no es una etapa de este funnel.`, disponibles: [...etapasFunnel] };

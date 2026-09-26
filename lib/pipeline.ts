@@ -115,7 +115,7 @@ export type FunnelTransition = {
   asistioJ2?: boolean;          // marca asistencia a R2 al aplicar (Datos sin marcar tipo C)
 };
 
-// Grafo por defecto (se usa si funnel_config aún no está guardado).
+// Grafo por defecto (se usa si el funnel del workspace aún no está guardado).
 export const DEFAULT_TRANSITIONS: FunnelTransition[] = [
   { from: 'lead', to: 'agenda', label: 'Agendó R1', category: 'avanza' },
   { from: 'lead', to: 'postagenda', label: 'Nutrición - Post Agenda', category: 'nutricion' },
@@ -484,7 +484,7 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
  * `applyTemplate` en app/funnel/FunnelEditor.tsx hace `setPipeline(tpl.pipeline)`
  * y `pk()` reconstruye cada Stage desde DEFAULT_STAGES. Un campo colgado del
  * Stage sobrevive por spread accidental y se borra con UN clic en «Aplicar
- * plantilla», sin error y sin log. Vive en `funnel_config.data.entradas`.
+ * plantilla», sin error y sin log. Vive en `funnels.data.entradas`.
  */
 export type EntradaId = 'formulario_anuncio' | 'landing' | 'agenda_sola' | 'chat_entrante' | 'chat_saliente';
 
@@ -596,7 +596,7 @@ export function sanearPipeline(v: unknown): Stage[] | null {
 }
 
 /**
- * El MERGE del jsonb de `funnel_config.data`, separado de la escritura para que
+ * El MERGE del jsonb de `funnels.data`, separado de la escritura para que
  * se pueda probar sin Supabase.
  *
  * ⚠️ Existe porque `saveFunnel` escribía `data: { pipeline, suppressed }` —
@@ -797,7 +797,7 @@ export const TEMPLATE_POR_CANAL: Record<CanalId, string> = {
  * etapas, en el mismo orden, con la misma clave, la misma etiqueta y el mismo `kind`.
  *
  * Existe para poder preguntar «¿este cliente ya tocó su funnel?» sin adivinar. No hay
- * historial de funnel en ningún lado —`funnel_config` guarda un solo `data` que se pisa
+ * historial de funnel en ningún lado —cada funnel guarda un solo `data` que se pisa
  * en cada guardado, sin versiones ni auditoría—, así que la única forma honesta de
  * saber si alguien lo editó es comparar contra lo que se le habría dado.
  *

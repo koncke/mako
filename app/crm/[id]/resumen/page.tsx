@@ -27,7 +27,8 @@ import { requireCapa } from '@/lib/tab-access';
 import { getResumenLead, type LlamadaResumen } from '@/lib/lead-resumen';
 import { estadoDelAnalisis } from '@/lib/closing-job';
 import { AnalizarLlamada } from './AnalizarLlamada';
-import { getPipelineStages, workspaceDeLeadParaAdmin } from '@/lib/leads';
+import { workspaceDeLeadParaAdmin } from '@/lib/leads';
+import { getPipelineStagesDeLead } from '@/lib/funnels';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { deriveStageKey, stageMetaOpt, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { fechaHoraEnTz, fmtDDMMYYYY } from '@/lib/date-utils';
@@ -205,7 +206,8 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
   if (!data) return <ResumenAjeno leadId={idNum} />;
   const { lead, tz, llamadas, respuestas, origen, proximaReunion, grabaciones, borradorSeguimiento } = data;
 
-  const stagesRaw = await getPipelineStages().catch(() => [] as Stage[]);
+  // DEL LEAD: el resumen rotula la etapa de ESE lead.
+  const stagesRaw = await getPipelineStagesDeLead(lead).catch(() => [] as Stage[]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const sm = stageMetaOpt(stages, lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead));
 

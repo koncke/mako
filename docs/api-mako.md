@@ -1549,7 +1549,7 @@ PROPONE declarar por qué caminos llega la gente al negocio (hasta 3): formulari
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** reescribe las entradas declaradas en funnel_config del negocio
+- **Escribe:** reescribe las entradas declaradas en el funnel del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**

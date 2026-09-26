@@ -18,7 +18,8 @@ import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-cata
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { getSetting, setSetting } from '@/lib/settings';
-import { saveFunnel, getFunnel } from '@/lib/leads';
+// DEFAULT en los tres usos: el onboarding configura el funnel DEL NEGOCIO.
+import { saveFunnelDefault, getFunnelDefault } from '@/lib/funnels';
 import { FUNNEL_TEMPLATES, templateDeCanal, mismoPipeline, DEFAULT_PIPELINE } from '@/lib/pipeline';
         // Ya no se siembran secuencias: el dueño arranca con la pantalla limpia
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
@@ -279,12 +280,22 @@ export async function POST(req: NextRequest) {
           const tpl = templateDeCanal(canal);
           if (tpl) {
             try {
-              const actual = await getFunnel();
+              const actual = await getFunnelDefault();
+              // ⚠️ EL GUARD DE `origen === 'error'`, el mismo que ya tienen
+              // `declararEntradasAction` y `guardarEntradas`, y que acá faltaba.
+              // Con la lectura caída, `pipeline` ES el DEFAULT_PIPELINE y
+              // `suppressed` viene vacío: `intacto` da true SIEMPRE, así que una
+              // caída de Supabase convertía este guard en su contrario y sembraba
+              // la plantilla del canal encima del funnel editado del cliente. El
+              // falso negativo (no sembrar) es el lado seguro; este era el falso
+              // POSITIVO, y es justo el caso que el comentario de arriba dice que
+              // no puede pasar.
+              if (actual.origen === 'error') throw new Error('no se pudo leer el funnel actual; no se siembra para no pisarlo');
               const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
               // `tpl.suppressed` viaja con la plantilla: sin eso, un pipeline con
               // etapa de pago siembra igual «Reunión excepcional» y «No Show R3»,
               // que en un funnel de una sola sesión no existen.
-              if (intacto) await saveFunnel(tpl.pipeline, tpl.suppressed ?? []);
+              if (intacto) await saveFunnelDefault(tpl.pipeline, tpl.suppressed ?? []);
             } catch (e) { console.error('[onboarding] funnel por canal falló (no fatal):', e); }
           }
         }
@@ -307,7 +318,7 @@ export async function POST(req: NextRequest) {
       case 'funnel': {
         const tpl = FUNNEL_TEMPLATES.find((t) => t.id === body.templateId);
         if (!tpl) return NextResponse.json({ ok: false, error: 'plantilla inválida' }, { status: 400 });
-        await saveFunnel(tpl.pipeline, tpl.suppressed ?? []);
+        await saveFunnelDefault(tpl.pipeline, tpl.suppressed ?? []);
         return NextResponse.json({ ok: true });
       }
 

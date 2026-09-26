@@ -3165,6 +3165,51 @@ Y adentro de la cola vale lo mismo que en el codigo: **una regla, un lugar**. Tr
 reglas propias se estaban contradiciendo en el mismo archivo; ganaba siempre la de mas
 abajo, y la de arriba —la que tenia el comentario explicando el porque— mentia.
 
+# Toda migración decide su ORDEN de despliegue, y el `.sql` lo dice en su cabecera
+
+Son dos órdenes opuestos y elegir el equivocado no da error: da la pantalla genérica.
+
+- **La que SACA algo** (un drop, un rename) va **después** del deploy. Mientras haya una
+  versión desplegada que emita esa columna, dropearla hace que PostgREST rechace la fila
+  ENTERA y falle cada guardado, con la pantalla ya pintada. Pasó el 26/09/2026 con la
+  0167/0168 y duró minutos: «agregar → desplegar → sacar».
+- **La que AGREGA algo que el código nuevo YA LEE** va **antes o junto** con el deploy. Es
+  el caso de la 0170 (`funnels`): el mismo commit deja de leer la tabla vieja, así que entre
+  un deploy sin tabla y la migración, el lector cae a su default y todo el mundo ve el
+  embudo genérico. No se pierde nada y no hay un solo error.
+
+Lo que hace fácil equivocarse es que el reflejo aprendido con la primera —«primero el
+código»— produce exactamente el síntoma que la segunda venía a evitar. Por eso el orden va
+escrito en la cabecera del `.sql`, que es lo que lee el que la aplica.
+
+⚠️ **Y un backfill que le crea fila a TODOS invierte en silencio a todo el que cuenta
+filas.** «¿Hay fila en esta tabla?» era la señal de «este cliente lo configuró»; después del
+INSERT es verdad para los 9 workspaces. Antes de escribir el backfill, grepeá quién cuenta
+filas ahí — la existencia dejó de ser información, y lo que distingue pasa a ser una columna
+(acá `funnels.declarado`).
+
+⚠️ **Y una VISTA no tiene RLS: lleva su `revoke` y su `security_invoker`, siempre.**
+`alter table … enable row level security` no existe para una vista, y una vista corre con los
+permisos de su DUEÑO — así que aunque las tablas de abajo tengan RLS, quien pueda hacerle SELECT
+lee las filas de TODOS los workspaces. El molde que se copia de la tabla de al lado
+(`enable row level security` + `revoke all`) deja afuera justo la mitad que ahí importa.
+
+Y que el grant llegue o no **depende de quién aplique el DDL**, así que no se puede dejar al azar.
+Medido en prod el 26/09: `v_cohortes_semanales` (vista, mig 0001) tiene hoy `anon=arwdDxtm` con
+`security_invoker` apagado, leyendo `leads`; `funnel_config` y `productos`, aplicadas con el
+`postgres` de `scripts/apply-migration.mjs`, tienen sólo `postgres` + `service_role`. Lo único que
+mantiene afuera a las tablas nuevas es el revoke explícito.
+
+```sql
+alter view v_loquesea set (security_invoker = on);
+revoke all on v_loquesea from anon, authenticated;
+```
+
+El servidor no cambia: lee con `service_role`, que tiene `BYPASSRLS`. Lo fija
+`tests/funnel-declarado.test.ts`, que barre todas las vistas de `supabase/migrations/` con una
+lista de excusas **por nombre de vista, no por archivo** — una misma vista se re-crea en varias
+migraciones, y exceptuar un archivo dejaría entrar cualquier vista nueva escrita ahí.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

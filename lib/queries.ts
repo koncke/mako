@@ -17,11 +17,11 @@ import {
   getVisitasLandingMap,
   estadoMadurezLead,
   faltantesDeLead,
-  getPipelineStages,
   type Lead,
   type EstadoLead,
   type EstadoMadurez,
 } from './leads';
+import { getPipelineStagesDefault } from './funnels';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
 import { encuentroGrabable } from './encuentro-ws';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
@@ -2232,8 +2232,13 @@ async function _getPendientesDeMarcar(
       return [] as Array<{ lead_id: number }>;
     });
   const conR2Resp = new Set(respRows.map((r) => r.lead_id));
-  // Funnel del workspace (una vez): requisitos correctos para funnels no-default.
-  const funnelPipeline = await getPipelineStages().catch(() => undefined);
+  // Los requisitos son DEL LEAD, pero hoy se leen UNA sola vez y alcanza: cada
+  // workspace tiene exactamente un funnel (mig 0170), así que el del negocio es el
+  // de todos. El día que un lead pueda entrar por otro funnel (F3,
+  // lead_participaciones) esto pasa a ser un mapa funnel_id → stages leído de una y
+  // resuelto POR LEAD; leer uno solo ahí le pondría a la mitad del board los
+  // requisitos del embudo equivocado.
+  const funnelPipeline = await getPipelineStagesDefault().catch(() => undefined);
   // Un encuentro que no deja grabación no puede tener «falta el link de Fathom»
   // como dato sin marcar: sería una tarea imposible, repetida por cada lead.
   const grabable = await encuentroGrabable();

@@ -27,21 +27,21 @@ const DECISIONES = [
     detalle: 'Menú de 3 opciones y asistente de 3 pasos para mover un lead una columna. Y si la agendaste por fuera, te obliga a escribir por qué.',
     costo: '~10 clics',
     unidad: 'por día',
-    pregunta: '¿Ese texto obligatorio lo querés como freno a propósito, sabiendo que nada lo lee?',
+    pregunta: '¿Ese texto obligatorio lo quieres como freno a propósito, sabiendo que nada lo lee?',
   },
   {
     que: 'Confirmar cada arrastre',
-    detalle: 'Movés una card y hay que confirmar. Lo pediste el 06/08.',
+    detalle: 'Mueves una card y hay que confirmar. Lo pediste el 06/08.',
     costo: '5 clics',
     unidad: 'por día',
     pregunta: '¿Vale también para algo que ya se deshace en 5 segundos y queda en el historial?',
   },
   {
     que: 'Corregir un teléfono',
-    detalle: 'La ficha no deja editar nada: otra pantalla, prender «Editar», guardar, confirmar en un modal. Al volver perdés el scroll.',
+    detalle: 'La ficha no deja editar nada: otra pantalla, prender «Editar», guardar, confirmar en un modal. Al volver pierdes el scroll.',
     costo: '5 clics + 2 recargas',
     unidad: 'cada vez',
-    pregunta: '¿La previsualización del cambio la querés antes, o un «deshacer» después?',
+    pregunta: '¿La previsualización del cambio la quieres antes, o un «deshacer» después?',
   },
 ];
 
@@ -68,20 +68,20 @@ const SACAR: Item[] = [
 
 const CAMBIAR: Item[] = [
   { que: 'Entrar al CRM: pantalla vieja hasta que terminan tres olas de consultas', dato: 'cada entrada' },
-  { que: 'El tablero abre con 1.138 tarjetas; las que trabajás son ~34', dato: 'siempre' },
-  { que: 'El asistente pregunta si querés que busque solo — ya busca solo', dato: 'cada «Solucionar»' },
+  { que: 'El tablero abre con 1.138 tarjetas; las que trabajas son ~34', dato: 'siempre' },
+  { que: 'El asistente pregunta si quieres que busque solo — ya busca solo', dato: 'cada «Solucionar»' },
   { que: '«Ignorar» un aviso pide confirmación de 3 renglones, siendo reversible', dato: '21 leads ignorados' },
   { que: 'Cada fila del worklist es un párrafo', dato: 'siempre' },
   { que: 'El cartel del costo de IA tapa la tarjeta de MaKo', dato: 'todo el día' },
   { que: 'Pop-up con sonido de WhatsApp encima del tablero', dato: 'cada mensaje' },
-  { que: '«+ Nuevo lead» se lleva la pantalla; al volver perdés filtro y scroll', dato: 'cada alta' },
+  { que: '«+ Nuevo lead» se lleva la pantalla; al volver pierdes filtro y scroll', dato: 'cada alta' },
   { que: 'Un Excel se rechaza y te manda a convertirlo a CSV', dato: 'cada lista' },
   { que: 'Exportar: el botón gris mientras cuenta, y el formato se pregunta siempre', dato: 'cada exportación' },
 ];
 
 const MANTENER: Item[] = [
   { que: 'Las dos preguntas de Meta al mover', dato: 'lo único que le llega a Meta' },
-  { que: 'El motivo de la pérdida, escrito a mano', dato: 'solo lo tenés vos' },
+  { que: 'El motivo de la pérdida, escrito a mano', dato: 'solo lo tienes tú' },
   { que: 'La fecha límite de «Nutrición - Manual»', dato: 'el plazo ES la etapa' },
   { que: 'La confirmación antes de generar Insights', dato: 'gasta plata de IA' },
   { que: 'El comprobante al marcar una cuota', dato: 'da la fecha real del cobro' },
@@ -119,7 +119,7 @@ export default async function FriccionPage() {
     <Pagina>
       <PageHeader
         titulo="Fricción del CRM"
-        proposito="Dónde te frena, ordenado por lo que más molesta. Decidí las tres de arriba y el resto lo hago."
+        proposito="Dónde te frena, ordenado por lo que más molesta. Decide las tres de arriba y el resto lo hago."
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>

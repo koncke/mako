@@ -10,7 +10,7 @@
 
 import 'server-only';
 import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { getSenalesRecon, getMarketingWindow, getRevenuePeriod } from './queries';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
@@ -141,7 +141,7 @@ export async function buildCampaignBrief(prompt: string): Promise<string> {
   const [funnelTxt, perfilTxt, kpisTxt, ganadoresTxt, presupuestoTxt, conocimientoTxt] = await Promise.all([
     (async () => {
       try {
-        const f = await getFunnel();
+        const f = await getFunnelDefault();
         const etapas = f.pipeline.map((s) => `${s.label}${s.kind ? ` (${s.kind})` : ''}`).join(' → ');
         const entrada = f.pipeline.find((s) => s.kind === 'entrada');
         return `Etapas del funnel: ${etapas}.\nEntrada: ${entrada ? `${entrada.label} (${entrada.kind})` : '—'}. Inferí el objetivo de campaña de cómo entra la gente.`;

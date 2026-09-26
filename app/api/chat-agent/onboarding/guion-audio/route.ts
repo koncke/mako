@@ -21,7 +21,7 @@ import { getSetting } from '@/lib/settings';
 import { MAKO_NUCLEO } from '@/lib/mako-prompts';
 import { defDeClave, guionDe, KEY_LINK_VIDEO, KEY_PUBLICO, bloquePublico, esPublico } from '@/lib/audios-paso';
 import { getAvatares, avataresTexto } from '@/lib/avatares';
-import { getFunnel, type EventoFunnel } from '@/lib/leads';
+import { getFunnelDefault, type EventoFunnel } from '@/lib/funnels';
 import { getDiagnosticoFase } from '@/lib/fase-store';
 import { agendaElLead, ENCUENTRO_POR_CANAL, type EntradaId } from '@/lib/pipeline';
 import type { CanalId } from '@/lib/fase-diagnostico';
@@ -155,7 +155,8 @@ export async function POST(req: Request) {
       getSetting(KEY_PUBLICO).catch(() => null),
       // El funnel CRUDO, no el resumen de texto: de acá salen las entradas
       // declaradas y el evento, que son datos y no prosa para el modelo.
-      getFunnel().catch(() => null),
+      // DEFAULT: el guión habla del negocio, no de un lead.
+      getFunnelDefault().catch(() => null),
       getDiagnosticoFase().catch(() => null),
     ]);
 

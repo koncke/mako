@@ -50,7 +50,7 @@ export async function GET() {
   const g = await guard();
   if (g) return g;
   try {
-    // QUÉ audios se piden sale del funnel REAL del workspace (funnel_config) y
+    // QUÉ audios se piden sale del funnel REAL del workspace (tabla `funnels`) y
     // del canal declarado, que son la fuente de verdad del proceso comercial.
     //
     // Antes acá se calculaba un solo `hayReunion`, y ese era el bug: describe
@@ -59,7 +59,8 @@ export async function GET() {
     // «dejaste tus datos en el anuncio», porque ese eje no lo miraba nadie.
     const [audios, porClave, linkVideo, funnel, publico, diag] = await Promise.all([
       listAudios(), getPorClave(), getSetting(KEY_LINK_VIDEO).catch(() => null),
-      import('@/lib/leads').then((m) => m.getFunnel()).catch(() => null),
+      // DEFAULT: qué audios se piden sale de cómo entra la gente al NEGOCIO.
+      import('@/lib/funnels').then((m) => m.getFunnelDefault()).catch(() => null),
       getSetting(KEY_PUBLICO).catch(() => null),
       import('@/lib/fase-store').then((m) => m.getDiagnosticoFase()).catch(() => null),
     ]);

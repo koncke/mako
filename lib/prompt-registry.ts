@@ -40,6 +40,7 @@ import {
 } from './ads-analyst';
 import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
 import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
+import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
 import { EMAIL_GEN_SYSTEM_TEMPLATE } from '@/app/api/email/generar/route';
 import {
   LANDING_SUGGEST_SYSTEM_TEMPLATE,
@@ -682,6 +683,19 @@ export const REGISTRY: Group[] = [
         variables: [v('brief', 'el perfil del negocio del onboarding'), v('panorama', 'lo que MaKo entendió de tus documentos de El Archivero'), v('existentes', 'los productos ya cargados, enteros, para completarlos sin pisarlos')], scope: 'full', sensitive: false,
         default: PRODUCTOS_USER_TEMPLATE,
         context: 'El slot {{existentes}} lleva los productos YA cargados enteros (en JSON) para que MaKo complete lo vacío sin reescribir lo que el dueño escribió a mano. La garantía de que no se pisa NO es este texto: es el merge campo a campo de app/api/onboarding/productos/route.ts. Conserva los tres slots.',
+      },
+      {
+        key: 'ofertas.system', source: 'override',
+        label: 'La oferta del negocio (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: OFERTAS_SYSTEM_TEMPLATE,
+        context: 'El paso "Tu oferta" del onboarding: MaKo la arma leyendo el brief y El Archivero, para que el dueño CORRIJA en vez de redactar. La regla que NO se toca es la de la urgencia: sólo se declara si el contexto documenta una restricción REAL, nunca se deduce — una fecha límite inventada aquí termina en un anuncio que le miente a un lead. Tampoco se parsea un precio de una frase: el rango va a "precio_nota". Conserva la forma EXACTA del JSON o el paso no puede leer la respuesta.',
+      },
+      {
+        key: 'ofertas.user', source: 'override',
+        label: 'Brief + Archivero + la oferta ya cargada (user)', kind: 'user', dynamic: true,
+        variables: [v('brief', 'el perfil del negocio del onboarding'), v('panorama', 'lo que MaKo entendió de tus documentos de El Archivero'), v('actual', 'la oferta ya cargada, entera, para completarla sin pisarla')], scope: 'full', sensitive: false,
+        default: OFERTAS_USER_TEMPLATE,
+        context: 'El slot {{actual}} lleva la oferta YA cargada entera (en JSON) para que MaKo complete lo vacío sin reescribir lo que el dueño escribió a mano. La garantía de que no se pisa NO es este texto: es el merge campo a campo de app/api/onboarding/ofertas/route.ts. Conserva los tres slots.',
       },
       {
         key: 'contracts.extract_payment_plan.user', source: 'override',

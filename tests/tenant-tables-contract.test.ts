@@ -13,6 +13,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Tablas con columna workspace_id que a propósito NO pasan por el proxy (scopeo
 // explícito en su lib, o cross-workspace deliberado). Ver lib/workspace.ts:39-41.
+// `funnel_config` sigue acá mientras la tabla exista: la mig 0170 la dejó de
+// respaldo, DEPRECADA y sin lectores (su reemplazo, `funnels`, sí está en el Set).
 const EXCEPTIONS = new Set(['app_settings', 'credenciales', 'funnel_config', 'usuarios']);
 
 // ── TENANT_TABLES desde el texto de lib/workspace.ts (Set no exportado) ──────────

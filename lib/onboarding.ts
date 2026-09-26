@@ -9,6 +9,10 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada, type ProvName } from './ai-cheap';
+// ⚠️ `lib/ofertas.ts` NO importa este módulo, a propósito: las answers le entran
+// por parámetro para que no se cierre un ciclo entre los dos.
+import { ofertaPrincipal } from './ofertas';
+import { ofertaTextoCorto, ROTULO_BRIEF } from './oferta-modelo';
 
 export type FieldType = 'text' | 'number' | 'textarea';
 export type Field = { key: string; label: string; type: FieldType; placeholder?: string };
@@ -255,11 +259,42 @@ export async function generarPreguntasCerradas(
   return res;
 }
 
-/** Texto del perfil del negocio para inyectar en el contexto de MaKo. */
+/**
+ * Texto del perfil del negocio para inyectar en el contexto de MaKo.
+ *
+ * Es el ÚNICO lector que cambia con la entidad `ofertas` (mig 0169), y cambia por
+ * dos motivos:
+ *
+ * 1. **El grupo `oferta` se resuelve, no se lee.** Con `desde_brief` el valor
+ *    sigue viviendo en este mismo blob y el texto sale idéntico al de hoy; el día
+ *    que el cliente declare una oferta de verdad, sale la declarada. Cero copia y
+ *    cero backfill: quién manda lo dice una columna, no dos tablas con el mismo
+ *    dato (AGENTS.md § Una cosa, un lugar).
+ * 2. **Los rótulos del grupo `oferta` dejan de ser PREGUNTAS.** Hasta hoy esta
+ *    función emitía el `label` del esquema, así que a ~20 features les llegaba
+ *    literal «Oferta — ¿Cómo se llama tu oferta?: X · ¿Tienes garantía? ¿Cuál?: 30
+ *    días». El repo ya había arreglado exactamente esto para el grafo
+ *    (lib/cerebro-grafo.ts) y no para los prompts.
+ *
+ * Los campos EXTRA que un workspace le haya agregado al grupo (el esquema es
+ * editable por cliente) se siguen emitiendo con su propio label: la resolución
+ * cubre los 5 canónicos, no se come lo que no conoce.
+ */
 export async function perfilNegocioTexto(): Promise<string> {
   const [schema, answers] = await Promise.all([getSchema(), getAnswers()]);
+  const { campos } = await ofertaPrincipal(answers);
   const lines: string[] = [];
   for (const g of schema) {
+    if (g.key === 'oferta') {
+      const propios = ofertaTextoCorto(campos);
+      const extra = g.fields
+        .filter((f) => !ROTULO_BRIEF[f.key])
+        .map((f) => { const v = (answers[f.key] ?? '').trim(); return v ? `${f.label}: ${v}` : ''; })
+        .filter(Boolean);
+      const todo = [propios, ...extra].filter(Boolean).join(' · ');
+      if (todo) lines.push(`${g.label} — ${todo}`);
+      continue;
+    }
     const fs = g.fields
       .map((f) => { const v = (answers[f.key] ?? '').trim(); return v ? `${f.label}: ${v}` : ''; })
       .filter(Boolean);

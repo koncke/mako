@@ -8,7 +8,7 @@ import type { EstadoLead } from './leads';
 import { pipelineStageOf } from './pipeline';
 
 // Umbrales del motor (defaults). Cada workspace puede pisarlos desde su funnel
-// (funnel_config.data.umbrales — ver umbralesDelWorkspace en lib/crm-auto.ts).
+// (funnels.data.umbrales del funnel default — ver umbralesDelWorkspace en lib/crm-auto.ts).
 //  - diasLeadSinAgenda:  a los N días sin agendar, el lead del Instant form pasa a
 //                        Nutrición - No Agenda (invitación a agendar; sigue "caliente").
 //  - diasSinAgendaFrio:  si NUNCA agendó y ya lleva N días, está FRÍO (capaz ni se

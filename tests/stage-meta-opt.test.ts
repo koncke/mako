@@ -17,7 +17,7 @@ test('stageMetaOpt resuelve una key del funnel del workspace', () => {
 });
 
 test('stageMetaOpt resuelve keys de nutrición que el funnel no lista', () => {
-  // noshow_r1 no está en funnel_config.data.pipeline: vive en las libs.
+  // noshow_r1 no está en funnels.data.pipeline: vive en las libs.
   assert.equal(stageMetaOpt(FUNNEL, 'noshow_r1')?.label, 'Nutrición No Show R1');
 });
 

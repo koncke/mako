@@ -48,7 +48,7 @@ import { FASES, CANALES } from './fase-diagnostico';
 import { PERSONALIDAD_PREGUNTAS } from './personalidad';
 import { BIBLIOTECA_ANGULOS } from './angulos-data';
 import { layoutCerebro } from './cerebro-layout';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { BAND_LABEL, TRIGGER, salidasDeEtapa, type FunnelTransition } from './pipeline';
 import { getSecuenciasActivas } from './nutricion';
 import { landingsParaCerebro } from './landing-analyst';
@@ -211,7 +211,7 @@ export async function construirCerebro(): Promise<Cerebro> {
   // tenga a mano. `construirCerebro()` tiene DOS llamadores —la pantalla y la ruta que
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
   // en silencio, que es la clase de bug que este repo ya pagó varias veces. Va en el
-  // mismo Promise.all, así que no suma latencia, y `getFunnel()` nunca lanza.
+  // mismo Promise.all, así que no suma latencia, y `getFunnelDefault()` nunca lanza.
   const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash] = await Promise.all([
     getSchema(),
     getDiagnosticoFase(),
@@ -225,7 +225,7 @@ export async function construirCerebro(): Promise<Cerebro> {
     getPersona(),
     getPersonalidad(),
     getRecomendaciones(),
-    getFunnel(),
+    getFunnelDefault(),
     // Las lecturas nuevas van con `.catch()` a un valor vacío: una fuente secundaria que
     // falle NO puede dejar sin mapa a un cliente. El grafo se degrada, no se cae.
     getSecuenciasActivas().catch(() => []),
@@ -626,7 +626,7 @@ export async function construirCerebro(): Promise<Cerebro> {
         ].filter(Boolean).join(' — '),
         // La fila «Activo» es la que el cliente edita en /funnel; las de nutrición las
         // deriva `generateFunnel` sola. Eso es literalmente cierto hoy, y es lo único
-        // que se puede afirmar: `funnel_config` no guarda de dónde salió el pipeline.
+        // que se puede afirmar: `funnels` no guarda de dónde salió el pipeline.
         fuente: esActivo ? 'de tu funnel' : 'derivada de tu funnel',
         autoria: esActivo ? 'usuario' : 'mako',
       });

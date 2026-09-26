@@ -51,7 +51,9 @@ test('el ruteo del workspace es fail-closed', () => {
 
 test('solo ingesta si el negocio declaró la landing como entrada', () => {
   const src = RUTA();
-  assert.ok(/getFunnel\(\)/.test(src), 'la puerta se lee de donde el cliente la configura (/funnel), no de una copia');
+  // `getFunnelDefault` (lib/funnels.ts, mig 0170) y no un lector propio: la puerta es
+  // del NEGOCIO, y leerla de otro lado sería el segundo lugar que decide lo mismo.
+  assert.ok(/getFunnelDefault\(\)/.test(src), 'la puerta se lee de donde el cliente la configura (/funnel), no de una copia');
   assert.ok(/entradas\.includes\('landing'\)/.test(src), 'falta la puerta: sin esto el mismo snippet le llena el CRM a cualquiera');
   // 200 y no 403: la página del cliente no puede mostrarle un error a SU visitante
   // por una config que le falta al dueño de la página.

@@ -850,13 +850,13 @@ export async function landingDiagnostico(
   // Son TRES estados distintos y separarlos importa, porque mandan a lugares
   // distintos: «no lo declaraste» se arregla en /funnel, «todavía no probaste» se
   // arregla llenando tu propio formulario, y «llegó» ya está.
-  // Import dinámico: `lib/leads.ts` es enorme y trae medio CRM atrás; a nivel de
-  // módulo esto sería un ciclo. Es el mismo recurso que usa `emitirAviso` con
-  // `plantillas`. La puerta se lee de donde el cliente la configura (/funnel), no
-  // de una copia — si acá se leyera `funnel_config` a mano, sería el segundo lugar
-  // que decide lo mismo y el que se queda viejo.
-  const { getFunnel } = await import('./leads');
-  const { entradas } = await getFunnel().catch(() => ({ entradas: [] as string[] }));
+  // Import dinámico: a nivel de módulo esto sería un ciclo. Es el mismo recurso
+  // que usa `emitirAviso` con `plantillas`. La puerta se lee de donde el cliente
+  // la configura (/funnel), no de una copia — si acá se leyera la tabla a mano,
+  // sería el segundo lugar que decide lo mismo y el que se queda viejo.
+  // DEFAULT: la puerta del Pixel es del NEGOCIO, no de un lead.
+  const { getFunnelDefault } = await import('./funnels');
+  const { entradas } = await getFunnelDefault().catch(() => ({ entradas: [] as string[] }));
   const declarado = (entradas as string[]).includes('landing');
   const { data: optins } = declarado
     ? await db.from('propuestas').select('created_at').eq('origen', 'landing').gte('created_at', desde).limit(1)

@@ -1,5 +1,12 @@
 # Modelo definitivo — Oferta, Producto, Funnel y Participación
 
+> ⚠️ **Los números de migración de acá (0125–0131) son del 10/08 y NO son los del repo.** Al
+> 26/09 las tres primeras están escritas y **sin aplicar**, renumeradas manteniendo este mismo
+> orden: **0125 → `0169_ofertas.sql`, 0126 → `0170_funnels.sql`, 0127 → `0171_funnel_ofertas.sql`**.
+> Cada `.sql` dice en su cabecera a qué número de este documento corresponde y cuándo se aplica
+> respecto del deploy. Las 0128–0131 (F3 en adelante) no están escritas y van a llevar el número
+> que toque ese día. Estado y orden completo: [productos-y-funnels-plan.md](productos-y-funnels-plan.md).
+
 > Reemplaza la **sección 2 ("La decisión de modelo")** y la **fase F3** de `docs/productos-y-funnels-plan.md`.
 > Escrito el 2026-08-10, después de las tres respuestas del dueño. Última migración aplicada: `0124_agente_telemetria.sql`.
 > ~~**Nada de esto está verificado contra la base.**~~ **Las cinco queries de §5 SE CORRIERON contra prod el 2026-08-10.** Resultados:

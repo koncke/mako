@@ -17,7 +17,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { getSetting, getSettingNum, setSetting } from './settings';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { getDiagnosticoFase } from './fase-store';
 import { hoyEnWorkspace } from './timezone';
 import { leerFuente, inversionUsd, type LecturaFuente } from './objectives-fuentes';
@@ -390,7 +390,7 @@ export async function proponerKpis(): Promise<CandidatoKpi[]> {
   let etapas: string[] | null = null;
   let cuello: string | null = null;
   try {
-    const funnel = await getFunnel();
+    const funnel = await getFunnelDefault();
     // ⚠️ `origen !== 'declarado'` significa que el pipeline que se está viendo es
     // el DEFAULT del código, no el del cliente. Filtrar candidatos con eso sería
     // decidir por un negocio que nunca declaró nada.

@@ -469,7 +469,7 @@ export const CANDIDATOS_KPI: CandidatoKpi[] = [
 /**
  * Los candidatos que aplican a este negocio, ordenados y topeados.
  *
- * `etapas` son las keys del pipeline real del cliente (`funnel_config`) y `cuello`
+ * `etapas` son las keys del pipeline real del cliente (`funnels`) y `cuello`
  * el de su fase. Los dos son OPCIONALES: sin ellos se devuelve el set genérico, que
  * es mejor que una pantalla vacía.
  *

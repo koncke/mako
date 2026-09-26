@@ -11,7 +11,7 @@ import { OnboardingTabs } from './OnboardingTabs';
 import { OnboardingWizard } from './OnboardingWizard';
 import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
-import { getFunnel } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 // El onboarding se pinta OSCURO, sea cual sea el tema que el cliente tenga elegido.
 // Pedido de Martín: «quiero que todo el onboarding sea en black mode». Las dos mitades
@@ -44,7 +44,8 @@ export default async function OnboardingPage() {
   if (!done) return <><TemaOscuroScript /><TemaOscuro /><OnboardingWizard /></>;
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
-  const { pipeline, suppressed } = await getFunnel();
+  // DEFAULT: el editor embebido edita el funnel del negocio.
+  const { pipeline, suppressed } = await getFunnelDefault();
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
   return (

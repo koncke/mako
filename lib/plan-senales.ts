@@ -45,11 +45,12 @@ const NINGUNA: Senales = {
  *  ⚠️ SOLO sirve para tablas que estén en TENANT_TABLES: el filtro por workspace lo
  *  pone el proxy de getTenantDb, y para una tabla que no está en esa lista hace
  *  passthrough (lib/workspace.ts) — o sea, cuenta las filas de TODOS los inquilinos.
- *  Eso fue exactamente el bug de `funnel_config`: la tabla tenía 4 filas de otros
+ *  Eso fue exactamente el bug de `funnel_config`: la tabla tenía filas de otros
  *  workspaces y la señal salía verde para los 6, así que todo cliente nuevo nacía
  *  con «Cargar el funnel» y «Definir las métricas norte» ya tildadas y con la
  *  evidencia mintiendo en el historial. Antes de agregar una señal nueva acá:
- *  chequeá que la tabla esté en TENANT_TABLES, o usá `hayFilasWs`. */
+ *  chequeá que la tabla esté en TENANT_TABLES, y si no lo está, poné el
+ *  .eq('workspace_id', …) a mano fallando CERRADO cuando no hay workspace. */
 async function hayFilas(tabla: string): Promise<boolean> {
   try {
     const db = await getTenantDb();
@@ -58,16 +59,19 @@ async function hayFilas(tabla: string): Promise<boolean> {
   } catch { return false; }
 }
 
-/** Igual que `hayFilas` pero con el `.eq('workspace_id', …)` puesto a mano, para las
- *  tablas que quedaron fuera de TENANT_TABLES a propósito. Falla CERRADO: sin
- *  workspace devuelve false (una señal solo dice sí con evidencia positiva). */
-async function hayFilasWs(tabla: string): Promise<boolean> {
+/** ¿El cliente DECLARÓ su funnel?
+ *
+ *  No es «¿hay fila en `funnels`?»: desde la mig 0170 los 9 workspaces tienen la suya
+ *  (el guard en positivo «un ws siempre tiene exactamente un funnel default»), así que
+ *  contar filas daría verde para todos — el mismo falso positivo que ya se pagó cuando
+ *  `funnel_config` no estaba en TENANT_TABLES y se contaban las filas ajenas. Lo que
+ *  distingue es la columna `declarado`, que es lo que escribe guardar desde /funnel.
+ *
+ *  Falla CERRADO: sin workspace o con error, false. */
+async function funnelDeclarado(): Promise<boolean> {
   try {
-    const ws = await getWorkspaceActual();
-    if (ws == null) return false;
-    const db = await getTenantDb();
-    const { count, error } = await db.from(tabla).select('*', { count: 'exact', head: true }).eq('workspace_id', ws).limit(1);
-    return !error && (count ?? 0) > 0;
+    const { getFunnelDefault } = await import('./funnels');
+    return (await getFunnelDefault()).origen === 'declarado';
   } catch { return false; }
 }
 
@@ -95,7 +99,11 @@ export async function leerSenales(): Promise<Senales> {
       integracionConectada('calendly').catch(() => false),
       integracionConectada('whatsapp').catch(() => false),
       integracionConectada('fathom').catch(() => false),
-      hayFilasWs('funnel_config'),  // NO está en TENANT_TABLES: el filtro va a mano
+      // ⚠️ YA NO alcanza con «hay fila»: la mig 0170 le dio un funnel a TODOS los
+      // workspaces, así que contar filas daría verde para los 9 — el mismo falso
+      // positivo de antes, por otro camino. Lo que la señal pregunta es si el
+      // cliente DECLARÓ su funnel, y eso es `declarado = true`.
+      funnelDeclarado(),
       hayFilas('leads'),
       hayFilas('closing_analyses'),
       hayFilas('marketing_metrics_daily'),

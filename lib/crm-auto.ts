@@ -42,15 +42,17 @@ export type AutoEvalWs = { acciones: AutoAccion[]; totalLeads: number; porRegla:
 
 /**
  * Umbrales efectivos del workspace ACTUAL: los defaults del motor pisados por
- * funnel_config.data.umbrales (si el cliente ajustó sus tiempos). Tolerante:
- * cualquier valor ausente o inválido cae al default.
+ * `funnels.data.umbrales` del funnel DEL NEGOCIO (si el cliente ajustó sus
+ * tiempos). Tolerante: cualquier valor ausente o inválido cae al default.
+ *
+ * DEFAULT y no por lead: el motor barre la cartera entera de una, y los tiempos
+ * («cuándo un lead está frío») son una política del negocio. El día que un funnel
+ * quiera los suyos, esto se resuelve por participación dentro del loop.
  */
 async function umbralesDelWorkspace(): Promise<AutoUmbrales> {
   try {
-    const supabase = await getTenantDb();
-    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
-    const { data } = await supabase.from('funnel_config').select('data').eq('workspace_id', ws).maybeSingle();
-    const u = (data?.data as { umbrales?: Partial<AutoUmbrales> } | null)?.umbrales;
+    const { umbralesDelFunnelDefault } = await import('./funnels');
+    const u = (await umbralesDelFunnelDefault()) as Partial<AutoUmbrales> | null;
     if (!u || typeof u !== 'object') return AUTO_UMBRALES;
     const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d);
     return {

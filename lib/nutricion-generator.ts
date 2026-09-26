@@ -236,8 +236,12 @@ export type GenerarSecuenciaResult =
 async function contextoDeSecuencia(sec: { nombre: string; etapa: string; trigger_tipo: string }): Promise<string> {
   if (sec.trigger_tipo === 'etapa_actual') {
     try {
-      const { getFunnel } = await import('./leads');
-      const st = (await getFunnel()).stages.find((s) => s.key === sec.etapa);
+      // DEL FUNNEL DE LA SECUENCIA, no del lead: la etiqueta describe el cohorte.
+      // Hoy es el default porque `nutricion_secuencias.funnel_id` (mig 0170) nace
+      // en NULL = «sirve a todos los funnels». Cuando una secuencia cuelgue de un
+      // funnel, acá va getFunnelDe(sec.funnel_id).
+      const { getFunnelDefault } = await import('./funnels');
+      const st = (await getFunnelDefault()).stages.find((s) => s.key === sec.etapa);
       if (st) return `${sec.nombre}. Lead parado en la etapa "${st.label}" del funnel del negocio: el objetivo del mensaje es destrabarlo y que avance a la etapa siguiente.`;
     } catch { /* cae a la glosa genérica */ }
   }

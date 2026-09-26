@@ -429,7 +429,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'entradas', tipo: 'string[]', obligatorio: true, max: 3, enum: ['formulario_anuncio', 'landing', 'agenda_sola', 'chat_entrante', 'chat_saliente'], descripcion: 'al menos una: formulario_anuncio, landing, agenda_sola, chat_entrante o chat_saliente.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
-    reversible: true, escribe: 'reescribe las entradas declaradas en funnel_config del negocio',
+    reversible: true, escribe: 'reescribe las entradas declaradas en el funnel del negocio',
   },
 
   // ── Acciones nuevas: pantalla (genérica /mako/revisar) ────────────────────────

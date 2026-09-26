@@ -34,7 +34,7 @@ import { getPanorama } from './archivero';
 import { getAvatares, avataresTexto } from './avatares';
 import { getRazones } from './razones';
 import { getEntregables, entregablesTexto } from './entregable';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { leerSenales, contextoDelNegocio, resumenSenales } from './plan-senales';
 import { SEED_TAREAS, seedRelevante } from './todo-seeds-data';
 import { NOMBRES_TODO, catalogoTodoParaPrompt } from './todo-proyectos-catalogo';
@@ -141,7 +141,7 @@ async function armarBrief() {
     getAvatares().catch(() => []),
     getRazones().catch(() => []),
     getEntregables().catch(() => []),
-    getFunnel().catch(() => null),
+    getFunnelDefault().catch(() => null),
     leerSenales().catch(() => null),
     contextoDelNegocio().catch(() => ({ fase: null, canal: null })),
     getWorkspaceActual().catch(() => null),

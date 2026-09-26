@@ -22,7 +22,7 @@
 import 'server-only';
 import { chatClaude } from './anthropic';
 import { chatCheapCascade } from './ai-cheap';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { getPersona } from './persona';
 import { getWorkspaceActual } from './workspace';
@@ -345,7 +345,7 @@ async function briefDelNegocio(): Promise<string> {
   const [funnelTxt, perfilTxt] = await Promise.all([
     (async () => {
       try {
-        const f = await getFunnel();
+        const f = await getFunnelDefault();
         const entrada = f.pipeline.find((s) => s.kind === 'entrada');
         return `Entrada del funnel: ${entrada ? entrada.label : '—'}. El cierre del anuncio tiene que empujar hacia ahí.`;
       } catch { return '—'; }

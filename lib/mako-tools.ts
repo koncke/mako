@@ -20,8 +20,9 @@ import { listCategorias, listTareas } from './todo';
 import { estaPendiente } from './todo-estados';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
-  normalizarTelefono, getFunnel, type Lead,
+  normalizarTelefono, type Lead,
 } from './leads';
+import { getFunnelDefault } from './funnels';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { contactoIdPorTelefono, contactoEnInboxWA, getContactMessages } from './chatwoot';
@@ -265,7 +266,9 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     }
 
     case 'ver_funnel': {
-      const funnel = await getFunnel().catch(() => null);
+      // DEFAULT: la herramienta pinta el funnel DEL NEGOCIO. Con varios va a tener
+      // que listar los N y decir cuál es el default, nunca elegir por índice.
+      const funnel = await getFunnelDefault().catch(() => null);
       if (!funnel?.stages?.length) return 'No hay un funnel configurado todavía.';
       const banda = (b: 'pipeline' | 'nutricion' | 'salidas') => funnel.stages
         .filter((s) => (s.band ?? 'pipeline') === b)

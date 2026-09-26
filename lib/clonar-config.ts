@@ -52,7 +52,11 @@ type TablaClon = {
   clave?: string;
 };
 const TABLAS: TablaClon[] = [
-  { tabla: 'funnel_config', cols: ['data'] },
+  // El funnel del dueño: su FORMA, no sus hechos. Se clona sobre el funnel default
+  // que el destino ya tiene (mig 0170), nunca insertando una fila nueva — un segundo
+  // `es_default` lo rechaza el índice `funnels_ws_default_uk`, que es el guard de que
+  // un ws tiene exactamente uno.
+  { tabla: 'funnels', cols: ['data', 'es_default'] },
   // Las secuencias llegan SIEMPRE pausadas: un workspace de prueba nunca debe
   // empezar a mandar solo, ni siquiera si en el origen estaban activas.
   { tabla: 'nutricion_secuencias', cols: ['clave', 'nombre', 'etapa', 'trigger_tipo', 'pasos', 'estrategia'], forzar: { activa: false } },
@@ -106,22 +110,35 @@ export async function clonarConfigDelDueno(destino: number): Promise<ResultadoCl
       const origenFilas = (src ?? []) as unknown as Array<Record<string, unknown>>;
       if (!origenFilas.length) { tablas[t.tabla] = 0; continue; }
 
-      if (t.tabla === 'funnel_config') {
-        // Singleton por workspace: id = workspace_id (mig 0054).
+      if (t.tabla === 'funnels') {
         // ⚠️ Se copia la FORMA del embudo, nunca los HECHOS del dueño. `entradas` y
         // `evento` dicen cómo entra la gente a ESE negocio y dónde queda su taller:
         // clonarlos hace que un workspace nuevo nazca afirmando que sus leads
         // llegan de un formulario de anuncio que no existe, y de ahí sale un audio
         // que se lo dice a un desconocido. Un dato declarado no se hereda.
-        const origen = origenFilas[0]?.data;
+        // El DEFAULT del dueño, elegido a mano y no por el índice del array: con
+        // varios funnels, `[0]` es el orden que devuelva Postgres.
+        const suyo = origenFilas.find((f) => f.es_default === true) ?? origenFilas[0];
+        const origen = suyo?.data;
         const data = origen && typeof origen === 'object' ? { ...(origen as Record<string, unknown>) } : origen;
         if (data && typeof data === 'object') {
           delete (data as Record<string, unknown>).entradas;
           delete (data as Record<string, unknown>).evento;
         }
-        const { error } = await sb.from('funnel_config')
-          .upsert({ id: destino, workspace_id: destino, data, updated_at: new Date().toISOString() }, { onConflict: 'workspace_id' });
-        if (error) { avisos.push(`funnel_config: ${error.message}`); tablas[t.tabla] = 0; continue; }
+        // UPDATE sobre el default que ya existe, no upsert: la fila la creó la
+        // migración (o `crearWorkspace`), y su id no es el del workspace — el
+        // `id: destino` del molde viejo venía de que `funnel_config` era singleton.
+        const { data: tocadas, error } = await sb.from('funnels')
+          .update({ data, declarado: true, updated_at: new Date().toISOString() })
+          .eq('workspace_id', destino).eq('es_default', true)
+          .select('id');
+        if (error) { avisos.push(`funnels: ${error.message}`); tablas[t.tabla] = 0; continue; }
+        if (!(tocadas ?? []).length) {
+          avisos.push('El cliente no tenía funnel: se creó uno con la forma del embudo del dueño.');
+          const { error: eIns } = await sb.from('funnels')
+            .insert({ workspace_id: destino, nombre: 'Funnel principal', data, declarado: true, es_default: true });
+          if (eIns) { avisos.push(`funnels: ${eIns.message}`); tablas[t.tabla] = 0; continue; }
+        }
         tablas[t.tabla] = 1;
         continue;
       }

@@ -24,8 +24,9 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import {
   getLead, updateLead, logLeadChanges, logLeadEvent, getLeadAudit, faltantesParaMover, saveLeadMeta,
   setMeetingManual, setPipelineStage, duplicadosDeLead, getTrackingEvents, getVslEngagement,
-  contarVisitasLanding, getFunnel, esRequisitosFaltantes, type Lead, type FathomLink,
+  contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId } from '@/lib/pipeline';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { getJuntasProximas } from '@/lib/queries';
@@ -44,7 +45,7 @@ import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { APP_BASE_URL } from '@/lib/app-url';
 import {
-  invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnel, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
+  invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
   nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
   estadoConfirmacion,
 } from './crm.helpers';
@@ -114,7 +115,8 @@ export const RUNNERS: Runners = {
       }
       const etapas = Array.isArray(input.etapas) ? (input.etapas as string[]) : undefined;
       if (etapas?.length) {
-        const stages = await etapasDelFunnel();
+        // DEFAULT: se valida un FILTRO contra el catálogo, sin lead de por medio.
+        const stages = await etapasDelFunnelDefault();
         const desconocidas = etapas.filter((k) => !stageMetaOpt(stages, k));
         if (desconocidas.length) return fallo(json({ error: `Etapas que el funnel de este negocio no tiene: ${desconocidas.join(', ')}. Pide ver_funnel para las keys reales.`, disponibles: stages.map((x) => x.key) }));
       }
@@ -144,7 +146,9 @@ export const RUNNERS: Runners = {
   },
   transiciones_desde_etapa: {
     leer: async (input) => {
-      const f = await getFunnel();
+      // DEFAULT: es una pregunta de catálogo («de esta etapa, ¿a dónde se puede ir?»),
+      // sin ningún lead de por medio.
+      const f = await getFunnelDefault();
       const etapa = String(input.etapa);
       if (!stageMetaOpt(f.stages, etapa)) return fallo(json({ error: `El funnel de este negocio no tiene la etapa «${etapa}».`, disponibles: f.stages.map((x) => x.key) }));
       const salidas = salidasDeEtapa(f.stages, f.transitions, etapa, { asistio: b(input.asistio) ?? null, cual: input.cual === 'R2' ? 'r2' : 'r1' });
@@ -156,7 +160,8 @@ export const RUNNERS: Runners = {
   },
   requisitos_para_mover: {
     leer: (input) => conLead(input, async (lead) => {
-      const stages = await etapasDelFunnel();
+      // DEL LEAD: qué le falta a ÉL para moverse.
+      const stages = await etapasDelFunnelDeLead(lead);
       const etapa = String(input.etapa);
       if (!stageMetaOpt(stages, etapa)) return fallo(json({ error: `El funnel de este negocio no tiene la etapa «${etapa}».`, disponibles: stages.map((x) => x.key) }));
       // La MISMA llamada que hace proponer_cambio_etapa al proponer y al confirmar:
@@ -173,7 +178,7 @@ export const RUNNERS: Runners = {
   },
   faltantes_del_lead: {
     leer: (input) => conLead(input, async (lead) => {
-      const [faltan, stages] = await Promise.all([faltantesDeUnLead(lead), etapasDelFunnel()]);
+      const [faltan, stages] = await Promise.all([faltantesDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
       return json({
         lead_id: lead.id, nombre: lead.nombre, etapa: etapaVigenteDe(lead, stages),
         al_dia: faltan.length === 0, faltan: faltan.map((f) => ({ id: f.id, label: f.label })),
@@ -527,7 +532,8 @@ export const RUNNERS: Runners = {
       if (!esFechaIso(input.deadline)) return { error: '«deadline» tiene que ser una fecha YYYY-MM-DD.' };
       const { hoy } = await hoyDelWorkspace(ctx.ws);
       if (input.deadline < hoy) return { error: `La fecha límite (${input.deadline}) ya pasó: hoy es ${hoy}.` };
-      const stages = await etapasDelFunnel();
+      // DEL LEAD: la etapa 'manual' tiene que existir en el funnel por el que ÉL entró.
+      const stages = await etapasDelFunnelDeLead(lead);
       if (!stageMetaOpt(stages, 'manual')) return { error: 'El funnel de este negocio no tiene la etapa de nutrición manual.' };
       const motivo = s(input.motivo);
       return { payload: { leadId: lead.id, deadline: input.deadline, ...(motivo ? { motivo } : {}) }, resumen: `Pasar a ${lead.nombre} a Nutrición manual hasta el ${input.deadline}${motivo ? ` (${motivo})` : ''}.` };
@@ -538,7 +544,7 @@ export const RUNNERS: Runners = {
       if (!lead) return { ok: false, resumen: noExiste(id) };
       // Mismo reparto que proponer_cambio_etapa: lo que falta y este canal no carga
       // no bloquea, pero queda DICHO en el historial ({ omitir }).
-      const faltan = faltantesParaMover(lead, 'manual', await etapasDelFunnel(), {});
+      const faltan = faltantesParaMover(lead, 'manual', await etapasDelFunnelDeLead(lead), {});
       const requisitos = faltan.length
         ? { omitir: `Pasado a Nutrición manual desde ${canalTxt(ctx)} con confirmación. Sigue sin cargar: ${labels(faltan)}.` }
         : 'validar' as const;

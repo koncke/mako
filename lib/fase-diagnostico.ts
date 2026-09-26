@@ -359,7 +359,7 @@ export function dimensionDeFase(faseId: number): Dimension {
 // por WhatsApp y cierra en un taller presencial declaró 'llamadas' —lo más
 // parecido que había— y con eso el sistema le pidió, y ella grabó, un audio que
 // dice «vi que dejaste tus datos en el anuncio». Cómo ENTRA vive en
-// `funnel_config.data.entradas` (ver ENTRADAS en lib/pipeline.ts).
+// `funnels.data.entradas` (ver ENTRADAS en lib/pipeline.ts).
 export type CanalId = 'llamadas' | 'conversaciones' | 'carrito' | 'webinar' | 'presencial';
 
 export const CANALES: Array<{ id: CanalId; label: string; desc: string }> = [

@@ -16,7 +16,7 @@
 
 import 'server-only';
 import { chatClaude } from './anthropic';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { getWorkspaceActual } from './workspace';
@@ -196,7 +196,7 @@ export async function buildContenidoBrief(pedido: string): Promise<string> {
   const [funnelTxt, perfilTxt, conocimientoTxt] = await Promise.all([
     (async () => {
       try {
-        const f = await getFunnel();
+        const f = await getFunnelDefault();
         const etapas = f.pipeline.map((s) => `${s.label}${s.kind ? ` (${s.kind})` : ''}`).join(' → ');
         const entrada = f.pipeline.find((s) => s.kind === 'entrada');
         return `Etapas del funnel: ${etapas}.\nEntrada: ${entrada ? `${entrada.label} (${entrada.kind})` : '—'}. La palabra clave del CTA (comment→DM) tiene que empujar hacia esa entrada.`;

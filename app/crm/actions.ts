@@ -35,11 +35,8 @@ import {
   setMeetingManual,
   setBoardStageOverride,
   saveLeadMeta,
-  saveFunnel,
-  getFunnel,
   faltantesDeLead,
   getLead,
-  getPipelineStages,
   getVisitasLandingMap,
   getVslEngagement,
   getTrackingEvents,
@@ -56,6 +53,9 @@ import {
   type RespuestaQA,
   type EstadoLead,
 } from '@/lib/leads';
+// Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
+// board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
+import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe } from '@/lib/funnels';
 import { DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
@@ -177,7 +177,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getAdNameMap().catch(() => ({}) as Record<string, string>),
-    getPipelineStages().catch(() => DEFAULT_STAGES),
+    // DEL LEAD: la ficha pinta los requisitos de SU recorrido.
+    getPipelineStagesDeLead(lead).catch(() => DEFAULT_STAGES),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
@@ -351,7 +352,12 @@ function valoresDeRequisitos(
 export async function requisitosDeEtapaAction(id: number, to: string, d: StageMoveData = {}): Promise<Step[]> {
   const before = await getLead(id).catch(() => null);
   const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
+  // DEL LEAD: qué pide la etapa para ÉL. Sin lead legible cae al del negocio, que es
+  // lo mismo que hacía antes — estas preguntas no deciden permisos.
+  const [stagesMove, grabable] = await Promise.all([
+    (before ? getPipelineStagesDeLead(before) : getPipelineStagesDefault()).catch(() => DEFAULT_STAGES),
+    encuentroGrabable(),
+  ]);
   return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d, grabable));
 }
 
@@ -405,7 +411,11 @@ async function registrarPendientes(id: number, faltan: Step[], autor: string): P
  */
 export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<StageMoveResultado> {
   const before = await getLead(id).catch(() => null);
-  const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
+  // DEL LEAD: el wizard arma las preguntas del recorrido de ESE lead.
+  const [stagesMove, grabable] = await Promise.all([
+    (before ? getPipelineStagesDeLead(before) : getPipelineStagesDefault()).catch(() => DEFAULT_STAGES),
+    encuentroGrabable(),
+  ]);
   // Ya no se corta acá si falta algo (ver registrarPendientes): se guarda lo que
   // vino y los pendientes se calculan al final, sobre el lead YA guardado — así
   // no se reclama lo que este mismo guardado completó (el setter que se asigna
@@ -713,7 +723,11 @@ export async function setLeadStageAction(
   // Mover se guarda SIEMPRE (ver registrarPendientes). Lo que la etapa pide y
   // falta se mide igual —con el MISMO builder que el wizard, no una copia— y
   // vuelve como `pendientes` para que la UI lo muestre sin frenar a nadie.
-  const [stagesMove, grabable] = await Promise.all([getPipelineStages().catch(() => DEFAULT_STAGES), encuentroGrabable()]);
+  // DEL LEAD: lo que la etapa le pide a ÉL es lo que vuelve como `pendientes`.
+  const [stagesMove, grabable] = await Promise.all([
+    (before ? getPipelineStagesDeLead(before) : getPipelineStagesDefault()).catch(() => DEFAULT_STAGES),
+    encuentroGrabable(),
+  ]);
   const autor = await autorActual();
   await setPipelineStage(id, stageKey, { ...opts, autor });
   const after = await getLead(id).catch(() => null);
@@ -1013,7 +1027,10 @@ function ordenarLeads(filas: FilaLead[], orden: OrdenLeads, ordenEtapas: string[
  * `columnasExtra` son las columnas de los grupos que el usuario eligió llevarse.
  */
 async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise<{ filas: FilaLead[]; stages: Stage[]; ordenEtapas: string[] }> {
-  const stagesRaw = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  // MIXTO: el ORDEN de las columnas es del negocio y la ETIQUETA es de cada lead.
+  // Queda en el del negocio, que es lo que hace hoy; con dos funnels hay que
+  // resolver `stageMeta` por lead o el export rotula con la etiqueta del otro.
+  const stagesRaw = await getPipelineStagesDefault().catch(() => DEFAULT_STAGES);
   const stages = (stagesRaw.length ? stagesRaw : DEFAULT_STAGES).map(withLayout);
   const validas = new Set(stages.map((s) => s.key));
   const ordenEtapas = stages.map((s) => s.key);
@@ -1059,7 +1076,8 @@ export type OpcionesExport = {
  * opciones que no existen en el CRM del cliente es peor que no preguntar.
  */
 export async function getOpcionesExportAction(): Promise<OpcionesExport> {
-  const stagesRaw = await getPipelineStages().catch(() => DEFAULT_STAGES);
+  // DEFAULT: el wizard de export ofrece el catálogo de etapas del negocio.
+  const stagesRaw = await getPipelineStagesDefault().catch(() => DEFAULT_STAGES);
   const stages = (stagesRaw.length ? stagesRaw : DEFAULT_STAGES).map(withLayout);
   const validas = new Set(stages.map((s) => s.key));
   const [todas, equipo] = await Promise.all([traerLeads(COLS_FILTRO), getEquipoAction()]);
@@ -1847,13 +1865,25 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
   revalidatePath('/general');
 }
 
-/** Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas) desde la tab "Funnel". */
-export async function saveFunnelAction(pipeline: Stage[], suppressed: string[]): Promise<void> {
+/**
+ * Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas)
+ * desde la tab "Funnel".
+ *
+ * `funnelId` viaja desde el desplegable de /funnel, que sólo se pinta cuando hay
+ * más de uno. Sin él se edita el del NEGOCIO, que es lo que hacen los tres
+ * editores embebidos (/onboarding, /second-brain) y lo que pasaba siempre hasta
+ * la mig 0170.
+ */
+export async function saveFunnelAction(pipeline: Stage[], suppressed: string[], funnelId?: number): Promise<void> {
   // El guard faltaba: cualquier miembro del workspace podía reescribir el funnel
   // entero —que decide requisitos, nutrición y qué audios se piden— invocando la
   // server action. Ya estaba anotado en docs/hallazgos-crm.md.
   if ((await getRolWsEfectivo()) !== 'admin') throw new Error('Solo el administrador del workspace puede editar el funnel.');
-  await saveFunnel(pipeline, suppressed);
+  // El `.eq('workspace_id')` de getTenantDb hace que un id de otro cliente no
+  // toque ninguna fila, y `saveFunnelDe` tira cuando el UPDATE no tocó nada: un
+  // id ajeno da error, no un guardado mudo sobre el funnel equivocado.
+  if (funnelId != null) await saveFunnelDe(funnelId, pipeline, suppressed);
+  else await saveFunnelDefault(pipeline, suppressed);
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/funnel');
@@ -1867,7 +1897,7 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[]):
  * debounce en cada tecla del editor, y esto se guarda cuando la persona confirma.
  * Mezclarlas haría que un tipeo cualquiera reescribiera una declaración.
  */
-export async function declararEntradasAction(entradas: string[], evento: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function declararEntradasAction(entradas: string[], evento: unknown, funnelId?: number): Promise<{ ok: true } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede declarar esto.' };
   // Se saneа con las MISMAS funciones que leen el jsonb: si el saneo de escritura
   // y el de lectura fueran dos, divergen y se guarda algo que después no se lee.
@@ -1875,8 +1905,16 @@ export async function declararEntradasAction(entradas: string[], evento: unknown
   if (!limpias.length) return { ok: false, error: 'Elige al menos una forma en la que te llega la gente.' };
   const ev = parseEvento(evento);
   try {
-    const actual = await getFunnel();
-    await saveFunnel(actual.pipeline, actual.suppressed, { entradas: limpias, evento: ev });
+    // Sin `funnelId`, cómo entra la gente es del NEGOCIO. Con él, es el TOFU de
+    // ESE funnel — que es justo lo que diferencia dos funnels entre sí.
+    const actual = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+    // ⚠️ El mismo guard que ya tenía guardarEntradas (lib/api-mako/areas/crm.helpers.ts)
+    // y que acá faltaba: con el funnel leído en ERROR lo que se lee es DEFAULT_PIPELINE,
+    // y guardarlo le pisa al cliente su funnel real con la plantilla genérica. Una
+    // caída de Supabase no puede reescribir un dato declarado.
+    if (actual.origen === 'error') return { ok: false, error: 'No se pudo leer el funnel actual; no se guardó nada para no pisarlo. Vuelve a intentarlo.' };
+    if (funnelId != null) await saveFunnelDe(funnelId, actual.pipeline, actual.suppressed, { entradas: limpias, evento: ev });
+    else await saveFunnelDefault(actual.pipeline, actual.suppressed, { entradas: limpias, evento: ev });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

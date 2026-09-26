@@ -14,7 +14,7 @@
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
-import { getFunnel } from '@/lib/leads';
+import { getFunnelDefault } from '@/lib/funnels';
 import { getDiagnosticoFase } from '@/lib/fase-store';
 import { motivoCaida } from '@/lib/evolution';
 import { esClaveAudio, KEY_AUDIOS_CLAVE, KEY_LINK_VIDEO } from '@/lib/audios-paso';
@@ -123,7 +123,9 @@ export async function estadoCanalWhatsapp() {
 
 /** Etapas donde se puede colgar una secuencia: todo el funnel menos la banda de salidas. */
 export async function etapasParaSecuencia(): Promise<Array<{ value: string; label: string }>> {
-  const funnel = await getFunnel();
+  // DEFAULT: es un catálogo del negocio («dónde podés colgar una secuencia»), no
+  // el recorrido de un lead. Con varios funnels, el desplegable se agrupa por funnel.
+  const funnel = await getFunnelDefault();
   return funnel.stages.filter((s) => (s.band ?? 'pipeline') !== 'salidas').map((s) => ({ value: s.key, label: s.label }));
 }
 
@@ -201,7 +203,8 @@ export async function quitarAudioDeClaves(audioId: number): Promise<void> {
  *  un funnel ilegible es «no declarado» (entradas []), nunca el funnel de otro negocio. */
 export async function insumosAudios() {
   const [funnel, diag, linkVideo] = await Promise.all([
-    getFunnel().catch(() => null), getDiagnosticoFase().catch(() => null), getSetting(KEY_LINK_VIDEO).catch(() => null),
+    // DEFAULT: cómo entra la gente a ESTE NEGOCIO es lo que decide qué audios pedir.
+    getFunnelDefault().catch(() => null), getDiagnosticoFase().catch(() => null), getSetting(KEY_LINK_VIDEO).catch(() => null),
   ]);
   return { entradas: funnel?.entradas ?? [], canal: diag?.canal ?? null, evento: funnel?.evento ?? null, linkVideo: (linkVideo ?? '').trim() || null };
 }

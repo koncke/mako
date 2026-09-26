@@ -2,7 +2,10 @@
 // /crm — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
 // =============================================================================
 
-import { listLeads, getPipelineStages, getFunnelTransitions, type Lead } from '@/lib/leads';
+import { listLeads, type Lead } from '@/lib/leads';
+// DEFAULT en las dos: el board pinta las COLUMNAS del negocio (la etapa de cada lead
+// se deriva de sus propias columnas con deriveStageKey, no del funnel).
+import { getPipelineStagesDefault, getFunnelTransitionsDefault } from '@/lib/funnels';
 import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
@@ -60,13 +63,13 @@ export default async function LeadsPage() {
   // pantalla la celebraba con "✓ Todo marcado — datos al día": el peor final
   // posible para el worklist, porque el usuario deja de mirar.
   let pendientesAviso = '';
-  let stages: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
+  let stages: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
   let transitions: FunnelTransition[] = generateFunnel(DEFAULT_PIPELINE).transitions;
   let errorMsg: string | null = null;
 
   try {
-    // getPipelineStages ahora va en la misma ola (antes serializaba al frente).
-    let stagesRaw: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
+    // Las etapas van en la misma ola (antes serializaban al frente).
+    let stagesRaw: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
     let transitionsRaw: FunnelTransition[] | undefined;
     let pendRaw: { items: PendienteItem[]; aviso: string };
     [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw] = await Promise.all([
@@ -78,8 +81,8 @@ export default async function LeadsPage() {
         // La lista vacía se sigue devolviendo (el CRM no se cae por el worklist),
         // pero ahora VIENE DICHO que no se pudo calcular.
         .catch((e) => ({ items: [] as PendienteItem[], aviso: `No se pudieron calcular los datos sin marcar: ${e instanceof Error ? e.message : String(e)}` })),
-      getPipelineStages().catch(() => undefined),
-      getFunnelTransitions().catch(() => undefined),
+      getPipelineStagesDefault().catch(() => undefined),
+      getFunnelTransitionsDefault().catch(() => undefined),
     ]);
     pendientesRaw = pendRaw.items;
     pendientesAviso = pendRaw.aviso;

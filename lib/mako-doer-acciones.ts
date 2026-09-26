@@ -19,7 +19,8 @@ import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
 import { porId } from '@/lib/api-mako/registro';
 import { esAccion } from '@/lib/api-mako/tipos';
-import { getLead, setPipelineStage, getFunnel, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
+import { getLead, setPipelineStage, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
+import { getFunnelDeLead } from '@/lib/funnels';
 import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import type { Step, StepId } from '@/lib/stage-requirements';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -124,7 +125,10 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         // existiera la validación: sin el reparto, un "sí" sobre una propuesta que
         // el propio dueño pidió rebotaba.
         const lead = await getLead(leadId).catch(() => null);
-        const stages = (await getFunnel().catch(() => null))?.stages ?? null;
+        // DEL LEAD: lo que decide si el movimiento pasa son los requisitos de SU
+        // recorrido. Sin lead no hay funnel que valga: queda en null y
+        // setPipelineStage falla cerrado.
+        const stages = lead ? (await getFunnelDeLead(lead).catch(() => null))?.stages ?? null : null;
         // Sin poder leer el lead no hay nada contra qué decidir: 'validar' hace que
         // setPipelineStage falle cerrado en vez de mover a ciegas.
         const v: VeredictoRequisitos = lead
@@ -760,7 +764,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         if (leadId == null || !etapa) return JSON.stringify({ ok: false, error: 'Faltan leadId o etapa.' });
         const { lead, label, stages } = await runWithWorkspace(ws, async () => {
           const l = await getLead(leadId).catch(() => null);
-          const f = await getFunnel().catch(() => null);
+          // DEL LEAD: la etiqueta y los requisitos que ve el dueño son los del
+          // recorrido de ESE lead.
+          const f = l ? await getFunnelDeLead(l).catch(() => null) : null;
           const lbl = f?.stages?.find((s) => s.key === etapa)?.label ?? etapa;
           return { lead: l, label: lbl, stages: f?.stages ?? null };
         });

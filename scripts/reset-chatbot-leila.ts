@@ -60,7 +60,8 @@ async function main() {
   log(APLICAR ? '── APLICANDO ──\n' : '── DRY RUN (sin --apply no escribe nada) ──\n');
 
   // ── Lo que hay hoy ──
-  const [fc] = await sql`select data from funnel_config where workspace_id = ${WS}`;
+  // El funnel default del ws (mig 0170). `funnel_config` quedó de respaldo sin lectores.
+  const [fc] = await sql`select id, data from funnels where workspace_id = ${WS} and es_default limit 1`;
   const settings = await sql`select key, value from app_settings where workspace_id = ${WS} and key in ('negocio.fase.diagnostico', 'chat_agent.audios_clave', 'onboarding.tab.setting')`;
   const porKey = Object.fromEntries(settings.map((r) => [r.key, r.value]));
   const audios = await sql`select id, titulo, media_path, duracion_s, transcript from setting_audios where workspace_id = ${WS} order by id`;
@@ -93,7 +94,7 @@ async function main() {
   // ── 1. Backup ANTES de tocar nada ──
   const backup = {
     at: new Date().toISOString(),
-    funnel_config: fc?.data ?? null,
+    funnel: fc?.data ?? null,
     diagnostico: diag ?? null,
     audios_clave: porKey['chat_agent.audios_clave'] ?? null,
     tab_setting: tab ?? null,
@@ -114,16 +115,16 @@ async function main() {
 
   // ── 3. El funnel. MERGE del jsonb: no se pisa ninguna otra clave ──
   //
-  // ⚠️ `sql.json(...)`, NO `JSON.stringify(...)`. `funnel_config.data` es jsonb, y
-  // un string plano entra como un jsonb de TIPO STRING — el objeto queda envuelto
-  // en comillas y escapado. No falla nada: la fila se escribe, `getFunnel` lee un
-  // string, `cfg.pipeline` da undefined y el cliente se queda con el funnel por
+  // ⚠️ `sql.json(...)`, NO `JSON.stringify(...)`. `funnels.data` es jsonb, y un
+  // string plano entra como un jsonb de TIPO STRING — el objeto queda envuelto en
+  // comillas y escapado. No falla nada: la fila se escribe, `getFunnelDefault` lee
+  // un string, `cfg.pipeline` da undefined y el cliente se queda con el funnel por
   // defecto sin que nada avise. Pasó en esta misma corrida.
   //
   // (`app_settings.value` es TEXT, así que ahí el JSON.stringify de los otros
   // pasos SÍ corresponde. No son intercambiables: hay que mirar la columna.)
   const dataNueva = { ...(fc?.data ?? {}), pipeline: PIPELINE_PRESENCIAL, suppressed: SUPPRESSED };
-  await sql`update funnel_config set data = ${sql.json(dataNueva)}, updated_at = now() where workspace_id = ${WS}`;
+  await sql`update funnels set data = ${sql.json(dataNueva)}, declarado = true, updated_at = now() where workspace_id = ${WS} and es_default`;
   log('✓ funnel: plantilla presencial (la etapa de reunión conserva la clave `agenda`,');
   log('          así que sus 3 leads con fecha de sesión no se mueven de lugar)');
 

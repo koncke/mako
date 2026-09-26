@@ -20,7 +20,7 @@ import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { contenidoNoConfiable, renderPrompt } from './prompt-render';
 import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
-import { getFunnel } from './leads';
+import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { normalizarUrl } from './landing-fetch';
@@ -147,7 +147,7 @@ export async function buildLandingBrief(pedido: string): Promise<string> {
   const [funnelTxt, perfilTxt, conocimientoTxt] = await Promise.all([
     (async () => {
       try {
-        const f = await getFunnel();
+        const f = await getFunnelDefault();
         const etapas = f.pipeline.map((s) => `${s.label}${s.kind ? ` (${s.kind})` : ''}`).join(' → ');
         const entrada = f.pipeline.find((s) => s.kind === 'entrada');
         return `Etapas: ${etapas}.\nEntrada real del funnel: ${entrada ? entrada.label : '—'}. El CTA de la landing tiene que empujar EXACTAMENTE a esa entrada.`;

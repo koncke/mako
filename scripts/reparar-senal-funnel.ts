@@ -1,10 +1,15 @@
 // =============================================================================
 // reparar-senal-funnel — deshacer los cierres que se apoyaron en una señal falsa
 // =============================================================================
-// `funnel-cargado` daba VERDE para todos los workspaces porque funnel_config no está
-// en TENANT_TABLES y el conteo veía las filas de todos los inquilinos. Toda tarea que
-// MaKo cerró citando esa evidencia en un workspace SIN funnel propio está cerrada con
-// una mentira en el historial. Sin --apply solo imprime.
+// `funnel-cargado` daba VERDE para todos los workspaces porque la tabla vieja
+// (`funnel_config`) no estaba en TENANT_TABLES y el conteo veía las filas de todos los
+// inquilinos. Toda tarea que MaKo cerró citando esa evidencia en un workspace SIN
+// funnel propio está cerrada con una mentira en el historial. Sin --apply solo imprime.
+//
+// ⚠️ EL CRITERIO CAMBIÓ CON LA MIG 0170. «Tiene funnel propio» ya no es «hay fila»:
+// la migración le dio una a los 9 workspaces, así que contar filas volvería a dar
+// verde para todos — el mismo falso positivo por otro camino. Lo que distingue es
+// `declarado = true`, que es lo que escribe guardar desde /funnel.
 //   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/reparar-senal-funnel.ts [--apply]
 // =============================================================================
 
@@ -22,13 +27,13 @@ async function main() {
   const svc = getSupabaseServer();
   const [{ data: wss }, { data: fun }] = await Promise.all([
     svc.from('workspaces').select('id, nombre').order('id'),
-    svc.from('funnel_config').select('workspace_id'),
+    svc.from('funnels').select('workspace_id').eq('declarado', true),
   ]);
   const conFunnel = new Set((fun ?? []).map((f) => Number((f as { workspace_id: number }).workspace_id)));
-  console.log(`${APLICAR ? '=== APLICANDO ===' : '=== SIMULACIÓN ==='}  workspaces con funnel propio: ${[...conFunnel].join(', ') || '(ninguno)'}\n`);
+  console.log(`${APLICAR ? '=== APLICANDO ===' : '=== SIMULACIÓN ==='}  workspaces con funnel DECLARADO: ${[...conFunnel].join(', ') || '(ninguno)'}\n`);
 
   for (const w of (wss ?? []) as Array<{ id: number; nombre: string }>) {
-    if (conFunnel.has(w.id)) { console.log(`ws ${w.id} «${w.nombre}» — tiene funnel, nada que reparar`); continue; }
+    if (conFunnel.has(w.id)) { console.log(`ws ${w.id} «${w.nombre}» — declaró su funnel, nada que reparar`); continue; }
     await runWithWorkspace(w.id, async () => {
       const db = await getTenantDb();
       const { data } = await db.from('experimento_tareas').select('id, titulo, progreso, historial').eq('progreso', 100);
