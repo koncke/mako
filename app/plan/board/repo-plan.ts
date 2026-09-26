@@ -44,17 +44,16 @@ export function repoPlan(): Repo {
     // ahí lo decide el server. `recurrente` lo decide una PERSONA, así que va por el camino
     // normal, con su entrada de historial y su deshacer (`useBoard.setRecurrente`).
     //
-    // ⚠️ Y `frecuencia` (mig 0165) TAMPOCO NECESITA ACCIÓN PROPIA, por lo mismo: viaja
+    // ⚠️ Y `recurrencia` (mig 0167) TAMPOCO NECESITA ACCIÓN PROPIA, por lo mismo: viaja
     // adentro del `BoardTask`. Lo que sí hace falta —y es lo que se verificó antes de
     // escribir esto— es que la ruta NO enumere campos: `app/api/plan-board/route.ts`
     // castea `body.tarea` entero y se lo pasa a `taskToRow`. El día que esa ruta pase a
     // armar el payload campo por campo, éste es el primero que se queda afuera y el
-    // síntoma va a ser un selector que guarda y vuelve vacío al recargar.
+    // síntoma va a ser un control que guarda y vuelve vacío al recargar.
     //
-    // ⚠️ Y `frecuenciaDia` (mig 0166) VA POR EL MISMO CAMINO Y NO LLEVA ACCIÓN PROPIA,
-    // verificado igual: la ruta castea `body.tarea` entero y `taskToRow` escribe
-    // `frecuencia_dia`. Es el tercer campo que depende de que esa ruta no enumere claves,
-    // así que si alguna vez hay que hacerla enumerar, son estos tres juntos.
+    // ⚠️ SON DOS CAMPOS Y NO TRES DESDE LA 0167: la RRULE reemplazó a `frecuencia` +
+    // `frecuencia_dia`, que eran dos columnas para un solo estado. Así que si alguna vez
+    // hay que hacer enumerar a esa ruta, son `recurrente` y `recurrencia`, juntos.
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
     // ⚠️ Y LO MISMO A NIVEL PROYECTO (mig 0164): `Label.recurrente` tampoco necesita una

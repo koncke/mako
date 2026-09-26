@@ -82,293 +82,388 @@ export const soloRecurrentes = <T extends { recurrente?: boolean }>(ts: T[]): T[
  */
 export const llevaDeadline = (t: { recurrente?: boolean }): boolean => !esRecurrente(t);
 
+
 // =============================================================================
-// CADA CUÁNTO SE REPITE (mig 0165)
+// CÓMO SE REPITE — UNA RRULE DE RFC 5545, QUE ES LO QUE GUARDA GOOGLE (mig 0167)
 // =============================================================================
-// «Una tarea o proyecto recurrente se le debe eliminar el quarter y deadline, pero se debe
-// dejar una casilla de "Frecuencia", algo similar a Google Calendar con una reunión que se
-// puede repetir diariamente, 1 vez a la semana, 1 vez al mes, etc.» (26/09/2026).
+// «El tema de la frecuencia, copialo tal cual como lo hace Google Calendar… porque puede
+// ser personalizado, varios días de la semana, etc. Pero más simple, investiga y copialo
+// tal cual» (26/09/2026).
 //
-// ⚠️ UNA FRECUENCIA NO ES UN DEADLINE, Y DE ESO DEPENDE TODO EL DISEÑO. Un deadline es una
-// fecha que LLEGA, pasa y deja la tarea vencida; una frecuencia es un RITMO que no vence
-// nunca. Por eso NO es una fecha, no se tiñe por proximidad, no titila y no entra en el
-// filtro «Cuándo»: el día que alguien la guarde en `deadline` para «reusar el campo»,
-// vuelve exactamente el problema que las 0163 y 0164 sacaron —el motor de vencimientos
-// avisando que «la junta semanal está atrasada»— y encima con la fecha inventada por
-// nosotros. El tipo es un enum cerrado justamente para que no se pueda escribir una fecha
-// adentro.
-// =============================================================================
-
-/** Cada cuánto se repite. Enum CERRADO: lo que no esté acá no se guarda (`frecuenciaOk`). */
-export type Frecuencia = 'diaria' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'anual';
-
-/**
- * LA LISTA, Y ES UNA SOLA. Pinta el selector Y describe el valor en cualquier otro lado
- * (el chip de la tarjeta, el historial, el JSON que lee un agente). Dos listas —una de
- * ids para guardar y otra de textos para mostrar— es cómo se muere una de las dos: se
- * agrega `bimestral` en el selector, nadie toca el traductor, y la tarjeta muestra el id
- * crudo o nada.
- *
- * ⚠️ LAS ETIQUETAS NO REPITEN «Se repite». El rótulo del campo ya lo dice
- * (`ROTULO_FRECUENCIA`), así que «Se repite cada semana» adentro del control es la misma
- * palabra dos veces en el mismo renglón. Y son de México neutro: «Todos los días», nunca
- * «Todos los dias» ni un «acá».
- */
-export const FRECUENCIAS: Array<{ id: Frecuencia; label: string }> = [
-  { id: 'diaria', label: 'Todos los días' },
-  { id: 'semanal', label: 'Cada semana' },
-  { id: 'quincenal', label: 'Cada dos semanas' },
-  { id: 'mensual', label: 'Cada mes' },
-  { id: 'trimestral', label: 'Cada trimestre' },
-  { id: 'anual', label: 'Cada año' },
-];
-
-/** Cómo se dice en pantalla el rótulo del campo. Una palabra: es el NOMBRE de la cosa. */
-export const ROTULO_FRECUENCIA = 'Frecuencia';
-
-/**
- * EL SANEO. Lo que no esté en `FRECUENCIAS` entra como `null`, nunca como texto libre.
- *
- * La migración 0165 dejó la columna SIN `check` a propósito, así que ésta es la única
- * guarda que hay — y el campo llega de cuatro lugares con cuatro formas: el `<select>` del
- * navegador, la fila de Postgres (una fila vieja no tiene la columna), el JSON de un modelo
- * y el body de `/api/todo`. Un string libre guardado acá no da error: deja una recurrente
- * que dice «cada 15 días más o menos», que ninguna pantalla sabe pintar y que un agente
- * repite como si fuera un dato del negocio.
- *
- * ⚠️ `null` y no `undefined`: «se repite, pero nadie dijo cada cuánto» es un estado real y
- * tiene que poder ESCRIBIRSE en la columna para borrar el valor anterior. `undefined` en un
- * payload de supabase-js es una clave que no viaja, o sea que no borra nada.
- */
-export const frecuenciaOk = (v: unknown): Frecuencia | null =>
-  (FRECUENCIAS.find((f) => f.id === v)?.id ?? null);
-
-/**
- * Cómo se lee una frecuencia. Sale de `FRECUENCIAS` —nunca de un segundo mapa— y `null`
- * cuando no se dijo cada cuánto, que NO es lo mismo que «no se repite».
- */
-export const textoFrecuencia = (v: unknown): string | null =>
-  (FRECUENCIAS.find((f) => f.id === v)?.label ?? null);
-
-/**
- * LA INVARIANTE: UNA FRECUENCIA SIN `recurrente` NO EXISTE.
- *
- * Contesta qué frecuencia le corresponde a una tarjeta, y la respuesta para algo que no se
- * repite es `null` — o sea que **al dejar de repetirse, la frecuencia SE BORRA**. Eso es
- * una decisión, y éste es el porqué:
- *
- *  · El campo sólo se DIBUJA al lado de «Se repite». Un valor que queda guardado donde
- *    ninguna pantalla lo muestra es el «consumidor huérfano» de AGENTS.md al revés: no
- *    falla, no avisa, y el día que alguien lo lea afirma «cada semana» sobre una tarea que
- *    tiene deadline y vence. La API de MaKo lo expone al lado de `se_repite`; una fila con
- *    `recurrente: false` y `frecuencia: 'semanal'` es exactamente esa mentira esperando.
- *  · Lo que se gana conservándolo es un click si alguien desmarca por error, y ese click ya
- *    está cubierto: los dos choke points del navegador guardan el valor ANTERIOR. En un
- *    PROYECTO las dos cosas viajan en una sola entrada (`patchLabelLog`), así que un solo
- *    deshacer las devuelve juntas. En una TAREA son dos entradas —«Ya no se repite» y «Sin
- *    frecuencia»—, exactamente igual que cuando marcarla le saca el deadline y el quarter:
- *    el toast ofrece la del usuario y la otra queda en el historial, que es de donde se
- *    revierte. No es un olvido, es el mismo criterio de `setRecurrente`: dos toasts encima
- *    del mismo click son dos oportunidades de deshacer la mitad equivocada.
- *  · Y va acá —en una función que aplican los MAPPERS— y no en el handler del formulario,
- *    por la lección que ya pagaron el Quarter y el deadline: por `taskToRow`/`labelToRow`
- *    pasan TODAS las escrituras, incluidas las del Perro, las de una reunión y las de un
- *    lote, y ninguna de esas tres abre un navegador.
- *
- * Acepta `frecuencia?: unknown` para poder aplicarse también sobre una fila cruda de
- * Postgres: si exigiera el tipo ya saneado, el mapper de lectura tendría que sanear por su
- * cuenta y ahí nace la segunda copia de la regla.
- */
-export const frecuenciaDe = (t: { recurrente?: boolean; frecuencia?: unknown }): Frecuencia | null =>
-  (esRecurrente(t) ? frecuenciaOk(t.frecuencia) : null);
-
-// =============================================================================
-// ¿QUÉ DÍA? — EL ANCLA DE LA FRECUENCIA (mig 0166)
-// =============================================================================
-// «La frecuencia debe poder configurarse como Google Calendar, es decir, si es 1 vez a la
-// semana ¿qué día? y así» (26/09/2026).
+// LO QUE TIENE EL DIÁLOGO «PERSONALIZADO» DE GOOGLE, que es lo que hay que copiar:
+//   1. «Repetir cada [N] [día | semana | mes | año]»                 → FREQ + INTERVAL
+//   2. si la unidad es SEMANA, VARIOS días a la vez (L M M J V S D)  → BYDAY
+//   3. si es MES, «el día 15» O «el segundo martes»                  → BYMONTHDAY | BYDAY+BYSETPOS
+//   4. «Termina: nunca / el [fecha] / después de [N] repeticiones»   → UNTIL | COUNT
 //
-// La 0165 dejó el RITMO y le faltaba el ANCLA: «cada semana» no distingue la junta de los
-// lunes de la de los viernes, que en el calendario de cualquiera son dos cosas distintas, y
-// sin ella la tarjeta no alcanza para saber si algo cae hoy.
+// ⚠️ EL PUNTO 4 NO SE COPIA, Y ESTÁ DECIDIDO. Nada en este producto calcula la próxima
+// ocurrencia: la repetición es una ETIQUETA — no dispara el reparto diario, ni un aviso, ni
+// un recordatorio. «Después de 12 repeticiones» sería un dato que nadie lee nunca y un
+// control que no hace nada, que es justo lo que la casa prohíbe. Vuelve el día que la
+// recurrencia GENERE algo, y ese día `UNTIL`/`COUNT` se suman acá y en ningún otro lado.
 //
-// ⚠️ UN SOLO CAMPO (`frecuencia_dia`), LEÍDO SEGÚN LA FRECUENCIA. No son dos columnas
-// —día-de-semana y día-del-mes— y eso es LA decisión de la migración: una recurrente tiene
-// UNA frecuencia por vez, así que con dos columnas pasar de «cada semana» a «cada mes» deja
-// la vieja viva contradiciendo a la nueva. Es el mismo modo de falla del `deadline` que
-// sobrevivía a marcar una tarea recurrente, y el que la 0163 vino a cortar.
+// ── POR QUÉ UN STRING Y NO CUATRO CAMPOS NUESTROS ────────────────────────────────────
 //
-//   semanal | quincenal            → 'lun' … 'dom'
-//   mensual | trimestral | anual   → '1' … '31' (día del mes)
-//   diaria                         → null (todos los días no tiene ancla)
-//   sin frecuencia                 → null
+// Las 0165 y 0166 modelaron esto con `frecuencia` (enum de 6) + `frecuencia_dia` (texto), y
+// ese modelo NO PUEDE EXPRESAR lo que se pidió: «varios días de la semana» necesita una
+// lista, «cada 3 semanas» un intervalo y «el segundo martes» un ordinal. Cada una sería
+// otra columna — y una repetición tiene UNA forma por vez, así que con cuatro columnas
+// pasar de «cada semana, los lunes» a «cada mes» deja las viejas vivas contradiciendo a la
+// nueva. Es el mismo modo de falla del `deadline` que sobrevivía a marcar algo recurrente
+// (lo que la 0163 vino a cortar), multiplicado por cuatro.
+//
+// La RRULE lo dice todo en un string, es un ESTÁNDAR y es lo que Google guarda por debajo,
+// así que el día que esto tenga que expandirse cualquier librería lo hace sin traducir:
+//   FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR      cada 2 semanas, lunes miércoles y viernes
+//   FREQ=MONTHLY;BYMONTHDAY=15                 el día 15 de cada mes
+//   FREQ=MONTHLY;BYDAY=TU;BYSETPOS=2           el segundo martes de cada mes
+//
+// ⚠️ Y EL MODELO VIEJO SE FUE ENTERO. `Frecuencia`, `FRECUENCIAS`, `frecuenciaOk`,
+// `frecuenciaDe`, `textoFrecuencia`, `DiaSemana`, `DIAS_SEMANA`, `pideDia`,
+// `frecuenciaDiaOk`, `textoDia` y `textoCuando` no quedaron «por compatibilidad»: dos
+// modelos de la misma cosa es el bug que la 0167 vino a cerrar, y el que queda vivo sin
+// consumidores es el que un día alguien vuelve a usar. El dato viejo ya está migrado.
 // =============================================================================
 
-/** Los días de la semana, en el orden en que se leen. Enum CERRADO como `Frecuencia`. */
-export type DiaSemana = 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom';
+/** Cada cuánto, en el vocabulario de RFC 5545. Cerrado: lo que no esté acá no se lee. */
+export type Freq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
+/** Los días, con el código de dos letras de RFC 5545 — que es la CLAVE que se guarda. */
+export type Dia = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
 
 /**
- * LA LISTA, Y ES UNA SOLA. Pinta el selector (`label`), la tabla y el chip (`corto`) y
- * describe el valor en cualquier otro lado. Dos listas —una de ids y otra de textos— es
- * cómo se muere una de las dos, exactamente igual que en `FRECUENCIAS`.
+ * LA REPETICIÓN YA LEÍDA: la RRULE partida en las cinco piezas que este producto soporta.
+ * Es la forma con la que trabaja una PANTALLA (marcar tres días es tocar `byday`); lo que
+ * se GUARDA es siempre el string, y la ida y vuelta son `leerRRule` / `escribirRRule`.
  *
- * ⚠️ EL PLURAL NO ES UNA CUARTA COLUMNA: se DERIVA (`enPlural`). En español los días que
- * terminan en `s` son invariables (lunes … viernes) y los otros dos suman una: es una regla
- * regular, y escribirla como lista sería la segunda lista que esta lista viene a evitar.
- *
- * ⚠️ Y LOS IDS VAN SIN ACENTO (`mie`, `sab`) a propósito: son la CLAVE que se guarda en la
- * columna, y una clave con acento se compara distinto según cómo la normalice quien la
- * escriba (NFC/NFD). El acento vive en el texto que se lee, que es donde importa.
+ * ⚠️ NO TIENE `until` NI `count` A PROPÓSITO — ver el punto 4 de acá arriba. No es un
+ * olvido: un campo en este tipo es un control en la pantalla, y ese control no haría nada.
  */
-export const DIAS_SEMANA: Array<{ id: DiaSemana; label: string; corto: string }> = [
-  { id: 'lun', label: 'Lunes', corto: 'Lun' },
-  { id: 'mar', label: 'Martes', corto: 'Mar' },
-  { id: 'mie', label: 'Miércoles', corto: 'Mié' },
-  { id: 'jue', label: 'Jueves', corto: 'Jue' },
-  { id: 'vie', label: 'Viernes', corto: 'Vie' },
-  { id: 'sab', label: 'Sábado', corto: 'Sáb' },
-  { id: 'dom', label: 'Domingo', corto: 'Dom' },
-];
+export type Repeticion = {
+  /** La unidad. `DAILY | WEEKLY | MONTHLY | YEARLY`. */
+  freq: Freq;
+  /** Cada cuántas unidades. Siempre >= 1; el `1` no se escribe en la RRULE (es el default). */
+  interval: number;
+  /** Qué días de la semana, en orden de semana. `[]` = ninguno. Sólo `WEEKLY` y `MONTHLY`. */
+  byday: Dia[];
+  /** Qué día del mes (1-31). Sólo `MONTHLY` y `YEARLY`, y sólo si no hay `byday`. */
+  bymonthday: number | null;
+  /** Qué ocurrencia del `byday` dentro del mes: 1…4 o -1 (el último). Sólo `MONTHLY`. */
+  bysetpos: number | null;
+};
 
 /** El día del mes más alto que se puede elegir. 31 y no 28: el ancla es «el 31 de cada
  *  mes», y qué hace febrero con eso es una pregunta del calendario, no del campo. */
 export const DIA_MES_MAX = 31;
 
+/** El intervalo más alto. Es el tope de Google, y existe para que un `INTERVAL=999999`
+ *  venido de un modelo o de un import entre como `1` en vez de pintarse en la tarjeta. */
+export const INTERVALO_MAX = 99;
+
 /**
- * QUÉ ANCLA PIDE UNA FRECUENCIA. `'semana'` = un día de la semana, `'mes'` = un día del
- * mes, `null` = ninguna (todos los días no tiene día, y sin frecuencia no hay nada).
+ * LOS DÍAS, Y ES UNA SOLA LISTA. Pinta los botones L M M J V S D del diálogo
+ * personalizado (`inicial`), la tabla y el chip (`corto`) y la frase (`label`). Dos listas
+ * —una de claves y otra de textos— es cómo se muere una de las dos.
  *
- * ⚠️ ES UN `Record` Y NO UN `switch` CON DEFAULT, y eso es la guarda: el día que
- * `Frecuencia` sume `'bimestral'`, el compilador exige decidir qué ancla pide. Un `switch`
- * con `default: null` lo dejaría entrar mudo —una frecuencia nueva sin día, sin error y sin
- * que nadie se entere—, que es el modo de falla que este archivo persigue en todos lados.
- * El `?? null` cubre lo que el tipo no puede: una lista ampliada en runtime.
+ * ⚠️ EL ORDEN ES EL DE LA SEMANA, y de eso depende la frase: `escribirRRule` normaliza
+ * `byday` contra este orden, así que «los viernes y lunes» sale siempre «los lunes y
+ * viernes» y la misma repetición se guarda con el mismo string venga de donde venga.
+ *
+ * ⚠️ EL PLURAL NO ES UNA COLUMNA MÁS: se DERIVA (`enPlural`). En español los días que
+ * terminan en `s` son invariables (lunes … viernes) y los otros dos suman una: es una regla
+ * regular, y escribirla como lista sería la segunda lista que esta lista viene a evitar.
+ *
+ * ⚠️ Y LAS CLAVES SON LAS DE RFC 5545, no unas nuestras: son las que viajan adentro del
+ * string que se guarda, así que traducirlas al escribir sería una tabla más para mantener.
  */
-const ANCLA: Record<Frecuencia, 'semana' | 'mes' | null> = {
-  diaria: null,
-  semanal: 'semana',
-  quincenal: 'semana',
-  mensual: 'mes',
-  trimestral: 'mes',
-  anual: 'mes',
-};
-export const pideDia = (f: unknown): 'semana' | 'mes' | null => {
-  const ok = frecuenciaOk(f);
-  return ok ? (ANCLA[ok] ?? null) : null;
+export const DIAS: Array<{ id: Dia; label: string; corto: string; inicial: string }> = [
+  { id: 'MO', label: 'Lunes', corto: 'Lun', inicial: 'L' },
+  { id: 'TU', label: 'Martes', corto: 'Mar', inicial: 'M' },
+  { id: 'WE', label: 'Miércoles', corto: 'Mié', inicial: 'M' },
+  { id: 'TH', label: 'Jueves', corto: 'Jue', inicial: 'J' },
+  { id: 'FR', label: 'Viernes', corto: 'Vie', inicial: 'V' },
+  { id: 'SA', label: 'Sábado', corto: 'Sáb', inicial: 'S' },
+  { id: 'SU', label: 'Domingo', corto: 'Dom', inicial: 'D' },
+];
+
+/** Las unidades del «Repetir cada [N] […]», con su singular y su plural. Sale de acá la
+ *  frase Y el desplegable del diálogo personalizado: una lista, no dos. */
+export const UNIDADES: Array<{ id: Freq; singular: string; plural: string }> = [
+  { id: 'DAILY', singular: 'día', plural: 'días' },
+  { id: 'WEEKLY', singular: 'semana', plural: 'semanas' },
+  { id: 'MONTHLY', singular: 'mes', plural: 'meses' },
+  { id: 'YEARLY', singular: 'año', plural: 'años' },
+];
+
+/**
+ * LOS ORDINALES DEL «el segundo martes», y son los cinco que ofrece Google. Van en
+ * masculino apocopado (`primer`, `tercer`) porque lo único que modifican es un día de la
+ * semana, que en español es masculino: «el primer lunes», nunca «el primero lunes».
+ */
+export const ORDINALES: Array<{ id: number; label: string }> = [
+  { id: 1, label: 'primer' },
+  { id: 2, label: 'segundo' },
+  { id: 3, label: 'tercer' },
+  { id: 4, label: 'cuarto' },
+  { id: -1, label: 'último' },
+];
+
+const FREQS: Freq[] = UNIDADES.map((u) => u.id);
+const ORDEN_DIAS: Dia[] = DIAS.map((d) => d.id);
+
+/**
+ * LA NORMALIZACIÓN, Y LA APLICAN LAS DOS PUNTAS. `leerRRule` la corre sobre lo que parseó y
+ * `escribirRRule` sobre lo que le pasan, así que la ida y la vuelta no pueden divergir: es
+ * lo que hace que `escribirRRule(leerRRule(x)) === x` valga para una regla ya canónica.
+ *
+ * ⚠️ LO QUE LA FRECUENCIA NO SABE LEER SE BORRA ACÁ, y es la misma decisión que ya pagó el
+ * día del modelo viejo: un `BYDAY=MO` con `FREQ=MONTHLY;BYMONTHDAY=15` son dos anclas
+ * contradictorias para la misma repetición, y ninguna de las dos lecturas es la que alguien
+ * eligió. Gana la más específica (`byday`) y la otra desaparece, en vez de quedar viva
+ * esperando a que un cambio de unidad la resucite afirmando un día que nadie dijo hoy.
+ */
+const normalizar = (r: Repeticion): Repeticion | null => {
+  if (!FREQS.includes(r.freq)) return null;
+  const n = Number(r.interval);
+  const interval = Number.isInteger(n) && n >= 1 && n <= INTERVALO_MAX ? n : 1;
+  // `byday` sólo tiene sentido en una repetición semanal («los lunes y miércoles») o
+  // mensual («el segundo martes»). En una diaria o anual es ruido que la frase no sabe
+  // decir. Se filtra CONTRA `ORDEN_DIAS` —y no se ordena la lista de entrada— para que el
+  // orden de salida sea siempre el de la semana y para que un duplicado (`MO,MO`) se caiga.
+  const byday = (r.freq === 'WEEKLY' || r.freq === 'MONTHLY')
+    ? ORDEN_DIAS.filter((d) => (r.byday ?? []).includes(d))
+    : [];
+  const md = Number(r.bymonthday);
+  const bymonthday = (r.freq === 'MONTHLY' || r.freq === 'YEARLY') && !byday.length
+    && Number.isInteger(md) && md >= 1 && md <= DIA_MES_MAX ? md : null;
+  const sp = Number(r.bysetpos);
+  // Un ordinal sin día al que aplicarse no dice nada («el segundo» de qué), y fuera de una
+  // repetición mensual tampoco: Google sólo lo ofrece en «cada mes».
+  const bysetpos = r.freq === 'MONTHLY' && byday.length > 0 && ORDINALES.some((o) => o.id === sp) ? sp : null;
+  return { freq: r.freq, interval, byday, bymonthday, bysetpos };
 };
 
 /**
- * EL SANEO DEL DÍA, Y **DEPENDE DE LA FRECUENCIA**. Lo que no corresponda entra como
- * `null`, nunca como texto libre — la columna de la 0166 tampoco tiene `check`, así que
- * ésta es la única guarda que existe.
+ * LEER UNA RRULE. Devuelve `null` cuando no hay nada que leer: no se repite, o se repite y
+ * nadie dijo cada cuánto, que es un estado real y distinto.
  *
- * ⚠️ **CAMBIAR LA FRECUENCIA INVALIDA EL DÍA, Y ESO ES UNA DECISIÓN.** Pasar de «cada
- * semana, los lunes» a «cada mes» deja un `'lun'` que, leído como día del mes, no es ningún
- * día: no hay forma de pintarlo, y ninguna de las dos lecturas posibles es la que alguien
- * eligió. Las tres alternativas, y por qué se descartaron:
+ * ⚠️ TOLERANTE A PROPÓSITO: LO QUE NO ENTIENDE SE IGNORA, NUNCA TIRA. El string llega de
+ * cuatro lugares con cuatro formas —la columna de la 0167 (que no tiene `check`: esto es la
+ * única guarda), el JSON de un modelo, el body de `/api/todo` y el estado optimista del
+ * navegador— y un parse que explota deja la tarjeta SIN DIBUJARSE. Una repetición que no se
+ * entiende es un dato perdido; una tarjeta que no se dibuja es un tablero roto.
  *
- *  · **Conservarlo** por si vuelve a «cada semana». Es el `deadline` que sobrevivía a
- *    marcar una recurrente, otra vez: un valor guardado donde ninguna pantalla lo muestra,
- *    que la API de MaKo sí publica, y que reaparece semanas después afirmando un día que
- *    nadie eligió hoy. Lo que se gana es un click; lo que se pierde es poder creerle al
- *    campo.
- *  · **Traducirlo** («los lunes» → «el 1»). Inventa un dato que nadie dijo, y plausible.
- *  · **Rechazar el cambio de frecuencia** hasta que se elija un día nuevo. Es el candado
- *    sin llave: frena por algo que no se arregla haciendo lo que el control pide.
- *
- * Así que se BORRA, y se borra acá —en la función que aplican los mappers— y no en el
- * handler del formulario, por la lección que ya pagaron el Quarter, el deadline y la
- * frecuencia: por `taskToRow`/`labelToRow` y por los dos `editar` del cliente pasan TODAS
- * las escrituras, incluidas las del Perro, las de una reunión y las de un lote.
- *
- * ⚠️ Y «SIN RECURRENTE NO HAY DÍA» NO SE ESCRIBE ACÁ: SE HEREDA. Los call sites pasan
- * `frecuenciaDe(t)` como segundo argumento, que ya devuelve `null` para lo que no se
- * repite → `pideDia(null)` → `null`. Es UNA regla —la que ya existe para la frecuencia— y
- * no dos: una segunda copia es la que se queda vieja.
- *
- * Devuelve `string` y no `DiaSemana` porque el mismo campo guarda las dos lecturas: un id
- * de día de semana o un número de día del mes. Quién es quién lo contesta `pideDia`.
+ * Lo que tolera, y cada una existe de verdad en un `.ics` de Google o en este repo:
+ *   · el prefijo `RRULE:` de un `.ics` pegado a mano
+ *   · minúsculas, espacios y un `;` de más
+ *   · `UNTIL` y `COUNT` (el «Termina» de Google): se ignoran, no se guardan — ver el punto 4
+ *   · `WKST`, `BYMONTH` y cualquier otra parte que este producto no modela
+ *   · `BYDAY=2TU`, que es como Google escribe «el segundo martes» en un `.ics`: el ordinal
+ *     pegado al día se levanta y se guarda como `BYSETPOS`, que es la forma canónica de acá
  */
-export const frecuenciaDiaOk = (v: unknown, f: unknown): string | null => {
-  const pide = pideDia(f);
-  if (!pide) return null;
-  if (pide === 'semana') return DIAS_SEMANA.find((d) => d.id === v)?.id ?? null;
-  // El día del mes llega como número desde el selector y como string desde la fila de
-  // Postgres. `Number('')` y `Number(' ')` dan 0, que el rango descarta igual; lo que no
-  // puede pasar es un `'12abc'` (NaN), un `'1.5'` ni un `true`.
-  const n = typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN;
-  return Number.isInteger(n) && n >= 1 && n <= DIA_MES_MAX ? String(n) : null;
+export const leerRRule = (s: unknown): Repeticion | null => {
+  if (typeof s !== 'string') return null;
+  const partes = new Map<string, string>();
+  for (const trozo of s.replace(/^\s*RRULE\s*:/i, '').split(';')) {
+    const i = trozo.indexOf('=');
+    if (i < 0) continue;
+    const k = trozo.slice(0, i).trim().toUpperCase();
+    const v = trozo.slice(i + 1).trim().toUpperCase();
+    // La PRIMERA gana: una RRULE con `FREQ` dos veces es inválida, y elegir la última sería
+    // dejar que un apéndice pegado al final cambie lo que la regla dice.
+    if (k && !partes.has(k)) partes.set(k, v);
+  }
+  const freq = partes.get('FREQ') as Freq | undefined;
+  if (!freq || !FREQS.includes(freq)) return null;
+
+  // `BYDAY` puede traer el ordinal pegado (`2TU`, `-1FR`). Se separa y se recuerda; si no
+  // vino un `BYSETPOS` propio, ése es el ordinal.
+  let pegado: number | null = null;
+  const byday: Dia[] = [];
+  for (const crudo of (partes.get('BYDAY') ?? '').split(',')) {
+    const m = /^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(crudo.trim());
+    if (!m) continue;
+    if (m[1] && pegado === null) pegado = Number(m[1]);
+    byday.push(m[2] as Dia);
+  }
+  const num = (k: string): number | null => {
+    const v = (partes.get(k) ?? '').split(',')[0];
+    const n = Number(v);
+    return v !== '' && Number.isInteger(n) ? n : null;
+  };
+  return normalizar({
+    freq,
+    interval: num('INTERVAL') ?? 1,
+    byday,
+    bymonthday: num('BYMONTHDAY'),
+    bysetpos: num('BYSETPOS') ?? pegado,
+  });
 };
 
 /**
- * CÓMO SE LEE, Y ES LA ÚNICA QUE ARMA LA FRASE. «Cada semana, los lunes», «Cada mes, el
- * 15», «Todos los días». `null` = no se repite, o se repite y nadie dijo cada cuánto.
+ * ESCRIBIR LA RRULE. `null` cuando no hay repetición que escribir.
  *
- * ⚠️ UNA SOLA FUNCIÓN PARA LA TARJETA, LA TABLA Y LA API. Si cada superficie escribiera su
- * propia concatenación divergen a la primera corrección — y la de la API es la que peor
- * envejece, porque la lee un modelo y no la mira nadie. Es la misma razón por la que
- * `textoFrecuencia` sale de `FRECUENCIAS` y no de un segundo mapa.
- *
- * ⚠️ EL DÍA SE VUELVE A SANEAR ACÁ. Esto se aplica también sobre filas crudas y sobre el
- * estado optimista del navegador, donde el día puede estar todavía desalineado de una
- * frecuencia que se acaba de cambiar: «Cada mes, el lun» es peor que no decir el día.
+ * ⚠️ EL ORDEN DE LAS PARTES ES FIJO y el `INTERVAL=1` no se escribe: sin las dos cosas, la
+ * misma repetición se guardaría con dos strings distintos según por dónde entró, y todo lo
+ * que compara (el `if (next === prev)` de los choke points, un test, un índice) empezaría a
+ * ver cambios donde no los hay.
  */
+export const escribirRRule = (r: Repeticion | null | undefined): string | null => {
+  if (!r) return null;
+  const n = normalizar(r);
+  if (!n) return null;
+  const p = [`FREQ=${n.freq}`];
+  if (n.interval > 1) p.push(`INTERVAL=${n.interval}`);
+  if (n.byday.length) p.push(`BYDAY=${n.byday.join(',')}`);
+  if (n.bymonthday) p.push(`BYMONTHDAY=${n.bymonthday}`);
+  if (n.bysetpos) p.push(`BYSETPOS=${n.bysetpos}`);
+  return p.join(';');
+};
+
+/**
+ * EL SANEO DE LA COLUMNA: entra cualquier cosa, sale una RRULE canónica o `null`.
+ *
+ * La 0167 dejó la columna SIN `check` a propósito, así que ésta es la única guarda que hay
+ * — y el valor llega del `<select>`, de una fila de Postgres, del JSON de un modelo y del
+ * body de `/api/todo`. Un string libre guardado acá no da error: deja una recurrente que
+ * dice «cada 15 días más o menos», que ninguna pantalla sabe pintar y que un agente repite
+ * como si fuera un dato del negocio.
+ *
+ * ⚠️ `null` Y NO `undefined`: «se repite, pero nadie dijo cada cuánto» es un estado real y
+ * tiene que poder ESCRIBIRSE en la columna para borrar el valor anterior. `undefined` en un
+ * payload de supabase-js es una clave que no viaja, o sea que no borra nada.
+ */
+export const recurrenciaOk = (v: unknown): string | null => escribirRRule(leerRRule(v));
+
+/**
+ * LA INVARIANTE: UNA RECURRENCIA SIN `recurrente` NO EXISTE.
+ *
+ * Es la MISMA regla que tenía el modelo viejo, con el campo nuevo — no una segunda. Al
+ * dejar de repetirse, la recurrencia SE BORRA, y ése es el porqué:
+ *
+ *  · El campo sólo se DIBUJA al lado de «Se repite». Un valor que queda guardado donde
+ *    ninguna pantalla lo muestra es el «consumidor huérfano» de AGENTS.md al revés: no
+ *    falla, no avisa, y el día que alguien lo lea afirma «cada semana» sobre una tarea que
+ *    tiene deadline y vence. La API de MaKo lo publica al lado de `se_repite`; una fila con
+ *    `recurrente: false` y una RRULE viva es exactamente esa mentira esperando.
+ *  · Lo que se gana conservándolo es un click si alguien desmarca por error, y ese click ya
+ *    está cubierto: los choke points del navegador guardan el valor ANTERIOR y el toast lo
+ *    devuelve.
+ *  · Y va acá —en una función que aplican los MAPPERS— y no en el handler del formulario,
+ *    por la lección que ya pagaron el Quarter y el deadline: por `taskToRow`/`labelToRow` y
+ *    por los dos `editar` del cliente pasan TODAS las escrituras, incluidas las del Perro,
+ *    las de una reunión y las de un lote, y ninguna de esas tres abre un navegador.
+ *
+ * Acepta `recurrencia?: unknown` para poder aplicarse también sobre una fila cruda de
+ * Postgres: si exigiera el tipo ya saneado, el mapper de lectura tendría que sanear por su
+ * cuenta y ahí nace la segunda copia de la regla.
+ */
+export const recurrenciaDe = (t: { recurrente?: boolean; recurrencia?: unknown }): string | null =>
+  (esRecurrente(t) ? recurrenciaOk(t.recurrencia) : null);
+
+// ── LA FRASE ─────────────────────────────────────────────────────────────────────────
+
+/** Plural de un día. Los que terminan en `s` son invariables; los otros dos suman una. */
 const enPlural = (s: string): string => (s.endsWith('s') ? s : `${s}s`);
 
-/**
- * EL ANCLA EN PALABRAS, CON SU ARTÍCULO: «los lunes», «el 15». `null` cuando esa
- * frecuencia no pide día, o cuando el que hay no le corresponde.
- *
- * Es el PEDAZO, y existe como función para que `textoCuando` y `textoDia` no lo escriban
- * cada uno: son la frase entera y su recorte, no dos traducciones. El artículo va acá
- * adentro porque es lo único que cambia entre las dos lecturas del mismo campo.
- */
-const ancla = (f: unknown, dia: unknown): string | null => {
-  const d = frecuenciaDiaOk(dia, f);
-  if (!d) return null;
-  if (pideDia(f) === 'mes') return `el ${d}`;
-  const nombre = DIAS_SEMANA.find((x) => x.id === d)?.label;
-  return nombre ? `los ${enPlural(nombre.toLowerCase())}` : null;
+/** «lunes y miércoles» · «lunes, miércoles y viernes». Sin esto la frase sale «los
+ *  lun,mie», que es un volcado de la RRULE, no una frase. */
+const enumerar = (xs: string[]): string =>
+  (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+
+/** ¿Es el «Todos los días laborables (lunes a viernes)» de Google? Es un preset SUYO y por
+ *  eso tiene frase propia: «Cada semana, los lunes, martes, miércoles, jueves y viernes»
+ *  dice lo mismo y no entra en ninguna tarjeta. */
+const esLaborable = (r: Repeticion): boolean =>
+  r.freq === 'WEEKLY' && r.interval === 1 && r.byday.length === 5
+  && (['MO', 'TU', 'WE', 'TH', 'FR'] as Dia[]).every((d) => r.byday.includes(d));
+
+/** EL RITMO, SIN EL ANCLA: «Todos los días», «Cada 2 semanas», «Cada mes». */
+const ritmo = (r: Repeticion): string => {
+  if (esLaborable(r)) return 'Todos los días laborables';
+  const u = UNIDADES.find((x) => x.id === r.freq);
+  if (!u) return '';
+  if (r.interval > 1) return `Cada ${r.interval} ${u.plural}`;
+  return r.freq === 'DAILY' ? 'Todos los días' : `Cada ${u.singular}`;
 };
 
 /**
- * CÓMO SE LEE, Y ES LA ÚNICA QUE ARMA LA FRASE. «Cada semana, los lunes», «Cada mes, el
- * 15», «Todos los días». `null` = no se repite, o se repite y nadie dijo cada cuánto.
+ * EL ANCLA EN PALABRAS, CON SU ARTÍCULO: «los lunes y miércoles», «el segundo martes», «el
+ * día 15». `null` cuando esa repetición no tiene ancla.
  *
- * ⚠️ UNA SOLA FUNCIÓN PARA LA TARJETA, LA TABLA Y LA API. Si cada superficie escribiera su
- * propia concatenación divergen a la primera corrección — y la de la API es la que peor
- * envejece, porque la lee un modelo y no la mira nadie. Es la misma razón por la que
- * `textoFrecuencia` sale de `FRECUENCIAS` y no de un segundo mapa.
- *
- * ⚠️ EL DÍA SE VUELVE A SANEAR ACÁ (adentro de `ancla`). Esto se aplica también sobre
- * filas crudas y sobre el estado optimista del navegador, donde el día puede estar todavía
- * desalineado de una frecuencia que se acaba de cambiar: «Cada mes, el lun» es peor que no
- * decir el día.
+ * Es el PEDAZO, y existe como función para que la frase larga y la corta no lo escriban
+ * cada una: son la misma traducción y su recorte, no dos traducciones.
  */
-export const textoCuando = (f: unknown, dia?: unknown): string | null => {
-  const base = textoFrecuencia(f);
-  if (!base) return null;
-  const a = ancla(f, dia);
-  return a ? `${base}, ${a}` : base;
+const ancla = (r: Repeticion): string | null => {
+  if (esLaborable(r)) return null;
+  const nombres = r.byday.map((id) => DIAS.find((d) => d.id === id)?.label.toLowerCase() ?? '');
+  if (nombres.length) {
+    const ord = r.bysetpos ? ORDINALES.find((o) => o.id === r.bysetpos)?.label : undefined;
+    // Con ordinal es UNA ocurrencia («el segundo martes»), así que el día va en singular;
+    // sin ordinal son todas («los martes») y va en plural. El artículo es lo único que
+    // cambia entre las dos lecturas, y por eso vive acá adentro y no en cada call site.
+    return ord ? `el ${ord} ${enumerar(nombres)}` : `los ${enumerar(nombres.map(enPlural))}`;
+  }
+  if (r.bymonthday) return `el día ${r.bymonthday}`;
+  return null;
 };
 
 /**
- * SÓLO EL DÍA, PARA CUANDO EL RITMO YA ESTÁ DICHO AL LADO: «Los lunes», «El 15».
+ * CÓMO SE LEE, Y ES LA ÚNICA QUE ARMA LA FRASE. «Cada semana, los lunes y miércoles»,
+ * «Cada 2 meses, el segundo martes», «Todos los días». `null` = no se repite, o se repite
+ * y nadie dijo cada cuánto.
+ *
+ * ⚠️ UNA SOLA FUNCIÓN PARA LA TARJETA, LA TABLA, EL TOAST Y LA API. Si cada superficie
+ * escribiera su propia concatenación divergen a la primera corrección — y la de la API es
+ * la que peor envejece, porque la lee un modelo y no la mira nadie.
+ *
+ * Toma el STRING y no el `Repeticion` a propósito: así se le puede pasar la columna cruda,
+ * el campo del `BoardTask` o lo que devolvió un modelo sin que cada call site parsee
+ * primero (y sin que uno de ellos se olvide de sanear).
+ */
+export const textoRepeticion = (s: unknown): string | null => {
+  const r = leerRRule(s);
+  if (!r) return null;
+  const a = ancla(r);
+  return a ? `${ritmo(r)}, ${a}` : ritmo(r);
+};
+
+/**
+ * SÓLO EL RITMO, PARA EL TOAST: «Cada 2 semanas», «Todos los días».
  *
  * ⚠️ EXISTE POR EL TECHO DEL TOAST, no por gusto. El deshacer tiene 3-4 palabras escritas
- * como regla de la casa, y «Cada dos semanas, los miércoles» son cinco: en una barra de 5
- * segundos encima de la pantalla, el ritmo que la persona NO acaba de tocar es justo lo
- * que sobra. Lo mismo vale para una columna angosta o un chip.
+ * como regla de la casa, y «Cada 2 semanas, los lunes y miércoles» son siete: en una barra
+ * de 5 segundos encima de la pantalla, el ancla que la persona acaba de tocar en el control
+ * es justo lo que sobra.
  *
- * ⚠️ Y NO ES UNA SEGUNDA TRADUCCIÓN: comparte `ancla` con `textoCuando`, así que el día
- * se convierte en palabras en UN solo lugar. Lo único propio es la mayúscula inicial, que
- * es lo que cambia entre «Cada semana, los lunes» y un renglón que empieza en el día.
+ * ⚠️ Y NO ES UNA SEGUNDA TRADUCCIÓN: comparte `ritmo` con `textoRepeticion`, así que la
+ * repetición se convierte en palabras en UN solo lugar.
  */
-export const textoDia = (f: unknown, dia: unknown): string | null => {
-  const a = ancla(f, dia);
-  return a ? a[0].toUpperCase() + a.slice(1) : null;
+export const textoRepeticionCorto = (s: unknown): string | null => {
+  const r = leerRRule(s);
+  return r ? ritmo(r) : null;
 };
 
-/** Cómo se dice en pantalla el rótulo del campo. Una palabra, el NOMBRE de la cosa: el
- *  «¿cada cuánto?» ya lo contesta el control de al lado (`ROTULO_FRECUENCIA`). */
-export const ROTULO_DIA = 'Día';
+/**
+ * EL DESPLEGABLE, TAL CUAL EL DE GOOGLE Y EN SU ORDEN. Lo que está arriba y abajo de esta
+ * lista NO lleva RRULE y por eso no está acá: «No se repite» es desmarcar «Se repite»
+ * (`setRecurrente`, y la invariante de `recurrenciaDe`) y «Personalizado…» abre el diálogo,
+ * que construye su RRULE con `escribirRRule`.
+ *
+ * ⚠️ GOOGLE DERIVA DOS DE ESTOS DEL DÍA DEL EVENTO («Cada semana el martes», «Cada mes el
+ * segundo martes») Y ACÁ NO SE PUEDE: una recurrente no tiene fecha —se la saca la 0163, y
+ * ése es el punto de la columna—, así que no hay de dónde sacar el día. Quedan sin ancla, y
+ * el que quiera uno lo elige en «Personalizado…». Inventarle el día de hoy sería un dato
+ * plausible que nadie dijo, que es el modo de falla que este archivo persigue.
+ *
+ * ⚠️ LA ETIQUETA SALE DE `textoRepeticion`, NO ESCRITA A MANO. Si se escribieran acá, el
+ * día que la frase cambie el desplegable diría una cosa y la tarjeta otra sobre el mismo
+ * valor — que es la divergencia que `textoRepeticion` viene a cerrar, servida desde adentro.
+ */
+export const PRESETS: Array<{ rrule: string; label: string }> =
+  ['FREQ=DAILY', 'FREQ=WEEKLY', 'FREQ=MONTHLY', 'FREQ=YEARLY', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR']
+    .map((rrule) => ({ rrule, label: textoRepeticion(rrule) ?? rrule }));
+
+/** Cómo se dice en pantalla el rótulo del campo. Una palabra: es el NOMBRE de la cosa, no
+ *  la pregunta que contesta. */
+export const ROTULO_REPETICION = 'Repetición';

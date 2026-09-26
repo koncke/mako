@@ -54,18 +54,19 @@ import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './typ
 import type { Board } from './useBoard';
 import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, ANCHO_TABLA_EN_PROYECTO } from './piezas';
 // El predicado de «se repite» sale del modulo de datos, nunca de un `t.recurrente` suelto.
-// ⚠️ Y EL TEXTO DEL RITMO SALE DE `textoCuando`, NO DE `textoFrecuencia` (mig 0166). Es la
+// ⚠️ Y EL TEXTO SALE DE `textoRepeticion` (mig 0167), la ÚNICA función que convierte una
 // misma función que usan la tarjeta, la fila y la API: la que junta el ritmo con su día
-// («Cada semana, los lunes»). Con `textoFrecuencia` a secas la junta de los lunes y la de
-// los viernes se veían IDÉNTICAS, que es justo el agujero que la 0166 vino a tapar.
-import { esRecurrente, frecuenciaDe, frecuenciaDiaOk, textoCuando, ROTULO_FRECUENCIA } from '@/lib/plan-recurrentes';
+// RRULE en la frase que leen la tarjeta, esta fila, el toast y la API. Y el valor entra por
+// `recurrenciaDe`, que es la invariante «una recurrencia sin `recurrente` no existe»: una
+// fila vieja con las dos cosas cruzadas no puede afirmar un ritmo sobre algo que sí vence.
+import { esRecurrente, recurrenciaDe, textoRepeticion, ROTULO_REPETICION } from '@/lib/plan-recurrentes';
 import { usePref, esUnoDe } from './prefs';
-// ⚠️ `SIN_FRECUENCIA` SE MUDÓ A `AccionesLote` (26/09/2026) Y NO ES UN CAPRICHO: la barra
+// ⚠️ `SIN_REPETICION` VIVE EN `AccionesLote` (26/09/2026) Y NO ES UN CAPRICHO: la barra
 // también dice esa palabra —es su destino «Indefinida»— y no puede importar de acá sin
 // ciclo, porque esta tabla la MONTA. De los tres archivos del tablero, `AccionesLote` es el
 // único que no importa a ninguno de los otros dos: es la hoja, así que es el único lugar del
 // que los tres pueden leer. Su casa por tema sigue siendo `lib/plan-recurrentes.ts`.
-import { AccionesLote, AccionesLoteProyectos, SIN_FRECUENCIA } from './AccionesLote';
+import { AccionesLote, AccionesLoteProyectos, SIN_REPETICION } from './AccionesLote';
 import { ScoreIcon } from './guardian-form';
 
 const SANS = "'Geist', sans-serif";
@@ -110,19 +111,23 @@ const tablaStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', f
 //         sobre; el piso es lo mínimo para que el recorte con «…» siga diciendo algo. El
 //         que cede es el título, a propósito.
 const C_SEL = 28, C_PRIO = 76, C_FECHA = 138, C_ACC = 72, C_ACC_SOLA = 48, C_PROY = 190, C_TITULO = 130, C_AVANCE = 130, C_NOMBRE = 200;
-//   · 260 el ritmo. Eran 132 cuando la celda sólo decía la frecuencia («Cada dos semanas»,
-//         el valor más largo de `FRECUENCIAS`, ~112px + 20). Desde la mig 0166 dice también
-//         el DÍA, así que el valor más largo del conjunto pasó a ser «Cada dos semanas, los
-//         miércoles»: 31 caracteres del mono de la tabla a 12px (0,6em = 7,2px) = ~223, + 13
-//         del bucle + 5 de gap + 20 de padding = 261, redondeado a 260 (la celda elipsa, así
-//         que el último píxel no cambia nada). Se mide el MÁS LARGO y no el primero: con
-//         «Cada mes, el 15» entraba en 132 y con el más largo no, que es el mismo error que
-//         el bloque de prioridad ya pagó con «A FUTURO».
+//   · 300 la repetición. La regla de la casa es medir el valor MÁS LARGO del conjunto, y
+//         desde la 0167 **ESE CONJUNTO ES ABIERTO**: una RRULE personalizada puede nombrar
+//         los siete días («Cada 2 semanas, los lunes, martes, miércoles, jueves, viernes,
+//         sábados y domingos» son ~590 px), así que no hay ancho que lo contenga y dárselo
+//         dejaría una columna vacía el 99% del tiempo. Lo que se mide es el peor caso
+//         REALISTA —un preset, o una semanal de dos o tres días: «Cada 2 semanas, los lunes
+//         y miércoles», 37 caracteres del mono de la tabla a 12px (0,6em = 7,2px) = ~266,
+//         + 13 del bucle + 5 de gap + 20 de padding = 304, redondeado a 300—, y lo que pasa
+//         de ahí lo elipsa la celda con la frase entera en su `title`. Eran 260 con el
+//         modelo viejo, cuyo valor más largo era `FRECUENCIAS` + UN día y sí estaba cerrado.
+//         ⚠️ CUANDO EL CONJUNTO ES ABIERTO, «el más largo» deja de ser una medida y pasa a
+//         ser una decisión: cuál se lee entero y cuál se recorta. Ésta es la decisión.
 //         El costo está acotado a la vista Recurrentes, que es la única que dibuja esta
-//         columna (`sinRanking`) y que se dibuja a 1180 px: el `minWidth` sube de 552 a 680
-//         en tareas y de 462 a 590 en proyectos, muy por debajo de lo disponible. Adentro de
-//         un proyecto —la columna angosta— `sinRanking` no se usa nunca.
-const C_RITMO = 260;
+//         columna (`sinRanking`) y que se dibuja a 1180 px: el `minWidth` sube a 720 en
+//         tareas y a 658 en proyectos, muy por debajo de lo disponible. Adentro de un
+//         proyecto —la columna angosta— `sinRanking` no se usa nunca.
+const C_RITMO = 300;
 const thBase: CSSProperties = { textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '9px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap' };
 // 5px y no 9 de padding vertical: es lo que PAGA la segunda línea del título. «Pon las
 // tareas en doble línea como máximo… pero que no haya tanto scroll, mejor que no haya casi
@@ -144,13 +149,11 @@ const fechaInput: CSSProperties = { width: 118, padding: '4px 7px', borderRadius
 /** El botón de una acción de fila: un ícono, sin rótulo, con el nombre en `title`. */
 const accionBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flex: 'none', padding: 0, border: 'none', background: 'transparent', borderRadius: 7, cursor: 'pointer' };
 
-// ── EL RITMO DE UNA RECURRENTE, DONDE UNA TAREA NORMAL DICE SU PLAZO ─────────────────
-// ⛔ ACÁ VIVÍA `SIN_FRECUENCIA` y se mudó a `AccionesLote.tsx` el 26/09/2026, cuando la
-//    barra de selección múltiple pasó a decir esa misma palabra. El porqué del destino está
-//    en el `import` de arriba: es el único de los tres archivos que los otros dos pueden
-//    leer sin ciclo. Se sigue usando acá y se sigue exportando desde acá para que nadie
-//    tenga que aprenderse el grafo de imports para encontrarla.
-export { SIN_FRECUENCIA };
+// ── LA REPETICIÓN DE UNA RECURRENTE, DONDE UNA TAREA NORMAL DICE SU PLAZO ───────────
+// ⛔ ACÁ NO SE RE-EXPORTA MÁS `SIN_REPETICION`. Lo hacía «para que nadie tenga que
+//    aprenderse el grafo de imports», y el resultado fue que la misma constante entraba a
+//    `BoardShell` por dos puertas distintas —de acá y de `AccionesLote`, que ese archivo ya
+//    importa igual—. Una puerta, la del archivo donde vive.
 
 /**
  * EL RITMO, EN EL RENGLÓN DONDE UNA TAREA NORMAL MUESTRA SU DEADLINE.
@@ -166,36 +169,36 @@ export { SIN_FRECUENCIA };
  * el tablero. El día que esto se pinte con el código de colores del plazo vuelve el motor
  * de vencimientos avisando que «la junta semanal está atrasada».
  *
- * ⚠️ EL VALOR SALE DE `frecuenciaDe`, NO DE `de.frecuencia`. Es la invariante del contrato
- * —una frecuencia sin `recurrente` no existe—, así que una fila vieja con las dos cosas
- * cruzadas no puede afirmar un ritmo sobre algo que sí vence. Y el DÍA pasa por
- * `frecuenciaDiaOk`, que es el saneo que DEPENDE de la frecuencia: un «mie» guardado cuando
- * el ritmo era semanal no puede seguir leyéndose después de pasarlo a mensual.
+ * ⚠️ EL VALOR SALE DE `recurrenciaDe`, NO DE `de.recurrencia`. Es la invariante del
+ * contrato —una recurrencia sin `recurrente` no existe—, así que una fila vieja con las dos
+ * cosas cruzadas no puede afirmar un ritmo sobre algo que sí vence.
  *
- * ⚠️ Y EL TEXTO SALE DE `textoCuando` (mig 0166), la ÚNICA función que junta el ritmo con su
- * día. Antes decía sólo el ritmo y con eso «la junta de los lunes» y «la de los viernes» se
- * veían idénticas en la vista Recurrentes — que es el mismo agujero que la 0165 había tapado
- * un nivel más arriba («la junta de los miércoles» y «el seguimiento diario»), corrido un
- * escalón. Un segundo armador de esa frase es cómo la tarjeta y la fila terminan diciendo
- * dos cosas distintas del mismo dato.
+ * ⚠️ Y EL TEXTO SALE DE `textoRepeticion` (mig 0167), la ÚNICA función que convierte una
+ * RRULE en palabras. Con el modelo viejo esta frase se armaba de a pedazos —el ritmo por un
+ * lado, el día por otro— y la tarjeta y la fila podían terminar diciendo dos cosas
+ * distintas del mismo dato; ahora el valor es uno y su lectura también.
+ *
+ * ⚠️ LA CELDA ELIPSA Y EL `title` LLEVA LA FRASE ENTERA, y eso dejó de ser un detalle con
+ * la 0167: el conjunto de valores posibles ahora es ABIERTO (ver `C_RITMO`), así que hay
+ * repeticiones que no entran en ninguna columna razonable. El texto no se pierde: se lee
+ * con el cursor encima y con un lector de pantalla.
  */
-export function LineaFrecuencia({ de, tam = 10.5, mono = true, style }: {
-  /** la tarea o el proyecto ENTEROS: el contrato mira `recurrente`, `frecuencia` y
-   *  `frecuenciaDia` juntos — los tres campos contestan UNA pregunta. */
-  de: { recurrente?: boolean; frecuencia?: unknown; frecuenciaDia?: string | null };
+export function LineaRepeticion({ de, tam = 10.5, mono = true, style }: {
+  /** la tarea o el proyecto ENTEROS: el contrato mira `recurrente` y `recurrencia` juntos,
+   *  porque los dos campos contestan UNA pregunta. */
+  de: { recurrente?: boolean; recurrencia?: string | null };
   tam?: number;
   /** false = tipografía de texto, para donde esto se lee como una frase. */
   mono?: boolean;
   style?: CSSProperties;
 }) {
-  const f = frecuenciaDe(de);
-  const txt = textoCuando(f, frecuenciaDiaOk(de.frecuenciaDia, f));
-  const nombre = txt ? `${ROTULO_FRECUENCIA}: ${txt}` : `${ROTULO_FRECUENCIA} sin definir`;
+  const txt = textoRepeticion(recurrenciaDe(de));
+  const nombre = txt ? `${ROTULO_REPETICION}: ${txt}` : `${ROTULO_REPETICION} sin definir`;
   return (
     <span title={nombre} aria-label={nombre}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, fontFamily: mono ? MONO : undefined, fontSize: tam, color: txt ? 'var(--dim)' : 'var(--faint)', ...style }}>
       <IconoRepite size={tam + 1} />
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt ?? SIN_FRECUENCIA}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{txt ?? SIN_REPETICION}</span>
     </span>
   );
 }
@@ -814,7 +817,7 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
             `input` se come el gesto que esa pieza ya tenía. El ritmo no es un `input`, así
             que en esa variante no hace falta. */}
         {sinRanking
-          ? <td style={td}><LineaFrecuencia de={l} tam={12} /></td>
+          ? <td style={td}><LineaRepeticion de={l} tam={12} /></td>
           : (
             <td style={td} data-nodrag data-parar>{esRecurrente(l)
               ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
@@ -827,7 +830,7 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
   // Cuántas columnas quedan vivas: lo miran el `colSpan` del vacío y el de `FilaPlegada`.
   // Escrito como cuenta y no como número suelto para que agregar una columna no deje dos
   // constantes contradiciéndose (es el mismo molde que `cols` en la tabla de tareas).
-  // La casilla + nombre + avance + la columna temporal (Deadline o Frecuencia, nunca las
+  // La casilla + nombre + avance + la columna temporal (Deadline o Repetición, nunca las
   // dos) + la de Prioridad, que es la única que de verdad desaparece con `sinRanking`.
   const cols = 4 + (sinRanking ? 0 : 1);
 
@@ -866,14 +869,14 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
             {/* 330 era el ancho de cuando la celda decía la fecha tres veces; 160, el de
                 cuando el `input` medía 138; 150, el de cuando medía 126. */}
             {/* ⚠️ EL RITMO NO SE ORDENA, y no es un olvido: `Th` sin `onSort` no dibuja el
-                botón. Ordenar por frecuencia pediría un criterio que nadie pidió (¿de lo
+                botón. Ordenar por la repetición pediría un criterio que nadie pidió (¿de lo
                 más seguido a lo más espaciado? ¿alfabético?) y, sobre todo, un valor nuevo
                 en el enum del orden — que se guarda POR NAVEGADOR y es el MISMO de la vista
                 de siempre, donde esta columna no existe. Una preferencia apuntando a una
                 columna que allá no se dibuja es el caso que esta tabla ya tuvo que resolver
                 unas líneas más arriba. */}
             {sinRanking
-              ? <Th ancho={C_RITMO}>{ROTULO_FRECUENCIA}</Th>
+              ? <Th ancho={C_RITMO}>{ROTULO_REPETICION}</Th>
               : <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>}
           </tr>
         </thead>
@@ -979,7 +982,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
   const orden: OrdenTarea = columnaViva(ordenPref) ? ordenPref : sinRanking ? (ocultarProyecto ? 'num' : 'proyecto') : 'score';
   // Las columnas que SE DIBUJAN. Lo usan la fila plegada y el cartel de «no hay tareas»: un
   // `colSpan` hardcodeado es lo que hacía desbordar la fila de las completadas.
-  // La columna temporal (Deadline o Frecuencia) está SIEMPRE: lo que desaparece con
+  // La columna temporal (Deadline o Repetición) está SIEMPRE: lo que desaparece con
   // `sinRanking` es sólo la de Prioridad.
   const cols = 4 + (ocultarProyecto ? 0 : 1) + (sinRanking ? 0 : 1);
 
@@ -1117,7 +1120,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             `data-nodrag`: acá adentro se escribe una fecha. El ritmo no es un `input`, así
             que esa variante no lo necesita. */}
         {sinRanking
-          ? <td style={td}><LineaFrecuencia de={t} tam={12} /></td>
+          ? <td style={td}><LineaRepeticion de={t} tam={12} /></td>
           : <td style={td} data-nodrag data-parar>{rec
             ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
             : <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />}</td>}
@@ -1196,14 +1199,14 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             {!sinRanking && <Th orden="prioridad" activo={orden === 'score'} dir={dir} onSort={() => sortear('score')} ancho={C_PRIO}
               ayuda="Ordenar por prioridad">Prioridad</Th>}
             {/* ⚠️ EL RITMO NO SE ORDENA, y no es un olvido: `Th` sin `onSort` no dibuja el
-                botón. Ordenar por frecuencia pediría un criterio que nadie pidió (¿de lo
+                botón. Ordenar por la repetición pediría un criterio que nadie pidió (¿de lo
                 más seguido a lo más espaciado? ¿alfabético?) y, sobre todo, un valor nuevo
                 en `OrdenTarea` — que se guarda POR NAVEGADOR y es el MISMO de la vista de
                 siempre, donde esta columna no existe. Una preferencia apuntando a una
                 columna que allá no se dibuja es el caso que `columnaViva` ya resuelve unas
                 líneas más arriba, y no hace falta abrirle uno nuevo. */}
             {sinRanking
-              ? <Th ancho={C_RITMO}>{ROTULO_FRECUENCIA}</Th>
+              ? <Th ancho={C_RITMO}>{ROTULO_REPETICION}</Th>
               : <Th orden="deadline" activo={orden === 'deadline'} dir={dir} onSort={() => sortear('deadline')} ancho={C_FECHA}>Deadline</Th>}
             {/* SIN RÓTULO. Decía «Estado» cuando la celda era sólo el check; ahora trae
                 también el tacho, así que la palabra pasó a nombrar mal a la mitad de la

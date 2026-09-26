@@ -50,19 +50,39 @@
 //     proyectos no puede decir qué pasa con las 80 tareas de adentro, así que la barra no la
 //     hace: se borra de a uno, desde el detalle, que es donde la pregunta cabe.
 // Lo que SÍ puede —y es exactamente lo que el pedido necesitaba— es lo temporal: «Se
-// repite», el ritmo con su día, y el deadline.
+// repite», la repetición (con su diálogo «Personalizado…») y el deadline.
 // =============================================================================
 
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { BoardTask, Label } from './types';
 import type { Board } from './useBoard';
 import { IconoTacho, IconoRepite } from './piezas';
 import { Dropdown } from '@/app/components/Dropdown';
+// ⚠️ EL CAMPO ES UNO SOLO Y GUARDA UNA **RRULE DE RFC 5545** (mig 0167), que es lo que
+// guarda Google Calendar por debajo: `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`. Del contrato
+// sale TODO lo que esta barra necesita y no se escribe nada dos veces: `PRESETS` es la
+// lista del desplegable, `DIAS` · `UNIDADES` · `ORDINALES` son las tres listas del diálogo
+// personalizado —las mismas con las que el contrato arma la frase, así que el control y la
+// tarjeta no pueden decir cosas distintas del mismo valor—, `DIA_MES_MAX` e `INTERVALO_MAX`
+// son los topes contra los que `leerRRule` valida, `leerRRule`/`escribirRRule` son la ida y
+// la vuelta entre el string y el modelo que el diálogo edita, `recurrenciaOk` es el saneo y
+// `textoRepeticion` / `textoRepeticionCorto` son la frase entera y la de 3-4 palabras del
+// toast.
+// ⛔ YA NO SE IMPORTA NADA DE `frecuencia` NI DE `frecuencia_dia`: eran DOS campos nuestros
+// que no podían expresar lo que Martín pidió (varios días, un intervalo, «el segundo
+// martes»), y las columnas se van en la 0168. Dos modelos de lo mismo es el bug que la
+// 0167 vino a cerrar, así que no queda ni un nombre suelto de los viejos.
 import {
-  ROTULO_RECURRENTE, ROTULO_FRECUENCIA, ROTULO_DIA, FRECUENCIAS, DIAS_SEMANA, DIA_MES_MAX,
-  esRecurrente, frecuenciaOk, frecuenciaDe, frecuenciaDiaOk, pideDia, textoFrecuencia, textoDia,
-  type Frecuencia,
+  ROTULO_RECURRENTE, esRecurrente,
+  ROTULO_REPETICION, PRESETS, DIAS, UNIDADES, ORDINALES, DIA_MES_MAX, INTERVALO_MAX,
+  leerRRule, escribirRRule, recurrenciaOk, textoRepeticion, textoRepeticionCorto,
+  type Repeticion, type Freq, type Dia,
 } from '@/lib/plan-recurrentes';
+// El molde de diálogo de la casa, con su pila de modales, su Escape y su ciclo de Tab.
+// `Confirm` pregunta · `Modal` MUESTRA el detalle de algo · `WizardShell` conduce un flujo:
+// esto es lo segundo, así que no se escribe un cuarto molde.
+import { Modal, Button } from '@/app/_ui';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -72,51 +92,363 @@ const MONO = "'Geist Mono', monospace";
 // de botón de texto: el de ícono ya existe y es `.mk-icon-btn` (globals.css:670).
 
 /**
- * CÓMO SE DICE QUE TODAVÍA NADIE ELIGIÓ UN RITMO. **Una palabra**, y la misma en las cuatro
- * superficies que lo dicen (el selector del detalle, la tarjeta, la fila de tabla y esta
- * barra).
+ * CÓMO SE DICE QUE TODAVÍA NADIE ELIGIÓ CADA CUÁNTO. **Una palabra**, y la misma en las
+ * cuatro superficies que lo dicen (el desplegable del detalle, la tarjeta, la fila de tabla
+ * y esta barra).
  *
  * ⚠️ NO es «Sin asignar» —lo que dice el selector de Quarter de al lado— por dos razones.
  * Una es el largo: en la tarjeta esto cae en el renglón del plazo, donde el techo es una
  * palabra y no una frase («no pongas texto innecesario nunca», 26/09/2026). La otra es que
- * los dos campos nunca conviven: el Quarter sólo existe si NO se repite y el ritmo sólo si
- * se repite, así que no hay ninguna pantalla donde las dos palabras se puedan contradecir.
+ * los dos campos nunca conviven: el Quarter sólo existe si NO se repite y la repetición
+ * sólo si se repite, así que no hay ninguna pantalla donde las dos palabras se puedan
+ * contradecir.
+ *
+ * ⚠️ Y NO ES «No se repite», QUE ES LO QUE DICE GOOGLE EN ESA MISMA RANURA. Allá el
+ * desplegable ES el interruptor; acá «¿se repite?» ya lo contestó la perilla de arriba, así
+ * que la primera opción no puede volver a contestarla — serían dos controles para la misma
+ * pregunta, con el desplegable pudiendo desmentir a la perilla que tiene al lado. Lo que
+ * este valor dice es otra cosa: se repite, y nadie dijo cada cuánto.
  *
  * ⚠️ Y NO ES «—». El guion es `NoAplica`, que significa «esto no se mide así» (la columna
  * Prioridad de una recurrente). Acá sí aplica y sí se puede contestar: falta contestarlo.
- * Son dos huecos distintos, y decirlos igual es perder la diferencia.
  *
- * ⚠️ VIVE ACÁ Y NO EN `Tablas.tsx`, QUE ES DE DONDE SE MUDÓ (26/09/2026), Y LA RAZÓN ES EL
- * GRAFO DE IMPORTS. `Tablas` y `BoardShell` MONTAN esta barra, así que importar de ellos
- * sería un ciclo; esta barra no importa a ninguno de los dos, o sea que es la única hoja de
- * las tres y el único lugar del que los tres pueden leer. El sitio que le correspondería por
- * tema es `lib/plan-recurrentes.ts`, al lado de `FRECUENCIAS`; queda anotado y no hecho
- * porque `lib/` no es de esta pasada. Lo que NO puede pasar —y no pasa— es que la tarjeta,
- * la fila y la barra digan la misma cosa con tres textos distintos.
+ * ⚠️ VIVE ACÁ Y NO EN `Tablas.tsx` NI EN `BoardShell.tsx`, Y LA RAZÓN ES EL GRAFO DE
+ * IMPORTS: los dos MONTAN esta barra, así que importar de ellos sería un ciclo; ésta es la
+ * única hoja de las tres y el único lugar del que los tres pueden leer. Tampoco está en
+ * `lib/plan-recurrentes.ts` —donde vive todo lo demás de este campo— porque no es un dato
+ * del modelo: es cómo esta pantalla dibuja el hueco, y el contrato no tiene por qué saber
+ * que existe un desplegable.
  */
-export const SIN_FRECUENCIA = 'Indefinida';
+export const SIN_REPETICION = 'Indefinida';
 
 /**
- * LAS OPCIONES DEL DÍA, SEGÚN LO QUE LA FRECUENCIA PIDA (mig 0166).
+ * LA ÚLTIMA OPCIÓN DEL DESPLEGABLE, LA QUE ABRE EL DIÁLOGO.
  *
- * `pideDia` contesta qué ancla necesita cada ritmo y esto contesta con qué se llena el
- * selector: los siete días de la semana (`DIAS_SEMANA`, la lista única) o los 31 del mes.
- *
- * ⚠️ EL TOPE SALE DE `DIA_MES_MAX`, NO DE UN 31 ESCRITO ACÁ: es el MISMO número contra el
- * que `frecuenciaDiaOk` valida, y dos topes es cómo el selector ofrece un día que el saneo
- * después tira. Y son 31 siempre, no los días del mes en curso: un ritmo mensual no vive en
- * un mes, así que ofrecer 28 en febrero dejaría un valor válido fuera de la lista once meses
- * al año — el `<select>` cuyo `value` no está entre sus `<option>`, que no muestra nada y en
- * el primer click lo borra, que este tablero ya pagó con los trimestres.
- *
- * ⚠️ Y VIVE ACÁ POR EL MISMO MOTIVO QUE `SIN_FRECUENCIA`: es la hoja del grafo de imports
- * entre los tres archivos del tablero. Su casa por tema es `lib/plan-recurrentes.ts`, al
- * lado de `DIAS_SEMANA`.
+ * ⚠️ NO ES UNA RRULE Y NO SE GUARDA NUNCA: es un centinela, y por eso lleva una arroba
+ * adelante. Una RRULE de RFC 5545 es una lista de CLAVE=valor separados por punto y coma,
+ * así que no puede empezar con arroba ni hoy ni cuando el subconjunto soportado crezca — o
+ * sea que este valor no puede colisionar con uno real. Un centinela que puede ser un valor
+ * es cómo un desplegable termina guardando la palabra «Personalizado» adentro de la
+ * columna. Y aunque se colara, `recurrenciaOk` lo devolvería como `null`: el saneo del
+ * contrato es la segunda capa.
  */
-export function opcionesDia(pide: 'semana' | 'mes'): Array<{ value: string; label: string }> {
-  return pide === 'semana'
-    ? DIAS_SEMANA.map((d) => ({ value: d.id, label: d.label }))
-    : Array.from({ length: DIA_MES_MAX }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
+export const VALOR_PERSONALIZADO = '@personalizado';
+
+/**
+ * LA RRULE CANÓNICA **PARA UN CONTROL**: lo mismo que `recurrenciaOk`, con `''` donde aquél
+ * devuelve `null`.
+ *
+ * ⚠️ NO ES UN SEGUNDO SANEO —el saneo es uno solo y está en el contrato—: es que el `value`
+ * de un `<select>` y el de un `Dropdown` son strings, y `null` ahí no selecciona nada. La
+ * cadena vacía es el valor con el que el desplegable dice «Indefinida», así que `null` y
+ * «esto no se entiende» se contestan igual: la pantalla no puede ofrecer un tercer estado
+ * que nadie sabe escribir.
+ *
+ * ⚠️ Y CANONIZAR ANTES DE COMPARAR NO ES OPCIONAL, por el `<select>` cuyo `value` no está
+ * entre sus `<option>` que este tablero ya pagó dos veces (los trimestres y el día del
+ * mes): no muestra nada, y el primer click escribe la primera opción, o sea BORRA el dato
+ * sin que nadie lo pidiera. `FREQ=WEEKLY` y `FREQ=WEEKLY;INTERVAL=1` son la MISMA
+ * repetición escrita de dos formas, y comparar los strings crudos deja al valor guardado
+ * fuera de su propia lista. Todo lo que se compara —el valor del control, cada opción, el
+ * destino de un arrastre— pasa por acá primero.
+ */
+export const canonRRule = (s: unknown): string => recurrenciaOk(s) ?? '';
+
+/**
+ * LAS OPCIONES DEL DESPLEGABLE, Y ES **UNA SOLA LISTA** PARA LAS TRES SUPERFICIES que lo
+ * dibujan: el detalle de una tarea, el de un proyecto y esta barra de lote. Dos listas es
+ * cómo se agrega un preset en una y no en la otra.
+ *
+ * El orden es el de Google: la salida que borra, los presets del contrato, y
+ * «Personalizado…» al final.
+ *
+ * ⚠️ EL VALOR GUARDADO SIEMPRE ESTÁ EN LA LISTA, y no por suerte: si la repetición que la
+ * tarjeta tiene no coincide con ningún preset —«cada 3 semanas», «el segundo martes»— entra
+ * como una opción más, con la frase de `textoRepeticion` de rótulo. Sin eso, elegir «cada 3
+ * semanas» y volver a abrir el detalle mostraría OTRA cosa: el control diría «Cada semana»
+ * sobre una tarjeta que se repite cada tres, y el primer click en cualquier lado lo
+ * escribiría.
+ *
+ * ⚠️ LA SALIDA QUE BORRA ES NUESTRA Y `PRESETS` NO LA TRAE, a propósito de los dos lados:
+ * una RRULE vacía no es una RRULE, así que el contrato no puede tener una entrada para
+ * ella. Sin esta opción, una repetición puesta de más sólo se sacaría destildando «Se
+ * repite» — que además borra el campo entero en vez de dejarlo indefinido.
+ */
+export function opcionesRepeticion(valor?: string | null): Array<{ value: string; label: string }> {
+  const ops: Array<{ value: string; label: string }> = [{ value: '', label: SIN_REPETICION }];
+  for (const p of PRESETS) ops.push({ value: canonRRule(p.rrule), label: p.label });
+  const v = canonRRule(valor);
+  if (v && !ops.some((o) => o.value === v)) ops.push({ value: v, label: textoRepeticion(v) ?? v });
+  ops.push({ value: VALOR_PERSONALIZADO, label: 'Personalizado…' });
+  return ops;
+}
+
+/** El día de la semana de HOY, en clave RFC. `getDay()` cuenta desde el domingo y `DIAS`
+ *  desde el lunes, de ahí el `+6`. */
+const diaDeHoy = (): Dia => DIAS[(new Date().getDay() + 6) % 7].id;
+
+/**
+ * CON QUÉ NACE EL DIÁLOGO, y por qué acá SÍ se tilda el día de hoy cuando el contrato dice
+ * que no.
+ *
+ * `PRESETS` deja «Cada semana» sin ancla a propósito, y su comentario lo explica:
+ * inventarle el día de hoy sería un dato plausible que nadie dijo. Eso es cierto **de un
+ * valor que se produce sin que nadie mire**, que es lo que un preset es: se elige del
+ * desplegable y se guarda en el mismo click.
+ *
+ * Un diálogo es lo contrario. Google abre el suyo con el día del EVENTO ya tildado; acá no
+ * hay evento —una recurrente no tiene fecha, se la saca la 0163— así que el equivalente es
+ * hoy, y la persona lo VE tildado antes de apretar Guardar. La regla que prohíbe esto
+ * («una detección automática mide TU máquina») es cara justamente cuando nadie llega a
+ * mirar el valor; acá no se escribe nada hasta que alguien aprieta el botón.
+ *
+ * La alternativa era abrir sin ningún día, y eso deja el único estado que el diálogo NO
+ * puede guardar —una semanal sin días, que el pedido prohíbe: «varios a la vez, y al menos
+ * uno»— como su estado INICIAL: un botón de guardar apagado apenas se abre, que se lee como
+ * que la pantalla está rota.
+ */
+const porDefecto = (): Repeticion => ({ freq: 'WEEKLY', interval: 1, byday: [diaDeHoy()], bymonthday: null, bysetpos: null });
+
+/**
+ * LO QUE EL DIÁLOGO EDITA, LEÍDO DE LO QUE HAYA GUARDADO — y completado si le falta el ancla.
+ *
+ * `FREQ=WEEKLY` a secas es una repetición legítima («cada semana») y es justo lo que guarda
+ * el preset; adentro del diálogo, en cambio, la semana pide **al menos un día**. Así que al
+ * abrirlo desde ese valor se tilda el de hoy, por lo mismo que `porDefecto`. Igual el mes
+ * sin ancla: se abre en «el día N» con el de hoy.
+ */
+const semilla = (valor: string | null | undefined): Repeticion => {
+  const r = leerRRule(valor ?? '');
+  if (!r) return porDefecto();
+  if (r.freq === 'WEEKLY' && !r.byday.length) return { ...r, byday: [diaDeHoy()] };
+  if (r.freq === 'MONTHLY' && r.bymonthday == null && r.bysetpos == null) return { ...r, bymonthday: new Date().getDate() };
+  return r;
+};
+
+/** Los días que el modelo tiene, en el orden de la semana. `escribirRRule` los normaliza
+ *  igual —de ahí que «los viernes y lunes» se guarde siempre «MO,FR»—, pero el que los
+ *  dibuja es este array: sin ordenar acá, la frase del desplegable y el orden de los
+ *  botones dirían lo mismo en dos órdenes distintos. */
+const ordenarDias = (cods: Dia[]): Dia[] => DIAS.filter((d) => cods.includes(d.id)).map((d) => d.id);
+
+const filaDialogo: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: SANS, fontSize: 14, color: 'var(--ink)' };
+const numDialogo: CSSProperties = { width: 64, height: 34, boxSizing: 'border-box', padding: '4px 8px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS };
+const btnDialogo: CSSProperties = { height: 34, padding: '0 10px', borderRadius: 9, gap: 6, fontSize: 13.5 };
+/** El mismo rótulo mono de todos los campos del tablero: es un nombre, no una glosa. */
+const rotuloDialogo: CSSProperties = { display: 'block', marginBottom: 8, fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 };
+
+/**
+ * ── EL DIÁLOGO «PERSONALIZADO», COMO EL DE GOOGLE CALENDAR ──────────────────────────
+ *
+ * «El tema de la frecuencia, copialo tal cual como lo hace Google Calendar… porque puede
+ * ser personalizado, varios días de la semana, etc. Pero más simple, investiga y copialo
+ * tal cual» (26/09/2026).
+ *
+ * Los TRES bloques que Google tiene, y ninguno más:
+ *   1. «Repetir cada [N] [día | semana | mes | año]»
+ *   2. si la unidad es SEMANA: los siete días como botones, VARIOS a la vez
+ *   3. si es MES: «el día 15» o «el segundo martes»
+ *
+ * ⛔ EL CUARTO BLOQUE DE GOOGLE —«Termina: nunca / el [fecha] / después de [N]»— **NO SE
+ * COPIA**, y está decidido. Nada en este producto calcula la próxima ocurrencia: el día es
+ * una ETIQUETA, no dispara el reparto diario, ni un aviso, ni un recordatorio. «Después de
+ * 12 repeticiones» sería un dato que nadie lee nunca y un control que no hace nada, que es
+ * exactamente lo que la casa prohíbe. Por eso tampoco están `UNTIL` ni `COUNT` en el
+ * subconjunto de la 0167: el modelo no puede expresarlos, así que no hay forma de que el
+ * control vuelva por la puerta de atrás. Vuelve el día que la recurrencia genere algo.
+ *
+ * ⛔ Y NO HAY RENGLÓN DE RESUMEN («Se repite cada 2 semanas el lunes y miércoles»), que
+ * Google sí tiene. Los tres bloques SON la frase, leídos en orden; un cuarto renglón que la
+ * repite es texto que narra lo que la pantalla ya hace. La frase existe, y en el único
+ * lugar donde agrega algo: el desplegable que queda detrás, apenas se guarda.
+ *
+ * ⚠️ NINGÚN ESTADO DE ESTE DIÁLOGO ES IMPOSIBLE DE GUARDAR, y por eso el botón nunca está
+ * apagado. La semana con cero días —el único inválido— no se puede alcanzar: el último día
+ * tildado no se destilda. Un `disabled` que la persona no sabe cómo arreglar es una pantalla
+ * sin salida, y acá la salida sería «cerrar y perder lo que escribiste».
+ *
+ * ⚠️ Y NO ESCRIBE NADA: devuelve la RRULE y quien lo monta decide a quién se la aplica. Por
+ * eso el MISMO componente sirve para el detalle de una tarjeta y para un lote de doce.
+ *
+ * ⚠️ VA EN UN **PORTAL A `document.body`**, Y SIN ESO LA PANTALLA SE PONE EN BLANCO. Los dos
+ * lugares desde donde se abre —el detalle de una tarjeta y la barra de lote— viven ADENTRO
+ * de otro modal, y la regla de la pila es que al abrir uno nuevo el de abajo se esconde con
+ * `display: none` (app/_components/pila-modales.ts). Montado ahí adentro, esconder al padre
+ * esconde también a este diálogo: se apagan los dos y no queda nada en pantalla. Por eso
+ * TODOS los diálogos de este tablero se montan en la raíz de `BoardShell` y no donde se
+ * abren; acá el portal consigue lo mismo sin obligar a los dos call sites a izar el estado
+ * —que además sería la prop que nace huérfana en uno de los dos—.
+ *
+ * Esconder al de abajo es lo correcto y es lo que la casa hace: mientras se edita la
+ * repetición, el detalle desaparece y vuelve intacto al cerrar.
+ */
+export function RepeticionModal({ valor, onGuardar, onCerrar }: {
+  /** la repetición que hay hoy, para abrir el diálogo donde la persona la dejó. */
+  valor: string | null;
+  onGuardar: (rrule: string) => void;
+  onCerrar: () => void;
+}) {
+  const [r, setR] = useState<Repeticion>(() => semilla(valor));
+  const unidad = UNIDADES.find((u) => u.id === r.freq) ?? UNIDADES[1];
+  /** El modo del bloque del mes SE DERIVA del modelo, no es un estado aparte: con dos
+   *  fuentes, la que la pantalla muestra y la que se guarda se separan en el primer cambio
+   *  de unidad. `bysetpos` puesto ES «el segundo martes». */
+  const porOrdinal = r.bysetpos != null;
+
+  /** Cambiar de unidad LIMPIA lo que esa unidad no puede tener y pone lo que sí necesita.
+   *  Es la misma decisión que el modelo viejo ya había tomado para el día suelto: un `MO`
+   *  guardado cuando el ritmo era semanal, leído como día del mes, no es ningún día — y
+   *  ninguna de las dos lecturas es la que alguien eligió. Se borra, y se borra acá, que es
+   *  el único lugar por donde pasa el cambio de unidad. */
+  const cambiarFreq = (freq: Freq) => setR((p) => ({
+    ...p,
+    freq,
+    byday: freq === 'WEEKLY' ? (p.byday.length ? p.byday : [diaDeHoy()]) : [],
+    bymonthday: freq === 'MONTHLY' ? (p.bymonthday ?? new Date().getDate()) : null,
+    bysetpos: null,
+  }));
+
+  /** ⚠️ EL ÚLTIMO DÍA NO SE DESTILDA. Una semanal sin días es el único estado que el pedido
+   *  prohíbe, así que el control no lo ofrece — en vez de ofrecerlo y después rechazarlo con
+   *  un botón apagado. Es lo mismo que hace Google. */
+  const alternarDia = (id: Dia) => setR((p) => {
+    const tildado = p.byday.includes(id);
+    if (tildado && p.byday.length === 1) return p;
+    return { ...p, byday: ordenarDias(tildado ? p.byday.filter((d) => d !== id) : [...p.byday, id]) };
+  });
+
+  const guardar = () => {
+    const s = escribirRRule(r);
+    if (s) onGuardar(s);
+    onCerrar();
+  };
+
+  // El portal necesita el DOM. El diálogo sólo se monta después de un click, así que en el
+  // server esto no corre nunca; la guarda es para que no pueda empezar a correr.
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <Modal titulo={ROTULO_REPETICION} ancho={440} onCerrar={onCerrar}
+      pie={<>
+        {/* Ningún botón se llama «Aceptar» ni «Cancelar» a secas: cada uno nombra su acción
+            y su objeto, y el par dice qué pasa con cada salida. */}
+        <Button variant="secondary" onClick={onCerrar}>Dejar la de antes</Button>
+        <Button variant="primary" onClick={guardar}>Guardar la repetición</Button>
+      </>}>
+
+      <div style={filaDialogo}>
+        <span>Repetir cada</span>
+        {/* ⚠️ EL NÚMERO SE VALIDA AL ESCRIBIR Y LO QUE NO PASA **NO SE ESCRIBE**: el campo se
+            queda con el valor anterior. Con un `Number(v) || 1` el campo salta a 1 apenas se
+            borra el contenido para tipear otro número, que es un control que pelea con quien
+            lo usa. El tope sale de `INTERVALO_MAX` —el mismo contra el que `leerRRule`
+            valida— y no de un 99 escrito acá: dos topes es cómo un control ofrece un valor
+            que el saneo después tira. */}
+        <input type="number" min={1} max={INTERVALO_MAX} value={r.interval}
+          aria-label={`Repetir cada cuántos ${unidad.plural}`}
+          onChange={(e) => {
+            const n = Math.floor(Number(e.target.value));
+            if (Number.isFinite(n) && n >= 1 && n <= INTERVALO_MAX) setR((p) => ({ ...p, interval: n }));
+          }}
+          style={numDialogo} />
+        {/* El `Dropdown` de la casa y no un `<select>` nativo: la regla está escrita con
+            todas las letras en app/_ui/Select.tsx:10-12. El singular o el plural sale del
+            número de al lado, que es la única concordancia que esta fila tiene, y las dos
+            formas salen de `UNIDADES` —la misma lista con la que el contrato arma la frase—
+            para que el control y la tarjeta no digan «2 meses» y «2 mes». */}
+        <Dropdown
+          value={r.freq}
+          ariaLabel="Cada qué se repite"
+          buttonStyle={btnDialogo}
+          options={UNIDADES.map((u) => ({ value: u.id, label: r.interval === 1 ? u.singular : u.plural }))}
+          onChange={(v) => cambiarFreq(v as Freq)} />
+      </div>
+
+      {r.freq === 'WEEKLY' && (
+        <div>
+          {/* El rótulo es el NOMBRE de lo que se elige. La regla «al menos uno» no se
+              escribe en ningún cartel: se cumple sola, porque el último tildado no se puede
+              destildar. */}
+          <label style={rotuloDialogo}>Días</label>
+          <div role="group" aria-label="Días en que se repite" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {/* ⚠️ `inicial` NO IDENTIFICA NADA: hay dos «M» (martes y miércoles) y dos «S»
+                (sábado y domingo), exactamente como en el diálogo de Google (S M T W T F S).
+                Es la cara del botón y nada más; quién es quién lo dicen el `title` y el
+                `aria-label`, que llevan el nombre entero — un botón cuyo único contenido es
+                una letra ambigua se anuncia «M», a secas. */}
+            {DIAS.map((d) => {
+              const on = r.byday.includes(d.id);
+              return (
+                <button key={d.id} type="button" onClick={() => alternarDia(d.id)}
+                  title={d.label} aria-label={d.label} aria-pressed={on}
+                  style={{
+                    width: 34, height: 34, flex: 'none', borderRadius: '50%', cursor: 'pointer',
+                    border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+                    background: on ? 'var(--primary)' : 'var(--surface)',
+                    color: on ? '#fff' : 'var(--dim)',
+                    fontFamily: SANS, fontSize: 13, fontWeight: 700,
+                    transition: 'background .12s, border-color .12s, color .12s',
+                  }}>
+                  {d.inicial}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {r.freq === 'MONTHLY' && (
+        <div>
+          <label style={rotuloDialogo}>Cada mes</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Dos radios de verdad y no dos botones: son dos lecturas EXCLUYENTES del mismo
+                campo, y eso es lo que un grupo de radios significa para el teclado y para un
+                lector de pantalla. */}
+            <label style={filaDialogo}>
+              <input type="radio" name="ancla-mes" checked={!porOrdinal}
+                onChange={() => setR((p) => ({ ...p, bymonthday: p.bymonthday ?? new Date().getDate(), byday: [], bysetpos: null }))}
+                style={{ accentColor: 'var(--primary)', cursor: 'pointer' }} />
+              <span>el día</span>
+              {/* `DIA_MES_MAX` y no un 31 escrito acá: es el mismo tope contra el que valida
+                  el contrato. Y son 31 siempre, no los días del mes en curso: una repetición
+                  mensual no vive en un mes, así que ofrecer 28 en febrero dejaría un valor
+                  válido fuera de su propia lista once meses al año — el `<select>` cuyo
+                  `value` no está entre sus `<option>`, otra vez. Qué hace febrero con «el
+                  31» es una pregunta del calendario, y acá todavía no hay calendario. */}
+              <Dropdown
+                value={String(r.bymonthday ?? new Date().getDate())}
+                disabled={porOrdinal}
+                ariaLabel="Día del mes"
+                buttonStyle={btnDialogo}
+                options={Array.from({ length: DIA_MES_MAX }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))}
+                onChange={(v) => setR((p) => ({ ...p, bymonthday: Number(v), byday: [], bysetpos: null }))} />
+            </label>
+            <label style={filaDialogo}>
+              <input type="radio" name="ancla-mes" checked={porOrdinal}
+                onChange={() => setR((p) => ({ ...p, bymonthday: null, byday: [p.byday[0] ?? diaDeHoy()], bysetpos: p.bysetpos ?? 1 }))}
+                style={{ accentColor: 'var(--primary)', cursor: 'pointer' }} />
+              <span>el</span>
+              <Dropdown
+                value={String(r.bysetpos ?? 1)}
+                disabled={!porOrdinal}
+                ariaLabel="Qué semana del mes"
+                buttonStyle={btnDialogo}
+                options={ORDINALES.map((o) => ({ value: String(o.id), label: o.label }))}
+                onChange={(v) => setR((p) => ({ ...p, bysetpos: Number(v), bymonthday: null, byday: [p.byday[0] ?? diaDeHoy()] }))} />
+              <Dropdown
+                value={r.byday[0] ?? diaDeHoy()}
+                disabled={!porOrdinal}
+                ariaLabel="Qué día de la semana"
+                buttonStyle={btnDialogo}
+                options={DIAS.map((d) => ({ value: d.id, label: d.label }))}
+                onChange={(v) => setR((p) => ({ ...p, byday: [v as Dia], bymonthday: null, bysetpos: p.bysetpos ?? 1 }))} />
+            </label>
+          </div>
+        </div>
+      )}
+    </Modal>,
+    document.body,
+  );
 }
 
 // ── LOS ÍCONOS ───────────────────────────────────────────────────────────────────────
@@ -235,8 +567,10 @@ type CfgLote<T> = {
    *  con la copia entera para un proyecto. */
   restaurar: (snap: T) => void;
   setRecurrente: (t: T, v: boolean) => void;
-  setFrecuencia: (t: T, v: Frecuencia | null) => void;
-  setFrecuenciaDia: (t: T, v: string | null) => void;
+  /** LA REPETICIÓN, EN UN SOLO CAMPO: una RRULE de RFC 5545, o `null` para «se repite y
+   *  nadie dijo cada cuánto». Eran DOS (`setFrecuencia` y `setFrecuenciaDia`) y eso obligaba
+   *  a escribir en dos renders; con la 0167 el valor viaja entero y es una escritura. */
+  setRecurrencia: (t: T, v: string | null) => void;
   setDeadline: (t: T, iso: string) => void;
   /** completar / reabrir. `null` = esta entidad no se completa (ver la cabecera). */
   estado: { hecha: (t: T) => boolean; toggle: (t: T) => void } | null;
@@ -265,8 +599,7 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
         fem: true,
         restaurar: (snap) => board.replaceTask(snap),
         setRecurrente: (t, v) => board.setRecurrente(t.id, v),
-        setFrecuencia: (t, v) => board.setFrecuencia(t.id, v),
-        setFrecuenciaDia: (t, v) => board.setFrecuenciaDia(t.id, v),
+        setRecurrencia: (t, v) => board.setRecurrencia(t.id, v),
         setDeadline: (t, iso) => board.setDeadline(t.id, iso, t.deadline),
         estado: { hecha: (t) => t.progress >= 100, toggle: (t) => board.toggleDone(t.id) },
         mover: (t, labelId) => board.setTaskLabels(t.id, [labelId], `Movida a «${board.labelById(labelId)?.name ?? ''}»`),
@@ -307,8 +640,7 @@ export function AccionesLoteProyectos({ elegidos, board, onLimpiar, estilo }: {
         fem: /a$/.test(singular),
         restaurar: (snap) => board.patchLabel(snap.id, snap),
         setRecurrente: (l, v) => board.setLabelRecurrente(l.id, v),
-        setFrecuencia: (l, v) => board.setLabelFrecuencia(l.id, v),
-        setFrecuenciaDia: (l, v) => board.setLabelFrecuenciaDia(l.id, v),
+        setRecurrencia: (l, v) => board.setLabelRecurrencia(l.id, v),
         setDeadline: (l, iso) => board.setLabelDeadline(l.id, iso),
         estado: null,
         mover: null,
@@ -317,7 +649,7 @@ export function AccionesLoteProyectos({ elegidos, board, onLimpiar, estilo }: {
   );
 }
 
-function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: unknown; frecuenciaDia?: string | null }>({ elegidas, board, ask, onLimpiar, estilo, cfg }: {
+function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: string | null }>({ elegidas, board, ask, onLimpiar, estilo, cfg }: {
   elegidas: T[];
   board: Board;
   /** confirmar lo irreversible (lo trae el board). Opcional porque va PEGADO a `cfg.borrar`:
@@ -337,36 +669,26 @@ function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: un
   // hasta el 25/09.
   const [editandoFecha, setEditandoFecha] = useState(false);
   /**
-   * EL RITMO QUE ACABA DE ESCRIBIRSE Y TODAVÍA NO TIENE DÍA (mig 0166).
+   * ¿ESTÁ ABIERTO EL DIÁLOGO «PERSONALIZADO»? (mig 0167)
    *
-   * «La frecuencia debe poder configurarse como Google Calendar, es decir, si es 1 vez a la
-   * semana ¿qué día?» (26/09/2026). Acá eso son DOS preguntas y UNA sola ranura: se elige el
-   * ritmo, y si ese ritmo pide un ancla la misma ranura pasa a preguntar el día. Es el mismo
-   * mecanismo que el deadline —el botón se convierte en el `<input type=date>` y vuelve—, y
-   * es lo único que entra: la cuenta de más abajo dice que un tercer control con palabra no.
+   * «El tema de la frecuencia, copialo tal cual como lo hace Google Calendar… porque puede
+   * ser personalizado, varios días de la semana, etc.» (26/09/2026).
    *
-   * ⚠️ SON DOS ESCRITURAS Y NO UNA, Y NO ES UNA ELECCIÓN DE DISEÑO: ES LO ÚNICO QUE GUARDA.
-   * `setFrecuenciaDia` sanea el día CONTRA LA FRECUENCIA QUE LA TARJETA TIENE, y la lee de
-   * `byId(id)` —o sea del array `tasks` del render en curso—. Las dos llamadas juntas en el
-   * mismo handler dejan la segunda leyendo la frecuencia VIEJA: `frecuenciaDiaOk('lun',
-   * viejo)` da `null`, `next === prev`, y la función **sale sin escribir**. El gesto se ve
-   * perfecto y el día no se guarda, que es el modo de falla más caro de este tablero. Con el
-   * ritmo escrito en el paso 1, el paso 2 corre en el render SIGUIENTE y ahí la tarjeta ya
-   * trae la frecuencia nueva.
+   * ⛔ ACÁ VIVÍA `ritmoPend`, EL SEGUNDO PASO DEL MODELO VIEJO: se elegía el ritmo, y si ese
+   * ritmo pedía un ancla la misma ranura pasaba a preguntar «¿qué día?». Eran DOS escrituras
+   * obligadas —`setFrecuenciaDia` saneaba el día contra la frecuencia que la tarjeta tenía
+   * EN ESE render, así que las dos juntas dejaban a la segunda leyendo la vieja y saliendo
+   * sin escribir—, y aun así sólo sabía contestar UN día. Con una RRULE el valor es uno
+   * solo: se escribe entero, en una sola escritura, y lo que aquel paso no podía decir
+   * —varios días, un intervalo, «el segundo martes»— lo dice el diálogo.
    *
-   * ⚠️ Y POR ESO EL PASO 1 **NO LIMPIA LA SELECCIÓN**. Es la única excepción del archivo y
-   * está acotada a este caso: si limpiara, el paso 2 se quedaría sin a quién escribirle. El
-   * que limpia es el paso 2 —o cualquier otra acción—, que es cuando la decisión terminó.
+   * ⚠️ ABRIRLO NO LIMPIA LA SELECCIÓN, por la misma razón por la que aquel paso 1 tampoco lo
+   * hacía: el diálogo necesita a quién escribirle. El que limpia es el guardado.
    *
-   * ⚠️ Y ABANDONAR EL PASO 2 NO ROMPE NADA, que es lo que lo vuelve seguro: el ritmo ya está
-   * guardado y «se repite y nadie dijo cuándo» es un estado real del contrato. La primera
-   * versión guardaba las dos cosas juntas al final, y ahí abandonar significaba no guardar
-   * nada — una ranura de la que sólo se salía sin haber hecho lo que se pidió.
-   *
-   * ⚠️ NULL = NO HAY NADA PENDIENTE. Nunca guarda una frecuencia que no pida día: ésas se
-   * aplican enteras en el acto.
+   * ⚠️ Y ABANDONARLO NO ROMPE NADA: no se escribió todavía nada, así que cerrar deja la
+   * selección exactamente como estaba.
    */
-  const [ritmoPend, setRitmoPend] = useState<Frecuencia | null>(null);
+  const [custom, setCustom] = useState(false);
   const pickerAbierto = useRef(false);
 
   if (!elegidas.length) return null;
@@ -382,7 +704,7 @@ function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: un
     if (!mantenerSeleccion) onLimpiar();
     board.showUndo(texto, () => snaps.forEach((snap) => cfg.restaurar(snap)));
   };
-  const cerrarEditores = () => { setEditandoFecha(false); setRitmoPend(null); };
+  const cerrarEditores = () => { setEditandoFecha(false); setCustom(false); };
 
   // ⚠️ UN SOLO BOTÓN PARA LAS DOS DIRECCIONES. «Elimina el "Reabrir", sería lo mismo que
   // "completar" solo que si lo aprieto a la inversa se descompleta, pero no debe haber 2
@@ -457,37 +779,46 @@ function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: un
     : cambianRepite === n
       ? `Marcar «${ROTULO_RECURRENTE}» en ${cosas}`
       : `Marcar «${ROTULO_RECURRENTE}» en ${cambianRepite} de ${cosas} (el resto ya se repite)`;
-  /** El ancla que pide el ritmo que está esperando. Nunca `null` mientras `ritmoPend` viva:
-   *  las frecuencias que no piden día se aplican enteras en el acto y no llegan a este
-   *  estado. */
-  const anclaPend = ritmoPend ? pideDia(ritmoPend) : null;
   /**
-   * PASO 1: el ritmo. Si pide un ancla, la selección se QUEDA y la ranura pasa a preguntar
-   * el día (ver el porqué en `ritmoPend`); si no —«Todos los días» o «Indefinida»—, no hay
-   * nada más que preguntar y la acción termina acá.
-   *
-   * El texto del toast es `textoFrecuencia`, el MISMO que usa `useBoard` para el cambio de
-   * una sola tarjeta: dos palabras, que es el techo de esa superficie.
+   * LA REPETICIÓN QUE COMPARTE LA SELECCIÓN, para abrir el diálogo donde la persona la
+   * dejó. Si no comparten una, no hay ninguna que mostrar: se abre en blanco.
    */
-  const ponerRitmo = (f: Frecuencia | null) => {
-    const pide = f ? pideDia(f) : null;
-    // ⚠️ SI NADIE CAMBIA, NO SE ESCRIBE NI SE OFRECE DESHACER — y acá eso NO es un caso
-    // raro: re-elegir el ritmo que la selección ya tiene es el camino NORMAL para llegar al
-    // paso del día. Un toast de 5 segundos que dice «Cada semana» sobre un cambio que no
-    // ocurrió, y que además pisa el deshacer de la acción anterior, es la barra mintiendo.
-    if (elegidas.some((t) => frecuenciaDe(t) !== f)) enLote(textoFrecuencia(f) ?? SIN_FRECUENCIA, (t) => cfg.setFrecuencia(t, f), !!pide);
-    else { cerrarEditores(); if (!pide) onLimpiar(); }
-    // DESPUÉS de `enLote` y de `cerrarEditores()`, que lo pondrían en `null`.
-    if (pide) setRitmoPend(f);
+  const rComun = canonRRule(elegidas[0]?.recurrencia);
+  const todasIgual = elegidas.every((t) => canonRRule(t.recurrencia) === rComun);
+  /**
+   * LO QUE HACE EL DESPLEGABLE. Dos salidas y nada más: o es el centinela y se abre el
+   * diálogo, o es una RRULE y se escribe.
+   *
+   * ⚠️ ABRIR EL DIÁLOGO **NO LIMPIA LA SELECCIÓN** y no pasa por `enLote`: si limpiara, el
+   * diálogo se quedaría sin a quién escribirle. El que limpia es el guardado.
+   */
+  const elegirRepeticion = (v: string) => {
+    if (v === VALOR_PERSONALIZADO) { setCustom(true); return; }
+    ponerRepeticion(v);
   };
-  /** PASO 2: el día. El texto es `textoDia` —«Los lunes», «El 15»— y no la frase entera: el
-   *  ritmo ya se dijo en el toast anterior y no es lo que la persona acaba de tocar. Es
-   *  exactamente lo que hace `useBoard.setFrecuenciaDia` para una sola tarjeta. */
-  const ponerDia = (crudo: string) => {
-    const dia = frecuenciaDiaOk(crudo, ritmoPend);
-    // Misma guarda que arriba, y por lo mismo: elegir el día que ya estaba puesto no es un
-    // cambio, y el deshacer es de lo que cambió.
-    if (elegidas.some((t) => frecuenciaDiaOk(t.frecuenciaDia, frecuenciaDe(t)) !== dia)) enLote(textoDia(ritmoPend, dia) ?? 'Sin día', (t) => cfg.setFrecuenciaDia(t, dia));
+  /**
+   * ESCRIBIR LA REPETICIÓN EN TODA LA SELECCIÓN, en UNA escritura por tarjeta.
+   *
+   * ⚠️ ES UNA SOLA Y NO DOS, Y ESO ES LO QUE LA 0167 VINO A ARREGLAR. Con el modelo viejo
+   * el ritmo y su día eran dos columnas y había que escribirlas en DOS renders —la segunda
+   * saneaba el día contra la frecuencia que la tarjeta todavía tenía, así que juntas la
+   * segunda leía la vieja, `next === prev`, y salía sin escribir—. Con una RRULE el valor
+   * es uno, viaja entero, y no hay ningún orden que respetar.
+   *
+   * ⚠️ SI NADIE CAMBIA, NO SE ESCRIBE NI SE OFRECE DESHACER. Un toast de 5 segundos sobre
+   * un cambio que no ocurrió —y que además pisa el deshacer de la acción anterior— es la
+   * barra mintiendo.
+   *
+   * ⚠️ EL TOAST DICE `textoRepeticionCorto` Y NO LA FRASE ENTERA, y para eso existe esa
+   * función: «Cada 2 semanas, los lunes y miércoles» son siete palabras y el techo de un
+   * deshacer son 3-4. Lo que se recorta es el ancla, que es lo que la persona acaba de
+   * elegir en el control y lo que la tarjeta ya muestra atrás; el ritmo es lo que cambió.
+   * Con el conjunto ABIERTO —una RRULE personalizada puede nombrar los siete días— usar la
+   * frase entera acá sería un toast que tapa la pantalla que se está mirando.
+   */
+  const ponerRepeticion = (rrule: string) => {
+    const r = canonRRule(rrule);
+    if (elegidas.some((t) => canonRRule(t.recurrencia) !== r)) enLote(textoRepeticionCorto(r) ?? SIN_REPETICION, (t) => cfg.setRecurrencia(t, r || null));
     else { cerrarEditores(); onLimpiar(); }
   };
 
@@ -543,15 +874,17 @@ function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: un
     // ── LA CUENTA, contra los ~499 del lugar más angosto (el detalle de un proyecto) ────
     // Medida ANTES de escribir, que es lo que el pedido pide, y en los DOS estados que la
     // ranura temporal puede tener. Los anchos de los botones con palabra salen de los
-    // medidos el 25/09 («Deadline» 96 · «Proyecto» 108) y el del ritmo se estima con la
-    // misma regla: `Dropdown` con ícono + caret ≈ 54 + el ancho del texto a 12.5 px, o sea
-    // «Frecuencia» (10 caracteres, ~70) ≈ 124 y «Día» ≈ 78.
+    // medidos el 25/09 («Deadline» 96 · «Proyecto» 108) y el del desplegable se estima con
+    // la misma regla: `Dropdown` con ícono + caret ≈ 54 + el ancho del texto a 12.5 px, o
+    // sea «Repetición» (10 caracteres, ~70) ≈ 124 — el MISMO ancho que medía «Frecuencia»,
+    // que es lo que hace que esta cuenta no cambie con la 0167.
     //
     //   izquierda  16 casilla + 8 + 24 número                                =  48
     //   medio A    34 «Se repite» + 14 + 96 Deadline + 14 + 108 Proyecto     = 266
     //              (con el calendario abierto el Deadline mide 118)          = 288
-    //   medio B    34 «Se repite» + 14 + 124 Frecuencia + 14 + 108 Proyecto  = 294
-    //              (en el paso del día la ranura mide 78, o sea MENOS)       = 248
+    //   medio B    34 «Se repite» + 14 + 124 Repetición + 14 + 108 Proyecto  = 294
+    //              (y ahora B no tiene segundo estado: el paso del día se fue
+    //               con el modelo viejo, así que la ranura mide siempre 124)
     //   derecha    34 tilde + 6 + 34 tacho                                   =  74
     //   los dos huecos entre grupos, como mínimo                             =  20
     //   padding 24 + borde 2                                                 =  26
@@ -706,43 +1039,34 @@ function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: un
               <CalendarioLote />
             </BtnIcono>
           )
-        ) : anclaPend ? (
-          /* EL SEGUNDO PASO: qué día. Aparece en la MISMA ranura y sólo después de haber
-             escrito un ritmo que pide ancla — con «Todos los días» no hay nada que anclar y
-             el paso no existe.
-             ⚠️ «Sin día» ES LA PRIMERA OPCIÓN Y ES LA SALIDA LIMPIA. `frecuenciaDia` en
-             `null` es un estado real del contrato («se repite y nadie dijo cuándo»), así que
-             elegirlo cierra el paso sin dejar nada a medias. Y abandonarlo tampoco rompe
-             nada: el ritmo ya está guardado. Un control que no se puede cumplir no se pinta;
-             éste siempre se puede cumplir. */
-          <span title={`Qué día se repiten ${cosas}`} style={{ flex: '0 1 auto', minWidth: 0, display: 'inline-flex' }}>
-            <Dropdown
-              value=""
-              resetAfterSelect
-              placeholder={ROTULO_DIA}
-              align="right"
-              ariaLabel={`Qué día se repiten ${cosas}`}
-              icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoRepite size={14} /></span>}
-              buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
-              options={[{ value: '', label: 'Sin día' }, ...opcionesDia(anclaPend)]}
-              onChange={ponerDia} />
-          </span>
         ) : (
-          /* EL RITMO, EN LA RANURA QUE DEJÓ EL DEADLINE. La lista sale de `FRECUENCIAS` —la
-             única— más «Indefinida», que es el destino que BORRA: sin él, un ritmo puesto de
-             más sólo se saca abriendo cada detalle, y el selector de allá sí lo ofrece. Es la
-             misma decisión que ya tomó la escalera de ritmos de la vista Recurrentes. */
+          /* LA REPETICIÓN, EN LA RANURA QUE DEJÓ EL DEADLINE. La lista sale de
+             `opcionesRepeticion` —la MISMA que pinta el desplegable de los dos detalles—,
+             así que un preset nuevo aparece acá sin que nadie se acuerde de esta barra.
+             ⚠️ ACÁ NO SE LE PASA UN VALOR, y es a propósito: son N tarjetas y no hay UNA
+             repetición que mostrar, así que el desplegable es de ACCIÓN (`value=""` +
+             `resetAfterSelect`) y lo que se lee en el botón es el NOMBRE del campo. Es
+             exactamente lo que hace el de «Proyecto» de al lado, y por eso tampoco entra
+             acá la opción del valor suelto: sin valor, no hay nada suelto que mostrar.
+             ⚠️ Y «Indefinida» ES EL DESTINO QUE BORRA: sin él, una repetición puesta de más
+             sólo se saca abriendo cada detalle de a uno.
+             ⛔ ACÁ VIVÍA EL SEGUNDO PASO —«¿qué día?»— Y YA NO EXISTE: era el ancla del
+             modelo viejo (una frecuencia + UN día), y una RRULE dice las dos cosas en un
+             solo valor. Lo que aquel paso contestaba a medias —un día por vez— ahora lo
+             contesta entero «Personalizado…», que es el pedido («varios días de la
+             semana»). Con eso la ranura vuelve a tener UN estado y no dos, que además es lo
+             que le devuelve a la barra los 78 px que el paso del día le comía. */
           <span title={`Cada cuánto se repiten ${cosas}`} style={{ flex: '0 1 auto', minWidth: 0, display: 'inline-flex' }}>
             <Dropdown
               value=""
               resetAfterSelect
-              placeholder={ROTULO_FRECUENCIA}
+              placeholder={ROTULO_REPETICION}
               align="right"
               ariaLabel={`Cada cuánto se repiten ${cosas}`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoRepite size={14} /></span>}
               buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
-              options={[...FRECUENCIAS.map((f) => ({ value: f.id, label: f.label })), { value: '', label: SIN_FRECUENCIA }]}
-              onChange={(v) => ponerRitmo(frecuenciaOk(v))} />
+              options={opcionesRepeticion()}
+              onChange={elegirRepeticion} />
           </span>
         )}
 
@@ -831,6 +1155,22 @@ function BarraLote<T extends { id: string; recurrente?: boolean; frecuencia?: un
           </BtnIcono>
         )}
       </div>
+
+      {/* EL DIÁLOGO «PERSONALIZADO», SOBRE LA SELECCIÓN ENTERA. Es el MISMO componente que
+          abre el detalle de una tarjeta: la pieza no sabe a quién se le aplica lo que
+          devuelve, y por eso sirve para uno y para N.
+          ⚠️ SE ABRE CON LA REPETICIÓN QUE TODAS COMPARTEN, y con nada si no comparten una:
+          sembrarlo con la de la primera sería mostrarle a la persona el valor de una
+          tarjeta cualquiera de la selección como si fuera el de todas.
+          ⚠️ Y ELEGIR «Personalizado…» **NO LIMPIA LA SELECCIÓN** —no pasa por `enLote`—,
+          porque si limpiara el diálogo se quedaría sin a quién escribirle. Limpia el
+          guardado, o el cierre no escribe nada: abandonarlo no rompe nada. */}
+      {custom && (
+        <RepeticionModal
+          valor={todasIgual ? rComun : null}
+          onGuardar={ponerRepeticion}
+          onCerrar={() => setCustom(false)} />
+      )}
     </div>
   );
 }

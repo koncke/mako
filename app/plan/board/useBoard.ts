@@ -11,7 +11,7 @@ import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './depen
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
 // salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
 // nuevo por qué algo no compite.
-import { esRecurrente, llevaDeadline, frecuenciaOk, frecuenciaDe, frecuenciaDiaOk, textoFrecuencia, textoDia, type Frecuencia } from '@/lib/plan-recurrentes';
+import { esRecurrente, llevaDeadline, recurrenciaOk, textoRepeticionCorto } from '@/lib/plan-recurrentes';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -421,83 +421,47 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // deadline» — dos renglones tapando el modal que la persona estaba mirando.
     patchLogExplicit(id, 'recurrente', v, t.recurrente ?? false, v ? 'Se repite' : 'Ya no se repite');
     if (!v) {
-      // ⚠️ AL DEJAR DE REPETIRSE SE VA LA FRECUENCIA, y es la contracara exacta de las dos
-      // líneas de abajo (mig 0165). El server la borra igual —`taskToRow` pasa por
-      // `frecuenciaDe`—, así que sin esto la pantalla seguiría mostrando «Cada semana»
+      // ⚠️ AL DEJAR DE REPETIRSE SE VA LA RECURRENCIA, y es la contracara exacta de las dos
+      // líneas de abajo (mig 0167). El server la borra igual —`taskToRow` pasa por
+      // `recurrenciaDe`—, así que sin esto la pantalla seguiría mostrando «Cada semana»
       // sobre una tarea que ya vence, hasta el próximo F5: el éxito falso de siempre.
-      if (t.frecuencia) patchLogExplicit(id, 'frecuencia', null, t.frecuencia, 'Sin frecuencia', 'ia');
-      // Y el día con ella (mig 0166): cuelga de la frecuencia, así que no puede
-      // sobrevivirla. `taskToRow` lo borra igual del lado del server —el día pasa por
-      // `frecuenciaDiaOk(…, frecuenciaDe(t))`—, así que sin esta línea la pantalla seguiría
-      // diciendo «los lunes» sobre una tarea que ya vence, hasta el próximo F5.
-      if (t.frecuenciaDia) patchLogExplicit(id, 'frecuenciaDia', null, t.frecuenciaDia, 'Sin día', 'ia');
+      if (t.recurrencia) patchLogExplicit(id, 'recurrencia', null, t.recurrencia, 'Sin repetición', 'ia');
       return;
     }
     if (t.deadline) patchLogExplicit(id, 'deadline', '', t.deadline, 'Sin deadline', 'ia');
     if (t.quarter) patchLogExplicit(id, 'quarter', undefined, t.quarter, 'Sin quarter', 'ia');
   };
   /**
-   * CADA CUÁNTO SE REPITE (mig 0165). El reemplazo de «Cuándo» para una recurrente.
+   * CÓMO SE REPITE (mig 0167): la RRULE que reemplaza a «Cuándo» en una recurrente.
    *
    * ⚠️ VA POR `patchLogExplicit`, como el deadline y como `setRecurrente`: de ese choke
    * point salen la entrada del change history con el valor anterior, el toast de deshacer
    * de 5 segundos y el guardado. Un `patch` pelado guardaría igual y sería el único campo
    * del tablero sin red.
    *
-   * ⚠️ SANEA ACÁ TAMBIÉN, aunque el `<select>` sólo ofrezca `FRECUENCIAS`: esta función es
-   * pública en el `Board` y la puede llamar cualquier pantalla futura. Lo que no esté en la
-   * lista entra como `null` —«se repite y no se dijo cada cuánto»—, nunca como texto libre.
+   * ⚠️ SANEA ACÁ TAMBIÉN, aunque el desplegable sólo ofrezca `PRESETS` y el diálogo
+   * personalizado arme la suya con `escribirRRule`: esta función es pública en el `Board` y
+   * la puede llamar cualquier pantalla futura. Lo que no sea una RRULE que este producto
+   * sepa leer entra como `null` —«se repite y no se dijo cada cuánto»—, nunca como texto
+   * libre. Y `recurrenciaOk` además CANONIZA (orden de las partes, `INTERVAL=1` implícito),
+   * que es lo que hace que el `next === prev` de abajo no vea cambios donde no los hay.
    *
-   * ⚠️ Y NO SE LE PONE FRECUENCIA A ALGO QUE NO SE REPITE. La invariante vive en
-   * `frecuenciaDe` (el mapper la aplica en toda escritura); acá está la red de la pantalla,
+   * ⚠️ Y NO SE LE PONE UNA REPETICIÓN A ALGO QUE NO SE REPITE. La invariante vive en
+   * `recurrenciaDe` (el mapper la aplica en toda escritura); acá está la red de la pantalla,
    * por lo mismo que `setDeadline` tiene la suya: sin ella el estado optimista pintaría un
    * valor que el server descarta al guardar.
    *
-   * El texto del cambio es la etiqueta misma («Cada semana»): es QUÉ pasó, en tres
-   * palabras, que es el techo escrito para el toast del deshacer.
+   * El texto del cambio sale de `textoRepeticionCorto` y no de `textoRepeticion`: el toast
+   * tiene 3-4 palabras escritas como regla de la casa y «Cada 2 semanas, los lunes y
+   * miércoles» son siete. Las dos comparten la misma traducción.
    */
-  const setFrecuencia = (id: string, v: Frecuencia | null) => {
+  const setRecurrencia = (id: string, rrule: string | null) => {
     const t = byId(id);
     if (!t || !esRecurrente(t)) return;
-    const next = frecuenciaOk(v);
-    const prev = frecuenciaOk(t.frecuencia);
+    const next = recurrenciaOk(rrule);
+    const prev = recurrenciaOk(t.recurrencia);
     if (next === prev) return;
-    patchLogExplicit(id, 'frecuencia', next, prev, textoFrecuencia(next) ?? 'Sin frecuencia');
-    // ⚠️ CAMBIAR LA FRECUENCIA INVALIDA EL DÍA QUE YA NO CORRESPONDE (mig 0166). De «cada
-    // semana, los lunes» a «cada mes», `'lun'` leído como día del mes no es ningún día. El
-    // server lo borra igual (`taskToRow`); acá va la pantalla, porque si no seguiría
-    // mostrando el ancla vieja hasta el próximo F5 — el éxito falso de siempre. Va en su
-    // propia entrada y como `'ia'`, igual que el deadline al marcar «se repite»: la
-    // decisión de la persona fue UNA, y dos toasts encima del mismo click son dos
-    // oportunidades de deshacer la mitad equivocada.
-    const dia = frecuenciaDiaOk(t.frecuenciaDia, next);
-    if (dia !== (t.frecuenciaDia ?? null)) patchLogExplicit(id, 'frecuenciaDia', dia, t.frecuenciaDia ?? null, 'Sin día', 'ia');
-  };
-  /**
-   * QUÉ DÍA CAE (mig 0166): el ancla de la frecuencia. «Cada semana» no distingue la junta
-   * de los lunes de la de los viernes.
-   *
-   * ⚠️ VA POR `patchLogExplicit` como todo lo demás: de ese choke point salen la entrada
-   * del change history con el valor anterior, el toast de deshacer y el guardado.
-   *
-   * ⚠️ SANEA CONTRA LA FRECUENCIA DE LA TARJETA, no contra la lista de días. `frecuenciaDe`
-   * contesta `null` para lo que no se repite y `frecuenciaDiaOk` contesta `null` para el
-   * día que esa frecuencia no sabe leer, así que las dos invariantes entran en una sola
-   * expresión y ninguna se escribe dos veces. Es la misma red que tiene `setFrecuencia`:
-   * el choke point de verdad es `taskToRow`, y sin esto el estado optimista pintaría un
-   * ancla que el server descarta al guardar.
-   *
-   * El texto sale de `textoDia` y no de `textoCuando`: el toast tiene 3-4 palabras y el
-   * ritmo no es lo que la persona acaba de tocar. Las dos comparten la misma traducción.
-   */
-  const setFrecuenciaDia = (id: string, v: string | null) => {
-    const t = byId(id);
-    if (!t) return;
-    const f = frecuenciaDe(t);
-    const next = frecuenciaDiaOk(v, f);
-    const prev = frecuenciaDiaOk(t.frecuenciaDia, f);
-    if (next === prev) return;
-    patchLogExplicit(id, 'frecuenciaDia', next, prev, textoDia(f, next) ?? 'Sin día');
+    patchLogExplicit(id, 'recurrencia', next, prev, textoRepeticionCorto(next) ?? 'Sin repetición');
   };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 
@@ -643,33 +607,20 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     if (!l || esRecurrente(l) === v) return;
     // Ver el porqué del largo en `setRecurrente`, acá arriba.
     const texto = v ? 'Se repite' : 'Ya no se repite';
-    // Al dejar de repetirse se va la frecuencia (mig 0165), en la MISMA escritura que el
+    // Al dejar de repetirse se va la recurrencia (mig 0167), en la MISMA escritura que el
     // flag: `patchLabelLog` guarda en `prev` todos los campos que cambian, así que un solo
     // deshacer devuelve las dos cosas. Del lado del server lo hace `labelToRow`.
-    if (!v) { patchLabelLog(id, { recurrente: false, frecuencia: null, frecuenciaDia: null }, texto); return; }
+    if (!v) { patchLabelLog(id, { recurrente: false, recurrencia: null }, texto); return; }
     patchLabelLog(id, { recurrente: true, deadline: '', quarter: undefined }, texto);
   };
-  /** Cada cuánto se repite un PROYECTO (mig 0165). Gemela de `setFrecuencia`, con el mismo
-   *  saneo y la misma invariante; el choke point acá es `patchLabelLog`. */
-  const setLabelFrecuencia = (id: string, v: Frecuencia | null) => {
+  /** Cómo se repite un PROYECTO (mig 0167). Gemela de `setRecurrencia`, con el mismo saneo
+   *  y la misma invariante; el choke point acá es `patchLabelLog`. */
+  const setLabelRecurrencia = (id: string, rrule: string | null) => {
     const l = labels.find((x) => x.id === id);
     if (!l || !esRecurrente(l)) return;
-    const next = frecuenciaOk(v);
-    if (next === frecuenciaOk(l.frecuencia)) return;
-    // El día se re-valida en la MISMA escritura (mig 0166), y acá va una sola llamada
-    // donde en una tarea van dos: `patchLabelLog` guarda en `prev` todos los campos que
-    // cambian, así que un solo deshacer devuelve el ritmo y su ancla juntos.
-    patchLabelLog(id, { frecuencia: next, frecuenciaDia: frecuenciaDiaOk(l.frecuenciaDia, next) }, textoFrecuencia(next) ?? 'Sin frecuencia');
-  };
-  /** Qué día cae un PROYECTO que se repite (mig 0166). Gemela de `setFrecuenciaDia`, con
-   *  el mismo saneo y las mismas dos invariantes; el choke point acá es `patchLabelLog`. */
-  const setLabelFrecuenciaDia = (id: string, v: string | null) => {
-    const l = labels.find((x) => x.id === id);
-    if (!l) return;
-    const f = frecuenciaDe(l);
-    const next = frecuenciaDiaOk(v, f);
-    if (next === frecuenciaDiaOk(l.frecuenciaDia, f)) return;
-    patchLabelLog(id, { frecuenciaDia: next }, textoDia(f, next) ?? 'Sin día');
+    const next = recurrenciaOk(rrule);
+    if (next === recurrenciaOk(l.recurrencia)) return;
+    patchLabelLog(id, { recurrencia: next }, textoRepeticionCorto(next) ?? 'Sin repetición');
   };
 
   return {
@@ -680,11 +631,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // modo de falla que este repo ya pagó dos veces el 25/09/2026: la capacidad queda
     // escrita, el typecheck pasa, los tests pasan, y en pantalla no hay nada que tocar
     // porque el board nunca lo recibió.
-    // ⚠️ Y LO MISMO VALE PARA `setFrecuencia` / `setLabelFrecuencia` (mig 0165) y para
-    // `setFrecuenciaDia` / `setLabelFrecuenciaDia` (mig 0166): una acción que no está en
-    // este objeto no existe para ninguna pantalla, con el typecheck en verde.
-    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setFrecuencia, setFrecuenciaDia, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelFrecuencia, setLabelFrecuenciaDia, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
+    // ⚠️ Y LO MISMO VALE PARA `setRecurrencia` / `setLabelRecurrencia` (mig 0167): una
+    // acción que no está en este objeto no existe para ninguna pantalla, con el typecheck
+    // en verde.
+    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setRecurrencia, setTaskLabels, undoHist,
+    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelRecurrencia, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

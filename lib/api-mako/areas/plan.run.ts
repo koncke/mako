@@ -158,7 +158,7 @@ export const RUNNERS: Runners = {
         // El `score` de un recurrente no es un puesto, así que va marcado: esta lista es de
         // dónde el modelo saca a qué proyecto mandar una tarea nueva, y sin la marca elige
         // por número (mig 0164).
-        proyectos: tab.proyectos.map((p) => ({ id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, score: p.score, ...(esRecurrente(p) ? { se_repite: true, frecuencia: p.frecuencia } : {}) })),
+        proyectos: tab.proyectos.map((p) => ({ id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, score: p.score, ...(esRecurrente(p) ? { se_repite: true, repeticion: p.repeticion } : {}) })),
         ...aviso(tab),
       });
     },
@@ -191,7 +191,7 @@ export const RUNNERS: Runners = {
         // campo por campo, así que la marca y el ritmo se escriben otra vez o el detalle de
         // una tarea es la ÚNICA vista donde no se ven. Van juntos y sólo cuando se repite:
         // sin `deadline` ni `quarter`, esto es lo único temporal que tiene.
-        ...(esRecurrente(t) ? { se_repite: true, frecuencia: t.frecuencia, se_repite_nota: 'Se repite para siempre: no compite en el ranking y no lleva deadline ni quarter. `frecuencia` dice cada cuánto Y qué día, ya en texto («Cada semana, los lunes»); null = todavía no se dijo.' } : {}),
+        ...(esRecurrente(t) ? { se_repite: true, repeticion: t.repeticion, se_repite_nota: 'Se repite para siempre: no compite en el ranking y no lleva deadline ni quarter. `repeticion` es la frase de cuándo se repite («Cada semana, los lunes y miércoles»), la misma que se lee en la tarjeta; null = todavía no se dijo.' } : {}),
         detalle: t.detalle, notas: t.notas || null,
         checklist: t.checklist,
         // Por HTTP la fuente sale sin su url (un link de Fathom con ?timestamp).
@@ -221,7 +221,7 @@ export const RUNNERS: Runners = {
         id: p.id, ...(p.pid ? { pid: p.pid } : {}), nombre: p.nombre, emoji: p.emoji, link: linkProyecto(p.id),
         score: p.score, score_razon: p.scoreRazon, score_fijado_por_el_dueno: p.scoreManual, deadline: p.deadline,
         // Mismo contrato que en la lista: la marca viaja con su nota, y sólo cuando es true.
-        ...(esRecurrente(p) ? { se_repite: true, frecuencia: p.frecuencia, se_repite_nota: 'Este proyecto se repite para siempre (mig 0164): no entra al ranking, no lleva deadline ni quarter y su score no es un puesto. No propongas cerrarlo ni volver a crearlo. Sus tareas con fin SÍ compiten. `frecuencia` dice cada cuánto Y qué día, ya en texto («Cada semana, los lunes»); null = todavía no se dijo.' } : {}),
+        ...(esRecurrente(p) ? { se_repite: true, repeticion: p.repeticion, se_repite_nota: 'Este proyecto se repite para siempre (mig 0164): no entra al ranking, no lleva deadline ni quarter y su score no es un puesto. No propongas cerrarlo ni volver a crearlo. Sus tareas con fin SÍ compiten. `repeticion` es la frase de cuándo se repite («Cada semana, los lunes y miércoles»), la misma que se lee en la tarjeta; null = todavía no se dijo.' } : {}),
         ...(p.scoreManual == null ? { score_fijado_nota: 'null = el tablero de este negocio no registra si el dueño fijó el score; no significa que no lo haya fijado.' } : {}),
         detalle: p.detalle,
         tareas_abiertas: abiertas.length, tareas_hechas: hechas.length,
@@ -252,7 +252,7 @@ export const RUNNERS: Runners = {
           // renglón de arriba de una lista ordenada por score y concluye —con toda razón—
           // que es el foco del negocio. El campo sólo aparece cuando es true: una clave
           // `se_repite: false` en los otros 70 es ruido en el prompt.
-          ...(esRecurrente(p) ? { se_repite: true, frecuencia: p.frecuencia, se_repite_nota: 'Este proyecto se repite para siempre: no entra al ranking, no puede ser el objetivo principal y su score NO es un puesto. Sus tareas con fin SÍ compiten normalmente. `frecuencia` dice cada cuánto Y qué día, ya en texto («Cada semana, los lunes»); null = todavía no se dijo.' } : {}),
+          ...(esRecurrente(p) ? { se_repite: true, repeticion: p.repeticion, se_repite_nota: 'Este proyecto se repite para siempre: no entra al ranking, no puede ser el objetivo principal y su score NO es un puesto. Sus tareas con fin SÍ compiten normalmente. `repeticion` es la frase de cuándo se repite («Cada semana, los lunes y miércoles»), la misma que se lee en la tarjeta; null = todavía no se dijo.' } : {}),
         };
       });
       // ⚠️ EL NORTE SALE DE LO QUE COMPITE (mig 0164), Y SE CALCULA SOBRE `ordenados`, NO

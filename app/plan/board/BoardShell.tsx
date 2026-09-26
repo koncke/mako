@@ -24,12 +24,14 @@ import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
-// ⚠️ `opcionesDia` VIENE DE ACÁ Y NO DE `lib/`, y está explicado en su propio comentario:
-// `AccionesLote` es la única HOJA del grafo de imports de los tres archivos del tablero
-// —`Tablas` y `BoardShell` la montan, ella no importa a ninguno—, así que es el único lugar
-// del que los tres pueden leer sin ciclo. Su casa por tema es `lib/plan-recurrentes.ts`, al
-// lado de `DIAS_SEMANA`; queda anotado porque `lib/` no es de esta pasada.
-import { AccionesLote, AccionesLoteProyectos, opcionesDia } from './AccionesLote';
+// ⚠️ EL DESPLEGABLE, SU DIÁLOGO Y LA LISTA DE OPCIONES VIENEN DE ACÁ Y NO DE `lib/`, y el
+// motivo es el grafo de imports: `AccionesLote` es la única HOJA de los tres archivos del
+// tablero —`Tablas` y `BoardShell` la montan, ella no importa a ninguno—, así que es el
+// único lugar del que los tres pueden leer sin ciclo. Y no van en `lib/plan-recurrentes.ts`
+// —donde vive todo el resto del campo— porque no son datos del modelo: son cómo esta
+// pantalla dibuja el campo. `RepeticionModal` es el diálogo «Personalizado…» de Google,
+// COMPARTIDO con la barra de lote: devuelve una RRULE y no sabe a quién se le aplica.
+import { AccionesLote, AccionesLoteProyectos, opcionesRepeticion, canonRRule, VALOR_PERSONALIZADO, RepeticionModal } from './AccionesLote';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -66,16 +68,17 @@ import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CU
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, COL_DER, MODAL_DETALLE } from './piezas';
-// ⚠️ `LineaFrecuencia` VIVE EN `Tablas.tsx` Y NO ACÁ, y el motivo es el grafo de imports:
+// ⚠️ `LineaRepeticion` VIVE EN `Tablas.tsx` Y NO ACÁ, y el motivo es el grafo de imports:
 // este archivo ya importa de aquél, así que al revés sería un ciclo. El lugar que le
 // correspondería por tema es `piezas.tsx`; queda anotado y no hecho porque ese archivo no es
 // de esta pasada. Lo que NO puede pasar —y no pasa— es que la tarjeta y la fila digan la
 // misma cosa con dos textos distintos: la pieza es una sola.
-// ⚠️ `SIN_FRECUENCIA` YA NO NACE AHÍ (26/09/2026): se mudó a `AccionesLote`, que desde que
-// la barra de lote también dice esa palabra es el único de los tres archivos del que los
-// otros dos pueden leer sin ciclo. Se sigue importando desde `Tablas`, que lo re-exporta,
-// para no partir en dos la lista de lo que este archivo le pide al de al lado.
-import { TablaProyectos, TablaTareas, LineaFrecuencia, SIN_FRECUENCIA } from './Tablas';
+// ⚠️ `SIN_REPETICION` NO ENTRA MÁS POR ACÁ (26/09/2026). `Tablas` lo re-exportaba «para no
+// partir en dos la lista de lo que este archivo le pide al de al lado», y el resultado fue
+// una constante entrando por dos puertas: ésta y `AccionesLote`, que es donde vive y que
+// este archivo importa igual. Hoy no se usa acá —la opción «Indefinida» la pone
+// `opcionesRepeticion`, que es la única lista— así que directamente no se importa.
+import { TablaProyectos, TablaTareas, LineaRepeticion } from './Tablas';
 // LAS TAREAS QUE SE REPITEN. El rótulo, el predicado y el filtro salen del módulo de datos
 // —`ROTULO_RECURRENTE` / `esRecurrente` / `sinRecurrentes`—, no de un `t.recurrente` suelto
 // en una pantalla: es el mismo criterio que el catálogo de proyectos o la gramática de MaKo.
@@ -88,21 +91,19 @@ import { TablaProyectos, TablaTareas, LineaFrecuencia, SIN_FRECUENCIA } from './
 // pintaban se fueron con la glosa y con el campo. Siguen vivos —el server los manda al
 // rechazar una re-priorización y el historial los escribe al borrar la fecha—, y acá sólo
 // se los nombra en comentarios, que no necesitan el import.
-// ⚠️ Y CADA CUÁNTO SE REPITE (mig 0165) SALE DE LA MISMA PUERTA. `FRECUENCIAS` es la ÚNICA
-// lista —la que pinta el selector y la que describe el valor en la tarjeta y en la fila—,
-// `frecuenciaOk` es el saneo (la columna no tiene `check`: esto es la única guarda) y
-// `frecuenciaDe` es la invariante «una frecuencia sin `recurrente` no existe», que se
-// aplica también al LEER para que una fila vieja con los dos campos cruzados no afirme un
-// ritmo sobre algo que sí vence.
-// ⚠️ Y EL DÍA (mig 0166) SALE DE LA MISMA PUERTA. `pideDia` contesta QUÉ ancla necesita cada
-// ritmo —la semana, el mes, o ninguna— y es lo único que decide si el selector del día se
-// dibuja: un control que no aplica es un control que no hace nada. `frecuenciaDiaOk` es el
-// saneo, que DEPENDE de la frecuencia (un «mie» deja de valer en cuanto el ritmo pasa a
-// mensual), y `textoCuando` es la ÚNICA función que arma la frase que leen la tarjeta, la
-// fila, la barra de lote y la API. Es UN solo campo leído según la frecuencia y no dos
-// columnas: con dos, cambiar de «cada semana» a «cada mes» deja la vieja viva
-// contradiciendo a la nueva.
-import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, FRECUENCIAS, frecuenciaOk, frecuenciaDe, frecuenciaDiaOk, pideDia, ROTULO_FRECUENCIA, ROTULO_DIA, type Frecuencia } from '@/lib/plan-recurrentes';
+// ⚠️ Y CADA CUÁNTO SE REPITE (mig 0167) SALE DE LA MISMA PUERTA, EN **UN SOLO CAMPO**: una
+// RRULE de RFC 5545, que es lo que guarda Google Calendar por debajo. `recurrenciaDe` es la
+// invariante «una recurrencia sin `recurrente` no existe», que se aplica también al LEER
+// para que una fila vieja con los dos campos cruzados no afirme un ritmo sobre algo que sí
+// vence, y `ROTULO_REPETICION` es el nombre del campo en pantalla.
+// ⛔ YA NO SE IMPORTA NADA DE `frecuencia` NI DE `frecuencia_dia`. Eran DOS campos
+// —un enum de seis ritmos y UN día— y no podían expresar lo que Martín pidió: varios días a
+// la vez, un intervalo («cada 3 semanas») ni un ordinal («el segundo martes»). Cada una de
+// esas tres habría sido otra columna, y una recurrencia tiene UNA forma por vez: con cuatro
+// columnas, pasar de «cada semana, los lunes» a «cada mes» deja las viejas vivas
+// contradiciendo a la nueva. Las columnas siguen existiendo en la base hasta la 0168, pero
+// este código no las nombra: dos modelos de lo mismo es el bug que la 0167 vino a cerrar.
+import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, recurrenciaDe, ROTULO_REPETICION } from '@/lib/plan-recurrentes';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -2799,7 +2800,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
             su vista. Una recurrente mezclada con tareas rankeadas ya mostraba el hueco de la
             fecha; ahora muestra el dato que ese hueco escondía. */}
         {esRecurrente(t)
-          ? <LineaFrecuencia de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
+          ? <LineaRepeticion de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
           : t.deadline
             ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
             : <span style={{ flex: 'none' }} />}
@@ -3835,14 +3836,12 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
             </div>
             </> : (
               /* LO TEMPORAL DE UNA RECURRENTE, en el lugar que dejaron los dos campos de
-                 arriba. El valor entra por `frecuenciaDe` —la invariante del contrato— y no
-                 por `t.frecuencia`: una fila vieja con las dos cosas cruzadas no puede
-                 pintar un ritmo acá. Y el DÍA entra por `frecuenciaDiaOk` contra ESA misma
-                 frecuencia, que es el saneo que depende de ella (mig 0166). */
-              <BloqueFrecuencia
-                valor={frecuenciaDe(t)} dia={frecuenciaDiaOk(t.frecuenciaDia, frecuenciaDe(t))}
-                onCambiar={(v) => board.setFrecuencia(t.id, v)}
-                onCambiarDia={(v) => board.setFrecuenciaDia(t.id, v)} />
+                 arriba. El valor entra por `recurrenciaDe` —la invariante del contrato— y
+                 no por `t.recurrencia`: una fila vieja con las dos cosas cruzadas no puede
+                 pintar una repetición acá (mig 0167). */
+              <BloqueRepeticion
+                valor={recurrenciaDe(t)}
+                onCambiar={(v) => board.setRecurrencia(t.id, v)} />
             )}
             {/* ⚠️ DEPENDE DE, JUSTO ARRIBA DE PROYECTOS. Subió a esta columna el 25/09
                 («debería estar como mínimo en el costado… es importante verlo de una forma
@@ -4080,7 +4079,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           en las dos ramas —la regla del contrato— y no un `!esRecurrente` escrito acá. */}
       {llevaDeadline(l)
         ? l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} />
-        : <LineaFrecuencia de={l} />}
+        : <LineaRepeticion de={l} />}
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
       {/* ⚠️ «SIN TAREAS» ES UNA AFIRMACIÓN, Y SOBRE UN PROYECTO DE PURAS RECURRENTES ES
           FALSA. `projProgress` saca las recurrentes del porcentaje —una tarea que no
@@ -4216,11 +4215,15 @@ function BloqueRecurrente({ rotulo, repite, onCambiar }: {
 
 
 /**
- * LA CASILLA «Frecuencia», EN EL LUGAR QUE DEJARON VACÍO EL DEADLINE Y EL QUARTER.
+ * EL DESPLEGABLE DE LA REPETICIÓN, EN EL LUGAR QUE DEJARON VACÍO EL DEADLINE Y EL QUARTER.
  *
- * «Una tarea o proyecto recurrente se le debe eliminar el quarter y deadline, pero se debe
- * dejar una casilla de "Frecuencia", algo similar a Google Calendar con una reunión que se
- * puede repetir diariamente, 1 vez a la semana, 1 vez al mes, etc.» (26/09/2026).
+ * «El tema de la frecuencia, copialo tal cual como lo hace Google Calendar… porque puede
+ * ser personalizado, varios días de la semana, etc. Pero más simple, investiga y copialo
+ * tal cual» (26/09/2026).
+ *
+ * Es el desplegable de Google: sus presets, y «Personalizado…» al final abriendo el
+ * diálogo. La lista sale de `opcionesRepeticion` —la MISMA que usa la barra de lote— y no
+ * de una escrita acá: dos listas es cómo se agrega un preset en una y no en la otra.
  *
  * ⚠️ VA EXACTAMENTE DONDE ESTABAN LOS DOS CAMPOS QUE SE FUERON, y de ahí sale el sentido:
  * ese renglón de la columna derecha es el que contesta «¿cuándo?». Una recurrente lo
@@ -4245,84 +4248,76 @@ function BloqueRecurrente({ rotulo, repite, onCambiar }: {
  * explican solas («Todos los días», «Cada semana»): cualquier renglón extra acá narra lo
  * que la pantalla ya dice («no pongas texto innecesario nunca», 26/09/2026).
  *
- * ⚠️ EL VALOR SIEMPRE ESTÁ ENTRE LAS OPCIONES, y eso no es suerte: `FRECUENCIAS` es el enum
- * CERRADO entero —no una lista calculada— y lo que entra pasa por `frecuenciaDe`, que
- * devuelve `null` para cualquier cosa que no esté. Un `<select>` cuyo `value` no está entre
- * sus `<option>` no muestra nada y el primer click escribe la primera opción; acá eso no
- * puede pasar, y por eso el saneo está del lado del valor y no una lista filtrada.
+ * ⚠️ ES **UN** CONTROL Y NO DOS, Y ÉSE ES EL CAMBIO DE LA 0167. Eran dos selectores
+ * —«Frecuencia» y «Día»— que sólo sabían decir un ritmo de una lista cerrada y UN día; el
+ * pedido («varios días de la semana», «cada 3 semanas», «el segundo martes») no entra en
+ * ese modelo por más selectores que se le agreguen. Con una RRULE, lo común son dos clicks
+ * en el desplegable y lo raro vive adentro del diálogo, que es exactamente el reparto de
+ * Google.
+ *
+ * ⚠️ EL VALOR SIEMPRE ESTÁ ENTRE LAS OPCIONES, y eso no es suerte: cuando la repetición
+ * guardada no coincide con ningún preset, `opcionesRepeticion` la agrega como una opción
+ * más con su frase. Sin eso, elegir «cada 3 semanas» y volver a abrir mostraría «Cada
+ * semana» sobre una tarjeta que se repite cada tres — y el primer click la escribiría, que
+ * es el `<select>` cuyo `value` no está entre sus `<option>` que este tablero ya pagó con
+ * los trimestres.
  */
-function BloqueFrecuencia({ valor, dia, onCambiar, onCambiarDia }: {
-  /** ya saneado por `frecuenciaDe`: o es una de `FRECUENCIAS`, o es `null`. */
-  valor: Frecuencia | null;
-  /** ya saneado por `frecuenciaDiaOk`: lo que no corresponda a ESTA frecuencia entra `null`. */
-  dia: string | null;
-  /** `board.setFrecuencia` para una tarea · `board.setLabelFrecuencia` para un proyecto. */
-  onCambiar: (v: Frecuencia | null) => void;
-  /** `board.setFrecuenciaDia` para una tarea · `board.setLabelFrecuenciaDia` para un proyecto. */
-  onCambiarDia: (v: string | null) => void;
+function BloqueRepeticion({ valor, onCambiar }: {
+  /** la RRULE guardada. Entra por `recurrenciaDe` —la invariante del contrato—, así que
+   *  una fila vieja con `recurrente: false` y una regla viva no puede pintar nada acá. */
+  valor: string | null;
+  /** `board.setRecurrencia` para una tarea · `board.setLabelRecurrencia` para un proyecto.
+   *  `null` = «se repite y nadie dijo cada cuánto», que es un estado real del contrato. */
+  onCambiar: (v: string | null) => void;
 }) {
   /**
-   * ⚠️ EL DÍA SE DIBUJA SÓLO SI LA FRECUENCIA LO PIDE, y quien contesta es `pideDia`, no un
-   * `valor === 'semanal'` escrito acá (mig 0166). Con «Todos los días» no hay ancla que
-   * pedir —un ritmo diario no tiene un día— y un selector que no aplica es un control que no
-   * hace nada, que en esta casa se lee como que la app está rota. Con «Indefinida» tampoco:
-   * todavía no hay ritmo al que anclarle nada.
-   *
-   * Y lo que devuelve decide las OPCIONES: los siete días de la semana, o 1…31.
+   * ⚠️ EL DIÁLOGO ES ESTADO DE ESTE BLOQUE Y NO DEL MODAL QUE LO CONTIENE, y por eso los
+   * dos detalles —el de una tarea y el de un proyecto— lo heredan sin cablear nada. Un
+   * `abierto` izado al padre serían dos estados que hay que acordarse de pasar, y el que se
+   * olvide deja el «Personalizado…» de ESE detalle sin abrir nada.
    */
-  const ancla = pideDia(valor);
+  const [custom, setCustom] = useState(false);
+  const actual = canonRRule(valor);
+  /** UNA sola lista: la misma que dibuja las opciones y de la que sale el `title`. Sacar el
+   *  texto del valor actual por otro camino sería la segunda traducción de siempre. */
+  const opciones = opcionesRepeticion(valor);
   return (
     <div>
-      {/* ⚠️ LOS DOS RÓTULOS VAN EN LA MISMA FILA QUE SUS CAMPOS, no uno arriba de los dos:
-          son dos preguntas distintas («cada cuánto» y «qué día») y un solo rótulo dejaría al
-          segundo selector sin nombre. */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-        {/* ⚠️ LA CUENTA DEL ANCHO, contra los 228 px útiles de la columna derecha del detalle
-            (`COL_DER` 264 − 36 de padding). El día va `flex: none` con su ancho medido y la
-            frecuencia se queda con lo que sobra, que es justo lo que necesita:
-              · día: «Miércoles» es el más largo de `DIAS_SEMANA` (~57 px a 13 px) y «Sin día»
-                mide ~40; con los 22 de padding y borde del `selStyle` pide 79 → 82.
-              · frecuencia: «Cada dos semanas» es el más largo de `FRECUENCIAS` (~111 px) y
-                pide 133. Le quedan 228 − 8 − 82 = 138. Entra, con 5 px de aire.
-            Se mide el valor MÁS LARGO del conjunto y no el primero: con «Cada mes» cualquier
-            reparto entra, y con el más largo no — es el mismo error que el bloque de
-            prioridad ya pagó cuatro veces con «A FUTURO». Y el que CEDE está declarado: la
-            frecuencia, que es la que tiene `minWidth: 0`. */}
-        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <label style={rowLabel}>{ROTULO_FRECUENCIA}</label>
-          <select value={valor ?? ''} aria-label={ROTULO_FRECUENCIA}
-            onChange={(e) => onCambiar(frecuenciaOk(e.target.value))}
-            style={selStyle}>
-            {/* «Indefinida», UNA palabra y la misma que dice la tarjeta cuando no hay ritmo
-                puesto. Sale de `SIN_FRECUENCIA` y no escrita acá: dos textos para el mismo
-                estado es cómo uno de los dos se queda viejo. */}
-            <option value="">{SIN_FRECUENCIA}</option>
-            {FRECUENCIAS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
-        </div>
-        {ancla && (
-          <div style={{ flex: 'none', width: 82 }}>
-            {/* «Día», el NOMBRE de la cosa y nada más. No dice «¿Qué día?» ni «Día de la
-                semana»: el rótulo de al lado ya dijo cuál es el ritmo, así que de qué día se
-                habla lo contesta la fila entera leída en orden. Sale de `ROTULO_DIA`, la
-                misma puerta que `ROTULO_FRECUENCIA`: dos textos para el mismo campo es cómo
-                uno de los dos se queda viejo. */}
-            <label style={rowLabel}>{ROTULO_DIA}</label>
-            {/* ⚠️ EL VALOR SIEMPRE ESTÁ ENTRE LAS OPCIONES, y no es suerte: entra ya saneado
-                por `frecuenciaDiaOk` CONTRA ESTA MISMA frecuencia, así que un «mie» guardado
-                cuando el ritmo era semanal llega como `null` después de pasarlo a mensual. Es
-                justo el `<select>` cuyo `value` no está entre sus `<option>` —no muestra nada
-                y el primer click escribe la primera opción— que este tablero ya pagó con los
-                trimestres. */}
-            <select value={dia ?? ''} aria-label={`${ROTULO_DIA} · ${ROTULO_FRECUENCIA}`}
-              onChange={(e) => onCambiarDia(frecuenciaDiaOk(e.target.value, valor))}
-              style={selStyle}>
-              <option value="">Sin día</option>
-              {opcionesDia(ancla).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-        )}
-      </div>
+      {/* UN solo rótulo porque ahora es UN solo campo. Eran dos («Frecuencia» y «Día»)
+          cuando eran dos selectores. */}
+      <label style={rowLabel}>{ROTULO_REPETICION}</label>
+      {/* ⚠️ EL `title` LLEVA LA FRASE ENTERA, y desde la 0167 hace falta: el conjunto de
+          valores es ABIERTO —«Cada semana, los lunes, martes, miércoles, jueves y viernes»
+          pide ~384 px— y esta columna tiene 228 útiles, así que el navegador recorta el
+          texto del control. Un `title` no ocupa lugar y es donde la regla de la casa manda
+          el texto que no entra; el nombre del campo sigue en el rótulo y en el `aria-label`.
+          No es una glosa: es el VALOR, el mismo que dicen la tarjeta y la fila. */}
+      <select value={actual} aria-label={ROTULO_REPETICION}
+        title={opciones.find((o) => o.value === actual)?.label ?? ''}
+        onChange={(e) => {
+          const v = e.target.value;
+          // ⚠️ EL CENTINELA NO SE GUARDA NUNCA: abre el diálogo y sale. Y acá adentro
+          // seguimos en JS —es el cuerpo de una arrow, no una posición de hijo de JSX—, así
+          // que el comentario va con `//` y no con `{/* */}`.
+          // El `<select>` queda con el valor de antes en el próximo render —es controlado—
+          // así que abandonar el diálogo no deja el control diciendo «Personalizado…» sobre
+          // una tarjeta que sigue con su repetición vieja.
+          if (v === VALOR_PERSONALIZADO) { setCustom(true); return; }
+          if (v !== actual) onCambiar(v || null);
+        }}
+        style={selStyle}>
+        {opciones.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      {/* EL DIÁLOGO «PERSONALIZADO», el MISMO que abre la barra de lote: la pieza devuelve
+          una RRULE y no sabe a quién se le aplica, que es lo que la vuelve compartible.
+          Se abre con lo que la tarjeta tiene hoy, para no hacerle empezar de cero a quien
+          sólo quería cambiarle el intervalo. */}
+      {custom && (
+        <RepeticionModal
+          valor={valor}
+          onGuardar={(rrule) => { if (rrule !== actual) onCambiar(rrule); }}
+          onCerrar={() => setCustom(false)} />
+      )}
     </div>
   );
 }
@@ -4427,7 +4422,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
    * —`useArrastreCopia`, el medido a lo largo de siete rondas: foto vacía del sistema
    * operativo, una copia nuestra que sigue al cursor, y al nodo origen no se le toca nada—.
    * Lo único distinto es el DESTINO: mientras hay una tarjeta en la mano aparece la escalera
-   * de ritmos abajo de la pantalla, y soltar en uno escribe `frecuencia`.
+   * de repeticiones abajo de la pantalla, y soltar en uno escribe `recurrencia`.
    *
    * **POR QUÉ ÉSE Y NO OTRO.** En el Kanban el destino es una banda de PRIORIDAD y en la
    * grilla de Proyectos es una POSICIÓN en el ranking; las dos cosas son el ranking del que
@@ -4461,7 +4456,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
    * pregunta que el detalle ya contesta.
    */
   const { montarCopia, soltarCopia } = useArrastreCopia();
-  const [enMano, setEnMano] = useState<{ id: string; tipo: 'tarea' | 'proyecto'; f: Frecuencia | null } | null>(null);
+  const [enMano, setEnMano] = useState<{ id: string; tipo: 'tarea' | 'proyecto'; r: string } | null>(null);
   const soltar = () => { setEnMano(null); soltarCopia(); };
   /**
    * DOS SELECCIONES, UNA POR GRUPO, Y NO UNA SOLA COMPARTIDA. Es la vista donde poner el
@@ -4482,19 +4477,22 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
   const alternarProy = (id: string) => setSelProy((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   /**
    * ⚠️ EL VALOR SE LEE ANTES DE LIMPIAR. `soltar()` vacía `enMano`, así que hacerlo primero
-   * deja al `if` de abajo mirando `null` y el ritmo no se escribe nunca — el gesto se ve
-   * perfecto y no guarda nada, que es el modo de falla más caro de este tablero.
+   * deja al `if` de abajo mirando `null` y la repetición no se escribe nunca — el gesto se
+   * ve perfecto y no guarda nada, que es el modo de falla más caro de este tablero.
    *
-   * ⚠️ Y SOLTAR EN EL RITMO QUE YA TENÍA NO ESCRIBE. Sin esa guarda, cada arrastre del que
+   * ⚠️ Y SOLTAR EN LA QUE YA TENÍA NO ESCRIBE. Sin esa guarda, cada arrastre del que
    * alguien se arrepiente deja una entrada en el historial y un toast de deshacer sobre un
-   * cambio que no cambió nada.
+   * cambio que no cambió nada. La comparación es entre formas CANÓNICAS —las dos puntas
+   * pasan por `canonRRule`— porque `FREQ=WEEKLY` y `FREQ=WEEKLY;INTERVAL=1` son la misma
+   * repetición escrita de dos maneras, y comparar los strings crudos haría que soltar en el
+   * chip donde ya estás parado escribiera igual.
    */
-  const ponerRitmo = (f: Frecuencia | null) => {
+  const ponerRepeticion = (rrule: string) => {
     const q = enMano;
     soltar();
-    if (!q || q.f === f) return;
-    if (q.tipo === 'tarea') board.setFrecuencia(q.id, f);
-    else board.setLabelFrecuencia(q.id, f);
+    if (!q || q.r === rrule) return;
+    if (q.tipo === 'tarea') board.setRecurrencia(q.id, rrule || null);
+    else board.setLabelRecurrencia(q.id, rrule || null);
   };
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
@@ -4553,7 +4551,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                       {filasProy.map(({ l, prog }) => (
                         <ProyectoCardTile key={l.id} l={l} prog={prog} isTop={l.id === topProjectId} sinRanking onOpen={() => onOpenProj(l.id)}
                           elegido={selProy.has(l.id)} haySeleccion={selProy.size > 0} onElegir={alternarProy}
-                          onAgarrar={(nodo, dx, dy) => { montarCopia(nodo, dx, dy); setEnMano({ id: l.id, tipo: 'proyecto', f: frecuenciaDe(l) }); }}
+                          onAgarrar={(nodo, dx, dy) => { montarCopia(nodo, dx, dy); setEnMano({ id: l.id, tipo: 'proyecto', r: canonRRule(recurrenciaDe(l)) }); }}
                           onSoltarse={soltar} />
                       ))}
                     </div>
@@ -4567,7 +4565,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
                       {/* La barra de TAREAS: la de siempre, sobre la selección de este grupo.
-                          Acá es donde el pedido «ponle la frecuencia al lote» se usa de
+                          Acá es donde el pedido «ponle la repetición al lote» se usa de
                           verdad — toda esta vista se repite, así que el deadline no aplica y
                           su ranura la ocupa el ritmo. */}
                       {selTareas.size > 0 && (
@@ -4584,7 +4582,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                           onAgarrar={(id, desde) => {
                             if (!id) { soltar(); return; }
                             if (desde) montarCopia(desde.nodo, desde.dx, desde.dy);
-                            setEnMano({ id, tipo: 'tarea', f: frecuenciaDe(t) });
+                            setEnMano({ id, tipo: 'tarea', r: canonRRule(recurrenciaDe(t)) });
                           }} />
                       ))}
                     </div>
@@ -4594,7 +4592,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
           </>
         )}
       </div>
-      {enMano && <EscaleraDeRitmos actual={enMano.f} onSoltar={ponerRitmo} />}
+      {enMano && <EscaleraDeRitmos actual={enMano.r} onSoltar={ponerRepeticion} />}
     </div>
   );
 }
@@ -4621,13 +4619,17 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
  * se lee como que el gesto falló; marcado, dice dónde estás parado.
  */
 function EscaleraDeRitmos({ actual, onSoltar }: {
-  /** el ritmo que la tarjeta en la mano ya tiene, para marcarlo. */
-  actual: Frecuencia | null;
-  onSoltar: (f: Frecuencia | null) => void;
+  /** la repetición que la tarjeta en la mano ya tiene, canónica, para marcarla. */
+  actual: string;
+  onSoltar: (rrule: string) => void;
 }) {
-  // ⚠️ LA LISTA SALE DE `FRECUENCIAS`, nunca escrita a mano: es la misma que pinta el
-  // selector del detalle. Dos listas es cómo se agrega un ritmo en una y no en la otra.
-  const destinos: Array<{ id: Frecuencia | null; label: string }> = [...FRECUENCIAS, { id: null, label: SIN_FRECUENCIA }];
+  // ⚠️ LA LISTA SALE DE `opcionesRepeticion`, LA MISMA QUE PINTA EL DESPLEGABLE DEL DETALLE
+  // y la barra de lote: un preset nuevo aparece acá sin que nadie se acuerde de esta
+  // escalera. Lo único que se saca es «Personalizado…»: un destino de arrastre que abre un
+  // diálogo es soltar en un lugar que todavía pregunta, y el sentido de esta escalera es
+  // que el destino ES el valor. Lo personalizado se pone donde hay un formulario, que es el
+  // detalle y la barra.
+  const destinos = opcionesRepeticion().filter((o) => o.value !== VALOR_PERSONALIZADO);
   // ⚠️ 3001 ES UNO MÁS QUE LA COPIA QUE SIGUE AL CURSOR (3000, `useArrastreCopia`), y es a
   // propósito: la tarjeta mide 249×138 y los chips ~150×34, así que con la copia encima
   // taparía justo el destino al que estás apuntando — y el único aviso de dónde va a caer es
@@ -4635,7 +4637,7 @@ function EscaleraDeRitmos({ actual, onSoltar }: {
   // una bandeja. No la bloquea: la copia es `pointerEvents: none`.
   return (
     <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 3001, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 16px', background: 'var(--surface)', borderTop: '1px solid var(--border-strong)', boxShadow: '0 -10px 30px rgba(18,21,27,.18)', fontFamily: SANS }}>
-      {destinos.map((d) => <ChipRitmo key={d.id ?? 'sin'} label={d.label} actual={actual === d.id} onSoltar={() => onSoltar(d.id)} />)}
+      {destinos.map((d) => <ChipRitmo key={d.value || 'sin'} label={d.label} actual={actual === d.value} onSoltar={() => onSoltar(d.value)} />)}
     </div>
   );
 }
@@ -5174,10 +5176,9 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               )}
             </div>
             </> : (
-              <BloqueFrecuencia
-                valor={frecuenciaDe(proj)} dia={frecuenciaDiaOk(proj.frecuenciaDia, frecuenciaDe(proj))}
-                onCambiar={(v) => board.setLabelFrecuencia(proj.id, v)}
-                onCambiarDia={(v) => board.setLabelFrecuenciaDia(proj.id, v)} />
+              <BloqueRepeticion
+                valor={recurrenciaDe(proj)}
+                onCambiar={(v) => board.setLabelRecurrencia(proj.id, v)} />
             )}
 
             {/* ⚠️ DEPENDE DE, EN LA COLUMNA DERECHA Y EN EL MISMO LUGAR QUE EN UNA TAREA

@@ -13,7 +13,7 @@ import { quarterDeFecha } from '@/app/plan/board/cuando';
 // «Cada cuánto se repite» (mig 0165). El enum, el saneo y la invariante salen del módulo
 // compartido —el MISMO que usa la mitad del dueño— y no se reescriben acá: dos saneos son
 // dos listas de valores válidos, y la segunda se queda vieja el día que se agregue uno.
-import { frecuenciaDe, frecuenciaDiaOk, type Frecuencia } from '@/lib/plan-recurrentes';
+import { recurrenciaDe } from '@/lib/plan-recurrentes';
 import {
   esEstado, esResponsableTipo, estadoTrasProgreso,
   type EstadoTarea, type ResponsableTipo, type CriterioVeredicto,
@@ -47,19 +47,13 @@ export type Tarea = {
   /** «Se repite para siempre»: no compite por un puesto ni lleva fecha (mig 0163). */
   recurrente: boolean;
   /**
-   * CADA CUÁNTO se repite (mig 0165), en el lugar del deadline y el quarter que la 0163 le
-   * sacó. `null` = se repite y nadie dijo cada cuánto, que NO es «no se repite».
-   * Sólo existe con `recurrente`: la invariante la aplica `frecuenciaDe` en `rowTo` y en
+   * CÓMO se repite (mig 0167): una RRULE de RFC 5545 como la que guarda Google Calendar
+   * (`FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`), en el lugar del deadline y el quarter que la
+   * 0163 le sacó. `null` = se repite y nadie dijo cada cuánto, que NO es «no se repite».
+   * Sólo existe con `recurrente`: la invariante la aplica `recurrenciaDe` en `rowTo` y en
    * los dos escritores (`crearTarea`, `editarTarea`).
    */
-  frecuencia: Frecuencia | null;
-  /**
-   * QUÉ DÍA cae (mig 0166), leído según `frecuencia`: `'lun'`…`'dom'` si es semanal o
-   * quincenal, `'1'`…`'31'` si es mensual, trimestral o anual. `null` = la frecuencia no
-   * pide ancla, o nadie dijo qué día. El saneo y las dos invariantes viven en
-   * `frecuenciaDiaOk` y las aplican `rowTo`, `crearTarea` y `editarTarea`.
-   */
-  frecuencia_dia: string | null;
+  recurrencia: string | null;
   categorias: number[];          // ids de tarea_categorias
   checklist: ChecklistItem[];    // ítems {id,text,done}
   historial: HistEntry[];        // change history {ts,actor,text} — user|ia
@@ -107,12 +101,9 @@ export type Categoria = { id: number; nombre: string; color: string; emoji: stri
    * repo ya se leyó dos veces como que la app está rota.
    */
   recurrente: boolean;
-  /** Cada cuánto se repite (mig 0165). Gemelo de `Tarea.frecuencia`, mismo enum, misma
-   *  invariante — y la misma mitad que se olvidó la vez pasada. */
-  frecuencia: Frecuencia | null;
-  /** Qué día cae (mig 0166). Gemelo de `Tarea.frecuencia_dia`, mismo campo único leído
-   *  según la frecuencia y mismo saneo — y la misma mitad que ya se olvidó dos veces. */
-  frecuencia_dia: string | null;
+  /** Cómo se repite (mig 0167). Gemelo de `Tarea.recurrencia`: la misma RRULE, el mismo
+   *  saneo y la misma invariante — y la misma mitad que ya se olvidó dos veces. */
+  recurrencia: string | null;
   detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
@@ -129,16 +120,11 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   // llegaría como `undefined` y cualquier `if (t.recurrente)` lo leería como false igual —
   // pero el tipo diría `boolean` y mentiría. Acá se normaliza una vez.
   t.recurrente = !!r.recurrente;
-  // La frecuencia se SANEA al leer, y por `frecuenciaDe` (mig 0165): la columna no tiene
-  // `check` en la base a propósito, así que ésta es la única guarda contra un valor que
+  // La recurrencia se SANEA al leer, y por `recurrenciaDe` (mig 0167): la columna no tiene
+  // `check` en la base a propósito, así que ésta es la única guarda contra una RRULE que
   // ninguna pantalla sabe pintar — y de paso aplica la invariante, para que una fila
   // desalineada no salga de acá afirmando «cada semana» sobre algo que vence.
-  t.frecuencia = frecuenciaDe({ recurrente: t.recurrente, frecuencia: r.frecuencia });
-  // El día se sanea CONTRA LA FRECUENCIA QUE ACABA DE SALIR SANEADA (mig 0166), no contra
-  // la cruda: una fila con `frecuencia_dia: 'lun'` y `frecuencia: 'mensual'` —escrita por
-  // un script, o quedada de una frecuencia anterior— entra como null en vez de pintar un
-  // ancla que la frecuencia de hoy no sabe leer.
-  t.frecuencia_dia = frecuenciaDiaOk(r.frecuencia_dia, t.frecuencia);
+  t.recurrencia = recurrenciaDe({ recurrente: t.recurrente, recurrencia: r.recurrencia });
   t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
   t.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
   t.estado = estadoOk(r.estado);
@@ -265,16 +251,16 @@ export type NuevaTarea = {
   deadline?: string | null;
   /** «Se repite para siempre» (mig 0163). Nace sin fecha: ver `crearTarea`. */
   recurrente?: boolean;
-  /** Cada cuánto se repite (mig 0165). Sin `recurrente` no se guarda: `frecuenciaDe`. */
-  frecuencia?: Frecuencia | null;
   /**
-   * Qué día cae (mig 0166). `unknown` A PROPÓSITO, y no `string | null`: si el día vale
-   * depende de la frecuencia EFECTIVA de esta alta, que se resuelve recién adentro de
-   * `crearTarea`, así que no hay ningún lugar más arriba donde se pueda sanear. Un tipo
+   * Cómo se repite (mig 0167): la RRULE. Sin `recurrente` no se guarda: `recurrenciaDe`.
+   *
+   * `unknown` A PROPÓSITO, y no `string | null`: lo que entra por acá viene de un body de
+   * `/api/todo`, de una extracción de reunión o de un modelo, y el saneo de verdad
+   * —`recurrenciaOk`, que además canoniza— vive adentro de `recurrenciaDe`. Un tipo
    * estrecho en la puerta invita a un cast, y el cast es lo que mete texto libre en una
-   * columna sin `check`.
+   * columna que no tiene `check`.
    */
-  frecuencia_dia?: unknown;
+  recurrencia?: unknown;
   categorias?: number[];
   origen?: OrigenTarea;
   /** de dónde salió (reunión de Fathom con su minuto, WhatsApp, archivo…). */
@@ -310,17 +296,12 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     // pidiendo que se cierre algo que por definición no cierra.
     deadline: input.recurrente ? null : dateOk(input.deadline),
     recurrente: !!input.recurrente,
-    // La frecuencia también VIAJA DESDE EL ALTA (mig 0165), y por la misma razón por la
+    // La recurrencia también VIAJA DESDE EL ALTA (mig 0167), y por la misma razón por la
     // que viaja `recurrente`: si sólo se pudiera poner editando, una recurrente extraída
-    // de una reunión nacería sin ritmo y el ritmo es lo único temporal que puede tener.
-    // `frecuenciaDe` es lo que impide que una tarea con fin nazca con una frecuencia.
-    frecuencia: frecuenciaDe(input),
-    // El día VIAJA DESDE EL ALTA por lo mismo que la frecuencia (mig 0166): una recurrente
-    // extraída de una reunión nacería sin ancla, y el ancla es la mitad del único dato
-    // temporal que le queda. El segundo argumento es la frecuencia con la que nace, así
-    // que el día hereda las dos invariantes en vez de tener una propia: sin recurrente no
-    // hay día, y el día tiene que corresponderle a esa frecuencia.
-    frecuencia_dia: frecuenciaDiaOk(input.frecuencia_dia, frecuenciaDe(input)),
+    // de una reunión nacería sin ritmo, y el ritmo es lo único temporal que puede tener.
+    // `recurrenciaDe` es lo que impide que una tarea con fin nazca con una recurrencia, y
+    // de paso canoniza la RRULE que vino de afuera.
+    recurrencia: recurrenciaDe(input),
     categorias: catsOk(input.categorias),
     checklist: [] as ChecklistItem[],
     historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
@@ -400,28 +381,37 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 }
 
 /**
- * EL RITMO QUE TIENE HOY LA FILA: se repite, cada cuánto y qué día. Lo que contestan las
- * invariantes de la frecuencia y del día cuando el patch no las trae — el board del cliente
- * manda el objeto entero, pero el Doer, los lotes y `ampliarTareasCliente` llaman a
- * `editarTarea` con dos campos.
+ * ¿SE REPITE HOY ESTA FILA? Es lo que la invariante de la recurrencia necesita saber cuando
+ * el patch no lo dice — el board del cliente manda el objeto entero, pero el Doer, los lotes
+ * y `ampliarTareasCliente` llaman a `editarTarea` con dos campos.
  *
- * ⚠️ DEVUELVE LOS TRES EN UNA SOLA LECTURA, y eso es el motivo de que reemplace a la vieja
- * `repiteTarea`. El día depende de la frecuencia y la frecuencia de `recurrente`: con un
- * helper por campo, cambiar el ritmo desde el Doer costaba dos o tres consultas y —peor—
- * abría la puerta a que cada una leyera un estado distinto.
+ * ⚠️ UNA SOLA COLUMNA DESDE LA 0167: antes eran tres (`recurrente`, `frecuencia`,
+ * `frecuencia_dia`) y había que leerlas juntas para que no se vieran estados distintos. Con
+ * la RRULE en un campo, el patch trae la recurrencia entera y lo único que falta de la fila
+ * es el flag.
  *
- * Ante un error de lectura contesta `recurrente: false`, que es el lado que NO escribe un
- * dato: perder una frecuencia se ve; ponerle una a algo que vence, no.
+ * Ante un error de lectura contesta `false`, que es el lado que NO escribe un dato: perder
+ * una recurrencia se ve; ponerle una a algo que vence, no.
  */
-async function ritmoTarea(id: number): Promise<{ recurrente: boolean; frecuencia: unknown; frecuencia_dia: unknown }> {
-  const { data } = await (await getTenantDb()).from('experimento_tareas').select('recurrente, frecuencia, frecuencia_dia').eq('id', id).single();
-  const r = (data ?? {}) as { recurrente?: unknown; frecuencia?: unknown; frecuencia_dia?: unknown };
-  return { recurrente: !!r.recurrente, frecuencia: r.frecuencia, frecuencia_dia: r.frecuencia_dia };
+/**
+ * ⚠️ UN ERROR DE LECTURA NO ES «NO SE REPITE». Acá se ignoraba el `error` de Supabase y se
+ * devolvía `!!data?.recurrente`, o sea `false` — y quien llama usa ese false para BORRAR la
+ * recurrencia en la misma escritura. Con la base caída un segundo, editar cualquier otro
+ * campo de la tarjeta se llevaba puesto su ritmo, sin un error y sin forma de saber que pasó.
+ *
+ * Es la regla de la casa: «no puedo hacer X con este dato» no es «este dato es falso», y el
+ * default de un fallo de lectura nunca puede ser el que DESTRUYE. Ahora tira, y quien llama
+ * decide — que es lo correcto porque acá la única salida honesta es no escribir.
+ */
+async function repiteTarea(id: number): Promise<boolean> {
+  const { data, error } = await (await getTenantDb()).from('experimento_tareas').select('recurrente').eq('id', id).single();
+  if (error) throw new Error(`repiteTarea(${id}): ${error.message}`);
+  return !!(data as { recurrente?: unknown } | null)?.recurrente;
 }
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: Frecuencia | null; frecuencia_dia?: unknown; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null } & CamposResponsable,
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null } & CamposResponsable,
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString(), ...camposResponsableOk(patch) };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -455,37 +445,29 @@ export async function editarTarea(
   if (patch.recurrente !== undefined) {
     upd.recurrente = !!patch.recurrente;
     if (upd.recurrente) { upd.deadline = null; upd.quarter = null; }
-    // ⚠️ Y LA SIMÉTRICA (mig 0165): al DEJAR de repetirse se va la frecuencia. Si no se
-    // borrara acá, la fila quedaría con `recurrente: false` y `frecuencia: 'semanal'` — un
-    // valor que ninguna pantalla dibuja (el campo sólo existe al lado de «Se repite») y que
-    // la API de MaKo sí publica. El porqué completo, con la alternativa que se descartó,
-    // está en `frecuenciaDe` (lib/plan-recurrentes.ts).
-    // Y el día con ella (mig 0166): cuelga de la frecuencia, así que no puede sobrevivirla.
-    else { upd.frecuencia = null; upd.frecuencia_dia = null; }
+    // ⚠️ Y LA SIMÉTRICA (mig 0167): al DEJAR de repetirse se va la recurrencia. Si no se
+    // borrara acá, la fila quedaría con `recurrente: false` y una RRULE viva — un valor que
+    // ninguna pantalla dibuja (el campo sólo existe al lado de «Se repite») y que la API de
+    // MaKo sí publica. El porqué completo, con las alternativas que se descartaron, está en
+    // `recurrenciaDe` (lib/plan-recurrentes.ts).
+    else upd.recurrencia = null;
   }
   /**
-   * LA FRECUENCIA, CON SU INVARIANTE (mig 0165).
+   * LA RECURRENCIA, CON SU INVARIANTE (mig 0167).
    *
    * ⚠️ NECESITA SABER SI LA TAREA SE REPITE, Y EL PATCH PUEDE NO DECIRLO. El board del
    * cliente manda el objeto entero (`editPatch` en TodoBoard.tsx), pero esta función también
    * la llaman el Doer, los lotes y `ampliarTareasCliente` con dos campos: sin leer la fila,
-   * un patch `{ frecuencia }` suelto le pondría un ritmo a una tarea que vence. La consulta
-   * extra sólo corre cuando la frecuencia viaja sin su flag.
+   * un patch `{ recurrencia }` suelto le pondría un ritmo a una tarea que vence. La consulta
+   * extra sólo corre cuando la recurrencia viaja sin su flag.
+   *
+   * ⚠️ Y ESTE `upd` SE ARMA CAMPO POR CAMPO: lo que no se nombre acá no llega. Es la mitad
+   * del CLIENTE, la que ya se olvidó dos veces con `recurrente` — el control se dibuja en
+   * el tablero compartido, contesta 200, y no guarda nada.
    */
-  /**
-   * ⚠️ Y EL DÍA ENTRA POR EL MISMO `if` (mig 0166), no por uno propio. Son un solo estado:
-   * cambiar la frecuencia sin tocar el día tiene que RE-VALIDAR el día, porque «cada
-   * semana, los lunes» → «cada mes» deja un `'lun'` que leído como día del mes no es
-   * ningún día. Con dos bloques, ese caso —el más común de los dos— no lo mira nadie: el
-   * patch no nombra `frecuencia_dia`, así que su bloque ni corre.
-   */
-  if (patch.frecuencia !== undefined || patch.frecuencia_dia !== undefined) {
-    const base = await ritmoTarea(id);
-    const repite = patch.recurrente !== undefined ? !!patch.recurrente : base.recurrente;
-    // La frecuencia EFECTIVA tras este patch: la que trae, o la que ya tenía la fila.
-    const frec = frecuenciaDe({ recurrente: repite, frecuencia: patch.frecuencia !== undefined ? patch.frecuencia : base.frecuencia });
-    if (patch.frecuencia !== undefined) upd.frecuencia = frec;
-    upd.frecuencia_dia = frecuenciaDiaOk(patch.frecuencia_dia !== undefined ? patch.frecuencia_dia : base.frecuencia_dia, frec);
+  if (patch.recurrencia !== undefined) {
+    const repite = patch.recurrente !== undefined ? !!patch.recurrente : await repiteTarea(id);
+    upd.recurrencia = recurrenciaDe({ recurrente: repite, recurrencia: patch.recurrencia });
   }
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
   if (patch.checklist !== undefined) upd.checklist = checklistOk(patch.checklist);
@@ -563,10 +545,8 @@ const catRow = (r: Record<string, unknown>): Categoria => {
   // ausente llegaría como `undefined` con el tipo diciendo `boolean`. Acá se normaliza una
   // vez y nadie más tiene que acordarse (mig 0164).
   c.recurrente = !!r.recurrente;
-  // Mismo saneo y misma invariante que en `rowTo` (mig 0165).
-  c.frecuencia = frecuenciaDe({ recurrente: c.recurrente, frecuencia: r.frecuencia });
-  // Mismo saneo del día que en `rowTo` (mig 0166).
-  c.frecuencia_dia = frecuenciaDiaOk(r.frecuencia_dia, c.frecuencia);
+  // Mismo saneo y misma invariante que en `rowTo` (mig 0167).
+  c.recurrencia = recurrenciaDe({ recurrente: c.recurrente, recurrencia: r.recurrencia });
   return c;
 };
 
@@ -577,28 +557,29 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, frecuencia?: Frecuencia | null, frecuencia_dia?: unknown): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown): Promise<Categoria> {
   const supabase = (await getTenantDb());
   // Un proyecto que se repite NACE sin fecha, acá mismo (mig 0164). No alcanza con que el
   // editar la borre: si el alta la escribiera, la fila nacería con un deadline que después
   // nadie va a poder ver ni sacar — y el aviso de vencimientos lo leería igual.
   const repite = !!recurrente;
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, frecuencia: frecuenciaDe({ recurrente: repite, frecuencia }), frecuencia_dia: frecuenciaDiaOk(frecuencia_dia, frecuenciaDe({ recurrente: repite, frecuencia })), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
 }
 
-/** El ritmo que tiene hoy la fila de un PROYECTO del cliente. La gemela de `ritmoTarea`,
- *  y por lo mismo: los tres campos en una sola lectura porque son un solo estado. */
-async function ritmoCategoria(id: number): Promise<{ recurrente: boolean; frecuencia: unknown; frecuencia_dia: unknown }> {
-  const { data } = await (await getTenantDb()).from('tarea_categorias').select('recurrente, frecuencia, frecuencia_dia').eq('id', id).single();
-  const r = (data ?? {}) as { recurrente?: unknown; frecuencia?: unknown; frecuencia_dia?: unknown };
-  return { recurrente: !!r.recurrente, frecuencia: r.frecuencia, frecuencia_dia: r.frecuencia_dia };
+/** ¿Se repite hoy la fila de un PROYECTO del cliente? La gemela de `repiteTarea`, y por lo
+ *  mismo: el patch puede traer la recurrencia sin el flag que la autoriza. */
+async function repiteCategoria(id: number): Promise<boolean> {
+  // Misma cura que `repiteTarea`, y por el mismo motivo: ver el comentario de allá.
+  const { data, error } = await (await getTenantDb()).from('tarea_categorias').select('recurrente').eq('id', id).single();
+  if (error) throw new Error(`repiteCategoria(${id}): ${error.message}`);
+  return !!(data as { recurrente?: unknown } | null)?.recurrente;
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: Frecuencia | null; frecuencia_dia?: unknown }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
@@ -617,19 +598,14 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   if (patch.recurrente !== undefined) {
     upd.recurrente = !!patch.recurrente;
     if (upd.recurrente) { upd.deadline = null; upd.quarter = null; }
-    else { upd.frecuencia = null; upd.frecuencia_dia = null; }   // la simétrica (migs 0165 y 0166): ver `editarTarea`
+    else upd.recurrencia = null;   // la simétrica (mig 0167): ver `editarTarea`
   }
-  // La frecuencia, con la misma invariante y la misma consulta de respaldo que en
+  // La recurrencia, con la misma invariante y la misma consulta de respaldo que en
   // `editarTarea`: este `upd` también se arma campo por campo, así que lo que no se nombre
   // acá no llega — y el control se dibujaría en el tablero del cliente sin guardar nada.
-  // El día entra por el MISMO `if` que la frecuencia, igual que en `editarTarea` y por la
-  // misma razón: cambiar la frecuencia tiene que re-validar un día que el patch no nombra.
-  if (patch.frecuencia !== undefined || patch.frecuencia_dia !== undefined) {
-    const base = await ritmoCategoria(id);
-    const repite = patch.recurrente !== undefined ? !!patch.recurrente : base.recurrente;
-    const frec = frecuenciaDe({ recurrente: repite, frecuencia: patch.frecuencia !== undefined ? patch.frecuencia : base.frecuencia });
-    if (patch.frecuencia !== undefined) upd.frecuencia = frec;
-    upd.frecuencia_dia = frecuenciaDiaOk(patch.frecuencia_dia !== undefined ? patch.frecuencia_dia : base.frecuencia_dia, frec);
+  if (patch.recurrencia !== undefined) {
+    const repite = patch.recurrente !== undefined ? !!patch.recurrente : await repiteCategoria(id);
+    upd.recurrencia = recurrenciaDe({ recurrente: repite, recurrencia: patch.recurrencia });
   }
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);

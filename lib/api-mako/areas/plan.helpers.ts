@@ -26,7 +26,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
 // «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
 // reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
-import { esRecurrente, textoCuando } from '@/lib/plan-recurrentes';
+import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
 
 export type ItemChecklist = { id: string; text: string; done: boolean };
 export type EntradaHistorial = { ts: number; actor: string; text: string };
@@ -62,19 +62,16 @@ export type TareaPlan = {
    */
   recurrente: boolean;
   /**
-   * CUÁNDO se repite, YA EN TEXTO (migs 0165 y 0166): «Cada semana, los lunes», «Cada mes,
-   * el 15», «Todos los días». `null` = se repite y nadie dijo cuándo.
+   * CUÁNDO se repite, YA EN TEXTO (mig 0167): «Cada semana, los lunes y miércoles», «Cada
+   * 2 meses, el segundo martes», «Todos los días». `null` = se repite y nadie dijo cuándo.
    *
-   * ⚠️ VIAJA EL TEXTO Y NO EL ID, y es la decisión. Lo único que un agente sabe de esta
-   * tarea es este JSON, y lo que va a hacer con el dato es DECÍRSELO A UNA PERSONA: con
-   * `'quincenal'` tiene que traducir, y traducir es donde inventa («cada quincena del
-   * mes»). Con un `'lun'` al lado, peor: son dos datos que hay que juntar, y juntarlos es
-   * otra oportunidad de inventar. La frase la arma el código, con `textoCuando`.
-   *
-   * ⚠️ Y ES UN SOLO CAMPO, NO DOS. Un `frecuencia` + un `frecuencia_dia` acá serían dos
-   * campos para el mismo renglón de la respuesta, que es cómo se muere uno de los dos.
+   * ⚠️ VIAJA LA FRASE Y NO LA RRULE, y es la decisión. Lo único que un agente sabe de esta
+   * tarea es este JSON, y lo que va a hacer con el dato es DECÍRSELO A UNA PERSONA: con un
+   * `FREQ=MONTHLY;BYDAY=TU;BYSETPOS=2` tiene que traducir, y traducir es donde inventa
+   * («cada martes del mes 2»). La frase la arma el código, con `textoRepeticion`, que es la
+   * MISMA que lee la persona en la tarjeta — así el agente y la pantalla no se contradicen.
    */
-  frecuencia: string | null;
+  repeticion: string | null;
 };
 
 export type ProyectoPlan = {
@@ -97,8 +94,8 @@ export type ProyectoPlan = {
    * cliente (`tarea_categorias`)—, por eso es `boolean` y no `boolean | null`.
    */
   recurrente: boolean;
-  /** Cuándo se repite, ya en texto (migs 0165 y 0166). Gemelo de `TareaPlan.frecuencia`. */
-  frecuencia: string | null;
+  /** Cuándo se repite, ya en texto (mig 0167). Gemelo de `TareaPlan.repeticion`. */
+  repeticion: string | null;
   historial: EntradaHistorial[];
 };
 
@@ -139,13 +136,13 @@ export async function leerTablero(ws: number): Promise<Tablero> {
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
         quarter: t.quarter ?? null, historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.enPrioridad,
         recurrente: esRecurrente(t),
-        frecuencia: textoCuando(t.frecuencia, t.frecuenciaDia),
+        repeticion: textoRepeticion(t.recurrencia),
       })),
       proyectos: b.proyectos.map((p) => ({
         id: p.id, pid: p.pid ?? null, nombre: p.name, emoji: p.emoji, detalle: p.detalle ?? '', score: p.score,
         scoreRazon: p.scoreRazon ?? null, deadline: p.deadline || null, scoreManual: !!p.scoreManual, historial: hist(p.historial),
         recurrente: esRecurrente(p),
-        frecuencia: textoCuando(p.frecuencia, p.frecuenciaDia),
+        repeticion: textoRepeticion(p.recurrencia),
       })),
       deps: b.deps,
       recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS,
@@ -165,13 +162,13 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       // ya lo declara: `Tarea.recurrente` desde la 0163, `Categoria.recurrente` desde la
       // 0164. Un cast que sobrevive a su motivo esconde el próximo campo que falte.
       recurrente: esRecurrente(t),
-      frecuencia: textoCuando(t.frecuencia, t.frecuencia_dia),
+      repeticion: textoRepeticion(t.recurrencia),
     })),
     proyectos: cats.map((c) => ({
       id: String(c.id), pid: null, nombre: c.nombre, emoji: c.emoji, detalle: c.detalle ?? '', score: c.prioridad,
       scoreRazon: c.score_razon ?? null, deadline: c.deadline ?? null, scoreManual: null, historial: hist(c.historial),
       recurrente: esRecurrente(c),
-      frecuencia: textoCuando(c.frecuencia, c.frecuencia_dia),
+      repeticion: textoRepeticion(c.recurrencia),
     })),
     deps: [],
     recortado: tareas.length >= TOPE_FILAS || cats.length >= TOPE_FILAS,
@@ -213,12 +210,12 @@ export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>)
     // este JSON: sin la nota, ve `score: 85` al lado de `se_repite: true` y no tiene forma
     // de saber que ese número no significa nada acá. Y el campo sólo aparece cuando es
     // true: una clave `se_repite: false` en las 300 tareas normales es ruido en el prompt.
-    // ⚠️ `frecuencia` VIAJA PEGADA A `se_repite`, y por eso es una sola expresión. Un agente
+    // ⚠️ `repeticion` VIAJA PEGADA A `se_repite`, y por eso es una sola expresión. Un agente
     // que ve «se repite» y no ve cada cuánto no puede decidir NADA con eso: «la junta de los
     // miércoles» y «el seguimiento diario» se le ven idénticas cuando una pesa cinco veces
     // más que la otra. `null` es un valor y no una ausencia: dice «se repite y nadie declaró
     // el ritmo», que es algo que hay que preguntar, no adivinar.
-    ...(esRecurrente(t) ? { se_repite: true, frecuencia: t.frecuencia, se_repite_nota: 'Se repite para siempre (la reunión semanal, el seguimiento diario). No compite en el ranking ni lleva deadline: su score y su prioridad no se leen. Ya existe, no hay que volver a crearla. `frecuencia` dice cada cuánto Y qué día, ya en texto («Cada semana, los lunes»); null = todavía no se dijo.' } : {}),
+    ...(esRecurrente(t) ? { se_repite: true, repeticion: t.repeticion, se_repite_nota: 'Se repite para siempre (la reunión semanal, el seguimiento diario). No compite en el ranking ni lleva deadline: su score y su prioridad no se leen. Ya existe, no hay que volver a crearla. `repeticion` es la frase completa de cuándo se repite («Cada semana, los lunes y miércoles»), la misma que se lee en la tarjeta; null = todavía no se dijo.' } : {}),
     link: linkTarea(t.id),
   };
 }

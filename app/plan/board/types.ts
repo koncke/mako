@@ -8,8 +8,7 @@
 // El predicado de «se repite para siempre» vive en un módulo de datos y se IMPORTA: acá
 // sólo se declara el campo. El módulo no lleva `server-only` a propósito (lo importan las
 // pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
-import { llevaDeadline, type Frecuencia } from '@/lib/plan-recurrentes';
-export type { Frecuencia };
+import { llevaDeadline } from '@/lib/plan-recurrentes';
 
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 // Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
@@ -169,36 +168,31 @@ export type BoardTask = {
    */
   recurrente?: boolean;
   /**
-   * CADA CUÁNTO se repite (mig 0165): el reemplazo del deadline y el quarter que la 0163
-   * le sacó. `null` = se repite y nadie dijo cada cuánto, que es un estado real y distinto
-   * de «no se repite».
+   * CÓMO se repite (mig 0167): una RRULE de RFC 5545, que es lo que guarda Google Calendar
+   * — `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`. Es el reemplazo del deadline y el quarter
+   * que la 0163 le sacó. `null` = se repite y nadie dijo cada cuánto, que es un estado real
+   * y distinto de «no se repite».
    *
-   * ⚠️ NO ES UNA FECHA Y NO SE PUEDE VOLVER UNA. El tipo es el enum cerrado de
-   * `lib/plan-recurrentes.ts`; el día que alguien la quiera guardar como `YYYY-MM-DD` el
-   * compilador lo frena, y eso es a propósito — una fecha acá la lee el motor de
-   * vencimientos como un plazo y vuelve el «la junta semanal está atrasada».
+   * ⚠️ UN SOLO CAMPO, Y ES LA DECISIÓN DE LA MIGRACIÓN. Las 0165 y 0166 lo habían partido
+   * en `frecuencia` (enum) + `frecuenciaDia`, y ese modelo no puede decir «varios días de
+   * la semana» ni «cada 3 semanas» ni «el segundo martes»: cada una sería otro campo, y una
+   * repetición tiene UNA forma por vez — con cuatro, pasar de «cada semana, los lunes» a
+   * «cada mes» deja las viejas vivas contradiciendo a la nueva.
    *
-   * ⚠️ SÓLO EXISTE CON `recurrente`. La invariante no vive en este tipo (un tipo no puede
-   * decir «este campo depende de aquél»): vive en `frecuenciaDe`, que la aplican los
-   * mappers de las DOS mitades. Acá el campo es opcional por lo mismo que `recurrente`: la
-   * tarjeta optimista nace sin él y una fila vieja se lee sin la columna.
+   * ⚠️ NO SE LEE SUELTO NI SE ESCRIBE SUELTO. `recurrenciaOk` es el saneo (la columna no
+   * tiene `check`: es la única guarda), `recurrenciaDe` la invariante «sin `recurrente` no
+   * hay recurrencia», `textoRepeticion` la ÚNICA que la pasa a español y
+   * `leerRRule`/`escribirRRule` la ida y vuelta para editarla. Todo en
+   * `lib/plan-recurrentes.ts`, que no lleva `server-only` justamente para esto.
+   *
+   * ⚠️ NO ES UNA FECHA Y NO SE PUEDE VOLVER UNA: una fecha acá la lee el motor de
+   * vencimientos como un plazo y vuelve el «la junta semanal está atrasada». Cualquier cosa
+   * que no sea una RRULE que este producto sepa leer entra como `null`.
+   *
+   * Opcional por lo mismo que `recurrente`: la tarjeta optimista nace sin él y una fila
+   * vieja se lee sin la columna.
    */
-  frecuencia?: Frecuencia | null;
-  /**
-   * QUÉ DÍA cae (mig 0166), y se lee SEGÚN `frecuencia`: `'lun'`…`'dom'` cuando es
-   * semanal o quincenal, `'1'`…`'31'` cuando es mensual, trimestral o anual. `null` =
-   * la frecuencia no pide ancla (diaria) o nadie dijo qué día.
-   *
-   * ⚠️ UN SOLO CAMPO PARA LAS DOS LECTURAS, Y ES LA DECISIÓN DE LA MIGRACIÓN. Con dos
-   * —día-de-semana y día-del-mes— pasar de «cada semana» a «cada mes» deja la vieja viva
-   * contradiciendo a la nueva. Por eso el tipo es `string` y no `DiaSemana`: quién es
-   * quién lo contesta `pideDia` (lib/plan-recurrentes.ts), nunca el campo solo.
-   *
-   * ⚠️ NO SE LEE SUELTO NI SE ESCRIBE SUELTO: `frecuenciaDiaOk(v, frecuenciaDe(t))` es el
-   * saneo Y las dos invariantes juntas —sin recurrente no hay día, y cambiar la frecuencia
-   * invalida el que ya no corresponda—. La aplican los mappers de las DOS mitades.
-   */
-  frecuenciaDia?: string | null;
+  recurrencia?: string | null;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
@@ -241,17 +235,13 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    */
   recurrente?: boolean;
   /**
-   * CADA CUÁNTO se repite el proyecto (mig 0165). Gemelo exacto de `BoardTask.frecuencia`,
-   * con el mismo enum y la misma invariante (`frecuenciaDe`): un proyecto que se repite —
-   * Customer Success, las reuniones de marketing— tampoco lleva deadline ni quarter, así
-   * que sin esto su única respuesta temporal sería ninguna.
+   * CÓMO se repite el proyecto (mig 0167). Gemelo exacto de `BoardTask.recurrencia`: la
+   * misma RRULE, el mismo saneo (`recurrenciaOk`), la misma invariante (`recurrenciaDe`) y
+   * la misma frase (`textoRepeticion`). Un proyecto que se repite —Customer Success, las
+   * reuniones de marketing— tampoco lleva deadline ni quarter, así que «Cada semana, los
+   * lunes» es todo lo que puede decir sobre cuándo.
    */
-  frecuencia?: Frecuencia | null;
-  /** QUÉ DÍA cae (mig 0166). Gemelo exacto de `BoardTask.frecuenciaDia`: mismo campo
-   *  único leído según `frecuencia`, mismo saneo (`frecuenciaDiaOk`) y las mismas dos
-   *  invariantes. Un proyecto que se repite tampoco lleva deadline, así que «cada semana,
-   *  los lunes» es todo lo que puede decir sobre cuándo. */
-  frecuenciaDia?: string | null };
+  recurrencia?: string | null };
 
 /**
  * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,
