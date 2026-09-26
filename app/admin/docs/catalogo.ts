@@ -46,6 +46,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 
   // --- uno por área, que es donde vive el código ---
+  'friccion-crm': {
+    grupo: 'Por área', tabs: ['/crm'],
+    hace: ['Dónde el CRM interrumpe, pregunta o hace esperar', 'Qué sacar y qué mantener', 'Lo que cuesta cada freno, en clics por día'],
+  },
   'hallazgos-crm': {
     grupo: 'Por área', tabs: ['/crm', '/comercial'],
     hace: ['Leads y etapas', 'El funnel derivado', 'Agenda y horarios', 'Datos sin marcar', 'Historial del lead'],
