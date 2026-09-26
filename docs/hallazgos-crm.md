@@ -3257,5 +3257,15 @@ al único lugar donde hoy se crean, que es el cerebro. Antes de poner un selecto
 tabla nueva, **contá las filas que va a tener el día del deploy**, no las que va a tener
 cuando la feature esté completa.
 
+⚠️ **Y el id de la URL se valida contra los funnels DE ESTE workspace, no contra sí
+mismo.** `getFunnelDe` ya va por `getTenantDb`, así que un id ajeno no devuelve datos de
+nadie — devuelve `sin-fila`, o sea el pipeline GENÉRICO. No es una fuga; es algo más
+difícil de ver: el tablero se dibujaría con el genérico mientras el desplegable, que no
+encuentra ese id, sigue mostrando el del negocio. **Dos superficies contando cosas
+distintas del mismo tablero, sin un solo error.** Por eso la validación no puede vivir en
+la ola de lecturas paralelas: lo que se pide depende de su resultado, así que `listarFunnels()`
+va antes y sola. Vale para cualquier `?algo=<id>` que elija con qué se dibuja una pantalla —
+el fallback silencioso del lector no alcanza si otro control muestra el valor.
+
 **Vive en:** `app/crm/CrmToolbar.tsx` (`SelectorFunnel`) · `app/crm/page.tsx` (el
 `searchParams.funnel`) · *2026-09-26*

@@ -38,7 +38,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // Qué funnel dibuja el tablero. Va por la URL y no por estado del cliente: las
   // etapas se leen en el server, así que cambiar de funnel es cambiar de página.
   const funnelPedido = Number((await searchParams)?.funnel);
-  const funnelId = Number.isInteger(funnelPedido) && funnelPedido > 0 ? funnelPedido : null;
+  const funnelPideId = Number.isInteger(funnelPedido) && funnelPedido > 0 ? funnelPedido : null;
   await requireCapa('crm');
 
   // Sin NINGUNA fuente de leads el Kanban es una bienvenida muerta, y encima es
@@ -68,17 +68,27 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // posible para el worklist, porque el usuario deja de mirar.
   let pendientesAviso = '';
   let stages: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
-  let funnels: Awaited<ReturnType<typeof listarFunnels>> = [];
   let transitions: FunnelTransition[] = generateFunnel(DEFAULT_PIPELINE).transitions;
   let errorMsg: string | null = null;
+
+  // El id de la URL se valida contra los funnels DE ESTE workspace antes de usarlo,
+  // y por eso esta lectura no entra en la ola de abajo: lo que se pide depende de
+  // su resultado. `getFunnelDe` ya va por `getTenantDb`, así que un id ajeno no
+  // devuelve datos de nadie — devuelve `sin-fila`, o sea el pipeline GENÉRICO. Ahí
+  // está el problema que esto cierra: el tablero se dibujaría con el genérico
+  // mientras el desplegable, que no encuentra ese id, muestra el del negocio. Dos
+  // superficies contando cosas distintas del mismo tablero. Con un id que no es de
+  // acá se ignora el parámetro y se dibuja el del negocio, que es lo que el
+  // desplegable va a decir.
+  const funnels = await listarFunnels().catch(() => []);
+  const funnelId = funnels.some((f) => f.id === funnelPideId && !f.esDefault) ? funnelPideId : null;
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
     let stagesRaw: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
     let transitionsRaw: FunnelTransition[] | undefined;
     let pendRaw: { items: PendienteItem[]; aviso: string };
-    let funnelsRaw: Awaited<ReturnType<typeof listarFunnels>>;
-    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw, funnelsRaw] = await Promise.all([
+    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw] = await Promise.all([
       listLeads(),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
@@ -90,12 +100,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       // Con ?funnel= manda ese; sin él, el del negocio. Mismo dato, otra fila.
       (funnelId ? getFunnelDe(funnelId).then((f) => f.stages) : getPipelineStagesDefault()).catch(() => undefined),
       (funnelId ? getFunnelDe(funnelId).then((f) => f.transitions) : getFunnelTransitionsDefault()).catch(() => undefined),
-      listarFunnels().catch(() => []),
     ]);
     pendientesRaw = pendRaw.items;
     pendientesAviso = pendRaw.aviso;
     stages = stagesRaw;
-    funnels = funnelsRaw;
     if (transitionsRaw) transitions = transitionsRaw;
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
