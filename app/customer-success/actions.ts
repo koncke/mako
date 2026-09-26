@@ -30,7 +30,8 @@
 // inquilino lo resuelve `getTenantDb()`.
 
 import { getTenantDb } from '@/lib/workspace';
-import { clientesGanados, trabajoDeCliente, type ResultadoTrabajo } from './trabajo';
+import { revalidatePath } from 'next/cache';
+import { clientesGanados, trabajoDeCliente, catalogoAsignable, asignarTrabajo, type ResultadoTrabajo, type Catalogo } from './trabajo';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
@@ -66,5 +67,46 @@ export async function trabajoDelClienteAction(leadId: number): Promise<Resultado
     return await trabajoDeCliente(leadId, clientes);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el tablero.' };
+  }
+}
+
+// ── Asignarle trabajo a un cliente ───────────────────────────────────────────
+// «No tengo forma de asignar proyectos o tareas a clientes. Debería desde allí
+// mismo, buscando o filtrando y seleccionando los que quiera asignar» (26/09/2026).
+
+/** El catálogo para el selector: todo lo que se le puede asignar a alguien. */
+export async function catalogoAsignableAction(): Promise<Catalogo> {
+  try { return await catalogoAsignable(); }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el tablero.' }; }
+}
+
+/**
+ * Asigna (o desasigna, con `asignar: false`) las tarjetas elegidas.
+ *
+ * ⚠️ EL NOMBRE DEL CLIENTE LO PONE EL SERVER, leyéndolo de `leads`. Si viniera del
+ * navegador, quien llama podría escribir cualquier etiqueta al lado de un id real —y esa
+ * etiqueta es la que después pinta el chip del tablero, así que una tarjeta podría decir
+ * «Mauricio» y pertenecer a otro sin que nada falle.
+ *
+ * ⚠️ Y EL LEAD SE VERIFICA CONTRA ESTE WORKSPACE (`clienteDelWorkspace`), fail-closed. Sin
+ * eso, un POST con el id de un lead ajeno marcaría las tareas de este inquilino como
+ * trabajo de un cliente de otro.
+ */
+export async function asignarTrabajoAction(
+  leadId: number,
+  ids: { proyectos: string[]; tareas: string[] },
+  asignar = true,
+): Promise<{ ok: boolean; proyectos?: number; tareas?: number; error?: string }> {
+  const cliente = await clienteDelWorkspace(leadId);
+  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
+  if (!ids.proyectos.length && !ids.tareas.length) return { ok: false, error: 'No elegiste nada.' };
+
+  try {
+    const r = await asignarTrabajo(ids, asignar ? { leadId, nombre: (cliente.nombre ?? '').trim() || `Cliente #${leadId}` } : null);
+    if (!r.ok) return r;
+    revalidatePath('/customer-success');
+    return { ok: true, proyectos: r.proyectos, tareas: r.tareas };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude guardarlo.' };
   }
 }

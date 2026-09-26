@@ -20,6 +20,11 @@ import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
+// DE QUIÉN es una tarjeta (mig 0172). El picker y el chip viven juntos para que la tarea y
+// el proyecto no los puedan dibujar distinto; el contrato (rótulo, «Interno», el predicado)
+// sale del módulo compartido que también leen el server y Customer Success.
+import { AsignarClienteModal, ClienteChip } from './AsignarCliente';
+import { clienteDe, ROTULO_CLIENTE, SIN_CLIENTE, type ClienteRef } from '@/lib/plan-clientes';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
@@ -39,7 +44,6 @@ import { ReunionExtractModal } from './ReunionExtractModal';
 import { TareasRecibidasModal, type PropuestaPendiente } from './TareasRecibidasModal';
 import { DatosModal, type FaltanteItem } from './DatosModal';
 import { TareasCreadasModal } from './TareasCreadasModal';
-import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
 import { GuardianIcon } from './GuardianIcon';
 import { GRAMATICA } from '@/lib/mako-gramatica';
@@ -137,7 +141,13 @@ const hoyISO = (): string => {
 // (El criterio es de Mauricio, 16/07/2026: «acá lo que entran son tareas que tienen un
 // inicio y tienen un fin». En el producto se llama RECURRENTES y en ninguna pantalla se
 // escribe la sigla con la que él lo nombró: «el nombre tal vez no es muy conocido».)
-const VISTAS = ['prioridades', 'tareas', 'proyectos', 'recurrentes', 'graphics'] as const;
+// ⚠️ `graphics` SE FUE DE ACÁ EL 26/09/2026 y ahora es una TAB propia: «Productivity
+// Analyst», adentro del desplegable de Analysts (`app/productivity-analyst`). No era una
+// vista del tablero como las otras cuatro —no se filtra, no se ordena, no se arrastra y no
+// escribe nada—: es un análisis de lo que el tablero produjo, que es exactamente lo que
+// hacen los Analysts. Si vuelve a hacer falta acá, `GraphicsView` sólo pide `tasks` y
+// `labels`; lo que NO se puede es montar un segundo `useBoard` para dibujarla.
+const VISTAS = ['prioridades', 'tareas', 'proyectos', 'recurrentes'] as const;
 type Vista = (typeof VISTAS)[number];
 // ⚠️ `kanban` SIGUE RESOLVIENDO, para siempre. Es el nombre que tuvo la vista hasta el
 // 23/09/2026 y vive en links compartidos, en favoritos y en la barra de direcciones de
@@ -150,8 +160,18 @@ const vistaValida = (v: unknown): Vista | null => {
   return ALIAS_VISTA[k] ?? null;
 };
 
-export function BoardShell({ board, scope, vistaInicial }: {
+export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
   board: Board;
+  /**
+   * Los clientes elegibles: los leads GANADOS del workspace (mig 0172). Los lee la PÁGINA
+   * en el server y bajan como prop — no hay endpoint de búsqueda de leads y no hace falta
+   * uno: son 14 en el workspace más grande del producto, medido el 26/09/2026.
+   *
+   * ⚠️ VACÍO ES UN ESTADO REAL, no un error: un workspace que todavía no ganó ninguna venta
+   * no tiene a quién asignarle nada, y el picker lo dice en una frase. Por eso el default
+   * es `[]` y no hay un estado de carga.
+   */
+  clientes?: ClienteRef[];
   /** scope de las preferencias locales (por workspace): no se mezclan entre impersonaciones. */
   scope?: string;
   /**
@@ -203,6 +223,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
   const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
+  /** Qué tarjeta está eligiendo cliente. Uno solo para las dos entidades: el modal es el
+   *  mismo y abrir dos a la vez no tiene sentido. */
+  const [asignarCli, setAsignarCli] = useState<{ tipo: 'tarea' | 'proyecto'; id: string } | null>(null);
   const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [makoHintId, setMakoHintId] = useState<string | null>(null); // tarea recién creada → sugerir "MaKo te ayuda"
   const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
@@ -797,6 +820,11 @@ export function BoardShell({ board, scope, vistaInicial }: {
   const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
   const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;
+  // La tarjeta cuyo cliente se está eligiendo, resuelta acá para que el modal reciba sólo
+  // lo que pinta (nombre + lead actual) y no tenga que saber de qué tabla salió.
+  const cliDe = asignarCli && (asignarCli.tipo === 'tarea'
+    ? tasks.find((t) => t.id === asignarCli.id)
+    : labels.find((l) => l.id === asignarCli.id)) || null;
   const debateProj = labels.find((l) => l.id === debateProjId) ?? null;
   const makoProj = labels.find((l) => l.id === makoProjId) ?? null;
   /**
@@ -1273,13 +1301,12 @@ export function BoardShell({ board, scope, vistaInicial }: {
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
           onSoltarTarea={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
           onSoltarProy={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido }) : undefined} ask={ask} />}
-        {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'tarea', id: openTask.id })} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
-      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)}
+      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
         onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
         onClose={() => setPeekProjId(null)} />}
@@ -1319,7 +1346,7 @@ export function BoardShell({ board, scope, vistaInicial }: {
           onClose={() => setSoltada(null)} />
       )}
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
@@ -1450,6 +1477,24 @@ export function BoardShell({ board, scope, vistaInicial }: {
       {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels}
         onAsignar={(ids, motivo) => { const snap = asignarTask; board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`); board.showUndo('Proyecto actualizado', () => board.replaceTask(snap)); }}
         onClose={() => setAsignarTaskId(null)} />}
+      {/* ⚠️ HERMANO DE LOS DETALLES, NO HIJO. Igual que `AsignarProyectoModal`: escrito
+          dentro de los `children` de un modal de la casa se escondería solo (la pila apaga
+          al de abajo con `display:none`, y un descendiente se apaga con él). Acá el detalle
+          se sigue viendo debajo, que es lo que se pidió el 26/09 («no debería cerrarse el
+          detail»). */}
+      {asignarCli && cliDe && (
+        <AsignarClienteModal
+          que={asignarCli.tipo === 'tarea' ? 'la tarea' : 'el proyecto'}
+          nombre={'title' in cliDe ? cliDe.title : cliDe.name}
+          clientes={clientes}
+          actualId={clienteDe(cliDe)?.leadId ?? null}
+          onElegir={(c) => {
+            const v = c ? { leadId: c.leadId, nombre: c.nombre } : null;
+            if (asignarCli.tipo === 'tarea') board.setCliente(asignarCli.id, v);
+            else board.setLabelCliente(asignarCli.id, v);
+          }}
+          onClose={() => setAsignarCli(null)} />
+      )}
       {datosOpen && <DatosModal items={faltantes}
         onSetDeadline={(id, fecha) => board.setDeadline(id, fecha, '')}
         onAbrir={(id) => { setDatosOpen(false); setOpenId(id); }}
@@ -2474,7 +2519,11 @@ function BloqueHistorial({ n, fuente, children }: { n: number; fuente: Fuente; c
             <path d="M3.4 1.4 L7 5 L3.4 8.6" />
           </svg>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>
-          Movimientos
+          {/* ⚠️ EN INGLÉS Y A PEDIDO: «en lugar de "Movimientos" mejor "Change History"»
+              (26/09/2026). Es la EXCEPCIÓN a la regla de que la interfaz va en español
+              neutro (AGENTS.md), y por eso queda escrita acá: no es un descuido de quien
+              copió de un kit, es el nombre que el dueño le puso a esta cosa. */}
+          Change History
         </button>
         {/* ⚠️ EL CHIP NO SE EXPLICA SOLO. «El origen no sólo el ícono con la palabra, sino
             que también que diga "Origen" en algún lado, para que se entienda» (25/09/2026):
@@ -2517,6 +2566,43 @@ const pieAcciones: CSSProperties = { display: 'flex', justifyContent: 'flex-end'
  *  carácter: «al igual que el formateo de change history, aplica todo en ambos, que no haya
  *  discordancia» (25/09/2026) también vale para lo que no se ve hasta que uno de los dos
  *  cambia. Uno solo, y los dos detalles lo importan. */
+/**
+ * EL CAMPO «CLIENTE», UNO SOLO PARA LAS DOS COLUMNAS (mig 0172).
+ *
+ * ⚠️ ES UN COMPONENTE Y NO DOS BLOQUES COPIADOS, Y ESO ES LA DECISIÓN. La columna derecha
+ * del detalle está escrita DOS VECES en este archivo —`TaskModal` y `ProjectDetailModal`—
+ * con el mismo objeto de estilo duplicado, así que «agregá un campo igual a los demás» son
+ * dos ediciones y dos oportunidades de que queden distintos. El Quarter ya vive así y se
+ * nota: el aviso de «la fecha cae en otro trimestre» está escrito dos veces, palabra por
+ * palabra. Acá se corta.
+ *
+ * ⚠️ EL LÁPIZ VA PEGADO AL RÓTULO, como en PROYECTOS. Probado en los dos lugares
+ * equivocados el 23/09/2026: colgado con un `flex:1` en el medio queda flotando contra el
+ * borde, y metido en la fila del chip se cae a un renglón propio porque el chip ocupa el
+ * ancho entero de la columna.
+ */
+function CampoCliente({ cliente, onAbrir }: {
+  cliente: { leadId: number; nombre: string } | null;
+  onAbrir: () => void;
+}) {
+  return (
+    <div>
+      <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        {ROTULO_CLIENTE}
+        <LapizPrioridad tam={20} onClick={onAbrir} titulo={cliente ? 'Cambiar el cliente' : 'Asignar un cliente'} />
+      </label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
+        {cliente
+          ? <ClienteChip nombre={cliente.nombre} onClick={onAbrir} />
+          /* «Interno» y no «Sin cliente»: que un trabajo no sea de nadie es una respuesta
+             válida y es la que tiene la mayoría del tablero. Un «sin…» se lee como que
+             falta algo, y pone un hueco donde no hay ninguno. */
+          : <span style={{ fontSize: 12, color: 'var(--faint)', fontStyle: 'italic' }}>{SIN_CLIENTE}</span>}
+      </div>
+    </div>
+  );
+}
+
 const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
 /**
@@ -3626,11 +3712,15 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-export function TaskModal({ t, board, topProjectId, suggestMako = false, trabajando = false, onDebate, onPrioridad, onDelete, onAsignar, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
+export function TaskModal({ t, board, topProjectId, suggestMako = false, trabajando = false, onDebate, onPrioridad, onDelete, onAsignar, onAsignarCliente, onOpenProj, ask, onBack, escDisabled = false, onClose }: {
   t: BoardTask; board: Board; topProjectId: string | null; suggestMako?: boolean;
   /** el Perro está trabajando sobre ESTA tarjeta ahora mismo (recién creada) */
   trabajando?: boolean;
-  onDebate: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
+  onDebate: () => void; onPrioridad: () => void; onDelete: () => void; onAsignar: () => void;
+  /** Abre el picker de CLIENTE (mig 0172). El estado del modal vive en `BoardShell`, así que
+   *  la capacidad entra por acá: sin la prop, el lápiz no se dibuja. Mismo criterio que
+   *  `onAsignar`, y el mismo modo de falla que este archivo ya pagó cuatro veces. */
+  onAsignarCliente: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -3891,6 +3981,12 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                   ))}
               </div>
             </div>
+
+            {/* ⚠️ EL CLIENTE VA PEGADO A PROYECTOS, y no arriba con la prioridad. Los dos
+                contestan la misma pregunta —DÓNDE vive esta tarea, de qué cuelga y de quién
+                es— y leerlos juntos es lo que permite ver de un vistazo que una tarea está
+                en el proyecto de un cliente y asignada a otro. */}
+            <CampoCliente cliente={clienteDe(t)} onAbrir={onAsignarCliente} />
 
             {/* ⛔ ACÁ VIVÍA EL ORIGEN, con su rótulo y su chip. Se fue al renglón del
                 historial el 25/09/2026: «que el origen esté en el change history, tiene
@@ -4991,7 +5087,11 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onAsignarCliente, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
+  /** Abre el picker de CLIENTE (mig 0172). Es la mitad del PROYECTO, y es la que importa:
+   *  un proyecto asignado ata a ese cliente TODAS sus tareas de una vez. Sin la prop, este
+   *  modal dibuja el tablero completo y el campo no — el modo de falla de siempre. */
+  onAsignarCliente: () => void;
   /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
    *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
    *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */
@@ -5216,6 +5316,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
 
             {/* ── fin de grupo. Ver el porqué de los grupos en el comentario de arriba. */}
             <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
+            {/* ⚠️ ES EL MISMO COMPONENTE QUE EN LA TAREA, a propósito: un campo que significa
+                lo mismo no puede verse distinto según qué detalle abriste. Y acá es donde
+                más pesa — asignar el proyecto ata a ese cliente sus N tareas de un click,
+                sin escribir N filas: el cruce de Customer Success las ata POR proyecto. */}
+            <CampoCliente cliente={clienteDe(proj)} onAbrir={onAsignarCliente} />
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             {/* ELIMINAR, AL PIE DE LA COLUMNA DERECHA Y COMO TACHO: el mismo control, en el
                 mismo lugar y con la misma cara que en una tarea. Lo que se borra y cuántas

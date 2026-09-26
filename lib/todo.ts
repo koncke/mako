@@ -104,6 +104,20 @@ export type Categoria = { id: number; nombre: string; color: string; emoji: stri
   /** Cómo se repite (mig 0167). Gemelo de `Tarea.recurrencia`: la misma RRULE, el mismo
    *  saneo y la misma invariante — y la misma mitad que ya se olvidó dos veces. */
   recurrencia: string | null;
+  /**
+   * DE QUIÉN es este proyecto: el lead GANADO del CRM (mig 0172). Ata TODAS sus tareas a
+   * ese cliente de una sola vez, que es el nivel donde la pregunta se contesta bien: un
+   * cliente casi nunca tiene tareas sueltas, tiene un proyecto del que cuelgan las de cada
+   * semana.
+   *
+   * ⚠️ ES LA MITAD DEL CLIENTE Y TIENE SU GEMELA EN `plan_proyectos`. `BoardShell` es UNO
+   * y lo montan los dos tableros; si la columna, el mapper o el `upd` de acá no nombran el
+   * campo, el control se dibuja y no guarda nada — tres veces ya en este archivo
+   * (prioridad, Quarter, recurrencia).
+   */
+  cliente_lead_id: number | null;
+  /** Etiqueta para pintar sin ir a buscar `leads`. La clave es `cliente_lead_id`. */
+  cliente_nombre: string | null;
   detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
@@ -547,6 +561,10 @@ const catRow = (r: Record<string, unknown>): Categoria => {
   c.recurrente = !!r.recurrente;
   // Mismo saneo y misma invariante que en `rowTo` (mig 0167).
   c.recurrencia = recurrenciaDe({ recurrente: c.recurrente, recurrencia: r.recurrencia });
+  // DE QUIÉN es (mig 0172). `leadIdOk` y no el valor crudo: un 0 no es un lead y rompería
+  // la FK; lo mismo que hace `rowTo` con la columna gemela de las tareas.
+  c.cliente_lead_id = leadIdOk(r.cliente_lead_id);
+  c.cliente_nombre = typeof r.cliente_nombre === 'string' && r.cliente_nombre.trim() ? (r.cliente_nombre as string) : null;
   return c;
 };
 
@@ -557,14 +575,14 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown, cliente?: { lead_id?: number | null; nombre?: string | null }): Promise<Categoria> {
   const supabase = (await getTenantDb());
   // Un proyecto que se repite NACE sin fecha, acá mismo (mig 0164). No alcanza con que el
   // editar la borre: si el alta la escribiera, la fila nacería con un deadline que después
   // nadie va a poder ver ni sacar — y el aviso de vencimientos lo leería igual.
   const repite = !!recurrente;
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
@@ -579,7 +597,7 @@ async function repiteCategoria(id: number): Promise<boolean> {
   return !!(data as { recurrente?: unknown } | null)?.recurrente;
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
@@ -607,6 +625,12 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
     const repite = patch.recurrente !== undefined ? !!patch.recurrente : await repiteCategoria(id);
     upd.recurrencia = recurrenciaDe({ recurrente: repite, recurrencia: patch.recurrencia });
   }
+  // DE QUIÉN es (mig 0172). Este `upd` también se arma campo por campo: lo que no se nombre
+  // acá no llega, y el desplegable del tablero contestaría 200 sin guardar nada.
+  // `undefined` = «no lo toques»; `null` = «sacale el cliente». Son dos cosas y las dos
+  // tienen que poder viajar, o desasignar sería imposible.
+  if (patch.cliente_lead_id !== undefined) upd.cliente_lead_id = leadIdOk(patch.cliente_lead_id);
+  if (patch.cliente_nombre !== undefined) upd.cliente_nombre = txtOk(patch.cliente_nombre);
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());

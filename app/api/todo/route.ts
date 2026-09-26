@@ -150,8 +150,12 @@ export async function POST(req: NextRequest) {
       // Cómo se repite (mig 0167). Va en el alta por lo mismo que `recurrente`, y cruda:
       // la sanea `crearCategoria` con su invariante (`recurrenciaDe`).
       const recurrencia = body.recurrencia;
+      // DE QUIÉN es (mig 0172). Va en el alta porque restaurar un proyecto borrado pasa por
+      // acá: sin esta línea, deshacer un borrado devuelve el proyecto sin su cliente y la
+      // tab de Customer Success lo pierde de vista sin que nadie lo haya desasignado.
+      const cliente = { lead_id: body.cliente_lead_id as number | null | undefined, nombre: body.cliente_nombre as string | null | undefined };
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, recurrencia) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, recurrencia, cliente) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
@@ -161,7 +165,10 @@ export async function POST(req: NextRequest) {
       // `upd` campo por campo, así que un campo que no esté declarado acá se cae en la
       // puerta aunque el navegador lo mande. Viaja CRUDA —el tipo es `unknown`— porque el
       // saneo necesita saber si la fila se repite, y eso lo lee `editarCategoria`.
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown }) ?? {};
+      // ⚠️ `cliente_lead_id` / `cliente_nombre` ESTÁN EN ESTE TIPO O NO LLEGAN (mig 0172),
+      // por lo mismo que `recurrencia`: la puerta es un tipo, y lo que no se nombre acá se
+      // cae en silencio aunque el navegador lo mande.
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

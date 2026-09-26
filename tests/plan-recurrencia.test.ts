@@ -109,6 +109,12 @@ const PLAN_BOARD = leer('lib', 'plan-board.ts');
 const TODO = leer('lib', 'todo.ts');
 const RUTA_TODO = leer('app', 'api', 'todo', 'route.ts');
 const TODO_BOARD = leer('app', 'plan', 'TodoBoard.tsx');
+// ⚠️ LOS MAPPERS DE ENTRADA SE MUDARON EL 26/09/2026. `toBoard`/`toLabel` vivían adentro
+// de `TodoBoard.tsx` y ahora están en `board/desde-todo.ts`, para que los pueda importar
+// también el SERVER (/productivity-analyst) — un `.tsx` con `'use client'` no exporta
+// valores al grafo del server. La guarda sigue al código: apuntarla al archivo viejo
+// habría dado verde sobre un mapper que ya no está ahí, que es peor que no tenerla.
+const TODO_ENTRADA = leer('app', 'plan', 'board', 'desde-todo.ts');
 const USE_BOARD = leer('app', 'plan', 'board', 'useBoard.ts');
 const SHELL = leer('app', 'plan', 'board', 'BoardShell.tsx');
 const TABLAS = leer('app', 'plan', 'board', 'Tablas.tsx');
@@ -400,8 +406,10 @@ test('las CUATRO ramas de /api/todo la dejan pasar', () => {
   // recurrencia a algo que vence.
   assert.ok(/recurrencia: t\.recurrencia/.test(RUTA_TODO), 'la rama «crear»');
   assert.ok(/recurrencia: patch\.recurrencia/.test(RUTA_TODO), 'la rama «editar»');
-  assert.ok(/quarter, recurrente, recurrencia\)/.test(RUTA_TODO), 'la rama «categoria-crear»');
-  assert.ok(/recurrente\?: boolean; recurrencia\?: unknown \}\) \?\? \{\}/.test(RUTA_TODO), 'la rama «categoria-editar»: el tipo del patch ES la puerta');
+  // `categoria-crear` lleva un argumento más desde la 0172 (el cliente), así que la
+  // aserción mira los dos que le importan y no el final de la lista.
+  assert.ok(/quarter, recurrente, recurrencia, cliente\)/.test(RUTA_TODO), 'la rama «categoria-crear»');
+  assert.ok(/recurrente\?: boolean; recurrencia\?: unknown;/.test(RUTA_TODO), 'la rama «categoria-editar»: el tipo del patch ES la puerta');
   // Y `undefined` («no lo toques») nunca se colapsa con `null` («bórrala»): si se colara un
   // `?? null` en la ruta, editar cualquier otro campo borraría el ritmo.
   assert.ok(!/recurrencia: patch\.recurrencia \?\? null/.test(RUTA_TODO), 'la ruta no puede colapsar undefined con null');
@@ -411,8 +419,8 @@ test('el board del CLIENTE la manda en los dos sentidos', () => {
   // `toBoard`/`toLabel` son la puerta de ENTRADA: sin ellas el selector nace vacío en cada
   // carga aunque la fila tenga el dato — o sea que elegir un ritmo «no hace nada» al
   // recargar, que es exactamente cómo se reportó el bug hermano de `recurrente`.
-  assert.ok(/recurrente: t\.recurrente, recurrencia: t\.recurrencia/.test(TODO_BOARD), 'toBoard');
-  assert.ok(/recurrente: c\.recurrente, recurrencia: c\.recurrencia/.test(TODO_BOARD), 'toLabel');
+  assert.ok(/recurrente: t\.recurrente, recurrencia: t\.recurrencia/.test(TODO_ENTRADA), 'toBoard');
+  assert.ok(/recurrente: c\.recurrente, recurrencia: c\.recurrencia/.test(TODO_ENTRADA), 'toLabel');
   // Y los cuatro payloads de SALIDA (editar y alta de tarea, alta y editar de proyecto).
   assert.equal(cuenta(TODO_BOARD, 'recurrencia: d.recurrencia ?? null'), 2, 'los dos payloads de una tarea');
   assert.equal(cuenta(TODO_BOARD, 'recurrencia: l.recurrencia ?? null'), 2, 'los dos payloads de un proyecto');

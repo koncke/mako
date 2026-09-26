@@ -12,6 +12,9 @@ import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './depen
 // salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
 // nuevo por qué algo no compite.
 import { esRecurrente, llevaDeadline, recurrenciaOk, textoRepeticionCorto } from '@/lib/plan-recurrentes';
+// DE QUIÉN es una tarjeta (mig 0172). Mismo criterio que arriba: el predicado y los
+// textos salen del módulo compartido, que también leen los dos pickers y Customer Success.
+import { clienteDe, SIN_CLIENTE } from '@/lib/plan-clientes';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -89,6 +92,25 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   function patchLogExplicit<K extends keyof BoardTask>(id: string, field: K, value: BoardTask[K], prev: unknown, text: string, actor: Actor = 'user') {
     const entry = mkEntry(actor, text, field, prev);
     setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, [field]: value, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    markDirty(id);
+    ofrecerDeshacer(id, entry, actor);
+  }
+
+  /**
+   * Un cambio que toca VARIOS campos de una tarea pero es UNA decisión: una entrada en el
+   * change history, un solo toast de deshacer, y el `prev` de todos los campos juntos.
+   *
+   * Es la gemela de `patchLabelLog`, que ya hacía esto para un proyecto. Sin ella, asignar
+   * un cliente serían dos `patchLogExplicit` —id y nombre— o sea dos renglones idénticos en
+   * el historial y dos botones de deshacer, de los cuales apretar uno solo deja la tarjeta
+   * con el id de un cliente y el nombre de otro.
+   */
+  function patchLogFields(id: string, fields: Partial<BoardTask>, text: string, actor: Actor = 'user') {
+    const t = byId(id); if (!t) return;
+    const prev: Record<string, unknown> = {};
+    for (const k of Object.keys(fields)) prev[k] = (t as unknown as Record<string, unknown>)[k];
+    const entry = mkEntry(actor, text, '__task__', prev);
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, ...fields, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
     markDirty(id);
     ofrecerDeshacer(id, entry, actor);
   }
@@ -497,7 +519,14 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     setTasks((ts) => ts.map((x) => {
       if (x.id !== id) return x;
       const next = { ...x, historial: x.historial.filter((h) => h.id !== entry.id) } as BoardTask;
-      (next as unknown as Record<string, unknown>)[field] = prev;
+      // ⚠️ `__task__` ES UN SNAPSHOT DE VARIOS CAMPOS, no un campo que se llame así. Lo usa
+      // todo cambio que es UNA decisión escrita en más de una columna — hoy el cliente
+      // (`clienteLeadId` + `clienteNombre`, mig 0172). Es la gemela exacta de `__label__`
+      // en `patchLabelLog`, y existe por la misma razón: con dos entradas separadas, el
+      // historial diría dos veces lo mismo y deshacer una sola dejaría la tarjeta con el
+      // id de un cliente y el nombre de otro.
+      if (field === '__task__' && prev && typeof prev === 'object') Object.assign(next, prev as Partial<BoardTask>);
+      else (next as unknown as Record<string, unknown>)[field] = prev;
       if (field === 'score') next.priority = prioFromScore(clampScore(Number(prev))); // la columna deriva del score
       return next;
     }));
@@ -647,6 +676,41 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     patchLabelLog(id, { recurrencia: next }, textoRepeticionCorto(next) ?? 'Sin repetición');
   };
 
+  /**
+   * DE QUIÉN es una TAREA (mig 0172). `null` la desasigna.
+   *
+   * ⚠️ VA POR `patchLogFields` Y NO POR DOS `patchLogExplicit`. El id y el nombre son UNA
+   * decisión escrita en dos columnas: con dos entradas, el historial diría dos veces lo
+   * mismo y deshacer una sola dejaría la tarjeta con el id de un cliente y el nombre de
+   * otro — o sea un chip que miente sin que nada falle.
+   *
+   * ⚠️ Y SE COMPARA POR ID. Dos clientes se pueden llamar igual; el nombre acá es una
+   * etiqueta para pintar y nada más (ver `lib/plan-clientes.ts`).
+   */
+  const setCliente = (id: string, c: { leadId: number; nombre: string } | null) => {
+    const t = byId(id); if (!t) return;
+    if ((clienteDe(t)?.leadId ?? null) === (c?.leadId ?? null)) return;
+    patchLogFields(id, { clienteLeadId: c?.leadId ?? null, clienteNombre: c?.nombre ?? null },
+      c ? `Cliente: ${c.nombre}` : SIN_CLIENTE);
+  };
+
+  /**
+   * DE QUIÉN es un PROYECTO (mig 0172). El choke point acá es `patchLabelLog`, que ya sabe
+   * guardar el `prev` de varios campos juntos.
+   *
+   * ⚠️ NO ARRASTRA A SUS TAREAS, Y ES LA DECISIÓN. Un proyecto del cliente X ata a X TODAS
+   * sus tareas a través del cruce (`app/customer-success/cruce.ts` las ata por proyecto),
+   * así que copiar el id en las 53 filas no agregaría un solo dato: agregaría 53 escrituras
+   * por un click y, peor, desasignar el proyecto dejaría las 53 marcadas. Es el mismo
+   * criterio que `setLabelRecurrente`, y por el mismo motivo.
+   */
+  const setLabelCliente = (id: string, c: { leadId: number; nombre: string } | null) => {
+    const l = labels.find((x) => x.id === id); if (!l) return;
+    if ((clienteDe(l)?.leadId ?? null) === (c?.leadId ?? null)) return;
+    patchLabelLog(id, { clienteLeadId: c?.leadId ?? null, clienteNombre: c?.nombre ?? null },
+      c ? `Cliente: ${c.nombre}` : SIN_CLIENTE);
+  };
+
   return {
     tasks, labels, user, repo, deps, addDep, delDep,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
@@ -658,8 +722,13 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // ⚠️ Y LO MISMO VALE PARA `setRecurrencia` / `setLabelRecurrencia` (mig 0167): una
     // acción que no está en este objeto no existe para ninguna pantalla, con el typecheck
     // en verde.
-    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setRecurrencia, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelRecurrencia, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
+    // ⚠️ Y LO MISMO PARA `setCliente` / `setLabelCliente` (mig 0172). Tercera vez que se
+    // escribe esta advertencia en el mismo objeto: si no está acá, el modal importa un
+    // `board` que no tiene la función, `board.setCliente` es `undefined`, y el click no
+    // hace nada. El typecheck no lo caza porque el board se tipa por inferencia de ESTE
+    // objeto — o sea que el error se manifiesta en la pantalla y en ningún otro lado.
+    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setRecurrencia, setTaskLabels, setCliente, undoHist,
+    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelRecurrencia, setLabelCliente, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

@@ -9,7 +9,6 @@
 // el board: hasta que haya eventos reales, muestran un estado "sin datos todavía".
 
 import { useMemo, useState } from 'react';
-import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Hist, PCOLOR, PLABEL, prioFromScore, type Prio } from './types';
 import { sinRecurrentes } from '@/lib/plan-recurrentes';
 
@@ -33,14 +32,25 @@ const deadlineMoves = (h: Hist[]): number => h.filter((x) => (x.text || '').star
 
 type DoneFilter = 'todos' | 'activos' | 'completados';
 
-export function GraphicsView({ board }: { board: Board }) {
+/**
+ * ⚠️ PIDE `tasks` Y `labels`, NO EL BOARD ENTERO (26/09/2026). Es de sólo LECTURA —no
+ * escribe una fila— y pedía `Board`, que es el `ReturnType` de `useBoard`: cuarenta y pico
+ * de funciones de escritura, el dirty-set y el autoguardado. Con esa firma sólo se podía
+ * montar adentro del tablero, y el pedido era sacarla de ahí («elimina la tab de graphics y
+ * llevala al desplegable de analysts como Productivity Analyst»).
+ *
+ * Pedir lo que se lee no es cosmético: `useBoard` AUTOGUARDA por dirty-set y `saveTask`
+ * hace upsert de la fila ENTERA desde el estado del navegador, así que montar un segundo
+ * `useBoard` para dibujar gráficos sería un segundo ESCRITOR pisando al del tablero sin un
+ * solo error. Con esta firma, la pantalla nueva lee del server y no monta ninguno.
+ */
+export function GraphicsView({ tasks: tasksIn, labels }: { tasks: BoardTask[]; labels: Label[] }) {
   // ⚠️ SIN LAS RECURRENTES, igual que el resto del tablero. Todo lo que esta pantalla
   // dibuja —cuántas activas, cuántas hechas, el avance por proyecto, los deadlines
   // corridos— mide trabajo que EMPIEZA Y TERMINA. Una tarea que se repite para siempre
   // está clavada en «activa» y en 0% por definición: contarla hunde todas las barras y el
   // gráfico contesta otra pregunta que la que su título promete.
-  const { labels } = board;
-  const tasks = sinRecurrentes(board.tasks);
+  const tasks = sinRecurrentes(tasksIn);
   const [filtro, setFiltro] = useState<DoneFilter>('activos');
 
   const m = useMemo(() => {

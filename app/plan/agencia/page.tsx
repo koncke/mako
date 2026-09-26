@@ -23,6 +23,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { estaImpersonando, rutaConWs } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { listPlanBoard } from '@/lib/plan-board';
+import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
 import type { BoardTask, Label } from '../board/types';
 import { PlanBoard } from '../PlanBoard';
 import type { Dep } from '../board/dependencias';
@@ -54,5 +55,11 @@ export default async function PlanAgenciaPage({ searchParams }: { searchParams: 
   try { const b = await listPlanBoard(); tareas = b.tareas; proyectos = b.proyectos; deps = b.deps; } catch (e) { console.error('[plan/agencia] listPlanBoard', e); }
   const vacio = tareas.length === 0 && proyectos.length === 0;
 
-  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} />;
+  // Los clientes del workspace para el picker del detalle (mig 0172). `…OVacio` y no
+  // `clientesGanados` a secas: si la consulta de leads falla, el tablero se tiene que
+  // dibujar igual con el picker vacío. Que un error leyendo el CRM deje a alguien sin su
+  // tablero entero es el peor intercambio posible.
+  const clientes = await clientesGanadosOVacio();
+
+  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} clientes={clientes} />;
 }

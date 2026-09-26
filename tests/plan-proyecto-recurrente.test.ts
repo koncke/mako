@@ -79,6 +79,14 @@ const planBoard = vivo(leer('lib', 'plan-board.ts'));
 const todo = vivo(leer('lib', 'todo.ts'));
 const rutaTodo = vivo(leer('app', 'api', 'todo', 'route.ts'));
 const todoBoard = vivo(leer('app', 'plan', 'TodoBoard.tsx'));
+// ⚠️ LA PUERTA DE ENTRADA SE MUDÓ EL 26/09/2026: `toBoard`/`toLabel` viven en
+// `board/desde-todo.ts` para que también los pueda importar el SERVER
+// (/productivity-analyst) — un `.tsx` con `'use client'` no exporta valores al grafo del
+// server. La ESCRITURA (`createLabel`, `saveLabel`) sigue en `TodoBoard.tsx`, que es donde
+// vive el `Repo`. Son dos archivos y por eso son dos constantes: dejar la aserción
+// apuntando al archivo viejo habría dado «no encontré toLabel», que es el error correcto
+// por la razón equivocada — el mapper no se borró, se mudó.
+const todoEntrada = vivo(leer('app', 'plan', 'board', 'desde-todo.ts'));
 
 /** El cuerpo de una función/const declarada en un archivo, hasta el corte que se pida. */
 function cuerpo(src: string, desde: string, hasta: string): string {
@@ -189,7 +197,10 @@ test('la ruta del cliente deja pasar el campo en el alta y en el editar', () => 
 });
 
 test('el tablero del cliente lo LEE y lo MANDA', () => {
-  assert.match(cuerpo(todoBoard, 'const toLabel =', '\n\n'), /recurrente:\s*c\.recurrente/,
+  // El final es `\n` y no `\n\n`: `toLabel` es una sola línea y ahora es la ÚLTIMA del
+  // archivo, así que no tiene un renglón en blanco detrás. Con el marcador viejo el test
+  // fallaba con «no encontré el final», que es el error correcto por la razón equivocada.
+  assert.match(cuerpo(todoEntrada, 'const toLabel =', '\n'), /recurrente:\s*c\.recurrente/,
     'toLabel no lee la columna: el interruptor nace apagado en cada carga aunque la fila diga true');
   assert.match(cuerpo(todoBoard, 'createLabel: async (l)', '},'), /recurrente:\s*!!l\.recurrente/,
     'createLabel no manda `recurrente`');

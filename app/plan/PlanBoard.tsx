@@ -13,6 +13,7 @@ import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
 import { repoPlan, apiPlan } from './board/repo-plan';
 import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, type GuardPatch, type GuardProjPatch, type GuardResult, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
+import type { ClienteRef } from '@/lib/plan-clientes';
 import { CATALOGO_PROYECTOS } from '@/lib/plan-proyectos-catalogo';
 import type { Dep } from './board/dependencias';
 
@@ -731,14 +732,17 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string }) {
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [] }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+  /** Los leads ganados del workspace, leídos en el server (mig 0172). Sin esto el
+   *  picker de cliente del detalle nace vacío y el campo no sirve para nada. */
+  clientes?: ClienteRef[] }) {
   // El I/O vive en board/repo-plan.ts: lo comparte el roadmap de Customer
   // Success, que abre la MISMA tarjeta con el MISMO modal.
   const repo = repoPlan();
   const board = useBoard(tareas, proyectos, user, repo, deps);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;
-  return <BoardShell board={board} scope="agencia" vistaInicial={vistaInicial} />;
+  return <BoardShell board={board} scope="agencia" vistaInicial={vistaInicial} clientes={clientes} />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

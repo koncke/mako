@@ -9,26 +9,14 @@
 
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore, scoreFromPrio } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore } from './board/types';
+// Los dos mappers de ENTRADA viven en un `.ts` para que también los pueda importar el
+// SERVER (/productivity-analyst). Ver el encabezado de ese archivo.
+import { toBoard, toLabel } from './board/desde-todo';
 import type { Tarea, Categoria } from '@/lib/todo';
 import { CATALOGO_TODO } from '@/lib/todo-proyectos-catalogo';
+import type { ClienteRef } from '@/lib/plan-clientes';
 
-const toBoard = (t: Tarea): BoardTask => ({
-  // El board del cliente (experimento_tareas) todavía no persiste emoji por tarea:
-  // default 📌. El emoji-por-tarea con memoria vive en el board del dueño (SEED).
-  id: String(t.id), num: t.id, emoji: '📌', title: t.titulo, detalle: t.detalle ?? '',
-  priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
-  scoreRazon: t.score_razon ?? undefined,
-  progress: t.progreso, deadline: t.deadline ?? '', quarter: t.quarter ?? undefined, recurrente: t.recurrente, recurrencia: t.recurrencia,
-  labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
-  origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
-  // De dónde salió: pinta el mismo chip que en el board del dueño (con link al minuto).
-  fuente: (t.fuente as BoardTask['fuente']) ?? undefined,
-});
-// ⚠️ `recurrente` VA ACÁ Y EN LOS DOS PAYLOADS DE ABAJO (mig 0164). Este mapper es la
-// puerta de ENTRADA del tablero del cliente: sin él, el interruptor nace apagado en cada
-// carga aunque la fila diga `true`, o sea que marcarlo «no hace nada» al recargar.
-const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, recurrente: c.recurrente, recurrencia: c.recurrencia, detalle: c.detalle, historial: c.historial });
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; patches?: GuardPatch[]; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -49,6 +37,10 @@ const editPatch = (d: BoardTask) => ({
   // server distingue de `undefined` («no lo toques»).
   deadline: d.deadline || null, quarter: d.quarter || null, recurrente: !!d.recurrente, recurrencia: d.recurrencia ?? null, categorias: catsNum(d.labels, d.title),
   checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null, fuente: d.fuente ?? null,
+  // DE QUIÉN es (mig 0172). Este objeto es lo ÚNICO que viaja en un `editar`, así que un
+  // campo que falte no es «no cambia»: la columna se queda como estaba. El `?? null`
+  // manda «no es de nadie» explícito, que es lo que hace falta para poder DESasignar.
+  cliente_lead_id: d.clienteLeadId ?? null, cliente_nombre: d.clienteNombre ?? null,
 });
 
 const catsNum = (labels: string[], titulo: string): number[] => {
@@ -57,7 +49,9 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string }) {
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [] }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+  /** Los leads ganados del workspace, leídos en el server (mig 0172). */
+  clientes?: ClienteRef[] }) {
   const repo: Repo = {
     // MISMA config que el board del super-admin (PlanBoard): la única diferencia real
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
@@ -121,10 +115,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
     // El Perro server-side, igual que en el board del dueño. Sin esto, `usaServerPerro`
     // era false y TODO lo que entraba por el tablero del cliente (reunión, archivo,
@@ -144,5 +138,5 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);
   // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
   // el board de la agencia ni con otro workspace en la misma impersonación/origin.
-  return <BoardShell board={board} scope={wsId != null ? `ws:${wsId}` : undefined} vistaInicial={vistaInicial} />;
+  return <BoardShell board={board} scope={wsId != null ? `ws:${wsId}` : undefined} vistaInicial={vistaInicial} clientes={clientes} />;
 }

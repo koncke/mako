@@ -193,6 +193,23 @@ export type BoardTask = {
    * vieja se lee sin la columna.
    */
   recurrencia?: string | null;
+  /**
+   * DE QUIÉN es este trabajo: el lead GANADO del CRM (mig 0172). `null`/ausente =
+   * trabajo interno, que NO es lo mismo que «no se sabe» — esta pregunta la contesta
+   * una persona eligiendo de una lista, así que vacío significa que eligió que no es
+   * de nadie.
+   *
+   * ⚠️ ES LA CLAVE, Y ANTES NO HABÍA NINGUNA. Hasta la 0172, de quién era un proyecto
+   * se adivinaba por el NOMBRE («Cliente: Macario Romero») y `app/customer-success/cruce.ts`
+   * documenta cómo falla eso sobre los datos reales: de 14 clientes del ws1, 6 cruzaban,
+   * 8 quedaban sin proyecto y 3 proyectos con 30 tareas sin dueño. Un parecido no es una
+   * clave; esto sí, y por eso gana sobre el nombre en el cruce.
+   */
+  clienteLeadId?: number | null;
+  /** El nombre con el que se asignó. Es una ETIQUETA para pintar el chip sin ir a buscar
+   *  `leads` en cada carga; la clave es `clienteLeadId` y ningún cálculo se apoya acá.
+   *  Si el lead se renombra en el CRM, esto queda viejo hasta la próxima asignación. */
+  clienteNombre?: string | null;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
@@ -241,7 +258,25 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    * reuniones de marketing— tampoco lleva deadline ni quarter, así que «Cada semana, los
    * lunes» es todo lo que puede decir sobre cuándo.
    */
-  recurrencia?: string | null };
+  recurrencia?: string | null;
+  /**
+   * DE QUIÉN es este trabajo: el lead GANADO del CRM (mig 0172). `null`/ausente =
+   * trabajo interno, que NO es lo mismo que «no se sabe» — esta pregunta la contesta
+   * una persona eligiendo de una lista, así que vacío significa que eligió que no es
+   * de nadie.
+   *
+   * ⚠️ ES LA CLAVE, Y ANTES NO HABÍA NINGUNA. Hasta la 0172, de quién era un proyecto
+   * se adivinaba por el NOMBRE («Cliente: Macario Romero») y `app/customer-success/cruce.ts`
+   * documenta cómo falla eso sobre los datos reales: de 14 clientes del ws1, 6 cruzaban,
+   * 8 quedaban sin proyecto y 3 proyectos con 30 tareas sin dueño. Un parecido no es una
+   * clave; esto sí, y por eso gana sobre el nombre en el cruce.
+   */
+  clienteLeadId?: number | null;
+  /** El nombre con el que se asignó. Es una ETIQUETA para pintar el chip sin ir a buscar
+   *  `leads` en cada carga; la clave es `clienteLeadId` y ningún cálculo se apoya acá.
+   *  Si el lead se renombra en el CRM, esto queda viejo hasta la próxima asignación. */
+  clienteNombre?: string | null;
+};
 
 /**
  * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,

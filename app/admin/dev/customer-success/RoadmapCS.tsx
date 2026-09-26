@@ -154,12 +154,17 @@ export function RoadmapCS({ tareas, plan, user }: {
       )}
 
       {/* El modal EXACTO de /plan cuando el paso tiene tarjeta; la ficha corta cuando no.
-          Los cuatro handlers en no-op son a propósito: acá el modal se usa para MIRAR el
-          paso, y los pop-ups que abrirían (debate, prioridad, borrar, asignar) viven
-          en /plan, que es donde se edita. */}
+          Los CINCO handlers en no-op son a propósito: acá el modal se usa para MIRAR el
+          paso, y los pop-ups que abrirían (debate, prioridad, borrar, asignar proyecto,
+          asignar cliente) viven en /plan, que es donde se edita.
+          ⚠️ Y LA PROP ES OBLIGATORIA A PROPÓSITO, aunque acá no haga nada: el typecheck es
+          lo único que impide que el próximo call site de `TaskModal` se olvide de pasarla y
+          el campo desaparezca en silencio de una pantalla entera. Este archivo apareció así
+          — como un error de compilación— al agregar `onAsignarCliente` (mig 0172). */}
       {abierto && tareaAbierta && (
         <TaskModal t={tareaAbierta} board={board} topProjectId={null}
           onDebate={() => {}} onPrioridad={() => {}} onDelete={() => {}} onAsignar={() => {}}
+          onAsignarCliente={() => {}}
           ask={(_m, ok) => ok()} onClose={() => setAbierto(null)} />
       )}
       {abierto && !tareaAbierta && (

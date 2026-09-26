@@ -93,6 +93,12 @@ function rowToTask(r: Row): BoardTask {
     // tarea con deadline, y el próximo guardado la devolvería a la base tal cual. Saneando
     // también en la LECTURA, una RRULE rota en la columna entra como `null` en vez de dejar
     // la tarjeta sin dibujarse.
+    // DE QUIÉN es (mig 0172). Va en los DOS mappers por la misma razón destructiva que
+    // `recurrente` documenta arriba: el guardado es un `upsert` de la fila ENTERA, así que
+    // un campo que no se lee vuelve como `undefined` y el próximo save lo manda como `null`,
+    // borrando la asignación sin que nadie toque nada.
+    clienteLeadId: optInt(r.cliente_lead_id) ?? null,
+    clienteNombre: r.cliente_nombre ? str(r.cliente_nombre) : null,
     recurrencia: recurrenciaDe({ recurrente: !!r.recurrente, recurrencia: r.recurrencia }),
   };
 }
@@ -116,6 +122,12 @@ function taskToRow(t: BoardTask): Row {
     quarter: llevaDeadline(t) ? quarterEfectivo(t.deadline, t.quarter) : null,
     labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad, score_manual: !!t.scoreManual,
+    // DE QUIÉN es (mig 0172). El id es LA CLAVE y el nombre una etiqueta: se escriben
+    // juntos para que el chip se pueda pintar sin ir a buscar `leads` en cada carga.
+    // `?? null` y no `|| null`: acá `null` y `undefined` significan lo mismo —nadie— y el
+    // que llega al `upsert` tiene que ser `null` para que Postgres borre la asignación.
+    cliente_lead_id: t.clienteLeadId ?? null,
+    cliente_nombre: t.clienteNombre ?? null,
     recurrente: esRecurrente(t),
     // ⚠️ LA RECURRENCIA REEMPLAZA A LA FECHA, Y SE CORTA EN EL MISMO CHOKE POINT (0167).
     // Las dos líneas de arriba borran deadline y quarter cuando algo se repite; ésta hace
@@ -145,6 +157,12 @@ function rowToLabel(r: Row): Label {
     // decide el server (score, impacto…), y `recurrente` NO está ahí a propósito: lo decide
     // una PERSONA, así que tiene que poder viajar de ida y de vuelta.
     recurrente: !!r.recurrente,
+    // DE QUIÉN es (mig 0172). Va en los DOS mappers por la misma razón destructiva que
+    // `recurrente` documenta arriba: el guardado es un `upsert` de la fila ENTERA, así que
+    // un campo que no se lee vuelve como `undefined` y el próximo save lo manda como `null`,
+    // borrando la asignación sin que nadie toque nada.
+    clienteLeadId: optInt(r.cliente_lead_id) ?? null,
+    clienteNombre: r.cliente_nombre ? str(r.cliente_nombre) : null,
     // Misma invariante y mismo saneo en la lectura que en `rowToTask` (mig 0167).
     recurrencia: recurrenciaDe({ recurrente: !!r.recurrente, recurrencia: r.recurrencia }),
   };
@@ -163,6 +181,12 @@ function labelToRow(l: Label, orden = 0): Row {
     quarter: llevaDeadline(l) ? quarterEfectivo(l.deadline, l.quarter) : null,
     detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
     escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null, score_manual: !!l.scoreManual,
+    // DE QUIÉN es (mig 0172). El id es LA CLAVE y el nombre una etiqueta: se escriben
+    // juntos para que el chip se pueda pintar sin ir a buscar `leads` en cada carga.
+    // `?? null` y no `|| null`: acá `null` y `undefined` significan lo mismo —nadie— y el
+    // que llega al `upsert` tiene que ser `null` para que Postgres borre la asignación.
+    cliente_lead_id: l.clienteLeadId ?? null,
+    cliente_nombre: l.clienteNombre ?? null,
     recurrente: esRecurrente(l),
     // Lo mismo que en `taskToRow`, un nivel más arriba (mig 0167).
     recurrencia: recurrenciaDe(l),

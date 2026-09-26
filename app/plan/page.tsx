@@ -13,6 +13,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, estaImpersonando, rutaConWs } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
+import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -89,5 +90,11 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   // después de hidratar, cada refresh sería un parpadeo de Prioridades. Mismo trato que el
   // tablero del dueño — la persistencia de la pantalla no es una comodidad de super-admin.
   const { vista } = await searchParams;
-  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} />;
+  // Los clientes del workspace para el picker del detalle (mig 0172). `…OVacio` y no
+  // `clientesGanados` a secas: si la consulta de leads falla, el tablero se tiene que
+  // dibujar igual con el picker vacío. Que un error leyendo el CRM deje a alguien sin su
+  // tablero entero es el peor intercambio posible.
+  const clientes = await clientesGanadosOVacio();
+
+  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} />;
 }

@@ -144,7 +144,12 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Solo el board y MaKo. Sin Meta ni CRM no hay tablero que mostrar, y una
     // tab vacía se lee como producto roto (por eso no se le esconden "por ahora":
     // no las compró).
-    navKeys: ['todo', 'mako'],
+    // ⚠️ `productivity-analyst` ENTRA ACÁ PORQUE YA LO TENÍA. Eran los gráficos del
+    // tablero, o sea que venían incluidos en `todo`; al mudarlos a su propia tab
+    // (26/09/2026) sacarlos de esta capa habría sido quitarle una pantalla a quien la
+    // usaba, sin que nadie lo pidiera. Un Project Manager es justamente el que mira
+    // cuánto se produjo.
+    navKeys: ['todo', 'mako', 'productivity-analyst'],
     // Sin /integraciones: no tiene nada que conectar y la tab sería una lista de
     // rojos que le hace creer que le falta algo. Sin /contexto (es de agencia).
     userNavKeys: ['perfil', 'configuraciones'],
@@ -224,7 +229,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // afuera de la única capa que administra el producto era la última pieza del bug que
     // hacía que Customer Success fuera «la tab de Mauricio»: sin esto, el super-admin sólo
     // podía verla ENTRANDO al workspace de un cliente, o sea mirando la cartera de otro.
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success'],
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

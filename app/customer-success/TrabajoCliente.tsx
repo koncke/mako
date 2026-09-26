@@ -44,6 +44,7 @@ import { mdAHtml, sanitizeHtml } from '@/app/plan/board/RichText';
 import { ROTULO_RECURRENTE } from '@/lib/plan-recurrentes';
 import type { ProyectoCS, TareaCS, ResumenTrabajo } from './trabajo';
 import { trabajoDelClienteAction } from './actions';
+import { AsignarTrabajo } from './AsignarTrabajo';
 
 type Cargado = { proyectos: ProyectoCS[]; tareas: TareaCS[]; recurrentes: TareaCS[] };
 type Estado =
@@ -65,7 +66,10 @@ type Estado =
  * HERMANOS, no adentro. Acá el detalle reemplaza a la lista en el cuerpo de la ficha —
  * que además es lo que el pedido dice: verlo ALLÍ MISMO, sin tapar de quién es.
  */
-type Foco = { tipo: 'proyecto'; id: number } | { tipo: 'tarea'; id: number };
+/** ⚠️ EL `id` ES TEXTO desde la 0172: Customer Success lee el tablero que le toca, y
+ *  `plan_tareas.id` es texto mientras `experimento_tareas.id` es bigint. Un id de texto
+ *  contiene a uno numérico; al revés hay que inventar una conversión que después miente. */
+type Foco = { tipo: 'proyecto'; id: string } | { tipo: 'tarea'; id: string };
 
 const hoyISO = (): string => {
   const d = new Date();
@@ -80,10 +84,23 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
 }) {
   const [e, setE] = useState<Estado>({ fase: 'cargando' });
   const [pila, setPila] = useState<Foco[]>([]);
+  /** El selector de trabajo, abierto. Reemplaza a la lista en el cuerpo de la ficha, por
+   *  lo mismo que el detalle: un `<Modal>` anidado se esconde a sí mismo. */
+  const [asignando, setAsignando] = useState(false);
+  /** Sube cuando se guarda una asignación: fuerza a releer el trabajo del cliente, que es
+   *  lo único que hace visible lo que se acaba de asignar. */
+  const [recargar, setRecargar] = useState(0);
+  const [aviso, setAviso] = useState<string | null>(null);
   const hoy = useMemo(() => hoyISO(), []);
 
   useEffect(() => {
     let vivo = true;
+    // ⚠️ VUELVE A «CARGANDO» EN CADA RELECTURA. Sin esto, después de asignar quedaban en
+    // pantalla el aviso «1 asignado» y, justo debajo, «todavía no hay trabajo suyo en el
+    // tablero» — las dos cosas ciertas al mismo tiempo y contradiciéndose, durante los
+    // segundos que tarda leer el tablero entero. Se lee como que guardar no funcionó, que
+    // es exactamente lo que yo mismo concluí al verlo en el navegador.
+    setE({ fase: 'cargando' });
     trabajoDelClienteAction(leadId)
       .then((r) => {
         if (!vivo) return;
@@ -93,7 +110,10 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
       })
       .catch((err) => { if (vivo) setE({ fase: 'error', error: err instanceof Error ? err.message : 'No pude leer el tablero.' }); });
     return () => { vivo = false; };
-  }, [leadId]);
+    // `recargar` en las deps A PROPÓSITO: sin él, asignar guarda bien y la ficha sigue
+    // mostrando lo de antes — que se lee exactamente igual que una asignación que no
+    // funcionó, y es cómo se reportan estos bugs.
+  }, [leadId, recargar]);
 
   // ⚠️ MEDIDO, y por eso la espera se anuncia: la lectura tarda entre 0,5 y 9 segundos
   // (dev server contra la Supabase de producción, 212 tareas + 19 proyectos + la cartera).
@@ -132,14 +152,25 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
   const hechas = tareas.filter((t) => !t.abierta);
   const vacio = !proyectos.length && !tareas.length && !recurrentes.length;
 
+  if (asignando) {
+    return (
+      <div className="tr">
+        <AsignarTrabajo leadId={leadId} nombre={nombre}
+          onCerrar={() => setAsignando(false)}
+          onListo={(msg) => { setAsignando(false); setAviso(msg); setRecargar((n) => n + 1); }} />
+        <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      </div>
+    );
+  }
+
   const abrir = (f: Foco) => setPila((p) => [...p, f]);
   const volver = () => setPila((p) => p.slice(0, -1));
   const cerrarTodo = () => setPila([]);
   const arriba = pila[pila.length - 1] ?? null;
   const debajo = pila.length > 1 ? pila[pila.length - 2] : null;
 
-  const proyectoDe = (id: number) => proyectos.find((p) => p.id === id) ?? null;
-  const tareaDe = (id: number) => [...tareas, ...recurrentes].find((t) => t.id === id) ?? null;
+  const proyectoDe = (id: string) => proyectos.find((p) => p.id === id) ?? null;
+  const tareaDe = (id: string) => [...tareas, ...recurrentes].find((t) => t.id === id) ?? null;
   const nombreDe = (f: Foco): string =>
     f.tipo === 'proyecto' ? (proyectoDe(f.id)?.nombre ?? 'el proyecto') : (tareaDe(f.id)?.titulo ?? 'la tarea');
 
@@ -169,6 +200,20 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
 
   return (
     <div className="tr">
+      {/* Tres o cuatro palabras, que es el techo de un aviso (AGENTS.md). El detalle de
+          qué se asignó ya se ve en la lista de abajo. */}
+      {aviso && <p className="tr-ok">{aviso}</p>}
+
+      {/* ⚠️ EL BOTÓN VA ARRIBA Y SIEMPRE, no sólo cuando hay trabajo. El caso que lo
+          necesita es justamente el cliente que NO tiene nada: esconderlo ahí deja la
+          pantalla diciendo «todavía no hay trabajo suyo» sin ninguna forma de que lo
+          haya. */}
+      <div className="tr-acciones">
+        <button type="button" className="tr-asignar" onClick={() => setAsignando(true)}>
+          Asignarle trabajo
+        </button>
+      </div>
+
       {vacio ? (
         <SinTrabajo nombre={nombre} />
       ) : (
@@ -284,7 +329,7 @@ function SinTrabajo({ nombre }: { nombre: string }) {
   return (
     <div className="tr-vacio">
       <p className="t">Todavía no hay trabajo suyo en el tablero</p>
-      <p className="d">Aparece solo cuando un proyecto del tablero lleva el nombre de {nombre}.</p>
+      <p className="d">Asígnaselo con el botón de arriba, o ponle su nombre a un proyecto del tablero.</p>
     </div>
   );
 }
@@ -362,7 +407,7 @@ function DetalleTarea({ t, hoy, proyectos, volverA, onVolver, onCerrar }: {
 
 function DetalleProyecto({ p, hoy, tareas, volverA, onVolver, onCerrar, onTarea }: {
   p: ProyectoCS | null; hoy: string; tareas: TareaCS[];
-  volverA: string | null; onVolver: () => void; onCerrar: () => void; onTarea: (id: number) => void;
+  volverA: string | null; onVolver: () => void; onCerrar: () => void; onTarea: (id: string) => void;
 }) {
   if (!p) return null;
   const conFin = p.abiertas + p.hechas;
@@ -418,7 +463,7 @@ function DetalleProyecto({ p, hoy, tareas, volverA, onVolver, onCerrar, onTarea 
 }
 
 function ListaEnProyecto({ titulo, tareas, hoy, onTarea }: {
-  titulo: string; tareas: TareaCS[]; hoy: string; onTarea: (id: number) => void;
+  titulo: string; tareas: TareaCS[]; hoy: string; onTarea: (id: string) => void;
 }) {
   if (!tareas.length) return null;
   return (
@@ -487,6 +532,11 @@ const CSS = `
 .tr-cargando .d{ margin:0; font-size:12.5px; line-height:1.5; color:var(--faint); }
 
 .tr-nota{ font-size:13px; line-height:1.5; color:var(--dim); margin:2px 0 0; }
+.tr-ok{ margin:0 0 12px; font-size:13px; color:var(--good); }
+.tr-acciones{ display:flex; margin:0 0 16px; }
+.tr-asignar{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:9px;
+  padding:7px 13px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; }
+.tr-asignar:hover{ border-color:var(--primary); color:var(--primary); }
 .tr-error{ color:var(--bad); }
 .tr-vacio{ padding:22px 0; }
 .tr-vacio .t{ font-size:15px; font-weight:600; margin:0 0 5px; }

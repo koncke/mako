@@ -44,15 +44,30 @@ export type ComoAto =
   | 'parecido';
 
 export type ClienteCruce = { leadId: number; nombre: string; empresa: string | null };
-export type ProyectoCruce = { id: number; nombre: string };
+/**
+ * Un proyecto del tablero, para cruzar.
+ *
+ * ⚠️ EL `id` ES TEXTO, y no es un detalle. Los dos tableros de este producto numeran
+ * distinto: `tarea_categorias.id` es un bigint y `plan_proyectos.id` es un texto. Desde
+ * que Customer Success lee el que corresponda (mig 0172, `lib/tablero-actual.ts`), el
+ * cruce tiene que poder con los dos — y un id de texto contiene a uno numérico, mientras
+ * que al revés hay que inventar una conversión que después miente.
+ */
+export type ProyectoCruce = {
+  id: string;
+  nombre: string;
+  /** El cliente que el PROPIO proyecto declara (mig 0172). Es la clave más dura que hay:
+   *  no la dedujo nadie, la eligió una persona de una lista. */
+  clienteLeadId?: number | null;
+};
 
-export type Atadura = { proyectoId: number; como: ComoAto };
+export type Atadura = { proyectoId: string; como: ComoAto };
 
 export type Cruce = {
   /** leadId → los proyectos que le tocan, del más duro al más blando. */
   porLead: Map<number, Atadura[]>;
   /** Proyectos que SON de un cliente y no ató con ninguno de la cartera. */
-  huerfanos: number[];
+  huerfanos: string[];
   /** Clientes de la cartera que no ataron con ningún proyecto. */
   sinProyecto: number[];
 };
@@ -117,25 +132,46 @@ export function atar(
   proyectos: ProyectoCruce[],
   opciones: {
     esDeCliente: (nombre: string) => boolean;
-    leadPorProyecto?: Map<number, Set<number>>;
+    leadPorProyecto?: Map<string, Set<number>>;
   },
 ): Cruce {
   const porLead = new Map<number, Atadura[]>(clientes.map((c) => [c.leadId, []]));
-  const atados = new Set<number>();
+  const atados = new Set<string>();
   const leads = new Set(clientes.map((c) => c.leadId));
 
   const clavesCliente = new Map<number, string[]>(clientes.map((c) => [c.leadId, clavesDe(nucleoDe(c))]));
-  const clavesProy = new Map<number, string[]>(proyectos.map((p) => [p.id, clavesDe(p.nombre)]));
+  const clavesProy = new Map<string, string[]>(proyectos.map((p) => [p.id, clavesDe(p.nombre)]));
 
-  const agregar = (leadId: number, proyectoId: number, como: ComoAto) => {
+  const agregar = (leadId: number, proyectoId: string, como: ComoAto) => {
     const lista = porLead.get(leadId);
     if (!lista || lista.some((a) => a.proyectoId === proyectoId)) return;
     lista.push({ proyectoId, como });
     atados.add(proyectoId);
   };
 
-  // ── 1. La CLAVE. Una tarea que declara su lead ata el proyecto entero. ───────
+  // ── 0. EL PROYECTO LO DICE DE SÍ MISMO (mig 0172). Es lo más duro que hay: no se
+  //       dedujo de un nombre ni de una tarea, lo eligió una persona de una lista.
+  //       Va PRIMERO porque `agregar` ignora el duplicado: el primero que ata, gana el
+  //       rótulo, y el rótulo es lo que la pantalla usa para decir si esto es una clave
+  //       o un parecido.
+  // ⚠️ Y UN PROYECTO ASIGNADO A MANO NO ATA CON NADIE MÁS, aunque el nombre coincida.
+  // Lo encontró el test al escribirlo: «Cliente: Grupo Esquer» asignado a TEXX seguía
+  // apareciendo TAMBIÉN en la ficha de Grupo Esquer, porque la pasada del nombre corre
+  // igual. O sea: se elegía el cliente en el picker, se guardaba bien, y el trabajo
+  // aparecía en DOS fichas — una de ellas la equivocada, sin forma de sacarlo de ahí.
+  // `declarados` es lo que lo corta, y es lo que hace que la asignación sea una DECISIÓN
+  // y no una sugerencia más.
+  const declarados = new Set<string>();
   for (const p of proyectos) {
+    const lead = Number(p.clienteLeadId);
+    if (!Number.isInteger(lead) || lead <= 0) continue;
+    declarados.add(p.id);
+    if (leads.has(lead)) agregar(lead, p.id, 'clave');
+  }
+
+  // ── 1. La CLAVE, por sus TAREAS. Una tarea que declara su lead ata el proyecto. ──
+  for (const p of proyectos) {
+    if (declarados.has(p.id)) continue;   // ya tiene dueño elegido a mano
     for (const leadId of opciones.leadPorProyecto?.get(p.id) ?? []) {
       if (leads.has(leadId)) agregar(leadId, p.id, 'clave');
     }
@@ -145,6 +181,7 @@ export function atar(
   for (const c of clientes) {
     const cc = clavesCliente.get(c.leadId) ?? [];
     for (const p of proyectos) {
+      if (declarados.has(p.id)) continue;
       const cp = clavesProy.get(p.id) ?? [];
       if (contenido(cc, cp) || contenido(cp, cc)) agregar(c.leadId, p.id, 'nombre');
     }
@@ -156,7 +193,7 @@ export function atar(
   // así que atar por una palabra compartida cualquiera le metería a un cliente el
   // trabajo de otro. Exigir que la palabra sea ÚNICA de los dos lados deja pasar
   // «cendejas» (un solo proyecto, un solo lead) y frena «hmo».
-  const veces = (mapa: Map<number, string[]>): Map<string, number> => {
+  const veces = <K,>(mapa: Map<K, string[]>): Map<string, number> => {
     const f = new Map<string, number>();
     for (const ws of mapa.values()) for (const w of ws) f.set(w, (f.get(w) ?? 0) + 1);
     return f;
@@ -167,7 +204,7 @@ export function atar(
   for (const c of clientes) {
     const cc = clavesCliente.get(c.leadId) ?? [];
     for (const p of proyectos) {
-      if (atados.has(p.id)) continue;
+      if (atados.has(p.id) || declarados.has(p.id)) continue;
       if (!opciones.esDeCliente(p.nombre)) continue;
       const cp = clavesProy.get(p.id) ?? [];
       const distintiva = cc.find((w) => cp.includes(w) && fProy.get(w) === 1 && fCli.get(w) === 1);
