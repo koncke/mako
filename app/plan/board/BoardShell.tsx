@@ -32,6 +32,7 @@ import { useVerMas } from './VerMas';
 // pantalla dibuja el campo. `RepeticionModal` es el diálogo «Personalizado…» de Google,
 // COMPARTIDO con la barra de lote: devuelve una RRULE y no sabe a quién se le aplica.
 import { AccionesLote, AccionesLoteProyectos, opcionesRepeticion, canonRRule, VALOR_PERSONALIZADO, RepeticionModal } from './AccionesLote';
+import { Dropdown } from '@/app/components/Dropdown';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -4286,28 +4287,31 @@ function BloqueRepeticion({ valor, onCambiar }: {
       {/* UN solo rótulo porque ahora es UN solo campo. Eran dos («Frecuencia» y «Día»)
           cuando eran dos selectores. */}
       <label style={rowLabel}>{ROTULO_REPETICION}</label>
-      {/* ⚠️ EL `title` LLEVA LA FRASE ENTERA, y desde la 0167 hace falta: el conjunto de
-          valores es ABIERTO —«Cada semana, los lunes, martes, miércoles, jueves y viernes»
-          pide ~384 px— y esta columna tiene 228 útiles, así que el navegador recorta el
-          texto del control. Un `title` no ocupa lugar y es donde la regla de la casa manda
-          el texto que no entra; el nombre del campo sigue en el rótulo y en el `aria-label`.
-          No es una glosa: es el VALOR, el mismo que dicen la tarjeta y la fila. */}
-      <select value={actual} aria-label={ROTULO_REPETICION}
-        title={opciones.find((o) => o.value === actual)?.label ?? ''}
-        onChange={(e) => {
-          const v = e.target.value;
-          // ⚠️ EL CENTINELA NO SE GUARDA NUNCA: abre el diálogo y sale. Y acá adentro
-          // seguimos en JS —es el cuerpo de una arrow, no una posición de hijo de JSX—, así
-          // que el comentario va con `//` y no con `{/* */}`.
-          // El `<select>` queda con el valor de antes en el próximo render —es controlado—
-          // así que abandonar el diálogo no deja el control diciendo «Personalizado…» sobre
-          // una tarjeta que sigue con su repetición vieja.
+      {/* ⚠️ EL `Dropdown` DE LA CASA Y NO UN `<select>` NATIVO. La regla está escrita con
+          todas las letras en `app/_ui/Select.tsx`: «NUNCA uses <select> nativo: no se puede
+          estilar igual en los distintos navegadores y rompe la coherencia de la app». Este
+          campo nació con uno y se notaba — era el único control de la columna que se veía
+          del sistema operativo y no del producto.
+          Y de paso arregla lo que el nativo no podía: el conjunto de valores es ABIERTO
+          («Cada semana, los lunes, martes, miércoles, jueves y viernes» pide ~384 px sobre
+          los 228 de esta columna), así que el nativo recortaba la frase con un `title` como
+          único consuelo. El menú del `Dropdown` vive en un PORTAL, así que ahí la frase
+          entra entera aunque el botón la recorte.
+          El ícono es el mismo `IconoRepite` de la tarjeta y de la vista: un control que
+          significa lo mismo se ve igual en todos lados. */}
+      <Dropdown
+        value={actual}
+        ariaLabel={ROTULO_REPETICION}
+        icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoRepite size={13} /></span>}
+        placeholder={opciones.find((o) => o.value === actual)?.label ?? ''}
+        options={opciones.map((o) => ({ value: o.value, label: o.label }))}
+        onChange={(v) => {
+          // ⚠️ EL CENTINELA NO SE GUARDA NUNCA: abre el diálogo y sale. El control es
+          // CONTROLADO, así que en el próximo render vuelve al valor de antes — abandonar el
+          // diálogo no lo deja diciendo «Personalizado…» sobre una tarjeta que no cambió.
           if (v === VALOR_PERSONALIZADO) { setCustom(true); return; }
           if (v !== actual) onCambiar(v || null);
-        }}
-        style={selStyle}>
-        {opciones.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+        }} />
       {/* EL DIÁLOGO «PERSONALIZADO», el MISMO que abre la barra de lote: la pieza devuelve
           una RRULE y no sabe a quién se le aplica, que es lo que la vuelve compartible.
           Se abre con lo que la tarjeta tiene hoy, para no hacerle empezar de cero a quien

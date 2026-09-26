@@ -57,7 +57,26 @@ export type CapaModal = {
  *     <div ref={capa.refScroll} style={{ overflowY: 'auto' }}>…</div>
  *   </div>
  */
-export function useCapaModal(abierto: boolean): CapaModal {
+/**
+ * ⚠️ UNA CAPA «ANIDADA» NO TAPA A LA DE ABAJO, y eso hacía falta. Por default un modal
+ * esconde a todos los de abajo (`display: none`), que es lo correcto cuando el que se abre
+ * es OTRA pantalla: dos overlays superpuestos se ven sucios y el de atrás scrollea solo.
+ *
+ * Pero un diálogo CHICO que se abre DESDE un campo del modal de atrás —«Personalizado…» de
+ * la repetición, abierto desde la columna derecha de un detalle— no es otra pantalla: es
+ * parte de la misma tarea. Escondiendo el padre, elegir «Personalizado…» hacía desaparecer
+ * el detalle entero y dejaba el diálogo flotando sobre el tablero, como si se hubiera
+ * cerrado la tarjeta. Se reportó así: «cuando le doy a personalizado, se me cierra el
+ * detail» (26/09/2026).
+ *
+ * `anidada: true` es OPT-IN a propósito: el default no cambia, así que ninguna de las
+ * pantallas que ya usan la pila se entera de esto.
+ */
+/** Las capas que NO tapan a la de abajo (ver `useCapaModal`). */
+const anidadas = new Set<string>();
+
+export function useCapaModal(abierto: boolean, opciones?: { anidada?: boolean }): CapaModal {
+  const anidada = !!opciones?.anidada;
   const idRef = useRef<string>('');
   if (!idRef.current) idRef.current = nuevoId();
   const id = idRef.current;
@@ -76,12 +95,16 @@ export function useCapaModal(abierto: boolean): CapaModal {
   useEffect(() => {
     if (!abierto) return;
     pila = [...pila.filter((x) => x !== id), id];
+    if (anidada) anidadas.add(id); else anidadas.delete(id);
     avisar();
-    return () => { pila = pila.filter((x) => x !== id); avisar(); };
-  }, [abierto, id]);
+    return () => { pila = pila.filter((x) => x !== id); anidadas.delete(id); avisar(); };
+  }, [abierto, id, anidada]);
 
   const idx = pila.indexOf(id);
-  const visible = idx >= 0 && idx === pila.length - 1;
+  // Visible si es la de más arriba, O si TODO lo que tiene encima es anidado: una capa
+  // anidada se dibuja sobre su padre sin apagarlo. Con dos anidadas encima sigue valiendo,
+  // que es lo que se quiere — lo que apaga es una pantalla nueva, no un diálogo de un campo.
+  const visible = idx >= 0 && pila.slice(idx + 1).every((x) => anidadas.has(x));
 
   // El scroll se guarda JUSTO ANTES de esconderse y se devuelve al volver. Hacerlo en
   // un layout effect (no en un effect normal) evita el parpadeo de un frame arriba de

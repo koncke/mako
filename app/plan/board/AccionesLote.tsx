@@ -328,7 +328,9 @@ export function RepeticionModal({ valor, onGuardar, onCerrar }: {
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <Modal titulo={ROTULO_REPETICION} ancho={440} onCerrar={onCerrar}
+    // `anidada`: este diálogo se abre desde un campo del detalle, así que el detalle NO se
+    // apaga detrás. Sin esto, elegir «Personalizado…» se lee como que se cerró la tarjeta.
+    <Modal titulo={ROTULO_REPETICION} ancho={440} anidada onCerrar={onCerrar}
       pie={<>
         {/* Ningún botón se llama «Aceptar» ni «Cancelar» a secas: cada uno nombra su acción
             y su objeto, y el par dice qué pasa con cada salida. */}

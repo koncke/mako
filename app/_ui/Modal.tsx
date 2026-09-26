@@ -49,6 +49,7 @@ export function Modal({
   children,
   ancho = 600,
   etiqueta,
+  anidada = false,
 }: {
   /** El título de la caja. Es el nombre de LA COSA, no una instrucción. */
   titulo: ReactNode;
@@ -62,8 +63,14 @@ export function Modal({
   ancho?: number;
   /** Para el lector de pantalla, si el título no es texto plano. */
   etiqueta?: string;
+  /** ⚠️ Un diálogo que se abre DESDE UN CAMPO del modal de atrás, y que es parte de la misma
+   *  tarea (el «Personalizado…» de la repetición). Con esto el de atrás NO se apaga: se ve
+   *  detrás, como en cualquier app. Sin esto —el default— el de atrás desaparece, que es lo
+   *  correcto cuando lo que se abre es OTRA pantalla, y es lo que hacía que elegir
+   *  «Personalizado…» pareciera cerrar el detalle. */
+  anidada?: boolean;
 }) {
-  const capa = useCapaModal(true);
+  const capa = useCapaModal(true, { anidada });
   const cajaRef = useRef<HTMLDivElement>(null);
   const tituloId = useId();
 
