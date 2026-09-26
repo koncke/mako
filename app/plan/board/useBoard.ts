@@ -11,7 +11,7 @@ import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './depen
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
 // salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
 // nuevo por qué algo no compite.
-import { esRecurrente, llevaDeadline, PORQUE_SIN_FECHA } from '@/lib/plan-recurrentes';
+import { esRecurrente, llevaDeadline } from '@/lib/plan-recurrentes';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -386,11 +386,16 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const setRecurrente = (id: string, v: boolean) => {
     const t = byId(id);
     if (!t || esRecurrente(t) === v) return;
-    patchLogExplicit(id, 'recurrente', v, t.recurrente ?? false,
-      v ? 'Se repite para siempre: sale del ranking' : 'Ya no se repite: vuelve al ranking');
+    // ⚠️ TRES PALABRAS, NO UNA EXPLICACIÓN. El texto de un cambio sale en el toast del
+    // deshacer, que es una barra de 5 segundos encima de la pantalla: ahí sólo entra QUÉ
+    // pasó. El PORQUÉ ya vive en `PORQUE_NO_COMPITE` y en los comentarios del código, que
+    // es donde se busca. Acá llegó a ser «Se repite para siempre: sale del ranking de
+    // proyectos · Lo que se repite no vence: una fecha ahí es la del próximo ciclo, no un
+    // deadline» — dos renglones tapando el modal que la persona estaba mirando.
+    patchLogExplicit(id, 'recurrente', v, t.recurrente ?? false, v ? 'Se repite' : 'Ya no se repite');
     if (!v) return;
-    if (t.deadline) patchLogExplicit(id, 'deadline', '', t.deadline, PORQUE_SIN_FECHA, 'ia');
-    if (t.quarter) patchLogExplicit(id, 'quarter', undefined, t.quarter, 'Y sin fecha no hay trimestre que derivar', 'ia');
+    if (t.deadline) patchLogExplicit(id, 'deadline', '', t.deadline, 'Sin deadline', 'ia');
+    if (t.quarter) patchLogExplicit(id, 'quarter', undefined, t.quarter, 'Sin quarter', 'ia');
   };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 
@@ -539,11 +544,10 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const setLabelRecurrente = (id: string, v: boolean) => {
     const l = labels.find((x) => x.id === id);
     if (!l || esRecurrente(l) === v) return;
-    const texto = v ? 'Se repite para siempre: sale del ranking de proyectos' : 'Ya no se repite: vuelve al ranking';
+    // Ver el porqué del largo en `setRecurrente`, acá arriba.
+    const texto = v ? 'Se repite' : 'Ya no se repite';
     if (!v) { patchLabelLog(id, { recurrente: false }, texto); return; }
-    const sinFecha = l.deadline || l.quarter;
-    patchLabelLog(id, { recurrente: true, deadline: '', quarter: undefined },
-      sinFecha ? `${texto} · ${PORQUE_SIN_FECHA}` : texto);
+    patchLabelLog(id, { recurrente: true, deadline: '', quarter: undefined }, texto);
   };
 
   return {

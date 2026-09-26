@@ -578,6 +578,43 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# La pantalla dice QUÉ pasó; el PORQUÉ va al código
+
+Pedido tres veces el mismo día y la tercera con todas las letras: **«el mensaje del botón de
+deshacer es MUY largo, por dios deja de escribir textos así de largos, que sea una regla»**
+(26/09/2026). Antes: «no tanta paja de texto, lo importante» y «no pongas texto innecesario
+nunca».
+
+Lo que lo produce no es descuido: es escribir el comentario del código y pegarlo en la UI. El
+porqué de una decisión es caro de reconstruir, así que se escribe largo — y ese texto termina
+en un toast de 5 segundos o en una glosa bajo un interruptor, donde nadie lo lee y tapa lo que
+la persona estaba mirando.
+
+**La regla: cada superficie tiene un techo, y el porqué NUNCA es una de ellas.**
+
+| Superficie | Techo | Qué dice |
+|---|---|---|
+| Toast del deshacer | **3-4 palabras** | qué pasó: «Se repite», «Sin deadline» |
+| Rótulo de un campo | 1-3 palabras | el nombre de la cosa: «Tarea recurrente», no «¿Se repite para siempre?» |
+| Estado vacío | **una** frase | qué falta y dónde se arregla |
+| Cabecera de una vista | el nombre y el número | nada más |
+| `title` / `aria-label` | una frase | la acción y su objeto (acá SÍ va texto: no ocupa lugar) |
+| Confirmación de algo irreversible | una frase | la consecuencia, pegada al botón |
+
+Y tres cortes que se repiten:
+
+- **Si el texto narra lo que la pantalla ya hace, se va.** «Queda fuera de Prioridades y del
+  avance» sobra cuando se VE que la tarjeta pierde el deadline y desaparece de la vista.
+- **Si explica un criterio, va al comentario del código.** Ahí se busca, ahí se versiona, y
+  ahí el largo se paga una sola vez. `PORQUE_NO_COMPITE` existe para eso y **no** para
+  pegarlo en un toast.
+- **Si la pantalla necesita un párrafo para entenderse, el problema es la pantalla.** El
+  párrafo tapa el síntoma y encima ocupa el lugar del arreglo.
+
+⚠️ **Esto NO aplica a lo que se escribe en el repo.** Los comentarios, los mensajes de commit
+y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
+primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.
+
 # Si algo no entra, preguntá primero si tiene el TAMAÑO que le corresponde
 
 Antes de acomodar las piezas alrededor de lo que se desborda, mirá si lo que se desborda

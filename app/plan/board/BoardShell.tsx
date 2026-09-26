@@ -4292,17 +4292,39 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   // que pareció que una reunión entera no se había cargado.
   const tieneTareasDe = (id: string) => tasks.some((t) => t.labels.includes(id) && fOrigen.has(fuenteEfectiva(t).tipo));
   const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id), ts: tasks.filter((t) => t.labels.includes(l.id)) }));
-  const shown = withProg
-    // El pid (P11) es el ID VISIBLE del proyecto y es como el dueño lo nombra: buscar
-    // "11", "P11" o "#11" tiene que encontrarlo. Antes el heno era solo nombre +
-    // detalle, así que el identificador que la propia UI muestra no servía para buscar.
-    // Mismo criterio que las tareas: sin acentos, por palabras, y adentro del detalle.
-    // Se suman las tareas del proyecto al heno — buscar «landing» tiene que traer el
-    // proyecto donde vive esa tarea, aunque el nombre del proyecto no la nombre.
-    .filter(({ l, ts }) => !needle || coincide(
-      `${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name} ${l.detalle ?? ''} ${l.notas ?? ''} ${ts.map((t) => t.title).join(' ')}`,
-      needle.replace(/^#/, ''),
-    ))
+  /**
+   * ⚠️ BUSCAR ORDENA POR RELEVANCIA, NO POR SCORE. «No está funcionando bien la barra de
+   * búsqueda, mira que no me trae lo que le pido» (26/09/2026), buscando «mauricio» en la
+   * vista Proyectos: salieron Chatbot, Plan, Customer Success e Integraciones, y el que él
+   * quería —«Cliente: Mauricio»— no estaba a la vista.
+   *
+   * Y el filtro NO estaba mal: el heno incluye el detalle, las notas y los títulos de las
+   * tareas del proyecto a propósito (buscar «landing» tiene que traer el proyecto donde vive
+   * esa tarea aunque su nombre no la nombre). Lo que estaba mal era el ORDEN. Medido contra
+   * la base: «Cliente: Mauricio» es P82 con score 20, y «Feature: Chatbot» tiene 99 — así
+   * que el match EXACTO en el nombre quedaba sepultado bajo cuatro proyectos que sólo lo
+   * mencionan en su descripción. Un buscador que encuentra y no muestra es indistinguible
+   * de uno que no encuentra.
+   *
+   * Tres escalones, y adentro de cada uno se conserva el orden elegido en el header:
+   *   0 · el identificador o el NOMBRE           — lo que la persona escribió ES el proyecto
+   *   1 · su descripción o sus notas             — habla de eso
+   *   2 · el título de alguna de sus tareas      — tiene trabajo sobre eso
+   */
+  const henoDe = (l: Label) => `${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name}`;
+  const aguja = needle.replace(/^#/, '');
+  const escalon = (l: Label, ts: BoardTask[]): number => {
+    if (coincide(henoDe(l), aguja)) return 0;
+    if (coincide(`${l.detalle ?? ''} ${l.notas ?? ''}`, aguja)) return 1;
+    if (coincide(ts.map((t) => t.title).join(' '), aguja)) return 2;
+    return 3;   // no coincide con nada
+  };
+  const conEscalon = needle ? withProg.map((x) => ({ ...x, esc: escalon(x.l, x.ts) })) : withProg.map((x) => ({ ...x, esc: 0 }));
+  const shown = conEscalon
+    .filter(({ esc }) => esc < 3)
+    // `sort` es estable en todos los motores desde ES2019, así que empatar en el escalón
+    // deja el orden que traía `ordenados` — el del header — sin volver a compararlo.
+    .sort((a, b) => a.esc - b.esc)
     .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)) || tieneTareasDe(l.id))
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
