@@ -31,6 +31,7 @@ import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
 import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
+import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { crearPropuesta } from '@/lib/plan-propuesta';
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
@@ -172,18 +173,28 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const arr = Array.isArray(payload.tareas) ? (payload.tareas as Array<Record<string, unknown>>) : [];
         const items = arr
           .map((t) => {
-            // ⚠️ SI SE REPITE, NO LLEVA FECHA, Y ACÁ EL BOOLEANO LE GANA AL DEADLINE. Son dos
-            // señales que se contradicen y la regla de la casa dice que gana la MÁS CARA de
-            // producir... salvo que una sea imposible: una fecha de fin sobre algo que no
-            // termina no es un dato caro, es una contradicción. El modelo puede mandar las
-            // dos (`recurrente: true` + «todos los lunes» resuelto a un lunes concreto) y lo
-            // que hay que conservar es lo que la persona dijo: que se repite.
-            const recurrente = t.recurrente === true;
+            // ⚠️ SI VIENEN LAS DOS SEÑALES, GANA LA FECHA — y el desempate NO se escribe acá:
+            // es `decidirRecurrente`, la misma que usa la extracción de reuniones. Dos
+            // caminos que resuelven la misma contradicción con dos criterios distintos son
+            // dos productos distintos según por dónde entró la tarea.
+            //
+            // Y gana la fecha por dos razones, la segunda decisiva: un booleano es un token
+            // que el modelo tira sin pensar, mientras que una fecha concreta sólo se escribe
+            // habiendo oído a alguien decirla (AGENTS.md: gana la señal más cara de
+            // producir). Y sobre todo, el error NO es simétrico: una recurrente que todavía
+            // compite se ve en el ranking y se arregla con el interruptor del detalle,
+            // mientras que si ganara el flag, `taskToRow` le BORRA el deadline a una tarea
+            // real — destruye el dato, en silencio y sin nada que lo diga.
+            const deadline = typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined;
+            const { recurrente, conflicto } = decidirRecurrente(t.recurrente, deadline);
+            // Un descarte sin rastro hace indistinguible «el modelo no la marcó» de «se la
+            // tiramos nosotros».
+            if (conflicto) console.warn('[mako-doer-acciones] «%s» vino marcada como que se repite Y con fecha %s: gana la fecha.', String(t.titulo ?? ''), deadline);
             return {
               titulo: String(t.titulo ?? '').trim(),
               prioridad: prioOk(t.prioridad),
               proyecto: t.proyecto ? String(t.proyecto).trim() : undefined,
-              deadline: !recurrente && typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined,
+              deadline,
               detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined,
               recurrente,
             };

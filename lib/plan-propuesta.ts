@@ -17,6 +17,7 @@ import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { mismaTarea, normTitulo } from '@/lib/tareas-dedup';
 import { rutearTareasCliente } from '@/lib/todo-rutear';
 import { criterioDelWorkspace } from '@/lib/plan-criterio';
+import { decidirRecurrente } from '@/lib/plan-criterio-reglas';
 import { tipoDeResponsable } from '@/lib/reunion-reparto';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
@@ -43,6 +44,19 @@ export type PropuestaTarea = {
   // dentro del borrador para que el modal de confirmación muestre las mismas tabs
   // (Mías + una por colaborador) que la extracción manual.
   dueno?: string; duenoEmail?: string; esDeOtro?: boolean;
+  /**
+   * «Se repite para siempre» (mig 0163): la reunión de los miércoles, el seguimiento
+   * diario. Viaja DESDE LA EXTRACCIÓN hasta el alta, porque una tarea tiene que poder
+   * NACER recurrente: mientras el único camino fue el interruptor del detalle, la
+   * recurrente entraba como tarea normal, el Perro le ponía score y deadline, se llevaba
+   * un puesto del ranking y titilaba pidiendo una fecha que nunca iba a tener.
+   *
+   * ⚠️ NO CONVIVE CON `deadline`. El desempate lo hace `limpiarTarea` acá abajo, y está
+   * de este lado —y no en cada productor— porque por acá pasan TODOS: la reunión, el
+   * cron, el importador de archivos, el doer de WhatsApp, la API del agente, y la
+   * relectura de la fila (`rowToPropuesta`).
+   */
+  recurrente?: boolean;
   /** segundo de la grabación donde se dijo (para ir a escuchar ese momento). */
   minuto?: number;
   /** TODOS los momentos en que se habló de esto (una tarea puede volver varias veces). */
@@ -155,10 +169,29 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
   // ruteo a proyectos y la checklist. Si entra «Maco», sale «Maco» en cinco lugares.
   const titulo = corregirMarca(str(o.titulo).trim()).slice(0, 200);
   if (!titulo) return null;
+  const deadline = typeof o.deadline === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.deadline) ? o.deadline : undefined;
+  // ── LA CUARTA PREGUNTA DEL CRITERIO, SEGUNDA CAPA ──────────────────────────────────
+  // El prompt le pide al modelo que marque lo que «se repite para siempre». Eso lo hace
+  // acertar casi siempre, que no es lo mismo que cumplirse: la regla necesita su lado
+  // determinista, y éste es el choke point por el que pasan TODOS los productores de un
+  // borrador (reunión, cron, importador de archivos, WhatsApp, la API del agente) más la
+  // relectura de la fila.
+  //
+  // El conflicto que resuelve: `recurrente: true` + `deadline` es una contradicción —lo
+  // que se repite no vence—. Gana la FECHA, y el porqué está en `decidirRecurrente`
+  // (lib/plan-criterio-reglas.ts): entre dos señales que se contradicen gana la más cara
+  // de producir, y una fecha concreta sólo se escribe habiendo oído a alguien decirla.
+  const rec = decidirRecurrente(o.recurrente, deadline);
+  // Lo que se descarta queda escrito: sin esta línea, «el modelo no la marcó» y «la
+  // marcamos y se la tiramos nosotros» son el mismo silencio.
+  if (rec.conflicto) {
+    console.warn(`[plan-propuesta] «${titulo.slice(0, 60)}» venía marcada como recurrente CON fecha ${deadline} — gana la fecha, entra como tarea normal`);
+  }
   return {
     titulo,
     proyecto: o.proyecto ? str(o.proyecto).trim().slice(0, 120) : undefined,
-    deadline: typeof o.deadline === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.deadline) ? o.deadline : undefined,
+    deadline,
+    recurrente: rec.recurrente || undefined,
     // 6000, igual que `plan_tareas.detalle` (agregarTareasPlanOwner). Estaba en 600 y era
     // el último cuello del contexto: el dueño manda tres minutos de audio, la extracción
     // escribe un detalle rico… y el borrador lo cortaba a mitad de frase antes de que
@@ -837,7 +870,10 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
 
       if (usaPlanBoard) {
         if (base.length) {
-          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente);
+          // `recurrente` va en el ALTA (NuevaTareaPlan): es el último eslabón de la
+          // cadena que arranca en el prompt de extracción. Si se cae acá, todo lo de
+          // arriba está escrito y no se ofrece.
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente);
           idsCreadas.push(...r.ids);
           proyectosNuevos.push(...r.proyectoIds);
           // Mismo orden que `base` (agregarTareasPlanOwner filtra solo los títulos
@@ -888,6 +924,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
               }
               const tarea = await crearTarea({
                 titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t),
+                // El tablero del CLIENTE también tiene la columna (mig 0163): una tarea
+                // sólo puede nacer recurrente en los dos lados o en ninguno.
+                recurrente: t.recurrente,
                 // QUIÉN (mig 0159). Se escribe en TODOS los clientes, no solo con tablero
                 // único: es dato de la reunión y sin él no hay filtro «míos / me deben».
                 responsable: t.dueno ?? null, responsable_email: t.duenoEmail ?? null,

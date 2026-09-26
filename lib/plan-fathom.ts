@@ -38,6 +38,7 @@ import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
 import { resolverDueño, normNombre } from './tarea-dueno';
+import { decidirRecurrente } from './plan-criterio-reglas';
 import { invitadosDeReunionPorFecha } from './google-calendar';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
@@ -125,6 +126,18 @@ export type TareaCandidata = {
    *  consecuencia. Se guarda para poder medir la atribución: si `dichoPor === dueño` en
    *  toda la reunión, el modelo atribuyó por la etiqueta del hablante. */
   dichoPor?: string;
+  /**
+   * «Se repite para siempre» (mig 0163): la reunión de los miércoles, el seguimiento
+   * diario. NACE acá o no nace: hasta el 26/09/2026 el único camino era un interruptor en
+   * el detalle, así que toda recurrente extraída de una reunión entraba como tarea normal,
+   * el Perro le ponía score y deadline, se llevaba un puesto del ranking y titilaba
+   * pidiendo una fecha que nunca iba a tener.
+   *
+   * `undefined` y `false` son lo mismo acá a propósito: el campo viaja opcional para que
+   * el que mapea vea la ausencia (`recurrente: t.recurrente`), y el `!!` lo resuelve
+   * recién en el insert. La duda se resuelve en NO — ver `decidirRecurrente`.
+   */
+  recurrente?: boolean;
   /** segundo de la grabación donde se dijo — para ir a escucharlo. undefined si no se sabe. */
   minuto?: number;
   /**
@@ -205,7 +218,7 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
 // escapados o el ejemplo deja de ser JSON valido y el modelo copia el error.
 const MOLDE_DETALLE_JSON = JSON.stringify(MOLDE_DETALLE).slice(1, -1);
 
-export const PLAN_FATHOM_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA (el array lleva TANTAS tareas como haya — los tres de abajo son solo para mostrarte la forma y el nivel de granularidad):
+export const PLAN_FATHOM_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA (el array lleva TANTAS tareas como haya — los de abajo son solo para mostrarte la forma y el nivel de granularidad):
 {
   "tareas": [
     {
@@ -218,10 +231,12 @@ export const PLAN_FATHOM_JSON_SHAPE = `Devuelve EXCLUSIVAMENTE un objeto JSON v�
       "dueño": "<quién TIENE QUE HACERLA, o '' si no quedó claro>",
       "dueñoEmail": "<el email EXACTO de esa persona, copiado de la lista de PARTICIPANTES; '' si no puedes atribuirla a ninguno>",
       "esMio": <true si la tarea es de QUIEN MIRA EL TABLERO (te digo su nombre abajo); false si es de otra persona>,
+      "recurrente": <true SOLO si esto se repite para siempre y no tiene un final; false en todo lo demás. Lee abajo el bloque ¿SE REPITE PARA SIEMPRE?>,
       "minuto": "<el timestamp [HH:MM:SS] de la línea donde se dijo, tal cual aparece en la transcripción. '' si no lo ves>"
     },
-    { "titulo": "Cambiar la foto de perfil de Instagram", "detalle": "Mauricio lo pidió en el minuto 12:40: «la foto que tienes ahora es de un evento, se ve chiquita en el celular y no se entiende quién eres». Quiere una foto de rostro, fondo claro, mirando a cámara, que se lea en 40 píxeles. Lo ató a que el perfil es lo primero que ve alguien que llega desde un reel, y que hoy se está perdiendo ahí. Dijo que no hace falta sesión de fotos: con el celular y luz de ventana alcanza.", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true },
-    { "titulo": "Reescribir la bio de Instagram apuntando al nicho", "detalle": "Sale de la misma discusión (13:05). El planteo de Mauricio: «tu bio dice marketing digital, eso no le habla a nadie». Propuso que diga a QUIÉN ayuda y a QUÉ resultado, con el nicho adentro, y que la última línea sea el llamado al diagnóstico. Mencionó como referencia la bio de la cuenta que le mostró Martín antes. Queda listo cuando la bio nombra el nicho y el resultado en las dos primeras líneas.", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true }
+    { "titulo": "Cambiar la foto de perfil de Instagram", "detalle": "Mauricio lo pidió en el minuto 12:40: «la foto que tienes ahora es de un evento, se ve chiquita en el celular y no se entiende quién eres». Quiere una foto de rostro, fondo claro, mirando a cámara, que se lea en 40 píxeles. Lo ató a que el perfil es lo primero que ve alguien que llega desde un reel, y que hoy se está perdiendo ahí. Dijo que no hace falta sesión de fotos: con el celular y luz de ventana alcanza.", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true, "recurrente": false },
+    { "titulo": "Reescribir la bio de Instagram apuntando al nicho", "detalle": "Sale de la misma discusión (13:05). El planteo de Mauricio: «tu bio dice marketing digital, eso no le habla a nadie». Propuso que diga a QUIÉN ayuda y a QUÉ resultado, con el nicho adentro, y que la última línea sea el llamado al diagnóstico. Mencionó como referencia la bio de la cuenta que le mostró Martín antes. Queda listo cuando la bio nombra el nicho y el resultado en las dos primeras líneas.", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true, "recurrente": false },
+    { "titulo": "Sostener la junta semanal de los miércoles con Esquer", "detalle": "Quedó firme en el minuto 48:10: «la junta de los miércoles no se mueve, es la que sostiene todo». Es la reunión de seguimiento de cada semana con el equipo del cliente, con el tablero abierto, para repasar avances y trabas. No tiene un final: se repite mientras el cliente esté activo, así que no lleva fecha de entrega ni se puede dar por terminada. Lo que sí tiene fin —dejar escrita la agenda y armar la invitación recurrente— va como tarea aparte.", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true, "recurrente": true }
   ],
   "dudas": [
     { "termino": "<nombre propio o término que se dijo, NO está en el glosario y no sabes con certeza qué es>", "porque": "<qué te traba, ej. 'no sé si es una persona, un proyecto o una herramienta'>" }
@@ -277,6 +292,20 @@ QUÉ NO es una tarea (IGNÓRALO — esta lista pesa TANTO como la de arriba):
 - Lo explícitamente DIFERIDO: "eso lo definimos después".
 
 ESCALA: NO hay un número que tengas que alcanzar. Si esto es una PARTE, cubre unos 20 minutos: saca los compromisos que HAY en estos 20 minutos y ni uno más. Tres compromisos reales valen más que quince inventados, y un tramo puede no dejar NINGUNO — un repaso de CRM, una demo o una charla de diagnóstico se pasan media hora sin dejar un solo próximo paso. Devuelve la lista vacía sin culpa cuando corresponda: otra parte la va a llenar.
+
+¿SE REPITE PARA SIEMPRE? — el campo "recurrente", y es una pregunta APARTE de las otras:
+Esta NO la contestan «¿se puede completar?», «¿es una decisión?» ni «¿ya está hecho?». La reunión de los miércoles se puede completar esta semana, no es una decisión y no está hecha: pasa las tres y aun así no tiene fin. El criterio del dueño es «lo que entran son tareas que tienen un inicio y tienen un fin». LO QUE LA DELATA: al cerrarla hay que volver a crearla.
+
+Sigue siendo una tarea y va en la lista igual — sólo le pones "recurrente": true. NO la descartes por repetirse.
+
+· "recurrente": true → asistir a la junta semanal de los miércoles, el seguimiento diario a los leads, revisar el tablero todos los lunes, la llamada mensual con cada cliente, publicar tres reels por semana de aquí en adelante.
+· "recurrente": false → TODO lo que termina alguna vez, aunque HABLE de algo que se repite. Éste es el caso que más se confunde, léelo dos veces:
+    - "Diseñar la estructura de la junta semanal" → false. Se termina el día que la estructura está escrita.
+    - "Implementar la cadencia de juntas" → false. Se termina el día que la cadencia existe.
+    - "Armar por primera vez el reporte semanal" / "Dejar agendada la invitación recurrente" → false. Los dos terminan.
+  Montar un ritual es una tarea CON FIN. Lo que se repite es ASISTIR al ritual, no inventarlo. Si en la misma charla se dijeron las dos cosas, son DOS tareas: la de montarlo (false) y la de sostenerlo (true).
+· UNA RECURRENTE NO LLEVA FECHA. Si estás por escribir una fecha de entrega para algo que marcaste "recurrente": true, una de las dos está mal — y casi siempre es el flag.
+· Ante la duda, false.
 
 DUEÑO — LÉELO DOS VECES, es donde más se falla:
 
@@ -379,6 +408,11 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         // no obligaba a nada porque no tenía consecuencia. Ahora viaja: si viene igual al
         // dueño en toda la reunión, eso es la firma de que atribuyó por la etiqueta.
         dichoPor: String(o.dichoPor ?? '').trim().slice(0, 80) || undefined,
+        // La cuarta pregunta del criterio. `decidirRecurrente` y no `!!o.recurrente`: el
+        // valor sale del JSON de un modelo y `"false"` es truthy. El desempate contra una
+        // fecha no va acá porque el extractor no propone fechas — vive en `limpiarTarea`
+        // (lib/plan-propuesta.ts), que es por donde pasa TODO lo que llega al borrador.
+        recurrente: decidirRecurrente(o.recurrente).recurrente || undefined,
         minuto: segundosDeTimestamp(o.minuto),
         minutos: segundosDeTimestamp(o.minuto) != null ? [segundosDeTimestamp(o.minuto)!] : undefined,
       };
