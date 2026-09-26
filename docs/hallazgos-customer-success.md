@@ -1402,3 +1402,36 @@ Verificado que es anterior: los nueve están en HEAD y no toqué ni esa pantalla
 registro de áreas de OTRA área**, que es justo lo que `tests/dev-areas.test.ts` existe
 para cazar.
 
+
+### «Rearmala desde cero» y el diagnóstico obvio que era el equivocado (26/09/2026)
+
+El pedido fue: «todo lo que está ahí es de Mauricio… vuelve a armar esa tab para todo el
+mundo, desde 0, **no tomes en cuenta lo de Mauricio**». Se rearmó, y la respuesta fue
+*«pusiste una cantidad de cosas que no te pedí, te basaste en lo de Mauricio que
+justamente te dije que no lo hagas»*.
+
+Y tenía razón, aunque de las 44 clases, de Whop y del temario no hubiera quedado una
+línea. **Lo que se calcó no fueron los datos: fue la FORMA.** La tab de él tenía una
+señal de salud, un reloj de programa, números de cabecera y una ficha en tabs; la nueva
+tenía una señal de atención, un reloj de contrato, números de cabecera y una ficha en
+tabs. Cada pieza se justificó sola —«el contrato es universal», «los cobros tienen
+`workspace_id`»— y el conjunto era la misma pantalla con otro relleno.
+
+**La regla que queda: «desde cero» no se cumple reemplazando los datos, se cumple
+volviendo al pedido.** El pedido era «clientes que pueden tener proyectos, tareas y
+recurrentes». Todo lo que no sea una de esas cuatro cosas no entra, aunque se pueda
+calcular y aunque la tabla tenga `workspace_id`. El test es el cliente recién cargado:
+si la pantalla le afirma seis cosas («Semana 1», «Ninguno todavía», «Sin vencidas», tres
+«Sin cargar») sobre datos que nadie cargó nunca, está contestando preguntas que nadie
+hizo.
+
+**Y el costo de la forma de más no es visual, es de lectura:** la ficha leía contrato,
+cobros, sesiones y el historial completo de WhatsApp de toda la cartera para dibujar
+cuatro números que nadie pidió. Podarla sacó 753 líneas y cuatro consultas por carga.
+
+⚠️ **El detalle que se rompe al podar y no lo caza el typecheck:** la cabecera pegajosa
+del detalle tenía `margin:-18px`, que era el padding de la caja que metía la ficha en
+tabs (`.dc-cuerpo`). Sacadas las tabs, el contenedor de scroll pasó a ser
+`.mk-modal__cuerpo` y sus `4px`. Un margen negativo copiado de otra caja no falla: deja
+una franja transparente por la que se ve pasar el texto que scrollea. Se verificó en el
+navegador, que es el único lugar donde eso se ve.
