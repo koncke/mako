@@ -25,11 +25,27 @@ import { crearShare, listarShares, revocarShare } from '@/lib/shares';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { RECURSO_TAREA, type EstadoCliente } from '@/lib/cs-cartera';
+import { getSesionAdmin } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { avancePorClase, vistasSinContestar, type AvanceClase } from '@/lib/cs-avance-clases';
 import { clientesGanados, trabajoDeCliente, type ResultadoTrabajo } from './trabajo';
 
+/**
+ * ⚠️ EL WORKSPACE DE ESTA PANTALLA ES EL DE MAURICIO, Y PARA UN ADMIN NO ES «EL ACTUAL».
+ * Customer Success lee el programa y la cartera de `OWNER_WS`: la página ya se dibuja así
+ * desde el 26/09/2026 para que el super-admin no viera «Coming soon». Si las acciones de la
+ * ficha siguieran resolviendo `getWorkspaceActual()`, la pantalla mostraría los clientes de
+ * Mauricio y al abrir uno buscaría su trabajo en el workspace del que mira — o sea, la tab
+ * «Trabajo» vacía sobre un cliente que sí tiene cosas, sin un solo error.
+ *
+ * Es la mitad que se olvida siempre: la página se arregla y las acciones que la alimentan
+ * siguen contestando sobre otra cosa.
+ *
+ * ⚠️ Y el admin se comprueba en el SERVER, con la sesión firmada — nunca con `?ws=`, que lo
+ * escribe cualquiera. Un cliente sigue cayendo en su propio workspace, que es lo correcto.
+ */
 async function wsActual(): Promise<number> {
+  if (await getSesionAdmin()) return OWNER_WS;
   return (await getWorkspaceActual()) ?? OWNER_WS;
 }
 

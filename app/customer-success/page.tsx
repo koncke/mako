@@ -11,7 +11,8 @@
 import { cartera } from '@/lib/cs-cartera';
 import { TOTAL_CLASES } from '@/lib/programa-catalogo';
 import { whopConfigurado } from '@/lib/whop';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esWorkspaceDueno, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getSesionAdmin } from '@/lib/auth';
 import { ComingSoon } from '@/app/_components/ComingSoon';
 import { ClientesApp } from './ClientesApp';
 import { tableroDeLaCartera } from './trabajo';
@@ -34,7 +35,32 @@ export default async function CustomerSuccessPage() {
   //
   // Y va ANTES de las consultas: un workspace que no lo va a ver no paga la
   // cartera ni el ping a Whop.
-  if (!(await esWorkspaceDueno())) return <ComingSoon title="Customer Success" icon="cs" />;
+  // ⚠️ Y EL SUPER-ADMIN TAMBIÉN ENTRA, LEYENDO EL WORKSPACE DE MAURICIO. El guard de arriba
+  // decía sólo `esWorkspaceDueno()`, que es `workspace actual === OWNER_WS`; el super-admin
+  // tiene el SUYO, así que entraba a /customer-success y le salía «Coming soon» — la pantalla
+  // que existe para los CLIENTES. Reportado varias veces («te lo vengo pidiendo hace tiempo»,
+  // 26/09/2026) y contestado con un «abrí con ?ws=1», que es pedirle a la persona que sepa
+  // una regla del server.
+  //
+  // El molde ya existía a dos pantallas: `/plan` redirige al super-admin a `/plan/agencia`,
+  // que resuelve el tablero del dueño por dentro en vez de exigir la pestaña. Acá pasa lo
+  // mismo: el programa ES el de Mauricio (ws1), y quien lo administra tiene que poder verlo
+  // desde donde esté parado.
+  //
+  // ⚠️ SIGUE EN POSITIVO y sigue decidiéndose en el SERVER: «el workspace actual es el del
+  // dueño, O quien mira es admin» — nunca «cualquiera menos…», y nunca leyendo `?ws=` de la
+  // URL, que lo escribe cualquiera. Un cliente sigue viendo «Coming soon», que es lo que el
+  // guard vino a hacer.
+  const soyAdmin = !!(await getSesionAdmin());
+  if (!(await esWorkspaceDueno()) && !soyAdmin) return <ComingSoon title="Customer Success" icon="cs" />;
+
+  // ⚠️ Y LOS DATOS SE LEEN DE OWNER_WS EXPLÍCITAMENTE, no del workspace en curso. Sin esto el
+  // super-admin entraría y vería su propia cartera —vacía—, que es el mismo «no está» con
+  // otra cara: la pantalla dibujada y sin un solo cliente.
+  return runWithWorkspace(OWNER_WS, () => contenido());
+}
+
+async function contenido() {
 
   const [clientes, whop] = await Promise.all([
     cartera().catch(() => []),

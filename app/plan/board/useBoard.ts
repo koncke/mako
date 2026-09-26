@@ -420,6 +420,30 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // proyectos · Lo que se repite no vence: una fecha ahí es la del próximo ciclo, no un
     // deadline» — dos renglones tapando el modal que la persona estaba mirando.
     patchLogExplicit(id, 'recurrente', v, t.recurrente ?? false, v ? 'Se repite' : 'Ya no se repite');
+    /**
+     * ⚠️ MARCAR UNA TAREA ARRASTRA A SU PROYECTO, Y SOLO EN ESE SENTIDO. «Si una tarea se
+     * vuelve recurrente, su proyecto automáticamente debe convertirse también… pero no al
+     * revés, ya que un proyecto recurrente SÍ puede tener tareas con deadline»
+     * (26/09/2026).
+     *
+     * La asimetría no es un capricho y es lo que hace que la regla cierre: un proyecto que
+     * contiene algo que no termina tampoco termina —la junta semanal vive adentro de
+     * «Customer Success», y ese proyecto no se cierra nunca—, así que dejarlo compitiendo
+     * en el ranking es el mismo problema un nivel más arriba. Al revés no vale: «armar el
+     * documento de onboarding de Vertice» cuelga de un proyecto recurrente, tiene un
+     * entregable y se cierra una sola vez, y sacarla del ranking la volvería invisible
+     * justo cuando hay que hacerla.
+     *
+     * ⚠️ Y NO CASCADEA AL DESMARCAR. Que esta tarea deje de repetirse no dice nada de las
+     * otras que cuelgan del mismo proyecto, ni de si alguien lo marcó a mano por otro
+     * motivo. Apagar por inferencia es lo que borra una decisión que nadie tomó.
+     */
+    if (v) {
+      for (const lid of t.labels) {
+        const l = labels.find((x) => x.id === lid);
+        if (l && !esRecurrente(l)) setLabelRecurrente(lid, true);
+      }
+    }
     if (!v) {
       // ⚠️ AL DEJAR DE REPETIRSE SE VA LA RECURRENCIA, y es la contracara exacta de las dos
       // líneas de abajo (mig 0167). El server la borra igual —`taskToRow` pasa por

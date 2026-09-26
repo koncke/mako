@@ -640,6 +640,27 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     });
     const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));
     if (error) throw new Error(`agregarTareasPlanOwner tareas: ${error.message}`);
+
+    /**
+     * ⚠️ UNA TAREA QUE NACE RECURRENTE ARRASTRA A SU PROYECTO, igual que cuando se marca a
+     * mano (`useBoard.setRecurrente`). Va acá y no sólo en el navegador porque por este
+     * camino entran la extracción de una reunión, WhatsApp y los lotes — que es por donde
+     * entra la MAYORÍA. Sin esto la regla valdría sólo para lo que alguien tilde a mano, o
+     * sea casi nada, y un «Reunión semanal con Esquer» dejaría a su proyecto compitiendo.
+     *
+     * Sólo hacia ARRIBA y sólo al MARCAR: un proyecto recurrente sí puede tener tareas con
+     * fin, y que una tarea deje de repetirse no dice nada de las otras del mismo proyecto.
+     */
+    const proyDeRecurrentes = [...new Set(tareas.filter(esRecurrente).flatMap((t) => t.labels))];
+    if (proyDeRecurrentes.length) {
+      const { error: e2 } = await db.from('plan_proyectos')
+        .update({ recurrente: true, deadline: '', quarter: null })
+        .in('id', proyDeRecurrentes).eq('recurrente', false);
+      // No tira: la tarea YA se creó y perder el arrastre es recuperable con un click,
+      // mientras que reventar acá dejaría la carga a medias sin decir cuál se guardó.
+      if (e2) console.error('[plan-board] arrastre recurrente al proyecto:', e2.message);
+    }
+
     return { ids: tareas.map((t) => t.id), nums: tareas.map((t) => t.num), proyectoIds: nuevosProy.map((p) => p.id) };
   });
 }
