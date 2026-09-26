@@ -184,6 +184,21 @@ export type BoardTask = {
    * tarjeta optimista nace sin él y una fila vieja se lee sin la columna.
    */
   frecuencia?: Frecuencia | null;
+  /**
+   * QUÉ DÍA cae (mig 0166), y se lee SEGÚN `frecuencia`: `'lun'`…`'dom'` cuando es
+   * semanal o quincenal, `'1'`…`'31'` cuando es mensual, trimestral o anual. `null` =
+   * la frecuencia no pide ancla (diaria) o nadie dijo qué día.
+   *
+   * ⚠️ UN SOLO CAMPO PARA LAS DOS LECTURAS, Y ES LA DECISIÓN DE LA MIGRACIÓN. Con dos
+   * —día-de-semana y día-del-mes— pasar de «cada semana» a «cada mes» deja la vieja viva
+   * contradiciendo a la nueva. Por eso el tipo es `string` y no `DiaSemana`: quién es
+   * quién lo contesta `pideDia` (lib/plan-recurrentes.ts), nunca el campo solo.
+   *
+   * ⚠️ NO SE LEE SUELTO NI SE ESCRIBE SUELTO: `frecuenciaDiaOk(v, frecuenciaDe(t))` es el
+   * saneo Y las dos invariantes juntas —sin recurrente no hay día, y cambiar la frecuencia
+   * invalida el que ya no corresponda—. La aplican los mappers de las DOS mitades.
+   */
+  frecuenciaDia?: string | null;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
@@ -231,7 +246,12 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    * Customer Success, las reuniones de marketing— tampoco lleva deadline ni quarter, así
    * que sin esto su única respuesta temporal sería ninguna.
    */
-  frecuencia?: Frecuencia | null };
+  frecuencia?: Frecuencia | null;
+  /** QUÉ DÍA cae (mig 0166). Gemelo exacto de `BoardTask.frecuenciaDia`: mismo campo
+   *  único leído según `frecuencia`, mismo saneo (`frecuenciaDiaOk`) y las mismas dos
+   *  invariantes. Un proyecto que se repite tampoco lleva deadline, así que «cada semana,
+   *  los lunes» es todo lo que puede decir sobre cuándo. */
+  frecuenciaDia?: string | null };
 
 /**
  * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,

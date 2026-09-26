@@ -11,7 +11,7 @@ import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './depen
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
 // salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
 // nuevo por qué algo no compite.
-import { esRecurrente, llevaDeadline, frecuenciaOk, textoFrecuencia, type Frecuencia } from '@/lib/plan-recurrentes';
+import { esRecurrente, llevaDeadline, frecuenciaOk, frecuenciaDe, frecuenciaDiaOk, textoFrecuencia, textoDia, type Frecuencia } from '@/lib/plan-recurrentes';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -39,6 +39,33 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     for (const id of ids) { const t = tasks.find((x) => x.id === id); if (t) void repo.saveTask(t).catch((e) => console.error('[board] saveTask', e)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
+
+  /**
+   * ⚠️ LOS PROYECTOS TAMBIÉN VAN POR DIRTY SET, Y ANTES NO. Las cuatro funciones que
+   * guardan un proyecto sacaban el objeto a escribir de ADENTRO del updater de `setLabels`
+   * (`let next = null` … `if (next) repo.saveLabel(next)`), y eso funciona **sólo cuando la
+   * cola de actualizaciones está vacía**: React evalúa el updater de forma anticipada para
+   * ver si el estado cambió, pero únicamente en ese caso. Con la cola ya cargada —que es
+   * exactamente lo que pasa al tocar N proyectos en el mismo handler— el updater corre
+   * DESPUÉS, `next` sigue en `null` y la llamada a `repo.saveLabel` no ocurre nunca.
+   *
+   * O sea: el primero del lote se guardaba y los N-1 restantes se pintaban en pantalla y
+   * volvían solos al F5, sin un error. Medido sobre la barra de selección múltiple de
+   * proyectos, que escribía **1 de N**.
+   *
+   * La cura no es nueva: es la MISMA que las tareas usan desde siempre acá arriba, con su
+   * porqué ya escrito («evita el clobber de precomputar `next`»). Un efecto sobre el estado
+   * ya commiteado guarda lo FRESCO, así que no depende de cuándo React corra el updater ni
+   * de cuántas llamadas haya en el mismo evento.
+   */
+  const dirtyL = useRef<Set<string>>(new Set());
+  const markDirtyLabel = (id: string) => { dirtyL.current.add(id); };
+  useEffect(() => {
+    if (dirtyL.current.size === 0) return;
+    const ids = [...dirtyL.current]; dirtyL.current.clear();
+    for (const id of ids) { const l = labels.find((x) => x.id === id); if (l) void repo.saveLabel(l).catch((e) => console.error('[board] saveLabel', e)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labels]);
 
   const mkEntry = (actor: Actor, text: string, field: string, prev: unknown): Hist => ({ id: uid(), ts: now(), actor, text, undo: { field, prev } });
 
@@ -399,6 +426,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       // `frecuenciaDe`—, así que sin esto la pantalla seguiría mostrando «Cada semana»
       // sobre una tarea que ya vence, hasta el próximo F5: el éxito falso de siempre.
       if (t.frecuencia) patchLogExplicit(id, 'frecuencia', null, t.frecuencia, 'Sin frecuencia', 'ia');
+      // Y el día con ella (mig 0166): cuelga de la frecuencia, así que no puede
+      // sobrevivirla. `taskToRow` lo borra igual del lado del server —el día pasa por
+      // `frecuenciaDiaOk(…, frecuenciaDe(t))`—, así que sin esta línea la pantalla seguiría
+      // diciendo «los lunes» sobre una tarea que ya vence, hasta el próximo F5.
+      if (t.frecuenciaDia) patchLogExplicit(id, 'frecuenciaDia', null, t.frecuenciaDia, 'Sin día', 'ia');
       return;
     }
     if (t.deadline) patchLogExplicit(id, 'deadline', '', t.deadline, 'Sin deadline', 'ia');
@@ -431,6 +463,41 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const prev = frecuenciaOk(t.frecuencia);
     if (next === prev) return;
     patchLogExplicit(id, 'frecuencia', next, prev, textoFrecuencia(next) ?? 'Sin frecuencia');
+    // ⚠️ CAMBIAR LA FRECUENCIA INVALIDA EL DÍA QUE YA NO CORRESPONDE (mig 0166). De «cada
+    // semana, los lunes» a «cada mes», `'lun'` leído como día del mes no es ningún día. El
+    // server lo borra igual (`taskToRow`); acá va la pantalla, porque si no seguiría
+    // mostrando el ancla vieja hasta el próximo F5 — el éxito falso de siempre. Va en su
+    // propia entrada y como `'ia'`, igual que el deadline al marcar «se repite»: la
+    // decisión de la persona fue UNA, y dos toasts encima del mismo click son dos
+    // oportunidades de deshacer la mitad equivocada.
+    const dia = frecuenciaDiaOk(t.frecuenciaDia, next);
+    if (dia !== (t.frecuenciaDia ?? null)) patchLogExplicit(id, 'frecuenciaDia', dia, t.frecuenciaDia ?? null, 'Sin día', 'ia');
+  };
+  /**
+   * QUÉ DÍA CAE (mig 0166): el ancla de la frecuencia. «Cada semana» no distingue la junta
+   * de los lunes de la de los viernes.
+   *
+   * ⚠️ VA POR `patchLogExplicit` como todo lo demás: de ese choke point salen la entrada
+   * del change history con el valor anterior, el toast de deshacer y el guardado.
+   *
+   * ⚠️ SANEA CONTRA LA FRECUENCIA DE LA TARJETA, no contra la lista de días. `frecuenciaDe`
+   * contesta `null` para lo que no se repite y `frecuenciaDiaOk` contesta `null` para el
+   * día que esa frecuencia no sabe leer, así que las dos invariantes entran en una sola
+   * expresión y ninguna se escribe dos veces. Es la misma red que tiene `setFrecuencia`:
+   * el choke point de verdad es `taskToRow`, y sin esto el estado optimista pintaría un
+   * ancla que el server descarta al guardar.
+   *
+   * El texto sale de `textoDia` y no de `textoCuando`: el toast tiene 3-4 palabras y el
+   * ritmo no es lo que la persona acaba de tocar. Las dos comparten la misma traducción.
+   */
+  const setFrecuenciaDia = (id: string, v: string | null) => {
+    const t = byId(id);
+    if (!t) return;
+    const f = frecuenciaDe(t);
+    const next = frecuenciaDiaOk(v, f);
+    const prev = frecuenciaDiaOk(t.frecuenciaDia, f);
+    if (next === prev) return;
+    patchLogExplicit(id, 'frecuenciaDia', next, prev, textoDia(f, next) ?? 'Sin día');
   };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 
@@ -462,14 +529,12 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     catch (e) { console.error('[board] createLabel', e); return d; }
   };
   const patchLabel = (id: string, fields: Partial<Label>) => {
-    let next: Label | null = null;
-    setLabels((ls) => ls.map((l) => (l.id === id ? (next = { ...l, ...fields }) : l)));
-    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+    setLabels((ls) => ls.map((l) => (l.id === id ? { ...l, ...fields } : l)));
+    markDirtyLabel(id);
   };
   // patch de proyecto + entrada en SU change history (rename, detalle, score…).
   // Guarda el `undo` (snapshot de los campos que cambian) SOLO para cambios del usuario.
   const patchLabelLog = (id: string, fields: Partial<Label>, text: string, actor: Actor = 'user') => {
-    let next: Label | null = null;
     let entradaUsuario: Hist | null = null;
     setLabels((ls) => ls.map((l) => {
       if (l.id !== id) return l;
@@ -477,10 +542,9 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       for (const k of Object.keys(fields)) prev[k] = (l as unknown as Record<string, unknown>)[k];
       const entry: Hist = { id: uid(), ts: now(), actor, text, ...(actor === 'user' ? { undo: { field: '__label__', prev } } : {}) };
       entradaUsuario = actor === 'user' ? entry : null;
-      next = { ...l, ...fields, historial: [entry, ...l.historial].slice(0, HIST_CAP) };
-      return next;
+      return { ...l, ...fields, historial: [entry, ...l.historial].slice(0, HIST_CAP) };
     }));
-    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+    markDirtyLabel(id);
     // Mismo arrepentimiento que en una tarea, y por el mismo motivo: acá pasan el rename,
     // el emoji, el color, el detalle, la fecha y las notas de un proyecto.
     if (actor === 'user') { const e = entradaUsuario; if (e) show(text, () => undoLabelHist(id, e)); }
@@ -489,16 +553,14 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const undoLabelHist = (labelId: string, entry: Hist) => {
     if (!entry.undo) return;
     const prev = entry.undo.prev as Partial<Label>;
-    let next: Label | null = null;
-    setLabels((ls) => ls.map((l) => (l.id === labelId ? (next = { ...l, ...prev, historial: l.historial.filter((h) => h.id !== entry.id) }) : l)));
-    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+    setLabels((ls) => ls.map((l) => (l.id === labelId ? { ...l, ...prev, historial: l.historial.filter((h) => h.id !== entry.id) } : l)));
+    markDirtyLabel(labelId);
   };
   // registra un evento en el change history de un proyecto (tarea creada/borrada/renombrada).
   // kind:'task' → queda en el detalle del proyecto pero NO en el change history de la tab.
   const logProject = (labelId: string, text: string, actor: Actor = 'user') => {
-    let next: Label | null = null;
-    setLabels((ls) => ls.map((l) => (l.id === labelId ? (next = { ...l, historial: [{ id: uid(), ts: now(), actor, text, kind: 'task' as const }, ...l.historial].slice(0, HIST_CAP) }) : l)));
-    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+    setLabels((ls) => ls.map((l) => (l.id === labelId ? { ...l, historial: [{ id: uid(), ts: now(), actor, text, kind: 'task' as const }, ...l.historial].slice(0, HIST_CAP) } : l)));
+    markDirtyLabel(labelId);
   };
   const deleteLabel = (id: string) => {
     setLabels((ls) => ls.filter((l) => l.id !== id));
@@ -584,7 +646,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // Al dejar de repetirse se va la frecuencia (mig 0165), en la MISMA escritura que el
     // flag: `patchLabelLog` guarda en `prev` todos los campos que cambian, así que un solo
     // deshacer devuelve las dos cosas. Del lado del server lo hace `labelToRow`.
-    if (!v) { patchLabelLog(id, { recurrente: false, frecuencia: null }, texto); return; }
+    if (!v) { patchLabelLog(id, { recurrente: false, frecuencia: null, frecuenciaDia: null }, texto); return; }
     patchLabelLog(id, { recurrente: true, deadline: '', quarter: undefined }, texto);
   };
   /** Cada cuánto se repite un PROYECTO (mig 0165). Gemela de `setFrecuencia`, con el mismo
@@ -594,7 +656,20 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     if (!l || !esRecurrente(l)) return;
     const next = frecuenciaOk(v);
     if (next === frecuenciaOk(l.frecuencia)) return;
-    patchLabelLog(id, { frecuencia: next }, textoFrecuencia(next) ?? 'Sin frecuencia');
+    // El día se re-valida en la MISMA escritura (mig 0166), y acá va una sola llamada
+    // donde en una tarea van dos: `patchLabelLog` guarda en `prev` todos los campos que
+    // cambian, así que un solo deshacer devuelve el ritmo y su ancla juntos.
+    patchLabelLog(id, { frecuencia: next, frecuenciaDia: frecuenciaDiaOk(l.frecuenciaDia, next) }, textoFrecuencia(next) ?? 'Sin frecuencia');
+  };
+  /** Qué día cae un PROYECTO que se repite (mig 0166). Gemela de `setFrecuenciaDia`, con
+   *  el mismo saneo y las mismas dos invariantes; el choke point acá es `patchLabelLog`. */
+  const setLabelFrecuenciaDia = (id: string, v: string | null) => {
+    const l = labels.find((x) => x.id === id);
+    if (!l) return;
+    const f = frecuenciaDe(l);
+    const next = frecuenciaDiaOk(v, f);
+    if (next === frecuenciaDiaOk(l.frecuenciaDia, f)) return;
+    patchLabelLog(id, { frecuenciaDia: next }, textoDia(f, next) ?? 'Sin día');
   };
 
   return {
@@ -605,10 +680,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // modo de falla que este repo ya pagó dos veces el 25/09/2026: la capacidad queda
     // escrita, el typecheck pasa, los tests pasan, y en pantalla no hay nada que tocar
     // porque el board nunca lo recibió.
-    // ⚠️ Y LO MISMO VALE PARA `setFrecuencia` / `setLabelFrecuencia` (mig 0165): una acción
-    // que no está en este objeto no existe para ninguna pantalla, con el typecheck en verde.
-    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setFrecuencia, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelFrecuencia, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
+    // ⚠️ Y LO MISMO VALE PARA `setFrecuencia` / `setLabelFrecuencia` (mig 0165) y para
+    // `setFrecuenciaDia` / `setLabelFrecuenciaDia` (mig 0166): una acción que no está en
+    // este objeto no existe para ninguna pantalla, con el typecheck en verde.
+    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setFrecuencia, setFrecuenciaDia, setTaskLabels, undoHist,
+    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelFrecuencia, setLabelFrecuenciaDia, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

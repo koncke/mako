@@ -50,6 +50,11 @@ export function repoPlan(): Repo {
     // castea `body.tarea` entero y se lo pasa a `taskToRow`. El día que esa ruta pase a
     // armar el payload campo por campo, éste es el primero que se queda afuera y el
     // síntoma va a ser un selector que guarda y vuelve vacío al recargar.
+    //
+    // ⚠️ Y `frecuenciaDia` (mig 0166) VA POR EL MISMO CAMINO Y NO LLEVA ACCIÓN PROPIA,
+    // verificado igual: la ruta castea `body.tarea` entero y `taskToRow` escribe
+    // `frecuencia_dia`. Es el tercer campo que depende de que esa ruta no enumere claves,
+    // así que si alguna vez hay que hacerla enumerar, son estos tres juntos.
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
     // ⚠️ Y LO MISMO A NIVEL PROYECTO (mig 0164): `Label.recurrente` tampoco necesita una

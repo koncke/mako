@@ -214,14 +214,21 @@ test('la invariante se aplica en los MAPPERS, no en el formulario', () => {
   }
   assert.ok(/t\.frecuencia = frecuenciaDe\(/.test(TODO), 'rowTo (tarea del cliente) no sanea la frecuencia');
   assert.ok(/c\.frecuencia = frecuenciaDe\(/.test(TODO), 'catRow (proyecto del cliente) no sanea la frecuencia');
-  assert.equal(cuenta(TODO, 'frecuenciaDe('), 6, 'los seis puntos del cliente: 2 lecturas, 2 altas, 2 ediciones');
+  // ⚠️ 8 Y NO 6 DESDE LA 0166: las dos ALTAS la llaman dos veces —una para la frecuencia y
+  // otra como segundo argumento de `frecuenciaDiaOk`, que es lo que hace que el día herede
+  // la invariante en vez de tener una propia—. Los puntos siguen siendo seis.
+  assert.equal(cuenta(TODO, 'frecuenciaDe('), 8, 'los seis puntos del cliente: 2 lecturas, 2 altas (x2) y 2 ediciones');
 });
 
 test('al dejar de repetirse se BORRA la frecuencia, en las dos mitades', () => {
   // La simétrica de «al marcarla se le va la fecha». Sin esto queda una fila con
   // `recurrente: false` y `frecuencia: 'semanal'`: un valor que ninguna pantalla dibuja
   // (el campo sólo existe al lado de «Se repite») y que la API de MaKo sí publica.
-  assert.equal(cuenta(TODO, 'else upd.frecuencia = null'), 2, 'el editar de la tarea Y el de la categoría');
+  // Desde la 0166 se va también el DÍA, en la misma línea: cuelga de la frecuencia, así
+  // que una fila con `recurrente: false` y `frecuencia_dia: 'lun'` es la misma mentira un
+  // escalón más abajo — y ésta ni siquiera se puede leer, porque sin frecuencia no hay
+  // forma de saber si ese 'lun' es un día de la semana o un día del mes.
+  assert.equal(cuenta(TODO, 'else { upd.frecuencia = null; upd.frecuencia_dia = null; }'), 2, 'el editar de la tarea Y el de la categoría');
   // En el navegador: en su propia entrada del historial (tarea) y en la misma (proyecto).
   assert.ok(/patchLogExplicit\(id, 'frecuencia', null, t\.frecuencia/.test(USE_BOARD), 'la tarea no la suelta al desmarcarse');
   assert.ok(/recurrente: false, frecuencia: null/.test(USE_BOARD), 'el proyecto no la suelta al desmarcarse');
@@ -244,7 +251,13 @@ test('el `upd` del CLIENTE se arma campo por campo: lo que no se nombra no llega
   for (const fn of ['export async function editarTarea(', 'export async function editarCategoria(']) {
     const src = cuerpo(TODO, fn);
     assert.ok(src.includes('patch.frecuencia !== undefined'), `${fn} no mira patch.frecuencia`);
-    assert.ok(/upd\.frecuencia = frecuenciaDe\(/.test(src), `${fn} no guarda la frecuencia elegida`);
+    // ⚠️ DOS ASERCIONES Y NO UNA, DESDE LA 0166. El `upd` ya no escribe
+    // `frecuenciaDe(...)` en línea: la frecuencia EFECTIVA se calcula una vez (`const frec`)
+    // porque el día la necesita para saber si sigue valiendo. Buscar sólo `upd.frecuencia =`
+    // sería la aserción floja que este archivo ya cazó dos veces —la cumple la línea que la
+    // BORRA al desmarcar—, así que se exige quién la calcula Y quién la guarda.
+    assert.ok(/const frec = frecuenciaDe\(/.test(src), `${fn} no calcula la frecuencia efectiva`);
+    assert.ok(/upd\.frecuencia = frec;/.test(src), `${fn} no guarda la frecuencia elegida`);
   }
   // Y las dos ALTAS: si sólo el editar la guardara, una recurrente nacería sin ritmo.
   assert.ok(cuerpo(TODO, 'export async function crearTarea(').includes('frecuencia: frecuenciaDe(input)'), 'el alta de una tarea del cliente');
@@ -257,7 +270,7 @@ test('las CUATRO ramas de /api/todo la dejan pasar, saneada', () => {
   assert.ok(RUTA_TODO.includes('import { frecuenciaOk'), 'la ruta no importa el saneo');
   assert.ok(/frecuencia: frecuenciaOk\(t\.frecuencia\)/.test(RUTA_TODO), 'la rama «crear»');
   assert.ok(/frecuencia: patch\.frecuencia === undefined \? undefined : frecuenciaOk\(patch\.frecuencia\)/.test(RUTA_TODO), 'la rama «editar»: undefined ≠ null');
-  assert.ok(/quarter, recurrente, frecuencia\)/.test(RUTA_TODO), 'la rama «categoria-crear»');
+  assert.ok(/quarter, recurrente, frecuencia, frecuenciaDia\)/.test(RUTA_TODO), 'la rama «categoria-crear»');
   assert.ok(/frecuenciaOk\(frecCruda\)/.test(RUTA_TODO), 'la rama «categoria-editar»');
 });
 
@@ -296,5 +309,9 @@ test('la frecuencia viaja en la API de MaKo, pegada a `se_repite`', () => {
   // —«Cada semana»— y no como id: lo que el modelo va a hacer con el dato es decírselo a
   // una persona, y traducir es donde inventa.
   assert.ok(/se_repite: true, frecuencia: t\.frecuencia/.test(HELPERS), 'tareaCompacta no manda el ritmo');
-  assert.equal(cuenta(HELPERS, 'textoFrecuencia('), 4, 'las dos mitades del tablero, tareas y proyectos');
+  // ⚠️ `textoCuando` Y NO `textoFrecuencia` DESDE LA 0166: la frase que viaja es «Cada
+  // semana, los lunes», y la arma UNA sola función —la misma que la tarjeta y la tabla—.
+  // Mandar el día en un campo aparte sería un id que el modelo tiene que juntar con el
+  // otro, y juntar es otra oportunidad de inventar.
+  assert.equal(cuenta(HELPERS, 'textoCuando('), 4, 'las dos mitades del tablero, tareas y proyectos');
 });

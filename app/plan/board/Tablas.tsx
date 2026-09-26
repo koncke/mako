@@ -54,9 +54,18 @@ import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './typ
 import type { Board } from './useBoard';
 import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, ANCHO_TABLA_EN_PROYECTO } from './piezas';
 // El predicado de «se repite» sale del modulo de datos, nunca de un `t.recurrente` suelto.
-import { esRecurrente, frecuenciaDe, textoFrecuencia, ROTULO_FRECUENCIA } from '@/lib/plan-recurrentes';
+// ⚠️ Y EL TEXTO DEL RITMO SALE DE `textoCuando`, NO DE `textoFrecuencia` (mig 0166). Es la
+// misma función que usan la tarjeta, la fila y la API: la que junta el ritmo con su día
+// («Cada semana, los lunes»). Con `textoFrecuencia` a secas la junta de los lunes y la de
+// los viernes se veían IDÉNTICAS, que es justo el agujero que la 0166 vino a tapar.
+import { esRecurrente, frecuenciaDe, frecuenciaDiaOk, textoCuando, ROTULO_FRECUENCIA } from '@/lib/plan-recurrentes';
 import { usePref, esUnoDe } from './prefs';
-import { AccionesLote } from './AccionesLote';
+// ⚠️ `SIN_FRECUENCIA` SE MUDÓ A `AccionesLote` (26/09/2026) Y NO ES UN CAPRICHO: la barra
+// también dice esa palabra —es su destino «Indefinida»— y no puede importar de acá sin
+// ciclo, porque esta tabla la MONTA. De los tres archivos del tablero, `AccionesLote` es el
+// único que no importa a ninguno de los otros dos: es la hoja, así que es el único lugar del
+// que los tres pueden leer. Su casa por tema sigue siendo `lib/plan-recurrentes.ts`.
+import { AccionesLote, AccionesLoteProyectos, SIN_FRECUENCIA } from './AccionesLote';
 import { ScoreIcon } from './guardian-form';
 
 const SANS = "'Geist', sans-serif";
@@ -101,10 +110,19 @@ const tablaStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', f
 //         sobre; el piso es lo mínimo para que el recorte con «…» siga diciendo algo. El
 //         que cede es el título, a propósito.
 const C_SEL = 28, C_PRIO = 76, C_FECHA = 138, C_ACC = 72, C_ACC_SOLA = 48, C_PROY = 190, C_TITULO = 130, C_AVANCE = 130, C_NOMBRE = 200;
-//   · 132 el ritmo: «Cada dos semanas» es el valor MÁS LARGO del conjunto (FRECUENCIAS) y
-//         mide ~112px en la tipografía de la tabla, + 20 de padding. Se mira el más largo y
-//         no el primero a propósito: con «Cada mes» entraba y con el más largo, no.
-const C_RITMO = 132;
+//   · 260 el ritmo. Eran 132 cuando la celda sólo decía la frecuencia («Cada dos semanas»,
+//         el valor más largo de `FRECUENCIAS`, ~112px + 20). Desde la mig 0166 dice también
+//         el DÍA, así que el valor más largo del conjunto pasó a ser «Cada dos semanas, los
+//         miércoles»: 31 caracteres del mono de la tabla a 12px (0,6em = 7,2px) = ~223, + 13
+//         del bucle + 5 de gap + 20 de padding = 261, redondeado a 260 (la celda elipsa, así
+//         que el último píxel no cambia nada). Se mide el MÁS LARGO y no el primero: con
+//         «Cada mes, el 15» entraba en 132 y con el más largo no, que es el mismo error que
+//         el bloque de prioridad ya pagó con «A FUTURO».
+//         El costo está acotado a la vista Recurrentes, que es la única que dibuja esta
+//         columna (`sinRanking`) y que se dibuja a 1180 px: el `minWidth` sube de 552 a 680
+//         en tareas y de 462 a 590 en proyectos, muy por debajo de lo disponible. Adentro de
+//         un proyecto —la columna angosta— `sinRanking` no se usa nunca.
+const C_RITMO = 260;
 const thBase: CSSProperties = { textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '9px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 1, whiteSpace: 'nowrap' };
 // 5px y no 9 de padding vertical: es lo que PAGA la segunda línea del título. «Pon las
 // tareas en doble línea como máximo… pero que no haya tanto scroll, mejor que no haya casi
@@ -127,21 +145,12 @@ const fechaInput: CSSProperties = { width: 118, padding: '4px 7px', borderRadius
 const accionBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, flex: 'none', padding: 0, border: 'none', background: 'transparent', borderRadius: 7, cursor: 'pointer' };
 
 // ── EL RITMO DE UNA RECURRENTE, DONDE UNA TAREA NORMAL DICE SU PLAZO ─────────────────
-/**
- * CÓMO SE DICE QUE TODAVÍA NADIE ELIGIÓ UN RITMO. **Una palabra**, y la misma en las tres
- * superficies que lo dicen (el selector del detalle, la tarjeta y la fila de tabla).
- *
- * ⚠️ NO es «Sin asignar» —lo que dice el selector de Quarter de al lado— por dos razones.
- * Una es el largo: en la tarjeta esto cae en el renglón del plazo, donde el techo es una
- * palabra y no una frase («no pongas texto innecesario nunca», 26/09/2026). La otra es que
- * los dos campos nunca conviven: el Quarter sólo existe si NO se repite y el ritmo sólo si
- * se repite, así que no hay ninguna pantalla donde las dos palabras se puedan contradecir.
- *
- * ⚠️ Y NO ES «—». El guion es `NoAplica`, que significa «esto no se mide así» (la columna
- * Prioridad de una recurrente). Acá sí aplica y sí se puede contestar: falta contestarlo.
- * Son dos huecos distintos, y decirlos igual es perder la diferencia.
- */
-export const SIN_FRECUENCIA = 'Indefinida';
+// ⛔ ACÁ VIVÍA `SIN_FRECUENCIA` y se mudó a `AccionesLote.tsx` el 26/09/2026, cuando la
+//    barra de selección múltiple pasó a decir esa misma palabra. El porqué del destino está
+//    en el `import` de arriba: es el único de los tres archivos que los otros dos pueden
+//    leer sin ciclo. Se sigue usando acá y se sigue exportando desde acá para que nadie
+//    tenga que aprenderse el grafo de imports para encontrarla.
+export { SIN_FRECUENCIA };
 
 /**
  * EL RITMO, EN EL RENGLÓN DONDE UNA TAREA NORMAL MUESTRA SU DEADLINE.
@@ -159,19 +168,28 @@ export const SIN_FRECUENCIA = 'Indefinida';
  *
  * ⚠️ EL VALOR SALE DE `frecuenciaDe`, NO DE `de.frecuencia`. Es la invariante del contrato
  * —una frecuencia sin `recurrente` no existe—, así que una fila vieja con las dos cosas
- * cruzadas no puede afirmar un ritmo sobre algo que sí vence. Y el TEXTO sale de
- * `textoFrecuencia`, o sea de `FRECUENCIAS`: un segundo mapa de id→etiqueta es cómo se
- * agrega `bimestral` al selector y la tarjeta empieza a mostrar el id crudo.
+ * cruzadas no puede afirmar un ritmo sobre algo que sí vence. Y el DÍA pasa por
+ * `frecuenciaDiaOk`, que es el saneo que DEPENDE de la frecuencia: un «mie» guardado cuando
+ * el ritmo era semanal no puede seguir leyéndose después de pasarlo a mensual.
+ *
+ * ⚠️ Y EL TEXTO SALE DE `textoCuando` (mig 0166), la ÚNICA función que junta el ritmo con su
+ * día. Antes decía sólo el ritmo y con eso «la junta de los lunes» y «la de los viernes» se
+ * veían idénticas en la vista Recurrentes — que es el mismo agujero que la 0165 había tapado
+ * un nivel más arriba («la junta de los miércoles» y «el seguimiento diario»), corrido un
+ * escalón. Un segundo armador de esa frase es cómo la tarjeta y la fila terminan diciendo
+ * dos cosas distintas del mismo dato.
  */
 export function LineaFrecuencia({ de, tam = 10.5, mono = true, style }: {
-  /** la tarea o el proyecto ENTEROS: el contrato mira `recurrente` y `frecuencia` juntos. */
-  de: { recurrente?: boolean; frecuencia?: unknown };
+  /** la tarea o el proyecto ENTEROS: el contrato mira `recurrente`, `frecuencia` y
+   *  `frecuenciaDia` juntos — los tres campos contestan UNA pregunta. */
+  de: { recurrente?: boolean; frecuencia?: unknown; frecuenciaDia?: string | null };
   tam?: number;
   /** false = tipografía de texto, para donde esto se lee como una frase. */
   mono?: boolean;
   style?: CSSProperties;
 }) {
-  const txt = textoFrecuencia(frecuenciaDe(de));
+  const f = frecuenciaDe(de);
+  const txt = textoCuando(f, frecuenciaDiaOk(de.frecuenciaDia, f));
   const nombre = txt ? `${ROTULO_FRECUENCIA}: ${txt}` : `${ROTULO_FRECUENCIA} sin definir`;
   return (
     <span title={nombre} aria-label={nombre}
@@ -630,8 +648,13 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
 
 // ── PROYECTOS ────────────────────────────────────────────────────────────────────────
 
-export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, sinRanking = false }: {
+export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, sinRanking = false }: {
   filas: Array<{ l: Label; prog: { pct: number; total: number; done: number } }>;
+  /** ⚠️ ENTRA ENTERO PORQUE LA BARRA DE SELECCIÓN MÚLTIPLE ESCRIBE (26/09/2026, «proyecto
+   *  también debería poder tener selección múltiple»). Es exactamente lo que ya hace
+   *  `TablaTareas`: la selección vive en la tabla, la barra vive arriba de ella, y las dos
+   *  van juntas o la casilla no lleva a ningún lado. */
+  board: Board;
   topProjectId: string | null;
   hoy: string;
   onOpen: (id: string) => void;
@@ -663,6 +686,17 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
    */
   sinRanking?: boolean;
 }) {
+  /**
+   * LO SELECCIONADO. Es la MISMA casilla, en la MISMA primera columna y con el MISMO
+   * significado que en la tabla de tareas: en una tabla, una casilla en la primera columna
+   * ES el control de selección —lo es en Gmail, en Drive y en cualquier tabla— y este
+   * tablero ya pagó una vez leerla como «completar».
+   *
+   * ⚠️ Y NO CONVIVE CON NINGÚN CHECK DE COMPLETAR, porque un proyecto no se completa: su
+   * avance lo calculan sus tareas. Así que acá la primera columna es el único cuadrado de la
+   * fila y no hay con qué confundirlo.
+   */
+  const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
   const [ordenPref, setOrden] = usePref<OrdenProy>('proyectos.tabla.orden', 'deadline', esUnoDe('deadline', 'score', 'nombre', 'avance'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('proyectos.tabla.dir', 'asc', esUnoDe('asc', 'desc'));
   const [verHechos, setVerHechos] = useState(false);
@@ -707,6 +741,14 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
   // tabla ordenada por prioridad: ver `useArrastreFilas`.
   const arr = useArrastreFilas(vivos.map(({ l }) => ({ id: l.id, score: l.score })), dir, orden === 'score', onSoltar);
 
+  // Sobre lo VISIBLE, nunca sobre el tablero entero: si hay un filtro puesto, «todos» son
+  // los que se ven. Seleccionar lo que no está en pantalla es cómo se cambia de más. Es la
+  // misma cuenta que hace la tabla de tareas, con las mismas dos listas.
+  const visiblesIds = (verHechos ? [...vivos, ...hechos] : vivos).map(({ l }) => l.id);
+  const todosSel = visiblesIds.length > 0 && visiblesIds.every((id) => sel.has(id));
+  const alternar = (id: string) => setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const elegidos = filas.filter(({ l }) => sel.has(l.id)).map(({ l }) => l);
+
   const fila = ({ l, prog }: { l: Label; prog: { pct: number; total: number; done: number } }, hecho: boolean, i = -1, ultima = false) => {
     // Lo terminado está al fondo y plegado: no se agarra ni marca posición.
     const marca = hecho ? null : arr.marca(i, ultima);
@@ -729,6 +771,14 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
         onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
         title={`Abrir «${l.name}»`}
         style={{ background: hecho ? 'var(--surface-2)' : undefined, cursor: !hecho && arr.activo ? 'grab' : 'pointer' }}>
+        {/* LA CASILLA, PRIMERA Y CON `data-parar`: sin eso, tildar un proyecto abriría además
+            su detalle — el corte va en la CELDA y no en el control, para que lo que se
+            agregue mañana adentro lo herede. */}
+        <td data-parar style={{ ...td, width: C_SEL, paddingRight: 0 }}>
+          <input type="checkbox" checked={sel.has(l.id)} onChange={() => alternar(l.id)}
+            title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
+            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+        </td>
         <td style={{ ...td, maxWidth: 340 }}>
           <button type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`}
             style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
@@ -777,18 +827,32 @@ export function TablaProyectos({ filas, topProjectId, hoy, onOpen, onDeadline, l
   // Cuántas columnas quedan vivas: lo miran el `colSpan` del vacío y el de `FilaPlegada`.
   // Escrito como cuenta y no como número suelto para que agregar una columna no deje dos
   // constantes contradiciéndose (es el mismo molde que `cols` en la tabla de tareas).
-  // Nombre + avance + la columna temporal (Deadline o Frecuencia, nunca las dos) + la de
-  // Prioridad, que es la única que de verdad desaparece con `sinRanking`.
-  const cols = 3 + (sinRanking ? 0 : 1);
+  // La casilla + nombre + avance + la columna temporal (Deadline o Frecuencia, nunca las
+  // dos) + la de Prioridad, que es la única que de verdad desaparece con `sinRanking`.
+  const cols = 4 + (sinRanking ? 0 : 1);
 
   return (
     <div style={cajaStyle} className="mk-scroll-x">
+      {/* La barra vive en `AccionesLote`, la MISMA pieza que la tabla de tareas con otra
+          configuración: lo que un proyecto puede hacer en lote es lo temporal («Se repite»,
+          el ritmo con su día y el deadline) y nada más. Qué queda afuera y por qué está
+          enumerado en la cabecera de ese archivo. */}
+      <AccionesLoteProyectos elegidos={elegidos} board={board} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />
       {/* El piso es la SUMA de lo que las columnas piden (ver arriba), no un número
           copiado de la tabla de al lado. Bajó de 600 a 544 al irse la palabra de la
           prioridad y al apretarse el padding: lo que sobra se lo queda el nombre. */}
-      <table style={{ ...tablaStyle, minWidth: C_NOMBRE + C_AVANCE + (sinRanking ? C_RITMO : C_PRIO + C_FECHA) }}>
+      <table style={{ ...tablaStyle, minWidth: C_SEL + C_NOMBRE + C_AVANCE + (sinRanking ? C_RITMO : C_PRIO + C_FECHA) }}>
         <thead>
           <tr>
+            {/* «Todos» sobre lo VISIBLE, con el estado intermedio cuando hay algunos: es el
+                mismo control, con el mismo `indeterminate`, que el encabezado de la tabla de
+                tareas. */}
+            <th style={{ ...thBase, width: C_SEL, paddingRight: 0 }}>
+              <input type="checkbox" checked={todosSel} ref={(el) => { if (el) el.indeterminate = sel.size > 0 && !todosSel; }}
+                onChange={() => setSel(todosSel ? new Set() : new Set(visiblesIds))}
+                title={todosSel ? 'Quitar la selección' : `Seleccionar ${labelPlural.toLowerCase()}`} aria-label={`Seleccionar ${labelPlural.toLowerCase()}`}
+                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+            </th>
             <Th orden="nombre" activo={orden === 'nombre'} dir={dir} onSort={() => sortear('nombre')}>{labelPlural}</Th>
             {/* ⚠️ EL `title` DE ESTE ENCABEZADO ES LA PISTA DE CÓMO SE HABILITA EL
                 ARRASTRE. Ordenar por deadline o por nombre deja la posición entre filas sin

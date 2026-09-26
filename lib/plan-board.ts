@@ -17,7 +17,7 @@ import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuie
 import { quarterDeFecha } from '@/app/plan/board/cuando';
 // «Se repite para siempre» (mig 0163). El predicado y el filtro salen de un módulo de
 // datos y NO se reescriben acá: es la misma regla que aplican las pantallas y el test.
-import { esRecurrente, sinRecurrentes, soloRecurrentes, llevaDeadline, frecuenciaDe } from '@/lib/plan-recurrentes';
+import { esRecurrente, sinRecurrentes, soloRecurrentes, llevaDeadline, frecuenciaDe, frecuenciaDiaOk } from '@/lib/plan-recurrentes';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntuarProyectos, type ProyParaPuntuar } from '@/lib/mako-guardian';
 import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
@@ -92,6 +92,12 @@ function rowToTask(r: Row): BoardTask {
     // script— entraría al navegador afirmando «cada semana» sobre una tarea con deadline, y
     // el próximo guardado la devolvería a la base tal cual.
     frecuencia: frecuenciaDe({ recurrente: !!r.recurrente, frecuencia: r.frecuencia }),
+    // ⚠️ Y EL DÍA SE SANEA CONTRA LA FRECUENCIA QUE ACABA DE SALIR DE LA FILA (mig 0166),
+    // no contra la cruda: una fila escrita antes de la migración —o por un script— puede
+    // traer `frecuencia_dia: 'lun'` con `frecuencia: 'mensual'`, y eso leído como día del
+    // mes no es ningún día. Entra como null y la pantalla pide uno nuevo, en vez de pintar
+    // un ancla que nadie eligió.
+    frecuenciaDia: frecuenciaDiaOk(r.frecuencia_dia, frecuenciaDe({ recurrente: !!r.recurrente, frecuencia: r.frecuencia })),
   };
 }
 function taskToRow(t: BoardTask): Row {
@@ -121,6 +127,12 @@ function taskToRow(t: BoardTask): Row {
     // invariante en una función —no un `esRecurrente(t) ? … : null` escrito acá— porque la
     // aplican los cuatro mappers de las dos mitades del tablero y tienen que decir lo mismo.
     frecuencia: frecuenciaDe(t),
+    // ⚠️ EL DÍA CUELGA DE LA FRECUENCIA, ASÍ QUE SU INVARIANTE ES LA MISMA (mig 0166):
+    // `frecuenciaDe(t)` ya contesta null para lo que no se repite, y `frecuenciaDiaOk`
+    // borra el día que la frecuencia de HOY no sabe leer. Las dos reglas —«sin recurrente
+    // no hay día» y «cambiar la frecuencia invalida el día»— en una sola expresión y en el
+    // choke point por el que pasan el Perro, una reunión y un lote.
+    frecuencia_dia: frecuenciaDiaOk(t.frecuenciaDia, frecuenciaDe(t)),
     orden: t.num, updated_at: new Date().toISOString(),
   };
 }
@@ -143,6 +155,8 @@ function rowToLabel(r: Row): Label {
     recurrente: !!r.recurrente,
     // Misma invariante en la lectura que en `rowToTask` (mig 0165).
     frecuencia: frecuenciaDe({ recurrente: !!r.recurrente, frecuencia: r.frecuencia }),
+    // Mismo saneo del día que en `rowToTask`, un nivel más arriba (mig 0166).
+    frecuenciaDia: frecuenciaDiaOk(r.frecuencia_dia, frecuenciaDe({ recurrente: !!r.recurrente, frecuencia: r.frecuencia })),
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -162,6 +176,8 @@ function labelToRow(l: Label, orden = 0): Row {
     recurrente: esRecurrente(l),
     // Lo mismo que en `taskToRow`, un nivel más arriba (mig 0165).
     frecuencia: frecuenciaDe(l),
+    // Lo mismo que en `taskToRow`, un nivel más arriba (mig 0166).
+    frecuencia_dia: frecuenciaDiaOk(l.frecuenciaDia, frecuenciaDe(l)),
     orden, updated_at: new Date().toISOString(),
   };
 }

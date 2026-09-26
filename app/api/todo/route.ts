@@ -35,7 +35,7 @@ export async function GET() {
 
 type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
-  progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: unknown; categorias?: number[];
+  progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: unknown; frecuencia_dia?: unknown; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
   // DE DÓNDE SALIÓ la tarea (reunión de Fathom + minuto, archivo, WhatsApp). La tabla
@@ -88,6 +88,11 @@ export async function POST(req: NextRequest) {
         // desde el tablero del cliente nacería sin ritmo, que es el único dato temporal que
         // le queda. `frecuenciaOk` sanea acá porque este body lo escribe cualquiera.
         frecuencia: frecuenciaOk(t.frecuencia),
+        // ⚠️ Y EL DÍA CON ELLA (mig 0166). Va CRUDO a propósito: si el día vale depende de
+        // la frecuencia efectiva del alta, que se resuelve adentro de `crearTarea`
+        // (`frecuenciaDiaOk(input.frecuencia_dia, frecuenciaDe(input))`). Sanearlo acá
+        // pediría repetir ese cálculo en la puerta, que es la segunda copia de la regla.
+        frecuencia_dia: t.frecuencia_dia,
         origen: t.origen, retro_id: t.retro_id ?? null, experimento_id: t.experimento_id ?? null,
         // La fuente va EN EL ALTA: si se escribiera en un editar posterior, la tarjeta
         // nace sin chip y el Perro la puntúa sin saber de dónde salió.
@@ -117,6 +122,10 @@ export async function POST(req: NextRequest) {
         // `undefined` = «no lo toques» y `null` = «bórralo»: son dos cosas distintas y el
         // saneo no las puede colapsar, o el editar de cualquier otro campo borraría el ritmo.
         frecuencia: patch.frecuencia === undefined ? undefined : frecuenciaOk(patch.frecuencia),
+        // El día va crudo por lo mismo que en el alta, y acá pesa más: el patch puede traer
+        // el día sin la frecuencia, así que la única que puede decidir es `editarTarea`,
+        // que lee el ritmo de la fila. `undefined` = «no lo toques» y viaja igual.
+        frecuencia_dia: patch.frecuencia_dia,
         categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
         fuente: patch.fuente,
@@ -144,14 +153,16 @@ export async function POST(req: NextRequest) {
       const recurrente = body.recurrente != null ? Boolean(body.recurrente) : undefined;
       // Cada cuánto se repite (mig 0165). Va en el alta por lo mismo que `recurrente`.
       const frecuencia = body.frecuencia !== undefined ? frecuenciaOk(body.frecuencia) : undefined;
+      // Y su día (mig 0166), crudo: lo sanea `crearCategoria` contra la frecuencia efectiva.
+      const frecuenciaDia = body.frecuencia_dia;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, frecuencia) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, frecuencia, frecuenciaDia) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
       // Este tipo es la PUERTA: `editarCategoria` arma su `upd` campo por campo, así que un
       // campo que no esté acá tampoco llega, aunque el navegador lo mande.
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: unknown }) ?? {};
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: unknown; frecuencia_dia?: unknown }) ?? {};
       // La frecuencia se SANEA en la puerta, igual que en `editar`: este patch se pasa
       // ENTERO a `editarCategoria`, así que sin esta línea un string libre llegaría hasta
       // el `upd` con el tipo diciendo `Frecuencia`. `undefined` = «no lo toques».

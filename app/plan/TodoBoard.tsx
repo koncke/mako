@@ -19,7 +19,7 @@ const toBoard = (t: Tarea): BoardTask => ({
   id: String(t.id), num: t.id, emoji: '📌', title: t.titulo, detalle: t.detalle ?? '',
   priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
   scoreRazon: t.score_razon ?? undefined,
-  progress: t.progreso, deadline: t.deadline ?? '', quarter: t.quarter ?? undefined, recurrente: t.recurrente, frecuencia: t.frecuencia,
+  progress: t.progreso, deadline: t.deadline ?? '', quarter: t.quarter ?? undefined, recurrente: t.recurrente, frecuencia: t.frecuencia, frecuenciaDia: t.frecuencia_dia,
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
   // De dónde salió: pinta el mismo chip que en el board del dueño (con link al minuto).
@@ -28,7 +28,7 @@ const toBoard = (t: Tarea): BoardTask => ({
 // ⚠️ `recurrente` VA ACÁ Y EN LOS DOS PAYLOADS DE ABAJO (mig 0164). Este mapper es la
 // puerta de ENTRADA del tablero del cliente: sin él, el interruptor nace apagado en cada
 // carga aunque la fila diga `true`, o sea que marcarlo «no hace nada» al recargar.
-const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, recurrente: c.recurrente, frecuencia: c.frecuencia, detalle: c.detalle, historial: c.historial });
+const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, recurrente: c.recurrente, frecuencia: c.frecuencia, frecuenciaDia: c.frecuencia_dia, detalle: c.detalle, historial: c.historial });
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; patches?: GuardPatch[]; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -47,7 +47,7 @@ const editPatch = (d: BoardTask) => ({
   // campo que no cambia — es un campo que se queda en el valor que tenía la fila. Y como
   // `?? null` colapsaría «no se dijo cada cuánto» con «bórrala», acá va el valor tal cual:
   // `null` es un estado real y el server lo distingue de `undefined`.
-  deadline: d.deadline || null, quarter: d.quarter || null, recurrente: !!d.recurrente, frecuencia: d.frecuencia ?? null, categorias: catsNum(d.labels, d.title),
+  deadline: d.deadline || null, quarter: d.quarter || null, recurrente: !!d.recurrente, frecuencia: d.frecuencia ?? null, frecuencia_dia: d.frecuenciaDia ?? null, categorias: catsNum(d.labels, d.title),
   checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null, fuente: d.fuente ?? null,
 });
 
@@ -80,7 +80,7 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
       // `recurrente` va en el ALTA: el server ya lo acepta, y sin esto la capacidad queda
       // abierta y sin un solo call site — la tarea nace compitiendo y sólo se arregla si
       // alguien la vuelve a editar.
-      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente, frecuencia: d.frecuencia ?? null } });
+      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente, frecuencia: d.frecuencia ?? null, frecuencia_dia: d.frecuenciaDia ?? null } });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto
@@ -121,10 +121,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial }
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, frecuencia: l.frecuencia ?? null });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, frecuencia: l.frecuencia ?? null, frecuencia_dia: l.frecuenciaDia ?? null });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, frecuencia: l.frecuencia ?? null } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, frecuencia: l.frecuencia ?? null, frecuencia_dia: l.frecuenciaDia ?? null } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
     // El Perro server-side, igual que en el board del dueño. Sin esto, `usaServerPerro`
     // era false y TODO lo que entraba por el tablero del cliente (reunión, archivo,

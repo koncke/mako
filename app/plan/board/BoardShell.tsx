@@ -24,7 +24,12 @@ import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
-import { AccionesLote } from './AccionesLote';
+// ⚠️ `opcionesDia` VIENE DE ACÁ Y NO DE `lib/`, y está explicado en su propio comentario:
+// `AccionesLote` es la única HOJA del grafo de imports de los tres archivos del tablero
+// —`Tablas` y `BoardShell` la montan, ella no importa a ninguno—, así que es el único lugar
+// del que los tres pueden leer sin ciclo. Su casa por tema es `lib/plan-recurrentes.ts`, al
+// lado de `DIAS_SEMANA`; queda anotado porque `lib/` no es de esta pasada.
+import { AccionesLote, AccionesLoteProyectos, opcionesDia } from './AccionesLote';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -61,11 +66,15 @@ import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CU
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, COL_DER, MODAL_DETALLE } from './piezas';
-// ⚠️ `LineaFrecuencia` Y `SIN_FRECUENCIA` VIVEN EN `Tablas.tsx` Y NO ACÁ, y el motivo es
-// el grafo de imports: este archivo ya importa de aquél, así que al revés sería un ciclo.
-// El lugar que les correspondería por tema es `piezas.tsx`; queda anotado y no hecho porque
-// ese archivo no es de esta pasada. Lo que NO puede pasar —y no pasa— es que la tarjeta y
-// la fila digan la misma cosa con dos textos distintos: la pieza es una sola.
+// ⚠️ `LineaFrecuencia` VIVE EN `Tablas.tsx` Y NO ACÁ, y el motivo es el grafo de imports:
+// este archivo ya importa de aquél, así que al revés sería un ciclo. El lugar que le
+// correspondería por tema es `piezas.tsx`; queda anotado y no hecho porque ese archivo no es
+// de esta pasada. Lo que NO puede pasar —y no pasa— es que la tarjeta y la fila digan la
+// misma cosa con dos textos distintos: la pieza es una sola.
+// ⚠️ `SIN_FRECUENCIA` YA NO NACE AHÍ (26/09/2026): se mudó a `AccionesLote`, que desde que
+// la barra de lote también dice esa palabra es el único de los tres archivos del que los
+// otros dos pueden leer sin ciclo. Se sigue importando desde `Tablas`, que lo re-exporta,
+// para no partir en dos la lista de lo que este archivo le pide al de al lado.
 import { TablaProyectos, TablaTareas, LineaFrecuencia, SIN_FRECUENCIA } from './Tablas';
 // LAS TAREAS QUE SE REPITEN. El rótulo, el predicado y el filtro salen del módulo de datos
 // —`ROTULO_RECURRENTE` / `esRecurrente` / `sinRecurrentes`—, no de un `t.recurrente` suelto
@@ -85,7 +94,15 @@ import { TablaProyectos, TablaTareas, LineaFrecuencia, SIN_FRECUENCIA } from './
 // `frecuenciaDe` es la invariante «una frecuencia sin `recurrente` no existe», que se
 // aplica también al LEER para que una fila vieja con los dos campos cruzados no afirme un
 // ritmo sobre algo que sí vence.
-import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, FRECUENCIAS, frecuenciaOk, frecuenciaDe, ROTULO_FRECUENCIA, type Frecuencia } from '@/lib/plan-recurrentes';
+// ⚠️ Y EL DÍA (mig 0166) SALE DE LA MISMA PUERTA. `pideDia` contesta QUÉ ancla necesita cada
+// ritmo —la semana, el mes, o ninguna— y es lo único que decide si el selector del día se
+// dibuja: un control que no aplica es un control que no hace nada. `frecuenciaDiaOk` es el
+// saneo, que DEPENDE de la frecuencia (un «mie» deja de valer en cuanto el ritmo pasa a
+// mensual), y `textoCuando` es la ÚNICA función que arma la frase que leen la tarjeta, la
+// fila, la barra de lote y la API. Es UN solo campo leído según la frecuencia y no dos
+// columnas: con dos, cambiar de «cada semana» a «cada mes» deja la vieja viva
+// contradiciendo a la nueva.
+import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, FRECUENCIAS, frecuenciaOk, frecuenciaDe, frecuenciaDiaOk, pideDia, ROTULO_FRECUENCIA, ROTULO_DIA, type Frecuencia } from '@/lib/plan-recurrentes';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -3820,8 +3837,12 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
               /* LO TEMPORAL DE UNA RECURRENTE, en el lugar que dejaron los dos campos de
                  arriba. El valor entra por `frecuenciaDe` —la invariante del contrato— y no
                  por `t.frecuencia`: una fila vieja con las dos cosas cruzadas no puede
-                 pintar un ritmo acá. */
-              <BloqueFrecuencia valor={frecuenciaDe(t)} onCambiar={(v) => board.setFrecuencia(t.id, v)} />
+                 pintar un ritmo acá. Y el DÍA entra por `frecuenciaDiaOk` contra ESA misma
+                 frecuencia, que es el saneo que depende de ella (mig 0166). */
+              <BloqueFrecuencia
+                valor={frecuenciaDe(t)} dia={frecuenciaDiaOk(t.frecuenciaDia, frecuenciaDe(t))}
+                onCambiar={(v) => board.setFrecuencia(t.id, v)}
+                onCambiarDia={(v) => board.setFrecuenciaDia(t.id, v)} />
             )}
             {/* ⚠️ DEPENDE DE, JUSTO ARRIBA DE PROYECTOS. Subió a esta columna el 25/09
                 («debería estar como mínimo en el costado… es importante verlo de una forma
@@ -3969,8 +3990,18 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // La card de proyecto (misma en la vista Proyectos y en el modal "MaKo cargó", así son
 // IDÉNTICAS). `verDetalle` muestra descripción + razón del Perro (para el modal); en la
 // grilla queda apagado (es para barrer de un vistazo).
-export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse, sinRanking = false }: {
+export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse, sinRanking = false, elegido = false, haySeleccion = false, onElegir }: {
   l: Label; prog: { total: number; done: number; pct: number; recurrentes?: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void;
+  /** está seleccionado para una acción en lote */
+  elegido?: boolean;
+  /** hay algo seleccionado en la grilla: la casilla se queda a la vista aunque el mouse no
+   *  esté encima (si no, tildar la segunda tarjeta obliga a adivinar dónde está la primera). */
+  haySeleccion?: boolean;
+  /** ⚠️ LA PROP **ES** LA CAPACIDAD (26/09/2026, «proyecto también debería poder tener
+   *  selección múltiple»). Sin ella la tarjeta no dibuja la casilla, que es cómo se ve desde
+   *  afuera que quien la monta no tiene barra de lote: el modal de «MaKo cargó» reusa esta
+   *  misma tarjeta y ahí seleccionar no lleva a ningún lado. */
+  onElegir?: (id: string) => void;
   /** ⚠️ EN LA VISTA «RECURRENTES» NO SE PINTAN NI EL PUNTAJE NI EL CHIP «Se repite», y no es
    *  cosmética: ahí TODAS se repiten, así que el chip es ruido en el 100% de las tarjetas, y
    *  el número es un ranking que la mig 0163 sacó — dejarlo a la vista invita a compararlo
@@ -3987,6 +4018,12 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
 }) {
   const completo = prog.total > 0 && prog.done === prog.total;
   const arrastrable = !!onAgarrar;
+  /** ⚠️ LA CASILLA APARECE AL PASAR EL MOUSE, o cuando ya hay algo elegido. Es la misma
+   *  decisión que en la tarjeta de una tarea y por el mismo motivo: en una tabla una casilla
+   *  en la primera columna se espera, en una tarjeta es un control más compitiendo con el
+   *  emoji, el pid y el puntaje. Apareciendo al hover no le saca lugar a nada hasta que hace
+   *  falta. El hook va ACÁ ARRIBA, antes de cualquier `return`. */
+  const [hoverSel, setHoverSel] = useState(false);
   return (
     <div onClick={onOpen} data-projcard={arrastrable ? l.id : undefined} draggable={arrastrable}
       // ⚠️ MISMO MOLDE QUE EL KANBAN, no uno nuevo: foto vacía del sistema operativo + la
@@ -4001,9 +4038,19 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
         onAgarrar(e.currentTarget, e.clientX - r.left, e.clientY - r.top);
       } : undefined}
       onDragEnd={arrastrable ? () => onSoltarse?.() : undefined}
-      style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s' }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; }}>
+      // ⚠️ SELECCIONADO SE DICE CON EL FONDO Y EL BORDE, igual que la tarjeta de una tarea:
+      // la casilla marcada sola es de 14 px en una tarjeta de 360 de alto, así que de un
+      // vistazo no se ve cuántas hay elegidas.
+      style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s, background .12s' }}
+      onMouseEnter={(e) => { if (!elegido) e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(true); }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(false); }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* ⚠️ `stopPropagation` EN EL CLICK: la tarjeta entera abre el detalle, así que sin
+            esto tildar un proyecto lo abriría encima de la grilla. */}
+        {onElegir && (hoverSel || haySeleccion) && (
+          <input type="checkbox" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
+            title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
+            style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', margin: 0 }} />
+        )}
         <span style={{ fontSize: 22 }}>{l.emoji}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{l.pid}</span>
         <span style={{ flex: 1 }} />
@@ -4204,24 +4251,78 @@ function BloqueRecurrente({ rotulo, repite, onCambiar }: {
  * sus `<option>` no muestra nada y el primer click escribe la primera opción; acá eso no
  * puede pasar, y por eso el saneo está del lado del valor y no una lista filtrada.
  */
-function BloqueFrecuencia({ valor, onCambiar }: {
+function BloqueFrecuencia({ valor, dia, onCambiar, onCambiarDia }: {
   /** ya saneado por `frecuenciaDe`: o es una de `FRECUENCIAS`, o es `null`. */
   valor: Frecuencia | null;
+  /** ya saneado por `frecuenciaDiaOk`: lo que no corresponda a ESTA frecuencia entra `null`. */
+  dia: string | null;
   /** `board.setFrecuencia` para una tarea · `board.setLabelFrecuencia` para un proyecto. */
   onCambiar: (v: Frecuencia | null) => void;
+  /** `board.setFrecuenciaDia` para una tarea · `board.setLabelFrecuenciaDia` para un proyecto. */
+  onCambiarDia: (v: string | null) => void;
 }) {
+  /**
+   * ⚠️ EL DÍA SE DIBUJA SÓLO SI LA FRECUENCIA LO PIDE, y quien contesta es `pideDia`, no un
+   * `valor === 'semanal'` escrito acá (mig 0166). Con «Todos los días» no hay ancla que
+   * pedir —un ritmo diario no tiene un día— y un selector que no aplica es un control que no
+   * hace nada, que en esta casa se lee como que la app está rota. Con «Indefinida» tampoco:
+   * todavía no hay ritmo al que anclarle nada.
+   *
+   * Y lo que devuelve decide las OPCIONES: los siete días de la semana, o 1…31.
+   */
+  const ancla = pideDia(valor);
   return (
     <div>
-      <label style={rowLabel}>{ROTULO_FRECUENCIA}</label>
-      <select value={valor ?? ''} aria-label={ROTULO_FRECUENCIA}
-        onChange={(e) => onCambiar(frecuenciaOk(e.target.value))}
-        style={selStyle}>
-        {/* «Indefinida», UNA palabra y la misma que dice la tarjeta cuando no hay ritmo
-            puesto. Sale de `SIN_FRECUENCIA` y no escrita acá: dos textos para el mismo
-            estado es cómo uno de los dos se queda viejo. */}
-        <option value="">{SIN_FRECUENCIA}</option>
-        {FRECUENCIAS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-      </select>
+      {/* ⚠️ LOS DOS RÓTULOS VAN EN LA MISMA FILA QUE SUS CAMPOS, no uno arriba de los dos:
+          son dos preguntas distintas («cada cuánto» y «qué día») y un solo rótulo dejaría al
+          segundo selector sin nombre. */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+        {/* ⚠️ LA CUENTA DEL ANCHO, contra los 228 px útiles de la columna derecha del detalle
+            (`COL_DER` 264 − 36 de padding). El día va `flex: none` con su ancho medido y la
+            frecuencia se queda con lo que sobra, que es justo lo que necesita:
+              · día: «Miércoles» es el más largo de `DIAS_SEMANA` (~57 px a 13 px) y «Sin día»
+                mide ~40; con los 22 de padding y borde del `selStyle` pide 79 → 82.
+              · frecuencia: «Cada dos semanas» es el más largo de `FRECUENCIAS` (~111 px) y
+                pide 133. Le quedan 228 − 8 − 82 = 138. Entra, con 5 px de aire.
+            Se mide el valor MÁS LARGO del conjunto y no el primero: con «Cada mes» cualquier
+            reparto entra, y con el más largo no — es el mismo error que el bloque de
+            prioridad ya pagó cuatro veces con «A FUTURO». Y el que CEDE está declarado: la
+            frecuencia, que es la que tiene `minWidth: 0`. */}
+        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+          <label style={rowLabel}>{ROTULO_FRECUENCIA}</label>
+          <select value={valor ?? ''} aria-label={ROTULO_FRECUENCIA}
+            onChange={(e) => onCambiar(frecuenciaOk(e.target.value))}
+            style={selStyle}>
+            {/* «Indefinida», UNA palabra y la misma que dice la tarjeta cuando no hay ritmo
+                puesto. Sale de `SIN_FRECUENCIA` y no escrita acá: dos textos para el mismo
+                estado es cómo uno de los dos se queda viejo. */}
+            <option value="">{SIN_FRECUENCIA}</option>
+            {FRECUENCIAS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+        </div>
+        {ancla && (
+          <div style={{ flex: 'none', width: 82 }}>
+            {/* «Día», el NOMBRE de la cosa y nada más. No dice «¿Qué día?» ni «Día de la
+                semana»: el rótulo de al lado ya dijo cuál es el ritmo, así que de qué día se
+                habla lo contesta la fila entera leída en orden. Sale de `ROTULO_DIA`, la
+                misma puerta que `ROTULO_FRECUENCIA`: dos textos para el mismo campo es cómo
+                uno de los dos se queda viejo. */}
+            <label style={rowLabel}>{ROTULO_DIA}</label>
+            {/* ⚠️ EL VALOR SIEMPRE ESTÁ ENTRE LAS OPCIONES, y no es suerte: entra ya saneado
+                por `frecuenciaDiaOk` CONTRA ESTA MISMA frecuencia, así que un «mie» guardado
+                cuando el ritmo era semanal llega como `null` después de pasarlo a mensual. Es
+                justo el `<select>` cuyo `value` no está entre sus `<option>` —no muestra nada
+                y el primer click escribe la primera opción— que este tablero ya pagó con los
+                trimestres. */}
+            <select value={dia ?? ''} aria-label={`${ROTULO_DIA} · ${ROTULO_FRECUENCIA}`}
+              onChange={(e) => onCambiarDia(frecuenciaDiaOk(e.target.value, valor))}
+              style={selStyle}>
+              <option value="">Sin día</option>
+              {opcionesDia(ancla).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -4363,6 +4464,23 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
   const [enMano, setEnMano] = useState<{ id: string; tipo: 'tarea' | 'proyecto'; f: Frecuencia | null } | null>(null);
   const soltar = () => { setEnMano(null); soltarCopia(); };
   /**
+   * DOS SELECCIONES, UNA POR GRUPO, Y NO UNA SOLA COMPARTIDA. Es la vista donde poner el
+   * ritmo a varias de una sirve de verdad —acá TODO se repite— y es también la única con dos
+   * entidades en pantalla. Una selección mixta obligaría a una barra que ofrece lo que sólo
+   * la mitad puede cumplir, que es exactamente el control que este tablero no pinta: un
+   * proyecto no se completa ni se mueve a un proyecto. Con una selección por grupo, cada
+   * barra ofrece lo que su entidad SÍ puede y aparece pegada a lo que va a cambiar.
+   *
+   * ⚠️ Las TABLAS de esta vista traen su propia selección adentro (`TablaTareas` y
+   * `TablaProyectos`), así que esto es sólo para las TARJETAS — que es el default de la
+   * vista. No hay dos selecciones compitiendo: el interruptor del header dibuja una forma o
+   * la otra, nunca las dos.
+   */
+  const [selTareas, setSelTareas] = useState<ReadonlySet<string>>(new Set());
+  const [selProy, setSelProy] = useState<ReadonlySet<string>>(new Set());
+  const alternarTarea = (id: string) => setSelTareas((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const alternarProy = (id: string) => setSelProy((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  /**
    * ⚠️ EL VALOR SE LEE ANTES DE LIMPIAR. `soltar()` vacía `enMano`, así que hacerlo primero
    * deja al `if` de abajo mirando `null` y el ritmo no se escribe nunca — el gesto se ve
    * perfecto y no guarda nada, que es el modo de falla más caro de este tablero.
@@ -4418,14 +4536,23 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
             {filasProy.length > 0 && (
               <GrupoRecurrente rotulo={board.repo.labelPlural} n={filasProy.length}>
                 {tabla
-                  ? <TablaProyectos filas={filasProy} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={board.repo.labelPlural} onOpen={onOpenProj} onDeadline={(id, v) => board.setLabelDeadline(id, v)} onSoltar={onSoltarProy} sinRanking />
+                  ? <TablaProyectos filas={filasProy} board={board} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={board.repo.labelPlural} onOpen={onOpenProj} onDeadline={(id, v) => board.setLabelDeadline(id, v)} onSoltar={onSoltarProy} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                      {/* La barra ocupa el ancho de la grilla entera y se dibuja pegada a lo
+                          que va a cambiar: en esta vista lo que se hace en lote es ponerle el
+                          ritmo (y su día) a varias de una. */}
+                      {selProy.size > 0 && (
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <AccionesLoteProyectos elegidos={proyectos.filter((l) => selProy.has(l.id))} board={board} onLimpiar={() => setSelProy(new Set())} />
+                        </div>
+                      )}
                       {/* La MISMA tarjeta de la tab Proyectos, con el MISMO agarre. Lo único
                           que cambia es a dónde se puede soltar: allá una posición del
                           ranking, acá un ritmo (ver el bloque largo de arriba). */}
                       {filasProy.map(({ l, prog }) => (
                         <ProyectoCardTile key={l.id} l={l} prog={prog} isTop={l.id === topProjectId} sinRanking onOpen={() => onOpenProj(l.id)}
+                          elegido={selProy.has(l.id)} haySeleccion={selProy.size > 0} onElegir={alternarProy}
                           onAgarrar={(nodo, dx, dy) => { montarCopia(nodo, dx, dy); setEnMano({ id: l.id, tipo: 'proyecto', f: frecuenciaDe(l) }); }}
                           onSoltarse={soltar} />
                       ))}
@@ -4439,11 +4566,21 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                   ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} onSoltar={onSoltarTarea} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                      {/* La barra de TAREAS: la de siempre, sobre la selección de este grupo.
+                          Acá es donde el pedido «ponle la frecuencia al lote» se usa de
+                          verdad — toda esta vista se repite, así que el deadline no aplica y
+                          su ranura la ocupa el ritmo. */}
+                      {selTareas.size > 0 && (
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <AccionesLote elegidas={tareas.filter((t) => selTareas.has(t.id))} board={board} ask={ask} onLimpiar={() => setSelTareas(new Set())} />
+                        </div>
+                      )}
                       {/* La MISMA tarjeta del Kanban. `warn={false}`: el triangulito es «alta
                           sin fecha», y acá nada puede tener fecha — una alarma permanente es
                           cómo se aprende a ignorar todas las demás. */}
                       {tareas.map((t) => (
                         <CardTile key={t.id} t={t} board={board} warn={false} sinRanking onOpen={onOpen} onWarn={onOpen} onOpenProj={onOpenProj} onEliminar={onEliminar}
+                          elegida={selTareas.has(t.id)} haySeleccion={selTareas.size > 0} onElegir={alternarTarea}
                           onAgarrar={(id, desde) => {
                             if (!id) { soltar(); return; }
                             if (desde) montarCopia(desde.nodo, desde.dx, desde.dy);
@@ -4570,6 +4707,18 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
   const { empujarScroll, pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
   const [arrastrado, setArrastrado] = useState<string | null>(null);
   const [insProy, setInsProy] = useState<number | null>(null);
+  /**
+   * LO SELECCIONADO EN LA GRILLA (26/09/2026, «proyecto también debería poder tener
+   * selección múltiple»). La MISMA mecánica que el Kanban: el estado vive acá —la barra se
+   * dibuja ARRIBA de la grilla, así que la tarjeta no puede ser su dueña— y la tarjeta
+   * recibe `elegido`, `haySeleccion` y `onElegir`.
+   *
+   * ⚠️ VA ARRIBA DEL `return` DE LA VISTA TABLA, como todos los hooks de esta vista: la
+   * tabla trae su propia selección adentro (es la misma decisión que en `TablaTareas`) y un
+   * hook detrás de ese `return` es el «Minified React error #300».
+   */
+  const [selProy, setSelProy] = useState<ReadonlySet<string>>(new Set());
+  const alternarProy = (id: string) => setSelProy((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   /**
    * EL «VER MÁS» SE ABRE SOLO AL AGARRAR UNA TARJETA. «Lo único que habría que
    * automáticamente desplegar el "ver más" si agarro uno. Y si me arrepiento y lo suelto,
@@ -4734,7 +4883,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
             <button onClick={onNew} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>＋ Crear {repo.labelSingular.toLowerCase()}</button>
           </div>
           <TablaProyectos
-            filas={shown} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={repo.labelPlural}
+            filas={shown} board={board} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={repo.labelPlural}
             onOpen={onOpen}
             /* EL MISMO `onSoltar` QUE LA GRILLA: el pedido 9 es el 8 en la otra vista, así
                que las dos abren el mismo pop-up y no hay dos formas de mover un proyecto.
@@ -4751,6 +4900,18 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* La barra de lote de PROYECTOS: la misma pieza que la de tareas con otra
+            configuración (ver la cabecera de `AccionesLote`). Se dibuja sólo con algo
+            elegido, igual que en el Kanban, porque acá no hay una tabla que la sostenga. */}
+        {selProy.size > 0 && (
+          /* ⚠️ SOBRE `shown` Y NO SOBRE `labels`: lo que la barra toca es lo que pasó los
+             filtros, igual que la tabla de tareas arma su selección sobre lo que recibió.
+             Con la lista entera, un id que quedó tildado antes de filtrar seguiría contando
+             en el número y recibiendo la escritura sin estar en pantalla — que es la forma
+             de cambiar de más sin verlo. */
+          <AccionesLoteProyectos elegidos={shown.filter(({ l }) => selProy.has(l.id)).map(({ l }) => l)} board={board}
+            onLimpiar={() => setSelProy(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}
           // `preventDefault` en dragOver es lo que HABILITA el drop: sin él el navegador lo
           // rechaza y no pasa nada, que se lee exactamente como que el arrastre no anda.
@@ -4802,6 +4963,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
           {visibles.map(({ l, prog }, i) => (
             <Fragment key={l.id}>
               <ProyectoCardTile l={l} prog={prog} isTop={l.id === topProjectId} onOpen={() => onOpen(l.id)}
+                elegido={selProy.has(l.id)} haySeleccion={selProy.size > 0} onElegir={alternarProy}
                 onAgarrar={sePuedeArrastrar ? (nodo, dx, dy) => agarrarProy(l.id, nodo, dx, dy) : undefined}
                 onSoltarse={terminarProy} />
               {arrastrado && insProy === i + 1 && <div style={{ minHeight: 360, borderRadius: 14, border: '2px dashed var(--primary)', background: 'var(--primary-bg)' }} />}
@@ -5012,7 +5174,10 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               )}
             </div>
             </> : (
-              <BloqueFrecuencia valor={frecuenciaDe(proj)} onCambiar={(v) => board.setLabelFrecuencia(proj.id, v)} />
+              <BloqueFrecuencia
+                valor={frecuenciaDe(proj)} dia={frecuenciaDiaOk(proj.frecuenciaDia, frecuenciaDe(proj))}
+                onCambiar={(v) => board.setLabelFrecuencia(proj.id, v)}
+                onCambiarDia={(v) => board.setLabelFrecuenciaDia(proj.id, v)} />
             )}
 
             {/* ⚠️ DEPENDE DE, EN LA COLUMNA DERECHA Y EN EL MISMO LUGAR QUE EN UNA TAREA
