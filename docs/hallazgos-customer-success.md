@@ -1435,3 +1435,62 @@ tabs (`.dc-cuerpo`). Sacadas las tabs, el contenedor de scroll pasó a ser
 `.mk-modal__cuerpo` y sus `4px`. Un margen negativo copiado de otra caja no falla: deja
 una franja transparente por la que se ve pasar el texto que scrollea. Se verificó en el
 navegador, que es el único lugar donde eso se ve.
+
+### La tab leía la tabla equivocada, y el comentario del archivo afirmaba lo contrario (26/09/2026)
+
+El síntoma: los tres clientes de MaKo decían «sin trabajo suyo en el tablero», y el pedido
+que llegó fue *«no tengo forma de asignar proyectos o tareas a clientes»*. El diagnóstico
+obvio —falta la asignación— era cierto y no era la causa.
+
+**Lo que pasaba, medido contra producción:**
+
+```
+ws   experimento_tareas   tarea_categorias   plan_tareas   plan_proyectos
+ 1         212                   19                0             0
+ 9           0                    0              396            71   ← el super-admin
+11          68                    9                0             0
+13          19                    6                0             0
+```
+
+Este producto tiene DOS tableros con la misma pantalla y tablas distintas: el del
+super-admin (`plan_*`) y el de cada cliente (`experimento_*`). Customer Success leía
+`experimento_*` siempre. En el workspace donde viven los clientes de MaKo esa tabla tiene
+CERO filas, así que la tab estaba leyendo la tabla vacía: no fallaba el cruce, ni los
+permisos, ni los datos.
+
+⚠️ **Y `app/customer-success/trabajo.ts` tenía escrito, con todas las letras, que leer
+`plan_tareas` sería el error** — «que además es del super-admin y para el ws1 está vacío».
+Era cierto para el ws1 y falso para el ws9, y el comentario se leía como una advertencia
+verificada. Un comentario que enumera UN caso y concluye una regla es la forma más cara de
+equivocarse: el próximo que lo lea no vuelve a medir.
+
+**La regla que queda:** cuál de los dos tableros te toca se decide en UN lugar
+(`lib/tablero-actual.ts`), que es la misma condición que usa `/plan`. Con dos criterios hay
+un workspace donde la tab muestra un tablero y su link «abrir en el tablero» lleva al otro.
+
+### Una columna con 0 escritores no existe
+
+`experimento_tareas.cliente_lead_id` está desde la migración 0159 (agosto) y el 26/09 tenía
+**0 filas escritas de las 299 tareas del producto**. El cruce cliente↔proyecto la trataba
+como «la única clave honesta» y en la práctica nunca se ejecutaba: todo ataba por parecido
+de nombre.
+
+El único escritor era `lib/plan-propuesta.ts`, y sólo para lo que nace de un borrador de
+reunión con el cliente ya resuelto. **Antes de apoyar una regla en una columna, contá sus
+filas:** `select count(*) where <col> is not null`. Es una consulta y distingue «tenemos el
+dato» de «tenemos dónde ponerlo».
+
+### Asignar a mano tiene que ser EXCLUYENTE, o el mismo trabajo sale en dos fichas
+
+Lo encontró el test al escribirlo, no leyendo el código. La primera versión de la pasada
+nueva de `atar` agregaba el lead declarado por el proyecto y dejaba correr las otras tres
+pasadas igual: «Cliente: Grupo Esquer» asignado a mano a TEXX ataba con TEXX **y también**
+con Grupo Esquer por el nombre.
+
+O sea: se elegía el cliente en el picker, se guardaba bien en la base, y el trabajo aparecía
+en DOS fichas —una equivocada— sin forma de sacarlo de ahí. El test falló, el código estaba
+mal, y la corrección es una línea (`declarados`) más un `continue` en cada pasada.
+
+**Lo general:** cuando se agrega una fuente de verdad más DURA a un resolvedor que ya tiene
+varias, no alcanza con ponerla primera. Hay que preguntarse si las otras pueden seguir
+opinando sobre lo mismo — y si la nueva es una decisión de una persona, la respuesta es no.

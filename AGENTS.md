@@ -308,6 +308,35 @@ mano el 2026-08-11 y **en la misma sesión** ya decía «el impacto» donde el c
 `import type`, que tsx borra en runtime—, así que se importa: parsear objetos anidados
 con regex es cómo se cuelan los desfases que el script viene a evitar.
 
+# El tablero es UNO y las tablas son DOS: un campo nuevo son SEIS lugares
+
+`app/plan/board/BoardShell.tsx` lo montan dos parents sobre tablas distintas — el
+super-admin (`plan_tareas` + `plan_proyectos`) y cada cliente (`experimento_tareas` +
+`tarea_categorias`). Un campo nuevo se escribe en los seis, y **el typecheck no ve ninguno**:
+
+| | dueño | cliente |
+|---|---|---|
+| columna | `plan_*` | `experimento_*` / `tarea_categorias` |
+| lectura | `rowToTask` / `rowToLabel` (`lib/plan-board.ts`) | `toBoard` / `toLabel` (`app/plan/board/desde-todo.ts`) |
+| escritura | `taskToRow` / `labelToRow` | `editPatch` y los payloads de `categoria-crear` / `-editar` |
+| puerta | — | el TIPO del patch en `app/api/todo/route.ts` |
+| server | — | el `upd` campo por campo de `lib/todo.ts` |
+
+Ya se pagó CUATRO veces —la prioridad a mano, el Quarter (0162), la recurrencia (0164) y el
+cliente (0172)— y el modo de falla es siempre el mismo: **el control se dibuja, la request
+contesta 200 y no se guarda nada**, que se lee como que la app está rota.
+
+⚠️ **Y olvidarlo en la LECTURA es DESTRUCTIVO, no inerte.** El guardado es un `upsert` de la
+fila ENTERA armada desde el estado del navegador: un campo que el mapper de lectura no trae
+vuelve como `undefined`, sale como `null` y **borra la columna** en el próximo guardado de
+cualquier otro campo.
+
+⚠️ **Y las dos mitades ni siquiera comparten el TIPO del id**: `plan_*` usa texto,
+`experimento_tareas` / `tarea_categorias` usan bigint. Cualquier cosa que lea «el tablero»
+desde afuera (Customer Success, un analyst, un export) tiene que poder con los dos — el id
+de texto contiene al numérico, al revés hay que inventar una conversión que después miente.
+Cuál de los dos te toca lo decide `lib/tablero-actual.ts`, y ahí se decide una sola vez.
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,

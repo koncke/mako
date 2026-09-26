@@ -4811,3 +4811,66 @@ pidió.** Si la mayoría no los pidió, el problema es el filtro y no el orden. 
 - **`juzgarConCriterio` sigue con cero call sites** (ver la entrada de Fathom).
 
 **Vive en:** `supabase/migrations/0163_tareas_recurrentes.sql` · `0164_proyectos_recurrentes.sql` · `0165_recurrentes_frecuencia.sql` · `lib/plan-recurrentes.ts` · `app/plan/board/BoardShell.tsx` · `app/_components/nav.ts` · *2026-09-26*
+
+### Un tablero, dos tablas: la mitad que se olvida (26/09/2026)
+
+`app/plan/board/BoardShell.tsx` es UNO y lo montan dos parents sobre tablas distintas:
+`plan_tareas` + `plan_proyectos` (el super-admin) y `experimento_tareas` +
+`tarea_categorias` (cada cliente). Agregar un campo son **seis** lugares, y el typecheck no
+ve ninguno:
+
+| | dueño | cliente |
+|---|---|---|
+| columna | `plan_*` | `experimento_*` / `tarea_categorias` |
+| lectura | `rowToTask` / `rowToLabel` (lib/plan-board.ts) | `toBoard` / `toLabel` (board/desde-todo.ts) |
+| escritura | `taskToRow` / `labelToRow` | `editPatch` + los payloads de `categoria-crear`/`-editar` |
+| puerta | — | el TIPO del patch en `app/api/todo/route.ts` |
+| server | — | el `upd` campo por campo de `lib/todo.ts` |
+
+El archivo ya lo pagó tres veces (la prioridad a mano, el Quarter de la 0162, la recurrencia
+de la 0164) y el modo de falla es siempre el mismo: **el control se dibuja, la request
+contesta 200 y no se guarda nada** — que se lee como que la app está rota.
+
+⚠️ **Y en la LECTURA es DESTRUCTIVO, no sólo inerte.** El guardado del tablero del dueño es
+un `upsert` de la fila ENTERA armada desde el estado del navegador: un campo que el mapper
+de lectura no trae vuelve como `undefined`, sale como `null` y **borra la columna** en el
+próximo save de cualquier otro campo.
+
+### `GraphicsView` pedía el board entero para leer dos arrays
+
+Era de sólo lectura —no escribe una fila— y su prop era `Board`, o sea el `ReturnType` de
+`useBoard`: cuarenta y pico de funciones de escritura, el dirty-set y el autoguardado. Con
+esa firma sólo se podía montar adentro del tablero.
+
+El costo real no es estético: **`useBoard` autoguarda por dirty-set y su `saveTask` hace
+upsert de la fila entera desde el estado del navegador**, así que montar un segundo
+`useBoard` para dibujar gráficos en otra pantalla serían dos escritores pisándose sin un
+solo error. Pedir `{ tasks, labels }` es lo que permitió leer las filas en el server y
+mudar la pantalla a `/productivity-analyst` sin montar ninguno.
+
+**La pregunta al escribir un componente:** ¿qué campos lee? Ésa es la firma. Pedir el
+contenedor entero «por comodidad» es lo que después impide reusarlo.
+
+### Dos trampas de esta tanda que no caza ningún test
+
+1. **`icon: 'chart'` no existe** en `app/_components/icons.tsx` y no falla: dibuja un punto.
+   Es la misma familia que `var(--token)` inexistente, que hereda y vale 0. Todo nombre que
+   indexa un catálogo se verifica contra el catálogo, no contra la memoria.
+
+2. **Un script que inserta al final de un tipo con `index('\n};')` puede caer en el tipo
+   siguiente.** `Label` termina con `recurrencia?: string | null };` —el cierre en la MISMA
+   línea que su último campo—, así que el siguiente `\n};` era el de la constante `ESCALERA`
+   veinte líneas más abajo: dos campos de un tipo quedaron adentro de un objeto de datos.
+   Da error de sintaxis y se arregla en un minuto; lo que enseña es que **un script que
+   edita código fuente valida su salida antes de escribirla** (ya está en AGENTS.md) y que
+   `tsc` es el primer comando después de cualquier edición automatizada.
+
+### Lo que quedó SIN hacer
+
+- **`listTareas` / `listCategorias` (lib/todo.ts) NO paginan**: un `.select('*')` suelto, que
+  PostgREST corta en 1000 filas sin un solo error. Hoy el workspace más grande tiene 212
+  tareas, así que no muerde — y lo que caiga el día que muerda deja de existir para el
+  tablero del cliente y para Customer Success, sin síntoma. La cura es `leerTodo`
+  (`lib/supabase-paginado.ts`), paginando por `id`.
+- **`Date.now()` adentro del `useMemo` de `app/plan/board/Graphics.tsx`** (línea ~47) es un
+  error de `react-hooks` que ya estaba y no se tocó: es de antes de esta tanda.
