@@ -347,6 +347,35 @@ reescribe.
 
 **Vive en:** lib/api-mako/areas/{email,crm,closing,chatbot,landing,integraciones,metricas,general}.run.ts · metricas.helpers.ts · *2026-09-17 caza de paginado*
 
+## `soloWs1` no es «el workspace 1»: es «ws 1 Y rol admin»
+
+**Vive en:** `lib/api-mako/registro.ts` → `gatingOk` · `lib/api-mako/tipos.ts` → `Gating` · *2026-09-26*
+
+El nombre menciona UNA dimensión y la condición mira DOS:
+
+```ts
+if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false;
+```
+
+Así que una operación `soloWs1` **también exige rol admin**, sin que ninguna def lo
+declare. El doc del tipo lo dice («solo para ws 1 con rol admin») y el nombre no, que es
+donde se pierde.
+
+**Por qué muerde al SACARLO, no al ponerlo.** El 26/09/2026 el área `cs` dejó de ser de
+un solo cliente y había que quitarle `soloWs1` a las tres operaciones que sobrevivieron.
+Quitarlo a secas suelta el workspace —que era el objetivo— **y el rol, que nadie había
+pedido soltar**. La decisión correcta no se saca del flag: se saca de mirar qué exige la
+PANTALLA de esa área. Ahí era `requireCapa('customer-success')` sin guard de rol, así que
+quedó sin `rolMinimo`; si hubiera sido `requireRolWs([])`, había que escribirlo a mano en
+las tres.
+
+**La regla que queda:** al sacar un flag de gating, enumerá qué condiciones lleva adentro
+leyendo `gatingOk`, y reponé a mano las que seguían haciendo falta. Un flag compuesto se
+quita de a una dimensión, nunca de un saque.
+
+El detalle del caso, en [hallazgos-customer-success.md](hallazgos-customer-success.md) →
+«Sacar el programa de los SEIS lugares donde también vivía».
+
 ## Lo que quedó sin hacer en el núcleo
 
 | Qué | Dónde | Por qué no se hizo |

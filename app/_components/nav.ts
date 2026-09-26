@@ -144,28 +144,24 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
         { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', match: starts('/instagram') },
       ],
-    ],
-    grupos: [
-      {
-        // La entrega del programa. Va en Operate y no en Analyze porque contesta
-        // «¿qué tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
-        //
-        // Desplegable y no bloque suelto: son dos destinos que se consultan de a
-        // uno —la cartera es lo de todos los días, el programa se toca cuando se
-        // arma o se cambia— y Operate ya tiene siete filas a la vista.
-        key: 'customer-success', label: 'Customer Success', icon: 'cs',
-        items: [
-          // ⚠️ EL  APUNTABA A UNA RUTA QUE NO EXISTE. Decía también
-          // `starts('/customer-success/cliente')`, y `app/customer-success/` no tiene esa
-          // carpeta: la ficha de un cliente es un ESTADO adentro de la lista, no una URL.
-          // Por eso Martín no la encontraba (26/09/2026) — y por eso no se puede compartir
-          // un link a un cliente ni volver a él con el botón de atrás. Que la ficha tenga
-          // URL propia es una decisión abierta, anotada en docs/hallazgos-customer-success.md;
-          // lo que se saca acá es la referencia muerta, que promete algo que no está.
-          { key: 'cs-clients', label: 'Clients', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
-          { key: 'cs-program', label: 'Program', href: '/customer-success/programa', icon: 'notepencil', match: starts('/customer-success/programa') },
-        ],
-      },
+      // Después de la venta. Va en Operate y no en Analyze porque contesta «¿qué
+      // tengo que hacer hoy con mis clientes?», no «¿qué pasó?».
+      //
+      // ⚠️ ERA UN DESPLEGABLE DE DOS Y AHORA ES UNA FILA. El segundo destino era
+      // `/customer-success/programa`, el temario de 44 clases de Mauricio, y se borró
+      // el 26/09/2026 al rearmar la tab para cualquier workspace. Con un solo item, el
+      // criterio escrito en `NavGrupo` dice que deja de justificar un desplegable — y
+      // dejar la fila apuntando a la carpeta borrada era un 404 en la barra.
+      //
+      // ⚠️ Y el `match` es IGUALDAD, no `starts`: `app/customer-success/` ya no tiene
+      // ninguna subruta, y la ficha de un cliente es un ESTADO adentro de la lista.
+      [
+        // ⚠️ LA KEY ES `customer-success`, que es la que pide el guard de la página
+        // (`requireCapa('customer-success')` → `tabEnCapa`, que lee KEYS DE NAV). Era la
+        // key del desplegable; al plegarlo se la queda la fila, o el guard preguntaría
+        // por una key que la barra ya no tiene.
+        { key: 'customer-success', label: 'Customer Success', href: '/customer-success', icon: 'cs', match: (p) => p === '/customer-success' },
+      ],
     ],
   },
   {

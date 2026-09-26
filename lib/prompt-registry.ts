@@ -88,7 +88,6 @@ import {
   EXP_CLOSE_SYSTEM_DEFAULT, EXP_CLOSE_USER_DEFAULT,
 } from './experimentos';
 import { RETRO3_AREA_SYSTEM, RETRO3_CRUCES_SYSTEM, RETRO3_CEREBRO_SYSTEM, RETRO3_VERIF_SYSTEM } from './retro-pipeline';
-import { CS_REESCRITURA_TEMPLATE, CLAVE_PROMPT as CS_REESCRITURA_KEY } from './cs-reescritura';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -849,25 +848,6 @@ export const REGISTRY: Group[] = [
         variables: [v('tarea', 'la posible duplicada'), v('lista', 'las demás tareas con id')], scope: 'full', sensitive: false,
         default: DUP_USER_TEMPLATE,
         context: 'Le pasa la tarea y la lista de otras. No borres los slots {{tarea}}/{{lista}}.',
-      },
-    ],
-  },
-  {
-    group: 'Customer Success · MaKo mejora la tarea del cliente',
-    icon: '📝',
-    blurb: 'Después de una sesión con un cliente, MaKo reescribe lo que ese cliente había contestado antes del bloque, incorporando lo que se afinó en la junta. El cliente ve las dos versiones y aprueba.',
-    entries: [
-      {
-        key: CS_REESCRITURA_KEY, source: 'override',
-        label: 'Reescribir la tarea con lo hablado en la junta', kind: 'system', dynamic: true,
-        variables: [
-          v('pregunta', 'qué preguntaba el bloque del programa'),
-          v('respuesta', 'lo que el cliente había escrito ANTES de la sesión'),
-          v('conversacion', 'el resumen y los puntos de la sesión'),
-        ],
-        scope: 'full', sensitive: false,
-        default: CS_REESCRITURA_TEMPLATE,
-        context: 'Lo que MaKo hace después de cada sesión con un cliente de Mauricio. AMPLÍA la respuesta del cliente, nunca la pisa: la propuesta va a una columna aparte y él elige. ⚠️ No saques la regla de devolver SIN_MATERIAL: es lo único que impide que invente una mejora cuando la junta no habló de ese bloque, y el código la valida además del prompt.',
       },
     ],
   },

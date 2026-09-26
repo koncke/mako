@@ -28,6 +28,7 @@ import 'server-only';
 // =============================================================================
 
 import { getTenantDb } from '@/lib/workspace';
+import { hoyEnWorkspace } from '@/lib/timezone';
 import { leerTodo } from '@/lib/supabase-paginado';
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
 import { estaPendiente, type EstadoTarea } from '@/lib/todo-estados';
@@ -77,10 +78,11 @@ export type ProyectoCS = {
   abiertas: number;
   hechas: number;
   recurrentes: number;
+  atrasadas: number;
 };
 
 /** Un proyecto «Cliente: …» que no cruzó con nadie de la cartera. No se esconde. */
-export type ProyectoHuerfano = { id: number; nombre: string; abiertas: number; recurrentes: number };
+export type ProyectoHuerfano = { id: number; nombre: string; abiertas: number; recurrentes: number; atrasadas: number };
 
 export type TrabajoCliente = {
   proyectos: ProyectoCS[];
@@ -102,6 +104,11 @@ export type ResumenTrabajo = {
   abiertas: number;
   hechas: number;
   recurrentes: number;
+  /** Abiertas con el deadline ya pasado. Es lo que alimenta la SEÑAL de atención
+   *  de la cartera (lib/cs-senal.ts): «le debo trabajo con fecha vencida» es un
+   *  hecho, «tiene 12 tareas» no dice nada. Las recurrentes no cuentan — no
+   *  llevan deadline y no terminan nunca. */
+  atrasadas: number;
   /** El ato más fuerte que tiene. `null` = no cruzó con ningún proyecto. */
   como: ComoAto | null;
 };
@@ -165,14 +172,17 @@ const aTareaCS = (t: Tarea): TareaCS => ({
 
 /** Los tres números de un conjunto de tareas. Las recurrentes NO entran en `abiertas`:
  *  el pedido entero existe para que no ensucien lo que se cuenta como pendiente. */
-function contar(tareas: Array<{ recurrente: boolean; abierta: boolean }>) {
-  let abiertas = 0, hechas = 0, recurrentes = 0;
+function contar(tareas: Array<{ recurrente: boolean; abierta: boolean; deadline: string | null }>, hoy: string) {
+  let abiertas = 0, hechas = 0, recurrentes = 0, atrasadas = 0;
   for (const t of tareas) {
-    if (t.recurrente) recurrentes++;
-    else if (t.abierta) abiertas++;
-    else hechas++;
+    if (t.recurrente) { recurrentes++; continue; }
+    if (!t.abierta) { hechas++; continue; }
+    abiertas++;
+    // `hoy` es el del WORKSPACE, no el del servidor: una tarea que vence hoy no
+    // está atrasada, y en qué día estamos depende de la zona del inquilino.
+    if (t.deadline && t.deadline < hoy) atrasadas++;
   }
-  return { abiertas, hechas, recurrentes };
+  return { abiertas, hechas, recurrentes, atrasadas };
 }
 
 function cruzar(clientes: ClienteCruce[], { tareas, proyectos, esDeCliente }: Lectura) {
@@ -186,9 +196,9 @@ function cruzar(clientes: ClienteCruce[], { tareas, proyectos, esDeCliente }: Le
   return { cruce, deCS, porProyecto };
 }
 
-const huerfanoDe = (p: Categoria, tareas: TareaCS[]): ProyectoHuerfano => {
-  const n = contar(tareas);
-  return { id: p.id, nombre: p.nombre, abiertas: n.abiertas, recurrentes: n.recurrentes };
+const huerfanoDe = (p: Categoria, tareas: TareaCS[], hoy: string): ProyectoHuerfano => {
+  const n = contar(tareas, hoy);
+  return { id: p.id, nombre: p.nombre, abiertas: n.abiertas, recurrentes: n.recurrentes, atrasadas: n.atrasadas };
 };
 
 /**
@@ -202,6 +212,7 @@ export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<Tabl
 
   const { cruce, porProyecto } = cruzar(clientes, lectura);
   const porNombre = new Map(lectura.proyectos.map((p) => [p.id, p]));
+  const hoy = await hoyEnWorkspace();
 
   const porLead: Record<number, ResumenTrabajo> = {};
   for (const c of clientes) {
@@ -215,7 +226,7 @@ export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<Tabl
         suyas.push(t);
       }
     }
-    const n = contar(suyas);
+    const n = contar(suyas, hoy);
     porLead[c.leadId] = { proyectos: ataduras.length, ...n, como: ataduras[0]?.como ?? null };
   }
 
@@ -225,7 +236,7 @@ export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<Tabl
     huerfanos: cruce.huerfanos
       .map((id) => porNombre.get(id))
       .filter((p): p is Categoria => !!p)
-      .map((p) => huerfanoDe(p, porProyecto.get(p.id) ?? [])),
+      .map((p) => huerfanoDe(p, porProyecto.get(p.id) ?? [], hoy)),
     sinProyecto: cruce.sinProyecto.length,
   };
 }
@@ -244,6 +255,7 @@ export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[])
 
   const { cruce, deCS, porProyecto } = cruzar(clientes, lectura);
   const porId = new Map(lectura.proyectos.map((p) => [p.id, p]));
+  const hoy = await hoyEnWorkspace();
   const ataduras = cruce.porLead.get(leadId) ?? [];
 
   const proyectos: ProyectoCS[] = [];
@@ -254,7 +266,7 @@ export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[])
     const p = porId.get(a.proyectoId);
     if (!p) continue;
     const delProyecto = porProyecto.get(p.id) ?? [];
-    const n = contar(delProyecto);
+    const n = contar(delProyecto, hoy);
     proyectos.push({
       id: p.id, nombre: p.nombre, emoji: p.emoji, color: p.color,
       detalle: p.detalle, deadline: p.deadline, quarter: p.quarter,
@@ -291,7 +303,7 @@ export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[])
     huerfanos: cruce.huerfanos
       .map((id) => porId.get(id))
       .filter((p): p is Categoria => !!p)
-      .map((p) => huerfanoDe(p, porProyecto.get(p.id) ?? [])),
+      .map((p) => huerfanoDe(p, porProyecto.get(p.id) ?? [], hoy)),
   };
 }
 

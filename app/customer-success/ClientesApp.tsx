@@ -1,156 +1,172 @@
 'use client';
 
 // =============================================================================
-// Clients — la cartera del programa
+// Clientes — los leads GANADOS del workspace, y cómo va lo que se les vendió
 // =============================================================================
-// DOS COSAS MANDAN EN LA CARD, y en este orden:
+// La pantalla contesta cuatro preguntas, en este orden:
 //
-//   1. EL RELOJ. «10 de 16 semanas», con la fecha de arranque y de dónde salió.
-//      Es lo que dice si va bien o va tarde, y sale del CONTRATO de ese cliente
-//      —no de una constante—: Sergio Esquer tiene 16 semanas, Jorge Negrete 3
-//      meses. Si el contrato no lo dice, la card muestra «12 semanas» a secas:
-//      un denominador inventado hace tomar decisiones sobre humo.
-//   2. LA CANCHA. De quién es la pelota, y por qué, en una frase.
+//   1. ¿Quiénes son mis clientes?   los `estado_lead = 'ganado'` del CRM
+//   2. ¿Cuál necesita atención HOY? la SEÑAL, y es lo que ORDENA la lista
+//   3. ¿Qué le prometí?             la ficha, tab «Contrato»
+//   4. ¿Qué le debo?                la ficha, tab «Trabajo»
 //
-// Y abajo, en su propia banda, LO QUE SE LE PROMETIÓ. Sale de `deal_promesa` y
-// es lo primero que hace falta antes de una sesión: la garantía de Sergio dice
-// «continuar sesiones sin costo hasta instalación completa», y eso cambia qué
-// significa que se haya pasado del plazo.
+// ⚠️ ESTA PANTALLA ES PARA CUALQUIER WORKSPACE. Se rearmó de cero el 26/09/2026
+// porque la anterior giraba sobre el programa de 44 clases de UN cliente: el
+// temario, Whop, «clases vistas» y el link del cuestionario. Nada de eso es
+// universal, y la mitad de la card afirmaba cosas que para 13 de los 27 clientes
+// del producto no se podían ni calcular.
 //
-// Tres grupos, en orden de urgencia: TE TOCA A VOS primero, porque es lo que
-// frena al cliente. Una deuda tuya nunca queda tapada por una suya. Los
-// graduados y las bajas salen de la lista y viven abajo, plegados: no ensucian
-// la cartera y no desaparecen.
+// ⚠️ LA SEÑAL NO SE CALCULA ACÁ. Viene resuelta en `c.senal` desde
+// `lib/cs-senal.ts`, que es una función pura con test, y la lista llega YA
+// ORDENADA por `ordenCartera` desde la página. Esta pantalla no vuelve a
+// ordenar: dos lugares que contestan «¿cuál necesita atención hoy?» son dos
+// respuestas que van a divergir, y la que gana sería la que nadie testea.
+//
+// ⚠️ «NO LO SÉ» Y «ESTÁ BIEN» SON DOS COSAS, y por eso son dos grupos. El nivel
+// `null` va ARRIBA de `bien`: un cliente sin contrato cargado o sin una sola
+// conversación leída necesita que lo miren más que uno que se midió y está al día.
 
 import { useState } from 'react';
-import { Pagina, PageHeader, Button, Modal, Banner, useToast, Toast } from '@/app/_ui';
-import type { ClienteCartera, Cancha, EstadoCliente } from '@/lib/cs-cartera';
+import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, MONO, useToast, Toast, type Tono } from '@/app/_ui';
+import type { ClienteCartera, EstadoCliente } from '@/lib/cs-cartera';
+import { claveNivel, type ClaveNivel } from '@/lib/cs-senal';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
-import { emitirLinkAction, revocarLinksAction, marcarEstadoAction } from './actions';
+import { marcarEstadoAction } from './actions';
 import { DetalleCliente } from './DetalleCliente';
 
-type Emitido = { url: string; nombre: string };
+/** El color de cada nivel. NUNCA es el único portador: la card escribe el motivo
+ *  al lado, y el grupo lleva su título.
+ *
+ *  ⚠️ `claveNivel` NO se reescribe acá: sale de `lib/cs-senal.ts`, que es donde
+ *  vive el nivel. Un ternario propio es la segunda copia de la misma regla, y el
+ *  día que se escriba al revés la pantalla va a decir que un cliente sin datos
+ *  está al día. */
+export const TONO_SENAL: Record<ClaveNivel, Tono> = {
+  atencion: 'bad', 'sin-datos': 'neutral', bien: 'good',
+};
 
-const GRUPOS: { cancha: Cancha; titulo: string; sub: string }[] = [
-  { cancha: 'tuya', titulo: 'Te toca a ti', sub: 'Están frenados esperándote' },
-  { cancha: 'suya', titulo: 'Le toca a él', sub: 'La pelota está de su lado' },
-  { cancha: 'al-dia', titulo: 'Al día', sub: 'Sin nada pendiente' },
+const COLOR_BANDA: Record<ClaveNivel, string> = {
+  atencion: 'var(--bad)', 'sin-datos': 'var(--border-strong)', bien: 'var(--good)',
+};
+
+const GRUPOS: { clave: ClaveNivel; titulo: string }[] = [
+  { clave: 'atencion', titulo: 'Necesitan algo hoy' },
+  { clave: 'sin-datos', titulo: 'Sin datos para saberlo' },
+  { clave: 'bien', titulo: 'Al día' },
 ];
 
-const FUENTE: Record<string, string> = {
-  contrato: 'según su contrato', ficha: 'según su ficha', cierre: 'desde el cierre de la venta',
-};
+/** «Semana 10 de 16», o «Semana 10» si el contrato no dice cuántas dura. */
+export function relojTexto(r: ClienteCartera['reloj']): string {
+  if (r.semana === null) return 'Sin fecha de arranque';
+  if (r.semanasTotales) return `Semana ${r.semana} de ${r.semanasTotales}`;
+  return `Semana ${r.semana}`;
+}
 
-const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const fecha = (iso: string | null) => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return Number.isFinite(d.getTime()) ? `${d.getUTCDate()} de ${MES[d.getUTCMonth()]}` : null;
-};
+/**
+ * El trabajo abierto, en un número.
+ *
+ * ⚠️ Las RECURRENTES se dicen aparte y NO se suman a las abiertas: algo que se
+ * repite para siempre no se puede terminar, así que contarlo como pendiente
+ * miente en la dirección tranquilizadora.
+ *
+ * ⚠️ Y los tres estados son DISTINTOS: no pude leer el tablero / no cruzó con
+ * ningún proyecto / cruzó y no tiene nada abierto.
+ */
+export function trabajoTexto(t: ResumenTrabajo | null, tableroOk: boolean): string {
+  if (!tableroOk) return 'No pude leer el tablero';
+  // ⚠️ `como === null` es «no cruzó con NINGÚN proyecto», y el tablero devuelve una
+  // fila en cero para todos los de la cartera —así que sin esta rama los dos casos
+  // salían iguales, «0 abiertas». Medido en el ws1: 11 de 13 clientes no tienen
+  // proyecto propio y la card les decía que miramos y no había nada.
+  if (!t || t.como === null) return 'Sin proyecto suyo en el tablero';
+  const partes: string[] = [];
+  if (t.proyectos) partes.push(`${t.proyectos} ${t.proyectos === 1 ? 'proyecto' : 'proyectos'}`);
+  partes.push(`${t.abiertas} ${t.abiertas === 1 ? 'abierta' : 'abiertas'}`);
+  if (t.recurrentes) partes.push(`${t.recurrentes} se ${t.recurrentes === 1 ? 'repite' : 'repiten'}`);
+  return partes.join(' · ');
+}
 
-export function ClientesApp({ clientes, totalClases, whopConectado, tablero }: {
+export function ClientesApp({ clientes, tablero, error }: {
+  /** Ya vienen ORDENADOS por `ordenCartera` (lib/cs-senal.ts) y con su señal
+   *  resuelta contra el tablero. Acá sólo se agrupan. */
   clientes: ClienteCartera[];
-  totalClases: number;
-  whopConectado: boolean;
   /** Qué sabe el TABLERO de cada uno. Números nada más; el detalle lo pide la ficha. */
   tablero: TableroCartera;
+  /** La cartera no se pudo leer. NO es «no tenés clientes»: son dos pantallas. */
+  error?: string;
 }) {
-  const [emitido, setEmitido] = useState<Emitido | null>(null);
-  const [cargando, setCargando] = useState<number | null>(null);
-  const [confirmarRotar, setConfirmarRotar] = useState<ClienteCartera | null>(null);
   const [abierto, setAbierto] = useState<ClienteCartera | null>(null);
   const [verCerrados, setVerCerrados] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   const { toast, show, clear } = useToast();
 
-  async function emitir(c: ClienteCartera, rotar: boolean, porWhatsApp = false) {
-    setCargando(c.leadId); setConfirmarRotar(null);
-    const r = await emitirLinkAction(c.leadId, rotar, porWhatsApp);
-    setCargando(null);
-    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
-    if (r.mandado) {
-      // Ya lo tiene: mostrarle el token igual sería pedirle que copie algo que
-      // ya viajó. El cartel solo aparece cuando hay que copiar de verdad.
-      show(`Link enviado a ${r.nombre} por WhatsApp.`, undefined, 'good');
-      return;
-    }
-    if (r.avisoEnvio) show(`El link quedó emitido, pero no se pudo enviar: ${r.avisoEnvio}`, undefined, 'warn');
-    setEmitido({ url: r.url, nombre: r.nombre });
-  }
-
-  async function revocar(c: ClienteCartera) {
-    setCargando(c.leadId);
-    const r = await revocarLinksAction(c.leadId);
-    setCargando(null);
-    show(r.ok ? `El link de ${c.nombre} dejó de andar.` : 'No se pudo revocar.', undefined, r.ok ? 'good' : 'bad');
-  }
-
   async function marcar(c: ClienteCartera, estado: EstadoCliente) {
-    setCargando(c.leadId); setAbierto(null);
+    setGuardando(true); setAbierto(null);
     const r = await marcarEstadoAction(c.leadId, estado);
-    setCargando(null);
-    show(r.ok ? `${c.nombre} quedó como ${estado}.` : (r.error ?? 'No se pudo guardar.'),
-      undefined, r.ok ? 'good' : 'bad');
+    setGuardando(false);
+    show(r.ok ? 'Estado guardado' : (r.error ?? 'No se pudo guardar'), undefined, r.ok ? 'good' : 'bad');
   }
 
-  const activos = clientes.filter(c => c.estado === 'activo' || c.estado === 'pausado');
-  const cerrados = clientes.filter(c => c.estado === 'graduado' || c.estado === 'baja');
   const resumenDe = (leadId: number): ResumenTrabajo | null =>
     (tablero.ok ? tablero.porLead[leadId] : null) ?? null;
 
+  const activos = clientes.filter((c) => c.estado === 'activo' || c.estado === 'pausado');
+  const cerrados = clientes.filter((c) => c.estado === 'graduado' || c.estado === 'baja');
+
   return (
     <Pagina ancho="completo">
-      <PageHeader titulo="Clients" proposito={`${activos.length} en el programa`} />
-
-      {!whopConectado && (
-        <Banner tono="warn">Whop no está conectado, así que MaKo no se entera de quién miró cada clase.</Banner>
-      )}
+      <PageHeader
+        titulo="Clientes"
+        estado={activos.length > 0
+          ? <Status>{activos.length} {activos.length === 1 ? 'activo' : 'activos'}</Status>
+          : undefined}
+      />
 
       {/* ⚠️ «Cero resultados» no es «no hay». Si el tablero no se pudo leer, las cards
-          dirían «sin proyecto» sobre 14 clientes que sí tienen trabajo cargado. */}
-      {!tablero.ok && (
-        <Banner tono="bad">No pude leer el tablero, así que las fichas no van a mostrar su trabajo. {tablero.error}</Banner>
-      )}
+          dirían «sin proyecto» sobre clientes que sí tienen trabajo cargado. */}
+      {!error && !tablero.ok && <Banner tono="bad">No pude leer el tablero. {tablero.error}</Banner>}
 
       {/* Lo que NO cruzó, arriba y no escondido: un cliente sin proyecto y un proyecto
           sin cliente casi siempre son el mismo, con el nombre corrido una palabra. */}
       {tablero.ok && tablero.huerfanos.length > 0 && (
         <Banner tono="warn">
-          {tablero.huerfanos.length === 1
-            ? 'Hay 1 proyecto de cliente en el tablero que no cruza con nadie de la cartera'
-            : `Hay ${tablero.huerfanos.length} proyectos de cliente en el tablero que no cruzan con nadie de la cartera`}
-          {` (${tablero.huerfanos.map(h => h.nombre).join(' · ')})`}
-          {tablero.sinProyecto > 0 && `, y ${tablero.sinProyecto} ${tablero.sinProyecto === 1 ? 'cliente' : 'clientes'} sin ningún proyecto.`}
-          {' '}Casi siempre es el mismo con el nombre corrido: se arregla renombrando el proyecto.
+          {tablero.huerfanos.length === 1 ? '1 proyecto de cliente' : `${tablero.huerfanos.length} proyectos de cliente`}
+          {' no cruzan con nadie: '}
+          {/* Comillas y no un separador pelado: un nombre de proyecto puede TRAER un
+              «·» adentro (medido en el ws1: «HMO · Cliente: Macario Romero»), y ahí
+              la lista se lee con un ítem de más. */}
+          {tablero.huerfanos.map((h) => `«${h.nombre}»`).join(' ')}
         </Banner>
       )}
 
-      {activos.length === 0 ? (
-        <div className="cl-vacio">
-          <p>Todavía no hay clientes activos en el programa.</p>
-          <p>Entran solos cuando una venta se marca como ganada en el CRM.</p>
-        </div>
+      {error ? (
+        <ErrorState titulo="No pude leer tus clientes" detalle={error} detalleTecnico={error} />
+      ) : activos.length === 0 && cerrados.length === 0 ? (
+        // EL VACÍO ES EL CASO PRINCIPAL: un workspace que recién empieza no ganó a
+        // nadie todavía, y ésta es la pantalla que más se va a ver. Se lee como
+        // «todavía no», y dice en UNA frase de dónde salen los clientes.
+        <EmptyState
+          titulo="Todavía no tienes clientes"
+          detalle="Un lead entra aquí cuando marcas su venta como ganada en el CRM."
+          accion={{ label: 'Abrir el CRM', href: '/crm' }}
+        />
       ) : GRUPOS.map((g) => {
-        const del = activos.filter(c => c.cancha === g.cancha);
+        // `filter` preserva el orden que trajo la página: acá NO se vuelve a ordenar.
+        const del = activos.filter((c) => claveNivel(c.senal.nivel) === g.clave);
         if (!del.length) return null;
         return (
-          <section key={g.cancha} className={`cl-grupo g-${g.cancha}`}>
+          <section key={g.clave} className="cl-grupo">
             <header>
               <h2>{g.titulo}</h2>
               <span className="n">{del.length}</span>
-              <span className="s">{g.sub}</span>
             </header>
+            {/* La grilla va SUELTA, sin caja de sección: la caja la tiene la card del
+                cliente, y una card adentro de otra card está siempre mal. */}
             <ul className="cl-grid">
               {del.map((c) => (
                 <li key={c.leadId}>
-                  <Card
-                    c={c} cargando={cargando === c.leadId} trabajo={resumenDe(c.leadId)}
-                    tableroOk={tablero.ok}
-                    onAbrir={() => setAbierto(c)}
-                    onDarLink={() => void emitir(c, false)}
-                    onMandarLink={() => void emitir(c, false, true)}
-                    onRotar={() => setConfirmarRotar(c)}
-                    onRevocar={() => void revocar(c)}
-                  />
+                  <Card c={c} trabajo={resumenDe(c.leadId)} tableroOk={tablero.ok}
+                    onAbrir={() => setAbierto(c)} />
                 </li>
               ))}
             </ul>
@@ -160,17 +176,23 @@ export function ClientesApp({ clientes, totalClases, whopConectado, tablero }: {
 
       {cerrados.length > 0 && (
         <section className="cl-cerrados">
-          <button onClick={() => setVerCerrados(v => !v)}>
-            {verCerrados ? 'Ocultar' : 'Ver'} los {cerrados.length} que ya terminaron
+          <button onClick={() => setVerCerrados((v) => !v)}>
+            {verCerrados ? 'Ocultar' : 'Ver'} los {cerrados.length} que ya cerraron
           </button>
+          {/* Una lista con filete, no una pila de cajas: acá cada uno es un nombre y
+              un estado, y N cajas iguales de eso son el contenedor perezoso. */}
           {verCerrados && (
             <ul>
-              {cerrados.map(c => (
+              {cerrados.map((c) => (
                 <li key={c.leadId}>
                   <button onClick={() => setAbierto(c)}>
                     <span className="n">{c.nombre}</span>
-                    <span className="e">{c.empresa ?? ''}</span>
-                    <span className={`s e-${c.estado}`}>{c.estado === 'graduado' ? 'Graduado' : 'Baja'}</span>
+                    {c.empresa && <span className="e">{c.empresa}</span>}
+                    <span className="s">
+                      <Status tono={c.estado === 'graduado' ? 'good' : 'neutral'}>
+                        {c.estado === 'graduado' ? 'Terminado' : 'Baja'}
+                      </Status>
+                    </span>
                   </button>
                 </li>
               ))}
@@ -181,43 +203,13 @@ export function ClientesApp({ clientes, totalClases, whopConectado, tablero }: {
 
       {abierto && (
         <DetalleCliente
-          cliente={abierto} totalClases={totalClases} trabajo={resumenDe(abierto.leadId)}
+          cliente={abierto}
+          trabajo={resumenDe(abierto.leadId)}
+          tableroOk={tablero.ok}
+          guardando={guardando}
           onCerrar={() => setAbierto(null)}
-          onDarLink={() => void emitir(abierto, false)}
           onMarcar={(e) => void marcar(abierto, e)}
         />
-      )}
-
-      {emitido && (
-        <Modal titulo={`El link de ${emitido.nombre}`} onCerrar={() => setEmitido(null)}>
-          <p style={{ margin: '0 0 14px', lineHeight: 1.55 }}>
-            Mándaselo por WhatsApp o por mail. Entra sin cuenta y sin contraseña.
-          </p>
-          <div className="cl-token">{emitido.url}</div>
-          <p style={{ margin: '12px 0 18px', lineHeight: 1.5, color: 'var(--dim)' }}>
-            <b>Cópialo ahora.</b> No se puede volver a ver: de esto solo guardamos una huella,
-            así que si se pierde hay que emitir uno nuevo y el anterior deja de andar.
-          </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Button onClick={() => { void navigator.clipboard.writeText(emitido.url); show('Link copiado.', undefined, 'good'); }}>
-              Copiar el link
-            </Button>
-            <Button variant="tertiary" onClick={() => setEmitido(null)}>Ya lo copié</Button>
-          </div>
-        </Modal>
-      )}
-
-      {confirmarRotar && (
-        <Modal titulo={`Emitir un link nuevo para ${confirmarRotar.nombre}`} onCerrar={() => setConfirmarRotar(null)}>
-          <p style={{ margin: '0 0 18px', lineHeight: 1.55 }}>
-            El link que tiene ahora <b>deja de andar</b>. Si lo estaba usando para contestar,
-            va a tener que entrar por el nuevo. Lo que escribió no se pierde.
-          </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Button onClick={() => void emitir(confirmarRotar, true)}>Emitir el nuevo y cortar el viejo</Button>
-            <Button variant="tertiary" onClick={() => setConfirmarRotar(null)}>Dejar el que tiene</Button>
-          </div>
-        </Modal>
       )}
 
       <Toast state={toast} onClose={clear} />
@@ -227,194 +219,101 @@ export function ClientesApp({ clientes, totalClases, whopConectado, tablero }: {
 }
 
 /**
- * Lo que el tablero sabe de este cliente, en un renglón.
+ * La card de un cliente.
  *
- * ⚠️ Las RECURRENTES se dicen aparte y NO se suman a las abiertas. «Cliente X — 3 tareas
- * abiertas» donde las 3 son la reunión de los miércoles es un aviso falso: eso no se
- * puede terminar, así que contarlo como pendiente miente en la dirección tranquilizadora.
+ * El molde es `ProyectoCardTile` (app/plan/board/BoardShell.tsx): superficie +
+ * borde de 1 px + una BANDA de 3 px arriba con el color de la entidad + radio 14
+ * + el pie anclado con un espaciador `flex:1`. El color no pinta el fondo ni el
+ * texto, y el hover sube el borde a `--border-strong` sin comerse la banda.
  *
- * ⚠️ Y los tres estados son DISTINTOS: no pude leer / no cruzó con ningún proyecto /
- * cruzó y no tiene nada abierto. Pintar los tres iguales es lo que hace que nadie
- * audite el primero.
+ * ⚠️ LA CARD SE GANA porque muestra cinco cosas de tipos distintos —señal,
+ * nombre, empresa, reloj y trabajo— que sólo conviven acá. El día que quedara en
+ * nombre + empresa + un chip, el propio molde estaría diciendo que ahí va una
+ * lista con filete.
+ *
+ * ⚠️ ES UN `<button>`, así que lleva `text-align`, `font` y `color` escritos: un
+ * botón NO los hereda y sin eso la card sale centrada (AGENTS.md, «cambiar la
+ * ETIQUETA de un elemento arrastra su hoja por defecto»). Y no lleva ningún
+ * control en el pie a propósito: un `<button>` adentro de otro es HTML inválido.
  */
-function textoTrabajo(t: ResumenTrabajo | null, tableroOk: boolean): string {
-  if (!tableroOk) return 'No pude leer su trabajo del tablero';
-  if (!t || (!t.proyectos && !t.abiertas && !t.recurrentes && !t.hechas)) return 'Sin trabajo suyo en el tablero';
-  const partes: string[] = [];
-  if (t.proyectos) partes.push(`${t.proyectos} ${t.proyectos === 1 ? 'proyecto' : 'proyectos'}`);
-  partes.push(`${t.abiertas} ${t.abiertas === 1 ? 'tarea abierta' : 'tareas abiertas'}`);
-  if (t.recurrentes) partes.push(`${t.recurrentes} ${t.recurrentes === 1 ? 'se repite' : 'se repiten'}`);
-  return partes.join(' · ');
-}
-
-function Card({ c, cargando, trabajo, tableroOk, onAbrir, onDarLink, onMandarLink, onRotar, onRevocar }: {
-  c: ClienteCartera; cargando: boolean; trabajo: ResumenTrabajo | null; tableroOk: boolean;
-  onAbrir: () => void; onDarLink: () => void; onMandarLink: () => void;
-  onRotar: () => void; onRevocar: () => void;
+function Card({ c, trabajo, tableroOk, onAbrir }: {
+  c: ClienteCartera; trabajo: ResumenTrabajo | null; tableroOk: boolean; onAbrir: () => void;
 }) {
+  const nivel = claveNivel(c.senal.nivel);
   const r = c.reloj;
-  // El filo es el TIEMPO transcurrido del contrato, no el avance del temario:
-  // es lo que se puede pintar con lo que sabemos hoy.
-  const pct = r.semana && r.semanasTotales ? Math.min(100, (r.semana / r.semanasTotales) * 100) : 0;
-  const arranque = fecha(r.arranque);
-  const subtitulo = [c.empresa, c.promesa.queEs].filter(Boolean).join(' · ');
+  const pct = r.semana && r.semanasTotales
+    ? Math.min(100, Math.round((r.semana / r.semanasTotales) * 100))
+    : null;
 
   return (
-    <article className={`cl-card c-${c.cancha}`}>
-      <span className="filo" aria-hidden><span style={{ width: `${pct}%` }} /></span>
+    <button className="cl-card" onClick={onAbrir} style={{ borderTopColor: COLOR_BANDA[nivel] }}>
+      <span className="cl-senal"><Status tono={TONO_SENAL[nivel]}>{c.senal.motivo}</Status></span>
 
-      <button className="cl-abrir" onClick={onAbrir}>
-        <span className="cab">
-          <span className="quien">
-            <span className="n">{c.nombre}</span>
-            <span className="e">{subtitulo || 'Sin empresa cargada'}</span>
-          </span>
-          <span className={`chip ch-${c.cancha}`}>
-            {c.cancha === 'tuya' ? 'Te toca' : c.cancha === 'suya' ? 'Le toca' : 'Al día'}
-          </span>
-        </span>
+      <span className="cl-n">{c.nombre}</span>
+      {c.empresa && <span className="cl-e">{c.empresa}</span>}
 
-        <span className="reloj">
-          {r.semana === null ? (
-            <span className="sin">Sin fecha de arranque</span>
-          ) : (
-            <>
-              <span className="num">{r.semana}</span>
-              <span className="de">
-                {r.semanasTotales ? `de ${r.semanasTotales} semanas` : 'semanas'}
-                {r.terminado && <span className="paso"> · se pasó</span>}
-              </span>
-            </>
-          )}
-        </span>
-        {arranque && (
-          <span className="arranque">
-            Arrancó el {arranque}{r.fuenteArranque ? ` · ${FUENTE[r.fuenteArranque]}` : ''}
-          </span>
-        )}
+      <span className="cl-sp" />
 
-        <span className="razon">{c.razon}</span>
-        <span className="trab">{textoTrabajo(trabajo, tableroOk)}</span>
-        <span className="sub">
-          {c.ultimaSesionHace === null
-            ? 'Todavía no tuvieron ninguna sesión'
-            : `Última sesión hace ${c.ultimaSesionHace} días`}
-          {c.cuotasVencidas > 0 && ` · ${c.cuotasVencidas} ${c.cuotasVencidas === 1 ? 'cuota vencida' : 'cuotas vencidas'}`}
-        </span>
-      </button>
-
-      {c.promesa.resultado && (
-        <div className="promesa">
-          <span className="k">Le prometiste</span>
-          <span className="v">{c.promesa.resultado}</span>
-        </div>
+      <span className="cl-reloj">{relojTexto(r)}</span>
+      {pct !== null && (
+        // El tiempo transcurrido del contrato. Se recorta al 100%: un contrato
+        // vencido pasaría del carril y desbordaría la card.
+        <span className="cl-bar" aria-hidden><span style={{ width: `${pct}%` }} /></span>
       )}
 
-      <div className="pie">
-        {c.links > 0 ? (
-          <>
-            <span className="tiene">Tiene su link</span>
-            <button className="b" disabled={cargando} onClick={onRotar}>Emitir uno nuevo</button>
-            <button className="b" disabled={cargando} onClick={onRevocar}>Cortar el acceso</button>
-          </>
-        ) : (
-          <>
-            <button className="b primaria" disabled={cargando} onClick={onMandarLink}>
-              {cargando ? 'Enviando…' : 'Mandarle su link'}
-            </button>
-            <button className="b" disabled={cargando} onClick={onDarLink}>Solo copiarlo</button>
-          </>
-        )}
-      </div>
-    </article>
+      <span className="cl-pie">{trabajoTexto(trabajo, tableroOk)}</span>
+    </button>
   );
 }
 
 const CSS = `
-.cl-vacio{ padding:60px 0; text-align:center; color:var(--dim); line-height:1.6; }
-.cl-vacio p{ margin:0 0 4px; }
+.cl-grupo{ margin:0 0 28px; }
+.cl-grupo > header{ display:flex; align-items:baseline; gap:10px; margin:0 0 12px;
+  padding-bottom:8px; border-bottom:1px solid var(--border); }
+.cl-grupo h2{ margin:0; font-size:15px; font-weight:640; letter-spacing:-.01em; color:var(--ink); }
+.cl-grupo .n{ font-family:${MONO}; font-size:11px; font-variant-numeric:tabular-nums;
+  color:var(--dim); background:var(--surface-2); border-radius:999px; padding:1px 8px; }
 
-.cl-grupo{ margin:0 0 34px; }
-.cl-grupo > header{ display:flex; align-items:baseline; gap:10px; margin:0 0 14px;
-  padding-bottom:9px; border-bottom:1px solid var(--border); }
-.cl-grupo h2{ margin:0; font-size:15px; font-weight:660; letter-spacing:-.01em; }
-.cl-grupo .n{ font-size:12px; font-variant-numeric:tabular-nums; color:var(--surface);
-  background:var(--faint); border-radius:999px; padding:1px 8px; }
-.cl-grupo.g-tuya .n{ background:var(--mako-ink); }
-.cl-grupo .s{ margin-left:auto; font-size:12.5px; color:var(--faint); }
-
+/* auto-fill, no auto-fit: con dos clientes, auto-fit estira cada card a media
+   pantalla y una card de 700 px de ancho no se lee como una card. */
 .cl-grid{ list-style:none; margin:0; padding:0; display:grid; gap:14px;
-  grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); }
+  grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); }
 .cl-grid > li{ display:flex; }
 
-.cl-card{ position:relative; display:flex; flex-direction:column; width:100%;
-  background:var(--surface); border:1px solid var(--border); border-radius:14px;
-  overflow:hidden; transition:border-color .15s; }
+.cl-card{ display:flex; flex-direction:column; gap:6px; width:100%;
+  background:var(--surface); border:1px solid var(--border); border-top-width:3px;
+  border-top-style:solid; border-radius:14px; padding:14px 16px 13px;
+  min-height:190px; cursor:pointer; text-align:left; font:inherit; color:inherit;
+  transition:border-color .12s; }
 .cl-card:hover{ border-color:var(--border-strong); }
-.cl-card.c-tuya{ border-color:var(--mako); }
-.cl-card .filo{ position:absolute; inset:0 0 auto 0; height:3px; background:var(--border); }
-.cl-card .filo span{ display:block; height:100%; background:var(--ink); }
-
-.cl-abrir{ flex:1; display:flex; flex-direction:column; width:100%; background:none; border:0;
-  padding:20px 19px 16px; text-align:left; font:inherit; color:inherit; cursor:pointer; }
-.cl-abrir:hover .quien .n{ text-decoration:underline; text-underline-offset:3px; }
-
-.cab{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-.quien{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-.quien .n{ font-size:16px; font-weight:640; letter-spacing:-.015em;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.quien .e{ font-size:12px; color:var(--faint); white-space:nowrap; overflow:hidden;
-  text-overflow:ellipsis; }
-.chip{ flex:none; font-size:11px; padding:3px 9px; border-radius:6px;
-  background:var(--surface-2); color:var(--dim); border:1px solid var(--border-strong); }
-.chip.ch-tuya{ background:var(--mako-bg); color:var(--mako-ink); border-color:var(--mako); }
-
-/* El reloj: el número más grande de la card. */
-.reloj{ display:flex; align-items:baseline; gap:8px; margin:18px 0 0; }
-.reloj .num{ font-size:38px; font-weight:700; letter-spacing:-.045em; line-height:1;
+.cl-card:focus-visible{ outline:none; box-shadow:var(--focus-ring); }
+.cl-senal{ display:block; margin:0 0 4px; }
+.cl-n{ display:block; font-size:var(--fs-card); font-weight:600; line-height:1.3;
+  color:var(--ink); overflow-wrap:anywhere; }
+.cl-e{ display:block; font-size:var(--fs-meta); color:var(--faint); line-height:1.35;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cl-sp{ flex:1; min-height:10px; }
+.cl-reloj{ display:block; font-size:var(--fs-sm); color:var(--dim);
   font-variant-numeric:tabular-nums; }
-.reloj .de{ font-size:14px; color:var(--faint); }
-.reloj .paso{ color:var(--warn); }
-.reloj .sin{ font-size:15px; color:var(--faint); }
-.arranque{ display:block; margin:5px 0 0; font-size:11.5px; color:var(--faint); }
+.cl-bar{ display:block; height:4px; border-radius:99px; background:var(--border);
+  overflow:hidden; }
+.cl-bar > span{ display:block; height:100%; background:var(--ink); }
+.cl-pie{ display:block; margin-top:2px; font-family:${MONO}; font-size:10.5px;
+  color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-.razon{ display:block; margin:16px 0 0; font-size:14.5px; line-height:1.45; }
-.c-tuya .razon{ color:var(--ink); }
-.c-suya .razon, .c-al-dia .razon{ color:var(--dim); }
-.sub{ display:block; margin:4px 0 0; font-size:12.5px; line-height:1.45; color:var(--faint); }
-.trab{ display:block; margin:6px 0 0; font-size:12px; line-height:1.4; color:var(--faint);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-.promesa{ display:flex; flex-direction:column; gap:3px; padding:11px 19px;
-  background:var(--surface-2); border-top:1px solid var(--border); }
-.promesa .k{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
-.promesa .v{ font-size:13px; line-height:1.45; }
-
-.pie{ display:flex; align-items:center; gap:3px; flex-wrap:wrap; padding:11px 16px 13px; }
-.tiene{ font-size:11.5px; color:var(--good); margin-right:auto; padding-left:3px; }
-.pie .b{ background:none; border:0; padding:7px 9px; border-radius:7px; font:inherit;
-  font-size:12.5px; color:var(--dim); cursor:pointer; }
-.pie .b:hover{ background:var(--surface-2); color:var(--ink); }
-.pie .b.primaria{ background:var(--ink); color:var(--surface); padding:9px 15px; font-weight:560; }
-.pie .b.primaria:hover{ opacity:.88; background:var(--ink); color:var(--surface); }
-.pie .b:disabled{ opacity:.45; cursor:default; }
-
-.cl-cerrados{ margin:8px 0 30px; }
-.cl-cerrados > button{ background:none; border:0; padding:8px 0; font:inherit; font-size:13px;
-  color:var(--dim); cursor:pointer; }
+.cl-cerrados{ margin:4px 0 28px; }
+.cl-cerrados > button{ background:none; border:0; padding:8px 0; font:inherit;
+  font-size:13px; color:var(--dim); cursor:pointer; }
 .cl-cerrados > button:hover{ color:var(--ink); }
-.cl-cerrados ul{ list-style:none; margin:8px 0 0; padding:0; }
-.cl-cerrados li > button{ display:flex; align-items:center; gap:12px; width:100%; background:none;
-  border:0; border-top:1px solid var(--border); padding:11px 2px; text-align:left; font:inherit;
-  cursor:pointer; }
+.cl-cerrados ul{ list-style:none; margin:6px 0 0; padding:0; }
+.cl-cerrados li > button{ display:flex; align-items:center; gap:12px; width:100%;
+  background:none; border:0; border-top:1px solid var(--border); padding:11px 2px;
+  text-align:left; font:inherit; color:inherit; cursor:pointer; }
+.cl-cerrados li:first-child > button{ border-top:0; }
 .cl-cerrados li > button:hover{ background:var(--surface-2); }
-.cl-cerrados .n{ font-size:14px; }
+.cl-cerrados .n{ font-size:14px; color:var(--ink); }
 .cl-cerrados .e{ font-size:12.5px; color:var(--faint); }
-.cl-cerrados .s{ margin-left:auto; font-size:11px; color:var(--faint); }
-.cl-cerrados .s.e-graduado{ color:var(--good); }
-
-.cl-token{ font-family:var(--mono, monospace); font-size:13px; line-height:1.5; word-break:break-all;
-  padding:13px 15px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border); }
+.cl-cerrados .s{ margin-left:auto; }
 
 @media(prefers-reduced-motion:reduce){ .cl-card{ transition:none; } }
 `;

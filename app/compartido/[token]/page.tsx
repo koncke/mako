@@ -12,9 +12,7 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
-import { resolverToken, filtrarPorShare, registrarVisita, puedeEditar } from '@/lib/shares';
-import { vistaDeTarea } from '@/lib/cs-tarea-vista';
-import TareaCliente from './TareaCliente';
+import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
 import Galeria from './Galeria';
 import CursoCompartido from './CursoCompartido';
 import AnalisisCompartido from './AnalisisCompartido';
@@ -51,9 +49,8 @@ const resolver = cache(resolverToken);
  *
  *   · `curso`      → se nombra. Que el que recibe el link sepa qué curso es ANTES de
  *                    abrirlo es justamente para lo que se manda.
- *   · `tarea-cs`   → NO. El share apunta a un lead: el título llevaría el nombre de una
- *                    persona a cada chat donde se reenvíe.
  *   · `branding`   → NO. Es la galería privada de un workspace.
+ *   · `conocimientos` → NO. Es la tab entera, no una cosa que valga anunciar.
  *   · lo que venga → NO, por default. Un `recurso` nuevo no se nombra hasta que alguien
  *                    decida que se puede; la lista es blanca a propósito.
  *
@@ -121,21 +118,25 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
     return <CursoCompartido curso={curso} invitado={acceso.invitado?.email ?? null} />;
   }
 
-  // ── La tarea de un bloque del programa: la contesta el CLIENTE de un cliente ──
-  // El share apunta al lead, y `puedeEditar` (mismo criterio que `puedeVer`) es
-  // lo que habilita escribir. Acá solo se decide qué mostrar; quien AUTORIZA la
-  // escritura es `/api/compartido/tarea`, porque si solo lo hiciera esta página
-  // un POST directo escribiría sobre la tarea de otro.
-  if (acceso.share.recurso === 'tarea-cs') {
-    const leadId = Number(acceso.share.recurso_id);
-    if (!Number.isFinite(leadId) || leadId <= 0) notFound();
-    if (!puedeEditar(acceso.share, 'tarea-cs', String(leadId))) notFound();
+  // ── El material de marca: la galería ──
+  // ⚠️ LA CONDICIÓN ES EN POSITIVO, y no es prolijidad. Hasta el 26/09/2026 esta
+  // era la rama de descarte: todo lo que no fuera curso ni conocimientos caía
+  // acá. `puedeVer` (lib/shares.ts) decide por ALCANCE y **no mira `recurso`**,
+  // así que un share de otro recurso con `alcance: 'item'` se compara contra los
+  // ids de los assets de marca del workspace y sirve el que coincida. Con
+  // `tarea-cs` —cuyo `recurso_id` es un id de lead— eso era una colisión a la
+  // espera de un asset con ese id. El recurso que no tenga rama propia no se
+  // sirve: 404.
+  if (acceso.share.recurso !== 'branding') notFound();
 
-    const { modulos, inicial, nombre, totales } = await vistaDeTarea(acceso.share.workspace_id, leadId);
-    if (!modulos.length) notFound();
-    await registrarVisita(acceso);
-    return <TareaCliente token={token} nombre={nombre} modulos={modulos} inicial={inicial} totales={totales} />;
-  }
+  // ⚠️ `tarea-cs` YA NO SE SIRVE (26/09/2026). Era el cuestionario de las 44
+  // clases del programa de un cliente: esta página lo dibujaba y
+  // `/api/compartido/tarea` autorizaba la escritura. Las dos se fueron con el
+  // programa, y con ellas la única forma de EMITIR uno de esos links (el
+  // whitelist `RECURSOS` de `app/api/compartir/route.ts` nunca lo aceptó). Los
+  // que ya andan dando vuelta caen en el 404 de acá arriba, que es lo correcto:
+  // un link vivo al contenido de un cliente que ya nadie puede revocar desde la
+  // pantalla es una puerta abierta.
 
   const todos = await listarAssetsDeWorkspace(acceso.share.workspace_id);
   const visibles = filtrarPorShare(acceso.share, todos);

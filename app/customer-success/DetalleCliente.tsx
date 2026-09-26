@@ -1,58 +1,70 @@
 'use client';
 
 // =============================================================================
-// El detalle de un cliente — en tabs, como la ficha del CRM
+// La ficha de un cliente — en tabs, como la ficha del CRM
 // =============================================================================
-// La card de la cartera dice de quién es la pelota y nada más. Todo lo demás
-// vive acá, partido en tabs por PREGUNTA y no por longitud, que es la regla de
-// la casa: «¿qué contestó?» no es lo mismo que «¿de qué hablamos?» ni que
-// «¿cuánto debe?».
+// La card dice qué le pasa y nada más. Todo lo demás vive acá, partido en tabs
+// por PREGUNTA y no por longitud:
 //
-// El molde es `app/crm/LeadSheet.tsx`, que ya resolvió esto para el lead: mismas
-// tabs con badge numérico, mismo criterio de qué va arriba.
+//   Trabajo         ¿qué le debo?         el tablero: proyectos, tareas, recurrentes
+//   Contrato        ¿qué le prometí?      `deal_promesa` + `deal_servicio` + el reloj
+//   Conversaciones  ¿cuándo hablamos?     `closing_analyses` + `wa_mensajes`
+//   Cobros          ¿qué me debe?         `pagos`
+//   Contacto        ¿cómo lo ubico?       `leads`
+//
+// Cinco, y el techo son seis (app/_ui/Tabs.tsx). Las cinco se llenan con tablas
+// que tienen `workspace_id`: ninguna es una promesa que en otro workspace esté
+// vacía por construcción.
+//
+// ⚠️ LA SEXTA ERA «PROGRAMA» Y SE FUE. Mostraba el avance sobre las 44 clases del
+// sistema de Mauricio (`lib/programa-catalogo.ts`, `cs_respuestas`, Whop). Es SU
+// negocio, no un molde vacío: un cliente que entrara vería el material de él.
+//
+// ⚠️ CADA TAB PUEDE DECIR «NO PUDE LEER ESTO». `cobrosLeidos` y `contactoLeido`
+// vienen de la cartera justamente para eso: una lectura fallida convertida en
+// cero afirma «no debe nada» y «nadie le escribió» sobre datos que nunca se
+// leyeron. Es la falla más cara de este repo y falla en la dirección tranquila.
 //
 // ⚠️ NO REPITE LA FICHA DEL CRM. Todo lo de la VENTA —origen, tracking, insights,
 // historial de cambios— ya vive en `/crm/[id]` y ahí se queda: duplicarlo sería
-// dos lugares donde vive un cliente y uno de los dos quedando viejo. Este panel
-// es la ENTREGA, y linkea a la ficha para el resto.
+// dos lugares donde vive un cliente y uno de los dos quedando viejo. Esto es la
+// ENTREGA, y linkea a la ficha para el resto.
 
-import { useEffect, useState } from 'react';
-import { Modal, Status, Button, MONO } from '@/app/_ui';
+import { useState } from 'react';
+import { Modal, Status, MONO } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import type { ClienteCartera, EstadoCliente } from '@/lib/cs-cartera';
-// Solo el TIPO: un import de valor arrastraría el catálogo del programa al bundle.
-import type { AvanceClase } from '@/lib/cs-avance-clases';
-import { avanceDelClienteAction } from './actions';
+// El nivel y su clave salen del módulo que los define; de ClientesApp sólo vienen
+// las tres funciones de PRESENTACIÓN que las dos pantallas comparten. Ese import
+// cruzado no es un ciclo: son constantes y funciones puras declaradas arriba del
+// componente que importa a éste.
+import { claveNivel } from '@/lib/cs-senal';
+import { TONO_SENAL, relojTexto, trabajoTexto } from './ClientesApp';
 import { TrabajoDelCliente } from './TrabajoCliente';
 import type { ResumenTrabajo } from './trabajo';
 
-// ⚠️ SEIS ES EL TECHO (app/_ui/Tabs.tsx). «Trabajo» es la sexta y entra justa: de acá en
-// más, una tab nueva no es una tab, es que falta una decisión de arquitectura.
-//
-// Va SEGUNDA, después de «Programa». El corte de las tabs es por PREGUNTA: «¿cómo va con
-// el temario?» primero, «¿qué hay abierto con él?» después, y recién ahí el papeleo
-// (contrato, sesiones, cobros, contacto). Es la pregunta que se hace antes de una sesión.
-type TabKey = 'programa' | 'trabajo' | 'contrato' | 'sesiones' | 'cobros' | 'contacto';
+type TabKey = 'trabajo' | 'contrato' | 'conversaciones' | 'cobros' | 'contacto';
 
-export function DetalleCliente({ cliente: c, totalClases, trabajo, onCerrar, onDarLink, onMarcar }: {
+export function DetalleCliente({ cliente: c, trabajo, tableroOk, guardando, onCerrar, onMarcar }: {
   cliente: ClienteCartera;
-  totalClases: number;
-  /** Los números del tablero, que ya vinieron con la cartera. El badge sale de acá y no
-   *  de una carga: una tab cuyo badge aparece tres segundos después salta a la vista. */
+  /** Los números del tablero, que ya vinieron con la cartera. El badge sale de acá
+   *  y no de una carga: una tab cuyo badge aparece tres segundos después salta a
+   *  la vista. */
   trabajo: ResumenTrabajo | null;
+  tableroOk: boolean;
+  guardando: boolean;
   onCerrar: () => void;
-  onDarLink: () => void;
   onMarcar: (estado: EstadoCliente) => void;
 }) {
-  const [tab, setTab] = useState<TabKey>('programa');
+  const [tab, setTab] = useState<TabKey>('trabajo');
 
   const tabs: { key: TabKey; label: string; badge?: number }[] = [
-    { key: 'programa', label: 'Programa', badge: c.esperandoSuOk || undefined },
-    // El badge cuenta las ABIERTAS, no las recurrentes: un número que incluye lo que se
-    // repite para siempre nunca baja, y un badge que nunca baja deja de leerse.
+    // El badge cuenta las ABIERTAS, no las recurrentes: un número que incluye lo
+    // que se repite para siempre nunca baja, y un badge que nunca baja deja de
+    // leerse.
     { key: 'trabajo', label: 'Trabajo', badge: trabajo?.abiertas || undefined },
     { key: 'contrato', label: 'Contrato' },
-    { key: 'sesiones', label: 'Sesiones', badge: c.sesiones || undefined },
+    { key: 'conversaciones', label: 'Conversaciones', badge: c.sesiones || undefined },
     { key: 'cobros', label: 'Cobros', badge: c.cuotasVencidas || undefined },
     { key: 'contacto', label: 'Contacto' },
   ];
@@ -60,19 +72,21 @@ export function DetalleCliente({ cliente: c, totalClases, trabajo, onCerrar, onD
   return (
     <Modal titulo={c.nombre} onCerrar={onCerrar} ancho={720}>
       <div className="dc">
-        {/* Lo que hay que saber antes de abrir cualquier tab. */}
-        <p className="dc-cancha">{c.razon}</p>
+        {/* La misma señal que se ve en la card. No se recalcula: dos cálculos de la
+            misma señal son dos señales que van a divergir. */}
+        <p className="dc-senal">
+          <Status tono={TONO_SENAL[claveNivel(c.senal.nivel)]}>{c.senal.motivo}</Status>
+        </p>
 
         <div className="dc-hi">
-          <Hi k="Semana" v={c.reloj.semana === null ? '—' : `${c.reloj.semana}`}
-            de={c.reloj.semanasTotales ? `de ${c.reloj.semanasTotales}` : undefined} />
-          <Hi k="Bloques listos" v={`${c.aprobados}`} de={`de ${totalClases}`} />
-          <Hi k="Última sesión" v={c.ultimaSesionHace === null ? 'Ninguna' : `hace ${c.ultimaSesionHace} d`} />
-          <Hi k="Sesiones" v={`${c.sesiones}`} />
+          <Hi k="Reloj" v={relojTexto(c.reloj)} />
+          <Hi k="Último contacto" v={ultimoContactoTexto(c)} />
+          <Hi k="Cobros" v={cobrosTexto(c)} />
+          <Hi k="Trabajo" v={trabajoTexto(trabajo, tableroOk)} />
         </div>
 
         <nav className="dc-tabs" role="tablist">
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <button key={t.key} role="tab" aria-selected={tab === t.key}
               className={tab === t.key ? 'es' : ''} onClick={() => setTab(t.key)}>
               {t.label}
@@ -82,28 +96,28 @@ export function DetalleCliente({ cliente: c, totalClases, trabajo, onCerrar, onD
         </nav>
 
         <div className="dc-cuerpo">
-          {tab === 'programa' && <Programa c={c} total={totalClases} onDarLink={onDarLink} />}
-          {/* `key` por cliente, igual que la lista de clases: sin eso, al saltar de un
-              cliente a otro se ve un instante el trabajo del anterior. */}
+          {/* `key` por cliente: sin eso, al saltar de un cliente a otro se ve un
+              instante el trabajo del anterior. */}
           {tab === 'trabajo' && <TrabajoDelCliente key={c.leadId} leadId={c.leadId} nombre={c.nombre} resumen={trabajo} />}
           {tab === 'contrato' && <Contrato c={c} />}
-          {tab === 'sesiones' && <Sesiones c={c} />}
+          {tab === 'conversaciones' && <Conversaciones c={c} />}
           {tab === 'cobros' && <Cobros c={c} />}
           {tab === 'contacto' && <Contacto c={c} />}
         </div>
 
         <footer className="dc-pie">
-          <Link href={`/crm/${c.leadId}`} className="dc-ficha">Abrir su ficha completa en el CRM →</Link>
+          <Link href={`/crm/${c.leadId}`} className="dc-ficha">Abrir su ficha en el CRM →</Link>
           {/* Cerrar a un cliente es una DECISIÓN, no un cálculo: el contrato dice
               cuándo vence el plazo, no si el trabajo se terminó. */}
           <span className="dc-estado">
             {c.estado === 'activo' ? (
               <>
-                <button onClick={() => onMarcar('graduado')}>Marcar como graduado</button>
-                <button onClick={() => onMarcar('baja')}>Se dio de baja</button>
+                <button disabled={guardando} onClick={() => onMarcar('pausado')}>Ponerlo en pausa</button>
+                <button disabled={guardando} onClick={() => onMarcar('graduado')}>Marcar como terminado</button>
+                <button disabled={guardando} onClick={() => onMarcar('baja')}>Se dio de baja</button>
               </>
             ) : (
-              <button onClick={() => onMarcar('activo')}>Volver a ponerlo activo</button>
+              <button disabled={guardando} onClick={() => onMarcar('activo')}>Volver a ponerlo activo</button>
             )}
           </span>
         </footer>
@@ -113,200 +127,126 @@ export function DetalleCliente({ cliente: c, totalClases, trabajo, onCerrar, onD
   );
 }
 
-function Hi({ k, v, de }: { k: string; v: string; de?: string }) {
+/** ⚠️ «No pude leer» es un TERCER estado, y no se pinta como «nunca hablaron». */
+function ultimoContactoTexto(c: ClienteCartera): string {
+  if (!c.contactoLeido) return 'No lo pude leer';
+  if (c.ultimoContactoHace === null) return 'Ninguno todavía';
+  const como = c.ultimoContactoFue === 'whatsapp' ? 'WhatsApp' : 'llamada';
+  return c.ultimoContactoHace === 0 ? `Hoy, por ${como}` : `Hace ${c.ultimoContactoHace} d, por ${como}`;
+}
+
+function cobrosTexto(c: ClienteCartera): string {
+  if (!c.cobrosLeidos) return 'No los pude leer';
+  if (c.cuotasVencidas > 0) return `${c.cuotasVencidas} ${c.cuotasVencidas === 1 ? 'vencida' : 'vencidas'}`;
+  if (c.cuotasImpagasSinFecha > 0) return `${c.cuotasImpagasSinFecha} sin fecha`;
+  return 'Sin vencidas';
+}
+
+function Hi({ k, v }: { k: string; v: string }) {
   return (
     <span className="hi">
       <span className="k">{k}</span>
-      <span className="v">{v}{de && <span className="de"> {de}</span>}</span>
+      <span className="v">{v}</span>
     </span>
   );
 }
 
-/**
- * ⚠️ LA LISTA CLASE POR CLASE VA SIEMPRE, también cuando todavía no contestó nada.
- *
- * Antes, `contestados === 0` cortaba con «todavía no contestó nada» y la ficha
- * terminaba ahí — o sea que escondía, justo, al cliente que VIO clases y no
- * contestó ninguna tarea, que es el caso que más le importa a Mauricio seguir. Y
- * cuando sí había algo, mostraba solo el NÚMERO «vio y no contestó: 3», nunca cuáles.
- *
- * Tampoco depende del link: las clases se ven en Whop, y el link de MaKo es para
- * CONTESTAR la tarea. Un cliente sin link puede haber visto medio programa.
- */
-function Programa({ c, total, onDarLink }: { c: ClienteCartera; total: number; onDarLink: () => void }) {
-  let arriba: React.ReactNode;
-  if (!c.links) {
-    arriba = (
-      <Vacio
-        titulo="Todavía no tiene su link"
-        detalle="Sin link no puede contestar ninguna tarea. Es lo primero."
-        accion={<Button size="sm" onClick={onDarLink}>Darle su link</Button>}
-      />
-    );
-  } else if (c.contestados === 0) {
-    arriba = (
-      <Vacio
-        titulo="Tiene su link y todavía no contestó nada"
-        detalle={c.entroHace === null
-          ? 'Nunca entró. Puede que el link no le haya llegado.'
-          : `Entró hace ${c.entroHace} días.`}
-      />
-    );
-  } else {
-    arriba = (
-      <dl className="dc-dl">
-        <Fila k="Va por" v={c.bloqueActual ?? 'Terminó todos los bloques'} />
-        <Fila k="Contestados" v={`${c.contestados} de ${total}`} />
-        <Fila k="Aprobados" v={`${c.aprobados} de ${total}`} />
-        {c.esperandoSuOk > 0 && (
-          <Fila k="Esperando su ok" v={`${c.esperandoSuOk}`} tono="mako"
-            nota="MaKo ya reescribió esos bloques con lo hablado en la sesión." />
-        )}
-        {c.entroHace !== null && <Fila k="Última vez que entró" v={`hace ${c.entroHace} días`} />}
-      </dl>
-    );
-  }
+/** Lo que dice el contrato: es lo primero que hay que tener a mano antes de hablar
+ *  con él, y es de donde sale el reloj de la card. */
+function Contrato({ c }: { c: ClienteCartera }) {
+  const r = c.reloj;
+  const p = c.promesa;
   return (
     <>
-      {arriba}
-      {/* `key` por cliente: al pasar de un cliente a otro el componente se rearma
-          de cero en vez de mostrar un instante la lista del anterior. */}
-      <ClasesVistas key={c.leadId} leadId={c.leadId} />
+      {/* ⚠️ No dice «no tiene contrato»: dice que NO ESTÁ CARGADO. Medido el
+          26/09/2026: 6 de 14 clientes del ws1, 1 de 11 del ws11 y los 2 del ws13
+          no tienen `deal_promesa` ni `deal_servicio` — y los del ws13 cerraron
+          anteayer, que es el estado normal del día 1. */}
+      {!c.tieneContrato && <p className="dc-nota">Su contrato no está cargado en su ficha del CRM.</p>}
+      <dl className="dc-dl">
+        {p.queEs && <Fila k="Qué se le vendió" v={p.queEs} />}
+        {p.resultado && <Fila k="Le prometiste" v={p.resultado} />}
+        {p.garantia && (
+          <Fila k="Garantía" v={p.garantia}
+            nota="Cambia qué significa pasarse del plazo para ESTE cliente." />
+        )}
+        {p.sesiones && <Fila k="Sesiones pactadas" v={p.sesiones} />}
+        <Fila
+          k="Duración"
+          v={r.semanasTotales ? `${r.semanasTotales} semanas` : 'No la dice el contrato'}
+          tono={r.semanasTotales ? undefined : 'warn'}
+          nota={r.fuente === 'ficha' ? 'Sale de la ficha, no del contrato.' : undefined}
+        />
+        <Fila
+          k="Arrancó"
+          v={r.arranque ? r.arranque.slice(0, 10) : 'Sin fecha'}
+          tono={r.arranque ? undefined : 'warn'}
+          nota={r.fuenteArranque === 'cierre'
+            ? 'No hay fecha de inicio cargada: se usa la del cierre de la venta.'
+            : undefined}
+        />
+        {c.cierre && <Fila k="Cerró" v={c.cierre.slice(0, 10)} />}
+        {r.terminado && (
+          <Fila k="Plazo" v="Se pasó" tono="warn"
+            nota="Pasarse del plazo no es haber terminado: eso lo decides tú abajo." />
+        )}
+      </dl>
     </>
   );
 }
 
-type EstadoLista =
-  | { fase: 'cargando' }
-  | { fase: 'error'; error: string }
-  | { fase: 'lista'; clases: AvanceClase[]; sinContestar: number };
-
-/** Clase por clase: si la vio (y cuándo), si contestó y si aprobó. */
-function ClasesVistas({ leadId }: { leadId: number }) {
-  const [e, setE] = useState<EstadoLista>({ fase: 'cargando' });
-
-  useEffect(() => {
-    let vivo = true;
-    avanceDelClienteAction(leadId)
-      .then((r) => { if (vivo) setE(r.ok ? { fase: 'lista', clases: r.clases, sinContestar: r.sinContestar } : { fase: 'error', error: r.error }); })
-      .catch((err) => { if (vivo) setE({ fase: 'error', error: err instanceof Error ? err.message : 'No pude leer su avance.' }); });
-    return () => { vivo = false; };
-  }, [leadId]);
-
-  if (e.fase === 'cargando') return <p className="dc-cv-nota">Cargando qué clases vio…</p>;
-  // Un error NO se pinta como «no vio nada»: son dos respuestas distintas, y
-  // Mauricio tiene que poder distinguirlas.
-  if (e.fase === 'error') return <p className="dc-cv-nota dc-cv-error">{e.error}</p>;
-
-  const { clases, sinContestar } = e;
-
-  return (
-    <section className="dc-cv">
-      <header className="dc-cv-cab">
-        <h3>Clase por clase</h3>
-        {sinContestar > 0 && (
-          <Status tono="warn">Vio {sinContestar} {sinContestar === 1 ? 'clase' : 'clases'} sin contestar</Status>
-        )}
-      </header>
-      {clases.length === 0 ? (
-        <p className="dc-cv-nota">
-          Todavía no hay registro de que haya visto ninguna clase. Se anota solo cuando la completa en Whop.
-        </p>
-      ) : (
-        <ol className="dc-cv-lista">
-          {clases.map((x) => (
-            <li key={x.claseId} className="dc-cv-fila">
-              <span className="cl">{x.rotulo}</span>
-              <span className="vio">{x.vistoAt ? <>Vio <b>{fecha(x.vistoAt)}</b></> : <span className="sin">Sin registro de vista</span>}</span>
-              <span className="ta"><Tarea x={x} /></span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
-  );
-}
-
-/** Qué hizo con la tarea. En los módulos por área dice cuántas áreas, porque la
- *  clase queda «a medias» con un área aprobada y otra sin empezar. */
-function Tarea({ x }: { x: AvanceClase }) {
-  const areas = x.areas ? ` · ${x.areas.contestadas} de ${x.areas.total} áreas` : '';
-  switch (x.tarea) {
-    case 'aprobada': return <Status tono="good">Aprobada{x.aprobadaAt ? ` ${fecha(x.aprobadaAt)}` : ''}</Status>;
-    case 'revisada_ia': return <Status tono="mako">Esperando su ok{areas}</Status>;
-    case 'contestada': return <Status>Contestó{x.contestadaAt ? ` ${fecha(x.contestadaAt)}` : ''}{areas}</Status>;
-    default:
-      // Sin contestar: es un pendiente SOLO si la vio. Si no hay registro de vista,
-      // no hay nada que reclamarle todavía.
-      return x.vistoAt
-        ? <Status tono="warn">No contestó{areas}</Status>
-        : <span className="sin">—{areas}</span>;
+/** Las dos fuentes de «¿cuándo hablamos?», juntas: una llamada analizada y un
+ *  WhatsApp son la misma pregunta, y separarlas en dos tabs deja a cada workspace
+ *  con una vacía (medido: ws1 143 sesiones y 0 del ws11; ws11 561 mensajes). */
+function Conversaciones({ c }: { c: ClienteCartera }) {
+  if (!c.contactoLeido) {
+    return <Vacio titulo="No pude leer sus conversaciones"
+      detalle="Mientras tanto no se puede decir si hablaron o no." />;
   }
-}
-
-/** «12 sep». Sin año: el programa dura meses, no años, y el año se lee como ruido. */
-const fecha = (iso: string) =>
-  new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '');
-
-/** Lo que dice el contrato firmado. Es lo que hay que tener a mano antes de una
- *  sesión, y es de donde sale el reloj de la card. */
-function Contrato({ c }: { c: ClienteCartera }) {
-  const r = c.reloj;
-  return (
-    <dl className="dc-dl">
-      {c.promesa.queEs && <Fila k="Qué es" v={c.promesa.queEs} />}
-      {c.promesa.resultado && <Fila k="Le prometiste" v={c.promesa.resultado} />}
-      {c.promesa.garantia && (
-        <Fila k="Garantía" v={c.promesa.garantia}
-          nota="Cambia qué significa pasarse del plazo para ESTE cliente." />
-      )}
-      {c.promesa.sesiones && <Fila k="Sesiones pactadas" v={c.promesa.sesiones} />}
-      <Fila
-        k="Duración"
-        v={r.semanasTotales ? `${r.semanasTotales} semanas` : 'No la dice el contrato'}
-        tono={r.semanasTotales ? undefined : 'warn'}
-        nota={r.fuente === 'ficha' ? 'Sale de la ficha, no del contrato.' : undefined}
-      />
-      <Fila
-        k="Arrancó"
-        v={r.arranque ? new Date(r.arranque).toISOString().slice(0, 10) : 'Sin fecha'}
-        tono={r.arranque ? undefined : 'warn'}
-        nota={r.fuenteArranque === 'cierre'
-          ? 'No hay fecha de inicio cargada: se usa la del cierre de la venta.'
-          : undefined}
-      />
-      {r.terminado && (
-        <Fila k="Estado del plazo" v="Se pasó" tono="warn"
-          nota="Pasarse del plazo no es haber terminado: eso lo decides tú abajo." />
-      )}
-    </dl>
-  );
-}
-
-function Sesiones({ c }: { c: ClienteCartera }) {
-  if (!c.sesiones) {
-    return <Vacio titulo="Todavía no hay ninguna sesión grabada"
-      detalle="Aparecen solas cuando Fathom graba una llamada con él." />;
+  if (c.ultimoContactoHace === null) {
+    return <Vacio titulo="Todavía no hay ninguna conversación registrada"
+      detalle="Aparecen solas cuando se analiza una llamada suya o llega un WhatsApp." />;
   }
   return (
     <dl className="dc-dl">
-      <Fila k="Sesiones grabadas" v={`${c.sesiones}`} />
-      <Fila k="La última" v={c.ultimaSesionTitulo ?? '—'}
-        nota={c.ultimaSesionHace !== null ? `hace ${c.ultimaSesionHace} días` : undefined}
-        tono={c.ultimaSesionHace !== null && c.ultimaSesionHace > 21 ? 'bad' : undefined} />
+      <Fila k="Último contacto" v={ultimoContactoTexto(c)} />
+      {c.esperaRespuestaHace !== null && (
+        <Fila k="Te escribió" v={`hace ${c.esperaRespuestaHace} ${c.esperaRespuestaHace === 1 ? 'día' : 'días'}`}
+          tono="bad" nota="Nadie le contestó después de ese mensaje." />
+      )}
+      {c.ultimoMensajeHace !== null && (
+        <Fila k="Último WhatsApp" v={`hace ${c.ultimoMensajeHace} ${c.ultimoMensajeHace === 1 ? 'día' : 'días'}`} />
+      )}
+      <Fila k="Llamadas analizadas" v={`${c.sesiones}`} />
+      {c.sesiones > 0 && (
+        <Fila k="La última" v={c.ultimaSesionTitulo ?? 'Sin título'}
+          nota={c.ultimaSesionHace !== null ? `hace ${c.ultimaSesionHace} días` : undefined} />
+      )}
     </dl>
   );
 }
 
 function Cobros({ c }: { c: ClienteCartera }) {
-  if (!c.cuotasVencidas) {
-    return <Vacio titulo="Al día" detalle="No tiene cuotas vencidas." />;
+  if (!c.cobrosLeidos) {
+    return <Vacio titulo="No pude leer sus cobros"
+      detalle="Mientras tanto no se puede decir si debe algo." />;
+  }
+  // ⚠️ «SIN CUOTAS VENCIDAS» NO ES «ESTÁ AL DÍA». Una cuota impaga SIN
+  // `fecha_esperada` no se puede declarar vencida —impaga y vencida son dos
+  // cosas— y se cuenta aparte: son 2 de las 3 impagas del ws11.
+  if (!c.cuotasVencidas && !c.cuotasImpagasSinFecha) {
+    return <Vacio titulo="Sin cuotas vencidas"
+      detalle="Lo que se le cobró y lo que falta se carga en su ficha del CRM." />;
   }
   return (
     <dl className="dc-dl">
-      <Fila k="Cuotas vencidas" v={`${c.cuotasVencidas}`} tono="bad" />
+      {c.cuotasVencidas > 0 && <Fila k="Cuotas vencidas" v={`${c.cuotasVencidas}`} tono="bad" />}
       {c.cuotaVencidaDias !== null && (
         <Fila k="La más vieja" v={`hace ${c.cuotaVencidaDias} días`} tono="bad" />
+      )}
+      {c.cuotasImpagasSinFecha > 0 && (
+        <Fila k="Impagas sin fecha" v={`${c.cuotasImpagasSinFecha}`} tono="warn"
+          nota="Sin fecha de cobro no se pueden dar por vencidas. Se cargan en su ficha del CRM." />
       )}
     </dl>
   );
@@ -315,13 +255,9 @@ function Cobros({ c }: { c: ClienteCartera }) {
 function Contacto({ c }: { c: ClienteCartera }) {
   return (
     <dl className="dc-dl">
-      {c.empresa && <Fila k="Empresa" v={c.empresa} />}
-      {c.email && <Fila k="Email" v={c.email} />}
-      {c.telefono
-        ? <Fila k="Teléfono" v={c.telefono} />
-        : <Fila k="Teléfono" v="Sin cargar" tono="warn" nota="Sin teléfono no se le puede mandar el link por WhatsApp." />}
-      <Fila k="Links vivos" v={`${c.links}`} tono={c.links > 1 ? 'bad' : undefined}
-        nota={c.links > 1 ? 'Dos links vivos son dos formas de entrar y una sola que alguien se acuerde de cortar.' : undefined} />
+      <Fila k="Empresa" v={c.empresa ?? 'Sin cargar'} tono={c.empresa ? undefined : 'warn'} />
+      <Fila k="Email" v={c.email ?? 'Sin cargar'} tono={c.email ? undefined : 'warn'} />
+      <Fila k="Teléfono" v={c.telefono ?? 'Sin cargar'} tono={c.telefono ? undefined : 'warn'} />
     </dl>
   );
 }
@@ -338,24 +274,24 @@ function Fila({ k, v, nota, tono }: { k: string; v: string; nota?: string; tono?
   );
 }
 
-function Vacio({ titulo, detalle, accion }: { titulo: string; detalle: string; accion?: React.ReactNode }) {
+function Vacio({ titulo, detalle }: { titulo: string; detalle: string }) {
   return (
     <div className="dc-vacio">
       <p className="t">{titulo}</p>
       <p className="d">{detalle}</p>
-      {accion}
     </div>
   );
 }
 
 const CSS = `
-.dc-cancha{ font-size:15.5px; line-height:1.45; margin:0 0 18px; }
-.dc-hi{ display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:14px;
+.dc-senal{ margin:0 0 16px; }
+.dc-hi{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:14px;
   padding:0 0 18px; border-bottom:1px solid var(--border); }
-.dc-hi .hi{ display:flex; flex-direction:column; gap:3px; }
-.dc-hi .k{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
-.dc-hi .v{ font-size:21px; font-weight:680; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
-.dc-hi .de{ font-size:12.5px; font-weight:400; color:var(--faint); letter-spacing:0; }
+.dc-hi .hi{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.dc-hi .k{ font-family:${MONO}; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint); }
+.dc-hi .v{ font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--ink);
+  font-variant-numeric:tabular-nums; line-height:1.35; }
 
 .dc-tabs{ display:flex; gap:2px; flex-wrap:wrap; margin:16px 0 0;
   border-bottom:1px solid var(--border); }
@@ -363,55 +299,34 @@ const CSS = `
   padding:9px 12px; font:inherit; font-size:13.5px; color:var(--dim); cursor:pointer;
   display:flex; align-items:center; gap:6px; }
 .dc-tabs button:hover{ color:var(--ink); }
-.dc-tabs button.es{ color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+.dc-tabs button.es{ color:var(--ink); font-weight:600; border-bottom-color:var(--primary); }
 .dc-tabs .bg{ font-family:${MONO}; font-size:10px; padding:1px 6px; border-radius:999px;
   background:var(--surface-2); color:var(--dim); }
-.dc-tabs button.es .bg{ background:var(--ink); color:var(--surface); }
+.dc-tabs button.es .bg{ background:var(--primary); color:#fff; }
 
 .dc-cuerpo{ padding:18px 0 4px; min-height:150px; }
+.dc-nota{ margin:0 0 14px; font-size:13.5px; line-height:1.5; color:var(--dim); }
 .dc-dl{ margin:0; }
 .dc-fila{ display:grid; grid-template-columns:150px 1fr; gap:14px; padding:11px 0;
   border-bottom:1px solid var(--border); }
 .dc-fila:last-child{ border-bottom:0; }
 .dc-fila dt{ font-size:13px; color:var(--faint); }
 .dc-fila dd{ margin:0; font-size:14.5px; display:flex; flex-direction:column; gap:4px;
-  align-items:flex-start; }
+  align-items:flex-start; overflow-wrap:anywhere; }
 .dc-fila .nota{ font-size:12.5px; line-height:1.45; color:var(--faint); }
-
-/* Clase por clase. Una lista con filete, no una pila de cajas: son todas del mismo
-   tipo, y la caja se gana. Tres columnas fijas para que «vio» y «tarea» queden
-   alineados de arriba abajo y se lean de un vistazo, que es para lo que existe. */
-.dc-cv{ margin-top:22px; }
-.dc-cv-cab{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 6px; }
-.dc-cv-cab h3{ margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--faint); font-weight:600; }
-.dc-cv-lista{ list-style:none; margin:0; padding:0; }
-.dc-cv-fila{ display:grid; grid-template-columns:minmax(0,1fr) 120px auto; gap:14px; align-items:center;
-  padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
-.dc-cv-fila:last-child{ border-bottom:0; }
-.dc-cv-fila .cl{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.dc-cv-fila .vio{ color:var(--dim); font-variant-numeric:tabular-nums; }
-.dc-cv-fila .vio b{ color:var(--ink); font-weight:600; }
-.dc-cv-fila .ta{ justify-self:end; }
-.dc-cv .sin{ color:var(--faint); }
-.dc-cv-nota{ font-size:13px; line-height:1.5; color:var(--dim); margin:16px 0 0; }
-.dc-cv-error{ color:var(--bad); }
-@media (max-width:560px){
-  .dc-cv-fila{ grid-template-columns:1fr auto; }
-  .dc-cv-fila .vio{ grid-column:1; font-size:12.5px; }
-  .dc-cv-fila .ta{ grid-row:1 / span 2; grid-column:2; }
-}
+@media (max-width:560px){ .dc-fila{ grid-template-columns:1fr; gap:4px; } }
 
 .dc-vacio{ padding:26px 0; }
-.dc-vacio .t{ font-size:15px; font-weight:600; margin:0 0 5px; }
-.dc-vacio .d{ font-size:13.5px; line-height:1.5; color:var(--dim); margin:0 0 14px; }
+.dc-vacio .t{ font-size:15px; font-weight:600; margin:0 0 5px; color:var(--ink); }
+.dc-vacio .d{ font-size:13.5px; line-height:1.5; color:var(--dim); margin:0; }
 
 .dc-pie{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px;
   padding-top:14px; border-top:1px solid var(--border); }
-.dc-estado{ margin-left:auto; display:flex; gap:2px; }
+.dc-estado{ margin-left:auto; display:flex; gap:2px; flex-wrap:wrap; }
 .dc-estado button{ background:none; border:0; padding:6px 9px; border-radius:7px; font:inherit;
   font-size:12.5px; color:var(--dim); cursor:pointer; }
-.dc-estado button:hover{ background:var(--surface-2); color:var(--ink); }
+.dc-estado button:hover:not(:disabled){ background:var(--surface-2); color:var(--ink); }
+.dc-estado button:disabled{ opacity:.45; cursor:default; }
 .dc-ficha{ font-size:13.5px; color:var(--dim); }
 .dc-ficha:hover{ color:var(--ink); }
 `;

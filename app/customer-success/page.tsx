@@ -1,85 +1,69 @@
 // =============================================================================
-// /customer-success — Clients: la cartera del programa
+// /customer-success — los clientes de este workspace y cómo va cada uno
 // =============================================================================
-// La pregunta que contesta, en el orden en que le importa a Mauricio el lunes a
-// la mañana: ¿a quién le toca que YO haga algo, quién se quedó, y en qué bloque
-// va cada uno.
+// La pantalla contesta cuatro preguntas, en este orden:
+//   1. ¿Quiénes son mis clientes? (los leads GANADOS del CRM)
+//   2. ¿Cuál necesita atención HOY? — y eso ORDENA la lista (lib/cs-senal.ts)
+//   3. ¿Qué le prometí? (el contrato)
+//   4. ¿Qué le debo? (su trabajo en el tablero)
 //
-// Reemplaza al script de terminal: emitir, rotar y revocar el link del cliente
-// se hace desde acá, con las mismas reglas del share (ver ./actions.ts).
+// ⚠️ ES DE TODOS LOS WORKSPACES. Hasta el 26/09/2026 la página se dibujaba con
+// `esWorkspaceDueno() || getSesionAdmin()` y leía los datos con
+// `runWithWorkspace(OWNER_WS, …)`: o sea que todo lo que se veía acá era de UN
+// cliente (el ws1), incluido lo que veía el super-admin. Eso se fue con el
+// programa de 44 clases. Ahora es la capa la que decide, como en cualquier otra
+// tab, y los datos salen del workspace en curso vía `getTenantDb()`.
 
 import { cartera } from '@/lib/cs-cartera';
-import { TOTAL_CLASES } from '@/lib/programa-catalogo';
-import { whopConfigurado } from '@/lib/whop';
-import { esWorkspaceDueno, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
-import { getSesionAdmin } from '@/lib/auth';
-import { ComingSoon } from '@/app/_components/ComingSoon';
+import { conTrabajo } from '@/lib/cs-senal';
+import { requireCapa } from '@/lib/tab-access';
 import { ClientesApp } from './ClientesApp';
 import { tableroDeLaCartera } from './trabajo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata = { title: 'Clients · Customer Success' };
+export const metadata = { title: 'Clientes · Customer Success' };
 
 export default async function CustomerSuccessPage() {
-  // ⚠️ MIENTRAS SE CONSTRUYE, solo el workspace de Mauricio. Va en POSITIVO
-  // («solo el dueño»), no «cualquiera menos X»: la condición negativa deja
-  // entrar a cada cliente nuevo sin que nada avise.
-  //
-  // No contradice la regla de que nada se construye owner-only: el programa, el
-  // catálogo y el bucle SON workspace-aware desde el primer día. Lo que todavía
-  // no existe es el temario de OTRO consultor —hoy las 44 clases son el sistema
-  // de Mauricio, no un molde vacío—, así que un cliente que entrara vería el
-  // material de él. Cuando el programa sea por workspace, se cae este guard.
-  //
-  // Y va ANTES de las consultas: un workspace que no lo va a ver no paga la
-  // cartera ni el ping a Whop.
-  // ⚠️ Y EL SUPER-ADMIN TAMBIÉN ENTRA, LEYENDO EL WORKSPACE DE MAURICIO. El guard de arriba
-  // decía sólo `esWorkspaceDueno()`, que es `workspace actual === OWNER_WS`; el super-admin
-  // tiene el SUYO, así que entraba a /customer-success y le salía «Coming soon» — la pantalla
-  // que existe para los CLIENTES. Reportado varias veces («te lo vengo pidiendo hace tiempo»,
-  // 26/09/2026) y contestado con un «abrí con ?ws=1», que es pedirle a la persona que sepa
-  // una regla del server.
-  //
-  // El molde ya existía a dos pantallas: `/plan` redirige al super-admin a `/plan/agencia`,
-  // que resuelve el tablero del dueño por dentro en vez de exigir la pestaña. Acá pasa lo
-  // mismo: el programa ES el de Mauricio (ws1), y quien lo administra tiene que poder verlo
-  // desde donde esté parado.
-  //
-  // ⚠️ SIGUE EN POSITIVO y sigue decidiéndose en el SERVER: «el workspace actual es el del
-  // dueño, O quien mira es admin» — nunca «cualquiera menos…», y nunca leyendo `?ws=` de la
-  // URL, que lo escribe cualquiera. Un cliente sigue viendo «Coming soon», que es lo que el
-  // guard vino a hacer.
-  const soyAdmin = !!(await getSesionAdmin());
-  if (!(await esWorkspaceDueno()) && !soyAdmin) return <ComingSoon title="Customer Success" icon="cs" />;
+  await requireCapa('customer-success');
 
-  // ⚠️ Y LOS DATOS SE LEEN DE OWNER_WS EXPLÍCITAMENTE, no del workspace en curso. Sin esto el
-  // super-admin entraría y vería su propia cartera —vacía—, que es el mismo «no está» con
-  // otra cara: la pantalla dibujada y sin un solo cliente.
-  return runWithWorkspace(OWNER_WS, () => contenido());
+  // ⚠️ SI LA CARTERA NO SE PUEDE LEER, NO SE DIBUJA UNA LISTA VACÍA. Un
+  // workspace que todavía no ganó a nadie y uno cuya consulta falló se ven
+  // idénticos, y el primero es el caso normal — así que el segundo tiene que
+  // poder decirse. El vacío verdadero (cero ganados) lo pinta ClientesApp.
+  let clientes: Awaited<ReturnType<typeof cartera>>;
+  try {
+    clientes = await cartera();
+  } catch (e) {
+    return <ClientesApp clientes={[]} tablero={{ ok: false, error: mensaje(e) }} error={mensaje(e)} />;
+  }
+
+  // El TABLERO de cada uno: cuántos proyectos, tareas abiertas y cuántas están
+  // pasadas de fecha. Sólo los números — el detalle lo pide la ficha al abrirse
+  // (./actions.ts).
+  //
+  // ⚠️ SE CRUZA CONTRA LA CARTERA ENTERA, no cliente por cliente. El cruce
+  // blando decide si una palabra distingue a alguien mirando a TODOS; con la
+  // lista recortada, cualquier palabra sería única y le metería a un cliente el
+  // trabajo de otro.
+  //
+  // ⚠️ Y SI FALLA, FALLA VISIBLE: `{ ok: false }`, nunca una lista vacía. «No
+  // pude leer el tablero» y «nadie tiene trabajo cargado» son dos pantallas, y
+  // la segunda sobre la primera no la audita nadie.
+  const tablero = clientes.length
+    ? await tableroDeLaCartera(clientes.map((c) => ({ leadId: c.leadId, nombre: c.nombre, empresa: c.empresa })))
+      .catch((e) => ({ ok: false as const, error: mensaje(e) }))
+    : ({ ok: true as const, porLead: {}, huerfanos: [], sinProyecto: 0 });
+
+  // El trabajo entra DESPUÉS de la cartera porque el cruce necesita la lista que
+  // la cartera acaba de traer. Acá se le enchufa a cada cliente, se recalcula su
+  // señal de atención y se vuelve a ordenar. Si el tablero no se pudo leer va
+  // `null`, que en la señal significa «no lo sé» y no «no tiene nada».
+  const conSuTrabajo = conTrabajo(clientes, tablero.ok ? tablero.porLead : null);
+
+  return <ClientesApp clientes={conSuTrabajo} tablero={tablero} />;
 }
 
-async function contenido() {
-
-  const [clientes, whop] = await Promise.all([
-    cartera().catch(() => []),
-    whopConfigurado().catch(() => false),
-  ]);
-
-  // El TABLERO de cada uno: cuántos proyectos, tareas y recurrentes tiene. Sólo los
-  // números — el detalle lo pide la ficha al abrirse (./actions.ts).
-  //
-  // ⚠️ SE CRUZA CONTRA LA CARTERA ENTERA, no cliente por cliente. El cruce blando
-  // decide si una palabra distingue a alguien mirando a TODOS; con la lista recortada,
-  // cualquier palabra sería única y le metería a un cliente el trabajo de otro.
-  //
-  // ⚠️ Y SI FALLA, FALLA VISIBLE. `tableroDeLaCartera` devuelve `{ok:false, error}` en
-  // vez de una lista vacía: «no pude leer el tablero» y «nadie tiene trabajo cargado»
-  // son dos pantallas, y la segunda sobre la primera no la audita nadie.
-  const tablero = await tableroDeLaCartera(
-    clientes.map((c) => ({ leadId: c.leadId, nombre: c.nombre, empresa: c.empresa })),
-  ).catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No pude leer el tablero.' }));
-
-  return <ClientesApp clientes={clientes} totalClases={TOTAL_CLASES} whopConectado={whop} tablero={tablero} />;
-}
+const mensaje = (e: unknown): string =>
+  e instanceof Error ? e.message : 'No pude leer tus clientes.';

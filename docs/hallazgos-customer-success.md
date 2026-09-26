@@ -1,8 +1,36 @@
 # Hallazgos — Customer Success
 
-El bucle de entrega: Whop, la tarea de cada bloque y las juntas con clientes.
-Dónde vive el código: `lib/whop.ts`, `lib/programa-catalogo.ts`, `lib/cs-avance.ts`,
-`lib/cs-respuestas.ts`, `app/api/webhooks/whop/`, `app/admin/dev/customer-success/`.
+La entrega después de la venta: los clientes ganados de un workspace y cómo va lo que
+se les vendió.
+Dónde vive el código: `lib/cs-cartera.ts`, `lib/cs-senal.ts`, `lib/cs-contrato.ts`,
+`app/customer-success/`.
+
+⚠️ **TODO LO ANTERIOR AL 26/09/2026 ES HISTORIA, Y SUS ARCHIVOS YA NO EXISTEN.** Esas
+entradas describen la tab vieja: el programa de 44 clases de UN cliente (el temario, el
+cuestionario que contestaba por un link, su curso en Whop, los casos de otros clientes
+suyos y el banco de material). Al rearmar la tab para cualquier workspace se borró la
+pantalla **y también el código que la sostenía** — una versión anterior de esta cabecera
+decía que «sus libs siguen en el repo y las consume la API de MaKo», y eso dejó de ser
+cierto el mismo día que se sacaron catorce de las diecisiete operaciones del área.
+
+**Borrados el 26/09/2026** (si una entrada de abajo dice `Vive en:` uno de estos, es un
+puntero muerto y la entrada se lee como autopsia, nunca como el estado del código):
+`app/customer-success/programa/` · `lib/programa-catalogo.ts` · `lib/programa-campos.ts` ·
+`lib/cs-valores.ts` · `lib/cs-respuestas.ts` · `lib/cs-avance.ts` · `lib/cs-avance-clases.ts` ·
+`lib/cs-historico.ts` · `lib/cs-mensajes.ts` · `lib/cs-reescritura.ts` · `lib/cs-sync-whop.ts` ·
+`lib/cs-tarea-vista.ts` · `lib/banco-skills.ts` · `app/api/webhooks/whop/` ·
+`app/api/compartido/tarea/` · `app/compartido/[token]/TareaCliente.tsx` ·
+`scripts/cargar-programa-whop.ts` · `scripts/cs-backfill-vistos.ts` ·
+`scripts/ensayo-bucle-cs.ts` · `scripts/link-tarea-cliente.ts` · `scripts/apuntar-webhook-whop.ts`.
+
+**Sigue vivo y sin consumidor:** `lib/whop.ts`, `lib/whop-evento.ts` y la tarjeta de la
+integración Whop (`lib/integraciones-catalogo.ts`, `lib/metodo-catalogo.ts`,
+`lib/metodo-verificar.ts`). Con el webhook y las cuatro operaciones de Whop fuera, un
+cliente puede conectar Whop y no pasa nada — decisión pendiente, ver la última entrada.
+
+**Lo que gobierna el código de hoy** está en la última entrada: `lib/cs-cartera.ts`,
+`lib/cs-senal.ts`, `lib/cs-contrato.ts`, `app/customer-success/` y las TRES operaciones
+que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
@@ -458,7 +486,7 @@ cero.
 
 ## Una variable CSS que no existe no falla: invalida la declaración y sigue
 
-**Vive en:** `app/customer-success/programa/ProgramaApp.tsx` (corregido)
+**Vive en:** `app/customer-success/programa/ProgramaApp.tsx` (corregido; BORRADO el 26/09/2026)
 
 Usé `--ink-70`, `--ink-40`, `--ink-15`, `--ink-05` y `--lime-ink` **17 veces**. Ninguna
 está definida en `app/globals.css`. Los colores de esa pantalla estuvieron mal en
@@ -481,7 +509,7 @@ propaga esto. Los nombres reales del sistema son `--ink`, `--dim`, `--faint`, `-
 
 ## Skool no tiene vista de autor, y esa es justo la que hacía falta
 
-**Vive en:** `app/customer-success/programa/ProgramaApp.tsx`
+**Vive en:** `app/customer-success/programa/ProgramaApp.tsx` (BORRADO el 26/09/2026)
 
 Se midió el classroom de Skool **en vivo** (DOM real, no de memoria): grilla de ancho
 fijo 1082px con cards de 350×355 y portada 16:9 a sangre; rail izquierdo de 328px con
@@ -588,7 +616,7 @@ el temario a alguien que ya lo tiene abierto. El agrupador usa un Map para no ne
 que estén pegadas, y hay un test que lo fija.
 
 **Vive en:** lib/programa-catalogo.ts (`mismoVideoQue`, `GRABACIONES`) ·
-tests/programa-catalogo.test.ts · app/customer-success/programa/ProgramaApp.tsx (tab
+tests/programa-catalogo.test.ts · app/customer-success/programa/ProgramaApp.tsx (BORRADOS el 26/09/2026; tab
 Clases) · *2026-08-11 ~programa-mauricio-recorte*
 
 ---
@@ -715,7 +743,7 @@ verificación en vivo contra la cuenta real de Whop. Ampliado el 2026-08-11 con
 
 ## Un banco de material temático no es un temario, y el tema es justo lo que engaña
 
-**Vive en:** `lib/banco-skills.ts`, `app/customer-success/programa/` (tab «Tu material»)
+**Vive en:** `lib/banco-skills.ts`, `app/customer-success/programa/` (tab «Tu material») — los dos BORRADOS el 26/09/2026
 
 **El síntoma:** Mauricio entregó 1,07 GB de material —26 videos, 183 minutos, 35 PDFs—
 organizado en doce carpetas por tema: Propósito y Narrativa, Estrategia y Visión,
@@ -997,7 +1025,7 @@ reordena», más arriba).
 ## Whop no está «cargado y esperando videos»
 
 **Vive en:** `lib/cs-sync-whop.ts:50-116` · `lib/whop.ts:207-289` ·
-`app/customer-success/programa/page.tsx:43`
+`app/customer-success/programa/page.tsx:43` (BORRADO el 26/09/2026)
 
 Medido con GET el 24/09. El curso `cors_MChFCUZK1T2e8` está `hidden` y tiene 12
 capítulos del programa más el «Chapter 1 / Lesson 1» que Whop crea por defecto (vacía y
@@ -1127,7 +1155,7 @@ refutadores, 20 afirmaciones verificadas contra la fuente)*
 **Agregado el 2026-09-24** (corrida `contexto-customer-success`):
 
 - **Validar el `claseId` antes de anotar el visto** (`lib/cs-avance.ts:137-150`, con
-  `claseDe`), y que `app/customer-success/programa/page.tsx:43` cuente «en Whop» por
+  `claseDe`), y que `app/customer-success/programa/page.tsx:43` (BORRADO el 26/09/2026) cuente «en Whop» por
   título vigente y no por el mapa. Corregir los comentarios del cron que no existe
   (`lib/whop.ts:116-117`, `app/api/webhooks/whop/route.ts:6`).
 - **Enganchar el video:** un lugar que diga qué video va en qué clase (campo en `Clase`
@@ -1147,3 +1175,230 @@ refutadores, 20 afirmaciones verificadas contra la fuente)*
   temario viejo; `app/admin/dev/customer-success/roadmap-cs.ts` dice que emitir y mandar
   el link «no existe» (existe: `app/customer-success/actions.ts:53-97`); «25 videos / 118
   preguntas» en `ProgramaApp.tsx:200` y `programa/page.tsx:8` (son 31 y 114).
+
+---
+
+## La tab era de UN cliente y no se leía como un bug (rearmado del 26/09/2026)
+
+**Vive en:** `lib/cs-cartera.ts`, `lib/cs-senal.ts`, `app/customer-success/page.tsx`,
+`app/customer-success/actions.ts`, `app/customer-success/trabajo.ts`,
+`tests/cs-senal.test.ts`
+
+**El síntoma:** Martín abrió Customer Success y todo lo que había adentro era de
+Mauricio — «incluso me aparece en el ws de admin». Se venía reportando como un
+problema de PERMISOS («no puedo entrar», «me sale Coming soon»), y por eso se había
+arreglado dos veces del lado del permiso.
+
+**La causa real:** el permiso estaba bien. Lo que estaba mal era de quién eran los
+datos. `page.tsx` hacía `esWorkspaceDueno() || getSesionAdmin()` y después
+`runWithWorkspace(OWNER_WS, () => contenido())`. O sea que el guard no sólo decidía
+QUIÉN entra: **cambiaba de inquilino**. Un admin parado en cualquier workspace veía la
+cartera del ws1 y la leía como «la tab».
+
+**La regla que queda: un guard decide quién entra, nunca de quién son los datos.** Si
+para que una pantalla tenga contenido hay que mudarla de workspace, esa pantalla es de
+un cliente y no es una tab del producto. El olor exacto: `runWithWorkspace(<constante>)`
+en el cuerpo de un `page.tsx`.
+
+**Y la mitad que se olvida son las ACTIONS.** `wsActual()` (`actions.ts`) devolvía
+`OWNER_WS` cuando quien miraba era admin — con la página arreglada, cada admin habría
+seguido ESCRIBIENDO el estado de sus clientes sobre la cartera de Mauricio. Una página
+se arregla y las acciones que la alimentan siguen contestando sobre otra cosa.
+
+### Un campo muerto sosteniendo una regla de la pantalla
+
+`compromisosAbiertos` estaba declarado en `ClienteCartera`, leído por la regla de
+cancha (`if (c.compromisosAbiertos > 0) → 'suya'`) y **clavado en `0` en los dos
+lugares que lo escribían**, con el comentario «se llena abajo» y nada abajo que lo
+llenara. Esa razón **no se podía disparar nunca**, y su cliente caía en «Sin nada
+pendiente de ninguno de los dos»: falla en silencio y en la dirección tranquilizadora.
+El header del módulo lo declaraba como uno de los TRES hechos sobre los que giraba la
+pantalla.
+
+**La regla:** antes de confiar en una rama, grepeá quién ESCRIBE el campo que mira. Un
+`grep` que sólo devuelve la declaración y el `0` es la firma.
+
+### Lo que sobrevive a los tres workspaces, medido
+
+`cs_respuestas` tiene **0 filas en todo el producto** (ni en ws1): la pantalla giraba
+alrededor de una tabla vacía. Y el perfil de señales fuera de ws1 es el OPUESTO al de
+Mauricio — ws11 tiene 11 clientes con WhatsApp de ayer y **cero** sesiones, cero
+proyectos de cliente y casi cero cuotas; ws13 tiene dos clientes cerrados anteayer y
+nada más. Una pantalla diseñada mirando ws1 está vacía en 13 de los 27 clientes del
+producto.
+
+Lo único que existe para los 27: quién es · `fecha_cierre` (**27 de 27, el único campo
+que nunca falta**) · la promesa (`deal_promesa.resultado`, 15 de 27, y más llena fuera
+de ws1 que adentro) · la última conversación (sesión **o** WhatsApp, lo que haya) · lo
+que falta pagar. Sobre eso gira ahora `lib/cs-senal.ts`.
+
+### «No lo sé» es un nivel, no la ausencia de nivel
+
+La señal devuelve `atencion | bien | **null**`. Un cliente sin contrato cargado no está
+bien: está sin datos, y son dos pantallas distintas. Lo mismo una cuota impaga **sin
+`fecha_esperada`** (2 de las 3 impagas de ws11): impaga y vencida no son lo mismo, y
+una sin fecha no se puede declarar vencida nunca. Y un tablero que no se pudo leer
+entra como `null`, jamás como `0` — «no pude leer el tablero» pintado como «no tiene
+nada atrasado» es la mentira tranquilizadora clásica.
+
+En la API eso obliga a un casillero propio: `por_nivel` cuenta `atencion`,
+`sin-datos` y `bien` por separado, porque «tengo 9 clientes al día» y «tengo 4 al día y
+de 5 no sé nada» mandan a hacer cosas distintas. El mapeo `null → 'sin-datos'` vive en
+UNA función (`claveNivel`, `lib/cs-senal.ts`): había empezado a existir tres veces
+—la pantalla, la ficha y el runner de MaKo—, y el día que una lo escriba al revés la
+pantalla dice que un cliente sin datos está al día.
+
+### ⚠️ Una rotura que no prueba nada: la trampa de «probar rompiendo el test»
+
+Al probar `tests/cs-senal.test.ts` rompiéndolo, una de las cinco roturas dio **13
+pases, 0 fallos**: cambiar `c.tareasAtrasadas !== null && c.tareasAtrasadas > 0` por
+`(c.tareasAtrasadas ?? 0) > 0`. La lectura tentadora —«al test le falta un caso»— es
+falsa: **las dos expresiones son equivalentes para `number | null`**, así que no había
+cambio de conducta que cazar.
+
+**La regla: antes de concluir que al test le falta cobertura, comprobá que la rotura
+cambie lo que el código HACE.** Una rotura que no cambia nada no mide el test, y
+leerla al revés manda a escribir casos que no sirven. Las otras cuatro sí midieron
+(2 fallos/11 pases, 1/12, 1/12, 1/12); están enumeradas con su número exacto en el
+encabezado del test.
+
+### El orden de lectura de la pantalla, y por qué son dos pasos
+
+`cartera()` no puede leer el tablero: el cruce cliente ↔ proyecto
+(`app/customer-success/cruce.ts`) necesita la lista de clientes que `cartera()` acaba
+de traer, y correrlo con un cliente solo convierte cualquier palabra suya en única. Así
+que van en este orden, y la señal se calcula DOS veces a propósito:
+
+1. `cartera()` → señal con el trabajo en `null` (o sea, «no lo sé»).
+2. `tableroDeLaCartera(clientes)` → números por lead, incluidas las **atrasadas**.
+3. `conTrabajo(clientes, porLead)` → enchufa, **recalcula la señal y reordena**.
+
+Si el paso 2 falla, el 3 recibe `null` y la pantalla sigue ordenada: un fallo del
+tablero nunca deja la cartera sin triar.
+
+### WhatsApp: la fecha es cierta, el conteo no
+
+Los mensajes huérfanos (`lead_id is null` pero el teléfono matchea un ganado) son 489
+en ws11 sobre 8 leads. Cruzados lead por lead: **la FECHA del último mensaje es
+idéntica por `lead_id` y por teléfono en los 11**, así que los huérfanos no mueven el
+«hace cuánto» y sí achican el conteo. Por eso `ClienteCartera` expone
+`ultimoMensajeHace` y **no** un número de mensajes: «hace X días» es cierto, «N
+mensajes» queda corto y nadie lo notaría.
+
+Y el historial de WhatsApp se lee COMPLETO para los ganados, sin ventana de tiempo: con
+una ventana de N días, «nunca hablaron» y «hablaron hace más de N» devuelven la misma
+lista vacía, y la primera es una afirmación que la pantalla hace en voz alta.
+
+### Lo que quedó SIN hacer
+
+⚠️ **Los cuatro primeros puntos de esta lista se cerraron el 26/09/2026, en la misma
+jornada** (ver la entrada de abajo). Quedan estos:
+
+- **No hay entrada de `customer-success` en `lib/tab-onboarding-catalogo.ts`**, y la
+  regla de la casa dice que toda tab tiene onboarding con su estado alimentando a MaKo.
+- **La ficha de un cliente sigue sin URL propia:** es un estado adentro de la lista, así
+  que no se puede compartir un link a un cliente ni volver con el botón de atrás.
+- **La capa `superadmin` no incluye `customer-success`** (`lib/capas.ts`), así que el
+  super-admin no ve la tab en SU workspace — la abre entrando al de un cliente, como
+  cualquier otra tab de cliente. Es coherente y conviene saberlo antes del próximo «no
+  me aparece».
+
+---
+
+## Sacar el programa de los SEIS lugares donde también vivía
+
+**Vive en:** `lib/api-mako/areas/cs.def.ts` · `lib/api-mako/areas/cs.run.ts` ·
+`lib/api-mako/areas/cs.helpers.ts` · `app/compartido/[token]/page.tsx` ·
+`lib/reunion-auto.ts` · `app/admin/dev/areas.ts` · *2026-09-26*
+
+**El síntoma:** la tab `/customer-success` se había rearmado desde cero y la pantalla ya
+era genérica — y el programa de 44 clases seguía entero en otros seis lugares. Un link
+viejo todavía abría el cuestionario, MaKo seguía ofreciendo el temario, y el registro de
+`/admin/dev` describía el proyecto de un cliente.
+
+**La causa real:** borrar la pantalla no borra lo que la alimentaba. Es la regla de
+AGENTS.md «sacar un patrón es ENUMERAR dónde está, no arreglarlo donde se vio», y acá la
+enumeración fue una cadena de imports, no un `grep` de una palabra: de
+`lib/programa-catalogo.ts` colgaban once libs, dos rutas, cinco scripts y seis tests.
+
+**Lo que se fue** (21 archivos): las once libs del programa, el webhook de Whop, las dos
+rutas del cuestionario, cinco scripts y seis tests. Y catorce de las diecisiete
+operaciones del área `cs`, con sus runners y seis helpers.
+
+### `soloWs1` no es «el workspace 1»: es «ws 1 Y rol admin»
+
+`gatingOk` (`lib/api-mako/registro.ts:125`) hace
+`if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false`. O sea
+que sacarlo de las tres operaciones que quedaron **también sacó un requisito de rol que
+nadie había declarado**. Se comprobó contra la pantalla antes de dejarlo así:
+`app/customer-success/page.tsx` hace `requireCapa('customer-success')` a secas y las dos
+server actions no miran el rol, así que un closer ve la cartera y puede marcar un estado.
+Poner `rolMinimo: 'admin'` habría hecho a MaKo **más** estricto que la pantalla; la regla
+de AGENTS.md pide lo contrario (que no sea más permisivo). Quedó `{ tab: 'customer-success' }`
+y nada más.
+
+**La regla que queda:** antes de sacar un flag de gating, leé qué hace en el registro. Un
+nombre que menciona UNA dimensión (el workspace) puede estar cubriendo DOS.
+
+### El 404 de un share sale de una condición en POSITIVO, o el recurso muerto cae en la galería
+
+`app/compartido/[token]/page.tsx` despachaba `conocimientos` y `curso` con un `if` cada
+uno, y **todo lo demás caía en la galería de marca**. `puedeVer` (`lib/shares.ts:141`)
+decide por ALCANCE y **no mira `share.recurso`**: con `alcance: 'item'` compara
+`asset.id === share.recurso_id` contra los assets de branding del workspace. El
+`recurso_id` de un `tarea-cs` es un **id de lead**, así que sacar la rama del cuestionario
+sin cerrar el descarte dejaba una colisión esperando a un asset con ese id — o sea, un
+link de un cliente sirviendo una pieza de marca de otro. Quedó `if (acceso.share.recurso
+!== 'branding') notFound()`: el recurso que no tiene rama propia no se sirve.
+
+Y se verificó que ya no hay forma de EMITIR uno: el whitelist `RECURSOS` de
+`app/api/compartir/route.ts:29` es `['curso', 'branding', 'conocimientos']` y nunca
+aceptó `tarea-cs` (lo emitía la server action de la tab, que se borró).
+
+### `puedeEditar` quedó sin un solo call site
+
+`tarea-cs` era el **único** recurso de share con `permiso: 'editar'`. Con la ruta del
+cuestionario fuera, `puedeEditar` (`lib/shares.ts:184`) —el único punto de autorización
+de ESCRITURA por token, con 8 tests— no lo llama nadie. **No se borró a propósito:** es
+la guarda que cualquier share editable futuro tiene que usar, y `crearShare` sigue
+validando `permiso === 'editar'` ⇒ `alcance 'item'` + `recursoId`. Queda anotado para que
+un barrido de código muerto no se la lleve.
+
+### Whop quedó conectable y mudo
+
+⚠️ **PENDIENTE, y es una decisión de producto.** Con el webhook
+(`app/api/webhooks/whop/route.ts`) y las cuatro operaciones de Whop fuera, **nada en el
+producto lee Whop**: `lib/whop.ts` tiene cero consumidores y `lib/whop-evento.ts` solo su
+test. Pero la integración sigue registrada en los tres catálogos
+(`lib/integraciones-catalogo.ts:74`, `lib/metodo-catalogo.ts:736`,
+`lib/metodo-verificar.ts:383`) más el logo en `ServicioVisual.tsx:66`, así que un cliente
+la ve, carga su API key, el tilde verde le dice que anda… y no pasa nada. Peor:
+`metodo-catalogo.ts:751` le pide apuntar un webhook a `{{APP_URL}}/api/webhooks/whop`,
+que ahora es un 404. No se sacó en esta pasada porque retirar una tarjeta de integración
+es un cambio que ven todos los clientes y no estaba en el pedido. **O se saca la
+integración entera (son 3 registros + el logo), o se le vuelve a dar un consumidor.**
+
+### El roadmap de `/admin/dev/customer-success` quedó viejo
+
+⚠️ **PENDIENTE.** El registro del área (`app/admin/dev/areas.ts`) sí se actualizó: decía
+`estado: 'por-construir'` apuntando a `/cs-analyst` (un ComingSoon) cuando
+`/customer-success` existe y está desplegada desde el 11/08 — o sea que el registro
+declaraba por construir una tab que se está usando. Ahora dice `parcial`, apunta a
+`/customer-success`, enumera las 15 rutas donde cae el trabajo y linkea este documento.
+
+Lo que NO se tocó es su Roadmap PROPIO (`app/admin/dev/customer-success/roadmap-cs.ts`,
+26 KB): su grupo «El bucle de entrega» son los siete pasos del programa borrado, varios
+marcados `hecha`. Se le puso un aviso en la cabecera y se le arregló el import muerto
+(`TOTAL_MODULOS` / `TOTAL_CLASES` quedaron fijos en 12 y 44, que ahora son un HECHO
+fechado y no un dato vivo). Falta decidir si se reescribe o se retira.
+
+### Lo que rompí y no arreglé, porque no era mío
+
+`npm test` queda con **un** fallo: «ninguna pantalla del repo le habla al cliente de vos»,
+por nueve strings en `app/admin/friccion/page.tsx` (commit `94ca3bc2`, del mismo día).
+Verificado que es anterior: los nueve están en HEAD y no toqué ni esa pantalla ni
+`tests/puente-panel-copy.test.ts`. El otro fallo —`vive[]` de `tests-qa` apuntando a
+`scripts/ensayo-bucle-cs.ts`— sí era mío y se arregló: **borrar un script rompe el
+registro de áreas de OTRA área**, que es justo lo que `tests/dev-areas.test.ts` existe
+para cazar.
+

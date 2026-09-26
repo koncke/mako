@@ -219,7 +219,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const clienteDeLaReunion = await resolverClienteDeReunion({
         titulo: r.titulo, participantes: r.participantes, emails: [r.host?.email ?? ''].filter(Boolean),
       }).catch(() => null);
-      const { tareas, partesFallidas = 0, cabecera = '' } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
+      const { tareas, partesFallidas = 0 } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
         glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
         rolDelDueno: clienteDeLaReunion ? ROL_CONSULTOR : ROL_DESCONOCIDO,
       });
@@ -245,16 +245,6 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // Marcarla como vista ahí la quemaba PARA SIEMPRE — pasó de verdad ("no jaló la
       // IA, no hubo de Esquer") y no había forma de enterarse. Ahora, si hubo fallas,
       // la reunión NO se marca: el próximo cron la reintenta.
-      // ⚠️ ESTO VA ANTES DEL `continue` DE ABAJO, Y ESE ES EL PUNTO.
-      // Una sesión de entrega donde se afina el Norte y no queda un solo
-      // compromiso accionable es el caso NORMAL del programa, no la excepción.
-      // Con el bloque de CS después del `continue`, esa junta —la más típica—
-      // no reescribía nada y el cliente nunca veía qué aprobar. Y peor: la
-      // reunión quedaba marcada como vista, así que no se reintentaba nunca.
-      //
-      // Reescribir la tarea del cliente NO depende de que la junta haya dejado
-      // tareas para el plan. Son dos cosas distintas que pasan en la misma
-      // llamada.
       // ¿ESTA REUNIÓN ES CON UN CLIENTE? Si lo es, TODAS sus tareas van al proyecto de
       // ese cliente y el tema de cada una deja de decidir dónde se archiva. Es la regla
       // que pidió el dueño ("si proviene de una llamada con cliente, clasificala al
@@ -267,29 +257,13 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const proyCliente = cliente ? await nombreDeProyectoPara(cliente) : '';
       if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
 
-      // ── El bucle de entrega: MaKo mejora la tarea que el cliente ya contestó ──
-      // Solo en juntas de ENTREGA y con el cliente identificado. Va con `cabecera`
-      // (el resumen y los action items de Fathom), NO con `tareas`: de una lista de
-      // títulos sale una reescritura plausible y vacía.
-      //
-      // En su propio try/catch: si esto falla, el borrador de tareas —que es lo
-      // que la persona está esperando— tiene que quedar igual. Misma disciplina
-      // que el resto de la función.
-      if (r.tipo === 'entrega' && cliente && cabecera) {
-        try {
-          const { reescribirBloquesDeLaJunta } = await import('./cs-reescritura');
-          const cs = await reescribirBloquesDeLaJunta({
-            leadId: cliente.leadId, nombre: cliente.nombre,
-            conversacion: cabecera, fuenteReunion: ref,
-          });
-          if (cs.reescritos.length || cs.sinMaterial || cs.errores) {
-            console.log(`[reunion-auto] CS ws=${ws} ${cliente.nombre}: ${cs.reescritos.length} bloque(s) reescrito(s), ` +
-              `${cs.sinMaterial} sin material, ${cs.errores} con error · aviso=${cs.aviso}`);
-          }
-        } catch (e) {
-          console.error('[reunion-auto] la reescritura de bloques falló (el borrador sigue):', e);
-        }
-      }
+      // ⚠️ ACÁ COLGABA EL BUCLE DE ENTREGA, Y SE FUE EL 26/09/2026. En las juntas
+      // `entrega` con el cliente identificado, MaKo reescribía con lo que se había
+      // afinado en la sesión las respuestas que ese cliente había dado en el
+      // cuestionario del programa de 44 clases (`lib/cs-reescritura.ts` → `cs_respuestas`).
+      // El programa era de UN cliente y se fue entero: no queda bloque que reescribir,
+      // y dejarlo habría sido pagar un modelo en cada junta de entrega para escribir
+      // en una tabla que ya nadie lee.
       if (!tareas.length) {
         if (parcial) {
           out.errores += 1;

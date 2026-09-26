@@ -294,7 +294,6 @@ reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
 recomendar_formatos_creativo
 reconciliar_plantillas
-reconstruir_mapa_lecciones_whop
 refrescar_publicacion_instagram
 registrar_valor_kpi
 reiniciar_personalidad
@@ -308,7 +307,6 @@ reuniones_proximas
 reuniones_recientes
 seguimiento_ultima_retro
 sembrar_kpis_sugeridos
-sincronizar_programa_whop
 snapshot_funnel_experimentos
 sugerir_kpis
 sugerir_productos
@@ -349,11 +347,9 @@ ver_estado_meta
 ver_estado_onboarding
 ver_estado_pixel
 ver_estado_plantilla_reporte
-ver_estado_whop
 ver_ficha_guion
 ver_funnel
 ver_glosario_negocio
-ver_grabaciones_programa
 ver_grabaciones_prueba
 ver_integracion
 ver_integraciones
@@ -369,7 +365,6 @@ ver_personalidad_voz
 ver_plan
 ver_preferencias_notificaciones
 ver_prioridades_plan
-ver_programa_cs
 ver_propuesta_accion
 ver_proyecto_plan
 ver_publico_conjunto_meta

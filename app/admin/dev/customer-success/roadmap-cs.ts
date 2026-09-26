@@ -1,4 +1,19 @@
 // =============================================================================
+// ⚠️ ESTE ROADMAP ES HISTORIA, NO UN PLAN (desde el 26/09/2026).
+// =============================================================================
+// El grupo «El bucle de entrega» describe el programa de 44 clases de Mauricio:
+// el temario cargado en su Whop, el cuestionario que contestaba su cliente por un
+// link, y la reescritura con IA de esas respuestas. Todo eso SE BORRÓ ese día —
+// `app/customer-success/programa/`, `lib/programa-catalogo.ts`, `lib/cs-respuestas.ts`,
+// `lib/cs-reescritura.ts`, `lib/cs-avance.ts`, el webhook de Whop y las rutas del
+// cuestionario— porque la tab se reconstruyó para servir a CUALQUIER workspace.
+// Los pasos que dicen «hecha» ahí son ciertos sobre lo que se construyó y falsos
+// sobre lo que hoy existe. La tab viva son la cartera, la señal de atención, el
+// contrato y el trabajo en el tablero (ver `app/admin/dev/areas.ts` → slug
+// `customer-success`). PENDIENTE: decidir si este panel se reescribe o se retira.
+// =============================================================================
+
+// =============================================================================
 // Customer Success — el roadmap de implementación
 // =============================================================================
 // ⚠️ LEER ESTO ANTES DE AGREGAR UN PASO. Las dos skills que Mauricio ya ejecuta
@@ -39,7 +54,6 @@
 //      destrabar el bloqueo número uno del programa: definir la evidencia.
 // =============================================================================
 
-import { TOTAL_MODULOS, TOTAL_CLASES } from '@/lib/programa-catalogo';
 
 export type EstadoPaso = 'hecha' | 'sigue' | 'bloqueada' | 'cola';
 
@@ -90,10 +104,10 @@ export const URGENTE: Grupo[] = [
       },
       {
         titulo: 'Cargar el programa de Mauricio en Whop, por bloques', quien: 'Los dos', estado: 'sigue',
-        // El conteo sale del catálogo. Estaba escrito «42 clases» a mano y ya era
-        // falso: el catálogo tiene 44. Un número hardcodeado en un copy es una
-        // mentira con fecha de vencimiento.
-        que: `${TOTAL_MODULOS} módulos y ${TOTAL_CLASES} clases, cargadas en su cuenta real. El curso está OCULTO hasta que haya videos.`,
+        // ⚠️ El conteo salía de `lib/programa-catalogo.ts` (TOTAL_MODULOS / TOTAL_CLASES),
+        // que se borró el 26/09/2026 con el programa. Queda fijo porque ya no es un
+        // dato vivo sino un HECHO fechado: eso fue lo que se cargó en su Whop.
+        que: '12 módulos y 44 clases, cargadas en su cuenta real. El curso está OCULTO hasta que haya videos.',
         plan: 'Montar el programa de Mauricio en Whop, por bloques',
         yaEsta: [
           'El temario como DATO en `lib/programa-catalogo.ts`, que leen el cargador, el formulario y el prompt de reescritura.',
