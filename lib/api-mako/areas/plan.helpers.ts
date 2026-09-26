@@ -26,7 +26,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
 // «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
 // reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
-import { esRecurrente } from '@/lib/plan-recurrentes';
+import { esRecurrente, textoFrecuencia } from '@/lib/plan-recurrentes';
 
 export type ItemChecklist = { id: string; text: string; done: boolean };
 export type EntradaHistorial = { ts: number; actor: string; text: string };
@@ -61,6 +61,16 @@ export type TareaPlan = {
    * todos los días. Lo que no puede es ocupar los lugares de una lista ordenada por score.
    */
   recurrente: boolean;
+  /**
+   * CADA CUÁNTO se repite, YA EN TEXTO (mig 0165): «Cada semana», «Todos los días».
+   * `null` = se repite y nadie dijo cada cuánto.
+   *
+   * ⚠️ VIAJA EL TEXTO Y NO EL ID, y es la decisión. Lo único que un agente sabe de esta
+   * tarea es este JSON, y lo que va a hacer con el dato es DECÍRSELO A UNA PERSONA: con
+   * `'quincenal'` tiene que traducir, y traducir es donde inventa («cada quincena del
+   * mes»). La traducción la hace el código, desde la única lista (`FRECUENCIAS`).
+   */
+  frecuencia: string | null;
 };
 
 export type ProyectoPlan = {
@@ -83,6 +93,8 @@ export type ProyectoPlan = {
    * cliente (`tarea_categorias`)—, por eso es `boolean` y no `boolean | null`.
    */
   recurrente: boolean;
+  /** Cada cuánto se repite, ya en texto (mig 0165). Gemelo de `TareaPlan.frecuencia`. */
+  frecuencia: string | null;
   historial: EntradaHistorial[];
 };
 
@@ -123,11 +135,13 @@ export async function leerTablero(ws: number): Promise<Tablero> {
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
         quarter: t.quarter ?? null, historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.enPrioridad,
         recurrente: esRecurrente(t),
+        frecuencia: textoFrecuencia(t.frecuencia),
       })),
       proyectos: b.proyectos.map((p) => ({
         id: p.id, pid: p.pid ?? null, nombre: p.name, emoji: p.emoji, detalle: p.detalle ?? '', score: p.score,
         scoreRazon: p.scoreRazon ?? null, deadline: p.deadline || null, scoreManual: !!p.scoreManual, historial: hist(p.historial),
         recurrente: esRecurrente(p),
+        frecuencia: textoFrecuencia(p.frecuencia),
       })),
       deps: b.deps,
       recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS,
@@ -147,11 +161,13 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       // ya lo declara: `Tarea.recurrente` desde la 0163, `Categoria.recurrente` desde la
       // 0164. Un cast que sobrevive a su motivo esconde el próximo campo que falte.
       recurrente: esRecurrente(t),
+      frecuencia: textoFrecuencia(t.frecuencia),
     })),
     proyectos: cats.map((c) => ({
       id: String(c.id), pid: null, nombre: c.nombre, emoji: c.emoji, detalle: c.detalle ?? '', score: c.prioridad,
       scoreRazon: c.score_razon ?? null, deadline: c.deadline ?? null, scoreManual: null, historial: hist(c.historial),
       recurrente: esRecurrente(c),
+      frecuencia: textoFrecuencia(c.frecuencia),
     })),
     deps: [],
     recortado: tareas.length >= TOPE_FILAS || cats.length >= TOPE_FILAS,
@@ -193,7 +209,12 @@ export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>)
     // este JSON: sin la nota, ve `score: 85` al lado de `se_repite: true` y no tiene forma
     // de saber que ese número no significa nada acá. Y el campo sólo aparece cuando es
     // true: una clave `se_repite: false` en las 300 tareas normales es ruido en el prompt.
-    ...(esRecurrente(t) ? { se_repite: true, se_repite_nota: 'Se repite para siempre (la reunión semanal, el seguimiento diario). No compite en el ranking ni lleva deadline: su score y su prioridad no se leen. Ya existe, no hay que volver a crearla.' } : {}),
+    // ⚠️ `frecuencia` VIAJA PEGADA A `se_repite`, y por eso es una sola expresión. Un agente
+    // que ve «se repite» y no ve cada cuánto no puede decidir NADA con eso: «la junta de los
+    // miércoles» y «el seguimiento diario» se le ven idénticas cuando una pesa cinco veces
+    // más que la otra. `null` es un valor y no una ausencia: dice «se repite y nadie declaró
+    // el ritmo», que es algo que hay que preguntar, no adivinar.
+    ...(esRecurrente(t) ? { se_repite: true, frecuencia: t.frecuencia, se_repite_nota: 'Se repite para siempre (la reunión semanal, el seguimiento diario). No compite en el ranking ni lleva deadline: su score y su prioridad no se leen. Ya existe, no hay que volver a crearla. `frecuencia` es cada cuánto; null = todavía no se dijo.' } : {}),
     link: linkTarea(t.id),
   };
 }

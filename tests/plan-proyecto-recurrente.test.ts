@@ -172,7 +172,13 @@ test('al marcarlo, el cliente pierde fecha y trimestre en la MISMA escritura', (
 
 test('la ruta del cliente deja pasar el campo en el alta y en el editar', () => {
   const crear = cuerpo(rutaTodo, "if (action === 'categoria-crear')", "if (action === 'categoria-editar')");
-  assert.match(crear, /crearCategoria\([^)]*recurrente\s*\)/, 'categoria-crear no le pasa `recurrente` a lib/todo');
+  // ⚠️ `recurrente` SEGUIDO DE `)` O DE `,`, Y NO SÓLO DE `)`. La versión original exigía
+  // que fuera el ÚLTIMO argumento posicional, y eso no es la regla: la regla es que llegue.
+  // Se cayó sola el 26/09/2026 al sumarle `frecuencia` a `crearCategoria` (mig 0165) —el
+  // campo seguía viajando, el test decía que no—, y es el modo de falla de cualquier
+  // aserción sobre una lista POSICIONAL: mide la posición, que es lo que cambia, en vez del
+  // dato, que es lo que importa.
+  assert.match(crear, /crearCategoria\([^)]*\brecurrente\s*[,)]/, 'categoria-crear no le pasa `recurrente` a lib/todo');
   const editar = cuerpo(rutaTodo, "if (action === 'categoria-editar')", "if (action === 'categoria-borrar')");
   assert.match(editar, /recurrente\?:\s*boolean/,
     'el tipo del patch de categoria-editar no declara `recurrente`: el navegador lo manda y el cast lo tira');

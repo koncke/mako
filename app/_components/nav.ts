@@ -155,7 +155,14 @@ export const FAMILIAS: NavFamilia[] = [
         // arma o se cambia— y Operate ya tiene siete filas a la vista.
         key: 'customer-success', label: 'Customer Success', icon: 'cs',
         items: [
-          { key: 'cs-clients', label: 'Clients', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' || starts('/customer-success/cliente')(p) },
+          // ⚠️ EL  APUNTABA A UNA RUTA QUE NO EXISTE. Decía también
+          // `starts('/customer-success/cliente')`, y `app/customer-success/` no tiene esa
+          // carpeta: la ficha de un cliente es un ESTADO adentro de la lista, no una URL.
+          // Por eso Martín no la encontraba (26/09/2026) — y por eso no se puede compartir
+          // un link a un cliente ni volver a él con el botón de atrás. Que la ficha tenga
+          // URL propia es una decisión abierta, anotada en docs/hallazgos-customer-success.md;
+          // lo que se saca acá es la referencia muerta, que promete algo que no está.
+          { key: 'cs-clients', label: 'Clients', href: '/customer-success', icon: 'users', match: (p) => p === '/customer-success' },
           { key: 'cs-program', label: 'Program', href: '/customer-success/programa', icon: 'notepencil', match: starts('/customer-success/programa') },
         ],
       },

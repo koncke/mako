@@ -13,6 +13,10 @@ import {
   type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry, type CamposResponsable,
 } from '@/lib/todo';
 import { priorizarNuevasCliente } from '@/lib/todo-guardian';
+// «Cada cuánto se repite» (mig 0165). El saneo vive en el módulo compartido: esta ruta es
+// la PUERTA del tablero del cliente, y una puerta que castea un string libre a `Frecuencia`
+// deja pasar exactamente lo que la columna sin `check` no puede frenar.
+import { frecuenciaOk, type Frecuencia } from '@/lib/plan-recurrentes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -31,7 +35,7 @@ export async function GET() {
 
 type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
-  progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; categorias?: number[];
+  progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: unknown; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
   // DE DÓNDE SALIÓ la tarea (reunión de Fathom + minuto, archivo, WhatsApp). La tabla
@@ -79,6 +83,11 @@ export async function POST(req: NextRequest) {
         // quien la creó hubiera marcado que se repite — y recién al editarla se arreglaba.
         // Esta rama arma el objeto campo por campo: lo que no se nombra, no llega.
         recurrente: t.recurrente,
+        // ⚠️ Y LA FRECUENCIA CON ÉL (mig 0165). Misma rama y mismo motivo: arma el objeto
+        // campo por campo, así que lo que no se nombre no llega — y una recurrente creada
+        // desde el tablero del cliente nacería sin ritmo, que es el único dato temporal que
+        // le queda. `frecuenciaOk` sanea acá porque este body lo escribe cualquiera.
+        frecuencia: frecuenciaOk(t.frecuencia),
         origen: t.origen, retro_id: t.retro_id ?? null, experimento_id: t.experimento_id ?? null,
         // La fuente va EN EL ALTA: si se escribiera en un editar posterior, la tarjeta
         // nace sin chip y el Perro la puntúa sin saber de dónde salió.
@@ -104,7 +113,11 @@ export async function POST(req: NextRequest) {
       const patch = (body.patch as TareaBody) ?? {};
       return Response.json({ ok: true, tarea: await editarTarea(id, {
         titulo: patch.titulo, detalle: patch.detalle, prioridad: patch.prioridad,
-        progreso: patch.progreso, deadline: patch.deadline, quarter: patch.quarter, recurrente: patch.recurrente, categorias: patch.categorias,
+        progreso: patch.progreso, deadline: patch.deadline, quarter: patch.quarter, recurrente: patch.recurrente,
+        // `undefined` = «no lo toques» y `null` = «bórralo»: son dos cosas distintas y el
+        // saneo no las puede colapsar, o el editar de cualquier otro campo borraría el ritmo.
+        frecuencia: patch.frecuencia === undefined ? undefined : frecuenciaOk(patch.frecuencia),
+        categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
         fuente: patch.fuente,
         ...responsableDe(patch),
@@ -129,15 +142,25 @@ export async function POST(req: NextRequest) {
       // sin esta línea el board del cliente puede marcar el interruptor y el proyecto nace
       // compitiendo igual — el control se dibuja y no guarda nada.
       const recurrente = body.recurrente != null ? Boolean(body.recurrente) : undefined;
+      // Cada cuánto se repite (mig 0165). Va en el alta por lo mismo que `recurrente`.
+      const frecuencia = body.frecuencia !== undefined ? frecuenciaOk(body.frecuencia) : undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, frecuencia) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
       // Este tipo es la PUERTA: `editarCategoria` arma su `upd` campo por campo, así que un
       // campo que no esté acá tampoco llega, aunque el navegador lo mande.
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean }) ?? {};
-      return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; frecuencia?: unknown }) ?? {};
+      // La frecuencia se SANEA en la puerta, igual que en `editar`: este patch se pasa
+      // ENTERO a `editarCategoria`, así que sin esta línea un string libre llegaría hasta
+      // el `upd` con el tipo diciendo `Frecuencia`. `undefined` = «no lo toques».
+      // `frecuencia` sale del spread ANTES de armar el patch: si se colara cruda, el
+      // `unknown` del body viajaría con el tipo diciendo `Frecuencia`. `undefined` = «no lo
+      // toques»; `null` = «bórrala», y son dos cosas distintas.
+      const { frecuencia: frecCruda, ...restoPatch } = patch;
+      const frec: { frecuencia?: Frecuencia | null } = frecCruda === undefined ? {} : { frecuencia: frecuenciaOk(frecCruda) };
+      return Response.json({ ok: true, categoria: await editarCategoria(id, { ...restoPatch, ...frec }) });
     }
     if (action === 'categoria-borrar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });

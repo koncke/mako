@@ -17,7 +17,7 @@ import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuie
 import { quarterDeFecha } from '@/app/plan/board/cuando';
 // «Se repite para siempre» (mig 0163). El predicado y el filtro salen de un módulo de
 // datos y NO se reescriben acá: es la misma regla que aplican las pantallas y el test.
-import { esRecurrente, sinRecurrentes, soloRecurrentes, llevaDeadline } from '@/lib/plan-recurrentes';
+import { esRecurrente, sinRecurrentes, soloRecurrentes, llevaDeadline, frecuenciaDe } from '@/lib/plan-recurrentes';
 import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos, puntuarProyectos, type ProyParaPuntuar } from '@/lib/mako-guardian';
 import { desempatar } from '@/app/plan/board/metodologia';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
@@ -86,6 +86,12 @@ function rowToTask(r: Row): BoardTask {
     // score del payload del cliente — acá no aplica esa cura porque `recurrente` lo decide
     // una PERSONA, no el server, así que tiene que poder viajar de ida y de vuelta.
     recurrente: !!r.recurrente,
+    // ⚠️ SE LEE POR `frecuenciaDe` Y NO POR `frecuenciaOk` SUELTO (mig 0165). La invariante
+    // «una frecuencia sin `recurrente` no existe» se aplica también en la LECTURA: una fila
+    // que quedó con las dos cosas desalineadas —escrita antes de esta migración, o por un
+    // script— entraría al navegador afirmando «cada semana» sobre una tarea con deadline, y
+    // el próximo guardado la devolvería a la base tal cual.
+    frecuencia: frecuenciaDe({ recurrente: !!r.recurrente, frecuencia: r.frecuencia }),
   };
 }
 function taskToRow(t: BoardTask): Row {
@@ -109,6 +115,12 @@ function taskToRow(t: BoardTask): Row {
     labels: t.labels ?? [], checklist: t.checklist ?? [], historial: t.historial ?? [],
     origen: t.origen || 'user', fuente: t.fuente ?? null, en_prioridad: !!t.enPrioridad, score_manual: !!t.scoreManual,
     recurrente: esRecurrente(t),
+    // ⚠️ LA FRECUENCIA REEMPLAZA A LA FECHA, Y SE CORTA EN EL MISMO CHOKE POINT (mig 0165).
+    // Las dos líneas de arriba borran deadline y quarter cuando algo se repite; ésta hace
+    // lo simétrico: si NO se repite, no hay frecuencia que guardar. `frecuenciaDe` es la
+    // invariante en una función —no un `esRecurrente(t) ? … : null` escrito acá— porque la
+    // aplican los cuatro mappers de las dos mitades del tablero y tienen que decir lo mismo.
+    frecuencia: frecuenciaDe(t),
     orden: t.num, updated_at: new Date().toISOString(),
   };
 }
@@ -129,6 +141,8 @@ function rowToLabel(r: Row): Label {
     // decide el server (score, impacto…), y `recurrente` NO está ahí a propósito: lo decide
     // una PERSONA, así que tiene que poder viajar de ida y de vuelta.
     recurrente: !!r.recurrente,
+    // Misma invariante en la lectura que en `rowToTask` (mig 0165).
+    frecuencia: frecuenciaDe({ recurrente: !!r.recurrente, frecuencia: r.frecuencia }),
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -146,6 +160,8 @@ function labelToRow(l: Label, orden = 0): Row {
     detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
     escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null, score_manual: !!l.scoreManual,
     recurrente: esRecurrente(l),
+    // Lo mismo que en `taskToRow`, un nivel más arriba (mig 0165).
+    frecuencia: frecuenciaDe(l),
     orden, updated_at: new Date().toISOString(),
   };
 }

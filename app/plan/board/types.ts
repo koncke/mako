@@ -8,7 +8,8 @@
 // El predicado de «se repite para siempre» vive en un módulo de datos y se IMPORTA: acá
 // sólo se declara el campo. El módulo no lleva `server-only` a propósito (lo importan las
 // pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
-import { llevaDeadline } from '@/lib/plan-recurrentes';
+import { llevaDeadline, type Frecuencia } from '@/lib/plan-recurrentes';
+export type { Frecuencia };
 
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 // Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
@@ -167,6 +168,22 @@ export type BoardTask = {
    * segura — marcarla de más la saca del ranking sin que nadie lo haya pedido.
    */
   recurrente?: boolean;
+  /**
+   * CADA CUÁNTO se repite (mig 0165): el reemplazo del deadline y el quarter que la 0163
+   * le sacó. `null` = se repite y nadie dijo cada cuánto, que es un estado real y distinto
+   * de «no se repite».
+   *
+   * ⚠️ NO ES UNA FECHA Y NO SE PUEDE VOLVER UNA. El tipo es el enum cerrado de
+   * `lib/plan-recurrentes.ts`; el día que alguien la quiera guardar como `YYYY-MM-DD` el
+   * compilador lo frena, y eso es a propósito — una fecha acá la lee el motor de
+   * vencimientos como un plazo y vuelve el «la junta semanal está atrasada».
+   *
+   * ⚠️ SÓLO EXISTE CON `recurrente`. La invariante no vive en este tipo (un tipo no puede
+   * decir «este campo depende de aquél»): vive en `frecuenciaDe`, que la aplican los
+   * mappers de las DOS mitades. Acá el campo es opcional por lo mismo que `recurrente`: la
+   * tarjeta optimista nace sin él y una fila vieja se lee sin la columna.
+   */
+  frecuencia?: Frecuencia | null;
 };
 
 export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; notas?: string; historial: Hist[]; fuente?: Fuente; escalon?: number; desbloquea?: string;
@@ -207,7 +224,14 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    * proyecto antes de que exista la fila, y `esRecurrente` contesta `false` ante `undefined`,
    * que es la respuesta segura.
    */
-  recurrente?: boolean };
+  recurrente?: boolean;
+  /**
+   * CADA CUÁNTO se repite el proyecto (mig 0165). Gemelo exacto de `BoardTask.frecuencia`,
+   * con el mismo enum y la misma invariante (`frecuenciaDe`): un proyecto que se repite —
+   * Customer Success, las reuniones de marketing— tampoco lleva deadline ni quarter, así
+   * que sin esto su única respuesta temporal sería ninguna.
+   */
+  frecuencia?: Frecuencia | null };
 
 /**
  * LA ESCALERA DEL DINERO (mig 0142). Es la regla que ORDENA toda la metodología del Perro,

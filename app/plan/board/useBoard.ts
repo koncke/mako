@@ -11,7 +11,7 @@ import { type Dep, type ClaseDep, type EntidadDep, puedeDepender } from './depen
 // «Se repite para siempre» (mig 0163). El predicado, la regla de la fecha y los porqués
 // salen del módulo de datos: una pantalla no escribe `t.recurrente === true` ni redacta de
 // nuevo por qué algo no compite.
-import { esRecurrente, llevaDeadline } from '@/lib/plan-recurrentes';
+import { esRecurrente, llevaDeadline, frecuenciaOk, textoFrecuencia, type Frecuencia } from '@/lib/plan-recurrentes';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -393,9 +393,44 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // proyectos · Lo que se repite no vence: una fecha ahí es la del próximo ciclo, no un
     // deadline» — dos renglones tapando el modal que la persona estaba mirando.
     patchLogExplicit(id, 'recurrente', v, t.recurrente ?? false, v ? 'Se repite' : 'Ya no se repite');
-    if (!v) return;
+    if (!v) {
+      // ⚠️ AL DEJAR DE REPETIRSE SE VA LA FRECUENCIA, y es la contracara exacta de las dos
+      // líneas de abajo (mig 0165). El server la borra igual —`taskToRow` pasa por
+      // `frecuenciaDe`—, así que sin esto la pantalla seguiría mostrando «Cada semana»
+      // sobre una tarea que ya vence, hasta el próximo F5: el éxito falso de siempre.
+      if (t.frecuencia) patchLogExplicit(id, 'frecuencia', null, t.frecuencia, 'Sin frecuencia', 'ia');
+      return;
+    }
     if (t.deadline) patchLogExplicit(id, 'deadline', '', t.deadline, 'Sin deadline', 'ia');
     if (t.quarter) patchLogExplicit(id, 'quarter', undefined, t.quarter, 'Sin quarter', 'ia');
+  };
+  /**
+   * CADA CUÁNTO SE REPITE (mig 0165). El reemplazo de «Cuándo» para una recurrente.
+   *
+   * ⚠️ VA POR `patchLogExplicit`, como el deadline y como `setRecurrente`: de ese choke
+   * point salen la entrada del change history con el valor anterior, el toast de deshacer
+   * de 5 segundos y el guardado. Un `patch` pelado guardaría igual y sería el único campo
+   * del tablero sin red.
+   *
+   * ⚠️ SANEA ACÁ TAMBIÉN, aunque el `<select>` sólo ofrezca `FRECUENCIAS`: esta función es
+   * pública en el `Board` y la puede llamar cualquier pantalla futura. Lo que no esté en la
+   * lista entra como `null` —«se repite y no se dijo cada cuánto»—, nunca como texto libre.
+   *
+   * ⚠️ Y NO SE LE PONE FRECUENCIA A ALGO QUE NO SE REPITE. La invariante vive en
+   * `frecuenciaDe` (el mapper la aplica en toda escritura); acá está la red de la pantalla,
+   * por lo mismo que `setDeadline` tiene la suya: sin ella el estado optimista pintaría un
+   * valor que el server descarta al guardar.
+   *
+   * El texto del cambio es la etiqueta misma («Cada semana»): es QUÉ pasó, en tres
+   * palabras, que es el techo escrito para el toast del deshacer.
+   */
+  const setFrecuencia = (id: string, v: Frecuencia | null) => {
+    const t = byId(id);
+    if (!t || !esRecurrente(t)) return;
+    const next = frecuenciaOk(v);
+    const prev = frecuenciaOk(t.frecuencia);
+    if (next === prev) return;
+    patchLogExplicit(id, 'frecuencia', next, prev, textoFrecuencia(next) ?? 'Sin frecuencia');
   };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 
@@ -546,8 +581,20 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     if (!l || esRecurrente(l) === v) return;
     // Ver el porqué del largo en `setRecurrente`, acá arriba.
     const texto = v ? 'Se repite' : 'Ya no se repite';
-    if (!v) { patchLabelLog(id, { recurrente: false }, texto); return; }
+    // Al dejar de repetirse se va la frecuencia (mig 0165), en la MISMA escritura que el
+    // flag: `patchLabelLog` guarda en `prev` todos los campos que cambian, así que un solo
+    // deshacer devuelve las dos cosas. Del lado del server lo hace `labelToRow`.
+    if (!v) { patchLabelLog(id, { recurrente: false, frecuencia: null }, texto); return; }
     patchLabelLog(id, { recurrente: true, deadline: '', quarter: undefined }, texto);
+  };
+  /** Cada cuánto se repite un PROYECTO (mig 0165). Gemela de `setFrecuencia`, con el mismo
+   *  saneo y la misma invariante; el choke point acá es `patchLabelLog`. */
+  const setLabelFrecuencia = (id: string, v: Frecuencia | null) => {
+    const l = labels.find((x) => x.id === id);
+    if (!l || !esRecurrente(l)) return;
+    const next = frecuenciaOk(v);
+    if (next === frecuenciaOk(l.frecuencia)) return;
+    patchLabelLog(id, { frecuencia: next }, textoFrecuencia(next) ?? 'Sin frecuencia');
   };
 
   return {
@@ -558,8 +605,10 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // modo de falla que este repo ya pagó dos veces el 25/09/2026: la capacidad queda
     // escrita, el typecheck pasa, los tests pasan, y en pantalla no hay nada que tocar
     // porque el board nunca lo recibió.
-    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
+    // ⚠️ Y LO MISMO VALE PARA `setFrecuencia` / `setLabelFrecuencia` (mig 0165): una acción
+    // que no está en este objeto no existe para ninguna pantalla, con el typecheck en verde.
+    setTitle, setDetalle, setProgress, toggleDone, setDeadline, setQuarter, setRecurrente, setFrecuencia, setTaskLabels, undoHist,
+    createLabel, patchLabel, patchLabelLog, setLabelDeadline, setLabelQuarter, setLabelRecurrente, setLabelFrecuencia, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

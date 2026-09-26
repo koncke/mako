@@ -43,6 +43,13 @@ export function repoPlan(): Repo {
     // que sí tiene la suya porque el `score` NO puede viajar en el payload del navegador —
     // ahí lo decide el server. `recurrente` lo decide una PERSONA, así que va por el camino
     // normal, con su entrada de historial y su deshacer (`useBoard.setRecurrente`).
+    //
+    // ⚠️ Y `frecuencia` (mig 0165) TAMPOCO NECESITA ACCIÓN PROPIA, por lo mismo: viaja
+    // adentro del `BoardTask`. Lo que sí hace falta —y es lo que se verificó antes de
+    // escribir esto— es que la ruta NO enumere campos: `app/api/plan-board/route.ts`
+    // castea `body.tarea` entero y se lo pasa a `taskToRow`. El día que esa ruta pase a
+    // armar el payload campo por campo, éste es el primero que se queda afuera y el
+    // síntoma va a ser un selector que guarda y vuelve vacío al recargar.
     saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
     deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
     // ⚠️ Y LO MISMO A NIVEL PROYECTO (mig 0164): `Label.recurrente` tampoco necesita una

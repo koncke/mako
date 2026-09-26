@@ -4712,3 +4712,102 @@ lo cual AGENTS.md dice explícitamente. Lo que sí valió: medir el ancho, y los
 encontraron siete defectos reales de los cuales tres habrían llegado a producción.
 
 **Vive en:** `app/plan/board/AccionesLote.tsx` · `app/components/Dropdown.tsx` · `app/ads-manager/CampanasBrowser.tsx` · *2026-09-25*
+
+## Lo que se repite: la columna, la frecuencia y las cuatro veces que el call site quedó en la otra mitad (26/09/2026)
+
+Tres migraciones en un día —`recurrente` en tareas (0163), en proyectos (0164) y `frecuencia`
+en las cuatro tablas (0165)— para un criterio que Mauricio había dictado el 16/07: «acá lo que
+entran son tareas que tienen un inicio y tienen un fin».
+
+### La feature NO es la vista: es la exclusión
+
+Lo que hacía falta no era ver las recurrentes juntas, era que **no ensucien el ranking**. El
+Perro puntúa por «qué mueve la aguja» y le pone deadline a todo; algo que se repite para
+siempre no tiene fin, así que se llevaba un puesto de los 5 de Prioridades, hundía el avance
+de su proyecto y titilaba pidiendo una fecha que nunca iba a tener. La vista es la
+consecuencia. Cada vez que hubo que decidir algo, la pregunta que lo resolvió fue «¿esto hace
+que compita?», no «¿esto se ve lindo?».
+
+- **El corte es del CONTENEDOR, no de lo que cuelga.** Un proyecto recurrente no arrastra a
+  sus tareas: las que tienen fin siguen compitiendo y siguen llevando deadline. «Armar el
+  documento de onboarding de Vertice» cuelga de Customer Success, tiene un entregable y se
+  cierra una sola vez — sacarla del ranking por vivir adentro de algo que se repite la
+  volvería invisible justo cuando hay que hacerla.
+- **Marcar algo recurrente NO le baja el score**, y eso tiene una consecuencia que no se ve:
+  el que estaba primero sigue primero en `porScore`, de donde sale el 🎯 Objetivo Principal.
+  Sacarlo del ranking del Perro no alcanzaba; hubo que sacarlo también de esa lista. Bajarle
+  el score habría sido peor: lo mandaría al fondo como si estuviera abandonado.
+- **Frecuencia no es un deadline, y por eso es una columna nueva.** Un deadline llega, pasa y
+  deja la tarea vencida; una frecuencia es un ritmo que no vence. Guardarla en `deadline`
+  habría hecho que el motor de vencimientos, el tinte de la tabla y el Perro la leyeran como
+  un plazo y avisaran que «la junta semanal está atrasada».
+
+### El call site quedó en la otra mitad CUATRO veces
+
+Es el mismo fallo, repetido, y vale la pena contarlo junto porque la cuarta vez ya no costó
+nada: el reparto por archivo deja la CAPACIDAD en un archivo y el CALL SITE en otro.
+
+| Vuelta | Qué quedó huérfano | Cómo se vio |
+|---|---|---|
+| 1 | el arrastre de filas: `onSoltar` con 0 call sites | typecheck y tests verdes, nada que agarrar |
+| 2 | el tablero del CLIENTE no guardaba `recurrente` | la tarjeta se movía de vista y volvía al F5 |
+| 3 | el avance del plan y el 🎯 seguían contando recurrentes | el norte del tablero señalando algo sin fin |
+| 4 | las TABLAS de la vista Recurrentes sin `onSoltar` | el mismo gesto andaba o no según el interruptor del header |
+
+**Lo que lo cortó no fue escribir mejor los prompts: fue pedir el NÚMERO.** Desde que el
+encargo dice «grepeá cada export y contá sus call sites; un 0 se declara BLOQUEANTE con las
+líneas exactas», los paquetes empezaron a devolver el bloqueante en vez de decir «hecho» — y
+cerrarlo pasó a costar minutos. Uno además **verificó el call site rompiéndolo** (cambiar
+`setFrecuencia` por otra acción y ver caer el test), que es la única forma de saber que el
+test mide lo que promete: al primer intento cambió UNO solo, dio verde, y el test tenía razón
+porque existía un segundo camino.
+
+### Tres formas de que una pantalla mienta, todas medidas acá
+
+- **Un filtro que no se dibuja pero sigue filtrando.** `fCuando` vive en `localStorage` y es
+  UNA instancia para todas las vistas. La vista Recurrentes filtraba con el `passes` de
+  Tareas «porque el Set está vacío si el filtro no se dibuja» — falso: con «Esta semana»
+  tildado en otra vista, Recurrentes devolvía CERO tarjetas y decía **«Nada se repite
+  todavía»**, una afirmación falsa sobre los datos, sin ningún control a la vista que lo
+  explicara. El comentario que lo justificaba ya advertía el riesgo y lo causó igual.
+- **La misma vista contradiciéndose según el interruptor.** La TABLA apagaba el puntaje y el
+  chip «Se repite» (`sinRanking`) y la TARJETA los seguía pintando: el mismo dato se mostraba
+  o no según tarjetas/tabla. Y en esa vista el chip es ruido en el 100% de las tarjetas.
+- **Un `match` de navegación apuntando a una ruta que no existe.** El nav declaraba
+  `/customer-success/cliente` y esa carpeta nunca existió: la ficha de un cliente es un
+  ESTADO adentro de la lista, no una URL. Por eso no se encontraba, y por eso no se puede
+  compartir un link a un cliente ni volver con el botón de atrás.
+
+### La búsqueda: el filtro no estaba mal, el ORDEN sí — y después tampoco era el orden
+
+Dos vueltas sobre el mismo reporte, y la primera arregló lo que no era.
+
+1. «Busco mauricio y me trae Chatbot, Plan, Integraciones». El heno de un proyecto incluía su
+   detalle, sus notas y los títulos de sus tareas, y la lista se ordena por score: el match
+   exacto («Cliente: Mauricio», score 20) quedaba sepultado bajo cuatro con 99. Se ordenó por
+   relevancia en tres escalones. **Correcto y insuficiente.**
+2. «Busco idea y el proyecto de idea me sale último… eso sólo debería pasar en la búsqueda
+   avanzada». Medido: «idea» traía 10 de 71 proyectos y UNO tiene la palabra en el nombre.
+   Ordenarlos mejor deja nueve tarjetas que nadie pidió. Lo que faltaba **ya existía**: la
+   búsqueda de TAREAS mira sólo el título salvo que se agreguen campos en el desplegable de
+   la lupa, y la de proyectos era la única que no respetaba esa elección.
+
+**La regla: antes de mejorar el orden de una lista, contá cuántos de sus resultados la persona
+pidió.** Si la mayoría no los pidió, el problema es el filtro y no el orden. Medido después:
+«idea» 1 (era 9) · «mauricio» 1 (era 5) · «landing» 3 (era 16).
+
+### Lo que quedó SIN hacer
+
+- **Nada se verificó en un navegador de nuestro lado** — cuarta tanda seguida. Lo que
+  desbloqueó esta fue que Martín lo probara en producción y mandara la captura. Levantar local
+  escribe en la base de producción; la salida barata sería el Cliente de Prueba (ws 3).
+- **La ficha de cliente no tiene URL propia** (arriba). Hoy es un estado de la lista.
+- **La frecuencia no se puede poner al CREAR ni en lote**, y el alta tampoco puede marcar «Se
+  repite»: los dos modales de alta no nombran el campo. Es deliberado para el modal de tarea
+  —«no quiero la opción de agregar detalles, ni en proyecto ni en tareas» (23/09)— y queda el
+  interruptor del detalle, que es un click. Revisar si en LOTE sí conviene.
+- **El arrastre de Recurrentes es sólo con mouse**: `useArrastreTactil` está cableado a las
+  bandas de PRIORIDAD, que esa vista no tiene.
+- **`juzgarConCriterio` sigue con cero call sites** (ver la entrada de Fathom).
+
+**Vive en:** `supabase/migrations/0163_tareas_recurrentes.sql` · `0164_proyectos_recurrentes.sql` · `0165_recurrentes_frecuencia.sql` · `lib/plan-recurrentes.ts` · `app/plan/board/BoardShell.tsx` · `app/_components/nav.ts` · *2026-09-26*

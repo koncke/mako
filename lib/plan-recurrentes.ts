@@ -81,3 +81,103 @@ export const soloRecurrentes = <T extends { recurrente?: boolean }>(ts: T[]): T[
  * pasando de largo.
  */
 export const llevaDeadline = (t: { recurrente?: boolean }): boolean => !esRecurrente(t);
+
+// =============================================================================
+// CADA CUÁNTO SE REPITE (mig 0165)
+// =============================================================================
+// «Una tarea o proyecto recurrente se le debe eliminar el quarter y deadline, pero se debe
+// dejar una casilla de "Frecuencia", algo similar a Google Calendar con una reunión que se
+// puede repetir diariamente, 1 vez a la semana, 1 vez al mes, etc.» (26/09/2026).
+//
+// ⚠️ UNA FRECUENCIA NO ES UN DEADLINE, Y DE ESO DEPENDE TODO EL DISEÑO. Un deadline es una
+// fecha que LLEGA, pasa y deja la tarea vencida; una frecuencia es un RITMO que no vence
+// nunca. Por eso NO es una fecha, no se tiñe por proximidad, no titila y no entra en el
+// filtro «Cuándo»: el día que alguien la guarde en `deadline` para «reusar el campo»,
+// vuelve exactamente el problema que las 0163 y 0164 sacaron —el motor de vencimientos
+// avisando que «la junta semanal está atrasada»— y encima con la fecha inventada por
+// nosotros. El tipo es un enum cerrado justamente para que no se pueda escribir una fecha
+// adentro.
+// =============================================================================
+
+/** Cada cuánto se repite. Enum CERRADO: lo que no esté acá no se guarda (`frecuenciaOk`). */
+export type Frecuencia = 'diaria' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'anual';
+
+/**
+ * LA LISTA, Y ES UNA SOLA. Pinta el selector Y describe el valor en cualquier otro lado
+ * (el chip de la tarjeta, el historial, el JSON que lee un agente). Dos listas —una de
+ * ids para guardar y otra de textos para mostrar— es cómo se muere una de las dos: se
+ * agrega `bimestral` en el selector, nadie toca el traductor, y la tarjeta muestra el id
+ * crudo o nada.
+ *
+ * ⚠️ LAS ETIQUETAS NO REPITEN «Se repite». El rótulo del campo ya lo dice
+ * (`ROTULO_FRECUENCIA`), así que «Se repite cada semana» adentro del control es la misma
+ * palabra dos veces en el mismo renglón. Y son de México neutro: «Todos los días», nunca
+ * «Todos los dias» ni un «acá».
+ */
+export const FRECUENCIAS: Array<{ id: Frecuencia; label: string }> = [
+  { id: 'diaria', label: 'Todos los días' },
+  { id: 'semanal', label: 'Cada semana' },
+  { id: 'quincenal', label: 'Cada dos semanas' },
+  { id: 'mensual', label: 'Cada mes' },
+  { id: 'trimestral', label: 'Cada trimestre' },
+  { id: 'anual', label: 'Cada año' },
+];
+
+/** Cómo se dice en pantalla el rótulo del campo. Una palabra: es el NOMBRE de la cosa. */
+export const ROTULO_FRECUENCIA = 'Frecuencia';
+
+/**
+ * EL SANEO. Lo que no esté en `FRECUENCIAS` entra como `null`, nunca como texto libre.
+ *
+ * La migración 0165 dejó la columna SIN `check` a propósito, así que ésta es la única
+ * guarda que hay — y el campo llega de cuatro lugares con cuatro formas: el `<select>` del
+ * navegador, la fila de Postgres (una fila vieja no tiene la columna), el JSON de un modelo
+ * y el body de `/api/todo`. Un string libre guardado acá no da error: deja una recurrente
+ * que dice «cada 15 días más o menos», que ninguna pantalla sabe pintar y que un agente
+ * repite como si fuera un dato del negocio.
+ *
+ * ⚠️ `null` y no `undefined`: «se repite, pero nadie dijo cada cuánto» es un estado real y
+ * tiene que poder ESCRIBIRSE en la columna para borrar el valor anterior. `undefined` en un
+ * payload de supabase-js es una clave que no viaja, o sea que no borra nada.
+ */
+export const frecuenciaOk = (v: unknown): Frecuencia | null =>
+  (FRECUENCIAS.find((f) => f.id === v)?.id ?? null);
+
+/**
+ * Cómo se lee una frecuencia. Sale de `FRECUENCIAS` —nunca de un segundo mapa— y `null`
+ * cuando no se dijo cada cuánto, que NO es lo mismo que «no se repite».
+ */
+export const textoFrecuencia = (v: unknown): string | null =>
+  (FRECUENCIAS.find((f) => f.id === v)?.label ?? null);
+
+/**
+ * LA INVARIANTE: UNA FRECUENCIA SIN `recurrente` NO EXISTE.
+ *
+ * Contesta qué frecuencia le corresponde a una tarjeta, y la respuesta para algo que no se
+ * repite es `null` — o sea que **al dejar de repetirse, la frecuencia SE BORRA**. Eso es
+ * una decisión, y éste es el porqué:
+ *
+ *  · El campo sólo se DIBUJA al lado de «Se repite». Un valor que queda guardado donde
+ *    ninguna pantalla lo muestra es el «consumidor huérfano» de AGENTS.md al revés: no
+ *    falla, no avisa, y el día que alguien lo lea afirma «cada semana» sobre una tarea que
+ *    tiene deadline y vence. La API de MaKo lo expone al lado de `se_repite`; una fila con
+ *    `recurrente: false` y `frecuencia: 'semanal'` es exactamente esa mentira esperando.
+ *  · Lo que se gana conservándolo es un click si alguien desmarca por error, y ese click ya
+ *    está cubierto: los dos choke points del navegador guardan el valor ANTERIOR. En un
+ *    PROYECTO las dos cosas viajan en una sola entrada (`patchLabelLog`), así que un solo
+ *    deshacer las devuelve juntas. En una TAREA son dos entradas —«Ya no se repite» y «Sin
+ *    frecuencia»—, exactamente igual que cuando marcarla le saca el deadline y el quarter:
+ *    el toast ofrece la del usuario y la otra queda en el historial, que es de donde se
+ *    revierte. No es un olvido, es el mismo criterio de `setRecurrente`: dos toasts encima
+ *    del mismo click son dos oportunidades de deshacer la mitad equivocada.
+ *  · Y va acá —en una función que aplican los MAPPERS— y no en el handler del formulario,
+ *    por la lección que ya pagaron el Quarter y el deadline: por `taskToRow`/`labelToRow`
+ *    pasan TODAS las escrituras, incluidas las del Perro, las de una reunión y las de un
+ *    lote, y ninguna de esas tres abre un navegador.
+ *
+ * Acepta `frecuencia?: unknown` para poder aplicarse también sobre una fila cruda de
+ * Postgres: si exigiera el tipo ya saneado, el mapper de lectura tendría que sanear por su
+ * cuenta y ahí nace la segunda copia de la regla.
+ */
+export const frecuenciaDe = (t: { recurrente?: boolean; frecuencia?: unknown }): Frecuencia | null =>
+  (esRecurrente(t) ? frecuenciaOk(t.frecuencia) : null);

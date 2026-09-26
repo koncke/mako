@@ -61,7 +61,12 @@ import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CU
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, COL_DER, MODAL_DETALLE } from './piezas';
-import { TablaProyectos, TablaTareas } from './Tablas';
+// ⚠️ `LineaFrecuencia` Y `SIN_FRECUENCIA` VIVEN EN `Tablas.tsx` Y NO ACÁ, y el motivo es
+// el grafo de imports: este archivo ya importa de aquél, así que al revés sería un ciclo.
+// El lugar que les correspondería por tema es `piezas.tsx`; queda anotado y no hecho porque
+// ese archivo no es de esta pasada. Lo que NO puede pasar —y no pasa— es que la tarjeta y
+// la fila digan la misma cosa con dos textos distintos: la pieza es una sola.
+import { TablaProyectos, TablaTareas, LineaFrecuencia, SIN_FRECUENCIA } from './Tablas';
 // LAS TAREAS QUE SE REPITEN. El rótulo, el predicado y el filtro salen del módulo de datos
 // —`ROTULO_RECURRENTE` / `esRecurrente` / `sinRecurrentes`—, no de un `t.recurrente` suelto
 // en una pantalla: es el mismo criterio que el catálogo de proyectos o la gramática de MaKo.
@@ -74,7 +79,13 @@ import { TablaProyectos, TablaTareas } from './Tablas';
 // pintaban se fueron con la glosa y con el campo. Siguen vivos —el server los manda al
 // rechazar una re-priorización y el historial los escribe al borrar la fecha—, y acá sólo
 // se los nombra en comentarios, que no necesitan el import.
-import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline } from '@/lib/plan-recurrentes';
+// ⚠️ Y CADA CUÁNTO SE REPITE (mig 0165) SALE DE LA MISMA PUERTA. `FRECUENCIAS` es la ÚNICA
+// lista —la que pinta el selector y la que describe el valor en la tarjeta y en la fila—,
+// `frecuenciaOk` es el saneo (la columna no tiene `check`: esto es la única guarda) y
+// `frecuenciaDe` es la invariante «una frecuencia sin `recurrente` no existe», que se
+// aplica también al LEER para que una fila vieja con los dos campos cruzados no afirme un
+// ritmo sobre algo que sí vence.
+import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, FRECUENCIAS, frecuenciaOk, frecuenciaDe, ROTULO_FRECUENCIA, type Frecuencia } from '@/lib/plan-recurrentes';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -579,7 +590,25 @@ export function BoardShell({ board, scope, vistaInicial }: {
    * `Set` vacío en `passes` es «no filtres». Si alguna vez se dibujara, esta lista se
    * vaciaría entera sin que nada lo explique.
    */
-  const recurrentesVisibles = lasRecurrentes.filter(passes);
+  /**
+   * ⚠️ `passes` NO SIRVE ACÁ, Y EL COMENTARIO QUE DECÍA QUE SÍ ERA EL BUG. Miraba `fCuando`,
+   * que sale del deadline y que para una recurrente siempre da «sin fecha». El razonamiento
+   * era: «el filtro no se dibuja en esta vista, así que el Set queda vacío y un Set vacío es
+   * no filtres». Falso: `fCuando` es `usePrefSet('tablero.cuando')` — vive en localStorage y
+   * es UNA sola instancia para TODAS las vistas. Con «Esta semana» tildado en Tareas, entrar
+   * a Recurrentes devolvía CERO tarjetas y la pantalla decía «Nada se repite todavía»
+   * —o sea una afirmación falsa sobre los datos— sin ningún filtro a la vista que lo
+   * explicara ni forma de apagarlo desde ahí.
+   *
+   * Es la regla de la casa sobre `localStorage`: restaura una PREFERENCIA, nunca decide algo
+   * que la pantalla no muestra. Acá se filtra con lo que esta vista SÍ dibuja.
+   */
+  const recurrentesVisibles = lasRecurrentes.filter((t) => (
+    (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos)))
+    && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l)))
+    && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo))
+    && pasaEstado(t.progress, doneFilter)
+  ));
   const proyRecurrentesVisibles = losProyectosRecurrentes.filter((l) => (
     (!q || coincide(`${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name}`, q.replace(/^#/, '')))
     && (fLabels.size === 0 || fLabels.has(l.id))
@@ -1222,7 +1251,9 @@ export function BoardShell({ board, scope, vistaInicial }: {
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
-        {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} ask={ask} />}
+        {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
+          onSoltarTarea={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
+          onSoltarProy={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido }) : undefined} ask={ask} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -2541,8 +2572,15 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
-function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, onEliminar, tactil, onAgarrar, oculta = false, elegida = false, haySeleccion = false, onElegir }: {
+function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, onEliminar, tactil, onAgarrar, oculta = false, elegida = false, haySeleccion = false, onElegir, sinRanking = false }: {
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
+  /** ⚠️ EN LA VISTA «RECURRENTES» NO SE PINTAN NI EL PUNTAJE NI EL CHIP «Se repite», y no es
+   *  cosmética: ahí TODAS se repiten, así que el chip es ruido en el 100% de las tarjetas, y
+   *  el número es un ranking que la mig 0163 sacó — dejarlo a la vista invita a compararlo
+   *  entre tarjetas que justamente no compiten. La TABLA de esa misma vista ya apagaba las
+   *  dos con `sinRanking`; la tarjeta las seguía pintando, o sea que el mismo dato se mostraba
+   *  o no según el interruptor del header. Mismo nombre que en `Tablas.tsx`. */
+  sinRanking?: boolean;
   /** abre la pregunta de borrar. Opcional: donde no se pasa, la tarjeta no dibuja el tacho. */
   onEliminar?: (id: string) => void;
   /** el arrastre con el dedo (sólo en el Kanban; en el resto de las vistas no existe) */
@@ -2583,15 +2621,21 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       // pop-up de la prioridad y DETRÁS se abría el detalle.
       onClick={() => { if (!tactil?.huboArrastre()) onOpen(t.id); }}
       onPointerDown={(e) => tactil?.alTocar(e, t.id)}
-      // ⚠️ HACEN FALTA LAS DOS: la CAPACIDAD (`prioridadManual`, que el tablero del cliente
-      // no tiene) y que quien la monta DIBUJE un destino (`onAgarrar`, que sólo pasa el
-      // Kanban). Sin la segunda, la tarjeta era `draggable` en todos lados donde se reusa
-      // —«lo que cargó MaKo», lo que salió de una reunión, y desde hoy la vista
-      // Recurrentes— y el gesto no hacía absolutamente nada: `onAgarrar?.()` se come la
+      // ⚠️ LA PROP **ES** LA CAPACIDAD, Y AHORA LO ES DEL TODO. Sin `onAgarrar`, la tarjeta
+      // era `draggable` en todos lados donde se reusa —«lo que cargó MaKo», lo que salió de
+      // una reunión— y el gesto no hacía absolutamente nada: `onAgarrar?.()` se come la
       // llamada y `fotoVaciaDeArrastre` deja al cursor sin nada detrás. Un arrastre que
       // empieza y no muestra ni mueve nada es exactamente el reporte de «no agarra la
-      // tarjeta» que este Kanban ya pagó siete veces. La prop ES la capacidad.
-      draggable={!!board.repo.prioridadManual && !!onAgarrar}
+      // tarjeta» que este Kanban ya pagó siete veces.
+      //
+      // ⚠️ Y EL `prioridadManual` QUE ESTABA ACÁ SE MUDÓ AL CALL SITE DEL KANBAN, que es
+      // donde se sabe QUÉ escribe el arrastre. Cableado adentro, esta tarjeta decidía por
+      // todos sus usos que arrastrarla siempre significa cambiar la prioridad — y desde la
+      // vista Recurrentes significa otra cosa (el RITMO, mig 0165), que es una escritura que
+      // los dos tableros sí tienen. Un componente compartido que decide solo qué se puede
+      // escribir es cómo el slider de prioridad salió a producción contestándole «solo
+      // admin» a todos los clientes; el que sabe es el que monta.
+      draggable={!!onAgarrar}
       data-card
       // ⚠️ LA COPIA QUE VIAJA CON EL CURSOR NO LA DIBUJA EL NAVEGADOR: LA DIBUJAMOS NOSOTROS.
       //
@@ -2628,7 +2672,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       // Linear). Medido: sacar del flujo el nodo ORIGEN del arrastre deja el gesto sin
       // salida — el arnés no pudo completar un solo drop y se colgó hasta el timeout,
       // mientras la misma página cargaba perfecto.
-      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${elegida ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: board.repo.prioridadManual && onAgarrar ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s',
+      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${elegida ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: onAgarrar ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s',
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -2682,14 +2726,14 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
             que el candado de al lado: la card mide 138px de alto fijos y 249 de ancho, y el
             rótulo entero le come el nombre del proyecto. El texto no se pierde: va en el
             `title` y en el `aria-label`. */}
-        {esRecurrente(t) && <RepiteChip soloIcono />}
+        {esRecurrente(t) && !sinRanking && <RepiteChip soloIcono />}
         {/* ⛔ ACÁ IBA `<TiempoChip>` (◷ subió / 💤 bajó de prioridad) Y SE FUE EL
             25/09/2026: «quita los íconos de subió de prioridad o bajó». En una tarjeta de
             249px cada ícono le come ancho al nombre del proyecto, y el porqué del
             movimiento sigue entero en el detalle (`TiempoLinea`), que es donde se
             discute un número. La ALARMA (`WarnMark`) se queda: esa pide una acción. */}
         {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
-        <ScoreBadge score={t.score} />
+        {!sinRanking && <ScoreBadge score={t.score} />}
       </div>
       {/* TÍTULO DE DOS LÍNEAS, con el entero en el `title`. Primero fue una sola —«los
           títulos son muy largos, tiene que poner una cantidad máxima de caracteres»— y con
@@ -2728,9 +2772,20 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
             quedan ~200 para la fecha, así que ya no se pisan.
             ⚠️ `flex: '0 1 auto'` + `minWidth: 0`: si un plazo largo no entrara, el que CEDE
             es la fecha y nunca los botones — un botón encogido deja de ser clickeable. */}
-        {t.deadline
-          ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
-          : <span style={{ flex: 'none' }} />}
+        {/* ⚠️ SI SE REPITE, ACÁ VA EL RITMO Y NO LA FECHA (mig 0165). Es el mismo renglón
+            porque es la misma pregunta —«¿cuándo?»— con dos respuestas que nunca conviven:
+            una recurrente no puede tener deadline. Y hace falta acá, no sólo en el detalle:
+            «la junta de los miércoles» y «el seguimiento diario» se veían IDÉNTICAS en la
+            vista Recurrentes y una pesa cuatro veces más que la otra.
+            ⚠️ Y VA EN `CardTile`, o sea en TODOS lados donde se reusa esta tarjeta —la
+            búsqueda, «lo que cargó MaKo», lo que salió de una reunión—, no sólo adentro de
+            su vista. Una recurrente mezclada con tareas rankeadas ya mostraba el hueco de la
+            fecha; ahora muestra el dato que ese hueco escondía. */}
+        {esRecurrente(t)
+          ? <LineaFrecuencia de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
+          : t.deadline
+            ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
+            : <span style={{ flex: 'none' }} />}
         <span style={{ flex: 1 }} />
         <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
           aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
@@ -3160,7 +3215,7 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, o
                   {/* `warn`: el triangulito rojo de «alta sin fecha». `!esRecurrente(t)`
                       porque una recurrente no puede tener deadline, así que titilaría para
                       siempre — es el mismo corte que el detalle hace en su rótulo. */}
-                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline && !esRecurrente(t)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={agarrar} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
+                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline && !esRecurrente(t)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={board.repo.prioridadManual ? agarrar : undefined} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
                   {hueco(i + 1)}
                 </Fragment>
               ))}
@@ -3708,7 +3763,13 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 deadline cuando una recurrente todavía tenía la fecha vieja: sin el campo no
                 hay nada que justificar, y el borrado sigue teniendo su propia entrada en el
                 historial, que es donde se audita un cambio. */}
-            {llevaDeadline(t) && <>
+            {/* ⚠️ ES UN `? :` Y NO DOS CONDICIONES SUELTAS. Los dos lados contestan LA MISMA
+                pregunta —«¿cuándo?»— y no pueden convivir: con fecha de fin se contesta con
+                un deadline y un Quarter, y sin ella con un ritmo. Escrito como dos `&&`
+                separados, el día que alguien toque una de las dos condiciones quedan las
+                tres cosas juntas (una recurrente con deadline) o ninguna (el grupo vacío,
+                con sus dos líneas divisorias pegadas). */}
+            {llevaDeadline(t) ? <>
             <div>
               {/* ⚠️ EL TRIANGULITO NO SE DIBUJA SI SE REPITE, y ahora ni siquiera se puede:
                   el campo entero vive dentro de `llevaDeadline`. «Falta el deadline» sobre
@@ -3755,7 +3816,13 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                 </div>
               )}
             </div>
-            </>}
+            </> : (
+              /* LO TEMPORAL DE UNA RECURRENTE, en el lugar que dejaron los dos campos de
+                 arriba. El valor entra por `frecuenciaDe` —la invariante del contrato— y no
+                 por `t.frecuencia`: una fila vieja con las dos cosas cruzadas no puede
+                 pintar un ritmo acá. */
+              <BloqueFrecuencia valor={frecuenciaDe(t)} onCambiar={(v) => board.setFrecuencia(t.id, v)} />
+            )}
             {/* ⚠️ DEPENDE DE, JUSTO ARRIBA DE PROYECTOS. Subió a esta columna el 25/09
                 («debería estar como mínimo en el costado… es importante verlo de una forma
                 rápida y no scrolleando todo desde abajo») y el mismo día se acomodó acá:
@@ -3902,8 +3969,15 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // La card de proyecto (misma en la vista Proyectos y en el modal "MaKo cargó", así son
 // IDÉNTICAS). `verDetalle` muestra descripción + razón del Perro (para el modal); en la
 // grilla queda apagado (es para barrer de un vistazo).
-export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse }: {
+export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, onAgarrar, onSoltarse, sinRanking = false }: {
   l: Label; prog: { total: number; done: number; pct: number; recurrentes?: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void;
+  /** ⚠️ EN LA VISTA «RECURRENTES» NO SE PINTAN NI EL PUNTAJE NI EL CHIP «Se repite», y no es
+   *  cosmética: ahí TODAS se repiten, así que el chip es ruido en el 100% de las tarjetas, y
+   *  el número es un ranking que la mig 0163 sacó — dejarlo a la vista invita a compararlo
+   *  entre tarjetas que justamente no compiten. La TABLA de esa misma vista ya apagaba las
+   *  dos con `sinRanking`; la tarjeta las seguía pintando, o sea que el mismo dato se mostraba
+   *  o no según el interruptor del header. Mismo nombre que en `Tablas.tsx`. */
+  sinRanking?: boolean;
   /** LA TARJETA SE PUEDE ARRASTRAR, y quien la monta dice si se puede: el tablero del
    *  CLIENTE no tiene con qué escribir una prioridad a mano, así que ahí no se dibuja el
    *  control (`repo.prioridadManual`). Sin esta prop, la tarjeta no es `draggable` — que es
@@ -3938,8 +4012,8 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
             motivo: en la grilla de Proyectos un proyecto recurrente cae MEZCLADO con los que
             compiten, y sin el chip su renglón sin fecha se lee como un proyecto al que se le
             perdieron los datos. El texto no se pierde: va en el `title` y en el `aria-label`. */}
-        {esRecurrente(l) && <RepiteChip soloIcono />}
-        <ProjScore score={l.score} color={l.color} />
+        {esRecurrente(l) && !sinRanking && <RepiteChip soloIcono />}
+        {!sinRanking && <ProjScore score={l.score} color={l.color} />}
       </div>
       <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
       {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
@@ -3953,7 +4027,13 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
       {/* ⚠️ Y NO SE DIBUJA SI SE REPITE, aunque la fila todavía traiga una fecha vieja:
           `llevaDeadline` es la misma regla que el mapper del server y que el detalle. Una
           fecha de fin sobre algo que no termina es el dato que la vista viene a no decir. */}
-      {llevaDeadline(l) && l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} />}
+      {/* ⚠️ Y SI SE REPITE, EL RITMO EN SU LUGAR. Mismo renglón, misma pieza y mismo motivo
+          que en la tarjeta de una tarea: es lo temporal de la tarjeta, y en un proyecto que
+          se repite eso es «cada cuánto», no «para cuándo». La condición es `llevaDeadline`
+          en las dos ramas —la regla del contrato— y no un `!esRecurrente` escrito acá. */}
+      {llevaDeadline(l)
+        ? l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} />
+        : <LineaFrecuencia de={l} />}
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
       {/* ⚠️ «SIN TAREAS» ES UNA AFIRMACIÓN, Y SOBRE UN PROYECTO DE PURAS RECURRENTES ES
           FALSA. `projProgress` saca las recurrentes del porcentaje —una tarea que no
@@ -4089,6 +4169,65 @@ function BloqueRecurrente({ rotulo, repite, onCambiar }: {
 
 
 /**
+ * LA CASILLA «Frecuencia», EN EL LUGAR QUE DEJARON VACÍO EL DEADLINE Y EL QUARTER.
+ *
+ * «Una tarea o proyecto recurrente se le debe eliminar el quarter y deadline, pero se debe
+ * dejar una casilla de "Frecuencia", algo similar a Google Calendar con una reunión que se
+ * puede repetir diariamente, 1 vez a la semana, 1 vez al mes, etc.» (26/09/2026).
+ *
+ * ⚠️ VA EXACTAMENTE DONDE ESTABAN LOS DOS CAMPOS QUE SE FUERON, y de ahí sale el sentido:
+ * ese renglón de la columna derecha es el que contesta «¿cuándo?». Una recurrente lo
+ * contesta con un RITMO en vez de con una fecha, así que la pregunta no desaparece: cambia
+ * de forma. Y es la razón por la que el interruptor está arriba: leído en orden dice «esta
+ * tarea se repite → por eso lo temporal es cada cuánto».
+ *
+ * ⚠️ Y ASÍ EL GRUPO NUNCA QUEDA VACÍO. La sidebar son cuatro grupos separados por una
+ * línea; este grupo tenía exactamente dos hijos (Deadline y Quarter) y los dos se van al
+ * marcar. Sin algo que ocupe su lugar, marcar «se repite» dejaba el grupo con el
+ * interruptor solo entre dos divisorias — y en el detalle del proyecto, directamente con
+ * las dos líneas pegadas. Por eso esto es el `else` de `llevaDeadline` y no un bloque más:
+ * son la misma pregunta con dos respuestas, nunca las dos a la vez.
+ *
+ * ⚠️ NO SE PARECE A UNA FECHA. Sin calendario, sin tinte por proximidad, sin titileo y sin
+ * el aviso de «falta el deadline». Un deadline LLEGA, pasa y deja la tarjeta vencida; un
+ * ritmo no vence nunca, y el día que se dibuje como una fecha vuelve el motor de
+ * vencimientos avisando que «la junta semanal está atrasada», que es justo lo que las
+ * migraciones 0163 y 0164 vinieron a sacar.
+ *
+ * ⚠️ SIN GLOSA DEBAJO Y SIN `title`. El rótulo es el NOMBRE del campo y las opciones se
+ * explican solas («Todos los días», «Cada semana»): cualquier renglón extra acá narra lo
+ * que la pantalla ya dice («no pongas texto innecesario nunca», 26/09/2026).
+ *
+ * ⚠️ EL VALOR SIEMPRE ESTÁ ENTRE LAS OPCIONES, y eso no es suerte: `FRECUENCIAS` es el enum
+ * CERRADO entero —no una lista calculada— y lo que entra pasa por `frecuenciaDe`, que
+ * devuelve `null` para cualquier cosa que no esté. Un `<select>` cuyo `value` no está entre
+ * sus `<option>` no muestra nada y el primer click escribe la primera opción; acá eso no
+ * puede pasar, y por eso el saneo está del lado del valor y no una lista filtrada.
+ */
+function BloqueFrecuencia({ valor, onCambiar }: {
+  /** ya saneado por `frecuenciaDe`: o es una de `FRECUENCIAS`, o es `null`. */
+  valor: Frecuencia | null;
+  /** `board.setFrecuencia` para una tarea · `board.setLabelFrecuencia` para un proyecto. */
+  onCambiar: (v: Frecuencia | null) => void;
+}) {
+  return (
+    <div>
+      <label style={rowLabel}>{ROTULO_FRECUENCIA}</label>
+      <select value={valor ?? ''} aria-label={ROTULO_FRECUENCIA}
+        onChange={(e) => onCambiar(frecuenciaOk(e.target.value))}
+        style={selStyle}>
+        {/* «Indefinida», UNA palabra y la misma que dice la tarjeta cuando no hay ritmo
+            puesto. Sale de `SIN_FRECUENCIA` y no escrita acá: dos textos para el mismo
+            estado es cómo uno de los dos se queda viejo. */}
+        <option value="">{SIN_FRECUENCIA}</option>
+        {FRECUENCIAS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+
+/**
  * ── VISTA RECURRENTES ────────────────────────────────────────────────────────────────
  *
  * Las tareas que se repiten para siempre: la reunión de los miércoles, el seguimiento
@@ -4146,10 +4285,16 @@ function BloqueRecurrente({ rotulo, repite, onCambiar }: {
  * vista después de haberlo creado desde esta vista—, que es peor que no tenerlo. El estado
  * vacío dice dónde está el interruptor.
  */
-function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen, onOpenProj, onEliminar, ask }: {
+function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen, onOpenProj, onEliminar, onSoltarTarea, onSoltarProy, ask }: {
   tareas: BoardTask[];
   /** los PROYECTOS que se repiten (mig 0164). Salen del mismo predicado que las tareas. */
   proyectos: Label[];
+  /** ⚠️ «En la tab de recurrente debe funcionar igual TODO» (26/09/2026). Las TARJETAS ya se
+   *  arrastraban y las TABLAS no: se montaban sin `onSoltar`, así que el mismo gesto andaba
+   *  o no según el interruptor del header — que es la peor forma de que algo esté a medias,
+   *  porque parece roto sólo a veces. Van los dos niveles. */
+  onSoltarTarea?: (id: string, sugerido: number) => void;
+  onSoltarProy?: (id: string, sugerido: number) => void;
   board: Board; topProjectId: string | null;
   /** el interruptor tarjetas/tabla del header. `false` = tarjetas, que es el default. */
   tabla: boolean;
@@ -4167,23 +4312,86 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
   // Proyectos (860 para tarjetas, 1180 para tabla). Copiar otro número acá es cómo la
   // columna del Kanban terminó midiendo 264 de un lado y 236 del otro.
   const ancho = tabla ? 1180 : 860;
+  /**
+   * ⚠️ TODOS LOS HOOKS ARRIBA DE CUALQUIER `return`. Esta vista tiene dos salidas —el vacío
+   * y la lista— y un hook detrás de una de ellas es el «Minified React error #300»: la
+   * pantalla entera en blanco, sin archivo ni línea.
+   *
+   * ── EL ARRASTRE DE ESTA VISTA: QUÉ HACE, POR QUÉ, Y QUÉ NO PUEDE HACER ──────────────
+   *
+   * «En la tab de recurrente debe funcionar igual todo. Es decir, también debo poder
+   * arrastrar las tarjetas» (26/09/2026).
+   *
+   * **LO QUE HACE: soltar una tarjeta le cambia el RITMO.** El molde es el mismo de siempre
+   * —`useArrastreCopia`, el medido a lo largo de siete rondas: foto vacía del sistema
+   * operativo, una copia nuestra que sigue al cursor, y al nodo origen no se le toca nada—.
+   * Lo único distinto es el DESTINO: mientras hay una tarjeta en la mano aparece la escalera
+   * de ritmos abajo de la pantalla, y soltar en uno escribe `frecuencia`.
+   *
+   * **POR QUÉ ÉSE Y NO OTRO.** En el Kanban el destino es una banda de PRIORIDAD y en la
+   * grilla de Proyectos es una POSICIÓN en el ranking; las dos cosas son el ranking del que
+   * la migración 0163 sacó a las recurrentes a propósito. Acá lo único temporal que una
+   * recurrente puede contestar es cada cuánto se repite, así que ése es el único destino que
+   * la posición puede significar sin mentir.
+   *
+   * **LO QUE NO PUEDE HACER, Y ES LA MITAD IMPORTANTE:**
+   *  · **No abre el pop-up del 1 al 100 y no escribe `score`.** Una recurrente CONSERVA su
+   *    score —marcarla no se lo baja, a propósito— y encima la tarjeta lo muestra, así que un
+   *    arrastre que lo moviera sería un ranking reinstalado a la vista: el bug exacto que
+   *    esta feature vino a arreglar. Y de yapa ese pop-up escribe `score_manual`, el candado
+   *    que el Perro ya no puede tocar — un número clavado a mano para ordenar una lista que
+   *    no se ordena por ese número.
+   *  · **No reordena.** No hay ninguna columna donde guardar un orden propio de esta vista, y
+   *    un orden que se pierde en el próximo F5 es un gesto que miente. Lo único que se
+   *    guarda es el ritmo, que es un dato del negocio y no una preferencia de quien mira.
+   *  · **No arrastra FILAS.** En la tabla el ritmo ya tiene su columna y se lee de un
+   *    vistazo; la marca de destino de `useArrastreFilas` es una línea de 2px que no puede
+   *    decir a qué ritmo vas a caer, y lo único que la posición entre dos filas sabe proponer
+   *    es un score. Así que la tabla no ofrece el gesto, en vez de ofrecer uno que contesta
+   *    justo lo que no hay que contestar.
+   *
+   * ⚠️ LA ESCALERA ES FIJA A LA VENTANA, Y POR ESO ACÁ NO HAY AUTO-SCROLL. Con los destinos
+   * pegados al borde de abajo no hay a dónde ir: `empujarScroll` existe para cuando el
+   * destino está fuera de la vista (la columna del Kanban mide 19.000px de alto), y usarlo
+   * acá sería mover la página debajo de una tarjeta que ya tiene su destino a la vista.
+   *
+   * ⚠️ Y SÓLO APARECE CON UNA TARJETA EN LA MANO. Dibujada siempre sería un control más en
+   * una pantalla que ya tiene buscador, filtro e interruptor de vista, contestando una
+   * pregunta que el detalle ya contesta.
+   */
+  const { montarCopia, soltarCopia } = useArrastreCopia();
+  const [enMano, setEnMano] = useState<{ id: string; tipo: 'tarea' | 'proyecto'; f: Frecuencia | null } | null>(null);
+  const soltar = () => { setEnMano(null); soltarCopia(); };
+  /**
+   * ⚠️ EL VALOR SE LEE ANTES DE LIMPIAR. `soltar()` vacía `enMano`, así que hacerlo primero
+   * deja al `if` de abajo mirando `null` y el ritmo no se escribe nunca — el gesto se ve
+   * perfecto y no guarda nada, que es el modo de falla más caro de este tablero.
+   *
+   * ⚠️ Y SOLTAR EN EL RITMO QUE YA TENÍA NO ESCRIBE. Sin esa guarda, cada arrastre del que
+   * alguien se arrepiente deja una entrada en el historial y un toast de deshacer sobre un
+   * cambio que no cambió nada.
+   */
+  const ponerRitmo = (f: Frecuencia | null) => {
+    const q = enMano;
+    soltar();
+    if (!q || q.f === f) return;
+    if (q.tipo === 'tarea') board.setFrecuencia(q.id, f);
+    else board.setLabelFrecuencia(q.id, f);
+  };
   return (
     <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: ancho, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* El encabezado dice CUÁNTAS son. Nada más: el nombre de la vista dice qué son. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink)' }}>
-            <IconoRepite size={17} />
-            <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{ROTULO_RECURRENTE}</span>
-          </span>
-          <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px' }}>{n}</span>
-          {/* ⛔ Y ACÁ HABÍA UN PÁRRAFO DE TRES RENGLONES explicando qué es una recurrente. Lo
-              contestan el nombre de la vista y lo que se ve adentro: no hay columna de
-              prioridad ni de deadline, así que «no tienen prioridad ni deadline» era narrar
-              la pantalla. El porqué vive en `PORQUE_NO_COMPITE` y en el código, que es donde
-              se busca; la pantalla no es el lugar donde se explica un criterio. */}
-          <span style={{ flex: 1, minWidth: 0 }} />
-        </div>
+        {/* ⛔ ACÁ HABÍA UNA CABECERA CON EL BUCLE Y LA PALABRA «Se repite», Y SE FUE:
+            «Elimina el "Se repite" de titulo» (26/09/2026). Estaba debajo de una tab que ya
+            se llama «Recurrentes», o sea que era el nombre de la pantalla escrito dos veces
+            con dos palabras distintas — que es peor que repetirlo: obliga a decidir si son
+            la misma cosa.
+
+            ⚠️ EL CONTADOR NO SE FUE CON ELLA: BAJÓ AL RÓTULO DE CADA GRUPO. El número era lo
+            único que la cabecera decía y que no se veía en ningún otro lado, y borrarlo junto
+            con el título habría sido tirar el dato con el ruido. Abajo dice «Proyectos · 3» y
+            «Tareas · 7», que además es MÁS de lo que decía el total: las dos entidades se
+            cuentan por separado, que es como se miran. */}
         {n === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: 'var(--faint)', textAlign: 'center', padding: '34px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
             {/* ⚠️ NACE VACÍA Y ESTÁ BIEN. No se puede rellenar buscando «semanal» o «diaria»
@@ -4201,35 +4409,46 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
         ) : (
           <>
             {/* ⚠️ UN GRUPO NO SE DIBUJA SI ESTÁ VACÍO. Un rótulo «Proyectos» sobre la nada es
-                un hueco que se lee como un dato que no cargó — y mientras haya un solo grupo
-                a la vista, su rótulo tampoco hace falta: lo que hay es lo que se ve. */}
+                un hueco que se lee como un dato que no cargó.
+                ⚠️ Y AHORA SU RÓTULO VA SIEMPRE, haya uno o dos grupos. Antes se escondía con
+                un solo grupo a la vista —no separaba de nada, y eso sigue siendo cierto—,
+                pero desde que la cabecera se fue es además el ÚNICO lugar donde se dice
+                cuántas son. Es lo mismo que pasa con el progreso al plegarse el header: un
+                dato que desaparece porque su envase se fue es esconder sin pista. */}
             {filasProy.length > 0 && (
-              <GrupoRecurrente rotulo={board.repo.labelPlural} n={filasProy.length} conRotulo={tareas.length > 0}>
+              <GrupoRecurrente rotulo={board.repo.labelPlural} n={filasProy.length}>
                 {tabla
-                  ? <TablaProyectos filas={filasProy} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={board.repo.labelPlural} onOpen={onOpenProj} onDeadline={(id, v) => board.setLabelDeadline(id, v)} sinRanking />
+                  ? <TablaProyectos filas={filasProy} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={board.repo.labelPlural} onOpen={onOpenProj} onDeadline={(id, v) => board.setLabelDeadline(id, v)} onSoltar={onSoltarProy} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-                      {/* La MISMA tarjeta de la tab Proyectos. Sin `onAgarrar`: acá no hay
-                          orden que cambiar —nada de esto compite— y un gesto que existe y no
-                          hace nada se lee como que la app está rota. */}
+                      {/* La MISMA tarjeta de la tab Proyectos, con el MISMO agarre. Lo único
+                          que cambia es a dónde se puede soltar: allá una posición del
+                          ranking, acá un ritmo (ver el bloque largo de arriba). */}
                       {filasProy.map(({ l, prog }) => (
-                        <ProyectoCardTile key={l.id} l={l} prog={prog} isTop={l.id === topProjectId} onOpen={() => onOpenProj(l.id)} />
+                        <ProyectoCardTile key={l.id} l={l} prog={prog} isTop={l.id === topProjectId} sinRanking onOpen={() => onOpenProj(l.id)}
+                          onAgarrar={(nodo, dx, dy) => { montarCopia(nodo, dx, dy); setEnMano({ id: l.id, tipo: 'proyecto', f: frecuenciaDe(l) }); }}
+                          onSoltarse={soltar} />
                       ))}
                     </div>
                   )}
               </GrupoRecurrente>
             )}
             {tareas.length > 0 && (
-              <GrupoRecurrente rotulo="Tareas" n={tareas.length} conRotulo={filasProy.length > 0}>
+              <GrupoRecurrente rotulo="Tareas" n={tareas.length}>
                 {tabla
-                  ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} sinRanking />
+                  ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} onSoltar={onSoltarTarea} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
                       {/* La MISMA tarjeta del Kanban. `warn={false}`: el triangulito es «alta
                           sin fecha», y acá nada puede tener fecha — una alarma permanente es
                           cómo se aprende a ignorar todas las demás. */}
                       {tareas.map((t) => (
-                        <CardTile key={t.id} t={t} board={board} warn={false} onOpen={onOpen} onWarn={onOpen} onOpenProj={onOpenProj} onEliminar={onEliminar} />
+                        <CardTile key={t.id} t={t} board={board} warn={false} sinRanking onOpen={onOpen} onWarn={onOpen} onOpenProj={onOpenProj} onEliminar={onEliminar}
+                          onAgarrar={(id, desde) => {
+                            if (!id) { soltar(); return; }
+                            if (desde) montarCopia(desde.nodo, desde.dx, desde.dy);
+                            setEnMano({ id, tipo: 'tarea', f: frecuenciaDe(t) });
+                          }} />
                       ))}
                     </div>
                   )}
@@ -4238,6 +4457,74 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
           </>
         )}
       </div>
+      {enMano && <EscaleraDeRitmos actual={enMano.f} onSoltar={ponerRitmo} />}
+    </div>
+  );
+}
+
+/**
+ * LOS DESTINOS DEL ARRASTRE: un chip por ritmo, pegados al borde de abajo de la ventana.
+ *
+ * Es al ritmo lo que las cuatro columnas del Kanban a la prioridad: el destino ES el valor,
+ * así que no hay nada que preguntar después de soltar. Por eso acá no hay pop-up — la
+ * pregunta «¿cada cuánto?» ya la contestó dónde soltaste.
+ *
+ * ⚠️ `position: fixed` Y NO UNA BANDA ADENTRO DE LA LISTA. Una banda por ritmo en la grilla
+ * tenía dos problemas, y el segundo es el que decide: aparecería y desaparecería moviendo
+ * las tarjetas justo cuando hay una en la mano, y sobre todo diría el ritmo de cada tarjeta
+ * DOS veces —el rótulo de la banda y el renglón de la tarjeta—, que es como uno de los dos
+ * se queda viejo. Fija a la ventana no mueve nada y siempre está a la vista, que además es
+ * lo que hace innecesario el auto-scroll.
+ *
+ * ⚠️ VA «Indefinida» TAMBIÉN, y es el único destino que BORRA. Sin él, un ritmo puesto por
+ * error sólo se saca abriendo el detalle — y el selector de allá sí lo ofrece, así que no
+ * ofrecerlo acá sería que el mismo campo se pueda poner de dos maneras y sacar de una.
+ *
+ * ⚠️ EL QUE LA TARJETA YA TIENE SE MARCA Y NO ACEPTA EL DROP. Un destino que no cambia nada
+ * se lee como que el gesto falló; marcado, dice dónde estás parado.
+ */
+function EscaleraDeRitmos({ actual, onSoltar }: {
+  /** el ritmo que la tarjeta en la mano ya tiene, para marcarlo. */
+  actual: Frecuencia | null;
+  onSoltar: (f: Frecuencia | null) => void;
+}) {
+  // ⚠️ LA LISTA SALE DE `FRECUENCIAS`, nunca escrita a mano: es la misma que pinta el
+  // selector del detalle. Dos listas es cómo se agrega un ritmo en una y no en la otra.
+  const destinos: Array<{ id: Frecuencia | null; label: string }> = [...FRECUENCIAS, { id: null, label: SIN_FRECUENCIA }];
+  // ⚠️ 3001 ES UNO MÁS QUE LA COPIA QUE SIGUE AL CURSOR (3000, `useArrastreCopia`), y es a
+  // propósito: la tarjeta mide 249×138 y los chips ~150×34, así que con la copia encima
+  // taparía justo el destino al que estás apuntando — y el único aviso de dónde va a caer es
+  // que ese chip se tiña. La copia se mete DEBAJO de la barra, que se lee como dejarla en
+  // una bandeja. No la bloquea: la copia es `pointerEvents: none`.
+  return (
+    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 3001, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 16px', background: 'var(--surface)', borderTop: '1px solid var(--border-strong)', boxShadow: '0 -10px 30px rgba(18,21,27,.18)', fontFamily: SANS }}>
+      {destinos.map((d) => <ChipRitmo key={d.id ?? 'sin'} label={d.label} actual={actual === d.id} onSoltar={() => onSoltar(d.id)} />)}
+    </div>
+  );
+}
+
+/**
+ * Un destino de la escalera. Se tiñe cuando la tarjeta le pasa por encima, que es lo único
+ * que dice «si soltás acá, cae acá».
+ *
+ * ⚠️ `preventDefault()` EN `dragOver` ES LO QUE HABILITA EL DROP. Sin él el navegador lo
+ * rechaza y no pasa nada — que se lee exactamente como que el arrastre no anda.
+ */
+function ChipRitmo({ label, actual, onSoltar }: { label: string; actual: boolean; onSoltar: () => void }) {
+  const [sobre, setSobre] = useState(false);
+  const activo = sobre && !actual;
+  return (
+    <div
+      onDragOver={actual ? undefined : (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!sobre) setSobre(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSobre(false); }}
+      onDrop={actual ? undefined : (e) => { e.preventDefault(); setSobre(false); onSoltar(); }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+        border: `1.5px ${actual ? 'solid' : 'dashed'} ${activo ? 'var(--primary)' : 'var(--border-strong)'}`,
+        background: activo ? 'var(--primary-bg)' : actual ? 'var(--surface-2)' : 'transparent',
+        color: activo ? 'var(--primary)' : actual ? 'var(--dim)' : 'var(--faint)',
+        borderRadius: 999, padding: '7px 14px', fontSize: 13, fontWeight: 600, transition: 'border-color .12s, background .12s, color .12s' }}>
+      <IconoRepite size={13} />
+      {label}
     </div>
   );
 }
@@ -4245,20 +4532,20 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
 /**
  * Un grupo de la vista Recurrentes: su rótulo, su conteo y lo que haya adentro.
  *
- * ⚠️ `conRotulo` ES LA REGLA DE «NO PONGAS TEXTO INNECESARIO NUNCA» (26/09/2026) ESCRITA EN
- * UNA PROP. Con los dos grupos a la vista el rótulo SEPARA —es lo que pidió el pedido 2—;
- * con uno solo no separa de nada y es una palabra de más arriba de lo único que hay. Va en
- * el mismo `rowLabel` mono de todos los rótulos del tablero: es un nombre, no una glosa.
+ * ⚠️ EL RÓTULO LLEVA EL CONTEO Y VA SIEMPRE, y eso cambió el 26/09/2026 al irse la cabecera
+ * «Se repite»: el número vivía allá arriba y con ella se iba. Antes el rótulo se escondía
+ * cuando había un solo grupo —no separaba de nada—, pero ahora además es el ÚNICO lugar
+ * donde se dice cuántas son. Va en el mismo `rowLabel` mono que todos los rótulos del
+ * tablero: es un nombre y un número, no una glosa.
  */
-function GrupoRecurrente({ rotulo, n, conRotulo, children }: { rotulo: string; n: number; conRotulo: boolean; children: ReactNode }) {
+function GrupoRecurrente({ rotulo, n, children }: { rotulo: string; n: number; children: ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {conRotulo && <label style={{ ...rowLabel, marginBottom: 0 }}>{rotulo} · {n}</label>}
+      <label style={{ ...rowLabel, marginBottom: 0 }}>{rotulo} · {n}</label>
       {children}
     </div>
   );
 }
-
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
 function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, campos, fOrigen, sortMode, sortDir, tabla, onSoltar }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string;
   /** DÓNDE mira la búsqueda. Es la MISMA elección que gobierna la de tareas (el chevrón al
@@ -4699,9 +4986,12 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 la única palabra de esa columna hablando de otra cosa. */}
             <BloqueRecurrente rotulo={`${board.repo.labelSingular} recurrente`} repite={repiteProj}
               onCambiar={(v) => board.setLabelRecurrente(proj.id, v)} />
-            {/* Los dos campos que se van: ver el bloque largo del mismo lugar en `TaskModal`.
-                La condición es `llevaDeadline`, la misma del contrato, para las dos entidades. */}
-            {llevaDeadline(proj) && <>
+            {/* Los dos campos que se van, y lo que ocupa su lugar: ver el bloque largo del
+                mismo sitio en `TaskModal`. La condición es `llevaDeadline`, la misma del
+                contrato, para las dos entidades — y es un `? :` por lo mismo que allá: acá
+                este grupo tenía EXACTAMENTE dos hijos, así que sin el ritmo un proyecto que
+                se repite dejaba el interruptor solo entre dos divisorias. */}
+            {llevaDeadline(proj) ? <>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.setLabelDeadline(proj.id, e.target.value)} style={selStyle} /></div>
             {/* ⚠️ EL QUARTER DE UN PROYECTO (mig 0162). «Falta agregar la opción de Quarter
                 en los proyectos» (24/09/2026), y es donde más sentido tiene: una tarea cae
@@ -4721,7 +5011,9 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 </div>
               )}
             </div>
-            </>}
+            </> : (
+              <BloqueFrecuencia valor={frecuenciaDe(proj)} onCambiar={(v) => board.setLabelFrecuencia(proj.id, v)} />
+            )}
 
             {/* ⚠️ DEPENDE DE, EN LA COLUMNA DERECHA Y EN EL MISMO LUGAR QUE EN UNA TAREA
                 (después del Quarter). «En proyecto el "Depende de" lo mismo que en tareas»
