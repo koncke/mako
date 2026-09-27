@@ -1154,6 +1154,13 @@ refutadores, 20 afirmaciones verificadas contra la fuente)*
 
 **Agregado el 2026-09-24** (corrida `contexto-customer-success`):
 
+⚠️ **Todo lo de esta lista quedó sin objeto el 26/09/2026.** `07d07139` («Customer Success,
+desde cero y para cualquier workspace») borró el programa entero: `lib/programa-*`, las
+`lib/cs-*` del bucle, el webhook de Whop, `TareaCliente.tsx`, la ruta del cuestionario y
+los scripts del cargador. Ver «Sacar el programa de los SEIS lugares», más abajo. **No se
+arreglan: no existen.** Si el servicio de Mauricio (curso en Whop + formulario por bloque)
+vuelve, se recupera de `07d07139^` y estos arreglos se aplican ANTES de estrenarlo.
+
 - **Validar el `claseId` antes de anotar el visto** (`lib/cs-avance.ts:137-150`, con
   `claseDe`), y que `app/customer-success/programa/page.tsx:43` (BORRADO el 26/09/2026) cuente «en Whop» por
   título vigente y no por el mapa. Corregir los comentarios del cron que no existe
