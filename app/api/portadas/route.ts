@@ -228,13 +228,25 @@ async function buscarEnOpenverse(textoOriginal: string, tanda: number) {
     fotos.push({
       id: `ov:${id}`,
       autor: typeof o.creator === 'string' ? o.creator : '',
-      // ⚠️ LAS DOS SALEN POR NUESTRA RUTA. La miniatura por lo mismo que las de picsum
-      // (el navegador no le habla a un tercero con el referer del cliente), y la
-      // GRANDE porque al elegirla hay que COPIARLA a nuestro bucket: estas fotos viven
-      // en servidores distintos por cada una (flickr, museos, archivos), y
-      // `ORIGENES_OK` los rechaza — con razón. Una lista de orígenes que crece con
-      // cada proveedor nuevo es un guard que deja de guardar.
-      mini: `/api/portadas/foto?ov=${encodeURIComponent(id)}`,
+      /**
+       * ⚠️ LA MINIATURA VA DIRECTO A OPENVERSE, NO POR NUESTRO PROXY. Y esto es un
+       * arreglo: proxeada, en producción se dibujaban **7 de 24** — «sigue trayendo
+       * pocas fotos». En local daban 24 de 24, así que el bug no estaba en la
+       * búsqueda: estaba en pasar veinticuatro imágenes por una función serverless,
+       * cada una esperando a un tercero. Eso es una pared de concurrencia y arranques
+       * en frío que no existe cuando el navegador las pide él.
+       *
+       * Medido antes de cambiarlo: las 20 miniaturas como `<img>` directo al endpoint
+       * de Openverse cargan **20 de 20**, sin una sola falla.
+       *
+       * ⚠️ Y POR QUÉ ACÁ SÍ Y EN PICSUM NO: son dos problemas distintos. picsum
+       * contesta un **302** que el navegador no sigue en volumen —las 24 quedaban en
+       * blanco—, así que ahí el proxy no es una preferencia, es lo único que funciona.
+       * Openverse sirve la imagen de una. El costo de ir directo es el referer del
+       * cliente yendo a un tercero, que es el mismo que ya se paga con la foto de la
+       * portada cuando se dibuja.
+       */
+      mini: `https://api.openverse.org/v1/images/${encodeURIComponent(id)}/thumb/`,
       grande,
     });
   }

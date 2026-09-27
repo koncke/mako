@@ -4378,25 +4378,6 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           <Marca icono={l.icono} emoji={l.emoji} nombre={l.name} tam={34} color={l.color} cuadrado />
         </span>
       </div>
-      {/* ⚠️ LA CASILLA SE MUDÓ A LA ESQUINA DE LA PORTADA, y no es cosmética: el ícono
-          que cruza la banda vive en `left: 16` y baja hasta 11 px DENTRO de este
-          renglón, así que la casilla quedaba debajo del ícono — «mira cuando paso el
-          cursor, para seleccionar, se tapa por la foto» (27/09/2026). Es el costo de
-          que el ícono cruce, y lo paga el control que menos lugar necesita.
-          Arriba a la izquierda de la banda no choca con nada: el ícono cruza abajo y
-          los chips viven a la derecha. `stopPropagation` porque la tarjeta entera abre
-          el detalle: sin eso, tildar un proyecto lo abriría encima de la grilla. */}
-      {onElegir && (hoverSel || haySeleccion) && (
-        <input type="checkbox" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
-          title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
-          style={{ position: 'absolute', left: 10, top: 10, zIndex: 2, width: 15, height: 15,
-            cursor: 'pointer', accentColor: 'var(--primary)', margin: 0,
-            // Un velo detrás: la casilla de un navegador es casi blanca y sobre una
-            // foto clara desaparece. Es la misma razón por la que las píldoras de la
-            // portada son oscuras translúcidas y no del color de la casa.
-            boxShadow: '0 0 0 3px rgba(255,255,255,.85), 0 1px 3px rgba(18,21,27,.25)',
-            borderRadius: 3 }} />
-      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* ⛔ ACÁ ESTABAN EL EMOJI Y EL PID. El emoji se fue arriba a cruzar la banda
             —dibujarlo en los dos lados serían dos marcas de la misma cosa a 20 px—, y
@@ -4413,7 +4394,27 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
         {esRecurrente(l) && !sinRanking && <RepiteChip soloIcono />}
         {!sinRanking && <ProjScore score={l.score} color={l.color} />}
       </div>
-      <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
+      {/* ⚠️ LA CASILLA VA ANTES DEL TÍTULO, igual que en la tarjeta de una tarea («que
+          no esté en la portada, que aparezca antes del título, como lo hace en las
+          tareas», 27/09/2026). Estuvo en dos lugares malos antes de éste, y los dos
+          por la misma causa: el ícono que cruza la banda baja hasta DENTRO del renglón
+          del pid, así que ahí tapaba la casilla; y sobre la portada, una casilla de
+          navegador es casi blanca y sobre una foto clara desaparece —por eso había
+          terminado con un velo, que es el olor de un control puesto donde no va—.
+          El renglón del título arranca debajo del ícono y no choca con nada.
+          `stopPropagation` porque la tarjeta entera abre el detalle: sin eso, tildar
+          un proyecto lo abriría encima de la grilla. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+        {onElegir && (hoverSel || haySeleccion) && (
+          <input type="checkbox" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
+            title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
+            style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)',
+              // Alineada con la primera línea del título, no con el centro del bloque:
+              // con un título de dos renglones, centrada queda flotando al medio.
+              margin: '3px 0 0' }} />
+        )}
+        <span style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, minWidth: 0 }}>{l.name}</span>
+      </div>
       {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
       {verDetalle && l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{stripHtml(l.detalle)}</div>}
       {verDetalle && l.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.45 }}>🐕 {l.scoreRazon}</div>}

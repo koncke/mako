@@ -98,7 +98,11 @@ async function traer(url: string): Promise<Response> {
         'content-type': tipo,
         // Una foto del catálogo con un id fijo no cambia nunca: se cachea fuerte, y
         // con eso la segunda persona que abre el selector no le pega a picsum.
-        'cache-control': 'public, max-age=86400, stale-while-revalidate=604800, immutable',
+        // ⚠️ `s-maxage` ADEMÁS de `max-age`: sin él, el CDN de Vercel no guarda nada y
+        // CADA visitante vuelve a invocar la función, que es justo la pared que hizo
+        // que en producción se dibujaran 7 de 24. Con él, la segunda persona que abre
+        // el selector no despierta ni una función.
+        'cache-control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800, immutable',
         // No es HTML, pero es contenido de un tercero saliendo por nuestro dominio.
         'x-content-type-options': 'nosniff',
       },
