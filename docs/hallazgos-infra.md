@@ -3964,3 +3964,47 @@ que borre un camino que no pasa por el navegador: MaKo, un script, la API.
 **Lo general:** un `const { data } = await` que descarta el `error` convierte cualquier
 fallo de consulta en «no había nada», y eso es indistinguible del caso normal. Donde el
 resultado decide si se hace o no se hace algo, el `error` se lee.
+
+## `git show HEAD:<archivo>` APLICA el filtro de fin de línea; `git cat-file`, no (27/09/2026)
+
+Medir los fines de línea de un blob con `git show HEAD:<archivo> | grep -c $'\r$'` **miente
+en la dirección más cara**: `git show` de un path pasa el contenido por el filtro de salida,
+así que con `core.autocrlf=true` un blob que en el repo es LF sale **con CRLF**. El conteo da
+«todas las líneas terminan en CR» sobre un blob que no tiene un solo CR.
+
+Y lo que se decide con ese número es cómo se stagea. La regla que venía de arrastre —«este
+archivo se stagea con `git -c core.autocrlf=false add`, porque su blob es CRLF»— aplicada a un
+archivo con blob LF hace **exactamente lo que venía a evitar**: sin la normalización, git
+compara un disco CRLF contra un blob LF y el diff es el archivo entero.
+
+Medido sobre los siete archivos del commit del CRM (`e20650dd`), con `git cat-file blob`, que
+no filtra nada:
+
+| | disco | blob real | lo que decía `git show` + `grep` |
+|---|---|---|---|
+| `app/crm/CrmToolbar.tsx` | CRLF | **LF** | CRLF (497 de 497) |
+| `app/crm/lead-view/ComportamientoCard.tsx` | CRLF | **LF** | CRLF (251) |
+| `app/crm/lead-view/DatosSinMarcarCard.tsx` | CRLF | **LF** | CRLF (71) |
+| `lib/funnel-fila.ts` | LF | LF | CRLF (115) |
+| `app/crm/LeadSheet.tsx` | mezcla 331/332 | **mezcla 316/317** | CRLF (317) |
+
+O sea: el `git show` contestó CRLF para los cinco, y el único cuyo blob de verdad lleva CRLF
+es `LeadSheet.tsx` — el único que sí necesita `-c core.autocrlf=false`. Con `-c
+core.autocrlf=false` sobre los otros, `git diff --stat` daba **1002 líneas cambiadas en un
+archivo de 505** (`CrmToolbar`) y 494 en uno de 243 (`ComportamientoCard`); con el `add`
+normal, 16 y 8.
+
+**La regla:** para preguntar qué tiene un blob se usa `git cat-file blob <sha>` o
+`git cat-file -p HEAD:<archivo>`, nunca `git show`. Y para preguntar por el disco, python en
+binario (`io.open(f,'rb').read().count(b'\r\n')`) — el `grep -c $'\r$'` de Git Bash devolvió
+«131 de 131 líneas con CR» sobre un archivo con **cero** CRLF, que es la misma familia que «lo
+que devuelve la búsqueda NO es el archivo».
+
+⚠️ **Y la verificación que cierra el tema no es ninguna de las dos: es el diff YA STAGEADO.**
+`git diff --cached --stat` después del `add` contesta, sin teoría de por medio, qué se va a
+commitear. Si un archivo de 505 líneas aparece con 16 cambiadas, la normalización quedó bien,
+y no hace falta saber de qué lado estaba el CR. Quince minutos se fueron en razonar sobre
+mediciones que el instrumento estaba falseando, cuando la pregunta que importaba se contesta
+con un comando después de stagear.
+
+**Vive en:** cualquier `git add` de este repo · *2026-09-27 crm-friccion-tanda-3*
