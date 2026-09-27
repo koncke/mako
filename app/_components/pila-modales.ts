@@ -46,6 +46,26 @@ export type CapaModal = {
   refScroll: (el: HTMLElement | null) => void;
   /** true si es el único abierto (para decidir si bloquear el scroll del body). */
   esElPrimero: boolean;
+  /**
+   * ¿NADA está abierto encima? Es con lo que se decide si contestar al Escape.
+   *
+   * ⚠️ ES UNA FUNCIÓN Y NO UN BOOLEAN, a propósito. Un listener de teclado se registra una
+   * vez y vive muchos renders: con un boolean habría que meterlo en las dependencias del
+   * efecto —y el del `Modal` devuelve el foco en su cleanup, así que re-ejecutarlo haría
+   * saltar el foco cada vez que algo se abre encima— o guardarlo en un ref escrito durante
+   * el render, que es otra cosa que no se hace. Preguntándolo en el momento de la tecla, la
+   * respuesta es siempre la de AHORA y el handler no tiene dependencias.
+   *
+   * ⚠️ NO ES `visible`, y confundirlos es el bug. Una capa `anidada` deja ver a su padre y
+   * una `contenedor` nunca se apaga: en los dos casos hay dos capas VISIBLES a la vez, y si
+   * las dos escuchan el Escape, una sola tecla cierra las dos. Medido el 27/09/2026 adentro
+   * de la ficha de un cliente: Escape en el detalle de una tarea cerraba la tarea Y la
+   * ficha entera, o sea que perdías el cliente por cerrar una tarjeta.
+   *
+   * `stopPropagation()` no alcanza: los dos listeners viven en `document`, y eso sólo frena
+   * la propagación a OTROS nodos, nunca a los otros listeners del mismo.
+   */
+  esElDeArriba: () => boolean;
 };
 
 /**
@@ -75,8 +95,60 @@ export type CapaModal = {
 /** Las capas que NO tapan a la de abajo (ver `useCapaModal`). */
 const anidadas = new Set<string>();
 
-export function useCapaModal(abierto: boolean, opciones?: { anidada?: boolean }): CapaModal {
+/**
+ * ⚠️ UNA CAPA «CONTENEDOR» NO SE APAGA NUNCA, y es la otra mitad de `anidada`.
+ *
+ * `anidada` lo declara el de ARRIBA («yo no tapo al de abajo»). Esto lo declara el de
+ * ABAJO: «adentro mío viven otros modales, no me apagues». Hacen falta las dos porque el
+ * de abajo no puede saber quién se va a abrir encima, y el de arriba tampoco sabe dónde
+ * está montado.
+ *
+ * El caso que la obligó, medido en el navegador el 27/09/2026: la ficha de un cliente
+ * (`app/customer-success/FichaCliente.tsx`) es un `Modal` de la casa que monta ADENTRO el
+ * tablero entero, y el tablero abre sus propios modales — el detalle de una tarea, el de un
+ * proyecto, la audiencia, el de eliminar. Esos modales son DESCENDIENTES del DOM de la
+ * ficha, así que apagarla con `display:none` los apaga a ellos también: al hacer click en
+ * una tarea desaparecía todo y no se abría nada. Medido: `.mk-modal__fondo` en
+ * `display:none` con el overlay del detalle adentro, montado, en `display:flex` y z 132.
+ * Se reportó como «se bugea y no abre nada».
+ *
+ * Marcar como `anidada` a los ~15 modales del tablero no servía: `anidada` también apaga
+ * la semántica de REEMPLAZO que esos modales tienen entre sí en `/plan` (el detalle de un
+ * proyecto abierto desde una tarea la tapa, y tiene un «Volver a la tarea»). Esto es una
+ * línea, es opt-in, y no cambia nada para las otras pantallas.
+ */
+const contenedores = new Set<string>();
+
+/**
+ * LA REGLA DE QUÉ SE VE, pura y exportada PARA QUE SE PUEDA TESTEAR.
+ *
+ * Vive afuera del hook a propósito: adentro no la puede importar ningún test, y esta
+ * condición ya dejó una pantalla en blanco en producción. Es el mismo criterio que
+ * `exigirClienteDePrueba` en `lib/auth-session.ts` (AGENTS.md: la condición de un guard va
+ * en un módulo que un test pueda importar).
+ *
+ * Tres reglas, y el orden importa:
+ *   1. Una capa que no está en la pila no se ve.
+ *   2. Una capa CONTENEDOR siempre se ve: lo que se abre encima vive ADENTRO suyo, así que
+ *      apagarla con `display:none` apaga también al que se acaba de abrir.
+ *   3. Si no, se ve cuando todo lo que tiene encima es ANIDADO — un diálogo de un campo no
+ *      es una pantalla nueva.
+ */
+export function decidirVisible(
+  pila: readonly string[],
+  id: string,
+  anidadas: ReadonlySet<string>,
+  contenedores: ReadonlySet<string>,
+): boolean {
+  const idx = pila.indexOf(id);
+  if (idx < 0) return false;
+  if (contenedores.has(id)) return true;
+  return pila.slice(idx + 1).every((x) => anidadas.has(x));
+}
+
+export function useCapaModal(abierto: boolean, opciones?: { anidada?: boolean; contenedor?: boolean }): CapaModal {
   const anidada = !!opciones?.anidada;
+  const contenedor = !!opciones?.contenedor;
   const idRef = useRef<string>('');
   if (!idRef.current) idRef.current = nuevoId();
   const id = idRef.current;
@@ -96,15 +168,13 @@ export function useCapaModal(abierto: boolean, opciones?: { anidada?: boolean })
     if (!abierto) return;
     pila = [...pila.filter((x) => x !== id), id];
     if (anidada) anidadas.add(id); else anidadas.delete(id);
+    if (contenedor) contenedores.add(id); else contenedores.delete(id);
     avisar();
-    return () => { pila = pila.filter((x) => x !== id); anidadas.delete(id); avisar(); };
-  }, [abierto, id, anidada]);
+    return () => { pila = pila.filter((x) => x !== id); anidadas.delete(id); contenedores.delete(id); avisar(); };
+  }, [abierto, id, anidada, contenedor]);
 
   const idx = pila.indexOf(id);
-  // Visible si es la de más arriba, O si TODO lo que tiene encima es anidado: una capa
-  // anidada se dibuja sobre su padre sin apagarlo. Con dos anidadas encima sigue valiendo,
-  // que es lo que se quiere — lo que apaga es una pantalla nueva, no un diálogo de un campo.
-  const visible = idx >= 0 && pila.slice(idx + 1).every((x) => anidadas.has(x));
+  const visible = decidirVisible(pila, id, anidadas, contenedores);
 
   // El scroll se guarda JUSTO ANTES de esconderse y se devuelve al volver. Hacerlo en
   // un layout effect (no en un effect normal) evita el parpadeo de un frame arriba de
@@ -125,6 +195,9 @@ export function useCapaModal(abierto: boolean, opciones?: { anidada?: boolean })
   }, [visible]);
 
   const refScroll = useCallback((el: HTMLElement | null) => { scrollEl.current = el; }, []);
+  const esElDeArriba = useCallback(() => modalDeArriba() === id, [id]);
 
-  return { visible, z: Z_BASE + Math.max(0, idx) * 2, refScroll, esElPrimero: idx === 0 };
+  // `esElDeArriba` lee la pila VIVA, no la de este render: por eso `useCallback` con `id`
+  // como única dependencia — su identidad no cambia nunca y el handler no se re-registra.
+  return { visible, z: Z_BASE + Math.max(0, idx) * 2, refScroll, esElPrimero: idx === 0, esElDeArriba };
 }

@@ -928,10 +928,19 @@
 .mk-modal__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 24px 20px; }
 /* Los bloques del cuerpo se separan con un filete, como las Section de Polaris:
    es lo que convierte una pila de textos sueltos en grupos. El primero no lleva
-   nada arriba y el último no lleva nada abajo. */
-.mk-modal__cuerpo > * { padding: 18px 0; }
-.mk-modal__cuerpo > * + * { border-top: 1px solid var(--border); }
-.mk-modal__cuerpo > :last-child { padding-bottom: 0; }
+   nada arriba y el último no lleva nada abajo.
+
+   ⚠️ SALVO OTRO OVERLAY DE LA PILA. Un modal CONTENEDOR (ver `contenedor` en
+   `app/_components/pila-modales.ts`) tiene capas hijas colgando de su cuerpo, y
+   un `.mk-modal__fondo` es `position: fixed; inset: 0`: estas tres reglas
+   empatan en especificidad con la suya y están más abajo en el archivo, así que
+   GANAN — le pisan su `padding: 20px` por `18px 0` (cero padding lateral, la
+   caja toca los dos bordes en una ventana angosta) y le dibujan un filete de
+   1 px cruzando el borde de arriba del VIEWPORT. Son bloques de CONTENIDO; un
+   overlay no es contenido del cuerpo, sólo vive ahí en el árbol. */
+.mk-modal__cuerpo > *:not(.mk-modal__fondo) { padding: 18px 0; }
+.mk-modal__cuerpo > *:not(.mk-modal__fondo) + *:not(.mk-modal__fondo) { border-top: 1px solid var(--border); }
+.mk-modal__cuerpo > :last-child:not(.mk-modal__fondo) { padding-bottom: 0; }
 
 .mk-modal__pie {
   flex: none;

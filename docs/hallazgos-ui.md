@@ -2778,3 +2778,60 @@ contradicción esperando el día en que difieran.
 esperar al pulso— y `prefers-reduced-motion` no la alcanzaba, porque la animación estaba
 inline. La alarma de una tab va por clase (`.mk-tab-alarma`), late en el BORDE y la sombra, y
 con movimiento reducido se queda en rojo fijo: dice lo mismo sin moverse.
+
+## La pila de modales: `anidada` y `contenedor` son dos preguntas distintas (27/09/2026)
+
+**Vive en:** `app/_components/pila-modales.ts` · `app/_ui/Modal.tsx` ·
+`app/_ui/ui.css` · `tests/modal-contenedor.test.ts`
+
+La pila esconde con `display:none` a toda capa que tenga otra encima. Eso es correcto
+mientras los modales sean HOJAS. Dejó de serlo el día que un modal pasó a CONTENER una
+pantalla entera con sus propios modales (la ficha de un cliente monta el tablero).
+
+Tres cosas salieron de ahí, y las tres viven en el sistema de diseño:
+
+### 1. `contenedor`: el de ABAJO declara que no lo apaguen
+
+`anidada` lo declara el de ARRIBA («yo no tapo al de abajo»). `contenedor` lo declara el de
+ABAJO («lo que se abre encima vive adentro mío»). No son intercambiables y hacen falta las
+dos: el de abajo no puede saber quién se va a abrir encima, y el de arriba no sabe dónde
+está montado.
+
+⚠️ **El modo de falla, si falta:** el modal de adentro se monta, se pinta `display:flex`,
+le toca un z más alto… y no se ve nada, porque su ANCESTRO está en `display:none`. Un
+subárbol bajo un `display:none` no se pinta, `position: fixed` incluido. Se reportó como
+«se bugea y no abre nada».
+
+⚠️ **Y la regla pura está exportada** (`decidirVisible`), no adentro del hook: adentro no la
+puede importar ningún test, y esta condición ya dejó una pantalla en blanco. Mismo criterio
+que `exigirClienteDePrueba` en `lib/auth-session.ts`.
+
+### 2. Dos `Modal` apilados se cerraban los DOS con un solo Escape
+
+`stopPropagation()` frena la propagación a otros NODOS, no a los otros listeners del MISMO
+nodo — y todos los modales escuchan en `document`. O sea que esto siempre estuvo roto; lo
+que cambió es que ahora hay dos capas visibles a la vez y se ve.
+
+Va `capa.esElDeArriba()`, y es una **función** a propósito: un listener de teclado se
+registra una vez y vive muchos renders. Con un boolean habría que meterlo en las deps del
+efecto —y el del `Modal` devuelve el foco en su cleanup, así que re-ejecutarlo haría saltar
+el foco cada vez que algo se abre encima— o guardarlo en un ref escrito durante el render,
+que es lo que marca `react-hooks/refs`. Preguntándolo en el momento de la tecla, la
+respuesta es siempre la de AHORA y el handler no tiene dependencias.
+
+### 3. Las reglas de bloque del cuerpo alcanzaban a los overlays anidados
+
+`.mk-modal__cuerpo > *` pone `padding: 18px 0` y `border-top: 1px` a cada hijo: es lo que
+convierte una pila de textos en grupos. Un modal contenedor tiene capas hijas colgando de su
+cuerpo, y un `.mk-modal__fondo` es `position: fixed; inset: 0` — las dos reglas empatan en
+especificidad con la suya y están más abajo en el archivo, así que GANAN.
+
+Resultado medido: el selector de portada quedaba con **cero padding lateral** (la caja
+tocando los dos bordes en una ventana angosta) y con **un filete de 1 px cruzando el borde
+de arriba del viewport**. Se arregla con `:not(.mk-modal__fondo)` en las tres reglas: son
+bloques de CONTENIDO, y un overlay no es contenido del cuerpo — sólo vive ahí en el árbol.
+
+**La regla general: toda regla `> *` de un contenedor de layout tiene que preguntarse qué
+pasa el día que uno de esos hijos sea un overlay.** Es la misma familia que «un
+`max-width` puesto al texto adentro de una caja más ancha»: una regla correcta para el
+contenido, aplicada a algo que no es contenido.

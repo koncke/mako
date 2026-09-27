@@ -30,7 +30,7 @@
 // la misma pregunta no suma una opción: parte la respuesta en tres.
 
 import { useState, useRef } from 'react';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { Modal } from '@/app/_ui';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { fondoPortada } from '@/lib/portadas';
@@ -54,6 +54,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
   onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null }) => void;
   onCerrar: () => void;
 }) {
+  const router = useRouter();
   const [eligiendoPortada, setEligiendoPortada] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mal, setMal] = useState('');
@@ -88,14 +89,23 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
         <span className="fc-cab">
           {/* LA PORTADA. `fondoPortada` decide si es una foto, un degradado del catálogo o
               —el default— el color derivado del nombre. La misma función pinta la tarjeta
-              de la grilla, así que las dos no se pueden separar. */}
-          <span className="fc-banda" aria-hidden style={{ background: fondoPortada(c.portada, color) }} />
-          {/* Los botones van ARRIBA, a la altura del botón de cerrar («"Ver en el CRM"
-              debería estar alineado al botón de cerrar», 26/09/2026). Píldoras oscuras
-              translúcidas y no del color de la casa: acá abajo puede haber una foto
-              cualquiera, y un botón claro sobre una foto clara desaparece. */}
+              de la grilla, así que las dos no se pueden separar.
+              ⚠️ «Cambiar portada» va AL CENTRO y sólo al pasar el cursor, igual que la foto
+              de perfil (27/09/2026). Antes vivía arriba a la derecha, fijo: un botón
+              permanente sobre una imagen compite con ella, y dos botones distintos para
+              editar dos imágenes de la misma cabecera se aprendían por separado. */}
+          <span className="fc-portada">
+            <span className="fc-banda" aria-hidden style={{ background: fondoPortada(c.portada, color) }} />
+            <button type="button" className="fc-cambiar" onClick={() => setEligiendoPortada(true)}>
+              {c.portada ? 'Cambiar portada' : 'Poner una portada'}
+            </button>
+          </span>
+          {/* «Ver en el CRM» sí queda fijo y a la altura del botón de cerrar: es NAVEGACIÓN,
+              no edición de la imagen, y esconderla detrás de un hover la volvería difícil de
+              encontrar. Píldora oscura translúcida y no del color de la casa: acá abajo
+              puede haber una foto cualquiera, y un botón claro sobre una foto clara
+              desaparece. */}
           <span className="fc-acciones">
-            <button type="button" className="fc-pill" onClick={() => setEligiendoPortada(true)}>Cambiar portada</button>
             <Link href={`/crm/${c.leadId}`} className="fc-pill">Ver en el CRM →</Link>
           </span>
           <span className="fc-fila">
@@ -123,6 +133,11 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
       }
       etiqueta={nombre}
       ancho={ANCHO}
+      /* ⚠️ ADENTRO VIVE EL TABLERO, Y EL TABLERO ABRE SUS PROPIOS MODALES. Sin esto la pila
+         apaga esta ficha con `display:none` en cuanto se abre uno —y como ese modal es un
+         DESCENDIENTE suyo, se apaga con ella: click en una tarea = pantalla en blanco.
+         Medido el 27/09/2026 (ver `contenedores` en app/_components/pila-modales.ts). */
+      contenedor
       onCerrar={onCerrar}
     >
       {mal && <p className="fc-mal">{mal}</p>}
@@ -132,11 +147,18 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
         // segunda sobre la primera es la mentira que nadie audita.
         <p className="fc-mal">No pude leer su tablero. Vuelve a entrar a Clientes.</p>
       ) : trabajo.dueno ? (
+        // ⚠️ `onRecargar` ES OBLIGATORIO ACÁ. El tablero recarga la página entera después
+        // de una cascada de prioridad y al aplicar un borrador de reunión — y eso, adentro
+        // de la ficha, la cierra: qué cliente está abierto es estado de React en
+        // `ClientesApp`, no viaja en la URL. `router.refresh()` revalida el render del
+        // server (de donde salen estas filas) sin desmontar el árbol del navegador.
         <PlanBoard user={user} tareas={trabajo.tareas} proyectos={trabajo.proyectos}
-          vacio={false} clientes={clientes} clienteFijo={clienteFijo} />
+          vacio={false} clientes={clientes} clienteFijo={clienteFijo} embebido
+          onRecargar={() => router.refresh()} />
       ) : (
         <TodoBoard tareas={trabajo.tareas} categorias={trabajo.categorias} demo={false}
-          user={user} clientes={clientes} clienteFijo={clienteFijo} />
+          user={user} clientes={clientes} clienteFijo={clienteFijo} embebido
+          onRecargar={() => router.refresh()} />
       )}
 
       {/* El selector va ENCIMA de la ficha, y se puede: `anidada` le dice a la pila que no
@@ -185,7 +207,19 @@ const CSS = `
 .fc-cab{ display:block; position:relative; }
 /* Bien estirada («está muy angosto, debería ser más estirado»): 140 px sobre 1560 de
    ancho. Una foto de portada se lee como una banda, no como una tarjeta. */
+.fc-portada{ display:block; position:relative; }
 .fc-banda{ display:block; height:140px; width:100%; }
+
+/* EL BOTÓN DE LA PORTADA: al centro y sólo al pasar el cursor, igual que el de la foto.
+   Aparece también con el foco del teclado — un control que sólo existe con el mouse no
+   existe para quien navega con Tab. */
+.fc-cambiar{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  background:rgba(20,22,26,.52); border:0; border-radius:999px; padding:8px 16px;
+  font:inherit; font-size:12.5px; font-weight:500; color:#fff; cursor:pointer;
+  white-space:nowrap; opacity:0; transition:opacity .12s; backdrop-filter:blur(3px); }
+.fc-portada:hover .fc-cambiar{ opacity:1; }
+.fc-cambiar:focus-visible{ opacity:1; outline:2px solid #fff; outline-offset:2px; }
+.fc-cambiar:hover{ background:rgba(20,22,26,.72); }
 
 .fc-acciones{ position:absolute; top:12px; right:52px; z-index:2; display:flex; gap:8px; }
 .fc-pill{ background:rgba(20,22,26,.42); border:0; border-radius:999px; padding:6px 13px;
@@ -215,5 +249,5 @@ const CSS = `
 
 .fc-mal{ margin:16px 2px; font-size:13.5px; color:var(--bad); }
 
-@media(prefers-reduced-motion:reduce){ .fc-avcap{ transition:none; } }
+@media(prefers-reduced-motion:reduce){ .fc-avcap, .fc-cambiar{ transition:none; } }
 `;

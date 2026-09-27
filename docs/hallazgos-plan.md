@@ -4916,3 +4916,49 @@ que además es la respuesta a la pregunta que alguien se va a hacer.
 En un Kanban de 396 tareas, una banda por tarjeta es una pared de fotos donde hoy se lee un
 título. El proyecto es el contenedor y es el nivel donde una imagen identifica algo. Está
 escrito en el campo, para que el próximo que lo piense encuentre la respuesta.
+
+## El tablero no siempre es LA pantalla: `embebido` (27/09/2026)
+
+**Vive en:** `app/plan/board/BoardShell.tsx` (`embebido`, `onRecargar`, `Marco`,
+`scrollerDe`) · `app/plan/PlanBoard.tsx` · `app/plan/TodoBoard.tsx` ·
+`app/plan/board/useBoard.ts`
+
+`BoardShell` se escribió asumiendo que ES la ruta. Desde el 26/09 también se monta adentro
+de la ficha de un cliente (Customer Success), y ahí ese supuesto es falso en cinco lugares
+distintos. El detalle del caso entero está en
+[hallazgos-customer-success.md](hallazgos-customer-success.md); acá quedan las dos cosas
+que son del TABLERO y que valen para cualquier otro sitio donde se lo monte.
+
+### Lo que un componente «pantalla» toca sin decirlo
+
+Al montarlo adentro de otra cosa, lo que hay que ir a buscar es todo lo GLOBAL: la URL,
+`localStorage`, `document`/`window` listeners, `<main>` y los altos en `vh`,
+`window.location.reload()`, y los pop-ups que se auto-abren al entrar. En este caso fueron
+los cinco. Un barrido de cinco lentes en paralelo los encontró en veinte minutos y descartó
+otros cuatro que sonaban peor y no lo eran (la copia del arrastre va por
+`document.body.appendChild`, los desplegables van por portal con z alto, el `position:fixed`
+no lo contiene ningún ancestro transformado, y el `overflow:hidden` del modal no recorta a
+un descendiente cuyo bloque contenedor es un ancestro suyo).
+
+### El auto-scroll del arrastre scrolleaba la VENTANA
+
+`empujarScroll` decidía con `window.innerHeight` y empujaba con `window.scrollBy`. Adentro
+del modal, el `Modal` de la casa puso `document.body.style.overflow = 'hidden'` y el que
+scrollea pasa a ser `.mk-modal__cuerpo`: agarrabas una tarjeta, la llevabas al borde y no
+pasaba nada. Es literalmente el bug que AGENTS.md ya tiene medido para `/plan` («19.630 px
+de tablero contra una ventana de 900, sin auto-scroll en el camino del mouse»), reproducido
+un nivel más adentro.
+
+Ahora resuelve el scroller real subiendo por el DOM (`scrollerDe`), **una sola vez, en el
+`dragstart`**: durante un arrastre el navegador congela `rAF` y los timers y lo único que
+sigue entregando es `dragover` — no es momento de caminar el DOM en cada evento. Y el borde
+se mide contra la caja del que scrollea, no contra el viewport. Cuando el scroller es la
+página, el comportamiento es idéntico al de antes.
+
+### Las preferencias locales llevan el CLIENTE en el scope
+
+`scope` era `'agencia'` fijo, así que el filtro que quedó puesto en `/plan` («solo el
+proyecto P33») se aplicaba adentro de la ficha, donde ese proyecto casi nunca está: el
+tablero del cliente aparecía vacío y se leía como «no tiene nada asignado» — una afirmación
+falsa sobre su cartera. Es el mismo bug que `prefs.ts` documenta entre workspaces, un nivel
+más adentro.

@@ -732,7 +732,18 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, onRecargar }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+  /**
+   * ⚠️ ESTE TABLERO VIVE ADENTRO DE OTRA PANTALLA (hoy, la ficha de un cliente). Apaga el
+   * uso de la URL como estado: ver `embebido` en `BoardShell`. Es una prop y no se deduce
+   * de `clienteFijo` a propósito — «es de este cliente» y «no soy la ruta» son dos hechos
+   * distintos, y el día que uno de los dos valga sin el otro, deducirlo miente.
+   */
+  embebido?: boolean;
+  /** Cómo recargar después de una escritura grande del server. Ver `onRecargar` en
+   *  `BoardShell`: embebido, un `reload()` cierra la pantalla que lo contiene. */
+  onRecargar?: () => void;
+
   /**
    * ⚠️ EL TABLERO ESTÁ FILTRADO A UN CLIENTE, así que lo que se cree adentro nace SUYO.
    * Sin esto, una tarea creada desde la página de un cliente aparecería… y desaparecería
@@ -749,13 +760,30 @@ export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInic
   // `repoPlan` escribe el `BoardTask` ENTERO (`taskToRow` lo mapea campo por campo), así
   // que alcanza con que el borrador nazca con el cliente puesto.
   const base = repoPlan();
-  const repo: Repo = clienteFijo
-    ? { ...base, createTask: (d) => base.createTask({ ...d, clienteLeadId: clienteFijo.leadId, clienteNombre: clienteFijo.nombre }) }
+  // ⚠️ LAS DOS ALTAS, no sólo la de tareas. Un PROYECTO creado adentro de la ficha nacía
+  // sin cliente, y la ficha sólo lista los proyectos de ese lead: aparecía mientras el
+  // modal estaba abierto y se evaporaba al recargar — con las tareas que le colgaste
+  // adentro quedando huérfanas de un proyecto que esa pantalla no ve. Va en el REPO y no
+  // en `BoardShell` a propósito: el tablero no tiene por qué saber que está filtrado, y
+  // así el próximo call site de `createLabel` lo hereda sin que nadie se acuerde.
+  const conCliente = clienteFijo ? { clienteLeadId: clienteFijo.leadId, clienteNombre: clienteFijo.nombre } : null;
+  const repo: Repo = conCliente
+    ? {
+      ...base,
+      createTask: (d) => base.createTask({ ...d, ...conCliente }),
+      createLabel: (l) => base.createLabel({ ...l, ...conCliente }),
+    }
     : base;
   const board = useBoard(tareas, proyectos, user, repo, deps);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;
-  return <BoardShell board={board} scope="agencia" vistaInicial={vistaInicial} clientes={clientes} />;
+  // ⚠️ EL SCOPE DE LAS PREFERENCIAS LLEVA EL CLIENTE. Sin esto, el filtro que quedó puesto
+  // en `/plan` («solo el proyecto P33») se aplica adentro de la ficha, donde ese proyecto
+  // casi nunca está: el tablero del cliente aparece vacío y se lee como que no tiene nada
+  // asignado. Es el mismo bug que `prefs.ts` documenta entre workspaces, un nivel más
+  // adentro. Y al revés también: lo que filtrás mirando a un cliente no le cambia la vista
+  // a `/plan`.
+  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} onRecargar={onRecargar} />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

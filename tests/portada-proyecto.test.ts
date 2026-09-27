@@ -166,8 +166,13 @@ test('la mitad del CLIENTE: las cuatro puertas', () => {
     /if \(patch\.portada !== undefined\) upd\.portada = /, 'el upd se arma campo por campo');
   assert.match(RUTA_TODO, /cliente_nombre\?: string \| null; portada\?: string \| null/, 'el tipo del patch ES la puerta');
   assert.match(RUTA_TODO, /recurrencia, cliente, portada\)/, 'el alta de un proyecto del cliente');
-  assert.match(TODO_BOARD, /cliente_nombre: l\.clienteNombre \?\? null, portada: l\.portada \?\? null \} \}\)/, 'saveLabel');
-  assert.match(TODO_BOARD, /cliente_nombre: l\.clienteNombre \?\? null, portada: l\.portada \?\? null \}\)/, 'createLabel');
+  // ⚠️ ANCLADO EN LA ACCIÓN, NO EN EL CAMPO DE AL LADO. La primera versión de estas dos
+  // líneas se colgaba de `cliente_nombre: l.clienteNombre ?? null`, y se rompió al día
+  // siguiente cuando ese campo ganó un `?? clienteFijo?.nombre` por otro motivo: un test
+  // que falla por un cambio que no tiene nada que ver es ruido, y el ruido se termina
+  // silenciando. Lo que este test persigue es que `portada` VIAJE en los dos payloads.
+  assert.match(TODO_BOARD, /action: 'categoria-editar'[^;]*portada: l\.portada \?\? null/, 'saveLabel');
+  assert.match(TODO_BOARD, /action: 'categoria-crear'[^;]*portada: l\.portada \?\? null/, 'createLabel');
 });
 
 test('`undefined` (no la toques) nunca se colapsa con `null` (sacala)', () => {

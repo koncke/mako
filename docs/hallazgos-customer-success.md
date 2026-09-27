@@ -1749,3 +1749,112 @@ server actions, que sí se borraron. No se borraron ellas en la misma pasada por
 `tableroDeLaCartera` —que la pantalla sí usa— comparte tipos con ellas
 (`ProyectoHuerfano`, `ResumenTrabajo`) y desenredarlo a las apuradas arriesgaba la grilla.
 `asignarTrabajo` SÍ sigue viva: la llama `autoasignar`.
+
+## Montar el tablero adentro de un modal: lo que el componente asumía por ser la pantalla (27/09/2026)
+
+«Al abrir una tarea o un proyecto, al intentar abrir el detail se bugea y no abre nada,
+cambia la ruta y luego ya no me deja abrir el cliente.»
+
+**Vive en:** `app/customer-success/FichaCliente.tsx` · `app/_components/pila-modales.ts` ·
+`app/_ui/Modal.tsx` · `app/plan/board/BoardShell.tsx` · `app/plan/PlanBoard.tsx` ·
+`app/plan/TodoBoard.tsx` · `app/plan/board/useBoard.ts` ·
+`tests/modal-contenedor.test.ts` · `tests/cliente-fijo-al-crear.test.ts`
+
+Eran DOS bugs encadenados y ninguno se ve leyendo el componente que falla. Los dos se
+midieron en el navegador antes de tocar una línea, y después un barrido de cinco lentes
+en paralelo encontró **siete más** que nadie había reportado.
+
+### 1. La pila apagaba a la ficha, y con ella al modal que se acababa de abrir
+
+`FichaCliente` es un `Modal` de la casa y monta el tablero entero adentro. Al abrir el
+detalle de una tarea, ese detalle registra una capa nueva en `pila-modales`, que esconde a
+la de abajo con `display:none` — y el detalle **es un descendiente del DOM de la ficha**,
+así que se apaga con ella.
+
+Medido en la consola: `.mk-modal__fondo` en `display:none`, y adentro el overlay del
+detalle montado, en `display:flex` y con z 132. **Montado y sin caja.** Un subárbol bajo un
+`display:none` no se pinta, `position: fixed` incluido.
+
+⚠️ **Marcar los modales del tablero como `anidada` NO servía**, y el barrido lo midió:
+`anidada` también apaga la semántica de REEMPLAZO que esos modales tienen entre sí en
+`/plan` — el detalle de un proyecto abierto desde una tarea la tapa y tiene un «← Volver a
+la tarea». Con `anidada` quedarían los dos overlays dibujados, con dos scrims y dos blurs
+superpuestos, que es exactamente lo que la pila existe para evitar.
+
+**La cura va del lado del CONTENEDOR, no del hijo:** `contenedor` en `useCapaModal` — «lo
+que se abre encima vive adentro mío, no me apagues». Es opt-in, son cinco líneas y no
+cambia nada para las otras ~25 pantallas.
+
+**La regla que queda:** `anidada` la declara el de ARRIBA («yo no tapo»); `contenedor`, el
+de ABAJO («no me apagues»). Hacen falta las dos porque el de abajo no sabe quién se va a
+abrir encima y el de arriba no sabe dónde está montado.
+
+### 2. El tablero escribía `?tarea=` en la URL de `/customer-success` — y la leía
+
+`BoardShell` guarda su estado en la URL (`?vista=`, `?tarea=`, `?proyecto=`) y lo LEE al
+montar, a propósito: en `/plan` el link que copiás es la pantalla que ves. Adentro de la
+ficha eso es destructivo en las dos direcciones: ensucia la URL de otra ruta, y al volver a
+abrir el cliente el deep-link reabre ese detalle **que la pila apaga**. De ahí el «ya no me
+deja abrir el cliente»: cada intento montaba el tablero, que abría el detalle, que tapaba
+todo. Sobrevivía al F5.
+
+Lo apaga `embebido`, que además resultó ser el interruptor natural de otras tres cosas que
+sólo valen cuando el tablero ES la pantalla (abajo).
+
+### 3. Un solo Escape cerraba la ficha entera
+
+Medido: Escape adentro del detalle de una tarea cerraba la tarea **y** la ficha. Los
+listeners de todos los modales abiertos viven en `document`, y `stopPropagation()` no lo
+evita: frena la propagación a otros NODOS, nunca a los otros listeners del mismo. O sea que
+**dos `Modal` apilados siempre se cerraron los dos** — lo que cambió es que ahora hay dos
+capas visibles a la vez y se ve.
+
+La cura es `esElDeArriba` en `CapaModal`, y es una **función**, no un boolean: un listener
+de teclado se registra una vez y vive muchos renders. Con un boolean habría que meterlo en
+las deps del efecto —y el del `Modal` devuelve el foco en su cleanup, así que re-ejecutarlo
+haría saltar el foco cada vez que algo se abre encima— o guardarlo en un ref escrito
+durante el render, que es otra cosa que no se hace.
+
+### 4. Lo que se creaba adentro de la ficha perdía el cliente
+
+El más caro, y **completamente silencioso**: no hay excepción, no hay 4xx, la tarjeta se ve
+en pantalla y la columna queda en `null`. Eran tres agujeros:
+
+- **El alta de tarea se auto-borraba.** `clienteFijo` envuelve `repo.createTask`, así que la
+  fila nace con el lead — pero `useBoard.create` se queda sólo con `id`, `num` y `origen` de
+  la respuesta y conserva el borrador LOCAL, que no lo tiene. El `markDirty` de la línea
+  siguiente dispara un `saveTask` de la fila ENTERA con `cliente_lead_id: null`.
+- **El `editar` interno del alta** (mitad cliente) hacía lo mismo un paso antes.
+- **El alta de PROYECTO nunca tuvo cliente:** `clienteFijo` envolvía `createTask` y nada
+  más, en las dos mitades. Y con el proyecto se perdían de vista las tareas colgadas
+  adentro.
+
+**La regla: un valor que inyecta el REPO tiene que volver al estado, o el próximo guardado
+lo borra.** Todo upsert de fila entera armado desde el navegador tiene esta forma, y es la
+misma trampa que AGENTS.md documenta para los mappers de lectura — acá aplicada al merge
+posterior a un alta.
+
+Verificado creando una tarea en la ficha contra producción: `cliente_lead_id: 2472`,
+`cliente_nombre: 'Mauricio Bustos'`, con el `updated_at` POSTERIOR al alta (o sea que el
+`saveTask` corrió y no la borró). La fila de prueba se borró después.
+
+### Lo que `embebido` apaga, y por qué cada cosa
+
+| Qué | Por qué sólo vale siendo LA pantalla |
+|---|---|
+| Leer y escribir la URL | La URL es la de `/customer-success`, no la del tablero |
+| La bienvenida «MaKo cargó N tareas» | Va por portal con z 140 y NO se registra en la pila: se pinta encima sin apagar nada. Y `marcarWelcomeVisto` escribe la MISMA clave que `/plan`, así que abrir una ficha CONSUME la bienvenida del tablero grande |
+| Los borradores de reunión pendientes | La consulta es del WORKSPACE y no se puede acotar a un cliente: el badge contaría reuniones ajenas |
+| `<main>` y `minHeight: 100vh` | Un `<main>` dentro de otro no es HTML válido, y 100vh adentro de una caja topada en `min(85vh,720px)` obliga a scrollear el cuerpo aunque el cliente tenga dos tareas |
+| `window.location.reload()` | Qué cliente está abierto es estado de React: recargar cierra la ficha. Va `onRecargar` (la ficha pasa `router.refresh()`) |
+
+### Lo que quedó SIN hacer
+
+- **La ficha no es linkeable.** `abiertoId` vive en `ClientesApp` y no viaja en la URL. Un
+  `?cliente=<leadId>` leído en el server la haría sobrevivir a un F5 y compartible — y
+  cerraría de paso el caso del `reload()` sin `onRecargar`. Es una feature, no un bug:
+  queda anotada, no hecha. Vive en `app/customer-success/ClientesApp.tsx`.
+- **El botón ✨ del header del tablero** puede abrir a mano `TareasCreadasModal` encima de
+  la ficha; sigue sin registrarse en la pila. Sólo se apagó el AUTO-open.
+- Las tres funciones huérfanas de `app/customer-success/trabajo.ts` de la entrada anterior
+  siguen sin call site.

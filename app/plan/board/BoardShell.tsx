@@ -165,7 +165,36 @@ const vistaValida = (v: unknown): Vista | null => {
   return ALIAS_VISTA[k] ?? null;
 };
 
-export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
+/**
+ * La caja del tablero: `<main>` cuando ES la pantalla, un `<div>` cuando vive adentro de
+ * otra (la ficha de un cliente).
+ *
+ * ⚠️ EL LAYOUT DE ADENTRO NO CAMBIA, y eso es un requisito. Un cliente reportó TRES veces
+ * «el plan está vacío» desde Safari mientras en Chrome se veía perfecto: la grilla con filas
+ * `auto 1fr` le da a la fila del cuerpo un alto DEFINIDO, que es lo único que todos los
+ * motores resuelven igual. Lo que cambia embebido son las dos cosas que sólo valen para una
+ * pantalla: la etiqueta `<main>` (un `<main>` dentro de otro no es HTML válido) y el
+ * `minHeight` de 100vh (adentro de una caja topada en `min(85vh, 720px)` obliga a scrollear
+ * el cuerpo del modal aunque el cliente tenga dos tareas).
+ *
+ * El `100vh` MENOS la barra de agencia: mirando el tablero de un cliente, con `100vh` a
+ * secas el board mide 50 px más que el hueco que le queda —la barra empuja el body— y se
+ * come la franja de abajo del kanban. La variable vale 0px cuando no hay barra. Va CON
+ * fallback: un `calc()` con una variable vacía es inválido en tiempo de cómputo y se cae la
+ * declaración entera, o sea que el alto desaparece.
+ *
+ * Y SIN `overflow: hidden`: era lo que convertía «midió mal» en «no se ve nada». En el peor
+ * caso la página scrollea, que es un defecto que se entiende y se puede contar por teléfono.
+ */
+function Marco({ embebido, children }: { embebido: boolean; children: ReactNode }) {
+  const estilo: CSSProperties = {
+    flex: 1, minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr', fontFamily: SANS,
+    ...(embebido ? {} : { minHeight: 'calc(100vh - var(--barra-agencia, 0px))' }),
+  };
+  return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
+}
+
+export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, onRecargar }: {
   board: Board;
   /**
    * Los clientes elegibles: los leads GANADOS del workspace (mig 0172). Los lee la PÁGINA
@@ -186,6 +215,35 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
    * de hidratación desalineada. Opcional porque el board del CLIENTE todavía no la pasa.
    */
   vistaInicial?: string;
+  /**
+   * ⚠️ NO SOY LA PANTALLA: estoy montado ADENTRO de otra (hoy, la ficha de un cliente).
+   *
+   * El tablero fue escrito asumiendo que ES la ruta, así que guarda su estado en la URL:
+   * `?vista=`, `?tarea=` y `?proyecto=`, y los LEE al montar para abrir ese detalle. Eso
+   * está bien en `/plan` —el link que copiás es la pantalla que ves— y es destructivo
+   * adentro de un modal:
+   *
+   *   · escribe en la URL de OTRA ruta (`/customer-success?tarea=…`), que no sabe qué hacer
+   *     con eso; y
+   *   · al volver a abrir la ficha, el deep-link vuelve a abrir ese detalle solo. Medido el
+   *     27/09/2026: quedaba un `?tarea=` pegado y desde ahí el cliente ya no se podía abrir
+   *     — cada intento montaba el tablero, que abría el detalle, que tapaba todo.
+   *
+   * Con esto la URL no se toca ni se lee. El estado vive en React, que es donde tiene que
+   * vivir el estado de algo que se abrió adentro de un modal.
+   */
+  embebido?: boolean;
+  /**
+   * CÓMO SE RECARGA DESPUÉS DE UNA ESCRITURA GRANDE DEL SERVER. Por default,
+   * `window.location.reload()`, que es lo correcto cuando el tablero ES la pantalla.
+   *
+   * ⚠️ EMBEBIDO TIENE QUE PASARLA, O LA ACCIÓN TE EXPULSA. Adentro de la ficha, qué cliente
+   * está abierto es estado de React en `ClientesApp` y no viaja en la URL: un `reload()`
+   * cierra la ficha y te deja en la grilla después de una acción que no pidió navegar. La
+   * ficha pasa un `router.refresh()`, que revalida el render del server sin desmontar el
+   * árbol del navegador.
+   */
+  onRecargar?: () => void;
 }) {
   
   // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
@@ -483,6 +541,14 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
   // abierto a mano. Antes esperaba a que Datos se abriera solo primero: con el auto-open de
   // Datos fuera (08-T46), esa espera la habría dejado sin abrirse nunca, de costado.
   useEffect(() => {
+    // ⚠️ EMBEBIDO NO SE AUTO-ABRE, y no es cosmético. `TareasCreadasModal` va por portal a
+    // `document.body` con z 140 y NO se registra en la pila, así que adentro de la ficha se
+    // pinta encima sin apagar nada: dos overlays superpuestos apenas abrís un cliente. Y
+    // peor: `marcarWelcomeVisto` escribe la MISMA clave de localStorage que `/plan`, así
+    // que abrir la ficha CONSUME la bienvenida que el tablero grande le iba a mostrar a
+    // esas tareas. Es una pantalla de «acabás de entrar a tu tablero»; adentro de la ficha
+    // de un cliente contesta la pregunta de otro alcance.
+    if (embebido) return;
     if (!hayWelcome || welcomeAutoRef.current) return;
     if (openId || openProj || peekProjId) return;
     if (nPendientes > 0) return;                  // el borrador por confirmar va primero
@@ -491,18 +557,24 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
     marcarWelcomeVisto();
     setWelcomeVisible(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hayWelcome, datosOpen, openId, openProj, peekProjId, nPendientes]);
+  }, [hayWelcome, datosOpen, openId, openProj, peekProjId, nPendientes, embebido]);
 
   // Traer los borradores pendientes UNA vez por montaje. No los creó nadie en el board:
   // los dejó el cron de reuniones (MaKo leyó tu reunión) o los mandó otra persona.
+  //
+  // ⚠️ EMBEBIDO NO LOS PIDE. La consulta es del WORKSPACE entero y no se puede acotar a un
+  // cliente: adentro de su ficha, el badge contaría reuniones que no son suyas y el pop-up
+  // ofrecería confirmar trabajo de otro. Un número que responde una pregunta distinta de la
+  // que la pantalla plantea es peor que no tener el número.
   useEffect(() => {
+    if (embebido) return;
     if (pendientesRef.current) return;
     pendientesRef.current = true;
     void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pendientes' }) })
       .then((r) => r.json())
       .then((j) => { if (j?.ok && Array.isArray(j.propuestas)) setPendientes(j.propuestas as PropuestaPendiente[]); })
       .catch(() => { /* silencioso: es un extra al entrar */ });
-  }, []);
+  }, [embebido]);
   // Los borradores van PRIMEROS de la cola de pop-ups, no últimos. Antes cedían ante
   // Datos y la bienvenida: con el tablero lleno, "faltan datos" salta siempre y el
   // borrador no se veía nunca — MaKo decía "entrá al plan a confirmarlas" y no había
@@ -758,7 +830,12 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
 
   // Deep-link (punto 9): ?tarea=<id> / ?proyecto=<id> abre ese detalle al entrar —
   // lo usa MaKo por WhatsApp para linkear lo que creó. Después limpia el query.
+  //
+  // ⚠️ NO CORRE EMBEBIDO. Adentro de la ficha de un cliente, la URL es la de
+  // `/customer-success` y sus parámetros no son de este tablero: leerlos abre un detalle
+  // que nadie pidió, encima de un modal, y deja la pantalla trabada (ver `embebido`).
   useEffect(() => {
+    if (embebido) return;
     try {
       const sp = new URLSearchParams(window.location.search);
       const tId = sp.get('tarea'); const pId = sp.get('proyecto');
@@ -804,9 +881,12 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
   // El `?ws=` se conserva solo porque se parte de `window.location.search`, que ya lo trae.
   // La query NO se arma de cero, justamente por eso: armarla de cero es como se pierde la
   // pestaña del cliente y terminás mirando otra cuenta.
+  //
+  // ⚠️ Y NO SE ESCRIBE EMBEBIDO: la URL de `/customer-success` no es la de este tablero.
   const urlEstado = `${view}|${openId ?? ''}|${openProj ?? ''}`;
   const urlPrev = useRef<string | null>(null);
   useEffect(() => {
+    if (embebido) return;
     if (urlPrev.current === urlEstado) return;
     const primera = urlPrev.current === null;
     urlPrev.current = urlEstado;
@@ -822,7 +902,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
       const qs = sp.toString();
       window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
     } catch { /* sin URL no se pierde nada: el estado vive en React igual */ }
-  }, [urlEstado, view, openId, openProj]);
+  }, [urlEstado, view, openId, openProj, embebido]);
 
   const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
@@ -842,8 +922,13 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
    * de la misma decisión —y la que se quedaría vieja es la que se ve—. Recargar es barato
    * y honesto, y desde que la vista, el proyecto y la tarea abiertos viajan en la URL, se
    * vuelve exactamente a la misma pantalla.
+   *
+   * ⚠️ ESO ÚLTIMO ES FALSO EMBEBIDO, y por eso existe `onRecargar`: adentro de la ficha la
+   * URL no guarda nada (la apaga `embebido`) y el cliente abierto es estado de React, así
+   * que recargar la página cierra la ficha entera.
    */
-  const recargarTrasCascada = () => window.location.reload();
+  const recargar = onRecargar ?? (() => window.location.reload());
+  const recargarTrasCascada = recargar;
   /**
    * Crear un proyecto. El Perro lo PUNTÚA después, no la persona al crearlo.
    *
@@ -1086,32 +1171,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
   };
 
   return (
-    // `100vh` MENOS la barra de agencia: mirando el tablero de un cliente, con `100vh` a
-    // secas el board mide 50px más que el hueco que le queda —la barra empuja el body
-    // (globals.css: `[data-barra-agencia] body{padding-top:…}`)— y se come la franja de
-    // abajo del kanban. La sidebar ya lo compensaba; este `<main>` era el único que no.
-    // La variable vale 0px cuando no hay barra, así que fuera del modo agencia no cambia.
-    // ⚠️ ESTE LAYOUT NO PUEDE DEJAR EL TABLERO INVISIBLE, y eso es un requisito, no un
-    // detalle: un cliente lo reportó tres veces como «el plan está vacío» desde Safari
-    // mientras en Chrome se veía perfecto, con los mismos datos y el mismo servidor.
-    //
-    // Tres decisiones, y las tres son para lo mismo:
-    //   · GRID con filas `auto 1fr` en vez de columna flex: la fila del cuerpo tiene un
-    //     alto DEFINIDO que cualquier motor resuelve igual. Con flex, ese alto sale de
-    //     `flex: 1` —indefinido para el modelo— y de ahí para abajo cada versión de cada
-    //     navegador decide distinto qué hacer con un hijo que quiere estirar.
-    //   · `minHeight` en vez de `height`: si algo mide de menos, el tablero CRECE. Con
-    //     `height` clavado, todo lo que no entraba quedaba fuera de la caja.
-    //   · El `var()` va CON fallback (`, 0px`): si el token no resolviera, un `calc()`
-    //     con una variable vacía es inválido en tiempo de cómputo y se cae la
-    //     declaración entera — o sea, el alto desaparece. El fallback lo hace imposible.
-    //   · SIN `overflow: hidden` acá: era lo que convertía «midió mal» en «no se ve
-    //     nada». Sin él, en el peor caso la página scrollea, que es un defecto que se
-    //     entiende y se puede contar por teléfono.
-    //
-    // La regla, corta: en el camino del contenido principal, nada de altos fijos con
-    // recorte. Un layout puede quedar feo; no puede desaparecer.
-    <main style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 'calc(100vh - var(--barra-agencia, 0px))', fontFamily: SANS }}>
+    // El porqué del layout —la grilla `auto 1fr`, el `minHeight` y por qué NO lleva
+    // `overflow: hidden`— vive entero en `Marco`, acá arriba. Una sola copia: la vez que
+    // estuvo en los dos lados, una se quedó vieja.
+    <Marco embebido={embebido}>
       {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
       <BrandDefs />
       {/* UNA SOLA LÍNEA, siempre. Antes tenía flexWrap:'wrap' y los botones de acción se
@@ -1388,7 +1451,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
           // juntas) traía las tarjetas repetidas y el botón decía "Agregar 48" sin
           // avisar que varias ya estaban.
           existentes={tasks.map((t) => ({ id: t.id, titulo: t.title, hecha: t.progress >= 100 }))}
-          onListo={() => window.location.reload()}
+          onListo={recargar}
           onClose={() => setBorradorReunion(null)}
           onDescartadas={() => { setBorradorReunion(null); setPendientes([]); }}
           // Abrir una que ya cargaste: el detalle se pone adelante y este modal espera
@@ -1537,7 +1600,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
         onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
-    </main>
+    </Marco>
   );
 }
 
@@ -3154,15 +3217,44 @@ function fotoVaciaDeArrastre(dt: DataTransfer) {
  * Trello y Linear— dejó el gesto sin salida (el arnés no completó un solo drop). Eso no vive
  * acá porque acá no se toca ninguna tarjeta: se menciona para que no vuelva.
  */
+/**
+ * EL CONTENEDOR QUE DE VERDAD SCROLLEA arriba de este nodo, o `null` si es la página.
+ *
+ * ⚠️ EXISTE PORQUE EL TABLERO YA NO ES SIEMPRE LA PANTALLA. Adentro de la ficha de un
+ * cliente, el `Modal` de la casa pone `document.body.style.overflow = 'hidden'` y el que
+ * scrollea pasa a ser `.mk-modal__cuerpo`: un `window.scrollBy` ahí no mueve NADA, así que
+ * agarrabas una tarjeta, la llevabas al borde y no pasaba nada. Es literalmente el bug que
+ * AGENTS.md ya tiene medido para `/plan` («19.630 px de tablero contra una ventana de 900,
+ * sin auto-scroll en el camino del mouse»), reproducido un nivel más adentro.
+ *
+ * Se resuelve UNA vez, al agarrar: durante un arrastre el navegador congela `rAF` y los
+ * timers, y lo único que sigue entregando es `dragover` — no es momento de caminar el DOM
+ * en cada evento.
+ */
+function scrollerDe(el: HTMLElement | null): HTMLElement | null {
+  for (let n = el?.parentElement ?? null; n && n !== document.body; n = n.parentElement) {
+    const oy = getComputedStyle(n).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return n;
+  }
+  return null;  // la página: se sigue usando `window`, igual que siempre
+}
+
 function useArrastreCopia() {
   const scrollDir = useRef(0);
+  /** Quién scrollea en ESTE arrastre. `null` = la ventana, que es el caso de `/plan`. */
+  const scroller = useRef<HTMLElement | null>(null);
   const pararScroll = useCallback(() => { scrollDir.current = 0; }, []);
   const empujarScroll = useCallback((clientY: number) => {
     const BORDE = 110;
-    const dir = clientY < BORDE ? -1 : clientY > window.innerHeight - BORDE ? 1 : 0;
+    const sc = scroller.current;
+    // El borde se mide contra la caja del que scrollea, no contra el viewport: adentro de
+    // un modal el tablero empieza 90 px más abajo y termina 90 px más arriba.
+    const arriba = sc ? sc.getBoundingClientRect().top : 0;
+    const abajo = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
+    const dir = clientY < arriba + BORDE ? -1 : clientY > abajo - BORDE ? 1 : 0;
     scrollDir.current = dir;
     if (!dir) { pararScroll(); return; }
-    window.scrollBy(0, dir * 18);
+    if (sc) sc.scrollTop += dir * 18; else window.scrollBy(0, dir * 18);
   }, [pararScroll]);
   useEffect(() => () => pararScroll(), [pararScroll]);
 
@@ -3172,6 +3264,8 @@ function useArrastreCopia() {
 
   const montarCopia = useCallback((origen: HTMLElement, dx: number, dy: number) => {
     soltarCopia();
+    // Quién scrollea se decide acá, en el `dragstart`, y vale para todo el gesto.
+    scroller.current = scrollerDe(origen);
     const r = origen.getBoundingClientRect();
     const nodo = origen.cloneNode(true) as HTMLElement;
     const fondo = getComputedStyle(origen).backgroundColor;
@@ -3797,10 +3891,15 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
   // reunión, por ejemplo), ese otro se esconde mientras esta está arriba y vuelve —con
   // su scroll— al cerrarla. Antes esta se abría DETRÁS y no se veía.
   const capa = useCapaModal(true);
+  // Se pregunta en el MOMENTO de la tecla (es una función, no un boolean): así el handler
+  // no tiene dependencias y no se re-registra cada vez que algo se abre encima.
+  const capaArriba = capa.esElDeArriba;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mako && !escDisabled) { (document.activeElement as HTMLElement)?.blur?.(); salir(); } };
+    // `capaArriba` es la guarda GENERAL (ver `esElDeArriba` en pila-modales): adentro de la
+    // ficha de un cliente hay otra capa visible debajo, y sin esto un Escape cerraba las dos.
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mako && !escDisabled && capaArriba()) { (document.activeElement as HTMLElement)?.blur?.(); salir(); } };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
-  }, [mako, escDisabled, salir]);
+  }, [mako, escDisabled, salir, capaArriba]);
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   const optimizada = t.historial.some((h) => h.text.startsWith('MaKo'));
 
@@ -5169,11 +5268,19 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   /** confirmar lo irreversible: lo pide `TablaTareas`, que ahora dibuja las tareas de acá */
   ask: (msg: string, onOk: () => void) => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
-  // No cerrar con Escape cuando hay una tarea abierta ENCIMA (esa maneja su propio Escape).
+  // ⚠️ `useCapaModal` SUBIÓ ACÁ ARRIBA: el efecto del Escape necesita su valor, y un `const`
+  // no se hoistea. El orden de los hooks cambia en el FUENTE, no entre renders, que es lo
+  // único que a React le importa.
+  const capa = useCapaModal(true);
+  // Se pregunta en el MOMENTO de la tecla (es una función, no un boolean): así el handler
+  // no tiene dependencias y no se re-registra cada vez que algo se abre encima.
+  const capaArriba = capa.esElDeArriba;
+  // No cerrar con Escape cuando hay una tarea abierta ENCIMA (esa maneja su propio Escape),
+  // ni cuando este modal no es el de más arriba de la pila (ver `esElDeArriba`).
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !taskAbierta) { (document.activeElement as HTMLElement)?.blur?.(); onClose(); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !taskAbierta && capaArriba()) { (document.activeElement as HTMLElement)?.blur?.(); onClose(); } };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, taskAbierta]);
+  }, [onClose, taskAbierta, capaArriba]);
   const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
   // Lo ABIERTO se cuenta acá sólo para el rótulo y para el bloque del proyecto vacío: la
   // tabla recibe `suyas` ENTERO y separa sola lo hecho, en su propia fila plegable.
@@ -5182,7 +5289,6 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   const isTop = proj.id === topProjectId;
   // ¿Se repite? Sale del contrato, nunca de `proj.recurrente`. Mismo predicado que la tarea.
   const repiteProj = esRecurrente(proj);
-  const capa = useCapaModal(true);
   return (
     // `z` sigue existiendo como piso para el caso proyecto-debajo-de-tarea, pero quien
     // manda es la pila: el de arriba se ve, los de abajo se esconden.

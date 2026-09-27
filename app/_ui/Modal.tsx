@@ -50,6 +50,7 @@ export function Modal({
   ancho = 600,
   etiqueta,
   anidada = false,
+  contenedor = false,
 }: {
   /** El título de la caja. Es el nombre de LA COSA, no una instrucción. */
   titulo: ReactNode;
@@ -69,8 +70,15 @@ export function Modal({
    *  correcto cuando lo que se abre es OTRA pantalla, y es lo que hacía que elegir
    *  «Personalizado…» pareciera cerrar el detalle. */
   anidada?: boolean;
+  /** ⚠️ ADENTRO DE ESTE MODAL SE ABREN OTROS. Con esto la pila NO lo apaga cuando algo se
+   *  abre encima — y hace falta porque lo que se abre encima es un DESCENDIENTE suyo en el
+   *  DOM: apagarlo con `display:none` apaga también al que se acaba de abrir, y la pantalla
+   *  queda en blanco. Lo usa la ficha de un cliente, que monta el tablero entero adentro.
+   *  Ver el bloque `contenedores` en `app/_components/pila-modales.ts`. */
+  contenedor?: boolean;
 }) {
-  const capa = useCapaModal(true, { anidada });
+  const capa = useCapaModal(true, { anidada, contenedor });
+  const arriba = capa.esElDeArriba;
   const cajaRef = useRef<HTMLDivElement>(null);
   const tituloId = useId();
 
@@ -81,7 +89,12 @@ export function Modal({
     cajaRef.current?.focus();
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); return; }
+      // ⚠️ SÓLO EL DE ARRIBA CIERRA. Los listeners de todos los modales abiertos viven en
+      // `document`, así que sin esta guarda una sola tecla los cierra a todos — y
+      // `stopPropagation` no lo evita, porque frena la propagación a otros NODOS y no a los
+      // otros listeners del mismo. Se ve apenas hay dos capas visibles a la vez (una
+      // `anidada`, o un `contenedor` con el tablero adentro).
+      if (e.key === 'Escape') { if (!arriba()) return; e.stopPropagation(); onCerrar(); return; }
       if (e.key !== 'Tab') return;
       // El ciclo del Tab se cierra adentro de la caja: un modal del que te podés
       // ir con Tab a la página de atrás no es modal para quien usa teclado.
@@ -100,7 +113,11 @@ export function Modal({
       document.removeEventListener('keydown', onKey, true);
       previo?.focus?.();
     };
-  }, [onCerrar]);
+    // `arriba` es estable (un `useCallback` con el id de la capa como única dependencia),
+    // así que este efecto sigue corriendo UNA vez. Ponerlo acá y no en un ref es lo que
+    // evita que el cleanup —que devuelve el foco— se dispare cada vez que algo se abre
+    // encima.
+  }, [onCerrar, arriba]);
 
   // El fondo no scrollea mientras hay un modal, pero lo bloquea SOLO el primero:
   // con dos abiertos, el de arriba al cerrarse devolvería el scroll con el de

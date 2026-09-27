@@ -3002,6 +3002,39 @@ tope fijo necesita las dos cosas:
 
 Vive en `app/admin/dev/pricing/Piezas.tsx` → `Barras`.
 
+# Montar una PANTALLA adentro de un modal: lo que el componente asume por ser la pantalla
+
+Un componente de ruta toca cosas GLOBALES sin decirlo, y adentro de otra pantalla cada una
+de esas cosas deja de ser suya. Antes de montar uno adentro de un modal (o de un panel, o
+de otra ruta), enumerá las seis y decidí QUÉ hace cada una embebido:
+
+| Qué | Por qué rompe |
+|---|---|
+| La URL como estado | Escribe y LEE los parámetros de OTRA ruta. Al volver a entrar, se reabre solo lo que dejó escrito |
+| `document` / `window` listeners | Escape, teclas, `dragover`. Dos pantallas escuchando lo mismo cierran las dos |
+| `localStorage` | La clave es la misma: la preferencia de una se aplica en la otra, y lo que una «marca como visto» se lo consume a la otra |
+| `<main>` y los altos en `vh` | Un `<main>` dentro de otro no es HTML válido, y 100vh adentro de una caja topada fuerza scroll siempre |
+| `window.location.reload()` | Lo que la pantalla de afuera tiene en estado de React no vuelve. Recargar la EXPULSA |
+| Los pop-ups que se auto-abren | Contestan «acabás de entrar a tu tablero», que embebido es la pregunta de otro alcance |
+
+Va UNA prop —`embebido`— y no seis: son la misma decisión. Y es una PROP, no algo deducido
+de otra (en este repo, de `clienteFijo`): «es de este cliente» y «no soy la ruta» son dos
+hechos distintos, y el día que uno valga sin el otro, deducirlo miente.
+
+⚠️ **Y LA PILA DE MODALES NECESITA QUE EL DE ABAJO SE DECLARE.** `app/_components/pila-modales.ts`
+esconde con `display:none` a la capa que tenga otra encima — y si el que se abre encima es
+un DESCENDIENTE del DOM del de abajo (el caso de un modal que contiene una pantalla), se
+apaga con él: se monta, se pinta `display:flex`, le toca un z más alto, y no se ve nada.
+Eso es `contenedor`. No se arregla marcando `anidada` a los de arriba: `anidada` también
+apaga la semántica de REEMPLAZO que esos modales tienen entre sí donde SÍ son la pantalla.
+
+⚠️ **Y UN VALOR QUE INYECTA EL REPO TIENE QUE VOLVER AL ESTADO.** Si el parent envuelve
+`createX` para agregarle un campo (acá, el cliente de la ficha), el merge posterior al alta
+tiene que copiarlo de vuelta: el guardado siguiente es un upsert de la fila ENTERA armada
+desde el navegador, así que lo que el estado local no tenga sale como `null`. Nace bien y
+se borra solo, sin un error, sin un 4xx y con la tarjeta a la vista. Es la misma trampa que
+los mappers de lectura, del lado de la escritura.
+
 # Un componente COMPARTIDO no lleva el endpoint adentro: lleva la capacidad del Repo
 
 Si dos productos distintos montan el mismo componente —en este repo, `BoardShell` es el

@@ -156,7 +156,19 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     try {
       const canon = await repo.createTask(draft);
       // preservar ediciones en vuelo: mantenemos el task local y solo fijamos el id real
-      setTasks((ts) => ts.map((x) => (x.id === draft.id ? { ...x, id: canon.id, num: canon.num || x.num, origen: canon.origen } : x)));
+      //
+      // ⚠️ Y EL CLIENTE, QUE LO PONE EL REPO Y NO EL BORRADOR. Cuando el tablero está
+      // filtrado a un cliente (la ficha de Customer Success), `clienteFijo` envuelve
+      // `repo.createTask` e inyecta el lead: el borrador local NO lo conoce. Si no se
+      // copia de vuelta acá, el `markDirty` de la línea siguiente dispara un `saveTask`
+      // con el task LOCAL —que no lo tiene— y el upsert de la fila entera lo manda como
+      // `null`: la tarea nace con dueño y lo pierde milisegundos después, sin un solo
+      // error. Al recargar ya no está en la ficha, que es exactamente el modo de falla que
+      // el docstring de `clienteFijo` dice estar evitando. Medido el 27/09/2026.
+      //
+      // `?? x.clienteLeadId` y no a secas: un repo que NO inyecta nada (el tablero normal)
+      // devuelve el borrador tal cual, y ahí lo que vale es lo que ya tenía el local.
+      setTasks((ts) => ts.map((x) => (x.id === draft.id ? { ...x, id: canon.id, num: canon.num || x.num, origen: canon.origen, clienteLeadId: canon.clienteLeadId ?? x.clienteLeadId, clienteNombre: canon.clienteNombre ?? x.clienteNombre } : x)));
       markDirty(canon.id);
       draft.labels.forEach((lid) => logProject(lid, `Agregó la tarea «${v.slice(0, 38)}»`));
       return { ...draft, id: canon.id };

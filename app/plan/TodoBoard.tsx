@@ -49,7 +49,17 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, onRecargar }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+  /**
+   * ⚠️ ESTE TABLERO VIVE ADENTRO DE OTRA PANTALLA (hoy, la ficha de un cliente). Apaga el
+   * uso de la URL como estado: ver `embebido` en `BoardShell`. Es una prop y no se deduce
+   * de `clienteFijo` a propósito — «es de este cliente» y «no soy la ruta» son dos hechos
+   * distintos, y el día que uno valga sin el otro, deducirlo miente.
+   */
+  embebido?: boolean;
+  /** Cómo recargar después de una escritura grande del server. Ver `onRecargar` en
+   *  `BoardShell`: embebido, un `reload()` cierra la pantalla que lo contiene. */
+  onRecargar?: () => void;
   /**
    * ⚠️ EL TABLERO ESTÁ FILTRADO A UN CLIENTE, así que lo que se cree adentro nace SUYO.
    * Sin esto, una tarea creada desde la página de un cliente aparecería… y desaparecería
@@ -89,8 +99,17 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
       if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto
+      //
+      // ⚠️ Y EL CLIENTE VIAJA EN ESE PATCH, o el `editar` BORRA lo que el alta de arriba
+      // acaba de escribir: `editPatch` manda `cliente_lead_id: d.clienteLeadId ?? null` y
+      // `d` es el borrador LOCAL, que no conoce `clienteFijo`. El `?? null` está bien y no
+      // se toca (es lo que permite desasignar); lo que faltaba es que el borrador llegue
+      // acá con el cliente puesto. Medido el 27/09/2026.
       if (d.detalle || d.checklist.length || d.deadline || d.labels.length || d.enPrioridad || d.progress) {
-        const j2 = await api({ action: 'editar', id: t.id, patch: editPatch(d) });
+        const conCli = clienteFijo
+          ? { ...d, clienteLeadId: clienteFijo.leadId, clienteNombre: clienteFijo.nombre }
+          : d;
+        const j2 = await api({ action: 'editar', id: t.id, patch: editPatch(conCli) });
         if (j2.ok && j2.tarea) t = j2.tarea;
       }
       return toBoard(t);
@@ -126,7 +145,7 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null, portada: l.portada ?? null });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? clienteFijo?.leadId ?? null, cliente_nombre: l.clienteNombre ?? clienteFijo?.nombre ?? null, portada: l.portada ?? null });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
     saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null, portada: l.portada ?? null } }); },
@@ -149,5 +168,8 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);
   // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
   // el board de la agencia ni con otro workspace en la misma impersonación/origin.
-  return <BoardShell board={board} scope={wsId != null ? `ws:${wsId}` : undefined} vistaInicial={vistaInicial} clientes={clientes} />;
+  // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
+  // tablero general esconde el tablero de la ficha sin decir por qué.
+  const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
+  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} onRecargar={onRecargar} />;
 }
