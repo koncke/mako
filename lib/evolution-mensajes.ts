@@ -16,6 +16,7 @@ import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution,
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
+import { grupoSeGuarda } from '@/lib/grupos-guardados';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
 import { telefonosBloqueados, telefonosOcultos } from '@/lib/evolution-block';
 import { getNombresContacto } from '@/lib/evolution-contactos';
@@ -120,15 +121,25 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   // Canonicalizar @lid → número real (si Baileys mandó el alt) para que el
   // entrante caiga en la conversación del número, no en un hilo @lid aparte.
   const chatJid = jidCanonico(key) ?? key.remoteJid;
-  // Ignoramos grupos y estados (además de groupsIgnore en Evolution).
-  if (chatJid.endsWith('@g.us') || chatJid.startsWith('status@')) return;
+  // Los estados nunca. Los grupos, sólo los de la lista EXPLÍCITA
+  // (`lib/grupos-guardados.ts`): la línea de voz de MaKo es el WhatsApp personal de
+  // Martín y tiene 77 grupos, así que la puerta se abre por nombre y no por descarte.
+  if (chatJid.startsWith('status@')) return;
+  const esGrupo = chatJid.endsWith('@g.us');
+  if (esGrupo && !grupoSeGuarda(chatJid)) return;
 
   const fromMe = !!key.fromMe;
   // Si la canonicalización de arriba no encontró el número real, chatJid sigue
   // siendo un @lid (alias interno de Meta) — guardarlo como "teléfono" mostraba
   // ese ID de 15 dígitos como si fuera un número de verdad, y ningún cruce por
   // teléfono (lead, nombre de agenda, foto) lo iba a encontrar jamás.
-  const telefono = chatJid.endsWith('@lid') ? null : normalizarTelefono(jidToNumero(chatJid));
+  //
+  // ⚠️ Y UN GRUPO TAMPOCO TIENE TELÉFONO. Fabricarle uno es el incidente de los
+  // 1.438 contactos otra vez: `jidToNumero('120363411300409914@g.us')` devuelve ese
+  // número de 18 dígitos, y desde ahí `matchLeadPorTelefono` puede engancharlo con
+  // un lead real y `pausarPorRespuesta` pausarle la nutrición a alguien que no
+  // escribió. Se guarda como lo que es: una conversación sin teléfono y sin lead.
+  const telefono = esGrupo || chatJid.endsWith('@lid') ? null : normalizarTelefono(jidToNumero(chatJid));
   const { tipo, texto, mediaMime, mediaBase64, ext } = extraerContenido(data);
 
   const supabase = await getTenantDb();
@@ -183,7 +194,10 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
 
   // El lead RESPONDIÓ (mensaje entrante REAL, no reacción/protocolo) → pausar su
   // nutrición, como el webhook de Chatwoot. Solo en el insert (no re-entregas).
-  if (!fromMe && leadId && tipo !== 'evento' && tipo !== 'otro') {
+  // (Con `telefono` en null, un grupo nunca resuelve `leadId`, así que esta rama no
+  // lo alcanza. El `!esGrupo` es explícito igual: que la protección se LEA acá y no
+  // dependa de una implicación a tres saltos de distancia.)
+  if (!esGrupo && !fromMe && leadId && tipo !== 'evento' && tipo !== 'otro') {
     // El texto va para el modo asistido: MaKo redacta el borrador de respuesta.
     try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined }); } catch { /* no fatal */ }
   }
