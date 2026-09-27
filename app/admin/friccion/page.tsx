@@ -67,20 +67,46 @@ type Fila = {
   aplicado?: true;
 };
 
+/**
+ * ⚠️ LAS TRES SE APLICARON EL 27/09/2026 SIN QUE MAURICIO CONTESTARA, por pedido de
+ * Martín («aplicalo todo»), y en la versión que CONSERVA lo que cada regla protegía.
+ * La pregunta sigue abierta y el grupo se queda: lo que cambió es que ninguna frena.
+ *
+ * Y dos de las tres preguntas llegaron con la PREMISA EQUIVOCADA — eso también hay
+ * que decírselo, porque cambia la respuesta:
+ *
+ *  1. «el texto obligatorio, sabiendo que NADA LO LEE» → sí lo lee alguien: va al
+ *     historial del lead (se dibuja en `AuditHistory`) y sale por la API de MaKo
+ *     (`historial_lead`), o sea por WhatsApp y por la skill. Lo que no hay es un
+ *     lector que DECIDA algo con él. Y la misma acción por MaKo ya lo tiene opcional:
+ *     la app era más estricta que su propia API. Se sacó el candado, no el campo.
+ *
+ *  2. «cada arrastre pide confirmación» → las dos redes que la volvían redundante
+ *     existen y están medidas: el deshacer de 5 s escribe en el SERVER y el
+ *     movimiento queda en el historial. Quedó CONDICIONAL: sigue apareciendo cuando
+ *     hay algo que ofrecerle a Meta, que es el único momento en que esos dos datos
+ *     se pueden dar.
+ *
+ *  3. «¿previsualización antes o deshacer después?» → la contestó el repo en todo lo
+ *     demás (app/_ui/Toast.tsx). Va el deshacer, y escribe en el server.
+ */
 const ESPERA_RESPUESTA: Fila[] = [
   {
+    aplicado: true,
     que: 'Agendar una reunión',
     ejemplo: 'Arrastras a Carlos Mejía a Agenda R1 y no se mueve: primero un menú de 3 opciones, después un asistente de 3 pasos. Si eliges «ya está agendada», no te deja seguir hasta escribir por qué no usaste Calendly.',
     costo: '~10 clics por día',
     pregunta: '¿Ese texto obligatorio lo quieres como freno a propósito, sabiendo que nada lo lee?',
   },
   {
+    aplicado: true,
     que: 'Confirmar cada arrastre',
     ejemplo: 'Arrastras a Gerardo Avila a Ganado y se abre «Mover a Ganado a Gerardo Avila»: hay que apretar otra vez. Lo pediste el 06/08, y desde entonces el toast «Deshacer» dura 5 segundos y el movimiento queda en el historial.',
     costo: '5 clics por día',
     pregunta: '¿Vale también para algo que ya se deshace en 5 segundos y queda en el historial?',
   },
   {
+    aplicado: true,
     que: 'Corregir un teléfono',
     ejemplo: 'A Alejandro Prado le quedó el teléfono con caracteres raros. En la ficha el teléfono es un botón de COPIAR: hay que ir a otra pantalla, prender «Editar», guardar, confirmar los cambios en un modal, y al volver el tablero se recarga entero.',
     costo: '5 clics + 2 recargas, cada vez',
@@ -245,7 +271,7 @@ export default async function FriccionPage() {
     <Pagina>
       <PageHeader
         titulo="Fricción del CRM"
-        proposito="Dónde te frena, ordenado por lo que más molesta. Contesta las tres primeras y el resto lo hago."
+        proposito="Dónde te frena, ordenado por lo que más molesta. Está todo aplicado: las tres primeras salen de reglas tuyas y se hicieron conservando lo que cada una protegía — si prefieres la versión anterior, dilo."
         // Lo primero que se lee, porque es lo que la versión anterior no contestaba.
         estado={
           <span style={{ fontSize: 13, color: 'var(--ink)' }}>

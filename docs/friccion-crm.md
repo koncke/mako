@@ -7,9 +7,31 @@ Orden: **lo que más molesta arriba** = cuán seguido aparece × cuánto cuesta 
 
 ---
 
-## 1 · Lo que necesito que decidas
+## 1 · Lo que necesito que decidas — ✅ APLICADAS el 27/09, en la versión que CONSERVA la protección
 
 Las tres salen de reglas que pediste vos, así que sacarlas es cambiar tu propia regla.
+**La pregunta sigue abierta**: se aplicó lo que saca la fricción sin perder lo que cada
+regla protegía, y si preferís la versión anterior es un cambio de una línea en cada una.
+
+⚠️ **Y DOS DE LAS TRES PREGUNTAS TENÍAN LA PREMISA EQUIVOCADA.** Esto cambia la respuesta,
+así que va antes que nada:
+
+1. «el texto obligatorio, sabiendo que **nada lo lee**» → **sí lo lee alguien.** Va al
+   historial del lead (se dibuja en su pestaña) y sale por la API de MaKo, o sea por
+   WhatsApp y por la skill del cliente. Lo que no hay es un lector que DECIDA algo con él.
+   Y la misma acción hecha por MaKo ya lo tenía opcional: **la app era más estricta que su
+   propia API.** Por eso no se sacó el campo, se sacó el candado.
+2. «cada arrastre pide confirmación» → las dos redes que la vuelven redundante existen y
+   están medidas: el deshacer de 5 s **escribe en el server** (no revierte sólo la
+   pantalla) y el movimiento queda en el historial. Quedó **condicional**: sigue
+   apareciendo cuando hay algo que ofrecerle a Meta, que es el único momento en que esos
+   dos datos se pueden dar.
+3. «¿previsualización antes o deshacer después?» → la contestó el repo en todo lo demás.
+   Va el deshacer, y también escribe en el server.
+
+Y una que conviene saber: `undoStageMoveAction` **borra todo `lead_audit` de los últimos
+90 s**, así que apretar «Deshacer» en el toast que el propio guardado dispara se lleva el
+texto de la excepción que te acababa de obligar a escribir.
 
 | Qué te frena hoy | Cuesta | La pregunta |
 |---|---|---|
@@ -92,6 +114,22 @@ Dos cosas quedaron a propósito distintas de lo relevado:
 | La confirmación antes de generar Insights | Gasta plata de IA, y son dos llamadas encadenadas |
 | Subir el comprobante al marcar una cuota | Da la fecha **real** del cobro. Ya se puede saltear |
 | La pantalla final del reagendado | Cuenta algo que no se sabía al confirmar: si Google movió el evento |
+
+---
+
+## 5.b · Lo único que queda abierto, y es una decisión de producto
+
+**Un formulario inalcanzable con una columna huérfana detrás.** El paso `r2Motivo` de
+`StageMoveDialog` sólo se dibuja si los requisitos piden `r2Respuestas`, y desde la tanda 2
+eso no lo emite nadie: el paso está muerto. Era el **único camino de UI** que escribía
+`r2_agenda_externa_motivo` — y esa columna SÍ se lee, como exención permanente del
+requisito de R2 (`lib/leads.ts`, el `||` de `r2RespuestasOk`). Hoy ese `||` es letra muerta
+para todo lead nuevo.
+
+No se toca sin decidirlo, porque las dos salidas son opuestas: **borrar** el paso y la
+exención (y entonces nadie puede volver a eximir a un lead), o **devolverle un camino** a
+esa columna. Lo que no puede quedar es lo de hoy: un formulario al que no se llega con una
+columna que el código sigue consultando.
 
 ---
 
