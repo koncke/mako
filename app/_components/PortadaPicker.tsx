@@ -415,7 +415,7 @@ function Subir({ onElegir }: { onElegir: (v: string) => void }) {
       </button>
       {/* Tres palabras y el techo. El porqué de cada formato vive en el comentario
           de `sniffImagen`, no acá (AGENTS.md: la pantalla dice QUÉ, no POR QUÉ). */}
-      <p className="pp-ayuda">o soltala acá · JPG, PNG, WEBP o GIF · hasta 6MB</p>
+      <p className="pp-ayuda">o suéltala aquí · JPG, PNG, WEBP o GIF · hasta 6MB</p>
       {mal && <p className="pp-mal">{mal}</p>}
     </div>
   );
