@@ -70,7 +70,7 @@ Dos cosas quedaron a propósito distintas de lo relevado:
 | Qué | Cada cuánto | Qué se rompe si se saca |
 |---|---|---|
 | Entrar al CRM: pantalla vieja, sin esqueleto, hasta que terminan **tres olas** de consultas que ni corren en paralelo | Cada entrada y después de **cada cambio** | Nada. Ojo: esa pasada es la que cierra el historial de etapas sin cron — hay que mudarla, no perderla |
-| El tablero abre con **1.138 tarjetas**; el pipeline que trabajás son ~34 | Siempre | Nada. Arrancar con nutrición y salidas apagadas; el botón ya existe |
+| El tablero abre con **1.138 tarjetas**; el pipeline que trabajás son ~34 | Siempre | ⛔ **Probado y REVERTIDO el 27/09**: arrancaba solo con Activo y Martín lo devolvió — «que estén siempre activos». El diagnóstico sigue en pie; el remedio no |
 | El asistente pregunta si querés que busque solo | Cada «Solucionar» con reunión | Nada: **ya engancha Fathom solo** en cada carga |
 | «Ignorar» un aviso pide una confirmación de 3 renglones sobre algo reversible | Seguido: 21 leads ignorados | Cambiarla por «hecho · deshacer» conserva la red |
 | Cada fila del worklist es un párrafo; «Ignorar todos» son 44 palabras | Siempre | El detalle **tiene que seguir en el dato** o «Marcar en lote» pierde esos leads |

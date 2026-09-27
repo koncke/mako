@@ -129,8 +129,14 @@ const SACAR: Fila[] = [
 const CAMBIAR: Fila[] = [
   { aplicado: true, que: 'Entrar al CRM: pantalla vieja, sin aviso de que está cargando',
     ejemplo: 'Haces clic y no pasa nada —ni esqueleto ni spinner— hasta que el servidor lee tus 1.142 leads. Y vuelve a pasar después de cada cambio.' },
-  { aplicado: true, que: 'El tablero abre con todo',
-    ejemplo: 'Se dibujan 1.142 tarjetas: las 26 de Activo quedan entre 1.089 de nutrición y 23 descartadas. Apagar una banda es un clic DESPUÉS de dibujarla, y no se recuerda.' },
+  // ⚠️ APLICADA Y REVERTIDA EL MISMO DÍA, por decisión de Martín: «tampoco hagas que
+  // al entrar al CRM esté desmarcado nutrición y descartado, que estén siempre
+  // activos» (27/09/2026). El diagnóstico sigue en pie y por eso la fila se queda:
+  // son 1.089 tarjetas de nutrición alrededor de las 26 que se trabajan. Lo que pierde
+  // es el remedio — entrar al tablero y no ver un lead que uno sabe que existe es peor
+  // que verlo entre muchos.
+  { que: 'El tablero abre con todo',
+    ejemplo: 'Se dibujan 1.142 tarjetas: las 26 de Activo quedan entre 1.089 de nutrición y 23 descartadas. Probamos arrancar solo con Activo y lo revertimos: prefiere verlas todas y apagar lo que no quiere.' },
   { aplicado: true, que: 'El asistente pregunta si quieres que busque solo',
     ejemplo: '«¿Buscamos los datos automáticamente?» — MaKo ya engancha Fathom solo en cada carga del CRM. La mitad de lo que ofrece ya pasó.' },
   { aplicado: true, que: '«Ignorar» un aviso pide confirmación',

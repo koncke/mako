@@ -2916,3 +2916,91 @@ proyecto que se abrió, la columna derecha del detalle **entra sin scroll**
 contenedor no burbujea) y la matemática la fija `tests/portada-popover-ubicacion.test.ts`;
 lo que falta es el gesto. Hace falta un proyecto con la columna derecha más larga que la
 ventana.
+
+## Medir un ancho con la fuente de FALLBACK es medir otra cosa — 8,8 px (27/09/2026)
+
+El aviso de «datos sin marcar» tenía que entrar en un renglón debajo del desplegable de
+etapa (210 px). Se midió en el navegador, con los estilos exactos, y dio **205,8 px**:
+entra. En pantalla se partía en dos.
+
+La medición se hizo en una página donde el bloque declaraba
+`font-family: 'Geist', system-ui, sans-serif` y **Geist no estaba cargada**, así que midió
+**system-ui**. Con Geist de verdad el mismo contenido mide **214,6**. La diferencia —8,8 px—
+era exactamente todo el margen que había.
+
+**La regla:** antes de leer un ancho, esperar la fuente.
+
+```js
+await document.fonts.load("650 12.5px Geist");
+await document.fonts.ready;
+// y comprobarlo, que es una línea:
+getComputedStyle(nodo).fontFamily            // qué pidió
+document.fonts.check("650 12.5px Geist")     // qué hay
+```
+
+⚠️ **Y el olor que lo delata sin medir de nuevo: un resultado que entra por poco.** 205,8
+contra 210 son 4,2 px de holgura, o sea 2%. Una medida tipográfica con 2% de margen no es
+un «entra»: es un «entra con esta fuente, este peso, este idioma y este número de dígitos».
+Cuando el margen es así de fino, la respuesta no es afinar la medición — es sacarle el
+problema al layout.
+
+⚠️ **Por eso la garantía va en el CSS y el texto se elige con la medición, no al revés.**
+`flex-wrap: nowrap` no depende de ninguna fuente: es un renglón, siempre, en cualquier
+idioma y con cualquier conteo. Lo que la medición decide es el COPY —acá, sacar la palabra
+«datos» (38 px que no dicen nada nuevo debajo de la etapa del lead) y dejar UNA acción en el
+caso raro—, que es lo que además evita que la columna se ensanche. Si la garantía cuelga de
+un número, el día que cambie la fuente vuelve el bug.
+
+**Vive en:** `app/crm/lead-view/DatosSinMarcarCard.tsx` · *2026-09-27 aviso-un-renglon*
+
+## Una rotura que no toca el código no prueba nada (27/09/2026)
+
+La regla de la casa es probar cada test rompiéndolo. Dos veces el mismo día la rotura salió
+verde, y las dos veces la conclusión rápida —«el test no mide»— era falsa la segunda:
+
+1. **El test no medía.** La aserción de posición pedía «después del desplegable y antes de
+   las tabs»; la rotura devolvió el aviso a su franja vieja, que también está entre las dos.
+   Arreglo: reanclar al arranque del CUERPO. ⚠️ Y el ancla tiene que ir en **código**: el
+   test lee el fuente sin comentarios, así que un ancla comentada no se encuentra nunca y el
+   test falla por eso, no por lo que persigue.
+
+2. **El test estaba bien y la ROTURA estaba mal.** `s.replace("flexWrap: 'nowrap'", ...)`
+   con `count=1` pegó en el **comentario** que explica la regla —está más arriba en el
+   archivo— y no en la línea de estilo. El código quedó intacto, así que el test pasó, con
+   razón.
+
+**La regla: después de romper, verificar que se rompió LO QUE SE CREE.** Un `grep -n` del
+patrón antes de reemplazar (¿cuántas veces aparece? ¿la primera es la que quiero?) o un diff
+de la rotura. Cuesta un comando.
+
+⚠️ **Y el caso 2 es específico de este repo, donde los comentarios explican la regla que el
+código implementa.** Cada vez que un comentario cita literalmente la línea que documenta
+—que acá es la convención— hay DOS ocurrencias de ese texto, y la del comentario está
+primero. Es la misma familia que «el analizador se lee a sí mismo», del lado del que edita.
+
+**Vive en:** `tests/crm-ficha-y-selector.test.ts` · *2026-09-27 aviso-un-renglon*
+
+## Un arreglo correcto puede perder contra lo que la persona espera ver (27/09/2026)
+
+«El tablero abre con 1.138 tarjetas y el pipeline que trabajás son ~34» es un diagnóstico
+medido y cierto: las 26 de Activo quedan entre 1.089 de nutrición y 23 descartadas. El
+arreglo —arrancar sólo con la banda de Activo, recordando lo que se apague— se aplicó, y se
+revirtió el mismo día: *«tampoco hagas que al entrar al CRM esté desmarcado nutrición y
+descartado, que estén siempre activos»*.
+
+**El diagnóstico se queda; el remedio se va.** La fila no se marca como aplicada ni se borra
+del plan: queda con lo que se probó y por qué volvió. Un relevamiento del que se borran los
+intentos fallidos invita a repetirlos.
+
+**Lo que lo explica, y sirve para cualquier «mostrar menos por defecto»:** ver de más cuesta
+atención, y no ver algo que uno sabe que existe cuesta CONFIANZA en la herramienta. Lo
+segundo es más caro, y no se nota en ninguna métrica de la pantalla — se nota cuando alguien
+deja de usarla.
+
+⚠️ **Y la persistencia era la mitad no pedida del problema.** Revertir sólo el default no
+alcanzaba: con `localStorage`, apagar nutrición UNA vez dejaba cada entrada siguiente con
+ella apagada, que es exactamente «al entrar está desmarcado» por otra puerta. Cuando se
+revierte un «por defecto», hay que mirar si además quedó memoria de la elección.
+
+**Vive en:** `app/crm/CrmBoard.tsx` (`KANBAN_BANDS`) · `docs/friccion-crm.md` §4 ·
+*2026-09-27 aviso-un-renglon*
