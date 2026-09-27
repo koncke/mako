@@ -2778,10 +2778,10 @@ div:hover > .pd-acciones, .pd-acciones:focus-within{ opacity:1; }
 .pd-pill:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 .pd-icono{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; padding:0; }
 /* El icono CRUZA el borde de abajo de la portada: mitad sobre la imagen, mitad sobre
-   el header. 104 de banda menos 27 (la mitad de 54) = 77. Absoluto y no un margen
+   el header. 124 de banda menos 27 (la mitad de 54) = 97. Absoluto y no un margen
    negativo en la fila: con el margen sube TODO y el titulo queda escrito sobre la
    foto, que con un degradado claro se lee y con un bosque no. */
-.pd-marca{ position:absolute; left:20px; top:77px; z-index:2; padding:0; border:0;
+.pd-marca{ position:absolute; left:20px; top:97px; z-index:2; padding:0; border:0;
   background:none; cursor:pointer; line-height:0; border-radius:14px;
   box-shadow:0 0 0 3px var(--surface); }
 .pd-marca:hover{ filter:brightness(.94); }
@@ -4361,7 +4361,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
       // ⚠️ SELECCIONADO SE DICE CON EL FONDO Y EL BORDE, igual que la tarjeta de una tarea:
       // la casilla marcada sola es de 14 px en una tarjeta de 360 de alto, así que de un
       // vistazo no se ve cuántas hay elegidas.
-      style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s, background .12s' }}
+      style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, position: 'relative', transition: 'border-color .12s, background .12s' }}
       onMouseEnter={(e) => { if (!elegido) e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(true); }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(false); }}>
       {/* LA PORTADA (mig 0173), sangrando el padding para llegar a los bordes de la
           tarjeta. Se dibuja SÓLO si la eligieron: sin esto, todas las tarjetas nacerían con
@@ -4377,30 +4377,44 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           Medido: de 71 proyectos, CERO tenían una elegida — así que la feature existía
           y no se veía en ninguna tarjeta. Y la card de un CLIENTE ya dibujaba su banda
           siempre: dos tarjetas hermanas con dos reglas distintas para el mismo campo. */}
-      <div aria-hidden style={{ position: 'relative', margin: '-16px -16px 6px', height: 78 }}>
+      <div aria-hidden style={{ position: 'relative', margin: '-16px -16px 6px', height: 92 }}>
         <div style={{ height: '100%', borderRadius: '11px 11px 0 0',
           background: fondoPortada(l.portada, l.color, l.portadaY) }} />
         {/* ⚠️ EL ÍCONO CRUZA LA PORTADA, igual que en el detalle y en la ficha de un
             cliente — «que el emoji lo cruza, y el título acompaña». Acá va a 34 px y
             no a 54: es la MISMA anatomía a otra escala, no otra pieza. Y el renglón de
             abajo no cambia de alto, así que la tarjeta conserva su largo (360). */}
-        <span style={{ position: 'absolute', left: 16, top: 61, borderRadius: 10, lineHeight: 0,
+        <span style={{ position: 'absolute', left: 16, top: 75, borderRadius: 10, lineHeight: 0,
           boxShadow: '0 0 0 3px var(--surface)' }}>
           <Marca icono={l.icono} emoji={l.emoji} nombre={l.name} tam={34} color={l.color} cuadrado />
         </span>
       </div>
+      {/* ⚠️ LA CASILLA SE MUDÓ A LA ESQUINA DE LA PORTADA, y no es cosmética: el ícono
+          que cruza la banda vive en `left: 16` y baja hasta 11 px DENTRO de este
+          renglón, así que la casilla quedaba debajo del ícono — «mira cuando paso el
+          cursor, para seleccionar, se tapa por la foto» (27/09/2026). Es el costo de
+          que el ícono cruce, y lo paga el control que menos lugar necesita.
+          Arriba a la izquierda de la banda no choca con nada: el ícono cruza abajo y
+          los chips viven a la derecha. `stopPropagation` porque la tarjeta entera abre
+          el detalle: sin eso, tildar un proyecto lo abriría encima de la grilla. */}
+      {onElegir && (hoverSel || haySeleccion) && (
+        <input type="checkbox" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
+          title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
+          style={{ position: 'absolute', left: 10, top: 10, zIndex: 2, width: 15, height: 15,
+            cursor: 'pointer', accentColor: 'var(--primary)', margin: 0,
+            // Un velo detrás: la casilla de un navegador es casi blanca y sobre una
+            // foto clara desaparece. Es la misma razón por la que las píldoras de la
+            // portada son oscuras translúcidas y no del color de la casa.
+            boxShadow: '0 0 0 3px rgba(255,255,255,.85), 0 1px 3px rgba(18,21,27,.25)',
+            borderRadius: 3 }} />
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* ⚠️ `stopPropagation` EN EL CLICK: la tarjeta entera abre el detalle, así que sin
-            esto tildar un proyecto lo abriría encima de la grilla. */}
-        {onElegir && (hoverSel || haySeleccion) && (
-          <input type="checkbox" checked={elegido} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(l.id)}
-            title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
-            style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', margin: 0 }} />
-        )}
-        {/* ⛔ ACÁ ESTABA EL EMOJI, y se fue arriba a cruzar la banda. Dibujarlo en los
-            dos lados serían dos marcas de la misma cosa a 20 px de distancia. El pid
-            arranca donde termina el ícono que cruza. */}
-        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginLeft: 38 }}>{l.pid}</span>
+        {/* ⛔ ACÁ ESTABAN EL EMOJI Y EL PID. El emoji se fue arriba a cruzar la banda
+            —dibujarlo en los dos lados serían dos marcas de la misma cosa a 20 px—, y
+            el pid se fue al detalle: «quita el ID, que queda feo allí, solo en el
+            detail» (27/09/2026). En la grilla no sirve para nada, porque nadie busca
+            un proyecto por su número mirando 70 tarjetas; en el detalle sí, que es
+            donde se lo copia para nombrarlo en otro lado. */}
         <span style={{ flex: 1 }} />
         {completo && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
         {/* ⚠️ «Se repite», SÓLO EL ÍCONO, igual que en la tarjeta de una tarea y por el mismo
@@ -5402,7 +5416,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             <div aria-hidden ref={repoProj.props.ref}
               onPointerDown={repoProj.props.onPointerDown} onPointerMove={repoProj.props.onPointerMove}
               onPointerUp={repoProj.props.onPointerUp} onPointerCancel={repoProj.props.onPointerCancel}
-              style={{ height: 104, background: fondoPortada(proj.portada, proj.color, proj.portadaY), ...repoProj.props.style }} />
+              style={{ height: 124, background: fondoPortada(proj.portada, proj.color, proj.portadaY), ...repoProj.props.style }} />
             {repoProj.activo
               ? <BarraReposicion onGuardar={repoProj.guardar} onCancelar={repoProj.cancelar} />
               : (

@@ -131,7 +131,7 @@ export const CSS_CLIENTE = `
 .cl-card:hover{ border-color:var(--border-strong); box-shadow:0 6px 18px rgba(18,21,27,.06); }
 .cl-card:focus-visible{ outline:none; box-shadow:var(--focus-ring); }
 
-.cl-banda{ display:block; height:64px; width:100%; }
+.cl-banda{ display:block; height:74px; width:100%; }
 /* El avatar MONTADO sobre la banda, como en la referencia: medio adentro y medio afuera.
    El margen negativo es la mitad de su alto, y el anillo lo despega del degradado. */
 .cl-avwrap{ display:block; margin:-22px 0 0 16px; }

@@ -178,3 +178,53 @@ export async function guardarImagenClienteAction(leadId: number, cambio: {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }
 }
+
+/**
+ * EL NOMBRE Y LA EMPRESA de un cliente, editables en el lugar.
+ *
+ * «Debería poder editar el nombre del cliente junto con la empresa. Solo clickeando
+ * y escribiendo, como los títulos o las descripciones de la tarea, que no parezca
+ * que haya un recuadro de texto» (27/09/2026).
+ *
+ * ⚠️ ESCRIBE `leads`, QUE ES EL CRM. No hay una tabla de clientes: un cliente es un
+ * lead ganado (`lib/clientes-ganados.ts`), así que renombrarlo acá lo renombra en el
+ * CRM, en el funnel y en cada conversación que lo muestre. Es lo correcto —son la
+ * misma persona— y hay que saberlo: no es un apodo local de esta pantalla.
+ *
+ * ⚠️ Y EL NOMBRE VACÍO NO SE GUARDA. El nombre es lo que identifica a la fila en
+ * media app y además de él sale el color y las iniciales; dejarlo en blanco por un
+ * borrado accidental deja una tarjeta anónima que nadie sabe de quién es. La empresa
+ * sí puede quedar vacía: es un dato opcional de verdad.
+ */
+export async function guardarDatosClienteAction(leadId: number, cambio: {
+  nombre?: string;
+  empresa?: string | null;
+}): Promise<{ ok: true; nombre: string; empresa: string | null } | { ok: false; error: string }> {
+  try {
+    // El mismo guard que el resto de la pantalla: sin esto, un POST con el id de un
+    // lead ajeno escribiría sobre la ficha de otro inquilino.
+    const cliente = await clienteDelWorkspace(leadId);
+    if (!cliente) return { ok: false, error: 'Ese cliente no es de este workspace.' };
+
+    const upd: Record<string, unknown> = {};
+    if (cambio.nombre !== undefined) {
+      const n = cambio.nombre.trim().slice(0, 120);
+      if (!n) return { ok: false, error: 'El nombre no puede quedar vacío.' };
+      upd.nombre = n;
+    }
+    if (cambio.empresa !== undefined) upd.empresa = cambio.empresa?.trim().slice(0, 120) || null;
+    if (!Object.keys(upd).length) return { ok: false, error: 'No había nada que cambiar.' };
+
+    const db = await getTenantDb();
+    const { data, error } = await db.from('leads').update(upd).eq('id', leadId)
+      .select('nombre, empresa').single();
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath('/customer-success');
+    const fila = data as { nombre: string | null; empresa: string | null };
+    // Lo que QUEDÓ guardado, no lo que se pidió: mismo criterio que las imágenes.
+    return { ok: true, nombre: fila.nombre ?? '', empresa: fila.empresa };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
+  }
+}

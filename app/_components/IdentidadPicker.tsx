@@ -166,9 +166,13 @@ export function IdentidadPicker({
         )}
       </div>
 
-      <div className="ip-cuerpo">
+      {/* ⚠️ LA PESTAÑA EMOJI NO LLEVA EL PADDING NI EL SCROLL DEL CUERPO. El selector
+          de emojis trae los suyos —es un panel entero— y apilarlos daba DOS barras de
+          scroll verticales, una adentro de la otra. Se reportó como «hay un
+          desplegable dentro del desplegable». */}
+      <div className={`ip-cuerpo${pest === 'emoji' ? ' ip-cuerpo-emoji' : ''}`}>
         {pest === 'emoji' && (
-          <EmojiPicker onPick={(em) => onElegir({ emoji: em, icono: null, y: null })} onClose={onCerrar} />
+          <EmojiPicker embebido onPick={(em) => onElegir({ emoji: em, icono: null, y: null })} onClose={onCerrar} />
         )}
         {pest === 'iconos' && <Iconos actual={icono} onElegir={(v) => onElegir({ icono: v, y: null })} />}
         {pest === 'subir' && (
@@ -338,6 +342,10 @@ const CSS = `
    contra la caja del panel, asi que un cuerpo que cambia de alto al cambiar de
    pestaña hace saltar el panel de lugar. */
 .ip-cuerpo{ height:${ALTO_CUERPO}px; overflow-y:auto; padding:10px 12px 12px; }
+/* El selector de emojis embebido ocupa el cuerpo entero y scrollea EL: dos
+   contenedores con scroll, uno adentro del otro, es lo que se reporto como un
+   desplegable adentro de un desplegable. */
+.ip-cuerpo-emoji{ overflow:hidden; padding:0; }
 
 .ip-buscar{ width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:8px;
   padding:7px 10px; font:inherit; font-size:13px; color:var(--ink); background:var(--surface-2);

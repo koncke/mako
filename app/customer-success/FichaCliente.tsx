@@ -36,6 +36,7 @@ import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
 import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
 import { Marca } from '@/app/_components/Marca';
+import { EditableInline } from '@/app/_components/EditableInline';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import type { BoardUser } from '@/app/plan/board/types';
 import type { ClienteRef } from '@/lib/plan-clientes';
@@ -44,6 +45,7 @@ import { TodoBoard } from '../plan/TodoBoard';
 import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
 import { Avatar, colorDe } from './ClienteCard';
+import { guardarDatosClienteAction } from './actions';
 
 export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar }: {
   c: ClienteCruce;
@@ -66,6 +68,19 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
   /** El selector de la FOTO/ícono del cliente. Cuelga del avatar, igual que el de
    *  portada cuelga de su botón. */
   const [anclaFoto, setAnclaFoto] = useState<HTMLElement | null>(null);
+
+  /** Renombrar al cliente o cambiarle la empresa. ⚠️ Escribe en `leads`, o sea en el
+   *  CRM: no hay tabla de clientes, un cliente es un lead ganado. */
+  function guardarDatos(cambio: { nombre?: string; empresa?: string | null }) {
+    setMal('');
+    void guardarDatosClienteAction(c.leadId, cambio).then((r) => {
+      // ⚠️ SE AVISA SI NO SE GUARDÓ. Un campo que se edita en el lugar y falla en
+      // silencio es peor que uno que no se puede editar: quien lo escribió se va
+      // creyendo que quedó, y lo descubre al recargar.
+      if (!r.ok) { setMal(r.error); return; }
+      router.refresh();
+    });
+  }
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mal, setMal] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -158,7 +173,21 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
             </button>
             <span className="fc-txt">
               <span className="nom">
-                {nombre}
+                {/* ⚠️ EL NOMBRE ES TEXTO, NO UN INPUT. «Solo clickeando y escribiendo,
+                    como los títulos o las descripciones de la tarea, que no parezca que
+                    haya un recuadro de texto» (27/09/2026) — que es la misma regla que
+                    ya gobierna el título de una tarjeta: sin borde, sin fondo, sin radio
+                    y sin padding propio. Lo que dice que se edita es el `cursor: text`,
+                    el `title` y el placeholder.
+                    ⚠️ Y ESTO RENOMBRA EN EL CRM: no hay tabla de clientes, un cliente es
+                    un lead ganado. Son la misma persona y es lo correcto, pero no es un
+                    apodo de esta pantalla. */}
+                <EditableInline
+                  valor={nombre}
+                  placeholder="Sin nombre"
+                  titulo="Editá el nombre del cliente"
+                  className="fc-ed fc-ed-nom"
+                  onGuardar={(v) => guardarDatos({ nombre: v })} />
                 {/* ⚠️ «CRM →» PASÓ A ESTAR ACÁ, PEGADO AL NOMBRE. Arriba a la derecha
                     competía con los controles de la imagen, que es lo que esa esquina
                     tiene que ofrecer ahora. Y pegado al nombre dice mejor a QUÉ lleva:
@@ -166,8 +195,18 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
                 <Link href={`/crm/${c.leadId}`} className="fc-crm">CRM →</Link>
               </span>
               <span className="sub">
-                {c.empresa?.trim() || `Cliente ${n}`}
-                {c.empresa?.trim() ? <span className="id"> · Cliente {n}</span> : null}
+                {/* La empresa SÍ puede quedar vacía: es un dato opcional de verdad, y
+                    con el campo en blanco el placeholder invita a completarlo. Por eso
+                    «Cliente N» dejó de ser su reemplazo y pasó a estar siempre al lado:
+                    antes aparecía sólo cuando NO había empresa, así que el número de
+                    cliente se perdía justo en las fichas que sí la tenían. */}
+                <EditableInline
+                  valor={c.empresa ?? ''}
+                  placeholder="Agregá la empresa"
+                  titulo="Editá la empresa"
+                  className="fc-ed fc-ed-sub"
+                  onGuardar={(v) => guardarDatos({ empresa: v })} />
+                <span className="id"> · Cliente {n}</span>
               </span>
             </span>
             {/* ⛔ ACÁ ESTABA «Quitar la foto», y se fue (27/09/2026). Sacar la foto es una
@@ -227,8 +266,16 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
             // ⚠️ Y EL EMOJI DE UN CLIENTE VA EN `icono`, no en una columna propia: un
             // lead no tiene `emoji` y no tiene ninguno de los consumidores de texto que
             // hacen que en un PROYECTO eso sea un error. Ver `glifoDeIcono`.
-            if (cambio.emoji !== undefined) onImagen({ icono: cambio.emoji ? `emoji:${cambio.emoji}` : null, avatarUrl: null, avatarY: null });
-            else if (cambio.icono !== undefined) onImagen({ icono: cambio.icono, avatarUrl: null, avatarY: cambio.y ?? null });
+            // ⚠️ NO SE BORRA `avatar_url`, Y ESTO ES UN ARREGLO. La primera versión
+            // mandaba `avatarUrl: null` para que el emoji ganara — y `icono` ya le
+            // gana por precedencia en `Marca`, así que lo único que lograba era
+            // DESTRUIR la URL de la foto: «Quitar» dejaba al cliente en iniciales y
+            // no había forma de volver. Pasó en producción probando esto: le borré la
+            // foto a un cliente real eligiendo un emoji, y hubo que ir a buscar el
+            // archivo al bucket para reponerla. Conservándola, «Quitar» —que limpia
+            // `icono`— devuelve la foto que había.
+            if (cambio.emoji !== undefined) onImagen({ icono: cambio.emoji ? `emoji:${cambio.emoji}` : null, avatarY: null });
+            else if (cambio.icono !== undefined) onImagen({ icono: cambio.icono, avatarY: cambio.y ?? null });
             else if (cambio.y !== undefined) onImagen({ avatarY: cambio.y });
           }}
           onCerrar={() => setAnclaFoto(null)} />
@@ -271,15 +318,23 @@ const CSS = `
 .mk-modal__h:has(.fc-cab){ align-self:stretch; }
 /* El botón de cerrar sale del flujo y flota sobre la portada, que es lo que deja que la
    banda llegue a los dos bordes. Fondo propio: abajo puede haber una foto clara. */
-.mk-modal__cab:has(.fc-cab) .mk-modal__x{ position:absolute; top:12px; right:12px; z-index:3;
-  background:rgba(20,22,26,.42); color:#fff; border-radius:999px; }
-.mk-modal__cab:has(.fc-cab) .mk-modal__x:hover{ background:rgba(20,22,26,.62); color:#fff; }
+/* ⚠️ CERRAR SE TIENE QUE VER DISTINTO DE LAS ACCIONES. «Que el botón de cerrar sea
+   diferente a los otros, sino, confunde» (27/09/2026): eran cuatro pastillas oscuras
+   translúcidas en fila y la última cerraba la ficha entera. Dos cosas lo separan
+   ahora: es un CÍRCULO sólido y no una pastilla, y vive en otra esquina — las
+   acciones se fueron abajo a la derecha. La forma distingue mejor que el color:
+   sobre una foto cualquiera, dos grises translúcidos se ven iguales. */
+.mk-modal__cab:has(.fc-cab) .mk-modal__x{ position:absolute; top:12px; right:12px; z-index:4;
+  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  background:rgba(18,21,27,.82); color:#fff; border-radius:999px; padding:0;
+  box-shadow:0 1px 6px rgba(18,21,27,.30); }
+.mk-modal__cab:has(.fc-cab) .mk-modal__x:hover{ background:#12151b; color:#fff; }
 
 .fc-cab{ display:block; position:relative; }
 /* Bien estirada («está muy angosto, debería ser más estirado»): 140 px sobre 1560 de
    ancho. Una foto de portada se lee como una banda, no como una tarjeta. */
 .fc-portada{ display:block; position:relative; }
-.fc-banda{ display:block; height:140px; width:100%; }
+.fc-banda{ display:block; height:160px; width:100%; }
 
 /* EL BOTÓN DE LA PORTADA: al centro y sólo al pasar el cursor, igual que el de la foto.
    Aparece también con el foco del teclado — un control que sólo existe con el mouse no
@@ -297,14 +352,21 @@ const CSS = `
    con la foto; apareciendo al hover no le saca lugar a nada hasta que hace falta.
    Aparecen también con el foco del teclado — un control que sólo existe con el mouse
    no existe para quien navega con Tab. */
-.fc-acciones{ position:absolute; top:12px; right:52px; z-index:2; display:flex; gap:6px;
+/* ⚠️ ABAJO A LA DERECHA DE LA PORTADA, no al lado del botón de cerrar. Es donde las
+   pone Notion y es lo que se pidió — y además resuelve la confusión de arriba sin
+   depender del color: cerrar vive en una esquina y editar en la otra. */
+.fc-acciones{ position:absolute; right:14px; bottom:12px; z-index:3; display:flex; gap:6px;
   opacity:0; transition:opacity .12s; }
 .fc-portada:hover .fc-acciones, .fc-acciones:focus-within{ opacity:1; }
-.fc-pill{ background:rgba(20,22,26,.52); border:0; border-radius:999px; padding:6px 13px;
-  font:inherit; font-size:12.5px; font-weight:500; color:#fff; cursor:pointer;
-  text-decoration:none; white-space:nowrap; backdrop-filter:blur(3px); }
-.fc-pill:hover{ background:rgba(20,22,26,.72); color:#fff; }
-.fc-pill:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+/* Pastilla CLARA: la otra mitad de distinguirla del botón de cerrar, que es un
+   círculo oscuro sólido. Sobre una foto clara el vidrio blanco sigue leyéndose
+   gracias al borde y a la sombra. */
+.fc-pill{ background:rgba(255,255,255,.90); border:0; border-radius:999px; padding:6px 13px;
+  font:inherit; font-size:12.5px; font-weight:600; color:#16181d; cursor:pointer;
+  text-decoration:none; white-space:nowrap; backdrop-filter:blur(6px);
+  box-shadow:0 1px 4px rgba(18,21,27,.18); }
+.fc-pill:hover{ background:#fff; color:#16181d; }
+.fc-pill:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
 /* El de descargar es un ícono solo: cuadrado, para que no se lea como un botón de
    texto al que se le perdió el texto. Su nombre va en el title y en el aria-label. */
 .fc-icono{ display:inline-flex; align-items:center; justify-content:center;
@@ -322,8 +384,19 @@ const CSS = `
    degradado claro se leía, con una foto de un bosque no. Va absoluto porque la cuenta es
    exacta (140 de banda − 31 de monte = 62/2) y no depende del alto del texto, que cambia
    con el nombre. El padding izquierdo de la fila le deja su lugar. */
-.fc-fila{ display:flex; align-items:flex-end; gap:14px; padding:10px 24px 14px 100px; min-height:40px; }
-.fc-av{ position:absolute; left:24px; top:109px; display:block; padding:0; border:0; background:none; cursor:pointer; line-height:0; }
+/* ⚠️ MENOS AIRE ABAJO DEL NOMBRE. «No debería haber tanto espacio blanco entre el
+   nombre del cliente y la tab de tareas» (27/09/2026): eran 14 de esta fila MÁS el
+   padding propio del cuerpo del modal, y los dos se suman sin que ninguno parezca
+   grande por separado. Se recorta acá, que es el que existe para esta pantalla; el
+   del cuerpo lo comparten otras 25. */
+.fc-fila{ display:flex; align-items:flex-end; gap:14px; padding:10px 24px 4px 100px; min-height:40px; }
+.mk-modal__cab:has(.fc-cab) + .mk-modal__cuerpo{ padding-top:10px; }
+
+/* El nombre y la empresa, editables sin caja. La tipografía la heredan de su
+   renglón: el componente no trae ninguna. */
+.fc-ed-nom{ font-size:20px; font-weight:670; letter-spacing:-.02em; }
+.fc-ed-sub{ font-size:12.5px; font-weight:400; color:var(--dim); }
+.fc-av{ position:absolute; left:24px; top:129px; display:block; padding:0; border:0; background:none; cursor:pointer; line-height:0; }
 /* ⚠️ «Foto» VA AL CENTRO DEL CÍRCULO, no en una banda abajo («el mensaje de Foto más
    centrado, no abajo», 27/09/2026). Pegado al borde inferior tapaba justo el mentón de
    la persona —que es donde el ojo confirma que es ella— y en un círculo de 62 px esa

@@ -281,7 +281,27 @@ const emojiBtn: CSSProperties = {
 // Componente
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onClose: () => void }) {
+export function EmojiPicker({ onPick, onClose, embebido = false }: {
+  onPick: (emoji: string) => void;
+  onClose: () => void;
+  /**
+   * ⚠️ ESTO ES UN PANEL COMPLETO, Y ADENTRO DE OTRO SE VE COMO UN DESPLEGABLE
+   * ADENTRO DE UN DESPLEGABLE. Reportado así, textual, el 27/09/2026 sobre el
+   * selector de identidad: caja con borde y sombra propios adentro de una caja con
+   * borde y sombra, **dos barras de scroll verticales** (sus 320 px fijos adentro
+   * de un cuerpo de 300) y un ✕ que cierra una cosa que el de afuera ya cierra.
+   *
+   * Con `embebido`, el panel deja de ser una caja y pasa a ser contenido: sin
+   * borde, sin radio, sin sombra, sin alto fijo —estira— y sin el ✕, porque el
+   * que cierra es el de arriba. Es la misma prop y la misma decisión que AGENTS.md
+   * documenta para montar una PANTALLA adentro de un modal: va UNA prop y no
+   * cinco, porque son la misma decisión.
+   *
+   * Es OPT-IN: los cuatro call sites de WhatsApp, donde esto SÍ es el panel, no se
+   * enteran.
+   */
+  embebido?: boolean;
+}) {
   const [cat, setCat] = useState<string>('recientes');
   const [query, setQuery] = useState('');
   const [recientes, setRecientes] = useState<string[]>(() => {
@@ -324,7 +344,18 @@ export function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => vo
   );
 
   return (
-    <div style={panelStyle} role="dialog" aria-label="Selector de emojis">
+    <div
+      style={embebido
+        // Estira en los dos ejes y no dibuja caja: la caja es la de afuera.
+        // `height: '100%'` funciona acá porque el padre le da un alto EXPLÍCITO
+        // (no un `flex: 1`, que para el motor es un alto indefinido y en Safari
+        // resuelve a cero — AGENTS.md lo tiene medido como pantalla en blanco).
+        ? { ...panelStyle, width: '100%', height: '100%', border: 0, borderRadius: 0, boxShadow: 'none' }
+        : panelStyle}
+      // Sin `role="dialog"` embebido: el diálogo es el de afuera, y dos diálogos
+      // anidados le dicen al lector de pantalla que se abrió algo que no se abrió.
+      role={embebido ? 'group' : 'dialog'}
+      aria-label="Selector de emojis">
       <style>{'.mako-emoji-btn:hover{background:var(--surface-2)}'}</style>
       {/* Búsqueda + cerrar */}
       <div style={headRow}>
@@ -335,7 +366,11 @@ export function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => vo
           aria-label="Buscar emoji"
           style={searchInput}
         />
-        <button onClick={onClose} title="Cerrar" aria-label="Cerrar selector de emojis" style={closeBtn}>✕</button>
+        {/* El ✕ no va embebido: cerrar es del panel de arriba, y dos botones de
+            cerrar a 30 px uno del otro hacen dudar de cuál cierra qué. */}
+        {!embebido && (
+          <button onClick={onClose} title="Cerrar" aria-label="Cerrar selector de emojis" style={closeBtn}>✕</button>
+        )}
       </div>
 
       {/* Pestañas de categoría (ocultas mientras se busca) */}
