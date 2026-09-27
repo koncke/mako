@@ -157,8 +157,12 @@ export async function POST(req: NextRequest) {
       // SU PORTADA (mig 0173). Va en el alta por lo mismo que el cliente: deshacer el
       // borrado de un proyecto pasa por acá, y sin esta línea vuelve sin su portada.
       const portada = body.portada != null ? String(body.portada) : undefined;
+      // El encuadre y el ícono (mig 0174), por lo mismo: sin esto, deshacer el borrado
+      // de un proyecto lo devuelve sin ícono y con la portada descentrada.
+      const portadaY = body.portada_y != null ? Number(body.portada_y) : undefined;
+      const icono = body.icono != null ? String(body.icono) : undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, recurrencia, cliente, portada) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, recurrencia, cliente, portada, portadaY, icono) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
@@ -174,7 +178,9 @@ export async function POST(req: NextRequest) {
       // ⚠️ `portada` ESTÁ EN ESTE TIPO O NO LLEGA (mig 0173), por lo mismo que las dos de
       // arriba. Es el quinto campo que pasa por esta puerta y el modo de falla no cambió:
       // el selector se abre, la request contesta 200 y la banda sigue igual.
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null }) ?? {};
+      // ⚠️ Y `portada_y` / `icono` lo mismo (mig 0174). Van SEIS. El día que esta lista
+      // llegue a diez, la puerta pide ser un esquema y no una enumeración a mano.
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null; portada_y?: number | null; icono?: string | null }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

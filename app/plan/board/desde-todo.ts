@@ -46,4 +46,8 @@ export const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.em
   // SU PORTADA (mig 0173). Puerta de ENTRADA del tablero del cliente: sin esto la banda
   // nace vacía en cada carga aunque la fila la tenga escrita.
   portada: c.portada,
+  // El encuadre y el ícono (mig 0174). La misma trampa de siempre: lo que el mapper
+  // de LECTURA no trae vuelve como `undefined` y el próximo upsert borra la columna.
+  portadaY: c.portada_y,
+  icono: c.icono,
   detalle: c.detalle, historial: c.historial });

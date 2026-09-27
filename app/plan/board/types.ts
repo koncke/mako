@@ -298,6 +298,27 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    * AGENTS.md ya tenía medido de la vez anterior.
    */
   portada?: string | null;
+  /**
+   * EL ENCUADRE VERTICAL de la portada, 0-100 (mig 0174). `null`/ausente = centrado,
+   * que es lo que se veía antes de que existiera.
+   *
+   * Sólo significa algo si la portada es una FOTO: un degradado no se puede
+   * reencuadrar, y por eso el control no se dibuja cuando no hay imagen.
+   */
+  portadaY?: number | null;
+  /**
+   * SU ÍCONO (mig 0174): `icon:<set>:<nombre>` de Iconify o una URL https del bucket.
+   *
+   * ⚠️ ES UNA COLUMNA APARTE Y NO EL `emoji`, y la razón está medida: `emoji` se
+   * trunca a CUATRO caracteres en la mitad del cliente (`lib/todo.ts:621`), así que
+   * una URL ahí queda en «http»; el Perro lo pisa con lo que devuelve el modelo
+   * (`lib/plan-board.ts:1131`); y lo leen como TEXTO el prompt de reuniones, el
+   * export a Markdown, el CSV y la API de MaKo.
+   *
+   * La regla de lectura es `icono ?? emoji` y **sólo la aplica la pantalla**: los
+   * consumidores de texto siguen leyendo `emoji`, que siempre es un glifo.
+   */
+  icono?: string | null;
 };
 
 /**

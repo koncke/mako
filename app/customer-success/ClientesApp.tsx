@@ -24,7 +24,7 @@ import { NuevoCliente } from './NuevoCliente';
 import { guardarImagenClienteAction, autoasignarAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
-type Imagen = { avatarUrl?: string | null; portada?: string | null };
+type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
 
 export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
@@ -79,7 +79,10 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
     empezar(async () => {
       const r = await guardarImagenClienteAction(leadId, cambio);
       if (!r.ok) { setMal(r.error); return; }
-      setImgs((v) => ({ ...v, [leadId]: { avatarUrl: r.avatarUrl, portada: r.portada } }));
+      // ⚠️ SE FIJA LO QUE QUEDÓ EN LA BASE, LOS CINCO CAMPOS. Copiar sólo los dos que
+      // el gesto tocó deja los otros tres en `undefined`, y `conImagen` los mergea
+      // encima del cliente: la portada se encuadraría bien y el ícono desaparecería.
+      setImgs((v) => ({ ...v, [leadId]: { avatarUrl: r.avatarUrl, portada: r.portada, portadaY: r.portadaY, avatarY: r.avatarY, icono: r.icono } }));
     });
   }
 

@@ -19,6 +19,11 @@
 // el selector) y el server (el saneo de lo que se guarda). Sólo sabe de forma y de
 // texto; no toca la base.
 
+// El catálogo de íconos es un módulo hermano y también SIN `server-only`: los dos
+// los importan el navegador y el server. Se importa el VALOR (`esIcono`), no una
+// copia de la regla — quién es un ícono se decide en un solo lugar.
+import { esIcono } from './iconos-catalogo';
+
 /** Un degradado del catálogo. El `id` es lo que se guarda: `grad:<id>`. */
 export type Gradiente = { id: string; nombre: string; a: string; b: string };
 
@@ -75,9 +80,9 @@ export const urlPortada = (v: string | null | undefined): string | null => (esFo
  * `saneaPortada` en el server, pero esto se dibuja en el navegador con un string
  * interpolado: una comilla suelta cerraría el `url()` y abriría lo que siga como CSS.
  */
-export function fondoPortada(v: string | null | undefined, colorBase: string): string {
+export function fondoPortada(v: string | null | undefined, colorBase: string, y?: number | null): string {
   const url = urlPortada(v);
-  if (url) return `center / cover no-repeat url("${sinComillas(url)}")`;
+  if (url) return `center ${posicionY(y)} / cover no-repeat url("${sinComillas(url)}")`;
   const g = v?.startsWith(PREFIJO_GRAD) ? gradPorId.get(v.slice(PREFIJO_GRAD.length)) : undefined;
   if (g) return cssGradiente(g);
   return `linear-gradient(135deg, color-mix(in srgb, ${colorBase} 26%, var(--surface)), color-mix(in srgb, ${colorBase} 6%, var(--surface)))`;
@@ -146,4 +151,61 @@ export function urlDeImagenOk(v: unknown): string | null {
     if (u.protocol !== 'https:') return null;
     return origenesOk().has(u.origin) ? u.toString() : null;
   } catch { return null; }
+}
+
+// =============================================================================
+// EL ENCUADRE (mig 0174)
+// =============================================================================
+
+/**
+ * EL `background-position` VERTICAL de una portada, listo para el CSS.
+ *
+ * ⚠️ ESTA FUNCIÓN EXISTE PORQUE `fondoPortada` CABLEABA `center`. Medido el
+ * 27/09/2026 antes de tocarlo: la posición se podía guardar perfecto y los SEIS
+ * lugares que dibujan una portada la ignoraban, porque el string decía
+ * `center / cover`. El botón «Reposicionar» habría funcionado —guardaba— y no se
+ * habría visto NADA. Es el modo de falla de «escribir la salida no es ofrecerla»:
+ * el dato llega y nadie lo lee.
+ *
+ * `null` = centrado, que es exactamente lo que se veía antes. 0 = el borde de
+ * arriba de la imagen, 100 = el de abajo.
+ */
+export function posicionY(y: number | null | undefined): string {
+  const n = yPortada(y);
+  return n === null ? 'center' : `${n}%`;
+}
+
+/**
+ * El encuadre que de verdad se guarda: un entero 0-100, o `null` para centrado.
+ *
+ * Corre en el SERVER igual que `saneaPortada` — lo que manda el navegador es una
+ * propuesta. Y corre también en el navegador para no dibujar cualquier cosa
+ * mientras se arrastra.
+ *
+ * ⚠️ DEVUELVE `null` PARA LO QUE NO ES UN NÚMERO, no 50. «Nadie lo movió» y «lo
+ * dejó justo al medio» son dos hechos distintos: el primero se puede reencuadrar
+ * solo el día que cambie el alto de la banda, el segundo no. La base tiene el
+ * mismo CHECK (mig 0174), que es la segunda capa.
+ */
+export function yPortada(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/**
+ * Lo que de verdad se guarda en `icono` (mig 0174): un ícono del catálogo o una
+ * foto de un origen permitido. `null` = no hay ícono propio, se usa el respaldo
+ * (el `emoji` de un proyecto, la foto o las iniciales de un cliente).
+ *
+ * ⚠️ NO ACEPTA UN EMOJI. Un emoji se guarda en la columna `emoji`, que es la que
+ * leen el prompt de reuniones, el export y la API de MaKo — y que se trunca a 4
+ * caracteres en la mitad del cliente (`lib/todo.ts:621`). Meter acá un glifo
+ * dejaría dos respuestas a «¿qué se dibuja?» y la de texto se quedaría vieja.
+ */
+export function saneaIcono(v: unknown): string | null {
+  if (typeof v !== 'string' || !v.trim()) return null;
+  const s = v.trim();
+  if (esIcono(s)) return s;
+  return urlDeImagenOk(s);
 }

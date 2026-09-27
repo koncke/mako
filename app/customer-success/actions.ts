@@ -30,7 +30,7 @@
 // inquilino lo resuelve `getTenantDb()`.
 
 import { getTenantDb } from '@/lib/workspace';
-import { saneaPortada, urlDeImagenOk } from '@/lib/portadas';
+import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
 import { createLead, updateLead } from '@/lib/leads';
 // La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
@@ -138,7 +138,12 @@ export async function autoasignarAction(): Promise<
 export async function guardarImagenClienteAction(leadId: number, cambio: {
   avatarUrl?: string | null;
   portada?: string | null;
-}): Promise<{ ok: true; avatarUrl: string | null; portada: string | null } | { ok: false; error: string }> {
+  /** El encuadre vertical de cada imagen, 0-100. `null` = centrado (mig 0174). */
+  portadaY?: number | null;
+  avatarY?: number | null;
+  /** `icon:<set>:<nombre>` o una URL. `null` = sin ícono propio (mig 0174). */
+  icono?: string | null;
+}): Promise<{ ok: true; avatarUrl: string | null; portada: string | null; portadaY: number | null; avatarY: number | null; icono: string | null } | { ok: false; error: string }> {
   try {
     // El mismo guard que el resto de la pantalla: sin esto, un POST con el id de un
     // lead ajeno escribiría sobre la ficha de otro inquilino.
@@ -148,18 +153,27 @@ export async function guardarImagenClienteAction(leadId: number, cambio: {
     const upd: Record<string, unknown> = {};
     if (cambio.avatarUrl !== undefined) upd.avatar_url = urlDeImagenOk(cambio.avatarUrl);
     if (cambio.portada !== undefined) upd.portada = saneaPortada(cambio.portada);
+    // ⚠️ EL ENCUADRE SE BORRA CUANDO CAMBIA LA IMAGEN, y no es un detalle: un `y` de la
+    // foto anterior aplicado a una foto nueva la deja encuadrada en cualquier lado, y
+    // quien la eligió no tiene forma de saber por qué. Si el que llama manda las dos
+    // cosas juntas, gana lo que mandó; si cambia sólo la imagen, el encuadre se resetea.
+    if (cambio.portada !== undefined && cambio.portadaY === undefined) upd.portada_y = null;
+    if (cambio.avatarUrl !== undefined && cambio.avatarY === undefined) upd.avatar_y = null;
+    if (cambio.portadaY !== undefined) upd.portada_y = yPortada(cambio.portadaY);
+    if (cambio.avatarY !== undefined) upd.avatar_y = yPortada(cambio.avatarY);
+    if (cambio.icono !== undefined) upd.icono = saneaIcono(cambio.icono);
     if (!Object.keys(upd).length) return { ok: false, error: 'No había nada que cambiar.' };
 
     const db = await getTenantDb();
     const { data, error } = await db.from('leads').update(upd).eq('id', leadId)
-      .select('avatar_url, portada').single();
+      .select('avatar_url, portada, portada_y, avatar_y, icono').single();
     if (error) return { ok: false, error: error.message };
 
     revalidatePath('/customer-success');
-    const fila = data as { avatar_url: string | null; portada: string | null };
+    const fila = data as { avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null };
     // Se devuelve LO QUE QUEDÓ GUARDADO, no lo que se pidió: si el saneo descartó la
     // URL, la pantalla tiene que enterarse en vez de pintar algo que la base no tiene.
-    return { ok: true, avatarUrl: fila.avatar_url, portada: fila.portada };
+    return { ok: true, avatarUrl: fila.avatar_url, portada: fila.portada, portadaY: fila.portada_y, avatarY: fila.avatar_y, icono: fila.icono };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }

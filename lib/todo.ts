@@ -8,6 +8,7 @@
 // =============================================================================
 
 import 'server-only';
+import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 import { getTenantDb } from './workspace';
 import { quarterDeFecha } from '@/app/plan/board/cuando';
 // «Cada cuánto se repite» (mig 0165). El enum, el saneo y la invariante salen del módulo
@@ -129,6 +130,18 @@ export type Categoria = { id: number; nombre: string; color: string; emoji: stri
    * veces ya en este archivo.
    */
   portada: string | null;
+  /** El encuadre vertical de la portada, 0-100, o `null` = centrado (mig 0174). */
+  portada_y: number | null;
+  /**
+   * SU ÍCONO (mig 0174): `icon:<set>:<nombre>` o una URL https. `null` = usar `emoji`.
+   *
+   * ⚠️ NO SE GUARDA EN `emoji`, y acá está la razón medida: doce líneas más abajo,
+   * `crearCategoria` y `editarCategoria` hacen `(emoji || '🏷').slice(0, 4)`. Una URL
+   * ahí queda en «http», la request contesta 200 y en la tarjeta se dibuja ese texto.
+   * La mitad del dueño (`plan_proyectos`) NO trunca, así que el mismo componente
+   * guardaría bien en un tablero y destruiría en el otro.
+   */
+  icono: string | null;
   detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
@@ -582,6 +595,9 @@ export const catRow = (r: Record<string, unknown>): Categoria => {
   // `string | null` y este cast es de la fila ENTERA, así que una columna ausente llegaría
   // como `undefined` con el tipo mintiendo.
   c.portada = typeof r.portada === 'string' && r.portada.trim() ? (r.portada as string) : null;
+  // El encuadre y el ícono (mig 0174), por lo mismo que la portada de arriba.
+  c.portada_y = yPortada(r.portada_y);
+  c.icono = typeof r.icono === 'string' && r.icono.trim() ? (r.icono as string) : null;
   return c;
 };
 
@@ -592,14 +608,14 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown, cliente?: { lead_id?: number | null; nombre?: string | null }, portada?: string | null): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown, cliente?: { lead_id?: number | null; nombre?: string | null }, portada?: string | null, portada_y?: number | null, icono?: string | null): Promise<Categoria> {
   const supabase = (await getTenantDb());
   // Un proyecto que se repite NACE sin fecha, acá mismo (mig 0164). No alcanza con que el
   // editar la borre: si el alta la escribiera, la fila nacería con un deadline que después
   // nadie va a poder ver ni sacar — y el aviso de vencimientos lo leería igual.
   const repite = !!recurrente;
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), portada: txtOk(portada), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), portada: saneaPortada(portada), portada_y: yPortada(portada_y), icono: saneaIcono(icono), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
@@ -614,7 +630,7 @@ async function repiteCategoria(id: number): Promise<boolean> {
   return !!(data as { recurrente?: unknown } | null)?.recurrente;
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null; portada_y?: number | null; icono?: string | null }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
@@ -651,7 +667,14 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   // SU PORTADA (mig 0173). Este `upd` también se arma campo por campo: lo que no se nombre
   // acá no llega. `undefined` = «no la toques»; `null` = «sacala», que es volver al
   // degradado derivado del color y tiene que poder viajar.
-  if (patch.portada !== undefined) upd.portada = txtOk(patch.portada);
+  // ⚠️ `saneaPortada` Y NO `txtOk`. `txtOk` es un `trim`: por este camino entraba
+  // cualquier `https://`, o sea la portada de un proyecto de un cliente podía apuntar
+  // a un tercero y cargarse con el referer de quien abriera el tablero. El comentario
+  // de `labelToRow` decía que el saneo lo corría «quien recibe la elección»; medido el
+  // 27/09/2026, el único call site en todo el repo era el de la ficha del cliente.
+  if (patch.portada !== undefined) upd.portada = saneaPortada(patch.portada);
+  if (patch.portada_y !== undefined) upd.portada_y = yPortada(patch.portada_y);
+  if (patch.icono !== undefined) upd.icono = saneaIcono(patch.icono);
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());

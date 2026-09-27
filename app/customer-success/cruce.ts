@@ -49,6 +49,11 @@ export type ClienteCruce = {
    *  ficha las pintan, y `clientesGanados()` ya las trae en la misma lectura. */
   avatarUrl?: string | null;
   portada?: string | null;
+  /** El encuadre de cada imagen y el ícono (mig 0174). Viajan por lo mismo que las dos
+   *  de arriba: los pinta la tarjeta y la ficha, y salen de la misma lectura. */
+  portadaY?: number | null;
+  avatarY?: number | null;
+  icono?: string | null;
 };
 /**
  * Un proyecto del tablero, para cruzar.

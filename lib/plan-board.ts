@@ -15,6 +15,7 @@ import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist } from '@/app
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
 import { quarterDeFecha } from '@/app/plan/board/cuando';
+import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 // «Se repite para siempre» (mig 0163). El predicado y el filtro salen de un módulo de
 // datos y NO se reescriben acá: es la misma regla que aplican las pantallas y el test.
 import { esRecurrente, sinRecurrentes, soloRecurrentes, llevaDeadline, recurrenciaDe } from '@/lib/plan-recurrentes';
@@ -173,6 +174,10 @@ export function rowToLabel(r: Row): Label {
     // SU PORTADA (mig 0173). Acá por la misma razón destructiva que las dos de arriba:
     // sin esta línea, el próximo guardado de cualquier campo la borra.
     portada: r.portada ? str(r.portada) : null,
+    // El encuadre y el ícono (mig 0174), por la MISMA razón destructiva: sin estas
+    // dos líneas el próximo guardado de cualquier campo los borra.
+    portadaY: yPortada(r.portada_y),
+    icono: r.icono ? str(r.icono) : null,
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -198,9 +203,16 @@ function labelToRow(l: Label, orden = 0): Row {
     recurrente: esRecurrente(l),
     // Lo mismo que en `taskToRow`, un nivel más arriba (mig 0167).
     recurrencia: recurrenciaDe(l),
-    // SU PORTADA (mig 0173). No se sanea acá: el saneo vive en `lib/portadas.ts` y lo
-    // corre quien recibe la elección. Acá sólo se transporta lo que ya está en memoria.
-    portada: l.portada ?? null,
+    // ⚠️ SU PORTADA (mig 0173), **Y ACÁ SÍ SE SANEA**. El comentario anterior decía que
+    // «lo corre quien recibe la elección», y era falso: medido el 27/09/2026, el ÚNICO
+    // call site de `saneaPortada` en todo el repo era `app/customer-success/actions.ts`
+    // —o sea, el cliente—. Por este camino entraba cualquier `https://`, así que la
+    // portada de un proyecto podía apuntar a un tercero y cargarse con el referer de
+    // quien abriera el tablero. Este archivo tiene `server-only` y es por donde pasan
+    // TODAS las escrituras de `plan_proyectos`: es el choke point correcto.
+    portada: saneaPortada(l.portada),
+    portada_y: yPortada(l.portadaY),
+    icono: saneaIcono(l.icono),
     orden, updated_at: new Date().toISOString(),
   };
 }
