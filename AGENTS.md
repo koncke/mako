@@ -249,6 +249,31 @@ Reglas que salen de eso:
   paralelas. Es la respuesta a «¿desde qué fecha a qué fecha estuve en tal cuenta?», que
   antes no se podía contestar.
 
+- ⚠️ **El trailer va PEGADO a `Co-Authored-By`, sin línea en blanco en el medio.** Git
+  sólo parsea como trailers el último bloque contiguo del mensaje: una línea vacía entre
+  `Claude-Cuenta:` y `Co-Authored-By:` deja el primero AFUERA. Medido el 27/09/2026:
+  `git log --format='%(trailers:key=Claude-Cuenta,valueonly)'` devuelve **vacío** para
+  `72aa1109`, `50df1cb2`, `cbb6fcd2`, `6625b361`, `d9c8cf73` y `95052783`, y sólo contesta
+  en `22528fd5`, que es el único con el bloque pegado. El trailer se ve perfecto leyendo
+  el mensaje a ojo — por eso nadie lo notó — y cualquier herramienta que cuente commits
+  por cuenta lee **0**. Es el modo de falla de siempre: no da error, da un cero plausible.
+
+- ⚠️ **Antes de firmar, RELEÉ el marcador; lo que te inyectó el hook es una foto del
+  arranque.** El contexto de `SessionStart` se calcula una vez y no se entera si Martín
+  cambia de cuenta con la sesión abierta. Pasó el 27/09: tres sesiones arrancaron 10:12,
+  10:13 y 10:13 leyendo `claude1`, Martín avisó a las 10:13 que se pasaba a la otra cuenta
+  y reescribió el marcador **10:14:43** — y dos commits posteriores (`cbb6fcd2`, `72aa1109`)
+  salieron firmados `claude1` con el marcador diciendo `claude2`. En la bitácora eso se ve
+  como una sesión con `inicio claude1` y `fin claude2`, que **no es corrupción**: es el
+  registro correcto de una cuenta que cambió a mitad. El comando, una línea:
+
+  ```bash
+  head -1 ~/.claude/cuenta-activa.txt
+  ```
+
+  Y si Martín dice en el chat que cambió, eso gana sobre el archivo y sobre el hook:
+  reescribí el marcador en el acto, antes de seguir.
+
 El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
 las tres cosas que hay que recrear a mano en uno— está en
 [docs/dos-cuentas.md](docs/dos-cuentas.md).
@@ -3317,6 +3342,35 @@ Qué va ahí:
 Una entrada por tema, se integra sin duplicar, se lee en 5 minutos. Si la lección
 gobierna código nuevo (no es un hallazgo sino una regla), va acá en `AGENTS.md`, que
 es lo que todos leen antes de escribir.
+
+## Y el tercer destino, que es el que se olvida: el registro de `/admin/dev`
+
+Los dos de arriba guardan **lo que aprendimos**. Falta **lo que Martín pidió**, y eso no
+se deduce de ningún commit. Va a `app/admin/dev/<área>/bitacora.ts`, con el tipo `Hito`
+de `app/admin/dev/_registro/tipos.ts`:
+
+- Un hito **`tipo: 'prompt'`** con el campo **`pedido`**: el texto **literal** de Martín,
+  sin resumir. La mitad de las reglas de esta casa salieron de una frase suya, y resumida
+  se pierde el matiz que la hacía una regla.
+- Y los hitos de lo que salió de ahí (`implementacion`, `investigacion`, `correccion`,
+  `cosecha`), con sus `commits[]` y `archivos[]`.
+- `fecha` y `hora` salen del commit, nunca del recuerdo. `cuenta` sale del marcador
+  (ver «Hay dos cuentas»), nunca de una deducción.
+
+⚠️ **Medido el 27/09/2026, y por eso esta sección existe.** Del 11/09 al 27/09 la cuenta 1
+hizo **152 commits, 19 de ellos de cosecha**, y tocó 25 documentos de contexto
+(`hallazgos-plan.md` 49 veces, este archivo 45). La cosecha se cumplió a rajatabla. En las
+mismas 16 jornadas, las **39 bitácoras de `/admin/dev` sumaron CERO hitos**: ni un prompt,
+ni una implementación. No fue desidia — **la regla de los hallazgos estaba escrita acá y
+la del registro no**. Vivía en un comentario de `_registro/tipos.ts` y en una memoria, que
+son dos lugares que nadie abre antes de commitear.
+
+**La lección que generaliza, y vale para cualquier proceso de esta casa:** una regla que
+no está en `AGENTS.md` **no existe** para una sesión nueva. No alcanza con acordarla con
+Martín, ni con dejarla en una memoria, ni con escribirla en el comentario del módulo que
+la implementa. Si depende de que alguien se acuerde, en dos semanas no se cumple — y el
+modo de falla es silencioso, porque el trabajo sale igual y lo único que falta es el
+rastro de quién lo pidió y por qué.
 
 # El default de un refutador es parte de la PREGUNTA, no de su rigor
 
