@@ -1552,3 +1552,70 @@ Ya está arriba con su test, y conviene el número: al materializar la clave del
 primera versión dejaba correr igual las pasadas por nombre, así que un proyecto asignado a
 TEXX seguía apareciendo en la ficha de «Grupo Esquer». Lo encontró el test al escribirlo, no
 leyendo el código.
+
+### «0 de 43» no era un veredicto: la IA no había contestado (26/09/2026)
+
+Lo reporté como un logro —«MaKo rechazó las 43, que era el punto»— y era un fallo de
+lectura disfrazado. `chatCheapCascade` devolvió la cadena VACÍA (Groq contesta «Failed to
+validate JSON» con este prompt y el modelo gratis de OpenRouter dejó de existir), y
+`leerVeredicto('')` devuelve `[]`. Cero aceptadas.
+
+**Es la falla que este repo tiene documentada seis veces**, cometida por mí y encima
+reportada como un acierto: «no pude preguntar» y «pregunté y dijo que no» dan el mismo
+número, y el segundo se lee como que el sistema funcionó.
+
+Lo que la delató fue probar el juez contra los casos reales e imprimir la respuesta CRUDA.
+Sin eso, «0 de 6» y «0 de 43» se ven iguales para siempre.
+
+**La regla, ahora en el código:** `sinRespuesta` se cuenta aparte y la pantalla dice «no
+pude preguntarle por N». Y la cascada va con `provs: CASCADA_DOCS` (Gemini primero), no con
+el default, que arranca por Groq y arrastra a toda la fila.
+
+### El candidato no se busca en el DETALLE
+
+`clavesEnTexto` miraba `titulo + detalle`, y los detalles de las tareas mencionan a todos
+los clientes. Medido en el ws9: **46 candidatas**, la mitad cosas como «Que la Retro se
+ejecute SOLA» o «Arreglar el botón de copiar en el Segundo Cerebro», atribuidas a Leila
+porque su nombre aparece UNA vez en un detalle de 6.000 caracteres.
+
+El juez recibía «¿"Que la Retro se ejecute SOLA" es de Leila?» y no tenía con qué
+contestar. Con el prompt permisivo dijo que sí a veinticinco.
+
+**El detalle es CONTEXTO —menciona a todo el mundo— y el título es lo que la tarea ES.**
+Buscando sólo en el título quedan 6 para Leila y 0 para Juanfran, que son las de verdad. El
+detalle se sigue mandando al juez como evidencia, que es su lugar.
+
+### Un prompt con ejemplos de una sola dirección no pide un juicio: pide esa dirección
+
+La primera versión del juez tenía cuatro contraejemplos del NO («probado con X», «antes de
+que entre X») y un «ante la duda, NO» de cierre. Rechazó todo — incluidas «Borrarle a Leila
+los audios 21 a 24 para que los regrabe» y «Reiniciar el onboarding de Leila sin perder su
+CRM», que son literalmente trabajo sobre la cuenta de un cliente.
+
+Agregando los ejemplos del SÍ, sobre las mismas 6 acierta las 2 correctas y rechaza la
+fecha, el caso de prueba y el ejemplo de bug.
+
+⚠️ **Y el arreglo se pasó al otro extremo antes de quedar bien.** Con los ejemplos del SÍ
+puestos y el candidato todavía sacado del detalle, aceptó 25 de 46. Un prompt se mide sobre
+los casos REALES y se mira qué contestó, no si «suena» equilibrado.
+
+### Un cliente tiene DOS nombres, y el cruce usaba uno
+
+`nucleoDe` devolvía `empresa || nombre`. Con eso, «Cliente: Código Inmobiliario» figuraba
+en la lista de huérfanos y Juanfran en la de clientes sin proyecto — **los dos a la vista
+en la misma pantalla y sin forma de encontrarse**. Ahora el tier del nombre prueba las dos
+alternativas por separado (la empresa y la persona), y la unión sólo se usa para el tier
+del parecido.
+
+Las claves de cada alternativa van SEPARADAS y no en una sola bolsa: el tier exige un
+subconjunto completo, y «Código Inmobiliario Juanfran» no es subconjunto de nada.
+
+### Asignar una TAREA reclamaba su proyecto entero
+
+`leadPorProyecto` decía «una tarea que declara su lead ata el proyecto entero». Era
+inofensivo mientras 0 de 299 tareas tuvieran lead escrito; desde que se pueden asignar, es
+activamente falso. Al asignarle 2 tareas a Leila, su tarjeta pasó a decir **«1 proyecto ·
+20 abiertas»**: el proyecto completo de otro tema, con sus otras 18 tareas adentro.
+
+**Una regla que nunca se ejecutó no está probada, está escrita.** El día que empieza a
+ejecutarse es el día que se descubre qué hacía.
