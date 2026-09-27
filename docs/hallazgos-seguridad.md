@@ -924,3 +924,145 @@ eso las citas se abren: `#25 ws4 → media_path 1/setting-audios/...`.
 
 Queda como tarjeta #791. El path cruzado entre tenants es lo primero a cortar: el clon no puede
 copiar binarios ajenos ni referenciar la carpeta de otro.
+
+## «Vista de agencia»: el relevo que hay que leer ANTES de escribir una línea
+
+Relevado el 27/09/2026, sobre el pedido de que Juanfran (Código Inmobiliario, ws13) pueda
+entrar a SUS clientes desde `/customer-success`, con workspaces propios y una aprobación del
+super-admin. No se escribió código: lo que sigue es lo que se midió, y cada afirmación está
+verificada a mano contra el archivo (el panel de refutación murió por un error de API, así
+que nada de esto pasó por un refutador — se verificó de a una).
+
+**Vive en:** `proxy.ts` · `lib/workspace.ts` · `lib/auth-session.ts` · `app/admin/AdminView.tsx` · `app/_components/ImpersonationBanner.tsx`
+
+### El diagnóstico obvio era el equivocado: no hay nada que REUSAR
+
+«Que sea la misma funcionalidad que hay en admin» suena a reusar un endpoint. No hay
+endpoint. El «Entrar como» de `/admin` es un **link** —un `<a>` a `/general?ws=N`,
+`app/admin/AdminView.tsx:359`— y todo el permiso lo decide **una línea**, en el gate:
+
+    if (sesion?.rol === 'admin') headers.set(WS_HEADER, String(ws));   // proxy.ts:164
+
+Esa línea mira el rol **global** y **no mira qué workspace es**. O sea que la impersonación
+de hoy no es una feature con permisos: es el bit de super-admin. No hay dónde enganchar una
+aprobación, un registro ni un alcance, porque del lado del cliente no existe ningún acto —
+existe una URL.
+
+### Los dos modos de falla, y el probable NO es el leak
+
+| Si a Juanfran se le da… | Qué pasa |
+|---|---|
+| `rol: 'usuario'` (lo prudente) | `proxy.ts:164` no pone el header → `getWorkspaceActual` devuelve `sesion.ws` (workspace.ts:145) → **la pantalla del «cliente» renderiza completa con los datos de la agencia**. Sin 403, sin error, sin nada roto. |
+| `rol: 'admin'` (lo que funciona) | 154 call-sites de `getSesionAdmin()` en 63 archivos se le abren de una: `/admin` entero, los 13+ workspaces de la plataforma, crear otros super-admins, `/api/admin/impersonate` sin lista blanca, la cuenta de Meta y el gasto de IA de la agencia. |
+
+El primero es el que se va a escribir sin querer, y es el síntoma exacto que AGENTS.md ya
+tiene medido del 16/08: **no hay pantalla rota, hay una cuenta distinta**.
+
+**Y no hay escalón intermedio.** `Rol = 'admin' | 'usuario'` (auth-session.ts:15), y un rol
+inventado **la base lo acepta y el login lo rechaza**: `verificarToken` (auth-session.ts:195)
+devuelve `null` para cualquier rol que no sea esos dos. Síntoma: la persona rebota a `/login`
+para siempre, sin error y sin log. El compilador tampoco lo ve.
+
+### Y la agencia entraría SIN CARTEL Y SIN SALIDA
+
+`estaImpersonando()` (workspace.ts:230) devuelve `false` de entrada si el rol no es admin
+global. De ahí cuelga todo: `/api/auth/me` manda `impersonando: false`, el
+`ImpersonationBanner` hace `return null`, y no se dibuja ni la barra, ni el hueco
+`--barra-agencia`, ni el botón «Salir de la vista».
+
+Y aunque se dibujara, **la salida está cableada a `/admin` en tres lugares**
+(`ImpersonationBanner.tsx:63` y `:67`, `OnboardingWizard.tsx:309`) — una ruta que está en
+`SOLO_ADMIN` (proxy.ts:33) y que a Juanfran el propio gate le niega, dejándolo en `/inicio`.
+AGENTS.md ya lo tiene escrito para este caso textual: «si la única salida vive adentro de una
+pantalla condicional, no hay salida».
+
+### El choque de nombre YA ESTÁ EN PRODUCCIÓN
+
+`lib/api-mako/areas/equipo.run.ts:177` devuelve **`vista_de_agencia = impersonando`** en la
+API que leen MaKo en la app, el doer de WhatsApp, `/api/v1` y la skill del cliente. Reusar el
+nombre no rompe el compilador —es un campo de un `Record<string, unknown>` descrito en
+prosa—: **hace que MaKo conteste mal**.
+
+Y «agencia» hoy nombra siete cosas distintas: el rol global `admin`, la ruta `/agencia` (que
+en realidad es el WhatsApp de MaKo), `/plan/agencia` (el board del super-admin), la barra de
+impersonación y su token `--barra-agencia`, el «modo agencia» (que es estar impersonando),
+`PanelAgencia.tsx` (que en realidad son dos botones destructivos) y la capa `superadmin`. Más
+una tarjeta **«Panel de agencia + "Entrar como" un cliente» al 100%** en el board del dueño
+(`app/plan/PlanBoard.tsx:111`), contra la que el pedido nuevo va a chocar y que el Perro va a
+leer como duplicado de algo cerrado.
+
+### El modelo de datos no puede expresar la pregunta
+
+- **`workspaces` no tiene columna de padre.** La tabla son `id, nombre, slug, estado,
+  created_at, updated_at` (mig 0054:29-36) más `capa` (0092). Las únicas alter posteriores son
+  0071, 0092, 0096 y 0157. «Esta agencia es dueña de estos clientes» **no existe**.
+- **`usuarios.workspace_id` es una columna escalar** (0054:74), y 0058:13 lo dice con todas
+  las letras: «1 usuario = 1 workspace». No hay tabla de membresías. Cualquier diseño en el
+  que el admin de la agencia «también esté» en los workspaces hijos choca con eso antes de
+  escribir una línea de UI.
+- **Un email = una cuenta en TODO MaKo**, y las cinco puertas de alta rechazan un email que ya
+  exista en cualquier workspace (`admin/workspaces:57`, `admin/usuarios:120`, `equipo:75`,
+  `equipo.run:584` y `:594`).
+
+### `estado: 'pausado'` NO es una aprobación pendiente
+
+Es la trampa que más barata parece. `workspaces.estado` **no bloquea el acceso a nada**:
+medido, sus únicos lectores son los crons (`cron-workspaces.ts:91`, `crm-auto.ts:94` y `:464`,
+`avisos-cola.ts:70`) y la UI de `/admin`. Un workspace «pausado» entra y opera normalmente.
+Encima la columna **no tiene CHECK en la base** (0054:33): sólo la validan el route handler y
+el tipo TS.
+
+El único corte real de acceso es `usuarios.estado === 'suspendido'` (`lib/auth.ts:46`), y es
+por PERSONA, no por workspace.
+
+Y `propuestas` —el mecanismo de «un canal propone, una persona confirma»— está en
+`TENANT_TABLES` (workspace.ts:106): una propuesta pertenece a UN workspace. Una aprobación del
+super-admin sobre el alta de un cliente de una agencia es, por definición, **cross-workspace**,
+así que no entra en ese molde sin romper el aislamiento.
+
+### Las cinco trampas del enforcement, si igual se construye
+
+1. **La lista de workspaces permitidos vive en el SERVER, adentro de `seguir()`**
+   (proxy.ts:150) — que es el único lugar que borra el header entrante (línea 152). Un guard
+   nuevo que devuelva `NextResponse.next()` a mano **reabre el IDOR**: cualquiera manda
+   `x-mako-ws` y lee lo que quiera.
+2. **Va en POSITIVO**: «los clientes de esta agencia son estos N», nunca «todos menos el 1 y
+   el 9». Es la regla del Reset, que decía `ws !== OWNER_WS` en tres capas y se ofrecía adentro
+   de todos los clientes reales.
+3. **`proxy.ts:146` dice a propósito que NO se valida que el workspace exista**, «porque un id
+   inventado no filtra nada». Ese razonamiento es cierto **sólo mientras el que entra puede ver
+   todo igual**. Con agencias se cae: hay que consultar la base en cada request, o cachear el
+   mapa agencia→clientes. Ése es el costo escondido del cambio.
+4. **`getWorkspaceActual` (126) y `estaImpersonando` (228) tienen que mirar lo mismo y en el
+   mismo orden** (el warning está en 224-227). Un tercer camino de entrada tocando sólo una deja
+   la app mostrando los datos de un cliente con el chrome del otro.
+5. **El rol que usa el PROXY sale del token FIRMADO AL LOGIN; el que usan las páginas sale de
+   la base en cada request** (`lib/auth.ts:48`). Promover a alguien no le habilita el `?ws=`
+   hasta que vuelva a entrar: «Entrar como» le va a parecer roto y nada lo explica. (Al revés
+   es fail-closed, y está bien así.)
+
+### Y «Clientes» son DOS pantallas sobre dos universos incompatibles
+
+- **`/admin`** lista **workspaces**, y ahí ya vive «Entrar como».
+- **`/customer-success`** lista **leads con `estado_lead='ganado'`**
+  (`lib/clientes-ganados.ts:29-35`), y es la que tiene el modal de detalle que el dueño
+  describe.
+
+**Un lead no tiene workspace.** Poner «Entrar como» en la ficha de `/customer-success` exige
+antes decidir cómo se ata un lead ganado a un workspace — hoy no hay ninguna columna que lo
+haga, y ése es el primer trabajo, no la UI.
+
+### Lo que quedó SIN hacer
+
+Todo. No se escribió una línea: el pedido necesita dos tablas nuevas (la relación
+agencia→cliente y la aprobación), una rama nueva en `proxy.ts:164`, extender
+`estaImpersonando`, parametrizar la salida de `ImpersonationBanner`, atar lead↔workspace, y
+un nombre que no sea `vista_de_agencia`. Y **no hay un solo test del aislamiento por `?ws=`**:
+en `tests/` no hay ningún archivo que importe `proxy` ni `WS_HEADER`. La condición que decida
+qué clientes ve una agencia tiene que vivir en un módulo **sin `server-only`** para poder
+testearse, como ya se hizo con `exigirClienteDePrueba`.
+
+⚠️ **Y con UNA sola agencia no se puede verificar.** Es el corolario 3 de `OWNER_WS`: con
+Juanfran/ws13 solo, toda prueba da bien aunque el permiso esté cableado al número 13 en vez de
+a una relación. La prueba honesta necesita una SEGUNDA agencia de mentira y comprobar que no
+se ven entre sí.

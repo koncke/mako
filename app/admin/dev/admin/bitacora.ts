@@ -189,6 +189,28 @@ export const BITACORA: Hito[] = [
       { sha: "17944fbf", msg: "Dar de alta a alguien ahora le avisa: el mail de acceso que nunca salía", lineas: 634, archivos: 13 },
     ],
   },
+  {
+    fecha: '27 sep', hora: '18:05', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Vista de agencia: que Juanfran entre a SUS clientes',
+    pedido: 'También quiero implementar la "Vista de agencia" en clientes, por ahora pon solo a Juanfran/ Código inmobiliario en ese nivel de acceso. Y dentro del detail de cada cliente deberían poder tener un botón de "Entrar cómo" que sea la misma funcionalidad que hay en admin que te permite ver el dashboard y la cuenta de otro. Es decir que claro, los clientes de "Agencia" tendrán cuenta de MaKo. Entonces te propongo que crees directamente el workspace y que superadmin lo vea dentro de los clientes de esa agencia y deba aprobar la entrada.',
+    puntos: [
+      'El pedido introduce un TERCER nivel de acceso que hoy no existe: `Rol = admin | usuario` y nada en el medio. Es una decisión de producto, no una feature de UI.',
+      '«La misma funcionalidad que hay en admin» no se puede reusar: ese «Entrar como» es un `<a href="/general?ws=N">` y todo su permiso es `sesion.rol === admin` en proxy.ts:164. No hay endpoint, no hay acto, no hay dónde colgar una aprobación.',
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '18:43', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'investigacion',
+    titulo: 'El relevo antes de construir la vista de agencia',
+    puntos: [
+      'Cinco agentes relevaron impersonación, workspaces, guards, qué significa hoy «agencia» y el modelo de cuentas. Los tres refutadores murieron por un error de API, así que cada afirmación que decide el diseño se verificó a mano contra el archivo antes de escribirla.',
+      'Lo que más ahorra después, y es lo contrario de lo que parece: el modo de falla probable NO es un leak. Con rol `usuario`, el proxy no pone el header, `getWorkspaceActual` cae a `sesion.ws` y la pantalla del «cliente» renderiza completa con los datos de la AGENCIA — sin 403, sin error, sin nada roto.',
+      'Y el nombre ya está ocupado EN PRODUCCIÓN: `vista_de_agencia` (lib/api-mako/areas/equipo.run.ts:177) significa hoy «esta sesión está impersonando», y lo leen MaKo, el doer de WhatsApp, /api/v1 y la skill del cliente. Reusarlo no rompe el compilador: hace que MaKo conteste mal.',
+      'No se escribió una línea de la feature: falta una decisión de producto sobre el nivel de acceso, y el modelo de datos no puede expresar «esta agencia es dueña de estos clientes» (workspaces sin columna de padre, usuarios.workspace_id escalar).',
+    ],
+    commits: [
+      { sha: "pendiente", msg: "El relevo de la vista de agencia, antes de escribir una linea", lineas: 150, archivos: 3 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
