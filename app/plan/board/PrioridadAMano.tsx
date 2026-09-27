@@ -24,7 +24,7 @@
 // ese número, queda el de al lado).
 // =============================================================================
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react';
 import { MakoStar } from '../../_components/MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
@@ -45,7 +45,10 @@ const numStyle: CSSProperties = {
  * tiene sentido». Un ícono suelto al final de una columna no se lee como «editá esto»; al
  * lado del dato que edita, sí.
  */
-export function LapizPrioridad({ onClick, titulo = 'Cambiar la prioridad', tam = 26 }: { onClick: () => void; titulo?: string; tam?: number }) {
+/* El `onClick` recibe el evento —y no es cosmético—: el lápiz de la PORTADA necesita su
+   propio nodo para colgar de ahí el popover. Ensancharlo no toca a nadie: una función que
+   ignora el parámetro sigue siendo asignable. */
+export function LapizPrioridad({ onClick, titulo = 'Cambiar la prioridad', tam = 26 }: { onClick: (e: MouseEvent<HTMLButtonElement>) => void; titulo?: string; tam?: number }) {
   return (
     <button type="button" onClick={onClick} title={titulo} aria-label={titulo}
       style={{

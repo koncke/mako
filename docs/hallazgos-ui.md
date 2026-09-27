@@ -2835,3 +2835,84 @@ bloques de CONTENIDO, y un overlay no es contenido del cuerpo — sólo vive ah�
 pasa el día que uno de esos hijos sea un overlay.** Es la misma familia que «un
 `max-width` puesto al texto adentro de una caja más ancha»: una regla correcta para el
 contenido, aplicada a algo que no es contenido.
+
+---
+
+## El selector de portada dejó de ser un modal: las tres que rompió ser un POPOVER
+
+**Vive en:** `app/_components/PortadaPicker.tsx` · `app/customer-success/FichaCliente.tsx`
+· `app/plan/board/BoardShell.tsx` (`CampoPortada`) · `app/plan/board/PrioridadAMano.tsx`
+
+27/09/2026. «Quiero que sea similar a Notion. Replicalo», con la captura del selector de
+portada de Notion al lado. Era un `Modal` centrado de 720 px; pasó a ser un panel anclado
+al botón que lo abre, que aplica en el acto y **no se cierra al elegir**.
+
+El cambio de forma no es cosmético y por eso lo demás se cayó: un modal centrado tapa
+justo la portada que estás eligiendo, así que cerrar-al-elegir era obligatorio. Anclado y
+abierto, probar tres degradados son tres clicks.
+
+**Las tres las encontró el navegador, y ninguna da error.**
+
+### 1. El panel no se ubicaba NUNCA: `left:0, top:0, opacity:0`
+
+El portal no existe en el primer render (`if (!montado) return null`), así que la primera
+corrida del efecto que mide encuentra `panelRef.current` en `null` y se va sin medir. Como
+`recolocar` es un `useCallback` estable, **el efecto no vuelve a correr jamás** y el panel
+se queda invisible en la esquina para siempre. Medido en Chrome: `pop {l:0,t:0}`,
+`opacity "0"`, con el ancla en `l:650,t:145`.
+
+No tira, no avisa y no se ve en una captura: con `opacity:0` la pantalla se ve **igual que
+antes de abrirlo**, así que se lee como que el botón no hace nada. Va `montado` en las
+dependencias.
+
+**La regla: un efecto que mide un nodo montado por un portal depende del estado que monta
+el portal.** Es la familia de «escribir la salida no es ofrecerla», del lado del layout.
+
+### 2. Un Escape cerraba el panel Y LA FICHA ENTERA
+
+Exactamente el bug que `72aa1109` cerró para los modales, reaparecido del lado del popover
+— y la guarda que lo arregló allá (`capa.esElDeArriba()`) **acá no alcanza**. El panel se
+registra en la pila y es el de arriba, así que el handler de la ficha se abstiene bien; lo
+que no se abstiene es lo que corre DESPUÉS del nuestro sobre el mismo nodo.
+
+`stopPropagation()` frena la propagación a otros NODOS y no toca a los listeners hermanos
+del mismo — y todos los Escape de la casa viven en `document`, en captura. Va
+**`stopImmediatePropagation()`**, que es el único que los frena. Medido: perdías el cliente
+por cerrar el selector de portada.
+
+**La regla: el que está arriba de todo frena con `stopImmediatePropagation`, no con
+`stopPropagation`.** `esElDeArriba()` dice si te toca contestar; no impide que conteste
+otro.
+
+### 3. Un alto «que justo entra» no entra
+
+Con el cuerpo en 330 px y 13 muestras, el contenido medía 338: ocho píxeles de scroll, que
+es la peor cantidad posible. Va fijo en 352 y lo que sobra es aire. El alto **tiene** que
+ser fijo: la posición se calcula contra la caja del panel, así que un cuerpo que cambia de
+alto al cambiar de pestaña hace saltar el panel de lugar.
+
+### Lo que quedó verificado, y lo que no
+
+Con un arrastre… no: con clicks reales en Chrome (`channel: 'chrome'`, headless false),
+sobre la ficha de Leila (ws9, `portada` en `null`, restaurada a `null` al terminar y
+comprobada con una lectura aparte):
+
+| | |
+|---|---|
+| borde derecho del panel = borde derecho del ancla | 790 = 790 ✔ |
+| debajo del ancla | `t` 185 = `bottom` 177 + 8 ✔ |
+| nada encima (`elementFromPoint` del centro) | «EL PANEL» ✔ |
+| la ficha sigue visible detrás | `display: flex` ✔ |
+| elegir no cierra y el panel no se mueve | ✔ |
+| la banda cambia detrás mientras el panel está abierto | ✔ |
+| Escape cierra el panel y **no** la ficha | ✔ |
+| click afuera cierra | ✔ |
+| desde el detalle de un proyecto: pegado al borde derecho, se da vuelta hacia arriba y entra entero | `r` 1106 = 1106, `b` 610 ≤ ancla 618 ✔ |
+
+⚠️ **SIN VERIFICAR: que el panel siga al ancla cuando la columna scrollea.** Es la única
+razón por la que `ancla` es el NODO y no un `DOMRect`, y no se pudo ejercitar: en el
+proyecto que se abrió, la columna derecha del detalle **entra sin scroll**
+(«ningún ancestro scrollea»). El listener está puesto (`scroll` en captura, porque el de un
+contenedor no burbujea) y la matemática la fija `tests/portada-popover-ubicacion.test.ts`;
+lo que falta es el gesto. Hace falta un proyecto con la columna derecha más larga que la
+ventana.

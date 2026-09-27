@@ -289,8 +289,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   /** Qué tarjeta está eligiendo cliente. Uno solo para las dos entidades: el modal es el
    *  mismo y abrir dos a la vez no tiene sentido. */
   const [asignarCli, setAsignarCli] = useState<{ tipo: 'tarea' | 'proyecto'; id: string } | null>(null);
-  /** El proyecto al que se le está eligiendo portada (mig 0173). */
-  const [portadaDe, setPortadaDe] = useState<string | null>(null);
+  /** El proyecto al que se le está eligiendo portada (mig 0173), y DE QUÉ BOTÓN cuelga
+   *  el popover: el ancla es el nodo, no un rect (ver PortadaPicker). */
+  const [portadaDe, setPortadaDe] = useState<{ id: string; ancla: HTMLElement } | null>(null);
   const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [makoHintId, setMakoHintId] = useState<string | null>(null); // tarea recién creada → sugerir "MaKo te ayuda"
   const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
@@ -1376,7 +1377,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'tarea', id: openTask.id })} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
-      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={() => setPortadaDe(peekProj.id)}
+      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={(ancla) => setPortadaDe({ id: peekProj.id, ancla })}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
         onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
         onClose={() => setPeekProjId(null)} />}
@@ -1416,7 +1417,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           onClose={() => setSoltada(null)} />
       )}
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={() => setPortadaDe(openProjLabel.id)}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
@@ -1569,20 +1570,23 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           apagaría junto con él. `anidada` (que trae el propio `PortadaPicker`) deja ver el
           detalle abajo, que es de donde se abrió. */}
       {portadaDe && (() => {
-        const l = labels.find((x) => x.id === portadaDe);
+        const l = labels.find((x) => x.id === portadaDe.id);
         if (!l) return null;
         return (
           <PortadaPicker
             valor={l.portada}
             colorBase={l.color}
+            ancla={portadaDe.ancla}
             titulo={`Portada de ${l.name}`}
+            /* ⚠️ ELEGIR YA NO CIERRA: el panel cuelga del campo y la banda de al lado
+               cambia en vivo, que es para lo que se hizo popover. Cerrar acá obligaba a
+               reabrirlo por cada degradado que quisieras ver. */
             onElegir={(v) => {
-              setPortadaDe(null);
               // Por `patchLabelLog` y no por `patchLabel`: de ahí salen el guardado, el
               // Change History y el deshacer. Un cambio escrito al costado se guarda igual
               // y no se puede deshacer, que es la regla de «lo que vale para TODOS los
               // cambios se escribe donde pasan todos».
-              board.patchLabelLog(portadaDe, { portada: v }, v ? 'Cambió la portada' : 'Sacó la portada');
+              board.patchLabelLog(portadaDe.id, { portada: v }, v ? 'Cambió la portada' : 'Sacó la portada');
             }}
             onCerrar={() => setPortadaDe(null)} />
         );
@@ -2705,15 +2709,18 @@ function CampoCliente({ cliente, onAbrir }: {
 function CampoPortada({ portada, color, onAbrir }: {
   portada: string | null | undefined;
   color: string;
-  onAbrir: () => void;
+  /** Recibe el NODO que lo abrió: de ahí cuelga el popover (ver PortadaPicker). */
+  onAbrir: (ancla: HTMLElement) => void;
 }) {
   return (
     <div>
       <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
         Portada
-        <LapizPrioridad tam={20} onClick={onAbrir} titulo={portada ? 'Cambiar la portada' : 'Poner una portada'} />
+        {/* El lápiz y la banda abren lo mismo, y cada uno ancla en SÍ MISMO: un panel que
+            cuelga de un botón que no se tocó se lee como que salió de cualquier lado. */}
+        <LapizPrioridad tam={20} onClick={(e) => onAbrir(e.currentTarget)} titulo={portada ? 'Cambiar la portada' : 'Poner una portada'} />
       </label>
-      <button type="button" onClick={onAbrir} title={portada ? 'Cambiar la portada' : 'Poner una portada'}
+      <button type="button" onClick={(e) => onAbrir(e.currentTarget)} title={portada ? 'Cambiar la portada' : 'Poner una portada'}
         style={{ display: 'block', width: '100%', height: 46, padding: 0, cursor: 'pointer',
           border: '1px solid var(--border)', borderRadius: 9, background: fondoPortada(portada, color) }} />
     </div>
@@ -5257,7 +5264,8 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   /** Abre el selector de portada (mig 0173). Vive en `BoardShell` y no acá por lo mismo
    *  que el de cliente: es un modal HERMANO del detalle, no un hijo — un descendiente se
    *  apagaría junto con él cuando la pila esconde al de abajo. */
-  onPortada: () => void;
+  /** Recibe el NODO que lo abrio: de ahi cuelga el popover (ver PortadaPicker). */
+  onPortada: (ancla: HTMLElement) => void;
   /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
    *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
    *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */

@@ -55,7 +55,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
   onCerrar: () => void;
 }) {
   const router = useRouter();
-  const [eligiendoPortada, setEligiendoPortada] = useState(false);
+  /** El BOTÓN de la portada, no un booleano: de él cuelga el popover (ver PortadaPicker). */
+  const [anclaPortada, setAnclaPortada] = useState<HTMLElement | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mal, setMal] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -96,7 +97,10 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
               editar dos imágenes de la misma cabecera se aprendían por separado. */}
           <span className="fc-portada">
             <span className="fc-banda" aria-hidden style={{ background: fondoPortada(c.portada, color) }} />
-            <button type="button" className="fc-cambiar" onClick={() => setEligiendoPortada(true)}>
+            {/* INTERRUPTOR: el segundo click lo cierra. El popover excluye a su ancla del
+                click-afuera justamente para que esto se pueda decidir acá. */}
+            <button type="button" className="fc-cambiar"
+              onClick={(e) => { const b = e.currentTarget; setAnclaPortada((a) => (a ? null : b)); }}>
               {c.portada ? 'Cambiar portada' : 'Poner una portada'}
             </button>
           </span>
@@ -161,16 +165,18 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
           onRecargar={() => router.refresh()} />
       )}
 
-      {/* El selector va ENCIMA de la ficha, y se puede: `anidada` le dice a la pila que no
-          apague al de abajo (app/_components/pila-modales.ts). Sin eso, abrirlo haría
-          desaparecer la ficha entera. */}
-      {eligiendoPortada && (
+      {/* El selector cuelga del botón de la portada y se queda abierto al elegir: la
+          gracia es ver la banda cambiar detrás (ver la cabecera de PortadaPicker). Se
+          registra en la pila como `anidada`, así que la ficha se sigue viendo y el Escape
+          cierra sólo el panel. */}
+      {anclaPortada && (
         <PortadaPicker
           valor={c.portada}
           colorBase={color}
+          ancla={anclaPortada}
           titulo={`Portada de ${nombre}`}
-          onElegir={(v) => { setEligiendoPortada(false); onImagen({ portada: v }); }}
-          onCerrar={() => setEligiendoPortada(false)}
+          onElegir={(v) => onImagen({ portada: v })}
+          onCerrar={() => setAnclaPortada(null)}
         />
       )}
 

@@ -3053,6 +3053,24 @@ apaga con él: se monta, se pinta `display:flex`, le toca un z más alto, y no s
 Eso es `contenedor`. No se arregla marcando `anidada` a los de arriba: `anidada` también
 apaga la semántica de REEMPLAZO que esos modales tienen entre sí donde SÍ son la pantalla.
 
+⚠️ **Y UN POPOVER ANCLADO TAMBIÉN ES UNA CAPA: se registra en la pila y frena con
+`stopImmediatePropagation`.** Registrarse (`useCapaModal(true, { anidada: true })`) es lo
+que le da el z-index correcto y hace que el de abajo se abstenga del Escape. Pero
+`esElDeArriba()` sólo dice **si te toca contestar**: no impide que conteste otro. Todos los
+Escape de la casa viven en `document` y en captura, y `stopPropagation` frena la
+propagación a otros NODOS, nunca a los listeners hermanos del mismo. Medido el 27/09/2026
+en el selector de portada: una tecla cerraba el panel **y la ficha del cliente**, o sea que
+perdías el cliente por cerrar un selector. El de arriba de todo frena con
+`stopImmediatePropagation()`.
+
+⚠️ **Y UN EFECTO QUE MIDE UN NODO MONTADO POR UN PORTAL DEPENDE DEL ESTADO QUE MONTA EL
+PORTAL.** El patrón `const [montado, setMontado] = useState(false)` + `if (!montado) return
+null` hace que la primera corrida del efecto no encuentre nada que medir; si lo que mide es
+un `useCallback` estable, el efecto **no vuelve a correr nunca**. El mismo día, el popover
+de la portada quedaba en `left:0, top:0, opacity:0` — invisible, en la esquina, sin un solo
+error, y en pantalla indistinguible de un botón que no hace nada. Va `montado` en las
+dependencias.
+
 ⚠️ **Y UN VALOR QUE INYECTA EL REPO TIENE QUE VOLVER AL ESTADO.** Si el parent envuelve
 `createX` para agregarle un campo (acá, el cliente de la ficha), el merge posterior al alta
 tiene que copiarlo de vuelta: el guardado siguiente es un upsert de la fila ENTERA armada

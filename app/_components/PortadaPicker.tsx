@@ -1,10 +1,29 @@
 'use client';
 
 // =============================================================================
-// PortadaPicker — elegir qué se ve arriba
+// PortadaPicker — elegir qué se ve arriba, COMO EN NOTION
 // =============================================================================
 // «Para el banner tanto que se pueda subir una imagen, como que se pueda
-// seleccionar de un repositorio, como lo hace Notion» (27/09/2026).
+// seleccionar de un repositorio, como lo hace Notion» (27/09/2026), y ese mismo
+// día, con la captura del selector de Notion al lado: «Quiero que sea similar a
+// Notion. Replicalo».
+//
+// LO QUE SE REPLICÓ SON CUATRO COSAS, Y LAS CUATRO SON LA MISMA DECISIÓN:
+// **se elige MIRANDO la portada**.
+//
+//   1. Es un POPOVER ANCLADO al botón que lo abre, no un modal centrado. Un modal
+//      de 720 px tapa exactamente lo que estás eligiendo, así que había que
+//      cerrarlo para ver el resultado.
+//   2. ELEGIR NO CIERRA. Se aplica en el acto y el panel se queda donde está:
+//      probar tres degradados son tres clicks, no tres veces abrir y cerrar.
+//      Es lo que el popover HABILITA — sin ver la portada detrás, quedarse
+//      abierto no serviría de nada.
+//   3. ALTO FIJO Y SCROLL ADENTRO. Cambiar de pestaña no mueve el panel ni lo
+//      hace saltar de lugar (AGENTS.md: «un layout fijo no tiene casos»).
+//   4. LAS MUESTRAS VAN SIN RÓTULO. El nombre de un degradado no dice nada que la
+//      muestra no diga mejor, y doce rótulos de 11 px son ruido; el nombre viaja
+//      en el `title` y en el `aria-label`, donde no ocupa lugar (AGENTS.md: «el
+//      texto que se DIBUJA es corto»).
 //
 // Tres pestañas, y el orden es la decisión:
 //   1. Degradados — el catálogo de `lib/portadas.ts`. Se dibuja SIN RED, entra en
@@ -16,28 +35,197 @@
 // ⚠️ ES UNO SOLO PARA EL CLIENTE Y PARA EL PROYECTO. La misma pregunta contestada en
 // dos componentes son dos componentes que divergen: el día que se agregue una pestaña,
 // el otro se queda con dos.
+//
+// ⚠️ SE REGISTRA EN LA PILA DE MODALES AUNQUE NO SEA UN MODAL, y hace falta. El
+// Escape de todos los modales abiertos vive en `document`, así que sin registrarse
+// acá una tecla cerraría la FICHA de atrás en vez de este panel —y `stopPropagation`
+// no lo evita, porque frena la propagación a otros NODOS y no a los otros listeners
+// del mismo—. Entra como `anidada`: la capa de abajo se sigue viendo, que es el punto
+// entero de que esto sea un popover.
 
-import { useEffect, useRef, useState } from 'react';
-import { Modal, Spinner } from '@/app/_ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Spinner } from '@/app/_ui';
+import { useCapaModal } from '@/app/_components/pila-modales';
 import { GRADIENTES, cssGradiente, valorGradiente, fondoPortada } from '@/lib/portadas';
 import type { FotoDeCatalogo } from '@/lib/portadas';
 
 type Pestana = 'degradados' | 'fotos' | 'subir';
 
-export function PortadaPicker({ valor, colorBase, titulo = 'Portada', onElegir, onCerrar }: {
+/** El ancho del panel. Notion usa ~615 de contenido; acá entran cuatro muestras por fila. */
+const ANCHO = 620;
+/** Lo que scrollea adentro. FIJO: cambiar de pestaña no puede mover el panel de lugar. */
+const ALTO_CUERPO = 352;
+
+type Caja = { left: number; right: number; top: number; bottom: number };
+
+/**
+ * DÓNDE CAE EL PANEL, y vive afuera del componente PARA QUE SE PUEDA TESTEAR.
+ *
+ * Es la misma razón por la que `decidirVisible` vive afuera de `useCapaModal` y
+ * `exigirClienteDePrueba` afuera del que borra: una condición encerrada adentro del
+ * componente que la usa no la puede importar ningún test (AGENTS.md).
+ *
+ * Alineado a la DERECHA del ancla —como en Notion, donde el panel cuelga del control
+ * de la portada— y debajo. Si abajo no entra y arriba hay más lugar, se da vuelta. Y
+ * siempre adentro de la ventana: un panel que se sale por el borde es un panel sin la
+ * mitad de sus opciones.
+ */
+export function ubicarPanel(
+  ancla: Caja,
+  panel: { ancho: number; alto: number },
+  ventana: { ancho: number; alto: number },
+  margen = 10,
+): { left: number; top: number } {
+  const left = Math.max(margen, Math.min(ancla.right - panel.ancho, ventana.ancho - panel.ancho - margen));
+
+  const cabeAbajo = ventana.alto - ancla.bottom - margen;
+  const cabeArriba = ancla.top - margen;
+  const arriba = panel.alto > cabeAbajo && cabeArriba > cabeAbajo;
+  const crudo = arriba ? ancla.top - 8 - panel.alto : ancla.bottom + 8;
+
+  const top = Math.max(margen, Math.min(crudo, ventana.alto - panel.alto - margen));
+  return { left, top };
+}
+
+export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onCerrar }: {
   /** Lo que hay puesto hoy, para marcarlo. */
   valor: string | null | undefined;
   /** El color derivado del nombre: el default, que también es una opción. */
   colorBase: string;
+  /**
+   * EL BOTÓN QUE LO ABRIÓ. De ahí cuelga el panel, y por eso es el ELEMENTO y no un
+   * `DOMRect`: un rect tomado al abrir se queda viejo en cuanto la columna de atrás
+   * scrollea, y el panel se despega de su botón sin que nada falle. Con el nodo se
+   * vuelve a medir en cada `scroll` y en cada `resize`.
+   *
+   * `null` = no hay de dónde colgarlo: queda centrado, que es como estaba antes.
+   */
+  ancla?: HTMLElement | null;
+  /** Para el lector de pantalla: el panel no dibuja título (Notion tampoco). */
   titulo?: string;
-  /** `null` = volver al default. Elegir cierra el selector: es un solo gesto. */
+  /** `null` = volver al default. ⚠️ NO cierra: se aplica y el panel se queda abierto. */
   onElegir: (v: string | null) => void;
   onCerrar: () => void;
 }) {
   const [pest, setPest] = useState<Pestana>('degradados');
+  const [montado, setMontado] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <Modal titulo={titulo} ancho={720} anidada onCerrar={onCerrar}>
+  const capa = useCapaModal(true, { anidada: true });
+  const arriba = capa.esElDeArriba;
+
+  useEffect(() => { setMontado(true); }, []);
+
+  /**
+   * ⚠️ SE MIDE EL PANEL DE VERDAD, no el `ANCHO` declarado. En una ventana angosta el
+   * CSS lo achica (`max-width: calc(100vw - 20px)`), y ubicarlo por el número declarado
+   * lo dejaría corrido por la diferencia.
+   */
+  const recolocar = useCallback(() => {
+    const p = panelRef.current;
+    if (!p) return;
+    const caja = p.getBoundingClientRect();
+    const ventana = { ancho: window.innerWidth, alto: window.innerHeight };
+    const a = ancla?.isConnected ? ancla.getBoundingClientRect() : null;
+    if (!a) {
+      setPos({
+        left: Math.max(10, (ventana.ancho - caja.width) / 2),
+        top: Math.max(10, (ventana.alto - caja.height) / 2),
+      });
+      return;
+    }
+    setPos(ubicarPanel(a, { ancho: caja.width, alto: caja.height }, ventana));
+  }, [ancla]);
+
+  /**
+   * ⚠️ `montado` VA EN LAS DEPENDENCIAS, Y NO ES UN ADORNO. El portal no existe en el
+   * primer render (`if (!montado) return null`), así que la primera corrida de este
+   * efecto encuentra `panelRef.current` en null y se va sin medir; como `recolocar` es
+   * estable, sin `montado` acá el efecto NO VUELVE A CORRER y el panel se queda en
+   * `left:0, top:0` con `opacity:0` — o sea, invisible, en la esquina, para siempre.
+   *
+   * Medido en Chrome el 27/09/2026 antes de arreglarlo: `pop {l:0, t:0}`, `opacity "0"`,
+   * con el ancla en `l:650, t:145`. No tira, no avisa: el panel simplemente no está.
+   */
+  useEffect(() => {
+    recolocar();
+    window.addEventListener('resize', recolocar);
+    // EN CAPTURA: lo que scrollea puede ser la columna del detalle o el cuerpo de la
+    // ficha, y un `scroll` de un contenedor NO burbujea hasta `window`.
+    window.addEventListener('scroll', recolocar, true);
+    return () => {
+      window.removeEventListener('resize', recolocar);
+      window.removeEventListener('scroll', recolocar, true);
+    };
+  }, [recolocar, montado]);
+
+  // Click afuera: la única salida de un popover, y la que Notion usa. El ANCLA queda
+  // exceptuada — el que la abrió la cierra por su cuenta (es un interruptor), y sin
+  // esta excepción el click la cerraría acá y la volvería a abrir allá.
+  useEffect(() => {
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (panelRef.current?.contains(t)) return;
+      if (ancla?.contains(t)) return;
+      onCerrar();
+    };
+    document.addEventListener('mousedown', fuera, true);
+    return () => document.removeEventListener('mousedown', fuera, true);
+  }, [ancla, onCerrar]);
+
+  // Escape y el ciclo del Tab. `arriba()` es lo que impide que esta tecla cierre además
+  // la ficha de atrás (ver la cabecera y `esElDeArriba` en pila-modales.ts).
+  useEffect(() => {
+    const previo = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!arriba()) return;
+        // ⚠️ `stopImmediatePropagation` Y NO `stopPropagation`. El Escape de la ficha de
+        // atras vive en el MISMO nodo (`document`, en captura), y `stopPropagation` solo
+        // frena la propagacion a OTROS nodos: no toca a los listeners hermanos. Medido en
+        // Chrome el 27/09/2026: una sola tecla cerraba el panel Y la ficha entera, o sea
+        // que perdias el cliente por cerrar el selector de portada. Es el mismo bug que
+        // 72aa1109 cerro para los modales, del lado del popover.
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        onCerrar();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const focables = panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (!focables?.length) return;
+      const primero = focables[0];
+      const ultimo = focables[focables.length - 1];
+      if (e.shiftKey && (document.activeElement === primero || document.activeElement === panelRef.current)) {
+        e.preventDefault(); ultimo.focus();
+      } else if (!e.shiftKey && document.activeElement === ultimo) {
+        e.preventDefault(); primero.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      if (previo?.isConnected) previo.focus?.();
+    };
+  }, [arriba, onCerrar]);
+
+  if (!montado) return null;
+
+  return createPortal(
+    <div ref={panelRef} className="pp-pop" role="dialog" aria-label={titulo} tabIndex={-1}
+      style={{
+        zIndex: capa.z,
+        left: pos?.left ?? 0,
+        top: pos?.top ?? 0,
+        // Hasta que esté medido no se pinta: un frame en la esquina se ve como un salto.
+        opacity: pos ? 1 : 0,
+        pointerEvents: pos ? undefined : 'none',
+      }}>
       <div className="pp-tabs" role="tablist">
         {(['degradados', 'fotos', 'subir'] as const).map((p) => (
           <button key={p} type="button" role="tab" aria-selected={pest === p}
@@ -47,33 +235,38 @@ export function PortadaPicker({ valor, colorBase, titulo = 'Portada', onElegir, 
         ))}
         <span style={{ flex: 1 }} />
         {/* Volver al default NO es borrar: es el color derivado del nombre, que es lo
-            que se ve hoy. Por eso está a la vista y no escondido en un menú. */}
+            que se ve hoy. Va donde Notion pone «Remove». */}
         <button type="button" className="pp-quitar" onClick={() => onElegir(null)}>Sin portada</button>
       </div>
 
-      {pest === 'degradados' && (
-        <ul className="pp-grid">
-          <li>
-            <button type="button" className={`pp-op${!valor ? ' on' : ''}`} onClick={() => onElegir(null)}
-              title="El color derivado del nombre" style={{ background: fondoPortada(null, colorBase) }} />
-            <span className="pp-nom">Automático</span>
-          </li>
-          {GRADIENTES.map((g) => (
-            <li key={g.id}>
-              <button type="button" className={`pp-op${valor === valorGradiente(g) ? ' on' : ''}`}
-                onClick={() => onElegir(valorGradiente(g))} title={g.nombre}
-                style={{ background: cssGradiente(g) }} />
-              <span className="pp-nom">{g.nombre}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="pp-cuerpo">
+        {pest === 'degradados' && (
+          <>
+            <p className="pp-seccion">Color y degradado</p>
+            <ul className="pp-grid">
+              <li>
+                <button type="button" className={`pp-op${!valor ? ' on' : ''}`} onClick={() => onElegir(null)}
+                  title="Automático — el color derivado del nombre" aria-label="Automático, el color derivado del nombre"
+                  style={{ background: fondoPortada(null, colorBase) }} />
+              </li>
+              {GRADIENTES.map((g) => (
+                <li key={g.id}>
+                  <button type="button" className={`pp-op${valor === valorGradiente(g) ? ' on' : ''}`}
+                    onClick={() => onElegir(valorGradiente(g))} title={g.nombre} aria-label={g.nombre}
+                    style={{ background: cssGradiente(g) }} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
-      {pest === 'fotos' && <Fotos valor={valor} onElegir={onElegir} />}
-      {pest === 'subir' && <Subir onElegir={onElegir} />}
+        {pest === 'fotos' && <Fotos valor={valor} onElegir={onElegir} />}
+        {pest === 'subir' && <Subir onElegir={onElegir} />}
+      </div>
 
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-    </Modal>
+    </div>,
+    document.body,
   );
 }
 
@@ -112,13 +305,13 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
         {fotos.map((f) => (
           <li key={f.id}>
             <button type="button" className={`pp-op foto${valor === f.grande ? ' on' : ''}`}
-              onClick={() => onElegir(f.grande)} title={f.autor ? `Foto de ${f.autor}` : 'Foto'}>
+              onClick={() => onElegir(f.grande)}
+              title={f.autor ? `Foto de ${f.autor}` : 'Foto'} aria-label={f.autor ? `Foto de ${f.autor}` : 'Foto'}>
               {/* Sin `next/image`: son miniaturas de un host externo, y el optimizador
                   las volvería a servir por nuestra función pagando por cada una. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={f.mini} alt="" loading="lazy" />
             </button>
-            <span className="pp-nom">{f.autor}</span>
           </li>
         ))}
       </ul>
@@ -169,24 +362,43 @@ function Subir({ onElegir }: { onElegir: (v: string) => void }) {
 }
 
 const CSS = `
-.pp-tabs{ display:flex; align-items:center; gap:4px; margin:0 0 14px; }
-.pp-tab{ background:none; border:0; border-radius:8px; padding:6px 11px; font:inherit; font-size:13px;
-  color:var(--dim); cursor:pointer; }
-.pp-tab:hover{ color:var(--ink); background:var(--surface-2); }
-.pp-tab.on{ color:var(--ink); background:var(--surface-2); font-weight:600; }
+.pp-pop{ position:fixed; width:${ANCHO}px; max-width:calc(100vw - 20px);
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 14px 42px rgba(18,21,27,.22), 0 2px 8px rgba(18,21,27,.10);
+  padding:0 0 4px; outline:none; }
+.pp-pop:focus-visible{ outline:none; }
+
+/* La pestaña activa va SUBRAYADA y no en pastilla: es lo que hace Notion, y adentro de un
+   panel chico una pastilla compite con las muestras, que es lo que hay que mirar. */
+.pp-tabs{ display:flex; align-items:center; gap:2px; padding:0 12px;
+  border-bottom:1px solid var(--border); }
+.pp-tab{ position:relative; background:none; border:0; padding:11px 8px 10px; font:inherit;
+  font-size:13px; color:var(--dim); cursor:pointer; }
+.pp-tab:hover{ color:var(--ink); }
+.pp-tab.on{ color:var(--ink); font-weight:600; }
+.pp-tab.on::after{ content:''; position:absolute; left:6px; right:6px; bottom:-1px; height:2px;
+  background:var(--ink); border-radius:2px 2px 0 0; }
 .pp-quitar{ background:none; border:0; font:inherit; font-size:12.5px; color:var(--faint);
-  cursor:pointer; padding:6px 4px; }
+  cursor:pointer; padding:8px 4px; }
 .pp-quitar:hover{ color:var(--bad); }
 
+/* ⚠️ ALTO FIJO. Lo que scrollea es esto y nada más: sin el alto fijo, pasar de «Fotos»
+   (24 miniaturas) a «Subir» (un botón) encoge el panel y lo hace saltar de lugar, porque
+   la posición se calcula contra su propia caja. Y la barra de scroll se VE: esconderla
+   está prohibido en los dos ejes (AGENTS.md). */
+.pp-cuerpo{ height:${ALTO_CUERPO}px; overflow-y:auto; padding:12px 14px 14px; }
+
+.pp-seccion{ margin:0 2px 9px; font-size:11.5px; font-weight:600; color:var(--faint);
+  letter-spacing:.01em; }
+
 .pp-grid{ list-style:none; margin:0; padding:0; display:grid; gap:10px;
-  grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); }
-.pp-grid > li{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-.pp-op{ display:block; width:100%; height:62px; border:1px solid var(--border); border-radius:10px;
-  padding:0; overflow:hidden; cursor:pointer; }
-.pp-op:hover{ border-color:var(--border-strong); }
+  grid-template-columns:repeat(auto-fill, minmax(126px, 1fr)); }
+.pp-grid > li{ display:flex; min-width:0; }
+.pp-op{ display:block; width:100%; height:64px; border:1px solid var(--border); border-radius:8px;
+  padding:0; overflow:hidden; cursor:pointer; transition:box-shadow .1s, border-color .1s; }
+.pp-op:hover{ border-color:var(--border-strong); box-shadow:0 2px 8px rgba(18,21,27,.14); }
 .pp-op.on{ border-color:var(--primary); box-shadow:0 0 0 2px var(--primary-bg); }
 .pp-op.foto img{ display:block; width:100%; height:100%; object-fit:cover; }
-.pp-nom{ font-size:11px; color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 .pp-cargando{ display:flex; align-items:center; gap:8px; margin:14px 2px 0; font-size:13px; color:var(--dim); }
 .pp-mas{ display:block; margin:14px auto 0; background:var(--surface); border:1px solid var(--border-strong);
@@ -194,9 +406,11 @@ const CSS = `
 .pp-mas:hover{ border-color:var(--primary); color:var(--primary); }
 .pp-mal{ margin:14px 2px 0; font-size:13px; color:var(--bad); }
 
-.pp-subir{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:18px 2px 6px; }
+.pp-subir{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:8px 2px 6px; }
 .pp-btn{ display:inline-flex; align-items:center; gap:8px; background:var(--primary); border:0;
   border-radius:9px; padding:9px 16px; font:inherit; font-size:13px; color:#fff; cursor:pointer; }
 .pp-btn:disabled{ opacity:.7; cursor:default; }
 .pp-ayuda{ margin:0; font-size:12px; color:var(--faint); }
+
+@media(prefers-reduced-motion:reduce){ .pp-op{ transition:none; } }
 `;
