@@ -34,6 +34,8 @@ import Link, { useRouter } from '@/app/_ui/Link';
 import { Modal } from '@/app/_ui';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
+import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
+import { Marca } from '@/app/_components/Marca';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import type { BoardUser } from '@/app/plan/board/types';
 import type { ClienteRef } from '@/lib/plan-clientes';
@@ -61,6 +63,9 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
   /** El reposicionador de la PORTADA. El de la foto de perfil vive adentro de su
    *  selector, porque ahí el encuadre se ve sobre el círculo y no sobre la banda. */
   const repo = useReposicionar(c.portadaY, (y) => onImagen({ portadaY: y }));
+  /** El selector de la FOTO/ícono del cliente. Cuelga del avatar, igual que el de
+   *  portada cuelga de su botón. */
+  const [anclaFoto, setAnclaFoto] = useState<HTMLElement | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mal, setMal] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -140,13 +145,17 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
               )}
           </span>
           <span className="fc-fila">
-            <button type="button" className="fc-av" onClick={() => fileRef.current?.click()}
+            {/* ⚠️ EL AVATAR ABRE EL SELECTOR, NO EL DIÁLOGO DE ARCHIVOS. Antes iba
+                derecho a «elegir un archivo», que es UNA de las cuatro cosas que se
+                pueden hacer con la marca de un cliente —subir, elegir un ícono, poner
+                un emoji, sacarla— y encima no dejaba encuadrarla. Es el MISMO pop-up
+                que el del ícono de un proyecto, a pedido. */}
+            <button type="button" className="fc-av"
+              onClick={(e) => { const b = e.currentTarget; setAnclaFoto((a) => (a ? null : b)); }}
               title="Cambiar la foto" aria-label={`Cambiar la foto de ${nombre}`}>
-              <Avatar nombre={nombre} tam={62} foto={c.avatarUrl} />
+              <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={62} y={c.avatarY} color={color} />
               <span className="fc-avcap">{subiendoFoto ? '…' : 'Foto'}</span>
             </button>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirFoto(f); e.target.value = ''; }} />
             <span className="fc-txt">
               <span className="nom">
                 {nombre}
@@ -203,6 +212,28 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
           gracia es ver la banda cambiar detrás (ver la cabecera de PortadaPicker). Se
           registra en la pila como `anidada`, así que la ficha se sigue viendo y el Escape
           cierra sólo el panel. */}
+      {anclaFoto && (
+        <IdentidadPicker
+          icono={c.icono ?? c.avatarUrl}
+          y={c.avatarY}
+          ancla={anclaFoto}
+          titulo={`Foto de ${nombre}`}
+          onElegir={(cambio) => {
+            // ⚠️ SE ESCRIBE `icono` Y SE LIMPIA `avatar_url`, o quedan dos respuestas a
+            // «¿qué se ve en el redondel?» y gana la que el código mire primero.
+            // `avatar_url` sigue existiendo para lo que ya está guardado: `Marca` la lee
+            // como respaldo, y en cuanto alguien elige algo acá deja de competir.
+            //
+            // ⚠️ Y EL EMOJI DE UN CLIENTE VA EN `icono`, no en una columna propia: un
+            // lead no tiene `emoji` y no tiene ninguno de los consumidores de texto que
+            // hacen que en un PROYECTO eso sea un error. Ver `glifoDeIcono`.
+            if (cambio.emoji !== undefined) onImagen({ icono: cambio.emoji ? `emoji:${cambio.emoji}` : null, avatarUrl: null, avatarY: null });
+            else if (cambio.icono !== undefined) onImagen({ icono: cambio.icono, avatarUrl: null, avatarY: cambio.y ?? null });
+            else if (cambio.y !== undefined) onImagen({ avatarY: cambio.y });
+          }}
+          onCerrar={() => setAnclaFoto(null)} />
+      )}
+
       {anclaPortada && (
         <PortadaPicker
           valor={c.portada}

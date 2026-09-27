@@ -207,5 +207,39 @@ export function saneaIcono(v: unknown): string | null {
   if (typeof v !== 'string' || !v.trim()) return null;
   const s = v.trim();
   if (esIcono(s)) return s;
+  const g = glifoDeIcono(s);
+  if (g) return `${PREFIJO_EMOJI}${g}`;
   return urlDeImagenOk(s);
+}
+
+const PREFIJO_EMOJI = 'emoji:';
+
+/**
+ * El glifo de un `emoji:<x>`, o `null`.
+ *
+ * ⚠️ ESTA FORMA EXISTE SÓLO PARA EL CLIENTE, y hay que decir por qué. Un PROYECTO
+ * tiene su propia columna `emoji`, que es la que leen como TEXTO el prompt de
+ * extracción de reuniones, el export a Markdown, el CSV, los desplegables y la API
+ * de MaKo — meter ahí cualquier otra cosa fue justo lo que un panel de refutadores
+ * tumbó (ver la cabecera de la mig 0174). Un lead no tiene esa columna y no tiene
+ * ninguno de esos consumidores: nadie concatena el glifo de un cliente en un
+ * prompt. Así que guardarlo acá no crea la divergencia que en un proyecto sí
+ * crearía.
+ *
+ * De ahí la regla del call site, que el test fija: el selector devuelve
+ * `{ emoji }` y **cada pantalla decide dónde va**. La del proyecto lo escribe en su
+ * columna `emoji` y limpia `icono`; la del cliente lo guarda acá.
+ *
+ * El tope de 8 es por unidades UTF-16: un emoji con tono de piel o con ZWJ
+ * («👨‍👩‍👧») ocupa varias. Lo que importa es que NO entre texto libre: esto se
+ * dibuja crudo adentro de un redondel de 40 px.
+ */
+export function glifoDeIcono(v: string | null | undefined): string | null {
+  if (typeof v !== 'string' || !v.startsWith(PREFIJO_EMOJI)) return null;
+  const s = v.slice(PREFIJO_EMOJI.length);
+  if (!s || s.length > 8) return null;
+  // Sin letras, dígitos ni espacios: un glifo, no una palabra. Es lo que impide que
+  // esto se vuelva un campo de texto dibujado en un círculo.
+  if (/[a-zA-Z0-9\s]/.test(s)) return null;
+  return s;
 }

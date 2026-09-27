@@ -13,7 +13,6 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
-import { EmojiPickerMini } from './EmojiPicker';
 import { MakoChecklistModal } from './MakoChecklist';
 import { pasosComoBullets } from '@/lib/detalle-fusion';
 import { CrearTareaModal } from './CrearTareaModal';
@@ -29,7 +28,10 @@ import { clienteDe, ROTULO_CLIENTE, SIN_CLIENTE, type ClienteRef } from '@/lib/p
 // cliente: la pregunta «¿qué se ve arriba?» se contesta en un solo lugar o se contesta de
 // dos formas distintas según de dónde la abriste.
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
-import { fondoPortada } from '@/lib/portadas';
+import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
+import { Marca } from '@/app/_components/Marca';
+import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
+import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
@@ -292,6 +294,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   /** El proyecto al que se le está eligiendo portada (mig 0173), y DE QUÉ BOTÓN cuelga
    *  el popover: el ancla es el nodo, no un rect (ver PortadaPicker). */
   const [portadaDe, setPortadaDe] = useState<{ id: string; ancla: HTMLElement } | null>(null);
+  /** Idem para el ICONO del proyecto (mig 0174). */
+  const [iconoDe, setIconoDe] = useState<{ id: string; ancla: HTMLElement } | null>(null);
   const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [makoHintId, setMakoHintId] = useState<string | null>(null); // tarea recién creada → sugerir "MaKo te ayuda"
   const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
@@ -1377,7 +1381,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'tarea', id: openTask.id })} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
-      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={(ancla) => setPortadaDe({ id: peekProj.id, ancla })}
+      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={(ancla) => setPortadaDe({ id: peekProj.id, ancla })} onIcono={(ancla) => setIconoDe({ id: peekProj.id, ancla })} onEncuadre={(y) => board.patchLabelLog(peekProj.id, { portadaY: y }, 'Acomodó la portada')}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
         onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
         onClose={() => setPeekProjId(null)} />}
@@ -1417,7 +1421,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           onClose={() => setSoltada(null)} />
       )}
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })} onIcono={(ancla) => setIconoDe({ id: openProjLabel.id, ancla })} onEncuadre={(y) => board.patchLabelLog(openProjLabel.id, { portadaY: y }, 'Acomodó la portada')}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
@@ -1569,6 +1573,31 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       {/* HERMANO, no hijo, por lo mismo que el de arriba: adentro del detalle la pila lo
           apagaría junto con él. `anidada` (que trae el propio `PortadaPicker`) deja ver el
           detalle abajo, que es de donde se abrió. */}
+      {/* HERMANO del de portada y por lo mismo: adentro del detalle la pila lo apagaría
+          junto con él. El emoji va a la columna `emoji` y el ícono a `icono` — son dos
+          columnas y sólo una manda, porque `emoji` la leen como TEXTO el prompt de
+          reuniones, el export a Markdown, el CSV y la API de MaKo (ver mig 0174). */}
+      {iconoDe && (() => {
+        const l = labels.find((x) => x.id === iconoDe.id);
+        if (!l) return null;
+        return (
+          <IdentidadPicker
+            emoji={l.emoji}
+            icono={l.icono}
+            ancla={iconoDe.ancla}
+            titulo={`Ícono de ${l.name}`}
+            onElegir={(cambio) => {
+              // ⚠️ ELEGIR UN EMOJI LIMPIA `icono`, y elegir un ícono NO toca `emoji`.
+              // Lo primero, para que no queden dos respuestas a «¿qué se dibuja?».
+              // Lo segundo, porque `emoji` es el respaldo que siguen leyendo el prompt
+              // y el export: dejarlo intacto es lo que hace que un proyecto con un
+              // logo subido siga teniendo un glifo que poner en un texto plano.
+              if (cambio.emoji !== undefined) board.patchLabelLog(iconoDe.id, { emoji: cambio.emoji || '📁', icono: null }, 'Cambió el emoji');
+              else if (cambio.icono !== undefined) board.patchLabelLog(iconoDe.id, { icono: cambio.icono }, cambio.icono ? 'Cambió el ícono' : 'Sacó el ícono');
+            }}
+            onCerrar={() => setIconoDe(null)} />
+        );
+      })()}
       {portadaDe && (() => {
         const l = labels.find((x) => x.id === portadaDe.id);
         if (!l) return null;
@@ -2726,6 +2755,40 @@ function CampoPortada({ portada, color, onAbrir }: {
     </div>
   );
 }
+
+/**
+ * La cabecera de un detalle CON portada: los controles y el ícono que la cruza.
+ *
+ * Va en una hoja y no en `style` inline porque necesita el `:hover` del padre — un
+ * control que sólo aparece al pasar el cursor no se puede escribir con estilos en
+ * línea. Es la misma anatomía que la cabecera de la ficha de un cliente, a
+ * propósito: si una pieza se ve distinta en los dos lugares, no está terminada.
+ *
+ * (Y sin comillas invertidas acá adentro: esto vive en un template literal y una
+ * sola cierra la hoja a la mitad — AGENTS.md lo tiene medido, y ya pasó hoy.)
+ */
+const CSS_DETALLE = `
+.pd-acciones{ position:absolute; top:12px; right:14px; z-index:3; display:flex; gap:6px;
+  opacity:0; transition:opacity .12s; }
+div:hover > .pd-acciones, .pd-acciones:focus-within{ opacity:1; }
+.pd-pill{ background:rgba(20,22,26,.52); border:0; border-radius:999px; padding:6px 13px;
+  font:inherit; font-size:12.5px; font-weight:500; color:#fff; cursor:pointer;
+  text-decoration:none; white-space:nowrap; backdrop-filter:blur(3px); }
+.pd-pill:hover{ background:rgba(20,22,26,.72); color:#fff; }
+.pd-pill:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+.pd-icono{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; padding:0; }
+/* El icono CRUZA el borde de abajo de la portada: mitad sobre la imagen, mitad sobre
+   el header. 104 de banda menos 27 (la mitad de 54) = 77. Absoluto y no un margen
+   negativo en la fila: con el margen sube TODO y el titulo queda escrito sobre la
+   foto, que con un degradado claro se lee y con un bosque no. */
+.pd-marca{ position:absolute; left:20px; top:77px; z-index:2; padding:0; border:0;
+  background:none; cursor:pointer; line-height:0; border-radius:14px;
+  box-shadow:0 0 0 3px var(--surface); }
+.pd-marca:hover{ filter:brightness(.94); }
+.pd-marca-inline{ padding:0; border:0; background:none; cursor:pointer; line-height:0; flex:none; }
+.pd-marca-inline:hover{ filter:brightness(.94); }
+@media(prefers-reduced-motion:reduce){ .pd-acciones{ transition:none; } }
+`;
 
 const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
@@ -4304,10 +4367,28 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           tarjeta. Se dibuja SÓLO si la eligieron: sin esto, todas las tarjetas nacerían con
           una banda de color que nadie pidió y la grilla pasaría de leerse por título a
           leerse por manchas. Es `aria-hidden` porque no dice nada que el título no diga. */}
-      {l.portada && (
-        <div aria-hidden style={{ margin: '-16px -16px 6px', height: 78, borderRadius: '11px 11px 0 0',
-          background: fondoPortada(l.portada, l.color) }} />
-      )}
+      {/* ⚠️ LA BANDA VA SIEMPRE, y esto CAMBIÓ el 27/09/2026. Antes se dibujaba sólo si
+          alguien había elegido una portada, con un porqué razonable: «sin esto todas
+          las tarjetas nacerían con una banda de color que nadie pidió y la grilla
+          pasaría de leerse por título a leerse por manchas». Lo que ese razonamiento
+          no vio es que `null` NO significa «sin portada»: significa **el degradado
+          derivado del nombre**, que es el default del modelo desde la mig 0173. O sea
+          que la tarjeta no estaba evitando una mancha, estaba escondiendo su portada.
+          Medido: de 71 proyectos, CERO tenían una elegida — así que la feature existía
+          y no se veía en ninguna tarjeta. Y la card de un CLIENTE ya dibujaba su banda
+          siempre: dos tarjetas hermanas con dos reglas distintas para el mismo campo. */}
+      <div aria-hidden style={{ position: 'relative', margin: '-16px -16px 6px', height: 78 }}>
+        <div style={{ height: '100%', borderRadius: '11px 11px 0 0',
+          background: fondoPortada(l.portada, l.color, l.portadaY) }} />
+        {/* ⚠️ EL ÍCONO CRUZA LA PORTADA, igual que en el detalle y en la ficha de un
+            cliente — «que el emoji lo cruza, y el título acompaña». Acá va a 34 px y
+            no a 54: es la MISMA anatomía a otra escala, no otra pieza. Y el renglón de
+            abajo no cambia de alto, así que la tarjeta conserva su largo (360). */}
+        <span style={{ position: 'absolute', left: 16, top: 61, borderRadius: 10, lineHeight: 0,
+          boxShadow: '0 0 0 3px var(--surface)' }}>
+          <Marca icono={l.icono} emoji={l.emoji} nombre={l.name} tam={34} color={l.color} cuadrado />
+        </span>
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* ⚠️ `stopPropagation` EN EL CLICK: la tarjeta entera abre el detalle, así que sin
             esto tildar un proyecto lo abriría encima de la grilla. */}
@@ -4316,8 +4397,10 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
             title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
             style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', margin: 0 }} />
         )}
-        <span style={{ fontSize: 22 }}>{l.emoji}</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{l.pid}</span>
+        {/* ⛔ ACÁ ESTABA EL EMOJI, y se fue arriba a cruzar la banda. Dibujarlo en los
+            dos lados serían dos marcas de la misma cosa a 20 px de distancia. El pid
+            arranca donde termina el ícono que cruza. */}
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginLeft: 38 }}>{l.pid}</span>
         <span style={{ flex: 1 }} />
         {completo && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
         {/* ⚠️ «Se repite», SÓLO EL ÍCONO, igual que en la tarjeta de una tarea y por el mismo
@@ -5256,7 +5339,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onAsignarCliente, onPortada, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onAsignarCliente, onPortada, onIcono, onEncuadre, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
   /** Abre el picker de CLIENTE (mig 0172). Es la mitad del PROYECTO, y es la que importa:
    *  un proyecto asignado ata a ese cliente TODAS sus tareas de una vez. Sin la prop, este
    *  modal dibuja el tablero completo y el campo no — el modo de falla de siempre. */
@@ -5266,6 +5349,10 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
    *  apagaría junto con él cuando la pila esconde al de abajo. */
   /** Recibe el NODO que lo abrio: de ahi cuelga el popover (ver PortadaPicker). */
   onPortada: (ancla: HTMLElement) => void;
+  /** Abre el selector de ICONO, colgado del nodo que se toco (mig 0174). */
+  onIcono: (ancla: HTMLElement) => void;
+  /** Guarda el encuadre de la portada del proyecto. */
+  onEncuadre: (y: number) => void;
   /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
    *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
    *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */
@@ -5297,20 +5384,66 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   const isTop = proj.id === topProjectId;
   // ¿Se repite? Sale del contrato, nunca de `proj.recurrente`. Mismo predicado que la tarea.
   const repiteProj = esRecurrente(proj);
+  const repoProj = useReposicionar(proj.portadaY, onEncuadre);
   return (
     // `z` sigue existiendo como piso para el caso proyecto-debajo-de-tarea, pero quien
     // manda es la pila: el de arriba se ve, los de abajo se esconden.
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: Math.max(z, capa.z), background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible || taskAbierta ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, height: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* LA PORTADA (mig 0173), arriba de todo y a los dos bordes. Sólo si la eligieron:
-            el detalle de un proyecto sin portada tiene que verse exactamente como antes. */}
-        {proj.portada && (
-          <div aria-hidden style={{ height: 104, flex: 'none', background: fondoPortada(proj.portada, proj.color) }} />
-        )}
-        {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
+        {/* LA PORTADA (mig 0173/0174), arriba de todo y a los dos bordes, con el ÍCONO
+            cruzándola por abajo y el título acompañando — «que el emoji lo cruza, y el
+            título acompaña» (27/09/2026), que es la anatomía de una página de Notion.
+
+            ⚠️ VA SIEMPRE, no sólo si eligieron una. `null` NO significa «sin portada»:
+            significa el degradado DERIVADO del nombre, que es el default del modelo
+            desde la mig 0173. Dibujarla sólo cuando había una elegida hacía que la
+            feature no se viera nunca — medido: de 71 proyectos, CERO tenían una. */}
+          <div style={{ position: 'relative', flex: 'none' }}>
+            <div aria-hidden ref={repoProj.props.ref}
+              onPointerDown={repoProj.props.onPointerDown} onPointerMove={repoProj.props.onPointerMove}
+              onPointerUp={repoProj.props.onPointerUp} onPointerCancel={repoProj.props.onPointerCancel}
+              style={{ height: 104, background: fondoPortada(proj.portada, proj.color, proj.portadaY), ...repoProj.props.style }} />
+            {repoProj.activo
+              ? <BarraReposicion onGuardar={repoProj.guardar} onCancelar={repoProj.cancelar} />
+              : (
+                <span className="pd-acciones">
+                  <button type="button" className="pd-pill"
+                    onClick={(e) => { const b = e.currentTarget; onPortada(b); }}>Portada</button>
+                  {esFoto(proj.portada) && (
+                    <button type="button" className="pd-pill" onClick={repoProj.empezar}>Reposicionar</button>
+                  )}
+                  {esFoto(proj.portada) && (
+                    <a className="pd-pill pd-icono" href={urlPortada(proj.portada) ?? '#'} download
+                      target="_blank" rel="noreferrer" title="Descargar la portada" aria-label="Descargar la portada">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M5 21h14" />
+                      </svg>
+                    </a>
+                  )}
+                </span>
+              )}
+            {/* EL ÍCONO CRUZANDO EL BORDE. Absoluto y no un margen negativo en la fila:
+                con el margen sube TODO —ícono, pid y título— y el nombre queda escrito
+                sobre la foto, que con un degradado claro se lee y con un bosque no. Es
+                la misma cuenta y el mismo motivo que el avatar de la ficha. */}
+            <button type="button" className="pd-marca"
+              onClick={(e) => { const b = e.currentTarget; onIcono(b); }}
+              title="Cambiar el ícono" aria-label={`Cambiar el ícono de ${proj.name}`}>
+              <Marca icono={proj.icono} emoji={proj.emoji} nombre={proj.name} tam={54} color={proj.color} cuadrado />
+            </button>
+          </div>
+        <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE }} />
+        {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno.
+            ⚠️ CON PORTADA, EL PADDING IZQUIERDO LE DEJA LUGAR AL ÍCONO que la cruza. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px 13px 86px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
           {onBack && <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>}
-          <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
+          {/* ⚠️ CON PORTADA, EL ÍCONO YA ESTÁ ARRIBA CRUZÁNDOLA: dibujarlo otra vez acá
+              serían dos controles para la misma pregunta, que es exactamente lo que este
+              detalle ya pagó con la prioridad (había tres formas de cambiarla). Sin
+              portada no hay dónde cruzarlo, así que vive en el header como siempre.
+              Y el padding de la izquierda le deja su lugar cuando cruza. */}
+
           <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
           {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
           {/* El chip va en el HEADER por el mismo motivo que en una tarea: es lo primero que
