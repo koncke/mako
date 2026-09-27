@@ -3269,3 +3269,115 @@ el fallback silencioso del lector no alcanza si otro control muestra el valor.
 
 **Vive en:** `app/crm/CrmToolbar.tsx` (`SelectorFunnel`) · `app/crm/page.tsx` (el
 `searchParams.funnel`) · *2026-09-26*
+
+## Sacar la fricción del CRM: dónde quedó (27/09) y las tres que esperan a Mauricio
+
+El relevamiento completo —32 frenos, con archivo y línea— está en
+[docs/friccion-crm.md](friccion-crm.md) y se lee con los ojos en **`/admin/friccion`**.
+Esa pantalla es la fuente de verdad del estado: dice arriba de todo, en el header, que
+nada está aplicado, y se actualiza a medida que las tandas entran.
+
+**Se acordó aplicarlo POR TANDAS, y que cada tanda venga con sus pasos de prueba.** Es
+pedido explícito de Martín: quiere probar lo que se cambia, no leer que se cambió.
+
+### Tanda 1 — HECHA y desplegada (`50df1cb2`)
+
+Los tres bugs que no necesitaban decisión de nadie. El detalle está en el mensaje del
+commit; lo que hay que saber para no deshacerlo:
+
+- **`trabado` en `WizardShell` ya no apaga la salida.** La distinción que faltaba y que
+  vale para cualquier pieza con estado de carga: lo que no se puede interrumpir es una
+  **escritura** a mitad de camino (`pending`); cancelar una **lectura** no cuesta nada y
+  no deja nada a medias. La ✕ y el clic afuera miran `pending`; el Atrás y el Confirmar
+  siguen mirando `trabado`. Si alguien vuelve a unificarlos, vuelve el pop-up sin salida.
+- **Escape lo cierra la capa de ARRIBA, y son dos mitades.** La ficha (`LeadSheet`)
+  escucha en fase de CAPTURA sobre `window`, así que corre ANTES que cualquier diálogo
+  anidado y su propio `stopPropagation` no la salva — para cuando corre, ya ganó. Se
+  abstiene con `profundidadModales() > 0`, y `WizardShell` cierra lo suyo cuando
+  `capa.visible`. **Las dos mitades hacen falta:** sólo la primera deja Escape mudo
+  adentro de un wizard.
+
+### Lo que NO entró, y por qué importa cómo se buscó
+
+**«El mismo aviso 3 veces en la ficha»** quedó afuera de la tanda 1. Ese renglón se
+escribió desde el relevamiento y **su `Vive en:` nunca llegó a `friccion-crm.md`**, así
+que no está ubicado. Lo que ya se probó sin éxito: `grep` de `pendientesLead|pendientesDe|
+faltanDatos|Faltan datos|datosPendientes` sobre `LeadSheet.tsx` y `[id]/LeadDetailBody.tsx`
+(cero), y `grep` de `var(--bad)|var(--warn)` sobre `LeadSheet.tsx` (dos, ninguno es). El
+próximo que lo tome: mirar los hijos de la ficha (las tabs), no la ficha.
+
+⚠️ **La lección del renglón, que vale para todo este documento: una línea de una lista de
+trabajo sin su `Vive en:` es una línea que alguien va a tener que volver a encontrar.**
+
+### Tandas 2 y 3 — SIN EMPEZAR, y la 2 espera luz verde
+
+- **Tanda 2 · «Propongo sacarlo» (9).** Cambian lo que se ve, así que se pidió el visto
+  bueno antes de tocarlas: las dos pantallas de «no lo tengo» del cierre, el pendiente
+  imposible de R2, la pestaña «Deal Details» vacía, las siete pestañas en inglés, la
+  pestaña «Notas», el cartel de la «ventana informativa», la amenaza del subtítulo de
+  CAPI, el rojo de Pendientes y los errores que no se cierran.
+- **Tanda 3 · «Propongo cambiarle la forma» (10).**
+- **Y las TRES que esperan a Mauricio** (están primeras en `/admin/friccion`): si el texto
+  obligatorio de «por qué no usaste Calendly» es un freno a propósito; si la confirmación
+  de cada arrastre sigue valiendo ahora que hay deshacer de 5 s + historial; y si al
+  corregir un teléfono quiere previsualización antes o deshacer después.
+
+### Verificado el 27/09: nada de la lista se había arreglado solo
+
+La pregunta «¿esto ya no estará hecho?» se contesta con **`git show --name-only --format=""
+<los commits del área desde el relevamiento>`** — cuatro segundos. Los cuatro commits del
+CRM posteriores al 25/09 tocaban `page.tsx`, `CrmBoard` y `CrmToolbar` (el selector de
+oferta) y ninguno tocaba `StageMoveDialog.tsx`, `stage-requirements.ts` ni la ficha, que es
+donde vive casi toda la lista. **0 de 32.**
+
+⚠️ **Y ese comando es la respuesta, no el punto de partida.** Se lanzaron 32 agentes para
+verificarlo cuando el `git log` ya estaba corrido y contestado; Martín cortó la corrida.
+La regla quedó en memoria ([[orquestacion-al-tamano]]): una corrida de verificación se
+justifica cuando el estado del código es DESCONOCIDO, no cuando el historial ya lo dice y
+sólo falta leerlo. El único rescate de esa corrida vale igual que el resto y está abajo.
+
+⚠️ **Matiz medido que la lista tenía de más:** la pantalla «✓ Datos actualizados» salía
+**sólo** en el camino «Completar datos» (`completarDatos={stageMove.move.to === from}`),
+no al arrastrar un lead de etapa — ahí el wizard ya cerraba directo con el toast de
+deshacer. La lista la describía como si saliera siempre.
+
+**Vive en:** `docs/friccion-crm.md` (el relevamiento) · `app/admin/friccion/page.tsx` (el
+estado, y lo que se lee) · `app/_components/WizardShell.tsx` · `app/crm/LeadSheet.tsx` ·
+`app/crm/StageMoveDialog.tsx` · *2026-09-27*
+
+## La página que reporta trabajo dice, arriba de todo, qué está APLICADO
+
+`/admin/friccion` nació con tres CARDS grandes arriba (lo que esperaba respuesta) y tres
+bloques de lista abajo (las propuestas). Martín: *«No entiendo las 3 cards grandes con la
+diferencia de la lista de abajo… ¿Por qué no pusiste todo en una lista o todas en cards? ¿O
+las de abajo ya las aplicaste?»*. Las dos mitades del reporte, y **la segunda es la grave**:
+
+1. **Una card no dice «esto te toca a vos», dice «esto es más importante».** La distinción
+   que se quería marcar —tu decisión contra mi propuesta— no se puede pintar con el tamaño
+   de la caja: al cruzar el borde de la sección parece otro documento. Hoy todo es fila;
+   `costo` y `pregunta` son campos opcionales que agregan un renglón, no otro lenguaje. Es
+   la regla de la casa que ya estaba escrita («un grupo de cosas del mismo tipo es una
+   lista», «dos piezas con el mismo esqueleto son una pieza con dos configuraciones»).
+2. **No se podía saber qué estaba hecho, y eso no era un problema de forma.** La pantalla
+   no decía en ningún lado que nada estaba aplicado, así que la pregunta no tenía respuesta
+   posible mirándola. Va en el `estado` del `PageHeader`, que es lo primero que se lee.
+
+**La regla que queda: toda pantalla que reporte trabajo propuesto declara su ESTADO antes
+que su contenido.** Una lista de mejoras sin esa línea se lee como un changelog, y quien la
+mira no puede distinguir lo que ya cambió de lo que alguien quiere cambiar.
+
+Y dos cosas de forma que salieron en la misma pasada:
+
+- **El costo era un número rojo de 22 px**, la escala que tenía cuando eso era una card. Al
+  volverse una fila nadie se la bajó — el olor que `AGENTS.md` ya nombra («un elemento con
+  el tamaño de cuando era OTRA cosa»).
+- **Los títulos de los grupos ahora son todos un VERBO que contesta lo mismo**: qué pasa con
+  esas filas. Antes mezclaban un veredicto («Sacar») con un tiempo verbal que sonaba a hecho
+  («Me lo llevo»), y no se podía saber cuáles esperaban algo de quien leía.
+
+⚠️ **Y el guard de voseo caza NOMBRES DE VARIABLE, no sólo copy.** La constante `DECIDIS`
+lo hizo fallar, y ese commit dejó `main` con un test rojo porque **el pre-push no corre
+`npm test`** — el hueco que `AGENTS.md` documenta y que hay que cubrir a mano cuando se
+tocan nombres.
+
+**Vive en:** `app/admin/friccion/page.tsx` · *2026-09-27*
