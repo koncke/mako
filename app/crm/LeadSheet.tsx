@@ -234,7 +234,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
                 un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
                 en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
             {faltantes.length > 0 && (
-              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} ignorado={ignorado} onReactivar={reactivar} />
+              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={() => router.push(solucionarHref)} ignorado={ignorado} onReactivar={reactivar} />
             )}
           </div>
         </div>

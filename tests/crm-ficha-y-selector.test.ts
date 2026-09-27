@@ -4,16 +4,25 @@
 // Las tres cosas de acá se pidieron más de una vez, y las tres vuelven solas si
 // nadie las fija: son decisiones de forma, y la forma no la mira el compilador.
 //
-// Probado rompiéndolo, y una de las roturas dejó al descubierto una aserción que no
-// medía nada (ver el test de la posición). Con el código como está: 8 pases, 0 fallos.
-//   · el aviso recupera la enumeración en el cuerpo   → 7 / 1
-//   · el aviso pierde su tope de ancho                → 7 / 1
+// Probado rompiéndolo, y DOS veces la rotura enseñó algo que la aserción no veía:
+//   · la 1ª aserción de POSICIÓN pasaba con el aviso devuelto a su franja vieja
+//     (pedía «antes de las tabs», y esa franja también lo está). Se reancló al
+//     arranque del CUERPO, y el ancla va en CÓDIGO: el test lee el fuente sin
+//     comentarios, así que un ancla comentada no se encuentra.
+//   · y la 1ª rotura de `nowrap` NO falló, y el test estaba bien: mi `replace` pegó
+//     en el COMENTARIO que explica la regla, no en la línea de estilo. Una rotura que
+//     no toca el código no prueba nada — hay que verificar que rompió lo que se cree.
+//
+// Con el código como está: 8 pases, 0 fallos.
+//   · el aviso envuelve (la línea de estilo)          → 7 / 1
+//   · vuelve el copy largo que medía 214,6            → 6 / 2
+//   · el caso ignorado dibuja las DOS acciones        → 7 / 1
 //   · el aviso vuelve a su franja (modal)             → 7 / 1
 //   · el aviso vuelve a su franja (ruta /crm/[id])    → 7 / 1
-//   · Análisis vuelve antes de Pagos                 → 5 / 1
-//   · la página de /crm/[id] recupera «Chat»         → 4 / 2
-//   · el selector pierde su `width`                  → 5 / 1
-//   · el renglón de crear deja de iluminarse         → 5 / 1
+//   · Análisis vuelve antes de Pagos                  → 5 / 1
+//   · la página de /crm/[id] recupera «Chat»          → 4 / 2
+//   · el selector pierde su `width`                   → 5 / 1
+//   · el renglón de crear deja de iluminarse          → 5 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,35 +64,50 @@ test('el aviso de «datos sin marcar» es SOLO el número y la salida', () => {
 
   // ⚠️ Y NO DIBUJA LOS NOMBRES. Ni completos ni recortados: la única vez que
   // aparecen es en el `title`, que no ocupa un píxel.
-  const enElTitle = /title=\{faltantes\.map\(\(f\) => f\.label\)\.join\(' · '\)\}/.test(card);
+  const enElTitle = /const nombres = faltantes\.map\(\(f\) => f\.label\)\.join\(' · '\)/.test(card) && /title=\{[^}]*nombres/.test(card);
   assert.ok(enElTitle, 'los nombres se conservan en el title, a un hover');
-  const sinTitle = card.replace(/title=\{[^}]*\}/g, '');
-  assert.ok(!/f\.label/.test(sinTitle), 'fuera del title no se dibuja ni un nombre');
+  // Los nombres pueden ARMARSE en una const; lo que no pueden es DIBUJARSE. Un
+  // `{nombres}` suelto entre etiquetas es la enumeración de vuelta.
+  assert.ok(!/>\{nombres\}</.test(card) && !/^\s*\{nombres\}\s*$/m.test(card), 'los nombres no se dibujan: solo viajan en el title');
+  assert.ok(!/\.join\(' · '\)\}</.test(card), 'ni interpolados directo entre etiquetas');
   assert.ok(!/textOverflow: 'ellipsis'/.test(card), 'no hay nada que recortar: el ellipsis se fue con la lista');
 
   // Lo que queda: el conteo y la salida, y nada más.
-  assert.ok(/dato sin marcar' : 'datos sin marcar'/.test(card), 'el conteo');
+  assert.ok(/\{faltantes\.length\} sin marcar/.test(card), 'el conteo');
   assert.ok(/\{label\}/.test(card), 'la salida');
 
   // Verificado rompiéndolo: devolviendo la enumeración al cuerpo, 1 fallo.
 });
 
-test('el aviso envuelve DENTRO de su columna en vez de ensancharla', () => {
-  // ⚠️ MEDIDO, no deducido. La columna del header es `flex: 'none'`, así que su ancho
-  // es el del hijo más ancho. Medido el 27/09/2026 en el navegador con estos estilos:
-  //   normal, nowrap          → 205,8 × 17,5  (entra debajo del desplegable de 210)
-  //   IGNORADO, nowrap        → 334,9 × 17,5  ← le come 125 px al nombre del lead
-  //   IGNORADO, wrap + tope   → 210   × 43    (dos renglones, la columna no se mueve)
-  //   normal,   wrap + tope   → 205,8 × 17,5  (idéntico al primero: envolver sale gratis)
+test('el aviso es UN RENGLÓN, siempre — la garantía es nowrap, no una medición', () => {
+  // Regla, no objetivo: «Solucionar siempre en 1 sola línea, si tienes que acortar la
+  // frase hazlo, pero siempre en 1 sola línea» (27/09/2026).
+  //
+  // ⚠️ LA VERSIÓN ANTERIOR CONFIABA EN UNA MEDICIÓN, Y LA MEDICIÓN ESTABA MAL. Se
+  // midió en una página donde Geist NO estaba cargada, así que midió system-ui: 205,8
+  // px, que entraban en los 210 del desplegable. Con Geist de verdad el mismo
+  // contenido mide 214,6 y se parte en dos — que es lo que se reportó. De ahí las dos
+  // mitades de este test: `nowrap` es la garantía DURA (no depende de ninguna fuente),
+  // y el copy corto es lo que además evita que la columna se ensanche.
   const card = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx');
-  assert.ok(/flexWrap: 'wrap'/.test(card), 'sin wrap, el caso ignorado ensancha la columna');
-  assert.ok(/maxWidth: ancho/.test(card), 'y sin tope, wrap no sirve de nada: no tiene contra qué envolver');
-  assert.ok(/ancho = 210/.test(card), 'el default es el ancho del desplegable del modal');
-  // La ruta /crm/[id] tiene su propio desplegable, de 250: el tope lo pasa cada
-  // pantalla porque es una medida de SU layout, no del componente.
-  assert.ok(/ancho=\{250\}/.test(leer('../app/crm/[id]/LeadDetailBody.tsx')), 'la ruta pasa el ancho de su propio desplegable');
-});
 
+  assert.ok(/flexWrap: 'nowrap'/.test(card), 'nowrap es la única garantía de un renglón');
+  assert.ok(!/flexWrap: 'wrap'/.test(card), 'envolver está prohibido acá, no es una opción de layout');
+  assert.ok(!/maxWidth/.test(card), 'con nowrap un tope de ancho no envuelve: recorta, que es peor');
+
+  // El copy corto, medido con Geist cargada contra los 210 px del desplegable:
+  //   «6 datos sin marcar» + «Solucionar →»   214,6  ✗
+  //   «6 sin marcar»       + «Solucionar →»   176,9  ✓  (33 px de holgura)
+  //   «999 sin marcar»     + «Solucionar →»   192,7  ✓  (17 px con tres dígitos)
+  assert.ok(/\{faltantes\.length\} sin marcar/.test(card), 'sin la palabra «datos»: son 38 px que no dicen nada nuevo debajo de la etapa');
+  assert.ok(!/datos sin marcar/.test(card), 'esa es la versión que se partía en dos');
+
+  // ⚠️ Y EN EL CASO IGNORADO, UNA SOLA ACCIÓN. Las dos juntas miden 312,5 px y no hay
+  // forma de que entren; el estado se dice con el color y con el `title`, que no
+  // ocupan ancho. Se elige «Reactivar», que es lo que se quiere en ese estado.
+  assert.ok(/const apagado = ignorado && !!onReactivar;/.test(card), 'el caso ignorado se decide una vez');
+  assert.ok(/apagado \? \(/.test(card), 'y elige UNA acción, no dibuja las dos');
+});
 test('el aviso vive EN EL HEADER, debajo del desplegable, en las DOS fichas', () => {
   // Estaba en su propia franja de ancho completo arriba de las tabs, empujando las
   // pestañas y el contenido hacia abajo en TODOS los leads con algo sin marcar (el 98%).

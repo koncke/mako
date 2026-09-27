@@ -186,42 +186,23 @@ const fmt = (n: number) => '$' + n.toLocaleString('en-US');
 /**
  * Las tres bandas del Kanban, en el orden en que se dibujan.
  *
- * ⚠️ EL DEFAULT ES SOLO `pipeline`, y es el arreglo de la tanda 3. Con las tres
- * encendidas el tablero abría con 1.142 tarjetas y las 26 de Activo quedaban entre
- * 1.089 de nutrición y 23 descartadas: apagar una banda era un clic DESPUÉS de
- * haberlas dibujado, y no se recordaba. Lo que se trabaja es el pipeline; nutrición
- * y salidas son consulta, y se piden.
+ * ⚠️ LAS TRES ARRANCAN ENCENDIDAS, Y NO SE RECUERDA LO QUE SE APAGÓ. Es pedido
+ * explícito de Martín, el 27/09/2026: «tampoco hagas que al entrar al CRM esté
+ * desmarcado nutrición y descartado, que estén siempre activos».
  *
- * No se esconde nada sin pista: el toggle sigue arriba a la derecha con el CONTEO de
- * cada banda al lado, así que se ve que hay 1.089 en nutrición sin dibujarlas.
+ * Esto REVIERTE lo que se había hecho ese mismo día por la fila «el tablero abre con
+ * todo» del plan de fricción (tanda 3), que las hacía arrancar sólo con `pipeline` y
+ * recordaba la elección por navegador. El argumento de esa fila sigue siendo cierto
+ * —1.089 tarjetas de nutrición alrededor de las 26 que se trabajan— y aun así pierde:
+ * entrar al tablero y no ver un lead que uno sabe que existe es peor que verlo entre
+ * muchos, y el toggle para apagarlas sigue ahí, con su conteo al lado.
+ *
+ * Y no se recuerda a propósito: con persistencia, apagar nutrición UNA vez hacía que
+ * cada entrada siguiente empezara con ella apagada — que es exactamente «al entrar
+ * está desmarcado», el mismo síntoma por otra puerta. Dentro de la sesión el toggle
+ * funciona igual.
  */
 const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
-const BANDAS_DEFAULT: StageBand[] = ['pipeline'];
-const BANDAS_CLAVE = 'crm.bandas';
-
-/**
- * Qué bandas dejó encendidas la última vez ESTE navegador. Es una PREFERENCIA, así
- * que va en `localStorage` y no en la base: no es un dato del negocio y no tiene por
- * qué viajar a otra sesión.
- *
- * ⚠️ Se lee en un efecto y NO en el `useState`: el board se renderiza en el server
- * (la página es `force-dynamic`), y ahí `localStorage` no existe — leerlo en el
- * inicializador es un HTML distinto del que hidrata. Devuelve `null` cuando no hay
- * nada que restaurar, para que el default siga siendo del código y no de un catch.
- */
-function bandasGuardadas(): StageBand[] | null {
-  try {
-    const crudo = window.localStorage.getItem(BANDAS_CLAVE);
-    if (!crudo) return null;
-    const leidas = (JSON.parse(crudo) as unknown[]).filter((b): b is StageBand => KANBAN_BANDS.includes(b as StageBand));
-    // Una lista vacía dejaría el tablero sin una sola columna, que es el estado muerto
-    // que `toggleBand` ya impide a mano. Si lo guardado no sirve, manda el default.
-    return leidas.length ? leidas : null;
-  } catch {
-    return null;
-  }
-}
-
 /** Una confirmación pendiente: qué se va a cambiar, dicho concreto. */
 type Confirmacion = {
   titulo: string;
@@ -322,7 +303,7 @@ export function CrmBoard({
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
-  const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(BANDAS_DEFAULT));
+  const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(KANBAN_BANDS));
   const [search, setSearch] = useState('');
   // Multi-selección: el set VACÍO significa "todas" (no hay valor centinela 'todos').
   const [stageFilter, setStageFilter] = useState<Set<string>>(() => new Set());
@@ -614,24 +595,6 @@ export function CrmBoard({
     setDragId(null); setDragOverCol(null);
   };
 
-  // Lo que se apagó a mano se recuerda: sin esto, cada entrada y cada `router.refresh()`
-  // devolvía el tablero a su default y había que volver a apagar las dos bandas.
-  // Se escribe acá y no en `toggleBand` para cubrir también el arranque restaurado.
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(BANDAS_CLAVE, JSON.stringify([...activeBands]));
-    } catch {
-      // Ventana privada o datos del sitio bloqueados: la preferencia no sobrevive y
-      // el tablero funciona igual con el default.
-    }
-  }, [activeBands]);
-
-  // La restauración va en su PROPIO efecto y corre una sola vez, antes de que el de
-  // arriba pueda pisar lo guardado con el default del primer render.
-  useEffect(() => {
-    const g = bandasGuardadas();
-    if (g) setActiveBands(new Set(g));
-  }, []);
 
   // (Acá vivía `needsFicha`: decidía si soltar una card abría el wizard de datos
   // en vez de moverla. Se fue con 08-T22 — mover ya no depende de los datos.)

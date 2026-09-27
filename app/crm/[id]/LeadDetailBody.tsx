@@ -197,7 +197,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
             un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
             en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
         {faltantes.length > 0 && (
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} ancho={250} />
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
         )}
       </div>
     </div>
