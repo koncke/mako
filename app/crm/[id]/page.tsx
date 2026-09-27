@@ -157,7 +157,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                   {nutriPos && (
                     <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
                       <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
-                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>El lead está avanzando — sigue en su etapa, no es una nutrición aparte. Ventana informativa hasta la {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} del <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'es hoy' : `faltan ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}). Si no avanza, recién ahí pasa a una nutrición negativa.</p>
+                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>Va bien: su {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} es el <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'hoy' : `en ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
                     </section>
                   )}
                   <InfoPrincipalCard

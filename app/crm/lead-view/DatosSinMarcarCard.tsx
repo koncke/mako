@@ -11,7 +11,10 @@ import type { Step } from '@/lib/stage-requirements';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
-const card: CSSProperties = { background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 16, padding: '18px 20px' };
+// ⚠️ ÁMBAR, NO ROJO. Los datos que faltan son algo POR HACER; el rojo es el de
+// «Perdido» y el de los errores. Con el mismo color, la pantalla que más se mira
+// del CRM parecía una lista de cosas rotas — y un rojo permanente se deja de ver.
+const card: CSSProperties = { background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 16, padding: '18px 20px' };
 
 export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Solucionar', nota, ignorado = false, onReactivar }: {
   faltantes: Step[];
@@ -28,7 +31,7 @@ export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Soluciona
   // Ignorado: mismo bloque pero en tono "recordatorio suave" (ámbar, sin parpadeo).
   const tone = ignorado
     ? { bg: 'var(--warn-bg)', border: 'var(--warn)', accent: 'var(--warn)', chipBorder: '#E7D6A6' }
-    : { bg: 'var(--bad-bg)', border: 'var(--bad)', accent: 'var(--bad)', chipBorder: '#EBBFBC' };
+    : { bg: 'var(--warn-bg)', border: 'var(--warn)', accent: 'var(--warn)', chipBorder: '#E7D6A6' };
   return (
     <section style={{ ...card, background: tone.bg, borderColor: tone.border }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -49,7 +52,7 @@ export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Soluciona
         <button
           type="button"
           onClick={onSolucionar}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, border: 'none', background: tone.accent, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, boxShadow: ignorado ? 'none' : '0 2px 8px rgba(207,78,41,.28)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, border: 'none', background: tone.accent, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, boxShadow: 'none' }}
         >
           <span aria-hidden style={{ fontSize: 15 }}>🛠️</span> {label}
         </button>

@@ -242,7 +242,14 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   }
 
   // ── Respuestas del formulario de Calendly R2 (si hubo R2) ──
-  if (v.tieneR2 && v.r2RespuestasOk === false) steps.push({ id: 'r2Respuestas', label: 'Respuestas de Calendly (R2)' });
+  // ⚠️ «Respuestas de Calendly (R2)» NO se pide más: es un pendiente IMPOSIBLE de
+  // resolver desde la app. Las respuestas las escribe quien agenda, en el
+  // formulario de Calendly, y si no las completó ahí no hay ninguna pantalla acá
+  // que lo arregle. Medido: 20 de los 31 leads con R2 lo tenían clavado, y se
+  // exigía hasta en etapas que no tienen R2.
+  //
+  // El dato se sigue LEYENDO cuando llega (`r2RespuestasOk` sigue en el tipo y lo
+  // usa la ficha): lo que se saca es exigirlo como tarea.
 
   // ── Higiene (SIEMPRE, cualquier etapa activa/nutrición) — nunca gatea mover ──
   // Setter: cualquier lead que ya se está trabajando (no el 'lead' crudo del form).

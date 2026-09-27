@@ -46,10 +46,16 @@ const fmtHora = (ts: number, tz: string) =>
 export function ChatCard({ leadId }: { leadId: number }) {
   const tz = useTzWorkspace();
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
+  // ⚠️ REINTENTAR TIENE QUE SER UN BOTÓN, no una frase. Decía «reintenta en un
+  // momento» y no había NADA que apretar: la única salida era recargar la página
+  // entera y perder la ficha. Un mensaje que pide una acción que no existe es un
+  // callejón sin salida con forma de ayuda.
+  const [intento, setIntento] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let vivo = true;
+    setEstado({ fase: 'cargando' });
     (async () => {
       try {
         const res = await fetch(`/api/whatsapp/lead/${leadId}`);
@@ -69,7 +75,7 @@ export function ChatCard({ leadId }: { leadId: number }) {
       }
     })();
     return () => { vivo = false; };
-  }, [leadId]);
+  }, [leadId, intento]);
 
   // Al cargar el hilo, arrancar abajo (lo último que se dijo).
   useEffect(() => {
@@ -108,9 +114,15 @@ export function ChatCard({ leadId }: { leadId: number }) {
         <div style={{ ...sectLabel, marginBottom: 10 }}>Chat de WhatsApp</div>
         <p style={{ fontSize: 14, color: 'var(--faint)', margin: '0 0 14px' }}>
           {estado.fase === 'error'
-            ? 'No se pudo cargar el chat. Reintenta en un momento.'
+            ? 'No se pudo cargar el chat.'
             : 'Todavía no hay chat de WhatsApp para este número. Abre WhatsApp para escribirle: el hilo aparece aquí.'}
         </p>
+        {estado.fase === 'error' && (
+          <button type="button" onClick={() => setIntento((n) => n + 1)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 650, cursor: 'pointer' }}>
+            Reintentar
+          </button>
+        )}
         {estado.fase === 'sin-chat' && (
           <Link href={`/whatsapp?lead=${leadId}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 10, border: 'none', background: '#1FA855', color: '#fff', fontSize: 13.5, fontWeight: 700, textDecoration: 'none' }}>
             <span aria-hidden>💬</span> Escribir por WhatsApp →

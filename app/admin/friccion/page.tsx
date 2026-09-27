@@ -56,6 +56,15 @@ type Fila = {
   costo?: string;
   /** Lo que necesito que conteste. Sólo en el primer grupo. */
   pregunta?: string;
+  /**
+   * Ya está en el CRM.
+   *
+   * ⚠️ El estado vive en la FILA y no en un texto suelto arriba. La versión
+   * anterior decía «nada de esto está aplicado» en el encabezado, y esa frase se
+   * queda vieja en el mismo commit que aplica la primera: un estado escrito a
+   * mano es un estado que miente apenas alguien trabaja.
+   */
+  aplicado?: true;
 };
 
 const ESPERA_RESPUESTA: Fila[] = [
@@ -80,34 +89,34 @@ const ESPERA_RESPUESTA: Fila[] = [
 ];
 
 const HAGO: Fila[] = [
-  { que: 'El «Revisando qué datos faltan…» que tapa el asistente',
+  { aplicado: true, que: 'El «Revisando qué datos faltan…» que tapa el asistente',
     ejemplo: 'No avanza, no vuelve y no se puede cerrar. Hay que recargar la página.' },
-  { que: 'La pantalla «✓ Datos actualizados» al terminar',
+  { aplicado: true, que: 'La pantalla «✓ Datos actualizados» al terminar',
     ejemplo: 'Una pantalla más para decir lo que acabas de hacer. Sale al completar datos; arrastrando un lead de etapa no aparece.' },
-  { que: 'Escape cierra la ficha entera',
+  { aplicado: true, que: 'Escape cierra la ficha entera',
     ejemplo: 'Aprietas Escape dentro de un cartel y se cierra la ficha, con lo que estabas escribiendo.' },
-  { que: 'El rojo de Pendientes, y el mismo aviso 3 veces',
+  { aplicado: true, que: 'El rojo de Pendientes, y el mismo aviso 3 veces',
     ejemplo: 'El contador late en rojo sin parar, y dentro de la ficha el aviso aparece repetido.' },
 ];
 
 const SACAR: Fila[] = [
-  { que: 'Dos pantallas cuya única acción posible es «no lo tengo»',
+  { aplicado: true, que: 'Dos pantallas cuya única acción posible es «no lo tengo»',
     ejemplo: 'Cerraste a Jesús Cendejas: el asistente pide documento fiscal y comprobante. No los tienes → dos toques a «No lo tengo». Pasa en 9 de cada 10 Ganados.' },
-  { que: 'Un pendiente que no se puede resolver nunca',
+  { aplicado: true, que: 'Un pendiente que no se puede resolver nunca',
     ejemplo: 'Gerardo Avila tuvo R2 y no llenó el formulario de Calendly: arrastra «faltan respuestas R2» para siempre. Le pasa a 20 de tus 31 leads con R2.' },
-  { que: 'Una pestaña entera que solo dice que está vacía',
+  { aplicado: true, que: 'Una pestaña entera que solo dice que está vacía',
     ejemplo: 'Abres a Reemberto Fontes → «Deal Details» solo avisa que se habilita al pasar a Facturando. Es así en 1.124 de 1.138 leads.' },
-  { que: 'Siete de las ocho pestañas de la ficha, en inglés',
+  { aplicado: true, que: 'Siete de las ocho pestañas de la ficha, en inglés',
     ejemplo: 'Overview · Tracking · Meetings · Chat · Insights · Deal Details · Change History. La única en español es «Notas».' },
-  { que: 'La pestaña «Notas»',
+  { aplicado: true, que: 'La pestaña «Notas»',
     ejemplo: '4 notas en toda la base, de todos los clientes, en toda la historia. Ese seguimiento lo escribes en WhatsApp.' },
-  { que: 'Un cartel que explica jerga nuestra',
+  { aplicado: true, que: 'Un cartel que explica jerga nuestra',
     ejemplo: 'Tres frases arriba de la ficha explicando qué es una «ventana informativa». Y el texto ni siquiera es igual en el pop-up que en la ficha.' },
-  { que: 'Una amenaza en el subtítulo de una pregunta',
+  { aplicado: true, que: 'Una amenaza en el subtítulo de una pregunta',
     ejemplo: '«Este dato entrena las campañas de Meta (CAPI) y es la última vez que te lo podemos preguntar». Hoy la verían 26 leads.' },
-  { que: 'Pendientes pintado del color de los errores',
+  { aplicado: true, que: 'Pendientes pintado del color de los errores',
     ejemplo: 'Borde rojo, contador rojo y botón «Solucionar» rojo lleno: el mismo rojo que «Perdido». La lista informa, el marco grita.' },
-  { que: 'Errores que no se pueden cerrar ni resolver',
+  { aplicado: true, que: 'Errores que no se pueden cerrar ni resolver',
     ejemplo: '«No se pudo leer Supabase: <mensaje técnico>» en una barra que no se cierra. Y si falla el chat del lead, no hay botón de reintentar.' },
 ];
 
@@ -184,7 +193,14 @@ function Grupo({ titulo, punto, filas }: { titulo: string; punto: string; filas:
               Antes era un número rojo de 22px, que es la escala que tenía cuando esto
               era una card — al volverse una fila nadie se la bajó. */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'baseline' }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{f.que}</div>
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
+              {f.que}
+              {f.aplicado && (
+                <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 999, padding: '1px 8px', whiteSpace: 'nowrap' }}>
+                  Aplicado
+                </span>
+              )}
+            </div>
             {f.costo && (
               <div style={{ flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                 {f.costo}
@@ -210,6 +226,8 @@ export default async function FriccionPage() {
   if (!admin) redirect('/inicio');
 
   const total = GRUPOS.reduce((n, g) => n + g.filas.length, 0);
+  // Se CUENTA, no se afirma: así el encabezado no puede desfasarse de las filas.
+  const aplicados = GRUPOS.reduce((n, g) => n + g.filas.filter((f) => f.aplicado).length, 0);
 
   return (
     <Pagina>
@@ -219,8 +237,8 @@ export default async function FriccionPage() {
         // Lo primero que se lee, porque es lo que la versión anterior no contestaba.
         estado={
           <span style={{ fontSize: 13, color: 'var(--ink)' }}>
-            <b style={{ fontWeight: 700 }}>Nada de esto está aplicado.</b>{' '}
-            <span style={{ color: 'var(--dim)' }}>Los {total} siguen en el CRM tal cual.</span>
+            <b style={{ fontWeight: 700 }}>{aplicados} de {total} ya están en el CRM.</b>{' '}
+            <span style={{ color: 'var(--dim)' }}>Los otros {total - aplicados} siguen tal cual.</span>
           </span>
         }
       />
@@ -229,8 +247,7 @@ export default async function FriccionPage() {
         {GRUPOS.map((g) => <Grupo key={g.titulo} {...g} />)}
 
         <p style={{ margin: 0, fontSize: 13, color: 'var(--faint)', lineHeight: 1.6 }}>
-          Relevado el 25/09 sobre el código, con los números de la base. Verificado el 27/09 contra los cuatro commits
-          del CRM posteriores: ninguno toca lo de esta lista. El detalle de cada uno, con archivo y línea, está en{' '}
+          Relevado el 25/09 sobre el código, con los números de la base. Lo que dice «Aplicado» ya está en el CRM. El detalle de cada uno, con archivo y línea, está en{' '}
           <code style={{ fontFamily: MONO, fontSize: 12 }}>docs/friccion-crm.md</code>.
         </p>
       </div>

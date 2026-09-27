@@ -387,9 +387,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     if (requeridos.has('closer')) p.push('closer');
     if (requeridos.has('empresa')) p.push('empresa');
     if (requeridos.has('telefono')) p.push('telefono');
-    // Documentos fiscales / comprobantes / motivo de R2 externa: al final.
-    if (requeridos.has('dealFiscalDoc')) p.push('dealFiscalDoc');
-    if (requeridos.has('comprobante')) p.push('comprobante');
+    // ⚠️ EL DOCUMENTO FISCAL Y EL COMPROBANTE NO SE PREGUNTAN MÁS ACÁ. Eran dos
+    // pantallas enteras cuya única acción posible era «no lo tengo»: en 9 de cada
+    // 10 Ganados nadie tiene el papel en la mano en el momento de mover la
+    // tarjeta. Un paso que casi siempre se contesta igual no es una pregunta, es
+    // un trámite.
+    //
+    // No se pierde nada: los dos siguen pidiéndose desde la ficha, que es donde se
+    // resuelven de verdad —con el archivo a mano— y donde ya aparecen en «Datos
+    // sin marcar».
+    // El motivo de R2 externa: al final.
     if (requeridos.has('r2Respuestas')) p.push('r2Motivo');
     p.push('resumen');
     // Lo que la búsqueda automática ya resolvió no se vuelve a preguntar.

@@ -1595,7 +1595,10 @@ export function CrmBoard({
           },
           calificado: {
             q: '¿Era un lead calificado?',
-            sub: 'Este dato entrena las campañas de Meta (CAPI) y es la última vez que te lo podemos preguntar.',
+            // Sin la jerga ni la presión: «CAPI» no le dice nada a nadie, y «la
+            // última vez que te lo podemos preguntar» convierte un dato opcional
+            // en una amenaza. Lo que hay que saber es para qué sirve.
+            sub: 'Ayuda a Meta a buscar más gente como esta.',
           },
           motivo: {
             q: qhDestino === 'descal' ? '¿Por qué se descalificó?' : '¿Por qué se perdió?',

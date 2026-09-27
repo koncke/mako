@@ -28,12 +28,12 @@ import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
 import { ChatCard } from './lead-view/ChatCard';
-import { NotasCard } from './lead-view/NotasCard';
 import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+
 import { profundidadModales } from '@/app/_components/pila-modales';
 
 const MONO = "'Geist Mono', monospace";
@@ -237,13 +237,12 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           <LeadTabs
             initial={initialTab}
             tabs={[
-              { key: 'resumen', label: 'Overview', content: tabResumen },
-              { key: 'notas', label: 'Notas', content: <NotasCard leadId={lead.id} /> },
-              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /><TrackingTimelineCard eventos={tracking} /></> },
-              { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
+              { key: 'resumen', label: 'Resumen', content: tabResumen },
+              { key: 'comportamiento', label: 'Seguimiento', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /><TrackingTimelineCard eventos={tracking} /></> },
+              { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
               {
-                key: 'insights', label: 'Insights', badge: insights.length,
+                key: 'insights', label: 'Análisis', badge: insights.length,
                 content: (
                   <GeneratedInsightCard
                     lead={lead}
@@ -255,8 +254,14 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
                   />
                 ),
               },
-              { key: 'cobranza', label: 'Deal Details', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },
-              { key: 'actividad', label: 'Change History', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+              // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
+              // pestaña no decía más que «está vacía» —y con tres redacciones
+              // distintas—: una pestaña cuyo único contenido es avisar que no hay
+              // contenido es una pestaña que se abre una vez y no se abre nunca más,
+              // pero que todos los días ocupa lugar y hace dudar de si falta algo.
+              // Con pagos cargados vuelve sola, con todo lo de siempre.
+              ...(pagos.length ? [{ key: 'cobranza', label: 'Pagos', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length }] : []),
+              { key: 'actividad', label: 'Historial', content: <AuditHistory leadId={lead.id} stages={stages} /> },
             ]}
           />
         </div>
