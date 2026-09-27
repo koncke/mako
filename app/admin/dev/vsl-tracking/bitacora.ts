@@ -304,4 +304,40 @@ export const BITACORA: Hito[] = [
       '⚠️ Sigue vivo: el beacon guarda `landing_url` como texto arbitrario de un desconocido, y eso decide después qué baja el Landing Analyst (docs/hallazgos-landing.md → «Un tercero elige qué páginas baja»)',
     ],
   },
+  {
+    fecha: '22 sep', hora: '11:01', chat: 'CRM', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La retención del VSL no anda, y el reproductor no es Panda ni YouTube',
+    // Textual, de un audio del grupo de WhatsApp «Makito» (22/09, 11:01). Llegó al
+    // repo el 27/09, cuando Martín exportó los audios del teléfono: los del grupo se
+    // descartaban en el webhook y la media de Evolution caduca a los ~30 días.
+    pedido: 'Y lo último que me queda es que no está trackeando bien el tema del, ¿cómo se dice?, del VSL, de la reproducción, de la retención del VSL, porque ustedes no lo tienen en Panda Video o YouTube, lo tienen en otro, no me acuerdo ahora cómo se llama, y tengo que hacer la conexión con ese.',
+    puntos: [
+      '**El diagnóstico del pedido era el equivocado, y por eso vale guardarlo entero.** «Tengo que hacer la conexión con ese» daba por hecho que faltaba soporte del reproductor — y el soporte había entrado siete días antes (v16, 15/09). Los eventos ya estaban llegando. Lo que fallaba era la IDENTIDAD del video, no la medición.',
+      'La regla que queda: cuando alguien reporta que algo «no se mide», la primera pregunta es si llegan eventos, no si existe el integrador. Son dos preguntas y la barata contesta primero.',
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '20:10', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El mismo video vivía bajo TRES ids, y ninguna pantalla lo decía',
+    puntos: [
+      '⚠️ **Dos enganches midiendo el mismo elemento.** La rama propia del reproductor (lo reconoce por su FORMA: `mediaId` + `percentWatched`) y el enganche genérico `hostDeMedia` (cualquier custom element con API de media, id = etiqueta + `media-id`) escuchan los mismos `play`/`pause`/`time-update` **en captura sobre `document`**. Medido en producción: **348 plays con `w:<id>` y 348 con `wistia-player:<id>`, los 348 pares dentro de 2 segundos**; igual pausa (286/286), exit (288/286) y todos los `pNN`. Reproducciones al doble y la curva de retención partida entre dos videos que la pantalla no sabía que eran el mismo.',
+      '**Gana la rama propia, y no es un empate:** mide la escalera de segundos que el genérico no tiene (270 eventos contra 0) y sabe armar la URL pública del embed. El genérico se abstiene ANTES de registrar; alcanza con cortar de un lado porque la pertenencia se decide por la FORMA del elemento y no por quién llegó primero.',
+      '⚠️ **El comentario de esa rama YA advertía del doble conteo… contra el `<video>` nativo.** La colisión que faltaba era con el genérico, escrito después y para la misma clase de elemento. Un guard contra UNA fuente de duplicados no protege de la siguiente, y el que lo escribió no tenía forma de saber que iba a haber otra.',
+      '⚠️ **Y el tercer id: el VSL marcado apuntaba a la nada.** `landing.videos` decía `wistia:<id>` y ningún evento trajo nunca ese prefijo — cero cruces, curva vacía en toda pantalla que habla de «el VSL». El id de un video es una CLAVE: cruza exacto o no cruza. Encima el id BUENO estaba en `landing.videos_ocultos`: alguien escondió el verdadero creyendo que era el repetido.',
+      '**La pantalla decía «sin actividad reciente», que afirma de más.** Suena a video tranquilo cuando lo que pasa es que ese id no es de ningún video. Son dos estados distintos y ahora tienen dos frases: el huérfano dice «ningún evento con ese id».',
+      '**Se busca con una consulta, no con una intuición:** agrupar `vsl_events` por el SUFIJO del `video_id` y quedarse con los sufijos que tengan más de un prefijo. Al 27/09 daba exactamente un caso en todo el producto.',
+      '⚠️ **Sigue pendiente:** las 1.303 filas de `wistia-player:` inflan el histórico de ese workspace. Son un duplicado estricto (todo lo que tienen lo tiene el id bueno, y les falta la escalera entera), así que borrarlas no pierde nada — pero es un DELETE en producción y lo decide Martín. Y el cliente no se cura solo: hasta que repegue el código sigue en v16 mandando los dos ids.',
+    ],
+    commits: [
+      { sha: 'a2228687', msg: 'Pixel v18: el VSL se medía DOS VECES y el VSL marcado apuntaba a un id que no existe', lineas: 152, archivos: 5 },
+    ],
+    archivos: [
+      'lib/landing-token.ts — `hostDeMedia` se abstiene con `wisHost(t)`; SNIPPET_VERSION 18 y su renglón de NOVEDADES',
+      'app/integraciones/NombrarVideos.tsx — el video nombrado cuyo id no cruza nada deja de decir «sin actividad reciente»',
+      'tests/landing-snippet-emitido.test.ts — el guard va ANTES de registrar (probado rompiéndolo: 4/1 en las dos roturas)',
+      '⚠️ El test de atribución clavaba `SNIPPET_VERSION = 17`, así que fallaba con cualquier cambio del snippet ajeno a él. Pasa a exigir 17 o más: un test que pinta el número de hoy se «arregla» tocando el test.',
+    ],
+  },
 ];
