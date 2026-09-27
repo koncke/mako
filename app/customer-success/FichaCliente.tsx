@@ -33,7 +33,8 @@ import { useState, useRef } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Modal } from '@/app/_ui';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
-import { fondoPortada } from '@/lib/portadas';
+import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
+import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import type { BoardUser } from '@/app/plan/board/types';
 import type { ClienteRef } from '@/lib/plan-clientes';
 import { PlanBoard } from '../plan/PlanBoard';
@@ -51,12 +52,15 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
   user: BoardUser;
   clientes: ClienteRef[];
   /** Cambió su foto o su portada. Lo persiste el padre, que es el que tiene la lista. */
-  onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null }) => void;
+  onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null }) => void;
   onCerrar: () => void;
 }) {
   const router = useRouter();
   /** El BOTÓN de la portada, no un booleano: de él cuelga el popover (ver PortadaPicker). */
   const [anclaPortada, setAnclaPortada] = useState<HTMLElement | null>(null);
+  /** El reposicionador de la PORTADA. El de la foto de perfil vive adentro de su
+   *  selector, porque ahí el encuadre se ve sobre el círculo y no sobre la banda. */
+  const repo = useReposicionar(c.portadaY, (y) => onImagen({ portadaY: y }));
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [mal, setMal] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -91,26 +95,49 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
           {/* LA PORTADA. `fondoPortada` decide si es una foto, un degradado del catálogo o
               —el default— el color derivado del nombre. La misma función pinta la tarjeta
               de la grilla, así que las dos no se pueden separar.
-              ⚠️ «Cambiar portada» va AL CENTRO y sólo al pasar el cursor, igual que la foto
-              de perfil (27/09/2026). Antes vivía arriba a la derecha, fijo: un botón
-              permanente sobre una imagen compite con ella, y dos botones distintos para
-              editar dos imágenes de la misma cabecera se aprendían por separado. */}
+
+              ⚠️ LOS CONTROLES VAN ARRIBA A LA DERECHA Y AL HOVER, como los de Notion
+              («donde hoy está Ver en el CRM debería estar Portada y Reposicionar y el
+              ícono de descargar», 27/09/2026). El intento anterior —un solo botón al
+              centro— no tenía dónde poner un segundo verbo: «cambiar» y «acomodar» son
+              dos acciones sobre la misma imagen y un botón centrado sólo aguanta una. */}
           <span className="fc-portada">
-            <span className="fc-banda" aria-hidden style={{ background: fondoPortada(c.portada, color) }} />
-            {/* INTERRUPTOR: el segundo click lo cierra. El popover excluye a su ancla del
-                click-afuera justamente para que esto se pueda decidir acá. */}
-            <button type="button" className="fc-cambiar"
-              onClick={(e) => { const b = e.currentTarget; setAnclaPortada((a) => (a ? null : b)); }}>
-              {c.portada ? 'Cambiar portada' : 'Poner una portada'}
-            </button>
-          </span>
-          {/* «Ver en el CRM» sí queda fijo y a la altura del botón de cerrar: es NAVEGACIÓN,
-              no edición de la imagen, y esconderla detrás de un hover la volvería difícil de
-              encontrar. Píldora oscura translúcida y no del color de la casa: acá abajo
-              puede haber una foto cualquiera, y un botón claro sobre una foto clara
-              desaparece. */}
-          <span className="fc-acciones">
-            <Link href={`/crm/${c.leadId}`} className="fc-pill">Ver en el CRM →</Link>
+            {/* ⚠️ UN SOLO `style`: el del fondo y el del cursor se fusionan acá. Con dos
+                atributos gana el último y el `background` se perdía — TypeScript lo avisa
+                («specified more than once»), pero en JSX plano sería mudo. */}
+            <span className="fc-banda" aria-hidden ref={repo.props.ref}
+              onPointerDown={repo.props.onPointerDown} onPointerMove={repo.props.onPointerMove}
+              onPointerUp={repo.props.onPointerUp} onPointerCancel={repo.props.onPointerCancel}
+              style={{ background: fondoPortada(c.portada, color, c.portadaY), ...repo.props.style }} />
+            {repo.activo
+              ? <BarraReposicion onGuardar={repo.guardar} onCancelar={repo.cancelar} />
+              : (
+                <span className="fc-acciones">
+                  {/* INTERRUPTOR: el segundo click lo cierra. El popover excluye a su ancla
+                      del click-afuera justamente para que esto se decida acá. */}
+                  <button type="button" className="fc-pill"
+                    onClick={(e) => { const b = e.currentTarget; setAnclaPortada((a) => (a ? null : b)); }}>
+                    {c.portada ? 'Portada' : 'Poner portada'}
+                  </button>
+                  {/* ⚠️ SÓLO CON UNA FOTO. Un degradado no se puede acomodar —no hay
+                      imagen que mover— y un botón que no puede hacer nada se lee como que
+                      la app está rota. Es la misma regla que «Quitar la foto», que existía
+                      sólo cuando había una. */}
+                  {esFoto(c.portada) && (
+                    <button type="button" className="fc-pill" onClick={repo.empezar}>Reposicionar</button>
+                  )}
+                  {esFoto(c.portada) && (
+                    <a className="fc-pill fc-icono" href={urlPortada(c.portada) ?? '#'}
+                      download target="_blank" rel="noreferrer"
+                      title="Descargar la portada" aria-label="Descargar la portada">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M5 21h14" />
+                      </svg>
+                    </a>
+                  )}
+                </span>
+              )}
           </span>
           <span className="fc-fila">
             <button type="button" className="fc-av" onClick={() => fileRef.current?.click()}
@@ -121,17 +148,24 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirFoto(f); e.target.value = ''; }} />
             <span className="fc-txt">
-              <span className="nom">{nombre}</span>
+              <span className="nom">
+                {nombre}
+                {/* ⚠️ «CRM →» PASÓ A ESTAR ACÁ, PEGADO AL NOMBRE. Arriba a la derecha
+                    competía con los controles de la imagen, que es lo que esa esquina
+                    tiene que ofrecer ahora. Y pegado al nombre dice mejor a QUÉ lleva:
+                    al CRM de esta persona, no al CRM. */}
+                <Link href={`/crm/${c.leadId}`} className="fc-crm">CRM →</Link>
+              </span>
               <span className="sub">
                 {c.empresa?.trim() || `Cliente ${n}`}
                 {c.empresa?.trim() ? <span className="id"> · Cliente {n}</span> : null}
               </span>
             </span>
-            {/* Quitar la foto sólo existe cuando hay una: un botón que no hace nada se lee
-                como que la app está rota. */}
-            {c.avatarUrl && (
-              <button type="button" className="fc-quitar" onClick={() => onImagen({ avatarUrl: null })}>Quitar la foto</button>
-            )}
+            {/* ⛔ ACÁ ESTABA «Quitar la foto», y se fue (27/09/2026). Sacar la foto es una
+                de las cosas que se hacen CON la foto, así que vive donde están todas las
+                demás: adentro del selector que abre el avatar. Un verbo suelto al lado del
+                nombre, para una sola de las cuatro acciones posibles, era la mitad de un
+                control — y encima aparecía y desaparecía según hubiera foto. */}
           </span>
         </span>
       }
@@ -227,11 +261,30 @@ const CSS = `
 .fc-cambiar:focus-visible{ opacity:1; outline:2px solid #fff; outline-offset:2px; }
 .fc-cambiar:hover{ background:rgba(20,22,26,.72); }
 
-.fc-acciones{ position:absolute; top:12px; right:52px; z-index:2; display:flex; gap:8px; }
-.fc-pill{ background:rgba(20,22,26,.42); border:0; border-radius:999px; padding:6px 13px;
+/* Los controles de la imagen: arriba a la derecha, a la altura del botón de cerrar, y
+   SÓLO al pasar el cursor. Un grupo de tres botones permanente sobre una foto compite
+   con la foto; apareciendo al hover no le saca lugar a nada hasta que hace falta.
+   Aparecen también con el foco del teclado — un control que sólo existe con el mouse
+   no existe para quien navega con Tab. */
+.fc-acciones{ position:absolute; top:12px; right:52px; z-index:2; display:flex; gap:6px;
+  opacity:0; transition:opacity .12s; }
+.fc-portada:hover .fc-acciones, .fc-acciones:focus-within{ opacity:1; }
+.fc-pill{ background:rgba(20,22,26,.52); border:0; border-radius:999px; padding:6px 13px;
   font:inherit; font-size:12.5px; font-weight:500; color:#fff; cursor:pointer;
   text-decoration:none; white-space:nowrap; backdrop-filter:blur(3px); }
-.fc-pill:hover{ background:rgba(20,22,26,.62); color:#fff; }
+.fc-pill:hover{ background:rgba(20,22,26,.72); color:#fff; }
+.fc-pill:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+/* El de descargar es un ícono solo: cuadrado, para que no se lea como un botón de
+   texto al que se le perdió el texto. Su nombre va en el title y en el aria-label. */
+.fc-icono{ display:inline-flex; align-items:center; justify-content:center;
+  width:30px; height:28px; padding:0; }
+
+/* «CRM →» al lado del nombre: tinta, no píldora. Acá abajo ya no hay una foto que
+   tape, así que un botón oscuro sería un parche de color en medio de una línea de
+   texto. */
+.fc-crm{ margin-left:10px; font-size:12.5px; font-weight:600; color:var(--primary);
+  text-decoration:none; white-space:nowrap; vertical-align:middle; }
+.fc-crm:hover{ text-decoration:underline; }
 
 /* ⚠️ EL AVATAR MONTA SOBRE LA BANDA; EL NOMBRE, NO. Con un margin-top negativo en la
    fila entera sube TODO —avatar y texto—, y el nombre queda escrito sobre la foto: con un
@@ -240,8 +293,14 @@ const CSS = `
    con el nombre. El padding izquierdo de la fila le deja su lugar. */
 .fc-fila{ display:flex; align-items:flex-end; gap:14px; padding:10px 24px 14px 100px; min-height:40px; }
 .fc-av{ position:absolute; left:24px; top:109px; display:block; padding:0; border:0; background:none; cursor:pointer; line-height:0; }
-.fc-avcap{ position:absolute; inset:auto 3px 3px 3px; border-radius:999px; background:rgba(20,22,26,.55);
-  color:#fff; font-size:9.5px; line-height:1.6; text-align:center; opacity:0; transition:opacity .12s; }
+/* ⚠️ «Foto» VA AL CENTRO DEL CÍRCULO, no en una banda abajo («el mensaje de Foto más
+   centrado, no abajo», 27/09/2026). Pegado al borde inferior tapaba justo el mentón de
+   la persona —que es donde el ojo confirma que es ella— y en un círculo de 62 px esa
+   banda es el 20% del alto. Al centro y sobre un velo, la foto se sigue leyendo debajo
+   y el rótulo dice lo que el click hace. */
+.fc-avcap{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  border-radius:999px; background:rgba(20,22,26,.48); color:#fff; font-size:10.5px;
+  font-weight:600; letter-spacing:.01em; opacity:0; transition:opacity .12s; }
 .fc-av:hover .fc-avcap{ opacity:1; }
 .fc-txt{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:1; padding-bottom:4px; }
 .fc-txt .nom{ font-size:20px; font-weight:670; letter-spacing:-.02em; line-height:1.2;
