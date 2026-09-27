@@ -32,6 +32,12 @@ export type ClienteRef = {
    */
   avatarUrl?: string | null;
   portada?: string | null;
+  /** El ícono y los encuadres (mig 0174). Viajan por lo mismo que los dos de arriba:
+   *  el picker del tablero dibuja a la misma gente que la grilla de Clientes, y con
+   *  la mitad de los campos se vería distinta en cada pantalla. */
+  icono?: string | null;
+  avatarY?: number | null;
+  portadaY?: number | null;
 };
 
 /** Lo que una tarjeta (tarea o proyecto) guarda de su cliente. */
@@ -39,8 +45,16 @@ export type ConCliente = { clienteLeadId?: number | null; clienteNombre?: string
 
 /** El rótulo del campo, en las dos pantallas y en los dos modales. */
 export const ROTULO_CLIENTE = 'Cliente';
-/** Lo que dice el campo cuando no hay nadie. NO es un error ni un dato faltante. */
-export const SIN_CLIENTE = 'Interno';
+/**
+ * Lo que dice el campo cuando no hay nadie. NO es un error ni un dato faltante.
+ *
+ * ⚠️ DECÍA «Interno» Y AHORA DICE «Ninguno» (27/09/2026, a pedido). «Interno» nombra
+ * una CATEGORÍA de trabajo —del negocio, no de un cliente— y eso obliga a saber qué
+ * cuenta como interno; «Ninguno» contesta la pregunta que el campo hace, que es «¿de
+ * quién es?». Vive acá y no repetido: lo leen el campo del detalle, el modal y la
+ * tabla, y tres copias son tres momentos distintos para quedarse viejas.
+ */
+export const SIN_CLIENTE = 'Ninguno';
 
 /**
  * El cliente de una tarjeta, o `null`.

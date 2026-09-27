@@ -335,10 +335,24 @@ function Colores({ actual, onPick }: { actual: string; onPick: (c: string) => vo
  */
 function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir: (v: string) => void }) {
   const [semilla] = useState(() => Math.floor(Math.random() * 1_000_000));
+  /** Lo que se está buscando. Vacío = el repositorio al azar de siempre. */
+  const [q, setQ] = useState('');
+  /** Lo que de verdad se le pidió al server: `q` con un respiro, para no pedir por tecla. */
+  const [qFirme, setQFirme] = useState('');
+  const [importando, setImportando] = useState('');
   const [fotos, setFotos] = useState<FotoDeCatalogo[]>([]);
   const [pagina, setPagina] = useState(1);
   const [hayMas, setHayMas] = useState(true);
-  /** Las que el catálogo listó y no existen: se sacan de la grilla al fallar. */
+  /**
+   * Las que el catálogo listó y no se pudieron dibujar: salen de la grilla.
+   *
+   * ⚠️ SE VACÍA AL CAMBIAR DE BÚSQUEDA, y esto es un arreglo. Sin eso, un fallo
+   * PASAJERO —la red, un pico del proveedor, o acá mismo el dev server compilando la
+   * ruta en frío la primera vez— borraba esa foto para el resto de la sesión, aunque
+   * volviera a andar. Medido: con la ruta recién creada se dibujaron 6 de 20, y las
+   * mismas 20 pedidas de nuevo dieron 20 de 20. La lista de rotas es una red para lo
+   * que NO existe (picsum tiene huecos en su espacio de ids), no una condena.
+   */
   const [rotas, setRotas] = useState<Set<string>>(() => new Set());
   const [cargando, setCargando] = useState(true);
   const [mal, setMal] = useState('');
@@ -347,9 +361,21 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
   // efecto es un render en cascada (lo marca `react-hooks/set-state-in-effect`), y no hace
   // falta: `pagina` sólo la mueve el botón de abajo, así que el estado de carga lo prende
   // el gesto que lo provoca y este efecto sólo lo apaga.
+  // Un respiro antes de salir a buscar: sin esto, «montaña» son siete requests.
+  useEffect(() => {
+    const t = setTimeout(() => { setQFirme(q.trim()); setPagina(1); setRotas(new Set()); }, 320);
+    return () => clearTimeout(t);
+  }, [q]);
+
   useEffect(() => {
     let vivo = true;
-    fetch(`/api/portadas?pagina=${pagina}&semilla=${semilla}`)
+    // ⚠️ CON TEXTO BUSCA EN OTRO CATÁLOGO. picsum no tiene búsqueda —medido: `?q=` le
+    // es indiferente y devuelve la misma lista—, así que buscar sale por Openverse, y
+    // eso lo decide el server. Acá sólo cambia el parámetro.
+    const url = qFirme
+      ? `/api/portadas?q=${encodeURIComponent(qFirme)}&pagina=${pagina}`
+      : `/api/portadas?pagina=${pagina}&semilla=${semilla}`;
+    fetch(url)
       .then((r) => r.json())
       .then((j: { ok: boolean; fotos?: FotoDeCatalogo[]; hayMas?: boolean; error?: string }) => {
         if (!vivo) return;
@@ -371,18 +397,55 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
       .catch((e: unknown) => { if (vivo) setMal(e instanceof Error ? e.message : String(e)); })
       .finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [pagina, semilla]);
+  }, [pagina, semilla, qFirme]);
 
   if (mal && !fotos.length) return <p className="pp-mal">{mal}</p>;
+
+  /**
+   * ELEGIR UNA FOTO DEL BUSCADOR NO ES ELEGIR SU URL: hay que copiarla a nuestro
+   * bucket primero (ver el POST de `/api/portadas`). Las del repositorio base se
+   * guardan directo, que es como venía funcionando.
+   */
+  async function elegir(f: FotoDeCatalogo) {
+    if (!f.id.startsWith('ov:')) { onElegir(f.grande); return; }
+    setImportando(f.id);
+    setMal('');
+    try {
+      const r = await fetch('/api/portadas', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ov: f.id.slice(3) }),
+      });
+      const j: { ok: boolean; url?: string; error?: string } = await r.json();
+      if (!j.ok || !j.url) { setMal(j.error || 'No pude usar esa foto.'); return; }
+      onElegir(j.url);
+    } catch (e) {
+      setMal(e instanceof Error ? e.message : String(e));
+    } finally { setImportando(''); }
+  }
 
   return (
     <>
       <p className="pp-seccion pp-seccion-2">Fotos</p>
+      <label className="pp-buscar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+        </svg>
+        <input value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar fotos… (montaña, oficina, mar)" aria-label="Buscar fotos" />
+        {q && <button type="button" onClick={() => setQ('')} aria-label="Limpiar">✕</button>}
+      </label>
+      {/* ⚠️ «No encontré» y «no pude buscar» son dos pantallas. La segunda manda a
+          revisar la red; la primera, a probar otra palabra. */}
+      {!!qFirme && !cargando && !mal && fotos.length === 0 && (
+        <p className="pp-vacio">No encontré fotos de «{qFirme}».</p>
+      )}
       <ul className="pp-grid fotos">
         {fotos.filter((f) => !rotas.has(f.id)).map((f) => (
           <li key={f.id}>
-            <button type="button" className={`pp-op foto${valor === f.grande ? ' on' : ''}`}
-              onClick={() => onElegir(f.grande)}
+            <button type="button" className={`pp-op foto${valor === f.grande ? ' on' : ''}${importando === f.id ? ' yendo' : ''}`}
+              disabled={!!importando}
+              onClick={() => { void elegir(f); }}
               title={f.autor ? `Foto de ${f.autor}` : 'Foto'} aria-label={f.autor ? `Foto de ${f.autor}` : 'Foto'}>
               {/* Sin `next/image`: son miniaturas de un host externo, y el optimizador
                   las volvería a servir por nuestra función pagando por cada una. */}
@@ -514,6 +577,18 @@ const CSS = `
 .pp-color-mas span{ width:20px; height:20px; border-radius:999px; background:var(--surface);
   display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--ink); line-height:1; }
 .pp-color-mas input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+.pp-buscar{ display:flex; align-items:center; gap:7px; margin:0 2px 10px; padding:0 10px; height:34px;
+  border:1px solid var(--border); border-radius:9px; background:var(--surface-2); color:var(--faint); }
+.pp-buscar:focus-within{ border-color:var(--primary); color:var(--primary); background:var(--surface); }
+.pp-buscar input{ flex:1; min-width:0; border:0; outline:none; background:none; font:inherit;
+  font-size:13px; color:var(--ink); }
+.pp-buscar button{ border:0; background:none; color:var(--faint); cursor:pointer; font-size:11px; padding:2px; }
+.pp-buscar button:hover{ color:var(--ink); }
+.pp-vacio{ margin:10px 2px; font-size:13px; color:var(--dim); }
+/* La que se esta copiando a nuestro bucket: se atenua y no se puede volver a tocar. */
+.pp-op.yendo{ opacity:.45; cursor:default; }
+.pp-op:disabled{ cursor:default; }
 
 .pp-cargando{ display:flex; align-items:center; gap:8px; margin:14px 2px 0; font-size:13px; color:var(--dim); }
 .pp-mas{ display:block; margin:14px auto 0; background:var(--surface); border:1px solid var(--border-strong);

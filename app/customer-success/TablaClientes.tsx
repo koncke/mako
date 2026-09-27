@@ -28,7 +28,18 @@ export function TablaClientes({ filas, numeroDe, resumenDe, tableroOk, onAbrir, 
   onNuevo: () => void;
 }) {
   return (
-    <div className="tc-caja">
+    <>
+      {/* ⚠️ EN TABLA, CREAR ES UN BOTÓN ARRIBA — como «+ Crear proyecto» en la tabla
+          del tablero. «Falta el botón de nuevo cliente cuando está en la vista de
+          tabla» (27/09/2026): lo había puesto como último RENGLÓN, y ahí no se ve.
+          Una fila de acción al final de una lista se lee como un dato más, y con la
+          tabla scrolleada ni siquiera está en pantalla. En tarjetas puede vivir
+          DENTRO de la grilla porque una tarjeta punteada no se confunde con un dato;
+          un renglón de tabla sí. La misma acción, dos formas, por la misma razón. */}
+      <div className="tc-arriba">
+        <button type="button" className="tc-nuevo" onClick={onNuevo}>＋ Nuevo cliente</button>
+      </div>
+      <div className="tc-caja">
       <table className="tc">
         <thead>
           <tr>
@@ -65,17 +76,11 @@ export function TablaClientes({ filas, numeroDe, resumenDe, tableroOk, onAbrir, 
               </tr>
             );
           })}
-          {/* La misma salida que en la grilla: crear vive DENTRO de la lista, no en una
-              esquina. Acá es el último renglón porque una tabla se lee de arriba abajo
-              y un renglón de acción al principio se confunde con un dato. */}
-          <tr className="tc-nueva" onClick={onNuevo} tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter') onNuevo(); }}>
-            <td colSpan={5}>＋ Nuevo cliente</td>
-          </tr>
         </tbody>
       </table>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -97,6 +102,9 @@ const CSS = `
 .tc-num{ font-size:11.5px; color:var(--faint); white-space:nowrap; }
 .tc-emp{ color:var(--dim); }
 .tc-vacio{ color:var(--faint); }
-.tc-nueva td{ color:var(--dim); font-weight:600; }
-.tc-nueva:hover td{ color:var(--primary); }
+/* El boton de crear, arriba y alineado con la caja de la tabla. */
+.tc-arriba{ display:flex; justify-content:flex-end; max-width:1180px; margin:0 auto 12px; }
+.tc-nuevo{ border:1px solid var(--border-strong); background:var(--surface); border-radius:9px;
+  padding:8px 14px; font:inherit; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; }
+.tc-nuevo:hover{ border-color:var(--primary); color:var(--primary); }
 `;

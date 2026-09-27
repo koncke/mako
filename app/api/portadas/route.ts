@@ -60,11 +60,101 @@ const POR_PAGINA = 24;
  */
 const TOTAL_PAGINAS = 42;
 
+/**
+ * BUSCAR POR TEXTO — y no lo hace picsum, lo hace OPENVERSE.
+ *
+ * «Sería bueno que haya una barra de búsqueda en las fotos de portada, no sé si la API
+ * que estás consumiendo tiene algo para buscar por texto» (27/09/2026). No tiene:
+ * medido con curl, `picsum.photos/v2/list?q=montana` devuelve **la misma lista sin
+ * filtrar**. Es Lorem Picsum — fotos al azar, sin título ni etiquetas. No hay nada que
+ * buscar ahí, así que buscar exige otra fuente.
+ *
+ * Openverse, medido el mismo día:
+ *   · `GET /v1/images/?q=mountain` → 240 resultados. **Sin ninguna key**, que es la
+ *     misma propiedad por la que el repositorio base es picsum.
+ *   · trae MINIATURA propia (`thumbnail`), así que la grilla no carga los originales.
+ *   · **y dice la licencia de cada foto**, que es la parte que casi se cuela: agrega
+ *     CC-BY y CC-BY-SA, que OBLIGAN a atribuir. Con `license=cc0,pdm` quedan sólo
+ *     dominio público y CC0 — las que no obligan a nada. Es exactamente la misma
+ *     trampa que Solar en el catálogo de íconos, y el mismo guard: en positivo.
+ *   · NO manda CORS, así que va por acá igual que picsum.
+ */
+const LICENCIAS_OK = 'cc0,pdm';
+
+/**
+ * ⚠️ VEINTE, NO VEINTICUATRO. Openverse topea `page_size` en 20 **para pedidos
+ * anónimos** —los que no llevan key, que es todo el punto de haberlo elegido— y con 24
+ * contesta `401 {"detail":"page_size may not exceed 20 for anonymous requests"}`.
+ *
+ * Es el patrón que AGENTS.md ya tiene escrito: el entorno tiene un tope y tu código
+ * declara otro. Acá salió barato porque el proveedor lo dice con todas las letras; la
+ * versión cara es la que contesta 200 con menos datos y nadie se entera.
+ */
+const POR_PAGINA_OV = 20;
+
+async function buscarEnOpenverse(texto: string, pagina: number) {
+  const url = new URL('https://api.openverse.org/v1/images/');
+  url.searchParams.set('q', texto.slice(0, 60));
+  url.searchParams.set('page', String(pagina));
+  url.searchParams.set('page_size', String(POR_PAGINA_OV));
+  url.searchParams.set('license', LICENCIAS_OK);
+  // Sólo lo que se puede recortar a una banda sin que quede una tira: una foto
+  // vertical en 1600×420 es un recorte del 10% de la imagen.
+  url.searchParams.set('aspect_ratio', 'wide');
+
+  const r = await fetch(url, { signal: AbortSignal.timeout(12_000), cache: 'no-store' });
+  if (!r.ok) {
+    // ⚠️ SE PASA EL MOTIVO DEL PROVEEDOR, no sólo el número. «contestó 401» manda a
+    // buscar una credencial que esta API no usa; su `detail` dice exactamente qué
+    // pasó («page_size may not exceed 20…»), y eso es la diferencia entre un curl y
+    // media hora. Se recorta porque es texto de un tercero yendo a una pantalla.
+    const detalle = await r.json().then((j: { detail?: unknown }) => (typeof j.detail === 'string' ? j.detail : '')).catch(() => '');
+    return { ok: false as const, error: `El buscador de fotos contestó ${r.status}${detalle ? `: ${detalle.slice(0, 120)}` : ''}` };
+  }
+  const j = (await r.json()) as { results?: Array<Record<string, unknown>>; page_count?: number };
+  const fotos: FotoDeCatalogo[] = [];
+  for (const o of j.results ?? []) {
+    const id = typeof o.id === 'string' ? o.id : '';
+    const grande = typeof o.url === 'string' ? o.url : '';
+    if (!id || !grande.startsWith('https://')) continue;
+    fotos.push({
+      id: `ov:${id}`,
+      autor: typeof o.creator === 'string' ? o.creator : '',
+      // ⚠️ LAS DOS SALEN POR NUESTRA RUTA. La miniatura por lo mismo que las de picsum
+      // (el navegador no le habla a un tercero con el referer del cliente), y la
+      // GRANDE porque al elegirla hay que COPIARLA a nuestro bucket: estas fotos viven
+      // en servidores distintos por cada una (flickr, museos, archivos), y
+      // `ORIGENES_OK` los rechaza — con razón. Una lista de orígenes que crece con
+      // cada proveedor nuevo es un guard que deja de guardar.
+      mini: `/api/portadas/foto?ov=${encodeURIComponent(id)}`,
+      grande,
+    });
+  }
+  return { ok: true as const, fotos, hayMas: pagina < Math.min(20, j.page_count ?? 1) };
+}
+
 export async function GET(req: NextRequest) {
   const sesion = await getUsuarioActual();
   if (!sesion) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
 
   const q = new URL(req.url).searchParams;
+
+  // Con texto, manda el buscador; sin texto, el repositorio al azar de siempre.
+  const texto = (q.get('q') ?? '').trim();
+  if (texto) {
+    const pag = Math.max(1, Math.min(20, Number(q.get('pagina')) || 1));
+    try {
+      const r = await buscarEnOpenverse(texto, pag);
+      if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
+      return Response.json({ ok: true, fotos: r.fotos, pagina: pag, hayMas: r.hayMas });
+    } catch (e) {
+      const msg = e instanceof Error && e.name === 'TimeoutError'
+        ? 'El buscador de fotos tardó demasiado.'
+        : e instanceof Error ? e.message : String(e);
+      return Response.json({ ok: false, error: msg }, { status: 502 });
+    }
+  }
+
   const pagina = Math.max(1, Math.min(TOTAL_PAGINAS, Number(q.get('pagina')) || 1));
   /**
    * LA SEMILLA DEL RANDOMIZER, y la manda el NAVEGADOR a propósito.
@@ -128,6 +218,59 @@ export async function POST(req: NextRequest) {
   try {
     const sesion = await getUsuarioActual();
     if (!sesion) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
+
+    /**
+     * ELEGIR UNA FOTO DEL BUSCADOR: se COPIA a nuestro bucket y se guarda nuestra URL.
+     *
+     * ⚠️ NO SE GUARDA LA URL DEL TERCERO, y las dos razones pesan igual. La primera es
+     * el guard de origen: estas fotos viven en un servidor distinto cada una —flickr,
+     * museos, archivos— y `ORIGENES_OK` los rechaza; una lista de orígenes que crece
+     * con cada proveedor es un guard que dejó de guardar. La segunda es que una
+     * portada apuntada a un tercero se rompe el día que ese tercero borra la foto, y
+     * el síntoma llega meses después como una banda gris.
+     *
+     * ⚠️ Y EL NAVEGADOR MANDA EL **ID**, NO LA URL. Aceptar una URL y bajarla sería
+     * convertir esta ruta en un descargador de lo que cualquiera con sesión le pida
+     * —la red interna incluida—. Con el id, la URL la dice OPENVERSE: se le pregunta
+     * por ese id y se baja lo que él conteste. El cliente no elige el destino.
+     */
+    const tipoCuerpo = req.headers.get('content-type') ?? '';
+    if (tipoCuerpo.includes('application/json')) {
+      const body = (await req.json().catch(() => ({}))) as { ov?: unknown };
+      const ov = typeof body.ov === 'string' ? body.ov : '';
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ov)) {
+        return Response.json({ ok: false, error: 'pedido inválido' }, { status: 400 });
+      }
+      const meta = await fetch(`https://api.openverse.org/v1/images/${ov}/`, { signal: AbortSignal.timeout(12_000) });
+      if (!meta.ok) return Response.json({ ok: false, error: `El buscador contestó ${meta.status}` }, { status: 502 });
+      const j = (await meta.json()) as { url?: unknown; license?: unknown };
+      const origen = typeof j.url === 'string' ? j.url : '';
+      // La licencia se vuelve a mirar ACÁ. El filtro del buscador es lo que se OFRECE;
+      // esto es lo que se GUARDA, y entre las dos cosas hay un id que viajó por el
+      // navegador. Es la regla de las dos capas, aplicada a un tercero.
+      if (!['cc0', 'pdm'].includes(String(j.license ?? ''))) {
+        return Response.json({ ok: false, error: 'Esa foto pide atribución, así que no se puede usar de portada.' }, { status: 400 });
+      }
+      if (!origen.startsWith('https://')) return Response.json({ ok: false, error: 'La foto no tiene una URL usable' }, { status: 502 });
+
+      const img = await fetch(origen, { signal: AbortSignal.timeout(20_000) });
+      if (!img.ok) return Response.json({ ok: false, error: `No pude bajar la foto (${img.status})` }, { status: 502 });
+      const buf = Buffer.from(await img.arrayBuffer());
+      if (buf.length > MAX) return Response.json({ ok: false, error: 'La foto supera los 6MB' }, { status: 400 });
+      // El tipo REAL por magic bytes, igual que en la subida: lo que diga el tercero
+      // en su `content-type` es su palabra, no un dato.
+      const tipo = sniffImagen(buf);
+      if (!tipo) return Response.json({ ok: false, error: 'El archivo no es una imagen que podamos usar' }, { status: 400 });
+
+      const supabase = getSupabaseServer();
+      try { await supabase.storage.createBucket(BUCKET, { public: true }); } catch { /* ya existe */ }
+      const ws = await getWorkspaceActual();
+      const path = `ws${ws ?? 0}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${EXT_DE[tipo]}`;
+      const { error } = await supabase.storage.from(BUCKET).upload(path, buf, { contentType: tipo, upsert: false });
+      if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      return Response.json({ ok: true, url: data.publicUrl });
+    }
 
     // ⚠️ UN ROUTE HANDLER MULTIPART Y NO UNA SERVER ACTION: una action topea el cuerpo
     // en 1 MB (este proyecto no define `serverActions.bodySizeLimit`), así que una foto

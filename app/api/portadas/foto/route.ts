@@ -49,6 +49,21 @@ export async function GET(req: NextRequest) {
   if (!sesion) return new Response('no autenticado', { status: 401 });
 
   const q = new URL(req.url).searchParams;
+
+  /**
+   * LA MINIATURA DE OPENVERSE, por el mismo camino y por los mismos dos motivos: el
+   * navegador no le habla a un tercero con el referer de quien abre la pantalla, y
+   * acá se cachea. El id es un UUID que devolvió el buscador; se valida su FORMA
+   * porque viaja en el path de la URL que armamos.
+   */
+  const ov = q.get('ov');
+  if (ov) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ov)) {
+      return new Response('pedido invalido', { status: 400 });
+    }
+    return traer(`https://api.openverse.org/v1/images/${ov}/thumb/`);
+  }
+
   const id = q.get('id') ?? '';
   const w = q.get('w') ?? '400';
   const h = q.get('h') ?? '140';
@@ -57,10 +72,15 @@ export async function GET(req: NextRequest) {
     return new Response('pedido inválido', { status: 400 });
   }
 
+  return traer(`https://picsum.photos/id/${id}/${w}/${h}`);
+}
+
+/** Trae una imagen de un tercero y la sirve como nuestra, cacheada. */
+async function traer(url: string): Promise<Response> {
   try {
     // `redirect: 'follow'` es el default y acá es LO QUE HACE LA RUTA: seguir el 302
     // que el navegador no puede seguir.
-    const r = await fetch(`https://picsum.photos/id/${id}/${w}/${h}`, {
+    const r = await fetch(url, {
       signal: AbortSignal.timeout(12_000),
       // Sin cookies ni referer nuestro: es una imagen pública.
       headers: { accept: 'image/*' },

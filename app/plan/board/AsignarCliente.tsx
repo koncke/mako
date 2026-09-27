@@ -21,6 +21,8 @@
 
 import { useMemo, useState } from 'react';
 import { buscarClientes, etiquetaCliente, SIN_CLIENTE, type ClienteRef } from '@/lib/plan-clientes';
+import { Marca } from '@/app/_components/Marca';
+import { colorDe } from '@/app/customer-success/ClienteCard';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -78,6 +80,11 @@ export function AsignarClienteModal({ que, nombre, clientes, actualId, onElegir,
                 sub={c.empresa?.trim() || undefined}
                 elegido={actualId === c.leadId}
                 onClick={() => elegir(c)}
+                /* ⚠️ LA FOTO, porque a la gente se la reconoce por la cara antes que por
+                   el nombre — y esta lista es de PERSONAS, no de etiquetas. Es la misma
+                   `Marca` que dibujan la grilla de Clientes y la ficha: si la misma
+                   persona se ve distinta según la pantalla, para el ojo son dos. */
+                marca={<Marca icono={c.icono ?? c.avatarUrl} nombre={c.nombre} tam={30} y={c.avatarY} color={colorDe(c.nombre)} />}
               />
             ))}
             {clientes.length === 0 && (
@@ -96,11 +103,11 @@ export function AsignarClienteModal({ que, nombre, clientes, actualId, onElegir,
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px 16px', borderTop: '1px solid var(--border)', flex: 'none' }}>
-          <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
-            {`Se guarda en ${que} al elegir`}
-          </span>
-        </div>
+        {/* ⛔ ACÁ DECÍA «Se guarda en el proyecto al elegir», y se fue (27/09/2026).
+            Narraba lo que la pantalla ya hace: elegís, se cierra y el campo cambia. Es
+            exactamente lo que la regla del texto de pantalla prohíbe — si el texto
+            cuenta lo que se VE, sobra. Con él se va el pie entero: una franja con borde
+            para una sola frase gris era marco sin cuadro. */}
       </div>
     </div>
   );
@@ -108,8 +115,10 @@ export function AsignarClienteModal({ que, nombre, clientes, actualId, onElegir,
 
 /** Una fila de la lista. Es un `<button>`, así que lleva `font`, `color` y `text-align`
  *  escritos: no los hereda, y sin eso sale centrada (AGENTS.md). */
-function Fila({ titulo, sub, elegido, onClick }: {
+function Fila({ titulo, sub, elegido, onClick, marca }: {
   titulo: string; sub?: string; elegido: boolean; onClick: () => void;
+  /** La cara de quién es. La fila de «Ninguno» no lleva: no hay nadie que mostrar. */
+  marca?: React.ReactNode;
 }) {
   return (
     <button type="button" onClick={onClick}
@@ -117,6 +126,10 @@ function Fila({ titulo, sub, elegido, onClick }: {
       {/* El tilde ocupa su lugar SIEMPRE (visibility, no display): sin eso las filas se
           corren una a una cuando cambiás de selección. */}
       <span aria-hidden style={{ flex: 'none', width: 14, color: 'var(--primary)', visibility: elegido ? 'visible' : 'hidden', fontSize: 13 }}>✓</span>
+      {/* ⚠️ EL HUECO DE LA FOTO SE RESERVA AUNQUE NO HAYA, igual que el del tilde: sin
+          esto «Ninguno» arranca 40 px a la izquierda de los nombres y la lista se lee
+          como dos listas pegadas. */}
+      <span style={{ flex: 'none', width: 30, height: 30, display: 'inline-flex' }}>{marca}</span>
       <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
         <span style={{ fontSize: 13.5, fontWeight: elegido ? 650 : 500, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titulo}</span>
         {sub && <span style={{ fontSize: 11.5, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}

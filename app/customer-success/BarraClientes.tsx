@@ -28,6 +28,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
+import { BarraAcciones } from '@/app/plan/board/BoardShell';
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto';
@@ -47,7 +48,7 @@ export const FILTRO_LABEL: Record<FiltroClientes, string> = {
 };
 
 export function BarraClientes({
-  q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, nVisibles, nTotal,
+  q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, onImportar, nVisibles, nTotal, progreso,
 }: {
   q: string;
   onQ: (v: string) => void;
@@ -58,8 +59,11 @@ export function BarraClientes({
   orden: OrdenClientes;
   onOrden: (v: OrdenClientes) => void;
   onExportar: () => void;
+  onImportar: () => void;
   nVisibles: number;
   nTotal: number;
+  /** El avance de la cartera, para el mismo lugar donde el plan pone el suyo. */
+  progreso: { pct: number; hechas: number; total: number; label: string };
 }) {
   return (
     <div className="bc">
@@ -86,7 +90,31 @@ export function BarraClientes({
 
       <VistaToggleClientes tabla={tabla} onSet={onTabla} />
       <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden} />
-      <MenuPuntos onExportar={onExportar} />
+      {/* ⚠️ ES **LA** BARRA DEL PLAN, no una parecida. «Falta la barra de progreso en
+          los 3 puntitos en clientes, y los íconos; asegurate de copiar el diseño»
+          (27/09/2026) — y copiar un diseño es escribir el segundo, que es el que se
+          queda viejo. Se importa la pieza y se le pasan las acciones de acá.
+          `compacto` va fijo en `true`: en el plan el header MIDE si los botones
+          entran y los pliega; acá son dos y siempre viven adentro del menú, así que
+          medir sería una decisión que no cambia nunca. */}
+      <BarraAcciones compacto progreso={progreso} acciones={[
+        { key: 'exportar',
+          nodo: null,
+          menu: {
+            icono: <IconoBajar />,
+            label: 'Exportar a CSV',
+            desc: 'Lo que estás viendo, con los filtros puestos',
+            onClick: onExportar,
+          } },
+        { key: 'importar',
+          nodo: null,
+          menu: {
+            icono: <IconoSubir />,
+            label: 'Importar desde una planilla',
+            desc: 'Entran al CRM; son clientes al marcarlos ganados',
+            onClick: onImportar,
+          } },
+      ]} />
 
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </div>
@@ -132,64 +160,105 @@ function usePlegable() {
   return { open, setOpen, ref };
 }
 
+/**
+ * EL FILTRO, con la MISMA gramática que el del tablero: un panel con una fila por
+ * categoría —su nombre a la izquierda, el valor actual a la derecha y un `›`— que al
+ * tocarla se REEMPLAZA por sus opciones, con un «‹ volver». Nunca hay más de una
+ * categoría en pantalla a la vez.
+ *
+ * ⚠️ NO ES UNA LISTA PLANA, y por eso se rehizo: la primera versión apilaba las siete
+ * opciones de las dos categorías una debajo de la otra y el dueño lo rechazó con
+ * «copia mejor el filtro, no se parecen en nada» (27/09/2026). Tenía razón y no era
+ * gusto: apilada, no se ve qué está puesto sin leer cuál está resaltada, y el panel
+ * crece con cada opción nueva. Con el resumen a la derecha, el estado se lee cerrado.
+ *
+ * ⚠️ Y EL BADGE CUENTA LO QUE NO ES EL DEFAULT, no las categorías. Con «Nombre» y
+ * «Todos» puestos no hay nada filtrado, así que el botón no puede decir 2.
+ */
 function MenuFiltro({ filtro, onFiltro, orden, onOrden }: {
   filtro: FiltroClientes; onFiltro: (v: FiltroClientes) => void;
   orden: OrdenClientes; onOrden: (v: OrdenClientes) => void;
 }) {
   const { open, setOpen, ref } = usePlegable();
-  const activo = filtro !== 'todos' || orden !== 'nombre';
+  const [vista, setVista] = useState<'root' | 'mostrar' | 'orden'>('root');
+  const n = (filtro !== 'todos' ? 1 : 0) + (orden !== 'nombre' ? 1 : 0);
+
+  // Al cerrarse, vuelve a la raíz: reabrirlo adentro de una categoría es aparecer en
+  // un lugar que nadie eligió.
+  useEffect(() => { if (!open) setVista('root'); }, [open]);
+
+  const cats = [
+    { key: 'mostrar' as const, label: 'Mostrar', resumen: FILTRO_LABEL[filtro], activo: filtro !== 'todos' },
+    { key: 'orden' as const, label: 'Ordenar', resumen: ORDEN_LABEL[orden], activo: orden !== 'nombre' },
+  ];
+
   return (
     <div ref={ref} className="bc-pop">
-      <button type="button" className={`bc-btn${activo ? ' on' : ''}`} onClick={() => setOpen((o) => !o)}
+      <button type="button" className={`bc-btn${n > 0 ? ' on' : ''}`} onClick={() => setOpen((o) => !o)}
         aria-expanded={open} title="Filtrar y ordenar" aria-label="Filtrar y ordenar">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M3 5h18l-7 8v6l-4 2v-8Z" />
         </svg>
+        {/* El número de lo que está puesto, y limpia al tocarlo. Sin esto, un filtro
+            activo con el panel cerrado es una lista recortada sin explicación. */}
+        {n > 0 && (
+          <span className="bc-badge" title="Limpiar"
+            onClick={(e) => { e.stopPropagation(); onFiltro('todos'); onOrden('nombre'); }}>{n}</span>
+        )}
       </button>
       {open && (
-        <div className="bc-menu">
-          <p className="bc-tit">Mostrar</p>
-          {(Object.keys(FILTRO_LABEL) as FiltroClientes[]).map((k) => (
-            <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
-              onClick={() => { onFiltro(k); setOpen(false); }}>{FILTRO_LABEL[k]}</button>
-          ))}
-          <p className="bc-tit">Ordenar por</p>
-          {(Object.keys(ORDEN_LABEL) as OrdenClientes[]).map((k) => (
-            <button key={k} type="button" className={`bc-op${orden === k ? ' on' : ''}`}
-              onClick={() => { onOrden(k); setOpen(false); }}>{ORDEN_LABEL[k]}</button>
-          ))}
+        <div className="bc-menu bc-menu-der">
+          {vista === 'root' ? (
+            <>
+              {cats.map((c) => (
+                <button key={c.key} type="button" className="bc-fila" onClick={() => setVista(c.key)}>
+                  <span className="bc-fila-nom">{c.label}</span>
+                  <span className="bc-fila-val">
+                    <span className={c.activo ? 'on' : ''}>{c.resumen}</span>
+                    <span className="bc-chev">›</span>
+                  </span>
+                </button>
+              ))}
+              {n > 0 && (
+                <button type="button" className="bc-limpiar"
+                  onClick={() => { onFiltro('todos'); onOrden('nombre'); }}>Limpiar filtros ({n})</button>
+              )}
+            </>
+          ) : (
+            <>
+              <button type="button" className="bc-volver" onClick={() => setVista('root')}>
+                ‹ {vista === 'mostrar' ? 'Mostrar' : 'Ordenar'}
+              </button>
+              {vista === 'mostrar'
+                ? (Object.keys(FILTRO_LABEL) as FiltroClientes[]).map((k) => (
+                  <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
+                    onClick={() => { onFiltro(k); setVista('root'); setOpen(false); }}>{FILTRO_LABEL[k]}</button>
+                ))
+                : (Object.keys(ORDEN_LABEL) as OrdenClientes[]).map((k) => (
+                  <button key={k} type="button" className={`bc-op${orden === k ? ' on' : ''}`}
+                    onClick={() => { onOrden(k); setVista('root'); setOpen(false); }}>{ORDEN_LABEL[k]}</button>
+                ))}
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function MenuPuntos({ onExportar }: { onExportar: () => void }) {
-  const { open, setOpen, ref } = usePlegable();
+/* Los dos íconos del menú, del mismo trazo que los del plan (24×24, stroke 2). */
+function IconoBajar() {
   return (
-    <div ref={ref} className="bc-pop">
-      <button type="button" className="bc-btn" onClick={() => setOpen((o) => !o)}
-        aria-expanded={open} title="Más" aria-label="Más opciones">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
-        </svg>
-      </button>
-      {open && (
-        <div className="bc-menu bc-menu-der">
-          <button type="button" className="bc-op" onClick={() => { onExportar(); setOpen(false); }}>
-            Exportar a CSV
-            <span className="bc-desc">Lo que estás viendo, con los filtros puestos</span>
-          </button>
-          {/* ⚠️ IMPORTAR LLEVA AL CRM Y NO ABRE UN IMPORTADOR PROPIO: un cliente ES un
-              lead ganado, así que importar clientes es importar leads. Un segundo
-              importador sería la segunda implementación de lo mismo. */}
-          <Link href="/crm?importar=1" className="bc-op">
-            Importar desde una planilla
-            <span className="bc-desc">Entran al CRM; son clientes al marcarlos ganados</span>
-          </Link>
-        </div>
-      )}
-    </div>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M5 21h14" />
+    </svg>
+  );
+}
+function IconoSubir() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 21V9" /><path d="m7 13 5-5 5 5" /><path d="M5 3h14" />
+    </svg>
   );
 }
 
@@ -233,4 +302,24 @@ const CSS = `
 .bc-op:hover{ background:var(--surface-2); color:var(--ink); }
 .bc-op.on{ color:var(--primary); font-weight:600; }
 .bc-desc{ display:block; font-size:11.5px; color:var(--faint); margin-top:1px; }
+
+/* La fila de una categoria: nombre a la izquierda, valor y chevron a la derecha. Es
+   la anatomia del filtro del tablero, a proposito. */
+.bc-fila{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+  border:0; background:none; border-radius:8px; padding:9px 10px; font:inherit; font-size:13px;
+  color:var(--ink); cursor:pointer; text-align:left; }
+.bc-fila:hover{ background:var(--surface-2); }
+.bc-fila-nom{ font-weight:600; }
+.bc-fila-val{ display:inline-flex; align-items:center; gap:6px; min-width:0; font-size:12.5px; color:var(--faint); }
+.bc-fila-val .on{ color:var(--primary); font-weight:600; }
+.bc-chev{ color:var(--faint); font-size:16px; line-height:1; }
+.bc-volver{ display:block; width:100%; text-align:left; border:0; background:none; cursor:pointer;
+  font:inherit; font-size:12px; color:var(--dim); padding:6px 9px 8px; font-weight:600; }
+.bc-volver:hover{ color:var(--ink); }
+.bc-limpiar{ display:block; width:100%; border:0; background:none; cursor:pointer; font:inherit;
+  font-size:13px; font-weight:600; color:var(--primary); padding:10px 9px 6px; margin-top:4px;
+  border-top:1px solid var(--border); text-align:center; }
+.bc-badge{ position:absolute; top:-7px; right:-7px; min-width:18px; height:18px; padding:0 4px;
+  border-radius:999px; background:var(--primary); color:#fff; font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; border:2px solid var(--bg); }
 `;

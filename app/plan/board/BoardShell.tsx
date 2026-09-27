@@ -1733,7 +1733,15 @@ export type AccionPlegable = {
  *     entra en la barra tiene que seguir estando en algun lado. La regla de la casa es
  *     «plegar si, esconder no», y un numero que desaparece es esconder.
  */
-function BarraAcciones({ acciones, compacto, progreso }: {
+/**
+ * ⚠️ EXPORTADA porque la usa TAMBIEN la pantalla de Clientes (27/09/2026): «falta la
+ * barra de progreso en los 3 puntitos en clientes, y los iconos; asegurate de copiar
+ * el diseno». Copiar el diseno es escribir el segundo, y el segundo se queda viejo —
+ * ya paso en esta misma sesion con el buscador y el toggle. Lo que Clientes le pasa
+ * son sus propias acciones y su propio progreso; el menu, el punto de aviso, el
+ * Escape y la animacion son estos.
+ */
+export function BarraAcciones({ acciones, compacto, progreso }: {
   acciones: AccionPlegable[];
   /** no entran: se pliegan detras de los tres puntos. Lo decide el header, que es quien mide. */
   compacto: boolean;

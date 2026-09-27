@@ -111,6 +111,10 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
     return lista.filter(pasa).sort((a, b) => cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes, imgs, q, filtro, orden, tablero]);
+  /** Cuántos tienen algo abierto. Con el tablero caído no se cuenta nada: sería un 0
+   *  con cara de dato sobre una lectura que falló. */
+  const conTrabajo = tablero.ok ? lista.filter((c) => (resumenDe(c.leadId)?.abiertas ?? 0) > 0).length : 0;
+
   // ⚠️ LA FICHA SE BUSCA EN `lista` Y NO EN `visibles`: filtrar o buscar con una ficha
   // abierta la cerraría de golpe, que se lee como que la app se rompió.
   const abierto = abiertoId === null ? null : lista.find((c) => c.leadId === abiertoId) ?? null;
@@ -206,7 +210,19 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
             q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
             filtro={filtro} onFiltro={setFiltro} orden={orden} onOrden={setOrden}
             nVisibles={visibles.length} nTotal={lista.length}
-            onExportar={() => exportarCSV(visibles, numeroDe, resumenDe)} />
+            /* ⚠️ EL PROGRESO DE UNA CARTERA NO ES «TAREAS HECHAS». El plan cuenta lo
+               completado; acá lo que importa es cuántos clientes tienen trabajo
+               abierto — un cliente sin nada abierto no está «listo», está enfriándose,
+               que es justo lo que esta pantalla existe para ver. Con el tablero caído
+               no se afirma nada: el banner de arriba ya dice por qué. */
+            progreso={{
+              pct: lista.length ? Math.round((conTrabajo / lista.length) * 100) : 0,
+              hechas: conTrabajo,
+              total: lista.length,
+              label: 'con trabajo',
+            }}
+            onExportar={() => exportarCSV(visibles, numeroDe, resumenDe)}
+            onImportar={() => { window.location.href = '/crm?importar=1'; }} />
 
           {tabla ? (
             <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
