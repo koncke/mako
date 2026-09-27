@@ -299,7 +299,7 @@ function Subir({ foto, y, onSubida, onEncuadrar }: {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img ref={imgRef} src={foto} alt="" style={{ objectPosition: `center ${y ?? 50}%` }} draggable={false} />
           </div>
-          <span className="ip-ayuda">Arrastrá la foto para centrarla</span>
+          <span className="ip-ayuda">Arrastra la foto para centrarla</span>
         </div>
       )}
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
@@ -311,7 +311,7 @@ function Subir({ foto, y, onSubida, onEncuadrar }: {
         <button type="button" className="ip-btn" disabled={subiendo} onClick={() => input.current?.click()}>
           {subiendo ? <><Spinner /> Subiendo…</> : foto ? 'Cambiar la imagen' : 'Elegir una imagen'}
         </button>
-        <p className="ip-ayuda">o soltala acá · hasta 6MB</p>
+        <p className="ip-ayuda">o suéltala aquí · hasta 6MB</p>
       </div>
       {mal && <p className="ip-mal">{mal}</p>}
     </div>

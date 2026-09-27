@@ -117,7 +117,7 @@ export function BarraReposicion({ onGuardar, onCancelar }: { onGuardar: () => vo
     <>
       {/* El cartel dice QUÉ hacer, en cuatro palabras, y está al medio porque es
           donde el ojo ya está mirando cuando agarra la imagen. */}
-      <span className="rp-cartel" aria-hidden>Arrastrá para acomodarla</span>
+      <span className="rp-cartel" aria-hidden>Arrastra para acomodarla</span>
       <span className="rp-barra">
         <button type="button" className="rp-btn on" onClick={onGuardar}>Guardar</button>
         <button type="button" className="rp-btn" onClick={onCancelar}>Cancelar</button>
