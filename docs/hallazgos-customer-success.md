@@ -1494,3 +1494,61 @@ mal, y la corrección es una línea (`declarados`) más un `continue` en cada pa
 **Lo general:** cuando se agrega una fuente de verdad más DURA a un resolvedor que ya tiene
 varias, no alcanza con ponerla primera. Hay que preguntarse si las otras pueden seguir
 opinando sobre lo mismo — y si la nueva es una decisión de una persona, la respuesta es no.
+
+### La cura de «busca cada vez» no era un caché (26/09/2026)
+
+La ficha de un cliente tardaba entre 0,5 y 13 segundos en abrir, porque leía el tablero
+ENTERO —396 tareas y 71 proyectos en el ws9— y corría el cruce blando sobre todo, cada vez,
+para mostrar dos tarjetas. El pedido fue «debería quedar memoria».
+
+Un caché habría sido la respuesta obvia y la equivocada: guarda una respuesta DERIVADA y
+obliga a decidir cuándo se ensucia (¿al crear una tarea? ¿al renombrar un proyecto? ¿al
+ganar un lead?), y el día que se ensucia sin que nadie lo note la ficha muestra trabajo que
+ya no es de ese cliente.
+
+Lo que lo resolvió fue que el dato EXISTA: `cliente_lead_id` (mig 0172) no es una respuesta
+guardada, es la clave, y se consulta con un índice. Medido en dev contra la base de
+producción, la misma ficha:
+
+| | |
+|---|---|
+| `trabajoAsignadoAction` (por clave, 2 consultas filtradas) | **1.284 ms** |
+| `trabajoDelClienteAction` (tablero entero + cruce) | **13.604 ms** |
+
+La pantalla lee las dos: la rápida pinta, y la lenta llega después y PROPONE lo que se
+parece por el nombre, abajo de todo y rotulado como lo que es.
+
+### Auto-asignar por mención es un grep, y el grep contesta lo contrario
+
+«Si en la descripción lo dice, MaKo debería auto asignar». Medido antes de escribir una
+línea, buscando el nombre de cada cliente en el título y el detalle de cada tarea:
+
+```
+ws    clientes  tareas   «mencionan» a un cliente
+ 1       14      212              3
+ 9        3      396             43
+11       11       68              1
+13        2       19              0
+```
+
+Las 43 del ws9, leídas: «Que Leila y Leandro puedan entrar como clientes antes del
+viernes», «Probar el onboarding con un cliente de prueba (ANTES que entre Leila)», «No
+funciona al crear un grupo de cliente (probado con Mauricio)». Todas nombran a un cliente y
+**ninguna es trabajo para él**: es trabajo de producto que lo usa como ejemplo, como caso
+de prueba o como fecha límite. Asignarlas llenaba la ficha de Leila con los bugs de MaKo.
+
+Es la misma forma del error que AGENTS.md ya tiene medido para las recurrentes (buscar
+«semanal/diaria/recurrente» daba 11 y ninguna era una recurrencia).
+
+**La regla: cuando la pregunta es «¿lo nombra?» hay un grep; cuando es «¿es PARA él?» no
+hay regla.** Lo primero se resuelve con código y lo segundo con IA — y el default de la IA
+es NO, porque una tarea sin cliente se ve igual que siempre en el tablero y una tarea en la
+ficha equivocada la lee alguien como un hecho. Corrida una vez el 26/09: de las 43 del ws9,
+la IA aceptó **cero**. Ése era exactamente el punto.
+
+### Asignar a mano tiene que GANARLE al parecido, no sumarse
+
+Ya está arriba con su test, y conviene el número: al materializar la clave del proyecto, la
+primera versión dejaba correr igual las pasadas por nombre, así que un proyecto asignado a
+TEXX seguía apareciendo en la ficha de «Grupo Esquer». Lo encontró el test al escribirlo, no
+leyendo el código.

@@ -3929,3 +3929,38 @@ estas dos en su lista de excusas con el motivo escrito.
 
 **Vive en:** `supabase/migrations/0001_initial_schema.sql` · `supabase/migrations/0084_cohortes_workspace.sql`
 · `lib/queries.ts` · `tests/funnel-declarado.test.ts` · *2026-09-26 revisión adversarial F1+F2*
+
+### `contains()` sobre una columna `jsonb` con un array de JS: la consulta falla ENTERA (26/09/2026)
+
+```ts
+db.from('plan_tareas').select('id, labels').contains('labels', [id])        // ⛔ falla
+db.from('plan_tareas').select('id, labels').contains('labels', JSON.stringify([id]))  // ✅
+```
+
+supabase-js serializa `['x']` como el literal de array de Postgres (`{x}`), y una columna
+`jsonb` contesta **«invalid input syntax for type json»**. No devuelve de menos: no
+devuelve nada, porque la consulta entera se cae.
+
+Medido contra producción, las dos formas sobre las dos tablas:
+
+| columna | array de JS | `JSON.stringify` |
+|---|---|---|
+| `plan_tareas.labels` | ERROR | 0 filas (correcto) |
+| `experimento_tareas.categorias` | ERROR | 5 filas |
+
+⚠️ **Y DONDE YA ESTABA ESCRITO, EL ERROR SE IGNORA — así que el fallo es silencioso y
+DESTRUCTIVO en diferido.** `borrarPlanProyecto` (`lib/plan-board.ts`) y su gemela de
+`lib/todo.ts` hacen `const { data } = await …` sin mirar `error`: `data` viene `null`, el
+`?? []` lo vuelve una lista vacía, y el bucle que saca el proyecto borrado del array
+`labels`/`categorias` de cada tarea **no corre nunca**. Borrar un proyecto reporta éxito y
+deja las tareas apuntando a algo que ya no existe.
+
+**Por qué no hizo daño todavía, y por qué eso es lo peligroso:** medido en el ws1, **0
+tareas colgadas**. El NAVEGADOR las limpia por su cuenta — `deleteLabel` de `useBoard` saca
+el id del array en memoria y el autoguardado escribe la tarea entera — así que el guard del
+server nunca se ejecutó y nadie se enteró de que estaba roto. Sólo iba a hacer falta el día
+que borre un camino que no pasa por el navegador: MaKo, un script, la API.
+
+**Lo general:** un `const { data } = await` que descarta el `error` convierte cualquier
+fallo de consulta en «no había nada», y eso es indistinguible del caso normal. Donde el
+resultado decide si se hace o no se hace algo, el `error` se lee.
