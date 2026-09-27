@@ -182,9 +182,23 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>{empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(createdISO)}</p>
       </div>
       {/* Dropdown de etapa + Editar, juntos arriba a la derecha. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {stageSelector}
-        {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {stageSelector}
+          {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
+        </div>
+        {/* ⚠️ DEBAJO DEL DESPLEGABLE DE ETAPA, no en su propia franja. Ocupaba un renglón
+            de ancho completo arriba de las tabs para decir un número — y era el renglón
+            que empujaba las pestañas y el contenido hacia abajo en TODOS los leads con
+            algo sin marcar (el 98%).
+        
+            Acá arriba comparte la columna con la etapa, que es la otra cosa que se
+            decide de un lead sin bajar: «está en Ganado y le faltan 6 datos» se lee de
+            un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
+            en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
+        {faltantes.length > 0 && (
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} ancho={250} />
+        )}
       </div>
     </div>
   );
@@ -192,15 +206,6 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   return (
     <div>
       {header}
-      {/* Datos sin marcar: ARRIBA de las tabs → visible en TODAS, y también MIENTRAS
-          SE EDITA. El `!editing` existía porque el formulario dibujaba su propia
-          tarjeta roja; ahora es este mismo renglón el que se queda, así que el aviso
-          es el mismo objeto en los dos modos y no dos piezas que se parecen. */}
-      {faltantes.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
-        </div>
-      )}
       {editing ? (
         <EditLeadForm
           lead={lead}

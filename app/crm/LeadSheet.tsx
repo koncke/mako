@@ -221,20 +221,26 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--faint)', marginTop: 4 }}>Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</div>
             </div>
           </div>
-          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <button onClick={onClose} aria-label="Cerrar" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
             <Dropdown value={stageKey} options={stageOptions} onChange={pickStage} align="right" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
+            {/* ⚠️ DEBAJO DEL DESPLEGABLE DE ETAPA, no en su propia franja. Ocupaba un renglón
+                de ancho completo arriba de las tabs para decir un número — y era el renglón
+                que empujaba las pestañas y el contenido hacia abajo en TODOS los leads con
+                algo sin marcar (el 98%).
+            
+                Acá arriba comparte la columna con la etapa, que es la otra cosa que se
+                decide de un lead sin bajar: «está en Ganado y le faltan 6 datos» se lee de
+                un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
+                en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
+            {faltantes.length > 0 && (
+              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} ignorado={ignorado} onReactivar={reactivar} />
+            )}
           </div>
         </div>
 
         {/* tabs + cuerpo scrolleable */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 clamp(16px,4vw,28px) clamp(14px,4vw,20px)' }}>
-          {/* Datos sin marcar: arriba de las tabs → visible en TODAS. */}
-          {faltantes.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} ignorado={ignorado} onReactivar={reactivar} />
-            </div>
-          )}
           <LeadTabs
             initial={initialTab}
             tabs={[

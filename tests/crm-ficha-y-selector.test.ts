@@ -4,13 +4,16 @@
 // Las tres cosas de acá se pidieron más de una vez, y las tres vuelven solas si
 // nadie las fija: son decisiones de forma, y la forma no la mira el compilador.
 //
-// Probado rompiéndolo, CINCO veces, y cada rotura cayó donde tenía que caer
-// (6 pases y 0 fallos con el código como está):
-//   · el aviso vuelve a `flexWrap: 'wrap'`        → 5 / 1
-//   · Análisis vuelve antes de Pagos          → 5 / 1
-//   · la página de /crm/[id] recupera «Chat»  → 4 / 2
-//   · el selector pierde su `width`            → 5 / 1
-//   · el renglón de crear deja de iluminarse  → 5 / 1
+// Probado rompiéndolo, y una de las roturas dejó al descubierto una aserción que no
+// medía nada (ver el test de la posición). Con el código como está: 8 pases, 0 fallos.
+//   · el aviso recupera la enumeración en el cuerpo   → 7 / 1
+//   · el aviso pierde su tope de ancho                → 7 / 1
+//   · el aviso vuelve a su franja (modal)             → 7 / 1
+//   · el aviso vuelve a su franja (ruta /crm/[id])    → 7 / 1
+//   · Análisis vuelve antes de Pagos                 → 5 / 1
+//   · la página de /crm/[id] recupera «Chat»         → 4 / 2
+//   · el selector pierde su `width`                  → 5 / 1
+//   · el renglón de crear deja de iluminarse         → 5 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,12 +38,14 @@ const sinComentarios = (t: string) => t.replace(/^\s*\/\/.*$/gm, '').replace(/\/
 const leer = (p: string) => sinComentarios(crudo(p));
 
 // ── 1 · El aviso de datos sin marcar ─────────────────────────────────────────
-test('el aviso de «datos sin marcar» es UN renglón, y no una caja', () => {
-  // Pedido TRES veces. La segunda versión ya no era una tarjeta ámbar de 180 px,
-  // pero seguía teniendo fondo, borde y `flexWrap: 'wrap'` — y con 6 datos el
-  // texto bajaba a dos líneas y el espaciador empujaba «Solucionar» a una
-  // tercera. Con caja alrededor eso se ve igual que la tarjeta que se sacó:
-  // «sigue siendo una tarjeta enorme… que no sea una tarjeta siquiera».
+test('el aviso de «datos sin marcar» es SOLO el número y la salida', () => {
+  // Pedido CUATRO veces, y cada vez quedó más chico sin llegar a lo que se pedía:
+  // la tarjeta ámbar de 180 px, después una fila con fondo y borde, después un
+  // renglón sin caja con los nombres recortados, y recién ahora esto. Lo que cerró
+  // el tema fue sacar la enumeración ENTERA: «Servicio del cierre · Promesa del
+  // cierre · Datos fiscales del cliente · Documento fi…» era el 80% del ancho para
+  // una lista que no se puede accionar desde ahí y que encima se cortaba a mitad de
+  // palabra. Lo único que hay que decidir mirándolo es el CONTEO.
   const card = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx');
 
   // NO tiene caja: ni fondo propio ni borde.
@@ -48,20 +53,64 @@ test('el aviso de «datos sin marcar» es UN renglón, y no una caja', () => {
   assert.ok(!/background: 'var\(--surface-2\)'/.test(card), 'no lleva fondo: no es una caja');
   assert.ok(!/border: '1px solid/.test(card), 'no lleva borde: no es una caja');
 
-  // ⚠️ NO PUEDE ENVOLVER. Es lo único que garantiza un renglón con 1 dato y con 9.
-  assert.ok(/flexWrap: 'nowrap'/.test(card), 'sin nowrap vuelve a partirse en tres renglones');
-  assert.ok(!/flexWrap: 'wrap'/.test(card), 'wrap es exactamente lo que lo volvía un bloque');
+  // ⚠️ Y NO DIBUJA LOS NOMBRES. Ni completos ni recortados: la única vez que
+  // aparecen es en el `title`, que no ocupa un píxel.
+  const enElTitle = /title=\{faltantes\.map\(\(f\) => f\.label\)\.join\(' · '\)\}/.test(card);
+  assert.ok(enElTitle, 'los nombres se conservan en el title, a un hover');
+  const sinTitle = card.replace(/title=\{[^}]*\}/g, '');
+  assert.ok(!/f\.label/.test(sinTitle), 'fuera del title no se dibuja ni un nombre');
+  assert.ok(!/textOverflow: 'ellipsis'/.test(card), 'no hay nada que recortar: el ellipsis se fue con la lista');
 
-  // Y lo que cede es la enumeración, no el dato ni la acción (AGENTS.md: «declará
-  // quién CEDE»). El conteo y el botón van con flex:'none'; los nombres con
-  // '0 1 auto' + ellipsis.
-  assert.ok(/flex: '0 1 auto'[\s\S]{0,200}textOverflow: 'ellipsis'/.test(card), 'los nombres son los que ceden, con ellipsis');
-  assert.ok(/title=\{nombres\}/.test(card), 'lo que se recorta tiene que quedar consultable en el title');
+  // Lo que queda: el conteo y la salida, y nada más.
+  assert.ok(/dato sin marcar' : 'datos sin marcar'/.test(card), 'el conteo');
+  assert.ok(/\{label\}/.test(card), 'la salida');
 
-  // Verificado rompiéndolo: poniendo flexWrap 'wrap' de vuelta, 1 de los 4 tests
-  // de este bloque falla; devolviendo el fondo, otro.
+  // Verificado rompiéndolo: devolviendo la enumeración al cuerpo, 1 fallo.
 });
 
+test('el aviso envuelve DENTRO de su columna en vez de ensancharla', () => {
+  // ⚠️ MEDIDO, no deducido. La columna del header es `flex: 'none'`, así que su ancho
+  // es el del hijo más ancho. Medido el 27/09/2026 en el navegador con estos estilos:
+  //   normal, nowrap          → 205,8 × 17,5  (entra debajo del desplegable de 210)
+  //   IGNORADO, nowrap        → 334,9 × 17,5  ← le come 125 px al nombre del lead
+  //   IGNORADO, wrap + tope   → 210   × 43    (dos renglones, la columna no se mueve)
+  //   normal,   wrap + tope   → 205,8 × 17,5  (idéntico al primero: envolver sale gratis)
+  const card = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx');
+  assert.ok(/flexWrap: 'wrap'/.test(card), 'sin wrap, el caso ignorado ensancha la columna');
+  assert.ok(/maxWidth: ancho/.test(card), 'y sin tope, wrap no sirve de nada: no tiene contra qué envolver');
+  assert.ok(/ancho = 210/.test(card), 'el default es el ancho del desplegable del modal');
+  // La ruta /crm/[id] tiene su propio desplegable, de 250: el tope lo pasa cada
+  // pantalla porque es una medida de SU layout, no del componente.
+  assert.ok(/ancho=\{250\}/.test(leer('../app/crm/[id]/LeadDetailBody.tsx')), 'la ruta pasa el ancho de su propio desplegable');
+});
+
+test('el aviso vive EN EL HEADER, debajo del desplegable, en las DOS fichas', () => {
+  // Estaba en su propia franja de ancho completo arriba de las tabs, empujando las
+  // pestañas y el contenido hacia abajo en TODOS los leads con algo sin marcar (el 98%).
+  //
+  // ⚠️ EL ANCLA ES EL ARRANQUE DEL CUERPO, no `<LeadTabs>`. La primera versión de este
+  // test pedía «después del desplegable y antes de las tabs» — y la rotura de prueba
+  // (devolver el aviso a su franja, justo encima de `<LeadTabs>`) la PASÓ, porque esa
+  // franja también está entre las dos. Una aserción que no distingue las dos posiciones
+  // que quiere distinguir no mide nada, y sólo se ve rompiéndola.
+  const casos: Array<[string, string]> = [
+    // El marcador va en CÓDIGO y no en un comentario: `leer()` los quita, y con un
+    // ancla comentada el test falla por no encontrarla, que no es lo que persigue.
+    ['../app/crm/LeadSheet.tsx', "overflowY: 'auto'"],
+    // En la ruta el header es un `const header = (…)` y el cuerpo empieza en el
+    // `return (` del componente: adentro de ese const es adentro del header.
+    ['../app/crm/[id]/LeadDetailBody.tsx', '{header}'],
+  ];
+  for (const [ruta, arranqueDelCuerpo] of casos) {
+    const f = leer(ruta);
+    const iDrop = f.search(/ariaLabel="(Cambiar etapa|Etapa del lead)/);
+    const iAviso = f.indexOf('<DatosSinMarcarCard');
+    const iCuerpo = f.indexOf(arranqueDelCuerpo);
+    assert.ok(iDrop >= 0 && iAviso >= 0 && iCuerpo >= 0, `${ruta}: falta alguna de las tres anclas`);
+    assert.ok(iAviso > iDrop, `${ruta}: el aviso va DESPUÉS del desplegable de etapa`);
+    assert.ok(iAviso < iCuerpo, `${ruta}: el aviso tiene que estar en el HEADER, no en el cuerpo`);
+  }
+});
 test('el aviso no arrastra props muertas', () => {
   // `nota` viajaba desde los DOS call sites y el render no la dibujaba en ninguna
   // versión: texto escrito, pasado y nunca visto. Es el caso de AGENTS.md
