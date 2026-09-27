@@ -95,7 +95,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 16;
+export const SNIPPET_VERSION = 17;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -125,6 +125,7 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
+  17: 'de qué anuncio viene cada persona que deja sus datos, y qué contestó en tu formulario. Antes el lead entraba sin origen —tu CRM decía «Directo» aunque hubiera llegado por una campaña— y el WhatsApp de aviso solo traía el nombre y el teléfono; ahora trae también lo que completó, así sabes qué le interesa antes de escribirle',
   16: 'la medición de los videos que NO están subidos a tu página: Wistia, YouTube y Vimeo. Hasta ahora un VSL alojado ahí no registraba ni una reproducción, y el panel te decía que lo subieras a otro lado; ahora se mide igual, con su curva de retención. Y de los que no se pueden medir —los de Google Drive— al menos queda registrado que la persona los tocó',
   2: 'la captura automática del formulario de tu página: quien lo completa ingresa solo al CRM',
   3: 'una corrección importante: la versión anterior salió sin identificador y dejó de medir y de capturar',
@@ -2705,6 +2706,40 @@ ${bloqueClarity(clarityProjectId)}
   // no esperaba: el código pegado en la página no decide nada.
   var OPTIN = '${APP_BASE_URL}/api/track/optin';
 
+  // ── De donde vino esta persona ──────────────────────────────────────────
+  // Los parametros de campana viven en la URL de la PRIMERA pagina, y el
+  // formulario puede estar tres clics despues. Se guardan al aterrizar y
+  // viajan con el opt-in aunque para entonces la URL ya no los tenga.
+  //
+  // sessionStorage y no localStorage a proposito: una visita es una sesion. Con
+  // localStorage, alguien que llego por un anuncio en marzo y vuelve directo en
+  // julio quedaria atribuido al anuncio de marzo para siempre.
+  var ORIGEN = (function () {
+    var CLAVE = 'mk_origen';
+    var CAMPOS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'];
+    function deLaUrl() {
+      var q = null, o = {}, hay = false;
+      try { q = new URLSearchParams(location.search); } catch (e) { return null; }
+      for (var i = 0; i < CAMPOS.length; i++) {
+        var v = q.get(CAMPOS[i]);
+        if (v && v.trim()) { o[CAMPOS[i]] = v.trim().slice(0, 200); hay = true; }
+        else o[CAMPOS[i]] = null;
+      }
+      return hay ? o : null;
+    }
+    var ahora = deLaUrl();
+    try {
+      // La primera pagina con parametros gana: si ya hay algo guardado en esta
+      // sesion, no se pisa. Navegar adentro del sitio no reescribe el origen.
+      if (ahora) { sessionStorage.setItem(CLAVE, JSON.stringify(ahora)); return ahora; }
+      var g = sessionStorage.getItem(CLAVE);
+      if (g) return JSON.parse(g);
+    } catch (e) {}
+    // Ventana privada, o nadie llego por un anuncio: se manda vacio y el server
+    // igual lo lee de pagina. Nunca null, para no romper el JSON.stringify.
+    return ahora || { utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null, fbclid: null };
+  })();
+
   // El envío, UNA sola vez. Antes vivía inline adentro del listener de submit, y
   // por eso la agenda embebida no tenía forma de usarlo: el único camino al CRM
   // pasaba por un <form> del documento del cliente.
@@ -2721,7 +2756,14 @@ ${bloqueClarity(clarityProjectId)}
           nombre: d.nombre || null, email: d.email || null,
           telefono: d.telefono || null, empresa: d.empresa || null,
           origen_captura: d.origen || 'formulario',
-          pagina: location.href, prueba: prueba
+          pagina: location.href, prueba: prueba,
+          // De donde vino. Se guardan al ATERRIZAR, no al enviar: el formulario
+          // puede estar en otra pagina y ahi los parametros ya no estan.
+          utm_source: ORIGEN.utm_source, utm_medium: ORIGEN.utm_medium,
+          utm_campaign: ORIGEN.utm_campaign, utm_content: ORIGEN.utm_content,
+          fbclid: ORIGEN.fbclid,
+          // Lo que la persona escribio ademas del contacto.
+          respuestas: d.respuestas || null
         }),
         keepalive: true
       }).catch(function () {});
@@ -2743,6 +2785,44 @@ ${bloqueClarity(clarityProjectId)}
     return null;
   }
 
+  // Lo que la persona contesto ADEMAS del contacto: zona, presupuesto, si compra
+  // o renta. Es lo que hace util el aviso — sin esto el inmobiliario recibe
+  // «Fulano dejo sus datos» y tiene que entrar a la ficha para saber que queria.
+  //
+  // Se mandan con el ROTULO que ve la persona, no con el name del input: un
+  // formulario de Lovable manda field_3, y «field_3: Tijuana» no le dice nada a
+  // nadie. Se busca la etiqueta y se cae al placeholder y al name, en ese orden.
+  function otrosCampos(form) {
+    var fuera = 'email correo mail tel phone whats celular movil nombre name first apellido empresa company negocio';
+    var out = {}, n = 0;
+    try {
+      var els = form.querySelectorAll('input, textarea, select');
+      for (var i = 0; i < els.length && n < 8; i++) {
+        var el = els[i];
+        var t = (el.type || '').toLowerCase();
+        // Nada de contrasenas ni de botones, y los no marcados no son respuestas.
+        if (t === 'password' || t === 'hidden' || t === 'submit' || t === 'button' || t === 'file') continue;
+        if ((t === 'checkbox' || t === 'radio') && !el.checked) continue;
+        var val = String(el.value == null ? '' : el.value).trim();
+        if (!val) continue;
+        var pistas = [el.name, el.id, el.getAttribute('autocomplete'), el.placeholder, el.getAttribute('aria-label')].join(' ').toLowerCase();
+        var esContacto = false;
+        var claves = fuera.split(' ');
+        for (var k = 0; k < claves.length; k++) if (pistas.indexOf(claves[k]) !== -1) { esContacto = true; break; }
+        if (esContacto || t === 'email' || t === 'tel') continue;
+        var rot = null;
+        try {
+          if (el.labels && el.labels.length) rot = String(el.labels[0].textContent || '').trim();
+        } catch (e) {}
+        rot = rot || el.placeholder || el.getAttribute('aria-label') || el.name || el.id;
+        if (!rot) continue;
+        out[String(rot).trim().slice(0, 40)] = val.slice(0, 120);
+        n++;
+      }
+    } catch (e) {}
+    return n ? out : null;
+  }
+
   // En captura y sin preventDefault: el formulario del cliente sigue haciendo lo
   // que hacía (redirigir, mostrar su gracias, mandar a su herramienta). Esto se
   // cuelga al lado. keepalive para que el envío sobreviva a la navegación.
@@ -2758,6 +2838,7 @@ ${bloqueClarity(clarityProjectId)}
         email: email,
         telefono: telefono,
         empresa: campo(form, ['empresa', 'company', 'negocio']),
+        respuestas: otrosCampos(form),
         origen: 'formulario'
       });
     } catch (e) { /* nunca romper el formulario del cliente */ }

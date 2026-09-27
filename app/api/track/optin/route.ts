@@ -31,6 +31,7 @@ import { crearPropuesta } from '@/lib/propuestas';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { createLead, duplicadosDeLead } from '@/lib/leads';
+import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault } from '@/lib/funnels';
 import { textoDuplicado } from '@/lib/leads-duplicados';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
@@ -178,6 +179,35 @@ export async function POST(req: NextRequest) {
   // Lo que sí necesita ojo humano es el CHOQUE: dos contactos que parecen el
   // mismo. Ahí la máquina no puede decidir sin perder información — fundir es
   // irreversible y duplicar ensucia — así que ahí, y solo ahí, queda la propuesta.
+  // ⚠️ DE DÓNDE VINO. El snippet no manda los UTM (los manda desde la v15) y la ruta
+  // los leía igual de `body.utm_*`: cuatro campos que nunca llegaban, y por eso los
+  // 21 leads de Código Inmobiliario están los 21 sin origen. Se rellenan con lo que
+  // diga la URL de aterrizaje, que YA viaja en `pagina` desde la v1 — así el origen
+  // vuelve para todos los clientes ya instalados, hoy, sin que nadie repegue el
+  // código. Lo que el body manda gana; esto sólo llena huecos.
+  //
+  // Va ANTES del `if` porque lo usan los DOS caminos: el alta directa y la propuesta.
+  const atrib = conAtribucion(body as Record<string, string | null>, txt(body.pagina));
+
+  // ⚠️ LO QUE LA PERSONA ESCRIBIÓ, y que hasta hoy se tiraba. El snippet manda en
+  // `respuestas` los campos del formulario que NO son nombre/email/teléfono/empresa
+  // — que en una inmobiliaria son justo los que importan: zona, presupuesto, si
+  // busca comprar o rentar. El pedido era textual: «un único WhatsApp con nombre,
+  // teléfono y RESUMEN de lo completado en el formulario».
+  //
+  // Se sanea acá y no se confía en el largo: el cuerpo lo escribe una página ajena.
+  // Tope de 6 campos y 120 caracteres cada uno — un WhatsApp no es un volcado, y un
+  // formulario con 40 campos no puede convertir el aviso en algo que nadie lee.
+  const resumenForm = (() => {
+    const r = body.respuestas;
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+    const filas = Object.entries(r as Record<string, unknown>)
+      .map(([k, v]) => [String(k).trim().slice(0, 40), String(v ?? '').trim().slice(0, 120)] as const)
+      .filter(([k, v]) => k && v)
+      .slice(0, 6);
+    return filas.length ? filas.map(([k, v]) => `• ${k}: ${v}`).join('\n') : null;
+  })();
+
   const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
 
   if (!dup.length) {
@@ -191,15 +221,31 @@ export async function POST(req: NextRequest) {
         // persona hizo antes —la visita, el video, los clicks— con el lead que
         // acaba de nacer. Sin esto el tracking se mide y no se puede leer.
         visitor_id: txt(body.visitor_id),
-        utm_source: txt(body.utm_source),
-        utm_medium: txt(body.utm_medium),
-        utm_campaign: txt(body.utm_campaign),
-        utm_content: txt(body.utm_content),
+        utm_source: atrib.utm_source,
+        utm_medium: atrib.utm_medium,
+        utm_campaign: atrib.utm_campaign,
+        utm_content: atrib.utm_content,
       }));
       await runWithWorkspace(ws, () =>
         emitirDelCatalogo('lead-de-landing', {
           ws,
-          texto: `*${nombre ?? email ?? telefono}* dejó sus datos en tu landing${telefono ? ` — tel ${telefono}` : ''}. Ya está en tu CRM 👉 ${APP_BASE_URL}/crm/${lead.id}`,
+          // ⚠️ UN SOLO WHATSAPP, CON LO QUE LA PERSONA ESCRIBIÓ. Antes decía nombre,
+          // teléfono y el link — y nada de lo que completó, porque el snippet sólo
+          // capturaba nombre/email/teléfono/empresa y tiraba el resto del formulario.
+          // El inmobiliario recibía «Fulano dejó sus datos» y tenía que entrar a la
+          // ficha para saber qué le interesaba, que es el viaje que el aviso venía a
+          // ahorrar.
+          //
+          // El resumen se arma con lo que HAYA: si el snippet es viejo y no lo manda,
+          // el aviso queda exactamente como estaba. Nada se rompe por una versión.
+          texto: [
+            `*${nombre ?? email ?? telefono}* dejó sus datos en tu landing`,
+            telefono ? `📱 ${telefono}` : null,
+            email ? `✉️ ${email}` : null,
+            resumenForm,
+            hayAtribucion(atrib) ? `📢 ${[atrib.utm_campaign, atrib.utm_content].filter(Boolean).join(' · ') || atrib.utm_source}` : null,
+            `👉 ${APP_BASE_URL}/crm/${lead.id}`,
+          ].filter(Boolean).join('\n'),
         }),
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
       console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo`);
@@ -224,10 +270,10 @@ export async function POST(req: NextRequest) {
         email,
         telefono,
         empresa: txt(body.empresa) ?? txt(body.company),
-        utm_source: txt(body.utm_source),
-        utm_medium: txt(body.utm_medium),
-        utm_campaign: txt(body.utm_campaign),
-        utm_content: txt(body.utm_content),
+        utm_source: atrib.utm_source,
+        utm_medium: atrib.utm_medium,
+        utm_campaign: atrib.utm_campaign,
+        utm_content: atrib.utm_content,
         // De dónde salió, textual. Es lo que después distingue «llenó el
         // formulario de la landing» de «lo cargó alguien a mano».
         origen: 'landing',
