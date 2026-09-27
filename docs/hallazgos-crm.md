@@ -3381,3 +3381,161 @@ lo hizo fallar, y ese commit dejó `main` con un test rojo porque **el pre-push 
 tocan nombres.
 
 **Vive en:** `app/admin/friccion/page.tsx` · *2026-09-27*
+
+## El importador rebotaba .xlsx por una razón que había dejado de ser cierta (27/09/2026)
+
+El síntoma que se reportó: «arrastras un .xlsx y dice guárdala como CSV, y un PDF escaneado
+sí lo lee». Lo que estaba abajo NO era una limitación: era un comentario que se había
+quedado viejo y que nadie volvió a leer.
+
+`app/crm/leads-importar.ts` decía, textual:
+
+> Planillas: NO se soportan a propósito. Un .xlsx es un ZIP con XML adentro y parsearlo
+> pide una dependencia entera; guardar la hoja como CSV es un click en Excel o en Sheets.
+
+Estaba bien argumentado y era cierto el día que se escribió. Para el 27/09 el repo ya tenía
+el lector desde semanas antes —`lib/office-a-texto.ts`, jszip (que ya estaba en el árbol
+porque la usa mammoth) + regex sobre el XML— escrito para el **importador del plan**, otra
+tab. Cero dependencias nuevas. La decisión se había vuelto falsa sin que nada avisara.
+
+**La regla:** un comentario que justifica un «no» con una condición del entorno —«hace falta
+una librería», «la API no lo devuelve», «el proveedor no lo permite»— lleva la condición
+escrita y se re-lee antes de darlo por cerrado. El olor que lo delata acá: **el importador
+leía un PDF ESCANEADO y no leía una planilla.** Cuando una capacidad supuestamente difícil
+está resuelta y una fácil no, la que está mal es la explicación, no el producto.
+
+⚠️ **Y el camino correcto no era el obvio.** Lo natural, con `archivoATexto` ya enchufado,
+era mandar el .xlsx por donde va el PDF: texto → cascada barata → JSON de contactos. Eso
+funciona y está mal: `xlsxATexto` devuelve las celdas **separadas por TAB**, o sea una tabla
+delimitada, así que entra por el MISMO parser exacto del CSV. Lo que viaja en esas columnas
+son teléfonos y emails, que es exactamente la clase de dato que un modelo puede transcribir
+mal sin que nadie lo note hasta que falta una conversación de WhatsApp. El cambio fue un
+parámetro (`parseCsv(text, delim = ',')`) y una función de veinte líneas.
+
+⚠️ **Gana la primera hoja CON encabezados, no la primera hoja.** La hoja 1 de una planilla
+real es muchas veces una portada, un resumen o un tablero. Quedarse con ella contesta «no
+encontré una columna Nombre» sobre un archivo que la tiene una pestaña más allá: un error
+verdadero sobre la pregunta equivocada. Medido con un .xlsx de dos hojas armado a mano.
+
+**Vive en:** `app/crm/leads-importar.ts` (`filasDesdePlanilla`) · `app/crm/importar-server.ts`
+· `tests/importar-planilla.test.ts` · *2026-09-27 friccion-tanda-3*
+
+## «Todavía no sé cuántos» se leía como «no hay ninguno», y el botón lo afirmaba (27/09/2026)
+
+El modal de exportar decía **«No hay nada para bajar»**, en gris y deshabilitado, mientras la
+consulta del conteo estaba corriendo. La línea:
+
+```ts
+if (enUltimo) return (cuantos ?? 0) > 0;
+const hayAlgo = (cuantos ?? 0) > 0;
+```
+
+`cuantos` es `number | null`, y el `null` significa «la consulta no volvió todavía». El `?? 0`
+lo convierte en un HECHO del negocio —«tu filtro no selecciona ningún lead»— con un dato que
+no se tenía. Es la misma familia que «no poder leer un dato no es un valor del dato», del
+lado de la pantalla.
+
+Y lo que lo vuelve gratis de arreglar: **el conteo no gobierna la descarga.**
+`exportLeadsAction(f)` hace su propia consulta con el mismo filtro; `cuantos` se usa sólo
+para el nombre del archivo. O sea que el botón frenaba por un dato que ni necesitaba.
+
+**La regla:** un estado ternario —cargando / vacío / con datos— no se colapsa a booleano con
+un `??`. El `??` está bien para un default de presentación («—», «0 leads») y nunca para el
+`disabled` de un botón ni para el texto que afirma algo. Antes de escribir `(x ?? 0) > 0`,
+preguntá qué dice la pantalla cuando `x` es null: si dice algo distinto de «estoy
+averiguando», está mintiendo.
+
+**Vive en:** `app/crm/ExportarLeadsModal.tsx` · *2026-09-27 friccion-tanda-3*
+
+## Sacar la pregunta del asistente dejaba el wizard trabado cuando Calendly fallaba (27/09/2026)
+
+El paso «¿Buscamos los datos automáticamente?» pasó a buscar solo — correcto, porque MaKo ya
+engancha Fathom en cada carga del CRM y la respuesta era siempre la misma. Lo que ese cambio
+destapa es la guarda de al lado:
+
+```ts
+case 'auto': return autoReporte != null;   // sin buscar, se sale con "Cargar a mano"
+```
+
+El comentario dice la verdad y se volvió mentira con el cambio: el botón «Cargar a mano» era
+la única forma de avanzar sin reporte, y `buscarAuto` NO deja reporte cuando la action
+devuelve error (`setErr(r.error); return;`). Con Calendly caído quedaba un wizard sin reporte
+y sin botón, pidiendo algo que la persona no puede resolver.
+
+**La regla, que es la de siempre vista desde el otro lado:** al automatizar un paso que tenía
+una salida manual, la salida manual **no se borra — se re-encuadra**. Acá aparece cuando la
+búsqueda falló, que es el único momento en que alguien la quiere, y la guarda pasó a mirar
+«¿terminó de buscar?» en vez de «¿hay resultado?». Un automatismo sin interruptor, cuando
+falla, no se arregla: se abandona.
+
+**Vive en:** `app/crm/StageMoveDialog.tsx` (paso `auto`, `puedeAvanzar`) ·
+*2026-09-27 friccion-tanda-3*
+
+## El detalle de una fila del worklist es un DATO, y partirlo va del lado que DIBUJA (27/09/2026)
+
+`PendienteItem.mensaje` llega del server con el detalle pegado al final:
+
+> «La Reunión 1 del 12/09 ya pasó y todavía no se marcó cómo salió · pendiente: Setter
+> asignado · Empresa · Link de Fathom (R1)»
+
+Con 20 pendientes son 20 párrafos donde lo único que cambia está al final. La tentación es
+acortar `mensaje` en `lib/queries.ts`, y ahí se rompen dos cosas que no se ven desde el CRM:
+ese mismo campo lo lee **Vista General** para su alerta roja y lo leen los avisos, y los
+`faltantes` son lo que hace que «Marcar en lote» encuentre esos leads.
+
+**La regla:** cuando un dato sirve para dos cosas —informar a una pantalla y alimentar una
+acción— el recorte va del lado del que dibuja, no del que produce. Acá el motivo y los chips
+se derivan en `app/crm/worklist-fila.ts` (puro, sin `server-only`, con test) y `mensaje` sigue
+entero.
+
+**Vive en:** `app/crm/worklist-fila.ts` · `app/crm/CrmBoard.tsx` (`SinMarcar`) ·
+*2026-09-27 friccion-tanda-3*
+
+## Sacar un pop-up son TRES lugares, y el catálogo de notificaciones es el que se olvida (27/09/2026)
+
+Borrar `IaUsageToast` dejó tres puntas colgando, y ninguna la ve el compilador:
+
+1. **El montaje** (`app/layout.tsx`) — esa sí la ve, el import queda sin usar.
+2. **Su entrada en `lib/notif-catalogo.ts`** — un interruptor en Configuraciones ›
+   Notificaciones para algo que ya no se enciende. El propio archivo lo dice: *«Ofrecerle al
+   usuario un interruptor para algo que nunca se enciende es peor que no ofrecerlo: apaga
+   algo que ya estaba apagado y cree que hizo algo»*.
+3. **Su ruta en el `vive[]` de un área de `/admin/dev`** (`ai-spend-cuotas`). Esta la cazó
+   `tests/dev-areas.test.ts`, que chequea contra el disco que cada ruta exista — el único
+   guard del repo para las rutas escritas a mano.
+
+Y una cuarta que no es una ruta: **el camino de audio que sólo usaba ese aviso.** El beep de
+WhatsApp era el único consumidor del sample de `/notif.mp3`, así que al sacar el sonido
+quedaron vivos un `fetch` y un `decodeAudioData` en cada carga de la app para algo que no se
+reproduce más.
+
+⚠️ **Y los tests que usan un id del catálogo como EJEMPLO se rompen por el ejemplo, no por la
+propiedad.** `tests/notificaciones.test.ts` probaba «el interruptor general no pisa el ajuste
+individual» con `wa-mensaje` (que ese día dejó de sonar) y «lo que nunca suena queda en false»
+con `ia-uso` (que ese día dejó de existir). Los dos siguen valiendo: se les cambió el ejemplo,
+no la aserción. Es el modo de falla que `AGENTS.md` ya nombra —los tests miran los catálogos
+POR SU NOMBRE— y lo cazó `npm test`, que **no corre en el pre-push**.
+
+**Vive en:** `lib/notif-catalogo.ts` · `app/admin/dev/areas.ts` ·
+`app/_components/NotificationsProvider.tsx` · *2026-09-27 friccion-tanda-3*
+
+## Las «tres olas» al entrar al CRM eran una ola y dos awaits de cola (27/09/2026)
+
+El relevamiento decía «tres olas de consultas que ni corren en paralelo», y medido en
+`app/crm/page.tsx` la forma era otra: UN `Promise.all` con seis lecturas bien armado, y
+después **dos `await` sueltos** (`getEquipoAction()` y los event types de Calendly) que no
+dependen de nada de la ola. O sea dos viajes más sobre una carga que ya había terminado de
+leer lo que importa.
+
+Entran a la ola arrancándolos ANTES del `try` y esperándolos adentro del `Promise.all`; los
+dos tienen su propio `.catch`, así que no pueden quedar como rechazo sin manejar entre que se
+crean y que se esperan. La lectura que sí queda serializada es `listarFunnels()`, y está
+documentado por qué: el id que viene por la URL se valida contra ella antes de pedir las
+etapas.
+
+⚠️ **Y lo que se reportó como «no pasa nada al hacer clic» no era el tiempo: era que no había
+esqueleto.** El CRM es `force-dynamic`, así que sin un `loading.tsx` el router no tiene nada
+con qué reemplazar la pantalla anterior y la deja a la vista hasta que el server contesta.
+Paralelizar ayuda; lo que cambia el síntoma es el archivo de 70 líneas.
+
+**Vive en:** `app/crm/page.tsx` · `app/crm/loading.tsx` · *2026-09-27 friccion-tanda-3*

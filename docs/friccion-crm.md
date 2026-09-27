@@ -48,9 +48,24 @@ No protegen nada.
 
 ---
 
-## 4 · Cambiar de forma
+## 4 · Cambiar de forma — ✅ APLICADA el 27/09/2026
 
 La protección sirve; no tiene por qué frenar.
+
+**Los diez están hechos** (commit `c72966b5`). Lo que se aprendió haciéndolo está en
+[hallazgos-crm.md](hallazgos-crm.md) — sobre todo el del Excel, donde el comentario que
+explicaba por qué no se podía había dejado de ser cierto semanas antes, y el del botón de
+exportar, que afirmaba «no hay nada para bajar» mientras todavía estaba contando.
+
+Dos cosas quedaron a propósito distintas de lo relevado:
+
+- **El pop-up de WhatsApp se queda; lo que se fue es el SONIDO.** La columna de «qué se
+  rompe» decía «un mensaje no se ve hasta abrir la tab», y eso sigue siendo verdad: el
+  contador de la sidebar es más chico que un aviso. Se saca lo que no se puede ignorar
+  —el beep con cada mensaje entrante— y se deja lo que informa. Si igual molesta, es un
+  `dejaVer('wa-mensaje')` y sale.
+- **El Excel NO necesitó una dependencia nueva.** Esa nota estaba equivocada: el lector
+  ya estaba en el repo desde el importador del plan.
 
 | Qué | Cada cuánto | Qué se rompe si se saca |
 |---|---|---|
