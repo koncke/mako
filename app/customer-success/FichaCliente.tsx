@@ -44,9 +44,9 @@ import { PlanBoard } from '../plan/PlanBoard';
 import { TodoBoard } from '../plan/TodoBoard';
 import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
-import { Avatar, colorDe } from './ClienteCard';
+import { colorDe } from './ClienteCard';
 import { guardarDatosClienteAction } from './actions';
-import { CuentaDeMaKo } from './CuentaDeMaKo';
+import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
 
 export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen, onCerrar }: {
   c: ClienteCruce;
@@ -56,8 +56,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen,
   trabajo: TrabajoDeCliente | null;
   user: BoardUser;
   clientes: ClienteRef[];
-  /** El estado de las cuentas de MaKo de la cartera, para dibujar el bloque de abajo. */
-  cuentas?: { estadoPorWs: Record<number, string>; puedeAbrir: boolean };
+  /** Quién ve «Inspeccionar» y en qué estado está la cuenta de cada cliente. */
+  cuentas?: CuentasProp;
   /** Cambió su foto o su portada. Lo persiste el padre, que es el que tiene la lista. */
   onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null }) => void;
   onCerrar: () => void;
@@ -217,6 +217,12 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen,
                 demás: adentro del selector que abre el avatar. Un verbo suelto al lado del
                 nombre, para una sola de las cuatro acciones posibles, era la mitad de un
                 control — y encima aparecía y desaparecía según hubiera foto. */}
+            {/* Y ACÁ VIVE AHORA «Inspeccionar». Bajó de una caja propia arriba del
+                tablero a ser el tercer hijo de esta fila: «a la misma altura pero
+                alineado a la derecha, sutil». No hace falta empujarlo —`.fc-txt`
+                declara `flex:1` y él `flex:none`— ni alinearlo: `.fc-fila` alinea
+                por la BASE, así que queda a la altura del renglón del nombre solo. */}
+            <CuentaDeMaKo c={c} cuentas={cuentas} onError={setMal} />
           </span>
         </span>
       }
@@ -230,8 +236,6 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen,
       onCerrar={onCerrar}
     >
       {mal && <p className="fc-mal">{mal}</p>}
-
-      <CuentaDeMaKo c={c} cuentas={cuentas} onError={setMal} />
 
       {!trabajo ? (
         // «No pude leer» no se pinta como «no tiene trabajo»: son dos pantallas, y la
@@ -435,9 +439,6 @@ const CSS = `
 .fc-txt .sub{ font-size:12.5px; font-weight:400; color:var(--dim); overflow:hidden;
   text-overflow:ellipsis; white-space:nowrap; }
 .fc-txt .id{ color:var(--faint); }
-.fc-quitar{ flex:none; margin-bottom:5px; background:none; border:0; font:inherit; font-size:12px;
-  color:var(--faint); cursor:pointer; }
-.fc-quitar:hover{ color:var(--bad); }
 
 .fc-mal{ margin:16px 2px; font-size:13.5px; color:var(--bad); }
 

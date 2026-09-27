@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { rutaDeSalida } from '@/lib/agencia-cartera';
+import { agenciaDeCliente } from '@/lib/agencia';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,16 @@ export async function GET() {
     // el cartel vuelve solo, que se lee como un botón roto.
     modoAgencia: impersonando && !esSuperAdmin,
     salida: rutaDeSalida(esSuperAdmin),
+    // ⚠️ LA CADENA, PARA CUANDO HAY DOS NIVELES: el super admin mirando a un
+    // cliente que pertenece a una agencia. Sin esto la barra dice «estás viendo
+    // a Cliente X» y se calla lo único que hace falta saber ahí — de quién es
+    // ese cliente y cómo volver un escalón, no dos.
+    //
+    // Se DERIVA de la base (`agenciaDeCliente`) y no de un parámetro de la URL:
+    // un `?via=` se pierde en la primera navegación y además sería un dato de
+    // afuera echado en pantalla. Sólo para el super admin: una agencia mirando a
+    // SU cliente ya sabe de quién es, y decírselo sería ruido.
+    agencia: esSuperAdmin && clienteWs ? await agenciaDeCliente(clienteWs) : null,
     // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
     rolWs: await getRolWsEfectivo(),
     ws,

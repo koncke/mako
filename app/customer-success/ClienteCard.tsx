@@ -23,6 +23,7 @@
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import { fondoPortada } from '@/lib/portadas';
+import { Marca } from '@/app/_components/Marca';
 
 /** Nombre → color estable. El mismo cliente tiene siempre el mismo, en cualquier
  *  pantalla y en cualquier orden de la lista: un color que baila es ruido. */
@@ -30,48 +31,6 @@ export function colorDe(nombre: string): string {
   let h = 0;
   for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) % 360;
   return `hsl(${h} 52% 46%)`;
-}
-
-/** Las iniciales, como en la ficha del CRM: una o dos letras. */
-export function inicialesDe(nombre: string): string {
-  const p = nombre.trim().split(/\s+/).filter(Boolean);
-  if (!p.length) return '?';
-  return (p.length === 1 ? p[0].slice(0, 2) : p[0][0] + p[1][0]).toUpperCase();
-}
-
-/**
- * ⚠️ EL ESTILO VA INLINE Y NO EN UNA CLASE, a propósito. Vivía en `.cl-av` dentro de
- * `CSS_CLIENTE`, que sólo inyecta la grilla — así que al montar este mismo avatar en la
- * PÁGINA de un cliente salía cuadrado, sin círculo y sin anillo, porque esa hoja no
- * estaba. Un componente que se ve distinto según quién lo monte no es un componente.
- *
- * Son seis propiedades sobre un elemento hoja: inline es más barato que obligar a cada
- * consumidor a acordarse de inyectar una hoja.
- */
-export function Avatar({ nombre, tam = 44, foto }: {
-  nombre: string;
-  tam?: number;
-  /** Su foto, si la cargó (mig 0173). Sin foto van las iniciales, que es el caso normal. */
-  foto?: string | null;
-}) {
-  const c = colorDe(nombre);
-  const base: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    flex: 'none', borderRadius: 999, fontWeight: 700, letterSpacing: '.02em',
-    boxShadow: '0 0 0 3px var(--surface)', overflow: 'hidden',
-    width: tam, height: tam, background: `color-mix(in srgb, ${c} 16%, var(--surface))`,
-    color: c, fontSize: Math.round(tam * 0.36),
-  };
-  return (
-    <span aria-hidden style={base}>
-      {/* Sin `next/image`: la foto vive en el bucket público de Supabase y el
-          optimizador la volvería a servir por nuestra función, cobrando por cada
-          tarjeta de la grilla. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {foto ? <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        : inicialesDe(nombre)}
-    </span>
-  );
 }
 
 export function ClienteCard({ c, n, trabajo, tableroOk, onAbrir }: {
@@ -91,8 +50,19 @@ export function ClienteCard({ c, n, trabajo, tableroOk, onAbrir }: {
           default— el degradado derivado de su nombre, que es lo que se veía antes. La
           decisión de qué pintar vive en `fondoPortada` y no acá: la misma banda se dibuja
           en la ficha, y dos copias de esta regla divergen en el primer cambio. */}
-      <span className="cl-banda" aria-hidden style={{ background: fondoPortada(c.portada, color) }} />
-      <span className="cl-avwrap"><Avatar nombre={nombre} foto={c.avatarUrl} /></span>
+      {/* ⚠️ EL TERCER ARGUMENTO ES EL ENCUADRE, y faltaba: `portadaY` (mig 0174) está
+          leído, tipado, guardado y respetado por los otros TRES call-sites de
+          `fondoPortada`. Sin él la tarjeta centraba la foto mientras la ficha la
+          mostraba donde el dueño la había dejado — reposicionar «no hacía nada» en
+          la grilla, que es donde se mira. */}
+      <span className="cl-banda" aria-hidden style={{ background: fondoPortada(c.portada, color, c.portadaY) }} />
+      {/* ⚠️ Y ACÁ VA `Marca`, NO UN AVATAR PROPIO, por lo mismo del otro lado: el
+          `Avatar` local sólo sabe de fotos, así que la tarjeta ignoraba el ÍCONO y
+          el encuadre del redondel. Elegías un ícono para un cliente y aparecía en su
+          ficha y en la tabla —las dos dibujan `Marca`— y no en la grilla.
+          El anillo que lo despega de la banda se mudó a `.cl-avwrap`: es del hueco,
+          no de la marca, y así `Marca` sigue siendo la misma en todas partes. */}
+      <span className="cl-avwrap"><Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={44} y={c.avatarY} color={color} /></span>
 
       <span className="cl-n">{nombre}</span>
       <span className="cl-e">{c.empresa?.trim() || `Cliente ${n}`}</span>
@@ -134,7 +104,8 @@ export const CSS_CLIENTE = `
 .cl-banda{ display:block; height:74px; width:100%; }
 /* El avatar MONTADO sobre la banda, como en la referencia: medio adentro y medio afuera.
    El margen negativo es la mitad de su alto, y el anillo lo despega del degradado. */
-.cl-avwrap{ display:block; margin:-22px 0 0 16px; }
+.cl-avwrap{ display:block; width:fit-content; margin:-22px 0 0 16px;
+  border-radius:999px; box-shadow:0 0 0 3px var(--surface); }
 
 .cl-n{ display:block; margin:10px 16px 0; font-size:15.5px; font-weight:640;
   letter-spacing:-.01em; line-height:1.25; color:var(--ink); overflow-wrap:anywhere; }

@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
+import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { ClienteCard, CSS_CLIENTE } from './ClienteCard';
 import { FichaCliente } from './FichaCliente';
@@ -39,12 +40,10 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
   user: BoardUser;
   /** La lista no se pudo leer. NO es «no tenés clientes»: son dos pantallas. */
   error?: string;
-  /** Vista de agencia (mig 0175): en qué estado está la cuenta de MaKo de cada cliente
-   *  que tiene una, y si esta sesión puede abrir cuentas nuevas. Viene del server con
-   *  el HTML, igual que el trabajo: abrir una ficha no tiene que pedir nada.
-   *  ⚠️ Es para DIBUJAR. Que acá diga 'aprobado' no autoriza nada: el que decide es
-   *  el server en cada request (lib/agencia.ts), y esconder el botón no protege. */
-  cuentas?: { estadoPorWs: Record<number, string>; puedeAbrir: boolean };
+  /** Vista de agencia: en qué estado está la cuenta de MaKo de cada cliente, quién
+   *  ve el control y por qué puerta entra. La forma vive en `CuentaDeMaKo` y se
+   *  importa: escrita tres veces, la tercera se queda vieja. */
+  cuentas?: CuentasProp;
 }) {
   const [creando, setCreando] = useState(false);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);

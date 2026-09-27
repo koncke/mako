@@ -181,6 +181,42 @@ export const esAgencia = cache(async (ws: number | null | undefined): Promise<bo
   }
 });
 
+/**
+ * ¿De qué agencia es este cliente? — para DECIR la cadena, no para autorizar.
+ *
+ * ⚠️ SE DERIVA, NO SE PASA POR LA URL, y ésa es la decisión que evita un bug y un
+ * leak a la vez. La tentación era un `?via=13` puesto por quien hace el click:
+ *   · Se pierde en la primera navegación. Medido: `conWs` (lib/ws-tab.ts) y
+ *     `useWs` miran SÓLO `ws`, y `rutaConWs` lee el header — ninguna de las
+ *     cuatro formas de navegar re-pega un parámetro extra. La cadena aparecería
+ *     al entrar y desaparecería al primer click, que es peor que no tenerla.
+ *   · Y sería un dato de afuera echado en pantalla: cualquiera pondría `?via=N`
+ *     en su propia URL y aprendería el nombre de un workspace ajeno.
+ * Acá sale de la base, así que es verdad siempre y sobrevive a cualquier ruta.
+ *
+ * ⚠️ Y CON DOS AGENCIAS NO SE AFIRMA NADA. La relación es N:N a propósito (un
+ * cliente puede haber venido por una agencia y seguir siendo cliente directo).
+ * Si hay dos dueños aprobados, la cadena es ambigua: se devuelve null y el cartel
+ * dice lo de siempre. Elegir el primero sería inventar un padre.
+ */
+export const agenciaDeCliente = cache(async (clienteWs: number | null | undefined): Promise<{ ws: number; nombre: string } | null> => {
+  if (!esWsValido(clienteWs)) return null;
+  const duenos = (await agenciasDeCliente(clienteWs)).filter((f) => f.estado === 'aprobado');
+  if (duenos.length !== 1) return null;
+  const ws = duenos[0].agencia_ws;
+  try {
+    // El nombre se pide acá y no con `getWorkspace` para no importar
+    // lib/workspace.ts: ese módulo ya importa ÉSTE (`contextoDeAgencia`), y el
+    // ciclo sólo funciona mientras nadie llame nada al cargar. Una consulta por
+    // id contra una tabla de nueve filas es más barato que esa fragilidad.
+    const { data } = await getSupabaseServer()
+      .from('workspaces').select('nombre').eq('id', ws).maybeSingle();
+    return { ws, nombre: (data as { nombre?: string } | null)?.nombre ?? `Workspace ${ws}` };
+  } catch {
+    return { ws, nombre: `Workspace ${ws}` };
+  }
+});
+
 /** Las agencias habilitadas, para que /admin las pueda listar y quitar. */
 export async function agenciasHabilitadas(): Promise<{ ws: number; habilitada_por: string | null; nota: string | null }[]> {
   try {

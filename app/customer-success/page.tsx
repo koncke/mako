@@ -24,6 +24,7 @@ import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { getWorkspaceActual, adminDeWorkspaceActual } from '@/lib/workspace';
 import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
+import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -80,6 +81,8 @@ export default async function CustomerSuccessPage() {
   // puerta (`/api/agencia/entrar`) se lo vuelve a preguntar a la base. Esconder un
   // botón no protege nada; lo que protege es el guard.
   const agenciaWs = await getWorkspaceActual();
+  const esSuper = (await getSesionAdmin()) != null;
+  const esAg = await esAgencia(agenciaWs);
   const cartera = agenciaWs ? await carteraDeAgencia(agenciaWs) : [];
   const cuentas = {
     estadoPorWs: Object.fromEntries(cartera.map((f) => [f.cliente_ws, f.estado])) as Record<number, string>,
@@ -88,7 +91,17 @@ export default async function CustomerSuccessPage() {
     // y que quien mira sea su admin. Sin la primera, cualquier cliente con la tab
     // de Customer Success podría crear workspaces en la plataforma; sin la
     // segunda, podría hacerlo un closer.
-    puedeAbrir: (await esAgencia(agenciaWs)) && (await adminDeWorkspaceActual()) != null,
+    puedeAbrir: esAg && (await adminDeWorkspaceActual()) != null,
+    // ⚠️ QUIÉN VE EL CONTROL, y es lo que faltaba. Antes lo veía todo el mundo y
+    // a la mayoría le decía «Sin cuenta» — una afirmación sobre algo que a un
+    // cliente común no le incumbe. «Solamente deberían ver esa sección los
+    // usuarios de agencia y super admin» (27/09/2026).
+    visible: esSuper || esAg,
+    // El MECANISMO, no el permiso: el super admin entra por `?ws=` (su contexto
+    // es la pestaña) y una agencia por la cookie firmada. `getSesionAdmin`
+    // contesta por la SESIÓN, que es justo lo que hace falta acá — sigue siendo
+    // super admin aunque esté parado adentro de un cliente.
+    superAdmin: esSuper,
   };
 
   return (

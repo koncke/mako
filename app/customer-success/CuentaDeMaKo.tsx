@@ -1,42 +1,66 @@
 'use client';
 
 // =============================================================================
-// CuentaDeMaKo — el renglón de «este cliente tiene cuenta» adentro de su ficha
+// CuentaDeMaKo — «Inspeccionar», al lado del nombre del cliente
 // =============================================================================
-// Un renglón, cuatro estados, y en cada uno UNA cosa para hacer:
+// Un control, cuatro estados, y en cada uno UNA cosa:
 //
-//   · sin cuenta   → «Abrir cuenta de MaKo»
-//   · pendiente    → «Espera aprobación» (y nada más: no hay nada que hacer acá,
-//                    lo tiene que firmar el super-admin)
-//   · aprobado     → «Entrar como →»
-//   · revocado     → «Revocado»
+//   · sin cuenta   → «Abrir cuenta» (sólo si esta cuenta puede tener clientes)
+//   · pendiente    → «Espera aprobación», sin acción: la firma es del super admin
+//   · aprobado     → 👁 «Inspeccionar»
+//   · revocado     → «Revocado», sin acción
 //
-// ⚠️ ES UN RENGLÓN Y NO UNA TARJETA. Lo que dice cabe en una línea, y una caja
-// con título encima del tablero del cliente le roba el lugar a lo único que la
-// ficha vino a mostrar. «Cards are the lazy container» aplicado a un dato.
+// ⚠️ ERA UNA CAJA Y DEJÓ DE SERLO (27/09/2026). Vivía como primer hijo del CUERPO
+// del modal: borde, fondo, radio y un kicker en versalitas que decía «CUENTA DE
+// MAKO», ocupando un renglón entero arriba del tablero — que es lo único que la
+// ficha vino a mostrar. El pedido fue «no debería estar ese cuadro alargado…
+// que esté todo a la misma altura pero alineado a la derecha, sutil». Ahora es
+// el tercer hijo de `.fc-fila`, hermano del nombre, con el molde del «CRM →» de
+// al lado: tinta, no píldora. Y sin kicker, que además es regla de la casa.
 //
-// ⚠️ Y LO QUE SE DIBUJA NO PROTEGE NADA. Que acá diga 'aprobado' es cosmético:
-// quien decide es el server en cada request (`puedeEntrarAhora`, lib/agencia.ts)
-// y la puerta es `/api/agencia/entrar`, que vuelve a preguntarle a la base. Si
-// el super-admin revoca mientras la ficha está abierta, el botón sigue dibujado
-// y el endpoint contesta que no — que es el orden correcto de las dos capas.
+// ⚠️ Y NO LO VE CUALQUIERA. Antes dibujaba «Sin cuenta» para todo el mundo —o
+// sea, para TODO workspace que no fuera agencia, que es el default— y eso es una
+// afirmación sobre algo que a ese cliente no le incumbe. Ahora se dibuja sólo
+// para el super admin y para una agencia habilitada, y lo decide el SERVER
+// (`cuentas.visible`, app/customer-success/page.tsx).
+//
+// ⚠️ DOS MECANISMOS, DOS ELEMENTOS, y no es un descuido:
+//   · La AGENCIA entra por `POST /api/agencia/entrar`, que le acuña la cookie
+//     firmada después de verificar su cartera contra la base.
+//   · El SUPER ADMIN entra por un `<a href="/general?ws=N">`, igual que en
+//     /admin. Ese endpoint lo RECHAZA a propósito (400): su contexto viaja por
+//     pestaña y una tercera fuente para el mismo dato obliga a que
+//     `getWorkspaceActual` y `estaImpersonando` coincidan en tres lugares.
+//     Y el ancla, además, es lo que le deja abrir dos clientes a la vez con
+//     ctrl+click — el mismo motivo por el que el de /admin es un ancla.
 
 import { useState } from 'react';
+import { useRouter } from '@/app/_ui/Link';
 import type { ClienteCruce } from './cruce';
+import { Icon } from '@/app/_components/icons';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
+import { WS_PARAM } from '@/lib/ws-tab';
 import { crearCuentaMakoAction } from './actions';
+
+export type CuentasProp = {
+  estadoPorWs: Record<number, string>;
+  /** Puede abrirle cuenta a un cliente: agencia habilitada + admin de este workspace. */
+  puedeAbrir: boolean;
+  /** Quién ve este control: sólo el super admin y una agencia habilitada. */
+  visible: boolean;
+  /** Decide el mecanismo de entrada, no el permiso. */
+  superAdmin: boolean;
+};
 
 export function CuentaDeMaKo({ c, cuentas, onError }: {
   c: ClienteCruce;
-  cuentas?: { estadoPorWs: Record<number, string>; puedeAbrir: boolean };
+  cuentas?: CuentasProp;
   onError: (m: string) => void;
 }) {
+  const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
 
-  // Sin el mapa no se dibuja nada. NO es lo mismo que «no tiene cuenta»: es que
-  // esta pantalla no pudo saberlo, y un «Abrir cuenta» sobre un cliente que ya
-  // la tiene es la peor de las dos equivocaciones posibles.
-  if (!cuentas) return null;
+  if (!cuentas?.visible) return null;
 
   const ws = c.clienteWs ?? null;
   const estado = ws ? (cuentas.estadoPorWs[ws] as EstadoCartera | undefined) : undefined;
@@ -45,10 +69,13 @@ export function CuentaDeMaKo({ c, cuentas, onError }: {
     setOcupado(true);
     const r = await crearCuentaMakoAction(c.leadId);
     if (!r.ok) { onError(r.error); setOcupado(false); return; }
-    // No se apaga `ocupado`: el revalidate del server va a repintar la ficha con
-    // el estado nuevo, y un botón que vuelve a estar disponible mientras tanto
-    // invita al segundo click que la idempotencia después rechaza.
-    window.location.reload();
+    // ⚠️ `router.refresh()` Y NO `location.reload()`. Qué cliente está abierto es
+    // estado de React en ClientesApp y no viaja en la URL, así que recargar
+    // CIERRA la ficha: se leía como «le di a Abrir cuenta y me sacó». Es la misma
+    // trampa que FichaCliente documenta para el tablero, y por eso ahí ya se
+    // refresca en vez de recargar.
+    router.refresh();
+    setOcupado(false);
   };
 
   const entrar = async () => {
@@ -61,53 +88,81 @@ export function CuentaDeMaKo({ c, cuentas, onError }: {
       });
       const j = await r.json();
       if (!j?.ok) { onError(j?.error ?? 'No se pudo entrar.'); setOcupado(false); return; }
-      // Recarga dura y no `router.push`: el contexto de workspace lo resuelve el
-      // SERVER desde la cookie que este fetch acaba de dejar, así que todo lo que
-      // ya esté montado en el navegador es de la cuenta anterior. Es el mismo
-      // motivo por el que salir de la vista también recarga.
+      // Recarga dura y no `router.push`: el contexto lo resuelve el SERVER desde
+      // la cookie que este fetch acaba de dejar, así que todo lo montado en el
+      // navegador es de la cuenta anterior. Sin `?ws=` a propósito — para una
+      // agencia el contexto ES la cookie, y un `?ws=` suyo no lo honra el proxy.
       window.location.href = '/general';
     } catch {
       onError('No se pudo entrar.'); setOcupado(false);
     }
   };
 
-  return (
-    <div className="cmk">
-      <span className="cmk-rot">Cuenta de MaKo</span>
-      {!ws ? (
-        cuentas.puedeAbrir
-          ? <button type="button" className="cmk-btn" onClick={abrir} disabled={ocupado}>
-              {ocupado ? 'Abriendo…' : 'Abrir cuenta'}
-            </button>
-          : <span className="cmk-no">Sin cuenta</span>
-      ) : estado === 'aprobado' ? (
-        <button type="button" className="cmk-btn cmk-ok" onClick={entrar} disabled={ocupado}
-          title={`Ver el dashboard de ${c.nombre || 'este cliente'}`}>
-          {ocupado ? 'Entrando…' : 'Entrar como →'}
+  const ojo = <Icon name="eye" size={13} />;
+
+  let control = null;
+  if (!ws) {
+    if (cuentas.puedeAbrir) {
+      control = (
+        <button type="button" className="cmk" onClick={abrir} disabled={ocupado}
+          title={`Abrirle una cuenta de MaKo a ${c.nombre || 'este cliente'}`}>
+          {ocupado ? 'Abriendo…' : 'Abrir cuenta'}
         </button>
-      ) : (
-        // 'pendiente' y 'revocado' son estados, no acciones: no llevan botón.
-        // Un botón que no hace nada se lee como que la app está rota.
-        <span className={estado === 'revocado' ? 'cmk-no' : 'cmk-espera'}>
-          {estado ? ROTULO_CARTERA[estado] : `Workspace ${ws}`}
-        </span>
-      )}
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
-    </div>
-  );
+      );
+    }
+    // Sin cuenta y sin poder abrirla no hay nada que decir. El «Sin cuenta» que
+    // había acá era una afirmación que no le servía a nadie.
+  } else if (cuentas.superAdmin) {
+    // El super admin entra a cualquier workspace: su permiso no sale de la
+    // cartera. Pero el ESTADO de la cartera sí le importa —está probando a la
+    // agencia—, así que va en el `title`, donde el texto no ocupa lugar.
+    control = (
+      <a className="cmk cmk-ok" href={`/general?${WS_PARAM}=${ws}`}
+        title={estado === 'aprobado'
+          ? `Ver el dashboard de ${c.nombre || 'este cliente'}`
+          : `Ver el dashboard de ${c.nombre || 'este cliente'}. Para la agencia: ${estado ? ROTULO_CARTERA[estado].toLowerCase() : 'sin pedido'}`}>
+        {ojo}<span>Inspeccionar</span>
+      </a>
+    );
+  } else if (estado === 'aprobado') {
+    control = (
+      <button type="button" className="cmk cmk-ok" onClick={entrar} disabled={ocupado}
+        title={`Ver el dashboard de ${c.nombre || 'este cliente'}`}>
+        {ojo}<span>{ocupado ? 'Entrando…' : 'Inspeccionar'}</span>
+      </button>
+    );
+  } else if (estado) {
+    // 'pendiente' y 'revocado' son estados, no acciones: no llevan botón. Uno que
+    // no hace nada se lee como que la app está rota.
+    control = <span className="cmk cmk-est">{ROTULO_CARTERA[estado]}</span>;
+  }
+  // Y si tiene workspace pero no hay fila en la cartera de esta agencia, no se
+  // dibuja nada: antes salía «Workspace 7», que es un dato técnico en la cara.
+
+  if (!control) return null;
+  return <>{control}<style dangerouslySetInnerHTML={{ __html: CSS }} /></>;
 }
 
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la
 // mitad y la ruta contesta 200 con el layout entero y sin cuerpo.
+//
+// El molde es `.fc-quitar`, que vivía en FichaCliente como CSS huérfano desde que
+// «Quitar la foto» se fue: flex:none, sin caja, 12px, tinta apagada y pegado a la
+// base con margin-bottom. `flex:none` es lo que importa — el que CEDE es `.fc-txt`,
+// que ya declara flex:1.
 const CSS = `
-.cmk{ display:flex; align-items:center; gap:10px; margin:0 0 14px;
-  padding:9px 12px; border:1px solid var(--border); border-radius:11px; background:var(--surface-2); }
-.cmk-rot{ font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); font-weight:700; }
-.cmk-btn{ margin-left:auto; border:1px solid var(--border-strong); background:var(--surface); border-radius:8px;
-  padding:5px 11px; font:inherit; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; }
-.cmk-btn:hover:not(:disabled){ border-color:var(--primary); color:var(--primary); }
-.cmk-btn:disabled{ opacity:.6; cursor:default; }
-.cmk-ok{ border-color:var(--primary); color:var(--primary); }
-.cmk-espera,.cmk-no{ margin-left:auto; font-size:12.5px; color:var(--dim); }
-.cmk-espera{ color:var(--accent-soft, var(--dim)); }
+/* ⚠️ align-self CONTRA EL align-items:flex-end DE LA FILA. Sin esto el control cae
+   a la BASE, o sea a la altura del renglon de la empresa, y el pedido era «a la
+   misma altura» — la del nombre, que es donde ya vive el CRM. El margen de arriba
+   lo centra contra esa linea de 20px/1.2.
+   (Y sin backticks: adentro de esta cadena cierran el string a la mitad.) */
+.cmk{ flex:none; align-self:flex-start; margin-top:4px; display:inline-flex; align-items:center; gap:5px;
+  background:none; border:0; padding:0; font:inherit; font-size:12px; font-weight:600;
+  color:var(--faint); text-decoration:none; cursor:pointer; white-space:nowrap; }
+.cmk:hover:not(:disabled){ color:var(--primary); }
+.cmk:disabled{ opacity:.6; cursor:default; }
+.cmk-ok{ color:var(--primary); }
+/* Un estado no es un control: ni cursor, ni hover, ni tinta de accion. */
+.cmk-est{ cursor:default; font-weight:500; }
+.cmk-est:hover{ color:var(--faint); }
 `;

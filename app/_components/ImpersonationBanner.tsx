@@ -26,6 +26,10 @@ export function ImpersonationBanner() {
   // la respuesta depende del ROL y el navegador no lo puede decidir.
   const [modoAgencia, setModoAgencia] = useState(false);
   const [salida, setSalida] = useState('/admin');
+  // De qué agencia es este cliente, cuando la hay. Lo DERIVA el server: un
+  // parámetro de la URL se perdería en la primera navegación (ninguna de las
+  // cuatro formas de navegar re-pega nada que no sea `?ws=`).
+  const [agencia, setAgencia] = useState<{ ws: number; nombre: string } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -36,7 +40,8 @@ export function ImpersonationBanner() {
           setCliente(j.clienteNombre as string);
           setModoAgencia(j.modoAgencia === true);
           if (typeof j.salida === 'string' && j.salida.startsWith('/')) setSalida(j.salida);
-        } else setCliente(null);
+          setAgencia(j.agencia ?? null);
+        } else { setCliente(null); setAgencia(null); }
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -99,8 +104,28 @@ export function ImpersonationBanner() {
       borderBottom: '1px solid rgba(200,135,12,.4)',
     }}>
       <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent-soft)', flex: 'none' }} />
-      <span style={{ fontSize: 13.5 }}>
-        Estás viendo el dashboard de <b style={{ fontWeight: 700 }}>{cliente}</b>{modoAgencia ? '.' : ' como administrador.'}
+      {/* ⚠️ LA CADENA, CUANDO HAY DOS NIVELES. El super admin puede estar mirando a un
+          cliente QUE ES DE UNA AGENCIA, y con un solo nombre la barra no distingue ese
+          caso de mirar a un cliente directo — que es justo lo que se quería poder
+          probar. La agencia va como LINK y no como texto: es el «volver un escalón»,
+          y tenerlo acá es lo que hace que «Salir de la vista» pueda seguir
+          significando «salir del todo» en vez de dos cosas a la vez.
+          ⚠️ Y el destino se arma con el ws de la AGENCIA, no con el de la pestaña: es
+          adónde vamos, no dónde estamos. */}
+      <span style={{ fontSize: 13.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {agencia && (
+          <>
+            <a href={`/customer-success?${WS_PARAM}=${agencia.ws}`}
+              title={`Volver a los clientes de ${agencia.nombre}`}
+              style={{ color: 'inherit', fontWeight: 700, textDecorationColor: 'rgba(243,240,231,.45)', textUnderlineOffset: 3 }}>
+              {agencia.nombre}
+            </a>
+            <span aria-hidden style={{ opacity: .5, margin: '0 7px' }}>›</span>
+          </>
+        )}
+        {agencia
+          ? <b style={{ fontWeight: 700 }}>{cliente}</b>
+          : <>Estás viendo el dashboard de <b style={{ fontWeight: 700 }}>{cliente}</b>{modoAgencia ? '.' : ' como administrador.'}</>}
       </span>
       {/* Los controles de la agencia sobre este cliente: traer datos de Mau y
           resetear. Van acá porque es la única barra presente en TODAS las
