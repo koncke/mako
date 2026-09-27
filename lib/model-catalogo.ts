@@ -122,6 +122,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // esa corrida marcó 16 de 16 falsos positivos con confianza «alta» — o sea escondió 8
   // tareas reales de una reunión. Un juicio flojo no falla: contesta mal, y una respuesta
   // mal hecha se ve igual que una bien hecha.
+  { feature: 'cs-autoasignar', label: 'De quién es este trabajo (Customer Success)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), fallback: [], nota: 'Decide si una tarea que NOMBRA a un cliente es trabajo PARA él. Clasificación sí/no contra una rúbrica corta, sobre títulos internos → Gemini Flash. NO se degrada de modelo: un error aquí mete el trabajo de MaKo en la ficha de un cliente, y eso no rompe nada — se lee como un hecho.' },
   { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), fallback: [], nota: 'Puntúa, rutea a proyectos y detecta duplicados. Clasificación contra rúbrica, sin datos de clientes → Gemini Flash. NO se degrada de modelo: sus errores esconden tareas en vez de romper.' },
   { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe la descripción y la checklist de cada tarea nueva. Es la llamada más voluminosa del Perro (una por lote, con todas las tareas adentro) → Gemini Flash.' },
 

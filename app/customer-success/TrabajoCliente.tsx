@@ -42,8 +42,8 @@ import Link from '@/app/_ui/Link';
 import { RepiteChip, LineaDeadline } from '@/app/plan/board/piezas';
 import { mdAHtml, sanitizeHtml } from '@/app/plan/board/RichText';
 import { ROTULO_RECURRENTE } from '@/lib/plan-recurrentes';
-import type { ProyectoCS, TareaCS, ResumenTrabajo } from './trabajo';
-import { trabajoDelClienteAction } from './actions';
+import type { ProyectoCS, TareaCS } from './trabajo';
+import { trabajoDelClienteAction, trabajoAsignadoAction } from './actions';
 import { AsignarTrabajo } from './AsignarTrabajo';
 
 type Cargado = { proyectos: ProyectoCS[]; tareas: TareaCS[]; recurrentes: TareaCS[] };
@@ -51,6 +51,17 @@ type Estado =
   | { fase: 'cargando' }
   | { fase: 'error'; error: string }
   | ({ fase: 'lista' } & Cargado);
+
+/**
+ * LO QUE EL CRUCE BLANDO PROPONE Y TODAVÍA NADIE ASIGNÓ. Llega DESPUÉS de lo asignado y
+ * se dibuja abajo de todo, que es lo que se pidió: «cargar automático las que ya estaban
+ * y en todo caso, que abajo del todo se vayan cargando las nuevas» (26/09/2026).
+ *
+ * ⚠️ NO SE MEZCLA CON LO ASIGNADO. Lo de arriba es un HECHO —alguien eligió ese cliente—
+ * y esto es un PARECIDO de nombre. Fundirlos haría que la ficha afirme con la misma cara
+ * las dos cosas, que es justo lo que el rótulo `como` del cruce existe para evitar.
+ */
+type Posibles = { fase: 'buscando' } | { fase: 'listo'; n: number; datos: Cargado } | { fase: 'nada' };
 
 /**
  * Lo que está abierto EN LUGAR de la lista. Es una PILA y no un booleano porque desde el
@@ -71,18 +82,33 @@ type Estado =
  *  contiene a uno numérico; al revés hay que inventar una conversión que después miente. */
 type Foco = { tipo: 'proyecto'; id: string } | { tipo: 'tarea'; id: string };
 
+/**
+ * Lo que el cruce blando propone y NO tiene el id de este cliente escrito.
+ *
+ * ⚠️ SE FILTRA POR `leadDeclarado` Y POR `como`, no por comparar con la lista de arriba.
+ * Comparar listas obliga a mantener dos verdades sincronizadas en el navegador; acá cada
+ * tarjeta ya trae de qué manera ató, que es el dato que decide. Un proyecto con `como:
+ * 'clave'` es de este cliente por su propio campo: ya está arriba.
+ */
+function resta(r: { proyectos: ProyectoCS[]; tareas: TareaCS[]; recurrentes: TareaCS[] }, leadId: number): Posibles {
+  const proyectos = r.proyectos.filter((p) => p.como !== 'clave');
+  const idsBlandos = new Set(proyectos.map((p) => p.id));
+  const suelta = (t: TareaCS) => t.leadDeclarado !== leadId && t.proyectos.some((p) => idsBlandos.has(p));
+  const tareas = r.tareas.filter(suelta);
+  const recurrentes = r.recurrentes.filter(suelta);
+  const n = proyectos.length + tareas.length + recurrentes.length;
+  return n === 0 ? { fase: 'nada' } : { fase: 'listo', n, datos: { proyectos, tareas, recurrentes } };
+}
+
 const hoyISO = (): string => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export function TrabajoDelCliente({ leadId, nombre, resumen }: {
-  leadId: number;
-  nombre: string;
-  /** Lo que ya sabe la grilla. Sirve para no pintar un vacío mientras carga el detalle. */
-  resumen: ResumenTrabajo | null;
-}) {
+export function TrabajoDelCliente({ leadId, nombre }: { leadId: number; nombre: string }) {
   const [e, setE] = useState<Estado>({ fase: 'cargando' });
+  const [pos, setPos] = useState<Posibles>({ fase: 'buscando' });
+  const [verPosibles, setVerPosibles] = useState(false);
   const [pila, setPila] = useState<Foco[]>([]);
   /** El selector de trabajo, abierto. Reemplaza a la lista en el cuerpo de la ficha, por
    *  lo mismo que el detalle: un `<Modal>` anidado se esconde a sí mismo. */
@@ -93,22 +119,52 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
   const [aviso, setAviso] = useState<string | null>(null);
   const hoy = useMemo(() => hoyISO(), []);
 
+  /**
+   * DOS LECTURAS, Y LA RÁPIDA PRIMERO.
+   *
+   * ⚠️ ANTES ERA UNA SOLA Y ERA LA CARA: `trabajoDelClienteAction` baja el tablero ENTERO
+   * —396 tareas y 71 proyectos en el ws9— y corre el cruce blando sobre todo, cada vez que
+   * se abre una ficha. Medido: entre 0,5 y 9 segundos para mostrar dos tarjetas. Se
+   * reportó así: «cada vez que abro la card de un cliente hace la búsqueda en el plan…
+   * eso no es para nada eficiente» (26/09/2026).
+   *
+   * Ahora:
+   *   1. `trabajoAsignadoAction` → lo que TIENE dueño escrito. Dos consultas filtradas,
+   *      instantáneo. Es lo que pinta la ficha.
+   *   2. `trabajoDelClienteAction` → el cruce completo, que además PROPONE lo que se
+   *      parece y nadie asignó. Llega después y se agrega abajo de todo.
+   *
+   * ⚠️ Y LA SEGUNDA NO PISA A LA PRIMERA. Si el cruce contesta antes de que alguien mire,
+   * reemplazar la lista haría que las tarjetas se reordenen solas bajo el cursor. Lo suyo
+   * queda donde está; lo que el cruce agrega va a su propia sección, rotulada como lo que
+   * es: un parecido.
+   */
   useEffect(() => {
     let vivo = true;
-    // ⚠️ VUELVE A «CARGANDO» EN CADA RELECTURA. Sin esto, después de asignar quedaban en
-    // pantalla el aviso «1 asignado» y, justo debajo, «todavía no hay trabajo suyo en el
-    // tablero» — las dos cosas ciertas al mismo tiempo y contradiciéndose, durante los
-    // segundos que tarda leer el tablero entero. Se lee como que guardar no funcionó, que
-    // es exactamente lo que yo mismo concluí al verlo en el navegador.
-    setE({ fase: 'cargando' });
-    trabajoDelClienteAction(leadId)
+    // ⚠️ EL «CARGANDO» NO SE PONE ACÁ. Un `setState` sincrónico en el cuerpo de un efecto
+    // dispara renders en cascada y lo caza el lint de React. Lo pone el HANDLER que provoca
+    // la relectura (`onListo`, abajo), que es donde la persona actúa; al montar ya es el
+    // estado inicial. El bug que esto vino a evitar sigue cubierto: después de asignar no
+    // pueden quedar «1 asignado» y «todavía no hay trabajo suyo» en pantalla a la vez.
+    trabajoAsignadoAction(leadId)
       .then((r) => {
         if (!vivo) return;
         setE(r.ok
           ? { fase: 'lista', proyectos: r.proyectos, tareas: r.tareas, recurrentes: r.recurrentes }
           : { fase: 'error', error: r.error });
       })
-      .catch((err) => { if (vivo) setE({ fase: 'error', error: err instanceof Error ? err.message : 'No pude leer el tablero.' }); });
+      .catch((err) => { if (vivo) setE({ fase: 'error', error: err instanceof Error ? err.message : 'No pude leer lo suyo.' }); });
+
+    trabajoDelClienteAction(leadId)
+      .then((r) => {
+        if (!vivo) return;
+        if (!r.ok) { setPos({ fase: 'nada' }); return; }
+        setPos(resta(r, leadId));
+      })
+      // Que el cruce falle NO es un error de la ficha: lo suyo ya se dibujó. Se calla, que
+      // es la única salida honesta cuando lo que falló es una sugerencia.
+      .catch(() => { if (vivo) setPos({ fase: 'nada' }); });
+
     return () => { vivo = false; };
     // `recargar` en las deps A PROPÓSITO: sin él, asignar guarda bien y la ficha sigue
     // mostrando lo de antes — que se lee exactamente igual que una asignación que no
@@ -121,20 +177,12 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
   // sin saber si perdió lo que estaba haciendo. Mientras tanto se muestran los números que
   // la grilla YA sabe: no es un placeholder, es el dato que después se va a detallar.
   if (e.fase === 'cargando') {
-    return (
-      <div className="tr-cargando">
-        <p className="q">
-          {resumen && (resumen.proyectos || resumen.abiertas || resumen.recurrentes)
-            ? `Buscando en el tablero: ${[
-                resumen.proyectos && `${resumen.proyectos} ${resumen.proyectos === 1 ? 'proyecto' : 'proyectos'}`,
-                resumen.abiertas && `${resumen.abiertas} ${resumen.abiertas === 1 ? 'tarea abierta' : 'tareas abiertas'}`,
-                resumen.recurrentes && `${resumen.recurrentes} ${resumen.recurrentes === 1 ? 'recurrente' : 'recurrentes'}`,
-              ].filter(Boolean).join(' · ')}…`
-            : 'Buscando su trabajo en el tablero…'}
-        </p>
-        <p className="d">Puede tardar unos segundos.</p>
-      </div>
-    );
+    // ⚠️ EL TEXTO YA NO PROMETE SEGUNDOS. Decía «puede tardar unos segundos» porque la
+    // única lectura bajaba el tablero entero; ahora la que pinta esto es la rápida
+    // —medido el 26/09/2026 en dev contra la base de producción: 1.284 ms contra 13.604
+    // de la completa— y un aviso de espera sobre algo instantáneo es ruido que además
+    // enseña a esperar.
+    return <p className="tr-nota">Leyendo lo suyo…</p>;
   }
   // Un error de lectura NO se pinta como «no tiene trabajo»: son dos respuestas, y la
   // segunda sobre la primera es la mentira que nadie va a ir a auditar.
@@ -157,7 +205,13 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
       <div className="tr">
         <AsignarTrabajo leadId={leadId} nombre={nombre}
           onCerrar={() => setAsignando(false)}
-          onListo={(msg) => { setAsignando(false); setAviso(msg); setRecargar((n) => n + 1); }} />
+          onListo={(msg) => {
+            setAsignando(false); setAviso(msg);
+            // Las dos vuelven a «leyendo» ACÁ, antes de pedir la relectura: si no, la
+            // ficha muestra el aviso encima de la lista vieja y se contradice sola.
+            setE({ fase: 'cargando' }); setPos({ fase: 'buscando' });
+            setRecargar((n) => n + 1);
+          }} />
         <style dangerouslySetInnerHTML={{ __html: CSS }} />
       </div>
     );
@@ -240,6 +294,35 @@ export function TrabajoDelCliente({ leadId, nombre, resumen }: {
             ))}
           </Grupo>
         </>
+      )}
+
+      {/* ⚠️ ABAJO DE TODO Y EN SU PROPIA SECCIÓN. Lo de arriba tiene dueño escrito; esto
+          es un PARECIDO de nombre que el cruce encontró mientras tanto. Mezclarlos haría
+          que la ficha afirme las dos cosas con la misma cara — y el rótulo `como` del
+          cruce existe justamente para que eso no pase. */}
+      {pos.fase === 'buscando' && (
+        <p className="tr-buscando">Buscando más en el tablero…</p>
+      )}
+      {pos.fase === 'listo' && (
+        <section className="tr-posibles">
+          <button type="button" className="cab" onClick={() => setVerPosibles((v) => !v)} aria-expanded={verPosibles}>
+            <span className="ch" aria-hidden style={{ transform: verPosibles ? 'rotate(90deg)' : 'none' }}>›</span>
+            {pos.n === 1 ? '1 más puede ser suyo' : `${pos.n} más pueden ser suyos`}
+            <span className="por">por el nombre</span>
+          </button>
+          {verPosibles && (
+            <div className="cuerpo">
+              {/* El texto dice qué HACER con esto, que es la única pregunta que queda. */}
+              <p className="tr-nota">Se parecen por el nombre y nadie los asignó. Con «Asignarle trabajo» quedan suyos de verdad.</p>
+              {pos.datos.proyectos.map((p) => (
+                <FilaProyecto key={p.id} p={p} hoy={hoy} onAbrir={() => abrir({ tipo: 'proyecto', id: p.id })} />
+              ))}
+              {[...pos.datos.tareas, ...pos.datos.recurrentes].map((t) => (
+                <FilaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -329,7 +412,7 @@ function SinTrabajo({ nombre }: { nombre: string }) {
   return (
     <div className="tr-vacio">
       <p className="t">Todavía no hay trabajo suyo en el tablero</p>
-      <p className="d">Asígnaselo con el botón de arriba, o ponle su nombre a un proyecto del tablero.</p>
+      <p className="d">Asígnaselo con el botón de arriba, o ponle «{nombre}» al nombre de un proyecto.</p>
     </div>
   );
 }
@@ -533,6 +616,17 @@ const CSS = `
 
 .tr-nota{ font-size:13px; line-height:1.5; color:var(--dim); margin:2px 0 0; }
 .tr-ok{ margin:0 0 12px; font-size:13px; color:var(--good); }
+.tr-buscando{ margin:18px 2px 0; font-size:12px; color:var(--faint); }
+.tr-posibles{ margin:18px 0 0; border-top:1px solid var(--border); padding-top:12px; }
+.tr-posibles .cab{ display:flex; align-items:center; gap:8px; width:100%; background:none;
+  border:0; padding:4px 2px; font:inherit; font-size:13px; color:var(--dim); cursor:pointer;
+  text-align:left; }
+.tr-posibles .cab:hover{ color:var(--ink); }
+.tr-posibles .ch{ display:inline-block; font-size:15px; line-height:1; transition:transform .14s; }
+.tr-posibles .por{ margin-left:auto; font-size:11.5px; color:var(--faint); }
+.tr-posibles .cuerpo{ margin-top:6px; }
+.tr-posibles .cuerpo .tr-fila{ opacity:.85; }
+@media(prefers-reduced-motion:reduce){ .tr-posibles .ch{ transition:none; } }
 .tr-acciones{ display:flex; margin:0 0 16px; }
 .tr-asignar{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:9px;
   padding:7px 13px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; }

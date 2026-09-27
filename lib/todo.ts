@@ -121,7 +121,9 @@ export type Categoria = { id: number; nombre: string; color: string; emoji: stri
   detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
-const rowTo = (r: Record<string, unknown>): Tarea => {
+/** ⚠️ EXPORTADO por lo mismo que `rowToTask` en `lib/plan-board.ts`: Customer Success
+ *  lee filas sueltas de esta tabla y no puede tener su propia copia de este mapper. */
+export const rowTo = (r: Record<string, unknown>): Tarea => {
   const t = r as unknown as Tarea;
   // categorias viene como jsonb → array; blindamos a number[].
   const cats = (r.categorias as unknown);
@@ -546,7 +548,7 @@ export async function borrarTarea(id: number): Promise<void> {
 // Categorías (etiquetas con color)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const catRow = (r: Record<string, unknown>): Categoria => {
+export const catRow = (r: Record<string, unknown>): Categoria => {
   const c = r as unknown as Categoria;
   c.emoji = typeof r.emoji === 'string' && r.emoji ? (r.emoji as string) : '🏷';
   c.prioridad = Math.max(1, Math.min(100, Math.round(Number(r.prioridad) || 50)));
@@ -642,7 +644,16 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
 /** Borra la categoría y la quita de todas las tareas que la tenían. */
 export async function borrarCategoria(id: number): Promise<void> {
   const supabase = (await getTenantDb());
-  const { data: conCat } = await supabase.from('experimento_tareas').select('id, categorias').contains('categorias', [id]);
+  // ⚠️ `contains` SOBRE UNA COLUMNA `jsonb` LLEVA JSON, NO UN ARRAY DE JS. supabase-js
+  // serializa `[x]` como el literal de array de Postgres (`{x}`) y Postgres contesta
+  // «invalid input syntax for type json» — o sea que la consulta FALLA ENTERA. Y como
+  // acá se ignora el `error`, `data` viene `null`, el `?? []` lo vuelve vacío y el
+  // bucle no hace nada: el borrado reporta éxito y deja las tareas apuntando a un
+  // proyecto que ya no existe. Medido el 26/09/2026: cero filas colgadas en el ws1,
+  // porque el NAVEGADOR las limpia por su cuenta antes de guardar — o sea que este
+  // guard del server nunca corrió, y sólo iba a hacer falta el día que borre otro
+  // camino (MaKo, un script, la API).
+  const { data: conCat } = await supabase.from('experimento_tareas').select('id, categorias').contains('categorias', JSON.stringify([id]));
   await Promise.all((conCat ?? []).map((t) => {
     const cats = catsOk((t as { categorias: unknown }).categorias).filter((c) => c !== id);
     return supabase.from('experimento_tareas').update({ categorias: cats, updated_at: new Date().toISOString() }).eq('id', (t as { id: number }).id);

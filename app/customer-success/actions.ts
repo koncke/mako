@@ -30,8 +30,11 @@
 // inquilino lo resuelve `getTenantDb()`.
 
 import { getTenantDb } from '@/lib/workspace';
+import { createLead, updateLead } from '@/lib/leads';
+// La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
+import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { revalidatePath } from 'next/cache';
-import { clientesGanados, trabajoDeCliente, catalogoAsignable, asignarTrabajo, type ResultadoTrabajo, type Catalogo } from './trabajo';
+import { clientesGanados, trabajoDeCliente, trabajoAsignado, catalogoAsignable, asignarTrabajo, autoasignar, type ResultadoTrabajo, type Catalogo } from './trabajo';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
@@ -108,5 +111,78 @@ export async function asignarTrabajoAction(
     return { ok: true, proyectos: r.proyectos, tareas: r.tareas };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude guardarlo.' };
+  }
+}
+
+/**
+ * LO QUE YA TIENE DUEÑO ESCRITO. Es la primera de las dos lecturas de la ficha: dos
+ * consultas filtradas en vez de bajar el tablero entero y cruzarlo (ver el bloque «LA
+ * LECTURA RÁPIDA» en ./trabajo.ts).
+ */
+export async function trabajoAsignadoAction(leadId: number): Promise<ResultadoTrabajo> {
+  const cliente = await clienteDelWorkspace(leadId);
+  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
+  return trabajoAsignado(leadId);
+}
+
+// ── Cargar un cliente que nunca pasó por el CRM ──────────────────────────────
+
+/**
+ * Crea el cliente. Que es: crea el LEAD en el CRM y lo marca ganado.
+ *
+ * ⚠️ NO HAY TABLA DE CLIENTES, Y ESA ES LA DECISIÓN. «Al cargarse se debería cargar en el
+ * CRM también» (26/09/2026) — y la única forma de que eso no se desincronice nunca es que
+ * no haya dos lugares: un cliente ES un lead ganado. Con una tabla propia habría clientes
+ * que el CRM no conoce, y el día que alguien busque a uno por teléfono no lo encuentra.
+ *
+ * ⚠️ Y PASA POR `createLead`, no por un insert propio: ahí viven la detección de
+ * duplicados, la auto-asignación de vendedor y el alta del hilo de WhatsApp. Un insert a
+ * mano se saltea las tres sin que nada falle.
+ */
+export async function crearClienteAction(datos: {
+  nombre: string; empresa?: string; email?: string; telefono?: string;
+}): Promise<{ ok: boolean; leadId?: number; error?: string }> {
+  const nombre = (datos.nombre ?? '').trim();
+  if (nombre.length < 2) return { ok: false, error: 'Falta el nombre.' };
+  const email = (datos.email ?? '').trim() || null;
+  const telefono = (datos.telefono ?? '').trim() || null;
+  if (!email && !telefono) {
+    return { ok: false, error: 'Carga un email o un teléfono: sin eso el cliente es incontactable.' };
+  }
+
+  try {
+    const lead = await createLead({ nombre, empresa: (datos.empresa ?? '').trim() || null, email, telefono });
+    // El desenlace va en una segunda escritura porque `createLead` no lo acepta: su
+    // trabajo es dar de alta un lead, y `estado_lead` es del recorrido. `updateLead`
+    // deriva `cerro` solo (lib/leads.ts), así que las dos columnas quedan de acuerdo.
+    await updateLead(lead.id, { estado_lead: 'ganado' });
+    revalidatePath('/customer-success');
+    revalidatePath('/crm');
+    return { ok: true, leadId: lead.id };
+  } catch (e) {
+    // El duplicado tiene su propio error y su propio mensaje: mandar a alguien a cargar
+    // de nuevo a un cliente que YA está es cómo se termina con dos fichas de la misma
+    // persona y ninguna forma de saber cuál es la buena.
+    const msg = e instanceof Error ? e.message : 'No se pudo cargar.';
+    if (e instanceof LeadDuplicadoError) {
+      return { ok: false, error: 'Ya tienes a alguien con ese nombre o contacto en el CRM. Márcalo como ganado ahí y aparece aquí.' };
+    }
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Que MaKo asigne lo evidente. Devuelve cuántas y por qué vía, porque son dos cosas
+ * distintas: lo del nombre es un hecho y lo de la IA es un juicio.
+ */
+export async function autoasignarAction(): Promise<
+  { ok: true; porNombre: number; porIA: number; consultadas: number } | { ok: false; error: string }
+> {
+  try {
+    const r = await autoasignar();
+    if (r.ok) revalidatePath('/customer-success');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo.' };
   }
 }

@@ -25,7 +25,7 @@ import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan
 import { faseNegocioTexto } from '@/lib/fase-store';
 import { objetivosContextoTexto } from '@/lib/objectives';
 
-type Row = Record<string, unknown>;
+export type Row = Record<string, unknown>;
 
 // El board /plan es el ROADMAP DEL SUPER-ADMIN y vive en SU workspace. Antes se
 // forzaba OWNER_WS porque el admin no tenía espacio propio y caía al del dueño; ahora
@@ -66,7 +66,12 @@ const quarterEfectivo = (deadline: string | undefined, quarter: string | undefin
   quarter || quarterDeFecha(deadline || '') || null;
 
 // ── row ⇄ modelo ─────────────────────────────────────────────────────────────
-function rowToTask(r: Row): BoardTask {
+/** ⚠️ EXPORTADOS (26/09/2026) para que Customer Success lea filas sueltas sin escribir
+ *  su propio mapper. El tablero ya tiene SEIS lugares donde un campo se puede olvidar
+ *  (ver AGENTS.md); un séptimo y un octavo en otra carpeta serían los que se queden
+ *  viejos primero, y el modo de falla es que la ficha de un cliente muestre una tarjeta
+ *  a la que le falta un campo, sin ningún error. */
+export function rowToTask(r: Row): BoardTask {
   return {
     id: str(r.id), num: int(r.num), emoji: str(r.emoji, '📌'), title: str(r.title, 'Tarea'),
     detalle: str(r.detalle), priority: str(r.priority, 'media') as Prio,
@@ -140,7 +145,7 @@ function taskToRow(t: BoardTask): Row {
     orden: t.num, updated_at: new Date().toISOString(),
   };
 }
-function rowToLabel(r: Row): Label {
+export function rowToLabel(r: Row): Label {
   return {
     id: str(r.id), pid: r.pid ? str(r.pid) : undefined, emoji: str(r.emoji, '📁'),
     name: str(r.name, 'Proyecto'), color: str(r.color, '#2F6FED'), score: int(r.score, 50),
@@ -400,7 +405,16 @@ export async function guardarPlanProyecto(l: Label): Promise<void> {
 export async function borrarPlanProyecto(id: string): Promise<void> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const { data } = await db.from('plan_tareas').select('id, labels').contains('labels', [id]);
+      // ⚠️ `contains` SOBRE UNA COLUMNA `jsonb` LLEVA JSON, NO UN ARRAY DE JS. supabase-js
+      // serializa `[x]` como el literal de array de Postgres (`{x}`) y Postgres contesta
+      // «invalid input syntax for type json» — o sea que la consulta FALLA ENTERA. Y como
+      // acá se ignora el `error`, `data` viene `null`, el `?? []` lo vuelve vacío y el
+      // bucle no hace nada: el borrado reporta éxito y deja las tareas apuntando a un
+      // proyecto que ya no existe. Medido el 26/09/2026: cero filas colgadas en el ws1,
+      // porque el NAVEGADOR las limpia por su cuenta antes de guardar — o sea que este
+      // guard del server nunca corrió, y sólo iba a hacer falta el día que borre otro
+      // camino (MaKo, un script, la API).
+    const { data } = await db.from('plan_tareas').select('id, labels').contains('labels', JSON.stringify([id]));
     await Promise.all((data ?? []).map((r) => {
       const labels = asArr<unknown>((r as { labels: unknown }).labels).map(String).filter((x) => x !== id);
       return db.from('plan_tareas').update({ labels, updated_at: new Date().toISOString() }).eq('id', (r as { id: string }).id);

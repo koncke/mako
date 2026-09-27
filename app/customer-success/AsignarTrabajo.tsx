@@ -23,7 +23,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Status, MONO } from '@/app/_ui';
 import type { Asignable } from './trabajo';
-import { catalogoAsignableAction, asignarTrabajoAction } from './actions';
+import { catalogoAsignableAction, asignarTrabajoAction, autoasignarAction } from './actions';
 
 type Estado =
   | { fase: 'cargando' }
@@ -46,6 +46,7 @@ export function AsignarTrabajo({ leadId, nombre, onListo, onCerrar }: {
   const [soloSuyo, setSoloSuyo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [falla, setFalla] = useState<string | null>(null);
+  const [mako, setMako] = useState<'no' | 'pensando' | string>('no');
 
   useEffect(() => {
     let vivo = true;
@@ -90,6 +91,20 @@ export function AsignarTrabajo({ leadId, nombre, onListo, onCerrar }: {
   // la misma selección, y no hace falta un segundo control para el camino de vuelta.
   const todoSuyo = elegidos.length > 0 && elegidos.every((i) => i.clienteLeadId === leadId);
 
+  async function correrMako() {
+    setMako('pensando'); setFalla(null);
+    const r = await autoasignarAction();
+    if (!r.ok) { setMako('no'); setFalla(r.error); return; }
+    const n = r.porNombre + r.porIA;
+    // Tres o cuatro palabras (AGENTS.md). Y se DICE cuántas miró sin asignar: «0
+    // asignadas» sobre 43 revisadas es un resultado, y sin el segundo número se lee
+    // como que no funcionó.
+    setMako(n === 0
+      ? (r.consultadas ? `Ninguna de ${r.consultadas} es suya` : 'Nada evidente')
+      : `${n} asignadas`);
+    if (n > 0) onListo(`${n} ${n === 1 ? 'asignada' : 'asignadas'}`);
+  }
+
   async function guardar() {
     setGuardando(true); setFalla(null);
     const r = await asignarTrabajoAction(leadId, ids, !todoSuyo);
@@ -117,6 +132,17 @@ export function AsignarTrabajo({ leadId, nombre, onListo, onCerrar }: {
         <button className="at-volver" onClick={onCerrar}>← Volver a su trabajo</button>
         <span className="at-tipo">Asignar a {nombre}</span>
       </header>
+
+      {/* ⚠️ MAKO VA ACÁ Y NO EN LA CABECERA DE LA PANTALLA. Es la ayuda de ESTE trabajo
+          —elegir de quién es cada cosa— y a quien abre el selector ya le está costando:
+          en la cabecera sería un botón más que nadie sabe cuándo apretar. */}
+      <div className="at-mako">
+        <span className="q">¿Te lo asigno yo?</span>
+        <button type="button" disabled={mako === 'pensando'} onClick={() => void correrMako()}>
+          {mako === 'pensando' ? 'Mirando el tablero…' : 'Asignar lo evidente'}
+        </button>
+        {typeof mako === 'string' && mako !== 'no' && mako !== 'pensando' && <span className="r">{mako}</span>}
+      </div>
 
       <div className="at-filtros">
         <input autoFocus value={busca} onChange={(ev) => setBusca(ev.target.value)}
@@ -183,6 +209,17 @@ const CSS = `
   color:var(--dim); cursor:pointer; }
 .at-volver:hover{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
 .at-tipo{ font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
+
+.at-mako{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:0 0 12px;
+  padding:9px 11px; border-radius:11px; background:var(--surface-2);
+  border:1px solid var(--border); }
+.at-mako .q{ font-size:13px; color:var(--dim); }
+.at-mako button{ background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:8px; padding:5px 11px; font:inherit; font-size:12.5px; color:var(--ink);
+  cursor:pointer; }
+.at-mako button:hover:not(:disabled){ border-color:var(--primary); color:var(--primary); }
+.at-mako button:disabled{ opacity:.55; cursor:default; }
+.at-mako .r{ font-size:12.5px; color:var(--good); }
 
 .at-filtros{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
 .at-buscar{ flex:1 1 220px; min-width:0; padding:9px 12px; border-radius:10px;

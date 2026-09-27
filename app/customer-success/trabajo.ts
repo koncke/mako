@@ -40,9 +40,10 @@ import 'server-only';
 
 import { getTenantDb } from '@/lib/workspace';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { listTareas, listCategorias } from '@/lib/todo';
-import { listPlanBoard } from '@/lib/plan-board';
-import { tableroActual } from '@/lib/tablero-actual';
+import { listTareas, listCategorias, rowTo, catRow, type Tarea, type Categoria } from '@/lib/todo';
+import type { BoardTask, Label } from '@/app/plan/board/types';
+import { listPlanBoard, rowToTask, rowToLabel, type Row } from '@/lib/plan-board';
+import { tableroActual, type QueTablero } from '@/lib/tablero-actual';
 import { estaPendiente, type EstadoTarea } from '@/lib/todo-estados';
 import { esRecurrente } from '@/lib/plan-recurrentes';
 import { clienteDe } from '@/lib/plan-clientes';
@@ -172,55 +173,63 @@ const reconocedor = async () => (await import('@/lib/todo-rutear')).esProyectoDe
  * de `/plan`. Ver el bloque del encabezado con los números medidos — este módulo leía
  * SIEMPRE el tablero del cliente y por eso la tab del super-admin salía vacía.
  */
-async function leerTablero(): Promise<Lectura> {
-  const cual = await tableroActual();
+async function leerTablero(forzado?: QueTablero): Promise<Lectura> {
+  // ⚠️ `forzado` EXISTE PARA LOS SCRIPTS, no para las pantallas. `tableroActual()` lee la
+  // sesión con `cookies()`, que fuera de un request TIRA — así que una corrida de
+  // mantenimiento no puede preguntarle y tiene que decir cuál es. Las pantallas lo dejan
+  // vacío, que es lo correcto: ahí sí hay una sesión y adivinarla sería un IDOR.
+  const cual = forzado ?? await tableroActual();
   const esDeCliente = await reconocedor();
 
   if (cual === 'dueno') {
     const { tareas, proyectos } = await listPlanBoard();
-    return {
-      esDeCliente,
-      tareas: tareas.map((t): TareaTab => ({
-        id: t.id, titulo: t.title, detalle: t.detalle ?? '',
-        // El tablero del dueño no guarda un `estado` aparte: lo DERIVA del avance, igual
-        // que lo hace `editarTarea` del otro lado. Se deriva acá con el mismo criterio para
-        // que «abierta» signifique lo mismo en las dos mitades.
-        estado: t.progress >= 100 ? 'hecho' : t.progress > 0 ? 'en_curso' : 'por_hacer',
-        progreso: t.progress, score: t.score, scoreRazon: t.scoreRazon ?? null,
-        deadline: t.deadline || null, recurrente: esRecurrente(t),
-        proyectos: t.labels,
-        // No existe el concepto de responsable en el tablero del dueño (verificado:
-        // `grep -rni responsable app/plan/` da cero). `null` es la verdad.
-        responsable: null,
-        clienteLeadId: clienteDe(t)?.leadId ?? null,
-        actualizada: new Date(t.creadaEn ?? Date.now()).toISOString(),
-      })),
-      proyectos: proyectos.map((p): ProyTab => ({
-        id: p.id, nombre: p.name, emoji: p.emoji, color: p.color, detalle: p.detalle,
-        deadline: p.deadline || null, quarter: p.quarter ?? null,
-        score: p.score, scoreRazon: p.scoreRazon ?? null,
-        clienteLeadId: clienteDe(p)?.leadId ?? null,
-      })),
-    };
+    return { esDeCliente, tareas: tareas.map(deBoardTask), proyectos: proyectos.map(deBoardLabel) };
   }
 
   const [tareas, proyectos] = await Promise.all([listTareas(), listCategorias()]);
-  return {
-    esDeCliente,
-    tareas: tareas.map((t): TareaTab => ({
-      id: String(t.id), titulo: t.titulo, detalle: t.detalle ?? '', estado: t.estado,
-      progreso: t.progreso, score: t.score, scoreRazon: t.score_razon,
-      deadline: t.deadline, recurrente: esRecurrente({ recurrente: (t as { recurrente?: boolean }).recurrente }),
-      proyectos: t.categorias.map(String), responsable: t.responsable,
-      clienteLeadId: t.cliente_lead_id, actualizada: t.updated_at,
-    })),
-    proyectos: proyectos.map((p): ProyTab => ({
-      id: String(p.id), nombre: p.nombre, emoji: p.emoji, color: p.color, detalle: p.detalle,
-      deadline: p.deadline, quarter: p.quarter, score: p.prioridad, scoreRazon: p.score_razon,
-      clienteLeadId: p.cliente_lead_id,
-    })),
-  };
+  return { esDeCliente, tareas: tareas.map(deTarea), proyectos: proyectos.map(deCategoria) };
 }
+
+// ⚠️ LAS CUATRO CONVERSIONES SON FUNCIONES Y NO LAMBDAS ADENTRO DE `leerTablero`, para
+// que las use también la lectura rápida (`trabajoAsignado`). Con una copia allá, cada
+// campo nuevo habría que acordarse de ponerlo en dos lugares — y el que se olvide no
+// falla: dibuja una tarjeta a la que le falta un dato, en la mitad de los casos.
+const deBoardTask = (t: BoardTask): TareaTab => ({
+  id: t.id, titulo: t.title, detalle: t.detalle ?? '',
+  // El tablero del dueño no guarda un `estado` aparte: lo DERIVA del avance, igual que
+  // lo hace `editarTarea` del otro lado. Se deriva acá con el mismo criterio para que
+  // «abierta» signifique lo mismo en las dos mitades.
+  estado: t.progress >= 100 ? 'hecho' : t.progress > 0 ? 'en_curso' : 'por_hacer',
+  progreso: t.progress, score: t.score, scoreRazon: t.scoreRazon ?? null,
+  deadline: t.deadline || null, recurrente: esRecurrente(t),
+  proyectos: t.labels,
+  // No existe el concepto de responsable en el tablero del dueño (verificado:
+  // `grep -rni responsable app/plan/` da cero). `null` es la verdad.
+  responsable: null,
+  clienteLeadId: clienteDe(t)?.leadId ?? null,
+  actualizada: new Date(t.creadaEn ?? Date.now()).toISOString(),
+});
+
+const deBoardLabel = (p: Label): ProyTab => ({
+  id: p.id, nombre: p.name, emoji: p.emoji, color: p.color, detalle: p.detalle,
+  deadline: p.deadline || null, quarter: p.quarter ?? null,
+  score: p.score, scoreRazon: p.scoreRazon ?? null,
+  clienteLeadId: clienteDe(p)?.leadId ?? null,
+});
+
+const deTarea = (t: Tarea): TareaTab => ({
+  id: String(t.id), titulo: t.titulo, detalle: t.detalle ?? '', estado: t.estado,
+  progreso: t.progreso, score: t.score, scoreRazon: t.score_razon,
+  deadline: t.deadline, recurrente: esRecurrente({ recurrente: (t as { recurrente?: boolean }).recurrente }),
+  proyectos: t.categorias.map(String), responsable: t.responsable,
+  clienteLeadId: t.cliente_lead_id, actualizada: t.updated_at,
+});
+
+const deCategoria = (p: Categoria): ProyTab => ({
+  id: String(p.id), nombre: p.nombre, emoji: p.emoji, color: p.color, detalle: p.detalle,
+  deadline: p.deadline, quarter: p.quarter, score: p.prioridad, scoreRazon: p.score_razon,
+  clienteLeadId: p.cliente_lead_id,
+});
 
 const mensaje = (e: unknown): string =>
   `No pude leer el tablero: ${e instanceof Error ? e.message : String(e)}`;
@@ -404,6 +413,7 @@ export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[])
  * que después no aparece en su propia tab.
  */
 export { clientesGanados } from '@/lib/clientes-ganados';
+import { clientesGanados } from '@/lib/clientes-ganados';
 
 // ── ASIGNAR ──────────────────────────────────────────────────────────────────
 // «No tengo forma de asignar proyectos o tareas a clientes. Debería desde allí mismo,
@@ -487,9 +497,10 @@ export async function catalogoAsignable(): Promise<Catalogo> {
 export async function asignarTrabajo(
   ids: { proyectos: string[]; tareas: string[] },
   lead: { leadId: number; nombre: string } | null,
+  forzado?: QueTablero,
 ): Promise<{ ok: true; proyectos: number; tareas: number } | { ok: false; error: string }> {
   const db = await getTenantDb();
-  const dueno = (await tableroActual()) === 'dueno';
+  const dueno = (forzado ?? await tableroActual()) === 'dueno';
   const tablaProy = dueno ? 'plan_proyectos' : 'tarea_categorias';
   const tablaTarea = dueno ? 'plan_tareas' : 'experimento_tareas';
   // Los ids de la mitad del cliente son NUMÉRICOS. Lo que no convierta se descarta acá y
@@ -513,4 +524,172 @@ export async function asignarTrabajo(
     tareas = count ?? lista.length;
   }
   return { ok: true, proyectos, tareas };
+}
+
+// ── LA LECTURA RÁPIDA ────────────────────────────────────────────────────────
+// «Cada vez que abro la card de un cliente hace la búsqueda en el plan… eso no es
+// para nada eficiente» (26/09/2026). Y es literal: `leerTablero()` baja el tablero
+// ENTERO —396 tareas y 71 proyectos en el ws9— y corre el cruce blando sobre todo,
+// cada vez, para mostrar una o dos tarjetas. Medido: entre 0,5 y 9 segundos.
+//
+// ⚠️ LA CURA NO ES UN CACHÉ, ES LA CLAVE. Un caché del cruce guarda una RESPUESTA
+// derivada y hay que decidir cuándo se ensucia (¿al crear una tarea? ¿al renombrar
+// un proyecto? ¿al ganar un lead?), y el día que se ensucia sin que nadie lo note
+// la ficha muestra trabajo que ya no es de ese cliente. `cliente_lead_id` (mig
+// 0172) no es una respuesta guardada: es el DATO, y se consulta con un índice.
+//
+// Por eso la pantalla lee en dos tiempos, que es lo que se pidió:
+//   1. `trabajoAsignado` → lo que TIENE dueño escrito. Dos consultas filtradas.
+//   2. `trabajoDeCliente` → el cruce blando completo, que además propone lo que
+//      todavía no está asignado. Llega después y se agrega abajo.
+
+/** Lo que ya tiene dueño escrito, sin cruce y sin bajar el tablero entero. */
+export async function trabajoAsignado(leadId: number): Promise<ResultadoTrabajo> {
+  try {
+    const db = await getTenantDb();
+    const dueno = (await tableroActual()) === 'dueno';
+    const hoy = await hoyEnWorkspace();
+
+    if (dueno) {
+      const { data: ps, error: e1 } = await db.from('plan_proyectos').select('*').eq('cliente_lead_id', leadId);
+      if (e1) throw new Error(e1.message);
+      const pids = (ps ?? []).map((p) => String((p as { id: unknown }).id));
+
+      // Las tareas suyas son las que lo declaran MÁS las de sus proyectos. Se piden por
+      // separado y se funden por id: un `or` con `cs.` sobre jsonb se escribe mal una vez
+      // y devuelve de más para siempre, y de más acá es el trabajo de otro cliente.
+      const lotes = await Promise.all([
+        db.from('plan_tareas').select('*').eq('cliente_lead_id', leadId),
+        // JSON y no un array de JS: la columna es `jsonb` y el literal de Postgres la
+        // hace fallar entera. Ver la nota larga en `lib/plan-board.ts`.
+        ...pids.map((pid) => db.from('plan_tareas').select('*').contains('labels', JSON.stringify([pid]))),
+      ]);
+      const filas = new Map<string, Record<string, unknown>>();
+      for (const l of lotes) {
+        if (l.error) throw new Error(l.error.message);
+        for (const f of l.data ?? []) filas.set(String((f as { id: unknown }).id), f as Record<string, unknown>);
+      }
+      return armar(
+        (ps ?? []).map((p) => deBoardLabel(rowToLabel(p as Row))),
+        [...filas.values()].map((f) => deBoardTask(rowToTask(f))),
+        hoy,
+      );
+    }
+
+    const { data: cs, error: e1 } = await db.from('tarea_categorias').select('*').eq('cliente_lead_id', leadId);
+    if (e1) throw new Error(e1.message);
+    const cids = (cs ?? []).map((c) => Number((c as { id: unknown }).id));
+    const lotes = await Promise.all([
+      db.from('experimento_tareas').select('*').eq('cliente_lead_id', leadId),
+      ...cids.map((cid) => db.from('experimento_tareas').select('*').contains('categorias', JSON.stringify([cid]))),
+    ]);
+    const filas = new Map<string, Record<string, unknown>>();
+    for (const l of lotes) {
+      if (l.error) throw new Error(l.error.message);
+      for (const f of l.data ?? []) filas.set(String((f as { id: unknown }).id), f as Record<string, unknown>);
+    }
+    return armar(
+      (cs ?? []).map((c) => deCategoria(catRow(c as Record<string, unknown>))),
+      [...filas.values()].map((f) => deTarea(rowTo(f))),
+      hoy,
+    );
+  } catch (e) {
+    return { ok: false, error: mensaje(e) };
+  }
+}
+
+/** Arma el resultado con la MISMA forma que `trabajoDeCliente`, para que la pantalla
+ *  no tenga que saber por cuál de los dos caminos llegó cada cosa. */
+function armar(proys: ProyTab[], tars: TareaTab[], hoy: string): ResultadoTrabajo {
+  const deCS = tars.map(aTareaCS);
+  const porProyecto = new Map<string, TareaCS[]>();
+  for (const t of deCS) for (const p of t.proyectos) porProyecto.set(p, [...(porProyecto.get(p) ?? []), t]);
+
+  const proyectos: ProyectoCS[] = proys.map((p) => {
+    const suyas = porProyecto.get(p.id) ?? [];
+    return {
+      id: p.id, nombre: p.nombre, emoji: p.emoji, color: p.color, detalle: p.detalle,
+      deadline: p.deadline, quarter: p.quarter, score: p.score, scoreRazon: p.scoreRazon,
+      como: 'clave' as const, ...contar(suyas, hoy),
+    };
+  });
+  const orden = (a: TareaCS, b: TareaCS) =>
+    Number(a.abierta === false) - Number(b.abierta === false) || b.score - a.score || a.titulo.localeCompare(b.titulo);
+  return {
+    ok: true,
+    proyectos,
+    tareas: deCS.filter((t) => !t.recurrente).sort(orden),
+    recurrentes: deCS.filter((t) => t.recurrente).sort((a, b) => a.titulo.localeCompare(b.titulo)),
+    huerfanos: [],
+  };
+}
+
+// ── AUTO-ASIGNAR ─────────────────────────────────────────────────────────────
+
+/**
+ * Lo que MaKo puede decidir solo: qué proyectos y tareas son de qué cliente.
+ *
+ * ⚠️ DOS VÍAS Y SÓLO UNA LLEVA IA. El porqué, con los números medidos, está en el
+ * encabezado de `lib/cs-autoasignar.ts`: el nombre del proyecto es determinista, y la
+ * mención en un texto NO lo es — de las 43 tareas del ws9 que nombran a un cliente, las
+ * que se ven son «probado con Mauricio» y «antes de que entre Leila», que lo mencionan
+ * y no son trabajo para él.
+ */
+export async function autoasignar(forzado?: QueTablero): Promise<
+  { ok: true; porNombre: number; porIA: number; consultadas: number } | { ok: false; error: string }
+> {
+  let lectura: Lectura;
+  let clientes: ClienteCruce[];
+  try {
+    [lectura, clientes] = await Promise.all([leerTablero(forzado), clientesGanados()]);
+  } catch (e) { return { ok: false, error: mensaje(e) }; }
+  if (!clientes.length) return { ok: true, porNombre: 0, porIA: 0, consultadas: 0 };
+
+  const { planDeAsignacion, SYSTEM_JUEZ, userJuez, leerVeredicto } = await import('@/lib/cs-autoasignar');
+  const plan = planDeAsignacion(
+    clientes,
+    lectura.proyectos.map((p) => ({ id: p.id, nombre: p.nombre, titulo: p.nombre, detalle: p.detalle, clienteLeadId: p.clienteLeadId })),
+    lectura.tareas.map((t) => ({ id: t.id, titulo: t.titulo, detalle: t.detalle, proyectos: t.proyectos, clienteLeadId: t.clienteLeadId })),
+    lectura.esDeCliente,
+  );
+
+  const escribir = async (xs: Array<{ id: string; tipo: 'proyecto' | 'tarea'; leadId: number; cliente: string }>) => {
+    // Agrupado por cliente: una escritura por lead en vez de una por tarjeta.
+    const porLead = new Map<number, { nombre: string; proyectos: string[]; tareas: string[] }>();
+    for (const a of xs) {
+      const g = porLead.get(a.leadId) ?? { nombre: a.cliente, proyectos: [], tareas: [] };
+      (a.tipo === 'proyecto' ? g.proyectos : g.tareas).push(a.id);
+      porLead.set(a.leadId, g);
+    }
+    for (const [leadId, g] of porLead) {
+      const r = await asignarTrabajo({ proyectos: g.proyectos, tareas: g.tareas }, { leadId, nombre: g.nombre }, forzado);
+      if (!r.ok) throw new Error(r.error);
+    }
+    return xs.length;
+  };
+
+  const porNombre = await escribir(plan.asignar);
+
+  // ⚠️ SI NO HAY DUDAS NO SE LLAMA AL MODELO. Es el caso normal (ws11 y ws13 dieron 1 y 0)
+  // y una llamada con la lista vacía cuesta plata y devuelve nada.
+  if (!plan.dudas.length) return { ok: true, porNombre, porIA: 0, consultadas: 0 };
+
+  const { chatCheapCascade } = await import('@/lib/ai-cheap');
+  let porIA = 0;
+  // De a 12: un lote más grande hace que el modelo empiece a contestar por patrón («las
+  // que nombran a X son de X»), que es exactamente lo que se le está pidiendo que NO haga.
+  for (let i = 0; i < plan.dudas.length; i += 12) {
+    const lote = plan.dudas.slice(i, i + 12);
+    try {
+      const crudo = await chatCheapCascade({
+        system: SYSTEM_JUEZ, user: userJuez(lote), json: true,
+        feature: 'cs-autoasignar', motivo: 'de quién es este trabajo', maxTokens: 500,
+      });
+      porIA += await escribir(leerVeredicto(crudo, lote));
+    } catch {
+      // Un lote que falla no frena a los demás ni tira lo ya escrito: lo que no se pudo
+      // juzgar queda SIN asignar, que es el default correcto.
+    }
+  }
+  return { ok: true, porNombre, porIA, consultadas: plan.dudas.length };
 }
