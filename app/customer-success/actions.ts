@@ -30,11 +30,12 @@
 // inquilino lo resuelve `getTenantDb()`.
 
 import { getTenantDb } from '@/lib/workspace';
+import { saneaPortada, urlDeImagenOk } from '@/lib/portadas';
 import { createLead, updateLead } from '@/lib/leads';
 // La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { revalidatePath } from 'next/cache';
-import { clientesGanados, trabajoDeCliente, trabajoAsignado, catalogoAsignable, asignarTrabajo, autoasignar, type ResultadoTrabajo, type Catalogo } from './trabajo';
+import { autoasignar } from './trabajo';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
@@ -46,84 +47,17 @@ async function clienteDelWorkspace(leadId: number): Promise<{ id: number; nombre
   return (data as { id: number; nombre: string } | null) ?? null;
 }
 
-// ── El trabajo de ese cliente en el tablero ─────────────────────────────────
-// El detalle NO viaja dentro de la cartera: son entre 2 y 55 tareas por cliente y
-// la grilla sólo necesita los números (ver `tableroDeLaCartera`). Se pide al abrir
-// la tab.
+// ⚠️ SE FUERON CUATRO ACTIONS MÁS EL 27/09/2026, CON EL BOTÓN QUE LAS LLAMABA.
+// `trabajoDelClienteAction`, `catalogoAsignableAction`, `asignarTrabajoAction` y
+// `trabajoAsignadoAction` alimentaban el selector de «Asignarle trabajo», que se sacó a
+// pedido: «si ya copiamos la tab de plan, ya hay otros botones para eso». Tenía razón —
+// la ficha monta el tablero de verdad, así que lo que se crea adentro nace del cliente y
+// a lo que ya existe se le pone el cliente desde su propio detalle.
 //
-// ⚠️ EL CRUCE SE RESUELVE ACÁ, EN EL SERVER. `lib/todo.ts` y `lib/todo-rutear.ts`
-// son `server-only`, así que ningún componente cliente los puede importar — y
-// aunque pudiera, bajar las 212 tareas del workspace para filtrar tres en el
-// navegador es mandarle a la pantalla el trabajo de todos los clientes para
-// mostrar el de uno.
-//
-// ⚠️ Y LA LISTA DE CLIENTES CONTRA LA QUE SE CRUZA NO PUEDE VENIR DEL NAVEGADOR.
-// El cruce blando (`atar`, ./cruce.ts) decide si una palabra es distintiva
-// mirando a TODOS los clientes y a TODOS los proyectos: con una lista recortada
-// por quien pregunta, cualquier palabra suya sería única y ataría cualquier cosa.
-
-export async function trabajoDelClienteAction(leadId: number): Promise<ResultadoTrabajo> {
-  const cliente = await clienteDelWorkspace(leadId);
-  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
-  try {
-    const clientes = await clientesGanados();
-    return await trabajoDeCliente(leadId, clientes);
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el tablero.' };
-  }
-}
-
-// ── Asignarle trabajo a un cliente ───────────────────────────────────────────
-// «No tengo forma de asignar proyectos o tareas a clientes. Debería desde allí
-// mismo, buscando o filtrando y seleccionando los que quiera asignar» (26/09/2026).
-
-/** El catálogo para el selector: todo lo que se le puede asignar a alguien. */
-export async function catalogoAsignableAction(): Promise<Catalogo> {
-  try { return await catalogoAsignable(); }
-  catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el tablero.' }; }
-}
-
-/**
- * Asigna (o desasigna, con `asignar: false`) las tarjetas elegidas.
- *
- * ⚠️ EL NOMBRE DEL CLIENTE LO PONE EL SERVER, leyéndolo de `leads`. Si viniera del
- * navegador, quien llama podría escribir cualquier etiqueta al lado de un id real —y esa
- * etiqueta es la que después pinta el chip del tablero, así que una tarjeta podría decir
- * «Mauricio» y pertenecer a otro sin que nada falle.
- *
- * ⚠️ Y EL LEAD SE VERIFICA CONTRA ESTE WORKSPACE (`clienteDelWorkspace`), fail-closed. Sin
- * eso, un POST con el id de un lead ajeno marcaría las tareas de este inquilino como
- * trabajo de un cliente de otro.
- */
-export async function asignarTrabajoAction(
-  leadId: number,
-  ids: { proyectos: string[]; tareas: string[] },
-  asignar = true,
-): Promise<{ ok: boolean; proyectos?: number; tareas?: number; error?: string }> {
-  const cliente = await clienteDelWorkspace(leadId);
-  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
-  if (!ids.proyectos.length && !ids.tareas.length) return { ok: false, error: 'No elegiste nada.' };
-
-  try {
-    const r = await asignarTrabajo(ids, asignar ? { leadId, nombre: (cliente.nombre ?? '').trim() || `Cliente #${leadId}` } : null);
-    if (!r.ok) return r;
-    revalidatePath('/customer-success');
-    return { ok: true, proyectos: r.proyectos, tareas: r.tareas };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No pude guardarlo.' };
-  }
-}
-
-/**
- * LO QUE YA TIENE DUEÑO ESCRITO. Es la primera de las dos lecturas de la ficha: dos
- * consultas filtradas en vez de bajar el tablero entero y cruzarlo (ver el bloque «LA
- * LECTURA RÁPIDA» en ./trabajo.ts).
- */
-export async function trabajoAsignadoAction(leadId: number): Promise<ResultadoTrabajo> {
-  const cliente = await clienteDelWorkspace(leadId);
-  if (!cliente) return { ok: false, error: 'Ese cliente no está en tu cartera.' };
-  return trabajoAsignado(leadId);
-}
+// No se dejan «por si vuelven»: una action exportada sin call site es una puerta abierta
+// que nadie audita, y la pregunta «¿quién la llama?» ya costó caro en este repo. El
+// mecanismo sigue entero en `./trabajo.ts` (`asignarTrabajo`), que es lo que usa la
+// corrida de `autoasignar`.
 
 // ── Cargar un cliente que nunca pasó por el CRM ──────────────────────────────
 
@@ -184,5 +118,49 @@ export async function autoasignarAction(): Promise<
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo.' };
+  }
+}
+
+/**
+ * Su foto y su portada (mig 0173).
+ *
+ * ⚠️ LO QUE MANDA EL NAVEGADOR ES UNA PROPUESTA, y acá se sanea. Las dos cosas
+ * terminan dibujadas en la pantalla de cualquiera que abra la tab —una en un `<img>`
+ * y la otra adentro de un `url()` de CSS—, así que una URL de un origen cualquiera
+ * sería una pieza de un tercero cargándose con el referer del cliente. `saneaPortada`
+ * y `urlDeImagenOk` comparan `new URL(v).origin` contra una lista, nunca un prefijo:
+ * `https://picsum.photos@evil.tld/x` pasa cualquier `startsWith` y su origen REAL es
+ * el del atacante (AGENTS.md → «Un guard de ORIGEN se escribe con `origin`»).
+ *
+ * ⚠️ `undefined` = «no lo toques» y `null` = «sacalo». Son dos cosas distintas y las
+ * dos tienen que poder viajar, o quitarse la foto sería imposible.
+ */
+export async function guardarImagenClienteAction(leadId: number, cambio: {
+  avatarUrl?: string | null;
+  portada?: string | null;
+}): Promise<{ ok: true; avatarUrl: string | null; portada: string | null } | { ok: false; error: string }> {
+  try {
+    // El mismo guard que el resto de la pantalla: sin esto, un POST con el id de un
+    // lead ajeno escribiría sobre la ficha de otro inquilino.
+    const cliente = await clienteDelWorkspace(leadId);
+    if (!cliente) return { ok: false, error: 'Ese cliente no es de este workspace.' };
+
+    const upd: Record<string, unknown> = {};
+    if (cambio.avatarUrl !== undefined) upd.avatar_url = urlDeImagenOk(cambio.avatarUrl);
+    if (cambio.portada !== undefined) upd.portada = saneaPortada(cambio.portada);
+    if (!Object.keys(upd).length) return { ok: false, error: 'No había nada que cambiar.' };
+
+    const db = await getTenantDb();
+    const { data, error } = await db.from('leads').update(upd).eq('id', leadId)
+      .select('avatar_url, portada').single();
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath('/customer-success');
+    const fila = data as { avatar_url: string | null; portada: string | null };
+    // Se devuelve LO QUE QUEDÓ GUARDADO, no lo que se pidió: si el saneo descartó la
+    // URL, la pantalla tiene que enterarse en vez de pintar algo que la base no tiene.
+    return { ok: true, avatarUrl: fila.avatar_url, portada: fila.portada };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }
 }

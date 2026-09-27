@@ -25,6 +25,11 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 // sale del módulo compartido que también leen el server y Customer Success.
 import { AsignarClienteModal, ClienteChip } from './AsignarCliente';
 import { clienteDe, ROTULO_CLIENTE, SIN_CLIENTE, type ClienteRef } from '@/lib/plan-clientes';
+// LA PORTADA de un proyecto (mig 0173). El selector es EL MISMO que usa la ficha de un
+// cliente: la pregunta «¿qué se ve arriba?» se contesta en un solo lugar o se contesta de
+// dos formas distintas según de dónde la abriste.
+import { PortadaPicker } from '@/app/_components/PortadaPicker';
+import { fondoPortada } from '@/lib/portadas';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
 import { MakoProyectoModal } from './MakoProyecto';
@@ -226,6 +231,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
   /** Qué tarjeta está eligiendo cliente. Uno solo para las dos entidades: el modal es el
    *  mismo y abrir dos a la vez no tiene sentido. */
   const [asignarCli, setAsignarCli] = useState<{ tipo: 'tarea' | 'proyecto'; id: string } | null>(null);
+  /** El proyecto al que se le está eligiendo portada (mig 0173). */
+  const [portadaDe, setPortadaDe] = useState<string | null>(null);
   const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [makoHintId, setMakoHintId] = useState<string | null>(null); // tarea recién creada → sugerir "MaKo te ayuda"
   const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
@@ -1306,7 +1313,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'tarea', id: openTask.id })} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
         onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
-      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })}
+      {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={() => setPortadaDe(peekProj.id)}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
         onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
         onClose={() => setPeekProjId(null)} />}
@@ -1346,7 +1353,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
           onClose={() => setSoltada(null)} />
       )}
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={() => setPortadaDe(openProjLabel.id)}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
@@ -1495,6 +1502,28 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [] }: {
           }}
           onClose={() => setAsignarCli(null)} />
       )}
+      {/* HERMANO, no hijo, por lo mismo que el de arriba: adentro del detalle la pila lo
+          apagaría junto con él. `anidada` (que trae el propio `PortadaPicker`) deja ver el
+          detalle abajo, que es de donde se abrió. */}
+      {portadaDe && (() => {
+        const l = labels.find((x) => x.id === portadaDe);
+        if (!l) return null;
+        return (
+          <PortadaPicker
+            valor={l.portada}
+            colorBase={l.color}
+            titulo={`Portada de ${l.name}`}
+            onElegir={(v) => {
+              setPortadaDe(null);
+              // Por `patchLabelLog` y no por `patchLabel`: de ahí salen el guardado, el
+              // Change History y el deshacer. Un cambio escrito al costado se guarda igual
+              // y no se puede deshacer, que es la regla de «lo que vale para TODOS los
+              // cambios se escribe donde pasan todos».
+              board.patchLabelLog(portadaDe, { portada: v }, v ? 'Cambió la portada' : 'Sacó la portada');
+            }}
+            onCerrar={() => setPortadaDe(null)} />
+        );
+      })()}
       {datosOpen && <DatosModal items={faltantes}
         onSetDeadline={(id, fecha) => board.setDeadline(id, fecha, '')}
         onAbrir={(id) => { setDatosOpen(false); setOpenId(id); }}
@@ -2599,6 +2628,31 @@ function CampoCliente({ cliente, onAbrir }: {
              falta algo, y pone un hueco donde no hay ninguno. */
           : <span style={{ fontSize: 12, color: 'var(--faint)', fontStyle: 'italic' }}>{SIN_CLIENTE}</span>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * LA PORTADA de un proyecto (mig 0173), en la columna derecha del detalle.
+ *
+ * Se dibuja la banda DE VERDAD y no el nombre del degradado: lo que la persona elige es
+ * una imagen, así que el campo que la muestra tiene que ser esa imagen. Un campo que
+ * dijera «Índigo» obligaría a abrir el selector para saber qué hay puesto.
+ */
+function CampoPortada({ portada, color, onAbrir }: {
+  portada: string | null | undefined;
+  color: string;
+  onAbrir: () => void;
+}) {
+  return (
+    <div>
+      <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        Portada
+        <LapizPrioridad tam={20} onClick={onAbrir} titulo={portada ? 'Cambiar la portada' : 'Poner una portada'} />
+      </label>
+      <button type="button" onClick={onAbrir} title={portada ? 'Cambiar la portada' : 'Poner una portada'}
+        style={{ display: 'block', width: '100%', height: 46, padding: 0, cursor: 'pointer',
+          border: '1px solid var(--border)', borderRadius: 9, background: fondoPortada(portada, color) }} />
     </div>
   );
 }
@@ -3720,7 +3774,8 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
   /** Abre el picker de CLIENTE (mig 0172). El estado del modal vive en `BoardShell`, así que
    *  la capacidad entra por acá: sin la prop, el lápiz no se dibuja. Mismo criterio que
    *  `onAsignar`, y el mismo modo de falla que este archivo ya pagó cuatro veces. */
-  onAsignarCliente: () => void; onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
+  onAsignarCliente: () => void;
+  onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -4139,6 +4194,14 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
       // vistazo no se ve cuántas hay elegidas.
       style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s, background .12s' }}
       onMouseEnter={(e) => { if (!elegido) e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(true); }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(false); }}>
+      {/* LA PORTADA (mig 0173), sangrando el padding para llegar a los bordes de la
+          tarjeta. Se dibuja SÓLO si la eligieron: sin esto, todas las tarjetas nacerían con
+          una banda de color que nadie pidió y la grilla pasaría de leerse por título a
+          leerse por manchas. Es `aria-hidden` porque no dice nada que el título no diga. */}
+      {l.portada && (
+        <div aria-hidden style={{ margin: '-16px -16px 6px', height: 78, borderRadius: '11px 11px 0 0',
+          background: fondoPortada(l.portada, l.color) }} />
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* ⚠️ `stopPropagation` EN EL CLICK: la tarjeta entera abre el detalle, así que sin
             esto tildar un proyecto lo abriría encima de la grilla. */}
@@ -5087,11 +5150,15 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onAsignarCliente, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, trabajando = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onPrioridad, onMako, onDelete, onAsignarCliente, onPortada, onEliminarTask, onSoltarTask, onClose, ask }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; trabajando?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onPrioridad: () => void; onMako: () => void; onDelete: () => void;
   /** Abre el picker de CLIENTE (mig 0172). Es la mitad del PROYECTO, y es la que importa:
    *  un proyecto asignado ata a ese cliente TODAS sus tareas de una vez. Sin la prop, este
    *  modal dibuja el tablero completo y el campo no — el modo de falla de siempre. */
   onAsignarCliente: () => void;
+  /** Abre el selector de portada (mig 0173). Vive en `BoardShell` y no acá por lo mismo
+   *  que el de cliente: es un modal HERMANO del detalle, no un hijo — un descendiente se
+   *  apagaría junto con él cuando la pila esconde al de abajo. */
+  onPortada: () => void;
   /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
    *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
    *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */
@@ -5121,6 +5188,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
     // manda es la pila: el de arriba se ve, los de abajo se esconden.
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: Math.max(z, capa.z), background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible || taskAbierta ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, height: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* LA PORTADA (mig 0173), arriba de todo y a los dos bordes. Sólo si la eligieron:
+            el detalle de un proyecto sin portada tiene que verse exactamente como antes. */}
+        {proj.portada && (
+          <div aria-hidden style={{ height: 104, flex: 'none', background: fondoPortada(proj.portada, proj.color) }} />
+        )}
         {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
           {onBack && <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>}
@@ -5321,6 +5393,9 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 más pesa — asignar el proyecto ata a ese cliente sus N tareas de un click,
                 sin escribir N filas: el cruce de Customer Success las ata POR proyecto. */}
             <CampoCliente cliente={clienteDe(proj)} onAbrir={onAsignarCliente} />
+            {/* LA PORTADA, al lado del color y del emoji: las tres contestan «cómo se ve
+                este proyecto» y estaban repartidas en dos lugares. */}
+            <CampoPortada portada={proj.portada} color={proj.color} onAbrir={onPortada} />
             <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
             {/* ELIMINAR, AL PIE DE LA COLUMNA DERECHA Y COMO TACHO: el mismo control, en el
                 mismo lugar y con la misma cara que en una tarea. Lo que se borra y cuántas

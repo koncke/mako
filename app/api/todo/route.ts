@@ -154,8 +154,11 @@ export async function POST(req: NextRequest) {
       // acá: sin esta línea, deshacer un borrado devuelve el proyecto sin su cliente y la
       // tab de Customer Success lo pierde de vista sin que nadie lo haya desasignado.
       const cliente = { lead_id: body.cliente_lead_id as number | null | undefined, nombre: body.cliente_nombre as string | null | undefined };
+      // SU PORTADA (mig 0173). Va en el alta por lo mismo que el cliente: deshacer el
+      // borrado de un proyecto pasa por acá, y sin esta línea vuelve sin su portada.
+      const portada = body.portada != null ? String(body.portada) : undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, recurrencia, cliente) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline, quarter, recurrente, recurrencia, cliente, portada) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
@@ -168,7 +171,10 @@ export async function POST(req: NextRequest) {
       // ⚠️ `cliente_lead_id` / `cliente_nombre` ESTÁN EN ESTE TIPO O NO LLEGAN (mig 0172),
       // por lo mismo que `recurrencia`: la puerta es un tipo, y lo que no se nombre acá se
       // cae en silencio aunque el navegador lo mande.
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null }) ?? {};
+      // ⚠️ `portada` ESTÁ EN ESTE TIPO O NO LLEGA (mig 0173), por lo mismo que las dos de
+      // arriba. Es el quinto campo que pasa por esta puerta y el modo de falla no cambió:
+      // el selector se abre, la request contesta 200 y la banda sigue igual.
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

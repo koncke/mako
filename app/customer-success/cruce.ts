@@ -43,7 +43,13 @@ export type ComoAto =
   /** Comparten una palabra que no comparte nadie más. Es un PARECIDO y se dice. */
   | 'parecido';
 
-export type ClienteCruce = { leadId: number; nombre: string; empresa: string | null };
+export type ClienteCruce = {
+  leadId: number; nombre: string; empresa: string | null;
+  /** Su foto y su portada (mig 0173). El cruce no las mira: viajan porque la tarjeta y la
+   *  ficha las pintan, y `clientesGanados()` ya las trae en la misma lectura. */
+  avatarUrl?: string | null;
+  portada?: string | null;
+};
 /**
  * Un proyecto del tablero, para cruzar.
  *

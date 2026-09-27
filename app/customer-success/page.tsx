@@ -20,7 +20,8 @@
 
 import { requireCapa } from '@/lib/tab-access';
 import { ClientesApp } from './ClientesApp';
-import { clientesGanados, tableroDeLaCartera } from './trabajo';
+import { getPerfil } from '@/lib/perfil';
+import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,7 +38,8 @@ export default async function CustomerSuccessPage() {
   try {
     clientes = await clientesGanados();
   } catch (e) {
-    return <ClientesApp clientes={[]} tablero={{ ok: false, error: mensaje(e) }} error={mensaje(e)} />;
+    return <ClientesApp clientes={[]} tablero={{ ok: false, error: mensaje(e) }} error={mensaje(e)}
+      trabajo={{ dueno: false, porCliente: {} }} user={{ nombre: '', avatarUrl: '' }} />;
   }
 
   // Cuántos proyectos, tareas y recurrentes tiene cada uno. Sólo los números: el
@@ -53,7 +55,27 @@ export default async function CustomerSuccessPage() {
     ? await tableroDeLaCartera(clientes).catch((e) => ({ ok: false as const, error: mensaje(e) }))
     : ({ ok: true as const, porLead: {}, huerfanos: [], sinProyecto: 0 });
 
-  return <ClientesApp clientes={clientes} tablero={tablero} />;
+  // ⚠️ EL TRABAJO DE TODOS VIENE CON EL HTML, y ésa es toda la razón por la que el
+  // detalle puede ser un modal sin estado de carga. Ver el porqué largo en
+  // `filasDeTodos` (./trabajo.ts): dos rondas de optimización no movieron el «Leyendo
+  // lo suyo» porque el problema no era la velocidad, era pedir los datos al abrir.
+  //
+  // Si falla, la grilla se dibuja igual y el modal lo dice: los números de las tarjetas
+  // salen del cruce, que es otra lectura. Media pantalla es mejor que ninguna.
+  const trabajo = clientes.length
+    ? await filasDeTodos().catch(() => null)
+    : { dueno: false, porCliente: {} };
+
+  const perfil = await getPerfil().catch(() => ({ nombre: '', avatarUrl: '' }));
+
+  return (
+    <ClientesApp
+      clientes={clientes}
+      tablero={tablero}
+      trabajo={trabajo}
+      user={{ nombre: perfil.nombre, avatarUrl: perfil.avatarUrl }}
+    />
+  );
 }
 
 const mensaje = (e: unknown): string =>

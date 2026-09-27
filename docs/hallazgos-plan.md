@@ -4874,3 +4874,45 @@ contenedor entero «por comodidad» es lo que después impide reusarlo.
   (`lib/supabase-paginado.ts`), paginando por `id`.
 - **`Date.now()` adentro del `useMemo` de `app/plan/board/Graphics.tsx`** (línea ~47) es un
   error de `react-hooks` que ya estaba y no se tocó: es de antes de esta tanda.
+
+## La portada de un proyecto: el quinto campo por las mismas seis puertas (27/09/2026)
+
+«Quiero que los proyectos también tengan portada» (mig 0173).
+
+**Vive en:** `app/plan/board/types.ts` (`Label.portada`) · `lib/plan-board.ts`
+(`rowToLabel` / `labelToRow`) · `app/plan/board/desde-todo.ts` (`toLabel`) · `lib/todo.ts`
+(`Categoria`, `catRow`, `crearCategoria`, `editarCategoria`) · `app/api/todo/route.ts` (el
+tipo del patch) · `app/plan/TodoBoard.tsx` (`createLabel` / `saveLabel`) ·
+`app/plan/board/BoardShell.tsx` (`ProyectoCardTile`, `CampoPortada`) ·
+`lib/portadas.ts` · `tests/portada-proyecto.test.ts`
+
+Es el quinto campo que pasa por la cadena de AGENTS.md («El tablero es UNO y las tablas son
+DOS») después de la prioridad a mano, el Quarter (0162), la recurrencia (0164) y el cliente
+(0172). No hay nada nuevo que contar del mecanismo: lo nuevo es que **ahora está fijado por
+un test que se probó rompiéndolo**, una rotura por vez, con los números en la cabecera del
+archivo (8 roturas, 9 pasan / 1 falla cada una). Antes la cadena se sostenía con
+comentarios, y los comentarios no cazaron ninguna de las cuatro veces anteriores.
+
+### Una inserción por TEXTO cae en el tipo gemelo, no en el que querías
+
+`BoardTask` y `Label` terminan los dos con exactamente el mismo comentario de
+`clienteNombre` y el mismo `};`. Un `replace` anclado ahí puso `portada` en **`BoardTask`**,
+que es el tipo equivocado, y el error que salió fue «Property 'portada' does not exist on
+type 'Label'» en otros cuatro archivos — o sea que el síntoma no nombra el archivo donde
+está el problema.
+
+Pasó dos veces en la misma sesión: la segunda fue `onPortada: () => void;` anclado en
+`  onAsignarCliente: () => void;`, que en `TaskModal` es el PREFIJO de una línea más larga,
+así que la prop del proyecto terminó en el modal de la tarea.
+
+**La regla: si dos tipos hermanos comparten la cola, el ancla no puede ser la cola.** Se
+ancla en algo que sólo tenga uno (el comentario propio de ese tipo), o se usa `rindex`. Y
+si el tipo gemelo es el problema estructural, **hacé que dejen de ser gemelos**: el campo
+nuevo de `Label` lleva ahora un párrafo que dice por qué es del proyecto y no de la tarea,
+que además es la respuesta a la pregunta que alguien se va a hacer.
+
+### Una portada por TAREA no se hizo, y es una decisión
+
+En un Kanban de 396 tareas, una banda por tarjeta es una pared de fotos donde hoy se lee un
+título. El proyecto es el contenedor y es el nivel donde una imagen identifica algo. Está
+escrito en el campo, para que el próximo que lo piense encuentre la respuesta.

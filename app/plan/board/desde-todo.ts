@@ -42,4 +42,8 @@ export const toBoard = (t: Tarea): BoardTask => ({
 // ⚠️ `recurrente` VA ACÁ Y EN LOS DOS PAYLOADS DE ABAJO (mig 0164). Este mapper es la
 // puerta de ENTRADA del tablero del cliente: sin él, el interruptor nace apagado en cada
 // carga aunque la fila diga `true`, o sea que marcarlo «no hace nada» al recargar.
-export const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, recurrente: c.recurrente, recurrencia: c.recurrencia, clienteLeadId: c.cliente_lead_id, clienteNombre: c.cliente_nombre, detalle: c.detalle, historial: c.historial });
+export const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, quarter: c.quarter ?? undefined, recurrente: c.recurrente, recurrencia: c.recurrencia, clienteLeadId: c.cliente_lead_id, clienteNombre: c.cliente_nombre,
+  // SU PORTADA (mig 0173). Puerta de ENTRADA del tablero del cliente: sin esto la banda
+  // nace vacía en cada carga aunque la fila la tenga escrita.
+  portada: c.portada,
+  detalle: c.detalle, historial: c.historial });

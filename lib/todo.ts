@@ -118,6 +118,17 @@ export type Categoria = { id: number; nombre: string; color: string; emoji: stri
   cliente_lead_id: number | null;
   /** Etiqueta para pintar sin ir a buscar `leads`. La clave es `cliente_lead_id`. */
   cliente_nombre: string | null;
+  /**
+   * SU PORTADA (mig 0173): `grad:<id>`, una URL https de un origen permitido, o `null`
+   * —que es el default y significa «el degradado derivado de su color», no un dato
+   * faltante.
+   *
+   * ⚠️ ES LA MITAD DEL CLIENTE Y TIENE SU GEMELA EN `plan_proyectos.portada`. Si la
+   * columna, este tipo, `catRow` o el `upd` de `editarCategoria` no la nombran, el
+   * control se dibuja en el tablero del cliente y contesta 200 sin guardar nada. Cuatro
+   * veces ya en este archivo.
+   */
+  portada: string | null;
   detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
@@ -567,6 +578,10 @@ export const catRow = (r: Record<string, unknown>): Categoria => {
   // la FK; lo mismo que hace `rowTo` con la columna gemela de las tareas.
   c.cliente_lead_id = leadIdOk(r.cliente_lead_id);
   c.cliente_nombre = typeof r.cliente_nombre === 'string' && r.cliente_nombre.trim() ? (r.cliente_nombre as string) : null;
+  // SU PORTADA (mig 0173). Acá se normaliza el vacío a `null` una sola vez: el tipo dice
+  // `string | null` y este cast es de la fila ENTERA, así que una columna ausente llegaría
+  // como `undefined` con el tipo mintiendo.
+  c.portada = typeof r.portada === 'string' && r.portada.trim() ? (r.portada as string) : null;
   return c;
 };
 
@@ -577,14 +592,14 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown, cliente?: { lead_id?: number | null; nombre?: string | null }): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null, quarter?: string | null, recurrente?: boolean, recurrencia?: unknown, cliente?: { lead_id?: number | null; nombre?: string | null }, portada?: string | null): Promise<Categoria> {
   const supabase = (await getTenantDb());
   // Un proyecto que se repite NACE sin fecha, acá mismo (mig 0164). No alcanza con que el
   // editar la borre: si el alta la escribiera, la fila nacería con un deadline que después
   // nadie va a poder ver ni sacar — y el aviso de vencimientos lo leería igual.
   const repite = !!recurrente;
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), portada: txtOk(portada), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
@@ -599,7 +614,7 @@ async function repiteCategoria(id: number): Promise<boolean> {
   return !!(data as { recurrente?: unknown } | null)?.recurrente;
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
@@ -633,6 +648,10 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   // tienen que poder viajar, o desasignar sería imposible.
   if (patch.cliente_lead_id !== undefined) upd.cliente_lead_id = leadIdOk(patch.cliente_lead_id);
   if (patch.cliente_nombre !== undefined) upd.cliente_nombre = txtOk(patch.cliente_nombre);
+  // SU PORTADA (mig 0173). Este `upd` también se arma campo por campo: lo que no se nombre
+  // acá no llega. `undefined` = «no la toques»; `null` = «sacala», que es volver al
+  // degradado derivado del color y tiene que poder viajar.
+  if (patch.portada !== undefined) upd.portada = txtOk(patch.portada);
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());

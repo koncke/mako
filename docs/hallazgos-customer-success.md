@@ -1648,8 +1648,17 @@ dos (1.284 ms contra 13.604), después sacando `detalle`/`historial`/`checklist`
 (2.105 KB contra 54). Las dos mejoras eran reales y **el síntoma seguía**, porque un modal
 que pide sus datos al abrirse TIENE un estado de carga por más rápida que sea la consulta.
 
-Lo que lo cerró fue que el detalle dejara de ser un modal y pasara a ser una ruta: los
-datos vienen con el HTML y no hay nada que mostrar mientras tanto.
+Lo que lo cerró fue que los datos vinieran CON EL HTML: no hay nada que mostrar mientras
+tanto porque no hay «mientras tanto».
+
+⚠️ **Y la primera cura fue la equivocada, aunque funcionó.** Convertí el detalle en una
+RUTA (`/customer-success/[id]`), que resuelve el problema por el camino más fácil — el
+server component trae las filas. El dueño lo rechazó al día siguiente: «no quiero que sea
+otra ruta, quiero que sea un pop-up, un modal» (26/09/2026). Un modal SÍ puede no tener
+estado de carga: lo que hace falta es que la página que lo contiene precargue el trabajo de
+TODOS los clientes (`filasDeTodos`, `app/customer-success/trabajo.ts`) y se lo pase por
+prop. Medido en el ws9: 78 KB y 556 ms para los tres clientes, una sola vez, contra una
+consulta por apertura. **La forma de la pantalla es del dueño; la latencia es mía.**
 
 **El olor:** cuando una optimización mide bien y el reporte no cambia, lo que está mal no
 es el número.
@@ -1663,3 +1672,80 @@ avisa, y sólo se ve montándolo en otro lado.
 Son seis propiedades sobre un elemento hoja: van inline y viajan con él. La regla general
 es que un componente compartido no puede depender de que su consumidor se acuerde de
 inyectar una hoja — y si el estilo es grande, lo inyecta el componente, no el que lo monta.
+
+## La portada y la foto: un campo, tres significados y un guard de origen (27/09/2026)
+
+«Quiero que la foto de perfil del cliente se pueda configurar y también el banner… como lo
+hace Notion, que te ofrece varias imágenes para la portada. Consume alguna API gratuita o
+algo que tenga algo parecido a lo que quiero.» Y: «Quiero que los proyectos también tengan
+portada.»
+
+**Vive en:** `lib/portadas.ts` · `app/_components/PortadaPicker.tsx` ·
+`app/api/portadas/route.ts` · `supabase/migrations/0173_portadas_y_fotos.sql` ·
+`app/customer-success/FichaCliente.tsx` · `app/plan/board/BoardShell.tsx`
+
+### El repositorio de fotos: por qué Picsum y no Unsplash
+
+Unsplash y Pexels tienen catálogos mejores **y piden una API key**. Una feature que
+necesita una variable de entorno nace apagada para todo el que no la cargó y no avisa: se
+ve como un selector vacío. Picsum (`picsum.photos/v2/list`) no pide nada.
+
+⚠️ **Y no manda `Access-Control-Allow-Origin`** (medido con `curl -D-` el 27/09). Así que
+el LISTADO va por nuestro server (`/api/portadas`) y las IMÁGENES van directo desde el
+`<img>` — un `<img>` no pasa por CORS. Confundir las dos mitades es lo que hace que la
+pestaña se vea vacía sin un solo error en la consola.
+
+Los degradados son un catálogo NUESTRO, sin red: se dibujan siempre, entran en cualquier
+ancho y no pueden 404ear. Por eso son la primera pestaña y las fotos la segunda.
+
+### Un guard de origen, otra vez, y los cuatro parecidos
+
+Una portada se dibuja adentro de un `url()` de CSS y una foto de perfil adentro de un
+`<img>`, en el navegador de cualquiera que abra la tab. Con `startsWith` sobre el prefijo,
+`https://picsum.photos@evil.tld/x` pasa — y su origen REAL es `evil.tld`, o sea el
+navegador del cliente yendo a buscar la imagen a un tercero con su referer. Va
+`new URL(v).origin` contra un `Set`, exigiendo `https:`, con el test que enumera los cuatro
+(`tests/portada-proyecto.test.ts`, probado rompiéndolo: 9 pasan / 1 falla).
+
+Y el origen propio (el bucket de Supabase) sale del env y no de una constante: cada entorno
+tiene su proyecto, y hardcodearlo dejaría a producción rechazando sus propias subidas.
+
+### Un campo para tres cosas, y por qué no son dos columnas
+
+`portada` guarda `grad:<id>`, una URL https, o nada. Dos columnas —un color y una URL—
+serían dos respuestas a «¿qué se ve arriba?», y el día que estén las dos puestas gana la
+que el código mire primero. Nadie sabe cuál es, y el que eligió la foto ve un degradado.
+
+**Vacío NO es un dato faltante:** es el degradado derivado del nombre, que es exactamente
+lo que se veía antes de la 0173. Por eso el selector lo ofrece como «Automático» y no como
+«Sin portada» a secas.
+
+### La cabecera de `Modal` no se puede sangrar con un margen negativo
+
+Se reportó como «el banner se corta a la derecha y no llega al final». `.mk-modal__cab`
+(`app/_ui/ui.css`) es un flex con `padding: 20px 24px 16px`, `gap: 16` y el botón de cerrar
+de 32 px como hermano. Un `margin: -20px -24px -16px` adentro del título recupera el
+padding **y deja afuera los 48 px de la derecha** (el gap más la X).
+
+Acertarle con un margen negativo mayor es adivinar una suma que cambia el día que alguien
+toque `ui.css`. La cura que no tiene casos: anular el padding del cab para ese modal
+(`.mk-modal__cab:has(.fc-cab){ padding:0; gap:0 }`) y sacar la X del flujo
+(`position:absolute`), que además la deja flotando sobre la portada como en Notion.
+
+### Un `margin-top` negativo en la fila sube el TEXTO también
+
+El avatar monta sobre la banda con `margin-top: -31px` **en la fila**, así que subía el
+nombre con él. Con un degradado claro se leía; con una foto de un bosque, no. El avatar va
+`position: absolute` con la cuenta exacta (140 de banda − 31 de monte), que además no
+depende del alto del texto — y el texto se queda abajo, donde hay fondo plano.
+
+### Lo que quedó SIN hacer
+
+**`app/customer-success/trabajo.ts` tiene tres funciones exportadas sin un solo call
+site**: `trabajoDeCliente`, `trabajoAsignado` y `catalogoAsignable`, más sus tipos
+(`TrabajoCliente`, `ResultadoTrabajo`, `TareaCS`, `ProyectoCS`, `Asignable`, `Catalogo`).
+Quedaron huérfanas al sacar el botón de «Asignarle trabajo» (27/09) junto con sus cuatro
+server actions, que sí se borraron. No se borraron ellas en la misma pasada porque
+`tableroDeLaCartera` —que la pantalla sí usa— comparte tipos con ellas
+(`ProyectoHuerfano`, `ResumenTrabajo`) y desenredarlo a las apuradas arriesgaba la grilla.
+`asignarTrabajo` SÍ sigue viva: la llama `autoasignar`.

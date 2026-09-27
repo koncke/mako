@@ -16,7 +16,23 @@
 // Por eso el rótulo de vacío dice «Interno» y no «Sin datos».
 
 /** Un cliente elegible: los leads GANADOS del workspace. La forma que viaja a los pickers. */
-export type ClienteRef = { leadId: number; nombre: string; empresa: string | null };
+export type ClienteRef = {
+  leadId: number;
+  nombre: string;
+  empresa: string | null;
+  /**
+   * Su foto y su portada (mig 0173), configurables desde su ficha. Las dos son
+   * OPCIONALES y su ausencia es el caso normal, no un error: sin foto van las
+   * iniciales sobre el color derivado del nombre, y sin portada va ese mismo color.
+   *
+   * ⚠️ VIAJAN EN ESTE TIPO —y no sólo en el de Customer Success— porque el picker del
+   * tablero muestra a la misma gente. Dos strings por cliente sobre una lista de
+   * catorce nombres es nada, y tener dos formas de «un cliente» según quién lo mire
+   * es cómo se termina con la foto puesta en una pantalla y ausente en la de al lado.
+   */
+  avatarUrl?: string | null;
+  portada?: string | null;
+};
 
 /** Lo que una tarjeta (tarea o proyecto) guarda de su cliente. */
 export type ConCliente = { clienteLeadId?: number | null; clienteNombre?: string | null };

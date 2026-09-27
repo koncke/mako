@@ -22,6 +22,7 @@
 
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
+import { fondoPortada } from '@/lib/portadas';
 
 /** Nombre → color estable. El mismo cliente tiene siempre el mismo, en cualquier
  *  pantalla y en cualquier orden de la lista: un color que baila es ruido. */
@@ -47,16 +48,29 @@ export function inicialesDe(nombre: string): string {
  * Son seis propiedades sobre un elemento hoja: inline es más barato que obligar a cada
  * consumidor a acordarse de inyectar una hoja.
  */
-export function Avatar({ nombre, tam = 44 }: { nombre: string; tam?: number }) {
+export function Avatar({ nombre, tam = 44, foto }: {
+  nombre: string;
+  tam?: number;
+  /** Su foto, si la cargó (mig 0173). Sin foto van las iniciales, que es el caso normal. */
+  foto?: string | null;
+}) {
   const c = colorDe(nombre);
+  const base: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    flex: 'none', borderRadius: 999, fontWeight: 700, letterSpacing: '.02em',
+    boxShadow: '0 0 0 3px var(--surface)', overflow: 'hidden',
+    width: tam, height: tam, background: `color-mix(in srgb, ${c} 16%, var(--surface))`,
+    color: c, fontSize: Math.round(tam * 0.36),
+  };
   return (
-    <span aria-hidden style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      flex: 'none', borderRadius: 999, fontWeight: 700, letterSpacing: '.02em',
-      boxShadow: '0 0 0 3px var(--surface)',
-      width: tam, height: tam, background: `color-mix(in srgb, ${c} 16%, var(--surface))`,
-      color: c, fontSize: Math.round(tam * 0.36),
-    }}>{inicialesDe(nombre)}</span>
+    <span aria-hidden style={base}>
+      {/* Sin `next/image`: la foto vive en el bucket público de Supabase y el
+          optimizador la volvería a servir por nuestra función, cobrando por cada
+          tarjeta de la grilla. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {foto ? <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : inicialesDe(nombre)}
+    </span>
   );
 }
 
@@ -73,12 +87,12 @@ export function ClienteCard({ c, n, trabajo, tableroOk, onAbrir }: {
 
   return (
     <button className="cl-card" onClick={onAbrir}>
-      {/* La banda no lleva imagen: un degradado del color del cliente. Es lo que hace que
-          la grilla se lea como una grilla de personas y no como una tabla. */}
-      <span className="cl-banda" aria-hidden style={{
-        background: `linear-gradient(135deg, color-mix(in srgb, ${color} 26%, var(--surface)), color-mix(in srgb, ${color} 7%, var(--surface)))`,
-      }} />
-      <span className="cl-avwrap"><Avatar nombre={nombre} /></span>
+      {/* LA BANDA ES SU PORTADA (mig 0173): un degradado del catálogo, una foto, o —el
+          default— el degradado derivado de su nombre, que es lo que se veía antes. La
+          decisión de qué pintar vive en `fondoPortada` y no acá: la misma banda se dibuja
+          en la ficha, y dos copias de esta regla divergen en el primer cambio. */}
+      <span className="cl-banda" aria-hidden style={{ background: fondoPortada(c.portada, color) }} />
+      <span className="cl-avwrap"><Avatar nombre={nombre} foto={c.avatarUrl} /></span>
 
       <span className="cl-n">{nombre}</span>
       <span className="cl-e">{c.empresa?.trim() || `Cliente ${n}`}</span>

@@ -2755,6 +2755,16 @@ como mínimo corre el typecheck él mismo y falla ruidoso. `escribir()` en
 `scripts/curso-categoria-portada.mjs` es el molde: chequea el CR suelto y, si aparece, no
 escribe NADA — mejor no hacer el trabajo que dejarlo a medias.
 
+⚠️ **Y EL ANCLA NO PUEDE SER LA COLA DE UN TIPO CON GEMELO.** `BoardTask` y `Label`
+(`app/plan/board/types.ts`) terminan con EXACTAMENTE el mismo comentario de `clienteNombre`
+y el mismo `};`, así que un `replace` anclado ahí inserta en el primero. Pasó dos veces el
+27/09/2026 en la misma sesión —el campo `portada` y la prop `onPortada`, esta última porque
+`  onAsignarCliente: () => void;` es el PREFIJO de una línea más larga en `TaskModal`— y
+las dos veces el error de tipos salió en OTROS archivos, sin nombrar el que estaba mal. Se
+ancla en algo que sólo tenga el tipo que buscás, o se usa `rindex`. Y si dos tipos hermanos
+comparten la cola, la cura de fondo es que dejen de compartirla: el campo nuevo lleva su
+propio párrafo diciendo por qué es de ése y no del otro.
+
 # Que un agente verifique a otro agente no reemplaza un chequeo determinista
 
 Un auditor que lee el texto de otro auditor puede compartir su punto ciego, y «lo

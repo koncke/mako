@@ -27,11 +27,18 @@ import type { ClienteRef } from './plan-clientes';
  * es indistinguible de un cliente que no existe.
  */
 export async function clientesGanados(): Promise<ClienteRef[]> {
-  type Fila = { id: number; nombre: string | null; empresa: string | null };
+  type Fila = { id: number; nombre: string | null; empresa: string | null; avatar_url: string | null; portada: string | null };
   const db = await getTenantDb();
-  const filas = await leerTodo<Fila>(db, 'leads', 'id, nombre, empresa',
+  // Las columnas se enumeran: un `*` sobre `leads` baja cuarenta campos —teléfono,
+  // notas, historial— a una lista que sólo necesita el nombre para pintar un chip.
+  const filas = await leerTodo<Fila>(db, 'leads', 'id, nombre, empresa, avatar_url, portada',
     { orden: 'id', eq: { estado_lead: 'ganado' } });
-  return filas.map((l) => ({ leadId: l.id, nombre: (l.nombre ?? '').trim(), empresa: l.empresa }));
+  return filas.map((l) => ({
+    leadId: l.id, nombre: (l.nombre ?? '').trim(), empresa: l.empresa,
+    // Su foto y su portada (mig 0173). Vienen de la MISMA lectura que el nombre: pedirlas
+    // aparte sería una segunda consulta por pantalla para dos strings que ya estaban acá.
+    avatarUrl: l.avatar_url, portada: l.portada,
+  }));
 }
 
 /**

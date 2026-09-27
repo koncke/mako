@@ -406,9 +406,11 @@ test('las CUATRO ramas de /api/todo la dejan pasar', () => {
   // recurrencia a algo que vence.
   assert.ok(/recurrencia: t\.recurrencia/.test(RUTA_TODO), 'la rama «crear»');
   assert.ok(/recurrencia: patch\.recurrencia/.test(RUTA_TODO), 'la rama «editar»');
-  // `categoria-crear` lleva un argumento más desde la 0172 (el cliente), así que la
-  // aserción mira los dos que le importan y no el final de la lista.
-  assert.ok(/quarter, recurrente, recurrencia, cliente\)/.test(RUTA_TODO), 'la rama «categoria-crear»');
+  // `categoria-crear` le suma un argumento por migración (el cliente en la 0172, la
+  // portada en la 0173), así que la aserción mira los dos que le importan y NO el final de
+  // la lista — anclada en el paréntesis de cierre volvía a fallar con cada columna nueva,
+  // que es ruido: lo que este test persigue es que `recurrencia` siga llegando.
+  assert.ok(/quarter, recurrente, recurrencia, cliente/.test(RUTA_TODO), 'la rama «categoria-crear»');
   assert.ok(/recurrente\?: boolean; recurrencia\?: unknown;/.test(RUTA_TODO), 'la rama «categoria-editar»: el tipo del patch ES la puerta');
   // Y `undefined` («no lo toques») nunca se colapsa con `null` («bórrala»): si se colara un
   // `?? null` en la ruta, editar cualquier otro campo borraría el ritmo.

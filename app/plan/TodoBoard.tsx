@@ -126,10 +126,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null, portada: l.portada ?? null });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null, portada: l.portada ?? null } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
     // El Perro server-side, igual que en el board del dueño. Sin esto, `usaServerPerro`
     // era false y TODO lo que entraba por el tablero del cliente (reunión, archivo,

@@ -170,6 +170,9 @@ export function rowToLabel(r: Row): Label {
     clienteNombre: r.cliente_nombre ? str(r.cliente_nombre) : null,
     // Misma invariante y mismo saneo en la lectura que en `rowToTask` (mig 0167).
     recurrencia: recurrenciaDe({ recurrente: !!r.recurrente, recurrencia: r.recurrencia }),
+    // SU PORTADA (mig 0173). Acá por la misma razón destructiva que las dos de arriba:
+    // sin esta línea, el próximo guardado de cualquier campo la borra.
+    portada: r.portada ? str(r.portada) : null,
   };
 }
 function labelToRow(l: Label, orden = 0): Row {
@@ -195,6 +198,9 @@ function labelToRow(l: Label, orden = 0): Row {
     recurrente: esRecurrente(l),
     // Lo mismo que en `taskToRow`, un nivel más arriba (mig 0167).
     recurrencia: recurrenciaDe(l),
+    // SU PORTADA (mig 0173). No se sanea acá: el saneo vive en `lib/portadas.ts` y lo
+    // corre quien recibe la elección. Acá sólo se transporta lo que ya está en memoria.
+    portada: l.portada ?? null,
     orden, updated_at: new Date().toISOString(),
   };
 }

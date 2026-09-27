@@ -276,6 +276,28 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
    *  `leads` en cada carga; la clave es `clienteLeadId` y ningún cálculo se apoya acá.
    *  Si el lead se renombra en el CRM, esto queda viejo hasta la próxima asignación. */
   clienteNombre?: string | null;
+  /**
+   * SU PORTADA (mig 0173): `grad:<id>` del catálogo de `lib/portadas.ts`, una URL https
+   * de un origen permitido, o vacío. Vacío NO es un dato faltante: es el degradado
+   * derivado de `color`, que es lo que se ve hoy y sigue siendo el default.
+   *
+   * ⚠️ ES DEL PROYECTO Y NO DE LA TAREA, a propósito. Una portada por tarjeta en un
+   * Kanban de 396 tareas sería una pared de fotos donde hoy se lee un título; el
+   * proyecto es el contenedor, y es el nivel donde una imagen identifica algo.
+   *
+   * ⚠️ VA EN LOS DOS MAPPERS DE LECTURA, y olvidarlo en uno es DESTRUCTIVO. El guardado
+   * del tablero del dueño es un `upsert` de la fila ENTERA armada desde el estado del
+   * navegador: un campo que la lectura no trae vuelve como `undefined`, sale como `null`
+   * y BORRA la columna en el próximo guardado de cualquier otro campo. Es la quinta vez
+   * que este repo agrega una columna al tablero (prioridad, Quarter 0162, recurrencia
+   * 0164, cliente 0172) y la trampa es siempre la misma.
+   *
+   * ⚠️ Y ESTE CAMPO SE ESCRIBE EN `Label`, NO EN `BoardTask`. Los dos tipos terminan con
+   * el MISMO comentario de `clienteNombre` y el mismo `};`, así que una inserción por
+   * texto cae en el primero — que es lo que acaba de pasar al escribir esto, y lo que
+   * AGENTS.md ya tenía medido de la vez anterior.
+   */
+  portada?: string | null;
 };
 
 /**

@@ -228,9 +228,9 @@ async function leerTablero(forzado?: QueTablero): Promise<Lectura> {
  * El texto completo se busca DESPUÉS y sólo de las tarjetas que resultaron ser de alguien.
  */
 const COLS_TAREA_PLAN = 'id, num, emoji, title, priority, score, score_base, progress, deadline, quarter, labels, recurrente, recurrencia, cliente_lead_id, cliente_nombre, origen, created_at';
-const COLS_PROY_PLAN = 'id, pid, emoji, name, color, score, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, orden';
+const COLS_PROY_PLAN = 'id, pid, emoji, name, color, score, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, portada, orden';
 const COLS_TAREA_CLIENTE = 'id, titulo, estado, prioridad, progreso, score, deadline, quarter, categorias, recurrente, recurrencia, cliente_lead_id, cliente_nombre, responsable, updated_at, created_at';
-const COLS_PROY_CLIENTE = 'id, emoji, nombre, color, prioridad, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, created_at';
+const COLS_PROY_CLIENTE = 'id, emoji, nombre, color, prioridad, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, portada, created_at';
 
 // ⚠️ LAS CUATRO CONVERSIONES SON FUNCIONES Y NO LAMBDAS ADENTRO DE `leerTablero`, para
 // que las use también la lectura rápida (`trabajoAsignado`). Con una copia allá, cada
@@ -785,4 +785,88 @@ export async function autoasignar(forzado?: QueTablero): Promise<
     }
   }
   return { ok: true, porNombre, porIA, consultadas: plan.dudas.length, sinRespuesta };
+}
+
+/**
+ * EL TRABAJO DE TODOS LOS CLIENTES, EN UNA PASADA, para que la grilla lo baje con su HTML.
+ *
+ * ⚠️ EXISTE PARA QUE EL MODAL NO TENGA ESTADO DE CARGA. «Sigue diciendo Leyendo lo suyo»
+ * se reportó dos veces, y las dos veces lo ataqué por el lado de la velocidad: primero
+ * partiendo la lectura en dos (1.284 ms contra 13.604), después sacándole el texto largo
+ * al cruce (54 KB contra 2.105). Las dos mejoras eran reales y el síntoma no se movió,
+ * porque un modal que pide sus datos AL ABRIRSE tiene un estado de carga por más rápida
+ * que sea la consulta. Lo único que lo saca es que los datos ya estén.
+ *
+ * ⚠️ Y ES UNA PASADA, NO UNA POR CLIENTE. Llamar `filasDeCliente` catorce veces son 22
+ * consultas (una por cliente más una por proyecto suyo); acá son 2 + una por proyecto
+ * ASIGNADO, que hoy son 8 en el workspace más grande. Medido el 26/09/2026: 515 KB y
+ * ~1,8 s para los 14 clientes del ws1, 78 KB y ~0,6 s para los 3 del ws9.
+ *
+ * El costo se paga UNA vez al entrar a la grilla, en vez de cada vez que se abre una
+ * tarjeta. Abrir un cliente es lo que se hace todo el tiempo; entrar, una sola.
+ */
+/**
+ * El trabajo de UN cliente, YA MAPEADO al modelo del tablero.
+ *
+ * ⚠️ MAPEADO ACÁ Y NO EN LA PANTALLA. `FichaCliente` es `'use client'`, y los mappers
+ * (`rowToTask`, `catRow`…) viven en `lib/plan-board.ts` y `lib/todo.ts`, que son
+ * `server-only`: importarlos desde un componente de navegador arrastra su grafo ENTERO al
+ * bundle —`ai-cheap`, `anthropic`, `getTenantDb`— y rompe el build. Pasó al escribir esto,
+ * y AGENTS.md lo tiene documentado con todas las letras.
+ *
+ * Los TIPOS sí viajan gratis: `import type` se borra en compilación.
+ */
+export type TrabajoDeCliente =
+  | { dueno: true; tareas: BoardTask[]; proyectos: Label[] }
+  | { dueno: false; tareas: Tarea[]; categorias: Categoria[] };
+
+export async function filasDeTodos(): Promise<{ dueno: boolean; porCliente: Record<number, TrabajoDeCliente> }> {
+  const db = await getTenantDb();
+  const dueno = (await tableroActual()) === 'dueno';
+  const tablaProy = dueno ? 'plan_proyectos' : 'tarea_categorias';
+  const tablaTarea = dueno ? 'plan_tareas' : 'experimento_tareas';
+  const col = dueno ? 'labels' : 'categorias';
+
+  const [ps, ts] = await Promise.all([
+    db.from(tablaProy).select('*').not('cliente_lead_id', 'is', null),
+    db.from(tablaTarea).select('*').not('cliente_lead_id', 'is', null),
+  ]);
+  if (ps.error) throw new Error(`${tablaProy}: ${ps.error.message}`);
+  if (ts.error) throw new Error(`${tablaTarea}: ${ts.error.message}`);
+
+  const lead = (r: unknown) => Number((r as { cliente_lead_id: unknown }).cliente_lead_id);
+  const porCliente: Record<number, FilasDeCliente> = {};
+  const caja = (id: number) => (porCliente[id] ??= { dueno, proyectos: [], tareas: [] });
+  // Por cliente y por id, para que una tarea que está en su proyecto Y declara al cliente
+  // no entre dos veces.
+  const vistas = new Map<number, Set<string>>();
+  const sumarTarea = (id: number, f: Record<string, unknown>) => {
+    const s = vistas.get(id) ?? new Set<string>();
+    const k = String(f.id);
+    if (s.has(k)) return;
+    s.add(k); vistas.set(id, s);
+    caja(id).tareas.push(f);
+  };
+
+  for (const p of ps.data ?? []) caja(lead(p)).proyectos.push(p as Record<string, unknown>);
+  for (const t of ts.data ?? []) sumarTarea(lead(t), t as Record<string, unknown>);
+
+  // Las tareas de cada proyecto asignado. JSON y no un array de JS: la columna es `jsonb`
+  // y el literal de Postgres hace fallar la consulta entera (ver `lib/plan-board.ts`).
+  const deProyectos = await Promise.all((ps.data ?? []).map(async (p) => {
+    const raw = (p as { id: unknown }).id;
+    const pid = dueno ? String(raw) : Number(raw);
+    const r = await db.from(tablaTarea).select('*').contains(col, JSON.stringify([pid]));
+    if (r.error) throw new Error(`${tablaTarea}: ${r.error.message}`);
+    return { leadId: lead(p), filas: (r.data ?? []) as Record<string, unknown>[] };
+  }));
+  for (const { leadId, filas } of deProyectos) for (const f of filas) sumarTarea(leadId, f);
+
+  const mapeado: Record<number, TrabajoDeCliente> = {};
+  for (const [id, x] of Object.entries(porCliente)) {
+    mapeado[Number(id)] = dueno
+      ? { dueno: true, tareas: x.tareas.map((f) => rowToTask(f as Row)), proyectos: x.proyectos.map((p) => rowToLabel(p as Row)) }
+      : { dueno: false, tareas: x.tareas.map((f) => rowTo(f)), categorias: x.proyectos.map((p) => catRow(p)) };
+  }
+  return { dueno, porCliente: mapeado };
 }
