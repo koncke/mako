@@ -8,7 +8,11 @@
 // del lead y el de Gmail abre un correo a ese lead.
 
 import Link from '@/app/_ui/Link';
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useRouter } from '@/app/_ui/Link';
+import { EditableInline } from '@/app/_components/EditableInline';
+import { Toast, useToast } from '@/app/_ui/Toast';
+import { saveLeadMetaAction } from '../actions';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -75,9 +79,11 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
   );
 }
 
-function Row({ label, value, copyKey, copied, onCopy, extra }: {
+function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar }: {
   label: string; value: string | null; copyKey: string; copied: string;
   onCopy: (text: string, key: string) => void; extra?: ReactNode;
+  /** Presente = el valor se corrige acá mismo. Ausente = solo se copia. */
+  onGuardar?: (v: string) => void;
 }) {
   const has = !!value?.trim();
   const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', flex: 'none' };
@@ -85,7 +91,14 @@ function Row({ label, value, copyKey, copied, onCopy, extra }: {
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</div>
-        {has ? (
+        {/* ⚠️ CON `onGuardar` EL VALOR SE EDITA ACÁ; el COPIAR no se pierde, sigue en
+            el botón de la derecha. Antes el texto ERA el botón de copiar, así que el
+            único camino a corregirlo era irse de la ficha. */}
+        {onGuardar ? (
+          <div style={{ marginTop: 2, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>
+            <EditableInline valor={value ?? ''} onGuardar={onGuardar} placeholder="—" titulo={`Edita ${label.toLowerCase()}`} maxLargo={120} />
+          </div>
+        ) : has ? (
           <button
             type="button"
             onClick={() => onCopy(value!, copyKey)}
@@ -133,8 +146,50 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
   const copy = (text: string, key: string) => {
     navigator.clipboard?.writeText(text).then(() => { setCopied(key); setTimeout(() => setCopied(''), 1200); }).catch(() => {});
   };
+
+  const router = useRouter();
+  const { toast, show, clear } = useToast();
+  const [, startGuardar] = useTransition();
+
+  /**
+   * Corregir un dato del lead SIN salir de la ficha.
+   *
+   * ⚠️ ERA LA DECISIÓN 3 DEL PLAN DE FRICCIÓN, y la pregunta («¿la previsualización
+   * antes, en un modal, o el deshacer después?») ya la contestó el repo en todo lo
+   * demás: `app/_ui/Toast.tsx` lo dice textual — «es más barato y más honesto que
+   * preguntar ¿estás seguro? antes de cada cosa». Así que va el deshacer.
+   *
+   * El camino de antes eran 5 clics y 2 recargas: el teléfono era un BOTÓN DE COPIAR,
+   * y para cambiarlo había que ir a /crm/<id>, prender «Editar», guardar y confirmar
+   * en un modal — perdiendo el scroll y el filtro del tablero.
+   *
+   * No hizo falta ni una pantalla nueva: `EditableInline` ya existía (y ya resolvía el
+   * Escape dentro de un modal con `stopImmediatePropagation`), `saveLeadMetaAction`
+   * también — con CERO call sites, escrita y nunca enchufada— y el historial ya
+   * registra estos campos y los sabe revertir.
+   */
+  const guardar = (campo: 'nombre' | 'empresa' | 'email' | 'telefono', antes: string | null) => (v: string) => {
+    const nuevo = v.trim();
+    startGuardar(async () => {
+      try {
+        await saveLeadMetaAction(leadId, { [campo]: nuevo || null });
+        router.refresh();
+        // Tres palabras y el deshacer, que escribe en el SERVER: revertir sólo la
+        // pantalla sería mentir hasta el próximo F5.
+        show('Guardado', () => {
+          startGuardar(async () => {
+            try { await saveLeadMetaAction(leadId, { [campo]: antes }); router.refresh(); }
+            catch { show('No se pudo deshacer', undefined, 'bad'); }
+          });
+        });
+      } catch (e) {
+        show(e instanceof Error ? e.message : 'No se pudo guardar', undefined, 'bad');
+      }
+    });
+  };
   const iconLink: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--primary)', flex: 'none', textDecoration: 'none' };
   return (
+    <>
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <LeadFoto telefono={telefono} nombre={nombre} />
@@ -142,17 +197,19 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
       </div>
       {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
-        <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} />
-        <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} />
+        <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} onGuardar={guardar('nombre', nombre)} />
+        <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} />
         <Row
-          label="Teléfono" value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
+          label="Teléfono"
+          onGuardar={guardar('telefono', telefono)} value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
           extra={<span style={{ display: 'inline-flex', gap: 6 }}>
             <Link href={`/whatsapp?lead=${leadId}`} aria-label="Abrir chat de WhatsApp oficial" title="Abrir chat de WhatsApp oficial" style={iconLink}><IconWhatsApp /></Link>
             {telefono && telefono !== '—' && <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} />}
           </span>}
         />
         <Row
-          label="Email" value={email} copyKey="email" copied={copied} onCopy={copy}
+          label="Email"
+          onGuardar={guardar('email', email)} value={email} copyKey="email" copied={copied} onCopy={copy}
           extra={<a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email ?? '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escribir por Gmail" title="Escribir por Gmail" style={iconLink}><IconMail /></a>}
         />
         {/* Dirección + Cohorte en la MISMA fila (Dirección ocupa todo si no hay cohorte). */}
@@ -170,5 +227,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
         </div>
       </div>
     </section>
+    <Toast state={toast} onClose={clear} />
+    </>
   );
 }
