@@ -232,7 +232,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           {/* Datos sin marcar: arriba de las tabs → visible en TODAS. */}
           {faltantes.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} nota="Completa estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
+              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} ignorado={ignorado} onReactivar={reactivar} />
             </div>
           )}
           <LeadTabs
@@ -241,6 +241,17 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               { key: 'resumen', label: 'Resumen', content: tabResumen },
               { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /><TrackingTimelineCard eventos={tracking} /></> },
               { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
+              // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
+              // pestaña no decía más que «está vacía» —y con tres redacciones
+              // distintas—: una pestaña cuyo único contenido es avisar que no hay
+              // contenido es una pestaña que se abre una vez y no se abre nunca más,
+              // pero que todos los días ocupa lugar y hace dudar de si falta algo.
+              // Con pagos cargados vuelve sola, con todo lo de siempre.
+              ...(pagos.length ? [{ key: 'cobranza', label: 'Pagos', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length }] : []),
+              // ⚠️ ANÁLISIS VA PEGADO A HISTORIAL, y es pedido de Martín («que análisis
+              // esté previo al historial», 27/09/2026). Las dos contestan «qué pasó con
+              // esta persona» —una lo interpreta, la otra lo registra— así que se leen
+              // seguidas; Pagos contesta otra cosa y estaba en el medio.
               {
                 key: 'insights', label: 'Análisis', badge: insights.length,
                 content: (
@@ -254,13 +265,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
                   />
                 ),
               },
-              // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
-              // pestaña no decía más que «está vacía» —y con tres redacciones
-              // distintas—: una pestaña cuyo único contenido es avisar que no hay
-              // contenido es una pestaña que se abre una vez y no se abre nunca más,
-              // pero que todos los días ocupa lugar y hace dudar de si falta algo.
-              // Con pagos cargados vuelve sola, con todo lo de siempre.
-              ...(pagos.length ? [{ key: 'cobranza', label: 'Pagos', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length }] : []),
               // ⚠️ EL RECORRIDO SE MUDÓ ACÁ. Estaba arriba de todo en el Resumen, ocupando
               // la primera pantalla con algo que ya pasó — y el Historial, que es
               // justamente «qué pasó», estaba en otra pestaña. Ahora la línea de tiempo

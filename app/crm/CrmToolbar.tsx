@@ -457,24 +457,34 @@ export function SelectorFunnel({ funnels, activo }: {
   // nadie y encima obliga a pensar en la estructura en vez de en lo que se vende.
   // Sin producto asociado se cae al nombre del funnel, que es lo que había.
   const comoSeLlama = (f: { nombre: string; producto?: string | null }) => f.producto?.trim() || f.nombre;
-  const opciones: DropdownOption[] = funnels.map((f) => ({
-    value: String(f.id),
-    label: comoSeLlama(f),
-    sub: f.esDefault ? 'el de tu negocio' : undefined,
-  }));
+  // Sin `sub`: el nombre del producto ya dice qué es. «el de tu negocio» debajo del
+  // único producto que hay era un renglón para no decir nada.
+  const opciones: DropdownOption[] = funnels.map((f) => ({ value: String(f.id), label: comoSeLlama(f) }));
   // Hoy todo workspace tiene UN funnel (mig 0170 le creó uno a cada uno) y cero
   // ofertas, así que sin este renglón el desplegable abre, muestra una sola cosa y
   // no hace nada — que se lee como que está roto, no como que falta crear algo.
   // Las ofertas y sus funnels se crean en el cerebro; el `?area=` lo abre ahí mismo.
-  // Apagado a propósito: es la salida para CREAR, no una opción más de la lista.
-  // Con el mismo peso que los productos reales compite con ellos justo cuando lo
-  // que se está haciendo es elegir entre los que ya existen.
-  opciones.push({ value: NUEVA, label: 'Nuevo producto', sub: 'con su propio embudo', color: 'var(--faint)' });
+  // ⚠️ `crear`, NO `color`. El intento anterior fue `color: 'var(--faint)'` creyendo que
+  // teñía el texto: `color` en un DropdownOption dibuja un PUNTO de 9 px, así que el
+  // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.
+  // El flag `crear` es el que apaga la fila y la enciende al pasar el cursor.
+  opciones.push({ value: NUEVA, label: 'Nuevo producto', crear: true });
+  // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
+  // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
+  // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
+  // y el control no llegaba al borde. Medido el 27/09/2026 reproduciendo las dos filas
+  // del CRM en el navegador: 23,3 px de desfase con el envoltorio, 0 con el ancho en el
+  // Dropdown. Se reportó DOS veces como «no está alineado con Nuevo lead».
+  //
+  // Es el último elemento de su fila, así que con el botón ocupando los 190 px su borde
+  // derecho cae exactamente donde el de «+ Nuevo lead» del header: las dos filas son
+  // hijas del mismo <main> y comparten su padding.
   return (
-    <span style={{ flex: 'none', minWidth: 190 }}>
+    <span style={{ flex: 'none' }}>
       <Dropdown
         value={String(actual.id)}
         options={opciones}
+        width={190}
         ariaLabel="Producto que dibuja el tablero"
         onChange={(v) => {
           if (v === NUEVA) { router.push('/second-brain?area=oferta'); return; }

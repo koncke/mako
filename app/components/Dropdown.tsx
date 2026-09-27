@@ -43,6 +43,7 @@ function renderOption(
     <>
       {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} cuadrado={o.avatarCuadrado} />}
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
+      {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{ display: 'block', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
         {!enColumna && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
@@ -50,7 +51,18 @@ function renderOption(
       {on && <span style={{ flex: 'none', color: 'var(--primary)', fontSize: 13 }}>✓</span>}
     </>
   );
-  const estilo: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 8, border: 'none', cursor: o.disabled ? 'default' : 'pointer', background: on ? 'var(--surface-2)' : 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, opacity: o.disabled ? 0.45 : 1 };
+  const estilo: CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+    padding: '9px 11px', borderRadius: 8, border: 'none',
+    cursor: o.disabled ? 'default' : 'pointer',
+    background: on ? 'var(--surface-2)' : 'transparent',
+    color: o.crear ? 'var(--faint)' : 'var(--ink)',
+    fontFamily: SANS, fontSize: 13.5,
+    opacity: o.disabled ? 0.45 : o.crear ? 0.8 : 1,
+    // La línea la separa de las opciones de verdad sin gastar un título.
+    ...(o.crear ? { borderTop: '1px solid var(--border)', borderRadius: 0, marginTop: 4, paddingTop: 11 } : null),
+    transition: 'color .12s, opacity .12s',
+  };
   const elegir = () => { if (!o.disabled) { onChange(o.value); close(); } };
 
   // Sin acciones, el renglón es EXACTAMENTE el de siempre: un solo <button>. Se
@@ -59,8 +71,17 @@ function renderOption(
   if (!o.acciones?.length) {
     return (
       <button key={o.value} type="button" disabled={o.disabled} onClick={elegir}
-        onMouseEnter={(e) => { if (!o.disabled && !on) e.currentTarget.style.background = 'var(--surface-2)'; }}
-        onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}
+        // El de CREAR no cambia de fondo: se enciende. Apagado dice «esto todavía no
+        // existe»; encendido, «esto se puede hacer».
+        onMouseEnter={(e) => {
+          if (o.disabled || on) return;
+          if (o.crear) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.opacity = '1'; }
+          else e.currentTarget.style.background = 'var(--surface-2)';
+        }}
+        onMouseLeave={(e) => {
+          if (o.crear) { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.opacity = '0.8'; return; }
+          if (!on) e.currentTarget.style.background = 'transparent';
+        }}
         style={estilo}>
         {cuerpo}
       </button>
@@ -104,7 +125,22 @@ function renderOption(
  */
 export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; onClick: () => void };
 
-export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[] };
+export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
+  /**
+   * La salida para CREAR uno nuevo, no una opción más de la lista.
+   *
+   * Se dibuja APAGADA —`--faint`, con su `＋` y una línea que la separa— y se ILUMINA
+   * al pasar el cursor. Es el mismo molde que «＋ Nueva tarea» del tablero del plan
+   * (`app/plan/board/BoardShell.tsx`), y el pedido fue textual: «que sea algo
+   * transparente, opaco, como queriendo agregar uno nuevo, y que al pasar el cursor se
+   * ilumine, ya lo hicimos un montón de veces».
+   *
+   * Por qué es un flag del primitive y no un estilo en cada llamador: con el mismo peso
+   * que las opciones reales, «crear» compite con ellas justo cuando lo que se está
+   * haciendo es elegir entre las que ya existen. Eso vale para todo desplegable, no
+   * para éste — y si vive en el llamador, el próximo nace sin él.
+   */
+  crear?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`). */
 export type DropdownGroup = { title: string; options: DropdownOption[] };
 

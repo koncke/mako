@@ -201,7 +201,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           en edición el EditLeadForm muestra su propio banner). */}
       {!editing && faltantes.length > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} nota="Completa estos datos para tener la ficha al día." ignorado={ignorado} onReactivar={reactivar} />
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
         </div>
       )}
       {editing ? (

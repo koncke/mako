@@ -32,8 +32,6 @@ import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
-import { ChatCard } from '../lead-view/ChatCard';
-import { NotasCard } from '../lead-view/NotasCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
@@ -151,7 +149,17 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           equipo={equipo}
           tabs={[
             {
-              key: 'resumen', label: 'Overview',
+              // ⚠️ ESTA PANTALLA ES LA MISMA FICHA QUE EL MODAL, y hasta el 27/09/2026
+              // se había quedado con las pestañas VIEJAS: en inglés, con «Notas» y «Chat»
+              // —las dos que la tanda 2 sacó— y con «Deal Details» dibujándose siempre
+              // aunque no tenga nada adentro. Las tres filas estaban marcadas como
+              // aplicadas en /admin/friccion y lo estaban SOLO en `LeadSheet.tsx`.
+              //
+              // No es una pantalla muerta: se llega desde el WhatsApp que avisa de un
+              // lead nuevo de la landing (`app/api/track/optin/route.ts`), desde el
+              // Closing Analyst y desde «Solucionar» de la propia ficha. O sea que el
+              // cliente que sigue ese link ve la versión anterior del producto.
+              key: 'resumen', label: 'Resumen',
               content: (
                 <>
                   {nutriPos && (
@@ -176,7 +184,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            { key: 'notas', label: 'Notas', content: <NotasCard leadId={lead.id} /> },
             {
               key: 'comportamiento', label: 'Tracking',
               content: (
@@ -187,10 +194,17 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
-            { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
+            { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
+            // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO, igual que en el modal. En 1.124 de los
+            // 1.138 leads esta pestaña no decía más que «está vacía»: una pestaña cuyo
+            // único contenido es avisar que no hay contenido se abre una vez y no se
+            // abre nunca más, pero todos los días ocupa lugar y hace dudar de si falta
+            // algo. Con pagos cargados vuelve sola, con todo lo de siempre.
+            ...((esVenta || tienePlan) ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <DealDetailsCard lead={lead} pagos={pagos} /> }] : []),
+            // Análisis va pegado a Historial: las dos contestan «qué pasó con esta
+            // persona» —una lo interpreta, la otra lo registra— y se leen seguidas.
             {
-              key: 'insights', label: 'Insights', badge: insights.length,
+              key: 'insights', label: 'Análisis', badge: insights.length,
               content: (
                 <GeneratedInsightCard
                   lead={lead}
@@ -202,18 +216,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 />
               ),
             },
-            {
-              key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,
-              content: esVenta || tienePlan ? (
-                <DealDetailsCard lead={lead} pagos={pagos} />
-              ) : (
-                <section style={card}>
-                  <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>
-                  <p style={{ fontSize: 14, color: 'var(--faint)' }}>El deal se habilita cuando el lead pasa a Facturando o Ganado (cambiando la etapa arriba).</p>
-                </section>
-              ),
-            },
-            { key: 'actividad', label: 'Change History', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+            { key: 'actividad', label: 'Historial', content: <AuditHistory leadId={lead.id} stages={stages} /> },
           ]}
         />
       </div>
