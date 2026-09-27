@@ -1,15 +1,38 @@
 // =============================================================================
 // /admin/friccion — dónde el CRM te frena, para decidir en 2 minutos
 // =============================================================================
-// Esto primero lo metí como un .md en /admin/docs y estuvo mal: ese navegador es
-// para documentos de programación —párrafos largos, letra chica, 40 documentos en
-// la lista— y el link ni siquiera abría el mío, caía en AGENTS.md. Martín: «te pedí
-// poca fricción y que se lea simple el html y mirá esto».
+// Primero fue un .md en /admin/docs y estuvo mal: ese navegador es para documentos
+// de programación —párrafos largos, letra chica, 40 documentos en la lista— y el
+// link ni siquiera abría el mío. Martín: «te pedí poca fricción y que se lea simple
+// el html y mirá esto».
 //
-// Así que esta pantalla NO es un documento: es una lista de decisiones. Una línea
-// por freno, lo que cuesta a la derecha, y arriba las tres que necesitan su
-// respuesta. El detalle con archivo:línea vive en docs/friccion-crm.md — acá sería
-// ruido, porque él no va a abrir un archivo desde esta pantalla.
+// La v2 arregló el texto y rompió la forma: tres CARDS grandes arriba (las que
+// esperan su respuesta) y tres bloques de lista abajo, con un <ul> suelto en el
+// medio. Martín, el 27/09: «No entiendo las 3 cards grandes con la diferencia de la
+// lista de abajo… ¿Por qué no pusiste todo en una lista o todas en cards? ¿O las de
+// abajo ya las aplicaste?».
+//
+// Las dos mitades de ese reporte importan, y la segunda más:
+//
+//  1. UNA CARD NO DICE «esto te toca a vos», DICE «esto es más importante». La
+//     distinción que yo quería marcar —tu decisión contra mi propuesta— no se puede
+//     pintar con el tamaño de la caja. Y la regla de la casa ya lo decía: un grupo de
+//     cosas del mismo tipo es una lista, y dos piezas con el mismo esqueleto (título
+//     + texto) son UNA pieza con dos configuraciones. Acá: todo es fila. Lo que
+//     distingue a las tres suyas es que están primeras y que la fila termina en la
+//     pregunta.
+//
+//  2. NO SE PODÍA SABER QUÉ ESTABA HECHO. Esa es la peor falla y no era de forma:
+//     la pantalla no decía en ningún lado que NADA de esto está aplicado, así que la
+//     pregunta «¿o las de abajo ya las aplicaste?» no tenía respuesta posible
+//     mirándola. Ahora lo dice el `estado` del header, que es lo primero que se lee.
+//     Verificado el 27/09: los 4 commits del CRM desde el relevamiento tocan
+//     `page.tsx`, `CrmBoard` y `CrmToolbar` (el selector de oferta) y ninguno toca
+//     `StageMoveDialog.tsx`, `stage-requirements.ts` ni la ficha, que es donde vive
+//     casi toda esta lista.
+//
+// El detalle con archivo:línea vive en docs/friccion-crm.md — acá sería ruido,
+// porque nadie va a abrir un archivo desde esta pantalla.
 
 import { redirect } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -20,41 +43,54 @@ export const dynamic = 'force-dynamic';
 
 const MONO = "'Geist Mono', monospace";
 
-/** Las tres que no puedo decidir yo: salen de reglas que pidió él. */
-const DECISIONES = [
+/**
+ * Una fila de la lista, y es la MISMA en los cinco grupos.
+ *
+ * `costo` y `pregunta` son opcionales y no cambian la forma: agregan un renglón.
+ * Ese es todo el mecanismo que antes eran dos lenguajes visuales distintos.
+ */
+type Fila = {
+  que: string;
+  ejemplo: string;
+  /** Lo que cuesta atravesarlo. Sólo donde está medido. */
+  costo?: string;
+  /** Lo que necesito que conteste. Sólo en el primer grupo. */
+  pregunta?: string;
+};
+
+const DECIDIS: Fila[] = [
   {
     que: 'Agendar una reunión',
-    detalle: 'Arrastras a Carlos Mejía a Agenda R1 y no se mueve: primero un menú de 3 opciones, después un asistente de 3 pasos. Si eliges «ya está agendada», no te deja seguir hasta escribir por qué no usaste Calendly.',
-    costo: '~10 clics',
-    unidad: 'por día',
+    ejemplo: 'Arrastras a Carlos Mejía a Agenda R1 y no se mueve: primero un menú de 3 opciones, después un asistente de 3 pasos. Si eliges «ya está agendada», no te deja seguir hasta escribir por qué no usaste Calendly.',
+    costo: '~10 clics por día',
     pregunta: '¿Ese texto obligatorio lo quieres como freno a propósito, sabiendo que nada lo lee?',
   },
   {
     que: 'Confirmar cada arrastre',
-    detalle: 'Arrastras a Gerardo Avila a Ganado y se abre «Mover a Ganado a Gerardo Avila»: hay que apretar otra vez. Lo pediste el 06/08, y desde entonces el toast «Deshacer» dura 5 segundos y el movimiento queda en el historial.',
-    costo: '5 clics',
-    unidad: 'por día',
+    ejemplo: 'Arrastras a Gerardo Avila a Ganado y se abre «Mover a Ganado a Gerardo Avila»: hay que apretar otra vez. Lo pediste el 06/08, y desde entonces el toast «Deshacer» dura 5 segundos y el movimiento queda en el historial.',
+    costo: '5 clics por día',
     pregunta: '¿Vale también para algo que ya se deshace en 5 segundos y queda en el historial?',
   },
   {
     que: 'Corregir un teléfono',
-    detalle: 'A Alejandro Prado le quedó el teléfono con caracteres raros. En la ficha el teléfono es un botón de COPIAR: hay que ir a otra pantalla, prender «Editar», guardar, confirmar los cambios en un modal, y al volver el tablero se recarga entero.',
-    costo: '5 clics + 2 recargas',
-    unidad: 'cada vez',
+    ejemplo: 'A Alejandro Prado le quedó el teléfono con caracteres raros. En la ficha el teléfono es un botón de COPIAR: hay que ir a otra pantalla, prender «Editar», guardar, confirmar los cambios en un modal, y al volver el tablero se recarga entero.',
+    costo: '5 clics + 2 recargas, cada vez',
     pregunta: '¿La previsualización del cambio la quieres antes, o un «deshacer» después?',
   },
 ];
 
-/** Bugs y esperas: no protegen nada, no necesito permiso. */
-const SIN_PERMISO = [
-  'El «Revisando qué datos faltan…» que tapa el asistente: no avanza, no vuelve y no se puede cerrar',
-  'La pantalla «✓ Datos actualizados» al terminar: una pantalla más para decir lo que acabas de hacer',
-  'Aprietas Escape dentro de un cartel y se cierra la ficha entera, con lo que estabas escribiendo',
-  'El contador de Pendientes late en rojo sin parar, y en la ficha el mismo aviso aparece 3 veces',
+const HAGO: Fila[] = [
+  { que: 'El «Revisando qué datos faltan…» que tapa el asistente',
+    ejemplo: 'No avanza, no vuelve y no se puede cerrar. Hay que recargar la página.' },
+  { que: 'La pantalla «✓ Datos actualizados» al terminar',
+    ejemplo: 'Una pantalla más para decir lo que acabas de hacer. Sale al completar datos; arrastrando un lead de etapa no aparece.' },
+  { que: 'Escape cierra la ficha entera',
+    ejemplo: 'Aprietas Escape dentro de un cartel y se cierra la ficha, con lo que estabas escribiendo.' },
+  { que: 'El rojo de Pendientes, y el mismo aviso 3 veces',
+    ejemplo: 'El contador late en rojo sin parar, y dentro de la ficha el aviso aparece repetido.' },
 ];
 
-type Item = { que: string; ejemplo: string };
-const SACAR: Item[] = [
+const SACAR: Fila[] = [
   { que: 'Dos pantallas cuya única acción posible es «no lo tengo»',
     ejemplo: 'Cerraste a Jesús Cendejas: el asistente pide documento fiscal y comprobante. No los tienes → dos toques a «No lo tengo». Pasa en 9 de cada 10 Ganados.' },
   { que: 'Un pendiente que no se puede resolver nunca',
@@ -75,7 +111,7 @@ const SACAR: Item[] = [
     ejemplo: '«No se pudo leer Supabase: <mensaje técnico>» en una barra que no se cierra. Y si falla el chat del lead, no hay botón de reintentar.' },
 ];
 
-const CAMBIAR: Item[] = [
+const CAMBIAR: Fila[] = [
   { que: 'Entrar al CRM: pantalla vieja, sin aviso de que está cargando',
     ejemplo: 'Haces clic y no pasa nada —ni esqueleto ni spinner— hasta que el servidor lee tus 1.142 leads. Y vuelve a pasar después de cada cambio.' },
   { que: 'El tablero abre con todo',
@@ -98,7 +134,7 @@ const CAMBIAR: Item[] = [
     ejemplo: 'Eliges una receta ya armada y todavía pregunta en qué formato; el botón de descargar queda gris hasta que termina de contar 1.142 leads.' },
 ];
 
-const MANTENER: Item[] = [
+const DEJAR: Fila[] = [
   { que: 'Las dos preguntas de Meta al mover un lead',
     ejemplo: '«¿Asistió a la R1?» y «¿Era calificado?». Son los únicos dos datos del CRM que le llegan a Meta, y ya son opcionales: el botón mueve igual.' },
   { que: 'El motivo de la pérdida, escrito a mano',
@@ -113,23 +149,54 @@ const MANTENER: Item[] = [
     ejemplo: 'Dice si Google movió el evento y avisó al invitado — algo que no se sabía al confirmar, porque el CRM guarda primero y Google contesta hasta 28 s después.' },
 ];
 
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 22px' };
+/**
+ * Los cinco grupos, y el orden es el de lo que necesito de él: primero contestar,
+ * después mirar tres propuestas. Cada título es un VERBO que dice qué pasa con esas
+ * filas — antes eran cuatro rótulos de categorías distintas («Sacar», «Me lo llevo»)
+ * y no se podía saber cuáles esperaban algo suyo.
+ *
+ * El punto de color dice a qué grupo pertenece la fila, NO qué tan grave es. Por eso
+ * los dos primeros no entran en la escala rojo/ámbar/verde: no son severidades, son
+ * quién decide.
+ */
+const GRUPOS: Array<{ titulo: string; punto: string; filas: Fila[] }> = [
+  { titulo: 'Espera tu respuesta', punto: 'var(--primary)', filas: DECIDIS },
+  { titulo: 'Lo hago sin preguntarte', punto: 'var(--dim)', filas: HAGO },
+  { titulo: 'Propongo sacarlo — no protege nada', punto: 'var(--bad)', filas: SACAR },
+  { titulo: 'Propongo cambiarle la forma — avisar en vez de frenar', punto: 'var(--warn)', filas: CAMBIAR },
+  { titulo: 'Propongo dejarlo — evita un dato falso', punto: 'var(--good)', filas: DEJAR },
+];
+
+const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 };
 const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-function Bloque({ titulo, punto, items }: { titulo: string; punto: string; items: Item[] }) {
+function Grupo({ titulo, punto, filas }: { titulo: string; punto: string; filas: Fila[] }) {
   return (
-    <section style={{ ...card, padding: 0, overflow: 'hidden' }}>
+    <section style={{ ...card, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '15px 22px', borderBottom: '1px solid var(--border)' }}>
-        <span aria-hidden style={{ width: 9, height: 9, borderRadius: 999, background: punto }} />
+        <span aria-hidden style={{ width: 9, height: 9, borderRadius: 999, background: punto, flex: 'none' }} />
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{titulo}</span>
-        <span style={{ ...rotulo, marginLeft: 'auto' }}>{items.length}</span>
+        <span style={{ ...rotulo, marginLeft: 'auto', flex: 'none' }}>{filas.length}</span>
       </div>
-      {items.map((i) => (
-        <div key={i.que} style={{ padding: '13px 22px', borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{i.que}</div>
+      {filas.map((f) => (
+        <div key={f.que} style={{ padding: '13px 22px', borderTop: '1px solid var(--border)' }}>
+          {/* El costo va en su propia columna y NO crece: el texto es el que cede.
+              Antes era un número rojo de 22px, que es la escala que tenía cuando esto
+              era una card — al volverse una fila nadie se la bajó. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'baseline' }}>
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{f.que}</div>
+            {f.costo && (
+              <div style={{ flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                {f.costo}
+              </div>
+            )}
+          </div>
           {/* El ejemplo con nombres de SU base es lo que hace entendible la línea de
               arriba sin un párrafo: «no se entiende» fue el feedback de la v1. */}
-          <div style={{ marginTop: 3, fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{i.ejemplo}</div>
+          <div style={{ marginTop: 3, fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{f.ejemplo}</div>
+          {f.pregunta && (
+            <div style={{ marginTop: 7, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.5 }}>{f.pregunta}</div>
+          )}
         </div>
       ))}
     </section>
@@ -142,45 +209,29 @@ export default async function FriccionPage() {
   const admin = await getSesionAdmin();
   if (!admin) redirect('/inicio');
 
+  const total = GRUPOS.reduce((n, g) => n + g.filas.length, 0);
+
   return (
     <Pagina>
       <PageHeader
         titulo="Fricción del CRM"
-        proposito="Dónde te frena, ordenado por lo que más molesta. Decide las tres de arriba y el resto lo hago."
+        proposito="Dónde te frena, ordenado por lo que más molesta. Contesta las tres primeras y el resto lo hago."
+        // Lo primero que se lee, porque es lo que la versión anterior no contestaba.
+        estado={
+          <span style={{ fontSize: 13, color: 'var(--ink)' }}>
+            <b style={{ fontWeight: 700 }}>Nada de esto está aplicado.</b>{' '}
+            <span style={{ color: 'var(--dim)' }}>Los {total} siguen en el CRM tal cual.</span>
+          </span>
+        }
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-        <section>
-          <div style={{ ...rotulo, marginBottom: 12 }}>Necesito que decidas</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-            {DECISIONES.map((d) => (
-              <div key={d.que} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{d.que}</div>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--bad)', letterSpacing: '-.02em' }}>{d.costo}</div>
-                  <div style={{ ...rotulo, fontSize: 10.5 }}>{d.unidad}</div>
-                </div>
-                <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{d.detalle}</p>
-                <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5 }}>{d.pregunta}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section style={{ ...card, background: 'var(--surface-2)' }}>
-          <div style={{ ...rotulo, marginBottom: 10 }}>Me lo llevo sin preguntarte · bugs y esperas</div>
-          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {SIN_PERMISO.map((t) => <li key={t} style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.45 }}>{t}</li>)}
-          </ul>
-        </section>
-
-        <Bloque titulo="Sacar — no protegen nada" punto="var(--bad)" items={SACAR} />
-        <Bloque titulo="Cambiar de forma — avisar en vez de frenar" punto="var(--warn)" items={CAMBIAR} />
-        <Bloque titulo="Mantener — evita un dato falso" punto="var(--good)" items={MANTENER} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {GRUPOS.map((g) => <Grupo key={g.titulo} {...g} />)}
 
         <p style={{ margin: 0, fontSize: 13, color: 'var(--faint)', lineHeight: 1.6 }}>
-          Relevado el 25/09 sobre el código, con los números de la base. El detalle de cada uno, con archivo y línea,
-          está en <code style={{ fontFamily: MONO, fontSize: 12 }}>docs/friccion-crm.md</code>.
+          Relevado el 25/09 sobre el código, con los números de la base. Verificado el 27/09 contra los cuatro commits
+          del CRM posteriores: ninguno toca lo de esta lista. El detalle de cada uno, con archivo y línea, está en{' '}
+          <code style={{ fontFamily: MONO, fontSize: 12 }}>docs/friccion-crm.md</code>.
         </p>
       </div>
     </Pagina>
