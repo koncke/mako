@@ -185,7 +185,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
                 <EditableInline
                   valor={nombre}
                   placeholder="Sin nombre"
-                  titulo="Editá el nombre del cliente"
+                  titulo="Edita el nombre del cliente"
                   className="fc-ed fc-ed-nom"
                   onGuardar={(v) => guardarDatos({ nombre: v })} />
                 {/* ⚠️ «CRM →» PASÓ A ESTAR ACÁ, PEGADO AL NOMBRE. Arriba a la derecha
@@ -202,8 +202,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
                     cliente se perdía justo en las fichas que sí la tenían. */}
                 <EditableInline
                   valor={c.empresa ?? ''}
-                  placeholder="Agregá la empresa"
-                  titulo="Editá la empresa"
+                  placeholder="Agrega la empresa"
+                  titulo="Edita la empresa"
                   className="fc-ed fc-ed-sub"
                   onGuardar={(v) => guardarDatos({ empresa: v })} />
                 <span className="id"> · Cliente {n}</span>
