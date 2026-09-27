@@ -355,4 +355,36 @@ export const BITACORA: Hito[] = [
       'docs/dos-cuentas.md — las tres piezas y por qué el mtime no alcanza',
     ],
   },
+  {
+    fecha: '27 sep', hora: '10:36', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Volví después de 16 días: ¿tenés el contexto?',
+    pedido: 'Estuve trabajando en la otra cuenta. Le pedí a los ultimos chats que se aseguraran de guardar el contexto y lo ultimo que trabajamos. ¿Lo tienes?',
+    puntos: [
+      '**Sí, y esta vez el mecanismo contestó solo la parte que en agosto no se podía contestar:** la cuenta 1 estuvo del **11/09 15:55 al 27/09 10:13**, exacto, leído de `~/.claude/bitacora-sesiones.tsv`. En agosto la misma pregunta no tenía respuesta porque el único dato eran los trailers, que se firmaban adivinando.',
+      'Y las 4 sesiones de esa mañana **sí cumplieron el handoff**: Martín les mandó el mismo mensaje literal a las 10:13, las cuatro cosecharon antes de cerrar y ninguna quedó cortada a mitad de una edición.',
+      '⚠️ **Pero el pedido del 25/08 —que se guardaran los prompts de Martín— no se cumplió en 16 días.** 152 commits, 19 de cosecha, 25 documentos de contexto tocados… y **CERO hitos** en las 39 bitácoras de `/admin/dev`. La cosecha se cumplió a rajatabla y el registro no se tocó.',
+      '**La causa no fue desidia sino dónde vivía cada regla:** la de los hallazgos estaba en `AGENTS.md`, que es lo que se lee antes de commitear; la del registro vivía en un comentario de `_registro/tipos.ts` y en una memoria. **Una regla que no está en `AGENTS.md` no existe para una sesión nueva**, y el modo de falla es silencioso: el trabajo sale igual y lo único que falta es el rastro de quién lo pidió.',
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '11:45', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'El relevo se escribe, y dos agujeros del mecanismo de cuentas',
+    puntos: [
+      'Sale `docs/relevo.md`: 12 agentes sobre los 16 días —los diffs de cada documento, las 45 tandas de `AGENTS.md`, los 152 commits por hilo y los transcripts de las 4 sesiones—. **Se pisa en cada relevo** y las versiones viejas quedan en el historial de git, para no acumular archivos con fecha que nadie reabre.',
+      '⚠️ **El trailer `Claude-Cuenta` nunca se parseó.** Git sólo trata como trailers el último bloque contiguo, y la línea en blanco antes de `Co-Authored-By` lo dejaba afuera. `%(trailers:key=Claude-Cuenta)` devuelve vacío en 6 de los 7 commits medidos. A ojo el mensaje se ve perfecto — por eso nadie lo notó — y toda herramienta que cuente por cuenta lee **0**. Arreglado: el bloque va pegado.',
+      '⚠️ **El contexto del hook es una FOTO del arranque.** Tres sesiones leyeron `claude1` a las 10:12-10:13, Martín cambió de cuenta y reescribió el marcador **10:14:43**, y dos commits posteriores (`cbb6fcd2`, `72aa1109`) salieron firmados `claude1` con el marcador ya en `claude2`. Queda la regla de releer el marcador antes de firmar, en `AGENTS.md` y en el propio mensaje del hook.',
+      'Detalle que vale para leer la bitácora: una sesión con `inicio claude1` y `fin claude2` **no está corrupta** — es el registro correcto de una cuenta que cambió a mitad.',
+      'Y la sección «La cosecha» de `AGENTS.md` gana su tercer destino: `app/admin/dev/<área>/bitacora.ts`, con `tipo: \'prompt\'` y el texto literal en `pedido`. Esta entrada es la primera que lo cumple.',
+    ],
+    commits: [
+      { sha: 'f17770d2', msg: 'El relevo entre cuentas se escribe, y dos agujeros del propio mecanismo', lineas: 446, archivos: 3 },
+    ],
+    archivos: [
+      'docs/relevo.md — el último traspaso, reescrito en cada relevo',
+      'AGENTS.md — el trailer pegado, releer el marcador, y el registro como tercer destino de la cosecha',
+      '~/.claude/bitacora-sesion.sh — el hook ahora avisa que su contexto es una foto',
+    ],
+  },
 ];
