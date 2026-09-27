@@ -97,6 +97,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { type VisitasMap } from './crm-map';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
@@ -641,6 +642,24 @@ async function altaDeLead(formData: FormData): Promise<{ id: number }> {
  * encima del tablero: una excepción ahí sube al error boundary y se lleva puesta la
  * pantalla entera, con los filtros y el scroll que este cambio vino a preservar.
  */
+/**
+ * Un producto nuevo con su tablero, sin salir del CRM.
+ *
+ * Devuelve el error en vez de tirarlo: el que llama es un modal abierto encima del
+ * tablero, y una excepción ahí sube al error boundary y se lleva la pantalla entera.
+ */
+export async function crearProductoAction(nombre: string): Promise<{ funnelId: number } | { error: string }> {
+  try {
+    const { funnelId } = await crearProductoConFunnel(nombre);
+    bust(TAG.leads);
+    revalidatePath('/crm');
+    revalidatePath('/funnel');
+    return { funnelId };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'No se pudo crear el producto.' };
+  }
+}
+
 export async function crearLeadEnTableroAction(formData: FormData): Promise<{ id: number } | { error: string }> {
   try {
     return await altaDeLead(formData);

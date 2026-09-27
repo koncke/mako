@@ -20,10 +20,13 @@
 
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
 
 const MONO = "'Geist Mono', monospace";
+import { Modal } from '@/app/_ui/Modal';
+import { crearProductoAction } from './actions';
+
 const SANS = "'Geist', sans-serif";
 
 /** Vista del tablero. "pendientes" (datos sin marcar) es UNA VISTA: reemplaza el board entero. */
@@ -450,6 +453,7 @@ export function SelectorFunnel({ funnels, activo }: {
   activo: number | null;
 }) {
   const router = useRouter();
+  const [creando, setCreando] = useState(false);
   if (funnels.length === 0) return null;
   const actual = funnels.find((f) => f.id === activo) ?? funnels.find((f) => f.esDefault) ?? funnels[0];
   // ⚠️ SE MUESTRA EL PRODUCTO, NO EL FUNNEL. «Funnel principal» es el nombre que
@@ -460,10 +464,6 @@ export function SelectorFunnel({ funnels, activo }: {
   // Sin `sub`: el nombre del producto ya dice qué es. «el de tu negocio» debajo del
   // único producto que hay era un renglón para no decir nada.
   const opciones: DropdownOption[] = funnels.map((f) => ({ value: String(f.id), label: comoSeLlama(f) }));
-  // Hoy todo workspace tiene UN funnel (mig 0170 le creó uno a cada uno) y cero
-  // ofertas, así que sin este renglón el desplegable abre, muestra una sola cosa y
-  // no hace nada — que se lee como que está roto, no como que falta crear algo.
-  // Las ofertas y sus funnels se crean en el cerebro; el `?area=` lo abre ahí mismo.
   // ⚠️ `crear`, NO `color`. El intento anterior fue `color: 'var(--faint)'` creyendo que
   // teñía el texto: `color` en un DropdownOption dibuja un PUNTO de 9 px, así que el
   // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.
@@ -487,13 +487,84 @@ export function SelectorFunnel({ funnels, activo }: {
         width={190}
         ariaLabel="Producto que dibuja el tablero"
         onChange={(v) => {
-          if (v === NUEVA) { router.push('/second-brain?area=oferta'); return; }
+          // ⚠️ SE RESUELVE ACÁ, NO EN OTRA PANTALLA. Hasta el 27/09/2026 esto hacía
+          // `router.push('/second-brain?area=oferta')`: sacaba a la persona del CRM,
+          // le pedía armar la oferta en el cerebro y que volviera. «No tiene sentido
+          // que al apretar nuevo producto me lleve al second brain, todo se debe
+          // resolver dentro del CRM».
+          if (v === NUEVA) { setCreando(true); return; }
           const f = funnels.find((x) => x.id === Number(v));
           // El del negocio va sin parámetro: la URL del CRM no se ensucia por defecto.
           router.push(f?.esDefault ? '/crm' : `/crm?funnel=${v}`);
         }}
       />
+      {creando && (
+        <NuevoProductoModal
+          onCerrar={() => setCreando(false)}
+          onCreado={(funnelId) => { setCreando(false); router.push(`/crm?funnel=${funnelId}`); }}
+        />
+      )}
     </span>
+  );
+}
+
+/**
+ * Alta de un producto desde el CRM: UNA pregunta.
+ *
+ * El nombre alcanza para que el producto exista y su tablero se pueda mirar. El precio,
+ * el tipo y la promesa se completan en el catálogo de productos — acá se está eligiendo
+ * qué tablero ver, no cerrando el modelo de negocio, y pedir cinco campos para eso es
+ * exactamente la fricción que este CRM viene sacando.
+ */
+function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCreado: (funnelId: number) => void }) {
+  const [nombre, setNombre] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [guardando, startGuardar] = useTransition();
+
+  const crear = () => {
+    const n = nombre.trim();
+    if (!n) { setErr('Ponle un nombre al producto.'); return; }
+    setErr(null);
+    startGuardar(async () => {
+      const r = await crearProductoAction(n);
+      if ('error' in r) { setErr(r.error); return; }
+      onCreado(r.funnelId);
+    });
+  };
+
+  return (
+    <Modal
+      titulo="Nuevo producto"
+      ancho={440}
+      onCerrar={onCerrar}
+      pie={(<>
+        <button type="button" onClick={onCerrar} style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+        <button type="button" onClick={crear} disabled={guardando}
+          style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>
+          {guardando ? 'Creando…' : 'Crear producto'}
+        </button>
+      </>)}
+    >
+      <label style={{ display: 'block' }}>
+        <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>¿Cómo se llama?</span>
+        <input
+          type="text" value={nombre} autoFocus
+          onChange={(e) => setNombre(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !guardando) crear(); }}
+          placeholder="Sistema DOS™"
+          style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' }}
+        />
+      </label>
+      {/* Lo que pasa al confirmar, pegado al botón: el producto nace con su propio
+          tablero, y el CRM salta a él. Sin esto, «Crear producto» no dice que además
+          cambia lo que se está mirando. */}
+      <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '10px 0 0', lineHeight: 1.5 }}>
+        Nace con su propio tablero y el CRM se cambia a él. El precio y el resto se completan después.
+      </p>
+      {err && (
+        <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+      )}
+    </Modal>
   );
 }
 
