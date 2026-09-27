@@ -23,6 +23,8 @@
 //   · la página de /crm/[id] recupera «Chat»          → 4 / 2
 //   · el selector pierde su `width`                   → 5 / 1
 //   · el renglón de crear deja de iluminarse          → 5 / 1
+//   · la TERCERA ficha (EditLeadForm) vuelve al inglés → 8 / 1
+//   · la ruta /crm/[id] pierde las notas otra vez      → 8 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -170,20 +172,46 @@ test('Análisis va pegado a Historial, en las DOS fichas', () => {
   // 1 fallo; en la página, otro.
 });
 
-test('la ficha de /crm/[id] es la MISMA ficha que el modal', () => {
-  // ⚠️ TRES filas de /admin/friccion estaban marcadas como aplicadas y lo estaban
-  // SOLO en el modal: las pestañas en inglés, «Notas» y «Chat». Es la regla de
-  // AGENTS.md «sacar un patrón es ENUMERAR dónde está, no arreglarlo donde se
-  // vio», y acá se pagó con la pantalla a la que llega el CLIENTE: el WhatsApp
-  // que avisa de un lead nuevo de la landing linkea a /crm/<id>, no al tablero.
-  const pagina = leer('../app/crm/[id]/page.tsx');
-  for (const ingles of ['Overview', 'Meetings', 'Insights', 'Deal Details', 'Change History']) {
-    assert.ok(!new RegExp(`label: '${ingles}'`).test(pagina), `«${ingles}» sigue en inglés`);
+test('las TRES fichas hablan el mismo idioma y muestran lo mismo', () => {
+  // ⚠️ SON TRES, NO DOS, y ésa es la razón por la que esto falló DOS veces. El 27/09
+  // se tradujeron las pestañas del modal; después apareció que la ruta /crm/[id] tenía
+  // las suyas en inglés; y al arreglar la ruta quedó afuera la TERCERA — el modo
+  // EDICIÓN (`EditLeadForm`), que está a un clic del tablero («Editar lead →»).
+  //
+  // Ninguna es una pantalla muerta: al modal se llega desde el tablero, a la ruta desde
+  // el WhatsApp que avisa de un lead nuevo de la landing y desde el Closing Analyst, y
+  // al form desde el botón de la ficha.
+  const SUPERFICIES = [
+    '../app/crm/LeadSheet.tsx',
+    '../app/crm/[id]/page.tsx',
+    '../app/crm/[id]/EditLeadForm.tsx',
+  ];
+  for (const ruta of SUPERFICIES) {
+    const f = leer(ruta);
+    for (const ingles of ['Overview', 'Meetings', 'Insights', 'Deal Details', 'Change History']) {
+      assert.ok(!new RegExp(`label: '${ingles}'`).test(f), `${ruta}: «${ingles}» sigue en inglés`);
+    }
+    assert.ok(!/label: 'Notas'/.test(f), `${ruta}: la pestaña Notas se sacó del producto`);
+    assert.ok(!/label: 'Chat'/.test(f), `${ruta}: la pestaña Chat se sacó`);
   }
-  assert.ok(!/label: 'Notas'/.test(pagina), 'la pestaña Notas se sacó del producto');
-  assert.ok(!/label: 'Chat'/.test(pagina), 'la pestaña Chat se sacó: basta el ícono de WhatsApp al lado del número');
-  // Y Pagos es condicional acá también: sin pagos no se dibuja.
-  assert.ok(/\.\.\.\(\(esVenta \|\| tienePlan\) \? \[\{ key: 'cobranza'/.test(pagina), 'Pagos tiene que ser condicional, como en el modal');
+
+  // Y Pagos es condicional en las dos que la dibujan como tab de datos.
+  assert.ok(/\.\.\.\(\(esVenta \|\| tienePlan\) \? \[\{ key: 'cobranza'/.test(leer('../app/crm/[id]/page.tsx')), 'Pagos condicional en la ruta');
+  assert.ok(/\.\.\.\(pagos\.length \? \[\{ key: 'cobranza'/.test(leer('../app/crm/LeadSheet.tsx')), 'Pagos condicional en el modal');
+});
+
+test('las notas y el recorrido están en las DOS fichas, y en el mismo lugar', () => {
+  // Las notas se sacaron de la ruta junto con su pestaña y volvieron SOLO al modal:
+  // quien entra por el link del WhatsApp de la landing se quedaba sin notas.
+  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
+    const f = leer(ruta);
+    assert.ok(/<NotasCard leadId=\{lead\.id\} \/>/.test(f), `${ruta}: faltan las notas`);
+    // El recorrido va con el Historial, no en el Resumen: las dos contestan «qué pasó».
+    const iAct = f.indexOf("label: 'Historial'");
+    const iRec = f.indexOf('Recorrido del lead');
+    assert.ok(iAct >= 0 && iRec >= 0, `${ruta}: falta alguna de las dos anclas`);
+    assert.ok(iRec > iAct, `${ruta}: el recorrido va DENTRO de la tab Historial`);
+  }
 });
 
 // ── 3 · El selector de producto ──────────────────────────────────────────────

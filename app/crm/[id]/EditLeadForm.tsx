@@ -322,9 +322,15 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
       <LeadTabs
         initial={initialTab}
         tabs={[
-          { key: 'resumen', label: 'Overview', content: tabContacto },
-          { key: 'reuniones', label: 'Meetings', content: tabReuniones },
-          { key: 'cobranza', label: 'Deal Details', content: tabCobranzaEdit },
+          // ⚠️ ES LA TERCERA FICHA, y se había quedado con las pestañas viejas. El
+          // 27/09 se tradujeron las del modal y las de la ruta y ésta quedó afuera:
+          // está a UN clic del tablero («Editar lead →»), así que abrir un lead y
+          // tocar editar devolvía la versión anterior del producto. Es «sacar un
+          // patrón es ENUMERAR dónde está» mordiendo por tercera vez con el mismo
+          // patrón — y las keys NO se tocan: las usa `TAB_EDITABLE` de LeadDetailBody.
+          { key: 'resumen', label: 'Resumen', content: tabContacto },
+          { key: 'reuniones', label: 'Reuniones', content: tabReuniones },
+          { key: 'cobranza', label: 'Pagos', content: tabCobranzaEdit },
         ]}
       />
 

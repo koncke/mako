@@ -174,7 +174,11 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
       {nutriPos && (
         <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
           <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
-          <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>El lead está avanzando — sigue en su etapa. Ventana informativa hasta la {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} del <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'es hoy' : `faltan ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
+          {/* ⚠️ SIN «ventana informativa», que es jerga NUESTRA. Es la fila del plan
+              «un cartel que explica jerga nuestra», arreglada el 27/09 en la ruta
+              /crm/[id] y no acá. El mismo copy en las dos, y dice lo único que la
+              persona necesita: cuándo es y cuánto falta. */}
+          <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>Va bien: su {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} es el <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'hoy' : `en ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
         </section>
       )}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} direccion={lead.deal_fiscal?.domicilio ?? null} />

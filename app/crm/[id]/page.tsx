@@ -29,6 +29,7 @@ import { DealDetailsCard } from './DealDetailsCard';
 import { LeadDetailBody, BackButton } from './LeadDetailBody';
 import { OrigenCard } from '../lead-view/OrigenCard';
 import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
+import { NotasCard } from '../lead-view/NotasCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
@@ -177,10 +178,15 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     direccion={lead.deal_fiscal?.domicilio ?? null}
                     cohorte={lead.fecha_junta_1 ? { label: cohorteLabel, color: cohorteColor, texto: textoJ1 } : null}
                   />
-                  <section style={card}>
-                    <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
-                    <JourneyTimeline steps={journey} />
-                  </section>
+                  {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del
+                      lead. Como pestaña propia se escribieron 4 en toda la base — no
+                      porque no sirvan, sino porque escribir una costaba un viaje a otro
+                      lado. Acá abajo del resumen están a la vista, que es donde se usan.
+
+                      Se sacaron de la ruta el 27/09 junto con la pestaña, y volvieron
+                      SOLO al modal: quien entra por el link del WhatsApp de la landing
+                      se quedó sin notas. Es la misma trampa de las pestañas en inglés. */}
+                  <NotasCard leadId={lead.id} />
                 </>
               ),
             },
@@ -216,7 +222,20 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 />
               ),
             },
-            { key: 'actividad', label: 'Historial', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+            // El recorrido se mudó acá desde el Resumen: junto al registro de cambios,
+            // que es la otra mitad de «qué pasó». Igual que en el modal.
+            {
+              key: 'actividad', label: 'Historial',
+              content: (
+                <>
+                  <section style={card}>
+                    <div style={{ ...sectLabel, marginBottom: 16 }}>Recorrido del lead</div>
+                    <JourneyTimeline steps={journey} />
+                  </section>
+                  <AuditHistory leadId={lead.id} stages={stages} />
+                </>
+              ),
+            },
           ]}
         />
       </div>

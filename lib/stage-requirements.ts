@@ -305,12 +305,30 @@ export function unirPasos(...listas: Array<readonly Step[] | null | undefined>):
  * de Calendly R2 (búsqueda automática o motivo de agenda externa). Ya NO se
  * deriva a ninguna tab: TODO se completa en el wizard.
  */
+/**
+ * Qué steps SABE resolver el wizard de «Solucionar».
+ *
+ * ⚠️ ESTA LISTA TIENE QUE SER LA VERDAD, NO LA INTENCIÓN. `hayPasoDeWizard` decide
+ * con ella si «Solucionar» abre el asistente o manda a una tab de la ficha — y hasta
+ * el 27/09/2026 declaraba tres steps que el wizard ya NO tiene:
+ *
+ *   · `dealFiscalDoc` y `comprobante`, cuyos `p.push` se sacaron en la tanda 2
+ *     («dos pantallas cuya única acción posible es no lo tengo»).
+ *   · `r2Respuestas`, que desde esa misma tanda no lo emite nadie.
+ *
+ * El resultado era el pendiente imposible RECREADO: con esos como únicos faltantes,
+ * «Solucionar» abría un asistente sin un solo paso que además afirmaba «No falta
+ * ningún dato». Los tres ya tienen su tab en `STEP_TAB` de abajo, así que sacarlos de
+ * acá los rutea a donde SÍ se resuelven.
+ *
+ * La regla: si se saca un paso del wizard, se saca de esta lista en el mismo commit.
+ * Una lista de capacidades que miente no falla — manda a una pantalla vacía.
+ */
 export const WIZARD_STEP_IDS: ReadonlySet<StepId> = new Set<StepId>([
   'fechaJ1', 'asistenciaR1', 'calificado', 'fathomR1',
   'fechaJ2', 'asistenciaR2', 'fathomR2', 'monto', 'plan', 'motivo',
   'setter', 'closer', 'empresa', 'telefono',
-  'dealServicio', 'dealPromesa', 'dealFiscal', 'dealObligaciones', 'dealFiscalDoc',
-  'comprobante', 'r2Respuestas',
+  'dealServicio', 'dealPromesa', 'dealFiscal', 'dealObligaciones',
 ]);
 
 /** ¿Hay al menos un dato que el wizard pueda resolver? Con la pasada única, es
