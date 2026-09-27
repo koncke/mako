@@ -3539,3 +3539,175 @@ con qué reemplazar la pantalla anterior y la deja a la vista hasta que el serve
 Paralelizar ayuda; lo que cambia el síntoma es el archivo de 70 líneas.
 
 **Vive en:** `app/crm/page.tsx` · `app/crm/loading.tsx` · *2026-09-27 friccion-tanda-3*
+
+## Cuatro filas «aplicadas» que no lo estaban, y la que lo estaba a la mitad (27/09/2026)
+
+Un panel de 16 agentes releyó el plan de fricción entero contra el código. De las 23 filas
+que `/admin/friccion` daba por aplicadas, **cuatro no lo estaban** — y ninguna de las cuatro
+se distingue de las hechas mirando la pantalla, porque la pantalla lee el flag, no el código.
+
+**Lo que las agrupa: todas se marcaron desde la pantalla donde se vio el síntoma.**
+
+| Fila | Dónde se aplicó | Dónde NO |
+|---|---|---|
+| «7 de las 8 pestañas en inglés» | `LeadSheet.tsx` (el modal) | `app/crm/[id]/page.tsx` (la ruta) |
+| «La pestaña Notas» · «la de Chat» | el modal | la ruta |
+| «Deal Details que solo dice que está vacía» | el modal | la ruta |
+| «Este dato entrena… (CAPI)» | `CrmBoard.tsx` (wizard «¿Qué hacer ahora?») | `StageMoveDialog.tsx` |
+| «El rojo de Pendientes, y el mismo aviso 3 veces» | — | **las dos mitades** |
+| «Errores que no se pueden cerrar ni resolver» | el chat del lead | la barra de error del tablero |
+
+⚠️ **Y la ruta `/crm/[id]` no es una pantalla muerta**, que es lo que la hacía fácil de
+olvidar: se llega desde el WhatsApp que avisa de un lead nuevo de la landing
+(`app/api/track/optin/route.ts`), desde el Closing Analyst y desde el «Solucionar» de la
+propia ficha. O sea que el cliente que sigue ese link veía la versión anterior del producto.
+
+**La regla operativa, y es barata:** al marcar una fila como aplicada, `grep` del síntoma —no
+del archivo que tocaste— y contá los resultados. «Overview» aparecía una vez más de la que
+se arregló. Es «sacar un patrón es ENUMERAR dónde está» (AGENTS.md) con una guarda concreta:
+el flag `aplicado` se pone DESPUÉS del grep, no después del commit.
+
+⚠️ **Y una fila que junta DOS arreglos se marca hecha cuando se hace UNO.** «El rojo de
+Pendientes, y el mismo aviso 3 veces» estuvo dos días en verde con **cero** cambios en el
+código: son dos trabajos con una sola casilla. Una fila, un arreglo.
+
+**Vive en:** `app/admin/friccion/page.tsx` · `docs/friccion-crm.md` ·
+*2026-09-27 friccion-lo-que-falta*
+
+## «El mismo aviso 3 veces» eran CUATRO, y el que sobrevivió más era el que nadie buscó (27/09/2026)
+
+El síntoma estaba escrito desde el relevamiento y su `Vive en:` nunca se encontró; las notas
+del proyecto lo daban por no ubicado. Aparece completo al abrir un lead en `/crm/[id]`:
+
+1. `app/crm/[id]/LeadDetailBody.tsx` — un chip «N datos sin marcar» al lado del nombre, con
+   **punto rojo parpadeando** (`blinkRed 1.4s infinite`) y **sin** guard de `!editing`.
+2. el mismo archivo — `<DatosSinMarcarCard>` arriba de las tabs, **con** guard de `!editing`.
+3. `app/crm/lead-view/GeneratedInsightCard.tsx` — «Para generar faltan datos» + la **misma
+   enumeración**, dentro de la tab de Análisis.
+4. `app/crm/[id]/EditLeadForm.tsx` — una tarjeta **roja** con punto parpadeante y un chip por
+   dato, sólo en modo edición.
+
+**Por qué los greps anteriores no lo encontraban:** se buscó el COMPONENTE
+(`DatosSinMarcarCard`) y de los cuatro sólo uno lo usa. Los otros tres son el mismo aviso
+**reescrito a mano** en tres formas distintas. Un patrón duplicado a mano no aparece buscando
+el nombre de la pieza que lo implementa bien — hay que buscar lo que el usuario VE: acá, la
+cadena `sin marcar` y el `faltantes.map(...).join(' · ')`.
+
+⚠️ **Y el guard asimétrico es lo que lo hacía invisible en la revisión:** el chip NO tenía
+`!editing` y el renglón SÍ, así que en lectura se veían 1+1+1 y en edición 1+1+1 pero de un
+juego distinto. Nadie ve los cuatro a la vez, y cada pantalla por separado parece razonable.
+
+**La cura de fondo no fue borrar tres, fue sacar el guard:** el `!editing` existía porque el
+formulario dibujaba el suyo. Con un solo aviso que vale en los dos modos, no hay dos piezas
+que se parecen — hay una.
+
+**Vive en:** `app/crm/[id]/LeadDetailBody.tsx` · `app/crm/[id]/EditLeadForm.tsx` ·
+`app/crm/lead-view/GeneratedInsightCard.tsx` · *2026-09-27 friccion-lo-que-falta*
+
+## Un parámetro OPCIONAL hizo que la misma pregunta se contestara distinto en dos pantallas (27/09/2026)
+
+`faltantesParaInsights(lead, tienePlan, pipeline?)` tenía el tercer argumento opcional. De
+sus tres llamadores, **uno lo pasaba**:
+
+| Llamador | Pasa `pipeline` | Qué mira |
+|---|---|---|
+| `app/crm/actions.ts` (el modal) | **sí** | el embudo del workspace |
+| `app/crm/[id]/page.tsx` (la ruta) | no | el pipeline GENÉRICO |
+| `lib/lead-insights.ts` (el gate del server) | no | el pipeline GENÉRICO |
+
+Sin `pipeline`, `faltantesDeLead` resuelve la etapa contra el funnel por defecto, así que
+devuelve OTRA lista. El resultado: la tab de Análisis del modal y la de la ruta decían cosas
+distintas del MISMO lead, y el botón de generar se podía bloquear —por el gate del server—
+con una lista que la persona nunca vio en pantalla.
+
+**La regla:** un parámetro del que depende QUÉ SE CONTESTA no puede ser opcional. Un opcional
+se olvida, y no falla: contesta otra cosa. Si el llamador no lo tiene, que vaya a buscarlo —
+ése era el trabajo. Acá el gate del server resuelve el suyo con `getPipelineStagesDefault()`,
+que es lo que debería haber hecho desde el principio.
+
+⚠️ **El olor, y sirve para cualquier función así:** un `?` en un parámetro que se llama como
+un contexto (`pipeline`, `stages`, `ws`, `tz`, `locale`). Ese tipo de parámetro no es una
+opción de la función: es de qué mundo está hablando. Si se puede omitir, la mitad de los
+llamadores va a hablar de otro mundo.
+
+**Vive en:** `lib/lead-insights.ts` (`faltantesParaInsights`) · *2026-09-27 friccion-lo-que-falta*
+
+## Escribir una etapa que el embudo no tiene no falla: el motor reporta que movió (27/09/2026)
+
+`lib/crm-auto.ts` movía leads a `reactivacion`, `noshow_r1` y `noshow_r2` sin mirar si el
+funnel del workspace tiene esas etapas. El `update` de Postgres es perfectamente válido —la
+columna es texto— así que el motor reporta el movimiento, el historial lo registra, y el
+tablero **no puede dibujar una columna que no existe**: `mapToCrmLead` descarta el override
+huérfano y, si la derivada tampoco está, `effStage` manda el lead a la **primera columna**.
+
+Medido en el relevamiento: **1.057 de los 1.138 leads del ws1** dibujados como si estuvieran
+en «Nuevo».
+
+Dos cosas distintas, y las dos hacían falta:
+
+- **Descartar el override para UBICARLO está bien.** No hay columna donde ponerlo.
+- **Borrar el hecho no.** Es «no poder hacer X con este dato no es que el dato sea falso»
+  (AGENTS.md) aplicado a un view-model: el override sobrevive en `stageFuera` y la tarjeta
+  lleva un chip que dice dónde está de verdad. Decirlo no mueve nada; mover 1.057 leads es
+  una decisión de quien es dueño de los datos.
+
+⚠️ **Y la guarda va en el CHOKE POINT, no en las tres reglas que escriben esas etapas.**
+`moverAuto` es por donde pasan las siete reglas del motor: puesta ahí, la regla nueva que
+alguien escriba mañana la hereda sin acordarse. Con el rechazo REGISTRADO, porque «el motor
+no movió nada» y «el motor movió a una columna que no existe» se ven exactamente igual desde
+afuera.
+
+⚠️ Y el chequeo se abstiene si no puede leer el embudo (`etapasPorWs` guarda `null` y
+contesta `true`): un motor que se apaga porque falló una lectura es peor que uno que mueve de
+más, y una falla de lectura no es un hecho sobre el embudo.
+
+**Vive en:** `lib/crm-auto.ts` (`moverAuto`, `etapaDibujable`) · `app/crm/crm-map.ts`
+(`stageFuera`) · *2026-09-27 friccion-lo-que-falta*
+
+## Medir en el navegador lo que no se puede reproducir en el navegador (27/09/2026)
+
+El selector de producto «no estaba alineado» con «+ Nuevo lead». Se reportó **dos veces** y
+las dos se contestó leyendo el código. La tercera se midió, y el número apareció enseguida:
+
+- envoltorio `<span style={{ flex: 'none', minWidth: 190 }}>` alrededor de un `Dropdown` sin
+  `width` → el `Dropdown` es `width: 'auto'`, o sea del tamaño de su contenido: **166,7 px**
+  dentro de un hueco de **190** → **23,3 px muertos a la derecha**.
+- con `width={190}` en el `Dropdown` → **0**.
+
+⚠️ **Lo que costó fue llegar a medirlo, y de ahí sale lo que sirve.** El dev server del
+directorio estaba vivo y servía **404 en TODAS las rutas, incluida `/api/auth/me`**; Next 16
+chequea por DIRECTORIO y no por puerto, así que no deja levantar un segundo para el mismo
+árbol («Run taskkill /PID … to stop it» en el log, no un error de puerto ocupado). Y con el
+server ya reiniciado y sano, el navegador con la extensión seguía dando 404 donde `curl` con
+la misma cookie daba 200.
+
+**La salida: reproducir el MECANISMO, no la pantalla.** Las dos filas del CRM con sus estilos
+inline exactos en un HTML suelto, medidas con `getBoundingClientRect`. Contesta la pregunta
+que importaba —¿un flex item con `minWidth` mayor que su contenido deja hueco a la derecha?—
+con un número, en un minuto, y sin depender de que la app arranque.
+
+No reemplaza a verificar la pantalla de verdad, y hay que decir cuál de las dos se hizo. Lo
+que sí reemplaza es razonar sobre el CSS tres veces seguidas y contestar «ya está».
+
+**Vive en:** `app/crm/CrmToolbar.tsx` (`SelectorFunnel`) ·
+`tests/crm-ficha-y-selector.test.ts` · *2026-09-27 friccion-lo-que-falta*
+
+## Un test que persigue la AUSENCIA de algo se lee a sí mismo (27/09/2026)
+
+`assert.ok(!/flexWrap: 'wrap'/.test(card))` falló sobre un componente que no tiene `wrap`: la
+cadena estaba en el **comentario** que explica por qué no lo tiene.
+
+Es la misma familia que «el analizador se lee a sí mismo» del Pixel, con el lector del otro
+lado: acá el que lee es el test, y lo que lo delata es que la aserción falla justo cuando el
+código está bien. **Todo test que busque que algo NO esté en un fuente mira el código sin los
+comentarios.**
+
+```ts
+const sinComentarios = (t: string) => t.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+```
+
+⚠️ **El orden importa: los de línea PRIMERO.** Si se sacan los de bloque antes, un `//` que
+contenga un `/*` abre un bloque que se come el resto del archivo — el mismo bug que ya tuvo
+el guard de voseo, y que ahí dejó 71 líneas sin mirar.
+
+**Vive en:** `tests/crm-ficha-y-selector.test.ts` · *2026-09-27 friccion-lo-que-falta*
