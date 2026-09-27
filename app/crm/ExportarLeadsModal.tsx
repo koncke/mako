@@ -64,7 +64,32 @@ function Lote({ children, onClick, activo = false }: { children: ReactNode; onCl
   );
 }
 
-type PasoId = 'receta' | 'banda' | 'etapas' | 'acotar' | 'periodo' | 'campoFecha' | 'origen' | 'persona' | 'dinero' | 'campos' | 'orden' | 'formato';
+/**
+ * ⚠️ 'formato' YA NO ES UN PASO (27/09/2026, tanda 3 de la fricción del CRM). Se
+ * preguntaba SIEMPRE, incluso después de elegir una receta ya armada: dos clics para
+ * bajar un CSV, que es lo que se baja casi siempre. Ahora vive en el pie como un
+ * toggle de dos opciones, visible en todos los pasos y cambiable en cualquiera, y se
+ * recuerda por navegador.
+ *
+ * No es «esconder un paso»: el control está a la vista, con su valor puesto. Lo que
+ * se saca es la PANTALLA — un paso de wizard para una preferencia que no cambia entre
+ * exportación y exportación.
+ */
+type PasoId = 'receta' | 'banda' | 'etapas' | 'acotar' | 'periodo' | 'campoFecha' | 'origen' | 'persona' | 'dinero' | 'campos' | 'orden';
+
+/** El formato elegido la última vez, por navegador. Es una preferencia, no un dato. */
+const FORMATO_CLAVE = 'crm.export.formato';
+
+/** El modal se monta recién al hacer click, así que acá no hay render del server que
+ *  desencajar: se puede leer en el inicializador sin romper la hidratación. */
+function formatoGuardado(): 'csv' | 'md' | null {
+  try {
+    const v = window.localStorage.getItem(FORMATO_CLAVE);
+    return v === 'csv' || v === 'md' ? v : null;
+  } catch {
+    return null;
+  }
+}
 
 const PREGUNTAS: Record<PasoId, { q: string; sub?: string }> = {
   receta:     { q: '¿Qué necesitas?', sub: 'Elige un armado listo o constrúyelo tú.' },
@@ -78,7 +103,6 @@ const PREGUNTAS: Record<PasoId, { q: string; sub?: string }> = {
   dinero:     { q: '¿Filtramos por dinero?' },
   campos:     { q: '¿Qué datos lleva cada lead?', sub: 'El número y el nombre van siempre. Esto es lo demás.' },
   orden:      { q: '¿Cómo lo ordenamos?' },
-  formato:    { q: '¿En qué formato?' },
 };
 
 const plural = (n: number, s: string, p = `${s}s`) => `${n} ${n === 1 ? s : p}`;
@@ -89,7 +113,10 @@ function toggle<T>(arr: T[], v: T): T[] {
 
 export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
   const [paso, setPaso] = useState(0);
-  const [f, setF] = useState<FiltrosLeads>(FILTROS_INICIALES);
+  const [f, setF] = useState<FiltrosLeads>(() => {
+    const g = formatoGuardado();
+    return g ? { ...FILTROS_INICIALES, formato: g } : FILTROS_INICIALES;
+  });
   const [opciones, setOpciones] = useState<OpcionesExport | null>(null);
   const [verAvanzado, setVerAvanzado] = useState(false);
   const [cuantos, setCuantos] = useState<number | null>(null);
@@ -134,7 +161,6 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
       if (f.acotar.includes('dinero')) p.push('dinero');
       p.push('campos', 'orden');
     }
-    p.push('formato');
     return p;
   }, [f.receta, f.banda, f.acotar]);
 
@@ -299,12 +325,10 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
       case 'orden':
         return columna(ORDENES.map((o) => <Opcion key={o.id} on={f.orden === o.id} titulo={o.label} sub={o.sub} onClick={() => set({ orden: o.id })} />));
       default:
-        return columna(
-          <>
-            <Opcion on={f.formato === 'csv'} titulo="Planilla (CSV)" sub="para filtrar, ordenar y sumar en Excel o Sheets" onClick={() => set({ formato: 'csv' })} />
-            <Opcion on={f.formato === 'md'} titulo="Documento (Markdown)" sub="una ficha por lead, agrupada por etapa, para leer o mandar por chat" onClick={() => set({ formato: 'md' })} />
-          </>,
-        );
+        // El `orden` es el último paso del camino largo; la receta no tiene ninguno
+        // más allá del primero. Nada cae acá, y si algún día cae, no se dibuja un
+        // paso en blanco.
+        return null;
     }
   };
 
@@ -314,12 +338,31 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
     if (actual === 'etapas') return f.etapas.length > 0;
     if (actual === 'origen') return f.origenes.length > 0;
     if (actual === 'persona') return f.personas.length > 0;
-    if (enUltimo) return (cuantos ?? 0) > 0;
+    // Mientras cuenta se puede bajar: el export hace su propia consulta y el conteo
+    // es informativo. Ver el comentario de `hayAlgo`.
+    if (enUltimo) return cuantos == null || cuantos > 0;
     return true;
   })();
 
   const resumen = cuantos == null ? 'contando…' : plural(cuantos, 'lead');
-  const hayAlgo = (cuantos ?? 0) > 0;
+  /**
+   * ⚠️ «TODAVÍA NO SÉ CUÁNTOS» NO ES «NO HAY NINGUNO». Hasta el 27/09/2026 el botón
+   * miraba `(cuantos ?? 0) > 0`, así que mientras la consulta corría decía
+   * «No hay nada para bajar» y estaba gris — afirmando un hecho del negocio con un
+   * dato que no tenía. Y el conteo NO gobierna la descarga: `exportLeadsAction` hace
+   * su propia consulta con el mismo filtro, y `cuantos` solo se usa para el nombre
+   * del archivo. O sea que además frenaba por nada.
+   *
+   * El conteo se queda (es lo que avisa si un filtro dejó afuera media base) y ahora
+   * dice las tres cosas distintas: contando, ninguno, o N.
+   */
+  const contando = cuantos == null;
+  const hayAlgo = contando || cuantos > 0;
+
+  const elegirFormato = (v: 'csv' | 'md') => {
+    set({ formato: v });
+    try { window.localStorage.setItem(FORMATO_CLAVE, v); } catch { /* ventana privada */ }
+  };
   const { q, sub } = PREGUNTAS[actual];
 
   return (
@@ -331,13 +374,24 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
       pending={bajando}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
-      confirmLabel={hayAlgo ? `Descargar ${resumen} ↓` : 'No hay nada para bajar'}
+      confirmLabel={contando ? 'Descargar ↓' : hayAlgo ? `Descargar ${resumen} ↓` : 'No hay nada para bajar'}
       atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
       onAtras={() => (idx === 0 ? onClose() : setPaso(idx - 1))}
       onSiguiente={() => setPaso(Math.min(idx + 1, pasos.length - 1))}
       onConfirmar={() => { if (hayAlgo && !bajando) bajar(); }}
       onClose={onClose}
-      extraFooter={<span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{resumen}</span>}
+      extraFooter={(
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{resumen}</span>
+          <span aria-hidden style={{ color: 'var(--border-strong)' }}>·</span>
+          {/* El formato, acá y no en una pantalla propia. Dos opciones no son una
+              pregunta: son un interruptor. */}
+          <span role="group" aria-label="Formato del archivo" style={{ display: 'inline-flex', gap: 5 }}>
+            <Lote activo={f.formato === 'csv'} onClick={() => elegirFormato('csv')}>CSV</Lote>
+            <Lote activo={f.formato === 'md'} onClick={() => elegirFormato('md')}>MD</Lote>
+          </span>
+        </span>
+      )}
     >
       {cuerpo()}
     </WizardShell>

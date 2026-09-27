@@ -120,11 +120,12 @@ function MenuItem({ icon, label, desc, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ total, onImportar, onExportar }: {
+export function AccionesHeader({ total, onImportar, onExportar, onNuevo }: {
   /** leads del workspace (no los filtrados): con 0, importar es el camino crítico. */
   total: number;
   onImportar: () => void;
   onExportar: () => void;
+  onNuevo: () => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -169,9 +170,13 @@ export function AccionesHeader({ total, onImportar, onExportar }: {
         </button>
       )}
 
-      <Link href="/crm/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 18px', borderRadius: 10, background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>
+      {/* ⚠️ UN BOTÓN, NO UN LINK (27/09/2026). Navegaba a /crm/new y al volver se
+          perdían el filtro, la búsqueda y el scroll, y se releían los 1.142 leads —
+          por un form de seis campos. Todo el resto del CRM ya son modales.
+          La ruta sigue existiendo para un link directo; el form es el mismo. */}
+      <button type="button" onClick={onNuevo} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
         + Nuevo lead
-      </Link>
+      </button>
     </div>
   );
 }

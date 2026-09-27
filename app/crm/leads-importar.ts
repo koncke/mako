@@ -72,21 +72,64 @@ export const soloDigitos = (v: string): string => (v || '').replace(/\D/g, '');
  */
 export const EXTENSIONES_IMPORT = [
   '.csv', '.txt', '.md', '.json',
+  '.xlsx', '.xlsm', '.ods',
   '.pdf', '.docx',
   '.png', '.jpg', '.jpeg', '.webp', '.heic', '.avif',
 ];
 export const ACCEPT_IMPORT = EXTENSIONES_IMPORT.join(',');
 
 /**
- * Planillas: NO se soportan a propósito. Un .xlsx es un ZIP con XML adentro y
- * parsearlo pide una dependencia entera; guardar la hoja como CSV es un click en
- * Excel o en Sheets. Lo que NO se puede hacer es romper con un error críptico.
+ * Planillas que SÍ se leen, desde el 27/09/2026 (tanda 3 de la fricción del CRM).
+ *
+ * ⚠️ EL COMENTARIO QUE ESTABA ACÁ SE HABÍA QUEDADO VIEJO, y eso es lo que costó:
+ * decía «parsearlo pide una dependencia entera» y para entonces el repo YA tenía el
+ * lector, escrito para el importador del plan (`lib/office-a-texto.ts`: jszip + XML,
+ * cero dependencias nuevas). El importador del CRM siguió rebotando .xlsx y mandando
+ * a guardar como CSV — mientras un PDF escaneado sí lo leía — porque nadie volvió a
+ * leer la razón. Una decisión bien argumentada deja de ser cierta sin avisar.
+ *
+ * Y NO van por la IA: `xlsxATexto` devuelve las celdas separadas por TAB, así que
+ * entran por el mismo parser exacto del CSV. Un teléfono o un email que pasa por un
+ * modelo deja de ser exacto, y son justo las dos columnas que importan.
  */
-export const EXTENSIONES_PLANILLA = ['.xlsx', '.xls', '.xlsm', '.xlsb', '.ods', '.numbers'];
-export const MENSAJE_PLANILLA = 'Todavía no leo planillas de Excel. Ábrela y usa "Guardar como" → CSV (delimitado por comas), y vuelve a subirla.';
+export const EXTENSIONES_LEIBLES_PLANILLA = ['.xlsx', '.xlsm', '.ods'];
+
+/**
+ * Las que de verdad no se pueden: el Excel binario viejo (.xls), el binario nuevo
+ * (.xlsb) y Numbers, que es un formato cerrado. Acá el mensaje sigue siendo lo
+ * importante: romper con un error críptico frente a una planilla es lo que hacía que
+ * el importador pareciera roto.
+ */
+export const EXTENSIONES_PLANILLA = ['.xls', '.xlsb', '.numbers'];
+export const MENSAJE_PLANILLA = 'Ese formato de planilla es cerrado y no lo puedo abrir. En Excel o en Numbers usa "Guardar como" → .xlsx (o CSV) y vuelve a subirla.';
 
 export const esPlanilla = (nombre: string): boolean =>
   EXTENSIONES_PLANILLA.some((e) => nombre.toLowerCase().endsWith(e));
+
+export const esPlanillaLeible = (nombre: string): boolean =>
+  EXTENSIONES_LEIBLES_PLANILLA.some((e) => nombre.toLowerCase().endsWith(e));
+
+/**
+ * Las filas de una planilla ya convertida a texto por `xlsxATexto` /
+ * `openDocumentATexto`: celdas separadas por TAB, y un `===== Hoja: X =====` antes de
+ * cada hoja.
+ *
+ * Se prueban TODAS las hojas y gana la primera que tenga una columna de nombre: la
+ * hoja 1 de un archivo real es muchas veces una portada, un resumen o un tablero, y
+ * quedarse con ella devuelve «no encontré una columna Nombre» sobre un archivo que sí
+ * la tiene una pestaña más allá.
+ */
+export function filasDesdePlanilla(texto: string): { filas: FilaImport[]; error?: string } {
+  const hojas = texto.split(/^===== Hoja: .*? =====$/m).map((h) => h.trim()).filter(Boolean);
+  const candidatas = hojas.length ? hojas : [texto];
+  let primerError: string | undefined;
+  for (const hoja of candidatas) {
+    const r = filasDesdeCsv(hoja, '\t');
+    if (r.filas.length) return r;
+    primerError = primerError ?? r.error;
+  }
+  return { filas: [], error: primerError ?? 'La planilla no tiene filas de datos.' };
+}
 
 export const esCsv = (nombre: string, mime = ''): boolean =>
   nombre.toLowerCase().endsWith('.csv') || mime === 'text/csv' || mime === 'application/csv';
@@ -124,7 +167,7 @@ export function recalcular(filas: FilaImport[]): FilaImport[] {
 // Parser propio (RFC4180: comillas, comas y saltos de línea dentro de un campo).
 // Vive acá y no en el server porque es puro y lo necesitan los dos lados.
 
-export function parseCsv(text: string): string[][] {
+export function parseCsv(text: string, delim = ','): string[][] {
   const s = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const rows: string[][] = [];
   let row: string[] = [];
@@ -136,7 +179,7 @@ export function parseCsv(text: string): string[][] {
       if (c === '"') { if (s[i + 1] === '"') { field += '"'; i++; } else q = false; }
       else field += c;
     } else if (c === '"') { q = true; }
-    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === delim) { row.push(field); field = ''; }
     else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
     else field += c;
   }
@@ -150,8 +193,8 @@ export function parseCsv(text: string): string[][] {
  * Devuelve `error` en vez de tirar: el modal lo muestra y el usuario corrige el
  * archivo, que es distinto de "el archivo está roto".
  */
-export function filasDesdeCsv(texto: string): { filas: FilaImport[]; error?: string } {
-  const rows = parseCsv(texto);
+export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]; error?: string } {
+  const rows = parseCsv(texto, delim);
   if (rows.length < 2) return { filas: [], error: 'El archivo no tiene filas de datos.' };
   const header = rows[0].map((h) => h.trim().toLowerCase());
   const idx = (names: string[]) => header.findIndex((h) => names.some((n) => h === n || h.includes(n)));

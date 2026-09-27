@@ -26,7 +26,7 @@ import { CASCADA_DOCS, MODELO_DOCS, chatCheapCascade } from '@/lib/ai-cheap';
 import { getTenantDb } from '@/lib/workspace';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import {
-  MAX_FILAS_IMPORT, esCsv, esPlanilla, filasDesdeCsv, MENSAJE_PLANILLA, recalcular, soloDigitos,
+  MAX_FILAS_IMPORT, esCsv, esPlanilla, esPlanillaLeible, filasDesdeCsv, filasDesdePlanilla, MENSAJE_PLANILLA, recalcular, soloDigitos,
   type FilaImport,
 } from './leads-importar';
 
@@ -118,6 +118,15 @@ export async function filasDesdeArchivo(file: File): Promise<LecturaArchivoImpor
   }
 
   const lectura = await archivoATexto(file);
+
+  // Un .xlsx sale de `archivoATexto` como TSV (una hoja por bloque), así que entra
+  // por el parser exacto y no gasta una llamada de IA. Si la planilla no tiene
+  // encabezados reconocibles se deja seguir al camino de la IA de abajo: el texto ya
+  // está extraído, así que no cuesta una segunda lectura del archivo.
+  if (esPlanillaLeible(nombre) && lectura.texto.trim()) {
+    const r = filasDesdePlanilla(lectura.texto);
+    if (r.filas.length) return { filas: r.filas, viaIA: false };
+  }
   if (!lectura.texto.trim()) {
     return { filas: [], viaIA: false, error: lectura.warning ?? `No pude sacar texto de «${nombre}».` };
   }

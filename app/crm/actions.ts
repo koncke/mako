@@ -598,7 +598,16 @@ function emptyToNullable<T extends FormDataEntryValue | null>(
  * Crea un lead nuevo desde el form de /crm/new.
  * Redirige a la vista detalle del lead creado.
  */
-export async function createLeadAction(formData: FormData): Promise<void> {
+/**
+ * El alta en sí: valida, crea y deja el hilo de WhatsApp listo. Devuelve el id.
+ *
+ * ⚠️ NO REDIRIGE, y por eso existe separada. El alta entra por dos puertas —la
+ * ruta /crm/new, que navega a la ficha nueva, y el modal del tablero, que se cierra
+ * y la abre en su lugar— y la única diferencia entre las dos es a dónde se va
+ * después. Con el `redirect` adentro, la segunda puerta no se podía escribir sin
+ * copiar la validación, que es cómo se desincronizan las dos.
+ */
+async function altaDeLead(formData: FormData): Promise<{ id: number }> {
   const nombre = emptyToNull(formData.get('nombre'));
   if (!nombre) {
     throw new Error('Nombre es requerido');
@@ -622,6 +631,26 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
   bust(TAG.leads);
   revalidatePath('/crm');
+  return { id: created.id };
+}
+
+/**
+ * Alta desde el MODAL del tablero: crea y devuelve el id, sin navegar.
+ *
+ * Devuelve el error en vez de tirarlo porque el que llama es un modal abierto
+ * encima del tablero: una excepción ahí sube al error boundary y se lleva puesta la
+ * pantalla entera, con los filtros y el scroll que este cambio vino a preservar.
+ */
+export async function crearLeadEnTableroAction(formData: FormData): Promise<{ id: number } | { error: string }> {
+  try {
+    return await altaDeLead(formData);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.' };
+  }
+}
+
+export async function createLeadAction(formData: FormData): Promise<void> {
+  const created = await altaDeLead(formData);
   // El barrido de redirects buscaba `redirect('/…')` con comilla simple y este se le
   // escapó por ser un template literal. Misma regla: la navegación lleva la pestaña.
   redirect(await rutaConWs(`/crm/${created.id}`));

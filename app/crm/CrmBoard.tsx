@@ -45,6 +45,7 @@ import {
   bulkFillLeadFieldAction,
   bulkIgnoreEmpresaAction,
   ignorarPendientesAction,
+  reactivarPendientesAction,
   ignorarPendientesMasaAction,
   reagendarReunionAction,
   permisoCalendarioAction,
@@ -93,6 +94,11 @@ import {
   type FiltroAbierto,
   type FiltroCat,
 } from './CrmToolbar';
+
+import { Toast, useToast } from '@/app/_ui/Toast';
+import { motivoCorto, chipsFaltantes } from './worklist-fila';
+import { Modal } from '@/app/_ui/Modal';
+import { NewLeadForm } from './new/NewLeadForm';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -174,6 +180,45 @@ export type CrmMarcar = {
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
+
+/**
+ * Las tres bandas del Kanban, en el orden en que se dibujan.
+ *
+ * ⚠️ EL DEFAULT ES SOLO `pipeline`, y es el arreglo de la tanda 3. Con las tres
+ * encendidas el tablero abría con 1.142 tarjetas y las 26 de Activo quedaban entre
+ * 1.089 de nutrición y 23 descartadas: apagar una banda era un clic DESPUÉS de
+ * haberlas dibujado, y no se recordaba. Lo que se trabaja es el pipeline; nutrición
+ * y salidas son consulta, y se piden.
+ *
+ * No se esconde nada sin pista: el toggle sigue arriba a la derecha con el CONTEO de
+ * cada banda al lado, así que se ve que hay 1.089 en nutrición sin dibujarlas.
+ */
+const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
+const BANDAS_DEFAULT: StageBand[] = ['pipeline'];
+const BANDAS_CLAVE = 'crm.bandas';
+
+/**
+ * Qué bandas dejó encendidas la última vez ESTE navegador. Es una PREFERENCIA, así
+ * que va en `localStorage` y no en la base: no es un dato del negocio y no tiene por
+ * qué viajar a otra sesión.
+ *
+ * ⚠️ Se lee en un efecto y NO en el `useState`: el board se renderiza en el server
+ * (la página es `force-dynamic`), y ahí `localStorage` no existe — leerlo en el
+ * inicializador es un HTML distinto del que hidrata. Devuelve `null` cuando no hay
+ * nada que restaurar, para que el default siga siendo del código y no de un catch.
+ */
+function bandasGuardadas(): StageBand[] | null {
+  try {
+    const crudo = window.localStorage.getItem(BANDAS_CLAVE);
+    if (!crudo) return null;
+    const leidas = (JSON.parse(crudo) as unknown[]).filter((b): b is StageBand => KANBAN_BANDS.includes(b as StageBand));
+    // Una lista vacía dejaría el tablero sin una sola columna, que es el estado muerto
+    // que `toggleBand` ya impide a mano. Si lo guardado no sirve, manda el default.
+    return leidas.length ? leidas : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Una confirmación pendiente: qué se va a cambiar, dicho concreto. */
 type Confirmacion = {
@@ -275,7 +320,7 @@ export function CrmBoard({
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
-  const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(['pipeline', 'nutricion', 'salidas']));
+  const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(BANDAS_DEFAULT));
   const [search, setSearch] = useState('');
   // Multi-selección: el set VACÍO significa "todas" (no hay valor centinela 'todos').
   const [stageFilter, setStageFilter] = useState<Set<string>>(() => new Set());
@@ -566,6 +611,25 @@ export function CrmBoard({
     });
     setDragId(null); setDragOverCol(null);
   };
+
+  // Lo que se apagó a mano se recuerda: sin esto, cada entrada y cada `router.refresh()`
+  // devolvía el tablero a su default y había que volver a apagar las dos bandas.
+  // Se escribe acá y no en `toggleBand` para cubrir también el arranque restaurado.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(BANDAS_CLAVE, JSON.stringify([...activeBands]));
+    } catch {
+      // Ventana privada o datos del sitio bloqueados: la preferencia no sobrevive y
+      // el tablero funciona igual con el default.
+    }
+  }, [activeBands]);
+
+  // La restauración va en su PROPIO efecto y corre una sola vez, antes de que el de
+  // arriba pueda pisar lo guardado con el default del primer render.
+  useEffect(() => {
+    const g = bandasGuardadas();
+    if (g) setActiveBands(new Set(g));
+  }, []);
 
   // (Acá vivía `needsFicha`: decidía si soltar una card abría el wizard de datos
   // en vez de moverla. Se fue con 08-T22 — mover ya no depende de los datos.)
@@ -1186,13 +1250,14 @@ export function CrmBoard({
 
   // Leads que esperan tu validación (los que están en "Datos sin marcar").
   const pendingLeadIds = new Set(marcar.map((m) => m.leadId));
-  const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
 
   // Importar / exportar leads: MISMO patrón que el board del plan — un botón de
   // icono que abre un formulario de a una pregunta (nada de bajar todo de una ni
   // de abrir el buscador de archivos del sistema sin avisar qué va a pasar).
   const [exportar, setExportar] = useState(false);
   const [importar, setImportar] = useState(false);
+  const [nuevoLead, setNuevoLead] = useState(false);
+  const { toast: avisoBoard, show: mostrarAviso, clear: limpiarAviso } = useToast();
   const [flashCsv, setFlashCsv] = useState<string | null>(null);
   // Por qué no se pudo abrir Calendly (este negocio no lo tiene configurado, el
   // event type no coincide…). Se DICE: antes, cuando no había config, el botón
@@ -1274,7 +1339,7 @@ export function CrmBoard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <CrmAutoToggle />
           <DivisorHeader />
-          <AccionesHeader total={total} onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} />
+          <AccionesHeader total={total} onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead(true)} />
         </div>
       </header>
 
@@ -1444,6 +1509,23 @@ export function CrmBoard({
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
+
+      {/* Alta a mano SIN salir del tablero: el mismo form de /crm/new adentro de un
+          Modal. Al crear se cierra, se abre la ficha del lead nuevo y se recarga la
+          lista — el filtro, la búsqueda y el scroll quedan donde estaban.
+
+          El toast va aparte de la ficha a propósito: si la recarga tarda o falla, la
+          ficha no se abre (`selected` la busca en `leads`) y sin el aviso el botón
+          se leería como que no hizo nada. */}
+      {nuevoLead && (
+        <Modal titulo="Nuevo lead" ancho={720} onCerrar={() => setNuevoLead(false)}>
+          <NewLeadForm enModal={{
+            onCerrar: () => setNuevoLead(false),
+            onCreado: (id) => { setNuevoLead(false); setSelectedId(id); mostrarAviso('Lead creado'); router.refresh(); },
+          }} />
+        </Modal>
+      )}
+      <Toast state={avisoBoard} onClose={limpiarAviso} />
 
       {/* Pop-up chico de completar movimiento (drag/worklist a etapa que pide datos) */}
       {stageMove && (() => {
@@ -2169,7 +2251,11 @@ function BulkHigiene({ marcar, equipo, onDone }: {
       {openEmpresa && (
         <ConfirmDialog
           title={`Ignorar Empresa en ${idsEmpresa.length} lead${idsEmpresa.length === 1 ? '' : 's'}`}
-          message="Muchas veces no tienes la empresa. Al ignorarla deja de contar como “dato sin marcar” en el CRM general, pero sigue apareciendo como recordatorio suave dentro de la ficha de cada lead. Reversible."
+          // El porqué —que la empresa muchas veces no se tiene, que el aviso sigue
+          // vivo adentro de cada ficha y que se puede reactivar— vive acá y no en el
+          // modal: son 33 palabras para una acción reversible, y el techo de una
+          // confirmación es UNA frase con la consecuencia (AGENTS.md).
+          message="Deja de contar en el CRM. El aviso sigue en cada ficha."
           confirmLabel={`Ignorar en los ${idsEmpresa.length}`}
           loading={pending}
           onConfirm={ignorarEmpresa}
@@ -2180,7 +2266,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
       {openIgnorar && (
         <ConfirmDialog
           title={`Ignorar los datos sin marcar de ${idsIgnorar.length} lead${idsIgnorar.length === 1 ? '' : 's'}`}
-          message="Salen del worklist “Datos sin marcar” y dejan de sumar al conteo. Los mismos avisos siguen apareciendo dentro de la ficha de cada lead, con opción de reactivarlos cuando quieras. Reversible."
+          message="Salen del worklist. Sus avisos siguen en cada ficha."
           confirmLabel={`Ignorar los ${idsIgnorar.length}`}
           loading={pending}
           onConfirm={ignorarTodos}
@@ -2222,15 +2308,33 @@ function SinMarcar({
   const ghost: CSSProperties = { flex: 'none', padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
   const [ignorando, startIgnorar] = useTransition();
   const [ignId, setIgnId] = useState<number | null>(null);
-  // Ignorar cambia el lead (lo saca del worklist): pasa por confirmación, y el
-  // texto nombra al lead y a los datos concretos que se van a silenciar.
-  const [aIgnorar, setAIgnorar] = useState<CrmMarcar | null>(null);
-  const ignorar = (leadId: number) => {
-    setIgnId(leadId);
+  const { toast, show, clear } = useToast();
+  // ⚠️ IGNORAR NO PREGUNTA, AVISA CON DESHACER (27/09/2026). Antes abría un
+  // ConfirmDialog de tres renglones sobre algo que el propio texto declaraba
+  // reversible — y es la acción que MÁS se usa del worklist (21 leads ignorados en
+  // el workspace del dueño). La red no se pierde: el toast deja la salida puesta
+  // cinco segundos, que es la misma regla que ya declara app/_ui/Toast.tsx.
+  const ignorar = (m: CrmMarcar) => {
+    setIgnId(m.leadId);
     startIgnorar(async () => {
-      try { await ignorarPendientesAction(leadId); onBulkDone(); }
-      catch { /* noop: se reintenta desde la ficha */ }
-      finally { setIgnId(null); }
+      try {
+        await ignorarPendientesAction(m.leadId);
+        onBulkDone();
+        // Tres palabras y el nombre: qué pasó y a quién. El porqué (sigue en la
+        // ficha, se puede reactivar) no va acá — va en el comentario y en la ficha.
+        show(<>Ignorado · <b>{m.name}</b></>, () => deshacerIgnorar(m.leadId));
+      } catch (e) {
+        show(`No se pudo ignorar: ${e instanceof Error ? e.message : 'error'}`, undefined, 'bad');
+      } finally { setIgnId(null); }
+    });
+  };
+
+  // Deshacer escribe en el SERVER, no solo en la pantalla: lo ignorado ya se guardó,
+  // así que revertir solo el estado local sería mentir hasta el próximo F5.
+  const deshacerIgnorar = (leadId: number) => {
+    startIgnorar(async () => {
+      try { await reactivarPendientesAction(leadId); onBulkDone(); }
+      catch (e) { show(`No se pudo deshacer: ${e instanceof Error ? e.message : 'error'}`, undefined, 'bad'); }
     });
   };
   return (
@@ -2250,9 +2354,32 @@ function SinMarcar({
         {marcar.map((m) => (
           <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+              {/* ⚠️ LA FILA NO ES EL MENSAJE DEL SERVER. Ese mensaje trae el detalle
+                  pegado al final y con 20 pendientes son 20 párrafos donde lo único
+                  que cambia está al final. Se parte en dos: el motivo como texto y
+                  los faltantes como chips (`./worklist-fila`). El dato no se toca —
+                  `mensaje` sigue entero para los avisos y para «Marcar en lote». */}
               <div style={{ minWidth: 240, flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
-                <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>{m.name}</span>
+                  {m.company && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{m.company}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 5 }}>
+                  {motivoCorto(m.message) && (
+                    <span style={{ fontSize: 13, color: 'var(--dim)' }}>{motivoCorto(m.message)}</span>
+                  )}
+                  {(() => {
+                    const { chips, resto } = chipsFaltantes(m.faltantes);
+                    return (<>
+                      {chips.map((f) => (
+                        <span key={f.id} style={{ flex: 'none', fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px' }}>{f.label}</span>
+                      ))}
+                      {resto > 0 && (
+                        <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--dim)' }}>+{resto}</span>
+                      )}
+                    </>);
+                  })()}
+                </div>
               </div>
               {/* Solucionar abre el wizard de datos. La nutrición manual vencida
                   pregunta "¿qué hacer ahora?" (elegir la etapa destino). "Ignorar"
@@ -2262,7 +2389,7 @@ function SinMarcar({
                 : (
                   <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
                     <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>
-                    <button type="button" style={ghost} disabled={ignorando && ignId === m.leadId} onClick={() => setAIgnorar(m)}>
+                    <button type="button" style={ghost} disabled={ignorando && ignId === m.leadId} onClick={() => { clear(); ignorar(m); }}>
                       {ignorando && ignId === m.leadId ? 'Ignorando…' : 'Ignorar'}
                     </button>
                   </div>
@@ -2279,21 +2406,7 @@ function SinMarcar({
       </div>
       </div>
 
-      {aIgnorar && (
-        <ConfirmDialog
-          title={`Ignorar los datos sin marcar de ${aIgnorar.name}`}
-          message={
-            <>
-              Sale del worklist y deja de sumar al conteo
-              {aIgnorar.faltantes?.length ? <>: <b>{aIgnorar.faltantes.map((f) => f.label).join(', ')}</b></> : null}.
-              Los mismos avisos siguen apareciendo dentro de su ficha, y puedes reactivarlos cuando quieras.
-            </>
-          }
-          confirmLabel="Ignorar"
-          onConfirm={() => { const id = aIgnorar.leadId; setAIgnorar(null); ignorar(id); }}
-          onCancel={() => setAIgnorar(null)}
-        />
-      )}
+      <Toast state={toast} onClose={clear} />
     </div>
   );
 }

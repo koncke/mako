@@ -39,13 +39,16 @@ export const NOTIF_IN_APP: NotifInAppDef[] = [
     id: 'wa-mensaje',
     titulo: 'Mensaje nuevo de WhatsApp',
     sub: 'Cuando un contacto escribe al número oficial. Al hacer clic se abre el chat.',
-    sonido: true,
+    // Dejó de sonar el 27/09/2026: el beep salía con CADA mensaje entrante mientras
+    // la persona miraba otra pantalla. El interruptor pasa a false por la regla de
+    // arriba — ofrecer «silenciar» algo que ya no suena es un control que no hace nada.
+    sonido: false,
   },
   {
     id: 'wa-mensaje-empresa',
     titulo: 'Mensaje nuevo del WhatsApp de la empresa',
     sub: 'El canal vinculado por código QR, con el número propio del negocio.',
-    sonido: true,
+    sonido: false,
   },
   {
     id: 'wa-plantilla',
@@ -53,12 +56,10 @@ export const NOTIF_IN_APP: NotifInAppDef[] = [
     sub: 'Cuando Meta aprueba o rechaza una plantilla enviada a revisión.',
     sonido: true,
   },
-  {
-    id: 'ia-uso',
-    titulo: 'MaKo usó inteligencia artificial',
-    sub: 'Cada operación que consume tokens, con su costo. No emite sonido.',
-    sonido: false,
-  },
+  // ⚠️ ACÁ ESTABA 'ia-uso' («MaKo usó inteligencia artificial»), y se fue con su
+  // pop-up el 27/09/2026. Se saca del catálogo por la regla de arriba: un
+  // interruptor para algo que ya no se enciende apaga algo que estaba apagado y
+  // hace creer que hizo algo. El gasto se mira en /integraciones#saldo-ia.
 ];
 
 /** Preferencia de una notificación in-app. Ausente = las dos activas. */

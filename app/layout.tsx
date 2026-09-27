@@ -6,7 +6,6 @@ import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
-import { IaUsageToast } from './_components/IaUsageToast';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -174,8 +173,15 @@ export default async function RootLayout({
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}
               <HideOnPublicLanding>
-                <IaUsageToast />
-              </HideOnPublicLanding>
+{/* Acá vivía <IaUsageToast>: el cartel negro con los dólares de cada
+    operación de IA, fijo abajo a la derecha. Se fue el 27/09/2026 (tanda 3
+    de la fricción del CRM): compartía esquina con la tarjeta de MaKo y se le
+    ponía encima justo cuando aparecía una confirmación nueva, o sea que el
+    aviso de un costo de US$0,003 tapaba la decisión que había que tomar.
+
+    El gasto NO se pierde: vive en /integraciones#saldo-ia con el historial
+    de operaciones, que es donde se mira cuando se lo quiere mirar. Un toast
+    por operación es un registro, y un registro no va en un cartel de 5s. */}              </HideOnPublicLanding>
             </div>
           </div>
         </NotificationsProvider>

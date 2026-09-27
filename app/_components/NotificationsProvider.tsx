@@ -73,12 +73,19 @@ export function useNotifications(): NotifCtx {
 }
 
 // ── Sonido de notificación ────────────────────────────────────────────────────
-// Un único AudioContext (se reanuda en el primer gesto del usuario por la autoplay
-// policy) y el mp3 de /notif.mp3 precargado a un AudioBuffer, así suena al instante
-// y aun estando en otra pestaña/sección de la app. Si falla, cae a un beep simple.
+// Un único AudioContext, que se reanuda en el primer gesto del usuario (autoplay
+// policy).
+//
+// ⚠️ ACÁ ESTABA EL SAMPLE DE /notif.mp3, con su precarga a un AudioBuffer y su beep
+// de respaldo. Lo usaba SOLO el aviso de mensaje nuevo de WhatsApp, que desde el
+// 27/09/2026 no suena (tanda 3 de la fricción del CRM), así que se fue con él: era
+// un fetch y un decode de audio en cada carga de la app para algo que ya no se
+// reproduce. El .mp3 sigue en `public/` y no lo pide nadie.
+//
+// Lo que SÍ suena es la plantilla de WhatsApp resuelta (aprobada o rechazada), con
+// los acordes de `playChord`: es un evento puntual que se espera, no uno que se
+// repite con cada mensaje que entra.
 let _audioCtx: AudioContext | null = null;
-let _notifBuf: AudioBuffer | null = null;
-let _notifLoading = false;
 
 function ctxOf(): AudioContext | null {
   try {
@@ -88,53 +95,10 @@ function ctxOf(): AudioContext | null {
     return _audioCtx;
   } catch { return null; }
 }
-function loadNotif() {
-  const ctx = ctxOf();
-  if (!ctx || _notifBuf || _notifLoading) return;
-  _notifLoading = true;
-  void fetch('/notif.mp3')
-    .then((r) => r.arrayBuffer())
-    .then((b) => ctx.decodeAudioData(b))
-    .then((buf) => { _notifBuf = buf; })
-    .catch(() => {})
-    .finally(() => { _notifLoading = false; });
-}
 function unlockAudio() {
   const ctx = ctxOf();
   if (!ctx) return;
   if (ctx.state === 'suspended') void ctx.resume();
-  loadNotif(); // precargar el sample tras el primer gesto
-}
-function playBeep() {
-  const ctx = ctxOf();
-  if (!ctx) return;
-  if (ctx.state === 'suspended') void ctx.resume();
-  if (_notifBuf) {
-    try {
-      const src = ctx.createBufferSource();
-      src.buffer = _notifBuf;
-      const gain = ctx.createGain();
-      gain.gain.value = 0.9;
-      src.connect(gain);
-      gain.connect(ctx.destination);
-      src.start();
-      return;
-    } catch { /* cae al beep */ }
-  } else {
-    loadNotif(); // por si todavía no se cargó
-  }
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = 880;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.36);
-  } catch { /* sin audio */ }
 }
 
 // Acorde de varias notas (para sonidos distintos al del mensaje).
@@ -428,7 +392,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         }
         if (entrante) {
           const e = entrante as Contacto;
-          if (dejaSonar('wa-mensaje')) playBeep();
+          // ⚠️ SIN SONIDO desde el 27/09/2026 (tanda 3 de la fricción del CRM). El
+          // aviso visual se queda —sacarlo sí costaría algo: un mensaje no se vería
+          // hasta abrir la tab— pero el beep no se puede ignorar, sonaba con CADA
+          // mensaje entrante mientras la persona miraba otra pantalla, y su
+          // interruptor vivía en otra tab. Un aviso que interrumpe con audio tiene
+          // que ser algo que no puede esperar, y un mensaje de WhatsApp espera: ya
+          // está el contador rojo en la tab de la sidebar (`contadorItem`).
           if (dejaVer('wa-mensaje')) {
             setToast({ gid: e.id, nombre: e.contacto, avatar: e.avatar });
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -494,7 +464,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           }
         }
         if (entrante) {
-          if (dejaSonar('wa-mensaje-empresa')) playBeep();
+          // Sin sonido, igual que el canal oficial: ver el comentario de arriba.
           if (dejaVer('wa-mensaje-empresa')) {
             setToast({ gid: entrante.chatJid, nombre: entrante.nombre, avatar: null, canal: 'empresa' });
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);

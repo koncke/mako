@@ -51,13 +51,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     return <PanelActivacion tab={tabCrm} />;
   }
   await guardOnboarding();
-  // "Hoy" en la zona del WORKSPACE, no en Tijuana fija. Este `hoy` gobierna el
-  // `min` del selector de fecha, los chips de reagendado y el guard de "esa fecha
-  // ya pasó" — y del otro lado /api/crm/horarios filtra los horarios pasados en la
-  // zona del workspace. Con las dos mitades en zonas distintas, un negocio en
-  // Madrid podía elegir a las 03:00 un día que para el server ya estaba vencido.
-  const hoy = await hoyEnWorkspace();
-
   let leads: Lead[] = [];
   let campMap: Record<string, string> = {};
   let juntasRaw: JuntaProxima[] = [];
@@ -70,6 +63,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   let stages: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
   let transitions: FunnelTransition[] = generateFunnel(DEFAULT_PIPELINE).transitions;
   let errorMsg: string | null = null;
+  let calendlyStages: string[] = [];
+  let equipo: MiembroEquipo[] = [];
 
   // El id de la URL se valida contra los funnels DE ESTE workspace antes de usarlo,
   // y por eso esta lectura no entra en la ola de abajo: lo que se pide depende de
@@ -80,15 +75,42 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // superficies contando cosas distintas del mismo tablero. Con un id que no es de
   // acá se ignora el parámetro y se dibuja el del negocio, que es lo que el
   // desplegable va a decir.
-  const funnels = await listarFunnels().catch(() => []);
+  //
+  // "Hoy" en la zona del WORKSPACE, no en Tijuana fija. Este `hoy` gobierna el
+  // `min` del selector de fecha, los chips de reagendado y el guard de "esa fecha
+  // ya pasó" — y del otro lado /api/crm/horarios filtra los horarios pasados en la
+  // zona del workspace. Con las dos mitades en zonas distintas, un negocio en
+  // Madrid podía elegir a las 03:00 un día que para el server ya estaba vencido.
+  //
+  // ⚠️ VA EN LA MISMA OLA QUE «hoy»: no se necesitan entre sí, y en fila eran dos
+  // viajes antes de empezar a leer los leads.
+  const [hoy, funnels] = await Promise.all([hoyEnWorkspace(), listarFunnels().catch(() => [])]);
   const funnelId = funnels.some((f) => f.id === funnelPideId && !f.esDefault) ? funnelPideId : null;
+
+  // ⚠️ Estas dos NO dependen de los leads, y hasta el 27/09/2026 se esperaban
+  // DESPUÉS de la ola: eran la segunda y la tercera pasada de una carga que ya
+  // había terminado de leer todo lo que importa. Se arrancan acá y se esperan
+  // adentro del `Promise.all`, así que cuestan cero.
+  //
+  // Qué etapas se agendan por Calendly EN ESTE workspace. Se decide acá y no en
+  // el bundle: hasta el 13/08/2026 la lista era una constante de cliente con la
+  // agenda del dueño adentro, así que el CRM de cualquier clienta ofrecía
+  // reservar en el calendario de otra persona. Se mira si el cliente tiene
+  // cargado el event type de esa reunión (lectura barata, sin pegarle a
+  // Calendly); la URL real la resuelve `linkDeAgendaAction` al hacer click.
+  const pCalendly = Promise.all(
+    [['agenda', 'CALENDLY_EVENT_TYPE_J1'], ['agendaj2', 'CALENDLY_EVENT_TYPE_J2']].map(
+      async ([stage, clave]) => ((await credWs(clave).catch(() => null))?.trim() ? stage : null),
+    ),
+  ).then((r) => r.filter((x): x is string => Boolean(x)));
+  const pEquipo = getEquipoAction().catch(() => [] as MiembroEquipo[]);
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
     let stagesRaw: Awaited<ReturnType<typeof getPipelineStagesDefault>> | undefined;
     let transitionsRaw: FunnelTransition[] | undefined;
     let pendRaw: { items: PendienteItem[]; aviso: string };
-    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw] = await Promise.all([
+    [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw, calendlyStages, equipo] = await Promise.all([
       listLeads(),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
@@ -100,6 +122,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       // Con ?funnel= manda ese; sin él, el del negocio. Mismo dato, otra fila.
       (funnelId ? getFunnelDe(funnelId).then((f) => f.stages) : getPipelineStagesDefault()).catch(() => undefined),
       (funnelId ? getFunnelDe(funnelId).then((f) => f.transitions) : getFunnelTransitionsDefault()).catch(() => undefined),
+      pCalendly,
+      pEquipo,
     ]);
     pendientesRaw = pendRaw.items;
     pendientesAviso = pendRaw.aviso;
@@ -143,21 +167,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     etapa: p.etapa,
   }));
 
-  const equipo = await getEquipoAction().catch(() => [] as MiembroEquipo[]);
 
-  // Qué etapas se agendan por Calendly EN ESTE workspace. Se decide acá y no en
-  // el bundle: hasta el 13/08/2026 la lista era una constante de cliente con la
-  // agenda del dueño adentro, así que el CRM de cualquier clienta ofrecía
-  // reservar en el calendario de otra persona. Se mira si el cliente tiene
-  // cargado el event type de esa reunión (lectura barata, sin pegarle a
-  // Calendly); la URL real la resuelve `linkDeAgendaAction` al hacer click.
-  const calendlyStages: string[] = (
-    await Promise.all(
-      [['agenda', 'CALENDLY_EVENT_TYPE_J1'], ['agendaj2', 'CALENDLY_EVENT_TYPE_J2']].map(
-        async ([stage, clave]) => ((await credWs(clave).catch(() => null))?.trim() ? stage : null),
-      ),
-    )
-  ).filter((s): s is string => Boolean(s));
+
 
   return (
     <CrmBoard

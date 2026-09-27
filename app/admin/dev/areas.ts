@@ -736,7 +736,10 @@ export const AREAS: AreaDev[] = [
     // salida que ve el usuario (`ia-mensajes`, `ConectarIA`, `ErrorIA`) y la única
     // puerta de gasto a Claude (`veto-claude`, que escribe su propia fila de US$0
     // en el medidor).
-    vive: ['lib/anthropic-usage.ts', 'lib/ia-cuotas.ts', 'lib/costos-ia.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'lib/veto-claude.ts', 'app/api/anthropic-usage/route.ts', 'app/api/costos-ia/route.ts', 'app/api/ia/proveedores/route.ts', 'app/integraciones/IntegracionesBoard.tsx', 'app/_components/IaUsageToast.tsx', 'app/_components/ConectarIA.tsx', 'app/_components/ErrorIA.tsx', 'supabase/migrations/0132_uso_por_cuenta.sql', 'lib/ia-labels.ts'],
+    vive: ['lib/anthropic-usage.ts', 'lib/ia-cuotas.ts', 'lib/costos-ia.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'lib/veto-claude.ts', 'app/api/anthropic-usage/route.ts', 'app/api/costos-ia/route.ts', 'app/api/ia/proveedores/route.ts', 'app/integraciones/IntegracionesBoard.tsx', 'app/_components/ConectarIA.tsx', 'app/_components/ErrorIA.tsx', 'supabase/migrations/0132_uso_por_cuenta.sql', 'lib/ia-labels.ts'],
+    // ⚠️ `app/_components/IaUsageToast.tsx` salió de esta lista el 27/09/2026 porque el
+    // archivo se BORRÓ: era el cartel de «MaKo usó IA» abajo a la derecha, y compartía
+    // esquina con la tarjeta de MaKo. El medidor no se tocó — vive en /integraciones.
     hallazgos: 'hallazgos-ia',
     nota: 'El «cortarlo» del alcance NO existe todavía: `ordenarPorCuota` (lib/ia-cuotas.ts:86-93) reordena proveedores pero nunca saca ninguno, y todos los `recordUsage` son POSTERIORES a la llamada — el enforcement hay que escribirlo entero y pre-flight. Y el «por cliente» tampoco: getSaldo/setSaldo clavan `.eq(\'workspace_id\', OWNER_WS)` y getUsageSummary lee anthropic_usage sin filtro de workspace, aunque las keys ya sean BYOK. Ojo con el solape: el área `pricing` de /admin/dev ya declara lib/costos-ia.ts, lib/anthropic-usage.ts, lib/ia-cuotas.ts y app/api/costos-ia/ — pricing es el modelo de negocio, esta área es el medidor.',
   },

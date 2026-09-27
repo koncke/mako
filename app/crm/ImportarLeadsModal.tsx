@@ -62,8 +62,9 @@ export function ImportarLeadsModal({ onListo, onClose }: {
     if (!fArch) return;
     setFilas([]);
     setAviso(null);
-    // El .xlsx se ataja acá y no en el server: así el usuario se entera antes de
-    // esperar una subida de varios megas para nada.
+    // Las planillas de formato CERRADO (.xls viejo, .xlsb, .numbers) se atajan acá y
+    // no en el server: así el usuario se entera antes de esperar una subida de varios
+    // megas para nada. El .xlsx y el .ods SÍ se leen desde el 27/09/2026 y pasan.
     if (esPlanilla(fArch.name)) { setErr(MENSAJE_PLANILLA); setFile(null); return; }
     setErr(fArch.size > MAX_BYTES ? 'El archivo pesa más de 8 MB.' : null);
     setFile(fArch);
@@ -129,8 +130,9 @@ export function ImportarLeadsModal({ onListo, onClose }: {
         <div style={{ fontSize: 24, marginBottom: 6 }}>📥</div>
         <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--ink)' }}>Arrastra el archivo aquí</div>
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5 }}>
-          o haz click para buscarlo. Funciona con <strong>CSV</strong>, y también con PDF, fotos y documentos:
-          de esos MaKo saca los contactos y los revisas en el próximo paso.
+          o haz click para buscarlo. Funciona con <strong>Excel y CSV</strong>, y también con
+          PDF, fotos y documentos: de esos MaKo saca los contactos y los revisas en el
+          próximo paso.
         </div>
         <input ref={input} type="file" accept={ACCEPT_IMPORT} style={{ display: 'none' }}
           onChange={(e) => { tomar(e.target.files); e.target.value = ''; }} />

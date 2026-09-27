@@ -5,33 +5,61 @@
 // =============================================================================
 // Sin contacto el lead es incontactable, así que se exige al menos un canal.
 // El submit va a la server action createLeadAction (que re-valida).
+//
+// ⚠️ EL MISMO FORM EN DOS CONTENEDORES: la ruta /crm/new (que navega a la ficha
+// nueva) y el modal del tablero (que se cierra y la abre ahí mismo). Lo único que
+// cambia es a dónde se va después, así que es UNA prop y no dos componentes: dos
+// copias de un form de seis campos divergen en el primer campo que se agregue.
+//
+// Lo que el modo modal cambia, y nada más:
+//   · la acción — `crearLeadEnTableroAction`, que devuelve el id en vez de redirigir
+//   · «Cancelar» — cierra en vez de navegar
+//   · la caja — sin borde ni fondo propios: el Modal ya los pone
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import { createLeadAction } from '../actions';
+import { createLeadAction, crearLeadEnTableroAction } from '../actions';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
 const card: CSSProperties = { maxWidth: 720, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 'clamp(20px,4vw,32px)' };
 
-export function NewLeadForm() {
+export function NewLeadForm({ enModal }: {
+  /** Presente = el form vive adentro del modal del tablero. Ausente = es la ruta. */
+  enModal?: { onCerrar: () => void; onCreado: (id: number) => void };
+} = {}) {
   const [err, setErr] = useState<string | null>(null);
+  const [guardando, startGuardar] = useTransition();
+
+  /** La validación de acá es la MISMA que la del server, y corre antes para no
+   *  perder lo tipeado en un viaje. El server la repite: este chequeo es
+   *  comodidad, no la guarda. */
+  const faltaContacto = (fd: FormData) =>
+    !String(fd.get('email') ?? '').trim() && !String(fd.get('telefono') ?? '').trim();
 
   return (
     <form
-      action={createLeadAction}
+      action={enModal ? undefined : createLeadAction}
       onSubmit={(e) => {
         const fd = new FormData(e.currentTarget);
-        const email = String(fd.get('email') ?? '').trim();
-        const telefono = String(fd.get('telefono') ?? '').trim();
-        if (!email && !telefono) {
+        if (faltaContacto(fd)) {
           e.preventDefault();
           setErr('Carga al menos un email o un teléfono: sin eso el lead es incontactable.');
-        } else {
-          setErr(null);
+          return;
         }
+        setErr(null);
+        if (!enModal) return;
+        // En el modal el submit no navega: se crea, se avisa y el tablero decide.
+        e.preventDefault();
+        startGuardar(async () => {
+          const r = await crearLeadEnTableroAction(fd);
+          if ('error' in r) { setErr(r.error); return; }
+          enModal.onCreado(r.id);
+        });
       }}
-      style={{ ...card, display: 'flex', flexDirection: 'column', gap: 16 }}
+      style={enModal
+        ? { display: 'flex', flexDirection: 'column', gap: 16 }
+        : { ...card, display: 'flex', flexDirection: 'column', gap: 16 }}
     >
       <Field label="Nombre" required>
         <input type="text" name="nombre" required autoFocus style={field} />
@@ -54,8 +82,10 @@ export function NewLeadForm() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
-        <Link href="/crm" style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Cancelar</Link>
-        <button type="submit" style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Crear lead</button>
+        {enModal
+          ? <button type="button" onClick={enModal.onCerrar} style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+          : <Link href="/crm" style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Cancelar</Link>}
+        <button type="submit" disabled={guardando} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>{guardando ? 'Creando…' : 'Crear lead'}</button>
       </div>
     </form>
   );

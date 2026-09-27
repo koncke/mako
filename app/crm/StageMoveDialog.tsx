@@ -242,6 +242,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // "Automático primero": antes de preguntar datos de reuniones se ofrece
   // buscarlos en Calendly + Fathom; lo resuelto no se vuelve a preguntar.
   const [autoOferta, setAutoOferta] = useState(true);
+  // Que la búsqueda ya salió. Va en un ref y no en estado porque no se dibuja: es
+  // solo el candado de que el efecto no la dispare dos veces (React monta los efectos
+  // dos veces en desarrollo, y ahí serían dos lecturas de Calendly).
+  const autoYaBusco = useRef(false);
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoReporte, setAutoReporte] = useState<string[] | null>(null);
   const [autoR2NoEncontrada, setAutoR2NoEncontrada] = useState(false);
@@ -439,7 +443,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
   const respondido = (() => {
     switch (paso) {
-      case 'auto': return autoReporte != null; // sin buscar, se sale con "Cargar a mano"
+      // Alcanza con que la búsqueda haya TERMINADO, con o sin resultado: exigir el
+      // reporte trababa el paso cuando Calendly contestaba un error, que es justo
+      // cuando hay que seguir a mano.
+      case 'auto': return !autoBusy;
       case 'huboR1': return huboR1 != null;
       case 'motivoNoR1': return !!motivoNoR1.trim();
       case 'huboR2': return huboR2 != null;
@@ -679,10 +686,24 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     }
   };
 
+  // ⚠️ BUSCA SOLO, no pregunta si buscar. Hasta el 27/09/2026 este paso era «¿Buscamos
+  // los datos automáticamente?» con dos botones del mismo tamaño — y la respuesta ya
+  // estaba dada: MaKo engancha Fathom en cada carga del CRM, así que la mitad de lo
+  // que ofrecía ya había pasado. Una pregunta cuya respuesta correcta es siempre la
+  // misma es un paso de más.
+  useEffect(() => {
+    if (paso !== 'auto' || autoYaBusco.current) return;
+    autoYaBusco.current = true;
+    void buscarAuto();
+    // `buscarAuto` se re-crea en cada render y el candado es el ref, así que no entra
+    // en las dependencias: ponerla volvería a disparar la lectura en cada tecla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso]);
+
   switch (paso) {
     case 'auto':
-      pregunta = '¿Buscamos los datos automáticamente?';
-      sub = 'MaKo revisa Calendly y Fathom y solo te pregunta lo que falte.';
+      pregunta = autoReporte ? 'Esto encontré' : 'Buscando en Calendly y Fathom';
+      sub = autoReporte ? 'Lo que falte se pregunta en los pasos que siguen.' : '';
       cuerpo = autoReporte ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
           {autoReporte.map((l, i) => (
@@ -694,14 +715,20 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Sigue con «Siguiente»: solo se pregunta lo que faltó.</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button type="button" disabled={autoBusy} onClick={buscarAuto} style={{ minWidth: 190, padding: '13px 22px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 14.5, fontWeight: 700, cursor: autoBusy ? 'default' : 'pointer', fontFamily: SANS, opacity: autoBusy ? 0.7 : 1 }}>
-            {autoBusy ? 'Buscando…' : '✦ Buscar automáticamente'}
-            <div style={{ fontSize: 11.5, fontWeight: 500, marginTop: 2, opacity: 0.75 }}>Recomendado</div>
-          </button>
-          <button type="button" disabled={autoBusy} onClick={() => setAutoOferta(false)} style={{ minWidth: 150, padding: '13px 22px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-            Cargar a mano
-          </button>
+        // Mientras busca no va texto: el pie del modal ya dice «Buscando en Calendly y
+        // Fathom». Solo la altura, para que el reporte no haga saltar el modal al llegar.
+        //
+        // ⚠️ Y «Cargar a mano» NO se fue: aparece cuando la búsqueda FALLÓ, que es el
+        // único momento en que alguien la quiere. Sin ella, un Calendly caído dejaba el
+        // paso sin reporte y sin botón — o sea un wizard trabado pidiendo algo que la
+        // persona no puede resolver.
+        <div style={{ minHeight: 96, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {!autoBusy && err && (
+            <button type="button" onClick={() => { setErr(null); setAutoOferta(false); }}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
+              Cargar a mano
+            </button>
+          )}
         </div>
       );
       break;
