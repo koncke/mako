@@ -48,6 +48,7 @@ import { createPortal } from 'react-dom';
 import { Spinner } from '@/app/_ui';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { GRADIENTES, cssGradiente, valorGradiente, fondoPortada } from '@/lib/portadas';
+import { SWATCHES, colorName } from '@/app/plan/board/types';
 import type { FotoDeCatalogo } from '@/lib/portadas';
 
 type Pestana = 'galeria' | 'subir';
@@ -88,7 +89,7 @@ export function ubicarPanel(
   return { left, top };
 }
 
-export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onCerrar }: {
+export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portada', onElegir, onColor, onCerrar }: {
   /** Lo que hay puesto hoy, para marcarlo. */
   valor: string | null | undefined;
   /** El color derivado del nombre: el default, que también es una opción. */
@@ -106,6 +107,18 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
   titulo?: string;
   /** `null` = volver al default. ⚠️ NO cierra: se aplica y el panel se queda abierto. */
   onElegir: (v: string | null) => void;
+  /**
+   * ⚠️ EL COLOR DE LA ENTIDAD, SI SE PUEDE CAMBIAR. Se mudó acá desde la columna
+   * derecha del detalle («el Color que se edite dentro de la portada o el perfil, y
+   * por lo tanto sacalo de la sidebar», 27/09/2026), y el lugar natural es éste: el
+   * color ES la portada automática — la primera muestra de la grilla, «Automático»,
+   * se dibuja literalmente con él. Tenerlo en otra pantalla obligaba a cerrar el
+   * selector para ver el efecto de lo que acababas de elegir.
+   *
+   * Sin `onColor` la fila no se dibuja. Un CLIENTE no tiene color propio: el suyo
+   * sale de su nombre (`colorDe`), así que ahí no hay nada que elegir.
+   */
+  onColor?: (c: string) => void;
   onCerrar: () => void;
 }) {
   const [pest, setPest] = useState<Pestana>('galeria');
@@ -264,6 +277,7 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
                 </li>
               ))}
             </ul>
+            {onColor && <Colores actual={colorBase} onPick={onColor} />}
             <Fotos valor={valor} onElegir={onElegir} />
           </>
         )}
@@ -273,6 +287,35 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </div>,
     document.body,
+  );
+}
+
+/**
+ * EL COLOR DE LA ENTIDAD, pegado debajo de los degradados.
+ *
+ * Va acá y no en una pestaña propia porque no es otra forma de elegir portada: es
+ * el insumo de UNA de las muestras de arriba. Y por eso la primera muestra de la
+ * grilla se redibuja sola al tocarlo — que es lo que hace obvio qué cambió.
+ */
+function Colores({ actual, onPick }: { actual: string; onPick: (c: string) => void }) {
+  const rueda = 'conic-gradient(from 90deg, #ff0000, #ffea00, #21d24a, #00c2ff, #2b5cff, #c000ff, #ff0090, #ff0000)';
+  return (
+    <>
+      <p className="pp-seccion pp-seccion-2">Color · {colorName(actual)}</p>
+      <div className="pp-colores">
+        {SWATCHES.map((c) => (
+          <button key={c} type="button" title={colorName(c)} aria-label={colorName(c)}
+            className={`pp-color${actual.toUpperCase() === c.toUpperCase() ? ' on' : ''}`}
+            style={{ background: c }} onClick={() => onPick(c)} />
+        ))}
+        {/* El anillo arcoíris abre el selector RGB del sistema, igual que el que había
+            en la columna derecha: sacar el control no puede sacar la capacidad. */}
+        <label className="pp-color pp-color-mas" title="Elegir cualquier color" style={{ background: rueda }}>
+          <span>＋</span>
+          <input type="color" value={actual} onChange={(e) => onPick(e.target.value)} />
+        </label>
+      </div>
+    </>
   );
 }
 
@@ -462,6 +505,15 @@ const CSS = `
 .pp-op:hover{ border-color:var(--border-strong); box-shadow:0 2px 8px rgba(18,21,27,.14); }
 .pp-op.on{ border-color:var(--primary); box-shadow:0 0 0 2px var(--primary-bg); }
 .pp-op.foto img{ display:block; width:100%; height:100%; object-fit:cover; }
+
+.pp-colores{ display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin:0 2px; }
+.pp-color{ width:28px; height:28px; border-radius:999px; border:2px solid transparent;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.10); cursor:pointer; padding:0; flex:none; }
+.pp-color.on{ border-color:var(--ink); box-shadow:0 0 0 2px var(--surface), 0 0 0 3px var(--ink); }
+.pp-color-mas{ display:flex; align-items:center; justify-content:center; position:relative; }
+.pp-color-mas span{ width:20px; height:20px; border-radius:999px; background:var(--surface);
+  display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--ink); line-height:1; }
+.pp-color-mas input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 
 .pp-cargando{ display:flex; align-items:center; gap:8px; margin:14px 2px 0; font-size:13px; color:var(--dim); }
 .pp-mas{ display:block; margin:14px auto 0; background:var(--surface); border:1px solid var(--border-strong);

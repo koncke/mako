@@ -438,6 +438,23 @@ export const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 export const PLABEL: Record<Prio, string> = { alta: 'Alta', media: 'Media', baja: 'Baja', futuro: 'A futuro' };
 export const PCOLOR: Record<Prio, string> = { alta: '#D0504A', media: '#C8870C', baja: '#1E9E57', futuro: '#98A0AC' };
 export const SWATCHES = ['#98A0AC', '#2F6FED', '#1E9E57', '#C8870C', '#D0504A', '#7C5CFB', '#0E9B8E', '#D6489B'];
+
+/**
+ * Como se llama cada color de la paleta.
+ *
+ * ⚠️ VIVE ACA, AL LADO DE `SWATCHES`, y no en BoardShell. Los dos los necesita ahora
+ * tambien el selector de portada —el color del proyecto ES su portada automatica—, y
+ * ese componente no puede importar de BoardShell: BoardShell lo importa a el, y seria
+ * un ciclo. Una copia del diccionario en el otro archivo es la forma de que dentro de
+ * un mes «Ambar» se llame distinto en dos pantallas.
+ */
+export const COLOR_NAMES: Record<string, string> = {
+  '#98A0AC': 'Gris', '#2F6FED': 'Azul', '#1E9E57': 'Verde', '#C8870C': 'Ámbar',
+  '#D0504A': 'Rojo', '#7C5CFB': 'Violeta', '#0E9B8E': 'Turquesa', '#D6489B': 'Rosa',
+};
+
+/** El nombre de un color, o «Personalizado» si lo eligieron con el selector RGB. */
+export const colorName = (c: string): string => COLOR_NAMES[c.toUpperCase()] || COLOR_NAMES[c] || 'Personalizado';
 // Vista "Prioridades": tope de tarjetas marcadas. Eran 3 y pasaron a 5 el 22/09/2026, a
 // pedido: con tres, la pantalla del día se quedaba corta antes de la tarde.
 export const MAX_PRIORIDAD = 5;

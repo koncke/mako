@@ -1193,7 +1193,14 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           `nowrap` eso se dibujaba UNO ENCIMA DEL OTRO —medido: 108px de desborde a 780 y
           148 a 740—. La regla de la casa para una barra de navegación es que baje de
           renglón, nunca que scrollee ni que se pise (AGENTS.md). */}
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 10, padding: '20px 30px 16px', flexWrap: 'wrap', minWidth: 0 }}>
+      {/* ⚠️ EMBEBIDO, EL AIRE DE ARRIBA SOBRA. Adentro de la ficha de un cliente este
+          header ya tiene encima el nombre y la foto, así que sus 20 px se suman a los
+          18 del envoltorio y a los 10 del cuerpo del modal: 48 px de blanco entre el
+          nombre y las tabs. Medido en Chrome, nivel por nivel, porque ninguno de los
+          tres parece grande por separado — se reportó dos veces («no debería haber
+          tanto espacio blanco») y la primera pasada sólo tocó el de la ficha, que era
+          el más chico de los tres. Como pantalla no cambia nada. */}
+      <header style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 10, padding: embebido ? '4px 30px 12px' : '20px 30px 16px', flexWrap: 'wrap', minWidth: 0 }}>
         {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
           <PlanIcon size={38} />
@@ -1607,6 +1614,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             colorBase={l.color}
             ancla={portadaDe.ancla}
             titulo={`Portada de ${l.name}`}
+            onColor={(c) => board.patchLabelLog(portadaDe.id, { color: c }, 'Cambió el color')}
             /* ⚠️ ELEGIR YA NO CIERRA: el panel cuelga del campo y la banda de al lado
                cambia en vivo, que es para lo que se hizo popover. Cerrar acá obligaba a
                reabrirlo por cada degradado que quisieras ver. */
@@ -2728,33 +2736,6 @@ function CampoCliente({ cliente, onAbrir }: {
   );
 }
 
-/**
- * LA PORTADA de un proyecto (mig 0173), en la columna derecha del detalle.
- *
- * Se dibuja la banda DE VERDAD y no el nombre del degradado: lo que la persona elige es
- * una imagen, así que el campo que la muestra tiene que ser esa imagen. Un campo que
- * dijera «Índigo» obligaría a abrir el selector para saber qué hay puesto.
- */
-function CampoPortada({ portada, color, onAbrir }: {
-  portada: string | null | undefined;
-  color: string;
-  /** Recibe el NODO que lo abrió: de ahí cuelga el popover (ver PortadaPicker). */
-  onAbrir: (ancla: HTMLElement) => void;
-}) {
-  return (
-    <div>
-      <label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-        Portada
-        {/* El lápiz y la banda abren lo mismo, y cada uno ancla en SÍ MISMO: un panel que
-            cuelga de un botón que no se tocó se lee como que salió de cualquier lado. */}
-        <LapizPrioridad tam={20} onClick={(e) => onAbrir(e.currentTarget)} titulo={portada ? 'Cambiar la portada' : 'Poner una portada'} />
-      </label>
-      <button type="button" onClick={(e) => onAbrir(e.currentTarget)} title={portada ? 'Cambiar la portada' : 'Poner una portada'}
-        style={{ display: 'block', width: '100%', height: 46, padding: 0, cursor: 'pointer',
-          border: '1px solid var(--border)', borderRadius: 9, background: fondoPortada(portada, color) }} />
-    </div>
-  );
-}
 
 /**
  * La cabecera de un detalle CON portada: los controles y el ícono que la cruza.
@@ -5656,8 +5637,13 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             <CampoCliente cliente={clienteDe(proj)} onAbrir={onAsignarCliente} />
             {/* LA PORTADA, al lado del color y del emoji: las tres contestan «cómo se ve
                 este proyecto» y estaban repartidas en dos lugares. */}
-            <CampoPortada portada={proj.portada} color={proj.color} onAbrir={onPortada} />
-            <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
+            {/* ⛔ ACÁ ESTABAN «PORTADA» Y «COLOR», y se fueron el 27/09/2026. Los dos se
+                editan ahora DONDE SE VEN: la portada, desde la banda de arriba; y el
+                color, adentro de ese mismo selector, porque el color ES la portada
+                automática. Tenerlos acá obligaba a mirar una miniatura de 46 px en una
+                columna para cambiar algo que ocupa el ancho entero del modal, y a
+                cerrar el selector para ver el efecto de lo que acababas de elegir.
+                `CampoPortada` se borró: era su único call site. */}
             {/* ELIMINAR, AL PIE DE LA COLUMNA DERECHA Y COMO TACHO: el mismo control, en el
                 mismo lugar y con la misma cara que en una tarea. Lo que se borra y cuántas
                 tarjetas se lleva puestas lo dice `EliminarModal` antes de confirmar, que es
@@ -5675,40 +5661,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
 }
 
 // nombres de los colores por defecto (en vez del hex)
-const COLOR_NAMES: Record<string, string> = { '#98A0AC': 'Gris', '#2F6FED': 'Azul', '#1E9E57': 'Verde', '#C8870C': 'Ámbar', '#D0504A': 'Rojo', '#7C5CFB': 'Violeta', '#0E9B8E': 'Turquesa', '#D6489B': 'Rosa' };
-const colorName = (c: string) => COLOR_NAMES[c.toUpperCase()] || COLOR_NAMES[c] || 'Personalizado';
 // Color como DESPLEGABLE (#29): swatches en CÍRCULOS + botón "+" con anillo rainbow que
-// abre el selector RGB nativo. Muestra el NOMBRE del color, no el hex.
-function ColorDropdown({ color, onPick }: { color: string; onPick: (c: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const rainbow = 'conic-gradient(from 90deg, #ff0000, #ffea00, #21d24a, #00c2ff, #2b5cff, #c000ff, #ff0090, #ff0000)';
-  return (
-    <span style={{ position: 'relative', display: 'block' }}>
-      <button onClick={() => setOpen((o) => !o)} style={{ ...selStyle, display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
-        <span style={{ width: 18, height: 18, borderRadius: '50%', background: color, border: '1px solid rgba(0,0,0,.15)', flex: 'none' }} />
-        <span style={{ flex: 1, textAlign: 'left', fontSize: 13 }}>{colorName(color)}</span>
-        <span style={{ color: 'var(--faint)' }}>▾</span>
-      </button>
-      {open && <>
-        <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95 }} />
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 96, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px rgba(18,21,27,.2)', padding: 14 }}>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* "+" con anillo rainbow → selector RGB nativo */}
-            <label title="Elegir cualquier color" style={{ position: 'relative', width: 30, height: 30, borderRadius: '50%', background: rainbow, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' }}>
-              <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: 'var(--ink)', lineHeight: 1 }}>＋</span>
-              <input type="color" value={color} onChange={(e) => onPick(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-            </label>
-            {SWATCHES.map((s) => {
-              const on = color.toUpperCase() === s.toUpperCase();
-              return <button key={s} onClick={() => { onPick(s); setOpen(false); }} title={colorName(s)} style={{ width: 30, height: 30, borderRadius: '50%', background: s, border: on ? '2px solid var(--ink)' : '2px solid transparent', boxShadow: on ? '0 0 0 2px var(--surface), 0 0 0 3px var(--ink)' : 'inset 0 0 0 1px rgba(0,0,0,.1)', cursor: 'pointer', flex: 'none' }} />;
-            })}
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--dim)' }}>Color actual: <b style={{ color: 'var(--ink)' }}>{colorName(color)}</b></div>
-        </div>
-      </>}
-    </span>
-  );
-}
 
 /**
  * `?diag=1` — el tablero contándote qué midió, en el navegador de quien lo está viendo.

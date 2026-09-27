@@ -168,7 +168,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
             <button type="button" className="fc-av"
               onClick={(e) => { const b = e.currentTarget; setAnclaFoto((a) => (a ? null : b)); }}
               title="Cambiar la foto" aria-label={`Cambiar la foto de ${nombre}`}>
-              <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={62} y={c.avatarY} color={color} />
+              <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={88} y={c.avatarY} color={color} />
               <span className="fc-avcap">{subiendoFoto ? '…' : 'Foto'}</span>
             </button>
             <span className="fc-txt">
@@ -389,14 +389,32 @@ const CSS = `
    padding propio del cuerpo del modal, y los dos se suman sin que ninguno parezca
    grande por separado. Se recorta acá, que es el que existe para esta pantalla; el
    del cuerpo lo comparten otras 25. */
-.fc-fila{ display:flex; align-items:flex-end; gap:14px; padding:10px 24px 4px 100px; min-height:40px; }
-.mk-modal__cab:has(.fc-cab) + .mk-modal__cuerpo{ padding-top:10px; }
+.fc-fila{ display:flex; align-items:flex-end; gap:14px; padding:10px 24px 4px 128px; min-height:40px; }
+.mk-modal__cab:has(.fc-cab) + .mk-modal__cuerpo{ padding-top:6px; }
+/* ⚠️ Y EL PRIMER HIJO DEL CUERPO PIERDE SU PADDING DE BLOQUE. La regla de bloque del
+   cuerpo del modal le pone 18 px arriba a cada hijo directo para separar bloques de
+   texto — correcto cuando el contenido son bloques, y acá el único hijo es el TABLERO
+   ENTERO. Medido nivel por nivel en Chrome: 6 del cuerpo + 18 de esa regla + 20 del
+   header del tablero = 44 px de blanco entre el nombre y las tabs. Ninguno de los tres
+   parece grande solo, que es por qué se reportó dos veces y la primera pasada tocó el
+   más chico de los tres. Es la misma familia que el hallazgo de la regla de hijo
+   directo pisando a un overlay anidado.
+   (Y sin comillas invertidas acá adentro: esto vive en un template literal y una sola
+   cierra la hoja a la mitad. Es la tercera vez hoy.) */
+.mk-modal__cab:has(.fc-cab) + .mk-modal__cuerpo > *:first-child{ padding-top:0; border-top:0; }
 
 /* El nombre y la empresa, editables sin caja. La tipografía la heredan de su
    renglón: el componente no trae ninguna. */
 .fc-ed-nom{ font-size:20px; font-weight:670; letter-spacing:-.02em; }
 .fc-ed-sub{ font-size:12.5px; font-weight:400; color:var(--dim); }
-.fc-av{ position:absolute; left:24px; top:129px; display:block; padding:0; border:0; background:none; cursor:pointer; line-height:0; }
+/* ⚠️ MÁS GRANDE Y CON MARCO. «La foto de perfil debe ser más grande» + «que la rodee
+   el marco, como en la preview de la card» (27/09/2026). El anillo es el MISMO que ya
+   usa el Avatar de la grilla —unos pocos px del color de la superficie— y acá hace
+   falta más que allá: la foto monta sobre la portada, así que sin el aro se funde con
+   la imagen. La cuenta del top es exacta: 160 de banda menos 44 (la mitad de 88). */
+.fc-av{ position:absolute; left:24px; top:116px; display:block; padding:0; border:0;
+  background:none; cursor:pointer; line-height:0; border-radius:999px;
+  box-shadow:0 0 0 4px var(--surface), 0 2px 10px rgba(18,21,27,.14); }
 /* ⚠️ «Foto» VA AL CENTRO DEL CÍRCULO, no en una banda abajo («el mensaje de Foto más
    centrado, no abajo», 27/09/2026). Pegado al borde inferior tapaba justo el mentón de
    la persona —que es donde el ojo confirma que es ella— y en un círculo de 62 px esa
