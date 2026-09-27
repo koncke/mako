@@ -50,12 +50,12 @@ import { useCapaModal } from '@/app/_components/pila-modales';
 import { GRADIENTES, cssGradiente, valorGradiente, fondoPortada } from '@/lib/portadas';
 import type { FotoDeCatalogo } from '@/lib/portadas';
 
-type Pestana = 'degradados' | 'fotos' | 'subir';
+type Pestana = 'galeria' | 'subir';
 
 /** El ancho del panel. Notion usa ~615 de contenido; acá entran cuatro muestras por fila. */
 const ANCHO = 620;
 /** Lo que scrollea adentro. FIJO: cambiar de pestaña no puede mover el panel de lugar. */
-const ALTO_CUERPO = 352;
+const ALTO_CUERPO = 392;
 
 type Caja = { left: number; right: number; top: number; bottom: number };
 
@@ -108,7 +108,7 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
   onElegir: (v: string | null) => void;
   onCerrar: () => void;
 }) {
-  const [pest, setPest] = useState<Pestana>('degradados');
+  const [pest, setPest] = useState<Pestana>('galeria');
   const [montado, setMontado] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -227,10 +227,10 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
         pointerEvents: pos ? undefined : 'none',
       }}>
       <div className="pp-tabs" role="tablist">
-        {(['degradados', 'fotos', 'subir'] as const).map((p) => (
+        {(['galeria', 'subir'] as const).map((p) => (
           <button key={p} type="button" role="tab" aria-selected={pest === p}
             className={`pp-tab${pest === p ? ' on' : ''}`} onClick={() => setPest(p)}>
-            {p === 'degradados' ? 'Degradados' : p === 'fotos' ? 'Fotos' : 'Subir'}
+            {p === 'galeria' ? 'Galería' : 'Subir'}
           </button>
         ))}
         <span style={{ flex: 1 }} />
@@ -239,8 +239,15 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
         <button type="button" className="pp-quitar" onClick={() => onElegir(null)}>Sin portada</button>
       </div>
 
+      {/* ⚠️ UNA SOLA PESTAÑA «GALERÍA», CON LOS DEGRADADOS ARRIBA Y LAS FOTOS ABAJO
+          («en lugar de 2 tabs pon una sola que sea Galería», 27/09/2026). No es sólo
+          juntar dos listas: eran dos pestañas para una MISMA pregunta —«¿qué imagen
+          pongo?»—, y partirla obligaba a elegir el tipo de respuesta antes de ver las
+          respuestas. Es lo mismo que hace Notion, que apila «Color & Gradient» y
+          «Texturelabs» en la misma «Gallery». Los degradados van primero porque se
+          dibujan sin red: la galería nunca se ve vacía mientras las fotos cargan. */}
       <div className="pp-cuerpo">
-        {pest === 'degradados' && (
+        {pest === 'galeria' && (
           <>
             <p className="pp-seccion">Color y degradado</p>
             <ul className="pp-grid">
@@ -257,10 +264,9 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
                 </li>
               ))}
             </ul>
+            <Fotos valor={valor} onElegir={onElegir} />
           </>
         )}
-
-        {pest === 'fotos' && <Fotos valor={valor} onElegir={onElegir} />}
         {pest === 'subir' && <Subir onElegir={onElegir} />}
       </div>
 
@@ -270,10 +276,27 @@ export function PortadaPicker({ valor, colorBase, ancla = null, titulo = 'Portad
   );
 }
 
-/** El repositorio. Pagina de a 24; el botón de abajo trae la tanda siguiente. */
+/**
+ * El repositorio. Pagina de a 24; el botón de abajo trae la tanda siguiente.
+ *
+ * ⚠️ LA SEMILLA SE SORTEA UNA VEZ, AL MONTAR, Y NO EN CADA REQUEST. «Ponele un
+ * randomizer para que no aparezcan siempre las mismas» (27/09/2026) — pero esta
+ * lista ACUMULA: si cada tanda se sortea por su cuenta, «Ver más fotos» repite unas
+ * y saltea otras, y `key={f.id}` duplicada además hace ruido en React. Con la
+ * semilla fija por apertura, la primera tanda cae en cualquier lado del catálogo y
+ * las siguientes caminan desde ahí. El server la convierte en una página real.
+ *
+ * Va en un `useState` con inicializador perezoso y no en un `useRef` ni en el
+ * cuerpo del componente: así se sortea UNA sola vez aunque React vuelva a
+ * renderizar, y no cambia al cambiar de pestaña.
+ */
 function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir: (v: string) => void }) {
+  const [semilla] = useState(() => Math.floor(Math.random() * 1_000_000));
   const [fotos, setFotos] = useState<FotoDeCatalogo[]>([]);
   const [pagina, setPagina] = useState(1);
+  const [hayMas, setHayMas] = useState(true);
+  /** Las que el catálogo listó y no existen: se sacan de la grilla al fallar. */
+  const [rotas, setRotas] = useState<Set<string>>(() => new Set());
   const [cargando, setCargando] = useState(true);
   const [mal, setMal] = useState('');
 
@@ -283,41 +306,64 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
   // el gesto que lo provoca y este efecto sólo lo apaga.
   useEffect(() => {
     let vivo = true;
-    fetch(`/api/portadas?pagina=${pagina}`)
+    fetch(`/api/portadas?pagina=${pagina}&semilla=${semilla}`)
       .then((r) => r.json())
-      .then((j: { ok: boolean; fotos?: FotoDeCatalogo[]; error?: string }) => {
+      .then((j: { ok: boolean; fotos?: FotoDeCatalogo[]; hayMas?: boolean; error?: string }) => {
         if (!vivo) return;
         // ⚠️ «No pude leer» NO se pinta como «no hay fotos»: son dos pantallas, y la
         // segunda deja a alguien esperando algo que nunca va a llegar.
         if (!j.ok) { setMal(j.error || 'No pude leer el catálogo de fotos.'); return; }
-        setFotos((v) => (pagina === 1 ? (j.fotos ?? []) : [...v, ...(j.fotos ?? [])]));
+        // ⚠️ Y SE DEDUPLICA POR ID. La semilla hace que las tandas caminen sin
+        // repetir, pero al dar la vuelta al catálogo (42 páginas) volverían las
+        // primeras — y dos `key` iguales en React es un aviso en consola y una
+        // tarjeta que no se actualiza. El `Set` es la red, no el plan.
+        setFotos((v) => {
+          const nuevas = j.fotos ?? [];
+          if (pagina === 1) return nuevas;
+          const ya = new Set(v.map((f) => f.id));
+          return [...v, ...nuevas.filter((f) => !ya.has(f.id))];
+        });
+        setHayMas(j.hayMas !== false);
       })
       .catch((e: unknown) => { if (vivo) setMal(e instanceof Error ? e.message : String(e)); })
       .finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [pagina]);
+  }, [pagina, semilla]);
 
   if (mal && !fotos.length) return <p className="pp-mal">{mal}</p>;
 
   return (
     <>
+      <p className="pp-seccion pp-seccion-2">Fotos</p>
       <ul className="pp-grid fotos">
-        {fotos.map((f) => (
+        {fotos.filter((f) => !rotas.has(f.id)).map((f) => (
           <li key={f.id}>
             <button type="button" className={`pp-op foto${valor === f.grande ? ' on' : ''}`}
               onClick={() => onElegir(f.grande)}
               title={f.autor ? `Foto de ${f.autor}` : 'Foto'} aria-label={f.autor ? `Foto de ${f.autor}` : 'Foto'}>
               {/* Sin `next/image`: son miniaturas de un host externo, y el optimizador
                   las volvería a servir por nuestra función pagando por cada una. */}
+              {/* ⚠️ UNA QUE NO CARGA SE VA DE LA GRILLA. picsum tiene huecos en su
+                  espacio de ids —medido: de 12 consecutivos, uno contesta 404— y
+                  `/v2/list` igual los devuelve. Una baldosa vacía en una galería se
+                  lee como que la app está a medio cargar; una foto menos, no.
+                  Sin `next/image`: es un stream de nuestra ruta y el optimizador lo
+                  volvería a servir por otra función, cobrando por cada miniatura. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={f.mini} alt="" loading="lazy" />
+              <img src={f.mini} alt="" loading="lazy"
+                onError={() => setRotas((v) => (v.has(f.id) ? v : new Set(v).add(f.id)))} />
             </button>
           </li>
         ))}
       </ul>
       {cargando && <p className="pp-cargando"><Spinner /> Trayendo fotos…</p>}
       {mal && <p className="pp-mal">{mal}</p>}
-      {!cargando && !mal && (
+      {/* ⚠️ EL BOTÓN DESAPARECE AL LLEGAR AL FINAL. Antes se dibujaba siempre, y
+          pasada la última página cada click traía una lista vacía con 200: la
+          pantalla no podía distinguir «no hay más» de «no llegó nada». Medido con
+          curl el 27/09/2026: picsum tiene 42 páginas de 24 (993 fotos) y de la 43
+          en adelante devuelve `[]`, no un error. */}
+      {!cargando && !mal && hayMas && (
         <button type="button" className="pp-mas"
           onClick={() => { setCargando(true); setMal(''); setPagina((p) => p + 1); }}>Ver más fotos</button>
       )}
@@ -329,6 +375,7 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
 function Subir({ onElegir }: { onElegir: (v: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
+  const [encima, setEncima] = useState(false);
   const [mal, setMal] = useState('');
 
   async function mandar(f: File) {
@@ -349,13 +396,26 @@ function Subir({ onElegir }: { onElegir: (v: string) => void }) {
   }
 
   return (
-    <div className="pp-subir">
+    // Soltar un archivo encima también sube: la zona ya ocupa el cuerpo entero, así
+    // que dibujarla y no aceptar el gesto que su forma promete es peor que no
+    // dibujarla. `preventDefault` en los tres eventos o el navegador ABRE la imagen
+    // y se lleva puesta la pantalla.
+    <div className={`pp-subir${encima ? ' encima' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); if (!encima) setEncima(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }}
+      onDrop={(e) => {
+        e.preventDefault(); setEncima(false);
+        const f = e.dataTransfer.files?.[0];
+        if (f) void mandar(f);
+      }}>
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void mandar(f); e.target.value = ''; }} />
       <button type="button" className="pp-btn" disabled={subiendo} onClick={() => input.current?.click()}>
         {subiendo ? <><Spinner /> Subiendo…</> : 'Elegir una imagen'}
       </button>
-      <p className="pp-ayuda">JPG, PNG, WEBP o GIF. Hasta 6MB.</p>
+      {/* Tres palabras y el techo. El porqué de cada formato vive en el comentario
+          de `sniffImagen`, no acá (AGENTS.md: la pantalla dice QUÉ, no POR QUÉ). */}
+      <p className="pp-ayuda">o soltala acá · JPG, PNG, WEBP o GIF · hasta 6MB</p>
       {mal && <p className="pp-mal">{mal}</p>}
     </div>
   );
@@ -390,6 +450,9 @@ const CSS = `
 
 .pp-seccion{ margin:0 2px 9px; font-size:11.5px; font-weight:600; color:var(--faint);
   letter-spacing:.01em; }
+/* La segunda sección de la galería necesita aire arriba, o las fotos se leen como
+   una fila más de degradados. */
+.pp-seccion-2{ margin-top:18px; }
 
 .pp-grid{ list-style:none; margin:0; padding:0; display:grid; gap:10px;
   grid-template-columns:repeat(auto-fill, minmax(126px, 1fr)); }
@@ -406,9 +469,23 @@ const CSS = `
 .pp-mas:hover{ border-color:var(--primary); color:var(--primary); }
 .pp-mal{ margin:14px 2px 0; font-size:13px; color:var(--bad); }
 
-.pp-subir{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:8px 2px 6px; }
+/* ⚠️ LA PESTAÑA «SUBIR» OCUPA EL CUERPO ENTERO («revisá que la tab subir está todo
+   muy chico y centrado a la izquierda arriba», 27/09/2026). Antes era un flex en
+   columna con align-items:flex-start y sin alto: el botón y su ayuda quedaban
+   apretados contra la esquina de arriba a la izquierda de un panel de 392 px, con
+   el 90% del espacio vacío debajo. Es el mismo defecto que AGENTS.md ya tiene
+   escrito para un max-width puesto al texto adentro de una caja más ancha — una
+   regla correcta para el contenido, aplicada a algo que no es contenido.
+   Ahora es una zona de soltar del alto del cuerpo, centrada en los dos ejes.
+   (Y sin comillas invertidas acá adentro: esto vive en un template literal y una
+   sola cierra la hoja a la mitad. AGENTS.md lo tiene medido y acaba de pasar.) */
+.pp-subir{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; min-height:100%; border:1.5px dashed var(--border-strong); border-radius:12px;
+  padding:20px; text-align:center; transition:border-color .12s, background .12s; }
+.pp-subir.encima{ border-color:var(--primary); background:var(--primary-bg); }
 .pp-btn{ display:inline-flex; align-items:center; gap:8px; background:var(--primary); border:0;
-  border-radius:9px; padding:9px 16px; font:inherit; font-size:13px; color:#fff; cursor:pointer; }
+  border-radius:9px; padding:10px 18px; font:inherit; font-size:13.5px; font-weight:600;
+  color:#fff; cursor:pointer; }
 .pp-btn:disabled{ opacity:.7; cursor:default; }
 .pp-ayuda{ margin:0; font-size:12px; color:var(--faint); }
 

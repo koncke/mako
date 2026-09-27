@@ -49,15 +49,41 @@ function sniffImagen(buf: Buffer): keyof typeof EXT_DE | null {
 
 const POR_PAGINA = 24;
 
+/**
+ * CUÁNTAS PÁGINAS TIENE EL CATÁLOGO, medido con curl el 27/09/2026:
+ * la 41 trae 24, la **42 trae 9** y de la 43 en adelante `[]`. O sea 993 fotos.
+ *
+ * ⚠️ NO HAY FORMA DE PREGUNTARLO. El header `Link` de picsum sólo trae `rel="next"`,
+ * y lo trae SIEMPRE — también en la 43, que ya está vacía. Así que el final del
+ * catálogo no se detecta: se cuenta. Si un día picsum crece, el único síntoma es
+ * que dejamos de ofrecer lo nuevo; si encoge, una tanda vuelve vacía.
+ */
+const TOTAL_PAGINAS = 42;
+
 export async function GET(req: NextRequest) {
   const sesion = await getUsuarioActual();
   if (!sesion) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
 
-  const pagina = Math.max(1, Math.min(50, Number(new URL(req.url).searchParams.get('pagina')) || 1));
+  const q = new URL(req.url).searchParams;
+  const pagina = Math.max(1, Math.min(TOTAL_PAGINAS, Number(q.get('pagina')) || 1));
+  /**
+   * LA SEMILLA DEL RANDOMIZER, y la manda el NAVEGADOR a propósito.
+   *
+   * «Ponele un randomizer a la API, así no aparecen siempre las mismas»
+   * (27/09/2026). Lo obvio —sortear la página acá en cada request— rompe «Ver más
+   * fotos»: esa lista ACUMULA, así que dos tandas sorteadas por separado repiten
+   * fotos (y con `key={f.id}` duplicada, React avisa) y saltean otras. Con la
+   * semilla fija por apertura del selector, la primera tanda arranca en cualquier
+   * lado y las siguientes CAMINAN desde ahí, sin repetir hasta dar la vuelta.
+   */
+  const semilla = Math.abs(Math.trunc(Number(q.get('semilla')) || 0)) % TOTAL_PAGINAS;
+  // `pagina` es 1-based y la semilla es un corrimiento: la tanda N sale de la página
+  // (semilla + N - 1) del catálogo, dando la vuelta al llegar al final.
+  const paginaReal = ((semilla + pagina - 1) % TOTAL_PAGINAS) + 1;
   try {
     // `signal` y no sólo el `maxDuration` de la ruta: un fetch sin corte con la red
     // caída en el medio no resuelve NUNCA, y lo que se ve es un spinner eterno.
-    const r = await fetch(`https://picsum.photos/v2/list?page=${pagina}&limit=${POR_PAGINA}`,
+    const r = await fetch(`https://picsum.photos/v2/list?page=${paginaReal}&limit=${POR_PAGINA}`,
       { signal: AbortSignal.timeout(12_000), cache: 'no-store' });
     if (!r.ok) return Response.json({ ok: false, error: `El catálogo de fotos contestó ${r.status}` }, { status: 502 });
     const crudo: unknown = await r.json();
@@ -70,13 +96,26 @@ export async function GET(req: NextRequest) {
       fotos.push({
         id,
         autor: typeof o.author === 'string' ? o.author : '',
+        // ⚠️ LA MINIATURA SALE POR NUESTRA RUTA Y NO POR PICSUM, y no es una
+        // preferencia: medido el 27/09/2026, una grilla de 24 `<img>` a
+        // `picsum.photos` deja las 24 EN BLANCO — el navegador no sigue el 302 y no
+        // da ningún error. El server sí puede (12 en paralelo con curl, las 12 bien).
+        // El porqué completo está en `app/api/portadas/foto/route.ts`.
+        mini: `/api/portadas/foto?id=${id}&w=400&h=140`,
+        // ⚠️ LA GRANDE SE GUARDA APUNTANDO A PICSUM, a propósito: es el DATO que
+        // queda en la columna, y tiene que seguir siendo una URL absoluta de un
+        // origen que `ORIGENES_OK` valide. Una ruta relativa nuestra no pasaría
+        // `urlDeImagenOk` y, peor, dejaría la portada atada a que esta ruta exista.
         // El recorte lo hace el propio repositorio: pedimos la proporción de una
         // banda, no la foto de 5000px que después el navegador achica.
-        mini: `https://picsum.photos/id/${id}/400/140`,
         grande: `https://picsum.photos/id/${id}/1600/420`,
       });
     }
-    return Response.json({ ok: true, fotos, pagina });
+    // ⚠️ `hayMas` LO DECIDE EL SERVER, que es el único que sabe cuántas páginas hay.
+    // Sin esto el botón «Ver más fotos» se dibuja para siempre y, pasada la última,
+    // cada click trae una lista vacía: la pantalla no puede distinguir «no hay más»
+    // de «no llegó nada», que son dos cosas y sólo una es un problema.
+    return Response.json({ ok: true, fotos, pagina, hayMas: pagina < TOTAL_PAGINAS });
   } catch (e) {
     const msg = e instanceof Error && e.name === 'TimeoutError'
       ? 'El catálogo de fotos tardó demasiado.'
