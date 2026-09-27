@@ -457,7 +457,29 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
                   volvería a servir por otra función, cobrando por cada miniatura. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={f.mini} alt="" loading="lazy"
-                onError={() => setRotas((v) => (v.has(f.id) ? v : new Set(v).add(f.id)))} />
+                /**
+                 * ⚠️ UN FALLO NO ALCANZA PARA DESCARTARLA: SE REINTENTA UNA VEZ.
+                 *
+                 * Medido el 27/09/2026: los 20 thumbs de una búsqueda contestan 200 de
+                 * 20 con curl, y en la pantalla se dibujaban 6. No fallan en el origen
+                 * — se caen en el camino, cuando el navegador dispara veinte pedidos a
+                 * nuestra ruta de una y cada uno sale a buscar afuera. Descartar a la
+                 * primera convertía un tropiezo de concurrencia en una foto que no
+                 * existe, y el usuario ve «trae poquitas».
+                 *
+                 * El reintento lleva un parámetro distinto para saltear el caché del
+                 * navegador, que ya guardó el error. A la segunda sí se descarta: ahí
+                 * es que de verdad no está (picsum tiene huecos en su espacio de ids).
+                 */
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (img.dataset.reintento) {
+                    setRotas((v) => (v.has(f.id) ? v : new Set(v).add(f.id)));
+                    return;
+                  }
+                  img.dataset.reintento = '1';
+                  img.src = `${f.mini}${f.mini.includes('?') ? '&' : '?'}r=1`;
+                }} />
             </button>
           </li>
         ))}

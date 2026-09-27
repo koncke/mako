@@ -61,6 +61,39 @@ const POR_PAGINA = 24;
 const TOTAL_PAGINAS = 42;
 
 /**
+ * ⚠️ CADA TANDA SE ARMA CON VARIOS LOTES DE PÁGINAS DISTINTAS, Y ESO ES EL
+ * RANDOMIZER DE VERDAD.
+ *
+ * La primera versión sorteaba UNA página y devolvía sus 24 fotos. El dueño lo
+ * reportó mirando la grilla: «ordenaste todas las fotos, cuando ya habíamos
+ * implementado el randomizer». Y tenía razón — el error no era que no sorteara, era
+ * QUÉ sorteaba. En picsum los ids consecutivos son de la misma sesión de fotos: los
+ * 1052 al 1063 son todos «notebook sobre un escritorio». Una página son 24 ids
+ * consecutivos, así que sortear la página cambia el TEMA de la tanda y no la mezcla:
+ * seis laptops, después seis bosques, después seis playas.
+ *
+ * Ahora cada tanda junta 4 páginas repartidas por todo el catálogo y las INTERCALA.
+ * Cuesta 4 pedidos en vez de 1 — desde el server, que es donde eso es barato (medido:
+ * 12 en paralelo, las 12 bien) y que además cachea cada miniatura 24 h.
+ */
+const LOTES_POR_TANDA = 4;
+const POR_LOTE = 6;
+
+/**
+ * Las 4 páginas de una tanda, repartidas y sin repetir entre tandas.
+ *
+ * El salto es un número PRIMO respecto de 42, así que multiplicarlo recorre todas las
+ * páginas antes de volver a pisar una: con un salto par (digamos 2) sólo se verían las
+ * pares y la mitad del catálogo no existiría nunca.
+ */
+function paginasDeLaTanda(semilla: number, tanda: number): number[] {
+  const SALTO = 11; // primo con 42
+  const base = semilla % TOTAL_PAGINAS;
+  return Array.from({ length: LOTES_POR_TANDA }, (_, i) =>
+    ((base + (tanda - 1) * LOTES_POR_TANDA * SALTO + i * SALTO) % TOTAL_PAGINAS) + 1);
+}
+
+/**
  * BUSCAR POR TEXTO — y no lo hace picsum, lo hace OPENVERSE.
  *
  * «Sería bueno que haya una barra de búsqueda en las fotos de portada, no sé si la API
@@ -82,6 +115,42 @@ const TOTAL_PAGINAS = 42;
 const LICENCIAS_OK = 'cc0,pdm';
 
 /**
+ * TRADUCIR LO QUE SE BUSCA, SIN QUE NADIE SE ENTERE.
+ *
+ * «Cuando busco en español debería hacer la traducción, sin que el usuario lo sepa, al
+ * inglés, para buscar bien» (27/09/2026). Y es cierto: Openverse indexa por los tags
+ * de cada proveedor, y esos tags están en inglés — «dinero» devuelve un puñado y
+ * «money» devuelve el catálogo.
+ *
+ * MyMemory, medido el mismo día: sin key, y además **no rompe el inglés**, que era el
+ * riesgo de traducir siempre. Probado con `langpair=es|en`: money → Money, office →
+ * office, modern office → modern office, beach → Beach. O sea que se puede traducir
+ * SIEMPRE sin preguntarse en qué idioma escribió la persona — que es justo la
+ * pregunta que no se puede contestar bien con una palabra suelta.
+ *
+ * ⚠️ Y SI FALLA, SE BUSCA CON LO QUE ESCRIBIÓ. Un traductor caído no puede dejar sin
+ * buscar: la traducción es una mejora del término, no un requisito. Es la misma regla
+ * que «rechazar deja una deuda» — lo que no se pudo hacer no puede llevarse puesto lo
+ * que sí.
+ */
+async function aIngles(texto: string): Promise<string> {
+  try {
+    const u = new URL('https://api.mymemory.translated.net/get');
+    u.searchParams.set('q', texto);
+    u.searchParams.set('langpair', 'es|en');
+    const r = await fetch(u, { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) return texto;
+    const j = (await r.json()) as { responseData?: { translatedText?: unknown } };
+    const t = j.responseData?.translatedText;
+    // Se descarta lo que no parezca una traducción: MyMemory devuelve avisos en el
+    // mismo campo cuando algo sale mal («NO QUERY SPECIFIED…»), y eso como término de
+    // búsqueda da cero resultados sin decir por qué.
+    if (typeof t !== 'string' || !t.trim() || t.length > texto.length * 3 + 20) return texto;
+    return t.trim();
+  } catch { return texto; }
+}
+
+/**
  * ⚠️ VEINTE, NO VEINTICUATRO. Openverse topea `page_size` en 20 **para pedidos
  * anónimos** —los que no llevan key, que es todo el punto de haberlo elegido— y con 24
  * contesta `401 {"detail":"page_size may not exceed 20 for anonymous requests"}`.
@@ -92,7 +161,8 @@ const LICENCIAS_OK = 'cc0,pdm';
  */
 const POR_PAGINA_OV = 20;
 
-async function buscarEnOpenverse(texto: string, pagina: number) {
+/** Una página de Openverse, cruda. */
+async function paginaOpenverse(texto: string, pagina: number) {
   const url = new URL('https://api.openverse.org/v1/images/');
   url.searchParams.set('q', texto.slice(0, 60));
   url.searchParams.set('page', String(pagina));
@@ -112,8 +182,26 @@ async function buscarEnOpenverse(texto: string, pagina: number) {
     return { ok: false as const, error: `El buscador de fotos contestó ${r.status}${detalle ? `: ${detalle.slice(0, 120)}` : ''}` };
   }
   const j = (await r.json()) as { results?: Array<Record<string, unknown>>; page_count?: number };
+  return { ok: true as const, resultados: j.results ?? [], paginas: j.page_count ?? 1 };
+}
+
+/**
+ * Una TANDA de resultados: dos páginas de Openverse.
+ *
+ * ⚠️ DOS Y NO UNA, porque Openverse topea en 20 por página para pedidos anónimos y
+ * una tanda de 20 se ve corta al lado de las 24 del repositorio base — «busco algo y
+ * limita la cantidad de fotos que aparece» (27/09/2026). Con dos, la tanda es de 40 y
+ * se recorta a 24: el mismo tamaño que las otras, y «Ver más» trae otra tanda entera
+ * en vez de un resto.
+ */
+async function buscarEnOpenverse(textoOriginal: string, tanda: number) {
+  const texto = await aIngles(textoOriginal.slice(0, 60));
+  const p1 = (tanda - 1) * 2 + 1;
+  const [a, b] = await Promise.all([paginaOpenverse(texto, p1), paginaOpenverse(texto, p1 + 1)]);
+  if (!a.ok) return a;
+  const crudos = [...a.resultados, ...(b.ok ? b.resultados : [])];
   const fotos: FotoDeCatalogo[] = [];
-  for (const o of j.results ?? []) {
+  for (const o of crudos) {
     const id = typeof o.id === 'string' ? o.id : '';
     const grande = typeof o.url === 'string' ? o.url : '';
     if (!id || !grande.startsWith('https://')) continue;
@@ -130,7 +218,7 @@ async function buscarEnOpenverse(texto: string, pagina: number) {
       grande,
     });
   }
-  return { ok: true as const, fotos, hayMas: pagina < Math.min(20, j.page_count ?? 1) };
+  return { ok: true as const, fotos: fotos.slice(0, POR_PAGINA), hayMas: p1 + 1 < Math.min(20, a.paginas) };
 }
 
 export async function GET(req: NextRequest) {
@@ -155,7 +243,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const pagina = Math.max(1, Math.min(TOTAL_PAGINAS, Number(q.get('pagina')) || 1));
+  // El tope de tandas: el catalogo entero dividido por lo que consume cada una.
+  const pagina = Math.max(1, Math.min(Math.ceil(TOTAL_PAGINAS / LOTES_POR_TANDA), Number(q.get('pagina')) || 1));
   /**
    * LA SEMILLA DEL RANDOMIZER, y la manda el NAVEGADOR a propósito.
    *
@@ -166,20 +255,24 @@ export async function GET(req: NextRequest) {
    * semilla fija por apertura del selector, la primera tanda arranca en cualquier
    * lado y las siguientes CAMINAN desde ahí, sin repetir hasta dar la vuelta.
    */
-  const semilla = Math.abs(Math.trunc(Number(q.get('semilla')) || 0)) % TOTAL_PAGINAS;
-  // `pagina` es 1-based y la semilla es un corrimiento: la tanda N sale de la página
-  // (semilla + N - 1) del catálogo, dando la vuelta al llegar al final.
-  const paginaReal = ((semilla + pagina - 1) % TOTAL_PAGINAS) + 1;
+  const semilla = Math.abs(Math.trunc(Number(q.get('semilla')) || 0));
   try {
     // `signal` y no sólo el `maxDuration` de la ruta: un fetch sin corte con la red
     // caída en el medio no resuelve NUNCA, y lo que se ve es un spinner eterno.
-    const r = await fetch(`https://picsum.photos/v2/list?page=${paginaReal}&limit=${POR_PAGINA}`,
-      { signal: AbortSignal.timeout(12_000), cache: 'no-store' });
-    if (!r.ok) return Response.json({ ok: false, error: `El catálogo de fotos contestó ${r.status}` }, { status: 502 });
-    const crudo: unknown = await r.json();
-    if (!Array.isArray(crudo)) return Response.json({ ok: false, error: 'El catálogo de fotos contestó algo que no es una lista' }, { status: 502 });
+    const trozos = await Promise.all(paginasDeLaTanda(semilla, pagina).map(async (pg) => {
+      const r = await fetch(`https://picsum.photos/v2/list?page=${pg}&limit=${POR_LOTE}`,
+        { signal: AbortSignal.timeout(12_000), cache: 'no-store' });
+      if (!r.ok) throw new Error(`El catálogo de fotos contestó ${r.status}`);
+      const c: unknown = await r.json();
+      if (!Array.isArray(c)) throw new Error('El catálogo de fotos contestó algo que no es una lista');
+      return c;
+    }));
+    // ⚠️ SE INTERCALAN, no se concatenan. Concatenadas quedarían seis fotos de un
+    // lote, seis del siguiente… o sea grupos otra vez, sólo que de otro tamaño.
+    const crudo: unknown[] = [];
+    for (let i = 0; i < POR_LOTE; i++) for (const t of trozos) if (t[i] !== undefined) crudo.push(t[i]);
     const fotos: FotoDeCatalogo[] = [];
-    for (const f of crudo) {
+    for (const f of crudo.slice(0, POR_PAGINA)) {
       const o = f as Record<string, unknown>;
       const id = typeof o.id === 'string' ? o.id : String(o.id ?? '');
       if (!/^[0-9]+$/.test(id)) continue;
@@ -205,7 +298,9 @@ export async function GET(req: NextRequest) {
     // Sin esto el botón «Ver más fotos» se dibuja para siempre y, pasada la última,
     // cada click trae una lista vacía: la pantalla no puede distinguir «no hay más»
     // de «no llegó nada», que son dos cosas y sólo una es un problema.
-    return Response.json({ ok: true, fotos, pagina, hayMas: pagina < TOTAL_PAGINAS });
+    // Cuántas tandas se pueden servir sin repetir: el catálogo entero dividido por lo
+    // que consume cada una.
+    return Response.json({ ok: true, fotos, pagina, hayMas: pagina * LOTES_POR_TANDA < TOTAL_PAGINAS });
   } catch (e) {
     const msg = e instanceof Error && e.name === 'TimeoutError'
       ? 'El catálogo de fotos tardó demasiado.'
