@@ -362,8 +362,26 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
   // falta: `pagina` sólo la mueve el botón de abajo, así que el estado de carga lo prende
   // el gesto que lo provoca y este efecto sólo lo apaga.
   // Un respiro antes de salir a buscar: sin esto, «montaña» son siete requests.
+  /**
+   * ⚠️ AL CAMBIAR LA BÚSQUEDA SE VACÍA LA GRILLA, Y ESTO ES UN ARREGLO CARO DE
+   * ENCONTRAR. Buscar tarda ~5 s —traducir y después dos páginas de Openverse— y
+   * hasta que volvía, la grilla seguía mostrando **las fotos de la búsqueda
+   * anterior, clickeables**. O sea: escribías «mountain», veías lo de antes, hacías
+   * click y te ponía una foto que no habías buscado. Medido en Chrome: a los 2, 3 y
+   * 4 segundos la primera miniatura seguía siendo la vieja, y recién a los 6 era la
+   * nueva. Se reportó como «try again», que es exactamente lo que se siente.
+   *
+   * Vaciar es más honesto que atenuar: los resultados viejos no son de esta
+   * búsqueda, así que no tienen por qué seguir en pantalla ni un segundo.
+   */
   useEffect(() => {
-    const t = setTimeout(() => { setQFirme(q.trim()); setPagina(1); setRotas(new Set()); }, 320);
+    const t = setTimeout(() => {
+      setQFirme(q.trim());
+      setPagina(1);
+      setRotas(new Set());
+      setFotos([]);
+      setCargando(true);
+    }, 320);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -484,7 +502,7 @@ function Fotos({ valor, onElegir }: { valor: string | null | undefined; onElegir
           </li>
         ))}
       </ul>
-      {cargando && <p className="pp-cargando"><Spinner /> Trayendo fotos…</p>}
+      {cargando && <p className="pp-cargando"><Spinner /> {qFirme ? `Buscando «${qFirme}»…` : 'Trayendo fotos…'}</p>}
       {mal && <p className="pp-mal">{mal}</p>}
       {/* ⚠️ EL BOTÓN DESAPARECE AL LLEGAR AL FINAL. Antes se dibujaba siempre, y
           pasada la última página cada click traía una lista vacía con 200: la

@@ -133,12 +133,23 @@ const LICENCIAS_OK = 'cc0,pdm';
  * que «rechazar deja una deuda» — lo que no se pudo hacer no puede llevarse puesto lo
  * que sí.
  */
+const traducciones = new Map<string, string>();
+
 async function aIngles(texto: string): Promise<string> {
+  // ⚠️ SE CACHEA EN MEMORIA. Buscar es la ruta más lenta del selector y la traducción
+  // está en el camino crítico: sin esto, volver a la misma palabra vuelve a pagar el
+  // viaje. El Map vive lo que viva la instancia; no hace falta más, porque lo que se
+  // repite es la misma búsqueda en la misma sesión.
+  const ya = traducciones.get(texto);
+  if (ya !== undefined) return ya;
   try {
     const u = new URL('https://api.mymemory.translated.net/get');
     u.searchParams.set('q', texto);
     u.searchParams.set('langpair', 'es|en');
-    const r = await fetch(u, { signal: AbortSignal.timeout(4000) });
+    // 1,8 s y no 4: esto corre ANTES de las dos páginas de Openverse, así que cada
+    // segundo acá es un segundo de grilla vacía. Si no llega, se busca en español —
+    // peor que traducido, mejor que esperando.
+    const r = await fetch(u, { signal: AbortSignal.timeout(1800) });
     if (!r.ok) return texto;
     const j = (await r.json()) as { responseData?: { translatedText?: unknown } };
     const t = j.responseData?.translatedText;
@@ -146,6 +157,7 @@ async function aIngles(texto: string): Promise<string> {
     // mismo campo cuando algo sale mal («NO QUERY SPECIFIED…»), y eso como término de
     // búsqueda da cero resultados sin decir por qué.
     if (typeof t !== 'string' || !t.trim() || t.length > texto.length * 3 + 20) return texto;
+    traducciones.set(texto, t.trim());
     return t.trim();
   } catch { return texto; }
 }
@@ -201,10 +213,18 @@ async function buscarEnOpenverse(textoOriginal: string, tanda: number) {
   if (!a.ok) return a;
   const crudos = [...a.resultados, ...(b.ok ? b.resultados : [])];
   const fotos: FotoDeCatalogo[] = [];
+  /**
+   * ⚠️ SE DEDUPLICA AL UNIR LAS DOS PÁGINAS. La paginación de Openverse no es estable
+   * —el mismo ítem puede volver en la página 1 y en la 2—, y dos fotos con el mismo
+   * id son dos `key` iguales en React: avisa en consola y deja una tarjeta que no se
+   * actualiza. Medido: apareció apenas la tanda pasó de una página a dos.
+   */
+  const vistos = new Set<string>();
   for (const o of crudos) {
     const id = typeof o.id === 'string' ? o.id : '';
     const grande = typeof o.url === 'string' ? o.url : '';
-    if (!id || !grande.startsWith('https://')) continue;
+    if (!id || !grande.startsWith('https://') || vistos.has(id)) continue;
+    vistos.add(id);
     fotos.push({
       id: `ov:${id}`,
       autor: typeof o.creator === 'string' ? o.creator : '',
