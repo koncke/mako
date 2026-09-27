@@ -642,20 +642,42 @@ export function CrmBoard({
     // pregunta un chorro de cosas… lo abandono». Ahora se mueve, y lo que falta se
     // avisa en el toast con «Completar ahora» — opcional, nunca en el camino.
     //
-    // Arrastrar una card es el gesto más fácil de hacer sin querer del tablero: por
-    // eso sigue pasando por la confirmación, que dice el movimiento exacto.
     const destino = findStage(stages, stageKey).label;
     const origen = findStage(stages, from).label;
     const ofrecer = senalesAOfrecer(lead, { tr, hoyISO: hoy });
     senalesRef.current = { asistio: null, calificado: null };
+
+    // ⚠️ LA CONFIRMACIÓN DEL ARRASTRE ES CONDICIONAL desde el 27/09/2026, y es la
+    // DECISIÓN 2 del plan de fricción. La regla original (06/08) era pedirla SIEMPRE:
+    // «arrastrar una card es el gesto más fácil de hacer sin querer del tablero».
+    // Cierto — y lo que cambió desde entonces es que ese gesto ya tiene DOS redes, las
+    // dos medidas antes de tocar esto:
+    //   · el toast «↶ Deshacer» de 5 s, que NO revierte sólo la pantalla: llama a
+    //     `undoStageMoveAction`, que escribe en el server.
+    //   · el historial del lead, donde el movimiento queda con autor y fecha.
+    // Con las dos puestas, una pantalla que sólo dice «pasa de A a B» antes de un
+    // movimiento reversible es un peaje: se aprieta sin leer, que es justo lo que hace
+    // que después no se lea la que sí importa.
+    //
+    // DÓNDE SIGUE APARECIENDO, y por eso no se borró: cuando hay algo que ofrecerle a
+    // Meta (la asistencia o el calificado sin marcar, con la R1 ya pasada). Ahí la
+    // pantalla no es una confirmación — es el único momento en que esos dos datos se
+    // pueden dar, y son los únicos dos que el CRM le manda a Meta.
+    //
+    // Y los otros dos desvíos del arrastre siguen intactos, arriba: «Nutrición -
+    // Manual» pide su plazo (el plazo ES la etapa) y las etapas de reunión abren el
+    // menú de agenda. Ninguno de los dos es una confirmación.
+    if (!hayAlgoQueOfrecer(ofrecer)) {
+      persistStage(id, stageKey, from, tr, senalesRef.current);
+      return;
+    }
+
     setConfirmacion({
       titulo: `Mover a ${destino} a ${lead.name}`,
       mensaje: (
         <>
-          Pasa de <b>{origen}</b> a <b>{destino}</b>. Queda registrado en el historial del lead y vas a poder deshacerlo.
-          {hayAlgoQueOfrecer(ofrecer) && (
-            <SenalesMetaChips ofrecer={ofrecer} onChange={(v) => { senalesRef.current = v; }} />
-          )}
+          Pasa de <b>{origen}</b> a <b>{destino}</b>. Queda en el historial y puedes deshacerlo.
+          <SenalesMetaChips ofrecer={ofrecer} onChange={(v) => { senalesRef.current = v; }} />
         </>
       ),
       confirmLabel: `Mover a ${destino}`,
