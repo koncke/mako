@@ -22,6 +22,8 @@ import { requireCapa } from '@/lib/tab-access';
 import { ClientesApp } from './ClientesApp';
 import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
+import { getWorkspaceActual, adminDeWorkspaceActual } from '@/lib/workspace';
+import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -68,12 +70,34 @@ export default async function CustomerSuccessPage() {
 
   const perfil = await getPerfil().catch(() => ({ nombre: '', avatarUrl: '' }));
 
+  // ⚠️ LA CARTERA VIENE CON EL HTML, por lo mismo que el trabajo: la ficha es un
+  // modal sin estado de carga, y pedirle esto al abrirse le devolvería el «Leyendo
+  // lo suyo» que esta pantalla ya se sacó de encima. Son dos consultas chicas sobre
+  // una tabla con una fila por cliente-de-agencia.
+  //
+  // ⚠️ Y ES PARA DIBUJAR, NADA MÁS. `estadoPorWs` no autoriza: quien decide si esta
+  // agencia entra a ese cliente es el server en cada request (lib/agencia.ts), y la
+  // puerta (`/api/agencia/entrar`) se lo vuelve a preguntar a la base. Esconder un
+  // botón no protege nada; lo que protege es el guard.
+  const agenciaWs = await getWorkspaceActual();
+  const cartera = agenciaWs ? await carteraDeAgencia(agenciaWs) : [];
+  const cuentas = {
+    estadoPorWs: Object.fromEntries(cartera.map((f) => [f.cliente_ws, f.estado])) as Record<number, string>,
+    // Abrirle cuenta a un cliente pide DOS cosas, y son dos preguntas distintas:
+    // que este workspace sea una agencia habilitada por el super-admin (mig 0176)
+    // y que quien mira sea su admin. Sin la primera, cualquier cliente con la tab
+    // de Customer Success podría crear workspaces en la plataforma; sin la
+    // segunda, podría hacerlo un closer.
+    puedeAbrir: (await esAgencia(agenciaWs)) && (await adminDeWorkspaceActual()) != null,
+  };
+
   return (
     <ClientesApp
       clientes={clientes}
       tablero={tablero}
       trabajo={trabajo}
       user={{ nombre: perfil.nombre, avatarUrl: perfil.avatarUrl }}
+      cuentas={cuentas}
     />
   );
 }

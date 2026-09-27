@@ -379,14 +379,53 @@ const slugify = (s: string) =>
   s.toLowerCase().normalize('NFD')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'cliente';
 
+/**
+ * El slug, garantizando que no choque con uno que ya exista.
+ *
+ * ⚠️ `workspaces.slug` es UNIQUE (mig 0054:32) y `slugify` no desambigua nada.
+ * Con los clientes dándose de alta de a uno y por una sola persona casi no se
+ * notaba; desde que una AGENCIA da de alta a SUS clientes deja de ser raro —
+ * «Inmobiliaria Sur» existe en más de una cartera— y el segundo alta moría con
+ * un mensaje crudo de Postgres («duplicate key value violates unique
+ * constraint») arriba de un workspace a medio crear. El compilador no ve nada y
+ * el error no nombra el problema real, que es el NOMBRE repetido.
+ *
+ * Consulta los que empiezan igual y agrega el primer sufijo libre. La carrera
+ * entre dos altas simultáneas sigue existiendo y la ataja el UNIQUE: por eso
+ * `crearWorkspace` traduce igual el error de duplicado.
+ */
+async function slugLibre(nombre: string): Promise<string> {
+  const base = slugify(nombre);
+  try {
+    const { data } = await getSupabaseServer()
+      .from('workspaces').select('slug').like('slug', `${base}%`);
+    const tomados = new Set(((data ?? []) as { slug: string | null }[]).map((r) => r.slug).filter(Boolean));
+    if (!tomados.has(base)) return base;
+    for (let i = 2; i <= 99; i++) {
+      const cand = `${base.slice(0, 37)}-${i}`;
+      if (!tomados.has(cand)) return cand;
+    }
+    // Cien homónimos es otra clase de problema; que lo diga el UNIQUE.
+    return base;
+  } catch {
+    // Si no se puede consultar, se intenta con el base: el UNIQUE decide.
+    return base;
+  }
+}
+
 export async function crearWorkspace(nombre: string, capa: CapaId = CAPA_DEFAULT): Promise<Workspace> {
   // Fail-closed: una capa inventada haría que el gating la trate como 'completo'
   // (capaDef cae al default) y el cliente vería tabs que no compró.
   if (!esCapaValida(capa)) throw new Error(`capa inválida: ${capa}`);
   const { data, error } = await getSupabaseServer()
     .from('workspaces')
-    .insert({ nombre: nombre.trim(), slug: slugify(nombre), estado: 'activo', capa })
+    .insert({ nombre: nombre.trim(), slug: await slugLibre(nombre), estado: 'activo', capa })
     .select(WS_COLS).single();
+  // Un choque de slug llega acá sólo si dos altas corrieron a la vez (el `slugLibre`
+  // de arriba cubre el caso normal). Se traduce, porque «duplicate key value violates
+  // unique constraint workspaces_slug_key» no le dice a nadie que el problema es el
+  // nombre repetido.
+  if (error?.code === '23505') throw new Error(`Ya hay un cliente llamado «${nombre.trim()}». Usa otro nombre.`);
   if (error) throw new Error(`workspaces: ${error.message}`);
   const ws = data as Workspace;
   // Un workspace SIEMPRE tiene exactamente un funnel default (mig 0170). La

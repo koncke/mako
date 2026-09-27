@@ -90,6 +90,15 @@ export async function agenciasDeCliente(clienteWs: number): Promise<FilaCarteraU
  * con un `.eq('estado','aprobado')` en la query. Parece un rodeo y no lo es: así
  * la condición que decide el acceso es UNA, está en un módulo testeable, y la
  * consulta no puede tener su propia versión de la regla que se desincronice.
+ *
+ * ⚠️ Y EL `===` DEL JUICIO COMPARA NÚMEROS, MEDIDO Y NO SUPUESTO. Las dos
+ * columnas son `bigint`, y un bigint puede llegar como STRING según quién lo
+ * lea: el driver `postgres` de los scripts devuelve `'13'`. Si PostgREST hiciera
+ * lo mismo, `f.agencia_ws === agenciaWs` sería false SIEMPRE y nadie entraría
+ * nunca — un fail-closed silencioso que se lee como «el botón no hace nada».
+ * Comprobado contra prod el 27/09/2026: supabase-js devuelve
+ * `{"agencia_ws":13}` con `typeof === 'number'`. Si algún día esto se lee por
+ * otro camino, hay que volver a medirlo.
  */
 export const puedeEntrarAhora = cache(async (agenciaWs: number, clienteWs: number): Promise<boolean> => {
   if (!esWsValido(agenciaWs) || !esWsValido(clienteWs) || agenciaWs === clienteWs) return false;
@@ -145,4 +154,41 @@ export async function esAgenciaConCartera(): Promise<boolean> {
   const sesion = await getUsuarioActual();
   if (!sesion || !esWsValido(sesion.ws)) return false;
   return clientesAprobados(sesion.ws, await carteraDeAgencia(sesion.ws)).length > 0;
+}
+
+/**
+ * ¿Este workspace puede TENER clientes propios? (mig 0176)
+ *
+ * ⚠️ ES OTRA PREGUNTA QUE `carteraDeAgencia`, y separarlas es lo que cierra el
+ * huevo-y-gallina. Si «es agencia» se dedujera de «tiene alguna fila en la
+ * cartera», para conseguir la primera fila habría que poder pedirla — o sea que
+ * CUALQUIER admin de CUALQUIER workspace podría darse de alta clientes y crear
+ * workspaces nuevos en la plataforma. No expondría datos (la 0175 sigue
+ * exigiendo la firma del super-admin para mirar adentro), pero deja a un
+ * inquilino creando objetos de plataforma, que es una puerta que nadie abrió.
+ *
+ * Fail-closed: si no se puede preguntar, no es agencia.
+ */
+export const esAgencia = cache(async (ws: number | null | undefined): Promise<boolean> => {
+  if (!esWsValido(ws)) return false;
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('agencias').select('ws').eq('ws', ws).limit(1);
+    if (error) throw error;
+    return (data ?? []).length > 0;
+  } catch {
+    return false;
+  }
+});
+
+/** Las agencias habilitadas, para que /admin las pueda listar y quitar. */
+export async function agenciasHabilitadas(): Promise<{ ws: number; habilitada_por: string | null; nota: string | null }[]> {
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('agencias').select('ws, habilitada_por, nota').order('ws');
+    if (error) throw error;
+    return (data ?? []) as { ws: number; habilitada_por: string | null; nota: string | null }[];
+  } catch {
+    return [];
+  }
 }

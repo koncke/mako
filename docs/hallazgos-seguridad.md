@@ -1066,3 +1066,105 @@ testearse, como ya se hizo con `exigirClienteDePrueba`.
 Juanfran/ws13 solo, toda prueba da bien aunque el permiso esté cableado al número 13 en vez de
 a una relación. La prueba honesta necesita una SEGUNDA agencia de mentira y comprobar que no
 se ven entre sí.
+
+### Lo que apareció CONSTRUYÉNDOLA (27/09/2026)
+
+El relevo de arriba decía qué había. Esto es lo que se midió al escribirla, y que el
+relevo no podía ver.
+
+**Vive en:** `supabase/migrations/0175_cartera_de_agencia.sql` · `0176_quien_es_agencia.sql` · `lib/agencia.ts` · `lib/agencia-cartera.ts` · `app/api/agencia/entrar/route.ts`
+
+#### Hacen falta DOS tablas, y derivar una de la otra deja un agujero
+
+`agencia_clientes` (0175) contesta «¿a qué clientes puede entrar esta agencia?».
+`agencias` (0176) contesta una pregunta anterior: «¿quién puede TENER clientes?».
+
+Derivar la segunda de la primera —«es agencia el que tenga alguna fila»— parece
+ahorrarse una tabla y es un huevo-y-gallina con un solo lado abierto: para conseguir la
+primera fila hay que poder pedirla, así que **cualquier admin de cualquier workspace con
+la tab de Customer Success podría darse de alta clientes y crear workspaces nuevos en la
+plataforma**. No expone datos —la aprobación del super-admin sigue siendo obligatoria
+para mirar adentro— pero deja a un inquilino creando objetos de plataforma, que es una
+puerta que nadie abrió. Se cerró con la 0176 y con el mismo guard en las dos capas: la
+pantalla (`puedeAbrir`) y la server action (`esAgencia`), porque esconder el botón no
+protege una server action.
+
+Y no es una `capa`: la capa dice QUÉ COMPRÓ el cliente y esto dice QUÉ PUEDE HACER con
+otros workspaces. Mezclarlos obliga a que toda agencia compre lo mismo, y encima
+técnicamente es peor —`capaDef` es fail-open hacia 'completo'.
+
+#### Un `bigint` puede llegar como STRING, y el guard sería un `===` que nunca matchea
+
+Las dos columnas de la cartera son `bigint`. El driver `postgres` de los scripts los
+devuelve como **texto** (`'13'`), y si PostgREST hiciera lo mismo, `f.agencia_ws ===
+agenciaWs` sería false SIEMPRE y nadie entraría nunca — un fail-closed silencioso que se
+lee como «el botón no hace nada».
+
+Medido contra prod antes de confiar: supabase-js devuelve `{"agencia_ws":13}`, con
+`typeof === 'number'`. Está anotado en `puedeEntrarAhora`, con la fecha, porque es una
+propiedad del transporte y no del esquema: si algún día esa lectura sale por otro camino,
+hay que volver a medirlo.
+
+#### El token de impersonación no se podía reusar, y el motivo no es el que parece
+
+`firmarImpersonacion` firma **sólo el número del workspace** (`w1.<wsId>.<firma>`), así
+que esa cookie es portable entre sesiones. Hoy da igual: la honra únicamente un admin
+global, que ya podía entrar a cualquier lado. Para una agencia deja de dar igual — la
+cookie pegada en otro navegador abriría los datos de su cliente. El token nuevo lleva el
+SUJETO adentro (`a1.<agenciaWs>.<clienteWs>.<exp>.<firma>`) y `resolverDesdeCookies` lo
+descarta si `agenciaWs !== sesion.ws`.
+
+Y el vencimiento va **firmado**: en el viejo lo promete la cookie (12 h), que es una
+promesa del navegador — una cookie copiada a mano, sin `max-age`, vale para siempre.
+
+#### El token no alcanza: la cartera se revoca DESPUÉS de firmarlo
+
+Un permiso que sólo se chequea al emitir el token es un permiso que se puede quitar y no
+se quita. Por eso `contextoDeAgencia` le vuelve a preguntar a la base **en cada request**,
+fail-closed. El costo real es una consulta memoizada por request y **sólo** para las
+sesiones que traen la cookie: el super-admin, un cliente normal y cualquiera sin cookie
+salen antes de tocar la base.
+
+#### Dos tests que sólo sirven con DOS agencias
+
+Es el corolario 3 de `OWNER_WS` aplicado acá: con Juanfran/ws13 solo, un permiso cableado
+al número 13 —o uno que ignore `agencia_ws` y mire sólo `cliente_ws`— pasaría **todas** las
+pruebas. Probado rompiéndolo: sacar `f.agencia_ws === agenciaWs` de `puedeEntrar` deja
+14 pases y **2 fallos**, y esos dos son exactamente los únicos casos del archivo que
+necesitan la segunda agencia para existir.
+
+#### Gotchas del entorno que costaron una vuelta cada uno
+
+- **`tsx` transpila los tests a CJS: no hay top-level await.** Un `const {x} = await
+  import('...')` —el patrón natural para fijar `process.env.AUTH_SECRET` antes de cargar
+  el módulo— **ni siquiera compila**, y el archivo entero cuenta como *1 test fallado* sin
+  correr ninguno. Se resuelve con import estático: `secret()` lee `process.env` en cada
+  llamada, no al cargar. Es la misma familia que el `import()` dinámico bajo tsx que ya
+  está en AGENTS.md.
+- **`getByRole(role, { name })` de Playwright matchea por SUBSTRING.** «Dejar entrar» pegó
+  en «No dejar entrar» y la prueba REVOCÓ el acceso creyendo que lo aprobaba — con la
+  pantalla mostrando después «Revocado», que se lee como un bug del código. Va
+  `{ exact: true }` en cualquier par de botones donde uno contenga al otro.
+- **El guard de voseo cazó dos strings de error nuevos** («Avisá», «Cambiale»). El
+  producto se usa en México: hasta un mensaje de error de una rama improbable va en
+  español neutro, y el test lo mira sobre los 1226 archivos.
+
+#### Lo que quedó SIN hacer
+
+- **Revocar no echa a quien ya está adentro.** `contextoDeAgencia` re-pregunta en cada
+  request, así que la sesión muere en la siguiente navegación — pero no hay un corte
+  activo ni un aviso. Con una agencia es aceptable; con varias habría que mirarlo.
+- **La rueda de alta no tiene rollback, y se dice en vez de fingirse.** Si la fila de la
+  cartera falla después de crear el workspace, ese workspace queda: borrarlo no se puede
+  porque ya tiene su `funnels` colgando con FK sin cascade. Es el MISMO agujero que ya
+  tiene `/api/admin/workspaces:87`, y no se arregló acá porque la cura es de las dos. El
+  mensaje nombra el id que quedó suelto.
+- **El cliente nuevo nace sin usuario admin.** `crearWorkspace` crea el workspace y su
+  funnel; el alta de `/admin` además crea el usuario y le manda el mail de acceso. La
+  agencia no le da cuenta a nadie todavía: entra ella. Si mañana el cliente de la agencia
+  tiene que entrar solo, eso es otro trabajo (y hereda la regla de que el mail de la
+  PLATAFORMA sale de `wsSuperAdmin()`, no del workspace en curso).
+- **`vista_de_agencia` de `lib/api-mako/areas/equipo.run.ts:177` sigue significando
+  «impersonando»** — y ahora eso es ambiguo, porque hay dos formas de estar viendo a otro.
+  No se tocó para no cambiarle la respuesta a MaKo sin decidirlo; queda pendiente separar
+  los dos casos en esa API.

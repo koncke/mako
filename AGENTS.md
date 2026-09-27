@@ -426,6 +426,59 @@ Seis cosas que no se ven en el código y ya mordieron:
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
 tener. Una ruta nueva ahí falla ese test hasta que alguien decide que también es bearer.
 
+# Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
+
+Cuando alguien tiene que poder ver los datos de otro workspace —la vista de agencia es
+el primer caso, y no va a ser el único— hay dos preguntas y hace falta contestarlas por
+separado:
+
+1. **¿Este workspace puede tener clientes?** (tabla `agencias`, mig 0176). La decide el
+   super admin, una vez.
+2. **¿A CUÁL de ellos puede entrar?** (tabla `agencia_clientes`, mig 0175). Se decide por
+   cliente, con autor y fecha.
+
+**Derivar la primera de la segunda —«es agencia el que tenga alguna fila»— deja un
+huevo-y-gallina con un solo lado abierto**: para conseguir la primera fila hay que poder
+pedirla, así que cualquier admin de cualquier workspace crea inquilinos en la plataforma.
+No es un agujero de datos; es un inquilino creando objetos de plataforma, que es una
+puerta que nadie abrió.
+
+Lo que gobierna el código nuevo de esta familia:
+
+- **La condición vive en un módulo SIN `server-only`** (`lib/agencia-cartera.ts`), y se
+  escribe **en positivo**: «hay una fila aprobada», nunca «todas menos». Es la regla del
+  Reset, y es la que permite que haya test.
+- **Se prueba con DOS sujetos, no con uno.** Con una sola agencia, un permiso cableado al
+  número 13 —o uno que ignore `agencia_ws` y mire sólo el cliente— pasa TODAS las pruebas.
+  Medido: sacar `f.agencia_ws === agenciaWs` deja 14 de 16 en verde, y los 2 que caen son
+  los únicos que necesitan la segunda agencia para existir.
+- **Un token que autoriza a un sujeto tiene que NOMBRARLO.** `firmarImpersonacion` firma
+  sólo el número del workspace, así que su cookie es portable entre sesiones; eso da igual
+  mientras la honre únicamente un admin global, y deja de dar igual en cuanto la honre
+  alguien más. `firmarAgencia` mete el sujeto y el vencimiento adentro de la firma — el
+  `max-age` de una cookie es una promesa del navegador, no del servidor.
+- **Y el token no alcanza: el permiso se repregunta en cada request.** La aprobación
+  cambia DESPUÉS de firmarlo. Un permiso que sólo se chequea al emitir es un permiso que
+  se puede quitar y no se quita. Va memoizado por request y con salida temprana para quien
+  no trae la cookie, así el 99% del tráfico no toca la base. Fail-closed si la consulta
+  falla.
+- **La SALIDA de una «vista de otro» no es una constante.** Estaba cableada a `/admin` en
+  tres lugares, y `/admin` está en `SOLO_ADMIN`: quien no sea super admin se come el
+  `denegarRol`. Sale de `rutaDeSalida` y viaja por `/api/auth/me`, junto con por cuál de
+  las dos puertas hay que borrar la cookie — un DELETE al endpoint equivocado la deja
+  puesta y el cartel vuelve solo, que se lee como un botón roto.
+- **Y `estado: 'pausado'` de `workspaces` NO sirve como «pendiente de aprobación»**, que
+  es la salida barata que aparece primero. Medido: no bloquea el acceso a nada —lo miran
+  cuatro crons y la UI de /admin— y la columna ni siquiera tiene CHECK. El único corte
+  real de acceso es `usuarios.estado='suspendido'`, y es por PERSONA.
+
+⚠️ **Y un `bigint` puede llegar como STRING.** Las columnas de estas tablas son `bigint`;
+el driver `postgres` de los scripts los devuelve como texto (`'13'`). Si el cliente que
+usa el guard hiciera lo mismo, un `===` sería false SIEMPRE y **nadie entraría nunca** —
+un fail-closed silencioso que se lee como «el botón no hace nada». Medido contra prod el
+27/09/2026: supabase-js devuelve `number`. Si esa lectura sale algún día por otro camino,
+se vuelve a medir.
+
 # Hay CUATRO formas de navegar, y las cuatro llevan el `?ws=`
 
 | Cómo | Con qué |

@@ -21,6 +21,7 @@ import { Dropdown } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, capaDef, type CapaId } from '@/lib/capas';
 import type { Usuario } from '@/lib/usuarios';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
 
 /** Lo que contestan /api/admin/workspaces y /api/admin/usuarios. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
@@ -282,10 +283,27 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
     if (nuevo && nuevo !== w.nombre) await accionWs({ action: 'nombre', id: w.id, nombre: nuevo });
   };
 
+  // Las agencias y sus pedidos, en UNA lectura compartida por el bloque de
+  // aprobaciones y por el menu de cada workspace.
+  const agenciasEstado = useAgencias();
+  const esAgenciaWs = (id: number) => agenciasEstado.agencias.includes(id);
+  const marcarAgencia = async (id: number, habilitar: boolean) => {
+    if (accionando) return;
+    setErrAccion(null); setAccionando(true);
+    try {
+      const j = await (await fetch('/api/admin/agencia', { method: 'POST',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ habilitar, ws: id }) })).json();
+      if (!j?.ok) { setErrAccion(j?.error ?? 'No se pudo aplicar el cambio.'); return; }
+      await agenciasEstado.cargar();
+    } finally { setAccionando(false); }
+  };
+
   const puedeCrear = nombre.trim().length >= 2 && !creando;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ── Lo que una agencia pidió mirar, y todavía no firmaste ──────────── */}
+      <AprobacionesDeAgencia workspaces={workspaces} recargar={recargar} estado={agenciasEstado} />
       {/* ── Agregar cliente (crea workspace + su admin) ─────────────────────── */}
       <div style={card}>
         <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar cliente</div>
@@ -375,11 +393,16 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                       esDueno
                         ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
                         : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
+                      // Quién puede TENER clientes propios (mig 0176). Es la decisión
+                      // anterior a aprobar un cliente suelto: sin esto, cualquier
+                      // cliente con la tab de Customer Success crearía workspaces.
+                      { value: 'agencia', label: esAgenciaWs(w.id) ? 'Dejar de ser agencia' : 'Convertir en agencia' },
                     ]}
                     onChange={(v) => {
                       if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
                       else if (v.startsWith('capa:')) accionWs({ action: 'capa', id: w.id, capa: v.slice(5) });
                       else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
+                      else if (v === 'agencia') marcarAgencia(w.id, !esAgenciaWs(w.id));
                     }}
                   />
                 </div>

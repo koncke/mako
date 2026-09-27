@@ -46,8 +46,9 @@ import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
 import { Avatar, colorDe } from './ClienteCard';
 import { guardarDatosClienteAction } from './actions';
+import { CuentaDeMaKo } from './CuentaDeMaKo';
 
-export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar }: {
+export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen, onCerrar }: {
   c: ClienteCruce;
   /** Su número de cliente. NO es el id del lead. */
   n: number;
@@ -55,6 +56,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
   trabajo: TrabajoDeCliente | null;
   user: BoardUser;
   clientes: ClienteRef[];
+  /** El estado de las cuentas de MaKo de la cartera, para dibujar el bloque de abajo. */
+  cuentas?: { estadoPorWs: Record<number, string>; puedeAbrir: boolean };
   /** Cambió su foto o su portada. Lo persiste el padre, que es el que tiene la lista. */
   onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null }) => void;
   onCerrar: () => void;
@@ -227,6 +230,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, onImagen, onCerrar
       onCerrar={onCerrar}
     >
       {mal && <p className="fc-mal">{mal}</p>}
+
+      <CuentaDeMaKo c={c} cuentas={cuentas} onError={setMal} />
 
       {!trabajo ? (
         // «No pude leer» no se pinta como «no tiene trabajo»: son dos pantallas, y la

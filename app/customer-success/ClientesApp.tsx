@@ -28,7 +28,7 @@ import { guardarImagenClienteAction, autoasignarAction } from './actions';
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -39,6 +39,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
   user: BoardUser;
   /** La lista no se pudo leer. NO es «no tenés clientes»: son dos pantallas. */
   error?: string;
+  /** Vista de agencia (mig 0175): en qué estado está la cuenta de MaKo de cada cliente
+   *  que tiene una, y si esta sesión puede abrir cuentas nuevas. Viene del server con
+   *  el HTML, igual que el trabajo: abrir una ficha no tiene que pedir nada.
+   *  ⚠️ Es para DIBUJAR. Que acá diga 'aprobado' no autoriza nada: el que decide es
+   *  el server en cada request (lib/agencia.ts), y esconder el botón no protege. */
+  cuentas?: { estadoPorWs: Record<number, string>; puedeAbrir: boolean };
 }) {
   const [creando, setCreando] = useState(false);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
@@ -272,6 +278,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error }: {
               : { dueno: false as const, tareas: [], categorias: [] }) : null)}
           user={user}
           clientes={clientes}
+          cuentas={cuentas}
           onImagen={(cambio) => guardarImagen(abierto.leadId, cambio)}
           onCerrar={() => setAbiertoId(null)}
         />

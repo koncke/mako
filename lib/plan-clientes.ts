@@ -38,6 +38,16 @@ export type ClienteRef = {
   icono?: string | null;
   avatarY?: number | null;
   portadaY?: number | null;
+  /**
+   * El workspace de MaKo de este cliente, si le abrieron cuenta (mig 0175).
+   *
+   * ⚠️ ES UN PUNTERO PARA LA PANTALLA, NUNCA UN PERMISO. Que esté acá significa
+   * «este cliente tiene cuenta y es ésta», y no «yo puedo entrar». Quién puede
+   * entrar lo contesta `agencia_clientes` del lado del server, en cada request
+   * (lib/agencia.ts). Meter las dos cosas en un campo es exactamente cómo la
+   * pregunta débil se lleva puesta a la fuerte.
+   */
+  clienteWs?: number | null;
 };
 
 /** Lo que una tarjeta (tarea o proyecto) guarda de su cliente. */

@@ -29,7 +29,9 @@
 // el estado sobre la cartera de Mauricio. Es la misma pantalla para todos: el
 // inquilino lo resuelve `getTenantDb()`.
 
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, adminDeWorkspaceActual, crearWorkspace } from '@/lib/workspace';
+import { getSupabaseServer } from '@/lib/supabase';
+import { esAgencia } from '@/lib/agencia';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
 import { createLead, updateLead } from '@/lib/leads';
 // La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
@@ -226,5 +228,73 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
     return { ok: true, nombre: fila.nombre ?? '', empresa: fila.empresa };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
+  }
+}
+
+/**
+ * Abrirle una cuenta de MaKo a un cliente ganado — queda ESPERANDO APROBACIÓN.
+ *
+ * Es el puente que faltaba entre las dos pantallas de «Clientes»: ésta lista
+ * LEADS y /admin lista WORKSPACES, y hasta la mig 0175 no había ninguna columna
+ * que los cruzara. Por eso «Entrar como» no se podía poner acá: no había a dónde
+ * entrar.
+ *
+ * ⚠️ NACE 'pendiente', SIEMPRE. Quien crea la cuenta es la agencia; quien
+ * autoriza que la agencia MIRE adentro es el super-admin, y son dos decisiones
+ * distintas. Sin ese corte, cualquiera con un workspace se daría de alta clientes
+ * y se auto-aprobaría el acceso — o sea, el guard no sería un guard.
+ *
+ * ⚠️ Y NO HAY ROLLBACK, a propósito de decirlo en vez de fingirlo. Si la fila de
+ * la cartera falla después de crear el workspace, ese workspace queda: borrarlo
+ * no se puede (ya tiene su `funnels` colgando con FK sin cascade — es el mismo
+ * agujero que ya tiene /api/admin/workspaces), así que el mensaje NOMBRA el id
+ * que quedó suelto. Un alta a medias en silencio es peor que una que avisa.
+ */
+export async function crearCuentaMakoAction(leadId: number): Promise<
+  { ok: true; clienteWs: number; estado: string } | { ok: false; error: string }
+> {
+  try {
+    const agenciaWs = await adminDeWorkspaceActual();
+    if (!agenciaWs) return { ok: false, error: 'Sólo el admin de la cuenta puede abrirle una cuenta a un cliente.' };
+    // ⚠️ EL GUARD DE VERDAD, y va acá y no sólo en la pantalla: esconder el botón
+    // no protege nada, porque una server action se puede invocar igual. Sin esto,
+    // cualquier admin de cualquier workspace crea inquilinos en la plataforma.
+    if (!(await esAgencia(agenciaWs))) {
+      return { ok: false, error: 'Tu cuenta no está habilitada para tener clientes propios.' };
+    }
+
+    const cliente = await clienteDelWorkspace(leadId);
+    if (!cliente) return { ok: false, error: 'Ese cliente no es de este workspace.' };
+
+    const db = await getTenantDb();
+    // Idempotencia: dos clicks, dos pestañas o una conexión mala no pueden dejar
+    // dos workspaces para el mismo cliente. Se pregunta ANTES de crear nada.
+    const { data: yaTiene } = await db.from('leads').select('cliente_ws').eq('id', leadId).maybeSingle();
+    const wsPrevio = (yaTiene as { cliente_ws: number | null } | null)?.cliente_ws ?? null;
+    if (wsPrevio) return { ok: false, error: 'Este cliente ya tiene cuenta de MaKo.' };
+
+    const nombre = cliente.nombre.trim() || `Cliente ${leadId}`;
+    const ws = await crearWorkspace(nombre);
+
+    const { error: eCartera } = await getSupabaseServer()
+      .from('agencia_clientes')
+      .insert({ agencia_ws: agenciaWs, cliente_ws: ws.id, estado: 'pendiente' });
+    if (eCartera) {
+      // Corto, y con el número adentro: el id es lo ÚNICO que no se puede
+      // reconstruir después, y sin él nadie encuentra el workspace que quedó
+      // suelto. El porqué de que no haya rollback está arriba, en el comentario.
+      return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin pedir aprobación: ${eCartera.message}` };
+    }
+
+    // El puntero del lead a su cuenta. Va ÚLTIMO: si fallara, lo que queda es una
+    // cartera pendiente sin ficha que la muestre —recuperable desde /admin—, y no
+    // una ficha que promete una cuenta que nadie puede aprobar.
+    const { error: eLead } = await db.from('leads').update({ cliente_ws: ws.id }).eq('id', leadId);
+    if (eLead) return { ok: false, error: `Se creó la cuenta (workspace ${ws.id}) pero no quedó ligada a esta ficha: ${eLead.message}` };
+
+    revalidatePath('/customer-success');
+    return { ok: true, clienteWs: ws.id, estado: 'pendiente' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo abrir la cuenta.' };
   }
 }

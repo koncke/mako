@@ -54,6 +54,9 @@ export type ClienteCruce = {
   portadaY?: number | null;
   avatarY?: number | null;
   icono?: string | null;
+  /** Su cuenta de MaKo, si tiene (mig 0175). El cruce tampoco la mira: viaja porque la
+   *  ficha dibuja con ella el bloque de «Cuenta de MaKo» y el «Entrar como». */
+  clienteWs?: number | null;
 };
 /**
  * Un proyecto del tablero, para cruzar.
