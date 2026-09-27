@@ -111,7 +111,9 @@ export type CrmLead = {
   company: string;
   origin: string;
   stage: string;
-  derivedStage: string;   // posición real en el funnel (ignora override) — para el worklist
+  derivedStage: string;
+  /** La etapa guardada que este funnel ya no contiene. null = está donde dice. */
+  stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
   telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
   // Fechas crudas (ISO) para la línea de tiempo del recorrido.
@@ -250,7 +252,7 @@ type QhOpcion =
   | 'avanza' | 'nodecide' | 'sinresp' | 'cierra';
 
 /** Los pasos posibles del form. La rama decide CUÁLES y en qué orden. */
-type QhPasoId = 'que' | 'salida' | 'noshowEtapa' | 'calificado' | 'motivo' | 'motivoDetalle' | 'fecha' | 'hora' | 'plazo' | 'resumen';
+type QhPasoId = 'que' | 'salida' | 'noshowEtapa' | 'calificado' | 'motivo' | 'fecha' | 'hora' | 'plazo' | 'resumen';
 
 
 /** Resumen "dato → valor" de un paso de confirmación. El mismo en todos los wizards. */
@@ -843,7 +845,7 @@ export function CrmBoard({
       case 'hecha':
         p.push('salida');
         if (qhPideCalificado) p.push('calificado');
-        if (qhPideMotivo) p.push('motivo', 'motivoDetalle');
+        if (qhPideMotivo) p.push('motivo');
         break;
       case 'noshow':
         // CERO preguntas: la etapa la dicta el funnel. Solo si este funnel no la
@@ -852,12 +854,12 @@ export function CrmBoard({
         // Y si esa etapa de excepción resulta ser una salida (Perdido/Descal), el
         // motivo se pide igual que en cualquier otro cierre: sin esto el lead se
         // cerraba heredando el `motivo_perdida` de la pérdida anterior.
-        if (qhPideMotivo) p.push('motivo', 'motivoDetalle');
+        if (qhPideMotivo) p.push('motivo');
         break;
       case 'noshowcierra':
       case 'cierra':
         p.push('salida');
-        if (qhPideMotivo) p.push('motivo', 'motivoDetalle');
+        if (qhPideMotivo) p.push('motivo');
         break;
       case 'avanza':
         p.push('salida');
@@ -949,8 +951,7 @@ export function CrmBoard({
       case 'que': return qhOpcion != null;
       case 'salida': case 'noshowEtapa': return !!qhEtapa;
       case 'calificado': return qhCalificado != null;
-      case 'motivo': return !!qhMotivoCat.trim();
-      case 'motivoDetalle': return !!qhMotivoDet.trim();
+      case 'motivo': return !!qhMotivoCat.trim() && !!qhMotivoDet.trim();
       // El `min` del input es una restricción BLANDA (el onChange dispara igual):
       // una fecha de ayer tipeada a mano volvía al worklist al instante.
       case 'fecha': return !!reagFecha && reagFecha >= hoy;
@@ -1257,6 +1258,8 @@ export function CrmBoard({
   const [exportar, setExportar] = useState(false);
   const [importar, setImportar] = useState(false);
   const [nuevoLead, setNuevoLead] = useState(false);
+  // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
+  const [errorCerrado, setErrorCerrado] = useState(false);
   const { toast: avisoBoard, show: mostrarAviso, clear: limpiarAviso } = useToast();
   const [flashCsv, setFlashCsv] = useState<string | null>(null);
   // Por qué no se pudo abrir Calendly (este negocio no lo tiene configurado, el
@@ -1310,6 +1313,25 @@ export function CrmBoard({
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
+                {/* ⚠️ ESTÁ DIBUJADO ACÁ Y NO ES DE ACÁ. La etapa guardada del lead no
+                    existe en este funnel, así que el tablero lo ubica donde puede —
+                    la derivada, o la primera columna. Medido en el relevamiento del
+                    25/09: 1.057 de los 1.138 leads del ws1 están en este caso, por
+                    `reactivacion`, `noshow_r1` y `noshow_r2`, etapas que el funnel
+                    dejó de tener.
+
+                    Sin el chip, esos leads se leen como «Nuevo» y no hay forma de
+                    saber que no lo son. El chip no los mueve: dice dónde están de
+                    verdad. Mover 1.057 leads es una decisión, y decirlo no.
+
+                    `stageMetaOpt` y NO `stageMeta`: el segundo cae a `stages[0]`, o
+                    sea que contestaría «Nuevo» — el mismo dato falso otra vez. */}
+                {l.stageFuera && (
+                  <div title={`Este lead quedó guardado en «${stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera}», una etapa que tu embudo ya no tiene. Se muestra aquí porque no hay columna donde ponerlo.`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, fontSize: 10.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 999, padding: '1px 8px', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera} · fuera del embudo
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : isManual ? (overdueManual ? 'Venció' : 'Vence') : l.agenda ? 'Agenda' : l.created}</span>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : overdueManual ? 'var(--bad)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : isManual ? (dlFmt ?? 'sin fecha') : l.agenda || '—'}</span>
@@ -1343,9 +1365,30 @@ export function CrmBoard({
         </div>
       </header>
 
-      {errorMsg && (
-        <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 13, padding: '14px 18px', marginBottom: 14, color: 'var(--bad)', fontSize: 14 }}>
-          No se pudo leer Supabase: <span style={{ fontFamily: MONO }}>{errorMsg}</span>
+      {/* ⚠️ SE PUEDE CERRAR Y SE PUEDE REINTENTAR, desde el 27/09/2026. Era una barra
+          roja con el mensaje crudo de Postgres y ninguna salida: no se cerraba, no
+          ofrecía volver a intentar, y se quedaba ahí arriba tapando el tablero hasta
+          que alguien recargaba a mano. Es la fila «errores que no se pueden cerrar ni
+          resolver» del plan, que estaba marcada como aplicada con sólo la mitad hecha
+          (el reintento del chat del lead).
+
+          El mensaje técnico se queda: es lo único que dice qué pasó. Lo que se agrega
+          es qué HACER con él. */}
+      {errorMsg && !errorCerrado && (
+        <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 13, padding: '14px 18px', marginBottom: 14, color: 'var(--bad)', fontSize: 14, display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ flex: '1 1 260px', minWidth: 0 }}>
+            No se pudo leer Supabase: <span style={{ fontFamily: MONO }}>{errorMsg}</span>
+          </span>
+          <span style={{ flex: 'none', display: 'inline-flex', gap: 10 }}>
+            <button type="button" onClick={() => router.refresh()}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: 'var(--bad)', fontFamily: SANS, textDecoration: 'underline' }}>
+              Reintentar
+            </button>
+            <button type="button" onClick={() => setErrorCerrado(true)} aria-label="Cerrar el aviso"
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 15, lineHeight: 1, color: 'var(--bad)', fontFamily: SANS }}>
+              ×
+            </button>
+          </span>
         </div>
       )}
 
@@ -1684,11 +1727,10 @@ export function CrmBoard({
           },
           motivo: {
             q: qhDestino === 'descal' ? '¿Por qué se descalificó?' : '¿Por qué se perdió?',
-            sub: 'Elige la categoría. En la pantalla siguiente cuentas el caso concreto.',
-          },
-          motivoDetalle: {
-            q: 'Sé específico: ¿qué pasó?',
-            sub: `Categoría: ${qhMotivoCat || '—'}. Agrega el detalle concreto — es lo que se lee en el historial.`,
+            // El detalle es lo único del CRM que no se deduce de ningún lado, así que
+            // el `sub` dice para qué sirve — no explica la pantalla siguiente, que ya
+            // no existe.
+            sub: 'El detalle es lo que se lee después en el historial.',
           },
           fecha: {
             q: `¿Para qué día quedó la Reunión ${nR}?`,
@@ -1867,6 +1909,7 @@ export function CrmBoard({
             )}
 
             {qhPasoId === 'motivo' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
                 {motivosDeSalida(qhDestino).map((s) => (
                   <button key={s} type="button" onClick={() => setQhMotivoCat(s)}
@@ -1875,12 +1918,12 @@ export function CrmBoard({
                   </button>
                 ))}
               </div>
-            )}
-
-            {qhPasoId === 'motivoDetalle' && (
+              {/* El detalle va autoFocus: los chips se tocan con el mouse y escribir es
+                  lo que de verdad pide la pantalla. */}
               <textarea value={qhMotivoDet} onChange={(e) => setQhMotivoDet(e.target.value)} autoFocus
                 placeholder="Ej: pidió la mitad del precio y no hubo margen; se fue con la agencia de un conocido…"
                 style={{ ...wizardInput, minHeight: 96, textAlign: 'left', lineHeight: 1.5 }} />
+              </div>
             )}
 
             {qhPasoId === 'fecha' && (
@@ -2304,7 +2347,18 @@ function SinMarcar({
   onQueHacer: (leadId: number) => void;
   onBulkDone: () => void;
 }) {
-  const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
+  // ⚠️ ÁMBAR, NO ROJO — y es la fila «Pendientes pintado del color de los errores»
+  // del plan de fricción, que estaba marcada como aplicada sin un solo cambio en el
+  // código. El worklist es trabajo POR HACER; el rojo de esta casa es el de «Perdido»
+  // y el de los errores. Con el mismo color, la pantalla que más se mira del CRM se
+  // lee como una lista de cosas rotas — y un rojo permanente se deja de ver.
+  //
+  // Es el mismo cambio que ya se le hizo al aviso de la ficha; acá quedó a medias.
+  //
+  // `--warn` (#B4530E) y no `--warn-fill` (#EE7B1C): el relleno naranja es para barras
+  // y chips sin texto encima — con blanco arriba da 2,6:1. El oscuro es el legible, y
+  // es para lo que existe (ver el comentario de los tokens en app/globals.css).
+  const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--warn)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
   const ghost: CSSProperties = { flex: 'none', padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
   const [ignorando, startIgnorar] = useTransition();
   const [ignId, setIgnId] = useState<number | null>(null);
@@ -2340,10 +2394,10 @@ function SinMarcar({
   return (
     <div>
       <BulkHigiene marcar={marcar} equipo={equipo} onDone={onBulkDone} />
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--warn)', borderRadius: 16, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--warn-bg)', border: '1px solid var(--warn)', color: 'var(--warn)' }}>{marcar.length}</span>
       </div>
       {aviso && marcar.length > 0 && (
         <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--warn-fill)', border: '1px solid var(--warn)', color: 'var(--ink)', fontSize: 13, lineHeight: 1.45 }}>

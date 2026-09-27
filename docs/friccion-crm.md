@@ -19,7 +19,7 @@ Las tres salen de reglas que pediste vos, así que sacarlas es cambiar tu propia
 
 ---
 
-## 2 · Me lo llevo sin preguntarte
+## 2 · Me lo llevo sin preguntarte — ✅ APLICADA (tanda 1, `50df1cb2`)
 
 Bugs y esperas que no protegen nada. **~3 clics y 5 pantallas trabadas por día.**
 
@@ -30,7 +30,7 @@ Bugs y esperas que no protegen nada. **~3 clics y 5 pantallas trabadas por día.
 
 ---
 
-## 3 · Sacar
+## 3 · Sacar — ✅ APLICADA (tanda 2, `eb572aad`)
 
 No protegen nada.
 
@@ -87,7 +87,7 @@ Dos cosas quedaron a propósito distintas de lo relevado:
 | Qué | Por qué |
 |---|---|
 | Las dos preguntas de Meta al mover (¿asistió? ¿calificado?) | Son los **únicos dos datos** que le llegan a Meta. Ya son opcionales: el botón mueve igual |
-| El motivo de la pérdida, escrito a mano | Es el único dato que **solo lo tenés vos**. *(Sí se pueden juntar sus dos pantallas en una)* |
+| El motivo de la pérdida, escrito a mano | Es el único dato que **solo lo tenés vos**. ✅ *Sus dos pantallas ya son una (27/09): los chips y el detalle se responden juntos, y el detalle sigue siendo obligatorio* |
 | La fecha límite de «Nutrición - Manual» | El plazo **ES** la etapa: sin fecha el lead queda invisible para siempre |
 | La confirmación antes de generar Insights | Gasta plata de IA, y son dos llamadas encadenadas |
 | Subir el comprobante al marcar una cuota | Da la fecha **real** del cobro. Ya se puede saltear |
@@ -99,6 +99,13 @@ Dos cosas quedaron a propósito distintas de lo relevado:
 
 - **1.057 leads están en la columna equivocada**: tienen etapas que tu funnel ya no contiene
   (`reactivacion`, `noshow_r1`, `noshow_r2`) y el tablero los tira a la primera columna.
+  **Al 27/09 ya no miente y ya no crece**: cada uno lleva un chip punteado que dice dónde
+  está de verdad («Reactivación · fuera del embudo»), y el CRM automático dejó de escribir
+  etapas que el embudo del workspace no tiene — antes lo hacía sin mirar, y el `update` de
+  Postgres es válido, así que el motor reportaba que movía y el tablero mostraba otra cosa.
+  ⚠️ **Lo que sigue siendo una decisión tuya:** qué hacer con los 1.057 que ya están. Se los
+  puede dejar marcados donde caen, migrarlos a una etapa del embudo actual, o devolverle al
+  embudo esas tres etapas. Mover 1.057 leads no se hace sin que alguien lo pida.
 - De **66 confirmaciones** del CRM automático que resolviste, **35 las deshiciste**. Lo que
   hasta ayer te bloqueaba la entrada acierta poco más de la mitad de las veces.
 - **Ya no hay ningún modal bloqueante en la puerta del CRM** (se sacó el 25/09). El panel de

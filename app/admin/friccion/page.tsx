@@ -95,6 +95,12 @@ const HAGO: Fila[] = [
     ejemplo: 'Una pantalla más para decir lo que acabas de hacer. Sale al completar datos; arrastrando un lead de etapa no aparece.' },
   { aplicado: true, que: 'Escape cierra la ficha entera',
     ejemplo: 'Aprietas Escape dentro de un cartel y se cierra la ficha, con lo que estabas escribiendo.' },
+  // ⚠️ ESTA FILA ESTUVO MARCADA COMO APLICADA CON CERO CAMBIOS EN EL CÓDIGO, del
+  // 25/09 al 27/09. Junta DOS cosas —el color del worklist y el aviso repetido— y
+  // ninguna de las dos se había hecho: el panel seguía en `--bad`, el chip de la ficha
+  // seguía parpadeando y el mismo aviso se dibujaba CUATRO veces (chip, renglón,
+  // tarjeta roja del formulario y enumeración de Análisis). Una fila que junta dos
+  // arreglos se marca hecha cuando se hace UNO.
   { aplicado: true, que: 'El rojo de Pendientes, y el mismo aviso 3 veces',
     ejemplo: 'El contador late en rojo sin parar, y dentro de la ficha el aviso aparece repetido.' },
 ];

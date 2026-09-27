@@ -17,7 +17,6 @@ import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { LeadTabs } from '../lead-view/LeadTabs';
 import { DealDetailsCard, type DealDetailsHandle } from './DealDetailsCard';
 import type { Lead, FathomLink } from '@/lib/leads';
-import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from '../actions';
 import type { Pago } from '@/lib/pagos';
 
@@ -31,7 +30,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab, faltantes = [], equipo = [] }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string; faltantes?: Step[]; equipo?: MiembroEquipo[] }) {
+export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab, equipo = [] }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string; equipo?: MiembroEquipo[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -251,7 +250,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             <Field label="Setter asignado" hint={equipo.length === 0 ? 'Configura tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={setter} options={equipoOpts(setter)} onChange={setSetter} placeholder="Elige un setter…" width="100%" ariaLabel="Setter asignado" /></Field>
             {isManual && (
-              <Field label="Fecha límite (deadline)" required hint="Si vence sin que el lead avance, vuelve a 'datos sin marcar' en rojo.">
+              <Field label="Fecha límite (deadline)" required hint="Si vence sin que el lead avance, vuelve a la lista de datos sin marcar.">
                 <input className="lead-field" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
               </Field>
             )}
@@ -311,22 +310,13 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
         </div>
       </div>
 
-      {/* Datos sin marcar: guía lo que falta mientras se edita (tel/empresa en
-          Overview, detalle del cierre en Deal Details, reuniones en Meetings). */}
-      {faltantes.length > 0 && (
-        <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)', padding: '16px 20px' }}>
-          <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 9, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-            <span aria-hidden style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
-            Datos sin marcar
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {faltantes.map((f) => (
-              <span key={f.id} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' }}>{f.label}</span>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* ⚠️ ACÁ ESTABA LA TARJETA ROJA de «Datos sin marcar», con su punto parpadeante
+          y un chip por dato. Se fue el 27/09/2026: era la tercera aparición del mismo
+          aviso en la misma pantalla, y encima en el color de «Perdido» y de los errores
+          para algo que es trabajo por hacer.
 
+          Lo que la reemplaza es el renglón de `LeadDetailBody`, que ahora tampoco se
+          esconde al editar: el mismo aviso, una sola vez, en los dos modos. */}
       {/* Mismas tabs que la vista (mismos nombres), ahora editables. Abre en la
           tab donde estaba el usuario (initialTab). */}
       <LeadTabs

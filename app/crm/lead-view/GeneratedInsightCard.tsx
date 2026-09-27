@@ -138,13 +138,21 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
           )}
         </div>
 
-        {/* Bloqueo por datos faltantes de reuniones (posibles de completar). */}
+        {/* Bloqueo por datos faltantes de reuniones (posibles de completar).
+
+            ⚠️ SIN LA ENUMERACIÓN. Los nombres de los datos ya están, con el conteo y
+            con su «Solucionar», en el renglón que vive ARRIBA DE LAS TABS y se ve en
+            todas — incluida ésta. Repetirlos acá era la tercera copia del mismo aviso
+            en la misma pantalla (la fila «el mismo aviso 3 veces» del plan de fricción).
+
+            Lo que este bloque sí aporta y el de arriba no: que ESOS datos son los que
+            frenan el análisis, y el botón que los completa sin salir de la tab. Eso es
+            una frase y un botón. */}
         {faltantes.length > 0 && (
           <div style={{ ...mini, borderColor: 'var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: c ? 12 : 0 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>Para {insight ? 'regenerar' : 'generar'} faltan datos</div>
-              <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{faltantes.map((f) => f.label).join(' · ')}</div>
-            </div>
+            <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
+              Faltan {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} para {insight ? 'regenerar' : 'generar'}
+            </span>
             <button type="button" onClick={() => setWizard(true)} style={btnSec}>Completar datos</button>
           </div>
         )}

@@ -54,10 +54,27 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, validStag
   // y se usa la etapa derivada de los campos del lead.
   const override = l.pipeline_stage;
   const derived = deriveStageKey(l);
+  const huerfano = !!override && !!validStageKeys && !validStageKeys.has(override);
   const stage = override && (!validStageKeys || validStageKeys.has(override)) ? override : derived;
   return {
     id: l.id,
     derivedStage: derived,   // posición REAL en el funnel (ignora override manual) — la usa el worklist
+    /**
+     * La etapa que el lead DICE tener y que este funnel ya no contiene.
+     *
+     * ⚠️ HASTA EL 27/09/2026 ESTE HECHO SE DESTRUÍA ACÁ. El override huérfano se
+     * descartaba en silencio y el lead caía en la etapa derivada —y `effStage`, si
+     * ni esa existe, lo manda a la PRIMERA COLUMNA—: 1.057 leads del ws1 dibujados
+     * como si estuvieran en «Nuevo» por tener `reactivacion`, `noshow_r1` o
+     * `noshow_r2`, que son etapas que el funnel dejó de tener.
+     *
+     * Descartar el override para UBICARLO es correcto: no se puede dibujar una
+     * columna que no existe. Lo que no se puede es además borrar el dato — «no
+     * poder hacer X con este dato no es que el dato sea falso» (AGENTS.md). Se
+     * conserva para poder DECIRLO en la tarjeta, que es la diferencia entre un
+     * tablero que miente y uno que avisa.
+     */
+    stageFuera: huerfano ? override : null,
     name: l.nombre,
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',

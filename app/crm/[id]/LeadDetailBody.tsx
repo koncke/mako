@@ -169,20 +169,15 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
           <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>
-          {/* Indicador rojo a la altura del nombre; el botón Solucionar vive en el
-              cuadro "Datos sin marcar" (abajo, en todas las tabs). */}
-          {faltantes.length > 0 && (
-            ignorado
-              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--warn-bg)', color: 'var(--warn)', border: '1px solid #E7D6A6' }}>
-                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--warn)' }} />
-                  {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar · ignorado
-                </span>
-              : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>
-                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
-                  {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar
-                </span>
-          )}
-        </div>
+          {/* ⚠️ ACÁ ESTABA EL CHIP «N datos sin marcar», con su punto ROJO parpadeando
+              (`blinkRed 1.4s infinite`). Se fue el 27/09/2026 porque era la primera de
+              CUATRO apariciones del MISMO aviso en la misma pantalla: el chip acá, la
+              fila de abajo, la tarjeta roja del formulario de edición y la enumeración
+              de la tarjeta de Análisis. Es la fila «el mismo aviso 3 veces» del plan de
+              fricción, que estaba marcada como aplicada y nunca se había ubicado.
+
+              El aviso no se pierde: queda el de abajo, que es UNO y sirve para las dos
+              cosas que el chip no hacía — decir QUÉ falta y llevar a completarlo. */}        </div>
         <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
         <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>{empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(createdISO)}</p>
       </div>
@@ -197,9 +192,11 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   return (
     <div>
       {header}
-      {/* Datos sin marcar: ARRIBA de las tabs → visible en TODAS (solo en lectura;
-          en edición el EditLeadForm muestra su propio banner). */}
-      {!editing && faltantes.length > 0 && (
+      {/* Datos sin marcar: ARRIBA de las tabs → visible en TODAS, y también MIENTRAS
+          SE EDITA. El `!editing` existía porque el formulario dibujaba su propia
+          tarjeta roja; ahora es este mismo renglón el que se queda, así que el aviso
+          es el mismo objeto en los dos modos y no dos piezas que se parecen. */}
+      {faltantes.length > 0 && (
         <div style={{ marginBottom: 18 }}>
           <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
         </div>
@@ -210,7 +207,6 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           stages={stages}
           pagos={pagos}
           initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
-          faltantes={faltantes}
           equipo={equipo}
           onDone={() => { salirEdicion(); router.refresh(); }}
           onCancel={salirEdicion}

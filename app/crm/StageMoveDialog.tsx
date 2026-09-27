@@ -105,7 +105,7 @@ type PasoId =
   | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo' | 'motivoDetalle'
+  | 'ventaTipo' | 'monto' | 'susPlazo' | 'plan' | 'motivo'
   | 'setter' | 'closer' | 'empresa' | 'telefono'
   // Deal Details + documentos + Calendly R2 (pasada única del "Solucionar").
   | 'dealAuto' | 'dealServicio' | 'dealPromesa' | 'dealFiscal' | 'dealObligaciones'
@@ -195,7 +195,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // Venta recurrente (#363): tipo + plazo. El monto mensual reusa el campo `monto`.
   const [ventaTipo, setVentaTipo] = useState<'unico' | 'suscripcion'>(lead.ventaTipo === 'suscripcion' ? 'suscripcion' : 'unico');
   const [susMeses, setSusMeses] = useState(lead.suscripcionMeses ? String(lead.suscripcionMeses) : '');
-  // Motivo en 2 pasos: categoría (botón) + detalle específico (texto libre).
+  // Motivo: categoría (chips) + detalle específico (texto libre), en UNA pantalla.
+  // Son dos estados y un solo paso — eran dos pasos hasta el 27/09/2026.
   // Si el wizard anterior ya lo pidió, llega el texto FINAL ya concatenado y
   // `motivoDetalle` queda vacío: `motivoFinal` los une con filter(Boolean), así
   // que sale igual y no se agrega un guion suelto.
@@ -257,7 +258,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     // mecanismo que hace falta: saca el paso de la lista pero deja `pide()` en
     // true, así el valor igual viaja en el payload al confirmar.
     if (move.yaRespondido?.calificado != null) s.add('calificado');
-    if (move.yaRespondido?.motivo?.trim()) { s.add('motivo'); s.add('motivoDetalle'); }
+    if (move.yaRespondido?.motivo?.trim()) s.add('motivo');
     return s;
   });
 
@@ -385,7 +386,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (ventaTipo === 'suscripcion') p.push('susPlazo');
     }
     if (requeridos.has('plan') && ventaTipo !== 'suscripcion') p.push('plan');
-    if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
+    // ⚠️ UNA SOLA PANTALLA PARA EL MOTIVO, desde el 27/09/2026. Eran DOS pasos seguidos
+    // para UN dato: una con seis chips y otra con un textarea, y el propio relevamiento de
+    // fricción lo dejó escrito como pendiente en la fila que dice que el motivo SE QUEDA
+    // («*Sí se pueden juntar sus dos pantallas en una*», docs/friccion-crm.md §5).
+    //
+    // El detalle escrito a mano NO se pierde y SIGUE SIENDO OBLIGATORIO: es el único dato
+    // del CRM que no se deduce de ningún lado, y es lo que se lee en el historial. Lo que
+    // se va es el viaje entre las dos pantallas — la categoría y el detalle se responden
+    // juntos, que es como se piensan.
+    if (requeridos.has('motivo')) p.push('motivo');
     // Higiene (Completar datos): setter/closer/empresa/teléfono.
     if (requeridos.has('setter')) p.push('setter');
     if (requeridos.has('closer')) p.push('closer');
@@ -461,8 +471,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'monto': return totalMonto > 0;
       case 'susPlazo': return true;  // vacío = indefinida, es válido
       case 'plan': return cuotasCuadran;
-      case 'motivo': return !!motivo.trim();
-      case 'motivoDetalle': return !!motivoDetalle.trim();
+      case 'motivo': return !!motivo.trim() && !!motivoDetalle.trim();
       // Sin equipo configurado no hay a quién seleccionar → se permite continuar.
       case 'setter': return equipo.length === 0 || !!setter.trim();
       case 'closer': return equipo.length === 0 || !!closer.trim();
@@ -801,7 +810,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     }
     case 'calificado':
       pregunta = '¿Era un lead calificado?';
-      sub = 'Este dato entrena las campañas de Meta (CAPI): márcalo siempre.';
+      // ⚠️ EL MISMO TEXTO QUE EL OTRO ASISTENTE. Se reescribió el 27/09 en el wizard
+      // «¿Qué hacer ahora?» (CrmBoard) y ESTE quedó con la versión vieja: «CAPI» no le
+      // dice nada a nadie y «márcalo siempre» convierte un dato opcional en una orden.
+      // Dos pantallas que hacen la misma pregunta con dos redacciones es cómo se
+      // desincronizan — y el arreglo se declaró aplicado con la mitad hecha.
+      sub = 'Ayuda a Meta a buscar más gente como esta.';
       cuerpo = boolStep(calificado, setCalificado, 'Sí, calificado', 'No calificado');
       break;
     case 'fathomR1':
@@ -857,23 +871,37 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         </div>
       );
       break;
-    case 'motivo':
+    case 'motivo': {
       pregunta = esDescal ? '¿Por qué se descalificó?' : '¿Por qué se perdió?';
-      sub = 'Elige la categoría; en el próximo paso cuentas el detalle.';
+      // Sin `sub`: decía «Elige la categoría; en el próximo paso cuentas el detalle»,
+      // que con una sola pantalla es mentira — y con la pantalla a la vista tampoco
+      // hacía falta explicarla.
+      const chip = (activo: boolean): CSSProperties => ({
+        padding: '9px 16px', borderRadius: 11, fontSize: 14, fontWeight: 700, fontFamily: SANS, cursor: 'pointer',
+        background: activo ? 'var(--ink)' : 'var(--surface)',
+        border: '1px solid ' + (activo ? 'var(--ink)' : 'var(--border-strong)'),
+        color: activo ? '#F3F5F8' : 'var(--ink)',
+      });
       cuerpo = (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          {sugerencias.map((s) => {
-            const active = motivo.trim().toLowerCase() === s.toLowerCase();
-            return <button key={s} type="button" onClick={() => setMotivo(s)} style={{ padding: '9px 16px', borderRadius: 11, fontSize: 14, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: active ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), color: active ? '#F3F5F8' : 'var(--ink)' }}>{s}</button>;
-          })}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+            {sugerencias.map((x) => (
+              <button key={x} type="button" onClick={() => setMotivo(x)} style={chip(motivo.trim().toLowerCase() === x.toLowerCase())}>{x}</button>
+            ))}
+          </div>
+          {/* El detalle es lo caro y va autoFocus: los chips se tocan con el mouse y
+              escribir es lo que de verdad pide la pantalla. */}
+          <textarea
+            value={motivoDetalle}
+            onChange={(e) => setMotivoDetalle(e.target.value)}
+            placeholder={esDescal ? 'Ej: factura menos de X, no tiene equipo a cargo…' : 'Ej: le pareció caro vs. la competencia, se enfrió tras la R2…'}
+            autoFocus
+            style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }}
+          />
         </div>
       );
       break;
-    case 'motivoDetalle':
-      pregunta = esDescal ? 'Cuéntanos por qué no calificaba' : 'Sé específico: ¿qué pasó?';
-      sub = motivo.trim() ? `Categoría: ${motivo.trim()}. Agrega el detalle concreto.` : 'Agrega el detalle concreto.';
-      cuerpo = <textarea value={motivoDetalle} onChange={(e) => setMotivoDetalle(e.target.value)} placeholder={esDescal ? 'Ej: factura menos de X, no tiene equipo a cargo…' : 'Ej: le pareció caro vs. la competencia, se enfrió tras la R2…'} autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
-      break;
+    }
     case 'setter':
     case 'closer': {
       const val = paso === 'setter' ? setter : closer;

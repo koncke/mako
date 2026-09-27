@@ -211,7 +211,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                   stages={stages}
                   tienePlan={pagos.length > 0}
                   inicial={insightGen}
-                  faltantesIniciales={faltantesParaInsights(lead, pagos.length > 0)}
+                  faltantesIniciales={faltantesParaInsights(lead, pagos.length > 0, stages)}
                   llamadas={insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
                 />
               ),

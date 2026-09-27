@@ -19,6 +19,7 @@ import 'server-only';
 
 import { getLead, updateLead, moverLeadAuto, applyFathomRecording, logLeadEvent } from './leads';
 import { pipelineStageOf, MAKO_SETTER } from './pipeline';
+import { getPipelineStagesDefault } from './funnels';
 import { encuentroGrabable } from './encuentro-ws';
 import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
@@ -167,12 +168,60 @@ async function logRegla(leadId: number, regla: AutoReglaId, texto: string): Prom
  * Devuelve false = no se movió (el caller corta y no crea la confirmación, que
  * anunciaría un cambio que nunca pasó).
  */
+/**
+ * El CHOKE POINT de todo movimiento automático: por acá pasan las siete reglas.
+ *
+ * ⚠️ NO ESCRIBE UNA ETAPA QUE EL EMBUDO DEL WORKSPACE NO TIENE, desde el 27/09/2026.
+ * El motor escribía `reactivacion`, `noshow_r1` y `noshow_r2` sin mirar el funnel, y
+ * el tablero no puede dibujar una columna que no existe: esos leads terminan en la
+ * etapa derivada o, si ni esa está, en la PRIMERA columna. Medido en el relevamiento
+ * del 25/09: **1.057 de los 1.138 leads del ws1** dibujados donde no están.
+ *
+ * Y no falla ruidoso: el `update` de Postgres es perfectamente válido, así que el
+ * motor reporta que movió y el tablero muestra otra cosa. Un dato que ninguna
+ * pantalla puede representar no es un dato guardado, es un dato perdido con recibo.
+ *
+ * El rechazo se REGISTRA (AGENTS.md: «una política puede rechazar; no puede no dejar
+ * rastro»): sin la línea, «el motor no movió nada» y «el motor movió a una columna
+ * que no existe» se ven exactamente igual desde afuera.
+ */
 async function moverAuto(
   leadId: number,
   to: string,
   extra?: { asistio_j1?: boolean | null; asistio_j2?: boolean | null },
 ): Promise<boolean> {
+  if (!(await etapaDibujable(to))) {
+    console.warn(`[crm-auto] lead ${leadId}: NO se movió a «${to}» — ese embudo no tiene esa etapa, y el tablero lo dibujaría en la primera columna.`);
+    return false;
+  }
   return moverLeadAuto(leadId, to, { canal: 'CRM automático', autor: AUTOR, ...extra });
+}
+
+/**
+ * ¿El embudo de ESTE workspace tiene esa etapa?
+ *
+ * Se cachea por corrida: el motor recorre todos los workspaces y cada uno resuelve su
+ * funnel una sola vez. Si la lectura falla se contesta `true` — un motor que se apaga
+ * porque no pudo leer el funnel es peor que uno que mueve de más, y la falla de
+ * lectura no es un hecho sobre el embudo (AGENTS.md: «un chequeo que no puede mirar se
+ * abstiene»).
+ */
+const etapasPorWs = new Map<number, Set<string> | null>();
+async function etapaDibujable(key: string): Promise<boolean> {
+  const ws = await getWorkspaceActual();
+  // Sin workspace resuelto no hay embudo contra el que comparar: se abstiene.
+  if (ws == null) return true;
+  if (!etapasPorWs.has(ws)) {
+    try {
+      const stages = await getPipelineStagesDefault();
+      etapasPorWs.set(ws, new Set(stages.map((x) => x.key)));
+    } catch (e) {
+      console.error(`[crm-auto] no pude leer el embudo del ws ${ws}: ${e instanceof Error ? e.message : String(e)}`);
+      etapasPorWs.set(ws, null);
+    }
+  }
+  const set = etapasPorWs.get(ws);
+  return !set || set.has(key);
 }
 
 /** Asigna a MaKo como setter de una nutrición automática — y lo deja registrado. */

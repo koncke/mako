@@ -19,7 +19,8 @@ import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { renderPrompt, getPromptText, contenidoNoConfiable } from './prompt-render';
 import { type Step } from './stage-requirements';
-import { deriveStageKey } from './pipeline';
+import { deriveStageKey, generateFunnel, DEFAULT_PIPELINE } from './pipeline';
+import { getPipelineStagesDefault } from './funnels';
 import { hoyEnTz } from './date-utils';
 import { tzActual } from './timezone';
 import { getLead, getLeadRespuestas, getTrackingEvents, faltantesDeLead, type Lead, type FathomLink, type RespuestaQA, type TrackingEvent } from './leads';
@@ -87,7 +88,23 @@ const NO_INSIGHTS: ReadonlySet<Step['id']> = new Set<Step['id']>([
   'setter', 'closer', 'telefono', 'empresa', 'r2Respuestas', 'comprobante',
   'dealServicio', 'dealPromesa', 'dealFiscal', 'dealObligaciones', 'dealFiscalDoc',
 ]);
-export function faltantesParaInsights(lead: Lead, tienePlan: boolean, pipeline?: import('./pipeline').Stage[]): Step[] {
+/**
+ * Qué datos faltan PARA GENERAR EL ANÁLISIS: los de la etapa, menos los que el
+ * análisis no usa (`NO_INSIGHTS`).
+ *
+ * ⚠️ `pipeline` ES OBLIGATORIO, y dejó de ser opcional el 27/09/2026. Sin él,
+ * `faltantesDeLead` resuelve la etapa contra el pipeline GENÉRICO en vez del funnel
+ * del workspace, así que devuelve OTRA lista. Medido: los tres llamadores estaban
+ * repartidos —el modal pasaba `stages`, la ruta /crm/[id] no, y el gate del server
+ * tampoco— o sea que la misma pregunta («¿qué falta para generar?») se contestaba de
+ * dos formas en dos pantallas del mismo lead, y el botón se podía bloquear por una
+ * lista que la persona nunca vio.
+ *
+ * Opcional era justamente lo que lo permitía: un parámetro que se puede olvidar se
+ * olvida, y no falla — contesta otra cosa. Ahora el que no lo tenga tiene que ir a
+ * buscarlo, que es el trabajo que había que hacer.
+ */
+export function faltantesParaInsights(lead: Lead, tienePlan: boolean, pipeline: import('./pipeline').Stage[]): Step[] {
   return faltantesDeLead(lead, tienePlan, { pipeline }).filter((s) => !NO_INSIGHTS.has(s.id));
 }
 
@@ -384,7 +401,11 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
     ]);
 
     // Gate 1: datos completables adeudados por la etapa actual → wizard.
-    const faltantes = faltantesParaInsights(lead, pagos.length > 0);
+    //
+    // ⚠️ CON EL PIPELINE DEL WORKSPACE. Sin él, este gate le pedía a la persona una
+    // lista distinta de la que su propia pantalla le estaba mostrando.
+    const stages = await getPipelineStagesDefault().catch(() => generateFunnel(DEFAULT_PIPELINE).stages);
+    const faltantes = faltantesParaInsights(lead, pagos.length > 0, stages);
     if (faltantes.length) {
       return {
         ok: false,
