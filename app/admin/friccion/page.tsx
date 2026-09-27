@@ -58,7 +58,7 @@ type Fila = {
   pregunta?: string;
 };
 
-const DECIDIS: Fila[] = [
+const ESPERA_RESPUESTA: Fila[] = [
   {
     que: 'Agendar una reunión',
     ejemplo: 'Arrastras a Carlos Mejía a Agenda R1 y no se mueve: primero un menú de 3 opciones, después un asistente de 3 pasos. Si eliges «ya está agendada», no te deja seguir hasta escribir por qué no usaste Calendly.',
@@ -160,7 +160,7 @@ const DEJAR: Fila[] = [
  * quién decide.
  */
 const GRUPOS: Array<{ titulo: string; punto: string; filas: Fila[] }> = [
-  { titulo: 'Espera tu respuesta', punto: 'var(--primary)', filas: DECIDIS },
+  { titulo: 'Espera tu respuesta', punto: 'var(--primary)', filas: ESPERA_RESPUESTA },
   { titulo: 'Lo hago sin preguntarte', punto: 'var(--dim)', filas: HAGO },
   { titulo: 'Propongo sacarlo — no protege nada', punto: 'var(--bad)', filas: SACAR },
   { titulo: 'Propongo cambiarle la forma — avisar en vez de frenar', punto: 'var(--warn)', filas: CAMBIAR },

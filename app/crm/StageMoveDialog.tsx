@@ -24,7 +24,7 @@ import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { esMaKo, MAKO_STAR_URI } from './mako-setter';
 import { motivosDeSalida, motivoFinalDe } from './motivos-salida';
 import { WizardShell } from '@/app/_components/WizardShell';
-import { useCapaModal } from '@/app/_components/pila-modales';
+
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -232,12 +232,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [r2Motivo, setR2Motivo] = useState('');
   const [dealBusy, setDealBusy] = useState(false);
   const [dealReporte, setDealReporte] = useState<string[] | null>(null);
-  const [guardado, setGuardado] = useState(false); // tras confirmar → paso final ver/salir
   // El cartel final es OTRO modal, y también entra en la pila de la casa. Cuando
   // se pintaba con un z-index propio (100) quedaba por DEBAJO de cualquier modal
   // de la app (la pila arranca en 130): el usuario confirmaba, la pantalla no se
   // movía y no había nada que explicara por qué.
-  const capaFinal = useCapaModal(guardado);
   const esDescal = to === 'descal';
   const motivoFinal = motivoFinalDe(motivo, motivoDetalle);
 
@@ -555,7 +553,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (!r.ok) { anclarResumen.current = true; setFaltanServer(r.faltan); setErr(r.mensaje); return; }
         // Solucionar (completar datos) → paso final "¿Ver detalle o salir?".
         // Mover de etapa (drag-drop) → cierra directo (mantiene el toast de undo).
-        if (completarDatos) setGuardado(true); else onDone();
+        onDone();
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }
@@ -1037,23 +1035,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const busy = dealBusy || autoBusy || cargandoReq;
   const textoCargando = dealBusy ? 'Leyendo el contrato…' : autoBusy ? 'Buscando en Calendly y Fathom…' : 'Revisando qué datos faltan…';
 
-  // Paso final tras guardar (P8): ver detalle o salir. No re-cierra solo.
-  if (guardado) {
-    return (
-      <div onClick={onDone} style={{ position: 'fixed', inset: 0, zIndex: capaFinal.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capaFinal.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '30px clamp(20px,6vw,40px)', textAlign: 'center' }}>
-          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 14 }}>✦ MAKO</div>
-          <div aria-hidden style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--good-bg)', color: 'var(--good)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, marginBottom: 12 }}>✓</div>
-          <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', fontFamily: SANS }}>Datos actualizados</h3>
-          <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 20px' }}>Guardamos todo lo que cargaste para {lead.name}.</p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {onVerDetalle && <button type="button" onClick={onVerDetalle} style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Ver detalle →</button>}
-            <button type="button" onClick={onDone} style={{ padding: '12px 24px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{onVerDetalle ? '← Salir' : 'Listo'}</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Acá vivía una pantalla final «✓ Datos actualizados · Guardamos todo lo que
+  // cargaste para X» con dos botones. Se fue el 27/09: repetía lo que la persona
+  // acababa de hacer y era una pantalla más para salir de algo que ya terminó.
+  // El guardado ya se confirma solo —la tarjeta cambia y queda en el historial—,
+  // así que los dos caminos hacen lo mismo: cerrar. El «Ver detalle» no se pierde:
+  // este camino se abre DESDE la ficha o desde la tarjeta, que es el detalle.
 
   // Chrome de la casa (header ✦ MAKO + puntitos + cuerpo + footer): WizardShell.
   // Este wizard era el ÚNICO con ramas de verdad y tenía el chrome forkeado, así

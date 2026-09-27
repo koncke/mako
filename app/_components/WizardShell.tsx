@@ -23,7 +23,7 @@
 // `total`/`idx`: con el mapa la posición no puede desincronizarse y la cola es
 // exacta mientras el mapa no se mueva.
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 /**
  * Cómo se le cuenta el progreso a la pieza. Dos formas, y conviene la primera:
@@ -144,8 +144,14 @@ export function WizardShell({
   anchoCuerpo?: number;
 } & ProgresoWizard) {
   const capa = useCapaModal(!fullscreen);
-  // Mientras carga, la pieza está trabada: ni avanzar, ni volver, ni cerrar.
+  // Mientras carga, la pieza está trabada: ni avanzar ni volver.
   const trabado = !!cargando;
+  // ⚠️ PERO SÍ SE PUEDE CERRAR. Hasta el 27/09 `trabado` también apagaba la ✕, el
+  // Atrás y el clic afuera, así que un fetch que no volvía dejaba el wizard sin una
+  // sola salida: «no avanza, no vuelve y no se puede cerrar», y había que recargar la
+  // página. Lo que no se puede interrumpir es una ESCRITURA a mitad de camino
+  // (`pending`); cancelar una LECTURA no cuesta nada y no deja nada a medias.
+  const sinSalida = pending;
 
   // ===========================================================================
   // Indicador de progreso: honesto o mudo, pero nunca mentiroso
@@ -171,6 +177,23 @@ export function WizardShell({
   // se sigue pintando la primera —no hay mejor número— pero la COLA pasa a
   // "faltan pasos", porque prometer una cuenta desde una posición inventada es
   // exactamente la mentira que esta pieza existe para no firmar.
+  // Escape cierra ESTE wizard. Antes no lo escuchaba nadie, y el que sí lo
+  // escuchaba era la ficha del lead — en fase de CAPTURA sobre window, o sea
+  // primero —, así que apretar Escape adentro de un wizard cerraba la ficha
+  // entera y se llevaba lo que estabas escribiendo. Cada capa cierra la suya y
+  // gana la de arriba: por eso esto corre solo si `capa.visible` (no hay otro
+  // modal encima) y corta la propagación para que la ficha de abajo no lo vea.
+  useEffect(() => {
+    if (!capa.visible || bloqueante || sinSalida) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.isComposing) return;
+      e.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [capa.visible, bloqueante, sinSalida, onClose]);
+
   const posEnMapa = pasos ? pasos.indexOf(pasoActual ?? '') : 0;
   const actual = pasos
     ? Math.max(0, posEnMapa)
@@ -266,7 +289,7 @@ export function WizardShell({
       {dots}
       {bloqueante
         ? <span style={{ width: 32 }} />
-        : <button onClick={trabado ? undefined : onClose} disabled={trabado} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: trabado ? 'default' : 'pointer', opacity: trabado ? 0.4 : 1, fontSize: 14, fontFamily: SANS }}>✕</button>}
+        : <button onClick={sinSalida ? undefined : onClose} disabled={sinSalida} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: sinSalida ? 'default' : 'pointer', opacity: sinSalida ? 0.4 : 1, fontSize: 14, fontFamily: SANS }}>✕</button>}
     </div>
   );
 
@@ -464,7 +487,7 @@ export function WizardShell({
   return (
     // Pila de modales: si se abre otro encima, este se ESCONDE (no se desmonta) y al
     // volver está con el scroll donde lo dejaste. Ver app/_components/pila-modales.ts.
-    <div onClick={bloqueante || trabado ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={bloqueante || sinSalida ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true"
         style={{ position: 'relative', width: '100%', maxWidth: ancho, maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         {loader}

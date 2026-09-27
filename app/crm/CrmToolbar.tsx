@@ -212,7 +212,7 @@ export function VistaSelector({ vista, onVista, pendientes }: {
         {/* El latido va en el BADGE, no en el segmento: un botón entero pulsando al
             lado de las otras dos vistas leía como una alarma, no como una pestaña. */}
         {pendientes > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--bad)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1, animation: 'pulseRed 1.6s infinite' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--bad)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
             {pendientes}
           </span>
         )}

@@ -33,7 +33,8 @@ import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { profundidadModales } from '@/app/_components/pila-modales';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -68,7 +69,15 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     const prevActive = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.isComposing) { e.stopPropagation(); onCloseRef.current(); return; }
+      // Escape cierra la ficha SOLO si no hay nada encima. Esto escucha en fase de
+      // CAPTURA sobre window, o sea que corre ANTES que cualquier diálogo anidado —
+      // el `stopPropagation` de acá abajo no lo evita, porque para cuando corre ya
+      // ganó—. Resultado hasta el 27/09: Escape adentro de un wizard o de una
+      // confirmación cerraba la ficha entera con lo que estuvieras escribiendo.
+      if (e.key === 'Escape' && !e.isComposing) {
+        if (profundidadModales() > 0) return; // lo cierra el de arriba
+        e.stopPropagation(); onCloseRef.current(); return;
+      }
       if (e.key === 'Tab' && panelRef.current) {
         const f = panelRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])');
         if (!f.length) return;
