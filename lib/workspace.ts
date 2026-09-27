@@ -27,6 +27,7 @@ import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 import { WS_HEADER, conWs, parseWs } from './ws-tab';
+import { contextoDeAgencia } from './agencia';
 
 export { firmarImpersonacion, IMPERSONATE_COOKIE, OWNER_WS };
 
@@ -142,6 +143,18 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
       //    → ve el panel /admin (contrato de siempre).
       return imp ?? sesion.ws ?? null;
     }
+    // 4) LA VISTA DE AGENCIA. Una agencia NO es rol global admin —darle ese bit
+    //    le abriría /admin y los workspaces de todos los clientes de MaKo—, así
+    //    que entra por su propia puerta: una cookie firmada que dice QUIÉN entró
+    //    y a dónde, más la cartera aprobada, revalidada contra la base en este
+    //    mismo request. Todo eso es `contextoDeAgencia` (lib/agencia.ts).
+    //
+    //    ⚠️ Va DESPUÉS de la rama de admin y ANTES del workspace propio, y ese
+    //    orden es el punto: si cayera después, la agencia vería SUS datos con la
+    //    cara del cliente —sin 403 y sin nada roto—, que es el modo de falla que
+    //    esta feature entera existe para evitar.
+    const cliente = await contextoDeAgencia();
+    if (cliente) return cliente;
     return sesion.ws ?? null;                   // usuario → su workspace
   }
   // Sin sesión resuelta: distinguir "no hay cookie de sesión" (cron / webhook /
@@ -227,7 +240,14 @@ export async function adminDeWorkspaceActual(): Promise<number | null> {
  *  clase de incoherencia que nadie reporta como bug: se lee como "se ve raro". */
 export async function estaImpersonando(): Promise<boolean> {
   const sesion = await getUsuarioActual();
-  if (sesion?.rol !== 'admin') return false;
+  // ⚠️ LA AGENCIA TAMBIÉN ESTÁ «VIENDO A OTRO», y olvidarlo acá no se ve como un
+  // bug de esta función: se ve como que la app no tiene salida. De este booleano
+  // cuelga `/api/auth/me` → `ImpersonationBanner`, y el banner es lo ÚNICO que
+  // se dibuja en todas las pantallas. Con `false`, la agencia entra al cliente
+  // sin cartel que diga de quién son los datos y sin botón para volver.
+  // Mismo orden que `resolverDesdeCookies`: la rama de admin primero, la de
+  // agencia después.
+  if (sesion?.rol !== 'admin') return (await contextoDeAgencia()) != null;
   if (await wsDePestana()) return true;
   const store = await cookies();
   return leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value) != null;

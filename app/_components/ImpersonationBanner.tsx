@@ -22,11 +22,22 @@ export function ImpersonationBanner() {
   const wsUrl = sp.get(WS_PARAM) ?? '';
   const [cliente, setCliente] = useState<string | null>(null);
   const [saliendo, setSaliendo] = useState(false);
+  // Cómo se entró y a dónde se vuelve. Los dos los manda `/api/auth/me`, porque
+  // la respuesta depende del ROL y el navegador no lo puede decidir.
+  const [modoAgencia, setModoAgencia] = useState(false);
+  const [salida, setSalida] = useState('/admin');
 
   useEffect(() => {
     let alive = true;
     fetch('/api/auth/me').then((r) => r.json())
-      .then((j) => { if (alive && j?.ok && j.impersonando) setCliente(j.clienteNombre as string); else if (alive) setCliente(null); })
+      .then((j) => {
+        if (!alive) return;
+        if (j?.ok && j.impersonando) {
+          setCliente(j.clienteNombre as string);
+          setModoAgencia(j.modoAgencia === true);
+          if (typeof j.salida === 'string' && j.salida.startsWith('/')) setSalida(j.salida);
+        } else setCliente(null);
+      })
       .catch(() => {});
     return () => { alive = false; };
   }, [pathname, wsUrl]);
@@ -58,13 +69,20 @@ export function ImpersonationBanner() {
    *
    * El DELETE queda solo para el caso viejo, cuando el contexto venía de la
    * cookie del navegador. Ahí sí hay estado compartido que limpiar.
+   *
+   * ⚠️ Y LA AGENCIA SALE POR OTRA PUERTA, las dos mitades: su contexto vive en
+   * `mako_agencia` —que el endpoint de impersonación no toca— y su destino no
+   * puede ser '/admin', que el gate le niega. Antes las dos estaban cableadas
+   * acá; ahora las dos salen de `/api/auth/me`. Un DELETE al endpoint
+   * equivocado deja la cookie puesta y el cartel vuelve solo al primer
+   * refresco, que es indistinguible de un botón roto.
    */
   const salir = async () => {
-    if (wsUrl) { window.location.href = '/admin'; return; }
+    if (!modoAgencia && wsUrl) { window.location.href = salida; return; }
     setSaliendo(true);
     try {
-      await fetch('/api/admin/impersonate', { method: 'DELETE' });
-      window.location.href = '/admin';
+      await fetch(modoAgencia ? '/api/agencia/entrar' : '/api/admin/impersonate', { method: 'DELETE' });
+      window.location.href = salida;
     } catch { setSaliendo(false); }
   };
 
@@ -82,12 +100,18 @@ export function ImpersonationBanner() {
     }}>
       <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent-soft)', flex: 'none' }} />
       <span style={{ fontSize: 13.5 }}>
-        Estás viendo el dashboard de <b style={{ fontWeight: 700 }}>{cliente}</b> como administrador.
+        Estás viendo el dashboard de <b style={{ fontWeight: 700 }}>{cliente}</b>{modoAgencia ? '.' : ' como administrador.'}
       </span>
       {/* Los controles de la agencia sobre este cliente: traer datos de Mau y
           resetear. Van acá porque es la única barra presente en TODAS las
-          pantallas, incluido el onboarding bloqueante. */}
-      <div style={{ marginLeft: 'auto' }}><PanelAgencia cliente={cliente} /></div>
+          pantallas, incluido el onboarding bloqueante.
+          ⚠️ NO en modo agencia: son herramientas de la PLATAFORMA —una de ellas
+          vacía 50+ tablas y 4 buckets— y no tienen nada que hacer en la cuenta
+          del cliente de otra agencia. El server ya las cierra (`/api/datos-mau`
+          exige super-admin), así que esto no es el guard: es no pedir una
+          respuesta que va a ser 403 y no dibujar un control muerto. */}
+      {!modoAgencia && <div style={{ marginLeft: 'auto' }}><PanelAgencia cliente={cliente} /></div>}
+      {modoAgencia && <span style={{ marginLeft: 'auto' }} />}
       <button type="button" onClick={salir} disabled={saliendo}
         style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.06em', textTransform: 'uppercase',
           padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(243,240,231,.3)', background: 'transparent',

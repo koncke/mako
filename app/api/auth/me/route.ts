@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
+import { rutaDeSalida } from '@/lib/agencia-cartera';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +29,26 @@ export async function GET() {
     try { clienteNombre = (await getWorkspace(clienteWs))?.nombre ?? `Workspace ${clienteWs}`; } catch { clienteNombre = `Workspace ${clienteWs}`; }
   }
 
+  // ⚠️ LA SALIDA ES UN DATO, NO UNA CONSTANTE. El botón «Salir de la vista»
+  // apuntaba hardcodeado a '/admin' en tres lugares, y '/admin' está en
+  // SOLO_ADMIN del gate: una agencia que lo apretara se comía el `denegarRol` y
+  // aterrizaba en /inicio. Funciona, pero no es salir — es que la app te mueva
+  // a otro lado. Ahora cada uno vuelve a la pantalla desde la que entró, y la
+  // decisión vive en `rutaDeSalida` (lib/agencia-cartera.ts), en un solo lugar.
+  const esSuperAdmin = sesion.rol === 'admin';
+
   return NextResponse.json({
     ok: true,
     autenticado: true,
     email: sesion.email,
     nombre: sesion.nombre,
     rol: sesion.rol,
+    // Cómo se entró, porque la salida no es la misma puerta: el super-admin
+    // borra `mako_ws` (o se va a una URL sin `?ws=`), la agencia borra
+    // `mako_agencia`. Un DELETE al endpoint equivocado deja la cookie puesta y
+    // el cartel vuelve solo, que se lee como un botón roto.
+    modoAgencia: impersonando && !esSuperAdmin,
+    salida: rutaDeSalida(esSuperAdmin),
     // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
     rolWs: await getRolWsEfectivo(),
     ws,

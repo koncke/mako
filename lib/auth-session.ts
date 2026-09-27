@@ -223,3 +223,70 @@ export function leerImpersonacion(cookie: string | undefined | null): number | n
   const ws = Number(body);
   return Number.isInteger(ws) && ws > 0 ? ws : null;
 }
+
+// ── Vista de agencia (una agencia "entra como" un cliente SUYO) ──────────────
+// Valor firmado `a1.<agenciaWs>.<clienteWs>.<exp>.<firma>` en la cookie
+// mako_agencia.
+//
+// ⚠️ LA DIFERENCIA CON `firmarImpersonacion`, Y ES LA RAZÓN DE QUE SEA OTRO
+// TOKEN: éste dice QUIÉN. El viejo firma sólo el número del workspace
+// (`w1.<wsId>.<firma>`), así que la cookie es PORTABLE entre sesiones — hoy da
+// igual porque sólo la honra un admin global, que ya podía entrar a cualquier
+// lado igual. Acá no da igual: si el token no nombrara a la agencia, la cookie
+// de Juanfran pegada en el navegador de otro cliente le abriría los datos del
+// cliente de Juanfran. Con el sujeto adentro, `resolverDesdeCookies` la descarta
+// porque `agenciaWs` no coincide con el workspace de esa sesión.
+//
+// ⚠️ Y LLEVA VENCIMIENTO. El de impersonación lo delega en la cookie (12 h), que
+// es una promesa del navegador y no del servidor: una cookie sin `max-age`
+// copiada a mano vale para siempre. Acá el `exp` va FIRMADO, así que reescribir
+// la cookie no lo estira.
+//
+// Lo que este token NO contesta es si la cartera sigue aprobada: eso cambia
+// después de firmarlo (el super-admin revoca) y se vuelve a preguntar en cada
+// request. Ver `contextoDeAgencia` en lib/agencia.ts.
+
+export const AGENCIA_COOKIE = 'mako_agencia';
+
+/** Cuánto vale el token. Corto a propósito: es la ventana en la que una
+ *  revocación todavía no se aplicó si la consulta a la base fallara. */
+export const AGENCIA_HORAS = 8;
+
+export type ContextoAgencia = { agenciaWs: number; clienteWs: number };
+
+export function firmarAgencia(agenciaWs: number, clienteWs: number, horas = AGENCIA_HORAS): string | null {
+  const sec = secret();
+  if (!sec) return null;
+  if (!enteroPositivo(agenciaWs) || !enteroPositivo(clienteWs)) return null;
+  // Una agencia no se mira a sí misma: su propio workspace ya sale de sesion.ws,
+  // y un token así haría que el cartel de «estás viendo a otro» se dibujara
+  // sobre la cuenta propia. Mismo corte que el CHECK de la mig 0175.
+  if (agenciaWs === clienteWs) return null;
+  const exp = Math.floor(Date.now() / 1000) + horas * 3600;
+  const body = `${agenciaWs}.${clienteWs}.${exp}`;
+  return `a1.${body}.${firmar(body, sec)}`;
+}
+
+export function leerAgencia(cookie: string | undefined | null): ContextoAgencia | null {
+  if (!cookie) return null;
+  const sec = secret();
+  if (!sec) return null;
+  const partes = cookie.split('.');
+  if (partes.length !== 5 || partes[0] !== 'a1') return null;
+  const [, ag, cl, exp, firmaRecibida] = partes;
+  const body = `${ag}.${cl}.${exp}`;
+  const a = Buffer.from(firmaRecibida);
+  const b = Buffer.from(firmar(body, sec));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const vence = Number(exp);
+  if (!Number.isInteger(vence) || vence * 1000 < Date.now()) return null;
+  const agenciaWs = Number(ag);
+  const clienteWs = Number(cl);
+  if (!enteroPositivo(agenciaWs) || !enteroPositivo(clienteWs)) return null;
+  if (agenciaWs === clienteWs) return null;
+  return { agenciaWs, clienteWs };
+}
+
+function enteroPositivo(v: number): boolean {
+  return Number.isInteger(v) && v > 0;
+}
