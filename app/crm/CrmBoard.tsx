@@ -410,7 +410,7 @@ export function CrmBoard({
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
   const [mmNota, setMmNota] = useState('');   // por qué se agendó fuera de Calendly (excepción)
-  const [mmPaso, setMmPaso] = useState(0);    // wizard: 0=fecha, 1=asistencia (pasada) / motivo (futura)
+  const [mmPaso, setMmPaso] = useState(0);    // wizard: 0=fecha (+motivo si es futura), 1=asistencia (solo pasada), último=resumen
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
 
   // ── Confirmación única del tablero ──────────────────────────────────────────
@@ -1172,7 +1172,20 @@ export function CrmBoard({
   };
   const confirmManualMeeting = () => {
     if (!manualMeeting || !mmFecha) return;
-    if (manualMeeting.modo === 'futura' && !mmNota.trim()) return;
+    // ⚠️ EL MOTIVO DE LA EXCEPCIÓN ES OPCIONAL desde el 27/09/2026. Era obligatorio:
+    // elegir «Ya está agendada» y no dejar seguir hasta escribir por qué no se usó
+    // Calendly. Es la DECISIÓN 1 del plan de fricción.
+    //
+    // ⚠️ Y LA PREGUNTA DEL PLAN PARTÍA DE UNA PREMISA FALSA. Decía «¿lo querés como
+    // desincentivo, sabiendo que NADA LO LEE?» — y sí lo lee alguien: el texto va a
+    // `logLeadEvent(id, 'Agendada fuera de Calendly', …)` (app/crm/actions.ts,
+    // `markMeetingManualAction`), o sea al HISTORIAL del lead, que se consulta en su
+    // pestaña. Medido antes de tocar nada.
+    //
+    // Por eso no se saca el campo: se saca el CANDADO. Con la premisa corregida las dos
+    // cosas que el plan quería siguen valiendo — el que tiene algo que contar lo cuenta
+    // y queda registrado, y el que no, no queda trabado escribiendo para nadie. Un dato
+    // que se exige para poder avanzar se llena con «.» y entonces el registro miente.
     const { leadId, which, modo } = manualMeeting;
     const asistio = modo === 'futura' ? null : mmAsistio === '' ? null : mmAsistio === 'si';
     const lead = leads.find((l) => l.id === leadId);
@@ -2019,24 +2032,34 @@ export function CrmBoard({
       {manualMeeting && (() => {
         const esPasada = manualMeeting.modo === 'pasada';
         const rLabel = manualMeeting.which === 'agenda' ? 'R1' : 'R2';
-        const puede = mmPaso === 0 ? !!mmFecha : mmPaso === 1 ? (esPasada ? true : !!mmNota.trim()) : true;
+        // El motivo de la excepción no frena: ver el comentario de `confirmManualMeeting`.
+        const puede = mmPaso === 0 ? !!mmFecha : true;
+        // ⚠️ DOS PANTALLAS EN «ya está agendada», TRES en «ya la tuve». La fecha y el
+        // motivo se responden juntos: son la misma pregunta partida en dos, y con el
+        // motivo ya opcional la segunda pantalla podía quedar entera en blanco. Es el
+        // mismo molde que el motivo de la pérdida (StageMoveDialog, 27/09).
+        //
+        // La asistencia NO se fusiona: en «ya la tuve» son dos hechos distintos —cuándo
+        // fue y qué pasó— y el segundo tiene tres salidas.
+        const pasos = esPasada ? 3 : 2;
+        const ultimo = pasos - 1;
         return (
           <WizardShell
             titulo={`${esPasada ? 'Marcar' : 'Registrar'} ${rLabel} · ${manualMeeting.name}`}
-            total={3}
+            total={pasos}
             idx={mmPaso}
-            pregunta={mmPaso === 0
-              ? (esPasada ? `¿Cuándo fue la ${rLabel}?` : `¿Para cuándo está agendada la ${rLabel}?`)
-              : mmPaso === 1
-                ? (esPasada ? `¿Asistió a la ${rLabel}?` : '¿Por qué se agendó fuera de Calendly?')
-                : 'Revisa y confirma'}
-            sub={mmPaso === 0
-              ? (esPasada ? 'La reunión ya ocurrió: regístrala a mano (sin Calendly) para avanzar el lead.' : 'Ya está agendada por fuera de Calendly. Carga la fecha; la asistencia se marca cuando ocurra.')
-              : mmPaso === 1
-                ? (esPasada ? undefined : 'Es una excepción: todas las reuniones deberían agendarse por Calendly.')
-                : 'Esto es lo que va a pasar cuando confirmes.'}
+            pregunta={mmPaso === ultimo
+              ? 'Revisa y confirma'
+              : mmPaso === 0
+                ? (esPasada ? `¿Cuándo fue la ${rLabel}?` : `¿Para cuándo está agendada la ${rLabel}?`)
+                : `¿Asistió a la ${rLabel}?`}
+            sub={mmPaso === ultimo
+              ? 'Esto es lo que va a pasar cuando confirmes.'
+              : mmPaso === 0
+                ? (esPasada ? 'La reunión ya ocurrió: regístrala a mano (sin Calendly) para avanzar el lead.' : 'La asistencia se marca cuando ocurra.')
+                : undefined}
             puedeAvanzar={puede}
-            enUltimo={mmPaso === 2}
+            enUltimo={mmPaso === ultimo}
             confirmLabel="Guardar reunión"
             pending={isPending}
             atrasLabel={mmPaso === 0 ? 'Cancelar' : 'Atrás'}
@@ -2046,17 +2069,25 @@ export function CrmBoard({
             onConfirmar={confirmManualMeeting}
           >
             {mmPaso === 0 ? (
-              <input type="date" value={mmFecha} min={esPasada ? undefined : hoy} max={esPasada ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} autoFocus style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
-            ) : mmPaso === 1 ? (
-              esPasada ? (
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                  {([['si', 'Sí, asistió'], ['no', 'No asistió'], ['', 'No sé']] as const).map(([v, lbl]) => (
-                    <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? 'var(--on-ink)' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
-                  ))}
-                </div>
-              ) : (
-                <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} autoFocus placeholder="Cuenta el motivo de la excepción…" style={{ ...wizardInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />
-              )
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <input type="date" value={mmFecha} min={esPasada ? undefined : hoy} max={esPasada ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} autoFocus style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+                {/* El motivo viaja con la fecha y es opcional: el que tiene algo que
+                    contar lo cuenta acá mismo y queda en el historial del lead. */}
+                {!esPasada && (
+                  <label style={{ display: 'block', textAlign: 'left' }}>
+                    <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginBottom: 6 }}>¿Por qué se agendó fuera de Calendly? (opcional)</span>
+                    <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)}
+                      placeholder="Queda en el historial del lead."
+                      style={{ ...wizardInput, minHeight: 80, textAlign: 'left', lineHeight: 1.5 }} />
+                  </label>
+                )}
+              </div>
+            ) : mmPaso === 1 && esPasada ? (
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                {([['si', 'Sí, asistió'], ['no', 'No asistió'], ['', 'No sé']] as const).map(([v, lbl]) => (
+                  <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? 'var(--on-ink)' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
+                ))}
+              </div>
             ) : (
               <ResumenFilas filas={[
                 ['Lead', manualMeeting.name],
@@ -2065,8 +2096,7 @@ export function CrmBoard({
                 ...(esPasada
                   ? ([['Asistió', mmAsistio === 'si' ? 'Sí' : mmAsistio === 'no' ? 'No' : 'Sin marcar']] as Array<[string, string]>)
                   : ([['Motivo de la excepción', mmNota.trim() || '—']] as Array<[string, string]>)),
-                ['Etapa', findStage(stages, manualMeeting.which).label],
-              ]} />
+                ['Etapa', findStage(stages, manualMeeting.which).label],              ]} />
             )}
           </WizardShell>
         );
