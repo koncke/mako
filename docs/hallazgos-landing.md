@@ -421,6 +421,60 @@ landing. Se ve bien y se pega lo que no es, que es la peor variante posible de e
 
 ## Retención del VSL
 
+### ⚠️ Un video puede tener TRES identidades, y ninguna pantalla lo dice
+
+**Síntoma reportado (22/09/2026, audio del grupo):** *«no está trackeando bien el tema de
+la retención del VSL, porque ustedes no lo tienen en Panda Video o YouTube, lo tienen en
+otro»*. El diagnóstico obvio —falta soporte para ese reproductor— **era el equivocado**: el
+soporte de Wistia entró en la v16 el 15/09 y ese cliente ya la tenía puesta. Sus eventos
+estaban llegando desde hacía una semana.
+
+**Causa real: el mismo video estaba viviendo bajo tres ids distintos.**
+
+| id | de dónde sale | qué tenía |
+|---|---|---|
+| `w:y4reukhgq8` | la rama propia del snippet (reconoce al player por su FORMA) | 2.624 eventos, con escalera de segundos |
+| `wistia-player:y4reukhgq8` | el enganche GENÉRICO (`hostDeMedia`, id = etiqueta + `media-id`) | 1.303 eventos, duplicados, **sin** escalera |
+| `wistia:y4reukhgq8` | lo que estaba guardado en `landing.videos` como EL VSL | **cero eventos, nunca existió** |
+
+Dos defectos distintos con un solo síntoma:
+
+**1. Doble medición.** Las dos ramas escuchan `play`/`pause`/`time-update` en CAPTURA sobre
+`document`, así que las dos medían el mismo elemento. Medido: **348 plays con un id y 348
+con el otro, los 348 pares dentro de 2 segundos**; lo mismo con pausa (286/286), exit
+(288/286) y todos los `pNN`. O sea reproducciones al doble y la curva partida al medio. La
+rama propia mide MÁS (la escalera `sNN`: 270 eventos contra 0), así que gana ella, y el
+genérico se abstiene con `if (ok && wisHost(t)) ok = false;` **antes** de registrar.
+
+⚠️ El comentario del código ya advertía del doble conteo… contra el `<video>` NATIVO. La
+colisión que faltaba era con el enganche genérico, escrito después y para la misma clase de
+elemento. **Un guard contra UNA fuente de duplicados no protege de la siguiente.**
+
+**2. El puntero del VSL apuntaba a la nada.** `landing.videos` decía `wistia:<id>` y ningún
+evento trajo nunca ese prefijo. El id de un video es una CLAVE: cruza exacto o no cruza. Con
+el VSL marcado en un id inexistente, toda pantalla que habla de «el VSL» mostraba la curva
+vacía. Y encima el id BUENO estaba en `landing.videos_ocultos` — alguien escondió el
+verdadero creyendo que era el repetido.
+
+⚠️ **Y la pantalla decía «sin actividad reciente»**, que afirma de más: suena a que el video
+está tranquilo cuando lo que pasa es que ese id no es de ningún video. Son dos estados y
+necesitan dos frases — ahora el huérfano dice «ningún evento con ese id».
+
+**Cómo se encuentra en cualquier workspace** (una consulta, no una intuición): agrupar
+`vsl_events` por el SUFIJO del `video_id` y quedarse con los sufijos que tengan más de un
+prefijo. Al 27/09/2026 daba exactamente un caso en todo el producto.
+
+**Lo que quedó SIN hacer:** las 1.303 filas de `wistia-player:` siguen en `vsl_events` del
+ws13 inflando el conteo histórico de reproducciones. Son un duplicado estricto (todo tipo de
+evento que tienen, el id bueno lo tiene igual o más, y les falta la escalera entera), así que
+borrarlas no pierde nada — pero es un DELETE en producción y lo decide Martín.
+
+**Y el cliente no se cura solo:** la v18 arregla el snippet, y hasta que repegue el código
+sigue con la v16 mandando los dos ids.
+
+**Vive en:** `lib/landing-token.ts` (`hostDeMedia`, `wisHost`) · `lib/landing-videos.ts` ·
+`app/integraciones/NombrarVideos.tsx` · `tests/landing-snippet-emitido.test.ts`
+
 ### ⚠️ Capturar el % de retención por lead sigue sin funcionar, y es el pedido más repetido
 
 **Síntoma:** después de meses, el dato no está. Palabras del dueño: *«dimos muchas vueltas

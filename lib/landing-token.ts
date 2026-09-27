@@ -95,7 +95,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 17;
+export const SNIPPET_VERSION = 18;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -125,6 +125,7 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
+  18: 'la retención de tu VSL cuando usa un reproductor moderno: se estaba midiendo dos veces, como si fueran dos videos distintos, así que las reproducciones salían al doble y la curva partida en dos',
   17: 'de qué anuncio viene cada persona que deja sus datos, y qué contestó en tu formulario. Antes el lead entraba sin origen —tu CRM decía «Directo» aunque hubiera llegado por una campaña— y el WhatsApp de aviso solo traía el nombre y el teléfono; ahora trae también lo que completó, así sabes qué le interesa antes de escribirle',
   16: 'la medición de los videos que NO están subidos a tu página: Wistia, YouTube y Vimeo. Hasta ahora un VSL alojado ahí no registraba ni una reproducción, y el panel te decía que lo subieras a otro lado; ahora se mide igual, con su curva de retención. Y de los que no se pueden medir —los de Google Drive— al menos queda registrado que la persona los tocó',
   2: 'la captura automática del formulario de tu página: quien lo completa ingresa solo al CRM',
@@ -1552,6 +1553,23 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
     // que el host se registró— lo corta el enganche por elemento, que no engancha
     // un video que vive adentro de un host ya medido (ver la PARTE 2).
     if (ok && t.querySelector('video')) ok = false;
+    // ⚠️ Y NO SE REGISTRA LO QUE UNA RAMA PROPIA YA MIDE. Este enganche es
+    // genérico —cualquier custom element con API de media— y eso incluye al
+    // player que la rama de más arriba reconoce por su FORMA. Los dos escuchan
+    // los mismos play/pause/time-update en captura sobre document, así que el
+    // mismo video salía DOS VECES y con dos identidades: una por el nombre de
+    // la etiqueta y otra por su id de media. Medido en producción el
+    // 27/09/2026 sobre el VSL de un cliente: 348 plays con un id y 348 con el
+    // otro, los 348 pares dentro de 2 segundos, y la curva de retención
+    // partida entre dos videos que la pantalla no sabía que eran el mismo — se
+    // reportó como que la retención no se medía bien.
+    //
+    // Gana la rama propia, y no es un empate: mide la escalera de segundos que
+    // ésta no tiene (270 eventos contra 0 en la misma medición) y sabe armar la
+    // URL pública del embed. Alcanza con cortar de este lado porque la
+    // pertenencia se decide por la FORMA del elemento y no por quién se
+    // registró primero, así que no depende del orden.
+    if (ok && wisHost(t)) ok = false;
     for (var i = 0; ok && i < HOSTS.length; i++) if (HOSTS[i] !== t && (t.contains(HOSTS[i]) || HOSTS[i].contains(t))) ok = false;
     if (!ok) { t.__mkoH = null; return null; }
     // El id: lo que identifica AL VIDEO (el atributo de id del player), después

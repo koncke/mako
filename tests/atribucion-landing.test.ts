@@ -86,6 +86,12 @@ test('el snippet manda el origen y lo que la persona contestó', () => {
   assert.ok(/sessionStorage\.setItem\(CLAVE/.test(t), 'se guardan al aterrizar');
   assert.ok(!/localStorage\.setItem\(CLAVE/.test(t), 'sessionStorage: una visita es una sesión, no para siempre');
   // Y la versión subió, que es lo único que le avisa al cliente que repegue.
-  assert.ok(/SNIPPET_VERSION = 17/.test(t), 'la versión sube con el cambio');
+  //
+  // ⚠️ AL MENOS 17, NO EXACTAMENTE 17. Clavarlo en el número de hoy hace que el
+  // test falle en el próximo cambio del snippet que no tenga nada que ver con
+  // esto — pasó al subir a la v18 — y lo que se termina 'arreglando' es el
+  // número del test. Lo que hay que fijar es que ESTA versión ya haya salido.
+  const version = Number(/SNIPPET_VERSION = (\d+)/.exec(t)?.[1]);
+  assert.ok(version >= 17, `la versión del snippet tiene que ser 17 o más, es ${version}`);
   assert.ok(/^\s*17: '/m.test(t), 'y su novedad, que es lo que el cliente lee');
 });

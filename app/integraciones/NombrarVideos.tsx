@@ -33,6 +33,11 @@ export type VideoDetectado = {
   url: string | null;
   /** Donde vive, si no sabemos su URL directa. Plan B para poder mirarlo. */
   pagina: string | null;
+  /**
+   * Tiene nombre y su id no aparece en NINGÚN evento ni en la página: apunta a
+   * un video que no existe. Ver el porqué donde se arma `filas`.
+   */
+  huerfano?: boolean;
 };
 
 export function NombrarVideos({
@@ -65,7 +70,20 @@ export function NombrarVideos({
 
   const filas: VideoDetectado[] = [
     ...detectados,
-    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({ id: v.id, titulo: null, eventos: 0, url: null, pagina: null })),
+    // ⚠️ UN NOMBRE PUEDE APUNTAR A UN ID QUE NO EXISTE, y eso no se ve. El id del
+    // video es una CLAVE: se escribe exacto o no cruza con nada. Medido en la
+    // landing de un cliente el 27/09/2026 — el VSL estaba nombrado como
+    // «wistia:<id>» y los eventos llegaban como «w:<id>»: 3.927 eventos medidos y
+    // el video marcado como EL VSL con cero. Las pantallas que hablan de «el VSL»
+    // mostraban la curva vacía, y se reportó como que la retención no se medía.
+    //
+    // El renglón decía «sin actividad reciente», que para este caso afirma de más:
+    // suena a que el video está tranquilo cuando lo que pasa es que ese id no es de
+    // ningún video. Son dos estados distintos y necesitan dos frases.
+    ...videos.filter((v) => !detectados.some((d) => d.id === v.id)).map((v) => ({
+      id: v.id, titulo: null, eventos: 0, url: null, pagina: null,
+      huerfano: !enLaPagina.some((e) => e.id === v.id),
+    })),
     // Y los que la página TIENE pero todavía no mandaron un solo evento: son los
     // que más falta hace poder mirar, porque son los que nadie reprodujo nunca.
     ...enLaPagina
@@ -146,7 +164,7 @@ export function NombrarVideos({
                   {r.esVsl && <span style={{ flex: 'none', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--mako-ink)', fontWeight: 700 }}>VSL</span>}
                 </span>
                 <span style={{ flex: 'none', fontSize: 11.5, color: 'var(--faint)' }}>
-                  {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : 'sin actividad reciente'}
+                  {d.eventos > 0 ? `${d.eventos} ${d.eventos === 1 ? 'evento' : 'eventos'}` : d.huerfano ? 'ningún evento con ese id' : 'sin actividad reciente'}
                 </span>
               </div>
 

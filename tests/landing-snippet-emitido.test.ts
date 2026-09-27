@@ -142,6 +142,54 @@ test('la agenda embebida tiene camino propio: el submit del formulario no alcanz
   );
 });
 
+test('un video lo mide UNA rama sola, no dos', () => {
+  // ⚠️ EL CASO QUE ESTO FIJA, medido en producción el 27/09/2026. El snippet tiene
+  // dos enganches que pueden ver el MISMO custom element: el propio del reproductor
+  // (lo reconoce por su forma: mediaId + percentWatched) y el genérico, que acepta a
+  // cualquier elemento con API de media. Los dos escuchan play/pause/time-update en
+  // CAPTURA sobre document, así que los dos lo medían — y con dos ids distintos, uno
+  // por el nombre de la etiqueta y otro por el id del media.
+  //
+  // En el VSL de un cliente real eso dio 348 plays con un id y 348 con el otro, los
+  // 348 pares dentro de 2 segundos: las reproducciones al doble y la curva de
+  // retención partida entre dos videos que la pantalla no sabía que eran el mismo.
+  // Se reportó como «no está trackeando bien la retención del VSL».
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 5 pasan y 0 fallan):
+  //   · se saca el guard (vuelve el doble conteo)        -> 4 pasan / 1 falla
+  //   · el guard se pregunta DESPUÉS de registrar        -> 4 / 1
+  //
+  // No alcanza con mirar el fuente: este archivo mira lo EMITIDO, que es lo único
+  // que le llega a la página del cliente.
+  const gen = snippetEmitido();
+  const i = gen.indexOf('function hostDeMedia');
+  assert.ok(i > 0, 'no está el enganche genérico por elemento');
+  const fin = gen.indexOf('function alEventoDeHost', i);
+  assert.ok(fin > i, 'no se pudo acotar el cuerpo de hostDeMedia');
+  const cuerpo = gen.slice(i, fin);
+
+  // 1) Consulta a la rama propia antes de quedarse con el elemento.
+  const guard = cuerpo.indexOf('wisHost(t)');
+  assert.ok(
+    guard > 0,
+    'el enganche genérico no le pregunta a la rama propia si ese elemento ya es suyo: ' +
+    'vuelve el doble conteo, con dos ids para el mismo video',
+  );
+
+  // 2) Y lo consulta ANTES de registrarlo. Preguntar después no evita nada: el
+  //    elemento ya quedó en HOSTS y ya tiene su id propio colgado.
+  const push = cuerpo.indexOf('HOSTS.push(t)');
+  assert.ok(push > 0, 'hostDeMedia tiene que registrar el host en HOSTS');
+  assert.ok(guard < push, 'la pregunta por el dueño va ANTES de registrar el elemento');
+
+  // 3) Y la rama propia sigue existiendo: si desaparece, el guard de arriba pasa a
+  //    ser una condición que nunca es verdadera y nadie se entera.
+  assert.ok(
+    /function wisHost\(/.test(gen) && /percentWatched/.test(gen),
+    'la rama propia del reproductor tiene que seguir reconociéndolo por su forma',
+  );
+});
+
 test('la versión del snippet sube junto con su renglón de novedades', () => {
   // Un cliente al que se le pide repegar el código sin decirle qué gana no lo
   // repega. `novedadesDesde()` arma ese texto leyendo NOVEDADES.
