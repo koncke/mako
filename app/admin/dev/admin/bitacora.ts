@@ -208,7 +208,23 @@ export const BITACORA: Hito[] = [
       'No se escribió una línea de la feature: falta una decisión de producto sobre el nivel de acceso, y el modelo de datos no puede expresar «esta agencia es dueña de estos clientes» (workspaces sin columna de padre, usuarios.workspace_id escalar).',
     ],
     commits: [
-      { sha: "pendiente", msg: "El relevo de la vista de agencia, antes de escribir una linea", lineas: 150, archivos: 3 },
+      { sha: "0d81d94e", msg: "El relevo de la vista de agencia, antes de escribir una linea", lineas: 152, archivos: 3 },
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '20:10', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La vista de agencia, con el nivel de acceso que no existía',
+    puntos: [
+      'El pedido necesitaba un TERCER nivel de acceso: `Rol = admin | usuario` y nada en el medio. Con rol usuario la pantalla del «cliente» mostraba los datos de la AGENCIA sin un solo error; con rol admin se abrían 154 call-sites de getSesionAdmin. La salida fue una puerta propia: cookie firmada `mako_agencia` que NOMBRA a la agencia (la de impersonación firma sólo el número del workspace, así que es portable entre sesiones) y con el vencimiento adentro de la firma.',
+      'Aparecieron DOS tablas donde el plan tenía una, y ése es el hallazgo caro. `agencia_clientes` dice a qué clientes entra cada agencia; faltaba `agencias`, que dice QUIÉN puede tener clientes. Derivar la segunda de la primera deja un huevo-y-gallina con un solo lado abierto: para conseguir la primera fila hay que poder pedirla, o sea que cualquier admin de cualquier workspace crearía inquilinos en la plataforma. Es además lo que Martín pidió textual: «poné SÓLO a Juanfran en ese nivel de acceso» es una fila, no una condición.',
+      'El token no alcanza y por eso se le pregunta a la base en CADA request, fail-closed: la aprobación se revoca DESPUÉS de firmarlo. Memoizado y con salida temprana para quien no trae la cookie, así el 99% del tráfico no toca la base.',
+      'La salida dejó de ser una constante. Estaba cableada a «/admin» en tres lugares, y /admin está en SOLO_ADMIN: una agencia que apretara «Salir de la vista» se comía el denegarRol y aterrizaba en /inicio.',
+      'Verificado en el navegador de punta a punta, incluida la aislación: entrar al cliente de otra agencia y a un workspace inexistente contestan 404 con el MISMO texto — un 403 confirmaría que existe. Los tests van con DOS agencias porque con una, un permiso cableado al número 13 pasaría todo.',
+      'Queda ABIERTO: revocar no echa a quien ya está adentro (muere en la próxima navegación, sin aviso); el alta no tiene rollback y lo dice en vez de fingirlo (mismo agujero que /api/admin/workspaces:87); el cliente nuevo nace sin usuario admin; y `vista_de_agencia` de la API de MaKo sigue significando «impersonando», que ahora es ambiguo.',
+    ],
+    commits: [
+      { sha: "69d26b0f", msg: "Vista de agencia (1/2): el nivel de acceso, que no existia", lineas: 861, archivos: 10 },
+      { sha: "0460e361", msg: "Vista de agencia (2/2): abrirle cuenta a un cliente, firmarla y entrar", lineas: 800, archivos: 16 },
     ],
   },
 ];
