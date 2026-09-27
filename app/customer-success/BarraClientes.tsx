@@ -1,0 +1,236 @@
+'use client';
+
+// =============================================================================
+// BarraClientes — la topbar de Clientes: buscar, mirar, filtrar y exportar
+// =============================================================================
+// «Aplica todo lo que hay en el plan en la topbar, pero aquí en clientes… la barra
+// de búsqueda, la vista de tabla o tarjetas, el filtro, los 3 puntos con la opción
+// de importar o exportar. Que todo tenga sentido, claro» (27/09/2026).
+//
+// ⚠️ «QUE TODO TENGA SENTIDO» ES LA PARTE QUE MANDA, y por eso esto NO es una copia
+// de la barra del tablero. Allá los filtros salen del deadline y del score, que un
+// cliente no tiene. Acá las preguntas son otras tres, y son las únicas que la grilla
+// puede contestar con lo que ya trae cada tarjeta:
+//
+//   · ¿quién tiene trabajo abierto, y quién no?   → el que no, es el que se enfría
+//   · ¿quién todavía no tiene ni un proyecto?      → es el que falta arrancar
+//   · ¿en qué orden los miro?                      → por nombre, por carga, por antigüedad
+//
+// Un cuarto control que devuelva la lista igual es ruido: pasó en el tablero con
+// «Cuándo» y «Ordenar» en la vista de recurrentes, y ahí se sacaron por eso mismo.
+//
+// ⚠️ Y «IMPORTAR» LLEVA AL CRM EN VEZ DE IMPORTAR ACÁ. No es pereza: **un cliente es
+// un lead ganado** (`lib/clientes-ganados.ts`), no hay tabla de clientes. Un
+// importador propio sería una segunda implementación del que ya existe en el CRM, con
+// su propio parseo de planilla y su propio mapeo de columnas — o sea, el segundo lugar
+// que se queda viejo. Lo que sí vive acá es EXPORTAR, que es de esta vista: sale lo
+// que la grilla está mostrando, con sus filtros puestos.
+
+import { useEffect, useRef, useState } from 'react';
+import Link from '@/app/_ui/Link';
+
+export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
+export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto';
+
+export const ORDEN_LABEL: Record<OrdenClientes, string> = {
+  nombre: 'Nombre',
+  abiertas: 'Más tareas abiertas',
+  proyectos: 'Más proyectos',
+  antiguedad: 'Antigüedad',
+};
+
+export const FILTRO_LABEL: Record<FiltroClientes, string> = {
+  todos: 'Todos',
+  'con-trabajo': 'Con trabajo abierto',
+  'sin-trabajo': 'Sin trabajo abierto',
+  'sin-proyecto': 'Sin ningún proyecto',
+};
+
+export function BarraClientes({
+  q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, nVisibles, nTotal,
+}: {
+  q: string;
+  onQ: (v: string) => void;
+  tabla: boolean;
+  onTabla: (v: boolean) => void;
+  filtro: FiltroClientes;
+  onFiltro: (v: FiltroClientes) => void;
+  orden: OrdenClientes;
+  onOrden: (v: OrdenClientes) => void;
+  onExportar: () => void;
+  nVisibles: number;
+  nTotal: number;
+}) {
+  return (
+    <div className="bc">
+      <label className="bc-buscar">
+        {/* El ícono no es decorativo: sin él, un input vacío al lado de dos botones
+            cuadrados se lee como un campo más y no como «buscá acá». */}
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+        </svg>
+        <input value={q} onChange={(e) => onQ(e.target.value)}
+          placeholder="Buscar por nombre o empresa…" aria-label="Buscar un cliente" />
+        {q && (
+          <button type="button" onClick={() => onQ('')} title="Limpiar" aria-label="Limpiar la búsqueda">✕</button>
+        )}
+      </label>
+
+      {/* ⚠️ EL CONTADOR SÓLO APARECE CUANDO LA VISTA ESTÁ RECORTADA. «3 de 12» con los
+          12 a la vista no informa nada; con un filtro puesto es lo único que dice por
+          qué faltan nueve. Un filtro que esconde sin decirlo es esconder sin pista. */}
+      {nVisibles !== nTotal && <span className="bc-cuenta">{nVisibles} de {nTotal}</span>}
+
+      <span style={{ flex: 1 }} />
+
+      <VistaToggleClientes tabla={tabla} onSet={onTabla} />
+      <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden} />
+      <MenuPuntos onExportar={onExportar} />
+
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+    </div>
+  );
+}
+
+/** Tarjetas o tabla. Mismo molde y mismos íconos que el del tablero, a propósito. */
+function VistaToggleClientes({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => void }) {
+  return (
+    <div className="bc-toggle">
+      <button type="button" onClick={() => onSet(false)} aria-pressed={!tabla}
+        className={!tabla ? 'on' : ''} title="Ver en tarjetas" aria-label="Ver en tarjetas">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+      </button>
+      <button type="button" onClick={() => onSet(true)} aria-pressed={tabla}
+        className={tabla ? 'on' : ''} title="Ver en tabla" aria-label="Ver en tabla">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/** Un desplegable que se cierra con Escape, con un click afuera y al elegir. */
+function usePlegable() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const fuera = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    // ⚠️ `stopImmediatePropagation` y no `stopPropagation`: esta pantalla puede tener
+    // una ficha abierta, y todos los Escape de la casa viven en `document` en captura.
+    // Sin esto, cerrar el menú cerraría además la ficha. Ya se pagó tres veces hoy.
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOpen(false); } };
+    document.addEventListener('mousedown', fuera);
+    document.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
+function MenuFiltro({ filtro, onFiltro, orden, onOrden }: {
+  filtro: FiltroClientes; onFiltro: (v: FiltroClientes) => void;
+  orden: OrdenClientes; onOrden: (v: OrdenClientes) => void;
+}) {
+  const { open, setOpen, ref } = usePlegable();
+  const activo = filtro !== 'todos' || orden !== 'nombre';
+  return (
+    <div ref={ref} className="bc-pop">
+      <button type="button" className={`bc-btn${activo ? ' on' : ''}`} onClick={() => setOpen((o) => !o)}
+        aria-expanded={open} title="Filtrar y ordenar" aria-label="Filtrar y ordenar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M3 5h18l-7 8v6l-4 2v-8Z" />
+        </svg>
+      </button>
+      {open && (
+        <div className="bc-menu">
+          <p className="bc-tit">Mostrar</p>
+          {(Object.keys(FILTRO_LABEL) as FiltroClientes[]).map((k) => (
+            <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
+              onClick={() => { onFiltro(k); setOpen(false); }}>{FILTRO_LABEL[k]}</button>
+          ))}
+          <p className="bc-tit">Ordenar por</p>
+          {(Object.keys(ORDEN_LABEL) as OrdenClientes[]).map((k) => (
+            <button key={k} type="button" className={`bc-op${orden === k ? ' on' : ''}`}
+              onClick={() => { onOrden(k); setOpen(false); }}>{ORDEN_LABEL[k]}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuPuntos({ onExportar }: { onExportar: () => void }) {
+  const { open, setOpen, ref } = usePlegable();
+  return (
+    <div ref={ref} className="bc-pop">
+      <button type="button" className="bc-btn" onClick={() => setOpen((o) => !o)}
+        aria-expanded={open} title="Más" aria-label="Más opciones">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="bc-menu bc-menu-der">
+          <button type="button" className="bc-op" onClick={() => { onExportar(); setOpen(false); }}>
+            Exportar a CSV
+            <span className="bc-desc">Lo que estás viendo, con los filtros puestos</span>
+          </button>
+          {/* ⚠️ IMPORTAR LLEVA AL CRM Y NO ABRE UN IMPORTADOR PROPIO: un cliente ES un
+              lead ganado, así que importar clientes es importar leads. Un segundo
+              importador sería la segunda implementación de lo mismo. */}
+          <Link href="/crm?importar=1" className="bc-op">
+            Importar desde una planilla
+            <span className="bc-desc">Entran al CRM; son clientes al marcarlos ganados</span>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CSS = `
+/* ⚠️ EL MISMO ANCHO Y EL MISMO CENTRADO QUE LA GRILLA. Con la grilla topada en 1180
+   y centrada, una barra a ancho completo arranca 52 px a la izquierda de la primera
+   tarjeta — y esos 52 px se leen como que algo quedó desalineado, no como una
+   decisión. Los dos números viven en dos archivos, así que van comentados de los dos
+   lados: si uno cambia, el otro se nota al instante. */
+.bc{ display:flex; align-items:center; gap:10px; margin:0 auto 16px; max-width:1180px;
+  flex-wrap:wrap; }
+.bc-buscar{ display:inline-flex; align-items:center; gap:8px; flex:0 1 320px; min-width:190px;
+  height:38px; padding:0 11px; border:1px solid var(--border); border-radius:9px;
+  background:var(--surface); color:var(--faint); }
+.bc-buscar:focus-within{ border-color:var(--primary); color:var(--primary); }
+.bc-buscar input{ flex:1; min-width:0; border:0; outline:none; background:none; font:inherit;
+  font-size:13.5px; color:var(--ink); }
+.bc-buscar button{ border:0; background:none; color:var(--faint); cursor:pointer; font-size:12px; padding:2px; }
+.bc-buscar button:hover{ color:var(--ink); }
+.bc-cuenta{ font-size:12.5px; color:var(--dim); white-space:nowrap; }
+
+.bc-toggle{ display:inline-flex; flex:none; background:var(--surface-2); border:1px solid var(--border);
+  border-radius:9px; padding:2px; }
+.bc-toggle button{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px;
+  border-radius:7px; border:0; background:transparent; color:var(--faint); cursor:pointer; flex:none; }
+.bc-toggle button.on{ background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(18,21,27,.08); }
+
+.bc-pop{ position:relative; flex:none; }
+.bc-btn{ display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px;
+  border:1px solid var(--border); border-radius:9px; background:var(--surface); color:var(--dim); cursor:pointer; }
+.bc-btn:hover{ border-color:var(--border-strong); color:var(--ink); }
+.bc-btn.on{ border-color:var(--primary); color:var(--primary); }
+.bc-menu{ position:absolute; top:calc(100% + 6px); left:0; z-index:40; min-width:230px;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 14px 38px rgba(18,21,27,.18); padding:6px; }
+.bc-menu-der{ left:auto; right:0; }
+.bc-tit{ margin:6px 8px 4px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); font-weight:700; }
+.bc-op{ display:block; width:100%; text-align:left; border:0; background:none; border-radius:8px;
+  padding:7px 9px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; text-decoration:none; }
+.bc-op:hover{ background:var(--surface-2); color:var(--ink); }
+.bc-op.on{ color:var(--primary); font-weight:600; }
+.bc-desc{ display:block; font-size:11.5px; color:var(--faint); margin-top:1px; }
+`;
