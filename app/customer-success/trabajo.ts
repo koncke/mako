@@ -599,55 +599,52 @@ export async function asignarTrabajo(
 //      todavía no está asignado. Llega después y se agrega abajo.
 
 /** Lo que ya tiene dueño escrito, sin cruce y sin bajar el tablero entero. */
+/** Las FILAS crudas del trabajo de un cliente, sin mapear a nada. */
+export type FilasDeCliente = { dueno: boolean; proyectos: Record<string, unknown>[]; tareas: Record<string, unknown>[] };
+
+/**
+ * Todo lo que tiene el cliente escrito, en filas.
+ *
+ * ⚠️ DEVUELVE FILAS Y NO EL MODELO DE CUSTOMER SUCCESS porque tiene DOS consumidores con
+ * formas distintas: la ficha (que las quiere como `TareaCS`) y el TABLERO embebido en la
+ * página del cliente (que las quiere como `BoardTask`/`Tarea`, o sea la forma del board).
+ * Mapear acá obligaría a des-mapear allá, que es cómo se pierde un campo.
+ */
+export async function filasDeCliente(leadId: number, forzado?: QueTablero): Promise<FilasDeCliente> {
+  const db = await getTenantDb();
+  const dueno = (forzado ?? await tableroActual()) === 'dueno';
+  const tablaProy = dueno ? 'plan_proyectos' : 'tarea_categorias';
+  const tablaTarea = dueno ? 'plan_tareas' : 'experimento_tareas';
+  const col = dueno ? 'labels' : 'categorias';
+
+  const { data: ps, error: e1 } = await db.from(tablaProy).select('*').eq('cliente_lead_id', leadId);
+  if (e1) throw new Error(e1.message);
+  const pids = (ps ?? []).map((p) => (dueno ? String((p as { id: unknown }).id) : Number((p as { id: unknown }).id)));
+
+  // Las tareas suyas son las que lo declaran MÁS las de sus proyectos. Se piden por
+  // separado y se funden por id: un `or` con `cs.` sobre jsonb se escribe mal una vez y
+  // devuelve de más para siempre, y de más acá es el trabajo de otro cliente.
+  const lotes = await Promise.all([
+    db.from(tablaTarea).select('*').eq('cliente_lead_id', leadId),
+    // JSON y no un array de JS: la columna es `jsonb` y el literal de Postgres la hace
+    // fallar entera. Ver la nota larga en `lib/plan-board.ts`.
+    ...pids.map((pid) => db.from(tablaTarea).select('*').contains(col, JSON.stringify([pid]))),
+  ]);
+  const filas = new Map<string, Record<string, unknown>>();
+  for (const l of lotes) {
+    if (l.error) throw new Error(l.error.message);
+    for (const f of l.data ?? []) filas.set(String((f as { id: unknown }).id), f as Record<string, unknown>);
+  }
+  return { dueno, proyectos: (ps ?? []) as Record<string, unknown>[], tareas: [...filas.values()] };
+}
+
 export async function trabajoAsignado(leadId: number): Promise<ResultadoTrabajo> {
   try {
-    const db = await getTenantDb();
-    const dueno = (await tableroActual()) === 'dueno';
     const hoy = await hoyEnWorkspace();
-
-    if (dueno) {
-      const { data: ps, error: e1 } = await db.from('plan_proyectos').select('*').eq('cliente_lead_id', leadId);
-      if (e1) throw new Error(e1.message);
-      const pids = (ps ?? []).map((p) => String((p as { id: unknown }).id));
-
-      // Las tareas suyas son las que lo declaran MÁS las de sus proyectos. Se piden por
-      // separado y se funden por id: un `or` con `cs.` sobre jsonb se escribe mal una vez
-      // y devuelve de más para siempre, y de más acá es el trabajo de otro cliente.
-      const lotes = await Promise.all([
-        db.from('plan_tareas').select('*').eq('cliente_lead_id', leadId),
-        // JSON y no un array de JS: la columna es `jsonb` y el literal de Postgres la
-        // hace fallar entera. Ver la nota larga en `lib/plan-board.ts`.
-        ...pids.map((pid) => db.from('plan_tareas').select('*').contains('labels', JSON.stringify([pid]))),
-      ]);
-      const filas = new Map<string, Record<string, unknown>>();
-      for (const l of lotes) {
-        if (l.error) throw new Error(l.error.message);
-        for (const f of l.data ?? []) filas.set(String((f as { id: unknown }).id), f as Record<string, unknown>);
-      }
-      return armar(
-        (ps ?? []).map((p) => deBoardLabel(rowToLabel(p as Row))),
-        [...filas.values()].map((f) => deBoardTask(rowToTask(f))),
-        hoy,
-      );
-    }
-
-    const { data: cs, error: e1 } = await db.from('tarea_categorias').select('*').eq('cliente_lead_id', leadId);
-    if (e1) throw new Error(e1.message);
-    const cids = (cs ?? []).map((c) => Number((c as { id: unknown }).id));
-    const lotes = await Promise.all([
-      db.from('experimento_tareas').select('*').eq('cliente_lead_id', leadId),
-      ...cids.map((cid) => db.from('experimento_tareas').select('*').contains('categorias', JSON.stringify([cid]))),
-    ]);
-    const filas = new Map<string, Record<string, unknown>>();
-    for (const l of lotes) {
-      if (l.error) throw new Error(l.error.message);
-      for (const f of l.data ?? []) filas.set(String((f as { id: unknown }).id), f as Record<string, unknown>);
-    }
-    return armar(
-      (cs ?? []).map((c) => deCategoria(catRow(c as Record<string, unknown>))),
-      [...filas.values()].map((f) => deTarea(rowTo(f))),
-      hoy,
-    );
+    const { dueno, proyectos, tareas } = await filasDeCliente(leadId);
+    return dueno
+      ? armar(proyectos.map((p) => deBoardLabel(rowToLabel(p as Row))), tareas.map((f) => deBoardTask(rowToTask(f))), hoy)
+      : armar(proyectos.map((p) => deCategoria(catRow(p))), tareas.map((f) => deTarea(rowTo(f))), hoy);
   } catch (e) {
     return { ok: false, error: mensaje(e) };
   }

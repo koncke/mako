@@ -49,7 +49,15 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [] }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+  /**
+   * ⚠️ EL TABLERO ESTÁ FILTRADO A UN CLIENTE, así que lo que se cree adentro nace SUYO.
+   * Sin esto, una tarea creada desde la página de un cliente aparecería… y desaparecería
+   * al recargar, porque la página sólo lee lo que tiene ese cliente escrito. Un alta que
+   * se borra sola al refrescar es peor que un botón deshabilitado.
+   */
+  clienteFijo?: { leadId: number; nombre: string };
+
   /** Los leads ganados del workspace, leídos en el server (mig 0172). */
   clientes?: ClienteRef[] }) {
   const repo: Repo = {
@@ -74,7 +82,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
       // `recurrente` va en el ALTA: el server ya lo acepta, y sin esto la capacidad queda
       // abierta y sin un solo call site — la tarea nace compitiendo y sólo se arregla si
       // alguien la vuelve a editar.
-      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente, recurrencia: d.recurrencia ?? null } });
+      // El cliente va en el ALTA: `responsableDe` de /api/todo ya lo acepta (mig 0159), y
+      // el `editar` de abajo sólo corre si la tarjeta trae contenido — un alta pelada se lo
+      // saltearía y la tarea nacería sin dueño en la pantalla de su propio cliente.
+      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'user' ? 'manual' : 'mako', fuente: d.fuente ?? null, recurrente: !!d.recurrente, recurrencia: d.recurrencia ?? null, cliente_lead_id: clienteFijo?.leadId ?? null, cliente_nombre: clienteFijo?.nombre ?? null } });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto

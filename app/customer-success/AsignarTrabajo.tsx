@@ -18,7 +18,8 @@
 // pila esconde al de abajo con `display:none` sobre su contenedor: un `<Modal>` escrito
 // adentro de sus `children` es un DESCENDIENTE de ese contenedor, así que al abrirse se
 // esconde a sí mismo — pantalla en blanco, sin error. Es la misma razón por la que el
-// detalle de una tarea reemplaza a la lista en vez de apilarse (ver TrabajoCliente.tsx).
+// selector se abre desde una PÁGINA, no desde otro modal, así que la pila hace lo que
+// promete y el de abajo no se apaga.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Status, MONO } from '@/app/_ui';

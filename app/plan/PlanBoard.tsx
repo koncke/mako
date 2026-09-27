@@ -732,13 +732,26 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [] }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+  /**
+   * ⚠️ EL TABLERO ESTÁ FILTRADO A UN CLIENTE, así que lo que se cree adentro nace SUYO.
+   * Sin esto, una tarea creada desde la página de un cliente aparecería… y desaparecería
+   * al recargar, porque la página sólo lee lo que tiene ese cliente escrito. Un alta que
+   * se borra sola al refrescar es peor que un botón deshabilitado.
+   */
+  clienteFijo?: { leadId: number; nombre: string };
+
   /** Los leads ganados del workspace, leídos en el server (mig 0172). Sin esto el
    *  picker de cliente del detalle nace vacío y el campo no sirve para nada. */
   clientes?: ClienteRef[] }) {
   // El I/O vive en board/repo-plan.ts: lo comparte el roadmap de Customer
   // Success, que abre la MISMA tarjeta con el MISMO modal.
-  const repo = repoPlan();
+  // `repoPlan` escribe el `BoardTask` ENTERO (`taskToRow` lo mapea campo por campo), así
+  // que alcanza con que el borrador nazca con el cliente puesto.
+  const base = repoPlan();
+  const repo: Repo = clienteFijo
+    ? { ...base, createTask: (d) => base.createTask({ ...d, clienteLeadId: clienteFijo.leadId, clienteNombre: clienteFijo.nombre }) }
+    : base;
   const board = useBoard(tareas, proyectos, user, repo, deps);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;

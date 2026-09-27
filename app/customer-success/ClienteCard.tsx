@@ -38,10 +38,22 @@ export function inicialesDe(nombre: string): string {
   return (p.length === 1 ? p[0].slice(0, 2) : p[0][0] + p[1][0]).toUpperCase();
 }
 
+/**
+ * ⚠️ EL ESTILO VA INLINE Y NO EN UNA CLASE, a propósito. Vivía en `.cl-av` dentro de
+ * `CSS_CLIENTE`, que sólo inyecta la grilla — así que al montar este mismo avatar en la
+ * PÁGINA de un cliente salía cuadrado, sin círculo y sin anillo, porque esa hoja no
+ * estaba. Un componente que se ve distinto según quién lo monte no es un componente.
+ *
+ * Son seis propiedades sobre un elemento hoja: inline es más barato que obligar a cada
+ * consumidor a acordarse de inyectar una hoja.
+ */
 export function Avatar({ nombre, tam = 44 }: { nombre: string; tam?: number }) {
   const c = colorDe(nombre);
   return (
-    <span aria-hidden className="cl-av" style={{
+    <span aria-hidden style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      flex: 'none', borderRadius: 999, fontWeight: 700, letterSpacing: '.02em',
+      boxShadow: '0 0 0 3px var(--surface)',
       width: tam, height: tam, background: `color-mix(in srgb, ${c} 16%, var(--surface))`,
       color: c, fontSize: Math.round(tam * 0.36),
     }}>{inicialesDe(nombre)}</span>
@@ -109,8 +121,6 @@ export const CSS_CLIENTE = `
 /* El avatar MONTADO sobre la banda, como en la referencia: medio adentro y medio afuera.
    El margen negativo es la mitad de su alto, y el anillo lo despega del degradado. */
 .cl-avwrap{ display:block; margin:-22px 0 0 16px; }
-.cl-av{ display:inline-flex; align-items:center; justify-content:center; border-radius:999px;
-  font-weight:700; letter-spacing:.02em; box-shadow:0 0 0 3px var(--surface); }
 
 .cl-n{ display:block; margin:10px 16px 0; font-size:15.5px; font-weight:640;
   letter-spacing:-.01em; line-height:1.25; color:var(--ink); overflow-wrap:anywhere; }
