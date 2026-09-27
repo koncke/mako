@@ -176,7 +176,7 @@ export async function crearClienteAction(datos: {
  * distintas: lo del nombre es un hecho y lo de la IA es un juicio.
  */
 export async function autoasignarAction(): Promise<
-  { ok: true; porNombre: number; porIA: number; consultadas: number } | { ok: false; error: string }
+  { ok: true; porNombre: number; porIA: number; consultadas: number; sinRespuesta: number } | { ok: false; error: string }
 > {
   try {
     const r = await autoasignar();

@@ -96,12 +96,14 @@ export function AsignarTrabajo({ leadId, nombre, onListo, onCerrar }: {
     const r = await autoasignarAction();
     if (!r.ok) { setMako('no'); setFalla(r.error); return; }
     const n = r.porNombre + r.porIA;
-    // Tres o cuatro palabras (AGENTS.md). Y se DICE cuántas miró sin asignar: «0
-    // asignadas» sobre 43 revisadas es un resultado, y sin el segundo número se lee
-    // como que no funcionó.
-    setMako(n === 0
-      ? (r.consultadas ? `Ninguna de ${r.consultadas} es suya` : 'Nada evidente')
-      : `${n} asignadas`);
+    // ⚠️ «NO PUDE PREGUNTAR» TIENE SU PROPIO TEXTO. Si la cascada de IA no contestó,
+    // decir «ninguna es suya» sería afirmar un juicio que nadie emitió — y ya pasó: la
+    // primera corrida reportó «0 de 43» sobre una respuesta vacía.
+    setMako(
+      n > 0 ? `${n} asignadas`
+        : r.sinRespuesta ? `No pude preguntarle por ${r.sinRespuesta}`
+          : r.consultadas ? `Ninguna de ${r.consultadas} es suya`
+            : 'Nada evidente');
     if (n > 0) onListo(`${n} ${n === 1 ? 'asignada' : 'asignadas'}`);
   }
 

@@ -132,7 +132,18 @@ export function planDeAsignacion(
   for (const t of tareas) {
     if (t.clienteLeadId) continue;                                   // asignada a mano
     if ((t.proyectos ?? []).some((p) => proyectoAtado.has(p))) continue;  // ya es de alguien por su proyecto
-    const texto = norm(`${t.titulo} ${t.detalle}`);
+    // ⚠️ SÓLO EL TÍTULO, NO EL DETALLE, y esto es lo que hace que la pregunta tenga
+    // sentido. Medido el 26/09/2026 en el ws9: buscando en título+detalle salían 46
+    // candidatas y la mitad eran cosas como «Que la Retro se ejecute SOLA» o «Arreglar el
+    // botón de copiar en el Segundo Cerebro», atribuidas a Leila porque su nombre aparece
+    // UNA vez en un detalle de 6.000 caracteres. El juez recibía «¿"Que la Retro se
+    // ejecute SOLA" es de Leila?» y no tenía con qué contestar — y contestó que sí a
+    // veinticinco de ellas.
+    //
+    // El detalle es CONTEXTO: menciona a todo el mundo. El título es lo que la tarea ES.
+    // Buscando sólo ahí quedan 6 para Leila y 0 para Juanfran, que son las candidatas de
+    // verdad. El detalle se sigue mandando al juez como evidencia, que es su lugar.
+    const texto = norm(t.titulo);
     const nombran = clavesPorLead.filter(({ claves }) => claves.length > 0 && claves.every((w) => texto.includes(w)));
     // ⚠️ CON DOS CLIENTES NOMBRADOS NO SE PREGUNTA: se deja. «Que Leila y Leandro
     // puedan entrar como clientes» nombra a dos y no es de ninguno; preguntar por cada
@@ -150,24 +161,44 @@ export function planDeAsignacion(
 
 /**
  * ⚠️ LA PREGUNTA NO ES «¿LO NOMBRA?» — eso ya lo contestó el código y por eso esta duda
- * existe. Es «¿es trabajo PARA él?», y el prompt lo dice con los contraejemplos medidos
- * adelante, porque son el 90% de los casos que llegan acá.
+ * existe. Es «¿el trabajo se hace SOBRE él?».
+ *
+ * ⚠️ Y LA PRIMERA VERSIÓN DE ESTE PROMPT DIJO QUE NO A TODO. Tenía los contraejemplos
+ * («probado con X», «antes de que entre X») y un «ante la duda, NO» de cierre, y con eso
+ * rechazó las 43 tareas del ws9 — incluidas «Borrarle a Leila los audios 21 a 24 para que
+ * los regrabe» y «Reiniciar el onboarding de Leila sin perder su CRM ni su plan», que son
+ * exactamente trabajo sobre la cuenta de un cliente. Se reportó así: «tampoco funcionó lo
+ * de que MaKo auto-asigne, porque tanto Leila como Juanfran tienen tareas y me dice que no
+ * hay nada» (26/09/2026).
+ *
+ * Lo que faltaba eran los ejemplos del lado del SÍ. Con los de UNA sola dirección, un
+ * modelo prudente aprende que la respuesta es no, y el «ante la duda» sella la puerta. Un
+ * prompt que enumera una sola dirección no está pidiendo un juicio: está pidiendo esa
+ * dirección — y el resultado se lee como que la función no anda.
  */
 export const SYSTEM_JUEZ = [
-  'Decides de quién es un trabajo de un tablero interno.',
-  'Te doy tareas que MENCIONAN a un cliente. Mencionarlo NO alcanza.',
+  'Decides de quién es un trabajo de un tablero interno de una agencia.',
+  'Te doy tareas que MENCIONAN a un cliente. Mencionarlo no alcanza: hay que decidir si el',
+  'trabajo se hace SOBRE ese cliente, o si el cliente aparece por otra razón.',
   '',
-  'Contesta SÍ sólo si la tarea es un ENTREGABLE PARA ese cliente: algo que él recibe,',
-  'que se hace sobre SU negocio, su cuenta, su campaña, su material o su reunión.',
+  'SÍ es de ese cliente cuando la tarea se hace sobre SU cuenta, SU negocio, SU material,',
+  'SU campaña, SU reunión o SU configuración. Da igual que suene a trabajo técnico: si el',
+  'OBJETO de la tarea es la cuenta o el negocio de esa persona, es de ella.',
+  '  · "Borrarle a X los audios 21 a 24 para que los regrabe"          -> SÍ',
+  '  · "Reiniciar el onboarding de X sin perder su CRM ni su plan"     -> SÍ',
+  '  · "Revisar el VSL de X y preparar documento de feedback"          -> SÍ',
+  '  · "Desvincular la infraestructura de Meta de X"                   -> SÍ',
   '',
-  'Contesta NO si el cliente aparece como:',
-  '  · un caso de prueba ("probado con Mauricio", "probar con un cliente de prueba")',
-  '  · una fecha o condición ("antes de que entre Leila")',
-  '  · un ejemplo de un bug o de una funcionalidad del producto',
-  '  · el destinatario de un aviso interno',
+  'NO es de ese cliente cuando aparece como una circunstancia y el trabajo es de otra cosa:',
+  '  · una FECHA o condición:  "antes de que entre X"                  -> NO',
+  '  · un CASO DE PRUEBA:      "probado con X", "con un cliente de prueba" -> NO',
+  '  · un EJEMPLO de un bug:   "no saltear pasos (caso X)"             -> NO',
+  '  · un HITO del producto:   "que X y otro puedan entrar como clientes" -> NO',
   '',
-  'Ante la duda, NO. Una tarea sin cliente se ve igual que siempre en el tablero;',
-  'una tarea en la ficha equivocada la va a leer alguien como un hecho.',
+  'La pregunta corta: si esa tarea se hace, ¿cambia algo de la cuenta o del negocio de esa',
+  'persona? Si sí, es de ella. Si lo que cambia es el producto y ella es el ejemplo, no.',
+  '',
+  'Ante la duda real, NO. Pero "es trabajo técnico" no es una duda: mira sobre QUÉ se hace.',
   '',
   'Responde SÓLO un JSON: {"de_ese_cliente":[<ids que SÍ>]}. Sin texto alrededor.',
 ].join('\n');

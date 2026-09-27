@@ -17,7 +17,7 @@ import Link from '@/app/_ui/Link';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { TrabajoDelCliente } from './TrabajoCliente';
-import { ClienteCard, Avatar, CSS_CLIENTE } from './ClienteCard';
+import { ClienteCard, Avatar, colorDe, CSS_CLIENTE } from './ClienteCard';
 import { NuevoCliente } from './NuevoCliente';
 
 export function ClientesApp({ clientes, tablero, error }: {
@@ -96,6 +96,7 @@ export function ClientesApp({ clientes, tablero, error }: {
           titulo={<CabeceraCliente c={abierto} n={numeroDe.get(abierto.leadId) ?? 0} />}
           etiqueta={nombreDe(abierto)}
           onCerrar={() => setAbierto(null)}
+          ancho={ANCHO_FICHA}
         >
           {/* `key` por cliente: sin eso, al saltar de un cliente a otro se ve un instante
               el trabajo del anterior. */}
@@ -110,6 +111,18 @@ export function ClientesApp({ clientes, tablero, error }: {
   );
 }
 
+/**
+ * ⚠️ 1040 Y NO LOS 600 DE LA CASA: «debe ser más ancho que largo» (26/09/2026). La regla
+ * del ancho de `Modal` es para TEXTO —la medida de lectura— y acá adentro va una grilla de
+ * tarjetas, que es lo contrario: con 600 entran dos por fila y la ficha se vuelve una
+ * columna larguísima que hay que scrollear.
+ *
+ * (Y la constante existe para no escribir el comentario entre los atributos del JSX: tsc
+ * lo acepta ahí, pero ya se cometieron dos errores de comentario mal ubicado en esta
+ * pantalla y ninguno se ve en el diff.)
+ */
+const ANCHO_FICHA = 1040;
+
 /** Un lead ganado puede tener el nombre vacío: la tarjeta necesita algo que decir. */
 const nombreDe = (c: ClienteCruce): string => c.nombre.trim() || 'Sin nombre';
 
@@ -123,17 +136,28 @@ const nombreDe = (c: ClienteCruce): string => c.nombre.trim() || 'Sin nombre';
  * nada. Un dato que vale lo mismo para todas las filas no es un dato.
  */
 function CabeceraCliente({ c, n }: { c: ClienteCruce; n: number }) {
+  const nombre = nombreDe(c);
+  const color = colorDe(nombre);
   return (
     <div className="cl-cab">
-      <Avatar nombre={nombreDe(c)} tam={46} />
-      <div className="cl-cab-txt">
-        <span className="nom">{nombreDe(c)}</span>
-        {c.empresa?.trim() && <span className="emp">{c.empresa.trim()}</span>}
-        <span className="id">Cliente {n}</span>
+      {/* ⚠️ EL BANNER SANGRA hasta los bordes del modal con un margen negativo que vale
+          EXACTAMENTE el padding de `.mk-modal__cab` (20px 24px 16px, app/_ui/ui.css). Si
+          ese padding cambia, acá queda un marco blanco alrededor del degradado — es la
+          misma trampa del margen negativo que ya se pagó en la cabecera pegajosa del
+          detalle, y por eso el número va escrito con su porqué y no «a ojo». */}
+      <span className="cl-cab-banda" aria-hidden style={{
+        background: `linear-gradient(135deg, color-mix(in srgb, ${color} 26%, var(--surface)), color-mix(in srgb, ${color} 7%, var(--surface)))`,
+      }} />
+      <div className="cl-cab-fila">
+        <Avatar nombre={nombre} tam={56} />
+        <div className="cl-cab-txt">
+          <span className="nom">{nombre}</span>
+          <span className="emp">{c.empresa?.trim() || `Cliente ${n}`}</span>
+        </div>
+        {/* Al detalle del lead, no a la lista: el CRM tiene 1.511 filas y «buscalo vos» no
+            es un destino. */}
+        <Link href={`/crm/${c.leadId}`} className="cl-cab-crm">Ver en el CRM →</Link>
       </div>
-      {/* Al detalle del lead, no a la lista: el CRM tiene 1.511 filas y «buscalo vos» no
-          es un destino. */}
-      <Link href={`/crm/${c.leadId}`} className="cl-cab-crm">Ver en el CRM →</Link>
     </div>
   );
 }
@@ -147,14 +171,29 @@ const CSS = `
   padding:7px 13px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; }
 .cl-nuevo:hover{ border-color:var(--primary); color:var(--primary); }
 
-.cl-cab{ display:flex; align-items:center; gap:13px; }
-.cl-cab-txt{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:1; }
-.cl-cab-txt .nom{ font-size:19px; font-weight:660; letter-spacing:-.02em; line-height:1.2;
+/* El bloque entero sangra el padding de .mk-modal__cab para que el banner llegue a los
+   bordes, igual que en la tarjeta de la grilla.
+   ⚠️ Y EL align-self NO ES DECORATIVO: .mk-modal__tit es un flex column con
+   align-items: flex-start (app/_ui/ui.css), así que su h2 se encoge al ancho del
+   contenido y el banner llegaba hasta la mitad del modal. Se estira el h2, no el bloque:
+   el que manda es el hijo directo del flex.
+   (Y sin comillas invertidas: esto vive adentro de un template literal y una sola CIERRA
+   la cadena. AGENTS.md lo tiene escrito y es la tercera vez en esta sesión.) */
+.mk-modal__h:has(.cl-cab){ align-self:stretch; }
+.cl-cab{ display:block; flex:1; min-width:0; margin:-20px -24px -16px; }
+.cl-cab-banda{ display:block; height:74px; width:100%; }
+/* El avatar montado sobre el banner, como en la tarjeta: sube la mitad de su alto. */
+.cl-cab-fila{ display:flex; align-items:flex-end; gap:14px; padding:0 24px 14px;
+  margin-top:-28px; }
+.cl-cab-fila .cl-av{ flex:none; }
+.cl-cab-txt{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:1;
+  padding-bottom:2px; }
+.cl-cab-txt .nom{ font-size:20px; font-weight:670; letter-spacing:-.02em; line-height:1.2;
   color:var(--ink); overflow-wrap:anywhere; }
 .cl-cab-txt .emp{ font-size:13px; color:var(--dim); overflow:hidden; text-overflow:ellipsis;
   white-space:nowrap; }
-.cl-cab-txt .id{ font-size:11px; color:var(--faint); }
-.cl-cab-crm{ flex:none; font-size:12.5px; color:var(--dim); border:1px solid var(--border-strong);
-  border-radius:8px; padding:6px 11px; text-decoration:none; white-space:nowrap; }
+.cl-cab-crm{ flex:none; margin-bottom:2px; font-size:12.5px; color:var(--dim);
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:999px;
+  padding:6px 13px; text-decoration:none; white-space:nowrap; }
 .cl-cab-crm:hover{ color:var(--primary); border-color:var(--primary); }
 `;

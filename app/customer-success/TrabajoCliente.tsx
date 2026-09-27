@@ -45,6 +45,10 @@ import { ROTULO_RECURRENTE } from '@/lib/plan-recurrentes';
 import type { ProyectoCS, TareaCS } from './trabajo';
 import { trabajoDelClienteAction, trabajoAsignadoAction } from './actions';
 import { AsignarTrabajo } from './AsignarTrabajo';
+// ⚠️ LAS TARJETAS SON LAS DEL TABLERO, no una lista con filete: «aprovechá el diseño de
+// las cards de proyecto y tareas como diseño para preview» (26/09/2026). El porqué de que
+// sean una copia visual y no el componente del tablero está en el encabezado de ese archivo.
+import { TarjetaProyecto, TarjetaTarea, Grilla, CSS_TARJETAS } from './TarjetasTrabajo';
 
 type Cargado = { proyectos: ProyectoCS[]; tareas: TareaCS[]; recurrentes: TareaCS[] };
 type Estado =
@@ -273,9 +277,11 @@ export function TrabajoDelCliente({ leadId, nombre }: { leadId: number; nombre: 
       ) : (
         <>
           <Grupo titulo="Proyectos" n={proyectos.length} vacio="Ninguno.">
-            {proyectos.map((p) => (
-              <FilaProyecto key={p.id} p={p} hoy={hoy} onAbrir={() => abrir({ tipo: 'proyecto', id: p.id })} />
-            ))}
+            <Grilla>
+              {proyectos.map((p) => (
+                <TarjetaProyecto key={p.id} p={p} hoy={hoy} onAbrir={() => abrir({ tipo: 'proyecto', id: p.id })} />
+              ))}
+            </Grilla>
           </Grupo>
 
           <Grupo
@@ -283,15 +289,19 @@ export function TrabajoDelCliente({ leadId, nombre }: { leadId: number; nombre: 
             sub={hechas.length ? `${hechas.length} ${hechas.length === 1 ? 'terminada' : 'terminadas'}` : undefined}
             vacio="Ninguna."
           >
-            {[...abiertas, ...hechas].map((t) => (
-              <FilaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
-            ))}
+            <Grilla>
+              {[...abiertas, ...hechas].map((t) => (
+                <TarjetaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
+              ))}
+            </Grilla>
           </Grupo>
 
           <Grupo titulo="Recurrentes" n={recurrentes.length} vacio="Ninguna.">
-            {recurrentes.map((t) => (
-              <FilaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
-            ))}
+            <Grilla>
+              {recurrentes.map((t) => (
+                <TarjetaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
+              ))}
+            </Grilla>
           </Grupo>
         </>
       )}
@@ -314,18 +324,20 @@ export function TrabajoDelCliente({ leadId, nombre }: { leadId: number; nombre: 
             <div className="cuerpo">
               {/* El texto dice qué HACER con esto, que es la única pregunta que queda. */}
               <p className="tr-nota">Se parecen por el nombre y nadie los asignó. Con «Asignarle trabajo» quedan suyos de verdad.</p>
-              {pos.datos.proyectos.map((p) => (
-                <FilaProyecto key={p.id} p={p} hoy={hoy} onAbrir={() => abrir({ tipo: 'proyecto', id: p.id })} />
-              ))}
-              {[...pos.datos.tareas, ...pos.datos.recurrentes].map((t) => (
-                <FilaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
-              ))}
+              <Grilla>
+                {pos.datos.proyectos.map((p) => (
+                  <TarjetaProyecto key={p.id} p={p} hoy={hoy} onAbrir={() => abrir({ tipo: 'proyecto', id: p.id })} />
+                ))}
+                {[...pos.datos.tareas, ...pos.datos.recurrentes].map((t) => (
+                  <TarjetaTarea key={t.id} t={t} hoy={hoy} onAbrir={() => abrir({ tipo: 'tarea', id: t.id })} />
+                ))}
+              </Grilla>
             </div>
           )}
         </section>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TARJETAS }} />
     </div>
   );
 }
@@ -349,36 +361,8 @@ function Grupo({ titulo, n, hay = n, sub, vacio, children }: {
         <span className="n">{n}</span>
         {sub && <span className="s">{sub}</span>}
       </header>
-      {hay === 0 ? <p className="tr-nota">{vacio}</p> : <ul className="tr-lista">{children}</ul>}
+      {hay === 0 ? <p className="tr-nota">{vacio}</p> : children}
     </section>
-  );
-}
-
-function FilaProyecto({ p, hoy, onAbrir }: { p: ProyectoCS; hoy: string; onAbrir: () => void }) {
-  const conFin = p.abiertas + p.hechas;
-  const pct = conFin ? Math.round((p.hechas / conFin) * 100) : 0;
-  return (
-    <li className="tr-fila">
-      <button className="tr-abrir" onClick={onAbrir}>
-        <span className="em" aria-hidden style={{ color: p.color }}>{p.emoji}</span>
-        <span className="med">
-          <span className="ti">{p.nombre}</span>
-          <span className="de">
-            {conFin > 0
-              ? `${p.hechas} de ${conFin} terminadas`
-              : p.recurrentes > 0 ? 'En marcha · sin trabajo con fin' : 'Sin tareas'}
-            {p.recurrentes > 0 && ` · ${p.recurrentes} ${p.recurrentes === 1 ? 'se repite' : 'se repiten'}`}
-          </span>
-        </span>
-        <span className="der">
-          {p.deadline && <LineaDeadline iso={p.deadline} hoy={hoy} />}
-        </span>
-      </button>
-      {/* El avance es el BORDE de la fila, no una barra con ancho propio: adentro de una
-          lista, una barra suelta deja el mismo hueco muerto que un max-width. Y un
-          proyecto sin trabajo-con-fin no pinta 0%: no tiene qué pintar. */}
-      {conFin > 0 && <span className="tr-filo" aria-hidden><span style={{ width: `${Math.min(100, pct)}%` }} /></span>}
-    </li>
   );
 }
 

@@ -40,9 +40,9 @@ import 'server-only';
 
 import { getTenantDb } from '@/lib/workspace';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { listTareas, listCategorias, rowTo, catRow, type Tarea, type Categoria } from '@/lib/todo';
+import { rowTo, catRow, type Tarea, type Categoria } from '@/lib/todo';
 import type { BoardTask, Label } from '@/app/plan/board/types';
-import { listPlanBoard, rowToTask, rowToLabel, type Row } from '@/lib/plan-board';
+import { rowToTask, rowToLabel, type Row } from '@/lib/plan-board';
 import { tableroActual, type QueTablero } from '@/lib/tablero-actual';
 import { estaPendiente, type EstadoTarea } from '@/lib/todo-estados';
 import { esRecurrente } from '@/lib/plan-recurrentes';
@@ -181,14 +181,56 @@ async function leerTablero(forzado?: QueTablero): Promise<Lectura> {
   const cual = forzado ?? await tableroActual();
   const esDeCliente = await reconocedor();
 
+  const db = await getTenantDb();
+
   if (cual === 'dueno') {
-    const { tareas, proyectos } = await listPlanBoard();
-    return { esDeCliente, tareas: tareas.map(deBoardTask), proyectos: proyectos.map(deBoardLabel) };
+    const [t, p] = await Promise.all([
+      db.from('plan_tareas').select(COLS_TAREA_PLAN),
+      db.from('plan_proyectos').select(COLS_PROY_PLAN),
+    ]);
+    if (t.error) throw new Error(`plan_tareas: ${t.error.message}`);
+    if (p.error) throw new Error(`plan_proyectos: ${p.error.message}`);
+    return {
+      esDeCliente,
+      tareas: (t.data ?? []).map((r) => deBoardTask(rowToTask(r as Row))),
+      proyectos: (p.data ?? []).map((r) => deBoardLabel(rowToLabel(r as Row))),
+    };
   }
 
-  const [tareas, proyectos] = await Promise.all([listTareas(), listCategorias()]);
-  return { esDeCliente, tareas: tareas.map(deTarea), proyectos: proyectos.map(deCategoria) };
+  const [t, p] = await Promise.all([
+    db.from('experimento_tareas').select(COLS_TAREA_CLIENTE),
+    db.from('tarea_categorias').select(COLS_PROY_CLIENTE),
+  ]);
+  if (t.error) throw new Error(`experimento_tareas: ${t.error.message}`);
+  if (p.error) throw new Error(`tarea_categorias: ${p.error.message}`);
+  return {
+    esDeCliente,
+    tareas: (t.data ?? []).map((r) => deTarea(rowTo(r as Record<string, unknown>))),
+    proyectos: (p.data ?? []).map((r) => deCategoria(catRow(r as Record<string, unknown>))),
+  };
 }
+
+/**
+ * LAS COLUMNAS QUE EL CRUCE NECESITA, Y NINGUNA MÁS.
+ *
+ * ⚠️ ESTO ERA `listPlanBoard()`, O SEA `select('*')`, Y ESE ERA EL COSTO ENTERO. Medido el
+ * 26/09/2026 en el ws9: la lectura completa pesa **2.105 KB** y lo que el cruce mira son
+ * **54 KB** — el 97% que sobra es `detalle` (hasta 6.000 caracteres por tarea, ×396),
+ * `historial`, `checklist` y `notas`, que este camino no lee ni una vez.
+ *
+ * Se reportó dos veces como «cada vez que abro la card hace la búsqueda en el plan». La
+ * primera respuesta —leer por clave y dejar el cruce en segundo plano— bajó lo que se
+ * PINTA, y el cruce seguía bajando los dos megas igual, así que seguía viéndose buscar.
+ *
+ * ⚠️ Y LOS MAPPERS SON LOS MISMOS (`rowToTask`, `catRow`…): una fila sin `detalle` sale con
+ * `detalle: ''` y nadie más se entera. Escribir mappers «livianos» aparte habría sido la
+ * séptima y octava copia del mismo mapeo (AGENTS.md, «un campo nuevo son SEIS lugares»).
+ * El texto completo se busca DESPUÉS y sólo de las tarjetas que resultaron ser de alguien.
+ */
+const COLS_TAREA_PLAN = 'id, num, emoji, title, priority, score, score_base, progress, deadline, quarter, labels, recurrente, recurrencia, cliente_lead_id, cliente_nombre, origen, created_at';
+const COLS_PROY_PLAN = 'id, pid, emoji, name, color, score, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, orden';
+const COLS_TAREA_CLIENTE = 'id, titulo, estado, prioridad, progreso, score, deadline, quarter, categorias, recurrente, recurrencia, cliente_lead_id, cliente_nombre, responsable, updated_at, created_at';
+const COLS_PROY_CLIENTE = 'id, emoji, nombre, color, prioridad, deadline, quarter, recurrente, recurrencia, cliente_lead_id, cliente_nombre, created_at';
 
 // ⚠️ LAS CUATRO CONVERSIONES SON FUNCIONES Y NO LAMBDAS ADENTRO DE `leerTablero`, para
 // que las use también la lectura rápida (`trabajoAsignado`). Con una copia allá, cada
@@ -234,21 +276,6 @@ const deCategoria = (p: Categoria): ProyTab => ({
 const mensaje = (e: unknown): string =>
   `No pude leer el tablero: ${e instanceof Error ? e.message : String(e)}`;
 
-/** leadId declarado por las tareas de cada proyecto. Es la vía dura del cruce. */
-function leadsPorProyecto(tareas: TareaTab[]): Map<string, Set<number>> {
-  const m = new Map<string, Set<number>>();
-  for (const t of tareas) {
-    const lead = t.clienteLeadId;
-    if (!lead) continue;
-    for (const c of t.proyectos) {
-      const s = m.get(c) ?? new Set<number>();
-      s.add(lead);
-      m.set(c, s);
-    }
-  }
-  return m;
-}
-
 const aTareaCS = (t: TareaTab): TareaCS => ({
   id: t.id, titulo: t.titulo, detalle: t.detalle, estado: t.estado,
   progreso: t.progreso, score: t.score, scoreRazon: t.scoreRazon,
@@ -280,10 +307,17 @@ function cruzar(clientes: ClienteCruce[], { tareas, proyectos, esDeCliente }: Le
   // campo que escribe el picker: sin pasarlo acá, se podría elegir el cliente de un
   // proyecto, guardarse bien en la base, y la tab seguiría cruzando sólo por el nombre —
   // una asignación que contesta 200 y no cambia nada de lo que se ve.
-  const cruce = atar(clientes, proyectos.map((p) => ({ id: p.id, nombre: p.nombre, clienteLeadId: p.clienteLeadId })), {
-    esDeCliente,
-    leadPorProyecto: leadsPorProyecto(tareas),
-  });
+  // ⚠️ YA NO SE PASA `leadPorProyecto`, Y ES UN ARREGLO, NO UNA PODA. Esa vía decía «una
+  // tarea que declara su lead ata el PROYECTO ENTERO», y era inofensiva mientras ninguna
+  // tarea tuviera lead escrito (0 de 299 hasta la mig 0172). Desde que se pueden asignar
+  // tareas sueltas es activamente falsa: al asignarle a Leila dos tareas, su ficha pasó a
+  // mostrar **1 proyecto y 20 abiertas** — el proyecto completo de otro tema, con sus
+  // otras 18 tareas adentro. Medido en el ws9 el 26/09/2026.
+  //
+  // Una tarea asignada es de ese cliente; su proyecto NO lo es. Quien quiera el proyecto
+  // entero lo asigna, que para eso está el selector. Las tareas sueltas entran igual:
+  // `trabajoDeCliente` las suma por `leadDeclarado` y `tableroDeLaCartera` las cuenta.
+  const cruce = atar(clientes, proyectos.map((p) => ({ id: p.id, nombre: p.nombre, clienteLeadId: p.clienteLeadId })), { esDeCliente });
   const deCS = tareas.map((t) => aTareaCS(t));
   const porProyecto = new Map<string, TareaCS[]>();
   for (const t of deCS) for (const c of t.proyectos) porProyecto.set(c, [...(porProyecto.get(c) ?? []), t]);
@@ -320,8 +354,20 @@ export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<Tabl
         suyas.push(t);
       }
     }
+    // Y las tareas que declaran a ESTE cliente, aunque su proyecto sea de otro o de nadie.
+    // Sin esto, el número de la tarjeta ignora justo lo que se acaba de asignar a mano.
+    for (const t of lectura.tareas) {
+      if (t.clienteLeadId !== c.leadId || vistas.has(t.id)) continue;
+      vistas.add(t.id);
+      suyas.push(aTareaCS(t));
+    }
     const n = contar(suyas, hoy);
-    porLead[c.leadId] = { proyectos: ataduras.length, ...n, como: ataduras[0]?.como ?? null };
+    porLead[c.leadId] = {
+      proyectos: ataduras.length, ...n,
+      // `como` dice CÓMO se ató. Con cero proyectos pero tareas propias, la vía es la
+      // clave: alguien las eligió. `null` significaría «no cruzó con nada», que sería falso.
+      como: ataduras[0]?.como ?? (suyas.length ? 'clave' : null),
+    };
   }
 
   return {
@@ -344,8 +390,11 @@ export async function tableroDeLaCartera(clientes: ClienteCruce[]): Promise<Tabl
  */
 export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[]): Promise<ResultadoTrabajo> {
   let lectura: Lectura;
-  try { lectura = await leerTablero(); }
-  catch (e) { return { ok: false, error: mensaje(e) }; }
+  let dueno: boolean;
+  try {
+    dueno = (await tableroActual()) === 'dueno';
+    lectura = await leerTablero(dueno ? 'dueno' : 'cliente');
+  } catch (e) { return { ok: false, error: mensaje(e) }; }
 
   const { cruce, deCS, porProyecto } = cruzar(clientes, lectura);
   const porId = new Map(lectura.proyectos.map((p) => [p.id, p]));
@@ -388,6 +437,12 @@ export async function trabajoDeCliente(leadId: number, clientes: ClienteCruce[])
   // El orden es el del tablero: primero lo que más mueve la aguja, y lo hecho al final.
   const orden = (a: TareaCS, b: TareaCS) =>
     Number(a.abierta === false) - Number(b.abierta === false) || b.score - a.score || a.titulo.localeCompare(b.titulo);
+
+  // ⚠️ EL `detalle` SE BUSCA ACÁ Y NO EN LA LECTURA. El cruce lee sin texto (ver
+  // `COLS_TAREA_PLAN`), así que estas tarjetas vienen con `detalle: ''` y la ficha
+  // mostraría «sin detalle cargado» sobre tareas que sí lo tienen — una mentira, y de las
+  // silenciosas. Son un puñado de ids, así que es una consulta chica.
+  await ponerleTexto(proyectos, suyas, dueno);
 
   return {
     ok: true,
@@ -598,6 +653,35 @@ export async function trabajoAsignado(leadId: number): Promise<ResultadoTrabajo>
   }
 }
 
+/**
+ * Le pone el `detalle` a un puñado de tarjetas, después de que el cruce decidió cuáles son.
+ *
+ * ⚠️ MUTA LOS OBJETOS QUE RECIBE, a propósito: ya están dentro de las listas que se van a
+ * devolver y armar copias obligaría a rehacer los tres arrays y los dos índices que
+ * apuntan a ellos. Es una función privada de este módulo y la mutación no sale de acá.
+ */
+async function ponerleTexto(proyectos: ProyectoCS[], tareas: TareaCS[], dueno: boolean): Promise<void> {
+  if (!proyectos.length && !tareas.length) return;
+  const db = await getTenantDb();
+  const ids = (xs: Array<{ id: string }>) => (dueno ? xs.map((x) => x.id) : xs.map((x) => Number(x.id)));
+
+  const [p, t] = await Promise.all([
+    proyectos.length
+      ? db.from(dueno ? 'plan_proyectos' : 'tarea_categorias').select('id, detalle').in('id', ids(proyectos) as string[])
+      : Promise.resolve({ data: [], error: null }),
+    tareas.length
+      ? db.from(dueno ? 'plan_tareas' : 'experimento_tareas').select('id, detalle').in('id', ids(tareas) as string[])
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  // Si falla, se sigue sin texto: la lista es correcta igual, y frenar la ficha entera
+  // por el cuerpo de una tarjeta sería cambiar un hueco por una pantalla vacía.
+  const mapa = (d: unknown) => new Map(((d ?? []) as Array<{ id: unknown; detalle: unknown }>)
+    .map((r) => [String(r.id), typeof r.detalle === 'string' ? r.detalle : '']));
+  const dp = mapa(p.data), dt = mapa(t.data);
+  for (const x of proyectos) x.detalle = dp.get(x.id) ?? x.detalle;
+  for (const x of tareas) x.detalle = dt.get(x.id) ?? x.detalle;
+}
+
 /** Arma el resultado con la MISMA forma que `trabajoDeCliente`, para que la pantalla
  *  no tenga que saber por cuál de los dos caminos llegó cada cosa. */
 function armar(proys: ProyTab[], tars: TareaTab[], hoy: string): ResultadoTrabajo {
@@ -636,14 +720,14 @@ function armar(proys: ProyTab[], tars: TareaTab[], hoy: string): ResultadoTrabaj
  * y no son trabajo para él.
  */
 export async function autoasignar(forzado?: QueTablero): Promise<
-  { ok: true; porNombre: number; porIA: number; consultadas: number } | { ok: false; error: string }
+  { ok: true; porNombre: number; porIA: number; consultadas: number; sinRespuesta: number } | { ok: false; error: string }
 > {
   let lectura: Lectura;
   let clientes: ClienteCruce[];
   try {
     [lectura, clientes] = await Promise.all([leerTablero(forzado), clientesGanados()]);
   } catch (e) { return { ok: false, error: mensaje(e) }; }
-  if (!clientes.length) return { ok: true, porNombre: 0, porIA: 0, consultadas: 0 };
+  if (!clientes.length) return { ok: true, porNombre: 0, porIA: 0, consultadas: 0, sinRespuesta: 0 };
 
   const { planDeAsignacion, SYSTEM_JUEZ, userJuez, leerVeredicto } = await import('@/lib/cs-autoasignar');
   const plan = planDeAsignacion(
@@ -672,24 +756,36 @@ export async function autoasignar(forzado?: QueTablero): Promise<
 
   // ⚠️ SI NO HAY DUDAS NO SE LLAMA AL MODELO. Es el caso normal (ws11 y ws13 dieron 1 y 0)
   // y una llamada con la lista vacía cuesta plata y devuelve nada.
-  if (!plan.dudas.length) return { ok: true, porNombre, porIA: 0, consultadas: 0 };
+  if (!plan.dudas.length) return { ok: true, porNombre, porIA: 0, consultadas: 0, sinRespuesta: 0 };
 
-  const { chatCheapCascade } = await import('@/lib/ai-cheap');
+  const { chatCheapCascade, CASCADA_DOCS } = await import('@/lib/ai-cheap');
   let porIA = 0;
+  // ⚠️ «NO PUDE PREGUNTARLE» NO ES «NINGUNA ES SUYA», y ese fue MI error, no el del
+  // modelo. La primera corrida reportó «0 de 43 que juzgó MaKo» y se leyó como un juicio
+  // prolijo; la cascada había devuelto la cadena VACÍA —Groq no valida el JSON de este
+  // prompt y el modelo gratis de OpenRouter dejó de existir— y `leerVeredicto('')` es `[]`.
+  // Un fallo de lectura convertido en un veredicto, que es exactamente la falla que este
+  // repo tiene documentada seis veces. Ahora se cuenta aparte y la pantalla lo dice.
+  let sinRespuesta = 0;
   // De a 12: un lote más grande hace que el modelo empiece a contestar por patrón («las
   // que nombran a X son de X»), que es exactamente lo que se le está pidiendo que NO haga.
   for (let i = 0; i < plan.dudas.length; i += 12) {
     const lote = plan.dudas.slice(i, i + 12);
     try {
+      // ⚠️ `CASCADA_DOCS` Y NO EL DEFAULT: el default arranca por Groq, que con este
+      // prompt contesta «Failed to validate JSON» y arrastra a toda la fila. Gemini
+      // primero es además lo que dice el registro para esta feature.
       const crudo = await chatCheapCascade({
-        system: SYSTEM_JUEZ, user: userJuez(lote), json: true,
+        system: SYSTEM_JUEZ, user: userJuez(lote), json: true, provs: CASCADA_DOCS,
         feature: 'cs-autoasignar', motivo: 'de quién es este trabajo', maxTokens: 500,
       });
+      if (!crudo.trim()) { sinRespuesta += lote.length; continue; }
       porIA += await escribir(leerVeredicto(crudo, lote));
     } catch {
-      // Un lote que falla no frena a los demás ni tira lo ya escrito: lo que no se pudo
-      // juzgar queda SIN asignar, que es el default correcto.
+      // Un lote que falla no frena a los demás ni tira lo ya escrito. Y se CUENTA: sin
+      // eso, «no pude preguntar» y «pregunté y dijo que no» son el mismo número.
+      sinRespuesta += lote.length;
     }
   }
-  return { ok: true, porNombre, porIA, consultadas: plan.dudas.length };
+  return { ok: true, porNombre, porIA, consultadas: plan.dudas.length, sinRespuesta };
 }

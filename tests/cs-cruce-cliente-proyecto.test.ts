@@ -191,3 +191,40 @@ test('un lead que no está en la cartera no ata, aunque el proyecto lo declare',
   const c = correr(undefined, [proy(79, 'Cliente: Nadie', 99999)]);
   assert.ok(c.huerfanos.includes('79'), 'queda a la vista como huérfano');
 });
+
+// ── EL CLIENTE TIENE DOS NOMBRES: EL SUYO Y EL DE SU EMPRESA (26/09/2026) ────
+// `nucleoDe` devolvía `empresa || nombre`, o sea UNO, así que un proyecto nombrado con el
+// otro no ataba nunca. Medido en el ws9: «Cliente: Código Inmobiliario» figuraba como
+// huérfano y Juanfran como cliente sin proyecto, los dos a la vista en la misma pantalla.
+//
+// PROBADO ROMPIÉNDOLO, con los números medidos (12 tests en el archivo):
+//   · `nucleosDe` devolviendo sólo `[empresa || nombre]`, como estaba → 1 fallo, 11 pases.
+//     Es exactamente el caso que el dueño reportó.
+//   · devolviendo sólo `[nombre]` → 2 fallos, 10 pases: se cae también el segundo test,
+//     porque sin la empresa «Código Inmobiliario» no ata por ningún lado.
+
+test('ata por la EMPRESA y por la PERSONA, no por una sola de las dos', () => {
+  const juanfran = cli(2474, 'Juanfran', 'Código Inmobiliario');
+  const porEmpresa = atar([juanfran], [proy(90, 'Cliente: Código Inmobiliario')], { esDeCliente });
+  assert.deepEqual((porEmpresa.porLead.get(2474) ?? []).map((a) => a.proyectoId), ['90'],
+    'el proyecto nombrado con la EMPRESA ata');
+  assert.equal((porEmpresa.porLead.get(2474) ?? [])[0].como, 'nombre');
+
+  const porPersona = atar([juanfran], [proy(91, 'Cliente: Juanfran')], { esDeCliente });
+  assert.deepEqual((porPersona.porLead.get(2474) ?? []).map((a) => a.proyectoId), ['91'],
+    'y el nombrado con la PERSONA también, teniendo empresa cargada');
+});
+
+test('dos nombres no aflojan el cruce: sigue exigiendo el subconjunto entero', () => {
+  // La trampa de juntar las palabras de los dos en una sola bolsa: «Código Inmobiliario
+  // Juanfran» no es subconjunto de ningún proyecto, así que no ataría NINGUNO — o, con la
+  // comparación al revés, ataría cualquiera que comparta una palabra.
+  const c = atar(
+    [cli(2474, 'Juanfran', 'Código Inmobiliario'), cli(500, 'Otro', 'Inmobiliaria Sur')],
+    [proy(92, 'Cliente: Código Inmobiliario')],
+    { esDeCliente },
+  );
+  assert.deepEqual((c.porLead.get(2474) ?? []).map((a) => a.proyectoId), ['92']);
+  assert.deepEqual((c.porLead.get(500) ?? []).map((a) => a.proyectoId), [],
+    '«inmobiliaria» no alcanza: no es subconjunto ni palabra única');
+});

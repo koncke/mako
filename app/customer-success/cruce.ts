@@ -108,11 +108,21 @@ export function clavesDe(nombre: string): string[] {
   return out;
 }
 
-/** Cómo se llama un cliente para el cruce: la empresa si la hay, si no la persona.
- *  Es el mismo criterio que `nucleoCliente` (lib/reunion-cliente.ts), que es el que
- *  usa el ruteo para CREAR el proyecto — cruzar con otro criterio del que crea es
- *  garantizar que no se encuentren. */
-const nucleoDe = (c: ClienteCruce): string => (c.empresa?.trim() || c.nombre.trim());
+/**
+ * Cómo se llama un cliente para el cruce. Son DOS nombres, no uno.
+ *
+ * ⚠️ ANTES ERA `empresa || nombre`, O SEA UNO SOLO, Y ESE ERA EL BUG. Un proyecto se
+ * puede llamar con cualquiera de los dos —«Cliente: Código Inmobiliario» o «Cliente:
+ * Juanfran»— y con un solo núcleo el otro no ata nunca. Medido el 26/09/2026 en el ws9:
+ * «Cliente: Código Inmobiliario» quedaba huérfano y Juanfran sin proyecto, los dos a la
+ * vista en la misma pantalla y sin forma de que se encontraran. Se reportó así: «Juanfran
+ * es = código inmobiliario, debería MaKo buscar también por nombre de empresa».
+ *
+ * Devuelve las alternativas en orden: la empresa primero (es la más distintiva) y la
+ * persona después. Vacías y repetidas se caen.
+ */
+const nucleosDe = (c: ClienteCruce): string[] =>
+  [...new Set([c.empresa?.trim(), c.nombre.trim()].filter((x): x is string => !!x))];
 
 /** ¿Están todas las palabras de `a` en `b`? Con `a` vacío no: un cliente sin ninguna
  *  palabra útil cruzaría con todo. */
@@ -139,7 +149,14 @@ export function atar(
   const atados = new Set<string>();
   const leads = new Set(clientes.map((c) => c.leadId));
 
-  const clavesCliente = new Map<number, string[]>(clientes.map((c) => [c.leadId, clavesDe(nucleoDe(c))]));
+  // Las claves de cada ALTERNATIVA por separado: el tier `nombre` exige un subconjunto
+  // completo, así que mezclar las palabras de la empresa con las de la persona en una
+  // sola bolsa haría que ningún proyecto contenga a las dos y no ate ninguno.
+  const alternativas = new Map<number, string[][]>(clientes.map((c) =>
+    [c.leadId, nucleosDe(c).map(clavesDe).filter((ks) => ks.length > 0)]));
+  // Y la UNIÓN, para el tier del parecido y para contar cuán única es una palabra.
+  const clavesCliente = new Map<number, string[]>(clientes.map((c) =>
+    [c.leadId, [...new Set((alternativas.get(c.leadId) ?? []).flat())]]));
   const clavesProy = new Map<string, string[]>(proyectos.map((p) => [p.id, clavesDe(p.nombre)]));
 
   const agregar = (leadId: number, proyectoId: string, como: ComoAto) => {
@@ -179,11 +196,12 @@ export function atar(
 
   // ── 2. El NOMBRE, en las dos direcciones. ───────────────────────────────────
   for (const c of clientes) {
-    const cc = clavesCliente.get(c.leadId) ?? [];
-    for (const p of proyectos) {
-      if (declarados.has(p.id)) continue;
-      const cp = clavesProy.get(p.id) ?? [];
-      if (contenido(cc, cp) || contenido(cp, cc)) agregar(c.leadId, p.id, 'nombre');
+    for (const cc of alternativas.get(c.leadId) ?? []) {
+      for (const p of proyectos) {
+        if (declarados.has(p.id)) continue;
+        const cp = clavesProy.get(p.id) ?? [];
+        if (contenido(cc, cp) || contenido(cp, cc)) agregar(c.leadId, p.id, 'nombre');
+      }
     }
   }
 
