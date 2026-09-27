@@ -142,9 +142,33 @@ export async function listarFunnels(): Promise<FunnelResumen[]> {
       .eq('activo', true)
       .order('es_default', { ascending: false }).order('orden', { ascending: true }).order('id');
     if (error) { console.error(`[funnels] listarFunnels: ${error.message}`); return []; }
-    return ((data ?? []) as unknown as FilaFunnel[]).map((f) => ({
+    const filas = (data ?? []) as unknown as FilaFunnel[];
+
+    // El nombre que el negocio reconoce es el del PRODUCTO, no el del funnel —que
+    // se llama «Funnel principal» en todos los workspaces porque lo puso la
+    // migración—. Sale de la vista que ya cruza funnel → oferta → producto.
+    // Nunca rompe: si la vista falla, el desplegable sigue mostrando lo de antes.
+    const productos = new Map<number, string>();
+    try {
+      const { data: vp } = await supabase
+        .from('v_funnel_productos').select('funnel_id, producto_id').eq('es_principal', true);
+      const ids = [...new Set(((vp ?? []) as Array<{ producto_id: number }>).map((x) => x.producto_id))];
+      if (ids.length) {
+        const { data: ps } = await supabase.from('productos').select('id, nombre').in('id', ids);
+        const nombreDe = new Map(((ps ?? []) as Array<{ id: number; nombre: string }>).map((p) => [p.id, p.nombre]));
+        for (const x of (vp ?? []) as Array<{ funnel_id: number; producto_id: number }>) {
+          const n = nombreDe.get(x.producto_id);
+          if (n) productos.set(x.funnel_id, n);
+        }
+      }
+    } catch (e) {
+      console.warn('[funnels] no se pudo leer el producto de cada funnel:', e instanceof Error ? e.message : e);
+    }
+
+    return filas.map((f) => ({
       id: f.id, nombre: f.nombre ?? FUNNEL_DEFAULT_NOMBRE, canal: f.canal ?? null,
       esDefault: f.es_default === true, declarado: f.declarado === true,
+      producto: productos.get(f.id) ?? null,
     }));
   } catch (e) {
     console.error(`[funnels] listarFunnels: ${e instanceof Error ? e.message : String(e)}`);

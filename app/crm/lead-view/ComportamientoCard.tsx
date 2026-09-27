@@ -223,14 +223,6 @@ export function ComportamientoCard({
           </code>
         </div>
       )}
-      {urlClarity && (
-        <p style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7, lineHeight: 1.5 }}>
-          {/* Se dice ANTES de que el click falle. Clarity guarda 30 días y tarda
-              hasta 2 horas en procesar: sin esto, quien no encuentra la sesión
-              concluye que la medición no anda. */}
-          Se abren en Clarity. Una grabación tarda hasta 2 horas en aparecer y se borra a los 30 días.
-        </p>
-      )}
       {/* Un grupo de cosas del mismo tipo es una LISTA con filete, no una pila de
           cajas: tres tarjetas iguales apiladas son el contenedor perezoso. */}
       {varios && (

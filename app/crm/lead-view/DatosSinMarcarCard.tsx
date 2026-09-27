@@ -28,44 +28,45 @@ export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Soluciona
   onReactivar?: () => void;
 }) {
   if (!faltantes.length) return null;
-  // Ignorado: mismo bloque pero en tono "recordatorio suave" (ámbar, sin parpadeo).
-  const tone = ignorado
-    ? { bg: 'var(--warn-bg)', border: 'var(--warn)', accent: 'var(--warn)', chipBorder: '#E7D6A6' }
-    : { bg: 'var(--warn-bg)', border: 'var(--warn)', accent: 'var(--warn)', chipBorder: '#E7D6A6' };
+  // ⚠️ UNA LÍNEA, NO UN CARTEL. Esto vivía como un bloque de 180 px con punto
+  // parpadeante, título en versalitas, una frase de ayuda, un chip por dato y un
+  // botón macizo con emoji — arriba de TODAS las pestañas de la ficha, en el 98%
+  // de los leads. Ocupaba la primera pantalla entera para decir algo que casi
+  // nunca es urgente, y el dueño lo reportó dos veces («ese cuadro gigante…
+  // debería ser MUCHO más sutil»).
+  //
+  // Lo que se conserva es todo lo que se podía HACER: los nombres de los datos,
+  // ir a completarlos y reactivar los avisos. Lo que se fue es el peso visual —
+  // el parpadeo, el relleno, el emoji y el botón de 44 px.
+  const nombres = faltantes.map((f) => f.label).join(' · ');
   return (
-    <section style={{ ...card, background: tone.bg, borderColor: tone.border }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: tone.accent, animation: ignorado ? undefined : 'blinkRed 1.4s infinite', flex: 'none' }} />
-        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: tone.accent, fontWeight: 700 }}>
-          Datos sin marcar · {faltantes.length}{ignorado ? ' · ignorado' : ''}
-        </span>
-      </div>
-      {ignorado
-        ? <p style={{ fontSize: 13, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.45 }}>Estos avisos están <b>ignorados</b> en el CRM general (no notifican ni cuentan). Sigues pudiendo completarlos aquí, o reactivarlos para que vuelvan al worklist.</p>
-        : nota && <p style={{ fontSize: 13, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.45 }}>{nota}</p>}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-        {faltantes.map((f) => (
-          <span key={f.id} style={{ fontSize: 12.5, fontWeight: 600, color: tone.accent, background: 'var(--surface)', border: `1px solid ${tone.chipBorder}`, borderRadius: 999, padding: '4px 11px' }}>{f.label}</span>
-        ))}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        <button
-          type="button"
-          onClick={onSolucionar}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, border: 'none', background: tone.accent, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, boxShadow: 'none' }}
-        >
-          <span aria-hidden style={{ fontSize: 15 }}>🛠️</span> {label}
+    <section style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border)',
+      background: 'var(--surface-2)', fontFamily: SANS }}>
+      <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--warn)', flex: 'none' }} />
+      <span style={{ fontSize: 12.5, color: 'var(--dim)', minWidth: 0, lineHeight: 1.45 }}>
+        <b style={{ color: 'var(--ink)', fontWeight: 650 }}>
+          {faltantes.length} {faltantes.length === 1 ? 'dato sin marcar' : 'datos sin marcar'}
+        </b>
+        {ignorado && <span style={{ color: 'var(--faint)' }}> · ignorados</span>}
+        {' — '}
+        {/* Los nombres van en el MISMO renglón y no como chips: son una
+            enumeración, y una fila de pastillas pesa más que la frase entera. */}
+        <span title={nombres}>{nombres}</span>
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }} />
+      <button type="button" onClick={onSolucionar}
+        style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          fontSize: 12.5, fontWeight: 650, color: 'var(--primary)', fontFamily: SANS }}>
+        {label}
+      </button>
+      {ignorado && onReactivar && (
+        <button type="button" onClick={onReactivar}
+          style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', fontFamily: SANS }}>
+          Reactivar avisos
         </button>
-        {ignorado && onReactivar && (
-          <button
-            type="button"
-            onClick={onReactivar}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}
-          >
-            🔔 Reactivar avisos
-          </button>
-        )}
-      </div>
+      )}
     </section>
   );
 }

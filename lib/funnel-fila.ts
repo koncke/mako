@@ -40,7 +40,23 @@ export type FunnelConfig = {
   origen: 'declarado' | 'sin-fila' | 'error';
 };
 
-export type FunnelResumen = { id: number; nombre: string; canal: string | null; esDefault: boolean; declarado: boolean };
+export type FunnelResumen = {
+  id: number;
+  nombre: string;
+  canal: string | null;
+  esDefault: boolean;
+  declarado: boolean;
+  /**
+   * El PRODUCTO que vende este funnel, que es como lo llama el negocio.
+   *
+   * ⚠️ El desplegable del tablero mostraba el nombre del FUNNEL —«Funnel
+   * principal» para todo el mundo, porque lo pone la migración— y eso no es un
+   * nombre: es el nombre de la estructura, no el de lo que vende. Quien mira el
+   * CRM piensa en su producto. Sale de `v_funnel_productos`; null cuando el
+   * funnel todavía no tiene producto asociado, y ahí se cae al nombre del funnel.
+   */
+  producto: string | null;
+};
 
 export type FilaFunnel = {
   id: number;

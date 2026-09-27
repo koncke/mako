@@ -27,11 +27,11 @@ import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
-import { ChatCard } from './lead-view/ChatCard';
 import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
+import { NotasCard } from './lead-view/NotasCard';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 import { profundidadModales } from '@/app/_components/pila-modales';
@@ -178,10 +178,11 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         </section>
       )}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} direccion={lead.deal_fiscal?.domicilio ?? null} />
-      <section style={card}>
-        <div style={{ ...sectLabel, marginBottom: 16 }}>Recorrido del lead</div>
-        <JourneyTimeline steps={journey} />
-      </section>
+      {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del lead. Como
+          pestaña propia se escribieron 4 en toda la base — no porque no sirvan,
+          sino porque escribir una costaba un viaje a otro lado. Acá abajo del
+          resumen están a la vista, que es donde se usan. */}
+      <NotasCard leadId={lead.id} />
       {isLost && lead.motivo_perdida && (
         <section style={card}>
           <div style={{ ...sectLabel, marginBottom: 12 }}>Motivo de pérdida</div>
@@ -238,9 +239,8 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             initial={initialTab}
             tabs={[
               { key: 'resumen', label: 'Resumen', content: tabResumen },
-              { key: 'comportamiento', label: 'Seguimiento', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /><TrackingTimelineCard eventos={tracking} /></> },
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /><TrackingTimelineCard eventos={tracking} /></> },
               { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
-              { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
               {
                 key: 'insights', label: 'Análisis', badge: insights.length,
                 content: (
@@ -261,7 +261,22 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // pero que todos los días ocupa lugar y hace dudar de si falta algo.
               // Con pagos cargados vuelve sola, con todo lo de siempre.
               ...(pagos.length ? [{ key: 'cobranza', label: 'Pagos', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length }] : []),
-              { key: 'actividad', label: 'Historial', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+              // ⚠️ EL RECORRIDO SE MUDÓ ACÁ. Estaba arriba de todo en el Resumen, ocupando
+              // la primera pantalla con algo que ya pasó — y el Historial, que es
+              // justamente «qué pasó», estaba en otra pestaña. Ahora la línea de tiempo
+              // y el detalle de cada cambio se leen juntos, que es como se consultan.
+              {
+                key: 'actividad', label: 'Historial',
+                content: (
+                  <>
+                    <section style={card}>
+                      <div style={{ ...sectLabel, marginBottom: 16 }}>Recorrido del lead</div>
+                      <JourneyTimeline steps={journey} />
+                    </section>
+                    <AuditHistory leadId={lead.id} stages={stages} />
+                  </>
+                ),
+              },
             ]}
           />
         </div>

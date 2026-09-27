@@ -1339,8 +1339,17 @@ test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
   // visitantes —Clarity agrega y no se puede filtrar por persona— y un botón al
   // lado de «su grabación» se leería como que también es de él.
   assert.ok(/no de este lead/.test(card), 'hay que decir que el mapa no es de esta persona');
-  // Y se avisa del retraso ANTES de que el click falle: Clarity tarda hasta 2 h.
-  assert.ok(/tarda hasta 2 horas en aparecer y se borra a los 30 días/.test(card), 'sin esto, quien no la encuentra concluye que la medición no anda');
+  // ⚠️ AL REVÉS DESDE EL 27/09/2026: la glosa «Se abren en Clarity. Una grabación
+  // tarda hasta 2 horas en aparecer y se borra a los 30 días» se SACÓ por pedido
+  // explícito de Martín. Existía para avisar del retraso antes de que el click
+  // fallara, y era un párrafo permanente bajo dos botones para explicar un caso
+  // que casi nunca se da — el techo de una glosa es una frase (ver AGENTS.md, «La
+  // pantalla dice QUÉ pasó»). Lo que la reemplaza es el mensaje que sale CUANDO
+  // pasa: «Su grabación ya no existe: Clarity las guarda 30 días», que tiene su
+  // propio test más abajo. La aserción queda invertida para que no vuelva sola.
+  // Probada rompiéndola: pegando «tarda hasta 2 horas en aparecer» de vuelta en la
+  // tarjeta, 0 pasan y 1 falla; restaurada, 1 pasa y 0 fallan.
+  assert.ok(!/tarda hasta 2 horas en aparecer/.test(card), 'la glosa del retraso se sacó a pedido: el aviso va cuando la grabación YA no está, no como nota al pie permanente');
   // ⚠️ Y EL ID, COPIABLE. Reportado el 2026-08-16: el link abre Clarity pero NO
   // llega filtrado —Clarity descarta los parámetros de filtro que no reconoce y
   // muestra las 35 sesiones del proyecto—, así que el botón prometía «lo que hizo

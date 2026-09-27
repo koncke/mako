@@ -441,28 +441,36 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAb
 const NUEVA = '__nueva';
 
 export function SelectorFunnel({ funnels, activo }: {
-  funnels: { id: number; nombre: string; esDefault: boolean }[];
+  funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
   activo: number | null;
 }) {
   const router = useRouter();
   if (funnels.length === 0) return null;
   const actual = funnels.find((f) => f.id === activo) ?? funnels.find((f) => f.esDefault) ?? funnels[0];
+  // ⚠️ SE MUESTRA EL PRODUCTO, NO EL FUNNEL. «Funnel principal» es el nombre que
+  // puso la migración y es el mismo en todos los workspaces: no le dice nada a
+  // nadie y encima obliga a pensar en la estructura en vez de en lo que se vende.
+  // Sin producto asociado se cae al nombre del funnel, que es lo que había.
+  const comoSeLlama = (f: { nombre: string; producto?: string | null }) => f.producto?.trim() || f.nombre;
   const opciones: DropdownOption[] = funnels.map((f) => ({
     value: String(f.id),
-    label: f.nombre,
+    label: comoSeLlama(f),
     sub: f.esDefault ? 'el de tu negocio' : undefined,
   }));
   // Hoy todo workspace tiene UN funnel (mig 0170 le creó uno a cada uno) y cero
   // ofertas, así que sin este renglón el desplegable abre, muestra una sola cosa y
   // no hace nada — que se lee como que está roto, no como que falta crear algo.
   // Las ofertas y sus funnels se crean en el cerebro; el `?area=` lo abre ahí mismo.
-  opciones.push({ value: NUEVA, label: 'Crear otra oferta', sub: 'con su propio funnel' });
+  // Apagado a propósito: es la salida para CREAR, no una opción más de la lista.
+  // Con el mismo peso que los productos reales compite con ellos justo cuando lo
+  // que se está haciendo es elegir entre los que ya existen.
+  opciones.push({ value: NUEVA, label: 'Nuevo producto', sub: 'con su propio embudo', color: 'var(--faint)' });
   return (
     <span style={{ flex: 'none', minWidth: 190 }}>
       <Dropdown
         value={String(actual.id)}
         options={opciones}
-        ariaLabel="Oferta que dibuja el tablero"
+        ariaLabel="Producto que dibuja el tablero"
         onChange={(v) => {
           if (v === NUEVA) { router.push('/second-brain?area=oferta'); return; }
           const f = funnels.find((x) => x.id === Number(v));
