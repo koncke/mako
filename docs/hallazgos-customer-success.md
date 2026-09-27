@@ -1619,3 +1619,47 @@ activamente falso. Al asignarle 2 tareas a Leila, su tarjeta pasó a decir **«1
 
 **Una regla que nunca se ejecutó no está probada, está escrita.** El día que empieza a
 ejecutarse es el día que se descubre qué hacía.
+
+### Tres intentos de «que se parezca al plan», y el que funcionó fue no parecerse (26/09/2026)
+
+El pedido fue, en tres tandas seguidas:
+1. «Aprovechá el diseño de las cards de proyecto y tareas» → se dibujó una lista con
+   filete. Rechazado: «sigue siendo una lista».
+2. Se dibujaron TARJETAS con la cara del tablero. Rechazado: «el diseño debe ser
+   EXACTAMENTE igual que en el plan. Si abro el detail se debe ver IDÉNTICO».
+3. «Replicá EXACTAMENTE igual la tab de plan dentro del detail» → se montó `PlanBoard` /
+   `TodoBoard`, los mismos componentes que renderiza `/plan`.
+
+**Lo que me hizo perder las dos primeras:** una razón técnica que era cierta y no era un
+impedimento. `CardTile` pide el `board` entero (el `ReturnType` de `useBoard`), así que
+montarlo «obligaría a un segundo `useBoard`, dos escritores pisándose». Cierto — y sólo
+aplica si los dos están montados A LA VEZ sobre las mismas filas. La página de un cliente y
+`/plan` son dos RUTAS: nunca coexisten.
+
+**La regla: antes de copiar el diseño de algo, preguntá qué impide montar la cosa.** Si la
+respuesta es una condición («no pueden estar los dos a la vez»), fijate si tu caso la
+cumple antes de pagar una segunda implementación. Un diseño copiado hay que mantenerlo
+sincronizado para siempre; un componente montado no.
+
+### «Sigue cargando cada vez» era la FORMA, no la velocidad
+
+Se reportó dos veces y las dos veces ataqué la velocidad: primero partiendo la lectura en
+dos (1.284 ms contra 13.604), después sacando `detalle`/`historial`/`checklist` del cruce
+(2.105 KB contra 54). Las dos mejoras eran reales y **el síntoma seguía**, porque un modal
+que pide sus datos al abrirse TIENE un estado de carga por más rápida que sea la consulta.
+
+Lo que lo cerró fue que el detalle dejara de ser un modal y pasara a ser una ruta: los
+datos vienen con el HTML y no hay nada que mostrar mientras tanto.
+
+**El olor:** cuando una optimización mide bien y el reporte no cambia, lo que está mal no
+es el número.
+
+### Un componente cuyo estilo vive en la hoja de OTRO no es un componente
+
+`Avatar` se veía redondo en la grilla y **cuadrado** en la página nueva: su `border-radius`
+estaba en `.cl-av`, dentro del `CSS_CLIENTE` que sólo inyecta `ClientesApp`. Compila, no
+avisa, y sólo se ve montándolo en otro lado.
+
+Son seis propiedades sobre un elemento hoja: van inline y viajan con él. La regla general
+es que un componente compartido no puede depender de que su consumidor se acuerde de
+inyectar una hoja — y si el estilo es grande, lo inyecta el componente, no el que lo monta.
