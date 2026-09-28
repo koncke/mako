@@ -9,6 +9,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { rutaDeSalida } from '@/lib/agencia-cartera';
 import { agenciaDeCliente } from '@/lib/agencia';
+import { WS_PARAM } from '@/lib/ws-tab';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,9 @@ export async function GET() {
   // a otro lado. Ahora cada uno vuelve a la pantalla desde la que entró, y la
   // decisión vive en `rutaDeSalida` (lib/agencia-cartera.ts), en un solo lugar.
   const esSuperAdmin = sesion.rol === 'admin';
+  // De qué agencia es este cliente, si es de alguna. Decide DOS cosas: la cadena
+  // que se dibuja y a qué escalón vuelve «Salir».
+  const agencia = esSuperAdmin && clienteWs ? await agenciaDeCliente(clienteWs) : null;
 
   return NextResponse.json({
     ok: true,
@@ -49,7 +53,18 @@ export async function GET() {
     // `mako_agencia`. Un DELETE al endpoint equivocado deja la cookie puesta y
     // el cartel vuelve solo, que se lee como un botón roto.
     modoAgencia: impersonando && !esSuperAdmin,
-    salida: rutaDeSalida(esSuperAdmin),
+    // ⚠️ «SALIR» ES UN POP DE **UN** NIVEL, no una vuelta al principio. «Al salir
+    // me debe llevar nuevamente a la anterior inspección del cliente de agencia,
+    // en la tab de cliente, y si le doy salir nuevamente, recién ahí a super
+    // admin» (27/09/2026). Antes hacía los dos escalones de un click y el
+    // intermedio existía sólo colgado del link del nombre de la agencia, que es
+    // otro control.
+    //
+    // Y NO hace falta un stack: el nivel de arriba se DERIVA. Si este workspace
+    // es de una agencia, arriba está esa agencia; si no, arriba está la
+    // plataforma. Un stack habría que guardarlo, sobreviviría mal a un F5 y
+    // mentiría al entrar por un link directo.
+    salida: agencia ? `/customer-success?${WS_PARAM}=${agencia.ws}` : rutaDeSalida(esSuperAdmin),
     // ⚠️ LA CADENA, PARA CUANDO HAY DOS NIVELES: el super admin mirando a un
     // cliente que pertenece a una agencia. Sin esto la barra dice «estás viendo
     // a Cliente X» y se calla lo único que hace falta saber ahí — de quién es
@@ -59,7 +74,7 @@ export async function GET() {
     // un `?via=` se pierde en la primera navegación y además sería un dato de
     // afuera echado en pantalla. Sólo para el super admin: una agencia mirando a
     // SU cliente ya sabe de quién es, y decírselo sería ruido.
-    agencia: esSuperAdmin && clienteWs ? await agenciaDeCliente(clienteWs) : null,
+    agencia,
     // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
     rolWs: await getRolWsEfectivo(),
     ws,

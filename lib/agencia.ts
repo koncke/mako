@@ -201,7 +201,18 @@ export const esAgencia = cache(async (ws: number | null | undefined): Promise<bo
  */
 export const agenciaDeCliente = cache(async (clienteWs: number | null | undefined): Promise<{ ws: number; nombre: string } | null> => {
   if (!esWsValido(clienteWs)) return null;
-  const duenos = (await agenciasDeCliente(clienteWs)).filter((f) => f.estado === 'aprobado');
+  // ⚠️ CUALQUIER ESTADO, NO SÓLO 'aprobado', y el cambio importa: de esto cuelga
+  // la CADENA que se dibuja en la barra y el escalón al que vuelve «Salir», que
+  // son hechos de NAVEGACIÓN — «de quién es este cliente»— y no un permiso. Con
+  // sólo las aprobadas, el caso que el dueño más quiere mirar —inspeccionar un
+  // pedido ANTES de firmarlo— se quedaba sin cadena y sin escalón, o sea que
+  // salir lo mandaba dos niveles arriba de una.
+  // El permiso lo sigue contestando `puedeEntrarAhora`, que es otra función y
+  // mira 'aprobado'. Son dos preguntas y por eso son dos lecturas.
+  const duenos = await agenciasDeCliente(clienteWs);
+  // Con dos dueños la cadena es ambigua y no se afirma nada: elegir el primero
+  // sería inventar un padre. Se distingue de «no tiene dueño» en el log, no en
+  // el valor — las dos cosas significan «no hay escalón que mostrar».
   if (duenos.length !== 1) return null;
   const ws = duenos[0].agencia_ws;
   try {

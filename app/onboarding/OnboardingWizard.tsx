@@ -279,6 +279,27 @@ export function OnboardingWizard() {
 
   useEffect(() => { if (data?.estado.extraction.status === 'running') loopTicks(); }, [data, loopTicks]);
 
+  // ⚠️ Y NO SE DIBUJA SI LA BARRA GLOBAL YA ESTA. Esta barra nacio porque una
+  // pantalla a pantalla completa tapaba al `ImpersonationBanner`, que es la unica
+  // salida del modo agencia. Hoy el banner es `position:fixed` con z-index 300 y
+  // este overlay es 100, asi que el banner GANA — y el resultado eran DOS botones
+  // «Salir de la vista» identicos, uno arriba del otro, con el mismo destino.
+  // Dos controles para la misma accion no son redundancia: son la duda de cual
+  // hace que.
+  //
+  // Se pregunta por el HECHO, no por el z-index: el banner marca `<html>` con
+  // `data-barra-agencia` cuando se dibuja (ver ImpersonationBanner). Si algun dia
+  // vuelve a quedar tapado, el atributo no va a estar y esta barra vuelve sola —
+  // que es justo la red que su comentario original pedia.
+  const [tapaElBanner, setTapaElBanner] = useState(false);
+  useEffect(() => {
+    const mirar = () => setTapaElBanner(document.documentElement.hasAttribute('data-barra-agencia'));
+    mirar();
+    const obs = new MutationObserver(mirar);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-barra-agencia'] });
+    return () => obs.disconnect();
+  }, []);
+
   if (errCarga) return <Centro><span style={{ color: 'var(--bad)', fontWeight: 600 }}>{errCarga}</span></Centro>;
   if (!data) return <Centro><span style={{ fontFamily: MONO, color: 'var(--faint)' }}>Cargando tu onboarding…</span></Centro>;
 
@@ -291,7 +312,8 @@ export function OnboardingWizard() {
   // eso ninguna pantalla a pantalla completa puede taparla sin volver a dibujarla. La
   // regla de AGENTS.md: «si la única salida vive adentro de una pantalla condicional, no
   // hay salida». Ya pasó una vez con el botón SALIR DE LA VISTA.
-  const barraAgencia = data.esAdmin ? (
+
+  const barraAgencia = data.esAdmin && !tapaElBanner ? (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
       padding: '9px 18px', background: '#14161B', color: '#F3F0E7',
@@ -306,7 +328,23 @@ export function OnboardingWizard() {
         cliente={data.capa.nombre}
         onCambio={() => { void cargar(); setRemonte((n) => n + 1); }}
       />
-      <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
+      {/* ⚠️ EL DESTINO SE PREGUNTA, NO SE CABLEA. Este botón decía '/admin' a mano
+          desde siempre — y es el CUARTO decisor de «a dónde vuelvo», el que quedó
+          afuera cuando los otros tres se mudaron a `rutaDeSalida`. Con la cadena
+          anidada eso es directamente falso: salir de un cliente de agencia tiene
+          que volver a la agencia, no a la plataforma. `/api/auth/me` ya lo sabe
+          (deriva el escalón de arriba), así que se le pregunta a él y este archivo
+          deja de tener una opinión propia. El DELETE queda porque por este camino
+          el contexto puede venir de la cookie. */}
+      <button type="button" onClick={async () => {
+        let destino = '/admin';
+        try {
+          const j = await (await fetch('/api/auth/me')).json();
+          if (typeof j?.salida === 'string' && j.salida.startsWith('/')) destino = j.salida;
+        } catch { /* sin respuesta, el default de siempre */ }
+        await fetch('/api/admin/impersonate', { method: 'DELETE' });
+        window.location.href = destino;
+      }}
         style={{
           flex: 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase',
           padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(243,240,231,.3)',

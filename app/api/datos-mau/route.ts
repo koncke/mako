@@ -19,6 +19,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
+import { agenciasDeCliente } from '@/lib/agencia';
 import { esClienteDePrueba } from '@/lib/auth-session';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { AMBITOS, ambitosCompletados, completarConDatosDelDueno, eliminarDatosDelDueno, type AmbitoKey } from '@/lib/datos-mau';
@@ -35,7 +36,23 @@ async function wsDePrueba(): Promise<number | null> {
   // Lista blanca explícita (hoy el cliente de prueba y el de diseño), NUNCA
   // «distinto del dueño». La versión negativa dejaba pasar a todos los clientes
   // reales, y sigue siendo la forma en que esto se rompe.
-  return esClienteDePrueba(ws) ? ws : null;
+  if (ws == null || !esClienteDePrueba(ws)) return null;
+
+  // ⚠️ Y NUNCA ADENTRO DEL CLIENTE DE UNA AGENCIA. «Que JAMÁS me deje completar
+  // nada con Datos de Mauricio» inspeccionando un cliente de agencia
+  // (27/09/2026). Hoy eso no pasaba, pero NO por una condición: pasaba porque
+  // los clientes de agencia nacen como workspaces nuevos y nunca les toca el id
+  // 3 ni el 4. Una propiedad accidental leída como una protección es la trampa
+  // de siempre — una fila a mano en `agencia_clientes` alcanzaba para abrirlo.
+  //
+  // Se pregunta por CUALQUIER fila, no sólo las aprobadas: que una agencia haya
+  // pedido ese cliente ya lo saca de «un workspace de la plataforma para
+  // probar». El que decide si se puede ENTRAR es otro guard; éste decide si se
+  // pueden volcar los datos de un cliente real adentro, que es más destructivo
+  // y por lo tanto más restrictivo.
+  if ((await agenciasDeCliente(ws)).length > 0) return null;
+
+  return ws;
 }
 
 /** El catálogo, para que el panel global lo liste sin duplicar los nombres. */
