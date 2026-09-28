@@ -27,11 +27,11 @@ import type { ClienteRef } from './plan-clientes';
  * es indistinguible de un cliente que no existe.
  */
 export async function clientesGanados(): Promise<ClienteRef[]> {
-  type Fila = { id: number; nombre: string | null; empresa: string | null; avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null; cliente_ws: number | null };
+  type Fila = { id: number; nombre: string | null; empresa: string | null; avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null; cliente_ws: number | null; fecha_cierre: string | null };
   const db = await getTenantDb();
   // Las columnas se enumeran: un `*` sobre `leads` baja cuarenta campos —teléfono,
   // notas, historial— a una lista que sólo necesita el nombre para pintar un chip.
-  const filas = await leerTodo<Fila>(db, 'leads', 'id, nombre, empresa, avatar_url, portada, portada_y, avatar_y, icono, cliente_ws',
+  const filas = await leerTodo<Fila>(db, 'leads', 'id, nombre, empresa, avatar_url, portada, portada_y, avatar_y, icono, cliente_ws, fecha_cierre',
     { orden: 'id', eq: { estado_lead: 'ganado' } });
   return filas.map((l) => ({
     leadId: l.id, nombre: (l.nombre ?? '').trim(), empresa: l.empresa,

@@ -23,7 +23,7 @@ import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
-import { BarraClientes, type FiltroClientes, type OrdenClientes } from './BarraClientes';
+import { BarraClientes, CUANDO_LABEL, entraEnVentana, type FiltroClientes, type OrdenClientes } from './BarraClientes';
 import { TablaClientes } from './TablaClientes';
 import { guardarImagenClienteAction, autoasignarAction } from './actions';
 
@@ -64,6 +64,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
   const [q, setQ] = useState('');
   const [tabla, setTabla] = useState(false);
   const [filtro, setFiltro] = useState<FiltroClientes>('todos');
+  const [cuando, setCuando] = useState('siempre');
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [orden, setOrden] = useState<OrdenClientes>('nombre');
 
   const resumenDe = (leadId: number): ResumenTrabajo | null =>
@@ -103,20 +105,44 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
       if (filtro === 'con-trabajo') return (r?.abiertas ?? 0) > 0;
       if (filtro === 'sin-trabajo') return (r?.abiertas ?? 0) === 0;
       if (filtro === 'sin-proyecto') return (r?.proyectos ?? 0) === 0;
+      if (filtro === 'con-cuenta') return c.clienteWs != null;
+      if (filtro === 'sin-cuenta') return c.clienteWs == null;
       return true;
     };
+    // La ventana va APARTE del filtro: son dos preguntas («cuáles» y «de cuándo»);
+    // combinarlas en una lista obliga a escribir el producto cartesiano de las dos.
+    const enVentana = (c: ClienteCruce) => entraEnVentana(c.fechaCierre, cuando);
     const cmp = (a: ClienteCruce, b: ClienteCruce) => {
       if (orden === 'abiertas') return (resumenDe(b.leadId)?.abiertas ?? 0) - (resumenDe(a.leadId)?.abiertas ?? 0);
       if (orden === 'proyectos') return (resumenDe(b.leadId)?.proyectos ?? 0) - (resumenDe(a.leadId)?.proyectos ?? 0);
       // Antigüedad = el orden de alta, que es el que numera. Sale del `leadId`.
-      if (orden === 'antiguedad') return (numeroDe.get(a.leadId) ?? 0) - (numeroDe.get(b.leadId) ?? 0);
-      return nombreDe(a).localeCompare(nombreDe(b), 'es');
+      // Cuándo se ganó, con la fecha REAL (`leads.fecha_cierre`). Antes salía del
+      // número de cliente, que es el orden de CARGA al CRM: dos ganados el mismo mes
+      // podían salir a diez lugares de distancia. Los que no tienen fecha van al final
+      // en las dos direcciones — «no sé cuándo» no es ni lo más nuevo ni lo más viejo.
+      if (orden === 'antiguedad') {
+        const fa = a.fechaCierre ? Date.parse(a.fechaCierre) : NaN;
+        const fb = b.fechaCierre ? Date.parse(b.fechaCierre) : NaN;
+        if (Number.isNaN(fa) && Number.isNaN(fb)) return 0;
+        if (Number.isNaN(fa)) return 1;
+        if (Number.isNaN(fb)) return -1;
+        return fb - fa;
+      }
+      // El nombre es el único que se lee natural de la A a la Z, así que su «mayor
+      // primero» es la Z: se invierte acá para que la dirección signifique lo mismo
+      // en los cuatro criterios.
+      return nombreDe(b).localeCompare(nombreDe(a), 'es');
     };
+    // ⚠️ EL CRITERIO SE CALCULA «MAYOR PRIMERO» Y LA DIRECCION LO DA VUELTA AL FINAL.
+    // Así el sentido es UNA decisión y no hay que acordarse de invertir cada rama,
+    // que es como se cuela un orden que va al revés sólo para un criterio.
+    const signo = dir === 'asc' ? -1 : 1;
     // Desempate SIEMPRE por nombre: sin él, dos clientes con la misma cantidad de
     // tareas se intercambian de lugar en cada render y la grilla parpadea.
-    return lista.filter(pasa).sort((a, b) => cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
+    return lista.filter((c) => pasa(c) && enVentana(c))
+      .sort((a, b) => signo * cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, imgs, q, filtro, orden, tablero]);
+  }, [clientes, imgs, q, filtro, orden, cuando, dir, tablero]);
   /** Cuántos tienen algo abierto. Con el tablero caído no se cuenta nada: sería un 0
    *  con cara de dato sobre una lectura que falló. */
   const conTrabajo = tablero.ok ? lista.filter((c) => (resumenDe(c.leadId)?.abiertas ?? 0) > 0).length : 0;
@@ -215,6 +241,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
           <BarraClientes
             q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
+            cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
             nVisibles={visibles.length} nTotal={lista.length}
             /* ⚠️ EL PROGRESO DE UNA CARTERA NO ES «TAREAS HECHAS». El plan cuenta lo
                completado; acá lo que importa es cuántos clientes tienen trabajo

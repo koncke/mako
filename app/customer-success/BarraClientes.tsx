@@ -31,20 +31,63 @@ import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
-export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto';
+export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto' | 'con-cuenta' | 'sin-cuenta';
 
 export const ORDEN_LABEL: Record<OrdenClientes, string> = {
   nombre: 'Nombre',
-  abiertas: 'Más tareas abiertas',
-  proyectos: 'Más proyectos',
-  antiguedad: 'Antigüedad',
+  abiertas: 'Tareas abiertas',
+  proyectos: 'Proyectos',
+  // ⚠️ AHORA ES UNA FECHA DE VERDAD (`leads.fecha_cierre`). Antes «antigüedad» era
+  // el orden por id, o sea el de CARGA — dos clientes ganados el mismo mes podían
+  // salir a diez lugares de distancia porque uno se había cargado antes al CRM.
+  antiguedad: 'Cuándo se ganó',
 };
+
+/**
+ * Las ventanas de tiempo, en UN lugar y con la funcion que las aplica al lado.
+ *
+ * ⚠️ SON RELATIVAS Y NO UN RANGO CON CALENDARIO, a proposito: «los ultimos 90
+ * dias» es la pregunta que alguien se hace mirando una cartera, y un rango
+ * obliga a elegir dos fechas para contestarla. El tablero ya resolvio esto igual.
+ */
+/**
+ * ⚠️ LAS CLAVES LLEVAN LETRA A PROPOSITO: `d30` y no `30`.
+ *
+ * En JavaScript un objeto ordena PRIMERO las claves que parecen enteros, en orden
+ * numerico, y recien despues las demas en orden de escritura. Con `'30'`, `'90'` y
+ * `'365'`, `Object.keys` devolvia [30, 90, 365, siempre, viejos] — o sea que
+ * «Siempre», que es el default y el primero que hay que ver, salia TERCERO en el
+ * menu. Se vio en la pantalla, no en el codigo.
+ */
+export const CUANDO_LABEL: Record<string, string> = {
+  siempre: 'Siempre',
+  d30: 'Últimos 30 días',
+  d90: 'Últimos 90 días',
+  d365: 'Último año',
+  viejos: 'Hace más de un año',
+};
+
+/** ¿Esta fecha entra en la ventana? Sin fecha NO entra en ninguna ventana que no
+ *  sea «siempre»: un dato que falta no es un dato reciente. */
+export function entraEnVentana(iso: string | null | undefined, cuando: string): boolean {
+  if (cuando === 'siempre') return true;
+  if (!iso) return false;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return false;
+  const dias = (Date.now() - t) / 86_400_000;
+  if (cuando === 'viejos') return dias > 365;
+  // `d30` → 30. La letra es del ORDEN del menú (ver arriba), no del dato.
+  const tope = Number(cuando.replace(/^d/, ''));
+  return Number.isFinite(tope) ? dias <= tope : true;
+}
 
 export const FILTRO_LABEL: Record<FiltroClientes, string> = {
   todos: 'Todos',
   'con-trabajo': 'Con trabajo abierto',
   'sin-trabajo': 'Sin trabajo abierto',
   'sin-proyecto': 'Sin ningún proyecto',
+  'con-cuenta': 'Con cuenta de MaKo',
+  'sin-cuenta': 'Sin cuenta de MaKo',
 };
 
 /**
@@ -62,6 +105,7 @@ export function BarraClientes({
   q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, onImportar,
   nVisibles, nTotal, progreso, placeholder = 'Buscar por nombre o empresa…',
   filtros = FILTRO_LABEL, ordenes = ORDEN_LABEL, filtroBase = 'todos', ordenBase = 'nombre',
+  cuandos, cuando = 'siempre', onCuando, dir = 'desc', onDir,
   accionesExtra = [],
 }: {
   q: string;
@@ -87,6 +131,24 @@ export function BarraClientes({
   ordenes?: Record<string, string>;
   filtroBase?: string;
   ordenBase?: string;
+  /**
+   * La ventana de tiempo. OPCIONAL y con sus rótulos por parámetro: sólo se ofrece
+   * si la pantalla tiene una FECHA de verdad que filtrar. Una cartera la tiene
+   * (cuándo se ganó al cliente) y la plataforma también (cuándo se creó el
+   * workspace), pero son fechas distintas y significan cosas distintas — por eso
+   * el rótulo lo pone quien la monta y no está escrito acá.
+   *
+   * ⚠️ Sin esto, «antigüedad» era el orden por id: el de CARGA, no el de la
+   * relación. Ofrecer un filtro sobre un dato que la pantalla no baja es la forma
+   * más cara de mentir, porque el resultado parece una respuesta.
+   */
+  cuandos?: Record<string, string>;
+  cuando?: string;
+  onCuando?: (v: string) => void;
+  /** La dirección del orden, separada del criterio — como en el tablero. «Nombre»
+   *  y «Nombre al revés» no son dos criterios: es uno con dos sentidos. */
+  dir?: 'asc' | 'desc';
+  onDir?: (d: 'asc' | 'desc') => void;
   /** Más filas para los tres puntos, además de exportar e importar. */
   accionesExtra?: AccionPlegable[];
 }) {
@@ -115,7 +177,8 @@ export function BarraClientes({
 
       <VistaToggleClientes tabla={tabla} onSet={onTabla} />
       <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
-        filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase} />
+        filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase}
+        cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir} />
       {/* ⚠️ ES **LA** BARRA DEL PLAN, no una parecida. «Falta la barra de progreso en
           los 3 puntitos en clientes, y los íconos; asegurate de copiar el diseño»
           (27/09/2026) — y copiar un diseño es escribir el segundo, que es el que se
@@ -205,15 +268,18 @@ function usePlegable() {
  * ⚠️ Y EL BADGE CUENTA LO QUE NO ES EL DEFAULT, no las categorías. Con «Nombre» y
  * «Todos» puestos no hay nada filtrado, así que el botón no puede decir 2.
  */
-function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtroBase, ordenBase }: {
+function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtroBase, ordenBase, cuandos, cuando, onCuando, dir, onDir }: {
   filtro: string; onFiltro: (v: string) => void;
   orden: string; onOrden: (v: string) => void;
   filtros: Record<string, string>; ordenes: Record<string, string>;
   filtroBase: string; ordenBase: string;
+  cuandos?: Record<string, string>; cuando?: string; onCuando?: (v: string) => void;
+  dir?: 'asc' | 'desc'; onDir?: (d: 'asc' | 'desc') => void;
 }) {
   const { open, setOpen, ref } = usePlegable();
-  const [vista, setVista] = useState<'root' | 'mostrar' | 'orden'>('root');
-  const n = (filtro !== filtroBase ? 1 : 0) + (orden !== ordenBase ? 1 : 0);
+  const [vista, setVista] = useState<'root' | 'mostrar' | 'orden' | 'cuando'>('root');
+  const hayCuando = !!cuandos && !!cuando && cuando !== 'siempre';
+  const n = (filtro !== filtroBase ? 1 : 0) + (orden !== ordenBase ? 1 : 0) + (hayCuando ? 1 : 0);
 
   // Al cerrarse, vuelve a la raíz: reabrirlo adentro de una categoría es aparecer en
   // un lugar que nadie eligió.
@@ -222,6 +288,8 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
   const cats = [
     { key: 'mostrar' as const, label: 'Mostrar', resumen: filtros[filtro], activo: filtro !== filtroBase },
     { key: 'orden' as const, label: 'Ordenar', resumen: ordenes[orden], activo: orden !== ordenBase },
+    // La ventana de tiempo sólo existe si la pantalla tiene una fecha que filtrar.
+    ...(cuandos ? [{ key: 'cuando' as const, label: 'Cuándo', resumen: cuandos[cuando ?? 'siempre'], activo: hayCuando }] : []),
   ];
 
   return (
@@ -235,7 +303,7 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
             activo con el panel cerrado es una lista recortada sin explicación. */}
         {n > 0 && (
           <span className="bc-badge" title="Limpiar"
-            onClick={(e) => { e.stopPropagation(); onFiltro(filtroBase); onOrden(ordenBase); }}>{n}</span>
+            onClick={(e) => { e.stopPropagation(); onFiltro(filtroBase); onOrden(ordenBase); onCuando?.('siempre'); }}>{n}</span>
         )}
       </button>
       {open && (
@@ -267,15 +335,34 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
                   ofrecía «Con trabajo abierto» y «Más tareas abiertas» —que no existen para
                   un workspace— y elegir cualquiera no filtraba nada. La barra parecía
                   compartida y estaba compartida a medias, que es peor que no estarlo. */}
-              {vista === 'mostrar'
-                ? Object.keys(filtros).map((k) => (
-                  <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
-                    onClick={() => { onFiltro(k); setVista('root'); setOpen(false); }}>{filtros[k]}</button>
-                ))
-                : Object.keys(ordenes).map((k) => (
-                  <button key={k} type="button" className={`bc-op${orden === k ? ' on' : ''}`}
-                    onClick={() => { onOrden(k); setVista('root'); setOpen(false); }}>{ordenes[k]}</button>
-                ))}
+              {vista === 'mostrar' && Object.keys(filtros).map((k) => (
+                <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
+                  onClick={() => { onFiltro(k); setVista('root'); setOpen(false); }}>{filtros[k]}</button>
+              ))}
+              {vista === 'cuando' && Object.keys(cuandos ?? {}).map((k) => (
+                <button key={k} type="button" className={`bc-op${cuando === k ? ' on' : ''}`}
+                  onClick={() => { onCuando?.(k); setVista('root'); setOpen(false); }}>{(cuandos ?? {})[k]}</button>
+              ))}
+              {vista === 'orden' && (
+                <>
+                  {Object.keys(ordenes).map((k) => (
+                    <button key={k} type="button" className={`bc-op${orden === k ? ' on' : ''}`}
+                      onClick={() => { onOrden(k); }}>{ordenes[k]}</button>
+                  ))}
+                  {/* ⚠️ LA DIRECCION ES OTRA PREGUNTA, no dos criterios mas. Duplicar cada
+                      orden en «X» y «X al reves» convierte una lista de cuatro en una de
+                      ocho, y quien la lee tiene que encontrar su criterio dos veces. El
+                      tablero ya lo resolvio asi y esto es lo mismo.
+                      Y NO cierra el panel: cambiar el sentido es un ajuste del orden que
+                      se acaba de elegir, no una eleccion nueva. */}
+                  {onDir && (
+                    <div className="bc-dir">
+                      <button type="button" className={dir === 'desc' ? 'on' : ''} onClick={() => onDir('desc')}>Mayor primero</button>
+                      <button type="button" className={dir === 'asc' ? 'on' : ''} onClick={() => onDir('asc')}>Menor primero</button>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </div>
@@ -343,6 +430,11 @@ const CSS = `
   color:var(--faint); font-weight:700; }
 .bc-op{ display:block; width:100%; text-align:left; border:0; background:none; border-radius:8px;
   padding:7px 9px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; text-decoration:none; }
+/* El par de direccion: dos mitades de un mismo control, no dos opciones sueltas. */
+.bc-dir{ display:flex; gap:4px; margin:6px 6px 2px; padding-top:6px; border-top:1px solid var(--border); }
+.bc-dir button{ flex:1; border:1px solid var(--border); background:var(--surface); border-radius:8px;
+  padding:5px 8px; font:inherit; font-size:11.5px; font-weight:600; color:var(--dim); cursor:pointer; }
+.bc-dir button.on{ border-color:var(--primary); color:var(--primary); background:var(--primary-bg); }
 .bc-op:hover{ background:var(--surface-2); color:var(--ink); }
 .bc-op.on{ color:var(--primary); font-weight:600; }
 .bc-desc{ display:block; font-size:11.5px; color:var(--faint); margin-top:1px; }

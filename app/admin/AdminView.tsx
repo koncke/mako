@@ -22,13 +22,13 @@ import type { Workspace, Sesion } from './tipos';
 // ⚠️ LAS MISMAS PIEZAS QUE /customer-success, no unas parecidas. Es lo que hace
 // que «exactamente igual» siga siendo cierto despues de la primera edicion.
 import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, colorDe } from '../_components/TarjetaEntidad';
-import { BarraClientes } from '../customer-success/BarraClientes';
+import { BarraClientes, entraEnVentana } from '../customer-success/BarraClientes';
 import { Marca } from '../_components/Marca';
 import { Modal } from '../_ui/Modal';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Dropdown } from '../components/Dropdown';
-import { CAPA_DEFAULT, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
+import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import type { Usuario } from '@/lib/usuarios';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -193,14 +193,30 @@ const FILTRO_WS: Record<string, string> = {
   todos: 'Todos',
   activos: 'Activos',
   pausados: 'Pausados',
-  agencias: 'Agencias',
   'sin-equipo': 'Sin nadie adentro',
+  // ⚠️ POR PLAN, Y SALEN DEL CATALOGO, no de una lista escrita a mano: un plan
+  // nuevo aparece en el filtro solo. Escribirlos daria un filtro que se queda
+  // viejo el dia que alguien agrega uno — y nadie se entera, porque un filtro que
+  // falta no da error, da una lista incompleta.
+  ...Object.fromEntries(CAPAS_LISTA.map((c) => [`plan:${c.id}`, c.nombre])),
+};
+
+/** La ventana mira `workspaces.created_at`, que es CUANDO SE DIO DE ALTA — otra
+ *  fecha que la de la cartera, que mira cuándo se ganó al cliente. Por eso los
+ *  rótulos los pone cada pantalla y no viven adentro de la barra. */
+const CUANDO_WS: Record<string, string> = {
+  siempre: 'Siempre',
+  d30: 'Últimos 30 días',
+  d90: 'Últimos 90 días',
+  d365: 'Último año',
+  viejos: 'Hace más de un año',
 };
 
 const ORDEN_WS: Record<string, string> = {
   nombre: 'Nombre',
-  miembros: 'Más miembros',
-  nuevos: 'Más nuevos',
+  miembros: 'Miembros',
+  // La fecha REAL de alta del workspace, que ya viajaba y nadie usaba.
+  nuevos: 'Cuándo se dio de alta',
 };
 
 /**
@@ -406,7 +422,6 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
   // Las agencias y sus pedidos, en UNA lectura compartida por el bloque de
   // aprobaciones y por el menu de cada workspace.
   const agenciasEstado = useAgencias();
-  const esAgenciaWs = (id: number) => agenciasEstado.agencias.includes(id);
 
 
   // ── Buscar, filtrar y ordenar, con la misma barra que Clientes ──────────
@@ -417,6 +432,8 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
   const [tabla, setTabla] = useState(false);
   const [filtro, setFiltro] = useState<string>('todos');
   const [orden, setOrden] = useState<string>('nombre');
+  const [cuando, setCuando] = useState('siempre');
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
 
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -424,14 +441,20 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       !t || w.nombre.toLowerCase().includes(t) || (w.slug ?? '').toLowerCase().includes(t));
     if (filtro === 'activos') l = l.filter((w) => w.estado === 'activo');
     else if (filtro === 'pausados') l = l.filter((w) => w.estado === 'pausado');
-    else if (filtro === 'agencias') l = l.filter((w) => esAgenciaWs(w.id));
     else if (filtro === 'sin-equipo') l = l.filter((w) => w.usuarios === 0);
+    else if (filtro.startsWith('plan:')) l = l.filter((w) => w.capa === filtro.slice(5));
+    // La ventana de tiempo va APARTE del filtro: «cuáles» y «de cuándo» son dos
+    // preguntas, y mezclarlas obliga a escribir el producto de las dos listas.
+    l = l.filter((w) => entraEnVentana(w.created_at, cuando));
+    // El criterio se calcula «mayor primero» y la dirección lo da vuelta al final:
+    // así el sentido es UNA decisión y no hay que invertir cada rama a mano.
     const por = [...l];
     if (orden === 'miembros') por.sort((a, b) => b.usuarios - a.usuarios);
     else if (orden === 'nuevos') por.sort((a, b) => b.created_at.localeCompare(a.created_at));
-    else por.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    else por.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'));
+    if (dir === 'asc') por.reverse();
     return por;
-  }, [workspaces, q, filtro, orden, agenciasEstado.agencias]);
+  }, [workspaces, q, filtro, orden, cuando, dir]);
 
   // ⚠️ EL EMAIL ENTRA EN LA CONDICION. Antes el boton se habilitaba con el
   // nombre solo, asi que se podia crear un cliente sin admin: un workspace al que
@@ -491,6 +514,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
         nVisibles={visibles.length} nTotal={workspaces.length}
         placeholder="Buscar un cliente por nombre o slug…"
         filtros={FILTRO_WS} ordenes={ORDEN_WS}
+        cuandos={CUANDO_WS} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
         /* Sin `progreso`: una lista de workspaces no tiene ningún porcentaje
            análogo al «con trabajo abierto» de la cartera, y el prop es opcional
            justamente para no obligar a inventarle un número. */

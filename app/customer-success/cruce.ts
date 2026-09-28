@@ -57,6 +57,9 @@ export type ClienteCruce = {
   /** Su cuenta de MaKo, si tiene (mig 0175). El cruce tampoco la mira: viaja porque la
    *  ficha dibuja con ella el bloque de «Cuenta de MaKo» y el «Entrar como». */
   clienteWs?: number | null;
+  /** Cuando se gano (`leads.fecha_cierre`). Es la unica fecha real que tiene un
+   *  cliente: `created_at` es cuando entro como LEAD, que es otra cosa. */
+  fechaCierre?: string | null;
 };
 /**
  * Un proyecto del tablero, para cruzar.

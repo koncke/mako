@@ -48,6 +48,9 @@ export type ClienteRef = {
    * pregunta débil se lleva puesta a la fuerte.
    */
   clienteWs?: number | null;
+  /** Cuando se gano (`leads.fecha_cierre`). Es la unica fecha real que tiene un
+   *  cliente: `created_at` es cuando entro como LEAD, que es otra cosa. */
+  fechaCierre?: string | null;
 };
 
 /** Lo que una tarjeta (tarea o proyecto) guarda de su cliente. */
