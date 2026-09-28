@@ -19,7 +19,21 @@
 // nombre vacío, dos VSL marcados a la vez) y tiene que poder testearse.
 // =============================================================================
 
+import { canonizarVideoId, MAX_VIDEO_ID } from './video-id';
+
 export const VIDEOS_KEY = 'landing.videos';
+
+/**
+ * El saneo de un id de video, y el ÚNICO de este módulo.
+ *
+ * ⚠️ VA ACÁ Y NO EN CADA CALL-SITE. Este módulo es el choke point del catálogo:
+ * por `parsearVideos`, `conVideo`, `sinVideo`, `parsearOcultos`, `conOculto` y
+ * `sinOculto` pasan las dos pantallas que lo escriben Y las tres operaciones de la
+ * API de MaKo. Si la canonicalización viviera en los llamadores, la próxima
+ * pantalla nacería sin ella — y el modo de falla es que dos filas nombren el
+ * mismo video, que es exactamente lo que se vino a cerrar.
+ */
+function idVideo(x: unknown): string { return canonizarVideoId(limpiar(x, MAX_VIDEO_ID)) ?? ''; }
 
 /** Tope: más que esto en una landing y el desplegable deja de servir. */
 export const MAX_VIDEOS = 20;
@@ -46,18 +60,20 @@ export function parsearOcultos(crudo: string | null): string[] {
   try {
     const v: unknown = JSON.parse(crudo);
     if (!Array.isArray(v)) return [];
-    return [...new Set(v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => x.trim().slice(0, 120)))].slice(0, MAX_VIDEOS * 2);
+    return [...new Set(v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map(idVideo).filter(Boolean))].slice(0, MAX_VIDEOS * 2);
   } catch { return []; }
 }
 
 export function conOculto(actuales: string[], id: string): string[] {
-  const i = id?.trim().slice(0, 120);
+  const i = idVideo(id);
   if (!i) return actuales;
   return actuales.includes(i) ? actuales : [...actuales, i].slice(0, MAX_VIDEOS * 2);
 }
 
 export function sinOculto(actuales: string[], id: string): string[] {
-  const i = id?.trim();
+  // Canonizado igual que al esconder: si acá se comparara el id crudo, dejar de
+  // esconder un video pedido por su alias no encontraría la fila guardada.
+  const i = idVideo(id);
   return actuales.filter((x) => x !== i);
 }
 
@@ -127,7 +143,7 @@ export function parsearVideos(crudo: string | null): VideoLanding[] {
   for (const x of lista) {
     if (!x || typeof x !== 'object') continue;
     const o = x as Record<string, unknown>;
-    const id = limpiar(o.id, 120);
+    const id = idVideo(o.id);
     const nombre = limpiar(o.nombre, 60);
     if (!id || !nombre) continue;              // sin id no se puede atribuir; sin nombre no sirve de nada
     if (out.some((v) => v.id === id)) continue; // el id es la identidad: no puede repetirse
@@ -168,7 +184,7 @@ export function unSoloVsl(videos: VideoLanding[]): VideoLanding[] {
  * segunda por omisión. Lo encontró el test de acá al lado, no la pantalla.
  */
 export function conVideo(actuales: VideoLanding[], video: VideoLanding): VideoLanding[] | null {
-  const id = limpiar(video.id, 120);
+  const id = idVideo(video.id);
   const nombre = limpiar(video.nombre, 60);
   if (!id || !nombre) return null;
   const previo = actuales.find((v) => v.id === id);
@@ -185,7 +201,7 @@ export function conVideo(actuales: VideoLanding[], video: VideoLanding): VideoLa
 }
 
 export function sinVideo(actuales: VideoLanding[], id: string): VideoLanding[] {
-  const i = limpiar(id, 120);
+  const i = idVideo(id);
   return actuales.filter((v) => v.id !== i);
 }
 
@@ -197,7 +213,7 @@ export function vslDe(videos: VideoLanding[]): VideoLanding | null {
 /** Cómo se llama un video en pantalla. Sin nombre guardado, se cae al id — que
  *  es feo pero VERDADERO; inventarle «Video» a secas los haría indistinguibles. */
 export function nombreDe(videos: VideoLanding[], id: string | null | undefined): string {
-  const i = limpiar(id, 120);
+  const i = idVideo(id);
   if (!i) return 'Video sin identificar';
   return videos.find((v) => v.id === i)?.nombre ?? i;
 }
@@ -221,7 +237,7 @@ export function rotuloDe(
   id: string | null | undefined,
   tituloDelPlayer?: string | null,
 ): { texto: string; propio: boolean; esVsl: boolean } {
-  const i = limpiar(id, 120);
+  const i = idVideo(id);
   const guardado = i ? videos.find((v) => v.id === i) : undefined;
   if (guardado) return { texto: guardado.nombre, propio: true, esVsl: guardado.esVsl === true };
   const t = limpiar(tituloDelPlayer, 60);

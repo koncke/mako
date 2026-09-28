@@ -20,6 +20,7 @@ import {
   videosDeHtml,
   videosNoMedibles,
 } from '../lib/landing-analisis';
+import { ALIAS_VIDEO_ID } from '../lib/video-id';
 
 const A = (html: string) => analizarHtml('https://x.com', html);
 
@@ -69,12 +70,26 @@ test('detecta los SEIS hosts de video, y sabe cuáles puede medir', () => {
 test('el id de la página es el MISMO que manda el snippet, prefijo incluido', () => {
   // ⚠️ SI LOS DOS LADOS NO DERIVAN EL MISMO ID, el video sale DOS VECES en la
   // pantalla que los nombra: una fila con eventos y sin URL, otra con URL y sin
-  // actividad, y nombrar una no nombra la otra. Los prefijos son los que emite el
-  // snippet v16 (ver los bloques de cada host en lib/landing-token.ts).
+  // actividad, y nombrar una no nombra la otra.
+  //
+  // ⚠️ Y EL CASO DE WISTIA CAMBIÓ DE SIGNO EL 27/09/2026. Este test afirmaba que el
+  // custom element y el embed clásico eran DOS ids para la misma media, y no estaba
+  // mal escrito: reflejaba fielmente lo que el código hacía a propósito. Lo que se
+  // revirtió es la decisión — «es error nuestro permitir que un mismo video pueda
+  // tener varios ID» —, así que ahora las dos formas tienen que dar el MISMO id.
+  // Quien vuelva a partirlas rompe esta línea, que es el punto.
   const id = (html: string) => videosDeHtml('https://x.com', html)[0]?.id;
   assert.equal(id('<video id="vsl" src="/a.mp4"></video>'), 'v:vsl');
   assert.equal(id('<wistia-player media-id="y4reukhgq8"></wistia-player>'), 'w:y4reukhgq8');
-  assert.equal(id('<iframe src="https://fast.wistia.net/embed/iframe/y4reukhgq8"></iframe>'), 'wistia:y4reukhgq8');
+  // Las dos formas de embeber la MISMA media dan el mismo id, y se afirma con el
+  // mismo hashedId a la vista para que no se pueda leer distraído.
+  assert.equal(id('<iframe src="https://fast.wistia.net/embed/iframe/y4reukhgq8"></iframe>'), 'w:y4reukhgq8');
+  assert.equal(id('<div class="wistia_async_y4reukhgq8"></div>'), 'w:y4reukhgq8');
+  assert.equal(
+    id('<wistia-player media-id="y4reukhgq8"></wistia-player>'),
+    id('<iframe src="https://fast.wistia.net/embed/iframe/y4reukhgq8"></iframe>'),
+    'el custom element y el iframe son la misma media: un solo id',
+  );
   assert.equal(id('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>'), 'yt:dQw4w9WgXcQ');
   assert.equal(id('<iframe src="https://player.vimeo.com/video/123456789"></iframe>'), 'vimeo:123456789');
   assert.equal(id('<iframe src="https://drive.google.com/file/d/1Yf516z3y_5CVurkydHkq/preview"></iframe>'), 'drive:1Yf516z3y_5CVurkydHkq');
@@ -92,6 +107,19 @@ test('el id de la página es el MISMO que manda el snippet, prefijo incluido', (
   // como un video propio de la página.
   assert.equal(hostDeVideoId('vimeo:123')?.pieza, 'video-vimeo');
   assert.equal(hostDeVideoId('v:x.mp4')?.pieza, 'video-nativo');
+
+  // ⚠️ Y LOS ALIAS TAMBIÉN. Acá contestaba **null** para `wistia:` —un prefijo que
+  // este mismo archivo emitía— y para toda la familia por nombre de etiqueta, medido
+  // el 27/09/2026. Un `null` de un lector de prefijos no se lee como un error: se lee
+  // como «ese id no es de ningún host», y río abajo le calculaba el avance con la
+  // duración de otro video.
+  for (const al of ALIAS_VIDEO_ID) {
+    assert.equal(
+      hostDeVideoId(`${al.de}abc123`)?.pieza,
+      hostDeVideoId(`${al.a}abc123`)?.pieza,
+      `hostDeVideoId no resuelve el alias ${al.de} igual que ${al.a}`,
+    );
+  }
 });
 
 test('el catálogo está completo: ninguna pieza de video sin sus datos', () => {

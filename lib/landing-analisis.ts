@@ -65,6 +65,8 @@ export type HostVideo = {
   desde: number;
 };
 
+import { canonizarVideoId } from './video-id';
+
 export const HOSTS_VIDEO: HostVideo[] = [
   {
     pieza: 'video-nativo', nombre: 'un video', medible: true, prefijo: 'v:',
@@ -76,9 +78,13 @@ export const HOSTS_VIDEO: HostVideo[] = [
   },
   {
     // El player nuevo (un custom element) y el embed clásico son dos formas del
-    // mismo proveedor, y las dos se miden desde la v16 — con ids distintos, porque
-    // el snippet las engancha por caminos distintos: el web component por sus
-    // eventos y el iframe por postMessage.
+    // mismo proveedor y se miden desde la v16. El snippet las engancha por caminos
+    // distintos —el web component por sus eventos, el iframe por postMessage— y cada
+    // camino le ponía SU prefijo, así que la misma media terminaba con dos ids.
+    //
+    // ⚠️ Eso se revirtió el 27/09/2026: ahora los dos colapsan a `w:` en
+    // `lib/video-id.ts`. El prefijo de acá es el CANÓNICO, no «el de una de las dos
+    // formas».
     pieza: 'video-wistia', nombre: 'un video de Wistia', medible: true, prefijo: 'w:',
     reHtml: /<wistia-player[\s>]|wistia_async_[a-z0-9]{8,}|wistia_embed|fast\.wistia\.(?:com|net)\/(?:embed|assets)/i,
     reBundle: /fast\.wistia\.(?:com|net)\//i, desde: 2,
@@ -127,7 +133,12 @@ export const hostDePieza = (p: string): HostVideo | null =>
 
 /** El host que emite este `video_id`, leído de su prefijo. */
 export const hostDeVideoId = (id: string | null | undefined): HostVideo | null => {
-  const v = (id ?? '').trim().toLowerCase();
+  // ⚠️ SE CANONIZA ANTES DE LEER EL PREFIJO. Sin esto contestaba **null** para
+  // `wistia:` —un prefijo que este mismo archivo emitía doce líneas más abajo— y para
+  // toda la familia por etiqueta (`wistia-player:`, `mux-player:`), medido el
+  // 27/09/2026. Un lector de prefijos que no conoce los prefijos que el repo escribe
+  // no es un lector: es un `null` con cara de respuesta.
+  const v = (canonizarVideoId(id) ?? '').toLowerCase();
   if (!v) return null;
   // El más largo primero: `vimeo:` y `v:` empiezan igual.
   const ordenados = HOSTS_VIDEO.filter((h) => h.prefijo).sort((a, b) => (b.prefijo!.length - a.prefijo!.length));
@@ -218,7 +229,15 @@ function absoluta(base: string, u: string): string | null {
 export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
   const out: VideoEnPagina[] = [];
   const visto = new Set<string>();
-  const push = (v: VideoEnPagina) => { if (!visto.has(v.id)) { visto.add(v.id); out.push(v); } };
+  // ⚠️ CANONIZA EL PUSH, no cada rama. Es el mismo criterio que el beacon: una rama
+  // nueva que escriba su prefijo a mano queda cubierta sin que nadie se acuerde, y la
+  // deduplicación de `visto` pasa a comparar identidades y no strings parecidos.
+  const push = (v: VideoEnPagina) => {
+    const id = canonizarVideoId(v.id);
+    if (!id || visto.has(id)) return;
+    visto.add(id);
+    out.push({ ...v, id });
+  };
 
   // ── <video> nativo ─────────────────────────────────────────────────────────
   for (const m of html.matchAll(/<video\b([^>]*)>([\s\S]{0,600}?)<\/video>|<video\b([^>]*)\/?>/gi)) {
@@ -259,11 +278,15 @@ export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
   for (const m of html.matchAll(/<wistia-player\b[^>]*\bmedia-id\s*=\s*["']([a-z0-9]{6,20})["']/gi)) {
     push({ id: `w:${m[1]}`, url: `https://fast.wistia.net/embed/iframe/${m[1]}`, pieza: 'video-wistia' });
   }
-  // Wistia, el embed clásico y el iframe. El snippet los mide por otro camino y les
-  // pone otro prefijo, así que el id se arma igual que allá.
+  // Wistia, el embed clásico y el iframe. Es la MISMA media que el custom element de
+  // arriba —el mismo hashedId— así que lleva el mismo id. Antes se emitía `wistia:` a
+  // propósito, para casar con el prefijo que el snippet le pone por ese camino; el
+  // 27/09/2026 se cerró al revés: canoniza el servidor y acá se escribe el canónico.
+  // Con dos prefijos, la fila que el analizador ve en la página y la que los eventos
+  // mandan eran dos videos para la pantalla que los nombra.
   for (const m of html.matchAll(/fast\.wistia\.(?:com|net)\/embed\/(?:iframe|medias)\/([a-z0-9]{6,20})|wistia_async_([a-z0-9]{6,20})/gi)) {
     const id = m[1] ?? m[2];
-    if (id) push({ id: `wistia:${id}`, url: `https://fast.wistia.net/embed/iframe/${id}`, pieza: 'video-wistia' });
+    if (id) push({ id: `w:${id}`, url: `https://fast.wistia.net/embed/iframe/${id}`, pieza: 'video-wistia' });
   }
   // Google Drive: no se puede medir, pero se puede ABRIR, y saber que está es lo
   // que evita decirle al cliente que su página no tiene video.

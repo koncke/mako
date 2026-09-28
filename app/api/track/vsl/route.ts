@@ -46,6 +46,7 @@ import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { LANDING_SERVICIO, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
 import { getSetting, setSetting } from '@/lib/settings';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
+import { canonizarVideoId } from '@/lib/video-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -322,7 +323,13 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       play_count: playCount,
       // Multi-VSL (pruebas A/B desde Panda): id del video + título si la landing
       // lo puede leer. Antes video_id llegaba en el payload y se descartaba.
-      video_id: texto(payload.video_id, 120),
+      // ⚠️ CANONIZADO ACÁ, y es el único lugar del repo que escribe esta columna.
+      // El snippet tiene dos ramas que pueden medir el MISMO reproductor y le ponen
+      // dos ids distintos (el nombre de la etiqueta y el id de la media). Arreglar el
+      // snippet no alcanza: va PEGADO en la página del cliente, y al 27/09/2026 ningún
+      // cliente corría la versión con el arreglo — el ws1 estaba en la v14 con 3.304
+      // visitas. Canonizar acá es lo único que cubre a quien no repegó el código.
+      video_id: canonizarVideoId(payload.video_id),
       vsl_titulo: texto(payload.vsl_titulo, 200),
       // A QUÉ APUNTA este evento (mig 0133). En un 'click', el destino o el texto
       // del botón; en un 'play', la URL del video. No son dos usos de un mismo

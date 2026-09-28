@@ -33,6 +33,7 @@ import { avanceDe, esEventoDeVideo } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
+import { idDeclaraHost } from './video-id';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1452,7 +1453,13 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
  * página, `w:`/`wistia:` Wistia, `yt:` YouTube, `vimeo:` Vimeo, `drive:` Drive. Un
  * UUID pelado es de Panda, y `iframeN` es un player que no se identificó.
  */
-const ID_CON_HOST = /^[a-z]{1,6}:/i;
+// ⚠️ ERA UN REGEX, Y CONTESTABA MAL. `/^[a-z]{1,6}:/i` daba **false** para
+// `wistia-player:`, `mux-player:` y `lite-youtube:` —medido el 27/09/2026— porque el
+// guion no es `[a-z]` y el prefijo pasa de 6 caracteres. Con la respuesta en false,
+// esos ids caían al respaldo de abajo («la única duración conocida», que es de Panda)
+// y se les calculaba el avance con la duración de OTRO video: exactamente lo que el
+// comentario de acá al lado dice que no puede pasar. Ahora lo contesta
+// `lib/video-id.ts`, que es el que conoce los prefijos que el repo escribe.
 
 function resolverDuracion(videosEnJuego: Set<string>, durs: Map<string, number>): (videoId: string | null | undefined) => number | null {
   const unica = durs.size === 1 ? [...durs.values()][0] : null;
@@ -1467,7 +1474,7 @@ function resolverDuracion(videosEnJuego: Set<string>, durs: Map<string, number>)
     // `<video>` de 11 segundos medido contra los 1.419 de un VSL de Panda da
     // cualquier cosa. Desde la v16 llegan ids de cinco hosts nuevos, así que esto
     // pasó de ser un riesgo teórico a uno con fecha.
-    if (v && ID_CON_HOST.test(v)) return null;
+    if (v && idDeclaraHost(v)) return null;
     return hayUnoSolo ? unica : null;
   };
 }

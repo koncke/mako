@@ -469,8 +469,76 @@ ws13 inflando el conteo histórico de reproducciones. Son un duplicado estricto 
 evento que tienen, el id bueno lo tiene igual o más, y les falta la escalera entera), así que
 borrarlas no pierde nada — pero es un DELETE en producción y lo decide Martín.
 
-**Y el cliente no se cura solo:** la v18 arregla el snippet, y hasta que repegue el código
-sigue con la v16 mandando los dos ids.
+### ⚠️ Y arreglar el SNIPPET no arregla a nadie: el snippet va pegado en la página del cliente
+
+Es la parte que costó el segundo round. Con la v18 commiteada, desplegada y el histórico
+borrado, **el id duplicado volvió a nacer esa misma noche**: 5 filas nuevas de
+`wistia-player:` a las 23:51, dos visitantes distintos, tráfico pago real de Instagram
+(`utm_source=ig` con `fbclid`), con 6 ms entre el `play` de un id y el del otro.
+
+El porqué se mide en una consulta, y es la regla que queda: **`landing_visits.sv` dice qué
+versión corre cada cliente, y al 27/09/2026 ninguno corría la v17 ni la v18.**
+
+| workspace | versión instalada | visitas en 7 días |
+|---|---|---|
+| ws1 (Mauricio) | **v14** | 3.304 |
+| ws11 | v15 y v16 | 73 |
+| ws13 (Código Inmobiliario) | **v16** | 607 |
+| ws14 | v15 | 38 |
+
+Y la v16 es exactamente el commit (`3319ab20`) que introdujo las dos ramas que chocan. O
+sea que el arreglo del snippet es correcto y **su alcance es cero hasta que cada cliente
+repegue el código**, uno por uno, sin fecha.
+
+**La regla: si el arreglo tiene que llegarle a alguien que ya instaló una copia de nuestro
+código, va en el SERVIDOR.** El snippet se arregla igual —defensa en profundidad— pero el
+que manda es el que recibe, porque es el único que alcanza a quien no actualizó.
+
+El choke point existía y es uno: `app/api/track/vsl/route.ts` es la ÚNICA línea del repo
+que escribe `vsl_events.video_id`, y tenía un `trim()` + `slice(120)` y nada más. Ahí entra
+`canonizarVideoId` (`lib/video-id.ts`, sin `server-only` para que se pueda testear).
+
+⚠️ **Pero el catálogo NO pasa por el beacon**, y son tres nacederos, no uno:
+
+1. **El beacon** — todo evento de un navegador.
+2. **`lib/landing-videos.ts`** — por ahí pasan las dos pantallas que escriben el catálogo y
+   las tres operaciones de la API de MaKo. La canonicalización va adentro del saneo del id
+   (`idVideo`), no en los llamadores: puesta en el call-site, la próxima pantalla nace sin ella.
+3. **`videosDeHtml`** (`lib/landing-analisis.ts`) — pare ids leyendo el HTML, sin ejecutar
+   nada, y **nunca toca el beacon**. De ahí salió el tercer id: emitía `wistia:` para el
+   embed clásico. Medido: el ws13 tiene tres ids `drive:` en `landing.videos` y cero filas
+   `drive:` en `vsl_events` — entraron por este camino.
+
+⚠️ **Y el lector de prefijos estaba roto en los dos lugares que lo hacían.** `hostDeVideoId`
+devolvía `null` para `wistia:` —un prefijo que su propio archivo emitía doce líneas más
+abajo— y para toda la familia por nombre de etiqueta. Y `lib/leads.ts` preguntaba con
+`/^[a-z]{1,6}:/i`, que contesta **false** para `wistia-player:`, `mux-player:` y
+`lite-youtube:` (el guion no es `[a-z]` y el prefijo pasa de 6). Con `false`, esos ids caían
+al respaldo «la única duración conocida» —que es la de Panda— y **se les calculaba el avance
+con la duración de otro video**. El comentario de esa misma función explica por qué eso no
+puede pasar.
+
+⚠️ **Y canonizar al LEER puede romper lo que estaba escrito.** El ws13 tenía
+`wistia-player:<id>` en `landing.videos_ocultos`; canonizado, eso resuelve a `w:<id>`, que es
+**el VSL**. O sea que el propio arreglo le escondía el VSL al cliente. El backfill va en el
+mismo commit, y no renombra a ciegas: fila por fila pregunta si existe la gemela canónica
+(mismo visitante, mismo tipo, < 2 s) — si existe se borra (renombrar daría dos filas para un
+hecho), si no existe se renombra. Las 5 tenían gemela.
+
+**El control contra la recurrencia** (`tests/video-id.test.ts`) no comprueba el caso: comprueba
+que no se pueda repetir. Escanea `lib/landing-token.ts` y falla si aparece un prefijo literal
+que `video-id.ts` no declare, **y** si aparece una forma NUEVA de armar un id sin prefijo
+literal (hoy hay exactamente dos: `tag + ':'`, la familia por etiqueta de donde salió
+`wistia-player:`, y `WN + ':'`, el `wistia:` escrito partido para que el analizador de piezas
+no lo lea como una marca de la página). Una rama nueva que mida un elemento que otra rama ya
+mide rompe el test hasta que alguien declare el alias.
+
+Probado rompiéndolo, cinco veces: el beacon vuelve al saneo viejo → 6 pasan / 1 falla · el
+catálogo → 6/1 · el analizador vuelve a emitir `wistia:` → 6/1 · se saca un alias → 5/2 ·
+`idDeclaraHost` vuelve al regex → 6/1.
+
+**Vive en:** `lib/video-id.ts` · `app/api/track/vsl/route.ts` · `lib/landing-videos.ts` ·
+`lib/landing-analisis.ts` · `lib/leads.ts` · `tests/video-id.test.ts`
 
 **Vive en:** `lib/landing-token.ts` (`hostDeMedia`, `wisHost`) · `lib/landing-videos.ts` ·
 `app/integraciones/NombrarVideos.tsx` · `tests/landing-snippet-emitido.test.ts`
