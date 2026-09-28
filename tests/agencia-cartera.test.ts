@@ -128,12 +128,21 @@ test('esWsValido acepta sólo enteros positivos', () => {
   }
 });
 
-test('la salida NO es una constante: cada uno vuelve a donde puede entrar', () => {
-  // '/admin' está en SOLO_ADMIN del gate: mandar ahí a una agencia es mandarla
-  // a un 403 que la deposita en /inicio.
-  assert.equal(rutaDeSalida(true), '/admin');
-  assert.equal(rutaDeSalida(false), '/customer-success');
-  assert.notEqual(rutaDeSalida(false), '/admin');
+test('la salida NUNCA manda a una ruta que el gate le niega', () => {
+  // Lo que este test cuida no es el string: es que nadie vuelva a mandar a alguien
+  // a '/admin', que está en SOLO_ADMIN del gate — una agencia que aterrizara ahí se
+  // come el `denegarRol` y termina en /inicio, que se lee como un botón roto.
+  //
+  // ⚠️ Desde el 28/09/2026 las dos respuestas son la MISMA ruta, y eso no vació el
+  // test: el panel de la plataforma se mudó adentro de /customer-success, así que
+  // «volver a donde puedo entrar» es el mismo lugar para los dos y lo que cambia es
+  // QUÉ lista se dibuja, que lo decide el server por rol. La función se queda porque
+  // el día que se separen otra vez, el que busque «a dónde vuelvo» tiene un solo
+  // lugar donde mirar — y porque esta aserción sigue siendo la que lo impide.
+  for (const esSuper of [true, false]) {
+    assert.equal(rutaDeSalida(esSuper), '/customer-success');
+    assert.notEqual(rutaDeSalida(esSuper), '/admin');
+  }
 });
 
 test('cada estado de la base tiene su rótulo, y ninguno sobra', () => {

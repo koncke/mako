@@ -86,7 +86,21 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
 // =============================================================================
 // AdminView
 // =============================================================================
-export function AdminView() {
+/**
+ * El panel de clientes de la PLATAFORMA.
+ *
+ * ⚠️ VIVE EN /customer-success DESDE EL 28/09/2026, y /admin es un redirect. «Quiero
+ * que la ruta de admin se elimine, y que yo vea esta tab en customer success de mi
+ * cuenta de SuperAdmin.» Y tiene sentido mas alla del pedido: los clientes del super
+ * admin SON los workspaces —Mauricio es el ws1, Leila el 11, Juanfran el 13—, asi que
+ * «mis clientes» era la misma pregunta contestada en dos pantallas distintas.
+ *
+ * Quien decide cual de las dos listas se dibuja es el SERVER (app/customer-success/
+ * page.tsx), por rol: un super admin sin impersonar ve workspaces; cualquier otro ve
+ * sus leads ganados. Adentro de un cliente, el super admin ve los de ESE cliente,
+ * que es lo correcto.
+ */
+export function AdminView({ titulo = 'Admin', icono = 'admin' }: { titulo?: string; icono?: string } = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -116,8 +130,8 @@ export function AdminView() {
 
   const header = (
     <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-      <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="admin" size={34} /></span>
-      <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Admin</h1>
+      <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name={icono} size={34} /></span>
+      <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>{titulo}</h1>
     </header>
   );
 
@@ -143,9 +157,17 @@ export function AdminView() {
   }
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+    // ⚠️ `--cartera-max: none` = ESTA pantalla usa TODO el ancho. «No ocupa el
+    // ancho total de la pantalla» (27/09/2026): la cartera de un cliente topa en
+    // 1180 porque son hasta treinta tarjetas y una medida de lectura ayuda; el
+    // panel de la plataforma son nueve y el tope solo dejaba una franja muerta a
+    // la derecha. Se redefine la variable en vez de tocar los tres archivos.
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', ['--cartera-max' as string]: 'none' } as CSSProperties}>
       {header}
-      <div style={{ maxWidth: 1180, marginTop: 18 }}>
+      {/* ⚠️ SIN TOPE ACA: el que manda es el de la grilla, y ponerle otro encima
+          hacia que la pantalla se cortara antes sin que nada lo explicara. El
+          `--cartera-max` de abajo es el unico lugar donde vive ese numero. */}
+      <div style={{ marginTop: 18 }}>
         {/* ⚠️ SIN SUB-TABS. Eran tres —Clientes, Super Admins, Copywriting— y las
             tres se fueron el 27/09/2026: «elimina la sub tab de super admin, que
             esté todo junto, y lo de copywriting ni siquiera debería estar allí».
@@ -605,7 +627,21 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       {/* «Elimina la sub tab de super admin, que esté todo junto» (27/09/2026).
           Y es lo que siempre fueron: un puñado de personas, no un área. Debajo de
           los clientes porque se consultan mucho menos. */}
-      <SeccionSuperAdmins usuarios={usuarios} sesion={sesion} recargar={recargar} />
+      {/* ⛔ ACA VIVIA LA SECCION «Super Admins», con su propio formulario de alta y
+          su propia lista. Se fue el 28/09/2026: «el super admin no debe ni tener un
+          form diferente ni una vista diferente abajo de todo, simplemente un usuario
+          mas, como super admin».
+          Y es lo que siempre fue: los super admins son el EQUIPO del workspace de la
+          plataforma, que ya esta en esta grilla como una tarjeta mas. Se dan de alta
+          abriendo su ficha, igual que se suma a alguien a cualquier otro cliente —
+          un alta que se hace en dos lugares distintos es la que se queda vieja.
+          El aviso de sesion legacy vivia SOLO ahi adentro y se mudo arriba, que es lo
+          unico que le dice a alguien que su cuenta no queda registrada. */}
+      {sesion.legacy && (
+        <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
+          Estás con la sesión compartida vieja. Cierra sesión y vuelve a entrar con Google para que tu cuenta quede registrada.
+        </div>
+      )}
 
       {/* ── El alta, en un modal ─────────────────────────────────────────────── */}
       {/* Era un formulario de cinco campos clavado ARRIBA de la lista, o sea que
@@ -668,7 +704,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
             w={wAbierto}
             equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
             accionando={accionando} accionUser={accionUser} reenviar={reenviar}
-            onEliminar={setAEliminar} avisoReenvio={avisoReenvio} />
+            onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
         </Modal>
       )}
 
@@ -705,7 +741,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
  * accion en una mudanza de presentacion no da error y no lo ve nadie hasta que
  * alguien la necesita.
  */
-function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onEliminar, avisoReenvio }: {
+function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onEliminar, avisoReenvio, onRecargar }: {
   w: Workspace;
   equipo: Usuario[];
   accionando: boolean;
@@ -713,14 +749,76 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
   reenviar: (u: Usuario) => void;
   onEliminar: (u: Usuario) => void;
   avisoReenvio: { id: number; aviso: AvisoInvitacion } | null;
+  onRecargar: () => Promise<void>;
 }) {
+  const [sumando, setSumando] = useState(false);
+  const [sumandoYa, setSumandoYa] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState('');
+  const [nuevoEmail, setNuevoEmail] = useState('');
+  const [errSumar, setErrSumar] = useState<string | null>(null);
+  const [avisoSumar, setAvisoSumar] = useState<AvisoInvitacion | null>(null);
+  const puedeSumar = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nuevoEmail.trim()) && !sumandoYa;
+
+  /**
+   * Sumar a alguien a ESTE workspace.
+   *
+   * ⚠️ EL ROL GLOBAL SALE DE DONDE SE SUMA, no de un campo: en el workspace de la
+   * plataforma (capa `superadmin`) la persona es un SUPER ADMIN; en cualquier otro
+   * es un usuario del cliente. Eso es lo que hace que «un super admin es un usuario
+   * mas» sea verdad y no una frase — antes habia un formulario aparte que pasaba
+   * `rol: 'admin'` a mano, y era el unico lugar donde se podia crear uno.
+   */
+  const sumar = async () => {
+    if (!puedeSumar) return;
+    setErrSumar(null); setAvisoSumar(null); setSumandoYa(true);
+    try {
+      const email = nuevoEmail.trim();
+      const esPlataforma = w.capa === 'superadmin';
+      const r = await fetch('/api/admin/usuarios', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'crear', email, nombre: nuevoNombre.trim(),
+          rol: esPlataforma ? 'admin' : 'usuario',
+          ...(esPlataforma ? {} : { workspace_id: w.id, rol_ws: 'admin' }),
+        }),
+      });
+      const j = (await r.json()) as Respuesta;
+      if (!j.ok) { setErrSumar(j.error ?? 'No se pudo sumar a esa persona.'); return; }
+      setNuevoNombre(''); setNuevoEmail(''); setSumando(false);
+      setAvisoSumar(avisoInvitacion(j.invitacion, email));
+      await onRecargar();
+    } finally { setSumandoYa(false); }
+  };
+
   return (
     <div>
       <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 14 }}>
         <span style={{ fontFamily: MONO }}>{w.slug ?? '—'}</span> · {capaDef(w.capa).nombre} · {w.estado}
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', padding: '10px 0 8px' }}>Equipo</div>
-      {equipo.length === 0 ? (
+      {/* ⚠️ EL ALTA VIVE ACA, Y ES LA UNICA. Habia un formulario aparte, abajo de todo,
+          solo para super admins — y un super admin es un usuario mas del workspace de la
+          plataforma, que es una tarjeta mas de esta grilla. Dos altas para la misma cosa
+          es como una de las dos se queda vieja: la de super admins no pedia rol_ws, no
+          mostraba el aviso de invitacion y no chequeaba lo mismo. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 8px' }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>Equipo</span>
+        <span style={{ flex: 1 }} />
+        {!sumando && <button type="button" style={{ ...btnGhost, padding: '5px 11px', fontSize: 12.5, fontWeight: 600 }} onClick={() => setSumando(true)}>＋ Sumar a alguien</button>}
+      </div>
+      {sumando && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.4fr auto auto', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+          <input style={input} value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Nombre y apellido" />
+          <input style={input} type="email" value={nuevoEmail} onChange={(e) => setNuevoEmail(e.target.value)} placeholder="persona@empresa.com"
+            onKeyDown={(e) => { if (e.key === 'Enter' && puedeSumar) sumar(); }} />
+          <button type="button" style={{ ...btnDark, padding: '9px 14px', opacity: puedeSumar ? 1 : 0.5 }} disabled={!puedeSumar} onClick={sumar}>
+            {sumandoYa ? 'Sumando…' : 'Sumar'}
+          </button>
+          <button type="button" style={{ ...btnGhost, padding: '9px 12px' }} onClick={() => { setSumando(false); setErrSumar(null); }}>Cancelar</button>
+        </div>
+      )}
+      {errSumar && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 10 }}>{errSumar}</div>}
+      {avisoSumar && <div style={{ marginBottom: 10 }}><Aviso aviso={avisoSumar} /></div>}
+      {equipo.length === 0 && !sumando ? (
         <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, paddingBottom: 6 }}>
           Sin miembros todavía. El admin de este cliente los suma desde su panel de Equipo (Configuraciones → Equipo), o entra como el cliente para configurarlo.
         </div>
@@ -793,132 +891,5 @@ function NombreClienteDialog({ nombre, onNombre, onCancel, onConfirm, titulo = '
 // =============================================================================
 // TAB — Super Admins (admins de la app)
 // =============================================================================
-function SeccionSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
-  const [nombre, setNombre] = useState('');
-  const [email, setEmail] = useState('');
-  const [creando, setCreando] = useState(false);
-  const [errCrear, setErrCrear] = useState<string | null>(null);
-  const [hintCrear, setHintCrear] = useState<AvisoInvitacion | null>(null);
-
-  const [errAccion, setErrAccion] = useState<string | null>(null);
-  const [accionando, setAccionando] = useState(false);
-  const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
-  const [avisoReenvio, setAvisoReenvio] = useState<{ id: number; aviso: AvisoInvitacion } | null>(null);
-
-  const admins = usuarios.filter((u) => u.rol === 'admin');
-
-  const post = async (body: Record<string, unknown>): Promise<Respuesta> => {
-    try { return await (await fetch('/api/admin/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); }
-    catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
-  };
-
-  const crear = async () => {
-    if (creando) return;
-    setErrCrear(null); setHintCrear(null); setCreando(true);
-    try {
-      const destino = email.trim();
-      const j = await post({ action: 'crear', email: destino, nombre: nombre.trim(), rol: 'admin' });
-      if (!j.ok) { setErrCrear(j.error ?? 'No se pudo crear el admin.'); return; }
-      setNombre(''); setEmail('');
-      setHintCrear(avisoInvitacion(j.invitacion, destino));
-      await recargar();
-    } finally { setCreando(false); }
-  };
-
-  const reenviar = async (u: Usuario) => {
-    if (accionando) return;
-    setAvisoReenvio(null); setErrAccion(null); setAccionando(true);
-    try {
-      const j = await post({ action: 'reinvitar', id: u.id });
-      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo reenviar el acceso.'); return; }
-      setAvisoReenvio({ id: u.id, aviso: avisoInvitacion(j.invitacion, u.email) });
-      await recargar();
-    } finally { setAccionando(false); }
-  };
-
-  const accion = async (body: Record<string, unknown>) => {
-    if (accionando) return;
-    setErrAccion(null); setAccionando(true);
-    try {
-      const j = await post(body);
-      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo aplicar el cambio.'); return; }
-      await recargar();
-    } finally { setAccionando(false); }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={card}>
-        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar super admin</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Los super admins gestionan todos los clientes y no pertenecen a ninguno. No son lo mismo que el &ldquo;admin&rdquo; de un cliente.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr auto', gap: 12, alignItems: 'end' }}>
-          <div><label style={labelStyle}>Nombre</label><input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellido" /></div>
-          <div><label style={labelStyle}>Email</label><input style={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@empresa.com" onKeyDown={(e) => { if (e.key === 'Enter' && email.trim()) crear(); }} /></div>
-          <button style={{ ...btnDark, opacity: creando || !email.trim() ? 0.5 : 1 }} disabled={creando || !email.trim()} onClick={crear}>{creando ? 'Agregando…' : 'Agregar'}</button>
-        </div>
-        {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
-        {hintCrear && <Aviso aviso={hintCrear} />}
-      </div>
-
-      {errAccion && <div style={bannerError}>{errAccion}</div>}
-
-      {admins.length === 0 ? (
-        <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5 }}>No hay super admins.</div>
-      ) : (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          {admins.map((u, i) => (
-            <div key={u.id} style={{ padding: '0 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
-              <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
-              </div>
-              <span style={chip('var(--primary-bg)', 'var(--primary)')}>super admin</span>
-              <ChipEstadoUsuario u={u} />
-              <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', flex: 'none', width: 118, textAlign: 'right' }} title="Último login">{fmtLogin(u.ultimo_login)}</span>
-              <Dropdown
-                value="" resetAfterSelect align="right" placeholder="Acciones"
-                ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
-                buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
-                options={[
-                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
-                  { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
-                  { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
-                ]}
-                onChange={(v) => {
-                  if (v === 'reinvitar') reenviar(u);
-                  else if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
-                  else if (v === 'eliminar') setAEliminar(u);
-                }}
-              />
-            </div>
-            {avisoReenvio?.id === u.id && <div style={{ paddingBottom: 12 }}><Aviso aviso={avisoReenvio.aviso} /></div>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {sesion.legacy && (
-        <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
-          Estás con la sesión compartida vieja. Cierra sesión y vuelve a entrar con Google para que tu cuenta quede registrada.
-        </div>
-      )}
-
-      {aEliminar && (
-        <ConfirmDialog
-          titulo={`¿Eliminar a ${aEliminar.nombre || aEliminar.email}?`}
-          detalle="Pierde el acceso como super admin. Esta acción no se puede deshacer."
-          confirmLabel="Eliminar"
-          danger
-          onCancel={() => setAEliminar(null)}
-          onConfirm={() => { const u = aEliminar; setAEliminar(null); accion({ action: 'eliminar', id: u.id }); }}
-        />
-      )}
-    </div>
-  );
-}
-
-
 // =============================================================================
 // TAB — Ángulos de guion (la biblioteca que alimenta "Nuevo guion" en la Matriz)

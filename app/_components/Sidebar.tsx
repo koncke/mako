@@ -644,12 +644,12 @@ export function Sidebar() {
               <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', color: 'var(--dev-line)', fontWeight: 700 }}>
                 {open ? 'MODO DEV' : 'DEV'}
               </span>
-              {open && <a href="/admin" className="mk-dev-salir">← Regresar a Admin</a>}
+              {open && <a href="/customer-success" className="mk-dev-salir">← Regresar a Clientes</a>}
             </div>
             {/* Plegada la salida no entra como texto: queda la flecha sola,
                 que es el mismo destino y sigue siendo alcanzable. */}
             {!open && (
-              <a href="/admin" title="Regresar a Admin" aria-label="Regresar a Admin"
+              <a href="/customer-success" title="Regresar a Clientes" aria-label="Regresar a Clientes"
                 style={{ display: 'block', textAlign: 'center', marginTop: 6, color: 'var(--dev-line)', fontSize: 14, textDecoration: 'none' }}>←</a>
             )}
           </div>

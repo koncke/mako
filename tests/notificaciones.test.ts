@@ -136,7 +136,10 @@ test('las sub-rutas de /admin no se comen el título entre sí', () => {
   // la feature. Este test decía 'MaKo - Guiones' y fue lo único que avisó del
   // renombre — el pre-push corre tipos, no tests.
   assert.equal(tituloDe('/admin/guiones'), 'MaKo - Ads Writer');
-  assert.equal(tituloDe('/admin'), 'MaKo - Clientes');
+  // ⚠️ Desde el 28/09/2026 /admin es un REDIRECT a /customer-success y ya no tiene
+  // item propio, así que cae al fallback («Admin», el primer segmento). Está bien:
+  // es una ruta de paso, y el nombre que importa lo lee el destino.
+  assert.equal(tituloDe('/admin'), 'MaKo - Admin');
   assert.notEqual(tituloDe('/admin'), tituloDe('/admin/guiones'));
   assert.notEqual(tituloDe('/admin'), tituloDe('/admin/dev/semaforo'));
 });

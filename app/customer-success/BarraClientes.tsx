@@ -313,7 +313,7 @@ const CSS = `
    centrada, y con la mitad de los controles caidos a un segundo renglon. Se lee
    como una barra rota, no como una barra angosta. */
 .bc{ display:flex; align-items:center; gap:10px; margin:0 auto 16px; width:100%;
-  max-width:1180px; flex-wrap:wrap; }
+  max-width:var(--cartera-max, 1180px); flex-wrap:wrap; }
 .bc-buscar{ display:inline-flex; align-items:center; gap:8px; flex:0 1 320px; min-width:190px;
   height:38px; padding:0 11px; border:1px solid var(--border); border-radius:9px;
   background:var(--surface); color:var(--faint); }

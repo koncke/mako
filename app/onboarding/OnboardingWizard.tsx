@@ -337,7 +337,7 @@ export function OnboardingWizard() {
           deja de tener una opinión propia. El DELETE queda porque por este camino
           el contexto puede venir de la cookie. */}
       <button type="button" onClick={async () => {
-        let destino = '/admin';
+        let destino = '/customer-success';
         try {
           const j = await (await fetch('/api/auth/me')).json();
           if (typeof j?.salida === 'string' && j.salida.startsWith('/')) destino = j.salida;

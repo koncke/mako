@@ -22,7 +22,8 @@ import { requireCapa } from '@/lib/tab-access';
 import { ClientesApp } from './ClientesApp';
 import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
-import { getWorkspaceActual, adminDeWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
+import { AdminView } from '@/app/admin/AdminView';
 import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
 import { getSesionAdmin } from '@/lib/auth';
 
@@ -33,6 +34,20 @@ export const metadata = { title: 'Clientes · Customer Success' };
 
 export default async function CustomerSuccessPage() {
   await requireCapa('customer-success');
+
+  // ⚠️ LA MISMA TAB CONTESTA DOS PREGUNTAS SEGUN QUIEN MIRE, y no es un atajo: es
+  // que «mis clientes» significa cosas distintas. Para un negocio son sus LEADS
+  // GANADOS; para la plataforma son sus WORKSPACES — y los clientes del super
+  // admin son literalmente eso: Mauricio es el ws1, Leila el 11, Juanfran el 13.
+  // Antes eso vivia en /admin, o sea la misma pregunta contestada en dos pantallas.
+  //
+  // «SIN IMPERSONAR» es la mitad que importa: adentro de un cliente, el super admin
+  // tiene que ver la cartera de ESE cliente, no la de la plataforma. Lo decide
+  // `estaImpersonando()`, que es la misma funcion de la que cuelga el chrome — si
+  // mirara otra cosa, la barra diria un cliente y la lista seria de otro.
+  if ((await getSesionAdmin()) && !(await estaImpersonando())) {
+    return <AdminView titulo="Clientes" icono="cs" />;
+  }
 
   // ⚠️ SI LA LISTA NO SE PUEDE LEER, NO SE DIBUJA UNA LISTA VACÍA. Un workspace
   // que todavía no ganó a nadie y uno cuya consulta falló se ven idénticos, y el

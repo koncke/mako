@@ -25,7 +25,7 @@ export function ImpersonationBanner() {
   // Cómo se entró y a dónde se vuelve. Los dos los manda `/api/auth/me`, porque
   // la respuesta depende del ROL y el navegador no lo puede decidir.
   const [modoAgencia, setModoAgencia] = useState(false);
-  const [salida, setSalida] = useState('/admin');
+  const [salida, setSalida] = useState('/customer-success');
   // De qué agencia es este cliente, cuando la hay. Lo DERIVA el server: un
   // parámetro de la URL se perdería en la primera navegación (ninguna de las
   // cuatro formas de navegar re-pega nada que no sea `?ws=`).

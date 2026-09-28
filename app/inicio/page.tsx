@@ -20,7 +20,7 @@ export default async function Inicio() {
   const sesion = await getUsuarioActual();
   if (sesion?.rol === 'admin') {
     const ws = await getWorkspaceActual(); // null si no está impersonando
-    if (ws == null) redirect('/admin');
+    if (ws == null) redirect('/customer-success');
   }
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con

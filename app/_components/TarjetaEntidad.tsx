@@ -139,8 +139,14 @@ export const CSS_TARJETA = `
    ⚠️ EL 1180 ESTA TAMBIEN EN LA BARRA Y EN LA TABLA (BarraClientes, TablaClientes):
    si cambia aca, cambia alla, o las tres cajas de la pantalla dejan de alinearse y
    eso no se ve en el diff, se ve como una pantalla torcida. */
+/* ⚠️ EL TOPE ES UNA VARIABLE Y NO UN NUMERO. Estaba escrito CUATRO veces en TRES
+   archivos (aca, la barra y la tabla), asi que cambiarlo en uno desalineaba las tres
+   cajas de la pantalla — y eso no se ve en el diff, se ve como una pantalla torcida.
+   El propio codigo ya lo avisaba. Ahora se define una vez y quien quiera otro ancho
+   redefine --cartera-max en su contenedor, como hace el panel de la plataforma. */
+:root{ --cartera-max:1180px; }
 .cl-grid{ list-style:none; margin:0 auto; padding:0; display:grid; gap:18px;
-  grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); width:100%; max-width:1180px; }
+  grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); width:100%; max-width:var(--cartera-max); }
 .cl-grid > li{ display:flex; }
 
 .cl-card{ position:relative; display:flex; flex-direction:column; width:100%;

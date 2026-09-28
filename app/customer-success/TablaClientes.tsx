@@ -87,7 +87,7 @@ export function TablaClientes({ filas, numeroDe, resumenDe, tableroOk, onAbrir, 
 const CSS = `
 /* El mismo ancho y el mismo centrado que la grilla y que la barra (ver alla). */
 .tc-caja{ border:1px solid var(--border); border-radius:14px; overflow:hidden;
-  background:var(--surface); max-width:1180px; margin:0 auto; }
+  background:var(--surface); max-width:var(--cartera-max, 1180px); margin:0 auto; }
 .tc{ width:100%; border-collapse:collapse; font-size:13.5px; }
 .tc th{ text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
   color:var(--faint); font-weight:700; padding:11px 14px; border-bottom:1px solid var(--border);
@@ -103,7 +103,7 @@ const CSS = `
 .tc-emp{ color:var(--dim); }
 .tc-vacio{ color:var(--faint); }
 /* El boton de crear, arriba y alineado con la caja de la tabla. */
-.tc-arriba{ display:flex; justify-content:flex-end; max-width:1180px; margin:0 auto 12px; }
+.tc-arriba{ display:flex; justify-content:flex-end; max-width:var(--cartera-max, 1180px); margin:0 auto 12px; }
 .tc-nuevo{ border:1px solid var(--border-strong); background:var(--surface); border-radius:9px;
   padding:8px 14px; font:inherit; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; }
 .tc-nuevo:hover{ border-color:var(--primary); color:var(--primary); }

@@ -102,5 +102,9 @@ export function esWsValido(v: unknown): v is number {
  * cartera, que es la pantalla desde la que entró.
  */
 export function rutaDeSalida(esSuperAdmin: boolean): string {
-  return esSuperAdmin ? '/admin' : '/customer-success';
+  // Las dos van a la MISMA ruta desde que el panel de la plataforma vive ahi
+  // (28/09/2026): lo que cambia es QUE lista dibuja, y eso lo decide el server
+  // por rol. La funcion se queda porque el dia que se separen de nuevo, el que
+  // busque «a donde vuelvo» tiene un solo lugar donde mirar.
+  return '/customer-success';
 }
