@@ -21,7 +21,7 @@ import { MONO, SANS, card, input, labelStyle, btnDark, btnGhost, btnPrimary, chi
 import type { Workspace, Sesion } from './tipos';
 // ⚠️ LAS MISMAS PIEZAS QUE /customer-success, no unas parecidas. Es lo que hace
 // que «exactamente igual» siga siendo cierto despues de la primera edicion.
-import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, colorDe } from '../_components/TarjetaEntidad';
+import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, PieTexto, colorDe } from '../_components/TarjetaEntidad';
 import { BarraClientes, entraEnVentana } from '../customer-success/BarraClientes';
 import { Marca } from '../_components/Marca';
 import { Modal } from '../_ui/Modal';
@@ -38,6 +38,7 @@ import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
 import { ROLES_ALTA, ROTULO_ROL } from '@/lib/agencia-altas';
+import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 
 /** Lo que contestan /api/admin/workspaces y /api/admin/usuarios. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
@@ -450,9 +451,44 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
   const [cuando, setCuando] = useState('siempre');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
 
+  /**
+   * LOS CLIENTES DE UNA AGENCIA NO SON CLIENTES DE MAKO.
+   *
+   * «Los clientes de agencia deberían aparecer dentro de la tab de EQUIPO de esa
+   * agencia como una card de cliente. No como un cliente más de MaKo» (28/09/2026).
+   * Y tiene sentido más allá de la pantalla: a ese negocio no le factura MaKo, le
+   * factura la agencia. Mezclarlos en la grilla contaba de más y dejaba creer que
+   * MaKo tiene un cliente donde tiene medio.
+   *
+   * ⚠️ `pendiente` CUENTA Y `revocado` NO, y la diferencia se vio en pantalla. Un
+   * pendiente ya es de esa agencia —sólo falta la firma— así que va adentro de su
+   * ficha; un revocado es la afirmación CONTRARIA: «este workspace NO es (o dejó de
+   * ser) cliente de esa agencia». Contándolo, el Cliente de Prueba desaparecía de la
+   * grilla de MaKo por una fila revocada que decía justamente que no era de Código.
+   */
+  const agenciaDe = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const f of agenciasEstado.carteras) {
+      if (f.estado === 'revocado') continue;
+      m.set(f.cliente_ws, f.agencia_ws);
+    }
+    return m;
+  }, [agenciasEstado.carteras]);
+
+  /**
+   * Lo que la grilla dibuja: los clientes de MaKo, sin los de las agencias.
+   *
+   * ⚠️ SE FILTRA ACÁ Y NO EN `visibles`, que es lo que la barra cuenta: si se filtrara
+   * después, el contador diría «9 de 9» sobre una grilla de 8 y el que busca al que
+   * falta no tendría dónde mirar. Acá el total ya es el correcto.
+   */
+  const deMaKo = useMemo(() => workspaces.filter((w) => !agenciaDe.has(w.id)), [workspaces, agenciaDe]);
+
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
-    let l = workspaces.filter((w) =>
+    // ⚠️ DESDE `deMaKo`, no desde `workspaces`: los clientes de una agencia no son
+    // tarjetas de esta grilla — viven adentro de la ficha de su agencia.
+    let l = deMaKo.filter((w) =>
       !t || w.nombre.toLowerCase().includes(t) || (w.slug ?? '').toLowerCase().includes(t));
     if (filtro === 'activos') l = l.filter((w) => w.estado === 'activo');
     else if (filtro === 'pausados') l = l.filter((w) => w.estado === 'pausado');
@@ -469,7 +505,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
     else por.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es'));
     if (dir === 'asc') por.reverse();
     return por;
-  }, [workspaces, q, filtro, orden, cuando, dir]);
+  }, [deMaKo, q, filtro, orden, cuando, dir]);
 
   // ⚠️ EL EMAIL ENTRA EN LA CONDICION. Antes el boton se habilitaba con el
   // nombre solo, asi que se podia crear un cliente sin admin: un workspace al que
@@ -504,8 +540,24 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
     return admin?.cara ?? admin?.foto_url ?? null;
   };
 
+
   const puedeCrear = nombre.trim().length >= 2 && emailOk && !creando;
   const wAbierto = abierto != null ? workspaces.find((w) => w.id === abierto) ?? null : null;
+
+  /**
+   * En qué estado está el acceso de la agencia a ese cliente. Es lo que va al pie de su
+   * tarjeta: «aprobado» no aporta nada —es el caso normal— pero «esperando tu
+   * aprobación» o «revocado» son justamente lo que hay que ver de un vistazo.
+   */
+  const estadoCartera = (clienteWs: number): string => {
+    const f = agenciasEstado.carteras.find((x) => x.cliente_ws === clienteWs);
+    return ROTULO_CARTERA[(f?.estado ?? 'pendiente') as EstadoCartera] ?? (f?.estado ?? '—');
+  };
+
+  /** Los clientes de ESTA agencia, para dibujarlos adentro de su ficha. */
+  const clientesDeAgencia = (agenciaWs: number): Workspace[] =>
+    workspaces.filter((w) => agenciaDe.get(w.id) === agenciaWs);
+
 
   /**
    * EL BOTÓN que abrió cada selector, no un booleano: el popover cuelga de su ancla y
@@ -566,7 +618,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       <BarraClientes
         q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
         filtro={filtro} onFiltro={setFiltro} orden={orden} onOrden={setOrden}
-        nVisibles={visibles.length} nTotal={workspaces.length}
+        nVisibles={visibles.length} nTotal={deMaKo.length}
         placeholder="Buscar un cliente por nombre o slug…"
         filtros={FILTRO_WS} ordenes={ORDEN_WS}
         cuandos={CUANDO_WS} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
@@ -576,7 +628,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
         onExportar={() => exportarWorkspaces(visibles)}
       />
 
-      {workspaces.length === 0 ? (
+      {deMaKo.length === 0 ? (
         <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
           Todavía no hay clientes. Crea el primero con la tarjeta de arriba.
         </div>
@@ -650,7 +702,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       {/* ⚠️ «NO ENCONTRÉ» NO ES «NO HAY». Sin este renglón, buscar algo que no existe
           deja la grilla con una sola tarjeta de crear, y eso se lee como que se
           borró la lista de clientes. */}
-      {workspaces.length > 0 && visibles.length === 0 && (
+      {deMaKo.length > 0 && visibles.length === 0 && (
         <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>
       )}
 
@@ -811,6 +863,40 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
               ws={wAbierto.id} nombre={wAbierto.nombre}
               user={{ nombre: sesion?.email ?? 'Super admin', avatarUrl: '' }} />
           }
+          /* Los clientes de esta agencia, si tiene. `undefined` para un cliente
+             común: la ausencia se ve, y la tab de Equipo queda como siempre. */
+          clientes={(() => {
+            const suyos = clientesDeAgencia(wAbierto.id);
+            if (!suyos.length) return undefined;
+            return (
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>
+                  Sus clientes · {suyos.length}
+                </div>
+                <GrillaTarjetas sinEstirar>
+                  {suyos.map((c) => (
+                    <li key={c.id}>
+                      <TarjetaEntidad
+                        nombre={c.nombre}
+                        portada={c.portada} portadaY={c.portada_y}
+                        icono={c.icono} avatarY={c.avatar_y}
+                        foto={caraDe(c)}
+                        color={colorDe(c.nombre)}
+                        /* Abre SU ficha en lugar de ésta. Es una navegación y no una
+                           pila: apilar dos fichas de 1560 deja la de atrás invisible y
+                           sin forma de volver que no sea cerrar las dos. */
+                        onAbrir={() => setAbierto(c.id)}
+                        etiqueta={`Abrir la ficha de ${c.nombre}`}
+                        chips={<span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(c.capa).nombre}</span>}
+                        bajada={<><span style={{ fontFamily: MONO }}>{c.slug ?? '—'}</span> · {c.usuarios} {c.usuarios === 1 ? 'miembro' : 'miembros'}</>}
+                        pie={<PieTexto>{estadoCartera(c.id)}</PieTexto>}
+                      />
+                    </li>
+                  ))}
+                </GrillaTarjetas>
+              </div>
+            );
+          })()}
           equipo={
             <EquipoDelCliente
               w={wAbierto}

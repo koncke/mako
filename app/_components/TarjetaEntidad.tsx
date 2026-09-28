@@ -114,10 +114,26 @@ export function PieTexto({ children, mal = false }: { children: ReactNode; mal?:
 }
 
 /** La grilla. Trae la hoja adentro: montarla es todo lo que hace falta. */
-export function GrillaTarjetas({ children }: { children: ReactNode }) {
+export function GrillaTarjetas({ children, sinEstirar = false }: {
+  children: ReactNode;
+  /**
+   * NO ESTIRAR la última fila: las tarjetas conservan su ancho y sobra espacio a la
+   * derecha.
+   *
+   * ⚠️ ES `auto-fill` CONTRA `auto-fit`, Y LA DIFERENCIA SÓLO SE VE CON POCAS. Con
+   * `auto-fit` las columnas vacías se COLAPSAN y la que queda se come todo el ancho:
+   * una grilla de UN cliente adentro de un modal de 1560 dibuja una tarjeta de 1500,
+   * que se lee como una fila de tabla y no como una tarjeta. Con `auto-fill` las
+   * columnas vacías se quedan y la tarjeta mide lo que mide.
+   *
+   * El default es `auto-fit` porque en la GRILLA de la pantalla es lo correcto: ahí
+   * siempre hay varias y llenar la fila es lo que se quiere.
+   */
+  sinEstirar?: boolean;
+}) {
   return (
     <>
-      <ul className="cl-grid">{children}</ul>
+      <ul className={sinEstirar ? 'cl-grid cl-grid-fija' : 'cl-grid'}>{children}</ul>
       <style dangerouslySetInnerHTML={{ __html: CSS_TARJETA }} />
     </>
   );
@@ -151,6 +167,10 @@ export const CSS_TARJETA = `
 .cl-grid{ list-style:none; margin:0 auto; padding:0; display:grid; gap:18px;
   grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); width:100%; max-width:var(--cartera-max); }
 .cl-grid > li{ display:flex; }
+/* Ver sinEstirar: auto-FILL deja las columnas vacías en su lugar, así que con una sola
+   tarjeta la tarjeta mide una tarjeta. Y se topea el ancho por si el contenedor no
+   tiene tope propio: adentro de un modal, --cartera-max puede venir en none. */
+.cl-grid-fija{ grid-template-columns:repeat(auto-fill, minmax(320px, 400px)); }
 
 .cl-card{ position:relative; display:flex; flex-direction:column; width:100%;
   background:var(--surface); border:1px solid var(--border); border-radius:18px;

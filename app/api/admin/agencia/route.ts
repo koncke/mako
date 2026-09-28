@@ -18,7 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
-import { pendientesDeAprobar, agenciasHabilitadas, altasPendientes } from '@/lib/agencia';
+import { pendientesDeAprobar, agenciasHabilitadas, altasPendientes, todasLasCarteras } from '@/lib/agencia';
 import { esWsValido, ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +34,9 @@ export async function GET() {
     // bloque es cómo termina diciendo «no hay nada» de un lado mientras el otro
     // todavía carga. Firmarlas por separado es otra pregunta (ver ./altas).
     altas: await altasPendientes(),
+    // Quién es cliente de quién. Lo usa la GRILLA para no dibujar dos veces al mismo
+    // negocio: una vez como tarjeta de MaKo y otra adentro de su agencia.
+    carteras: await todasLasCarteras(),
   });
 }
 

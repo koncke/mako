@@ -31,7 +31,20 @@ const MONO = "'Geist Mono', monospace";
 // importa las tablas), y para eso existe este archivo.
 
 /** El `maxWidth` del modal de tarea y del de proyecto. Los dos, el mismo. */
-export const MODAL_DETALLE = 820;
+/**
+ * El ancho del detalle de un proyecto y del de una tarea.
+ *
+ * ⚠️ PASÓ DE 820 A 1180 EL 28/09/2026, a pedido: «haz el detail de proyectos y tareas
+ * más ancho, entonces entran mejor todos los textos». Con 820 la columna izquierda se
+ * quedaba en ~500 px —la derecha son 264 fijos más los paddings— y los títulos de la
+ * tabla de tareas se partían en dos renglones con puntos suspensivos. Con 1180 son
+ * ~860: el mismo alto de modal muestra casi el doble de texto por renglón.
+ *
+ * ⚠️ Y LA TABLA SE AGRANDA SOLA: `ANCHO_TABLA_EN_PROYECTO` se deriva de acá, así que
+ * no hay un segundo número que mover. Ése era el punto de que fuera una resta y no
+ * una constante.
+ */
+export const MODAL_DETALLE = 1180;
 
 /**
  * EL ANCHO DE LA COLUMNA DERECHA DE LOS DOS DETALLES — uno solo para la tarea y para el

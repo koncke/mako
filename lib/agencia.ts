@@ -70,6 +70,30 @@ export async function pendientesDeAprobar(): Promise<FilaCarteraUI[]> {
   }
 }
 
+/**
+ * TODAS las filas de todas las agencias.
+ *
+ * ⚠️ LA NECESITA LA GRILLA DE LA PLATAFORMA, y para una pregunta que no es de permisos:
+ * «¿este workspace es cliente de una agencia?». Si lo es, no va como una tarjeta más de
+ * MaKo — va adentro de la ficha de su agencia («los clientes de agencia deberían
+ * aparecer dentro de la tab de EQUIPO de esa agencia como una card de cliente, no como
+ * un cliente más de MaKo», 28/09/2026). Es una pregunta de PRESENTACIÓN, así que mira
+ * los tres estados: uno pendiente o revocado sigue siendo de esa agencia, y sacarlo de
+ * la grilla sin mostrarlo en ningún lado lo haría desaparecer.
+ */
+export async function todasLasCarteras(): Promise<FilaCarteraUI[]> {
+  try {
+    const { data, error } = await getSupabaseServer().from('agencia_clientes').select(COLS);
+    if (error) throw error;
+    return (data ?? []) as FilaCarteraUI[];
+  } catch {
+    // ⚠️ `[]` ACÁ ES EL DEFAULT SEGURO, y es el opuesto del de un permiso: si no se
+    // pudo leer, NINGÚN workspace se esconde de la grilla. Esconder de más sería
+    // perder clientes de la pantalla sin un error que lo diga.
+    return [];
+  }
+}
+
 /** ¿De qué agencia es este workspace? Lo pregunta /admin sobre la fila de un cliente. */
 export async function agenciasDeCliente(clienteWs: number): Promise<FilaCarteraUI[]> {
   if (!esWsValido(clienteWs)) return [];

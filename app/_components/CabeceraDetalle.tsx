@@ -179,7 +179,18 @@ export function CabeceraDetalle({
             cerraba todo. La FORMA distingue mejor que el color: sobre una foto
             cualquiera, dos grises translúcidos se ven iguales. */}
         {onCerrar && (
-          <button type="button" className="cd-cerrar" aria-label="Cerrar" onClick={onCerrar}>×</button>
+          /* ⚠️ LA CRUZ ES UN SVG Y NO EL GLIFO «×», y no es un capricho: «la X de cerrar
+             en el proyecto no está centrada en su círculo» (28/09/2026). Un `×` se
+             centra con las MÉTRICAS DE LA FUENTE —tiene su propio bearing y su propia
+             altura de x— así que `align-items:center` lo centra en su caja de texto y
+             no en el círculo; se ve alto y corrido. Con dos líneas trazadas en un
+             viewBox cuadrado no hay métricas de por medio: el centro es el centro. */
+          <button type="button" className="cd-cerrar" aria-label="Cerrar" onClick={onCerrar}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+              <path d="M6 6 18 18M18 6 6 18" />
+            </svg>
+          </button>
         )}
 
         {/* ⚠️ ABSOLUTA Y NO UN MARGEN NEGATIVO EN LA FILA: con el margen sube TODO
@@ -240,10 +251,13 @@ const CSS = `
 .cd-pill:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
 .cd-icono{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; padding:0; }
 
+/* display:grid + place-items:center y NO inline-flex: con un hijo SVG el centrado es
+   geométrico y no depende de la línea base del texto. Y sin font-size, que ya no pinta
+   nada. (Sin comillas invertidas: esto vive en un template literal.) */
 .cd-cerrar{ position:absolute; top:12px; right:12px; z-index:4;
-  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  width:32px; height:32px; display:grid; place-items:center;
   background:rgba(18,21,27,.82); color:#fff; border:0; border-radius:999px; padding:0;
-  cursor:pointer; font-size:19px; line-height:1;
+  cursor:pointer; line-height:0;
   box-shadow:0 1px 6px rgba(18,21,27,.30); }
 .cd-cerrar:hover{ background:#12151b; color:#fff; }
 

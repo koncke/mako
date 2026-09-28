@@ -35,6 +35,9 @@ type Pendiente = {
   decidido_por: string | null; created_at: string;
 };
 
+/** Una fila de la cartera, en cualquiera de sus tres estados. */
+export type FilaCartera = { agencia_ws: number; cliente_ws: number; estado: string };
+
 type Alta = {
   id: number; agencia_ws: number; cliente_ws: number;
   email: string; nombre: string; rol_ws: string;
@@ -55,6 +58,8 @@ type Ws = { id: number; nombre: string };
 export function useAgencias() {
   const [pendientes, setPendientes] = useState<Pendiente[] | null>(null);
   const [altas, setAltas] = useState<Alta[] | null>(null);
+  /** QUIÉN ES CLIENTE DE QUIÉN — los tres estados. Lo usa la grilla, no este bloque. */
+  const [carteras, setCarteras] = useState<FilaCartera[]>([]);
   const [agencias, setAgencias] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +70,7 @@ export function useAgencias() {
       setError(null);
       setPendientes(j.pendientes as Pendiente[]);
       setAltas((j.altas ?? []) as Alta[]);
+      setCarteras((j.carteras ?? []) as FilaCartera[]);
       setAgencias(((j.agencias ?? []) as { ws: number }[]).map((a) => a.ws));
     } catch {
       setError('No pude leer los pedidos de las agencias.');
@@ -72,7 +78,7 @@ export function useAgencias() {
   }, []);
 
   useEffect(() => { void cargar(); }, [cargar]);
-  return { pendientes, altas, agencias, error, setError, cargar };
+  return { pendientes, altas, carteras, agencias, error, setError, cargar };
 }
 
 export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {

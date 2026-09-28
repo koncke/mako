@@ -53,7 +53,7 @@ export type CambioCara = {
 
 export function FichaWorkspace({
   w, cara, opciones, accionando, onAccion, onNombre, onEncuadre,
-  onAbrirPortada, onAbrirIcono, onCerrar, tablero, equipo,
+  onAbrirPortada, onAbrirIcono, onCerrar, tablero, equipo, clientes,
 }: {
   w: Workspace;
   /**
@@ -78,6 +78,16 @@ export function FichaWorkspace({
   tablero: ReactNode;
   /** SU equipo, con todos los controles de administración. */
   equipo: ReactNode;
+  /**
+   * SUS CLIENTES, si es una agencia. Van adentro de la tab de Equipo —«los clientes de
+   * agencia deberían aparecer dentro de la tab de EQUIPO de esa agencia como una card
+   * de cliente», 28/09/2026— y no como tarjetas sueltas en la grilla de MaKo: a ese
+   * negocio no le factura MaKo, le factura la agencia.
+   *
+   * `undefined` para un cliente común, que no tiene clientes propios. Y la ausencia se
+   * VE: sin esto la tab de Equipo es la de siempre.
+   */
+  clientes?: ReactNode;
 }) {
   /**
    * ⚠️ ARRANCA EN «Tablero». Lo primero que hay que saber de un cliente es en qué
@@ -158,7 +168,12 @@ export function FichaWorkspace({
           workspace se ponga y se saque a tiempo (`setWsDeTrabajo`), y que sus filas no
           se pidan hasta que alguien las mire: son nueve workspaces y el más grande
           tiene 212 tareas. */}
-      {tab === 'tablero' ? tablero : equipo}
+      {tab === 'tablero' ? tablero : (
+        <>
+          {clientes}
+          {equipo}
+        </>
+      )}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Modal>
   );
