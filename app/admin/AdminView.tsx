@@ -31,6 +31,7 @@ import { useCapaModal } from '../_components/pila-modales';
 import { PortadaPicker } from '../_components/PortadaPicker';
 import { IdentidadPicker } from '../_components/IdentidadPicker';
 import { FichaWorkspace } from './FichaWorkspace';
+import { TableroDelCliente } from './TableroDelCliente';
 import { Dropdown } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import type { UsuarioConCara as Usuario } from './tipos';
@@ -803,16 +804,21 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
           onAbrirPortada={(a) => setAnclaPortada((x) => (x ? null : a))}
           onAbrirIcono={(a) => setAnclaIcono((x) => (x ? null : a))}
           onCerrar={() => { setAbierto(null); setAnclaPortada(null); setAnclaIcono(null); }}
-          /* Quién mira. El tablero lo usa para el avatar de quien asigna; acá no se
-             asigna nada, pero el board lo pide igual y mentirle sería peor. */
-          user={{ nombre: sesion?.email ?? 'Super admin', avatarUrl: '' }}
-        >
-          <EquipoDelCliente
-            w={wAbierto}
-            equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
-            accionando={accionando} accionUser={accionUser} reenviar={reenviar}
-            onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
-        </FichaWorkspace>
+          /* Las dos tabs, como CONTENIDO y no como children: son dos y hay que poder
+             nombrarlas. El tablero es el de VERDAD, con sus cuatro vistas. */
+          tablero={
+            <TableroDelCliente
+              ws={wAbierto.id} nombre={wAbierto.nombre}
+              user={{ nombre: sesion?.email ?? 'Super admin', avatarUrl: '' }} />
+          }
+          equipo={
+            <EquipoDelCliente
+              w={wAbierto}
+              equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
+              accionando={accionando} accionUser={accionUser} reenviar={reenviar}
+              onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
+          }
+        />
       )}
 
       {/* Los dos selectores, HERMANOS de la ficha y no hijos suyos: se portalean a

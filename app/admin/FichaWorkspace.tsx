@@ -3,48 +3,46 @@
 // =============================================================================
 // FichaWorkspace — el detalle de un cliente de la PLATAFORMA
 // =============================================================================
-// «El detail está mal, te había dicho que idéntico al del plan, solo que con más
-// opciones para administrar al usuario» (28/09/2026).
+// «Se ve completamente diferente y más fea el detail de super admin… Tienes que
+// COPIAR tal cual el diseño, solo agregarle la otra tab de equipo y los otros botones
+// para administrar al usuario, solo eso» (28/09/2026).
 //
-// Lo que había era un `Modal` de 720 con el título «Equipo» y una lista adentro: no
-// se parecía en nada al detalle de un proyecto del tablero, que es lo que el dueño
-// tenía en la cabeza. Ahora es el MISMO contenedor y la MISMA cabecera —portada a
-// sangre, marca cruzándola, cerrar como círculo oscuro, pastillas al hover, el
-// nombre al lado de la marca—, y `CabeceraDetalle` es literalmente el mismo
-// componente que monta el detalle del proyecto: no una copia de su diseño, que es lo
-// que se queda viejo a la tercera edición.
+// ⚠️ ES LA MISMA PANTALLA QUE `app/customer-success/FichaCliente.tsx`, y ahora es
+// literal y no una intención: el mismo `Modal` con el mismo ancho, la misma cabecera
+// (`CabeceraDetalle`, con la misma escala) y el MISMO tablero adentro —`PlanBoard` /
+// `TodoBoard`, con sus cuatro vistas—. Lo único que esta ficha agrega es lo que el
+// pedido dice: la tab de Equipo y los botones para administrar al cliente.
 //
-// ⚠️ NO ES UN `Modal`, Y ESO ES PARTE DE «IDÉNTICO». El detalle del tablero no usa
-// `app/_ui/Modal`: es su propio overlay, con la caja a 85vh, `overflow:hidden` y el
-// filete de 4 px del color arriba. Montarlo adentro de `Modal` obligaba a pelearle el
-// padding de la cabecera con un `:has()` —que es lo que hoy hace la ficha de un
-// cliente en Customer Success— y el resultado nunca es el mismo píxel.
+// Dos intentos anteriores fallaron por lo mismo, y conviene tenerlo escrito: el
+// primero era un `Modal` de 720 con una lista adentro, el segundo una caja de 820 con
+// una tabla de sólo lectura. Los dos se reportaron igual —«se ve diferente»—, porque
+// lo eran: mientras la pieza no sea LA MISMA, «parecido» es lo máximo que se consigue.
 //
-// ⚠️ `contenedor: true` EN LA PILA, y sin eso la pantalla queda en blanco. Adentro se
-// abren el selector de portada y el de marca, que son DESCENDIENTES suyos en el DOM:
-// sin declararlo, la pila apaga esta ficha con `display:none` en cuanto se abre uno y
-// se lleva puesto al que se acaba de abrir. Está medido el 27/09 en la ficha de un
-// cliente (ver `contenedores` en app/_components/pila-modales.ts).
-//
-// ⚠️ LO QUE SE ADMINISTRA NO SE INVENTÓ ACÁ: es exactamente lo que la pantalla ya
-// ofrecía —el equipo con todos sus controles, el menú de acciones y «Inspeccionar»—
-// más el nombre editable en el lugar, que reemplaza al diálogo de renombrar. El
-// pedido decía «con MÁS opciones», así que perder una habría sido peor que no tocar
-// nada.
+// ⚠️ Y EL TABLERO ESCRIBE EN EL WORKSPACE CORRECTO. Es de otro inquilino, así que sus
+// llamadas tienen que salir con el `?ws=` de ese cliente — el MISMO mecanismo que usa
+// «Inspeccionar», validado por `proxy.ts` contra la sesión firmada. No se puede poner
+// en la URL de la pestaña (apagaría el panel de atrás: `estaImpersonando()` pasaría a
+// true), así que lo pone `setWsDeTrabajo` mientras el tablero está montado, y sólo
+// para las rutas del tablero. Ver `lib/ws-tab.ts`.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Modal, Tabs } from '@/app/_ui';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
-import { Tabs } from '@/app/_ui';
-import { TableroDelCliente } from './TableroDelCliente';
 import { EditableInline } from '@/app/_components/EditableInline';
-import { useCapaModal } from '@/app/_components/pila-modales';
 import { Icon } from '@/app/_components/icons';
 import { Dropdown } from '@/app/components/Dropdown';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
 import { capaDef } from '@/lib/capas';
-import { MODAL_DETALLE } from '@/app/plan/board/piezas';
-import { MONO, SANS, chip } from './estilos';
+import { MONO, chip } from './estilos';
 import type { Workspace } from './tipos';
+
+/**
+ * El mismo ancho que la ficha de un cliente de Customer Success.
+ *
+ * ⚠️ NO ES UN NÚMERO ELEGIDO ACÁ: es el de allá, y el día que cambie tienen que
+ * cambiar los dos.
+ */
+const ANCHO = 1560;
 
 export type CambioCara = {
   portada?: string | null;
@@ -55,13 +53,12 @@ export type CambioCara = {
 
 export function FichaWorkspace({
   w, cara, opciones, accionando, onAccion, onNombre, onEncuadre,
-  onAbrirPortada, onAbrirIcono, onCerrar, user, children,
+  onAbrirPortada, onAbrirIcono, onCerrar, tablero, equipo,
 }: {
   w: Workspace;
   /**
    * La cara de su ADMIN, como respaldo de la marca. `w.icono` le gana: es lo único
-   * que alguien eligió a propósito para este cliente (mig 0179). Sin ninguna de las
-   * dos van las iniciales sobre el color del nombre.
+   * que alguien eligió a propósito para este cliente (mig 0179).
    */
   cara: string | null;
   opciones: { value: string; label: string; disabled?: boolean }[];
@@ -72,83 +69,57 @@ export function FichaWorkspace({
   onEncuadre: (y: number) => void;
   /**
    * Abrir cada selector. La ficha NO los monta: cuelgan de su ancla y su estado —qué
-   * botón los abrió— vive en la pantalla, igual que en la ficha de un cliente. Si
-   * vivieran acá adentro, cerrar la ficha los desmontaría a mitad de una elección.
+   * botón los abrió— vive en la pantalla, igual que en la ficha de un cliente.
    */
   onAbrirPortada: (ancla: HTMLElement) => void;
   onAbrirIcono: (ancla: HTMLElement) => void;
   onCerrar: () => void;
-  /** Quién mira, para el tablero. Lo pasa la pantalla, que ya lo tiene. */
-  user: { nombre: string; avatarUrl: string };
-  /** El EQUIPO, que lo arma la pantalla porque es la que tiene sus usuarios. */
-  children: ReactNode;
+  /** SU tablero, con sus cuatro vistas. Lo arma la pantalla. */
+  tablero: ReactNode;
+  /** SU equipo, con todos los controles de administración. */
+  equipo: ReactNode;
 }) {
-  // ⚠️ TODOS LOS HOOKS ARRIBA DE CUALQUIER RETURN. React #300 es la pantalla entera
-  // en blanco, y el guard del pre-push existe justamente por eso.
-  const capa = useCapaModal(true, { contenedor: true });
-  const arriba = capa.esElDeArriba;
   /**
-   * ⚠️ ARRANCA EN «Tablero» Y NO EN «Equipo», que es lo que había antes. El pedido fue
-   * «aun no veo el plan, las tareas y proyectos de cada cliente»: lo primero que hay
-   * que saber de un cliente es en qué anda, no quién entra a su cuenta.
+   * ⚠️ ARRANCA EN «Tablero». Lo primero que hay que saber de un cliente es en qué
+   * anda, no quién entra a su cuenta — y ése fue el pedido: «aun no veo el plan, las
+   * tareas y proyectos de cada cliente».
    */
   const [tab, setTab] = useState('tablero');
-
-  // Se pregunta en el MOMENTO de la tecla (es una función, no un boolean): así el
-  // handler no tiene dependencias y no se re-registra cada vez que algo se abre
-  // encima. Mismo patrón que el detalle del tablero.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && arriba()) { (document.activeElement as HTMLElement)?.blur?.(); onCerrar(); }
-    };
-    document.addEventListener('keydown', onKey, true);
-    return () => document.removeEventListener('keydown', onKey, true);
-  }, [onCerrar, arriba]);
-
   const color = colorDe(w.nombre);
   const esDueno = w.id === 1;
 
   return (
-    <div onClick={onCerrar} style={{
-      position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.35)',
-      backdropFilter: 'blur(2px)', display: capa.visible ? 'flex' : 'none',
-      alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS,
-    }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        // ⚠️ EL ANCHO SE IMPORTA, no se copia. Es `MODAL_DETALLE` (820), la misma
-        // constante que usa el detalle de un proyecto: escribir el número acá sería
-        // la cuarta copia de «idéntico al del plan», y la que se queda vieja.
-        width: '100%', maxWidth: MODAL_DETALLE, height: '85vh', background: 'var(--surface)',
-        border: '1px solid var(--border)', borderTop: `4px solid ${color}`, borderRadius: 16,
-        boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      }}>
+    <Modal
+      titulo={
         <CabeceraDetalle
           nombre={w.nombre}
           color={color}
           portada={w.portada} portadaY={w.portada_y}
-          onPortada={onAbrirPortada}
-          onEncuadre={onEncuadre}
-          icono={w.icono} foto={cara} avatarY={w.avatar_y} cuadrado
+          onPortada={onAbrirPortada} onEncuadre={onEncuadre}
+          icono={w.icono} foto={cara} avatarY={w.avatar_y}
           onIcono={onAbrirIcono}
-          onCerrar={onCerrar}
-          kicker={
-            <>
-              <span style={{ fontFamily: MONO, fontSize: 11, color, fontWeight: 700 }}>{w.slug ?? `ws-${w.id}`}</span>
-              {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
-              <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
-              {w.estado === 'pausado' && <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
-            </>
-          }
+          /* La misma escala que la ficha de un cliente: banda de 160 y marca REDONDA
+             de 88 con anillo de 4. Sobre 1560 de ancho, la de 124/54 del detalle de un
+             proyecto se ve perdida — y es el mismo motivo por el que allá es otra. */
+          alto={160} tam={88} anillo={4}
+          /* Sin `onCerrar`: la × la pone el `Modal` y la hoja de la pieza la
+             reposiciona sobre la portada. Dos serían dos cruces en la misma esquina. */
           titulo={
-            // ⚠️ EL NOMBRE SE EDITA ACÁ, EN EL LUGAR, y con eso se va el diálogo de
-            // «Renombrar…»: dos caminos al mismo hecho es cómo uno de los dos se queda
-            // viejo, y el otro además nunca se registró en la pila de modales.
             <EditableInline
               valor={w.nombre}
               placeholder="Sin nombre"
               titulo="Edita el nombre del cliente"
               className="fw-nom"
               onGuardar={onNombre} />
+          }
+          bajada={
+            <>
+              <span style={{ fontFamily: MONO }}>{w.slug ?? `ws-${w.id}`}</span>
+              {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
+              <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
+              {w.estado === 'pausado' && <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
+              <span style={{ color: 'var(--faint)' }}>· {w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</span>
+            </>
           }
           acciones={
             <>
@@ -169,31 +140,35 @@ export function FichaWorkspace({
             </>
           }
         />
-
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', padding: '20px 22px' }}>
-          <Tabs
-            tabs={[{ id: 'tablero', label: 'Tablero' }, { id: 'equipo', label: 'Equipo' }]}
-            activa={tab} onCambio={setTab} />
-          {/* ⚠️ EL TABLERO SE MONTA Y SE DESMONTA CON SU TAB, y eso es lo que hace que
-              no se pida hasta que alguien lo mire: son nueve workspaces y el más grande
-              tiene 212 tareas. Montarlo escondido sería pagar la lectura de todos para
-              ver uno. */}
-          {tab === 'tablero'
-            ? <TableroDelCliente ws={w.id} nombre={w.nombre} user={user} />
-            : children}
-        </div>
-      </div>
+      }
+      etiqueta={w.nombre}
+      ancho={ANCHO}
+      /* ⚠️ ADENTRO VIVE EL TABLERO, Y EL TABLERO ABRE SUS PROPIOS MODALES. Sin esto la
+         pila apaga esta ficha con `display:none` en cuanto se abre uno —y como ese
+         modal es un DESCENDIENTE suyo, se apaga con ella: click en una tarea =
+         pantalla en blanco. Es el mismo motivo por el que lo lleva la ficha de un
+         cliente (ver `contenedores` en app/_components/pila-modales.ts). */
+      contenedor
+      onCerrar={onCerrar}
+    >
+      <Tabs
+        tabs={[{ id: 'tablero', label: 'Tablero' }, { id: 'equipo', label: 'Equipo' }]}
+        activa={tab} onCambio={setTab} />
+      {/* ⚠️ EL TABLERO SE MONTA Y SE DESMONTA CON SU TAB. De eso depende que su
+          workspace se ponga y se saque a tiempo (`setWsDeTrabajo`), y que sus filas no
+          se pidan hasta que alguien las mire: son nueve workspaces y el más grande
+          tiene 212 tareas. */}
+      {tab === 'tablero' ? tablero : equipo}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-    </div>
+    </Modal>
   );
 }
 
-// ⚠️ NINGÚN BACKTICK ACÁ ADENTRO: cierra la cadena a la mitad y la ruta contesta 200
+// ⚠️ Ningún backtick acá adentro: cierra la cadena a la mitad y la ruta contesta 200
 // con el layout entero y sin cuerpo.
 const CSS = `
-/* El nombre: el mismo tamaño y peso que el título de un proyecto en su detalle, y sin
-   ninguna caja — la regla ya escrita para la ficha de un cliente: «solo clickeando y
-   escribiendo, que no parezca que haya un recuadro de texto». */
+/* El nombre: el mismo tamaño y peso que el de la ficha de un cliente, y sin ninguna
+   caja — solo clickeando y escribiendo, que no parezca que haya un recuadro. */
 .fw-nom{ font-size:20px; font-weight:670; letter-spacing:-.02em; line-height:1.2;
   color:var(--ink); overflow-wrap:anywhere; }
 .fw-entrar{ display:inline-flex; align-items:center; gap:6px; flex:none;

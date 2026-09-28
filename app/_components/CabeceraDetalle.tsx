@@ -43,7 +43,7 @@ export function CabeceraDetalle({
   portada, portadaY, onPortada, onEncuadre,
   icono, emoji, foto, avatarY, cuadrado = false, onIcono,
   alto = 124, tam = 54, anillo = 3,
-  antes, kicker, titulo, chips, acciones, onCerrar,
+  antes, kicker, titulo, bajada, chips, acciones, onCerrar,
 }: {
   nombre: string;
   /** El color derivado del nombre. Pinta el degradado sin portada y tiñe la fila. */
@@ -92,6 +92,13 @@ export function CabeceraDetalle({
   kicker?: ReactNode;
   /** El nombre. Va como slot porque en el tablero es un input y acá un editable. */
   titulo: ReactNode;
+  /**
+   * El renglón chico DEBAJO del nombre: la empresa y el número de cliente, el slug y
+   * el estado. Es el hermano de `kicker`, que va arriba — y son dos y no uno porque el
+   * tablero pone su pid ARRIBA (ahí el renglón identifica a la cosa antes de nombrarla)
+   * y una ficha pone su bajada ABAJO (ahí amplía un nombre que ya se leyó).
+   */
+  bajada?: ReactNode;
   /** Al lado del nombre: el plan, «Dueño», «Se repite». */
   chips?: ReactNode;
   /** A la derecha de la fila: los botones de esta pantalla. */
@@ -201,6 +208,7 @@ export function CabeceraDetalle({
         <span className="cd-txt">
           {kicker != null && <span className="cd-kicker">{kicker}</span>}
           {titulo}
+          {bajada != null && <span className="cd-bajada">{bajada}</span>}
         </span>
         {chips}
         <span style={{ flex: 1 }} />
@@ -255,6 +263,28 @@ const CSS = `
 .cd-txt{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:0 1 auto;
   overflow:hidden; }
 .cd-kicker{ display:flex; align-items:center; gap:8px; min-width:0; }
+.cd-bajada{ display:flex; align-items:center; gap:6px; min-width:0; font-size:12.5px;
+  color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ⚠️ ADENTRO DE UN Modal, LA CABECERA SE COME SU PADDING. Las cuatro reglas de acá
+   abajo vivían en la hoja de la ficha de un cliente apuntando a .fc-cab, y se mudaron
+   con la pieza: cualquier pantalla que monte esto adentro de un Modal las necesita, y
+   dejarlas allá era garantizar que la segunda naciera con la portada despegada de los
+   bordes. Con el padding puesto, la banda sólo podía reclamar los 24 px de los costados
+   con un margen negativo — y quedaban afuera el gap de 16 y los 32 del botón de cerrar,
+   o sea los 48 de la derecha que se reportaron como «el banner se corta a la derecha».
+   Acertarle con un margen negativo mayor es adivinar una suma que cambia el día que
+   alguien toque ui.css; sacar el padding no tiene casos. */
+.mk-modal__cab:has(.cd-top){ position:relative; padding:0; gap:0; border-bottom:0; align-items:stretch; }
+.mk-modal__cab:has(.cd-top) .mk-modal__tit{ gap:0; }
+.mk-modal__h:has(.cd-top){ align-self:stretch; }
+/* Y el cerrar del Modal pasa a ser el círculo oscuro sobre la portada: es el mismo que
+   la pieza dibuja cuando NO vive adentro de un Modal, así que las dos se ven igual. */
+.mk-modal__cab:has(.cd-top) .mk-modal__x{ position:absolute; top:12px; right:12px; z-index:4;
+  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  background:rgba(18,21,27,.82); color:#fff; border-radius:999px; padding:0;
+  box-shadow:0 1px 6px rgba(18,21,27,.30); }
+.mk-modal__cab:has(.cd-top) .mk-modal__x:hover{ background:#12151b; color:#fff; }
 
 /* ⚠️ ESTO SE PERDIO EN LA MUDANZA Y LO CAZO LA REFUTACION (28/09/2026). La hoja vieja
    del tablero lo tenia y la nueva salio sin el, con la transicion de opacidad intacta:

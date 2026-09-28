@@ -31,22 +31,21 @@ import { tableroDeWorkspace } from './tablero-actual';
 import { tablasDe } from './tablero-de-capa';
 import { rowToTask, rowToLabel, type Row } from './plan-board';
 import { rowTo, catRow } from './todo';
-import { toBoard, toLabel } from '@/app/plan/board/desde-todo';
-import type { BoardTask, Label } from '@/app/plan/board/types';
+import type { TrabajoDeCliente } from '@/app/customer-success/trabajo';
 
 /**
- * TODO el tablero de ese workspace, EN EL MODELO DEL BOARD.
+ * TODO el tablero de ese workspace, ya mapeado.
  *
- * ⚠️ LAS DOS MITADES DEVUELVEN LA MISMA FORMA, y es distinto de lo que hace Customer
- * Success. Allá el tablero del cliente viaja como FILAS (`Tarea`/`Categoria`) porque lo
- * monta `TodoBoard`, que hace la segunda conversión él mismo. Acá se montan las TABLAS
- * directo (`TablaTareas`/`TablaProyectos`), que sólo entienden `BoardTask`/`Label` — así
- * que la conversión se hace acá, para las dos.
+ * ⚠️ DEVUELVE LA MISMA FORMA QUE `filasDeTodos` (`TrabajoDeCliente`), y no una propia:
+ * lo consume el MISMO par de componentes (`PlanBoard` / `TodoBoard`), así que cada
+ * mitad viaja como ellos la esperan — el del dueño ya convertido al modelo del board y
+ * el del cliente como FILAS, porque `TodoBoard` hace esa segunda conversión él mismo.
  *
- * Costó un crash medido en el navegador: castear la fila a `BoardTask` compila
- * perfecto —los dos son objetos— y revienta al dibujar con «Cannot read properties of
- * undefined (reading 'includes')», porque una fila no tiene `labels`. Un `as` sobre dos
- * tipos que no se parecen es una afirmación, no una conversión.
+ * Una versión anterior devolvía una forma única y costó un crash medido en el
+ * navegador: castear la fila a `BoardTask` compila perfecto —los dos son objetos— y
+ * revienta al dibujar con «Cannot read properties of undefined (reading 'includes')»,
+ * porque una fila no tiene `labels`. Un `as` sobre dos tipos que no se parecen es una
+ * afirmación, no una conversión.
  *
  * ⚠️ MAPEADO ACÁ Y NO EN LA PANTALLA, por lo mismo que en Customer Success: los mappers
  * viven en módulos con `server-only`, e importarlos desde un componente de navegador
@@ -57,9 +56,7 @@ import type { BoardTask, Label } from '@/app/plan/board/types';
  * decirlo, porque un tablero recortado en silencio se lee como un tablero completo.
  * Si algún día una de estas tablas pasa las 1000 filas, esto va por `leerTodo`.
  */
-export type TableroAjeno = { dueno: boolean; tareas: BoardTask[]; proyectos: Label[] };
-
-export async function tableroDeOtroWorkspace(ws: number): Promise<TableroAjeno> {
+export async function tableroDeOtroWorkspace(ws: number): Promise<TrabajoDeCliente> {
   const que = await tableroDeWorkspace(ws);
   const t = tablasDe(que);
 
@@ -79,11 +76,9 @@ export async function tableroDeOtroWorkspace(ws: number): Promise<TableroAjeno> 
     const proyectos = (ps.data ?? []) as Record<string, unknown>[];
     const tareas = (ts.data ?? []) as Record<string, unknown>[];
 
-    // Los dos pares de mappers, encadenados donde hace falta: el tablero del dueño va
-    // de fila a modelo en un paso (`rowToTask`), y el del cliente en dos — de fila a
-    // `Tarea` (`rowTo`, lib/todo.ts) y de `Tarea` al modelo (`toBoard`, desde-todo.ts).
+    // El mismo par de mappers que usa Customer Success para cada mitad.
     return que === 'dueno'
-      ? { dueno: true, tareas: tareas.map((f) => rowToTask(f as Row)), proyectos: proyectos.map((p) => rowToLabel(p as Row)) }
-      : { dueno: false, tareas: tareas.map((f) => toBoard(rowTo(f as never))), proyectos: proyectos.map((p) => toLabel(catRow(p as never))) };
+      ? { dueno: true as const, tareas: tareas.map((f) => rowToTask(f as Row)), proyectos: proyectos.map((p) => rowToLabel(p as Row)) }
+      : { dueno: false as const, tareas: tareas.map((f) => rowTo(f as never)), categorias: proyectos.map((p) => catRow(p as never)) };
   });
 }
