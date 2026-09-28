@@ -27,60 +27,23 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { exigirClienteDePrueba } from './auth-session';
+import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
 
 /**
- * Orden de borrado: los hijos antes que los padres. Si igual queda una FK
- * colgada, `resetearWorkspace` reintenta en pasadas sucesivas, así que este
- * orden es una ayuda y no una obligación exacta.
+ * Qué se vacía: TODAS las tablas de inquilino.
+ *
+ * ⚠️ ERA UNA LISTA ESCRITA A MANO Y ESTABA MAL EN LAS DOS DIRECCIONES. Medida contra
+ * producción el 29/09/2026: nombraba 70 tablas, de las cuales CUATRO no existen
+ * (`archivero`, `branding`, `contratos`, `meta_health_history` — nombres plausibles que
+ * ningún compilador mira) y le faltaban 24 que sí. O sea que «vaciar un workspace»
+ * vaciaba 66 de 90, y lo que quedaba se arrastraba a la corrida siguiente sin que nada
+ * lo dijera. Ahora sale de `TABLAS_DE_INQUILINO`, que se midió contra el esquema real y
+ * la comparte con el borrado de un cliente: dos listas para la misma pregunta es cómo
+ * una de las dos se queda vieja.
+ *
+ * El orden alfabético no importa: el bucle reintenta en pasadas.
  */
-const TABLAS_RESET = [
-  // ── Hijos de leads ──
-  'lead_respuestas', 'lead_insights', 'lead_audit', 'pagos', 'identidades_fiscales',
-  'nutricion_envios', 'nutricion_inscripciones',
-  'email_broadcast_envios', 'cs_respuestas', 'cs_clientes',
-  // ── Cabeceras ──
-  'leads', 'email_broadcasts', 'nutricion_secuencias',
-  // ── Conversaciones y canales ──
-  'wa_mensajes', 'wa_borradores', 'wa_bloqueados', 'wa_ocultos', 'whatsapp_template_drafts',
-  'evolution_contactos', 'evolution_labels', 'evolution_stage_labels', 'evolution_instancias',
-  'workspace_telefonos',
-  // ── MaKo, conocimiento y contexto ──
-  'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_conv', 'mako_knowledge',
-  'archivero_files', 'setting_audios',
-  // ── Plan y retros ──
-  'plan_tareas', 'plan_proyectos', 'plan_propuestas', 'tarea_categorias', 'retros', 'review_queue',
-  // ── Análisis ──
-  'closing_analyses', 'script_analyses', 'script_drafts',
-  'landing_analyses', 'landing_drafts',
-  'ad_transcripts', 'creative_transcripts',
-  // ── Métricas e ingesta ──
-  'marketing_metrics_daily', 'adset_budget_daily', 'meta_health_history', 'service_incidents',
-  'anthropic_usage', 'landing_visits', 'vsl_events',
-  // ── Experimentos y charts ──
-  'experimento_tareas', 'experimentos', 'chart_chats', 'chart_sessions',
-  // ── Config y pertenencias ──
-  // 'productos' es el catálogo comercial del cliente: un reset que lo deja en pie
-  // devuelve un workspace "vacío" que igual arrastra las ofertas del anterior, y
-  // el paso de onboarding lo encuentra ya cargado y no vuelve a preguntar.
-  // `funnels` se vacía como todo lo demás y después se le recrea el default (ver el
-  // paso 2b): un workspace SIEMPRE tiene exactamente un funnel, también recién
-  // reseteado. `funnel_config` sigue en la lista mientras la tabla exista: quedó de
-  // respaldo (mig 0170) y un reset que la deje llena arrastra el embudo viejo el día
-  // que alguien mire el respaldo.
-  'pipeline_stages', 'funnels', 'funnel_config', 'productos',
-  // Las tablas de la OFERTA (migs 0169/0171) van por el mismo motivo que
-  // `productos`, y los PUENTES van ANTES que `ofertas`: aunque las FK sean ON
-  // DELETE CASCADE, el borrado acá es por workspace y el orden explícito es lo
-  // que hace que el reset no dependa de una propiedad del esquema que mañana
-  // alguien cambie. `mako.ofertas.seeded` se va con `app_settings`, así que el
-  // seed de la oferta vuelve a correr en el workspace reseteado.
-  'funnel_ofertas', 'oferta_productos', 'lead_magnets', 'ofertas',
-  'shares', 'branding_assets',
-  // ── Credenciales: primero la auditoría, después la credencial ──
-  'credenciales_auditoria', 'credenciales', 'webhook_routing',
-  // ── Y al final la configuración entera, recibos de datos-mau incluidos ──
-  'app_settings',
-] as const;
+const TABLAS_RESET = TABLAS_DE_INQUILINO;
 
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
 const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips'] as const;
@@ -112,6 +75,51 @@ async function listarRecursivo(bucket: string, prefijo: string, prof = 0): Promi
     offset += data.length;
   }
   return out;
+}
+
+/**
+ * Borra las filas de las 89 tablas de inquilino, en pasadas: lo que falla por una FK
+ * se reintenta, porque adentro de un workspace hay hijos antes que padres y un orden
+ * escrito a mano es una lista más que se queda vieja.
+ *
+ * ⚠️ SIN GUARD A PROPÓSITO. Esta pieza no decide sobre quién corre — eso lo deciden sus
+ * dos llamadores, y cada uno con el suyo: `resetearWorkspace` con
+ * `exigirClienteDePrueba` y `eliminarWorkspace` con `motivoNoEliminable`. Meterle acá
+ * el guard del reset fue lo que impidió, hasta hoy, reusarla para borrar.
+ *
+ * ⚠️ NO TOCA `usuarios` NI LA FILA DEL WORKSPACE: no están en la lista. Quien borre un
+ * cliente los tiene que sacar aparte.
+ */
+export async function vaciarTablas(ws: number): Promise<{ borrado: Record<string, number>; avisos: string[] }> {
+  const sb = getSupabaseServer();
+  const borrado: Record<string, number> = {};
+  const avisos: string[] = [];
+  let pendientes: string[] = [...TABLAS_RESET];
+  for (let pasada = 0; pasada < 3 && pendientes.length; pasada++) {
+    const fallaron: string[] = [];
+    for (const tabla of pendientes) {
+      try {
+        const { count, error } = await sb.from(tabla).delete({ count: 'exact' }).eq('workspace_id', ws);
+        if (error) {
+          fallaron.push(tabla);
+          // ⚠️ SE DISTINGUE «no existe» DE «una FK la está frenando». Los dos llegan
+          // como error y el reintento los trata igual, así que una tabla mal escrita se
+          // reportaba tres pasadas después como si fuera un problema de integridad. Con
+          // 42P01 no hay nada que reintentar: la tabla no está.
+          const noExiste = (error as { code?: string }).code === '42P01';
+          if (noExiste) { avisos.push(`${tabla}: esa tabla no existe en la base. Sácala de TABLAS_DE_INQUILINO.`); continue; }
+          if (pasada === 2) avisos.push(`${tabla}: ${error.message}`);
+          continue;
+        }
+        if (count) borrado[tabla] = (borrado[tabla] ?? 0) + count;
+      } catch (e) {
+        fallaron.push(tabla);
+        if (pasada === 2) avisos.push(`${tabla}: ${msg(e)}`);
+      }
+    }
+    pendientes = fallaron;
+  }
+  return { borrado, avisos };
 }
 
 /**
@@ -164,22 +172,10 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
     avisos.push(`Voz clonada: no se pudo comprobar si había una (${msg(e)}). Revisa las voces de la cuenta de ElevenLabs por si quedó una huérfana.`);
   }
 
-  // ── 2. Tablas, en pasadas: lo que falla por una FK se reintenta ──
-  let pendientes: string[] = [...TABLAS_RESET];
-  for (let pasada = 0; pasada < 3 && pendientes.length; pasada++) {
-    const fallaron: string[] = [];
-    for (const tabla of pendientes) {
-      try {
-        const { count, error } = await sb.from(tabla).delete({ count: 'exact' }).eq('workspace_id', ws);
-        if (error) { fallaron.push(tabla); if (pasada === 2) avisos.push(`${tabla}: ${error.message}`); continue; }
-        if (count) borrado[tabla] = (borrado[tabla] ?? 0) + count;
-      } catch (e) {
-        fallaron.push(tabla);
-        if (pasada === 2) avisos.push(`${tabla}: ${msg(e)}`);
-      }
-    }
-    pendientes = fallaron;
-  }
+  // ── 2. Tablas ──
+  const vaciado = await vaciarTablas(ws);
+  Object.assign(borrado, vaciado.borrado);
+  avisos.push(...vaciado.avisos);
 
   // ── 2b. El funnel default vuelve, vacío ──
   //

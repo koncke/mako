@@ -28,6 +28,7 @@ import { sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
 import { estaPendiente } from '@/lib/todo-estados';
 import { plural } from '@/lib/plural';
 import { avisoCambioPlan, type ResultadoAvisoPlan } from '@/lib/plan-aviso';
+import { motivoNoEliminable } from '@/lib/borrado-workspace';
 import { BarraClientes, entraEnVentana } from '../customer-success/BarraClientes';
 import { Marca } from '../_components/Marca';
 import { Modal } from '../_ui/Modal';
@@ -730,7 +731,13 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   /** Lo que el menú de acciones ofrece sobre un cliente. Es la MISMA lista que
    *  había en la fila de la tabla: el rediseño no puede perder ninguna. */
   const opcionesDe = (w: Workspace) => {
-    const esDueno = w.id === 1;
+    // ⚠️ ERA `w.id === 1` Y ESTABA APARTE del de la tarjeta, así que cuando el chip
+    // «Dueño» se mudó al workspace de la plataforma, este quedó protegiendo a Mauricio
+    // —un cliente— y ofreciéndole a la PLATAFORMA «Pausar» y «Eliminar…». El server los
+    // rechaza igual (medido: 400 en los dos), pero una pantalla que ofrece algo que
+    // siempre falla es una pantalla que miente. Es el mismo booleano y ahora es la
+    // misma expresión.
+    const esDueno = w.id === wsPlataforma;
     return [
       { value: 'renombrar', label: 'Renombrar…' },
       /**
@@ -748,6 +755,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
       esDueno
         ? { value: 'nopausar', label: 'No se puede pausar a la plataforma', disabled: true }
         : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
+      /* ⚠️ ROJO Y CON PUNTOS SUSPENSIVOS: los puntos dicen que abre algo y el color que
+         es de otra clase que las de arriba. `DropdownOption` ya soporta `color`.
+         Y para la plataforma no se ofrece siquiera deshabilitado: un ítem apagado
+         invita a preguntarse cómo encenderlo, y acá la respuesta es «nunca». */
+      ...(esDueno ? [] : [{ value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' }]),
       // ⛔ ACA ESTABA «Convertir en agencia», y se fue el 27/09/2026: ser agencia
       // ES EL PLAN, asi que ya esta arriba como «Pasar a Agencia», con el mismo
       // control que cualquier otro plan. Dos caminos para el mismo hecho es como
@@ -757,6 +769,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   const elegirAccion = (w: Workspace, v: string) => {
     if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
     else if (v === 'permisos') setCambiandoPlan(w);
+    else if (v === 'eliminar') setBorrando(w);
     else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
   };
 
@@ -769,6 +782,38 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
    */
   const [cambiandoPlan, setCambiandoPlan] = useState<Workspace | null>(null);
   const [avisoPlan, setAvisoPlan] = useState<{ tono: 'ok' | 'warn'; texto: string } | null>(null);
+  const [borrando, setBorrando] = useState<Workspace | null>(null);
+
+  /**
+   * BORRAR UN CLIENTE. No usa `accionWs` porque la respuesta trae LO QUE SE LLEVÓ, y
+   * eso se muestra: un «listo» sobre la operación más destructiva de la app no deja
+   * comprobar nada.
+   */
+  const borrar = async (w: Workspace, nombre: string) => {
+    if (accionando) return;
+    setErrAccion(null); setAccionando(true); setAvisoPlan(null);
+    try {
+      const j = await postWs({ action: 'eliminar', id: w.id, nombre }) as {
+        ok?: boolean; error?: string;
+        borrado?: Record<string, number>; usuarios?: number; leadsDesligados?: number; avisos?: string[];
+      };
+      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo eliminar.'); return; }
+      const filas = Object.values(j.borrado ?? {}).reduce((a, b) => a + b, 0);
+      const tablas = Object.keys(j.borrado ?? {}).length;
+      setAvisoPlan({
+        tono: (j.avisos ?? []).length ? 'warn' : 'ok',
+        texto: [
+          `Se eliminó ${w.nombre}: ${plural(filas, 'fila')} en ${plural(tablas, 'tabla')}, ${plural(j.usuarios ?? 0, 'persona')}`,
+          j.leadsDesligados ? ` y ${plural(j.leadsDesligados, 'lead')} de tu CRM que quedaron sin cuenta` : '',
+          '.',
+          (j.avisos ?? []).length ? ` ${(j.avisos ?? []).join(' ')}` : '',
+        ].join(''),
+      });
+      setBorrando(null);
+      if (abierto === w.id) setAbierto(null);
+      await recargar();
+    } finally { setAccionando(false); }
+  };
 
   const cambiarPlan = async (w: Workspace, capa: string) => {
     if (accionando) return;
@@ -1165,6 +1210,32 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
         </div>
       )}
 
+      {borrando && (
+        <BorrarClienteDialog
+          w={borrando}
+          motivo={(nombre) => motivoNoEliminable(
+            { id: borrando.id, nombre: borrando.nombre, capa: borrando.capa },
+            /* Lo que la PANTALLA puede saber. El server vuelve a correr EL MISMO guard
+               con la cartera leída de la base y con el ws de la sesión: acá sólo alcanza
+               para explicar, nunca para autorizar.
+               ⚠️ LA CARTERA HAY QUE PASARLA. Con `[]` cableado, la pantalla le ofrecía a
+               una agencia con clientes el campo para escribir el nombre y recién el
+               server la frenaba — o sea el peor orden posible: primero tipeás el nombre
+               de tu cliente y después te dicen que no. Medido en el navegador. */
+            {
+              wsDelQueLlama: null,
+              clientesEnCartera: clientesDeAgencia(borrando.id).map((c) => c.id),
+              nombreEscrito: nombre,
+              wsPlataforma,
+            },
+          )}
+          usuarios={borrando.usuarios}
+          ocupado={accionando}
+          onCancel={() => setBorrando(null)}
+          onConfirm={(nombre) => { void borrar(borrando, nombre); }}
+        />
+      )}
+
       {aEliminar && (
         <ConfirmDialog
           titulo={`¿Eliminar a ${aEliminar.nombre || aEliminar.email}?`}
@@ -1476,11 +1547,12 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
   onCancel: () => void;
   onConfirm: (capa: string) => void;
 }) {
-  // ⚠️ `anidada`: se abre DESDE la ficha o desde una tarjeta, y la de atrás se sigue
-  // viendo. Sin esto, la ficha desaparece y parece que el menú la cerró. Y el z sale de
-  // la pila: cableado en 90 quedaría DEBAJO del `Z_BASE` de 130, que es el bug medido
-  // del 28/09 — un diálogo que pide confirmación y no se ve.
-  useCapaModal(true, { anidada: true });
+  // ⚠️ ACÁ NO VA `useCapaModal`: LO LLAMA `Modal`, con el `anidada` que se le pasa
+  // abajo. Llamarlo también acá registra DOS capas para un solo modal, y el Escape deja
+  // de cerrar — el handler de `Modal` sólo actúa si su propia capa es la de arriba, y la
+  // de arriba pasa a ser la mía. Medido en el navegador: el diálogo se abría y Escape no
+  // hacía nada. Lo que sí hace falta es el `anidada` del `Modal`: sin él, la ficha de
+  // atrás se apaga y parece que el menú la cerró.
   const [elegida, setElegida] = useState<string>(w.capa);
   const pierdeCartera = w.capa === 'agencia' && elegida !== 'agencia' && nClientes > 0;
 
@@ -1546,5 +1618,80 @@ const CSS_PERMISOS = `
 .pm-op > span > span{ font-size:12.5px; color:var(--dim); line-height:1.45; }
 .pm-ojo{ margin:12px 2px 0; font-size:12.5px; font-weight:600; color:var(--warn); line-height:1.5; }
 .pm-pie{ margin:10px 2px 0; font-size:12.5px; color:var(--faint); line-height:1.5; }
+`;
+
+/**
+ * BORRAR UN CLIENTE: el diálogo que pide escribir su nombre.
+ *
+ * ⚠️ NO ES `ConfirmDialog`. Ése alcanza para lo que se puede rehacer; esto se lleva 89
+ * tablas, los archivos y las personas, y no tiene vuelta atrás ni auditoría. Escribir
+ * el nombre es lo único que un click distraído no puede acertar.
+ *
+ * ⚠️ Y LO QUE SE PIERDE SE DICE CON NÚMEROS, ANTES. «Esta acción no se puede deshacer»
+ * es una frase que todos aprendimos a saltear; «se van 12 personas y 3.400 filas» no.
+ */
+function BorrarClienteDialog({ w, motivo, usuarios, ocupado, onCancel, onConfirm }: {
+  w: Workspace;
+  /** El mismo guard que corre el server, para apagar el botón. Nunca para autorizar. */
+  motivo: (nombre: string) => string | null;
+  usuarios: number;
+  ocupado: boolean;
+  onCancel: () => void;
+  onConfirm: (nombre: string) => void;
+}) {
+  // Sin `useCapaModal` acá: lo llama `Modal`. Ver el porqué en `PermisosDialog`.
+  const [nombre, setNombre] = useState('');
+  const porQueNo = motivo(nombre);
+  // Un motivo que NO es el del nombre no se arregla tipeando: el campo sobra.
+  const bloqueado = porQueNo != null && !/nombre/i.test(porQueNo);
+
+  return (
+    <Modal
+      titulo={`Eliminar a ${w.nombre}`}
+      encabezado="Esto no se puede deshacer"
+      ancho={520}
+      anidada
+      onCerrar={onCancel}
+      pie={
+        <>
+          <button type="button" style={btnGhost} onClick={onCancel}>Cancelar</button>
+          <button type="button"
+            style={{ ...btnPrimary, background: 'var(--bad)', opacity: porQueNo || ocupado ? 0.5 : 1 }}
+            disabled={!!porQueNo || ocupado}
+            onClick={() => onConfirm(nombre)}>
+            {ocupado ? 'Eliminando…' : 'Eliminar para siempre'}
+          </button>
+        </>
+      }
+    >
+      {bloqueado ? (
+        <p className="bc-no">{porQueNo}</p>
+      ) : (
+        <>
+          <p className="bc-txt">
+            Se van <b>{plural(usuarios, 'persona')}</b> y todo lo que este cliente tenga cargado:
+            sus leads, sus conversaciones, su tablero, sus archivos y sus credenciales.
+          </p>
+          {/* Sin promesa de respaldo: no hay. Decir «puedes recuperarlo» sería mentir. */}
+          <p className="bc-txt">No queda copia. Escribe <b>{w.nombre}</b> para confirmar.</p>
+          <input className="bc-in" autoFocus value={nombre} placeholder={w.nombre}
+            aria-label={`Escribe ${w.nombre} para confirmar`}
+            onChange={(e) => setNombre(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !porQueNo && !ocupado) onConfirm(nombre); }} />
+        </>
+      )}
+      <style dangerouslySetInnerHTML={{ __html: CSS_BORRAR }} />
+    </Modal>
+  );
+}
+
+// Ningun backtick acá adentro: cierra la hoja a la mitad y la ruta contesta 200 sin cuerpo.
+const CSS_BORRAR = `
+.bc-txt{ margin:0 0 12px; font-size:13.5px; line-height:1.55; color:var(--ink); }
+.bc-txt b{ font-weight:650; }
+.bc-in{ width:100%; border:1px solid var(--border-strong); border-radius:10px; padding:10px 12px;
+  font:inherit; font-size:14px; background:var(--surface); color:var(--ink); }
+.bc-in:focus{ outline:2px solid var(--bad); outline-offset:1px; }
+.bc-no{ margin:0; font-size:13.5px; line-height:1.55; color:var(--warn); font-weight:600; }
 `;
 

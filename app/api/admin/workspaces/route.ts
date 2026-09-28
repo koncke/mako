@@ -6,7 +6,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace, getWorkspace, wsSuperAdmin } from '@/lib/workspace';
+import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace, getWorkspace, wsSuperAdmin, getWorkspaceActual } from '@/lib/workspace';
 import { crearUsuario, listarUsuarios } from '@/lib/usuarios';
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo } from '@/lib/supabase-paginado';
@@ -226,6 +226,25 @@ export async function POST(req: NextRequest) {
         // la URL, la pantalla tiene que enterarse en vez de pintar algo que no está.
         return NextResponse.json({ ok: true, workspace: await actualizarWorkspace(body.id, patch) });
       }
+      /**
+       * BORRAR UN CLIENTE. Es lo más destructivo de la app y no tiene vuelta atrás.
+       *
+       * ⚠️ EL `import()` ES DINÁMICO a propósito, como en datos-mau: el módulo arrastra
+       * el vaciador y la cartera, y no hay razón para que eso entre al bundle de una
+       * ruta que casi siempre hace otra cosa.
+       *
+       * ⚠️ Y EL 400 LLEVA EL MOTIVO TAL CUAL. `motivoNoEliminable` ya devuelve una frase
+       * escrita para leerse; traducirla a «no se pudo» tira justo lo que la persona
+       * necesita para decidir qué hacer.
+       */
+      case 'eliminar': {
+        if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
+        const { eliminarWorkspace } = await import('@/lib/eliminar-workspace');
+        const r = await eliminarWorkspace(body.id, String(body.nombre ?? ''), await getWorkspaceActual());
+        if (!r.ok) return NextResponse.json(r, { status: 400 });
+        return NextResponse.json(r);
+      }
+
       default:
         return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });
     }
