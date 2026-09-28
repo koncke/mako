@@ -3112,3 +3112,111 @@ y sin llamar, y el typecheck lo dio por bueno.
 - **`app/admin/copywriting/` no está en ningún `vive[]`** de `app/admin/dev/areas.ts`,
   así que su Change History nace vacío. `tests/dev-areas.test.ts` sólo comprueba que
   lo declarado exista: la omisión no la ve nadie.
+
+
+## Tres implementaciones de la misma cabecera, y cómo se reconoce a tiempo
+
+Cosechado el 28/09/2026, del pedido «el detail está mal, te había dicho que idéntico al
+del plan, solo que con más opciones para administrar al usuario». Salió de un relevo de
+5 lectores + 10 refutadores sobre las tres.
+
+**Vive en:** `app/_components/CabeceraDetalle.tsx` · `app/_components/cabecera-detalle-geo.ts` · `app/plan/board/BoardShell.tsx` · `app/customer-success/FichaCliente.tsx` · `app/admin/FichaWorkspace.tsx`
+
+### El síntoma no era el diseño: eran tres archivos
+
+La cabecera de «el detalle de algo con nombre y cara» —portada a sangre, marca cruzándole
+el borde de abajo, cerrar como círculo oscuro, pastillas al hover, nombre al lado de la
+marca— estaba escrita **tres veces**: `pd-*` adentro de `BoardShell`, `fc-*` adentro de
+`FichaCliente`, y nada en el panel de la plataforma, que era un `Modal` genérico de 720 px
+titulado «Equipo».
+
+**El tell, y es el que sirve para la próxima:** dos de las tres hojas tenían reglas **byte
+a byte idénticas**. `.pd-pill` y `.fc-pill` eran la misma regla escrita dos veces, y
+`.pd-acciones` y `.fc-acciones` también. Cuando dos archivos distintos tienen una regla
+CSS carácter por carácter igual, no son dos piezas parecidas: es una pieza y una copia, y
+la copia ya empezó a divergir en otra línea.
+
+Lo que había divergido: la banda (124 contra 160), la marca (54 cuadrada con anillo de 3
+contra 88 redonda con anillo de 4), el cerrar (propio en una, el de `Modal` reposicionado
+por CSS en la otra) y el tinte de la fila (el plan la tiñe con el color, la ficha no).
+
+La cura es la misma que `TarjetaEntidad` ya había aplicado a la TARJETA: un COMPONENTE, no
+un CSS compartido. **La escala entra por prop y la anatomía no** — una ficha a 1560 px y un
+detalle a 820 no llevan la misma banda, y eso está bien; lo que no puede diferir es dónde
+está cada cosa.
+
+### Un par de números acoplados sobrevive porque se prueba con UN solo tamaño
+
+`top: 97px` y `padding-left: 86px` estaban cableados, con la cuenta explicada al lado:
+«124 − 27» y «20 + 54 + 12». Son dos números que hay que mover JUNTOS —la marca se monta a
+caballo del borde y la fila le deja su hueco—, y el síntoma de que se desincronicen no se
+parece a un número viejo: es el título escrito **encima** de la marca.
+
+Ahora se calculan (`geometriaCabecera`, en su propio módulo sin `server-only` para que el
+test lo importe). Y la medición que explica por qué duró tanto: probando la sangría fija en
+86 contra una marca de **54**, no falla ni uno de los tres casos que la persiguen. Es el
+**corolario 3 de OWNER_WS aplicado a un píxel**: con un solo valor configurado no se puede
+saber si el número sale del lugar correcto.
+
+### Lo que una MUDANZA DE HOJA se lleva puesto en silencio
+
+Al mover el CSS de un archivo a otro se perdió, sin que nada avisara:
+
+```css
+@media(prefers-reduced-motion:reduce){ .pd-acciones{ transition:none; } }
+```
+
+La hoja nueva quedó con `transition: opacity .12s` y sin su excepción, así que para quien
+pide menos movimiento las pastillas volvieron a aparecer con fundido. **No da error, no
+sale en ninguna captura y ningún test lo mira.** Lo encontró un refutador comparando las
+dos hojas regla por regla.
+
+⚠️ **La regla operativa: al mudar una hoja, la lista de lo que tiene que viajar incluye las
+`@media` y las `:focus-visible`, que son las que nadie mira porque no se ven en el estado
+normal.** Un `grep` de `prefers-reduced-motion` y de `focus-visible` sobre el origen y el
+destino cuesta dos segundos y es lo único que lo caza.
+
+### Un z-index cableado por debajo de la pila es un botón que no hace nada
+
+`ConfirmDialog` declaraba `zIndex: 90` y los modales de la casa arrancan en `Z_BASE = 130`
+(`app/_components/pila-modales.ts`). O sea que preguntar «¿borro a esta persona?» desde
+adentro de cualquier modal dibujaba el diálogo **tapado**: la acción se ofrecía, el
+click respondía, y en pantalla no pasaba nada. Lo mismo `NombreClienteDialog` de /admin.
+
+Nadie lo reportó porque el camino es raro (abrir un cliente → el menú de un miembro →
+Eliminar). Lo encontró el relevo comparando el literal `90` contra el `Z_BASE` del módulo.
+
+**Cómo se busca:** `grep -rn "zIndex: [0-9]" --include=*.tsx app` y se compara cada número
+contra `Z_BASE`. Todo lo que pueda abrirse desde adentro de un modal y tenga un z literal
+por debajo de 130 es este bug. La cura no es subir el número —el próximo nivel lo vuelve a
+tapar— sino registrarse en la pila con `useCapaModal(true, { anidada: true })`: `anidada`
+además deja ver lo de abajo, que es lo correcto cuando hay que confirmar SOBRE algo.
+
+### Dos trampas de los comentarios en JSX, y la segunda mordió escribiendo la primera
+
+1. **`{/* … */}` adentro de un `{cond && ( … )}` no es un comentario: es un segundo hijo de
+   la expresión**, y no compila. Es la hermana de la que AGENTS.md ya tiene («un `//` entre
+   etiquetas es TEXTO»): lo que decide no es qué dice el comentario, es **dónde cae**.
+2. **Un comentario de bloque no puede contener la secuencia que lo cierra**, ni siquiera
+   como ejemplo. Escribiendo la explicación de (1) puse el cierre entre comillas invertidas
+   para citarlo; el parser lo leyó como el cierre de verdad y el `}` siguiente quedó suelto.
+   El error sale a 90 columnas de donde uno cree.
+
+### Lo que quedó SIN hacer
+
+- **`FichaCliente` sigue siendo la tercera implementación, y es a propósito.** Su cabecera
+  vive adentro de `Modal` con cuatro reglas `:has()` que le matan el padding, tiene dos
+  líneas editables (nombre y empresa), el link al CRM y el control de «Inspeccionar» — o
+  sea que adoptar la pieza es reacomodar una pantalla que el dueño shapeó campo por campo
+  durante dos días. Lo que la pieza ya le compra es que el tablero y la plataforma no
+  puedan divergir entre sí; esta tercera queda anotada. Vive en
+  `app/customer-success/FichaCliente.tsx`.
+- **`.fc-cambiar` es CSS muerto** (cero call sites en JSX, 4 reglas + una `@media`), y dos
+  comentarios de esa hoja describen números que ya no son los que la regla de al lado
+  declara. Vive en `app/customer-success/FichaCliente.tsx`.
+- **`onMako` es un prop OBLIGATORIO de `ProjectDetailModal` que el componente no usa**, y
+  dos call sites se lo pasan. Vive en `app/plan/board/BoardShell.tsx`.
+- **El cuerpo del detalle de un proyecto no se puede extraer** sin mover antes ~13
+  funciones locales sin `export` (`Separador`, `MiniBar`, `BloquePrioridad`,
+  `BloqueHistorial`, `CampoCliente`…). Por eso se extrajo sólo la CABECERA. Vive en
+  `app/plan/board/BoardShell.tsx`.

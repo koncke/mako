@@ -281,6 +281,30 @@ export const BITACORA: Hito[] = [
       { sha: '08dc45d1', msg: 'Una agencia PIDE sumar a alguien; el super admin firma', lineas: 700, archivos: 11 },
     ],
   },
+  {
+    fecha: '28 sep', hora: '08:05', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'El detalle de un cliente tiene que ser el del plan',
+    pedido: 'El detail está mal, te habia dicho que identico al del plan, solo que con más opciones para administrar al usuario',
+    puntos: [
+      'Lo reporto mirando el modal «Equipo / P2P Consulting» del super admin, que era un Modal generico de 720 con una lista adentro.',
+    ],
+  },
+  {
+    fecha: '28 sep', hora: '12:40', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La cabecera del detalle pasa a ser UNA pieza, y el relevo encontro tres bugs de paso',
+    puntos: [
+      '**No era un problema de estilos: eran TRES implementaciones.** El detalle de un proyecto (`pd-*`), la ficha de un cliente (`fc-*`) y el del super admin, que ni lo intentaba. El tell que sirve para la proxima: dos de las tres hojas tenian reglas **byte a byte identicas** (`.pd-pill` y `.fc-pill`). Cuando dos archivos tienen una regla CSS caracter por caracter igual, no son dos piezas parecidas — es una pieza y una copia, y la copia ya empezo a divergir en otra linea.',
+      '**Los dos numeros de la marca estaban cableados y acoplados** (`top:97` = 124−27, `paddingLeft:86` = 20+54+12). Ahora se calculan, con test. Y la medicion que explica por que duraron tanto: con la marca de 54 del tablero, dejar la sangria fija en 86 NO falla ninguno de los tres casos que la persiguen. Es el corolario 3 de OWNER_WS aplicado a un pixel.',
+      '**Mudar una hoja de archivo se lleva puesto lo que no se ve en el estado normal.** El `prefers-reduced-motion` de las pastillas no viajo: no da error, no sale en ninguna captura y ningun test lo mira. Lo cazo un refutador comparando las dos hojas regla por regla.',
+      '**Un `zIndex: 90` cableado contra un `Z_BASE` de 130 es un boton que no hace nada.** «¿Borro a esta persona?» desde adentro de cualquier modal dibujaba el dialogo TAPADO. Pasaba con `ConfirmDialog` (15 call sites) y con el de renombrar. Ahora su z sale de la pila y va `anidada`; verificado en el navegador, 132 contra 130.',
+      '**Y la fila del equipo tenia la cara vieja:** `u.foto_url` pelado donde la tabla de al lado ya usaba `u.cara`. Es el trap de los dos bloques identicos — el arreglo del dia anterior habia entrado en uno solo de los dos.',
+      '⚠️ PROCESO: implementar MIENTRAS la corrida lee hace que sus veredictos se contradigan. Dos de las tres refutaciones fueron contra trabajo mio sin commitear: los lectores describieron HEAD bien y los refutadores leyeron el disco y los refutaron con razon. Quedo escrito en AGENTS.md.',
+      'ABIERTO: `FichaCliente` sigue siendo la tercera implementacion, a proposito (su cabecera vive adentro de Modal con cuatro reglas `:has()` y el dueño la shapeo campo por campo). Y `.fc-cambiar` es CSS muerto, `onMako` es un prop obligatorio que nadie usa.',
+    ],
+    commits: [
+      { sha: 'd86fb0d7', msg: 'El detalle de un cliente es LA MISMA PIEZA que el del plan', lineas: 900, archivos: 11 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

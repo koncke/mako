@@ -3510,6 +3510,26 @@ había cableado**, dos horas antes.
 - **Al lanzar la corrida**, decile qué acabás de tocar. Un agente que sabe que F0 se commiteó
   hace una hora no gasta un reporte en descubrirlo.
 
+⚠️ **Y SI IMPLEMENTÁS MIENTRAS LA CORRIDA LEE, sus veredictos se van a contradecir entre
+sí — y no es un error de ellos.** Medido el 28/09/2026: mientras 5 lectores relevaban las
+tres implementaciones del detalle, yo escribía la unificación en el mismo árbol. Los
+lectores describieron HEAD correctamente («`workspaces` no tiene columna de portada»,
+«/api/admin/workspaces acepta CUATRO acciones») y los refutadores, que corrieron después,
+leyeron el disco y las **refutaron con razón** — dos de las tres refutaciones de la corrida
+fueron contra trabajo mío sin commitear. Los dos lados tenían razón sobre momentos
+distintos.
+
+No es gratis: se pagan agentes para descubrir lo que uno acaba de escribir, y queda un
+informe donde no se distingue «esto estaba mal» de «esto ya lo arreglé hace diez minutos».
+Las dos salidas, y la primera es mejor:
+
+- **Esperar el relevo antes de tocar el área que se está relevando.** Lo que sí se puede
+  hacer en el medio es lo que la corrida no mira (otra área, la migración, los tests).
+- **Si igual hay que avanzar, decírselo al refutador en el prompt**: qué archivos están
+  modificados sin commitear y que compare contra `git show HEAD:<archivo>`, no contra el
+  disco. El refutador de esta corrida lo dedujo solo —corrió `git status` y lo escribió en
+  la corrección— pero eso fue suerte, no diseño.
+
 ## Un panel de agentes al que le preguntas por una decision YA TOMADA siempre trae un argumento en contra
 
 Un jurado de N agentes que evalua una opcion produce criticas: para eso se lo llama. Si lo
