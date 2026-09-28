@@ -22,6 +22,111 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 ## Lo que más muerde acá
 
+## Configurar el funnel: qué es seguro tocar y qué no
+
+### ⚠️ Renombrar una etapa es seguro; el `kind` y el ORDEN no, y el editor los deja como sea
+
+**El miedo era el equivocado, y medirlo lo cerró.** Se temía que renombrar «R1 / R2» rompiera
+automatizaciones. No: **toda la lógica cuelga de la CLAVE canónica, del `kind` y del ORDEN**, y
+la única comparación por label en todo el repo es `mismoPipeline`, que es deliberada. Ya hay
+tres workspaces en producción con labels propios («1ª sesión sin costo», «En revision»,
+«TASACION / PRE LISTING») y el CRM funciona.
+
+Dos riesgos que parecían graves y se midieron como falsos:
+
+· **La nutrición NO se rompe al renombrar.** `nutricion_secuencias.etapa` se lee sólo cuando el
+  trigger es `etapa_actual`, y en toda la base hay 7 filas con ese trigger, **las 7 inactivas y
+  archivadas, con 0 inscripciones históricas**. Esa rama nunca corrió.
+· **El CRM automático tampoco.** `deriveStageKey` es un switch puro sobre claves canónicas sin
+  ninguna noción del funnel, así que un lead recién entrado da `'lead'` se llame como se llame
+  la entrada de ese workspace. Medido: **cero leads en toda la base tienen
+  `pipeline_stage='lead'`** — nada lo escribe al crear.
+
+**Lo que SÍ rompe, y con un caso real y caro.** Medido el 28/09/2026 sobre el funnel que una
+inmobiliaria armó a mano, traído de producción:
+
+| clave | kind | label |
+|---|---|---|
+| `lead` | entrada | Lead (Instant form) |
+| `agenda` | grupo | En revision |
+| **`ganado`** | **grupo** | **Calificado** ← la venta, tipada como grupo |
+| **`st0`** | **CIERRE** | **NO Calificado** ← el DESCARTE, tipado como cierre |
+| `st1` | reunion | TASACION / PRE LISTING |
+
+Corriendo `funnelReqInfo` + `stepsForStage` con ese pipeline:
+
+· «NO Calificado» da `esVenta: true` y pide fecha de R1, asistencia, el Fathom, el **closer** y
+  el **monto de cierre**. O sea que **el sistema pide el monto de la venta para DESCALIFICAR a
+  alguien**.
+· «Calificado» —cuya clave hace que `terminalEstadoFor` escriba `estado_lead='ganado'`— da
+  `esVenta: false` y no pide nada. **La venta real no pide monto.**
+· Y el cierre no es la última etapa, así que **la última exige MENOS que la cuarta**: el orden
+  de exigencia está invertido, y mover un lead más allá del cierre le borra el monto.
+
+**La consecuencia, en una consulta:** ese workspace tiene **5 leads en `ganado` y CERO con monto
+de cierre cargado**. Sus ventas no tienen un peso anotado y el Segundo Cerebro cuenta a los
+descalificados como cierres. **Nada falló nunca**: la pantalla lo dejó guardar y no dijo una
+palabra.
+
+**La regla:** cuando una pantalla deja configurar algo de lo que después cuelga el
+comportamiento, el editor tiene que decir qué quedó mal armado. `sanearPipeline` sólo
+comprobaba que fuera una lista con claves — que es una validación de FORMA, y el daño vive en
+el SIGNIFICADO.
+
+⚠️ **AVISA, NO BLOQUEA** («guardar NUNCA se bloquea», decisión del 17/09). Un funnel a medio
+armar se guarda igual; lo que no puede es quedar roto Y callado. Y el aviso **nombra la
+etapa**: «hay un problema en tu funnel» no sirve cuando el cliente tiene cinco y no sabe cuál
+tocar.
+
+⚠️ **Y el test mide las DOS mitades.** Que marque el funnel roto, y que **NO marque ninguna de
+las 7 plantillas que sembramos nosotros**: un guard que también marca lo bueno se ignora en una
+semana, y con él se ignora el caso real.
+
+**Vive en:** `lib/pipeline.ts` (`problemasDePipeline`) · `app/funnel/FunnelEditor.tsx` ·
+`tests/funnel-estructura.test.ts`
+
+### ⚠️ Lo que falta para el onboarding del CRM — y la mitad que YA estaba construida
+
+Martín pidió (27/09) que el CRM tenga un onboarding para configurar las etapas: «saber si es
+presencial, si vende con llamadas, solo con WhatsApp, venta carrito». **La mitad ya existe y
+nadie lo sabía:**
+
+· `CANALES` (`lib/fase-diagnostico.ts`) son **exactamente** los cinco que él enumera:
+  llamadas, conversaciones, carrito, webinar, presencial.
+· `FUNNEL_TEMPLATES` (`lib/pipeline.ts`) son 7 plantillas, **incluida `presencial`**.
+· `TEMPLATE_POR_CANAL` + `templateDeCanal` ya siembran las etapas del canal declarado, y
+  `templateDeCanal` falla cerrado.
+
+**Lo que falta es la PUERTA**, y son tres huecos medidos:
+
+1. **Ni `crm` ni `funnel` están en `TAB_ONBOARDINGS`** (declara 11 tabs, ninguna es ésa). El
+   prefijo de uno nuevo tiene que ser `crm_`: dos pasos que comparten nombre se marcan solos
+   entre sí, y hay test que lo persigue.
+2. **La siembra corre UNA sola vez en la vida del cliente** (el paso `fase` del wizard global), y
+   el hub no propaga el canal: cambiar «cómo vendo» después **no mueve el funnel**. Y
+   `funnels.canal` está NULL en los 11 funnels de producción, así que el override por funnel
+   no se usa.
+3. **`entradas` está vacío en 6 de los workspaces con `declarado=true`** (ws 1, 4, 10, 13, 14,
+   15) — el único que lo declaró es el ws11, y es justo el único que recibe formularios sin
+   reserva (6 de 8). A los otros, un opt-in de formulario **se les descartaría**; lo único que
+   los salva hoy es la excepción de Cal.com. Y la tarjeta donde eso se declara la monta
+   **sólo** `app/funnel/page.tsx`: el onboarding y el Segundo Cerebro montan el editor SIN
+   ella, y /funnel no está en el nav.
+
+⚠️ **Y por qué la entrada del catálogo NO se agrega sin la pantalla:** declarar el onboarding
+de una tab la GATEA. El CRM es la primera tab de todos los roles (el fallback de
+`tab-access`), así que un onboarding declarado y sin pantalla que lo complete deja a todo el
+mundo afuera del CRM. Es «una guarda bloquea sólo lo que se arregla haciendo lo que ella
+pide», aplicada al peor lugar posible.
+
+**Y lo que NO hace falta, medido:** «ellos no tienen closer» no bloquea nada. El camino de
+MOVER un lead no pasa esos campos —`app/crm/actions.ts` lo dice textual: «Higiene
+(setter/closer/empresa/deal/comprobante) NO gatea el movimiento»— y con un solo usuario el
+closer se autoasigna. Es higiene, no un requisito.
+
+**Vive en:** `lib/tab-onboarding-catalogo.ts` · `lib/fase-diagnostico.ts` ·
+`app/funnel/EntradasCard.tsx` · `app/api/onboarding/route.ts`
+
 - **«Se ven 4 ganados de 13»** no era un filtro: `_listLeads` no paginaba y PostgREST cortó en
   1000 los leads más viejos, que eran los clientes cerrados. La misma lectura estaba copiada
   en seis lugares más → [`_listLeads` y sus seis copias](#️-_listleads-faltaban-9-de-13-ganados-y-la-misma-lectura-estaba-copiada-seis-veces).

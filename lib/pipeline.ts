@@ -825,6 +825,90 @@ export function templateDeCanal(canal: string | null | undefined): FunnelTemplat
   return id ? FUNNEL_TEMPLATES.find((t) => t.id === id) ?? null : null;
 }
 
+
+/**
+ * Lo que está MAL ARMADO en un pipeline, en frases que se pueden dibujar.
+ *
+ * ⚠️ POR QUÉ EXISTE, Y NO ES HIPOTÉTICO. Renombrar una etapa es seguro: toda la lógica
+ * cuelga de la CLAVE canónica, del `kind` y del ORDEN, nunca del label. Lo que NO es
+ * seguro es el `kind` y el orden, y el editor de /funnel los deja poner como sea.
+ *
+ * Medido en producción el 28/09/2026 sobre el funnel que un cliente armó a mano
+ * (una inmobiliaria). Su pipeline quedó así:
+ *
+ *   lead    · entrada · «Lead (Instant form)»
+ *   agenda  · grupo   · «En revision»
+ *   ganado  · grupo   · «Calificado»            ← la venta, tipada como grupo
+ *   st0     · CIERRE  · «NO Calificado»         ← el DESCARTE, tipado como cierre
+ *   st1     · reunion · «TASACION / PRE LISTING»
+ *
+ * Lo que eso produce, corriendo `funnelReqInfo` + `stepsForStage` con ese pipeline:
+ *
+ *   · «NO Calificado» da `esVenta: true` y pide fecha de R1, asistencia, el Fathom, el
+ *     CLOSER y el MONTO DE CIERRE. O sea que el sistema le pide el monto de la venta
+ *     para DESCALIFICAR a alguien.
+ *   · «Calificado» —cuya clave `ganado` hace que `terminalEstadoFor` escriba
+ *     `estado_lead='ganado'`— da `esVenta: false` y no pide nada. La venta real no
+ *     pide monto.
+ *   · Y el cierre no es la última etapa, así que la última exige MENOS que la cuarta:
+ *     el orden de exigencia está invertido.
+ *
+ * La consecuencia se mide en una consulta: ese workspace tiene 5 leads en `ganado` y
+ * CERO con monto de cierre cargado. Sus ventas no tienen un peso anotado, y el Segundo
+ * Cerebro cuenta a los descalificados como cierres.
+ *
+ * ⚠️ AVISA, NO BLOQUEA, y es la regla de la casa («guardar NUNCA se bloquea»): un funnel
+ * a medio armar se guarda igual y lo que falta queda a la vista. Un editor que se niega a
+ * guardar deja al cliente sin salida en la pantalla donde configura su negocio.
+ */
+export function problemasDePipeline(pipeline: Stage[]): string[] {
+  const out: string[] = [];
+  if (!pipeline.length) return out;
+
+  const cierres = pipeline.filter((s) => s.kind === 'cierre');
+  const ganado = pipeline.find((s) => s.key === 'ganado');
+  const nombre = (s: Stage) => s.label?.trim() || s.key;
+
+  // 1) La etapa que el sistema YA trata como la venta tiene que ser la del cierre. La
+  //    clave manda sobre el `kind` porque `terminalEstadoFor` escribe el estado del lead
+  //    a partir de ella, y eso no se puede configurar.
+  if (ganado && ganado.kind !== 'cierre') {
+    out.push(
+      `«${nombre(ganado)}» es la etapa de venta (marcarla da el lead por ganado), pero está tipada como «${ganado.kind ?? 'paso'}». Cámbiala a cierre o no te va a pedir el monto.`,
+    );
+  }
+
+  // 2) Un solo cierre. Con dos, cada uno pide el monto y el embudo tiene dos finales.
+  if (cierres.length > 1) {
+    out.push(`Hay ${cierres.length} etapas de cierre (${cierres.map(nombre).join(', ')}). El embudo tiene un solo final: deja una.`);
+  }
+
+  // 3) Un cierre que no es el final invierte el orden de exigencia, y mover un lead MÁS
+  //    ALLÁ del cierre le borra el monto y la fecha de la venta.
+  const ultima = pipeline[pipeline.length - 1];
+  for (const c of cierres) {
+    if (c !== ultima) {
+      out.push(
+        `«${nombre(c)}» es el cierre y no es la última etapa: lo que viene después pide menos que él, y mover un lead más allá le borra el monto.`,
+      );
+    }
+  }
+
+  // 4) Y un cierre sobre una etapa que el sistema lee como PERDIDA es la vuelta entera:
+  //    le pide el monto de la venta para descartar a alguien.
+  for (const c of cierres) {
+    const estado = terminalEstadoFor(c.key);
+    if (estado !== 'ganado' && estado !== 'abierto') {
+      out.push(`«${nombre(c)}» está tipada como cierre y su clave la marca como ${estado}: te va a pedir el monto de una venta para descartar un lead.`);
+    }
+  }
+
+  // 5) Sin ningún cierre no hay dónde anotar una venta. No es un error —un funnel a medio
+  //    armar es legítimo— pero se dice, porque el que mira el embudo no lo deduce.
+  if (!cierres.length) out.push('Ninguna etapa está tipada como cierre: no vas a poder anotar el monto de una venta.');
+
+  return out;
+}
 /** Enriquece una etapa con su layout por defecto (banda/col/colores) si no lo trae. */
 export function withLayout(s: Stage): Stage {
   if (s.band && s.col != null) return s;

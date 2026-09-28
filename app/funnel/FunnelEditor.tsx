@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import {
   CATEGORY, TRIGGER, BAND_LABEL, generateFunnel, FUNNEL_TEMPLATES, AUTO_REGLAS,
   type Stage, type StageBand, type StageKind, type FunnelTransition, type TransitionTrigger,
+  problemasDePipeline,
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../crm/actions';
 import { Dropdown } from '../components/Dropdown';
@@ -129,6 +130,16 @@ export function FunnelEditor({
   const [scale, setScale] = useState(1);
 
   const { stages, transitions } = useMemo(() => generateFunnel(pipeline, suppressed), [pipeline, suppressed]);
+
+  // ⚠️ LO QUE ESTÁ MAL ARMADO SE DICE ACÁ, que es donde se arma. Renombrar una etapa es
+  // seguro (la lógica cuelga de la clave, del `kind` y del orden, no del label), pero el
+  // `kind` y el orden no lo son y este editor los deja poner como sea.
+  //
+  // Medido el 28/09/2026: un cliente armó su funnel a mano y le quedó el DESCARTE tipado
+  // como cierre —así que el sistema le pedía el monto de la venta para descalificar a
+  // alguien— y la venta tipada como grupo, que no pide nada. Cinco leads ganados y cero
+  // con monto cargado. No falló nada: la pantalla lo dejó guardar y no dijo una palabra.
+  const problemas = useMemo(() => problemasDePipeline(pipeline), [pipeline]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const ref = useRef({ pipeline, suppressed });
@@ -264,6 +275,27 @@ export function FunnelEditor({
       )}
 
       {encabezado && <div style={{ marginTop: 20 }}>{encabezado}</div>}
+
+      {/* ⚠️ AVISA, NO BLOQUEA — «guardar NUNCA se bloquea». Un funnel a medio armar se
+          guarda igual: lo que no se puede es que quede roto Y callado. Va arriba del mapa
+          porque abajo, después de un lienzo de 600 px, no lo lee nadie. */}
+      {problemas.length > 0 && (
+        <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
+          {problemas.map((t) => (
+            <div
+              key={t}
+              style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+                background: 'var(--warn-bg, #FFF7E6)', border: '1px solid var(--warn, #E08A12)',
+                borderRadius: 12, padding: '11px 14px', fontSize: 13, lineHeight: 1.45, color: 'var(--ink)',
+              }}
+            >
+              <span aria-hidden style={{ flex: 'none', color: 'var(--warn, #E08A12)', fontWeight: 700 }}>!</span>
+              <span>{t}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* MAPA (solo lectura) */}
       <div
