@@ -2632,14 +2632,33 @@ function CampoCliente({ cliente, onAbrir }: {
  * sola cierra la hoja a la mitad — AGENTS.md lo tiene medido, y ya pasó hoy.)
  */
 const CSS_DETALLE = `
-.pd-acciones{ position:absolute; top:12px; right:14px; z-index:3; display:flex; gap:6px;
+/* ⚠️ ABAJO A LA DERECHA Y EN CLARO, IGUAL QUE EN LA FICHA DE UN CLIENTE. Estaban
+   arriba a la derecha y en oscuro — o sea, en el mismo rincon y con el mismo peso
+   visual que el boton de cerrar. Ya se habia pedido una vez para la ficha: «que el
+   boton de cerrar sea diferente a los otros, y que los otros mejor esten abajo a la
+   derecha de la portada» (27/09/2026), y el detalle de proyecto quedo con el molde
+   viejo. Dos pantallas que muestran lo mismo se ven igual. */
+.pd-acciones{ position:absolute; right:14px; bottom:12px; z-index:3; display:flex; gap:6px;
   opacity:0; transition:opacity .12s; }
 div:hover > .pd-acciones, .pd-acciones:focus-within{ opacity:1; }
-.pd-pill{ background:rgba(20,22,26,.52); border:0; border-radius:999px; padding:6px 13px;
-  font:inherit; font-size:12.5px; font-weight:500; color:#fff; cursor:pointer;
-  text-decoration:none; white-space:nowrap; backdrop-filter:blur(3px); }
-.pd-pill:hover{ background:rgba(20,22,26,.72); color:#fff; }
-.pd-pill:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+/* Pastilla CLARA: la otra mitad de distinguirla del cerrar, que es un circulo oscuro
+   solido. Sobre una foto clara el vidrio blanco se sigue leyendo por el borde y la
+   sombra. */
+.pd-pill{ background:rgba(255,255,255,.90); border:0; border-radius:999px; padding:6px 13px;
+  font:inherit; font-size:12.5px; font-weight:600; color:#16181d; cursor:pointer;
+  text-decoration:none; white-space:nowrap; backdrop-filter:blur(6px);
+  box-shadow:0 1px 4px rgba(18,21,27,.18); }
+.pd-pill:hover{ background:#fff; color:#16181d; }
+.pd-pill:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
+/* ⚠️ CERRAR SE TIENE QUE VER DISTINTO DE LAS ACCIONES: circulo oscuro solido, arriba
+   a la derecha, SOBRE la portada. Era una «x» gris en el renglon de abajo, que es
+   donde nadie la busca cuando la portada ocupa el techo del modal. */
+.pd-cerrar{ position:absolute; top:12px; right:12px; z-index:4;
+  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  background:rgba(18,21,27,.82); color:#fff; border:0; border-radius:999px; padding:0;
+  cursor:pointer; font-size:19px; line-height:1;
+  box-shadow:0 1px 6px rgba(18,21,27,.30); }
+.pd-cerrar:hover{ background:#12151b; color:#fff; }
 .pd-icono{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; padding:0; }
 /* El icono CRUZA el borde de abajo de la portada: mitad sobre la imagen, mitad sobre
    el header. 124 de banda menos 27 (la mitad de 54) = 97. Absoluto y no un margen
@@ -3450,7 +3469,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
         </div>
         {/* DERECHA — las 3 tareas en prioridad. `flex: 2 1 380px`: crece el doble que
             el objetivo cuando sobra lugar y se va abajo sola cuando no entra. */}
-        <div style={{ flex: '2 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ flex: '2 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
             {/* ⛔ ACÁ IBA «🔒 N frenadas por otra cosa · no entran aquí hasta que se destraben»,
@@ -3477,13 +3496,20 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
             // proyecto le ganaba en peso visual al título, que es lo que hay que leer.
             const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
             return (
-              <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
+              // ⚠️ MAS COMPACTA, Y LO QUE SE RECORTA ES EL AIRE, NO EL TEXTO. «Que no
+              // sean tan altas las tareas, que sea un poco mas compacto, asi el proyecto
+              // de al lado no queda larguisimo» (27/09/2026) — y el sintoma que nombra es
+              // el que importa: la columna izquierda es UNA tarjeta que estira hasta el
+              // alto de las cinco de la derecha, asi que cada pixel de mas aca se paga
+              // alla multiplicado por cinco. De 20/24 de padding y tres separaciones de
+              // 10/12/14 a 14/18 y 7/8: ~32 px menos por tarjeta, ~160 en la columna.
+              <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
                 {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + proyecto
                     + #id + prioridad; el título abajo, en su línea. El emoji suelto se fue:
                     era el del proyecto, y ahora va DENTRO del chip en vez de repetido. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, minWidth: 0 }}>
-                  <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7, minWidth: 0 }}>
+                  <span title={`Prioridad ${i + 1}`} style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
                   {proys.length > 0
                     ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={240} onOpen={onOpenProj} /></span>
                     : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
@@ -3496,7 +3522,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                     sola cortaba casi todos los títulos, y tres renglones empujan el deadline
                     y el check fuera de la vista y hacen que dos tarjetas de la misma lista
                     midan distinto. El entero sigue en el `title`. */}
-                <div title={t.title} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
+                <div title={t.title} style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
                 {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
                     barra de avance, el % y la checklist plegable: los tres se fueron con
                     la checklist («una tarea se completa o no se completa»), y lo que
@@ -3506,8 +3532,8 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                   <span style={{ flex: 1 }} />
                   <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
                     aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-                    <CheckHecho done={t.progress >= 100} size={15} />
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+                    <CheckHecho done={t.progress >= 100} size={14} />
                     Completar
                   </button>
                 </div>
@@ -3520,34 +3546,22 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
   );
 }
 
-// Card del Objetivo Principal (izquierda de Prioridades). Alto, clickeable → abre el
-// proyecto. Solo emoji + nombre + score: el detalle y el porqué viven adentro.
+/**
+ * La tarjeta del Objetivo Principal (izquierda de Prioridades).
+ *
+ * ⚠️ ES **LA MISMA** QUE EN LA GRILLA DE PROYECTOS, no una parecida. Tenía su
+ * propio dibujo —un borde de color arriba, el emoji suelto, el pid, el nombre y
+ * una barra— y le faltaba lo único que el dueño pidió: «en la vista de
+ * prioridades también debes poner el diseño de la preview de la card de
+ * proyecto, con su banner» (27/09/2026). Un proyecto se tiene que reconocer
+ * igual en las dos pantallas, y para eso hay que montar la MISMA pieza: la
+ * segunda copia es la que se queda vieja.
+ *
+ * `sinRanking` queda en false a propósito: acá el score SÍ importa — es el
+ * número que explica por qué este proyecto es el norte.
+ */
 function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () => void; prog: { total: number; done: number; pct: number } }) {
-  return (
-    <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 14, padding: '16px 17px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = objetivo.color; e.currentTarget.style.borderTopColor = objetivo.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = objetivo.color + '59'; e.currentTarget.style.borderTopColor = objetivo.color; }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>
-        <span style={{ flex: 1 }} />
-        <ProjScore score={objetivo.score} color={objetivo.color} />
-      </div>
-      {/* emoji + id (mismo tamaño/color que en el kanban) antes del nombre */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 22, lineHeight: 1 }}>{objetivo.emoji}</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{objetivo.pid}</span>
-      </div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.3 }}>{objetivo.name}</div>
-      <span style={{ flex: 1 }} />
-      {/* Barra de progreso del proyecto (feedback jul-17): igual que en la grilla. */}
-      <div style={{ marginTop: 16 }}>
-        <MiniBar v={prog.pct} />
-        {/* avance/porcentaje en cada extremo, como en la grilla de proyectos (feedback jul-18) */}
-        <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>
-          {prog.total ? <><span>{prog.done}/{prog.total} tareas</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
-        </div>
-      </div>
-    </div>
-  );
+  return <ProyectoCardTile l={objetivo} prog={prog} isTop onOpen={onOpen} />;
 }
 
 // ── filtro por etiqueta ─────────────────────────────────────────────────────────
@@ -5306,6 +5320,10 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
                 con el margen sube TODO —ícono, pid y título— y el nombre queda escrito
                 sobre la foto, que con un degradado claro se lee y con un bosque no. Es
                 la misma cuenta y el mismo motivo que el avatar de la ficha. */}
+            {/* CERRAR, sobre la portada y distinto de las acciones. Va acá adentro y no
+                en el renglón de abajo: con la portada ocupando el techo del modal, la
+                esquina de arriba a la derecha es donde se busca. */}
+            <button type="button" className="pd-cerrar" aria-label="Cerrar" onClick={onClose}>×</button>
             <button type="button" className="pd-marca"
               onClick={(e) => { const b = e.currentTarget; onIcono(b); }}
               title="Cambiar el ícono" aria-label={`Cambiar el ícono de ${proj.name}`}>
@@ -5315,7 +5333,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
         <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE }} />
         {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno.
             ⚠️ CON PORTADA, EL PADDING IZQUIERDO LE DEJA LUGAR AL ÍCONO que la cruza. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px 13px 86px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, padding: '10px 20px 12px 86px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
           {onBack && <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>}
           {/* ⚠️ CON PORTADA, EL ÍCONO YA ESTÁ ARRIBA CRUZÁNDOLA: dibujarlo otra vez acá
               serían dos controles para la misma pregunta, que es exactamente lo que este
@@ -5323,8 +5341,24 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               portada no hay dónde cruzarlo, así que vive en el header como siempre.
               Y el padding de la izquierda le deja su lugar cuando cruza. */}
 
-          <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
-          {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+          {/* ⚠️ EL PID Y EL TÍTULO SON UNA COLUMNA, no dos hijos sueltos de la fila.
+              El renglón chico arriba (qué cosa es) y el nombre grande abajo, con la
+              marca al lado — la misma anatomía que la cabecera de la ficha de un
+              cliente. La fila alinea por la BASE, así que el título queda a la altura
+              del ícono sin ninguna cuenta. */}
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
+              {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+            </span>
+            {/* MISMO título editable que el de una tarea, con el mismo foco sin recuadro
+                azul: dos pantallas que muestran lo mismo se ven igual. */}
+            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={(e) => { tituloBlur(e); if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
+              onFocus={tituloFoco}
+              title="Edita el nombre" aria-label="Nombre del proyecto"
+              style={{ ...tituloEditable, fontSize: 20, marginBottom: 0 }} />
+          </span>
           {/* El chip va en el HEADER por el mismo motivo que en una tarea: es lo primero que
               hay que saber de este proyecto —cambia el significado de su prioridad, de su
               fecha y de dónde vive— y la columna derecha puede estar scrolleada. */}
@@ -5338,17 +5372,16 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
               tarea tiene sentido —MaKo reescribe el título y el detalle— pero en un
               proyecto el detalle ya lo escribe el Perro al crearlo y en cada corrida, así
               que el botón ofrecía volver a pedir algo que ya pasó solo. */}
-          <button aria-label="Cerrar" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
           {/* columna principal */}
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
-            {/* MISMO título editable que el de una tarea, con el mismo foco sin recuadro
-                azul: dos pantallas que muestran lo mismo se ven igual. */}
-            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={(e) => { tituloBlur(e); if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
-              onFocus={tituloFoco}
-              title="Edita el nombre" aria-label="Nombre del proyecto" style={tituloEditable} />
+            {/* ⛔ EL TÍTULO YA NO VIVE ACÁ. Subió al renglón del ícono el 27/09/2026:
+                «el título principal debería estar al lado del emoji/perfil, no abajo».
+                Es la anatomía de la ficha de un cliente y la de una página de Notion —
+                marca, nombre al lado, y el cuerpo empieza en el contenido. Abajo dejaba
+                el renglón del ícono con sólo el pid, o sea un renglón entero para un
+                número de cinco caracteres. */}
             {/* ⚠️ EL DETALLE VUELVE ARRIBA, Y ES UN SOLO DOCUMENTO. Tres pedidos del mismo
                 día y hay que leer los tres juntos: primero «yo no veo el detalle, yo veo las
                 tareas», después «haz que el "Detalle del proyecto" siga estando arriba del
