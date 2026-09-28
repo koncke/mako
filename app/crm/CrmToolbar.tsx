@@ -123,9 +123,19 @@ function MenuItem({ icon, label, desc, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ total, onImportar, onExportar, onNuevo }: {
+export function AccionesHeader({ total, funnelActivo, onImportar, onExportar, onNuevo }: {
   /** leads del workspace (no los filtrados): con 0, importar es el camino crítico. */
   total: number;
+  /**
+   * Cuál funnel está mirando el tablero. Se lo lleva «Editar funnel», y sin él el link
+   * abría SIEMPRE el funnel del negocio.
+   *
+   * ⚠️ Y ojo con el nombre del parámetro: el CRM viaja con `?funnel=` y /funnel lee `?f=`.
+   * Son dos páginas con dos convenciones, así que pasar el id no alcanza — hay que pasarlo
+   * con el nombre que la OTRA espera. Medido el 28/09/2026: desde «Sistema DOS» se editaba
+   * el funnel del negocio, y el editor no da ninguna pista de cuál está abriendo.
+   */
+  funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
@@ -160,7 +170,7 @@ export function AccionesHeader({ total, onImportar, onExportar, onNuevo }: {
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar funnel"
               desc="Cambia las etapas del pipeline y sus flechas"
-              href="/funnel" onClick={() => setOpen(false)} />
+              href={funnelActivo ? `/funnel?f=${funnelActivo}` : '/funnel'} onClick={() => setOpen(false)} />
           </div>
         </>}
       </span>

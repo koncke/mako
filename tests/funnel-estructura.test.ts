@@ -248,3 +248,21 @@ test('⚠️ y el guardado y el editor las respetan, no sólo la función', () =
     'el botón de borrar del editor volvió a aceptar una etapa terminal',
   );
 });
+
+test('⚠️ «Editar funnel» abre EL funnel que estás mirando, no el del negocio', () => {
+  // Medido el 28/09/2026 con tres funnels en un workspace: el link del menú del CRM iba a
+  // /funnel pelado, así que desde «Sistema DOS» se editaba el funnel del negocio — y el
+  // editor no da ninguna pista de cuál abrió. Guardar ahí pisa el funnel equivocado.
+  //
+  // ⚠️ Y pasar el id no alcanzaba: el CRM viaja con `?funnel=` y /funnel lee `?f=`. Dos
+  // páginas con dos convenciones — el id hay que pasarlo con el nombre que espera la OTRA.
+  const tb = readFileSync(join(import.meta.dirname, '../app/crm/CrmToolbar.tsx'), 'utf8');
+  assert.match(tb, /href=\{funnelActivo \? `\/funnel\?f=\$\{funnelActivo\}`/,
+    'el link de editar funnel volvió a ir sin el funnel activo, o con el parámetro equivocado');
+  const bd = readFileSync(join(import.meta.dirname, '../app/crm/CrmBoard.tsx'), 'utf8');
+  assert.match(bd, /<AccionesHeader[^>]*funnelActivo=\{funnelActivo\}/,
+    'el tablero no le pasa el funnel activo al menú');
+  // Y /funnel tiene que seguir leyendo `?f=`: si cambia, el link de arriba queda mudo.
+  const fp = readFileSync(join(import.meta.dirname, '../app/funnel/page.tsx'), 'utf8');
+  assert.match(fp, /searchParams: Promise<\{ f\?: string \}>/, '/funnel dejó de leer ?f=');
+});

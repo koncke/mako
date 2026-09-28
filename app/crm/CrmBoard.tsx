@@ -1359,7 +1359,7 @@ export function CrmBoard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <CrmAutoToggle />
           <DivisorHeader />
-          <AccionesHeader total={total} onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead(true)} />
+          <AccionesHeader total={total} funnelActivo={funnelActivo} onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead(true)} />
         </div>
       </header>
 
