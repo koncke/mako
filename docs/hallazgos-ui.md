@@ -3220,3 +3220,54 @@ además deja ver lo de abajo, que es lo correcto cuando hay que confirmar SOBRE 
   funciones locales sin `export` (`Separador`, `MiniBar`, `BloquePrioridad`,
   `BloqueHistorial`, `CampoCliente`…). Por eso se extrajo sólo la CABECERA. Vive en
   `app/plan/board/BoardShell.tsx`.
+
+## `max-height` no es un tamaño, y lo que cuelga adentro lo paga (29/09/2026)
+
+Cosechado de «ya te había dicho que JAMÁS achiques el tamaño de un detail según lo que
+contenga dentro» — la segunda vez que llega el mismo pedido, y la primera con una
+captura del daño colateral.
+
+**Vive en:** `app/_ui/Modal.tsx` · `app/_ui/ui.css` (`.mk-modal`) · `app/_components/BarraAcciones.tsx`
+
+### El tope está bien para un diálogo y mal para una ficha
+
+`.mk-modal` lleva `max-height: min(85vh, 720px)`, que es lo correcto para lo que el
+componente nació siendo: una caja que pregunta algo en una frase no tiene por qué medir
+720 px. Pero **una ficha con un tablero adentro cambia de contenido sin cambiar de
+identidad**: cada vista del board trae lo suyo, y la de Equipo de un cliente sin gente
+son dos renglones.
+
+Medido antes: la misma ficha pasaba de 720 px en Prioridades a ~430 en Equipo. Todo lo de
+abajo salta, y el borde inferior sube 290 px sin aviso.
+
+**La regla que queda: si una caja contiene algo que cambia de tamaño por dentro sin dejar
+de ser la misma pantalla, su alto es un NÚMERO, no un tope.** El tope se queda igual
+encima, para que un alto mayor que la ventana no saque el pie de la vista.
+
+### Y el borde que sube se lleva puesto lo que cuelga
+
+El daño que el dueño mostró no era el salto: era que **el menú de los tres puntos se veía
+cortado a la mitad**. La causa es otra y el alto sólo la disimulaba — medido después de
+fijar el alto, **seguía cortándose 140 px en las dos vistas**.
+
+`.mk-modal` lleva `overflow: hidden` para redondear sus esquinas, y el menú era un
+`position:absolute; top:44; right:0` colgado de su botón, **adentro** del modal. Un
+overflow que recorta no distingue un panel flotante de un párrafo largo.
+
+⚠️ **Un panel anclado que pueda vivir adentro de un contenedor con `overflow` se portalea
+al `body` y se ubica por cuenta**, nunca por un `top/right` fijo: ese par no se da vuelta
+cuando no entra abajo ni se topa contra el borde de la ventana. La cuenta ya existía
+(`ubicarPanel`, del selector de portada) y escribir una segunda habría sido la copia que
+diverge.
+
+⚠️ **Y el efecto que la ubica necesita al PANEL en sus dependencias.** Mientras el menú
+está cerrado el panel no existe, así que la primera corrida encuentra la ref en `null` y
+se va sin medir; sin `abierto` en las dependencias el efecto no vuelve a correr y el panel
+queda en `left:0, top:0` — arriba a la izquierda de la pantalla, sin ningún error. Es el
+mismo modo de falla que `PortadaPicker` ya tenía documentado y medido.
+
+### Lo que quedó SIN hacer
+
+- **La barra la montan tres pantallas** (`/plan`, la barra de Clientes y el panel de la
+  plataforma) y el portal les cambia el z-index a todas. Se verificó en las tres, a dos
+  anchos — pero no hay test que lo mire: los tres chequeos son de código, no de pantalla.

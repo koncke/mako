@@ -92,3 +92,51 @@ test('la vista extra va al FINAL del selector, después de las cuatro', () => {
   assert.ok(i > 0 && j > 0, 'no encontré el selector de vistas');
   assert.ok(j < i, 'la vista extra quedó ANTES de las cuatro del board');
 });
+
+// ── El TAMAÑO de la ficha, y lo que se dibuja adentro ─────────────────────
+//
+// ⚠️ Estos cuatro también probados rompiéndolos (29/09/2026): sacarle el `alto` a una de
+// las dos fichas falla 1 de 10; devolver el menú al flujo (sin `createPortal`) falla 1;
+// volver a «Nadie más entra…» falla 1; y dejar el formulario sólo para `puedePedir`
+// falla 1.
+
+test('las dos fichas fijan su ALTO: no lo deciden por lo que tengan adentro', () => {
+  // «Ya te había dicho que JAMÁS achiques el tamaño de un detail según lo que contenga
+  // dentro» (29/09/2026, y era la segunda vez). El default de `Modal` es un TOPE, que
+  // está bien para un diálogo y no para una ficha con un tablero adentro: elegir la
+  // vista de Equipo de un cliente sin gente la encogía a la mitad.
+  for (const f of ['../app/customer-success/FichaCliente.tsx', '../app/admin/FichaWorkspace.tsx']) {
+    assert.ok(/alto="min\(85vh, 720px\)"/.test(leer(f)), `${f} deja que el contenido decida el alto`);
+  }
+  // Y el prop existe de verdad, con `height` ADEMÁS del tope de la hoja.
+  const m = leer('../app/_ui/Modal.tsx');
+  assert.ok(/alto \? \{ height: alto \}/.test(m), '`alto` no se aplica como height');
+});
+
+test('el menú de acciones se PORTALEA: adentro de un modal lo recorta el overflow', () => {
+  // `.mk-modal` lleva `overflow:hidden` para redondear sus esquinas, y este menú abre
+  // desde la cabecera de un tablero que a veces vive adentro de uno. Medido antes: el
+  // panel terminaba 140 px por debajo del borde del modal.
+  const b = leer('../app/_components/BarraAcciones.tsx');
+  assert.ok(/createPortal\(/.test(b), 'el menú volvió al flujo y un modal lo va a recortar');
+  assert.ok(/ubicarPanel\(/.test(b), 'se ubica a mano en vez de con la cuenta que ya existe');
+  assert.ok(!/position: 'absolute', top: 44, right: 0/.test(b), 'quedó la posición vieja, que no se da vuelta ni se topa contra la ventana');
+});
+
+test('el equipo vacío NO dice «nadie más»: no hay NADIE, ni el dueño de la cuenta', () => {
+  // «Pareciera que se bugeó y que la propia Brigitte no puede entrar» — y con cero
+  // usuarios es literal: no puede entrar nadie. La frase lo tiene que decir.
+  const f = ficha();
+  assert.ok(!/Nadie m.s entra a la cuenta/.test(f), 'volvió la frase que da a entender que el dueño sí entra');
+  assert.ok(/no tiene a nadie adentro/.test(f), 'el vacío dejó de decir que la cuenta no tiene a nadie');
+});
+
+test('el super admin puede SUMAR, no sólo pedir', () => {
+  // «¿De qué sirve que tenga una tab de equipo que no puede hacer nada? Ahí deberían
+  // poder agregarle setter o closer.» El que pide deja un pedido; el que firma, crea.
+  const f = ficha();
+  assert.ok(/puedeSumar/.test(f), 'no hay camino para sumar directo');
+  assert.ok(/puedeSumar \? '\/api\/admin\/usuarios' : '\/api\/agencia\/altas'/.test(f),
+    'los dos caminos no salen del mismo formulario, o se perdió uno');
+  assert.ok(/\(puedePedir \|\| puedeSumar\)/.test(f), 'el formulario sigue siendo sólo para el que PIDE');
+});

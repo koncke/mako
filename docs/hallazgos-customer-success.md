@@ -2201,3 +2201,49 @@ hace lo que dice, sin ningún error.
 
 - **`FichaCliente` sigue sin montar `CabeceraDetalle`**: es la tercera copia de la
   cabecera, y ésta es la segunda vez que un arreglo de la pieza compartida no le llega.
+
+## Una tab que no puede hacer nada, y un vacío que se lee como un bug (29/09/2026)
+
+Cosechado de dos frases del mismo mensaje: «¿de qué sirve que tenga una tab de equipo que
+no puede hacer nada? Ahí deberían poder agregarle setter o closer» y «no pongas este
+mensaje "Nadie más entra a la cuenta de Brigitte Eberlin todavía", pareciera que se bugeó
+y que la propia Brigitte no puede entrar».
+
+**Vive en:** `app/customer-success/FichaCliente.tsx` (`EquipoDelCliente`)
+
+### «Nadie MÁS» afirmaba que había alguien
+
+La lista vacía de esa tab significa **cero personas** —ni siquiera el dueño de la cuenta—
+y la frase decía «nadie más entra», que se lee como «ella sí, y nadie la acompaña». No es
+un matiz de redacción: es exactamente el estado que dejó el alta sin email del 28/09, y el
+que hay que poder ver de un vistazo. Con cero usuarios **no puede entrar nadie**, y eso es
+lo que ahora dice.
+
+**La regla que queda: «más» y «otro» afirman que ya hay uno.** En un estado vacío hay que
+mirar si el cero incluye al sujeto de la frase — si lo incluye, el comparativo miente y se
+lee como una falla del producto.
+
+### Mostrar la vista no es dar el permiso, pero una vista sin ninguna acción tampoco sirve
+
+El día anterior se había unificado la vista para que el super admin viera lo mismo que la
+agencia. Bien — pero lo que veía era una lista vacía **y nada que hacer**: el único
+control de esa tab era «Pedir sumar a alguien», y él no pide altas, las firma.
+
+La salida no es darle el botón de la agencia: es que **cada rol tenga su acción, sobre el
+mismo formulario**. Los campos son los mismos tres (email, nombre, rol) y lo que cambia es
+a dónde van y qué pasa después:
+
+| | endpoint | qué pasa | botón |
+|---|---|---|---|
+| agencia | `/api/agencia/altas` | queda pendiente de una firma | «Pedir» |
+| super admin | `/api/admin/usuarios` | la persona entra y le llega el acceso | «Sumar y mandarle el acceso» |
+
+⚠️ **El botón dice lo que pasa, y no pasa lo mismo.** «Sumar» en el caso de la agencia
+prometería que la persona ya entra; «Pedir» en el del super admin escondería que se le
+escribió a alguien. Un solo rótulo para los dos sería mentira en uno de los dos lados.
+
+### Lo que quedó SIN hacer
+
+- **El formulario es uno y los endpoints son dos**, así que el error de cada uno llega con
+  su propio texto. No hay un test que compruebe que los dos caminos terminan en una
+  persona adentro de la cuenta: eso necesita tocar la base.

@@ -15,7 +15,12 @@
 //
 // BoardShell la re-exporta, asi que los call-sites viejos siguen andando.
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+// La misma cuenta que ubica el selector de portada: un panel colgado de un ancla, que
+// se da vuelta cuando no entra abajo y nunca se sale de la ventana. Dos cuentas para
+// lo mismo es cómo una de las dos deja un panel medio afuera.
+import { ubicarPanel } from './PortadaPicker';
 // Las dos familias salen del catalogo (app/_ui/tokens.ts) y no de una constante
 // local como en BoardShell: son las mismas dos cadenas, y copiarlas seria el
 // tercer lugar donde vive la tipografia de la casa.
@@ -115,11 +120,54 @@ export function BarraAcciones({ acciones, compacto, progreso }: {
     return () => document.removeEventListener('keydown', esc);
   }, [abierto]);
 
+  /**
+   * DÓNDE SE DIBUJA EL PANEL, medido contra el BOTÓN.
+   *
+   * ⚠️ SE MIDE EL PANEL DE VERDAD y no sus 312 px declarados: en una ventana angosta el
+   * `max-width: calc(100vw - 32px)` lo achica, y ubicarlo por el número declarado lo
+   * dejaría corrido por la diferencia. Es la misma nota que tiene `PortadaPicker`.
+   */
+  const [montado, setMontado] = useState(false);
+  const [pos, setPos] = useState({ left: 0, top: 0 });
+  const botonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setMontado(true); }, []);
+
+  const recolocar = useCallback(() => {
+    const boton = botonRef.current;
+    const panel = panelRef.current;
+    if (!boton || !panel) return;
+    const caja = panel.getBoundingClientRect();
+    setPos(ubicarPanel(boton.getBoundingClientRect(),
+      { ancho: caja.width, alto: caja.height },
+      { ancho: window.innerWidth, alto: window.innerHeight }));
+  }, []);
+
+  /**
+   * ⚠️ `abierto` VA EN LAS DEPENDENCIAS. El panel no existe mientras el menú está
+   * cerrado, así que la primera corrida encuentra `panelRef.current` en null y se va sin
+   * medir; sin esto el efecto no vuelve a correr y el panel se queda en `left:0, top:0`,
+   * o sea arriba a la izquierda de la pantalla. Es el mismo modo de falla que
+   * `PortadaPicker` tiene documentado, medido y arreglado.
+   */
+  useEffect(() => {
+    if (!abierto) return;
+    recolocar();
+    window.addEventListener('resize', recolocar);
+    // EN CAPTURA: lo que scrollea puede ser el cuerpo de un modal, y el `scroll` de un
+    // contenedor NO burbujea hasta `window`.
+    window.addEventListener('scroll', recolocar, true);
+    return () => {
+      window.removeEventListener('resize', recolocar);
+      window.removeEventListener('scroll', recolocar, true);
+    };
+  }, [abierto, recolocar]);
+
   if (!compacto) return <div data-barra-acciones style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>{acciones.map((a) => <Fragment key={a.key}>{a.nodo}</Fragment>)}</div>;
 
   return (
     <div data-barra-menu style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 'none' }}>
-      <button type="button" onClick={() => setAbierto((v) => !v)}
+      <button ref={botonRef} type="button" onClick={() => setAbierto((v) => !v)}
         aria-label={abierto ? 'Cerrar las acciones' : 'Mas acciones del plan (' + n + ')'} aria-expanded={abierto} aria-haspopup="menu"
         title="Mas acciones del plan"
         style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid ' + (abierto ? 'var(--primary)' : 'var(--border-strong)'), background: abierto ? 'var(--surface-2)' : 'var(--surface)', color: abierto ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', flex: 'none', padding: 0 }}>
@@ -133,10 +181,20 @@ export function BarraAcciones({ acciones, compacto, progreso }: {
           <span aria-hidden style={{ position: 'absolute', top: -2, right: -2, width: 9, height: 9, borderRadius: 999, background: 'var(--primary)', border: '2px solid var(--surface)' }} />
         )}
       </button>
-      {abierto && (
+      {/* ⚠️ EL MENÚ SE PORTALEA AL BODY, y no es una preferencia: este botón vive adentro
+          de la cabecera de un tablero que a veces está adentro de un `Modal`, y
+          `.mk-modal` lleva `overflow: hidden` para redondear sus esquinas. Con el panel
+          en el flujo —`position:absolute` colgando de este div— el modal lo RECORTA: el
+          dueño lo reportó con una captura donde se veía la mitad de la primera opción y
+          nada más. Medido antes del arreglo: el panel terminaba 140 px por debajo del
+          borde del modal, en las dos vistas.
+          Ubicarlo pasa a ser una cuenta (`ubicarPanel`), que es la misma que usa el
+          selector de portada: se da vuelta cuando no entra abajo y nunca se sale de la
+          ventana. El `top:44 / right:0` de antes no podía hacer ninguna de las dos. */}
+      {abierto && montado && createPortal(
         <>
-          <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-          <div role="menu" style={{ position: 'absolute', top: 44, right: 0, zIndex: 41, width: 312, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 7, display: 'flex', flexDirection: 'column', gap: 2, animation: 'makoDesplegar .14s ease-out both' }}>
+          <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 140 }} />
+          <div role="menu" ref={panelRef} style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 141, width: 312, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 7, display: 'flex', flexDirection: 'column', gap: 2, animation: 'makoDesplegar .14s ease-out both' }}>
             {progreso && (
               <div style={{ padding: '8px 10px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
@@ -155,7 +213,8 @@ export function BarraAcciones({ acciones, compacto, progreso }: {
             ))}
           </div>
           <style>{'@keyframes makoDesplegar{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}'}</style>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );

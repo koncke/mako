@@ -161,6 +161,10 @@ export function FichaWorkspace({
       }
       etiqueta={w.nombre}
       ancho={ANCHO}
+      /* El MISMO alto fijo que la ficha de un cliente: son la misma pieza vista por dos
+         roles, y una que encoja y la otra no sería la tercera forma de que estas dos
+         pantallas se contradigan. Ver el prop `alto` de `Modal`. */
+      alto="min(85vh, 720px)"
       /* ⚠️ ADENTRO VIVE EL TABLERO, Y EL TABLERO ABRE SUS PROPIOS MODALES. Sin esto la
          pila apaga esta ficha con `display:none` en cuanto se abre uno —y como ese
          modal es un DESCENDIENTE suyo, se apaga con ella: click en una tarea =

@@ -125,6 +125,21 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
    */
   const verEquipo = tabInicial === 'equipo';
 
+  /**
+   * SUMAR DIRECTO: el super admin no pide, crea — y esta ficha es el único lugar desde
+   * el que mira el equipo de un cliente de una agencia.
+   *
+   * ⚠️ ES EL COMPLEMENTO DE `puedePedir`, NO SU COPIA. Los dos terminan en una persona
+   * adentro de la cuenta, pero por caminos distintos y con consecuencias distintas: el
+   * de la agencia deja un pedido esperando una firma, y éste la crea y le manda el
+   * acceso en el acto. Por eso son dos endpoints, dos botones y dos frases.
+   *
+   * El pedido que lo motivó: «¿de qué sirve que tenga una tab de equipo que no puede
+   * hacer nada? Ahí deberían poder agregarle setter o closer» (29/09/2026), mirando
+   * justamente un cliente con cero usuarios.
+   */
+  const puedeSumar = Boolean(c.clienteWs && cuentas?.superAdmin);
+
 
   /** Renombrar al cliente o cambiarle la empresa. ⚠️ Escribe en `leads`, o sea en el
    *  CRM: no hay tabla de clientes, un cliente es un lead ganado. */
@@ -150,7 +165,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
     label: equipo?.length ? `Equipo · ${equipo.length}` : 'Equipo',
     contenido: (
       <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} altas={altas ?? []}
-        clienteWs={c.clienteWs ?? null} puedePedir={puedePedir}
+        clienteWs={c.clienteWs ?? null} puedePedir={puedePedir} puedeSumar={puedeSumar}
         onError={setMal} onPedido={() => router.refresh()} />
     ),
   };
@@ -293,6 +308,11 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
       }
       etiqueta={nombre}
       ancho={ANCHO}
+      /* ⚠️ FIJO, no topado: adentro vive un tablero y cada vista trae lo suyo. Ver el
+         porqué largo en el prop `alto` de `Modal`. El valor es el MISMO tope que la hoja
+         ya aplicaba, así que la ficha llena se ve igual que antes — lo que cambia es que
+         la vacía ya no encoge. */
+      alto="min(85vh, 720px)"
       /* ⚠️ ADENTRO VIVE EL TABLERO, Y EL TABLERO ABRE SUS PROPIOS MODALES. Sin esto la pila
          apaga esta ficha con `display:none` en cuanto se abre uno —y como ese modal es un
          DESCENDIENTE suyo, se apaga con ella: click en una tarea = pantalla en blanco.
@@ -561,13 +581,16 @@ const CSS = `
  * botón acá abriría una segunda puerta a la misma escritura, con su propio guard que
  * mantener.
  */
-function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, onError, onPedido }: {
+function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeSumar, onError, onPedido }: {
   nombre: string;
   equipo: MiembroDeCliente[];
   /** Lo que esta agencia pidió. Los pendientes van en la MISMA lista: ver abajo. */
   altas: AltaPedida[];
   clienteWs: number | null;
+  /** La agencia PIDE: queda pendiente de una firma. */
   puedePedir: boolean;
+  /** El super admin CREA: la persona entra y le llega el acceso en el acto. */
+  puedeSumar: boolean;
   onError: (m: string) => void;
   onPedido: () => void;
 }) {
@@ -583,16 +606,26 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, onErro
   // lista de arriba, y repetirlos sería contar dos veces a la misma.
   const visibles = altas.filter((a) => a.estado !== 'aprobada');
 
+  /**
+   * UNA SOLA FUNCIÓN Y DOS DESTINOS, porque el formulario es el mismo y lo que cambia es
+   * quién firma. Escribir dos formularios sería la copia que diverge en la próxima
+   * edición — y acá los campos son los mismos tres (email, nombre, rol).
+   *
+   * ⚠️ `/api/admin/usuarios` CREA Y MANDA EL ACCESO en la misma llamada. No hay paso de
+   * aprobación porque el que la llama ES quien aprobaría.
+   */
   const pedir = async () => {
     if (!clienteWs || !emailUtilizable(email) || mandando) return;
     setMandando(true);
     onError('');
     try {
-      const j = await (await fetch('/api/agencia/altas', {
+      const j = await (await fetch(puedeSumar ? '/api/admin/usuarios' : '/api/agencia/altas', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clienteWs, email: email.trim(), nombre: nom.trim(), rolWs: rol }),
+        body: JSON.stringify(puedeSumar
+          ? { action: 'crear', email: email.trim(), nombre: nom.trim(), rol: 'usuario', workspace_id: clienteWs, rol_ws: rol }
+          : { clienteWs, email: email.trim(), nombre: nom.trim(), rolWs: rol }),
       })).json();
-      if (!j?.ok) { onError(j?.error ?? 'No se pudo pedir.'); return; }
+      if (!j?.ok) { onError(j?.error ?? (puedeSumar ? 'No se pudo sumar.' : 'No se pudo pedir.')); return; }
       setEmail(''); setNom(''); setPidiendo(false);
       // `router.refresh()` y no un reload: qué cliente está abierto es estado de React
       // en ClientesApp y no viaja en la URL, así que recargar CIERRA la ficha.
@@ -605,9 +638,18 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, onErro
   return (
     <>
       {equipo.length === 0 && visibles.length === 0 ? (
-        // «Todavía nadie» y «no lo pude leer» son dos cosas; acá la lista viene con el
-        // HTML y filtrada por el server, así que vacía significa vacía y se puede decir.
-        <p className="fc-eq-nada">Nadie más entra a la cuenta de {nombre} todavía.</p>
+        /* ⚠️ «NADIE MÁS» DECÍA LO CONTRARIO DE LO QUE PASA. Acá la lista vacía significa
+           CERO personas —ni siquiera el dueño de la cuenta— y «nadie más entra a la
+           cuenta de Brigitte» se lee como que Brigitte sí entra y nadie la acompaña. El
+           dueño lo reportó así: «pareciera que se bugeó y que la propia Brigitte no
+           puede entrar». Y no es un matiz: es exactamente el estado que dejó el alta sin
+           email del 28/09, y el que hay que poder ver de un vistazo.
+           («Todavía nadie» y «no lo pude leer» siguen siendo dos cosas distintas: acá la
+           lista viene con el HTML y filtrada por el server, así que vacía es vacía.) */
+        <p className="fc-eq-nada">
+          Esta cuenta todavía no tiene a nadie adentro, así que <b>no puede entrar nadie</b>
+          {puedeSumar || puedePedir ? '. Suma a la persona que la va a usar.' : '.'}
+        </p>
       ) : (
         <ul className="fc-eq">
           {equipo.map((u) => (
@@ -637,7 +679,7 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, onErro
         </ul>
       )}
 
-      {puedePedir && (pidiendo ? (
+      {(puedePedir || puedeSumar) && (pidiendo ? (
         <div className="fc-pedir">
           <input className="fc-in" type="email" value={email} placeholder="persona@empresa.com"
             autoFocus onChange={(e) => setEmail(e.target.value)}
@@ -649,15 +691,19 @@ function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, onErro
             aria-label="Rol en el negocio">
             {ROLES_ALTA.map((r) => <option key={r} value={r}>{ROTULO_ROL[r]}</option>)}
           </select>
-          {/* ⚠️ EL BOTÓN DICE QUE ESTO NO CREA NADA. «Sumar» prometería que la persona
-              ya entra, y lo que pasa es que el pedido queda esperando una firma. */}
+          {/* ⚠️ EL BOTÓN DICE LO QUE PASA, Y NO PASA LO MISMO. Para la agencia el pedido
+              queda esperando una firma, así que «Sumar» prometería que la persona ya
+              entra; para el super admin la persona entra Y le llega el mail, así que
+              «Pedir» escondería que se le escribió a alguien. */}
           <button type="button" className="fc-ok" disabled={!emailUtilizable(email) || mandando}
-            onClick={() => void pedir()}>{mandando ? 'Pidiendo…' : 'Pedir'}</button>
+            onClick={() => void pedir()}>
+            {mandando ? (puedeSumar ? 'Sumando…' : 'Pidiendo…') : (puedeSumar ? 'Sumar y mandarle el acceso' : 'Pedir')}
+          </button>
           <button type="button" className="fc-no" onClick={() => setPidiendo(false)}>Cancelar</button>
         </div>
       ) : (
         <button type="button" className="fc-sumar" onClick={() => setPidiendo(true)}>
-          Pedir sumar a alguien
+          {puedeSumar ? 'Sumar a alguien' : 'Pedir sumar a alguien'}
         </button>
       ))}
     </>

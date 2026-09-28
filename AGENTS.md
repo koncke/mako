@@ -4828,3 +4828,35 @@ de ese cliente.
   que es lo peor que puede pensar de una pantalla de administración. Antes de condicionar
   cualquier cosa en una ficha que dos roles miran, la pregunta es «¿esto lo veo distinto
   yo?» — y se contesta abriendo la misma pantalla con las dos sesiones, no leyendo.
+
+# Una caja cuyo alto es un TOPE cambia de tamaño, y se lleva puesto lo que cuelga adentro
+
+`max-height` no es un tamaño: es un techo. Está bien para un diálogo —una caja que
+pregunta algo en una frase no tiene por qué medir 720 px— y está mal para cualquier
+pantalla cuyo contenido cambie de alto sin dejar de ser la misma pantalla.
+
+Medido el 29/09/2026: la ficha de un cliente pasaba de **720 px a ~430** al elegir, en el
+tablero que tiene adentro, la vista de Equipo de un cliente sin gente. Es el segundo
+reporte del mismo pedido: «JAMÁS achiques el tamaño de un detail según lo que contenga
+dentro».
+
+- **Si adentro vive algo que cambia de tamaño, el alto es un NÚMERO.** El tope se queda
+  igual encima, para que un alto mayor que la ventana no saque el pie de la vista.
+- **Y el borde que se mueve se lleva lo que cuelga.** Lo que el dueño mostró no fue el
+  salto: fue un menú cortado a la mitad. Esa causa era OTRA —el contenedor lleva
+  `overflow: hidden`— y fijar el alto sólo la disimulaba: medido después, el panel seguía
+  terminando 140 px por debajo del borde.
+- **Un panel anclado que pueda vivir adentro de un contenedor con `overflow` se portalea
+  al `body` y se ubica por cuenta**, nunca con un `top/right` fijo: ese par no se da
+  vuelta cuando no entra abajo ni se topa contra el borde de la ventana. Y el efecto que
+  lo ubica lleva al panel en sus dependencias, o queda en `left:0, top:0` sin un error.
+
+# «Más» y «otro» afirman que ya hay uno
+
+Un estado vacío redactado en comparativo miente sobre lo que hay. «Nadie **más** entra a
+la cuenta de Brigitte» se lee como «Brigitte sí entra y nadie la acompaña», y lo que
+pasaba era que esa cuenta tenía **cero** usuarios: no podía entrar nadie, ella incluida.
+El dueño lo leyó como una falla del producto — «pareciera que se bugeó».
+
+**Antes de escribir un vacío, mirá si el cero incluye al sujeto de la frase.** Si lo
+incluye, el comparativo es falso y además esconde el hecho más caro de esa pantalla.

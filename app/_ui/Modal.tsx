@@ -48,6 +48,7 @@ export function Modal({
   onCerrar,
   children,
   ancho = 600,
+  alto,
   etiqueta,
   anidada = false,
   contenedor = false,
@@ -62,6 +63,25 @@ export function Modal({
   children: ReactNode;
   /** 440 para una frase · 600 por defecto · 720 si adentro va una lista larga. */
   ancho?: number;
+  /**
+   * ALTO FIJO, para una caja que NO puede cambiar de tamaño según lo que tenga adentro.
+   *
+   * ⚠️ EL DEFAULT ES UN TOPE (`max-height`), Y ESO ESTÁ BIEN para un diálogo: una caja
+   * que pregunta algo en una frase no tiene por qué medir 720 px. Pero una FICHA es otra
+   * cosa: adentro vive un tablero con sus vistas, y cada vista trae lo suyo — la de
+   * Equipo de un cliente sin gente son dos renglones. Con el tope, elegir esa vista
+   * encoge la caja a la mitad, todo lo de abajo salta, y los popovers que abren desde su
+   * cabecera se recortan contra un borde que acaba de subir.
+   *
+   * El dueño lo pidió dos veces: «el detail SIEMPRE debe ser del mismo tamaño, no
+   * achicarse» (28/09/2026) y «ya te había dicho que JAMÁS achiques el tamaño de un
+   * detail según lo que contenga dentro» (29/09/2026, con el menú de los tres puntos
+   * cortado en la captura).
+   *
+   * Se pasa un valor CSS (`'min(85vh, 720px)'`), no un número: quien lo fija quiere
+   * decir «esta caja mide esto», y eso casi siempre lleva un `min()` con el viewport.
+   */
+  alto?: string;
   /** Para el lector de pantalla, si el título no es texto plano. */
   etiqueta?: string;
   /** ⚠️ Un diálogo que se abre DESDE UN CAMPO del modal de atrás, y que es parte de la misma
@@ -145,7 +165,9 @@ export function Modal({
         aria-labelledby={tituloId}
         aria-label={etiqueta}
         tabIndex={-1}
-        style={{ maxWidth: ancho }}
+        /* `height` ADEMÁS del `max-height` de la hoja: sin el tope, un `alto` mayor que
+           la pantalla sacaría el pie de la vista, que es justo lo que ese tope evita. */
+        style={{ maxWidth: ancho, ...(alto ? { height: alto } : null) }}
       >
         <div className="mk-modal__cab">
           <div className="mk-modal__tit">
