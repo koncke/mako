@@ -56,7 +56,8 @@ import {
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe } from '@/lib/funnels';
-import { DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+import {
+  conTerminales, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -1930,8 +1931,18 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[], 
   // El `.eq('workspace_id')` de getTenantDb hace que un id de otro cliente no
   // toque ninguna fila, y `saveFunnelDe` tira cuando el UPDATE no tocó nada: un
   // id ajeno da error, no un guardado mudo sobre el funnel equivocado.
-  if (funnelId != null) await saveFunnelDe(funnelId, pipeline, suppressed);
-  else await saveFunnelDefault(pipeline, suppressed);
+  // ⚠️ LAS TERMINALES SE GARANTIZAN ACA, que es el lugar que manda: `pipeline` es un
+  // ARGUMENTO de una server action, asi que la pantalla no es la ultima palabra — el
+  // cuerpo lo escribe quien quiera. Decision de Martin: las cuatro terminales estan
+  // siempre y son unicas; lo unico que se puede es renombrarlas.
+  //
+  // Tres de las cuatro ya eran imborrables porque las inyecta la derivacion. `ganado` no:
+  // vivia en el pipeline editable y el boton de borrar la aceptaba. Y borrarla no rompe
+  // nada ruidoso — ninguna venta vuelve a escribir estado_lead=ganado y los ocho lectores
+  // de facturacion cuentan cero, sin error y sin log.
+  const conGanado = conTerminales(pipeline);
+  if (funnelId != null) await saveFunnelDe(funnelId, conGanado, suppressed);
+  else await saveFunnelDefault(conGanado, suppressed);
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/funnel');

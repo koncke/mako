@@ -15,6 +15,7 @@ import {
   CATEGORY, TRIGGER, BAND_LABEL, generateFunnel, FUNNEL_TEMPLATES, AUTO_REGLAS,
   type Stage, type StageBand, type StageKind, type FunnelTransition, type TransitionTrigger,
   problemasDePipeline,
+  esTerminal,
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../crm/actions';
 import { Dropdown } from '../components/Dropdown';
@@ -411,7 +412,7 @@ export function FunnelEditor({
                   <input value={s.label} onChange={(e) => setField(s.key, { label: e.target.value })} onBlur={() => commit('Nombre actualizado')} style={{ ...field, flex: 1, minWidth: 0 }} />
                   <Dropdown value={s.kind ?? 'paso'} onChange={(v) => setKind(s.key, v as StageKind)} ariaLabel="Tipo de etapa" width={130}
                     options={KIND_OPTIONS.map((k) => ({ value: k, label: KIND_LABEL[k] }))} />
-                  <button onClick={() => ask(`Eliminar la etapa "${s.label}" y su nutrición`, () => removeStage(s.key))} disabled={pipeline.length <= 1} title="Eliminar etapa" style={{ ...iconBtn, color: 'var(--bad)', borderColor: 'var(--border-strong)', opacity: pipeline.length <= 1 ? 0.3 : 1 }}>×</button>
+                  <button onClick={() => ask(`Eliminar la etapa "${s.label}" y su nutrición`, () => removeStage(s.key))} disabled={pipeline.length <= 1 || esTerminal(s.key)} title={esTerminal(s.key) ? 'Esta etapa está en todos los funnels y no se puede eliminar. Sí se puede renombrar.' : 'Eliminar etapa'} style={{ ...iconBtn, color: 'var(--bad)', borderColor: 'var(--border-strong)', opacity: pipeline.length <= 1 || esTerminal(s.key) ? 0.3 : 1 }}>×</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 9, paddingLeft: 38 }}>
                   {advance && next && (

@@ -312,6 +312,41 @@ export function bandToCategory(band: StageBand | undefined): TransitionCategory 
 // nutrición y las salidas se DERIVAN. Si el usuario no quiere una nutrición
 // sugerida, la "suprime" (set `suppressed` con claves `from>to`).
 
+/**
+ * Las CUATRO etapas que todo funnel tiene, se llame como se llame el negocio.
+ *
+ * Decisión de Martín (28/09/2026): «las etapas de Ganado, Perdido, Descalificado y No
+ * Responde deberían estar SIEMPRE, no importa qué funnel es. No dejes eliminar esas
+ * etapas en ningún funnel. Y son únicas: no puede haber 2 ganados en un mismo funnel,
+ * porque ahí justamente se rompen los datos que MaKo pide en esas etapas. Sí pueden
+ * cambiarle el nombre, pero nada más.»
+ *
+ * ⚠️ NO SON CUATRO COSAS IGUALES: son 1 + 3, y la diferencia decide dónde va cada guard.
+ *
+ *   · `perdido`, `descal` y `noresp` NO viven en el pipeline que el cliente edita:
+ *     las inyecta la derivación de acá abajo, así que ya son imborrables y únicas por
+ *     construcción. Lo que les falta es lo contrario — poder renombrarlas.
+ *   · `ganado` es una etapa del pipeline como cualquier otra, y hasta hoy SE PODÍA BORRAR
+ *     desde las tres pantallas que montan el editor. Y es un camino de una sola
+ *     dirección: agregar una etapa sólo acuña claves `st<N>`, así que `ganado` no se
+ *     puede volver a poner.
+ *
+ * ⚠️ Y BORRARLA NO ROMPE NADA RUIDOSO, que es lo que la vuelve cara. Medido corriendo el
+ * código: un pipeline `lead/agenda/st0:cierre` —sin `ganado`— pasaba el chequeo de
+ * estructura con CERO avisos, y `terminalEstadoFor('st0')` devuelve `'abierto'`: ninguna
+ * venta marcada ahí escribe `estado_lead='ganado'`, y los OCHO lectores de facturación
+ * cuentan cero. Sin error y sin log.
+ *
+ * Al 28/09/2026 los 13 funnels de producción tienen exactamente un `ganado` y ninguna
+ * clave repetida, así que esto entra sin migración: la derivación cura al que falte.
+ */
+export const TERMINALES = ['ganado', 'perdido', 'descal', 'noresp'] as const;
+
+/** La que vive en el PIPELINE editable. Las otras tres las pone la derivación. */
+export const TERMINAL_DEL_PIPELINE = 'ganado';
+
+/** ¿Esta etapa es una de las cuatro que no se pueden borrar? */
+export const esTerminal = (key: string): boolean => (TERMINALES as readonly string[]).includes(key);
 /** Tipo por defecto de las etapas canónicas del pipeline. */
 export const PIPELINE_KIND: Record<string, StageKind> = { lead: 'entrada', agenda: 'reunion', agendaj2: 'reunion', facturando: 'pago', ganado: 'cierre' };
 /** Pipeline (Activo) por defecto: las etapas canónicas con su tipo. */
@@ -358,6 +393,12 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
   const place = (s: Stage, band: StageBand) => { if (placed.has(s.key)) return; placed.add(s.key); stages.push({ ...s, band, col: col[band]++ }); };
 
   pipeline.forEach((p) => place(p, 'pipeline'));
+  // ⚠️ `ganado` SIEMPRE, igual que las tres de abajo. `place` deduplica por clave, así que
+  // con el pipeline normal —que la trae— esto no hace nada; y al funnel al que le falte
+  // (porque alguien la borró cuando se podía) se la devuelve al FINAL, que es donde va un
+  // cierre. Puesto acá cura a todos los funnels existentes sin una migración: `filaAFunnel`
+  // llama a esta función en cada lectura.
+  const ganadoDef = lib(TERMINAL_DEL_PIPELINE); if (ganadoDef) place(ganadoDef, 'pipeline');
   (['perdido', 'descal', 'noresp'] as const).forEach((k) => { const d = lib(k); if (d) place(d, 'salidas'); });
   // "Nutrición - Manual": catch-all manual SIEMPRE presente (opción del worklist).
   const manualDef = lib('manual'); if (manualDef) place(manualDef, 'nutricion');
@@ -827,6 +868,37 @@ export function templateDeCanal(canal: string | null | undefined): FunnelTemplat
 
 
 /**
+ * El pipeline con sus terminales garantizadas: exactamente un `ganado`, y al final.
+ *
+ * ⚠️ CORRE AL GUARDAR, y ése es el lugar load-bearing. El pipeline llega como argumento de
+ * una server action, así que la pantalla no es la última palabra: cualquier cliente puede
+ * mandar el cuerpo que quiera. El único saneo que había corría en la LECTURA y sólo miraba
+ * que fuera una lista de objetos con clave — de la estructura, nada.
+ *
+ * Qué hace, en orden:
+ *   1. Si hay DOS `ganado`, deja la primera. La segunda hoy se evapora en la derivación
+ *      (queda guardada y sin columna), que es la peor forma de no existir: el dato está y
+ *      la pantalla no lo muestra.
+ *   2. Si no hay ninguna, la agrega al final con su nombre de fábrica.
+ *   3. La conserva donde está si ya estaba, incluido su label — renombrarla es lo único
+ *      que Martín dejó permitido.
+ */
+export function conTerminales(pipeline: Stage[]): Stage[] {
+  const ganados = pipeline.filter((s) => s.key === TERMINAL_DEL_PIPELINE);
+  if (ganados.length === 1) return pipeline;
+  if (ganados.length > 1) {
+    let visto = false;
+    return pipeline.filter((s) => {
+      if (s.key !== TERMINAL_DEL_PIPELINE) return true;
+      if (visto) return false;
+      visto = true;
+      return true;
+    });
+  }
+  const def = DEFAULT_STAGES.find((s) => s.key === TERMINAL_DEL_PIPELINE);
+  return def ? [...pipeline, { ...def, kind: 'cierre' as StageKind }] : pipeline;
+}
+/**
  * Lo que está MAL ARMADO en un pipeline, en frases que se pueden dibujar.
  *
  * ⚠️ POR QUÉ EXISTE, Y NO ES HIPOTÉTICO. Renombrar una etapa es seguro: toda la lógica
@@ -864,6 +936,14 @@ export function templateDeCanal(canal: string | null | undefined): FunnelTemplat
 export function problemasDePipeline(pipeline: Stage[]): string[] {
   const out: string[] = [];
   if (!pipeline.length) return out;
+
+  // ⚠️ LA FALTA DE `ganado` NO SE CAZABA, y es el agujero más caro de los cinco: sin ella
+  // ninguna venta escribe `estado_lead=ganado` y los ocho lectores de facturación cuentan
+  // cero, sin un solo error. `conTerminales` la repone al guardar; esto lo DICE, porque un
+  // arreglo silencioso sobre el funnel de alguien tampoco está bien.
+  if (!pipeline.some((s) => s.key === TERMINAL_DEL_PIPELINE)) {
+    out.push('Le falta la etapa de Ganado, que es donde se anota una venta. Se la repongo al guardar.');
+  }
 
   const cierres = pipeline.filter((s) => s.kind === 'cierre');
   const ganado = pipeline.find((s) => s.key === 'ganado');

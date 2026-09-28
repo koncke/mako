@@ -34,7 +34,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { problemasDePipeline, DEFAULT_PIPELINE, FUNNEL_TEMPLATES, type Stage } from '../lib/pipeline';
+import {
+  problemasDePipeline, DEFAULT_PIPELINE, FUNNEL_TEMPLATES, conTerminales, generateFunnel, esTerminal,
+  type Stage,
+} from '../lib/pipeline';
 
 /** El pipeline REAL del cliente, copiado de `funnels.data.pipeline` en producción. */
 const ROTO: Stage[] = [
@@ -86,13 +89,18 @@ test('cada regla se dispara sola, sin arrastrar a las otras', () => {
   ] as Stage[]);
   assert.ok(dos.some((t) => /2 etapas de cierre/.test(t)), nombre(dos));
 
-  // Ningún cierre: no es un error, y se dice igual.
+  // Ningún cierre: no es un error, y se dice igual. El fixture LLEVA `ganado` a propósito,
+  // para aislar esta regla de la de «falta la terminal» — si no, saltan las dos y el test
+  // deja de decir cuál se disparó.
   const sin = problemasDePipeline([
     { key: 'lead', kind: 'entrada', label: 'Lead' },
     { key: 'agenda', kind: 'reunion', label: 'Llamada' },
+    { key: 'ganado', kind: 'grupo', label: 'Ganado' },
   ] as Stage[]);
-  assert.equal(sin.length, 1, nombre(sin));
-  assert.ok(/ninguna etapa está tipada como cierre/i.test(sin[0]), nombre(sin));
+  // Dos: «ninguna etapa es cierre» y «la venta no está tipada como cierre», que son la misma
+  // cosa mirada desde dos lados y las dos ayudan a arreglarla.
+  assert.equal(sin.length, 2, nombre(sin));
+  assert.ok(sin.some((t) => /ninguna etapa está tipada como cierre/i.test(t)), nombre(sin));
 
   // Un cierre sobre una clave que el sistema lee como PERDIDA: es la vuelta entera.
   const perdido = problemasDePipeline([
@@ -159,4 +167,84 @@ test('⚠️ la pregunta de «de dónde entran tus leads» está en los TRES mon
     const t = readFileSync(join(import.meta.dirname, ruta), 'utf8');
     assert.match(t, /canalEfectivo\(/, `${ruta} resuelve el canal por su cuenta en vez de usar canalEfectivo`);
   }
+});
+
+test('⚠️ las CUATRO terminales están siempre, son únicas, y sólo se renombran', () => {
+  // Decisión de Martín (28/09/2026): «Ganado, Perdido, Descalificado y No Responde deberían
+  // estar SIEMPRE, no importa qué funnel es. No dejes eliminar esas etapas en ningún funnel.
+  // Y son únicas: no puede haber 2 ganados en un mismo funnel, porque ahí justamente se
+  // rompen los datos que MaKo pide en esas etapas. Sí pueden cambiarle el nombre».
+  //
+  // ⚠️ NO SON CUATRO COSAS IGUALES: son 1 + 3. `perdido`, `descal` y `noresp` ya eran
+  // imborrables porque las inyecta la derivación. `ganado` vivía en el pipeline editable y el
+  // botón de borrar la aceptaba — y borrarla no rompe nada ruidoso: ninguna venta vuelve a
+  // escribir estado_lead='ganado' y los OCHO lectores de facturación cuentan cero, sin error
+  // y sin log. Mi propio chequeo de estructura tampoco la cazaba.
+  //
+  // Probado rompiéndolo (con el guard puesto, 8 pasan y 0 fallan):
+  //   · `conTerminales` deja de reponer el ganado que falta   -> 7 / 1
+  //   · `generateFunnel` deja de inyectarlo                    -> 7 / 1
+  //   · el guardado deja de llamar a `conTerminales`           -> 7 / 1
+  //   · el editor vuelve a dejar borrar una terminal           -> 7 / 1
+  const sinGanado = [
+    { key: 'lead', kind: 'entrada', label: 'Lead' },
+    { key: 'agenda', kind: 'reunion', label: 'Llamada' },
+    { key: 'st0', kind: 'cierre', label: 'Cerrado' },
+  ] as Stage[];
+
+  // 1) Se AVISA que falta, porque un arreglo silencioso sobre el funnel de alguien tampoco
+  //    está bien.
+  assert.ok(
+    problemasDePipeline(sinGanado).some((t) => /Ganado/.test(t)),
+    'un pipeline sin la etapa de Ganado tiene que avisarlo',
+  );
+  // 2) Y se REPONE al guardar, que es el lugar que manda: el pipeline es un argumento de una
+  //    server action, así que la pantalla no es la última palabra.
+  assert.ok(conTerminales(sinGanado).some((s) => s.key === 'ganado'), 'conTerminales no repuso el ganado');
+  // 3) Y la derivación la dibuja igual, lo que cura a los funnels ya guardados sin migración.
+  assert.ok(generateFunnel(sinGanado).stages.some((s) => s.key === 'ganado'), 'la derivación no inyecta ganado');
+
+  // 4) Únicas. La segunda hoy se EVAPORA en la derivación: queda guardada y sin columna, que
+  //    es la peor forma de no existir.
+  const dos = [
+    { key: 'lead', kind: 'entrada', label: 'Lead' },
+    { key: 'ganado', kind: 'cierre', label: 'Vendido' },
+    { key: 'ganado', kind: 'grupo', label: 'Otro vendido' },
+  ] as Stage[];
+  const unico = conTerminales(dos).filter((s) => s.key === 'ganado');
+  assert.equal(unico.length, 1, 'quedaron dos ganado');
+  assert.equal(unico[0].label, 'Vendido', 'se quedó con la segunda en vez de la primera');
+
+  // 5) Renombrar es lo ÚNICO que se puede, y tiene que sobrevivir al saneo.
+  const renom = [
+    { key: 'lead', kind: 'entrada', label: 'Lead' },
+    { key: 'ganado', kind: 'cierre', label: 'Escriturado' },
+  ] as Stage[];
+  assert.equal(conTerminales(renom).find((s) => s.key === 'ganado')?.label, 'Escriturado');
+
+  // 6) Y las cuatro claves son las cuatro. Ojo: la clave es `descal`, el ESTADO es
+  //    'descalificado' — no son el mismo string y confundirlos deja el guard cazando nada.
+  for (const k of ['ganado', 'perdido', 'descal', 'noresp']) assert.ok(esTerminal(k), k);
+  for (const k of ['lead', 'agenda', 'st0', 'descalificado']) assert.ok(!esTerminal(k), k);
+});
+
+test('⚠️ y el guardado y el editor las respetan, no sólo la función', () => {
+  // Escribir la función no es ofrecerla: un `conTerminales` que nadie llama compila, tiene
+  // test y no se ejecuta nunca.
+  const act = readFileSync(join(import.meta.dirname, '../app/crm/actions.ts'), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert.match(act, /conTerminales\(pipeline\)/, 'saveFunnelAction no garantiza las terminales');
+  assert.ok(
+    !/saveFunnelDe\(funnelId, pipeline,/.test(act) && !/saveFunnelDefault\(pipeline,/.test(act),
+    'el guardado sigue escribiendo el pipeline crudo, sin pasar por conTerminales',
+  );
+  const ed = readFileSync(join(import.meta.dirname, '../app/funnel/FunnelEditor.tsx'), 'utf8');
+  // ⚠️ La aserción va sobre el `disabled`, no sobre «aparece esTerminal en el archivo». La
+  // primera versión buscaba la función en cualquier lado y quedaban tres usos (el title y el
+  // style), así que sacarla del `disabled` —que es lo único que impide borrar— pasaba el test
+  // igual. Una rotura que no falla es una aserción que mide otra cosa.
+  assert.match(
+    ed, /disabled=\{pipeline\.length <= 1 \|\| esTerminal\(s\.key\)\}/,
+    'el botón de borrar del editor volvió a aceptar una etapa terminal',
+  );
 });
