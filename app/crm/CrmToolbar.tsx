@@ -69,6 +69,15 @@ function DownloadIcon({ size = 17 }: { size?: number }) {
 function FunnelIcon({ size = 17 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>;
 }
+function LapizIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 function KebabIcon() {
   return <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></svg>;
 }
@@ -473,7 +482,23 @@ export function SelectorFunnel({ funnels, activo }: {
   const comoSeLlama = (f: { nombre: string; producto?: string | null }) => f.producto?.trim() || f.nombre;
   // Sin `sub`: el nombre del producto ya dice qué es. «el de tu negocio» debajo del
   // único producto que hay era un renglón para no decir nada.
-  const opciones: DropdownOption[] = funnels.map((f) => ({ value: String(f.id), label: comoSeLlama(f) }));
+  // ⚠️ CADA FILA LLEVA SU LAPIZ, y es lo que pidio Martin: «al lado de cada uno debe
+  // aparecer el boton de editar, para editar las etapas de ese funnel». El `Dropdown` ya
+  // sabe dibujar acciones por renglon (`acciones`), asi que no hizo falta tocar el
+  // primitive — lo que faltaba era usarlo.
+  //
+  // ⚠️ Y EL LINK VA CON `?f=`, NO CON `?funnel=`. El CRM y /funnel usan convenciones
+  // distintas: pasar el id con el nombre equivocado abre el funnel del negocio, que es
+  // justo el bug que se acaba de arreglar en el menu de «Editar funnel».
+  const opciones: DropdownOption[] = funnels.map((f) => ({
+    value: String(f.id),
+    label: comoSeLlama(f),
+    acciones: [{
+      icono: <LapizIcon />,
+      title: `Editar las etapas de ${comoSeLlama(f)}`,
+      onClick: () => router.push(`/funnel?f=${f.id}`),
+    }],
+  }));
   // ⚠️ `crear`, NO `color`. El intento anterior fue `color: 'var(--faint)'` creyendo que
   // teñía el texto: `color` en un DropdownOption dibuja un PUNTO de 9 px, así que el
   // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.

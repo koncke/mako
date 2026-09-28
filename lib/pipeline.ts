@@ -340,6 +340,42 @@ export function bandToCategory(band: StageBand | undefined): TransitionCategory 
  * Al 28/09/2026 los 13 funnels de producción tienen exactamente un `ganado` y ninguna
  * clave repetida, así que esto entra sin migración: la derivación cura al que falte.
  */
+/**
+ * Tope del nombre de una etapa.
+ *
+ * ⚠️ NO ES UN NÚMERO ELEGIDO A OJO. Pedido de Martín: «pon una limitación de caracteres,
+ * para que un título no quede muy largo y rompa el diseño». El que se rompe no es el
+ * Kanban —ahí el label ya trunca con ellipsis— sino la tarjeta del mapa de /funnel, que
+ * mide 170x54 fijos y no tiene ni `nowrap` ni `overflow`, y el chip de la vista Tabla.
+ *
+ * El número sale de los datos, no del gusto: el label más largo guardado hoy en
+ * producción tiene 24 caracteres («Esperando la mensualidad»). Un tope menor le
+ * recortaría el nombre a un cliente en la primera lectura, que es exactamente lo que un
+ * tope nuevo no puede hacer.
+ */
+export const MAX_LABEL_ETAPA = 24;
+
+/**
+ * Los nombres que el negocio le puso a las etapas DERIVADAS.
+ *
+ * ⚠️ POR QUÉ HACE FALTA UNA CLAVE APARTE Y NO ALCANZA CON EL PIPELINE. De las cuatro
+ * terminales, tres (`perdido`, `descal`, `noresp`) NO viven en el pipeline que se
+ * guarda: las pone la derivación en cada lectura, literales. O sea que no tienen dónde
+ * persistir un nombre — y Martín pidió que se puedan renombrar igual que las demás.
+ *
+ * Las del pipeline siguen guardando su label donde siempre. Esto es SÓLO para las
+ * derivadas: dos lugares para el mismo dato sería el error, y no lo son — son dos datos
+ * distintos que viven donde cada uno puede vivir.
+ */
+export function sanearLabels(v: unknown): Record<string, string> {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    const t = typeof val === "string" ? val.trim().replace(/\s+/g, " ").slice(0, MAX_LABEL_ETAPA) : "";
+    if (k && t) out[k] = t;
+  }
+  return out;
+}
 export const TERMINALES = ['ganado', 'perdido', 'descal', 'noresp'] as const;
 
 /** La que vive en el PIPELINE editable. Las otras tres las pone la derivación. */
@@ -383,7 +419,7 @@ const NUTRI_EXTRA: Record<string, Stage> = {
  * Descartado (Perdido/Descalificado/No responde) es fijo. Perdido se nutre
  * (vuelve a la 1ª reunión); Descalificado y No responde son terminales.
  */
-export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { stages: Stage[]; transitions: FunnelTransition[] } {
+export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], labels: Record<string, string> = {}): { stages: Stage[]; transitions: FunnelTransition[] } {
   const sup = new Set(suppressed);
   const lib = (k: string): Stage | undefined => DEFAULT_STAGES.find((s) => s.key === k) ?? NUTRI_EXTRA[k];
   const stages: Stage[] = [];
@@ -502,7 +538,15 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
     }
   }
 
-  return { stages, transitions };
+  // ⚠️ LOS NOMBRES PROPIOS SE APLICAN ACÁ, AL FINAL, sobre las etapas ya armadas. Las tres
+  // terminales derivadas (`perdido`, `descal`, `noresp`) salen literales de la biblioteca y
+  // no tienen dónde guardar un nombre en el pipeline, así que el suyo vive en
+  // `funnels.data.labels`. Puesto acá cubre a las derivadas Y a las del pipeline sin que el
+  // llamador tenga que saber cuál es cuál.
+  const conNombre = Object.keys(labels).length
+    ? stages.map((s) => (labels[s.key] ? { ...s, label: labels[s.key] } : s))
+    : stages;
+  return { stages: conNombre, transitions };
 }
 
 // ── Cómo ENTRA un lead ───────────────────────────────────────────────────────

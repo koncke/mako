@@ -36,6 +36,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   problemasDePipeline, DEFAULT_PIPELINE, FUNNEL_TEMPLATES, conTerminales, generateFunnel, esTerminal,
+  MAX_LABEL_ETAPA,
   type Stage,
 } from '../lib/pipeline';
 
@@ -265,4 +266,64 @@ test('⚠️ «Editar funnel» abre EL funnel que estás mirando, no el del nego
   // Y /funnel tiene que seguir leyendo `?f=`: si cambia, el link de arriba queda mudo.
   const fp = readFileSync(join(import.meta.dirname, '../app/funnel/page.tsx'), 'utf8');
   assert.match(fp, /searchParams: Promise<\{ f\?: string \}>/, '/funnel dejó de leer ?f=');
+});
+
+test('⚠️ la etapa se edita desde su COLUMNA, y el menú está enchufado', () => {
+  // Pedido de Martín (28/09/2026): «en el lugar donde hoy está el 14 que estén 3 puntitos
+  // para opciones de editar esa columna/etapa del funnel. Y que los cambios se guarden. Que
+  // se pueda renombrar o eliminar, y otra opción de agregar nueva etapa. El actual 14 que
+  // esté posterior al título».
+  //
+  // ⚠️ Y EL MENÚ MANDA LA OPERACIÓN, NO EL PIPELINE. Al tablero le llegan las etapas ya
+  // GENERADAS —el pipeline crudo nunca viaja al navegador— así que reconstruirlo desde lo
+  // que se dibuja le haría perder todo lo que la derivación agrega y quita. Por eso hay una
+  // action angosta que lee, parcha y guarda del lado del server.
+  //
+  // Probado rompiéndolo (con todo puesto, 11 pasan y 0 fallan):
+  //   · el menú deja de llamar a la action     -> 10 / 1
+  //   · el input pierde el maxLength           -> 10 / 1
+  //   · el contador se mueve fuera del título -> 10 / 1
+  const bd = readFileSync(join(import.meta.dirname, '../app/crm/CrmBoard.tsx'), 'utf8');
+
+  // 1) El menú existe, y las tres opciones.
+  for (const op of ['renombrar', 'agregar', 'eliminar']) {
+    assert.ok(bd.includes(`value: '${op}'`), `falta la opción «${op}» en el menú de la columna`);
+  }
+  // 2) Y está ENCHUFADO: escribir la salida no es ofrecerla.
+  assert.match(bd, /editarEtapaAction\(op, funnelActivo/, 'el menú no llama a la action con el funnel activo');
+  assert.match(bd, /router\.refresh\(\)/, 'sin refresh el cambio se guarda y la pantalla sigue igual');
+
+  // 3) El tope de caracteres, que es lo que impide que un título rompa el diseño.
+  assert.match(bd, /maxLength=\{MAX_LABEL_ETAPA\}/, 'el input de renombrar no topea el largo');
+  assert.ok(MAX_LABEL_ETAPA >= 24, `el tope es ${MAX_LABEL_ETAPA}: el label más largo guardado hoy tiene 24 y se le recortaría`);
+
+  // 4) El contador va DESPUÉS del título, y el menú donde estaba el contador.
+  // ⚠️ NO ALCANZA CON EL ORDEN. La primera versión pedía título < contador < menú, y eso lo
+  // cumple también el contador puesto FUERA del grupo del título — que es exactamente el
+  // layout viejo, con el `space-between` empujándolo al otro extremo. Lo que hay que fijar es
+  // que el contador esté DENTRO del mismo grupo flex que el nombre: ahí queda pegado a él.
+  const iTitulo = bd.indexOf('title={c.label}');
+  const iMenu = bd.indexOf('Opciones de la etapa');
+  assert.ok(iTitulo > 0 && iMenu > 0, 'no se ubicaron el título y el menú');
+  const grupo = bd.slice(iTitulo, iMenu);
+  const iContador = grupo.indexOf('{cards.length}');
+  const iCierreGrupo = grupo.indexOf('</div>');
+  assert.ok(iContador > 0, 'el contador ya no está entre el título y el menú');
+  assert.ok(
+    iContador < iCierreGrupo,
+    'el contador quedó FUERA del grupo del título: con space-between se va al otro extremo, que es el layout que Martín pidió cambiar',
+  );
+
+  // 5) Y una terminal no se puede eliminar desde acá tampoco.
+  assert.match(bd, /disabled: esTerminal\(c\.key\)/, 'el menú deja eliminar una etapa terminal');
+});
+
+test('⚠️ cada funnel del desplegable tiene su lápiz, y abre EL suyo', () => {
+  // «También al lado de cada uno debe aparecer el botón de editar, para editar las etapas de
+  // ese funnel». El `Dropdown` del repo ya sabía dibujar acciones por renglón: lo que faltaba
+  // era usarlo.
+  const tb = readFileSync(join(import.meta.dirname, '../app/crm/CrmToolbar.tsx'), 'utf8');
+  assert.match(tb, /acciones: \[\{/, 'los funnels del desplegable no tienen su botón de editar');
+  // Con `?f=`, que es lo que /funnel lee. Con `?funnel=` abriría el del negocio.
+  assert.match(tb, /router\.push\(`\/funnel\?f=\$\{f\.id\}`\)/, 'el lápiz no abre el funnel de ESA fila');
 });

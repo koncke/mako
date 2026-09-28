@@ -57,7 +57,7 @@ import {
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe } from '@/lib/funnels';
 import {
-  conTerminales, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+  conTerminales, esTerminal, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -1948,6 +1948,85 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[], 
   revalidatePath('/funnel');
 }
 
+/**
+ * Editar UNA etapa del funnel desde la cabecera de su columna en el Kanban.
+ *
+ * Pedido de Martín (28/09/2026): «que estén 3 puntitos para opciones de editar esa
+ * columna/etapa del funnel. Y que los cambios se guarden. Que se pueda renombrar o
+ * eliminar, y otra opción de agregar nueva etapa».
+ *
+ * ⚠️ POR QUÉ ES UNA ACCIÓN ANGOSTA Y NO `saveFunnelAction`. Ésa recibe el pipeline ENTERO
+ * desde el navegador, y el tablero no lo tiene: a `/crm` le llegan las etapas YA
+ * GENERADAS (`filaAFunnel` corre en el server), no el pipeline crudo. Mandar el pipeline
+ * reconstruido desde las etapas dibujadas le haría perder todo lo que la derivación agrega
+ * y quita. Acá se lee, se parcha y se guarda del lado del server, que es el único que
+ * tiene el original.
+ *
+ * ⚠️ Y EL RENOMBRE VA A DOS LUGARES DISTINTOS, según qué etapa sea. Las del pipeline
+ * guardan su label ahí; las tres terminales derivadas (`perdido`, `descal`, `noresp`) no
+ * existen en el pipeline —las pone la derivación en cada lectura— así que su nombre vive
+ * en `data.labels`. El llamador no tiene que saber cuál es cuál: lo decide esto.
+ */
+export type OpEtapa =
+  | { op: 'renombrar'; key: string; label: string }
+  | { op: 'eliminar'; key: string }
+  | { op: 'agregar'; despuesDe?: string; label?: string };
+
+export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el funnel.' };
+  try {
+    const actual = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+    // ⚠️ El mismo guard que `declararEntradasAction`: con la lectura en ERROR lo que se lee
+    // es el pipeline GENÉRICO, y guardarlo le pisa al cliente su funnel real. Una caída de
+    // Supabase no puede reescribir un dato declarado.
+    if (actual.origen === 'error') return { ok: false, error: 'No se pudo leer el funnel; no se guardó nada para no pisarlo. Vuelve a intentarlo.' };
+
+    let pipeline = actual.pipeline;
+    let labels = actual.labels;
+
+    if (op.op === 'renombrar') {
+      const label = op.label.trim().replace(/\s+/g, ' ').slice(0, MAX_LABEL_ETAPA);
+      if (!label) return { ok: false, error: 'El nombre no puede quedar vacío.' };
+      const enPipeline = pipeline.some((st) => st.key === op.key);
+      if (enPipeline) pipeline = pipeline.map((st) => (st.key === op.key ? { ...st, label } : st));
+      else labels = { ...labels, [op.key]: label };
+    } else if (op.op === 'eliminar') {
+      // Las cuatro terminales no se borran en ningún funnel: es la decisión de Martín, y
+      // acá se hace cumplir del lado del server porque la pantalla no es la última palabra.
+      if (esTerminal(op.key)) return { ok: false, error: 'Esa etapa está en todos los funnels y no se puede eliminar. Sí puedes cambiarle el nombre.' };
+      if (!pipeline.some((st) => st.key === op.key)) {
+        return { ok: false, error: 'Esa etapa no es del pipeline: no se puede eliminar, solo renombrar.' };
+      }
+      if (pipeline.length <= 1) return { ok: false, error: 'Tu funnel se quedaría sin etapas.' };
+      pipeline = pipeline.filter((st) => st.key !== op.key);
+    } else {
+      // La clave se acuña acá, en el server, y se comprueba contra el pipeline real: si se
+      // eligiera en el navegador, dos pestañas abiertas acuñan la misma y la segunda pisa a
+      // la primera sin que nada falle.
+      let n = 0;
+      let key = 'st0';
+      while (pipeline.some((st) => st.key === key)) { n += 1; key = 'st' + n; }
+      const label = (op.label ?? 'Nueva etapa').trim().replace(/\s+/g, ' ').slice(0, MAX_LABEL_ETAPA) || 'Nueva etapa';
+      const nueva = { key, label, dot: '#5B6472', tone: 'neutral', kind: 'paso' } as Stage;
+      // Se mete DESPUÉS de la etapa desde cuyo menú se pidió; sin referencia, antes del
+      // cierre, que es donde una etapa nueva tiene sentido (el cierre va último).
+      const iRef = op.despuesDe ? pipeline.findIndex((st) => st.key === op.despuesDe) : -1;
+      const iCierre = pipeline.findIndex((st) => st.kind === 'cierre');
+      const at = iRef >= 0 ? iRef + 1 : (iCierre >= 0 ? iCierre : pipeline.length);
+      pipeline = [...pipeline.slice(0, at), nueva, ...pipeline.slice(at)];
+    }
+
+    const conGanado = conTerminales(pipeline);
+    if (funnelId != null) await saveFunnelDe(funnelId, conGanado, actual.suppressed, { labels });
+    else await saveFunnelDefault(conGanado, actual.suppressed, { labels });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  bust(TAG.pipeline, TAG.leads);
+  revalidatePath('/crm');
+  revalidatePath('/funnel');
+  return { ok: true };
+}
 /**
  * Declara CÓMO ENTRA la gente a este negocio (y, si corresponde, dónde y cuándo
  * es su encuentro de fecha fija).

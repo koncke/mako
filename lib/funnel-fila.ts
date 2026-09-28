@@ -8,7 +8,8 @@
 // =============================================================================
 
 import type { Stage, FunnelTransition, EntradaId, EventoFunnel } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, parseEntradas, parseEvento, sanearPipeline } from './pipeline';
+import {
+  sanearLabels, DEFAULT_PIPELINE, generateFunnel, parseEntradas, parseEvento, sanearPipeline } from './pipeline';
 
 export type { EventoFunnel };
 
@@ -28,6 +29,11 @@ export type FunnelConfig = {
   transitions: FunnelTransition[];
   pipeline: Stage[];
   suppressed: string[];
+  /**
+   * Los nombres propios de las etapas DERIVADAS (las tres terminales que no viven en el
+   * pipeline). Las del pipeline guardan su label ahí mismo.
+   */
+  labels: Record<string, string>;
   /** Cómo entra un lead. `[]` es NO DECLARADO y nunca afirma nada. */
   entradas: EntradaId[];
   /** El evento de fecha fija, si el canal tiene uno (el taller de todos los miércoles). */
@@ -75,14 +81,16 @@ export function buildFunnel(
   extra?: {
     id?: number | null; nombre?: string; canal?: string | null;
     entradas?: EntradaId[]; evento?: EventoFunnel | null; origen?: FunnelConfig['origen'];
+    labels?: Record<string, string>;
   },
 ): FunnelConfig {
-  const { stages, transitions } = generateFunnel(pipeline, suppressed);
+  const labels = extra?.labels ?? {};
+  const { stages, transitions } = generateFunnel(pipeline, suppressed, labels);
   return {
     id: extra?.id ?? null,
     nombre: extra?.nombre ?? FUNNEL_DEFAULT_NOMBRE,
     canal: extra?.canal ?? null,
-    stages, transitions, pipeline, suppressed,
+    stages, transitions, pipeline, suppressed, labels,
     entradas: extra?.entradas ?? [],
     evento: extra?.evento ?? null,
     origen: extra?.origen ?? 'sin-fila',
@@ -115,6 +123,10 @@ export function filaAFunnel(f: FilaFunnel): FunnelConfig {
     // pipeline igual cae al default (una pantalla en blanco es peor), pero
     // `entradas` queda vacío y eso es lo que impide que un prompt afirme «dejó
     // sus datos en el anuncio» sobre un cliente que nunca declaró nada.
+    // ⚠️ Los nombres NO cuelgan de `declarado`, a diferencia de `entradas` y `evento`.
+    // Un nombre propio no AFIRMA nada del negocio —no dice por dónde entra la gente— y
+    // esconderlo dejaría al cliente viendo «Perdido» después de haberlo renombrado.
+    labels: sanearLabels(cfg.labels),
     entradas: declarado ? parseEntradas(cfg.entradas) : [],
     evento: declarado ? parseEvento(cfg.evento) : null,
     origen: declarado ? 'declarado' : 'sin-fila',

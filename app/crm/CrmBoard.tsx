@@ -31,6 +31,8 @@ import {
   type Stage,
   type StageBand,
   type FunnelTransition,
+  esTerminal,
+  MAX_LABEL_ETAPA,
 } from '@/lib/pipeline';
 // Sin 'server-only' a propósito (ver su cabecera): es la fuente única del mapeo
 // etapa→R1/R2, y la usa también este componente de cliente.
@@ -53,6 +55,8 @@ import {
   requisitosDeEtapaAction,
   resolverQueHacerAction,
   linkDeAgendaAction,
+  editarEtapaAction,
+  type OpEtapa,
 } from './actions';
 import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
@@ -1265,6 +1269,40 @@ export function CrmBoard({
   // caía a la agenda del dueño y el usuario ni se enteraba de que faltaba algo.
   const [avisoAgenda, setAvisoAgenda] = useState<string | null>(null);
 
+  // ── Editar las etapas desde la cabecera de su columna ──────────────────────
+  // Pedido de Martín (28/09/2026). El menú vive acá y no en /funnel porque es donde se
+  // ve el problema: la columna que sobra o el nombre que no es el del negocio se notan
+  // mirando el tablero, no el mapa.
+  const [renombrando, setRenombrando] = useState<string | null>(null);
+  const [borrarEtapa, setBorrarEtapa] = useState<{ key: string; label: string } | null>(null);
+  const [errorEtapa, setErrorEtapa] = useState<string | null>(null);
+
+  /**
+   * ⚠️ MANDA LA OPERACIÓN, NO EL PIPELINE. El tablero recibe las etapas ya GENERADAS
+   * (`filaAFunnel` corre en el server); el pipeline crudo nunca llega acá. Reconstruirlo
+   * desde lo que se dibuja le haría perder todo lo que la derivación agrega y quita.
+   *
+   * Y `router.refresh()` al final porque las etapas las decide el SERVER: sin eso el
+   * cambio se guarda y la pantalla sigue mostrando lo de antes.
+   */
+  const opEtapa = async (op: OpEtapa) => {
+    setErrorEtapa(null);
+    const r = await editarEtapaAction(op, funnelActivo ?? undefined);
+    if (!r.ok) { setErrorEtapa(r.error); return; }
+    setRenombrando(null);
+    setBorrarEtapa(null);
+    router.refresh();
+  };
+
+  const guardarNombre = (key: string, valor: string) => {
+    const limpio = valor.trim();
+    const previo = stages.find((st) => st.key === key)?.label ?? '';
+    // Sin cambio no se escribe: el `onBlur` salta también al apretar Escape o al hacer
+    // clic afuera, y un guardado por cada foco perdido es ruido en el historial.
+    if (!limpio || limpio === previo) { setRenombrando(null); return; }
+    void opEtapa({ op: 'renombrar', key, label: limpio });
+  };
+
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
     const cards = filtered.filter((l) => effStage(l) === c.key);
@@ -1275,12 +1313,60 @@ export function CrmBoard({
         onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
         style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none' }}
       >
+        {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
+            Pedido de Martín: «en el lugar donde hoy está el 14 que estén 3 puntitos para
+            opciones de editar esa columna/etapa del funnel. El actual 14 que esté posterior
+            al título». El contador es un dato DE la etapa y va pegado a su nombre; el borde
+            derecho de una fila es donde el ojo busca las acciones. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
             <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: c.dot }} />
-            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+            {renombrando === c.key ? (
+              /* El nombre se edita EN SU LUGAR. Un modal para cambiar una palabra es un
+                 paso de más, y acá se ve contra las otras columnas mientras se escribe. */
+              <input
+                autoFocus
+                defaultValue={c.label}
+                maxLength={MAX_LABEL_ETAPA}
+                onBlur={(e) => guardarNombre(c.key, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  if (e.key === 'Escape') { setRenombrando(null); }
+                }}
+                style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--primary)', borderRadius: 7, padding: '3px 7px' }}
+              />
+            ) : (
+              <>
+                {/* `title` con el nombre entero: el ellipsis oculta y no hay otra forma de leerlo. */}
+                <span title={c.label} style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+                <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
+              </>
+            )}
           </div>
-          <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
+          {renombrando !== c.key && (
+            /* ⚠️ VA EL `Dropdown` DEL REPO Y NO UN MENÚ PROPIO: el tablero vive dentro de un
+               `overflowX: auto`, así que un menú en flujo normal se recorta contra el borde
+               de la columna. Éste se dibuja por portal. */
+            <Dropdown
+              value=""
+              placeholder="⋯"
+              align="right"
+              resetAfterSelect
+              ariaLabel={`Opciones de la etapa ${c.label}`}
+              buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+              options={[
+                { value: 'renombrar', label: 'Cambiar el nombre' },
+                { value: 'agregar', label: 'Agregar etapa después' },
+                // Las cuatro terminales están en todos los funnels: se renombran, no se borran.
+                { value: 'eliminar', label: esTerminal(c.key) ? 'No se puede eliminar' : 'Eliminar etapa', disabled: esTerminal(c.key) },
+              ]}
+              onChange={(v) => {
+                if (v === 'renombrar') { setRenombrando(c.key); return; }
+                if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
+                if (v === 'eliminar') setBorrarEtapa({ key: c.key, label: c.label });
+              }}
+            />
+          )}
         </div>
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
           {cards.map((l) => {
@@ -2159,6 +2245,30 @@ export function CrmBoard({
           <button type="button" onClick={undoMove} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
           <button type="button" onClick={() => setUndoInfo(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
+      )}
+      {/* Eliminar una etapa es irreversible y mueve leads: se pregunta, y la pregunta dice
+          la consecuencia pegada al botón. */}
+      {borrarEtapa && (
+        <ConfirmDialog
+          title={`Eliminar la etapa «${borrarEtapa.label}»`}
+          message="Los leads que estén ahí pasan a la primera etapa del funnel. La nutrición que salía de esta etapa también se va."
+          confirmLabel="Eliminar la etapa"
+          loading={isPending}
+          onConfirm={() => { void opEtapa({ op: 'eliminar', key: borrarEtapa.key }); }}
+          onCancel={() => setBorrarEtapa(null)}
+        />
+      )}
+
+      {/* El error del server se DICE. La acción puede fallar por rol o porque la lectura
+          del funnel se cayó, y sin esto el menú se cierra y no pasa nada visible. */}
+      {errorEtapa && (
+        <ConfirmDialog
+          title="No se pudo cambiar la etapa"
+          message={errorEtapa}
+          confirmLabel="Entendido"
+          onConfirm={() => setErrorEtapa(null)}
+          onCancel={() => setErrorEtapa(null)}
+        />
       )}
     </main>
   );
