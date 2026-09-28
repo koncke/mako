@@ -66,58 +66,17 @@ export function wsDeBusqueda(search: string | null | undefined): number | null {
   return parseWs(new URLSearchParams(search).get(WS_PARAM));
 }
 
-// =============================================================================
-// El workspace de un TABLERO EMBEBIDO — `?ws=` sin tocar la pestaña
-// =============================================================================
-// «Aun no veo el plan, las tareas y proyectos de cada cliente» (28/09/2026): la
-// ficha de un cliente en el panel de la plataforma monta el tablero de OTRO
-// workspace. La pestaña sigue siendo la del super admin —tiene que seguir siéndolo,
-// porque la lista de atrás es la suya— así que el `?ws=` de arriba no sirve: ponerlo
-// en la URL apaga el propio panel (`estaImpersonando()` pasa a true y
-// `/customer-success` deja de renderizar la vista de la plataforma).
+// ⛔ ACÁ VIVÍA `wsDeTrabajo`, y se fue el 28/09/2026 SIN reemplazo.
 //
-// ⚠️ NO CAMBIA NADA DE LA SEGURIDAD, y eso es lo que lo hace aceptable. Lo único que
-// hace es poner en la URL de esas llamadas el MISMO `?ws=` que ya pone «Inspeccionar»;
-// quien decide si ese número vale sigue siendo `proxy.ts`, que lo acepta únicamente si
-// la sesión FIRMADA dice `rol === 'admin'`. Un cliente que setee esto no consigue nada.
+// Era el mecanismo para que el tablero que la ficha de un cliente monta adentro del
+// panel de la plataforma escribiera en el workspace de ESE cliente: una lista blanca
+// de rutas y un valor de módulo que el parche de `fetch` leía. Funcionaba —medido en
+// el navegador: `POST /api/todo?ws=1` desde la ficha, `/api/admin/*` sin tocar, y nada
+// pegado al cerrar— y dejó de hacer falta el mismo día, cuando el dueño corrigió el
+// modelo: la ficha no muestra el tablero DEL CLIENTE, muestra el trabajo del SUPER
+// ADMIN atribuido a ese cliente. O sea que el tablero es el del workspace ACTUAL y no
+// hay nada que rutear.
 //
-// ⚠️ LA LISTA ES POSITIVA Y CERRADA: sólo las rutas del tablero. Sin eso, la llamada
-// que el panel de atrás hace mientras el modal está abierto (`/api/admin/workspaces`,
-// `/api/admin/usuarios`) también saldría apuntando al cliente — y ahí es donde una
-// carrera se convierte en una escritura en el inquilino equivocado. Todo lo que no
-// esté acá sigue yendo al workspace de la pestaña, que es el default correcto.
-//
-// ⚠️ Y LA LISTA NO SE PUEDE QUEDAR VIEJA EN SILENCIO: `tests/ws-de-trabajo.test.ts`
-// barre los `fetch('/api/…')` del subárbol del tablero y falla si aparece uno que no
-// esté acá. Una ruta nueva del board sin su entrada escribiría en el workspace del que
-// MIRA, con 200 y sin un error — que es el modo de falla que esto viene a cerrar.
-
-/** Las rutas que el tablero llama. Medido sobre `app/plan/` el 28/09/2026. */
-export const RUTAS_DEL_TABLERO = [
-  '/api/todo',
-  '/api/plan-board',
-  '/api/plan-buscar',
-  '/api/plan-propuesta',
-  '/api/plan-dictado',
-  '/api/plan-fathom',
-  '/api/plan-reunion',
-  '/api/mako-guardian',
-  '/api/checklist-coach',
-] as const;
-
-/** ¿Esta ruta es del tablero? Compara el PATH exacto o su prefijo de segmento. */
-export function esRutaDelTablero(pathname: string): boolean {
-  return RUTAS_DEL_TABLERO.some((r) => pathname === r || pathname.startsWith(`${r}/`));
-}
-
-/**
- * El workspace del tablero embebido, mientras haya uno montado.
- *
- * Es estado de MÓDULO y no de React a propósito: lo tiene que leer el parche de
- * `fetch`, que vive fuera del árbol. Lo pone y lo saca el componente que monta el
- * tablero (ver `app/admin/TableroDelCliente.tsx`), y `null` es el estado normal.
- */
-let wsEmbebido: number | null = null;
-
-export const setWsDeTrabajo = (ws: number | null): void => { wsEmbebido = parseWs(ws); };
-export const getWsDeTrabajo = (): number | null => wsEmbebido;
+// Se borra en vez de dejarse «por si vuelve»: un mecanismo que cruza inquilinos y que
+// nadie ejercita es el que se rompe sin que ningún test lo note. El porqué queda en
+// docs/hallazgos-plan.md y el commit tiene el código si algún día hace falta.

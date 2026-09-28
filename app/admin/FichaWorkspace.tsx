@@ -18,15 +18,23 @@
 // una tabla de sólo lectura. Los dos se reportaron igual —«se ve diferente»—, porque
 // lo eran: mientras la pieza no sea LA MISMA, «parecido» es lo máximo que se consigue.
 //
-// ⚠️ Y EL TABLERO ESCRIBE EN EL WORKSPACE CORRECTO. Es de otro inquilino, así que sus
-// llamadas tienen que salir con el `?ws=` de ese cliente — el MISMO mecanismo que usa
-// «Inspeccionar», validado por `proxy.ts` contra la sesión firmada. No se puede poner
-// en la URL de la pestaña (apagaría el panel de atrás: `estaImpersonando()` pasaría a
-// true), así que lo pone `setWsDeTrabajo` mientras el tablero está montado, y sólo
-// para las rutas del tablero. Ver `lib/ws-tab.ts`.
+// ⚠️ EL TABLERO ES EL DEL SUPER ADMIN, FILTRADO A ESE CLIENTE — no el del cliente.
+// «Estás trayendo las tareas y proyectos de ese cliente, cuando tenés que traer los de
+// SUPER ADMIN relacionados a ese cliente» (28/09/2026), y es lo mismo que hace la ficha
+// de Customer Success: MI trabajo para ese cliente, no el suyo. Para ver el tablero del
+// cliente está «Inspeccionar», que entra a su cuenta.
+//
+// Eso además hace que las escrituras sean triviales: el tablero es del workspace
+// ACTUAL, así que no hay nada que rutear. Una versión anterior traía el board del otro
+// inquilino y necesitaba mandarle el `?ws=` a cada llamada; eso se fue con el cambio.
+//
+// ⚠️ Y LAS TABS SON UNA SOLA FILA. «Pusiste 2 seleccionables de tabs, arriba tablero y
+// equipo y abajo las otras cuatro… tienes que quitar lo de arriba, y simplemente
+// agregar Equipo luego de Recurrentes» (28/09/2026). «Equipo» entra por `vistaExtra`
+// del board: una fila, cinco destinos.
 
-import { useState, type ReactNode } from 'react';
-import { Modal, Tabs } from '@/app/_ui';
+import type { ReactNode } from 'react';
+import { Modal } from '@/app/_ui';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Icon } from '@/app/_components/icons';
@@ -53,7 +61,7 @@ export type CambioCara = {
 
 export function FichaWorkspace({
   w, cara, opciones, accionando, onAccion, onNombre, onEncuadre,
-  onAbrirPortada, onAbrirIcono, onCerrar, tablero, equipo, clientes,
+  onAbrirPortada, onAbrirIcono, onCerrar, tablero,
 }: {
   w: Workspace;
   /**
@@ -74,27 +82,13 @@ export function FichaWorkspace({
   onAbrirPortada: (ancla: HTMLElement) => void;
   onAbrirIcono: (ancla: HTMLElement) => void;
   onCerrar: () => void;
-  /** SU tablero, con sus cuatro vistas. Lo arma la pantalla. */
+  /**
+   * El tablero, ya montado por la pantalla — que es la que tiene las filas y sabe cuál
+   * de los dos boards le toca. Acá entra entero, con su selector de vistas y con la de
+   * «Equipo» ya adentro.
+   */
   tablero: ReactNode;
-  /** SU equipo, con todos los controles de administración. */
-  equipo: ReactNode;
-  /**
-   * SUS CLIENTES, si es una agencia. Van adentro de la tab de Equipo —«los clientes de
-   * agencia deberían aparecer dentro de la tab de EQUIPO de esa agencia como una card
-   * de cliente», 28/09/2026— y no como tarjetas sueltas en la grilla de MaKo: a ese
-   * negocio no le factura MaKo, le factura la agencia.
-   *
-   * `undefined` para un cliente común, que no tiene clientes propios. Y la ausencia se
-   * VE: sin esto la tab de Equipo es la de siempre.
-   */
-  clientes?: ReactNode;
 }) {
-  /**
-   * ⚠️ ARRANCA EN «Tablero». Lo primero que hay que saber de un cliente es en qué
-   * anda, no quién entra a su cuenta — y ése fue el pedido: «aun no veo el plan, las
-   * tareas y proyectos de cada cliente».
-   */
-  const [tab, setTab] = useState('tablero');
   const color = colorDe(w.nombre);
   const esDueno = w.id === 1;
 
@@ -161,19 +155,7 @@ export function FichaWorkspace({
       contenedor
       onCerrar={onCerrar}
     >
-      <Tabs
-        tabs={[{ id: 'tablero', label: 'Tablero' }, { id: 'equipo', label: 'Equipo' }]}
-        activa={tab} onCambio={setTab} />
-      {/* ⚠️ EL TABLERO SE MONTA Y SE DESMONTA CON SU TAB. De eso depende que su
-          workspace se ponga y se saque a tiempo (`setWsDeTrabajo`), y que sus filas no
-          se pidan hasta que alguien las mire: son nueve workspaces y el más grande
-          tiene 212 tareas. */}
-      {tab === 'tablero' ? tablero : (
-        <>
-          {clientes}
-          {equipo}
-        </>
-      )}
+      {tablero}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Modal>
   );

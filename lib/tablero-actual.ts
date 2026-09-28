@@ -55,30 +55,11 @@ export async function tableroActual(): Promise<QueTablero> {
   return 'cliente';
 }
 
-/**
- * Cuál de los dos tableros le toca a UN WORKSPACE, mirándolo desde afuera.
- *
- * ⚠️ NO ES LO MISMO QUE `tableroActual()`, Y CONFUNDIRLAS ES EL BUG. Aquélla contesta
- * por QUIEN MIRA («soy el super-admin y no estoy impersonando») y por eso sirve para
- * la pantalla propia. Ésta contesta por el workspace MIRADO, que es lo que hace falta
- * cuando el super-admin abre la ficha de un cliente: envolver una lectura en
- * `runWithWorkspace(13, …)` NO cambia la sesión, así que `tableroActual()` adentro
- * sigue diciendo 'dueno' y se termina leyendo `plan_tareas` del ws13 — cero filas, sin
- * un solo error, y la ficha diciendo «no tiene trabajo». Es exactamente el bug del
- * 26/09/2026 con las tablas invertidas, servido por el otro lado.
- *
- * ⚠️ DECIDE POR LA CAPA, y eso está MEDIDO contra producción (28/09/2026):
- *
- *     ws  capa         experimento_tareas  plan_tareas
- *      1  completo            212               0
- *      9  superadmin            0             408   ← el único con capa superadmin
- *     11  completo             68               0
- *     13  agencia              19               0
- *     14  completo             13               0
- *
- * O sea: la capa `superadmin` y las tablas del dueño son el mismo conjunto de uno.
- * Se decide por la CAPA y no por el id porque el id cambia y la capa dice por qué.
- */
-export async function tableroDeWorkspace(ws: number): Promise<QueTablero> {
-  return tableroDeCapa((await getWorkspace(ws))?.capa);
-}
+/* ⛔ ACÁ VIVÍA `tableroDeWorkspace(ws)`, y se fue el 28/09/2026 con su único
+   consumidor. Contestaba «qué tablero le toca a ESE workspace» para leer el board de
+   otro inquilino — algo que dejó de hacer falta cuando el dueño corrigió el modelo: la
+   ficha de un cliente muestra el trabajo del SUPER ADMIN atribuido a él, no su tablero.
+
+   La lección se queda, y está en `lib/tablero-de-capa.ts`: `tableroActual()` contesta
+   por QUIEN MIRA, así que envolver una lectura en `runWithWorkspace(13, …)` NO la
+   cambia — se termina leyendo `plan_tareas` del ws13, cero filas, sin un solo error. */

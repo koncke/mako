@@ -51,7 +51,36 @@ export default async function CustomerSuccessPage() {
   // `estaImpersonando()`, que es la misma funcion de la que cuelga el chrome — si
   // mirara otra cosa, la barra diria un cliente y la lista seria de otro.
   if ((await getSesionAdmin()) && !(await estaImpersonando())) {
-    return <AdminView titulo="Clientes" icono="cs" />;
+    /**
+     * ⚠️ EL TRABAJO VIENE CON EL HTML, igual que en la ficha de un cliente. «Cuando
+     * entro al detail de un cliente tarda un montón en cargar sus tareas, cuando ya
+     * habíamos dicho que debe quedar registro y ser automático» (28/09/2026), y tenía
+     * razón: una versión anterior lo pedía por fetch al abrir la ficha, con su spinner.
+     * Es la MISMA lectura que ya hace esta pantalla para un cliente común, así que sale
+     * gratis — y es lo que hace que el detalle no tenga estado de carga.
+     *
+     * ⚠️ Y ES EL TRABAJO DEL SUPER ADMIN ATRIBUIDO A CADA CLIENTE, no el tablero del
+     * cliente: `filasDeTodos()` lee SU tablero (`plan_tareas`, porque su capa es
+     * `superadmin`) y lo agrupa por `cliente_lead_id`. Traer el del otro inquilino fue
+     * exactamente el error que se reportó: «no tiene sentido eso».
+     *
+     * Si alguna de las tres lecturas falla, la pantalla se dibuja igual: la grilla de
+     * workspaces sale de otro lado (/api/admin/workspaces) y lo único que se pierde es
+     * el tablero de la ficha, que lo dice.
+     */
+    const [trabajoSA, clientesSA, perfilSA] = await Promise.all([
+      filasDeTodos().catch(() => null),
+      clientesGanados().catch(() => []),
+      getPerfil().catch(() => ({ nombre: '', avatarUrl: '' })),
+    ]);
+    return (
+      <AdminView
+        titulo="Clientes" icono="cs"
+        trabajo={trabajoSA}
+        clientes={clientesSA}
+        user={{ nombre: perfilSA.nombre, avatarUrl: perfilSA.avatarUrl }}
+      />
+    );
   }
 
   // ⚠️ SI LA LISTA NO SE PUEDE LEER, NO SE DIBUJA UNA LISTA VACÍA. Un workspace

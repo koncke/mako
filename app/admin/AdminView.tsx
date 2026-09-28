@@ -31,7 +31,6 @@ import { useCapaModal } from '../_components/pila-modales';
 import { PortadaPicker } from '../_components/PortadaPicker';
 import { IdentidadPicker } from '../_components/IdentidadPicker';
 import { FichaWorkspace } from './FichaWorkspace';
-import { TableroDelCliente } from './TableroDelCliente';
 import { Dropdown } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import type { UsuarioConCara as Usuario } from './tipos';
@@ -39,6 +38,11 @@ import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from 
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
 import { ROLES_ALTA, ROTULO_ROL } from '@/lib/agencia-altas';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
+import { PlanBoard } from '../plan/PlanBoard';
+import { TodoBoard } from '../plan/TodoBoard';
+import type { BoardUser } from '../plan/board/types';
+import type { ClienteRef } from '@/lib/plan-clientes';
+import type { TrabajoDeCliente } from '../customer-success/trabajo';
 
 /** Lo que contestan /api/admin/workspaces y /api/admin/usuarios. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
@@ -78,6 +82,31 @@ const inicialesTxt = (base: string) => {
   return (partes.length >= 2 ? `${partes[0][0]}${partes[1][0]}` : (base || '?').slice(0, 1)).toUpperCase();
 };
 
+/**
+ * El girador de la espera.
+ *
+ * ⚠️ ES UN SVG QUE GIRA Y NO UN TEXTO, y respeta `prefers-reduced-motion`: para quien
+ * pide menos movimiento se queda quieto en vez de desaparecer — sigue diciendo que
+ * algo está pasando, que es lo único que tiene que decir.
+ */
+function Girando({ size = 34 }: { size?: number }) {
+  return (
+    <>
+      <svg className="adm-girar" width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="12" r="9" stroke="var(--border-strong)" strokeWidth="2.5" />
+        <path d="M21 12a9 9 0 0 0-9-9" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+      <style dangerouslySetInnerHTML={{ __html: CSS_GIRAR }} />
+    </>
+  );
+}
+
+const CSS_GIRAR = `
+.adm-girar{ animation: adm-giro .9s linear infinite; }
+@keyframes adm-giro{ to{ transform: rotate(360deg); } }
+@media(prefers-reduced-motion:reduce){ .adm-girar{ animation:none; } }
+`;
+
 function Cuadro({ texto, foto, size = 36 }: { texto: string; foto?: string | null; size?: number }) {
   return (
     <div style={{ width: size, height: size, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.36, color: '#171511', overflow: 'hidden' }}>
@@ -115,7 +144,20 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
  * sus leads ganados. Adentro de un cliente, el super admin ve los de ESE cliente,
  * que es lo correcto.
  */
-export function AdminView({ titulo = 'Admin', icono = 'admin' }: { titulo?: string; icono?: string } = {}) {
+export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user }: {
+  titulo?: string;
+  icono?: string;
+  /**
+   * EL TRABAJO DEL SUPER ADMIN, agrupado por cliente. Viene del SERVER con el HTML —
+   * no se pide al abrir la ficha— y por eso el detalle no tiene estado de carga. Es la
+   * misma lectura y la misma forma que usa la ficha de un cliente en Customer Success.
+   * `null` = no se pudo leer, que NO es lo mismo que «no tiene trabajo».
+   */
+  trabajo?: { dueno: boolean; porCliente: Record<number, TrabajoDeCliente> } | null;
+  /** Los clientes del CRM del super admin. De acá sale qué lead es cada workspace. */
+  clientes?: ClienteRef[];
+  user?: BoardUser;
+} = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -154,7 +196,15 @@ export function AdminView({ titulo = 'Admin', icono = 'admin' }: { titulo?: stri
     return (
       <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
         {header}
-        <div style={{ marginTop: 18, ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13, maxWidth: 980 }}>Cargando…</div>
+        {/* ⚠️ UN LOADER AL MEDIO, NO UNA CAJA CON TEXTO. «Al entrar a la tab aparece
+            ese cuadro, no debería, en todo caso un loader grande en el medio de la
+            tab» (28/09/2026). La caja se leía como CONTENIDO —un panel vacío que
+            alguien acababa de romper— en vez de como una espera; y encima empujaba la
+            grilla hacia abajo, así que al llegar los datos todo saltaba de lugar. */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: '52vh', color: 'var(--faint)' }}>
+          <Girando />
+          <span style={{ fontSize: 13.5 }}>Cargando tus clientes…</span>
+        </div>
       </main>
     );
   }
@@ -189,7 +239,8 @@ export function AdminView({ titulo = 'Admin', icono = 'admin' }: { titulo?: stri
             Copywriting es ahora una ruta (/admin/copywriting) con su fila en la
             barra; los super admins son una sección más de esta misma pantalla,
             que es lo que siempre fueron — un puñado de personas, no un área. */}
-        <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar} />
+        <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar}
+          trabajo={trabajo ?? null} clientes={clientes} user={user} />
       </div>
     </main>
   );
@@ -339,7 +390,17 @@ const CSS_TABLA = `
 `;
 
 // =============================================================================
-function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
+function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user }: {
+  workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void>;
+  /**
+   * El trabajo del SUPER ADMIN agrupado por cliente, y su CRM. Bajan desde el server
+   * a través de `AdminView` — acá es donde vive el estado de la pantalla, así que es
+   * acá donde hacen falta.
+   */
+  trabajo?: { dueno: boolean; porCliente: Record<number, TrabajoDeCliente> } | null;
+  clientes?: ClienteRef[];
+  user?: BoardUser;
+}) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
   const [adminEmail, setAdminEmail] = useState('');
@@ -553,6 +614,24 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
     const f = agenciasEstado.carteras.find((x) => x.cliente_ws === clienteWs);
     return ROTULO_CARTERA[(f?.estado ?? 'pendiente') as EstadoCartera] ?? (f?.estado ?? '—');
   };
+
+  /**
+   * QUÉ LEAD DEL CRM ES CADA WORKSPACE.
+   *
+   * ⚠️ POR `cliente_ws`, QUE ES UNA CLAVE, y nunca por el nombre. Los tres clientes del
+   * super admin se llaman parecido a su workspace pero no igual —«Juanfran» es el ws13
+   * «Codigo Inmobiliario»—, así que un match por texto acertaría dos de tres y le
+   * mostraría a alguien el trabajo de otro. La columna existe desde la mig 0175 para
+   * exactamente esto.
+   *
+   * Sin fila, el workspace no está ligado a ningún cliente del CRM y la ficha lo dice:
+   * no hay tablero que mostrar, y eso es un dato, no un error.
+   */
+  const leadDeWs = useMemo(() => {
+    const m = new Map<number, ClienteRef>();
+    for (const c of clientes) if (c.clienteWs) m.set(c.clienteWs, c);
+    return m;
+  }, [clientes]);
 
   /** Los clientes de ESTA agencia, para dibujarlos adentro de su ficha. */
   const clientesDeAgencia = (agenciaWs: number): Workspace[] =>
@@ -856,53 +935,53 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
           onAbrirPortada={(a) => setAnclaPortada((x) => (x ? null : a))}
           onAbrirIcono={(a) => setAnclaIcono((x) => (x ? null : a))}
           onCerrar={() => { setAbierto(null); setAnclaPortada(null); setAnclaIcono(null); }}
-          /* Las dos tabs, como CONTENIDO y no como children: son dos y hay que poder
-             nombrarlas. El tablero es el de VERDAD, con sus cuatro vistas. */
           tablero={
             <TableroDelCliente
-              ws={wAbierto.id} nombre={wAbierto.nombre}
-              user={{ nombre: sesion?.email ?? 'Super admin', avatarUrl: '' }} />
-          }
-          /* Los clientes de esta agencia, si tiene. `undefined` para un cliente
-             común: la ausencia se ve, y la tab de Equipo queda como siempre. */
-          clientes={(() => {
-            const suyos = clientesDeAgencia(wAbierto.id);
-            if (!suyos.length) return undefined;
-            return (
-              <div style={{ marginBottom: 22 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>
-                  Sus clientes · {suyos.length}
-                </div>
-                <GrillaTarjetas sinEstirar>
-                  {suyos.map((c) => (
-                    <li key={c.id}>
-                      <TarjetaEntidad
-                        nombre={c.nombre}
-                        portada={c.portada} portadaY={c.portada_y}
-                        icono={c.icono} avatarY={c.avatar_y}
-                        foto={caraDe(c)}
-                        color={colorDe(c.nombre)}
-                        /* Abre SU ficha en lugar de ésta. Es una navegación y no una
-                           pila: apilar dos fichas de 1560 deja la de atrás invisible y
-                           sin forma de volver que no sea cerrar las dos. */
-                        onAbrir={() => setAbierto(c.id)}
-                        etiqueta={`Abrir la ficha de ${c.nombre}`}
-                        chips={<span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(c.capa).nombre}</span>}
-                        bajada={<><span style={{ fontFamily: MONO }}>{c.slug ?? '—'}</span> · {c.usuarios} {c.usuarios === 1 ? 'miembro' : 'miembros'}</>}
-                        pie={<PieTexto>{estadoCartera(c.id)}</PieTexto>}
-                      />
-                    </li>
-                  ))}
-                </GrillaTarjetas>
-              </div>
-            );
-          })()}
-          equipo={
-            <EquipoDelCliente
               w={wAbierto}
-              equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
-              accionando={accionando} accionUser={accionUser} reenviar={reenviar}
-              onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
+              lead={leadDeWs.get(wAbierto.id) ?? null}
+              trabajo={trabajo ?? null}
+              clientes={clientes}
+              user={user ?? { nombre: sesion?.email ?? 'Super admin', avatarUrl: '' }}
+              onRecargar={recargar}
+              equipo={
+                <div style={{ padding: '4px 30px 24px' }}>
+                  {clientesDeAgencia(wAbierto.id).length > 0 && (
+                    <div style={{ marginBottom: 26 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>
+                        Sus clientes · {clientesDeAgencia(wAbierto.id).length}
+                      </div>
+                      <GrillaTarjetas sinEstirar>
+                        {clientesDeAgencia(wAbierto.id).map((c) => (
+                          <li key={c.id}>
+                            <TarjetaEntidad
+                              nombre={c.nombre}
+                              portada={c.portada} portadaY={c.portada_y}
+                              icono={c.icono} avatarY={c.avatar_y}
+                              foto={caraDe(c)}
+                              color={colorDe(c.nombre)}
+                              /* Abre SU ficha en lugar de ésta. Es una navegación y no
+                                 una pila: apilar dos fichas de 1560 deja la de atrás
+                                 invisible y sin forma de volver que no sea cerrar las
+                                 dos. */
+                              onAbrir={() => setAbierto(c.id)}
+                              etiqueta={`Abrir la ficha de ${c.nombre}`}
+                              chips={<span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(c.capa).nombre}</span>}
+                              bajada={<><span style={{ fontFamily: MONO }}>{c.slug ?? '—'}</span> · {c.usuarios} {c.usuarios === 1 ? 'miembro' : 'miembros'}</>}
+                              pie={<PieTexto>{estadoCartera(c.id)}</PieTexto>}
+                            />
+                          </li>
+                        ))}
+                      </GrillaTarjetas>
+                    </div>
+                  )}
+                  <EquipoDelCliente
+                    w={wAbierto}
+                    equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
+                    accionando={accionando} accionUser={accionUser} reenviar={reenviar}
+                    onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
+                </div>
+              }
+            />
           }
         />
       )}
@@ -959,6 +1038,69 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       )}
     </div>
   );
+}
+
+/**
+ * EL TABLERO DE UN CLIENTE: el trabajo del SUPER ADMIN atribuido a ese cliente.
+ *
+ * ⚠️ NO ES EL TABLERO DEL CLIENTE, y confundirlo fue el reporte: «estás trayendo las
+ * tareas y proyectos de ese cliente, cuando tenés que traer los de SUPER ADMIN
+ * relacionados a ese cliente». Es exactamente lo que hace la ficha de un cliente en
+ * Customer Success —MI trabajo para él— y para ver el suyo está «Inspeccionar».
+ *
+ * ⚠️ LAS FILAS YA ESTÁN: vienen del server con el HTML. Por eso no hay fetch ni estado
+ * de carga, que era el otro reporte del mismo día («ya habíamos dicho que debe quedar
+ * registro y ser automático»).
+ *
+ * ⚠️ Y «EQUIPO» ENTRA COMO UNA VISTA MÁS DEL BOARD, no como una segunda fila de tabs:
+ * «tienes que quitar lo de arriba, y simplemente agregar Equipo luego de Recurrentes».
+ */
+function TableroDelCliente({ w, lead, trabajo, clientes, user, equipo, onRecargar }: {
+  w: Workspace;
+  /** El cliente del CRM que corresponde a este workspace, por `cliente_ws`. */
+  lead: ClienteRef | null;
+  trabajo: { dueno: boolean; porCliente: Record<number, TrabajoDeCliente> } | null;
+  clientes: ClienteRef[];
+  user: BoardUser;
+  equipo: React.ReactNode;
+  onRecargar: () => void | Promise<void>;
+}) {
+  const vistaExtra = { id: 'equipo', label: 'Equipo', contenido: equipo };
+
+  // ⚠️ «No pude leer» y «no está ligado a ningún cliente» son dos cosas, y ninguna es
+  // «no tiene trabajo». Cada una se dice con su frase, y el EQUIPO se muestra igual
+  // porque no depende del tablero.
+  if (!trabajo || !lead) {
+    return (
+      <div style={{ padding: '4px 30px 24px' }}>
+        <p style={{ fontSize: 13.5, color: 'var(--faint)', margin: '4px 0 18px' }}>
+          {!trabajo
+            ? 'No pude leer tu tablero. Vuelve a entrar a Clientes.'
+            : `${w.nombre} todavía no está ligado a ningún cliente de tu CRM, así que no hay trabajo suyo que mostrar.`}
+        </p>
+        {equipo}
+      </div>
+    );
+  }
+
+  const clienteFijo = { leadId: lead.leadId, nombre: lead.nombre };
+  const suyo = trabajo.porCliente[lead.leadId];
+  // Sin trabajo asignado no hay entrada en el mapa, y eso NO es un error: es el caso
+  // normal del día 1. Se le arma su tablero vacío, con la forma que le toca.
+  const t = suyo ?? (trabajo.dueno
+    ? { dueno: true as const, tareas: [], proyectos: [] }
+    : { dueno: false as const, tareas: [], categorias: [] });
+
+  return t.dueno
+    ? (
+      <PlanBoard user={user} tareas={t.tareas} proyectos={t.proyectos}
+        vacio={false} clientes={clientes} clienteFijo={clienteFijo} embebido
+        vistaExtra={vistaExtra} onRecargar={() => { void onRecargar(); }} />
+    ) : (
+      <TodoBoard tareas={t.tareas} categorias={t.categorias} demo={false}
+        user={user} clientes={clientes} clienteFijo={clienteFijo} embebido
+        vistaExtra={vistaExtra} onRecargar={() => { void onRecargar(); }} />
+    );
 }
 
 /**

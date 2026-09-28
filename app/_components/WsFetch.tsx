@@ -21,7 +21,7 @@
 // Solo toca llamadas a `/api/` del mismo origen. Todo lo demás (Supabase Storage,
 // la Graph API de Meta, un CDN) pasa sin que lo miremos.
 
-import { WS_PARAM, wsDeBusqueda, getWsDeTrabajo, esRutaDelTablero } from '@/lib/ws-tab';
+import { WS_PARAM, wsDeBusqueda } from '@/lib/ws-tab';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -52,46 +52,20 @@ if (typeof window !== 'undefined' && !globalThis.__makoWsFetch) {
   globalThis.__makoWsFetch = true;
   const original = window.fetch.bind(window);
 
-  /**
-   * Qué workspace le toca a ESTA llamada.
-   *
-   * ⚠️ MANDA LA PESTAÑA, SIEMPRE. El `ws de trabajo` es el del tablero que la ficha
-   * de un cliente monta adentro del panel de la plataforma, y sólo entra cuando la
-   * pestaña NO tiene uno propio y la ruta es del tablero. Al revés —el embebido
-   * pisando a la pestaña— un super admin parado adentro de un cliente vería sus
-   * llamadas salir hacia otro, que es exactamente el bug que esto evita.
-   *
-   * ⚠️ Y LA LISTA DE RUTAS ES POSITIVA. Sin ese corte, la llamada que el panel de
-   * atrás hace mientras el modal está abierto (`/api/admin/*`) saldría apuntando al
-   * cliente: una carrera convertida en escritura en el inquilino equivocado.
-   */
-  const wsDeLaLlamada = (url: string): number | null => {
-    const dePestana = wsDeBusqueda(window.location.search);
-    if (dePestana) return dePestana;
-    const deTrabajo = getWsDeTrabajo();
-    if (!deTrabajo) return null;
-    try {
-      return esRutaDelTablero(new URL(url, window.location.origin).pathname) ? deTrabajo : null;
-    } catch {
-      return null;
-    }
-  };
-
   window.fetch = function (entrada: RequestInfo | URL, init?: RequestInit) {
     try {
+      // Se lee en CADA llamada, no al parchear: la pestaña puede navegar y cambiar de
+      // cliente sin recargar, y un valor capturado quedaría viejo.
+      const ws = wsDeBusqueda(window.location.search);
+      if (!ws) return original(entrada, init);
       if (typeof entrada === 'string' || entrada instanceof URL) {
         const url = String(entrada);
-        if (!esApiPropia(url)) return original(entrada, init);
-        // Se lee en CADA llamada, no al parchear: la pestaña puede navegar y cambiar
-        // de cliente sin recargar, y un valor capturado quedaría viejo.
-        const ws = wsDeLaLlamada(url);
-        return ws ? original(conWsApi(url, ws), init) : original(entrada, init);
+        return esApiPropia(url) ? original(conWsApi(url, ws), init) : original(entrada, init);
       }
       // `fetch(new Request(...))`: no se le puede cambiar la url, hay que
       // reconstruirlo. Se preserva todo lo demás del Request original.
       if (entrada instanceof Request && esApiPropia(entrada.url)) {
-        const ws = wsDeLaLlamada(entrada.url);
-        if (ws) return original(new Request(conWsApi(entrada.url, ws), entrada), init);
+        return original(new Request(conWsApi(entrada.url, ws), entrada), init);
       }
     } catch {
       // Ante cualquier cosa rara, la llamada original. Este parche no puede ser

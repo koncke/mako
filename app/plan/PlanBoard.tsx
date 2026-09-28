@@ -732,7 +732,7 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, onRecargar }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
   /**
    * ⚠️ ESTE TABLERO VIVE ADENTRO DE OTRA PANTALLA (hoy, la ficha de un cliente). Apaga el
    * uso de la URL como estado: ver `embebido` en `BoardShell`. Es una prop y no se deduce
@@ -740,6 +740,8 @@ export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInic
    * distintos, y el día que uno de los dos valga sin el otro, deducirlo miente.
    */
   embebido?: boolean;
+  /** Una vista más al final del selector del board. Ver `vistaExtra` en `BoardShell`. */
+  vistaExtra?: { id: string; label: string; contenido: React.ReactNode };
   /** Cómo recargar después de una escritura grande del server. Ver `onRecargar` en
    *  `BoardShell`: embebido, un `reload()` cierra la pantalla que lo contiene. */
   onRecargar?: () => void;
@@ -783,7 +785,7 @@ export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInic
   // asignado. Es el mismo bug que `prefs.ts` documenta entre workspaces, un nivel más
   // adentro. Y al revés también: lo que filtrás mirando a un cliente no le cambia la vista
   // a `/plan`.
-  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} onRecargar={onRecargar} />;
+  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

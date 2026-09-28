@@ -188,7 +188,7 @@ function Marco({ embebido, children }: { embebido: boolean; children: ReactNode 
   return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
 }
 
-export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, onRecargar }: {
+export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar }: {
   board: Board;
   /**
    * Los clientes elegibles: los leads GANADOS del workspace (mig 0172). Los lee la PÁGINA
@@ -209,6 +209,20 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
    * de hidratación desalineada. Opcional porque el board del CLIENTE todavía no la pasa.
    */
   vistaInicial?: string;
+  /**
+   * UNA VISTA MÁS, al final de las cuatro.
+   *
+   * ⚠️ VA EN EL MISMO SELECTOR Y NO EN UNO PROPIO. «Pusiste 2 seleccionables de tabs,
+   * arriba tablero y equipo y abajo las otras cuatro… tienes que quitar lo de arriba, y
+   * simplemente agregar Equipo luego de Recurrentes» (28/09/2026). Dos filas de tabs una
+   * encima de la otra son dos mapas para la misma pantalla, y quien la mira tiene que
+   * adivinar cuál manda.
+   *
+   * Es un slot y no una lista de vistas: lo que va adentro es de la pantalla que monta
+   * el board (hoy, el equipo de un cliente en el panel de la plataforma), y el board no
+   * tiene por qué saber qué es.
+   */
+  vistaExtra?: { id: string; label: string; contenido: ReactNode };
   /**
    * ⚠️ NO SOY LA PANTALLA: estoy montado ADENTRO de otra (hoy, la ficha de un cliente).
    *
@@ -271,7 +285,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
    * son las dos copias que este módulo existe para evitar.
    */
   const losProyectosRecurrentes = labels.filter(esRecurrente);
-  const [view, setView] = useState<Vista>(vistaValida(vistaInicial) ?? 'prioridades');
+  // ⚠️ `Vista | string` y no sólo `Vista`: con `vistaExtra` el valor puede ser un id que
+  // el board no conoce. Las comparaciones contra las cuatro literales siguen tipando, y
+  // la extra se compara contra su propio id.
+  const [view, setView] = useState<Vista | string>(vistaValida(vistaInicial) ?? 'prioridades');
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [peekProjId, setPeekProjId] = useState<string | null>(null); // proyecto abierto DESDE una tarea (encima de ella; feedback jul-19)
   const [nuevoProj, setNuevoProj] = useState(false);
@@ -1202,8 +1219,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         </div>
         {/* tabs */}
         <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
-          {VISTAS.map((v) => (
-            <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v === 'proyectos' ? repo.labelPlural : v}</button>
+          {[...VISTAS.map((v) => ({ id: v as string, label: v === 'proyectos' ? repo.labelPlural : (v as string) })),
+            ...(vistaExtra ? [{ id: vistaExtra.id, label: vistaExtra.label }] : [])].map((v) => (
+            <button key={v.id} onClick={() => setView(v.id)} style={{ border: 'none', background: view === v.id ? 'var(--surface)' : 'transparent', color: view === v.id ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v.id ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v.id ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v.label}</button>
           ))}
         </div>
         {/* De acá a la derecha. DOS grupos, y el orden importa:
@@ -1375,6 +1393,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
           onSoltarTarea={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
           onSoltarProy={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido }) : undefined} ask={ask} />}
+        {/* La vista de más, si la pantalla que monta el board trajo una. */}
+        {vistaExtra && view === vistaExtra.id && vistaExtra.contenido}
       </div>
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} trabajando={trabajandoIA.has(openTask.id)} onDebate={() => setDebateId(openTask.id)} onPrioridad={() => setSoltada({ entidad: 'tarea', id: openTask.id })} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'tarea', id: openTask.id })} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}

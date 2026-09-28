@@ -49,7 +49,7 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, onRecargar }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
   /**
    * ⚠️ ESTE TABLERO VIVE ADENTRO DE OTRA PANTALLA (hoy, la ficha de un cliente). Apaga el
    * uso de la URL como estado: ver `embebido` en `BoardShell`. Es una prop y no se deduce
@@ -57,6 +57,8 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
    * distintos, y el día que uno valga sin el otro, deducirlo miente.
    */
   embebido?: boolean;
+  /** Una vista más al final del selector del board. Ver `vistaExtra` en `BoardShell`. */
+  vistaExtra?: { id: string; label: string; contenido: React.ReactNode };
   /** Cómo recargar después de una escritura grande del server. Ver `onRecargar` en
    *  `BoardShell`: embebido, un `reload()` cierra la pantalla que lo contiene. */
   onRecargar?: () => void;
@@ -171,5 +173,5 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
   // tablero general esconde el tablero de la ficha sin decir por qué.
   const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
-  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} onRecargar={onRecargar} />;
+  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} />;
 }
