@@ -31,6 +31,18 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
     // lead que reservó en Cal.com caía en «Orgánico / manual» — o sea, la ficha
     // decía que llegó solo justo sobre el lead que agendó una llamada.
     case 'calcom': return { texto: 'Cal.com', color: 'var(--good)' };
+    // ⚠️ Y LO MISMO OTRA VEZ, con el canal más grande. El opt-in escribe
+    // `origen_lead: 'landing'` desde que existe, así que el dato SIEMPRE estuvo bien
+    // guardado: lo que faltaba era este renglón. Medido el 27/09/2026: 27 leads en
+    // todo el producto —19 de un solo cliente, que son 19 de sus 21— se dibujaban
+    // «Orgánico / manual» habiendo llegado por la landing. Se reportó como «todos me
+    // aparecen como orgánico manual y todos estos vinieron del VSL funnel», y suena a
+    // un dato perdido cuando es un `default` contestando por un case que no está.
+    //
+    // La regla: un `default` que AFIRMA algo del negocio («llegó solo») es una
+    // afirmación, no un fallback. Cada valor que la columna puede tener lleva su case,
+    // y el default se reserva para lo que de verdad no se sabe.
+    case 'landing': return { texto: 'Formulario de tu landing', color: 'var(--accent)' };
     default: return { texto: 'Orgánico / manual', color: 'var(--dim)' };
   }
 }

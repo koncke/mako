@@ -17,12 +17,22 @@
 //   · `conAtribucion` deja de mirar la URL          → 4 / 2
 //   · la URL le gana al body                        → 5 / 1
 //   · la ruta vuelve a leer `body.utm_*` directo    → 5 / 1
+//
+// Y la segunda tanda del 27/09, con el arreglo puesto 9 pasan y 0 fallan:
+//   · la URL vuelve a pasar por `txt(300)`          → 8 / 1
+//   · `adIdDeLead` vuelve a aceptar 6 dígitos       → 8 / 1
+//   · se saca el `case 'landing'` de la ficha       → 8 / 1
+//
+// ⚠️ La segunda de esas tres NO la cazó el primer intento de rotura, y no porque el
+// test fallara: el `perl` no matcheó la línea y el archivo quedó intacto. Una rotura
+// que no toca el código no prueba nada — se comprueba con un `grep` de la línea rota.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atribucionDeUrl, conAtribucion, hayAtribucion, ATRIBUCION_VACIA } from '../lib/atribucion-url';
+import { adIdDeLead } from '../lib/atribucion-url';
 
 const leer = (p: string) => readFileSync(join(import.meta.dirname, p), 'utf8')
   .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -75,6 +85,61 @@ test('la ruta del opt-in usa la atribución resuelta, no el body crudo', () => {
   assert.ok(!/utm_source: txt\(body\.utm_source\)/.test(r), 'ya no se lee el body crudo: nunca traía nada');
   // Y en los DOS caminos: el alta directa y la propuesta.
   assert.equal((r.match(/utm_source: atrib\.utm_source/g) ?? []).length, 2, 'el alta directa y la propuesta');
+});
+
+test('⚠️ la URL no pasa por el saneador de CAMPOS: el tope de 300 se comía el ad_id', () => {
+  // Meta arma la URL de destino con el `fbclid` PRIMERO (150-250 caracteres) y los
+  // `utm_*` DESPUÉS, así que `utm_content=` —donde viaja el id del anuncio— arranca
+  // alrededor del carácter 298 y su valor de 18 dígitos queda entero afuera de un corte
+  // de 300. Medido sobre las 822 visitas de un cliente que traen `utm_content`: 427 lo
+  // perdían completo (52%), y a nivel lead 8 de 18.
+  //
+  // Lo delataba que el MISMO dato estuviera entero en `landing_visits`, que guarda la URL
+  // con tope 500: una URL mutilada por una ruta y completa por la otra.
+  const r = readFileSync(join(import.meta.dirname, '../app/api/track/optin/route.ts'), 'utf8');
+  assert.ok(
+    /const atrib = conAtribucion\([^)]*urlTxt\(body\.pagina\)\)/.test(r),
+    'la URL tiene que pasar por un tope propio de URL, no por el de un campo de formulario',
+  );
+  // Y ese tope tiene que superar la URL más larga medida (394 caracteres).
+  const tope = Number(/const urlTxt[\s\S]{0,240}?slice\(0, (\d+)\)/.exec(r)?.[1]);
+  assert.ok(tope >= 500, `el tope de la URL es ${tope}: la más larga medida en producción es 394`);
+});
+
+test('⚠️ un ad_id MUTILADO no puede hacerse pasar por un anuncio', () => {
+  // Es la mitad peor del bug de arriba: cuando el corte caía ADENTRO del número, el id
+  // truncado se guardaba y `adIdDeLead` lo aceptaba, así que el deep-link llevaba a un
+  // anuncio que existe y no es el de este lead. Un null dice «no sé»; esto afirma.
+  const mapa = { '120251610513950661': 'Agentes 2 | 15/09' };
+  assert.equal(adIdDeLead(null, '120251610513950661', mapa), '120251610513950661', 'el id entero pasa');
+  assert.equal(adIdDeLead(null, '1274447207835802', mapa), '1274447207835802', '16 dígitos también es un id de Meta');
+  // El mismo id cortado en la posición donde caía el tope de 300.
+  assert.equal(adIdDeLead(null, '1202516105', mapa), null, 'un id de 10 dígitos no es un id corto: es uno roto');
+  assert.equal(adIdDeLead(null, '123456', mapa), null, 'seis dígitos tampoco');
+  // Y lo que NO es un número sigue resolviéndose por nombre, que es el otro camino.
+  assert.equal(adIdDeLead(null, 'Agentes 2 | 15/09', mapa), '120251610513950661');
+  // El campo propio siempre gana: si Meta ya lo dio, no se adivina.
+  assert.equal(adIdDeLead('999', 'Agentes 2 | 15/09', mapa), '999');
+});
+
+test('⚠️ cada valor de `origen_lead` tiene su renglón: el default no AFIRMA que llegó solo', () => {
+  // «Todos me aparecen como orgánico manual y todos estos vinieron del VSL funnel» —
+  // y el dato estaba bien guardado desde siempre. `labelOrigen` no tenía case para
+  // 'landing', así que el `default` contestaba por él. Medido el 27/09/2026: 27 leads en
+  // todo el producto, 19 de un solo cliente (19 de sus 21).
+  //
+  // Y ya había pasado con Cal.com, con el comentario puesto al lado. Una lista de cases
+  // que crece cuando alguien se queja es una lista que va a volver a fallar: lo que el
+  // test fija es que TODO valor que el opt-in escribe tenga el suyo.
+  const card = readFileSync(join(import.meta.dirname, '../app/crm/lead-view/OrigenCard.tsx'), 'utf8');
+  const cases = new Set([...card.matchAll(/case '([a-z_]+)':/g)].map((m) => m[1]));
+  const ruta = readFileSync(join(import.meta.dirname, '../app/api/track/optin/route.ts'), 'utf8');
+  const escritos = new Set([...ruta.matchAll(/origen_lead: '([a-z_]+)'/g)].map((m) => m[1]));
+  assert.ok(escritos.size > 0, 'no se pudo leer qué origen escribe el opt-in');
+  for (const o of escritos) {
+    assert.ok(cases.has(o), `el opt-in escribe origen_lead '${o}' y la ficha no tiene su case: ` +
+      'se va a dibujar «Orgánico / manual» sobre un lead que llegó por un canal');
+  }
 });
 
 test('el snippet manda el origen y lo que la persona contestó', () => {

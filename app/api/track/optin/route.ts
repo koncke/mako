@@ -59,6 +59,27 @@ const txt = (v: unknown): string | null => {
   return s ? s.slice(0, 300) : null;
 };
 
+/**
+ * Una URL no es un campo de formulario, y el tope de 300 le comía la atribución.
+ *
+ * ⚠️ MEDIDO EL 27/09/2026. Meta arma la URL de destino con el `fbclid` PRIMERO
+ * (150-250 caracteres) y los `utm_*` DESPUÉS, así que `utm_content=` —donde viaja el
+ * id del anuncio— arranca alrededor del carácter 298 y su valor de 18 dígitos queda
+ * entero afuera del corte. Simulado sobre las 822 visitas de un cliente que traen
+ * `utm_content`: **427 lo perdían completo (52%)**, y a nivel lead 8 de 18.
+ *
+ * Lo delataba que el MISMO dato estuviera entero en `landing_visits`: ese camino
+ * guarda la URL con tope 500. Una URL mutilada por una ruta y completa por la otra.
+ *
+ * Y hay un caso peor que perderlo: cuando el corte cae ADENTRO del número, el ad_id
+ * truncado se guarda y el deep-link manda al anuncio EQUIVOCADO, con la confianza de
+ * un dato bueno. Un null dice «no sé»; eso dice otra cosa.
+ */
+const urlTxt = (v: unknown): string | null => {
+  const s = typeof v === 'string' ? v.trim() : '';
+  return s ? s.slice(0, 2000) : null;
+};
+
 const ok = (extra: Record<string, unknown>) => NextResponse.json({ ok: true, ...extra }, { headers: CORS });
 
 export async function POST(req: NextRequest) {
@@ -187,7 +208,7 @@ export async function POST(req: NextRequest) {
   // código. Lo que el body manda gana; esto sólo llena huecos.
   //
   // Va ANTES del `if` porque lo usan los DOS caminos: el alta directa y la propuesta.
-  const atrib = conAtribucion(body as Record<string, string | null>, txt(body.pagina));
+  const atrib = conAtribucion(body as Record<string, string | null>, urlTxt(body.pagina));
 
   // ⚠️ LO QUE LA PERSONA ESCRIBIÓ, y que hasta hoy se tiraba. El snippet manda en
   // `respuestas` los campos del formulario que NO son nombre/email/teléfono/empresa

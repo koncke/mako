@@ -83,6 +83,82 @@ app/globals.css · *2026-08-16 ~tab-temas (medido con Playwright sobre el build 
 
 ## Tracking y beacon
 
+### ⚠️ «De qué anuncio vino este lead»: el dato llegaba, se guardaba, y la pantalla decía que no
+
+**Reportado el 22/09/2026 en dos audios del grupo.** Joan: *«en el CRM de MaKo, ¿dónde puedo
+ver la trazabilidad inversa para saber de qué anuncio, de qué creativo llegó la agenda?»* y
+después *«me aparece orgánico manual, TODOS me aparecen como orgánico manual, y todos estos
+vinieron del VSL funnel»*.
+
+Suena a un solo problema y eran **cuatro, en cuatro capas distintas**. Y el más visible —el
+que él nombró— era el más chico.
+
+**1. «Orgánico manual» era un `case` que faltaba en un `switch`.** El opt-in escribe
+`origen_lead: 'landing'` desde que existe, así que el dato SIEMPRE estuvo bien guardado.
+`labelOrigen` (`app/crm/lead-view/OrigenCard.tsx`) tenía case para `instant_form`, `calendly` y
+`calcom`, y ninguno para `landing`: todo lo demás caía al `default: 'Orgánico / manual'`. Medido:
+**27 leads en todo el producto**, 19 de ellos de un solo cliente (19 de sus 21).
+
+⚠️ **Y ya había pasado con Cal.com**, con el comentario puesto justo al lado explicándolo. Una
+lista de `case` que crece cada vez que alguien se queja va a volver a fallar: lo que la cierra
+es un test que lee qué valores ESCRIBE el opt-in y exige que cada uno tenga el suyo.
+
+**La regla: un `default` que AFIRMA algo del negocio no es un fallback, es una afirmación.**
+«Llegó solo» sobre un lead que llegó por una campaña paga es un dato falso, no un dato ausente —
+y encima manda a buscar el problema donde no está.
+
+**2. El tope de 300 se comía la mitad de los anuncios.** El arreglo del camino de escritura
+pasaba la URL de aterrizaje por `txt()`, el saneador de campos de formulario (300 caracteres,
+que para un nombre está bien). Meta arma la URL con el **`fbclid` PRIMERO** (150-250 caracteres)
+y los `utm_*` DESPUÉS, así que `utm_content=` —donde viaja el id del anuncio— arranca alrededor
+del carácter 298 y su valor de 18 dígitos queda entero afuera.
+
+Medido sobre las 822 visitas de ese cliente que traen `utm_content`: **427 lo perdían completo
+(52%)**, y a nivel lead 8 de 18. Lo delataba que el MISMO dato estuviera entero en
+`landing_visits`, que guarda la URL con tope 500: **una URL mutilada por una ruta y completa por
+la otra.**
+
+**La regla: una URL no es un campo de texto.** Un tope elegido para un nombre aplicado a una URL
+no la acorta: le corta la parte que más informa, que en una URL de tracking está al final.
+
+**3. Y cuando el corte caía ADENTRO del número, el link mandaba al anuncio equivocado.** El
+ad_id truncado (`1202516105` en vez de `120251610513950661`) se guardaba, y `adIdDeLead` lo
+aceptaba porque preguntaba `/^\d{6,}$/`. Con eso el deep-link llevaba a un anuncio que existe y
+no es el de ese lead. **Un null dice «no sé»; esto afirma con confianza.** Los ad_id de Meta
+tienen 15-18 dígitos, y ese largo es parte de la validación: un número de 10 no es «un id
+corto», es un id roto.
+
+⚠️ **Y la función que decidía eso vivía detrás de `server-only`**, así que ningún test la podía
+importar — era lo único sin red justo donde se decide a qué anuncio apunta la ficha de un lead.
+Se mudó a `lib/atribucion-url.ts`, que no lo tiene, y `queries.ts` la re-exporta para no tocar
+los cuatro llamadores. Es la misma regla que `exigirClienteDePrueba`.
+
+**4. No había backfill, y sin backfill el arreglo es invisible.** El camino de escritura sólo
+alcanza a los leads NUEVOS, y en un CRM la mayoría de las filas no se vuelve a tocar nunca. El
+dato estaba: la URL completa vive en `landing_visits.landing_url` y se cruza por `visitor_id`.
+El script parsea con la MISMA función que usa la ruta (no con un regex nuevo) y escribe sólo
+columnas que están en null, con `coalesce` del lado del server. **Resultado: el ws13 pasó de 0 a
+18 de 21 leads con su anuncio y su campaña**, los 18 con un ad_id válido.
+
+Los 3 que no se recuperan, y por qué —que es la mitad honesta del número—: 2 son de Cal.com y no
+tienen `visitor_id` (sin eso no hay con qué cruzar), y 1 tiene **sólo `fbclid`**.
+
+⚠️ **Y el `fbclid` es cableado muerto: se captura, se parsea, se transporta y no hay dónde caiga.**
+El snippet lo manda, el tipo lo declara, `conAtribucion` lo devuelve y `hayAtribucion` lo cuenta
+— y la tabla `leads` **no tiene columna `fbclid`**: `grep` sobre `lib/leads.ts` no lo encuentra
+ni una vez. Pesa: 857 de las 1.284 visitas de ese cliente lo traen. Es «escribir la salida no es
+ofrecerla» en su forma más cara —cinco lugares que lo pasean, cero que lo guardan— y queda
+ABIERTO: o se le agrega la columna y se persiste (sirve para la API de conversiones de Meta), o
+se saca de los cinco lugares que hacen creer que el dato se guarda.
+
+**La pantalla NO era el problema, y conviene decirlo:** dibuja Campaña › Conjunto › Anuncio con
+deep-link y resuelve los nombres. Probado: el id `120251610513950661` resuelve a «Agentes 2 |
+15/09» de la campaña «VSL FUNNEL inmobiliarios CI» — justo el VSL funnel que Joan nombró. Tres
+rondas de este bug estuvieron en el camino de datos y ninguna en el render.
+
+**Vive en:** `app/api/track/optin/route.ts` · `lib/atribucion-url.ts` ·
+`app/crm/lead-view/OrigenCard.tsx` · `lib/queries.ts` · `tests/atribucion-landing.test.ts`
+
 ### ⚠️ El semáforo pregunta «¿hubo alguna vez?», así que nunca se pone en rojo
 
 **Síntoma:** el tracking estuvo muerto 18 días y el ws1 siguió en VERDE. Nadie se enteró.
