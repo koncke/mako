@@ -26,7 +26,8 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
 // «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
 // reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
-import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
+import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
+import { tableroDeCapa } from '../../tablero-de-capa';
 
 export type ItemChecklist = { id: string; text: string; done: boolean };
 export type EntradaHistorial = { ts: number; actor: string; text: string };
@@ -113,7 +114,7 @@ const TOPE_FILAS = 1000;
 
 /** ¿Este workspace usa el tablero del super-admin (plan_tareas)? Por CAPA. */
 export async function usaPlanBoard(ws: number): Promise<boolean> {
-  return (await getWorkspace(ws))?.capa === 'superadmin';
+  return tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
 }
 
 export const linkTarea = (id: string): string => `${APP_BASE_URL}/plan?tarea=${encodeURIComponent(id)}`;

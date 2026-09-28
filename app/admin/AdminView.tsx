@@ -803,6 +803,9 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
           onAbrirPortada={(a) => setAnclaPortada((x) => (x ? null : a))}
           onAbrirIcono={(a) => setAnclaIcono((x) => (x ? null : a))}
           onCerrar={() => { setAbierto(null); setAnclaPortada(null); setAnclaIcono(null); }}
+          /* Quién mira. El tablero lo usa para el avatar de quien asigna; acá no se
+             asigna nada, pero el board lo pide igual y mentirle sería peor. */
+          user={{ nombre: sesion?.email ?? 'Super admin', avatarUrl: '' }}
         >
           <EquipoDelCliente
             w={wAbierto}

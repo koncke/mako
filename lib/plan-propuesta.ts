@@ -24,7 +24,8 @@ import { parseJsonObject } from '@/lib/campaign-structurer';
 import { sanearPregunta, avisoSaneo, apuntarSobre, CONTRATO_TIPOS_PREGUNTA, JSON_PREGUNTAS, type Pregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import { MOLDE_DETALLE } from '@/lib/detalle-contrato';
-import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
+import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
+import { tableroDeCapa } from './tablero-de-capa';
 
 type Row = Record<string, unknown>;
 const wsActual = async (): Promise<number> => (await getWorkspaceActual()) ?? OWNER_WS;
@@ -741,7 +742,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     // condición incluía `ws === OWNER_WS`, de cuando el ws 1 era la agencia. Hoy el ws 1
     // es un CLIENTE y su tablero lee experimento_tareas: lo que confirmaba se escribía en
     // una tabla que su pantalla no mira.
-    const usaPlanBoard = (await getWorkspace(ws))?.capa === 'superadmin';
+    const usaPlanBoard = tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
     // TABLERO ÚNICO (08-T45): con criterio cargado, las tareas de OTRAS personas de la
     // reunión también entran a este tablero, marcadas con su responsable, en vez de
     // quedar en el borrador para repartirse. Sin criterio, todo sigue como siempre

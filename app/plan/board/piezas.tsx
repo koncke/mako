@@ -207,6 +207,24 @@ const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'o
  * UTC medianoche, así que en cualquier zona al oeste de Greenwich el día que muestra es el
  * ANTERIOR. Un deadline corrido un día es exactamente el error que no se ve.
  */
+/**
+ * HOY, en la zona del NAVEGADOR y en formato ISO corto.
+ *
+ * ⚠️ ES LA ZONA DEL QUE MIRA, y está bien: lo único que decide es cómo se PINTA un
+ * plazo («vence en 3 días»), y quien lo lee está en su propia zona. Si esto decidiera
+ * un valor a ESCRIBIR tendría que venir del server — una detección automática mide TU
+ * máquina y no la del cliente, que es una trampa que este repo ya pagó con el acento
+ * de un avatar.
+ *
+ * ⚠️ Vivía como const local de `BoardShell`; se mudó acá el 28/09/2026 cuando la
+ * necesitó una segunda pantalla. Copiarla habría sido la segunda copia de una regla de
+ * zona horaria.
+ */
+export const hoyISO = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export function fechaConDia(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;

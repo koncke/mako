@@ -52,7 +52,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
-import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, ANCHO_TABLA_EN_PROYECTO } from './piezas';
+import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, LineaDeadline, ANCHO_TABLA_EN_PROYECTO } from './piezas';
 // El predicado de «se repite» sale del modulo de datos, nunca de un `t.recurrente` suelto.
 // ⚠️ Y EL TEXTO SALE DE `textoRepeticion` (mig 0167), la ÚNICA función que convierte una
 // misma función que usan la tarjeta, la fila y la API: la que junta el ritmo con su día
@@ -580,11 +580,21 @@ function CeldaFecha({ iso, hoy, onSet, nombre }: { iso: string; hoy: string; onS
  * Y es un ícono sin rótulo: «un check y un tacho», no dos botones con texto. Lo que el
  * ícono no dice lo dice el `title`, que es donde el texto no ocupa lugar.
  */
-function CheckHecha({ hecha, onToggle, titulo }: { hecha: boolean; onToggle: () => void; titulo: string }) {
-  const texto = hecha ? `Completada — reabrir «${titulo}»` : `Marcar «${titulo}» como completada`;
+/**
+ * El tilde de «hecha».
+ *
+ * ⚠️ `onToggle` OPCIONAL: sin la capacidad, el tilde sigue DICIENDO el estado y deja de
+ * ser un botón (`disabled`, sin cursor y con su propio title). No se esconde porque el
+ * estado es información —hace falta saber cuáles están hechas— y no se deja clickeable
+ * porque tildar algo que no se guarda es la peor de las tres opciones.
+ */
+function CheckHecha({ hecha, onToggle, titulo }: { hecha: boolean; onToggle?: () => void; titulo: string }) {
+  const texto = onToggle
+    ? (hecha ? `Completada — reabrir «${titulo}»` : `Marcar «${titulo}» como completada`)
+    : (hecha ? 'Completada' : 'Sin completar');
   return (
-    <button type="button" onClick={onToggle} title={texto} aria-label={texto} aria-pressed={hecha}
-      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flex: 'none', padding: 0, cursor: 'pointer', borderRadius: 999, border: `1.5px solid ${hecha ? 'var(--good)' : 'var(--border-strong)'}`, background: hecha ? 'var(--good)' : 'transparent', color: hecha ? '#fff' : 'var(--faint)', fontSize: 12, lineHeight: 1 }}>✓</button>
+    <button type="button" onClick={onToggle} disabled={!onToggle} title={texto} aria-label={texto} aria-pressed={hecha}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, flex: 'none', padding: 0, cursor: onToggle ? 'pointer' : 'default', borderRadius: 999, border: `1.5px solid ${hecha ? 'var(--good)' : 'var(--border-strong)'}`, background: hecha ? 'var(--good)' : 'transparent', color: hecha ? '#fff' : 'var(--faint)', fontSize: 12, lineHeight: 1 }}>✓</button>
   );
 }
 
@@ -651,7 +661,7 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
 
 // ── PROYECTOS ────────────────────────────────────────────────────────────────────────
 
-export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, sinRanking = false }: {
+export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, soloLectura = false, sinRanking = false }: {
   filas: Array<{ l: Label; prog: { pct: number; total: number; done: number } }>;
   /** ⚠️ ENTRA ENTERO PORQUE LA BARRA DE SELECCIÓN MÚLTIPLE ESCRIBE (26/09/2026, «proyecto
    *  también debería poder tener selección múltiple»). Es exactamente lo que ya hace
@@ -661,7 +671,26 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
   topProjectId: string | null;
   hoy: string;
   onOpen: (id: string) => void;
-  onDeadline: (id: string, iso: string) => void;
+  /** Cambiar el deadline de un proyecto. ⚠️ OPCIONAL desde el 28/09/2026: sin esto la
+   *  celda muestra la fecha y no la deja editar — la misma regla que `onFecha` en
+   *  `TablaTareas`, para que la tabla se pueda montar donde no se puede escribir. */
+  onDeadline?: (id: string, iso: string) => void;
+  /**
+   * SIN NADA QUE SE PUEDA HACER EN LOTE: se va la columna de tildes y se va la barra.
+   *
+   * ⚠️ NO ALCANZA CON NO PASAR LAS CAPACIDADES DE ESCRITURA. La selección es estado
+   * INTERNO de la tabla y la barra (`AccionesLote`) la monta ella, así que una tabla
+   * montada sin `onEliminar`, sin `onSoltar` y sin `onFecha` igual dejaba tildar una
+   * fila y ofrecía «Completar · Eliminar · Mover · Prioridad». Medido en el navegador
+   * el 28/09/2026 sobre el tablero de un cliente dentro del panel de la plataforma:
+   * cuatro acciones que no podían escribir, o sea lo que este archivo entero viene
+   * evitando — «un control que existe y no puede funcionar se lee como que la app está
+   * rota».
+   *
+   * Y se va la COLUMNA, no sólo la barra: una casilla que se tilda y no habilita nada
+   * es peor que ninguna.
+   */
+  soloLectura?: boolean;
   labelPlural: string;
   /**
    * Soltaste una fila en otra posición: NO se fija sola, se abre el pop-up del 1 al 100 con
@@ -777,11 +806,13 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
         {/* LA CASILLA, PRIMERA Y CON `data-parar`: sin eso, tildar un proyecto abriría además
             su detalle — el corte va en la CELDA y no en el control, para que lo que se
             agregue mañana adentro lo herede. */}
+        {!soloLectura && (
         <td data-parar style={{ ...td, width: C_SEL, paddingRight: 0 }}>
           <input type="checkbox" checked={sel.has(l.id)} onChange={() => alternar(l.id)}
             title="Seleccionar" aria-label={`Seleccionar «${l.name}»`}
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
         </td>
+        )}
         <td style={{ ...td, maxWidth: 340 }}>
           <button type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`}
             style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'var(--ink)', textAlign: 'left', maxWidth: '100%' }}>
@@ -821,7 +852,9 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
           : (
             <td style={td} data-nodrag data-parar>{esRecurrente(l)
               ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
-              : <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />}
+              : onDeadline
+                ? <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
+                : <LineaDeadline iso={l.deadline || ''} hoy={hoy} />}
             </td>
           )}
       </tr>
@@ -840,7 +873,7 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
           configuración: lo que un proyecto puede hacer en lote es lo temporal («Se repite»,
           el ritmo con su día y el deadline) y nada más. Qué queda afuera y por qué está
           enumerado en la cabecera de ese archivo. */}
-      <AccionesLoteProyectos elegidos={elegidos} board={board} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />
+      {!soloLectura && <AccionesLoteProyectos elegidos={elegidos} board={board} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />}
       {/* El piso es la SUMA de lo que las columnas piden (ver arriba), no un número
           copiado de la tabla de al lado. Bajó de 600 a 544 al irse la palabra de la
           prioridad y al apretarse el padding: lo que sobra se lo queda el nombre. */}
@@ -850,12 +883,14 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
             {/* «Todos» sobre lo VISIBLE, con el estado intermedio cuando hay algunos: es el
                 mismo control, con el mismo `indeterminate`, que el encabezado de la tabla de
                 tareas. */}
+            {!soloLectura && (
             <th style={{ ...thBase, width: C_SEL, paddingRight: 0 }}>
               <input type="checkbox" checked={todosSel} ref={(el) => { if (el) el.indeterminate = sel.size > 0 && !todosSel; }}
                 onChange={() => setSel(todosSel ? new Set() : new Set(visiblesIds))}
                 title={todosSel ? 'Quitar la selección' : `Seleccionar ${labelPlural.toLowerCase()}`} aria-label={`Seleccionar ${labelPlural.toLowerCase()}`}
                 style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
             </th>
+            )}
             <Th orden="nombre" activo={orden === 'nombre'} dir={dir} onSort={() => sortear('nombre')}>{labelPlural}</Th>
             {/* ⚠️ EL `title` DE ESTE ENCABEZADO ES LA PISTA DE CÓMO SE HABILITA EL
                 ARRASTRE. Ordenar por deadline o por nombre deja la posición entre filas sin
@@ -895,7 +930,7 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar, sinRanking = false }: {
+export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar, onFecha, onHecha, soloLectura = false, sinRanking = false }: {
   /** TODAS: abiertas Y terminadas. La tabla las separa sola (ver `FilaPlegada`). */
   tareas: BoardTask[];
   board: Board;
@@ -921,6 +956,39 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
    * producción contestándole «solo admin» a todos los clientes.
    */
   onSoltar?: (id: string, sugerido: number) => void;
+  /**
+   * Cambiar el deadline desde la celda, y tildar la tarea como hecha.
+   *
+   * ⚠️ SON PROPS DESDE EL 28/09/2026, Y ANTES ERAN LAS DOS ÚNICAS ESCRITURAS QUE ESTA
+   * TABLA HACÍA POR SU CUENTA (`board.setDeadline` y `board.toggleDone`, cableadas en la
+   * celda). O sea que se saltaban el contrato que el resto del archivo declara con todas
+   * las letras tres párrafos más arriba: «LA PROP **ES** LA CAPACIDAD». Mientras la tabla
+   * vivió sólo adentro del tablero no se notó —ahí todo se puede escribir—; se nota en
+   * cuanto la monta alguien que NO puede: el panel de la plataforma, que dibuja el
+   * tablero de OTRO workspace y cuyas escrituras caerían en el inquilino equivocado.
+   *
+   * Sin `onFecha`, la celda muestra la fecha y no la deja editar. Sin `onHecha`, el tilde
+   * muestra el estado y no responde. Es la misma regla de siempre: un control que no
+   * puede hacer nada no se dibuja como si pudiera.
+   */
+  onFecha?: (id: string, iso: string, antes: string) => void;
+  onHecha?: (id: string) => void;
+  /**
+   * SIN NADA QUE SE PUEDA HACER EN LOTE: se va la columna de tildes y se va la barra.
+   *
+   * ⚠️ NO ALCANZA CON NO PASAR LAS CAPACIDADES DE ESCRITURA. La selección es estado
+   * INTERNO de la tabla y la barra (`AccionesLote`) la monta ella, así que una tabla
+   * montada sin `onEliminar`, sin `onSoltar` y sin `onFecha` igual dejaba tildar una
+   * fila y ofrecía «Completar · Eliminar · Mover · Prioridad». Medido en el navegador
+   * el 28/09/2026 sobre el tablero de un cliente dentro del panel de la plataforma:
+   * cuatro acciones que no podían escribir, o sea lo que este archivo entero viene
+   * evitando — «un control que existe y no puede funcionar se lee como que la app está
+   * rota».
+   *
+   * Y se va la COLUMNA, no sólo la barra: una casilla que se tilda y no habilita nada
+   * es peor que ninguna.
+   */
+  soloLectura?: boolean;
   /**
    * LA TABLA DE ALGO QUE NO SE RANKEA: sin la columna Prioridad y sin la columna Deadline.
    *
@@ -1052,11 +1120,13 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
         onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
         title={`Abrir «${t.title}»`}
         style={{ background: hecha ? 'var(--surface-2)' : undefined, cursor: !hecha && !rec && arr.activo ? 'grab' : 'pointer' }}>
+        {!soloLectura && (
         <td data-parar style={{ ...td, width: C_SEL, paddingRight: 0 }}>
           <input type="checkbox" checked={sel.has(t.id)} onChange={() => alternar(t.id)}
             title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
             style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
         </td>
+        )}
         <td style={{ ...td, maxWidth: 420 }}>
           {/* SIN EL #ID. «El ID lo quitaría… el ID de la tabla de tareas» (25/09/2026):
               en una columna que ya cede ancho, el número se comía el principio del título
@@ -1123,7 +1193,11 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
           ? <td style={td}><LineaRepeticion de={t} tam={12} /></td>
           : <td style={td} data-nodrag data-parar>{rec
             ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
-            : <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => board.setDeadline(t.id, v, t.deadline)} />}</td>}
+            : onFecha
+              ? <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => onFecha(t.id, v, t.deadline ?? '')} />
+              /* Sin la capacidad, la fecha se LEE. Un campo editable que no guarda es
+                 peor que uno de sólo lectura: se escribe y se pierde. */
+              : <LineaDeadline iso={t.deadline || ''} hoy={hoy} />}</td>}
         {/* LAS DOS ACCIONES QUE CIERRAN UNA TAREA, JUNTAS: el check y el tacho.
             · El ESTADO se cambia desde acá: «otra columna para cambiar el estado»
               (25/09/2026). En este tablero el estado de una tarea es uno solo —activa o
@@ -1140,7 +1214,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             Borrar de un click en una fila de una lista densa es borrar la de al lado. */}
         <td data-parar style={{ ...td, textAlign: 'right' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <CheckHecha hecha={hecha} onToggle={() => board.toggleDone(t.id)} titulo={t.title} />
+            <CheckHecha hecha={hecha} onToggle={onHecha ? () => onHecha(t.id) : undefined} titulo={t.title} />
             {onEliminar && (
               <button type="button" onClick={() => onEliminar(t.id)}
                 title={`Eliminar «${t.title}»`} aria-label={`Eliminar «${t.title}»`}
@@ -1160,7 +1234,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
     <div style={cajaStyle} className="mk-scroll-x">
       {/* La barra vive en `AccionesLote`: la usa también el Kanban desde el 24/09/2026, y
           dos copias de una barra de acciones divergen a la primera acción nueva. */}
-      <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />
+      {!soloLectura && <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />}
       {/* ⚠️ EL PISO ES LO QUE LAS COLUMNAS PIDEN, Y ADENTRO DE UN PROYECTO SE TOPEA CONTRA
           LO QUE HAY. Las dos mitades importan y cada una se aprendió rompiendo la otra:
           · Sumar lo que uno QUIERE no contesta si entra. El 25/09/2026 el piso fue 520
@@ -1178,12 +1252,14 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
       <table style={{ ...tablaStyle, minWidth: ocultarProyecto ? Math.min(ANCHO_MINIMO, ANCHO_TABLA_EN_PROYECTO) : ANCHO_MINIMO }}>
         <thead>
           <tr>
+            {!soloLectura && (
             <th style={{ ...thBase, width: C_SEL, paddingRight: 0 }}>
               <input type="checkbox" checked={todasSel} ref={(el) => { if (el) el.indeterminate = sel.size > 0 && !todasSel; }}
                 onChange={() => setSel(todasSel ? new Set() : new Set(visiblesIds))}
                 title={todasSel ? 'Quitar la selección' : 'Seleccionar todas'} aria-label="Seleccionar todas"
                 style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
             </th>
+            )}
             {/* Ordena por `num`, que es el orden de CREACIÓN. El rótulo del tooltip dice
                 «creación» y no «número» desde que el #ID salió de la fila: ofrecer ordenar
                 por una columna que ya no se ve es ofrecer una incógnita. */}

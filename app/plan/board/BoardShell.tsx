@@ -80,7 +80,7 @@ import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
-import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, COL_DER, MODAL_DETALLE } from './piezas';
+import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, hoyISO, COL_DER, MODAL_DETALLE } from './piezas';
 // ⚠️ `LineaRepeticion` VIVE EN `Tablas.tsx` Y NO ACÁ, y el motivo es el grafo de imports:
 // este archivo ya importa de aquél, así que al revés sería un ciclo. El lugar que le
 // correspondería por tema es `piezas.tsx`; queda anotado y no hecho porque ese archivo no es
@@ -121,19 +121,10 @@ import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, recurre
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-/**
- * El «hoy» del navegador, `YYYY-MM-DD`.
- *
- * ⚠️ ES LA ZONA DE QUIEN MIRA, no la del workspace, y acá está bien: lo único que
- * decide es qué se ve —en qué ventana cae una tarea y qué Quarters se ofrecen—,
- * nunca qué se guarda. Lo que se persiste es la clave `2026-Q3`, que no depende de
- * ninguna zona. Si esto decidiera un valor a escribir, tendría que venir del server:
- * una detección automática mide TU máquina y no la del cliente.
- */
-const hoyISO = (): string => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+/* ⛔ `hoyISO` se fue a `./piezas` el 28/09/2026, con su comentario. Vivía acá como
+   const local y la necesitó una segunda pantalla (el tablero de un cliente adentro
+   del panel de la plataforma); copiarla habría sido la segunda copia de una regla de
+   zona horaria, que es de las que se quedan viejas sin que nada avise. */
 
 // ⚠️ «tareas», NO «kanban», y la ruta también: «cambia el nombre y la ruta de kanban por
 // tareas, que es más preciso» (23/09/2026). Kanban es CÓMO se dibuja —y desde que existe la
@@ -1370,7 +1361,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                 ＋ Nueva tarea
               </button>
             </div>
-            <TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId}
+            <TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)}
               /* «Que en el formato tabla también pueda arrastrar y cambiar la prioridad»
                  (25/09/2026). Soltar dice DÓNDE y abre el MISMO pop-up del 1 al 100 que el
                  Kanban, el lápiz y la grilla de proyectos: la persona dice CUÁNTO.
@@ -4793,7 +4784,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
             {tareas.length > 0 && (
               <GrupoRecurrente rotulo="Tareas" n={tareas.length}>
                 {tabla
-                  ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} onSoltar={onSoltarTarea} sinRanking />
+                  ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} onSoltar={onSoltarTarea} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
                       {/* La barra de TAREAS: la de siempre, sobre la selección de este grupo.
@@ -5373,7 +5364,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {suyas.length === 0
                 ? <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>
-                : <TablaTareas tareas={suyas} board={board} hoy={hoyISO()} onOpen={onOpenTask} ask={ask} ocultarProyecto onEliminar={onEliminarTask} onSoltar={onSoltarTask} />}
+                : <TablaTareas tareas={suyas} board={board} hoy={hoyISO()} onOpen={onOpenTask} ask={ask} ocultarProyecto onEliminar={onEliminarTask} onSoltar={onSoltarTask} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)} />}
             </div>
 
             {/* Un proyecto SIN tareas abiertas: lo que le falta es TRABAJO, no prioridad.

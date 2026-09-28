@@ -32,6 +32,7 @@ import { analisisNegocio } from './analisis-negocio';
 import { analisisAMarkdown } from './analisis-modelo';
 import { reporteMetricas, metricasAMarkdown } from './metricas-negocio';
 import { APP_BASE_URL as APP_URL } from './app-url';
+import { tableroDeCapa } from './tablero-de-capa';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
 
@@ -342,7 +343,7 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       // redirigían, mientras el super-admin (capa 'superadmin', hoy el 9) leía la base
       // de tareas de cliente.
       const ws = await getWorkspaceActual();
-      const esDueno = ws != null && (await getWorkspace(ws))?.capa === 'superadmin';
+      const esDueno = ws != null && tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
       const rutaPlan = esDueno ? '/plan/agencia' : '/plan';
       const linkTarea = (id: string) => `${APP_URL}${rutaPlan}?tarea=${id}`;
       const linkProy = (id: string) => `${APP_URL}${rutaPlan}?proyecto=${id}`;

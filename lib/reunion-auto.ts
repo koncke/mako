@@ -42,6 +42,7 @@ import { listCategorias } from './todo';
 import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
 import type { TipoReunion } from './reunion-clasificar';
 import { APP_BASE_URL as APP_URL } from './app-url';
+import { tableroDeCapa } from './tablero-de-capa';
 
 /**
  * Marca que YA miramos esta grabación, sin importar si dejó tareas o no.
@@ -130,7 +131,7 @@ export type ResultadoReunionesAuto = {
  * después las recibe.
  */
 async function proyectosDelWorkspace(ws: number): Promise<ProyectoRef[]> {
-  const usaPlanBoard = (await getWorkspace(ws))?.capa === 'superadmin';
+  const usaPlanBoard = tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
   if (usaPlanBoard) {
     const b = await listPlanBoard().catch(() => ({ proyectos: [] as Array<{ id: string; emoji: string; name: string }> }));
     return b.proyectos.map((p) => ({ id: p.id, emoji: p.emoji, nombre: p.name }));

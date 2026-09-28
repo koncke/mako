@@ -32,8 +32,10 @@
 // pedido decía «con MÁS opciones», así que perder una habría sido peor que no tocar
 // nada.
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
+import { Tabs } from '@/app/_ui';
+import { TableroDelCliente } from './TableroDelCliente';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { Icon } from '@/app/_components/icons';
@@ -53,7 +55,7 @@ export type CambioCara = {
 
 export function FichaWorkspace({
   w, cara, opciones, accionando, onAccion, onNombre, onEncuadre,
-  onAbrirPortada, onAbrirIcono, onCerrar, children,
+  onAbrirPortada, onAbrirIcono, onCerrar, user, children,
 }: {
   w: Workspace;
   /**
@@ -76,13 +78,21 @@ export function FichaWorkspace({
   onAbrirPortada: (ancla: HTMLElement) => void;
   onAbrirIcono: (ancla: HTMLElement) => void;
   onCerrar: () => void;
-  /** El cuerpo: el equipo, que lo arma la pantalla porque es la que tiene sus datos. */
+  /** Quién mira, para el tablero. Lo pasa la pantalla, que ya lo tiene. */
+  user: { nombre: string; avatarUrl: string };
+  /** El EQUIPO, que lo arma la pantalla porque es la que tiene sus usuarios. */
   children: ReactNode;
 }) {
   // ⚠️ TODOS LOS HOOKS ARRIBA DE CUALQUIER RETURN. React #300 es la pantalla entera
   // en blanco, y el guard del pre-push existe justamente por eso.
   const capa = useCapaModal(true, { contenedor: true });
   const arriba = capa.esElDeArriba;
+  /**
+   * ⚠️ ARRANCA EN «Tablero» Y NO EN «Equipo», que es lo que había antes. El pedido fue
+   * «aun no veo el plan, las tareas y proyectos de cada cliente»: lo primero que hay
+   * que saber de un cliente es en qué anda, no quién entra a su cuenta.
+   */
+  const [tab, setTab] = useState('tablero');
 
   // Se pregunta en el MOMENTO de la tecla (es una función, no un boolean): así el
   // handler no tiene dependencias y no se re-registra cada vez que algo se abre
@@ -161,7 +171,16 @@ export function FichaWorkspace({
         />
 
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', padding: '20px 22px' }}>
-          {children}
+          <Tabs
+            tabs={[{ id: 'tablero', label: 'Tablero' }, { id: 'equipo', label: 'Equipo' }]}
+            activa={tab} onCambio={setTab} />
+          {/* ⚠️ EL TABLERO SE MONTA Y SE DESMONTA CON SU TAB, y eso es lo que hace que
+              no se pida hasta que alguien lo mire: son nueve workspaces y el más grande
+              tiene 212 tareas. Montarlo escondido sería pagar la lectura de todos para
+              ver uno. */}
+          {tab === 'tablero'
+            ? <TableroDelCliente ws={w.id} nombre={w.nombre} user={user} />
+            : children}
         </div>
       </div>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />

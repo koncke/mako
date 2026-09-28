@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { bearerDe, wsPorAgenteToken } from '@/lib/agente-token';
 import { runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
+import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { listPlanBoard } from '@/lib/plan-board';
 import { listTareas, listCategorias } from '@/lib/todo';
 import { estaPendiente } from '@/lib/todo-estados';
@@ -38,7 +39,9 @@ async function usaPlanBoard(ws: number): Promise<boolean> {
   // en experimento_tareas y plan_tareas está vacío para él. Con el criterio viejo, el
   // GET le devolvía el board equivocado y cualquier id que volviera por el POST
   // apuntaba a otra tabla. Mismo criterio que lib/plan-propuesta.ts.
-  return (await getWorkspace(ws))?.capa === 'superadmin';
+  // ⚠️ El predicado vive en `lib/tablero-de-capa.ts` desde el 28/09/2026: estaba escrito
+  // acá y en lib/plan-propuesta.ts, las dos veces igual, y ninguna se podía testear.
+  return tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
 }
 
 /** Resuelve el ws del bearer o devuelve null. */
