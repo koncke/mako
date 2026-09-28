@@ -36,7 +36,7 @@ export function colorDe(nombre: string): string {
 }
 
 export function TarjetaEntidad({
-  nombre, bajada, portada, portadaY, icono, avatarY, color,
+  nombre, bajada, portada, portadaY, icono, avatarY, color, foto,
   chips, pie, acciones, onAbrir, etiqueta,
 }: {
   nombre: string;
@@ -49,6 +49,9 @@ export function TarjetaEntidad({
   icono?: string | null;
   avatarY?: number | null;
   color: string;
+  /** Una foto que pone el CODIGO (la de Google de su admin, o su Gravatar). Gana
+   *  sobre `icono` y cae a las iniciales si no carga — ver `Marca`. */
+  foto?: string | null;
   /** Al lado del nombre: el plan, «Dueño», «Agencia». */
   chips?: ReactNode;
   /** El remate: los números con filete, o lo que esa pantalla tenga para contar. */
@@ -72,7 +75,7 @@ export function TarjetaEntidad({
       <button type="button" className="cl-abrir" onClick={onAbrir} aria-label={etiqueta} />
 
       <span className="cl-banda" aria-hidden style={{ background: fondoPortada(portada, color, portadaY) }} />
-      <span className="cl-avwrap"><Marca icono={icono} nombre={nombre} tam={44} y={avatarY} color={color} /></span>
+      <span className="cl-avwrap"><Marca icono={icono} foto={foto} nombre={nombre} tam={44} y={avatarY} color={color} /></span>
 
       <span className="cl-n">
         {nombre}
@@ -178,6 +181,10 @@ export const CSS_TARJETA = `
   font-size:15.5px; font-weight:640; letter-spacing:-.01em; line-height:1.25;
   color:var(--ink); overflow-wrap:anywhere; }
 .cl-chips{ display:inline-flex; align-items:center; gap:6px; }
+/* El chip del PLAN. /admin lo pinta con el chip() de sus estilos y acá va por clase
+   porque la tarjeta del cliente no importa ese modulo — mismos colores, mismo tamano. */
+.cl-plan{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
+  background:var(--primary-bg); color:var(--primary); white-space:nowrap; }
 .cl-e{ display:block; margin:2px 16px 0; font-size:12.5px; color:var(--faint);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cl-sp{ flex:1; min-height:12px; }

@@ -25,6 +25,11 @@ import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { AdminView } from '@/app/admin/AdminView';
 import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
+import { clientesAprobados } from '@/lib/agencia-cartera';
+import { capaDef } from '@/lib/capas';
+import { listarWorkspaces } from '@/lib/workspace';
+import { listarUsuarios } from '@/lib/usuarios';
+import { caraDeUsuario } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -99,6 +104,18 @@ export default async function CustomerSuccessPage() {
   const esSuper = (await getSesionAdmin()) != null;
   const esAg = await esAgencia(agenciaWs);
   const cartera = agenciaWs ? await carteraDeAgencia(agenciaWs) : [];
+
+  // ⚠️ EL PLAN Y EL EQUIPO DE CADA CLIENTE, SÓLO DE LOS APROBADOS. «Estas tarjetas de
+  // clientes también deben tener el plan, cada uno, con normalidad… el resto de cosas
+  // las podemos ver como otras tabs, como el equipo de ese cliente/agencia»
+  // (27/09/2026). Las dos lecturas cruzan de inquilino, así que van con el MISMO corte
+  // que la entrada y escrito en POSITIVO: sólo los `cliente_ws` que esta agencia tiene
+  // APROBADOS. Con la cartera vacía no se lee nada — que es el caso de todo cliente
+  // común, o sea el 99% de las visitas a esta pantalla.
+  const mios = clientesAprobados(agenciaWs, cartera);
+  const { planPorWs, equipoPorWs } = mios.length
+    ? await datosDeMisClientes(mios)
+    : { planPorWs: {}, equipoPorWs: {} };
   const cuentas = {
     estadoPorWs: Object.fromEntries(cartera.map((f) => [f.cliente_ws, f.estado])) as Record<number, string>,
     // Abrirle cuenta a un cliente pide DOS cosas, y son dos preguntas distintas:
@@ -117,6 +134,9 @@ export default async function CustomerSuccessPage() {
     // contesta por la SESIÓN, que es justo lo que hace falta acá — sigue siendo
     // super admin aunque esté parado adentro de un cliente.
     superAdmin: esSuper,
+    // Para DIBUJAR el chip del plan y la tab de Equipo. Vacíos cuando no hay cartera.
+    planPorWs,
+    equipoPorWs,
   };
 
   return (
@@ -132,3 +152,49 @@ export default async function CustomerSuccessPage() {
 
 const mensaje = (e: unknown): string =>
   e instanceof Error ? e.message : 'No pude leer tus clientes.';
+
+/**
+ * El plan y el equipo de los clientes que esta agencia tiene aprobados.
+ *
+ * ⚠️ DOS LECTURAS GLOBALES FILTRADAS ACÁ, y no dos consultas por cliente: `listarUsuarios`
+ * y `listarWorkspaces` ya son las que usa /admin, traen todo de una y el filtro es un
+ * `Set`. Con 14 clientes, catorce consultas serían catorce viajes para lo mismo.
+ *
+ * ⚠️ Y EL FILTRO ES EL QUE PROTEGE, no la pantalla. Lo que no esté en `aprobados` no
+ * entra a estos mapas: si mañana alguien dibuja el equipo de un cliente que no le
+ * corresponde, no va a tener de dónde sacarlo.
+ */
+/** Una persona del equipo de un cliente, como la dibuja la ficha. */
+type EquipoItem = { id: number; nombre: string; email: string; rol: string; foto: string | null };
+
+async function datosDeMisClientes(aprobados: number[]): Promise<{
+  planPorWs: Record<number, string>;
+  equipoPorWs: Record<number, EquipoItem[]>;
+}> {
+  const permitidos = new Set(aprobados);
+  const [wss, usuarios] = await Promise.all([
+    listarWorkspaces().catch(() => []),
+    listarUsuarios().catch(() => []),
+  ]);
+  const planPorWs: Record<number, string> = {};
+  for (const w of wss) if (permitidos.has(w.id)) planPorWs[w.id] = capaDef(w.capa).nombre;
+
+  const equipoPorWs: Record<number, EquipoItem[]> = {};
+  for (const u of usuarios) {
+    const ws = u.workspace_id;
+    if (ws == null || !permitidos.has(ws)) continue;
+    (equipoPorWs[ws] ??= []).push({
+      id: u.id,
+      nombre: (u.nombre ?? '').trim() || u.email,
+      email: u.email,
+      // `rol_ws` es null para quien cruza workspaces; en el equipo de un cliente el
+      // default honesto es el que la propia base usa al crear: admin del negocio.
+      rol: u.rol_ws ?? 'admin',
+      // Su foto, o la de su email. El orden lo decide `caraDeUsuario` y no esta
+      // pantalla: escrito acá, la ficha y la grilla de la plataforma podrían elegir
+      // distinto sobre la misma persona.
+      foto: caraDeUsuario(u, 96),
+    });
+  }
+  return { planPorWs, equipoPorWs };
+}

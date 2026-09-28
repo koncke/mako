@@ -9,9 +9,9 @@
 // Solo super-admin: con esWorkspaceDueno un closer o un setter del ws1 podría
 // acuñar links públicos.
 
-import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
+import { hashGravatar } from '@/lib/gravatar';
 import { sendEmail, getEmailFrom, remitenteEsSandbox, resendConfigurado } from '@/lib/resend';
 import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
@@ -36,7 +36,9 @@ const base = (req: NextRequest) => process.env.NEXT_PUBLIC_APP_URL || req.nextUr
 // d=404: si la persona no tiene foto, la UI cae a sus iniciales). Se calcula acá
 // y no en el cliente porque en el browser crypto.subtle es async y no vale la
 // pena; además así el email crudo nunca viaja en una URL a un tercero.
-const gravatarDe = (email: string) => createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+// El HASH pelado y no la URL: el componente que lo dibuja la arma con el tamaño que
+// necesita. Vive en lib/gravatar.ts desde el 28/09/2026 — eran dos copias.
+const gravatarDe = hashGravatar;
 
 export async function GET(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });

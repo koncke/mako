@@ -31,7 +31,7 @@
 
 import { useState, useRef } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
-import { Modal } from '@/app/_ui';
+import { Modal, Tabs } from '@/app/_ui';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
 import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
@@ -46,9 +46,9 @@ import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
 import { colorDe } from './ClienteCard';
 import { guardarDatosClienteAction } from './actions';
-import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
+import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente } from './CuentaDeMaKo';
 
-export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen, onCerrar }: {
+export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicial, onImagen, onCerrar }: {
   c: ClienteCruce;
   /** Su número de cliente. NO es el id del lead. */
   n: number;
@@ -58,6 +58,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen,
   clientes: ClienteRef[];
   /** Quién ve «Inspeccionar» y en qué estado está la cuenta de cada cliente. */
   cuentas?: CuentasProp;
+  /** Con qué tab abre. `null` = la primera. Lo usa «Ver su equipo» de la tarjeta. */
+  tabInicial?: string | null;
   /** Cambió su foto o su portada. Lo persiste el padre, que es el que tiene la lista. */
   onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null }) => void;
   onCerrar: () => void;
@@ -71,6 +73,26 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen,
   /** El selector de la FOTO/ícono del cliente. Cuelga del avatar, igual que el de
    *  portada cuelga de su botón. */
   const [anclaFoto, setAnclaFoto] = useState<HTMLElement | null>(null);
+
+  /**
+   * SU EQUIPO: las personas que entran a la cuenta de MaKo de este cliente.
+   *
+   * ⚠️ VIENE CON EL HTML y filtrado por el SERVER (`equipoPorWs` en page.tsx, sólo los
+   * `cliente_ws` aprobados). No se pide al abrir el modal por lo mismo que el tablero:
+   * un modal que consulta al abrirse tiene estado de carga por más rápida que sea la
+   * consulta, y esta ficha se sacó ese cartel de encima a propósito.
+   */
+  const equipo = c.clienteWs ? cuentas?.equipoPorWs?.[c.clienteWs] : undefined;
+
+  /** ⚠️ UNA SOLA TAB NO SON TABS: sin equipo que mostrar, la fila no se dibuja y el
+   *  tablero queda como estaba. Una barra de un solo destino es ruido con cara de mapa. */
+  const tabs = [
+    { id: 'tablero', label: 'Tablero' },
+    ...(equipo?.length ? [{ id: 'equipo', label: 'Equipo', badge: equipo.length }] : []),
+  ];
+  const [tab, setTab] = useState(
+    tabInicial && tabs.some((t) => t.id === tabInicial) ? tabInicial : 'tablero',
+  );
 
   /** Renombrar al cliente o cambiarle la empresa. ⚠️ Escribe en `leads`, o sea en el
    *  CRM: no hay tabla de clientes, un cliente es un lead ganado. */
@@ -237,7 +259,11 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, onImagen,
     >
       {mal && <p className="fc-mal">{mal}</p>}
 
-      {!trabajo ? (
+      {tabs.length > 1 && <Tabs tabs={tabs} activa={tab} onCambio={setTab} />}
+
+      {tab === 'equipo' ? (
+        <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} />
+      ) : !trabajo ? (
         // «No pude leer» no se pinta como «no tiene trabajo»: son dos pantallas, y la
         // segunda sobre la primera es la mentira que nadie audita.
         <p className="fc-mal">No pude leer su tablero. Vuelve a entrar a Clientes.</p>
@@ -442,5 +468,54 @@ const CSS = `
 
 .fc-mal{ margin:16px 2px; font-size:13.5px; color:var(--bad); }
 
+.fc-eq{ list-style:none; margin:0; padding:0; }
+.fc-eq li{ display:flex; align-items:center; gap:12px; padding:12px 2px;
+  border-bottom:1px solid var(--border); }
+.fc-eq li:last-child{ border-bottom:0; }
+.fc-eq .t{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:1; }
+.fc-eq .t b{ font-size:14px; font-weight:600; color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-eq .t span{ font-size:12.5px; color:var(--dim);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-eq .rol{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
+  background:var(--surface-2); color:var(--dim); }
+.fc-eq-nada{ margin:16px 2px; font-size:13.5px; color:var(--faint); }
+
 @media(prefers-reduced-motion:reduce){ .fc-avcap, .fc-cambiar{ transition:none; } }
 `;
+
+
+/**
+ * SU EQUIPO — quiénes entran a la cuenta de MaKo de este cliente.
+ *
+ * ⚠️ ES UNA LISTA, NO UNA PILA DE TARJETAS: son cosas del mismo tipo, y la regla de la
+ * casa es filete, no caja. Y es de SOLO LECTURA a propósito: sumar o sacar gente de un
+ * inquilino es una acción de la plataforma (vive en /customer-success del super admin,
+ * `EquipoDelCliente` de AdminView), no algo que una agencia hace desde la ficha. Un
+ * botón acá abriría una segunda puerta a la misma escritura, con su propio guard que
+ * mantener.
+ */
+function EquipoDelCliente({ nombre, equipo }: {
+  nombre: string;
+  equipo: MiembroDeCliente[];
+}) {
+  if (equipo.length === 0) {
+    // «Todavía nadie» y «no lo pude leer» son dos cosas; acá la lista viene con el HTML
+    // y filtrada por el server, así que vacía significa vacía y se puede decir.
+    return <p className="fc-eq-nada">Nadie más entra a la cuenta de {nombre} todavía.</p>;
+  }
+  return (
+    <ul className="fc-eq">
+      {equipo.map((u) => (
+        <li key={u.id}>
+          <Marca icono={null} foto={u.foto} nombre={u.nombre} tam={34} color={colorDe(u.nombre)} />
+          <span className="t"><b>{u.nombre}</b><span>{u.email}</span></span>
+          <span className="rol">{ROL_EQUIPO[u.rol] ?? u.rol}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Los tres roles del negocio del cliente, con el nombre que usa el producto. */
+const ROL_EQUIPO: Record<string, string> = { admin: 'Admin', closer: 'Closer', setter: 'Setter' };

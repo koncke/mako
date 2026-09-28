@@ -48,6 +48,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
 }) {
   const [creando, setCreando] = useState(false);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
+  /** Con qué tab abre la ficha. `null` = la que la ficha elija (el tablero). Existe
+   *  para que «Ver su equipo» de la tarjeta caiga en Equipo y no en el tablero. */
+  const [abrirEn, setAbrirEn] = useState<string | null>(null);
   /**
    * LO QUE SE CAMBIÓ ACÁ ADENTRO, encima de lo que trajo el server.
    *
@@ -272,7 +275,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
                 <li key={c.leadId}>
                   <ClienteCard c={c} n={numeroDe.get(c.leadId) ?? 0}
                     trabajo={resumenDe(c.leadId)} tableroOk={tablero.ok}
-                    onAbrir={() => setAbiertoId(c.leadId)} />
+                    cuentas={cuentas} onError={setMal}
+                    onAbrir={() => { setAbrirEn(null); setAbiertoId(c.leadId); }}
+                    onEquipo={() => { setAbrirEn('equipo'); setAbiertoId(c.leadId); }} />
                 </li>
               ))}
             </GrillaTarjetas>
@@ -301,8 +306,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
           user={user}
           clientes={clientes}
           cuentas={cuentas}
+          tabInicial={abrirEn}
           onImagen={(cambio) => guardarImagen(abierto.leadId, cambio)}
-          onCerrar={() => setAbiertoId(null)}
+          onCerrar={() => { setAbiertoId(null); setAbrirEn(null); }}
         />
       )}
 

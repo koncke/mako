@@ -20,6 +20,7 @@ import { getAnswers, getSchema } from '@/lib/onboarding';
 import { listarWorkspaces, OWNER_WS } from '@/lib/workspace';
 import type { Rol, RolWorkspace } from '@/lib/auth-session';
 import { invitarPorEmail } from '@/lib/invitaciones';
+import { urlGravatar, caraDeUsuario } from '@/lib/gravatar';
 
 const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 
@@ -28,6 +29,7 @@ export const dynamic = 'force-dynamic';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Estado de integraciones del workspace actual (sin impersonar = el dueño).
+
 async function resumenIntegraciones() {
   const porServicio = await Promise.all(SERVICIOS_METODO.map(async (s) => ({
     key: s.key, nombre: s.nombre, core: s.core ?? false,
@@ -60,7 +62,18 @@ export async function GET() {
     ]);
     return NextResponse.json({
       ok: true,
-      usuarios,
+      // ⚠️ EL HASH DE GRAVATAR SE CALCULA ACA Y NO EN EL NAVEGADOR, por lo mismo que
+      // en /api/compartir: en el browser `crypto.subtle` es async y no vale la pena,
+      // y sobre todo asi el email crudo NUNCA viaja en una URL a un tercero.
+      //
+      // Es lo unico que hay para tener la cara de alguien ANTES de su primer login:
+      // `foto_url` la llena Google al entrar, asi que hasta entonces es NULL. Se pide
+      // con `d=404` y la mayoria de la gente no tiene uno — por eso `Marca` cae a las
+      // iniciales cuando la imagen no carga, en vez de dejar un <img> roto.
+      // `cara` es la que se DIBUJA (foto elegida > Gravatar > nada) y `gravatar` la
+      // que hay detrás. Viajan las dos: la primera es la respuesta y la segunda es lo
+      // que deja saber si esa cara es suya o sólo la de su email.
+      usuarios: usuarios.map((u) => ({ ...u, gravatar: urlGravatar(u.email), cara: caraDeUsuario(u) })),
       workspaces,
       resumen: { integraciones, perfilNegocio },
       // Solo la cookie compartida real dispara el aviso "sesión vieja" — no la
@@ -81,6 +94,8 @@ type Body = {
   rol_ws?: RolWorkspace | null;
   estado?: EstadoUsuario;
   workspace_id?: number | null;
+  /** La URL que devolvió /api/portadas. Vacía o ausente = quitarle la foto elegida. */
+  foto_url?: string;
 };
 
 // true si tocar (bajar de rol / suspender / borrar) a este usuario dejaría a la
@@ -170,6 +185,18 @@ export async function POST(req: NextRequest) {
       case 'nombre': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { nombre: (body.nombre ?? '').trim() }) });
+      }
+
+      /**
+       * Su foto. `null` la quita — y quitarla NO deja a la persona sin cara: vuelve la
+       * de su Gravatar, que es la que estaba antes de que alguien eligiera otra. Por eso
+       * el respaldo se calcula al leer (`caraDeUsuario`) y no se copia a la columna: si
+       * se copiara, «quitar» no tendría a dónde volver.
+       */
+      case 'foto': {
+        if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
+        const url = typeof body.foto_url === 'string' ? body.foto_url.trim() : '';
+        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { foto_url: url || null }) });
       }
 
       // Volver a mandarle el acceso. Hace falta aunque el envío sea automático: el mail

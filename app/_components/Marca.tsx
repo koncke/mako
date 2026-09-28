@@ -27,7 +27,7 @@ import { urlIcono, esIcono } from '@/lib/iconos-catalogo';
 const inicialesDe = (nombre: string) =>
   nombre.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
-export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado = false, sinFondo = false }: {
+export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado = false, sinFondo = false, foto: fotoDirecta }: {
   /** La columna `icono` (mig 0174): una URL del bucket o `icon:<set>:<nombre>`. */
   icono?: string | null;
   /** La columna `emoji`: un glifo. Es el respaldo de un proyecto. */
@@ -43,6 +43,21 @@ export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado 
   cuadrado?: boolean;
   /** Sin caja detrás: para cuando ya hay una superficie que lo contiene. */
   sinFondo?: boolean;
+  /**
+   * Una foto que pone el CÓDIGO, no el dato de nadie: la de Google que quedó en
+   * `usuarios.foto_url`, o un Gravatar armado con el hash del email.
+   *
+   * ⚠️ NO PASA POR `urlPortada`, y por eso es un prop aparte. Ese filtro existe
+   * para que una URL escrita por un usuario no se cargue con el referer de quien
+   * abre la pantalla, así que sólo admite picsum y nuestro bucket — una URL de
+   * Gravatar o de Google se descartaba en silencio y volvía `null`. Acá el origen
+   * lo elige el código, que es la diferencia que el filtro mide.
+   *
+   * ⚠️ Y SI NO CARGA, CAEN LAS INICIALES. Gravatar se pide con `d=404` a
+   * propósito: la mayoría de la gente no tiene uno, y un 404 sin red deja un
+   * `<img>` roto — que se lee peor que no tener foto.
+   */
+  foto?: string | null;
 }) {
   const c = color ?? 'var(--primary)';
   const radio = cuadrado ? Math.round(tam * 0.26) : 999;
@@ -54,7 +69,7 @@ export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado 
     lineHeight: 1,
   };
 
-  const foto = urlPortada(icono);
+  const foto = fotoDirecta ?? urlPortada(icono);
   if (foto) {
     return (
       <span aria-hidden style={base}>
@@ -62,6 +77,9 @@ export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado 
             volvería a servir por nuestra función, cobrando por cada tarjeta. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={foto} alt="" draggable={false}
+          // La red del `d=404` de Gravatar: si no hay foto, se borra el `src` y el
+          // render siguiente cae a las iniciales, que es el default de siempre.
+          onError={(e) => { const i = e.currentTarget; i.style.display = 'none'; const p = i.parentElement; if (p) p.textContent = inicialesDe(nombre); }}
           style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${y ?? 50}%` }} />
       </span>
     );

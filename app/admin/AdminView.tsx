@@ -14,7 +14,7 @@
 // Los guards duros (no dejar sin super admin ni sin admin de cliente) viven
 // en el API; acá solo mostramos sus errores.
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 // Los estilos de esta pantalla viven en su modulo desde que /admin/copywriting se
 // llevo ocho de ellos: copiarlos alla era el segundo lugar donde vive el mismo boton.
 import { MONO, SANS, card, input, labelStyle, btnDark, btnGhost, btnPrimary, chip, bannerError } from './estilos';
@@ -29,7 +29,7 @@ import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Dropdown } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
-import type { Usuario } from '@/lib/usuarios';
+import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
 
@@ -246,13 +246,14 @@ function exportarWorkspaces(filas: Workspace[]) {
  * tarjetas/tabla, con el mismo criterio que la de Customer Success: la tarjeta es
  * para RECONOCER y la tabla para COMPARAR.
  */
-function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando }: {
+function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe }: {
   filas: Workspace[];
   onAbrir: (id: number) => void;
   onNuevo: () => void;
   opcionesDe: (w: Workspace) => { value: string; label: string; disabled?: boolean }[];
   elegirAccion: (w: Workspace, v: string) => void;
   accionando: boolean;
+  caraDe: (w: Workspace) => string | null;
 }) {
   return (
     <>
@@ -276,7 +277,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                 onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(w.id); }}>
                 <td>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                    <Marca nombre={w.nombre} tam={26} color={colorDe(w.nombre)} />
+                    <Marca nombre={w.nombre} tam={26} color={colorDe(w.nombre)} foto={caraDe(w)} />
                     <span style={{ fontWeight: 600 }}>{w.nombre}</span>
                     {w.id === 1 && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
                     <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{w.slug ?? '—'}</span>
@@ -462,6 +463,33 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
   // esconder el boton no protege— pero dejarlo habilitado sobre algo que el server
   // va a rechazar es peor que no tenerlo.
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(adminEmail.trim());
+  /**
+   * La cara de un cliente es la de SU ADMIN. «Si agrego el email, seria bueno que
+   * ya ponga la foto de perfil de ese email automaticamente en la card»
+   * (27/09/2026).
+   *
+   * ⚠️ `workspaces` NO TIENE COLUMNA DE FOTO y no hizo falta agregarla: la cara
+   * que interesa es la de la persona, y esa ya esta en `usuarios`. Se deriva en
+   * vez de guardarse — asi cambia sola cuando la persona cambia su foto de Google,
+   * que es justo lo que se espera de «su foto de perfil».
+   *
+   * El orden es honesto: la real (Google, al primer login) → Gravatar del email →
+   * las iniciales. Antes del primer login no existe ninguna foto de nadie, y eso
+   * no se puede arreglar: lo que se puede es no dejar un hueco.
+   */
+  const caraDe = (w: Workspace): string | null => {
+    const admin = usuarios.find((u) => u.workspace_id === w.id && (u.rol_ws ?? 'admin') === 'admin')
+      ?? usuarios.find((u) => u.workspace_id === w.id)
+      // El workspace de la plataforma no tiene `workspace_id` en sus usuarios: sus
+      // super admins son globales, asi que se lo busca por rol.
+      ?? (w.capa === 'superadmin' ? usuarios.find((u) => u.rol === 'admin') : undefined);
+    // ⚠️ `cara` YA VIENE RESUELTA por el server (`caraDeUsuario`, lib/gravatar.ts).
+    // Repetir acá el `foto_url || gravatar` era la segunda copia de la precedencia, y
+    // la segunda copia es la que se queda vieja. El `??` de abajo es para una respuesta
+    // de una version anterior de la API, no una regla.
+    return admin?.cara ?? admin?.foto_url ?? null;
+  };
+
   const puedeCrear = nombre.trim().length >= 2 && emailOk && !creando;
   const wAbierto = abierto != null ? workspaces.find((w) => w.id === abierto) ?? null : null;
 
@@ -526,7 +554,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
           Todavía no hay clientes. Crea el primero con la tarjeta de arriba.
         </div>
       ) : tabla ? (
-        <TablaWorkspaces filas={visibles} onAbrir={setAbierto}
+        <TablaWorkspaces filas={visibles} onAbrir={setAbierto} caraDe={caraDe}
           onNuevo={() => setAltaAbierta(true)} opcionesDe={opcionesDe} elegirAccion={elegirAccion}
           accionando={accionando} />
       ) : (
@@ -538,6 +566,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
               <li key={w.id}>
                 <TarjetaEntidad
                   nombre={w.nombre}
+                  foto={caraDe(w)}
                   color={colorDe(w.nombre)}
                   onAbrir={() => setAbierto(w.id)}
                   etiqueta={`Ver el equipo de ${w.nombre}`}
@@ -606,7 +635,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
               {huerfanos.map((u) => (
                 <div key={u.id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
+                  <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.cara ?? u.foto_url} size={32} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                     <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
@@ -782,6 +811,37 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
   const [errSumar, setErrSumar] = useState<string | null>(null);
   const [avisoSumar, setAvisoSumar] = useState<AvisoInvitacion | null>(null);
   const puedeSumar = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nuevoEmail.trim()) && !sumandoYa;
+  /** El input de archivo es UNO y se reusa: a quién le toca lo guarda `fotoDe`. */
+  const fotoRef = useRef<HTMLInputElement>(null);
+  const [fotoDe, setFotoDe] = useState<number | null>(null);
+
+  /**
+   * Cambiarle la foto a alguien del equipo. «Si agrego el email, que ya ponga la foto
+   * de perfil de ese email automáticamente en la card, y en todo caso que yo la pueda
+   * modificar» (27/09/2026) — esto es la segunda mitad.
+   *
+   * ⚠️ SUBE POR EL ROUTE MULTIPART (`/api/portadas`) y no por una server action: el
+   * cuerpo de una action topea en 1 MB y cualquier foto de celular lo pasa. Es el mismo
+   * camino que usa la ficha del cliente.
+   */
+  const pedirFoto = (u: Usuario) => { setFotoDe(u.id); fotoRef.current?.click(); };
+  const subirFoto = async (f: File) => {
+    const id = fotoDe;
+    if (id == null) return;
+    setErrSumar(null);
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      const r = await fetch('/api/portadas', { method: 'POST', body: fd });
+      const j: { ok: boolean; url?: string; error?: string } = await r.json();
+      if (!j.ok || !j.url) { setErrSumar(j.error || 'No pude subir la foto.'); return; }
+      accionUser({ action: 'foto', id, foto_url: j.url });
+    } catch (e) {
+      setErrSumar(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFotoDe(null);
+    }
+  };
 
   /**
    * Sumar a alguien a ESTE workspace.
@@ -875,11 +935,18 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
                 buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
                 options={[
                   { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
+                  { value: 'foto', label: u.foto_url ? 'Cambiar la foto…' : 'Ponerle una foto…' },
+                  // ⚠️ SÓLO SI ELIGIÓ UNA. Quitar la de su Gravatar es imposible —no es
+                  // nuestra— y un botón que no puede hacer nada se lee como que la app
+                  // está rota. Es la misma regla que «Reposicionar» de la portada.
+                  ...(u.foto_url ? [{ value: 'quitarfoto', label: 'Quitar la foto' }] : []),
                   { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
                   { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
                 ]}
                 onChange={(v) => {
                   if (v === 'reinvitar') reenviar(u);
+                  else if (v === 'foto') pedirFoto(u);
+                  else if (v === 'quitarfoto') accionUser({ action: 'foto', id: u.id, foto_url: '' });
                   else if (v === 'estado') accionUser({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
                   else if (v === 'eliminar') onEliminar(u);
                 }}
@@ -892,6 +959,8 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
           ))}
         </div>
       )}
+      <input ref={fotoRef} type="file" accept="image/*" hidden
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subirFoto(f); }} />
     </div>
   );
 }

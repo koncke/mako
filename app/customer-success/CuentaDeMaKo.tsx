@@ -42,6 +42,9 @@ import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { WS_PARAM } from '@/lib/ws-tab';
 import { crearCuentaMakoAction } from './actions';
 
+/** Una persona del equipo de un cliente. La arma el server (page.tsx). */
+export type MiembroDeCliente = { id: number; nombre: string; email: string; rol: string; foto: string | null };
+
 export type CuentasProp = {
   estadoPorWs: Record<number, string>;
   /** Puede abrirle cuenta a un cliente: agencia habilitada + admin de este workspace. */
@@ -50,12 +53,27 @@ export type CuentasProp = {
   visible: boolean;
   /** Decide el mecanismo de entrada, no el permiso. */
   superAdmin: boolean;
+  /** El plan de cada cliente con cuenta, para el chip de su tarjeta. Sólo los aprobados. */
+  planPorWs?: Record<number, string>;
+  /** El equipo de cada cliente con cuenta, para la tab «Equipo» de su ficha. */
+  equipoPorWs?: Record<number, MiembroDeCliente[]>;
 };
 
-export function CuentaDeMaKo({ c, cuentas, onError }: {
+export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
   c: ClienteCruce;
   cuentas?: CuentasProp;
   onError: (m: string) => void;
+  /**
+   * `sutil` es el de la FICHA: tinta al lado del nombre, sin caja. `boton` es el de la
+   * TARJETA: la píldora llena, igual que la de la grilla de la plataforma — «me gustan
+   * los botones de Acciones e Inspeccionar que pusiste en la preview de cada card,
+   * ponlo también en la vista de agencia» (27/09/2026).
+   *
+   * Es una variante y no un componente aparte porque lo que cambia es la ROPA: los
+   * cuatro estados, el mecanismo de entrada y el guard son los mismos, y duplicarlos
+   * es cómo una de las dos copias se queda con tres estados.
+   */
+  variante?: 'sutil' | 'boton';
 }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
@@ -99,12 +117,13 @@ export function CuentaDeMaKo({ c, cuentas, onError }: {
   };
 
   const ojo = <Icon name="eye" size={13} />;
+  const cls = variante === 'boton' ? 'cmk cmk-btn' : 'cmk';
 
   let control = null;
   if (!ws) {
     if (cuentas.puedeAbrir) {
       control = (
-        <button type="button" className="cmk" onClick={abrir} disabled={ocupado}
+        <button type="button" className={cls} onClick={abrir} disabled={ocupado}
           title={`Abrirle una cuenta de MaKo a ${c.nombre || 'este cliente'}`}>
           {ocupado ? 'Abriendo…' : 'Abrir cuenta'}
         </button>
@@ -117,7 +136,7 @@ export function CuentaDeMaKo({ c, cuentas, onError }: {
     // cartera. Pero el ESTADO de la cartera sí le importa —está probando a la
     // agencia—, así que va en el `title`, donde el texto no ocupa lugar.
     control = (
-      <a className="cmk cmk-ok" href={`/general?${WS_PARAM}=${ws}`}
+      <a className={`${cls} cmk-ok`} href={`/general?${WS_PARAM}=${ws}`}
         title={estado === 'aprobado'
           ? `Ver el dashboard de ${c.nombre || 'este cliente'}`
           : `Ver el dashboard de ${c.nombre || 'este cliente'}. Para la agencia: ${estado ? ROTULO_CARTERA[estado].toLowerCase() : 'sin pedido'}`}>
@@ -126,7 +145,7 @@ export function CuentaDeMaKo({ c, cuentas, onError }: {
     );
   } else if (estado === 'aprobado') {
     control = (
-      <button type="button" className="cmk cmk-ok" onClick={entrar} disabled={ocupado}
+      <button type="button" className={`${cls} cmk-ok`} onClick={entrar} disabled={ocupado}
         title={`Ver el dashboard de ${c.nombre || 'este cliente'}`}>
         {ojo}<span>{ocupado ? 'Entrando…' : 'Inspeccionar'}</span>
       </button>
@@ -134,7 +153,7 @@ export function CuentaDeMaKo({ c, cuentas, onError }: {
   } else if (estado) {
     // 'pendiente' y 'revocado' son estados, no acciones: no llevan botón. Uno que
     // no hace nada se lee como que la app está rota.
-    control = <span className="cmk cmk-est">{ROTULO_CARTERA[estado]}</span>;
+    control = <span className={`${cls} cmk-est`}>{ROTULO_CARTERA[estado]}</span>;
   }
   // Y si tiene workspace pero no hay fila en la cartera de esta agencia, no se
   // dibuja nada: antes salía «Workspace 7», que es un dato técnico en la cara.
@@ -165,4 +184,14 @@ const CSS = `
 /* Un estado no es un control: ni cursor, ni hover, ni tinta de accion. */
 .cmk-est{ cursor:default; font-weight:500; }
 .cmk-est:hover{ color:var(--faint); }
+
+/* La variante de TARJETA: la misma pildora que la grilla de la plataforma. Acá el
+   control no compite con un nombre grande —esta solo, al pie de la tarjeta— y lo que
+   hace falta es que se vea que es un boton. align-self vuelve a auto: en la tarjeta
+   la fila de acciones ya lo ubica. */
+.cmk-btn{ align-self:auto; margin-top:0; padding:7px 12px; font-size:12.5px; border-radius:9px;
+  background:var(--surface-2); color:var(--ink); }
+.cmk-btn.cmk-ok{ background:var(--primary); color:#fff; }
+.cmk-btn.cmk-ok:hover:not(:disabled){ color:#fff; filter:brightness(1.06); }
+.cmk-btn.cmk-est{ background:none; padding:7px 0; color:var(--faint); }
 `;

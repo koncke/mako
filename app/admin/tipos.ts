@@ -18,3 +18,27 @@ export type Workspace = {
 
 /** Quien esta mirando. `legacy` = entro con la cookie compartida vieja. */
 export type Sesion = { email: string; legacy: boolean };
+
+/**
+ * Un usuario tal como lo devuelve /api/admin/usuarios: la fila de la base MAS el
+ * Gravatar, que el endpoint calcula.
+ *
+ * ⚠️ NO ES UNA COLUMNA. Se deriva del email con un hash y existe por una sola
+ * razón: antes del primer login no hay NINGUNA foto de nadie —`foto_url` la llena
+ * Google al entrar— así que es lo único que puede poner una cara en la tarjeta de
+ * un cliente recién dado de alta. Y falla suave: se pide con `d=404` y `Marca`
+ * cae a las iniciales, porque la mayoría de la gente no tiene uno.
+ */
+/**
+ * Un usuario con su CARA ya resuelta por el server.
+ *
+ * `cara` es lo que se dibuja (su foto elegida, o la de su Gravatar, o nada) y sale de
+ * `caraDeUsuario` (lib/gravatar.ts). ⚠️ No se recalcula acá: el orden de precedencia
+ * vive en un lugar, o dos pantallas terminan mostrando caras distintas de la misma
+ * persona. `gravatar` viaja aparte para poder distinguir «eligió esta foto» de «es la
+ * de su email».
+ */
+export type UsuarioConCara = import('@/lib/usuarios').Usuario & {
+  gravatar?: string;
+  cara?: string | null;
+};
