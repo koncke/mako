@@ -92,18 +92,32 @@ export function textoFalloIA(
       // TRES cargadas. El dueño lo reportó así: «no puede ser que tengo 3 API de
       // gemini conectadas y me dice que me quedé sin tokens». Pedirle lo que ya
       // hizo no es solo redundante: le avisa que el producto no se enteró.
+      // ⚠️ Y NO SE AFIRMA CUÁL LÍMITE FUE. Esto decía «llegaron al tope de HOY» y «se
+      // reponen solas mañana», y las dos cosas son inventadas: lo único que sabemos es
+      // que el proveedor contestó un error de límite. Gemini tiene tope por MINUTO y por
+      // día, y el del minuto se destraba en un rato — mandar a esperar a mañana por un
+      // 429 de RPM es dejar al cliente sin MaKo un día entero por nada.
+      //
+      // Medido el 27/09/2026, y por eso se toca: el 22 y el 24/09 este texto le salió a un
+      // cliente diciendo «tus 2 cuentas llegaron al tope de hoy» en días en que su
+      // workspace tiene CERO llamadas registradas contra un tope de 250 por día. La causa
+      // se elige con una regex sobre el texto del error y nunca le pregunta a la cuota.
+      //
+      // ⚠️ Y NO SE ARREGLA CONSULTANDO NUESTRO CONTADOR para decir «entonces no es cuota»:
+      // las keys son del CLIENTE y puede gastarlas fuera de MaKo, así que nuestro contador
+      // en cero no prueba que le quede cuota. Lo que se arregla es dejar de afirmar.
       if (keysDelCliente >= 2) {
         return [
-          `⚠️ Probé tus ${keysDelCliente} cuentas de IA y las ${keysDelCliente} llegaron al tope de hoy, por eso no puedo ${que}.`,
+          `⚠️ Probé tus ${keysDelCliente} cuentas de IA y las ${keysDelCliente} me rebotaron por límite, por eso no puedo ${que}.`,
           '',
-          'Se reponen solas mañana. Si lo necesitas *ahora*, una cuenta más lo destraba 👇',
+          'Puede ser el límite por minuto o el del día. Si es el del minuto se destraba solo: vuelve a intentarlo en un rato. Si sigue igual, una cuenta más lo resuelve 👇',
           link,
         ].join('\n');
       }
       return [
         `⚠️ Te quedaste sin cuota de IA, por eso no puedo ${que}.`,
         '',
-        'Tu API key llegó al tope. Se repone sola mañana, pero si cargas otra sigo funcionando *ahora* — puedes tener varias y las voy rotando 👇',
+        'Tu API key llegó al tope. Puede ser el del minuto —y ahí se destraba solo en un rato— o el del día. Si cargas otra sigo funcionando *ahora*: puedes tener varias y las voy rotando 👇',
         link,
       ].join('\n');
     case 'sin_respaldo':

@@ -40,7 +40,7 @@ import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/li
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
-import { provsGratisDePlataforma, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -1040,9 +1040,34 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // Lo pone el reintento de arriba: alguna IA escribió un link de borrador, o
             // sea que ENTENDIÓ que este turno cargaba tareas aunque el router no.
             let quisoBorrador = false;
-            for (const prov of orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>) {
+            // ⚠️ EL LOOP RECORRE CUENTAS, NO SÓLO PROVEEDORES. Acá se iteraba `orden` —la
+            // lista de proveedores— y se llamaba a `chatCheapTools` sin `clave`, así que
+            // resolvía siempre la key BASE de cada uno. Un cliente con dos cuentas de
+            // Gemini cargadas tenía la segunda muerta para el WhatsApp: medido en
+            // `anthropic_usage` del ws13, `feature=mako-doer-in` tiene 24 llamadas con la
+            // cuenta 1 y CERO con la 2 en toda la historia, mientras esa misma key
+            // funcionaba por otro camino (8 llamadas OK en `campaign-suggest`, que sí pasa
+            // por la cascada). El cliente leía «te quedaste sin cuota» con una cuenta
+            // entera sin tocar — y encima se lo leía seguido, porque el peaje del 429 lo
+            // pagaba siempre la misma.
+            //
+            // Se despliega la lista en vez de anidar un segundo `for` a propósito: el
+            // cuerpo tiene cinco `continue` con semántica de «probá el siguiente», y con
+            // un loop anidado cada uno pasaría a significar otra cosa. Desplegado, un
+            // `continue` sigue queriendo decir lo mismo y la única diferencia es que
+            // ahora «el siguiente» puede ser otra cuenta del MISMO proveedor.
+            //
+            // No se reemplaza por `chatCheapToolsCascade`, que ya rota cuenta×proveedor,
+            // porque este loop tiene lo suyo: los centinelas, el molde volcado y el
+            // «no rotes si ya hay borrador» (nunca duplicar).
+            const instancias = (await Promise.all(
+              (orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>).map(
+                async (prov) => (await provsDe(prov)).map((inst) => ({ prov, inst })),
+              ),
+            )).flat();
+            for (const { prov, inst } of instancias) {
               try {
-                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
+                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
                 if (!r.text || r.text.startsWith('(')) continue; // centinelas internos
                 // ⚠️ Acá el único filtro era «que no empiece con paréntesis», y por eso el
                 // 9/8 salió el borrador entero por WhatsApp: el modelo redactó el payload

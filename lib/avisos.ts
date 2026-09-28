@@ -14,7 +14,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
-import { getSetting, setSetting } from './settings';
+import { getSetting, cambiarSettingSi } from './settings';
 import { avisoWaActivo, resumenAvisosActivo } from './perfil';
 import { puedeEsperar } from './avisos-agrupables';
 import { encolarAviso } from './avisos-cola';
@@ -92,8 +92,47 @@ async function avisadoReciente(ws: number, tipo: string, ttlMin: number, dedupKe
   if (Number.isNaN(t)) return false;
   return Date.now() - t < ttlMin * 60_000;
 }
-async function marcarAvisado(ws: number, tipo: string, dedupKey?: string): Promise<void> {
-  await runWithWorkspace(ws, () => setSetting(keyLast(tipo, dedupKey), new Date().toISOString()));
+
+/**
+ * RECLAMA el aviso antes de mandarlo. Devuelve false si otro ya se lo llevó.
+ *
+ * ⚠️ POR QUÉ NO ALCANZABA CON `avisadoReciente` + `marcarAvisado`. Eso es leer, hacer y
+ * marcar — y un dedup así sólo funciona contra reintentos MÁS LENTOS que la operación
+ * del medio. Acá la operación del medio es el envío por WhatsApp, y no es instantáneo:
+ * `lib/mako-grupo.ts` le manda a Evolution un delay de tipeo anti-ban de
+ * `min(1500 + largo*45, 9000)` con jitter, y Evolution retiene el HTTP abierto mientras
+ * lo simula. Para un aviso de «Nuevo agendado» (169-173 caracteres) eso es **7,2 a 10,8
+ * segundos** entre la lectura y la marca.
+ *
+ * Medido en producción el 27/09/2026 sobre `mako_doer_conv`: el cliente que reserva por
+ * Cal.com tuvo **51 avisos con 21 pares duplicados**, con huecos de 0,4 a 12,4 segundos —
+ * quince de los veintiuno justo encima del bloqueo del envío. El que reserva por Calendly
+ * tuvo 5 avisos y CERO duplicados, porque Calendly reentrega a los 22-41 s y eso cae
+ * después de la marca. El mismo código, dos resultados opuestos según la cadencia de
+ * reintento del proveedor.
+ *
+ * ⚠️ Y LA CADENCIA DE UN PROVEEDOR NO SE MIDE CON EL DEDUP PUESTO: sólo se ven los
+ * reintentos más rápidos que la ventana, porque los lentos ya no dejan fila. El techo de
+ * 12,4 s es el techo de LA VENTANA, no el de Cal.com. Por eso esto no se arregla
+ * ensanchando el TTL ni acortando el delay: se arregla haciendo la reclamación ATÓMICA.
+ *
+ * `cambiarSettingSi` ya existía para exactamente esto (dos clics en «Conectar por QR»
+ * abrían dos líneas de WhatsApp): de dos requests que compiten, gana UNA.
+ */
+async function reclamarAviso(ws: number, tipo: string, ttlMin: number, dedupKey?: string): Promise<boolean> {
+  return runWithWorkspace(ws, async () => {
+    const key = keyLast(tipo, dedupKey);
+    const previo = await getSetting(key);
+    if (previo) {
+      const t = Date.parse(previo);
+      // Vigente: alguien lo dijo hace poco y esta copia no tiene nada que agregar.
+      if (!Number.isNaN(t) && Date.now() - t < ttlMin * 60_000) return false;
+    }
+    // El compare-and-set va contra el valor EXACTO que se acaba de leer: si entre la
+    // lectura y acá otro lo cambió, pierde y no manda. `previo === null` usa la rama de
+    // insertar-si-no-existe, que también es atómica.
+    return cambiarSettingSi(key, previo, new Date().toISOString());
+  });
 }
 
 /**
@@ -140,6 +179,19 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       return { ok: true, feedId, wa: false, deduped: false, apagado: true };
     }
 
+    // ⚠️ SE RECLAMA ACÁ, Y ESTE LUGAR ES PARTE DEL ARREGLO. Va DESPUÉS del interruptor,
+    // por lo que explica el comentario de arriba: un aviso apagado nunca se dijo y
+    // marcarlo envenena el interruptor. Y va ANTES de los dos caminos que sí lo dicen —
+    // la cola y el envío— para que un solo reclamo cubra a los dos: puesto en cada uno
+    // serían dos lugares con la misma regla, y el segundo se queda viejo.
+    //
+    // Reemplaza a los dos `marcarAvisado` que había después de cada camino. La marca
+    // seguía escribiéndose aunque el envío fallara, y eso no cambia: un aviso que no
+    // salió por una línea caída no se reintenta a los segundos.
+    if (a.dedupTtlMin && !(await reclamarAviso(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
+      return { ok: true, feedId, wa: false, deduped: true };
+    }
+
     // ⚠️ ¿ESTO NECESITABA INTERRUMPIRLO? Si el aviso es de los que aguantan hasta mañana
     // (lib/avisos-agrupables.ts, lista en POSITIVO) y el workspace pidió juntarlos, se
     // GUARDA y sale en el resumen de la mañana. Va acá, después del interruptor y antes
@@ -162,7 +214,6 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
         categoria: a.categoria, semaforo: a.semaforo, link: a.link, alDueno: a.alDueno === true,
       });
       if (guardado) {
-        if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo, a.dedupKey);
         return { ok: true, feedId, wa: false, deduped: false, agrupado: true };
       }
     }
@@ -196,7 +247,6 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       // sobre un mensaje que nadie leyó.
       if (jid) await guardarTurno(ws, jid, 'assistant', texto, env.id).catch(() => {});
     }
-    if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo, a.dedupKey);
     return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);

@@ -116,7 +116,19 @@ async function provDe(nombre: ProvName, clave?: string, wsKey?: number): Promise
  * por CUENTA, así que quien cargó tres keys de Gemini tiene tres veces la cuota —
  * y hasta acá la cascada saltaba de proveedor con la segunda cuenta sin tocar.
  */
-async function provsDe(nombre: ProvName): Promise<Prov[]> {
+/**
+ * Las CUENTAS cargadas de un proveedor, ya ordenadas por cuota disponible.
+ *
+ * ⚠️ Exportada desde el 27/09/2026, y el motivo es un bug medido: el doer de
+ * WhatsApp tenía su propio loop de proveedores y llamaba a `chatCheapTools` SIN
+ * `clave`, así que resolvía siempre la key base y **nunca probaba la segunda cuenta
+ * del cliente**. Medido en `anthropic_usage` del ws13: `feature=mako-doer-in` tiene
+ * 24 llamadas con la cuenta 1 y CERO con la cuenta 2 en toda la historia — mientras
+ * la misma key funcionaba perfecto por otro camino (`campaign-suggest`, 8 llamadas
+ * OK), porque ése sí pasa por la cascada. El cliente veía «te quedaste sin cuota»
+ * teniendo una cuenta entera sin tocar.
+ */
+export async function provsDe(nombre: ProvName): Promise<Prov[]> {
   const out: Prov[] = [];
   // Solo las que ESTE workspace tiene cargadas (una query, cacheada por request) en
   // vez de preguntar por las MAX_KEYS del catálogo: con el tope en 10 eso eran 10
@@ -139,7 +151,7 @@ async function provsDe(nombre: ProvName): Promise<Prov[]> {
 
 /** Cómo se nombra un proveedor en logs y errores. Con varias cuentas, «gemini» a
  *  secas no dice nada: hay que poder leer CUÁL de las tres se quedó sin cuota. */
-const rotulo = (p: Prov): string => {
+export const rotulo = (p: Prov): string => {
   const n = nroCuenta(p);
   return n > 1 ? `${p.nombre} · cuenta ${n}` : p.nombre;
 };

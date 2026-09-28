@@ -19,6 +19,72 @@ import { readFileSync } from 'node:fs';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
+test('⚠️ el aviso se RECLAMA antes de mandarlo: leer-hacer-marcar perdía la carrera', () => {
+  // EL CAPÍTULO DOS DE ESTE MISMO BUG, medido el 27/09/2026 — un mes después del fix de
+  // arriba, que era correcto y no alcanzaba.
+  //
+  // Con las dedupKey ya bien puestas, el aviso de «Nuevo agendado» seguía saliendo dos
+  // veces. La causa es la VENTANA: `emitirAviso` leía el dedup, mandaba, y recién después
+  // marcaba — y el envío no es instantáneo. `lib/mako-grupo.ts` le manda a Evolution un
+  // delay de tipeo anti-ban de `min(1500 + largo*45, 9000)` con jitter, y Evolution
+  // retiene el HTTP abierto mientras lo simula: para un mensaje de 169-173 caracteres son
+  // **7,2 a 10,8 segundos** con el dedup sin marcar.
+  //
+  // Medido en `mako_doer_conv`: el cliente que reserva por Cal.com tuvo 51 avisos con 21
+  // pares duplicados (huecos de 0,4 a 12,4 s, quince de los veintiuno justo encima del
+  // bloqueo); el que reserva por Calendly, 5 avisos y CERO — porque Calendly reentrega a
+  // los 22-41 s, después de la marca. El mismo código, dos resultados opuestos según la
+  // cadencia de reintrega del proveedor.
+  //
+  // ⚠️ Y POR QUÉ NO SE ARREGLA ENSANCHANDO EL TTL NI ACORTANDO EL DELAY: con el dedup
+  // puesto sólo se ven los reintentos MÁS RÁPIDOS que la ventana — los lentos ya no dejan
+  // fila. O sea que el techo de 12,4 s es el techo de la VENTANA, no el del proveedor, y
+  // cualquier número que se elija está medido sobre una muestra censurada por el propio
+  // arreglo que se quiere calibrar. Lo único que cierra esto es que la reclamación sea
+  // ATÓMICA.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 4 pasan y 0 fallan):
+  //   · vuelve `marcarAvisado` después del envío     -> 3 / 1
+  //   · el reclamo usa `setSetting` en vez del CAS   -> 3 / 1
+  //   · el reclamo se mueve ANTES del interruptor    -> 3 / 1
+  const t = leer('../lib/avisos.ts');
+  const src = t.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // 1) La reclamación existe y es ATÓMICA. Un `setSetting` a secas no sirve: dos requests
+  //    que escriben lo mismo ganan los dos.
+  assert.ok(/async function reclamarAviso\(/.test(src), 'falta reclamarAviso');
+  const cuerpo = src.slice(
+    src.indexOf('async function reclamarAviso('),
+    src.indexOf('export async function emitirAviso'),
+  );
+  assert.ok(
+    /cambiarSettingSi\(/.test(cuerpo),
+    'reclamarAviso tiene que usar el compare-and-set atómico: un setSetting deja pasar a los dos',
+  );
+
+  // 2) Y NO queda el patrón viejo de marcar DESPUÉS de hacer. Ésa es la carrera.
+  assert.ok(
+    !/marcarAvisado\(/.test(src),
+    'volvió el leer-hacer-marcar: entre la lectura y la marca hay hasta 11 s de envío',
+  );
+
+  // 3) El ORDEN, que es la otra mitad del arreglo. El reclamo va DESPUÉS del interruptor
+  //    —un aviso apagado nunca se dijo, y marcarlo lo deja mudo hasta que venza el TTL— y
+  //    ANTES de los dos caminos que sí lo dicen (la cola y el envío), para que un solo
+  //    reclamo cubra a los dos.
+  const iInterruptor = src.indexOf('avisoWaActivo(ws, a.tipo)');
+  const iReclamo = src.indexOf('reclamarAviso(ws, a.tipo');
+  const iCola = src.indexOf('encolarAviso(wsCola');
+  const iEnvio = src.indexOf('enviarAlGrupoSuperAdmin(texto)');
+  assert.ok(iInterruptor > 0 && iReclamo > 0 && iCola > 0 && iEnvio > 0, 'no se ubicaron las cuatro marcas');
+  assert.ok(iInterruptor < iReclamo, 'el reclamo va DESPUÉS del interruptor, o apagar y prender deja el aviso mudo');
+  assert.ok(iReclamo < iCola, 'el reclamo va antes de encolar');
+  assert.ok(iReclamo < iEnvio, 'el reclamo va antes de enviar: reclamar después ES la carrera');
+
+  // 4) Y sigue el corte barato de la entrada: no se hace el trabajo para nada.
+  assert.ok(/avisadoReciente\(ws, a\.tipo/.test(src), 'se perdió el corte temprano');
+});
+
 test('El dedup distingue TIPO de ENTIDAD', () => {
   const src = leer('../lib/avisos.ts');
   assert.match(src, /const keyLast = \(tipo: string, dedupKey\?: string\)/,

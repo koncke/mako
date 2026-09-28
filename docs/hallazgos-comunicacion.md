@@ -42,6 +42,52 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ## Reglas del dueño para todo lo que sale de la app
 
+### ⚠️ Un dedup de «leer, hacer, marcar» sólo aguanta reintentos MÁS LENTOS que lo del medio
+
+**Síntoma (Joan, 21/09/2026):** el aviso de MaKo al agendar un lead llega DUPLICADO. Y ya
+se había arreglado una vez, un mes antes: el fix `f688ace6` le puso `dedupKey` por reserva
+a los cuatro emisores y funcionó — para un cliente.
+
+**Causa real: la ventana.** `emitirAviso` leía el dedup, mandaba el WhatsApp y recién
+después marcaba. Y el envío no es instantáneo: `lib/mako-grupo.ts` le manda a Evolution un
+delay de tipeo anti-ban de `min(1500 + largo*45, 9000)` con jitter, y Evolution retiene el
+HTTP abierto mientras lo simula. Para un «Nuevo agendado» de 169-173 caracteres son **7,2 a
+10,8 segundos con el dedup sin marcar**.
+
+**Y por eso el mismo código da resultados opuestos según el proveedor:**
+
+| Proveedor | Reentrega a los | Duplicados medidos |
+|---|---|---|
+| Calendly (ws1) | 22-41 s → *después* de la marca | 5 avisos, **0** |
+| Cal.com (ws13) | 0,4-12,4 s → *dentro* de la ventana | 51 avisos, **21 pares** |
+
+Quince de los veintiún huecos caen entre 5,1 y 12,4 s, justo encima del bloqueo del envío.
+
+⚠️ **Y LA CADENCIA DE UN PROVEEDOR NO SE PUEDE MEDIR CON EL DEDUP PUESTO.** Sólo se ven los
+reintentos más rápidos que la ventana: los lentos ya no dejan fila. El techo de 12,4 s es el
+techo de LA VENTANA, no el de Cal.com. Por eso esto no se arregla ensanchando el TTL ni
+acortando el delay de tipeo — cualquier número que se elija está calibrado sobre una muestra
+censurada por el propio arreglo que se quiere calibrar.
+
+**La cura es que la reclamación sea ATÓMICA**, y la pieza ya estaba escrita en el repo para
+este mismo problema: `cambiarSettingSi` (`lib/settings.ts`), un compare-and-set que existe
+porque dos clics en «Conectar por QR» abrían dos líneas de WhatsApp.
+
+⚠️ **DÓNDE VA EL RECLAMO ES LA MITAD DEL ARREGLO**, y ponerlo en el lugar obvio revive un bug
+ya cerrado. No va en la lectura temprana: entre ella y el envío está el interruptor de
+«¿este aviso está prendido?», y marcar el dedup antes de ese guard envenena el interruptor —
+apagar y volver a prender dejaba el aviso mudo hasta que venciera el TTL. Va **después del
+interruptor y antes de los dos caminos que dicen algo** (la cola del resumen y el envío), así
+un solo reclamo cubre a los dos.
+
+**La regla:** un dedup de leer-hacer-marcar es correcto sólo mientras la operación del medio
+sea más rápida que el reintento de quien llama. En cuanto lo del medio es una llamada de red
+con delay, hace falta un compare-and-set. Y **medí la cadencia del proveedor antes de
+declararlo arreglado con un solo cliente de muestra**.
+
+**Vive en:** `lib/avisos.ts` (`reclamarAviso`) · `lib/settings.ts` ·
+`tests/avisos-dedup-entidad.test.ts`
+
 Cinco reglas transversales: valen para WhatsApp, para email, para los avisos y para
 cualquier texto que MaKo genere.
 

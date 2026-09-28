@@ -85,3 +85,56 @@ test('La causa se decide con TODOS los errores, no con el último', () => {
   assert.match(leer('../lib/mako-doer-in.ts'), /const erroresIA: string\[\] = \[\];/,
     'el doer volvió a quedarse solo con el último error');
 });
+
+test('⚠️ el mensaje de cuota no AFIRMA cuál límite fue ni cuándo se repone', () => {
+  // Medido el 27/09/2026: el 22 y el 24/09 este texto le salió a un cliente diciendo
+  // «Probé tus 2 cuentas de IA y las 2 llegaron al tope de hoy» en días en que su
+  // workspace tiene CERO llamadas registradas, contra un tope de 250 por día. La causa se
+  // elige con una regex sobre el TEXTO del error y nunca le pregunta a la cuota.
+  //
+  // Las dos afirmaciones eran inventadas: Gemini tiene tope por MINUTO y por día, y sólo
+  // sabemos que contestó un error de límite. «Se reponen solas mañana» por un 429 de RPM
+  // deja al cliente sin MaKo un día entero por algo que se destraba en un rato.
+  //
+  // ⚠️ Y NO se arregla mirando NUESTRO contador para concluir «entonces no es cuota»: las
+  // keys son del cliente y puede gastarlas fuera de MaKo, así que nuestro cero no prueba
+  // que le quede. Lo que se arregla es dejar de afirmar.
+  for (const n of [1, 2, 3]) {
+    const t = textoFalloIA('sin_cuota', LINK, undefined, n);
+    assert.ok(
+      !/tope de hoy|mañana/i.test(t),
+      `con ${n} key(s) el texto vuelve a afirmar el tope del día o que se repone mañana: ${t}`,
+    );
+    assert.ok(t.includes(LINK), 'se perdió el link para cargar otra cuenta');
+  }
+  // Y sigue diciendo que puede ser el del minuto, que es la salida barata que existe.
+  assert.match(textoFalloIA('sin_cuota', LINK, undefined, 2), /minuto/i,
+    'el texto tiene que ofrecer reintentar: el límite por minuto se destraba solo');
+});
+
+test('⚠️ el doer prueba TODAS las cuentas del cliente, no sólo la primera', () => {
+  // EL TERCER BUG de esta zona (los otros dos están arreglados y verificados aparte).
+  // El doer de WhatsApp tenía su propio loop de PROVEEDORES y llamaba a chatCheapTools
+  // sin `clave`, así que resolvía siempre la key base: un cliente con dos cuentas de
+  // Gemini tenía la segunda muerta para el WhatsApp.
+  //
+  // Medido en `anthropic_usage` del ws13: feature='mako-doer-in' tiene 24 llamadas con la
+  // cuenta 1 y CERO con la cuenta 2 en toda la historia — mientras esa misma key
+  // funcionaba perfecto por otro camino (8 llamadas OK en 'campaign-suggest', que sí pasa
+  // por la cascada). El cliente leía «te quedaste sin cuota» con una cuenta sin tocar, y
+  // encima lo leía seguido, porque el peaje del 429 lo pagaba siempre la misma.
+  //
+  // Probado rompiéndolo (el archivo entero: con todo puesto, 10 pasan y 0 fallan):
+  //   · la llamada del doer pierde `clave: inst.clave`  -> 9 / 1
+  //   · el loop vuelve a recorrer sólo proveedores       -> 9 / 1
+  //   · y el del mensaje, vuelve «tope de hoy / mañana»  -> 9 / 1
+  const doer = leer('../lib/mako-doer-in.ts');
+  assert.match(doer, /await provsDe\(prov\)/,
+    'el loop del doer volvió a recorrer proveedores en vez de CUENTAS');
+  assert.match(doer, /clave: inst\.clave/,
+    'la llamada del doer no pasa la clave de esa cuenta: resuelve siempre la key base');
+  // Y el motivo tiene que decir CUÁL cuenta fue, o la próxima medición no puede
+  // distinguirlas: es lo que hizo visible este bug.
+  assert.match(doer, /motivo: `\$\{rotulo\(inst\)\}/,
+    'el motivo tiene que llevar el rótulo de la cuenta');
+});

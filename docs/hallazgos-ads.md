@@ -30,6 +30,44 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ## Lecturas y métricas de Meta
 
+### ⚠️ Los leads de Instant Form no llegan: la página no está suscrita, y el lead NUNCA SALE de Meta
+
+**Síntoma:** una agencia reporta que los leads de las campañas de **Clientes Potenciales**
+de Meta no aparecen en el CRM. Las campañas las corren los clientes DE ELLOS (inmobiliarias),
+no la agencia — esa cadena de tres es lo que hace el caso distinto de todo lo demás.
+
+**Causa, medida contra la Graph API:** `GET /v24.0/{page-id}/subscribed_apps` devuelve
+`{"data":[]}` — **la página no está suscrita a ninguna app**, así que Meta nunca dispara el
+webhook `leadgen`. El lead no se pierde en el camino: no sale.
+
+El control lo cierra: la página del workspace que SÍ recibe devuelve su app con
+`subscribed_fields:["leadgen"]` y tiene 1.031 leads `instant_form`; el que no, tiene **0, y
+nunca tuvo ninguno**.
+
+**Y lo que NO era, que es la mitad del valor de haberlo medido:** no es permisos (el token
+tiene `leads_retrieval` y de hecho LEE el lead de prueba), no es ruteo (la página está
+mapeada al workspace desde el 21/08) y no es que lo descartemos nosotros.
+
+⚠️ **Y aunque suscribieran la página, la entrega tampoco llegaría:** el webhook valida la
+firma contra un ÚNICO `META_APP_SECRET` global, y el token de ese cliente lo emitió una app
+de TERCEROS. Suscribir la página a la app ajena no alcanza — tienen que estar en la app de
+MaKo. Es la misma decisión del 11/09 que ya bloquea la publicación de anuncios de ese mismo
+cliente, apareciendo por otra puerta.
+
+⚠️ **Y el cron de respaldo habría encontrado el lead y no dejó rastro de por qué no lo trajo.**
+No existe ninguna tabla que registre corridas de cron, y la ruta sólo hace `console.log`: «no
+corrió» y «corrió y falló» son el mismo silencio. Lo mismo el webhook — el rechazo por firma
+y el rechazo por página sin workspace escriben un `console.warn` y nada más, así que no se
+puede contar cuántos POST llegaron. Es «una política puede RECHAZAR; no puede no dejar
+rastro», y queda ABIERTO.
+
+**La regla para diagnosticar esta familia:** antes de revisar permisos, ruteo o nuestro
+código, preguntá **de quién es la página** y **si está suscrita**. Son dos llamadas GET y
+descartan las tres capas de abajo.
+
+**Vive en:** `app/api/webhooks/meta-leads/` · `app/api/cron/meta-leads-poll/` ·
+`lib/meta-leads.ts`
+
 ### ⚠️ El mapa de México no pinta cero: pinta el estado equivocado
 
 **Síntoma:** Mauricio reportó que «el mapa marca cero en Ciudad de México cuando debería

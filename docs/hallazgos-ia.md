@@ -53,6 +53,60 @@ sus palabras, con la fecha en que las dijo.
 
 ## Modelos y ruteo
 
+### ⚠️ «Probé tus 2 cuentas y las 2 llegaron al tope de hoy», con el contador del día en CERO
+
+**Síntoma (Joan, vía Martín, 27/09/2026):** *«cada rato le dice a Joan que se quedó sin
+tokens… es bastante raro, porque se queda muy rápido y eso que tiene varias cuentas
+vinculadas»*.
+
+Son DOS defectos que se tapaban entre sí, y el segundo es el que hacía imposible ver al
+primero.
+
+**1. El mensaje afirmaba dos cosas que nadie verificó.** La causa se elige con una regex
+sobre el TEXTO del error (`lib/fallo-ia-texto.ts`) y **nunca le pregunta a la cuota**. Medido:
+el 22 y el 24/09 ese texto salió diciendo «tus 2 cuentas llegaron al tope de hoy» en días en
+que ese workspace tiene **cero** filas en `anthropic_usage`, contra un tope de 250/día. Y «se
+reponen solas mañana» es falso para un 429 de Gemini, que también topea por MINUTO: mandar a
+esperar a mañana por un límite que se destraba en un rato deja al cliente sin MaKo un día
+entero por nada.
+
+⚠️ **Y NO se arregla consultando nuestro contador** para concluir «entonces no es cuota». Las
+keys son del CLIENTE (BYOK) y puede gastarlas fuera de la app; Google cuenta por proyecto, no
+por workspace. Nuestro cero no prueba que le quede cuota — con la cuota realmente agotada
+afuera, ese texto «más informado» diría «el proveedor está con problemas, reintenta» y sería
+el mismo error con el signo cambiado. **Lo que se arregla es dejar de afirmar**: se dice que
+rebotó por límite, que puede ser el del minuto o el del día, y qué hacer con cada uno.
+
+**2. EL TERCER BUG DE LA ROTACIÓN: el doer de WhatsApp nunca probaba la segunda cuenta.** El
+doer tenía su propio loop de PROVEEDORES y llamaba a `chatCheapTools` **sin `clave`**, así que
+resolvía siempre la key base. Medido en `anthropic_usage`: `feature=mako-doer-in` tiene **24
+llamadas con la cuenta 1 y CERO con la cuenta 2 en toda la historia** — mientras esa misma
+key funcionaba perfecto por otro camino (`campaign-suggest`, 8 llamadas OK), porque ése sí
+pasa por la cascada, que rota cuenta × proveedor.
+
+O sea que el cliente leía «te quedaste sin cuota» teniendo **una cuenta entera sin tocar**, y
+lo leía seguido, porque el peaje del 429 lo pagaba siempre la misma.
+
+⚠️ **El arreglo no es reemplazar el loop por `chatCheapToolsCascade`**, aunque sea lo que
+parece: ese loop tiene lo suyo (los centinelas, el molde volcado, el «no rotes si ya hay
+borrador» de nunca-duplicar). Se despliega la lista de proveedores en sus CUENTAS y se itera
+eso — desplegar en vez de anidar un segundo `for` es a propósito: el cuerpo tiene cinco
+`continue` con semántica de «probá el siguiente», y anidando cada uno pasaría a significar
+otra cosa.
+
+⚠️ **Y el tercero se escondía detrás de los otros dos.** Los dos bugs ya cosechados de esta
+zona —el tope por minuto cargado como diario, y la cuenta 1 compartiendo casillero con el
+total— siguen arreglados (verificado contra HEAD). Arreglar dos de tres deja el síntoma
+igual: si el cliente sigue reportando lo mismo después de un arreglo correcto, la pregunta no
+es «¿falló el arreglo?» sino **«¿cuántas causas tenía esto?»**.
+
+⚠️ **Y el fallo no se registra**, lo que hace circular el problema: `recordUsage` corre
+DESPUÉS del throw, así que una llamada que revienta no deja fila. El uso medido no puede
+contradecir al mensaje porque el uso medido sólo cuenta éxitos. Queda ABIERTO.
+
+**Vive en:** `lib/fallo-ia-texto.ts` · `lib/mako-doer-in.ts` · `lib/ai-cheap.ts`
+(`provsDe`, `rotulo`) · `tests/fallo-ia-texto.test.ts`
+
 ### ✅ El default del catálogo es lo que paga TODA feature que nadie configuró — US$37 en 30 días
 
 **Síntoma (2026-08-08, segunda vez, con la misma pantalla):** «el Perro sigue utilizando a
