@@ -327,3 +327,54 @@ test('⚠️ cada funnel del desplegable tiene su lápiz, y abre EL suyo', () =>
   // Con `?f=`, que es lo que /funnel lee. Con `?funnel=` abriría el del negocio.
   assert.match(tb, /router\.push\(`\/funnel\?f=\$\{f\.id\}`\)/, 'el lápiz no abre el funnel de ESA fila');
 });
+
+test('⚠️ un funnel nuevo nace VACÍO y con SUS etapas', () => {
+  // Martín lo reportó TRES veces, la última así: «creé una prueba 3 y aún no cambió
+  // absolutamente nada... los mismos leads, se cargó todo lleno en lugar de vacío... las
+  // mismas etapas en lugar de preguntarme».
+  //
+  // ⚠️ ERAN DOS CAUSAS APILADAS, y arreglar una sola no se nota. (1) El selector cambiaba
+  // las COLUMNAS y no los leads: un lead no pertenecía a ningún funnel. (2) Y un funnel
+  // nuevo nacía SIN etapas, así que caía a la plantilla genérica — que en un workspace que
+  // nunca tocó su funnel es IDÉNTICA a la del negocio. Con sólo el filtro, el tablero nuevo
+  // quedaba con las columnas del negocio y cero tarjetas; con sólo las etapas, con columnas
+  // propias y los 1.145 leads de siempre.
+  //
+  // Probado rompiéndolo (con todo puesto, 12 pasan y 0 fallan):
+  //   · el CRM vuelve a pedir todos los leads       -> 11 / 1
+  //   · el funnel nuevo nace sin etapas             -> 11 / 1
+  //   · el modal deja de preguntar el canal         -> 11 / 1
+  const pg = readFileSync(join(import.meta.dirname, '../app/crm/page.tsx'), 'utf8');
+  const ld = readFileSync(join(import.meta.dirname, '../lib/leads.ts'), 'utf8');
+  const pc = readFileSync(join(import.meta.dirname, '../lib/producto-con-funnel.ts'), 'utf8');
+  const tb = readFileSync(join(import.meta.dirname, '../app/crm/CrmToolbar.tsx'), 'utf8');
+
+  // 1) El tablero pide los leads de SU funnel.
+  assert.match(pg, /listLeadsDeFunnel\(funnelId\)/, 'el CRM volvió a pedir todos los leads del workspace');
+  // ⚠️ Y el filtro NO está en la lectura compartida: `listLeads()` tiene otros seis
+  //    llamadores que necesitan el negocio entero (MaKo, Fathom, la búsqueda). Filtrar ahí
+  //    no falla: devuelve de menos, que es peor.
+  assert.ok(
+    !/_listLeads\([^)]*funnel/i.test(ld),
+    'el filtro por funnel se metió en listLeads(): eso rompe en silencio la búsqueda de MaKo, el enganche de Fathom y los conteos del negocio',
+  );
+  // null = el del negocio, y eso NO puede cambiar: si un lead sin funnel dejara de
+  // aparecer, el CRM quedaría vacío para todos el día del deploy.
+  assert.match(ld, /funnelId == null \? q\.is\('funnel_id', null\)/, 'los leads sin funnel dejaron de ser los del negocio');
+
+  // 2) El funnel nuevo nace con las etapas del canal que se eligió.
+  assert.match(pc, /templateDeCanal\(canal\)/, 'el funnel nuevo volvió a nacer sin etapas');
+  assert.match(pc, /pipeline: tpl\?\.pipeline/, 'la plantilla no se siembra en el funnel nuevo');
+
+  // 3) Y el modal PREGUNTA, que es lo que no hacía.
+  assert.match(tb, /CANALES\.map/, 'el modal de nuevo producto no pregunta cómo se vende');
+  assert.match(tb, /crearProductoAction\(n, canal\)/, 'el modal no manda el canal elegido');
+  // Sin default: preseleccionar haría que la mayoría cree su tablero con las etapas de otro
+  // negocio sin darse cuenta, que es el mismo bug con un paso más.
+  assert.match(tb, /if \(!canal\)/, 'el canal dejó de ser obligatorio');
+
+  // 4) Y el lead que se crea ahí CAE en ese funnel, o desaparece de la pantalla donde se
+  //    acaba de cargar.
+  const nl2 = readFileSync(join(import.meta.dirname, '../app/crm/new/NewLeadForm.tsx'), 'utf8');
+  assert.match(nl2, /crearLeadEnTableroAction\(fd, enModal\.funnelId/, 'el alta no manda el funnel del tablero');
+});

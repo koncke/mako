@@ -26,7 +26,12 @@ const card: CSSProperties = { maxWidth: 720, background: 'var(--surface)', borde
 
 export function NewLeadForm({ enModal }: {
   /** Presente = el form vive adentro del modal del tablero. Ausente = es la ruta. */
-  enModal?: { onCerrar: () => void; onCreado: (id: number) => void };
+  enModal?: {
+    onCerrar: () => void;
+    onCreado: (id: number) => void;
+    /** El funnel que se está mirando. null = el del negocio. */
+    funnelId?: number | null;
+  };
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
   const [guardando, startGuardar] = useTransition();
@@ -52,7 +57,10 @@ export function NewLeadForm({ enModal }: {
         // En el modal el submit no navega: se crea, se avisa y el tablero decide.
         e.preventDefault();
         startGuardar(async () => {
-          const r = await crearLeadEnTableroAction(fd);
+          // ⚠️ El lead nace en el tablero DESDE EL QUE SE LO ESTA CREANDO. Sin esto se
+          // iba al funnel del negocio y desaparecia de la pantalla donde se acababa de
+          // cargar — que es el peor final posible para un alta.
+          const r = await crearLeadEnTableroAction(fd, enModal.funnelId ?? null);
           if ('error' in r) { setErr(r.error); return; }
           enModal.onCreado(r.id);
         });

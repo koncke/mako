@@ -24,7 +24,8 @@ import { useEffect, useRef, useState, useTransition, type CSSProperties, type Re
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
 
 const MONO = "'Geist Mono', monospace";
-import { Modal } from '@/app/_ui/Modal';
+import { Modal } from '@/app/_ui/Modal';
+import { CANALES } from '@/lib/fase-diagnostico';
 import { crearProductoAction } from './actions';
 
 const SANS = "'Geist', sans-serif";
@@ -553,15 +554,20 @@ export function SelectorFunnel({ funnels, activo }: {
  */
 function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCreado: (funnelId: number) => void }) {
   const [nombre, setNombre] = useState('');
+  // ⚠️ SIN DEFAULT. Preseleccionar «Llamada de venta» haría que el 90% cree su tablero con
+  // las etapas de otro negocio sin darse cuenta — que es exactamente el bug que esto viene
+  // a cerrar, con un paso más de por medio. Se elige, o no hay producto.
+  const [canal, setCanal] = useState<string>('');
   const [err, setErr] = useState<string | null>(null);
   const [guardando, startGuardar] = useTransition();
 
   const crear = () => {
     const n = nombre.trim();
     if (!n) { setErr('Ponle un nombre al producto.'); return; }
+    if (!canal) { setErr('Elige cómo vendes este producto: de ahí salen las etapas de su tablero.'); return; }
     setErr(null);
     startGuardar(async () => {
-      const r = await crearProductoAction(n);
+      const r = await crearProductoAction(n, canal);
       if ('error' in r) { setErr(r.error); return; }
       onCreado(r.funnelId);
     });
@@ -590,11 +596,41 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
           style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' }}
         />
       </label>
-      {/* Lo que pasa al confirmar, pegado al botón: el producto nace con su propio
-          tablero, y el CRM salta a él. Sin esto, «Crear producto» no dice que además
-          cambia lo que se está mirando. */}
-      <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '10px 0 0', lineHeight: 1.5 }}>
-        Nace con su propio tablero y el CRM se cambia a él. El precio y el resto se completan después.
+      {/* ⚠️ LA PREGUNTA QUE FALTABA, y es por un HECHO del negocio, no por una
+          configuración: quien crea un producto sabe si lo vende por llamada o por carrito.
+          De la respuesta salen las ETAPAS de su tablero.
+
+          Hasta el 28/09/2026 acá no se preguntaba nada y el funnel nacía sin etapas, así
+          que caía a la plantilla genérica — que en un workspace que nunca tocó su funnel es
+          IDÉNTICA a la del negocio. Por eso tres productos nuevos se veían los tres iguales,
+          y se reportó tres veces como «no cambió absolutamente nada». */}
+      <div style={{ marginTop: 16 }}>
+        <span style={{ display: 'block', fontSize: 12.5, marginBottom: 8, color: 'var(--dim)' }}>¿Cómo lo vendes?</span>
+        <div style={{ display: 'grid', gap: 6 }}>
+          {CANALES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => { setCanal(c.id); setErr(null); }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+                padding: '10px 13px', borderRadius: 10, fontFamily: SANS,
+                border: '1px solid ' + (canal === c.id ? 'var(--primary)' : 'var(--border-strong)'),
+                background: canal === c.id ? 'var(--primary-weak)' : 'var(--surface-2)',
+              }}
+            >
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{c.label}</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>{c.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lo que pasa al confirmar, pegado al botón. Ahora dice las DOS cosas que importan:
+          que el tablero arranca vacío (era la queja: «se cargó todo lleno en lugar de
+          vacío») y que el CRM salta a él. */}
+      <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '14px 0 0', lineHeight: 1.5 }}>
+        Nace con sus propias etapas y <strong style={{ color: 'var(--dim)' }}>sin ningún lead</strong>. El CRM se cambia a él.
       </p>
       {err && (
         <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>

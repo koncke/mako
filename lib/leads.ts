@@ -192,6 +192,14 @@ export type LeadCreateInput = {
   utm_campaign?: string | null;
   utm_content?: string | null;
   fbclid?: string | null;
+  /**
+   * A qué funnel entra. null/undefined = el del negocio.
+   *
+   * ⚠️ Lo pone el tablero desde el que se crea. Sin esto, un lead cargado mirando un
+   * funnel secundario nacía en el del negocio y DESAPARECÍA de la pantalla donde se
+   * acababa de crear — que es el peor final posible para un alta.
+   */
+  funnel_id?: number | null;
   respuesta_facturacion?: string | null;
   respuesta_colaboradores?: string | null;
   respuesta_objetivo?: string | null;
@@ -265,6 +273,36 @@ const LISTA_COLS =
   'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
 
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });
+/**
+ * Los leads de UN funnel, para el tablero del CRM.
+ *
+ * ⚠️ ES UNA FUNCIÓN APARTE, Y NO UN PARÁMETRO DE `listLeads()`. Medido el 28/09/2026:
+ * `listLeads()` tiene SIETE llamadores y sólo uno —el tablero— tiene un funnel en la URL.
+ * Los otros seis necesitan ver el negocio entero, y filtrarlos rompería en silencio:
+ *
+ *   · `crm.helpers` (MaKo contestando «cuántos leads tengo», el conteo por etapa y la
+ *     lista de closers usados) pasaría a contestar por un funnel que nadie nombró;
+ *   · `fathom-auto` engancha grabaciones por email y dejaría reuniones sin grabación;
+ *   · `mako-tools` (`buscar_leads`) tiene que encontrar a una persona SIEMPRE — filtrar
+ *     la haría invisible para la búsqueda.
+ *
+ * Ninguno de los seis falla: devuelven menos. Por eso el filtro vive donde hay un funnel
+ * que filtrar y no en la lectura compartida, que es el lugar que parece más económico.
+ *
+ * ⚠️ Y `null` ES EL DEL NEGOCIO. Un lead sin funnel asignado —que hoy son todos— tiene que
+ * seguir apareciendo en el tablero por defecto: si desapareciera, el CRM quedaría vacío
+ * para todo el mundo el día del deploy. Con `funnelId` de un funnel secundario, en cambio,
+ * se piden SÓLO los suyos: un tablero nuevo arranca sin un lead, que es lo que lo hace un
+ * tablero propio y no otra vista del mismo.
+ */
+export async function listLeadsDeFunnel(funnelId: number | null): Promise<Lead[]> {
+  const supabase = await getTenantDb();
+  const filas = await leerTodo<Lead>(supabase, 'leads', LISTA_COLS, {
+    orden: 'id',
+    filtros: (q) => (funnelId == null ? q.is('funnel_id', null) : q.eq('funnel_id', funnelId)),
+  });
+  return filas.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+}
 async function _listLeads(): Promise<Lead[]> {
   const supabase = (await getTenantDb());
   // PAGINADO OBLIGATORIO. Esto era un `.select()` suelto y PostgREST corta en
@@ -498,6 +536,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       utm_campaign: input.utm_campaign?.trim() || null,
       utm_content: input.utm_content?.trim() || null,
       fbclid: input.fbclid?.trim() || null,
+      funnel_id: input.funnel_id ?? null,
       ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')

@@ -609,7 +609,7 @@ function emptyToNullable<T extends FormDataEntryValue | null>(
  * después. Con el `redirect` adentro, la segunda puerta no se podía escribir sin
  * copiar la validación, que es cómo se desincronizan las dos.
  */
-async function altaDeLead(formData: FormData): Promise<{ id: number }> {
+async function altaDeLead(formData: FormData, funnelId?: number | null): Promise<{ id: number }> {
   const nombre = emptyToNull(formData.get('nombre'));
   if (!nombre) {
     throw new Error('Nombre es requerido');
@@ -626,6 +626,9 @@ async function altaDeLead(formData: FormData): Promise<{ id: number }> {
     empresa: emptyToNullable(formData.get('empresa')),
     fecha_agenda: emptyToNullable(formData.get('fecha_agenda')),
     fecha_junta_1: emptyToNullable(formData.get('fecha_junta_1')),
+    // ⚠️ El lead nace en el tablero DESDE EL QUE SE LO CREÓ. Sin esto se iba al funnel
+    // del negocio y desaparecía de la pantalla donde se acababa de cargar.
+    funnel_id: funnelId ?? null,
   });
   // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
   // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
@@ -649,9 +652,14 @@ async function altaDeLead(formData: FormData): Promise<{ id: number }> {
  * Devuelve el error en vez de tirarlo: el que llama es un modal abierto encima del
  * tablero, y una excepción ahí sube al error boundary y se lleva la pantalla entera.
  */
-export async function crearProductoAction(nombre: string): Promise<{ funnelId: number } | { error: string }> {
+/**
+ * ⚠️ RECIBE EL CANAL, y es lo que hace que el tablero nuevo sea DISTINTO del de al lado.
+ * Sin él, el funnel nacía sin etapas y caía a la plantilla genérica — que en un workspace
+ * que nunca tocó su funnel es idéntica a la del negocio.
+ */
+export async function crearProductoAction(nombre: string, canal?: string | null): Promise<{ funnelId: number } | { error: string }> {
   try {
-    const { funnelId } = await crearProductoConFunnel(nombre);
+    const { funnelId } = await crearProductoConFunnel(nombre, canal);
     bust(TAG.leads);
     revalidatePath('/crm');
     revalidatePath('/funnel');
@@ -661,9 +669,9 @@ export async function crearProductoAction(nombre: string): Promise<{ funnelId: n
   }
 }
 
-export async function crearLeadEnTableroAction(formData: FormData): Promise<{ id: number } | { error: string }> {
+export async function crearLeadEnTableroAction(formData: FormData, funnelId?: number | null): Promise<{ id: number } | { error: string }> {
   try {
-    return await altaDeLead(formData);
+    return await altaDeLead(formData, funnelId);
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.' };
   }

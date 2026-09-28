@@ -2,7 +2,7 @@
 // /crm — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
 // =============================================================================
 
-import { listLeads, type Lead } from '@/lib/leads';
+import { listLeadsDeFunnel, type Lead } from '@/lib/leads';
 // DEFAULT en las dos: el board pinta las COLUMNAS del negocio (la etapa de cada lead
 // se deriva de sus propias columnas con deriveStageKey, no del funnel).
 import { getPipelineStagesDefault, getFunnelTransitionsDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
@@ -111,7 +111,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     let transitionsRaw: FunnelTransition[] | undefined;
     let pendRaw: { items: PendienteItem[]; aviso: string };
     [leads, campMap, juntasRaw, pendRaw, stagesRaw, transitionsRaw, calendlyStages, equipo] = await Promise.all([
-      listLeads(),
+      // ⚠️ LOS LEADS DE ESTE FUNNEL, no los del workspace. Sin esto el selector cambiaba
+      // las COLUMNAS y dejaba las mismas tarjetas: se reportó tres veces como «creé un
+      // producto nuevo y no cambió absolutamente nada, los mismos leads».
+      //
+      // `funnelId` es null para el funnel del NEGOCIO, y ahí se piden los que no tienen
+      // funnel asignado — que hoy son todos. Un funnel secundario recién creado arranca
+      // sin ninguno.
+      listLeadsDeFunnel(funnelId),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
       getPendientesDeMarcar(hoy)
@@ -137,6 +144,19 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   }
 
   const telById = new Map(leads.map((l) => [l.id, l.telefono]));
+
+  // ⚠️ LAS REUNIONES Y EL WORKLIST SE ACOTAN A ESTE FUNNEL. Las dos lecturas de arriba son
+  // del workspace entero —no saben de funnels— y sus tarjetas resuelven el TELÉFONO y la
+  // EMPRESA contra los leads del tablero. Con el tablero filtrado, una reunión de otro
+  // funnel salía con el teléfono en «—» y una fila del worklist con la empresa vacía, sin
+  // un solo error; y «Solucionar» sacaba a la persona del tablero para arreglar un lead
+  // que este tablero dice que no existe.
+  //
+  // Se acotan acá y no en las consultas porque las dos las usan otras pantallas que SÍ
+  // quieren el negocio entero.
+  const idsDelFunnel = new Set(leads.map((l) => l.id));
+  juntasRaw = juntasRaw.filter((j) => idsDelFunnel.has(j.lead_id));
+  pendientesRaw = pendientesRaw.filter((p) => idsDelFunnel.has(p.lead_id));
 
   const validStageKeys = new Set(stages.map((s) => s.key));
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys));

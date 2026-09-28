@@ -1573,11 +1573,23 @@ export function CrmBoard({
         />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Sin resultados el kanban quedaba mudo (solo la tabla avisaba): se veían
-              las columnas vacías y no había forma de saber que era por un filtro. */}
-          {filtered.length === 0 ? (
-            <SinResultados hayFiltros={hayFiltros} onLimpiar={limpiarTodo} />
-          ) : (
+          {/* ⚠️ CON CERO LEADS SE DIBUJAN LAS COLUMNAS IGUAL, y eso cambió el 28/09/2026.
+              Antes, sin tarjetas el Kanban no pintaba NINGUNA columna — y desde que cada
+              funnel tiene sus propios leads, un tablero recién creado arranca justamente en
+              cero: mostraba una pantalla en blanco donde tenía que mostrar el embudo que la
+              persona acaba de elegir. Peor: sin columnas tampoco hay cabecera, así que el
+              menú para ajustar las etapas no existía justo cuando más hace falta.
+
+              El aviso de «no hay nada» sigue, pero ARRIBA de las columnas y no en su lugar:
+              es un dato sobre el tablero, no un reemplazo del tablero. Y sólo cuando hay
+              FILTROS puestos se ofrece limpiarlos — con el funnel vacío de verdad, lo que
+              corresponde es cargar un lead, no limpiar nada. */}
+          {filtered.length === 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <SinResultados hayFiltros={hayFiltros} onLimpiar={limpiarTodo} />
+            </div>
+          )}
+          {(
             <div ref={boardScrollRef} onDragOver={onBoardDragOver} onDrop={stopAutoScroll} style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
                 {stages
@@ -1647,6 +1659,7 @@ export function CrmBoard({
       {nuevoLead && (
         <Modal titulo="Nuevo lead" ancho={720} onCerrar={() => setNuevoLead(false)}>
           <NewLeadForm enModal={{
+            funnelId: funnelActivo,
             onCerrar: () => setNuevoLead(false),
             onCreado: (id) => { setNuevoLead(false); setSelectedId(id); mostrarAviso('Lead creado'); router.refresh(); },
           }} />

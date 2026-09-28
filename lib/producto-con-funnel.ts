@@ -1,4 +1,5 @@
 import 'server-only';
+import { templateDeCanal } from '@/lib/pipeline';
 
 // =============================================================================
 // producto-con-funnel — dar de alta un producto Y su tablero, de una
@@ -38,12 +39,23 @@ export type ProductoNuevo = { productoId: number; ofertaId: number; funnelId: nu
 /**
  * Un producto nuevo con su tablero listo para usar.
  *
- * El funnel nace SIN pipeline propio, que es lo mismo que hace el onboarding
- * cuando no hay plantilla de canal: el tablero dibuja las columnas genéricas y se
- * ajusta después en /funnel. Un pipeline copiado del funnel de al lado nacería
- * divergiendo el día uno.
+ * ⚠️ EL FUNNEL NACE CON SUS ETAPAS, y hasta el 28/09/2026 nacía sin ninguna. El
+ * comentario que había acá decía que eso era deliberado —«el tablero dibuja las columnas
+ * genéricas y se ajusta después en /funnel»— y esa decisión produjo el síntoma exacto que
+ * Martín reportó tres veces: creó «Sistema DOS», «Prueba 2» y «Prueba 3» y los tres le
+ * mostraron lo mismo que el funnel del negocio.
+ *
+ * Por qué eran indistinguibles, medido: un funnel sin pipeline cae a `DEFAULT_PIPELINE`,
+ * y en ese workspace `DEFAULT_PIPELINE` es EXACTAMENTE el pipeline declarado del funnel
+ * del negocio — las mismas cinco claves, en el mismo orden. O sea que «ajustarlo después»
+ * no era un paso pendiente: era una pantalla que no se distinguía de la anterior.
+ *
+ * Ahora se pregunta CÓMO SE VENDE ese producto y se siembra la plantilla de ese canal
+ * (`templateDeCanal`). Es una pregunta por un HECHO del negocio, no por una
+ * configuración: quien crea un producto sabe si lo vende por llamada o por carrito.
+ * Sin canal se cae a la genérica, que sigue siendo mejor que una pantalla en blanco.
  */
-export async function crearProductoConFunnel(nombreCrudo: string): Promise<ProductoNuevo> {
+export async function crearProductoConFunnel(nombreCrudo: string, canal?: string | null): Promise<ProductoNuevo> {
   const nombre = (nombreCrudo ?? '').trim();
   if (!nombre) throw new Error('El producto necesita un nombre.');
   // El nombre del funnel reservado es el que la migración 0170 le puso a todos:
@@ -69,7 +81,16 @@ export async function crearProductoConFunnel(nombreCrudo: string): Promise<Produ
   const ofertaId = await upsertOferta({ nombre });
   await ligarProducto(ofertaId, productoId, 'principal');
 
-  const funnelId = await crearFunnel({ nombre, esDefault: false });
+  // La plantilla del canal declarado. `templateDeCanal` falla cerrado: con un canal que
+  // no está en el catálogo devuelve null y el funnel nace con la genérica.
+  const tpl = templateDeCanal(canal);
+  const funnelId = await crearFunnel({
+    nombre,
+    esDefault: false,
+    canal: canal ?? null,
+    plantilla: tpl?.id ?? null,
+    pipeline: tpl?.pipeline,
+  });
   await ligarOfertaAFunnel(funnelId, ofertaId, true);
 
   return { productoId, ofertaId, funnelId };
