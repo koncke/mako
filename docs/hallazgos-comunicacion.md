@@ -5243,3 +5243,109 @@ La recuperación no hizo falta y no se disparó — la instancia en Evolution se
 16/07. O sea que «una zombi nunca da QR» es más fuerte de lo que se midió: a veces lo da. Lo
 que no hay es forma de saberlo de antemano, así que el camino de recuperación se queda, pero
 como respaldo y con las dos guardas de arriba.
+
+## Los avisos editables eran del DUEÑO para todos, y la repetición no existía (28/09/2026)
+
+Tarea #823 («qué se avisa, cada cuánto y qué lo dispara») + #724 (insistir hasta que
+confirme). El modelo y el motor ya estaban construidos; lo que faltaba no era lo que
+parecía.
+
+### ⚠️ El store de plantillas y flujos estaba clavado a OWNER_WS, y ya se disparaba en el grupo del cliente
+
+**Vive en:** `lib/plantillas.ts` (leerStore/guardarStore) · `lib/flujos.ts` (dispararEvento)
+
+**Síntoma que todavía NO se vio, y por qué.** `leerStore`/`guardarStore` hacían
+`runWithWorkspace(OWNER_WS, …)`. El primer cliente que editara el texto de un aviso se lo
+cambiaba **a todos los clientes**. No explotó nunca porque la única pantalla que escribe
+ahí vive en `/agencia` y sólo entra el super-admin — o sea que el bug estaba esperando a
+que la feature saliera al cliente, que es exactamente lo que pedía la tarea.
+
+**Y la mitad de lectura ya estaba activa:** `dispararEvento` leía `listarFlujosActivos()`
+—del dueño— y ejecutaba los pasos con `ws = ctx.ws`, el del evento. Los flujos que armara
+la agencia ya se disparaban **dentro del grupo de cada cliente**. Medido: ws1 y ws4 tenían
+los mismos dos flujos (`ad-fatiga`, `meta-cuenta-frenada`), porque `clonar-config` copia el
+store entero al crear un workspace.
+
+**La regla que queda.** Un store «del dueño» que lo lee un runtime multi-inquilino no es
+un default: es un dato compartido sin dueño claro. Cuando algo así tiene que volverse
+editable por el cliente, el orden es **primero el scope, después la pantalla** — al revés,
+la primera edición de un cliente es un incidente.
+
+**Cómo quedó:** el store es por workspace, con el del dueño como DEFAULT heredado, y el
+copy-on-write es **por ENTRADA, no por store**. Esa distinción es la que importa: guardar
+el efectivo entero materializaría las 49 entradas en el workspace y lo congelaría — un
+aviso que el dueño mejore después ya no le llegaría a ese cliente. `mutar` lee lo efectivo
+(para no perder lo heredado al apagar) y escribe sólo lo propio.
+
+*2026-09-28*
+
+### El techo de una insistencia no puede ser configurable, y va en DOS lugares
+
+**Vive en:** `lib/flujos-tipos.ts` (INSISTIR_MAX_VECES, sanearInsistir, proximaSalida) ·
+`supabase/migrations/0180_insistencias.sql` (los CHECK) · `lib/insistencias.ts`
+
+El pedido, textual: «ellos quieren que cuando un lead de sus clientes entre al CRM, MaKo en
+WhatsApp le reviente a mensajes insistiendo que le LLAME». Lo que se quema es la línea de
+WhatsApp **del cliente**, no la nuestra.
+
+Decisión de Martín (28/09): **5 repeticiones, mínimo 30 minutos**, y no es configurable. El
+cliente elige dentro de ese marco y `sanearInsistir` recorta lo que se pase. Verificado
+contra el dev server con el caso literal: se pidieron `99 veces cada 1 minuto` y volvieron
+`5 cada 30`.
+
+**Las dos capas, que es la regla de AGENTS.md aplicada a un número y no a un prompt:** el
+saneo en el código y el `check` en la tabla. Verificado en prod que la base rechaza
+`veces=9` y `cada_min=1` — una fila escrita a mano desde el SQL editor tampoco puede
+armar un bucle.
+
+**Y los otros dos cortes que no se discuten:** cualquier «ok» en el grupo cierra TODAS las
+insistencias vivas de ese workspace (quien escribe está mirando el grupo: seguir
+insistiendo con otra cosa es el mismo ruido que esto viene a resolver), y de noche no sale
+nada — se corre a las 8.
+
+⚠️ **`esAcuse` mira sólo mensajes cortos (≤40 caracteres) y de otra persona (`fromMe`
+false).** Sin el largo, una charla del equipo que dijera «ok pero antes…» apagaría el aviso
+que justamente nadie leyó; sin `fromMe`, MaKo se acusaría recibo a sí misma — sus propios
+mensajes al grupo vuelven por el mismo webhook.
+
+*2026-09-28*
+
+### Un paso `esperar` que corta la ejecución es una promesa que la UI ya estaba haciendo
+
+**Vive en:** `lib/flujos.ts` (ejecutarPasos) · `app/agencia/FlujoEditor.tsx`
+
+`ejecutarPasos` tenía `if (paso.tipo === 'esperar') break;` con el comentario «necesitan el
+cron drenador (pendiente)». O sea: el editor de flujos dejaba poner una espera, y cualquier
+flujo que la usara se ejecutaba hasta ahí y moría **en silencio**. El «cada cuánto» de la
+tarea no existía, aunque la pantalla lo ofreciera.
+
+Lo que se construyó para la insistencia (tabla + cron `7,37 * * * *` + compare-and-set al
+drenar) es el molde de lo que le falta a `esperar`, que sigue sin drenador.
+
+*2026-09-28*
+
+### Los avisos EN VIVO no pasan por el motor de flujos
+
+**Vive en:** `lib/avisos.ts` (emitirAviso) · `lib/notif-catalogo.ts` (AVISOS_WA_EN_VIVO)
+
+Hay dos caminos por los que sale un mensaje y es fácil creer que son uno: los **flujos**
+(`dispararEvento`, cableado en 5 webhooks) y los **avisos** (`emitirAviso`, el choke point
+de los 15 en vivo). Configurar la insistencia en una plantilla no hacía nada hasta
+engancharla **en `emitirAviso`**, porque los avisos no pasan por el motor.
+
+Dato al pasar: **5 de los avisos en vivo no existen en el catálogo de voz**
+(`wa-mensaje`, `wa-mensaje-empresa`, `wa-plantilla`, `plan-proyecto-vence`,
+`avisos-resumen`), así que su texto de referencia arranca vacío. La pantalla lo dice en el
+placeholder en vez de mostrar un campo vacío sin explicación.
+
+*2026-09-28*
+
+### Lo que sigue sin hacer
+
+- **`esperar` sigue sin drenador**: el paso existe, la UI lo ofrece y corta la ejecución.
+- **El disparador no se edita desde el cliente**, a propósito: los 15 avisos en vivo tienen
+  su enganche cableado en el webhook. Si el pedido crece a «quiero un aviso nuevo con mi
+  propio disparador», eso es un FLUJO y hoy sólo se arma desde `/agencia`.
+- Las tareas hermanas quedaron sin tocar: **#287** (el problema es de JERARQUÍA, no de
+  volumen — él ya apagó avisos y siguió sin ver el que importaba), **#800** (SLA por etapa)
+  y **#345** (anuncio rechazado), que son disparadores nuevos para este mismo molde.
