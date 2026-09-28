@@ -57,6 +57,16 @@ export type CuentasProp = {
   planPorWs?: Record<number, string>;
   /** El equipo de cada cliente con cuenta, para la tab «Equipo» de su ficha. */
   equipoPorWs?: Record<number, MiembroDeCliente[]>;
+  /** Lo que ESTA agencia ya pidió sumar, por cliente (mig 0178). */
+  altasPorWs?: Record<number, AltaPedida[]>;
+  /** Si se dibuja el formulario de pedir. El permiso lo vuelve a hacer el server. */
+  puedePedirAltas?: boolean;
+};
+
+/** Un pedido de alta como lo dibuja la ficha. Lo arma el server (page.tsx). */
+export type AltaPedida = {
+  id: number; cliente_ws: number; email: string; nombre: string; rol_ws: string;
+  estado: string; motivo: string | null; created_at: string;
 };
 
 export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {

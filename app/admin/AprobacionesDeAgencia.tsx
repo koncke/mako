@@ -19,13 +19,30 @@
 // dice en vez de desaparecer: desaparecer haría indistinguible «nadie pidió
 // nada» de «no pude preguntar», y la segunda deja a una agencia esperando una
 // firma que nadie sabe que tiene pendiente.
+//
+// ⚠️ DESDE EL 28/09/2026 FIRMA DOS COSAS, Y NO SON LA MISMA. «En super admin, me
+// tienen que aparecer las notificaciones de cuando una agencia intenta agregar a
+// un nuevo usuario, para poder aceptarlo o rechazarlo». Una CARTERA es dejar
+// mirar; un ALTA es crear una cuenta y mandar un mail. Comparten el bloque —es la
+// misma bandeja y la misma pregunta, «¿qué espera mi firma?»— y no comparten
+// endpoint: mezclarlos haría que aflojar el guard de uno se lleve puesto al otro.
 
 import { useCallback, useEffect, useState } from 'react';
+import { ROTULO_ROL, type RolAlta } from '@/lib/agencia-altas';
 
 type Pendiente = {
   agencia_ws: number; cliente_ws: number; estado: string;
   decidido_por: string | null; created_at: string;
 };
+
+type Alta = {
+  id: number; agencia_ws: number; cliente_ws: number;
+  email: string; nombre: string; rol_ws: string;
+  pedido_por: string | null; created_at: string;
+};
+
+/** Lo que el server contesta al firmar un alta: el aviso es lo que la persona lee. */
+type AvisoAlta = { tono: 'ok' | 'warn'; texto: string };
 
 type Ws = { id: number; nombre: string };
 
@@ -37,6 +54,7 @@ type Ws = { id: number; nombre: string };
  */
 export function useAgencias() {
   const [pendientes, setPendientes] = useState<Pendiente[] | null>(null);
+  const [altas, setAltas] = useState<Alta[] | null>(null);
   const [agencias, setAgencias] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +64,7 @@ export function useAgencias() {
       if (!j?.ok) { setError(j?.error ?? 'No pude leer los pedidos de las agencias.'); return; }
       setError(null);
       setPendientes(j.pendientes as Pendiente[]);
+      setAltas((j.altas ?? []) as Alta[]);
       setAgencias(((j.agencias ?? []) as { ws: number }[]).map((a) => a.ws));
     } catch {
       setError('No pude leer los pedidos de las agencias.');
@@ -53,7 +72,7 @@ export function useAgencias() {
   }, []);
 
   useEffect(() => { void cargar(); }, [cargar]);
-  return { pendientes, agencias, error, setError, cargar };
+  return { pendientes, altas, agencias, error, setError, cargar };
 }
 
 export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
@@ -61,8 +80,30 @@ export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
   recargar: () => Promise<void> | void;
   estado: ReturnType<typeof useAgencias>;
 }) {
-  const { pendientes: filas, error, setError, cargar } = estado;
+  const { pendientes: filas, altas, error, setError, cargar } = estado;
   const [ocupado, setOcupado] = useState<string | null>(null);
+  /** El resultado de la última firma de un alta, pegado a SU renglón. Un aviso
+   *  global no diría a cuál de los pedidos se le creó la cuenta. */
+  const [aviso, setAviso] = useState<{ id: number; aviso: AvisoAlta } | null>(null);
+
+  const decidirAlta = async (a: Alta, nuevo: 'aprobada' | 'rechazada') => {
+    const clave = `alta-${a.id}`;
+    setOcupado(clave);
+    setAviso(null);
+    try {
+      const j = await (await fetch('/api/admin/agencia/altas', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: a.id, estado: nuevo }),
+      })).json();
+      if (!j?.ok) { setError(j?.error ?? 'No se pudo aplicar.'); return; }
+      if (j.aviso) setAviso({ id: a.id, aviso: j.aviso as AvisoAlta });
+      await cargar();
+      // El alta creó un usuario: la lista de la pantalla de atrás quedó vieja.
+      await recargar();
+    } catch {
+      setError('No se pudo aplicar.');
+    } finally { setOcupado(null); }
+  };
 
   const decidir = async (f: Pendiente, estado: 'aprobado' | 'revocado') => {
     const clave = `${f.agencia_ws}-${f.cliente_ws}`;
@@ -80,8 +121,8 @@ export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
     } finally { setOcupado(null); }
   };
 
-  // Ni pedidos ni error: no hay nada que decir y el bloque no ocupa lugar.
-  if (!error && (!filas || filas.length === 0)) return null;
+  // Ni pedidos, ni altas, ni error: no hay nada que decir y el bloque no ocupa lugar.
+  if (!error && !filas?.length && !altas?.length) return null;
 
   const nombreDe = (id: number) => workspaces.find((w) => w.id === id)?.nombre ?? `Workspace ${id}`;
 
@@ -92,11 +133,11 @@ export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
       display: 'flex', flexDirection: 'column', gap: 12,
     }}>
       <div>
-        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>Vista de agencia</div>
+        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>Pedidos de las agencias</div>
         {/* Una frase. Lo que hay que saber para decidir es QUIÉN mira a QUIÉN, y
             eso está en cada renglón: acá sólo va la consecuencia de firmar. */}
         <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4 }}>
-          Al aprobar, esa agencia entra al dashboard de ese cliente.
+          Entrar al dashboard de un cliente, o sumarle a alguien al equipo.
         </div>
       </div>
 
@@ -122,6 +163,40 @@ export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
                 {trabajando ? 'Aplicando…' : 'Dejar entrar'}
               </button>
             </span>
+          </div>
+        );
+      })}
+
+      {(altas ?? []).map((a) => {
+        const clave = `alta-${a.id}`;
+        const trabajando = ocupado === clave;
+        return (
+          <div key={clave}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 11,
+              background: 'var(--surface-2)',
+            }}>
+              <span style={{ fontSize: 14, color: 'var(--ink)', minWidth: 0 }}>
+                <b>{nombreDe(a.agencia_ws)}</b> quiere sumar a <b>{a.email}</b> al equipo
+                de <b>{nombreDe(a.cliente_ws)}</b> como {ROTULO_ROL[a.rol_ws as RolAlta] ?? a.rol_ws}
+              </span>
+              <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button type="button" disabled={trabajando} onClick={() => void decidirAlta(a, 'rechazada')}
+                  style={btn('var(--border-strong)', 'var(--dim)')}>No sumarlo</button>
+                {/* ⚠️ EL BOTÓN DICE LA CONSECUENCIA Y NO «Aprobar»: esto crea una cuenta
+                    y manda un mail, y eso no se deshace. «Aceptar» no lo dice. */}
+                <button type="button" disabled={trabajando} onClick={() => void decidirAlta(a, 'aprobada')}
+                  style={btn('var(--primary)', 'var(--primary)')}>
+                  {trabajando ? 'Creando…' : 'Crear la cuenta'}
+                </button>
+              </span>
+            </div>
+            {aviso?.id === a.id && (
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, lineHeight: 1.5, color: aviso.aviso.tono === 'ok' ? 'var(--good)' : 'var(--warn)' }}>
+                {aviso.aviso.texto}
+              </div>
+            )}
           </div>
         );
       })}

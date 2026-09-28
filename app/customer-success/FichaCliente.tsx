@@ -46,7 +46,8 @@ import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
 import { colorDe } from './ClienteCard';
 import { guardarDatosClienteAction } from './actions';
-import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente } from './CuentaDeMaKo';
+import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente, type AltaPedida } from './CuentaDeMaKo';
+import { ROTULO_ALTA, ROTULO_ROL, ROLES_ALTA, emailUtilizable, type EstadoAlta, type RolAlta } from '@/lib/agencia-altas';
 
 export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicial, onImagen, onCerrar }: {
   c: ClienteCruce;
@@ -83,12 +84,29 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
    * consulta, y esta ficha se sacó ese cartel de encima a propósito.
    */
   const equipo = c.clienteWs ? cuentas?.equipoPorWs?.[c.clienteWs] : undefined;
+  /** Lo que esta agencia ya pidió sumar acá, en los tres estados (mig 0178). */
+  const altas = c.clienteWs ? cuentas?.altasPorWs?.[c.clienteWs] : undefined;
+  /**
+   * ¿Puede PEDIR sumar a alguien?
+   *
+   * ⚠️ TRES CONDICIONES Y LAS TRES SON DISTINTAS: que sea una agencia habilitada y
+   * admin de su workspace (`puedePedirAltas`), que NO sea el super admin —él suma
+   * directo desde el panel de la plataforma, y pedirse permiso a sí mismo no es
+   * nada— y que este cliente esté APROBADO. Y ninguna protege: el server las vuelve
+   * a hacer contra la base en cada request. Acá sólo deciden si se dibuja.
+   */
+  const puedePedir = Boolean(
+    c.clienteWs && cuentas?.puedePedirAltas && !cuentas.superAdmin
+    && cuentas.estadoPorWs[c.clienteWs] === 'aprobado',
+  );
 
-  /** ⚠️ UNA SOLA TAB NO SON TABS: sin equipo que mostrar, la fila no se dibuja y el
-   *  tablero queda como estaba. Una barra de un solo destino es ruido con cara de mapa. */
+  /** ⚠️ UNA SOLA TAB NO SON TABS: sin equipo, sin pedidos y sin poder pedir, la fila
+   *  no se dibuja y el tablero queda como estaba. Una barra de un solo destino es
+   *  ruido con cara de mapa. */
+  const hayEquipo = Boolean(equipo?.length || altas?.length || puedePedir);
   const tabs = [
     { id: 'tablero', label: 'Tablero' },
-    ...(equipo?.length ? [{ id: 'equipo', label: 'Equipo', badge: equipo.length }] : []),
+    ...(hayEquipo ? [{ id: 'equipo', label: 'Equipo', badge: equipo?.length ?? 0 }] : []),
   ];
   const [tab, setTab] = useState(
     tabInicial && tabs.some((t) => t.id === tabInicial) ? tabInicial : 'tablero',
@@ -262,7 +280,9 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
       {tabs.length > 1 && <Tabs tabs={tabs} activa={tab} onCambio={setTab} />}
 
       {tab === 'equipo' ? (
-        <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} />
+        <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} altas={altas ?? []}
+          clienteWs={c.clienteWs ?? null} puedePedir={puedePedir}
+          onError={setMal} onPedido={() => router.refresh()} />
       ) : !trabajo ? (
         // «No pude leer» no se pinta como «no tiene trabajo»: son dos pantallas, y la
         // segunda sobre la primera es la mentira que nadie audita.
@@ -480,6 +500,26 @@ const CSS = `
 .fc-eq .rol{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
   background:var(--surface-2); color:var(--dim); }
 .fc-eq-nada{ margin:16px 2px; font-size:13.5px; color:var(--faint); }
+/* Un pedido todavia no es una persona de la cuenta: se ve, y se ve que no esta. */
+.fc-eq li.pend{ opacity:.72; }
+.fc-eq .est{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
+  background:var(--warn-bg); color:var(--warn); white-space:nowrap; }
+.fc-eq .est.mal{ background:var(--bad-bg); color:var(--bad); }
+
+.fc-sumar{ margin-top:14px; border:1px dashed var(--border-strong); background:none;
+  border-radius:10px; padding:9px 14px; font:inherit; font-size:13px; font-weight:600;
+  color:var(--dim); cursor:pointer; }
+.fc-sumar:hover{ color:var(--primary); border-color:var(--primary); }
+.fc-pedir{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:14px; }
+.fc-in{ flex:1 1 180px; min-width:0; border:1px solid var(--border); border-radius:9px;
+  padding:9px 11px; font:inherit; font-size:13.5px; background:var(--surface);
+  color:var(--ink); }
+.fc-sel{ flex:0 0 130px; }
+.fc-ok, .fc-no{ flex:none; border-radius:9px; padding:9px 14px; font:inherit; font-size:13px;
+  font-weight:600; cursor:pointer; }
+.fc-ok{ border:1px solid var(--primary); background:var(--primary); color:#fff; }
+.fc-ok:disabled{ opacity:.5; cursor:default; }
+.fc-no{ border:1px solid var(--border); background:var(--surface); color:var(--dim); }
 
 @media(prefers-reduced-motion:reduce){ .fc-avcap, .fc-cambiar{ transition:none; } }
 `;
@@ -495,25 +535,106 @@ const CSS = `
  * botón acá abriría una segunda puerta a la misma escritura, con su propio guard que
  * mantener.
  */
-function EquipoDelCliente({ nombre, equipo }: {
+function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, onError, onPedido }: {
   nombre: string;
   equipo: MiembroDeCliente[];
+  /** Lo que esta agencia pidió. Los pendientes van en la MISMA lista: ver abajo. */
+  altas: AltaPedida[];
+  clienteWs: number | null;
+  puedePedir: boolean;
+  onError: (m: string) => void;
+  onPedido: () => void;
 }) {
-  if (equipo.length === 0) {
-    // «Todavía nadie» y «no lo pude leer» son dos cosas; acá la lista viene con el HTML
-    // y filtrada por el server, así que vacía significa vacía y se puede decir.
-    return <p className="fc-eq-nada">Nadie más entra a la cuenta de {nombre} todavía.</p>;
-  }
+  const [pidiendo, setPidiendo] = useState(false);
+  const [mandando, setMandando] = useState(false);
+  const [email, setEmail] = useState('');
+  const [nom, setNom] = useState('');
+  const [rol, setRol] = useState<RolAlta>('admin');
+
+  // ⚠️ LOS RECHAZADOS TAMBIÉN SE VEN. Un pedido que desaparece hace indistinguible
+  // «se lo rechazaron» de «nunca lo mandé», y la agencia lo vuelve a pedir o se queda
+  // esperando una firma que ya se dio. Los aprobados NO: ésos ya son una persona de la
+  // lista de arriba, y repetirlos sería contar dos veces a la misma.
+  const visibles = altas.filter((a) => a.estado !== 'aprobada');
+
+  const pedir = async () => {
+    if (!clienteWs || !emailUtilizable(email) || mandando) return;
+    setMandando(true);
+    onError('');
+    try {
+      const j = await (await fetch('/api/agencia/altas', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ clienteWs, email: email.trim(), nombre: nom.trim(), rolWs: rol }),
+      })).json();
+      if (!j?.ok) { onError(j?.error ?? 'No se pudo pedir.'); return; }
+      setEmail(''); setNom(''); setPidiendo(false);
+      // `router.refresh()` y no un reload: qué cliente está abierto es estado de React
+      // en ClientesApp y no viaja en la URL, así que recargar CIERRA la ficha.
+      onPedido();
+    } catch {
+      onError('No se pudo pedir.');
+    } finally { setMandando(false); }
+  };
+
   return (
-    <ul className="fc-eq">
-      {equipo.map((u) => (
-        <li key={u.id}>
-          <Marca icono={null} foto={u.foto} nombre={u.nombre} tam={34} color={colorDe(u.nombre)} />
-          <span className="t"><b>{u.nombre}</b><span>{u.email}</span></span>
-          <span className="rol">{ROL_EQUIPO[u.rol] ?? u.rol}</span>
-        </li>
+    <>
+      {equipo.length === 0 && visibles.length === 0 ? (
+        // «Todavía nadie» y «no lo pude leer» son dos cosas; acá la lista viene con el
+        // HTML y filtrada por el server, así que vacía significa vacía y se puede decir.
+        <p className="fc-eq-nada">Nadie más entra a la cuenta de {nombre} todavía.</p>
+      ) : (
+        <ul className="fc-eq">
+          {equipo.map((u) => (
+            <li key={u.id}>
+              <Marca icono={null} foto={u.foto} nombre={u.nombre} tam={34} color={colorDe(u.nombre)} />
+              <span className="t"><b>{u.nombre}</b><span>{u.email}</span></span>
+              <span className="rol">{ROL_EQUIPO[u.rol] ?? u.rol}</span>
+            </li>
+          ))}
+          {/* ⚠️ LOS PEDIDOS VAN EN LA MISMA LISTA Y ATENUADOS, no en un bloque aparte.
+              La pregunta que contesta esta tab es «¿quién entra a esta cuenta?», y la
+              respuesta incluye a quien está a una firma de entrar. Un segundo bloque
+              obliga a leer dos listas para contestar una sola pregunta. */}
+          {visibles.map((a) => (
+            <li key={'alta-' + a.id} className="pend">
+              <Marca icono={null} foto={null} nombre={a.nombre || a.email} tam={34} color={colorDe(a.email)} />
+              <span className="t">
+                <b>{a.nombre || a.email}</b>
+                {a.nombre && <span>{a.email}</span>}
+              </span>
+              <span className="rol">{ROTULO_ROL[a.rol_ws as RolAlta] ?? a.rol_ws}</span>
+              <span className={a.estado === 'rechazada' ? 'est mal' : 'est'}>
+                {ROTULO_ALTA[a.estado as EstadoAlta] ?? a.estado}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {puedePedir && (pidiendo ? (
+        <div className="fc-pedir">
+          <input className="fc-in" type="email" value={email} placeholder="persona@empresa.com"
+            autoFocus onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void pedir(); }} />
+          <input className="fc-in" value={nom} placeholder="Nombre (opcional)"
+            onChange={(e) => setNom(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void pedir(); }} />
+          <select className="fc-in fc-sel" value={rol} onChange={(e) => setRol(e.target.value as RolAlta)}
+            aria-label="Rol en el negocio">
+            {ROLES_ALTA.map((r) => <option key={r} value={r}>{ROTULO_ROL[r]}</option>)}
+          </select>
+          {/* ⚠️ EL BOTÓN DICE QUE ESTO NO CREA NADA. «Sumar» prometería que la persona
+              ya entra, y lo que pasa es que el pedido queda esperando una firma. */}
+          <button type="button" className="fc-ok" disabled={!emailUtilizable(email) || mandando}
+            onClick={() => void pedir()}>{mandando ? 'Pidiendo…' : 'Pedir'}</button>
+          <button type="button" className="fc-no" onClick={() => setPidiendo(false)}>Cancelar</button>
+        </div>
+      ) : (
+        <button type="button" className="fc-sumar" onClick={() => setPidiendo(true)}>
+          Pedir sumar a alguien
+        </button>
       ))}
-    </ul>
+    </>
   );
 }
 

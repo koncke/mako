@@ -24,7 +24,7 @@ import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { AdminView } from '@/app/admin/AdminView';
-import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
+import { carteraDeAgencia, esAgencia, altasDeAgencia } from '@/lib/agencia';
 import { clientesAprobados } from '@/lib/agencia-cartera';
 import { capaDef } from '@/lib/capas';
 import { listarWorkspaces } from '@/lib/workspace';
@@ -113,6 +113,16 @@ export default async function CustomerSuccessPage() {
   // APROBADOS. Con la cartera vacía no se lee nada — que es el caso de todo cliente
   // común, o sea el 99% de las visitas a esta pantalla.
   const mios = clientesAprobados(agenciaWs, cartera);
+
+  // Lo que esta agencia ya pidió, agrupado por cliente. Viene con el HTML por lo
+  // mismo que todo lo demás de esta pantalla: la ficha es un modal sin estado de
+  // carga. ⚠️ Y SE LEE AUNQUE NO HAYA APROBADOS: un pedido sobre un cliente que
+  // después se revocó tiene que seguir viéndose, o la agencia lo pide de nuevo
+  // contra un índice único que ya lo tiene.
+  const altasPorWs: Record<number, Awaited<ReturnType<typeof altasDeAgencia>>> = {};
+  if (esAg && agenciaWs) {
+    for (const a of await altasDeAgencia(agenciaWs)) (altasPorWs[a.cliente_ws] ??= []).push(a);
+  }
   const { planPorWs, equipoPorWs } = mios.length
     ? await datosDeMisClientes(mios)
     : { planPorWs: {}, equipoPorWs: {} };
@@ -137,6 +147,12 @@ export default async function CustomerSuccessPage() {
     // Para DIBUJAR el chip del plan y la tab de Equipo. Vacíos cuando no hay cartera.
     planPorWs,
     equipoPorWs,
+    altasPorWs,
+    // Quién puede PEDIR un alta. Es la misma condición que abrir una cuenta —agencia
+    // habilitada + admin de este workspace—, y la de verdad la vuelve a hacer el server
+    // en cada request contra la cartera (`puedeEntrarAhora`). Acá sólo decide si se
+    // dibuja el formulario: esconder un botón no protege nada.
+    puedePedirAltas: esAg && (await adminDeWorkspaceActual()) != null,
   };
 
   return (

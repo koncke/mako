@@ -1,7 +1,7 @@
 // =============================================================================
 // /api/admin/agencia — el super admin aprueba (o corta) la vista de una agencia
 // =============================================================================
-// GET                                        → lo que espera su firma.
+// GET                                        → lo que espera su firma (carteras + altas).
 // POST { agenciaWs, clienteWs, estado, motivo } → aprobar | revocar | volver a pendiente.
 //
 // ⚠️ ES UNA RUTA PROPIA Y NO UN `action` MÁS DE /api/admin/workspaces, porque no
@@ -18,7 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
-import { pendientesDeAprobar, agenciasHabilitadas } from '@/lib/agencia';
+import { pendientesDeAprobar, agenciasHabilitadas, altasPendientes } from '@/lib/agencia';
 import { esWsValido, ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +29,11 @@ export async function GET() {
     ok: true,
     pendientes: await pendientesDeAprobar(),
     agencias: await agenciasHabilitadas(),
+    // ⚠️ VIENE EN LA MISMA LECTURA que las carteras, aunque se firme en otra ruta.
+    // Las dos cosas las dibuja el MISMO bloque de la pantalla, y dos fetch para un
+    // bloque es cómo termina diciendo «no hay nada» de un lado mientras el otro
+    // todavía carga. Firmarlas por separado es otra pregunta (ver ./altas).
+    altas: await altasPendientes(),
   });
 }
 

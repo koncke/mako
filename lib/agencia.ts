@@ -261,3 +261,122 @@ export async function agenciasHabilitadas(): Promise<{ ws: number }[]> {
     return [];
   }
 }
+
+// =============================================================================
+// Las ALTAS que una agencia pide (mig 0178)
+// =============================================================================
+// «En super admin, me tienen que aparecer las notificaciones de cuando una agencia
+// intenta agregar a un nuevo usuario, para poder aceptarlo o rechazarlo»
+// (27/09/2026). El juicio y el saneo viven en `lib/agencia-altas.ts`, sin
+// `server-only`; acá está la base, con el mismo criterio que la cartera de arriba:
+// una lectura que falla devuelve `[]` para que la pantalla siga viva, y toda
+// escritura vuelve a preguntar el permiso.
+
+/** Una fila de `agencia_altas` como la dibujan las dos pantallas. */
+export type FilaAlta = {
+  id: number;
+  agencia_ws: number;
+  cliente_ws: number;
+  email: string;
+  nombre: string;
+  rol_ws: string;
+  estado: string;
+  pedido_por: string | null;
+  decidido_por: string | null;
+  decidido_at: string | null;
+  motivo: string | null;
+  usuario_id: number | null;
+  created_at: string;
+};
+
+const COLS_ALTA =
+  'id, agencia_ws, cliente_ws, email, nombre, rol_ws, estado, pedido_por, decidido_por, decidido_at, motivo, usuario_id, created_at';
+
+/** Todo lo que espera la firma del super admin, de todas las agencias. */
+export async function altasPendientes(): Promise<FilaAlta[]> {
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('agencia_altas').select(COLS_ALTA).eq('estado', 'pendiente').order('created_at');
+    if (error) throw error;
+    return (data ?? []) as FilaAlta[];
+  } catch {
+    return [];
+  }
+}
+
+/** Lo que ESTA agencia pidió, en los tres estados. Es lo que dibuja la ficha del cliente. */
+export async function altasDeAgencia(agenciaWs: number): Promise<FilaAlta[]> {
+  if (!esWsValido(agenciaWs)) return [];
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('agencia_altas').select(COLS_ALTA).eq('agencia_ws', agenciaWs).order('created_at');
+    if (error) throw error;
+    return (data ?? []) as FilaAlta[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Deja un pedido. Devuelve la fila, o el motivo por el que no se pudo.
+ *
+ * ⚠️ NO CHEQUEA EL PERMISO: eso lo hace `puedeEntrarAhora` en la ruta, contra la base
+ * y en el mismo request. Acá llega ya sanado (`sanearPedido`) y ya autorizado.
+ *
+ * ⚠️ Y EL DUPLICADO LO ATAJA LA BASE, no un SELECT previo. El índice parcial único de
+ * la 0178 (`cliente_ws` + email en minúsculas, sólo sobre 'pendiente') es lo único
+ * que sobrevive a dos pestañas y a un doble click: un «¿ya existe?» seguido de un
+ * insert es la carrera de siempre. El 23505 se traduce a una frase en vez de a un 500.
+ */
+export async function pedirAlta(p: {
+  agenciaWs: number; clienteWs: number; email: string; nombre: string; rolWs: string; pedidoPor: string | null;
+}): Promise<{ ok: true; fila: FilaAlta } | { ok: false; error: string }> {
+  const { data, error } = await getSupabaseServer()
+    .from('agencia_altas')
+    .insert({
+      agencia_ws: p.agenciaWs, cliente_ws: p.clienteWs,
+      email: p.email, nombre: p.nombre, rol_ws: p.rolWs, pedido_por: p.pedidoPor,
+    })
+    .select(COLS_ALTA).single();
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: 'Ya pediste sumar a esa persona: está esperando aprobación.' };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, fila: data as FilaAlta };
+}
+
+/**
+ * Firma un pedido: lo reclama y devuelve la fila.
+ *
+ * ⚠️ RECLAMA ANTES DE QUE NADIE ACTÚE (`.eq('estado','pendiente')`), que es la misma
+ * regla que `reclamarPendiente` de la API de MaKo. Sin eso, dos pestañas del super
+ * admin —o un doble click— aprobarían el mismo pedido dos veces, y aprobar significa
+ * CREAR UNA CUENTA y mandar un mail: la segunda vez rebota contra el único de
+ * `usuarios.email` con un error que no dice nada. Sin fila devuelta, alguien llegó
+ * primero y el llamador NO tiene que crear nada.
+ */
+export async function reclamarAlta(
+  id: number,
+  estado: 'aprobada' | 'rechazada',
+  decididoPor: string,
+  motivo?: string,
+): Promise<FilaAlta | null> {
+  const { data, error } = await getSupabaseServer()
+    .from('agencia_altas')
+    .update({
+      estado, decidido_por: decididoPor, decidido_at: new Date().toISOString(),
+      motivo: motivo?.trim().slice(0, 300) || null,
+    })
+    .eq('id', id).eq('estado', 'pendiente')
+    .select(COLS_ALTA).maybeSingle();
+  if (error) throw new Error(`agencia_altas: ${error.message}`);
+  return (data as FilaAlta | null) ?? null;
+}
+
+/** Anota en qué terminó un alta aprobada. Falla en silencio: la cuenta YA se creó,
+ *  y tirar acá dejaría al super admin pensando que el alta no salió. */
+export async function anotarUsuarioDeAlta(id: number, usuarioId: number): Promise<void> {
+  try {
+    await getSupabaseServer().from('agencia_altas').update({ usuario_id: usuarioId }).eq('id', id);
+  } catch { /* el rastro es lo que se pierde, no el alta */ }
+}
