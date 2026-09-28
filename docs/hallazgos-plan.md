@@ -4962,3 +4962,112 @@ proyecto P33») se aplicaba adentro de la ficha, donde ese proyecto casi nunca e
 tablero del cliente aparecía vacío y se leía como «no tiene nada asignado» — una afirmación
 falsa sobre su cartera. Es el mismo bug que `prefs.ts` documenta entre workspaces, un nivel
 más adentro.
+
+
+## Montar el tablero de OTRO workspace: el ws no viaja por el componente, viaja por la PESTAÑA
+
+Cosechado el 28/09/2026, del pedido «aun no veo el plan, las tareas y proyectos de cada
+cliente» sobre la ficha de un cliente en el panel de la plataforma. Salió de un relevo de
+4 lectores + refutación, y el resultado cambió el plan: lo que parecía «montar el board
+como ya lo hace Customer Success» era una escritura cruzada de inquilino.
+
+**Vive en:** `lib/tablero-de-capa.ts` · `lib/tablero-de-workspace.ts` · `app/api/admin/tablero/route.ts` · `app/admin/TableroDelCliente.tsx` · `app/plan/board/Tablas.tsx`
+
+### El diagnóstico obvio era el equivocado: el Repo no es por dónde se escribe
+
+`BoardShell` recibe un `Repo`, y el Repo tiene UN solo `fetch` por tablero (`api()` en
+`TodoBoard`, `apiPlan()` en `repo-plan.ts`). Eso invita a pensar que parchear ese `fetch`
+alcanza para que las escrituras caigan en otro workspace.
+
+**No alcanza: son 24 `fetch` en 11 archivos.** Los 2 de los Repos más **22 que el board
+dispara por su cuenta**, contra 8 rutas distintas — `/api/plan-buscar`,
+`/api/plan-propuesta`, `/api/mako-guardian`, `/api/checklist-coach`, `/api/plan-dictado`,
+`/api/plan-fathom`, `/api/plan-reunion` y `/api/portadas` —, más dos llamadas a `apiPlan`
+fuera del Repo. Ninguno de esos 22 sabe nada del Repo.
+
+Y el workspace de todos ellos **no sale del componente**: sale de la URL de la pestaña
+(`WsFetch` lee `?ws=`, `proxy.ts` lo valida contra la cookie firmada y lo traduce al
+header interno). Parchear 2 de 24 deja 22 escribiendo en el inquilino equivocado.
+
+### Y la escritura equivocada no falla: CLONA
+
+`lib/plan-board.ts` hace `upsert` con `onConflict: 'workspace_id,id'`. Con el workspace
+del que MIRA, arrastrar una tarjeta del cliente no edita su tarea: **le inserta una copia
+al tablero del super admin**. HTTP 200, sin error, y la fila duplicada en otro inquilino.
+Los `delete`/`update` son peores de ver: se convierten en no-ops de 0 filas.
+
+**La regla que queda: antes de montar una pantalla que escribe adentro de otra, no cuentes
+los endpoints del contrato — contá los `fetch`.** Un `grep -c "fetch("` sobre el subárbol
+del componente es la medición, y la diferencia entre 2 y 24 es la diferencia entre un
+parche y un agujero.
+
+### `runWithWorkspace` mueve de dónde se LEE, no la SESIÓN
+
+La forma natural de leer el tablero de otro workspace es envolver lo que ya existe:
+`runWithWorkspace(13, () => filasDeTodos())`. Compila, corre y devuelve `[]`.
+
+Porque adentro, `tableroActual()` sigue preguntando por QUIEN MIRA («soy admin y no estoy
+impersonando» → `'dueno'`), así que lee `plan_tareas` del ws13 — que tiene **cero filas**.
+Sin un error, sin un log, y con la ficha diciendo «este cliente no tiene trabajo». Es el
+mismo bug del 26/09 con las tablas invertidas, servido por el otro lado.
+
+**Son dos preguntas distintas y ahora son dos funciones:** `tableroActual()` contesta por
+el que mira y `tableroDeWorkspace(ws)` por el mirado. Si una lectura cruza de inquilino, la
+segunda es la única que sirve.
+
+⚠️ **Y el predicado estaba escrito CINCO veces** —`app/api/agente/plan/route.ts`,
+`lib/plan-propuesta.ts`, `lib/reunion-auto.ts`, `lib/api-mako/areas/plan.helpers.ts` y
+`lib/mako-tools.ts`—, siempre como `(await getWorkspace(ws))?.capa === 'superadmin'`.
+Nadie lo importó de nadie por una razón concreta: **la versión que ya existía vivía detrás
+de `server-only`**, así que no se podía testear ni compartir, y cada uno la reescribió.
+Cuando veas la misma línea por tercera vez, mirá si la original no está atrapada detrás de
+una directiva.
+
+### «La prop ES la capacidad» estaba escrito en el archivo, y el archivo lo violaba
+
+`Tablas.tsx` documenta la regla con todas las letras: sin `onSoltar` la fila no se puede
+agarrar, sin `onEliminar` no dibuja el tacho. Y dos de sus propios controles la salteaban:
+el tilde de completar (`board.toggleDone`) y la celda de fecha (`board.setDeadline`)
+llamaban al board directo. Mientras la tabla vivió sólo adentro del tablero no se notó
+—ahí todo se puede escribir—; se notó en cuanto la montó alguien que no puede.
+
+⚠️ **Y hay un tercer caso que NINGUNA prop ausente puede apagar: la SELECCIÓN.** Es estado
+interno de la tabla (`useState`) y la barra de acciones la monta ella misma. Medido en el
+navegador: una tabla montada sin una sola capacidad de escritura igual dejaba tildar una
+fila y ofrecía **«Completar · Eliminar · Mover · Prioridad»**. Para eso no sirve la regla
+de la ausencia y hace falta un flag explícito (`soloLectura`), que además apaga la COLUMNA
+y no sólo la barra: una casilla que se tilda y no habilita nada es peor que ninguna.
+
+⚠️ **Al volver props tres capacidades, el typecheck NO avisa de los call sites viejos**,
+porque las props nuevas son opcionales. Los tres call sites del tablero real se enchufan a
+mano y se cuentan (`grep -c`), o el tablero se queda mudo sin que nada falle. Es
+literalmente «escribir la salida no es ofrecerla», del lado del que la saca.
+
+### Un `as` entre dos tipos que no se parecen es una afirmación, no una conversión
+
+El server devolvía las FILAS de la base y la tabla esperaba el modelo del board. El
+`trabajo.tareas as BoardTask[]` compila perfecto —los dos son objetos y TypeScript acepta
+el cast— y la pantalla revienta al dibujar con **«Cannot read properties of undefined
+(reading 'includes')»**, porque una fila no tiene `labels`. El error no nombra ni el campo
+ni el mapper: sale desde un chunk del board.
+
+Lo delata la cadena de mappers: el tablero del cliente va de fila a modelo en DOS pasos
+(`rowTo` → `toBoard`) y el del dueño en uno (`rowToTask`). Saltarse el segundo compila.
+
+### Lo que quedó SIN hacer
+
+- **No se puede editar el tablero de un cliente desde la ficha**, y es a propósito (todo lo
+  de arriba). Si algún día tiene que poderse, lo que hay que resolver primero es que el ws
+  viaje con el SUBÁRBOL y no con la pestaña — y no sirve un global mutable: el propio panel
+  hace fetch mientras el detalle está abierto, así que sería una carrera con escrituras
+  cayendo en el inquilino equivocado. Vive en `app/admin/TableroDelCliente.tsx`.
+- **Tres cosas rotas del board que se van a hacer visibles en cualquier embed**, y que el
+  relevo encontró de paso: `DependenciasBloque` se dibuja sin que el Repo lo soporte
+  (`BoardShell.tsx:4033`), `ampliarTareas` ausente descarta filas en silencio
+  (`BoardShell.tsx:1064`) y `ProyectoVacioBloque` tiene `/api/plan-board` cableado adentro
+  (`BoardShell.tsx:2965`) — o sea un endpoint adentro de un componente compartido, que es
+  justo lo que la regla de la casa prohíbe.
+- **`onMako` es un prop obligatorio de `ProjectDetailModal` que el componente no usa**, con
+  dos call sites que se lo pasan. Vive en `app/plan/board/BoardShell.tsx`.
+- **El detalle de un proyecto no se abre desde la ficha** (el `onOpen` es un no-op): abrirlo
+  sería montar media pantalla más para no poder tocar nada. Queda anotado, no hecho.

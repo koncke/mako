@@ -305,6 +305,31 @@ export const BITACORA: Hito[] = [
       { sha: 'd86fb0d7', msg: 'El detalle de un cliente es LA MISMA PIEZA que el del plan', lineas: 900, archivos: 11 },
     ],
   },
+  {
+    fecha: '28 sep', hora: '13:10', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Falta el tablero de cada cliente',
+    pedido: 'Aun no veo el plan, las tareas y proyectos de cada cliente',
+    puntos: [
+      'Sobre la ficha del super admin, que hasta ese momento mostraba solo el EQUIPO.',
+    ],
+  },
+  {
+    fecha: '28 sep', hora: '16:20', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tablero del cliente en su ficha, de solo lectura — y el relevo explica por que',
+    puntos: [
+      '**El diagnostico obvio era el equivocado: el Repo NO es por donde se escribe.** El board tiene UN fetch por Repo, lo que invita a pensar que parchearlo alcanza para que las escrituras caigan en otro workspace. Son **24 fetch en 11 archivos**: los 2 de los Repos mas 22 que BoardShell dispara solo (el buscador, el dictado, la extraccion de reuniones, las tres subidas de imagen). Y el ws de todos ellos sale de la URL de la PESTAÑA, no del componente.',
+      '**Y la escritura equivocada no falla: CLONA.** `lib/plan-board.ts` hace upsert con `onConflict: workspace_id,id`, asi que arrastrar una tarjeta del cliente le inserta una copia al tablero del super admin. 200, sin error. Los delete y update son peores de ver: no-ops de 0 filas.',
+      '**`runWithWorkspace` mueve de donde se LEE, no la SESION.** Envolver `filasDeTodos()` —la salida natural— devuelve cero filas: adentro, `tableroActual()` sigue contestando por el que mira y lee `plan_tareas` del ws13, que esta vacia. Sin error, y la ficha diciendo «no tiene trabajo». Son dos preguntas y ahora son dos funciones.',
+      '**El predicado de que tablero le toca a un workspace estaba escrito CINCO veces**, y nadie lo importo de nadie por una razon concreta: el original vivia detras de `server-only`, asi que no se podia testear ni compartir. Cuando la misma linea aparece por tercera vez, hay que mirar si la original no esta atrapada detras de una directiva.',
+      '**«La prop ES la capacidad» estaba escrito en Tablas.tsx y el archivo lo violaba** en dos de sus controles (el tilde y la celda de fecha llamaban a `board` directo). Y hay un tercero que NINGUNA prop ausente puede apagar: la seleccion es estado interno, asi que una tabla sin una sola capacidad igual ofrecia «Completar · Eliminar · Mover · Prioridad». Medido en el navegador.',
+      '⚠️ Al volver props tres capacidades, **el typecheck no avisa de los call sites viejos** porque son opcionales. Los tres del tablero real se enchufaron a mano y se contaron.',
+      '**Un `as` entre dos tipos que no se parecen es una afirmacion, no una conversion.** Castear la fila de la base a `BoardTask` compila y revienta al DIBUJAR («Cannot read properties of undefined (reading includes)»), desde un chunk que no nombra ni el campo ni el mapper.',
+      'ABIERTO: no se puede editar desde la ficha, y para que se pueda hay que resolver antes que el ws viaje con el SUBARBOL y no con la pestaña. Y tres cosas del board que se veran en cualquier embed: `DependenciasBloque` se dibuja sin soporte del Repo, `ampliarTareas` ausente descarta filas en silencio, y `ProyectoVacioBloque` tiene un endpoint cableado adentro.',
+    ],
+    commits: [
+      { sha: '9e7d78aa', msg: 'El tablero de cada cliente, adentro de su ficha', lineas: 700, archivos: 16 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
