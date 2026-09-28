@@ -387,16 +387,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
   // aprobaciones y por el menu de cada workspace.
   const agenciasEstado = useAgencias();
   const esAgenciaWs = (id: number) => agenciasEstado.agencias.includes(id);
-  const marcarAgencia = async (id: number, habilitar: boolean) => {
-    if (accionando) return;
-    setErrAccion(null); setAccionando(true);
-    try {
-      const j = await (await fetch('/api/admin/agencia', { method: 'POST',
-        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ habilitar, ws: id }) })).json();
-      if (!j?.ok) { setErrAccion(j?.error ?? 'No se pudo aplicar el cambio.'); return; }
-      await agenciasEstado.cargar();
-    } finally { setAccionando(false); }
-  };
+
 
   // ── Buscar, filtrar y ordenar, con la misma barra que Clientes ──────────
   // ⚠️ LOS DICCIONARIOS SON DE ESTA PANTALLA y por eso viajan como parámetro: un
@@ -422,7 +413,13 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
     return por;
   }, [workspaces, q, filtro, orden, agenciasEstado.agencias]);
 
-  const puedeCrear = nombre.trim().length >= 2 && !creando;
+  // ⚠️ EL EMAIL ENTRA EN LA CONDICION. Antes el boton se habilitaba con el
+  // nombre solo, asi que se podia crear un cliente sin admin: un workspace al que
+  // nadie podia entrar y que no recibia nada. El server tambien lo exige —
+  // esconder el boton no protege— pero dejarlo habilitado sobre algo que el server
+  // va a rechazar es peor que no tenerlo.
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(adminEmail.trim());
+  const puedeCrear = nombre.trim().length >= 2 && emailOk && !creando;
   const wAbierto = abierto != null ? workspaces.find((w) => w.id === abierto) ?? null : null;
 
   /** Lo que el menú de acciones ofrece sobre un cliente. Es la MISMA lista que
@@ -443,17 +440,16 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       esDueno
         ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
         : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
-      // Quién puede TENER clientes propios (mig 0176). Es la decisión anterior a
-      // aprobar un cliente suelto: sin esto, cualquier cliente con la tab de
-      // Customer Success crearía workspaces.
-      { value: 'agencia', label: esAgenciaWs(w.id) ? 'Dejar de ser agencia' : 'Convertir en agencia' },
+      // ⛔ ACA ESTABA «Convertir en agencia», y se fue el 27/09/2026: ser agencia
+      // ES EL PLAN, asi que ya esta arriba como «Pasar a Agencia», con el mismo
+      // control que cualquier otro plan. Dos caminos para el mismo hecho es como
+      // uno de los dos se queda viejo.
     ];
   };
   const elegirAccion = (w: Workspace, v: string) => {
     if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
     else if (v.startsWith('capa:')) accionWs({ action: 'capa', id: w.id, capa: v.slice(5) });
     else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
-    else if (v === 'agencia') marcarAgencia(w.id, !esAgenciaWs(w.id));
   };
 
   return (
@@ -600,10 +596,9 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
           </div>
         );
       })()}
-
-      <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-        Cada cliente ve solo sus propios datos. El <b>Admin</b> del cliente ve todas las tabs de su negocio; <b>Closer</b> y <b>Setter</b> ven solo las suyas. &ldquo;Entrar como&rdquo; te mete en su dashboard para configurarlo o dar soporte.
-      </div>
+      {/* ⛔ Y ACA EL OTRO, al pie de la lista: «Cada cliente ve solo sus propios
+          datos…». Narraba lo que la pantalla ya hace y ocupaba el lugar del
+          contenido. */}
 
       {/* ── Los super admins, que eran una sub-tab ──────────────────────────── */}
       {/* «Elimina la sub tab de super admin, que esté todo junto» (27/09/2026).
@@ -626,9 +621,12 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
               </button>
             </>
           }>
-          <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.5 }}>
-            Cada cliente es un espacio de datos aislado. El <b>tipo</b> define qué compró: de él salen las tabs que ve, qué le pide el onboarding y qué se le siembra. El email del admin es opcional: si lo pones, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configuras tú entrando como el cliente.
-          </div>
+          {/* ⛔ ACA HABIA UN PARRAFO DE CUATRO RENGLONES explicando que es un
+              workspace, que hace el tipo y que el email era opcional. Se fue
+              (27/09/2026): «elimina todos los textos innecesarios». Lo que
+              explicaba un criterio vive en el comentario del codigo; lo que
+              decia el tipo ya lo dice la descripcion de abajo, que cambia con
+              lo que elegis. */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Nombre del cliente</label>
@@ -643,7 +641,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
                 onChange={(v) => setCapa(v as CapaId)} />
             </div>
             <div>
-              <label style={labelStyle}>Email del admin <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional)</span></label>
+              <label style={labelStyle}>Email del admin</label>
               <input style={input} type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="dueño@cliente.com"
                 onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) crear(); }} />
             </div>

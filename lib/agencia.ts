@@ -157,31 +157,6 @@ export async function esAgenciaConCartera(): Promise<boolean> {
 }
 
 /**
- * ¿Este workspace puede TENER clientes propios? (mig 0176)
- *
- * ⚠️ ES OTRA PREGUNTA QUE `carteraDeAgencia`, y separarlas es lo que cierra el
- * huevo-y-gallina. Si «es agencia» se dedujera de «tiene alguna fila en la
- * cartera», para conseguir la primera fila habría que poder pedirla — o sea que
- * CUALQUIER admin de CUALQUIER workspace podría darse de alta clientes y crear
- * workspaces nuevos en la plataforma. No expondría datos (la 0175 sigue
- * exigiendo la firma del super-admin para mirar adentro), pero deja a un
- * inquilino creando objetos de plataforma, que es una puerta que nadie abrió.
- *
- * Fail-closed: si no se puede preguntar, no es agencia.
- */
-export const esAgencia = cache(async (ws: number | null | undefined): Promise<boolean> => {
-  if (!esWsValido(ws)) return false;
-  try {
-    const { data, error } = await getSupabaseServer()
-      .from('agencias').select('ws').eq('ws', ws).limit(1);
-    if (error) throw error;
-    return (data ?? []).length > 0;
-  } catch {
-    return false;
-  }
-});
-
-/**
  * ¿De qué agencia es este cliente? — para DECIR la cadena, no para autorizar.
  *
  * ⚠️ SE DERIVA, NO SE PASA POR LA URL, y ésa es la decisión que evita un bug y un
@@ -228,13 +203,60 @@ export const agenciaDeCliente = cache(async (clienteWs: number | null | undefine
   }
 });
 
-/** Las agencias habilitadas, para que /admin las pueda listar y quitar. */
-export async function agenciasHabilitadas(): Promise<{ ws: number; habilitada_por: string | null; nota: string | null }[]> {
+/**
+ * ¿Este workspace puede TENER clientes propios? (mig 0176)
+ *
+ * ⚠️ ES OTRA PREGUNTA QUE `carteraDeAgencia`, y separarlas es lo que cierra el
+ * huevo-y-gallina. Si «es agencia» se dedujera de «tiene alguna fila en la
+ * cartera», para conseguir la primera fila habría que poder pedirla — o sea que
+ * CUALQUIER admin de CUALQUIER workspace podría darse de alta clientes y crear
+ * workspaces nuevos en la plataforma. No expondría datos (la 0175 sigue
+ * exigiendo la firma del super-admin para mirar adentro), pero deja a un
+ * inquilino creando objetos de plataforma, que es una puerta que nadie abrió.
+ *
+ * Fail-closed: si no se puede preguntar, no es agencia.
+ */
+/**
+ * ¿Este workspace puede TENER clientes propios?
+ *
+ * ⚠️ LO CONTESTA EL PLAN, y eso es un cambio de ayer. Nació como una tabla propia
+ * (`agencias`, mig 0176) con el argumento de que la capa dice «qué compró» y esto
+ * dice «qué puede hacer con otros workspaces» — dos ejes. El dueño lo miró al día
+ * siguiente y dijo lo contrario: «un cliente de Agencia NO es super admin y
+ * tampoco Completo, es Agencia». O sea que para él ser agencia ES el plan, y
+ * tenerlo en dos lugares era garantizar que un día digan cosas distintas.
+ *
+ * Lo que NO cambió, y es lo que la 0176 realmente vino a cerrar: esto sigue sin
+ * derivarse de `agencia_clientes`. Deducir «es agencia el que tenga alguna fila»
+ * deja un huevo-y-gallina con un solo lado abierto — para conseguir la primera
+ * fila hay que poder pedirla, así que cualquier admin crearía inquilinos en la
+ * plataforma. Acá lo decide el super admin poniendo el plan, que es un acto suyo.
+ *
+ * Fail-closed por partida doble: si no se puede leer, no es agencia; y si un valor
+ * desconocido entrara a la columna, `capaDef` cae a 'completo', que tampoco lo es.
+ */
+export const esAgencia = cache(async (ws: number | null | undefined): Promise<boolean> => {
+  if (!esWsValido(ws)) return false;
   try {
     const { data, error } = await getSupabaseServer()
-      .from('agencias').select('ws, habilitada_por, nota').order('ws');
+      .from('workspaces').select('capa').eq('id', ws).maybeSingle();
     if (error) throw error;
-    return (data ?? []) as { ws: number; habilitada_por: string | null; nota: string | null }[];
+    return (data as { capa?: string } | null)?.capa === 'agencia';
+  } catch {
+    return false;
+  }
+});
+
+/**
+ * Las agencias, para que la pantalla pueda marcarlas. Salen del PLAN: desde el
+ * 27/09/2026 ser agencia es la capa, no una fila en una tabla aparte.
+ */
+export async function agenciasHabilitadas(): Promise<{ ws: number }[]> {
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('workspaces').select('id').eq('capa', 'agencia').order('id');
+    if (error) throw error;
+    return ((data ?? []) as { id: number }[]).map((w) => ({ ws: w.id }));
   } catch {
     return [];
   }

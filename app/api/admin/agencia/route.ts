@@ -36,30 +36,14 @@ export async function POST(req: NextRequest) {
   const admin = await getSesionAdmin();
   if (!admin) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
 
-  let body: { agenciaWs?: unknown; clienteWs?: unknown; estado?: unknown; motivo?: unknown; habilitar?: unknown; ws?: unknown };
+  let body: { agenciaWs?: unknown; clienteWs?: unknown; estado?: unknown; motivo?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
-  // ── Habilitar (o quitar) a un workspace como AGENCIA ───────────────────────
-  // Es la decisión anterior a todo lo demás: quién puede TENER clientes. La
-  // otra rama decide a cuáles puede entrar cada uno.
-  if (typeof body.habilitar === 'boolean') {
-    const ws = Number(body.ws);
-    if (!esWsValido(ws)) return NextResponse.json({ ok: false, error: 'workspace inválido' }, { status: 400 });
-    if (body.habilitar) {
-      const { error } = await getSupabaseServer()
-        .from('agencias').upsert({ ws, habilitada_por: admin.email }, { onConflict: 'ws' });
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-      return NextResponse.json({ ok: true, ws, agencia: true });
-    }
-    // ⚠️ QUITAR LA HABILITACIÓN NO TOCA LA CARTERA, a propósito: son dos hechos y
-    // se revierten por separado. Sin la fila de `agencias` no puede pedir clientes
-    // NUEVOS, y a los que ya tenía aprobados sigue entrando hasta que se les
-    // revoque uno por uno — que es lo que hay que poder auditar. Borrar todo de un
-    // golpe dejaría sin rastro de qué acceso existía.
-    const { error } = await getSupabaseServer().from('agencias').delete().eq('ws', ws);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, ws, agencia: false });
-  }
+  // ⛔ ACA VIVIA «habilitar / quitar como agencia», y se fue el 27/09/2026 con la
+  // capa nueva. Ser agencia ES EL PLAN, asi que darla de alta es «Pasar a
+  // Agencia» en el menu de planes de su tarjeta — el mismo control con el que se
+  // cambia cualquier otro. Dos caminos para el mismo hecho es como uno de los dos
+  // se queda viejo.
 
   const agenciaWs = Number(body.agenciaWs);
   const clienteWs = Number(body.clienteWs);

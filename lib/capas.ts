@@ -89,7 +89,7 @@ export const POSTERGABLE_TXT: Record<(typeof PASOS_POSTERGABLES)[number], { que:
   tabs: { que: 'Verificar tu teléfono para los reportes', donde: 'Perfil', ruta: '/perfil' },
 };
 
-export type CapaId = 'pm' | 'completo' | 'superadmin';
+export type CapaId = 'pm' | 'completo' | 'superadmin' | 'agencia';
 
 export type CapaDef = {
   id: CapaId;
@@ -210,6 +210,34 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     briefGrupos: null,
     // Solo Meta en el arranque: con las Fases + El Archivero + Meta ya alcanza para
     // una valoración. WhatsApp se conecta después (no bloquea el onboarding).
+    integracionesRequeridas: ['meta'],
+    categoriasIntegraciones: null,
+    seedBoardVsl: true,
+  },
+  /**
+   * UNA AGENCIA: un cliente que ademas tiene CLIENTES PROPIOS.
+   *
+   * ⚠️ NACIO EL 27/09/2026 PORQUE «Agencia» ERA UNA ETIQUETA Y NO UN PLAN. La
+   * tarjeta de Codigo Inmobiliario decia «Completo» + un chip verde «Agencia», y
+   * el dueno lo corrigio: «un cliente de Agencia NO es super admin y tampoco
+   * Completo, es Agencia». Tenia razon en las dos mitades — y la primera es la
+   * que importa: `superadmin` es como se identifica la PLATAFORMA, no un plan, y
+   * compartir la palabra «agencia» con ella era lo que hacia que pareciera uno.
+   *
+   * ⚠️ VE LO MISMO QUE `completo`, y eso es a proposito: lo que la distingue no es
+   * lo que compro, es lo que puede HACER — tener clientes. Lo lee `esAgencia()`
+   * (lib/agencia.ts), que antes miraba una tabla aparte. Si manana una agencia
+   * necesita un set de tabs distinto, los dos ejes se vuelven a separar y este
+   * comentario es el aviso de que eso ya se penso.
+   */
+  agencia: {
+    id: 'agencia',
+    nombre: 'Agencia',
+    descripcion: 'Todo el producto, y ademas puede tener clientes propios adentro de MaKo.',
+    navKeys: null,
+    userNavKeys: null,
+    onboarding: ['fase', 'gemini', 'archivero', 'productos', 'tabs', 'integraciones'],
+    briefGrupos: null,
     integracionesRequeridas: ['meta'],
     categoriasIntegraciones: null,
     seedBoardVsl: true,

@@ -50,10 +50,19 @@ export async function POST(req: NextRequest) {
         const nombre = (body.nombre ?? '').trim();
         if (nombre.length < 2) return NextResponse.json({ ok: false, error: 'Pon un nombre de cliente.' }, { status: 400 });
         const adminEmail = (body.adminEmail ?? '').trim().toLowerCase();
-        // Si viene un email de admin, validarlo y chequear que no exista ANTES de
-        // crear el workspace (evita dejar un workspace huérfano por un email dup).
-        if (adminEmail) {
-          if (!EMAIL_RE.test(adminEmail)) return NextResponse.json({ ok: false, error: 'Email del admin inválido.' }, { status: 400 });
+        // ⚠️ EL EMAIL ES OBLIGATORIO DESDE EL 27/09/2026: «el email NO puede ser
+        // opcional… si justamente le llega la invitación por ahí». Sin él, esto
+        // creaba un workspace SIN UNA SOLA FILA en `usuarios`: un cliente al que
+        // nadie podía entrar, que no recibía nada, y que sólo se podía usar
+        // entrando como él desde acá. Un alta que no da acceso no es un alta.
+        //
+        // Y borra una asimetría: las otras dos puertas —/api/admin/usuarios y
+        // /api/equipo— ya lo exigían. Era ésta la rara.
+        if (!adminEmail) return NextResponse.json({ ok: false, error: 'Pon el email de su admin: por ahí le llega el acceso.' }, { status: 400 });
+        if (!EMAIL_RE.test(adminEmail)) return NextResponse.json({ ok: false, error: 'Email del admin inválido.' }, { status: 400 });
+        // Se chequea ANTES de crear el workspace: evita dejar uno huérfano por un
+        // email duplicado, que es un alta a medias que nadie limpia.
+        {
           const existe = (await listarUsuarios()).some((u) => u.email === adminEmail);
           if (existe) return NextResponse.json({ ok: false, error: 'Ya existe un usuario con ese email.' }, { status: 400 });
         }
