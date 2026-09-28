@@ -83,6 +83,55 @@ como **cualificado**. Con eso se dispara solo.
 
 ---
 
+### 5. El aviso duplicado al agendar ya no se repite
+
+**Lo que reportó Joan (21/09):** el aviso de MaKo por WhatsApp cuando se agenda un lead
+llegaba dos veces.
+
+**Qué pasaba:** el proveedor de la agenda reentrega el mismo aviso por las dudas, y MaKo
+tardaba entre 7 y 11 segundos en anotar que ya lo había mandado — así que la segunda copia
+entraba justo en ese hueco. Medido: de sus 51 avisos, 21 salieron duplicados.
+
+**Cómo se ve ahora:** un aviso por reserva. Y no se arregló «esperando más»: ahora el
+primero se reserva el aviso de forma atómica, así que aunque lleguen diez copias a la vez,
+sale una.
+
+### 6. El «te quedaste sin tokens» de Gemini: el mensaje mentía, y había una cuenta sin usar
+
+**Lo que reportó Joan:** que cada rato MaKo le decía que se había quedado sin tokens, y eso
+que tiene varias cuentas conectadas.
+
+**Tenía razón dos veces, y eran dos cosas:**
+
+· **MaKo por WhatsApp nunca probaba su segunda cuenta.** Siempre pegaba contra la primera,
+  así que cuando ésa se topaba, se rendía teniendo la otra entera sin tocar. Medido: cero
+  usos de la segunda cuenta en toda la historia por ese camino, mientras la misma clave
+  funcionaba perfecto por otros lados.
+
+· **Y el mensaje afirmaba cosas que nadie había comprobado.** Decía «las 2 llegaron al tope
+  de hoy» y «se reponen solas mañana». Lo primero no se sabía; lo segundo es falso cuando el
+  límite es el del minuto, que se destraba en un rato. Ahora dice lo que sí se sabe: que
+  rebotó por límite, que puede ser el del minuto o el del día, y qué hacer con cada uno.
+
+### 7. Los leads de Instant Form: ya sabemos por qué no llegan, y NO es de MaKo
+
+**Lo que reportaron:** los leads de las campañas de Clientes Potenciales de Meta —las que
+corren sus clientes inmobiliarios— no aparecen en el CRM.
+
+**La causa, medida contra la API de Meta:** la página de Facebook **no está suscrita a
+ninguna aplicación**, así que Meta nunca avisa que hubo un lead nuevo. El lead no se pierde
+en el camino: nunca sale de Meta.
+
+El control no deja lugar a dudas: la página del cliente que sí recibe tiene su app suscrita
+y lleva 1.031 leads por esa vía; la de ellos tiene cero, y nunca tuvo ninguno.
+
+Y lo que **no** era, que también hacía falta descartarlo: no es permisos (el token puede leer
+el lead de prueba), no es el ruteo, y no es que MaKo lo descarte.
+
+⚠️ **Pero suscribir la página no alcanza**, y esto es lo que hay que hablar con ellos: su
+conexión de Meta sale de una app propia de Joan, y MaKo sólo puede recibir avisos de la suya.
+Es el MISMO motivo que les bloquea la publicación de anuncios. Las dos cosas se arreglan de
+una: pasar su conexión a la app de MaKo.
 ## 🔴 Lo que está en curso — no contarlo todavía
 
 | Qué | Estado |
@@ -91,24 +140,16 @@ como **cualificado**. Con eso se dispara solo.
 
 ---
 
-## ❓ Lo que necesitamos DE ELLOS para poder avanzar
+## ❓ Lo que necesitamos DE ELLOS
 
-Sin esto no se puede reproducir, y sin reproducir no se arregla.
+Lo del aviso duplicado y lo de Gemini ya NO hace falta pedirlo: se resolvieron midiendo
+contra la base y el código. Queda uno solo, y es una decisión más que un dato:
 
-1. **Avisos duplicados** (lo reportó Joan el 21/09) — **cuál** aviso y una captura. Los
-   avisos salen al grupo de WhatsApp y los mensajes de grupo no se guardaban, así que no
-   queda rastro medible de ninguno.
-2. **«Gemini se queda sin tokens muy rápido»** — el mensaje de error que ven en pantalla.
-   Los datos lo contradicen: su workspace usó entre 24 y 29 pedidos por cuenta **en 30
-   días**, contra un tope de 250 por día. Los dos defectos de cuota que había ya están
-   arreglados, así que lo que ven tiene que ser otra cosa.
-3. **De la campaña de Clientes Potenciales que falló:** qué cuenta publicitaria la corre
-   (la de qué inmobiliaria), el nombre del formulario, y si esa página de Facebook le dio
-   acceso a la app con la que MaKo está conectado. Sin saber de quién es la página no se
-   puede ni empezar: un lead de una página ajena no llega por el token de otro.
-
----
-
+1. **Pasar su conexión de Meta a la app de MaKo.** Hoy usan una app propia («Joan P2P app»)
+   y eso bloquea DOS cosas a la vez: los leads de Instant Form y la publicación de anuncios.
+   Para eso hace falta saber qué páginas y qué cuentas publicitarias tienen que quedar
+   conectadas — incluidas las de sus clientes inmobiliarios, que son quienes corren las
+   campañas.
 ## 📋 Accionables acordados con ellos — pedido de Martín, 27/09/2026
 
 Todavía sin fecha y sin tarjeta en el board. **Los 5 los benefician a ellos y al resto de
