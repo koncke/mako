@@ -47,22 +47,35 @@ campaña** (antes: ninguno).
 Los 3 que faltan: dos entraron por Cal.com sin identificador de visita, y uno sólo trae el
 identificador de clic de Facebook, que hoy no se guarda.
 
-### 3. Lo del formulario: su landing no tiene formulario
+### 3. ~~Lo del formulario~~ — ESTO ESTABA MAL DE MI PARTE, NO SE LO CUENTES
 
-**Lo que se habló (22/09):** *«probaste el tema del formulario y no anda, ¿no?»*.
+⚠️ **Contesté la pregunta equivocada y conviene que quede escrito**, porque es el tipo
+de error que más caro sale: una respuesta segura sobre otra cosa.
 
-**Qué encontramos:** se revisó su página entera y **no hay ningún formulario propio**. Lo
-único que capta datos es la agenda de Cal.com embebida, y eso **sí funciona**: sus 19 leads
-de landing entraron los 19 por la agenda, uno de ellos registrado 1,4 segundos después de
-la reserva.
+Yo revisé el formulario DE SU LANDING, comprobé que no existe (lo único que capta es la
+agenda de Cal.com) y cerré el tema con un «no hay nada roto». Todo eso es cierto **y no
+era lo que reportaron.**
 
-O sea que no hay nada roto: no hay formulario que pueda fallar.
+Lo que reportaron, en palabras de Martín el 27/09:
 
-⚠️ **Y algo que conviene avisarles antes de que pase:** su funnel está configurado sin
-«entradas» declaradas. Hoy los leads pasan por una excepción que tiene la agenda. **El día
-que pongan un formulario de verdad, no va a entrar** hasta que declaren la landing como
-entrada de leads. Son dos minutos de configuración y es mejor hacerlo antes.
+> «Se trata de las campañas de **Clientes Potenciales de Meta, con formulario**… Que esas
+> campañas no las corren ellos, sino **sus clientes**. Sus clientes son inmobiliarias que
+> corren esa campaña, los compradores de casas rellenan sus datos en el formulario de
+> Meta, y **ese lead no llega**.»
 
+O sea: **Instant Form / Lead Ads de Meta**, que es otro pipeline entero — el formulario
+vive DENTRO de Meta, el lead llega por webhook o por sondeo de la API, y no tiene nada que
+ver con el Pixel ni con la landing.
+
+**Y la cadena de tres es lo que lo vuelve distinto de todo lo demás:** la campaña la corre
+la inmobiliaria (cliente de Joan), no el ws13. Así que la página de Facebook y el
+formulario **son de un tercero**, y que el token del ws13 pueda leer esos leads no es
+obvio: es la primera cosa que hay que comprobar.
+
+Está en medición ahora. **No se cuenta nada de este punto hasta tener el número.**
+
+Lo único que sí queda en pie de lo que miré: su funnel tiene las «entradas» vacías, así
+que conviene declarar de dónde entran sus leads igual.
 ### 4. Cómo activar el aviso de lead cualificado a Meta
 
 Ya estaba, y quedó contestado en el audio del 24/09: se entra al CRM y se marca el lead
@@ -89,8 +102,10 @@ Sin esto no se puede reproducir, y sin reproducir no se arregla.
    Los datos lo contradicen: su workspace usó entre 24 y 29 pedidos por cuenta **en 30
    días**, contra un tope de 250 por día. Los dos defectos de cuota que había ya están
    arreglados, así que lo que ven tiene que ser otra cosa.
-3. **El link del formulario**, si es que existe en alguna versión de la página. Martín se
-   lo pidió a Joan el 22/09 y no llegó.
+3. **De la campaña de Clientes Potenciales que falló:** qué cuenta publicitaria la corre
+   (la de qué inmobiliaria), el nombre del formulario, y si esa página de Facebook le dio
+   acceso a la app con la que MaKo está conectado. Sin saber de quién es la página no se
+   puede ni empezar: un lead de una página ajena no llega por el token de otro.
 
 ---
 

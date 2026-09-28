@@ -29,7 +29,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { atribucionDeUrl, conAtribucion, hayAtribucion, ATRIBUCION_VACIA } from '../lib/atribucion-url';
 import { adIdDeLead } from '../lib/atribucion-url';
@@ -140,6 +140,52 @@ test('⚠️ cada valor de `origen_lead` tiene su renglón: el default no AFIRMA
     assert.ok(cases.has(o), `el opt-in escribe origen_lead '${o}' y la ficha no tiene su case: ` +
       'se va a dibujar «Orgánico / manual» sobre un lead que llegó por un canal');
   }
+});
+
+test('⚠️ el `fbclid` se escribe en TODOS los lugares donde se escribe un utm', () => {
+  // ⚠️ POR QUÉ ASÍ Y NO CHEQUEANDO SEIS LÍNEAS A MANO. Un campo nuevo de un objeto que
+  // se guarda ENTERO tiene que agregarse en cada escritor, y el typecheck no ve ninguno:
+  // `{ ...x, campo }` y los literales construidos desde otro objeto compilan igual sin
+  // él. El modo de falla es que el campo nazca bien por un camino y salga `null` en el
+  // guardado siguiente hecho por otro — se apaga solo, sin error y sin 4xx.
+  //
+  // `utm_content` es el testigo: viaja exactamente por los mismos caminos y está desde
+  // hace meses. Si mañana alguien agrega un séptimo escritor de utm y se olvida del
+  // fbclid, esto falla y le dice dónde.
+  //
+  // Probado rompiéndolo (con todo puesto, 10 pasan y 0 fallan): se saca el fbclid del
+  // `insertPayload` → 9 / 1 · se saca la migración → 9 / 1. Y no hizo falta romperlo para
+  // saber que sirve: al estrenarlo encontró un SÉPTIMO escritor que se me había pasado.
+  for (const ruta of ['../lib/leads.ts', '../app/api/track/optin/route.ts']) {
+    const t = readFileSync(join(import.meta.dirname, ruta), 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+      // ⚠️ Y SE DESCARTAN LAS LÍNEAS QUE SÓLO MUESTRAN EL VALOR. Contar menciones a secas
+      // dio un falso positivo en el renglón que arma el texto del WhatsApp de aviso, que
+      // interpola `utm_content` y no escribe nada. Una línea con backtick es una cadena que
+      // se DIBUJA: lo que este guard persigue son las escrituras.
+      .split(/\r?\n/).filter((l) => !l.includes('`')).join('\n');
+    const utms = (t.match(/utm_content/g) ?? []).length;
+    const fbs = (t.match(/fbclid/g) ?? []).length;
+    assert.ok(
+      fbs >= utms,
+      `${ruta}: ${utms} menciones de utm_content y sólo ${fbs} de fbclid. Todo lugar que escribe un utm tiene que escribir el fbclid, o el campo se apaga en el próximo guardado`,
+    );
+  }
+
+  // Y los dos caminos del opt-in: el alta directa y la propuesta. Agregarlo en uno solo
+  // es el bug clásico de esta zona.
+  const r = readFileSync(join(import.meta.dirname, '../app/api/track/optin/route.ts'), 'utf8');
+  assert.equal((r.match(/^\s*fbclid: atrib\.fbclid,/gm) ?? []).length, 2,
+    'el fbclid tiene que ir en los DOS caminos del opt-in (alta directa y propuesta)');
+
+  // Y la columna tiene que existir: el código que la escribe sin ella hace que PostgREST
+  // rechace la fila ENTERA, o sea que el alta del lead falla con la pantalla ya pintada.
+  const migs = readdirSync(join(import.meta.dirname, '../supabase/migrations'))
+    .filter((f) => f.endsWith('.sql'))
+    .map((f) => readFileSync(join(import.meta.dirname, '../supabase/migrations', f), 'utf8'))
+    .join('\n');
+  assert.ok(/add column if not exists fbclid/i.test(migs),
+    'ninguna migración crea leads.fbclid, y el código ya la escribe');
 });
 
 test('el snippet manda el origen y lo que la persona contestó', () => {

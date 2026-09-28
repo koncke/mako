@@ -100,6 +100,16 @@ export type Lead = {
   utm_medium: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
+  /**
+   * El identificador de clic de Facebook, tal como Meta lo pone en la URL de
+   * aterrizaje. Se guarda literal: el `adid` que parece llevar adentro es un formato
+   * opaco del proveedor y decodificarlo a ojo sería inventar un id.
+   *
+   * Sirve para la API de Conversiones: sin esto, avisarle a Meta que un lead se
+   * cualificó le dice que pasó algo bueno y no DE QUÉ ANUNCIO, que es la mitad que
+   * hace que la optimización sirva. Null = no vino de un clic de Meta.
+   */
+  fbclid: string | null;
 
   // Respuestas del formulario Calendly (calificación previa a J1)
   respuesta_facturacion: string | null;
@@ -181,6 +191,7 @@ export type LeadCreateInput = {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   utm_content?: string | null;
+  fbclid?: string | null;
   respuesta_facturacion?: string | null;
   respuesta_colaboradores?: string | null;
   respuesta_objetivo?: string | null;
@@ -486,6 +497,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       utm_medium: input.utm_medium?.trim() || null,
       utm_campaign: input.utm_campaign?.trim() || null,
       utm_content: input.utm_content?.trim() || null,
+      fbclid: input.fbclid?.trim() || null,
       ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')
@@ -1125,6 +1137,7 @@ export async function upsertLeadFromCalendly(
     utm_medium?: string | null;
     utm_campaign?: string | null;
     utm_content?: string | null;
+    fbclid?: string | null;
     respuesta_facturacion?: string | null;
     respuesta_colaboradores?: string | null;
     respuesta_objetivo?: string | null;
@@ -1222,6 +1235,7 @@ export async function upsertLeadFromCalendly(
       setIfEmpty('utm_medium', input.utm_medium);
       setIfEmpty('utm_campaign', input.utm_campaign);
       setIfEmpty('utm_content', input.utm_content);
+      setIfEmpty('fbclid', input.fbclid);
       setIfEmpty('respuesta_facturacion', input.respuesta_facturacion);
       setIfEmpty('respuesta_colaboradores', input.respuesta_colaboradores);
       setIfEmpty('respuesta_objetivo', input.respuesta_objetivo);
@@ -1242,6 +1256,7 @@ export async function upsertLeadFromCalendly(
       if (input.utm_medium)               extraUpdates.utm_medium               = input.utm_medium;
       if (input.utm_campaign)             extraUpdates.utm_campaign             = input.utm_campaign;
       if (input.utm_content)              extraUpdates.utm_content              = input.utm_content;
+      if (input.fbclid)                   extraUpdates.fbclid                   = input.fbclid;
       if (input.respuesta_facturacion)    extraUpdates.respuesta_facturacion    = input.respuesta_facturacion;
       if (input.respuesta_colaboradores)  extraUpdates.respuesta_colaboradores  = input.respuesta_colaboradores;
       if (input.respuesta_objetivo)       extraUpdates.respuesta_objetivo       = input.respuesta_objetivo;
@@ -1273,6 +1288,7 @@ export async function upsertLeadFromCalendly(
     utm_medium:               input.utm_medium               ?? null,
     utm_campaign:             input.utm_campaign             ?? null,
     utm_content:              input.utm_content              ?? null,
+    fbclid:                   input.fbclid                   ?? null,
     respuesta_facturacion:    input.respuesta_facturacion    ?? null,
     respuesta_colaboradores:  input.respuesta_colaboradores  ?? null,
     respuesta_objetivo:       input.respuesta_objetivo       ?? null,

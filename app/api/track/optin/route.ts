@@ -246,6 +246,10 @@ export async function POST(req: NextRequest) {
         utm_medium: atrib.utm_medium,
         utm_campaign: atrib.utm_campaign,
         utm_content: atrib.utm_content,
+        // ⚠️ VA EN LOS DOS CAMINOS (el alta directa y la propuesta). Un campo nuevo que
+        // se agrega en uno solo se apaga solo: el guardado siguiente es un upsert de la
+        // fila armada desde acá, así que lo que este objeto no traiga sale como null.
+        fbclid: atrib.fbclid,
       }));
       await runWithWorkspace(ws, () =>
         emitirDelCatalogo('lead-de-landing', {
@@ -295,6 +299,10 @@ export async function POST(req: NextRequest) {
         utm_medium: atrib.utm_medium,
         utm_campaign: atrib.utm_campaign,
         utm_content: atrib.utm_content,
+        // ⚠️ VA EN LOS DOS CAMINOS (el alta directa y la propuesta). Un campo nuevo que
+        // se agrega en uno solo se apaga solo: el guardado siguiente es un upsert de la
+        // fila armada desde acá, así que lo que este objeto no traiga sale como null.
+        fbclid: atrib.fbclid,
         // De dónde salió, textual. Es lo que después distingue «llenó el
         // formulario de la landing» de «lo cargó alguien a mano».
         origen: 'landing',
