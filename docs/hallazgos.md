@@ -84,6 +84,12 @@ Esa última línea es lo que hace barato el corpus para un agente: **antes de to
 archivo, se grepea su ruta acá** en vez de abrir el documento entero. La regla está en
 [AGENTS.md](../AGENTS.md) → «Y para leerlos». Con los ojos, lo mismo se lee en `/admin/docs`.
 
+## Vecinos que NO son hallazgos, y por eso están acá abajo y no en la tabla
+
+| Documento | Qué es |
+|---|---|
+| [comunicar-a-jj.md](comunicar-a-jj.md) | Lo que se le puede decir a **Joan y Juanfran** (la agencia; Código Inmobiliario, ws13, es cliente de ellos) que ya está resuelto, lo que está en curso, lo que hace falta que MANDEN ellos para poder avanzar, y los 5 accionables que Martín acordó el 27/09. Un renglón no entra a «ya está» hasta estar desplegado y verificado contra la base. |
+
 ## De dónde salió este material
 
 Tres fuentes, y conviene saber cuál es cuál porque no valen lo mismo:
