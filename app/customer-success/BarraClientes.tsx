@@ -261,14 +261,20 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
               <button type="button" className="bc-volver" onClick={() => setVista('root')}>
                 ‹ {vista === 'mostrar' ? 'Mostrar' : 'Ordenar'}
               </button>
+              {/* ⚠️ LOS RENGLONES SALEN DE LOS DICCIONARIOS QUE LLEGAN POR PROP, no de
+                  los de Customer Success. Estaban cableados a FILTRO_LABEL/ORDEN_LABEL
+                  mientras el RESUMEN de arriba ya usaba los de la prop: en /admin el menú
+                  ofrecía «Con trabajo abierto» y «Más tareas abiertas» —que no existen para
+                  un workspace— y elegir cualquiera no filtraba nada. La barra parecía
+                  compartida y estaba compartida a medias, que es peor que no estarlo. */}
               {vista === 'mostrar'
-                ? (Object.keys(FILTRO_LABEL) as FiltroClientes[]).map((k) => (
+                ? Object.keys(filtros).map((k) => (
                   <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
-                    onClick={() => { onFiltro(k); setVista('root'); setOpen(false); }}>{FILTRO_LABEL[k]}</button>
+                    onClick={() => { onFiltro(k); setVista('root'); setOpen(false); }}>{filtros[k]}</button>
                 ))
-                : (Object.keys(ORDEN_LABEL) as OrdenClientes[]).map((k) => (
+                : Object.keys(ordenes).map((k) => (
                   <button key={k} type="button" className={`bc-op${orden === k ? ' on' : ''}`}
-                    onClick={() => { onOrden(k); setVista('root'); setOpen(false); }}>{ORDEN_LABEL[k]}</button>
+                    onClick={() => { onOrden(k); setVista('root'); setOpen(false); }}>{ordenes[k]}</button>
                 ))}
             </>
           )}

@@ -221,7 +221,11 @@ export const CAPAS: Record<CapaId, CapaDef> = {
   // de MaKo no vive acá: es la tab de admin "WhatsApp de MaKo" (/agencia).
   superadmin: {
     id: 'superadmin',
-    nombre: 'SuperAdmin (agencia)',
+    // ⚠️ SE LLAMABA «SuperAdmin (agencia)» Y ESO CONFUNDIA DOS COSAS. «Un SuperAdmin
+    // NO es lo mismo que agencia» (27/09/2026): el super admin es la PLATAFORMA, y una
+    // agencia es un cliente que ademas tiene clientes propios. Que compartieran nombre
+    // es lo que hacia que el tipo apareciera como una opcion mas al crear un cliente.
+    nombre: 'SuperAdmin',
     descripcion: 'El espacio propio del super-admin: su plan, sus reuniones y sus IA. Sin ads, sin CRM, sin VSL.',
     // ⚠️ `customer-success` ENTRA ACÁ EL 26/09/2026, y no es un permiso de más: MaKo TIENE
     // clientes —Mauricio, Leila, Juanfran— y viven en ESTE workspace, que es el de la
@@ -250,7 +254,33 @@ export const CAPA_DEFAULT: CapaId = 'completo';
 
 export const CAPAS_LISTA: CapaDef[] = Object.values(CAPAS);
 
-/** Fail-closed: una capa desconocida cae al catálogo, nunca a "ve todo". */
+/**
+ * Las capas que se le pueden PONER a un cliente desde una pantalla.
+ *
+ * ⚠️ NO ES COSMETICA, ES UN AGUJERO CERRADO. `CAPAS_LISTA` es el catalogo entero y
+ * el panel de clientes lo ofrecia tal cual —en el alta y en «Pasar a …» de cada
+ * tarjeta—, asi que se podia pasar CUALQUIER cliente a la capa `superadmin`. Y esa
+ * capa no es un plan: es COMO SE IDENTIFICA LA PLATAFORMA. `wsSuperAdmin()`
+ * (lib/workspace.ts) devuelve el workspace de MENOR id con esa capa y lo cachea a
+ * nivel de modulo, asi que un click ahi muda la identidad de MaKo al workspace de un
+ * cliente — con eso se leen las credenciales de plataforma y sale el remitente de
+ * los mails de acceso. Es la misma familia que «OWNER_WS no es la plataforma».
+ *
+ * En POSITIVO: se enumera lo que SI se vende. Una capa nueva no entra sola a la
+ * pantalla; entra cuando alguien la agrega aca, que es una decision.
+ */
+export const CAPAS_VENDIBLES: CapaDef[] = CAPAS_LISTA.filter((c) => c.id !== 'superadmin');
+
+/**
+ * ⚠️ ESTO ES FAIL-**OPEN**, Y EL COMENTARIO QUE HABIA ACA DECIA LO CONTRARIO.
+ * Decia «Fail-closed: una capa desconocida cae al catalogo, nunca a "ve todo"», y
+ * el codigo cae a `CAPA_DEFAULT`, que es 'completo' — la capa con `navKeys: null`,
+ * o sea literalmente «ve todo». Un valor desconocido en `workspaces.capa` le abre
+ * a ese cliente TODAS las tabs del producto, sin error y sin log.
+ *
+ * La unica red es el CHECK `workspaces_capa_valida` de la base (mig 0092/0096), y
+ * por eso ampliarlo es parte de agregar una capa, no un tramite.
+ */
 export function capaDef(capa: string | null | undefined): CapaDef {
   return CAPAS[(capa ?? '') as CapaId] ?? CAPAS[CAPA_DEFAULT];
 }

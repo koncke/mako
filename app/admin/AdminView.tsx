@@ -28,7 +28,7 @@ import { Modal } from '../_ui/Modal';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Dropdown } from '../components/Dropdown';
-import { CAPA_DEFAULT, CAPAS_LISTA, capaDef, type CapaId } from '@/lib/capas';
+import { CAPA_DEFAULT, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import type { Usuario } from '@/lib/usuarios';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -433,7 +433,12 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       { value: 'renombrar', label: 'Renombrar…' },
       // Cambiar de capa = mover al cliente a otra oferta. Al dueño no: ws1 es la
       // agencia y corre siempre con todo.
-      ...(esDueno ? [] : CAPAS_LISTA.filter((c) => c.id !== w.capa)
+      // ⚠️ `CAPAS_VENDIBLES` Y NO EL CATALOGO ENTERO. Con la lista completa, este
+      // menu ofrecia «Pasar a SuperAdmin» sobre cualquier cliente — y esa capa no es
+      // un plan, es como se identifica la PLATAFORMA: `wsSuperAdmin()` toma el menor
+      // id con esa capa, asi que un click mudaba las credenciales y el remitente de
+      // MaKo al workspace de un cliente.
+      ...(esDueno ? [] : CAPAS_VENDIBLES.filter((c) => c.id !== w.capa)
         .map((c) => ({ value: `capa:${c.id}`, label: `Pasar a ${c.nombre}` }))),
       esDueno
         ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
@@ -634,7 +639,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
               <label style={labelStyle}>Tipo</label>
               <Dropdown value={capa} ariaLabel="Tipo de cliente"
                 buttonStyle={{ padding: '10px 12px', fontSize: 14, borderRadius: 11, width: '100%' }}
-                options={CAPAS_LISTA.map((c) => ({ value: c.id, label: c.nombre }))}
+                options={CAPAS_VENDIBLES.map((c) => ({ value: c.id, label: c.nombre }))}
                 onChange={(v) => setCapa(v as CapaId)} />
             </div>
             <div>
