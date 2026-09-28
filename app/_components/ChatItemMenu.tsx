@@ -8,16 +8,33 @@
 // confirmación en un pop-up. Reutilizable (lista de la tab y dropdown del chat).
 
 import { useState } from 'react';
+import { useCapaModal } from './pila-modales';
 
 const SANS = "'Geist', sans-serif";
 
+/**
+ * La confirmación de algo irreversible.
+ *
+ * ⚠️ SU z SALE DE LA PILA Y NO DE UN 90 CABLEADO (28/09/2026). El número fijo la
+ * ponía DEBAJO de cualquier modal de la casa, que arrancan en 130: preguntar «¿borro
+ * a esta persona?» desde adentro del detalle de un cliente dibujaba el diálogo tapado
+ * por el modal, o sea un botón que no hace nada. Nadie lo reportó porque el camino
+ * —abrir un cliente, el menú de un miembro, Eliminar— es raro; lo encontró un relevo
+ * comparando el 90 de acá con el `Z_BASE` de `pila-modales`.
+ *
+ * ⚠️ Y VA COMO `anidada`: la capa de abajo NO se apaga. Es exactamente el caso para el
+ * que ese flag existe —un diálogo que se abre DESDE un control del modal de atrás y
+ * que es parte de la misma tarea— y además es lo correcto de leer: hay que ver sobre
+ * qué se está confirmando.
+ */
 export function ConfirmDialog({
   titulo, detalle, confirmLabel = 'Confirmar', danger = false, onCancel, onConfirm,
 }: {
   titulo: string; detalle?: string; confirmLabel?: string; danger?: boolean; onCancel: () => void; onConfirm: () => void;
 }) {
+  const capa = useCapaModal(true, { anidada: true });
   return (
-    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
         {detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>{detalle}</div>}

@@ -14,6 +14,11 @@ export type Workspace = {
   created_at: string;
   /** Cuantas personas tiene adentro. Lo cuenta el endpoint, no el navegador. */
   usuarios: number;
+  /** Su cara (mig 0179). Mismo formato y mismos dibujantes que la de un proyecto. */
+  portada: string | null;
+  portada_y: number | null;
+  icono: string | null;
+  avatar_y: number | null;
 };
 
 /** Quien esta mirando. `legacy` = entro con la cookie compartida vieja. */

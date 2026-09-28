@@ -2,7 +2,7 @@
 // /api/admin/workspaces — clientes/workspaces (solo admin)
 // =============================================================================
 // GET  → lista de workspaces + cuántos usuarios tiene cada uno.
-// POST → { action: 'crear', nombre } | { action: 'nombre'|'estado', id, ... }.
+// POST → { action: 'crear', nombre } | { action: 'nombre'|'estado'|'capa'|'cara', id, ... }.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
@@ -15,6 +15,7 @@ import { hoyEnTijuana } from '@/lib/date-utils';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
 import { CAPA_DEFAULT, capaDef, esCapaValida } from '@/lib/capas';
 import { invitarPorEmail, type ResultadoInvitacion } from '@/lib/invitaciones';
+import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,12 @@ export async function GET() {
   }
 }
 
-type Body = { action?: string; id?: number; nombre?: string; estado?: 'activo' | 'pausado'; capa?: string; adminEmail?: string; adminNombre?: string };
+type Body = {
+  action?: string; id?: number; nombre?: string; estado?: 'activo' | 'pausado'; capa?: string;
+  adminEmail?: string; adminNombre?: string;
+  /** La cara del cliente (mig 0179). `null` en cualquiera = volver al default. */
+  portada?: string | null; portadaY?: number | null; icono?: string | null; avatarY?: number | null;
+};
 
 export async function POST(req: NextRequest) {
   const admin = await getSesionAdmin();
@@ -127,6 +133,36 @@ export async function POST(req: NextRequest) {
         const capa = (body.capa ?? '').trim();
         if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Tipo de cliente inválido.' }, { status: 400 });
         return NextResponse.json({ ok: true, workspace: await actualizarWorkspace(body.id, { capa }) });
+      }
+      /**
+       * LA CARA del cliente: su portada, su marca y los dos encuadres (mig 0179).
+       *
+       * ⚠️ EL SANEO ES EL MISMO QUE EL DE UN LEAD Y EL DE UN PROYECTO, importado y no
+       * reescrito (`lib/portadas.ts`): `saneaPortada` y `urlDeImagenOk` comparan
+       * `new URL(v).origin` contra una lista blanca —nunca un prefijo, que es el bug
+       * que AGENTS.md tiene medido con los cuatro parecidos de `flow.google.com`— y
+       * `yPortada` topea el encuadre en 0-100. Tres saneos para el mismo formato serían
+       * tres listas blancas, y la que se queda vieja es por donde entra una imagen de
+       * un tercero cargándose con el referer del cliente.
+       *
+       * ⚠️ Y EL ENCUADRE SE BORRA CUANDO CAMBIA LA IMAGEN, igual que en la ficha de un
+       * cliente: un `y` de la foto anterior aplicado a una foto nueva la deja encuadrada
+       * en cualquier lado y quien la eligió no tiene forma de saber por qué. Si el que
+       * llama manda las dos cosas juntas, gana lo que mandó.
+       */
+      case 'cara': {
+        if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
+        const patch: Record<string, unknown> = {};
+        if (body.portada !== undefined) patch.portada = saneaPortada(body.portada);
+        if (body.portada !== undefined && body.portadaY === undefined) patch.portada_y = null;
+        if (body.icono !== undefined) patch.icono = saneaIcono(body.icono);
+        if (body.icono !== undefined && body.avatarY === undefined) patch.avatar_y = null;
+        if (body.portadaY !== undefined) patch.portada_y = yPortada(body.portadaY);
+        if (body.avatarY !== undefined) patch.avatar_y = yPortada(body.avatarY);
+        if (!Object.keys(patch).length) return NextResponse.json({ ok: false, error: 'no había nada que cambiar' }, { status: 400 });
+        // Se devuelve LO QUE QUEDÓ GUARDADO y no lo que se pidió: si el saneo descartó
+        // la URL, la pantalla tiene que enterarse en vez de pintar algo que no está.
+        return NextResponse.json({ ok: true, workspace: await actualizarWorkspace(body.id, patch) });
       }
       default:
         return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });

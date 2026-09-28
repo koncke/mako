@@ -27,11 +27,16 @@ import { Marca } from '../_components/Marca';
 import { Modal } from '../_ui/Modal';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
+import { useCapaModal } from '../_components/pila-modales';
+import { PortadaPicker } from '../_components/PortadaPicker';
+import { IdentidadPicker } from '../_components/IdentidadPicker';
+import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
+import { ROLES_ALTA, ROTULO_ROL } from '@/lib/agencia-altas';
 
 /** Lo que contestan /api/admin/workspaces y /api/admin/usuarios. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null };
@@ -46,11 +51,19 @@ function Aviso({ aviso }: { aviso: AvisoInvitacion }) {
 }
 
 
-const ROL_WS_OPTS = [
-  { value: 'admin', label: 'Admin', sub: 'Ve todo el negocio' },
-  { value: 'closer', label: 'Closer', sub: 'Cierra llamadas agendadas' },
-  { value: 'setter', label: 'Setter', sub: 'Agenda y prospecta' },
-];
+/**
+ * Los tres roles del negocio del cliente.
+ *
+ * ⚠️ EL RÓTULO SALE DE `ROTULO_ROL` (lib/agencia-altas.ts) y no se escribe acá: era la
+ * tercera copia de las mismas tres palabras —ésta, la de la ficha de un cliente y la
+ * del contrato de altas— y tres copias son tres momentos para divergir. Lo que SÍ es
+ * de esta pantalla es el `sub`, que explica qué ve cada rol.
+ */
+const ROL_WS_OPTS = ROLES_ALTA.map((r) => ({
+  value: r,
+  label: ROTULO_ROL[r],
+  sub: { admin: 'Ve todo el negocio', closer: 'Cierra llamadas agendadas', setter: 'Agenda y prospecta' }[r],
+}));
 
 const fmtLogin = (iso: string | null) => {
   if (!iso) return '—';
@@ -493,6 +506,19 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
   const puedeCrear = nombre.trim().length >= 2 && emailOk && !creando;
   const wAbierto = abierto != null ? workspaces.find((w) => w.id === abierto) ?? null : null;
 
+  /**
+   * EL BOTÓN que abrió cada selector, no un booleano: el popover cuelga de su ancla y
+   * se vuelve a medir en cada scroll. Y vive ACÁ y no adentro de la ficha porque los
+   * dos se montan como HERMANOS suyos y se portalean a `document.body` — adentro, la
+   * pila los apagaría junto con ella (ver `contenedores` en pila-modales.ts).
+   */
+  const [anclaPortada, setAnclaPortada] = useState<HTMLElement | null>(null);
+  const [anclaIcono, setAnclaIcono] = useState<HTMLElement | null>(null);
+
+  /** La cara del cliente (mig 0179): portada, marca y los dos encuadres. */
+  const accionCara = (id: number, cambio: Record<string, unknown>) =>
+    accionWs({ action: 'cara', id, ...cambio });
+
   /** Lo que el menú de acciones ofrece sobre un cliente. Es la MISMA lista que
    *  había en la fila de la tabla: el rediseño no puede perder ninguna. */
   const opcionesDe = (w: Workspace) => {
@@ -566,6 +592,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
               <li key={w.id}>
                 <TarjetaEntidad
                   nombre={w.nombre}
+                  /* Su cara, la que alguien le eligió (mig 0179). `foto` es el
+                     respaldo: la del admin del cliente, que gana sobre las iniciales
+                     y pierde contra el ícono propio. */
+                  portada={w.portada} portadaY={w.portada_y}
+                  icono={w.icono} avatarY={w.avatar_y}
                   foto={caraDe(w)}
                   color={colorDe(w.nombre)}
                   onAbrir={() => setAbierto(w.id)}
@@ -750,15 +781,66 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
       {/* Era una fila que se expandía con un chevron. Con tarjetas eso no existe, y
           además el equipo es el DETALLE de un cliente: va donde va todo detalle en
           esta app, que es un modal — igual que la ficha de la cartera. */}
+      {/* ⚠️ ES LA MISMA PIEZA QUE EL DETALLE DE UN PROYECTO, no una parecida. «El
+          detail está mal, te había dicho que idéntico al del plan, solo que con más
+          opciones para administrar al usuario» (28/09/2026). Antes era un `Modal` de
+          720 titulado «Equipo»: ni portada, ni marca, ni nada de lo que el dueño tenía
+          en la cabeza. Ahora `FichaWorkspace` monta `CabeceraDetalle`, que es
+          literalmente el mismo componente que monta el tablero. */}
       {wAbierto && (
-        <Modal titulo={wAbierto.nombre} encabezado="Equipo" ancho={720}
-          etiqueta={`Equipo de ${wAbierto.nombre}`} onCerrar={() => setAbierto(null)}>
+        <FichaWorkspace
+          w={wAbierto}
+          cara={caraDe(wAbierto)}
+          /* ⚠️ SIN «Renombrar…»: acá el nombre se edita EN EL TÍTULO. Dejar las dos
+             sería el tercer camino al mismo hecho — y encima el diálogo se abriría
+             sobre una ficha que ya ofrece hacerlo mejor. En la TARJETA sigue, porque
+             ahí no hay dónde escribir. */
+          opciones={opcionesDe(wAbierto).filter((o) => o.value !== 'renombrar')}
+          accionando={accionando}
+          onAccion={(v) => elegirAccion(wAbierto, v)}
+          onNombre={(nombre) => { if (nombre.trim()) accionWs({ action: 'nombre', id: wAbierto.id, nombre: nombre.trim() }); }}
+          onEncuadre={(y) => accionCara(wAbierto.id, { portadaY: y })}
+          onAbrirPortada={(a) => setAnclaPortada((x) => (x ? null : a))}
+          onAbrirIcono={(a) => setAnclaIcono((x) => (x ? null : a))}
+          onCerrar={() => { setAbierto(null); setAnclaPortada(null); setAnclaIcono(null); }}
+        >
           <EquipoDelCliente
             w={wAbierto}
             equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
             accionando={accionando} accionUser={accionUser} reenviar={reenviar}
             onEliminar={setAEliminar} avisoReenvio={avisoReenvio} onRecargar={recargar} />
-        </Modal>
+        </FichaWorkspace>
+      )}
+
+      {/* Los dos selectores, HERMANOS de la ficha y no hijos suyos: se portalean a
+          `document.body` y se registran en la pila como `anidada`, así la ficha se
+          sigue viendo detrás y el Escape cierra sólo el panel. */}
+      {wAbierto && anclaPortada && (
+        <PortadaPicker
+          valor={wAbierto.portada}
+          colorBase={colorDe(wAbierto.nombre)}
+          ancla={anclaPortada}
+          titulo={`Portada de ${wAbierto.nombre}`}
+          onElegir={(v) => accionCara(wAbierto.id, { portada: v })}
+          onCerrar={() => setAnclaPortada(null)} />
+      )}
+
+      {wAbierto && anclaIcono && (
+        <IdentidadPicker
+          icono={wAbierto.icono}
+          y={wAbierto.avatar_y}
+          ancla={anclaIcono}
+          titulo={`Imagen de ${wAbierto.nombre}`}
+          /* ⚠️ SIN EMOJI: un workspace no tiene columna `emoji` donde guardarlo, y el
+             picker escribiría en `icono` un glifo que `saneaIcono` descarta — o sea un
+             control que se ve, se usa y no guarda nada. La regla de dónde va cada cosa
+             es del CALL SITE, no del picker. */
+          conEmoji={false}
+          onElegir={(cambio) => {
+            if (cambio.icono !== undefined) accionCara(wAbierto.id, { icono: cambio.icono, ...(cambio.y !== undefined ? { avatarY: cambio.y } : {}) });
+            else if (cambio.y !== undefined) accionCara(wAbierto.id, { avatarY: cambio.y });
+          }}
+          onCerrar={() => setAnclaIcono(null)} />
       )}
 
       {renombrando && (
@@ -876,9 +958,10 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
 
   return (
     <div>
-      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 14 }}>
-        <span style={{ fontFamily: MONO }}>{w.slug ?? '—'}</span> · {capaDef(w.capa).nombre} · {w.estado}
-      </div>
+      {/* ⛔ ACÁ ESTABA «slug · plan · estado», y se fue el 28/09/2026 con la cabecera
+          nueva: los tres ya están arriba, en el renglón chico al lado del nombre. Era
+          el mismo dato dicho dos veces a dos centímetros de distancia — lo que pasa
+          cuando un panel que era TODO el modal se vuelve el cuerpo de uno. */}
       {/* ⚠️ EL ALTA VIVE ACA, Y ES LA UNICA. Habia un formulario aparte, abajo de todo,
           solo para super admins — y un super admin es un usuario mas del workspace de la
           plataforma, que es una tarjeta mas de esta grilla. Dos altas para la misma cosa
@@ -911,7 +994,11 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
           {equipo.map((u) => (
             <div key={u.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
+              {/* ⚠️ `u.cara` Y NO `u.foto_url`: la precedencia (foto elegida > Gravatar >
+                  iniciales) la resuelve el server en un solo lugar. Acá había quedado
+                  el campo pelado — la tabla de al lado ya usaba `cara`, así que la
+                  misma persona se dibujaba distinta según por dónde se la mirara. */}
+              <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.cara ?? u.foto_url} size={32} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                 <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
@@ -965,10 +1052,17 @@ function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onElimi
   );
 }
 
-// Mini modal para renombrar un workspace.
+/**
+ * Mini modal para renombrar un workspace.
+ *
+ * ⚠️ SU z SALE DE LA PILA, igual que el de `ConfirmDialog` y por el mismo motivo: con
+ * el 90 cableado quedaba DEBAJO de cualquier modal de la casa (arrancan en 130), así
+ * que «Renombrar…» desde adentro del detalle de un cliente no dibujaba nada.
+ */
 function NombreClienteDialog({ nombre, onNombre, onCancel, onConfirm, titulo = 'Renombrar cliente', confirmLabel = 'Guardar' }: { nombre: string; onNombre: (v: string) => void; onCancel: () => void; onConfirm: () => void; titulo?: string; confirmLabel?: string }) {
+  const capa = useCapaModal(true, { anidada: true });
   return (
-    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: capa.z, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 14 }}>{titulo}</div>
         <input autoFocus style={input} value={nombre} onChange={(e) => onNombre(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); }} placeholder="Nombre del cliente" />

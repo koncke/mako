@@ -335,9 +335,29 @@ export type Workspace = {
   /** Qué capa de la oferta compró (mig 0092). El catálogo vive en lib/capas.ts. */
   capa: CapaId;
   created_at: string;
+  /**
+   * Su CARA (mig 0179): la portada, su encuadre, la marca y el encuadre de la marca.
+   *
+   * ⚠️ MISMO FORMATO QUE `leads` Y `plan_proyectos` a propósito: las tres las pinta
+   * `fondoPortada` (lib/portadas.ts) y las tres las dibuja `Marca`. Un cuarto formato
+   * sería un cuarto parser.
+   *
+   * ⚠️ Y `icono` NULL NO ES «SIN MARCA»: es «usar la cara de su admin» (su foto de
+   * Google, o el Gravatar de su email — ver `caraDeUsuario`), y sin eso las iniciales.
+   * Es la misma cadena de respaldos que la tarjeta ya dibuja; lo que esta columna
+   * agrega es la única de las tres que alguien eligió A PROPÓSITO para este cliente.
+   */
+  portada: string | null;
+  portada_y: number | null;
+  icono: string | null;
+  avatar_y: number | null;
 };
 
-const WS_COLS = 'id, nombre, slug, estado, capa, created_at';
+// ⚠️ LAS CUATRO DE LA CARA VAN EN EL SELECT, y no es prolijidad: una columna que la
+// lectura no trae llega a la pantalla como `undefined`, y el próximo guardado de
+// cualquier otro campo la manda como null y la BORRA. Es el modo de falla que
+// AGENTS.md tiene documentado para el tablero, y es destructivo, no inerte.
+const WS_COLS = 'id, nombre, slug, estado, capa, created_at, portada, portada_y, icono, avatar_y';
 
 export async function listarWorkspaces(): Promise<Workspace[]> {
   const { data, error } = await getSupabaseServer()
@@ -456,7 +476,8 @@ export const getCapaActual = cache(async (): Promise<CapaId> => {
 });
 
 export async function actualizarWorkspace(
-  id: number, patch: Partial<Pick<Workspace, 'nombre' | 'estado' | 'capa'>>,
+  id: number,
+  patch: Partial<Pick<Workspace, 'nombre' | 'estado' | 'capa' | 'portada' | 'portada_y' | 'icono' | 'avatar_y'>>,
 ): Promise<Workspace> {
   if (patch.capa != null && !esCapaValida(patch.capa)) throw new Error(`capa inválida: ${patch.capa}`);
   const { data, error } = await getSupabaseServer()

@@ -31,6 +31,7 @@ import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
 import { Marca } from '@/app/_components/Marca';
 import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
+import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
@@ -2621,57 +2622,20 @@ function CampoCliente({ cliente, onAbrir }: {
 
 
 /**
- * La cabecera de un detalle CON portada: los controles y el ícono que la cruza.
+ * ⛔ ACÁ VIVÍA `CSS_DETALLE`, y se fue el 28/09/2026 con la cabecera.
  *
- * Va en una hoja y no en `style` inline porque necesita el `:hover` del padre — un
- * control que sólo aparece al pasar el cursor no se puede escribir con estilos en
- * línea. Es la misma anatomía que la cabecera de la ficha de un cliente, a
- * propósito: si una pieza se ve distinta en los dos lugares, no está terminada.
+ * Eran siete clases —`.pd-acciones`, `.pd-pill`, `.pd-cerrar`, `.pd-icono`,
+ * `.pd-marca` y su hover— que dibujaban la portada del detalle de un proyecto, y
+ * estaban escritas OTRA VEZ en la ficha de un cliente con el prefijo `fc-`. Las
+ * pastillas eran byte a byte la misma regla. Ahora las pone `CabeceraDetalle`, que
+ * es la pieza que montan las tres pantallas.
  *
- * (Y sin comillas invertidas acá adentro: esto vive en un template literal y una
- * sola cierra la hoja a la mitad — AGENTS.md lo tiene medido, y ya pasó hoy.)
+ * ⚠️ Y `.pd-marca-inline` se fue con ellas SIN reemplazo, porque no lo necesitaba:
+ * tenía CERO call sites. Era el molde del ícono cuando NO había portada, y desde
+ * que la portada va siempre (el `null` es el degradado derivado del nombre, no
+ * «sin portada») ese caso dejó de existir. El comentario que la justificaba
+ * describía un camino que ya no se podía tomar.
  */
-const CSS_DETALLE = `
-/* ⚠️ ABAJO A LA DERECHA Y EN CLARO, IGUAL QUE EN LA FICHA DE UN CLIENTE. Estaban
-   arriba a la derecha y en oscuro — o sea, en el mismo rincon y con el mismo peso
-   visual que el boton de cerrar. Ya se habia pedido una vez para la ficha: «que el
-   boton de cerrar sea diferente a los otros, y que los otros mejor esten abajo a la
-   derecha de la portada» (27/09/2026), y el detalle de proyecto quedo con el molde
-   viejo. Dos pantallas que muestran lo mismo se ven igual. */
-.pd-acciones{ position:absolute; right:14px; bottom:12px; z-index:3; display:flex; gap:6px;
-  opacity:0; transition:opacity .12s; }
-div:hover > .pd-acciones, .pd-acciones:focus-within{ opacity:1; }
-/* Pastilla CLARA: la otra mitad de distinguirla del cerrar, que es un circulo oscuro
-   solido. Sobre una foto clara el vidrio blanco se sigue leyendo por el borde y la
-   sombra. */
-.pd-pill{ background:rgba(255,255,255,.90); border:0; border-radius:999px; padding:6px 13px;
-  font:inherit; font-size:12.5px; font-weight:600; color:#16181d; cursor:pointer;
-  text-decoration:none; white-space:nowrap; backdrop-filter:blur(6px);
-  box-shadow:0 1px 4px rgba(18,21,27,.18); }
-.pd-pill:hover{ background:#fff; color:#16181d; }
-.pd-pill:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
-/* ⚠️ CERRAR SE TIENE QUE VER DISTINTO DE LAS ACCIONES: circulo oscuro solido, arriba
-   a la derecha, SOBRE la portada. Era una «x» gris en el renglon de abajo, que es
-   donde nadie la busca cuando la portada ocupa el techo del modal. */
-.pd-cerrar{ position:absolute; top:12px; right:12px; z-index:4;
-  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
-  background:rgba(18,21,27,.82); color:#fff; border:0; border-radius:999px; padding:0;
-  cursor:pointer; font-size:19px; line-height:1;
-  box-shadow:0 1px 6px rgba(18,21,27,.30); }
-.pd-cerrar:hover{ background:#12151b; color:#fff; }
-.pd-icono{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:28px; padding:0; }
-/* El icono CRUZA el borde de abajo de la portada: mitad sobre la imagen, mitad sobre
-   el header. 124 de banda menos 27 (la mitad de 54) = 97. Absoluto y no un margen
-   negativo en la fila: con el margen sube TODO y el titulo queda escrito sobre la
-   foto, que con un degradado claro se lee y con un bosque no. */
-.pd-marca{ position:absolute; left:20px; top:97px; z-index:2; padding:0; border:0;
-  background:none; cursor:pointer; line-height:0; border-radius:14px;
-  box-shadow:0 0 0 3px var(--surface); }
-.pd-marca:hover{ filter:brightness(.94); }
-.pd-marca-inline{ padding:0; border:0; background:none; cursor:pointer; line-height:0; flex:none; }
-.pd-marca-inline:hover{ filter:brightness(.94); }
-@media(prefers-reduced-motion:reduce){ .pd-acciones{ transition:none; } }
-`;
 
 const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
@@ -5300,102 +5264,53 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   const isTop = proj.id === topProjectId;
   // ¿Se repite? Sale del contrato, nunca de `proj.recurrente`. Mismo predicado que la tarea.
   const repiteProj = esRecurrente(proj);
-  const repoProj = useReposicionar(proj.portadaY, onEncuadre);
   return (
     // `z` sigue existiendo como piso para el caso proyecto-debajo-de-tarea, pero quien
     // manda es la pila: el de arriba se ve, los de abajo se esconden.
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: Math.max(z, capa.z), background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: capa.visible || taskAbierta ? 'flex' : 'none', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: MODAL_DETALLE, height: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* LA PORTADA (mig 0173/0174), arriba de todo y a los dos bordes, con el ÍCONO
-            cruzándola por abajo y el título acompañando — «que el emoji lo cruza, y el
-            título acompaña» (27/09/2026), que es la anatomía de una página de Notion.
+        {/* ⚠️ LA CABECERA ES UNA PIEZA COMPARTIDA DESDE EL 28/09/2026, y no una copia
+            de su diseño. Acá vivían la portada, sus pastillas, el cerrar, la marca que
+            cruza y la fila del título, escritos a mano — y los mismos estaban escritos
+            otra vez en la ficha de un cliente y una tercera vez, mal, en el detalle de
+            un cliente de la plataforma. El dueño lo reportó mirando el tercero: «el
+            detail está mal, te había dicho que idéntico al del plan». Ahora las tres
+            montan `CabeceraDetalle`, que es la única forma de que «idéntico» no
+            dependa de que nadie edite una de las tres.
 
-            ⚠️ VA SIEMPRE, no sólo si eligieron una. `null` NO significa «sin portada»:
-            significa el degradado DERIVADO del nombre, que es el default del modelo
-            desde la mig 0173. Dibujarla sólo cuando había una elegida hacía que la
-            feature no se viera nunca — medido: de 71 proyectos, CERO tenían una. */}
-          <div style={{ position: 'relative', flex: 'none' }}>
-            <div aria-hidden ref={repoProj.props.ref}
-              onPointerDown={repoProj.props.onPointerDown} onPointerMove={repoProj.props.onPointerMove}
-              onPointerUp={repoProj.props.onPointerUp} onPointerCancel={repoProj.props.onPointerCancel}
-              style={{ height: 124, background: fondoPortada(proj.portada, proj.color, proj.portadaY), ...repoProj.props.style }} />
-            {repoProj.activo
-              ? <BarraReposicion onGuardar={repoProj.guardar} onCancelar={repoProj.cancelar} />
-              : (
-                <span className="pd-acciones">
-                  <button type="button" className="pd-pill"
-                    onClick={(e) => { const b = e.currentTarget; onPortada(b); }}>Portada</button>
-                  {esFoto(proj.portada) && (
-                    <button type="button" className="pd-pill" onClick={repoProj.empezar}>Reposicionar</button>
-                  )}
-                  {esFoto(proj.portada) && (
-                    <a className="pd-pill pd-icono" href={urlPortada(proj.portada) ?? '#'} download
-                      target="_blank" rel="noreferrer" title="Descargar la portada" aria-label="Descargar la portada">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M5 21h14" />
-                      </svg>
-                    </a>
-                  )}
-                </span>
-              )}
-            {/* EL ÍCONO CRUZANDO EL BORDE. Absoluto y no un margen negativo en la fila:
-                con el margen sube TODO —ícono, pid y título— y el nombre queda escrito
-                sobre la foto, que con un degradado claro se lee y con un bosque no. Es
-                la misma cuenta y el mismo motivo que el avatar de la ficha. */}
-            {/* CERRAR, sobre la portada y distinto de las acciones. Va acá adentro y no
-                en el renglón de abajo: con la portada ocupando el techo del modal, la
-                esquina de arriba a la derecha es donde se busca. */}
-            <button type="button" className="pd-cerrar" aria-label="Cerrar" onClick={onClose}>×</button>
-            <button type="button" className="pd-marca"
-              onClick={(e) => { const b = e.currentTarget; onIcono(b); }}
-              title="Cambiar el ícono" aria-label={`Cambiar el ícono de ${proj.name}`}>
-              <Marca icono={proj.icono} emoji={proj.emoji} nombre={proj.name} tam={54} color={proj.color} cuadrado />
-            </button>
-          </div>
-        <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE }} />
-        {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno.
-            ⚠️ CON PORTADA, EL PADDING IZQUIERDO LE DEJA LUGAR AL ÍCONO que la cruza. */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, padding: '10px 20px 12px 86px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
-          {onBack && <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>}
-          {/* ⚠️ CON PORTADA, EL ÍCONO YA ESTÁ ARRIBA CRUZÁNDOLA: dibujarlo otra vez acá
-              serían dos controles para la misma pregunta, que es exactamente lo que este
-              detalle ya pagó con la prioridad (había tres formas de cambiarla). Sin
-              portada no hay dónde cruzarlo, así que vive en el header como siempre.
-              Y el padding de la izquierda le deja su lugar cuando cruza. */}
-
-          {/* ⚠️ EL PID Y EL TÍTULO SON UNA COLUMNA, no dos hijos sueltos de la fila.
-              El renglón chico arriba (qué cosa es) y el nombre grande abajo, con la
-              marca al lado — la misma anatomía que la cabecera de la ficha de un
-              cliente. La fila alinea por la BASE, así que el título queda a la altura
-              del ícono sin ninguna cuenta. */}
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Lo que se quedó acá es lo que es DEL TABLERO: el pid, el chip de objetivo
+            principal, el título que escribe con `patchLabelLog` y el «Volver». */}
+        <CabeceraDetalle
+          nombre={proj.name}
+          color={proj.color}
+          portada={proj.portada} portadaY={proj.portadaY}
+          onPortada={onPortada} onEncuadre={onEncuadre}
+          icono={proj.icono} emoji={proj.emoji} onIcono={onIcono}
+          cuadrado
+          onCerrar={onClose}
+          antes={onBack ? (
+            <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>
+          ) : undefined}
+          kicker={
+            <>
               <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
               {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
-            </span>
-            {/* MISMO título editable que el de una tarea, con el mismo foco sin recuadro
-                azul: dos pantallas que muestran lo mismo se ven igual. */}
+            </>
+          }
+          titulo={
+            /* MISMO título editable que el de una tarea, con el mismo foco sin recuadro
+               azul: dos pantallas que muestran lo mismo se ven igual. */
             <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)}
               onBlur={(e) => { tituloBlur(e); if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
               onFocus={tituloFoco}
               title="Edita el nombre" aria-label="Nombre del proyecto"
               style={{ ...tituloEditable, fontSize: 20, marginBottom: 0 }} />
-          </span>
-          {/* El chip va en el HEADER por el mismo motivo que en una tarea: es lo primero que
-              hay que saber de este proyecto —cambia el significado de su prioridad, de su
-              fecha y de dónde vive— y la columna derecha puede estar scrolleada. */}
-          {repiteProj && <RepiteChip />}
-          {/* ⛔ ACÁ ESTABA EL CHIP DE ORIGEN. Se fue al renglón del historial, igual que en
-              una tarea: «que el origen esté en el change history» (25/09/2026). Y lo que
-              vale para una vale para el otro — si una pieza se ve distinta en los dos
-              detalles, no está terminada. */}
-          <span style={{ flex: 1 }} />
-          {/* ⛔ ACÁ ESTABA «✦ MaKo te ayuda», y se fue el 23/09/2026 a pedido. En una
-              tarea tiene sentido —MaKo reescribe el título y el detalle— pero en un
-              proyecto el detalle ya lo escribe el Perro al crearlo y en cada corrida, así
-              que el botón ofrecía volver a pedir algo que ya pasó solo. */}
-        </div>
+          }
+          /* El chip va en la cabecera por el mismo motivo que en una tarea: es lo primero
+             que hay que saber de este proyecto —cambia el significado de su prioridad, de
+             su fecha y de dónde vive— y la columna derecha puede estar scrolleada. */
+          chips={repiteProj ? <RepiteChip /> : undefined}
+        />
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
           {/* columna principal */}
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
