@@ -26,6 +26,9 @@ import { Pagina, PageHeader } from '@/app/_ui';
 import { VistaCerebro } from './VistaCerebro';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnelDefault } from '@/lib/funnels';
+import { EntradasCard } from '../funnel/EntradasCard';
+import { canalEfectivo } from '@/lib/fase-diagnostico';
+import { getDiagnosticoFase } from '@/lib/fase-store';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { BotonExportar } from './BotonExportar';
 import { BotonClaude } from './BotonClaude';
@@ -42,8 +45,27 @@ export default async function SecondBrainPage() {
   await requireRolWs([], { nav: 'second-brain' });
 
   // DEFAULT: el editor embebido edita el funnel del negocio.
-  const [{ pipeline, suppressed }, cerebro] = await Promise.all([getFunnelDefault(), construirCerebro()]);
-  const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
+  // ⚠️ LA TARJETA DE ENTRADAS VA EN LOS TRES MONTAJES DEL EDITOR, no solo en /funnel.
+  // `funnels.data.entradas` decide si un opt-in de FORMULARIO entra al CRM (la guarda de
+  // app/api/track/optin/route.ts), y medido el 28/09/2026 estaba vacio en SEIS de los
+  // workspaces con `declarado = true`: a todos ellos un formulario se les descartaria, y lo
+  // unico que los salva hoy es la excepcion de Cal.com.
+  //
+  // La causa no era el dato: era que la UNICA pantalla donde se declara era /funnel, que no
+  // esta en el nav. El editor se monta tambien aca, y lo montaba SIN la tarjeta, asi que
+  // quien configuraba su funnel por el camino normal nunca veia la pregunta.
+  const [cfg, cerebro, diag] = await Promise.all([
+    getFunnelDefault(), construirCerebro(), getDiagnosticoFase().catch(() => null),
+  ]);
+  const { pipeline, suppressed, entradas, evento } = cfg;
+  const funnelPanel = (
+    <FunnelEditor
+      embedded
+      initialPipeline={pipeline}
+      initialSuppressed={suppressed}
+      encabezado={<EntradasCard initial={entradas} initialEvento={evento} canal={canalEfectivo(cfg.canal, diag?.canal)} />}
+    />
+  );
 
   const ws = await getWorkspaceActual();
   const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);

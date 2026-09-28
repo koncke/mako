@@ -136,3 +136,27 @@ test('⚠️ AVISA, no bloquea: guardar nunca se bloquea', () => {
     'los problemas del pipeline no pueden impedir guardar',
   );
 });
+
+test('⚠️ la pregunta de «de dónde entran tus leads» está en los TRES montajes del editor', () => {
+  // `funnels.data.entradas` decide si un opt-in de FORMULARIO entra al CRM. Medido el
+  // 28/09/2026: estaba vacío en SEIS de los workspaces con `declarado = true` (1, 4, 10, 13,
+  // 14, 15), así que a todos ellos un formulario se les descartaría. Lo único que los salva
+  // hoy es la excepción de Cal.com, y el único que lo declaró es el ws11 — que resulta ser
+  // el único que recibe formularios sin reserva (6 de 8).
+  //
+  // La causa no era el dato: la ÚNICA pantalla donde se declara era /funnel, que NO está en
+  // el nav. Los otros dos montajes del editor lo montaban sin la tarjeta, así que quien
+  // configuraba su funnel por el camino normal nunca veía la pregunta.
+  //
+  // Probado rompiéndolo: se saca el `encabezado` de /second-brain → 5 / 1.
+  for (const ruta of ['../app/funnel/page.tsx', '../app/onboarding/page.tsx', '../app/second-brain/page.tsx']) {
+    const t = readFileSync(join(import.meta.dirname, ruta), 'utf8');
+    assert.match(t, /<EntradasCard/, `${ruta} monta el editor del funnel SIN la tarjeta de entradas`);
+  }
+  // Y la herencia del canal se resuelve en UN lugar: `funnels.canal = null` significa
+  // «heredá el del negocio», y repetido en tres pantallas el tercero se queda viejo.
+  for (const ruta of ['../app/funnel/page.tsx', '../app/onboarding/page.tsx', '../app/second-brain/page.tsx']) {
+    const t = readFileSync(join(import.meta.dirname, ruta), 'utf8');
+    assert.match(t, /canalEfectivo\(/, `${ruta} resuelve el canal por su cuenta en vez de usar canalEfectivo`);
+  }
+});

@@ -370,6 +370,25 @@ export const CANALES: Array<{ id: CanalId; label: string; desc: string }> = [
   { id: 'presencial', label: 'Sesión presencial', desc: 'Van a tu local, taller o sesión, y ahí cierras.' },
 ];
 
+/**
+ * ¿Este valor es uno de los cinco canales? Se valida contra el catálogo porque
+ * `funnels.canal` es TEXTO y decide qué plantilla se siembra y qué pregunta se muestra.
+ *
+ * ⚠️ Vivía como una copia local en `app/funnel/page.tsx`. Subió acá cuando lo necesitó la
+ * segunda pantalla: un validador de catálogo copiado es el catálogo con dos dueños.
+ */
+export const esCanal = (v: unknown): v is CanalId => CANALES.some((c) => c.id === v);
+
+/**
+ * El canal que gobierna a ESTE funnel: el suyo si lo declaró, si no el del negocio.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN CADA PANTALLA porque las TRES que montan el editor del funnel
+ * necesitan la misma respuesta, y `funnels.canal = null` —que es lo que tienen los once
+ * funnels de producción— significa exactamente «heredá el del negocio». Repetida en tres
+ * lugares, la tercera se queda vieja el día que la herencia cambie.
+ */
+export const canalEfectivo = (delFunnel: unknown, delNegocio: CanalId | null | undefined): CanalId | null =>
+  esCanal(delFunnel) ? delFunnel : (delNegocio ?? null);
 /** Texto + 5 opciones (una por fase) para la pregunta de volumen, por canal. */
 export const VOLUMEN_POR_CANAL: Record<CanalId, { texto: string; opciones: string[] }> = {
   llamadas: {

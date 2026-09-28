@@ -7,14 +7,11 @@ import { FunnelEditor } from './FunnelEditor';
 import { EntradasCard } from './EntradasCard';
 import { requireRolWs } from '@/lib/tab-access';
 import { getDiagnosticoFase } from '@/lib/fase-store';
-import { CANALES, type CanalId } from '@/lib/fase-diagnostico';
+import { canalEfectivo } from '@/lib/fase-diagnostico';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-/** El canal guardado en `funnels.canal` es texto: se valida contra el catálogo
- *  antes de usarlo, porque decide qué pregunta y qué plantilla se muestran. */
-const esCanal = (v: unknown): v is CanalId => CANALES.some((c) => c.id === v);
 
 export default async function FunnelPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
   await requireRolWs([], { nav: 'crm' });
@@ -36,8 +33,9 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
   ]);
   const { pipeline, suppressed, entradas, evento, id } = cfg;
   // El BOFU del funnel manda sobre el del negocio; sin él, se hereda (que es lo
-  // que significa `funnels.canal = null`).
-  const canal = esCanal(cfg.canal) ? cfg.canal : (diag?.canal ?? null);
+  // que significa `funnels.canal = null`). La regla vive en `canalEfectivo`: la
+  // necesitan las TRES pantallas que montan este editor.
+  const canal = canalEfectivo(cfg.canal, diag?.canal);
   return (
     <FunnelEditor
       key={id ?? 'default'}

@@ -12,6 +12,9 @@ import { OnboardingWizard } from './OnboardingWizard';
 import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnelDefault } from '@/lib/funnels';
+import { EntradasCard } from '../funnel/EntradasCard';
+import { canalEfectivo } from '@/lib/fase-diagnostico';
+import { getDiagnosticoFase } from '@/lib/fase-store';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 // El onboarding se pinta OSCURO, sea cual sea el tema que el cliente tenga elegido.
 // Pedido de Martín: «quiero que todo el onboarding sea en black mode». Las dos mitades
@@ -45,8 +48,25 @@ export default async function OnboardingPage() {
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
   // DEFAULT: el editor embebido edita el funnel del negocio.
-  const { pipeline, suppressed } = await getFunnelDefault();
-  const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
+  // ⚠️ LA TARJETA DE ENTRADAS VA EN LOS TRES MONTAJES DEL EDITOR, no solo en /funnel.
+  // `funnels.data.entradas` decide si un opt-in de FORMULARIO entra al CRM (la guarda de
+  // app/api/track/optin/route.ts), y medido el 28/09/2026 estaba vacio en SEIS de los
+  // workspaces con `declarado = true`: a todos ellos un formulario se les descartaria, y lo
+  // unico que los salva hoy es la excepcion de Cal.com.
+  //
+  // La causa no era el dato: era que la UNICA pantalla donde se declara era /funnel, que no
+  // esta en el nav. El editor se monta tambien aca, y lo montaba SIN la tarjeta, asi que
+  // quien configuraba su funnel por el camino normal nunca veia la pregunta.
+  const [cfg, diag] = await Promise.all([getFunnelDefault(), getDiagnosticoFase().catch(() => null)]);
+  const { pipeline, suppressed, entradas, evento } = cfg;
+  const funnelPanel = (
+    <FunnelEditor
+      embedded
+      initialPipeline={pipeline}
+      initialSuppressed={suppressed}
+      encabezado={<EntradasCard initial={entradas} initialEvento={evento} canal={canalEfectivo(cfg.canal, diag?.canal)} />}
+    />
+  );
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
