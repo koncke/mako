@@ -108,3 +108,32 @@ export function rutaDeSalida(esSuperAdmin: boolean): string {
   // busque «a donde vuelvo» tiene un solo lugar donde mirar.
   return '/customer-success';
 }
+
+/**
+ * A QUIÉN SE LE REENVÍA EL ACCESO de un cliente, sobre una lista YA LEÍDA.
+ *
+ * Sin `usuarioId` se le escribe al ADMIN del cliente, que es quien recibe el acceso
+ * cuando la cuenta nace. Con `usuarioId`, a esa persona — y sólo si está en la lista.
+ *
+ * ⚠️ EL FILTRO POR WORKSPACE VA ACÁ ADENTRO Y NO EN EL QUE LLAMA. El guard de la cartera
+ * autoriza sobre un CLIENTE, no sobre una persona: sin este corte, un `usuarioId` de otro
+ * inquilino pasaría igual y le llegaría un mail de acceso a alguien que no tiene nada que
+ * ver con esa agencia. Es el mismo error que «el guard mira una cosa y la escritura toca
+ * otra», y falla en silencio porque el mail sale bien.
+ *
+ * ⚠️ `rol_ws` NULO CUENTA COMO ADMIN, igual que en el resto del producto: es el default
+ * con el que la base crea al primero. Tratarlo como «sin rol» dejaría sin destinatario a
+ * toda cuenta abierta por una agencia.
+ *
+ * Devuelve `null` cuando no hay a quién, que NO es un error del que llama: es el estado
+ * de esa cuenta. Pasó de verdad el 28/09 — un workspace aprobado con cero usuarios.
+ */
+export function aQuienReinvitar<T extends { id: number; workspace_id: number | null; rol_ws?: string | null }>(
+  gente: T[],
+  clienteWs: number,
+  usuarioId?: unknown,
+): T | null {
+  const suyos = gente.filter((u) => u.workspace_id === clienteWs);
+  if (typeof usuarioId === 'number') return suyos.find((u) => u.id === usuarioId) ?? null;
+  return suyos.find((u) => (u.rol_ws ?? 'admin') === 'admin') ?? suyos[0] ?? null;
+}

@@ -23,11 +23,13 @@
 // que un rótulo mienta un poco es chico al lado del de que tres pantallas
 // cuenten lo mismo con nombres distintos. El campo sigue siendo `abiertas`.
 
+import { useState } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import { TarjetaEntidad, PieNumeros, PieTexto, colorDe } from '@/app/_components/TarjetaEntidad';
 import { Dropdown } from '@/app/components/Dropdown';
 import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
+import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 
 // `colorDe` vivía acá y se fue con el molde, porque lo usan las dos pantallas. Se
 // re-exporta para no tocar a los tres que ya lo importaban de este archivo (la
@@ -54,21 +56,56 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
   const equipo = ws ? cuentas?.equipoPorWs?.[ws] : undefined;
 
   /**
-   * Lo que «Acciones» ofrece, y NADA que la tarjeta ya conteste.
+   * Lo que «Acciones» ofrece: GESTIONAR LA CUENTA, y nada que ya esté a un click.
    *
-   * ⚠️ NO HAY «Ver su ficha»: eso lo hace el click en la tarjeta, y un control nuevo
-   * que contesta una pregunta ya contestada no suma una opción — parte la respuesta
-   * en dos. Y no hay ninguna que lleve a una pantalla inventada: el CRM de este lead
-   * existe (`/crm/<id>`, el mismo link que su ficha), y «su equipo» sólo aparece
-   * cuando de verdad hay gente que mostrar.
+   * ⚠️ ACÁ ESTABA «Abrir en el CRM» Y SE FUE (29/09/2026). El reporte fue textual: «no
+   * entiendo que en las acciones de Agencia pusiste Abrir el CRM, no tiene sentido eso…
+   * ¿qué tiene que ver con abrir CRM? Si eso está dentro del detail». Tenía razón dos
+   * veces: el mismo link vive adentro de la ficha que abre el click en la tarjeta, y un
+   * menú que se llama «Acciones» y sólo sabe navegar no ofrece ninguna.
+   *
+   * ⚠️ NO HAY «Ver su ficha» por el mismo motivo: eso lo hace el click en la tarjeta, y
+   * un control que contesta una pregunta ya contestada no suma una opción, parte la
+   * respuesta en dos.
+   *
+   * ⚠️ Y NO HAY «Pausar la cuenta», que él nombró como ejemplo. No es que falte el
+   * endpoint —falta, `workspaces.estado` sólo lo escribe /api/admin/workspaces bajo
+   * super admin— sino que antes hay una decisión de producto: pausar es la palanca de
+   * COBRO de la plataforma. Si la agencia paga por su cartera, puede; si paga el
+   * cliente, dársela a la agencia es dejar que un tercero le corte el acceso a alguien
+   * que le paga a MaKo. Queda sin hacer y dicho, no hecho a medias.
    */
+  const admin = equipo?.find((u) => u.rol === 'admin') ?? equipo?.[0];
   const opciones = [
-    { value: 'crm', label: 'Abrir en el CRM' },
+    // Sólo con una cuenta abierta Y alguien adentro: reenviarle el acceso a nadie no es
+    // una opción, es un botón que contesta un error.
+    ...(ws && admin ? [{ value: 'reinvitar', label: `Reenviar el acceso a ${admin.nombre}` }] : []),
     ...(equipo?.length ? [{ value: 'equipo', label: `Ver su equipo (${equipo.length})` }] : []),
   ];
 
+  const [reenviando, setReenviando] = useState(false);
+  const [aviso, setAviso] = useState<{ tono: 'ok' | 'warn'; texto: string } | null>(null);
+
+  const reinvitar = async () => {
+    if (!ws || !admin || reenviando) return;
+    setReenviando(true); setAviso(null);
+    try {
+      const r = await fetch('/api/agencia/reinvitar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clienteWs: ws, usuarioId: admin.id }),
+      });
+      const j = (await r.json()) as { ok?: boolean; error?: string; invitacion?: ResultadoInvitacion };
+      if (!j.ok) { onError(j.error ?? 'No se pudo reenviar el acceso.'); return; }
+      // El resultado del ENVÍO, que no es el de la llamada: `invitarPorEmail` nunca tira
+      // y devuelve si salió. Un «listo» mudo no distingue «se le mandó» de «no salió».
+      setAviso(avisoInvitacion(j.invitacion, admin.email));
+    } catch {
+      onError('No se pudo reenviar el acceso.');
+    } finally { setReenviando(false); }
+  };
+
   const elegir = (v: string) => {
-    if (v === 'crm') { window.location.href = `/crm/${c.leadId}`; return; }
+    if (v === 'reinvitar') { void reinvitar(); return; }
     if (v === 'equipo') onEquipo();
   };
 
@@ -88,15 +125,24 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
       /* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner
          ceros sería afirmar que no tiene trabajo — que es distinto de no haber
          podido mirar. */
-      pie={tableroOk ? (
-        <PieNumeros datos={[
-          { v: trabajo?.proyectos ?? 0, k: 'Proyectos' },
-          { v: trabajo?.abiertas ?? 0, k: 'Tareas' },
-          { v: trabajo?.recurrentes ?? 0, k: 'Recurrentes' },
-        ]} />
-      ) : (
-        <PieTexto mal>No pude leer el tablero</PieTexto>
-      )}
+      pie={
+        <>
+          {tableroOk ? (
+            <PieNumeros datos={[
+              { v: trabajo?.proyectos ?? 0, k: 'Proyectos' },
+              { v: trabajo?.abiertas ?? 0, k: 'Tareas' },
+              { v: trabajo?.recurrentes ?? 0, k: 'Recurrentes' },
+            ]} />
+          ) : (
+            <PieTexto mal>No pude leer el tablero</PieTexto>
+          )}
+          {/* El resultado del reenvío, adentro de la tarjeta desde la que se pidió: un
+              aviso global obligaría a acordarse de sobre cuál se hizo click. Y va acá y
+              no en `acciones` porque esa fila es nowrap — un tercer hijo ancho la
+              desborda en vez de bajar a su renglón. */}
+          {aviso && <PieTexto mal={aviso.tono === 'warn'}>{aviso.texto}</PieTexto>}
+        </>
+      }
       /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. `cuentas.visible` lo decide el
          SERVER (page.tsx): una agencia habilitada y el super admin. Dibujarlos para un
          cliente común sería ofrecerle entrar a una cuenta que no existe. */
@@ -104,13 +150,19 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
         <>
           <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />
           <span style={{ flex: 1 }} />
-          <Dropdown
-            value="" resetAfterSelect align="right" placeholder="Acciones"
-            ariaLabel={`Acciones sobre ${nombre}`}
-            buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
-            options={opciones}
-            onChange={elegir}
-          />
+          {/* ⚠️ SIN OPCIONES NO SE DIBUJA. `Dropdown` no tiene rama de lista vacía: con
+              `options={[]}` igual pinta el botón y abre un popover en blanco, que se lee
+              como una app rota. Pasa de verdad — un cliente sin cuenta y sin equipo no
+              tiene ninguna. */}
+          {opciones.length > 0 && (
+            <Dropdown
+              value="" resetAfterSelect align="right" placeholder="Acciones"
+              ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}
+              buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
+              options={opciones}
+              onChange={elegir}
+            />
+          )}
         </>
       ) : undefined}
     />
