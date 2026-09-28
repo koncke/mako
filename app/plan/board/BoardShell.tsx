@@ -289,7 +289,13 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // ⚠️ `Vista | string` y no sólo `Vista`: con `vistaExtra` el valor puede ser un id que
   // el board no conoce. Las comparaciones contra las cuatro literales siguen tipando, y
   // la extra se compara contra su propio id.
-  const [view, setView] = useState<Vista | string>(vistaValida(vistaInicial) ?? 'prioridades');
+  // ⚠️ Y `vistaInicial` PUEDE SER LA EXTRA. `vistaValida` sólo conoce las cuatro
+  // literales, así que sin este `??` un deep-link a la vista de más («ver su equipo»)
+  // abría Prioridades y el control que llevaba ahí se leía como roto.
+  const [view, setView] = useState<Vista | string>(
+    vistaValida(vistaInicial)
+    ?? (vistaExtra && vistaInicial === vistaExtra.id ? vistaExtra.id : 'prioridades'),
+  );
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [peekProjId, setPeekProjId] = useState<string | null>(null); // proyecto abierto DESDE una tarea (encima de ella; feedback jul-19)
   const [nuevoProj, setNuevoProj] = useState(false);

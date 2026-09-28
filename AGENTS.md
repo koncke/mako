@@ -4801,3 +4801,30 @@ recién ahí pudo verlo. O sea que la corrida anterior al commit no probaba lo q
   agarra igual, pero ahí ya está el commit escrito y el mensaje redactado.
 - **Y vale al revés:** un archivo borrado que sigue en el índice se sigue revisando, así
   que un guard puede fallar por algo que ya no está en el disco.
+
+# Esconder un control es distinto de esconder la PANTALLA donde vive
+
+Una condición del tipo «mostrar esto sólo si hay algo adentro» parece de sentido común y
+se vuelve otra cosa en cuanto uno de sus términos es un PERMISO: deja de decir «si hay
+contenido» y pasa a decir «si vos podés».
+
+Medido el 29/09/2026 sobre la ficha de un cliente. La tab «Equipo» existía si
+`equipo.length || altas.length || puedePedir`, y `puedePedir` lleva `!cuentas.superAdmin`
+porque el super admin no PIDE altas: crea. En un cliente con **cero usuarios** ese botón
+era lo único que habría estado adentro, así que la tab entera desaparecía **sólo para
+él** — y lo que no veía era justo «no hay nadie adentro de esta cuenta», el dato más caro
+de ese cliente.
+
+| | fila de tabs, misma ficha |
+|---|---|
+| la agencia | `["Tablero", "Equipo"]` |
+| el super admin | `[]` |
+
+- **Un permiso apaga el CONTROL, no el contenedor.** La vista se ofrece igual y adentro
+  falta el botón que esa persona no puede usar.
+- **El modo de falla no lo puede reportar nadie**: cada uno ve su versión y las dos son
+  coherentes. Salió porque un usuario mandó una captura, no porque algo fallara.
+- **Y el dueño lo va a leer como «me mostrás algo distinto de lo que ven mis usuarios»**,
+  que es lo peor que puede pensar de una pantalla de administración. Antes de condicionar
+  cualquier cosa en una ficha que dos roles miran, la pregunta es «¿esto lo veo distinto
+  yo?» — y se contesta abriendo la misma pantalla con las dos sesiones, no leyendo.

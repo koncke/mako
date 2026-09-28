@@ -31,7 +31,7 @@
 
 import { useState, useRef } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
-import { Modal, Tabs } from '@/app/_ui';
+import { Modal } from '@/app/_ui';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
 import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
@@ -100,17 +100,31 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
     && cuentas.estadoPorWs[c.clienteWs] === 'aprobado',
   );
 
-  /** ⚠️ UNA SOLA TAB NO SON TABS: sin equipo, sin pedidos y sin poder pedir, la fila
-   *  no se dibuja y el tablero queda como estaba. Una barra de un solo destino es
-   *  ruido con cara de mapa. */
-  const hayEquipo = Boolean(equipo?.length || altas?.length || puedePedir);
-  const tabs = [
-    { id: 'tablero', label: 'Tablero' },
-    ...(hayEquipo ? [{ id: 'equipo', label: 'Equipo', badge: equipo?.length ?? 0 }] : []),
-  ];
-  const [tab, setTab] = useState(
-    tabInicial && tabs.some((t) => t.id === tabInicial) ? tabInicial : 'tablero',
-  );
+  /**
+   * ⛔ ACÁ HABÍA UNA SEGUNDA FILA DE TABS —«Tablero | Equipo»— Y SE FUE (29/09/2026).
+   *
+   * El board ya trae su propio selector (Prioridades · Tareas · Proyectos · Recurrentes),
+   * así que ésta era una barra arriba de la otra, a 8 px, y había que aprender cuál
+   * manda. El dueño lo reportó dos veces: primero sobre el panel de la plataforma —donde
+   * se arregló el 28/09— y después sobre ÉSTA, con una captura de Joan: «soluciona lo de
+   * la tab del tablero y equipo, ya habíamos hablado de eso». Ahora «Equipo» entra como
+   * una vista más del selector que ya existe (`vistaExtra`), igual que allá.
+   *
+   * ⚠️ Y AHORA VA SIEMPRE, sin la condición `hayEquipo`. Esa condición es la que hacía
+   * que la MISMA ficha se viera distinta según quién mirara, y eso es lo que el dueño
+   * reportó como lo más grave: a Joan (agencia) le aparecía la tab porque podía «Pedir
+   * sumar a alguien», y a él —super admin— no, porque `puedePedir` lleva
+   * `!cuentas.superAdmin`. Con un cliente de CERO usuarios ese botón era lo único que
+   * había adentro, así que la tab entera desaparecía sólo para él. Medido en el
+   * navegador con las dos sesiones sobre la misma ficha.
+   *
+   * O sea que el super admin no podía ver lo que ve su cliente — y justo lo que no veía
+   * («no hay nadie adentro de esta cuenta») es el dato que más le importa. Quién puede
+   * PEDIR un alta sigue decidiéndolo `puedePedir`: lo que se unificó es la vista, no el
+   * permiso.
+   */
+  const verEquipo = tabInicial === 'equipo';
+
 
   /** Renombrar al cliente o cambiarle la empresa. ⚠️ Escribe en `leads`, o sea en el
    *  CRM: no hay tabla de clientes, un cliente es un lead ganado. */
@@ -129,6 +143,17 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
   const fileRef = useRef<HTMLInputElement>(null);
 
   const nombre = c.nombre.trim() || 'Sin nombre';
+  /** La vista de más, al final del selector del board. El badge dice cuánta gente hay
+   *  sin tener que entrar. */
+  const vistaEquipo = {
+    id: 'equipo',
+    label: equipo?.length ? `Equipo · ${equipo.length}` : 'Equipo',
+    contenido: (
+      <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} altas={altas ?? []}
+        clienteWs={c.clienteWs ?? null} puedePedir={puedePedir}
+        onError={setMal} onPedido={() => router.refresh()} />
+    ),
+  };
   const color = colorDe(nombre);
   const clienteFijo = { leadId: c.leadId, nombre };
 
@@ -277,16 +302,15 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
     >
       {mal && <p className="fc-mal">{mal}</p>}
 
-      {tabs.length > 1 && <Tabs tabs={tabs} activa={tab} onCambio={setTab} />}
-
-      {tab === 'equipo' ? (
-        <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} altas={altas ?? []}
-          clienteWs={c.clienteWs ?? null} puedePedir={puedePedir}
-          onError={setMal} onPedido={() => router.refresh()} />
-      ) : !trabajo ? (
+      {!trabajo ? (
         // «No pude leer» no se pinta como «no tiene trabajo»: son dos pantallas, y la
-        // segunda sobre la primera es la mentira que nadie audita.
-        <p className="fc-mal">No pude leer su tablero. Vuelve a entrar a Clientes.</p>
+        // segunda sobre la primera es la mentira que nadie audita. Y el EQUIPO se
+        // muestra igual: no depende del tablero, así que perderlo por una lectura
+        // caída sería esconder lo único que quedó legible.
+        <>
+          <p className="fc-mal">No pude leer su tablero. Vuelve a entrar a Clientes.</p>
+          {vistaEquipo.contenido}
+        </>
       ) : trabajo.dueno ? (
         // ⚠️ `onRecargar` ES OBLIGATORIO ACÁ. El tablero recarga la página entera después
         // de una cascada de prioridad y al aplicar un borrador de reunión — y eso, adentro
@@ -295,10 +319,12 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
         // server (de donde salen estas filas) sin desmontar el árbol del navegador.
         <PlanBoard user={user} tareas={trabajo.tareas} proyectos={trabajo.proyectos}
           vacio={false} clientes={clientes} clienteFijo={clienteFijo} embebido
+          vistaExtra={vistaEquipo} vistaInicial={verEquipo ? 'equipo' : undefined}
           onRecargar={() => router.refresh()} />
       ) : (
         <TodoBoard tareas={trabajo.tareas} categorias={trabajo.categorias} demo={false}
           user={user} clientes={clientes} clienteFijo={clienteFijo} embebido
+          vistaExtra={vistaEquipo} vistaInicial={verEquipo ? 'equipo' : undefined}
           onRecargar={() => router.refresh()} />
       )}
 

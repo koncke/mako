@@ -2136,3 +2136,68 @@ ningún test, y sólo aparece probando la tecla.
   así que los otros siete dicen «Sin cliente en tu CRM» en vez de los tres números.
 - **`FichaCliente` sigue sin montar `CabeceraDetalle`**: son dos de tres pantallas, no las
   tres que decía el comentario de esa pieza.
+
+## La misma ficha se veía distinta según quién mirara, por UNA condición (29/09/2026)
+
+Cosechado del reporte más incómodo de la semana: **«¿me estás mostrando algo diferente al
+inspeccionar de lo que realmente ven los usuarios? Eso está muy mal.»** Llegó con dos
+capturas de la MISMA ficha —la de un cliente de la agencia— sacadas con dos sesiones: en
+la de Joan había una fila de tabs «Tablero | Equipo», y en la del super admin no había
+ninguna.
+
+**Vive en:** `app/customer-success/FichaCliente.tsx` · `app/plan/board/BoardShell.tsx`
+
+### No era «Inspeccionar miente»: era una condición de tres términos
+
+```
+const puedePedir = Boolean(c.clienteWs && cuentas?.puedePedirAltas && !cuentas.superAdmin && aprobado);
+const hayEquipo  = Boolean(equipo?.length || altas?.length || puedePedir);
+{tabs.length > 1 && <Tabs … />}
+```
+
+La tab «Equipo» sólo existía **si había algo adentro**, que suena razonable. Y para el
+super admin el botón «Pedir sumar a alguien» está apagado a propósito —él no pide altas,
+crea— por el `!cuentas.superAdmin`. En un cliente con **cero usuarios** ese botón era lo
+ÚNICO que habría estado adentro, así que el `hayEquipo` daba false y **la tab entera
+desaparecía sólo para él**.
+
+Medido en el navegador con las dos sesiones sobre la misma ficha (ws15, 0 usuarios):
+
+| | fila de tabs |
+|---|---|
+| agencia (ws13, rol usuario) | `["Tablero", "Equipo"]` |
+| super admin en `/customer-success?ws=13` | `[]` |
+
+Para el super admin había **dos** motivos independientes, no uno: además del
+`!cuentas.superAdmin`, `puedePedirAltas` es `esAg && adminDeWorkspaceActual() != null`, y
+él no es miembro de ese workspace.
+
+**La regla que queda: una condición sobre «si hay contenido» aplicada a un CONTENEDOR lo
+vuelve una condición sobre QUIÉN MIRA, en cuanto alguno de sus términos sea un permiso.**
+Esconder un botón que alguien no puede usar está bien; esconder la PANTALLA donde vive
+ese botón deja a esa persona sin la información que sí le corresponde — y acá lo que no
+veía era justo «no hay nadie adentro de esta cuenta», el dato más caro de ese cliente.
+
+⚠️ **Y el modo de falla es el peor que hay: nadie lo puede reportar.** Cada uno ve su
+versión y las dos son coherentes. Salió porque un usuario de la agencia mandó una captura,
+no porque algo fallara.
+
+### Y de paso, la segunda fila de tabs que ya se había reportado una vez
+
+«Soluciona lo de la tab del tablero y equipo, **ya habíamos hablado de eso**.» El 28/09 se
+arregló el panel de la plataforma —«Equipo» pasó a ser una vista del selector que el board
+ya trae— y **esta pantalla, que es la hermana, quedó con la fila vieja**. Es el costo de
+arreglar el síntoma en la pantalla desde la que se reportó en vez de buscar las otras
+copias: el mismo reporte vuelve, y la segunda vez con menos paciencia.
+
+Ahora las dos montan `vistaExtra`, y la vista se pasa **sin condición**: el permiso de
+PEDIR un alta sigue siendo del que mira, lo que se unificó es la vista.
+
+⚠️ **`vistaValida` sólo conoce las cuatro literales del board**, así que un deep-link a la
+vista extra («Ver su equipo (N)» desde la tarjeta) caía en Prioridades — un control que no
+hace lo que dice, sin ningún error.
+
+### Lo que quedó SIN hacer
+
+- **`FichaCliente` sigue sin montar `CabeceraDetalle`**: es la tercera copia de la
+  cabecera, y ésta es la segunda vez que un arreglo de la pieza compartida no le llega.
