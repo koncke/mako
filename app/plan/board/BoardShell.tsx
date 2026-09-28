@@ -3478,7 +3478,14 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
             de Proyectos usa tarjetas de ~240-300px y esta se estiraba hasta 440, con lo
             que en pantalla ancha parecía otra cosa. Se tiene que reconocer por el diseño
             —borde de color arriba, emoji, P#, avance— sin leer una palabra. */}
-        <div className="mako-prio-obj" style={{ flex: '0 1 300px', maxWidth: 320, minWidth: 240, display: 'flex' }}>
+        {/* ⚠️ MAS ANCHA Y PEGADA A LAS TAREAS. El hueco que se veia NO era el gap: la
+            tarjeta media 259 px adentro de una columna de 300 —no la llenaba— asi que
+            sobraban 41 px que se leian como separacion y que bajar el gap no tocaba.
+            Ahora la tarjeta lleva `width:100%` y el hueco real ES el gap.
+            Y la columna pasa de 300 a 380 («esta muy flaca»): con la banda, el icono y
+            el titulo adentro, 300 le quedaban cortos a la misma pieza que en la grilla
+            vive en celdas de 320 minimo. */}
+        <div className="mako-prio-obj" style={{ flex: '0 1 380px', maxWidth: 420, minWidth: 280, display: 'flex' }}>
           {objetivo ? <ObjetivoCard objetivo={objetivo} prog={projProgress(board.tasks, objetivo.id)} onOpen={() => onOpenProj(objetivo.id)} /> : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Crea un proyecto y el perro elige el norte.</div>
           )}
@@ -4255,7 +4262,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
       // ⚠️ SELECCIONADO SE DICE CON EL FONDO Y EL BORDE, igual que la tarjeta de una tarea:
       // la casilla marcada sola es de 14 px en una tarjeta de 360 de alto, así que de un
       // vistazo no se ve cuántas hay elegidas.
-      style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, position: 'relative', transition: 'border-color .12s, background .12s' }}
+      style={{ background: elegido ? 'var(--primary-bg)' : 'var(--surface)', border: `1px solid ${elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: arrastrable ? 'grab' : 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, width: '100%', minWidth: 0, position: 'relative', transition: 'border-color .12s, background .12s' }}
       onMouseEnter={(e) => { if (!elegido) e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(true); }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = elegido ? 'var(--primary)' : isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; setHoverSel(false); }}>
       {/* LA PORTADA (mig 0173), sangrando el padding para llegar a los bordes de la
           tarjeta. Se dibuja SÓLO si la eligieron: sin esto, todas las tarjetas nacerían con
