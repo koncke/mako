@@ -1966,3 +1966,80 @@ solo destino es ruido con cara de mapa.
   `app/admin/AdminView.tsx`.
 - **`/api/admin/usuarios` sigue calculando un `resumen`** (integraciones + perfil) que ningún
   cliente lee. Ya estaba anotado y sigue.
+
+## Una cuenta aprobada con CERO usuarios: el alta que no crea a nadie (28/09/2026)
+
+Cosechado de una pregunta del dueño del producto que resultó ser un bug: «**Código acaba de
+agregar a un cliente, y ya lo acepté en superadmin. ¿Qué pasa ahora? ¿Le llega el email con
+la invitación a MaKo?**». La respuesta medida era **no, y no podía llegar**.
+
+**Vive en:** `app/customer-success/actions.ts` (`crearCuentaMakoAction`) · `app/customer-success/CuentaDeMaKo.tsx` · `app/api/admin/agencia/route.ts`
+
+### El caso real, con números
+
+Código Inmobiliario abrió la cuenta de Brigitte Eberlin el 28/09. El super admin la
+aprobó. Estado en la base un rato después:
+
+- workspace **15**, creado, `estado = aprobado`
+- **0 usuarios**
+- el lead: sin `email`, sólo teléfono
+
+O sea **un inquilino que existe, está autorizado, y al que no puede entrar nadie** — y ni
+un solo error en el camino. `crearCuentaMakoAction` creaba el workspace y el pedido de
+alta, y **nunca creaba a la persona**. La aprobación marcaba una fila y no escribía a
+nadie. Las dos mitades funcionaban perfecto y entre ellas no había nada.
+
+**La regla que queda: si una acción termina en «alguien de afuera se entera», el test no
+es que la acción devuelva `ok` — es contar las filas del otro lado.** Acá la consulta que
+lo delata es de una línea (`usuarios where workspace_id = N`), y la pantalla no tenía cómo
+mostrar ese cero: dibujaba «aprobado» y listo.
+
+### `crearUsuario` NO manda mail, `invitarPorEmail` sí — y confundirlos falla en los dos sentidos
+
+Son dos funciones y hacen cosas distintas, y el nombre de la primera invita a asumir lo
+contrario. Cada confusión tiene su falla:
+
+- Si creás con `invitarPorEmail` en el ALTA, le estás contando a un tercero que tiene un
+  acceso **que el super admin todavía no autorizó**. Es la regla de la casa rota por el
+  lado caro: el canal propone, la persona confirma.
+- Si creás con `crearUsuario` y no llamás a nadie después, es el bug de arriba.
+
+El reparto correcto sale del pedido del dueño («que abrir cuenta pida el email desde el
+principio y sea obligatorio, y que luego le llegue el email de invitación»): **el ALTA crea
+al admin en silencio, y la APROBACIÓN es la que le manda el acceso.**
+
+### El orden de las dos escrituras importa: primero el chequeo, después el inquilino
+
+`usuarios.email` es único. Con el chequeo después de `crearWorkspace`, un email ya usado
+hace fallar el alta **con el inquilino ya creado** — y deja un workspace huérfano que
+ningún listado marca como roto. El `buscarUsuarioPorEmail` va antes de la primera
+escritura, no antes de la que puede chocar.
+
+⚠️ **Y el mail no puede tumbar la aprobación.** Si `invitarPorEmail` falla, la fila ya está
+aprobada: deshacerla sería revertir una decisión que una persona tomó porque falló un
+servicio de correo. El resultado del envío viaja como un `aviso` en la respuesta y se
+dibuja pegado al renglón, nunca como un 500. Tres avisos distintos, porque son tres hechos
+distintos: se mandó, ya se le había mandado antes (`invitacion_enviada_at`), o no hay a
+quién mandarle.
+
+### El email del CRM no es el email del usuario, y hay que preguntar igual
+
+El campo del modal viene **prellenado** con el del lead y se pregunta de todas formas. El
+del CRM puede ser el del contacto comercial —quien negoció— y no el de quien va a usar la
+app. Prellenar ahorra el tipeo; no preguntar decide por el otro.
+
+Y el botón dice **«Abrir la cuenta»**, no «Crear»: lo que sigue le escribe a una persona y
+no se deshace. La bajada dice cuándo («Ahí le llega su acceso, cuando se apruebe la
+cuenta») porque esa consecuencia contada DESPUÉS del click es una sorpresa.
+
+### Lo que quedó SIN hacer
+
+- **La cuenta de Brigitte Eberlin (ws 15) sigue con 0 usuarios.** El flujo nuevo arregla las
+  próximas, no las que ya nacieron rotas. Para repararla hace falta su email, que nadie
+  cargó: el lead 2486 tiene teléfono y nada más.
+- **No hay ninguna consulta ni alerta que encuentre esto solo.** Un workspace aprobado sin
+  usuarios es invisible: debería ser una fila roja en el panel de la plataforma, y hoy hay
+  que preguntarle a la base.
+- **Rechazar un alta no pide motivo** aunque la columna existe (`agencia_altas.motivo`,
+  mig 0178), así que la agencia ve «rechazado» sin saber por qué.
+- **La tabla `agencias` de la mig 0176 quedó muerta** y no se dropeó.

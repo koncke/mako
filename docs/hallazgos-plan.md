@@ -4966,6 +4966,15 @@ más adentro.
 
 ## Montar el tablero de OTRO workspace: el ws no viaja por el componente, viaja por la PESTAÑA
 
+⚠️ **LA PREMISA DE ESTA SECCIÓN MURIÓ EL MISMO DÍA, unas horas después: la ficha NUNCA
+tuvo que mostrar el tablero del cliente.** Lo que va abajo se midió y es cierto, pero
+describe un problema que el producto no tiene — se lee como autopsia, no como el estado
+del código. Los archivos que nombra ya no existen (`lib/tablero-de-workspace.ts`,
+`app/api/admin/tablero/route.ts`, `app/admin/TableroDelCliente.tsx`, el bloque `wsDeTrabajo`
+de `lib/ws-tab.ts` y el override de `WsFetch.tsx`). **La corrección está en la sección
+siguiente, que es la que hay que leer.** Sobrevive entero lo de `tableroDeCapa`, lo de las
+props que no son capacidades y lo del `as`.
+
 Cosechado el 28/09/2026, del pedido «aun no veo el plan, las tareas y proyectos de cada
 cliente» sobre la ficha de un cliente en el panel de la plataforma. Salió de un relevo de
 4 lectores + refutación, y el resultado cambió el plan: lo que parecía «montar el board
@@ -5071,3 +5080,90 @@ Lo delata la cadena de mappers: el tablero del cliente va de fila a modelo en DO
   dos call sites que se lo pasan. Vive en `app/plan/board/BoardShell.tsx`.
 - **El detalle de un proyecto no se abre desde la ficha** (el `onOpen` es un no-op): abrirlo
   sería montar media pantalla más para no poder tocar nada. Queda anotado, no hecho.
+
+## La ficha de un cliente muestra MI trabajo sobre él, no el suyo (28/09/2026)
+
+Cosechado el mismo día que la sección de arriba y en contra de ella, del reporte textual:
+«**estás trayendo las tareas y proyectos de ese cliente, cuando tenés que traer los de
+SUPER ADMIN relacionados a ese cliente. No tiene sentido eso. No entiendo en qué punto
+asumiste que era así**».
+
+**Vive en:** `app/admin/AdminView.tsx` (`TableroDelCliente`) · `app/customer-success/page.tsx` · `app/plan/board/BoardShell.tsx` (`vistaExtra`)
+
+### El diagnóstico obvio era el equivocado, y me costó una jornada entera
+
+«No veo el plan de cada cliente» tiene dos lecturas y agarré la que sonaba más difícil.
+Gasté un relevo de 4 lectores, una refutación, una migración de pensamiento sobre escritura
+cruzada de inquilino, un endpoint, una lib, un componente y un test — **todo para un
+problema que el producto no tiene**. La lectura correcta era la barata: el tablero de la
+ficha es el MÍO filtrado por ese cliente, igual que la ficha de un lead ganado en Customer
+Success. Same-tenant. Cero escrituras cruzadas. Cero `?ws=`.
+
+**Lo que tendría que haberme frenado estaba a la vista y no lo miré:**
+
+1. **La ficha ya tenía «Inspeccionar»**, que es exactamente «ver el mundo de ese cliente».
+   Si la tab de al lado del botón hace lo mismo que el botón, una de las dos está mal —
+   y la que está mal es casi siempre la que estoy construyendo, no la que ya funciona.
+2. **La pantalla hermana ya lo resolvía.** Customer Success muestra, para un lead ganado,
+   el trabajo del que mira atribuido a ese cliente. Si dos pantallas del mismo producto
+   muestran «el cliente X» y una necesita cruzar de inquilino y la otra no, el modelo de la
+   que cruza es el sospechoso.
+3. **El pedido decía «los de SUPER ADMIN».** Lo leí como una aclaración de permisos y era
+   una aclaración de *sujeto*.
+
+**La regla que queda: cuando una feature pide una máquina nueva y grande, buscá primero
+qué pantalla del producto ya hace algo que se le parece.** Si existe y es simple, la
+diferencia no es que la tuya sea más difícil: es que entendiste otra cosa. Y el costo de
+preguntar es una frase; el de asumir fue todo lo que se borró.
+
+### Las filas ya están en el HTML: no hay fetch, no hay loader
+
+El otro reporte del mismo día: «**tarda un montón en cargar sus tareas, cuando ya habíamos
+dicho que debe quedar registro y ser automático. No entiendo por qué retrocedés en los
+avances que ya habíamos hecho**».
+
+Tenía razón y el bug era estructural, no de velocidad: el tablero se pedía **al abrir la
+ficha**, por un endpoint, por cliente. Con el modelo correcto el trabajo del super admin es
+**uno solo** —el suyo— y ya lo lee el server de la pantalla (`filasDeTodos()` en
+`page.tsx`), así que viaja con el HTML y se reparte en memoria por `porCliente[leadId]`.
+Abrir una ficha dejó de ser una petición.
+
+⚠️ **Y si algo se carga, el contenedor NO puede cambiar de tamaño.** «El detail SIEMPRE
+debe ser del mismo tamaño, no achicarse. Y mostrar un loader.» Un modal que nace chico con
+el mensaje de carga y crece al llegar los datos mueve todo lo que la persona estaba por
+clickear. El ancho es una constante (`ANCHO = 1560`) y el estado de carga se dibuja
+adentro, nunca en lugar del contenedor.
+
+### Una vista más del board, no una segunda fila de tabs
+
+«**Pusiste 2 seleccionables de tabs, arriba "tablero y equipo" y abajo las otras cuatro.
+Eso no tiene sentido: tenés que quitar lo de arriba, y simplemente agregar "Equipo" luego
+de "Recurrentes"**.»
+
+Es el error clásico de componer por composición: el board ya trae su selector de vistas
+(Prioridades · Kanban · Tabla · Recurrentes) y yo le monté OTRO selector encima para elegir
+entre «el board» y «el equipo». Dos barras de tabs en la misma pantalla, a 8 px una de la
+otra, y la persona tiene que aprender cuál manda.
+
+La cura fue abrirle una puerta al selector que ya existe: `BoardShell` acepta
+`vistaExtra?: { id, label, contenido }`, el switcher mapea `[...VISTAS, vistaExtra]` y el
+cuerpo dibuja su contenido cuando está elegida. **Una sola fila, y «Equipo» es una vista del
+board como las otras cuatro.**
+
+⚠️ **El tipo de `view` deja de ser la unión cerrada.** `Vista` era `'prioridades' | 'kanban'
+| …`; ahora es `Vista | string`, porque el id de la vista extra lo pone el call site. Eso
+apaga el chequeo de exhaustividad del switch: si mañana alguien agrega una vista al enum y
+se olvida de un `case`, el compilador ya no avisa. Es el precio, está anotado, y el cuerpo
+tiene un `default` que no dibuja nada en vez de romper.
+
+### Lo que quedó SIN hacer
+
+- **El detalle de un proyecto abre a 1180 px** (era 820) porque los textos de un proyecto no
+  entraban. Vive en `app/plan/board/piezas.tsx` (`MODAL_DETALLE`). No se midió contra
+  pantallas de 1280: en un portátil chico el detalle ocupa casi todo el ancho.
+- **`CabeceraDetalle` es la segunda de tres copias fusionadas.** La tercera es `FichaCliente`
+  (Customer Success), que sigue dibujando su propia cabecera a mano. Vive en
+  `app/customer-success/FichaCliente.tsx`.
+- Sigue abierto todo lo de la sección anterior que no dependía de la premisa muerta:
+  `DependenciasBloque` sin soporte del Repo, `ampliarTareas` descartando filas en silencio,
+  y `ProyectoVacioBloque` con `/api/plan-board` cableado adentro.

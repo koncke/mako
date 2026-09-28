@@ -4675,3 +4675,57 @@ random… no son las prioritarias que habíamos hablado.»* Lo obligatorio de es
 en otros tres proyectos. Antes de ordenar por un criterio, hay que mirar si las tareas del
 proyecto son las que ese criterio nombra; y lo que van a usar TODOS los clientes es producto
 y va a su tab, aunque lo haya pedido uno (`lib/plan-proyectos-catalogo.ts`).
+
+# Si el final de una acción es «alguien de afuera se entera», contá las filas del otro lado
+
+Que la acción devuelva `ok` prueba que la acción corrió, no que la persona exista. El 28/09
+una agencia abrió la cuenta de un cliente, el super admin la aprobó, y **no le llegó nada a
+nadie**: workspace creado, estado `aprobado`, **cero usuarios**, el lead sin email, y ni un
+solo error en el camino. El alta creaba el inquilino y el pedido y **nunca creaba a la
+persona**; la aprobación marcaba una fila y no le escribía a nadie. Las dos mitades andaban
+perfecto y entre ellas no había nada.
+
+La verificación que lo delata es de una línea (`usuarios where workspace_id = N`), y ninguna
+pantalla podía mostrar ese cero: dibujaba «aprobado» y listo.
+
+- **Después de una acción que termina afuera, verificá el EFECTO, no el retorno.** Contá la
+  fila que tiene que existir, o pedí el registro que dice que el mensaje salió.
+- **`crearUsuario` no manda mail; `invitarPorEmail` sí.** Confundirlos falla en los dos
+  sentidos, y los dos son caros: avisarle a un tercero de un acceso que todavía **no está
+  autorizado**, o no avisarle nunca. El reparto de la casa: el canal PROPONE (crea en
+  silencio) y la confirmación de una persona es la que manda el acceso.
+- **El chequeo de unicidad va antes de la PRIMERA escritura, no antes de la que choca.**
+  `usuarios.email` es único: chequear después de `crearWorkspace` deja, ante un email
+  repetido, un inquilino huérfano que ningún listado marca como roto.
+- **Y el aviso no puede tumbar la decisión.** Si el mail falla cuando la aprobación ya se
+  escribió, revertirla es deshacer lo que una persona decidió porque se cayó un servicio de
+  correo. El resultado del envío viaja como aviso pegado al renglón —se mandó / ya se había
+  mandado / no hay a quién— y nunca como un 500.
+- **Un estado «autorizado» sin nadie adentro tiene que ser visible.** Hoy hay que
+  preguntárselo a la base; debería ser una fila roja en el panel.
+
+# Antes de construir una máquina nueva, buscá qué pantalla del producto ya hace algo parecido
+
+El 28/09 leí «aun no veo el plan, las tareas y proyectos de cada cliente» como «montá el
+tablero DEL cliente adentro de su ficha». Era «mostrá el trabajo del SUPER ADMIN atribuido a
+ese cliente» —same-tenant, sin `?ws=`, sin escrituras cruzadas—, que es exactamente lo que ya
+hacía la ficha de un lead ganado en Customer Success. **El pedido decía «los de SUPER ADMIN»
+y lo leí como una aclaración de permisos cuando era una aclaración de sujeto.**
+
+Costó un relevo de 4 lectores con refutación, un endpoint, una lib, un componente, un test y
+una máquina de `?ws=` en dos archivos más — todo borrado, para un problema que el producto no
+tiene. Lo que tenía que haberme frenado estaba a la vista:
+
+- **La misma ficha ya tenía «Inspeccionar»**, que es literalmente «ver el mundo de ese
+  cliente». Si el control de al lado hace lo que estoy construyendo, una de las dos cosas
+  está mal — y es casi siempre la que estoy construyendo.
+- **La pantalla hermana lo resolvía sin la máquina.** Si dos pantallas del mismo producto
+  muestran «el cliente X» y una necesita cruzar de inquilino y la otra no, la que cruza es la
+  sospechosa.
+
+**La señal es el TAMAÑO: cuando una feature que se pidió en una frase pide una máquina nueva
+y grande, la hipótesis a descartar primero no es técnica, es que entendiste otra cosa.**
+Preguntar cuesta una frase. Y el corolario para el resto de la casa: la reescritura no se
+esconde — se dice qué se borró y por qué, o el próximo agente reconstruye la máquina leyendo
+el hallazgo viejo.
+

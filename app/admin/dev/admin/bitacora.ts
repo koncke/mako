@@ -330,6 +330,54 @@ export const BITACORA: Hito[] = [
       { sha: '9e7d78aa', msg: 'El tablero de cada cliente, adentro de su ficha', lineas: 700, archivos: 16 },
     ],
   },
+  {
+    fecha: '28 sep', hora: '17:05', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'El tablero de la ficha era el equivocado, y las tabs eran dos',
+    pedido: 'Estas trayendo las tareas y proyectos de ese cliente, cuando tenes que traer los de SUPER ADMIN relacionados a ese cliente. No tiene sentido eso. No entiendo en que punto asumiste que era asi. / Pusiste 2 seleccionables de tabs, eso no tiene sentido, tienes que quitar lo de arriba y simplemente agregar Equipo luego de Recurrentes. / Al entrar a la tab aparece ese cuadro, en todo caso un loader grande en el medio. / Tarda un monton en cargar sus tareas, cuando ya habiamos dicho que debe quedar registro y ser automatico. No entiendo porque retrocedes en los avances que ya habiamos hecho. Y el detail SIEMPRE debe ser del mismo tamano, no achicarse.',
+    puntos: [
+      'Cuatro correcciones sobre la implementacion de las 16:20, la misma tarde.',
+    ],
+  },
+  {
+    fecha: '28 sep', hora: '18:40', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha muestra MI trabajo sobre el cliente, no el suyo — y se borra la maquina de ?ws=',
+    puntos: [
+      '⚠️ **LA ENTRADA DE LAS 16:20 ES UNA AUTOPSIA: su premisa murio unas horas despues.** La ficha nunca tuvo que mostrar el tablero DEL cliente. Muestra el trabajo del SUPER ADMIN atribuido a ese cliente — same-tenant, sin `?ws=`, sin una sola escritura cruzada. Todo lo que se midio ahi es cierto y describe un problema que el producto no tiene.',
+      "**El diagnostico obvio era el equivocado por SEGUNDA vez en el dia, y lo que tenia que frenarme estaba a la vista.** (1) La misma ficha ya tenia «Inspeccionar», que es literalmente ver el mundo de ese cliente: si el control de al lado hace lo que estoy construyendo, la que esta mal es casi siempre la que estoy construyendo. (2) La pantalla hermana —la ficha de un lead ganado en Customer Success— lo resolvia sin la maquina. (3) El pedido decia «los de SUPER ADMIN» y lo lei como una aclaracion de permisos cuando era una aclaracion de SUJETO. La senal que sirve para la proxima es el TAMANO: cuando una feature pedida en una frase pide una maquina nueva y grande, la hipotesis a descartar primero no es tecnica, es que entendiste otra cosa.",
+      '**Borrado, no deprecado:** `lib/tablero-de-workspace.ts`, `app/api/admin/tablero/route.ts`, `app/admin/TableroDelCliente.tsx`, `tests/ws-de-trabajo.test.ts`, el bloque `wsDeTrabajo` de `lib/ws-tab.ts` y el override de `WsFetch.tsx`. Quedan lapidas con el porque: sin ellas el proximo agente reconstruye la maquina leyendo el hallazgo viejo.',
+      '**Las filas viajan con el HTML y abrir una ficha dejo de ser una peticion.** El trabajo del super admin es UNO solo: lo lee `filasDeTodos()` en el `page.tsx` y se reparte en memoria por `porCliente[leadId]`. Antes se pedia por endpoint al abrir cada ficha, que es lo que el dueño reporto como «tarda un monton».',
+      '⚠️ **Un contenedor que carga NO puede cambiar de tamano.** Un modal que nace chico con el mensaje y crece al llegar los datos mueve todo lo que la persona estaba por clickear. El ancho es constante (1560) y el estado de carga se dibuja adentro, nunca en lugar del contenedor.',
+      '**Dos barras de tabs en la misma pantalla es el error de componer por composicion.** El board ya trae su selector (Prioridades · Kanban · Tabla · Recurrentes) y yo le monte otro encima. La cura fue abrirle una puerta al que ya existe: `vistaExtra` en `BoardShell`, y «Equipo» entra como la quinta vista. El precio esta anotado: `view` deja de ser una union cerrada, asi que el switch pierde su chequeo de exhaustividad.',
+      'ABIERTO: el detalle de un proyecto abre a 1180 (era 820) y no se midio contra pantallas de 1280. Y `FichaCliente` sigue siendo la tercera copia de la cabecera.',
+    ],
+    commits: [
+      { sha: '9e76fa15', msg: 'El tablero de la ficha es el del SUPER ADMIN sobre ese cliente, y las tabs son UNA fila', lineas: 620, archivos: 14 },
+    ],
+  },
+  {
+    fecha: '28 sep', hora: '11:20', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que abrir cuenta pida el email, y que le llegue la invitacion',
+    pedido: 'Codigo acaba de agregar a un cliente, y ya lo acepte en superadmin, que pasa ahora? Le llega el email con la invitacion a MaKo? / Si, que abrir cuenta pida el email del cliente desde el principio, y tiene que ser obligatorio. Y que luego le llegue el email de invitacion.',
+    puntos: [
+      'La pregunta era una pregunta y resulto ser un bug.',
+    ],
+  },
+  {
+    fecha: '28 sep', hora: '19:30', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una cuenta aprobada con CERO usuarios: el alta que no creaba a nadie',
+    puntos: [
+      '**La respuesta medida a «le llega el email?» era NO, y no podia llegar.** Codigo abrio la cuenta de Brigitte Eberlin, el super admin la aprobo, y el estado en la base era: workspace 15 creado, `aprobado`, **0 usuarios**, y el lead sin email (solo telefono). Un inquilino que existe, esta autorizado, y al que no puede entrar nadie — sin un solo error en el camino. El alta creaba el workspace y el pedido y **nunca creaba a la persona**; la aprobacion marcaba una fila sin escribirle a nadie.',
+      '**La regla: si una accion termina en «alguien de afuera se entera», el test no es que devuelva ok — es contar las filas del otro lado.** Aca la consulta que lo delata es de una linea (`usuarios where workspace_id = N`), y ninguna pantalla podia mostrar ese cero: dibujaba «aprobado» y listo.',
+      '⚠️ **`crearUsuario` NO manda mail y `invitarPorEmail` si, y confundirlos falla en los DOS sentidos.** Invitar en el alta le cuenta a un tercero que tiene un acceso que el super admin todavia no autorizo; no invitar nunca es el bug de arriba. El reparto: el ALTA crea en silencio y la APROBACION manda el acceso, que es la regla de la casa aplicada a una persona.',
+      '**El chequeo de email duplicado va antes de `crearWorkspace`, no antes de la escritura que choca.** `usuarios.email` es unico: chequear despues deja, ante un email repetido, un inquilino huerfano que ningun listado marca como roto.',
+      '**Y el mail no puede tumbar la aprobacion.** Si falla con la fila ya aprobada, revertirla seria deshacer lo que una persona decidio porque se cayo un servicio de correo. El resultado viaja como aviso pegado al renglon —se mando / ya se habia mandado / no hay a quien— y nunca como un 500.',
+      '**El email del CRM se prellena pero se pregunta igual:** puede ser el del contacto comercial y no el de quien va a usar la app. Y el boton dice «Abrir la cuenta», no «Crear»: lo que sigue le escribe a una persona.',
+      'ABIERTO: la cuenta de Brigitte (ws 15) sigue con 0 usuarios — el flujo nuevo arregla las proximas, y repararla necesita su email, que nadie cargo. No hay ninguna alerta que encuentre esto solo. Rechazar un alta no pide motivo aunque la columna existe. La tabla `agencias` de la mig 0176 quedo muerta y no se dropeo.',
+    ],
+    commits: [
+      { sha: '655e977f', msg: 'Abrir una cuenta pide el email, y la aprobacion es la que le manda el acceso', lineas: 260, archivos: 6 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
