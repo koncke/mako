@@ -158,6 +158,35 @@ export function encabezadoAviso(id: string): string {
 }
 
 export const CATALOGO_AVISOS: AvisoCatalogo[] = [
+  // ⚠️ DOS QUE SE DISPARAN DE VERDAD Y NO ESTABAN ACÁ. Los avisos en vivo
+  // (AVISOS_WA_EN_VIVO en lib/notif-catalogo.ts) tienen que existir en este
+  // catálogo: es de acá que salen la lista de «Los mensajes, como llegan», su
+  // texto editable y su interruptor. Al quedar UNA sola pantalla, un aviso que
+  // sale pero no figura acá es un aviso que nadie puede leer, editar ni apagar.
+  {
+    id: 'plan-proyecto-vence', titulo: 'Proyectos atrasados o por vencer', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Un mensaje por día con todos los proyectos vencidos o por vencer, y solo si cambió algo desde el anterior.',
+    ejemplo: `📁 *Proyectos que piden atención*
+
+🔴 *Landing nueva* — venció hace 3 días
+🟡 *Campaña de agosto* — vence mañana
+
+Si alguno ya no va, quítale la fecha y dejo de insistir. — MaKo`,
+  },
+  {
+    id: 'avisos-resumen', titulo: 'El resumen de la mañana', categoria: 'reporte',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'A la mañana, junta en UN mensaje los avisos que no eran urgentes y esperaron en la cola. Apagarlo NO los devuelve al momento: los deja sin salir.',
+    ejemplo: `🌅 *Mientras no mirabas* — 3 cosas
+
+• Se cerraron 2 tareas que ya estaban hechas.
+• La retro de la semana quedó lista.
+• Un proyecto vence mañana.
+
+Nada urgente, por eso esperaron. — MaKo`,
+  },
+
   // ── REPORTES (digest por cron) ─────────────────────────────────────────────
   {
     id: 'reporte-diario', titulo: 'Reporte diario matutino', categoria: 'reporte',

@@ -245,10 +245,30 @@ export async function resumenAvisosActivo(ws: number): Promise<boolean> {
   }
 }
 
+/**
+ * ¿Este aviso sale por WhatsApp?
+ *
+ * ⚠️ UN SOLO INTERRUPTOR POR MENSAJE. Antes había dos campos que apagaban lo
+ * mismo y el usuario los leía como uno: este `prefs.avisos[tipo]` (el toggle de
+ * la lista de Avisos) y el `enabled` de la plantilla (el punto verde de «Los
+ * mensajes, como llegan»). Se consultaban EN CADENA, así que apagar cualquiera
+ * silenciaba el aviso — y prender uno sin darse cuenta de que el otro estaba
+ * apagado no hacía nada. Dos switches para un hecho es un switch que miente.
+ *
+ * Al quedar UNA pantalla, la verdad es `enabled`. Los apagados que vivían en
+ * prefs se movieron al store con scripts/migrar-apagados-a-plantillas.mjs (5
+ * filas, ws1 y ws13) ANTES de este cambio: leer el store con los apagados
+ * todavía en prefs le habría vuelto a prender a un cliente lo que había
+ * silenciado.
+ *
+ * `prefs.avisos` queda en el tipo por las preferencias viejas que puedan estar
+ * guardadas, pero ya no lo lee nadie: un campo que decide algo tiene que tener
+ * una pantalla donde verse, y ese toggle ya no existe.
+ */
 export async function avisoWaActivo(ws: number, tipo: string): Promise<boolean> {
   try {
-    const prefs = await runWithWorkspace(ws, () => getNotifPrefs());
-    return prefs.avisos[tipo] !== false;
+    const { plantillaActiva } = await import('./plantillas');
+    return await runWithWorkspace(ws, () => plantillaActiva(tipo));
   } catch {
     return true; // un fallo leyendo la preferencia no puede silenciar un aviso
   }

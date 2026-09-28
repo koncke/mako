@@ -25,7 +25,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  NOTIF_IN_APP, REPORTES, AVISOS_WA_EN_VIVO, inAppActivo,
+  NOTIF_IN_APP, REPORTES, inAppActivo,
   type NotifInApp, type ReporteKey,
 } from '@/lib/notif-catalogo';
 import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
@@ -219,8 +219,6 @@ export function NotificacionesPanel() {
   const setSec = (k: keyof Secciones, v: boolean) => setDraft((d) => (d ? { ...d, secciones: { ...d.secciones, [k]: v } } : d));
   const setReporte = (k: ReporteKey, canal: 'wa' | 'email', v: boolean) =>
     setDraft((d) => (d ? { ...d, [k]: conCanal(d[k], canal, v) } : d));
-  const setAviso = (id: string, v: boolean) =>
-    setDraft((d) => (d ? { ...d, avisos: { ...d.avisos, [id]: v } } : d));
   const setResumen = (v: boolean) => setDraft((d) => (d ? { ...d, resumenDiario: v } : d));
   const setItem = (id: string, canal: 'popup' | 'sonido', v: boolean) =>
     setInAppDraft((p) => (p ? { ...p, items: { ...p.items, [id]: { ...(p.items[id] ?? { popup: true, sonido: true }), [canal]: v } } } : p));
@@ -363,8 +361,13 @@ export function NotificacionesPanel() {
         </div>
       </Seccion>
 
-      {/* ── 3. Avisos sueltos (del negocio) ────────────────────────────────── */}
-      <Seccion titulo="Avisos" nota="Cuando pasa algo, en el momento">
+      {/* ── 3. Cuándo llegan (del negocio) ─────────────────────────────────── */}
+      {/* Acá quedó UNA fila, y es la única que se gana el lugar: no dice QUÉ se
+          manda —eso es cada mensaje, y se prende o se apaga en la sección de
+          abajo— sino CUÁNDO. Los quince toggles que había antes duplicaban el
+          punto verde de cada mensaje: dos switches para un mismo hecho, y apagar
+          uno sin ver el otro no hacía nada. */}
+      <Seccion titulo="Cuándo llegan" nota="En el momento, o todos juntos a la mañana">
         <div style={card}>
           {/* JUNTARLOS EN UNO POR DÍA. Sale del reporte del dueño: «las notificaciones de
               WhatsApp son demasiadas». Lo urgente —un lead, una reunión, la cuenta de Meta
@@ -382,20 +385,7 @@ export function NotificacionesPanel() {
               />
             }
           />
-          {AVISOS_WA_EN_VIVO.map((a, i) => (
-            <Fila
-              key={a.id} titulo={a.titulo} sub={a.sub}
-              canales={
-                <CanalToggle
-                  icono="whatsapp" label="WhatsApp" fila={a.titulo}
-                  estado={estadoWa(draft.avisos[a.id] !== false)}
-                  motivoNoDisponible="No hay ningún número cargado"
-                  onChange={(v) => setAviso(a.id, v)}
-                />
-              }
 
-            />
-          ))}
         </div>
       </Seccion>
 
