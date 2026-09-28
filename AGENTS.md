@@ -4786,3 +4786,18 @@ ya se cortaban en el caso más favorable.
 - **La salida no era medir mejor: era no usar un input.** Un `contentEditable` ocupa
   exactamente lo que dice, y además puede recortar con «…», cosa que un input no.
 
+
+# `npm test` antes del `git add` no ve los archivos nuevos
+
+Los guards que barren el repo —el de voseo, el de los tokens `var(--fs-*)`, el de las
+rutas de `/admin/dev`— enumeran con `git ls-files`, que lista **el ÍNDICE y no el disco**.
+Un archivo nuevo sin stagear es invisible para ellos.
+
+Medido el 29/09/2026: `npm test` dio **2619 en verde** con un `volvé` escrito en un módulo
+nuevo, y el mismo comando dio **2618 y un rojo** después del `git add` — el guard de voseo
+recién ahí pudo verlo. O sea que la corrida anterior al commit no probaba lo que parecía.
+
+- **Con archivos NUEVOS, el orden es `git add` y después `npm test`.** El pre-push lo
+  agarra igual, pero ahí ya está el commit escrito y el mensaje redactado.
+- **Y vale al revés:** un archivo borrado que sigue en el índice se sigue revisando, así
+  que un guard puede fallar por algo que ya no está en el disco.

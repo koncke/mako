@@ -117,7 +117,7 @@ export async function eliminarWorkspace(
     // justo el dato que hace falta para arreglarlo.
     return {
       ok: false,
-      error: `Quedó algo apuntando a este cliente y la base no dejó borrarlo: ${error.message}. Sus datos ya se vaciaron; volvé a intentar cuando esté resuelto.`,
+      error: `Quedó algo apuntando a este cliente y la base no dejó borrarlo: ${error.message}. Sus datos ya se vaciaron; vuelve a intentar cuando esté resuelto.`,
     };
   }
 
