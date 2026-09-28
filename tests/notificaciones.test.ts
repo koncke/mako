@@ -140,3 +140,27 @@ test('las sub-rutas de /admin no se comen el título entre sí', () => {
   assert.notEqual(tituloDe('/admin'), tituloDe('/admin/guiones'));
   assert.notEqual(tituloDe('/admin'), tituloDe('/admin/dev/semaforo'));
 });
+
+test('una sub-ruta de /admin SIN item propio no se lee «Clientes»', () => {
+  // El `match` del item Clientes era una lista de exclusiones —«/admin menos
+  // guiones, menos ui, menos docs, menos dev, menos agente»— y el 27/09/2026 ya
+  // estaba VIEJA: no excluía /admin/friccion, que existe desde ese mismo día, así
+  // que esa pantalla leía «MaKo - Clientes» y encima prendía la fila equivocada en
+  // la barra. Una condición negativa se queda vieja sola: cada ruta nueva entra en
+  // la lista de las no contempladas sin que nada avise.
+  //
+  // Ahora es `p === '/admin'`, en positivo, y esto es lo que impide que vuelva.
+  // Una ruta sin item propio cae al fallback («Admin», el primer segmento), que es
+  // lo correcto: mejor el nombre de la sección que el de otra pantalla.
+  //
+  // ⚠️ Probado ROMPIÉNDOLO: volviendo el match a la forma vieja
+  //   (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && …
+  // el archivo pasa de 20/20 a **19 pases y 1 FALLO**, y el fallo es éste: corta
+  // en el primer assert, con 'MaKo - Clientes' donde tenía que decir 'MaKo -
+  // Admin'. Uno solo, y alcanza: es el único test del repo capaz de distinguir
+  // una lista de exclusiones vieja de una al día.
+  assert.equal(tituloDe('/admin/friccion'), 'MaKo - Admin');
+  assert.equal(tituloDe('/admin/una-ruta-que-todavia-no-existe'), 'MaKo - Admin');
+  // Y la que SÍ tiene item propio sigue leyendo el suyo.
+  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Copywriting');
+});

@@ -17,7 +17,8 @@ import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status } from '@/ap
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
-import { ClienteCard, CSS_CLIENTE } from './ClienteCard';
+import { ClienteCard } from './ClienteCard';
+import { GrillaTarjetas, TarjetaNueva } from '@/app/_components/TarjetaEntidad';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
@@ -213,7 +214,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
         <>
           <BarraClientes
             q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
-            filtro={filtro} onFiltro={setFiltro} orden={orden} onOrden={setOrden}
+            filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
             nVisibles={visibles.length} nTotal={lista.length}
             /* ⚠️ EL PROGRESO DE UNA CARTERA NO ES «TAREAS HECHAS». El plan cuenta lo
                completado; acá lo que importa es cuántos clientes tienen trabajo
@@ -233,18 +234,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
             <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
               tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando(true)} />
           ) : (
-            <ul className="cl-grid">
+            <GrillaTarjetas>
               {/* ⚠️ CREAR ES LA PRIMERA TARJETA, no un botón en la esquina. «Que sea una
                   preview de card, transparente, que diga Nuevo cliente, al principio de
                   todo, así como tenemos a los nuevos proyectos» (27/09/2026). Y vale
                   para algo más que parecerse: con la grilla vacía de resultados por un
                   filtro, sigue habiendo una salida a la vista. */}
-              <li>
-                <button type="button" className="cl-nueva" onClick={() => setCreando(true)}>
-                  <span className="cl-nueva-mas" aria-hidden>＋</span>
-                  <span>Nuevo cliente</span>
-                </button>
-              </li>
+              <li><TarjetaNueva label="Nuevo cliente" onClick={() => setCreando(true)} /></li>
               {visibles.map((c) => (
                 <li key={c.leadId}>
                   <ClienteCard c={c} n={numeroDe.get(c.leadId) ?? 0}
@@ -252,7 +248,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
                     onAbrir={() => setAbiertoId(c.leadId)} />
                 </li>
               ))}
-            </ul>
+            </GrillaTarjetas>
           )}
 
           {/* ⚠️ «NO ENCONTRÉ» NO ES «NO TENÉS». Sin este renglón, buscar algo que no
@@ -285,7 +281,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
 
       {creando && <NuevoCliente onCerrar={() => setCreando(false)} />}
 
-      <style dangerouslySetInnerHTML={{ __html: CSS_CLIENTE + CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Pagina>
   );
 }
@@ -337,22 +333,9 @@ const CSS = `
    auto-fill —que colapsa las columnas vacías en vez de reservarlas—, un mínimo de
    320, y un tope de 1180 centrado. El tope es lo que impide el efecto contrario:
    sin él, en un monitor ancho las tarjetas se estiran hasta deformar la foto. */
-.cl-grid{ list-style:none; margin:0 auto; padding:0; display:grid; gap:18px;
-  grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); max-width:1180px; }
-.cl-grid > li{ display:flex; }
-
 /* La tarjeta de CREAR: el mismo hueco que una de verdad, punteada y sin peso. Es la
    misma pieza que «Crear nuevo proyecto…» en el tablero, a propósito — si la misma
    acción se ve distinta en dos pantallas, se aprende dos veces. */
-.cl-nueva{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-  width:100%; min-height:230px; border:1.5px dashed var(--border-strong); border-radius:16px;
-  background:transparent; color:var(--dim); font:inherit; font-size:14px; font-weight:600;
-  cursor:pointer; transition:border-color .12s, color .12s, background .12s; }
-.cl-nueva:hover{ border-color:var(--primary); color:var(--primary); background:var(--primary-bg); }
-.cl-nueva-mas{ font-size:26px; line-height:1; font-weight:400; }
-
-.cl-nada{ margin:18px 2px; font-size:13.5px; color:var(--dim); text-align:center; }
-
 .cl-acciones{ display:flex; align-items:center; gap:10px; }
 .cl-mako{ font-size:12.5px; color:var(--dim); }
 .cl-auto{ background:none; border:0; font:inherit; font-size:12.5px; color:var(--dim); cursor:pointer;

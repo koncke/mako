@@ -3004,3 +3004,111 @@ revierte un «por defecto», hay que mirar si además quedó memoria de la elecc
 
 **Vive en:** `app/crm/CrmBoard.tsx` (`KANBAN_BANDS`) · `docs/friccion-crm.md` §4 ·
 *2026-09-27 aviso-un-renglon*
+
+## Replicar una vista en otra pantalla: lo que se comparte y lo que se rompe
+
+El 27/09/2026 el dueño pidió que `/admin` fuera «exactamente igual que la vista de
+clientes que construimos, solo que con los botones extras». Lo que sigue es lo que
+costó, y sobre todo lo que **no** se ve leyendo las dos pantallas en paralelo.
+
+**Vive en:** `app/_components/TarjetaEntidad.tsx` · `app/customer-success/BarraClientes.tsx` · `app/admin/AdminView.tsx` · `app/_components/nav.ts`
+
+### El diagnóstico obvio era el equivocado: no se comparte el CSS, se comparte la pieza
+
+La salida barata es que la pantalla nueva importe la hoja de la vieja y arme su
+propia composición. **«Exactamente igual» dura lo que dura la primera edición**: el
+día que alguien mueva la bajada en una, la otra se queda vieja y nada avisa.
+
+Lo que cambia entre las dos son sus DATOS —un cliente tiene tres números del
+tablero, un workspace tiene su plan y su equipo—, y eso entra por slots (`pie`,
+`chips`, `acciones`). La forma es una sola: `TarjetaEntidad`.
+
+### `margin: 0 auto` sin `width: 100%` se encoge en un contenedor FLEX
+
+`.bc` (la barra) declaraba `margin: 0 auto; max-width: 1180px` y nada más. En un
+contenedor de BLOQUE —Customer Success— ocupa todo. En uno **flex en columna**
+—`/admin`— los márgenes auto de un item absorben el espacio libre: medido, **419 px
+de ancho, centrada, y con la mitad de los controles caídos a un segundo renglón**.
+
+No se lee como una barra angosta: se lee como una barra rota. Y el mismo patrón
+estaba en `.cl-grid`. Los dos llevan `width: 100%` ahora.
+
+⚠️ **La regla que generaliza:** una pieza que se centra con `margin: 0 auto` da
+resultados distintos según el `display` de su padre, y el padre no es suyo. Al
+mudar una pieza a otra pantalla, eso es lo primero a mirar.
+
+### La hoja tiene que viajar con lo que se monta
+
+`CSS_CLIENTE` se definía en `ClienteCard.tsx` y lo inyectaba `ClientesApp`.
+Montar la tarjeta en otra pantalla sin acordarse de concatenar esa constante la
+dibuja **sin un solo estilo** — sin caja, sin banda, sin la fila de números. Es el
+mismo modo de falla que el avatar de esa tarjeta ya había pagado una vez.
+
+La cura no es documentarlo: es que el `<style>` lo ponga `GrillaTarjetas`, que es
+lo que se monta. Lo que no se puede olvidar es lo que no hay que recordar.
+
+### La tarjeta era un `<button>`, y «con los botones extras» no entra ahí
+
+Un botón adentro de otro es HTML inválido, y el archivo lo tenía escrito como
+decisión («la tarjeta ENTERA es el botón»). Para que `/admin` pueda poner
+«Inspeccionar» y un menú encima, el botón pasó a ser una **capa que cubre la
+tarjeta** (`position:absolute; inset:0; z-index:0`), con el contenido arriba en
+`pointer-events: none` y sólo `.cl-acc` volviendo a aceptarlos. Se conserva que
+toda la superficie abra, y los controles de verdad reciben su propio click.
+
+El foco se dibuja con `:has(.cl-abrir:focus-visible)` sobre la tarjeta: lo que se
+ve es el rectángulo, no la capa invisible.
+
+### Una condición NEGATIVA en un `match` de la barra ya estaba vieja
+
+El item «Clientes» de `nav.ts` matcheaba `starts('/admin')` **menos** guiones, ui,
+docs, dev y agente. No excluía `/admin/friccion`, que existe desde el mismo día:
+parado ahí se prendía la fila «Clientes» **y** el `<title>` decía «MaKo -
+Clientes». Falla en dos superficies a la vez y no da error.
+
+Es la regla de la casa sobre guards aplicada a un `match`: **va en positivo**. El
+item ES `/admin`, esa ruta y ninguna más (`p === '/admin'`). Una ruta sin item
+propio no prende ninguna fila y lee su nombre del fallback, que es lo correcto —
+mejor el nombre de la sección que el de otra pantalla. Lo fija
+`tests/notificaciones.test.ts`, probado rompiéndolo: con el match viejo, 19 pases
+y 1 fallo.
+
+### Un deep-link leído por un `useEffect` de montaje no es un link
+
+`/admin?tab=copy` abría la tercera sub-tab, y estando ya en `/admin` una
+navegación del router no remonta nada: te dejaba mirando Clientes. Se reportó dos
+veces como «me redirige». Al mudar la tab a su ruta, el link viejo se resolvió con
+un `redirect()` **del server**, que no depende de que nada se monte.
+
+### Lo que un rediseño pierde sin que nada falle
+
+Al cambiar la presentación de una pantalla con 28 capacidades, lo que se cae son
+las **invisibles** — las que no se ven mirando la pantalla en su estado normal:
+
+- Dos bloques que no se dibujan cuando están vacíos: las aprobaciones de agencia y
+  los usuarios huérfanos.
+- Una decisión escondida adentro de un item de `Dropdown`: «Convertir en agencia»,
+  que es la mitad del modelo de agencia recién construido.
+- El aviso de sesión legacy, que vivía **sólo** adentro de la sub-tab que se
+  eliminaba y es lo único que le dice a alguien que está con la cookie vieja.
+
+Se salvan enumerándolas ANTES, no mirando el resultado. Y al terminar, un `grep`
+de cada pieza nueva contando sus call sites: `SeccionSuperAdmins` quedó declarada
+y sin llamar, y el typecheck lo dio por bueno.
+
+### Lo que quedó SIN hacer
+
+- **`NombreClienteDialog` sigue siendo un modal a mano** (`position:fixed`,
+  z-index 90) y **no se registra en `app/_components/pila-modales.ts`**. Hoy no
+  molesta porque se abre desde la grilla; el día que se abra desde la ficha de un
+  cliente, un Escape va a cerrar las dos.
+- **`/api/admin/usuarios` calcula un `resumen`** (integraciones y perfil de negocio
+  por workspace, un `integracionConectada` por servicio en cada carga de /admin) y
+  **el cliente no lo lee**: el tipo `Respuesta` ni lo declara. Es trabajo de server
+  que se tira en cada request.
+- **El cerebro de copywriting escribe en `OWNER_WS`**, que vale 1 y es Mauricio, un
+  cliente — lo de la plataforma va en `wsSuperAdmin()`. No se tocó en la mudanza
+  porque cambiarlo MUEVE datos ya cargados, y eso es una decisión con su backfill.
+- **`app/admin/copywriting/` no está en ningún `vive[]`** de `app/admin/dev/areas.ts`,
+  así que su Change History nace vacío. `tests/dev-areas.test.ts` sólo comprueba que
+  lo declarado exista: la omisión no la ve nadie.

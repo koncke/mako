@@ -329,9 +329,24 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
     icon: 'admin',
     bloques: [
       [
-        // Las sub-rutas de /admin tienen item propio — que "Clientes" no se
-        // marque también cuando estás en cualquiera de ellas.
-        { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => starts('/admin')(p) && !starts('/admin/guiones')(p) && !starts('/admin/ui')(p) && !starts('/admin/docs')(p) && !starts('/admin/dev')(p) && !starts('/admin/agente')(p) },
+        // ⚠️ EL MATCH VA EN POSITIVO: «Clientes» ES /admin, esa ruta y ninguna más.
+        // Era una lista de exclusiones —«/admin menos guiones, menos ui, menos docs,
+        // menos dev, menos agente»— y el 27/09/2026 ya estaba VIEJA: no excluía
+        // /admin/friccion, que existe desde ese mismo día, así que parado ahí se
+        // prendía «Clientes» Y el título de la pestaña decía «MaKo - Clientes».
+        // Falla en dos superficies a la vez y no da error.
+        // Una condición negativa se queda vieja sola: cada sub-ruta nueva entra en la
+        // lista de las no contempladas sin que nada avise. Es la regla de la casa
+        // sobre guards, y vale igual para un `match`. Con la forma positiva, una ruta
+        // sin item propio no prende ninguna fila y lee su nombre del fallback, que es
+        // lo correcto: mejor nada que la fila equivocada.
+        { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: (p) => p === '/admin' },
+        // El cerebro de redacción de MaKo. Era la tercera sub-tab de /admin y se fue a
+        // su ruta el 27/09 («ponlo como otra tab en la sección de admin en la sidebar»).
+        // Ruta propia y no `?tab=`: el match de un item ve SOLO el pathname, así que dos
+        // items sobre /admin se prenderían los dos — es el mismo motivo por el que
+        // «Mensajes de MaKo» tuvo que salir de /agencia?tab=plantillas.
+        { key: 'copywriting', label: 'Copywriting', href: '/admin/copywriting', icon: 'escribir', match: starts('/admin/copywriting') },
         // Canal propio de MaKo: WhatsApp del admin (canal + grupos + plantillas).
         // NO es preview de ningún cliente. Su propia línea por QR. Por eso NO es
         // el /whatsapp de Operate y sigue viviendo acá.

@@ -14,7 +14,17 @@
 // Los guards duros (no dejar sin super admin ni sin admin de cliente) viven
 // en el API; acá solo mostramos sus errores.
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+// Los estilos de esta pantalla viven en su modulo desde que /admin/copywriting se
+// llevo ocho de ellos: copiarlos alla era el segundo lugar donde vive el mismo boton.
+import { MONO, SANS, card, input, labelStyle, btnDark, btnGhost, btnPrimary, chip, bannerError } from './estilos';
+import type { Workspace, Sesion } from './tipos';
+// ⚠️ LAS MISMAS PIEZAS QUE /customer-success, no unas parecidas. Es lo que hace
+// que «exactamente igual» siga siendo cierto despues de la primera edicion.
+import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, colorDe } from '../_components/TarjetaEntidad';
+import { BarraClientes } from '../customer-success/BarraClientes';
+import { Marca } from '../_components/Marca';
+import { Modal } from '../_ui/Modal';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Dropdown } from '../components/Dropdown';
@@ -35,20 +45,6 @@ function Aviso({ aviso }: { aviso: AvisoInvitacion }) {
   );
 }
 
-const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
-
-type Workspace = { id: number; nombre: string; slug: string | null; estado: 'activo' | 'pausado'; capa: CapaId; created_at: string; usuarios: number };
-type Sesion = { email: string; legacy: boolean };
-
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
-const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
-const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
-const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
-const btnGhost: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 500, cursor: 'pointer' };
-const btnPrimary: CSSProperties = { padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none' };
-const chip = (bg: string, color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, background: bg, color, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', flex: 'none' });
-const bannerError: CSSProperties = { background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '11px 15px', fontSize: 13, color: 'var(--bad)', fontWeight: 600, lineHeight: 1.5 };
 
 const ROL_WS_OPTS = [
   { value: 'admin', label: 'Admin', sub: 'Ve todo el negocio' },
@@ -91,8 +87,6 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
 // AdminView
 // =============================================================================
 export function AdminView() {
-  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy'>('clientes');
-
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -119,38 +113,12 @@ export function AdminView() {
     }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
-  // Deep-link: /admin?tab=copy sigue abriendo el cerebro de copywriting. Se
-  // mantiene porque hay links viejos dando vueltas, pero YA NO es la única
-  // puerta: la tab está acá abajo, al lado de las otras dos.
-  useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'copy') setTab('copy'); }, []);
 
   const header = (
     <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
       <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="admin" size={34} /></span>
       <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Admin</h1>
     </header>
-  );
-
-  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy'): CSSProperties => ({
-    padding: '10px 2px', marginRight: 26, background: 'transparent', border: 'none', cursor: 'pointer',
-    fontFamily: SANS, fontSize: 15, fontWeight: tab === id ? 600 : 500,
-    color: tab === id ? 'var(--ink)' : 'var(--dim)',
-    borderBottom: tab === id ? '2px solid var(--accent)' : '2px solid transparent',
-  });
-
-  const tabs = (
-    <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
-      <button style={tabBtn('clientes')} onClick={() => setTab('clientes')}>Clientes</button>
-      <button style={tabBtn('superadmins')} onClick={() => setTab('superadmins')}>Super Admins</button>
-      {/* Vuelve a tener botón. Vivía SOLO en la barra lateral, como un item
-          «MaKo» que apuntaba a /admin?tab=copy: al sacarlo de ahí, esta pantalla
-          —la metodología de copywriting y el swipe de ejemplos— se quedaba sin
-          ninguna forma de llegar. Además el item de la barra casi nunca
-          funcionaba: el `?tab=` lo lee un efecto de montaje, así que estando ya
-          en /admin la navegación del cliente no remontaba nada y te dejaba en
-          Clientes. Eso es lo que se veía como «me redirige». */}
-      <button style={tabBtn('copy')} onClick={() => setTab('copy')}>Copywriting</button>
-    </div>
   );
 
   if (cargando) {
@@ -177,11 +145,14 @@ export function AdminView() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       {header}
-      <div style={{ maxWidth: 980, marginTop: 18 }}>
-        {tabs}
-        {tab === 'clientes' && <TabClientes workspaces={workspaces} usuarios={usuarios} recargar={cargar} />}
-        {tab === 'superadmins' && <TabSuperAdmins usuarios={usuarios} sesion={sesion} recargar={cargar} />}
-        {tab === 'copy' && <TabCopywriting />}
+      <div style={{ maxWidth: 1180, marginTop: 18 }}>
+        {/* ⚠️ SIN SUB-TABS. Eran tres —Clientes, Super Admins, Copywriting— y las
+            tres se fueron el 27/09/2026: «elimina la sub tab de super admin, que
+            esté todo junto, y lo de copywriting ni siquiera debería estar allí».
+            Copywriting es ahora una ruta (/admin/copywriting) con su fila en la
+            barra; los super admins son una sección más de esta misma pantalla,
+            que es lo que siempre fueron — un puñado de personas, no un área. */}
+        <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar} />
       </div>
     </main>
   );
@@ -190,7 +161,133 @@ export function AdminView() {
 // =============================================================================
 // TAB — Clientes (workspaces + equipo de cada uno)
 // =============================================================================
-function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace[]; usuarios: Usuario[]; recargar: () => Promise<void> }) {
+// Filtrar, ordenar y exportar la lista de clientes
+// =============================================================================
+// Los rótulos viajan a la barra como parámetro, porque la barra es LA MISMA que
+// la de Customer Success y lo único que cambia entre las dos son sus datos: un
+// workspace no tiene «tareas abiertas» y un lead ganado no tiene «plan».
+
+const FILTRO_WS: Record<string, string> = {
+  todos: 'Todos',
+  activos: 'Activos',
+  pausados: 'Pausados',
+  agencias: 'Agencias',
+  'sin-equipo': 'Sin nadie adentro',
+};
+
+const ORDEN_WS: Record<string, string> = {
+  nombre: 'Nombre',
+  miembros: 'Más miembros',
+  nuevos: 'Más nuevos',
+};
+
+/**
+ * Exporta lo que la pantalla está mostrando, con los filtros puestos.
+ *
+ * ⚠️ `;` Y BOM, como el de la cartera: Excel en español parte por punto y coma, y
+ * sin el BOM se come los acentos. Y se exporta lo VISIBLE, no todo: el menú dice
+ * «lo que estás viendo».
+ */
+function exportarWorkspaces(filas: Workspace[]) {
+  const esc = (v: unknown) => {
+    const t = String(v ?? '');
+    return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta'];
+  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10)]);
+  const csv = '﻿' + [cab, ...cuerpo].map((f) => f.map(esc).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/**
+ * La misma cartera, para barrerla de un vistazo — la otra mitad del interruptor
+ * tarjetas/tabla, con el mismo criterio que la de Customer Success: la tarjeta es
+ * para RECONOCER y la tabla para COMPARAR.
+ */
+function TablaWorkspaces({ filas, esAgenciaWs, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando }: {
+  filas: Workspace[];
+  esAgenciaWs: (id: number) => boolean;
+  onAbrir: (id: number) => void;
+  onNuevo: () => void;
+  opcionesDe: (w: Workspace) => { value: string; label: string; disabled?: boolean }[];
+  elegirAccion: (w: Workspace, v: string) => void;
+  accionando: boolean;
+}) {
+  return (
+    <>
+      {/* En tabla, crear es un botón arriba: un renglón de acción al final de una
+          lista se lee como un dato más, y con la tabla scrolleada ni siquiera está
+          en pantalla. Mismo criterio y mismo lugar que en la cartera. */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: 1180, margin: '0 auto 12px' }}>
+        <button type="button" style={{ ...btnGhost, fontWeight: 600 }} onClick={onNuevo}>＋ Nuevo cliente</button>
+      </div>
+      <div style={{ ...card, padding: 0, overflow: 'hidden', maxWidth: 1180, margin: '0 auto' }}>
+        <table className="adm-tabla">
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Plan</th><th>Estado</th>
+              <th className="num">Miembros</th><th />
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((w) => (
+              <tr key={w.id} onClick={() => onAbrir(w.id)} tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') onAbrir(w.id); }}>
+                <td>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                    <Marca nombre={w.nombre} tam={26} color={colorDe(w.nombre)} />
+                    <span style={{ fontWeight: 600 }}>{w.nombre}</span>
+                    {w.id === 1 && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
+                    {esAgenciaWs(w.id) && <span style={chip('var(--good-bg)', 'var(--good)')}>Agencia</span>}
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{w.slug ?? '—'}</span>
+                  </span>
+                </td>
+                <td>{capaDef(w.capa).nombre}</td>
+                <td>{w.estado === 'activo'
+                  ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
+                  : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}</td>
+                <td className="num">{w.usuarios}</td>
+                <td className="num" onClick={(e) => e.stopPropagation()}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
+                      style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '6px 11px', fontSize: 12.5 }}>
+                      <Icon name="eye" size={13} />Inspeccionar
+                    </a>
+                    <Dropdown value="" resetAfterSelect align="right" placeholder="⋯"
+                      ariaLabel={`Acciones sobre ${w.nombre}`} disabled={accionando}
+                      buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+                      options={opcionesDe(w)} onChange={(v) => elegirAccion(w, v)} />
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <style dangerouslySetInnerHTML={{ __html: CSS_TABLA }} />
+      </div>
+    </>
+  );
+}
+
+// Sin backticks acá adentro: cierran la cadena a la mitad.
+const CSS_TABLA = `
+.adm-tabla{ width:100%; border-collapse:collapse; font-size:13.5px; }
+.adm-tabla th{ text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); font-weight:700; padding:11px 14px; border-bottom:1px solid var(--border);
+  background:var(--surface-2); white-space:nowrap; }
+.adm-tabla td{ padding:11px 14px; border-bottom:1px solid var(--border); color:var(--ink); vertical-align:middle; }
+.adm-tabla tbody tr{ cursor:pointer; }
+.adm-tabla tbody tr:hover td{ background:var(--surface-2); }
+.adm-tabla tbody tr:last-child td{ border-bottom:0; }
+.adm-tabla .num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+`;
+
+// =============================================================================
+function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
   const [adminEmail, setAdminEmail] = useState('');
@@ -202,6 +299,9 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
   const [abierto, setAbierto] = useState<number | null>(null);
+  /** El alta dejo de ser un formulario clavado arriba de la lista y pasó a ser
+   *  la primera tarjeta + un modal, igual que en la cartera. */
+  const [altaAbierta, setAltaAbierta] = useState(false);
   const [renombrando, setRenombrando] = useState<Workspace | null>(null);
   const [nombreEdit, setNombreEdit] = useState('');
   const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
@@ -298,175 +398,151 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
     } finally { setAccionando(false); }
   };
 
+  // ── Buscar, filtrar y ordenar, con la misma barra que Clientes ──────────
+  // ⚠️ LOS DICCIONARIOS SON DE ESTA PANTALLA y por eso viajan como parámetro: un
+  // workspace no tiene «tareas abiertas» y un lead ganado no tiene «plan». La
+  // barra es la misma pieza; lo que cambia son sus datos.
+  const [q, setQ] = useState('');
+  const [tabla, setTabla] = useState(false);
+  const [filtro, setFiltro] = useState<string>('todos');
+  const [orden, setOrden] = useState<string>('nombre');
+
+  const visibles = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let l = workspaces.filter((w) =>
+      !t || w.nombre.toLowerCase().includes(t) || (w.slug ?? '').toLowerCase().includes(t));
+    if (filtro === 'activos') l = l.filter((w) => w.estado === 'activo');
+    else if (filtro === 'pausados') l = l.filter((w) => w.estado === 'pausado');
+    else if (filtro === 'agencias') l = l.filter((w) => esAgenciaWs(w.id));
+    else if (filtro === 'sin-equipo') l = l.filter((w) => w.usuarios === 0);
+    const por = [...l];
+    if (orden === 'miembros') por.sort((a, b) => b.usuarios - a.usuarios);
+    else if (orden === 'nuevos') por.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    else por.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return por;
+  }, [workspaces, q, filtro, orden, agenciasEstado.agencias]);
+
   const puedeCrear = nombre.trim().length >= 2 && !creando;
+  const wAbierto = abierto != null ? workspaces.find((w) => w.id === abierto) ?? null : null;
+
+  /** Lo que el menú de acciones ofrece sobre un cliente. Es la MISMA lista que
+   *  había en la fila de la tabla: el rediseño no puede perder ninguna. */
+  const opcionesDe = (w: Workspace) => {
+    const esDueno = w.id === 1;
+    return [
+      { value: 'renombrar', label: 'Renombrar…' },
+      // Cambiar de capa = mover al cliente a otra oferta. Al dueño no: ws1 es la
+      // agencia y corre siempre con todo.
+      ...(esDueno ? [] : CAPAS_LISTA.filter((c) => c.id !== w.capa)
+        .map((c) => ({ value: `capa:${c.id}`, label: `Pasar a ${c.nombre}` }))),
+      esDueno
+        ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
+        : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
+      // Quién puede TENER clientes propios (mig 0176). Es la decisión anterior a
+      // aprobar un cliente suelto: sin esto, cualquier cliente con la tab de
+      // Customer Success crearía workspaces.
+      { value: 'agencia', label: esAgenciaWs(w.id) ? 'Dejar de ser agencia' : 'Convertir en agencia' },
+    ];
+  };
+  const elegirAccion = (w: Workspace, v: string) => {
+    if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
+    else if (v.startsWith('capa:')) accionWs({ action: 'capa', id: w.id, capa: v.slice(5) });
+    else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
+    else if (v === 'agencia') marcarAgencia(w.id, !esAgenciaWs(w.id));
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ── Lo que una agencia pidió mirar, y todavía no firmaste ──────────── */}
       <AprobacionesDeAgencia workspaces={workspaces} recargar={recargar} estado={agenciasEstado} />
-      {/* ── Agregar cliente (crea workspace + su admin) ─────────────────────── */}
-      <div style={card}>
-        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar cliente</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Cada cliente es un espacio de datos aislado. El <b>tipo</b> define qué compró: de él salen las tabs que ve, qué le pide el onboarding y qué se le siembra. El email del admin es opcional: si lo pones, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configuras tú con &ldquo;Entrar como&rdquo;.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.4fr 1fr auto', gap: 12, alignItems: 'end' }}>
-          <div>
-            <label style={labelStyle}>Nombre del cliente</label>
-            <input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Elevate" onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) crear(); }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Tipo</label>
-            <Dropdown
-              value={capa} ariaLabel="Tipo de cliente"
-              buttonStyle={{ padding: '10px 12px', fontSize: 14, borderRadius: 11, width: '100%' }}
-              options={CAPAS_LISTA.map((c) => ({ value: c.id, label: c.nombre }))}
-              onChange={(v) => setCapa(v as CapaId)}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Email del admin <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional)</span></label>
-            <input style={input} type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="dueño@cliente.com" onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) crear(); }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Nombre del admin</label>
-            <input style={input} value={adminNombre} onChange={(e) => setAdminNombre(e.target.value)} placeholder="Nombre y apellido" />
-          </div>
-          <button style={{ ...btnDark, opacity: puedeCrear ? 1 : 0.5 }} disabled={!puedeCrear} onClick={crear}>{creando ? 'Creando…' : 'Crear cliente'}</button>
-        </div>
-        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>{capaDef(capa).descripcion}</div>
-        {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
-        {hintCrear && <Aviso aviso={hintCrear} />}
-      </div>
 
-      {/* ── Lista de clientes ────────────────────────────────────────────────── */}
       {errAccion && <div style={bannerError}>{errAccion}</div>}
+
+      {/* ⚠️ ES LA MISMA VISTA QUE /customer-success, no una parecida (27/09/2026):
+          «que sea exactamente igual que la vista de clientes que construimos, solo
+          que con los botones extras». La barra, la grilla, la tarjeta y la primera
+          tarjeta punteada de crear son LAS MISMAS PIEZAS —app/_components/
+          TarjetaEntidad.tsx y BarraClientes—, no una copia del diseño: copiar un
+          diseño es escribir el segundo, que es el que se queda viejo. */}
+      <BarraClientes
+        q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
+        filtro={filtro} onFiltro={setFiltro} orden={orden} onOrden={setOrden}
+        nVisibles={visibles.length} nTotal={workspaces.length}
+        placeholder="Buscar un cliente por nombre o slug…"
+        filtros={FILTRO_WS} ordenes={ORDEN_WS}
+        /* Sin `progreso`: una lista de workspaces no tiene ningún porcentaje
+           análogo al «con trabajo abierto» de la cartera, y el prop es opcional
+           justamente para no obligar a inventarle un número. */
+        onExportar={() => exportarWorkspaces(visibles)}
+      />
 
       {workspaces.length === 0 ? (
         <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
-          Todavía no hay clientes. Crea el primero arriba.
+          Todavía no hay clientes. Crea el primero con la tarjeta de arriba.
         </div>
+      ) : tabla ? (
+        <TablaWorkspaces filas={visibles} esAgenciaWs={esAgenciaWs} onAbrir={setAbierto}
+          onNuevo={() => setAltaAbierta(true)} opcionesDe={opcionesDe} elegirAccion={elegirAccion}
+          accionando={accionando} />
       ) : (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          {workspaces.map((w, i) => {
+        <GrillaTarjetas>
+          <li><TarjetaNueva label="Nuevo cliente" onClick={() => setAltaAbierta(true)} /></li>
+          {visibles.map((w) => {
             const esDueno = w.id === 1;
-            const equipo = usuarios.filter((u) => u.workspace_id === w.id);
-            const expandido = abierto === w.id;
             return (
-              <div key={w.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px' }}>
-                  <button type="button" onClick={() => setAbierto(expandido ? null : w.id)} aria-label={expandido ? 'Contraer' : 'Expandir'}
-                    style={{ flex: 'none', width: 22, height: 22, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', transform: expandido ? 'rotate(90deg)' : 'none', transition: 'transform .15s', fontSize: 13 }}>▸</button>
-                  <Cuadro texto={inicialesTxt(w.nombre)} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.nombre}</span>
+              <li key={w.id}>
+                <TarjetaEntidad
+                  nombre={w.nombre}
+                  color={colorDe(w.nombre)}
+                  onAbrir={() => setAbierto(w.id)}
+                  etiqueta={`Ver el equipo de ${w.nombre}`}
+                  chips={
+                    <>
                       {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
                       <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{w.slug ?? '—'}</div>
-                  </div>
-                  {w.estado === 'activo'
-                    ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
-                    : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
-                  <span style={{ fontSize: 12.5, color: 'var(--dim)', flex: 'none', width: 84, textAlign: 'right' }}>{w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</span>
-                  {/* Es un <a> de verdad, no un <button> con onClick: así el
-                      click normal entra en esta pestaña —que es lo pedido— y
-                      ctrl+click o el botón del medio abren el cliente en otra,
-                      gratis y sin que la app tenga que decidir nada. Un botón se
-                      come esos gestos, y son justo los que hacen falta para
-                      mirar dos clientes a la vez. */}
-                  <a href={`/general?ws=${w.id}`}
-                    title={`Entrar a ${w.nombre}`}
-                    style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
-                    Entrar como →
-                  </a>
-                  <Dropdown
-                    value="" resetAfterSelect align="right" placeholder="Acciones"
-                    ariaLabel={`Acciones sobre ${w.nombre}`} disabled={accionando}
-                    buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
-                    options={[
-                      { value: 'renombrar', label: 'Renombrar…' },
-                      // Cambiar de capa = mover al cliente a otra oferta. Al dueño
-                      // no: ws1 es la agencia y corre siempre con todo.
-                      ...(esDueno ? [] : CAPAS_LISTA
-                        .filter((c) => c.id !== w.capa)
-                        .map((c) => ({ value: `capa:${c.id}`, label: `Pasar a ${c.nombre}` }))),
-                      esDueno
-                        ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
-                        : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
-                      // Quién puede TENER clientes propios (mig 0176). Es la decisión
-                      // anterior a aprobar un cliente suelto: sin esto, cualquier
-                      // cliente con la tab de Customer Success crearía workspaces.
-                      { value: 'agencia', label: esAgenciaWs(w.id) ? 'Dejar de ser agencia' : 'Convertir en agencia' },
-                    ]}
-                    onChange={(v) => {
-                      if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
-                      else if (v.startsWith('capa:')) accionWs({ action: 'capa', id: w.id, capa: v.slice(5) });
-                      else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
-                      else if (v === 'agencia') marcarAgencia(w.id, !esAgenciaWs(w.id));
-                    }}
-                  />
-                </div>
-
-                {/* Equipo del cliente */}
-                {expandido && (
-                  <div style={{ padding: '4px 18px 16px 52px', background: 'var(--surface-2)' }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', padding: '10px 0 8px' }}>Equipo</div>
-                    {equipo.length === 0 ? (
-                      <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, paddingBottom: 6 }}>
-                        Sin miembros todavía. El admin de este cliente los suma desde su panel de Equipo (Configuraciones → Equipo), o entra como el cliente para configurarlo.
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {equipo.map((u) => (
-                          <div key={u.id}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                            <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
-                              <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
-                            </div>
-                            <ChipEstadoUsuario u={u} />
-                            <div style={{ flex: 'none', width: 130 }} title="Rol en el negocio">
-                              <Dropdown
-                                value={u.rol_ws ?? 'admin'}
-                                options={ROL_WS_OPTS}
-                                onChange={(v) => accionUser({ action: 'rolws', id: u.id, rol_ws: v })}
-                                width="100%" align="right"
-                                disabled={accionando}
-                                ariaLabel={`Rol de ${u.email}`}
-                                buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
-                              />
-                            </div>
-                            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none', width: 110, textAlign: 'right' }} title="Último login">{fmtLogin(u.ultimo_login)}</span>
-                            <Dropdown
-                              value="" resetAfterSelect align="right" placeholder="⋯"
-                              ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
-                              buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
-                              options={[
-                                { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
-                                { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
-                                { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
-                              ]}
-                              onChange={(v) => {
-                                if (v === 'reinvitar') reenviar(u);
-                                else if (v === 'estado') accionUser({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
-                                else if (v === 'eliminar') setAEliminar(u);
-                              }}
-                            />
-                          </div>
-                          {/* Pegado a SU fila, no arriba de todo: con diez miembros, un
-                              aviso global no dice a cuál de los diez se le mandó. */}
-                          {avisoReenvio?.id === u.id && <Aviso aviso={avisoReenvio.aviso} />}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                      {esAgenciaWs(w.id) && <span style={chip('var(--good-bg)', 'var(--good)')}>Agencia</span>}
+                      {w.estado === 'pausado' && <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
+                    </>
+                  }
+                  /* El slug y el equipo en el mismo renglón: son los dos datos que
+                     distinguen a un workspace de otro de un vistazo, y los dos
+                     caben. El pie queda libre para los botones, que es lo que esta
+                     pantalla vino a ofrecer. */
+                  bajada={<><span style={{ fontFamily: MONO }}>{w.slug ?? '—'}</span> · {w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</>}
+                  acciones={
+                    <>
+                      {/* Es un <a> de verdad, no un <button> con onClick: así el
+                          click normal entra en esta pestaña —que es lo pedido— y
+                          ctrl+click o el botón del medio abren el cliente en otra,
+                          gratis y sin que la app tenga que decidir nada. Un botón
+                          se come esos gestos, y son justo los que hacen falta para
+                          mirar dos clientes a la vez. */}
+                      <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
+                        style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '7px 12px', fontSize: 12.5 }}>
+                        <Icon name="eye" size={13} />Inspeccionar
+                      </a>
+                      <span style={{ flex: 1 }} />
+                      <Dropdown
+                        value="" resetAfterSelect align="right" placeholder="Acciones"
+                        ariaLabel={`Acciones sobre ${w.nombre}`} disabled={accionando}
+                        buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
+                        options={opcionesDe(w)}
+                        onChange={(v) => elegirAccion(w, v)}
+                      />
+                    </>
+                  }
+                />
+              </li>
             );
           })}
-        </div>
+        </GrillaTarjetas>
+      )}
+
+      {/* ⚠️ «NO ENCONTRÉ» NO ES «NO HAY». Sin este renglón, buscar algo que no existe
+          deja la grilla con una sola tarjeta de crear, y eso se lee como que se
+          borró la lista de clientes. */}
+      {workspaces.length > 0 && visibles.length === 0 && (
+        <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>
       )}
 
       {/* ── Usuarios sin cliente (huérfanos) ─────────────────────────────────── */}
@@ -524,6 +600,74 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
         Cada cliente ve solo sus propios datos. El <b>Admin</b> del cliente ve todas las tabs de su negocio; <b>Closer</b> y <b>Setter</b> ven solo las suyas. &ldquo;Entrar como&rdquo; te mete en su dashboard para configurarlo o dar soporte.
       </div>
 
+      {/* ── Los super admins, que eran una sub-tab ──────────────────────────── */}
+      {/* «Elimina la sub tab de super admin, que esté todo junto» (27/09/2026).
+          Y es lo que siempre fueron: un puñado de personas, no un área. Debajo de
+          los clientes porque se consultan mucho menos. */}
+      <SeccionSuperAdmins usuarios={usuarios} sesion={sesion} recargar={recargar} />
+
+      {/* ── El alta, en un modal ─────────────────────────────────────────────── */}
+      {/* Era un formulario de cinco campos clavado ARRIBA de la lista, o sea que
+          ocupaba la primera pantalla siempre para algo que se hace cada varias
+          semanas. Ahora entra por la tarjeta punteada, igual que en la cartera. */}
+      {altaAbierta && (
+        <Modal titulo="Nuevo cliente" ancho={660} etiqueta="Crear un cliente"
+          onCerrar={() => { setAltaAbierta(false); setErrCrear(null); setHintCrear(null); }}
+          pie={
+            <>
+              <button style={btnGhost} onClick={() => setAltaAbierta(false)}>Cancelar</button>
+              <button style={{ ...btnDark, opacity: puedeCrear ? 1 : 0.5 }} disabled={!puedeCrear} onClick={crear}>
+                {creando ? 'Creando…' : 'Crear cliente'}
+              </button>
+            </>
+          }>
+          <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.5 }}>
+            Cada cliente es un espacio de datos aislado. El <b>tipo</b> define qué compró: de él salen las tabs que ve, qué le pide el onboarding y qué se le siembra. El email del admin es opcional: si lo pones, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configuras tú entrando como el cliente.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Nombre del cliente</label>
+              <input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Elevate"
+                onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) crear(); }} />
+            </div>
+            <div>
+              <label style={labelStyle}>Tipo</label>
+              <Dropdown value={capa} ariaLabel="Tipo de cliente"
+                buttonStyle={{ padding: '10px 12px', fontSize: 14, borderRadius: 11, width: '100%' }}
+                options={CAPAS_LISTA.map((c) => ({ value: c.id, label: c.nombre }))}
+                onChange={(v) => setCapa(v as CapaId)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Email del admin <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional)</span></label>
+              <input style={input} type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="dueño@cliente.com"
+                onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) crear(); }} />
+            </div>
+            <div>
+              <label style={labelStyle}>Nombre del admin</label>
+              <input style={input} value={adminNombre} onChange={(e) => setAdminNombre(e.target.value)} placeholder="Nombre y apellido" />
+            </div>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>{capaDef(capa).descripcion}</div>
+          {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
+          {hintCrear && <Aviso aviso={hintCrear} />}
+        </Modal>
+      )}
+
+      {/* ── El equipo de un cliente, en su ficha ─────────────────────────────── */}
+      {/* Era una fila que se expandía con un chevron. Con tarjetas eso no existe, y
+          además el equipo es el DETALLE de un cliente: va donde va todo detalle en
+          esta app, que es un modal — igual que la ficha de la cartera. */}
+      {wAbierto && (
+        <Modal titulo={wAbierto.nombre} encabezado="Equipo" ancho={720}
+          etiqueta={`Equipo de ${wAbierto.nombre}`} onCerrar={() => setAbierto(null)}>
+          <EquipoDelCliente
+            w={wAbierto}
+            equipo={usuarios.filter((u) => u.workspace_id === wAbierto.id)}
+            accionando={accionando} accionUser={accionUser} reenviar={reenviar}
+            onEliminar={setAEliminar} avisoReenvio={avisoReenvio} />
+        </Modal>
+      )}
+
       {renombrando && (
         <NombreClienteDialog
           nombre={nombreEdit}
@@ -542,6 +686,85 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
           onCancel={() => setAEliminar(null)}
           onConfirm={() => { const u = aEliminar; setAEliminar(null); accionUser({ action: 'eliminar', id: u.id }); }}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * El equipo de un cliente: quien es, que rol tiene adentro del negocio, cuando
+ * entro por ultima vez y que se puede hacer con el.
+ *
+ * ⚠️ ES EL MISMO BLOQUE QUE SE EXPANDIA EN LA FILA, pieza por pieza — el rol, el
+ * ultimo login, reenviar el acceso, suspender y eliminar. El rediseno cambia
+ * DONDE vive (un modal en vez de un acordeon), no lo que ofrece: perder una
+ * accion en una mudanza de presentacion no da error y no lo ve nadie hasta que
+ * alguien la necesita.
+ */
+function EquipoDelCliente({ w, equipo, accionando, accionUser, reenviar, onEliminar, avisoReenvio }: {
+  w: Workspace;
+  equipo: Usuario[];
+  accionando: boolean;
+  accionUser: (body: Record<string, unknown>) => void;
+  reenviar: (u: Usuario) => void;
+  onEliminar: (u: Usuario) => void;
+  avisoReenvio: { id: number; aviso: AvisoInvitacion } | null;
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 14 }}>
+        <span style={{ fontFamily: MONO }}>{w.slug ?? '—'}</span> · {capaDef(w.capa).nombre} · {w.estado}
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', padding: '10px 0 8px' }}>Equipo</div>
+      {equipo.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, paddingBottom: 6 }}>
+          Sin miembros todavía. El admin de este cliente los suma desde su panel de Equipo (Configuraciones → Equipo), o entra como el cliente para configurarlo.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {equipo.map((u) => (
+            <div key={u.id}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+              <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
+                <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+              </div>
+              <ChipEstadoUsuario u={u} />
+              <div style={{ flex: 'none', width: 130 }} title="Rol en el negocio">
+                <Dropdown
+                  value={u.rol_ws ?? 'admin'}
+                  options={ROL_WS_OPTS}
+                  onChange={(v) => accionUser({ action: 'rolws', id: u.id, rol_ws: v })}
+                  width="100%" align="right"
+                  disabled={accionando}
+                  ariaLabel={`Rol de ${u.email}`}
+                  buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+                />
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none', width: 110, textAlign: 'right' }} title="Último login">{fmtLogin(u.ultimo_login)}</span>
+              <Dropdown
+                value="" resetAfterSelect align="right" placeholder="⋯"
+                ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
+                buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+                options={[
+                  { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso' },
+                  { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender' },
+                  { value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' },
+                ]}
+                onChange={(v) => {
+                  if (v === 'reinvitar') reenviar(u);
+                  else if (v === 'estado') accionUser({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
+                  else if (v === 'eliminar') onEliminar(u);
+                }}
+              />
+            </div>
+            {/* Pegado a SU fila, no arriba de todo: con diez miembros, un
+                aviso global no dice a cuál de los diez se le mandó. */}
+            {avisoReenvio?.id === u.id && <Aviso aviso={avisoReenvio.aviso} />}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -566,7 +789,7 @@ function NombreClienteDialog({ nombre, onNombre, onCancel, onConfirm, titulo = '
 // =============================================================================
 // TAB — Super Admins (admins de la app)
 // =============================================================================
-function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
+function SeccionSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [creando, setCreando] = useState(false);
@@ -692,165 +915,6 @@ function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; s
   );
 }
 
-// =============================================================================
-// TAB — MaKo (cerebro de copywriting: metodología curada + swipe de ejemplos)
-// =============================================================================
-// Owner-only. La metodología eleva TODA la redacción de MaKo (nutrición, asesor
-// de WhatsApp, plantillas). Los ejemplos son emails reales que cargás como
-// referencia; MaKo los usa de few-shot al escribir. Ambos se guardan en el
-// workspace del dueño y se comparten (read-only) a la IA de todos los clientes.
-
-type EjemploSwipe = { id: number; titulo: string; fuente: string | null; cuerpo: string; created_at: string };
-
-function TabCopywriting() {
-  const [cargando, setCargando] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [metodo, setMetodo] = useState(false);
-  const [ejemplos, setEjemplos] = useState<EjemploSwipe[]>([]);
-
-  const [sembrando, setSembrando] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
-
-  const [asunto, setAsunto] = useState('');
-  const [cuerpo, setCuerpo] = useState('');
-  const [nota, setNota] = useState('');
-  const [fuente, setFuente] = useState('');
-  const [guardando, setGuardando] = useState(false);
-  const [errEj, setErrEj] = useState<string | null>(null);
-  const [aBorrar, setABorrar] = useState<EjemploSwipe | null>(null);
-
-  const cargar = useCallback(async () => {
-    setErr(null);
-    try {
-      const j = await (await fetch('/api/mako/copywriting', { cache: 'no-store' })).json();
-      if (!j.ok) { setErr(j.error ?? 'No se pudo cargar.'); return; }
-      setMetodo(Boolean(j.metodoSembrado));
-      setEjemplos((j.ejemplos ?? []) as EjemploSwipe[]);
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-    finally { setCargando(false); }
-  }, []);
-  useEffect(() => { cargar(); }, [cargar]);
-
-  const post = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; creadas?: number }> => {
-    try { return await (await fetch('/api/mako/copywriting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); }
-    catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
-  };
-
-  const sembrar = async () => {
-    if (sembrando) return;
-    setSembrando(true); setAviso(null);
-    try {
-      const j = await post({ action: 'seed' });
-      if (!j.ok) { setAviso(j.error ?? 'No se pudo sembrar.'); return; }
-      setMetodo(true);
-      setAviso(j.creadas ? `Listo — MaKo aprendió ${j.creadas} marcos de copywriting.` : 'La metodología ya estaba cargada.');
-    } finally { setSembrando(false); }
-  };
-
-  const agregar = async () => {
-    if (guardando || !cuerpo.trim()) return;
-    setGuardando(true); setErrEj(null);
-    try {
-      const j = await post({ action: 'add-ejemplo', asunto: asunto.trim(), cuerpo: cuerpo.trim(), nota: nota.trim(), fuente: fuente.trim() });
-      if (!j.ok) { setErrEj(j.error ?? 'No se pudo guardar el ejemplo.'); return; }
-      setAsunto(''); setCuerpo(''); setNota(''); setFuente('');
-      await cargar();
-    } finally { setGuardando(false); }
-  };
-
-  const borrar = async (id: number) => {
-    const j = await post({ action: 'del-ejemplo', id });
-    if (!j.ok) { setErrEj(j.error ?? 'No se pudo borrar.'); return; }
-    await cargar();
-  };
-
-  if (cargando) return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
-  if (err) {
-    return (
-      <div style={{ ...bannerError, display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
-        <span>{err}</span>
-        <button style={{ ...btnDark, padding: '8px 14px', flex: 'none' }} onClick={() => { setCargando(true); cargar(); }}>Reintentar</button>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* ── Metodología curada ─────────────────────────────────────────────── */}
-      <div style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>Metodología de copywriting</div>
-          {metodo
-            ? <span style={chip('var(--good-bg)', 'var(--good)')}>cargada ✓</span>
-            : <span style={chip('var(--warn-bg)', 'var(--warn)')}>sin cargar</span>}
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.55 }}>
-          Marcos probados (AIDA, PAS, gatillos de psicología, anatomía de secuencias, asuntos, CTA, qué nunca hacer). Se cargan como conocimiento del área <b>mensajes</b> y elevan <b>toda</b> la redacción de MaKo: la nutrición, el asesor de WhatsApp y las plantillas. Se edita después en <b>Conocimiento</b>.
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button style={{ ...btnDark, opacity: sembrando ? 0.5 : 1 }} disabled={sembrando} onClick={sembrar}>
-            {sembrando ? 'Cargando…' : metodo ? 'Volver a sembrar' : 'Cargar metodología'}
-          </button>
-          {aviso && <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>{aviso}</span>}
-        </div>
-      </div>
-
-      {/* ── Swipe de ejemplos ──────────────────────────────────────────────── */}
-      <div style={card}>
-        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Ejemplos reales (swipe)</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.55 }}>
-          Pega emails o mensajes que te lleguen y te parezcan buenos. MaKo los usa de referencia (few-shot) al escribir. No hace falta que sean tuyos: sirven como muestra de estructura y tono.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div>
-            <label style={labelStyle}>Asunto <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional)</span></label>
-            <input style={input} value={asunto} onChange={(e) => setAsunto(e.target.value)} placeholder="El asunto del email" />
-          </div>
-          <div>
-            <label style={labelStyle}>De quién / fuente <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional)</span></label>
-            <input style={input} value={fuente} onChange={(e) => setFuente(e.target.value)} placeholder="Ej. Newsletter de X" />
-          </div>
-        </div>
-        <label style={labelStyle}>Mensaje</label>
-        <textarea value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} rows={6} placeholder="Pega aquí el cuerpo del email / mensaje."
-          style={{ ...input, resize: 'vertical', lineHeight: 1.5, marginBottom: 12 }} />
-        <label style={labelStyle}>Por qué te gustó <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional, pero ayuda a MaKo)</span></label>
-        <input style={{ ...input, marginBottom: 14 }} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. El asunto genera curiosidad y el cierre no presiona." />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button style={{ ...btnDark, opacity: guardando || !cuerpo.trim() ? 0.5 : 1 }} disabled={guardando || !cuerpo.trim()} onClick={agregar}>{guardando ? 'Guardando…' : 'Guardar ejemplo'}</button>
-          {errEj && <span style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{errEj}</span>}
-        </div>
-      </div>
-
-      {ejemplos.length > 0 && (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '13px 18px', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', borderBottom: '1px solid var(--border)' }}>{ejemplos.length} {ejemplos.length === 1 ? 'ejemplo' : 'ejemplos'} cargados</div>
-          {ejemplos.map((ej, i) => (
-            <div key={ej.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ej.titulo || '(sin asunto)'}</div>
-                {ej.fuente && <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 1 }}>{ej.fuente}</div>}
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ej.cuerpo}</div>
-              </div>
-              <button style={{ ...btnGhost, padding: '6px 10px', fontSize: 12.5, color: 'var(--bad)', flex: 'none' }} onClick={() => setABorrar(ej)}>Borrar</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {aBorrar && (
-        <ConfirmDialog
-          titulo="¿Borrar este ejemplo?"
-          detalle="MaKo deja de usarlo como referencia. Esta acción no se puede deshacer."
-          confirmLabel="Borrar"
-          danger
-          onCancel={() => setABorrar(null)}
-          onConfirm={() => { const ej = aBorrar; setABorrar(null); borrar(ej.id); }}
-        />
-      )}
-    </div>
-  );
-}
 
 // =============================================================================
 // TAB — Ángulos de guion (la biblioteca que alimenta "Nuevo guion" en la Matriz)

@@ -28,7 +28,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
-import { BarraAcciones } from '@/app/plan/board/BoardShell';
+import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto';
@@ -47,23 +47,48 @@ export const FILTRO_LABEL: Record<FiltroClientes, string> = {
   'sin-proyecto': 'Sin ningún proyecto',
 };
 
+/**
+ * ⚠️ ES LA MISMA BARRA EN LAS DOS PANTALLAS, no dos parecidas. La monta Customer
+ * Success (una cartera de LEADS ganados) y el panel de /admin (una lista de
+ * WORKSPACES), a pedido del dueño: «que sea exactamente igual que la vista de
+ * clientes que construimos». Lo que cambia entre las dos son sus DATOS, y eso
+ * entra por parámetro: los rótulos de filtro y orden, el placeholder, el
+ * progreso y qué hay adentro de los tres puntos.
+ *
+ * Los defaults son los de Customer Success, que es donde nació: esa pantalla
+ * sigue llamándola igual que antes.
+ */
 export function BarraClientes({
-  q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, onImportar, nVisibles, nTotal, progreso,
+  q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, onImportar,
+  nVisibles, nTotal, progreso, placeholder = 'Buscar por nombre o empresa…',
+  filtros = FILTRO_LABEL, ordenes = ORDEN_LABEL, filtroBase = 'todos', ordenBase = 'nombre',
+  accionesExtra = [],
 }: {
   q: string;
   onQ: (v: string) => void;
   tabla: boolean;
   onTabla: (v: boolean) => void;
-  filtro: FiltroClientes;
-  onFiltro: (v: FiltroClientes) => void;
-  orden: OrdenClientes;
-  onOrden: (v: OrdenClientes) => void;
+  filtro: string;
+  onFiltro: (v: string) => void;
+  orden: string;
+  onOrden: (v: string) => void;
   onExportar: () => void;
-  onImportar: () => void;
+  /** Sólo Customer Success importa: /admin no tiene de dónde. */
+  onImportar?: () => void;
   nVisibles: number;
   nTotal: number;
-  /** El avance de la cartera, para el mismo lugar donde el plan pone el suyo. */
-  progreso: { pct: number; hechas: number; total: number; label: string };
+  /** El avance de la cartera, para el mismo lugar donde el plan pone el suyo.
+   *  OPCIONAL: una lista de workspaces no tiene ningún porcentaje análogo, y
+   *  obligarla a inventar uno sería justo lo que la regla de la casa prohíbe. */
+  progreso?: { pct: number; hechas: number; total: number; label: string };
+  placeholder?: string;
+  /** Los rótulos de cada filtro y de cada orden, y cuál de ellos es «sin filtrar». */
+  filtros?: Record<string, string>;
+  ordenes?: Record<string, string>;
+  filtroBase?: string;
+  ordenBase?: string;
+  /** Más filas para los tres puntos, además de exportar e importar. */
+  accionesExtra?: AccionPlegable[];
 }) {
   return (
     <div className="bc">
@@ -75,7 +100,7 @@ export function BarraClientes({
           <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
         </svg>
         <input value={q} onChange={(e) => onQ(e.target.value)}
-          placeholder="Buscar por nombre o empresa…" aria-label="Buscar un cliente" />
+          placeholder={placeholder} aria-label="Buscar" />
         {q && (
           <button type="button" onClick={() => onQ('')} title="Limpiar" aria-label="Limpiar la búsqueda">✕</button>
         )}
@@ -89,7 +114,8 @@ export function BarraClientes({
       <span style={{ flex: 1 }} />
 
       <VistaToggleClientes tabla={tabla} onSet={onTabla} />
-      <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden} />
+      <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
+        filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase} />
       {/* ⚠️ ES **LA** BARRA DEL PLAN, no una parecida. «Falta la barra de progreso en
           los 3 puntitos en clientes, y los íconos; asegurate de copiar el diseño»
           (27/09/2026) — y copiar un diseño es escribir el segundo, que es el que se
@@ -106,14 +132,18 @@ export function BarraClientes({
             desc: 'Lo que estás viendo, con los filtros puestos',
             onClick: onExportar,
           } },
-        { key: 'importar',
+        // La fila de importar EXISTE sólo si hay a dónde: /admin no tiene planilla
+        // de la que traer workspaces, y una fila que no hace nada se lee como que
+        // la app está rota.
+        ...(onImportar ? [{ key: 'importar',
           nodo: null,
           menu: {
             icono: <IconoSubir />,
             label: 'Importar desde una planilla',
             desc: 'Entran al CRM; son clientes al marcarlos ganados',
             onClick: onImportar,
-          } },
+          } }] : []),
+        ...accionesExtra,
       ]} />
 
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -175,21 +205,23 @@ function usePlegable() {
  * ⚠️ Y EL BADGE CUENTA LO QUE NO ES EL DEFAULT, no las categorías. Con «Nombre» y
  * «Todos» puestos no hay nada filtrado, así que el botón no puede decir 2.
  */
-function MenuFiltro({ filtro, onFiltro, orden, onOrden }: {
-  filtro: FiltroClientes; onFiltro: (v: FiltroClientes) => void;
-  orden: OrdenClientes; onOrden: (v: OrdenClientes) => void;
+function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtroBase, ordenBase }: {
+  filtro: string; onFiltro: (v: string) => void;
+  orden: string; onOrden: (v: string) => void;
+  filtros: Record<string, string>; ordenes: Record<string, string>;
+  filtroBase: string; ordenBase: string;
 }) {
   const { open, setOpen, ref } = usePlegable();
   const [vista, setVista] = useState<'root' | 'mostrar' | 'orden'>('root');
-  const n = (filtro !== 'todos' ? 1 : 0) + (orden !== 'nombre' ? 1 : 0);
+  const n = (filtro !== filtroBase ? 1 : 0) + (orden !== ordenBase ? 1 : 0);
 
   // Al cerrarse, vuelve a la raíz: reabrirlo adentro de una categoría es aparecer en
   // un lugar que nadie eligió.
   useEffect(() => { if (!open) setVista('root'); }, [open]);
 
   const cats = [
-    { key: 'mostrar' as const, label: 'Mostrar', resumen: FILTRO_LABEL[filtro], activo: filtro !== 'todos' },
-    { key: 'orden' as const, label: 'Ordenar', resumen: ORDEN_LABEL[orden], activo: orden !== 'nombre' },
+    { key: 'mostrar' as const, label: 'Mostrar', resumen: filtros[filtro], activo: filtro !== filtroBase },
+    { key: 'orden' as const, label: 'Ordenar', resumen: ordenes[orden], activo: orden !== ordenBase },
   ];
 
   return (
@@ -203,7 +235,7 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden }: {
             activo con el panel cerrado es una lista recortada sin explicación. */}
         {n > 0 && (
           <span className="bc-badge" title="Limpiar"
-            onClick={(e) => { e.stopPropagation(); onFiltro('todos'); onOrden('nombre'); }}>{n}</span>
+            onClick={(e) => { e.stopPropagation(); onFiltro(filtroBase); onOrden(ordenBase); }}>{n}</span>
         )}
       </button>
       {open && (
@@ -268,8 +300,14 @@ const CSS = `
    tarjeta — y esos 52 px se leen como que algo quedó desalineado, no como una
    decisión. Los dos números viven en dos archivos, así que van comentados de los dos
    lados: si uno cambia, el otro se nota al instante. */
-.bc{ display:flex; align-items:center; gap:10px; margin:0 auto 16px; max-width:1180px;
-  flex-wrap:wrap; }
+/* ⚠️ width:100% ADEMAS del max-width, y no sobra. Con margin:0 auto a secas, en
+   un contenedor de BLOQUE la barra ocupa todo (Customer Success) y en uno FLEX
+   EN COLUMNA se encoge al contenido y se centra: los margenes auto de un item
+   flex absorben el espacio libre. Medido en /admin al montarla: 419 px de ancho,
+   centrada, y con la mitad de los controles caidos a un segundo renglon. Se lee
+   como una barra rota, no como una barra angosta. */
+.bc{ display:flex; align-items:center; gap:10px; margin:0 auto 16px; width:100%;
+  max-width:1180px; flex-wrap:wrap; }
 .bc-buscar{ display:inline-flex; align-items:center; gap:8px; flex:0 1 320px; min-width:190px;
   height:38px; padding:0 11px; border:1px solid var(--border); border-radius:9px;
   background:var(--surface); color:var(--faint); }
