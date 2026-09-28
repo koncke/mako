@@ -35,6 +35,8 @@
 //     ctrl+click — el mismo motivo por el que el de /admin es un ancla.
 
 import { useState } from 'react';
+import { Modal } from '@/app/_ui';
+import { emailUtilizable } from '@/lib/agencia-altas';
 import { useRouter } from '@/app/_ui/Link';
 import type { ClienteCruce } from './cruce';
 import { Icon } from '@/app/_components/icons';
@@ -87,6 +89,20 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
 }) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState(false);
+  /**
+   * ⚠️ PRIMERO EL EMAIL, Y ES OBLIGATORIO (28/09/2026). Está medido por qué: se abrió
+   * una cuenta sin él, el super admin la aprobó, y el workspace quedó con CERO
+   * usuarios — una cuenta a la que no puede entrar nadie, sin un solo error. El campo
+   * viene prellenado con el del CRM si lo tiene, y se pregunta IGUAL: el del CRM puede
+   * ser el del contacto comercial y no el de quien va a usar la app.
+   *
+   * ⚠️ Y LOS DOS HOOKS VAN ACÁ ARRIBA, antes del `return null` de abajo. Los tenía
+   * después y el guard del pre-push lo cazó: un hook detrás de un return temprano es
+   * React #300, o sea la pantalla ENTERA en blanco con un error que no dice ni el
+   * archivo ni la línea.
+   */
+  const [pidiendoEmail, setPidiendoEmail] = useState(false);
+  const [correo, setCorreo] = useState('');
 
   if (!cuentas?.visible) return null;
 
@@ -95,13 +111,14 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
 
   const abrir = async () => {
     setOcupado(true);
-    const r = await crearCuentaMakoAction(c.leadId);
+    const r = await crearCuentaMakoAction(c.leadId, correo);
     if (!r.ok) { onError(r.error); setOcupado(false); return; }
     // ⚠️ `router.refresh()` Y NO `location.reload()`. Qué cliente está abierto es
     // estado de React en ClientesApp y no viaja en la URL, así que recargar
     // CIERRA la ficha: se leía como «le di a Abrir cuenta y me sacó». Es la misma
     // trampa que FichaCliente documenta para el tablero, y por eso ahí ya se
     // refresca en vez de recargar.
+    setPidiendoEmail(false);
     router.refresh();
     setOcupado(false);
   };
@@ -133,7 +150,8 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
   if (!ws) {
     if (cuentas.puedeAbrir) {
       control = (
-        <button type="button" className={cls} onClick={abrir} disabled={ocupado}
+        <button type="button" className={cls} disabled={ocupado}
+          onClick={() => { setCorreo(c.email ?? ''); setPidiendoEmail(true); }}
           title={`Abrirle una cuenta de MaKo a ${c.nombre || 'este cliente'}`}>
           {ocupado ? 'Abriendo…' : 'Abrir cuenta'}
         </button>
@@ -168,8 +186,48 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
   // Y si tiene workspace pero no hay fila en la cartera de esta agencia, no se
   // dibuja nada: antes salía «Workspace 7», que es un dato técnico en la cara.
 
-  if (!control) return null;
-  return <>{control}<style dangerouslySetInnerHTML={{ __html: CSS }} /></>;
+  if (!control && !pidiendoEmail) return null;
+  return (
+    <>
+      {control}
+      {pidiendoEmail && (
+        <Modal
+          titulo={`Abrirle una cuenta a ${c.nombre || 'este cliente'}`}
+          encabezado="Cuenta de MaKo"
+          ancho={440}
+          /* ⚠️ `anidada`: se abre DESDE un control de la ficha y es parte de la misma
+             tarea, así que la de atrás se sigue viendo. Sin esto la ficha desaparece
+             y parece que el botón la cerró. */
+          anidada
+          onCerrar={() => setPidiendoEmail(false)}
+          pie={
+            <>
+              <button type="button" className="cmk-no" onClick={() => setPidiendoEmail(false)}>Cancelar</button>
+              {/* El botón dice LO QUE PASA. «Crear» no cuenta que se le va a escribir
+                  a alguien, y lo que sigue no se deshace. */}
+              <button type="button" className="cmk-si" disabled={!emailUtilizable(correo) || ocupado}
+                onClick={() => void abrir()}>
+                {ocupado ? 'Abriendo…' : 'Abrir la cuenta'}
+              </button>
+            </>
+          }
+        >
+          <label className="cmk-lab" htmlFor="cmk-correo">Email de {c.nombre || 'el cliente'}</label>
+          <input id="cmk-correo" className="cmk-in" type="email" autoFocus value={correo}
+            placeholder="persona@empresa.com"
+            onChange={(e) => setCorreo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && emailUtilizable(correo)) void abrir(); }} />
+          {/* La consecuencia, pegada al control y ANTES del click: el acceso no sale
+              ahora, sale cuando el super admin apruebe. Decirlo después sería una
+              sorpresa. */}
+          <p className="cmk-ayuda">
+            Ahí le llega su acceso, cuando se apruebe la cuenta.
+          </p>
+        </Modal>
+      )}
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+    </>
+  );
 }
 
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la
@@ -204,4 +262,14 @@ const CSS = `
 .cmk-btn.cmk-ok{ background:var(--primary); color:#fff; }
 .cmk-btn.cmk-ok:hover:not(:disabled){ color:#fff; filter:brightness(1.06); }
 .cmk-btn.cmk-est{ background:none; padding:7px 0; color:var(--faint); }
+
+.cmk-lab{ display:block; font-size:12.5px; font-weight:600; color:var(--dim); margin-bottom:6px; }
+.cmk-in{ width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+  font:inherit; font-size:14px; background:var(--surface); color:var(--ink); }
+.cmk-ayuda{ margin:10px 2px 0; font-size:12.5px; color:var(--faint); line-height:1.5; }
+.cmk-no, .cmk-si{ border-radius:10px; padding:9px 16px; font:inherit; font-size:13.5px;
+  font-weight:600; cursor:pointer; }
+.cmk-no{ border:1px solid var(--border-strong); background:var(--surface); color:var(--dim); }
+.cmk-si{ border:0; background:var(--primary); color:#fff; }
+.cmk-si:disabled{ opacity:.5; cursor:default; }
 `;

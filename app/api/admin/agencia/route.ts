@@ -20,6 +20,9 @@ import { getSesionAdmin } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { pendientesDeAprobar, agenciasHabilitadas, altasPendientes, todasLasCarteras } from '@/lib/agencia';
 import { esWsValido, ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
+import { listarUsuarios } from '@/lib/usuarios';
+import { invitarPorEmail } from '@/lib/invitaciones';
+import { getWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,5 +87,42 @@ export async function POST(req: NextRequest) {
   // nada se lee como que se aprobó, y el botón desaparece de la pantalla igual.
   if (!data) return NextResponse.json({ ok: false, error: 'ese pedido ya no está' }, { status: 404 });
 
-  return NextResponse.json({ ok: true, fila: data });
+  /**
+   * APROBAR ES EL MOMENTO EN QUE EL CLIENTE SE ENTERA.
+   *
+   * ⚠️ ANTES NO PASABA NADA, y se midió: Código abrió una cuenta el 28/09, el super
+   * admin la aprobó, y no le llegó nada a nadie — el workspace quedó con cero usuarios.
+   * Ahora el alta CREA a su admin (silencioso) y la firma es la que le manda el acceso.
+   * Es la regla de la casa: la agencia PROPONE la cuenta, una persona la confirma, y
+   * recién ahí existe para el de afuera. Avisarle antes sería contarle que tiene un
+   * acceso que todavía no está autorizado.
+   *
+   * ⚠️ Y EL MAIL NO PUEDE TUMBAR LA APROBACIÓN: si falla, la fila ya está aprobada y
+   * lo correcto es decirlo y ofrecer reenviarlo desde su equipo, no deshacer una
+   * decisión que se tomó. Por eso el aviso viaja en la respuesta en vez de un 500.
+   */
+  let aviso: { tono: 'ok' | 'warn'; texto: string } | null = null;
+  if (estado === 'aprobado') {
+    try {
+      const admin = (await listarUsuarios()).find(
+        (u) => u.workspace_id === clienteWs && (u.rol_ws ?? 'admin') === 'admin',
+      );
+      if (!admin) {
+        aviso = { tono: 'warn', texto: 'Aprobado, pero ese cliente no tiene ningún usuario: nadie puede entrar todavía.' };
+      } else if (admin.invitacion_enviada_at) {
+        // Ya se le avisó alguna vez: no se le escribe de nuevo por una re-aprobación.
+        aviso = { tono: 'ok', texto: `Aprobado. A ${admin.email} ya se le había mandado el acceso.` };
+      } else {
+        const ws = await getWorkspace(clienteWs);
+        const inv = await invitarPorEmail({ email: admin.email, nombre: admin.nombre, workspace: ws?.nombre, rolWs: admin.rol_ws });
+        aviso = inv
+          ? { tono: 'ok', texto: `Aprobado. Se le mandó el acceso a ${admin.email}.` }
+          : { tono: 'warn', texto: `Aprobado, pero no pude mandarle el acceso a ${admin.email}. Reenvíaselo desde su equipo.` };
+      }
+    } catch (e) {
+      aviso = { tono: 'warn', texto: `Aprobado, pero falló el aviso al cliente: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  }
+
+  return NextResponse.json({ ok: true, fila: data, aviso });
 }

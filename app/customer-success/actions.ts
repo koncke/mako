@@ -38,15 +38,19 @@ import { createLead, updateLead } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
+import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
+import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
-async function clienteDelWorkspace(leadId: number): Promise<{ id: number; nombre: string } | null> {
+async function clienteDelWorkspace(leadId: number): Promise<{ id: number; nombre: string; email: string | null } | null> {
   if (!Number.isFinite(leadId) || leadId <= 0) return null;
   const db = await getTenantDb();
+  // El EMAIL viene en la misma lectura: lo necesita el alta de su cuenta, y pedirlo
+  // aparte sería una segunda consulta por un campo que ya estaba en la fila.
   const { data } = await db.from('leads')
-    .select('id, nombre').eq('id', leadId).eq('estado_lead', 'ganado').maybeSingle();
-  return (data as { id: number; nombre: string } | null) ?? null;
+    .select('id, nombre, email').eq('id', leadId).eq('estado_lead', 'ganado').maybeSingle();
+  return (data as { id: number; nombre: string; email: string | null } | null) ?? null;
 }
 
 // ⚠️ SE FUERON CUATRO ACTIONS MÁS EL 27/09/2026, CON EL BOTÓN QUE LAS LLAMABA.
@@ -250,10 +254,24 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
  * agujero que ya tiene /api/admin/workspaces), así que el mensaje NOMBRA el id
  * que quedó suelto. Un alta a medias en silencio es peor que una que avisa.
  */
-export async function crearCuentaMakoAction(leadId: number): Promise<
+export async function crearCuentaMakoAction(leadId: number, email: string): Promise<
   { ok: true; clienteWs: number; estado: string } | { ok: false; error: string }
 > {
   try {
+    /**
+     * ⚠️ EL EMAIL ES OBLIGATORIO, y eso es un cambio de producto del 28/09/2026: «que
+     * abrir cuenta pida el email del cliente desde el principio, y tiene que ser
+     * obligatorio».
+     *
+     * El porqué está medido: Código abrió una cuenta el mismo día, el super admin la
+     * aprobó, y no le llegó nada a nadie — el workspace quedó con CERO usuarios y el
+     * lead ni siquiera tenía email, sólo teléfono. O sea una cuenta que existe y a la
+     * que no puede entrar nadie, sin un solo error que lo diga.
+     */
+    const correo = emailNormalizado(email);
+    if (!emailUtilizable(correo)) {
+      return { ok: false, error: 'Hace falta el email del cliente: es por donde le llega el acceso.' };
+    }
     const agenciaWs = await adminDeWorkspaceActual();
     if (!agenciaWs) return { ok: false, error: 'Sólo el admin de la cuenta puede abrirle una cuenta a un cliente.' };
     // ⚠️ EL GUARD DE VERDAD, y va acá y no sólo en la pantalla: esconder el botón
@@ -273,6 +291,13 @@ export async function crearCuentaMakoAction(leadId: number): Promise<
     const wsPrevio = (yaTiene as { cliente_ws: number | null } | null)?.cliente_ws ?? null;
     if (wsPrevio) return { ok: false, error: 'Este cliente ya tiene cuenta de MaKo.' };
 
+    // ⚠️ SE COMPRUEBA ANTES DE CREAR EL WORKSPACE. `usuarios.email` es único, así que
+    // un email ya usado hace fallar el alta DESPUÉS de haber creado el inquilino — y
+    // deja un workspace huérfano que nadie sabe que está.
+    if (await buscarUsuarioPorEmail(correo)) {
+      return { ok: false, error: 'Ese email ya tiene una cuenta de MaKo. Usa otro, o pide sumarlo desde su equipo.' };
+    }
+
     const nombre = cliente.nombre.trim() || `Cliente ${leadId}`;
     const ws = await crearWorkspace(nombre);
 
@@ -291,6 +316,33 @@ export async function crearCuentaMakoAction(leadId: number): Promise<
     // una ficha que promete una cuenta que nadie puede aprobar.
     const { error: eLead } = await db.from('leads').update({ cliente_ws: ws.id }).eq('id', leadId);
     if (eLead) return { ok: false, error: `Se creó la cuenta (workspace ${ws.id}) pero no quedó ligada a esta ficha: ${eLead.message}` };
+
+    /**
+     * SU ADMIN, creado ya — PERO SIN AVISARLE TODAVÍA.
+     *
+     * ⚠️ `crearUsuario` NO manda nada: el mail es `invitarPorEmail`, que va aparte y
+     * lo dispara la APROBACIÓN del super admin. Es la regla de la casa aplicada a una
+     * persona: la agencia PROPONE la cuenta y alguien la confirma, y avisarle antes
+     * sería contarle a un tercero que tiene un acceso que todavía no está autorizado.
+     *
+     * ⚠️ Y SI ESTO FALLA NO SE DESHACE NADA: la cuenta ya está creada y pedida. Se
+     * devuelve el número del workspace, que es lo único que no se puede reconstruir.
+     */
+    try {
+      await crearUsuario({
+        email: correo,
+        nombre: cliente.nombre.trim() || correo,
+        rol: 'usuario',
+        workspace_id: ws.id,
+        rol_ws: 'admin',
+      });
+    } catch (e) {
+      return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin su usuario: ${e instanceof Error ? e.message : String(e)}` };
+    }
+
+    // El email también queda en el LEAD si no tenía: es el mismo dato y tenerlo en un
+    // solo lado obliga a acordarse de mirar en el otro.
+    if (!cliente.email) await db.from('leads').update({ email: correo }).eq('id', leadId);
 
     revalidatePath('/customer-success');
     return { ok: true, clienteWs: ws.id, estado: 'pendiente' };

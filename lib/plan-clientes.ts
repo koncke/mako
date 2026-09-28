@@ -51,6 +51,9 @@ export type ClienteRef = {
   /** Cuando se gano (`leads.fecha_cierre`). Es la unica fecha real que tiene un
    *  cliente: `created_at` es cuando entro como LEAD, que es otra cosa. */
   fechaCierre?: string | null;
+  /** Su email. Viaja para PRELLENAR el alta de su cuenta de MaKo — que desde el
+   *  28/09/2026 lo exige. Puede ser null: hay clientes cargados sólo con teléfono. */
+  email?: string | null;
 };
 
 /** Lo que una tarjeta (tarea o proyecto) guarda de su cliente. */

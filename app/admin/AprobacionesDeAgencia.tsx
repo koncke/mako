@@ -120,6 +120,10 @@ export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
         body: JSON.stringify({ agenciaWs: f.agencia_ws, clienteWs: f.cliente_ws, estado }),
       })).json();
       if (!j?.ok) { setError(j?.error ?? 'No se pudo aplicar.'); return; }
+      // Aprobar una cartera le manda el acceso al cliente: el resultado de ESE envío
+      // se dice, pegado a su renglón. Un «listo» mudo no distingue «se le avisó» de
+      // «se aprobó y nadie se enteró», que es justo lo que pasó el 28/09.
+      if (j.aviso) setAviso({ id: -f.cliente_ws, aviso: j.aviso as AvisoAlta });
       await cargar();
       await recargar();
     } catch {
@@ -169,6 +173,13 @@ export function AprobacionesDeAgencia({ workspaces, recargar, estado }: {
                 {trabajando ? 'Aplicando…' : 'Dejar entrar'}
               </button>
             </span>
+            {/* El resultado del envío al cliente, pegado a SU renglón. El id va en
+                negativo para no chocar con el de un alta, que usa el suyo. */}
+            {aviso?.id === -f.cliente_ws && (
+              <div style={{ flexBasis: '100%', fontSize: 13, fontWeight: 600, marginTop: 8, lineHeight: 1.5, color: aviso.aviso.tono === 'ok' ? 'var(--good)' : 'var(--warn)' }}>
+                {aviso.aviso.texto}
+              </div>
+            )}
           </div>
         );
       })}
