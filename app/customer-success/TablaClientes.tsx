@@ -46,8 +46,8 @@ export function TablaClientes({ filas, numeroDe, resumenDe, tableroOk, onAbrir, 
             <th>Cliente</th>
             <th>Empresa</th>
             <th className="num">Proyectos</th>
-            <th className="num">Abiertas</th>
-            <th className="num">Se repiten</th>
+            <th className="num">Tareas</th>
+            <th className="num">Recurrentes</th>
           </tr>
         </thead>
         <tbody>

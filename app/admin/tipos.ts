@@ -14,6 +14,16 @@ export type Workspace = {
   created_at: string;
   /** Cuantas personas tiene adentro. Lo cuenta el endpoint, no el navegador. */
   usuarios: number;
+  /**
+   * Cuántos CLIENTES tiene en su propio CRM (sus leads en `ganado`). Lo cuenta el
+   * endpoint, por el mismo motivo que `usuarios`: es una consulta agrupada y no 10.
+   *
+   * ⚠️ NO es su cartera de agencia. Son dos números distintos y en el ws13 valen 2 y 1:
+   * sus clientes son los que él atiende, su cartera son los que además tienen cuenta de
+   * MaKo abierta por él. El de la tarjeta es el primero, que es el que esa agencia ve en
+   * su propia tab de Clientes.
+   */
+  clientes: number;
   /** Su cara (mig 0179). Mismo formato y mismos dibujantes que la de un proyecto. */
   portada: string | null;
   portada_y: number | null;

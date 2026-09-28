@@ -13,9 +13,15 @@
 // van al pie.
 //
 // ⚠️ LOS TRES NÚMEROS SON LOS DEL TABLERO y no unos inventados para llenar la
-// fila. Proyectos · abiertas · se repiten es exactamente lo que la ficha va a
+// fila. Proyectos · Tareas · Recurrentes es exactamente lo que la ficha va a
 // mostrar al abrirse, así que la tarjeta no puede prometer algo que adentro no
 // está.
+//
+// ⚠️ «Tareas» CUENTA LAS ABIERTAS Y NO EL TOTAL, y el rótulo no lo dice. Es una
+// decisión del dueño («cambia el "Abiertas" por "Tareas"», 29/09/2026) y se
+// respeta en las tres superficies —tarjeta, tabla y CSV— porque el problema de
+// que un rótulo mienta un poco es chico al lado del de que tres pantallas
+// cuenten lo mismo con nombres distintos. El campo sigue siendo `abiertas`.
 
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
@@ -85,8 +91,8 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
       pie={tableroOk ? (
         <PieNumeros datos={[
           { v: trabajo?.proyectos ?? 0, k: 'Proyectos' },
-          { v: trabajo?.abiertas ?? 0, k: 'Abiertas' },
-          { v: trabajo?.recurrentes ?? 0, k: 'Se repiten' },
+          { v: trabajo?.abiertas ?? 0, k: 'Tareas' },
+          { v: trabajo?.recurrentes ?? 0, k: 'Recurrentes' },
         ]} />
       ) : (
         <PieTexto mal>No pude leer el tablero</PieTexto>

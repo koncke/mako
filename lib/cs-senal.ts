@@ -38,6 +38,8 @@
 // `contactoLeido` y los `number | null` en el trabajo.
 
 /** `null` = no se puede saber. No es «bien» y no es «mal». */
+import { palabra as plural } from './plural';
+
 export type NivelSenal = 'atencion' | 'bien' | null;
 
 /** Cuál de las reglas disparó. Va en el tipo para que la pantalla pueda pintar
@@ -144,7 +146,7 @@ const PESO: Record<ReglaSenal, number> = {
   'al-dia': 9,
 };
 
-const plural = (n: number, una: string, varias: string) => (n === 1 ? una : varias);
+
 
 /**
  * La señal de un cliente. El ORDEN de los `if` es la regla.

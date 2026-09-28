@@ -340,7 +340,9 @@ function exportarCSV(
   // el formato. Y los saltos de línea se aplanan, o parten la fila en dos.
   const q = (v: string | number | null | undefined) =>
     `"${String(v ?? '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`;
-  const cab = ['Cliente', 'Nombre', 'Empresa', 'Proyectos', 'Abiertas', 'Se repiten'];
+  // Los mismos rótulos que la tarjeta y la tabla: un CSV que nombra distinto las
+  // mismas columnas obliga a cruzarlo a mano con la pantalla de la que salió.
+  const cab = ['Cliente', 'Nombre', 'Empresa', 'Proyectos', 'Tareas', 'Recurrentes'];
   const cuerpo = filas.map((c) => {
     const r = resumenDe(c.leadId);
     return [numeroDe.get(c.leadId) ?? 0, nombreDe(c), c.empresa ?? '', r?.proyectos ?? 0, r?.abiertas ?? 0, r?.recurrentes ?? 0]

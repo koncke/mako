@@ -21,7 +21,12 @@ import { MONO, SANS, card, input, labelStyle, btnDark, btnGhost, btnPrimary, chi
 import type { Workspace, Sesion } from './tipos';
 // ⚠️ LAS MISMAS PIEZAS QUE /customer-success, no unas parecidas. Es lo que hace
 // que «exactamente igual» siga siendo cierto despues de la primera edicion.
-import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, PieTexto, colorDe } from '../_components/TarjetaEntidad';
+import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, PieNumeros, PieTexto, colorDe } from '../_components/TarjetaEntidad';
+// Los dos SIN `server-only` a propósito, para que los pueda contar el navegador con las
+// filas que ya bajaron en vez de pedir otra vuelta al server.
+import { sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
+import { estaPendiente } from '@/lib/todo-estados';
+import { plural } from '@/lib/plural';
 import { BarraClientes, entraEnVentana } from '../customer-success/BarraClientes';
 import { Marca } from '../_components/Marca';
 import { Modal } from '../_ui/Modal';
@@ -312,11 +317,13 @@ function exportarWorkspaces(filas: Workspace[]) {
  * tarjetas/tabla, con el mismo criterio que la de Customer Success: la tarjeta es
  * para RECONOCER y la tabla para COMPARAR.
  */
-function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe }: {
+function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe, wsPlataforma }: {
   filas: Workspace[];
   onAbrir: (id: number) => void;
   onNuevo: () => void;
-  opcionesDe: (w: Workspace) => { value: string; label: string; disabled?: boolean }[];
+  opcionesDe: (w: Workspace) => { value: string; label: string; disabled?: boolean; color?: string }[];
+  /** Quién lleva el chip «Dueño». Ver `wsPlataforma` en PanelClientes. */
+  wsPlataforma: number | null;
   elegirAccion: (w: Workspace, v: string) => void;
   accionando: boolean;
   caraDe: (w: Workspace) => string | null;
@@ -345,7 +352,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
                     <Marca nombre={w.nombre} tam={26} color={colorDe(w.nombre)} foto={caraDe(w)} />
                     <span style={{ fontWeight: 600 }}>{w.nombre}</span>
-                    {w.id === 1 && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
+                    {w.id === wsPlataforma && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
                     <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{w.slug ?? '—'}</span>
                   </span>
                 </td>
@@ -637,6 +644,74 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   const clientesDeAgencia = (agenciaWs: number): Workspace[] =>
     workspaces.filter((w) => agenciaDe.get(w.id) === agenciaWs);
 
+  /**
+   * LA PLATAFORMA: quién lleva el chip «Dueño» y a quién no se le puede tocar nada.
+   *
+   * ⚠️ ERA `w.id === 1`, Y ESE ES MAURICIO — que es un CLIENTE. El dueño lo reportó
+   * mirándolo: «quitale el tag de Dueño a Mauricio, eso lo debería tener Martin Koncke,
+   * que es el dueño y SuperAdmin» (29/09/2026). El workspace de la plataforma es el de
+   * capa `superadmin`.
+   *
+   * ⚠️ Y ES EL DE MENOR id, no «cualquiera con esa capa», porque eso es exactamente lo
+   * que hace `wsSuperAdmin()` en el server (`.order('id').limit(1)`, lib/workspace.ts).
+   * Si algún día hubiera dos filas con esa capa, la plataforma sigue siendo UNA: con
+   * `w.capa === 'superadmin'` a secas la pantalla diría «Dueño» dos veces y una sería
+   * mentira. Hoy hay exactamente uno (ws9), medido.
+   */
+  const wsPlataforma = useMemo(() => {
+    const ids = workspaces.filter((w) => w.capa === 'superadmin').map((w) => w.id);
+    return ids.length ? Math.min(...ids) : null;
+  }, [workspaces]);
+
+  /**
+   * EL PIE DE UNA TARJETA: los mismos tres números que su ficha va a mostrar al abrirse.
+   * «En Super Admin en la preview de la card falta lo de Proyectos - Abiertas - Se
+   * repiten» (29/09/2026), con los rótulos nuevos.
+   *
+   * ⚠️ SALE DE `trabajo` Y NO DE `tableroDeLaCartera`. Son dos fuentes distintas y no
+   * cuentan lo mismo: la de /customer-success cruza además por NOMBRE, y esta ficha
+   * dibuja `trabajo.porCliente[lead.leadId]`, o sea sólo lo que tiene la clave escrita.
+   * Con la otra, la tarjeta prometería trabajo que adentro no está — que es justo lo que
+   * el comentario de `ClienteCard` prohíbe.
+   *
+   * ⚠️ LOS TRES NÚMEROS O NINGUNO, también acá: sin tablero leído o sin cliente ligado no
+   * se ponen ceros. «No tiene trabajo» y «no pude mirar» son dos cosas, y de los 10
+   * workspaces de hoy sólo 3 están ligados a un cliente del CRM.
+   */
+  const pieDe = (w: Workspace) => {
+    if (!trabajo) return <PieTexto mal>No pude leer tu tablero</PieTexto>;
+    const lead = leadDeWs.get(w.id);
+    if (!lead) return <PieTexto>Sin cliente en tu CRM</PieTexto>;
+    const t = trabajo.porCliente[lead.leadId];
+    if (!t) return <PieNumeros datos={[{ v: 0, k: 'Proyectos' }, { v: 0, k: 'Tareas' }, { v: 0, k: 'Recurrentes' }]} />;
+    /**
+     * ⚠️ SE DISCRIMINA POR `t.dueno` ANTES DE CONTAR, y no es sólo para que compile: son
+     * DOS modelos de tarea distintos y «abierta» se pregunta distinto en cada uno. En el
+     * tablero del dueño es `progress < 100` —el mismo criterio con el que `trabajo.ts`
+     * deriva su estado— y en el del cliente es `estaPendiente(estado)`. Contar los dos
+     * con la misma expresión haría que la tarjeta y la ficha digan números distintos
+     * sobre las mismas filas.
+     */
+    const tres = t.dueno
+      ? {
+        proyectos: t.proyectos.length,
+        abiertas: sinRecurrentes(t.tareas).filter((x) => x.progress < 100).length,
+        recurrentes: soloRecurrentes(t.tareas).length,
+      }
+      : {
+        proyectos: t.categorias.length,
+        abiertas: sinRecurrentes(t.tareas).filter((x) => estaPendiente(x.estado)).length,
+        recurrentes: soloRecurrentes(t.tareas).length,
+      };
+    return (
+      <PieNumeros datos={[
+        { v: tres.proyectos, k: 'Proyectos' },
+        { v: tres.abiertas, k: 'Tareas' },
+        { v: tres.recurrentes, k: 'Recurrentes' },
+      ]} />
+    );
+  };
+
 
   /**
    * EL BOTÓN que abrió cada selector, no un booleano: el popover cuelga de su ancla y
@@ -714,12 +789,12 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
       ) : tabla ? (
         <TablaWorkspaces filas={visibles} onAbrir={setAbierto} caraDe={caraDe}
           onNuevo={() => setAltaAbierta(true)} opcionesDe={opcionesDe} elegirAccion={elegirAccion}
-          accionando={accionando} />
+          accionando={accionando} wsPlataforma={wsPlataforma} />
       ) : (
         <GrillaTarjetas>
           <li><TarjetaNueva label="Nuevo cliente" onClick={() => setAltaAbierta(true)} /></li>
           {visibles.map((w) => {
-            const esDueno = w.id === 1;
+            const esDueno = w.id === wsPlataforma;
             return (
               <li key={w.id}>
                 <TarjetaEntidad
@@ -748,7 +823,13 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                      distinguen a un workspace de otro de un vistazo, y los dos
                      caben. El pie queda libre para los botones, que es lo que esta
                      pantalla vino a ofrecer. */
-                  bajada={<><span style={{ fontFamily: MONO }}>{w.slug ?? '—'}</span> · {w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</>}
+                  /* ⚠️ SIN EL SLUG: «quita lo del id de usuario, no sé porqué pones
+                     codigo-inmobiliario, ese dato no lo quiero» (29/09/2026). Es de la
+                     base y no le dice nada a quien mira. En su lugar, el otro número que
+                     sí distingue a un cliente de otro: cuántos clientes tiene. El slug
+                     sigue vivo en el BUSCADOR, que es donde sirve. */
+                  bajada={<>{plural(w.usuarios, 'miembro')} · {plural(w.clientes, 'cliente')}</>}
+                  pie={pieDe(w)}
                   acciones={
                     <>
                       {/* Es un <a> de verdad, no un <button> con onClick: así el
@@ -923,6 +1004,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
         <FichaWorkspace
           w={wAbierto}
           cara={caraDe(wAbierto)}
+          esPlataforma={wAbierto.id === wsPlataforma}
           /* ⚠️ SIN «Renombrar…»: acá el nombre se edita EN EL TÍTULO. Dejar las dos
              sería el tercer camino al mismo hecho — y encima el diálogo se abriría
              sobre una ficha que ya ofrece hacerlo mejor. En la TARJETA sigue, porque
@@ -966,7 +1048,9 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                               onAbrir={() => setAbierto(c.id)}
                               etiqueta={`Abrir la ficha de ${c.nombre}`}
                               chips={<span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(c.capa).nombre}</span>}
-                              bajada={<><span style={{ fontFamily: MONO }}>{c.slug ?? '—'}</span> · {c.usuarios} {c.usuarios === 1 ? 'miembro' : 'miembros'}</>}
+                              /* El mismo molde que la tarjeta de afuera, o son dos
+                                 tarjetas iguales diciendo cosas distintas. */
+                              bajada={<>{plural(c.usuarios, 'miembro')} · {plural(c.clientes, 'cliente')}</>}
                               pie={<PieTexto>{estadoCartera(c.id)}</PieTexto>}
                             />
                           </li>

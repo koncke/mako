@@ -33,6 +33,7 @@
 // agregar Equipo luego de Recurrentes» (28/09/2026). «Equipo» entra por `vistaExtra`
 // del board: una fila, cinco destinos.
 
+import { plural } from '@/lib/plural';
 import type { ReactNode } from 'react';
 import { Modal } from '@/app/_ui';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
@@ -60,10 +61,17 @@ export type CambioCara = {
 };
 
 export function FichaWorkspace({
-  w, cara, opciones, accionando, onAccion, onNombre, onEncuadre,
+  w, cara, esPlataforma, opciones, accionando, onAccion, onNombre, onEncuadre,
   onAbrirPortada, onAbrirIcono, onCerrar, tablero,
 }: {
   w: Workspace;
+  /**
+   * Si este workspace ES la plataforma. Entra por prop y no se deduce acá: quién es la
+   * plataforma lo decide la pantalla, que tiene la lista entera y puede tomar el de
+   * MENOR id con capa `superadmin` — exactamente lo que hace `wsSuperAdmin()` en el
+   * server. Deducirlo de `w.capa` sola pondría el chip dos veces si algún día hay dos.
+   */
+  esPlataforma: boolean;
   /**
    * La cara de su ADMIN, como respaldo de la marca. `w.icono` le gana: es lo único
    * que alguien eligió a propósito para este cliente (mig 0179).
@@ -90,7 +98,10 @@ export function FichaWorkspace({
   tablero: ReactNode;
 }) {
   const color = colorDe(w.nombre);
-  const esDueno = w.id === 1;
+  // ⚠️ ERA `w.id === 1`, que es MAURICIO — un cliente. «Quitale el tag de Dueño a
+  // Mauricio, eso lo debería tener Martin Koncke, que es el dueño y SuperAdmin»
+  // (29/09/2026). Lo decide la pantalla; ver `wsPlataforma` en AdminView.
+  const esDueno = esPlataforma;
 
   return (
     <Modal
@@ -118,11 +129,14 @@ export function FichaWorkspace({
           }
           bajada={
             <>
-              <span style={{ fontFamily: MONO }}>{w.slug ?? `ws-${w.id}`}</span>
+              {/* ⛔ ACÁ ESTABA EL SLUG, y se fue con el de la tarjeta: «quita lo del id de
+                  usuario, no sé porqué pones codigo-inmobiliario, ese dato no lo quiero»
+                  (29/09/2026). Sigue vivo en el buscador de la grilla, que es donde
+                  sirve para algo. */}
               {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
               <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
               {w.estado === 'pausado' && <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
-              <span style={{ color: 'var(--faint)' }}>· {w.usuarios} {w.usuarios === 1 ? 'miembro' : 'miembros'}</span>
+              <span style={{ color: 'var(--faint)' }}>{plural(w.usuarios, 'miembro')} · {plural(w.clientes, 'cliente')}</span>
             </>
           }
           acciones={

@@ -9,6 +9,8 @@
 // Acá no se lee ni se escribe nada: entra la fila cruda y sale la decisión.
 // =============================================================================
 
+import { plural } from './plural';
+
 export type EstadoJob = 'corriendo' | 'listo' | 'error';
 
 /** La fila tal cual sale de `closing_jobs`. */
@@ -63,7 +65,7 @@ export function puedeArrancar(fila: FilaJob | null, ahoraMs: number): boolean {
 /** Lo que devuelve `analizarLlamadasDeLead`. */
 export type Corrida = { encontradas: number; analizadas: number; relinkeadas: number; yaEstaban: number; fallidas: number; error: string | null };
 
-const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
 
 /**
  * Cómo termina una corrida, en castellano y listo para pintar.

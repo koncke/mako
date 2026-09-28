@@ -9,6 +9,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 import { crearUsuario, listarUsuarios } from '@/lib/usuarios';
 import { getSupabaseServer } from '@/lib/supabase';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { setSetting } from '@/lib/settings';
 import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
 import { hoyEnTijuana } from '@/lib/date-utils';
@@ -24,12 +25,35 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function GET() {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
-    const [workspaces, usuarios] = await Promise.all([listarWorkspaces(), listarUsuarios()]);
+    /**
+     * ⚠️ LOS CLIENTES SE LEEN CON EL CLIENTE CRUDO Y NO CON `getTenantDb()`. `leads` está
+     * en TENANT_TABLES, así que el tenant client filtraría por el workspace del REQUEST y
+     * devolvería sólo los 3 del super admin — en silencio, con el resto en cero. Acá el
+     * panel es de la plataforma y la pregunta es «cuántos tiene CADA UNO».
+     *
+     * ⚠️ Y PAGINADO. PostgREST corta en 1000 filas sin decir nada, y hay 1.524 leads:
+     * con un `select` pelado, los workspaces cuyos leads caen después del corte
+     * aparecerían con menos clientes de los que tienen y nadie lo notaría.
+     */
+    const [workspaces, usuarios, ganados] = await Promise.all([
+      listarWorkspaces(),
+      listarUsuarios(),
+      leerTodo<{ workspace_id: number | null }>(
+        getSupabaseServer(), 'leads', 'workspace_id',
+        { orden: 'id', eq: { estado_lead: 'ganado' } },
+      ),
+    ]);
     const conteo = new Map<number, number>();
     for (const u of usuarios) if (u.workspace_id != null) conteo.set(u.workspace_id, (conteo.get(u.workspace_id) ?? 0) + 1);
+    const conClientes = new Map<number, number>();
+    for (const l of ganados) if (l.workspace_id != null) conClientes.set(l.workspace_id, (conClientes.get(l.workspace_id) ?? 0) + 1);
     return NextResponse.json({
       ok: true,
-      workspaces: workspaces.map((w) => ({ ...w, usuarios: conteo.get(w.id) ?? 0 })),
+      workspaces: workspaces.map((w) => ({
+        ...w,
+        usuarios: conteo.get(w.id) ?? 0,
+        clientes: conClientes.get(w.id) ?? 0,
+      })),
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e instanceof Error ? e.message : e) }, { status: 500 });
