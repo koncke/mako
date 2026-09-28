@@ -2043,3 +2043,96 @@ cuenta») porque esa consecuencia contada DESPUÉS del click es una sorpresa.
 - **Rechazar un alta no pide motivo** aunque la columna existe (`agencia_altas.motivo`,
   mig 0178), así que la agencia ve «rechazado» sin saber por qué.
 - **La tabla `agencias` de la mig 0176 quedó muerta** y no se dropeó.
+
+## El panel de la plataforma: el chip en el workspace equivocado, y tres menús que no ofrecían nada (29/09/2026)
+
+Cosechado de siete reportes seguidos sobre la grilla de Clientes y sus menús.
+
+**Vive en:** `app/admin/AdminView.tsx` · `app/admin/FichaWorkspace.tsx` · `app/customer-success/ClienteCard.tsx` · `app/api/agencia/reinvitar/route.ts` · `lib/aviso-plan.ts`
+
+### El chip «Dueño» estaba en un CLIENTE, y de él colgaban dos protecciones
+
+«Quitale el tag de Dueño a Mauricio. Eso lo debería tener Martin Koncke, que es el dueño y
+SuperAdmin.» Era `w.id === 1`, o sea `OWNER_WS`, que a pesar del nombre hace rato que es un
+inquilino más. La plataforma es el workspace de capa `superadmin`.
+
+⚠️ **Y el de MENOR id, no «cualquiera con esa capa»**, porque eso es exactamente lo que
+hace `wsSuperAdmin()` en el server (`.order('id').limit(1)`). Con `capa === 'superadmin'`
+a secas, dos filas dirían «Dueño» dos veces y una sería mentira.
+
+⚠️ **EL BOOLEANO ESTABA ESCRITO DOS VECES y sólo cambié una.** `opcionesDe` tenía su
+propio `const esDueno = w.id === 1`, aparte del de la tarjeta. Al mudar el chip, ese quedó
+protegiendo a Mauricio y **ofreciéndole a la PLATAFORMA «Pausar» y «Eliminar…»**. El
+server los rechaza —medido, 400 en los dos— pero una pantalla que ofrece algo que siempre
+falla es una pantalla que miente. **Lo encontró la verificación en el navegador, no el
+typecheck**: las dos expresiones compilaban.
+
+### Un menú «Acciones» cuyo único ítem era un link que ya estaba a un click
+
+«No entiendo que en las acciones de Agencia pusiste Abrir el CRM… ¿qué tiene que ver con
+abrir CRM? Si eso está dentro del detail.» Verificado: el link vive adentro de la ficha
+que abre el click en la tarjeta (`CRM → /crm/2451`). Un menú que se llama «Acciones» y
+sólo sabe navegar no ofrece ninguna.
+
+⚠️ **Y `Dropdown` no tiene rama de lista vacía**: con `options={[]}` igual pinta el botón
+y abre un popover en blanco. Pasa de verdad — hoy los dos clientes de esa agencia lo dejan
+vacío, porque uno no tiene cuenta y el otro no tiene a nadie adentro.
+
+### Ninguna de las dos rutas que ya reenvían le servía a una agencia
+
+Para poner «Reenviar el acceso» hizo falta un endpoint nuevo, y el porqué no es evidente:
+
+- **`/api/equipo` se scopea con `getWorkspaceActual()`**, o sea que reenvía DENTRO del
+  workspace del request. Desde la tab de Clientes de la agencia, ese workspace es el de la
+  agencia y no el de su cliente.
+- **`/api/admin/*` exige `getSesionAdmin()`**, que es el super admin.
+
+O sea que «reenviarle el acceso a un cliente» sólo lo podía hacer Martín a mano.
+
+⚠️ **El guard de la cartera autoriza sobre un CLIENTE, no sobre una persona.** Sin filtrar
+el destinatario por `workspace_id`, un `usuarioId` de otro inquilino pasa el permiso
+correcto y le llega el mail de acceso a quien no corresponde — y sale bien, sin un error.
+Por eso el destinatario lo elige una función pura y testeada (`aQuienReinvitar`) y no el
+handler.
+
+### «Cambiar permisos»: el guard del endpoint dejaba pasar `superadmin`
+
+El menú tenía un ítem por plan. Pasó a ser uno y un modal — y elegir dejó de ser de
+memoria: la `descripcion` de cada capa existe desde siempre y no se veía en ninguna
+pantalla.
+
+⚠️ **Lo caro fue lo que apareció al mirar el endpoint**: `case 'capa'` validaba con
+`esCapaValida`, que devuelve TRUE para `superadmin`. Esa capa no es un plan: es cómo se
+identifica la PLATAFORMA. Un POST con `capa:'superadmin'` **le mudaba a un cliente las
+credenciales y el remitente de MaKo**. El menú dejó de ofrecerlo el 28/09, pero **el menú
+no es el guard** — y esta ruta lo aceptó un día más.
+
+### El mail del cliente va en NEUTRO, no en la voz de la casa
+
+`invitarPorEmail` está escrito en español neutro («Entra desde aquí», «escríbenos») y es a
+propósito: la voz rioplatense es la de MaKo hablándole a Martín, no la del texto que lee un
+cliente. Lo verifica el test con `marcasDeVoseo`, el detector que ya existía.
+
+⚠️ **Y mi primer regex propio para eso marcaba «Entra desde aquí» como voseo** (`entr[áa]`
+incluye la «a» sin tilde, que es el imperativo neutro), haciendo fallar el test sobre un
+texto correcto. Un detector al lado de uno que ya está es la forma de que los dos digan
+cosas distintas sobre la misma frase.
+
+### Dos capas de modal para un solo modal
+
+Los dos diálogos nuevos llamaban a `useCapaModal(true, { anidada: true })` **y** le pasaban
+`anidada` al `Modal`, que ya lo llama. Resultado: dos entradas en la pila para un modal, y
+**Escape dejaba de cerrar** — el handler de `Modal` sólo actúa si su propia capa es la de
+arriba, y la de arriba pasaba a ser la que yo registré de más. No da error, no lo ve
+ningún test, y sólo aparece probando la tecla.
+
+### Lo que quedó SIN hacer
+
+- **«Pausar la cuenta» para una agencia no se hizo, y no por falta de endpoint.** Pausar
+  es la palanca de COBRO de la plataforma: si paga el cliente, dársela a la agencia es
+  dejar que un tercero le corte el acceso a alguien que le paga a MaKo. Es una decisión de
+  producto.
+- **De los 10 workspaces, sólo 3 están ligados a un cliente del CRM** (`leads.cliente_ws`),
+  así que los otros siete dicen «Sin cliente en tu CRM» en vez de los tres números.
+- **`FichaCliente` sigue sin montar `CabeceraDetalle`**: son dos de tres pantallas, no las
+  tres que decía el comentario de esa pieza.

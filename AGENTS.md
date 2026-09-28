@@ -4729,3 +4729,60 @@ Preguntar cuesta una frase. Y el corolario para el resto de la casa: la reescrit
 esconde — se dice qué se borró y por qué, o el próximo agente reconstruye la máquina leyendo
 el hallazgo viejo.
 
+# Una lista de nombres de la base se mide contra `information_schema`, no contra las migraciones
+
+Las migraciones son lo que alguien **quiso** aplicar. El esquema es lo que **está**. En
+este repo hay migraciones escritas que nunca corrieron —`0157_meta_campaign_drafts_workspace`
+lo dice en su propio encabezado— así que cualquier lista de tablas o columnas armada
+leyendo `supabase/migrations/` es un techo, no un inventario.
+
+Medido el 29/09/2026 sobre `TABLAS_RESET`, la lista que decide qué se vacía de un
+inquilino: nombraba **70** tablas, de las cuales **cuatro no existen** y le faltaban
+**24** que sí. O sea que «vaciar un workspace» vaciaba **66 de 90**, y lo que quedaba se
+arrastraba a la corrida siguiente sin que nada lo dijera.
+
+- **Los nombres que no existen son plausibles y por eso sobreviven**: `archivero` contra
+  `archivero_files`, `branding` contra `branding_assets`, `contratos` contra la tabla que
+  se renombró. Son strings: ningún compilador los mira y ningún test que no consulte la
+  base los puede ver.
+- **Y el modo de falla los esconde.** Un `delete` de supabase-js contra una tabla que no
+  existe devuelve error igual que un choque de FK, así que un bucle con reintentos lo
+  trata como un problema de integridad y avisa tres pasadas después, en críptico. Hay que
+  distinguir el `42P01` del `23503` y decirlos distinto.
+- **La consulta va escrita al lado de la lista**, para que el que agregue una tabla sepa
+  cómo remedirla: `select c.table_name from information_schema.columns c … where
+  c.column_name = 'workspace_id'`.
+- **Y una lista, no dos.** El reset y el borrado hacían la misma pregunta; con dos listas,
+  la que se queda vieja es por donde quedan las filas huérfanas.
+
+# Un ancho que sale de una métrica tipográfica no se verifica en un solo motor
+
+El 29/09/2026 el dueño reportó un título cortado, yo lo medí en Chromium y NO se cortaba.
+Los dos teníamos razón: sobraban **2,3 px**.
+
+La causa es que **un `<input>` no mide su texto**. Su `max-content` sale del atributo
+`size` (20 por default) contado en **avances del dígito «0» de la fuente activa**, y el
+`width:100%` que declare es inerte en esa cuenta. O sea que el ancho de la caja depende de
+la FUENTE y no del contenido:
+
+| | ancho |
+|---|---|
+| Geist 600/20 | 308 px de borde-caja |
+| la fallback (`sans-serif` → Arial) | 275 px |
+| WebKit, misma fuente | 297 px |
+
+Con el texto en 285,7: **sobran 2,3 px en Chromium, faltan 8,7 en WebKit y faltan 30,4
+mientras la webfont no llegó** (`display=swap`). Sobre el catálogo de 70 nombres, cuatro
+ya se cortaban en el caso más favorable.
+
+- **Un margen de 2 px no es «entra», es «entra por casualidad».** Cuando lo que decide es
+  una métrica de fuente, el número a mirar es el MARGEN, no el booleano «se corta».
+- **El primer paint cuenta como otro motor.** Con `display=swap`, el layout se calcula una
+  vez con la fallback: si ahí no entra, se ve cortado y después salta.
+- **Y si el padre se dimensiona al hijo, un `margin` negativo se descuenta dos veces.** El
+  par `paddingLeft:10 / marginLeft:-10` (para que el foco respire) le comía otros 10 px, y
+  es lo que invalida `field-sizing: content` como arreglo: deja la caja MÁS chica que el
+  texto en los dos motores.
+- **La salida no era medir mejor: era no usar un input.** Un `contentEditable` ocupa
+  exactamente lo que dice, y además puede recortar con «…», cosa que un input no.
+

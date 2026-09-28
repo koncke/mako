@@ -5167,3 +5167,94 @@ tiene un `default` que no dibuja nada en vez de romper.
 - Sigue abierto todo lo de la sección anterior que no dependía de la premisa muerta:
   `DependenciasBloque` sin soporte del Repo, `ampliarTareas` descartando filas en silencio,
   y `ProyectoVacioBloque` con `/api/plan-board` cableado adentro.
+
+## Un `<input>` no mide su texto: su ancho sale de la FUENTE (29/09/2026)
+
+Cosechado del reporte «mira como se corta el título de "Vender MaKo: Oferta y precios"»
+sobre el detalle de un proyecto. Salió de un relevo de 8 lectores, y el que midió esto
+corrigió de paso mi propia medición: yo había comprobado en Chromium que **no** se
+cortaba.
+
+**Vive en:** `app/plan/board/BoardShell.tsx` (`ProjectDetailModal`) · `app/_components/CabeceraDetalle.tsx` · `app/_components/EditableInline.tsx`
+
+### El ancho de un input no tiene nada que ver con lo que dice
+
+`.cd-txt` es `flex: 0 1 auto`, así que se dimensiona al `max-content` de sus hijos. El
+`max-content` de un `<input>` con `width:100%` **no es el ancho de su texto**: es el que
+sale del atributo `size` (20 por default), contado en **avances del dígito «0» de la
+fuente activa**. El `width:100%` es inerte en esa cuenta.
+
+Medido con la misma fila a 1180 px:
+
+| | ancho de `.cd-txt` |
+|---|---|
+| con «Feature: CRM» (texto de 128,2 px) | **298 px** |
+| con «Vender MaKo: Oferta y precios» (285,7 px) | **298 px** |
+
+No cambia con el texto. Y el número depende de la FUENTE: 308 px de borde-caja con Geist
+600/20 y **275 px con la fallback**.
+
+### Por qué yo lo vi bien y el dueño lo vio cortado
+
+Con `.cd-txt` en 298 y el `paddingLeft:10` del input, la caja de texto queda en 288:
+
+- **Chromium: sobran 2,3 px.** No se corta. Eso es lo que medí y por eso di verde.
+- **WebKit: el intrínseco es 297 en vez de 308** → caja de 277 → **faltan 8,7 px**. Media
+  «s», que es exactamente la captura.
+- **Con la webfont sin llegar** (FOUT, `display=swap`): intrínseco 275 → caja 255 →
+  **faltan 30,4 px**, mientras el texto en Arial mide casi lo mismo que en Geist.
+
+**La regla que queda: un margen de 2 px no es «entra», es «entra por casualidad».**
+Verificar en un solo motor un layout cuyo ancho sale de una métrica tipográfica da verde
+sobre algo roto — y lo mismo pasa entre el primer paint y el segundo.
+
+Y no era un nombre desafortunado: sobre los 70 del catálogo, **cuatro ya se cortaban**
+(«Feature: Configuraciones y equipo», −33,1 px) y otros tres pasaban por menos de 20.
+
+### Y una SEGUNDA causa que se suma, en la misma línea
+
+`tituloEditable` trae `padding:0, paddingLeft:10, marginLeft:-10`. Con el padre
+dimensionándose al hijo se arma un lazo: contribución del input = borde-caja(308) +
+margen(−10) = 298 → `.cd-txt` = 298 → `width:100%` = 298 de borde-caja → contenido = 288.
+**El padding se descuenta dos veces.**
+
+⚠️ Eso invalida el arreglo que parecía más limpio: `field-sizing: content` SOLO deja la
+caja en 275,7 para un texto de 285,7 — **se corta en los dos motores**, peor que antes. Y
+tampoco puede ir en la constante: `tituloEditable` la comparten el input del proyecto y
+el `<textarea rows={2}>` del título de una tarea, que con `field-sizing` colapsa de 57,2
+px de alto a 28,6.
+
+### La cura fue dejar de usar un input
+
+`EditableInline` es un `contentEditable` y ocupa **exactamente lo que dice**, así que la
+columna mide el TEXTO (medido después: 286 px, que es el ancho real). De paso es la misma
+pieza que ya usan las otras dos fichas, así que las tres editan el nombre igual — y un
+span sí puede recortar con «…», cosa que un input no.
+
+⚠️ **`EditableInline` avisa de cualquier texto que CAMBIÓ, y «» cambió.** El guard de
+vacío no se puede omitir: sin él, seleccionar todo y borrar deja el proyecto sin nombre.
+
+### Partir la cabecera para que la columna derecha empiece arriba
+
+«Haz que la sidebar llegue hasta el tope de la portada… así evitamos que tenga scroll.»
+`CabeceraDetalle` se sirve en tres piezas: `PortadaDetalle` (la banda), `FilaDetalle` (el
+renglón del nombre) y el combo con la misma firma para quien no necesita separarlas. El
+detalle del tablero monta la banda a lo ancho y la fila DENTRO de la columna izquierda.
+
+Medido: la columna derecha pasó de `y=258` a `y=191` y de 570 px de alto a **636**.
+
+⚠️ **El `minHeight:0` del scroller no es defensivo, es la feature.** Sin él el hijo crece
+a su contenido, la columna crece con él y el que termina scrolleando es el MODAL — o sea
+que el título se va de la pantalla, que es lo contrario de lo que se pidió.
+
+⚠️ **Y el padding se MUDA, no se duplica.** Si el `padding:'20px 22px'` se queda en la
+columna, la fila arranca en x=22 y su `paddingLeft` deja de alinear con el `left:20` de la
+marca, que vive en la otra pieza.
+
+### Lo que quedó SIN hacer
+
+- **Hay tres estilos para el mismo renglón del nombre**: `.cd-nombre` (20px/600/−.01em, el
+  del tablero) y `.fw-nom` + `.fc-ed-nom` (20px/670/−.02em), que entre ellas son la MISMA
+  regla. Unificarlos mueve algo que el dueño ya aprobó mirándolo, así que es una decisión
+  suya y no un refactor: va en las tres o en ninguna.
+- **El detalle abre a 1180 px y no se midió contra pantallas de 1280.**

@@ -4008,3 +4008,97 @@ mediciones que el instrumento estaba falseando, cuando la pregunta que importaba
 con un comando después de stagear.
 
 **Vive en:** cualquier `git add` de este repo · *2026-09-27 crm-friccion-tanda-3*
+
+## Borrar un inquilino entero, y la lista de tablas que estaba mal en las dos direcciones (29/09/2026)
+
+Cosechado de «en Super Admin, las acciones deberías agregar la de eliminar, no solo
+pausar». El «no solo pausar» es la mitad importante del pedido: una baja lógica sería
+Pausar con otro nombre.
+
+**Vive en:** `lib/tablas-de-inquilino.ts` · `lib/borrado-workspace.ts` · `lib/eliminar-workspace.ts` · `lib/reset-workspace.ts`
+
+### LAS MIGRACIONES NO SON EL ESQUEMA, y acá se paga caro
+
+El relevo armó la lista de tablas leyendo `supabase/migrations/` y él mismo puso como
+primer riesgo: «no medí contra producción». Se midió, y la diferencia era en las dos
+direcciones a la vez:
+
+| | |
+|---|---|
+| tablas con `workspace_id` en prod | **90** |
+| nombradas en `TABLAS_RESET` | 70 |
+| de ésas, que **no existen** | **4** (`archivero`, `branding`, `contratos`, `meta_health_history`) |
+| que existen y **faltaban** | **24** |
+
+O sea que «vaciar un workspace» vaciaba **66 de 90**, y lo que quedaba se arrastraba a la
+corrida siguiente sin que nada lo dijera. Los cuatro nombres inexistentes son plausibles
+—`archivero` contra `archivero_files`, `branding` contra `branding_assets`— y ningún
+compilador los mira: son strings.
+
+⚠️ **Y el modo de falla los escondía.** Un `delete` de supabase-js contra una tabla que no
+existe devuelve error, y el bucle de reintentos lo trata igual que a un choque de FK: tres
+pasadas y un aviso críptico al final. Ahora se distingue el `42P01` («esa tabla no existe,
+sacala de la lista») del `23503`.
+
+**La regla que queda: una lista de nombres de tablas se mide contra
+`information_schema`, no contra las migraciones** — hay migraciones escritas que nunca se
+aplicaron, y este repo tiene el caso documentado (`0157_meta_campaign_drafts_workspace`).
+La consulta quedó escrita en el encabezado del módulo.
+
+### El orden del borrado no es intercambiable
+
+De las **87 FKs** que apuntan a `workspaces.id`, **39 no cascadean** (48 sí). Con una sola
+fila viva en cualquiera de esas 39, el `DELETE` final rebota con 23503. El orden:
+
+1. **Las personas primero** — pero sólo el CHEQUEO. Si el guard del último admin global
+   corta, no quiero haber vaciado ya 89 tablas de un cliente que no se va a poder borrar.
+2. **Vaciar** las 89 tablas de inquilino, en pasadas.
+3. **Desligar lo que apunta desde OTRO inquilino.** Éste es el que no se ve:
+   `leads.cliente_ws` vive en el CRM del super admin y apunta al workspace del cliente, así
+   que vaciar las tablas DE ESTE workspace no lo toca. Sin esto el DELETE rebota, y el
+   mensaje de Postgres nombra la CONSTRAINT y no la tabla.
+4. Borrar sus usuarios, y recién ahí la fila.
+
+⚠️ **Las 39 FKs sin cascade se dejan como están, a propósito.** Cascadearlas haría el
+borrado más simple y sería peor: hoy son lo único que hace que un borrado incompleto falle
+ruidoso en vez de dejar filas huérfanas en silencio. Y no es atómico —supabase-js no da
+transacciones— así que el modo de falla posible es «workspace vacío pero vivo», que es
+idempotente y se reintenta; el inverso no puede pasar mientras esas FKs sigan en RESTRICT.
+
+### El nombre se compara en el SERVER, y normalizado
+
+Lo que hace seguro a lo irreversible no es el diálogo: es que el server exija el nombre
+exacto del cliente. Un confirm que sólo vive en la pantalla lo saltea cualquiera que llame
+a la ruta.
+
+⚠️ **Y se compara normalizado (NFC + espacios colapsados + minúsculas).** El NFC no es
+decoración: «Código» tipeado en macOS puede llegar en **NFD** —la o y la tilde como dos
+puntos de código— y contra el NFC de la base da distinto **con los dos textos viéndose
+idénticos en pantalla**. Sin eso, el dueño tipea bien el nombre y el botón sigue apagado
+sin poder explicarle por qué.
+
+⚠️ **Y el orden de los motivos importa.** Primero lo que NO se arregla tipeando (es la
+plataforma, es el ws1, sos vos, tiene cartera) y el nombre al final. Al revés, a alguien
+que intenta borrar la plataforma le diría «el nombre no coincide», que es una pista falsa.
+
+### Lo único que prueba un borrado es borrar
+
+No se puede probar en los workspaces de prueba (ws3 y ws4): probarlo los destruye. Se
+sembró uno desechable con filas en las tablas que bloquean **y un lead cruzado del ws9**,
+y se borró por la ruta real. Resultado: 4 tablas, 1 persona, 1 lead desligado, 0 avisos —
+y después **cero filas sueltas en las 90 tablas**, la fila del workspace borrada y el lead
+del ws9 vivo y desligado (es del super admin, no del cliente). Los cinco rechazos, también
+contra el server.
+
+### Lo que quedó SIN hacer
+
+- **No hay auditoría de borrados.** Se va un cliente y no queda registro de quién ni
+  cuándo. Las filas de `agencia_clientes` y `agencia_altas` cascadean, así que se lleva
+  también el registro de que una agencia lo pidió y el super admin lo firmó — y las migs
+  0175 y 0178 dicen por escrito que «ninguno se borra».
+- **Dos buckets de storage no se limpian por prefijo**: `video-clips` y `ads-creatives`
+  guardan bajo `video-generator/<planId>/` y `nueva/`, no bajo `<ws>/`. Lo que quede ahí
+  sobrevive al borrado.
+- **Completar `TABLAS_RESET` cambió el alcance del RESET**, no sólo el del borrado. Es lo
+  correcto —hoy el ws3 «vaciado» arrastraba 24 tablas— pero es un cambio de radio que
+  nadie pidió.

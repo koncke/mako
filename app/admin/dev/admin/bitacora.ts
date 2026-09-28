@@ -378,6 +378,36 @@ export const BITACORA: Hito[] = [
       { sha: '655e977f', msg: 'Abrir una cuenta pide el email, y la aprobacion es la que le manda el acceso', lineas: 260, archivos: 6 },
     ],
   },
+  {
+    fecha: '29 sep', hora: '09:40', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Siete cosas del panel y del detalle',
+    pedido: 'Mira como se corta el titulo. / Haz que la sidebar llegue hasta el tope de la portada, asi evitamos que tenga scroll. / En Super Admin en la preview de la card falta lo de Proyectos - Abiertas - Se repiten, pero en todos lados cambia Se repiten por Recurrentes y Abiertas por Tareas. / No entiendo que en las acciones de Agencia pusiste Abrir el CRM, no tiene sentido. De ultima Pausar cuenta, Re-enviar invitacion. / Quitale el tag de Dueño a Mauricio, eso lo deberia tener Martin Koncke. / Las acciones deberian agregar la de eliminar, no solo pausar. Y en lugar de muchos Pasar a, que sea Cambiar permisos con un modal, y que siempre se le envie un email. / Ademas de 1 miembro deberia decir la cantidad de clientes, y quita lo del slug.',
+    puntos: [
+      'Siete puntos en un solo mensaje, con tres capturas.',
+    ],
+  },
+  {
+    fecha: '29 sep', hora: '15:30', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los siete, con un relevo de 8 lectores que corrigio mi propia medicion',
+    puntos: [
+      '⚠️ **EL TITULO: yo lo medi en Chromium y NO se cortaba, y los dos teniamos razon.** Un `<input>` no mide su texto: su max-content sale del atributo `size` (20 por default) contado en avances del digito «0» de la FUENTE ACTIVA, y el `width:100%` es inerte en esa cuenta. Medido: la columna daba **298 px con un texto de 128 y con uno de 286**. Con el texto en 285,7 sobran **2,3 px en Chromium**, faltan **8,7 en WebKit** (media «s», que es la captura) y faltan **30,4** mientras la webfont no llego. **Un margen de 2 px no es «entra», es «entra por casualidad».** Y habia una segunda causa aditiva: `paddingLeft:10 / marginLeft:-10` se descuenta dos veces cuando el padre se dimensiona al hijo. La cura fue dejar de usar un input.',
+      '**La sidebar al tope: `CabeceraDetalle` se sirve en tres piezas** (portada, fila y el combo). El detalle del tablero monta la banda a lo ancho y el renglon del nombre DENTRO de la columna izquierda: la columna derecha gano **66 px** medidos. El `minHeight:0` del scroller no es defensivo — sin el, el que scrollea es el MODAL y el titulo se va de pantalla.',
+      '⚠️ **EL CHIP «Dueño» ESTABA EN UN CLIENTE, y el booleano estaba escrito DOS veces.** Era `w.id === 1` (Mauricio). Al mudarlo al workspace de capa `superadmin`, el otro —el de `opcionesDe`— quedo protegiendo a Mauricio y **ofreciendole a la PLATAFORMA «Pausar» y «Eliminar…»**. Lo encontro la verificacion en el navegador, no el typecheck: las dos expresiones compilaban.',
+      '⚠️ **El case de `capa` VALIDABA CON `esCapaValida`, QUE DEVUELVE TRUE PARA `superadmin`.** Esa capa no es un plan: es como se identifica la plataforma. Un POST le mudaba a un cliente las credenciales y el remitente de MaKo. El menu habia dejado de ofrecerlo el 28/09 — pero **el menu no es el guard**.',
+      '**«Reenviar el acceso» necesito endpoint NUEVO** porque ninguna de las dos rutas que ya reenvian le servia a una agencia: /api/equipo se scopea con `getWorkspaceActual()` y /api/admin exige super admin. Y el guard de la cartera autoriza sobre un CLIENTE, no sobre una persona: sin filtrar por workspace_id, un usuarioId ajeno pasa el permiso correcto.',
+      '⚠️ **ELIMINAR: la lista de tablas del reset estaba mal en las DOS direcciones.** Medida contra PRODUCCION (no contra las migraciones): nombraba 70, **cuatro no existen** y le faltaban **24**. Vaciaba 66 de 90. Mas: 39 de las 87 FKs hacia `workspaces` no cascadean y se dejan asi a proposito; `leads.cliente_ws` vive en OTRO inquilino y hay que desligarlo; y el nombre de confirmacion se compara EN EL SERVER y normalizado en NFC, porque «Codigo» tipeado en macOS llega en NFD y da distinto con los dos textos viendose identicos.',
+      'PROBADO BORRANDO DE VERDAD sobre un workspace desechable: 4 tablas, 1 persona, 1 lead desligado, y despues **cero filas sueltas en las 90 tablas**.',
+      '⚠️ PROCESO: llamar a `useCapaModal` ADEMAS de pasarle `anidada` al `Modal` —que ya lo llama— registra dos capas para un solo modal, y **Escape deja de cerrar**. No da error, no lo ve ningun test, y solo aparece probando la tecla.',
+      'ABIERTO: no hay auditoria de borrados; dos buckets de storage no se limpian por prefijo; «Pausar la cuenta» para una agencia es una decision de producto y no falta de codigo; y hay TRES estilos para el mismo renglon del nombre en tres pantallas.',
+    ],
+    commits: [
+      { sha: '39d21746', msg: 'El titulo mide el texto, y la columna derecha arranca pegada a la portada', lineas: 296, archivos: 2 },
+      { sha: '4b70c621', msg: 'Proyectos · Tareas · Recurrentes en la tarjeta, y el «Dueño» al que de verdad lo es', lineas: 185, archivos: 10 },
+      { sha: '30225b97', msg: 'Las acciones de una agencia gestionan la cuenta, no repiten un link', lineas: 279, archivos: 4 },
+      { sha: '7d9ce2e2', msg: '«Cambiar permisos…»: un modal que dice que incluye cada plan, y un mail al cliente', lineas: 506, archivos: 6 },
+      { sha: '1f02e6b4', msg: 'Eliminar un cliente: se borra de verdad, y lo frena el nombre escrito en el SERVER', lineas: 674, archivos: 7 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
