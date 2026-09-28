@@ -340,4 +340,63 @@ export const BITACORA: Hito[] = [
       '⚠️ El test de atribución clavaba `SNIPPET_VERSION = 17`, así que fallaba con cualquier cambio del snippet ajeno a él. Pasa a exigir 17 o más: un test que pinta el número de hoy se «arregla» tocando el test.',
     ],
   },
+  {
+    fecha: '22 sep', hora: '20:13', chat: 'CRM', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'De que anuncio vino la agenda, y por que todos dicen «organico manual»',
+    // Dos audios del grupo «Makito», textuales (22/09 20:13 y 20:18). Los mando Joan Dowd,
+    // que es quien usa MaKo para sus clientes; llegaron al repo el 27/09, cuando Martin los
+    // exporto del telefono: los mensajes de grupo se descartaban en el webhook y la media de
+    // Evolution caduca a los ~30 dias.
+    pedido: 'Tincho, como va? Buenas noches. Che, te hago una pregunta. En el CRM, MaKo, donde puedo ver? Porque se que debe estar por algun lado, pero no lo debo estar viendo. Donde puedo ver la trazabilidad inversa para saber de que anuncio, de que creativo llego la agenda?\n\nCreo que te refieres ahi, me aparece organico manual, todos me aparecen como organico manual y todos estos vinieron del VSL Funnel. No se si esta bien ahi lo que te comparti, si deberia aparecer ahi o mas abajo me aparece el historial de la actividad registrada en el VSL, retencion de video, etcetera, pero lo de la campana no, no lo veo.',
+    puntos: [
+      '**«Todos me aparecen como organico manual» era el mas CHICO de cuatro bugs, y el unico que el podia ver.** El dato del canal estaba bien guardado desde siempre: faltaba el `case` de la ficha. Por eso vale guardar el pedido entero — su segunda mitad («lo de la campana no, no lo veo») apunta a los otros tres, que viven en el camino de datos.',
+      'La pantalla NUNCA fue el problema: dibuja Campana > Conjunto > Anuncio con deep-link y resuelve los nombres. El id 120251610513950661 resuelve a «Agentes 2 | 15/09» de la campana «VSL FUNNEL inmobiliarios CI», que es justo el VSL funnel que el nombro.',
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '21:24', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Arreglar el snippet no arregla a nadie: el duplicado volvio a nacer la misma noche',
+    puntos: [
+      '⚠️ **La leccion que mas cuesta de esta area, y salio de un fracaso.** Con la v18 commiteada, DESPLEGADA y el historico duplicado borrado, el id duplicado volvio a nacer esa misma noche: 5 filas de `wistia-player:` a las 23:51, **dos visitantes distintos**, trafico pago real de Instagram (utm_source=ig con fbclid), con **6 ms** entre el play de un id y el del otro.',
+      '**El porque se mide en una consulta:** `landing_visits.sv` dice que version corre cada cliente, y al 27/09 ninguno corria la v17 ni la v18 — ws1 en la **v14** con 3.304 visitas, ws13 en la **v16** con 607, ws14 en la v15. Y la v16 es exactamente el commit (3319ab20) que introdujo las dos ramas que chocan. **El snippet va PEGADO en la pagina del cliente: arreglarlo tiene alcance CERO hasta que cada uno repegue, uno por uno.**',
+      '**LA REGLA: si el arreglo tiene que llegarle a alguien que ya instalo una copia de nuestro codigo, va en el SERVIDOR.** El snippet se arregla igual, como defensa en profundidad, pero el que manda es el que RECIBE.',
+      '**Son TRES nacederos, no uno.** El beacon (la unica linea del repo que escribe `vsl_events.video_id`, que tenia un trim+slice y nada mas), `lib/landing-videos.ts` (por ahi pasan las dos pantallas del catalogo y las tres operaciones de la API de MaKo — va adentro del saneo del id, no en los llamadores) y `videosDeHtml`, que pare ids leyendo el HTML y **nunca toca el beacon**: de ahi salia el tercer id.',
+      '⚠️ **Y el lector de prefijos estaba roto en los DOS lugares que lo hacian.** `hostDeVideoId` devolvia null para `wistia:` —prefijo que su propio archivo emitia doce lineas mas abajo— y `lib/leads.ts` preguntaba con un regex que contesta **false** para `wistia-player:`, `mux-player:` y `lite-youtube:` (el guion no es [a-z] y el prefijo pasa de 6). Con false, esos ids caian al respaldo «la unica duracion conocida» —la de Panda— y **se les calculaba el avance con la duracion de otro video**, que es justo lo que el comentario de esa funcion dice que no puede pasar.',
+      '⚠️ **Canonizar al LEER rompe lo que estaba escrito.** El ws13 tenia `wistia-player:<id>` en `landing.videos_ocultos`, que canonizado resuelve a `w:<id>` — **el VSL**. O sea que el propio arreglo le escondia el VSL al cliente. El backfill va en el mismo commit y no renombra a ciegas: fila por fila pregunta si existe la gemela canonica (mismo visitante, mismo tipo, <2 s); si existe se BORRA, porque renombrar daria dos filas para un hecho. Las 5 tenian gemela.',
+      '**El control no comprueba el caso, comprueba que no se pueda repetir:** escanea el snippet y falla si aparece un prefijo literal que `lib/video-id.ts` no declare, **y** si aparece una forma NUEVA de armar un id sin prefijo literal. Hoy hay dos, y una de ellas (el nombre de la etiqueta) es exactamente de donde salio este bug.',
+    ],
+    commits: [
+      { sha: '1d0d6d57', msg: 'Un video, UN id: la canonicalizacion va en el SERVIDOR, no en el snippet', lineas: 509, archivos: 8 },
+    ],
+    archivos: [
+      'lib/video-id.ts — nuevo, sin server-only: la tabla de alias EN POSITIVO con el porque de cada uno, canonizarVideoId, esIdPosicional, idDeclaraHost',
+      'app/api/track/vsl/route.ts — el choke point del que todo depende',
+      'tests/landing-analisis.test.ts — el test FIJABA la doble identidad de Wistia. No estaba mal escrito: reflejaba la decision contraria. Ahora exige la unica, y su comentario lo dice',
+      '⚠️ Queda abierto: cinco ramas del snippet caen a un id POR POSICION (iframe0, v:pos0, <etiqueta>:pos0, vimeo:iframe) que no identifica nada, y hoy entran a videosDetectados como un video nombrable. esIdPosicional ya lo sabe distinguir y todavia no lo consume nadie',
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '21:33', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La atribucion del lead: cuatro bugs en cuatro capas, y sin backfill no se veia ninguno',
+    puntos: [
+      '**1) El case que faltaba.** El opt-in escribe origen_lead: landing desde que existe, asi que el dato siempre estuvo bien. Medido: **27 leads en todo el producto**, 19 de un solo cliente (19 de sus 21). Ya habia pasado con Cal.com, con el comentario al lado — una lista de cases que crece cuando alguien se queja va a volver a fallar, asi que el test lee que valores ESCRIBE el opt-in y exige que cada uno tenga el suyo. **Un default que afirma «llego solo» no es un fallback: es una afirmacion falsa.**',
+      '**2) El tope de 300 se comia la mitad de los anuncios.** La URL de aterrizaje pasaba por `txt()`, el saneador de CAMPOS DE FORMULARIO. Meta pone el fbclid PRIMERO (150-250 caracteres) y los utm_* DESPUES, asi que utm_content= arranca cerca del caracter 298 y su valor de 18 digitos queda entero afuera. Medido sobre 822 visitas con utm_content: **427 lo perdian completo (52%)**, 8 de 18 leads. Lo delataba que el MISMO dato estuviera entero en landing_visits, que guarda la URL con tope 500. **Una URL no es un campo de texto:** el tope de un nombre aplicado a una URL le corta la parte que mas informa, que en una URL de tracking esta al final.',
+      '**3) Y el corte adentro del numero mandaba al anuncio EQUIVOCADO.** adIdDeLead aceptaba cualquier numero de 6 digitos o mas, asi que un id mutilado de 10 pasaba y se convertia en el deep-link a un anuncio que existe y no es el de ese lead. **Un null dice «no se»; esto afirma con confianza.** Los ad_id de Meta tienen 15-18 digitos y ese largo es parte de la validacion.',
+      '⚠️ **Esa funcion vivia detras de server-only** y ningun test la podia importar — lo unico sin red justo donde se decide a que anuncio apunta la ficha de un lead. Se mudo a lib/atribucion-url.ts y queries.ts la re-exporta para no tocar los cuatro llamadores. Misma regla que exigirClienteDePrueba.',
+      '**4) Sin backfill el arreglo es invisible.** El camino de escritura solo alcanza a los leads NUEVOS, y en un CRM la mayoria de las filas no se vuelve a tocar nunca. El dato estaba en landing_visits.landing_url: se cruza por visitor_id y se parsea con la MISMA funcion de la ruta, escribiendo solo columnas en null con coalesce. **El ws13 paso de 0 a 18 de 21 leads con su anuncio y su campana**, los 18 con un ad_id valido. Los 3 que no: 2 de Cal.com sin visitor_id, y 1 con SOLO fbclid.',
+      '⚠️ **Y el fbclid es cableado muerto:** el snippet lo manda, el tipo lo declara, conAtribucion lo devuelve y hayAtribucion lo cuenta — y la tabla leads **no tiene columna fbclid** (un grep sobre lib/leads.ts no lo encuentra ni una vez). 857 de las 1.284 visitas de ese cliente lo traen. Es «escribir la salida no es ofrecerla» en su forma mas cara: cinco lugares que lo pasean, cero que lo guardan. **Queda ABIERTO** — o se le agrega la columna y se persiste (sirve para la API de conversiones de Meta), o se saca de los cinco lugares que hacen creer que el dato se guarda.',
+    ],
+    commits: [
+      { sha: 'e5a09a06', msg: 'Atribucion de leads: eran CUATRO bugs en cuatro capas, y el que se veia era el mas chico', lineas: 250, archivos: 6 },
+    ],
+    archivos: [
+      'app/crm/lead-view/OrigenCard.tsx — el case que faltaba',
+      'app/api/track/optin/route.ts — urlTxt (tope 2.000) en vez del saneador de campos',
+      'lib/atribucion-url.ts — recibe resolverAdIdPorNombre y adIdDeLead, que salieron de detras de server-only',
+      '⚠️ Al commitear aparecio otra, y vale para cualquier sesion de este clon: el vecino tenia SU trabajo ya en el indice, asi que un git add <mis rutas> + git commit se llevo 20 archivos ajenos adentro de mi commit. Con un indice ajeno sucio va git commit -F msg -- <rutas>, que es un commit PARCIAL: ignora el indice y lo deja intacto',
+    ],
+  },
 ];
