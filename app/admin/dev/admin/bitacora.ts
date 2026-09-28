@@ -227,6 +227,32 @@ export const BITACORA: Hito[] = [
       { sha: "0460e361", msg: "Vista de agencia (2/2): abrirle cuenta a un cliente, firmarla y entrar", lineas: 800, archivos: 16 },
     ],
   },
+  {
+    fecha: '27 sep', hora: '20:40', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Inspeccionar, la cadena anidada, y /admin como la vista de Clientes',
+    pedido: '1. No debería estar ese cuadro alargado de esa sección, y solamente deberían ver esa sección los usuarios de agencia y super admin. Haz que esté todo a la misma altura pero alineado a la derecha, sutil. Con un ícono de ojo y con el texto "Inspeccionar".\n2. Cuando entro como super admin inspeccionando una cuenta de agencia, y a su vez entro a inspeccionar un cliente de esa agencia, eso debería notarse en la topbar que aparece, que no se bugee, así lo puedo probar.\n3. Rediseña la vista de super admin de clientes, que sea exactamente igual que la vista de clientes que construimos. Solo que con los botones extras. Elimina la sub tab de super admin, que esté todo junto, y lo de copywriting ni siquiera debería estar allí, ponlo como otra tab en la sección de admin en la sidebar',
+    puntos: [
+      'El punto 1 tiene DOS mitades y la segunda es la que importa: no es sólo sacar la caja, es que el control no lo vea un cliente común. Antes decía «Sin cuenta» para todo workspace que no fuera agencia —o sea, el default— y eso es una afirmación sobre algo que a ese cliente no le incumbe.',
+      'El 2 pide poder PROBAR la vista de agencia desde la cuenta de super admin: «así lo puedo probar». O sea que el valor del pedido no es la cadena en sí, es que la cadena haga verificable lo que se construyó.',
+      'El 3 dice «exactamente igual», que es una restricción de construcción y no de gusto: obliga a compartir la pieza en vez de copiar el diseño.',
+    ],
+  },
+  {
+    fecha: '27 sep', hora: '22:05', chat: 'Portadas, identidad y Clientes', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los tres puntos, con un relevo de 12 agentes antes de escribir',
+    puntos: [
+      'Se relevaron las tres zonas en paralelo antes de tocar nada (5 lectores + 7 lotes de refutación; 52 afirmaciones, 3 refutadas). Lo que más ahorró: el punto 2 NO era un problema de datos —el super admin en /general?ws=N ya ve lo correcto— sino de presentación, y el `?via=` que parecía la salida obvia muere en la primera navegación porque ninguna de las cuatro formas de navegar re-pega un parámetro extra. La cadena se DERIVA de la base, con una función que ya estaba escrita y muerta en el repo.',
+      'El renglón bajó a la cabecera y el hueco ya existía: `.fc-quitar` era CSS huérfano desde el 27/09 y era exactamente el molde pedido (flex:none, sin caja, 12px, tinta apagada). Se reusó y se borró la regla sin dueño.',
+      'Para el punto 3, la pieza se comparte de verdad: la tarjeta, la grilla y la barra son las mismas en las dos pantallas. Apareció un bug latente al montarlas: `margin:0 auto` sin `width:100%` se ENCOGE en un contenedor flex-column — la barra quedó en 419 px y partida en dos renglones.',
+      'Y se arregló un `match` de nav.ts que ya mentía: era una lista de exclusiones que no incluía /admin/friccion, así que esa pantalla prendía la fila «Clientes» y su `<title>` decía lo mismo. Ahora es positivo, con test probado rompiéndolo.',
+      'ABIERTO: `NombreClienteDialog` sigue sin registrarse en la pila de modales; `/api/admin/usuarios` calcula un `resumen` que el cliente no lee; el cerebro de copywriting escribe en OWNER_WS, que es un cliente; y app/admin/copywriting/ no está en ningún `vive[]`.',
+    ],
+    commits: [
+      { sha: "a57a540c", msg: "«Inspeccionar» al lado del nombre, y la cadena cuando hay dos niveles", lineas: 300, archivos: 8 },
+      { sha: "04a61917", msg: "BarraAcciones sale de BoardShell: la montan tres pantallas", lineas: 300, archivos: 2 },
+      { sha: "ddf879fd", msg: "/admin es la MISMA vista que Clientes, sin sub-tabs", lineas: 900, archivos: 14 },
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [
