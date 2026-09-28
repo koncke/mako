@@ -32,6 +32,7 @@ import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
 import { CanalToggle, type EstadoCanal } from '../_components/CanalToggle';
 import { Icon } from '../_components/icons';
 import { DestinatariosModal, type Destinatarios } from './DestinatariosModal';
+import { AvisoEditor } from './AvisoEditor';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -77,16 +78,17 @@ function Fila({ titulo, sub, canales, primera, pie }: {
 }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
       paddingTop: primera ? 0 : 14, marginTop: primera ? 0 : 14,
       borderTop: primera ? 'none' : '1px solid var(--border)',
     }}>
-      <div style={{ minWidth: 220, flex: '1 1 300px' }}>
-        <div style={{ fontSize: 14.5, color: 'var(--ink)', fontWeight: 600 }}>{titulo}</div>
-        {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
-        {pie}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 220, flex: '1 1 300px' }}>
+          <div style={{ fontSize: 14.5, color: 'var(--ink)', fontWeight: 600 }}>{titulo}</div>
+          {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 'none' }}>{canales}</div>
       </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 'none' }}>{canales}</div>
+      {pie}
     </div>
   );
 }
@@ -153,6 +155,8 @@ export function NotificacionesPanel() {
   const [tieneGrupo, setTieneGrupo] = useState(false);
   const [plantilla, setPlantilla] = useState<string>('…');
   const [modalDest, setModalDest] = useState(false);
+  // Uno abierto a la vez: son preferencias de una fila, no un formulario grande.
+  const [avisoAbierto, setAvisoAbierto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -390,6 +394,24 @@ export function NotificacionesPanel() {
                   motivoNoDisponible="No hay ningún número cargado"
                   onChange={(v) => setAviso(a.id, v)}
                 />
+              }
+              pie={
+                // Sólo se ofrece personalizar lo que SÍ va a salir: sobre un aviso
+                // apagado, editar el texto es trabajo que no se usa.
+                draft.avisos[a.id] !== false ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAvisoAbierto((x) => (x === a.id ? null : a.id))}
+                      style={{ ...btnLink, marginTop: 6, fontSize: 12.5 }}
+                    >
+                      {avisoAbierto === a.id ? 'Cerrar' : 'Personalizar'}
+                    </button>
+                    {avisoAbierto === a.id && (
+                      <AvisoEditor id={a.id} titulo={a.titulo} onCerrar={() => setAvisoAbierto(null)} />
+                    )}
+                  </>
+                ) : null
               }
             />
           ))}

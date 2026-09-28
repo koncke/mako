@@ -246,6 +246,32 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       // del doer tiene que ser lo que el dueño ve en el chat, o el modelo razona
       // sobre un mensaje que nadie leyó.
       if (jid) await guardarTurno(ws, jid, 'assistant', texto, env.id).catch(() => {});
+
+      // ¿ESTE AVISO INSISTE? Si el cliente lo configuró en Configuraciones ›
+      // Notificaciones, además de salir queda una insistencia abierta: vuelve cada N
+      // minutos hasta que alguien conteste «ok» en el grupo, o hasta el techo.
+      //
+      // Va acá y no en el motor de flujos porque los avisos en vivo NO pasan por ahí:
+      // salen por este choke point. Sin esto, configurar la insistencia no haría nada
+      // — la pantalla prometería algo que nadie ejecuta.
+      //
+      // Sólo con env.ok: insistir sobre un mensaje que no salió es empezar a contar
+      // repeticiones de algo que nadie vio. Y sólo para el grupo del CLIENTE: los
+      // avisos `alDueno` van al grupo de la agencia, que no es de quien configuró esto.
+      if (a.alDueno !== true) {
+        try {
+          const { getFlujo } = await import('./plantillas');
+          const flujo = await runWithWorkspace(ws, () => getFlujo(a.tipo));
+          const paso = flujo?.pasos.find((x) => x.tipo === 'insistir');
+          if (paso?.tipo === 'insistir') {
+            const { abrirInsistencia } = await import('./insistencias');
+            await abrirInsistencia(ws, { flujoId: a.tipo, texto, cadaMin: paso.cadaMin, veces: paso.veces });
+          }
+        } catch (e) {
+          // Que falle la insistencia no puede tumbar el aviso, que YA salió.
+          console.error(`[avisos] insistencia de ${a.tipo}:`, e instanceof Error ? e.message : String(e));
+        }
+      }
     }
     return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {
