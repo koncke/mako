@@ -31,7 +31,8 @@ import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
 import { Marca } from '@/app/_components/Marca';
 import { useReposicionar, BarraReposicion } from '@/app/_components/Reposicionar';
-import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
+import { PortadaDetalle, FilaDetalle } from '@/app/_components/CabeceraDetalle';
+import { EditableInline } from '@/app/_components/EditableInline';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
@@ -5253,7 +5254,6 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   onEliminarTask?: (id: string) => void; onClose: () => void;
   /** confirmar lo irreversible: lo pide `TablaTareas`, que ahora dibuja las tareas de acá */
   ask: (msg: string, onOk: () => void) => void }) {
-  const [nameDraft, setNameDraft] = useState(proj.name);
   // ⚠️ `useCapaModal` SUBIÓ ACÁ ARRIBA: el efecto del Escape necesita su valor, y un `const`
   // no se hoistea. El orden de los hooks cambia en el FUENTE, no entre renders, que es lo
   // único que a React le importa.
@@ -5291,7 +5291,12 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
 
             Lo que se quedó acá es lo que es DEL TABLERO: el pid, el chip de objetivo
             principal, el título que escribe con `patchLabelLog` y el «Volver». */}
-        <CabeceraDetalle
+        {/* ⚠️ LA BANDA VA A LO ANCHO Y EL RENGLÓN DEL NOMBRE NO: el renglón se monta
+            más abajo, ADENTRO de la columna izquierda, para que la columna derecha
+            arranque pegada a la portada. «Haz que la sidebar llegue hasta el tope de la
+            portada… así evitamos que tenga scroll» (29/09/2026). Medido: son 67 px, que
+            es exactamente el alto de ese renglón. */}
+        <PortadaDetalle
           nombre={proj.name}
           color={proj.color}
           portada={proj.portada} portadaY={proj.portadaY}
@@ -5299,6 +5304,16 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
           icono={proj.icono} emoji={proj.emoji} onIcono={onIcono}
           cuadrado
           onCerrar={onClose}
+        />
+        <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
+          {/* ⚠️ LA COLUMNA IZQUIERDA ES UNA COLUMNA DE FLEX, no el scroller. El renglón
+              del nombre va arriba con `flex:none` y el scroller abajo con `flex:1` y su
+              propio `minHeight:0`: sin ese 0 el hijo crece a su contenido, la columna
+              crece con él y el que termina scrolleando es el MODAL — o sea que el título
+              se va de la pantalla, que es lo contrario del pedido. */}
+          <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <FilaDetalle
+          color={proj.color}
           antes={onBack ? (
             <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>
           ) : undefined}
@@ -5309,104 +5324,123 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
             </>
           }
           titulo={
-            /* MISMO título editable que el de una tarea, con el mismo foco sin recuadro
-               azul: dos pantallas que muestran lo mismo se ven igual. */
-            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={(e) => { tituloBlur(e); if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
-              onFocus={tituloFoco}
-              title="Edita el nombre" aria-label="Nombre del proyecto"
-              style={{ ...tituloEditable, fontSize: 20, marginBottom: 0 }} />
+            /* ⚠️ ES `EditableInline` Y NO UN `<input>`, y eso ARREGLA que el nombre se
+               cortara: «mira como se corta el título de Vender MaKo: Oferta y precios»
+               (29/09/2026). Un `<input>` no mide su texto — su ancho intrínseco sale del
+               atributo `size` (20 por default), que se cuenta en avances del dígito «0»
+               de la fuente ACTIVA. Medido: 308 px con Geist y 275 px con la fallback,
+               para un texto que mide 285,7 px. O sea que entraba por 2,3 px en Chromium,
+               se cortaba 8,7 px en WebKit (media «s», que es la captura) y 30,4 px
+               mientras la webfont no llegaba. Y el par `paddingLeft:10 / marginLeft:-10`
+               de `tituloEditable` le robaba 10 px más, descontados dos veces porque el
+               padre se dimensiona al hijo.
+               Medido sobre el catálogo: 4 de 70 nombres YA se cortaban y 3 más pasaban
+               por menos de 20 px. No era un nombre desafortunado.
+               Un span editable ocupa exactamente lo que dice, así que la columna del
+               título mide el TEXTO. Y de paso es la misma pieza que usan la ficha de un
+               cliente y la del super admin: las tres editan el nombre igual. */
+            <EditableInline
+              valor={proj.name}
+              placeholder="Sin nombre"
+              titulo="Edita el nombre del proyecto"
+              className="cd-nombre"
+              /* ⚠️ EL GUARD DE VACÍO NO SE PUEDE OMITIR: `EditableInline` avisa de
+                 cualquier texto que CAMBIÓ, y «» cambió. Sin esto, seleccionar todo y
+                 borrar deja un proyecto sin nombre. */
+              onGuardar={(v) => { if (v.trim() && v.trim() !== proj.name) board.patchLabelLog(proj.id, { name: v.trim() }, `Renombró el proyecto → «${v.trim()}»`); }} />
           }
           /* El chip va en la cabecera por el mismo motivo que en una tarea: es lo primero
              que hay que saber de este proyecto —cambia el significado de su prioridad, de
              su fecha y de dónde vive— y la columna derecha puede estar scrolleada. */
           chips={repiteProj ? <RepiteChip /> : undefined}
         />
-        <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
-          {/* columna principal */}
-          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
-            {/* ⛔ EL TÍTULO YA NO VIVE ACÁ. Subió al renglón del ícono el 27/09/2026:
-                «el título principal debería estar al lado del emoji/perfil, no abajo».
-                Es la anatomía de la ficha de un cliente y la de una página de Notion —
-                marca, nombre al lado, y el cuerpo empieza en el contenido. Abajo dejaba
-                el renglón del ícono con sólo el pid, o sea un renglón entero para un
-                número de cinco caracteres. */}
-            {/* ⚠️ EL DETALLE VUELVE ARRIBA, Y ES UN SOLO DOCUMENTO. Tres pedidos del mismo
-                día y hay que leer los tres juntos: primero «yo no veo el detalle, yo veo las
-                tareas», después «haz que el "Detalle del proyecto" siga estando arriba del
-                todo, como antes, solo que las secciones estén plegadas», y al final «cada
-                desplegable es como un FORMATEO de texto… tiene que ser 1 solo detalle, no
-                muchos» (25/09/2026). O sea: lo que molestaba no era el LUGAR ni el plegado,
-                era que el doc se leyera como N secciones sueltas. Plegado ocupa cuatro
-                renglones y deja las tareas a la vista igual.
-                El AVANCE se queda arriba porque es un renglón y contesta lo mismo que las
-                tareas: cómo viene esto. Sin `<Separador />` entre el título y el doc — el
-                mismo pedido que en la tarea. */}
-            <DetalleDoc valor={proj.detalle} onChange={(html) => { if (html !== proj.detalle) board.patchLabelLog(proj.id, { detalle: html }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" />
-            <Separador />
-            {/* El avance y las tareas, debajo del doc. El `N/M tareas` que iba acá se fue:
-                lo dice la tabla —N abiertas arriba, «M completadas» en su última fila— y
-                repetirlo es el mismo dato representado de otra forma, que es justo lo que
-                esta pasada vino a sacar. */}
-            {/* Ver el porqué en la tarjeta del proyecto: sin tareas CON FIN no hay
-                porcentaje que mostrar, y un 0% con su barra vacía se lee como «nadie hizo
-                nada». Lo que hay se dice con su nombre. */}
-            {prog.total === 0 && prog.recurrentes > 0 ? (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)', marginBottom: 20 }}>
-                <IconoRepite size={13} />
-                En marcha · {prog.recurrentes} tarea{prog.recurrentes === 1 ? '' : 's'} que se {prog.recurrentes === 1 ? 'repite' : 'repiten'}, sin nada con fecha de fin.
+            {/* EL SCROLLER: el cuerpo del proyecto. El padding se MUDÓ acá desde la
+                columna — si se quedaba arriba, el renglón del nombre arrancaría en x=22 y
+                su sangría dejaría de alinear con el `left:20` de la marca. */}
+            <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', padding: '20px 22px' }}>
+              {/* ⛔ EL TÍTULO YA NO VIVE ACÁ. Subió al renglón del ícono el 27/09/2026:
+                  «el título principal debería estar al lado del emoji/perfil, no abajo».
+                  Es la anatomía de la ficha de un cliente y la de una página de Notion —
+                  marca, nombre al lado, y el cuerpo empieza en el contenido. Abajo dejaba
+                  el renglón del ícono con sólo el pid, o sea un renglón entero para un
+                  número de cinco caracteres. */}
+              {/* ⚠️ EL DETALLE VUELVE ARRIBA, Y ES UN SOLO DOCUMENTO. Tres pedidos del mismo
+                  día y hay que leer los tres juntos: primero «yo no veo el detalle, yo veo las
+                  tareas», después «haz que el "Detalle del proyecto" siga estando arriba del
+                  todo, como antes, solo que las secciones estén plegadas», y al final «cada
+                  desplegable es como un FORMATEO de texto… tiene que ser 1 solo detalle, no
+                  muchos» (25/09/2026). O sea: lo que molestaba no era el LUGAR ni el plegado,
+                  era que el doc se leyera como N secciones sueltas. Plegado ocupa cuatro
+                  renglones y deja las tareas a la vista igual.
+                  El AVANCE se queda arriba porque es un renglón y contesta lo mismo que las
+                  tareas: cómo viene esto. Sin `<Separador />` entre el título y el doc — el
+                  mismo pedido que en la tarea. */}
+              <DetalleDoc valor={proj.detalle} onChange={(html) => { if (html !== proj.detalle) board.patchLabelLog(proj.id, { detalle: html }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" />
+              <Separador />
+              {/* El avance y las tareas, debajo del doc. El `N/M tareas` que iba acá se fue:
+                  lo dice la tabla —N abiertas arriba, «M completadas» en su última fila— y
+                  repetirlo es el mismo dato representado de otra forma, que es justo lo que
+                  esta pasada vino a sacar. */}
+              {/* Ver el porqué en la tarjeta del proyecto: sin tareas CON FIN no hay
+                  porcentaje que mostrar, y un 0% con su barra vacía se lee como «nadie hizo
+                  nada». Lo que hay se dice con su nombre. */}
+              {prog.total === 0 && prog.recurrentes > 0 ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)', marginBottom: 20 }}>
+                  <IconoRepite size={13} />
+                  En marcha · {prog.recurrentes} tarea{prog.recurrentes === 1 ? '' : 's'} que se {prog.recurrentes === 1 ? 'repite' : 'repiten'}, sin nada con fecha de fin.
+                </div>
+              ) : (<>
+                <label style={rowLabel}>Avance · {prog.pct}%</label>
+                <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
+              </>)}
+
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                {/* El conteo dice lo que queda ABIERTO y nada más: cuántas están hechas lo
+                    dice la propia tabla, en su última fila. Decirlo dos veces es el mismo
+                    dato representado de dos formas, que es justo lo que se vino sacando. */}
+                <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {abiertas.length}</label>
+                <span style={{ flex: 1 }} />
+                <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
               </div>
-            ) : (<>
-              <label style={rowLabel}>Avance · {prog.pct}%</label>
-              <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
-            </>)}
+              {/* ⚠️ UNA SOLA TABLA, CON TODAS LAS TAREAS DEL PROYECTO. «Que las "18
+                  completadas" simplemente sea otra fila más de una única tabla, y al
+                  clickearlo ahí aparecen las otras filas, no otra tabla» (25/09/2026).
+                  Acá había DOS `<TablaTareas>` —una de abiertas y otra de terminadas adentro
+                  de un `<details>`— con dos encabezados, dos órdenes y dos barras de
+                  selección para la misma cosa. La tabla separa sola lo hecho de lo abierto y
+                  lo pliega en su propia fila: es UN control, no dos vistas.
+                  · `ocultarProyecto`: adentro de un proyecto esa columna dice siempre lo
+                    mismo, y sacarla es lo que hace que la tabla entre sin scroll de costado.
+                  · `onEliminar`: sin eso la fila no dibuja el tacho.
+                  Es la MISMA `TablaTareas` de la vista principal, no una copia: si divergen,
+                  el deadline se tiñe distinto en dos pantallas que muestran lo mismo. */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                {suyas.length === 0
+                  ? <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>
+                  : <TablaTareas tareas={suyas} board={board} hoy={hoyISO()} onOpen={onOpenTask} ask={ask} ocultarProyecto onEliminar={onEliminarTask} onSoltar={onSoltarTask} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)} />}
+              </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-              {/* El conteo dice lo que queda ABIERTO y nada más: cuántas están hechas lo
-                  dice la propia tabla, en su última fila. Decirlo dos veces es el mismo
-                  dato representado de dos formas, que es justo lo que se vino sacando. */}
-              <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {abiertas.length}</label>
-              <span style={{ flex: 1 }} />
-              <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
+              {/* Un proyecto SIN tareas abiertas: lo que le falta es TRABAJO, no prioridad.
+                  Va ARRIBA de todo en su detalle porque es la única acción que tiene sentido
+                  acá — dejarlo como una fila más entre las notas y el historial es esconderlo. */}
+              {abiertas.length === 0 && <ProyectoVacioBloque proj={proj} />}
+
+              {/* ⛔ ACÁ ABAJO estuvo el bloque de DEPENDENCIAS, y se fue a la columna derecha
+                  el 25/09/2026: «en proyecto el "Depende de" lo mismo que en tareas». En la
+                  tarea ya vivía arriba de Proyectos —«es importante verlo de una forma rápida
+                  y no scrolleando todo desde abajo»— y acá seguía al fondo de la columna
+                  principal: el mismo bloque, en dos lugares, en dos pantallas hermanas. */}
+
+              <Separador />
+              <NotasLista valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, 'Escribió una nota', 'user')} />
+
+              <Separador />
+              {/* EL MISMO `BloqueHistorial` de la tarea, con el origen al lado: el chevron
+                  que dice que se abre y el conteo para que plegar no esconda cuánto hay. */}
+              <BloqueHistorial n={proj.historial.length} fuente={fuenteEfectiva({ origen: proj.historial[proj.historial.length - 1]?.actor ?? 'user', fuente: proj.fuente })}>
+                <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
+              </BloqueHistorial>
             </div>
-            {/* ⚠️ UNA SOLA TABLA, CON TODAS LAS TAREAS DEL PROYECTO. «Que las "18
-                completadas" simplemente sea otra fila más de una única tabla, y al
-                clickearlo ahí aparecen las otras filas, no otra tabla» (25/09/2026).
-                Acá había DOS `<TablaTareas>` —una de abiertas y otra de terminadas adentro
-                de un `<details>`— con dos encabezados, dos órdenes y dos barras de
-                selección para la misma cosa. La tabla separa sola lo hecho de lo abierto y
-                lo pliega en su propia fila: es UN control, no dos vistas.
-                · `ocultarProyecto`: adentro de un proyecto esa columna dice siempre lo
-                  mismo, y sacarla es lo que hace que la tabla entre sin scroll de costado.
-                · `onEliminar`: sin eso la fila no dibuja el tacho.
-                Es la MISMA `TablaTareas` de la vista principal, no una copia: si divergen,
-                el deadline se tiñe distinto en dos pantallas que muestran lo mismo. */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-              {suyas.length === 0
-                ? <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>
-                : <TablaTareas tareas={suyas} board={board} hoy={hoyISO()} onOpen={onOpenTask} ask={ask} ocultarProyecto onEliminar={onEliminarTask} onSoltar={onSoltarTask} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)} />}
-            </div>
-
-            {/* Un proyecto SIN tareas abiertas: lo que le falta es TRABAJO, no prioridad.
-                Va ARRIBA de todo en su detalle porque es la única acción que tiene sentido
-                acá — dejarlo como una fila más entre las notas y el historial es esconderlo. */}
-            {abiertas.length === 0 && <ProyectoVacioBloque proj={proj} />}
-
-            {/* ⛔ ACÁ ABAJO estuvo el bloque de DEPENDENCIAS, y se fue a la columna derecha
-                el 25/09/2026: «en proyecto el "Depende de" lo mismo que en tareas». En la
-                tarea ya vivía arriba de Proyectos —«es importante verlo de una forma rápida
-                y no scrolleando todo desde abajo»— y acá seguía al fondo de la columna
-                principal: el mismo bloque, en dos lugares, en dos pantallas hermanas. */}
-
-            <Separador />
-            <NotasLista valor={proj.notas ?? ''} onGuardar={(v) => board.patchLabelLog(proj.id, { notas: v }, 'Escribió una nota', 'user')} />
-
-            <Separador />
-            {/* EL MISMO `BloqueHistorial` de la tarea, con el origen al lado: el chevron
-                que dice que se abre y el conteo para que plegar no esconda cuánto hay. */}
-            <BloqueHistorial n={proj.historial.length} fuente={fuenteEfectiva({ origen: proj.historial[proj.historial.length - 1]?.actor ?? 'user', fuente: proj.fuente })}>
-              <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
-            </BloqueHistorial>
           </div>
           {/* sidebar — MISMO ancho que la de una tarea (`COL_DER`), mismo orden de bloques */}
           <div style={{ width: COL_DER, flex: 'none', minWidth: 0, borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>

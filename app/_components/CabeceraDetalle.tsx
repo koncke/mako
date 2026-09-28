@@ -13,12 +13,26 @@
 //
 // ⚠️ EXISTE PORQUE ESTABA ESCRITA TRES VECES. El detalle de un proyecto en el
 // tablero (`pd-*` en BoardShell), la ficha de un cliente (`fc-*` en FichaCliente) y
-// —desde hoy— el detalle de un cliente de la plataforma dibujan la MISMA cosa. El
-// 28/09/2026 el dueño lo reportó mirando la tercera: «el detail está mal, te había
+// —desde el 28/09/2026— el detalle de un cliente de la plataforma dibujan la MISMA
+// cosa. Ese día el dueño lo reportó mirando la tercera: «el detail está mal, te había
 // dicho que idéntico al del plan». Tenía razón y no era un descuido de estilos: eran
 // tres implementaciones, y tres implementaciones divergen a la tercera edición. Es la
 // misma regla y el mismo camino que `TarjetaEntidad`, que ya unificó la TARJETA:
 // «si dos cosas tienen que verse igual, tienen que ser el mismo componente».
+//
+// ⚠️ PERO SON DOS DE TRES, Y ESTE COMENTARIO LO AFIRMABA EN PASADO. Lo midió un
+// refutador el 29/09/2026: `grep -rn CabeceraDetalle app/` devuelve exactamente dos
+// call sites —BoardShell y FichaWorkspace—. `app/customer-success/FichaCliente.tsx`
+// sigue con su copia entera (`.fc-cab`, `.fc-portada`, `.fc-fila`, `.fc-txt`) y repite
+// byte a byte las cinco reglas `:has()` que están acá abajo contra `.cd-top`. O sea que
+// arreglar algo en esta hoja NO llega a Customer Success. Falta esa mudanza.
+//
+// ⚠️ Y SE SIRVE EN TRES PIEZAS, no en una: `PortadaDetalle` (la banda con su marca),
+// `FilaDetalle` (el renglón del nombre) y `CabeceraDetalle`, que es las dos juntas y es
+// lo que usa quien no necesita separarlas. Existe porque el detalle de un proyecto pone
+// la banda a lo ANCHO del modal y el renglón del nombre DENTRO de la columna izquierda,
+// para que la columna derecha empiece pegada a la portada y no 67 px más abajo
+// («que ese espacio entre el título y la portada lo ocupe la sidebar», 29/09/2026).
 //
 // ⚠️ LA ESCALA ES UN PROP Y LA ANATOMÍA NO. Una ficha a 1560 px de ancho y un detalle
 // a 900 no llevan la misma banda ni la misma marca; lo que no puede diferir es DÓNDE
@@ -38,89 +52,29 @@ import { Marca } from './Marca';
 import { useReposicionar, BarraReposicion } from './Reposicionar';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 
-export function CabeceraDetalle({
+/**
+ * LA BANDA: la portada, sus pastillas, el cerrar y la marca que le cruza el borde.
+ *
+ * ⚠️ LA MARCA SOBRESALE POR ABAJO a propósito (`top: cruce`, que es `alto − tam/2`), así
+ * que lo que venga después tiene que aguantarla encima: ningún ancestro entre esto y el
+ * modal puede recortar con `overflow:hidden`, y el que sigue tiene que dejarle su lugar a
+ * la izquierda (eso lo hace `FilaDetalle` con su `paddingLeft`).
+ */
+export function PortadaDetalle({
   nombre, color,
   portada, portadaY, onPortada, onEncuadre,
   icono, emoji, foto, avatarY, cuadrado = false, onIcono,
-  alto = 124, tam = 54, anillo = 3,
-  antes, kicker, titulo, bajada, chips, acciones, onCerrar,
-}: {
-  nombre: string;
-  /** El color derivado del nombre. Pinta el degradado sin portada y tiñe la fila. */
-  color: string;
-
-  /** La portada y su encuadre (migs 0173/0174/0179). `null` = el degradado del color. */
-  portada?: string | null;
-  portadaY?: number | null;
-  /**
-   * Abrir el selector de portada. Recibe el BOTÓN, no un booleano: el popover cuelga
-   * de su ancla. Sin este callback no se dibuja la pastilla — un control que no puede
-   * hacer nada se lee como que la app está rota.
-   */
-  onPortada?: (ancla: HTMLElement) => void;
-  /** Guardar el encuadre. Sin esto no se ofrece «Reposicionar». */
-  onEncuadre?: (y: number) => void;
-
-  /** La marca: un ícono, un emoji, una foto puesta por el código, o las iniciales. */
-  icono?: string | null;
-  emoji?: string | null;
-  foto?: string | null;
-  avatarY?: number | null;
-  /** Cuadrada (un proyecto, una cuenta) o redonda (una persona). */
-  cuadrado?: boolean;
-  /** Abrir el selector de marca. Sin esto la marca se dibuja y no es un botón. */
-  onIcono?: (ancla: HTMLElement) => void;
-
-  /** El alto de la banda. 124 en un detalle, 160 en una ficha a ancho completo. */
-  alto?: number;
-  /** El lado de la marca. De acá sale dónde cruza y cuánto sangra la fila de abajo. */
-  tam?: number;
-  /**
-   * El anillo del color de la superficie que despega la marca de la portada. 3 en un
-   * detalle, 4 en una ficha a ancho completo — con una marca de 88 px, 3 se pierde.
-   */
-  anillo?: number;
-
-  /**
-   * A la IZQUIERDA del título, antes que nada. Hoy lo usa un solo caso y por eso es
-   * un slot y no un prop con forma: el «← Volver a la tarea» del detalle de un
-   * proyecto abierto desde una tarea. Va acá y no en `acciones` porque volver es
-   * navegación, y la navegación se busca del lado por el que se lee.
-   */
-  antes?: ReactNode;
-  /** El renglón chico de arriba: el pid de un proyecto, el slug de un cliente. */
-  kicker?: ReactNode;
-  /** El nombre. Va como slot porque en el tablero es un input y acá un editable. */
-  titulo: ReactNode;
-  /**
-   * El renglón chico DEBAJO del nombre: la empresa y el número de cliente, el slug y
-   * el estado. Es el hermano de `kicker`, que va arriba — y son dos y no uno porque el
-   * tablero pone su pid ARRIBA (ahí el renglón identifica a la cosa antes de nombrarla)
-   * y una ficha pone su bajada ABAJO (ahí amplía un nombre que ya se leyó).
-   */
-  bajada?: ReactNode;
-  /** Al lado del nombre: el plan, «Dueño», «Se repite». */
-  chips?: ReactNode;
-  /** A la derecha de la fila: los botones de esta pantalla. */
-  acciones?: ReactNode;
-  /**
-   * ⚠️ OPCIONAL, y de eso depende que esta pieza sirva en los dos contenedores. El
-   * detalle del tablero y el de un cliente de la plataforma son su propio overlay y
-   * no tienen otro cerrar, así que lo dibuja acá. La ficha de Customer Success vive
-   * adentro de `Modal`, que YA pone el suyo y lo reposiciona por CSS sobre la
-   * portada: pasarle uno acá serían dos cruces en la misma esquina.
-   */
-  onCerrar?: () => void;
-}) {
+  alto = 124, tam = 54, anillo = 3, onCerrar,
+}: PropsPortada) {
   // ⚠️ EL HOOK VA ANTES DE CUALQUIER RETURN, siempre. Es la regla que el pre-push
   // vigila con `scripts/hooks-en-orden.sh`, y el modo de falla es React #300: la
   // pantalla ENTERA en blanco, con un error que no dice ni el archivo ni la línea.
   const repo = useReposicionar(portadaY ?? null, onEncuadre ?? (() => {}));
 
-  // La marca cruza: mitad sobre la imagen, mitad sobre la fila. Y la fila le deja su
-  // lugar a la izquierda. Las dos cuentas salen de `alto` y `tam`, no de un número —
-  // y viven en un módulo aparte para que un test las pueda importar.
-  const { cruce, sangria } = geometriaCabecera(alto, tam);
+  // La marca cruza: mitad sobre la imagen, mitad sobre la fila. La cuenta sale de
+  // `alto` y `tam`, no de un número — y vive en un módulo aparte para que un test la
+  // pueda importar.
+  const { cruce } = geometriaCabecera(alto, tam);
   const conPortada = esFoto(portada);
 
   return (
@@ -210,10 +164,32 @@ export function CabeceraDetalle({
           </span>
         )}
       </div>
+      {/* Las dos piezas emiten LA MISMA hoja: dos nodos idénticos en el DOM no cambian
+          nada de la cascada, y es lo que deja usar cualquiera de las dos sola. */}
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+    </>
+  );
+}
 
-      {/* LA FILA. Teñida con el color: distingue el detalle de cada uno de un vistazo.
-          Alinea por la BASE, así que el título queda a la altura de la marca sin
-          ninguna cuenta. */}
+/**
+ * EL RENGLÓN DEL NOMBRE. Teñido con el color: distingue el detalle de cada uno de un
+ * vistazo. Alinea por la BASE, así que el título queda a la altura de la marca sin
+ * ninguna cuenta.
+ *
+ * ⚠️ SU `paddingLeft` ES LO QUE LE DEJA EL LUGAR A LA MARCA, que vive en la pieza de
+ * arriba y le cruza el borde. Por eso `tam` entra acá también: los dos números salen del
+ * MISMO lado del rombo (`geometriaCabecera`) y no de dos constantes que se miran de
+ * lejos. Si esta fila se monta en otro contenedor que el de la banda —que es justo para
+ * lo que se partió— ese contenedor tiene que empezar en el mismo x que la banda.
+ */
+export function FilaDetalle({ color, tam = 54, antes, kicker, titulo, bajada, chips, acciones }: PropsFila) {
+  // `sangria` no depende de `alto` (lo fija `cabecera-detalle-geo.ts` y lo prueba
+  // `tests/cabecera-detalle-geo.test.ts`), así que el 0 de acá no es un número elegido:
+  // es decir «esta pieza no sabe cuán alta era la banda, y no tiene por qué saberlo».
+  const { sangria } = geometriaCabecera(0, tam);
+
+  return (
+    <>
       <div className="cd-fila" style={{ paddingLeft: sangria, borderBottom: `1px solid ${color}33`, background: `${color}12` }}>
         {antes}
         <span className="cd-txt">
@@ -225,11 +201,108 @@ export function CabeceraDetalle({
         <span style={{ flex: 1 }} />
         {acciones}
       </div>
-
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </>
   );
 }
+
+/** Las dos juntas, que es como la usa quien no necesita separarlas. */
+export function CabeceraDetalle({
+  nombre, color,
+  portada, portadaY, onPortada, onEncuadre,
+  icono, emoji, foto, avatarY, cuadrado = false, onIcono,
+  alto = 124, tam = 54, anillo = 3,
+  antes, kicker, titulo, bajada, chips, acciones, onCerrar,
+}: PropsPortada & PropsFila) {
+  return (
+    <>
+      <PortadaDetalle
+        nombre={nombre} color={color}
+        portada={portada} portadaY={portadaY} onPortada={onPortada} onEncuadre={onEncuadre}
+        icono={icono} emoji={emoji} foto={foto} avatarY={avatarY} cuadrado={cuadrado} onIcono={onIcono}
+        alto={alto} tam={tam} anillo={anillo} onCerrar={onCerrar} />
+      <FilaDetalle
+        color={color} tam={tam}
+        antes={antes} kicker={kicker} titulo={titulo} bajada={bajada} chips={chips} acciones={acciones} />
+    </>
+  );
+}
+
+type PropsPortada = {
+  nombre: string;
+  /** El color derivado del nombre. Pinta el degradado sin portada y tiñe la fila. */
+  color: string;
+
+  /** La portada y su encuadre (migs 0173/0174/0179). `null` = el degradado del color. */
+  portada?: string | null;
+  portadaY?: number | null;
+  /**
+   * Abrir el selector de portada. Recibe el BOTÓN, no un booleano: el popover cuelga
+   * de su ancla. Sin este callback no se dibuja la pastilla — un control que no puede
+   * hacer nada se lee como que la app está rota.
+   */
+  onPortada?: (ancla: HTMLElement) => void;
+  /** Guardar el encuadre. Sin esto no se ofrece «Reposicionar». */
+  onEncuadre?: (y: number) => void;
+
+  /** La marca: un ícono, un emoji, una foto puesta por el código, o las iniciales. */
+  icono?: string | null;
+  emoji?: string | null;
+  foto?: string | null;
+  avatarY?: number | null;
+  /** Cuadrada (un proyecto, una cuenta) o redonda (una persona). */
+  cuadrado?: boolean;
+  /** Abrir el selector de marca. Sin esto la marca se dibuja y no es un botón. */
+  onIcono?: (ancla: HTMLElement) => void;
+
+  /** El alto de la banda. 124 en un detalle, 160 en una ficha a ancho completo. */
+  alto?: number;
+  /** El lado de la marca. De acá sale dónde cruza y cuánto sangra la fila de abajo. */
+  tam?: number;
+  /**
+   * El anillo del color de la superficie que despega la marca de la portada. 3 en un
+   * detalle, 4 en una ficha a ancho completo — con una marca de 88 px, 3 se pierde.
+   */
+  anillo?: number;
+
+  /**
+   * ⚠️ OPCIONAL, y de eso depende que esta pieza sirva en los dos contenedores. El
+   * detalle del tablero y el de un cliente de la plataforma son su propio overlay y
+   * no tienen otro cerrar, así que lo dibuja acá. La ficha de Customer Success vive
+   * adentro de `Modal`, que YA pone el suyo y lo reposiciona por CSS sobre la
+   * portada: pasarle uno acá serían dos cruces en la misma esquina.
+   */
+  onCerrar?: () => void;
+};
+
+type PropsFila = {
+  /** El color derivado del nombre. Tiñe la fila y pinta su filete de abajo. */
+  color: string;
+  /** El lado de la marca de la banda: de acá sale cuánto sangra esta fila. */
+  tam?: number;
+  /**
+   * A la IZQUIERDA del título, antes que nada. Hoy lo usa un solo caso y por eso es
+   * un slot y no un prop con forma: el «← Volver a la tarea» del detalle de un
+   * proyecto abierto desde una tarea. Va acá y no en `acciones` porque volver es
+   * navegación, y la navegación se busca del lado por el que se lee.
+   */
+  antes?: ReactNode;
+  /** El renglón chico de arriba: el pid de un proyecto, el slug de un cliente. */
+  kicker?: ReactNode;
+  /** El nombre. Va como slot porque cada pantalla lo edita a su manera. */
+  titulo: ReactNode;
+  /**
+   * El renglón chico DEBAJO del nombre: la empresa y el número de cliente, el plan y
+   * el estado. Es el hermano de `kicker`, que va arriba — y son dos y no uno porque el
+   * tablero pone su pid ARRIBA (ahí el renglón identifica a la cosa antes de nombrarla)
+   * y una ficha pone su bajada ABAJO (ahí amplía un nombre que ya se leyó).
+   */
+  bajada?: ReactNode;
+  /** Al lado del nombre: el plan, «Dueño», «Se repite». */
+  chips?: ReactNode;
+  /** A la derecha de la fila: los botones de esta pantalla. */
+  acciones?: ReactNode;
+};
 
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: adentro de un template literal
 // una sola cierra la hoja a la mitad, la ruta contesta 200 con el layout entero y sin
@@ -279,6 +352,21 @@ const CSS = `
 .cd-kicker{ display:flex; align-items:center; gap:8px; min-width:0; }
 .cd-bajada{ display:flex; align-items:center; gap:6px; min-width:0; font-size:12.5px;
   color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* EL NOMBRE, cuando la pantalla no trae el suyo. Lo usa el detalle de un proyecto.
+   nowrap + ellipsis y NO wrap: esta fila alinea por la base y un nombre en dos
+   renglones le cambia el alto a todo el encabezado. Y el ellipsis es media de las dos
+   razones por las que el titulo dejo de ser un <input>: un input recorta al ras, sin
+   puntos, asi que no hay forma de saber que falta texto.
+   ⚠️ LAS DOS FICHAS NO USAN ESTA: .fw-nom (FichaWorkspace) y .fc-ed-nom
+   (FichaCliente) son 20px/670/-.02em y entre ellas son la MISMA regla; esta es
+   20px/600/-.01em, que es lo que el detalle del tablero venia usando. O sea que hay dos
+   pesos para el mismo renglon en tres pantallas. Unificarlos mueve algo que el dueño ya
+   aprobo mirandolo, asi que es una decision suya y no un refactor: la mejora va en las
+   tres o en ninguna, igual que el rotulo «Portada». Queda anotado, no hecho. */
+.cd-nombre{ display:block; min-width:0; font-size:20px; font-weight:600;
+  letter-spacing:-.01em; line-height:1.3; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ⚠️ ADENTRO DE UN Modal, LA CABECERA SE COME SU PADDING. Las cuatro reglas de acá
    abajo vivían en la hoja de la ficha de un cliente apuntando a .fc-cab, y se mudaron
