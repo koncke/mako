@@ -1,10 +1,18 @@
 'use client';
 
 // =============================================================================
-// AvisoEditor — «cómo quiero que me llegue ESTE aviso»
+// AvisoEditor — «así me va a llegar, y así lo quiero»
 // =============================================================================
 // Se abre debajo de la fila del aviso, dentro de la misma pantalla: es una
 // preferencia de esa fila, no otro lugar al que ir.
+//
+// EL MENSAJE SE VE COMO LLEGA Y SE EDITA TOCÁNDOLO. Es la misma burbuja del hilo
+// real de WhatsApp (`app/whatsapp/_shared/BurbujaMaKo`), la misma que usan los
+// pasos de una secuencia. Con las palabras de Martín: «el diseño para editar los
+// mensajes tiene que ser tipo CHAT, simular el chat que ya tenemos construido,
+// solo editar el mensaje allí mismo». Un mensaje de WhatsApp se juzga por cómo SE
+// VE cuando llega — el largo, los saltos de línea, cómo se lee de corrido—, y un
+// textarea gris no contesta esa pregunta.
 //
 // Dos cosas, y nada más:
 //   · QUÉ DICE  → la referencia que MaKo usa para redactar. Vacía = la escribe él.
@@ -12,12 +20,11 @@
 //
 // El DISPARADOR no se edita acá, y el subtítulo de la fila ya dice cuál es. Cada
 // aviso existe porque pasa algo concreto y ese enganche está cableado en su
-// webhook; cambiárselo no lo configura, lo convierte en otro aviso. Para armar uno
-// con su propio disparador está el FLUJO, que elige entre los eventos que sí tienen
-// dónde engancharse.
+// webhook; cambiárselo no lo configura, lo convierte en otro aviso.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, INSISTIR_VENTANA } from '@/lib/flujos-tipos';
+import { BurbujaMaKo, PILDORA_SISTEMA } from '@/app/whatsapp/_shared/BurbujaMaKo';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -32,9 +39,12 @@ const CADA = [
   { min: 240, label: '4 h' },
 ];
 
-export function AvisoEditor({ id, titulo, onCerrar }: { id: string; titulo: string; onCerrar: () => void }) {
+const cadaTexto = (m: number) => (m % 60 === 0 ? `${m / 60} h` : `${m} min`);
+
+export function AvisoEditor({ id, disparador, onCerrar }: { id: string; disparador: string; onCerrar: () => void }) {
   const [texto, setTexto] = useState('');
   const [insistir, setInsistir] = useState<Insistir>({ activo: false, cadaMin: 60, veces: 3 });
+  const [editando, setEditando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -61,6 +71,7 @@ export function AvisoEditor({ id, titulo, onCerrar }: { id: string; titulo: stri
       setTexto(j.texto ?? texto);
       // Vuelve YA recortado por el techo: si pidió más, se ve lo que quedó.
       setInsistir(j.insistir);
+      setEditando(false);
       setFlash('✓ Guardado');
     } catch (e) {
       setFlash(e instanceof Error ? e.message : 'No se pudo guardar');
@@ -80,20 +91,36 @@ export function AvisoEditor({ id, titulo, onCerrar }: { id: string; titulo: stri
   });
 
   return (
-    <div style={{ marginTop: 12, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-      <label style={lbl}>Qué dice</label>
-      <textarea
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        rows={3}
-        placeholder="Lo escribe MaKo. Si querés que diga algo en particular, escribilo acá."
-        style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontFamily: SANS, lineHeight: 1.5, resize: 'vertical' }}
+    <div style={{ marginTop: 12, padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* QUÉ LO DISPARA, como píldora del sistema: es lo que pasa ANTES del
+          mensaje, no algo que se reciba. Es la misma pieza que en los pasos de una
+          secuencia dice «Al día siguiente». */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <span style={PILDORA_SISTEMA}>{disparador}</span>
+      </div>
+
+      <BurbujaMaKo
+        texto={texto}
+        onChange={setTexto}
+        editando={editando}
+        onEditar={() => setEditando(true)}
+        onListo={() => setEditando(false)}
+        vacio="Lo escribe MaKo — toca para decirle qué quieres que diga"
+        placeholder="Qué quieres que diga este mensaje…"
+        pie={
+          insistir.activo ? (
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 7 }}>
+              ↻ vuelve cada {cadaTexto(insistir.cadaMin)}, hasta {insistir.veces} {insistir.veces === 1 ? 'vez' : 'veces'}
+            </div>
+          ) : undefined
+        }
       />
-      <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 5, lineHeight: 1.45 }}>
+
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45, textAlign: 'right' }}>
         Es una guía, no un molde: MaKo la adapta con los datos reales de cada caso.
       </div>
 
-      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
         <button
           type="button"
           onClick={() => setInsistir((p) => ({ ...p, activo: !p.activo }))}
@@ -138,7 +165,7 @@ export function AvisoEditor({ id, titulo, onCerrar }: { id: string; titulo: stri
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
         <button
           type="button"
           onClick={() => void guardar()}
@@ -153,7 +180,6 @@ export function AvisoEditor({ id, titulo, onCerrar }: { id: string; titulo: stri
         {flash && (
           <span style={{ fontSize: 12.5, fontWeight: 600, color: flash.startsWith('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</span>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--faint)', fontFamily: MONO }}>{titulo}</span>
       </div>
     </div>
   );

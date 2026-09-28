@@ -15,13 +15,13 @@
 // que la única pregunta que importa —¿esto suena a persona?— era justo la que
 // no se podía contestar.
 //
-// ⚠️ LA ANATOMÍA DE LA BURBUJA ES LA DE `ChatHilo`, A PROPÓSITO Y COPIADA A
-// MANO. No se importa ChatHilo porque aquel pinta mensajes de solo lectura con
-// su composer, su scroll infinito y su lightbox — la mitad de eso acá sobra y
-// lo que falta (editar adentro de la burbuja) no lo tiene. Lo que se comparte
-// es la FORMA: mismo radio con la esquina mordida, mismo `--wa-bubble`, mismo
-// fondo `--surface-2`, mismo 78% de ancho. Si alguien cambia la burbuja de
-// verdad, esta hay que moverla también — está anotado en los dos lados.
+// LA ANATOMÍA DE LA BURBUJA SE IMPORTA (`app/whatsapp/_shared/BurbujaMaKo`).
+// Antes estaba copiada a mano acá, con un ⚠️ que pedía sincronizarla con
+// `ChatHilo` cuando alguien la tocara. Dos copias con un comentario que pide
+// sincronizarlas a mano son dos copias que se van a desincronizar: al aparecer
+// la tercera —el texto de un aviso en Configuraciones › Notificaciones— se
+// extrajo. ChatHilo sigue pintando las suyas: comparte la FORMA, no el
+// comportamiento (aquel tiene composer, scroll infinito y lightbox).
 //
 // Lo que NO se simula: el mensaje del LEAD. Acá no hay conversación, hay lo que
 // el negocio manda. Poner burbujas de la otra persona sería inventar lo que va
@@ -32,23 +32,13 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
+import { BURBUJA_SALIENTE, PILDORA_SISTEMA, Autocrece } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { PasoAudioControl } from './PasoAudioControl';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 
-// ── La forma de la burbuja (ver el ⚠️ de arriba) ────────────────────────────
-const BURBUJA_MIA: CSSProperties = {
-  maxWidth: '78%',
-  padding: '10px 13px',
-  borderRadius: '14px 14px 4px 14px',
-  background: 'var(--wa-bubble)',
-  border: '1px solid rgba(91,107,214,.30)',
-  boxShadow: '0 1px 2px rgba(18,21,27,.04)',
-};
-const PILDORA: CSSProperties = {
-  maxWidth: '86%', padding: '6px 13px', borderRadius: 999,
-  background: 'var(--surface)', border: '1px dashed var(--border-strong)',
-  color: 'var(--faint)', fontSize: 11.5, lineHeight: 1.45, textAlign: 'center',
-};
+// La forma sale del componente compartido: BURBUJA_SALIENTE y PILDORA_SISTEMA.
+const BURBUJA_MIA = BURBUJA_SALIENTE;
+const PILDORA = PILDORA_SISTEMA;
 
 /**
  * Cuándo sale este mensaje, dicho como lo diría una persona.
@@ -83,38 +73,6 @@ const CONDICION: Record<string, string> = {
   ya_contactado: 'solo si ya le habías escrito',
   primer_contacto: 'solo si es la primera vez',
 };
-
-/** Un textarea que crece con el texto: adentro de una burbuja, una barra de scroll es un cuerpo extraño. */
-function Autocrece({ value, onChange, placeholder, autoFocus, onListo }: {
-  value: string; onChange: (v: string) => void; placeholder: string; autoFocus?: boolean; onListo: () => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
-  return (
-    <textarea
-      ref={ref} value={value} autoFocus={autoFocus}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => {
-        // Escape cierra la edición. Enter NO: un mensaje de WhatsApp lleva
-        // saltos de línea a propósito, y perderlos al tipear sería el bug.
-        if (e.key === 'Escape') { e.preventDefault(); onListo(); }
-      }}
-      placeholder={placeholder}
-      rows={1}
-      style={{
-        width: '100%', boxSizing: 'border-box', display: 'block', resize: 'none',
-        border: 'none', background: 'transparent', outline: 'none', padding: 0, margin: 0,
-        color: 'var(--ink)', fontSize: 13.5, lineHeight: 1.55, fontFamily: "'Geist', sans-serif",
-        overflow: 'hidden', minHeight: 21,
-      }}
-    />
-  );
-}
 
 export function MensajesChat({ pasos, audios, rolAdmin, negocio, busy, onEditar, onAgregar, onQuitar, onAudio, onAudioNuevo, onError }: {
   pasos: PasoSecuenciaDto[];
