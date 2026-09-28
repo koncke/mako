@@ -25,11 +25,11 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  NOTIF_IN_APP, REPORTES, inAppActivo,
-  type NotifInApp, type ReporteKey,
+  NOTIF_IN_APP, inAppActivo,
+  type NotifInApp,
 } from '@/lib/notif-catalogo';
 import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
-import { CanalToggle, type EstadoCanal } from '../_components/CanalToggle';
+import { CanalToggle } from '../_components/CanalToggle';
 import { Icon } from '../_components/icons';
 import { DestinatariosModal, type Destinatarios } from './DestinatariosModal';
 import { PlantillasView } from '../agencia/PlantillasView';
@@ -43,7 +43,6 @@ const SANS = "'Geist', sans-serif";
 // compilador no podía decir nada. `import type` se borra en compilación, así que traerlo
 // del módulo con `server-only` no baja una sola línea al navegador.
 import type { NotifPrefs, CanalPrefs } from '@/lib/perfil';
-type Secciones = NotifPrefs['secciones'];
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
@@ -51,14 +50,6 @@ const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border:
 const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
-function Chip({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" onClick={() => onChange(!on)} aria-pressed={on}
-      style={{ padding: '6px 13px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.12)' : 'var(--surface)', color: on ? 'var(--accent)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-      {on ? '✓ ' : ''}{label}
-    </button>
-  );
-}
 
 function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
   return (
@@ -133,17 +124,7 @@ function normalizarPrefs(p: NotifPrefs): NotifPrefs {
     avisos: p.avisos ?? {},
   };
 }
-function conCanal(c: CanalPrefs, k: 'wa' | 'email', v: boolean): CanalPrefs {
-  const next = { ...c, [k]: v };
-  return { ...next, activo: next.wa || next.email };
-}
 
-const ESTADO_PLANTILLA: Record<string, string> = {
-  pending: 'La plantilla está en revisión de Meta',
-  rejected: 'Meta rechazó la plantilla',
-  ausente: 'Falta crear la plantilla de Meta',
-  error: 'No se pudo consultar la plantilla',
-};
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 export function NotificacionesPanel() {
@@ -153,7 +134,6 @@ export function NotificacionesPanel() {
   const [inAppDraft, setInAppDraft] = useState<NotifInApp | null>(null);
   const [dest, setDest] = useState<Destinatarios | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
-  const [plantilla, setPlantilla] = useState<string>('…');
   const [modalDest, setModalDest] = useState(false);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -188,8 +168,6 @@ export function NotificacionesPanel() {
     void cargar();
     // El estado de la plantilla es informativo y consulta a Meta: que tarde o
     // falle no puede impedir configurar el resto.
-    fetch('/api/perfil/plantilla').then((r) => r.json())
-      .then((j) => setPlantilla(j.estado ?? 'error')).catch(() => setPlantilla('error'));
   }, [cargar]);
 
   if (errorCarga) {
@@ -210,22 +188,15 @@ export function NotificacionesPanel() {
 
   const hayWa = dest.telefonos.length > 0;
   const hayMail = dest.emails.length > 0;
-  const plantillaOk = plantilla === 'approved';
 
   const prefsDirty = JSON.stringify(draft) !== JSON.stringify(prefs);
   const inAppDirty = JSON.stringify(inAppDraft) !== JSON.stringify(inApp);
   const dirty = prefsDirty || inAppDirty;
 
-  const setSec = (k: keyof Secciones, v: boolean) => setDraft((d) => (d ? { ...d, secciones: { ...d.secciones, [k]: v } } : d));
-  const setReporte = (k: ReporteKey, canal: 'wa' | 'email', v: boolean) =>
-    setDraft((d) => (d ? { ...d, [k]: conCanal(d[k], canal, v) } : d));
-  const setResumen = (v: boolean) => setDraft((d) => (d ? { ...d, resumenDiario: v } : d));
   const setItem = (id: string, canal: 'popup' | 'sonido', v: boolean) =>
     setInAppDraft((p) => (p ? { ...p, items: { ...p.items, [id]: { ...(p.items[id] ?? { popup: true, sonido: true }), [canal]: v } } } : p));
 
   /** El canal de WhatsApp solo puede entregar si hay número. */
-  const estadoWa = (on: boolean): EstadoCanal => (hayWa ? (on ? 'on' : 'off') : 'sin-conectar');
-  const estadoMail = (on: boolean): EstadoCanal => (hayMail ? (on ? 'on' : 'off') : 'sin-conectar');
 
   const guardar = async () => {
     setBusy(true);
@@ -314,81 +285,12 @@ export function NotificacionesPanel() {
         </div>
       </Seccion>
 
-      {/* ── 2. Reportes (del negocio) ──────────────────────────────────────── */}
-      <Seccion titulo="Reportes" nota="Los recibe todo el equipo que esté en la lista">
-        <div style={card}>
-          {REPORTES.map((r, i) => {
-            // El reporte diario abre la ventana de 24h con una plantilla de Meta.
-            // Sin plantilla aprobada no sale, y antes eso se explicaba en una card
-            // aparte que ya nadie relacionaba con esta fila.
-            const trabaPlantilla = r.key === 'diario' && hayWa && !plantillaOk;
-            return (
-              <Fila
-                key={r.key} primera={i === 0} titulo={r.titulo} sub={r.sub}
-                pie={trabaPlantilla ? (
-                  <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span>{ESTADO_PLANTILLA[plantilla] ?? ESTADO_PLANTILLA.error}.</span>
-                    <a href="/chatbot?stab=plantillas&tpl=reporte_mako" style={{ ...btnLink, textDecoration: 'none' }}>Resolver →</a>
-                  </div>
-                ) : undefined}
-                canales={<>
-                  <CanalToggle
-                    icono="whatsapp" label="WhatsApp" fila={r.titulo}
-                    estado={estadoWa(draft[r.key].wa)}
-                    motivoNoDisponible="No hay ningún número cargado"
-                    onChange={(v) => setReporte(r.key, 'wa', v)}
-                  />
-                  <CanalToggle
-                    icono="email" label="Email" fila={r.titulo}
-                    estado={estadoMail(draft[r.key].email)}
-                    motivoNoDisponible="No hay ninguna dirección cargada"
-                    onChange={(v) => setReporte(r.key, 'email', v)}
-                  />
-                </>}
-              />
-            );
-          })}
-
-          <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 10 }}>Qué incluir en los reportes</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Chip label="Semáforo" on={draft.secciones.semaforo} onChange={(v) => setSec('semaforo', v)} />
-              <Chip label="Ads" on={draft.secciones.ads} onChange={(v) => setSec('ads', v)} />
-              <Chip label="Wins" on={draft.secciones.wins} onChange={(v) => setSec('wins', v)} />
-              <Chip label="Pendientes" on={draft.secciones.pendientes} onChange={(v) => setSec('pendientes', v)} />
-            </div>
-          </div>
-        </div>
-      </Seccion>
-
-      {/* ── 3. Cuándo llegan (del negocio) ─────────────────────────────────── */}
-      {/* Acá quedó UNA fila, y es la única que se gana el lugar: no dice QUÉ se
-          manda —eso es cada mensaje, y se prende o se apaga en la sección de
-          abajo— sino CUÁNDO. Los quince toggles que había antes duplicaban el
-          punto verde de cada mensaje: dos switches para un mismo hecho, y apagar
-          uno sin ver el otro no hacía nada. */}
-      <Seccion titulo="Cuándo llegan" nota="En el momento, o todos juntos a la mañana">
-        <div style={card}>
-          {/* JUNTARLOS EN UNO POR DÍA. Sale del reporte del dueño: «las notificaciones de
-              WhatsApp son demasiadas». Lo urgente —un lead, una reunión, la cuenta de Meta
-              frenada— sigue llegando en el momento aunque esto esté prendido: la lista de
-              lo que puede esperar está escrita en positivo en lib/avisos-agrupables.ts. */}
-          <Fila
-            primera titulo="Juntar los que no son urgentes en un mensaje por día"
-            sub="Llegan todos juntos a la mañana. Un lead, una reunión o una cuenta frenada siguen llegando en el momento."
-            canales={
-              <CanalToggle
-                icono="whatsapp" label="WhatsApp" fila="Resumen diario"
-                estado={estadoWa(draft.resumenDiario === true)}
-                motivoNoDisponible="No hay ningún número cargado"
-                onChange={setResumen}
-              />
-            }
-          />
-
-        </div>
-      </Seccion>
-
+      {/* Reportes y «cuándo llegan» YA NO ESTÁN ACÁ. Eran secciones que hablaban
+          de un mensaje que vivía en otra lista: para saber qué decía el reporte
+          diario había que ir a buscarlo. Su configuración —por qué canal sale, qué
+          trae adentro, si los no urgentes esperan al resumen— se movió al detalle
+          de cada mensaje, abajo (app/perfil/PrefsDeMensaje.tsx). Acá queda sólo lo
+          de «Dentro de la app», que es lo único que NO es un mensaje de WhatsApp. */}
       {/* ── 4. Los mensajes, como llegan ───────────────────────────────────── */}
       {/* Es la MISMA pantalla de /mensajes (PlantillasView), no una copia: la
           lista a la izquierda, el chat de WhatsApp a la derecha, y el detalle

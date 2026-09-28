@@ -39,6 +39,24 @@ export type AvisoCatalogo = {
   disparador: string;
   /** ejemplo con datos de muestra, en la voz de MaKo (rioplatense). */
   ejemplo: string;
+  /**
+   * CON QUÉ NACE UNA CUENTA NUEVA. Ausente = 'off'.
+   *
+   * ⚠️ El default era «todos prendidos», y por eso una cuenta nueva arrancaba
+   * recibiendo quince mensajes distintos. El pedido del dueño, textual: «son
+   * muchísimos, más de lo necesario… que por defecto cada cuenta traiga muy muy
+   * poquitos y que los pueda configurar». Un aviso que llega sin que nadie lo
+   * pidiera se apaga entero —el de Mauricio: «me llegan un chorro, ya desactivé
+   * los otros»— y se lleva puesto al que sí importaba.
+   *
+   * · 'on'      → nace prendido. Sólo lo que EXIGE hacer algo hoy.
+   * · 'off'     → nace apagado; está en la lista para prenderlo cuando se quiera.
+   * · 'siempre' → no se puede apagar. Reservado para lo que avisa que MaKo se
+   *   quedó CIEGO o MUDO: si eso se silencia, el resto de los números miente y
+   *   el cliente no tiene cómo enterarse. Hoy es uno solo, y así debería seguir:
+   *   cada 'siempre' nuevo es una decisión que le sacamos al dueño de su negocio.
+   */
+  porDefecto?: 'on' | 'off' | 'siempre';
 };
 
 // Emojis por categoría (para agrupar visualmente en la demo).
@@ -189,7 +207,7 @@ Nada urgente, por eso esperaron. — MaKo`,
 
   // ── REPORTES (digest por cron) ─────────────────────────────────────────────
   {
-    id: 'reporte-diario', titulo: 'Reporte diario matutino', categoria: 'reporte',
+    id: 'reporte-diario', titulo: 'Reporte diario matutino', categoria: 'reporte', porDefecto: 'on',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron diario a la mañana temprano (hora local del workspace): semáforo + ads de ayer + wins + pendientes.',
     ejemplo: `📊 *Reporte del día* — 14/07\n\n🟢 *Cuenta Meta:* activa · saldo $120 · gastado $8.300 MXN\n*Ads (ayer):* $95 · 14 leads · CPL $6,8 · CTR 1,9%\n*Wins:* 3/10 cierres · cash $4.200 del mes\n*Pendientes:* 2 datos sin marcar · 0 cuotas vencidas\n\nArranca el día con esto. — MaKo`,
@@ -295,7 +313,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🔴 Meta *rechazó* el anuncio "Testimonio Ana - v3" por política de contenido. No está entregando.\n\nEdita el creativo o el copy y envíalo de nuevo a revisión. ¿Quieres que te diga qué suele disparar este rechazo? — MaKo`,
   },
   {
-    id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo el anuncio esperando tu aprobación', categoria: 'aviso',
+    id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo el anuncio esperando tu aprobación', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'issues_info con error_code 2446984 ("peer approval") tras publicar desde MaKo. OJO: NO es rechazo de políticas — es un control de identidad y Meta NO lo deja aprobar por API.',
     ejemplo: `🟡 Publiqué *2 anuncios* en "029. Capta Dueños B2B" pero *Meta los retuvo*: por seguridad pide que un admin de la cuenta los apruebe a mano antes de que empiecen a correr.\n\nNo lo puedo hacer yo — Meta no lo permite por API. Son 30 segundos:\n\n👉 https://adsmanager.facebook.com/adsmanager/manage/ads?act=123&selected_ad_ids=456\n\nEntras, tocas *Revisar y publicar* y confirmas. Si no, quedan sin entregar. — MaKo`,
@@ -345,7 +363,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🔴 Oye, tu cuenta está verde pero *no tienes ningún anuncio entregando* — todo está en pausa. Si no fue a propósito, estás perdiendo el día entero de leads. ¿Reactivo algo? — MaKo`,
   },
   {
-    id: 'tracking-apagado', titulo: 'El Pixel de MaKo dejó de mandar datos', categoria: 'aviso',
+    id: 'tracking-apagado', titulo: 'El Pixel de MaKo dejó de mandar datos', categoria: 'aviso', porDefecto: 'siempre',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // Nace de un caso real: el tracking del VSL estuvo MUERTO 18 días
     // (2026-07-15 → 08-03) con anuncios corriendo y 235 leads entrando a ritmo
@@ -517,7 +535,7 @@ https://hola-mako.com/crm/482/resumen
     ejemplo: `🗓️ *Tu día*: 3 reuniones.\n10:00 R1 Ana López\n12:30 R2 BG Trucking\n16:00 R1 Sergio Esquer\nTodas con link cargado. — MaKo`,
   },
   {
-    id: 'reunion-nuevo-agendado', titulo: 'Nuevo lead que agendó reunión', categoria: 'aviso',
+    id: 'reunion-nuevo-agendado', titulo: 'Nuevo lead que agendó reunión', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Webhook Calendly invitee.created.',
     // Decía «la ficha ya quedó armada en el CRM» y no daba el link: mandaba a
@@ -530,7 +548,7 @@ https://hola-mako.com/crm/482/resumen
 — MaKo`,
   },
   {
-    id: 'reunion-cancelada', titulo: 'Reunión cancelada/reagendada → reacomodar', categoria: 'accion',
+    id: 'reunion-cancelada', titulo: 'Reunión cancelada/reagendada → reacomodar', categoria: 'accion', porDefecto: 'on',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'si',
     disparador: 'Webhook Calendly invitee.canceled.',
     ejemplo: `🔄 *Se canceló* la R1 con Mariela Gómez que era para el jueves 16 a las 11:00 y todavía no reagendó.

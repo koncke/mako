@@ -26,7 +26,7 @@ type EntradaStore = {
 };
 type Store = Record<string, EntradaStore>;
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean };
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -83,9 +83,31 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
   return {
     ...cat,
     ejemplo: (e?.texto && e.texto.trim()) || cat.ejemplo,
-    enabled: e?.enabled !== false,
+    enabled: estaPrendida(cat, e),
+    // Un 'siempre' no se puede apagar, y la pantalla tiene que saberlo para no
+    // ofrecer un botón que no hace nada.
+    fijo: cat.porDefecto === 'siempre',
     esCustom,
   };
+}
+
+/**
+ * ¿Este mensaje sale?
+ *
+ * ⚠️ ANTES ERA `e?.enabled !== false`, o sea: TODO prendido salvo lo que alguien
+ * apagara a mano. Una cuenta nueva arrancaba recibiendo quince mensajes distintos
+ * y el dueño los apagaba en bloque — «me llegan un chorro, ya desactivé los
+ * otros»—, llevándose puesto el que sí importaba. Ahora el que manda es
+ * `porDefecto` del catálogo, y sin él un mensaje nace APAGADO.
+ *
+ * Las custom son la excepción: si alguien se tomó el trabajo de escribir una, la
+ * quiere — nacen prendidas.
+ */
+function estaPrendida(cat: AvisoCatalogo, e: EntradaStore | undefined): boolean {
+  if (cat.porDefecto === 'siempre') return true;   // no se apaga, ni con un override viejo
+  if (typeof e?.enabled === 'boolean') return e.enabled;
+  if (e?.custom) return true;
+  return cat.porDefecto === 'on';
 }
 // Una entrada custom del store → forma AvisoCatalogo.
 function customACatalogo(id: string, e: EntradaStore): AvisoCatalogo {
@@ -121,9 +143,24 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
 }
 
 /** Lista COMPLETA (catálogo + custom) con estado enabled + texto efectivo. */
-export async function listarPlantillas(): Promise<PlantillaVista[]> {
+/**
+ * Los mensajes que el cliente puede ver, editar y prender.
+ *
+ * ⚠️ SOLO LOS QUE EXISTEN. El catálogo tiene 65 entradas pero 30 están marcadas
+ * `yaImplementado: 'no'`: son el mapa de lo que MaKo PODRÍA decir, no código que
+ * corra. Mostrarlas mezcladas con las reales le ofrecía al cliente prender
+ * mensajes que no iban a llegar nunca, y de paso hacía la lista el doble de
+ * larga — «son muchísimos, más de lo necesario».
+ *
+ * Las 'parcial' sí entran: esas salen, aunque no en todos los casos.
+ *
+ * `incluirNoImplementadas` existe para el panel de la AGENCIA, que sí quiere ver
+ * el mapa completo: es su catálogo de trabajo, no la pantalla de un cliente.
+ */
+export async function listarPlantillas(opts: { incluirNoImplementadas?: boolean } = {}): Promise<PlantillaVista[]> {
   const store = await leerStore();
-  const built = CATALOGO_AVISOS.map((c) => aVista(c, store[c.id], false));
+  const base = opts.incluirNoImplementadas ? CATALOGO_AVISOS : CATALOGO_AVISOS.filter((c) => c.yaImplementado !== 'no');
+  const built = base.map((c) => aVista(c, store[c.id], false));
   const custom = Object.entries(store)
     .filter(([, e]) => e.custom)
     .map(([id, e]) => aVista(customACatalogo(id, e), e, true));
@@ -131,7 +168,9 @@ export async function listarPlantillas(): Promise<PlantillaVista[]> {
 }
 
 export async function getPlantilla(id: string): Promise<PlantillaVista | null> {
-  return (await listarPlantillas()).find((p) => p.id === id) ?? null;
+  // Sin filtrar: esto lo usa el RUNTIME para resolver el texto y el interruptor de
+  // un aviso que ya se está emitiendo. Filtrar acá lo dejaría sin plantilla.
+  return (await listarPlantillas({ incluirNoImplementadas: true })).find((p) => p.id === id) ?? null;
 }
 
 /** Texto de REFERENCIA de una plantilla (override editado o ejemplo del catálogo). */
@@ -169,7 +208,12 @@ export const resetTextoPlantilla = (id: string) => mutar(id, (e) => {
   // el store es una que dice «este cliente tocó esto» cuando no tocó nada.
   return Object.keys(next).length ? next : null;
 });
-export const setEnabledPlantilla = (id: string, enabled: boolean) => mutar(id, (e) => ({ ...e, enabled }));
+export async function setEnabledPlantilla(id: string, enabled: boolean): Promise<void> {
+  // El guard va en el SERVIDOR y no sólo en el botón: esconder el switch no
+  // protege nada, y este aviso es el que dice que los números dejaron de llegar.
+  if (!enabled && CATALOGO_AVISOS.find((c) => c.id === id)?.porDefecto === 'siempre') return;
+  await mutar(id, (e) => ({ ...e, enabled }));
+}
 
 /** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */
 export async function borrarPlantilla(id: string): Promise<{ borrada: boolean }> {

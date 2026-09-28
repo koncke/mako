@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   const id = new URL(req.url).searchParams.get('id');
   if (id) { const p = await getPlantilla(id); return p ? NextResponse.json({ ok: true, plantilla: p }) : NextResponse.json({ ok: false, error: 'no existe' }, { status: 404 }); }
-  return NextResponse.json({ ok: true, plantillas: await listarPlantillas() });
+  return NextResponse.json({ ok: true, plantillas: await listarPlantillas({ incluirNoImplementadas: true }) });
 }
 
 type Body = {

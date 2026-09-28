@@ -10,9 +10,10 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { FlujoEditor } from './FlujoEditor';
+import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean };
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean };
 
 const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reporte', aviso: 'Aviso', accion: 'Acción', pregunta: 'Pregunta' };
@@ -108,15 +109,33 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                 <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[plantilla.categoria]} {LABEL[plantilla.categoria]}{plantilla.esCustom ? ' · personalizada' : ''}</div>
               </div>
               <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {/* Un mensaje FIJO no ofrece el switch: es el que avisa que MaKo se
+                    quedó sin datos, y un botón que no hace nada es peor que ninguno.
+                    Se dice POR QUÉ, en vez de dejar un control gris sin explicación. */}
+                {plantilla?.fijo ? (
+                  <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
+                    style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--dim)' }}>
+                    Siempre activa
+                  </span>
+                ) : (
+                <>
                 <span style={{ fontSize: 12.5, fontWeight: 600, color: enabled ? 'var(--good)' : 'var(--dim)' }}>{enabled ? 'Activa' : 'Inactiva'}</span>
                 <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={enabled} title={enabled ? 'Desactivar' : 'Activar'}
                   style={{ width: 42, height: 24, borderRadius: 999, border: 'none', padding: 2, background: enabled ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
                   <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: enabled ? 'translateX(18px)' : 'none', transition: 'transform .15s' }} />
                 </button>
+                </>
+                )}
               </div>
             </div>
 
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cuándo se dispara?</div>
+            {/* Lo que se configura de ESTE mensaje y no vive en su plantilla: por qué
+                canal sale un reporte, qué trae adentro, y si los no urgentes esperan
+                al resumen. Estaba en tres secciones sueltas de Configuraciones, cada
+                una hablando de un mensaje que estaba en otra lista. */}
+            {id && <PrefsDeMensaje id={id} />}
+
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '20px 0 10px' }}>¿Cuándo se dispara?</div>
             <div style={{ marginBottom: 20 }}>
               <Paso icono="⚡" titulo="Se dispara cuando…" detalle={plantilla.disparador} />
               <Flecha />
