@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
   // la agencia pidió (esa persona adentro) ya está.
   const existente = await buscarUsuarioPorEmail(fila.email);
   if (existente) {
+    // ⚠️ `fila` ES LA FOTO DEL RECLAMO, así que su `usuario_id` sale null en la
+    // respuesta aunque en la base quede escrito (medido el 28/09: la fila decía
+    // `usuario_id=7` y el JSON `null`). No se relee a propósito —nadie del navegador
+    // lo usa— pero el que vaya a depurar esto por el JSON tiene que saberlo.
     await anotarUsuarioDeAlta(fila.id, existente.id);
     return NextResponse.json({
       ok: true, alta: fila,
