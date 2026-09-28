@@ -8,12 +8,12 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { EVENTOS, flujoVacio, type Flujo, type Paso } from '@/lib/flujos-tipos';
+import { EVENTOS, flujoVacio, type Flujo, type Paso, sanearInsistir, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS } from '@/lib/flujos-tipos';
 
 const btn: CSSProperties = { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const input: CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' };
 
-export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
+export function FlujoEditor({ plantillaId, endpoint = '/api/admin/plantillas' }: { plantillaId: string; endpoint?: string }) {
   const [flujo, setFlujo] = useState<Flujo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,7 +22,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const j = await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flujo-get', id: plantillaId }) }).then((r) => r.json());
+      const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flujo-get', id: plantillaId }) }).then((r) => r.json());
       setFlujo(j?.ok ? (j.flujo as Flujo | null) : null);
     } finally { setLoading(false); }
   }, [plantillaId]);
@@ -31,7 +31,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
   const guardar = async (f: Flujo | null) => {
     setSaving(true);
     try {
-      const j = await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flujo-set', id: plantillaId, flujo: f }) }).then((r) => r.json());
+      const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flujo-set', id: plantillaId, flujo: f }) }).then((r) => r.json());
       if (j?.ok) { setFlujo(j.flujo as Flujo | null); setFlash('Guardado ✓'); setTimeout(() => setFlash(null), 2000); }
     } finally { setSaving(false); }
   };
@@ -100,7 +100,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
           <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 7 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: 'var(--faint)' }}>{i + 1}.</span>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', flex: 1 }}>{p.tipo === 'mensaje' ? (p.canal === 'aviso_dueno' ? 'Avisar al dueño' : 'WhatsApp al lead') : p.tipo === 'accion' ? 'Acción' : 'Esperar'}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', flex: 1 }}>{p.tipo === 'mensaje' ? (p.canal === 'aviso_dueno' ? 'Avisar al dueño' : 'WhatsApp al lead') : p.tipo === 'accion' ? 'Acción' : p.tipo === 'insistir' ? 'Insistir hasta que confirmes' : 'Esperar'}</span>
               <button aria-label="subir" onClick={() => movePaso(i, -1)} style={{ ...btn, padding: '2px 7px' }}>↑</button>
               <button aria-label="bajar" onClick={() => movePaso(i, 1)} style={{ ...btn, padding: '2px 7px' }}>↓</button>
               <button aria-label="quitar" onClick={() => delPaso(i)} style={{ ...btn, padding: '2px 7px', color: 'var(--bad)' }}>✕</button>
@@ -119,6 +119,33 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
                 <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 5 }}>Se propone y confirmas con un “sí” (nunca dispara solo).</div>
               </div>
             )}
+            {p.tipo === 'insistir' && (
+              <>
+                <textarea value={p.texto} onChange={(e) => setPaso(i, { ...p, texto: e.target.value })} placeholder="El mensaje que vuelve (MaKo lo adapta con los datos reales)…" rows={2} style={{ ...input, resize: 'vertical' }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, flexWrap: 'wrap' }}>
+                  Cada
+                  <input
+                    type="number" min={INSISTIR_MIN_MINUTOS} step={15} value={p.cadaMin}
+                    onChange={(e) => setPaso(i, sanearInsistir({ ...p, cadaMin: Number(e.target.value) }))}
+                    style={{ ...input, width: 84 }}
+                  />
+                  minutos, hasta
+                  <input
+                    type="number" min={1} max={INSISTIR_MAX_VECES} value={p.veces}
+                    onChange={(e) => setPaso(i, sanearInsistir({ ...p, veces: Number(e.target.value) }))}
+                    style={{ ...input, width: 66 }}
+                  />
+                  veces
+                </label>
+                {/* El techo se DICE. Es lo único que impide que «insistir» se
+                    convierta en quemar la línea de WhatsApp del cliente, y
+                    `sanearInsistir` lo recorta arriba aunque se escriba otra cosa. */}
+                <div style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45 }}>
+                  Se corta apenas alguien escribe «ok» en el grupo, y de noche espera a la mañana.
+                  El máximo es {INSISTIR_MAX_VECES} mensajes cada {INSISTIR_MIN_MINUTOS} minutos: más que eso, WhatsApp puede bloquear el número.
+                </div>
+              </>
+            )}
             {p.tipo === 'esperar' && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
                 Esperar <input type="number" min={1} value={p.horas} onChange={(e) => setPaso(i, { ...p, horas: Math.max(1, Number(e.target.value) || 1) })} style={{ ...input, width: 80 }} /> horas
@@ -130,6 +157,7 @@ export function FlujoEditor({ plantillaId }: { plantillaId: string }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button style={btn} onClick={() => addPaso({ tipo: 'mensaje', canal: 'aviso_dueno', texto: '' })}>+ Mensaje</button>
           <button style={btn} onClick={() => addPaso({ tipo: 'accion', accion: 'crear_tarea' })}>+ Acción</button>
+          <button style={btn} onClick={() => addPaso(sanearInsistir({ texto: '', cadaMin: 60, veces: 3 }))}>+ Insistir</button>
           <button style={btn} onClick={() => addPaso({ tipo: 'esperar', horas: 24 })}>+ Esperar</button>
         </div>
       </div>

@@ -154,6 +154,21 @@ async function mutar(id: string, patch: (e: EntradaStore) => EntradaStore | null
   await guardarStore(propio);
 }
 export const setTextoPlantilla = (id: string, texto: string) => mutar(id, (e) => ({ ...e, texto }));
+
+/**
+ * «Volver al original» — y el original de un cliente NO es el de fábrica.
+ *
+ * Escribir `texto: ''` parecía lo mismo y no lo es: con la herencia, un '' propio
+ * PISA el texto del dueño y la plantilla cae al ejemplo del catálogo. Borrar la
+ * clave es lo que devuelve al default que su agencia escribió para él.
+ */
+export const resetTextoPlantilla = (id: string) => mutar(id, (e) => {
+  const next = { ...e };
+  delete next.texto;
+  // Si no quedaba nada más propio, la entrada entera se va: una entrada vacía en
+  // el store es una que dice «este cliente tocó esto» cuando no tocó nada.
+  return Object.keys(next).length ? next : null;
+});
 export const setEnabledPlantilla = (id: string, enabled: boolean) => mutar(id, (e) => ({ ...e, enabled }));
 
 /** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */

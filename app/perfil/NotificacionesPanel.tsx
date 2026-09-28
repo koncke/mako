@@ -32,18 +32,7 @@ import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
 import { CanalToggle, type EstadoCanal } from '../_components/CanalToggle';
 import { Icon } from '../_components/icons';
 import { DestinatariosModal, type Destinatarios } from './DestinatariosModal';
-import { AvisoEditor } from './AvisoEditor';
-
-/**
- * El id de la plantilla de cada reporte, en el catálogo de voz.
- * No se deriva del `key` con un template string: son dos catálogos distintos y
- * un renombre de un lado tiene que romper acá, no fallar silencioso al leer.
- */
-const ID_REPORTE: Record<ReporteKey, string> = {
-  horario: 'reporte-horario',
-  diario: 'reporte-diario',
-  semanal: 'reporte-semanal',
-};
+import { PlantillasView } from '../agencia/PlantillasView';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -166,8 +155,6 @@ export function NotificacionesPanel() {
   const [tieneGrupo, setTieneGrupo] = useState(false);
   const [plantilla, setPlantilla] = useState<string>('…');
   const [modalDest, setModalDest] = useState(false);
-  // Uno abierto a la vez: son preferencias de una fila, no un formulario grande.
-  const [avisoAbierto, setAvisoAbierto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -340,30 +327,12 @@ export function NotificacionesPanel() {
             return (
               <Fila
                 key={r.key} primera={i === 0} titulo={r.titulo} sub={r.sub}
-                pie={
-                  <>
-                    {trabaPlantilla && (
-                      <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span>{ESTADO_PLANTILLA[plantilla] ?? ESTADO_PLANTILLA.error}.</span>
-                        <a href="/chatbot?stab=plantillas&tpl=reporte_mako" style={{ ...btnLink, textDecoration: 'none' }}>Resolver →</a>
-                      </div>
-                    )}
-                    {/* Un reporte también es un mensaje que llega por WhatsApp, así
-                        que también se lee y se edita. Su plantilla vive en el mismo
-                        catálogo de voz que la de los avisos (reporte-diario,
-                        reporte-horario, reporte-semanal). */}
-                    <button
-                      type="button"
-                      onClick={() => setAvisoAbierto((x) => (x === ID_REPORTE[r.key] ? null : ID_REPORTE[r.key]))}
-                      style={{ ...btnLink, marginTop: 6, fontSize: 12.5 }}
-                    >
-                      {avisoAbierto === ID_REPORTE[r.key] ? 'Cerrar' : 'Ver y editar el mensaje'}
-                    </button>
-                    {avisoAbierto === ID_REPORTE[r.key] && (
-                      <AvisoEditor id={ID_REPORTE[r.key]} disparador={r.sub} onCerrar={() => setAvisoAbierto(null)} />
-                    )}
-                  </>
-                }
+                pie={trabaPlantilla ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 6, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span>{ESTADO_PLANTILLA[plantilla] ?? ESTADO_PLANTILLA.error}.</span>
+                    <a href="/chatbot?stab=plantillas&tpl=reporte_mako" style={{ ...btnLink, textDecoration: 'none' }}>Resolver →</a>
+                  </div>
+                ) : undefined}
                 canales={<>
                   <CanalToggle
                     icono="whatsapp" label="WhatsApp" fila={r.titulo}
@@ -424,26 +393,23 @@ export function NotificacionesPanel() {
                   onChange={(v) => setAviso(a.id, v)}
                 />
               }
-              pie={
-                // Se puede ver y editar SIEMPRE, prendido o apagado. Esconder el
-                // editor de lo apagado obligaba a prenderlo para leer qué decía —
-                // o sea, a mandarlo una vez para poder decidir si lo querías.
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setAvisoAbierto((x) => (x === a.id ? null : a.id))}
-                    style={{ ...btnLink, marginTop: 6, fontSize: 12.5 }}
-                  >
-                    {avisoAbierto === a.id ? 'Cerrar' : 'Ver y editar el mensaje'}
-                  </button>
-                  {avisoAbierto === a.id && (
-                    <AvisoEditor id={a.id} disparador={a.sub} onCerrar={() => setAvisoAbierto(null)} />
-                  )}
-                </>
-              }
+
             />
           ))}
         </div>
+      </Seccion>
+
+      {/* ── 4. Los mensajes, como llegan ───────────────────────────────────── */}
+      {/* Es la MISMA pantalla de /mensajes (PlantillasView), no una copia: la
+          lista a la izquierda, el chat de WhatsApp a la derecha, y el detalle
+          para editar el texto, prenderlo o apagarlo y tocar su flujo. Se le pasa
+          el endpoint del CLIENTE — mismo protocolo, otro guard.
+
+          Lo de arriba decide POR DÓNDE llega cada cosa; esto, QUÉ DICE. Eran dos
+          preguntas distintas metidas en una lista de toggles, y la segunda no se
+          podía contestar sin ver el mensaje. */}
+      <Seccion titulo="Los mensajes, como llegan" nota="Se ven igual que en el WhatsApp — toca uno para leerlo y editarlo">
+        <PlantillasView endpoint="/api/perfil/plantillas" />
       </Seccion>
 
       <div style={{

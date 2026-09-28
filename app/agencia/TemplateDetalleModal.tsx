@@ -35,11 +35,18 @@ function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titu
 }
 const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, margin: '2px 0' }}>↓</div>;
 
-async function api(body: unknown): Promise<{ ok: boolean; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
-  try { return await (await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false }; }
+/**
+ * El endpoint entra por parámetro porque esta misma pantalla sirve a DOS dueños:
+ * el super-admin de la agencia (`/api/admin/plantillas`) y el admin de un
+ * workspace desde Configuraciones › Notificaciones (`/api/perfil/plantillas`).
+ * Mismo protocolo, distinto guard — copiar el componente para cambiar una URL
+ * dejaría dos pantallas que divergen en la primera edición.
+ */
+async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
+  try { return await (await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false }; }
 }
 
-export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void }) {
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = '/api/admin/plantillas' }: { plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void; endpoint?: string }) {
   const crear = plantilla === null;
   const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
   const [categoria, setCategoria] = useState<CategoriaAviso>(plantilla?.categoria ?? 'aviso');
@@ -54,13 +61,13 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2200); };
   const id = plantilla?.id;
 
-  const guardarTexto = async () => { if (!id) return; setBusy('save'); const r = await api({ action: 'texto', id, texto }); if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); } setBusy(null); };
-  const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api({ action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
-  const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api({ action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
-  const probar = async () => { if (!id) return; setBusy('probar'); const r = await api({ action: 'probar', id }); if (r.ok && r.texto) setPrueba(r.texto); setBusy(null); };
+  const guardarTexto = async () => { if (!id) return; setBusy('save'); const r = await api(endpoint, { action: 'texto', id, texto }); if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); } setBusy(null); };
+  const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api(endpoint, { action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
+  const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api(endpoint, { action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
+  const probar = async () => { if (!id) return; setBusy('probar'); const r = await api(endpoint, { action: 'probar', id }); if (r.ok && r.texto) setPrueba(r.texto); setBusy(null); };
   const crearNueva = async () => {
     setBusy('crear');
-    const r = await api({ action: 'crear', titulo, categoria, requiereRespuesta: requiereResp, texto });
+    const r = await api(endpoint, { action: 'crear', titulo, categoria, requiereRespuesta: requiereResp, texto });
     if (r.ok) { onCambio?.(); onClose(); }
     setBusy(null);
   };
@@ -123,7 +130,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
               <details style={{ marginBottom: 20, border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', background: 'var(--surface-2)' }}>
                 <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', listStyle: 'none' }}>⚙️ Editar el flujo (avanzado) — disparador + pasos</summary>
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                  <FlujoEditor plantillaId={id} />
+                  <FlujoEditor plantillaId={id} endpoint={endpoint} />
                 </div>
               </details>
             )}

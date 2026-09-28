@@ -34,7 +34,7 @@ function guion(a: PlantillaVista): Paso[] {
   return g;
 }
 
-export function PlantillasView() {
+export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoint?: string } = {}) {
   const [plantillas, setPlantillas] = useState<PlantillaVista[] | null>(null);
   const [filtro, setFiltro] = useState<CategoriaAviso | 'todas'>('todas');
   const [busq, setBusq] = useState('');
@@ -44,7 +44,7 @@ export function PlantillasView() {
   const [detalle, setDetalle] = useState<PlantillaVista | 'crear' | null>(null);
 
   const recargar = useCallback(async () => {
-    try { const j = await (await fetch('/api/admin/plantillas')).json(); if (j.ok) setPlantillas(j.plantillas as PlantillaVista[]); } catch { setPlantillas([]); }
+    try { const j = await (await fetch(endpoint)).json(); if (j.ok) setPlantillas(j.plantillas as PlantillaVista[]); } catch { setPlantillas([]); }
   }, []);
   useEffect(() => { recargar(); }, [recargar]);
   useEffect(() => { if (!selId && plantillas && plantillas.length) setSelId(plantillas[0].id); }, [plantillas, selId]);
@@ -128,7 +128,7 @@ export function PlantillasView() {
       </div>
 
       {detalle ? (
-        <TemplateDetalleModal plantilla={detalle === 'crear' ? null : detalle} onClose={() => setDetalle(null)} onCambio={recargar} />
+        <TemplateDetalleModal plantilla={detalle === 'crear' ? null : detalle} onClose={() => setDetalle(null)} onCambio={recargar} endpoint={endpoint} />
       ) : sel ? (
         <ChatHilo
           readOnly
