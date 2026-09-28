@@ -871,9 +871,14 @@ export const AREAS: AreaDev[] = [
   // ────────────────────────────────────────────────────────── Platform
   {
     slug: 'admin', titulo: 'Clientes', familia: 'Platform',
-    estado: 'listo', verEnApp: '/admin',
-    alcance: 'El panel de la agencia: alta de cliente (workspace + su usuario admin de una), estado, capa contratada, y cada fila se expande con el equipo del cliente para ver y revocar.',
-    vive: ['app/admin/page.tsx', 'app/admin/AdminView.tsx', 'app/api/admin/workspaces/route.ts', 'lib/capas.ts'],
+    estado: 'listo', verEnApp: '/customer-success',
+    alcance: 'El panel de la PLATAFORMA: alta de cliente (workspace + su usuario admin de una), estado, plan contratado, el equipo de cada uno en un modal, y la firma de lo que piden las agencias — entrar al dashboard de un cliente (mig 0175) y sumarle a alguien al equipo (mig 0178). ⚠️ VIVE EN /customer-success DESDE EL 28/09/2026 y /admin es un redirect: los clientes del super admin SON los workspaces, así que era la misma pregunta contestada en dos pantallas.',
+    // ⚠️ Este `vive` declaraba CUATRO archivos y por eso todo el trabajo de la vista
+    // de agencia era invisible para el panel de historial: las dos migraciones, los
+    // cuatro endpoints, el contrato compartido y las piezas que /admin y Clientes se
+    // reparten no estaban en ninguna área. Es la regla de AGENTS.md «Una ruta que
+    // apunta a la nada»: la omisión no da error, da un punto ciego.
+    vive: ['app/admin/page.tsx', 'app/admin/AdminView.tsx', 'app/admin/AprobacionesDeAgencia.tsx', 'app/admin/estilos.ts', 'app/admin/tipos.ts', 'app/admin/copywriting', 'app/api/admin/workspaces/route.ts', 'app/api/admin/usuarios/route.ts', 'app/api/admin/agencia/route.ts', 'app/api/admin/agencia/altas/route.ts', 'app/api/agencia/entrar/route.ts', 'app/api/agencia/altas/route.ts', 'lib/capas.ts', 'lib/agencia.ts', 'lib/agencia-cartera.ts', 'lib/agencia-altas.ts', 'lib/gravatar.ts', 'lib/usuarios.ts', 'lib/invitaciones.ts', 'app/_components/TarjetaEntidad.tsx', 'app/customer-success/BarraClientes.tsx', 'app/customer-success/CuentaDeMaKo.tsx', 'supabase/migrations/0175_cartera_de_agencia.sql', 'supabase/migrations/0176_quien_es_agencia.sql', 'supabase/migrations/0177_capa_agencia.sql', 'supabase/migrations/0178_altas_de_agencia.sql'],
     proyectos: ['Feature: Admin y clientes'],
   },
   {

@@ -1168,3 +1168,114 @@ necesitan la segunda agencia para existir.
   «impersonando»** — y ahora eso es ambiguo, porque hay dos formas de estar viendo a otro.
   No se tocó para no cambiarle la respuesta a MaKo sin decidirlo; queda pendiente separar
   los dos casos en esa API.
+
+
+## Una agencia PIDE una cuenta ajena: por qué no entró en `propuestas` ni en `usuarios`
+
+Cosechado el 28/09/2026, del pedido «en super admin, me tienen que aparecer las
+notificaciones de cuando una agencia intenta agregar a un nuevo usuario, para poder
+aceptarlo o rechazarlo». Es la continuación de «Vista de agencia» de más arriba: aquélla
+resolvió MIRAR, ésta resuelve ESCRIBIR — y escribir cruzando de inquilino es otra cosa.
+
+**Vive en:** `supabase/migrations/0178_altas_de_agencia.sql` · `lib/agencia-altas.ts` · `lib/agencia.ts` · `app/api/agencia/altas/route.ts` · `app/api/admin/agencia/altas/route.ts` · `app/admin/AprobacionesDeAgencia.tsx` · `app/customer-success/FichaCliente.tsx`
+
+### Las dos salidas baratas, y por qué las dos rompen
+
+Antes de escribir la tabla aparecieron las dos formas de no escribirla. Las dos son
+tentadoras porque reusan algo que ya existe, y las dos fallan por la misma razón: el
+mecanismo que reusan asume que quien propone y quien confirma están del mismo lado.
+
+**1. Meterlo en `propuestas` (mig 0128), que es LA tabla genérica de «un canal propone».**
+No sirve: `propuestas` es POR INQUILINO. La escribe y la lee `getTenantDb`, y `crearPropuesta`
+corre adentro de `runWithWorkspace`. Acá hay tres workspaces distintos en juego — propone la
+AGENCIA, el efecto cae en el workspace del CLIENTE, y firma el SUPER ADMIN, que no es
+ninguno de los dos. Meterlo ahí obligaría a saltear el scope del tenant en las tres puntas,
+que es exactamente el corte que esa tabla existe para proteger. La regla general: **una tabla
+«genérica» lo es dentro de su alcance, y el alcance de `propuestas` es un inquilino.**
+
+**2. Crear el usuario `suspendido` y activarlo al aprobar.** Es la que más cuesta descartar
+porque no hay tabla nueva y el estado ya existe en `usuarios`. Rompe por dos efectos que
+`crearUsuario` tiene y que no se ven en su nombre:
+
+- **Crear la fila YA MANDA EL MAIL** (`invitarPorEmail`, que es lo que hace el alta de
+  /admin). Un pedido que después se rechaza deja a esa persona avisada de una cuenta que no
+  existe.
+- **`usuarios.email` es ÚNICO.** Un pedido pendiente ocupa el email, así que el alta de
+  verdad —la del propio cliente desde su panel de Equipo— rebota contra un registro que
+  nadie sabe que está ahí.
+
+Un pedido pendiente no es un usuario a medias: es otra cosa, y va en otra tabla.
+
+### Lo que la BASE tiene que atajar, porque el código no puede
+
+Dos garantías quedaron en la migración y no en TypeScript, y las dos son de la familia
+«un SELECT previo seguido de un INSERT es la carrera de siempre»:
+
+- **El duplicado.** Índice parcial único sobre `(cliente_ws, lower(email)) where estado =
+  'pendiente'`. Dos pestañas, un doble click o un reintento con mala conexión dejarían dos
+  pedidos por la misma persona, y el super admin aprobaría el primero y vería el segundo
+  como un pedido nuevo sobre alguien que ya está adentro. **Parcial sobre 'pendiente' a
+  propósito**: rechazado el pedido, volver a pedirlo tiene que poderse.
+- **El reclamo.** `reclamarAlta` actualiza con `.eq('estado','pendiente')` y si no vuelve
+  fila, alguien llegó primero y el llamador NO crea nada. Es la misma regla que
+  `reclamarPendiente` de la API de MaKo, y acá pesa más: aprobar **crea una cuenta y manda un
+  mail**, o sea que la segunda ejecución no es idempotente ni de casualidad.
+
+**Medido contra PRODUCCIÓN después de aplicar la 0178** (no leído del `.sql`): 4 índices,
+RLS on, grants sólo a `postgres` y `service_role` —ni `anon` ni `authenticated`—, el único
+parcial frena el duplicado **incluso con otra capitalización** (`23505`, por el `lower()`),
+rechazar deja volver a pedir, y los dos CHECK frenan `agencia_ws = cliente_ws` y un `rol_ws`
+inventado (`23514`).
+
+### El permiso de pedir es el MISMO que el de entrar, y se DELEGA
+
+`puedePedirAlta` no reimplementa la condición: llama a `puedeEntrar`. No es comodidad —
+pedir sumar a alguien al equipo de un cliente es una acción SOBRE ese cliente, y quien no
+puede ni mirarlo no tiene por qué poder tocarlo. Escribirla aparte sería **una segunda
+respuesta a «¿este cliente es tuyo?»**, y la segunda es la que se queda vieja: hoy diría lo
+mismo, y el día que alguien revoque una cartera, no.
+
+Y el permiso del token no cuenta: la ruta vuelve a preguntarle a la base en el mismo request
+(`puedeEntrarAhora`). Contesta **404 y no 403**, igual que `/api/agencia/entrar`: un 403 le
+confirma a una agencia que ese workspace existe, y eso ya es contarle algo de la cartera de
+otra.
+
+### Un rol desconocido NO cae al default
+
+`sanearPedido` rechaza cualquier `rolWs` fuera del enum en vez de caer a `'admin'`. Es la
+regla de AGENTS.md («un valor nuevo que el código colapsa con un default es una decisión
+tomada por el default») con una consecuencia concreta: un body que diga `rolWs: 'dueno'`
+saldría como **admin del negocio del cliente** sin que nadie lo haya decidido. Medido: con el
+default puesto, `tests/agencia-altas.test.ts` pasa de 15/15 a **14 pases y 1 fallo**.
+
+### Lo que el test mide, y lo que la rotura enseñó
+
+Probado rompiéndolo dos veces. La primera rotura es la interesante: haciendo que
+`puedePedirAlta` mire sólo al cliente y no de quién es la fila
+(`cartera.some(f => f.cliente_ws === clienteWs && f.estado === 'aprobado')`, que es la
+versión que se escribe sola), quedan **13 pases y 2 fallos** — y los tres casos de estado
+('aprobado' entra, 'pendiente' no, 'revocado' no) **siguen pasando**.
+
+Eso es el corolario 3 de OWNER_WS con un número al lado: **con UNA sola agencia esa rotura es
+invisible**. Los dos que caen son justo los que necesitan la segunda agencia para existir.
+
+### Lo que quedó SIN hacer
+
+- **La tabla `agencias` (mig 0176) está muerta y no se dropeó.** Desde la 0177 ser agencia es
+  la CAPA del workspace (`capa='agencia'`) y `esAgencia` lee eso; la tabla sigue en la base
+  con su fila del ws13 y no la lee nadie. Una fuente de verdad zombi sobre un permiso es peor
+  que ninguna: el día que alguien la vea, va a creer que gobierna algo. Vive en
+  `supabase/migrations/0176_quien_es_agencia.sql`.
+- **No hay aviso fuera de la pantalla.** El super admin ve el pedido cuando abre
+  `/customer-success`; si no entra, no se entera. Un aviso es un EVENTO y una bandeja es un
+  ESTADO —la regla ya está en AGENTS.md— y acá hay bandeja y no hay evento, que es el orden
+  correcto de los dos, pero el evento falta. Vive en `app/admin/AprobacionesDeAgencia.tsx`.
+- **Rechazar no dice por qué.** La columna `motivo` existe y la ruta la acepta; la pantalla
+  no la pide. Un «no» sin motivo deja a la agencia sin saber si insistir. Vive en
+  `app/admin/AprobacionesDeAgencia.tsx`.
+- **Si la cuenta no se puede crear después de reclamar, el pedido queda 'aprobada' sin
+  usuario.** Se contesta con todas las letras («aprobado, pero no pude crear la cuenta:
+  súmalo a mano») y es lo correcto —lo reclamado no vuelve a pendiente, justamente para que
+  un reintento no ejecute dos veces— pero deja una fila que dice «aprobada» y un
+  `usuario_id` en null. Esa combinación es lo que habría que barrer alguna vez. Vive en
+  `app/api/admin/agencia/altas/route.ts`.

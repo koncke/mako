@@ -1865,3 +1865,104 @@ Verificado creando una tarea en la ficha contra producción: `cliente_lead_id: 2
   la ficha; sigue sin registrarse en la pila. Sólo se apagó el AUTO-open.
 - Las tres funciones huérfanas de `app/customer-success/trabajo.ts` de la entrada anterior
   siguen sin call site.
+
+
+## La cara de una persona: un default que dibuja un monigote es peor que unas iniciales
+
+Cosechado el 28/09/2026, del pedido «si agrego el email, sería bueno que ya ponga la foto de
+perfil de ese email automáticamente en la card, y en todo caso que yo la pueda modificar».
+
+**Vive en:** `lib/gravatar.ts` · `app/api/admin/usuarios/route.ts` · `app/api/compartir/route.ts` · `app/admin/AdminView.tsx` · `app/customer-success/page.tsx`
+
+### `d=404` no es un detalle de la URL: es la decisión
+
+Gravatar, sin parámetros, **no devuelve 404 cuando alguien no tiene foto**: dibuja un
+monigote generado del hash (el «identicon»). Puesto en una tarjeta, eso le pone a esa persona
+una cara inventada — y una cara inventada **se lee como si fuera la suya**, que es peor que
+unas iniciales. El `d=404` es lo que hace fallar la imagen, y el `onError` de `Marca` cae a
+las iniciales. Es el mismo modo de falla que el logo de otra marca en la tarjeta de un
+servicio: no se lee como un error nuestro, se lee como un dato.
+
+Medido: sacándolo, `tests/gravatar-cara.test.ts` pasa de 8/8 a **7 pases y 1 fallo**.
+
+### La precedencia vive en UN lugar, y era la que ya estaba duplicada
+
+`foto_url || gravatar || iniciales` parece trivial y estaba escrita en tres lados a la vez
+(el hash en `/api/admin/usuarios` y en `/api/compartir`, el orden en `AdminView.caraDe`).
+Ahora es `caraDeUsuario` y las pantallas reciben el resultado ya resuelto por el server —
+`cara` viaja al lado de `gravatar`, que se queda para poder distinguir «eligió esta foto» de
+«es la de su email». Dando vuelta el orden, el test pasa de 8/8 a **6 y 2**.
+
+Y el corolario del respaldo, que es lo que hace que «Quitar la foto» funcione: **el Gravatar
+se calcula al LEER y no se copia a la columna**. Si se copiara, quitar la foto elegida no
+tendría a dónde volver — la columna tendría la misma URL y «quitar» no haría nada visible.
+
+### Un módulo con `node:crypto` no necesita `server-only`: el import ES el guard
+
+`lib/gravatar.ts` arrancó con `import 'server-only'` y se lo sacó a propósito. La regla de la
+casa («la condición va en un módulo SIN server-only para que se pueda testear») pesa más acá,
+porque lo que hay que testear es la PRECEDENCIA, que es la regla, no el hash. Y no queda sin
+red: **un `'use client'` que importe un valor de ese archivo no compila**, porque `node:crypto`
+no existe en el bundle del navegador. Es el mismo corte duro que daría la directiva, con el
+test de propina.
+
+⚠️ **Y eso decide a quién se consolida y a quién no.** `app/conocimientos/Compartir.tsx` es
+cliente y dibuja Gravatares: no importa el módulo, recibe el HASH ya calculado de
+`/api/compartir` y arma la URL con una plantilla de una línea. Consolidar eso habría metido
+`node:crypto` en un bundle de navegador para ahorrar una interpolación.
+
+## «Exactamente igual pero con los botones extras» se paga con una variante, no con un componente
+
+El pedido «me gusta los botones de Acciones e Inspeccionar que pusiste en la preview de cada
+card, ponlo también en la vista de agencia» tiene dos formas de resolverse y una sola sirve.
+
+**Vive en:** `app/customer-success/CuentaDeMaKo.tsx` · `app/customer-success/ClienteCard.tsx` · `app/_components/TarjetaEntidad.tsx`
+
+`CuentaDeMaKo` tiene CUATRO estados (sin cuenta / pendiente / aprobado / revocado), dos
+mecanismos de entrada distintos (el super admin por `?ws=`, la agencia por la cookie firmada)
+y su guard. Lo que cambia entre la ficha y la tarjeta es la ROPA: tinta al lado del nombre
+contra píldora al pie. Un segundo componente «igual pero con botón» duplica los cuatro
+estados, y la copia que se queda con tres es la que nadie mira. Va una prop `variante`.
+
+Y del otro lado, lo que el menú «Acciones» de la tarjeta NO ofrece es tan parte del diseño
+como lo que ofrece: no hay «Ver su ficha» —eso es el click en la tarjeta— porque un control
+nuevo que contesta una pregunta ya contestada no suma una opción, parte la respuesta en dos;
+y no hay ninguna que lleve a una pantalla que no existe. «Ver su equipo» sólo aparece cuando
+hay gente que mostrar.
+
+## Lo que cruza de inquilino se filtra en el SERVER, con el mismo corte que la entrada
+
+El plan de cada cliente y su equipo son dos lecturas que salen del workspace de OTRO
+inquilino, y las dos viajan con el HTML de `/customer-success`.
+
+**Vive en:** `app/customer-success/page.tsx` (`datosDeMisClientes`)
+
+- **El filtro es `clientesAprobados`, no la pantalla.** Lo que no esté aprobado no entra a
+  los mapas: si mañana alguien dibuja el equipo de un cliente que no le corresponde, no va a
+  tener de dónde sacarlo. Esconder un botón no protege nada; lo que protege es que el dato no
+  esté.
+- **Con la cartera vacía no se lee NADA.** Es el caso del 99% de las visitas a esta pantalla
+  (todo cliente común), así que las dos consultas globales ni se disparan.
+- **Y son dos lecturas globales filtradas en memoria, no N consultas.** `listarUsuarios` y
+  `listarWorkspaces` ya son las que usa el panel de la plataforma: con 14 clientes, catorce
+  consultas serían catorce viajes para lo mismo.
+
+⚠️ **Una sola tab no son tabs.** La ficha dibuja la fila de tabs sólo cuando hay Equipo que
+mostrar (gente, pedidos pendientes, o permiso para pedir). Una barra de navegación con un
+solo destino es ruido con cara de mapa.
+
+### Lo que quedó SIN hacer
+
+- **La tab Equipo no edita.** Es de sólo lectura para la agencia, que pide; y el super admin
+  sigue sumando y sacando gente desde el panel de la plataforma. Está bien así hoy (una
+  segunda puerta a la misma escritura es un segundo guard que mantener), pero si alguna vez
+  la agencia tiene que poder SACAR a alguien, esa decisión no está tomada. Vive en
+  `app/customer-success/FichaCliente.tsx`.
+- **La foto sólo se cambia desde el equipo del panel de la plataforma.** El pedido decía «que
+  yo la pueda modificar» y se resolvió donde una PERSONA se edita (el menú ⋯ de cada miembro,
+  subiendo por `/api/portadas`). Lo que no existe es una imagen propia del WORKSPACE: la cara
+  de la tarjeta de un cliente es la de su admin. Si alguna vez se quiere un logo del negocio,
+  eso es una columna en `workspaces`, no otra foto de usuario. Vive en
+  `app/admin/AdminView.tsx`.
+- **`/api/admin/usuarios` sigue calculando un `resumen`** (integraciones + perfil) que ningún
+  cliente lee. Ya estaba anotado y sigue.
