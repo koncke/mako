@@ -27,6 +27,7 @@ import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, PieNumeros, PieTexto, col
 import { sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
 import { estaPendiente } from '@/lib/todo-estados';
 import { plural } from '@/lib/plural';
+import { avisoCambioPlan, type ResultadoAvisoPlan } from '@/lib/plan-aviso';
 import { BarraClientes, entraEnVentana } from '../customer-success/BarraClientes';
 import { Marca } from '../_components/Marca';
 import { Modal } from '../_ui/Modal';
@@ -732,17 +733,20 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     const esDueno = w.id === 1;
     return [
       { value: 'renombrar', label: 'Renombrar…' },
-      // Cambiar de capa = mover al cliente a otra oferta. Al dueño no: ws1 es la
-      // agencia y corre siempre con todo.
-      // ⚠️ `CAPAS_VENDIBLES` Y NO EL CATALOGO ENTERO. Con la lista completa, este
-      // menu ofrecia «Pasar a SuperAdmin» sobre cualquier cliente — y esa capa no es
-      // un plan, es como se identifica la PLATAFORMA: `wsSuperAdmin()` toma el menor
-      // id con esa capa, asi que un click mudaba las credenciales y el remitente de
-      // MaKo al workspace de un cliente.
-      ...(esDueno ? [] : CAPAS_VENDIBLES.filter((c) => c.id !== w.capa)
-        .map((c) => ({ value: `capa:${c.id}`, label: `Pasar a ${c.nombre}` }))),
+      /**
+       * ⚠️ UN ÍTEM Y UN MODAL, NO UN ÍTEM POR PLAN. Acá había un «Pasar a <Plan>» por
+       * cada capa vendible: «en lugar de muchos "Pasar a…" que sea "Cambiar permisos" y
+       * que salte un modal para cambiarlo» (29/09/2026). El menú crecía con el catálogo
+       * y, sobre todo, obligaba a elegir un plan sin poder leer qué incluye — la
+       * descripción de cada uno existe desde siempre y no se veía en ningún lado.
+       *
+       * ⚠️ Y AHORA EL CAMBIO MANDA UN MAIL. Eso es lo que hace que «Guardar» no alcance
+       * como rótulo y que la decisión no pueda vivir en un menú: lo que sigue le escribe
+       * a una persona.
+       */
+      ...(esDueno ? [] : [{ value: 'permisos', label: 'Cambiar permisos…' }]),
       esDueno
-        ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
+        ? { value: 'nopausar', label: 'No se puede pausar a la plataforma', disabled: true }
         : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
       // ⛔ ACA ESTABA «Convertir en agencia», y se fue el 27/09/2026: ser agencia
       // ES EL PLAN, asi que ya esta arriba como «Pasar a Agencia», con el mismo
@@ -752,8 +756,31 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   };
   const elegirAccion = (w: Workspace, v: string) => {
     if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
-    else if (v.startsWith('capa:')) accionWs({ action: 'capa', id: w.id, capa: v.slice(5) });
+    else if (v === 'permisos') setCambiandoPlan(w);
     else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
+  };
+
+  /**
+   * EL CAMBIO DE PLAN, con su mail.
+   *
+   * ⚠️ NO USA `accionWs`: ése recarga y descarta la respuesta, y acá la respuesta trae
+   * el resultado del ENVÍO. Un «listo» mudo no distingue «se le avisó» de «se cambió y
+   * nadie se enteró», que es exactamente el bug que se arregló el 28/09 en el alta.
+   */
+  const [cambiandoPlan, setCambiandoPlan] = useState<Workspace | null>(null);
+  const [avisoPlan, setAvisoPlan] = useState<{ tono: 'ok' | 'warn'; texto: string } | null>(null);
+
+  const cambiarPlan = async (w: Workspace, capa: string) => {
+    if (accionando) return;
+    setErrAccion(null); setAccionando(true); setAvisoPlan(null);
+    try {
+      const j = await postWs({ action: 'capa', id: w.id, capa }) as
+        { ok?: boolean; error?: string; aviso?: ResultadoAvisoPlan | null };
+      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo cambiar el plan.'); return; }
+      setAvisoPlan(avisoCambioPlan(j.aviso, capaDef(capa as Workspace['capa']).nombre));
+      setCambiandoPlan(null);
+      await recargar();
+    } finally { setAccionando(false); }
   };
 
   return (
@@ -1110,6 +1137,34 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
         />
       )}
 
+      {/* ⚠️ HERMANO DE LA FICHA Y NO HIJO SUYO. Los dos se portalean a `document.body`,
+          y adentro de la ficha la pila de modales lo apagaría junto con ella — el mismo
+          motivo por el que los selectores de portada viven acá arriba. Y con esto, el
+          único menú que hay (`opcionesDe`) le sirve a la tarjeta Y a la ficha: «recuerda
+          cambiar esas acciones en la preview de la card como en el botón dentro del
+          detail» se cumple sin escribir nada dos veces. */}
+      {cambiandoPlan && (
+        <PermisosDialog
+          w={cambiandoPlan}
+          nClientes={clientesDeAgencia(cambiandoPlan.id).length}
+          ocupado={accionando}
+          onCancel={() => setCambiandoPlan(null)}
+          onConfirm={(capa) => { void cambiarPlan(cambiandoPlan, capa); }}
+        />
+      )}
+
+      {/* El resultado del cambio de plan, con el del ENVÍO adentro. Va al pie del panel
+          y no adentro del modal: el modal se cierra al confirmar, y un aviso que se va
+          con la pantalla que lo produjo no lo lee nadie. */}
+      {avisoPlan && (
+        <div style={{ ...card, borderColor: avisoPlan.tono === 'ok' ? 'var(--good)' : 'var(--warn)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <span style={{ flex: 1, fontSize: 13.5, lineHeight: 1.5, color: avisoPlan.tono === 'ok' ? 'var(--good)' : 'var(--warn)', fontWeight: 600 }}>
+            {avisoPlan.texto}
+          </span>
+          <button type="button" onClick={() => setAvisoPlan(null)} style={{ ...btnGhost, padding: '4px 10px', fontSize: 12.5 }}>Cerrar</button>
+        </div>
+      )}
+
       {aEliminar && (
         <ConfirmDialog
           titulo={`¿Eliminar a ${aEliminar.nombre || aEliminar.email}?`}
@@ -1401,3 +1456,95 @@ function NombreClienteDialog({ nombre, onNombre, onCancel, onConfirm, titulo = '
 // =============================================================================
 // =============================================================================
 // TAB — Ángulos de guion (la biblioteca que alimenta "Nuevo guion" en la Matriz)
+
+/**
+ * CAMBIAR PERMISOS: elegir el plan de un cliente, leyendo qué incluye cada uno.
+ *
+ * ⚠️ REEMPLAZA A N ÍTEMS DE MENÚ, y el porqué no es estético: elegir entre «Pasar a
+ * Project Manager» y «Pasar a Completo» desde un desplegable obliga a saberse de memoria
+ * qué trae cada plan. La `descripcion` de cada capa existe desde siempre en `lib/capas.ts`
+ * y no se veía en ninguna pantalla.
+ *
+ * ⚠️ Y EL BOTÓN DICE QUE SALE UN MAIL. «Guardar» no cuenta que se le va a escribir a una
+ * persona, y eso no se deshace. Es la misma regla que «Abrir la cuenta» en el alta.
+ */
+function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
+  w: Workspace;
+  /** Cuántos clientes tiene en su cartera. Sólo importa si HOY es agencia. */
+  nClientes: number;
+  ocupado: boolean;
+  onCancel: () => void;
+  onConfirm: (capa: string) => void;
+}) {
+  // ⚠️ `anidada`: se abre DESDE la ficha o desde una tarjeta, y la de atrás se sigue
+  // viendo. Sin esto, la ficha desaparece y parece que el menú la cerró. Y el z sale de
+  // la pila: cableado en 90 quedaría DEBAJO del `Z_BASE` de 130, que es el bug medido
+  // del 28/09 — un diálogo que pide confirmación y no se ve.
+  useCapaModal(true, { anidada: true });
+  const [elegida, setElegida] = useState<string>(w.capa);
+  const pierdeCartera = w.capa === 'agencia' && elegida !== 'agencia' && nClientes > 0;
+
+  return (
+    <Modal
+      titulo={`Permisos de ${w.nombre}`}
+      encabezado="Plan del cliente"
+      ancho={520}
+      anidada
+      onCerrar={onCancel}
+      pie={
+        <>
+          <button type="button" style={btnGhost} onClick={onCancel}>Cancelar</button>
+          <button type="button" style={{ ...btnPrimary, opacity: elegida === w.capa || ocupado ? 0.5 : 1 }}
+            disabled={elegida === w.capa || ocupado}
+            onClick={() => onConfirm(elegida)}>
+            {ocupado ? 'Cambiando…' : 'Cambiar el plan y avisarle'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {CAPAS_VENDIBLES.map((c) => (
+          <label key={c.id} className={`pm-op${elegida === c.id ? ' pm-on' : ''}`}>
+            <input type="radio" name="plan" value={c.id} checked={elegida === c.id}
+              onChange={() => setElegida(c.id)} />
+            <span>
+              <b>{c.nombre}</b>
+              {c.id === w.capa && <em> · el que tiene hoy</em>}
+              <span>{c.descripcion}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {/* ⚠️ LA CONSECUENCIA QUE NO SE VE, pegada al botón y ANTES del click. Sacarle
+          «Agencia» a quien tiene cartera le apaga el acceso a clientes que hoy atiende:
+          decirlo después sería una sorpresa, y es la única de estas que no se puede
+          deshacer sola volviendo a cambiar el plan. */}
+      {pierdeCartera && (
+        <p className="pm-ojo">
+          Deja de ver a {plural(nClientes, 'cliente')} de su cartera.
+        </p>
+      )}
+      <p className="pm-pie">Se le avisa por mail al dueño de la cuenta.</p>
+
+      <style dangerouslySetInnerHTML={{ __html: CSS_PERMISOS }} />
+    </Modal>
+  );
+}
+
+// Ningun backtick acá adentro: adentro de un template literal cierra la hoja a la mitad
+// y la ruta contesta 200 con el layout entero y sin cuerpo.
+const CSS_PERMISOS = `
+.pm-op{ display:flex; gap:10px; align-items:flex-start; padding:11px 13px;
+  border:1px solid var(--border); border-radius:11px; cursor:pointer; }
+.pm-op:hover{ background:var(--surface-2); }
+.pm-on{ border-color:var(--primary); background:var(--primary-bg); }
+.pm-op input{ margin-top:2px; accent-color:var(--primary); }
+.pm-op > span{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.pm-op b{ font-size:14px; font-weight:650; color:var(--ink); }
+.pm-op em{ font-style:normal; font-size:12px; color:var(--faint); font-weight:600; }
+.pm-op > span > span{ font-size:12.5px; color:var(--dim); line-height:1.45; }
+.pm-ojo{ margin:12px 2px 0; font-size:12.5px; font-weight:600; color:var(--warn); line-height:1.5; }
+.pm-pie{ margin:10px 2px 0; font-size:12.5px; color:var(--faint); line-height:1.5; }
+`;
+

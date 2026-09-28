@@ -6,7 +6,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
+import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace, getWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { crearUsuario, listarUsuarios } from '@/lib/usuarios';
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo } from '@/lib/supabase-paginado';
@@ -14,7 +14,8 @@ import { setSetting } from '@/lib/settings';
 import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
 import { hoyEnTijuana } from '@/lib/date-utils';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
-import { CAPA_DEFAULT, capaDef, esCapaValida } from '@/lib/capas';
+import { CAPA_DEFAULT, capaDef, esCapaValida, CAPAS_VENDIBLES, type CapaId } from '@/lib/capas';
+import { avisarCambioDePlan } from '@/lib/aviso-plan';
 import { invitarPorEmail, type ResultadoInvitacion } from '@/lib/invitaciones';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 
@@ -155,8 +156,45 @@ export async function POST(req: NextRequest) {
       case 'capa': {
         if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
         const capa = (body.capa ?? '').trim();
-        if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Tipo de cliente inválido.' }, { status: 400 });
-        return NextResponse.json({ ok: true, workspace: await actualizarWorkspace(body.id, { capa }) });
+        /**
+         * ⚠️ `CAPAS_VENDIBLES` Y NO `esCapaValida`, que dejaba pasar `superadmin`. Esa capa
+         * no es un plan: es CÓMO SE IDENTIFICA LA PLATAFORMA (`wsSuperAdmin()` toma el
+         * menor id con esa capa), así que ponérsela a un cliente le muda a su workspace
+         * las credenciales y el remitente de MaKo. El menú ya no la ofrece desde el 28/09
+         * — pero el menú no es el guard, y esta ruta la aceptaba igual.
+         */
+        if (!esCapaValida(capa) || !CAPAS_VENDIBLES.some((c) => c.id === capa)) {
+          return NextResponse.json({ ok: false, error: 'Ese no es un plan que se pueda asignar.' }, { status: 400 });
+        }
+        // Y al revés: tampoco se le cambia el plan A la plataforma.
+        if (body.id === (await wsSuperAdmin())) {
+          return NextResponse.json({ ok: false, error: 'Ese es el espacio de la plataforma: no tiene plan.' }, { status: 400 });
+        }
+
+        const antes = await getWorkspace(body.id);
+        if (!antes) return NextResponse.json({ ok: false, error: 'ese cliente ya no está' }, { status: 404 });
+        // Un mail que dice «tu plan cambió» sobre algo que no cambió es ruido, y el ruido
+        // enseña a ignorar los mails que sí importan.
+        if (antes.capa === capa) return NextResponse.json({ ok: true, workspace: antes, aviso: null });
+
+        const workspace = await actualizarWorkspace(body.id, { capa });
+
+        /**
+         * ⚠️ EL MAIL VA DESPUÉS Y NO PUEDE TUMBAR EL CAMBIO. Ya está escrito en la base:
+         * devolver un 500 porque se cayó Resend haría que la pantalla muestre un error
+         * sobre algo que SÍ pasó, y el próximo click lo intentaría de nuevo. El resultado
+         * del envío viaja en `aviso` y lo pinta quien llamó.
+         */
+        let aviso = null;
+        try {
+          aviso = await avisarCambioDePlan({
+            ws: body.id, nombreWs: antes.nombre,
+            capaAntes: antes.capa as CapaId, capaAhora: capa,
+          });
+        } catch (e) {
+          aviso = { enviado: false, error: e instanceof Error ? e.message : String(e) };
+        }
+        return NextResponse.json({ ok: true, workspace, aviso });
       }
       /**
        * LA CARA del cliente: su portada, su marca y los dos encuadres (mig 0179).

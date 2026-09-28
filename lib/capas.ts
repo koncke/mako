@@ -97,6 +97,17 @@ export type CapaDef = {
   nombre: string;
   descripcion: string;
   /**
+   * LO MISMO, PERO ESCRITO PARA EL CLIENTE: es lo que le dice el mail cuando le cambian
+   * el plan. `descripcion` está escrita para el super-admin —lo dice su propio comentario
+   * de arriba— y usa nuestras palabras («capa», «el producto», «integraciones»).
+   *
+   * ⚠️ EN ESPAÑOL NEUTRO, NO RIOPLATENSE. Es la regla de la casa y está medida: la voz
+   * voseante es la de MaKo hablándole a Martín, y el texto que lee un CLIENTE no la usa
+   * (ya salió un guion en voseo para un cliente del norte de México). `invitarPorEmail`
+   * está escrito así y este mail va por el mismo canal.
+   */
+  queRecibe: string;
+  /**
    * Keys de nav.ts (TOP_NAV/grupos/MAKO_ITEM/ADS_MANAGER_ITEM) que la capa ve.
    * null = todas. El Sidebar filtra con esto, pero el enforcement REAL es
    * server-side (requireCapa en lib/tab-access.ts): esconder el link no alcanza.
@@ -141,6 +152,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     id: 'pm',
     nombre: 'Project Manager',
     descripcion: 'El Plan y el Perro Guardián que prioriza. Sin integraciones: es productivo el primer día.',
+    queRecibe: 'Vas a tener el Plan y el Perro Guardián, que ordena tu trabajo por prioridad. No hace falta conectar nada.',
     // Solo el board y MaKo. Sin Meta ni CRM no hay tablero que mostrar, y una
     // tab vacía se lee como producto roto (por eso no se le esconden "por ahora":
     // no las compró).
@@ -167,6 +179,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     id: 'completo',
     nombre: 'Completo',
     descripcion: 'Todo el producto: ads, CRM, analistas, chats, Retro y Plan.',
+    queRecibe: 'Vas a tener todo el producto: anuncios, CRM, los analistas, los chats y el Plan.',
     navKeys: null,
     userNavKeys: null,
     // Orden del onboarding:
@@ -234,6 +247,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     id: 'agencia',
     nombre: 'Agencia',
     descripcion: 'Todo el producto, y ademas puede tener clientes propios adentro de MaKo.',
+    queRecibe: 'Vas a tener todo el producto y, además, puedes tener a tus propios clientes dentro de MaKo.',
     navKeys: null,
     userNavKeys: null,
     onboarding: ['fase', 'gemini', 'archivero', 'productos', 'tabs', 'integraciones'],
@@ -255,6 +269,9 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // es lo que hacia que el tipo apareciera como una opcion mas al crear un cliente.
     nombre: 'SuperAdmin',
     descripcion: 'El espacio propio del super-admin: su plan, sus reuniones y sus IA. Sin ads, sin CRM, sin VSL.',
+    // No se manda nunca: nadie «pasa a» SuperAdmin (no está en CAPAS_VENDIBLES). Va igual
+    // porque el campo es obligatorio y dejarlo opcional invita a olvidarlo en la próxima.
+    queRecibe: 'Es el espacio de la plataforma.',
     // ⚠️ `customer-success` ENTRA ACÁ EL 26/09/2026, y no es un permiso de más: MaKo TIENE
     // clientes —Mauricio, Leila, Juanfran— y viven en ESTE workspace, que es el de la
     // agencia. La tab se rehízo ese día para servir a cualquier workspace, así que dejarla
