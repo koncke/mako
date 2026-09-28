@@ -91,6 +91,10 @@ const TENANT_TABLES = new Set<string>([
   // La cola del resumen diario de avisos (mig 0161): una fila por aviso pospuesto. Va acá
   // porque las filas son de un workspace y el cron las manda por el grupo de ESE workspace.
   'avisos_cola',
+  // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
+  // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
+  // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.
+  'insistencias',
   // Bitácora de la API de MaKo (mig 0158): una fila por llamada HTTP. Va acá para que
   // el cliente vea solo las suyas; la escribe lib/api-mako/bitacora.ts con ws explícito.
   'api_llamadas',

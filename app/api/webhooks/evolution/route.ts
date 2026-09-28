@@ -19,6 +19,22 @@ import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz
 import { instanciaVoz } from '@/lib/mako-grupo';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
+import { cerrarPorAcuse } from '@/lib/insistencias';
+import { esAcuse } from '@/lib/flujos-tipos';
+
+/**
+ * El texto plano de un mensaje entrante, para mirar si es un «ok».
+ *
+ * Deliberadamente mínimo: sólo las dos formas de TEXTO que manda WhatsApp. Un audio o
+ * una imagen no acusan recibo — que alguien mande una foto al grupo no significa que
+ * haya leído el aviso.
+ */
+function textoDeMensaje(m: Record<string, unknown>): string {
+  const msg = (m?.message ?? {}) as Record<string, unknown>;
+  if (typeof msg.conversation === 'string') return msg.conversation;
+  const ext = msg.extendedTextMessage as { text?: string } | undefined;
+  return typeof ext?.text === 'string' ? ext.text : '';
+}
 
 export const dynamic = 'force-dynamic';
 // El doer (loop de tools con Claude) puede tardar en turnos pesados. Le damos aire para
@@ -162,6 +178,24 @@ export async function POST(req: NextRequest) {
       // BACKGROUND con after(): devolvemos 200 YA (Evolution no reintenta) y el doer tiene
       // hasta maxDuration para completar y mandar. Resuelve su propio workspace por el grupo.
       if (grupos.length) {
+        // EL ACUSE DE RECIBO corta las insistencias vivas. Va ANTES del doer y sin
+        // await sobre su resultado: el que escribió «ok» está mirando el grupo, así que
+        // lo peor que puede pasar es seguir insistiendo mientras la IA piensa.
+        //
+        // Se mira SOLO lo que escribió una persona (fromMe false): los mensajes que manda
+        // MaKo al grupo también llegan por acá, y con un «listo» suyo se acusaría a sí misma.
+        after(async () => {
+          try {
+            const texto = grupos
+              .filter((m) => !(m?.key as { fromMe?: boolean } | undefined)?.fromMe)
+              .map((m) => textoDeMensaje(m))
+              .find((t) => t && esAcuse(t));
+            if (texto) {
+              const n = await cerrarPorAcuse(ws);
+              if (n) console.log(`[webhook:evolution] acuse «${texto}» → ${n} insistencia(s) cerrada(s) en ws${ws}`);
+            }
+          } catch (e) { console.error('[webhook:evolution] acuse:', e instanceof Error ? e.message : String(e)); }
+        });
         after(async () => {
           for (const m of grupos) {
             try { await manejarEntranteDoer(instance, m); } catch (e) { console.error(`[webhook:evolution] doer: ${e instanceof Error ? e.message : String(e)}`); }
