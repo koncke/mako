@@ -3455,8 +3455,24 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
     // una sola columna. Ahora las dos columnas son elásticas con un mínimo y el corte
     // lo hace el propio `flex-wrap` cuando de verdad no entran: acompaña cualquier zoom
     // sin escalones.
-    <div style={{ flex: '1 0 auto', display: 'flex', justifyContent: 'center', padding: 'clamp(12px,1.6vw,18px) clamp(14px,2.4vw,30px) 40px' }}>
-      <div className="mako-prio" style={{ width: '100%', maxWidth: 'min(1400px, 100%)', display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+    // ⚠️ `alignItems: flex-start` ACA ARRIBA, Y ES LO QUE ARREGLA QUE LA TARJETA SE
+    // ALARGUE SOLA. Este contenedor tiene `flex: 1 0 auto`, asi que crece hasta el
+    // alto del viewport; sin esto su hijo se estira con el (el default es `stretch`)
+    // y, adentro, el `stretch` de la fila le pasa ese alto a la tarjeta del
+    // objetivo. Resultado: el proyecto terminaba MUCHO por debajo de la ultima
+    // tarea, y cuanto mas zoom out, peor — porque mas viewport sobra.
+    //
+    // Medido a 1440/1800/2200/2800: la fila y las dos columnas daban 864 px las
+    // tres, con el contenido de las tareas terminando en ~665. Ese hueco era el bug.
+    //
+    // Con `flex-start` la fila mide lo que mide su contenido, y el `stretch` de
+    // adentro pasa a hacer lo que se espera: igualar la tarjeta a la ALTURA DE LAS
+    // TAREAS, no a la de la pantalla.
+    <div style={{ flex: '1 0 auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 'clamp(12px,1.6vw,18px) clamp(14px,2.4vw,30px) 40px' }}>
+      {/* El hueco entre el objetivo y las tareas baja de 20 a 12: «que este pegado a
+          las tareas, no tanta separacion». Son dos cosas que se leen juntas —el norte
+          y lo que hay que hacer por el—, no dos bloques de la pantalla. */}
+      <div className="mako-prio" style={{ width: '100%', maxWidth: 'min(1400px, 100%)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
         {/* IZQUIERDA — Objetivo Principal (card alto, clickeable) */}
         {/* El objetivo es UN PROYECTO, así que ocupa lo mismo que un proyecto: la grilla
             de Proyectos usa tarjetas de ~240-300px y esta se estiraba hasta 440, con lo

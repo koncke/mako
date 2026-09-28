@@ -208,9 +208,8 @@ function exportarWorkspaces(filas: Workspace[]) {
  * tarjetas/tabla, con el mismo criterio que la de Customer Success: la tarjeta es
  * para RECONOCER y la tabla para COMPARAR.
  */
-function TablaWorkspaces({ filas, esAgenciaWs, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando }: {
+function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando }: {
   filas: Workspace[];
-  esAgenciaWs: (id: number) => boolean;
   onAbrir: (id: number) => void;
   onNuevo: () => void;
   opcionesDe: (w: Workspace) => { value: string; label: string; disabled?: boolean }[];
@@ -242,7 +241,6 @@ function TablaWorkspaces({ filas, esAgenciaWs, onAbrir, onNuevo, opcionesDe, ele
                     <Marca nombre={w.nombre} tam={26} color={colorDe(w.nombre)} />
                     <span style={{ fontWeight: 600 }}>{w.nombre}</span>
                     {w.id === 1 && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
-                    {esAgenciaWs(w.id) && <span style={chip('var(--good-bg)', 'var(--good)')}>Agencia</span>}
                     <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{w.slug ?? '—'}</span>
                   </span>
                 </td>
@@ -482,7 +480,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
           Todavía no hay clientes. Crea el primero con la tarjeta de arriba.
         </div>
       ) : tabla ? (
-        <TablaWorkspaces filas={visibles} esAgenciaWs={esAgenciaWs} onAbrir={setAbierto}
+        <TablaWorkspaces filas={visibles} onAbrir={setAbierto}
           onNuevo={() => setAltaAbierta(true)} opcionesDe={opcionesDe} elegirAccion={elegirAccion}
           accionando={accionando} />
       ) : (
@@ -501,7 +499,10 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar }: { workspaces:
                     <>
                       {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
                       <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
-                      {esAgenciaWs(w.id) && <span style={chip('var(--good-bg)', 'var(--good)')}>Agencia</span>}
+                      {/* ⛔ ACA HABIA UN CHIP «Agencia» APARTE, y desde que ser agencia
+                          es el PLAN decia «Agencia» DOS VECES en la misma linea. El chip
+                          del plan ya lo dice. Es lo que pasa cuando un hecho se muda de
+                          lugar y la marca vieja se queda: no da error, se ve repetido. */}
                       {w.estado === 'pausado' && <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}
                     </>
                   }
