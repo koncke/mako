@@ -36,18 +36,19 @@ export type NotifInAppDef = {
 
 export const NOTIF_IN_APP: NotifInAppDef[] = [
   {
+    // UNA sola entrada para los DOS canales. Eran dos —el número oficial y el
+    // vinculado por QR— y desde la pantalla es la misma cosa: entró un mensaje de
+    // WhatsApp. Quien recibe el pop-up no está eligiendo por qué cañería llegó, y
+    // partirlo obligaba a apagar dos cosas para dejar de ver una.
+    //
+    // El id 'wa-mensaje' se conserva: es la clave de las preferencias que ya están
+    // guardadas. Cambiarlo daría de baja el ajuste de quien lo hubiera tocado.
     id: 'wa-mensaje',
-    titulo: 'Mensaje nuevo de WhatsApp',
-    sub: 'Cuando un contacto escribe al número oficial. Al hacer clic se abre el chat.',
+    titulo: 'Nuevo mensaje de WhatsApp',
+    sub: 'Cuando alguien te escribe, por el número oficial o por el vinculado con QR. Al hacer clic se abre el chat.',
     // Dejó de sonar el 27/09/2026: el beep salía con CADA mensaje entrante mientras
     // la persona miraba otra pantalla. El interruptor pasa a false por la regla de
     // arriba — ofrecer «silenciar» algo que ya no suena es un control que no hace nada.
-    sonido: false,
-  },
-  {
-    id: 'wa-mensaje-empresa',
-    titulo: 'Mensaje nuevo del WhatsApp de la empresa',
-    sub: 'El canal vinculado por código QR, con el número propio del negocio.',
     sonido: false,
   },
   {

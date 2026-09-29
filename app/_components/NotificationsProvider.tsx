@@ -465,7 +465,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         }
         if (entrante) {
           // Sin sonido, igual que el canal oficial: ver el comentario de arriba.
-          if (dejaVer('wa-mensaje-empresa')) {
+          // Un solo interruptor para los dos canales: desde la pantalla, «entró un
+          // mensaje de WhatsApp» es una sola cosa (ver NOTIF_IN_APP).
+          if (dejaVer('wa-mensaje')) {
             setToast({ gid: entrante.chatJid, nombre: entrante.nombre, avatar: null, canal: 'empresa' });
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
             toastTimerRef.current = setTimeout(() => setToast(null), 5000);

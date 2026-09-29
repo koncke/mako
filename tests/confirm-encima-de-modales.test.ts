@@ -20,7 +20,7 @@ import { join } from 'node:path';
 //
 // Probado rompiéndolo: con Z_CONFIRM de vuelta en 500 caen los dos tests (0 pasan / 2 fallan)
 // y el primero nombra los archivos — que son MÁS de los tres que encontré a mano: también
-// `app/crm/lead-view/InfoPrincipalCard.tsx` (1000) y `app/perfil/DestinatariosModal.tsx`
+// `app/crm/lead-view/InfoPrincipalCard.tsx` (1000) y el ya retirado `DestinatariosModal`
 // (3000). Con 3500, 2/2. Esa diferencia es el motivo de que el guard barra el árbol en vez de
 // llevar una lista.
 

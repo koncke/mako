@@ -18,7 +18,7 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { splitTelefono, unirTelefono, DIAL_DEFAULT, PAISES } from '../lib/paises';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -50,10 +50,10 @@ test('Toda lada del catálogo empieza con + y sigue con dígitos', () => {
 });
 
 test('El teléfono se pide con selector de país en LOS DOS lados', () => {
-  // El onboarding ya lo tenía; el modal de destinatarios pedía el número con un
+  // El onboarding ya lo tenía; el editor de destinatarios pedía el número con un
   // input pelado y un placeholder, delegando la lada en el usuario. Un número sin
   // código de país no existe en WhatsApp, así que no se puede sumar a un grupo.
-  for (const ruta of ['../app/perfil/DestinatariosModal.tsx', '../app/onboarding/OnboardingWizard.tsx']) {
+  for (const ruta of ['../app/perfil/DestinatariosLista.tsx', '../app/onboarding/OnboardingWizard.tsx']) {
     assert.ok(leer(ruta).includes('TelefonoConPais'),
       `${ruta} dejó de usar el campo compartido: vuelve a depender de que el usuario escriba la lada`);
   }
@@ -62,12 +62,26 @@ test('El teléfono se pide con selector de país en LOS DOS lados', () => {
     'volvió la copia local de splitTelefono: es la que se queda vieja');
 });
 
-test('El menú del país se portalea DENTRO del modal, o se abre por detrás', () => {
-  // El menú del Dropdown va a document.body con zIndex 1000 y el modal está en
-  // 3000: sin `portalTo` el desplegable existe pero no se ve, que desde afuera
-  // es idéntico a un selector roto.
-  const src = leer('../app/perfil/DestinatariosModal.tsx');
-  assert.match(src, /portalTo=\{panel\}/, 'el Dropdown de país perdió su portalTo: el menú queda detrás del modal');
+test('El editor de destinatarios está MONTADO, y hay UNO solo', () => {
+  // Reemplaza al test del `portalTo` del modal, que se retiró el 29/09/2026 con su
+  // sujeto: los destinatarios se editan en la página, un canal a la vez. El menú de
+  // ladas ya no puede quedar detrás de nada (no hay overlay encima), así que el
+  // riesgo cambió de lugar: lo que ahora se puede perder es el CALL SITE — un
+  // editor escrito y no montado deja la pantalla sin ninguna forma de agregar a
+  // nadie, que es el mismo síntoma que reportó el cliente en 2026.
+  //
+  // Probado rompiéndolo: con el montaje renombrado -> 10 pasan / 1 falla («no hay
+  // dónde agregar un número»); con un DestinatariosModal.tsx vacío de vuelta -> 10 / 1
+  // («es un segundo editor del mismo dato»). Restaurado: 11 / 0.
+  const panel = leer('../app/perfil/NotificacionesPanel.tsx');
+  assert.match(panel, /<DestinatariosCanal\b/,
+    'el panel de notificaciones dejó de montar el editor de destinatarios: no hay dónde agregar un número');
+
+  // Y no vuelven a ser dos: con dos editores del mismo dato, el que nadie abre es
+  // el que se queda viejo (y sus tests siguen en verde mirándolo).
+  const perfil = readdirSync(new URL('../app/perfil/', import.meta.url));
+  assert.ok(!perfil.includes('DestinatariosModal.tsx'),
+    'volvió el modal de destinatarios: es un segundo editor del mismo dato');
 });
 
 test('Agregar al grupo mira el BODY, no el HTTP 200', () => {
@@ -94,12 +108,12 @@ test('Sumar al grupo ya no se falla en silencio', () => {
 
   // Y la pantalla lo MUESTRA: un dato que solo viaja en el JSON es un dato que
   // el usuario no ve, que es el bug original con otra cara.
-  const modal = leer('../app/perfil/DestinatariosModal.tsx');
-  assert.ok(modal.includes('noAgregados'), 'el modal no muestra a quién no se pudo sumar al grupo');
+  const pantalla = leer('../app/perfil/DestinatariosCanal.tsx');
+  assert.ok(pantalla.includes('noAgregados'), 'la pantalla no muestra a quién no se pudo sumar al grupo');
 });
 
-test('Ningún camino del modal rechaza sin decir por qué', () => {
-  const src = leer('../app/perfil/DestinatariosModal.tsx');
+test('Ningún camino del editor rechaza sin decir por qué', () => {
+  const src = leer('../app/perfil/DestinatariosCanal.tsx');
   // «Agregar» ya no se apaga: contesta siempre, y cuando no puede explica.
   assert.ok(!/onClick=\{agregar\} disabled=/.test(src),
     'el botón Agregar volvió a deshabilitarse: un botón gris que no explica es igual a uno roto');
@@ -108,7 +122,7 @@ test('Ningún camino del modal rechaza sin decir por qué', () => {
     'Guardar volvió a apagarse por `!dirty`: ese era el camino mudo que reportó el cliente');
   // Y lo escrito sin tocar «Agregar» no se tira.
   assert.ok(src.includes('onBorrador'),
-    'el modal volvió a perder lo tipeado y no agregado al guardar');
+    'el editor volvió a perder lo tipeado y no agregado al guardar');
 });
 
 test('Se ACTÚA con la forma del número que WhatsApp reconoce, no con la tipeada', () => {
@@ -163,7 +177,7 @@ test('Cuando WhatsApp no deja agregar, la app ofrece el link del grupo', () => {
   const src = leer('../lib/mako-grupo.ts');
   assert.ok(src.includes('/group/inviteCode/'), 'se perdió el link de invitación del grupo');
 
-  const modal = leer('../app/perfil/DestinatariosModal.tsx');
-  assert.ok(modal.includes('linkGrupo'), 'el modal no ofrece el link para pasarlo a mano');
-  assert.ok(/clipboard\.writeText/.test(modal), 'el link no se puede copiar');
+  const pantalla = leer('../app/perfil/DestinatariosCanal.tsx');
+  assert.ok(pantalla.includes('linkGrupo'), 'la pantalla no ofrece el link para pasarlo a mano');
+  assert.ok(/clipboard\.writeText/.test(pantalla), 'el link no se puede copiar');
 });

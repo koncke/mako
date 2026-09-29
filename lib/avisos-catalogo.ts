@@ -273,7 +273,7 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
 
   // ── CUENTA / SALUD DE META (semáforo) ──────────────────────────────────────
   {
-    id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso',
+    id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ ESTE AVISO INSISTE. No lo manda `emitirDelCatalogo` una vez: lo repite
     // `lib/alerta-critica.ts` cada 10-20 minutos MIENTRAS la entrega siga

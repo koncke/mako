@@ -3,51 +3,49 @@
 // =============================================================================
 // NotificacionesPanel — qué avisa MaKo, y por dónde
 // =============================================================================
-// Vive en /configuraciones. Una matriz evento × canal: cada fila es algo que pasa
-// en el negocio y a la derecha están los canales por los que puede salir, como
-// cápsulas que se prenden y se apagan.
+// Vive en /configuraciones › Notificaciones. Dos bloques, en orden de cuán tuyo
+// es lo que configuran:
 //
-// ── Por qué así ──────────────────────────────────────────────────────────────
-// La versión anterior tenía los reportes DOS veces (una en el bloque de WhatsApp
-// y otra en el de email), porque agrupaba por canal en vez de por evento. Eso es
-// justo lo que la matriz arregla: el "Resumen diario" es UNA cosa y se configura
-// en UN lugar.
+//   1. Dentro de la app → pop-up y sonido. Es de la PERSONA: pasa en SU navegador,
+//      no se manda a ningún lado, y no cambia nada para el resto del equipo.
+//   2. Los canales      → del NEGOCIO. Cada tile abre SU canal: a quién le llega
+//      y qué dicen los mensajes que salen por ahí.
 //
-// Las cápsulas llevan el logo Y la palabra a propósito — ver CanalToggle, que
-// explica por qué el logo pelado no alcanza.
+// ── Por qué quedó así ────────────────────────────────────────────────────────
+// Antes era una matriz evento × canal: ~35 filas de interruptores, con el texto
+// del mensaje viviendo en otra pantalla. Para saber qué decía el «Reporte diario»
+// había que ir a buscarlo, y para apagarlo había que encontrar su fila entre las
+// 35. Ahora el QUÉ DICE y el SI LLEGA se deciden en el mismo lugar —el detalle de
+// cada mensaje— y esta pantalla contesta sólo POR DÓNDE.
 //
-// Tres bloques, en orden de cuán tuyo es lo que configuran:
-//   1. Dentro de la app  → pop-up y sonido. Es de la PERSONA (pasa en su navegador).
-//   2. Reportes          → del NEGOCIO: los manda el cron a los destinatarios.
-//   3. Avisos            → del NEGOCIO, evento por evento.
+// Un canal a la vez, a propósito: abajo se ven los mensajes DE ESE canal, así que
+// mostrar las dos listas de destinatarios obliga a leer cuál corresponde a lo que
+// estás mirando. Pedido del dueño: «que no aparezcan ambos».
 //
-// La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts.
+// La lista de qué existe NO se escribe acá: viene de lib/notif-catalogo.ts (lo de
+// la app) y del store de plantillas (lo que sale por WhatsApp y por email).
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import {
-  NOTIF_IN_APP, inAppActivo,
-  type NotifInApp,
-} from '@/lib/notif-catalogo';
+import { NOTIF_IN_APP, inAppActivo, type NotifInApp, type NotifInAppDef } from '@/lib/notif-catalogo';
 import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
 import { CanalToggle } from '../_components/CanalToggle';
 import { Icon } from '../_components/icons';
-import { DestinatariosModal, type Destinatarios } from './DestinatariosModal';
+import { type Destinatarios } from './DestinatariosLista';
+import { DestinatariosCanal } from './DestinatariosCanal';
 import { PlantillasView } from '../agencia/PlantillasView';
+import { BandejaEmail } from './BandejaEmail';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-// ⚠️ EL TIPO SE IMPORTA, NO SE COPIA. Acá había una copia a mano de `NotifPrefs`, que es
-// justo la señal que AGENTS.md nombra: «un tipo copiado a mano para no importar del server
-// es la señal de que falta esta frontera». Se quedó vieja al primer campo nuevo, y el
-// compilador no podía decir nada. `import type` se borra en compilación, así que traerlo
-// del módulo con `server-only` no baja una sola línea al navegador.
-import type { NotifPrefs, CanalPrefs } from '@/lib/perfil';
+/** El endpoint del CLIENTE: mismo protocolo que el de la agencia, otro guard. */
+const ENDPOINT = '/api/perfil/plantillas';
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 };
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
 
@@ -63,83 +61,82 @@ function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; ch
   );
 }
 
-/** Una fila de la matriz: el evento a la izquierda, sus canales a la derecha. */
-function Fila({ titulo, sub, canales, primera, pie }: {
-  titulo: string; sub?: string; canales: ReactNode; primera?: boolean; pie?: ReactNode;
+/** La caja de un tile. La comparten los canales y lo de la app: misma anatomía. */
+function Tile({ icono, color, borde, children, titulo }: {
+  icono: string; color: string; borde?: string; titulo?: string; children: ReactNode;
 }) {
   return (
-    <div style={{
-      paddingTop: primera ? 0 : 14, marginTop: primera ? 0 : 14,
-      borderTop: primera ? 'none' : '1px solid var(--border)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 220, flex: '1 1 300px' }}>
-          <div style={{ fontSize: 14.5, color: 'var(--ink)', fontWeight: 600 }}>{titulo}</div>
-          {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 'none' }}>{canales}</div>
-      </div>
-      {pie}
-    </div>
-  );
-}
-
-/** Tile de la franja de arriba: identifica un canal y dice a dónde llega. */
-function TileCanal({ icono, color, nombre, detalle, accion, alerta }: {
-  icono: string; color: string; nombre: string; detalle: string;
-  accion?: { label: string; onClick: () => void }; alerta?: boolean;
-}) {
-  return (
-    <div style={{
+    <div title={titulo} style={{
       display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px',
       borderRadius: 12, background: 'var(--surface-2)',
-      border: `1px solid ${alerta ? 'var(--warn)' : 'var(--border)'}`,
+      border: `1px solid ${borde ?? 'var(--border)'}`,
     }}>
       <span style={{ display: 'flex', color, flex: 'none', marginTop: 1 }}><Icon name={icono} size={19} /></span>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{nombre}</div>
-        <div style={{ fontSize: 12, color: alerta ? 'var(--warn)' : 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>
-        {accion && <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>{accion.label}</button>}
-      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>{children}</div>
     </div>
   );
 }
 
-// ── Normalización de los reportes ────────────────────────────────────────────
-// `activo` es lo que miran los crons y `wa`/`email` los canales. Acá se muestra
-// una cápsula por canal, así que `activo` pasa a ser derivado: el reporte está
-// prendido si sale por algún lado. Se normaliza al cargar para que un estado viejo
-// (activo=false con wa=true) no muestre prendido algo que no sale.
-function normalizarCanal(c: CanalPrefs): CanalPrefs {
-  const wa = c.activo && c.wa;
-  const email = c.activo && c.email;
-  return { activo: wa || email, wa, email };
-}
-function normalizarPrefs(p: NotifPrefs): NotifPrefs {
-  return {
-    ...p,
-    horario: normalizarCanal(p.horario),
-    diario: normalizarCanal(p.diario),
-    semanal: normalizarCanal(p.semanal),
-    avisos: p.avisos ?? {},
-  };
+/** Tile de un canal: qué es, a dónde llega, y el botón que lo abre. */
+function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto }: {
+  icono: string; color: string; nombre: string; detalle: string;
+  accion: { label: string; onClick: () => void }; alerta?: boolean; abierto?: boolean;
+}) {
+  return (
+    <Tile icono={icono} color={color} borde={abierto ? 'var(--primary)' : alerta ? 'var(--warn)' : undefined}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{nombre}</div>
+      <div style={{ fontSize: 12, color: alerta ? 'var(--warn)' : 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>
+      <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>
+        {abierto ? 'Cerrar' : accion.label}
+      </button>
+    </Tile>
+  );
 }
 
+/**
+ * Tile de una notificación de la app. Era una lista de filas anchas con el evento
+ * a la izquierda y los canales a la derecha; con dos entradas, eso ocupaba media
+ * pantalla para decir dos cosas. Mismo tile que los canales.
+ *
+ * La explicación larga del catálogo va en el `title` y no dibujada: en un tile de
+ * este tamaño son tres renglones de 12px que nadie lee y que empujan los chips
+ * fuera de la vista. (Regla del repo: el `title` SÍ puede llevar una frase.)
+ */
+function TileInApp({ def, prefs, onChange }: {
+  def: NotifInAppDef; prefs: NotifInApp; onChange: (canal: 'popup' | 'sonido', v: boolean) => void;
+}) {
+  return (
+    <Tile icono={ICONO_IN_APP[def.id] ?? 'bell'} color="var(--primary)" titulo={def.sub}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{def.titulo}</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        <CanalToggle
+          icono="bell" label="Pop-up" fila={def.titulo}
+          estado={inAppActivo(prefs, def.id, 'popup') ? 'on' : 'off'}
+          onChange={(v) => onChange('popup', v)}
+        />
+        <CanalToggle
+          icono="sonido" label="Sonido" fila={def.titulo}
+          estado={def.sonido ? (inAppActivo(prefs, def.id, 'sonido') ? 'on' : 'off') : 'na'}
+          onChange={(v) => onChange('sonido', v)}
+        />
+      </div>
+    </Tile>
+  );
+}
+
+/** Íconos por id. El fallback es `bell`, que EXISTE: uno inventado dibuja un punto. */
+const ICONO_IN_APP: Record<string, string> = { 'wa-mensaje': 'chats', 'wa-plantilla': 'check' };
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 export function NotificacionesPanel() {
-  const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
-  const [draft, setDraft] = useState<NotifPrefs | null>(null);
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
-  const [inAppDraft, setInAppDraft] = useState<NotifInApp | null>(null);
   const [dest, setDest] = useState<Destinatarios | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
-  const [modalDest, setModalDest] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [canal, setCanal] = useState<'whatsapp' | 'email' | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
-  // Las tres lecturas que la pantalla NECESITA. Si cualquiera falla hay que
+  // Las dos lecturas que la pantalla NECESITA. Si cualquiera falla hay que
   // decirlo: con un `.catch(() => {})` por fetch, un 500 pasajero o una recarga a
   // destiempo dejaban el panel en "Cargando…" para siempre, sin error y sin forma
   // de reintentar. Pasó en desarrollo y desde afuera parece la app colgada.
@@ -152,23 +149,61 @@ export function NotificacionesPanel() {
         if (!r.ok || !j?.ok) throw new Error(j?.error || `${u} respondió ${r.status}`);
         return j;
       };
-      const [jp, ji, jd] = await Promise.all([
-        pedir('/api/perfil'), pedir('/api/perfil/notif-inapp'), pedir('/api/perfil/destinatarios'),
+      const [ji, jd] = await Promise.all([
+        pedir('/api/perfil/notif-inapp'), pedir('/api/perfil/destinatarios'),
       ]);
-      const p = normalizarPrefs(jp.prefs as NotifPrefs);
-      setPrefs(p); setDraft(p);
-      setInApp(ji.inApp as NotifInApp); setInAppDraft(ji.inApp as NotifInApp);
+      setInApp(ji.inApp as NotifInApp);
       setDest(jd.destinatarios as Destinatarios); setTieneGrupo(Boolean(jd.tieneGrupo));
     } catch (e) {
       setErrorCarga(e instanceof Error ? e.message : 'No se pudieron cargar tus preferencias');
     }
   }, []);
 
-  useEffect(() => {
-    void cargar();
-    // El estado de la plantilla es informativo y consulta a Meta: que tarde o
-    // falle no puede impedir configurar el resto.
-  }, [cargar]);
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  /**
+   * Los interruptores de la app guardan SOLOS, sin botón.
+   *
+   * Tenían una barra pegajosa de «Guardar preferencias» al pie, y este bloque pasó
+   * arriba de todo: entre el chip y el botón quedaba el editor de mensajes entero
+   * (620 px de chat), así que había que scrollear la pantalla para confirmar algo
+   * que se toca en el primer renglón. Los destinatarios y los mensajes ya guardan
+   * cada uno lo suyo; una barra para dos chips era el único estado sin guardar de
+   * la pantalla, y lo que se pierde al navegar sin apretarla no avisa.
+   */
+  const setItem = async (id: string, c: 'popup' | 'sonido', v: boolean) => {
+    if (!inApp) return;
+    const previo = inApp;
+    const siguiente: NotifInApp = {
+      ...inApp,
+      items: { ...inApp.items, [id]: { ...(inApp.items[id] ?? { popup: true, sonido: true }), [c]: v } },
+    };
+    setInApp(siguiente); // optimista: el chip responde al toque
+    try {
+      const j = await (await fetch('/api/perfil/notif-inapp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inApp: siguiente }),
+      })).json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+      if (j.guardado === false) {
+        // Sesión sin cuenta propia: la preferencia es de la PERSONA y no hay dónde
+        // colgarla. Se revierte el chip, porque dejarlo puesto afirma un guardado
+        // que no pasó.
+        setInApp(previo);
+        setFlash('Esta sesión no tiene cuenta propia');
+        return;
+      }
+      // El provider vive en el layout y ya cargó las preferencias: sin este aviso,
+      // el sonido que acabás de apagar sigue sonando hasta recargar.
+      window.dispatchEvent(new Event(EVENTO_PREFS_IN_APP));
+      setFlash('Guardado ✓');
+    } catch (e) {
+      setInApp(previo);
+      setFlash(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setTimeout(() => setFlash(null), 1800);
+    }
+  };
 
   if (errorCarga) {
     return (
@@ -182,142 +217,67 @@ export function NotificacionesPanel() {
     );
   }
 
-  if (!prefs || !draft || !inApp || !inAppDraft || !dest) {
+  if (!inApp || !dest) {
     return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
   }
 
   const hayWa = dest.telefonos.length > 0;
   const hayMail = dest.emails.length > 0;
 
-  const prefsDirty = JSON.stringify(draft) !== JSON.stringify(prefs);
-  const inAppDirty = JSON.stringify(inAppDraft) !== JSON.stringify(inApp);
-  const dirty = prefsDirty || inAppDirty;
-
-  const setItem = (id: string, canal: 'popup' | 'sonido', v: boolean) =>
-    setInAppDraft((p) => (p ? { ...p, items: { ...p.items, [id]: { ...(p.items[id] ?? { popup: true, sonido: true }), [canal]: v } } } : p));
-
-  /** El canal de WhatsApp solo puede entregar si hay número. */
-
-  const guardar = async () => {
-    setBusy(true);
-    try {
-      if (prefsDirty) {
-        const j = await (await fetch('/api/perfil', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'prefs', prefs: draft }),
-        })).json();
-        if (!j.ok) throw new Error(j.error || 'no se pudo guardar');
-        setPrefs(draft);
-      }
-      if (inAppDirty) {
-        const j = await (await fetch('/api/perfil/notif-inapp', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inApp: inAppDraft }),
-        })).json();
-        if (!j.ok) throw new Error(j.error || 'no se pudo guardar');
-        if (j.guardado === false) {
-          setFlash('Lo del negocio quedó guardado. Pop-up y sonido no: esta sesión no tiene cuenta propia.');
-          return;
-        }
-        setInApp(inAppDraft);
-        // El provider vive en el layout y ya cargó las preferencias: sin este
-        // aviso, el sonido que acabás de apagar sigue sonando hasta recargar.
-        window.dispatchEvent(new Event(EVENTO_PREFS_IN_APP));
-      }
-      setFlash('Guardado ✓');
-      setTimeout(() => setFlash(null), 1800);
-    } catch (e) {
-      setFlash(e instanceof Error ? e.message : 'No se pudo guardar');
-    } finally { setBusy(false); }
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 
-      {/* ── Franja de canales: qué es cada logo y a dónde llega ────────────── */}
+      {/* ── 1. Dentro de la app (personal) ─────────────────────────────────── */}
+      <Seccion titulo="Dentro de la app">
+        <div style={{ ...card, padding: 16 }}>
+          <div style={grilla}>
+            {NOTIF_IN_APP.map((n) => (
+              <TileInApp key={n.id} def={n} prefs={inApp} onChange={(c, v) => void setItem(n.id, c, v)} />
+            ))}
+          </div>
+          {flash && (
+            <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</div>
+          )}
+        </div>
+      </Seccion>
+
+      {/* ── 2. Los canales ─────────────────────────────────────────────────── */}
+      {/* El tile abre SU canal: arriba a quién le llega, abajo los mensajes que
+          salen por ahí. Los de WhatsApp se ven como un chat (es la MISMA pantalla
+          de /mensajes, no una copia) y los de email como una bandeja de correo —
+          un mail no se lee como un chat, y juzgar «¿esto se entiende cuando
+          llega?» pide verlo con la forma en la que llega. */}
       <div style={{ ...card, padding: 16 }}>
-        {/* Los dos canales por los que sale algo. El pop-up de la app NO está acá:
-            esta franja dice a dónde se manda, y un pop-up no se manda a ningún
-            lado — pasa en este navegador, y se configura en su propia sección. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+        <div style={grilla}>
           <TileCanal
             icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
-            alerta={!hayWa}
+            alerta={!hayWa} abierto={canal === 'whatsapp'}
             detalle={hayWa
               ? `${tieneGrupo ? 'Al grupo de MaKo · ' : ''}${dest.telefonos.length === 1 ? '1 número' : `${dest.telefonos.length} números`}`
               : 'Sin conectar — MaKo no puede avisar por aquí'}
-            accion={{ label: hayWa ? 'Gestionar' : 'Conectar', onClick: () => setModalDest(true) }}
+            accion={{ label: hayWa ? 'Gestionar' : 'Conectar', onClick: () => setCanal((c) => (c === 'whatsapp' ? null : 'whatsapp')) }}
           />
           <TileCanal
             icono="email" color={hayMail ? 'var(--primary)' : 'var(--warn)'} nombre="Email"
-            alerta={!hayMail}
+            alerta={!hayMail} abierto={canal === 'email'}
             detalle={hayMail
               ? (dest.emails.length === 1 ? dest.emails[0] : `${dest.emails.length} direcciones`)
               : 'Sin conectar — falta una dirección'}
-            accion={{ label: hayMail ? 'Gestionar' : 'Agregar', onClick: () => setModalDest(true) }}
+            accion={{ label: hayMail ? 'Gestionar' : 'Agregar', onClick: () => setCanal((c) => (c === 'email' ? null : 'email')) }}
           />
         </div>
       </div>
 
-      {/* ── 1. Dentro de la app (personal) ─────────────────────────────────── */}
-      <Seccion titulo="Dentro de la app">
-        <div style={card}>
-          {NOTIF_IN_APP.map((n, i) => (
-            <Fila
-              key={n.id} primera={i === 0} titulo={n.titulo} sub={n.sub}
-              canales={<>
-                <CanalToggle
-                  icono="bell" label="Pop-up" fila={n.titulo}
-                  estado={inAppActivo(inAppDraft, n.id, 'popup') ? 'on' : 'off'}
-                  onChange={(v) => setItem(n.id, 'popup', v)}
-                />
-                <CanalToggle
-                  icono="sonido" label="Sonido" fila={n.titulo}
-                  estado={n.sonido ? (inAppActivo(inAppDraft, n.id, 'sonido') ? 'on' : 'off') : 'na'}
-                  onChange={(v) => setItem(n.id, 'sonido', v)}
-                />
-              </>}
-            />
-          ))}
+      {canal && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <DestinatariosCanal
+            canal={canal} inicial={dest}
+            onGuardado={(d) => { setDest(d); if (d.telefonos.length > 0) setTieneGrupo(true); }}
+          />
+          {canal === 'whatsapp'
+            ? <PlantillasView endpoint={ENDPOINT} />
+            : <BandejaEmail emails={dest.emails} endpoint={ENDPOINT} />}
         </div>
-      </Seccion>
-
-      {/* Reportes y «cuándo llegan» YA NO ESTÁN ACÁ. Eran secciones que hablaban
-          de un mensaje que vivía en otra lista: para saber qué decía el reporte
-          diario había que ir a buscarlo. Su configuración —por qué canal sale, qué
-          trae adentro, si los no urgentes esperan al resumen— se movió al detalle
-          de cada mensaje, abajo (app/perfil/PrefsDeMensaje.tsx). Acá queda sólo lo
-          de «Dentro de la app», que es lo único que NO es un mensaje de WhatsApp. */}
-      {/* ── 4. Los mensajes, como llegan ───────────────────────────────────── */}
-      {/* Es la MISMA pantalla de /mensajes (PlantillasView), no una copia: la
-          lista a la izquierda, el chat de WhatsApp a la derecha, y el detalle
-          para editar el texto, prenderlo o apagarlo y tocar su flujo. Se le pasa
-          el endpoint del CLIENTE — mismo protocolo, otro guard.
-
-          Lo de arriba decide POR DÓNDE llega cada cosa; esto, QUÉ DICE. Eran dos
-          preguntas distintas metidas en una lista de toggles, y la segunda no se
-          podía contestar sin ver el mensaje. */}
-      <Seccion titulo="Los mensajes, como llegan">
-        <PlantillasView endpoint="/api/perfil/plantillas" />
-      </Seccion>
-
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end',
-        position: 'sticky', bottom: 0, padding: '12px 0',
-        background: 'linear-gradient(to top, var(--bg) 55%, transparent)',
-      }}>
-        {flash && <span style={{ fontSize: 13, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)', fontWeight: 600 }}>{flash}</span>}
-        <button style={{ ...btnDark, opacity: busy || !dirty ? 0.5 : 1 }} disabled={busy || !dirty} onClick={guardar}>
-          {busy ? 'Guardando…' : 'Guardar preferencias'}
-        </button>
-      </div>
-
-      {modalDest && (
-        <DestinatariosModal
-          inicial={dest}
-          onCerrar={() => setModalDest(false)}
-          onGuardado={(d) => { setDest(d); if (d.telefonos.length > 0) setTieneGrupo(true); }}
-        />
       )}
     </div>
   );

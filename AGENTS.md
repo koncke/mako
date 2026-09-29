@@ -4463,6 +4463,20 @@ verde sobre un worker que no cargaba, porque `tsx` transpila a CJS y ahí el
 quitando el arreglo: 1 fallo, 1 pase». El que lo lea dentro de seis meses no tiene
 por qué creerte, y ese renglón es la diferencia entre un test probado y uno escrito.
 
+⚠️ **Y UN TEST QUE LEE UN ARCHIVO POR SU RUTA NO SE ENTERA DE QUE ESE ARCHIVO MURIÓ.**
+Los guards de esta casa leen fuente con `readFileSync` y preguntan por una cadena, así
+que siguen en VERDE sobre un componente con **cero call sites** — y el verde se lee como
+«la pantalla lo hace». Medido el 29/09/2026 al reemplazar el modal de destinatarios por un
+editor en la página: cuatro assertions seguían leyendo `DestinatariosModal.tsx` (que el
+link del grupo se pueda copiar, que nada se rechace en silencio) mientras el editor VIVO
+salía sin el botón de copiar, o sea sin la única salida cuando WhatsApp se niega a sumar a
+alguien.
+
+**Al reemplazar una pieza, sus tests se MUEVEN con ella en el mismo commit, y lo que la
+vieja tenía de propio se enumera antes de borrarla.** Si el archivo viejo se va, un test
+que pregunte «¿no volvió?» (`readdirSync` del directorio) vale más que uno que lo lea: un
+segundo editor del mismo dato es lo que produjo este agujero.
+
 # El copy que ve un cliente no relevé un campo LIBRE
 
 Una pantalla que pinta un string que escribe otro proceso convierte en copy de

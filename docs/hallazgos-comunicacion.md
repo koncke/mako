@@ -5449,3 +5449,96 @@ alguien nombra que algo ya existe en plural, la tarea es encontrarlo y compartir
 escribirlo de nuevo.
 
 *2026-09-28*
+
+### Reemplazar un modal por una pantalla deja sus TESTS mirando al muerto
+
+**Vive en:** `app/perfil/DestinatariosCanal.tsx` · `app/perfil/DestinatariosLista.tsx` ·
+`tests/destinatarios-telefono.test.ts`
+
+Los destinatarios se editaban en un modal con las dos listas juntas; pasaron a editarse en
+la página, un canal a la vez. El modal quedó con **cero call sites** y su archivo intacto —
+y ahí está el problema: **cuatro tests seguían leyendo ese archivo** (`noAgregados` se
+muestra, `linkGrupo` se puede copiar, ningún camino rechaza en silencio). Los cuatro
+seguían en VERDE sobre código que nadie puede abrir, mientras el editor nuevo salía sin el
+botón de copiar el link del grupo — o sea sin la única salida cuando WhatsApp se niega a
+sumar a alguien.
+
+**La regla: al reemplazar una pieza, los tests se MUEVEN con ella en el mismo commit.** Un
+test que lee un archivo por su ruta no se entera de que dejó de ejecutarse: contesta sobre
+el texto, no sobre el producto. El síntoma es el peor de todos — verde sobre una pantalla
+que perdió una función.
+
+Y la otra mitad: **lo que el muerto tenía de propio se enumera antes de borrarlo.** Acá
+eran cuatro cosas que el editor nuevo no tenía (el link del grupo con su copiar, el aviso
+de quién no entró, la nota de que sacar a alguien de la lista no lo echa del grupo, y el
+rechazo del borrador a medio escribir). La última es la que más costaba ver: sin ella, un
+número incompleto se manda igual, el saneo del server lo descarta, y la pantalla dice
+«Guardado ✓» — afirmar lo que no pasó, otra vez.
+
+El test que quedó en lugar del que murió con su sujeto pregunta por el **call site**
+(`<DestinatariosCanal` en el panel) y por que no vuelvan a ser dos (que no exista de nuevo
+un `DestinatariosModal.tsx`). Probado rompiéndolo: 10 pasan / 1 falla en cada dirección.
+
+*2026-09-29*
+
+### El remitente de un email no se dibuja: se pregunta
+
+**Vive en:** `app/perfil/BandejaEmail.tsx` · `getEmailFrom()` en `lib/resend.ts` ·
+`GET /api/email/dominio`
+
+La bandeja de email previsualiza cómo llega un reporte, así que necesita un «De:». Se
+escribió `MaKo <equipo@hola-mako.com>` de memoria. Medido contra el ws1: ese valor es
+**exactamente el correcto**… porque es el `resend_from` que ese workspace tiene hoy. El
+remitente sale del setting de CADA workspace —«el De: es el negocio del cliente, no la
+agencia»—, así que para un cliente con su dominio conectado la pantalla habría dibujado el
+remitente de otro.
+
+**Es la trampa de siempre con una cara nueva: un dato hardcodeado que da bien en el único
+workspace donde se prueba.** La prueba mental que la caza es la de `OWNER_WS`: probalo con
+dos: si la respuesta cambia según de quién sea el segundo, el lugar está mal aunque hoy dé
+bien.
+
+Y cuando la lectura falla, la línea del «De:» **no se dibuja** y el nombre va en «—». Un
+remitente inventado en una previsualización es peor que uno que falta: la pantalla existe
+justamente para que alguien juzgue cómo llega el mensaje.
+
+*2026-09-29*
+
+### Un bloque que sube al tope deja su botón de Guardar al pie
+
+**Vive en:** `setItem` en `app/perfil/NotificacionesPanel.tsx`
+
+«Dentro de la app» pasó a ser lo primero de la pantalla, y su barra pegajosa de «Guardar
+preferencias» siguió al pie — con el editor de mensajes entero en el medio (620 px de
+chat). O sea: toco un chip en el primer renglón y tengo que scrollear la pantalla para
+confirmarlo.
+
+**Al reordenar una pantalla, el estado sin guardar se reevalúa.** Acá los dos vecinos ya
+guardaban solos (los destinatarios y cada mensaje), así que esa barra era el único estado
+pendiente de la pantalla — y lo que se pierde al navegar sin apretarla no avisa. Los chips
+pasaron a guardar al toque, optimistas, **revirtiendo el chip si el server dice que no**:
+dejarlo puesto afirma un guardado que no pasó.
+
+*2026-09-29*
+
+### Un link a una tab que se mudó no da error: aterriza y no tiene lo que promete
+
+**Vive en:** `lib/notify.ts` (el `link` de cada reporte)
+
+Cada reporte dejaba en el feed un link a `/perfil?tab=notificaciones`. El panel se había
+mudado a `/configuraciones` hacía tiempo, así que ese link aterrizaba en una pantalla que
+dice, textual, «los reportes y las notificaciones se configuran en Configuraciones» — el
+producto mandando a leer un cartel en vez de al control. No es un 404 y no lo reporta
+ningún test: es un link que funciona y no sirve.
+
+Lo encontró grepear `tab=notificaciones` al pasar, no un síntoma. **La contraparte de
+«retirar una ruta es enumerar sus links» es: al mudar un PANEL de pantalla, se grepea el
+querystring que lo nombraba.** Un `?tab=` viejo sobrevive a la mudanza porque sigue
+resolviendo a una ruta que existe.
+
+⚠️ Y el destino correcto no lleva `?tab=`: `ConfigInnerTabs` **no lee la tab de la URL**
+(arranca en `notif` por default). Así que `/configuraciones` aterriza justo donde hace
+falta, y escribirle un `?tab=notif` habría sido un parámetro que nadie lee — que es cómo se
+construye la próxima ilusión de que el link elige la tab.
+
+*2026-09-29*

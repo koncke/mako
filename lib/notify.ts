@@ -45,7 +45,11 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
     severidad: rep.severidad,
     titulo: rep.titulo,
     descripcion: rep.descripcion,
-    link: '/perfil?tab=notificaciones',
+    // /configuraciones abre en Notificaciones (es la tab por default de
+    // ConfigInnerTabs). Apuntaba a /perfil?tab=notificaciones, que se quedó viejo
+    // cuando el panel se mudó: /perfil ya no tiene esa tab y aterrizaba en una
+    // pantalla que dice «las notificaciones se configuran en Configuraciones».
+    link: '/configuraciones',
     entityType: 'reporte',
     payload: { texto: rep.texto },
     canalWa: waQuiere ? 'pendiente' : 'no',
