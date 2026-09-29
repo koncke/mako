@@ -25,6 +25,9 @@ export type FunnelConfig = {
   nombre: string;
   /** BOFU: dónde se cierra. null = hereda el canal del negocio. */
   canal: string | null;
+  /** El principal del workspace. No se puede archivar: medio repo asume que hay uno. */
+  esDefault: boolean;
+  /** El principal del workspace. No se puede archivar: medio repo asume que hay uno. */
   stages: Stage[];
   transitions: FunnelTransition[];
   pipeline: Stage[];
@@ -79,7 +82,7 @@ export function buildFunnel(
   pipeline: Stage[],
   suppressed: string[],
   extra?: {
-    id?: number | null; nombre?: string; canal?: string | null;
+    id?: number | null; nombre?: string; canal?: string | null; esDefault?: boolean;
     entradas?: EntradaId[]; evento?: EventoFunnel | null; origen?: FunnelConfig['origen'];
     labels?: Record<string, string>;
   },
@@ -90,6 +93,7 @@ export function buildFunnel(
     id: extra?.id ?? null,
     nombre: extra?.nombre ?? FUNNEL_DEFAULT_NOMBRE,
     canal: extra?.canal ?? null,
+    esDefault: extra?.esDefault === true,
     stages, transitions, pipeline, suppressed, labels,
     entradas: extra?.entradas ?? [],
     evento: extra?.evento ?? null,
@@ -119,6 +123,9 @@ export function filaAFunnel(f: FilaFunnel): FunnelConfig {
     id: f.id,
     nombre: f.nombre ?? FUNNEL_DEFAULT_NOMBRE,
     canal: f.canal ?? null,
+    // El principal del workspace. Lo pide el pop-up del CRM para NO ofrecer eliminarlo:
+    // medio repo asume que un ws tiene exactamente uno.
+    esDefault: f.es_default === true,
     // Lo declarado solo se emite si ESTÁ declarado: con `declarado=false` el
     // pipeline igual cae al default (una pantalla en blanco es peor), pero
     // `entradas` queda vacío y eso es lo que impide que un prompt afirme «dejó

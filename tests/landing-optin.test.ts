@@ -558,7 +558,11 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   assert.ok(/abrirEmbudo=\{abrirEmbudo\}/.test(cp), '/crm no le pasa al tablero qué pop-up abrir');
   const md = leer('../app/crm/EtapasModal.tsx');
   assert.ok(md.includes('<EmbudoEntradas'), 'el pop-up dejó de preguntar cómo entra la gente');
-  assert.ok(md.includes("subInicial ?? 'etapas'"), 'el pop-up ignora con qué subtab le pidieron abrir');
+  // ⚠️ «Cómo entran» dejó de ser una subtab y es un desplegable de la tab de etapas, así
+  // que lo que el link pide ahora es que ese desplegable venga ABIERTO. Si sólo abriera el
+  // pop-up, el botón dejaría a la persona mirando la lista de etapas sin la casilla que
+  // fue a marcar.
+  assert.ok(/abrirEntradas === true/.test(md), 'el pop-up ignora que le pidieron abrir las entradas');
   assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
   // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
   // lead, y los leads entran solos. Lo único que espera es una decisión sobre un

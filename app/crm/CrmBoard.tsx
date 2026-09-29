@@ -1272,7 +1272,7 @@ export function CrmBoard({
   const [nuevoLead, setNuevoLead] = useState(false);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
-  const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; sub?: 'etapas' | 'entradas' } | null>(null);
+  const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
   // Y si la URL lo pidio, se abre solo al entrar. Una sola vez: despues es estado de la
   // pantalla, no de la URL — reabrirlo en cada render lo volveria imposible de cerrar.
   const pedidoAbrir = useRef(abrirEmbudo);
@@ -1280,7 +1280,7 @@ export function CrmBoard({
     if (!pedidoAbrir.current) return;
     const sub = pedidoAbrir.current;
     pedidoAbrir.current = null;
-    setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo), sub });
+    setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo), entradas: sub === 'entradas' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // ⚠️ SE MUESTRA EL PRODUCTO, igual que en el selector: «Funnel principal» es el nombre
@@ -1322,6 +1322,27 @@ export function CrmBoard({
     setRenombrando(null);
     setBorrarEtapa(null);
     router.refresh();
+    return r;
+  };
+
+  /**
+   * Quitar una etapa desde el «···» de su columna.
+   *
+   * ⚠️ SIN FRICCIÓN SI LA COLUMNA ESTÁ VACÍA. «Si intento eliminar una columna que NO
+   * tiene ningún lead, no debería haber nada de fricción. Solo que me salte el pop-up de
+   * deshacer que dura 5 segundos». Acá el conteo es gratis: el tablero ya lo tiene
+   * dibujado al lado del nombre de la columna.
+   *
+   * Con leads adentro sigue preguntando, porque ahí el deshacer no alcanza — entre medio
+   * quedan fuera del embudo.
+   */
+  const quitarColumna = async (c: Stage) => {
+    const cuantos = filtered.filter((l) => effStage(l) === c.key).length;
+    if (cuantos > 0) { setBorrarEtapa({ key: c.key, label: c.label }); return; }
+    const r = await opEtapa({ op: 'eliminar', key: c.key });
+    if (!r?.ok) return;
+    const d = r.deshacer;
+    mostrarAviso(`Quitada «${c.label}»`, d ? () => { void opEtapa({ op: 'insertar', etapa: d.etapa, at: d.at }); } : undefined);
   };
 
   const guardarNombre = (key: string, valor: string) => {
@@ -1394,7 +1415,7 @@ export function CrmBoard({
               onChange={(v) => {
                 if (v === 'renombrar') { setRenombrando(c.key); return; }
                 if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
-                if (v === 'eliminar') setBorrarEtapa({ key: c.key, label: c.label });
+                if (v === 'eliminar') void quitarColumna(c);
               }}
             />
           )}
@@ -1681,7 +1702,7 @@ export function CrmBoard({
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
-      {etapasDe && <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} subInicial={etapasDe.sub} onCerrar={() => setEtapasDe(null)} />}
+      {etapasDe && <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} abrirEntradas={etapasDe.entradas} onCerrar={() => setEtapasDe(null)} />}
 
       {/* Alta a mano SIN salir del tablero: el mismo form de /crm/new adentro de un
           Modal. Al crear se cierra, se abre la ficha del lead nuevo y se recarga la

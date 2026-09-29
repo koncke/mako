@@ -22,7 +22,7 @@
 // sus leads por un toque accidental. Se confirma.
 
 import { useState } from 'react';
-import { ENTRADAS, type EntradaId, fechaFijaDelEvento } from '@/lib/pipeline';
+import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId, fechaFijaDelEvento } from '@/lib/pipeline';
 import type { CanalId } from '@/lib/fase-diagnostico';
 import { declararEntradasAction } from './actions';
 
@@ -82,16 +82,17 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
 
   return (
     <div>
-      {/* Un aviso sólo cuando FALTA. Sin declarar, MaKo se abstiene de escribir la
-          apertura — y eso hay que decirlo, porque el silencio se lee como que está roto. */}
-      {!declarado && (
-        <div style={{ marginBottom: 14, padding: '10px 13px', borderRadius: 10, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 13, lineHeight: 1.55 }}>
-          Sin esto MaKo no escribe el primer mensaje: prefiere no decir nada antes que inventarlo.
-        </div>
-      )}
+      {/* ⚠️ «Marca hasta tres» VA ARRIBA, no al lado del botón: es la regla de la lista, y
+          leerla después de haber elegido no sirve de nada. Y se fue el aviso de «sin esto
+          MaKo no escribe el primer mensaje», que explicaba un criterio — eso vive acá, en el
+          comentario, donde se paga una sola vez. */}
+      <span style={{ display: 'block', fontSize: 12.5, color: 'var(--faint)', marginBottom: 10 }}>Marca hasta tres.</span>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {(Object.values(ENTRADAS)).map((e) => {
+        {/* Las ofrecidas, MÁS lo que ya esté elegido aunque no se ofrezca: esconder un
+            valor guardado no es lo mismo que no ofrecerlo, y esconderlo lo borra en el
+            próximo guardado sin que nadie lo haya pedido. */}
+        {[...ENTRADAS_OFRECIDAS, ...sel.filter((x) => !ENTRADAS_OFRECIDAS.includes(x))].map((id) => ENTRADAS[id]).filter(Boolean).map((e) => {
           const on = sel.includes(e.id);
           return (
             <button
@@ -171,9 +172,8 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
             background: 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600,
             opacity: busy || !sel.length || !sucio ? 0.45 : 1,
           }}>
-          {busy ? 'Guardando…' : declarado ? 'Guardar los cambios' : 'Así entra mi gente'}
+          {busy ? 'Guardando…' : 'Guardar'}
         </button>
-        <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Marca hasta tres.</span>
         {err && <span style={{ fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
       </div>
     </div>

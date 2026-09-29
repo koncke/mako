@@ -4020,3 +4020,83 @@ y baja como texto.
 
 **Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/EmbudoEntradas.tsx` · `app/crm/actions.ts`
 (`embudoEnDetalleAction`) · *2026-09-29 crm-embudo-popup*
+
+## Una clave AUSENTE no es un cero, y ahí se caía la feature entera (29/09/2026)
+
+El pedido era sacar la fricción: *«si intento eliminar una columna que NO tiene ningún lead,
+no debería haber nada de fricción. Solo que me salte el pop-up de deshacer»*. El conteo por
+etapa se armaba así:
+
+```ts
+const out: Record<string, number> = {};
+for (const l of leads) out[deriveStageKey(l)] = (out[...] ?? 0) + 1;
+```
+
+Una etapa **vacía no entra al mapa**, así que el lector recibe `undefined` — y la pantalla lo
+lee, con razón, como «no pude contar» y pregunta. **La fricción volvía exactamente en el único
+caso donde no tenía que estar**, y el código se veía correcto: cuenta bien lo que hay.
+
+Lo delató el navegador, no el código: se quitó una etapa de un embudo sin un solo lead y saltó
+el diálogo igual. La cura es una línea —`for (const st of cfg.stages) out[st.key] = 0;`— y la
+regla es la de siempre: **un valor nulo y una clave ausente no son lo mismo**, y acá la
+diferencia era toda la feature.
+
+**Vive en:** `app/crm/actions.ts` (`conteosDeEtapasAction`) · *2026-09-29 crm-embudo-popup*
+
+## Deshacer un borrado tiene que devolver la MISMA clave, no una igual (29/09/2026)
+
+El camino barato para deshacer «quitaste una etapa» es volver a llamar a `agregar` con el
+mismo nombre. No sirve: **`agregar` acuña una clave nueva**, y la clave es lo que ata un lead
+a su etapa (`deriveStageKey` devuelve claves canónicas, y `leads.stageFuera` las compara por
+igualdad). El resultado sería una columna con el mismo nombre y los leads afuera — que es peor
+que no deshacer, porque *parece* que funcionó.
+
+Por eso `editarEtapaAction` devuelve, al eliminar, la etapa ENTERA y su índice
+(`{ etapa: { key, label, dot, kind }, at }`), y hay una op `insertar` que la vuelve a poner
+tal cual. El toast de 5 segundos la usa.
+
+⚠️ **Y `deshacer` vive FUERA del `try`.** Declarado adentro, el `return` de abajo no lo puede
+nombrar — el compilador lo dice, pero es la misma trampa de scope que en el puente a Flow
+costó cobrarle dos veces a un cliente, y ahí no la dijo nadie.
+
+**Vive en:** `app/crm/actions.ts` · `app/crm/EtapasModal.tsx` · *2026-09-29 crm-embudo-popup*
+
+## Lo que hace lento a un pop-up no es lo que dibuja: es lo que pide de más (29/09/2026)
+
+*«Cuando entro a editar un producto queda en "cargando", no debería tardar nada eso»*. Lo que
+tardaba eran dos consultas que no hacían falta:
+
+- **`listarFunnels()` sólo para el nombre y el `es_default`.** El nombre ya lo tiene la
+  pantalla —lo dibuja el selector, y viaja como prop— y el `es_default` viene **en la misma
+  fila** que el pipeline. Eran la vista `v_funnel_productos` más la tabla `productos`, en el
+  camino crítico de abrir.
+- **El conteo de leads por etapa.** Ése sí hay que traerlo —la etapa se DERIVA, no es una
+  columna— así que se mudó a su propia lectura que llega DESPUÉS. El pop-up abre con lo que
+  necesita; hasta que el conteo llega, quitar una etapa pregunta (el default seguro es la
+  fricción, nunca borrar sin avisar).
+
+**La regla: antes de optimizar una consulta, preguntá si hace falta.** Las dos que se sacaron
+contestaban preguntas que ya tenían respuesta a mano.
+
+⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
+que algo dice que está pasando. Va el giro.
+
+**Vive en:** `app/crm/actions.ts` (`embudoEnDetalleAction`, `conteosDeEtapasAction`) ·
+*2026-09-29 crm-embudo-popup*
+
+## Reordenar contra el server es lento por diseño: el orden lo pinta el navegador (29/09/2026)
+
+*«Cuando muevo de lugar una columna o etapa, se tarda muchísimo, no debería tardar tanto en
+moverse»*. Cada flecha hacía: escribir en el server → releer el detalle → releer los conteos →
+recién ahí repintar. Tres viajes para mover una fila un lugar.
+
+Va OPTIMISTA: el orden se pinta al instante con estado local, el server confirma detrás y la
+relectura resincroniza. Si el server rechaza, el estado local se descarta y vuelve el de la
+base — que es lo que hace que esto no mienta.
+
+⚠️ **Y el arrastre manda las CLAVES, no el pipeline.** La op `reordenar` recibe `string[]` y el
+server reordena el pipeline que ya tiene: una clave que no exista se ignora, y **lo que el
+navegador no nombró se conserva al final**. Sin eso último, un arrastre borraría `ganado` del
+embudo — vive en el pipeline y no se dibuja en la lista, así que nunca viaja.
+
+**Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/actions.ts` · *2026-09-29 crm-embudo-popup*

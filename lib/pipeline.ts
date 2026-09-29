@@ -586,7 +586,7 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
  * Stage sobrevive por spread accidental y se borra con UN clic en «Aplicar
  * plantilla», sin error y sin log. Vive en `funnels.data.entradas`.
  */
-export type EntradaId = 'formulario_anuncio' | 'landing' | 'agenda_sola' | 'chat_entrante' | 'chat_saliente';
+export type EntradaId = 'formulario_anuncio' | 'landing' | 'agenda_sola' | 'chat_entrante' | 'chat_saliente' | 'carrito';
 
 export type EntradaDef = {
   id: EntradaId;
@@ -628,30 +628,55 @@ export const ENTRADAS: Record<EntradaId, EntradaDef> = {
     quien: 'dejaste tus datos en un anuncio y todavía no hablaste con nadie',
   },
   landing: {
-    id: 'landing', label: 'Llenan un formulario en tu página',
-    desc: 'Una landing, tu web o un lead magnet que se descarga.',
+    id: 'landing', label: 'Llenan un formulario',
+    desc: 'En tu landing, tu web o un lead magnet.',
     dejoDatos: true, empieza: 'lead', objetivoMeta: 'leads_web',
     quien: 'llenaste un formulario en su página y todavía no hablaste con nadie',
   },
   agenda_sola: {
-    id: 'agenda_sola', label: 'Agendan solos, desde un link',
-    desc: 'Eligen horario sin hablar con nadie antes.',
+    id: 'agenda_sola', label: 'Agendan llamada',
+    desc: 'Eligen horario solos, desde un link.',
     dejoDatos: true, empieza: 'lead', objetivoMeta: 'trafico',
     quien: 'agendaste directamente desde un link, sin hablar con nadie antes',
   },
   chat_entrante: {
-    id: 'chat_entrante', label: 'Te escriben ellos primero',
+    id: 'chat_entrante', label: 'Te escriben',
     desc: 'Por WhatsApp, un DM o un comentario.',
     dejoDatos: false, empieza: 'lead', objetivoMeta: 'mensajes',
     quien: 'le escribiste tú primero, por WhatsApp, y todavía no te contestó nadie',
   },
   chat_saliente: {
-    id: 'chat_saliente', label: 'Le escribes tú primero',
+    id: 'chat_saliente', label: 'Tú les escribes',
     desc: 'Prospección, una lista, una campaña de mensajes.',
     dejoDatos: false, empieza: 'negocio', objetivoMeta: 'mensajes',
     quien: 'no lo conoces de ningún lado: te escribe él, de la nada, sin que hayas pedido nada',
   },
+  carrito: {
+    id: 'carrito', label: 'Compran en el carrito',
+    desc: 'Pagan en tu página, sin hablar con nadie.',
+    dejoDatos: true, empieza: 'lead', objetivoMeta: 'trafico',
+    quien: 'compraste directo en su página, sin hablar con nadie antes',
+  },
 };
+
+/**
+ * Las que se OFRECEN al declarar. Pedido de Martín (29/09/2026): «hay más de las
+ * necesarias y está sobre explicado o muy específico... Más simple todo... 1. Llenan un
+ * formulario. 2. Agendan llamada. 3. Te escriben. 4. Tú les escribes. 5. Compran en el
+ * carrito».
+ *
+ * ⚠️ `formulario_anuncio` NO SE BORRA DEL CATÁLOGO, sólo deja de ofrecerse. Es el
+ * Instant Form de Meta, y lo que lo distingue de `landing` no es cosmético: decide el
+ * objetivo de campaña (`leads_instant` vs `leads_web`) y lo que MaKo dice en la primera
+ * frase. Borrarlo dejaría a los workspaces que ya lo declararon —entre ellos el que
+ * corre campañas de Clientes Potenciales— con un valor que ningún lector reconoce.
+ *
+ * ⚠️ Y LA PANTALLA TIENE QUE MOSTRAR LO YA ELEGIDO AUNQUE NO ESTÉ ACÁ. Es la regla del
+ * `<select>` cuyo `value` no está entre sus `<option>`: que algo ya no se pueda ELEGIR
+ * no es lo mismo que esconder lo que ya está elegido — y esconderlo lo borra en el
+ * próximo guardado, sin que nadie lo pida.
+ */
+export const ENTRADAS_OFRECIDAS: EntradaId[] = ['landing', 'agenda_sola', 'chat_entrante', 'chat_saliente', 'carrito'];
 
 export const esEntrada = (x: unknown): x is EntradaId =>
   typeof x === 'string' && Object.prototype.hasOwnProperty.call(ENTRADAS, x);

@@ -3801,6 +3801,69 @@ argumentos que la función recibe en producción y comprobá que el arnés le pa
 falta uno a propósito, la salida tiene que decirlo, o el próximo que lea ese output concluye lo
 mismo.
 
+# Un contador construido sumando sólo lo que aparece no puede decir CERO
+
+Es el modo de falla más barato de escribir y el más difícil de ver leyendo:
+
+```ts
+const out: Record<string, number> = {};
+for (const x of filas) out[clave(x)] = (out[clave(x)] ?? 0) + 1;
+```
+
+Eso cuenta bien lo que hay. Lo que **no** puede es distinguir «cero» de «no sé»: una clave sin
+filas no entra al mapa, y el lector recibe `undefined`. Si río abajo alguien escribió
+`if (n === 0)` —lo correcto— esa rama **no se ejecuta nunca**, y si escribió `if (!n)` trata
+un error de lectura como un cero, que es peor.
+
+Medido el 29/09/2026: el conteo de leads por etapa del CRM. El pedido era «si la columna no
+tiene ningún lead, que no haya fricción al borrarla», la pantalla preguntaba `n === 0`, y la
+fricción volvía **exactamente en el único caso donde no tenía que estar**. El código se ve
+correcto y la feature no existe.
+
+**La regla: un contador se inicializa con el UNIVERSO, no con lo que encontró.** Una línea
+(`for (const k of todas) out[k] = 0;`) y `undefined` vuelve a significar lo único que debería
+significar: no se pudo leer.
+
+⚠️ **Y lo delató el navegador, no el código.** Es la misma familia que «un cero perfectamente
+correcto sobre la pregunta equivocada»: nada falla, nada se loguea, y la única forma de verlo
+es hacer la acción y mirar qué pasa.
+
+# Deshacer una acción destructiva devuelve la MISMA identidad, no una igual
+
+Un «Deshacer» que vuelve a llamar a la función de crear parece la implementación obvia y es
+una trampa: **casi siempre acuña una identidad nueva**. El nombre vuelve, la fila vuelve, y
+todo lo que apuntaba a la identidad vieja queda huérfano.
+
+Medido el 29/09/2026 al sacar la fricción de «quitar una etapa» del CRM. Deshacer con la op
+`agregar` habría devuelto una columna con el mismo nombre y una clave nueva — y la clave es
+lo que ata un lead a su etapa. Los leads habrían quedado afuera del embudo con la columna a la
+vista, que es peor que no deshacer: **parece que funcionó**.
+
+La operación destructiva **devuelve lo que sacó** (la entidad entera y su posición), y hay una
+op aparte que la vuelve a poner tal cual. Dos cosas más:
+
+- **La op de restaurar es idempotente**: si la identidad ya volvió por otro lado, no duplica.
+- ⚠️ **Y el payload del deshacer se declara FUERA del `try`.** Declarado adentro, el `return`
+  de abajo no lo puede nombrar. Acá lo dice el compilador; en el puente a Flow la misma trampa
+  de scope hizo que un campo que decidía plata fuera `undefined` y se le cobrara dos veces a un
+  cliente, sin que nada avisara.
+
+# Antes de optimizar una consulta, preguntá si hace falta hacerla
+
+«Tarda mucho en abrir» se ataca mirando qué se pide, no cómo. Medido el 29/09/2026 sobre un
+pop-up que «quedaba en cargando»: de las cuatro consultas del camino crítico, **dos
+contestaban preguntas que ya tenían respuesta a mano** — un nombre que la pantalla ya dibuja y
+viaja como prop, y un booleano que venía en la misma fila que el resto.
+
+Y para la que sí hacía falta y era cara, la salida no es acelerarla: es **sacarla del camino
+crítico**. La pantalla abre con lo que necesita para dibujarse y el dato caro llega después —
+con un default SEGURO mientras tanto. Acá el dato era «¿cuántos leads tiene esta etapa?», y el
+default seguro es preguntar antes de borrar: nunca borrar sin avisar porque el conteo todavía
+no llegó.
+
+⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
+que algo dice que está pasando. Va el giro, siempre.
+
 # Si lo que cambió es QUÉ EXISTE, se navega DURO: `router.refresh()` llega tarde
 
 `router.refresh()` es para «los datos de esta pantalla cambiaron». Cuando lo que cambia es el

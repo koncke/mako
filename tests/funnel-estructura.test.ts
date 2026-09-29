@@ -208,7 +208,13 @@ test('⚠️ la pregunta de «cómo entra tu gente» sobrevivió a las DOS mudan
   //   · la lectura deja de devolver `entradas`         -> 16 / 1
   const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
   assert.match(md, /<EmbudoEntradas/, 'el pop-up del embudo no pregunta cómo entra la gente');
-  assert.ok(md.includes("'Cómo entran'"), 'la subtab de entradas cambió de nombre o se fue');
+  // ⚠️ YA NO ES UNA SUBTAB: es un desplegable de la tab de etapas, y una pregunta del alta
+  // de producto. «Elimina la tab de Cómo entran, eso debería estar como un paso al momento
+  // de crear un nuevo producto... y se debería poder editar con un desplegable luego».
+  assert.ok(md.includes('Cómo entran'), 'el desplegable de entradas se fue del pop-up');
+  const tb2 = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
+  assert.match(tb2, /declararEntradasAction\(entradas, null, r\.funnelId\)/,
+    'el alta de producto dejó de preguntar cómo entra la gente');
   const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
   assert.match(ac, /entradas: cfg\.entradas/, 'la lectura del pop-up no trae las entradas declaradas');
   // Y el canal EFECTIVO, que es lo que decide si además se pregunta por el encuentro de
@@ -346,11 +352,20 @@ test('⚠️ y el guardado las respeta, no sólo la función', () => {
   // Y el guardado las garantiza aunque el cuerpo llegue sin ellas.
   assert.match(ac, /conTerminales\(pipeline\)/, 'saveFunnelAction dejó de garantizar las terminales');
 
-  // La pantalla, del otro lado: las cuatro se dibujan FUERA de la lista que se reordena,
-  // y ahí sólo se les puede cambiar el nombre.
+  // ⚠️ Y LA PANTALLA DONDE SE RENOMBRAN SE MUDÓ (29/09, segunda tanda). Estaban como
+  // pastillas abajo del pop-up y se fueron: «elimina En todos tus embudos, si quieren
+  // cambiar el nombre ya lo pueden hacer en los 3 puntos de la columna». O sea que la
+  // capacidad no se perdió —se movió—, y lo que hay que exigir es que el menú de la
+  // columna SIGA ofreciendo renombrar una terminal. Si eso se cae, las cuatro se vuelven
+  // intocables y nadie se entera.
+  const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
+  assert.ok(bd.includes("value: 'renombrar'"), 'el menú de la columna dejó de ofrecer renombrar');
+  // Y renombrar NO se apaga para una terminal: sólo eliminar.
+  const menu = bd.slice(bd.indexOf("value: 'renombrar'"), bd.indexOf("onChange={(v) => {", bd.indexOf("value: 'renombrar'")));
+  assert.ok(!/renombrar[\s\S]{0,120}disabled: esTerminal/.test(menu),
+    'el menú de la columna apagó el renombre de una terminal: quedarían intocables');
   const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
-  assert.match(md, /emb\.fijas\.map\(/, 'el pop-up dejó de dibujar las etapas fijas');
-  assert.ok(md.includes('no se puede quitar'), 'el pop-up no dice por qué una etapa fija no se toca');
+  assert.ok(!md.includes('En todos tus embudos'), 'volvió el bloque de las terminales al pop-up');
 });
 test('⚠️ «Editar las etapas» abre un POP-UP, y sobre EL funnel que estás mirando', () => {
   // Medido el 28/09/2026 con tres funnels en un workspace: el link del menú del CRM iba a
@@ -608,6 +623,109 @@ test('⚠️ eliminar un embudo lo ARCHIVA, y hay por dónde recuperarlo', () =>
   assert.match(cnt.slice(0, 900), /head: true/, 'el conteo baja las filas y va a topar en 1000');
 });
 
+test('⚠️ sin leads NO hay fricción, y el deshacer devuelve la MISMA etapa', () => {
+  // «Si intento eliminar una columna que NO tiene ningún lead, no debería haber nada de
+  // fricción. Solo que me salte el pop-up de deshacer que dura 5 segundos. Lo mismo con un
+  // producto sin leads. En caso de que sí tengan leads cualquiera de las 2 opciones,
+  // debería saltar otro pop-up de confirmación, no un recuadro abajo».
+  //
+  // ⚠️ EL DESHACER NO PUEDE SER `agregar` OTRA VEZ. Esa op acuña una clave NUEVA, y la
+  // clave es lo que ata a un lead a su etapa: deshacer así devolvería una columna con el
+  // mismo nombre y los leads afuera — peor que no deshacer, porque parece que funcionó.
+  //
+  // ⚠️ Y TODAS LAS ETAPAS ARRANCAN EN 0 EN EL CONTEO. Contando sólo lo que aparece, una
+  // etapa vacía no entra al mapa y el lector recibe `undefined`, que la pantalla lee como
+  // «no pude contar» y pregunta: la fricción volvía justo en el único caso donde no va.
+  // Medido en el navegador antes de arreglarlo.
+  //
+  // Probado rompiéndolo (el archivo entero da 19 / 0):
+  //   · el conteo deja de inicializar las etapas en 0  -> 18 / 1
+  //   · el deshacer vuelve a usar `agregar`            -> 18 / 1
+  //   · quitar una columna vacía vuelve a preguntar    -> 18 / 1
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  assert.match(ac, /for \(const st of cfg\.stages\) out\[st\.key\] = 0;/,
+    'el conteo por etapa no arranca en 0: una etapa vacía se leería como «no sé» y pediría confirmación');
+  assert.match(ac, /op\.op === 'insertar'/, 'no hay forma de devolver una etapa quitada');
+  assert.match(ac, /deshacer = \{ etapa: \{ key: quitada\.key/,
+    'eliminar dejó de devolver la etapa que sacó: el deshacer tendría que acuñar otra clave');
+
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
+  assert.match(md, /if \(n === 0\) \{ hacer\(\); return; \}/, 'quitar una etapa vacía volvió a pedir confirmación');
+  assert.match(md, /op: 'insertar', etapa: d\.etapa, at: d\.at/, 'el toast de deshacer no devuelve la etapa');
+  assert.match(md, /emb\.leads === 0/, 'eliminar un producto vacío volvió a pedir confirmación');
+  // Y cuando SÍ hay algo que perder, se pregunta con un DIÁLOGO — no con un recuadro abajo.
+  assert.match(md, /<Confirm/, 'la confirmación volvió a ser un recuadro en vez de un diálogo');
+
+  // Lo mismo desde el «···» de la columna, que es el otro camino para quitar una etapa.
+  const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
+  assert.match(bd, /if \(cuantos > 0\) \{ setBorrarEtapa/,
+    'el menú de la columna volvió a preguntar sobre una etapa vacía');
+});
+
+test('⚠️ el pop-up: un solo cerrar, sin líneas, y las etapas se arrastran', () => {
+  // «Dos botones de cerrar... no entiendo la lógica de eso, elimina el botón de abajo» ·
+  // «Elimina todas las líneas divisorias, quedan mal» · «Debería poder agarrar y arrastrar
+  // las etapas a donde yo quiera. Replica el diseño que hicimos en el plan» · «Solo si
+  // clickeo en el texto del título de esa etapa debería abrirme el input».
+  //
+  // Probado rompiéndolo (el archivo entero da 19 / 0):
+  //   · vuelve el botón «Cerrar» del pie          -> 18 / 1
+  //   · las filas dejan de ser `draggable`        -> 18 / 1
+  //   · el arrastre usa la imagen del navegador   -> 18 / 1
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Un solo cerrar: el pie es para eliminar, no para una segunda ✕.
+  assert.ok(!/>\s*Cerrar\s*</.test(md), 'volvió el segundo botón de cerrar, abajo');
+  assert.ok(md.includes('Eliminar producto'), 'el pie perdió «Eliminar producto»');
+
+  // Sin líneas: ni bordes de fila ni separadores.
+  assert.ok(!/borderTop: '1px solid var\(--border\)'/.test(md), 'volvió una línea divisoria');
+  assert.ok(!/border: '1px solid var\(--border\)'/.test(md), 'volvió el borde de las filas');
+
+  // El arrastre, con el molde del plan: imagen VACÍA y copia propia.
+  assert.match(md, /data-etapa draggable/, 'las etapas dejaron de arrastrarse');
+  assert.match(md, /setDragImage\(vacio, 0, 0\)/,
+    'el arrastre volvió a usar la foto del navegador, que el SO pinta translúcida');
+  assert.match(md, /document\.addEventListener\('dragover', seguir, true\)/,
+    'la copia que sigue al cursor no escucha en `document` y en captura: se clava en los huecos');
+  // Y el orden va OPTIMISTA en los DOS caminos: esperar al server por cada flecha es lo
+  // que se reportó como «se tarda muchísimo».
+  //
+  // ⚠️ Y SE CUENTAN LAS DOS. La primera versión pedía `setOrdenLocal(orden)` una vez, y
+  // pasó en verde con el `mover` de las flechas ya roto: el `soltarEn` del arrastre tiene
+  // la misma línea y la tapaba. Una aserción que se satisface con OTRO call site no mide
+  // el que se quería medir.
+  const optimistas = [...md.matchAll(/setOrdenLocal\(orden\)/g)].length;
+  assert.equal(optimistas, 2, `mover una etapa volvió a esperar al server: ${optimistas} de 2 caminos son optimistas`);
+
+  // El input abre sólo desde el TEXTO: por eso el botón no estira.
+  assert.match(md, /flex: 'none', maxWidth: '70%'/, 'el nombre de la etapa volvió a ocupar toda la fila');
+});
+
+test('⚠️ el selector de producto: sin tilde, el actual primero y el lápiz sin caja', () => {
+  // «No pongas un check, solo haz que sea más notorio que estamos parados en ese producto»
+  // · «El producto que estoy parado debería estar primero en las opciones» · «Pon solo el
+  // lápiz, no un recuadro alrededor del lápiz».
+  //
+  // Probado rompiéndolo (el archivo entero da 21 / 0):
+  //   · vuelve el recuadro del lápiz        -> 20 / 1
+  //   · vuelve el ✓ del renglón elegido     -> 20 / 1
+  //   · el selector deja de poner el actual primero -> 20 / 1
+  const dd = readFileSync(join(RAIZ, 'app/components/Dropdown.tsx'), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  // El renglón elegido se dice con el PESO del texto y su fondo, no con un tercer portador.
+  assert.ok(!dd.includes('✓'), 'volvió el tilde al renglón elegido del desplegable');
+  assert.match(dd, /fontWeight: on \? 700 : 600/, 'el renglón elegido dejó de notarse en el texto');
+  // El lápiz, sin caja: un borde por renglón convierte cuatro productos en ocho cajas.
+  const acc = dd.slice(dd.indexOf('o.acciones.map'));
+  assert.match(acc.slice(0, 900), /border: 'none', background: 'transparent'/,
+    'volvió el recuadro alrededor del ícono de acción del renglón');
+
+  const tb = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
+  assert.match(tb, /const enOrden = \[actual, \.\.\.funnels\.filter\(\(f\) => f\.id !== actual\.id\)\]/,
+    'el selector dejó de poner primero el producto que se está mirando');
+});
 test('⚠️ crear o eliminar un embudo NAVEGA DURO, no refresca', () => {
   // ⚠️ MEDIDO EN EL NAVEGADOR el 29/09/2026, y es lo que más costó de esta tanda: con
   // `router.push('/crm') + router.refresh()` la lista del selector quedaba SIEMPRE UN PASO

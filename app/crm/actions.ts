@@ -26,7 +26,7 @@ function bust(...tags: string[]) {
     /* no-op: la caché vence por TTL */
   }
 }
-import { contarLeadsDeFunnel,
+import { listLeadsDeFunnel, contarLeadsDeFunnel,
   createLead,
   vendedorUnicoDelWorkspace,
   updateLead,
@@ -2063,21 +2063,22 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
         activa: !sup.has(`${t.from}>${t.to}`),
       }));
 
-    // El nombre que la persona VE y cuántos leads hay acá. Los dos de la misma fuente que
-    // el resto de la pantalla, para que no digan una cosa distinta que el selector.
-    const [funnels, leads, diag] = await Promise.all([
-      listarFunnels().catch(() => []),
+    // ⚠️ ACÁ SE LLAMABA A `listarFunnels()` SÓLO PARA EL NOMBRE Y EL `es_default`, y eso son
+    // dos consultas más (la vista de productos y la tabla `productos`) en el camino crítico
+    // de abrir el pop-up. El `es_default` viaja en la MISMA fila que el pipeline, y el nombre
+    // que se muestra ya lo tiene la pantalla, que lo dibuja en el selector. Se reportó como
+    // «queda en cargando, no debería tardar nada eso».
+    const [leads, diag] = await Promise.all([
       contarLeadsDeFunnel(funnelId ?? null).catch(() => -1),
       getDiagnosticoFase().catch(() => null),
     ]);
-    const mio = funnels.find((f) => (funnelId != null ? f.id === funnelId : f.esDefault));
 
     return {
       ok: true,
       embudo: {
         id: funnelId ?? null,
-        nombre: mio?.producto?.trim() || mio?.nombre || cfg.nombre || 'Tu embudo',
-        esDefault: mio?.esDefault ?? funnelId == null,
+        nombre: cfg.nombre || 'Tu embudo',
+        esDefault: cfg.esDefault,
         leads,
         etapas: visibles.filter((st) => !esTerminal(st.key)).map(deStage),
         fijas: visibles.filter((st) => esTerminal(st.key)).map(deStage),
@@ -2097,6 +2098,47 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
   }
 }
 
+/**
+ * Cuántos leads hay en cada etapa de un embudo.
+ *
+ * ⚠️ VA APARTE DE `embudoEnDetalleAction`, y no es prolijidad: la etapa de un lead se
+ * DERIVA (`deriveStageKey` es un switch sobre sus columnas, no una columna de la tabla),
+ * así que contar exige TRAER los leads. Metido adentro de la lectura principal, el pop-up
+ * no abriría hasta que terminara — y «queda en cargando» es lo que se reportó.
+ *
+ * El pop-up abre con lo que necesita y esto llega después. Hasta que llega, quitar una
+ * etapa PREGUNTA: el default seguro es la fricción, nunca borrar sin avisar.
+ */
+export async function conteosDeEtapasAction(funnelId?: number): Promise<Record<string, number>> {
+  try {
+    const [leads, cfg] = await Promise.all([
+      listLeadsDeFunnel(funnelId ?? null),
+      funnelId != null ? getFunnelDe(funnelId) : getFunnelDefault(),
+    ]);
+    // ⚠️ TODAS LAS ETAPAS ARRANCAN EN 0, y esto no es cosmética. Contando sólo lo que
+    // aparece, una etapa VACÍA no entra al mapa y el lector recibe `undefined` — que la
+    // pantalla interpreta, con razón, como «no pude contar» y pregunta. O sea que la
+    // fricción que se pidió sacar («si no tiene ningún lead, nada de fricción») volvía
+    // justo en el único caso donde no tiene que estar. Clave ausente y valor cero no son
+    // lo mismo, y acá la diferencia es toda la feature.
+    const out: Record<string, number> = {};
+    for (const st of cfg.stages) out[st.key] = 0;
+    // ⚠️ `deriveStageKey` es un switch PURO sobre las columnas del lead: no mira el funnel.
+    // Por eso un lead puede caer en una clave que ESTE embudo ya no tiene — y eso está bien,
+    // es lo que el tablero marca como «fuera del embudo». Acá suma igual: lo que se pregunta
+    // es si quitar la etapa deja gente afuera, y un lead en una clave huérfana ya lo está.
+    for (const l of leads) {
+      const k = deriveStageKey(l as unknown as StageDerivable);
+      out[k] = (out[k] ?? 0) + 1;
+    }
+    return out;
+  } catch (e) {
+    console.error('[crm] conteosDeEtapasAction:', e instanceof Error ? e.message : e);
+    // ⚠️ Un error NO es «cero leads en todas»: devolverlo así haría que la pantalla borrara
+    // sin preguntar sobre etapas llenas. Vacío se lee como «no sé», y «no sé» pregunta.
+    return {};
+  }
+}
 /**
  * Renombra el embudo que el pop-up está mostrando.
  *
@@ -2189,6 +2231,15 @@ export async function embudosArchivadosAction(): Promise<Array<{ id: number; nom
 export type OpEtapa =
   | { op: 'renombrar'; key: string; label: string }
   | { op: 'eliminar'; key: string }
+  /**
+   * Devolver una etapa que se acaba de quitar, TAL CUAL ESTABA.
+   *
+   * ⚠️ NO ES `agregar` OTRA VEZ. `agregar` acuña una clave nueva, y la clave es lo que ata
+   * a los leads a su etapa: deshacer con ella devolvería una columna con el mismo nombre y
+   * los leads afuera, que es peor que no deshacer. Acá vuelve la MISMA clave, en la MISMA
+   * posición.
+   */
+  | { op: 'insertar'; etapa: { key: string; label: string; dot?: string; kind?: string }; at: number }
   | { op: 'agregar'; despuesDe?: string; label?: string }
   /**
    * Apagar o encender una nutrición. `id` es `"desde>hacia"`, la misma clave que vive en
@@ -2208,10 +2259,26 @@ export type OpEtapa =
    * la copia que sigue al cursor, el auto-scroll y el hueco de destino —las tres reglas
    * de esta casa sobre el drag— para un gesto que casi nadie va a hacer dos veces.
    */
-  | { op: 'mover'; key: string; delta: -1 | 1 };
+  | { op: 'mover'; key: string; delta: -1 | 1 }
+  /**
+   * El orden COMPLETO de las etapas propias, tal como quedó después de arrastrar.
+   *
+   * ⚠️ NO ES «mandar el pipeline». Viajan sólo las CLAVES, y el server reordena el
+   * pipeline que ya tiene: nada de lo que la derivación agrega o quita depende de lo que
+   * mande el navegador, y una clave que no exista se ignora. Un arrastre puede mover una
+   * etapa varios lugares de una, y hacerlo con N `mover` sería N escrituras.
+   */
+  | { op: 'reordenar'; keys: string[] };
 
-export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise<{ ok: true } | { ok: false; error: string }> {
+/** Lo que hace falta para DESHACER un quitado: la etapa entera y dónde estaba. */
+export type DeshacerEtapa = { etapa: { key: string; label: string; dot?: string; kind?: string }; at: number };
+
+export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise<{ ok: true; deshacer?: DeshacerEtapa } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el funnel.' };
+  // ⚠️ FUERA DEL `try`, a propósito: declarado adentro, el `return` de abajo no lo puede
+  // nombrar. Es la misma trampa de scope que ya costó cobrarle dos veces a un cliente en el
+  // puente a Flow, y acá lo que se perdería es el deshacer de una etapa borrada.
+  let deshacer: DeshacerEtapa | undefined;
   try {
     const actual = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
     // ⚠️ El mismo guard que `declararEntradasAction`: con la lectura en ERROR lo que se lee
@@ -2235,8 +2302,34 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       if (!pipeline.some((st) => st.key === op.key)) {
         return { ok: false, error: 'Esa etapa no es del pipeline: no se puede eliminar, solo renombrar.' };
       }
-      if (pipeline.length <= 1) return { ok: false, error: 'Tu funnel se quedaría sin etapas.' };
+      if (pipeline.length <= 1) return { ok: false, error: 'Tu embudo se quedaría sin etapas.' };
+      // Lo que se saca viaja de vuelta para poder DESHACERLO sin fricción: es la decisión de
+      // Martín (29/09), «si no tiene ningún lead no debería haber nada de fricción, sólo que
+      // me salte el pop-up de deshacer». Sin esto, deshacer tendría que acuñar una clave nueva.
+      const iQuita = pipeline.findIndex((st) => st.key === op.key);
+      const quitada = pipeline[iQuita];
+      deshacer = { etapa: { key: quitada.key, label: quitada.label, dot: quitada.dot, kind: quitada.kind }, at: iQuita };
       pipeline = pipeline.filter((st) => st.key !== op.key);
+    } else if (op.op === 'reordenar') {
+      // Las claves que el navegador mandó, en su orden, y SÓLO las que existen.
+      const vistas = new Set<string>();
+      const ordenadas: Stage[] = [];
+      for (const k of op.keys) {
+        const st = pipeline.find((x) => x.key === k);
+        if (st && !vistas.has(k)) { vistas.add(k); ordenadas.push(st); }
+      }
+      // ⚠️ Y LO QUE EL NAVEGADOR NO NOMBRÓ SE CONSERVA, al final. El pop-up sólo dibuja las
+      // etapas propias, así que `ganado` —que vive en el pipeline y no se arrastra— nunca
+      // viaja en la lista: sin esto, un arrastre la borraría del embudo.
+      for (const st of pipeline) if (!vistas.has(st.key)) ordenadas.push(st);
+      pipeline = ordenadas;
+    } else if (op.op === 'insertar') {
+      // El deshacer de un quitado. Si la clave ya volvió por otro lado, no se duplica.
+      if (pipeline.some((st) => st.key === op.etapa.key)) return { ok: true };
+      const vuelveLabel = op.etapa.label.trim().slice(0, MAX_LABEL_ETAPA) || 'Etapa';
+      const vuelve = { key: op.etapa.key, label: vuelveLabel, dot: op.etapa.dot ?? '#5B6472', tone: 'neutral', kind: op.etapa.kind ?? 'paso' } as Stage;
+      const at = Math.max(0, Math.min(op.at, pipeline.length));
+      pipeline = [...pipeline.slice(0, at), vuelve, ...pipeline.slice(at)];
     } else if (op.op === 'nutricion') {
       // El id se valida contra las nutriciones que ESTE pipeline puede tener, y no se
       // acepta crudo: `suppressed` es texto libre en un jsonb, así que sin esto se puede
@@ -2301,7 +2394,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/funnel');
-  return { ok: true };
+  return { ok: true, deshacer };
 }
 /**
  * Declara CÓMO ENTRA la gente a este negocio (y, si corresponde, dónde y cuándo

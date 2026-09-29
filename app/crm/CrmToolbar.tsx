@@ -27,7 +27,8 @@ import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from
 const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
 import { CANALES } from '@/lib/fase-diagnostico';
-import { crearProductoAction, embudosArchivadosAction, restaurarEmbudoAction } from './actions';
+import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
+import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction } from './actions';
 
 const SANS = "'Geist', sans-serif";
 
@@ -526,7 +527,11 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // ⚠️ Y SE ABRE EL DE ESA FILA, no el del tablero. Desde «Curso» se puede editar el
   // embudo de «Mentoria» sin cambiar de tablero: por eso el pop-up va a buscar las etapas
   // del funnel que se le nombra en vez de usar las que la pantalla ya tiene.
-  const opciones: DropdownOption[] = funnels.map((f) => ({
+  // ⚠️ EL QUE SE ESTÁ MIRANDO VA PRIMERO: «el producto que estoy parado debería estar
+  // primero en las opciones». Es el ancla de la lista — abrir un desplegable y tener que
+  // buscar dónde quedó lo que ya está elegido es trabajo que la pantalla puede ahorrar.
+  const enOrden = [actual, ...funnels.filter((f) => f.id !== actual.id)];
+  const opciones: DropdownOption[] = enOrden.map((f) => ({
     value: String(f.id),
     label: comoSeLlama(f),
     acciones: [{
@@ -608,17 +613,26 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   // las etapas de otro negocio sin darse cuenta — que es exactamente el bug que esto viene
   // a cerrar, con un paso más de por medio. Se elige, o no hay producto.
   const [canal, setCanal] = useState<string>('');
+  // ⚠️ CÓMO ENTRA LA GENTE SE PREGUNTA ACÁ, al crear el producto. Era una subtab del
+  // pop-up y se mudó: «eso debería estar como un paso al momento de crear un nuevo
+  // producto». Sigue editándose después, desde el desplegable de la tab de etapas.
+  const [entradas, setEntradas] = useState<EntradaId[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, startGuardar] = useTransition();
 
   const crear = () => {
     const n = nombre.trim();
     if (!n) { setErr('Ponle un nombre al producto.'); return; }
-    if (!canal) { setErr('Elige cómo vendes este producto: de ahí salen las etapas de su tablero.'); return; }
+    if (!canal) { setErr('Elige cómo lo vendes: de ahí salen las etapas de su tablero.'); return; }
+    if (!entradas.length) { setErr('Elige cómo te llega la gente.'); return; }
     setErr(null);
     startGuardar(async () => {
       const r = await crearProductoAction(n, canal);
       if ('error' in r) { setErr(r.error); return; }
+      // Las entradas se declaran DESPUÉS de que el embudo existe: son suyas, no del
+      // negocio, y hasta que hay fila no hay dónde escribirlas. Si esto falla, el
+      // producto igual quedó creado — se declara desde su desplegable.
+      await declararEntradasAction(entradas, null, r.funnelId).catch(() => {});
       onCreado(r.funnelId);
     });
   };
@@ -626,7 +640,10 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   return (
     <Modal
       titulo="Nuevo producto"
-      ancho={440}
+      // ⚠️ 560 Y NO 440: «está exageradamente finito ese modal». Con tres preguntas
+      // adentro —el nombre, cómo se vende y cómo entra la gente— 440 dejaba cada opción
+      // en dos renglones.
+      ancho={560}
       onCerrar={onCerrar}
       pie={(<>
         <button type="button" onClick={onCerrar} style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
@@ -642,7 +659,10 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
           type="text" value={nombre} autoFocus
           onChange={(e) => setNombre(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !guardando) crear(); }}
-          placeholder="Sistema DOS™"
+          // ⚠️ EL PLACEHOLDER NO NOMBRA A UN CLIENTE. Decía «Sistema DOS™», que es el
+          // producto de Mauricio: «eso está muy mal. Jamás lo hagas». Un ejemplo tiene
+          // que ser genérico, o no ser un ejemplo.
+          placeholder="Mentoría, curso, consultoría…"
           style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' }}
         />
       </label>
@@ -670,18 +690,35 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
               }}
             >
               <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{c.label}</span>
-              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>{c.desc}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Lo que pasa al confirmar, pegado al botón. Ahora dice las DOS cosas que importan:
-          que el tablero arranca vacío (era la queja: «se cargó todo lleno en lugar de
-          vacío») y que el CRM salta a él. */}
-      <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '14px 0 0', lineHeight: 1.5 }}>
-        Nace con sus propias etapas y <strong style={{ color: 'var(--dim)' }}>sin ningún lead</strong>. El CRM se cambia a él.
-      </p>
+      {/* ⚠️ LA TERCERA PREGUNTA, y es la que estaba en una subtab del pop-up: cómo LLEGA
+          la gente. Es un hecho del negocio y quien crea el producto lo sabe. De acá salen
+          los audios que MaKo pide y lo que dice en la primera frase — sin esto se abstiene
+          de escribir, que es lo correcto y también lo que se lee como que no anda. */}
+      <div style={{ marginTop: 16 }}>
+        <span style={{ display: 'block', fontSize: 12.5, marginBottom: 8, color: 'var(--dim)' }}>¿Cómo te llega la gente? <span style={{ color: 'var(--faint)' }}>Hasta tres.</span></span>
+        <div style={{ display: 'grid', gap: 6 }}>
+          {ENTRADAS_OFRECIDAS.map((id) => ENTRADAS[id]).map((e) => {
+            const on = entradas.includes(e.id);
+            return (
+              <button key={e.id} type="button" aria-pressed={on}
+                onClick={() => { setErr(null); setEntradas((p) => (p.includes(e.id) ? p.filter((x) => x !== e.id) : [...p, e.id].slice(0, 3))); }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+                  padding: '10px 13px', borderRadius: 10, fontFamily: SANS,
+                  border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
+                  background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
+                }}>
+                <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{e.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       {err && (
         <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
       )}

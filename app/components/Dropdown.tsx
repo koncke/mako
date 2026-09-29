@@ -45,10 +45,13 @@ function renderOption(
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: 'block', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+        <span style={{ display: 'block', fontWeight: on ? 700 : 600, color: on ? 'var(--ink)' : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
         {!enColumna && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
       </span>
-      {on && <span style={{ flex: 'none', color: 'var(--primary)', fontSize: 13 }}>✓</span>}
+      {/* ⚠️ ACÁ HABÍA UN ✓ y se fue el 29/09/2026: «no pongas un check, solo haz que sea
+          más notorio que estamos parados en ese producto». Lo elegido ya se dice DOS veces
+          —el renglón lleva su fondo y su texto en tinta fuerte, y el botón de arriba lo
+          muestra escrito—: el tilde era un tercer portador del mismo dato. */}
     </>
   );
   const estilo: CSSProperties = {
@@ -107,7 +110,9 @@ function renderOption(
           // desaparece — que se lee como que no pasó nada.
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); }}
           onMouseDown={(e) => e.stopPropagation()}
-          style={{ flex: 'none', width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', color: a.tone === 'bad' ? 'var(--bad)' : 'var(--dim)' }}>
+          // ⚠️ SIN RECUADRO: «pon solo el lápiz, no un recuadro alrededor del lápiz». Un
+          // borde por renglón convierte una lista de cuatro productos en ocho cajas.
+          style={{ flex: 'none', width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: a.tone === 'bad' ? 'var(--bad)' : 'var(--faint)' }}>
           {a.icono}
         </button>
       ))}
