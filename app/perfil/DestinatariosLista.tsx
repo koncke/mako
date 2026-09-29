@@ -34,11 +34,6 @@ const inputStyle: CSSProperties = {
   border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--ink)', fontSize: 14, fontFamily: SANS,
 };
-const btnGhost: CSSProperties = {
-  padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)',
-  background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS,
-  fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-};
 const labelStyle: CSSProperties = {
   fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase',
   color: 'var(--dim)', marginBottom: 8, display: 'block',
@@ -77,12 +72,14 @@ export function paraLeer(tipo: 'tel' | 'email', v: string): string {
  *      sumar a ningún grupo.
  *   2. El botón «Agregar» ya NO se deshabilita: **dice por qué no puede**. Un
  *      botón gris que no responde y no explica es indistinguible de uno roto.
- *   3. Lo escrito y no agregado SE AVISA (`onBorrador`), porque antes se perdía
- *      entero al guardar: escribir el número y darle a Guardar —sin tocar
- *      «Agregar»— dejaba la lista igual, el botón deshabilitado por no estar
- *      «sucia», y ni un mensaje.
+ *   3. Lo escrito y no agregado ya no se puede perder EN UN GUARDADO, porque no hay
+ *      guardado: el tilde confirma y guarda de una. Antes había un «Guardar» aparte y
+ *      escribir el número sin tocar «Agregar» dejaba la lista igual, el botón
+ *      deshabilitado por no estar «sucia», y ni un mensaje. Lo que queda de ese
+ *      riesgo —escribir y creer que quedó— lo cubre el tilde, que se pinta cuando hay
+ *      algo esperando.
  */
-export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, onBorrador, portalTo }: {
+export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, portalTo }: {
   /**
    * El rótulo de arriba, en versalitas. OPCIONAL, y sin él es otra cosa: ese
    * tratamiento (MONO 10.5 uppercase) es el que la casa usa para abrir una SECCIÓN,
@@ -99,8 +96,6 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
    */
   sub?: string; items: string[]; onChange: (v: string[]) => void;
   placeholder: string; icono: string; tipo: 'tel' | 'email';
-  /** Lo tipeado y todavía no agregado, para que el guardado no lo pierda. */
-  onBorrador: (v: string) => void;
   portalTo: HTMLElement | null;
 }) {
   const [nuevo, setNuevo] = useState('');
@@ -114,8 +109,11 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
   const valido = tipo === 'tel' ? telefonoValido(compuesto) : emailValido(compuesto);
   const yaEsta = items.some((v) => (tipo === 'tel' ? v.replace(/\D/g, '') === compuesto : v.trim().toLowerCase() === compuesto.toLowerCase()));
 
-  const escribir = (v: string) => { setNuevo(v); setMotivo(null); onBorrador(v.trim() ? compuestoDe(tipo, lada, v) : ''); };
-  const cambiarLada = (v: string) => { setLada(v); setMotivo(null); onBorrador(nuevo.trim() ? unirTelefono(v, nuevo) : ''); };
+  /** Hay algo escrito y válido, esperando el tilde. Lo que lo pinta. */
+  const pendiente = Boolean(nuevo.trim()) && valido && !yaEsta;
+
+  const escribir = (v: string) => { setNuevo(v); setMotivo(null); };
+  const cambiarLada = (v: string) => { setLada(v); setMotivo(null); };
 
   const agregar = () => {
     if (!nuevo.trim()) {
@@ -133,7 +131,7 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
     }
     if (yaEsta) { setMotivo('Ese ya está en la lista.'); return; }
     onChange([...items, compuesto]);
-    setNuevo(''); setMotivo(null); onBorrador('');
+    setNuevo(''); setMotivo(null);
   };
 
   return (
@@ -193,8 +191,34 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
             />
           )}
         </div>
-        {/* Sin `disabled`: el botón contesta SIEMPRE, y cuando no puede dice por qué. */}
-        <button type="button" onClick={agregar} style={btnGhost}>Agregar</button>
+        {/*
+          El tilde reemplaza al botón «Agregar» y al «Guardar» que había abajo: acá se
+          confirma y se guarda, en un solo gesto.
+
+          ⚠️ SIN `disabled`, igual que antes: el botón contesta SIEMPRE, y cuando no
+          puede dice por qué. Un botón gris que no responde y no explica es
+          indistinguible de uno roto — es el reporte que originó todo esto.
+
+          ⚠️ Y SE PRENDE CUANDO HAY ALGO ESCRITO SIN CONFIRMAR. Al sacar el «Guardar»
+          apareció un riesgo que antes no existía: alguien escribe un número, no toca
+          nada más y se va creyendo que quedó — no hay ningún botón pendiente que se lo
+          recuerde. El tilde en color ES ese recordatorio.
+        */}
+        <button
+          type="button" onClick={agregar}
+          aria-label={tipo === 'tel' ? 'Agregar este número' : 'Agregar este email'}
+          title={pendiente ? 'Agregar' : 'Escribe uno para agregarlo'}
+          style={{
+            flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 38, height: 38, borderRadius: 9, cursor: 'pointer',
+            border: `1px solid ${pendiente ? 'var(--primary)' : 'var(--border-strong)'}`,
+            background: pendiente ? 'var(--primary)' : 'var(--surface)',
+            color: pendiente ? '#fff' : 'var(--faint)',
+            transition: 'background .13s, border-color .13s, color .13s',
+          }}
+        >
+          <Icon name="check" size={17} />
+        </button>
       </div>
 
       {motivo && (

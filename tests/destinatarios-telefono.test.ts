@@ -113,16 +113,36 @@ test('Sumar al grupo ya no se falla en silencio', () => {
 });
 
 test('Ningún camino del editor rechaza sin decir por qué', () => {
-  const src = leer('../app/perfil/DestinatariosCanal.tsx');
-  // «Agregar» ya no se apaga: contesta siempre, y cuando no puede explica.
-  assert.ok(!/onClick=\{agregar\} disabled=/.test(src),
-    'el botón Agregar volvió a deshabilitarse: un botón gris que no explica es igual a uno roto');
-  // «Guardar» solo se apaga mientras guarda.
-  assert.ok(/onClick=\{guardar\} disabled=\{busy\}/.test(src),
-    'Guardar volvió a apagarse por `!dirty`: ese era el camino mudo que reportó el cliente');
-  // Y lo escrito sin tocar «Agregar» no se tira.
-  assert.ok(src.includes('onBorrador'),
-    'el editor volvió a perder lo tipeado y no agregado al guardar');
+  // ⚠️ ESTE TEST SE MUDÓ CON LA PIEZA QUE GUARDABA. El «Guardar» se retiró el
+  // 29/09/2026 («que el botón de Guardar no exista, para eso sólo un check al final
+  // del input»), así que sus dos assertions —que sólo se apagara mientras guarda, y
+  // que el borrador no se perdiera AL GUARDAR— quedaron sin sujeto. Dejarlas mirando
+  // un botón que ya no existe es un test en verde sobre código que nadie puede
+  // tocar; borrarlas sin más es perder la guarda del camino mudo que las originó.
+  // Lo que se conserva es la PREGUNTA, contra lo que hoy ocupa su lugar.
+  //
+  // Probado rompiendolo: con un disabled en el tilde -> 10 pasan / 1 falla ('el boton
+  // de agregar volvio a deshabilitarse'); renombrando 'pendiente' -> 10 / 1 ('el tilde
+  // dejo de avisar que hay algo escrito sin confirmar'). Restaurado: 11 / 0.
+  const lista = leer('../app/perfil/DestinatariosLista.tsx');
+  const canal = leer('../app/perfil/DestinatariosCanal.tsx');
+
+  // 1. El tilde contesta SIEMPRE: un botón gris que no explica es igual a uno roto.
+  assert.ok(!/onClick=\{agregar\}[^>]*disabled/.test(lista),
+    'el botón de agregar volvió a deshabilitarse: ése es el camino mudo que reportó el cliente');
+  assert.ok(/setMotivo\(/.test(lista), 'se perdió el motivo: rechazar sin decir por qué es el bug original');
+
+  // 2. Y se PINTA cuando hay algo escrito sin confirmar. Es lo único que queda del
+  //    riesgo que cubría el borrador: sin «Guardar», nadie te recuerda que lo
+  //    tipeado todavía no entró.
+  assert.ok(/const pendiente = /.test(lista),
+    'el tilde dejó de avisar que hay algo escrito sin confirmar');
+  assert.ok(/background: pendiente \?/.test(lista),
+    'el tilde ya no cambia de estado con lo pendiente: vuelve «lo escribí y creí que quedó»');
+
+  // 3. Y el resultado del guardado se dice, incluido el que falla solo.
+  assert.ok(/setError\(/.test(canal) && /Guardado/.test(canal),
+    'el editor dejó de decir si guardó o no');
 });
 
 test('Se ACTÚA con la forma del número que WhatsApp reconoce, no con la tipeada', () => {

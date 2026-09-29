@@ -48,10 +48,11 @@ const ENDPOINT = '/api/perfil/plantillas';
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-// `alignItems: start` para que abrir un canal NO estire a los otros dos: sin esto,
-// el tile abierto define el alto de la fila y los vecinos quedan con medio metro de
-// vacío abajo.
-const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12, alignItems: 'start' };
+// Sin `alignItems`, o sea ESTIRADOS: los tres miden lo mismo siempre, que es lo que
+// pidió el dueño. Lo que lo hace posible es que ya no haya nada que se abra y cierre
+// adentro —la configuración de destinatarios se ve siempre—, así que el alto de la
+// fila no salta al tocar un botón. El pie de cada tile se alinea con `marginTop:auto`.
+const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 };
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
 
@@ -68,14 +69,22 @@ function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
   titulo: string; detalle?: string; children?: ReactNode;
 }) {
   return (
+    // `height: 100%` para llenar la celda que la grilla ya estiró, y flex en columna
+    // para que el pie pueda irse abajo. Sin el 100%, el tile mide su contenido y el
+    // borde queda flotando a media celda.
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px',
+      // ⚠️ SIN alignItems: con flex-start el hijo NO estira, se encoge al contenido,
+      // y entonces el marginTop:auto del pie no tiene sobrante que empujar — el botón
+      // del tile más corto quedaba flotando a media celda. El ícono se abstiene solo,
+      // con su alignSelf.
+      display: 'flex', gap: 11, padding: '13px 15px', height: '100%',
+      boxSizing: 'border-box',
       borderRadius: 12, background: sombra ? 'var(--surface)' : 'var(--surface-2)',
       border: `1px solid ${borde ?? 'var(--border)'}`,
       boxShadow: sombra ?? 'none',
     }}>
-      <span style={{ display: 'flex', color, flex: 'none', marginTop: 1 }}><Icon name={icono} size={19} /></span>
-      <div style={{ minWidth: 0, flex: 1 }}>
+      <span style={{ display: 'flex', color, flex: 'none', alignSelf: 'flex-start', marginTop: 1 }}><Icon name={icono} size={19} /></span>
+      <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
         {detalle && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>}
         {children}
@@ -85,18 +94,21 @@ function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
 }
 
 /**
- * Tile de un canal: qué es, a dónde llega, el botón que lo abre — y, abierto, el
- * editor de sus destinatarios ADENTRO.
+ * Tile de un canal: qué es, a quién le llega —con su editor SIEMPRE a la vista— y,
+ * al pie, el botón que abre sus mensajes debajo de la fila.
  *
- * Adentro y no debajo por pedido del dueño: «que agregar un número, o email, se haga
- * en el mismo recuadro de WhatsApp y Email». Y es lo correcto: el tile dice a quién
- * le llega y el editor cambia exactamente eso, así que separarlos obligaba a leer
- * cuál de los dos canales estabas editando.
+ * ⚠️ EL EDITOR NO SE ABRE NI SE CIERRA. Estuvo un rato detrás de «Gestionar» y el
+ * dueño lo cortó: «la configuración de número e email, siempre abierta». Y arregla
+ * algo que no era de gusto — un tile que crece al tocarlo hace saltar el alto de
+ * toda la fila, que es justo lo contrario de «todos siempre la misma altura».
+ *
+ * Lo que el botón abre es OTRA cosa: los mensajes de ese canal, que viven debajo del
+ * recuadro. Por eso dice «Gestionar notificaciones» y no «Gestionar» a secas: nombra
+ * su objeto, y así no promete tocar los destinatarios que ya están arriba.
  */
-function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto, editor }: {
-  icono: string; color: string; nombre: string; detalle: string;
-  accion: { label: string; onClick: () => void }; alerta?: boolean; abierto?: boolean;
-  editor?: ReactNode;
+function TileCanal({ icono, color, nombre, detalle, alerta, abierto, onToggle, editor }: {
+  icono: string; color: string; nombre: string; detalle?: string;
+  alerta?: boolean; abierto?: boolean; onToggle: () => void; editor: ReactNode;
 }) {
   return (
     <Tile
@@ -105,10 +117,12 @@ function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto, edi
       borde={abierto ? 'var(--primary)' : alerta ? 'var(--warn)' : undefined}
       sombra={abierto ? '0 0 0 3px var(--primary-bg)' : undefined}
     >
-      <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>
-        {abierto ? 'Cerrar' : accion.label}
+      {editor}
+      {/* `marginTop: auto` lo empuja al piso del tile: con los tres estirados al mismo
+          alto, los dos botones quedan a la misma altura sin calcular nada. */}
+      <button type="button" onClick={onToggle} style={{ ...btnLink, marginTop: 'auto', paddingTop: 12, textAlign: 'left' }}>
+        {abierto ? 'Cerrar' : 'Gestionar notificaciones'}
       </button>
-      {abierto && editor}
     </Tile>
   );
 }
@@ -310,22 +324,22 @@ export function NotificacionesPanel() {
           {/* Primero lo de la app: es lo único que pasa acá mismo y no se manda a
               nadie, así que leerlo antes que los canales ordena la pantalla. */}
           <TileEnLaApp prefs={inApp} onChange={(id, c, v) => void setItem(id, c, v)} flash={flash} />
+          {/* El detalle ya NO repite la lista: con los destinatarios a la vista, decir
+              «1 número» o la dirección debajo del título era el mismo dato dos veces.
+              Queda lo que la lista no cuenta — que WhatsApp va al grupo— y el aviso
+              cuando no hay nadie, que es cuando la lista está vacía y no dice nada. */}
           <TileCanal
             icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
             alerta={!hayWa} abierto={canal === 'whatsapp'}
-            detalle={hayWa
-              ? `${tieneGrupo ? 'Al grupo de MaKo · ' : ''}${dest.telefonos.length === 1 ? '1 número' : `${dest.telefonos.length} números`}`
-              : 'Sin conectar — MaKo no puede avisar por aquí'}
-            accion={{ label: hayWa ? 'Gestionar' : 'Conectar', onClick: () => setCanal((c) => (c === 'whatsapp' ? null : 'whatsapp')) }}
+            detalle={hayWa ? (tieneGrupo ? 'Al grupo de MaKo' : undefined) : 'Sin conectar — MaKo no puede avisar por aquí'}
+            onToggle={() => setCanal((c) => (c === 'whatsapp' ? null : 'whatsapp'))}
             editor={<DestinatariosCanal key="whatsapp" canal="whatsapp" inicial={dest} onGuardado={guardarDest} />}
           />
           <TileCanal
             icono="email" color={hayMail ? 'var(--primary)' : 'var(--warn)'} nombre="Email"
             alerta={!hayMail} abierto={canal === 'email'}
-            detalle={hayMail
-              ? (dest.emails.length === 1 ? dest.emails[0] : `${dest.emails.length} direcciones`)
-              : 'Sin conectar — falta una dirección'}
-            accion={{ label: hayMail ? 'Gestionar' : 'Agregar', onClick: () => setCanal((c) => (c === 'email' ? null : 'email')) }}
+            detalle={hayMail ? undefined : 'Sin conectar — falta una dirección'}
+            onToggle={() => setCanal((c) => (c === 'email' ? null : 'email'))}
             editor={<DestinatariosCanal key="email" canal="email" inicial={dest} onGuardado={guardarDest} />}
           />
         </div>
