@@ -33,6 +33,7 @@ import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } 
 import { NOTIF_IN_APP, inAppActivo, type NotifInApp, type NotifInAppDef } from '@/lib/notif-catalogo';
 import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
 import { Icon } from '../_components/icons';
+import { CanalToggle } from '../_components/CanalToggle';
 import { type Destinatarios } from './DestinatariosLista';
 import { DestinatariosCanal } from './DestinatariosCanal';
 import { PlantillasView } from '../agencia/PlantillasView';
@@ -60,7 +61,8 @@ const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(au
  */
 function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
   icono: string; color: string; borde?: string; sombra?: string;
-  titulo: string; detalle: string; children?: ReactNode;
+  /** A dónde llega. OPCIONAL: lo de la app no va a ningún lado, así que no lo lleva. */
+  titulo: string; detalle?: string; children?: ReactNode;
 }) {
   return (
     <div style={{
@@ -72,7 +74,7 @@ function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
       <span style={{ display: 'flex', color, flex: 'none', marginTop: 1 }}><Icon name={icono} size={19} /></span>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
-        <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>
+        {detalle && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>}
         {children}
       </div>
     </div>
@@ -95,54 +97,6 @@ function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto }: {
         {abierto ? 'Cerrar' : accion.label}
       </button>
     </Tile>
-  );
-}
-
-/**
- * El interruptor de lo que pasa en ESTE navegador. Deliberadamente callado: sin
- * caja, sin relleno de color, sin ícono de canal. Lo único que cambia al prenderlo
- * es un punto y el peso del texto.
- *
- * El punto no es decoración: es lo que hace que encendido y apagado no se
- * distingan SÓLO por el color (regla de la casa). Y va como `role="switch"` con el
- * nombre de la fila adentro del `aria-label`, o el lector de pantalla anuncia
- * cuatro botones que dicen «Pop-up», «Sonido», «Pop-up», «Sonido» sin decir de cuál
- * aviso — que es exactamente lo que se pierde al cambiar de control sin mirar.
- */
-function Interruptor({ label, fila, on, na, onChange }: {
-  label: string; fila: string; on: boolean; na?: boolean; onChange: (v: boolean) => void;
-}) {
-  if (na) {
-    return (
-      <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 2px', fontFamily: SANS, fontSize: 12, color: 'var(--faint)' }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', border: '1px dashed var(--border-strong)' }} />
-        <span style={{ textDecoration: 'line-through', textDecorationThickness: 1 }}>{label}</span>
-      </span>
-    );
-  }
-  return (
-    <button
-      type="button" role="switch" aria-checked={on}
-      aria-label={`${label} para ${fila}`}
-      title={`${label}: ${on ? 'activado' : 'desactivado'}`}
-      data-estado={on ? 'on' : 'off'}
-      onClick={() => onChange(!on)}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 26, padding: '4px 2px',
-        border: 'none', background: 'transparent', cursor: 'pointer',
-        fontFamily: SANS, fontSize: 12, fontWeight: on ? 600 : 500,
-        color: on ? 'var(--ink)' : 'var(--faint)',
-        transition: 'color .13s',
-      }}
-    >
-      <span style={{
-        width: 7, height: 7, borderRadius: '50%', flex: 'none',
-        background: on ? 'var(--primary)' : 'transparent',
-        border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
-        transition: 'background .13s, border-color .13s',
-      }} />
-      {label}
-    </button>
   );
 }
 
@@ -172,8 +126,21 @@ function AvisoEnLaApp({ def, prefs, onChange }: {
       <span title={def.sub} style={{ fontSize: 12.5, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }}>
         {def.titulo}
       </span>
-      <Interruptor label="Pop-up" fila={def.titulo} on={inAppActivo(prefs, def.id, 'popup')} onChange={(v) => onChange('popup', v)} />
-      <Interruptor label="Sonido" fila={def.titulo} na={!def.sonido} on={inAppActivo(prefs, def.id, 'sonido')} onChange={(v) => onChange('sonido', v)} />
+      {/* ⚠️ EL MISMO CHIP QUE EL RESTO DE LA TAB, no uno propio. Vivieron un rato como
+          texto con un punto, por el pedido de que no se vieran igual que los tiles de
+          WhatsApp y Email — y lo que los distingue no es la forma sino el COLOR del
+          canal: éstos son dorados y los de un mensaje, verdes y azules. Con la forma
+          compartida, el que mira aprende UNA vez qué es un interruptor acá adentro. */}
+      <CanalToggle
+        icono="bell" label="Pop-up" fila={def.titulo}
+        estado={inAppActivo(prefs, def.id, 'popup') ? 'on' : 'off'}
+        onChange={(v) => onChange('popup', v)}
+      />
+      <CanalToggle
+        icono="sonido" label="Sonido" fila={def.titulo}
+        estado={def.sonido ? (inAppActivo(prefs, def.id, 'sonido') ? 'on' : 'off') : 'na'}
+        onChange={(v) => onChange('sonido', v)}
+      />
     </>
   );
 }
@@ -192,7 +159,7 @@ function TileEnLaApp({ prefs, onChange, flash }: {
   prefs: NotifInApp; onChange: (id: string, canal: 'popup' | 'sonido', v: boolean) => void; flash: string | null;
 }) {
   return (
-    <Tile icono="bell" color="var(--primary)" titulo="Dentro de la app" detalle="Sólo en este navegador">
+    <Tile icono="bell" color="var(--primary)" titulo="Dentro de la app">
       {/* ⚠️ UNA SOLA GRILLA PARA LAS DOS FILAS, no un flex por fila. Con flex, cada
           renglón reparte su sobrante por su cuenta y las columnas salen desparejas —
           y peor: el rótulo cambia de PESO al prenderse, así que la fila se corría
@@ -201,7 +168,7 @@ function TileEnLaApp({ prefs, onChange, flash }: {
           se estira sola hasta el contenido más largo de las dos. */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
-        columnGap: 10, rowGap: 2, alignItems: 'center', marginTop: 6,
+        columnGap: 10, rowGap: 4, alignItems: 'center', marginTop: 8,
       }}>
         {NOTIF_IN_APP.map((n) => (
           <AvisoEnLaApp key={n.id} def={n} prefs={prefs} onChange={(c, v) => onChange(n.id, c, v)} />
