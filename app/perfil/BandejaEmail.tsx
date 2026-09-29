@@ -32,7 +32,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { TemplateDetalleModal, type PlantillaVista } from '../agencia/TemplateDetalleModal';
 import { renderEmailHtml } from '@/lib/email-html';
-import { canalesDeMensaje } from '@/lib/mensaje-canales';
+import { canalesDeMensaje, guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import { REMITENTE_MAKO } from '@/lib/app-url';
 
 const SANS = "'Geist', sans-serif";
@@ -67,6 +67,8 @@ export function BandejaEmail({ emails, endpoint }: { emails: string[]; endpoint:
   const [prefs, setPrefs] = useState<PrefsCanal | null>(null);
   const [sel, setSel] = useState<string>('');
   const [editando, setEditando] = useState<PlantillaVista | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [errorCanal, setErrorCanal] = useState<string | null>(null);
 
   const recargar = useCallback(async () => {
     try {
@@ -81,6 +83,15 @@ export function BandejaEmail({ emails, endpoint }: { emails: string[]; endpoint:
   }, [endpoint]);
 
   useEffect(() => { void recargar(); }, [recargar]);
+
+  /** Prender o apagar el email de ESTE mensaje. La tienda la decide el módulo. */
+  async function cambiarEmail(p: PlantillaVista, on: boolean) {
+    setGuardando(true); setErrorCanal(null);
+    const r = await guardarCanalDeMensaje(p.id, 'email', on, endpoint);
+    if (!r.ok) setErrorCanal(r.error ?? 'No se pudo guardar');
+    await recargar();   // la lista marca «no llega»: se relee, no se adivina
+    setGuardando(false);
+  }
 
   const de = useMemo(() => partirRemitente(REMITENTE_MAKO), []);
   const abierto = items?.find((p) => p.id === sel) ?? items?.[0] ?? null;
@@ -187,11 +198,32 @@ export function BandejaEmail({ emails, endpoint }: { emails: string[]; endpoint:
                 <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 1, wordBreak: 'break-word' }}>para {para}</div>
               </div>
             </div>
-            {!llegaPorMail(abierto) && (
-              <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--dim)' }}>
-                Hoy no llega por email. Se prende en «Editar» → Por dónde llega.
-              </div>
-            )}
+            {/*
+              EL INTERRUPTOR DE EMAIL VIVE ACÁ, y en ningún otro lado.
+              Estuvo un rato como un chip adentro del detalle, al lado de uno de
+              WhatsApp, y el dueño lo cortó dos veces: a este mensaje se ENTRA por un
+              canal —el tile de Email abre esta bandeja— así que preguntar el canal
+              adentro es decidir lo mismo dos veces. Acá la pregunta es una sola y no
+              se contradice con nada: ¿este correo llega, o no?
+            */}
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: guardando ? 'default' : 'pointer' }}>
+              <button
+                type="button" role="switch" aria-checked={llegaPorMail(abierto)} disabled={guardando}
+                aria-label={`Llega por email: ${abierto.titulo}`}
+                onClick={() => void cambiarEmail(abierto, !llegaPorMail(abierto))}
+                style={{
+                  width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, flex: 'none',
+                  background: llegaPorMail(abierto) ? 'var(--good)' : 'var(--border-strong)',
+                  cursor: guardando ? 'default' : 'pointer', transition: 'background .15s',
+                }}
+              >
+                <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: llegaPorMail(abierto) ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+              </button>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: llegaPorMail(abierto) ? 'var(--good)' : 'var(--dim)' }}>
+                {llegaPorMail(abierto) ? 'Llega por email' : 'No llega por email'}
+              </span>
+              {errorCanal && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--bad)' }}>{errorCanal}</span>}
+            </label>
           </div>
 
           {/* EL CORREO, renderizado de verdad. En un iframe y no con

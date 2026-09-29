@@ -24,9 +24,7 @@
 // el panel de al lado hubiera cambiado mientras tanto.
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import type { NotifPrefs, CanalPrefs } from '@/lib/perfil';
-import { claveDeReporte, canalesDeMensaje } from '@/lib/mensaje-canales';
-import { CanalToggle } from '../_components/CanalToggle';
+import type { NotifPrefs } from '@/lib/perfil';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -49,37 +47,20 @@ const ES_RESUMEN = 'avisos-resumen';
  * dice dónde va: adentro del mensaje, como un comando del texto.
  */
 
-export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas', onCanales }: {
-  id: string;
-  /** El nombre del mensaje, para que el lector de pantalla lea la fila completa. */
-  titulo: string;
-  /** Mismo protocolo, distinto guard: el del cliente o el de la agencia. */
-  endpoint?: string;
-  /** Avisa al padre que los canales cambiaron, para que refresque su lista. */
-  onCanales?: () => void;
-}) {
+export function PrefsDeMensaje({ id }: { id: string }) {
   const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
-  const [canales, setCanales] = useState<{ wa: boolean; email: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
-  const claveRep = claveDeReporte(id);
 
   useEffect(() => {
     let vivo = true;
-    // Las dos tiendas, en paralelo. La de plantillas también trae el texto y el
-    // interruptor, pero acá sólo se usa `canales`: el resto ya lo tiene el detalle.
-    void Promise.all([
-      fetch('/api/perfil').then((r) => r.json()).catch(() => null),
-      fetch(`${endpoint}?id=${encodeURIComponent(id)}`).then((r) => r.json()).catch(() => null),
-    ]).then(([jp, jt]) => {
+    void fetch('/api/perfil').then((r) => r.json()).catch(() => null).then((jp) => {
       if (!vivo) return;
-      const p = jp?.ok ? (jp.prefs as NotifPrefs) : null;
-      setPrefs(p);
-      setCanales(canalesDeMensaje(id, jt?.ok ? jt.plantilla : null, p));
+      setPrefs(jp?.ok ? (jp.prefs as NotifPrefs) : null);
     });
     return () => { vivo = false; };
-  }, [id, endpoint]);
+  }, []);
 
   async function guardarPrefs(cambio: (p: NotifPrefs) => NotifPrefs) {
     setBusy(true); setFlash(null);
@@ -100,38 +81,18 @@ export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas',
     } finally { setBusy(false); }
   }
 
-  /** El canal de un mensaje: a la tienda que le corresponda, decidida en un solo lugar. */
-  async function cambiarCanal(c: 'wa' | 'email', on: boolean) {
-    if (claveRep) {
-      // ⚠️ `activo` SE DERIVA de los canales, no se fuerza. Acá decía `activo: true`,
-      // así que tocar Email reencendía un reporte que el dueño había apagado — el
-      // segundo interruptor de siempre, esta vez escribiendo a escondidas. Un reporte
-      // está activo si sale por algún lado, y por ninguno es apagado.
-      await guardarPrefs((p) => {
-        const prev = p[claveRep] as CanalPrefs;
-        const sig = { ...prev, [c]: on };
-        return { ...p, [claveRep]: { ...sig, activo: sig.wa || sig.email } };
-      });
-      setCanales((v) => (v ? { ...v, [c]: on } : v));
-      onCanales?.();
-      return;
-    }
-    setBusy(true); setFlash(null);
-    try {
-      const j = await (await fetch(endpoint, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'canales', id, canales: { [c]: on } }),
-      })).json();
-      if (!j.ok) throw new Error(j.error || 'no se pudo guardar');
-      setCanales({ wa: j.plantilla?.canales?.wa ?? true, email: j.plantilla?.canales?.email ?? false });
-      setFlash('✓');
-      onCanales?.();
-    } catch (e) {
-      setFlash(e instanceof Error ? e.message : 'No se pudo guardar');
-    } finally { setBusy(false); }
-  }
-
-  if (!canales) return null;
+  // ⚠️ ACÁ ESTABAN LOS DOS CHIPS DE CANAL, y se fueron el 29/09/2026. El pedido llegó
+  // dos veces y la primera lo leí al revés: «no tiene sentido que diga Por dónde llega
+  // si justamente hay un gesto de email y otro de whatsapp» no era «sacale el rótulo»
+  // sino «sacalos» — lo confirmó el segundo mensaje: «sigue estando lo de email y
+  // whatsapp».
+  //
+  // Y tiene razón más allá del gusto: a este detalle se ENTRA por un canal (el tile de
+  // WhatsApp abre el chat, el de Email abre la bandeja), así que preguntar el canal
+  // adentro es decidir lo mismo dos veces, y en el segundo lugar contradice al primero.
+  // El interruptor de email vive ahora donde la pregunta es una sola: la bandeja de
+  // correo, sobre el mensaje abierto.
+  if (!prefs) return null;
 
   const lbl: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', display: 'block', marginBottom: 6 };
   const pill = (on: boolean): CSSProperties => ({
@@ -143,32 +104,6 @@ export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas',
 
   return (
     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div>
-        {/* Sin rótulo: «no tiene sentido que diga Por dónde llega si justamente hay un
-            gesto de email y otro de whatsapp». Un chip con el logo del canal y su
-            nombre ya dice de qué habla; el rótulo era el mismo dato en versalitas. */}
-        {/* ⚠️ El MISMO chip que los interruptores de canal del panel, no una copia con
-            los mismos números escritos a mano: acá había una réplica de la anatomía de
-            `CanalToggle` (radio 999, 12.5, el ✓, el dorado) que se dibujaba en esta misma
-            pantalla a un click de distancia de su gemelo. Dos cosas que tienen que verse
-            igual tienen que ser el mismo componente. */}
-        <div style={{ display: 'flex', gap: 7 }}>
-          <CanalToggle
-            icono="whatsapp" label="WhatsApp" fila={titulo}
-            estado={canales.wa ? 'on' : 'off'} onChange={(v) => void cambiarCanal('wa', v)}
-          />
-          <CanalToggle
-            icono="email" label="Email" fila={titulo}
-            estado={canales.email ? 'on' : 'off'} onChange={(v) => void cambiarCanal('email', v)}
-          />
-        </div>
-        {!canales.wa && !canales.email && (
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7, lineHeight: 1.45 }}>
-            Sin ningún canal no se manda. Queda guardado su texto.
-          </div>
-        )}
-      </div>
-
       {prefs && id === ES_RESUMEN && (
         <div>
           <label style={lbl}>Cuándo llegan los que no son urgentes</label>

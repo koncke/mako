@@ -49,3 +49,50 @@ export function canalesDeMensaje(
   if (k && prefs?.[k]) return { wa: prefs[k]!.wa, email: prefs[k]!.email };
   return { wa: plantilla?.canales?.wa ?? true, email: plantilla?.canales?.email ?? false };
 }
+
+/**
+ * Prende o apaga un CANAL de un mensaje, en la tienda que le corresponda.
+ *
+ * Vive acá y no en la pantalla por lo mismo que `canalesDeMensaje`: son dos tiendas
+ * —los reportes en `notification_prefs`, los avisos en su plantilla— y la que decide
+ * cuál es tiene que ser UNA. Con la decisión repartida en dos pantallas, la segunda
+ * escribe en la tienda equivocada y el interruptor queda contestando otra cosa.
+ *
+ * ⚠️ Para un REPORTE se relee antes de escribir: `/api/perfil` guarda el objeto de
+ * preferencias ENTERO, así que mandar el que uno tenía en memoria pisa lo que el panel
+ * de al lado haya cambiado mientras tanto.
+ *
+ * ⚠️ Y `activo` se DERIVA, nunca se fuerza: un reporte está activo si sale por algún
+ * lado. Forzarlo a `true` para que el interruptor «funcione» reenciende un reporte que
+ * el dueño había apagado — el segundo interruptor de siempre, escribiendo a escondidas.
+ */
+export async function guardarCanalDeMensaje(
+  id: string,
+  canal: 'wa' | 'email',
+  on: boolean,
+  endpoint: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const k = claveDeReporte(id);
+  try {
+    if (k) {
+      const fresco = await (await fetch('/api/perfil')).json();
+      if (!fresco?.ok) return { ok: false, error: fresco?.error || 'No se pudieron leer tus preferencias' };
+      const prefs = fresco.prefs as Record<string, unknown>;
+      const prev = (prefs[k] ?? {}) as { wa?: boolean; email?: boolean };
+      const sig = { ...prev, [canal]: on };
+      const next = { ...prefs, [k]: { ...sig, activo: Boolean(sig.wa) || Boolean(sig.email) } };
+      const j = await (await fetch('/api/perfil', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'prefs', prefs: next }),
+      })).json();
+      return j?.ok ? { ok: true } : { ok: false, error: j?.error || 'No se pudo guardar' };
+    }
+    const j = await (await fetch(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'canales', id, canales: { [canal]: on } }),
+    })).json();
+    return j?.ok ? { ok: true } : { ok: false, error: j?.error || 'No se pudo guardar' };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar' };
+  }
+}

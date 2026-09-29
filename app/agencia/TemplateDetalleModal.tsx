@@ -164,7 +164,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                 canal sale un reporte, qué trae adentro, y si los no urgentes esperan
                 al resumen. Estaba en tres secciones sueltas de Configuraciones, cada
                 una hablando de un mensaje que estaba en otra lista. */}
-            {id && <PrefsDeMensaje id={id} titulo={plantilla.titulo} endpoint={endpoint} onCanales={onCambio} />}
+            {id && <PrefsDeMensaje id={id} />}
 
             {/*
               EL PRIMER PASO ES EL DISPARADOR, y se lee, no se elige.
