@@ -5349,3 +5349,103 @@ placeholder en vez de mostrar un campo vacío sin explicación.
 - Las tareas hermanas quedaron sin tocar: **#287** (el problema es de JERARQUÍA, no de
   volumen — él ya apagó avisos y siguió sin ver el que importaba), **#800** (SLA por etapa)
   y **#345** (anuncio rechazado), que son disparadores nuevos para este mismo molde.
+
+### Dos campos que apagan lo mismo son un switch que miente (28/09/2026)
+
+**Vive en:** `lib/perfil.ts` (avisoWaActivo) · `lib/plantillas.ts` (enabled) ·
+`scripts/migrar-apagados-a-plantillas.mjs`
+
+Cada aviso tenía DOS interruptores: `notification_prefs.avisos[id]` (el toggle de la
+lista) y `mako.plantillas.store[id].enabled` (el punto verde de la pantalla de mensajes).
+Se consultaban **en cadena**, así que apagar cualquiera silenciaba el aviso — y prender
+uno sin ver que el otro estaba apagado no hacía nada. Nadie lo notó porque las dos
+pantallas vivían en lugares distintos.
+
+**La regla al unificar: la migración de datos va ANTES del cambio de código, y en su
+propio script.** Había 5 apagados en el campo que dejaba de leerse (ws1: 1, ws13: 4).
+Cambiar el código primero les habría **vuelto a prender a dos clientes reales** mensajes
+que habían silenciado. Migrar primero deja el aviso apagado por los dos lados un rato,
+que no le hace mal a nadie.
+
+*2026-09-28*
+
+### Un override que NADIE pidió pisa el default y lo vuelve mentira
+
+**Vive en:** `mako.plantillas.store` · `lib/clonar-config.ts` ·
+`scripts/limpiar-overrides-redundantes.mjs`
+
+Al cambiar el default de «todo prendido» a una lista corta, un aviso seguía saliendo
+igual. La causa: su entrada tenía `{"enabled": true}` explícito, y el override gana sobre
+el default — correcto por diseño. Lo que estaba mal es de dónde salía ese `true`: del
+**clon de configuración** al crear el workspace (`clonar-config` copia el store del dueño
+entero) y de pruebas. Nadie lo había prendido.
+
+**La regla:** un override sólo significa algo si lo escribió una persona decidiendo. Los
+que nacen de un clon o de una prueba son ruido que congela al cliente en el default del
+día que se creó su cuenta — y cuando el producto mejora ese default, no le llega.
+Distinguirlos importa: el script borra `{}` y `{enabled:true}`, y **no toca los
+`enabled:false`**, que sí son decisiones (ws13 apagó cuatro).
+
+*2026-09-29*
+
+### Para decidir qué ve un cliente, lista blanca — nunca marcar lo que se esconde
+
+**Vive en:** `AVISOS_DEL_CLIENTE` en `lib/avisos-catalogo.ts`
+
+Primero se marcaron 13 entradas como «administrativas» para ocultarlas. Funcionaba y era
+frágil: obliga a acordarse de marcar **cada aviso nuevo**, y el que se olvide aparece en la
+pantalla de todos los clientes sin que nadie lo haya decidido. La lista blanca falla del
+lado seguro — un aviso nuevo no se ve hasta que alguien lo agregue a propósito — y además
+se lee de un vistazo, que es lo que permite discutirla con el dueño.
+
+**Y el corolario, que costó una corrección:** «no editable» no era lo pedido. Mostrar 13
+filas en solo-lectura llena la pantalla de cosas que el cliente no puede tocar; esconder
+la fila y seguir emitiendo el aviso es lo que resuelve el problema. Lo que desaparece es
+la fila, no el aviso.
+
+*2026-09-29*
+
+### Cambiar un default apaga cosas que nadie pidió apagar
+
+**Vive en:** `porDefecto` en `lib/avisos-catalogo.ts`
+
+Al pasar de «todo prendido» a una lista corta, los avisos que el pedido NO nombró caen a
+apagado por omisión. Entre ellos estaban el Pixel caído y el anuncio retenido por Meta:
+apagarlos de rebote es una regresión en silencio, y quien la descubre es un cliente que
+se quedó sin enterarse de que su cuenta estaba frenada.
+
+**La regla:** al cambiar un default masivo, la lista de lo que el pedido nombra NO alcanza
+— hay que enumerar aparte lo que ya venía funcionando y decidir uno por uno si se
+conserva. Acá se conservaron cuatro.
+
+⚠️ Y queda uno para mirar: `meta-cuenta-frenada` (cuenta de Meta deshabilitada) nace
+apagado. Hoy da igual porque **no está cableado** —el cableado de las transiciones de
+meta-health sigue pendiente—, pero el día que se conecte hay que prenderlo o no va a salir.
+
+*2026-09-29*
+
+### El editable tipo chat estaba copiado a mano en dos lados, con un comentario pidiendo sincronizarlos
+
+**Vive en:** `app/whatsapp/_shared/BurbujaMaKo.tsx` (la forma, ahora una sola) ·
+`ChatHilo` · `MensajesChat`
+
+La burbuja de WhatsApp vivía duplicada en `ChatHilo` (hilo real, solo lectura) y en
+`MensajesChat` (pasos de una secuencia, editables), cada una con un ⚠️ avisando que si
+alguien tocaba una había que mover la otra. **Dos copias con un comentario que pide
+sincronizarlas a mano son dos copias que se van a desincronizar**: el comentario no es un
+mecanismo. Al aparecer el tercer uso se extrajo.
+
+*2026-09-28*
+
+### Y una pantalla que ya existía: antes de construir, buscar dónde está
+
+`/mensajes` (`PlantillasView`) ya hacía «ver como llega, editar, prender y apagar» para el
+super-admin, y se reusaba en `/agencia`. El primer intento fue construir un editor nuevo
+colapsable por fila. Lo que hacía falta era **parametrizar el endpoint** de la que existía
+(mismo protocolo, otro guard: `getSesionAdmin` allá, admin del workspace acá) y montarla.
+
+**La señal que había que leer antes:** el dueño dijo «lo tenemos en varios lugares». Cuando
+alguien nombra que algo ya existe en plural, la tarea es encontrarlo y compartirlo, no
+escribirlo de nuevo.
+
+*2026-09-28*
