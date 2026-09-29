@@ -160,11 +160,25 @@ export async function getFlujo(id: string): Promise<Flujo | null> {
 }
 /** Guarda (o borra con null) el flujo de una plantilla. */
 export async function setFlujo(id: string, flujo: Flujo | null): Promise<void> {
+  const antes = (await leerStore())[id]?.flujo;
   await mutar(id, (e) => {
     const next = { ...e };
     if (flujo && esFlujoValido(flujo)) next.flujo = flujo; else delete next.flujo;
     return next;
   });
+
+  // ⚠️ APAGAR EL RECORDATORIO TIENE QUE APAGAR LOS QUE YA ESTÁN EN VUELO. El
+  // drenador no consulta ninguna configuración: manda lo que haya en la tabla hasta
+  // agotar las veces. Sin esto, sacar el paso dejaba saliendo hasta cinco mensajes
+  // más — un interruptor que miente, y lo que sigue saliendo es lo que quema la
+  // línea de WhatsApp del cliente.
+  const teniaInsistir = antes?.pasos.some((p) => p.tipo === 'insistir') ?? false;
+  const tieneInsistir = flujo?.pasos.some((p) => p.tipo === 'insistir') ?? false;
+  if (teniaInsistir && !tieneInsistir) {
+    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const { cerrarPorConfiguracion } = await import('./insistencias');
+    await cerrarPorConfiguracion(ws, id).catch(() => 0);
+  }
 }
 /** Todos los flujos ACTIVOS (para el runtime / dispararEvento). */
 export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: Flujo }>> {

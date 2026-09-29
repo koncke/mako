@@ -33,15 +33,21 @@ const SANS = "'Geist', sans-serif";
 
 const ES_RESUMEN = 'avisos-resumen';
 
-/** Los reportes que además eligen QUÉ TRAEN adentro. */
-const CON_SECCIONES = new Set(['reporte-diario', 'reporte-semanal']);
-
-const SECCIONES: Array<{ k: keyof NotifPrefs['secciones']; label: string }> = [
-  { k: 'semaforo', label: 'Semáforo' },
-  { k: 'ads', label: 'Ads' },
-  { k: 'wins', label: 'Wins' },
-  { k: 'pendientes', label: 'Pendientes' },
-];
+/*
+ * ⚠️ ACÁ ESTABA «QUÉ TRAE ADENTRO», y se fue el 29/09/2026: «no entiendo lo de Qué
+ * trae adentro, eso elimínalo».
+ *
+ * Eran cuatro casillas (Semáforo, Ads, Wins, Pendientes) que escribían
+ * `notification_prefs.secciones`, y hay que saber dónde queda ese campo: lo leen los
+ * TRES armadores de reporte (`lib/reportes.ts`, once lecturas) y una operación de la
+ * API de MaKo. O sea que el campo sigue vivo y ahora no tiene pantalla.
+ *
+ * Se midió antes de borrar, que es lo único que lo vuelve seguro: en los CUATRO
+ * workspaces con preferencias guardadas las cuatro secciones están en `true`. Nadie
+ * apagó nunca una, así que sacar el control no cambia lo que sale — los reportes
+ * siguen trayendo las cuatro. El día que alguien quiera elegir, el pedido del dueño
+ * dice dónde va: adentro del mensaje, como un comando del texto.
+ */
 
 export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas', onCanales }: {
   id: string;
@@ -97,7 +103,15 @@ export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas',
   /** El canal de un mensaje: a la tienda que le corresponda, decidida en un solo lugar. */
   async function cambiarCanal(c: 'wa' | 'email', on: boolean) {
     if (claveRep) {
-      await guardarPrefs((p) => ({ ...p, [claveRep]: { ...(p[claveRep] as CanalPrefs), [c]: on, activo: true } }));
+      // ⚠️ `activo` SE DERIVA de los canales, no se fuerza. Acá decía `activo: true`,
+      // así que tocar Email reencendía un reporte que el dueño había apagado — el
+      // segundo interruptor de siempre, esta vez escribiendo a escondidas. Un reporte
+      // está activo si sale por algún lado, y por ninguno es apagado.
+      await guardarPrefs((p) => {
+        const prev = p[claveRep] as CanalPrefs;
+        const sig = { ...prev, [c]: on };
+        return { ...p, [claveRep]: { ...sig, activo: sig.wa || sig.email } };
+      });
       setCanales((v) => (v ? { ...v, [c]: on } : v));
       onCanales?.();
       return;
@@ -130,7 +144,9 @@ export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas',
   return (
     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
-        <label style={lbl}>Por dónde llega</label>
+        {/* Sin rótulo: «no tiene sentido que diga Por dónde llega si justamente hay un
+            gesto de email y otro de whatsapp». Un chip con el logo del canal y su
+            nombre ya dice de qué habla; el rótulo era el mismo dato en versalitas. */}
         {/* ⚠️ El MISMO chip que los interruptores de canal del panel, no una copia con
             los mismos números escritos a mano: acá había una réplica de la anatomía de
             `CanalToggle` (radio 999, 12.5, el ✓, el dorado) que se dibujaba en esta misma
@@ -152,22 +168,6 @@ export function PrefsDeMensaje({ id, titulo, endpoint = '/api/admin/plantillas',
           </div>
         )}
       </div>
-
-      {prefs && CON_SECCIONES.has(id) && (
-        <div>
-          <label style={lbl}>Qué trae adentro</label>
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-            {SECCIONES.map((s) => (
-              <button
-                key={s.k} type="button" disabled={busy} aria-pressed={prefs.secciones[s.k]} style={pill(prefs.secciones[s.k])}
-                onClick={() => void guardarPrefs((p) => ({ ...p, secciones: { ...p.secciones, [s.k]: !p.secciones[s.k] } }))}
-              >
-                {prefs.secciones[s.k] ? '✓ ' : ''}{s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {prefs && id === ES_RESUMEN && (
         <div>

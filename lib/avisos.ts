@@ -278,7 +278,11 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
         try {
           const { getFlujo } = await import('./plantillas');
           const flujo = await runWithWorkspace(ws, () => getFlujo(a.tipo));
-          const paso = flujo?.pasos.find((x) => x.tipo === 'insistir');
+          // ⚠️ Y SE MIRA `activo`. `getFlujo` no filtra —el que filtra es
+          // `listarFlujosActivos`, que alimenta al otro camino—, así que un flujo
+          // pausado abría insistencias igual: un interruptor que miente, y lo que
+          // sigue saliendo es lo que quema la línea de WhatsApp del cliente.
+          const paso = flujo?.activo === false ? undefined : flujo?.pasos.find((x) => x.tipo === 'insistir');
           if (paso?.tipo === 'insistir') {
             const { abrirInsistencia } = await import('./insistencias');
             await abrirInsistencia(ws, { flujoId: a.tipo, texto, cadaMin: paso.cadaMin, veces: paso.veces });

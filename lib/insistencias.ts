@@ -89,6 +89,37 @@ export async function cerrarPorAcuse(ws: number): Promise<number> {
  * un timeout del envío dejaría la fila sin avanzar y el próximo tick la mandaría de
  * nuevo — que es exactamente el daño que el techo viene a evitar.
  */
+/**
+ * Cierra las insistencias ABIERTAS de un flujo porque alguien las apagó.
+ *
+ * ⚠️ SIN ESTO, EL INTERRUPTOR MIENTE. `drenarInsistencias` no consulta ninguna
+ * configuración —ni el flujo, ni la plantilla, ni los canales—: manda lo que haya
+ * en la tabla hasta agotar las veces. Así que apagar el recordatorio dejaba saliendo
+ * hasta cinco mensajes más, y lo que sigue saliendo es justo lo que quema la línea
+ * de WhatsApp del cliente.
+ *
+ * Se cierra con su propio motivo y no con 'acuse': son dos hechos distintos —uno es
+ * «alguien lo vio» y el otro «alguien no lo quiere más»— y meterlos en el mismo
+ * casillero hace que el día que se quiera medir cuántas se acusan, el número mienta.
+ */
+export async function cerrarPorConfiguracion(ws: number, flujoId: string): Promise<number> {
+  try {
+    return await runWithWorkspace(ws, async () => {
+      const db = await getTenantDb();
+      const { data, error } = await db.from('insistencias')
+        .update({ cerrada_por: 'config', cerrada_at: new Date().toISOString() })
+        .eq('flujo_id', flujoId)
+        .is('cerrada_at', null)
+        .select('id');
+      if (error) { console.error('[insistencias] cerrar por config:', error.message); return 0; }
+      return (data ?? []).length;
+    });
+  } catch (e) {
+    console.error('[insistencias] cerrar por config:', e instanceof Error ? e.message : String(e));
+    return 0;
+  }
+}
+
 export async function drenarInsistencias(): Promise<{ enviadas: number; cerradas: number }> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { enviadas: 0, cerradas: 0 };

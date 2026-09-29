@@ -316,9 +316,9 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'flow-editor', titulo: 'Flow Editor', familia: 'Operate', grupo: 'Agenda y flujos',
-    estado: 'parcial', verEnApp: '/agencia',
-    alcance: 'Editor y motor se rompen juntos: lib/flujos.ts entra al mismo área.',
-    vive: ['app/agencia/FlujoEditor.tsx', 'lib/flujos-tipos.ts'],
+    estado: 'parcial', verEnApp: '/mensajes',
+    alcance: 'El motor (lib/flujos.ts, 5 eventos desde 5 webhooks) y lo único suyo que un aviso sí ejecuta: el paso `insistir`, que hoy se edita como «Recordatorios» en el detalle de cada mensaje. ⚠️ El EDITOR DE FLUJO COMPLETO se retiró el 29/09/2026 (ver la bitácora de configuraciones): salía de «editar el flujo (avanzado)», que el dueño mandó a sacar, y medido antes de borrarlo había 4 flujos guardados en toda la base, los 4 sin un solo paso, y CERO filas en insistencias. El motor sigue vivo y sin pantalla.',
+    vive: ['lib/flujos-tipos.ts', 'lib/flujos.ts', 'lib/insistencias.ts', 'app/agencia/Recordatorios.tsx', 'app/api/cron/insistencias/route.ts'],
   },
 
   // ─────────────────────────────────────────────────────────── Analyze

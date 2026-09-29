@@ -5680,3 +5680,143 @@ Va con el fuente sin comentarios, y **los de línea se sacan ANTES que los de bl
 exactamente como un guard de esta casa dio verde sobre algo que nunca miró.
 
 *2026-09-29*
+
+### Un editor «avanzado» puede ser el único lugar donde vive lo que sí funciona
+
+**Vive en:** `app/agencia/Recordatorios.tsx` · `lib/avisos.ts` (el enganche) ·
+`app/agencia/FlujoEditor.tsx`, retirado
+
+El dueño mandó sacar «⚙️ Editar el flujo (avanzado)» con un argumento correcto: «no
+tiene sentido si literalmente YA lo estoy editando». Y adentro de ese panel estaba lo
+ÚNICO de todo el motor de flujos que un aviso del catálogo sí ejecuta: el paso
+`insistir`. Borrarlo sin mirar se llevaba puesta la única función viva del panel.
+
+**Lo que hace la diferencia es dónde se ENGANCHA cada cosa.** Un aviso del catálogo no
+pasa por el motor de flujos: sale por el choke point de `lib/avisos.ts`. De todo el
+flujo, ese choke point mira UNA sola cosa —busca el paso `insistir` y abre una fila en
+`insistencias`— y el resto (el disparador por evento, los pasos de mensaje y acción)
+gobierna el otro camino, el de los 5 webhooks. Así que al desarmar un panel, la
+pregunta no es qué controles tiene sino **cuál de ellos toca el camino de ESTA
+pantalla**.
+
+⚠️ **Y lo que autorizó borrar el resto fue una consulta, no un juicio.** Antes de
+retirar el editor: **4 flujos guardados en toda la base, los 4 con `disparador:
+manual` y CERO pasos**, y **0 filas en `insistencias`** desde que existe la tabla. O
+sea que ese editor nunca produjo un flujo que corriera. Sin ese número, sacarlo era
+una apuesta.
+
+*2026-09-29*
+
+### «Se DEBE poder configurar» a veces significa que no hay nada que configurar
+
+**Vive en:** el bloque «Qué lo dispara» en `app/agencia/TemplateDetalleModal.tsx`
+
+El pedido fue que el disparador se pudiera elegir: un evento, o cada X tiempo. Medido:
+para **60 de los 65 mensajes** lo que los hace salir es el CALL SITE que los emite —un
+webhook, un cron, un cambio de estado— y para los tres reportes es una expresión de
+cron que vive en `vercel.json`, global y de deploy. El selector de evento que existía
+en el panel «avanzado» gobierna el motor de flujos, que estos avisos no usan.
+
+**Un selector ahí habría sido el control que se dibuja y no cambia nada**, y encima en
+el primer renglón de la pantalla — el lugar donde más se cree lo que dice.
+
+Lo que se dibujó es lo verdadero: **qué lo dispara, en prosa**. Y lo que haría falta
+para que se pueda elegir quedó escrito en el mismo comentario: una variante por TIEMPO
+en el tipo `Disparador`, un cron que la recorra, y que el choke point de los avisos
+mire el disparador. Son tres cosas y ninguna es la pantalla.
+
+*2026-09-29*
+
+### Un interruptor que apaga lo que viene no apaga lo que ya salió
+
+**Vive en:** `cerrarPorConfiguracion` en `lib/insistencias.ts` · `setFlujo` en
+`lib/plantillas.ts`
+
+`drenarInsistencias` no consulta NINGUNA configuración: lee la tabla y manda hasta
+agotar las veces. No es un descuido —una fila abierta es un compromiso ya tomado— pero
+convierte a «apagar los recordatorios» en un interruptor que miente: se apaga, y
+siguen saliendo hasta cinco mensajes más.
+
+**La regla: cuando un control apaga algo que tiene COLA, apagarlo cierra la cola.** El
+cierre va en el mismo camino que la configuración (`setFlujo`, que es por donde pasan
+todas las escrituras del flujo) y con su propio motivo —`config`, no `acuse`—: son dos
+hechos distintos, «alguien lo vio» y «alguien no lo quiere más», y meterlos en el mismo
+casillero hace que el día que se mida cuántas se acusan, el número mienta.
+
+⚠️ Y el hermano, del otro lado: el choke point leía el flujo con `getFlujo`, que **no
+filtra por `activo`** —el que filtra es `listarFlujosActivos`, que alimenta al otro
+camino—, así que un flujo pausado abría insistencias igual.
+
+*2026-09-29*
+
+### Forzar un campo derivado para que el control «funcione» es escribir a escondidas
+
+**Vive en:** `cambiarCanal` en `app/perfil/PrefsDeMensaje.tsx`
+
+Los tres reportes tienen `{ activo, wa, email }`, y sus crons cortan por `activo`. Al
+cablear los chips de canal escribí `activo: true` en cada cambio, para que prender un
+canal hiciera algo. Consecuencia: **tocar Email reencendía un reporte que el dueño
+había apagado**, sin pedirlo y sin decirlo.
+
+**`activo` no es un campo que se setea: es uno que se DERIVA** — un reporte está activo
+si sale por algún lado, y por ninguno es apagado. El olor que lo delata: cuando para
+que tu control funcione tenés que escribir de paso OTRO campo, ese otro campo o es
+derivado (y se calcula) o es el interruptor de alguien más (y no se toca).
+
+*2026-09-29*
+
+### Y el rechazo pintado de verde
+
+**Vive en:** `flashOk` / `flashMal` en `app/agencia/TemplateDetalleModal.tsx`
+
+La rama de error que se agregó para que «Guardar» dejara de ser mudo usaba el MISMO
+`flashOk` que el éxito, y el `<span>` estaba cableado a `var(--good)`. O sea que el 403
+de un aviso que MaKo redacta —el que dice «esto no lo podés editar»— se leía en verde,
+al lado del botón, exactamente como un guardado.
+
+**Un rechazo pintado de «hecho» es peor que ninguno**: el mudo al menos hace que la
+persona vuelva a intentar; éste la manda a otra cosa convencida. Al agregar una rama de
+error, el color se agrega con ella.
+
+*2026-09-29*
+
+### Antes de borrar el único editor de un campo, contá las filas que lo tienen en `false`
+
+**Vive en:** `prefs.secciones` · `app/perfil/PrefsDeMensaje.tsx`
+
+«Qué trae adentro» eran cuatro casillas que escribían `notification_prefs.secciones`,
+que leen los TRES armadores de reporte (once lecturas en `lib/reportes.ts`) y una
+operación de la API de MaKo. Sacarlas deja el campo vivo y sin pantalla — un consumidor
+huérfano, que es la forma en que un producto empieza a mentir en silencio.
+
+Lo que volvió seguro borrarlas fue una consulta de una línea: **en los cuatro
+workspaces con preferencias guardadas, las cuatro secciones están en `true`**. Nadie
+apagó nunca una, así que sacar el control no cambia lo que sale.
+
+**La regla: un campo con default y cero desviaciones medidas se puede quedar sin
+pantalla; uno con desviaciones, no.** La diferencia son treinta segundos de consulta, y
+sin ella las dos decisiones se parecen.
+
+*2026-09-29*
+
+### El botón de negrita ENVUELVE; los dos precedentes del repo REEMPLAZAN
+
+**Vive en:** `app/agencia/EditorMensaje.tsx`
+
+Los dos lugares del repo que insertan algo en un campo —los slots de un prompt, los
+parámetros de una plantilla de Meta— sustituyen la selección por un token y dejan el
+caret detrás. Copiar ese mecanismo para un botón de formato hace que apretar **B** con
+texto seleccionado lo **borre** y deje dos asteriscos.
+
+Un botón de formato envuelve y **vuelve a seleccionar lo de adentro**, que es lo que
+permite encadenar (negrita y después itálica sobre lo mismo). Y la restauración va en el
+tick siguiente: React todavía no pintó el valor nuevo, así que mover la selección ahí
+mismo la aplica sobre el texto viejo.
+
+⚠️ **Y el formato es el DIALECTO DEL CANAL, no HTML.** WhatsApp entiende `*negrita*`,
+`_itálica_` y `~tachado~`, y el email los traduce solo (`marcasAHtml`). Un editor
+contentEditable se vería bien en la pantalla y llegaría a WhatsApp como `<b>` literal —
+al canal principal. Por eso el campo sigue siendo un textarea que muestra las marcas:
+lo que se ve es lo que sale.
+
+*2026-09-29*

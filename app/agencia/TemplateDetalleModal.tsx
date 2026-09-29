@@ -9,7 +9,8 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { FlujoEditor } from './FlujoEditor';
+import { Recordatorios } from './Recordatorios';
+import { EditorMensaje } from './EditorMensaje';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
@@ -28,21 +29,6 @@ const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reporte', aviso: 'Avis
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
 const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, fontFamily: "'Geist', sans-serif", outline: 'none' };
-
-function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titulo: string; detalle?: string; tono?: 'neutro' | 'mako' | 'dueno' }) {
-  const bg = tono === 'mako' ? 'var(--primary-bg)' : 'var(--surface-2)';
-  const bd = tono === 'mako' ? 'var(--primary-weak)' : 'var(--border)';
-  return (
-    <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: bg, border: `1px solid ${bd}` }}>
-      <span style={{ fontSize: 18, flex: 'none', lineHeight: 1.2 }}>{icono}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>{titulo}</div>
-        {detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45 }}>{detalle}</div>}
-      </div>
-    </div>
-  );
-}
-const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, margin: '2px 0' }}>↓</div>;
 
 /**
  * El endpoint entra por parámetro porque esta misma pantalla sirve a DOS dueños:
@@ -79,9 +65,14 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   const [enabled, setEnabled] = useState(plantilla?.enabled ?? true);
   const [prueba, setPrueba] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ txt: string; mal: boolean } | null>(null);
 
-  const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2200); };
+  // ⚠️ EL ERROR NO PUEDE SALIR EN VERDE. Esto servía a las dos cosas y el span de
+  // abajo estaba cableado a `var(--good)`, así que el 403 de un aviso que MaKo
+  // redacta se leía como un guardado. Un rechazo pintado de «hecho» es peor que
+  // ninguno: nadie vuelve a mirar.
+  const flashOk = (m: string) => { setFlash({ txt: m, mal: false }); setTimeout(() => setFlash(null), 2200); };
+  const flashMal = (m: string) => { setFlash({ txt: m, mal: true }); setTimeout(() => setFlash(null), 4000); };
   const id = plantilla?.id;
 
   // ⚠️ El `else` no es decoración: la ruta del cliente contesta 403 para todo aviso
@@ -92,7 +83,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
     setBusy('save');
     const r = await api(endpoint, { action: 'texto', id, texto });
     if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); }
-    else flashOk(r.error || 'No se pudo guardar');
+    else flashMal(r.error || 'No se pudo guardar');
     setBusy(null);
   };
   const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api(endpoint, { action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
@@ -175,27 +166,34 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                 una hablando de un mensaje que estaba en otra lista. */}
             {id && <PrefsDeMensaje id={id} titulo={plantilla.titulo} endpoint={endpoint} onCanales={onCambio} />}
 
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '20px 0 10px' }}>¿Cuándo se dispara?</div>
-            <div style={{ marginBottom: 20 }}>
-              <Paso icono="⚡" titulo="Se dispara cuando…" detalle={plantilla.disparador} />
-              <Flecha />
-              <Paso icono="🧠" titulo="MaKo lo detecta y ESCRIBE con IA" detalle="Toma esta referencia + los datos reales del evento y redacta el mensaje (libre de adaptarlo)." tono="mako" />
-              <Flecha />
-              <Paso icono="💬" titulo="Te llega por los canales que elegiste arriba, y al feed" tono="mako" />
-              {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Tú respondes" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
+            {/*
+              EL PRIMER PASO ES EL DISPARADOR, y se lee, no se elige.
+
+              ⚠️ Y NO ES UN CONTROL QUE FALTA: es que para 60 de los 65 mensajes no hay
+              nada que elegir. Lo que hace salir un aviso es el CALL SITE que lo emite
+              (un webhook, un cron, un cambio de estado), y para los tres reportes es
+              una expresión de cron que vive en vercel.json, global y de deploy. El
+              selector de evento que existía acá abajo, adentro de «editar el flujo»,
+              gobierna OTRO camino —el motor de flujos, que estos avisos no usan— así
+              que ofrecerlo como «qué dispara este mensaje» habría sido un control que
+              se dibuja y no cambia nada.
+
+              Para que se pueda elegir hacen falta tres cosas que hoy no existen: una
+              variante por TIEMPO en el tipo Disparador, un cron que la recorra, y que
+              el choke point de los avisos mire el disparador. Está anotado.
+            */}
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '18px 0 8px' }}>Qué lo dispara</div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 18 }}>
+              <span style={{ fontSize: 16, flex: 'none', lineHeight: 1.3 }}>⚡</span>
+              <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{plantilla.disparador}</div>
             </div>
 
-            {id && (
-              <details style={{ marginBottom: 20, border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', background: 'var(--surface-2)' }}>
-                <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', listStyle: 'none' }}>⚙️ Editar el flujo (avanzado) — disparador + pasos</summary>
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                  <FlujoEditor plantillaId={id} endpoint={endpoint} />
-                </div>
-              </details>
-            )}
+            <div style={{ marginBottom: 18 }}>
+              {id && <Recordatorios plantillaId={id} endpoint={endpoint} porWhatsApp={plantilla.canales.wa} />}
+            </div>
 
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Referencia (MaKo la usa como guía, no literal)</div>
-            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>El mensaje</div>
+            <EditorMensaje valor={texto} onChange={setTexto} filas={7} disabled={busy === 'save'} />
 
             {prueba && (
               <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)' }}>
@@ -205,7 +203,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
-              {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)', marginRight: 'auto' }}>{flash}</span>}
+              {flash && <span style={{ fontSize: 13, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)', marginRight: 'auto' }}>{flash.txt}</span>}
               <button onClick={probar} disabled={busy === 'probar'} style={{ ...btnGhost, opacity: busy === 'probar' ? 0.6 : 1 }}>{busy === 'probar' ? 'Generando…' : '✨ Probar con IA'}</button>
               <button onClick={guardarTexto} disabled={busy === 'save' || texto === orig} style={{ ...btn, opacity: busy === 'save' || texto === orig ? 0.5 : 1 }}>Guardar</button>
             </div>
