@@ -156,76 +156,17 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   }
 }
 
-// ── Render de HTML del email ──────────────────────────────────────────────────
-// Toma un cuerpo en texto plano (con saltos de línea y URLs) y lo envuelve en un
-// HTML email-safe (inline styles, ancho contenido, footer con baja). El cuerpo ya
-// viene con las variables ({nombre}…) resueltas.
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// Convierte URLs sueltas en <a>. Opera sobre texto YA escapado.
-function linkify(escaped: string): string {
-  return escaped.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
-    // No incluir un punto/coma final pegado a la URL.
-    const m = url.match(/[.,;:!?)]+$/);
-    const tail = m ? m[0] : '';
-    const clean = tail ? url.slice(0, -tail.length) : url;
-    return `<a href="${clean}" style="color:#C8870C;text-decoration:underline;" target="_blank" rel="noopener">${clean}</a>${tail}`;
-  });
-}
-
-// Texto plano → párrafos HTML. Doble salto = párrafo nuevo; simple = <br>.
-function bodyToHtml(text: string): string {
-  const parags = text.replace(/\r\n/g, '\n').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  return parags
-    .map((p) => `<p style="margin:0 0 16px;">${linkify(escapeHtml(p)).replace(/\n/g, '<br>')}</p>`)
-    .join('');
-}
-
-export type RenderEmailParams = {
-  subject: string;
-  bodyText: string;        // cuerpo en texto plano, variables ya resueltas
-  preheader?: string;      // texto de vista previa (oculto en el cuerpo)
-  unsubscribeUrl?: string; // link de baja para el footer
-  fromName?: string;       // firma del footer (display name del remitente del ws)
-};
-
-export function renderEmailHtml(params: RenderEmailParams): string {
-  // La firma sale del remitente DEL WORKSPACE (nada hardcodeado del dueño: los
-  // emails de un cliente van firmados por su negocio, no por Mauricio).
-  const fromName = params.fromName?.trim() || '';
-  const preheader = params.preheader
-    ? `<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">${escapeHtml(params.preheader)}</span>`
-    : '';
-  const unsub = params.unsubscribeUrl
-    ? `<a href="${params.unsubscribeUrl}" style="color:#A39E91;text-decoration:underline;" target="_blank" rel="noopener">Darme de baja</a>`
-    : '';
-
-  return `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(params.subject)}</title></head>
-<body style="margin:0;padding:0;background:#F2F0EA;">
-${preheader}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2F0EA;padding:28px 12px;">
-  <tr><td align="center">
-    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#FFFFFF;border:1px solid #E7E3D9;border-radius:14px;overflow:hidden;">
-      <tr><td style="padding:28px 32px 8px;font-family:'Helvetica Neue',Arial,sans-serif;color:#1A1813;font-size:16px;line-height:1.55;">
-        ${bodyToHtml(params.bodyText)}
-      </td></tr>
-      <tr><td style="padding:18px 32px 26px;font-family:'Helvetica Neue',Arial,sans-serif;color:#6B675C;font-size:13px;line-height:1.5;border-top:1px solid #E7E3D9;">
-        ${fromName ? `<div style="font-weight:600;color:#1A1813;">${escapeHtml(fromName)}</div>` : ''}
-        ${unsub ? `<div style="margin-top:12px;font-size:12px;color:#A39E91;">Si no quieres recibir más estos correos, ${unsub}.</div>` : ''}
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
-}
+// ── Render de HTML del email ──────────────────────────────────────────
+// ⚠️ EL RENDER YA NO VIVE ACÁ: está en lib/email-html.ts, sin `server-only`.
+//
+// El motivo no es prolijidad. Este módulo lleva `server-only` porque tiene la API
+// key, y eso dejaba a la pantalla que PREVISUALIZA un correo sin poder mostrar el
+// correo: dibujaba el texto plano y el lector veía los `*asteriscos*` de WhatsApp
+// que el mail real no tiene. El render es una función PURA — no toca credenciales,
+// ni settings, ni la base — así que mudarla no expone nada.
+//
+// Se re-exporta para que los siete call sites sigan importando de donde siempre.
+export { renderEmailHtml, escapeHtml, linkify, bodyToHtml, marcasAHtml, type RenderEmailParams } from './email-html';
 
 // ── API de Domains (onboarding de dominio por workspace) ─────────────────────
 // POST /domains crea el dominio en la cuenta de MaKo y devuelve los registros

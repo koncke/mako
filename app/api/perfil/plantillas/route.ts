@@ -18,7 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import {
-  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla,
+  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
 } from '@/lib/plantillas';
 import { esFlujoValido } from '@/lib/flujos-tipos';
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   const no = await denegado();
   if (no) return no;
   let b: {
-    action?: string; id?: string; texto?: string; enabled?: boolean; contexto?: string;
+    action?: string; id?: string; texto?: string; enabled?: boolean; canales?: { wa?: boolean; email?: boolean }; contexto?: string;
     titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
   };
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
@@ -100,6 +100,18 @@ export async function POST(req: NextRequest) {
         if (!b.id) return faltaId();
         await setEnabledPlantilla(b.id, b.enabled !== false);
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      case 'canales': {
+        if (!b.id) return faltaId();
+        // Elegir POR DÓNDE le llega un mensaje es suyo, igual que prenderlo o apagarlo:
+        // no cambia lo que el mensaje DICE. Por eso no pasa por `esAdministrativo`, que
+        // protege el texto de los avisos que redacta MaKo.
+        const c = (b.canales ?? {}) as { wa?: unknown; email?: unknown };
+        await setCanalesPlantilla(b.id, {
+          ...(typeof c.wa === 'boolean' ? { wa: c.wa } : {}),
+          ...(typeof c.email === 'boolean' ? { email: c.email } : {}),
+        });
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      }
       case 'borrar':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) });

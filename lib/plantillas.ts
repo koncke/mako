@@ -23,10 +23,38 @@ type EntradaStore = {
   enabled?: boolean;   // default true
   custom?: { titulo: string; categoria: CategoriaAviso; requiereRespuesta: boolean };
   flujo?: Flujo;       // FLUJO editable (disparador + pasos). Sin esto = aviso clásico.
+  canales?: { wa?: boolean; email?: boolean };  // por dónde sale. Ver CANALES_DEFAULT.
 };
 type Store = Record<string, EntradaStore>;
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean };
+/** Por dónde sale un aviso. Los dos campos resueltos: sin `undefined` río abajo. */
+export type CanalesAviso = { wa: boolean; email: boolean };
+
+/**
+ * WhatsApp SÍ, email NO.
+ *
+ * El email arranca apagado porque prenderlo tiene consecuencias que el interruptor
+ * de WhatsApp no tiene: cuesta plata, se le escribe a direcciones que quizá nadie
+ * revisó, y un correo no deseado quema la reputación del dominio para TODOS los
+ * mails del producto. La regla de la casa: el default es el que no tiene
+ * consecuencias, y sólo un valor explícito lo enciende.
+ *
+ * ⚠️ ESTO NO GOBIERNA A LOS TRES REPORTES. Ellos ya tienen su canal en
+ * `notification_prefs` (`CanalPrefs.wa` / `.email`), que es lo que leen sus crons y
+ * lo que edita `PrefsDeMensaje`. Meterlos acá sería el segundo interruptor para la
+ * misma pregunta — el bug que esta pantalla ya pagó una vez (dos campos que apagan
+ * lo mismo son un switch que miente).
+ */
+export const CANALES_DEFAULT: CanalesAviso = { wa: true, email: false };
+
+function canalesDe(e: EntradaStore | undefined): CanalesAviso {
+  return {
+    wa: typeof e?.canales?.wa === 'boolean' ? e.canales.wa : CANALES_DEFAULT.wa,
+    email: typeof e?.canales?.email === 'boolean' ? e.canales.email : CANALES_DEFAULT.email,
+  };
+}
+
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -87,6 +115,10 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // Un 'siempre' no se puede apagar, y la pantalla tiene que saberlo para no
     // ofrecer un botón que no hace nada.
     fijo: cat.porDefecto === 'siempre',
+    // Viaja a la vista para que la pantalla lo pinte sin una segunda lectura. Si se
+    // resolviera aparte, `aVista` lo descartaría y el detalle mostraría el default
+    // mientras el motor manda por otro canal.
+    canales: canalesDe(e),
     esCustom,
   };
 }
@@ -218,6 +250,18 @@ export async function setEnabledPlantilla(id: string, enabled: boolean): Promise
   // protege nada, y este aviso es el que dice que los números dejaron de llegar.
   if (!enabled && CATALOGO_AVISOS.find((c) => c.id === id)?.porDefecto === 'siempre') return;
   await mutar(id, (e) => ({ ...e, enabled }));
+}
+
+/**
+ * Por dónde sale este aviso. Se guarda lo que llega, campo por campo: un patch que
+ * sólo trae `email` no puede borrar la decisión de WhatsApp.
+ *
+ * ⚠️ NO valida que quede al menos uno prendido, y es a propósito: apagar los dos es
+ * una forma legítima de decir «este aviso no me lo mandes» sin perder su texto ni su
+ * flujo, y el motor lo trata igual que apagado (ver `estadoAviso` en lib/perfil.ts).
+ */
+export async function setCanalesPlantilla(id: string, canales: Partial<CanalesAviso>): Promise<void> {
+  await mutar(id, (e) => ({ ...e, canales: { ...canalesDe(e), ...canales } }));
 }
 
 /** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */

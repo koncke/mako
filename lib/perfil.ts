@@ -266,11 +266,35 @@ export async function resumenAvisosActivo(ws: number): Promise<boolean> {
  * una pantalla donde verse, y ese toggle ya no existe.
  */
 export async function avisoWaActivo(ws: number, tipo: string): Promise<boolean> {
+  const e = await estadoAviso(ws, tipo);
+  return e.activo && e.wa;
+}
+
+/** Cómo sale un aviso en ESTE workspace: si sale, y por dónde. */
+export type EstadoAviso = { activo: boolean; wa: boolean; email: boolean };
+
+/**
+ * El interruptor del aviso Y sus canales, en UNA sola lectura del store.
+ *
+ * Son dos preguntas distintas y hay que poder contestarlas por separado:
+ * `activo` es «¿este mensaje existe para este negocio?» (lo apaga el interruptor
+ * grande, y es lo que ya se veía en la pantalla), y `wa`/`email` es «¿por dónde me
+ * llega?». Juntarlas en un booleano es lo que hacía imposible «éste sí, pero sólo
+ * por mail»: el único camino era apagarlo entero.
+ *
+ * ⚠️ FAIL-OPEN, y sólo para WhatsApp. Si la lectura falla, el aviso sale por donde
+ * salía siempre: un error nuestro leyendo una preferencia no puede silenciar el
+ * mensaje que dice que los números dejaron de llegar. Pero NO se abre el email: ese
+ * canal se prende a mano, y un fallo de lectura no es un permiso.
+ */
+export async function estadoAviso(ws: number, tipo: string): Promise<EstadoAviso> {
   try {
-    const { plantillaActiva } = await import('./plantillas');
-    return await runWithWorkspace(ws, () => plantillaActiva(tipo));
+    const { getPlantilla } = await import('./plantillas');
+    const p = await runWithWorkspace(ws, () => getPlantilla(tipo));
+    if (!p) return { activo: true, wa: true, email: false };
+    return { activo: p.enabled, wa: p.canales.wa, email: p.canales.email };
   } catch {
-    return true; // un fallo leyendo la preferencia no puede silenciar un aviso
+    return { activo: true, wa: true, email: false };
   }
 }
 

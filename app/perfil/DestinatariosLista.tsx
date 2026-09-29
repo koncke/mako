@@ -83,7 +83,14 @@ export function paraLeer(tipo: 'tel' | 'email', v: string): string {
  *      «sucia», y ni un mensaje.
  */
 export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, onBorrador, portalTo }: {
-  titulo: string; sub: string; items: string[]; onChange: (v: string[]) => void;
+  /**
+   * El rótulo de arriba, en versalitas. OPCIONAL, y sin él es otra cosa: ese
+   * tratamiento (MONO 10.5 uppercase) es el que la casa usa para abrir una SECCIÓN,
+   * así que adentro de un recuadro que ya dice de qué canal habla, anuncia una
+   * sección que no existe. El dueño lo cortó con todas las letras: «que no sea una
+   * sección diferente, que esté todo en el mismo recuadro».
+   */
+  titulo?: string; sub: string; items: string[]; onChange: (v: string[]) => void;
   placeholder: string; icono: string; tipo: 'tel' | 'email';
   /** Lo tipeado y todavía no agregado, para que el guardado no lo pierda. */
   onBorrador: (v: string) => void;
@@ -124,8 +131,8 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
 
   return (
     <div>
-      <span style={labelStyle}>{titulo}</span>
-      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: -4, marginBottom: 10, lineHeight: 1.45 }}>{sub}</div>
+      {titulo && <span style={labelStyle}>{titulo}</span>}
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: titulo ? -4 : 0, marginBottom: 10, lineHeight: 1.45 }}>{sub}</div>
 
       {items.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: 10 }}>

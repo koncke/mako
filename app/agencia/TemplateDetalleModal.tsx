@@ -13,7 +13,15 @@ import { FlujoEditor } from './FlujoEditor';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean };
+// El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
+// mano acá se quedo viejo al primer campo nuevo (`canales`) y el compilador no podia
+// decir nada, porque las dos formas seguian siendo validas por separado. `import type`
+// se borra en compilacion, asi que traerlo de un modulo `server-only` no baja una sola
+// linea al navegador.
+// Un `export ... from` no crea binding local y el propio archivo deja de compilar:
+// van los dos, el import y el re-export.
+import type { PlantillaVista } from '@/lib/plantillas';
+export type { PlantillaVista };
 
 const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reporte', aviso: 'Aviso', accion: 'Acción', pregunta: 'Pregunta' };
@@ -46,11 +54,22 @@ const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', co
 /** El endpoint del super-admin. Quien no lo usa, es un cliente en su propia tab. */
 const ENDPOINT_AGENCIA = '/api/admin/plantillas';
 
-async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
+async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; error?: string; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
   try { return await (await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false }; }
 }
 
-export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = ENDPOINT_AGENCIA }: { plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void; endpoint?: string }) {
+/**
+ * ⚠️ `alto` y `marco` existen porque este panel se monta en DOS sitios con forma
+ * distinta: como panel derecho del chat de /mensajes (una tarjeta de 620 con su
+ * borde) y adentro de la celda de la bandeja de email, donde el borde y el radio
+ * ya los pone la caja de afuera — una tarjeta adentro de otra deja doble marco y
+ * scroll anidado. Son dos props y no un `embebido` porque son dos decisiones: el
+ * alto lo manda la fila del grid, y el marco, quién lo dibuja.
+ */
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true }: {
+  plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void; endpoint?: string;
+  alto?: number | string; marco?: boolean;
+}) {
   const crear = plantilla === null;
   const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
   const [categoria, setCategoria] = useState<CategoriaAviso>(plantilla?.categoria ?? 'aviso');
@@ -65,7 +84,17 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2200); };
   const id = plantilla?.id;
 
-  const guardarTexto = async () => { if (!id) return; setBusy('save'); const r = await api(endpoint, { action: 'texto', id, texto }); if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); } setBusy(null); };
+  // ⚠️ El `else` no es decoración: la ruta del cliente contesta 403 para todo aviso
+  // que redacta MaKo, y sin esta rama «Guardar» no decía NADA — el síntoma exacto que
+  // esta pantalla viene arrastrando desde el primer reporte del cliente.
+  const guardarTexto = async () => {
+    if (!id) return;
+    setBusy('save');
+    const r = await api(endpoint, { action: 'texto', id, texto });
+    if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); }
+    else flashOk(r.error || 'No se pudo guardar');
+    setBusy(null);
+  };
   const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api(endpoint, { action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
   const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api(endpoint, { action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
   const probar = async () => { if (!id) return; setBusy('probar'); const r = await api(endpoint, { action: 'probar', id }); if (r.ok && r.texto) setPrueba(r.texto); setBusy(null); };
@@ -77,11 +106,19 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   };
 
   return (
-    <div style={{ height: 620, width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: alto, width: '100%', background: 'var(--surface)', border: marco ? '1px solid var(--border)' : 'none', borderRadius: marco ? 16 : 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Topbar fija (no scrollea) */}
       <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver</button>
-        {!crear && id && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{plantilla.esCustom ? 'Eliminar' : 'Desactivar'}</button>}
+        {/* Dice lo que HACE, no a dónde lleva: embebido en la bandeja, la lista de la
+            izquierda nunca se fue, así que «Volver» prometía una navegación que no pasa. */}
+        <button onClick={onClose} title="Cerrar el editor" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Cerrar el editor</button>
+        {/* ⚠️ SÓLO ELIMINAR, y sólo una custom. Antes este botón decía «Desactivar» para
+            las built-in y llamaba a `borrar`, que apaga por un camino SIN el guard de
+            `porDefecto: 'siempre'` que sí tiene `setEnabledPlantilla`: para un aviso fijo
+            la pantalla dibujaba «Siempre activa» y 40px más arriba había un botón que lo
+            apagaba igual. Apagar se hace con el interruptor de abajo, que es el que sabe
+            cuáles no se pueden apagar. */}
+        {!crear && id && plantilla.esCustom && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Eliminar</button>}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 560, margin: '0 auto' }}>
@@ -136,7 +173,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                 canal sale un reporte, qué trae adentro, y si los no urgentes esperan
                 al resumen. Estaba en tres secciones sueltas de Configuraciones, cada
                 una hablando de un mensaje que estaba en otra lista. */}
-            {id && <PrefsDeMensaje id={id} />}
+            {id && <PrefsDeMensaje id={id} titulo={plantilla.titulo} endpoint={endpoint} onCanales={onCambio} />}
 
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '20px 0 10px' }}>¿Cuándo se dispara?</div>
             <div style={{ marginBottom: 20 }}>
@@ -144,7 +181,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
               <Flecha />
               <Paso icono="🧠" titulo="MaKo lo detecta y ESCRIBE con IA" detalle="Toma esta referencia + los datos reales del evento y redacta el mensaje (libre de adaptarlo)." tono="mako" />
               <Flecha />
-              <Paso icono="💬" titulo="Te llega al grupo de WhatsApp + al feed" tono="mako" />
+              <Paso icono="💬" titulo="Te llega por los canales que elegiste arriba, y al feed" tono="mako" />
               {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Tú respondes" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
             </div>
 

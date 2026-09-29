@@ -8,7 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import {
-  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla,
+  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
 } from '@/lib/plantillas';
 import type { CategoriaAviso } from '@/lib/avisos-catalogo';
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 }
 
 type Body = {
-  action?: string; id?: string; texto?: string; enabled?: boolean; contexto?: string;
+  action?: string; id?: string; texto?: string; enabled?: boolean; canales?: { wa?: boolean; email?: boolean }; contexto?: string;
   titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
 };
 
@@ -44,6 +44,15 @@ export async function POST(req: NextRequest) {
     case 'texto': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); await setTextoPlantilla(b.id, b.texto ?? ''); return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) }); }
     case 'reset': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); await setTextoPlantilla(b.id, ''); return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) }); }
     case 'enabled': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); await setEnabledPlantilla(b.id, b.enabled !== false); return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) }); }
+    case 'canales': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      const c = (b.canales ?? {}) as { wa?: unknown; email?: unknown };
+      await setCanalesPlantilla(b.id, {
+        ...(typeof c.wa === 'boolean' ? { wa: c.wa } : {}),
+        ...(typeof c.email === 'boolean' ? { email: c.email } : {}),
+      });
+      return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+    }
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }
     case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') }); }
     case 'flujo-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) }); }

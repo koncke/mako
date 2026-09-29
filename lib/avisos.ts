@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { getSetting, cambiarSettingSi } from './settings';
-import { avisoWaActivo, resumenAvisosActivo } from './perfil';
+import { estadoAviso, resumenAvisosActivo } from './perfil';
 import { puedeEsperar } from './avisos-agrupables';
 import { encolarAviso } from './avisos-cola';
 import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
@@ -64,6 +64,8 @@ export type EmitirAvisoInput = {
 // sin JID, Evolution caído). Antes solo existía el booleano y nadie lo miraba: la voz
 // de MaKo podía estar muerta días sin que nada lo dijera. Los callers (crons) lo logean.
 export type EmitirAvisoResult = {
+  /** ¿Salió también por email? Ausente en los caminos que ni lo intentan. */
+  email?: boolean;
   ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
   /** el dueño apagó este aviso en Configuraciones › Notificaciones. */
   apagado?: boolean;
@@ -175,7 +177,13 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // repito", y un aviso apagado nunca se dijo. Marcarlo envenenaba el interruptor:
     // apagar y volver a prender dejaba el aviso mudo hasta que venciera el TTL —
     // días, en los que tienen ventana larga— sin nada que lo explicara.
-    if (!(await avisoWaActivo(ws, a.tipo))) {
+    //
+    // ⚠️ SON DOS PREGUNTAS. `activo` es «este mensaje existe para este negocio» y
+    // `wa`/`email` es «por dónde me llega». Estaban fundidas en un booleano, y por eso
+    // «éste sí, pero sólo por mail» no existía: el único camino era apagarlo entero.
+    // Apagar los DOS canales equivale a apagarlo — y conserva su texto y su flujo.
+    const canal = await estadoAviso(ws, a.tipo);
+    if (!canal.activo || (!canal.wa && !canal.email)) {
       return { ok: true, feedId, wa: false, deduped: false, apagado: true };
     }
 
@@ -232,8 +240,16 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // dueño editó a mano copiando el formato), no se duplica.
     const encabezado = encabezadoAviso(a.tipo);
     const texto = a.texto.trimStart().startsWith('━━') ? a.texto : `${encabezado}\n${a.texto}`;
-    const env = a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto) : await enviarAlGrupoMaKo(ws, texto);
-    if (!env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
+    // Y EL EMAIL, si el cliente lo prendió para este aviso. Va acá, en el choke point,
+    // por lo mismo que el resto: los ~48 avisos del catálogo y los que se creen mañana
+    // lo heredan sin que nadie se acuerde. Primero el correo y después WhatsApp no es
+    // capricho: el de WhatsApp puede tardar (abre sesión, resuelve el grupo) y el correo
+    // no depende de él — si la línea está caída, el aviso igual sale por mail.
+    const email = canal.email ? await enviarAvisoPorEmail(a, texto) : false;
+    const env = canal.wa
+      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto) : await enviarAlGrupoMaKo(ws, texto))
+      : { ok: false as const, id: undefined, error: undefined };
+    if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
     // El aviso queda EN LA CONVERSACIÓN del grupo. Sin esto, MaKo manda una pregunta
     // ("saqué 97 compromisos, ¿los cargo?") y no le queda ningún registro: cuando el
     // dueño contesta "sí, cargalo", el doer no sabe a qué le dijo que sí y se agarra
@@ -273,10 +289,59 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
         }
       }
     }
-    return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
+    return { ok: true, feedId, wa: env.ok, email, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);
     return { ok: false, feedId: null, wa: false, deduped: false };
+  }
+}
+
+/**
+ * El aviso por EMAIL. Devuelve si salió a alguien.
+ *
+ * ⚠️ LO MANDA MAKO, NO EL NEGOCIO DEL CLIENTE. Sin `from` explícito, `sendEmail`
+ * resuelve el `resend_from` DEL WORKSPACE, y un cliente que todavía no conectó su
+ * dominio —casi todos— cae en el remitente sandbox de Resend, que entrega sólo al
+ * dueño de la cuenta: el aviso no llegaría y nada lo diría. El molde es
+ * lib/canal-vigilante.ts, que manda con `REMITENTE_MAKO` por esta misma razón.
+ *
+ * ⚠️ Y NO PASA POR `envioEmailHabilitado()`. Ese flag gobierna la nutrición y los
+ * broadcasts —lo que el cliente le manda a SUS leads— y es fail-closed para todo
+ * workspace sin la setting. Usarlo acá sería un SEGUNDO interruptor para un hecho que
+ * ya tiene el suyo (`canales.email` de esta plantilla): el cliente lo prende, no pasa
+ * nada, y no hay forma de saber por qué.
+ *
+ * El texto que viaja es el PELADO, sin el rótulo de barras del grupo: el correo tiene
+ * su propio título y su banda de marca, y el rótulo ahí es ruido — la misma razón por
+ * la que `crearNotificacion` recibe el texto sin él.
+ */
+async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string): Promise<boolean> {
+  try {
+    const wsCorreo = a.alDueno === true ? await wsSuperAdmin().catch(() => a.ws ?? OWNER_WS) : (a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS);
+    const [{ getDestinatariosDe }, { sendEmail }, { renderEmailHtml }, { REMITENTE_MAKO, EMAIL_MAKO, APP_BASE_URL }] = await Promise.all([
+      import('./notif-destinatarios'), import('./resend'), import('./email-html'), import('./app-url'),
+    ]);
+    const dest = await getDestinatariosDe(wsCorreo);
+    const para = [...new Set(dest.emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+    if (!para.length) return false;   // nadie a quien escribirle no es un error
+
+    const cuerpo = a.texto;
+    const html = renderEmailHtml({
+      subject: a.titulo, titulo: a.titulo, bodyText: cuerpo, marca: 'mako',
+      cta: a.link ? { texto: 'Verlo en MaKo', url: a.link.startsWith('http') ? a.link : `${APP_BASE_URL}${a.link}` } : undefined,
+    });
+    // Uno por destinatario, no en copia: son personas distintas del mismo negocio y
+    // no tienen por qué verse los mails entre ellas (igual que los reportes).
+    let salio = false;
+    for (const to of para) {
+      const r = await sendEmail({ to, from: REMITENTE_MAKO, replyTo: EMAIL_MAKO, subject: a.titulo, html, text: textoConRotulo });
+      if (r.ok) salio = true;
+    }
+    return salio;
+  } catch (e) {
+    // Que falle el mail no puede tumbar el aviso: WhatsApp sigue.
+    console.error(`[avisos] ${a.tipo}: fallo mandando por email:`, e instanceof Error ? e.message : String(e));
+    return false;
   }
 }
 
@@ -301,13 +366,19 @@ export async function emitirDelCatalogo(
   const cat = avisoDelCatalogo(id);
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
   const { plantillaActiva, referenciaPlantilla, generarMensajeAviso } = await import('./plantillas');
-  if (!(await plantillaActiva(id))) return { ok: true, feedId: null, wa: false, deduped: true }; // desactivada → no manda
+  // ⚠️ EL WORKSPACE SE RESUELVE ANTES DE LEER LA PLANTILLA. Esta línea leía el store
+  // del contexto AMBIENTE, no el de `opts.ws`: un cron que pasa el workspace explícito
+  // sin estar adentro de un `runWithWorkspace` —así llaman los que iteran inquilinos—
+  // consultaba el interruptor del DUEÑO acá y el del CLIENTE ocho líneas más abajo, en
+  // `estadoAviso(ws, …)`. O sea: un aviso que el dueño tenía apagado moría acá para
+  // todos sus clientes, sin importar lo que cada uno hubiera configurado.
+  const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  if (!(await runWithWorkspace(ws, () => plantillaActiva(id)))) return { ok: true, feedId: null, wa: false, deduped: true }; // desactivada → no manda
   // ⚠️ EL MODELO SE PAGA DESPUÉS DE SABER SI EL MENSAJE VA A SALIR. `generarMensajeAviso`
   // es una llamada a la IA, y hasta hoy corría SIEMPRE — también para un aviso que el
   // interruptor tenía apagado o que el dedup iba a descartar. Con el resumen diario eso se
   // vuelve caro de verdad: se pagaría una redacción por cada aviso que después se resume
   // en una línea. En la cola entra el título, que es lo que el resumen muestra.
-  const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
   const wsPref = opts.alDueno === true ? await wsSuperAdmin().catch(() => ws) : ws;
   const alResumen = puedeEsperar(cat.id, cat.categoria) && (await resumenAvisosActivo(wsPref));
   // ⚠️ AL RESUMEN VA EL CONTEXTO CRUDO, NO LA PLANTILLA DE REFERENCIA. La referencia es la

@@ -35,10 +35,12 @@ const btnGhost = {
   fontSize: 13.5, fontWeight: 600, cursor: 'pointer', flex: 'none',
 } as const;
 
-export function DestinatariosCanal({ canal, inicial, onGuardado }: {
+export function DestinatariosCanal({ canal, inicial, onGuardado, desnudo }: {
   canal: 'whatsapp' | 'email';
   inicial: Destinatarios;
   onGuardado: (d: Destinatarios) => void;
+  /** Sin caja propia: el recuadro de los canales ya la puso. Ver el comentario de abajo. */
+  desnudo?: boolean;
 }) {
   const [tel, setTel] = useState<string[]>(inicial.telefonos);
   const [mail, setMail] = useState<string[]>(inicial.emails);
@@ -98,20 +100,22 @@ export function DestinatariosCanal({ canal, inicial, onGuardado }: {
   }
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px' }}>
+    // Una caja adentro de otra es doble marco y doble padding, y encima lee como
+    // una sección nueva justo cuando el pedido era que dejara de serlo.
+    <div style={desnudo ? {} : { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px' }}>
       {/* `portalTo` va en null a propósito: acá no hay modal encima, así que el
           menú de ladas se abre en su lugar. Portalearlo pediría medir un nodo, que
           es justo donde vive esa familia de bugs. */}
       {esWa ? (
         <Lista
-          titulo="Números de WhatsApp" icono="whatsapp" tipo="tel"
+          titulo={desnudo ? undefined : 'Números de WhatsApp'} icono="whatsapp" tipo="tel"
           sub="El primero es con el que se arma el grupo de MaKo; el resto se suma a ese mismo grupo."
           items={tel} onChange={setTel} placeholder="223 355 0684"
           onBorrador={setBorr} portalTo={null}
         />
       ) : (
         <Lista
-          titulo="Direcciones de email" icono="email" tipo="email"
+          titulo={desnudo ? undefined : 'Direcciones de email'} icono="email" tipo="email"
           sub="Cada una recibe su propia copia, no van en copia entre ellas."
           items={mail} onChange={setMail} placeholder="nombre@empresa.com"
           onBorrador={setBorr} portalTo={null}

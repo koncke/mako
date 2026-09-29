@@ -5542,3 +5542,141 @@ falta, y escribirle un `?tab=notif` habría sido un parámetro que nadie lee —
 construye la próxima ilusión de que el link elige la tab.
 
 *2026-09-29*
+
+### «Solo hay 1 template» no era un problema de filas: el email tenía UN camino
+
+**Vive en:** `lib/avisos.ts` (el choke point) · `canales` en `lib/plantillas.ts` ·
+`POR_EMAIL`, retirado de `app/perfil/BandejaEmail.tsx`
+
+La bandeja de correo listaba un solo mensaje y la salida obvia era sumar ids a
+`AVISOS_DEL_CLIENTE`. Está mal por dos razones que no se ven desde la pantalla:
+
+1. **Esa lista no es una lista de vista: es el permiso del servidor.**
+   `app/api/perfil/plantillas/route.ts` define `esAdministrativo = (id) => !esAvisoDelCliente(id)`
+   y con eso contesta **403** a `texto` y a `reset`. Sumar un id ahí le da al cliente permiso
+   de EDITAR el texto de un aviso que redacta MaKo, no de verlo.
+2. **Y alimenta las dos pantallas.** `listarPlantillas()` filtra con la misma función, y la
+   vista de WhatsApp usa el MISMO endpoint: las filas nuevas aparecen también en el chat, que
+   nadie pidió tocar.
+
+La causa real era que **por email sólo salían los tres reportes** (`lib/notify.ts` es el único
+`sendEmail` de los avisos) y el cliente ve uno. Lo que resuelve el pedido es darle a cada
+aviso su canal (`canales: { wa, email }` en su entrada del store) y despacharlo en el choke
+point — con eso los seis mensajes del cliente pueden salir por correo y la bandeja tiene seis.
+
+⚠️ **Y el email arranca APAGADO, no prendido.** Es la regla del default sin consecuencias, y
+acá tiene tres: cuesta plata, se le escribe a direcciones que quizá nadie revisó, y un correo
+no deseado quema la reputación del dominio para **todos** los mails del producto.
+
+*2026-09-29*
+
+### El hallazgo caro: editar el texto de un REPORTE no cambia el mail
+
+**Vive en:** `lib/reportes.ts` (`:88`, `:146`, `:198`) · `lib/notify.ts`
+
+`lib/reportes.ts` arma el cuerpo del reporte con `L.join('\n')` a partir de los datos, y **no
+importa `lib/plantillas` en ninguna línea**. O sea que el texto que el cliente edita en el
+detalle del «Reporte semanal» es una MUESTRA y no un molde: se guarda, se ve, y el correo que
+sale no lo lee nunca.
+
+No se tocó, y es una decisión de producto, no un bug con arreglo obvio: o el reporte deja de
+ofrecer edición de texto, o `despacharReporte` pasa a usar la referencia. Lo que no puede
+quedar es una pantalla que guarda con un ✓ sobre algo que el mail ignora.
+
+⚠️ **Y hay un segundo piso, medido en la misma corrida:** los tres crons de reporte
+(`app/api/cron/reporte-*/route.ts`) **no iteran inquilinos** — no hay `correrPorWorkspace`,
+y tanto `getNotifPrefs()` como `getDestinatarios()` caen al dueño. **Hoy ningún cliente
+recibe un reporte.** La bandeja de correo lo muestra igual porque describe lo que el mensaje
+dice, no lo que el cron hace.
+
+*2026-09-29*
+
+### Una función PURA adentro de un módulo `server-only` deja a la pantalla sin poder mostrar lo que el server manda
+
+**Vive en:** `lib/email-html.ts` (nuevo) · `lib/resend.ts`
+
+`renderEmailHtml` vivía en `lib/resend.ts`, que lleva `server-only` porque ahí está la API
+key. Correcto para la key y caro para todo lo demás: la bandeja de correo no podía usarlo, así
+que dibujaba el texto plano en un `<div>` y el lector veía los `*asteriscos*` de WhatsApp que
+el mail real **no tiene**. Una previsualización que no muestra lo que llega no sirve para lo
+único que hace.
+
+La función no tocaba credenciales, ni settings, ni la base: se mudó entera a un módulo sin
+`server-only` y se re-exporta desde `resend.ts`, así que los siete call sites no se enteraron.
+
+⚠️ **Y el módulo mudado no puede importar NADA del repo, ni transitivamente.**
+`tests/frontera-use-client.test.ts` sólo mira imports DIRECTOS, así que un `server-only`
+colgando dos saltos más abajo no lo caza nadie — y el síntoma sería el build entero con un
+error que nombra otra ruta. El guard nuevo cuenta los imports y exige cero.
+
+*2026-09-29*
+
+### Y el orden del pipeline de escape: las marcas se convierten DESPUÉS de escapar
+
+**Vive en:** `marcasAHtml` en `lib/email-html.ts`
+
+`*negrita*` → `<strong>` corriendo ANTES de `escapeHtml` produce `&lt;strong&gt;` y el lector
+ve las etiquetas como texto. Va después, igual que `linkify`, que ya lo decía en su comentario
+desde el día uno («opera sobre texto YA escapado»).
+
+Es la misma familia que «si el paso B puede consumir lo que el paso A tenía que producir, es
+un bug de ORDEN», y acá la salida correcta estaba escrita al lado — en la función de al lado.
+
+⚠️ **Y el comentario que lo explica no puede CITAR la regex vieja.** El `replace` que borraba
+las marcas contiene la secuencia que cierra un bloque de comentario, así que pegarlo adentro de
+un `/** … */` parte el archivo al medio: el typecheck escupió seis errores de sintaxis en
+líneas que no tenían nada. Es el gemelo del backtick adentro de un template literal, ya escrito
+en AGENTS.md, en el otro contexto.
+
+*2026-09-29*
+
+### El interruptor de un aviso y su canal son DOS preguntas
+
+**Vive en:** `estadoAviso` en `lib/perfil.ts` · el gate de `emitirAviso` en `lib/avisos.ts`
+
+`avisoWaActivo(ws, tipo)` devolvía un booleano que fundía «¿este mensaje existe para este
+negocio?» con «¿sale por WhatsApp?». Por eso «éste sí, pero sólo por mail» no existía: el único
+camino era apagarlo entero. Ahora son tres campos (`activo`, `wa`, `email`) leídos en UNA sola
+pasada del store, y apagar los dos canales equivale a apagarlo **conservando su texto y su
+flujo**.
+
+⚠️ **El fail-open es sólo para WhatsApp.** Si la lectura de la preferencia falla, el aviso sale
+por donde salía siempre —un error nuestro no puede silenciar el mensaje que dice que los
+números dejaron de llegar— pero **no se abre el email**: ese canal se prende a mano, y un fallo
+de lectura no es un permiso.
+
+*2026-09-29*
+
+### `emitirDelCatalogo` leía la plantilla en el contexto AMBIENTE, no en el del workspace
+
+**Vive en:** `lib/avisos.ts`
+
+`plantillaActiva(id)` se llamaba ANTES de resolver `const ws = opts.ws ?? …`. Todo call site
+que pasa el workspace explícito sin estar adentro de un `runWithWorkspace` —así llaman los
+crons que iteran inquilinos— consultaba el interruptor **del dueño** ahí, y el del cliente ocho
+líneas más abajo. O sea: un aviso que el dueño tenía apagado moría para TODOS sus clientes, sin
+importar lo que cada uno hubiera configurado, y el interruptor del cliente era decorativo para
+ese camino.
+
+Preexistente y silencioso: el aviso simplemente no salía, que es indistinguible de «no pasó
+nada que avisar». Lo encontró un refutador leyendo el orden de las líneas, no un síntoma.
+
+**La regla que queda:** en una función que acepta `ws` por parámetro, la resolución del
+workspace es la PRIMERA línea del cuerpo. Cualquier lectura de settings antes de eso está
+preguntando por otro inquilino.
+
+*2026-09-29*
+
+### El guard se acusa a sí mismo cuando el código NOMBRA lo que decidió no usar
+
+**Vive en:** `tests/email-y-canales.test.ts`
+
+Un guard que exige que `lib/avisos.ts` **no** contenga `envioEmailHabilitado` falla contra el
+propio comentario que explica por qué ese flag no se usa. Ya estaba escrito en AGENTS.md para
+el guard de `/funnel` y volvió a pasar el mismo día que se leyó.
+
+Va con el fuente sin comentarios, y **los de línea se sacan ANTES que los de bloque**: un
+`/*` que aparece adentro de un `//` se traga cincuenta líneas de código real, que es
+exactamente como un guard de esta casa dio verde sobre algo que nunca miró.
+
+*2026-09-29*

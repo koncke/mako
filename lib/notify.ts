@@ -15,12 +15,9 @@ import type { CanalPrefs, ContactoReportes } from './perfil';
 import { getDestinatarios } from './notif-destinatarios';
 import { crearNotificacion, setCanalWa, pendientesWhatsapp } from './notificaciones';
 import { sendEmail, renderEmailHtml } from './resend';
+import { REMITENTE_MAKO, EMAIL_MAKO } from './app-url';
 import { sendTextToPhone } from './chatwoot';
 
-// El texto usa *negrita* estilo WhatsApp; para email/feed quitamos los *.
-function sinMarcas(s: string): string {
-  return s.replace(/\*(.+?)\*/g, '$1');
-}
 
 export type ResultadoDespacho = {
   notifId: number | null;
@@ -66,8 +63,22 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
     for (const to of emails) {
       const r = await sendEmail({
         to,
+        // ⚠️ EL REPORTE LO MANDA MAKO, NO EL NEGOCIO DEL CLIENTE. Sin `from` esto
+        // resolvía el `resend_from` DEL WORKSPACE, y un cliente que todavía no conectó
+        // su dominio —casi todos— cae en el remitente SANDBOX de Resend, que entrega
+        // sólo al dueño de la cuenta: el reporte no llegaba y nada lo decía. Es además
+        // la regla de la casa (AGENTS.md, `OWNER_WS` no es la plataforma): lo que manda
+        // MaKo se firma en el código. El molde es lib/canal-vigilante.ts.
+        from: REMITENTE_MAKO,
+        replyTo: EMAIL_MAKO,
         subject: rep.titulo,
-        html: renderEmailHtml({ subject: rep.titulo, bodyText: sinMarcas(rep.texto), fromName: perfil.nombre }),
+        // El cuerpo va CON sus marcas: `renderEmailHtml` convierte *negrita* en
+        // <strong>. Antes pasaba por un `sinMarcas` que las borraba, así que el mismo
+        // reporte salía con énfasis por WhatsApp y plano por mail.
+        html: renderEmailHtml({
+          subject: rep.titulo, titulo: rep.titulo, bodyText: rep.texto,
+          marca: 'mako', fromName: perfil.nombre,
+        }),
       });
       if (r.ok) { res.email = true; res.destinos!.email += 1; }
     }

@@ -72,7 +72,9 @@ test('⚠️ el aviso se RECLAMA antes de mandarlo: leer-hacer-marcar perdía la
   //    —un aviso apagado nunca se dijo, y marcarlo lo deja mudo hasta que venza el TTL— y
   //    ANTES de los dos caminos que sí lo dicen (la cola y el envío), para que un solo
   //    reclamo cubra a los dos.
-  const iInterruptor = src.indexOf('avisoWaActivo(ws, a.tipo)');
+  // El interruptor pasó a ser `estadoAviso`, que contesta las DOS preguntas de una
+  // lectura: si el aviso está activo y por qué canales sale. El orden no cambió.
+  const iInterruptor = src.indexOf('estadoAviso(ws, a.tipo)');
   const iReclamo = src.indexOf('reclamarAviso(ws, a.tipo');
   const iCola = src.indexOf('encolarAviso(wsCola');
   const iEnvio = src.indexOf('enviarAlGrupoSuperAdmin(texto)');

@@ -572,6 +572,15 @@ Tres corolarios que valen para cualquier recurso compartido:
    Probalo mentalmente con dos: si la respuesta cambia según de quién sea el segundo, el
    lugar está mal aunque hoy dé bien.
 
+⚠️ **Y EN UNA FUNCIÓN QUE ACEPTA `ws` POR PARÁMETRO, RESOLVERLO ES LA PRIMERA LÍNEA DEL
+CUERPO.** Cualquier lectura de un setting que ocurra antes está preguntando por el inquilino
+del CONTEXTO, que para un cron que itera clientes es el dueño. Medido el 29/09/2026 en
+`emitirDelCatalogo` (`lib/avisos.ts`): leía `plantillaActiva(id)` arriba y resolvía
+`opts.ws` ocho líneas más abajo, así que consultaba el interruptor del DUEÑO ahí y el del
+CLIENTE después — un aviso que el dueño tenía apagado moría para todos sus clientes, con el
+interruptor de cada uno decorativo para ese camino. No da error: el aviso no sale, que es
+indistinguible de «no pasó nada que avisar».
+
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
 Si algo vive en `app/layout.tsx`, se lo come **todo el mundo**. Y si además arranca desde
@@ -1541,6 +1550,17 @@ etiqueta y cuyo vecino de abajo abre otra.
 Lo mismo vale para todo lo grande que vive en una cadena de este repo: los prompts, el
 snippet del Pixel, el SQL embebido. Nombrá la clase sin comillas de ningún tipo. Y el `${`
 es el otro carácter con esa propiedad: `$100M` es inofensivo, `${algo}` no.
+
+## Y el gemelo: una regex CITADA adentro de un comentario de bloque lo cierra
+
+El mismo accidente, del otro lado. La convención de la casa es explicar en el comentario qué
+hacía el código que se sacó — y si eso que se sacó es una regex, puede traer adentro la
+secuencia que cierra el bloque. Medido el 29/09/2026 en `lib/email-html.ts`: un `/** … */`
+que citaba el `replace` que borraba los asteriscos **partió el archivo al medio**, y el
+typecheck escupió seis errores de sintaxis en líneas que no tenían nada que ver.
+
+Se cuenta lo que hacía **en palabras**, o se parte la secuencia. Y si el archivo no compila
+después de escribir un comentario largo, es esto antes que cualquier otra cosa.
 
 **Cómo se diagnostica en 7 segundos:** cuando una ruta devuelve 200 y le falta el CUERPO,
 corré `npm run typecheck` antes de leer nada. Lo caza — pero lo dice al revés, como
