@@ -32,7 +32,10 @@ export const PARTES: Parte[] = [
   { titulo: 'Un canal a la vez, con su bandeja', detalle: 'Los tiles de WhatsApp y Email abren SU canal: el input de destinatarios de ese canal y debajo sus mensajes · los de WhatsApp como chat, los de email como una bandeja de correo, con el remitente leído de `/api/email/dominio` y nunca escrito a mano', estado: 'hecha' },
   { titulo: 'Los avisos administrativos, sólo del super-admin', detalle: 'Los 59 que no están en la lista blanca siguen saliendo y ya no se dibujan en la pantalla del cliente · se ven y se editan desde `/mensajes`', estado: 'hecha' },
   { titulo: 'La tab en la URL', detalle: '`ConfigInnerTabs` no lee `?tab=`, así que un link a una tab que no sea Notificaciones no existe · el molde para hacerlo es `app/admin/ui/` (leer en el server + `router.replace` sin scroll)', estado: 'cola' },
-  { titulo: 'Email para los avisos, no sólo para los reportes', detalle: 'Hoy `lib/notify.ts` es el único `sendEmail` de los avisos y sólo manda los tres reportes · por eso la bandeja de email lista tres (uno para un cliente) y los otros cinco avisos de la lista blanca no tienen camino de correo', estado: 'cola' },
+  { titulo: 'Email para los avisos, no sólo para los reportes', detalle: 'Cada aviso elige su canal (`canales: { wa, email }` en su plantilla) y el choke point de `lib/avisos.ts` lo despacha · el email nace APAGADO en todos: prenderlo cuesta plata y quema la reputación del dominio para todo el producto, así que sólo un valor explícito lo enciende', estado: 'hecha' },
+  { titulo: 'El correo se ve como un correo', detalle: 'La bandeja previsualiza con `renderEmailHtml`, el MISMO que arma el que sale, en un iframe · el mail ganó banda de marca, título, botón y las negritas que un `sinMarcas` le borraba, y perdió el dorado retirado en los links', estado: 'hecha' },
+  { titulo: 'El texto de un REPORTE no llega al mail', detalle: '`lib/reportes.ts` arma el cuerpo con los datos y NO importa `lib/plantillas`: lo que el cliente edita del «Reporte semanal» es una muestra que el correo ignora · o el reporte deja de ofrecer edición de texto, o `despacharReporte` pasa a usar la referencia', estado: 'cola' },
+  { titulo: 'Los crons de reporte no iteran inquilinos', detalle: 'Los tres `app/api/cron/reporte-*` no tienen `correrPorWorkspace`, y `getNotifPrefs()` y `getDestinatarios()` caen al dueño: hoy ningún cliente recibe un reporte · la pantalla lo muestra igual porque describe lo que el mensaje dice, no lo que el cron hace', estado: 'cola' },
   { titulo: 'Prender `meta-cuenta-frenada` de verdad', detalle: 'Nace prendido desde el 29/09, y las transiciones de meta-health siguen sin cablear: el aviso no puede salir todavía · cuando se cablee, ya está encendido', estado: 'cola' },
 ];
 
@@ -153,6 +156,39 @@ export const BITACORA: Hito[] = [
       'app/perfil/DestinatariosLista.tsx — la pieza compartida que quedó al retirarse el modal',
       'app/perfil/BandejaEmail.tsx — la bandeja de correo, con el remitente leído',
     ],
+  },
+  {
+    fecha: '29 sep', hora: '12:07', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El mail tiene que verse como un mail, y hay uno solo',
+    pedido: '1. Cuando le pongo editar, no deberia cubrir la barra lateral izquierda de "emails", solo la seccion del mensaje... 2. Los templates de email deben estar formateados como si fuera un email producido, como los que te envian de marketing tipo HTML, eso se puede hacer en email. 3. Solo hay 1 template, crea mas. 4. No me gusta que los botones de arriba sean igual que WhatsApp y Email, hazlos diferentes, mas sutiles. 5. No quiero que "Direcciones de email" y "Numeros de WhatsApp" sea una seccion diferente, que este todo en el mismo recuadro.',
+    puntos: [
+      'El punto 3 NO se resolvía sumando ids a `AVISOS_DEL_CLIENTE`: esa lista es el permiso del SERVIDOR (contesta 403 a `texto` y a `reset`) y además alimenta la vista de WhatsApp, así que dos filas nuevas aparecían también en el chat. La causa real era que por email sólo salían los tres reportes y el cliente ve uno. Lo que lo resuelve es que cada aviso elija su canal.',
+      'El punto 2 estaba bloqueado por una frontera: `renderEmailHtml` vivía en `lib/resend.ts`, que lleva `server-only` por la API key, así que la pantalla no podía usarlo y dibujaba el texto plano — con los `*asteriscos*` de WhatsApp que el mail real no tiene. Es una función PURA: se mudó a `lib/email-html.ts` y se re-exporta.',
+      'El punto 1 no se arreglaba moviendo el montaje: `TemplateDetalleModal` es una tarjeta de 620px con su propio borde, y las celdas de la bandeja tenían `maxHeight`. El alto se declara en la FILA del grid; el detalle recibe `alto` y `marco`.',
+      'El punto 4 tiene un porqué más allá del gusto: un tile de canal ABRE algo y dice a dónde llega, y esto son dos interruptores que no mandan nada a ningún lado. Dos cosas que hacen cosas distintas no pueden verse igual — que es la misma regla que obliga a lo contrario cuando SÍ son lo mismo (el chip de `PrefsDeMensaje` era una copia a mano de `CanalToggle`, y pasó a ser la misma pieza).',
+      '⚠️ Dos cosas medidas que son DECISIÓN, no código: `lib/reportes.ts` no importa `lib/plantillas`, así que editar el texto del reporte no cambia el mail; y los tres crons de reporte no iteran inquilinos, así que hoy ningún cliente recibe uno.',
+    ],
+    commits: [{ sha: 'cde23c01', msg: 'notificaciones: el mail se ve como un mail, y cada aviso elige por dónde llega', lineas: 1527, archivos: 19 }],
+    archivos: [
+      'lib/email-html.ts — el render del correo, fuera de `server-only` (lo importa la pantalla)',
+      'lib/mensaje-canales.ts — el ÚNICO lugar que sabe de qué tienda sale el canal de cada mensaje',
+      'lib/avisos.ts — el gate por canal y el envío por email en el choke point',
+      'app/perfil/BandejaEmail.tsx — la bandeja, con el correo renderizado en un iframe',
+    ],
+  },
+  {
+    fecha: '29 sep', hora: '12:07', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Cuatro lectores y cuatro escépticos: los cuatro relevos quedaron refutados',
+    puntos: [
+      'El relevo se corrió ANTES de escribir una línea, con un refutador por lector y el default en `refutado: true`. Los cuatro cayeron, y lo que encontraron cambió el plan en tres lugares — no fue ceremonia: la salida obvia de cada uno era la equivocada.',
+      '`AVISOS_DEL_CLIENTE` es un permiso de servidor y no una lista de vista (403 en `texto`); sumar los reportes habría dado dos filas que dicen «apagado» mientras el cron las sigue mandando, porque no declaran `porDefecto`.',
+      '`marcasAHtml` tenía que correr DESPUÉS de `escapeHtml`, no antes: al revés, los `<strong>` salen escapados y el lector ve las etiquetas.',
+      'El iframe del preview no necesita medirse: con el alto declarado en la celda, el correo scrollea adentro — y así el sandbox puede quedar sin `allow-same-origin`, que era el precio de medirlo.',
+      'Y el hallazgo que ningún síntoma iba a dar: `emitirDelCatalogo` leía la plantilla en el contexto AMBIENTE, antes de resolver `opts.ws`. Un cron que itera inquilinos consultaba el interruptor del DUEÑO ahí y el del cliente ocho líneas más abajo.',
+    ],
+    archivos: ['docs/hallazgos-comunicacion.md — las siete entradas de esta tanda'],
   },
   {
     fecha: '29 sep', hora: '00:09', chat: '—', cuenta: 'claude2',
