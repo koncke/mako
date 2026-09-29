@@ -90,7 +90,14 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
    * sección que no existe. El dueño lo cortó con todas las letras: «que no sea una
    * sección diferente, que esté todo en el mismo recuadro».
    */
-  titulo?: string; sub: string; items: string[]; onChange: (v: string[]) => void;
+  titulo?: string;
+  /**
+   * La línea que explicaba el canal. OPCIONAL, y hoy no la pasa nadie: decía cosas
+   * ciertas («el primero es con el que se arma el grupo», «cada una recibe su propia
+   * copia») que la pantalla YA muestra —el chip PRINCIPAL marca el primero— y que el
+   * dueño cortó por innecesarias. El porqué vive acá, que es donde se busca.
+   */
+  sub?: string; items: string[]; onChange: (v: string[]) => void;
   placeholder: string; icono: string; tipo: 'tel' | 'email';
   /** Lo tipeado y todavía no agregado, para que el guardado no lo pierda. */
   onBorrador: (v: string) => void;
@@ -132,22 +139,22 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
   return (
     <div>
       {titulo && <span style={labelStyle}>{titulo}</span>}
-      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: titulo ? -4 : 0, marginBottom: 10, lineHeight: 1.45 }}>{sub}</div>
+      {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: titulo ? -4 : 0, marginBottom: 10, lineHeight: 1.45 }}>{sub}</div>}
 
       {items.length === 0 && (
-        <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: 10 }}>
-          Todavía no hay ninguno. Sin esto, MaKo no puede avisar por este canal.
-        </div>
+        // El vacío no explica la consecuencia: el campo para arreglarlo está justo
+        // abajo, así que el párrafo ocupaba el lugar del arreglo.
+        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 8 }}>Todavía no hay ninguno.</div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
         {items.map((v, i) => (
           <div key={`${v}-${i}`} style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px',
-            borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px',
+            borderRadius: 9, background: 'var(--surface)', border: '1px solid var(--border)',
           }}>
             <span style={{ display: 'flex', color: 'var(--dim)', flex: 'none' }}><Icon name={icono} size={16} /></span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{paraLeer(tipo, v)}</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{paraLeer(tipo, v)}</span>
             {i === 0 && (
               <span style={{
                 flex: 'none', fontSize: 10.5, fontFamily: MONO, letterSpacing: '.06em', textTransform: 'uppercase',

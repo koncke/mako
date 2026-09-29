@@ -169,32 +169,44 @@ export function renderEmailHtml(params: RenderEmailParams): string {
     : '';
 
   return `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${escapeHtml(params.subject)}</title>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(params.subject)}</title>
 <style>
-  @media (prefers-color-scheme: dark) {
-    .mk-fondo { background:#0F1319 !important; }
-    .mk-tarjeta { background:#171C24 !important; border-color:#262D38 !important; }
-    .mk-tinta, .mk-tinta h1, .mk-tinta p { color:#EDF0F4 !important; }
-    .mk-pie { color:#93A0B1 !important; border-color:#262D38 !important; }
-  }
+  /*
+    ADVERTENCIA: el mail es CLARO, y declarar color-scheme light no es decoracion: es
+    lo que le pide al cliente de correo que NO invierta los colores por su cuenta.
+
+    Aca hubo un bloque prefers-color-scheme dark y se fue el 29/09/2026 por las dos
+    puntas. En el CORREO tenia un agujero -la fila del titulo no llevaba la clase, asi
+    que el h1 se quedaba casi negro sobre la tarjeta ya oscura, ilegible- y en la
+    PREVISUALIZACION era peor: el iframe hereda el modo del navegador de quien mira,
+    asi que la pantalla clara de la app mostraba un rectangulo negro. El dueno lo
+    reporto como «se pusieron negros los templates».
+
+    Un modo oscuro de email se sostiene con las tres clases cubiertas Y probado en
+    clientes reales (Gmail, Outlook y Apple Mail lo soportan distinto). Mientras no
+    este medido, una sola version que se lee siempre le gana a dos donde una falla.
+
+    Y no va NINGUN backtick aca adentro: esto vive dentro de un template literal, asi
+    que un backtick lo cierra a la mitad. Paso al escribir este mismo comentario.
+  */
   @media only screen and (max-width: 620px) {
     .mk-pad { padding-left:20px !important; padding-right:20px !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${C.fondo};" class="mk-fondo">
+<body style="margin:0;padding:0;background:${C.fondo};">
 ${preheader}
-<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:${C.fondo};padding:28px 12px;" class="mk-fondo">
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:${C.fondo};padding:28px 12px;">
   <tr><td align="center">
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background:${C.tarjeta};border:1px solid ${C.linea};border-radius:14px;overflow:hidden;" class="mk-tarjeta">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background:${C.tarjeta};border:1px solid ${C.linea};border-radius:14px;overflow:hidden;">
       ${banda}
       ${titulo}
-      <tr><td class="mk-pad mk-tinta" style="padding:${params.titulo ? '14px' : '28px'} 32px ${cta ? '6px' : '10px'};font-family:${FUENTE};color:${C.tinta};font-size:16px;line-height:1.6;">
+      <tr><td class="mk-pad" style="padding:${params.titulo ? '14px' : '28px'} 32px ${cta ? '6px' : '10px'};font-family:${FUENTE};color:${C.tinta};font-size:16px;line-height:1.6;">
         ${bodyToHtml(params.bodyText)}
       </td></tr>
       ${cta}
-      <tr><td class="mk-pad mk-pie" style="padding:18px 32px 26px;font-family:${FUENTE};color:${C.dim};font-size:13px;line-height:1.5;border-top:1px solid ${C.linea};">
-        ${fromName ? `<div style="font-weight:600;color:${C.tinta};" class="mk-tinta">${escapeHtml(fromName)}</div>` : ''}
+      <tr><td class="mk-pad" style="padding:18px 32px 26px;font-family:${FUENTE};color:${C.dim};font-size:13px;line-height:1.5;border-top:1px solid ${C.linea};">
+        ${fromName ? `<div style="font-weight:600;color:${C.tinta};">${escapeHtml(fromName)}</div>` : ''}
         ${pieMako}
         ${unsub}
       </td></tr>

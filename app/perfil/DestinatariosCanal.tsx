@@ -35,12 +35,10 @@ const btnGhost = {
   fontSize: 13.5, fontWeight: 600, cursor: 'pointer', flex: 'none',
 } as const;
 
-export function DestinatariosCanal({ canal, inicial, onGuardado, desnudo }: {
+export function DestinatariosCanal({ canal, inicial, onGuardado }: {
   canal: 'whatsapp' | 'email';
   inicial: Destinatarios;
   onGuardado: (d: Destinatarios) => void;
-  /** Sin caja propia: el recuadro de los canales ya la puso. Ver el comentario de abajo. */
-  desnudo?: boolean;
 }) {
   const [tel, setTel] = useState<string[]>(inicial.telefonos);
   const [mail, setMail] = useState<string[]>(inicial.emails);
@@ -100,23 +98,22 @@ export function DestinatariosCanal({ canal, inicial, onGuardado, desnudo }: {
   }
 
   return (
-    // Una caja adentro de otra es doble marco y doble padding, y encima lee como
-    // una sección nueva justo cuando el pedido era que dejara de serlo.
-    <div style={desnudo ? {} : { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px 20px' }}>
+    // Sin caja: esto vive ADENTRO del tile de su canal. Una caja dentro de otra es
+    // doble marco y doble padding, y encima lee como una sección nueva justo cuando
+    // el pedido era que dejara de serlo.
+    <div style={{ marginTop: 10 }}>
       {/* `portalTo` va en null a propósito: acá no hay modal encima, así que el
           menú de ladas se abre en su lugar. Portalearlo pediría medir un nodo, que
           es justo donde vive esa familia de bugs. */}
       {esWa ? (
         <Lista
-          titulo={desnudo ? undefined : 'Números de WhatsApp'} icono="whatsapp" tipo="tel"
-          sub="El primero es con el que se arma el grupo de MaKo; el resto se suma a ese mismo grupo."
+          icono="whatsapp" tipo="tel"
           items={tel} onChange={setTel} placeholder="223 355 0684"
           onBorrador={setBorr} portalTo={null}
         />
       ) : (
         <Lista
-          titulo={desnudo ? undefined : 'Direcciones de email'} icono="email" tipo="email"
-          sub="Cada una recibe su propia copia, no van en copia entre ellas."
+          icono="email" tipo="email"
           items={mail} onChange={setMail} placeholder="nombre@empresa.com"
           onBorrador={setBorr} portalTo={null}
         />
@@ -167,20 +164,20 @@ export function DestinatariosCanal({ canal, inicial, onGuardado, desnudo }: {
       {/* Sacar a alguien de la lista no lo echa del grupo, y es a propósito:
           echarlo lo ven todos los demás y no es algo que se haga de rebote. */}
       {saca && (
-        <div style={{ marginTop: 16, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
           Deja de recibir los reportes, pero sigue en el grupo. Si hace falta, sácalo desde WhatsApp.
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
         {/* ⚠️ Solo se deshabilita mientras GUARDA. Antes también se apagaba con
             `!dirty`, y ese era el camino mudo que reportó el cliente: cuando de
             verdad no hay nada que guardar, el botón lo DICE. */}
         <button
           type="button" onClick={guardar} disabled={busy}
           style={{
-            padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7',
-            fontFamily: SANS, fontSize: 13.5, fontWeight: 600,
+            padding: '7px 15px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7',
+            fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
             cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1,
           }}
         >

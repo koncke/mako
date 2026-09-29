@@ -48,7 +48,10 @@ const ENDPOINT = '/api/perfil/plantillas';
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 };
+// `alignItems: start` para que abrir un canal NO estire a los otros dos: sin esto,
+// el tile abierto define el alto de la fila y los vecinos quedan con medio metro de
+// vacío abajo.
+const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12, alignItems: 'start' };
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
 
@@ -81,10 +84,19 @@ function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
   );
 }
 
-/** Tile de un canal: qué es, a dónde llega, y el botón que lo abre. */
-function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto }: {
+/**
+ * Tile de un canal: qué es, a dónde llega, el botón que lo abre — y, abierto, el
+ * editor de sus destinatarios ADENTRO.
+ *
+ * Adentro y no debajo por pedido del dueño: «que agregar un número, o email, se haga
+ * en el mismo recuadro de WhatsApp y Email». Y es lo correcto: el tile dice a quién
+ * le llega y el editor cambia exactamente eso, así que separarlos obligaba a leer
+ * cuál de los dos canales estabas editando.
+ */
+function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto, editor }: {
   icono: string; color: string; nombre: string; detalle: string;
   accion: { label: string; onClick: () => void }; alerta?: boolean; abierto?: boolean;
+  editor?: ReactNode;
 }) {
   return (
     <Tile
@@ -96,6 +108,7 @@ function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto }: {
       <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>
         {abierto ? 'Cerrar' : accion.label}
       </button>
+      {abierto && editor}
     </Tile>
   );
 }
@@ -274,6 +287,12 @@ export function NotificacionesPanel() {
     return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
   }
 
+  // El `key` de cada editor es su canal: cambiar de canal lo REMONTA. Siembra su
+  // estado de props con useState, y sin eso sobreviven el borrador, el aviso de quién
+  // no entró al grupo y el link — se tipea un teléfono, se pasa a Email y Guardar
+  // contesta «eso no parece un email» sobre un campo que no muestra nada.
+  const guardarDest = (d: Destinatarios) => { setDest(d); if (d.telefonos.length > 0) setTieneGrupo(true); };
+
   const hayWa = dest.telefonos.length > 0;
   const hayMail = dest.emails.length > 0;
 
@@ -298,6 +317,7 @@ export function NotificacionesPanel() {
               ? `${tieneGrupo ? 'Al grupo de MaKo · ' : ''}${dest.telefonos.length === 1 ? '1 número' : `${dest.telefonos.length} números`}`
               : 'Sin conectar — MaKo no puede avisar por aquí'}
             accion={{ label: hayWa ? 'Gestionar' : 'Conectar', onClick: () => setCanal((c) => (c === 'whatsapp' ? null : 'whatsapp')) }}
+            editor={<DestinatariosCanal key="whatsapp" canal="whatsapp" inicial={dest} onGuardado={guardarDest} />}
           />
           <TileCanal
             icono="email" color={hayMail ? 'var(--primary)' : 'var(--warn)'} nombre="Email"
@@ -306,21 +326,9 @@ export function NotificacionesPanel() {
               ? (dest.emails.length === 1 ? dest.emails[0] : `${dest.emails.length} direcciones`)
               : 'Sin conectar — falta una dirección'}
             accion={{ label: hayMail ? 'Gestionar' : 'Agregar', onClick: () => setCanal((c) => (c === 'email' ? null : 'email')) }}
+            editor={<DestinatariosCanal key="email" canal="email" inicial={dest} onGuardado={guardarDest} />}
           />
         </div>
-
-        {canal && (
-          // `key` para que cambiar de canal REMONTE el editor. Siembra su estado de
-          // props con useState y sin esto sobreviven el borrador, el aviso de quién no
-          // entró al grupo y el link: se tipea un teléfono, se pasa a Email y Guardar
-          // contesta «eso no parece un email» sobre un campo que no muestra nada.
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-            <DestinatariosCanal
-              key={canal} canal={canal} inicial={dest} desnudo
-              onGuardado={(d) => { setDest(d); if (d.telefonos.length > 0) setTieneGrupo(true); }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Los mensajes de ese canal: el chat de WhatsApp (la MISMA pantalla de
