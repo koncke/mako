@@ -3774,6 +3774,49 @@ argumentos que la función recibe en producción y comprobá que el arnés le pa
 falta uno a propósito, la salida tiene que decirlo, o el próximo que lea ese output concluye lo
 mismo.
 
+# Retirar una RUTA es enumerar sus links y decidir el destino de cada uno POR SEPARADO
+
+Cuando una pantalla se reemplaza por otra —un pop-up, una tab, una pantalla nueva—, el
+reflejo es borrar el `page.tsx` y arreglar lo que rompa. Y lo que rompe no rompe: una ruta
+retirada devuelve un 404, o peor, un redirect que deja a alguien en un lugar donde lo que
+fue a hacer no existe.
+
+Medido el 28/09/2026 al retirar `/funnel`: **ocho lugares la enlazaban y el destino correcto
+NO era el mismo para los ocho.** Tres destinos distintos para una sola ruta.
+
+- **Los que llevaban a lo que la pantalla nueva SÍ hace** → la pantalla nueva.
+- **Los que prometían un control que la pantalla nueva NO tiene** → donde vive ese control.
+  Acá eran dos botones que dicen «Activar la landing como entrada de leads», y esa casilla
+  quedó en el editor completo, que hoy vive en una de once pastillas de otra tab.
+- **Los que sólo existían para llegar a la ruta** (una sub-tab, un `match` del nav, un
+  título) → se borran. Un destino que rebota no es un destino.
+
+⚠️ **SE REDIRIGE, NO SE BORRA, si alguien de afuera la puede seguir.** Marcadores, avisos
+de WhatsApp ya mandados, mails viejos y —el caso caro— el panel que ve el CLIENTE en su
+propia landing. Un 404 ahí es peor que la pantalla vieja. El redirect va con `rutaConWs`,
+y si la ruta vieja leía un parámetro con otro nombre, lo traduce.
+
+⚠️ **Y UN LINK QUE PROMETE UN CONTROL TIENE QUE ATERRIZAR DONDE ESTÁ ESE CONTROL.** Si el
+destino es una pantalla con tabs, el link lleva la tab (`?tab=`, leída en el server) o deja
+a la persona buscando entre once pastillas una palabra que no conoce. Es la misma familia
+que «un paso que nombra un botón que su pantalla no tiene»: la persona busca hasta que se
+cansa y concluye que el producto está roto.
+
+⚠️ **Y LOS COMPONENTES NO SE VAN CON LA RUTA.** Next sólo hace ruta de un `page.tsx`: lo
+que el `page.tsx` montaba puede seguir donde está y seguir montándose desde otras pantallas.
+Antes de mover o borrar un componente de esa carpeta, `grep` de quién más lo importa.
+
+**El guard que lo sostiene** barre `git ls-files app lib` y falla si alguien vuelve a
+enlazar la ruta (`tests/funnel-estructura.test.ts` es el molde). Dos afinados que costaron
+una vuelta cada uno y valen para cualquier guard que busque una ruta en el fuente:
+
+- **Se busca una CADENA, no la palabra.** Un patrón que acepte la ruta rodeada de comillas
+  **o de espacios** caza la prosa de los comentarios de medio repo: quince falsos positivos
+  a la primera. El patrón exige que la ruta **arranque** una cadena.
+- **Y se saltean las líneas de comentario**, porque la convención de la casa es nombrar una
+  ruta entre backticks — o sea que el guard se acusa a sí mismo por los comentarios que
+  explican que la ruta se retiró.
+
 # Una ruta que apunta a la nada no rompe nada, y por eso es cara
 
 Las rutas escritas a mano son el enganche de todo el sistema: el `**Vive en:**` de cada

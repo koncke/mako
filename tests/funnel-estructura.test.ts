@@ -34,12 +34,36 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import {
   problemasDePipeline, DEFAULT_PIPELINE, FUNNEL_TEMPLATES, conTerminales, generateFunnel, esTerminal,
   MAX_LABEL_ETAPA,
   type Stage,
 } from '../lib/pipeline';
 
+const RAIZ = join(import.meta.dirname, '..');
+
+/**
+ * Los .ts/.tsx de `app/` y `lib/` que están EN GIT.
+ *
+ * ⚠️ `git ls-files` lista el ÍNDICE, no el disco: un archivo nuevo sin commitear no se
+ * revisa. Es el mismo trato que el guard de voseo, y la contracara es la que importa acá —
+ * lo que se despliega es el commit, no el árbol de trabajo.
+ */
+function archivosDeProducto(): string[] {
+  const todos = execFileSync('git', ['ls-files', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
+    .split(/\r?\n/)
+    .map((f) => f.trim())
+    .filter((f) => /\.tsx?$/.test(f) && !/\.d\.ts$/.test(f));
+  // «No encontré nada que revisar» y «revisé y está todo bien» son respuestas DISTINTAS.
+  assert.ok(todos.length > 300, `git ls-files devolvió ${todos.length} archivos: esto no corrió en el repo`);
+  return todos;
+}
+
+/** Las páginas que montan un componente, buscadas y no escritas a mano. */
+function paginasQueMontan(etiqueta: string): string[] {
+  return archivosDeProducto().filter((f) => /page\.tsx$/.test(f) && readFileSync(join(RAIZ, f), 'utf8').includes(etiqueta));
+}
 /** El pipeline REAL del cliente, copiado de `funnels.data.pipeline` en producción. */
 const ROTO: Stage[] = [
   { key: 'lead', kind: 'entrada', label: 'Lead (Instant form)' },
@@ -146,7 +170,7 @@ test('⚠️ AVISA, no bloquea: guardar nunca se bloquea', () => {
   );
 });
 
-test('⚠️ la pregunta de «de dónde entran tus leads» está en los TRES montajes del editor', () => {
+test('⚠️ la pregunta de «de dónde entran tus leads» está en TODOS los montajes del editor', () => {
   // `funnels.data.entradas` decide si un opt-in de FORMULARIO entra al CRM. Medido el
   // 28/09/2026: estaba vacío en SEIS de los workspaces con `declarado = true` (1, 4, 10, 13,
   // 14, 15), así que a todos ellos un formulario se les descartaría. Lo único que los salva
@@ -157,17 +181,74 @@ test('⚠️ la pregunta de «de dónde entran tus leads» está en los TRES mon
   // el nav. Los otros dos montajes del editor lo montaban sin la tarjeta, así que quien
   // configuraba su funnel por el camino normal nunca veía la pregunta.
   //
-  // Probado rompiéndolo: se saca el `encabezado` de /second-brain → 5 / 1.
-  for (const ruta of ['../app/funnel/page.tsx', '../app/onboarding/page.tsx', '../app/second-brain/page.tsx']) {
-    const t = readFileSync(join(import.meta.dirname, ruta), 'utf8');
+  // ⚠️ LOS MONTAJES SE BUSCAN, NO SE ESCRIBEN. Acá había una lista de tres rutas a mano, y
+  // el 28/09/2026 se retiró una de ellas (/funnel pasó a ser un redirect): el test empezó a
+  // fallar por un archivo que ya no monta nada, mientras que un montaje NUEVO —el caso que
+  // el guard existe para cubrir— habría pasado sin que nadie lo viera. Una lista a mano
+  // cubre lo que ya se escribió, nunca lo que se va a escribir.
+  //
+  // Probado rompiéndolo (el archivo entero da 15 / 0):
+  //   · se le saca el `encabezado` al montaje de /second-brain   -> 14 / 1
+  const montajes = paginasQueMontan('<FunnelEditor');
+  assert.deepEqual(montajes.sort(), ['app/onboarding/page.tsx', 'app/second-brain/page.tsx'],
+    'cambiaron los montajes del editor del funnel: revisá que cada uno traiga su tarjeta de entradas');
+  for (const ruta of montajes) {
+    const t = readFileSync(join(import.meta.dirname, '..', ruta), 'utf8');
     assert.match(t, /<EntradasCard/, `${ruta} monta el editor del funnel SIN la tarjeta de entradas`);
-  }
-  // Y la herencia del canal se resuelve en UN lugar: `funnels.canal = null` significa
-  // «heredá el del negocio», y repetido en tres pantallas el tercero se queda viejo.
-  for (const ruta of ['../app/funnel/page.tsx', '../app/onboarding/page.tsx', '../app/second-brain/page.tsx']) {
-    const t = readFileSync(join(import.meta.dirname, ruta), 'utf8');
+    // Y la herencia del canal se resuelve en UN lugar: `funnels.canal = null` significa
+    // «heredá el del negocio», y repetido en cada pantalla el último se queda viejo.
     assert.match(t, /canalEfectivo\(/, `${ruta} resuelve el canal por su cuenta en vez de usar canalEfectivo`);
   }
+});
+
+test('⚠️ /funnel se retiró: es un redirect, y nadie del producto lo sigue enlazando', () => {
+  // «Quiero eliminar la ruta de funnel, que todo se edite como un pop-up dentro del mismo
+  // CRM. Así es más simple».
+  //
+  // ⚠️ REDIRECT Y NO BORRADO: la ruta vivía en el panel de tracking que ve el CLIENTE en su
+  // propia landing, y un 404 ahí es peor que la pantalla vieja. Lo que este test persigue es
+  // lo otro: que ningún link del producto lleve a un destino que rebota.
+  //
+  // Probado rompiéndolo (los dos archivos juntos dan 78 / 0):
+  //   · landing-token vuelve a `href: '/funnel'`               -> 77 / 1
+  //     (ese link lo caza el test de landing-optin, que es el que mide el destino;
+  //      éste caza el link que alguien escriba MAÑANA en cualquier otro archivo)
+  const fp = readFileSync(join(import.meta.dirname, '../app/funnel/page.tsx'), 'utf8');
+  assert.match(fp, /redirect\(await rutaConWs\(/, '/funnel dejó de redirigir');
+  assert.ok(!fp.includes('<FunnelEditor'), '/funnel volvió a montar el editor');
+  // ⚠️ Y CON `rutaConWs`: un `redirect()` pelado pierde el `?ws=` y deja al super admin
+  // mirando su propia cuenta en vez del cliente que estaba abriendo.
+
+  // Ningún archivo del producto puede enlazar a la ruta retirada.
+  //
+  // ⚠️ SE BUSCA UN LINK, NO LA PALABRA. El primer intento aceptaba `/funnel` rodeado de
+  // comillas O DE ESPACIOS, y cazó quince falsos positivos: la ruta se nombra en la prosa
+  // de los comentarios de medio repo («el editor de /funnel autoguarda en cada tecla»),
+  // que es documentación correcta y no un destino. Lo que rompe es un destino, así que el
+  // patrón exige que `/funnel` ARRANQUE una cadena y termine ahí o en un `?`.
+  //
+  // Se excluyen la propia página (es el redirect) y `revalidatePath('/funnel')`, que no es
+  // un link sino un aviso a la caché de Next: la ruta sigue existiendo y su caché es suya.
+  //
+  // ⚠️ Y EL REGISTRO DE /admin/dev ES DOCUMENTACIÓN, no producto. Sus `bitacora.ts` cuentan
+  // en prosa qué se hizo y nombran las rutas retiradas —es su trabajo—, sólo que la prosa
+  // vive en una cadena y no en un comentario, así que la salida de arriba no la cubre. La
+  // entrada que documenta ESTE retiro hizo fallar al guard que lo persigue.
+  const DOCUMENTACION = [/^app\/admin\/dev\/.*bitacora\.ts$/, /^app\/admin\/dev\/areas\.ts$/, /^app\/admin\/docs\/catalogo\.ts$/];
+  const malos: string[] = [];
+  for (const f of archivosDeProducto()) {
+    if (f === 'app/funnel/page.tsx') continue;
+    if (DOCUMENTACION.some((re) => re.test(f))) continue;
+    readFileSync(join(RAIZ, f), 'utf8').split('\n').forEach((linea, i) => {
+      // Una línea de comentario no puede tener un link, y la convención de la casa es
+      // nombrar una ruta entre backticks: sin esta salida, el guard se acusa a sí mismo
+      // por los comentarios que explican que la ruta se retiró.
+      if (/^\s*(\/\/|\*|\/\*)/.test(linea)) return;
+      if (/revalidatePath/.test(linea)) return;
+      if (/['"`]\/funnel['"`?]/.test(linea)) malos.push(`${f}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(malos, [], 'hay links vivos a la ruta /funnel, que hoy sólo redirige');
 });
 
 test('⚠️ las CUATRO terminales están siempre, son únicas, y sólo se renombran', () => {
@@ -250,22 +331,26 @@ test('⚠️ y el guardado y el editor las respetan, no sólo la función', () =
   );
 });
 
-test('⚠️ «Editar funnel» abre EL funnel que estás mirando, no el del negocio', () => {
+test('⚠️ «Editar las etapas» abre un POP-UP, y sobre EL funnel que estás mirando', () => {
   // Medido el 28/09/2026 con tres funnels en un workspace: el link del menú del CRM iba a
   // /funnel pelado, así que desde «Sistema DOS» se editaba el funnel del negocio — y el
-  // editor no da ninguna pista de cuál abrió. Guardar ahí pisa el funnel equivocado.
+  // editor no daba ninguna pista de cuál había abierto. Guardar ahí pisaba el equivocado.
   //
-  // ⚠️ Y pasar el id no alcanzaba: el CRM viaja con `?funnel=` y /funnel lee `?f=`. Dos
-  // páginas con dos convenciones — el id hay que pasarlo con el nombre que espera la OTRA.
+  // La primera cura fue pasar el id con el nombre que espera la otra página (`?f=` y no
+  // `?funnel=`). La definitiva fue sacar la URL del medio: el pop-up recibe el id como
+  // prop, así que no hay dos convenciones que mantener de acuerdo.
+  //
+  // Probado rompiéndolo (el archivo entero da 15 / 0):
+  //   · el menú vuelve a navegar en vez de abrir el pop-up  -> 14 / 1
+  //   · el tablero abre el pop-up sin decirle qué funnel    -> 14 / 1
   const tb = readFileSync(join(import.meta.dirname, '../app/crm/CrmToolbar.tsx'), 'utf8');
-  assert.match(tb, /href=\{funnelActivo \? `\/funnel\?f=\$\{funnelActivo\}`/,
-    'el link de editar funnel volvió a ir sin el funnel activo, o con el parámetro equivocado');
+  assert.match(tb, /onClick=\{\(\) => \{ setOpen\(false\); onEditarEtapas\(\); \}\}/,
+    'el ítem del menú volvió a navegar en vez de abrir el pop-up');
   const bd = readFileSync(join(import.meta.dirname, '../app/crm/CrmBoard.tsx'), 'utf8');
-  assert.match(bd, /<AccionesHeader[^>]*funnelActivo=\{funnelActivo\}/,
-    'el tablero no le pasa el funnel activo al menú');
-  // Y /funnel tiene que seguir leyendo `?f=`: si cambia, el link de arriba queda mudo.
-  const fp = readFileSync(join(import.meta.dirname, '../app/funnel/page.tsx'), 'utf8');
-  assert.match(fp, /searchParams: Promise<\{ f\?: string \}>/, '/funnel dejó de leer ?f=');
+  assert.match(bd, /onEditarEtapas=\{\(\) => setEtapasDe\(\{ id: funnelActivo,/,
+    'el menú del CRM abre el pop-up sin decirle cuál es el funnel del tablero');
+  assert.match(bd, /<EtapasModal funnelId=\{etapasDe\.id\}/,
+    'el pop-up no recibe el funnel que se pidió abrir');
 });
 
 test('⚠️ la etapa se edita desde su COLUMNA, y el menú está enchufado', () => {
@@ -324,8 +409,12 @@ test('⚠️ cada funnel del desplegable tiene su lápiz, y abre EL suyo', () =>
   // era usarlo.
   const tb = readFileSync(join(import.meta.dirname, '../app/crm/CrmToolbar.tsx'), 'utf8');
   assert.match(tb, /acciones: \[\{/, 'los funnels del desplegable no tienen su botón de editar');
-  // Con `?f=`, que es lo que /funnel lee. Con `?funnel=` abriría el del negocio.
-  assert.match(tb, /router\.push\(`\/funnel\?f=\$\{f\.id\}`\)/, 'el lápiz no abre el funnel de ESA fila');
+  // Abre el pop-up de ESA fila, que no tiene por qué ser el del tablero: desde «Curso» se
+  // edita el embudo de «Mentoría» sin cambiar de tablero.
+  assert.match(tb, /onClick: \(\) => onEditarEtapas\(f\.id, comoSeLlama\(f\)\)/, 'el lápiz no abre el funnel de ESA fila');
+  const bd = readFileSync(join(import.meta.dirname, '../app/crm/CrmBoard.tsx'), 'utf8');
+  assert.match(bd, /<SelectorFunnel[^>]*onEditarEtapas=\{\(id, nombre\) => setEtapasDe\(\{ id, nombre \}\)\}/,
+    'el tablero no enchufa el lápiz del selector al pop-up');
 });
 
 test('⚠️ un funnel nuevo nace VACÍO y con SUS etapas', () => {
@@ -377,4 +466,80 @@ test('⚠️ un funnel nuevo nace VACÍO y con SUS etapas', () => {
   //    acaba de cargar.
   const nl2 = readFileSync(join(import.meta.dirname, '../app/crm/new/NewLeadForm.tsx'), 'utf8');
   assert.match(nl2, /crearLeadEnTableroAction\(fd, enModal\.funnelId/, 'el alta no manda el funnel del tablero');
+});
+
+test('⚠️ el pop-up de etapas: una operación por cambio, y el pipeline nunca viaja', () => {
+  // «Quiero eliminar la ruta de funnel, que todo se edite como un pop-up dentro del mismo
+  // CRM. Así es más simple. Y que sea simple la edición, nada compleja».
+  //
+  // ⚠️ LO QUE ESTE GUARD PERSIGUE NO ES QUE EL POP-UP EXISTA: es que no se convierta en el
+  // editor viejo adentro de una caja. Dos reglas, y las dos ya se pagaron en este repo:
+  //
+  //   1) Al tablero le llegan las etapas ya DERIVADAS — el pipeline crudo nunca sale del
+  //      server. Un «Guardar» que mande la lista reconstruida desde la pantalla le haría
+  //      perder todo lo que la derivación agrega y quita, sin un solo error.
+  //   2) Montar `FunnelEditor` acá adentro traería sus 527 líneas, su `<main>`, sus altos
+  //      en `vh` y su autoguardado por tecla: las seis decisiones de «Montar una PANTALLA
+  //      adentro de un modal», para contestar lo contrario de lo que se pidió.
+  //
+  // Probado rompiéndolo (el archivo entero da 15 / 0):
+  //   · `mover` deja sacar de último al cierre          -> 14 / 1
+  //   · `mover` acepta una etapa fuera del pipeline     -> 14 / 1
+  //   · el pop-up deja de refrescar el tablero de atrás  -> 14 / 1
+  //
+  // ⚠️ Y UNA ROTURA QUE NO FALLÓ, que es la que enseña algo: la primera versión de la
+  // aserción (1) era `!md.includes('FunnelEditor')`, y el archivo pasó a fallar sin que
+  // nadie montara nada — el porqué de la decisión está escrito en su cabecera y nombra al
+  // editor tres veces. Un guard que mira la PALABRA no distingue el código del comentario
+  // que lo explica.
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
+
+  // 1) No es el editor viejo en una caja.
+  //    ⚠️ Se mira lo que IMPORTA y lo que MONTA, no la palabra: el porqué de esta decisión
+  //    está escrito en la cabecera del propio archivo y nombra a `FunnelEditor` tres veces.
+  //    Un `includes` del nombre fallaba contra el comentario que lo explica.
+  assert.ok(!/import[^;]*FunnelEditor/.test(md) && !md.includes('<FunnelEditor'), 'el pop-up volvió a montar el editor completo');
+  assert.ok(!/import[^;]*saveFunnelAction/.test(md), 'el pop-up manda el pipeline entero desde el navegador');
+  assert.match(md, /editarEtapaAction\(op, funnelId \?\? undefined\)/, 'el pop-up no manda la operación al funnel que abrió');
+
+  // 2) Las cuatro operaciones están enchufadas, y cada una es una op propia.
+  for (const op of ['renombrar', 'eliminar', 'agregar', 'mover']) {
+    assert.ok(md.includes(`op: '${op}'`), `al pop-up le falta la operación «${op}»`);
+  }
+
+  // 3) El tablero de atrás se refresca en CADA cambio, no al cerrar: las columnas se leen
+  //    en el server, así que sin esto se renombra una etapa y detrás sigue el nombre viejo.
+  assert.match(md, /router\.refresh\(\)/, 'el pop-up no refresca el tablero que está tapando');
+
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+
+  // 4) Mover: sólo dentro del pipeline, y el cierre se queda último.
+  //    ⚠️ Las tres terminales derivadas NO están en el pipeline: las agrega `generateFunnel`
+  //    en cada lectura. Moverlas «funcionaría» —el guardado no falla— y la pantalla las
+  //    volvería a dibujar donde estaban, que es la peor forma de no hacer nada.
+  const mover = ac.slice(ac.indexOf("} else if (op.op === 'mover')"), ac.indexOf("    } else {", ac.indexOf("op.op === 'mover'")));
+  assert.ok(mover.length > 100, 'no se encontró la rama que mueve una etapa');
+  assert.match(mover, /if \(i < 0\) return \{ ok: false/, 'mover acepta una etapa que no está en el pipeline');
+  assert.match(mover, /kind === 'cierre'/, 'mover deja sacar de último a la etapa donde se cierra la venta');
+
+  // 5) Y la lectura que alimenta al pop-up se planta si el funnel se leyó en ERROR: con
+  //    `origen === error` lo que se lee es el pipeline GENÉRICO, y dibujarlo le diría a la
+  //    persona que su embudo es otro — y el cambio siguiente lo guardaría.
+  const lec = ac.slice(ac.indexOf('export async function etapasDeFunnelAction'));
+  assert.match(lec.slice(0, 1400), /origen === 'error'/, 'la lectura del pop-up dibuja el pipeline genérico cuando falla Supabase');
+});
+
+test('⚠️ un menú de acciones no lleva la flecha del desplegable', () => {
+  // Reportado así: «En las columnas son tres puntos "..." no 2 y una flecha». El control
+  // reusa el `Dropdown` del repo —hace falta, porque el tablero vive dentro de un
+  // `overflowX: auto` y un menú en flujo normal se recorta contra el borde de la columna—
+  // y ese primitive dibujaba el `▾` sin preguntar. Con los dos juntos se leía «⋯ ▾».
+  //
+  // Probado rompiéndolo (el archivo entero da 15 / 0):
+  //   · se le saca el `sinFlecha` al menú de la columna     -> 14 / 1
+  const dd = readFileSync(join(RAIZ, 'app/components/Dropdown.tsx'), 'utf8');
+  assert.match(dd, /\{!sinFlecha && \(/, 'el Dropdown volvió a dibujar la flecha sin preguntar');
+  const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
+  const menu = bd.slice(bd.indexOf('placeholder="⋯"'));
+  assert.ok(menu.slice(0, 400).includes('sinFlecha'), 'el menú «⋯» de la columna volvió a llevar flecha');
 });

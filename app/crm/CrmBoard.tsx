@@ -60,6 +60,7 @@ import {
 } from './actions';
 import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
+import { EtapasModal } from './EtapasModal';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { CrmAutoToggle } from './CrmAutoToggle';
@@ -1260,6 +1261,16 @@ export function CrmBoard({
   const [exportar, setExportar] = useState(false);
   const [importar, setImportar] = useState(false);
   const [nuevoLead, setNuevoLead] = useState(false);
+  // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
+  // renglón del selector puede abrir uno que no es el del tablero.
+  const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string } | null>(null);
+  // ⚠️ SE MUESTRA EL PRODUCTO, igual que en el selector: «Funnel principal» es el nombre
+  // que puso la migración y es el mismo en todos los workspaces. El encabezado del
+  // pop-up tiene que decir CUÁL embudo se está tocando, y para eso ese nombre no sirve.
+  const nombreDeFunnel = (id: number | null) => {
+    const f = funnels.find((x) => x.id === id) ?? funnels.find((x) => x.esDefault);
+    return f?.producto?.trim() || f?.nombre || 'Tu embudo';
+  };
   // Cerrar el aviso de error es SÓLO de esta vista: al recargar vuelve a calcularse.
   const [errorCerrado, setErrorCerrado] = useState(false);
   const { toast: avisoBoard, show: mostrarAviso, clear: limpiarAviso } = useToast();
@@ -1352,6 +1363,7 @@ export function CrmBoard({
               placeholder="⋯"
               align="right"
               resetAfterSelect
+              sinFlecha
               ariaLabel={`Opciones de la etapa ${c.label}`}
               buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
               options={[
@@ -1445,7 +1457,9 @@ export function CrmBoard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <CrmAutoToggle />
           <DivisorHeader />
-          <AccionesHeader total={total} funnelActivo={funnelActivo} onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead(true)} />
+          <AccionesHeader total={total} funnelActivo={funnelActivo}
+            onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead(true)}
+            onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
         </div>
       </header>
 
@@ -1548,7 +1562,7 @@ export function CrmBoard({
             conteo={(band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length}
           />
         )}
-        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} />}
+        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
       </div>
 
       {/* Fila 2 — solo si hay filtros activos (el buscador no genera chip). */}
@@ -1648,6 +1662,7 @@ export function CrmBoard({
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
+      {etapasDe && <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} onCerrar={() => setEtapasDe(null)} />}
 
       {/* Alta a mano SIN salir del tablero: el mismo form de /crm/new adentro de un
           Modal. Al crear se cierra, se abre la ficha del lead nuevo y se recarga la

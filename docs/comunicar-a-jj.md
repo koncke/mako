@@ -215,3 +215,26 @@ Dos cosas distintas que conviene no mezclar:
 
 ⚠️ Esto y el punto 4 son el mismo trabajo visto desde dos lados (el funnel y las preguntas
 del alta). Conviene diseñarlos juntos aunque salgan en dos tandas.
+
+---
+
+## ✅ Ya está, desplegado y verificado — 28/09/2026
+
+### Las etapas del CRM se editan desde el CRM, y se guardan
+
+**Qué cambió:** las etapas de un embudo (el nombre, el orden, cuáles hay) ya no se tocan
+en una pantalla aparte. Se abren en un pop-up **arriba del tablero**, desde el menú de
+arriba a la derecha o desde el lápiz de cada producto. Cada cambio se guarda al momento y
+el tablero de atrás se actualiza solo.
+
+**Lo que se puede hacer:** cambiar el nombre de una etapa, subirla o bajarla, agregar una
+nueva y quitar la que no usan.
+
+**Lo que NO se puede, a propósito:** Ganado, Perdido, Descalificado y No responde están en
+todos los embudos y no se pueden borrar — sí se les puede cambiar el nombre. Son las
+cuatro de las que salen los datos de venta; sin ellas, la facturación deja de contar.
+
+⚠️ **Por qué les sirve a ellos:** es la primera mitad del punto 4 de abajo («configurar el
+CRM y el funnel»). Un negocio que no tiene «R1 ni R2» sino **visitas** ya puede dejar su
+embudo como es, sin pedir nada. Lo que falta es que se pregunte **la primera vez**, en vez
+de tener que ir a buscarlo.

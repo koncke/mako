@@ -19,10 +19,10 @@ import {
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../crm/actions';
 import { Dropdown } from '../components/Dropdown';
-// ⚠️ El router de `app/_ui/Link`, NUNCA el de next/navigation: el selector de
-// funnel navega, y una navegación que pierde el `?ws=` te deja mirando otra
-// cuenta (AGENTS.md § «Hay CUATRO formas de navegar»).
-import { useRouter } from '../_ui/Link';
+// ⚠️ ESTE COMPONENTE YA NO NAVEGA A NINGUNA PARTE, y por eso no importa ningún router.
+// Si algún día vuelve a hacerlo, va el de `app/_ui/Link` y NUNCA el de next/navigation:
+// una navegación que pierde el `?ws=` te deja mirando otra cuenta (AGENTS.md § «Hay
+// CUATRO formas de navegar»).
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -94,7 +94,7 @@ export function FunnelEditor({
   initialPipeline,
   initialSuppressed,
   embedded = false,
-  encabezado, funnelId, funnels = [],
+  encabezado, funnelId,
 }: {
   initialPipeline: Stage[];
   initialSuppressed: string[];
@@ -113,14 +113,7 @@ export function FunnelEditor({
    * antes de la mig 0170.
    */
   funnelId?: number;
-  /**
-   * Los funnels del workspace, para el desplegable. Con UNO SOLO el selector NO
-   * SE PINTA y la pantalla se ve exactamente igual que antes de la 0170: un
-   * control que ofrece una sola opción no es una opción, es ruido.
-   */
-  funnels?: Array<{ id: number; nombre: string; esDefault: boolean }>;
 }) {
-  const router = useRouter();
   const [pipeline, setPipeline] = useState<Stage[]>(initialPipeline);
   const [suppressed, setSuppressed] = useState<string[]>(initialSuppressed);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
@@ -261,19 +254,15 @@ export function FunnelEditor({
         <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▦ Plantillas</button>
       </header>
 
-      {funnels.length > 1 && (
-        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' }}>Editando</span>
-          <select
-            aria-label="Elige qué funnel editar"
-            value={String(funnelId ?? (funnels.find((f) => f.esDefault)?.id ?? funnels[0].id))}
-            onChange={(e) => router.push(`/funnel?f=${e.target.value}`)}
-            style={{ padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
-          >
-            {funnels.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-          </select>
-        </div>
-      )}
+      {/* ⚠️ ACÁ VIVÍA UN SELECTOR DE «QUÉ FUNNEL EDITAR» y se borró el 28/09/2026, con la
+          ruta. Navegaba a esa página con el id en el query, y su único llamador era esa
+          misma página: los
+          dos montajes que quedan (/onboarding y /second-brain) editan el funnel del
+          NEGOCIO y nunca le pasaron la lista. Dejarlo habría sido peor que dejarlo
+          muerto: /funnel hoy redirige a /crm, así que elegir un funnel acá sacaba a la
+          persona de la pantalla en la que estaba configurando su negocio.
+
+          Elegir entre varios embudos se hace en el CRM, que es donde se ven. */}
 
       {encabezado && <div style={{ marginTop: 20 }}>{encabezado}</div>}
 

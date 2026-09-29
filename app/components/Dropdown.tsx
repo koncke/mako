@@ -156,6 +156,7 @@ export function Dropdown({
   align = 'left',
   buttonStyle,
   resetAfterSelect = false,
+  sinFlecha = false,
   ariaLabel,
   disabled = false,
   search,
@@ -177,6 +178,8 @@ export function Dropdown({
   buttonStyle?: CSSProperties;
   /** Para selects-acción (ej. "Mover a…"): no refleja la selección, vuelve al placeholder. */
   resetAfterSelect?: boolean;
+  /** Menú de acciones: sin la flecha del desplegable. */
+  sinFlecha?: boolean;
   ariaLabel?: string;
   /** Deshabilita TODO el desplegable (no se puede abrir): p.ej. mientras cargan las opciones. */
   disabled?: boolean;
@@ -327,7 +330,14 @@ export function Dropdown({
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : placeholder}</span>
         </span>
-        <span style={{ flex: 'none', fontSize: 10, color: 'var(--faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+        {/* ⚠️ UN MENÚ DE ACCIONES NO LLEVA FLECHA. La flecha dice «acá se elige un valor
+            y el elegido queda escrito»; un menú de tres puntos dice «acá hay cosas para
+            hacer». Con las dos juntas el control se veía «⋯ ▾», que se lee como un
+            desplegable a medio dibujar — se reportó así: «son tres puntos, no 2 y una
+            flecha». */}
+        {!sinFlecha && (
+          <span style={{ flex: 'none', fontSize: 10, color: 'var(--faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+        )}
       </button>
       {open && pos && createPortal(
         <div ref={menuRef} role="listbox" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns ? undefined : 360, maxHeight: columns ? 'min(480px, calc(100dvh - 40px))' : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>

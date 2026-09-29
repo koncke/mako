@@ -1383,7 +1383,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "Contexto real inyectado en cada respuesta",
         bullets: [
-          "El system prompt se arma <strong>en vivo y aditivo</strong>: persona editable + núcleo de reglas + perfil del cliente + la <strong>FASE/Norte de tu negocio</strong> + el funnel configurado en /funnel + estado de Experimentos + metodología vía RAG. Cada pieza cae en silencio si falta.",
+          "El system prompt se arma <strong>en vivo y aditivo</strong>: persona editable + núcleo de reglas + perfil del cliente + la <strong>FASE/Norte de tu negocio</strong> + el funnel configurado en tu CRM + estado de Experimentos + metodología vía RAG. Cada pieza cae en silencio si falta.",
           "Con tu funnel real a la vista, MaKo razona con <strong>las etapas de tu workspace</strong>, no con un embudo genérico de memoria.",
           "Enmarca lo que ve en el dashboard como <em>hipótesis</em>, nunca como verdad: solo afirma como cerrado lo validado en Experimentos. No promete causa-efecto ni cifras mágicas: es una regla dura del núcleo, no una preferencia.",
         ],

@@ -541,7 +541,21 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
     'el hecho medido tiene que pesar más que la lectura del HTML, que puede estar vieja');
   // Y el 'falta' lleva a resolverlo: mandar a «Funnel → De dónde entran tus
   // leads» en prosa, desde una ventana de 440 px, es mandarlo a buscarlo a mano.
-  assert.ok(/href: '\/funnel'/.test(lib), 'el chequeo tiene que llevar a la pantalla donde se arregla');
+  //
+  // ⚠️ Y LLEVA A LA TAB, NO A LA PANTALLA (28/09/2026). El destino era /funnel, que se
+  // retiró; la tarjeta de entradas quedó en el editor completo, que hoy vive en la
+  // décima de las once pastillas de /onboarding. Un link a /onboarding pelado deja a la
+  // persona en «Matriz» buscando algo cuyo nombre no conoce, y este botón lo aprieta un
+  // CLIENTE desde su propia landing.
+  //
+  // Probado rompéndolo: se le saca el `?tab=funnel` al href -> 1 fallo; se le saca el
+  // `tabInicial` a /onboarding -> 1 fallo.
+  assert.ok(/href: '\/onboarding\?tab=funnel'/.test(lib), 'el chequeo tiene que llevar a la pantalla donde se arregla');
+  const ot = leer('../app/onboarding/OnboardingTabs.tsx');
+  assert.ok(/export function tabDeUrl/.test(ot), '/onboarding dejó de leer la tab de la URL');
+  assert.ok(ot.includes("key: 'funnel'"), 'la tab «El funnel» del hub de onboarding cambió de clave');
+  const op = leer('../app/onboarding/page.tsx');
+  assert.ok(/tabInicial=\{tabDeUrl\(tab\)\}/.test(op), '/onboarding no le pasa la tab de la URL a sus pastillas');
   assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
   // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
   // lead, y los leads entran solos. Lo único que espera es una decisión sobre un

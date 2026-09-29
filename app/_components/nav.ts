@@ -521,13 +521,14 @@ export const ADMIN_NAV: NavItem[] = ADMIN_FAMILIAS.flatMap(itemsDe);
  * avatar — «Profile debe reemplazar Admin en la sidebar, la foto y al pasar el
  * cursor el desplegable con las tabs».
  *
- * Funnel, Onboarding y Método viven DENTRO de Configuraciones (sub-tabs), por
- * eso el item Configuraciones también matchea esas rutas.
+ * Onboarding y Método viven DENTRO de Configuraciones (sub-tabs), por eso el item
+ * Configuraciones también matchea esas rutas. `/funnel` ya no: la ruta se retiró el
+ * 28/09/2026 y hoy es un redirect a /crm.
  */
 export const USER_NAV: NavItem[] = [
   { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', rolesWs: ['closer', 'setter'], match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
-  { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: (p) => starts('/onboarding')(p) || starts('/funnel')(p) },
+  { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: starts('/onboarding') },
   { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
   // solo los veía el super admin — que ahora tiene su propia familia Admin en la

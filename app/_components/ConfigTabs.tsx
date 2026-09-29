@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// ConfigTabs — sub-tabs de Configuraciones (Notificaciones · Funnel · Onboarding · Método)
+// ConfigTabs — sub-tabs de Configuraciones (Notificaciones · Onboarding · Equipo · Método)
 // =============================================================================
 // El sub-tab Método solo aparece para admins (gestiona credenciales del
 // workspace); /metodo igual redirige a los no-admin, esto solo oculta el link.
@@ -14,7 +14,10 @@ const SANS = "'Geist', sans-serif";
 
 const TABS = [
   { label: 'Notificaciones', href: '/configuraciones' },
-  { label: 'Funnel', href: '/funnel' },
+  // ⚠️ ACÁ HABÍA UNA SUB-TAB «Funnel» y se retiró el 28/09/2026 con la ruta: las etapas
+  // se editan en el pop-up del CRM, y el resto del embudo (cómo entra la gente, las
+  // transiciones, las nutriciones) vive en Onboarding → El funnel. Dejar la pastilla
+  // apuntando a un redirect sería un destino que rebota.
   { label: 'Onboarding', href: '/onboarding' },
   { label: 'Equipo', href: '/equipo' },
   { label: 'Método', href: '/metodo', adminOnly: true },

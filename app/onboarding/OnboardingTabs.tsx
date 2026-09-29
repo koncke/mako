@@ -12,6 +12,7 @@
 // Cada tab va en el marco del wizard (panel negro + card scrolleable). Funnel: aparte.
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useRouter } from '@/app/_ui/Link';
 import { Archivero } from './Archivero';
 import { MatrizView } from './MatrizView';
 import { DiagnosticoView } from './DiagnosticoView';
@@ -28,6 +29,11 @@ import type { Slide } from '@/lib/servicio-slides';
 
 const SANS = "'Geist', sans-serif";
 type TabKey = 'matriz' | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona' | 'personalidad' | 'avatares' | 'razones' | 'angulos' | 'funnel';
+const TAB_KEYS: TabKey[] = ['matriz', 'diagnostico', 'archivero', 'oferta', 'entregable', 'persona', 'personalidad', 'avatares', 'razones', 'angulos', 'funnel'];
+/** La tab de la URL, o la primera. Un valor inventado no rompe: abre «Matriz». */
+export function tabDeUrl(v?: string): TabKey {
+  return TAB_KEYS.includes(v as TabKey) ? (v as TabKey) : 'matriz';
+}
 
 const SLIDES_MATRIZ: Slide[] = [
   { t: 'Tu fábrica de anuncios', d: 'La matriz cruza tus avatares con sus razones de compra. Cada celda es un anuncio listo para producir.' },
@@ -89,8 +95,23 @@ function OfertaFrame() {
   return <Marco slides={SLIDES_OFERTA}><CamposNegocio titulo="Tu oferta" subtitulo="Lo que MaKo entendió de tu negocio y tu oferta. Toca cualquier dato para corregirlo." keys={['negocio_que_hace']} prefijos={['oferta_']} /></Marco>;
 }
 
-export function OnboardingTabs({ funnelPanel }: { funnelPanel: ReactNode }) {
-  const [tab, setTab] = useState<TabKey>('matriz');
+/**
+ * ⚠️ LA TAB VIAJA EN LA URL, y no es cosmética: es lo que hace que se pueda MANDAR a
+ * alguien a una de las once. El panel de tracking que ve el cliente en su landing dice
+ * «Activar la landing como entrada de leads», y esa declaración vive en la tarjeta de
+ * entradas de la tab «El funnel» — la décima. Sin el parámetro, ese botón deja a la
+ * persona en «Matriz» buscando entre once pastillas algo que no sabe cómo se llama.
+ *
+ * Se LEE en el server (llega por prop) y se ESCRIBE con `replace`: si sólo se leyera, el
+ * link que uno copia no sería la tab que está mirando.
+ */
+export function OnboardingTabs({ funnelPanel, tabInicial = 'matriz' }: { funnelPanel: ReactNode; tabInicial?: TabKey }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<TabKey>(tabInicial);
+  const irA = (k: TabKey) => {
+    setTab(k);
+    router.replace(k === 'matriz' ? '/onboarding' : `/onboarding?tab=${k}`, { scroll: false });
+  };
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
     { key: 'matriz', label: 'Matriz', panel: <Marco slides={SLIDES_MATRIZ}><MatrizView /></Marco> },
     { key: 'diagnostico', label: 'Diagnóstico', panel: <Marco slides={SLIDES_DIAG}><DiagnosticoView /></Marco> },
@@ -109,7 +130,7 @@ export function OnboardingTabs({ funnelPanel }: { funnelPanel: ReactNode }) {
   return (
     <div>
       <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3, marginBottom: 24, flexWrap: 'wrap' }}>
-        {TABS.map((t) => <button key={t.key} type="button" onClick={() => setTab(t.key)} style={pill(tab === t.key)}>{t.label}</button>)}
+        {TABS.map((t) => <button key={t.key} type="button" onClick={() => irA(t.key)} style={pill(tab === t.key)}>{t.label}</button>)}
       </div>
       {activo?.panel}
     </div>

@@ -133,22 +133,26 @@ function MenuItem({ icon, label, desc, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ total, funnelActivo, onImportar, onExportar, onNuevo }: {
+export function AccionesHeader({ total, onImportar, onExportar, onNuevo, onEditarEtapas }: {
   /** leads del workspace (no los filtrados): con 0, importar es el camino crítico. */
   total: number;
   /**
-   * Cuál funnel está mirando el tablero. Se lo lleva «Editar funnel», y sin él el link
-   * abría SIEMPRE el funnel del negocio.
+   * Cuál funnel está mirando el tablero. Ya no viaja a ninguna URL: lo usa el tablero
+   * para saber qué embudo abre el pop-up.
    *
-   * ⚠️ Y ojo con el nombre del parámetro: el CRM viaja con `?funnel=` y /funnel lee `?f=`.
-   * Son dos páginas con dos convenciones, así que pasar el id no alcanza — hay que pasarlo
-   * con el nombre que la OTRA espera. Medido el 28/09/2026: desde «Sistema DOS» se editaba
-   * el funnel del negocio, y el editor no da ninguna pista de cuál está abriendo.
+   * ⚠️ HASTA EL 28/09/2026 ESTO ERA UN LINK A /funnel, y ahí vivía una trampa que vale la
+   * pena dejar escrita porque es la que se acaba de eliminar de raíz: el CRM viaja con
+   * `?funnel=` y /funnel leía `?f=`, dos convenciones para el mismo id. Pasarlo con el
+   * nombre equivocado abría el funnel del negocio, sin que el editor diera ninguna pista
+   * de cuál había abierto. Con el pop-up adentro del CRM no hay URL en el medio, así que
+   * no hay dos nombres que mantener de acuerdo.
    */
   funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
+  /** Abre el pop-up de etapas del funnel que el tablero está dibujando. */
+  onEditarEtapas: () => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -178,9 +182,13 @@ export function AccionesHeader({ total, funnelActivo, onImportar, onExportar, on
               desc="Baja los leads a planilla o documento"
               onClick={() => { setOpen(false); onExportar(); }} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
-            <MenuItem icon={<FunnelIcon size={15} />} label="Editar funnel"
-              desc="Cambia las etapas del pipeline y sus flechas"
-              href={funnelActivo ? `/funnel?f=${funnelActivo}` : '/funnel'} onClick={() => setOpen(false)} />
+            {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
+                todo se edite como un pop-up dentro del mismo CRM». Editar las etapas
+                mirando el tablero que esas etapas dibujan es la mitad del arreglo: antes
+                había que irse, cambiar a ciegas y volver a ver si había quedado bien. */}
+            <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
+              desc="Cambia el nombre, el orden y cuáles hay"
+              onClick={() => { setOpen(false); onEditarEtapas(); }} />
           </div>
         </>}
       </span>
@@ -468,9 +476,11 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAb
 /** Valor centinela del renglón que no es un funnel sino una salida. */
 const NUEVA = '__nueva';
 
-export function SelectorFunnel({ funnels, activo }: {
+export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
   activo: number | null;
+  /** Abre el pop-up de etapas de UN funnel de la lista, que no tiene por qué ser el activo. */
+  onEditarEtapas: (funnelId: number, nombre: string) => void;
 }) {
   const router = useRouter();
   const [creando, setCreando] = useState(false);
@@ -488,16 +498,21 @@ export function SelectorFunnel({ funnels, activo }: {
   // sabe dibujar acciones por renglon (`acciones`), asi que no hizo falta tocar el
   // primitive — lo que faltaba era usarlo.
   //
-  // ⚠️ Y EL LINK VA CON `?f=`, NO CON `?funnel=`. El CRM y /funnel usan convenciones
-  // distintas: pasar el id con el nombre equivocado abre el funnel del negocio, que es
-  // justo el bug que se acaba de arreglar en el menu de «Editar funnel».
+  // ⚠️ EL LAPIZ ABRE UN POP-UP Y NO NAVEGA, y eso saca de raiz el bug que estaba escrito
+  // aca: el CRM viaja con `?funnel=` y /funnel leia `?f=`, asi que pasar el id con el
+  // nombre equivocado abria el funnel del negocio en silencio. Sin URL en el medio no hay
+  // dos convenciones que mantener de acuerdo.
+  //
+  // ⚠️ Y SE ABRE EL DE ESA FILA, no el del tablero. Desde «Curso» se puede editar el
+  // embudo de «Mentoria» sin cambiar de tablero: por eso el pop-up va a buscar las etapas
+  // del funnel que se le nombra en vez de usar las que la pantalla ya tiene.
   const opciones: DropdownOption[] = funnels.map((f) => ({
     value: String(f.id),
     label: comoSeLlama(f),
     acciones: [{
       icono: <LapizIcon />,
       title: `Editar las etapas de ${comoSeLlama(f)}`,
-      onClick: () => router.push(`/funnel?f=${f.id}`),
+      onClick: () => onEditarEtapas(f.id, comoSeLlama(f)),
     }],
   }));
   // ⚠️ `crear`, NO `color`. El intento anterior fue `color: 'var(--faint)'` creyendo que

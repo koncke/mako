@@ -30,7 +30,6 @@ const EXTRA: Record<string, string> = {
   '/metodo': 'Integraciones',
   '/anuncio': 'Anuncio',
   '/equipo': 'Equipo',
-  '/funnel': 'Funnel',
   '/inicio': 'Inicio',
 };
 const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);

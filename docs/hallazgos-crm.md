@@ -3816,3 +3816,102 @@ contenga un `/*` abre un bloque que se come el resto del archivo — el mismo bu
 el guard de voseo, y que ahí dejó 71 líneas sin mirar.
 
 **Vive en:** `tests/crm-ficha-y-selector.test.ts` · *2026-09-27 friccion-lo-que-falta*
+
+## Retirar una RUTA es enumerar sus links y decidir el destino de CADA UNO (28/09/2026)
+
+«Quiero eliminar la ruta de funnel, que todo se edite como un pop-up dentro del mismo
+CRM». El reflejo es borrar el `page.tsx` y arreglar lo que rompa. Lo que encontró el
+barrido: **ocho lugares enlazaban a `/funnel`, y el destino correcto NO era el mismo para
+los ocho** — tres destinos distintos para una sola ruta retirada.
+
+| Quién enlazaba | A dónde va ahora | Por qué |
+|---|---|---|
+| El menú «···» del CRM y el lápiz de cada producto | el **pop-up** del CRM | es lo que se pidió: editar las etapas mirando el tablero que esas etapas dibujan |
+| El panel de tracking de la landing (**lo aprieta el CLIENTE**) y el onboarding del Chat Agent | `/onboarding?tab=funnel` | prometen «activar la landing como entrada de leads» y **esa casilla no está en el pop-up**: vive en la tarjeta de entradas del editor completo |
+| La sub-tab «Funnel» de Configuraciones, el `match` del nav, el título de tab | **se borran** | un destino que rebota no es un destino |
+
+⚠️ **La ruta se REDIRIGE, no se borra.** Dos de los links los sigue un cliente desde su
+propia landing, y afuera del repo viven marcadores y avisos de WhatsApp ya mandados con
+esa URL. `app/funnel/page.tsx` quedó como `redirect(await rutaConWs(...))`, traduciendo el
+`?f=` del viejo al `?funnel=` que usa el CRM. Y **`FunnelEditor` y `EntradasCard` siguen
+existiendo en esa misma carpeta**: lo que se retira es la ruta, no los componentes — los
+montan `/onboarding` y `/second-brain`, y Next sólo hace ruta de un `page.tsx`.
+
+⚠️ **Y UN LINK QUE PROMETE UN CONTROL TIENE QUE ATERRIZAR DONDE ESTÁ ESE CONTROL.** El
+botón del cliente decía «Activar la landing como entrada de leads». Mandarlo a
+`/onboarding` pelado lo dejaba en «Matriz», la primera de **once** pastillas, buscando una
+palabra que no conoce. Por eso el hub de onboarding pasó a leer su tab de `?tab=` (se lee
+en el server y se escribe con `router.replace`, que es la regla de la casa) — sin eso el
+link es peor que ninguno: la persona busca hasta que se cansa y concluye que el producto
+está roto.
+
+**Lo que quedó como guard:** `tests/funnel-estructura.test.ts` barre `git ls-files app lib`
+y falla si algún archivo vuelve a enlazar la ruta. Dos afinados que costaron una vuelta
+cada uno y valen para cualquier guard de este tipo:
+
+- **Se busca un LINK, no la palabra.** El primer patrón aceptaba `/funnel` rodeado de
+  comillas **o de espacios** y cazó **quince falsos positivos**: la ruta se nombra en la
+  prosa de los comentarios de medio repo («el editor de /funnel autoguarda en cada
+  tecla»). El patrón bueno exige que `/funnel` **arranque** una cadena.
+- **Y se saltean las líneas de comentario**, porque la convención de la casa es nombrar una
+  ruta entre backticks — o sea que el guard se acusaba a sí mismo por los comentarios que
+  explican que la ruta se retiró.
+
+**Vive en:** `app/funnel/page.tsx` · `app/onboarding/OnboardingTabs.tsx` (`tabDeUrl`) ·
+`lib/landing-token.ts` · `tests/funnel-estructura.test.ts` · *2026-09-28 crm-etapas-popup*
+
+## El pop-up de etapas NO es el editor adentro de una caja (28/09/2026)
+
+La salida barata era `<Modal><FunnelEditor /></Modal>`. Son 527 líneas que dibujan las
+transiciones, las nutriciones suprimidas, las plantillas de canal y la tarjeta de entradas,
+autoguardan el jsonb **entero** con un debounce por tecla, y asumen que son la pantalla
+(`<main>`, altos en `vh`, su propia URL). Habría traído las seis decisiones de «Montar una
+PANTALLA adentro de un modal» y, sobre todo, habría contestado lo contrario de lo que se
+pidió — *«y que sea simple la edición, nada compleja»*: lo mismo en una ventana más chica.
+
+`app/crm/EtapasModal.tsx` hace UNA cosa: la lista de etapas que se ve detrás, con su
+nombre, su orden, agregar y quitar.
+
+⚠️ **CADA CAMBIO ES UNA OPERACIÓN, no un «Guardar» al final.** Al tablero le llegan las
+etapas ya **DERIVADAS** — el pipeline crudo nunca sale del server — así que mandar la lista
+reconstruida desde la pantalla le haría perder todo lo que la derivación agrega y quita,
+sin un solo error. Se pide «renombrá ésta», «subí ésta», y `editarEtapaAction` lee, parcha
+y guarda del lado del server. Es el mismo contrato que ya usaba el menú «···» de la
+columna, con una operación más: `mover`.
+
+⚠️ **`mover` sólo recorre el PIPELINE, y eso no se ve mirando la pantalla.** Tres de las
+cuatro terminales (`perdido`, `descal`, `noresp`) **no están en el pipeline**: las agrega
+`generateFunnel` al final en cada lectura. Moverlas «funcionaría» —el guardado no falla— y
+la pantalla las volvería a dibujar donde estaban: la peor forma de no hacer nada.
+
+⚠️ **Y UN BOTÓN QUE SIEMPRE FALLA ES PEOR QUE UNO APAGADO.** Medido en el navegador con el
+funnel del ws1: «Facturando» es la última etapa propia y su ↓ salía **encendido**, pero el
+intercambio es contra «Ganado» —el cierre, que va último— y el server lo rechaza siempre.
+Se apaga toda flecha cuyo vecino sea fijo. Esto no sale del código: sale de abrir el
+pop-up y leer el `disabled` de cada botón.
+
+**Y el pop-up refresca el tablero en CADA cambio, no al cerrar.** Las columnas se leen en
+el server: sin `router.refresh()`, quien renombra una etapa y mira detrás del pop-up ve el
+nombre viejo. Es exactamente el síntoma que se reportó tres veces como «no cambió
+absolutamente nada».
+
+**Verificado en el navegador** (ws1, contra la base real, sobre el funnel descartable
+«Prueba 3» y devolviéndolo como estaba): agregar → renombrar → subir → bajar → quitar, las
+cinco con su efecto y cero errores de consola.
+
+**Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/actions.ts` (`editarEtapaAction`,
+`etapasDeFunnelAction`) · `tests/funnel-estructura.test.ts` · *2026-09-28 crm-etapas-popup*
+
+## Un menú de acciones no lleva la flecha del desplegable (28/09/2026)
+
+Reportado así: *«En las columnas son tres puntos "..." no 2 y una flecha»*. El menú de la
+columna reusa el `Dropdown` del repo —hace falta, porque el tablero vive dentro de un
+`overflowX: auto` y un menú en flujo normal se recorta contra el borde de la columna— y ese
+primitive dibujaba el `▾` **sin preguntar**, en la línea 330. Con los dos juntos el control
+se leía `⋯ ▾`, o sea un desplegable a medio dibujar.
+
+La flecha dice «acá se elige un valor y el elegido queda escrito»; los tres puntos dicen
+«acá hay cosas para hacer». Son dos controles distintos y el primitive los servía igual.
+Va `sinFlecha`, y el que lo pide es el llamador.
+
+**Vive en:** `app/components/Dropdown.tsx` · `app/crm/CrmBoard.tsx` · *2026-09-28 crm-etapas-popup*

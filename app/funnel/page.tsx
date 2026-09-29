@@ -1,49 +1,32 @@
 // =============================================================================
-// /funnel — editor del funnel (etapas + transiciones) que alimenta el CRM
+// /funnel → /crm  (la ruta se retiró; las etapas se editan en el pop-up del CRM)
 // =============================================================================
+// Pedido de Martín (28/09/2026): «Quiero eliminar la ruta de funnel, que todo se edite
+// como un pop-up dentro del mismo CRM. Así es más simple».
+//
+// ⚠️ SE REDIRIGE, NO SE BORRA. `/funnel` estaba enlazada desde ocho lugares, y uno de
+// ellos es el panel de tracking que ve el CLIENTE en su propia landing («Activar la
+// landing como entrada de leads»): un 404 ahí es peor que la pantalla vieja. Los links
+// internos se apuntaron a su destino nuevo en el mismo commit; esto cubre los que viven
+// afuera del repo — un marcador, un aviso ya mandado por WhatsApp, un mail viejo.
+//
+// ⚠️ Y `FunnelEditor` / `EntradasCard` SIGUEN EXISTIENDO, en esta misma carpeta. Lo que
+// se retira es la RUTA, no los componentes: los montan /onboarding y /second-brain, que
+// es donde se configura el negocio entero (las entradas, las transiciones, las
+// nutriciones suprimidas). Next sólo hace ruta de un `page.tsx`, así que dejarlos acá no
+// resucita nada.
+//
+// El `?f=` se traduce a `?funnel=`, que es como lo nombra el CRM. Y va con `rutaConWs`:
+// un `redirect()` pelado pierde la pestaña del cliente que el super admin está mirando.
 
-import { getFunnelDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
-import { FunnelEditor } from './FunnelEditor';
-import { EntradasCard } from './EntradasCard';
-import { requireRolWs } from '@/lib/tab-access';
-import { getDiagnosticoFase } from '@/lib/fase-store';
-import { canalEfectivo } from '@/lib/fase-diagnostico';
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-
-export default async function FunnelPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
-  await requireRolWs([], { nav: 'crm' });
-  // La declaración de cómo ENTRA la gente va ARRIBA del editor, no abajo: es el
-  // dato del que dependen los audios, el ensayo, las secuencias y el copy de las
-  // landings, y es el que nadie sabía que faltaba. El recorrido (las etapas) se
-  // edita después, y es lo que ya se sabía editar.
-  //
-  // ⚠️ `?f=` NO decide DE QUIÉN son los datos —eso lo sigue decidiendo el
-  // workspace— sino CUÁL de los funnels de este workspace se edita, y sólo vale
-  // si está en la lista que ya vino scopeada. Un id ajeno cae al default: nunca
-  // abre el funnel de otro cliente.
-  const [{ f }, funnels] = await Promise.all([searchParams, listarFunnels().catch(() => [])]);
-  const pedido = Number(f);
-  const elegido = funnels.find((x) => x.id === pedido) ?? null;
-  const [cfg, diag] = await Promise.all([
-    elegido ? getFunnelDe(elegido.id) : getFunnelDefault(),
-    getDiagnosticoFase().catch(() => null),
-  ]);
-  const { pipeline, suppressed, entradas, evento, id } = cfg;
-  // El BOFU del funnel manda sobre el del negocio; sin él, se hereda (que es lo
-  // que significa `funnels.canal = null`). La regla vive en `canalEfectivo`: la
-  // necesitan las TRES pantallas que montan este editor.
-  const canal = canalEfectivo(cfg.canal, diag?.canal);
-  return (
-    <FunnelEditor
-      key={id ?? 'default'}
-      initialPipeline={pipeline}
-      initialSuppressed={suppressed}
-      funnelId={elegido?.id}
-      funnels={funnels}
-      encabezado={<EntradasCard initial={entradas} initialEvento={evento} canal={canal} funnelId={elegido?.id} />}
-    />
-  );
+export default async function FunnelRedirect({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
+  const { f } = await searchParams;
+  const id = Number(f);
+  // Un id que no es un número se ignora: el CRM abre el funnel del negocio. Y uno que sí
+  // lo es lo valida igual la página del CRM contra los funnels de ESTE workspace.
+  const destino = Number.isInteger(id) && id > 0 ? `/crm?funnel=${id}` : '/crm';
+  redirect(await rutaConWs(destino));
 }

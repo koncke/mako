@@ -115,9 +115,9 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Integraciones', 'Busca el servicio', 'Sigue el paso a paso y prueba la conexión ahí mismo'],
   },
   {
-    id: 'funnel', tab: 'Onboarding', ruta: '/funnel',
-    que: 'Definir el funnel: las etapas por las que pasa un lead y qué las hace avanzar.',
-    como: ['Entra al Funnel', 'Acomoda las etapas de tu proceso real', 'Eso alimenta al CRM y a la nutrición'],
+    id: 'funnel', tab: 'CRM', ruta: '/crm',
+    que: 'Definir el embudo: las etapas por las que pasa un lead y qué las hace avanzar.',
+    como: ['Entra al CRM', 'Abre «Editar las etapas» en el menú de arriba', 'Eso alimenta al tablero y a la nutrición'],
   },
   {
     // Es la contraparte de `experimento`: aquél registra si algo funcionó, éste

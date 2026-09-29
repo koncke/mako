@@ -1476,7 +1476,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                   datos» y la persona nunca los dejó, se nota en la primera frase.
                 </div>
               </div>
-              <a href="/funnel" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</a>
+              {/* ⚠️ VA A LA TAB, NO A LA PANTALLA. La declaración de cómo entra la gente vive
+                  en la tarjeta de entradas, que es la tab «El funnel» de Onboarding — la
+                  décima de once pastillas. Hasta el 28/09/2026 esto apuntaba a /funnel, que
+                  se retiró; mandarlo a /onboarding pelado deja a la persona en «Matriz»
+                  buscando algo cuyo nombre no conoce. */}
+              <a href="/onboarding?tab=funnel" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</a>
             </div>
           ) : (
             <>

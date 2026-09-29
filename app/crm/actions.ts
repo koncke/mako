@@ -1956,6 +1956,48 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[], 
   revalidatePath('/funnel');
 }
 
+/** Una etapa como la dibuja el pop-up: lo justo para nombrarla y ubicarla. */
+export type EtapaDelFunnel = {
+  key: string;
+  label: string;
+  dot: string;
+  /** `true` = está en todos los funnels: se renombra, no se borra ni se mueve. */
+  fija: boolean;
+};
+
+/**
+ * Las etapas de UN funnel, para el pop-up que las edita dentro del CRM.
+ *
+ * ⚠️ EXISTE PORQUE EL POP-UP EDITA UN FUNNEL QUE NO ES EL QUE EL TABLERO DIBUJA. El
+ * lápiz vive en cada renglón del selector de producto, así que se puede abrir el de
+ * «Mentoría» estando parado en «Curso»: las etapas de la pantalla no sirven, hay que
+ * ir a buscar las de ESE funnel. Con el del tablero también se usa —una lectura menos
+ * que mantener— y el costo es un viaje al abrir el pop-up.
+ *
+ * Devuelve las DERIVADAS (`cfg.stages`), no el pipeline crudo: son las que la persona
+ * ve como columnas, y las tres terminales que la derivación inyecta tienen que aparecer
+ * en la lista aunque no se puedan mover — si no, el pop-up muestra un embudo que no es
+ * el que está mirando.
+ */
+export async function etapasDeFunnelAction(funnelId?: number): Promise<{ ok: true; etapas: EtapaDelFunnel[] } | { ok: false; error: string }> {
+  try {
+    const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+    // El mismo guard que el resto de la familia: con la lectura en ERROR lo que se lee es
+    // el pipeline GENÉRICO, y dibujarlo le diría a la persona que su embudo es otro.
+    if (cfg.origen === 'error') return { ok: false, error: 'No se pudieron leer las etapas. Vuelve a intentarlo.' };
+    return {
+      ok: true,
+      etapas: cfg.stages.filter((st) => st.band === 'pipeline' || esTerminal(st.key)).map((st) => ({
+        key: st.key,
+        label: st.label,
+        dot: st.dot ?? '#5B6472',
+        fija: esTerminal(st.key),
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 /**
  * Editar UNA etapa del funnel desde la cabecera de su columna en el Kanban.
  *
@@ -1978,7 +2020,16 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[], 
 export type OpEtapa =
   | { op: 'renombrar'; key: string; label: string }
   | { op: 'eliminar'; key: string }
-  | { op: 'agregar'; despuesDe?: string; label?: string };
+  | { op: 'agregar'; despuesDe?: string; label?: string }
+  /**
+   * Subir o bajar una etapa un lugar. `delta` es -1 (antes) o 1 (después).
+   *
+   * ⚠️ NO ES UN ARRASTRE, y es a propósito: «que sea simple la edición, nada compleja».
+   * El orden de las etapas se toca una vez cada varios meses; un arrastre acá costaría
+   * la copia que sigue al cursor, el auto-scroll y el hueco de destino —las tres reglas
+   * de esta casa sobre el drag— para un gesto que casi nadie va a hacer dos veces.
+   */
+  | { op: 'mover'; key: string; delta: -1 | 1 };
 
 export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise<{ ok: true } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el funnel.' };
@@ -2007,6 +2058,24 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       }
       if (pipeline.length <= 1) return { ok: false, error: 'Tu funnel se quedaría sin etapas.' };
       pipeline = pipeline.filter((st) => st.key !== op.key);
+    } else if (op.op === 'mover') {
+      // ⚠️ SOLO SE MUEVE LO QUE VIVE EN EL PIPELINE. Las tres terminales derivadas
+      // (`perdido`, `descal`, `noresp`) no están ahí: las agrega `generateFunnel` al final
+      // en cada lectura, así que su lugar no es un dato que se pueda guardar. Moverlas
+      // «funcionaría» —el guardado no fallaría— y la pantalla volvería a mostrarlas donde
+      // estaban, que es la peor forma de no hacer nada.
+      const i = pipeline.findIndex((st) => st.key === op.key);
+      if (i < 0) return { ok: false, error: 'Esa etapa la pone MaKo al final del embudo y no se puede mover. Sí puedes cambiarle el nombre.' };
+      const j = i + op.delta;
+      if (j < 0 || j >= pipeline.length) return { ok: false, error: 'Esa etapa ya está en la punta.' };
+      // El cierre va último: es de donde salen los datos de la venta, y `problemasDePipeline`
+      // ya avisa cuando no lo está. Acá se impide de entrada en vez de dejar hacerlo y quejarse.
+      if (pipeline[i].kind === 'cierre' || pipeline[j].kind === 'cierre') {
+        return { ok: false, error: 'La etapa donde se cierra la venta va última.' };
+      }
+      const orden = [...pipeline];
+      [orden[i], orden[j]] = [orden[j], orden[i]];
+      pipeline = orden;
     } else {
       // La clave se acuña acá, en el server, y se comprueba contra el pipeline real: si se
       // eligiera en el navegador, dos pestañas abiertas acuñan la misma y la segunda pisa a

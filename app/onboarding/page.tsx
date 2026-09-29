@@ -7,7 +7,7 @@
 // Ángulos y avatares. Se accede desde el menú de la foto de perfil ("Onboarding").
 
 import { Icon } from '../_components/icons';
-import { OnboardingTabs } from './OnboardingTabs';
+import { OnboardingTabs, tabDeUrl } from './OnboardingTabs';
 import { OnboardingWizard } from './OnboardingWizard';
 import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
@@ -28,7 +28,8 @@ import { TemaOscuro } from '../_components/TemaOscuro';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab } = await searchParams;
   // gateOnboarding:false — esta ES la página del wizard, no puede redirigirse sola.
   await requireRolWs([], { gateOnboarding: false });
 
@@ -74,7 +75,7 @@ export default async function OnboardingPage() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="contexto" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>
       </header>
-      <OnboardingTabs funnelPanel={funnelPanel} />
+      <OnboardingTabs funnelPanel={funnelPanel} tabInicial={tabDeUrl(tab)} />
     </main>
   );
 }
