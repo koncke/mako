@@ -10,6 +10,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Recordatorios } from './Recordatorios';
+import { Disparador } from './Disparador';
 import { EditorMensaje } from './EditorMensaje';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
@@ -167,27 +168,22 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
             {id && <PrefsDeMensaje id={id} />}
 
             {/*
-              EL PRIMER PASO ES EL DISPARADOR, y se lee, no se elige.
+              EL PRIMER PASO ES EL DISPARADOR, y desde el 29/09/2026 se configura.
 
-              ⚠️ Y NO ES UN CONTROL QUE FALTA: es que para 60 de los 65 mensajes no hay
-              nada que elegir. Lo que hace salir un aviso es el CALL SITE que lo emite
-              (un webhook, un cron, un cambio de estado), y para los tres reportes es
-              una expresión de cron que vive en vercel.json, global y de deploy. El
-              selector de evento que existía acá abajo, adentro de «editar el flujo»,
-              gobierna OTRO camino —el motor de flujos, que estos avisos no usan— así
-              que ofrecerlo como «qué dispara este mensaje» habría sido un control que
-              se dibuja y no cambia nada.
-
-              Para que se pueda elegir hacen falta tres cosas que hoy no existen: una
-              variante por TIEMPO en el tipo Disparador, un cron que la recorra, y que
-              el choke point de los avisos mire el disparador. Está anotado.
+              Estuvo en prosa una tanda, y el pedido volvió: «el "Qué lo dispara" NO es
+              editable». Lo que se abrió es la mitad que sí es una decisión —CADA CUÁNTO,
+              como máximo—; el hecho que lo produce sigue siendo un hecho. El porqué de
+              ese corte, con la medición de los call sites, está en <Disparador>.
             */}
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', margin: '18px 0 8px' }}>Qué lo dispara</div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 18 }}>
-              <span style={{ fontSize: 16, flex: 'none', lineHeight: 1.3 }}>⚡</span>
-              <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{plantilla.disparador}</div>
-            </div>
-
+            {id && (
+              <Disparador
+                id={id}
+                disparador={plantilla.disparador}
+                frecuenciaMin={plantilla.frecuenciaMin}
+                endpoint={endpoint}
+                onCambio={onCambio}
+              />
+            )}
             <div style={{ marginBottom: 18 }}>
               {id && <Recordatorios plantillaId={id} endpoint={endpoint} porWhatsApp={plantilla.canales.wa} />}
             </div>

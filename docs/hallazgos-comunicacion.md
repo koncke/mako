@@ -5820,3 +5820,108 @@ al canal principal. Por eso el campo sigue siendo un textarea que muestra las ma
 lo que se ve es lo que sale.
 
 *2026-09-29*
+
+### «Se DEBE poder configurar» tenía DOS mitades, y sólo una era una opción
+
+**Vive en:** `lib/disparador-mensaje.ts` · `app/agencia/Disparador.tsx` · el reclamo en
+`lib/espaciado.ts`
+
+El pedido volvió después de shippearlo en prosa: **«el "Qué lo dispara" NO es
+editable»**. La respuesta anterior —medir que para 60 de 65 mensajes el disparador es el
+call site y dejarlo como un hecho— era cierta **y contestaba media pregunta**. «¿Qué lo
+dispara? Un evento o está configurado por tiempo cada X tiempo» se lee como una sola
+cosa y son dos: QUÉ lo produce (no es una opción: es lo que el mensaje ES) y CADA CUÁNTO
+llega (sí lo es, y era la que faltaba).
+
+**La trampa de leer «no se puede configurar» y cerrar el tema: casi siempre hay una
+dimensión vecina que sí se puede, y es la que la persona quería.** Lo que la delató fue
+buscar el mecanismo antes que el control: el `dedupTtlMin` del choke point ya decidía
+cada cuánto sale cada aviso, con reclamo atómico y todo — sólo que el número estaba
+cableado en cada call site en vez de salir de la pantalla.
+
+⚠️ **Y la regla que hace que el control no dé miedo: se puede ESPACIAR, nunca APRETAR.**
+Lo que pide quien emite es el TECHO de frecuencia (el cron de alerta crítica revisa cada
+10 min y avisa cada hora a propósito), así que el choke point toma el **mayor** de los
+dos. Con un `??` en vez del `Math.max`, elegir «cada vez» borraría esa protección y la
+pantalla pasaría a poder producir **más** mensajes que antes — lo único que un control
+así no puede hacer. Con el `Math.max`, en el peor caso produce uno de menos, que es
+exactamente lo que se eligió.
+
+*2026-09-29*
+
+### El id con el que se guarda y el id con el que se busca no eran el mismo
+
+**Vive en:** `ID_DE_REPORTE` en `lib/disparador-mensaje.ts` · el gate de
+`despacharReporte` (`lib/notify.ts`)
+
+Los tres reportes se identifican internamente con guion **BAJO** (`reporte_diario`, que
+es también el `tipo` de su fila en el feed) y en el catálogo de mensajes con guion
+**MEDIO** (`reporte-diario`). Buscar la configuración del primero en el store del
+segundo no da error: no encuentra la entrada, contesta el default, y **el control de la
+pantalla queda decorativo justo para los tres mensajes que más se abren.**
+
+El mapa va **explícito** y no con un `replace` de guiones: un mapa que no conoce una
+clave devuelve `undefined` y el llamador cae al comportamiento de siempre, mientras un
+`replace` inventa un id plausible para cualquier `tipo` que se agregue mañana. Lo fija
+`tests/disparador-frecuencia.test.ts`, que falla si alguno de los tres no está en el
+catálogo (probado rompiéndolo: 2 fallos, 10 pases).
+
+⚠️ **El olor general: dos sistemas que nombran la misma cosa y uno de los dos nombres
+nació de una convención distinta.** No hay compilador que lo mire, y el síntoma es un
+control que guarda bien y no cambia nada.
+
+*2026-09-29*
+
+### Dónde corta un espaciado decide si el hecho queda en la bitácora
+
+**Vive en:** `emitirAviso` (`lib/avisos.ts`) contra `despacharReporte` (`lib/notify.ts`)
+
+El mismo mecanismo, en los dos despachadores, y el lugar del corte es **opuesto a
+propósito**:
+
+- En un AVISO va **después** de `crearNotificacion`. El hecho pasó igual —un lead
+  agendó, la cuenta se frenó— y tiene que quedar registrado aunque el negocio haya
+  pedido que no le escriban tan seguido. Es la misma decisión que el interruptor: se
+  apaga el WhatsApp, no el registro.
+- En un REPORTE va **antes**. Ahí el feed ES el mensaje: no hay un hecho aparte que
+  valga la pena guardar, y cortar después llenaría el historial de reportes que nadie
+  pidió.
+
+**La pregunta que lo resuelve en treinta segundos: ¿lo que estoy espaciando es el
+MENSAJE o el HECHO del que habla?** Si son cosas distintas, el corte va después del
+registro; si son la misma, antes.
+
+*2026-09-29*
+
+### Un guard que lee un archivo por su ruta se rompe cuando el código se MUDA
+
+**Vive en:** `tests/avisos-dedup-entidad.test.ts` · `lib/espaciado.ts`
+
+El reclamo atómico del dedup se mudó de `lib/avisos.ts` a `lib/espaciado.ts` porque lo
+necesitaban los dos despachadores. Los cuatro tests que lo perseguían seguían haciendo
+`readFileSync('../lib/avisos.ts')` y buscando `keyLast` con un regex: dos se pusieron
+**rojos en el acto**, que es la suerte. La versión silenciosa de este mismo bug es la
+contraria —el guard sigue en VERDE leyendo un archivo que ya no manda— y esta casa ya la
+pagó al reemplazar un modal por un editor en la página.
+
+**Al mudar una pieza, sus tests se mudan en el MISMO commit, y se vuelven a probar
+rompiéndolos en el archivo nuevo.** Re-medido acá: volver el compare-and-set a un
+`setSetting` da 3/1 en ese archivo y 14/2 corriéndolo junto con el test nuevo.
+
+*2026-09-29*
+
+### Un control nuevo se verifica ELIGIENDO y recargando, no mirándolo dibujado
+
+**Vive en:** `app/agencia/Disparador.tsx`
+
+Un desplegable optimista se ve idéntico cuando guardó y cuando no: pinta el valor nuevo
+igual, y el 403 o el `undefined` aparecen recién en la recarga siguiente, cuando nadie
+está mirando. La verificación son tres pasos y no dos: elegir, **recargar la página**, y
+comprobar que sigue ahí.
+
+Medido en el navegador contra `/mensajes`: «Cada vez» → elegir «Máximo uno por día» → la
+respuesta de `/api/perfil/plantillas` trae `frecuenciaMin: 1440` → F5 → sigue en «Máximo
+uno por día». Y el paso que no se saltea: **se deja como estaba**, porque el único
+workspace donde esa pantalla se puede ver es el **ws1, que es un cliente real**.
+
+*2026-09-29*

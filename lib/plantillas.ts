@@ -15,6 +15,7 @@ import { runWithWorkspace, OWNER_WS, getWorkspaceActual } from './workspace';
 import { chatClaude } from './anthropic';
 import { CATALOGO_AVISOS, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from './avisos-catalogo';
 import { esFlujoValido, type Flujo } from './flujos-tipos';
+import { sanearFrecuencia } from './disparador-mensaje';
 
 const KEY_STORE = 'mako.plantillas.store';
 
@@ -24,6 +25,7 @@ type EntradaStore = {
   custom?: { titulo: string; categoria: CategoriaAviso; requiereRespuesta: boolean };
   flujo?: Flujo;       // FLUJO editable (disparador + pasos). Sin esto = aviso clásico.
   canales?: { wa?: boolean; email?: boolean };  // por dónde sale. Ver CANALES_DEFAULT.
+  frecuenciaMin?: number;  // cada cuánto COMO MÁXIMO. Ver `frecuenciaDe`.
 };
 type Store = Record<string, EntradaStore>;
 
@@ -47,6 +49,20 @@ export type CanalesAviso = { wa: boolean; email: boolean };
  */
 export const CANALES_DEFAULT: CanalesAviso = { wa: true, email: false };
 
+/**
+ * CADA CUÁNTO, COMO MÁXIMO. Ausente = 0 = sin límite propio, o sea lo de siempre.
+ *
+ * ⚠️ UNA SOLA TIENDA PARA LOS 65, REPORTES INCLUIDOS — y eso es distinto de `canales`,
+ * que está partido en dos. La diferencia no es capricho: el canal de los tres reportes
+ * vive en `notification_prefs` porque sus crons lo leen de ahí desde antes de que este
+ * store existiera, así que mudarlo es tocar un camino que hoy corre sólo para el dueño.
+ * La frecuencia es un campo NUEVO: nadie la lee todavía, así que nace con un solo lugar
+ * donde vive y sin la pregunta de «¿de qué tienda la saco?» que la otra sí paga.
+ */
+function frecuenciaDe(e: EntradaStore | undefined): number {
+  return sanearFrecuencia(e?.frecuenciaMin);
+}
+
 function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   return {
     wa: typeof e?.canales?.wa === 'boolean' ? e.canales.wa : CANALES_DEFAULT.wa,
@@ -54,7 +70,7 @@ function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   };
 }
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso };
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -119,6 +135,10 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // resolviera aparte, `aVista` lo descartaría y el detalle mostraría el default
     // mientras el motor manda por otro canal.
     canales: canalesDe(e),
+    // Idem: la pantalla lo necesita para pintar el desplegable del disparador, y
+    // resolverlo aparte dejaría el detalle mostrando «cada vez» sobre un mensaje
+    // que el negocio ya espació.
+    frecuenciaMin: frecuenciaDe(e),
     esCustom,
   };
 }
@@ -276,6 +296,17 @@ export async function setEnabledPlantilla(id: string, enabled: boolean): Promise
  */
 export async function setCanalesPlantilla(id: string, canales: Partial<CanalesAviso>): Promise<void> {
   await mutar(id, (e) => ({ ...e, canales: { ...canalesDe(e), ...canales } }));
+}
+
+/**
+ * CADA CUÁNTO, COMO MÁXIMO. Lo elige el negocio en el detalle del mensaje.
+ *
+ * Se SANEA acá además de en la ruta: el valor gobierna cuántos mensajes recibe una
+ * persona, y ésta es la única puerta al store — un POST a mano, un patch de otra
+ * pantalla o una preferencia vieja entran por acá igual que el desplegable.
+ */
+export async function setFrecuenciaPlantilla(id: string, min: number): Promise<void> {
+  await mutar(id, (e) => ({ ...e, frecuenciaMin: sanearFrecuencia(min) }));
 }
 
 /** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */

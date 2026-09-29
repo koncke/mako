@@ -17,6 +17,10 @@ import { crearNotificacion, setCanalWa, pendientesWhatsapp } from './notificacio
 import { sendEmail, renderEmailHtml } from './resend';
 import { REMITENTE_MAKO, EMAIL_MAKO } from './app-url';
 import { sendTextToPhone } from './chatwoot';
+import { reclamarEspaciado } from './espaciado';
+import { estadoAviso } from './perfil';
+import { frecuenciaEfectiva, idDeMensaje } from './disparador-mensaje';
+import { getWorkspaceActual, OWNER_WS } from './workspace';
 
 
 export type ResultadoDespacho = {
@@ -25,10 +29,32 @@ export type ResultadoDespacho = {
   email: boolean;
   /** a cuántos destinatarios salió por cada canal (un negocio puede tener varios). */
   destinos?: { wa: number; email: number };
+  /** no salió porque el negocio lo espació en el detalle del mensaje. */
+  espaciado?: boolean;
 };
 
 export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: ContactoReportes): Promise<ResultadoDespacho> {
   // Un negocio puede tener varios destinatarios (el dueño, la asistente, el
+  // ⚠️ CADA CUÁNTO, COMO MÁXIMO — el mismo control que los avisos, aplicado acá.
+  //
+  // Va en `despacharReporte` y no en los tres crons por la regla de la casa: lo que vale
+  // para todos se escribe donde pasan todos. Puesto en cada route serían tres copias y
+  // la tercera —o el reporte que se agregue mañana— nacería sin la protección.
+  //
+  // ⚠️ Y VA ANTES DEL FEED, al revés que en los avisos, porque para un reporte el feed ES
+  // el mensaje: no hay un hecho aparte que valga la pena registrar. Un aviso espaciado
+  // deja su fila (el evento pasó igual); un reporte espaciado no ocurrió.
+  //
+  // El reclamo es ATÓMICO por lo mismo que el de los avisos, y el `Math.max` de
+  // `frecuenciaEfectiva` con el piso en 0 deja el comportamiento de hoy cuando nadie
+  // eligió nada: los crons ya cortan por `canal.activo` y por su propia cadencia.
+  const wsRep = (await getWorkspaceActual()) ?? OWNER_WS;
+  const idMsg = idDeMensaje(rep.tipo);
+  const minutos = frecuenciaEfectiva(0, (await estadoAviso(wsRep, idMsg)).frecuenciaMin);
+  if (minutos && !(await reclamarEspaciado(wsRep, idMsg, minutos))) {
+    return { notifId: null, wa: 'no', email: false, destinos: { wa: 0, email: 0 }, espaciado: true };
+  }
+
   // contador). `perfil` sigue trayendo el principal porque lo usan el nombre del
   // saludo y la apertura de la ventana de 24h; el reparto sale de la lista.
   const dest = await getDestinatarios();

@@ -941,6 +941,7 @@ export const AREAS: AreaDev[] = [
       'app/perfil/BandejaEmail.tsx', 'app/perfil/PrefsDeMensaje.tsx',
       'lib/notif-catalogo.ts', 'lib/avisos-catalogo.ts', 'lib/plantillas.ts', 'lib/notif-destinatarios.ts',
       'app/api/perfil/plantillas/route.ts', 'app/api/perfil/destinatarios/route.ts', 'app/api/perfil/notif-inapp/route.ts',
+      'lib/disparador-mensaje.ts', 'lib/espaciado.ts', 'app/agencia/Disparador.tsx',
     ],
     proyectos: ['Feature: Configuraciones y equipo'],
   },

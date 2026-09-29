@@ -270,8 +270,8 @@ export async function avisoWaActivo(ws: number, tipo: string): Promise<boolean> 
   return e.activo && e.wa;
 }
 
-/** Cómo sale un aviso en ESTE workspace: si sale, y por dónde. */
-export type EstadoAviso = { activo: boolean; wa: boolean; email: boolean };
+/** Cómo sale un aviso en ESTE workspace: si sale, por dónde y cada cuánto. */
+export type EstadoAviso = { activo: boolean; wa: boolean; email: boolean; frecuenciaMin: number };
 
 /**
  * El interruptor del aviso Y sus canales, en UNA sola lectura del store.
@@ -288,13 +288,19 @@ export type EstadoAviso = { activo: boolean; wa: boolean; email: boolean };
  * canal se prende a mano, y un fallo de lectura no es un permiso.
  */
 export async function estadoAviso(ws: number, tipo: string): Promise<EstadoAviso> {
+  // ⚠️ Y `frecuenciaMin` viaja en esta MISMA lectura, no en una función al lado. El
+  // choke point pregunta «¿sale, por dónde y cada cuánto?» de una sola vez; partido en
+  // dos consultas del mismo store, la segunda se olvida en el próximo despachador.
+  //
+  // El 0 del fail-open es «sin límite propio», o sea el comportamiento de siempre: un
+  // error nuestro leyendo una preferencia no puede espaciar un mensaje.
   try {
     const { getPlantilla } = await import('./plantillas');
     const p = await runWithWorkspace(ws, () => getPlantilla(tipo));
-    if (!p) return { activo: true, wa: true, email: false };
-    return { activo: p.enabled, wa: p.canales.wa, email: p.canales.email };
+    if (!p) return { activo: true, wa: true, email: false, frecuenciaMin: 0 };
+    return { activo: p.enabled, wa: p.canales.wa, email: p.canales.email, frecuenciaMin: p.frecuenciaMin };
   } catch {
-    return { activo: true, wa: true, email: false };
+    return { activo: true, wa: true, email: false, frecuenciaMin: 0 };
   }
 }
 

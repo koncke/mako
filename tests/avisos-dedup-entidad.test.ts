@@ -47,24 +47,31 @@ test('⚠️ el aviso se RECLAMA antes de mandarlo: leer-hacer-marcar perdía la
   //   · vuelve `marcarAvisado` después del envío     -> 3 / 1
   //   · el reclamo usa `setSetting` en vez del CAS   -> 3 / 1
   //   · el reclamo se mueve ANTES del interruptor    -> 3 / 1
-  const t = leer('../lib/avisos.ts');
-  const src = t.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  //
+  // Re-medido el 29/09/2026, con el reclamo ya mudado a lib/espaciado.ts: volver el CAS
+  // a un `setSetting` da 3 / 1 en este archivo (y 14 / 2 corriéndolo junto con
+  // tests/disparador-frecuencia.test.ts, que mira lo mismo desde el otro lado).
+  // ⚠️ AHORA SON DOS ARCHIVOS, y esto es parte del arreglo: el reclamo se mudó a
+  // `lib/espaciado.ts` porque lo necesitan los DOS despachadores (avisos y reportes).
+  // Un test que sigue leyendo sólo el archivo viejo queda VERDE sobre el archivo
+  // equivocado — el modo de falla que esta casa ya pagó al reemplazar una pieza y
+  // dejarle los tests apuntando al fuente que murió.
+  const limpiar = (t: string): string => t.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const src = limpiar(leer('../lib/avisos.ts'));
+  const esp = limpiar(leer('../lib/espaciado.ts'));
 
   // 1) La reclamación existe y es ATÓMICA. Un `setSetting` a secas no sirve: dos requests
   //    que escriben lo mismo ganan los dos.
-  assert.ok(/async function reclamarAviso\(/.test(src), 'falta reclamarAviso');
-  const cuerpo = src.slice(
-    src.indexOf('async function reclamarAviso('),
-    src.indexOf('export async function emitirAviso'),
-  );
+  assert.ok(/export async function reclamarEspaciado\(/.test(esp), 'falta reclamarEspaciado');
+  const cuerpo = esp.slice(esp.indexOf('export async function reclamarEspaciado('));
   assert.ok(
     /cambiarSettingSi\(/.test(cuerpo),
-    'reclamarAviso tiene que usar el compare-and-set atómico: un setSetting deja pasar a los dos',
+    'reclamarEspaciado tiene que usar el compare-and-set atómico: un setSetting deja pasar a los dos',
   );
 
   // 2) Y NO queda el patrón viejo de marcar DESPUÉS de hacer. Ésa es la carrera.
   assert.ok(
-    !/marcarAvisado\(/.test(src),
+    !/marcarAvisado\(/.test(src + esp),
     'volvió el leer-hacer-marcar: entre la lectura y la marca hay hasta 11 s de envío',
   );
 
@@ -75,7 +82,7 @@ test('⚠️ el aviso se RECLAMA antes de mandarlo: leer-hacer-marcar perdía la
   // El interruptor pasó a ser `estadoAviso`, que contesta las DOS preguntas de una
   // lectura: si el aviso está activo y por qué canales sale. El orden no cambió.
   const iInterruptor = src.indexOf('estadoAviso(ws, a.tipo)');
-  const iReclamo = src.indexOf('reclamarAviso(ws, a.tipo');
+  const iReclamo = src.indexOf('reclamarEspaciado(ws, a.tipo');
   const iCola = src.indexOf('encolarAviso(wsCola');
   const iEnvio = src.indexOf('enviarAlGrupoSuperAdmin(texto)');
   assert.ok(iInterruptor > 0 && iReclamo > 0 && iCola > 0 && iEnvio > 0, 'no se ubicaron las cuatro marcas');
@@ -84,16 +91,17 @@ test('⚠️ el aviso se RECLAMA antes de mandarlo: leer-hacer-marcar perdía la
   assert.ok(iReclamo < iEnvio, 'el reclamo va antes de enviar: reclamar después ES la carrera');
 
   // 4) Y sigue el corte barato de la entrada: no se hace el trabajo para nada.
-  assert.ok(/avisadoReciente\(ws, a\.tipo/.test(src), 'se perdió el corte temprano');
+  assert.ok(/salioReciente\(ws, a\.tipo/.test(src), 'se perdió el corte temprano');
 });
 
 test('El dedup distingue TIPO de ENTIDAD', () => {
-  const src = leer('../lib/avisos.ts');
-  assert.match(src, /const keyLast = \(tipo: string, dedupKey\?: string\)/,
+  // La clave vive en lib/espaciado.ts desde el 29/09/2026, con el reclamo.
+  const src = leer('../lib/espaciado.ts');
+  assert.match(src, /export function keyEspaciado\(tipo: string, clave\?: string\)/,
     'la clave del dedup volvió a ser solo el tipo: o traga eventos de otros leads, o no dedupea nada');
   // Sin dedupKey se comporta como siempre — correcto para un aviso global
   // («tu cuenta de Meta está frenada» no es por-entidad).
-  assert.match(src, /if \(!dedupKey\) return `mako\.aviso\.last\.\$\{tipo\}`;/,
+  assert.match(src, /if \(!clave\) return `mako\.aviso\.last\.\$\{tipo\}`;/,
     'se perdió el comportamiento de siempre para los avisos globales');
   // El id ajeno se hashea: un URI de Calendly son ~80 chars.
   assert.match(src, /createHash\('sha1'\)/, 'el id de la entidad entra crudo en la clave de app_settings');

@@ -18,10 +18,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import {
-  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla,
+  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
 } from '@/lib/plantillas';
 import { esFlujoValido } from '@/lib/flujos-tipos';
+import { sanearFrecuencia } from '@/lib/disparador-mensaje';
 import { esAvisoDelCliente, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
   let b: {
     action?: string; id?: string; texto?: string; enabled?: boolean; canales?: { wa?: boolean; email?: boolean }; contexto?: string;
     titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
+    frecuenciaMin?: number;
   };
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -110,6 +112,14 @@ export async function POST(req: NextRequest) {
           ...(typeof c.wa === 'boolean' ? { wa: c.wa } : {}),
           ...(typeof c.email === 'boolean' ? { email: c.email } : {}),
         });
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      }
+      case 'frecuencia': {
+        if (!b.id) return faltaId();
+        // CADA CUÁNTO es suyo, igual que el canal y el interruptor: no cambia lo que el
+        // mensaje DICE, así que no pasa por `esAdministrativo`. Y no puede producir uno de
+        // más — el choke point toma el MAYOR entre esto y lo que pide el call site.
+        await setFrecuenciaPlantilla(b.id, sanearFrecuencia(b.frecuenciaMin));
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       }
       case 'borrar':

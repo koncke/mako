@@ -11,10 +11,10 @@
 // existen (crearNotificacion, grupos de mako-grupo) y agrega estado+dedup.
 
 import 'server-only';
-import { createHash } from 'node:crypto';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
-import { getSetting, cambiarSettingSi } from './settings';
+import { reclamarEspaciado, salioReciente } from './espaciado';
+import { frecuenciaEfectiva } from './disparador-mensaje';
 import { estadoAviso, resumenAvisosActivo } from './perfil';
 import { puedeEsperar } from './avisos-agrupables';
 import { encolarAviso } from './avisos-cola';
@@ -67,75 +67,17 @@ export type EmitirAvisoResult = {
   /** ¿Salió también por email? Ausente en los caminos que ni lo intentan. */
   email?: boolean;
   ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
+  /** no salió porque el negocio lo espació en la pantalla, no porque se repitiera. */
+  espaciado?: boolean;
   /** el dueño apagó este aviso en Configuraciones › Notificaciones. */
   apagado?: boolean;
   /** no salió ahora: espera en `avisos_cola` al resumen de la mañana (mig 0161). */
   agrupado?: boolean;
 };
 
-/**
- * La clave del dedup. Con `dedupKey` se acota a ESA entidad; sin él se comporta
- * igual que siempre (por tipo), que es lo correcto para un aviso global como
- * «tu cuenta de Meta está frenada».
- *
- * El id se HASHEA: un URI de Calendly son ~80 caracteres y la clave de
- * `app_settings` no es lugar para meter un identificador ajeno entero.
- */
-const keyLast = (tipo: string, dedupKey?: string) => {
-  if (!dedupKey) return `mako.aviso.last.${tipo}`;
-  const h = createHash('sha1').update(dedupKey).digest('base64url').slice(0, 12);
-  return `mako.aviso.last.${tipo}:${h}`;
-};
-
-async function avisadoReciente(ws: number, tipo: string, ttlMin: number, dedupKey?: string): Promise<boolean> {
-  const raw = await runWithWorkspace(ws, () => getSetting(keyLast(tipo, dedupKey)));
-  if (!raw) return false;
-  const t = Date.parse(raw);
-  if (Number.isNaN(t)) return false;
-  return Date.now() - t < ttlMin * 60_000;
-}
-
-/**
- * RECLAMA el aviso antes de mandarlo. Devuelve false si otro ya se lo llevó.
- *
- * ⚠️ POR QUÉ NO ALCANZABA CON `avisadoReciente` + `marcarAvisado`. Eso es leer, hacer y
- * marcar — y un dedup así sólo funciona contra reintentos MÁS LENTOS que la operación
- * del medio. Acá la operación del medio es el envío por WhatsApp, y no es instantáneo:
- * `lib/mako-grupo.ts` le manda a Evolution un delay de tipeo anti-ban de
- * `min(1500 + largo*45, 9000)` con jitter, y Evolution retiene el HTTP abierto mientras
- * lo simula. Para un aviso de «Nuevo agendado» (169-173 caracteres) eso es **7,2 a 10,8
- * segundos** entre la lectura y la marca.
- *
- * Medido en producción el 27/09/2026 sobre `mako_doer_conv`: el cliente que reserva por
- * Cal.com tuvo **51 avisos con 21 pares duplicados**, con huecos de 0,4 a 12,4 segundos —
- * quince de los veintiuno justo encima del bloqueo del envío. El que reserva por Calendly
- * tuvo 5 avisos y CERO duplicados, porque Calendly reentrega a los 22-41 s y eso cae
- * después de la marca. El mismo código, dos resultados opuestos según la cadencia de
- * reintento del proveedor.
- *
- * ⚠️ Y LA CADENCIA DE UN PROVEEDOR NO SE MIDE CON EL DEDUP PUESTO: sólo se ven los
- * reintentos más rápidos que la ventana, porque los lentos ya no dejan fila. El techo de
- * 12,4 s es el techo de LA VENTANA, no el de Cal.com. Por eso esto no se arregla
- * ensanchando el TTL ni acortando el delay: se arregla haciendo la reclamación ATÓMICA.
- *
- * `cambiarSettingSi` ya existía para exactamente esto (dos clics en «Conectar por QR»
- * abrían dos líneas de WhatsApp): de dos requests que compiten, gana UNA.
- */
-async function reclamarAviso(ws: number, tipo: string, ttlMin: number, dedupKey?: string): Promise<boolean> {
-  return runWithWorkspace(ws, async () => {
-    const key = keyLast(tipo, dedupKey);
-    const previo = await getSetting(key);
-    if (previo) {
-      const t = Date.parse(previo);
-      // Vigente: alguien lo dijo hace poco y esta copia no tiene nada que agregar.
-      if (!Number.isNaN(t) && Date.now() - t < ttlMin * 60_000) return false;
-    }
-    // El compare-and-set va contra el valor EXACTO que se acaba de leer: si entre la
-    // lectura y acá otro lo cambió, pierde y no manda. `previo === null` usa la rama de
-    // insertar-si-no-existe, que también es atómica.
-    return cambiarSettingSi(key, previo, new Date().toISOString());
-  });
-}
+// El reclamo ATÓMICO de «¿ya salió hace poco?» vive en lib/espaciado.ts: lo usan los
+// DOS despachadores (avisos y reportes) y una copia en cada uno habría dejado a la de
+// reportes sin el compare-and-set. El porqué, con las mediciones, está allá.
 
 /**
  * Emite un aviso al dueño: feed in-app + WhatsApp (grupo del dueño o del cliente),
@@ -156,7 +98,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
   // Cae al dueño solo cuando de verdad no hay contexto (crons, sistema).
   const ws = a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
   try {
-    if (a.dedupTtlMin && (await avisadoReciente(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
+    if (a.dedupTtlMin && (await salioReciente(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
       return { ok: true, feedId: null, wa: false, deduped: true };
     }
     const feedId = await crearNotificacion({
@@ -196,8 +138,22 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // Reemplaza a los dos `marcarAvisado` que había después de cada camino. La marca
     // seguía escribiéndose aunque el envío fallara, y eso no cambia: un aviso que no
     // salió por una línea caída no se reintenta a los segundos.
-    if (a.dedupTtlMin && !(await reclamarAviso(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
-      return { ok: true, feedId, wa: false, deduped: true };
+    //
+    // ⚠️ Y EL NÚMERO YA NO ES SÓLO EL DEL CALL SITE. `canal.frecuenciaMin` es el «cada
+    // cuánto, como máximo» que el negocio eligió en el detalle del mensaje, y gana el
+    // MAYOR de los dos: lo que pide quien emite es el TECHO de frecuencia y la pantalla
+    // sólo puede espaciar por debajo. Con un `??` en vez del `Math.max`, elegir «cada
+    // vez» borraría la protección del call site y esta pantalla pasaría a poder producir
+    // MÁS mensajes que antes — lo único que no puede hacer.
+    //
+    // ⚠️ Y VA ACÁ, DESPUÉS DEL FEED, NO ARRIBA CON EL OTRO CHEQUEO. El de arriba corta
+    // antes de escribir la fila del feed, y para el dedup del call site eso es correcto:
+    // es la MISMA condición contándose de nuevo, no un hecho nuevo. Un mensaje que el
+    // negocio espació es otra cosa: el hecho pasó y tiene que quedar en la bitácora
+    // igual, como con el interruptor — se espacia el WhatsApp, no el registro.
+    const minutos = frecuenciaEfectiva(a.dedupTtlMin, canal.frecuenciaMin);
+    if (minutos && !(await reclamarEspaciado(ws, a.tipo, minutos, a.dedupKey))) {
+      return { ok: true, feedId, wa: false, deduped: true, espaciado: minutos > (a.dedupTtlMin ?? 0) };
     }
 
     // ⚠️ ¿ESTO NECESITABA INTERRUMPIRLO? Si el aviso es de los que aguantan hasta mañana

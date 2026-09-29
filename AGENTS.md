@@ -5132,3 +5132,35 @@ El dueño lo leyó como una falla del producto — «pareciera que se bugeó».
 
 **Antes de escribir un vacío, mirá si el cero incluye al sujeto de la frase.** Si lo
 incluye, el comparativo es falso y además esconde el hecho más caro de esa pantalla.
+
+# Un control que decide cuántos mensajes salen sólo puede ESPACIAR, nunca apretar
+
+Cuando una pantalla pasa a gobernar la frecuencia de algo que ya sale solo —un aviso, un
+reporte, un recordatorio—, el número que ya estaba en el código no se reemplaza: se toma
+el **mayor** de los dos. Lo que pide quien emite es el TECHO de frecuencia y está puesto
+por algo (el cron de alerta crítica revisa cada 10 minutos y avisa cada hora a propósito:
+detectar rápido e insistir seguido son dos cosas distintas).
+
+```ts
+const minutos = Math.max(delCallSite ?? 0, loQueEligioElNegocio);   // frecuenciaEfectiva
+```
+
+Con un `??` en vez del `Math.max`, elegir «cada vez» **borra** la protección del call
+site y la pantalla pasa a poder producir MÁS mensajes que antes — lo único que un control
+así no puede hacer. Con el `Math.max`, en el peor caso produce uno de menos, que es
+exactamente lo que la persona eligió. Vale igual para un tope de gasto, un límite de
+reintentos o cualquier cosa donde el código puso un número defensivo.
+
+⚠️ **Y dónde CORTA decide si el hecho queda en la bitácora.** El mismo mecanismo va en
+lugares opuestos según qué se esté espaciando: en un AVISO, después de escribir el feed
+—el hecho pasó igual y tiene que quedar, como con el interruptor: se apaga el WhatsApp,
+no el registro—; en un REPORTE, antes, porque ahí el feed ES el mensaje. La pregunta que
+lo resuelve: **¿estoy espaciando el MENSAJE o el HECHO del que habla?**
+
+⚠️ **Y antes de contestar «esto no se puede configurar», mirá la dimensión de al lado.**
+El pedido fue «el disparador se DEBE poder configurar» y la primera respuesta —medir que
+para 60 de 65 mensajes el disparador es el call site, y dejarlo en prosa— era cierta y
+contestaba media pregunta. QUÉ lo produce no es una opción; CADA CUÁNTO llega sí, y era
+la que faltaba. El pedido volvió textual: «el "Qué lo dispara" NO es editable». Lo que lo
+destraba es buscar el MECANISMO antes que el control: el número ya existía y estaba
+cableado en cada call site en vez de salir de la pantalla.

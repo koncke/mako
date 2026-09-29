@@ -31,6 +31,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El techo de la insistencia', detalle: 'En dos capas: `sanearInsistir` en el código (5 veces, 30 min, ventana 8-21) y el CHECK de la mig 0180 · verificado en prod: un pedido de «99 veces cada 1 minuto» volvió como 5 cada 30', estado: 'hecha' },
   { titulo: 'Un canal a la vez, con su bandeja', detalle: 'Los tiles de WhatsApp y Email abren SU canal: el input de destinatarios de ese canal y debajo sus mensajes · los de WhatsApp como chat, los de email como una bandeja de correo, con el remitente leído de `/api/email/dominio` y nunca escrito a mano', estado: 'hecha' },
   { titulo: 'Los avisos administrativos, sólo del super-admin', detalle: 'Los 59 que no están en la lista blanca siguen saliendo y ya no se dibujan en la pantalla del cliente · se ven y se editan desde `/mensajes`', estado: 'hecha' },
+  { titulo: 'Cada cuánto llega cada mensaje', detalle: 'El primer paso del detalle dejó de ser prosa: el HECHO que lo dispara arriba y, debajo, «cada cuánto, como máximo» · lo aplica el choke point con el MAYOR entre lo elegido y el dedup del call site, así que la pantalla sólo puede espaciar — nunca producir un mensaje de más', estado: 'hecha' },
   { titulo: 'La tab en la URL', detalle: '`ConfigInnerTabs` no lee `?tab=`, así que un link a una tab que no sea Notificaciones no existe · el molde para hacerlo es `app/admin/ui/` (leer en el server + `router.replace` sin scroll)', estado: 'cola' },
   { titulo: 'Email para los avisos, no sólo para los reportes', detalle: 'Cada aviso elige su canal (`canales: { wa, email }` en su plantilla) y el choke point de `lib/avisos.ts` lo despacha · el email nace APAGADO en todos: prenderlo cuesta plata y quema la reputación del dominio para todo el producto, así que sólo un valor explícito lo enciende', estado: 'hecha' },
   { titulo: 'El correo se ve como un correo', detalle: 'La bandeja previsualiza con `renderEmailHtml`, el MISMO que arma el que sale, en un iframe · el mail ganó banda de marca, título, botón y las negritas que un `sinMarcas` le borraba, y perdió el dorado retirado en los links', estado: 'hecha' },
@@ -40,6 +41,36 @@ export const PARTES: Parte[] = [
 ];
 
 export const BITACORA: Hito[] = [
+  {
+    fecha: '29 sep', hora: '20:10', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El disparador tiene que ser editable — por segunda vez',
+    pedido: 'Y el "Qué lo dispara" NO es editable...',
+    puntos: [
+      'Es la reafirmación del punto 4 de la tanda anterior: «El primer paso debería ser el disparador y eso se DEBE poder configurar... ¿Qué lo dispara? Un evento o está configurado por tiempo cada X tiempo por ejemplo», junto con el 5: «Falta poder editar la frecuencia».',
+      'La respuesta anterior había sido dibujarlo en prosa, con la medición al lado: para 60 de 65 mensajes lo que los hace salir es el call site. Era cierta y contestaba media pregunta.',
+    ],
+  },
+  {
+    fecha: '29 sep', hora: '21:40', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El primer paso se configura: cada cuánto, como máximo',
+    puntos: [
+      'La mitad que SÍ es una decisión del negocio es CADA CUÁNTO, y ya tenía motor: el `dedupTtlMin` del choke point decidía la frecuencia de cada aviso con reclamo atómico, sólo que cableado en cada call site. Lo que faltaba no era un mecanismo nuevo — era que ese número saliera de la pantalla.',
+      'La regla que gobierna el control: se puede ESPACIAR, nunca APRETAR. El choke point toma el MAYOR entre lo elegido y lo que pide quien emite, así que en el peor caso salen menos mensajes. Con un `??` en vez del `Math.max`, elegir «cada vez» borraría el dedup que un cron necesita para no repetir la misma alerta cada hora.',
+      'Lo aplican los DOS despachadores: `emitirAviso` para los 62 avisos y `despacharReporte` para los tres reportes. El corte va en lugares opuestos a propósito — en un aviso DESPUÉS del feed (el hecho pasó igual y queda en la bitácora) y en un reporte ANTES (ahí el feed ES el mensaje).',
+      'El reclamo atómico se mudó a `lib/espaciado.ts` porque ahora lo usan los dos: con una copia en cada uno, la de reportes habría nacido sin el compare-and-set, que es la parte que hace que funcione.',
+      'GOTCHA que no daba ningún error: los reportes se llaman `reporte_diario` con guion BAJO y el catálogo los guarda con guion MEDIO. Buscar la config con el primero contesta el default, y el desplegable queda decorativo justo en los tres mensajes que más se abren. Va un mapa explícito (`ID_DE_REPORTE`), no un `replace` de guiones.',
+      'Verificado en el navegador eligiendo y RECARGANDO, no mirándolo dibujado: un desplegable optimista se ve igual cuando guardó y cuando no. «Cada vez» → «Máximo uno por día» → la API devuelve 1440 → F5 → sigue puesto. Y se dejó como estaba: el único workspace donde esa pantalla se ve es el ws1, que es un cliente real.',
+    ],
+    archivos: [
+      'lib/disparador-mensaje.ts — las opciones, el saneo y la regla del mayor de los dos (sin `server-only`)',
+      'lib/espaciado.ts — el reclamo atómico, compartido por los dos despachadores',
+      'app/agencia/Disparador.tsx — el primer paso del detalle, que guarda al elegir',
+      'tests/disparador-frecuencia.test.ts — 12 guards, cinco de ellos probados rompiéndolos',
+      'docs/hallazgos-comunicacion.md — las cinco entradas de esta tanda',
+    ],
+  },
   // ── 28 sep: la tarea del plan, y lo que el pedido NO decía ────────────────
   {
     fecha: '28 sep', hora: '16:20', chat: '—', cuenta: 'claude2',

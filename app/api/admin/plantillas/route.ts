@@ -8,11 +8,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import {
-  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla,
+  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
 } from '@/lib/plantillas';
 import type { CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
+import { sanearFrecuencia } from '@/lib/disparador-mensaje';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
 type Body = {
   action?: string; id?: string; texto?: string; enabled?: boolean; canales?: { wa?: boolean; email?: boolean }; contexto?: string;
   titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
+  frecuenciaMin?: number;
 };
 
 export async function POST(req: NextRequest) {
@@ -51,6 +53,11 @@ export async function POST(req: NextRequest) {
         ...(typeof c.wa === 'boolean' ? { wa: c.wa } : {}),
         ...(typeof c.email === 'boolean' ? { email: c.email } : {}),
       });
+      return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+    }
+    case 'frecuencia': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      await setFrecuenciaPlantilla(b.id, sanearFrecuencia(b.frecuenciaMin));
       return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
     }
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }
