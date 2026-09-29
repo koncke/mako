@@ -3857,6 +3857,17 @@ cada uno y valen para cualquier guard de este tipo:
   ruta entre backticks — o sea que el guard se acusaba a sí mismo por los comentarios que
   explican que la ruta se retiró.
 
+⚠️ **Y COMPROBAR UN `redirect()` DE APP ROUTER CON `domcontentloaded` DA QUE NO REDIRIGE.**
+Medido: `curl` sin sesión da el 307 del middleware (que es OTRA cosa: nunca llegó a la
+página), y con sesión da **200 con el HTML entero y el cuerpo vacío** — el destino viaja
+adentro del payload RSC (`/crm?funnel=7;307;`) y lo aplica el navegador. Con
+`waitUntil: 'domcontentloaded'` Playwright vuelve ANTES de eso y reporta la URL vieja, o sea
+un redirect perfectamente sano leído como roto. Se espera el CAMBIO DE URL
+(`waitForURL`), nunca la carga del documento.
+
+Las tres verificadas así: `/funnel` → `/crm`, `/funnel?f=7` → `/crm?funnel=7`, y
+`/funnel?f=abc` → `/crm` (un id que no es un número se ignora).
+
 **Vive en:** `app/funnel/page.tsx` · `app/onboarding/OnboardingTabs.tsx` (`tabDeUrl`) ·
 `lib/landing-token.ts` · `tests/funnel-estructura.test.ts` · *2026-09-28 crm-etapas-popup*
 
