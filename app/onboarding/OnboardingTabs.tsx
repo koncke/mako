@@ -13,6 +13,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
+import { TAB_INICIAL, type TabKey } from './tabs-catalogo';
 import { Archivero } from './Archivero';
 import { MatrizView } from './MatrizView';
 import { DiagnosticoView } from './DiagnosticoView';
@@ -28,12 +29,9 @@ import { BrandDefs } from '../_components/ServicioVisual';
 import type { Slide } from '@/lib/servicio-slides';
 
 const SANS = "'Geist', sans-serif";
-type TabKey = 'matriz' | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona' | 'personalidad' | 'avatares' | 'razones' | 'angulos' | 'funnel';
-const TAB_KEYS: TabKey[] = ['matriz', 'diagnostico', 'archivero', 'oferta', 'entregable', 'persona', 'personalidad', 'avatares', 'razones', 'angulos', 'funnel'];
-/** La tab de la URL, o la primera. Un valor inventado no rompe: abre «Matriz». */
-export function tabDeUrl(v?: string): TabKey {
-  return TAB_KEYS.includes(v as TabKey) ? (v as TabKey) : 'matriz';
-}
+// ⚠️ EL CATÁLOGO DE TABS VIVE EN UN `.ts` APARTE, y `tabDeUrl` con él. Acá exportada,
+// para el SERVER no era una función sino una referencia de cliente: llamarla rompió
+// /onboarding entero en producción (29/09/2026). El porqué completo, en tabs-catalogo.ts.
 
 const SLIDES_MATRIZ: Slide[] = [
   { t: 'Tu fábrica de anuncios', d: 'La matriz cruza tus avatares con sus razones de compra. Cada celda es un anuncio listo para producir.' },
@@ -105,12 +103,12 @@ function OfertaFrame() {
  * Se LEE en el server (llega por prop) y se ESCRIBE con `replace`: si sólo se leyera, el
  * link que uno copia no sería la tab que está mirando.
  */
-export function OnboardingTabs({ funnelPanel, tabInicial = 'matriz' }: { funnelPanel: ReactNode; tabInicial?: TabKey }) {
+export function OnboardingTabs({ funnelPanel, tabInicial = TAB_INICIAL }: { funnelPanel: ReactNode; tabInicial?: TabKey }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>(tabInicial);
   const irA = (k: TabKey) => {
     setTab(k);
-    router.replace(k === 'matriz' ? '/onboarding' : `/onboarding?tab=${k}`, { scroll: false });
+    router.replace(k === TAB_INICIAL ? '/onboarding' : `/onboarding?tab=${k}`, { scroll: false });
   };
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
     { key: 'matriz', label: 'Matriz', panel: <Marco slides={SLIDES_MATRIZ}><MatrizView /></Marco> },

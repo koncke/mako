@@ -7,7 +7,11 @@
 // Ángulos y avatares. Se accede desde el menú de la foto de perfil ("Onboarding").
 
 import { Icon } from '../_components/icons';
-import { OnboardingTabs, tabDeUrl } from './OnboardingTabs';
+import { OnboardingTabs } from './OnboardingTabs';
+// ⚠️ `tabDeUrl` SALE DEL `.ts`, NUNCA DEL COMPONENTE. Importada de `OnboardingTabs`
+// —que lleva `use client`— esto no recibe una función sino una referencia de cliente,
+// y llamarla tiró la pantalla entera en producción. Ver app/onboarding/tabs-catalogo.ts.
+import { tabDeUrl } from './tabs-catalogo';
 import { OnboardingWizard } from './OnboardingWizard';
 import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';

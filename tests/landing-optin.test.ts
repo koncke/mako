@@ -551,8 +551,20 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   // Probado rompéndolo: se le saca el `?tab=funnel` al href -> 1 fallo; se le saca el
   // `tabInicial` a /onboarding -> 1 fallo.
   assert.ok(/href: '\/onboarding\?tab=funnel'/.test(lib), 'el chequeo tiene que llevar a la pantalla donde se arregla');
+  // ⚠️ `tabDeUrl` VIVE EN UN `.ts` SIN `'use client'`, y la aserción lo exige. Nació
+  // exportada desde `OnboardingTabs.tsx`, que es de cliente, y para el `page.tsx` —que
+  // es server— eso no era una función sino una referencia de cliente: llamarla dejó
+  // /onboarding entero en «Esta pantalla se rompió al dibujarse», en producción
+  // (29/09/2026). O sea que el link de acá llevaba a una pantalla rota.
+  const cat = leer('../app/onboarding/tabs-catalogo.ts');
+  assert.ok(/export function tabDeUrl/.test(cat), '/onboarding dejó de leer la tab de la URL');
+  // ⚠️ La directiva se busca AL PRINCIPIO DE UNA LÍNEA, no en cualquier parte: el
+  // archivo explica en su cabecera por qué no es un módulo de cliente, y nombra la
+  // directiva para hacerlo. Con un `includes` pelado el test se acusa a sí mismo —
+  // es la misma trampa que ya está escrita en docs/hallazgos-crm.md.
+  assert.ok(!/^\s*['"]use client['"]/m.test(cat), 'el catálogo de tabs volvió a ser un módulo de cliente: el server no lo puede llamar');
+  assert.ok(cat.includes("'funnel'"), 'la tab «El funnel» del hub de onboarding cambió de clave');
   const ot = leer('../app/onboarding/OnboardingTabs.tsx');
-  assert.ok(/export function tabDeUrl/.test(ot), '/onboarding dejó de leer la tab de la URL');
   assert.ok(ot.includes("key: 'funnel'"), 'la tab «El funnel» del hub de onboarding cambió de clave');
   const op = leer('../app/onboarding/page.tsx');
   assert.ok(/tabInicial=\{tabDeUrl\(tab\)\}/.test(op), '/onboarding no le pasa la tab de la URL a sus pastillas');
