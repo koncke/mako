@@ -45,22 +45,37 @@ const SANS = "'Geist', sans-serif";
 const ENDPOINT = '/api/perfil/plantillas';
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
-const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
 const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 };
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
 
-function Seccion({ titulo, nota, children }: { titulo: string; nota?: string; children: ReactNode }) {
+/**
+ * La caja de un tile, COMPARTIDA por los tres.
+ *
+ * Los tres viven en la misma fila y tienen la misma anatomía —ícono, nombre, una
+ * línea de detalle y lo que se pueda hacer—, así que son la misma pieza: dos cajas
+ * con los mismos números escritos a mano divergen en el primer ajuste.
+ */
+function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
+  icono: string; color: string; borde?: string; sombra?: string;
+  titulo: string; detalle: string; children?: ReactNode;
+}) {
   return (
-    <section>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-        <span style={{ ...labelStyle, marginBottom: 0 }}>{titulo}</span>
-        {nota && <span style={{ fontSize: 12, color: 'var(--faint)' }}>{nota}</span>}
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px',
+      borderRadius: 12, background: sombra ? 'var(--surface)' : 'var(--surface-2)',
+      border: `1px solid ${borde ?? 'var(--border)'}`,
+      boxShadow: sombra ?? 'none',
+    }}>
+      <span style={{ display: 'flex', color, flex: 'none', marginTop: 1 }}><Icon name={icono} size={19} /></span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
+        <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>
+        {children}
       </div>
-      {children}
-    </section>
+    </div>
   );
 }
 
@@ -70,21 +85,16 @@ function TileCanal({ icono, color, nombre, detalle, accion, alerta, abierto }: {
   accion: { label: string; onClick: () => void }; alerta?: boolean; abierto?: boolean;
 }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 15px',
-      borderRadius: 12, background: abierto ? 'var(--surface)' : 'var(--surface-2)',
-      border: `1px solid ${abierto ? 'var(--primary)' : alerta ? 'var(--warn)' : 'var(--border)'}`,
-      boxShadow: abierto ? '0 0 0 3px var(--primary-bg)' : 'none',
-    }}>
-      <span style={{ display: 'flex', color, flex: 'none', marginTop: 1 }}><Icon name={icono} size={19} /></span>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{nombre}</div>
-        <div style={{ fontSize: 12, color: alerta ? 'var(--warn)' : 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>
-        <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>
-          {abierto ? 'Cerrar' : accion.label}
-        </button>
-      </div>
-    </div>
+    <Tile
+      icono={icono} color={color} titulo={nombre}
+      detalle={detalle}
+      borde={abierto ? 'var(--primary)' : alerta ? 'var(--warn)' : undefined}
+      sombra={abierto ? '0 0 0 3px var(--primary-bg)' : undefined}
+    >
+      <button type="button" onClick={accion.onClick} style={{ ...btnLink, marginTop: 6 }}>
+        {abierto ? 'Cerrar' : accion.label}
+      </button>
+    </Tile>
   );
 }
 
@@ -136,20 +146,71 @@ function Interruptor({ label, fila, on, na, onChange }: {
   );
 }
 
-/** Una notificación de la app: su nombre y sus dos interruptores. Sin caja. */
+/** Íconos por id. El fallback es `bell`, que EXISTE: uno inventado dibuja un punto. */
+const ICONO_IN_APP: Record<string, string> = { 'wa-mensaje': 'chats', 'wa-plantilla': 'check' };
+
+/**
+ * Una notificación de la app, adentro del tile: su ícono, su nombre y sus dos
+ * interruptores en la misma fila.
+ *
+ * El ícono volvió por pedido del dueño («me gustaban los emojis»), y no es sólo
+ * gusto: son dos filas seguidas de texto del mismo peso, y el ícono es lo que
+ * permite distinguirlas sin leerlas.
+ */
 function AvisoEnLaApp({ def, prefs, onChange }: {
   def: NotifInAppDef; prefs: NotifInApp; onChange: (canal: 'popup' | 'sonido', v: boolean) => void;
 }) {
+  // Cuatro CELDAS sueltas, no una fila propia: las columnas las alinea la grilla del
+  // padre (ver `TileEnLaApp`). La explicación larga del catálogo va en el `title` y no
+  // dibujada — son tres renglones de 12px que nadie lee y que empujan los controles
+  // fuera de la vista.
   return (
-    // La explicación larga del catálogo va en el `title` y no dibujada: son tres
-    // renglones de 12px que nadie lee y que empujan los controles fuera de la vista.
-    <div title={def.sub} style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{def.titulo}</div>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 3 }}>
-        <Interruptor label="Pop-up" fila={def.titulo} on={inAppActivo(prefs, def.id, 'popup')} onChange={(v) => onChange('popup', v)} />
-        <Interruptor label="Sonido" fila={def.titulo} na={!def.sonido} on={inAppActivo(prefs, def.id, 'sonido')} onChange={(v) => onChange('sonido', v)} />
+    <>
+      <span title={def.sub} style={{ display: 'flex', alignItems: 'center', color: 'var(--dim)' }}>
+        <Icon name={ICONO_IN_APP[def.id] ?? 'bell'} size={15} />
+      </span>
+      <span title={def.sub} style={{ fontSize: 12.5, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }}>
+        {def.titulo}
+      </span>
+      <Interruptor label="Pop-up" fila={def.titulo} on={inAppActivo(prefs, def.id, 'popup')} onChange={(v) => onChange('popup', v)} />
+      <Interruptor label="Sonido" fila={def.titulo} na={!def.sonido} on={inAppActivo(prefs, def.id, 'sonido')} onChange={(v) => onChange('sonido', v)} />
+    </>
+  );
+}
+
+/**
+ * El tile de lo que pasa en ESTE navegador. Va PRIMERO y adentro del mismo
+ * recuadro que los canales, por pedido del dueño: «ponelo como un chip más al
+ * principio, antes de WhatsApp, que estén ambas notificaciones dentro».
+ *
+ * No tiene «Gestionar» y es correcto que no lo tenga: los otros dos ABREN algo —a
+ * quién le llega y qué dice— y esto no manda nada a ningún lado, así que sus dos
+ * interruptores son todo lo que hay. Un botón que no abre nada sería un control
+ * que no hace nada, sólo para que los tres se vean iguales.
+ */
+function TileEnLaApp({ prefs, onChange, flash }: {
+  prefs: NotifInApp; onChange: (id: string, canal: 'popup' | 'sonido', v: boolean) => void; flash: string | null;
+}) {
+  return (
+    <Tile icono="bell" color="var(--primary)" titulo="Dentro de la app" detalle="Sólo en este navegador">
+      {/* ⚠️ UNA SOLA GRILLA PARA LAS DOS FILAS, no un flex por fila. Con flex, cada
+          renglón reparte su sobrante por su cuenta y las columnas salen desparejas —
+          y peor: el rótulo cambia de PESO al prenderse, así que la fila se corría
+          sola al tocarla. Las columnas de una tabla se alinean con una grilla
+          compartida, que además no necesita ningún ancho escrito a mano: la última
+          se estira sola hasta el contenido más largo de las dos. */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
+        columnGap: 10, rowGap: 2, alignItems: 'center', marginTop: 6,
+      }}>
+        {NOTIF_IN_APP.map((n) => (
+          <AvisoEnLaApp key={n.id} def={n} prefs={prefs} onChange={(c, v) => onChange(n.id, c, v)} />
+        ))}
       </div>
-    </div>
+      {flash && (
+        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</div>
+      )}
+    </Tile>
   );
 }
 
@@ -252,21 +313,7 @@ export function NotificacionesPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
 
-      {/* ── 1. Dentro de la app (personal) ─────────────────────────────────── */}
-      <Seccion titulo="Dentro de la app">
-        <div style={{ ...card, padding: '14px 16px' }}>
-          <div style={{ ...grilla, gap: '14px 24px' }}>
-            {NOTIF_IN_APP.map((n) => (
-              <AvisoEnLaApp key={n.id} def={n} prefs={inApp} onChange={(c, v) => void setItem(n.id, c, v)} />
-            ))}
-          </div>
-          {flash && (
-            <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</div>
-          )}
-        </div>
-      </Seccion>
-
-      {/* ── 2. Los canales, en UN recuadro ─────────────────────────────────── */}
+      {/* ── Los tres, en UN recuadro ───────────────────────────────────────── */}
       {/* El editor de destinatarios vive ADENTRO de esta caja, debajo del tile que
           lo abrió: era una sección aparte con su propio rótulo y su propio marco, y
           el dueño lo cortó — «que no sea una sección diferente». Y es lo correcto:
@@ -274,6 +321,9 @@ export function NotificacionesPanel() {
           obligaba a leer cuál de los dos canales estabas editando. */}
       <div style={{ ...card, padding: 16 }}>
         <div style={grilla}>
+          {/* Primero lo de la app: es lo único que pasa acá mismo y no se manda a
+              nadie, así que leerlo antes que los canales ordena la pantalla. */}
+          <TileEnLaApp prefs={inApp} onChange={(id, c, v) => void setItem(id, c, v)} flash={flash} />
           <TileCanal
             icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
             alerta={!hayWa} abierto={canal === 'whatsapp'}
