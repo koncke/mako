@@ -242,6 +242,122 @@ export async function saveFunnelDefault(
 }
 
 /**
+ * Renombra un embudo — y lo que se renombra puede NO SER el embudo.
+ *
+ * ⚠️ LA PANTALLA MUESTRA EL NOMBRE DEL PRODUCTO, no el del funnel. Todos los funnels de
+ * todos los workspaces se llaman «Funnel principal» porque lo puso la migración 0170, y
+ * `listarFunnels` lo tapa con el nombre del producto principal (vista `v_funnel_productos`).
+ * O sea que escribir `funnels.nombre` y refrescar deja la pantalla EXACTAMENTE IGUAL: un
+ * guardado que funciona, no da error, y no se ve. Es el modo de falla que ya se reportó
+ * tres veces en esta tab con otro nombre.
+ *
+ * Así que se escribe donde se LEE: si el funnel tiene producto principal, se renombra el
+ * producto; si no, el funnel.
+ *
+ * ⚠️ Y el índice `funnels_nombre_uk` es único por workspace sobre `lower(btrim(nombre))`:
+ * dos embudos no pueden llamarse igual ni cambiando mayúsculas. El choque se traduce a
+ * una frase, porque el error crudo de Postgres no le dice nada a nadie.
+ */
+export async function renombrarFunnel(funnelId: number, nombreCrudo: string): Promise<{ donde: 'producto' | 'funnel' }> {
+  const nombre = nombreCrudo.trim().replace(/\s+/g, ' ');
+  if (!nombre) throw new Error('El embudo necesita un nombre.');
+  if (nombre.length > 60) throw new Error('El nombre no puede pasar de 60 caracteres.');
+  const supabase = await getTenantDb();
+
+  // ¿Tiene producto principal? Ahí es donde hay que escribir.
+  let productoId: number | null = null;
+  try {
+    const { data } = await supabase
+      .from('v_funnel_productos').select('producto_id').eq('funnel_id', funnelId).eq('es_principal', true).limit(1);
+    productoId = ((data ?? []) as Array<{ producto_id: number }>)[0]?.producto_id ?? null;
+  } catch {
+    // La vista puede fallar sin que el renombre deje de tener sentido: se cae al funnel.
+    productoId = null;
+  }
+
+  if (productoId != null) {
+    const { data: tocadas, error } = await supabase.from('productos').update({ nombre }).eq('id', productoId).select('id');
+    if (error) throw new Error(traducirChoque(error.message, nombre));
+    if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese producto no es de este workspace.');
+    return { donde: 'producto' };
+  }
+
+  const { data: tocadas, error } = await supabase
+    .from('funnels').update({ nombre, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
+  if (error) throw new Error(traducirChoque(error.message, nombre));
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese embudo no es de este workspace.');
+  return { donde: 'funnel' };
+}
+
+/** El choque del índice único, dicho en una frase que se entiende. */
+function traducirChoque(msg: string, nombre: string): string {
+  if (/duplicate key|unique constraint|23505/i.test(msg)) return `Ya tienes un embudo que se llama «${nombre}».`;
+  return `No se pudo renombrar: ${msg}`;
+}
+
+/**
+ * ARCHIVA un embudo: `activo = false`. No borra NADA.
+ *
+ * ⚠️ ES UN ARCHIVADO Y NO UN BORRADO, y es lo que pidió Martín: «siempre guardando una
+ * copia de seguridad en caso de eliminar un funnel con leads, por si el usuario lo quiere
+ * recuperar». La copia de seguridad NO hace falta inventarla — la columna `activo` existe
+ * desde la 0170 y `listarFunnels` ya filtra por ella. Archivar saca el embudo de la
+ * pantalla y deja la fila, su `data` (el pipeline entero, las entradas, las nutriciones
+ * suprimidas) y sus leads intactos. Restaurar es poner el booleano de vuelta.
+ *
+ * Una copia aparte sería peor: un segundo lugar con los mismos datos, que se queda viejo.
+ *
+ * ⚠️ EL DEFAULT NO SE ARCHIVA, y el guard va en POSITIVO. El índice parcial
+ * `funnels_ws_default_uk` garantiza que un workspace tiene EXACTAMENTE UNO, y medio repo
+ * asume que existe: `getFunnelDefault`, el CRM sin `?funnel=`, el onboarding, los prompts.
+ * Archivarlo no daría error — daría un workspace cuyo embudo por defecto no se puede leer.
+ */
+export async function archivarFunnel(funnelId: number): Promise<void> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('funnels').select('id, es_default, activo').eq('id', funnelId).limit(1);
+  if (error) throw new Error(`No se pudo leer el embudo: ${error.message}`);
+  const fila = ((data ?? []) as Array<{ id: number; es_default: boolean; activo: boolean }>)[0];
+  if (!fila) throw new Error('Ese embudo no es de este workspace.');
+  if (fila.es_default) throw new Error('Este es tu embudo principal: no se puede eliminar. Puedes cambiarle el nombre.');
+  const { data: tocadas, error: e2 } = await supabase
+    .from('funnels').update({ activo: false, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
+  if (e2) throw new Error(`No se pudo archivar el embudo: ${e2.message}`);
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese embudo no es de este workspace.');
+}
+
+/** Devuelve un embudo archivado a la lista. Lo inverso exacto de `archivarFunnel`. */
+export async function restaurarFunnel(funnelId: number): Promise<void> {
+  const supabase = await getTenantDb();
+  const { data: tocadas, error } = await supabase
+    .from('funnels').update({ activo: true, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
+  if (error) throw new Error(`No se pudo restaurar el embudo: ${error.message}`);
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese embudo no es de este workspace.');
+}
+
+/**
+ * Los embudos ARCHIVADOS del workspace, para poder recuperarlos.
+ *
+ * ⚠️ Sin esta lectura, archivar sería un borrado: la fila queda pero no hay pantalla que
+ * la nombre, así que para la persona desapareció igual. Una copia de seguridad que nadie
+ * puede ver no es una copia de seguridad.
+ */
+export async function listarFunnelsArchivados(): Promise<FunnelResumen[]> {
+  try {
+    const supabase = await getTenantDb();
+    const { data, error } = await supabase
+      .from('funnels').select('id, nombre, canal, es_default, declarado, activo')
+      .eq('activo', false).order('updated_at', { ascending: false }).order('id');
+    if (error) { console.error(`[funnels] listarFunnelsArchivados: ${error.message}`); return []; }
+    return ((data ?? []) as unknown as FilaFunnel[]).map((f) => ({
+      id: f.id, nombre: f.nombre ?? FUNNEL_DEFAULT_NOMBRE, canal: f.canal ?? null,
+      esDefault: f.es_default === true, declarado: f.declarado === true, producto: null,
+    }));
+  } catch (e) {
+    console.error(`[funnels] listarFunnelsArchivados: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
+}
+/**
  * Crea un funnel en el workspace actual y devuelve su id.
  *
  * `esDefault` NO se pasa a la ligera: el índice único parcial `funnels_ws_default_uk`

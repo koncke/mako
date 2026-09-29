@@ -276,6 +276,7 @@ export function CrmBoard({
   equipo = [],
   calendlyStages = [],
   funnels = [],
+  abrirEmbudo = null,
   funnelActivo = null,
 }: {
   leads: CrmLead[];
@@ -299,6 +300,14 @@ export function CrmBoard({
   calendlyStages?: string[];
   /** Las ofertas/funnels del workspace. El selector reemplaza al viejo «N de N». */
   funnels?: FunnelResumen[];
+  /**
+   * Abrir el pop-up del embudo al entrar, en esta subtab. Viene de `?embudo=` .
+   *
+   * Existe para que un link pueda llevar a una CONFIGURACION y no solo a una pantalla:
+   * el panel de tracking que ve el cliente en su landing dice «activar la landing como
+   * entrada de leads», y eso es una casilla adentro de este pop-up.
+   */
+  abrirEmbudo?: 'etapas' | 'entradas' | null;
   /** null = el funnel del negocio (sin `?funnel=` en la URL). */
   funnelActivo?: number | null;
 }) {
@@ -1263,7 +1272,17 @@ export function CrmBoard({
   const [nuevoLead, setNuevoLead] = useState(false);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
-  const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string } | null>(null);
+  const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; sub?: 'etapas' | 'entradas' } | null>(null);
+  // Y si la URL lo pidio, se abre solo al entrar. Una sola vez: despues es estado de la
+  // pantalla, no de la URL — reabrirlo en cada render lo volveria imposible de cerrar.
+  const pedidoAbrir = useRef(abrirEmbudo);
+  useEffect(() => {
+    if (!pedidoAbrir.current) return;
+    const sub = pedidoAbrir.current;
+    pedidoAbrir.current = null;
+    setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo), sub });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // ⚠️ SE MUESTRA EL PRODUCTO, igual que en el selector: «Funnel principal» es el nombre
   // que puso la migración y es el mismo en todos los workspaces. El encabezado del
   // pop-up tiene que decir CUÁL embudo se está tocando, y para eso ese nombre no sirve.
@@ -1662,7 +1681,7 @@ export function CrmBoard({
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
-      {etapasDe && <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} onCerrar={() => setEtapasDe(null)} />}
+      {etapasDe && <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} subInicial={etapasDe.sub} onCerrar={() => setEtapasDe(null)} />}
 
       {/* Alta a mano SIN salir del tablero: el mismo form de /crm/new adentro de un
           Modal. Al crear se cierra, se abre la ficha del lead nuevo y se recarga la

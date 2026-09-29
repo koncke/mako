@@ -18,7 +18,8 @@
 //    (URLs de campaña enteras): toda opción y todo chip lleva maxWidth + ellipsis +
 //    title con el valor completo.
 
-import Link, { useRouter } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
@@ -26,7 +27,7 @@ import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from
 const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
 import { CANALES } from '@/lib/fase-diagnostico';
-import { crearProductoAction } from './actions';
+import { crearProductoAction, embudosArchivadosAction, restaurarEmbudoAction } from './actions';
 
 const SANS = "'Geist', sans-serif";
 
@@ -475,6 +476,8 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAb
 // las etapas se leen en el server, no hay estado que sincronizar.
 /** Valor centinela del renglón que no es un funnel sino una salida. */
 const NUEVA = '__nueva';
+/** El otro renglón que no es un funnel sino una salida: los que se eliminaron. */
+const ARCHIVADOS = '__archivados';
 
 export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
@@ -483,7 +486,24 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   onEditarEtapas: (funnelId: number, nombre: string) => void;
 }) {
   const router = useRouter();
+  const ws = useWs();
   const [creando, setCreando] = useState(false);
+  const [archivados, setArchivados] = useState(false);
+  const [hayArchivados, setHayArchivados] = useState(false);
+  // ⚠️ SE RE-PREGUNTA CUANDO CAMBIA LA LISTA DE EMBUDOS, no sólo al montar. Medido en el
+  // navegador el 29/09/2026: se eliminó «Prueba 2» —la fila quedó `activo=false` en la base,
+  // correcto— y el renglón «Embudos eliminados» NO apareció, porque este efecto había
+  // corrido una sola vez con cero archivados. O sea que la puerta de vuelta se volvía
+  // invisible justo después de la ÚNICA acción que crea algo para recuperar, y el archivado
+  // quedaba indistinguible de un borrado.
+  //
+  // `funnels` baja del server, así que cambia exactamente cuando hay algo nuevo que contar.
+  const cuantosFunnels = funnels.length;
+  useEffect(() => {
+    let vivo = true;
+    void embudosArchivadosAction().then((f) => { if (vivo) setHayArchivados(f.length > 0); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [cuantosFunnels]);
   if (funnels.length === 0) return null;
   const actual = funnels.find((f) => f.id === activo) ?? funnels.find((f) => f.esDefault) ?? funnels[0];
   // ⚠️ SE MUESTRA EL PRODUCTO, NO EL FUNNEL. «Funnel principal» es el nombre que
@@ -520,6 +540,11 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.
   // El flag `crear` es el que apaga la fila y la enciende al pasar el cursor.
   opciones.push({ value: NUEVA, label: 'Nuevo producto', crear: true });
+  // ⚠️ LA PUERTA DE VUELTA. Eliminar un embudo lo ARCHIVA —la fila y sus leads quedan
+  // enteros— pero sin una pantalla que los nombre, para la persona desapareció igual: una
+  // copia de seguridad que nadie puede ver no es una copia de seguridad. El renglón sólo
+  // se dibuja cuando hay alguno, para no ofrecer una lista vacía todos los días.
+  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'Embudos eliminados', crear: true });
   // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
   // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
   // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
@@ -544,6 +569,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
           // que al apretar nuevo producto me lleve al second brain, todo se debe
           // resolver dentro del CRM».
           if (v === NUEVA) { setCreando(true); return; }
+          if (v === ARCHIVADOS) { setArchivados(true); return; }
           const f = funnels.find((x) => x.id === Number(v));
           // El del negocio va sin parámetro: la URL del CRM no se ensucia por defecto.
           router.push(f?.esDefault ? '/crm' : `/crm?funnel=${v}`);
@@ -553,6 +579,15 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
         <NuevoProductoModal
           onCerrar={() => setCreando(false)}
           onCreado={(funnelId) => { setCreando(false); router.push(`/crm?funnel=${funnelId}`); }}
+        />
+      )}
+      {archivados && (
+        <ArchivadosModal
+          onCerrar={() => setArchivados(false)}
+          // ⚠️ NAVEGACIÓN DURA, igual que al eliminar y por lo mismo: con `push + refresh()` la
+          // lista quedaba UN PASO ATRÁS y la recuperación parecía no haber pasado, con la fila
+          // ya en `activo=true` en la base. Lo que cambia es QUÉ EMBUDOS EXISTEN, no una tarjeta.
+          onRestaurado={(funnelId) => { window.location.href = conWs(`/crm?funnel=${funnelId}`, ws); }}
         />
       )}
     </span>
@@ -673,5 +708,73 @@ export function SinResultados({ hayFiltros, onLimpiar }: { hayFiltros: boolean; 
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * Los embudos eliminados, para recuperarlos.
+ *
+ * ⚠️ ESTO ES LA MITAD QUE HACE QUE «ELIMINAR» NO SEA UN BORRADO. Archivar deja la fila
+ * entera —el pipeline, las entradas, las nutriciones, y los leads con su `funnel_id`
+ * apuntando ahí— pero eso sólo vale si existe la puerta de vuelta. Pedido de Martín:
+ * «siempre guardando una copia de seguridad... por si el usuario lo quiere recuperar».
+ */
+function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onRestaurado: (funnelId: number) => void }) {
+  const [filas, setFilas] = useState<Array<{ id: number; nombre: string; leads: number }> | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [trabajando, startTrabajo] = useTransition();
+
+  useEffect(() => {
+    let vivo = true;
+    void embudosArchivadosAction().then((f) => { if (vivo) setFilas(f); }).catch((e) => { if (vivo) setErr(String(e)); });
+    return () => { vivo = false; };
+  }, []);
+
+  const restaurar = (id: number) => {
+    startTrabajo(async () => {
+      const r = await restaurarEmbudoAction(id);
+      if (!r.ok) { setErr(r.error); return; }
+      onRestaurado(id);
+    });
+  };
+
+  return (
+    <Modal
+      titulo="Embudos eliminados"
+      ancho={520}
+      onCerrar={onCerrar}
+      pie={(
+        <button type="button" onClick={onCerrar}
+          style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+          Cerrar
+        </button>
+      )}
+    >
+      {filas === null && !err && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>Cargando…</p>}
+      {filas?.length === 0 && (
+        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>No eliminaste ningún embudo.</p>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {(filas ?? []).map((f) => (
+          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <span style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.nombre}</span>
+            {/* El número es el dato que decide cuál recuperar, y es lo único que se dibuja
+                al lado del nombre. Un -1 significa que no se pudo contar: no se inventa un 0. */}
+            {f.leads >= 0 && (
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999 }}>
+                {f.leads} {f.leads === 1 ? 'lead' : 'leads'}
+              </span>
+            )}
+            <button type="button" disabled={trabajando} onClick={() => restaurar(f.id)}
+              style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: trabajando ? 'default' : 'pointer' }}>
+              Recuperar
+            </button>
+          </div>
+        ))}
+      </div>
+      {err && (
+        <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+      )}
+    </Modal>
   );
 }

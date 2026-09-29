@@ -1,29 +1,32 @@
 'use client';
 
 // =============================================================================
-// EntradasCard — «¿cómo entra tu gente?», arriba del editor del funnel
+// EmbudoEntradas — «¿Cómo entra tu gente?», ahora adentro del pop-up del CRM
 // =============================================================================
-// El editor de abajo dibuja el RECORRIDO del lead. Esto declara los ACTIVOS con
-// los que ese recorrido existe, que es un dato distinto y que hasta ahora no
-// tenía dónde vivir: se podía renombrar la etapa «Lead (Instant form)» sin que
-// nada cambiara, porque el nombre de una etapa es texto y nadie lo lee como
-// dato.
+// Las etapas dicen por dónde PASA un lead. Esto dice cómo LLEGÓ, que es otro dato
+// y es el que usa MaKo para escribirle: si le dice «vi que dejaste tus datos en el
+// anuncio» a alguien a quien le escribió el negocio primero, se nota en la primera
+// frase. Lo consumen los audios, los escenarios del ensayo, las secuencias, el
+// generador de landings y el estructurador de campañas de Meta.
 //
-// Por qué está acá y no en el onboarding del Chatbot, que es donde se nota:
-// el mismo dato lo consumen los audios, los escenarios del ensayo, las
-// secuencias, el generador de landings y el estructurador de campañas de Meta.
-// Si viviera en la tab que lo sufre, los otros cuatro se quedarían viejos.
+// ⚠️ VIVÍA EN `app/funnel/EntradasCard.tsx`, arriba del editor completo, y se mudó
+// acá el 29/09/2026 cuando Martín pidió eliminar también esa pantalla: «Tienes que
+// eliminar esto, ya te lo habia pedido». Con el editor fuera, el pop-up del CRM es
+// el ÚNICO lugar donde se configura un embudo — y esta declaración tenía que venir
+// con él o se quedaba sin pantalla, que es como se pierde un dato que cinco cosas
+// leen.
 //
-// ⚠️ Y por qué NO se guarda solo, como el pipeline de abajo: el editor autoguarda
-// con un debounce en cada tecla. Una declaración se confirma; si se guardara al
-// tipear, cualquier clic accidental le cambiaría a un cliente qué audios le
-// pedimos y qué le decimos a sus leads.
+// ⚠️ Y NO SE AUTOGUARDA, a diferencia de las etapas. Cada etapa es una operación
+// que la persona pidió; esto es una DECLARACIÓN sobre el negocio, y guardarla al
+// primer clic le cambiaría a un cliente qué audios le pedimos y qué le decimos a
+// sus leads por un toque accidental. Se confirma.
 
 import { useState } from 'react';
 import { ENTRADAS, type EntradaId, fechaFijaDelEvento } from '@/lib/pipeline';
 import type { CanalId } from '@/lib/fase-diagnostico';
-import { declararEntradasAction } from '../crm/actions';
+import { declararEntradasAction } from './actions';
 
+const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', ui-monospace, monospace";
 const DIAS = [
   { n: 1, l: 'L' }, { n: 2, l: 'M' }, { n: 3, l: 'X' }, { n: 4, l: 'J' },
@@ -32,18 +35,13 @@ const DIAS = [
 
 export type EventoDecl = { lugar: string | null; dias: number[]; hora: string | null; tz: string | null; cupo: number | null };
 
-export function EntradasCard({
-  initial, initialEvento, canal, funnelId,
-}: {
+export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuardado }: {
   initial: EntradaId[];
   initialEvento: EventoDecl | null;
   canal: CanalId | null;
-  /**
-   * Cuál funnel declara esto. `undefined` = el del NEGOCIO. Con N funnels el
-   * TOFU es justamente lo que los diferencia: dos funnels que comparten el
-   * cierre y entran distinto son dos `data.entradas`, no uno del workspace.
-   */
+  /** Cuál embudo declara esto. `undefined` = el del NEGOCIO. */
   funnelId?: number;
+  onGuardado?: () => void;
 }) {
   const [sel, setSel] = useState<EntradaId[]>(initial);
   const [lugar, setLugar] = useState(initialEvento?.lugar ?? '');
@@ -51,7 +49,6 @@ export function EntradasCard({
   const [hora, setHora] = useState(initialEvento?.hora ?? '');
   const [cupo, setCupo] = useState(initialEvento?.cupo != null ? String(initialEvento.cupo) : '');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const declarado = initial.length > 0;
@@ -63,18 +60,18 @@ export function EntradasCard({
       || JSON.stringify([...dias].sort()) !== JSON.stringify([...(initialEvento?.dias ?? [])].sort())));
 
   function toggle(id: EntradaId) {
-    setMsg(null); setErr(null);
+    setErr(null);
     setSel((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(0, 3)));
   }
 
   async function guardar() {
-    setBusy(true); setErr(null); setMsg(null);
+    setBusy(true); setErr(null);
     try {
       const evento = pideEvento
         ? { lugar: lugar.trim() || null, dias, hora: hora.trim() || null, tz: null, cupo: cupo.trim() ? Number(cupo) : null }
         : null;
       const r = await declararEntradasAction(sel, evento, funnelId);
-      if (r.ok) setMsg('Listo. Con esto ya sabemos qué audios pedirte y qué NO decirle a tu gente.');
+      if (r.ok) onGuardado?.();
       else setErr(r.error);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -84,23 +81,16 @@ export function EntradasCard({
   }
 
   return (
-    <section style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', padding: '18px 20px', marginBottom: 18 }}>
-      <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650, color: 'var(--ink)' }}>¿Cómo entra tu gente?</h2>
-      <p style={{ margin: '6px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, maxWidth: '70ch' }}>
-        Las etapas de abajo dicen por dónde pasa un lead. Esto dice cómo llegó, que es
-        otra cosa y es la que usa MaKo para escribirle. Si le dice «vi que dejaste tus
-        datos en el anuncio» a alguien a quien le escribiste tú primero, se nota en la
-        primera frase.
-      </p>
-
+    <div>
+      {/* Un aviso sólo cuando FALTA. Sin declarar, MaKo se abstiene de escribir la
+          apertura — y eso hay que decirlo, porque el silencio se lee como que está roto. */}
       {!declarado && (
-        <div style={{ marginTop: 12, padding: '10px 13px', borderRadius: 10, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 13, lineHeight: 1.55 }}>
-          Todavía no lo declaraste. Hasta que lo hagas, MaKo no te va a pedir audios ni
-          escribir mensajes de apertura — prefiere no decir nada antes que inventarlo.
+        <div style={{ marginBottom: 14, padding: '10px 13px', borderRadius: 10, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 13, lineHeight: 1.55 }}>
+          Sin esto MaKo no escribe el primer mensaje: prefiere no decir nada antes que inventarlo.
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {(Object.values(ENTRADAS)).map((e) => {
           const on = sel.includes(e.id);
           return (
@@ -108,9 +98,9 @@ export function EntradasCard({
               key={e.id} type="button" onClick={() => toggle(e.id)} aria-pressed={on}
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: 11, textAlign: 'left', width: '100%',
-                padding: '11px 13px', borderRadius: 11, cursor: 'pointer',
+                padding: '10px 13px', borderRadius: 10, cursor: 'pointer', fontFamily: SANS,
                 border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border)'),
-                background: on ? 'var(--primary-bg, var(--surface-2))' : 'var(--surface)',
+                background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
               }}
             >
               <span aria-hidden style={{
@@ -128,38 +118,30 @@ export function EntradasCard({
         })}
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>
-        Puedes marcar más de una si te llegan por varios lados. Se piden hasta tres.
-      </div>
-
-      {/* El evento solo se pregunta donde la fecha la pone el negocio: si el lead
+      {/* El evento sólo se pregunta donde la fecha la pone el NEGOCIO: si el lead
           agenda solo, no hay «todos los miércoles» que declarar. */}
       {pideEvento && (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 620, color: 'var(--ink)' }}>Tu sesión</h3>
-          <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-            Esto entra en el audio que escucha antes de ir. Si no lo cargas, el audio no
-            dice ninguna dirección: dice que se la pasas por aquí.
-          </p>
+          <span style={{ display: 'block', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>Tu sesión</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>¿Dónde es?</span>
+              <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿Dónde es?</span>
               <input value={lugar} onChange={(ev) => setLugar(ev.target.value)} placeholder="Huayacán, Cancún"
-                style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, width: '100%', boxSizing: 'border-box' }} />
+                style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, width: '100%', boxSizing: 'border-box', fontFamily: SANS }} />
             </label>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>¿Qué días?</span>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿Qué días?</span>
                 <div style={{ display: 'flex', gap: 5 }}>
                   {DIAS.map((d) => {
                     const on = dias.includes(d.n);
                     return (
-                      <button key={d.n} type="button" aria-pressed={on}
-                        onClick={() => setDias((p) => (p.includes(d.n) ? p.filter((x) => x !== d.n) : [...p, d.n]))}
+                      <button key={d.n} type="button" aria-pressed={on} aria-label={`Día ${d.l}`}
+                        onClick={() => setDias((pv) => (pv.includes(d.n) ? pv.filter((x) => x !== d.n) : [...pv, d.n]))}
                         style={{
-                          width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
-                          border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border)'),
-                          background: on ? 'var(--primary)' : 'var(--surface)',
+                          width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: SANS,
+                          border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
+                          background: on ? 'var(--primary)' : 'var(--surface-2)',
                           color: on ? '#fff' : 'var(--dim)',
                         }}>{d.l}</button>
                     );
@@ -167,14 +149,14 @@ export function EntradasCard({
                 </div>
               </div>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>¿A qué hora?</span>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿A qué hora?</span>
                 <input value={hora} onChange={(ev) => setHora(ev.target.value)} placeholder="19:00" inputMode="numeric"
-                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, width: 90 }} />
+                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, width: 90, fontFamily: SANS }} />
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>¿Hay cupo?</span>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿Hay cupo?</span>
                 <input value={cupo} onChange={(ev) => setCupo(ev.target.value.replace(/\D/g, ''))} placeholder="20" inputMode="numeric"
-                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, width: 90 }} />
+                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, width: 90, fontFamily: SANS }} />
               </label>
             </div>
           </div>
@@ -184,15 +166,16 @@ export function EntradasCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
         <button type="button" onClick={() => void guardar()} disabled={busy || !sel.length || !sucio}
           style={{
-            padding: '9px 16px', borderRadius: 10, border: 'none', cursor: busy || !sel.length || !sucio ? 'default' : 'pointer',
+            padding: '9px 16px', borderRadius: 10, border: 'none', fontFamily: SANS,
+            cursor: busy || !sel.length || !sucio ? 'default' : 'pointer',
             background: 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600,
             opacity: busy || !sel.length || !sucio ? 0.45 : 1,
           }}>
-          {busy ? 'Guardando…' : declarado ? 'Guardar los cambios' : 'Sí, así entra mi gente'}
+          {busy ? 'Guardando…' : declarado ? 'Guardar los cambios' : 'Así entra mi gente'}
         </button>
-        {msg && <span style={{ fontSize: 13, color: 'var(--good)' }}>{msg}</span>}
+        <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Marca hasta tres.</span>
         {err && <span style={{ fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
       </div>
-    </section>
+    </div>
   );
 }

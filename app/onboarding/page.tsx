@@ -13,12 +13,7 @@ import { OnboardingTabs } from './OnboardingTabs';
 // y llamarla tiró la pantalla entera en producción. Ver app/onboarding/tabs-catalogo.ts.
 import { tabDeUrl } from './tabs-catalogo';
 import { OnboardingWizard } from './OnboardingWizard';
-import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
-import { getFunnelDefault } from '@/lib/funnels';
-import { EntradasCard } from '../funnel/EntradasCard';
-import { canalEfectivo } from '@/lib/fase-diagnostico';
-import { getDiagnosticoFase } from '@/lib/fase-store';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 // El onboarding se pinta OSCURO, sea cual sea el tema que el cliente tenga elegido.
 // Pedido de Martín: «quiero que todo el onboarding sea en black mode». Las dos mitades
@@ -52,34 +47,17 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if (!done) return <><TemaOscuroScript /><TemaOscuro /><OnboardingWizard /></>;
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
-  // DEFAULT: el editor embebido edita el funnel del negocio.
-  // ⚠️ LA TARJETA DE ENTRADAS VA EN LOS TRES MONTAJES DEL EDITOR, no solo en /funnel.
-  // `funnels.data.entradas` decide si un opt-in de FORMULARIO entra al CRM (la guarda de
-  // app/api/track/optin/route.ts), y medido el 28/09/2026 estaba vacio en SEIS de los
-  // workspaces con `declarado = true`: a todos ellos un formulario se les descartaria, y lo
-  // unico que los salva hoy es la excepcion de Cal.com.
   //
-  // La causa no era el dato: era que la UNICA pantalla donde se declara era /funnel, que no
-  // esta en el nav. El editor se monta tambien aca, y lo montaba SIN la tarjeta, asi que
-  // quien configuraba su funnel por el camino normal nunca veia la pregunta.
-  const [cfg, diag] = await Promise.all([getFunnelDefault(), getDiagnosticoFase().catch(() => null)]);
-  const { pipeline, suppressed, entradas, evento } = cfg;
-  const funnelPanel = (
-    <FunnelEditor
-      embedded
-      initialPipeline={pipeline}
-      initialSuppressed={suppressed}
-      encabezado={<EntradasCard initial={entradas} initialEvento={evento} canal={canalEfectivo(cfg.canal, diag?.canal)} />}
-    />
-  );
-
+  // ⚠️ ACÁ SE MONTABA EL EDITOR COMPLETO DEL FUNNEL, con su tarjeta de entradas, y se
+  // retiró el 29/09/2026: «Tienes que eliminar esto, ya te lo habia pedido». El embudo
+  // —etapas, nutrición y cómo entra la gente— se configura entero en el pop-up del CRM.
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="contexto" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>
       </header>
-      <OnboardingTabs funnelPanel={funnelPanel} tabInicial={tabDeUrl(tab)} />
+      <OnboardingTabs tabInicial={tabDeUrl(tab)} />
     </main>
   );
 }

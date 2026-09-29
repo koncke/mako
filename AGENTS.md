@@ -1364,8 +1364,15 @@ catálogo.
 - **Se busca mirando de dónde importa VALORES el módulo de datos**: las fichas son `.ts` en
   kebab-case, así que un import de un `PascalCase` es un componente y ahí está.
 - ⚠️ **`tsx` IGNORA la directiva**, así que importar el catálogo con `npx tsx` devuelve todo
-  bien y cualquier verificación local da verde sobre un build roto. **Esto lo caza
-  `npm run build` o no lo caza nadie** — y el build no corre en el pre-push, a propósito.
+  bien y cualquier verificación local da verde sobre un build roto.
+- ⚠️ **Y EL BUILD SÓLO LO CAZA CUANDO EL VALOR SE USA EN TIEMPO DE BUILD.** Medido el
+  29/09/2026: `tabDeUrl` —tres líneas exportadas de un `OnboardingTabs.tsx` con `use client`—
+  la llamaba el `page.tsx`, y `npm run build` terminó en **0 las dos veces** mientras
+  `/onboarding` quedaba en «Esta pantalla se rompió al dibujarse» en producción. El caso del
+  30/08 sí tiraba el build porque el valor se usaba al recolectar la configuración de una
+  ruta; acá se usa en cada REQUEST. Son dos síntomas de la misma frontera y sólo uno tiene al
+  build como red. El que los caza a los dos es `tests/frontera-use-client.test.ts`, que barre
+  el repo y falla si un módulo del server importa un VALOR de un `use client` (y su espejo).
 
 1. **Lo que el cliente necesita se resuelve en el SERVER y baja por props**, ya
    filtrado. Si el componente necesita dos campos de un catalogo de 20 entradas, bajan
@@ -3773,6 +3780,38 @@ minutos de buscar un bug que no existía, con el riesgo peor de «arreglarlo».
 argumentos que la función recibe en producción y comprobá que el arnés le pase todos.** Y si
 falta uno a propósito, la salida tiene que decirlo, o el próximo que lea ese output concluye lo
 mismo.
+
+# Si lo que cambió es QUÉ EXISTE, se navega DURO: `router.refresh()` llega tarde
+
+`router.refresh()` es para «los datos de esta pantalla cambiaron». Cuando lo que cambia es el
+CONJUNTO del que cuelga la pantalla —qué embudos hay, qué workspaces, qué tabs— llega un paso
+atrás, y lo que se ve es una acción que parece no haber pasado.
+
+Medido el 29/09/2026 en el navegador, archivando un embudo desde el CRM con
+`router.push('/crm') + router.refresh()`:
+
+| Momento | La base | El selector |
+|---|---|---|
+| tras eliminar «Prueba 2» | `activo = false` | **sigue mostrándola** |
+| tras recuperarla | `activo = true` | muestra la lista de ANTES de recuperarla |
+
+Cuatro segundos de espera y `networkidle` no alcanzaron. **Un borrado que parece no haber
+pasado es peor que uno lento**: la persona lo aprieta de nuevo, o concluye que la app está rota.
+
+Va `window.location.href`, y con eso se paga la recarga entera — que es barata al lado de
+mentir sobre algo destructivo. Dos cosas más:
+
+- ⚠️ **Es la CUARTA forma de navegar, así que lleva `conWs(destino, useWs())`.** Sin el `?ws=`
+  el super admin que está mirando a un cliente termina en SU propia pantalla — el mismo caso
+  del reset del cliente de prueba del 16/08.
+- ⚠️ **Y la URL puede haber dejado de resolver.** Si se archivó el embudo que el `?funnel=N`
+  nombra, refrescar EN ESA URL deja a la persona mirando algo que ya no existe. Se navega al
+  que siempre está.
+
+**Y el corolario del efecto que se pregunta UNA vez:** un `useEffect` con `[]` que decide si
+se dibuja la PUERTA DE VUELTA corre al montar y nunca más — o sea que la puerta se vuelve
+invisible justo después de la única acción que crea algo para recuperar. Se re-pregunta
+cuando cambia el dato que la justifica, no al montar.
 
 # Retirar una RUTA es enumerar sus links y decidir el destino de cada uno POR SEPARADO
 

@@ -303,6 +303,26 @@ export async function listLeadsDeFunnel(funnelId: number | null): Promise<Lead[]
   });
   return filas.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
 }
+/**
+ * CUÁNTOS leads tiene un funnel. Sin traerlos.
+ *
+ * Lo pide el pop-up del CRM antes de ofrecer eliminar un embudo: «con mucho cuidado si
+ * un funnel tiene leads». El número es lo que convierte «Eliminar» en una decisión — sin
+ * él la pantalla pregunta a ciegas y la persona contesta a ciegas.
+ *
+ * ⚠️ `head: true` + `count: 'exact'`: no baja ni una fila, así que no toca el techo de 1000
+ * de PostgREST. Contar con `listLeadsDeFunnel().length` sí lo tocaría, y devolvería 1000
+ * redondo sobre un funnel de 1.145 — un número plausible, que es la peor forma de mentir.
+ */
+export async function contarLeadsDeFunnel(funnelId: number | null): Promise<number> {
+  const supabase = await getTenantDb();
+  const base = supabase.from('leads').select('id', { count: 'exact', head: true });
+  const { count, error } = await (funnelId == null ? base.is('funnel_id', null) : base.eq('funnel_id', funnelId));
+  // ⚠️ Un error NO es «cero leads». Devolver 0 acá haría que la pantalla dijera «este
+  // embudo no tiene leads» sobre uno lleno, y con eso alguien lo archiva tranquilo.
+  if (error) throw new Error('No se pudo contar los leads del embudo: ' + error.message);
+  return count ?? 0;
+}
 async function _listLeads(): Promise<Lead[]> {
   const supabase = (await getTenantDb());
   // PAGINADO OBLIGATORIO. Esto era un `.select()` suelto y PostgREST corta en

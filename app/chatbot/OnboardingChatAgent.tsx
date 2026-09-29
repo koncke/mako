@@ -1476,12 +1476,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
                   datos» y la persona nunca los dejó, se nota en la primera frase.
                 </div>
               </div>
-              {/* ⚠️ VA A LA TAB, NO A LA PANTALLA. La declaración de cómo entra la gente vive
-                  en la tarjeta de entradas, que es la tab «El funnel» de Onboarding — la
-                  décima de once pastillas. Hasta el 28/09/2026 esto apuntaba a /funnel, que
-                  se retiró; mandarlo a /onboarding pelado deja a la persona en «Matriz»
-                  buscando algo cuyo nombre no conoce. */}
-              <a href="/onboarding?tab=funnel" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</a>
+              {/* ⚠️ VA A LA SUBTAB, NO A LA PANTALLA. La declaración de cómo entra la gente
+                  vive en el pop-up del embudo, subtab «Cómo entran», y `?embudo=entradas` lo
+                  abre ahí directo. Éste es el tercer destino que tiene este botón en dos días
+                  —/funnel, después /onboarding?tab=funnel— y las dos veces por la misma razón:
+                  la pantalla se mudó y el link se quedó apuntando a donde ya no está. */}
+              <a href="/crm?embudo=entradas" style={{ ...btnDark, alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}>Decir cómo entra mi gente ↗</a>
             </div>
           ) : (
             <>

@@ -21,14 +21,10 @@
 // LO QUE FALTA (tarea #522): el selector de contexto (negocio · producto ·
 // oferta · funnel), que según su decisión vive adentro de Second Brain.
 
-import { FunnelEditor } from '../funnel/FunnelEditor';
 import { Pagina, PageHeader } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
 import { VistaCerebro } from './VistaCerebro';
 import { requireRolWs } from '@/lib/tab-access';
-import { getFunnelDefault } from '@/lib/funnels';
-import { EntradasCard } from '../funnel/EntradasCard';
-import { canalEfectivo } from '@/lib/fase-diagnostico';
-import { getDiagnosticoFase } from '@/lib/fase-store';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { BotonExportar } from './BotonExportar';
 import { BotonClaude } from './BotonClaude';
@@ -54,19 +50,24 @@ export default async function SecondBrainPage() {
   // La causa no era el dato: era que la UNICA pantalla donde se declara era /funnel, que no
   // esta en el nav. El editor se monta tambien aca, y lo montaba SIN la tarjeta, asi que
   // quien configuraba su funnel por el camino normal nunca veia la pregunta.
-  const [cfg, cerebro, diag] = await Promise.all([
-    getFunnelDefault(), construirCerebro(), getDiagnosticoFase().catch(() => null),
-  ]);
-  const { pipeline, suppressed, entradas, evento } = cfg;
-  const funnelPanel = (
-    <FunnelEditor
-      embedded
-      initialPipeline={pipeline}
-      initialSuppressed={suppressed}
-      encabezado={<EntradasCard initial={entradas} initialEvento={evento} canal={canalEfectivo(cfg.canal, diag?.canal)} />}
-    />
-  );
+  const cerebro = await construirCerebro();
 
+  // ⚠️ ACÁ SE MONTABA EL EDITOR COMPLETO DEL FUNNEL, y se retiró el 29/09/2026: «Tienes
+  // que eliminar esto, ya te lo habia pedido». El embudo se configura ENTERO en el pop-up
+  // del CRM —etapas, nutrición y cómo entra la gente— y tener dos editores del mismo jsonb
+  // era peor que no haber movido nada: uno autoguardaba por tecla y el otro manda
+  // operaciones, sin forma de saber cuál manda.
+  //
+  // El área NO se borra del cerebro: el funnel sigue siendo un área con sus nodos en el
+  // mapa y su carpeta en el ZIP. Lo que cambia es que se NOMBRA y se LINKEA en vez de
+  // dibujarse — que es la regla de la casa para lo que se edita en otra pantalla.
+  const funnelPanel = (
+    <p style={{ fontSize: 14, color: 'var(--dim)', margin: 0, lineHeight: 1.6 }}>
+      Tu embudo se configura en el{' '}
+      <Link href="/crm?embudo=1" style={{ color: 'var(--primary)', fontWeight: 600 }}>CRM</Link>:
+      las etapas, la nutrición y cómo entra tu gente.
+    </p>
+  );
   const ws = await getWorkspaceActual();
   const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
   // ⚠️ ACÁ SE ENTREGABA UNA SKILL ROTA. Esto leía `NEXT_PUBLIC_BASE_URL`, una variable

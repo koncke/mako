@@ -141,66 +141,88 @@ test('cada regla se dispara sola, sin arrastrar a las otras', () => {
   assert.deepEqual(problemasDePipeline([]), []);
 });
 
-test('el EDITOR los dibuja, y arriba del mapa', () => {
-  // ⚠️ Escribir la función no es ofrecerla. Un `problemasDePipeline` que nadie
-  // llama es exactamente el caso que AGENTS.md documenta: compila, tiene test, y
-  // no se ejecuta nunca.
-  const ed = readFileSync(join(import.meta.dirname, '../app/funnel/FunnelEditor.tsx'), 'utf8')
+test('⚠️ los problemas del embudo se calculan en el SERVER y se dibujan ARRIBA', () => {
+  // ⚠️ Escribir la función no es ofrecerla. Un `problemasDePipeline` que nadie llama es
+  // exactamente el caso que AGENTS.md documenta: compila, tiene test, y no se ejecuta nunca.
+  //
+  // ⚠️ ESTE TEST SE MUDÓ CON LA PIEZA (29/09/2026). Leía `app/funnel/FunnelEditor.tsx`, que
+  // se borró al pasar todo al pop-up del CRM. Un test que lee un archivo por su ruta no se
+  // entera de que ese archivo murió: si sólo se hubiera borrado, el aviso del embudo roto
+  // habría desaparecido del producto SIN que nada fallara — y ése es justo el caso real de
+  // la inmobiliaria que tipó su descarte como «cierre».
+  //
+  // Y el cálculo cambió de lado a propósito: al pop-up le llegan las etapas DERIVADAS y
+  // `problemasDePipeline` mira el `kind` y el ORDEN del pipeline CRUDO, que nunca sale del
+  // server. Calcularlo en la pantalla sería calcularlo sobre otra cosa.
+  //
+  // Probado rompiéndolo (el archivo entero da 17 / 0):
+  //   · la lectura deja de calcular los problemas  -> 16 / 1
+  //   · el pop-up deja de dibujarlos               -> 16 / 1
+  //   · se dibujan DEBAJO de la lista de etapas    -> 16 / 1
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  assert.match(ac, /problemas: problemasDePipeline\(cfg\.pipeline\)/,
+    'la lectura del pop-up no calcula los problemas del embudo');
+
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8')
     .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(ed, /problemasDePipeline\(pipeline\)/, 'el editor no calcula los problemas');
-  assert.match(ed, /problemas\.map\(/, 'el editor no dibuja los problemas');
-  // Arriba del mapa: después de un lienzo de 600 px no lo lee nadie.
-  const iAviso = ed.indexOf('problemas.map(');
-  const iMapa = ed.indexOf('canvasRef.current = el');
-  assert.ok(iAviso > 0 && iMapa > 0, 'no se ubicaron el aviso y el mapa');
-  assert.ok(iAviso < iMapa, 'el aviso tiene que ir ANTES del mapa del funnel');
+  assert.match(md, /emb\.problemas\.map\(/, 'el pop-up no dibuja los problemas');
+  // ARRIBA de la lista: debajo no lo lee nadie, porque para cuando se llega ahí la persona
+  // ya tocó lo que venía a tocar.
+  const iAviso = md.indexOf('emb.problemas.map(');
+  const iLista = md.indexOf('etapas.map(');
+  assert.ok(iAviso > 0 && iLista > 0, 'no se ubicaron el aviso y la lista');
+  assert.ok(iAviso < iLista, 'el aviso tiene que ir ANTES de la lista de etapas');
 });
 
 test('⚠️ AVISA, no bloquea: guardar nunca se bloquea', () => {
-  // Es la decisión del 17/09: mover y cambiar se guardan siempre, y lo que falta
-  // queda pendiente. Un editor que se niega a guardar deja al cliente sin salida
-  // en la pantalla donde configura su negocio.
-  const ed = readFileSync(join(import.meta.dirname, '../app/funnel/FunnelEditor.tsx'), 'utf8');
-  const i = ed.indexOf('const problemas =');
-  assert.ok(i > 0, 'no se encontró el cálculo de problemas');
-  // Nada entre el cálculo y el final puede usar `problemas` para frenar el guardado.
+  // Es la decisión del 17/09: mover y cambiar se guardan siempre, y lo que falta queda
+  // pendiente. Una pantalla que se niega a guardar deja al cliente sin salida justo donde
+  // configura su negocio.
+  //
+  // Probado rompiéndolo: el pop-up frena con `if (emb.problemas.length) return` -> 16 / 1.
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
   assert.ok(
-    !/problemas\.length\s*(>|!==)\s*0\s*\)\s*return/.test(ed) && !/if \(problemas\.length\) return/.test(ed),
-    'los problemas del pipeline no pueden impedir guardar',
+    !/problemas\.length\s*(>|!==)\s*0\s*\)\s*return/.test(md) && !/if \(emb\.problemas\.length\) return/.test(md),
+    'los problemas del embudo no pueden impedir guardar',
   );
+  // Y tampoco pueden apagar un control: un botón que no se puede apretar por un aviso es
+  // un bloqueo con otro nombre.
+  assert.ok(!/disabled=\{[^}]*problemas/.test(md), 'los problemas apagan un control del pop-up');
 });
-
-test('⚠️ la pregunta de «de dónde entran tus leads» está en TODOS los montajes del editor', () => {
+test('⚠️ la pregunta de «cómo entra tu gente» sobrevivió a las DOS mudanzas', () => {
   // `funnels.data.entradas` decide si un opt-in de FORMULARIO entra al CRM. Medido el
-  // 28/09/2026: estaba vacío en SEIS de los workspaces con `declarado = true` (1, 4, 10, 13,
-  // 14, 15), así que a todos ellos un formulario se les descartaría. Lo único que los salva
-  // hoy es la excepción de Cal.com, y el único que lo declaró es el ws11 — que resulta ser
-  // el único que recibe formularios sin reserva (6 de 8).
+  // 28/09/2026: estaba vacío en SEIS de los workspaces con `declarado = true`, así que a
+  // todos ellos un formulario se les descartaría.
   //
-  // La causa no era el dato: la ÚNICA pantalla donde se declara era /funnel, que NO está en
-  // el nav. Los otros dos montajes del editor lo montaban sin la tarjeta, así que quien
-  // configuraba su funnel por el camino normal nunca veía la pregunta.
+  // ⚠️ Y LA PANTALLA QUE LO PREGUNTA SE MUDÓ DOS VECES EN DOS DÍAS: vivía en /funnel, pasó
+  // a la tab «El funnel» de /onboarding, y el 29/09 Martín pidió eliminar también ésa
+  // («Tienes que eliminar esto, ya te lo habia pedido»). Hoy es la subtab «Cómo entran» del
+  // pop-up del CRM, que es el ÚNICO lugar donde se configura un embudo.
   //
-  // ⚠️ LOS MONTAJES SE BUSCAN, NO SE ESCRIBEN. Acá había una lista de tres rutas a mano, y
-  // el 28/09/2026 se retiró una de ellas (/funnel pasó a ser un redirect): el test empezó a
-  // fallar por un archivo que ya no monta nada, mientras que un montaje NUEVO —el caso que
-  // el guard existe para cubrir— habría pasado sin que nadie lo viera. Una lista a mano
-  // cubre lo que ya se escribió, nunca lo que se va a escribir.
+  // Lo que este test persigue no es dónde está, sino que EXISTA: cinco cosas leen ese dato
+  // —los audios, el ensayo, las secuencias, el generador de landings y el estructurador de
+  // campañas— y una mudanza que se lo lleve puesto no falla en ningún lado.
   //
-  // Probado rompiéndolo (el archivo entero da 15 / 0):
-  //   · se le saca el `encabezado` al montaje de /second-brain   -> 14 / 1
-  const montajes = paginasQueMontan('<FunnelEditor');
-  assert.deepEqual(montajes.sort(), ['app/onboarding/page.tsx', 'app/second-brain/page.tsx'],
-    'cambiaron los montajes del editor del funnel: revisá que cada uno traiga su tarjeta de entradas');
-  for (const ruta of montajes) {
-    const t = readFileSync(join(import.meta.dirname, '..', ruta), 'utf8');
-    assert.match(t, /<EntradasCard/, `${ruta} monta el editor del funnel SIN la tarjeta de entradas`);
-    // Y la herencia del canal se resuelve en UN lugar: `funnels.canal = null` significa
-    // «heredá el del negocio», y repetido en cada pantalla el último se queda viejo.
-    assert.match(t, /canalEfectivo\(/, `${ruta} resuelve el canal por su cuenta en vez de usar canalEfectivo`);
-  }
-});
+  // Probado rompiéndolo (el archivo entero da 17 / 0):
+  //   · el pop-up deja de montar `EmbudoEntradas`      -> 16 / 1
+  //   · la lectura deja de devolver `entradas`         -> 16 / 1
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
+  assert.match(md, /<EmbudoEntradas/, 'el pop-up del embudo no pregunta cómo entra la gente');
+  assert.ok(md.includes("'Cómo entran'"), 'la subtab de entradas cambió de nombre o se fue');
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  assert.match(ac, /entradas: cfg\.entradas/, 'la lectura del pop-up no trae las entradas declaradas');
+  // Y el canal EFECTIVO, que es lo que decide si además se pregunta por el encuentro de
+  // fecha fija: `funnels.canal = null` significa «heredá el del negocio».
+  assert.match(ac, /canalEfectivo\(cfg\.canal/, 'el pop-up resuelve el canal por su cuenta en vez de heredarlo');
 
+  // ⚠️ Y EL EDITOR VIEJO NO PUEDE VOLVER. Dos editores del mismo jsonb —uno que autoguarda
+  // por tecla y otro que manda operaciones— es la forma de que el embudo quede distinto
+  // según por dónde se lo tocó.
+  const enFunnel = execFileSync('git', ['ls-files', 'app/funnel'], { cwd: RAIZ, encoding: 'utf8' })
+    .split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
+  assert.deepEqual(enFunnel, ['app/funnel/page.tsx'],
+    'volvió a aparecer un editor de funnel fuera del CRM: ' + enFunnel.join(', '));
+});
 test('⚠️ /funnel se retiró: es un redirect, y nadie del producto lo sigue enlazando', () => {
   // «Quiero eliminar la ruta de funnel, que todo se edite como un pop-up dentro del mismo
   // CRM. Así es más simple».
@@ -310,27 +332,26 @@ test('⚠️ las CUATRO terminales están siempre, son únicas, y sólo se renom
   for (const k of ['lead', 'agenda', 'st0', 'descalificado']) assert.ok(!esTerminal(k), k);
 });
 
-test('⚠️ y el guardado y el editor las respetan, no sólo la función', () => {
-  // Escribir la función no es ofrecerla: un `conTerminales` que nadie llama compila, tiene
-  // test y no se ejecuta nunca.
-  const act = readFileSync(join(import.meta.dirname, '../app/crm/actions.ts'), 'utf8')
-    .replace(/^\s*\/\/.*$/gm, '');
-  assert.match(act, /conTerminales\(pipeline\)/, 'saveFunnelAction no garantiza las terminales');
-  assert.ok(
-    !/saveFunnelDe\(funnelId, pipeline,/.test(act) && !/saveFunnelDefault\(pipeline,/.test(act),
-    'el guardado sigue escribiendo el pipeline crudo, sin pasar por conTerminales',
-  );
-  const ed = readFileSync(join(import.meta.dirname, '../app/funnel/FunnelEditor.tsx'), 'utf8');
-  // ⚠️ La aserción va sobre el `disabled`, no sobre «aparece esTerminal en el archivo». La
-  // primera versión buscaba la función en cualquier lado y quedaban tres usos (el title y el
-  // style), así que sacarla del `disabled` —que es lo único que impide borrar— pasaba el test
-  // igual. Una rotura que no falla es una aserción que mide otra cosa.
-  assert.match(
-    ed, /disabled=\{pipeline\.length <= 1 \|\| esTerminal\(s\.key\)\}/,
-    'el botón de borrar del editor volvió a aceptar una etapa terminal',
-  );
-});
+test('⚠️ y el guardado las respeta, no sólo la función', () => {
+  // ⚠️ MUDADO CON LA PIEZA (29/09/2026): la mitad de este test leía el botón de borrar del
+  // editor completo, que se borró. Lo que queda es lo que importa y lo que siempre importó:
+  // el server es el que decide. La pantalla puede esconder el botón —y lo hace— pero el
+  // cuerpo de una server action lo escribe quien quiera.
+  //
+  // Probado rompiéndolo: se saca el `esTerminal` de `editarEtapaAction` -> 16 / 1.
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+  const elim = ac.slice(ac.indexOf("} else if (op.op === 'eliminar')"), ac.indexOf("} else if (op.op === 'nutricion')"));
+  assert.ok(elim.length > 100, 'no se encontró la rama que elimina una etapa');
+  assert.match(elim, /esTerminal\(op\.key\)/, 'el server dejó de frenar el borrado de una terminal');
+  // Y el guardado las garantiza aunque el cuerpo llegue sin ellas.
+  assert.match(ac, /conTerminales\(pipeline\)/, 'saveFunnelAction dejó de garantizar las terminales');
 
+  // La pantalla, del otro lado: las cuatro se dibujan FUERA de la lista que se reordena,
+  // y ahí sólo se les puede cambiar el nombre.
+  const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
+  assert.match(md, /emb\.fijas\.map\(/, 'el pop-up dejó de dibujar las etapas fijas');
+  assert.ok(md.includes('no se puede quitar'), 'el pop-up no dice por qué una etapa fija no se toca');
+});
 test('⚠️ «Editar las etapas» abre un POP-UP, y sobre EL funnel que estás mirando', () => {
   // Medido el 28/09/2026 con tres funnels en un workspace: el link del menú del CRM iba a
   // /funnel pelado, así que desde «Sistema DOS» se editaba el funnel del negocio — y el
@@ -502,8 +523,8 @@ test('⚠️ el pop-up de etapas: una operación por cambio, y el pipeline nunca
   assert.ok(!/import[^;]*saveFunnelAction/.test(md), 'el pop-up manda el pipeline entero desde el navegador');
   assert.match(md, /editarEtapaAction\(op, funnelId \?\? undefined\)/, 'el pop-up no manda la operación al funnel que abrió');
 
-  // 2) Las cuatro operaciones están enchufadas, y cada una es una op propia.
-  for (const op of ['renombrar', 'eliminar', 'agregar', 'mover']) {
+  // 2) Las cinco operaciones están enchufadas, y cada una es una op propia.
+  for (const op of ['renombrar', 'eliminar', 'agregar', 'mover', 'nutricion']) {
     assert.ok(md.includes(`op: '${op}'`), `al pop-up le falta la operación «${op}»`);
   }
 
@@ -525,8 +546,110 @@ test('⚠️ el pop-up de etapas: una operación por cambio, y el pipeline nunca
   // 5) Y la lectura que alimenta al pop-up se planta si el funnel se leyó en ERROR: con
   //    `origen === error` lo que se lee es el pipeline GENÉRICO, y dibujarlo le diría a la
   //    persona que su embudo es otro — y el cambio siguiente lo guardaría.
-  const lec = ac.slice(ac.indexOf('export async function etapasDeFunnelAction'));
-  assert.match(lec.slice(0, 1400), /origen === 'error'/, 'la lectura del pop-up dibuja el pipeline genérico cuando falla Supabase');
+  const lec = ac.slice(ac.indexOf('export async function embudoEnDetalleAction'));
+  assert.ok(lec.length > 200, 'no se encontró la lectura que alimenta al pop-up');
+  assert.match(lec.slice(0, 1600), /origen === 'error'/, 'la lectura del pop-up dibuja el pipeline genérico cuando falla Supabase');
+
+  // 6) ⚠️ LAS NUTRICIONES SE PIDEN CON `suppressed` VACÍO. Una nutrición suprimida NO sale
+  //    de `generateFunnel` —`nut()` sale temprano y ni la coloca— así que pidiendo la lista
+  //    real lo apagado es invisible, que es justo lo que se quiere poder volver a encender.
+  assert.match(lec.slice(0, 2600), /generateFunnel\(cfg\.pipeline, \[\], cfg\.labels\)/,
+    'el pop-up pide las nutriciones REALES: las apagadas no se podrían volver a encender');
+
+  // 7) Y la op de nutrición valida el id contra las que ESTE embudo puede tener. `suppressed`
+  //    es texto libre en un jsonb: sin esto se llena de ids que no significan nada.
+  const nut = ac.slice(ac.indexOf("} else if (op.op === 'nutricion')"), ac.indexOf("} else if (op.op === 'mover')"));
+  assert.ok(nut.length > 100, 'no se encontró la rama que apaga una nutrición');
+  assert.match(nut, /posibles\.has\(op\.id\)/, 'la op de nutrición acepta cualquier id y ensucia `suppressed`');
+});
+
+test('⚠️ eliminar un embudo lo ARCHIVA, y hay por dónde recuperarlo', () => {
+  // Pedido de Martín (29/09/2026): «Falta la opción de ELIMINAR, renombrar, los funnel. Con
+  // mucho cuidado si un funnel tiene leads. Y siempre guardando una copia de seguridad en
+  // caso de eliminar un funnel con leads, por si el usuario lo quiere "recuperar"».
+  //
+  // ⚠️ LA COPIA DE SEGURIDAD NO SE INVENTÓ: la columna `funnels.activo` existe desde la
+  // 0170 y `listarFunnels` ya filtra por ella. Archivar saca el embudo de la pantalla y deja
+  // la fila, su `data` entera y sus leads intactos. Una tabla de respaldo aparte sería un
+  // segundo lugar con los mismos datos, que se queda viejo.
+  //
+  // Probado rompiéndolo, medido (el archivo entero da 17 / 0):
+  //   · `archivarFunnel` deja archivar el default              -> 16 / 1
+  //   · se saca el renglón «Embudos eliminados» del selector   -> 16 / 1
+  //   · el conteo de leads devuelve 0 cuando la consulta falla -> 16 / 1
+  const fn = readFileSync(join(RAIZ, 'lib/funnels.ts'), 'utf8');
+
+  // 1) Archiva, no borra. En ningún lado hay un DELETE sobre funnels.
+  assert.match(fn, /activo: false/, 'eliminar un embudo dejó de archivarlo');
+  assert.ok(!/from\('funnels'\)[\s\S]{0,80}\.delete\(/.test(fn), 'apareció un DELETE sobre funnels: eso no se recupera');
+
+  // 2) ⚠️ EL DEFAULT NO SE ARCHIVA, y el guard vive en el SERVER. El índice parcial
+  //    `funnels_ws_default_uk` garantiza que un ws tiene exactamente uno, y medio repo
+  //    asume que existe: getFunnelDefault, el CRM sin ?funnel=, el onboarding, los prompts.
+  //    Archivarlo no daría error — daría un workspace cuyo embudo por defecto no se lee.
+  const arch = fn.slice(fn.indexOf('export async function archivarFunnel'));
+  assert.match(arch.slice(0, 1200), /fila\.es_default/, 'se puede archivar el embudo principal del workspace');
+
+  // 3) Y hay por dónde volver: una copia que nadie puede ver no es una copia.
+  assert.match(fn, /export async function restaurarFunnel/, 'no hay forma de recuperar un embudo eliminado');
+  assert.match(fn, /export async function listarFunnelsArchivados/, 'no hay forma de VER los embudos eliminados');
+  const tb = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
+  assert.ok(tb.includes("label: 'Embudos eliminados'"), 'el selector no ofrece la puerta de vuelta');
+  assert.match(tb, /restaurarEmbudoAction/, 'la pantalla de eliminados no puede restaurar nada');
+
+  // 4) ⚠️ EL CONTEO DE LEADS NO PUEDE DEVOLVER 0 CUANDO FALLA. «Este embudo no tiene leads»
+  //    sobre uno lleno es lo que hace que alguien lo elimine tranquilo. Un error tira.
+  const ld = readFileSync(join(RAIZ, 'lib/leads.ts'), 'utf8');
+  const cnt = ld.slice(ld.indexOf('export async function contarLeadsDeFunnel'));
+  assert.ok(cnt.length > 100, 'no se encontró el conteo de leads por embudo');
+  assert.match(cnt.slice(0, 900), /if \(error\) throw/, 'el conteo de leads convierte un error en «cero leads»');
+  //    Y cuenta con `head: true`: traerlos para contarlos toparía en 1000 y daría un número
+  //    redondo perfectamente plausible sobre un embudo de 1.145.
+  assert.match(cnt.slice(0, 900), /head: true/, 'el conteo baja las filas y va a topar en 1000');
+});
+
+test('⚠️ crear o eliminar un embudo NAVEGA DURO, no refresca', () => {
+  // ⚠️ MEDIDO EN EL NAVEGADOR el 29/09/2026, y es lo que más costó de esta tanda: con
+  // `router.push('/crm') + router.refresh()` la lista del selector quedaba SIEMPRE UN PASO
+  // ATRÁS. Tras eliminar «Prueba 2» seguía mostrándola; tras recuperarla mostraba la lista
+  // de antes de recuperarla — y la base decía la verdad en las dos. Cuatro segundos de
+  // espera no alcanzaron.
+  //
+  // Lo que cambia acá no es una fila del tablero: es QUÉ EMBUDOS EXISTEN, que es el dato del
+  // que cuelga media pantalla. Un borrado que parece no haber pasado es peor que uno lento,
+  // así que se paga la recarga entera. Es la CUARTA forma de navegar de AGENTS.md, y por eso
+  // va con `conWs`: sin el `?ws=`, el super admin que mira a un cliente termina en su CRM.
+  //
+  // Probado rompiéndolo (el archivo entero da 18 / 0):
+  //   · eliminar vuelve a `router.push` + `refresh()`   -> 17 / 1
+  //   · recuperar vuelve a `router.push` + `refresh()`  -> 17 / 1
+  //   · la navegación dura pierde el `conWs`            -> 17 / 1
+  for (const [f, etq] of [['app/crm/EtapasModal.tsx', 'eliminar'], ['app/crm/CrmToolbar.tsx', 'recuperar']] as const) {
+    const t = readFileSync(join(RAIZ, f), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+    assert.match(t, /window\.location\.href = conWs\(/,
+      `${etq} un embudo dejó de navegar duro: la lista va a quedar un paso atrás`);
+  }
+});
+test('⚠️ renombrar un embudo escribe DONDE SE LEE, que puede no ser la tabla funnels', () => {
+  // La pantalla muestra el nombre del PRODUCTO: todos los funnels se llaman «Funnel
+  // principal» porque lo puso la 0170, y `listarFunnels` lo tapa con el del producto
+  // principal. Escribir `funnels.nombre` y refrescar deja la pantalla EXACTAMENTE IGUAL —
+  // un guardado que funciona, no da error, y no se ve.
+  //
+  // Probado rompiéndolo (el archivo entero da 17 / 0): se borra la rama del producto y
+  // `renombrarFunnel` escribe siempre en `funnels` -> 16 / 1.
+  //
+  // ⚠️ Y LA PRIMERA ROTURA NO FALLÓ, que es lo que enseña algo: renombré la vista a
+  // `v_funnel_productos_INEXISTENTE`, que SIGUE CONTENIENDO la cadena que el test busca.
+  // Una rotura que no rompe lo que el test persigue no prueba nada — hay que borrar la
+  // rama, no disfrazarla.
+  const fn = readFileSync(join(RAIZ, 'lib/funnels.ts'), 'utf8');
+  const ren = fn.slice(fn.indexOf('export async function renombrarFunnel'), fn.indexOf('function traducirChoque'));
+  assert.ok(ren.length > 200, 'no se encontró el renombre de un embudo');
+  assert.match(ren, /v_funnel_productos/, 'el renombre no mira si el embudo tiene producto: escribiría donde no se lee');
+  assert.match(ren, /from\('productos'\)[\s\S]{0,60}\.update\(\{ nombre \}\)/, 'el renombre no escribe el nombre del producto');
+  // Y el choque del índice único se traduce: el error crudo de Postgres no le dice nada a nadie.
+  assert.match(fn, /Ya tienes un embudo que se llama/, 'un nombre repetido sale con el error crudo de la base');
 });
 
 test('⚠️ un menú de acciones no lleva la flecha del desplegable', () => {

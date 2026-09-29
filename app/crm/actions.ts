@@ -26,7 +26,7 @@ function bust(...tags: string[]) {
     /* no-op: la caché vence por TTL */
   }
 }
-import {
+import { contarLeadsDeFunnel,
   createLead,
   vendedorUnicoDelWorkspace,
   updateLead,
@@ -55,9 +55,10 @@ import {
 } from '@/lib/leads';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
-import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe } from '@/lib/funnels';
-import {
-  conTerminales, esTerminal, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
+  renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados } from '@/lib/funnels';
+import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
+  conTerminales, esTerminal, problemasDePipeline, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -70,6 +71,8 @@ import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
 import { parseEntradas, parseEvento } from '@/lib/pipeline';
+import { canalEfectivo, type CanalId } from '@/lib/fase-diagnostico';
+import { getDiagnosticoFase } from '@/lib/fase-store';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
@@ -1961,42 +1964,208 @@ export type EtapaDelFunnel = {
   key: string;
   label: string;
   dot: string;
-  /** `true` = está en todos los funnels: se renombra, no se borra ni se mueve. */
+  /** `true` = está en todos los embudos: se renombra, no se borra ni se mueve. */
   fija: boolean;
 };
 
+/** Una nutrición del embudo: de qué etapa sale, a qué secuencia lleva, y si está puesta. */
+export type NutricionDelFunnel = {
+  /** `"desde>hacia"` — la misma clave que vive en `data.suppressed`. */
+  id: string;
+  desdeLabel: string;
+  haciaLabel: string;
+  activa: boolean;
+};
+
+/** Todo lo que el pop-up del CRM necesita saber de UN embudo. */
+export type EmbudoEnDetalle = {
+  /** null = el embudo del NEGOCIO. */
+  id: number | null;
+  /** El nombre que la persona ve: el del producto si lo hay, si no el del embudo. */
+  nombre: string;
+  /** El principal del workspace: no se puede eliminar. */
+  esDefault: boolean;
+  /** Cuántos leads viven acá. Es el dato que convierte «Eliminar» en una decisión. */
+  leads: number;
+  /** Las etapas que se reordenan y se quitan. */
+  etapas: EtapaDelFunnel[];
+  /** Las cuatro que están en todo embudo: sólo se renombran. */
+  fijas: EtapaDelFunnel[];
+  nutriciones: NutricionDelFunnel[];
+  /** Cómo ENTRA la gente a este embudo. `[]` = no declarado, y nunca afirma nada. */
+  entradas: EntradaId[];
+  /** El encuentro de fecha fija, si el canal tiene uno (el taller de todos los miércoles). */
+  evento: EventoFunnel | null;
+  /** El BOFU efectivo: decide si se pregunta por el evento. */
+  canal: CanalId | null;
+  /**
+   * Lo que está mal armado en este embudo, en frases.
+   *
+   * ⚠️ SE CALCULA EN EL SERVER PORQUE EL PIPELINE CRUDO NUNCA SALE DE ACÁ. Al pop-up le
+   * llegan las etapas ya DERIVADAS, y `problemasDePipeline` mira el `kind` y el ORDEN del
+   * pipeline — o sea justo lo que la derivación normaliza. Pedirle a la pantalla que las
+   * calcule sería calcularlas sobre otra cosa.
+   *
+   * ⚠️ Y AVISAN, NO BLOQUEAN. Es la decisión del 17/09: mover y cambiar se guardan
+   * siempre, y lo que falta queda pendiente. Un embudo a medio armar se guarda igual; lo
+   * que no puede es quedar roto Y CALLADO — que es el caso real de la inmobiliaria que
+   * tipó su descarte como «cierre» y el sistema le pidió el monto de la venta para
+   * descalificar a alguien.
+   */
+  problemas: string[];
+};
+
 /**
- * Las etapas de UN funnel, para el pop-up que las edita dentro del CRM.
+ * Un embudo entero, para el pop-up que lo edita dentro del CRM.
  *
- * ⚠️ EXISTE PORQUE EL POP-UP EDITA UN FUNNEL QUE NO ES EL QUE EL TABLERO DIBUJA. El
+ * ⚠️ EXISTE PORQUE EL POP-UP EDITA UN EMBUDO QUE NO ES EL QUE EL TABLERO DIBUJA. El
  * lápiz vive en cada renglón del selector de producto, así que se puede abrir el de
- * «Mentoría» estando parado en «Curso»: las etapas de la pantalla no sirven, hay que
- * ir a buscar las de ESE funnel. Con el del tablero también se usa —una lectura menos
- * que mantener— y el costo es un viaje al abrir el pop-up.
+ * «Mentoría» estando parado en «Curso»: las etapas de la pantalla no sirven, hay que ir
+ * a buscar las de ESE embudo.
  *
- * Devuelve las DERIVADAS (`cfg.stages`), no el pipeline crudo: son las que la persona
- * ve como columnas, y las tres terminales que la derivación inyecta tienen que aparecer
- * en la lista aunque no se puedan mover — si no, el pop-up muestra un embudo que no es
- * el que está mirando.
+ * ⚠️ Y LAS ETAPAS VIENEN PARTIDAS EN DOS, que es el pedido de Martín del 29/09: «que no
+ * aparezcan en el editable las etapas que no se puedan editar... Como Ganado etc». Las
+ * cuatro terminales siguen existiendo y se siguen pudiendo renombrar —eso lo decidió él
+ * mismo el 28/09 y no se toca— pero salen del lote que se reordena. El corte se hace ACÁ
+ * y no en la pantalla: es la misma pregunta que contesta `esTerminal` del lado del server
+ * cuando alguien intenta borrarlas, y tenerla en dos lugares es cómo se separan.
+ *
+ * ⚠️ LAS NUTRICIONES SE CALCULAN CON `suppressed` VACÍO, a propósito. Una nutrición
+ * suprimida no aparece en la salida de `generateFunnel` —`nut()` sale temprano— así que
+ * pidiendo la lista real no hay forma de ofrecer RESTAURARLA: lo apagado sería invisible,
+ * que es exactamente lo que se quiere poder deshacer. Se piden todas las posibles y se
+ * marca cuáles están puestas.
  */
-export async function etapasDeFunnelAction(funnelId?: number): Promise<{ ok: true; etapas: EtapaDelFunnel[] } | { ok: false; error: string }> {
+export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: true; embudo: EmbudoEnDetalle } | { ok: false; error: string }> {
   try {
     const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
     // El mismo guard que el resto de la familia: con la lectura en ERROR lo que se lee es
     // el pipeline GENÉRICO, y dibujarlo le diría a la persona que su embudo es otro.
     if (cfg.origen === 'error') return { ok: false, error: 'No se pudieron leer las etapas. Vuelve a intentarlo.' };
+
+    const deStage = (st: Stage): EtapaDelFunnel => ({
+      key: st.key,
+      label: st.label,
+      dot: st.dot ?? '#5B6472',
+      fija: esTerminal(st.key),
+    });
+    const visibles = cfg.stages.filter((st) => st.band === 'pipeline' || esTerminal(st.key));
+
+    // Las nutriciones POSIBLES de este pipeline, puestas o no.
+    const sup = new Set(cfg.suppressed);
+    const etiqueta = (k: string) => cfg.labels[k] ?? labelDeCatalogo(k) ?? k;
+    const nutriciones: NutricionDelFunnel[] = generateFunnel(cfg.pipeline, [], cfg.labels).transitions
+      .filter((t) => t.category === 'nutricion')
+      .map((t) => ({
+        id: `${t.from}>${t.to}`,
+        desdeLabel: etiqueta(t.from),
+        haciaLabel: etiqueta(t.to).replace('Nutrición - ', '').replace('Nutrición ', ''),
+        activa: !sup.has(`${t.from}>${t.to}`),
+      }));
+
+    // El nombre que la persona VE y cuántos leads hay acá. Los dos de la misma fuente que
+    // el resto de la pantalla, para que no digan una cosa distinta que el selector.
+    const [funnels, leads, diag] = await Promise.all([
+      listarFunnels().catch(() => []),
+      contarLeadsDeFunnel(funnelId ?? null).catch(() => -1),
+      getDiagnosticoFase().catch(() => null),
+    ]);
+    const mio = funnels.find((f) => (funnelId != null ? f.id === funnelId : f.esDefault));
+
     return {
       ok: true,
-      etapas: cfg.stages.filter((st) => st.band === 'pipeline' || esTerminal(st.key)).map((st) => ({
-        key: st.key,
-        label: st.label,
-        dot: st.dot ?? '#5B6472',
-        fija: esTerminal(st.key),
-      })),
+      embudo: {
+        id: funnelId ?? null,
+        nombre: mio?.producto?.trim() || mio?.nombre || cfg.nombre || 'Tu embudo',
+        esDefault: mio?.esDefault ?? funnelId == null,
+        leads,
+        etapas: visibles.filter((st) => !esTerminal(st.key)).map(deStage),
+        fijas: visibles.filter((st) => esTerminal(st.key)).map(deStage),
+        nutriciones,
+        // ⚠️ `origen` manda sobre `entradas`: con la fila sin declarar, `filaAFunnel` las
+        // devuelve vacías aunque el pipeline caiga al default. Acá se pasa tal cual — la
+        // pantalla tiene que poder decir «todavía no lo declaraste».
+        problemas: problemasDePipeline(cfg.pipeline),
+        entradas: cfg.entradas,
+        evento: cfg.evento,
+        // El BOFU del embudo manda sobre el del negocio; sin él, se hereda.
+        canal: canalEfectivo(cfg.canal, diag?.canal),
+      },
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/**
+ * Renombra el embudo que el pop-up está mostrando.
+ *
+ * ⚠️ Puede terminar escribiendo en `productos` y no en `funnels`: la pantalla muestra el
+ * nombre del PRODUCTO. El porqué completo está en `renombrarFunnel` (lib/funnels.ts).
+ */
+export async function renombrarEmbudoAction(funnelId: number | null, nombre: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el embudo.' };
+  try {
+    // Sin id es el del NEGOCIO, y hay que resolver cuál es: `renombrarFunnel` necesita una fila.
+    let id = funnelId;
+    if (id == null) {
+      const cfg = await getFunnelDefault();
+      if (cfg.origen === 'error' || cfg.id == null) return { ok: false, error: 'No se pudo leer tu embudo principal. Vuelve a intentarlo.' };
+      id = cfg.id;
+    }
+    await renombrarFunnel(id, nombre);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  bust(TAG.pipeline, TAG.leads);
+  revalidatePath('/crm');
+  return { ok: true };
+}
+
+/**
+ * ARCHIVA un embudo. No borra nada: `activo = false` y la fila se queda entera.
+ *
+ * ⚠️ LOS LEADS NO SE TOCAN, y eso es lo que hay que decirle a la persona ANTES de que
+ * confirme: siguen existiendo con su `funnel_id` apuntando acá, así que mientras el embudo
+ * esté archivado no se ven en ningún tablero. Restaurarlo los devuelve a todos.
+ *
+ * Se devuelve cuántos leads quedan adentro para que la pantalla lo pueda decir después,
+ * no para decidir: guardar NUNCA se bloquea, y esto tampoco.
+ */
+export async function archivarEmbudoAction(funnelId: number): Promise<{ ok: true; leads: number } | { ok: false; error: string }> {
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede eliminar un embudo.' };
+  try {
+    const leads = await contarLeadsDeFunnel(funnelId).catch(() => -1);
+    await archivarFunnel(funnelId);
+    bust(TAG.pipeline, TAG.leads);
+    revalidatePath('/crm');
+    return { ok: true, leads };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Devuelve un embudo archivado a la lista, con sus leads. */
+export async function restaurarEmbudoAction(funnelId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede restaurar un embudo.' };
+  try {
+    await restaurarFunnel(funnelId);
+    bust(TAG.pipeline, TAG.leads);
+    revalidatePath('/crm');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Los embudos archivados, para poder recuperarlos. Una copia que nadie ve no es una copia. */
+export async function embudosArchivadosAction(): Promise<Array<{ id: number; nombre: string; leads: number }>> {
+  const filas = await listarFunnelsArchivados();
+  return Promise.all(filas.map(async (f) => ({
+    id: f.id,
+    nombre: f.producto?.trim() || f.nombre,
+    leads: await contarLeadsDeFunnel(f.id).catch(() => -1),
+  })));
 }
 /**
  * Editar UNA etapa del funnel desde la cabecera de su columna en el Kanban.
@@ -2021,6 +2190,16 @@ export type OpEtapa =
   | { op: 'renombrar'; key: string; label: string }
   | { op: 'eliminar'; key: string }
   | { op: 'agregar'; despuesDe?: string; label?: string }
+  /**
+   * Apagar o encender una nutrición. `id` es `"desde>hacia"`, la misma clave que vive en
+   * `data.suppressed`.
+   *
+   * ⚠️ UNA NUTRICIÓN NO ES UNA ETAPA: es una TRANSICIÓN que deriva `generateFunnel` de la
+   * forma del pipeline. No se crea ni se borra — se suprime, que es agregar su id a la
+   * lista. Por eso no hay «agregar nutrición»: las que puede haber las decide el
+   * recorrido, y lo único que elige el negocio es cuáles NO usa.
+   */
+  | { op: 'nutricion'; id: string; activa: boolean }
   /**
    * Subir o bajar una etapa un lugar. `delta` es -1 (antes) o 1 (después).
    *
@@ -2058,6 +2237,26 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       }
       if (pipeline.length <= 1) return { ok: false, error: 'Tu funnel se quedaría sin etapas.' };
       pipeline = pipeline.filter((st) => st.key !== op.key);
+    } else if (op.op === 'nutricion') {
+      // El id se valida contra las nutriciones que ESTE pipeline puede tener, y no se
+      // acepta crudo: `suppressed` es texto libre en un jsonb, así que sin esto se puede
+      // llenar de ids que no significan nada y que nadie va a limpiar nunca.
+      const posibles = new Set(
+        generateFunnel(actual.pipeline, [], labels).transitions
+          .filter((t) => t.category === 'nutricion')
+          .map((t) => `${t.from}>${t.to}`),
+      );
+      if (!posibles.has(op.id)) return { ok: false, error: 'Esa nutrición no es de este embudo.' };
+      const sup = new Set(actual.suppressed);
+      if (op.activa) sup.delete(op.id); else sup.add(op.id);
+      // ⚠️ Se guarda con el pipeline INTACTO: esta operación sólo toca `suppressed`.
+      const conGanadoNut = conTerminales(actual.pipeline);
+      if (funnelId != null) await saveFunnelDe(funnelId, conGanadoNut, [...sup], { labels });
+      else await saveFunnelDefault(conGanadoNut, [...sup], { labels });
+      bust(TAG.pipeline, TAG.leads);
+      revalidatePath('/crm');
+      revalidatePath('/funnel');
+      return { ok: true };
     } else if (op.op === 'mover') {
       // ⚠️ SOLO SE MUEVE LO QUE VIVE EN EL PIPELINE. Las tres terminales derivadas
       // (`perdido`, `descal`, `noresp`) no están ahí: las agrega `generateFunnel` al final

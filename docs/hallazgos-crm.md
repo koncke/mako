@@ -3926,3 +3926,97 @@ La flecha dice «acá se elige un valor y el elegido queda escrito»; los tres p
 Va `sinFlecha`, y el que lo pide es el llamador.
 
 **Vive en:** `app/components/Dropdown.tsx` · `app/crm/CrmBoard.tsx` · *2026-09-28 crm-etapas-popup*
+
+## `router.refresh()` deja la lista UN PASO ATRÁS cuando lo que cambió es QUÉ EXISTE (29/09/2026)
+
+Medido en el navegador, y es lo que más costó de la tanda. Con
+`router.push('/crm') + router.refresh()` después de archivar un embudo:
+
+| Momento | La base | El selector |
+|---|---|---|
+| tras eliminar «Prueba 2» | `activo = false` | sigue mostrándola |
+| tras recuperarla | `activo = true` | muestra la lista de ANTES de recuperarla |
+
+Cuatro segundos de espera y `networkidle` no alcanzaron: la pantalla va siempre una mutación
+atrás. **Un borrado que parece no haber pasado es peor que uno lento** — la persona lo aprieta
+de nuevo, o concluye que la app está rota.
+
+**La regla: cuando lo que cambia no es una FILA sino QUÉ EXISTE —qué embudos hay, qué
+workspaces, qué tabs— se navega DURO y se paga la recarga entera.** `router.refresh()` es la
+herramienta para «los datos de esta pantalla cambiaron»; acá cambia el conjunto del que cuelga
+media pantalla, incluido el `?funnel=N` de la URL, que puede haber dejado de resolver.
+
+⚠️ **Y la navegación dura es la CUARTA forma de navegar de AGENTS.md**, así que va con
+`conWs(destino, useWs())`. Sin el `?ws=`, el super admin que está mirando a un cliente termina
+en SU propio CRM — que es exactamente el caso del 16/08 con el reset del cliente de prueba.
+
+⚠️ **Y el corolario del efecto que se pregunta UNA vez.** El renglón «Embudos eliminados» sólo
+se dibuja cuando hay alguno, y su `useEffect` tenía `[]`: corría al montar, con cero
+archivados, y nunca más. O sea que **la puerta de vuelta se volvía invisible justo después de
+la única acción que crea algo para recuperar**, y el archivado quedaba indistinguible de un
+borrado. Se re-pregunta cuando cambia la lista de embudos, que es la señal real.
+
+**Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/CrmToolbar.tsx` ·
+`tests/funnel-estructura.test.ts` · *2026-09-29 crm-embudo-popup*
+
+## Eliminar un embudo es ARCHIVARLO, y la columna ya existía (29/09/2026)
+
+«Con mucho cuidado si un funnel tiene leads. Y siempre guardando una copia de seguridad en
+caso de eliminar un funnel con leads, por si el usuario lo quiere "recuperar"».
+
+**La copia de seguridad no hubo que inventarla:** `funnels.activo` existe desde la mig 0170 y
+`listarFunnels` ya filtraba por ella. Archivar saca el embudo de la pantalla y deja la fila, su
+`data` entera (el pipeline, las entradas, las nutriciones suprimidas) y sus leads —que siguen
+con su `funnel_id` apuntando ahí— intactos. Una tabla de respaldo aparte habría sido un segundo
+lugar con los mismos datos, que se queda viejo.
+
+⚠️ **EL DEFAULT NO SE ARCHIVA, y el guard va en el SERVER.** El índice parcial
+`funnels_ws_default_uk` garantiza que un workspace tiene EXACTAMENTE uno, y medio repo asume
+que existe: `getFunnelDefault`, el CRM sin `?funnel=`, el onboarding, los prompts. Archivarlo no
+daría error — daría un workspace cuyo embudo por defecto no se puede leer.
+
+⚠️ **Y RENOMBRAR PUEDE NO SER LA TABLA `funnels`.** La pantalla muestra el nombre del
+**PRODUCTO**: todos los funnels se llaman «Funnel principal» porque lo puso la migración, y
+`listarFunnels` lo tapa con el del producto principal (`v_funnel_productos`). Escribir
+`funnels.nombre` y refrescar deja la pantalla EXACTAMENTE IGUAL — un guardado que funciona, no
+da error, y no se ve. Se escribe donde se LEE.
+
+⚠️ **Y EL CONTEO DE LEADS NO PUEDE DEVOLVER 0 CUANDO FALLA.** «Este embudo no tiene leads»
+sobre uno lleno es lo que hace que alguien lo elimine tranquilo. Va con `head: true` +
+`count: exact` (traerlos para contarlos toparía en 1000 y daría un número redondo perfectamente
+plausible sobre un embudo de 1.145) y un error TIRA en vez de contestar cero.
+
+**Vive en:** `lib/funnels.ts` (`archivarFunnel`, `restaurarFunnel`, `renombrarFunnel`) ·
+`lib/leads.ts` (`contarLeadsDeFunnel`) · *2026-09-29 crm-embudo-popup*
+
+## El embudo se configura en UN lugar, y las terminales salen de la lista (29/09/2026)
+
+Tres pedidos de Martín que son el mismo: *«No está la edición de NUTRICIÓN dentro de la edición
+del funnel, te propongo que sea otra subtab dentro del modal»*, *«Que no aparezcan en el
+editable las etapas que no se puedan editar... Como "Ganado" etc»*, y —al día siguiente, sobre
+el editor completo que había quedado vivo en /onboarding— *«Tienes que eliminar esto, ya te lo
+habia pedido»*.
+
+El pop-up quedó con **tres subtabs, cortadas por PREGUNTA**: por dónde PASA un lead (Etapas),
+qué se le manda cuando se enfría (Nutrición), y cómo LLEGÓ (Cómo entran). Y el editor de 527
+líneas se borró: dos editores del mismo jsonb —uno que autoguarda por tecla y otro que manda
+operaciones— es la forma de que el embudo quede distinto según por dónde se lo tocó.
+
+⚠️ **LAS DOS DECISIONES SOBRE LAS TERMINALES NO SE CONTRADICEN.** El 28/09: «están SIEMPRE, son
+únicas, y sí se les puede cambiar el nombre». El 29/09: «que no aparezcan en el editable». Se
+cumplen las dos poniéndolas FUERA de la lista que se reordena, como pastillas bajo «En todos tus
+embudos» — siguen renombrándose, y dejan de ocupar la mitad del pop-up con seis botones
+apagados. Medido: en el funnel del ws1 eran 4 etapas propias y 4 terminales, o sea la mitad de
+las filas.
+
+⚠️ **Y AL BORRAR UNA PANTALLA, SUS TESTS SE MUEVEN CON ELLA — NO SE BORRAN.** Al eliminar el
+editor cayeron seis tests, y uno de ellos guardaba algo que el pop-up NO tenía: los avisos de
+`problemasDePipeline`, que son los que impiden que un embudo quede roto **y callado** (el caso
+real de la inmobiliaria que tipó su descarte como «cierre» y el sistema le pedía el MONTO DE LA
+VENTA para descalificar a alguien). Borrar el test habría borrado la capacidad sin que nada
+fallara. Se mudó, y el cálculo cambió de lado: `problemasDePipeline` mira el `kind` y el ORDEN
+del pipeline **crudo**, que nunca sale del server, así que se calcula en `embudoEnDetalleAction`
+y baja como texto.
+
+**Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/EmbudoEntradas.tsx` · `app/crm/actions.ts`
+(`embudoEnDetalleAction`) · *2026-09-29 crm-embudo-popup*

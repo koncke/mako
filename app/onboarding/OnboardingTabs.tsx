@@ -103,7 +103,17 @@ function OfertaFrame() {
  * Se LEE en el server (llega por prop) y se ESCRIBE con `replace`: si sólo se leyera, el
  * link que uno copia no sería la tab que está mirando.
  */
-export function OnboardingTabs({ funnelPanel, tabInicial = TAB_INICIAL }: { funnelPanel: ReactNode; tabInicial?: TabKey }) {
+/**
+ * ⚠️ ACÁ HABÍA UNA PASTILLA «El funnel» con el editor completo adentro, y se retiró el
+ * 29/09/2026: «Tienes que eliminar esto, ya te lo habia pedido». El embudo se configura
+ * ENTERO en el pop-up del CRM —etapas, nutrición y cómo entra la gente—, que es lo que
+ * se pidió desde el principio: «que todo se edite como un pop-up dentro del mismo CRM».
+ *
+ * Dejar las dos pantallas era peor que no haber movido nada: dos editores del mismo
+ * jsonb, uno que autoguarda por tecla y otro que manda operaciones, y la persona sin
+ * forma de saber cuál manda.
+ */
+export function OnboardingTabs({ tabInicial = TAB_INICIAL }: { tabInicial?: TabKey }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>(tabInicial);
   const irA = (k: TabKey) => {
@@ -121,7 +131,6 @@ export function OnboardingTabs({ funnelPanel, tabInicial = TAB_INICIAL }: { funn
     { key: 'avatares', label: 'Avatares', panel: <Marco slides={SLIDES_AVATARES}><AvataresView /></Marco> },
     { key: 'razones', label: 'Razones', panel: <Marco slides={SLIDES_RAZONES}><RazonesView /></Marco> },
     { key: 'angulos', label: 'Ángulos', panel: <Marco slides={SLIDES_ANGULOS}><FormatosView /></Marco> },
-    { key: 'funnel', label: 'El funnel', panel: funnelPanel },
   ];
   const pill = (on: boolean): CSSProperties => ({ border: 'none', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--dim)', fontWeight: on ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: on ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS });
   const activo = TABS.find((t) => t.key === tab);

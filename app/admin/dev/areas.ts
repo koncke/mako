@@ -180,10 +180,10 @@ export const AREAS: AreaDev[] = [
     proyectos: ['Agente: CRM automático'],
   },
   {
-    slug: 'funnel-editor', titulo: 'Funnel Editor', familia: 'Operate', grupo: 'CRM',
+    slug: 'funnel-editor', titulo: 'Embudo (pop-up del CRM)', familia: 'Operate', grupo: 'CRM',
     estado: 'listo', verEnApp: '/crm',
-    alcance: 'Fuente de verdad de las etapas. Pantalla real SIN entrada en el nav.',
-    vive: ['app/funnel/page.tsx', 'app/funnel/FunnelEditor.tsx', 'app/funnel/EntradasCard.tsx', 'app/crm/EtapasModal.tsx', 'lib/pipeline.ts', 'lib/funnels.ts', 'lib/funnel-fila.ts', 'supabase/migrations/0170_funnels.sql'],
+    alcance: 'Fuente de verdad de las etapas. Se edita ENTERO en un pop-up del CRM: etapas, nutricion y como entra la gente.',
+    vive: ['app/crm/EtapasModal.tsx', 'app/crm/EmbudoEntradas.tsx', 'app/funnel/page.tsx', 'lib/pipeline.ts', 'lib/funnels.ts', 'lib/funnel-fila.ts', 'supabase/migrations/0170_funnels.sql'],
     hallazgos: 'hallazgos-crm',
     nota: 'Desde la mig 0170 el funnel vive en `funnels`, N filas por workspace, y `funnel_config` quedó de respaldo DEPRECADA y sin lectores. Lo que sigue garantizando UNO por cliente es el índice parcial funnels_ws_default_uk (un solo es_default), y por eso el guard está en POSITIVO: un ws SIEMPRE tiene exactamente un funnel default — lo recrea el reset y `crearWorkspace`. Los dos lectores son getFunnelDefault() (el del negocio) y getFunnelDeLead(lead) (el de SU recorrido): el rename rompió la compilación a propósito para decidir uno por uno los 33 call-sites. Nunca .maybeSingle(): con N filas devuelve PGRST116 y el catch lo vuelve DEFAULT_PIPELINE sin un solo log. Y el `origen` sale de la columna `declarado`, NUNCA de la forma de `data`: la 0170 le crea fila con data={} a los 3 workspaces que no tenían, y {} es truthy (tests/funnel-declarado.test.ts). Y el diagnóstico obvio es el equivocado: el funnel NO ubica los leads — deriveStageKey (lib/pipeline.ts) es un switch puro con 11 keys canónicas que no lee ninguna de las dos tablas. El editor autoguarda el jsonb ENTERO con debounce de 500ms por tecla. El 28/09/2026 la RUTA /funnel se retiró (hoy redirige a /crm): las ETAPAS se editan en un pop-up del CRM (app/crm/EtapasModal.tsx, operación por operación contra editarEtapaAction) y el editor completo —entradas, transiciones, nutriciones suprimidas— quedó montado sólo en /onboarding y /second-brain. El modelo de multi-funnel, en docs/modelo-oferta-producto-funnel.md.',
   },

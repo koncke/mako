@@ -18,14 +18,21 @@
 //
 // Un `.ts` sin `'use client'` ni `server-only` lo pueden importar los dos lados.
 
-/** Las once pastillas del hub, en el orden en que se dibujan. */
+/**
+ * Las diez pastillas del hub, en el orden en que se dibujan.
+ *
+ * ⚠️ ERAN ONCE: la undécima era «El funnel», con el editor completo adentro, y se
+ * retiró el 29/09/2026. El embudo entero se configura en el pop-up del CRM.
+ * Un `?tab=funnel` viejo ya no existe y cae a la primera, que es lo correcto: no
+ * rompe, y la pantalla que buscaba se mudó a otra tab.
+ */
 export type TabKey =
   | 'matriz' | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona'
-  | 'personalidad' | 'avatares' | 'razones' | 'angulos' | 'funnel';
+  | 'personalidad' | 'avatares' | 'razones' | 'angulos';
 
 export const TAB_KEYS: TabKey[] = [
   'matriz', 'diagnostico', 'archivero', 'oferta', 'entregable', 'persona',
-  'personalidad', 'avatares', 'razones', 'angulos', 'funnel',
+  'personalidad', 'avatares', 'razones', 'angulos',
 ];
 
 /** La tab por defecto: la que se abre sin `?tab=` y a la que cae un valor inventado. */

@@ -34,10 +34,17 @@ export const revalidate = 0;
 // dos veces.
 export const maxDuration = 60;
 
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ funnel?: string }> }) {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ funnel?: string; embudo?: string }> }) {
   // Qué funnel dibuja el tablero. Va por la URL y no por estado del cliente: las
   // etapas se leen en el server, así que cambiar de funnel es cambiar de página.
-  const funnelPedido = Number((await searchParams)?.funnel);
+  const sp = await searchParams;
+  const funnelPedido = Number(sp?.funnel);
+  // ⚠️ `?embudo=` ABRE EL POP-UP AL ENTRAR, y existe para que un link pueda llevar a una
+  // CONFIGURACIÓN y no sólo a una pantalla. Lo usan el panel de tracking que ve el
+  // cliente en su landing («activar la landing como entrada de leads» → la subtab «Cómo
+  // entran») y el cerebro. Sin esto, el link deja a la persona en el tablero buscando
+  // un menú que no sabe que existe.
+  const abrirEmbudo = sp?.embudo === 'entradas' ? 'entradas' : sp?.embudo ? 'etapas' : null;
   const funnelPideId = Number.isInteger(funnelPedido) && funnelPedido > 0 ? funnelPedido : null;
   await requireCapa('crm');
 
@@ -197,6 +204,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       stages={stages}
       funnels={funnels}
       funnelActivo={funnelId}
+      abrirEmbudo={abrirEmbudo}
       juntas={juntas}
       marcar={marcar}
       marcarAviso={pendientesAviso}

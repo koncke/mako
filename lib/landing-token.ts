@@ -986,7 +986,7 @@ export async function landingDiagnostico(
           ? 'Se registra cuando alguien reserva en tu calendario: es el final de tu embudo.'
           : enPrueba ? 'Aún no llega. Reserva un horario en tu propio calendario para probarlo.'
           : 'Aún no llega ninguna reserva. Se registra sola cuando alguien agenda.',
-        accion: hayOptinBloqueado ? { texto: 'Activar la landing como entrada de leads', href: '/onboarding?tab=funnel' } : undefined,
+        accion: hayOptinBloqueado ? { texto: 'Activar la landing como entrada de leads', href: '/crm?embudo=entradas' } : undefined,
       }
     : {
         label: 'Deja sus datos',
@@ -1014,7 +1014,7 @@ export async function landingDiagnostico(
         // prosa, o sea a buscarlo a mano desde una ventana de 440 px.
         accion: pendientes > 0
           ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' }
-          : !declarado && puedeCaptar ? { texto: 'Activar la landing como entrada de leads', href: '/onboarding?tab=funnel' } : undefined,
+          : !declarado && puedeCaptar ? { texto: 'Activar la landing como entrada de leads', href: '/crm?embudo=entradas' } : undefined,
       };
 
   const chequeos: ChequeoDiag[] = [

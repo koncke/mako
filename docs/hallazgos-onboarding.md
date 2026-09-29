@@ -1479,3 +1479,60 @@ lo hacen valer:
 
 
 *Rediseño del 04/09/2026 · panel de 24 agentes (3 propuestas × 3 jueces por problema).*
+
+## Una función de tres líneas exportada de un `use client` tiró /onboarding ENTERO (29/09/2026)
+
+Síntoma, en producción y reportado con captura: **«Esta pantalla se rompió al dibujarse»** en
+`/onboarding`, con un digest (`1403595480`) y sin nombrar ni el archivo ni la línea.
+
+La causa: `tabDeUrl` —tres líneas, agregadas el día anterior para que el hub leyera su tab de
+`?tab=`— vivía exportada desde `OnboardingTabs.tsx`, que lleva `'use client'`, y la llamaba el
+`page.tsx`, que es **server**. Para el grafo del server, un export de un módulo de cliente no es
+lo que dice ser: es una **referencia de cliente**. No falla al importar. Falla al **usarlo**.
+
+⚠️ **La regla ya estaba escrita en AGENTS.md desde el 30/08**, con su propio caso de una hora de
+producción sirviendo el deploy viejo («lo que NO LLEGA al server»). Se volvió a pisar igual, y eso
+es el dato: una regla en un documento no es un control. Lo que faltaba era el guard.
+
+**Por qué no lo cazó ninguna de las tres redes que ya existen**, que es lo que hay que arreglar
+además del bug — y cada una miró para otro lado por una razón distinta:
+
+| Red | Por qué dio verde |
+|---|---|
+| `npm run typecheck` | **`tsx` IGNORA la directiva.** Para el compilador es una función normal, perfectamente tipada |
+| `npm test` | los guards de la casa leen los fuentes como **TEXTO**: ninguno resuelve imports |
+| la verificación en el navegador | esa tanda abrió `/crm`, que era lo que se estaba cambiando. `/onboarding` se tocó **de refilón** |
+
+⚠️ **Y `npm run build` TAMPOCO lo caza**, contra lo que dice la intuición: el build terminó en 0 las
+dos veces. El caso del 30/08 —el catálogo de cursos importando de un `.tsx`— sí lo tiraba, porque
+ahí el valor se usaba **en tiempo de build** (al recolectar la configuración de una ruta). Acá el
+valor se usa **en tiempo de request**, así que el build compila feliz y la pantalla revienta en
+producción. Son dos síntomas de la misma frontera y sólo uno tiene al build como red.
+
+**La cura estructural:** el valor se muda a un `.ts` **sin `'use client'` ni `server-only`**, que es el
+único tipo de módulo que los dos lados pueden importar (`app/onboarding/tabs-catalogo.ts`).
+
+**Y el guard**, que es la mitad que importa: `tests/frontera-use-client.test.ts` barre
+`git ls-files app lib components` y falla si un módulo del server importa un **valor** de un
+`'use client'` — más su espejo, si un `'use client'` importa un valor de un módulo `server-only`.
+
+Tres cosas que lo hacen funcionar y que costaron una vuelta cada una:
+
+- **Lo que SÍ se puede tiene que seguir pasando.** Un server component importa COMPONENTES de
+  cliente y los monta: es el patrón de todo el repo. Se distinguen por la convención de nombres de
+  React —PascalCase es un componente, camelCase no— que este repo cumple sin excepción. El guard
+  persigue el import de un nombre **que no empieza con mayúscula**.
+- **`import type` queda afuera**, y también el `{ type Foo }` adentro de las llaves: un tipo se
+  borra en compilación, así que cruzar la frontera con uno no cuesta nada.
+- ⚠️ **Y LOS COMENTARIOS SE SACAN ANTES DE PARSEAR.** La cláusula de un import se captura con
+  `[^;]*?` y en TypeScript el `;` **no es obligatorio**: con un párrafo de comentarios entre dos
+  imports, el match arranca en el de arriba y se come el texto entero. El guard reportó dos falsos
+  positivos cuyo «nombre importado» era la prosa del comentario, palabra por palabra. Y el orden
+  es el de siempre: los de línea **antes** que los de bloque.
+
+Probado rompiéndolo (3 pasan / 0 fallan con todo puesto, y cada rotura da 2/1): la page vuelve a
+importar `tabDeUrl` del componente —**el bug real**—, un `'use client'` importa un valor de un
+`server-only`, y el parser deja de limpiar comentarios.
+
+**Vive en:** `app/onboarding/tabs-catalogo.ts` · `app/onboarding/page.tsx` ·
+`tests/frontera-use-client.test.ts` · *2026-09-29 crm-etapas-popup*

@@ -419,6 +419,21 @@ const NUTRI_EXTRA: Record<string, Stage> = {
  * Descartado (Perdido/Descalificado/No responde) es fijo. Perdido se nutre
  * (vuelve a la 1ª reunión); Descalificado y No responde son terminales.
  */
+/**
+ * El nombre de CATÁLOGO de una etapa, por su clave.
+ *
+ * ⚠️ HACE FALTA PARA LO QUE NO ESTÁ EN `stages`. Una nutrición SUPRIMIDA no aparece en la
+ * salida de `generateFunnel` —`nut()` sale temprano y ni siquiera la coloca—, así que la
+ * pantalla que ofrece RESTAURARLA no tiene de dónde sacar su nombre. Buscarlo en
+ * `stages` devuelve undefined y el botón diría «restaurar undefined».
+ *
+ * Es el nombre del catálogo, no el que el cliente le puso: los overrides viven en
+ * `data.labels` y los aplica `generateFunnel` al final. Quien quiera el del cliente,
+ * que mire `labels` primero.
+ */
+export function labelDeCatalogo(key: string): string | undefined {
+  return (DEFAULT_STAGES.find((s) => s.key === key) ?? NUTRI_EXTRA[key])?.label;
+}
 export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], labels: Record<string, string> = {}): { stages: Stage[]; transitions: FunnelTransition[] } {
   const sup = new Set(suppressed);
   const lib = (k: string): Stage | undefined => DEFAULT_STAGES.find((s) => s.key === k) ?? NUTRI_EXTRA[k];
