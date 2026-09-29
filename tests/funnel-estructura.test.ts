@@ -221,7 +221,16 @@ test('⚠️ la pregunta de «cómo entra tu gente» sobrevivió a las DOS mudan
   // ⚠️ YA NO ES UNA SUBTAB: es un desplegable de la tab de etapas, y una pregunta del alta
   // de producto. «Elimina la tab de Cómo entran, eso debería estar como un paso al momento
   // de crear un nuevo producto... y se debería poder editar con un desplegable luego».
-  assert.ok(md.includes('Cómo entran'), 'el desplegable de entradas se fue del pop-up');
+  // ⚠️ SE MIRA EL COMPONENTE QUE LO DIBUJA, NO LA FRASE. Esta aserción decía
+  //    `md.includes('Cómo entran')` sobre el fuente SIN limpiar comentarios, así que la
+  //    satisfacían las tres apariciones que había en la cabecera del archivo. Cuando el
+  //    30/09 se borró el rótulo de la pantalla —«aún sigue el texto informal de "Cómo entra
+  //    tu gente", por favor elimínalo»— el guard siguió en verde sobre algo que ya no se
+  //    dibujaba. Un guard que mira la PALABRA no distingue el código del comentario que lo
+  //    explica, y es el mismo error que la aserción de `FunnelEditor` de más abajo ya
+  //    documenta veinte líneas después.
+  assert.match(limpio(md), /<EmbudoEntradas/, 'el desplegable de entradas se fue del pop-up');
+  assert.match(limpio(md), /entradasAbierto/, 'el panel de entradas ya no se puede abrir ni cerrar');
   const tb2 = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
   assert.match(tb2, /declararEntradasAction\(entradas, null, r\.funnelId\)/,
     'el alta de producto dejó de preguntar cómo entra la gente');
@@ -446,7 +455,13 @@ test('⚠️ la etapa se edita desde su COLUMNA, y el menú está enchufado', ()
   );
 
   // 5) Y una terminal no se puede eliminar desde acá tampoco.
-  assert.match(bd, /disabled: esTerminal\(c\.key\)/, 'el menú deja eliminar una etapa terminal');
+  //    ⚠️ SE OMITE, NO SE APAGA. Antes se dibujaba deshabilitada, con el rótulo «No se
+  //    puede eliminar»: «si no se puede eliminar, no pongas directamente esa opción, no la
+  //    dejes en gris» (30/09/2026). Una opción en gris ocupa el lugar de las que sí se
+  //    pueden usar y se lee como que la app está rota.
+  assert.match(bd, /esTerminal\(c\.key\) \? \[\] : \[\{ value: 'eliminar'/,
+    'la opción de eliminar volvió a dibujarse (apagada o no) sobre una etapa terminal');
+  assert.ok(!/label: 'No se puede eliminar'/.test(bd), 'volvió el rótulo de la opción apagada');
 });
 
 test('⚠️ cada funnel del desplegable tiene su lápiz, y abre EL suyo', () => {

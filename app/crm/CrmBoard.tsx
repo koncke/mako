@@ -62,9 +62,9 @@ import {
 import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
+import { MoverPartido } from './MoverPartido';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
-import { CrmAutoToggle } from './CrmAutoToggle';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
 import { SelectorHora, horaLegible, ANCLA_DEFECTO } from './SelectorHora';
 import { motivosDeSalida, motivoFinalDe, pideMotivo } from './motivos-salida';
@@ -92,7 +92,6 @@ import {
   SelectorFunnel,
   CrmFilterMenu,
   CrmToolbarStyles,
-  DivisorHeader,
   FiltroChips,
   SinResultados,
   VistaSelector,
@@ -209,6 +208,14 @@ const fmt = (n: number) => '$' + n.toLocaleString('en-US');
  * funciona igual.
  */
 const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
+/**
+ * La línea de 2 px que dice dónde va a caer la columna que se está arrastrando.
+ *
+ * Las mismas dos del pop-up de etapas (`MARCA` / `MARCA_FIN` en app/crm/EtapasModal.tsx),
+ * giradas: ahí la lista es vertical y la marca es horizontal, acá es al revés.
+ */
+const MARCA_COL: CSSProperties = { boxShadow: 'inset 2px 0 0 0 var(--primary)' };
+const MARCA_COL_FIN: CSSProperties = { boxShadow: 'inset -2px 0 0 0 var(--primary)' };
 /** Una confirmación pendiente: qué se va a cambiar, dicho concreto. */
 type Confirmacion = {
   titulo: string;
@@ -271,7 +278,6 @@ export function CrmBoard({
   marcar,
   marcarAviso = '',
   transitions,
-  total,
   errorMsg,
   hoy,
   equipo = [],
@@ -287,7 +293,11 @@ export function CrmBoard({
   /** Por qué la lista de arriba puede estar incompleta ('' = está entera). */
   marcarAviso?: string;
   transitions: FunnelTransition[];
-  total: number;
+  // ⚠️ ACÁ HABÍA UN `total: number` Y NO LO LEÍA NADIE. Lo mandaba `app/crm/page.tsx` y su
+  // único consumidor era el botón «Importar CSV» del header, que se fue el 30/09 al menú
+  // de los tres puntos. Se sacó de los TRES lugares en vez de dejarlo «por si acaso»: una
+  // prop que viaja y nadie lee es la que el día que se rompa nadie va a extrañar, y la que
+  // hace creer que el número está disponible cuando ya no llega a ningún lado.
   errorMsg: string | null;
   hoy: string;
   equipo?: MiembroEquipo[];
@@ -350,27 +360,52 @@ export function CrmBoard({
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   // Auto-scroll horizontal del tablero al arrastrar cerca de un borde: sin esto
-  // no se puede soltar en una columna que quedó fuera de la vista.
+  // no se puede soltar en una columna que quedó fuera de la vista. El handler vive
+  // más abajo (`onBoardDragOver`), junto al arrastre de columnas: los dos gestos
+  // usan el mismo `dragover` del contenedor.
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
-  const autoScrollDir = useRef(0);
-  const autoScrollRaf = useRef(0);
-  const stopAutoScroll = () => { autoScrollDir.current = 0; if (autoScrollRaf.current) { cancelAnimationFrame(autoScrollRaf.current); autoScrollRaf.current = 0; } };
-  const tickAutoScroll = () => {
-    const el = boardScrollRef.current;
-    if (el && autoScrollDir.current !== 0) el.scrollLeft += autoScrollDir.current * 16;
-    if (autoScrollDir.current !== 0) autoScrollRaf.current = requestAnimationFrame(tickAutoScroll);
-    else autoScrollRaf.current = 0;
-  };
-  const onBoardDragOver = (e: React.DragEvent) => {
-    const el = boardScrollRef.current;
-    if (!el || dragId == null) return;
-    const r = el.getBoundingClientRect();
-    const EDGE = 90;
-    const dir = e.clientX < r.left + EDGE ? -1 : e.clientX > r.right - EDGE ? 1 : 0;
-    autoScrollDir.current = dir;
-    if (dir !== 0 && autoScrollRaf.current === 0) autoScrollRaf.current = requestAnimationFrame(tickAutoScroll);
-  };
-  useEffect(() => () => stopAutoScroll(), []);
+
+  // ── Arrastrar una COLUMNA para cambiar el orden de las etapas ────────────────
+  // Pedido de Martín (29/09/2026): «en las columnas del CRM, si agarro una, debería
+  // dejar arrastrar también, para cambiar el orden».
+  //
+  // Es el molde del pop-up de etapas (app/crm/EtapasModal.tsx), dado vuelta al eje
+  // horizontal: imagen de arrastre VACÍA + una copia propia que seguimos con
+  // `transform` sobre un ref. La foto que sigue al cursor la dibuja el sistema
+  // operativo y ninguna regla CSS la gobierna; y un `setState` por `dragover`
+  // redibujaría el tablero 60 veces por segundo, con lo que el gesto se ve roto.
+  /** La columna en la mano. Ref y no estado: lo leen los handlers del `document`. */
+  const colAgarrada = useRef<string | null>(null);
+  const copiaCol = useRef<HTMLElement | null>(null);
+  /**
+   * Puntos medios en X de las columnas reordenables, EN COORDENADAS DEL CONTENEDOR.
+   *
+   * ⚠️ NO en coordenadas de pantalla, y es la diferencia con el pop-up. Acá el tablero
+   * auto-scrollea en horizontal mientras arrastrás: un `left + width / 2` cacheado en
+   * coordenadas de ventana queda viejo en cuanto cambia `scrollLeft`, y la marca de
+   * destino apunta a la columna equivocada. Sumándole el `scrollLeft` de cuando se midió,
+   * el número deja de depender del scroll y el caché sirve todo el gesto.
+   */
+  const mediosCol = useRef<{ key: string; x: number }[]>([]);
+  const [arrastrandoCol, setArrastrandoCol] = useState<string | null>(null);
+  /** Dónde caería la columna si soltaras ahora (índice entre las reordenables). */
+  const [insCol, setInsCol] = useState<number | null>(null);
+  /**
+   * El orden que la pantalla ya pintó, antes de que el server confirme.
+   *
+   * ⚠️ HACE FALTA porque `stages` es un prop del SERVER: sin esto el único repintado
+   * posible es el `router.refresh()`, que es exactamente la queja que el pop-up ya
+   * resolvió («cuando muevo de lugar una columna o etapa, se tarda muchísimo»).
+   *
+   * ⚠️ Y VIAJA CON EL ID DEL EMBUDO AL QUE PERTENECE. Cambiar de producto es un
+   * `router.push('/crm?funnel=…')` y el tablero NO se vuelve a montar (no lleva `key`):
+   * el orden local sobrevive la navegación. Y las claves de etapa se REPITEN entre
+   * embudos (`registro`, `conversando`, `checkout`, `agenda`… las reparten todas las
+   * plantillas de lib/pipeline.ts), así que sin este id el orden arrastrado en un
+   * producto le reordenaba las columnas al siguiente — mostrando un embudo que no
+   * existe, y sin forma de volver salvo tocar las etapas.
+   */
+  const [ordenCols, setOrdenCols] = useState<{ funnel: number | null; keys: string[] } | null>(null);
   // `pendientes`: lo que la etapa pide y todavía falta. Desde el 17/09 eso NO frena
   // el movimiento (08-T22): se guarda igual y se avisa acá, sin pedir nada.
   const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null; pendientes?: string[] } | null>(null);
@@ -642,8 +677,20 @@ export function CrmBoard({
     setMeetingChoice({ leadId: lead.id, name: lead.name, which: key as 'agenda' | 'agendaj2' });
   };
 
+  /**
+   * Qué lead está entrando a `handleDrop` cuando no vino de un arrastre.
+   *
+   * ⚠️ REF Y NO ESTADO: `altaAEtapa` lo escribe y llama a `handleDrop` en el MISMO tick, y
+   * un `setDragId` recién se vería en el render siguiente. Existe para que el placeholder
+   * «Nuevo lead» de cada columna entre por EL MISMO handler que soltar una tarjeta ahí
+   * (pedido 7) — si esa columna abre un diálogo al soltar, lo abre también al crear — y no
+   * haya dos caminos que digan cosas distintas sobre la misma columna.
+   */
+  const idASoltar = useRef<number | null>(null);
+
   const handleDrop = (stageKey: string) => {
-    const id = dragId;
+    const id = idASoltar.current ?? dragId;
+    idASoltar.current = null;
     setDragId(null);
     if (id == null) return;
     const lead = leads.find((l) => l.id === id);
@@ -700,6 +747,33 @@ export function CrmBoard({
       onOk: () => persistStage(id, stageKey, from, tr, senalesRef.current),
     });
   };
+
+  // ── El alta desde el placeholder de una columna, segundo tiempo ──────────────
+  /**
+   * El lead del placeholder «Nuevo lead» ya se creó; lo que falta es LLEVARLO a esa
+   * columna, y por el mismo camino que soltar una tarjeta ahí (`handleDrop`).
+   *
+   * ⚠️ POR QUÉ SON DOS TIEMPOS Y NO UNO. El alta no acepta una etapa a propósito:
+   * meterla en `LeadCreateInput` crearía un SEGUNDO escritor de `pipeline_stage` que
+   * saltea el choke point donde `setPipelineStage` audita TODO movimiento (lib/leads.ts,
+   * y está documentado ahí por qué se hizo así). Y se espera a que el `router.refresh()`
+   * traiga el lead porque ese camino NECESITA el lead: la nutrición manual pide su
+   * plazo, las etapas de reunión abren la agenda y la confirmación lo nombra.
+   *
+   * Si el refresh nunca lo trae, no pasa nada: el lead quedó creado donde el alta lo
+   * pone, que es lo que hacía el botón del header antes de este pedido.
+   */
+  const [altaPendiente, setAltaPendiente] = useState<{ id: number; etapa: string } | null>(null);
+  /** El lead recién creado entra por el MISMO `handleDrop` que una tarjeta soltada ahí. */
+  const altaAEtapa = (id: number, stageKey: string) => { idASoltar.current = id; handleDrop(stageKey); };
+  useEffect(() => {
+    if (!altaPendiente) return;
+    if (!leads.some((l) => l.id === altaPendiente.id)) return;
+    const { id, etapa } = altaPendiente;
+    setAltaPendiente(null);
+    altaAEtapa(id, etapa);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [altaPendiente, leads]);
 
   // "Solucionar" un dato sin marcar → abre el wizard IN-PLACE (pop-up), sin salir
   // del kanban. La pasada única resuelve TODO (reuniones/venta/higiene + Deal
@@ -1270,7 +1344,9 @@ export function CrmBoard({
   // de abrir el buscador de archivos del sistema sin avisar qué va a pasar).
   const [exportar, setExportar] = useState(false);
   const [importar, setImportar] = useState(false);
-  const [nuevoLead, setNuevoLead] = useState(false);
+  // El alta lleva A DÓNDE va: `etapa: null` = el botón del header (cae donde el alta lo
+  // ponga), una clave = el placeholder de esa columna (pedido 7).
+  const [nuevoLead, setNuevoLead] = useState<{ etapa: string | null } | null>(null);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
@@ -1328,6 +1404,9 @@ export function CrmBoard({
     if (!r.ok) { setErrorEtapa(r.error); return; }
     setRenombrando(null);
     setBorrarEtapa(null);
+    // Agregar o quitar una etapa cambia la lista: el orden local recién arrastrado no sabe
+    // dónde va la nueva, así que se descarta y manda el del server.
+    if (op.op !== 'reordenar') setOrdenCols(null);
     router.refresh();
     return r;
   };
@@ -1361,29 +1440,228 @@ export function CrmBoard({
     void opEtapa({ op: 'renombrar', key, label: limpio });
   };
 
+  // ── El orden de las columnas del Kanban ─────────────────────────────────────
+  // Las bandas primero (pipeline · nutrición · salidas) y dentro de cada una el `col`
+  // que puso la derivación — salvo que haya un orden local recién arrastrado.
+  const columnasKanban = useMemo(() => {
+    // El orden local vale SÓLO para el embudo en el que se arrastró (ver `ordenCols`).
+    const orden = ordenCols && ordenCols.funnel === funnelActivo ? ordenCols.keys : null;
+    const pos = (s: Stage) => {
+      const i = orden ? orden.indexOf(s.key) : -1;
+      if (i >= 0) return i;
+      // Lo que el arrastre no nombró va DESPUÉS, que es exactamente lo que hace el server
+      // (`reordenar` en app/crm/actions.ts re-agrega al final lo que no viajó). Si la
+      // pantalla no lo imitara, mostraría medio segundo un orden que el refresh corrige.
+      return (orden ? orden.length : 0) + (s.col ?? 0);
+    };
+    return stages
+      .filter((s) => activeBands.has(s.band ?? 'pipeline'))
+      .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || (pos(a) - pos(b)));
+  }, [stages, activeBands, ordenCols, funnelActivo]);
+
+  /**
+   * Las columnas que el arrastre puede reordenar: las etapas PROPIAS del pipeline.
+   *
+   * ⚠️ NI LAS TERMINALES NI LAS DE NUTRICIÓN/SALIDAS. Ésas no están en el pipeline: las
+   * agrega `generateFunnel` en CADA lectura (lib/pipeline.ts), así que moverlas
+   * «funcionaría» —el server ignora la clave— y la pantalla las volvería a poner donde
+   * estaban, que es la peor forma de no hacer nada.
+   */
+  const colsPropias = useMemo(
+    () => columnasKanban.filter((s) => (s.band ?? 'pipeline') === 'pipeline' && !esTerminal(s.key)).map((s) => s.key),
+    [columnasKanban],
+  );
+  /** Dónde puede caer una columna: nunca antes de la entrada, que el server fuerza a 0. */
+  const pisoCol = useMemo(() => {
+    const ent = columnasKanban.find((s) => s.kind === 'entrada');
+    const i = ent ? colsPropias.indexOf(ent.key) : -1;
+    return i >= 0 ? i + 1 : 0;
+  }, [columnasKanban, colsPropias]);
+  /** Por esta columna se agarra. La entrada no se mueve (nada va antes de ella). */
+  const seArrastraCol = (c: Stage) => colsPropias.includes(c.key) && c.kind !== 'entrada';
+
+  const limpiarDragCol = () => {
+    colAgarrada.current = null;
+    mediosCol.current = [];
+    setArrastrandoCol(null);
+    setInsCol(null);
+    copiaCol.current?.remove();
+    copiaCol.current = null;
+  };
+
+  const agarrarCol = (e: React.DragEvent<HTMLElement>, key: string) => {
+    // Donde se escribe o se clickea no arranca el arrastre: ahí arrastrar significa otra
+    // cosa (seleccionar el título, abrir el menú).
+    if ((e.target as HTMLElement | null)?.closest?.('[data-nodrag]')) { e.preventDefault(); return; }
+    const col = e.currentTarget.closest<HTMLElement>('[data-colprop]');
+    if (!col) return;
+    e.dataTransfer.setData('text/plain', key);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      const vacio = document.createElement('canvas');
+      vacio.width = 1; vacio.height = 1;
+      e.dataTransfer.setDragImage(vacio, 0, 0);
+    } catch { /* si no deja, queda la del navegador */ }
+
+    const r = col.getBoundingClientRect();
+    const clon = col.cloneNode(true) as HTMLElement;
+    Object.assign(clon.style, {
+      position: 'fixed', top: '0', left: '0', width: `${r.width}px`, margin: '0',
+      // La copia se corta: una columna con veinte tarjetas es media pantalla siguiendo al
+      // cursor y tapa justo el lugar donde hay que soltar.
+      maxHeight: '200px', overflow: 'hidden',
+      background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px',
+      boxShadow: '0 18px 40px rgba(18,21,27,.34)', pointerEvents: 'none', zIndex: '3000',
+      transform: `translate3d(${r.left}px, ${r.top}px, 0)`, transition: 'none', opacity: '1',
+    });
+    document.body.appendChild(clon);
+    copiaCol.current = clon;
+
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const seguir = (ev: globalThis.DragEvent) => {
+      if (!copiaCol.current) { document.removeEventListener('dragover', seguir, true); return; }
+      copiaCol.current.style.transform = `translate3d(${ev.clientX - dx}px, ${ev.clientY - dy}px, 0)`;
+    };
+    document.addEventListener('dragover', seguir, true);
+    const fin = () => {
+      document.removeEventListener('dragover', seguir, true);
+      document.removeEventListener('dragend', fin, true);
+      document.removeEventListener('drop', fin, true);
+      copiaCol.current?.remove();
+      copiaCol.current = null;
+    };
+    document.addEventListener('dragend', fin, true);
+    document.addEventListener('drop', fin, true);
+    colAgarrada.current = key;
+    mediosCol.current = [];
+    // A la columna ORIGEN no se le toca el TAMAÑO: se marca. Y va en el tick siguiente,
+    // porque el navegador saca la foto del arrastre al terminar este handler.
+    setTimeout(() => setArrastrandoCol(key), 0);
+  };
+
+  /**
+   * El `dragover` del contenedor, que atiende los DOS gestos.
+   *
+   * ⚠️ EL AUTO-SCROLL VA ACÁ Y NO EN UN `requestAnimationFrame`. Durante un arrastre
+   * nativo el navegador congela rAF Y los timers: medido, 0 px en 1,2 s sobre el borde, y
+   * el único tick llegando DESPUÉS de soltar (AGENTS.md). Lo único que el navegador sigue
+   * entregando es `dragover`. La versión anterior armaba un rAF que no movía nada.
+   *
+   * ⚠️ Y MIRA LAS DOS MANOS. El guard viejo era `if (!el || dragId == null) return`: con
+   * una columna agarrada `dragId` es null, así que ni llegaba a mirar el borde.
+   */
+  const onBoardDragOver = (e: React.DragEvent) => {
+    const el = boardScrollRef.current;
+    if (!el) return;
+    const agarre = colAgarrada.current;
+    if (dragId == null && !agarre) return;
+    const r = el.getBoundingClientRect();
+    const EDGE = 90;
+    const dir = e.clientX < r.left + EDGE ? -1 : e.clientX > r.right - EDGE ? 1 : 0;
+    if (dir !== 0) el.scrollLeft += dir * 18;
+    if (!agarre) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    // Se mide desde el `dragover` y no desde el `dragstart` —el mismo motivo que
+    // `medirSiHaceFalta` en app/plan/board/BoardShell.tsx— y se re-mide sólo si cambió la
+    // CANTIDAD de columnas: `getBoundingClientRect` fuerza layout y acá no puede correr
+    // sesenta veces por segundo. El scroll no invalida nada porque las X son del contenedor.
+    const nodos = el.querySelectorAll<HTMLElement>('[data-colprop]');
+    if (mediosCol.current.length !== nodos.length) {
+      mediosCol.current = [...nodos].map((n) => {
+        const q = n.getBoundingClientRect();
+        return { key: n.dataset.colprop ?? '', x: q.left - r.left + el.scrollLeft + q.width / 2 };
+      });
+    }
+    const x = e.clientX - r.left + el.scrollLeft;
+    const m = mediosCol.current;
+    let idx = m.length;
+    for (let i = 0; i < m.length; i++) { if (x < m[i].x) { idx = i; break; } }
+    // ⚠️ LA MARCA NO PUEDE PROMETER UN LUGAR QUE EL DROP CORRIGE. Las tres bandas van en
+    // una sola fila, así que el cursor puede terminar pasada la última columna de salidas:
+    // el índice se calcula SÓLO sobre las reordenables, y el piso es la entrada.
+    if (idx < pisoCol) idx = pisoCol;
+    // Sólo se repinta cuando el destino CAMBIA: es la diferencia medida entre un arrastre
+    // que se siente bien (4 repintados en todo el gesto) y uno que se ve roto (60 por segundo).
+    setInsCol((p) => (p === idx ? p : idx));
+  };
+
+  const soltarCol = (key: string, destino: number) => {
+    const i = colsPropias.indexOf(key);
+    if (i < 0) return;
+    const resto = colsPropias.filter((k) => k !== key);
+    // El índice se corre uno cuando la columna venía de más a la izquierda, o soltar hacia
+    // la derecha cae un lugar antes. Y nunca por delante de la entrada.
+    const pos = Math.max(pisoCol, i < destino ? destino - 1 : destino);
+    if (pos === i) return;
+    const keys = [...resto.slice(0, pos), key, ...resto.slice(pos)];
+    setOrdenCols({ funnel: funnelActivo, keys });
+    // Si el server lo rechaza, el orden local se cae: dejarlo pintado sería mostrar un
+    // embudo que no existe hasta la próxima recarga.
+    void opEtapa({ op: 'reordenar', keys }).then((r) => { if (!r?.ok) setOrdenCols(null); });
+  };
+
+  /**
+   * Mover una columna UN lugar, con el botón partido de su cabecera.
+   *
+   * ⚠️ PASA POR `soltarCol`, el mismo camino que el arrastre: es el que clampea contra la
+   * entrada, el que pinta optimista y el que devuelve el orden si el server rechaza. Un
+   * segundo camino acá serían dos formas de reordenar que se desincronizan en el primer
+   * ajuste — y el arrastre y el botón se ven en la misma pantalla.
+   *
+   * El `+1` del destino a la derecha compensa que `soltarCol` interpreta el índice como
+   * «antes de esta posición» sobre la lista SIN la columna que viaja.
+   */
+  const moverCol = (key: string, delta: -1 | 1) => {
+    const i = colsPropias.indexOf(key);
+    if (i < 0) return;
+    soltarCol(key, delta < 0 ? i - 1 : i + 2);
+  };
+
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
     const cards = filtered.filter((l) => effStage(l) === c.key);
     const bandC = CATEGORY[bandToCategory(c.band)].c;
+    // Dónde está esta columna entre las reordenables, y si la marca de destino cae acá.
+    const iProp = colsPropias.indexOf(c.key);
+    const marcaCol = insCol == null || iProp < 0
+      ? null
+      : insCol === iProp
+        ? MARCA_COL
+        : insCol === iProp + 1 && iProp === colsPropias.length - 1 ? MARCA_COL_FIN : null;
     return (
       <div key={c.key}
+        /* `data-colprop` marca las columnas que el arrastre reordena: es de donde
+           `onBoardDragOver` saca los puntos medios, así que no es decoración. */
+        data-colprop={iProp >= 0 ? c.key : undefined}
         onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
         onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
-        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none' }}
+        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
             Pedido de Martín: «en el lugar donde hoy está el 14 que estén 3 puntitos para
             opciones de editar esa columna/etapa del funnel. El actual 14 que esté posterior
             al título». El contador es un dato DE la etapa y va pegado a su nombre; el borde
             derecho de una fila es donde el ojo busca las acciones. */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+        {/* ⚠️ EL `draggable` VA EN LA CABECERA, NO EN LA COLUMNA. El div de la columna es el
+            drop target de las TARJETAS: hecho arrastrable, los dos gestos se pisan y agarrar
+            una tarjeta movería la columna. Acá arriba no hay tarjetas.
+            Y el drop lo atiende el CONTENEDOR del tablero, que es el único que sabe entre qué
+            dos columnas quedó el cursor. */}
+        <div
+          draggable={seArrastraCol(c) && renombrando !== c.key}
+          onDragStart={(e) => agarrarCol(e, c.key)}
+          onDragEnd={limpiarDragCol}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)', cursor: seArrastraCol(c) && renombrando !== c.key ? 'grab' : 'default' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
             <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: c.dot }} />
             {renombrando === c.key ? (
               /* El nombre se edita EN SU LUGAR. Un modal para cambiar una palabra es un
                  paso de más, y acá se ve contra las otras columnas mientras se escribe. */
               <input
                 autoFocus
+                data-nodrag
                 defaultValue={c.label}
                 maxLength={MAX_LABEL_ETAPA}
                 onBlur={(e) => guardarNombre(c.key, e.target.value)}
@@ -1395,39 +1673,102 @@ export function CrmBoard({
               />
             ) : (
               <>
-                {/* `title` con el nombre entero: el ellipsis oculta y no hay otra forma de leerlo. */}
-                <span title={c.label} style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+                {/* ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO. Pedido de Martín (29/09/2026): «si le
+                    doy click a un título, dejarme cambiar el nombre» — y el molde del pop-up
+                    de etapas ya tenía resuelto el matiz: «solo si clickeo en el texto del
+                    título de esa etapa debería abrirme el input, no en toda la fila». Por eso
+                    el botón NO estira, y `data-nodrag` para que arrastrar sobre el texto
+                    seleccione en vez de mover la columna.
+                    `title` con el nombre entero: el ellipsis oculta y no hay otra forma de leerlo. */}
+                <button type="button" data-nodrag title={c.label} onClick={() => setRenombrando(c.key)}
+                  style={{ flex: '0 1 auto', minWidth: 0, textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: 0, cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >{c.label}</button>
                 <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
+                {/* ⚠️ EL HUECO VA DESPUÉS DEL CONTADOR, no entre el título y el contador: ahí
+                    el `space-between` le empujaría el número al otro extremo, que es el layout
+                    que Martín pidió cambiar. Y es por donde se agarra para arrastrar. */}
+                <span aria-hidden style={{ flex: 1, alignSelf: 'stretch', minWidth: 8 }} />
               </>
             )}
           </div>
-          {renombrando !== c.key && (
-            /* ⚠️ VA EL `Dropdown` DEL REPO Y NO UN MENÚ PROPIO: el tablero vive dentro de un
-               `overflowX: auto`, así que un menú en flujo normal se recorta contra el borde
-               de la columna. Éste se dibuja por portal. */
-            <Dropdown
-              value=""
-              placeholder="⋯"
-              align="right"
-              resetAfterSelect
-              sinFlecha
-              ariaLabel={`Opciones de la etapa ${c.label}`}
-              buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
-              options={[
-                { value: 'renombrar', label: 'Cambiar el nombre' },
-                { value: 'agregar', label: 'Agregar etapa después' },
-                // Las cuatro terminales están en todos los funnels: se renombran, no se borran.
-                { value: 'eliminar', label: esTerminal(c.key) ? 'No se puede eliminar' : 'Eliminar etapa', disabled: esTerminal(c.key) },
-              ]}
-              onChange={(v) => {
-                if (v === 'renombrar') { setRenombrando(c.key); return; }
-                if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
-                if (v === 'eliminar') void quitarColumna(c);
-              }}
+          {/* ⚠️ EL BOTÓN DOBLE, «que esté en la misma linea y se divida a la mitad… y que
+              cada uno sirva para mover la etapa de lugar. Obvio a los que no se puedan
+              mover, que no tengan esto» (Martín, 30/09/2026). Es la otra forma del gesto
+              del pedido 3: arrastrar sirve, y con 12 columnas y scroll horizontal arrastrar
+              una de punta a punta no. Acá el eje es HORIZONTAL — las etapas del tablero son
+              columnas— y el mismo control lo dibuja vertical el pop-up del embudo.
+
+              Las que no se mueven (las terminales, las de nutrición y la de entrada) no lo
+              llevan: `seArrastraCol` es el MISMO predicado que decide si se puede arrastrar,
+              así que las dos formas del gesto no pueden contradecirse. */}
+          {renombrando !== c.key && seArrastraCol(c) && (
+            <MoverPartido
+              label={c.label}
+              eje="horizontal"
+              puedeAntes={colsPropias.indexOf(c.key) > pisoCol}
+              puedeDespues={colsPropias.indexOf(c.key) < colsPropias.length - 1}
+              onAntes={() => moverCol(c.key, -1)}
+              onDespues={() => moverCol(c.key, 1)}
             />
+          )}
+          {renombrando !== c.key && (
+            /* ⚠️ EL `⋯` QUEDA FUERA DEL AGARRE, y por eso el `<span data-nodrag>`: el
+               `Dropdown` tiene la lista de props cerrada (sin `...rest`), así que el atributo
+               no se le puede pasar. Sin esto, abrir el menú arrastra la columna. */
+            <span data-nodrag style={{ flex: 'none', display: 'inline-flex' }}>
+              {/* ⚠️ VA EL `Dropdown` DEL REPO Y NO UN MENÚ PROPIO: el tablero vive dentro de un
+                 `overflowX: auto`, así que un menú en flujo normal se recorta contra el borde
+                 de la columna. Éste se dibuja por portal. */}
+              <Dropdown
+                value=""
+                placeholder="⋯"
+                align="right"
+                resetAfterSelect
+                sinFlecha
+                ariaLabel={`Opciones de la etapa ${c.label}`}
+                buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+                options={[
+                  { value: 'renombrar', label: 'Cambiar el nombre' },
+                  // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
+                  // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
+                  // mecanismo, y desde el menú de una columna el lugar ya se entiende.
+                  { value: 'agregar', label: 'Agregar etapa' },
+                  // ⚠️ LA OPCIÓN NO EXISTE CUANDO NO SE PUEDE, en vez de dibujarse apagada:
+                  // «si no se puede eliminar, no pongas directamente esa opción, no la dejes en
+                  // gris» (Martín, 29/09/2026). Las cuatro terminales están en todos los
+                  // funnels: se renombran, no se borran — y el que lo hace cumplir es el server
+                  // (`editarEtapaAction` rechaza `eliminar` sobre una terminal), no este array.
+                  ...(esTerminal(c.key) ? [] : [{ value: 'eliminar', label: 'Eliminar etapa' }]),
+                ]}
+                onChange={(v) => {
+                  if (v === 'renombrar') { setRenombrando(c.key); return; }
+                  if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
+                  if (v === 'eliminar') void quitarColumna(c);
+                }}
+              />
+            </span>
           )}
         </div>
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+          {/* ⚠️ EL PLACEHOLDER PASA POR EL MISMO CAMINO QUE SOLTAR UNA TARJETA ACÁ.
+              Pedido de Martín (29/09/2026): «en todas las columnas, siempre al principio un
+              placeholder más finito que las cards normales, que diga Nuevo lead».
+
+              Por qué NO crea el lead «en esta etapa» de una: el alta no acepta una etapa a
+              propósito. Escribir `pipeline_stage` en el alta sería un SEGUNDO escritor que
+              saltea el choke point donde `setPipelineStage` audita TODO movimiento
+              (lib/leads.ts). Y hay columnas donde un alta a ciegas MIENTE: «Nutrición -
+              Manual» pide su plazo, las de reunión abren la agenda, Ganado escribiría una
+              venta sin monto que después cuentan los números de facturación, y Perdido un
+              lead nacido perdido sin motivo. Entrando por `handleDrop`, cada columna abre lo mismo
+              que abre al soltar una tarjeta ahí.
+
+              Apagado y se ilumina al pasar el cursor: el mismo molde que «＋ Nueva tarea» del
+              tablero del plan. El hover lo pone el velo de `.crm-hover button:hover`. */}
+          <button type="button" onClick={() => { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); }}
+            title={`Cargar un lead en ${c.label}`}
+            style={{ flex: 'none', textAlign: 'left', border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--faint)', borderRadius: 11, padding: '7px 13px', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+          >＋ Nuevo lead</button>
           {cards.map((l) => {
             const isGanado = effStage(l) === 'ganado';
             const isManual = effStage(l) === 'manual';
@@ -1440,7 +1781,7 @@ export function CrmBoard({
                 onClick={() => openDetail(l)}
                 draggable
                 onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
-                onDragEnd={() => { setDragId(null); setDragOverCol(null); stopAutoScroll(); }}
+                onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
                 style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -1488,7 +1829,7 @@ export function CrmBoard({
   };
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
       <CrmToolbarStyles />
 
       {/* HEADER — título a la izquierda, UN solo clúster de acciones a la derecha.
@@ -1501,11 +1842,12 @@ export function CrmBoard({
               salía de la pantalla en mobile. */}
           <h1 style={{ fontWeight: 600, fontSize: 'clamp(30px, 6vw, 46px)', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>CRM</h1>
         </div>
+        {/* El pill del CRM automático y su divisor se fueron del header: el interruptor es
+            ahora un renglón del menú de `AccionesHeader` (ver su comentario en CrmToolbar).
+            Este call site se desenchufa acá porque el componente que lo montaba ya no existe. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <CrmAutoToggle />
-          <DivisorHeader />
-          <AccionesHeader total={total} funnelActivo={funnelActivo}
-            onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead(true)}
+          <AccionesHeader
+            onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
             onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
         </div>
       </header>
@@ -1645,18 +1987,31 @@ export function CrmBoard({
               es un dato sobre el tablero, no un reemplazo del tablero. Y sólo cuando hay
               FILTROS puestos se ofrece limpiarlos — con el funnel vacío de verdad, lo que
               corresponde es cargar un lead, no limpiar nada. */}
-          {filtered.length === 0 && (
+          {/* ⚠️ Y LA CONDICIÓN LLEVA `hayFiltros` TAMBIÉN ACÁ, no sólo adentro de
+              `SinResultados`. El componente ya devuelve null sin filtros, pero este `div`
+              se dibujaba igual: un hueco vacío de 14 px entre la barra y las columnas
+              cada vez que el funnel está en cero. */}
+          {filtered.length === 0 && hayFiltros && (
             <div style={{ marginBottom: 14 }}>
               <SinResultados hayFiltros={hayFiltros} onLimpiar={limpiarTodo} />
             </div>
           )}
           {(
-            <div ref={boardScrollRef} onDragOver={onBoardDragOver} onDrop={stopAutoScroll} style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
+            /* ⚠️ EL DROP DE UNA COLUMNA LO ATIENDE ESTE CONTENEDOR, no la columna: es el único
+               que sabe entre qué dos columnas quedó el cursor. El drop de una TARJETA lo sigue
+               atendiendo cada columna y llega acá por burbujeo, donde no hace nada. */
+            <div ref={boardScrollRef} onDragOver={onBoardDragOver}
+              onDrop={(e) => {
+                if (!colAgarrada.current) return;
+                e.preventDefault();
+                const key = e.dataTransfer.getData('text/plain') || colAgarrada.current;
+                const destino = insCol ?? colsPropias.length;
+                limpiarDragCol();
+                if (key) soltarCol(key, destino);
+              }}
+              style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-                {stages
-                  .filter((s) => activeBands.has(s.band ?? 'pipeline'))
-                  .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || ((a.col ?? 0) - (b.col ?? 0)))
-                  .map((c) => renderColumn(c))}
+                {columnasKanban.map((c) => renderColumn(c))}
               </div>
             </div>
           )}
@@ -1684,19 +2039,21 @@ export function CrmBoard({
               </div>
             );
           })}
-          {filtered.length === 0 && (
+          {/* ⚠️ EL AVISO DE «TODAVÍA NO HAY LEADS» SE FUE, el de FILTROS se queda. Pedido de
+              Martín (29/09/2026): «elimina todo el recuadro de Todavía no hay leads para
+              mostrar / Importa un CSV o carga tu primer lead para empezar». Con cero leads y
+              sin filtros la tabla queda con su cabecera y nada debajo, que es lo pedido.
+              El de filtros no es lo mismo: filtrar hasta cero sin que nada lo diga se lee
+              como que la app se rompió, y encima es el único que trae la salida. */}
+          {filtered.length === 0 && hayFiltros && (
             <div style={{ padding: 40, textAlign: 'center' }}>
-              <div style={{ color: 'var(--dim)', fontSize: 14.5 }}>
-                {hayFiltros ? 'Sin resultados para estos filtros' : 'Todavía no hay leads para mostrar'}
-              </div>
-              {/* Misma salida que en el kanban: el aviso sin el botón deja al usuario
-                  buscando a mano cuál de los filtros fue el que vació la lista. */}
-              {hayFiltros && (
-                <button type="button" onClick={limpiarTodo}
-                  style={{ marginTop: 14, padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-                  Limpiar filtros
-                </button>
-              )}
+              <div style={{ color: 'var(--dim)', fontSize: 14.5 }}>Sin resultados para estos filtros</div>
+              {/* El aviso sin el botón deja al usuario buscando a mano cuál de los filtros
+                  fue el que vació la lista. */}
+              <button type="button" onClick={limpiarTodo}
+                style={{ marginTop: 14, padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                Limpiar filtros
+              </button>
             </div>
           )}
         </div>
@@ -1707,7 +2064,7 @@ export function CrmBoard({
       )}
 
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
-      {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
+      {importar && <ImportarLeadsModal funnelId={funnelActivo} onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
       {/* ⚠️ LA SEMILLA VA SÓLO SI EL POP-UP ABRE SOBRE EL EMBUDO QUE SE ESTÁ MIRANDO.
           Desde el desplegable se puede editar OTRO producto sin cambiar de tablero, y
@@ -1727,11 +2084,20 @@ export function CrmBoard({
           ficha no se abre (`selected` la busca en `leads`) y sin el aviso el botón
           se leería como que no hizo nada. */}
       {nuevoLead && (
-        <Modal titulo="Nuevo lead" ancho={720} onCerrar={() => setNuevoLead(false)}>
+        <Modal titulo="Nuevo lead" ancho={720} onCerrar={() => setNuevoLead(null)}>
           <NewLeadForm enModal={{
             funnelId: funnelActivo,
-            onCerrar: () => setNuevoLead(false),
-            onCreado: (id) => { setNuevoLead(false); setSelectedId(id); mostrarAviso('Lead creado'); router.refresh(); },
+            onCerrar: () => setNuevoLead(null),
+            onCreado: (id) => {
+              const etapa = nuevoLead.etapa;
+              setNuevoLead(null);
+              // Desde el placeholder de una columna NO se abre la ficha: el camino de esa
+              // columna puede abrir su propio diálogo (el plazo de la nutrición manual, la
+              // agenda) y la ficha se lo taparía. Lo hace `altaPendiente`.
+              if (etapa) setAltaPendiente({ id, etapa }); else setSelectedId(id);
+              mostrarAviso('Lead creado');
+              router.refresh();
+            },
           }} />
         </Modal>
       )}

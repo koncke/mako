@@ -513,7 +513,9 @@ create index if not exists idx_lp_j1     on lead_participaciones (workspace_id, 
 
 -- El puntero: cuál participación se está ESPEJANDO hoy en `leads`.
 alter table leads add column if not exists participacion_activa_id bigint references lead_participaciones(id) on delete set null;
-alter table leads add column if not exists funnel_id bigint references funnels(id) on delete set null;
+-- ⚠️ `funnel_id` YA EXISTE (mig 0181) y a propósito SIN foreign key. Este `add column if
+--    not exists … references` es un NO-OP silencioso: con la columna puesta, Postgres no
+--    agrega la FK. Dejarlo escrito hace creer que la FK está. Se saca.
 comment on column leads.participacion_activa_id is
   'Qué participación se espeja en las ~35 columnas de recorrido de esta fila. La escribe SOLO lib/participaciones.ts. No se edita a mano.';
 
@@ -563,9 +565,27 @@ where not exists (select 1 from lead_participaciones p where p.lead_id = l.id);
 -- El `where not exists` lo hace RE-EJECUTABLE: se vuelve a correr como último paso
 -- del deploy, para los leads que el código viejo creó entre la migración y el deploy.
 
+-- ⚠️⚠️ ACÁ HABÍA UN `funnel_id = p.funnel_id` Y VACIABA EL CRM DE LOS 6 WORKSPACES.
+-- Medido contra producción el 30/09/2026, antes de que nadie corriera esto:
+--
+--   · `leads.funnel_id` está en NULL en las 1.530 filas de los 6 workspaces con datos
+--     (ws1=1146, ws4=300, ws9=3, ws10=1, ws11=52, ws13=28). La columna existe desde la
+--     0181 y NO LA ESCRIBE NADIE todavía.
+--   · `listLeadsDeFunnel(null)` —el tablero del embudo POR DEFECTO— filtra con
+--     `.is('funnel_id', null)` (lib/leads.ts:302), y `contarLeadsDeFunnel` igual (:320).
+--
+-- O sea que rellenar `funnel_id` con el id del funnel default hace que los 1.530 leads
+-- dejen de matchear el filtro del tablero donde hoy se ven: **el CRM queda en cero para
+-- todo el mundo, sin un error, sin un log y sin una fila borrada**. Es el modo de falla
+-- que esta casa cobra más caro: un cero perfectamente correcto sobre la pregunta
+-- equivocada.
+--
+-- NULL ya SIGNIFICA «el del negocio» (lo dice la propia 0181:22-27). Rellenarlo no agrega
+-- información: la destruye. Si algún día el filtro pasa a ser explícito, el orden es
+-- (1) que el lector acepte `funnel_id is null OR funnel_id = <default>`, (2) desplegar,
+-- (3) recién ahí backfillear. Nunca al revés.
 update leads l
    set participacion_activa_id = p.id,
-       funnel_id = p.funnel_id,
        oferta_id = coalesce(l.oferta_id, p.oferta_id)
   from lead_participaciones p
  where p.lead_id = l.id and p.intento = 1 and l.participacion_activa_id is null;

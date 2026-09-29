@@ -247,7 +247,7 @@ export const RUNNERS: Runners = {
               }
             : { n: null, url: `${APP_BASE_URL}/plan`, ...NULO },
         } : {}),
-        ...(tieneCrm ? { confirmaciones_crm: { n: c.crmAuto, url: `${APP_BASE_URL}/crm`, como: 'Aparecen como aviso al entrar al CRM.', ...nulo(c.crmAuto) } } : {}),
+        ...(tieneCrm ? { confirmaciones_crm: { n: c.crmAuto, url: `${APP_BASE_URL}/crm`, como: 'Aparecen como aviso al entrar al CRM, repartidas por producto.', ...nulo(c.crmAuto) } } : {}),
         bandejas_que_este_negocio_no_tiene: [...(tieneCrm ? [] : ['contactos', 'confirmaciones_crm']), ...(tienePlan ? [] : ['borradores_plan'])],
       });
     },

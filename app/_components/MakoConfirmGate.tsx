@@ -15,6 +15,12 @@
 // número, no tapa nada y se abre cuando él quiere. No se puede esconder del todo
 // —el contador queda—, porque son cambios que alguien tiene que revisar.
 //
+// ⚠️ Y LISTA LO DEL PRODUCTO QUE SE ESTÁ MIRANDO, no lo del workspace. Hasta el
+// 30/09/2026 filtraba sólo por `estado = 'pendiente'`, así que los cambios de un producto
+// se veían parado en cualquier otro: «me sigue apareciendo el mensaje de "MaKo movió 3
+// leads" por más que estoy parado en otro funnel/producto». El corte vive en el SERVER
+// (mako-confirm-actions → listPendientes), y acá sólo se decide QUÉ pedir: ver alcanceDe.
+//
 // Y menos texto. Antes cada ítem traía cuatro líneas: la regla interna («T1»),
 // «MaKo ya lo aplicó — confirma o deshaz» (que repetía lo que dicen los botones)
 // y la descripción de la automatización escrita para quien la programó («R2 del
@@ -22,10 +28,10 @@
 // Facturando…»). Queda lo que hace falta para decidir: QUÉ lead, QUÉ cambió y los
 // dos botones. El porqué sigue estando, a un toque, para cuando algo no cierre.
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { usePathname } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { listConfirmacionesAction, resolverConfirmacionAction } from '../crm/mako-confirm-actions';
+import { listConfirmacionesAction, resolverConfirmacionAction, type AlcanceConfirmaciones } from '../crm/mako-confirm-actions';
 import { esVistaSinChrome } from './PublicRouteGate';
 import type { MakoConfirmacion, ConfOpcion, CambioCampo } from '@/lib/mako-confirmaciones';
 
@@ -96,8 +102,33 @@ function ItemCard({ c, busy, bloqueado, error, onResolve }: { c: MakoConfirmacio
   );
 }
 
-export function MakoConfirmGate() {
+/**
+ * Qué confirmaciones le toca pedir a ESTA pantalla.
+ *
+ * ⚠️ EL PRODUCTO VIAJA EN EL QUERY STRING, NO EN EL PATHNAME. El selector del tablero
+ * navega con `router.push(f?.esDefault ? '/crm' : '/crm?funnel=' + v)` (el `onChange` del
+ * desplegable de productos, en `app/crm/CrmToolbar.tsx`), así que con
+ * `usePathname()` solo no hay forma de saber qué producto se está mirando: es el mismo
+ * `/crm` para los tres. De ahí el `useSearchParams()`.
+ *
+ * Y el pathname sigue decidiendo OTRA cosa: si hay un tablero de producto a la vista.
+ * La tarjeta vive en todo `/crm*`, y `/crm/[id]`, `/crm/revisar` y `/crm/new` no llevan
+ * `?funnel=` — ahí «sin parámetro» NO significa «el producto del negocio», significa que
+ * no se está mirando ningún producto (en la ficha de un lead el funnel que importa es el
+ * DEL LEAD, y `getFunnelDeLead` es todavía un stub). En esas pantallas se muestra todo:
+ * la tarjeta no puede desaparecer, son cambios que alguien tiene que revisar.
+ */
+function alcanceDe(pathname: string | null, funnel: string | null): AlcanceConfirmaciones {
+  if (pathname !== '/crm') return 'todo';
+  const n = Number(funnel);
+  return { funnel: Number.isInteger(n) && n > 0 ? n : null };
+}
+
+function Tarjeta() {
   const pathname = usePathname();
+  // Cruda a propósito: la valida el server contra los funnels del workspace (ver
+  // listConfirmacionesAction). Acá sólo hace falta que dispare el efecto al cambiar.
+  const funnelParam = useSearchParams().get('funnel');
   const router = useRouter();
   // El resumen del lead vive bajo /crm pero se abre desde WhatsApp, en el
   // celular y con la reunión por empezar: no es lugar para esto. Ver esVistaSinChrome.
@@ -109,14 +140,23 @@ export function MakoConfirmGate() {
   // Plegada por defecto: entrar al CRM no puede empezar con una lista de deberes.
   const [abierta, setAbierta] = useState(false);
 
+  // ⚠️ `funnelParam` VA EN LAS DEPS. El selector de producto navega SOFT: cambia el query
+  // y NO el pathname, así que con `[enCrm, pathname]` el efecto no se volvía a disparar y
+  // quedaba en pantalla la lista del producto anterior — que es la mitad del síntoma que
+  // Martín reporta («me sigue apareciendo el mensaje por más que estoy parado en otro
+  // funnel/producto»). La otra mitad era que el server no filtraba.
   useEffect(() => {
     if (!enCrm) return;
     let vivo = true;
-    listConfirmacionesAction()
+    // La lista del producto anterior se va ANTES de pedir la nueva: mientras la action
+    // viaja, «MaKo movió 3 leads» sobre el tablero del producto 2 sigue siendo mentira,
+    // aunque dure 200 ms.
+    setItems([]);
+    listConfirmacionesAction(alcanceDe(pathname, funnelParam))
       .then((r) => { if (vivo) { setItems(r); setCargado(true); } })
       .catch(() => { if (vivo) setCargado(true); });
     return () => { vivo = false; };
-  }, [enCrm, pathname]);
+  }, [enCrm, pathname, funnelParam]);
 
   const resolver = useCallback(async (id: number, decision: string) => {
     if (busy !== null) return; // una resolución a la vez
@@ -166,5 +206,20 @@ export function MakoConfirmGate() {
         {items.map((c) => <ItemCard key={c.id} c={c} busy={busy === c.id} bloqueado={busy !== null} error={err === c.id} onResolve={resolver} />)}
       </div>
     </section>
+  );
+}
+
+/**
+ * El `<Suspense>` es por `useSearchParams()`: sin un boundary, Next corta el prerender de
+ * cualquier ruta estática con «useSearchParams() should be wrapped in a suspense boundary».
+ * Hoy el layout ya lo envuelve (`app/layout.tsx:145`), pero eso es una propiedad de DONDE
+ * está montado y no de este archivo: el día que alguien lo mueve, el build se rompe en otra
+ * pantalla. `fallback={null}` porque la tarjeta plegada no reserva lugar.
+ */
+export function MakoConfirmGate() {
+  return (
+    <Suspense fallback={null}>
+      <Tarjeta />
+    </Suspense>
   );
 }

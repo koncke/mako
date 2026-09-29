@@ -36,7 +36,7 @@ import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
-import { getPipelineStagesDeLead } from '@/lib/funnels';
+import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
@@ -85,7 +85,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const grabacionVigente_ = grabacionVigente(ultimaActividad);
   const urlClarityVigente = grabacionVigente_ ? urlClarityLead : null;
   const grabacionVencida = !!urlClarityLead && !grabacionVigente_;
-  const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction()]);
+  const [respuestas, insightGen, equipo, funnels] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => [])]);
+  // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
+  // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
+  // al navegador.
+  const productos = funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }));
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
@@ -129,7 +133,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
   return (
-    <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
+    <main className="crm-hover" style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
         <BackButton />
         {/* HEADER (nombre + chip + Editar) y tabs viven en LeadDetailBody; la
@@ -148,6 +152,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           chipTone={sm?.tone ?? 'neutral'}
           faltantes={faltantes}
           equipo={equipo}
+          productos={productos}
           tabs={[
             {
               // ⚠️ ESTA PANTALLA ES LA MISMA FICHA QUE EL MODAL, y hasta el 27/09/2026

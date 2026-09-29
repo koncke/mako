@@ -2129,3 +2129,44 @@
     padding-top: 26px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL VELO DE HOVER — «en todos los botones si les paso el cursor debería pasar algo»
+   ══════════════════════════════════════════════════════════════════════════
+   Pedido de Martín (30/09/2026). Medido antes de escribirlo: de los 149 `<button>`
+   de `app/crm/**`, CUATRO reaccionaban al cursor — y cada uno por un mecanismo
+   distinto (dos con `useState(hover)`, uno escribiendo `e.currentTarget.style` a
+   mano, uno que ni siquiera cambia de estilo). Ninguno usaba una clase.
+
+   ⚠️ POR QUÉ `box-shadow` Y NO `background`. De esos 145 botones mudos, **129
+   escriben `background` inline y 129 `color`**, y un estilo en línea le gana a
+   cualquier regla de hoja sin `!important`. Esta casa ya pagó ese error dos veces y
+   lo dejó escrito acá mismo (ver `.mk-tab` más abajo) y en `app/globals.css`. Lo que
+   está LIBRE en los 145: `filter` (0), `outline` (0), `box-shadow` (1) y `transform`
+   (1). El velo se pinta con un `inset` gigante: cubre el fondo que haya —azul, rojo,
+   crema o transparente—, respeta el `border-radius` que trae el inline, y no
+   re-maqueta nada.
+
+   ⚠️ Y VA EN EL CHOKE POINT, no botón por botón: es una regla sobre un CONJUNTO («en
+   TODOS los botones»), así que la clase vive en el `<main>` de cada ruta del CRM y
+   la heredan los botones que todavía no existen. Puesta con un `data-` por botón,
+   cada botón nuevo dependería de que alguien se acuerde — y en dos semanas no.
+
+   LOS CAMINOS QUE NO PASAN POR ACÁ, enumerados:
+    1. `createPortal` se escapa de cualquier ancestro. En el CRM portan el listbox de
+       `SelectorHora` y `Tooltip`. Costo hoy: cero (su único botón ya reacciona).
+    2. Un botón que escriba su propio hover inline le sigue ganando a esto. Si ves uno
+       con dos hovers peleando, el que sobra es el inline.
+    3. Lo deshabilitado y lo decorativo quedan afuera a propósito (los `:not` de abajo):
+       un velo sobre un botón apagado promete una acción que no va a pasar.
+   ══════════════════════════════════════════════════════════════════════════ */
+.crm-hover button,
+.crm-hover [role="button"] {
+  transition: box-shadow .13s ease;
+}
+.crm-hover button:hover:not(:disabled):not([aria-disabled="true"]):not([aria-hidden="true"]),
+.crm-hover [role="button"]:hover:not([aria-disabled="true"]):not([aria-hidden="true"]) {
+  box-shadow: inset 0 0 0 999px var(--velo-hover);
+}
+/* Un botón que YA trae su propia sombra no la pierde: la suya primero, el velo encima. */
+.crm-hover button.mk-btn:hover:not(:disabled) { box-shadow: none; }

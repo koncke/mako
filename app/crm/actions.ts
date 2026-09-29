@@ -52,7 +52,9 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
   type TrackingEvent,
   type RespuestaQA,
   type EstadoLead,
+  moverLeadDeFunnel,
 } from '@/lib/leads';
+import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
@@ -612,7 +614,7 @@ function emptyToNullable<T extends FormDataEntryValue | null>(
  * después. Con el `redirect` adentro, la segunda puerta no se podía escribir sin
  * copiar la validación, que es cómo se desincronizan las dos.
  */
-async function altaDeLead(formData: FormData, funnelId?: number | null): Promise<{ id: number }> {
+async function altaDeLead(formData: FormData, funnelId?: number | null, permitirDuplicado?: boolean): Promise<{ id: number }> {
   const nombre = emptyToNull(formData.get('nombre'));
   if (!nombre) {
     throw new Error('Nombre es requerido');
@@ -632,6 +634,9 @@ async function altaDeLead(formData: FormData, funnelId?: number | null): Promise
     // ⚠️ El lead nace en el tablero DESDE EL QUE SE LO CREÓ. Sin esto se iba al funnel
     // del negocio y desaparecía de la pantalla donde se acababa de cargar.
     funnel_id: funnelId ?? null,
+    // El «Crear igual» de la pantalla de duplicados. Nunca es el default: lo pide una
+    // persona que ya vio con quién choca.
+    permitirDuplicado,
   });
   // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
   // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
@@ -672,11 +677,158 @@ export async function crearProductoAction(nombre: string, canal?: string | null)
   }
 }
 
-export async function crearLeadEnTableroAction(formData: FormData, funnelId?: number | null): Promise<{ id: number } | { error: string }> {
+/**
+ * Lo que la pantalla necesita para OFRECER algo cuando el lead ya existe.
+ *
+ * ⚠️ NO ES UN STRING. Antes esta action devolvía `{ error }` pelado, así que las
+ * coincidencias —que `LeadDuplicadoError` trae adentro justamente para esto— se tiraban
+ * en el `catch` y la pantalla sólo podía mostrar una frase. Sin los ids no hay forma de
+ * ofrecer «abre el que ya tienes» ni «muévelo a este producto», que es lo que pidió
+ * Martín: «que le advierta que el lead ya existe y que le pregunte si lo quiere traer».
+ */
+export type ChoqueDeLead = {
+  error: string;
+  /** Con quién choca. Vacío = el error no es un duplicado. */
+  coincidencias: Array<{ id: number; nombre: string; funnelId: number | null; producto: string | null; motivo: string }>;
+};
+
+/**
+ * Los leads que viven en OTRO producto, para poder traerlos a éste.
+ *
+ * Pedido de Martín: «En nuevo lead me tiene que dar la opción de traer un lead de otro
+ * producto, que esté aparte esa opción claro, no dentro del formulario».
+ *
+ * ⚠️ BUSCA EN EL WORKSPACE Y EXCLUYE EL PRODUCTO ACTUAL, no al revés. Listar «los de los
+ * otros productos» exigiría enumerar los embudos y armar un `in(...)`, y ahí un embudo
+ * ARCHIVADO se queda afuera — y sus leads siguen existiendo con su `funnel_id` apuntando
+ * ahí. Un lead que no aparece en ninguna lista es un lead perdido, así que se excluye el
+ * de acá y entra todo lo demás.
+ */
+export async function leadsDeOtrosProductosAction(q: string, funnelId?: number | null): Promise<Array<{ id: number; nombre: string; email: string | null; telefono: string | null; producto: string | null }>> {
+  const texto = (q ?? '').trim();
+  if (texto.length < 2) return [];
   try {
-    return await altaDeLead(formData, funnelId);
+    const db = await getTenantDb();
+    const funnels = await listarFunnels().catch(() => []);
+    const porId = new Map(funnels.map((f) => [f.id, f.nombre]));
+    const delNegocio = funnels.find((f) => f.esDefault) ?? null;
+    // ⚠️ Los comodines de PostgREST se escapan: `_` y `%` son de lo más común en un email,
+    // y sin escaparlos `juan_perez@x.com` matchea `juanXperez@x.com`. Acá el resultado no
+    // decide identidad —lo elige una persona mirando la lista— pero traer de más igual
+    // esconde al que se buscaba.
+    const patron = '%' + texto.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
+    const { data, error } = await db
+      .from('leads')
+      .select('id, nombre, email, telefono, funnel_id')
+      .or(`nombre.ilike.${patron},email.ilike.${patron},telefono.ilike.${patron}`)
+      .order('id', { ascending: false })
+      .limit(40);
+    if (error) { console.error('[leadsDeOtrosProductos]', error.message); return []; }
+    const actual = funnelId ?? null;
+    return (data ?? [])
+      .filter((l) => ((l.funnel_id as number | null) ?? null) !== actual)
+      .map((l) => ({
+        id: l.id as number,
+        nombre: String(l.nombre ?? '').trim() || 'Sin nombre',
+        email: (l.email as string | null) ?? null,
+        telefono: (l.telefono as string | null) ?? null,
+        producto: (l.funnel_id as number | null) == null ? (delNegocio?.nombre ?? null) : (porId.get(l.funnel_id as number) ?? null),
+      }));
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.' };
+    console.error('[leadsDeOtrosProductos]', e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+export async function crearLeadEnTableroAction(formData: FormData, funnelId?: number | null, permitirDuplicado?: boolean): Promise<{ id: number } | ChoqueDeLead> {
+  try {
+    return await altaDeLead(formData, funnelId, permitirDuplicado);
+  } catch (e) {
+    if (e instanceof LeadDuplicadoError) {
+      // El nombre del producto se resuelve ACÁ y no en `lib/leads`: la lista de embudos
+      // es una lectura del workspace y el módulo de duplicados es puro a propósito.
+      const funnels = await listarFunnels().catch(() => []);
+      const porId = new Map(funnels.map((f) => [f.id, f.nombre]));
+      // ⚠️ `null` ES EL EMBUDO DEL NEGOCIO, no «sin producto». Medido: `leads.funnel_id`
+      // está en NULL en las 1.530 filas de producción, así que éste es el caso NORMAL y
+      // no el raro. Se resuelve al `es_default`, que es donde el tablero los dibuja.
+      const delNegocio = funnels.find((f) => f.esDefault) ?? null;
+      const nombreDe = (fid: number | null) => (fid == null ? delNegocio?.nombre ?? null : porId.get(fid) ?? null);
+      return {
+        error: e.message,
+        coincidencias: e.coincidencias.map((c) => ({
+          id: c.lead.id,
+          nombre: (c.lead.nombre ?? '').trim() || 'Sin nombre',
+          funnelId: c.lead.funnel_id ?? null,
+          producto: nombreDe(c.lead.funnel_id ?? null),
+          motivo: c.texto,
+        })),
+      };
+    }
+    return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.', coincidencias: [] };
+  }
+}
+
+/**
+ * Mueve un lead que ya existe al producto que se está mirando.
+ *
+ * Es la salida del pedido de Martín: «si se detecta que se está agregando un lead nuevo,
+ * pero que ya está en otro funnel… que le pregunte si lo quiere traer».
+ *
+ * ⚠️ MUEVE, NO COPIA — y el botón tiene que decirlo con esa palabra. Hoy el producto de
+ * un lead es UNA columna (`leads.funnel_id`), así que la persona no puede estar en dos
+ * tableros a la vez: traerla acá es sacarla de allá, con su recorrido entero (etapa,
+ * fechas de reunión, montos). Copiarla exigiría que el RECORRIDO sea una entidad aparte
+ * de la PERSONA, que es la tabla que todavía no existe. Decir «traer» sobre un movimiento
+ * destructivo es la clase de promesa que se descubre cuando ya no se puede deshacer.
+ */
+/**
+ * Mover VARIOS leads a un producto, de una.
+ *
+ * Es el «importar leads de otro producto» del pedido 8: traer diez de a uno es la
+ * fricción que el pop-up de importar vino a sacar.
+ *
+ * ⚠️ NO ES ATÓMICO Y LO DICE: devuelve cuántos entraron y cuántos no. Envolverlo en una
+ * transacción exigiría una función en la base; contar y reportar cuesta una línea y no
+ * miente. Lo que NO puede pasar es devolver «listo» sobre diez cuando entraron seis.
+ */
+export async function moverLeadsAFunnelAction(ids: number[], funnelId: number | null): Promise<{ movidos: number; fallaron: number }> {
+  let movidos = 0;
+  let fallaron = 0;
+  const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+  const entrada = cfg.stages.find((st) => st.kind === 'entrada') ?? cfg.stages[0];
+  for (const id of ids) {
+    try {
+      await moverLeadDeFunnel(id, funnelId);
+      // La etapa se escribe aparte y su fallo NO cuenta como fallo del movimiento: el
+      // lead YA cambió de producto, y decir que no se movió mandaría a hacerlo otra vez.
+      if (entrada) await setPipelineStage(id, entrada.key).catch(() => {});
+      movidos += 1;
+    } catch {
+      fallaron += 1;
+    }
+  }
+  bust(TAG.leads);
+  revalidatePath('/crm');
+  return { movidos, fallaron };
+}
+export async function moverLeadAFunnelAction(leadId: number, funnelId: number | null): Promise<{ ok: true } | { error: string }> {
+  try {
+    await moverLeadDeFunnel(leadId, funnelId);
+    // ⚠️ Y ENTRA POR LA PUERTA, no con la etapa que traía. Es literal del pedido («que lo
+    // cargue automáticamente como lead entrante») y además es lo único que no miente: la
+    // etapa de un embudo es una CLAVE suya, y la del embudo A puede no existir en el B.
+    // Sin esto el lead cae en una columna que su nuevo tablero no tiene y se dibuja como
+    // «fuera del embudo» — un lead recién traído que aparece roto.
+    const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+    const entrada = cfg.stages.find((st) => st.kind === 'entrada') ?? cfg.stages[0];
+    // Si el embudo no declara entrada NO se inventa una: mover es el hecho, la etapa es
+    // una comodidad, y escribir una clave al azar sería peor que dejarlo donde cayó.
+    if (entrada) await setPipelineStage(leadId, entrada.key);
+    bust(TAG.leads);
+    revalidatePath('/crm');
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'No se pudo mover el lead.' };
   }
 }
 
@@ -1270,7 +1422,20 @@ export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
 export type ImportLeadsResult = { creados: number; omitidos: number; errores: string[] };
 
 /** Crea los leads de las filas ya revisadas y tildadas por el usuario. */
-export async function importarLeadsRevisadosAction(filas: FilaImport[]): Promise<ImportLeadsResult> {
+/**
+ * ⚠️ RECIBE EL FUNNEL, y hasta el 30/09/2026 no lo recibía: **todo lo importado desde un
+ * producto secundario nacía en el embudo del negocio y desaparecía de la pantalla donde se
+ * lo acababa de importar**. Es el mismo bug que el alta manual ya tenía arreglado
+ * (`altaDeLead` lo pasa desde el 28/09) por el otro camino, y nadie lo cruzó: `createLead`
+ * escribe `funnel_id` y `listLeadsDeFunnel` filtra estricto, así que la fila entraba bien y
+ * el tablero la buscaba en otro lado. Sin error y sin una fila perdida — el peor final
+ * posible para una importación de 200 contactos.
+ *
+ * ⚠️ Y ES OPCIONAL porque uno de los tres llamadores NO TIENE producto a la vista: la
+ * pantalla que confirma lo que propuso un canal (`/crm/revisar`) no sabe a qué tablero van,
+ * y ahí `undefined` significa «el del negocio», que es donde caían todos hasta hoy.
+ */
+export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null): Promise<ImportLeadsResult> {
   if (!Array.isArray(filas) || !filas.length) return { creados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
   if (filas.length > MAX_FILAS_IMPORT) {
     return { creados: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Parte el archivo en dos.`] };
@@ -1325,6 +1490,8 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[]): Promise
         // La persona lo vio marcado como duplicado y lo tildó igual: eso ES la
         // autorización. Sin esto, `createLead` lo volvería a frenar.
         permitirDuplicado: duplicado,
+        // El lead nace en el tablero DESDE EL QUE SE LO IMPORTÓ, igual que en el alta.
+        funnel_id: funnelId ?? null,
       });
       creados++;
       if (email) emailsNuevos.add(email);

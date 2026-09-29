@@ -27,7 +27,6 @@ import type { CanalId } from '@/lib/fase-diagnostico';
 import { declararEntradasAction } from './actions';
 
 const SANS = "'Geist', sans-serif";
-const MONO = "'Geist Mono', ui-monospace, monospace";
 const DIAS = [
   { n: 1, l: 'L' }, { n: 2, l: 'M' }, { n: 3, l: 'X' }, { n: 4, l: 'J' },
   { n: 5, l: 'V' }, { n: 6, l: 'S' }, { n: 0, l: 'D' },
@@ -80,6 +79,14 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
     }
   }
 
+  // ⚠️ EL FONDO DE ESTE PANEL ES `--surface`, NO `--surface-2`, y no es un gusto: desde el
+  // 30/09 vive ADENTRO de la caja de su etapa, que ya es `--surface-2`. Con el mismo token
+  // las tarjetas y los inputs pierden el relleno y quedan flotando con su borde solo, en
+  // los dos temas. Si algún día vuelve a dibujarse suelto, esto se invierte.
+  //
+  // ⚠️ Y SE FUE EL EYEBROW «TU SESIÓN» (MONO, mayúsculas, 10,5 px). Es el patrón de kicker
+  // que AGENTS.md prohíbe para cualquier pieza nueva, y era el único texto en monospace
+  // adentro de una fila. Los tres campos de abajo se presentan solos.
   return (
     <div>
       {/* ⚠️ «Marca hasta tres» VA ARRIBA, no al lado del botón: es la regla de la lista, y
@@ -101,7 +108,7 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
                 display: 'flex', alignItems: 'flex-start', gap: 11, textAlign: 'left', width: '100%',
                 padding: '10px 13px', borderRadius: 10, cursor: 'pointer', fontFamily: SANS,
                 border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border)'),
-                background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
+                background: on ? 'var(--primary-weak)' : 'var(--surface)',
               }}
             >
               <span aria-hidden style={{
@@ -123,12 +130,11 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
           agenda solo, no hay «todos los miércoles» que declarar. */}
       {pideEvento && (
         <div style={{ marginTop: 16, paddingTop: 4 }}>
-          <span style={{ display: 'block', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>Tu sesión</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿Dónde es?</span>
               <input value={lugar} onChange={(ev) => setLugar(ev.target.value)} placeholder="Huayacán, Cancún"
-                style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, width: '100%', boxSizing: 'border-box', fontFamily: SANS }} />
+                style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, width: '100%', boxSizing: 'border-box', fontFamily: SANS }} />
             </label>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -142,7 +148,7 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
                         style={{
                           width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: SANS,
                           border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
-                          background: on ? 'var(--primary)' : 'var(--surface-2)',
+                          background: on ? 'var(--primary)' : 'var(--surface)',
                           color: on ? '#fff' : 'var(--dim)',
                         }}>{d.l}</button>
                     );
@@ -152,12 +158,12 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿A qué hora?</span>
                 <input value={hora} onChange={(ev) => setHora(ev.target.value)} placeholder="19:00" inputMode="numeric"
-                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, width: 90, fontFamily: SANS }} />
+                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, width: 90, fontFamily: SANS }} />
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>¿Hay cupo?</span>
                 <input value={cupo} onChange={(ev) => setCupo(ev.target.value.replace(/\D/g, ''))} placeholder="20" inputMode="numeric"
-                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, width: 90, fontFamily: SANS }} />
+                  style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, width: 90, fontFamily: SANS }} />
               </label>
             </div>
           </div>

@@ -4211,3 +4211,172 @@ rotura sale verde, la primera hipótesis es la rotura — es más barata de comp
 guard, y es la que más veces gana.
 
 **Vive en:** `tests/funnel-estructura.test.ts` · *2026-09-29 crm-embudo-popup*
+
+## Una receta de migración escrita en un documento ES código (30/09/2026)
+
+El hallazgo más caro de la tanda, y no estaba en ningún `.ts`: estaba en
+`docs/modelo-oferta-producto-funnel.md`, listo para copiar y pegar.
+
+```sql
+update leads l
+   set participacion_activa_id = p.id,
+       funnel_id = p.funnel_id,          -- ⬅ esta línea
+  from lead_participaciones p ...
+```
+
+Y `listLeadsDeFunnel(null)` —el tablero del embudo POR DEFECTO— filtra con
+`.is('funnel_id', null)` (`lib/leads.ts:302`). Medido contra producción: **`leads.funnel_id`
+está en NULL en las 1.530 filas de los 6 workspaces con datos**. O sea que correr ese
+backfill hace que ninguno matchee el filtro: **el CRM queda en cero para todo el mundo**,
+sin un error, sin un log y sin una fila borrada.
+
+Nadie lo había corrido. Pero el documento tenía el `where not exists` que lo hace
+re-ejecutable, el orden de los pasos y el comentario de cuándo re-correrlo — o sea, estaba
+escrito para que alguien lo ejecutara. **Un SQL en un documento no es una nota: es una
+instrucción con la autoridad del repo**, y el que la siga dentro de tres semanas no va a
+tener el contexto de por qué esa columna en NULL es un valor y no un hueco.
+
+**La regla: lo que se documenta como ejecutable se audita como código.** El guard barre
+`supabase/migrations/` **y** `docs/` buscando un `update leads … set … funnel_id =`, y
+falla. Y va con su pareja: un segundo guard fija que el lector siga tratando NULL como el
+embudo del negocio — si eso cambia, el backfill deja de ser peligroso y el primer guard
+estaría prohibiendo algo inocente. Los dos se leen juntos o ninguno se entiende.
+
+⚠️ Y de paso, en el mismo bloque: `alter table leads add column if not exists funnel_id
+… references funnels(id)`. La columna YA existe (mig 0181) y a propósito **sin** foreign
+key, así que con la columna puesta Postgres **no agrega la FK**: es un no-op silencioso que
+deja creyendo que la restricción está.
+
+⚠️ **Y EL GUARD SE ACUSÓ A SÍ MISMO en el mismo commit que lo escribió.** Esta entrada que
+estás leyendo pega el SQL culpable adentro de un bloque de código —para eso existe una
+autopsia— y el barrido la marcó: 2.687 tests, 1 rojo, sobre un documento. Es el tercer caso
+del mismo día de «un guard que mira la PALABRA no distingue el código del texto que lo
+explica», que este repo ya tenía escrito dos veces (`FunnelEditor`, «Cómo entran»). Los
+`docs/hallazgos-*.md` se excluyen por NOMBRE, con el porqué al lado — y se verificó que el
+guard siga cazando el caso real devolviendo el backfill al documento del modelo: 9 / 1.
+
+**Vive en:** `docs/modelo-oferta-producto-funnel.md` · `lib/leads.ts` ·
+`tests/leads-por-producto.test.ts` · *2026-09-30 crm-tanda-4*
+
+## `funnel_id = null` y el id del embudo por defecto son EL MISMO LUGAR (30/09/2026)
+
+Es la trampa que hace que todo lo de arriba importe, y muerde en cada pantalla nueva que
+quiera decir «en qué producto está esto».
+
+El aviso de duplicados es el caso: para poder ofrecer «muévelo aquí» hay que saber si el
+lead que choca está en OTRO producto. Comparar los dos números crudos
+(`lead.funnel_id !== funnelActual`) diría «está en otro producto» sobre **cada lead que
+existe hoy** — porque los 1.530 tienen NULL y el tablero del negocio es el que los dibuja.
+O sea que ofrecería mover al tablero donde ya están.
+
+Va normalizando los DOS lados a `null` antes de comparar (`enOtroProducto`, en
+`lib/leads-duplicados.ts`, sin `server-only` para que se pueda testear). Y hay un tercer
+valor que no es ninguno de los dos: **`undefined`**, que es lo que devuelve la columna
+cuando la consulta no la pidió — `LISTA_COLS` no la trae, porque el tablero filtra en el
+server. `undefined` es «no sé», y leerlo como «está en otro lado» es el mismo bug con otra
+cara.
+
+**Vive en:** `lib/leads-duplicados.ts` · `lib/leads.ts` · *2026-09-30 crm-tanda-4*
+
+## Lo IMPORTADO no llevaba el producto, y el alta sí: el mismo bug arreglado por un solo camino (30/09/2026)
+
+`altaDeLead` pasa `funnel_id` desde el 28/09 con el comentario puesto («sin esto se iba al
+funnel del negocio y desaparecía de la pantalla donde se acababa de cargar»).
+`importarLeadsRevisadosAction` **no recibía el funnel**, así que todo CSV importado desde
+un producto secundario nacía en el embudo del negocio y desaparecía de la pantalla donde se
+lo acababa de importar. Doscientos contactos, sin un error.
+
+**La regla, que es la de la casa vista desde el otro lado:** cuando arregles algo en UN
+camino de escritura, enumerá los otros. `leads.funnel_id` tiene exactamente dos escritores
+(`app/crm/actions.ts` y `lib/leads.ts:createLead`) y son el mismo punto — lo que cambia es
+quién lo llama. Un `grep` del campo los lista en un segundo, y el que faltaba estaba a 800
+líneas del que ya estaba bien.
+
+⚠️ Y el parámetro quedó OPCIONAL a propósito: de los tres llamadores, la pantalla que
+confirma lo que propuso un canal (`/crm/revisar`) **no tiene ningún producto a la vista**.
+Ahí `undefined` significa el del negocio, que es donde caían todos hasta hoy.
+
+**Vive en:** `app/crm/actions.ts` · `app/crm/ImportarLeadsModal.tsx` ·
+*2026-09-30 crm-tanda-4*
+
+## «Traer un lead de otro producto» no puede pasar por la tabla de revisión (30/09/2026)
+
+El camino obvio para «importar leads de otro producto» es reusar la tabla de revisión del
+importador: la misma pantalla, la misma confirmación. **Llega muerta**, y el porqué es una
+cadena de tres piezas que ninguna es un bug:
+
+1. `indiceContactos` (`app/crm/importar-server.ts`) escanea la tabla `leads` del tenant
+   **sin filtro de funnel** — correcto, porque un duplicado lo es en todo el workspace.
+2. Por eso todo lead traído de otro producto llega con `motivo: 'duplicado'` — correcto,
+   porque efectivamente ya existe.
+3. Y `TablaRevisionLeads` no deja tildar una fila con motivo (`disabled={fuera}`) — que
+   también tiene su razón.
+
+Resultado: la lista entera llega atenuada y destildable, y el botón dice «No hay nada
+tildado» sobre gente que existe. El server ya aceptaba el caso (`permitirDuplicado`); lo
+que no lo aceptaba era la pantalla.
+
+**Por eso el segundo origen NO pasa por ahí**: no hay nada que revisar. Son leads que ya
+existen y sólo cambian de tablero. Y **mueve, no copia** — con el producto viviendo en una
+sola columna, traer a alguien acá es sacarlo de allá.
+
+⚠️ **Y entra por la etapa de ENTRADA del embudo destino**, no con la que traía: la etapa es
+una CLAVE del embudo A y puede no existir en el B. Conservarla dibuja al lead recién traído
+como «fuera del embudo», que es la peor bienvenida posible. Es además lo que se pidió
+(«que lo cargue automáticamente como lead entrante»), así que acá el pedido y lo correcto
+coincidieron — conviene decirlo, porque no siempre pasa.
+
+**Vive en:** `app/crm/ImportarLeadsModal.tsx` · `app/crm/actions.ts` ·
+*2026-09-30 crm-tanda-4*
+
+## Una persona con DOS visitor_id pierde el segundo, y ya pasa (30/09/2026)
+
+Medido antes de diseñar nada, y es el dato que decide si el pedido de «otra campaña, otro
+anuncio, otro VSL» es real o teórico:
+
+| | |
+|---|---|
+| visitantes que miraron **más de una landing** | **750** |
+| visitantes que miraron más de un video | 8 (el ws1 tiene 2 videos) |
+| leads del ws1 con `visitor_id` | 59 de 1.146 |
+| leads del ws1 con `meta_ad_id` | **1.030** de 1.146 |
+| `visitor_id` compartido por más de un lead | sí, hasta 3 |
+
+`leads.visitor_id` es **una columna**. Que un visitor_id esté en tres leads se ve en una
+consulta; lo que **no se puede ver** es lo contrario —una persona con dos visitas—, porque
+el segundo valor no tiene dónde guardarse. Y `app/api/track/vsl/route.ts` lo hace
+explícito: `if (error || !lead || lead.visitor_id) return;` — **la segunda cookie se
+descarta en silencio**.
+
+O sea que el recorrido por producto no falta por falta de pantalla: falta porque el dato no
+se está guardando. Y la atribución tiene dos caminos con coberturas muy distintas (5% por
+visitor_id contra 90% por `meta_ad_id`), así que cualquier diseño que se apoye sólo en el
+tracking de landing mide el 5% de los leads.
+
+**Vive en:** `lib/leads.ts` · `app/api/track/vsl/route.ts` · *2026-09-30 crm-tanda-4*
+
+## El modelo que falta: la PERSONA es una fila, el RECORRIDO es otra cosa (30/09/2026)
+
+Tres diseños independientes y un juez, sobre «un lead en varios productos». Gana
+`lead_participaciones` (una fila por lead × funnel × intento) y **se descarta explícitamente**
+la alternativa barata —duplicar la fila del lead por producto— por una razón medida:
+
+Con dos filas por persona, `email` y `telefono_normalizado` dejan de ser únicos, y ésas son
+la llave de **seis `.maybeSingle()` que TIRAN** (no que degradan): `lib/leads.ts:813, 822,
+899, 909, 1247, 1256` — las puertas de ingesta de Meta y Calendly. Más `email_opt_out`
+partido en dos, que es una baja legal aplicada a media persona.
+
+El plan quedó en cuatro fases, y **la fase 1 no necesita ninguna migración** (es la que se
+hizo en esta tanda: el aviso por producto, el dedup entre productos y mover con su etapa de
+entrada). Lo que falta, con las decisiones que no son técnicas, está en el veredicto de la
+corrida; las cuatro preguntas son: si el traído conserva la etapa equivalente, si se puede
+traer cualquiera o sólo los cerrados, si sacar de un producto cierra el recorrido o lo
+borra, y si el mapa de páginas y videos por producto lo declara el cliente o se suma todo.
+
+⚠️ **Y lo que hay que contar antes de empezar:** quién cuenta leads hoy y qué pasa con su
+número. `_listLeads` (7 llamadores, workspace entero) cuenta PERSONAS y tiene que seguir
+contándolas, o MaKo duplica al contestar «cuántos leads tengo». `cohortes_maduras_count` es
+al revés: por participación es correcto y por persona es falso. No es el mismo cambio para
+los dos.
+
+**Vive en:** `docs/modelo-oferta-producto-funnel.md` · *2026-09-30 crm-tanda-4*

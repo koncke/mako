@@ -1150,7 +1150,7 @@ curl -s "https://hola-mako.com/api/v1/crm/propuestas_lead_pendientes" -H "Author
 
 ### `GET /api/v1/crm/confirmaciones_crm_automatico` — Cambios automáticos por confirmar
 
-Lo que el CRM automático de MaKo ya aplicó o propone y espera que una persona confirme, rechace o elija una opción (no-show detectado por Fathom, nutrición manual vencida, reactivación): id, lead, regla, título, cambios campo por campo y opciones. Es lo que muestra el aviso al entrar al CRM. El id es el que pide resolver_confirmacion_crm. Tope de 100.
+Lo que el CRM automático de MaKo ya aplicó o propone y espera que una persona confirme, rechace o elija una opción (no-show detectado por Fathom, nutrición manual vencida, reactivación): id, lead, regla, título, cambios campo por campo y opciones. Son TODAS las del negocio; el aviso del CRM muestra sólo las del producto que se está mirando, así que su número puede ser menor. El id es el que pide resolver_confirmacion_crm. Tope de 100.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json

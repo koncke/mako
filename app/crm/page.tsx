@@ -209,7 +209,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       marcar={marcar}
       marcarAviso={pendientesAviso}
       transitions={transitions}
-      total={leads.length}
       errorMsg={errorMsg}
       hoy={hoy}
       equipo={equipo}

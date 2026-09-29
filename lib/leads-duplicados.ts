@@ -37,6 +37,19 @@ export type LeadExistente = {
   nombre: string | null;
   email: string | null;
   telefono_normalizado: string | null;
+  /**
+   * EN QUÉ PRODUCTO está. `null` = en el del negocio.
+   *
+   * ⚠️ VIAJA PARA QUE EL AVISO PUEDA NOMBRARLO: «ya lo tienes» y «ya lo tienes EN OTRO
+   * PRODUCTO» son dos hechos distintos y llevan a dos decisiones distintas. Sin esto, a
+   * quien carga un lead en su segundo embudo se le dice que está duplicado sobre una
+   * pantalla donde no lo ve, que se lee como que la app se equivoca.
+   *
+   * ⚠️ Y ES OPCIONAL a propósito: los tres lectores de este módulo que comparan en
+   * memoria (el importador, los webhooks) no traen la columna, y exigirla los rompería
+   * sin que el aviso mejore para ellos.
+   */
+  funnel_id?: number | null;
 };
 
 /**
@@ -51,6 +64,20 @@ export type Coincidencia = {
   /** Cómo decírselo a una persona, sin jerga. */
   texto: string;
 };
+
+/**
+ * ¿La coincidencia está en OTRO producto que el que se está mirando?
+ *
+ * ⚠️ `null` Y EL ID DEL EMBUDO POR DEFECTO SON EL MISMO LUGAR. Medido contra producción el
+ * 30/09/2026: `leads.funnel_id` está en NULL en las 1.530 filas de los 6 workspaces, y el
+ * tablero del embudo del negocio los lista justamente con `is('funnel_id', null)`. Comparar
+ * los dos números crudos diría «está en otro producto» sobre cada lead del negocio.
+ */
+export function enOtroProducto(c: Coincidencia, funnelActual: number | null | undefined): boolean {
+  const suyo = c.lead.funnel_id ?? null;
+  const mirando = funnelActual ?? null;
+  return suyo !== mirando;
+}
 
 const limpio = (s: unknown): string => (typeof s === 'string' ? s.trim() : '');
 
@@ -162,12 +189,15 @@ export function buscarDuplicados(cand: CandidatoLead, existentes: LeadExistente[
  * nombre y un teléfono exactos, y un dato exacto que pasa por un LLM deja de
  * serlo.
  */
-export function textoDuplicado(cs: Coincidencia[]): string {
+export function textoDuplicado(cs: Coincidencia[], producto?: string | null): string {
   if (!cs.length) return '';
   const c = cs[0];
   const quien = limpio(c.lead.nombre) || 'un contacto sin nombre';
   const resto = cs.length > 1 ? ` (y ${cs.length - 1} más)` : '';
-  return `Ya tienes a «${quien}»${resto} con el ${c.texto.replace(/^mismo /, '')}.`;
+  // ⚠️ El producto entra sólo si el que llama lo supo resolver. Un «en» colgando de la
+  // nada es peor que no decirlo, y el techo de un aviso es una frase.
+  const donde = producto ? ` en ${producto}` : '';
+  return `Ya tienes a «${quien}»${resto}${donde} con el ${c.texto.replace(/^mismo /, '')}.`;
 }
 
 /** El error que frena el alta cuando hay un duplicado y nadie lo autorizó.
@@ -177,8 +207,8 @@ export function textoDuplicado(cs: Coincidencia[]): string {
  *  ofrecer «abrí el que ya tenés», que es lo primero que uno quiere hacer. */
 export class LeadDuplicadoError extends Error {
   readonly coincidencias: Coincidencia[];
-  constructor(coincidencias: Coincidencia[]) {
-    super(textoDuplicado(coincidencias));
+  constructor(coincidencias: Coincidencia[], producto?: string | null) {
+    super(textoDuplicado(coincidencias, producto));
     this.name = 'LeadDuplicadoError';
     this.coincidencias = coincidencias;
   }

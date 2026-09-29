@@ -21,6 +21,7 @@ import type { MiembroEquipo } from '../actions';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditLeadForm } from './EditLeadForm';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
+import { ProductoDelLead, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
@@ -55,7 +56,7 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [], equipo = [] }: {
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [], equipo = [], productos = [] }: {
   lead: Lead;
   stages: Stage[];
   pagos: Pago[];
@@ -76,6 +77,14 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   faltantes?: Step[];
   /** Equipo del workspace (para los desplegables de setter/closer del wizard). */
   equipo?: MiembroEquipo[];
+  /**
+   * Los productos del workspace, para el desplegable de «en cuál vive este lead».
+   *
+   * Pedido de Martín: «Dentro del detail de un lead debería salir el mismo desplegable
+   * de productos». Con uno solo no se dibuja: un desplegable de una opción promete una
+   * decisión que no existe.
+   */
+  productos?: ProductoOpcion[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -184,6 +193,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       {/* Dropdown de etapa + Editar, juntos arriba a la derecha. */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {/* El producto va ANTES de la etapa: la etapa es una posición DENTRO de un
+              embudo, así que leer «Mentoría · Agenda R1» en ese orden es leer la frase
+              completa. Al revés, la etapa cuelga de un embudo que todavía no se nombró. */}
+          <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} />
           {stageSelector}
           {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
         </div>

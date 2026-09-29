@@ -22,9 +22,9 @@
 // (no el archivo). El server vuelve a validar todo contra la base.
 // =============================================================================
 
-import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type DragEvent } from 'react';
 import { WizardShell } from '../_components/WizardShell';
-import { importarLeadsRevisadosAction } from './actions';
+import { importarLeadsRevisadosAction, leadsDeOtrosProductosAction, moverLeadsAFunnelAction } from './actions';
 import { TablaRevisionLeads } from './TablaRevisionLeads';
 import {
   ACCEPT_IMPORT, MENSAJE_PLANILLA,
@@ -40,12 +40,37 @@ const peso = (n: number): string => (n < 1024 * 1024 ? `${Math.max(1, Math.round
 const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' };
 
 
-export function ImportarLeadsModal({ onListo, onClose }: {
+export function ImportarLeadsModal({ onListo, onClose, funnelId = null }: {
   /** Se llama al terminar la importación, con el resumen para avisar arriba. */
   onListo: (resumen: string) => void;
   onClose: () => void;
+  /**
+   * El producto que se está mirando. `null` = el del negocio.
+   *
+   * ⚠️ LO NECESITA EL SEGUNDO ORIGEN («traer de otro producto») para saber de dónde NO
+   * traer y a dónde llevar. Y deja escrito un agujero que no es de este pedido: la
+   * importación desde archivo tampoco lo pasa al server, así que un CSV importado desde
+   * un producto secundario nace en el embudo del negocio y desaparece de la pantalla
+   * donde se lo acaba de importar. Eso se arregla en `importarLeadsRevisadosAction`,
+   * que tiene TRES llamadores y uno de ellos (la revisión de lo que propuso un canal)
+   * no tiene ningún producto a la vista.
+   */
+  funnelId?: number | null;
 }) {
   const [paso, setPaso] = useState(0);
+  /**
+   * De dónde vienen los leads. «Traer de otro producto» es un ORIGEN, no un paso más:
+   * «que dentro del pop-up que aparece, me de la opción de importar leads de otro
+   * producto, para que sea fácil» (Martín, 30/09/2026).
+   *
+   * ⚠️ Y NO PASA POR LA TABLA DE REVISIÓN, a propósito. Esa tabla marca `duplicado` todo
+   * lo que ya existe en el workspace —`indiceContactos` no filtra por funnel— y su UI no
+   * deja tildar una fila con motivo (`TablaRevisionLeads`: `disabled={fuera}`). O sea que
+   * los leads traídos de otro producto llegarían TODOS atenuados y destildables, y el
+   * botón diría «No hay nada tildado». Acá no hay nada que revisar: son leads que ya
+   * existen y sólo cambian de tablero.
+   */
+  const [origen, setOrigen] = useState<'archivo' | 'producto'>('archivo');
   const [file, setFile] = useState<File | null>(null);
   const [sobre, setSobre] = useState(false);
   const [filas, setFilas] = useState<FilaImport[]>([]);
@@ -97,7 +122,7 @@ export function ImportarLeadsModal({ onListo, onClose }: {
   const importar = () => {
     setCargando(true);
     setErr(null);
-    importarLeadsRevisadosAction(filas)
+    importarLeadsRevisadosAction(filas, funnelId)
       .then((r) => {
         if (!r.creados && r.errores.length) { setErr(r.errores[0]); setCargando(false); return; }
         const extra = r.errores.length ? ` · ${r.errores.length} con error` : '';
@@ -113,6 +138,26 @@ export function ImportarLeadsModal({ onListo, onClose }: {
   const puede = paso === 0 ? !!file && !err : c.tildadas > 0;
 
   // ── Paso 1: el archivo ─────────────────────────────────────────────────────
+
+  const pasoOrigen = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Los dos caminos, en el mismo lugar: subir algo, o traer de otro tablero. */}
+      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', borderRadius: 999, padding: 3 }}>
+        {([['archivo', 'Desde un archivo'], ['producto', 'De otro producto']] as Array<['archivo' | 'producto', string]>).map(([k, txt]) => (
+          <button key={k} type="button" onClick={() => { setOrigen(k); setErr(null); }}
+            style={{
+              border: 'none', background: origen === k ? 'var(--surface)' : 'transparent',
+              color: origen === k ? 'var(--ink)' : 'var(--dim)', fontWeight: origen === k ? 600 : 500,
+              fontSize: 13.5, padding: '7px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS,
+              boxShadow: origen === k ? '0 1px 2px rgba(18,21,27,.08)' : 'none',
+            }}>{txt}</button>
+        ))}
+      </div>
+      {origen === 'archivo' ? pasoArchivo() : (
+        <TraerDeProducto funnelId={funnelId} onListo={onListo} />
+      )}
+    </div>
+  );
 
   const pasoArchivo = () => (
     <div style={{ fontFamily: SANS }}>
@@ -169,11 +214,11 @@ export function ImportarLeadsModal({ onListo, onClose }: {
       ancho={paso === 0 ? 640 : 940}
       titulo={paso === 0 ? 'Importar leads' : `Importar leads · ${filas.length} fila${filas.length === 1 ? '' : 's'}`}
       total={2} idx={paso}
-      pregunta={paso === 0 ? '¿Qué archivo quieres importar?' : '¿Está bien lo que va a entrar?'}
+      pregunta={paso === 1 ? '¿Está bien lo que va a entrar?' : origen === 'archivo' ? '¿Qué archivo quieres importar?' : '¿A quién traes?'}
       sub={paso === 1 ? 'Corrige lo que haga falta y tilda qué se crea.' : undefined}
       error={err}
       pending={cargando}
-      puedeAvanzar={puede}
+      puedeAvanzar={origen === 'producto' && paso === 0 ? false : puede}
       enUltimo={enUltimo}
       confirmLabel={c.tildadas > 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →` : 'No hay nada tildado'}
       siguienteLabel="Revisar →"
@@ -183,7 +228,92 @@ export function ImportarLeadsModal({ onListo, onClose }: {
       onConfirmar={() => { if (puede && !cargando) importar(); }}
       onClose={onClose}
     >
-      {paso === 0 ? pasoArchivo() : pasoRevisar()}
+      {paso === 0 ? pasoOrigen() : pasoRevisar()}
     </WizardShell>
+  );
+}
+
+/**
+ * Traer leads que ya están en OTRO producto.
+ *
+ * ⚠️ MUEVE, NO COPIA, y el botón lo dice con esa palabra: el producto de un lead es UNA
+ * columna, así que traerlo acá es sacarlo de allá. Y entra como lead entrante, que es lo
+ * que se pidió y lo único que no miente — la etapa del otro embudo es una clave SUYA y
+ * puede no existir en éste.
+ */
+function TraerDeProducto({ funnelId, onListo }: { funnelId: number | null; onListo: (resumen: string) => void }) {
+  const [q, setQ] = useState('');
+  const [filas, setFilas] = useState<Array<{ id: number; nombre: string; email: string | null; telefono: string | null; producto: string | null }>>([]);
+  const [sel, setSel] = useState<number[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [moviendo, startMover] = useTransition();
+
+  // Con retraso, y descartando lo que llegó tarde: sin eso la respuesta de «ju» puede
+  // pisar a la de «juan» y la lista muestra lo que ya no se buscó.
+  useEffect(() => {
+    const texto = q.trim();
+    if (texto.length < 2) { setFilas([]); return; }
+    let vivo = true;
+    setBuscando(true);
+    const t = setTimeout(() => {
+      void leadsDeOtrosProductosAction(texto, funnelId)
+        .then((r) => { if (vivo) setFilas(r); })
+        .catch(() => { if (vivo) setFilas([]); })
+        .finally(() => { if (vivo) setBuscando(false); });
+    }, 250);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [q, funnelId]);
+
+  const alternar = (id: number) => setSel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus
+        placeholder="Nombre, email o teléfono"
+        style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+      {/* «No encontré nada» y «todavía no busqué» son respuestas distintas: la segunda no
+          se dibuja, porque un vacío apenas se abre se lee como que no hay nadie. */}
+      {q.trim().length >= 2 && !buscando && filas.length === 0 && (
+        <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--faint)' }}>Nadie con esos datos en tus otros productos.</span>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+        {filas.map((l) => {
+          const on = sel.includes(l.id);
+          return (
+            <button key={l.id} type="button" onClick={() => alternar(l.id)} aria-pressed={on}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', width: '100%',
+                padding: '10px 13px', borderRadius: 10, cursor: 'pointer', fontFamily: SANS,
+                border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border)'),
+                background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
+              }}>
+              <span aria-hidden style={{
+                flex: 'none', width: 17, height: 17, borderRadius: 5,
+                border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
+                background: on ? 'var(--primary)' : 'transparent',
+                color: '#fff', fontSize: 12, lineHeight: '15px', textAlign: 'center',
+              }}>{on ? '✓' : ''}</span>
+              <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.nombre}</span>
+              <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.email || l.telefono || ''}</span>
+              <span style={{ flex: 1 }} />
+              {l.producto && <span style={{ flex: 'none', fontSize: 12.5, color: 'var(--faint)' }}>{l.producto}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {sel.length > 0 && (
+        <button type="button" disabled={moviendo}
+          onClick={() => startMover(async () => {
+            const r = await moverLeadsAFunnelAction(sel, funnelId);
+            // ⚠️ Se dice lo que ENTRÓ y lo que no. «Listo» sobre diez cuando entraron seis
+            // manda a buscar los cuatro a un tablero donde no están.
+            const falla = r.fallaron ? ` · ${r.fallaron} no se pudieron mover` : '';
+            onListo(`✓ ${r.movidos} lead${r.movidos === 1 ? '' : 's'} traído${r.movidos === 1 ? '' : 's'}${falla}`);
+          })}
+          style={{ alignSelf: 'flex-start', padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: moviendo ? 'default' : 'pointer', opacity: moviendo ? 0.7 : 1 }}>
+          {moviendo ? 'Moviendo…' : `Mover ${sel.length} aquí`}
+        </button>
+      )}
+    </div>
   );
 }

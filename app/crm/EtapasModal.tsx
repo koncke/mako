@@ -42,7 +42,8 @@ import {
   type EmbudoEnDetalle, type EtapaDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
 } from './actions';
 import { EmbudoEntradas } from './EmbudoEntradas';
-import { LapizIcon } from './iconos';
+import { CerrarIcon, LapizIcon } from './iconos';
+import { MoverPartido } from './MoverPartido';
 
 const SANS = "'Geist', sans-serif";
 
@@ -65,6 +66,7 @@ function AccionFila({ etiqueta, onClick, disabled, children }: {
     >{children}</button>
   );
 }
+
 
 /** El loader. Nunca la palabra «Cargando…»: un texto no dice que algo está pasando. */
 function Cargando() {
@@ -356,9 +358,17 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
     });
   };
 
+  /**
+   * La CAJA de una etapa: envuelve la fila Y lo que cuelga del lápiz.
+   *
+   * «Si abro un desplegable, todo lo de abajo lo tiene que englobar el recuadro, sino, no
+   * se entiende» (29/09/2026). Antes el fondo y el radio vivían en la fila y el panel
+   * colgaba DEBAJO, sin fondo y separado por el `gap: 4` de la lista: dos bloques sueltos.
+   */
+  const caja: CSSProperties = { borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' };
+  /** La fila va TRANSPARENTE: el fondo lo pone la caja, o volveríamos a tener dos. */
   const fila: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px',
-    borderRadius: 10, background: 'var(--surface-2)',
   };
 
   return (
@@ -460,78 +470,108 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
             >
               {etapas.map((e, i) => (
               <Fragment key={e.key}>
-                <div data-etapa draggable={!esEntrada(e)}
-                  onDragStart={(ev) => agarrar(ev, e.key)}
-                  onDragEnd={limpiarDrag}
-                  style={{
-                    ...fila,
-                    cursor: esEntrada(e) ? 'default' : 'grab',
-                    // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
-                    outline: arrastrando === e.key ? '1px solid var(--border-strong)' : 'none',
-                    ...(ins === i ? MARCA : ins === i + 1 && i === etapas.length - 1 ? MARCA_FIN : null),
-                  }}>
-                  <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
-                  {renombrando === e.key ? (
-                    <input
-                      autoFocus defaultValue={e.label} maxLength={MAX_LABEL_ETAPA} data-nodrag
-                      onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
-                      onKeyDown={(ev) => {
-                        if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
-                        if (ev.key === 'Escape') setRenombrando(null);
-                      }}
-                      style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '4px 8px', outline: 'none' }}
-                    />
-                  ) : (
-                    // ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO: «solo si clickeo en el texto del
-                    // título de esa etapa debería abrirme el input, no en toda la fila».
-                    // Por eso el botón NO estira: el hueco lo llena un span, que además es
-                    // por donde se agarra para arrastrar.
-                    <>
-                      <button type="button" data-nodrag onClick={() => setRenombrando(e.key)}
-                        title={`Cambiar el nombre de ${e.label}`}
-                        style={{ flex: 'none', maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: '4px 0', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                      >{e.label}</button>
-                      <span style={{ flex: 1 }} />
-                    </>
-                  )}
-                  {/* ⚠️ LA ENTRADA LLEVA LÁPIZ, NO FLECHAS NI ✕: no se mueve, nada va antes,
-                      y no se puede quitar —sin ella el embudo no tiene por dónde entrar—.
-                      Tres controles apagados dicen lo mismo que uno útil, pero se leen como
-                      que la app está rota. El lápiz abre cómo entra la gente. */}
-                  {esEntrada(e) ? (
-                    <AccionFila etiqueta={`Configurar por dónde entra la gente a ${e.label}`}
-                      disabled={trabajando} onClick={() => setEntradasAbierto((v) => !v)}>
-                      <LapizIcon />
-                    </AccionFila>
-                  ) : (<>
-                    <AccionFila etiqueta={`Subir ${e.label}`} disabled={trabajando || i <= pisoDelOrden}
-                      onClick={() => mover(e.key, -1)}>↑</AccionFila>
-                    <AccionFila etiqueta={`Bajar ${e.label}`} disabled={trabajando || i === etapas.length - 1}
-                      onClick={() => mover(e.key, 1)}>↓</AccionFila>
-                    <AccionFila etiqueta={`Quitar ${e.label}`} disabled={trabajando}
-                      onClick={() => quitarEtapa(e)}>✕</AccionFila>
-                  </>)}
-                </div>
-                {/* ⚠️ EL PANEL CUELGA DE SU FILA, no del final de la lista: «desde allí
-                    debería salir el desplegable para configurar». Suelto abajo, después de
-                    «Agregar etapa», no se entendía de qué etapa hablaba — y se abre desde
-                    un lápiz que está cuatro filas más arriba.
+                {/* ⚠️ EL RADIO, EL FONDO, LA MARCA DEL ARRASTRE Y EL BORDE DEL NODO AGARRADO
+                    VIVEN ACÁ, en el envoltorio, no en la fila: son lo que hace que la fila y
+                    el panel se lean como UNA caja. Si `MARCA_FIN` se quedara en la fila, con
+                    el panel abierto la línea de destino se dibujaría en el MEDIO de la caja.
 
-                    ⚠️ Y ESPERA AL SERVER, no lo pinta la semilla: el tablero no sabe qué
-                    entradas están declaradas, y dibujar las casillas vacías le diría a un
-                    negocio que las declaró que no tiene ninguna. */}
-                {esEntrada(e) && entradasAbierto && !emb && <Cargando />}
-                {esEntrada(e) && entradasAbierto && emb && (
-                  <div style={{ padding: '4px 4px 10px 11px' }}>
-                    <span style={{ display: 'block', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>Cómo entra tu gente</span>
-                    <EmbudoEntradas
-                      key={`${emb.id}:${emb.entradas.join(',')}`}
-                      initial={emb.entradas} initialEvento={emb.evento} canal={extras?.canal ?? null}
-                      funnelId={funnelId ?? undefined}
-                      onGuardado={() => { void cargar(); setEntradasAbierto(false); router.refresh(); }}
-                    />
+                    ⚠️ Y `data-etapa` / `draggable` se quedan ADENTRO, en la fila: los puntos
+                    medios del drop salen de `querySelectorAll('[data-etapa]')` y con el panel
+                    abierto el envoltorio mide ~300 px, así que la marca apuntaría a otro
+                    lugar. */}
+                <div style={{
+                  ...caja,
+                  // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
+                  outline: arrastrando === e.key ? '1px solid var(--border-strong)' : 'none',
+                  ...(ins === i ? MARCA : ins === i + 1 && i === etapas.length - 1 ? MARCA_FIN : null),
+                }}>
+                  <div data-etapa draggable={!esEntrada(e)}
+                    onDragStart={(ev) => agarrar(ev, e.key)}
+                    onDragEnd={limpiarDrag}
+                    style={{ ...fila, cursor: esEntrada(e) ? 'default' : 'grab' }}>
+                    <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
+                    {renombrando === e.key ? (
+                      <input
+                        autoFocus defaultValue={e.label} maxLength={MAX_LABEL_ETAPA} data-nodrag
+                        onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
+                        onKeyDown={(ev) => {
+                          if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
+                          if (ev.key === 'Escape') setRenombrando(null);
+                        }}
+                        style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '4px 8px', outline: 'none' }}
+                      />
+                    ) : (
+                      // ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO: «solo si clickeo en el texto del
+                      // título de esa etapa debería abrirme el input, no en toda la fila».
+                      // Por eso el botón NO estira: el hueco lo llena un span, que además es
+                      // por donde se agarra para arrastrar.
+                      <>
+                        <button type="button" data-nodrag onClick={() => setRenombrando(e.key)}
+                          title={`Cambiar el nombre de ${e.label}`}
+                          style={{ flex: 'none', maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: '4px 0', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >{e.label}</button>
+                        <span style={{ flex: 1 }} />
+                      </>
+                    )}
+                    {/* ⚠️ LA ENTRADA LLEVA LÁPIZ, NO FLECHAS NI ✕: no se mueve, nada va antes,
+                        y no se puede quitar —sin ella el embudo no tiene por dónde entrar—.
+                        Tres controles apagados dicen lo mismo que uno útil, pero se leen como
+                        que la app está rota. El lápiz abre cómo entra la gente.
+
+                        ⚠️ Y CUANDO ESTÁ ABIERTO, EL LÁPIZ ES LA ✕ DE CERRAR: «si le doy al
+                        lapiz, debería aparecer una X de cerrar, y si cierro ahí nuevamente el
+                        lapiz». No hace falta estado nuevo —el toggle es el mismo
+                        `entradasAbierto`—, así que el TERCER camino que cierra el panel
+                        (guardar, que llama `onGuardado`) también devuelve el lápiz solo. Y la
+                        etiqueta cambia con el ícono: `AccionFila` usa el mismo string para el
+                        `aria-label` y el `title`, y una ✕ que dice «Configurar» miente. */}
+                    {esEntrada(e) ? (
+                      <AccionFila
+                        etiqueta={entradasAbierto
+                          ? `Cerrar cómo entra la gente a ${e.label}`
+                          : `Configurar por dónde entra la gente a ${e.label}`}
+                        disabled={trabajando} onClick={() => setEntradasAbierto((v) => !v)}>
+                        {entradasAbierto ? <CerrarIcon /> : <LapizIcon />}
+                      </AccionFila>
+                    ) : (<>
+                      {/* Las condiciones son las de siempre: nada sube por encima de la entrada
+                          (`pisoDelOrden`) y la última no baja. Lo nuevo es que las dos viven en
+                          UN control partido, y que si ninguna sirve no se dibuja nada. */}
+                      <MoverPartido label={e.label} trabajando={trabajando}
+                        puedeAntes={i > pisoDelOrden} puedeDespues={i !== etapas.length - 1}
+                        onAntes={() => mover(e.key, -1)} onDespues={() => mover(e.key, 1)} />
+                      <AccionFila etiqueta={`Quitar ${e.label}`} disabled={trabajando}
+                        onClick={() => quitarEtapa(e)}><CerrarIcon /></AccionFila>
+                    </>)}
                   </div>
-                )}
+                  {/* ⚠️ EL PANEL CUELGA DE SU FILA, no del final de la lista: «desde allí
+                      debería salir el desplegable para configurar». Suelto abajo, después de
+                      «Agregar etapa», no se entendía de qué etapa hablaba — y se abre desde
+                      un lápiz que está cuatro filas más arriba.
+
+                      ⚠️ Y ESPERA AL SERVER, no lo pinta la semilla: el tablero no sabe qué
+                      entradas están declaradas, y dibujar las casillas vacías le diría a un
+                      negocio que las declaró que no tiene ninguna.
+
+                      ⚠️ LAS DOS RAMAS VAN ADENTRO DE LA CAJA, la del giro incluida: si el
+                      `<Cargando />` quedara afuera, la caja se abriría vacía y saltaría cuando
+                      llega el server.
+
+                      Y NO LLEVA RÓTULO. Tenía un «Cómo entra tu gente» arriba y Martín lo marcó
+                      como informal: el lápiz de esta fila ya dijo de qué se trata, y adentro la
+                      primera línea es la regla de la lista. */}
+                  {esEntrada(e) && entradasAbierto && !emb && <Cargando />}
+                  {esEntrada(e) && entradasAbierto && emb && (
+                    <div style={{ padding: '2px 11px 12px' }}>
+                      <EmbudoEntradas
+                        key={`${emb.id}:${emb.entradas.join(',')}`}
+                        initial={emb.entradas} initialEvento={emb.evento} canal={extras?.canal ?? null}
+                        funnelId={funnelId ?? undefined}
+                        onGuardado={() => { void cargar(); setEntradasAbierto(false); router.refresh(); }}
+                      />
+                    </div>
+                  )}
+                </div>
               </Fragment>
               ))}
 
@@ -539,10 +579,6 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                   mínimo que me pida el nombre de la nueva etapa». */}
               <NuevaEtapa disabled={trabajando} onCrear={(label) => aplicar({ op: 'agregar', label })} />
             </div>
-
-            {/* «Cómo entran» cuelga del LÁPIZ de la etapa de entrada: «desde allí debería
-                salir el desplegable para configurar». Estaba suelto al final de la lista, y
-                ahí no se entendía de qué etapa hablaba. */}
           </>
         )}
 

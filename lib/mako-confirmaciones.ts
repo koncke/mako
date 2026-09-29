@@ -99,8 +99,54 @@ export async function crearConfirmacion(input: CrearConfirmacionInput): Promise<
   return true;
 }
 
-/** Confirmaciones pendientes del workspace actual (más viejas primero). */
-export async function listPendientes(): Promise<MakoConfirmacion[]> {
+/**
+ * El PRODUCTO que se está mirando, para acotar la lista a lo suyo.
+ *
+ * ⚠️ `mako_confirmaciones` no sabe de funnels: sus columnas (mig 0068) son
+ * workspace + lead + la regla, y `lead_id` no tiene FK a `leads`, así que el funnel
+ * NO se puede traer con un embed de PostgREST («could not find a relationship»). Se
+ * resuelve con una segunda consulta a `leads` y se cruza en memoria.
+ */
+export type ProductoALaVista = {
+  /**
+   * `null` = el embudo del NEGOCIO. Es la MISMA asimetría que `listLeadsDeFunnel`
+   * (`lib/leads.ts:313`): el tablero por defecto pide los leads con
+   * `funnel_id IS NULL` —que hoy son los 1.530 de los 6 workspaces— y con un id pide
+   * sólo los suyos. Filtrar por «el id de la fila es_default» dejaría la tarjeta
+   * VACÍA para todo el mundo, porque nadie escribe ese id en un lead.
+   */
+  funnelId: number | null;
+  /**
+   * Los embudos SECUNDARIOS que hoy se pueden mirar (los `activo` y no `es_default`).
+   *
+   * ⚠️ EL DEFAULT SE DEJA AFUERA A PROPÓSITO, y no es un descuido de nombre: un lead con
+   * `funnel_id = <id del default>` no matchearía ni `funnelId = null` ni ningún secundario,
+   * y su confirmación quedaría invisible en TODOS los tableros. Con el default fuera de
+   * esta lista cae en la misma rama que un embudo archivado y se muestra en el tablero del
+   * negocio, que es donde alguien la va a ver.
+   *
+   * ⚠️ Y NO ES HIPOTÉTICO DESDE EL 30/09/2026. Las dos escrituras del alta guardan
+   * `?? null` (`app/crm/actions.ts:636` y `lib/leads.ts:601`), pero `moverLeadDeFunnel`
+   * (`lib/leads.ts:554`) escribe el id CRUDO, y el desplegable de producto de la ficha
+   * (`app/crm/lead-view/ProductoDelLead.tsx`) manda a propósito el del default cuando se
+   * mueve un lead «al del negocio». Ese lead deja de aparecer en cualquier tablero
+   * (`listLeadsDeFunnel(null)` filtra con `.is('funnel_id', null)`) y su confirmación,
+   * gracias a esta línea, sigue saliendo en el del negocio — visible antes que perdido.
+   * Es la misma divergencia que el comentario de la mig 0181 describe al revés.
+   */
+  secundarios: readonly number[];
+};
+
+/**
+ * Confirmaciones pendientes del workspace actual (más viejas primero).
+ *
+ * ⚠️ SIN ARGUMENTO NO FILTRA, y eso NO es pereza: tiene tres llamadores y dos son de
+ * la API de MaKo (`lib/api-mako/areas/crm.run.ts:305` y `:612`), que no está parada en
+ * ningún producto. El segundo además VALIDA el id antes de resolver, así que un filtro
+ * por default le haría contestar «La confirmación #N no está pendiente» sobre una que sí
+ * lo está — un falso negativo en un camino que ESCRIBE.
+ */
+export async function listPendientes(deProducto?: ProductoALaVista): Promise<MakoConfirmacion[]> {
   const supabase = await getTenantDb();
   const { data, error } = await supabase
     .from('mako_confirmaciones')
@@ -109,10 +155,68 @@ export async function listPendientes(): Promise<MakoConfirmacion[]> {
     .order('created_at', { ascending: true })
     .limit(100);
   if (error) return [];
-  return (data ?? []) as MakoConfirmacion[];
+  const filas = (data ?? []) as MakoConfirmacion[];
+  if (!deProducto || filas.length === 0) return filas;
+  return acotarAlProducto(supabase, filas, deProducto);
 }
 
-/** Cantidad de confirmaciones pendientes del workspace actual. */
+/**
+ * Deja sólo las confirmaciones del producto que se está mirando.
+ *
+ * ⚠️ EL CORTE VA ACÁ Y NO EN EL CLIENTE. Bajar las 100 y esconder las ajenas es contar
+ * lo de otro producto por la puerta de atrás, y además el contador de la tarjeta diría
+ * un número que no se corresponde con la lista.
+ *
+ * ⚠️ `SIN_PRODUCTO`: una confirmación cuyo lead ya no existe —`mako_confirmaciones.lead_id`
+ * no tiene FK y `deleteLead` borra de verdad (`lib/leads.ts:780`), así que las huérfanas son
+ * posibles— o que apunta a un embudo archivado, NO se puede atribuir a nadie. Y no puede
+ * desaparecer en silencio, porque es un cambio que MaKo ya aplicó y que alguien tiene que
+ * revisar. Se muestra en el tablero del NEGOCIO (el que se abre sin `?funnel=`, o sea el que
+ * nadie puede evitar), nunca en un producto secundario: ahí volvería a ser el bug que esto
+ * cierra. Es además lo que la mig 0181 declara querer para esos leads («se comporta igual
+ * que un NULL», `:41-44`) — el tablero todavía no lo cumple, y esta tarjeta sí.
+ */
+async function acotarAlProducto(
+  supabase: Awaited<ReturnType<typeof getTenantDb>>,
+  filas: MakoConfirmacion[],
+  { funnelId, secundarios }: ProductoALaVista,
+): Promise<MakoConfirmacion[]> {
+  // `Number(...)` en las dos puntas: son columnas `bigint` y el día que un driver las
+  // devuelva como texto («13») el `===` sería false SIEMPRE — un filtro que no encuentra
+  // nada se lee como que la tarjeta dejó de funcionar.
+  const ids = [...new Set(filas.map((c) => Number(c.lead_id)))];
+  const { data, error } = await supabase.from('leads').select('id, funnel_id').in('id', ids);
+  if (error) {
+    // No poder leer el embudo de un lead no es «no es de este producto»: se abstiene y
+    // muestra todo. Esconder un cambio de MaKo por una lectura caída es la dirección
+    // equivocada del error, y sin esta línea no quedaría rastro de por qué.
+    console.error(`[mako-conf] no se pudo resolver el embudo de ${ids.length} leads: ${error.message}`);
+    return filas;
+  }
+  const deLead = new Map<number, number | null>();
+  for (const l of (data ?? []) as Array<{ id: number; funnel_id: number | null }>) {
+    deLead.set(Number(l.id), l.funnel_id == null ? null : Number(l.funnel_id));
+  }
+  const mirables = new Set(secundarios);
+  const delNegocio = funnelId == null;
+  return filas.filter((c) => {
+    const lead = Number(c.lead_id);
+    if (!deLead.has(lead)) return delNegocio;               // el lead ya no está → SIN_PRODUCTO
+    const suyo = deLead.get(lead) ?? null;
+    if (suyo == null) return delNegocio;                    // sin embudo = del negocio
+    if (!mirables.has(suyo)) return delNegocio;             // archivado o el default → SIN_PRODUCTO
+    return suyo === funnelId;
+  });
+}
+
+/**
+ * Cantidad de confirmaciones pendientes del workspace actual.
+ *
+ * ⚠️ HOY TIENE CERO CALL SITES, y si alguien la cablea a una pantalla que muestra UN
+ * producto tiene que recibir `ProductoALaVista` igual que `listPendientes` — un contador
+ * del workspace al lado de una lista de un producto es exactamente el bug del 30/09/2026
+ * («me sigue apareciendo "MaKo movió 3 leads" parado en otro funnel»).
+ */
 export async function contarPendientes(): Promise<number> {
   try {
     const supabase = await getTenantDb();

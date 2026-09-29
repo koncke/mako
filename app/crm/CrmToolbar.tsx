@@ -26,10 +26,16 @@ import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from
 
 const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
+import { Switch } from '@/app/_ui/Toggle';
+import { Tooltip } from '@/app/_ui/Tooltip';
+// El «?» sale del CATÁLOGO (`help`): un ícono dibujado a mano es un segundo lugar
+// donde vive el mismo dibujo, y el que se queda viejo es el de acá.
+import { Icon } from '@/app/_components/icons';
 
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
 import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction } from './actions';
+import { useCrmAuto } from './CrmAutoToggle';
 import { LapizIcon } from './iconos';
 
 const SANS = "'Geist', sans-serif";
@@ -105,10 +111,32 @@ function useEscape(activo: boolean, cerrar: () => void) {
 // flecha para el otro lado y no se distinguían sin pasar el mouse por encima —
 // además, con cada acción nueva el header crecía a lo ancho.
 
+/**
+ * El layout que comparten las DOS clases de renglón del menú: la que es un botón (una
+ * acción) y la que no puede serlo (la del interruptor). Va en un solo lugar porque si
+ * cada una escribe su propio estilo se desalinean solas en el primer cambio.
+ *
+ * ⚠️ EL HOVER SE QUEDA EN ESTADO DE REACT aunque el velo global ya exista
+ * (`.crm-hover button:hover` en app/_ui/ui.css). Dos razones: (1) acá el hover no es
+ * solo el fondo, también tiñe el ícono a --primary, que el velo no puede hacer; (2) el
+ * velo solo alcanza a `button` y a `[role=button]`, y el renglón del interruptor no es
+ * ninguno de los dos — sin este fondo, ese renglón sería el único sin hover.
+ */
+function useFilaMenu() {
+  const [hover, setHover] = useState(false);
+  const style: CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+    padding: '9px 10px', borderRadius: 10, border: 'none', cursor: 'pointer',
+    background: hover ? 'var(--surface-2)' : 'transparent', fontFamily: SANS, textDecoration: 'none',
+  };
+  const handlers = { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) };
+  return { hover, style, handlers };
+}
+
 function MenuItem({ icon, label, desc, onClick, href }: {
   icon: ReactNode; label: string; desc: string; onClick?: () => void; href?: string;
 }) {
-  const [hover, setHover] = useState(false);
+  const { hover, style, handlers } = useFilaMenu();
   const inner = (
     <>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: hover ? 'var(--primary)' : 'var(--dim)' }}>{icon}</span>
@@ -118,32 +146,63 @@ function MenuItem({ icon, label, desc, onClick, href }: {
       </span>
     </>
   );
-  const style: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
-    padding: '9px 10px', borderRadius: 10, border: 'none', cursor: 'pointer',
-    background: hover ? 'var(--surface-2)' : 'transparent', fontFamily: SANS, textDecoration: 'none',
-  };
-  const handlers = { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) };
   return href
     ? <Link href={href} style={style} onClick={onClick} {...handlers}>{inner}</Link>
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ total, onImportar, onExportar, onNuevo, onEditarEtapas }: {
-  /** leads del workspace (no los filtrados): con 0, importar es el camino crítico. */
-  total: number;
-  /**
-   * Cuál funnel está mirando el tablero. Ya no viaja a ninguna URL: lo usa el tablero
-   * para saber qué embudo abre el pop-up.
-   *
-   * ⚠️ HASTA EL 28/09/2026 ESTO ERA UN LINK A /funnel, y ahí vivía una trampa que vale la
-   * pena dejar escrita porque es la que se acaba de eliminar de raíz: el CRM viaja con
-   * `?funnel=` y /funnel leía `?f=`, dos convenciones para el mismo id. Pasarlo con el
-   * nombre equivocado abría el funnel del negocio, sin que el editor diera ninguna pista
-   * de cuál había abierto. Con el pop-up adentro del CRM no hay URL en el medio, así que
-   * no hay dos nombres que mantener de acuerdo.
-   */
-  funnelActivo?: number | null;
+/**
+ * El renglón del menú que lleva un interruptor en vez de disparar una acción.
+ *
+ * ⚠️ NO ES UN <button>, Y NO PUEDE SERLO. El `Switch` de app/_ui ya es un
+ * `<button role="switch">`: uno dentro de otro es marcado inválido, y el click del hijo
+ * burbujea al padre, así que el interruptor se dispararía dos veces (una por el Switch,
+ * otra por el renglón). Es el mismo arreglo que ya hizo el renglón con acciones del
+ * Dropdown (app/components/Dropdown.tsx, «CON ACCIONES, el renglón NO puede ser un
+ * botón»): control y texto son hermanos, y el hover lo maneja la fila.
+ *
+ * ⚠️ TAMPOCO LLEVA role="menuitemcheckbox". Hoy NINGÚN hijo del `role="menu"` declara
+ * su rol: ponerle uno solo a este deja un menú de un único ítem para el lector de
+ * pantalla, que es peor que ninguno. Se los pone a los cuatro juntos o a ninguno.
+ *
+ * ⚠️ EL «?» NO ES LA ÚNICA FUENTE DE LA EXPLICACIÓN, a propósito. La regla del repo
+ * (app/_ui/Tooltip.tsx) dice que un tooltip «nunca» lleva una instrucción necesaria: en
+ * un teléfono no hay hover y lo que solo vive ahí desaparece. Así que qué hace el CRM
+ * automático se escribe en el renglón de abajo, SIEMPRE visible, y el «?» agrega nada
+ * más el detalle de cada estado. (El pill viejo tenía esto en un `title=`: la misma
+ * falla, invisible al toque.)
+ *
+ * El interruptor ocupa el lugar del cuadrito del ícono de los otros renglones: es el
+ * ícono de este. Sin recuadro alrededor — un borde por renglón convierte el menú en
+ * una lista de cajas.
+ */
+function MenuSwitch({ titulo, desc, ayuda, checked, disabled, onChange }: {
+  titulo: string;
+  /** La explicación, visible siempre. También es donde aparece el error. */
+  desc: ReactNode;
+  /** El detalle de más que cuelga del «?». Nada indispensable. */
+  ayuda: ReactNode;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const { style, handlers } = useFilaMenu();
+  return (
+    <div {...handlers} style={{ ...style, cursor: 'default' }}>
+      {/* `titulo` va como string y no como JSX: el Switch saca de ahí su `aria-label`
+          (app/_ui/Toggle.tsx) y con un ReactNode se queda sin rótulo. El pill anunciaba
+          «CRM automático, presionado»; ahora anuncia «CRM automático, activado». */}
+      <Switch checked={checked} disabled={disabled} onChange={onChange} label={titulo} hint={desc} />
+      {/* El «?» queda fuera del a11y tree: lo que dice ya está escrito en el renglón de
+          abajo, así que anunciarlo dos veces es ruido. */}
+      <Tooltip text={ayuda}>
+        <span aria-hidden style={{ display: 'inline-flex', alignSelf: 'flex-start', marginTop: 7, color: 'var(--faint)' }}><Icon name="help" size={14} /></span>
+      </Tooltip>
+    </div>
+  );
+}
+
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas }: {
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
@@ -152,13 +211,9 @@ export function AccionesHeader({ total, onImportar, onExportar, onNuevo, onEdita
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
-  const vacio = total === 0;
-
-  const secundario: CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 15px',
-    borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)',
-    color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
-  };
+  // El estado vive acá arriba, no dentro del panel: colgado del panel, cada vez que se
+  // abre el menú saldría un GET nuevo a /api/crm-auto.
+  const crmAuto = useCrmAuto();
 
   return (
     <div className="crm-acciones" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -171,7 +226,10 @@ export function AccionesHeader({ total, onImportar, onExportar, onNuevo, onEdita
         {open && <>
           <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
           <div role="menu" style={{ position: 'absolute', top: 44, right: 0, zIndex: 41, width: 306, maxWidth: 'calc(100vw - 32px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: 7, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <MenuItem icon={<UploadIcon size={15} />} label="Importar CSV"
+            {/* «Que ya no se llame "Importar csv"... Que simplemente sea "Importar
+                leads"»: el pop-up ya se llamaba así, era el menú el que prometía un
+                formato cuando el importador lee planilla, PDF, foto y documento. */}
+            <MenuItem icon={<UploadIcon size={15} />} label="Importar leads"
               desc="Un archivo con nombre, email, teléfono y empresa"
               onClick={() => { setOpen(false); onImportar(); }} />
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
@@ -185,17 +243,31 @@ export function AccionesHeader({ total, onImportar, onExportar, onNuevo, onEdita
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
               desc="Cambia el nombre, el orden y cuáles hay"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
+            {/* ⚠️ EL DIVISOR VA ADENTRO DE LA CONDICIÓN. Suelto, el que no es admin
+                (para quien /api/crm-auto responde 403 y `on` queda en null) vería una
+                rayita separando la nada — que es exactamente lo que pasaba en el header
+                con el pill y su divisor sin condicionar. */}
+            {crmAuto.on != null && <>
+              <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
+              <MenuSwitch titulo="CRM automático"
+                desc={crmAuto.err
+                  ? <span style={{ color: 'var(--bad)' }}>{crmAuto.err}</span>
+                  : 'MaKo mueve los leads solo'}
+                ayuda={crmAuto.on
+                  ? 'Mueve leads y deja confirmaciones.'
+                  : 'Solo mira: no mueve ningún lead.'}
+                checked={crmAuto.on} disabled={crmAuto.busy} onChange={() => crmAuto.toggle()} />
+            </>}
           </div>
         </>}
       </span>
 
-      {/* Con el CRM vacío, importar deja de ser una acción secundaria: es LA acción.
-          Sube a botón visible al lado del primario y vuelve al menú cuando ya hay leads. */}
-      {vacio && (
-        <button type="button" onClick={onImportar} style={secundario}>
-          <UploadIcon size={15} /> Importar CSV
-        </button>
-      )}
+      {/* ⚠️ ACÁ HABÍA UN BOTÓN «Importar CSV» CON EL CRM VACÍO, y se fue el 29/09/2026.
+          «Elimina el botón de "Importar csv", para eso ya están los 3 puntos de arriba
+          del todo». Era la MISMA acción que el renglón del menú, con el mismo handler.
+          De paso se lleva un bug: su condición era `total === 0`, y `total` no son los
+          leads del workspace sino los del embudo que se está mirando, así que un
+          producto nuevo hacía aparecer el botón con 1.146 leads en la base. */}
 
       {/* ⚠️ UN BOTÓN, NO UN LINK (27/09/2026). Navegaba a /crm/new y al volver se
           perdían el filtro, la búsqueda y el scroll, y se releían los 1.142 leads —
@@ -208,10 +280,9 @@ export function AccionesHeader({ total, onImportar, onExportar, onNuevo, onEdita
   );
 }
 
-/** Divisor entre el toggle de MaKo y el clúster de acciones (son dos cosas distintas). */
-export function DivisorHeader() {
-  return <span aria-hidden style={{ flex: 'none', width: 1, height: 20, background: 'var(--border)' }} />;
-}
+// ⚠️ ACÁ VIVÍA `DivisorHeader`, el divisor entre el pill del CRM automático y el clúster
+// de acciones. Se fue con el pill: el interruptor es ahora un renglón del menú, así que
+// en el header no quedan dos cosas distintas que separar.
 
 // =============================================================================
 // B) Barra: selector de vista, buscador, bandas
@@ -370,10 +441,11 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
         <div style={{ position: 'absolute', top: 46, left: 0, zIndex: 41, width: 262, maxWidth: 'calc(100vw - 32px)', maxHeight: 420, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
           {abierto === 'root' ? (
             <>
+              {/* Sin hover propio: el velo global (`.crm-hover button:hover` en
+                  app/_ui/ui.css) ya lo pone. Escribirlo acá con e.currentTarget.style
+                  le gana a la regla y quedan dos hovers peleando. */}
               {cats.map((c) => (
-                <button key={c.key} type="button" onClick={() => setAbierto(c.key)} style={catRow}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                <button key={c.key} type="button" onClick={() => setAbierto(c.key)} style={catRow}>
                   <span style={{ fontWeight: 600 }}>{c.label}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                     <span style={resumenTxt(c.activo)} title={c.resumen}>{c.resumen}</span>
@@ -747,22 +819,29 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
 }
 // ── vacío por filtros (kanban): antes solo la tabla avisaba ──────────────────
 export function SinResultados({ hayFiltros, onLimpiar }: { hayFiltros: boolean; onLimpiar: () => void }) {
+  // ⚠️ SIN FILTROS NO DIBUJA NADA. «Elimina todo el recuadro de "Todavía no hay leads
+  // para mostrar / Importa un CSV o carga tu primer lead para empezar"». Un tablero vacío
+  // ya se ve vacío, y las dos salidas que el cartel nombraba («+ Nuevo lead», «Importar
+  // leads») están arriba a la derecha, a la vista.
+  //
+  // La rama de FILTROS se queda: filtrar hasta cero y no recibir ningún aviso se lee como
+  // que el tablero se rompió, y es el único lugar donde se cuenta que se puede buscar por
+  // número de lead.
+  if (!hayFiltros) return null;
   return (
     <div style={{ padding: '44px 30px', textAlign: 'center', background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 16 }}>
       <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
-        {hayFiltros ? 'Sin resultados para estos filtros' : 'Todavía no hay leads para mostrar'}
+        Sin resultados para estos filtros
       </div>
       <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>
         {/* El momento en que uno está trabado es EL momento para contar que se puede
             buscar por número: decirlo solo en el placeholder llega tarde. */}
-        {hayFiltros ? 'Prueba con menos filtros, otras palabras sueltas, o el número del lead (#412).' : 'Importa un CSV o carga tu primer lead para empezar.'}
+        Prueba con menos filtros, otras palabras sueltas, o el número del lead (#412).
       </div>
-      {hayFiltros && (
-        <button type="button" onClick={onLimpiar}
-          style={{ marginTop: 16, padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-          Limpiar filtros
-        </button>
-      )}
+      <button type="button" onClick={onLimpiar}
+        style={{ marginTop: 16, padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+        Limpiar filtros
+      </button>
     </div>
   );
 }

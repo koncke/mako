@@ -166,8 +166,11 @@ export default async function RootLayout({
                     hay que abrir no avisa (ver AlertaVozMaKo). */}
                 {esAdmin && <AlertaVozMaKo />}
               </HideOnPublicLanding>
-              {/* Modal bloqueante: MaKo pide confirmar los cambios automáticos del
-                  CRM al entrar a /crm. usePathname (no necesita Suspense). */}
+              {/* Los cambios del CRM automático que esperan que alguien los confirme.
+                  ⚠️ NO es un modal y NO bloquea: es una tarjeta plegada abajo a la derecha
+                  («no significa que desaparezca, pero no quiero que interrumpa»). Y desde el
+                  30/09 lee `useSearchParams` —el producto viaja en `?funnel=`, no en el
+                  pathname— así que va envuelto en el Suspense que Next exige. */}
               <MakoConfirmGate />
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y

@@ -30,6 +30,45 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '05:40', chat: 'CRM tanda 4', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Diez cosas: el desplegable, el hover, las columnas, el aviso y los leads en varios productos',
+    pedido: '1. Si abro un desplegable, todo lo de abajo lo tiene que englobar el recuadro, sino, no se entiende... Y aun sigue el texto informal de "Como entra tu gente" por favor, eliminalo. Y si le doy al lapiz, deberia aparecer una X de cerrar, y si cierro ahi nuevamente el lapiz. / 2. En todos los botones si les paso el cursos deberia pasar algo. / 3. En las columnas del CRM, si agarro una, deberia dejar arrastrar tambien, para cambiar el orden. Como tambien si le doy click a un titulo, dejarme cambiar el nombre. / 4. En los tres puntos, si no se peude eliminar, no pongas directamente esa opcion, no la dejes en gris. Y en lugar de "Agregar etapa despues" simplemente "Agregar etapa". Y tambien pon un boton doble, que este en la misma linea y se divida a la mitad. Que tenga los iconos de flechas al costado, y que cada uno sirva para mover la etapa de lugar. Obvio a los que no se puedan mover, que no tengan esto. / 5. Me sigue apareciendo el mensaje de "MaKo movio 3 leads" por mas que estoy parado en otro funnel/producto. / 6. Elimina todo el recuadro de "Todavia no hay leads para mostrar / Importa un CSV o carga tu primer lead para empezar." / 7. En todos las columnas, siempre al principio un "placeholder" mas finito que las cards normales, que diga "Nuevo lead". / 8. Elimina el boton de "Importar csv" para eso ya estan los 3 puntos de arriba del todo... Que simplemente sea "Importar leads". Y que dentro del pop-up que aparece, me de la opcion de importar leads de otro producto, para que sea facil. Y elimina el chip de "CRM automatico: ON" y ponlo como opcion en los tres puntos, y en lugar de que diga "ON" que este el tipico boton de encendido que se desplaza hacia un lado, tambien que tenga un signo de pregunta al lado del titulo que explique que hace eso. / 9. Dentro del detail de un lead deberia salir el mismo desplegable de productos, para que se puedan ver los detalles de ese lead en el recorrido de ese funnel. Si ese lead NO esta en el producto que seleccione, que me de la opcion de cargarlo y que lo cargue automaticamente como lead entrante... Tambien te pido que revises muy bien los datos de leads en multiples funnels... Por ejemplo, un lead pudo entrar al funnel 1 por X campana y X anuncio, y haber mirado X parte del VSL... Pero en el funnel 2, pudo haber entrado por otra campana, otro anuncio, y haber mirado OTRO VSL, con otro % de reproduccion... Y asi con todos los datos, se tienen que diferenciar. / 10. En nuevo lead me tiene que dar la opcion de traer un lead de otro producto, que este aparte esa opcion claro, no dentro del formulario. Tambien tienes que asegurarte que los leads no se dupliquen entre productos... si se detecta que se esta agregando un lead nuevo, pero que ya esta en otro funnel, que coincide con nombre, email, numro o algo, que le advierta que el lead ya existe y que le pregunte si lo quiere traer.',
+    puntos: [
+      '⚠️ **El 9 no es un pedido de pantalla: es un pedido de MODELO.** «Un lead pudo entrar al funnel 1 por X campaña… pero en el funnel 2, por otra campaña, otro anuncio, otro VSL». Hoy la persona es UNA fila y su recorrido son columnas de esa misma fila: un solo recorrido, una sola atribución, un solo `visitor_id`.',
+      'Y el 2 era mucho más grande de lo que parece: medido, **145 de 149 botones del CRM no reaccionaban al cursor**, y los 4 que sí lo hacían usaban cuatro mecanismos distintos.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '05:40', chat: 'CRM tanda 4', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ocho de diez, y un backfill escrito en un doc que vaciaba el CRM de los 6 workspaces',
+    puntos: [
+      '⚠️ **LO MÁS CARO NO ERA UN PEDIDO: era una receta de migración escrita en `docs/modelo-oferta-producto-funnel.md`**, lista para copiar, con un `update leads set funnel_id = p.funnel_id`. El tablero del embudo por defecto busca los leads con `is(funnel_id, null)` y **los 1.530 de los 6 workspaces lo tienen en NULL**: correrla dejaba el CRM en cero para todo el mundo, sin un error y sin una fila borrada. Un SQL en un documento no es una nota — es una instrucción con la autoridad del repo. Desarmada, con un guard que barre migraciones Y docs.',
+      '**El velo de hover va en el choke point y con `box-shadow`, no con `background`.** De los 145 botones mudos, **129 escriben `background` inline y 129 `color`**, y un estilo en línea le gana a cualquier regla de hoja. Lo que estaba libre: `filter` (0/145), `outline` (0), `box-shadow` (1). Una regla en `ui.css` + la clase en el `<main>` de las tres rutas: 145 de 145, y los botones que todavía no existen la heredan.',
+      '**Los leads entre productos, la mitad que sí se puede hoy:** el aviso de duplicado dice EN QUÉ producto está el que ya tienes y ofrece tres salidas (Abrir · Moverlo aquí · Crear igual); hay un buscador aparte del formulario para traer uno de otro producto; y el modal de importar tiene un segundo origen para traerlos en lote. Mueve, y lo dice con esa palabra: con el producto en una sola columna, traer a alguien acá es sacarlo de allá.',
+      '⚠️ **Y entra por la etapa de ENTRADA del embudo destino**, que es lo que se pidió y además lo único que no miente: la etapa del embudo A es una clave SUYA y puede no existir en el B — conservarla dibuja al lead recién traído como «fuera del embudo».',
+      '⚠️ **`importarLeadsRevisadosAction` no pasaba el funnel**: todo CSV importado desde un producto secundario nacía en el embudo del negocio y desaparecía de la pantalla donde se lo acababa de importar. El alta manual tenía el mismo bug arreglado desde el 28/09 por el otro camino, y nadie cruzó los dos.',
+      '⚠️ **`funnel_id = null` y el id del embudo por defecto son EL MISMO LUGAR**, y hay un tercer valor que no es ninguno de los dos: `undefined`, que es lo que devuelve la columna cuando la consulta no la pidió. Comparar los números crudos diría «está en otro producto» sobre cada lead que existe hoy.',
+      '**Medido para el 9, y decide el diseño:** 750 visitantes ya miraron más de una landing, `leads.visitor_id` es UNA columna, y el tracking del VSL descarta la segunda cookie en silencio. O sea que el recorrido por producto no falta por falta de pantalla: falta porque el dato no se está guardando.',
+      '⚠️ **Y el guard nuevo se acusó a sí mismo en el commit que lo escribió**: la entrada de hallazgos que documenta el backfill pega el SQL culpable adentro de un bloque de código. 2.687 tests, 1 rojo, sobre un documento. Tercer caso del mismo día de «un guard que mira la PALABRA no distingue el código del texto que lo explica».',
+    ],
+    archivos: [
+      'app/_ui/ui.css + app/globals.css — el velo de hover, en el choke point, con su token en los dos temas',
+      'app/crm/MoverPartido.tsx — el botón doble, en UN lugar: vertical en el pop-up, horizontal en la columna',
+      'app/crm/lead-view/ProductoDelLead.tsx — el desplegable de productos en la ficha del lead',
+      'app/crm/CrmBoard.tsx — columnas arrastrables, título clicable, placeholder «Nuevo lead» y el menú sin opciones en gris',
+      'app/crm/CrmToolbar.tsx + CrmAutoToggle.tsx — el header sin «Importar CSV» ni el chip, y el CRM automático como fila del menú',
+      'app/crm/EtapasModal.tsx — la caja que engloba el panel, y el lápiz que se vuelve una ✕',
+      'app/crm/ImportarLeadsModal.tsx — el segundo origen: traer leads de otro producto',
+      'app/crm/new/NewLeadForm.tsx — el aviso de duplicado con sus tres salidas y el buscador aparte',
+      'app/_components/MakoConfirmGate.tsx — el aviso de MaKo, acotado al producto que se está mirando',
+      'lib/leads.ts + lib/leads-duplicados.ts — moverLeadDeFunnel, el duplicado que nombra el producto y enOtroProducto',
+      'docs/modelo-oferta-producto-funnel.md — el backfill desarmado, con la medición al lado',
+      'tests/leads-por-producto.test.ts — 10 guards, probados con 14 roturas',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '01:20', chat: 'CRM embudo pop-up', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Las líneas otra vez, la lentitud otra vez, la etapa de entrada y el alta en 3 pasos',

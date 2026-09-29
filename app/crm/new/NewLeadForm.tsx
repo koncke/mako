@@ -16,9 +16,9 @@
 //   · «Cancelar» — cierra en vez de navegar
 //   · la caja — sin borde ni fondo propios: el Modal ya los pone
 
-import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import { createLeadAction, crearLeadEnTableroAction } from '../actions';
+import { createLeadAction, crearLeadEnTableroAction, leadsDeOtrosProductosAction, moverLeadAFunnelAction, type ChoqueDeLead } from '../actions';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
@@ -35,6 +35,16 @@ export function NewLeadForm({ enModal }: {
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
   const [guardando, startGuardar] = useTransition();
+  /**
+   * Con quién choca el alta. Reemplaza al string pelado de antes: sin los ids la
+   * pantalla no puede ofrecer nada, y un aviso sin salida es el que manda a alguien a
+   * buscar a mano en otro tablero.
+   */
+  const [choque, setChoque] = useState<ChoqueDeLead['coincidencias'] | null>(null);
+  /** Lo tipeado, para poder reintentar el alta con «Crear igual» sin volver a escribirlo. */
+  const [pendiente, setPendiente] = useState<FormData | null>(null);
+  /** El buscador de «traer de otro producto», que va APARTE del formulario. */
+  const [trayendo, setTrayendo] = useState(false);
 
   /** La validación de acá es la MISMA que la del server, y corre antes para no
    *  perder lo tipeado en un viaje. El server la repite: este chequeo es
@@ -61,7 +71,14 @@ export function NewLeadForm({ enModal }: {
           // iba al funnel del negocio y desaparecia de la pantalla donde se acababa de
           // cargar — que es el peor final posible para un alta.
           const r = await crearLeadEnTableroAction(fd, enModal.funnelId ?? null);
-          if ('error' in r) { setErr(r.error); return; }
+          if ('error' in r) {
+            setErr(r.error);
+            // Las coincidencias son lo que convierte el aviso en una decisión. Si el
+            // error no es un duplicado vienen vacías y la pantalla muestra sólo la frase.
+            setChoque(r.coincidencias.length ? r.coincidencias : null);
+            setPendiente(r.coincidencias.length ? fd : null);
+            return;
+          }
           enModal.onCreado(r.id);
         });
       }}
@@ -85,8 +102,63 @@ export function NewLeadForm({ enModal }: {
         <Field label="Fecha de Reunión 1 (si ya la tienes)"><input type="date" name="fecha_junta_1" style={field} /></Field>
       </div>
 
-      {err && (
+      {err && !choque && (
         <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+      )}
+
+      {/* ⚠️ UN DUPLICADO NO ES UN ERROR: ES UNA DECISIÓN. El pedido, textual: «si se
+          detecta que se está agregando un lead nuevo, pero que ya está en otro funnel…
+          que le advierta que el lead ya existe y que le pregunte si lo quiere traer».
+          Por eso acá van las TRES salidas y no un texto rojo: abrir el que ya está,
+          moverlo a este producto, o crearlo igual sabiendo con quién choca. */}
+      {choque && (
+        <div style={{ borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg)', padding: '13px 16px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{err}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 11 }}>
+            {choque.map((c) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--surface)', borderRadius: 10, padding: '9px 12px' }}>
+                <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
+                {c.producto && <span style={{ flex: 'none', fontSize: 12.5, color: 'var(--dim)' }}>{c.producto}</span>}
+                <span style={{ flex: 1 }} />
+                <Link href={`/crm/${c.id}`} target="_blank"
+                  style={{ flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Abrir</Link>
+                {/* ⚠️ Dice MOVER y no «traer» porque eso es lo que hace: el producto de un
+                    lead es una sola columna, así que sale del tablero donde está. */}
+                {enModal && c.funnelId !== (enModal.funnelId ?? null) && (
+                  <button type="button" disabled={guardando}
+                    onClick={() => startGuardar(async () => {
+                      const r = await moverLeadAFunnelAction(c.id, enModal.funnelId ?? null);
+                      if ('error' in r) { setErr(r.error); return; }
+                      enModal.onCreado(c.id);
+                    })}
+                    style={{ flex: 'none', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    Moverlo aquí
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+            <button type="button" disabled={guardando}
+              onClick={() => {
+                if (!enModal || !pendiente) return;
+                startGuardar(async () => {
+                  // El tercer argumento es el permiso explícito, y sólo se manda desde acá:
+                  // lo pide una persona que ya vio la lista de arriba.
+                  const r = await crearLeadEnTableroAction(pendiente, enModal.funnelId ?? null, true);
+                  if ('error' in r) { setErr(r.error); return; }
+                  enModal.onCreado(r.id);
+                });
+              }}
+              style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
+              Crear igual
+            </button>
+            <button type="button" onClick={() => { setChoque(null); setErr(null); setPendiente(null); }}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>
+              Cambiar los datos
+            </button>
+          </div>
+        </div>
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
@@ -95,7 +167,102 @@ export function NewLeadForm({ enModal }: {
           : <Link href="/crm" style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Cancelar</Link>}
         <button type="submit" disabled={guardando} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>{guardando ? 'Creando…' : 'Crear lead'}</button>
       </div>
+
+      {/* ⚠️ APARTE DEL FORMULARIO, y es literal del pedido: «que esté aparte esa opción
+          claro, no dentro del formulario». Va al final y plegado: el camino normal es
+          cargar a alguien nuevo, y una lista de leads ajenos arriba de los campos
+          convierte un alta de tres campos en una pantalla de búsqueda. */}
+      {enModal && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          {!trayendo ? (
+            <button type="button" onClick={() => setTrayendo(true)}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+              Traer uno de otro producto
+            </button>
+          ) : (
+            <TraerDeOtroProducto
+              funnelId={enModal.funnelId ?? null}
+              onCerrar={() => setTrayendo(false)}
+              onTraido={(id) => enModal.onCreado(id)}
+            />
+          )}
+        </div>
+      )}
     </form>
+  );
+}
+
+/**
+ * Buscar a alguien que ya está en OTRO producto y moverlo a éste.
+ *
+ * ⚠️ MUEVE, NO COPIA. Con el producto viviendo en una sola columna del lead, traerlo acá
+ * es sacarlo de allá con su recorrido entero. El botón lo dice con esa palabra: prometer
+ * «traer» sobre un movimiento destructivo es lo que se descubre cuando ya no se puede
+ * deshacer.
+ */
+function TraerDeOtroProducto({ funnelId, onCerrar, onTraido }: {
+  funnelId: number | null;
+  onCerrar: () => void;
+  onTraido: (id: number) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [filas, setFilas] = useState<Array<{ id: number; nombre: string; email: string | null; telefono: string | null; producto: string | null }>>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [moviendo, startMover] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
+  // ⚠️ Con retraso: una consulta por tecla sobre la tabla de leads es una consulta por
+  // tecla. Y el resultado se descarta si llegó tarde — sin eso, la respuesta de «ju»
+  // puede pisar a la de «juan» y la lista muestra lo que ya no se buscó.
+  useEffect(() => {
+    const texto = q.trim();
+    if (texto.length < 2) { setFilas([]); return; }
+    let vivo = true;
+    setBuscando(true);
+    const t = setTimeout(() => {
+      void leadsDeOtrosProductosAction(texto, funnelId)
+        .then((r) => { if (vivo) setFilas(r); })
+        .catch(() => { if (vivo) setFilas([]); })
+        .finally(() => { if (vivo) setBuscando(false); });
+    }, 250);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [q, funnelId]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus
+          placeholder="Nombre, email o teléfono"
+          style={{ ...field, flex: 1 }} />
+        <button type="button" onClick={onCerrar}
+          style={{ flex: 'none', background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
+      </div>
+      {/* «No encontré nada» y «todavía no busqué» son respuestas distintas, y la segunda
+          no se dibuja: un vacío apenas se abre el buscador se lee como que no hay nadie. */}
+      {q.trim().length >= 2 && !buscando && filas.length === 0 && (
+        <span style={{ fontSize: 13, color: 'var(--faint)' }}>Nadie con esos datos en tus otros productos.</span>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+        {filas.map((l) => (
+          <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-2)', borderRadius: 10, padding: '9px 12px' }}>
+            <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.nombre}</span>
+            <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.email || l.telefono || ''}</span>
+            <span style={{ flex: 1 }} />
+            {l.producto && <span style={{ flex: 'none', fontSize: 12.5, color: 'var(--faint)' }}>{l.producto}</span>}
+            <button type="button" disabled={moviendo}
+              onClick={() => startMover(async () => {
+                const r = await moverLeadAFunnelAction(l.id, funnelId);
+                if ('error' in r) { setErr(r.error); return; }
+                onTraido(l.id);
+              })}
+              style={{ flex: 'none', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              Moverlo aquí
+            </button>
+          </div>
+        ))}
+      </div>
+      {err && <span style={{ fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
+    </div>
   );
 }
 

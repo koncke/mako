@@ -50,6 +50,21 @@ export type EstadoLead = 'abierto' | 'ganado' | 'perdido' | 'descalificado' | 'n
 export type Lead = {
   id: number;
   nombre: string;
+  /**
+   * En qué PRODUCTO vive. `null` = el del negocio.
+   *
+   * ⚠️ `null` NO ES «sin producto», y es la trampa de esta columna: el tablero del
+   * embudo por defecto busca justamente los que la tienen en NULL, y medido contra
+   * producción el 30/09/2026 **están las 1.530 filas de los 6 workspaces**. Cualquier
+   * pantalla que dibuje «sin producto» para ese caso lo diría sobre todos los leads que
+   * existen hoy.
+   *
+   * ⚠️ Y NO está en `LISTA_COLS`: el tablero filtra por esta columna en el SERVER, así
+   * que no la baja. La trae `getLead` (que hace `select(*)`) y la búsqueda de duplicados,
+   * que la pide explícita. Si algo en el navegador la lee sobre una fila del tablero, va
+   * a recibir `undefined` — que no es lo mismo que `null`.
+   */
+  funnel_id?: number | null;
   email: string | null;
   telefono: string | null;
   empresa: string | null;
@@ -423,7 +438,11 @@ export async function duplicadosDeLead(cand: CandidatoLead): Promise<Coincidenci
   if (!email && !tel && !nombre) return [];
   try {
     const db = await getTenantDb();
-    const cols = 'id, nombre, email, telefono_normalizado';
+    // ⚠️ `funnel_id` VIAJA PARA QUE EL AVISO PUEDA NOMBRAR EL PRODUCTO. «Ya lo tienes» y
+    // «ya lo tienes en otro producto» llevan a decisiones distintas: la segunda ofrece
+    // moverlo, que es lo que pidió Martín («que le advierta que el lead ya existe y que
+    // le pregunte si lo quiere traer»). Sin la columna, la pantalla no puede distinguirlas.
+    const cols = 'id, nombre, email, telefono_normalizado, funnel_id';
     const [porEmail, porTel, porNombre] = await Promise.all([
       email ? db.from('leads').select(cols).ilike('email', email).limit(20) : { data: [] },
       tel ? db.from('leads').select(cols).ilike('telefono_normalizado', `%${tel}`).limit(20) : { data: [] },
@@ -519,6 +538,29 @@ async function avisarFusion(canal: 'Meta' | 'Calendly' | 'Cal.com', lead: Lead, 
   }
 }
 
+/**
+ * Mueve un lead de un embudo a otro.
+ *
+ * ⚠️ ES EL ÚNICO CAMINO QUE ESCRIBE `funnel_id` DESPUÉS DEL ALTA. `LeadUpdateInput` no
+ * declara la columna a propósito —no es un campo que se edite en un formulario— y los
+ * otros dos escritores del repo son el alta manual y el importador, los dos al CREAR.
+ * Si mañana hay un segundo camino, este comentario deja de ser cierto y hay que mirar
+ * por qué: mover un lead de producto cambia en qué tablero lo ve la gente.
+ *
+ * ⚠️ Y `null` NO ES «sacarlo de todos los productos»: es el embudo DEL NEGOCIO, que es
+ * donde `listLeadsDeFunnel(null)` los busca. No hay forma de dejar un lead sin tablero,
+ * y está bien que no la haya.
+ */
+export async function moverLeadDeFunnel(leadId: number, funnelId: number | null): Promise<void> {
+  const supabase = await getTenantDb();
+  const { error } = await supabase.from('leads').update({ funnel_id: funnelId }).eq('id', leadId);
+  // Un error acá NO se traga: la pantalla de arriba tiene que poder decir que el lead
+  // sigue donde estaba. Un «listo» sobre un movimiento que no pasó manda a buscarlo a un
+  // tablero donde no está.
+  if (error) throw new Error('No se pudo mover el lead de producto: ' + error.message);
+  // ⚠️ El caché lo invalida la ACTION, no esta función: `lib/leads.ts` no importa `bust`
+  // y meterlo acá sumaría una dependencia de Next a un módulo que hoy es sólo datos.
+}
 export async function createLead(input: LeadCreateInput & { permitirDuplicado?: boolean }): Promise<Lead> {
   if (!input.nombre || !input.nombre.trim()) {
     throw new Error('Nombre es requerido');

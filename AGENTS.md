@@ -3886,6 +3886,77 @@ condiciones para que no mienta:
 ⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
 que algo dice que está pasando. Va el giro, siempre.
 
+# Un SQL escrito en un documento ES código, y se audita igual
+
+Una receta de migración en un `.md` —con su `where not exists`, su orden de pasos y su
+nota de cuándo re-correrla— no es una nota: es una instrucción con la autoridad del repo,
+y el que la siga dentro de tres semanas no va a tener el contexto de por qué está mal.
+
+Medido el 30/09/2026 en `docs/modelo-oferta-producto-funnel.md`: un
+`update leads set funnel_id = …` listo para copiar. El tablero del embudo por defecto
+busca los leads con `.is('funnel_id', null)` y **los 1.530 de los 6 workspaces lo tienen
+en NULL**, así que correrlo dejaba el CRM en cero para todo el mundo — sin un error, sin
+un log y sin una fila borrada. Nadie lo había corrido todavía; el documento lo esperaba.
+
+**La regla: lo que se documenta como ejecutable entra en los guards.** Si un barrido busca
+un patrón peligroso en `supabase/migrations/`, busca también en `docs/`.
+
+⚠️ **Y el guard va con su PAREJA.** «Nadie rellena esta columna» sólo es peligroso mientras
+el lector la interprete de cierta forma: si mañana el filtro deja de ser `.is(null)`, el
+primer guard estaría prohibiendo algo inocente y nadie sabría por qué. El segundo guard fija
+el lector. Los dos se leen juntos o ninguno de los dos se entiende.
+
+⚠️ **Y un `add column if not exists … references` sobre una columna que YA existe no agrega
+la FK: es un no-op silencioso** que deja creyendo que la restricción está.
+
+# Para ganarle a 129 estilos inline, elegí una propiedad que ninguno use
+
+Cuando una regla nueva tiene que aplicarse a un conjunto de elementos que escriben su
+estilo en línea, la pregunta no es «¿qué quiero pintar?» sino **«¿qué propiedad está
+libre?»** — un estilo en línea le gana a cualquier regla de hoja sin `!important`, y esta
+casa ya lo pagó dos veces.
+
+Medido el 30/09/2026 sobre «en todos los botones, si les paso el cursor debería pasar
+algo»: de los **149 `<button>` de `app/crm/**`, cuatro reaccionaban** — y cada uno por un
+mecanismo distinto. De los 145 mudos:
+
+| propiedad | cuántos la escriben inline |
+|---|---|
+| `background` · `color` | **129** cada una |
+| `border-radius` | 96 |
+| `opacity` | 20 |
+| `transition` | 2 |
+| `box-shadow` · `transform` | **1** |
+| `filter` · `outline` | **0** |
+
+Un `:hover { background: … }` habría perdido contra 129 de 145. El velo va con
+`box-shadow: inset 0 0 0 999px var(--token)`: pinta encima de cualquier fondo —azul, rojo,
+crema o transparente—, respeta el `border-radius` que ya trae el inline, y no re-maqueta
+nada. Contar cuántos escriben cada propiedad son treinta segundos y decide el diseño entero.
+
+⚠️ **Y la regla va en el CHOKE POINT**, que acá es el `<main>` de cada ruta: es una regla
+sobre un CONJUNTO («TODOS los botones»), así que la heredan los botones que todavía no
+existen. Puesta con un `data-` por botón, cada botón nuevo dependería de que alguien se
+acuerde — y en dos semanas no. Los caminos que NO pasan por ahí (un `createPortal`, un
+hover inline propio) se enumeran en el comentario.
+
+# Una verificación que no verifica es la otra mitad de un test que no prueba
+
+Ya está escrito que «un test que no probaste rompiéndolo es una afirmación». El espejo, que
+muerde igual: **una comprobación en el navegador que busca la cosa equivocada reporta que
+la feature no está, y manda a arreglar algo que funciona.**
+
+Medido el 30/09/2026 dos veces en la misma tanda:
+
+- Un chequeo buscó `innerText === 'Nuevo lead'` y el botón dice `＋ Nuevo lead`: reportó
+  **cero placeholders** sobre diecisiete que estaban dibujados.
+- Una rotura de guard cambió `data-sin-filetes` por `data-sin-filetes-NO`, que el propio
+  regex sigue matcheando: el archivo dio verde y por un momento pareció un guard flojo.
+
+En los dos casos **la primera hipótesis correcta es la medición, no el código** — es más
+barata de comprobar y es la que más veces gana. La señal: un resultado redondo e inesperado
+(cero de diecisiete, 25 de 25) sobre algo que se acaba de escribir.
+
 # Si lo que cambió es QUÉ EXISTE, se navega DURO: `router.refresh()` llega tarde
 
 `router.refresh()` es para «los datos de esta pantalla cambiaron». Cuando lo que cambia es el

@@ -49,6 +49,10 @@
   --bg: #F4F6F9;
   --surface: #FFFFFF;
   --surface-2: #F5F7FA;
+  /* El velo del hover: se pinta ENCIMA del fondo que tenga el boton, sea cual sea.
+     Ver `.crm-hover` en app/_ui/ui.css: un color solido no serviria, porque hay
+     botones azules, rojos, crema y transparentes en la misma barra. */
+  --velo-hover: rgba(18, 21, 27, .055);
   --border: #EAECF1;
   --border-strong: #DCE0E7;
   --ink: #12151B;
@@ -277,6 +281,8 @@
    que ya está escrita arriba en --sidebar-line.
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-tema="oscuro"] {
+  /* En oscuro el velo ACLARA: uno negro sobre una superficie oscura no se ve. */
+  --velo-hover: rgba(255, 255, 255, .07);
   --bg: #22262E;
   --surface: #2A2F39;
   --surface-2: #333944;
