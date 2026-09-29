@@ -13,7 +13,7 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS, getWorkspaceActual } from './workspace';
 import { chatClaude } from './anthropic';
-import { CATALOGO_AVISOS, type AvisoCatalogo, type CategoriaAviso } from './avisos-catalogo';
+import { CATALOGO_AVISOS, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from './avisos-catalogo';
 import { esFlujoValido, type Flujo } from './flujos-tipos';
 
 const KEY_STORE = 'mako.plantillas.store';
@@ -154,12 +154,9 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
  *
  * Las 'parcial' sí entran: esas salen, aunque no en todos los casos.
  *
- * Y TAMPOCO los ADMINISTRATIVOS (`soloSuperAdmin`). Esos avisan un hecho técnico
- * de la plataforma —Meta deshabilitó la cuenta, la plantilla se aprobó, llegó la
- * prueba del Pixel— y no son algo que el negocio configure: los gobierna la
- * agencia. Mostrarlos en solo-lectura era peor que no mostrarlos, porque llenaban
- * la lista de filas que el cliente no podía tocar. Los sigue RECIBIENDO: lo que
- * desaparece es la fila, no el aviso.
+ * El cliente ve SOLO los de `AVISOS_DEL_CLIENTE` (lib/avisos-catalogo.ts): seis,
+ * elegidos a mano. El resto se sigue emitiendo —lo gobierna la agencia desde
+ * /mensajes— pero no le ocupa una fila que tendría que entender y decidir.
  *
  * `vista: 'agencia'` es para el panel del super-admin, que sí quiere el mapa
  * completo: es su catálogo de trabajo, no la pantalla de un cliente.
@@ -167,9 +164,7 @@ export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: 
 export async function listarPlantillas(opts: { vista?: 'cliente' | 'agencia' } = {}): Promise<PlantillaVista[]> {
   const store = await leerStore();
   const agencia = opts.vista === 'agencia';
-  const base = agencia
-    ? CATALOGO_AVISOS
-    : CATALOGO_AVISOS.filter((c) => c.yaImplementado !== 'no' && c.soloSuperAdmin !== true);
+  const base = agencia ? CATALOGO_AVISOS : CATALOGO_AVISOS.filter((c) => esAvisoDelCliente(c.id));
   const built = base.map((c) => aVista(c, store[c.id], false));
   const custom = Object.entries(store)
     .filter(([, e]) => e.custom)

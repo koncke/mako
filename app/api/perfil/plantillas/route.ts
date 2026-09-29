@@ -22,7 +22,7 @@ import {
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
 } from '@/lib/plantillas';
 import { esFlujoValido } from '@/lib/flujos-tipos';
-import { CATALOGO_AVISOS, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { esAvisoDelCliente, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
    *
    * Prender y apagar SÍ es suyo: elige qué recibe, no qué dice.
    */
-  const esAdministrativo = (id: string) => CATALOGO_AVISOS.find((c) => c.id === id)?.soloSuperAdmin === true;
+  const esAdministrativo = (id: string) => !esAvisoDelCliente(id);
   const noEditable = () => NextResponse.json(
     { ok: false, error: 'Este aviso lo redacta MaKo y no se puede editar: informa algo técnico y tiene que decir exactamente lo que pasó.' },
     { status: 403 },
