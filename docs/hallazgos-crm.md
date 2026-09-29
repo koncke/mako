@@ -4100,3 +4100,114 @@ navegador no nombró se conserva al final**. Sin eso último, un arrastre borrar
 embudo — vive en el pipeline y no se dibuja en la lista, así que nunca viaja.
 
 **Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/actions.ts` · *2026-09-29 crm-embudo-popup*
+
+## Diferir una consulta a una SEGUNDA server action no la saca del camino crítico (29/09/2026)
+
+Es la corrección de lo que está escrito unas secciones más arriba, y vale la pena leer las
+dos: **el arreglo era correcto en el razonamiento y no movió el número**.
+
+«Al abrir sigue tardando mucho en cargar». Lo anterior había sacado dos consultas del
+detalle y mudado el conteo de leads a `extrasDelEmbudoAction`, con el argumento de siempre:
+la pantalla abre con lo que necesita y el dato caro llega después. La action bajó de ~550 a
+**250 ms** medidos en el server. Y el tiempo hasta dibujar la primera etapa siguió en
+**1036 ms**, contra los 1053 de antes.
+
+Lo que faltaba era medir el CAMINO, no la consulta. Con un `fetch` instrumentado en el
+navegador, desde el click:
+
+```
+click                                    +0 ms
+sale  embudoEnDetalleAction            +121 ms   ← el montaje de React
+vuelve                                 +439 ms   (318 ms de viaje)
+sale  extrasDelEmbudoAction            +442 ms   ← 3 ms después de la anterior
+vuelve                                 +752 ms
+primera fila dibujada                  +941 ms
+```
+
+⚠️ **Las dos actions no corren en paralelo: se ENCOLAN.** Next.js despacha los server
+actions de a uno, así que la segunda sale 3 ms después de que vuelve la primera. Diferir una
+lectura cara a otra action no la saca del camino — la pone DETRÁS, y la suma (318 + 310) es
+peor que la única consulta de antes.
+
+**Lo que sí lo arregló: no preguntar.** Las etapas ya estaban en pantalla, arriba, dibujadas
+como las columnas del tablero — `CrmBoard` recibe `stages` del server en cada carga. El
+pop-up abre pintando ESO y el server confirma detrás. Medido: **941 ms → 167 ms**, con las
+dos listas idénticas (verificado comparando la lista al abrir contra la lista tres segundos
+después: no parpadea).
+
+Tres cosas que lo hacen honesto:
+
+- **El mapeo vive en UN lugar** (`etapasVisibles`, en `lib/pipeline.ts`) y lo llaman el server
+  y el tablero. Con dos copias, el pop-up abre mostrando una lista y medio segundo después
+  muestra otra, que se lee como que la app cambia sola.
+- **La semilla va sólo si el pop-up abre sobre el embudo QUE SE ESTÁ MIRANDO.** Desde el
+  desplegable se edita otro producto sin cambiar de tablero, y ahí estas etapas son de otro
+  embudo: pintarlas sería mostrar la lista equivocada durante medio segundo.
+- **Lo que el tablero no sabe sigue esperando al server**: si se ofrece «Eliminar producto»
+  (depende de `es_default`), las nutriciones, y por dónde entra la gente. Pintar las casillas
+  de entradas vacías le diría a un negocio que las declaró que no tiene ninguna.
+
+**Vive en:** `app/crm/EtapasModal.tsx` · `app/crm/CrmBoard.tsx` · `lib/pipeline.ts` ·
+*2026-09-29 crm-embudo-popup*
+
+## La etapa de ENTRADA es un `kind`, no la posición 0 (29/09/2026)
+
+*«Por defecto, la primer etapa debería ser "Lead entrante", no se debería poder mover, y
+tampoco nadie puede poner algo atrás de esa etapa. Y desde allí debería salir el desplegable
+para configurar»*.
+
+La salida barata es `etapas[0]`. No sirve: **arrastrar otra etapa encima la convertiría en la
+entrada** sin que nadie lo decida, que es justo lo que el pedido prohíbe. La entrada es la que
+el pipeline declara `kind: 'entrada'` — lo que ya distinguían las cinco plantillas
+(`pk('lead', 'entrada')`).
+
+Medido contra producción antes de atarlo a eso, porque una regla sobre un campo que no está
+poblado es una feature que desaparece: **de 15 embudos, los 11 con pipeline propio declaran
+exactamente una entrada y los otros 4 tienen el pipeline vacío**, así que caen a
+`DEFAULT_PIPELINE`, que también la trae. El respaldo «si ninguna la declara, es la primera»
+existe igual, porque de ese lápiz cuelga la ÚNICA pantalla donde se declara cómo entra la
+gente: un embudo sin entrada no perdería una fila, perdería la puerta.
+
+⚠️ **Y las CUATRO puertas al orden se cierran en el SERVER**, no en la pantalla: eliminar,
+mover, reordenar (un arrastre) e insertar (el deshacer de un borrado). La pantalla ya no lo
+ofrece; el que decide es el server, y una pestaña vieja o un pedido armado a mano entran por
+cualquiera de las cuatro.
+
+**Y el rótulo por defecto era `«Lead (Instant form)»`** — el nombre de UNA de las cinco formas
+de entrar, en la etapa por la que entran las cinco. Quien vende por carrito leía el nombre de
+un producto de Meta que no usa. Cambiar el default **no alcanza**: los 10 embudos que ya
+habían guardado su pipeline tienen NUESTRA cadena congelada adentro del jsonb. Va con
+backfill (mig 0182), comparando contra la cadena EXACTA — el único renombrado de verdad
+(«Contacto nuevo», ws11) no matchea y queda intacto. Verificado después: 10 cambiados, 0
+viejos, 1 intacto, y el orden sin tocar.
+
+**Vive en:** `lib/pipeline.ts` · `app/crm/actions.ts` · `supabase/migrations/0182_lead_entrante.sql` ·
+*2026-09-29 crm-embudo-popup*
+
+## Cada hijo directo del cuerpo de un `Modal` trae 18 px arriba y abajo (29/09/2026)
+
+`.mk-modal__cuerpo > *:not(.mk-modal__fondo) { padding: 18px 0; }`. Está bien para el DETALLE
+de algo —bloques de distinta naturaleza que se separan solos— y sorprende en cualquier otra
+cosa: dos bloques sueltos (una aclaración y una lista) quedan con **~48 px** de hueco entre
+ellos, que se lee como que falta algo ahí en el medio.
+
+No se pelea con `marginTop` negativos: el contenido del paso va adentro de **un solo** `div`,
+y el espaciado lo decide quien escribe la pantalla. Es el mismo criterio que `sinFiletes` —la
+regla del cuerpo es para el detalle, no para un formulario.
+
+**Vive en:** `app/_ui/ui.css` · `app/crm/CrmToolbar.tsx` · *2026-09-29 crm-embudo-popup*
+
+## Una rotura que el guard no ve no prueba el guard: prueba la rotura (29/09/2026)
+
+Los cuatro guards de esta tanda se probaron rompiéndolos, y **uno de los doce intentos no
+rompió nada**: para comprobar que el test ve si `Modal` deja de emitir `data-sin-filetes`, el
+atributo se cambió por `data-sin-filetes-NO`… que el propio regex `/data-sin-filetes/` sigue
+matcheando. El archivo dio 25 / 0 y por un momento pareció un guard flojo.
+
+El guard estaba bien; la rotura estaba mal. Renombrando a `data-filetes` dio 24 / 1.
+
+**La regla: la rotura tiene que ser lo que el guard persigue, no algo parecido.** Y si una
+rotura sale verde, la primera hipótesis es la rotura — es más barata de comprobar que el
+guard, y es la que más veces gana.
+
+**Vive en:** `tests/funnel-estructura.test.ts` · *2026-09-29 crm-embudo-popup*

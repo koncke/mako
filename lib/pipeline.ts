@@ -43,7 +43,11 @@ export type Stage = {
 
 // Etapas por defecto del funnel (rediseño Claude Design: 3 bandas, R1/R2).
 export const DEFAULT_STAGES: Stage[] = [
-  { key: 'lead',        label: 'Lead (Instant form)',      dot: '#2F6DDB', tone: 'info',    band: 'pipeline',  col: 0 },
+  // ⚠️ «LEAD ENTRANTE», NO «Lead (Instant form)». El rótulo viejo nombraba UNA de las
+  // cinco formas de entrar —el formulario de Meta— en la etapa por la que entran las
+  // cinco: quien vende por carrito leía el nombre de un producto de Meta que no usa.
+  // Cómo entra la gente se declara aparte, y de ahí salen los audios y la primera frase.
+  { key: 'lead',        label: 'Lead entrante',            dot: '#2F6DDB', tone: 'info',    band: 'pipeline',  col: 0 },
   { key: 'agenda',      label: 'Agenda R1',                dot: '#E08A12', tone: 'accent',  band: 'pipeline',  col: 1 },
   { key: 'agendaj2',    label: 'Agenda R2',                dot: '#2F6DDB', tone: 'sky',     band: 'pipeline',  col: 2 },
   { key: 'facturando',  label: 'Facturando',               dot: '#C8870C', tone: 'teal',    band: 'pipeline',  col: 3 },
@@ -714,6 +718,50 @@ export function parseEvento(v: unknown): EventoFunnel | null {
 }
 
 /** Un pipeline guardado tiene que ser una lista de etapas con clave; si no, no es un pipeline. */
+/**
+ * Una etapa como la dibuja el pop-up del CRM: sin bandas, sin colores de tarjeta, sin
+ * columna. Lo que la pantalla necesita para listarla y nada más.
+ */
+export type EtapaVisible = {
+  key: string;
+  label: string;
+  dot: string;
+  /** `true` = está en todos los embudos: se renombra, no se borra ni se mueve. */
+  fija: boolean;
+  /**
+   * El tipo que el pipeline le da. La pantalla sólo mira `'entrada'`: es la etapa por
+   * donde llega el lead, no se mueve, no se borra y nada va antes de ella.
+   *
+   * ⚠️ VIAJA AUNQUE LA PANTALLA PODRÍA DEDUCIRLO DE LA POSICIÓN, y es a propósito:
+   * atarlo al índice 0 haría que arrastrar otra etapa encima la convirtiera en la
+   * entrada sin que nadie lo decida.
+   */
+  kind?: string;
+};
+
+/**
+ * Las etapas de un pipeline ya generado, partidas en PROPIAS y TERMINALES.
+ *
+ * ⚠️ VIVE ACÁ Y NO ADENTRO DE LA ACTION porque lo llaman DOS: el server, al armar el
+ * detalle del embudo, y el tablero del CRM, que pinta el pop-up con las etapas que ya
+ * tiene en pantalla mientras el server contesta. Con el mapeo copiado, un día el pop-up
+ * abre mostrando una lista distinta de la que llega medio segundo después — que se lee
+ * como que la app parpadea y cambia sola.
+ */
+export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fijas: EtapaVisible[] } {
+  const visibles = stages.filter((st) => st.band === 'pipeline' || esTerminal(st.key));
+  const uno = (st: Stage): EtapaVisible => ({
+    key: st.key,
+    label: st.label,
+    dot: st.dot ?? '#5B6472',
+    fija: esTerminal(st.key),
+    kind: st.kind,
+  });
+  return {
+    propias: visibles.filter((st) => !esTerminal(st.key)).map(uno),
+    fijas: visibles.filter((st) => esTerminal(st.key)).map(uno),
+  };
+}
 export function sanearPipeline(v: unknown): Stage[] | null {
   if (!Array.isArray(v) || !v.length) return null;
   const ok = v.filter((s): s is Stage => !!s && typeof s === 'object' && typeof (s as Stage).key === 'string' && !!(s as Stage).key);

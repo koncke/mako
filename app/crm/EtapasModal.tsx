@@ -29,7 +29,7 @@
 //  · «Cómo entran» dejó de ser una subtab: es un desplegable de acá, y una pregunta del
 //    alta de producto.
 
-import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type DragEvent as DragReact } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type DragEvent as DragReact } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { Modal } from '@/app/_ui/Modal';
@@ -38,10 +38,11 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { MAX_LABEL_ETAPA } from '@/lib/pipeline';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
-  restaurarEmbudoAction, conteosDeEtapasAction,
-  type EmbudoEnDetalle, type EtapaDelFunnel, type OpEtapa, type DeshacerEtapa,
+  restaurarEmbudoAction, extrasDelEmbudoAction,
+  type EmbudoEnDetalle, type EtapaDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
 } from './actions';
 import { EmbudoEntradas } from './EmbudoEntradas';
+import { LapizIcon } from './iconos';
 
 const SANS = "'Geist', sans-serif";
 
@@ -81,7 +82,7 @@ function Cargando() {
 
 type Sub = 'etapas' | 'nutricion';
 
-export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
+export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar }: {
   /** El embudo que se edita. `null`/`undefined` = el del negocio. */
   funnelId?: number | null;
   /** Cómo se llama, para pintar el título sin esperar la lectura. */
@@ -94,6 +95,20 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
    * «activar la landing como entrada de leads», y eso es una casilla de ahí adentro.
    */
   abrirEntradas?: boolean;
+  /**
+   * Las etapas que el TABLERO ya tiene dibujadas, para pintar la lista sin esperar al
+   * server. Sólo viene cuando el pop-up abre sobre el embudo que se está mirando.
+   *
+   * ⚠️ POR QUÉ, Y ES LA REGLA DE LA CASA: «antes de optimizar una consulta, preguntá si
+   * hace falta hacerla». Medido el 29/09 con el navegador, click → primera fila: 941 ms,
+   * de los cuales 121 son el montaje y 318 el viaje de la action — para traer una lista
+   * que ya estaba en pantalla, arriba, dibujada como columnas del tablero.
+   *
+   * ⚠️ Y NO REEMPLAZA A LA LECTURA: el server sigue contestando y pisa esto. La semilla
+   * dice qué etapas hay; lo que decide si «Eliminar producto» se ofrece, qué nutriciones
+   * tiene y por dónde entra la gente llega del server, porque el tablero no lo sabe.
+   */
+  semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[] } | null;
   onCerrar: () => void;
 }) {
   const router = useRouter();
@@ -101,7 +116,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
   const { toast, show, clear } = useToast();
   const [sub, setSub] = useState<Sub>('etapas');
   const [emb, setEmb] = useState<EmbudoEnDetalle | null>(null);
-  const [conteos, setConteos] = useState<Record<string, number> | null>(null);
+  const [extras, setExtras] = useState<ExtrasDelEmbudo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<{ titulo: string; cuerpo: string; boton: string; hacer: () => void } | null>(null);
@@ -118,15 +133,41 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
   }, [funnelId]);
 
   useEffect(() => { void cargar(); }, [cargar]);
-  // Los conteos llegan DESPUÉS y no bloquean la apertura: derivarlos exige traer los leads.
-  // Mientras no estén, quitar una etapa pregunta — el default seguro es la fricción.
+  // Los conteos, el total y el canal llegan DESPUÉS y no bloquean la apertura: derivar la
+  // etapa de un lead exige traerlos todos. Mientras no estén, quitar una etapa pregunta —
+  // el default seguro es la fricción.
   useEffect(() => {
     let vivo = true;
-    void conteosDeEtapasAction(funnelId ?? undefined).then((c) => { if (vivo) setConteos(c); }).catch(() => {});
+    void extrasDelEmbudoAction(funnelId ?? undefined).then((x) => { if (vivo) setExtras(x); }).catch(() => {});
     return () => { vivo = false; };
   }, [funnelId]);
 
-  const etapas = ordenLocal ?? emb?.etapas ?? [];
+  // El orden que se está arrastrando gana sobre lo del server, y lo del server sobre la
+  // semilla. Nunca al revés: la semilla es una foto de cuando se abrió.
+  const etapas = ordenLocal ?? emb?.etapas ?? semilla?.etapas ?? [];
+  /** ¿Hay algo que listar? Con semilla, sí desde el primer frame. */
+  const hayLista = !!emb || !!semilla;
+  /**
+   * La etapa por donde ENTRA el lead. No se mueve, no se quita, y nada va antes de ella.
+   *
+   * ⚠️ NO ES «la primera de la lista»: es la que el pipeline declara `kind: 'entrada'`, que es
+   * lo que ya distinguían las cinco plantillas. Atarlo a la posición haría que arrastrar
+   * otra etapa encima la convirtiera en la entrada sin que nadie lo decida.
+   *
+   * Y su único control es el LÁPIZ, que abre cómo entra la gente: «desde allí debería
+   * salir el desplegable para configurar. Para ello, mejor un botón de lápiz, en lugar de
+   * las flechas y la X, ya que no serán necesarios».
+   * ⚠️ Y SI NINGUNA LA DECLARA, es la primera. Medido contra la base el 29/09: de los
+   * 15 embudos vivos, los 11 con pipeline propio declaran exactamente una entrada y los
+   * otros 4 caen al pipeline por defecto, que también la trae. O sea que hoy el respaldo
+   * no se usa nunca — y existe igual porque de este lápiz cuelga la ÚNICA pantalla donde
+   * se declara cómo entra la gente: un embudo sin entrada no perdería una fila, perdería
+   * la puerta.
+   */
+  const iEntrada = Math.max(0, etapas.findIndex((e) => e.kind === 'entrada'));
+  const esEntrada = (e: EtapaDelFunnel) => etapas[iEntrada]?.key === e.key;
+  /** Dónde puede caer algo que se arrastra: nunca antes de la entrada. */
+  const pisoDelOrden = etapas.length ? iEntrada + 1 : 0;
 
   const aplicar = (op: OpEtapa, onListo?: (d?: DeshacerEtapa) => void) => {
     startTrabajo(async () => {
@@ -135,7 +176,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
       setError(null);
       setRenombrando(null);
       await cargar();
-      void conteosDeEtapasAction(funnelId ?? undefined).then(setConteos).catch(() => {});
+      void extrasDelEmbudoAction(funnelId ?? undefined).then(setExtras).catch(() => {});
       // El tablero de atrás se refresca en CADA cambio: sus columnas se leen en el server,
       // y sin esto quien renombra una etapa y mira detrás del pop-up ve el nombre viejo.
       router.refresh();
@@ -151,6 +192,8 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
     const i = etapas.findIndex((e) => e.key === key);
     const j = i + delta;
     if (i < 0 || j < 0 || j >= etapas.length) return;
+    // Ni se mueve la entrada ni se la pasa por encima.
+    if (esEntrada(etapas[i]) || esEntrada(etapas[j])) return;
     const orden = [...etapas];
     [orden[i], orden[j]] = [orden[j], orden[i]];
     setOrdenLocal(orden);
@@ -160,10 +203,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
   const soltarEn = (key: string, destino: number) => {
     const i = etapas.findIndex((e) => e.key === key);
     if (i < 0) return;
+    if (esEntrada(etapas[i])) return;
     const resto = etapas.filter((e) => e.key !== key);
     // El índice se corre uno cuando la etapa venía de más arriba, o soltar hacia abajo
-    // cae un lugar antes.
-    const pos = i < destino ? destino - 1 : destino;
+    // cae un lugar antes. Y nunca por encima de la entrada.
+    const pos = Math.max(pisoDelOrden, i < destino ? destino - 1 : destino);
     if (pos === i) return;
     const orden = [...resto.slice(0, pos), etapas[i], ...resto.slice(pos)];
     setOrdenLocal(orden);
@@ -261,7 +305,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
   // «Deshacer» los 5 segundos que dura. Con leads adentro se pregunta, porque ahí el
   // deshacer no alcanza: quedan fuera del embudo mientras tanto.
   const quitarEtapa = (e: EtapaDelFunnel) => {
-    const n = conteos?.[e.key];
+    const n = extras?.conteos[e.key];
     const hacer = () => aplicar({ op: 'eliminar', key: e.key }, (d) => {
       show(`Quitada «${e.label}»`, d ? () => aplicar({ op: 'insertar', etapa: d.etapa, at: d.at }) : undefined);
     });
@@ -299,13 +343,14 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
 
   const eliminarProducto = () => {
     if (funnelId == null || !emb) return;
-    // Sin leads no hay nada que perder: se elimina y queda el deshacer del toast.
-    if (emb.leads === 0) { archivar(true); return; }
+    // Sin leads no hay nada que perder: se elimina y queda el deshacer del toast. Si el
+    // conteo todavía no llegó, se pregunta: el default seguro es la fricción.
+    if (extras?.leads === 0) { archivar(true); return; }
     setConfirmar({
       titulo: `Eliminar «${emb.nombre}»`,
-      cuerpo: emb.leads > 0
-        ? `Sus ${emb.leads} ${emb.leads === 1 ? 'lead deja' : 'leads dejan'} de verse hasta que lo recuperes. Se guarda entero y vuelve desde «Embudos eliminados».`
-        : 'No se pudo contar cuántos leads tiene. Se guarda entero y vuelve desde «Embudos eliminados».',
+      cuerpo: extras && extras.leads > 0
+        ? `Sus ${extras.leads} ${extras.leads === 1 ? 'lead deja' : 'leads dejan'} de verse hasta que lo recuperes. Se guarda entero y vuelve desde «Embudos eliminados».`
+        : 'Se guarda entero y vuelve desde «Embudos eliminados».',
       boton: 'Eliminar el producto',
       hacer: () => archivar(false),
     });
@@ -343,6 +388,9 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
         // El alto es un NÚMERO y no un tope: las dos subtabs miden cosas distintas, y una
         // caja que se achica según lo que tenga adentro ya se reportó dos veces.
         alto="min(85vh, 620px)"
+        // El cuerpo ya es una lista de filas con su propio fondo: cada filete de la caja
+        // es una raya más sobre una pantalla llena de bordes. Se pidió dos veces.
+        sinFiletes
         etiqueta={`Editar el producto ${emb?.nombre ?? nombre}`}
         onCerrar={onCerrar}
         pie={
@@ -372,13 +420,13 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
           ))}
         </div>
 
-        {!emb && !error && <Cargando />}
+        {!hayLista && !error && <Cargando />}
 
-        {emb && sub === 'etapas' && (
+        {hayLista && sub === 'etapas' && (
           <>
             {/* Los avisos de embudo roto. AVISAN, no bloquean: guardar nunca se bloquea.
                 Van arriba porque debajo de la lista ya nadie los lee. */}
-            {emb.problemas.length > 0 && (
+            {emb && emb.problemas.length > 0 && (
               <div style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
                 {emb.problemas.map((t) => (
                   <p key={t} style={{ margin: 0, padding: '9px 12px', borderRadius: 10, background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 13, lineHeight: 1.5 }}>{t}</p>
@@ -394,6 +442,9 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
                 const m = medios.current;
                 let idx = m.length;
                 for (let i = 0; i < m.length; i++) { if (e.clientY < m[i]) { idx = i; break; } }
+                // La marca nunca se dibuja por encima de la entrada: prometer un destino
+                // que el drop va a corregir es peor que no dibujarla.
+                if (idx < pisoDelOrden) idx = pisoDelOrden;
                 // Sólo se repinta cuando el destino CAMBIA: un `setState` por `dragover`
                 // redibuja la lista 60 veces por segundo y el gesto se siente roto.
                 setIns((p) => (p === idx ? p : idx));
@@ -408,12 +459,13 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns(null); }}
             >
               {etapas.map((e, i) => (
-                <div key={e.key} data-etapa draggable
+              <Fragment key={e.key}>
+                <div data-etapa draggable={!esEntrada(e)}
                   onDragStart={(ev) => agarrar(ev, e.key)}
                   onDragEnd={limpiarDrag}
                   style={{
                     ...fila,
-                    cursor: 'grab',
+                    cursor: esEntrada(e) ? 'default' : 'grab',
                     // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
                     outline: arrastrando === e.key ? '1px solid var(--border-strong)' : 'none',
                     ...(ins === i ? MARCA : ins === i + 1 && i === etapas.length - 1 ? MARCA_FIN : null),
@@ -442,13 +494,45 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
                       <span style={{ flex: 1 }} />
                     </>
                   )}
-                  <AccionFila etiqueta={`Subir ${e.label}`} disabled={trabajando || i === 0}
-                    onClick={() => mover(e.key, -1)}>↑</AccionFila>
-                  <AccionFila etiqueta={`Bajar ${e.label}`} disabled={trabajando || i === etapas.length - 1}
-                    onClick={() => mover(e.key, 1)}>↓</AccionFila>
-                  <AccionFila etiqueta={`Quitar ${e.label}`} disabled={trabajando}
-                    onClick={() => quitarEtapa(e)}>✕</AccionFila>
+                  {/* ⚠️ LA ENTRADA LLEVA LÁPIZ, NO FLECHAS NI ✕: no se mueve, nada va antes,
+                      y no se puede quitar —sin ella el embudo no tiene por dónde entrar—.
+                      Tres controles apagados dicen lo mismo que uno útil, pero se leen como
+                      que la app está rota. El lápiz abre cómo entra la gente. */}
+                  {esEntrada(e) ? (
+                    <AccionFila etiqueta={`Configurar por dónde entra la gente a ${e.label}`}
+                      disabled={trabajando} onClick={() => setEntradasAbierto((v) => !v)}>
+                      <LapizIcon />
+                    </AccionFila>
+                  ) : (<>
+                    <AccionFila etiqueta={`Subir ${e.label}`} disabled={trabajando || i <= pisoDelOrden}
+                      onClick={() => mover(e.key, -1)}>↑</AccionFila>
+                    <AccionFila etiqueta={`Bajar ${e.label}`} disabled={trabajando || i === etapas.length - 1}
+                      onClick={() => mover(e.key, 1)}>↓</AccionFila>
+                    <AccionFila etiqueta={`Quitar ${e.label}`} disabled={trabajando}
+                      onClick={() => quitarEtapa(e)}>✕</AccionFila>
+                  </>)}
                 </div>
+                {/* ⚠️ EL PANEL CUELGA DE SU FILA, no del final de la lista: «desde allí
+                    debería salir el desplegable para configurar». Suelto abajo, después de
+                    «Agregar etapa», no se entendía de qué etapa hablaba — y se abre desde
+                    un lápiz que está cuatro filas más arriba.
+
+                    ⚠️ Y ESPERA AL SERVER, no lo pinta la semilla: el tablero no sabe qué
+                    entradas están declaradas, y dibujar las casillas vacías le diría a un
+                    negocio que las declaró que no tiene ninguna. */}
+                {esEntrada(e) && entradasAbierto && !emb && <Cargando />}
+                {esEntrada(e) && entradasAbierto && emb && (
+                  <div style={{ padding: '4px 4px 10px 11px' }}>
+                    <span style={{ display: 'block', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>Cómo entra tu gente</span>
+                    <EmbudoEntradas
+                      key={`${emb.id}:${emb.entradas.join(',')}`}
+                      initial={emb.entradas} initialEvento={emb.evento} canal={extras?.canal ?? null}
+                      funnelId={funnelId ?? undefined}
+                      onGuardado={() => { void cargar(); setEntradasAbierto(false); router.refresh(); }}
+                    />
+                  </div>
+                )}
+              </Fragment>
               ))}
 
               {/* «Agregar etapa si le paso el cursor debería reaccionar y al apretarle como
@@ -456,26 +540,9 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, onCerrar }: {
               <NuevaEtapa disabled={trabajando} onCrear={(label) => aplicar({ op: 'agregar', label })} />
             </div>
 
-            {/* «Cómo entran» dejó de ser una subtab: «esto se debería poder editar con un
-                desplegable luego, una vez ya está creado el producto, en la tab de etapas». */}
-            <div style={{ marginTop: 20 }}>
-              <button type="button" onClick={() => setEntradasAbierto((v) => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '8px 0', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--dim)' }}>
-                <span style={{ fontSize: 9, transform: entradasAbierto ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▶</span>
-                Cómo entran
-                {emb.entradas.length === 0 && <span style={{ fontWeight: 500, color: 'var(--warn)' }}>· sin declarar</span>}
-              </button>
-              {entradasAbierto && (
-                <div style={{ paddingTop: 6 }}>
-                  <EmbudoEntradas
-                    key={`${emb.id}:${emb.entradas.join(',')}`}
-                    initial={emb.entradas} initialEvento={emb.evento} canal={emb.canal}
-                    funnelId={funnelId ?? undefined}
-                    onGuardado={() => { void cargar(); router.refresh(); }}
-                  />
-                </div>
-              )}
-            </div>
+            {/* «Cómo entran» cuelga del LÁPIZ de la etapa de entrada: «desde allí debería
+                salir el desplegable para configurar». Estaba suelto al final de la lista, y
+                ahí no se entendía de qué etapa hablaba. */}
           </>
         )}
 

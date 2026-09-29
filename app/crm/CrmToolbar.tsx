@@ -25,10 +25,12 @@ import { useEffect, useRef, useState, useTransition, type CSSProperties, type Re
 import { BAND_LABEL, CATEGORY, bandToCategory, type Stage, type StageBand } from '@/lib/pipeline';
 
 const MONO = "'Geist Mono', monospace";
-import { Modal } from '@/app/_ui/Modal';
+import { Modal } from '@/app/_ui/Modal';
+
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
 import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction } from './actions';
+import { LapizIcon } from './iconos';
 
 const SANS = "'Geist', sans-serif";
 
@@ -71,14 +73,6 @@ function DownloadIcon({ size = 17 }: { size?: number }) {
 }
 function FunnelIcon({ size = 17 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>;
-}
-function LapizIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
 }
 
 function KebabIcon() {
@@ -599,15 +593,41 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   );
 }
 
+/** Una opción de una lista de elegir: la misma caja para «cómo lo vendes» y «cómo te llega». */
+function Opcion({ label, desc, on, onClick }: { label: string; desc?: string; on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" aria-pressed={on} onClick={onClick}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+        padding: '11px 14px', borderRadius: 10, fontFamily: SANS,
+        border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
+        background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
+      }}>
+      <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+      {desc && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>{desc}</span>}
+    </button>
+  );
+}
+
 /**
- * Alta de un producto desde el CRM: UNA pregunta.
+ * Alta de un producto: TRES preguntas, UNA POR PANTALLA.
  *
- * El nombre alcanza para que el producto exista y su tablero se pueda mirar. El precio,
- * el tipo y la promesa se completan en el catálogo de productos — acá se está eligiendo
- * qué tablero ver, no cerrando el modelo de negocio, y pedir cinco campos para eso es
- * exactamente la fricción que este CRM viene sacando.
+ * ⚠️ ERAN LAS TRES JUNTAS Y SE PARTIÓ: «Nuevo producto hazlo modular el formulario, en 3
+ * pasos, no todo junto» (29/09/2026). Las tres son hechos del negocio que quien crea el
+ * producto sabe de memoria —cómo se llama, cómo lo vende, cómo le llega la gente— pero
+ * juntas son once cajas de una sola vez, y once cajas se leen como un formulario.
+ *
+ * ⚠️ Y EL ALTO ES FIJO. Los tres pasos miden distinto (un input contra cinco opciones), así
+ * que sin esto la caja se encoge y se estira a cada «Siguiente»: es lo mismo que el dueño
+ * pidió dos veces para la ficha —«JAMÁS achiques el tamaño de un detail según lo que
+ * contenga dentro»— y acá pasa entre dos pantallas de la misma tarea.
+ *
+ * ⚠️ Y CADA PASO VALIDA LO SUYO. Un error que se descubre al final manda a buscar cuál de
+ * las tres preguntas fue; validando al avanzar, el aviso sale en la pantalla donde se
+ * arregla.
  */
 function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCreado: (funnelId: number) => void }) {
+  const [paso, setPaso] = useState(0);
   const [nombre, setNombre] = useState('');
   // ⚠️ SIN DEFAULT. Preseleccionar «Llamada de venta» haría que el 90% cree su tablero con
   // las etapas de otro negocio sin darse cuenta — que es exactamente el bug que esto viene
@@ -615,117 +635,116 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   const [canal, setCanal] = useState<string>('');
   // ⚠️ CÓMO ENTRA LA GENTE SE PREGUNTA ACÁ, al crear el producto. Era una subtab del
   // pop-up y se mudó: «eso debería estar como un paso al momento de crear un nuevo
-  // producto». Sigue editándose después, desde el desplegable de la tab de etapas.
+  // producto». Sigue editándose después, desde el lápiz de la etapa de entrada.
   const [entradas, setEntradas] = useState<EntradaId[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, startGuardar] = useTransition();
 
   const crear = () => {
-    const n = nombre.trim();
-    if (!n) { setErr('Ponle un nombre al producto.'); return; }
-    if (!canal) { setErr('Elige cómo lo vendes: de ahí salen las etapas de su tablero.'); return; }
-    if (!entradas.length) { setErr('Elige cómo te llega la gente.'); return; }
     setErr(null);
     startGuardar(async () => {
-      const r = await crearProductoAction(n, canal);
+      const r = await crearProductoAction(nombre.trim(), canal);
       if ('error' in r) { setErr(r.error); return; }
       // Las entradas se declaran DESPUÉS de que el embudo existe: son suyas, no del
       // negocio, y hasta que hay fila no hay dónde escribirlas. Si esto falla, el
-      // producto igual quedó creado — se declara desde su desplegable.
+      // producto igual quedó creado — se declara desde su lápiz.
       await declararEntradasAction(entradas, null, r.funnelId).catch(() => {});
       onCreado(r.funnelId);
     });
   };
 
+  /** Avanzar valida ESTE paso. El último crea. */
+  const seguir = () => {
+    if (paso === 0 && !nombre.trim()) { setErr('Ponle un nombre.'); return; }
+    if (paso === 1 && !canal) { setErr('Elige una.'); return; }
+    if (paso === 2 && !entradas.length) { setErr('Elige al menos una.'); return; }
+    setErr(null);
+    if (paso === 2) crear(); else setPaso(paso + 1);
+  };
+
+  const titulos = [
+    { t: '¿Cómo se llama?', s: undefined as string | undefined },
+    { t: '¿Cómo lo vendes?', s: 'De esto salen las etapas de su tablero.' },
+    { t: '¿Cómo te llega la gente?', s: 'Hasta tres.' },
+  ];
+
   return (
     <Modal
-      titulo="Nuevo producto"
-      // ⚠️ 560 Y NO 440: «está exageradamente finito ese modal». Con tres preguntas
-      // adentro —el nombre, cómo se vende y cómo entra la gente— 440 dejaba cada opción
-      // en dos renglones.
+      titulo={titulos[paso].t}
+      encabezado={`Nuevo producto · ${paso + 1} de 3`}
+      etiqueta={`Nuevo producto, paso ${paso + 1} de 3: ${titulos[paso].t}`}
       ancho={560}
+      alto="min(80vh, 520px)"
+      sinFiletes
       onCerrar={onCerrar}
       pie={(<>
-        <button type="button" onClick={onCerrar} style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-        <button type="button" onClick={crear} disabled={guardando}
+        {/* Atrás va a la izquierda del todo y sólo cuando hay adónde volver: un botón
+            apagado en el primer paso se lee como que la pantalla está rota. */}
+        {paso > 0 && (
+          <button type="button" onClick={() => { setErr(null); setPaso(paso - 1); }} disabled={guardando}
+            style={{ marginRight: 'auto', padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Atrás</button>
+        )}
+        <button type="button" onClick={onCerrar} disabled={guardando}
+          style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+        <button type="button" onClick={seguir} disabled={guardando}
           style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>
-          {guardando ? 'Creando…' : 'Crear producto'}
+          {paso < 2 ? 'Siguiente' : guardando ? 'Creando…' : 'Crear producto'}
         </button>
       </>)}
     >
-      <label style={{ display: 'block' }}>
-        <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>¿Cómo se llama?</span>
+      {/* ⚠️ UN SOLO HIJO DIRECTO. `.mk-modal__cuerpo > *` le pone 18 px arriba y abajo a
+          CADA hijo del cuerpo: con la aclaración y las opciones sueltas quedaban ~48 px
+          de hueco en el medio, que se lee como que falta algo ahí. */}
+      <div>
+      {titulos[paso].s && <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--faint)' }}>{titulos[paso].s}</p>}
+
+      {paso === 0 && (
         <input
-          type="text" value={nombre} autoFocus
-          onChange={(e) => setNombre(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !guardando) crear(); }}
+          type="text" value={nombre} autoFocus aria-label="Nombre del producto"
+          onChange={(e) => { setErr(null); setNombre(e.target.value); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') seguir(); }}
           // ⚠️ EL PLACEHOLDER NO NOMBRA A UN CLIENTE. Decía «Sistema DOS™», que es el
           // producto de Mauricio: «eso está muy mal. Jamás lo hagas». Un ejemplo tiene
           // que ser genérico, o no ser un ejemplo.
           placeholder="Mentoría, curso, consultoría…"
-          style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' }}
+          style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', boxSizing: 'border-box' }}
         />
-      </label>
-      {/* ⚠️ LA PREGUNTA QUE FALTABA, y es por un HECHO del negocio, no por una
-          configuración: quien crea un producto sabe si lo vende por llamada o por carrito.
-          De la respuesta salen las ETAPAS de su tablero.
+      )}
 
-          Hasta el 28/09/2026 acá no se preguntaba nada y el funnel nacía sin etapas, así
-          que caía a la plantilla genérica — que en un workspace que nunca tocó su funnel es
-          IDÉNTICA a la del negocio. Por eso tres productos nuevos se veían los tres iguales,
-          y se reportó tres veces como «no cambió absolutamente nada». */}
-      <div style={{ marginTop: 16 }}>
-        <span style={{ display: 'block', fontSize: 12.5, marginBottom: 8, color: 'var(--dim)' }}>¿Cómo lo vendes?</span>
-        <div style={{ display: 'grid', gap: 6 }}>
+      {/* ⚠️ DE ACÁ SALEN LAS ETAPAS del tablero de este producto, y por eso se pregunta.
+          Hasta el 28/09/2026 no se preguntaba nada y el funnel nacía sin etapas, así que
+          caía a la plantilla genérica — que en un workspace que nunca tocó su funnel es
+          IDÉNTICA a la del negocio. Tres productos nuevos se veían los tres iguales, y se
+          reportó tres veces como «no cambió absolutamente nada». */}
+      {paso === 1 && (
+        <div style={{ display: 'grid', gap: 7 }}>
           {CANALES.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => { setCanal(c.id); setErr(null); }}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                padding: '10px 13px', borderRadius: 10, fontFamily: SANS,
-                border: '1px solid ' + (canal === c.id ? 'var(--primary)' : 'var(--border-strong)'),
-                background: canal === c.id ? 'var(--primary-weak)' : 'var(--surface-2)',
-              }}
-            >
-              <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{c.label}</span>
-            </button>
+            <Opcion key={c.id} label={c.label} desc={c.desc} on={canal === c.id}
+              onClick={() => { setErr(null); setCanal(c.id); }} />
           ))}
         </div>
-      </div>
+      )}
 
-      {/* ⚠️ LA TERCERA PREGUNTA, y es la que estaba en una subtab del pop-up: cómo LLEGA
-          la gente. Es un hecho del negocio y quien crea el producto lo sabe. De acá salen
-          los audios que MaKo pide y lo que dice en la primera frase — sin esto se abstiene
-          de escribir, que es lo correcto y también lo que se lee como que no anda. */}
-      <div style={{ marginTop: 16 }}>
-        <span style={{ display: 'block', fontSize: 12.5, marginBottom: 8, color: 'var(--dim)' }}>¿Cómo te llega la gente? <span style={{ color: 'var(--faint)' }}>Hasta tres.</span></span>
-        <div style={{ display: 'grid', gap: 6 }}>
-          {ENTRADAS_OFRECIDAS.map((id) => ENTRADAS[id]).map((e) => {
-            const on = entradas.includes(e.id);
-            return (
-              <button key={e.id} type="button" aria-pressed={on}
-                onClick={() => { setErr(null); setEntradas((p) => (p.includes(e.id) ? p.filter((x) => x !== e.id) : [...p, e.id].slice(0, 3))); }}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                  padding: '10px 13px', borderRadius: 10, fontFamily: SANS,
-                  border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
-                  background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
-                }}>
-                <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{e.label}</span>
-              </button>
-            );
-          })}
+      {/* ⚠️ Y ESTO NO ES LO MISMO que «cómo lo vendes»: una dice por dónde LLEGA y la otra
+          cómo se CIERRA. De ésta salen los audios que MaKo pide y lo que dice en la primera
+          frase — sin declararla se abstiene de escribir, que es lo correcto y también lo
+          que se lee como que no anda. */}
+      {paso === 2 && (
+        <div style={{ display: 'grid', gap: 7 }}>
+          {ENTRADAS_OFRECIDAS.map((id) => ENTRADAS[id]).filter(Boolean).map((e) => (
+            <Opcion key={e.id} label={e.label} on={entradas.includes(e.id)}
+              onClick={() => { setErr(null); setEntradas((pv) => (pv.includes(e.id) ? pv.filter((x) => x !== e.id) : [...pv, e.id].slice(0, 3))); }} />
+          ))}
         </div>
-      </div>
+      )}
+
       {err && (
         <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
       )}
+      </div>
     </Modal>
   );
 }
-
 // ── vacío por filtros (kanban): antes solo la tabla avisaba ──────────────────
 export function SinResultados({ hayFiltros, onLimpiar }: { hayFiltros: boolean; onLimpiar: () => void }) {
   return (

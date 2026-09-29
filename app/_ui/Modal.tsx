@@ -51,6 +51,7 @@ export function Modal({
   alto,
   etiqueta,
   anidada = false,
+  sinFiletes = false,
   contenedor = false,
 }: {
   /** El título de la caja. Es el nombre de LA COSA, no una instrucción. */
@@ -90,6 +91,17 @@ export function Modal({
    *  correcto cuando lo que se abre es OTRA pantalla, y es lo que hacía que elegir
    *  «Personalizado…» pareciera cerrar el detalle. */
   anidada?: boolean;
+  /**
+   * Apaga los tres filetes de la caja: el de la cabecera, los que separan los bloques del
+   * cuerpo y el del pie.
+   *
+   * ⚠️ NO ES UN GUSTO, ES UN TIPO DE CONTENIDO. Los filetes convierten «textos sueltos
+   * volando» en grupos, y para el DETALLE de algo —párrafos de distinta naturaleza— son lo
+   * correcto. Pero cuando el cuerpo ya es una LISTA de filas con su propio fondo, cada
+   * filete agrega una raya más en una pantalla que ya está llena de bordes: se reportó
+   * dos veces como «elimina todas las líneas divisorias, quedan mal».
+   */
+  sinFiletes?: boolean;
   /** ⚠️ ADENTRO DE ESTE MODAL SE ABREN OTROS. Con esto la pila NO lo apaga cuando algo se
    *  abre encima — y hace falta porque lo que se abre encima es un DESCENDIENTE suyo en el
    *  DOM: apagarlo con `display:none` apaga también al que se acaba de abrir, y la pantalla
@@ -162,6 +174,7 @@ export function Modal({
         className="mk-modal"
         role="dialog"
         aria-modal="true"
+        data-sin-filetes={sinFiletes ? '' : undefined}
         aria-labelledby={tituloId}
         aria-label={etiqueta}
         tabIndex={-1}

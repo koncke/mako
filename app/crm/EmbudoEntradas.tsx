@@ -122,7 +122,7 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
       {/* El evento sólo se pregunta donde la fecha la pone el NEGOCIO: si el lead
           agenda solo, no hay «todos los miércoles» que declarar. */}
       {pideEvento && (
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+        <div style={{ marginTop: 16, paddingTop: 4 }}>
           <span style={{ display: 'block', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>Tu sesión</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

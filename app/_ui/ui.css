@@ -942,6 +942,13 @@
 .mk-modal__cuerpo > *:not(.mk-modal__fondo) + *:not(.mk-modal__fondo) { border-top: 1px solid var(--border); }
 .mk-modal__cuerpo > :last-child:not(.mk-modal__fondo) { padding-bottom: 0; }
 
+/* Una caja SIN filetes: el cuerpo ya es una lista de filas con su propio fondo, y cada
+   raya más es ruido. Va como atributo del contenedor y no como clase suelta porque apaga
+   TRES reglas de tres bloques distintos — quien la pide, la pide para la caja entera. */
+.mk-modal[data-sin-filetes] .mk-modal__cab,
+.mk-modal[data-sin-filetes] .mk-modal__pie { border: none; }
+.mk-modal[data-sin-filetes] .mk-modal__cuerpo > *:not(.mk-modal__fondo) + *:not(.mk-modal__fondo) { border-top: none; }
+
 .mk-modal__pie {
   flex: none;
   display: flex;

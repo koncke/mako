@@ -3861,6 +3861,28 @@ con un default SEGURO mientras tanto. Acá el dato era «¿cuántos leads tiene 
 default seguro es preguntar antes de borrar: nunca borrar sin avisar porque el conteo todavía
 no llegó.
 
+⚠️ **PERO «DESPUÉS» NO ES «EN PARALELO»: LOS SERVER ACTIONS SE ENCOLAN.** Next.js los despacha
+de a uno, así que mudar la lectura cara a una segunda action la pone DETRÁS de la primera, no
+al lado. Medido el 29/09/2026 con un `fetch` instrumentado, desde el click: la primera sale a
++121 ms y vuelve a +439; la segunda sale a **+442** —3 ms después— y vuelve a +752. La suma
+es peor que la única consulta de antes, y por eso sacar dos consultas del detalle bajó la
+action de 550 a 250 ms **sin mover el tiempo hasta dibujar**: 1036 ms contra 1053.
+
+⚠️ **Y ANTES DE PREGUNTAR, MIRÁ SI LA PANTALLA YA LO TIENE.** Lo que arregló ese caso no fue
+una consulta más rápida: fue no hacerla. Las etapas que el pop-up iba a buscar ya estaban
+dibujadas arriba, como las columnas del tablero, y viajan como prop desde el server en cada
+carga. El pop-up abre pintando eso y el server confirma detrás: **941 ms → 167 ms**. Tres
+condiciones para que no mienta:
+
+- **El mapeo vive en UN lugar** y lo llaman los dos. Con dos copias, la pantalla abre
+  mostrando una lista y medio segundo después muestra otra — que se lee como que cambia sola.
+- **La foto se pasa sólo cuando es del MISMO sujeto.** Si el pop-up puede abrirse sobre otra
+  cosa que la que la pantalla está mirando, pintar lo de al lado es mostrar el dato
+  equivocado durante medio segundo, que es peor que el giro.
+- **Lo que la pantalla NO sabe sigue esperando.** Una foto parcial pintada como si fuera
+  completa afirma ceros: acá, las casillas de «cómo entra tu gente» vacías le dirían a un
+  negocio que las declaró que no tiene ninguna.
+
 ⚠️ **Y un «Cargando…» escrito no es un loader.** Un texto no dice que algo está pasando: dice
 que algo dice que está pasando. Va el giro, siempre.
 

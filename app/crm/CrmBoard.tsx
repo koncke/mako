@@ -32,6 +32,7 @@ import {
   type StageBand,
   type FunnelTransition,
   esTerminal,
+  etapasVisibles,
   MAX_LABEL_ETAPA,
 } from '@/lib/pipeline';
 // Sin 'server-only' a propósito (ver su cabecera): es la fuente única del mapeo
@@ -1273,6 +1274,12 @@ export function CrmBoard({
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
+  // Las etapas que esta pantalla YA dibujó, con el mismo mapeo que usa el server. Es lo
+  // que hace que el pop-up abra pintado en vez de con el giro.
+  const semillaEtapas = useMemo(() => {
+    const { propias, fijas } = etapasVisibles(stages);
+    return { etapas: propias, fijas };
+  }, [stages]);
   // Y si la URL lo pidio, se abre solo al entrar. Una sola vez: despues es estado de la
   // pantalla, no de la URL — reabrirlo en cada render lo volveria imposible de cerrar.
   const pedidoAbrir = useRef(abrirEmbudo);
@@ -1702,7 +1709,15 @@ export function CrmBoard({
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {importar && <ImportarLeadsModal onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
-      {etapasDe && <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} abrirEntradas={etapasDe.entradas} onCerrar={() => setEtapasDe(null)} />}
+      {/* ⚠️ LA SEMILLA VA SÓLO SI EL POP-UP ABRE SOBRE EL EMBUDO QUE SE ESTÁ MIRANDO.
+          Desde el desplegable se puede editar OTRO producto sin cambiar de tablero, y
+          ahí estas etapas son las de un embudo distinto: pintarlas sería mostrar la
+          lista equivocada durante medio segundo, que es peor que el giro. */}
+      {etapasDe && (
+        <EtapasModal funnelId={etapasDe.id} nombre={etapasDe.nombre} abrirEntradas={etapasDe.entradas}
+          semilla={etapasDe.id === funnelActivo ? semillaEtapas : null}
+          onCerrar={() => setEtapasDe(null)} />
+      )}
 
       {/* Alta a mano SIN salir del tablero: el mismo form de /crm/new adentro de un
           Modal. Al crear se cierra, se abre la ficha del lead nuevo y se recarga la

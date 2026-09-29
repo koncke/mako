@@ -30,6 +30,41 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '01:20', chat: 'CRM embudo pop-up', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las líneas otra vez, la lentitud otra vez, la etapa de entrada y el alta en 3 pasos',
+    pedido: '1. Te pedí que eliminaras las lineas divisorias. / 2. Al abrir sigue tardando mucho en cargar... / 3. Por defecto, la primer etapa debería ser "Lead entrante", no se debería poder mover, y tampoco nadie puede poner algo atrás de esa etapa. Y desde allí debería salir el desplegable para configurar. Para ello, mejor un botón de lapiz, en lugar de las flechas y la X, ya que no serán necesarios. / 4. Nuevo producto hazlo modular el formulario, en 3 pasos, no todo junto.',
+    puntos: [
+      '⚠️ **Las líneas se pidieron TRES veces.** Las dos primeras se sacaron las de la LISTA; las que quedaban las dibujaba `Modal` —cabecera, entre bloques del cuerpo y pie— y este archivo no las podía tocar. Por eso la prop terminó en la primitive y no acá: quien la pide, la pide para la caja entera.',
+      '⚠️ Y el 2 es el segundo reporte de lo mismo: **el arreglo anterior era correcto y no movió el número**. Ver la implementación de abajo.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '01:20', chat: 'CRM embudo pop-up', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El pop-up abre en 167 ms porque dejó de preguntar lo que ya estaba en pantalla',
+    puntos: [
+      '⚠️ **Diferir una consulta a una SEGUNDA server action no la saca del camino crítico: la pone DETRÁS.** Next.js las despacha de a una. Medido con un `fetch` instrumentado desde el click: la primera sale a +121 ms y vuelve a +439; la segunda sale a **+442** —3 ms después— y vuelve a +752. Por eso sacar dos consultas del detalle bajó la action de ~550 a 250 ms **sin mover el tiempo hasta dibujar**: 1036 ms contra 1053.',
+      '**Lo que lo arregló fue no preguntar.** Las etapas ya estaban dibujadas arriba, como las columnas del tablero, y viajan como prop desde el server en cada carga. El pop-up abre pintando eso y el server confirma detrás: **941 ms → 167 ms**, con las dos listas idénticas (comparadas al abrir y tres segundos después: no parpadea).',
+      '⚠️ **El mapeo se mudó a `etapasVisibles` en `lib/pipeline.ts` y lo llaman los DOS.** Con dos copias, el pop-up abre mostrando una lista y medio segundo después muestra otra. Y la semilla va **sólo** si abre sobre el embudo que se está mirando: desde el desplegable se edita otro producto sin cambiar de tablero. Lo que el tablero no sabe —si se ofrece «Eliminar producto», las nutriciones, las entradas declaradas— sigue esperando al server, porque pintar las casillas vacías le diría a un negocio que las declaró que no tiene ninguna.',
+      '⚠️ **La etapa de entrada es un `kind`, no la posición 0.** Atarla al índice haría que arrastrar otra etapa encima la convirtiera en la entrada, que es justo lo que el pedido prohíbe. Medido antes de atarlo: de 15 embudos, los 11 con pipeline propio declaran exactamente una `entrada` y los otros 4 caen al default, que también la trae. Su único control es el lápiz —tres botones apagados dicen lo mismo que uno útil, pero se leen como que la app está rota— y de ahí cuelga «Cómo entra tu gente», pegado a su fila y no al final de la lista.',
+      '**Y las CUATRO puertas al orden se cierran en el server**, no en la pantalla: eliminar, mover, reordenar (un arrastre) e insertar (el deshacer de un borrado). La pantalla ya no lo ofrece; el que decide es el server.',
+      '⚠️ **El rótulo por defecto decía «Lead (Instant form)»** — el nombre de UNA de las cinco formas de entrar, en la etapa por la que entran las cinco. Cambiar el default no alcanza: 10 embudos tenían NUESTRA cadena congelada en su jsonb. Va con backfill (mig 0182) comparando contra la cadena exacta, así el único renombrado de verdad («Contacto nuevo», ws11) queda intacto. Verificado: 10 cambiados, 0 viejos, 1 intacto, orden sin tocar.',
+      'El alta de producto quedó en **tres pasos, uno por pantalla**, con alto FIJO (los tres miden distinto y una caja que se encoge entre dos pantallas de la misma tarea ya se pidió no hacer dos veces) y validando cada paso lo suyo: un error que sale al final manda a buscar cuál de las tres preguntas fue.',
+      '⚠️ **Y un gotcha del `Modal` que costó un renglón:** cada hijo directo de `.mk-modal__cuerpo` trae `padding: 18px 0`, así que dos bloques sueltos quedaban con ~48 px de hueco en el medio. El contenido del paso va adentro de UN solo `div`.',
+      'Los cuatro guards nuevos se probaron rompiéndolos, 12 roturas. ⚠️ **Una no rompió nada**: para ver si el test caza que `Modal` deje de emitir `data-sin-filetes`, se lo cambió por `data-sin-filetes-NO`, que el propio regex sigue matcheando. El guard estaba bien; la rotura estaba mal.',
+    ],
+    archivos: [
+      'app/crm/EtapasModal.tsx — la semilla, la etapa de entrada con su lápiz, y «Cómo entra tu gente» pegado a su fila',
+      'app/crm/CrmBoard.tsx — le pasa al pop-up las etapas que ya dibujó, sólo si es el embudo que se está mirando',
+      'lib/pipeline.ts — `etapasVisibles` (el mapeo, en UN lugar) y el rótulo «Lead entrante»',
+      'app/crm/actions.ts — las cuatro puertas al orden del pipeline, del lado del server',
+      'app/crm/CrmToolbar.tsx — el alta de producto en tres pasos, con alto fijo',
+      'app/_ui/Modal.tsx + app/_ui/ui.css — `sinFiletes`: apaga los tres filetes de la caja',
+      'supabase/migrations/0182_lead_entrante.sql — el backfill del rótulo, contra la cadena exacta',
+    ],
+  },
+  {
     fecha: '29 sep', hora: '23:40', chat: 'CRM embudo pop-up', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Once cosas mal en el pop-up, cuatro en el alta y tres en el desplegable',

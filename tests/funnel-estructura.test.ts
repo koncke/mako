@@ -36,12 +36,22 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
-  problemasDePipeline, DEFAULT_PIPELINE, FUNNEL_TEMPLATES, conTerminales, generateFunnel, esTerminal,
+  problemasDePipeline, DEFAULT_PIPELINE, DEFAULT_STAGES, FUNNEL_TEMPLATES, conTerminales, generateFunnel, esTerminal,
   MAX_LABEL_ETAPA,
   type Stage,
 } from '../lib/pipeline';
 
 const RAIZ = join(import.meta.dirname, '..');
+
+/**
+ * El fuente SIN comentarios, para que un guard no se acuse a sí mismo: la convención de
+ * la casa es explicar en el comentario justo lo que el guard prohíbe.
+ *
+ * ⚠️ LOS DE LÍNEA VAN PRIMERO. Al revés, un `//` que contenga la apertura de un bloque
+ * —o un `text/*` adentro de un comentario— abre un bloque que se cierra páginas después,
+ * y todo lo del medio queda invisible para el guard, que da verde sin haberlo mirado.
+ */
+const limpio = (src: string) => src.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 /**
  * Los .ts/.tsx de `app/` y `lib/` que están EN GIT.
@@ -493,10 +503,10 @@ test('⚠️ un funnel nuevo nace VACÍO y con SUS etapas', () => {
 
   // 3) Y el modal PREGUNTA, que es lo que no hacía.
   assert.match(tb, /CANALES\.map/, 'el modal de nuevo producto no pregunta cómo se vende');
-  assert.match(tb, /crearProductoAction\(n, canal\)/, 'el modal no manda el canal elegido');
+  assert.match(tb, /crearProductoAction\(nombre\.trim\(\), canal\)/, 'el modal no manda el canal elegido');
   // Sin default: preseleccionar haría que la mayoría cree su tablero con las etapas de otro
   // negocio sin darse cuenta, que es el mismo bug con un paso más.
-  assert.match(tb, /if \(!canal\)/, 'el canal dejó de ser obligatorio');
+  assert.match(tb, /if \(paso === 1 && !canal\)/, 'el canal dejó de ser obligatorio');
 
   // 4) Y el lead que se crea ahí CAE en ese funnel, o desaparece de la pantalla donde se
   //    acaba de cargar.
@@ -652,7 +662,7 @@ test('⚠️ sin leads NO hay fricción, y el deshacer devuelve la MISMA etapa',
   const md = readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8');
   assert.match(md, /if \(n === 0\) \{ hacer\(\); return; \}/, 'quitar una etapa vacía volvió a pedir confirmación');
   assert.match(md, /op: 'insertar', etapa: d\.etapa, at: d\.at/, 'el toast de deshacer no devuelve la etapa');
-  assert.match(md, /emb\.leads === 0/, 'eliminar un producto vacío volvió a pedir confirmación');
+  assert.match(md, /extras\?\.leads === 0/, 'eliminar un producto vacío volvió a pedir confirmación');
   // Y cuando SÍ hay algo que perder, se pregunta con un DIÁLOGO — no con un recuadro abajo.
   assert.match(md, /<Confirm/, 'la confirmación volvió a ser un recuadro en vez de un diálogo');
 
@@ -783,4 +793,129 @@ test('⚠️ un menú de acciones no lleva la flecha del desplegable', () => {
   const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
   const menu = bd.slice(bd.indexOf('placeholder="⋯"'));
   assert.ok(menu.slice(0, 400).includes('sinFlecha'), 'el menú «⋯» de la columna volvió a llevar flecha');
+});
+
+test('⚠️ las líneas divisorias se van por la CAJA, no fila por fila', () => {
+  // «Te pedí que eliminaras las lineas divisorias» — la tercera vez que se pide. Las dos
+  // primeras se sacaron las de la LISTA, y quedaban las tres de la caja (cabecera, entre
+  // bloques del cuerpo, y pie), que las dibuja `Modal` y no este archivo. Por eso la
+  // prop vive en la primitive: sacarlas a mano acá dejaba las de `Modal` intactas.
+  //
+  // Probado rompiéndolo (el archivo entero da 25 / 0):
+  //   · se saca el `sinFiletes` del pop-up                -> 24 / 1
+  //   · vuelve el filete de «Tu sesión» en EmbudoEntradas -> 24 / 1
+  //   · `Modal` emite otro atributo                       -> 24 / 1
+  //   · la hoja deja de apagar el filete del pie          -> 24 / 1
+  //
+  // ⚠️ Y LA PRIMERA VERSIÓN DE ESA TERCERA ROTURA NO ROMPIÓ NADA: se cambió el atributo
+  // por `data-sin-filetes-NO`, que el propio regex sigue matcheando, y el archivo dio
+  // 25 / 0. Una rotura que el guard no ve no prueba el guard: prueba la rotura.
+  const md = limpio(readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8'));
+  const ent = limpio(readFileSync(join(RAIZ, 'app/crm/EmbudoEntradas.tsx'), 'utf8'));
+  const modal = readFileSync(join(RAIZ, 'app/_ui/Modal.tsx'), 'utf8');
+  const css = readFileSync(join(RAIZ, 'app/_ui/ui.css'), 'utf8');
+
+  assert.match(md, /^\s*sinFiletes$/m, 'el pop-up volvió a dibujar los filetes de la caja');
+  assert.ok(!/borderTop: '1px solid var\(--border\)'/.test(ent),
+    'volvió el filete de «Tu sesión» adentro de la declaración de entradas');
+  // Y la prop tiene que HACER algo: un atributo sin CSS es una prop decorativa.
+  assert.match(modal, /data-sin-filetes/, '`Modal` dejó de emitir el atributo');
+  for (const regla of ['.mk-modal__cab', '.mk-modal__pie', '.mk-modal__cuerpo']) {
+    assert.ok(css.includes(`.mk-modal[data-sin-filetes] ${regla}`),
+      `la hoja no apaga el filete de ${regla}`);
+  }
+});
+
+test('⚠️ el pop-up abre con lo que el tablero YA dibujó, y con el MISMO mapeo', () => {
+  // «Al abrir sigue tardando mucho en cargar». Medido con el navegador el 29/09, click →
+  // primera fila: **941 ms** con la lista esperando al server, **167 ms** pintando con lo
+  // que el tablero ya tenía. Las dos consultas que se habían sacado del camino crítico
+  // bajaron la action de ~550 a 250 ms y NO movieron el número: los server actions se
+  // encolan de a uno, así que diferir una lectura a una segunda action no la saca del
+  // camino — la pone detrás de la primera.
+  //
+  // Probado rompiéndolo (el archivo entero da 25 / 0):
+  //   · el tablero deja de pasar la semilla            -> 24 / 1
+  //   · la semilla se pasa SIEMPRE, sea cual sea el id -> 24 / 1
+  //   · el pop-up vuelve a mirar sólo `emb` para listar -> 24 / 1
+  const md = limpio(readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8'));
+  const bd = limpio(readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8'));
+  const ac = limpio(readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8'));
+  const pl = readFileSync(join(RAIZ, 'lib/pipeline.ts'), 'utf8');
+
+  // UN mapeo, en la lib, y los dos lo importan. Con dos copias, el pop-up abre mostrando
+  // una lista y medio segundo después muestra otra.
+  assert.match(pl, /export function etapasVisibles/, 'el mapeo de etapas salió de la lib');
+  assert.match(ac, /etapasVisibles\(cfg\.stages\)/, 'el server volvió a mapear las etapas por su cuenta');
+  assert.match(bd, /etapasVisibles\(stages\)/, 'el tablero volvió a mapear las etapas por su cuenta');
+
+  // Y la semilla SÓLO para el embudo que se está mirando: desde el desplegable se edita
+  // otro producto sin cambiar de tablero, y ahí estas etapas son de otro embudo.
+  assert.match(bd, /semilla=\{etapasDe\.id === funnelActivo \? semillaEtapas : null\}/,
+    'la semilla dejó de mirar SI el pop-up abre sobre el embudo que se está mirando');
+  assert.match(md, /ordenLocal \?\? emb\?\.etapas \?\? semilla\?\.etapas/,
+    'el pop-up volvió a esperar al server para listar las etapas');
+  // Lo que el tablero NO sabe sigue esperando: las entradas declaradas y el pie.
+  assert.match(md, /esEntrada\(e\) && entradasAbierto && !emb && <Cargando \/>/,
+    'la declaración de entradas se pinta con la semilla, que no las trae: diría que no hay ninguna');
+});
+
+test('⚠️ la etapa de ENTRADA: lápiz, y ni se mueve ni la pisan — también en el server', () => {
+  // «Por defecto, la primer etapa debería ser "Lead entrante", no se debería poder mover, y
+  // tampoco nadie puede poner algo atrás de esa etapa. Y desde allí debería salir el
+  // desplegable para configurar. Para ello, mejor un botón de lapiz, en lugar de las
+  // flechas y la X, ya que no serán necesarios».
+  //
+  // Probado rompiéndolo (el archivo entero da 25 / 0):
+  //   · la fila de la entrada vuelve a ser `draggable`   -> 24 / 1
+  //   · el server deja mover una etapa `entrada`         -> 24 / 1
+  //   · el rótulo por defecto vuelve a «Lead (Instant form)» -> 24 / 1
+  const md = limpio(readFileSync(join(RAIZ, 'app/crm/EtapasModal.tsx'), 'utf8'));
+  const ac = limpio(readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8'));
+
+  // El rótulo por defecto nombra la ETAPA, no una de las cinco formas de entrar.
+  const lead = DEFAULT_STAGES.find((s) => s.key === 'lead');
+  assert.equal(lead?.label, 'Lead entrante');
+
+  // En la pantalla: ni se arrastra, ni lleva flechas ni ✕, y su único control es el lápiz.
+  assert.match(md, /draggable=\{!esEntrada\(e\)\}/, 'la entrada volvió a poder arrastrarse');
+  assert.match(md, /Configurar por dónde entra la gente a/, 'la entrada perdió su lápiz');
+  assert.match(md, /if \(idx < pisoDelOrden\) idx = pisoDelOrden/,
+    'la marca del arrastre volvió a dibujarse por encima de la entrada');
+
+  // ⚠️ Y EL SERVER LO HACE CUMPLIR, que es lo único que no se puede saltear con una
+  // pestaña vieja o un pedido armado a mano. Son las CUATRO puertas al orden.
+  assert.match(ac, /kind === 'entrada'\) \{\s*return \{ ok: false, error: 'Por esa etapa entra tu gente: no se puede eliminar/,
+    'el server volvió a dejar eliminar la etapa de entrada');
+  assert.match(ac, /pipeline\[i\]\.kind === 'entrada' \|\| pipeline\[j\]\.kind === 'entrada'/,
+    'el server volvió a dejar mover la entrada, o pasarle algo por encima');
+  assert.match(ac, /if \(iEnt > 0\) pipeline = \[ordenadas\[iEnt\]/,
+    'un arrastre puede dejar el embudo empezando por otra etapa');
+  assert.match(ac, /const piso = pipeline\.findIndex\(\(st\) => st\.kind === 'entrada'\) \+ 1;/,
+    'el deshacer de un borrado puede insertar por delante de la entrada');
+});
+
+test('⚠️ el alta de producto son TRES pasos, uno por pantalla, y la caja no cambia de alto', () => {
+  // «Nuevo producto hazlo modular el formulario, en 3 pasos, no todo junto».
+  //
+  // Probado rompiéndolo (el archivo entero da 25 / 0):
+  //   · las tres preguntas vuelven a la misma pantalla -> 24 / 1
+  //   · la caja vuelve al alto automático             -> 24 / 1
+  //   · el placeholder vuelve a nombrar a un cliente  -> 24 / 1
+  const tb = limpio(readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8'));
+
+  assert.match(tb, /const \[paso, setPaso\] = useState\(0\)/, 'el alta volvió a ser una sola pantalla');
+  for (const n of [0, 1, 2]) {
+    assert.ok(tb.includes(`{paso === ${n} &&`), `falta el paso ${n + 1}`);
+  }
+  // Cada paso valida LO SUYO: un error que sale al final manda a buscar cuál de las tres
+  // preguntas fue.
+  assert.match(tb, /if \(paso === 0 && !nombre\.trim\(\)\)/, 'el paso del nombre dejó de validar');
+  assert.match(tb, /if \(paso === 1 && !canal\)/, 'el paso del canal dejó de validar');
+  assert.match(tb, /if \(paso === 2 && !entradas\.length\)/, 'el paso de las entradas dejó de validar');
+  // ⚠️ Y EL ALTO ES FIJO: los tres pasos miden distinto, y una caja que se encoge entre
+  // dos pantallas de la misma tarea es lo que se pidió no hacer dos veces.
+  assert.match(tb, /alto="min\(80vh, 520px\)"/, 'la caja del alta volvió a medir según lo que tenga adentro');
+  // Y el ejemplo del nombre no nombra a un cliente: «eso está muy mal. Jamás lo hagas».
+  assert.ok(!/Sistema DOS/.test(tb), 'el placeholder volvió a nombrar el producto de un cliente');
 });
