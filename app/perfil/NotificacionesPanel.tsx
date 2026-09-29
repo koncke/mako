@@ -236,13 +236,10 @@ export function NotificacionesPanel() {
 
       {/* ── Franja de canales: qué es cada logo y a dónde llega ────────────── */}
       <div style={{ ...card, padding: 16 }}>
-        {/* 200px y no 240: con 240 el tercer tile se caía a una segunda fila y
-            dejaba un hueco al lado, justo en el ancho más común de esta pantalla. */}
+        {/* Los dos canales por los que sale algo. El pop-up de la app NO está acá:
+            esta franja dice a dónde se manda, y un pop-up no se manda a ningún
+            lado — pasa en este navegador, y se configura en su propia sección. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <TileCanal
-            icono="bell" color="var(--accent)" nombre="En la app"
-            detalle="Pop-up y sonido en este navegador. Solo para ti."
-          />
           <TileCanal
             icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
             alerta={!hayWa}
@@ -263,7 +260,7 @@ export function NotificacionesPanel() {
       </div>
 
       {/* ── 1. Dentro de la app (personal) ─────────────────────────────────── */}
-      <Seccion titulo="Dentro de la app" nota="Solo para ti — no cambia lo que ve el resto del equipo">
+      <Seccion titulo="Dentro de la app">
         <div style={card}>
           {NOTIF_IN_APP.map((n, i) => (
             <Fila
@@ -300,7 +297,7 @@ export function NotificacionesPanel() {
           Lo de arriba decide POR DÓNDE llega cada cosa; esto, QUÉ DICE. Eran dos
           preguntas distintas metidas en una lista de toggles, y la segunda no se
           podía contestar sin ver el mensaje. */}
-      <Seccion titulo="Los mensajes, como llegan" nota="Se ven igual que en el WhatsApp — toca uno para leerlo y editarlo">
+      <Seccion titulo="Los mensajes, como llegan">
         <PlantillasView endpoint="/api/perfil/plantillas" />
       </Seccion>
 

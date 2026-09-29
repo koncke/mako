@@ -57,6 +57,20 @@ export type AvisoCatalogo = {
    *   cada 'siempre' nuevo es una decisión que le sacamos al dueño de su negocio.
    */
   porDefecto?: 'on' | 'off' | 'siempre';
+  /**
+   * ADMINISTRATIVO: el texto lo edita SOLO el super-admin de la agencia.
+   *
+   * No es una jerarquía por gusto. Estos avisos no son la voz del negocio: son
+   * el sistema informando un HECHO técnico y exacto —Meta deshabilitó la cuenta,
+   * la plantilla se aprobó, llegó la prueba del Pixel—. Casi todos pasan UNA vez
+   * y lo que valen es la precisión: si el texto se puede reescribir, el día que
+   * de verdad se caiga una cuenta el mensaje puede decir cualquier otra cosa, y
+   * quien lo lea no va a saber qué se rompió ni qué hacer.
+   *
+   * El cliente SÍ elige si los recibe (el interruptor es suyo). Lo que no puede
+   * es cambiar lo que dicen.
+   */
+  soloSuperAdmin?: boolean;
 };
 
 // Emojis por categoría (para agrupar visualmente en la demo).
@@ -233,7 +247,7 @@ Nada urgente, por eso esperaron. — MaKo`,
 
   // ── EL PUENTE DE FLOW ──────────────────────────────────────────────────────
   {
-    id: 'flow-puente-ausente', titulo: 'El navegador dejó de tomar los videos', categoria: 'aviso',
+    id: 'flow-puente-ausente', titulo: 'El navegador dejó de tomar los videos', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ ES EL PRIMER AVISO DE FLOW QUE EXISTE. Hasta hoy no había NINGUNO: un
     // puente que se moría no le avisaba a nadie, ni al cliente ni a nosotros, y
@@ -247,7 +261,7 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
 
   // ── CUENTA / SALUD DE META (semáforo) ──────────────────────────────────────
   {
-    id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso',
+    id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ ESTE AVISO INSISTE. No lo manda `emitirDelCatalogo` una vez: lo repite
     // `lib/alerta-critica.ts` cada 10-20 minutos MIENTRAS la entrega siga
@@ -274,13 +288,13 @@ https://hola-mako.com/integraciones
 🔁 Te voy a seguir avisando hasta que esté arreglado. — MaKo`,
   },
   {
-    id: 'meta-cuenta-riesgo', titulo: 'Cuenta Meta en revisión de riesgo (ámbar)', categoria: 'aviso',
+    id: 'meta-cuenta-riesgo', titulo: 'Cuenta Meta en revisión de riesgo (ámbar)', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'parcial',
     disparador: 'account_status ∈ {7,8,9}.',
     ejemplo: `🟡 Ojo: tu cuenta de Meta entró en *revisión de riesgo*. Todavía entrega, pero no toques nada raro estos días (no subas presupuestos de golpe ni cambies muchos anuncios). Te aviso si escala a rojo. — MaKo`,
   },
   {
-    id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso',
+    id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     // Es la contracara de la insistencia y por eso NO es opcional: si MaKo
     // persiguió veinte veces y después se calla, el dueño no sabe si dejó de
@@ -313,7 +327,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🔴 Meta *rechazó* el anuncio "Testimonio Ana - v3" por política de contenido. No está entregando.\n\nEdita el creativo o el copy y envíalo de nuevo a revisión. ¿Quieres que te diga qué suele disparar este rechazo? — MaKo`,
   },
   {
-    id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo el anuncio esperando tu aprobación', categoria: 'aviso', porDefecto: 'on',
+    id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo el anuncio esperando tu aprobación', categoria: 'aviso', soloSuperAdmin: true, porDefecto: 'on',
     prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'issues_info con error_code 2446984 ("peer approval") tras publicar desde MaKo. OJO: NO es rechazo de políticas — es un control de identidad y Meta NO lo deja aprobar por API.',
     ejemplo: `🟡 Publiqué *2 anuncios* en "029. Capta Dueños B2B" pero *Meta los retuvo*: por seguridad pide que un admin de la cuenta los apruebe a mano antes de que empiecen a correr.\n\nNo lo puedo hacer yo — Meta no lo permite por API. Son 30 segundos:\n\n👉 https://adsmanager.facebook.com/adsmanager/manage/ads?act=123&selected_ad_ids=456\n\nEntras, tocas *Revisar y publicar* y confirmas. Si no, quedan sin entregar. — MaKo`,
@@ -363,7 +377,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🔴 Oye, tu cuenta está verde pero *no tienes ningún anuncio entregando* — todo está en pausa. Si no fue a propósito, estás perdiendo el día entero de leads. ¿Reactivo algo? — MaKo`,
   },
   {
-    id: 'tracking-apagado', titulo: 'El Pixel de MaKo dejó de mandar datos', categoria: 'aviso', porDefecto: 'siempre',
+    id: 'tracking-apagado', titulo: 'El Pixel de MaKo dejó de mandar datos', categoria: 'aviso', soloSuperAdmin: true, porDefecto: 'siempre',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // Nace de un caso real: el tracking del VSL estuvo MUERTO 18 días
     // (2026-07-15 → 08-03) con anuncios corriendo y 235 leads entrando a ritmo
@@ -375,7 +389,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel quedó apuntando a una dirección vieja. — MaKo`,
   },
   {
-    id: 'landing-cambio', titulo: 'Tu landing cambió y ajusté lo que mido', categoria: 'aviso',
+    id: 'landing-cambio', titulo: 'Tu landing cambió y ajusté lo que mido', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     // El pedido del dueño, textual: «una landing puede NO tener VSL en un
     // principio y luego que los dueños le agreguen un VSL, MaKo o el Pixel
@@ -396,7 +410,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🟡 Le agregaste *un video* a tu landing — lo vi hoy y ya lo estoy midiendo. A partir de ahora vas a tener la curva de retención: en qué minuto se te cae la gente. Mírala aquí 👉 https://hola-mako.com/integraciones?abrir=landing — MaKo`,
   },
   {
-    id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',
+    id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ Meta y Calendly matchean por teléfono o email y hacen update sobre el
     // lead que ya estaba. Eso está bien —es la misma persona volviendo— pero
@@ -409,7 +423,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avísame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
   },
   {
-    id: 'clarity-grabacion-por-vencer', titulo: 'Una grabación está por borrarse', categoria: 'accion',
+    id: 'clarity-grabacion-por-vencer', titulo: 'Una grabación está por borrarse', categoria: 'accion', soloSuperAdmin: true,
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ Clarity guarda las grabaciones 30 días y después las tira. Las marcadas
     // como FAVORITAS sobreviven 13 meses — pero marcarlas es una acción manual en
@@ -426,7 +440,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🟡 La grabación de *Marina Olvera* se borra en 4 días. Si te sirve para después, entra y márcala como favorita: así se guarda 13 meses en vez de 30 días 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?CustomUserId=… — MaKo`,
   },
   {
-    id: 'prueba-recibida', titulo: 'Recibimos tu prueba del Pixel', categoria: 'aviso',
+    id: 'prueba-recibida', titulo: 'Recibimos tu prueba del Pixel', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ VA AL TERMINAR, no cuando la grabación está lista — para eso está
     // `prueba-grabada`, que llega 45 minutos después con el link. Este cierra el
@@ -439,7 +453,7 @@ https://hola-mako.com/integraciones
     ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. La grabación de Clarity se está procesando y te mando el link apenas esté (suele tardar entre 30 minutos y 2 horas) — MaKo`,
   },
   {
-    id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',
+    id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ EL AVISO EXISTE PORQUE LA ESPERA NO SE PUEDE MOSTRAR EN PANTALLA.
     //
@@ -490,7 +504,7 @@ Conviene que le marques tú: +52 55 4874 2149
     ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tienes que confirmar tú, así revisas el teléfono antes de que valga. Ábrela aquí 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
   },
   {
-    id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso',
+    id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     // El hermano silencioso de 'tracking-apagado', y MÁS difícil de ver: acá el
     // tracking NO está muerto. Los eventos llegan, la integración está en verde y
@@ -635,7 +649,7 @@ https://hola-mako.com/plan — MaKo`,
     ejemplo: `🟡 *3 conversaciones sin responder* hace más de 2 horas. La más caliente: Juan, que preguntó precio. Cada hora que pasa baja la chance de cierre.\n\n¿Te dejo borradores de respuesta para que apruebes? — MaKo`,
   },
   {
-    id: 'plantilla-estado', titulo: 'Plantilla aprobada/rechazada por Meta', categoria: 'aviso',
+    id: 'plantilla-estado', titulo: 'Plantilla aprobada/rechazada por Meta', categoria: 'aviso', soloSuperAdmin: true,
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'parcial',
     disparador: 'Poll de estado de plantillas de WhatsApp.',
     ejemplo: `✅ Meta *aprobó* tu plantilla "nutricion_bienvenida". Ya la puedes usar para abrir conversación fuera de la ventana de 24h. — MaKo`,

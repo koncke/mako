@@ -22,7 +22,7 @@ import {
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
 } from '@/lib/plantillas';
 import { esFlujoValido } from '@/lib/flujos-tipos';
-import type { CategoriaAviso } from '@/lib/avisos-catalogo';
+import { CATALOGO_AVISOS, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -61,6 +61,20 @@ export async function POST(req: NextRequest) {
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   const faltaId = () => NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+
+  /**
+   * El TEXTO de un aviso administrativo no lo toca el cliente: son hechos
+   * técnicos y exactos (Meta deshabilitó la cuenta, la plantilla se aprobó) y
+   * lo que valen es la precisión. El guard va en el SERVIDOR y no sólo en la
+   * pantalla: esconder el campo no impide un POST.
+   *
+   * Prender y apagar SÍ es suyo: elige qué recibe, no qué dice.
+   */
+  const esAdministrativo = (id: string) => CATALOGO_AVISOS.find((c) => c.id === id)?.soloSuperAdmin === true;
+  const noEditable = () => NextResponse.json(
+    { ok: false, error: 'Este aviso lo redacta MaKo y no se puede editar: informa algo técnico y tiene que decir exactamente lo que pasó.' },
+    { status: 403 },
+  );
   try {
     switch (b.action) {
       case 'crear': {
@@ -72,12 +86,14 @@ export async function POST(req: NextRequest) {
       }
       case 'texto':
         if (!b.id) return faltaId();
+        if (esAdministrativo(b.id)) return noEditable();
         await setTextoPlantilla(b.id, b.texto ?? '');
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       // «Volver al original» = BORRAR mi texto y volver a heredar el del dueño.
       // Escribir '' no alcanza: pisaría el suyo y caería al ejemplo de fábrica.
       case 'reset':
         if (!b.id) return faltaId();
+        if (esAdministrativo(b.id)) return noEditable();
         await resetTextoPlantilla(b.id);
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       case 'enabled':

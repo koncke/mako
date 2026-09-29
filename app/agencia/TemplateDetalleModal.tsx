@@ -7,7 +7,7 @@
 // la referencia, ACTIVAR/DESACTIVAR, ELIMINAR y CREAR. La referencia NO es un
 // molde: "Probar con IA" muestra cómo MaKo la adapta con datos reales.
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { FlujoEditor } from './FlujoEditor';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
@@ -43,12 +43,17 @@ const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', co
  * Mismo protocolo, distinto guard — copiar el componente para cambiar una URL
  * dejaría dos pantallas que divergen en la primera edición.
  */
+/** El endpoint del super-admin. Quien no lo usa, es un cliente en su propia tab. */
+const ENDPOINT_AGENCIA = '/api/admin/plantillas';
+
 async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
   try { return await (await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false }; }
 }
 
-export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = '/api/admin/plantillas' }: { plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void; endpoint?: string }) {
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = ENDPOINT_AGENCIA }: { plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void; endpoint?: string }) {
   const crear = plantilla === null;
+  // Administrativo + no es la agencia = se lee, no se edita.
+  const soloLectura = plantilla?.soloSuperAdmin === true && endpoint !== ENDPOINT_AGENCIA;
   const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
   const [categoria, setCategoria] = useState<CategoriaAviso>(plantilla?.categoria ?? 'aviso');
   const [requiereResp, setRequiereResp] = useState(plantilla?.requiereRespuesta ?? false);
@@ -154,8 +159,22 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
               </details>
             )}
 
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Referencia (MaKo la usa como guía, no literal)</div>
-            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>
+              {soloLectura ? 'Lo que dice' : 'Referencia (MaKo la usa como guía, no literal)'}
+            </div>
+            {soloLectura ? (
+              // Se muestra igual —el cliente tiene que poder LEER lo que sale en su
+              // nombre— pero no se edita: es un hecho técnico y lo que vale es que
+              // diga exactamente qué pasó. El guard de verdad está en el servidor.
+              <>
+                <div style={{ ...inp, whiteSpace: 'pre-wrap', lineHeight: 1.5, background: 'var(--surface-2)', color: 'var(--dim)', minHeight: 80 }}>{texto}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 7, lineHeight: 1.45 }}>
+                  Este lo redacta MaKo y no se edita: avisa algo técnico y tiene que decir exactamente lo que pasó. Sí puedes elegir si te llega.
+                </div>
+              </>
+            ) : (
+              <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
+            )}
 
             {prueba && (
               <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)' }}>
@@ -166,8 +185,12 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
               {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)', marginRight: 'auto' }}>{flash}</span>}
-              <button onClick={probar} disabled={busy === 'probar'} style={{ ...btnGhost, opacity: busy === 'probar' ? 0.6 : 1 }}>{busy === 'probar' ? 'Generando…' : '✨ Probar con IA'}</button>
-              <button onClick={guardarTexto} disabled={busy === 'save' || texto === orig} style={{ ...btn, opacity: busy === 'save' || texto === orig ? 0.5 : 1 }}>Guardar</button>
+              {!soloLectura && (
+                <>
+                  <button onClick={probar} disabled={busy === 'probar'} style={{ ...btnGhost, opacity: busy === 'probar' ? 0.6 : 1 }}>{busy === 'probar' ? 'Generando…' : '✨ Probar con IA'}</button>
+                  <button onClick={guardarTexto} disabled={busy === 'save' || texto === orig} style={{ ...btn, opacity: busy === 'save' || texto === orig ? 0.5 : 1 }}>Guardar</button>
+                </>
+              )}
             </div>
           </>
         ) : null}
