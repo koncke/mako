@@ -932,7 +932,16 @@ export const AREAS: AreaDev[] = [
     slug: 'configuraciones', titulo: 'Configuraciones', familia: 'Platform',
     estado: 'listo', verEnApp: '/configuraciones',
     alcance: 'El contenedor de la configuración del workspace: una sola fila de tabs con Notificaciones, Identidades fiscales y Equipo cargando en el lugar, más el link a Método.',
-    vive: ['app/configuraciones/page.tsx', 'app/configuraciones/ConfigInnerTabs.tsx', 'app/configuraciones/Configuraciones.tsx'],
+    // ⚠️ Las rutas del CONTENEDOR no alcanzan: la tab de Notificaciones —donde se
+    // movió todo— vive en app/perfil/ y en lib/. Con el vive[] del contenedor solo,
+    // el panel de historial de esta área no veía ni uno de sus once commits.
+    vive: [
+      'app/configuraciones/page.tsx', 'app/configuraciones/ConfigInnerTabs.tsx', 'app/configuraciones/Configuraciones.tsx',
+      'app/perfil/NotificacionesPanel.tsx', 'app/perfil/DestinatariosCanal.tsx', 'app/perfil/DestinatariosLista.tsx',
+      'app/perfil/BandejaEmail.tsx', 'app/perfil/PrefsDeMensaje.tsx',
+      'lib/notif-catalogo.ts', 'lib/avisos-catalogo.ts', 'lib/plantillas.ts', 'lib/notif-destinatarios.ts',
+      'app/api/perfil/plantillas/route.ts', 'app/api/perfil/destinatarios/route.ts', 'app/api/perfil/notif-inapp/route.ts',
+    ],
     proyectos: ['Feature: Configuraciones y equipo'],
   },
   {

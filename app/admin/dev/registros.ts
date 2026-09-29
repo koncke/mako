@@ -45,9 +45,11 @@ import { PARTES as PLANSENTITLEME_PARTES, BITACORA as PLANSENTITLEME_BITACORA } 
 import { PARTES as RATELIMITING_PARTES, BITACORA as RATELIMITING_BITACORA } from './rate-limiting/bitacora';
 import { PARTES as REELS_PARTES, BITACORA as REELS_BITACORA } from './reels/bitacora';
 import { PARTES as SELFHEALINGDEV_PARTES, BITACORA as SELFHEALINGDEV_BITACORA } from './self-healing-dev-agent/bitacora';
+import { PARTES as CONFIGURACIONES_PARTES, BITACORA as CONFIGURACIONES_BITACORA } from './configuraciones/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
+  configuraciones: { partes: CONFIGURACIONES_PARTES, bitacora: CONFIGURACIONES_BITACORA },
   onboarding: { partes: ONBOARDING_PARTES, bitacora: ONBOARDING_BITACORA },
   general: { partes: GENERAL_PARTES, bitacora: GENERAL_BITACORA },
   chatbot: { partes: CHATBOT_PARTES, bitacora: CHATBOT_BITACORA },
