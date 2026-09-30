@@ -5316,3 +5316,143 @@ tablero del super admin se escribe en el de Mauricio.
   `docs/hallazgos-comunicacion.md`). Un lector que mide el código de AHORA encuentra lo que
   acabás de escribir: es una ventaja, y hay que leer sus veredictos sabiendo que la mitad
   puede estar hablando de algo que ya cambió.
+
+
+## El criterio estaba construido y APAGADO, y otras nueve del mismo día (30/09/2026)
+
+Cosechado de «¿tienes toda la info necesaria para cerrar las tareas que quedan? Hazlo
+todo». Eran once abiertas del proyecto «Feature: Plan»; quedó UNA, bloqueada por algo
+que no es código.
+
+**Vive en:** `lib/plan-criterio*.ts` · `lib/reunion-auto.ts` · `lib/plan-recurrentes-*.ts`
+· `lib/todo.ts` · `lib/ia-cuotas*.ts` · migs 0184 y 0185
+
+### Un módulo que sólo se puede LEER es un módulo apagado
+
+`plan.criterio` tenía **un lector y CERO escritores en todo el repo**. El juez que lo
+consume estaba entero, con 16 tests, y ningún workspace tenía el criterio cargado — así
+que la feature más alta del tablero no podía correr ni una vez. No había bug: faltaba la
+mitad del camino, y ninguna herramienta lo dice.
+
+⚠️ **El grep que lo encuentra es el de los ESCRITORES, no el del nombre.** `KEY_CRITERIO`
+aparecía tres veces y todas en el mismo archivo. La pregunta que lo destapa es «¿quién
+ESCRIBE esto?», y se contesta en diez segundos.
+
+### Un docstring puede describir un camino que el orden del código no alcanza
+
+`juzgarConCriterio` dice, textual, «sin candidatas TAMBIÉN se juzga: una reunión de la
+que el extractor no sacó nada puede tener compromisos que faltan». Era cierto de la
+función y falso del pipeline: la llamada estaba **después** del `if (!tareas.length)
+continue`, así que la reunión que el extractor leyó vacía se cerraba PARA SIEMPRE —esa
+rama escribe el candado— sin que el juez la mirara. El docstring no miente sobre la
+función; miente sobre el sistema, que es lo que uno lee.
+
+### Agrupar por la CITA, que es una posición en el texto, no una paráfrasis
+
+El documento de Mauricio advierte —y es su advertencia más fuerte— que emparejar
+compromisos por parecido de palabras «no funciona y produce métricas falsas»: «análisis
+de la marca de empleador comparando ofertas de la competencia» y «benchmark de
+condiciones laborales frente a la competencia» son el mismo compromiso y casi no
+comparten vocabulario. Su salida era que el agrupamiento lo hiciera un modelo.
+
+No hizo falta, por una propiedad que su pipeline no tiene: acá **cada compromiso llega
+con su cita ya verificada contra la transcripción**. O sea que tiene un ANCLA — el lugar
+de la conversación donde se dijo. Dos corridas que encontraron lo mismo citan el mismo
+momento por más distinto que lo redacten. Gratis, determinista, y cubre exactamente el
+caso que el léxico no puede. El dueño entra en la clave porque dos personas pueden tener
+una entrega propia cada una en la misma frase (la regla 1 de su criterio).
+
+**La regla que queda: antes de pagar un modelo para comparar dos textos, preguntá si los
+dos apuntan a un mismo TERCER objeto que sí se puede comparar exacto.**
+
+### ⚠️ UN `select` DE POSTGREST CON UNA COLUMNA QUE NO EXISTE RECHAZA LA CONSULTA ENTERA
+
+Y el error no sube si nadie lo lee: `data` vuelve `undefined`, la lista queda en `[]`, y
+el código sigue como si la fila no tuviera hijas. El generador de recurrentes pedía
+`deadline, progress, progreso` porque **la columna del avance se llama distinto en cada
+mitad del tablero** (`progress` en el del dueño, `progreso` en el del cliente) — no se
+pueden pedir las dos.
+
+Lo que lo vuelve caro: **el índice único lo tapaba**. El insert rebotaba con 23505, el
+código lo trataba como «ya existía» y la prueba decía «no duplicó». Era cierto, y por la
+razón equivocada: la lógica estaba rota y el candado de la base la salvaba. Lo único que
+lo mostró fue imprimir un CONTADOR —`conAbierta: 0` sobre una plantilla que sí tenía una
+instancia abierta— que no cerraba con la realidad.
+
+**Un candado en la base que salva a una lógica rota es un verde sobre la propiedad
+equivocada.** Cuando un test pasa gracias a una guarda de integridad, no probó lo que
+creés: probó la guarda. Y el contador que no cierra es lo que lo delata, así que un
+proceso que decide vale lo que cuentan sus contadores.
+
+### Un guard que lee el archivo ENTERO encuentra lo que el archivo dice DE SÍ
+
+El test de los seis lugares de un campo preguntaba `assert.match(TODO, /notas:/)` y dio
+**VERDE sobre CUATRO DE LAS CINCO roturas**: `notas:` aparece también en `Categoria`, en
+`toLabel`, en los comentarios y en la línea que pasa el valor. Y el assert de al lado
+—`doesNotMatch(MIG, /default \d/)`— fallaba contra **su propio comentario**, el que
+explica por qué no hay default.
+
+La cura es extraer el BLOQUE antes de buscar (la función, el tipo, la sentencia SQL). Y
+la razón por la que se encontró es la de siempre: se probó rompiéndolo, una rotura por
+capa. Un guard de seis capas que no dice CUÁL se rompió tampoco sirve de mucho: cada
+capa lleva su test.
+
+### Lo que la BASE no te deja hacer mal, y es un regalo
+
+La FK de una instancia hacia su plantilla no se podía crear: la PK de `plan_tareas` es
+**compuesta** (`workspace_id, id`) y Postgres contesta «there is no unique constraint
+matching given keys». Escribirla entera —`(workspace_id, recurrente_de)`— da gratis el
+guard que importa: una instancia no puede colgar de la plantilla de OTRO inquilino. Un
+error del motor que empuja al diseño correcto.
+
+### Tres decisiones que valen más que el código que las implementa
+
+- **Una instancia abierta por vez.** Doce «grabar contenido» apiladas son el tablero que
+  nadie mira que la feature vino a evitar.
+- **Se saltean las perdidas.** Cron caído tres días: nace UNA, con la fecha de la última
+  vencida. Con la primera, la serie se arrastra atrasada para siempre.
+- **«El 31 de cada mes» SALTEA febrero**, no se corre al 28. Correrlo pone la tarea un día
+  que nadie eligió, y en silencio. La mig 0167 ya había dejado escrito que entre las dos
+  salidas nadie tomó la decisión; saltear es la única que no miente sobre la fecha.
+
+Las tres viven en una función PURA (`queGenerar`) y no adentro del módulo con
+`server-only`: una condición que decide qué se ESCRIBE necesita test, y un `server-only`
+no lo puede importar ninguno.
+
+### Lo que se dibuja y no se guarda: cinco campos, cero filas
+
+`notas`, `deadline_razon` y `hacelo_en` tenían columna desde las migs 0114 y 0115 y
+**ninguna fila de `experimento_tareas` tenía algo escrito**. El panel los dibuja para los
+dos tableros; del lado del cliente faltaban CINCO de los seis lugares. No hubo backfill
+que hacer: no se perdió nada, nunca se guardó.
+
+⚠️ **Lo único que funcionaba era la lectura, y de casualidad:** `rowTo` castea la fila
+entera, así que el valor llegaba en runtime mientras el tipo no lo declaraba. Un cast de
+fila entera esconde exactamente esta clase de agujero — lo que falta no da `undefined`
+en el tipo, da un `string` que miente.
+
+### Y lo que NO se hizo, a propósito
+
+- **El chip de tiempo NO volvió a la tarjeta del Kanban.** La tarjeta #158 lo pedía y el
+  dueño lo había sacado de ahí el 25/09 con todas las letras («quita los íconos de subió
+  de prioridad o bajó»), con el motivo medido: la card mide 249px y cada ícono le come
+  ancho al nombre del proyecto, que es lo que él reclamó dos veces. Fue al DETALLE y a
+  las tools. **Lo que el dueño decidió es una restricción del problema, no una opción.**
+- **El juez corre en la cascada GRATIS.** El documento de Mauricio pide Claude Sonnet 5 y
+  la decisión posterior del dueño es la contraria y textual: «NO, JAMÁS algo pago para el
+  plan». Lo que sí se cumplió son las TRES CORRIDAS, que es lo que compensa el modelo — y
+  el aporte de cada una se loguea, porque el número de 5-8 puntos de recall él lo midió
+  sobre Sonnet con pensamiento adaptativo y **ese número no se hereda a otro modelo**.
+
+### Lo que quedó SIN hacer
+
+- **#768 sigue abierta y no es código.** Faltan las notas que una PERSONA escribió de las
+  reuniones g15 y g17. Sin ellas no se puede medir nada: comparar dos corridas del modelo
+  entre sí mide estabilidad, no acierto — y eso ya se hizo (84% general, 50% en la sesión
+  con la que Mauricio mide).
+- **La cadena del criterio está construida y sin medir en una reunión real.** Que cargue
+  «las 5 que importan y no 70» es lo que la #768 tiene que comprobar.
+- **El criterio de Mauricio vive en `app_settings` del ws1, no en el repo** — es material
+  de su negocio. El .md de origen quedó del lado de quien lo cargó, y `scripts/cargar-criterio.ts`
+  lo toma por parámetro a propósito: un default apuntando a Descargas se rompe en la
+  máquina siguiente y encima sugiere que el documento es del repo.

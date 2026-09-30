@@ -4668,6 +4668,29 @@ adentro de un bucle, **se hoistea afuera**. `credWs` no cachea (un SELECT por ll
 así que un sondeo de 37 vueltas pasaba a 74 consultas — y cada una es una chance
 independiente de abortar a mitad de un árbol ya creado.
 
+# Un `select` de PostgREST con UNA columna que no existe rechaza la consulta ENTERA
+
+Y el error **no sube si nadie lo lee**: con supabase-js, `data` vuelve `undefined`, la
+lista queda en `[]`, y el código sigue como si la fila no tuviera nada del otro lado. No
+hay excepción, no hay log, y «no hay filas» y «no pude leerlas» se ven exactamente igual.
+
+Muerde justo donde este repo lo tiene garantizado: **el tablero es UNO y las tablas son
+DOS**, y las columnas se llaman distinto. El avance es `progress` en `plan_tareas` y
+`progreso` en `experimento_tareas`, así que pedir las dos «por las dudas» no es defensivo:
+rompe la consulta en las dos mitades. La columna se elige según la tabla, y el `error` se
+lee SIEMPRE — es lo único que separa las dos respuestas.
+
+⚠️ **Y UN CANDADO EN LA BASE PUEDE TAPARLO Y DARTE UN VERDE POR LA RAZÓN EQUIVOCADA.**
+Medido el 30/09/2026 en el generador de recurrentes: con la lista vacía, el código no veía
+la instancia abierta y reintentaba una fecha ya creada; el insert rebotaba con `23505`, el
+código lo trataba como «ya existía», y la prueba de punta a punta decía «no duplicó». Era
+CIERTO — y lo estaba logrando el índice único, no la lógica. Cuando un test pasa gracias a
+una guarda de integridad, no probó lo que creés: probó la guarda.
+
+**Lo que lo delató fue un CONTADOR que no cerraba** (`conAbierta: 0` sobre una plantilla
+que sí tenía una abierta). Un proceso que decide vale lo que cuentan sus contadores: si
+imprime sólo «creadas», el único estado que se puede auditar es el que funcionó.
+
 # Un test que no probaste ROMPIÉNDOLO es una afirmación, no una medición
 
 Un test nuevo que sale verde no dice nada: no sabés si mide lo que creés o si mide
@@ -4687,6 +4710,18 @@ verde sobre un worker que no cargaba, porque `tsx` transpila a CJS y ahí el
 **En el comentario del test va el resultado de la rotura**, con números: «verificado
 quitando el arreglo: 1 fallo, 1 pase». El que lo lea dentro de seis meses no tiene
 por qué creerte, y ese renglón es la diferencia entre un test probado y uno escrito.
+
+⚠️ **Y UN GUARD QUE LEE EL ARCHIVO ENTERO ENCUENTRA LO QUE EL ARCHIVO DICE DE SÍ.** Un
+`assert.match(SRC, /notas:/)` sobre un módulo de 700 líneas no prueba que el campo esté en
+el mapper: prueba que la palabra aparece en algún lado — en el tipo gemelo, en el otro
+mapper, en un comentario, o en la línea que lo pasa. Medido el 30/09/2026 sobre el guard de
+los seis lugares de un campo: **dio VERDE sobre CUATRO DE LAS CINCO roturas**. Y el assert
+de al lado, un `doesNotMatch(MIG, /default \d/)`, fallaba contra **su propio comentario**,
+el que explicaba por qué esa migración no lleva default.
+
+Se extrae el BLOQUE antes de buscar (la función, el tipo, la sentencia SQL, las líneas que
+no son comentario) y recién ahí se pregunta. Y cada capa lleva SU test: un guard que junta
+seis en uno dice que algo se rompió y no cuál, que es lo único que ahorra tiempo.
 
 ⚠️ **Y UN TEST QUE LEE UN ARCHIVO POR SU RUTA NO SE ENTERA DE QUE ESE ARCHIVO MURIÓ.**
 Los guards de esta casa leen fuente con `readFileSync` y preguntan por una cadena, así
