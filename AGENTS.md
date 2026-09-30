@@ -5364,3 +5364,58 @@ Martín: «eso está muy mal».
 - **La cura es UNA función que llamen los dos lectores**, y un guard que CUENTE cuántos
   lugares resuelven el dato. Dos implementaciones de la misma pregunta no divergen por
   descuido: divergen porque una se arregla y la otra no se entera.
+
+# Un horario que se repite se ancla en la OCURRENCIA ANTERIOR, nunca en `now()`
+
+Todo lo que vuelve a salir —un aviso programado, un recordatorio, un reintento con
+cadencia— calcula su próxima vez desde algún lado, y elegir `now()` produce DERIVA: un
+mensaje de los lunes a las 9 que sale 9:07 agenda el lunes siguiente 9:07, después
+9:14, y una semana sin tick corre el horario para siempre. No da error, manda en el
+horario equivocado, y es el modo de falla que nadie reporta porque no se nota.
+
+El repo ya lo tiene de las dos formas: `proximaSalida` de `lib/insistencias.ts` es
+`desde + cadaMin` con `desde = ahora` —y su propio comentario dice que la hora es «una
+estimación deliberada»— y `proximaOcurrencia` de `lib/cron-aviso.ts` recibe la
+ocurrencia **agendada** anterior. Para una insistencia la primera alcanza; para un
+horario, no.
+
+- **El ancla es la ocurrencia AGENDADA, no el envío real.** Guardar «cuándo salió» y
+  calcular desde ahí es la deriva con otro nombre. Van los dos campos: `proxima_at`
+  para calcular y `ultimo_envio_at` para mirar.
+- **Y avanza SALTÁNDOSE las perdidas.** Con el cron caído un día, un «cada 2 horas»
+  tiene que mandar UNO y seguir en su grilla — no doce de golpe.
+- **Marcar va ANTES de mandar, con compare-and-set** (`.eq('proxima_at', <lo que se
+  acaba de leer>)`). Al revés, dos invocaciones del mismo tick mandan dos veces, y el
+  precedente está medido: 21 pares duplicados el 27/09 por los 7-10 s que el envío por
+  WhatsApp retiene el HTTP abierto entre la lectura y la marca. El costo de este orden
+  es el opuesto y es el correcto: si el envío falla se pierde UNA ocurrencia, y eso se
+  nota menos que dos mensajes iguales en el teléfono de un cliente.
+
+⚠️ **Y UNA HORA DE PARED NO ES UN INSTANTE: la conversión necesita DOS pasadas.** «A las
+9» es la hora de alguien, en su zona. Convertirla a un instante leyendo de vuelta un
+candidato y corrigiendo el desvío acierta casi siempre — y falla justo en el salto de
+horario de verano. Barrido de fuerza bruta sobre 11 zonas × 366 días × 7 horas: **49
+casos de 28.182 difieren**, y uno es `America/Tijuana` el 8/3 a las 9:00, o sea la zona
+POR DEFECTO de este repo y la hora típica de un aviso diario. Con una sola pasada, ese
+día el mensaje sale a las 10 sin un solo error. (La primera versión del test probaba el
+15/7 y el 15/12, lejos del salto, donde una pasada también acierta: daba VERDE.)
+
+⚠️ **Y LA ZONA SE CONGELA EN LA FILA, Y LA PANTALLA LA DICE.** Medido el 30/09/2026: de
+los 10 workspaces activos, SEIS no tienen `mako.timezone` y caen a `America/Tijuana`; si
+la averiguación falla, la hora local cae a 12. Decir «a la mañana» sobre eso es afirmar
+algo que nadie verificó — «9:00 de America/Tijuana» deja que el dueño lo vea y lo
+corrija. Y resolverla en cada tick sería pagar la carrera de red de `tzDeWorkspace` por
+workspace y por tick, y dejar que el horario se mueva solo el día que conteste otra cosa.
+
+⚠️ **Y EL AGENDADO VA EN UNA TABLA, NO EN EL JSON DE CONFIGURACIÓN.** Dos razones, las
+dos medidas: el store de plantillas SE HEREDA del dueño campo por campo, así que un
+«todos los lunes a las 9» guardado ahí se le aplica a los otros nueve workspaces por
+default; y el store lo reescribe el navegador entero mientras el drenador escribe
+`proxima_at` en cada tick, que es la carrera que la mig 0161 ya documentó.
+
+⚠️ **Y UNA TABLA NUEVA CON `workspace_id` TOCA DOS ARCHIVOS: el `.sql` y
+`TENANT_TABLES`.** `getTenantDb()` es PASSTHROUGH para lo que no está en ese `Set` — no
+«sin scope»: passthrough. Medido con `avisos_programados`: la lectura devolvía la fila
+de cualquier workspace y el drenador de un cliente avanzaba y mandaba las filas de
+todos. No da error; contesta con las filas de más. El compilador no ve nada: es un `Set`
+de strings.

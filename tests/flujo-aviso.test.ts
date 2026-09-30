@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  grafoDeAviso, cadaCuanto, porDondeLlega, podarPosiciones, textoDisparador,
+  grafoDeAviso, porDondeLlega, podarPosiciones, textoDisparador, disparadorCorto,
   pasosDibujados, insertarPasoTras, quitarPasoDibujado,
   type AvisoParaGrafo,
 } from '../lib/flujo-aviso';
@@ -138,13 +138,48 @@ test('La caja del grafo crece con la tarjeta que se arrastró lejos', () => {
 
 // ── El resto ────────────────────────────────────────────────────────────────
 
-test('Cada cuánto viaja en la FLECHA y sale del catálogo compartido', () => {
-  // El rótulo no se escribe dos veces: si se separa del desplegable que lo elige,
-  // la flecha dice una cosa y el control otra sobre el mismo número.
-  assert.equal(cadaCuanto(0), 'Cada vez que pasa');
-  const unDia = FRECUENCIAS.find((f) => f.min === 24 * 60)!;
-  assert.equal(cadaCuanto(unDia.min), unDia.label.replace('Máximo uno ', 'Como máximo '));
-  assert.equal(grafoDeAviso(aviso()).aristas.find((a) => a.hasta === 'mensaje')?.etiqueta, 'Cada vez que pasa');
+test('⚠️ La flecha ya NO dice «cada cuánto»: ese control salió de la pantalla', () => {
+  // «Realmente no me hace ningun tipo de sentido» — y una etiqueta que describe un
+  // control que no está es una afirmación sin dueño. Con la etiqueta fuera, el rótulo
+  // `cadaCuanto` se quedó sin UN SOLO lector y se fue con ella (medido con un grep: el
+  // `cadaCuanto` de lib/alerta-critica.ts es otra función, local y numérica).
+  assert.equal(grafoDeAviso(aviso()).aristas.find((a) => a.hasta === 'mensaje')?.etiqueta, undefined);
+  assert.ok(!/export function cadaCuanto/.test(leer('../lib/flujo-aviso.ts')), 'volvió un rótulo que nadie lee');
+  // ⚠️ Pero el CAMPO no se toca: es el único espaciado de los tres reportes, y
+  // borrarlo sería borrar el lugar donde un día se enchufa.
+  assert.match(leer('../lib/notify.ts'), /frecuenciaEfectiva\(/, 'se fue el espaciado de los reportes');
+  assert.match(leer('../lib/plantillas.ts'), /frecuenciaMin: frecuenciaDe/, 'se fue el campo de la vista');
+});
+
+test('El disparador nativo se dice en UNA línea, cortando y sin reescribir', () => {
+  // «El menor texto posible». Cortar es TIRAR: no se resume ni se parafrasea — se
+  // corta en el primer punto, porque la primera oración es el disparador y el resto
+  // son las salvedades.
+  assert.equal(disparadorCorto('Sale los lunes. Si no hay datos, no sale.'), 'Sale los lunes');
+  assert.equal(disparadorCorto('Cron cada hora; sólo si hay campañas activas'), 'Cron cada hora');
+  assert.equal(disparadorCorto('Sin puntuación'), 'Sin puntuación');
+  // El caso REAL que lo hizo cambiar, visto en pantalla: 82 caracteres sin un solo
+  // punto en un panel de 328 px. Los dos puntos y el paréntesis final entraron por esto.
+  assert.equal(
+    disparadorCorto('Cron los lunes a la mañana (hora local del workspace): ads, cierres, CAC, cash, ritmo'),
+    'Cron los lunes a la mañana',
+  );
+  assert.ok(disparadorCorto('x'.repeat(200)).length <= 96, 'sin tope, un disparador largo ahoga el panel');
+});
+
+test('⚠️ El nodo CRON dice el agendado Y lo nativo, no uno de los dos', () => {
+  // Agendar NO apaga el código que produce el aviso, así que una tarjeta que sólo
+  // dijera «todos los lunes a las 9» estaría contando la mitad — y es la mitad que
+  // nadie va a auditar, porque suena completa.
+  const txt = textoDisparador({
+    disparador: 'Sale cuando entra un lead. Con condiciones.',
+    evento: null,
+    cron: { unidad: 'semana', cada: 1, hora: 9, minuto: 0, diaSemana: 1 },
+    tz: 'America/Tijuana',
+  });
+  assert.match(txt, /Sale cuando entra un lead/, 'se perdió el disparador nativo');
+  assert.match(txt, /lunes a las 09:00 de America\/Tijuana/, 'se perdió el agendado');
+  assert.ok(!/Con condiciones/.test(txt), 'volvió el texto largo del catálogo');
 });
 
 test('Por dónde llega dice los DOS canales cuando los dos están prendidos', () => {
@@ -188,10 +223,12 @@ test('UN solo dueño del flujo', () => {
 
 test('Los nodos montan los controles que YA existían, no copias', () => {
   const src = leer('../app/agencia/FlujoAviso.tsx');
-  for (const pieza of ['Disparador', 'EditorMensaje']) {
-    assert.match(src, new RegExp('<' + pieza + '[\\s\\n]'), `el nodo dejó de montar ${pieza}: ¿se copió su control?`);
-  }
+  // `Disparador` salió de esta lista porque el componente YA NO EXISTE: la sección
+  // CRON lo reemplazó, y de él quedó lo único que tenía de propio —que guardar al
+  // elegir revierta si falla—, perseguido en tests/disparador-frecuencia.test.ts.
+  assert.match(src, /<EditorMensaje[\s\n]/, 'el nodo dejó de montar EditorMensaje: ¿se copió su control?');
   assert.ok(!/action: 'frecuencia'/.test(src), 'el lienzo escribió la frecuencia por su cuenta');
+  assert.ok(!/from '\.\/Disparador'/.test(src), 'volvió el componente que la sección CRON reemplazó');
 });
 
 test('El detalle monta el lienzo y ya no apila los bloques', () => {

@@ -178,6 +178,27 @@ export function Lienzo({
   }, [pintar]);
 
   function onPointerDown(e: React.PointerEvent) {
+    /**
+     * ⚠️ UN EVENTO DE REACT BUBBLEA POR EL PORTAL; `closest()` CAMINA EL DOM.
+     *
+     * Los dos árboles no son el mismo, y esta función vivía sólo del segundo. Todo
+     * `createPortal` a `body` —el menú de `Dropdown`, un `Confirm`, un popover
+     * anclado— es hijo de React del panel del editor y hermano del contenedor en el
+     * DOM: el click viaja hasta acá por el árbol de React, y el `data-no-pan` del
+     * panel es invisible para el `closest`, porque el `e.target` está colgado del
+     * `body`.
+     *
+     * Medido el 30/09/2026 con Playwright: abrir el desplegable de la unidad del CRON
+     * y elegir «semana» CERRABA el panel del nodo, sin un solo error, sin un POST y
+     * con la opción correctamente clickeada — o sea el desplegable leyéndose como
+     * roto cuando lo que estaba mal era el guard del lienzo.
+     *
+     * La pregunta correcta no es «¿tiene un ancestro marcado?» sino «¿este pointer
+     * cayó DENTRO del lienzo?». Un evento cuyo target del DOM está afuera no es un
+     * gesto del lienzo, y no hay portal que se escape de eso.
+     */
+    const dentro = caja.current?.contains(e.target as Node) ?? false;
+    if (!dentro) return;
     // Los controles de adentro del editor no arrastran el lienzo.
     if ((e.target as HTMLElement).closest('[data-no-pan]')) return;
     const v = vista.current;

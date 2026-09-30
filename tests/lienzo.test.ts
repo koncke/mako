@@ -12,6 +12,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
+/** ⚠️ Un guard que busca el nombre de lo que NO tiene que estar se acusa a sí mismo
+ *  por el comentario que explica por qué no está. Ya pasó tres veces en este repo. */
+const sinComentarios = (src: string): string =>
+  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const LIENZO = '../app/_components/Lienzo.tsx';
 // ── El lienzo, por fuente ───────────────────────────────────────────────────
 
@@ -82,3 +86,27 @@ test('El alto del lienzo sale del VIEWPORT, no de una proporción', () => {
   assert.ok(!/aspectRatio/.test(src), 'un lienzo no se dimensiona por proporción');
 });
 
+test('⚠️ UN CLICK EN UN PORTAL NO ES UN GESTO DEL LIENZO', () => {
+  // Los eventos de React bubblean por el árbol de REACT; `closest()` camina el DOM.
+  // Todo `createPortal` a `body` —el menú de `Dropdown`, un `Confirm`, un popover
+  // anclado— es hijo de React del panel del editor y hermano del contenedor en el DOM,
+  // así que el click llega al `onPointerDown` del lienzo y el `data-no-pan` del panel
+  // es INVISIBLE para el guard.
+  //
+  // Medido con Playwright el 30/09/2026: abrir el desplegable de la unidad del CRON y
+  // elegir «semana» CERRABA el panel del nodo — sin un error, sin un POST, con la
+  // opción bien clickeada. El desplegable se leía como roto y lo que estaba mal era el
+  // guard del lienzo.
+  const src = leer('../app/_components/Lienzo.tsx');
+  const h = src.slice(src.indexOf('function onPointerDown'), src.indexOf('function onPointerMove'));
+  assert.match(h, /caja\.current\?\.contains\(e\.target as Node\)/,
+    'sin esto, un click en cualquier portal deselecciona el nodo');
+  // Y va ANTES del otro guard: el orden es lo que hace que el portal no dependa de que
+  // alguien se acuerde de marcar algo.
+  //
+  // ⚠️ SIN COMENTARIOS, o el guard se acusa a sí mismo: el párrafo de arriba nombra el
+  // atributo que busca. Es la tercera vez que pasa en este archivo.
+  const hs = sinComentarios(h);
+  assert.ok(hs.indexOf('.contains(') < hs.indexOf('no-pan'),
+    'el guard del DOM quedó después del de la marca: el portal vuelve a pasar');
+});

@@ -43,6 +43,32 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '02:20', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La sección CRON: un mensaje sale por TIEMPO o por una ACCIÓN, y el tiempo no existía',
+    puntos: [
+      'La mitad ACCIÓN ya corría (los cinco EVENTOS con su choke point). La mitad TIEMPO no existía para nadie: los tres crons de reporte resuelven al workspace del DUEÑO, así que ninguna pantalla podía agendar nada — hay notification_prefs en cuatro workspaces y ningún cron las lee.',
+      'Lo nuevo son cuatro piezas: el vocabulario y el cálculo (lib/cron-aviso.ts, puro y con 18 tests), la tabla (mig 0183), el drenador (lib/avisos-programados.ts + un cron a */10) y la sección de la pantalla.',
+      'NO se reusó la RRULE del tablero: su `Freq` es cerrado en DAILY|WEEKLY|MONTHLY|YEARLY, `leerRRule(\'FREQ=HOURLY\')` devuelve null y hay un test que lo blinda — o sea que «cada X horas» exigía ampliar un tipo que importan quince archivos del board del plan.',
+      'La próxima ocurrencia se ancla en la AGENDADA anterior y no en `now()`: anclar en el envío real corre el horario siete minutos por semana. Y avanza salteándose las perdidas, para que un cron caído un día mande UNA vez.',
+      'La zona se congela en la fila y la pantalla la DICE («9:00 de America/Tijuana»): seis de los diez workspaces activos no tienen zona y caen a Tijuana, así que «a la mañana» era una afirmación sin medir.',
+      'Se sacó de la pantalla el desplegable «cada cuánto, como máximo» —«realmente no me hace ningun tipo de sentido»— después de medir que los 108 avisos activos lo tienen en 0. El CAMPO y sus dos lectores quedan: lib/notify.ts es el único espaciado de los tres reportes.',
+      '`Disparador.tsx` se borró (la sección CRON lo reemplazó) y sus tres guards se pusieron ROJOS, que es lo que hizo que alguien enumerara qué tenía de propio: el «sin botón de Guardar» y el revertir-si-falla se mudaron, el desplegable no volvió.',
+      'Verificado en el navegador las cinco unidades, y el drenador contra la base: empujando una fila al pasado mandó 1, avanzó proxima_at al horario correcto y guardó su ancla. ⚠️ Eso le mandó un «Reporte semanal» REAL al grupo del ws1 a las 14:43 UTC; la fila de prueba se borró.',
+      'Tres bugs que salieron de verificar y no de leer: un click en un PORTAL llegaba al handler del lienzo y deseleccionaba el nodo; el modo del segmentado derivado sólo de los datos hacía que «Por una acción» no se pudiera elegir; y la tabla no estaba en TENANT_TABLES, o sea que el drenador de un cliente leía las filas de todos.',
+    ],
+    archivos: [
+      'lib/cron-aviso.ts — el vocabulario y la próxima ocurrencia',
+      'lib/avisos-programados.ts — guardar, y drenar con compare-and-set',
+      'supabase/migrations/0183_avisos_programados.sql',
+      'app/api/cron/avisos-programados/route.ts + vercel.json',
+      'app/agencia/FlujoAviso.tsx — SeccionCron y EditorCron',
+      'lib/workspace.ts — la tabla entra a TENANT_TABLES',
+      'app/_components/Lienzo.tsx — un click en un portal no es un gesto',
+      'tests/cron-aviso.test.ts — 25 guards, las 13 roturas probadas',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '22:10', chat: '—', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Nueve cosas más: borrador, Publicar, CRON, MENSAJE y RECORDATORIOS',

@@ -91,6 +91,13 @@ const TENANT_TABLES = new Set<string>([
   // La cola del resumen diario de avisos (mig 0161): una fila por aviso pospuesto. Va acá
   // porque las filas son de un workspace y el cron las manda por el grupo de ESE workspace.
   'avisos_cola',
+  // El agendado por TIEMPO de cada mensaje (mig 0183). ⚠️ SIN ESTO LA TABLA ES
+  // PASSTHROUGH: `getProgramado` devolvía la fila de CUALQUIER workspace para ese
+  // `aviso_id` —o sea el horario de otro cliente— y `drenarProgramados`, que corre
+  // adentro de un `runWithWorkspace`, leía y avanzaba las filas de TODOS. Medido el
+  // 30/09/2026: la tabla quedó vacía porque el upsert fallaba, y eso tapó el agujero
+  // de casualidad. Es el mismo modo de falla del `wsDeInstancia` de la 0180.
+  'avisos_programados',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.

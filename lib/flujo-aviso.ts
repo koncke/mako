@@ -32,8 +32,8 @@ import {
   ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, encerrar,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo,
 } from './lienzo-grafo';
-import { FRECUENCIAS, SIN_LIMITE } from './disparador-mensaje';
 import { EVENTOS, describirPaso, type Disparador, type Paso } from './flujos-tipos';
+import { textoCron, type CronAviso } from './cron-aviso';
 
 export type Posiciones = Record<string, { x: number; y: number }>;
 
@@ -53,14 +53,12 @@ export type AvisoParaGrafo = {
   pasos: Paso[];
   /** Dónde arrastró cada tarjeta quien lo editó. */
   posiciones?: Posiciones;
+  /** El agendado por TIEMPO, si hay uno. Vive en su tabla (mig 0183), no en el store. */
+  cron?: CronAviso | null;
+  /** La zona con la que se agendó. Va al texto: «a la mañana» no dice a qué hora. */
+  tz?: string | null;
 };
 
-/** Cada cuánto sale, dicho corto para una flecha. */
-export function cadaCuanto(min: number): string {
-  if (!min || min <= SIN_LIMITE) return 'Cada vez que pasa';
-  const f = FRECUENCIAS.find((x) => x.min === min);
-  return f ? f.label.replace('Máximo uno ', 'Como máximo ') : 'Cada vez que pasa';
-}
 
 /** Por dónde te llega, con los dos canales resueltos. */
 export function porDondeLlega(c: { wa: boolean; email: boolean }): string {
@@ -70,12 +68,28 @@ export function porDondeLlega(c: { wa: boolean; email: boolean }): string {
   return 'Por ningún lado: los dos canales están apagados';
 }
 
-/** Lo que dice el nodo de entrada: el hecho, más los eventos que se sumaron. */
-export function textoDisparador(a: Pick<AvisoParaGrafo, 'disparador' | 'evento'>): string {
+/**
+ * Lo que dice el nodo CRON, y es lo único que la tarjeta AFIRMA.
+ *
+ * Los tres estados, en el orden en que mandan:
+ *   · agendado por TIEMPO  → la frase del cron, con su zona
+ *   · disparado por una ACCIÓN → el evento
+ *   · ninguno de los dos   → el disparador nativo, en una línea
+ *
+ * ⚠️ El nativo se dice SIEMPRE, incluso con un cron puesto: agendar no apaga el
+ * código que produce el aviso. Una tarjeta que sólo dijera «todos los lunes a las 9»
+ * sobre un mensaje que además sale cuando entra un lead estaría contando la mitad — y
+ * es la mitad que nadie va a auditar, porque suena completa.
+ */
+export function textoDisparador(a: Pick<AvisoParaGrafo, 'disparador' | 'evento' | 'cron' | 'tz'>): string {
+  const partes = [disparadorCorto(a.disparador)];
+  if (a.cron) partes.push(textoCron(a.cron, a.tz));
   const d = a.evento;
   const ev = d && d.tipo === 'evento' ? EVENTOS.find((e) => e.key === d.evento)?.label : null;
-  return ev ? `${a.disparador}\n\nY también: ${ev.toLowerCase()}.` : a.disparador;
+  if (ev) partes.push(`Y también: ${ev.toLowerCase()}.`);
+  return partes.join(NL_TXT);
 }
+const NL_TXT = '\n';
 
 export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   const nodos: NodoFlujo[] = [];
@@ -91,9 +105,9 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   // ── Qué lo dispara. El hecho nativo es un hecho; lo que se ELIGE son los
   // eventos que lo disparan ADEMÁS, y ésos el motor sí los corre.
   nodos.push({
-    id: 'entrada', tipo: 'entrada', titulo: 'Qué lo dispara', icono: '⚡',
+    id: 'entrada', tipo: 'entrada', titulo: 'CRON', icono: '⚡',
     detalle: textoDisparador(a),
-    ...en('entrada', col(0), MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + (conEvento ? 54 : 26),
+    ...en('entrada', col(0), MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + 26 + (conEvento ? 28 : 0) + (a.cron ? 28 : 0),
   });
 
   // ── El mensaje, como llega. Con el aviso de por dónde sale: es del mensaje,
@@ -105,7 +119,16 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
     advertencia: sinCanal ? 'Con los dos canales apagados este mensaje no sale.' : undefined,
     ...en('mensaje', col(1), MARGEN), ancho: ANCHO_NODO, alto: altoMensaje,
   });
-  aristas.push({ desde: 'entrada', hasta: 'mensaje', etiqueta: cadaCuanto(a.frecuenciaMin), tono: sinCanal ? 'mala' : 'normal' });
+  // ⚠️ LA FLECHA YA NO DICE «cada cuánto, como máximo»: ese desplegable salió de la
+  // pantalla («realmente no me hace ningun tipo de sentido») y una etiqueta que
+  // describe un control que no está es una afirmación sin dueño.
+  //
+  // Y con eso `cadaCuanto` —el rótulo— se quedó sin UN SOLO lector, así que se fue
+  // con él: la primera versión de este comentario decía que «lo lee la ficha del
+  // aviso» y era falso, medido con un grep. El CAMPO `frecuenciaMin` NO se toca:
+  // `lib/notify.ts` es el único espaciado de los tres reportes, y borrarlo sería
+  // borrar el lugar donde un día se enchufa.
+  aristas.push({ desde: 'entrada', hasta: 'mensaje', tono: sinCanal ? 'mala' : 'normal' });
 
   // ── Y si no contestás. Cuelga del MENSAJE: es lo que pasa después de que salió.
   const yAbajo = MARGEN + Math.max(altoMensaje, ALTO_MIN + 54) + GAP_Y + 10;
@@ -206,4 +229,27 @@ export function insertarPasoTras(pasos: Paso[], nodoId: string, nuevo: Paso): Pa
 export function quitarPasoDibujado(pasos: Paso[], i: number): Paso[] {
   const fuera = pasosDibujados(pasos)[i];
   return fuera ? pasos.filter((p) => p !== fuera) : pasos;
+}
+
+/**
+ * EL DISPARADOR NATIVO, EN UNA LÍNEA.
+ *
+ * Pedido textual: «el editable de "Qué lo dispara" debería tener muchísimo menos
+ * texto, el menor texto posible». El del catálogo son dos o tres oraciones —
+ * explica el disparador Y sus condiciones— y eso vive bien en la ficha del aviso y
+ * mal en un panel de 328 px con tres controles abajo.
+ *
+ * Se corta en el primer punto, punto y coma o DOS PUNTOS, y se le saca el paréntesis
+ * final: la primera oración es el disparador y todo lo que sigue —las condiciones, la
+ * enumeración de lo que cubre, la aclaración de la zona— son salvedades que viven en la
+ * ficha del aviso. No se resume ni se reescribe: cortar es TIRAR.
+ *
+ * Los dos puntos entraron después de verlo en pantalla: «Cron los lunes a la mañana
+ * (hora local del workspace): ads, cierres, CAC, cash, ritmo» pasaba entero porque no
+ * tiene ni un punto, y son 82 caracteres en un panel de 328 px.
+ */
+export function disparadorCorto(txt: string): string {
+  const primera = txt.split(/[.;:]/)[0]?.trim() ?? '';
+  const base = (primera || txt.trim()).replace(/\s*\([^)]*\)\s*$/, '').trim();
+  return base.length > 96 ? base.slice(0, 95).trimEnd() + '…' : base;
 }

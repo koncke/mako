@@ -157,13 +157,21 @@ test('Un aviso espaciado deja su fila en el feed; un reporte espaciado no ocurri
   );
 });
 
-test('La pantalla guarda al elegir, sin botón de Guardar', () => {
-  // Regla de esta tab, pedida con todas las letras: «que el botón de "Guardar" no
-  // exista, para eso solo un check al final del input».
-  const src = leer('../app/agencia/Disparador.tsx');
-  assert.match(src, /action: 'frecuencia'/, 'el desplegable dejó de escribir');
+test('⚠️ El CRON guarda al elegir, y REVIERTE si falla', () => {
+  // ESTE GUARD MUDÓ DE ARCHIVO. Vivía sobre `app/agencia/Disparador.tsx`, que la
+  // sección CRON del lienzo reemplazó el 30/09/2026 — y ponerse rojo es lo que hizo
+  // que alguien enumerara qué tenía de propio ese componente antes de borrarlo. Eran
+  // tres cosas:
+  //   · «que el botón de "Guardar" no exista, para eso solo un check al final del input»
+  //   · revertir el control si el POST falla — sin eso el desplegable queda diciendo
+  //     un horario que NO se guardó, y no hay forma de saberlo mirando la pantalla;
+  //   · y el desplegable de «cada cuánto, como máximo», que se sacó a pedido.
+  // Las dos primeras se mudaron; la tercera no vuelve.
+  const src = leer('../app/agencia/FlujoAviso.tsx');
+  assert.match(src, /action: 'cron-set'/, 'la sección CRON dejó de escribir');
   assert.ok(!/>\s*Guardar\s*</.test(src), 'volvió el botón de Guardar');
-  assert.match(src, /setMin\(previo\)/, 'sin revertir, un fallo deja el desplegable diciendo algo que no se guardó');
+  assert.match(src, /else setCron\(previo\)/, 'sin revertir, el desplegable dice un horario que no se guardó');
+  assert.ok(!/action: 'frecuencia'/.test(src), 'volvió el desplegable que se sacó a pedido');
 });
 
 test('Las dos rutas aceptan la action y sanean lo que llega', () => {

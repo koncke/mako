@@ -22,6 +22,8 @@ import {
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
   setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
+import { getProgramado, setProgramado } from '@/lib/avisos-programados';
+
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
 import { esAvisoDelCliente, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
@@ -61,6 +63,7 @@ export async function POST(req: NextRequest) {
     titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
     frecuenciaMin?: number;
     posiciones?: Record<string, { x: number; y: number }>;
+    cron?: unknown;
   };
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -161,6 +164,21 @@ export async function POST(req: NextRequest) {
         if (!CATEGORIAS_AVISO.includes(b.categoria as CategoriaAviso)) return NextResponse.json({ ok: false, error: 'categoría inválida' }, { status: 400 });
         await setCategoriaPlantilla(b.id, b.categoria as CategoriaAviso);
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      /**
+       * EL CRON POR TIEMPO. Es suyo, como el canal y el interruptor: decide CUÁNDO
+       * le llega, no qué dice. El saneo y el tope viven en `sanearCron`, que es la
+       * única puerta, y la zona la resuelve y la congela `setProgramado`.
+       *
+       * ⚠️ Y mandar `cron: null` DESAGENDA — es como se elige «que lo dispare una
+       * acción» o «a mano» sin dejar la fila vencida, que el drenador leería en
+       * cada tick para siempre.
+       */
+      case 'cron-get':
+        if (!b.id) return faltaId();
+        return NextResponse.json({ ok: true, programado: await getProgramado(b.id) });
+      case 'cron-set':
+        if (!b.id) return faltaId();
+        return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) });
       case 'borrar':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) });

@@ -941,7 +941,7 @@ export const AREAS: AreaDev[] = [
       'app/perfil/BandejaEmail.tsx', 'app/perfil/PrefsDeMensaje.tsx',
       'lib/notif-catalogo.ts', 'lib/avisos-catalogo.ts', 'lib/plantillas.ts', 'lib/notif-destinatarios.ts',
       'app/api/perfil/plantillas/route.ts', 'app/api/perfil/destinatarios/route.ts', 'app/api/perfil/notif-inapp/route.ts',
-      'lib/disparador-mensaje.ts', 'lib/espaciado.ts', 'app/agencia/Disparador.tsx',
+      'lib/disparador-mensaje.ts', 'lib/espaciado.ts', 'lib/cron-aviso.ts', 'lib/avisos-programados.ts', 'app/api/cron/avisos-programados',
       'app/agencia/FlujoAviso.tsx', 'app/agencia/TemplateDetalleModal.tsx', 'lib/flujo-aviso.ts', 'app/_components/TextoMarcas.tsx', 'app/agencia/EditorMensaje.tsx',
       'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts',
     ],

@@ -12,6 +12,7 @@ import {
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
   setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
+import { getProgramado, setProgramado } from '@/lib/avisos-programados';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
@@ -32,6 +33,7 @@ type Body = {
   titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
   frecuenciaMin?: number;
   posiciones?: Record<string, { x: number; y: number }>;
+  cron?: unknown;
 };
 
 export async function POST(req: NextRequest) {
@@ -79,6 +81,9 @@ export async function POST(req: NextRequest) {
       await setCategoriaPlantilla(b.id, b.categoria as CategoriaAviso);
       return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
     }
+    /* El cron por TIEMPO. `cron: null` desagenda. */
+    case 'cron-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, programado: await getProgramado(b.id) }); }
+    case 'cron-set': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) }); }
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }
     case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') }); }
     case 'flujo-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) }); }

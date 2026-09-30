@@ -33,9 +33,9 @@ import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/
 import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { Dropdown } from '../components/Dropdown';
-import { Disparador } from './Disparador';
 import { EditorMensaje } from './EditorMensaje';
-import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
+import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, disparadorCorto, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
+import { UNIDADES, CADA_MAX, DIA_MES_MAX, sanearCron, textoCron, type CronAviso } from '@/lib/cron-aviso';
 import {
   EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
   type Flujo, type Paso, type AccionFlujo,
@@ -57,6 +57,10 @@ const ACCIONES: Array<{ value: AccionFlujo; label: string }> = [
 ];
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
+
+/** Lo que se agenda al elegir TIEMPO: todos los días a las 9 de la mañana. Es el
+ *  caso que más se pidió y el que no necesita ningún campo más. */
+const CRON_DEFAULT: CronAviso = { unidad: 'dia', cada: 1, hora: 9, minuto: 0 };
 
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
@@ -85,6 +89,10 @@ export function FlujoAviso({
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const [flujo, setFlujo] = useState<Flujo | null>(null);
+  /** El agendado por TIEMPO vive en su TABLA, no en el store del mensaje: el store
+   *  se hereda del dueño y lo reescribe el navegador entero (ver la mig 0183). */
+  const [cron, setCron] = useState<CronAviso | null>(null);
+  const [tz, setTz] = useState<string | null>(null);
   const [pos, setPos] = useState<Posiciones>(posiciones);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -102,8 +110,32 @@ export function FlujoAviso({
   useEffect(() => {
     let vivo = true;
     void api({ action: 'flujo-get', id }).then((r) => { if (vivo) setFlujo((r?.flujo as Flujo | null) ?? null); });
+    void api({ action: 'cron-get', id }).then((r) => {
+      if (!vivo) return;
+      const p = r?.programado as { cron?: unknown; tz?: string } | null | undefined;
+      setCron(sanearCron(p?.cron ?? null));
+      setTz(p?.tz ?? null);
+    });
     return () => { vivo = false; };
   }, [api, id]);
+
+  /** Agenda o desagenda. El saneo y la zona los resuelve el server, que es el único
+   *  que puede: `tzDeWorkspace` sale a la red y no vive en el navegador. */
+  async function guardarCron(c: CronAviso | null) {
+    // ⚠️ SE REVIERTE SI FALLA, y esta regla viene heredada del control que esta
+    // sección reemplazó (`Disparador.tsx`, que hacía `setMin(previo)`): sin ella el
+    // desplegable queda diciendo un horario que no se guardó, y no hay forma de
+    // saberlo mirando la pantalla. Es lo único que ese componente tenía de propio y
+    // que no era el campo que se sacó.
+    const previo = cron;
+    setBusy(true); setErr(null);
+    setCron(c);   // optimista: el desplegable tiene que responder en el frame
+    const r = await api({ action: 'cron-set', id, cron: c });
+    const p = r?.programado as { cron?: unknown; tz?: string } | null | undefined;
+    if (r?.ok) { setCron(sanearCron(p?.cron ?? null)); setTz(p?.tz ?? null); }
+    else setCron(previo);
+    setBusy(false);
+  }
 
   async function guardarFlujo(f: Flujo | null) {
     setBusy(true); setErr(null);
@@ -116,7 +148,7 @@ export function FlujoAviso({
   const pasosExtra = pasosDibujados(flujo?.pasos ?? []);
 
   const aviso: AvisoParaGrafo = {
-    disparador, frecuenciaMin, texto, canales, posiciones: pos,
+    disparador, frecuenciaMin, texto, canales, posiciones: pos, cron, tz,
     insistir: insistir ? { cadaMin: insistir.cadaMin, veces: insistir.veces } : null,
     evento: flujo?.disparador ?? null,
     pasos: pasosExtra,
@@ -175,7 +207,7 @@ export function FlujoAviso({
           <EditorDelAviso
             nodo={n} id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
             texto={texto} endpoint={endpoint} editable={editable} guardando={guardando || busy}
-            canales={canales} flujo={flujo} insistir={insistir}
+            canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
             onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo}
             onQuitarPaso={(i) => {
               const base = flujo ?? FLUJO_VACIO;
@@ -198,12 +230,15 @@ export function FlujoAviso({
 
 function EditorDelAviso({
   nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, guardando, canales,
-  flujo, insistir, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
+  flujo, insistir, cron, tz, onCron, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
   endpoint: string; editable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
   flujo: Flujo | null;
   insistir: Extract<Paso, { tipo: 'insistir' }> | null;
+  cron: CronAviso | null;
+  tz: string | null;
+  onCron: (c: CronAviso | null) => void;
   onTexto: (v: string) => void;
   onCambio?: () => void;
   onFlujo: (f: Flujo | null) => void;
@@ -213,36 +248,13 @@ function EditorDelAviso({
   const base = flujo ?? FLUJO_VACIO;
 
   if (nodo.tipo === 'entrada') {
-    const d = base.disparador;
-    const actual = d.tipo === 'evento' ? d.evento : '';
     return (
-      <>
-        <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12, whiteSpace: 'pre-wrap' }}>{disparador}</div>
-        <Disparador
-          id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
-          endpoint={endpoint} onCambio={onCambio} compacto
-        />
-        <div style={{ marginTop: 12 }}>
-          <label style={rotuloLienzo}>Y también cuando…</label>
-          <Dropdown
-            value={actual}
-            options={[{ value: '', label: 'Nada más: sólo lo de arriba' }, ...EVENTOS.map((e) => ({ value: e.key, label: e.label }))]}
-            onChange={(v) => onFlujo({
-              ...base, activo: true,
-              disparador: v ? { tipo: 'evento', evento: v as typeof EVENTOS[number]['key'] } : { tipo: 'manual' },
-            })}
-            width="100%" ariaLabel="Otro evento que dispare este mensaje"
-          />
-          {/* Los cinco son los que tienen un choke point cableado. La lista no se
-              inventa: un evento sin choke point es una opción que no ocurre nunca. */}
-          <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 7, marginBottom: 0 }}>
-            Además de lo de arriba, este mensaje también sale cuando pasa esto.
-          </p>
-        </div>
-      </>
+      <SeccionCron
+        disparador={disparador} base={base} cron={cron} tz={tz}
+        guardando={guardando} onFlujo={onFlujo} onCron={onCron}
+      />
     );
   }
-
   if (nodo.id === 'mensaje') {
     if (!editable) {
       return (
@@ -389,5 +401,156 @@ function Opcion({ activa, onClick, disabled, children }: {
       }}>
       {activa ? '✓ ' : ''}{children}
     </button>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * EL CONTROL DEL CRON POR TIEMPO.
+ *
+ * Un desplegable de unidad y, al lado, SÓLO los campos que esa unidad necesita:
+ * una semana pide el día, un mes pide el número, un año pide mes y número, y «cada
+ * hora» no pide hora de pared porque ahí no la decide nadie. Dibujar los cinco
+ * siempre y desactivar tres es pedirle a la persona que adivine cuáles miran.
+ *
+ * ⚠️ Y LA FRASE DE ABAJO NOMBRA LA ZONA. Medido el 30/09/2026: de los 10 workspaces
+ * activos, SEIS no tienen `mako.timezone` y caen a America/Tijuana. Un «a la mañana»
+ * sobre eso es una afirmación que nadie verificó; «9:00 de America/Tijuana» deja que
+ * el dueño vea que está mal y lo arregle.
+ */
+function EditorCron({ cron, tz, disabled, onCron }: {
+  cron: CronAviso; tz: string | null; disabled: boolean; onCron: (c: CronAviso | null) => void;
+}) {
+  const set = (p: Partial<CronAviso>) => { const c = sanearCron({ ...cron, ...p }); if (c) onCron(c); };
+  const num = (v: number, min: number, max: number, onSet: (n: number) => void, rotulo: string) => (
+    <input type="number" value={v} min={min} max={max} disabled={disabled} aria-label={rotulo}
+      onChange={(e) => onSet(Number(e.target.value))}
+      style={{ ...inpLienzo, width: 62, flex: 'none' }} />
+  );
+  const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Cada</span>
+        {num(cron.cada, 1, CADA_MAX, (n) => set({ cada: n }), 'Cada cuántos')}
+        <Dropdown value={cron.unidad} width="100%" ariaLabel="Unidad"
+          options={UNIDADES.map((u) => ({ value: u.key, label: cron.cada === 1 ? u.label : u.plural }))}
+          onChange={(v) => set({ unidad: v as CronAviso['unidad'] })} />
+      </div>
+      {cron.unidad === 'semana' && (
+        <Dropdown value={String(cron.diaSemana ?? 1)} width="100%" ariaLabel="Día de la semana"
+          options={DIAS.map((d, i) => ({ value: String(i), label: d }))}
+          onChange={(v) => set({ diaSemana: Number(v) })} />
+      )}
+      {(cron.unidad === 'mes' || cron.unidad === 'anio') && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>El día</span>
+          {num(cron.diaMes ?? 1, 1, DIA_MES_MAX, (n) => set({ diaMes: n }), 'Día del mes')}
+          {cron.unidad === 'anio' && (
+            <Dropdown value={String(cron.mes ?? 1)} width="100%" ariaLabel="Mes"
+              options={MESES.map((m, i) => ({ value: String(i + 1), label: m }))}
+              onChange={(v) => set({ mes: Number(v) })} />
+          )}
+        </div>
+      )}
+      {cron.unidad !== 'hora' && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>A las</span>
+          {num(cron.hora, 0, 23, (n) => set({ hora: n }), 'Hora')}
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>:</span>
+          {num(cron.minuto, 0, 59, (n) => set({ minuto: n }), 'Minuto')}
+        </div>
+      )}
+      {/* Y el día 31 no está: no existe en febrero, y saltear el mes o correrlo al 1
+          de marzo son dos decisiones que nadie tomó. El tope es 28. */}
+      <div style={{ fontSize: 11, color: 'var(--good)', lineHeight: 1.4, fontWeight: 600 }}>{textoCron(cron, tz)}</div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * LA SECCIÓN «CRON»: TIEMPO **o** ACCIÓN, nunca las dos.
+ *
+ * Pedido textual: «El cron debería ser uno de dos… O el usuario lo configura para
+ * que salga en TIEMPO… O lo configura que se dispare mediante una ACCIÓN. Y no deben
+ * poder editarse los 2 al mismo tiempo, primero se selecciona tiempo o acción y luego
+ * se selecciona el desplegable».
+ *
+ * ⚠️ ES UN COMPONENTE PROPIO PORQUE NECESITA ESTADO, y un `useState` adentro del
+ * editor de nodos quedaría detrás de los `return` por tipo de nodo — que es el
+ * «Minified React error #300» que esta casa ya pagó con la pantalla en blanco, y que
+ * el pre-push mira con `scripts/hooks-en-orden.sh`.
+ *
+ * ⚠️ Y EL MODO NO SE PUEDE DERIVAR SOLO DE LOS DATOS. La primera versión hacía
+ * `modo = cron ? 'tiempo' : evento ? 'accion' : 'nada'`, y con eso apretar «Por una
+ * acción» no hacía NADA: sin evento elegido el modo seguía siendo 'nada', el
+ * desplegable no se dibujaba, y no había forma de llegar a elegir el evento. Medido en
+ * el navegador — el botón cambiaba de color y el panel no cambiaba. Elegir un modo es
+ * una INTENCIÓN de quien mira; lo que hay guardado es otra cosa, y la intención manda
+ * hasta que se guarde algo.
+ *
+ * ⚠️ Y HAY UN TERCER ESTADO QUE NO SE PUEDE ESCONDER: 60 de los 65 mensajes del
+ * catálogo ya salen por su cuenta, desde el código que los produce. Eso no se apaga
+ * desde acá, así que un control de dos opciones donde ninguna está puesta estaría
+ * mintiendo sobre qué hace hoy el mensaje. «Nada más» es ese estado con su nombre, y
+ * arriba, en una línea, lo que el mensaje hace por su cuenta.
+ *
+ * Y el desplegable «cada cuánto, como máximo» se fue de la pantalla: «realmente no me
+ * hace ningun tipo de sentido». Medido antes de sacarlo — los 108 avisos activos de
+ * los 10 workspaces lo tienen en 0, así que no apaga ninguna protección que hoy
+ * funcione. El CAMPO y sus dos lectores quedan.
+ */
+type ModoCron = 'nada' | 'tiempo' | 'accion';
+
+function SeccionCron({ disparador, base, cron, tz, guardando, onFlujo, onCron }: {
+  disparador: string; base: Flujo; cron: CronAviso | null; tz: string | null;
+  guardando: boolean; onFlujo: (f: Flujo | null) => void; onCron: (c: CronAviso | null) => void;
+}) {
+  const evento = base.disparador.tipo === 'evento' ? base.disparador.evento : '';
+  const guardado: ModoCron = cron ? 'tiempo' : evento ? 'accion' : 'nada';
+  const [intencion, setIntencion] = useState<ModoCron | null>(null);
+  const modo = intencion ?? guardado;
+
+  const elegir = (m: ModoCron) => {
+    if (m === modo) return;
+    setIntencion(m);
+    // Elegir uno APAGA el otro, y es una ESCRITURA y no un `disabled`: las dos
+    // mitades viven en lugares distintos —el evento en el store del flujo, el
+    // horario en su tabla— así que dejar el de al lado puesto y sólo grisarlo
+    // dejaría un mensaje disparado por las dos cosas con la pantalla diciendo una.
+    if (m !== 'accion' && evento) onFlujo({ ...base, disparador: { tipo: 'manual' } });
+    if (m !== 'tiempo' && cron) onCron(null);
+    if (m === 'tiempo' && !cron) onCron(CRON_DEFAULT);
+  };
+
+  return (
+    <>
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45, marginBottom: 10 }}>{disparadorCorto(disparador)}</div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {([['nada', 'Nada más'], ['tiempo', 'Por tiempo'], ['accion', 'Por una acción']] as const).map(([k, txt]) => (
+          <button key={k} onClick={() => elegir(k)} disabled={guardando} aria-pressed={modo === k}
+            style={{
+              flex: 1, padding: '7px 4px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 11.5, fontWeight: 600, transition: 'background .12s',
+              border: `1px solid ${modo === k ? 'var(--primary)' : 'var(--border-strong)'}`,
+              background: modo === k ? 'var(--primary)' : 'transparent',
+              color: modo === k ? '#fff' : 'var(--dim)',
+            }}>{txt}</button>
+        ))}
+      </div>
+      {modo === 'tiempo' && cron && <EditorCron cron={cron} tz={tz} disabled={guardando} onCron={onCron} />}
+      {modo === 'accion' && (
+        <Dropdown
+          value={evento}
+          options={EVENTOS.map((e) => ({ value: e.key, label: e.label }))}
+          onChange={(v) => onFlujo({ ...base, activo: true, disparador: { tipo: 'evento', evento: v as typeof EVENTOS[number]['key'] } })}
+          width="100%" ariaLabel="Qué acción dispara este mensaje"
+        />
+      )}
+    </>
   );
 }

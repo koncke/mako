@@ -6438,3 +6438,131 @@ primero. Es la misma familia que el `＋ Nuevo lead` del 30/09: **la primera hip
 correcta ante un resultado redondo e inesperado es la medición, no el código.**
 
 *2026-09-30*
+
+---
+
+## Un click en un PORTAL llega al handler del lienzo, y `closest()` no lo sabe
+
+**Vive en:** `app/_components/Lienzo.tsx` (`onPointerDown`)
+
+Los eventos de React **bubblean por el árbol de React**, no por el DOM. Todo
+`createPortal` a `body` —el menú de `Dropdown`, un `Confirm`, un popover anclado— es
+hijo de React del panel del editor y **hermano del contenedor en el DOM**: el click
+viaja hasta el `onPointerDown` del lienzo, y el `data-no-pan` del panel es invisible
+para un `closest()`, porque el `e.target` está colgado del `body`.
+
+Medido con Playwright el 30/09/2026: abrir el desplegable de la unidad del CRON y
+elegir «semana» **cerraba el panel del nodo**. Sin un error en consola, sin un POST,
+con la opción correctamente clickeada y visible. O sea que el desplegable se leía
+como roto y lo que estaba mal era el guard del lienzo, tres archivos más allá.
+
+**La regla: la pregunta no es «¿tiene un ancestro marcado?» sino «¿este pointer cayó
+DENTRO?».** Un evento cuyo target del DOM está afuera del contenedor no es un gesto de
+ese contenedor, y no hay portal que se escape de eso:
+
+```tsx
+if (!(caja.current?.contains(e.target as Node) ?? false)) return;   // va PRIMERO
+if ((e.target as HTMLElement).closest('[data-no-pan]')) return;      // y después la marca
+```
+
+El orden importa: puesto después, el portal vuelve a pasar. Y la versión con `contains`
+no depende de que nadie se acuerde de marcar nada — es la diferencia entre una regla y
+una convención. Lo fija `tests/lienzo.test.ts` («UN CLICK EN UN PORTAL NO ES UN GESTO
+DEL LIENZO»), probado quitando el guard y poniéndolo después: los dos dan rojo.
+
+*2026-09-30*
+
+---
+
+## Un MODO que se deriva sólo de los datos no se puede elegir antes de tener datos
+
+**Vive en:** `app/agencia/FlujoAviso.tsx` (`SeccionCron`)
+
+El segmentado del CRON tiene tres opciones y la primera versión calculaba cuál estaba
+puesta mirando lo guardado: `modo = cron ? 'tiempo' : evento ? 'accion' : 'nada'`.
+
+Se lee bien y tiene un agujero exacto: apretar «Por una acción» **no hacía nada**. Sin
+evento elegido el modo seguía siendo `'nada'`, el desplegable de eventos no se dibujaba,
+y no había forma de llegar a elegir el evento — o sea que la mitad ACCIÓN del pedido era
+inalcanzable desde la pantalla. Medido en el navegador: el botón cambiaba de color por el
+`aria-pressed` optimista y el panel no cambiaba.
+
+**La regla: elegir un modo es una INTENCIÓN de quien mira, y lo guardado es otra cosa.**
+La intención vive en estado local y manda hasta que haya algo guardado
+(`intencion ?? guardado`). Derivar del dato solo funciona cuando todos los modos tienen
+un dato que los represente, y el modo «todavía no elegí nada dentro de esta opción» por
+definición no lo tiene.
+
+⚠️ **Y eso obligó a extraer la sección a su propio componente**, porque necesita un
+`useState` y el editor de nodos tiene un `return` por tipo de nodo: un hook ahí queda
+detrás de un `return`, que es el «Minified React error #300» —la pantalla entera en
+blanco— que esta casa ya pagó y que el pre-push mira con `scripts/hooks-en-orden.sh`.
+
+*2026-09-30*
+
+---
+
+## Una tabla nueva que no entra a `TENANT_TABLES` es PASSTHROUGH, no «sin scope»
+
+**Vive en:** `lib/workspace.ts` (`TENANT_TABLES`) · `lib/avisos-programados.ts`
+
+`getTenantDb()` estampa y filtra `workspace_id` **sólo** para las tablas que están en
+`TENANT_TABLES`; para el resto devuelve el builder crudo (`if (!TENANT_TABLES.has(table))
+return builder`). Eso es correcto para las tablas de plataforma y es un agujero para una
+tabla de inquilino que nadie agregó a la lista.
+
+Medido el 30/09/2026 con `avisos_programados` (mig 0183) recién creada:
+
+- `getProgramado(avisoId)` devolvía la fila de **cualquier** workspace para ese
+  `aviso_id` — o sea el horario de otro cliente.
+- `drenarProgramados()`, que corre adentro de un `runWithWorkspace(ws)`, leía y avanzaba
+  las filas de **todos** los workspaces, y mandaba sus avisos por el grupo de ESE.
+
+Es el mismo modo de falla del `wsDeInstancia` de la 0180, y **no da error**: las
+consultas contestan, con las filas de más.
+
+**La regla: una migración que crea una tabla con `workspace_id` toca DOS archivos** — el
+`.sql` y `TENANT_TABLES`. El compilador no ve el segundo: es un `Set` de strings.
+
+⚠️ **Y lo tapó otro bug.** La tabla quedó vacía porque el upsert fallaba, así que las
+lecturas cross-tenant no tenían nada que devolver y el agujero no se vio. Dos bugs que se
+esconden entre sí es el peor caso: arreglar uno destapa al otro, y el que destapa es el
+caro.
+
+⚠️ **Y ESE UPSERT SE TRAGABA SU PROPIO ERROR.** La primera versión de `setProgramado`
+hacía `if (error || !data) return null`, así que la ruta contestaba
+`{ ok: true, programado: null }` sobre una escritura que **no escribió**: la pantalla
+pintaba el horario elegido (el estado optimista), la tabla quedaba vacía, y nadie se
+enteraba. Medido: cinco `cron-set` seguidos, **cero filas**. Ahora tira con el mensaje de
+la base adentro.
+
+La asimetría que queda escrita en el módulo: **una LECTURA puede devolver `null` en
+silencio** —la pregunta es «¿hay un horario?» y «no se pudo leer» dibuja lo mismo que «no
+hay»— **y una ESCRITURA no.** Una escritura que falla y contesta `ok` es la forma más
+cara de mentir.
+
+*2026-09-30*
+
+---
+
+## Verificar un CRON MANDA UN MENSAJE DE VERDAD, y la fila queda agendada
+
+**Vive en:** nada del repo — es el costo de verificar esto.
+
+Para comprobar que el drenador manda hay que empujar una fila al pasado y llamar al
+cron. Eso salió por `emitirAviso`, que es lo correcto — y el 30/09/2026 a las 14:43 UTC
+un **«Reporte semanal» real llegó al grupo de WhatsApp del ws1**, que es Mauricio.
+Queda en `mako_doer_conv` con su timestamp.
+
+Y hay un segundo costo que es peor porque no se ve: **la fila sigue agendada después de
+la prueba**. Un «todos los días a las 9» puesto para verificar le manda un reporte por
+día a un cliente hasta que alguien lo borre. Se borró (`delete from avisos_programados`
+→ 1 fila), pero eso hay que hacerlo A MANO y nada lo recuerda.
+
+**Lo que queda como regla: verificar un agendado se hace en el Cliente de Prueba (ws3)**
+—no en el ws1, que es un cliente real— y la fila se borra en el mismo comando que la
+crea. Acá se usó el ws1 porque es el único workspace donde la tab se puede abrir sin
+onboarding, que es la misma excusa que ya está escrita en «Verificar una pantalla
+ESCRIBE»; el costo esta vez fue un mensaje de más y no un dato pisado.
+
+*2026-09-30*
