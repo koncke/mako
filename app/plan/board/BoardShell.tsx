@@ -65,7 +65,7 @@ import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 import { resolverDeps, estaBloqueada, type EstadoDeps, type Dep } from './dependencias';
-import { ESCALERA } from './types';
+import { ESCALERA, vistaVisible } from './types';
 import { DependenciasBloque } from './DependenciasBloque';
 import { apiPlan } from './repo-plan';
 // El Link propio, NUNCA next/link: preserva el ?ws= de la pestaña (AGENTS.md).
@@ -189,7 +189,7 @@ function Marco({ embebido, children }: { embebido: boolean; children: ReactNode 
   return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
 }
 
-export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar }: {
+export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, simplePorDefecto = false, vistaExtra, onRecargar }: {
   board: Board;
   /**
    * Los clientes elegibles: los leads GANADOS del workspace (mig 0172). Los lee la PÁGINA
@@ -223,6 +223,20 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
    * el board (hoy, el equipo de un cliente en el panel de la plataforma), y el board no
    * tiene por qué saber qué es.
    */
+  /**
+   * ARRANCA EN SIMPLE: sin el kanban, hasta que la persona prenda «Avanzado».
+   *
+   * Es el tablero del CLIENTE. El pedido, del 31/08/2026: «una vista SIMPLE por default
+   * (3 tareas + experimentos) con el kanban completo detrás de un toggle Avanzado».
+   * Un cliente que entra a su plan tiene que aterrizar en lo que hay que hacer hoy, no
+   * en un tablero de 200 tarjetas con cuatro columnas.
+   *
+   * ⚠️ ES UNA PROP Y NO SE DEDUCE del `scope`. «Es el tablero de un cliente» y «arranca
+   * simple» son dos hechos distintos, y el día que uno valga sin el otro —un cliente
+   * avanzado, el tablero del dueño embebido— deducirlo miente. Es la misma regla que
+   * `embebido`, que ya se pagó una vez acá.
+   */
+  simplePorDefecto?: boolean;
   vistaExtra?: { id: string; label: string; contenido: ReactNode };
   /**
    * ⚠️ NO SOY LA PANTALLA: estoy montado ADENTRO de otra (hoy, la ficha de un cliente).
@@ -338,6 +352,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // ⚠️ LOS FILTROS Y EL ORDEN SE RECUERDAN (usePref): «se resetean al recargar y al cambiar
   // de pestaña» era el reporte. Lo que NO se recuerda es la BÚSQUEDA (`q`): un texto viejo
   // restaurado esconde el tablero entero y se lee como que no hay nada cargado.
+  // El toggle «Avanzado». Se recuerda POR CLIENTE porque `setScopePrefs` le pega el
+  // workspace a la clave: la eleccion de uno no viaja al de al lado en el mismo
+  // navegador, que es justo lo que pasa cuando el super admin abre tres clientes.
+  const [avanzado, setAvanzado] = usePref<boolean>('tablero.avanzado', !simplePorDefecto, esBool);
   const [fLabels, setFLabels] = usePrefSet('tablero.proyectos');
   // ⚠️ UN SOLO FILTRO DE ESTADO Y UNA SOLA VISTA DE TABLA PARA LAS DOS TABS. «Tanto la vista
   // de tabla como los filtros, haz que se mantengan igual tanto para la tab de proyectos
@@ -1227,10 +1245,24 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         {/* tabs */}
         <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
           {[...VISTAS.map((v) => ({ id: v as string, label: v === 'proyectos' ? repo.labelPlural : (v as string) })),
-            ...(vistaExtra ? [{ id: vistaExtra.id, label: vistaExtra.label }] : [])].map((v) => (
+            ...(vistaExtra ? [{ id: vistaExtra.id, label: vistaExtra.label }] : [])]
+            // El porqué (y la mitad que importa: la vista actual nunca se esconde)
+            // vive en `vistaVisible`, en board/types.ts, que es donde se puede testear.
+            .filter((v) => vistaVisible(v.id, avanzado, view))
+            .map((v) => (
             <button key={v.id} onClick={() => setView(v.id)} style={{ border: 'none', background: view === v.id ? 'var(--surface)' : 'transparent', color: view === v.id ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v.id ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v.id ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v.label}</button>
           ))}
         </div>
+        {/* El interruptor, PEGADO al selector: es lo que decide cuantas pestanas hay,
+            asi que vive con ellas y no en el grupo de acciones de la derecha.
+            Dos palabras, que es lo que entra al lado de cuatro pastillas. */}
+        {simplePorDefecto && (
+          <button type="button" onClick={() => setAvanzado(!avanzado)} style={btnAvanzado}
+            aria-pressed={avanzado}
+            title={avanzado ? 'Volver a la vista simple: solo lo que hay que hacer' : 'Ver el tablero completo, con el kanban y los proyectos'}>
+            {avanzado ? '▾ Avanzado' : '▸ Avanzado'}
+          </button>
+        )}
         {/* De acá a la derecha. DOS grupos, y el orden importa:
             · el VARIABLE (progreso + buscar + filtrar) cambia según la vista;
             · el FIJO (avisos, MaKo, Fathom, subir, exportar) va SIEMPRE último y en el
@@ -2609,6 +2641,13 @@ function AccionIcono({ label, onClick, tono, children }: { label: string; onClic
 
 /** El pie de la columna derecha donde viven esos botones. `marginTop: auto` los empuja
  *  abajo cuando la columna sobra, y los deja al final del contenido cuando no. */
+/** El toggle «Avanzado». Texto, no pastilla: no es una vista mas, es el interruptor
+ *  que decide cuantas hay — con forma de pastilla se leeria como una quinta pestana. */
+const btnAvanzado: CSSProperties = {
+  flex: 'none', border: 'none', background: 'transparent', color: 'var(--dim)',
+  fontSize: 12.5, fontWeight: 600, padding: '7px 4px', cursor: 'pointer', fontFamily: 'inherit',
+};
+
 const pieAcciones: CSSProperties = { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 'auto', paddingTop: 14, borderTop: '1px solid var(--border)' };
 
 /** El único que NO es un ícono en ese pie: `marginRight: auto` lo manda a la izquierda y

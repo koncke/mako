@@ -61,6 +61,20 @@ export type Tarea = {
   en_prioridad: boolean;         // marcada "En prioridad" (vista Prioridades)
   score: number;                 // 1-100 del guardián (define la columna)
   score_razon: string | null;    // por qué el guardián le puso ese score
+  /**
+   * Los TRES que el tablero del cliente dibujaba y no guardaba (#157, medido el
+   * 30/09/2026). Las columnas existen desde las migs 0114 y 0115; lo que faltaba era
+   * todo el resto del camino, y el síntoma es el de siempre: el campo se edita, la
+   * request contesta 200 y al recargar volvió como estaba.
+   */
+  notas: string;                 // la libreta de la tarjeta (mig 0114)
+  deadline_razon: string | null; // por qué el guardián puso ESA fecha (mig 0114)
+  hacelo_en: string | null;      // cuándo conviene hacerla, según MaKo (mig 0115)
+  /** Los dos ejes con los que el Perro arma el score (mig 0177). El tablero del dueño
+   *  los tiene desde siempre; acá la columna no existía, así que el panel de una tarea
+   *  del cliente los mostraba vacíos y no había dónde escribirlos. */
+  impacto: number | null;        // 1-100: cuánto mueve la aguja
+  esfuerzo: number | null;       // 1-100: cuánto cuesta hacerla
   origen: OrigenTarea;
   /** de dónde salió: {tipo, etiqueta, url}. La url puede traer ?timestamp=<seg>. */
   fuente: { tipo: string; etiqueta?: string; url?: string } | null;
@@ -142,7 +156,17 @@ export type Categoria = { id: number; nombre: string; color: string; emoji: stri
    * guardaría bien en un tablero y destruiría en el otro.
    */
   icono: string | null;
+  /** Los mismos tres de #157, del lado del proyecto. `notas` existe desde la mig 0114
+   *  y no la leía nadie; `impacto`/`esfuerzo` los agrega la 0177. */
+  notas: string; impacto: number | null; esfuerzo: number | null;
   detalle: string; historial: HistEntry[]; created_at: string };
+
+/** 1..100 o null. Los dos ejes del Perro: un 0 y un 140 son los dos «no lo sé» y
+ *  entran como null, que es lo que la pantalla sabe dibujar (vacío, no un cero). */
+const pct1a100 = (v: unknown): number | null => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 100 ? n : null;
+};
 
 const COLS = '*';
 /** ⚠️ EXPORTADO por lo mismo que `rowToTask` en `lib/plan-board.ts`: Customer Success
@@ -173,6 +197,11 @@ export const rowTo = (r: Record<string, unknown>): Tarea => {
   t.responsable_tipo = esResponsableTipo(r.responsable_tipo) ? r.responsable_tipo : null;
   t.cliente_nombre = txtOk(r.cliente_nombre);
   t.cliente_lead_id = leadIdOk(r.cliente_lead_id);
+  t.notas = typeof r.notas === 'string' ? r.notas : '';
+  t.deadline_razon = txtOk(r.deadline_razon);
+  t.hacelo_en = txtOk(r.hacelo_en);
+  t.impacto = pct1a100(r.impacto);
+  t.esfuerzo = pct1a100(r.esfuerzo);
   t.tema = txtOk(r.tema);
   t.criterio_veredicto = veredictoOk(r.criterio_veredicto);
   t.criterio_regla = txtOk(r.criterio_regla);
@@ -451,7 +480,7 @@ async function repiteTarea(id: number): Promise<boolean> {
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null } & CamposResponsable,
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null; fuente?: { tipo: string; etiqueta?: string; url?: string } | null; notas?: string; deadline_razon?: string | null; hacelo_en?: string | null; impacto?: number | null; esfuerzo?: number | null } & CamposResponsable,
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString(), ...camposResponsableOk(patch) };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -473,6 +502,14 @@ export async function editarTarea(
     upd.hecho_at = est !== 'hecho' ? null : (actual?.hecho_at ?? new Date().toISOString());
   }
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
+  // Los cinco de #157. `!== undefined` y no `!= null`: `null` es un valor real acá
+  // —«no hay razón», «sin impacto estimado»— y con `!= null` no habría forma de
+  // BORRARLOS, que es la mitad de poder editarlos.
+  if (patch.notas !== undefined) upd.notas = String(patch.notas ?? '').slice(0, 6000);
+  if (patch.deadline_razon !== undefined) upd.deadline_razon = txtOk(patch.deadline_razon);
+  if (patch.hacelo_en !== undefined) upd.hacelo_en = txtOk(patch.hacelo_en);
+  if (patch.impacto !== undefined) upd.impacto = pct1a100(patch.impacto);
+  if (patch.esfuerzo !== undefined) upd.esfuerzo = pct1a100(patch.esfuerzo);
   // El Quarter se SANEA contra su formato: lo que no sea `AAAA-QN` entra como null.
   // Guardar un string libre dejaria una tarea en una ventana que ninguna vista sabe
   // leer, y el sintoma seria que la tarea desaparece de todos los filtros.
@@ -630,13 +667,17 @@ async function repiteCategoria(id: number): Promise<boolean> {
   return !!(data as { recurrente?: unknown } | null)?.recurrente;
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null; portada_y?: number | null; icono?: string | null }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null; portada_y?: number | null; icono?: string | null; notas?: string; impacto?: number | null; esfuerzo?: number | null }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
   if (patch.emoji !== undefined) upd.emoji = (patch.emoji || '🏷').slice(0, 4);
   if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(100, Math.round(patch.prioridad)));
   if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
+  // Los tres de #157 del lado del proyecto. Ver `editarTarea`.
+  if (patch.notas !== undefined) upd.notas = String(patch.notas ?? '').slice(0, 6000);
+  if (patch.impacto !== undefined) upd.impacto = pct1a100(patch.impacto);
+  if (patch.esfuerzo !== undefined) upd.esfuerzo = pct1a100(patch.esfuerzo);
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   // El Quarter se manda SIEMPRE que se toque la fecha, aunque el formulario no lo edite:
   // si no, un proyecto del cliente con deadline queda para siempre sin trimestre.

@@ -38,6 +38,15 @@ export const toBoard = (t: Tarea): BoardTask => ({
   // aunque la fila tenga el cliente escrito — y peor: el próximo `editPatch` lo mandaría
   // como `null` y borraría la asignación sin que nadie la tocara.
   clienteLeadId: t.cliente_lead_id, clienteNombre: t.cliente_nombre,
+  // ⚠️ LOS CINCO DE #157. El panel de una tarea los dibuja para los DOS tableros; del
+  // lado del cliente el camino entero faltaba, así que se editában, contestaba 200 y
+  // al recargar volvían como estaban. `notas` entra como '' y no undefined: es un
+  // texto que siempre existe (la columna es `not null default ''`).
+  notas: t.notas || undefined,
+  deadlineRazon: t.deadline_razon ?? undefined,
+  haceloEn: t.hacelo_en ?? undefined,
+  impacto: t.impacto ?? undefined,
+  esfuerzo: t.esfuerzo ?? undefined,
 });
 // ⚠️ `recurrente` VA ACÁ Y EN LOS DOS PAYLOADS DE ABAJO (mig 0164). Este mapper es la
 // puerta de ENTRADA del tablero del cliente: sin él, el interruptor nace apagado en cada
@@ -50,4 +59,7 @@ export const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.em
   // de LECTURA no trae vuelve como `undefined` y el próximo upsert borra la columna.
   portadaY: c.portada_y,
   icono: c.icono,
+  // Los tres de #157, del lado del proyecto. Puerta de ENTRADA: sin esto nacen vacíos
+  // en cada carga aunque la fila los tenga escritos.
+  notas: c.notas || undefined, impacto: c.impacto ?? undefined, esfuerzo: c.esfuerzo ?? undefined,
   detalle: c.detalle, historial: c.historial });

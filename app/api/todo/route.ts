@@ -39,6 +39,12 @@ type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
   progreso?: number; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; categorias?: number[];
   checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
+  // ⚠️ LA PUERTA de los cinco de #157. `lib/todo.ts` sabía escribirlos y el board
+  // sabía mandarlos; si no están declarados ACÁ se caen en el camino y el síntoma es
+  // el de siempre: 200 y no se guardó nada. Es el cuarto de los seis lugares que
+  // AGENTS.md enumera, y es el único que no aparece en ningún grep del campo.
+  notas?: string; deadline_razon?: string | null; hacelo_en?: string | null;
+  impacto?: number | null; esfuerzo?: number | null;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
   // DE DÓNDE SALIÓ la tarea (reunión de Fathom + minuto, archivo, WhatsApp). La tabla
   // y lib/todo.ts siempre la soportaron, pero esta ruta no la declaraba ni la pasaba:
@@ -124,6 +130,8 @@ export async function POST(req: NextRequest) {
         recurrencia: patch.recurrencia,
         categorias: patch.categorias,
         checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
+        notas: patch.notas, deadline_razon: patch.deadline_razon, hacelo_en: patch.hacelo_en,
+        impacto: patch.impacto, esfuerzo: patch.esfuerzo,
         fuente: patch.fuente,
         ...responsableDe(patch),
       }) });
@@ -180,7 +188,7 @@ export async function POST(req: NextRequest) {
       // el selector se abre, la request contesta 200 y la banda sigue igual.
       // ⚠️ Y `portada_y` / `icono` lo mismo (mig 0174). Van SEIS. El día que esta lista
       // llegue a diez, la puerta pide ser un esquema y no una enumeración a mano.
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null; portada_y?: number | null; icono?: string | null }) ?? {};
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null; quarter?: string | null; recurrente?: boolean; recurrencia?: unknown; cliente_lead_id?: number | null; cliente_nombre?: string | null; portada?: string | null; portada_y?: number | null; icono?: string | null; notas?: string; impacto?: number | null; esfuerzo?: number | null }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

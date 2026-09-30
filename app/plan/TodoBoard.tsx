@@ -41,6 +41,11 @@ const editPatch = (d: BoardTask) => ({
   // campo que falte no es «no cambia»: la columna se queda como estaba. El `?? null`
   // manda «no es de nadie» explícito, que es lo que hace falta para poder DESasignar.
   cliente_lead_id: d.clienteLeadId ?? null, cliente_nombre: d.clienteNombre ?? null,
+  // Los cinco de #157. Mismo motivo que los dos de arriba: este objeto es lo ÚNICO que
+  // viaja en un `editar`, así que un campo que falta no es «no cambia» — es un campo
+  // que nunca se guarda. El `?? null` es lo que permite BORRARLOS.
+  notas: d.notas ?? '', deadline_razon: d.deadlineRazon ?? null, hacelo_en: d.haceloEn ?? null,
+  impacto: d.impacto ?? null, esfuerzo: d.esfuerzo ?? null,
 });
 
 const catsNum = (labels: string[], titulo: string): number[] => {
@@ -147,10 +152,13 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? clienteFijo?.leadId ?? null, cliente_nombre: l.clienteNombre ?? clienteFijo?.nombre ?? null, portada: l.portada ?? null, portada_y: l.portadaY ?? null, icono: l.icono ?? null });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? clienteFijo?.leadId ?? null, cliente_nombre: l.clienteNombre ?? clienteFijo?.nombre ?? null, portada: l.portada ?? null, portada_y: l.portadaY ?? null, icono: l.icono ?? null, notas: l.notas ?? '', impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null, portada: l.portada ?? null, portada_y: l.portadaY ?? null, icono: l.icono ?? null } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null, quarter: l.quarter ?? null, recurrente: !!l.recurrente, recurrencia: l.recurrencia ?? null, cliente_lead_id: l.clienteLeadId ?? null, cliente_nombre: l.clienteNombre ?? null, portada: l.portada ?? null, portada_y: l.portadaY ?? null, icono: l.icono ?? null,
+      // Los tres de #157 del lado del proyecto. Mismo motivo que arriba: este objeto
+      // es lo UNICO que viaja, asi que un campo que falta nunca se guarda.
+      notas: l.notas ?? '', impacto: l.impacto ?? null, esfuerzo: l.esfuerzo ?? null } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
     // El Perro server-side, igual que en el board del dueño. Sin esto, `usaServerPerro`
     // era false y TODO lo que entraba por el tablero del cliente (reunión, archivo,
@@ -173,5 +181,6 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
   // tablero general esconde el tablero de la ficha sin decir por qué.
   const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
-  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} />;
+  // `simplePorDefecto`: el tablero del cliente arranca sin el kanban. Ver la prop.
+  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} simplePorDefecto vistaExtra={vistaExtra} onRecargar={onRecargar} />;
 }

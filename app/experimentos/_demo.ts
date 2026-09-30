@@ -177,13 +177,14 @@ const tarea = (p: Partial<Tarea>): Tarea => ({
   experimento_id: null, retro_id: null, orden: 0, hecho_at: null,
   created_at: '2026-06-20T12:00:00Z', updated_at: '2026-06-20T12:00:00Z',
   responsable: null, responsable_email: null, responsable_tipo: null, cliente_nombre: null, cliente_lead_id: null, tema: null,
-  criterio_veredicto: null, criterio_regla: null, criterio_razon: null, cita: null, ...p,
+  criterio_veredicto: null, criterio_regla: null, criterio_razon: null, cita: null,
+  notas: '', deadline_razon: null, hacelo_en: null, impacto: null, esfuerzo: null, ...p,
 });
 
 export const demoCategorias: Categoria[] = [
-  { id: 1, nombre: 'Marketing', color: '#3b82f6', emoji: '📈', prioridad: 9, score_razon: null, deadline: null, quarter: null, recurrente: false, recurrencia: null, cliente_lead_id: null, cliente_nombre: null, portada: null, portada_y: null, icono: null, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
-  { id: 2, nombre: 'Producto', color: '#46a758', emoji: '🧱', prioridad: 6, score_razon: null, deadline: null, quarter: null, recurrente: false, recurrencia: null, cliente_lead_id: null, cliente_nombre: null, portada: null, portada_y: null, icono: null, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
-  { id: 3, nombre: 'Ventas', color: '#f0a818', emoji: '🤝', prioridad: 8, score_razon: null, deadline: null, quarter: null, recurrente: false, recurrencia: null, cliente_lead_id: null, cliente_nombre: null, portada: null, portada_y: null, icono: null, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
+  { id: 1, nombre: 'Marketing', color: '#3b82f6', emoji: '📈', prioridad: 9, score_razon: null, deadline: null, quarter: null, recurrente: false, recurrencia: null, cliente_lead_id: null, cliente_nombre: null, portada: null, portada_y: null, icono: null, notas: '', impacto: null, esfuerzo: null, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
+  { id: 2, nombre: 'Producto', color: '#46a758', emoji: '🧱', prioridad: 6, score_razon: null, deadline: null, quarter: null, recurrente: false, recurrencia: null, cliente_lead_id: null, cliente_nombre: null, portada: null, portada_y: null, icono: null, notas: '', impacto: null, esfuerzo: null, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
+  { id: 3, nombre: 'Ventas', color: '#f0a818', emoji: '🤝', prioridad: 8, score_razon: null, deadline: null, quarter: null, recurrente: false, recurrencia: null, cliente_lead_id: null, cliente_nombre: null, portada: null, portada_y: null, icono: null, notas: '', impacto: null, esfuerzo: null, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
 ];
 
 export const demoTareas: Tarea[] = [
