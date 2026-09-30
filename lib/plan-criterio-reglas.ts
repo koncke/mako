@@ -64,8 +64,18 @@ export type Veredicto = {
    * flag ortogonal, al lado de `estado`.
    */
   recurrente: boolean;
-  /** el juez dijo otra cubeta y el código la bajó a descartado: la cita no apareció. */
-  degradado?: 'cita';
+  /**
+   * El código tuvo que corregir al juez, y en qué:
+   *  · `'cita'`  — dijo compromiso o acuerdo interno con una cita que no está en la
+   *    transcripción, y bajó a descartado por la regla 5.
+   *  · `'regla'` — descartó nombrando una regla que este criterio no tiene. El
+   *    descarte se respeta igual; lo que falta es el número que lo hace auditable.
+   *
+   * Los dos se CUENTAN (`resumenVeredictos`) porque una corrección que no se cuenta no
+   * se puede vigilar: si `regla` sube reunión tras reunión, el criterio de ese
+   * workspace y lo que el juez cree que son sus reglas dejaron de coincidir.
+   */
+  degradado?: 'cita' | 'regla';
 };
 
 /**
@@ -231,10 +241,28 @@ export function sanearVeredictos(obj: unknown, n: number, transcriptNorm: string
     if (!CUBETAS.includes(cubeta)) continue;
     const reglaCruda = o.regla == null ? null : String(o.regla).trim().toLowerCase().replace(/^regla\s*/, '');
     const regla = REGLAS.includes(reglaCruda as ReglaCriterio) ? (reglaCruda as ReglaCriterio) : null;
-    if (cubeta === 'descartado' && !regla) continue;
+    // ⚠️ UN DESCARTE SIN REGLA SE CONSERVA, MARCADO. Esto era un `continue`, con un
+    // razonamiento correcto —«completar la regla acá sería inventarla»— y la
+    // consecuencia contraria: `out[i]` quedaba `null`, río abajo eso significa «no se
+    // juzgó», y la tarea entraba TILDADA. Un descarte que no se puede auditar se
+    // convertía en una tarea en el tablero, que es peor que un descarte sin número.
+    //
+    // Y no es un caso raro: `REGLAS` es el enum de las reglas DE MAURICIO. El día que
+    // otro workspace cargue un criterio con tres reglas, o con reglas con nombre, TODOS
+    // sus descartes se caen por acá y el juez no filtra nada — con el log diciendo que
+    // juzgó. Es el bloqueante real de replicar el criterio, y no está en el texto.
+    const reglaFaltante = cubeta === 'descartado' && !regla;
     const pd = Number(o.parte_de);
     const parteDe = regla === '1' && o.parte_de != null && Number.isInteger(pd) && pd >= 0 && pd < n && pd !== i ? pd : null;
-    const razon = txt(o.razon, 600);
+    const razon = (() => {
+      const base = txt(o.razon, 600);
+      if (!reglaFaltante) return base;
+      // Lo que falta se ESCRIBE donde alguien lo lea, con lo que el juez sí dijo: sin
+      // esto, «el criterio no tiene esa regla» y «el juez se olvidó de ponerla» se ven
+      // igual, y son dos arreglos distintos.
+      const dijo = reglaCruda ? `dijo la regla «${reglaCruda.slice(0, 40)}», que este criterio no tiene` : 'no dijo qué regla lo saca';
+      return `${base}${base ? ' · ' : ''}(el juez ${dijo})`.slice(0, 600);
+    })();
     const tema = txt(o.tema, 80) || null;
     const citaCruda = txt(o.cita, 600);
     // El juez no propone fechas, así que acá la cuarta pregunta no tiene con qué
@@ -260,7 +288,10 @@ export function sanearVeredictos(obj: unknown, n: number, transcriptNorm: string
     const estado = cubeta === 'compromiso'
       ? (o.estado === 'solicitado_sin_respuesta' ? 'solicitado_sin_respuesta' : 'acordado')
       : null;
-    out[i] = { cubeta, regla: cubeta === 'descartado' ? regla : null, parteDe, razon, cita: ok ? citaCruda : null, tema, estado, recurrente };
+    out[i] = { cubeta, regla: cubeta === 'descartado' ? regla : null, parteDe, razon, cita: ok ? citaCruda : null, tema, estado, recurrente,
+      // La marca viaja con el veredicto: el descarte vale, y queda dicho que el
+      // numero que lo hace auditable no vino.
+      ...(reglaFaltante ? { degradado: 'regla' as const } : {}) };
   }
   return out;
 }
@@ -310,12 +341,16 @@ export function sanearFaltantes(obj: unknown, transcriptNorm: string): Faltante[
 }
 
 /** Cuántas cayeron en cada lado — para el log y la prueba en seco. */
-export function resumenVeredictos(vs: Array<Veredicto | null>): Record<Cubeta | 'sin_juzgar' | 'degradadas', number> {
-  const r = { compromiso: 0, acuerdo_interno: 0, descartado: 0, fuera: 0, sin_juzgar: 0, degradadas: 0 };
+export function resumenVeredictos(vs: Array<Veredicto | null>): Record<Cubeta | 'sin_juzgar' | 'degradadas' | 'sin_regla', number> {
+  const r = { compromiso: 0, acuerdo_interno: 0, descartado: 0, fuera: 0, sin_juzgar: 0, degradadas: 0, sin_regla: 0 };
   for (const v of vs) {
     if (!v) { r.sin_juzgar++; continue; }
     r[v.cubeta]++;
     if (v.degradado) r.degradadas++;
+    // Aparte, y no sumado a `degradadas`: una cita que no aparece es el juez
+    // inventando, y una regla que este criterio no tiene es el CRITERIO y el juez
+    // hablando de cosas distintas. Se arreglan en lugares distintos.
+    if (v.degradado === 'regla') r.sin_regla++;
   }
   return r;
 }

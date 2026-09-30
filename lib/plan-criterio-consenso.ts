@@ -17,18 +17,27 @@
 // justamente lo que se resigna al no pagar el modelo. Tres corridas gratis son
 // tres veces la CUOTA, que no es plata.
 //
-// ── UNIÓN, NO MAYORÍA ────────────────────────────────────────────────────────
-// El documento dice «unión» y el número que mide es de RECALL. Así que:
-//   · un índice que CUALQUIER corrida llamó compromiso, es compromiso;
-//   · los faltantes se suman, no se votan.
-// Eso baja la precisión a propósito —Mauricio midió 75% de recall contra 45% de
-// precisión y eligió ese canje— y acá cuesta todavía menos que en su pipeline: lo
-// que sale del juez entra a un BORRADOR que una persona revisa en /plan/revisar
-// antes de que exista. Una tarea de más se destilda; una que no salió no aparece
-// en ninguna pantalla.
-// La única excepción es `recurrente`, que se vota por mayoría: es un flag
-// ortogonal a la cubeta y su propia regla dice «ante la duda, false» — unirlo
-// haría que una sola corrida dudosa le sacara el deadline a un compromiso real.
+// ── ENCONTRAR SE UNE; CLASIFICAR SE VOTA ─────────────────────────────────────
+// El documento dice «unión» y el número que mide es de RECALL. La unión de la que
+// habla es la del conjunto de compromisos ENCONTRADOS — no la de las
+// clasificaciones. Son dos cosas y la diferencia cuesta tarjetas:
+//
+//   · los FALTANTES se UNEN. Lo que vio una corrida y las otras no es recall que se
+//     gana gratis, y es el canal que ataca el techo del extractor.
+//   · los VEREDICTOS se votan por MAYORÍA. Acá la unión no suma recall: baja
+//     precisión, y con tres votos la baja fuerte.
+//
+// ⚠️ ESTO ESTUVO AL REVÉS unas horas del 30/09/2026 y lo decidí yo: con la unión
+// aplicada a los veredictos, UNA corrida de tres diciendo «compromiso» le ganaba a
+// DOS diciendo «descartado». O sea que las tres corridas no eran neutras — estaban
+// sesgadas a INCLUIR, y el número que inflaban es exactamente el que el dueño quiere
+// bajar: «que no cargue 70 tareas de una llamada».
+//
+// El canje de Mauricio (75% de recall contra 45% de precisión) sigue respetado: lo
+// paga el canal de los faltantes, que es donde el recall se gana de verdad.
+//
+// `recurrente` se vota aparte y con mayoría ESTRICTA: es un flag ortogonal a la
+// cubeta y su propia regla dice «ante la duda, false».
 //
 // ── CÓMO SE AGRUPAN LOS FALTANTES, QUE ES LO CARO ────────────────────────────
 // ⚠️ El documento avisa, y es su advertencia más fuerte: «Emparejar compromisos
@@ -60,8 +69,8 @@ import { normCita } from './plan-criterio-reglas';
 import { mismaTarea } from './tareas-dedup';
 import type { Veredicto, Faltante, Cubeta } from './plan-criterio-reglas';
 
-/** De más a menos inclusiva. La unión se queda con la primera que aparezca. */
-const ORDEN_UNION: readonly Cubeta[] = ['compromiso', 'acuerdo_interno', 'descartado', 'fuera'];
+/** De más a menos inclusiva. Desempata a favor de mostrar, nunca de esconder. */
+const ORDEN_INCLUSIVIDAD: readonly Cubeta[] = ['compromiso', 'acuerdo_interno', 'descartado', 'fuera'];
 
 /**
  * Dos citas del mismo momento: cuántos caracteres normalizados se toleran entre
@@ -110,21 +119,31 @@ function elMismo(a: Faltante, b: Faltante, anclaA: number, anclaB: number): bool
 }
 
 /**
- * Un veredicto por índice, uniendo las corridas que contestaron.
+ * Un veredicto por índice, VOTADO entre las corridas que contestaron.
  *
  * `corridas` trae una lista por corrida, todas de largo `n` (las que fallaron no
  * entran: eso lo decide quien llama). Un índice que ninguna corrida juzgó queda
  * null, que río abajo significa «entra como siempre».
+ *
+ * ⚠️ EL EMPATE SE ROMPE A FAVOR DE MOSTRAR, y esa asimetría es deliberada. Un empate
+ * con tres corridas significa que las tres dijeron cosas distintas: el modelo no
+ * sabe. Ahí la tarea entra tildada y la persona decide — que es barato, porque lo
+ * que sale del juez va a un BORRADOR que se revisa antes de que exista. Al revés no
+ * es simétrico: una tarea que entra destildada sólo se ve abriendo el borrador.
  */
 export function unirVeredictos(corridas: Array<Array<Veredicto | null>>, n: number): Array<Veredicto | null> {
   const out: Array<Veredicto | null> = Array.from({ length: n }, () => null);
   for (let i = 0; i < n; i++) {
     const vs = corridas.map((c) => c[i]).filter((v): v is Veredicto => !!v);
     if (!vs.length) continue;
-    // La cubeta más inclusiva que dijo ALGUNA, y el veredicto entero de la primera
-    // corrida que la dijo: la razón y la cita tienen que ser las de ESA lectura, o
-    // sale un veredicto Frankenstein que no explica su propia cubeta.
-    const cubeta = ORDEN_UNION.find((c) => vs.some((v) => v.cubeta === c)) ?? vs[0].cubeta;
+    // La cubeta MÁS VOTADA, y entre las empatadas la más inclusiva. Después, el
+    // veredicto entero de la primera corrida que la dijo: la razón y la cita tienen
+    // que ser las de ESA lectura, o sale un veredicto Frankenstein que no explica su
+    // propia cubeta.
+    const votos = new Map<Cubeta, number>();
+    for (const v of vs) votos.set(v.cubeta, (votos.get(v.cubeta) ?? 0) + 1);
+    const masVotos = Math.max(...votos.values());
+    const cubeta = ORDEN_INCLUSIVIDAD.find((c) => votos.get(c) === masVotos) ?? vs[0].cubeta;
     const gana = vs.find((v) => v.cubeta === cubeta) ?? vs[0];
     // `recurrente` por MAYORÍA ESTRICTA de las que se pronunciaron, y ante el empate
     // false: es la regla que el propio criterio le da al juez.

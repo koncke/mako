@@ -13,18 +13,35 @@
 // contra la transcripción, así que es una posición en el texto y no una paráfrasis— y
 // el parecido de palabras queda como red secundaria.
 //
-// ⚠️ PROBADO ROMPIÉNDOLO, cuatro veces (30/09/2026):
+// ⚠️ Y LA SEPARACIÓN QUE ESTUVO AL REVÉS UNAS HORAS DEL 30/09/2026, decidida por mí:
+// los VEREDICTOS se unían igual que los faltantes, así que UNA corrida de tres diciendo
+// «compromiso» le ganaba a DOS diciendo «descartado». Las tres corridas no eran
+// neutras: estaban sesgadas a INCLUIR, y el número que inflaban es exactamente el que
+// el dueño quiere bajar («que no cargue 70 tareas de una llamada»). La unión del
+// documento es la del conjunto de compromisos ENCONTRADOS, no la de las
+// clasificaciones — ENCONTRAR se une, CLASIFICAR se vota.
+//
+// ⚠️ Y EL TEST QUE LO CUIDABA PASÓ IGUAL CON LA MAYORÍA PUESTA, por la razón
+// equivocada: su caso era 1 compromiso / 1 descartado / 1 fuera, o sea un EMPATE a
+// tres, que la regla nueva resuelve a favor del más inclusivo. Verde sin medir nada de
+// lo que su nombre decía. Por eso ahora el caso es 2 contra 1, y el empate tiene su
+// propio test.
+//
+// ⚠️ PROBADO ROMPIÉNDOLO, siete veces (30/09/2026):
 //   1. Cambiando el agrupamiento a solo léxico (`return mismaTarea(a.titulo, b.titulo)`
-//      como única condición): falla 1 de 11 — justo el caso que el documento nombra,
+//      como única condición): falla 1 de 13 — justo el caso que el documento nombra,
 //      dos redacciones del mismo compromiso sin vocabulario en común.
-//   2. Sacando el corte por dueño de `elMismo`: falla 1 de 11 — los compromisos 4 y 5
+//   2. Sacando el corte por dueño de `elMismo`: falla 1 de 13 — los compromisos 4 y 5
 //      del anexo de Mauricio comparten la cita entera y son DOS (regla 1).
-//   3. Cambiando la unión de veredictos por «gana la primera corrida» (`vs[0]`):
-//      fallan 2 de 11. Es la forma en que se pierde el recall que las tres corridas
-//      venían a comprar, y no da error: devuelve un veredicto perfectamente válido.
+//   3. Cambiando el voto de veredictos por «gana la primera corrida» (`vs[0]`):
+//      fallan 2 de 13, y no da error: devuelve un veredicto perfectamente válido.
 //   4. Poniendo `recurrente: vs.some((v) => v.recurrente)` (o sea, unión también en el
-//      flag): falla 1 de 11. Una sola corrida dudosa le saca el deadline a un
+//      flag): falla 1 de 13. Una sola corrida dudosa le saca el deadline a un
 //      compromiso real, y la regla del criterio dice «ante la duda, false».
+//   5. Devolviendo la UNIÓN a los veredictos: falla 1 de 13 — el sesgo a incluir.
+//   6. Rompiendo el empate ESCONDIENDO (la cubeta menos inclusiva): fallan 2 de 13.
+//   7. Votando también los FALTANTES: falla 1 de 13 — ahí la unión SÍ es recall, y lo
+//      que una sola corrida rescata del techo del extractor no existe en ningún lado.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -70,16 +87,55 @@ test('una cita que no está devuelve -1, no cero', () => {
 
 // ── La unión de veredictos ───────────────────────────────────────────────────
 
-test('EL QUE IMPORTA: un compromiso que vio UNA sola corrida entra igual', () => {
-  // Es el canje que Mauricio midió y eligió: 75% de recall contra 45% de precisión.
-  // Acá cuesta todavía menos que en su pipeline, porque lo que sale entra a un
-  // BORRADOR que una persona revisa antes de que exista.
-  const out = unirVeredictos([
+test('EL QUE IMPORTA: la cubeta la decide la MAYORÍA, no la más inclusiva', () => {
+  // ⚠️ ESTO ESTUVO AL REVÉS unas horas del 30/09/2026. Con la unión aplicada a los
+  // veredictos, UNA corrida de tres diciendo «compromiso» le ganaba a DOS diciendo
+  // «descartado»: las tres corridas no eran neutras, estaban sesgadas a INCLUIR, y el
+  // número que inflaban es justo el que el dueño quiere bajar («que no cargue 70
+  // tareas de una llamada»).
+  const dosContraUna = unirVeredictos([
     [V({ cubeta: 'descartado', regla: '2', razon: 'no estaba presente' })],
     [V({ cubeta: 'compromiso', razon: 'lo prometió él', cita: 'te voy a mandar yo un correo' })],
+    [V({ cubeta: 'descartado', regla: '2', razon: 'tampoco esta vez' })],
+  ], 1);
+  assert.equal(dosContraUna[0]?.cubeta, 'descartado', 'una corrida sola le ganó a dos: volvió la unión');
+
+  // Y al revés: dos que lo ven como compromiso mandan sobre una que lo descarta.
+  const alReves = unirVeredictos([
+    [V({ cubeta: 'compromiso', razon: 'lo prometió' })],
+    [V({ cubeta: 'descartado', regla: '2', razon: 'no' })],
+    [V({ cubeta: 'compromiso', razon: 'lo prometió' })],
+  ], 1);
+  assert.equal(alReves[0]?.cubeta, 'compromiso');
+});
+
+test('el EMPATE se rompe a favor de MOSTRAR, que no es lo mismo que unir', () => {
+  // Tres corridas, tres cubetas distintas: el modelo no sabe. Ahí entra tildada y
+  // decide la persona — barato, porque el juez escribe en un BORRADOR que se revisa.
+  // La asimetría es deliberada: una tarea destildada sólo se ve abriendo el borrador.
+  const empate = unirVeredictos([
+    [V({ cubeta: 'descartado', regla: '2', razon: 'no estaba presente' })],
+    [V({ cubeta: 'compromiso', razon: 'lo prometió él' })],
     [V({ cubeta: 'fuera' })],
   ], 1);
-  assert.equal(out[0]?.cubeta, 'compromiso', 'la unión perdió el compromiso que una corrida sí vio');
+  assert.equal(empate[0]?.cubeta, 'compromiso', 'el empate se rompió escondiendo');
+
+  // Con DOS corridas (una falló) todo empate es 1-1 y no hay mayoría que sacar.
+  const dos = unirVeredictos([[V({ cubeta: 'descartado', regla: '1', razon: 'x' })], [V({ cubeta: 'compromiso' })]], 1);
+  assert.equal(dos[0]?.cubeta, 'compromiso');
+});
+
+test('los FALTANTES siguen UNIÉNDOSE: ahí la unión SÍ es recall', () => {
+  // La separación entera: ENCONTRAR se une (lo que vio una corrida y las otras no es
+  // recall gratis, y es el canal que ataca el techo del extractor), CLASIFICAR se vota.
+  // Si esto se votara, un compromiso que el extractor perdió y que sólo una corrida
+  // rescató no entraría nunca — y no hay a quién destildarle nada, porque no existe.
+  const out = unirFaltantes([
+    [F({ titulo: 'Mandar el video del cuadrante', cita: 'Voy a mandarles un video sobre el tema de estos' })],
+    [],
+    [],
+  ], NORM);
+  assert.equal(out.length, 1, 'un faltante que vio UNA sola corrida se perdió');
 });
 
 test('y el veredicto que gana viaja ENTERO: la razón y la cita son las de ESA lectura', () => {

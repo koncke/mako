@@ -66,7 +66,18 @@ const TIPOS_AL_PLAN: readonly TipoReunion[] = ['equipo', 'entrega'];
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
 /** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
-type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number; partesFallidas?: number; recordingId: number; propId: string };
+type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number;
+  /**
+   * Cuántas dejó AFUERA el criterio (descartadas + acuerdos internos), que llegan al
+   * borrador destildadas y con su razón.
+   *
+   * ⚠️ VIAJA HASTA EL MENSAJE Y SE DICE. El aviso contaba sólo lo tildado, así que un
+   * criterio que descarta 32 de 40 manda «sacé 8 compromisos tuyos» — y nadie abre un
+   * modal por 8. Las 32 quedaban «auditables» en una pantalla que nadie iba a abrir, que
+   * es justo lo contrario de lo que la tercera cubeta viene a hacer.
+   */
+  descartadas?: number;
+  partesFallidas?: number; recordingId: number; propId: string };
 
 /**
  * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
@@ -93,6 +104,13 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   const totalOtras = hechas.reduce((s, h) => s + h.otras, 0);
   const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;
   const deOtros = totalOtras > 0 ? ` (y ${totalOtras} de los demás, para repartir)` : '';
+  // LO QUE EL CRITERIO DEJÓ AFUERA, dicho. No es un detalle técnico: es la única señal
+  // de que hay algo que revisar. Sin esto, «sacé 8» sobre una reunión de 40 se lee como
+  // una reunión chica y las otras 32 no las mira nadie.
+  const totalFuera = hechas.reduce((s, h) => s + (h.descartadas ?? 0), 0);
+  const dejadas = totalFuera > 0
+    ? `\n\nOtras ${totalFuera} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.`
+    : '';
 
   // `partesFallidas` viajaba hasta acá dentro de `ReunionHecha` y NO SE USABA: el aviso
   // decía «saqué N tareas tuyas» con el mismo tono hubiera leído la reunión entera o la
@@ -106,7 +124,7 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
   if (hechas.length === 1) {
     const h = hechas[0];
     const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
+    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${dejadas}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
   }
 
   const filas = hechas.slice(0, 4).map((h) => {
@@ -114,7 +132,7 @@ export function textoAviso(hechas: ReunionHecha[], tz: string): string {
     return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}\n   ${linkDe(h)}`;
   });
   const resto = hechas.length > 4 ? `\n…y ${hechas.length - 4} ${hechas.length - 4 === 1 ? 'reunión más' : 'reuniones más'}.` : '';
-  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n\n')}${resto}\n\nEn total ${tuyas}${deOtros}. Cada una se revisa en su propio link, ahí arriba.${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
+  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n\n')}${resto}\n\nEn total ${tuyas}${deOtros}. Cada una se revisa en su propio link, ahí arriba.${dejadas}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
 }
 
 export type ResultadoReunionesAuto = {
@@ -125,6 +143,10 @@ export type ResultadoReunionesAuto = {
   /** avisos que SÍ salieron por WhatsApp, y el motivo del último que no. El borrador
    *  igual queda esperando en el plan: el aviso es el empujón, no el canal de la tarea. */
   avisados: number; sinAviso: number; avisoError?: string;
+  /** Reuniones que no se intentaron porque no entraban en el reloj de esta corrida.
+   *  Quedan SIN candado: la próxima las agarra. Se cuentan porque «no entró» y «no
+   *  había» son respuestas distintas. */
+  sinTiempo?: number;
 };
 
 /**
@@ -201,9 +223,27 @@ async function resolverYo(r: ReunionMeta, ws: number): Promise<Yo> {
  * evita re-analizar). `max` = tope de reuniones por corrida (cada una es un análisis
  * caro sobre el transcript completo).
  */
-export async function procesarReunionesNuevas(ws: number, opts: { horas?: number; max?: number } = {}): Promise<ResultadoReunionesAuto> {
+export async function procesarReunionesNuevas(ws: number, opts: { horas?: number; max?: number; hasta?: number } = {}): Promise<ResultadoReunionesAuto> {
   const horas = opts.horas ?? 26;
   const max = opts.max ?? 3;
+  // ⚠️ EL RELOJ, Y NO ES DEFENSIVO: SIN ÉL LA FUNCIÓN SE MUERE A MITAD Y NO ESCRIBE NADA.
+  //
+  // Una reunión con criterio son el extractor (~36 s medidos) más TRES corridas del juez
+  // capadas en 120 s cada una (`lib/anthropic.ts`), o sea hasta ~396 s contra el
+  // `maxDuration = 300` del cron. Cuando Vercel mata la función en el medio, la muerte
+  // cae ANTES de `crearPropuesta` y antes del candado: la próxima corrida vuelve a
+  // extraer la MISMA reunión entera, y el cron corre 13 veces por día. Una reunión
+  // atascada se come el extractor completo y ~40 llamadas del juez por día, para
+  // siempre, sin producir una sola tarjeta.
+  //
+  // Con el reloj, lo que no entra no se intenta: queda sin candado y la próxima corrida
+  // lo agarra. Perder una reunión hasta la corrida siguiente es barato; el bucle no.
+  const hasta = opts.hasta ?? Number.MAX_SAFE_INTEGER;
+  /** Lo que hay que tener libre para animarse a UNA reunión: el extractor y, si este
+   *  workspace juzga, al menos una corrida del juez. Medido, no estimado: 120 s es el
+   *  cap duro de una llamada y ~60 s es lo que midió el extractor en una de 2 h. */
+  const ENTRA_UNA_MS = 180_000;
+  let sinTiempo = 0;
   const out: ResultadoReunionesAuto = { miradas: 0, alPlan: 0, nuevas: 0, conTareas: 0, tareas: 0, errores: 0, avisados: 0, sinAviso: 0 };
 
   // La ventana va por `created_after` (CUÁNDO APARECIÓ la grabación en Fathom), no por
@@ -239,6 +279,14 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   let procesadas = 0;
   for (const r of aProcesar) {
     if (procesadas >= max) break;
+    if (Date.now() + ENTRA_UNA_MS > hasta) {
+      // Se cuentan y se dicen: «no entró en el reloj» y «no había reuniones» son
+      // respuestas distintas, y la primera hay que poder verla para saber si el cron
+      // necesita correr más seguido o el tope de reuniones es muy alto.
+      sinTiempo = aProcesar.length - procesadas;
+      console.warn(`[reunion-auto] ws=${ws}: se acabó el reloj de esta corrida, ${sinTiempo} reunión(es) quedan para la próxima (sin candado, no se pierden)`);
+      break;
+    }
     const ref = `fathom:${r.recordingId}`;
     // Ya la vio: o dejó borrador, o la leímos y no había nada que anotar. En los dos
     // casos no se vuelve a gastar el análisis. (Ante un error de lectura, saltear:
@@ -319,6 +367,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
           criterio, transcript, dueno,
           candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle, dueño: t.dueño, esDeOtro: t.esDeOtro })),
           usoMotivo: 'Reunión nueva → criterio de compromisos (automático)',
+          // El mismo reloj: el juez hace las corridas que quepan y no una más.
+          hasta,
         }).catch((e) => {
           console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: el juez tiró (${e instanceof Error ? e.message : String(e)})`);
           return null;
@@ -488,8 +538,13 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${partesFallidas} tramo(s) SIN leer — borrador parcial, NO se cachea ni se cierra: el próximo cron reintenta`);
       }
       out.conTareas += 1;
-      out.tareas += propuestas.length;
-      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias, partesFallidas, recordingId: r.recordingId, propId });
+      // ⚠️ SE CUENTA LO MISMO QUE SE PROMETE. `mias` sale de `aCrear` (lo tildado) y
+      // `otras` salía de `propuestas.length - mias`, o sea del TOTAL: con juez, ahí
+      // adentro están también los descartes y los acuerdos internos, y el mensaje
+      // anunciaba como «de otros» lo que el criterio había sacado. Mezclar una cifra
+      // filtrada con una sin filtrar es el bug que este mismo archivo ya pagó una vez.
+      out.tareas += aCrear.length;
+      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: aCrear.length - mias, descartadas: propuestas.length - aCrear.length, partesFallidas, recordingId: r.recordingId, propId });
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);
@@ -507,5 +562,6 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     if (aviso.wa) out.avisados += 1;
     else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }
   }
+  if (sinTiempo) out.sinTiempo = sinTiempo;
   return out;
 }

@@ -40,6 +40,15 @@ import { sumarUsage } from './anthropic-usage';
  */
 export const CORRIDAS_JUEZ = 3;
 
+/**
+ * Cuánto hay que tener libre para animarse a UNA corrida.
+ *
+ * Es el cap DURO de `lib/anthropic.ts`: `min(120000, maxTokens*12)` y este juez pide
+ * 32.000 tokens, o sea 120 s. No es una estimación de lo que tarda — es lo que puede
+ * llegar a tardar antes de que el fetch aborte. Reservar menos es apostar.
+ */
+export const TOPE_CORRIDA_MS = 120_000;
+
 export type CandidataJuez = { titulo: string; detalle?: string; dueño?: string; esDeOtro?: boolean };
 
 export type SalidaJuez = {
@@ -72,6 +81,17 @@ export async function juzgarConCriterio(p: {
   /** el dueño del tablero, como lo nombra el criterio («Mauricio»). */
   dueno: string;
   usoMotivo?: string;
+  /**
+   * HASTA CUÁNDO hay tiempo (epoch ms). Sin esto, tres corridas de hasta 120 s cada una
+   * (el cap de `lib/anthropic.ts`) no entran en el `maxDuration` de 300 s del cron — y
+   * lo que pasa cuando no entran no es que se pierda el juicio: Vercel mata la función
+   * ANTES de `crearPropuesta`, así que no se escribe el borrador ni el candado, y la
+   * misma reunión se vuelve a extraer entera en cada una de las 13 corridas del día.
+   *
+   * Con el reloj, lo que no entra simplemente no se intenta: se juzga con las corridas
+   * que quepan (el consenso ya funciona con una) y la reunión se cierra igual.
+   */
+  hasta?: number;
 }): Promise<SalidaJuez> {
   // Sin candidatas TAMBIÉN se juzga: una reunión de la que el extractor no sacó nada
   // puede tener compromisos que faltan.
@@ -124,7 +144,16 @@ export async function juzgarConCriterio(p: {
   // degrada de modelo, FALLA. Tres corridas paralelas que se pisan la cuota dejan
   // una corrida buena, que es exactamente lo que se venia a arreglar.
   const ok: Array<{ veredictos: Array<Veredicto | null>; faltantes: Faltante[]; usage?: UsageInfo }> = [];
+  // ⚠️ Y MIRAN EL RELOJ. Cada corrida puede tardar hasta el cap de 120 s, así que las
+  // tres no entran siempre: se hacen las que QUEPAN. Dos corridas valen menos que tres
+  // y muchísimo más que una función muerta a mitad, que no escribe nada y deja la
+  // reunión para reprocesar entera trece veces por día.
+  let salteadasPorTiempo = 0;
   for (let k = 0; k < CORRIDAS_JUEZ; k++) {
+    if (p.hasta != null && Date.now() + TOPE_CORRIDA_MS > p.hasta) {
+      salteadasPorTiempo = CORRIDAS_JUEZ - k;
+      break;
+    }
     if (k) await new Promise((r) => setTimeout(r, 1200));
     const r = await intento(`corrida ${k + 1}/${CORRIDAS_JUEZ}`);
     if (r) ok.push(r);
@@ -132,7 +161,7 @@ export async function juzgarConCriterio(p: {
   // Un reintento SOLO si no contesto ninguna: un 429 o un JSON cortado no pueden
   // leerse como «el juez no se pronuncio» sin que nadie se entere. Con una sola que
   // haya contestado no se reintenta: se pierde recall, no el juicio.
-  if (!ok.length) {
+  if (!ok.length && !salteadasPorTiempo) {
     await new Promise((r) => setTimeout(r, 1500));
     const r = await intento('el reintento');
     if (r) ok.push(r);
@@ -147,6 +176,6 @@ export async function juzgarConCriterio(p: {
   // el documento las pide sobre Sonnet 5 con pensamiento adaptativo, y este juez
   // corre en otro modelo: el numero medido de alla no se hereda.
   const aporte = aporteDeCadaCorrida(ok.map((x) => x.faltantes), norm);
-  console.log(`[plan-criterio] ${ok.length}/${CORRIDAS_JUEZ} corridas · ${n} tareas → ${r.compromiso} compromisos · ${r.acuerdo_interno} acuerdos internos · ${r.descartado} descartadas (${r.degradadas} por cita que no aparece) · ${r.fuera} fuera · ${r.sin_juzgar} sin juzgar · +${faltantes.length} que faltaban (aporte por corrida: ${aporte.join(' + ')})`);
+  console.log(`[plan-criterio] ${ok.length}/${CORRIDAS_JUEZ} corridas${salteadasPorTiempo ? ` (${salteadasPorTiempo} salteada(s) por falta de tiempo)` : ''} · ${n} tareas → ${r.compromiso} compromisos · ${r.acuerdo_interno} acuerdos internos · ${r.descartado} descartadas (${r.degradadas} por cita que no aparece) · ${r.fuera} fuera · ${r.sin_juzgar} sin juzgar · +${faltantes.length} que faltaban (aporte por corrida: ${aporte.join(' + ')})`);
   return { veredictos, faltantes, fallo: false, usage: sumarUsage(ok.map((x) => x.usage)) };
 }

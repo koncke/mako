@@ -41,7 +41,7 @@ const { juzgarConCriterio } = await import('../lib/plan-criterio-juez');
 const { resumenVeredictos } = await import('../lib/plan-criterio-reglas');
 
 const todo: unknown[] = [];
-const total = { compromiso: 0, acuerdo_interno: 0, descartado: 0, fuera: 0, sin_juzgar: 0, degradadas: 0, tareas: 0, faltantes: 0 };
+const total = { compromiso: 0, acuerdo_interno: 0, descartado: 0, fuera: 0, sin_juzgar: 0, degradadas: 0, sin_regla: 0, tareas: 0, faltantes: 0 };
 for (const rid of ids) {
   const leido = await runWithWorkspace(WS, async () => {
     const prop = await getPropuestaPorRef(`fathom:${rid}`);
@@ -72,5 +72,5 @@ for (const rid of ids) {
   total.tareas += cands.length;
   todo.push({ recordingId: rid, titulo: leido.prop.fuenteTitulo, fecha: leido.prop.fuenteFecha, dura: leido.ultimo, fallo: out.fallo, tareas: cands.map((c, i) => ({ ...c, veredicto: out.veredictos[i] })), faltantes: out.faltantes });
 }
-console.log(`\nTOTAL ${ids.length} reuniones · ${total.tareas} tareas de MaKo → ${total.compromiso} compromisos · ${total.acuerdo_interno} acuerdos internos · ${total.descartado} descartadas (${total.degradadas} por cita) · ${total.fuera} fuera · ${total.sin_juzgar} sin juzgar · +${total.faltantes} que faltaban`);
+console.log(`\nTOTAL ${ids.length} reuniones · ${total.tareas} tareas de MaKo → ${total.compromiso} compromisos · ${total.acuerdo_interno} acuerdos internos · ${total.descartado} descartadas (${total.degradadas} por cita, ${total.sin_regla} sin la regla que las saca) · ${total.fuera} fuera · ${total.sin_juzgar} sin juzgar · +${total.faltantes} que faltaban`);
 if (SALIDA) { writeFileSync(SALIDA, JSON.stringify(todo, null, 2)); console.log(`guardado en ${SALIDA}`); }

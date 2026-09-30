@@ -83,9 +83,42 @@ test('un compromiso con cita verificada queda compromiso, con la cita', () => {
   assert.ok(v?.cita);
 });
 
-test('un descartado SIN regla no se completa adivinando: queda sin juzgar', () => {
+test('EL QUE CAMBIÓ: un descartado SIN regla se CONSERVA, marcado — no se cae a null', () => {
+  // ⚠️ ESTO ERA UN `continue` Y FALLABA ABIERTO, hasta el 30/09/2026. El razonamiento
+  // escrito era correcto —«completar la regla acá sería inventarla»— y la consecuencia
+  // era la contraria de la que buscaba: `out[i]` quedaba `null`, río abajo eso significa
+  // «no se juzgó», y la tarea entraba TILDADA al tablero. Un descarte que no se podía
+  // auditar se convertía en una tarea, que es peor que un descarte sin número.
+  //
+  // Y no es un caso raro: `REGLAS` es el enum de las reglas DE MAURICIO. El día que otro
+  // workspace cargue un criterio con tres reglas, TODOS sus descartes se caían por acá y
+  // el juez no filtraba nada — con el log diciendo que juzgó. Era el bloqueante real de
+  // replicar el criterio a los demás clientes, y no estaba en el texto del criterio.
   const [v] = sanearVeredictos({ veredictos: [{ i: 0, cubeta: 'descartado', cita: 'eso lo ve el contador cuando vuelva', razon: 'x' }] }, 1, NORM);
-  assert.equal(v, null);
+  assert.equal(v?.cubeta, 'descartado', 'el descarte se perdió y la tarea entra tildada');
+  assert.equal(v?.regla, null, 'se inventó una regla');
+  assert.equal(v?.degradado, 'regla', 'el descarte no quedó marcado: nadie puede saber que le falta el número');
+  assert.match(v?.razon ?? '', /no dijo qué regla/, 'la razón no dice qué faltó');
+
+  // Y una regla que este criterio no tiene se cuenta igual, diciendo cuál vino: «el
+  // criterio no la tiene» y «el juez se olvidó» son dos arreglos distintos.
+  const [w] = sanearVeredictos({ veredictos: [{ i: 0, cubeta: 'descartado', regla: '9', cita: 'eso lo ve el contador cuando vuelva', razon: 'x' }] }, 1, NORM);
+  assert.equal(w?.degradado, 'regla');
+  assert.match(w?.razon ?? '', /«9»/, 'no dice qué regla dijo el juez');
+});
+
+test('y las dos degradaciones se cuentan POR SEPARADO', () => {
+  // Una cita que no aparece es el juez inventando; una regla que el criterio no tiene
+  // es el criterio y el juez hablando de cosas distintas. Se arreglan en lugares
+  // distintos, así que un solo contador para las dos no sirve para decidir nada.
+  const vs = sanearVeredictos({ veredictos: [
+    { i: 0, cubeta: 'descartado', cita: 'eso lo ve el contador cuando vuelva', razon: 'sin regla' },
+    { i: 1, cubeta: 'compromiso', cita: 'esta frase no la dijo nadie en la reunión', razon: 'cita inventada' },
+  ] }, 2, NORM);
+  const r = resumenVeredictos(vs);
+  assert.equal(r.descartado, 2, 'las dos terminan descartadas');
+  assert.equal(r.degradadas, 2, 'las dos son correcciones del código al juez');
+  assert.equal(r.sin_regla, 1, 'sin_regla tiene que contar SÓLO la que perdió el número');
 });
 
 test('«regla 2» y «2» son la misma regla; «contexto» es un motivo válido', () => {
@@ -103,7 +136,7 @@ test('lo que falta queda SIN JUZGAR (null), no descartado: entra por el camino d
   assert.equal(vs[0], null);
   assert.equal(vs[1]?.cubeta, 'fuera');
   assert.equal(vs[2], null);
-  assert.deepEqual(resumenVeredictos(vs), { compromiso: 0, acuerdo_interno: 0, descartado: 0, fuera: 1, sin_juzgar: 2, degradadas: 0 });
+  assert.deepEqual(resumenVeredictos(vs), { compromiso: 0, acuerdo_interno: 0, descartado: 0, fuera: 1, sin_juzgar: 2, degradadas: 0, sin_regla: 0 });
 });
 
 test('índices fuera de rango, repetidos o cubetas inventadas no pasan', () => {

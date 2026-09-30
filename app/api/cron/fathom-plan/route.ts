@@ -11,10 +11,17 @@
 
 import type { NextRequest } from 'next/server';
 import { procesarReunionesNuevas } from '@/lib/reunion-auto';
-import { correrPorWorkspace } from '@/lib/cron-workspaces';
+import { correrRonda } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
+
+/** El reloj de la ronda, con su reserva de salida. `correrRonda` le resta la suya. */
+const TECHO_MS = 300_000;
+/** Lo mínimo que hace falta para que a un workspace le valga la pena arrancar: el
+ *  extractor de una reunión más una corrida del juez. Con menos, se difiere — y
+ *  diferir es gratis, porque sin candado la próxima corrida la agarra igual. */
+const MINIMO_UTIL_MS = 180_000;
 
 function checkAuth(request: NextRequest): Response | null {
   const secret = process.env.CRON_SECRET;
@@ -30,16 +37,39 @@ export async function GET(request: NextRequest) {
   if (authFail) return authFail;
 
   try {
-    const resultados = await correrPorWorkspace('fathom', async (ws) => {
-      const res = await procesarReunionesNuevas(ws);
+    // ⚠️ `correrRonda` Y NO `correrPorWorkspace`, Y EL DEADLINE VIAJA HASTA ADENTRO.
+    //
+    // `correrPorWorkspace` es `correrRonda` pelado: sin techo, sin mínimo y sin
+    // rotación. O sea que el PRIMER workspace de la lista podía comerse los 300 s
+    // enteros y los demás no arrancaban nunca — y como no hay rotación, era siempre
+    // el mismo primero. Inanición silenciosa: el cron contesta 200 y para los otros
+    // clientes es como si no existiera.
+    //
+    // Y el techo entre workspaces NO alcanza solo: `correrRonda` mira el reloj ENTRE
+    // iteraciones, no adentro de una. Sin el `hasta` que se pasa abajo, el primer
+    // workspace con tres reuniones largas sigue reventando el tope — y morir a mitad
+    // es peor que no arrancar, porque no escribe ni el borrador ni el candado y la
+    // reunión se reprocesa entera en las 13 corridas del día.
+    const ronda = await correrRonda('fathom', async (ws, deadline) => {
+      const res = await procesarReunionesNuevas(ws, { hasta: deadline });
       console.log(
         `[cron:fathom-plan] ws=${ws} miradas=${res.miradas} alPlan=${res.alPlan} nuevas=${res.nuevas} ` +
         `borradores=${res.conTareas} tareas=${res.tareas} avisados=${res.avisados} sinAviso=${res.sinAviso} err=${res.errores}` +
+        (res.sinTiempo ? ` · ${res.sinTiempo} sin tiempo (quedan para la próxima)` : '') +
         (res.avisoError ? ` · WhatsApp NO salió: ${res.avisoError}` : ''),
       );
       return res;
+    }, { techoMs: TECHO_MS, minimoMs: MINIMO_UTIL_MS, rotacion: 'fathom-plan' });
+
+    // TRES estados y no dos, igual que `closing-sync`: corrió · SIN TURNO (diferido a
+    // la próxima ronda, que no es un error sino cómo funciona la rotación) · falló.
+    // Contar «sin turno» como error dejaría la alarma sonando desde el tercer cliente.
+    return Response.json({
+      ok: ronda.conectados.length === 0 || ronda.resultados.length > 0,
+      workspaces: ronda.resultados,
+      sinTurno: ronda.sinTurno,
+      conectados: ronda.conectados.length,
     });
-    return Response.json({ ok: true, workspaces: resultados });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cron:fathom-plan] error: ${message}`);
