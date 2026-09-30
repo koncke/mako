@@ -82,7 +82,6 @@ export function FlujoLienzo({
   return (
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
-      ayuda="Toca un paso para editarlo."
       renderNodo={(n, activo) => (
         <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && n.destinoExiste === false}>
           {n.tipo === 'mensaje' && pasoDe(n)

@@ -5279,3 +5279,42 @@ que se pisen hoy — basta con que los dos puedan escribir. La cura no es coordi
 es que haya uno; y al absorber al otro se enumera lo que tenía de propio antes de
 borrarlo.
 
+# Un BORRADOR no es un DEFAULT, y publicar promueve lo GUARDADO
+
+Cuando una pantalla pasa a tener «guardar sin publicar», aparecen dos campos donde
+antes había uno —lo que el motor manda y lo que alguien está escribiendo— y tres
+reglas que no se ven en el código:
+
+- **El borrador NO se hereda.** En este repo los settings de un cliente heredan los
+  del dueño campo por campo (`leerStore` en `lib/plantillas.ts`), y eso es correcto
+  para todo lo terminado. Un borrador no está terminado: heredado, cada cliente abre
+  la pantalla con un «Sin publicar» que no escribió y al publicar publica en SU
+  negocio el borrador de la agencia. Es el ÚNICO campo con esa excepción, y la
+  excepción va escrita en el merge — no en el tipo, que nadie abre.
+- **El motor no puede leerlo.** Lo que sale sigue saliendo del campo publicado, y eso
+  se ata con un guard que barre los módulos del motor buscando el nombre del campo.
+  Si el motor pudiera leerlo, «solo cuando le doy a publicar, se publica» sería falso
+  sin que nada avise.
+- **Publicar manda el borrador PRIMERO y cancela el debounce.** El autoguardado tiene
+  un respiro (uno por tecla serían sesenta por segundo), así que publicar «lo
+  guardado» sin ese paso publica el texto de hace un segundo: no da error, sale la
+  versión anterior y el cartel dice «Publicado ✓».
+
+⚠️ **Y «salir de la vista, de la manera que sea» son DOS caminos.** El desmonte del
+componente cubre cerrar y cambiar de ítem; `visibilitychange` cubre cambiar de pestaña
+y cerrar el navegador, donde el desmonte **no corre**. Lo que queda sin cubrir es la
+ventana del debounce, y eso se escribe en el comentario: un «no se pierde nada» sin su
+letra chica es una promesa que el código no puede cumplir.
+
+⚠️ **Y el borrador que iguala a lo publicado se BORRA.** Un «Sin publicar» sobre un
+texto idéntico al que sale es un cartel que no se puede apagar — deshacer a mano lo que
+se escribió tiene que devolver la pantalla a limpio.
+
+⚠️ **Y AL MOVER UN CONTROL FLOTANTE A UNA ESQUINA, ENUMERÁ QUÉ YA VIVE AHÍ.** Un lienzo
+tiene cuatro y las cuatro están tomadas. Medido el 30/09/2026: la barra de zoom se mudó
+abajo a la izquierda —lo pidió el dueño— y el panel del editor de un nodo, de 328x355,
+la tapaba ENTERA. La esquina la elige quien usa la pantalla; lo que se mueve es lo que
+ya estaba. Y si el control nuevo repite el rótulo de uno que ya existe, hay dos botones
+que dicen lo mismo y hacen cosas distintas: lo delató el strict mode de Playwright
+(«resolved to 2 elements»), no leer el código.
+

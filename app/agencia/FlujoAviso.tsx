@@ -35,7 +35,7 @@ import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { Dropdown } from '../components/Dropdown';
 import { Disparador } from './Disparador';
 import { EditorMensaje } from './EditorMensaje';
-import { grafoDeAviso, podarPosiciones, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
+import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
 import {
   EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
   type Flujo, type Paso, type AccionFlujo,
@@ -57,11 +57,10 @@ const ACCIONES: Array<{ value: AccionFlujo; label: string }> = [
 ];
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
-const esInsistir = (p: Paso): p is Extract<Paso, { tipo: 'insistir' }> => p.tipo === 'insistir';
 
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
-  onTexto, onCambio, probando, prueba, onProbar, chrome,
+  onTexto, onCambio, probando, prueba, onProbar, chrome, pie,
 }: {
   id: string;
   disparador: string;
@@ -80,6 +79,9 @@ export function FlujoAviso({
   onProbar: () => void;
   /** El título, el interruptor y la salida: flotan SOBRE el lienzo. */
   chrome?: React.ReactNode;
+  /** Lo que va abajo a la derecha del lienzo. Hoy es «Publicar», y lo pone el
+   *  detalle porque es él el que sabe qué está sin publicar. */
+  pie?: React.ReactNode;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const [flujo, setFlujo] = useState<Flujo | null>(null);
@@ -111,7 +113,7 @@ export function FlujoAviso({
   }
 
   const insistir = (flujo?.pasos ?? []).find(esInsistir) ?? null;
-  const pasosExtra = (flujo?.pasos ?? []).filter((p) => !esInsistir(p) && p.tipo !== 'esperar');
+  const pasosExtra = pasosDibujados(flujo?.pasos ?? []);
 
   const aviso: AvisoParaGrafo = {
     disparador, frecuenciaMin, texto, canales, posiciones: pos,
@@ -133,20 +135,31 @@ export function FlujoAviso({
     guardarPos.current = setTimeout(() => { void api({ action: 'posiciones', id, posiciones: sig }); }, 450);
   }
 
-  function agregarPaso(tipo: 'accion' | 'wa_lead') {
+  /**
+   * AGREGAR UN PASO DESPUÉS DE ESTA TARJETA.
+   *
+   * El único tipo que queda es la ACCIÓN: «eliminar "mensaje al lead", ya que no
+   * estamos configurando el chatbot». Con un solo tipo el ＋ no abre ningún menú —
+   * un desplegable de una opción es una pregunta que ya está contestada.
+   *
+   * Dónde entra sale del id del nodo: los pasos del grafo son `paso-<i>`, así que
+   * el ＋ de `paso-2` inserta en la posición 3 y el de cualquier nodo del tronco
+   * (entrada, mensaje, recordatorio) inserta al principio. Eso es lo que hace que
+   * el botón diga DÓNDE va a caer el paso, que es lo que un botón suelto en una
+   * esquina no puede decir.
+   */
+  function agregarTras(nodoId: string) {
     const base = flujo ?? FLUJO_VACIO;
-    const nuevo: Paso = tipo === 'accion'
-      ? { tipo: 'accion', accion: 'crear_tarea' }
-      : { tipo: 'mensaje', canal: 'wa_lead', texto: '' };
-    void guardarFlujo({ ...base, activo: true, pasos: [...base.pasos, nuevo] });
+    const nuevo: Paso = { tipo: 'accion', accion: 'crear_tarea' };
+    void guardarFlujo({ ...base, activo: true, pasos: insertarPasoTras(base.pasos, nodoId, nuevo) });
   }
 
   return (
     <>
       <Lienzo
         grafo={grafo} seleccion={sel} onSeleccion={setSel} onMover={mover}
+        onAgregarTras={editable && !busy ? agregarTras : undefined}
         chrome={chrome} sinMarco alto="100%"
-        ayuda="Toca un paso para editarlo · arrastra para acomodar"
         renderNodo={(n, activo) => (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && n.id === 'mensaje'
@@ -166,20 +179,13 @@ export function FlujoAviso({
             onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo}
             onQuitarPaso={(i) => {
               const base = flujo ?? FLUJO_VACIO;
-              const vivos = base.pasos.filter((p) => !esInsistir(p) && p.tipo !== 'esperar');
-              const fuera = vivos[i];
-              void guardarFlujo({ ...base, pasos: base.pasos.filter((p) => p !== fuera) });
+              void guardarFlujo({ ...base, pasos: quitarPasoDibujado(base.pasos, i) });
               setSel(null);
             }}
             probando={probando} prueba={prueba} onProbar={onProbar}
           />
         )}
-        accion={editable ? (
-          <div style={{ display: 'flex', gap: 7 }}>
-            <button onClick={() => agregarPaso('accion')} disabled={busy} style={{ ...btnFantasma, borderStyle: 'dashed' }}>＋ Acción</button>
-            <button onClick={() => agregarPaso('wa_lead')} disabled={busy} style={{ ...btnFantasma, borderStyle: 'dashed' }}>＋ Mensaje al lead</button>
-          </div>
-        ) : undefined}
+        accion={pie}
       />
       {err && (
         <div style={{ flex: 'none', marginTop: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--bad)' }}>{err}</div>
@@ -327,7 +333,7 @@ function EditorDelAviso({
   // Un paso agregado: acción o mensaje al lead.
   if (nodo.tipo === 'accion' || nodo.tipo === 'mensaje-lead') {
     const i = nodo.orden ?? 0;
-    const vivos = base.pasos.filter((p) => p.tipo !== 'insistir' && p.tipo !== 'esperar');
+    const vivos = pasosDibujados(base.pasos);
     const paso = vivos[i];
     const reemplazar = (nuevo: Paso) => onFlujo({ ...base, pasos: base.pasos.map((p) => (p === paso ? nuevo : p)) });
     return (

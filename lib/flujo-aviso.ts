@@ -163,3 +163,47 @@ export function podarPosiciones(pos: Posiciones, ids: ReadonlyArray<string>): Po
   for (const [k, v] of Object.entries(pos)) if (vivos.has(k)) out[k] = v;
   return out;
 }
+
+// ── QUÉ PASOS DIBUJA EL LIENZO, Y DÓNDE ENTRA UNO NUEVO ───────────────────
+// ⚠️ ESTE FILTRO ESTABA ESCRITO CINCO VECES en `FlujoAviso.tsx` — una por el
+// grafo, una por el editor, una por el «quitar» y dos por el alta— y las cinco
+// tienen que contestar lo MISMO: el ＋ de la tarjeta `paso-2` sólo inserta en el
+// lugar correcto si «cuál es el paso 2» se calcula igual que cuando se dibujó.
+// Con dos copias, un `esperar` en el medio corre el índice y el paso nuevo cae
+// en otro lado: no da error, queda en el lugar equivocado y el motor lo ejecuta
+// ahí. Por eso vive acá, del lado del grafo, que es quien define los ids.
+
+export const esInsistir = (p: Paso): p is Extract<Paso, { tipo: 'insistir' }> => p.tipo === 'insistir';
+
+/** Los pasos que el lienzo dibuja como tarjeta, en el orden en que las dibuja. */
+export function pasosDibujados(pasos: Paso[]): Paso[] {
+  return pasos.filter((p) => !esInsistir(p) && p.tipo !== 'esperar');
+}
+
+/**
+ * Un paso nuevo DESPUÉS del nodo `nodoId`.
+ *
+ * Los ids de los pasos son `paso-<i>` sobre `pasosDibujados`, así que el ＋ de
+ * `paso-2` inserta en la posición 3. Cualquier otro nodo —la entrada, el mensaje,
+ * el recordatorio— es el TRONCO del aviso y no tiene pasos antes: inserta al
+ * principio. Los que el lienzo no dibuja (`insistir`, `esperar`) se conservan
+ * enteros y al final: son del mensaje, no de la cadena de pasos.
+ */
+export function insertarPasoTras(pasos: Paso[], nodoId: string, nuevo: Paso): Paso[] {
+  const vivos = pasosDibujados(pasos);
+  const otros = pasos.filter((p) => esInsistir(p) || p.tipo === 'esperar');
+  const m = /^paso-(\d+)$/.exec(nodoId);
+  const corte = m ? Math.min(vivos.length, Number(m[1]) + 1) : 0;
+  return [...vivos.slice(0, corte), nuevo, ...vivos.slice(corte), ...otros];
+}
+
+/**
+ * Saca el paso que el lienzo dibuja en la posición `i`.
+ *
+ * Recibe el índice de lo DIBUJADO, no del array: el editor de un nodo sabe qué
+ * tarjeta está mirando y no tiene por qué saber cuántos `esperar` hay antes.
+ */
+export function quitarPasoDibujado(pasos: Paso[], i: number): Paso[] {
+  const fuera = pasosDibujados(pasos)[i];
+  return fuera ? pasos.filter((p) => p !== fuera) : pasos;
+}

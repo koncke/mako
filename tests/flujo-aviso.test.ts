@@ -16,8 +16,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   grafoDeAviso, cadaCuanto, porDondeLlega, podarPosiciones, textoDisparador,
+  pasosDibujados, insertarPasoTras, quitarPasoDibujado,
   type AvisoParaGrafo,
 } from '../lib/flujo-aviso';
+import type { Paso } from '../lib/flujos-tipos';
 import { FRECUENCIAS } from '../lib/disparador-mensaje';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -221,4 +223,152 @@ test('⚠️ El lienzo ocupa el recuadro: el chrome FLOTA', () => {
   const lienzo = leer('../app/_components/Lienzo.tsx');
   assert.match(lienzo, /chrome \?\? |chrome &&/, 'el lienzo dejó de aceptar chrome flotante');
   assert.match(lienzo, /sinMarco/, 'sin esto quedan dos marcos anidados');
+});
+
+// ── DÓNDE ENTRA UN PASO NUEVO ────────────────────────────────────────────────
+// El ＋ sale al costado de una tarjeta, así que promete DÓNDE va a caer el paso.
+// Un off-by-one acá no da error: pone el paso en otro lugar y el motor lo
+// ejecuta ahí.
+
+/** Los pasos del test se distinguen por una marca: comparar objetos no dice DÓNDE quedó cada uno. */
+const nota = (p: Paso): string => (p as unknown as { nota?: string }).nota ?? p.tipo;
+const accion = (n: number): Paso => ({ tipo: 'accion', accion: 'crear_tarea', nota: `a${n}` } as unknown as Paso);
+const ESPERA: Paso = { tipo: 'esperar', minutos: 30 } as unknown as Paso;
+const INSISTE: Paso = { tipo: 'insistir', texto: '', cadaMin: 60, veces: 2 };
+
+test('El ＋ de `paso-N` inserta DESPUÉS de ese paso', () => {
+  const pasos = [accion(1), accion(2), accion(3)];
+  const tras0 = pasosDibujados(insertarPasoTras(pasos, 'paso-0', accion(9)));
+  assert.deepEqual(tras0.map((p) => nota(p)), ['a1', 'a9', 'a2', 'a3']);
+  const tras2 = pasosDibujados(insertarPasoTras(pasos, 'paso-2', accion(9)));
+  assert.deepEqual(tras2.map((p) => nota(p)), ['a1', 'a2', 'a3', 'a9']);
+});
+
+test('El ＋ de un nodo del TRONCO inserta al principio', () => {
+  // La entrada, el mensaje y el recordatorio no tienen pasos antes: el primer
+  // paso de la cadena va justo después del mensaje.
+  for (const id of ['entrada', 'mensaje', 'respuesta', 'recordatorio']) {
+    const out = pasosDibujados(insertarPasoTras([accion(1)], id, accion(9)));
+    assert.deepEqual(out.map((p) => nota(p)), ['a9', 'a1'], id);
+  }
+});
+
+test('⚠️ Un `esperar` en el medio NO corre el índice del ＋', () => {
+  // Los ids del grafo son `paso-<i>` sobre lo DIBUJADO, y `esperar` no se dibuja.
+  // Contar sobre el array crudo mandaría el paso nuevo un lugar más adelante, sin
+  // un solo error: por eso el filtro y la inserción viven en el mismo módulo.
+  const pasos = [accion(1), ESPERA, accion(2)];
+  // ⚠️ `paso-1` es el SEGUNDO DIBUJADO, que acá es el tercero del array. La primera
+  // versión de este test insertaba tras `paso-0` y pasaba en VERDE con el índice
+  // contado sobre el array crudo: el orden dibujado salía igual y lo único roto era
+  // que el `esperar` quedaba DUPLICADO. Lo delató romperlo.
+  const out = insertarPasoTras(pasos, 'paso-1', accion(9));
+  assert.deepEqual(pasosDibujados(out).map((p) => nota(p)), ['a1', 'a2', 'a9']);
+  // Insertar CONSERVA todo lo que había, una sola vez cada cosa.
+  assert.equal(out.length, pasos.length + 1, 'insertar duplicó o perdió un paso');
+  assert.equal(out.filter((x) => x === ESPERA).length, 1, 'el `esperar` quedó duplicado');
+});
+
+test('Insistir y esperar SOBREVIVEN a un alta y a una baja', () => {
+  // Son del MENSAJE, no de la cadena de pasos: una edición de la cadena que los
+  // tire apaga los recordatorios de alguien sin decírselo.
+  const pasos = [INSISTE, accion(1), ESPERA];
+  const conNuevo = insertarPasoTras(pasos, 'paso-0', accion(9));
+  assert.ok(conNuevo.includes(INSISTE) && conNuevo.includes(ESPERA));
+  const sinUno = quitarPasoDibujado(pasos, 0);
+  assert.ok(sinUno.includes(INSISTE) && sinUno.includes(ESPERA));
+  assert.equal(pasosDibujados(sinUno).length, 0, 'no sacó el paso que se le pidió');
+});
+
+test('Quitar usa el índice de lo DIBUJADO, no del array', () => {
+  const pasos = [ESPERA, accion(1), accion(2)];
+  const out = quitarPasoDibujado(pasos, 0);
+  assert.deepEqual(pasosDibujados(out).map((p) => nota(p)), ['a2']);
+});
+
+// ── BORRADOR Y PUBLICAR ──────────────────────────────────────────────────────
+
+test('⚠️ EL MOTOR NO PUEDE LEER UN BORRADOR', () => {
+  // Es el modo de falla más caro de esta tanda: MaKo mandando texto que nadie
+  // publicó. El motor resuelve el texto por `referenciaPlantilla` → `ejemplo`, y
+  // `ejemplo` sale de `texto`. Nadie más puede mirar el campo.
+  const store = leer('../lib/plantillas.ts');
+  assert.match(store, /ejemplo: \(e\?\.texto/, 'el texto que sale dejó de salir de `texto`');
+  for (const f of ['../lib/avisos.ts', '../lib/notify.ts', '../lib/flujos.ts', '../lib/insistencias.ts']) {
+    assert.ok(!/\bborrador\b/.test(leer(f)), `${f} mira el borrador`);
+  }
+});
+
+test('⚠️ El borrador NO se hereda del dueño', () => {
+  // Lo del dueño es el DEFAULT de todos; un borrador no es un default, es trabajo
+  // a medio escribir de UNA persona. Heredado, cada cliente abre el mensaje con un
+  // «Sin publicar» que no escribió — y al publicar, publica el de la agencia.
+  const store = leer('../lib/plantillas.ts');
+  const merge = store.slice(store.indexOf('async function leerStore('), store.indexOf('guardarStore(s: Store)'));
+  assert.match(merge, /borrador: \w+, \.\.\./, 'el merge volvió a heredar el borrador');
+});
+
+test('⚠️ Publicar manda el borrador ANTES de publicar', () => {
+  // `publicar` promueve lo GUARDADO. Sin mandar el borrador primero —y sin el
+  // debounce— se publica el texto de hace un segundo: nada falla y sale la versión
+  // anterior.
+  const src = leer('../app/agencia/TemplateDetalleModal.tsx');
+  const cuerpo = src.slice(src.indexOf('const publicar = async'), src.indexOf('const intentarCerrar'));
+  const iB = cuerpo.indexOf("action: 'borrador'");
+  const iP = cuerpo.indexOf("action: 'publicar'");
+  assert.ok(iB > 0 && iP > iB, 'publicar dejó de mandar el borrador primero');
+  assert.match(cuerpo, /clearTimeout\(timerBorrador/, 'el debounce puede pisar lo que se acaba de publicar');
+});
+
+test('⚠️ Salir de la vista guarda como borrador', () => {
+  // «Siempre que me salgo de la vista, de la manera que sea, se guarde como
+  // borrador, que no se pierda nada.» El desmonte cubre cerrar y cambiar de
+  // mensaje; `visibilitychange` cubre cambiar de pestaña, donde el desmonte no
+  // corre.
+  const src = leer('../app/agencia/TemplateDetalleModal.tsx');
+  // ⚠️ NO alcanza con buscar la palabra: aparece también en el `removeEventListener`
+  // y en el comentario, así que sacar el `addEventListener` pasaba en VERDE. Lo
+  // delató romperlo (exit 0 con el listener borrado); ahora se pide el ALTA.
+  assert.match(src, /addEventListener\('visibilitychange', alEsconder\)/, 'cambiar de pestaña dejó de guardar');
+  assert.match(src, /return \(\) => \{ document\.removeEventListener\('visibilitychange', alEsconder\); vaciar\(\); \}/,
+    'el desmonte dejó de guardar el borrador');
+});
+
+test('⚠️ El botón de abajo dice PUBLICAR, y agregar un paso salió de ahí', () => {
+  // «El botón de abajo en lugar de guardar, que se llame Publicar», y «Acción
+  // debería estar al acercar el cursor sobre una tarjeta». Y el mensaje al lead se
+  // va: «no estamos configurando el chatbot».
+  const modal = leer('../app/agencia/TemplateDetalleModal.tsx');
+  assert.match(modal, /pie=\{/, 'el pie del lienzo dejó de venir del detalle');
+  assert.match(modal, />\s*\{busy === 'pub' \? 'Publicando…' : 'Publicar'\}/, 'el botón de abajo dejó de ser Publicar');
+  const flujo = leer('../app/agencia/FlujoAviso.tsx');
+  assert.ok(!/Mensaje al lead/.test(flujo), 'volvió el botón de mensaje al lead');
+  assert.match(flujo, /onAgregarTras=\{/, 'el ＋ de la tarjeta dejó de estar enchufado');
+  const lienzo = leer('../app/_components/Lienzo.tsx');
+  assert.match(lienzo, /onAgregarTras\(n\.id\)/, 'el ＋ dejó de decir SOBRE QUÉ tarjeta se agrega');
+});
+
+test('⚠️ El título y la categoría se editan, y el `id` no cambia', () => {
+  // Renombrar es un override POR WORKSPACE sobre el catálogo: el `id` es lo que
+  // nombran los call sites y las emisiones, así que cambiar el rótulo no puede
+  // tocar nada más.
+  const store = leer('../lib/plantillas.ts');
+  assert.match(store, /titulo: \(e\?\.titulo && e\.titulo\.trim\(\)\) \|\| cat\.titulo/, 'el override del título dejó de aplicarse');
+  assert.match(store, /categoria: e\?\.categoria \?\? cat\.categoria/, 'el override de la categoría dejó de aplicarse');
+  // Las dos rutas tienen que aceptar las cuatro actions, o la pantalla del cliente
+  // ofrece controles que contestan «action inválida».
+  for (const r of ['../app/api/perfil/plantillas/route.ts', '../app/api/admin/plantillas/route.ts']) {
+    const src = leer(r);
+    for (const a of ['borrador', 'publicar', 'titulo', 'categoria']) {
+      assert.match(src, new RegExp(`case '${a}'`), `${r} no acepta '${a}'`);
+    }
+  }
+});
+
+test('⚠️ Las cuatro categorías salen de UN lugar', () => {
+  // La pantalla las OFRECE y las rutas las VALIDAN: con dos listas, una quinta
+  // categoría deja la ruta rechazando lo que el desplegable pintó.
+  assert.match(leer('../lib/avisos-catalogo.ts'), /export const CATEGORIAS_AVISO/);
+  assert.match(leer('../app/agencia/TemplateDetalleModal.tsx'), /const ORDEN = CATEGORIAS_AVISO/,
+    'el detalle volvió a escribir su propia lista de categorías');
 });

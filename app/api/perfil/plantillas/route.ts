@@ -20,10 +20,11 @@ import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
+  setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
-import { esAvisoDelCliente, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { esAvisoDelCliente, CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -131,6 +132,35 @@ export async function POST(req: NextRequest) {
         await setPosicionesPlantilla(b.id, b.posiciones ?? {});
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       }
+      /**
+       * EL BORRADOR Y PUBLICAR pasan por el MISMO guard que `texto`: cambian lo
+       * que el mensaje DICE. Guardar sin publicar no lo vuelve inocuo — el
+       * borrador es el texto que se va a publicar, y si el aviso lo redacta MaKo
+       * no se edita ni en borrador.
+       */
+      case 'borrador':
+        if (!b.id) return faltaId();
+        if (esAdministrativo(b.id)) return noEditable();
+        await setBorradorPlantilla(b.id, b.texto ?? '');
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      case 'publicar': {
+        if (!b.id) return faltaId();
+        if (esAdministrativo(b.id)) return noEditable();
+        const publico = await publicarBorrador(b.id);
+        return NextResponse.json({ ok: true, publico, plantilla: await getPlantilla(b.id) });
+      }
+      case 'titulo':
+        if (!b.id) return faltaId();
+        // CÓMO LO LLAMA en su lista es suyo, como el canal: no cambia lo que el
+        // mensaje dice ni a quién le llega, y el `id` sigue siendo el mismo — así
+        // que no pasa por `esAdministrativo`.
+        await setTituloPlantilla(b.id, b.titulo ?? '');
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      case 'categoria':
+        if (!b.id) return faltaId();
+        if (!CATEGORIAS_AVISO.includes(b.categoria as CategoriaAviso)) return NextResponse.json({ ok: false, error: 'categoría inválida' }, { status: 400 });
+        await setCategoriaPlantilla(b.id, b.categoria as CategoriaAviso);
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       case 'borrar':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) });

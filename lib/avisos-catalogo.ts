@@ -60,6 +60,16 @@ export type AvisoCatalogo = {
 };
 
 // Emojis por categoría (para agrupar visualmente en la demo).
+/**
+ * LAS CUATRO CATEGORÍAS, en orden de lista.
+ *
+ * Existe porque la pantalla del detalle y las dos rutas necesitaban la MISMA lista
+ * para ofrecerla y para validarla, y cada una la tenía escrita a mano: una quinta
+ * categoría dejaría a la ruta rechazando lo que el desplegable ofrece, con la
+ * pantalla contestando «categoría inválida» sobre una opción que ella misma pintó.
+ */
+export const CATEGORIAS_AVISO: readonly CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'] as const;
+
 export const EMOJI_CATEGORIA: Record<CategoriaAviso, string> = {
   reporte: '📊', aviso: '🔔', accion: '⚡', pregunta: '❓',
 };

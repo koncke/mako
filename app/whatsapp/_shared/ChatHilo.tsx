@@ -14,6 +14,7 @@ import { EmojiPicker } from '../EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc, IconTrash } from './composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './VoiceRecorder';
 import { Ticks } from './Ticks';
+import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { AudioPlay } from './AudioPlay';
 
 export type HiloMsg = {
@@ -234,7 +235,12 @@ export function ChatHilo({
                     </a>
                   )}
                   {!m.mediaUrl && esMedia && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: m.texto ? 6 : 0 }}><IconClip /> {m.texto || m.tipo} (no disponible)</span>}
-                  {m.texto && m.tipo !== 'document' && <div style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto}</div>}
+                  {/* ⚠️ EL TEXTO SE PINTA CON SUS MARCAS. Un mensaje de WhatsApp llega con
+                      `*negrita*`, `_itálica_` y `~tachado~` — esto dibuja un hilo de WhatsApp,
+                      así que mostrarlos crudos hace las dos cosas mal: no se ve cómo llega, y
+                      los asteriscos se leen como un error de tipeo del texto. Vale para los
+                      cuatro usos de este hilo, no sólo para la vista previa de un aviso. */}
+                  {m.texto && m.tipo !== 'document' && <div style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}><TextoMarcas texto={m.texto} /></div>}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: mine ? 'flex-end' : 'flex-start', gap: 5, marginTop: 3 }}>
                     <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>{fmtHora(m.fecha)}</span>
                     {mine && <Ticks status={m.status ?? null} />}

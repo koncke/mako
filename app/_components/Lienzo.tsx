@@ -50,6 +50,12 @@ const ARRASTRE2 = 25;
 /** Ancho del panel de edición, y el margen con el que se despega del borde. */
 const PANEL_ANCHO = 328;
 const PANEL_MARGEN = 12;
+/** Alto de la barra de zoom, que vive en la MISMA esquina. El panel del nodo abre
+ *  por encima de ella: medido, un panel de 328x355 en `bottom: 12` la tapaba
+ *  ENTERA (solapamiento total), y con eso el zoom dejaba de existir justo cuando
+ *  hay algo abierto que mirar. La barra no se mueve: la esquina la pidió el dueño.
+ */
+const ZOOM_ALTO = 40;
 
 export const COLOR_TONO: Record<TonoArista, string> = {
   normal: 'var(--border-strong)',
@@ -59,8 +65,8 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 };
 
 export function Lienzo({
-  grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion, ayuda,
-  alto = 'min(54svh, 460px)', onMover, chrome, sinMarco = false,
+  grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, chrome, sinMarco = false,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -71,9 +77,8 @@ export function Lienzo({
   renderEditor: (nodo: NodoFlujo) => ReactNode;
   /** La cabecera del panel. Por default, el ícono y el título del nodo. */
   tituloEditor?: (nodo: NodoFlujo) => ReactNode;
-  /** El botón flotante de abajo a la derecha («＋ Mensaje»). */
+  /** El botón flotante de abajo a la derecha. */
   accion?: ReactNode;
-  ayuda?: string;
   alto?: string;
   /** Mover una tarjeta. Sin esto el lienzo sólo se panea: los nodos no se agarran.
    *  Llega con la posición YA en coordenadas del grafo, no de la pantalla. */
@@ -87,6 +92,10 @@ export function Lienzo({
   /** Sin borde ni radio: cuando el lienzo ES el recuadro, el marco lo pone la caja
    *  de afuera y dos marcos anidados dejan un filete doble. */
   sinMarco?: boolean;
+  /** Agregar un paso DESPUÉS de este nodo. Dibuja un «＋» al pasar el cursor por la
+   *  tarjeta, a su derecha — que es donde va a aparecer lo que se agregue. Un botón
+   *  suelto en una esquina no dice DÓNDE entra el paso; éste sí. */
+  onAgregarTras?: (id: string) => void;
 }) {
   const caja = useRef<HTMLDivElement | null>(null);
   const capa = useRef<HTMLDivElement | null>(null);
@@ -99,6 +108,9 @@ export function Lienzo({
   /** Lo que se está moviendo AHORA, para pintarlo sin pasar por el estado. */
   const movido = useRef<{ id: string; x: number; y: number } | null>(null);
   const [zoomTxt, setZoomTxt] = useState(100);
+  /** Sobre qué tarjeta está el cursor. Es lo único que este lienzo guarda en el
+   *  estado además de la selección: un hover por REF no re-dibujaría el botón. */
+  const [encima, setEncima] = useState<string | null>(null);
   /** La última forma encuadrada: grafo + caja. Ver `encuadrar`. */
   const encuadrado = useRef('');
 
@@ -327,7 +339,28 @@ export function Lienzo({
             );
           })}
 
-          {grafo.nodos.map((n) => renderNodo(n, seleccion === n.id))}
+          {grafo.nodos.map((n) => (
+            <div key={n.id}
+              onPointerEnter={() => setEncima(n.id)}
+              onPointerLeave={() => setEncima((prev) => (prev === n.id ? null : prev))}
+            >
+              {renderNodo(n, seleccion === n.id)}
+              {onAgregarTras && encima === n.id && (
+                <button
+                  data-no-pan onClick={() => onAgregarTras(n.id)}
+                  title="Agregar un paso después de este" aria-label="Agregar un paso después de este"
+                  style={{
+                    position: 'absolute', left: n.x + n.ancho + 8, top: n.y + 18,
+                    width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',
+                    border: '1px solid var(--border-strong)', background: 'var(--surface)',
+                    color: 'var(--dim)', fontFamily: SANS, fontSize: 14, lineHeight: 1,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(0,0,0,.10)',
+                  }}
+                >＋</button>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* TODO LO QUE NO ES EL DIBUJO FLOTA. Va fuera de la capa transformada —o se
@@ -339,12 +372,14 @@ export function Lienzo({
           </div>
         )}
 
-        <div data-no-pan style={{ position: 'absolute', right: 12, top: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-          {ayuda && <span style={{ fontSize: 11.5, color: 'var(--faint)', marginRight: 4 }}>{ayuda}</span>}
+        {/* El zoom abajo a la izquierda, y el porcentaje AL COSTADO: entre los dos
+            botones obliga a apuntar a un blanco que se mueve cuando el número cambia
+            de ancho (100% → 33%). */}
+        <div data-no-pan style={{ position: 'absolute', left: 12, bottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
           <BotonChico onClick={() => zoom(1 / 1.2)} rotulo="Alejar">−</BotonChico>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--dim)', minWidth: 38, textAlign: 'center' }}>{zoomTxt}%</span>
           <BotonChico onClick={() => zoom(1.2)} rotulo="Acercar">＋</BotonChico>
           <BotonChico onClick={() => encuadrar(true)} rotulo="Centrar">⤢</BotonChico>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginLeft: 2 }}>{zoomTxt}%</span>
         </div>
 
         {accion && <div data-no-pan style={{ position: 'absolute', right: 12, bottom: 12 }}>{accion}</div>}
@@ -355,8 +390,8 @@ export function Lienzo({
           <div
             data-no-pan
             style={{
-              position: 'absolute', left: PANEL_MARGEN, bottom: PANEL_MARGEN, width: PANEL_ANCHO,
-              maxHeight: 'calc(100% - 24px)', overflowY: 'auto', padding: 14, borderRadius: 14,
+              position: 'absolute', left: PANEL_MARGEN, bottom: PANEL_MARGEN + ZOOM_ALTO, width: PANEL_ANCHO,
+              maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto', padding: 14, borderRadius: 14,
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
               boxShadow: '0 12px 32px rgba(0,0,0,.14)', cursor: 'default',
             }}
@@ -368,7 +403,12 @@ export function Lienzo({
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', flex: 1, minWidth: 0 }}>{nodoSel.titulo}</div>
                 </>
               )}
-              <button onClick={() => onSeleccion(null)} aria-label="Cerrar el editor"
+              {/* ⚠️ NO dice «Cerrar el editor»: ése es el de la pantalla, y con los dos
+                  con el mismo rótulo había dos ✕ que cierran cosas distintas — el de
+                  arriba se va del mensaje (y pregunta si publicar), éste sólo repliega
+                  el panel de un nodo. Medido con Playwright: `getByLabel('Cerrar el
+                  editor')` resolvía a DOS. */}
+              <button onClick={() => onSeleccion(null)} aria-label="Cerrar este paso" title="Cerrar este paso"
                 style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', padding: 0 }}>✕</button>
             </div>
             {renderEditor(nodoSel)}

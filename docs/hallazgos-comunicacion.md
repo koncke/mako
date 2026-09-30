@@ -6281,3 +6281,160 @@ ya abiertas) y se movió todo. Lo único que quedó del componente viejo es su n
 en el `vive[]` del área, que el test de rutas cazó en el acto.
 
 *2026-09-30*
+
+---
+
+## Un BORRADOR no es un default: es lo único del store que no se hereda
+
+**Vive en:** `lib/plantillas.ts` · `app/agencia/TemplateDetalleModal.tsx` ·
+`app/api/perfil/plantillas/route.ts` · `app/api/admin/plantillas/route.ts`
+
+El pedido, textual (30/09/2026): *«siempre que se cierra y haya cambios, debe
+preguntarme si quiero publicar o guardar como borrador […] y que siempre que me salgo
+de la vista, de la manera que sea, se guarde como borrador, que no se pierda nada.
+Pero solo cuando le doy a publicar, se publica»*.
+
+El store de plantillas es **por workspace con lo del dueño como default**, y la fusión
+es **por CAMPO** (`leerStore`): un cliente que sólo apagó un aviso conserva el texto y
+el flujo que venían de la agencia. Eso es correcto para todo lo que ya había — y
+convierte a un campo nuevo de borrador en una fuga:
+
+- cada cliente abre el mensaje con un **«Sin publicar»** que nunca tipeó,
+- lee un texto que escribió otro,
+- y al apretar **Publicar** publica en SU negocio el borrador de la agencia.
+
+**La regla: un default es algo terminado. Un borrador no.** `borrador` es el único
+campo que `leerStore` **saca de la base heredada** antes de fusionar, con la excepción
+escrita en el merge — que es el único lugar donde alguien la va a leer. Y el motor
+nunca lo ve: resuelve el texto por `referenciaPlantilla` → `ejemplo` → `e.texto`, así
+que el borrador no puede salir por WhatsApp ni por mail aunque alguien se olvide de
+publicar. Lo fija `tests/flujo-aviso.test.ts` («EL MOTOR NO PUEDE LEER UN BORRADOR»),
+que además barre `avisos.ts`, `notify.ts`, `flujos.ts` e `insistencias.ts` buscando la
+palabra.
+
+⚠️ **Y PUBLICAR PROMUEVE LO GUARDADO, no lo que está en pantalla.** El borrador se
+guarda con 900 ms de respiro (uno por tecla serían sesenta por segundo), así que
+`publicar` sin mandar el borrador primero **y sin cancelar el debounce** publica el
+texto de hace un segundo. Es el modo de falla de siempre: nada da error, sale la
+versión anterior, y el cartel dice «Publicado ✓». El orden queda fijado por un guard
+que compara los índices de los dos `action:` dentro del cuerpo de `publicar`.
+
+⚠️ **Y «salir de la vista, de la manera que sea» son DOS caminos distintos.** El
+desmonte del componente cubre cerrar el detalle y cambiar de mensaje;
+`visibilitychange` cubre cambiar de pestaña y cerrar el navegador, donde el desmonte
+**no corre**. Lo que no se cubre es matar el proceso, y por eso la ventana real de
+pérdida son los 900 ms del debounce — escrito en el comentario, porque un «no se
+pierde nada» sin su letra chica es una promesa que el código no puede cumplir.
+
+⚠️ **Y el guard de eso era DÉBIL hasta que se rompió.** Pedía
+`assert.match(src, /visibilitychange/)`, y la palabra aparece también en el
+`removeEventListener` y en el comentario: borrar el `addEventListener` entero dejaba el
+test en **VERDE** (medido: exit 0). Ahora pide el ALTA
+(`addEventListener('visibilitychange', alEsconder)`). Es la regla de la casa aplicada a
+un guard propio: **un test que no se probó rompiéndolo es una afirmación.**
+
+⚠️ **Y el borrador que iguala a lo publicado se BORRA, no se guarda.** Un «Sin
+publicar» sobre un texto idéntico al que sale es un cartel que no se puede apagar:
+deshacer a mano lo que se había escrito tiene que devolver la pantalla a limpio.
+`setBorradorPlantilla` compara contra `referenciaPlantilla` y elimina la clave — y si
+la entrada queda vacía, se va entera (una entrada vacía dice «este cliente tocó esto»
+cuando no tocó nada).
+
+Verificado en el navegador el 30/09/2026 (ws1, `/configuraciones` → Notificaciones →
+Reporte semanal → Editar): escribir dispara UN POST `borrador`, aparece «Sin
+publicar», Publicar se habilita, y al apretarlo los POSTs salen en el orden
+`["borrador","publicar"]` y el cartel desaparece. Cerrando con la ✕ sale el diálogo
+con los dos botones —«Dejar como borrador» / «Publicar y cerrar»—, y al volver a abrir
+el texto con el cambio **sigue ahí** con su «Sin publicar».
+
+*2026-09-30*
+
+---
+
+## El filtro de «qué pasos DIBUJA el lienzo» estaba escrito cinco veces, y el ＋ depende de él
+
+**Vive en:** `lib/flujo-aviso.ts` (`pasosDibujados`, `insertarPasoTras`,
+`quitarPasoDibujado`) · `app/agencia/FlujoAviso.tsx`
+
+El ＋ aparece **al costado de una tarjeta**, así que promete dónde va a caer el paso
+—que es justo lo que un botón suelto en una esquina no puede decir—. Los ids de los
+pasos del grafo son `paso-<i>` sobre la lista **dibujada**, y `esperar` e `insistir` no
+se dibujan: son del mensaje, no de la cadena.
+
+`FlujoAviso.tsx` tenía ese filtro escrito **cinco veces** —el grafo, el editor, el
+«quitar» y dos altas— y las cinco tienen que contestar lo mismo, o el ＋ de `paso-2`
+inserta en otro lugar. Se mudó al módulo del grafo, que es quien define los ids.
+
+⚠️ **Y LA PRIMERA VERSIÓN DE MI PROPIO TEST PASÓ EN VERDE CON EL BUG PUESTO.** Probaba
+insertar tras `paso-0` en `[accion, esperar, accion]` contando sobre el array crudo: el
+**orden dibujado salía idéntico** y lo único roto era que el `esperar` quedaba
+**DUPLICADO** en el flujo guardado. Un `assert.deepEqual` sobre lo dibujado no lo
+puede ver. Lo que lo caza es la **invariante de conservación**: insertar devuelve
+`length + 1` y cada paso original aparece exactamente una vez. Medido rompiéndolo:
+con `const vivos = pasos` el test viejo daba exit 0 y el nuevo da exit 1.
+
+**La regla que queda:** cuando una función inserta o saca de una lista filtrada, no
+alcanza con comprobar el ORDEN del resultado visible — hay que comprobar que no
+duplicó ni perdió nada de lo que no se ve.
+
+*2026-09-30*
+
+---
+
+## Mover un control flotante a una esquina: enumerá qué ya vive ahí
+
+**Vive en:** `app/_components/Lienzo.tsx` (`ZOOM_ALTO`)
+
+El pedido fue *«que los botones de zoom con el de acomodar la pantalla estén abajo a la
+izquierda»*. Abajo a la izquierda ya vivía el **panel del editor de un nodo**, de
+328×355 px. Medido con Playwright: solapamiento **total** — con un nodo abierto la
+barra de zoom dejaba de existir, justo cuando hay algo que mirar y se quiere alejar.
+
+Un lienzo tiene cuatro esquinas y las cuatro están tomadas (el chrome flotante arriba,
+el panel del nodo abajo-izquierda, la acción abajo-derecha). **La esquina la pide quien
+usa la pantalla; lo que se mueve es lo que ya estaba.** El panel abre `ZOOM_ALTO` px más
+arriba y su `maxHeight` descuenta lo mismo, con el porqué al lado del número.
+
+⚠️ **Y DOS BOTONES DECÍAN «Cerrar el editor» Y CERRABAN COSAS DISTINTAS.** El de la
+pantalla se va del mensaje —y pregunta si publicar—; el del panel sólo repliega un
+nodo. No lo encontró nadie leyendo: lo delató el **strict mode de Playwright**
+(`getByLabel('Cerrar el editor')` → «resolved to 2 elements»). El del nodo pasó a
+«Cerrar este paso». Es la regla de que cada botón nombra su acción y su objeto, vista
+desde el otro lado: el rótulo genérico no se nota hasta que hay dos.
+
+*2026-09-30*
+
+---
+
+## Un 404 de una ruta que EXISTE puede ser el caché de dev de Turbopack
+
+**Vive en:** nada del repo — es una trampa del entorno.
+
+Costó ~20 minutos el 30/09/2026. `/api/auth/dev-login` —la puerta por la que se
+verifica todo en local— devolvía el **404 HTML de Next**, y con él `/api/auth/me` y
+`/api/auth/logout`. El archivo estaba intacto, el guard `habilitado()` daba true, y la
+MISMA URL había funcionado una hora antes en la misma sesión.
+
+Las tres señales que lo distinguen de un bug de código, y conviene mirarlas en ese
+orden:
+
+1. **El SEGMENTO entero falla y sus hermanos contestan.** `/api/health`,
+   `/api/perfil/plantillas` y `/api/admin/plantillas` devolvían 401 —o sea el
+   middleware, o sea que el ruteo andaba— y sólo `/api/auth/*` daba 404.
+2. **El 404 es la PÁGINA de Next, no el JSON de la ruta.** Si fuera el guard, el
+   cuerpo sería `{"ok":false,"error":"not found"}`. El HTML dice que no matcheó nada.
+3. **El log dice `application-code: NNms`**, que se lee como «la ruta corrió» y es el
+   404 renderizándose.
+
+La cura es matar el ÁRBOL del dev server (`taskkill /T /F` sobre el pid de `npm run
+dev`) y borrar `.next/dev`. Lo que lo produce es editar mientras Turbopack compila, que
+en este clon pasa siempre: dos sesiones y un servidor de dev.
+
+⚠️ **Y la trampa gemela, del lado de la verificación:** una sonda que buscó el botón con
+`/^Publicar$/` contra `aria-label || title || textContent` reportó **`publicar: null`**
+sobre un botón que estaba dibujado y funcionaba — porque el botón tiene un `title`
+largo («Publicar: MaKo empieza a usar este texto») y la comparación mira el título
+primero. Es la misma familia que el `＋ Nuevo lead` del 30/09: **la primera hipótesis
+correcta ante un resultado redondo e inesperado es la medición, no el código.**
+
+*2026-09-30*

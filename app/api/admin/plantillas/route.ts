@@ -10,8 +10,9 @@ import { getSesionAdmin } from '@/lib/auth';
 import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
+  setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
-import type { CategoriaAviso } from '@/lib/avisos-catalogo';
+import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
 
@@ -64,6 +65,18 @@ export async function POST(req: NextRequest) {
     case 'posiciones': {
       if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
       await setPosicionesPlantilla(b.id, b.posiciones ?? {});
+      return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+    }
+    /* El borrador y publicar: acá no hay guard de texto porque el super-admin es
+       el que REDACTA los avisos administrativos. El corte vive en la ruta del
+       cliente, que es la que tiene a alguien a quien protegerle la precisión. */
+    case 'borrador': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); await setBorradorPlantilla(b.id, b.texto ?? ''); return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) }); }
+    case 'publicar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); const publico = await publicarBorrador(b.id); return NextResponse.json({ ok: true, publico, plantilla: await getPlantilla(b.id) }); }
+    case 'titulo': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); await setTituloPlantilla(b.id, b.titulo ?? ''); return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) }); }
+    case 'categoria': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      if (!CATEGORIAS_AVISO.includes(b.categoria as CategoriaAviso)) return NextResponse.json({ ok: false, error: 'categoría inválida' }, { status: 400 });
+      await setCategoriaPlantilla(b.id, b.categoria as CategoriaAviso);
       return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
     }
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }

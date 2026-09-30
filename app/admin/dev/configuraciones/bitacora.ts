@@ -43,6 +43,38 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '22:10', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Nueve cosas más: borrador, Publicar, CRON, MENSAJE y RECORDATORIOS',
+    pedido: '1. Sigue sin formatearse en la vista previa a editar. 2. El botón de guardar debería estar abajo en donde hoy está acción , y en este caso eliminar \"mensaje al lead\", ya que no estamos configurando el chatbot. Y siempre siempre debería guardar todos los cambios como borrador. \"Acción\" debería estar al acercar el cursor sobre una tarjeta, debería aparecer al costado derecho un simbolo + 3. Elimina el texto \"Toca para editarlo...\" y que los botones de zoom con el de acomodar la pantalla estén abajo a la izquierda. Y el % de zoom no debería estar entre medio de los botones. 4. El botón de \"Activa\" debería estar arriba a la derecha y llamarse \"Activar\". 5. A la derecha del todo debería estar la X de cerrrar, en lugar del botón de \"Cerrar el editor\", y siempre que se cierra y haya cambios, debe preguntarme si quiero publicar o guardar como borrador. Para ello el botón de abajo en lugar de guardar, que se llame \"Publicar\". Y que siempre que me salgo de la vista, de la manera que sea, se guarde como borrador, que no se pierda nada. Pero solo cuando le doy a publicar, se publica. 6. El título de la automatización bien a la izquierda, arriba. Y que se pueda cambiar el título, como siempre, simplemente haciendo click en él. También debería poder cambiarse la categoría. 7. El editable de \"Qué lo dispara\" debería tener muchísimo menos texto, el menor texto posible... Y no tiene para nada sentido el desplegable de \"cada cuanto, como máximo\", realmente no me hace ningun tipo de sentido... El cron debería ser uno de dos... O el usuario lo configura para que salga en TIEMPO... 1 vez a la semana, al mes, al año, diariamente... Cada X horas... O lo configura que se dispare mediante una ACCIÓN. Y no deben poder editarse los 2 al mismo tiempo, primero se selecciona tiempo o acción y luego se selecciona el desplegable. Y el título de esa sección debe ser \"CRON\"... 8. La siguiente sección, debe tener el título de \"MENSAJE\". Y dentro, hace falta configurar llamados a datos dentro de MaKo... 9. Lo de \"Si no contesta\" debería llamarse \"RECORDATORIOS\", y no debería ser una nueva sección, sino una opción dentro de la sección de mensaje, que se pueda activar o desactivar... Y elimina el texto innecesario de abajo',
+    puntos: [
+      'Vino con cuatro capturas del detalle abierto. Los seis primeros son pantalla; el 7, el 8 y el 9 piden MOTOR —un cron por mensaje, variables de datos y recordatorios por día/semana/mes— y por eso salieron a medir antes de dibujar nada.',
+      'El 5 es el que más cambia el modelo: hasta acá el texto se guardaba y salía; ahora hay dos estados, y el motor sólo puede ver el publicado.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '23:40', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los seis de pantalla: borrador con autoguardado, Publicar abajo, y el título y la categoría se editan',
+    puntos: [
+      'El texto se edita en BORRADOR y se compara contra lo publicado: escribir guarda solo (900 ms de respiro), salir de la vista guarda por los dos caminos que se pueden ver (el desmonte y `visibilitychange`), y cerrar con cambios pregunta con dos botones que cierran los dos — «Dejar como borrador» / «Publicar y cerrar».',
+      'El borrador es el ÚNICO campo del store que NO se hereda del dueño: heredado, cada cliente abría el mensaje con un «Sin publicar» que no escribió, y al publicar publicaba el borrador de la agencia.',
+      'El chrome quedó como cualquier editor: el título editable a la izquierda (click en él, como en el resto de la casa) con la categoría de desplegable debajo, «Activar» y la ✕ a la derecha del todo, y «Publicar» abajo a la derecha — donde antes estaban los botones de agregar pasos.',
+      'Agregar un paso salió del pie y pasó al ＋ que aparece al costado de la tarjeta, que es lo que dice DÓNDE va a caer. «Mensaje al lead» se fue: no estamos configurando el chatbot.',
+      'El filtro de «qué pasos dibuja el lienzo» estaba escrito CINCO veces en el componente y el índice del ＋ depende de él: se mudó al módulo del grafo, que es quien define los ids.',
+      'Verificado en el navegador: la negrita se pinta en la previa sin asteriscos crudos, el lienzo es el recuadro entero (1130x618), «Publicar» a 12 px de la esquina, el ＋ agrega el paso, escribir dispara un POST `borrador`, publicar manda los dos en orden, y al reabrir el borrador sigue ahí.',
+      'PENDIENTE (piden motor, medido y sin escribir): el CRON por TIEMPO (punto 7), las variables de datos y los links de MaKo dentro del mensaje (punto 8) y los RECORDATORIOS por día/semana/mes con palabras de corte configurables (punto 9).',
+    ],
+    archivos: [
+      'lib/plantillas.ts — borrador, título y categoría en el store',
+      'lib/flujo-aviso.ts — pasosDibujados/insertarPasoTras/quitarPasoDibujado',
+      'app/agencia/TemplateDetalleModal.tsx — el chrome y el ciclo borrador→publicar',
+      'app/agencia/FlujoAviso.tsx — el ＋ por tarjeta, el pie lo pone quien monta',
+      'app/_components/Lienzo.tsx — el panel del nodo abre por encima del zoom',
+      'tests/flujo-aviso.test.ts — 12 guards nuevos, los 8 probados rompiéndolos',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '17:05', chat: '—', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Diez cosas del lienzo',

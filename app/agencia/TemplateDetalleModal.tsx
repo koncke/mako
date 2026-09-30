@@ -7,11 +7,12 @@
 // la referencia, ACTIVAR/DESACTIVAR, ELIMINAR y CREAR. La referencia NO es un
 // molde: "Probar con IA" muestra cómo MaKo la adapta con datos reales.
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { FlujoAviso } from './FlujoAviso';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
-import { EMOJI_CATEGORIA, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { Confirm } from '@/app/_ui/Confirm';
+import { CATEGORIAS_AVISO, EMOJI_CATEGORIA, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 // El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
 // mano acá se quedo viejo al primer campo nuevo (`canales`) y el compilador no podia
@@ -23,7 +24,7 @@ import { EMOJI_CATEGORIA, esAvisoDelCliente, type AvisoCatalogo, type CategoriaA
 import type { PlantillaVista } from '@/lib/plantillas';
 export type { PlantillaVista };
 
-const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
+const ORDEN = CATEGORIAS_AVISO;
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reporte', aviso: 'Aviso', accion: 'Acción', pregunta: 'Pregunta' };
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -65,8 +66,20 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
   const [categoria, setCategoria] = useState<CategoriaAviso>(plantilla?.categoria ?? 'aviso');
   const [requiereResp, setRequiereResp] = useState(plantilla?.requiereRespuesta ?? false);
-  const [texto, setTexto] = useState(plantilla?.ejemplo ?? '');
+  /**
+   * SE EDITA EL BORRADOR, SE COMPARA CONTRA LO PUBLICADO.
+   *
+   * `texto` es lo que se está escribiendo y arranca del borrador si había uno:
+   * «siempre que me salgo de la vista, de la manera que sea, se guarde como
+   * borrador, que no se pierda nada». `orig` es lo que MaKo manda HOY, y la
+   * diferencia entre los dos es lo único que decide si hay algo sin publicar —
+   * nunca un flag aparte, que se queda viejo en cuanto alguien deshace a mano lo
+   * que había escrito.
+   */
+  const [texto, setTexto] = useState(plantilla?.borrador ?? plantilla?.ejemplo ?? '');
   const [orig, setOrig] = useState(plantilla?.ejemplo ?? '');
+  const [editandoTitulo, setEditandoTitulo] = useState(false);
+  const [preguntandoSalida, setPreguntandoSalida] = useState(false);
   const [enabled, setEnabled] = useState(plantilla?.enabled ?? true);
   const [prueba, setPrueba] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -79,6 +92,42 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   const flashOk = (m: string) => { setFlash({ txt: m, mal: false }); setTimeout(() => setFlash(null), 2200); };
   const flashMal = (m: string) => { setFlash({ txt: m, mal: true }); setTimeout(() => setFlash(null), 4000); };
   const id = plantilla?.id;
+  const sinPublicar = !crear && texto !== orig;
+
+  // El POST del borrador con un respiro: uno por tecla serían sesenta por segundo.
+  // Los refs son para el cierre — el `useEffect` de desmonte se crea una vez y no
+  // puede leer el `texto` de un render futuro.
+  const timerBorrador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ultimo = useRef({ texto, orig, id, endpoint });
+  ultimo.current = { texto, orig, id, endpoint };
+
+  const mandarBorrador = (v: string) => { if (id) void api(endpoint, { action: 'borrador', id, texto: v }); };
+
+  /** Lo que llama el editor en cada tecla: pinta ya y guarda con retraso. */
+  const escribir = (v: string) => {
+    setTexto(v);
+    if (timerBorrador.current) clearTimeout(timerBorrador.current);
+    timerBorrador.current = setTimeout(() => mandarBorrador(v), 900);
+  };
+
+  /**
+   * ⚠️ SALIR DE LA VISTA GUARDA, POR LOS DOS CAMINOS QUE SE PUEDEN VER.
+   *
+   * El desmonte cubre cerrar el detalle o cambiar de mensaje; `visibilitychange`
+   * cubre cambiar de pestaña y cerrar el navegador, donde el desmonte no corre.
+   * Lo que NO se cubre es matar el proceso — para eso están los 900 ms del
+   * debounce, que es la ventana real de pérdida.
+   */
+  useEffect(() => {
+    const vaciar = () => {
+      const u = ultimo.current;
+      if (timerBorrador.current) { clearTimeout(timerBorrador.current); timerBorrador.current = null; }
+      if (u.id && u.texto !== u.orig) void api(u.endpoint, { action: 'borrador', id: u.id, texto: u.texto });
+    };
+    const alEsconder = () => { if (document.visibilityState === 'hidden') vaciar(); };
+    document.addEventListener('visibilitychange', alEsconder);
+    return () => { document.removeEventListener('visibilitychange', alEsconder); vaciar(); };
+  }, []);
   // ⚠️ EL MISMO CORTE QUE HACE EL SERVER, para no ofrecer un editor que va a
   // contestar 403. El que decide sigue siendo la ruta —esconder el campo no
   // protege nada— pero un textarea que rechaza todo lo que se escriba es peor que
@@ -88,13 +137,45 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   // ⚠️ El `else` no es decoración: la ruta del cliente contesta 403 para todo aviso
   // que redacta MaKo, y sin esta rama «Guardar» no decía NADA — el síntoma exacto que
   // esta pantalla viene arrastrando desde el primer reporte del cliente.
-  const guardarTexto = async () => {
-    if (!id) return;
-    setBusy('save');
-    const r = await api(endpoint, { action: 'texto', id, texto });
-    if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); }
-    else flashMal(r.error || 'No se pudo guardar');
+  /**
+   * PUBLICAR = lo escrito pasa a ser lo que MaKo manda.
+   *
+   * ⚠️ El borrador se manda ANTES y sin el debounce: `publicar` promueve lo que
+   * está GUARDADO, así que sin este paso se publicaría el texto de hace un
+   * segundo. Es el mismo modo de falla de siempre — nada da error y sale la
+   * versión anterior.
+   */
+  const publicar = async (): Promise<boolean> => {
+    if (!id) return false;
+    setBusy('pub');
+    if (timerBorrador.current) { clearTimeout(timerBorrador.current); timerBorrador.current = null; }
+    const g = await api(endpoint, { action: 'borrador', id, texto });
+    if (!g.ok) { flashMal(g.error || 'No se pudo guardar'); setBusy(null); return false; }
+    const r = await api(endpoint, { action: 'publicar', id });
+    if (r.ok) { setOrig(texto); flashOk('Publicado ✓'); onCambio?.(); }
+    else flashMal(r.error || 'No se pudo publicar');
     setBusy(null);
+    return Boolean(r.ok);
+  };
+
+  /** La X y el Escape: si hay algo sin publicar, se pregunta antes de irse. */
+  const intentarCerrar = () => { if (sinPublicar) setPreguntandoSalida(true); else onClose(); };
+
+  const guardarTitulo = async () => {
+    setEditandoTitulo(false);
+    const t = titulo.trim();
+    if (!id || !t || t === plantilla?.titulo) { setTitulo(plantilla?.titulo ?? ''); return; }
+    const r = await api(endpoint, { action: 'titulo', id, titulo: t });
+    if (r.ok) onCambio?.();
+    else { flashMal(r.error || 'No se pudo cambiar el nombre'); setTitulo(plantilla?.titulo ?? ''); }
+  };
+
+  const guardarCategoria = async (c: CategoriaAviso) => {
+    setCategoria(c);
+    if (!id) return;
+    const r = await api(endpoint, { action: 'categoria', id, categoria: c });
+    if (r.ok) onCambio?.();
+    else { flashMal(r.error || 'No se pudo cambiar la categoría'); setCategoria(plantilla?.categoria ?? 'aviso'); }
   };
   const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api(endpoint, { action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
   const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api(endpoint, { action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
@@ -151,51 +232,100 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
           posiciones={plantilla.posiciones}
           endpoint={endpoint}
           editable={puedeEditarTexto}
-          guardando={busy === 'save'}
-          onTexto={setTexto}
+          guardando={busy === 'pub'}
+          onTexto={escribir}
           onCambio={onCambio}
           probando={busy === 'probar'}
           prueba={prueba}
           onProbar={probar}
+          /* ⚠️ EL TÍTULO A LA IZQUIERDA Y LOS CONTROLES A LA DERECHA, con la salida
+             en el extremo. Antes era una fila de tarjetitas en el orden en que se
+             fueron escribiendo —cerrar, título, activa, guardar—, que es el orden de
+             nadie. Pedido textual: «el título de la automatización bien a la
+             izquierda, arriba», «el botón de Activa debería estar arriba a la derecha»
+             y «a la derecha del todo debería estar la X de cerrar». */
           chrome={(
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-                <button onClick={onClose} title="Cerrar el editor" style={{ ...tarjetaChrome, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' }}>← Cerrar el editor</button>
-                <div style={{ ...tarjetaChrome, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{plantilla.titulo}</div>
-                  <div style={{ fontSize: 11, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[plantilla.categoria]} {LABEL[plantilla.categoria]}{plantilla.esCustom ? ' · personalizada' : ''}</div>
-                </div>
-                <div style={{ ...tarjetaChrome, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  {/* Un mensaje FIJO no ofrece el switch: es el que avisa que MaKo se
-                      quedó sin datos, y un botón que no hace nada es peor que ninguno. */}
-                  {plantilla.fijo ? (
-                    <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
-                      style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Siempre activa</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ ...tarjetaChrome, minWidth: 0, maxWidth: 380 }}>
+                  {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
+                      casa: un lápiz al lado es un segundo control para la misma acción. */}
+                  {editandoTitulo ? (
+                    <input
+                      autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)}
+                      onBlur={() => void guardarTitulo()}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void guardarTitulo(); if (e.key === 'Escape') { setTitulo(plantilla.titulo); setEditandoTitulo(false); } }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit' }}
+                    />
                   ) : (
-                    <>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: enabled ? 'var(--good)' : 'var(--dim)' }}>{enabled ? 'Activa' : 'Inactiva'}</span>
-                      <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={enabled} title={enabled ? 'Desactivar' : 'Activar'}
-                        style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: enabled ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
-                        <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: enabled ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
-                      </button>
-                    </>
+                    <button onClick={() => setEditandoTitulo(true)} title="Cambiar el nombre"
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, border: 'none', background: 'none', cursor: 'text', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {titulo || plantilla.titulo}
+                    </button>
                   )}
+                  {/* La categoría es un desplegable y no un rótulo: se cambia donde se lee. */}
+                  <div style={{ marginTop: 4 }}>
+                    <Dropdown value={categoria} onChange={(v) => void guardarCategoria(v as CategoriaAviso)}
+                      width={168} ariaLabel="Categoría del mensaje"
+                      options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
+                  </div>
                 </div>
+
                 {id && <PrefsDeMensaje id={id} estilo={tarjetaChrome} />}
-                <div style={{ ...tarjetaChrome, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+
+                <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                  {sinPublicar && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--warn)' }}>Sin publicar</span>}
                   {flash && <span style={{ fontSize: 12.5, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>}
-                  <button onClick={guardarTexto} disabled={busy === 'save' || texto === orig}
-                    style={{ ...btn, padding: '6px 14px', fontSize: 12.5, opacity: busy === 'save' || texto === orig ? 0.45 : 1 }}>
-                    {busy === 'save' ? 'Guardando…' : 'Guardar'}
-                  </button>
+                  <div style={{ ...tarjetaChrome, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {/* Un mensaje FIJO no ofrece el switch: es el que avisa que MaKo se
+                        quedó sin datos, y un botón que no hace nada es peor que ninguno. */}
+                    {plantilla.fijo ? (
+                      <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
+                        style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Siempre activa</span>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: enabled ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
+                        <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={enabled} title={enabled ? 'Desactivar' : 'Activar'}
+                          style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: enabled ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
+                          <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: enabled ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                   {plantilla.esCustom && (
-                    <button onClick={eliminar} disabled={busy === 'del'}
-                      style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>Eliminar</button>
+                    <button onClick={eliminar} disabled={busy === 'del'} title="Eliminar este mensaje"
+                      style={{ ...tarjetaChrome, color: 'var(--bad)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Eliminar</button>
                   )}
+                  <button onClick={intentarCerrar} title="Cerrar el editor" aria-label="Cerrar el editor"
+                    style={{ ...tarjetaChrome, width: 34, height: 34, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>
                 </div>
               </div>
           )}
+          /* ABAJO A LA DERECHA, donde antes estaban los botones de agregar pasos:
+             «el botón de guardar debería estar abajo en donde hoy está acción […] y
+             el botón de abajo en lugar de guardar, que se llame Publicar». Agregar
+             un paso pasó al ＋ que aparece al costado de cada tarjeta. */
+          pie={puedeEditarTexto ? (
+            <button onClick={() => void publicar()} disabled={busy === 'pub' || !sinPublicar}
+              title={sinPublicar ? 'Publicar: MaKo empieza a usar este texto' : 'No hay cambios sin publicar'}
+              style={{ ...btn, padding: '9px 18px', opacity: busy === 'pub' || !sinPublicar ? 0.45 : 1 }}>
+              {busy === 'pub' ? 'Publicando…' : 'Publicar'}
+            </button>
+          ) : undefined}
         />
       ) : null}
+      {/* ⚠️ LOS DOS BOTONES CIERRAN: la pregunta es QUÉ pasa con lo escrito, no si
+          te querés ir. Y ninguno dice «Sí» ni «Cancelar» — cada uno nombra su
+          acción, que es regla de la casa. */}
+      {preguntandoSalida && (
+        <Confirm
+          title="¿Publicar los cambios?"
+          message="Sin publicar, MaKo sigue mandando el texto anterior."
+          confirmLabel="Publicar y cerrar" cancelLabel="Dejar como borrador" tone="primary"
+          loading={busy === 'pub'}
+          onConfirm={() => { void publicar().then(() => { setPreguntandoSalida(false); onClose(); }); }}
+          onCancel={() => { setPreguntandoSalida(false); onClose(); }}
+        />
+      )}
     </div>
   );
 }

@@ -27,6 +27,17 @@ type EntradaStore = {
   canales?: { wa?: boolean; email?: boolean };  // por dónde sale. Ver CANALES_DEFAULT.
   frecuenciaMin?: number;  // cada cuánto COMO MÁXIMO. Ver `frecuenciaDe`.
   posiciones?: Record<string, { x: number; y: number }>;  // dónde quedó cada tarjeta del lienzo.
+  titulo?: string;         // cómo lo llamó ESTE negocio. Pisa el del catálogo. Ver `aVista`.
+  categoria?: CategoriaAviso;  // en qué grupo lo puso ESTE negocio.
+  /**
+   * LO ESCRITO Y TODAVÍA NO PUBLICADO.
+   *
+   * Vive aparte de `texto` porque son dos preguntas: qué manda MaKo hoy, y qué
+   * está escribiendo alguien. El motor lee `texto` (vía `ejemplo`) y no sabe que
+   * esto existe — que es todo el punto: «solo cuando le doy a publicar, se
+   * publica». Salir de la pantalla de cualquier forma guarda acá.
+   */
+  borrador?: string;
 };
 type Store = Record<string, EntradaStore>;
 
@@ -92,7 +103,7 @@ function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   };
 }
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }> };
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }>; borrador: string | null };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -135,7 +146,13 @@ async function leerStore(): Promise<Store> {
   const base = await leerStoreDe(OWNER_WS);
   const out: Store = {};
   for (const id of new Set([...Object.keys(base), ...Object.keys(propio)])) {
-    out[id] = { ...(base[id] ?? {}), ...(propio[id] ?? {}) };
+    // ⚠️ EL BORRADOR NO SE HEREDA, y es el único campo con esa excepción. Lo del
+    // dueño es el DEFAULT de todos, y un borrador no es un default: es trabajo a
+    // medio escribir de UNA persona. Heredado, cada cliente abriría el mensaje con
+    // un «Sin publicar» y un texto que nunca tipeó — y al apretar Publicar estaría
+    // publicando en SU negocio el borrador de la agencia.
+    const { borrador: _sinHeredar, ...heredable } = base[id] ?? {};
+    out[id] = { ...heredable, ...(propio[id] ?? {}) };
   }
   return out;
 }
@@ -165,6 +182,15 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // lo mismo que los canales: resolverlo aparte deja el lienzo dibujando el layout
     // calculado durante un parpadeo, y las tarjetas saltando a su lugar después.
     posiciones: posicionesDe(e),
+    // Cómo lo llamó ESTE negocio. Un override por workspace: el `id` no cambia
+    // nunca, así que renombrar no rompe ningún call site ni ninguna emisión — y el
+    // catálogo sigue siendo el default para todos los demás.
+    titulo: (e?.titulo && e.titulo.trim()) || cat.titulo,
+    categoria: e?.categoria ?? cat.categoria,
+    // Lo escrito sin publicar. `null` y no `''`: «no hay borrador» y «hay uno
+    // vacío» son dos cosas, y la segunda es alguien que borró el texto a propósito
+    // y todavía no lo publicó.
+    borrador: typeof e?.borrador === 'string' ? e.borrador : null,
     esCustom,
   };
 }
@@ -342,6 +368,66 @@ export async function setFrecuenciaPlantilla(id: string, min: number): Promise<v
  */
 export async function setPosicionesPlantilla(id: string, posiciones: Record<string, { x: number; y: number }>): Promise<void> {
   await mutar(id, (e) => ({ ...e, posiciones }));
+}
+
+/**
+ * CÓMO SE LLAMA ESTE MENSAJE, para este negocio.
+ *
+ * Se escribe en UN lugar aunque el dato tenga dos orígenes: para una custom el
+ * nombre de nacimiento vive en `custom.titulo` y acá se actualizan LOS DOS, así que
+ * nunca pueden discrepar. `aVista` lee el override primero y el catálogo después —
+ * una sola precedencia, escrita una sola vez.
+ */
+export async function setTituloPlantilla(id: string, titulo: string): Promise<void> {
+  const t = titulo.trim().slice(0, 120);
+  if (!t) return;   // un mensaje sin nombre no se puede volver a encontrar en la lista
+  await mutar(id, (e) => ({
+    ...e, titulo: t,
+    ...(e.custom ? { custom: { ...e.custom, titulo: t } } : {}),
+  }));
+}
+
+/** En qué grupo lo pone este negocio. Mismo patrón que el título. */
+export async function setCategoriaPlantilla(id: string, categoria: CategoriaAviso): Promise<void> {
+  await mutar(id, (e) => ({
+    ...e, categoria,
+    ...(e.custom ? { custom: { ...e.custom, categoria } } : {}),
+  }));
+}
+
+/**
+ * GUARDAR SIN PUBLICAR. Es lo que corre al salir de la pantalla de cualquier forma
+ * —la X, el Escape, cambiar de mensaje— y mientras se escribe.
+ *
+ * Si el borrador vuelve a ser IGUAL a lo publicado, se borra la clave en vez de
+ * guardar los dos: un «Sin publicar» sobre un texto idéntico al que sale es un
+ * cartel que no se puede apagar.
+ */
+export async function setBorradorPlantilla(id: string, texto: string): Promise<void> {
+  const publicado = await referenciaPlantilla(id);
+  await mutar(id, (e) => {
+    const next = { ...e };
+    if (texto === publicado) delete next.borrador; else next.borrador = texto;
+    return Object.keys(next).length ? next : null;
+  });
+}
+
+/**
+ * PUBLICAR: el borrador pasa a ser lo que MaKo manda, y deja de haber borrador.
+ *
+ * Devuelve `false` cuando no había nada que publicar, para que la pantalla no
+ * diga «Publicado ✓» sobre algo que no se movió.
+ */
+export async function publicarBorrador(id: string): Promise<boolean> {
+  let publico = false;
+  await mutar(id, (e) => {
+    if (typeof e.borrador !== 'string') return e;
+    publico = true;
+    const next = { ...e, texto: e.borrador };
+    delete next.borrador;
+    return next;
+  });
+  return publico;
 }
 
 /** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */
