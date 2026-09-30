@@ -30,6 +30,40 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '11:33', chat: 'CRM tanda 6', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El editor de nutricion, el titulo que dice otro nombre y las flechas sin rotulo',
+    pedido: '1. El editor de "Nutricion" debe ser parecido al de Etapas, solo que hay que agregarle de que depende que se dispare esa nutricion... Por ejemplo, la nutricion de "No show" tiene obligatoriamente que el lead venga de "Agenda R1"... Pero debe ser dinamico, si yo cambio el nombre, si pongo R1, R2, etc... Las nutriciones deben respetar eso. Y faltan muchas cosas en esa vista, no hay opcion de agregar, de eliminar, etc... Pon por defecto muy pocas nutriciones. Pon la de "No Agenda" - "No Show" - "Reactivacion", ya si el usuario quiere puede crear mas. / 2. Que la linea divisoria este debajo de "Nuevo producto" y que el "Productos eliminados" este centrado. / 3. Y en los 3 puntos, el boton de mover, no deberia tener la palabra mover, solo las flechas. Deberia estar primero de todos ese boton, y en realidad, deberian ser 2 botones diferentes, solo que estan en la misma linea. / 4. No cambio nada el editor de nutricion. / 5. Y no entiendo porque se llama "Funnel principal" cuando en el desplegable me dice "Negocio que escala" eso esta muy mal...',
+    puntos: [
+      '⚠️ **El 4 no era un bug: era trabajo SIN COMMITEAR.** El editor de nutricion se habia implementado entero —cinco archivos, verificado en el navegador— y la sesion siguio con los pedidos siguientes sin cerrar ese. Martin abrio `hola-mako.com` y vio la version anterior, que es lo correcto. El reporte se lee exactamente igual que una feature rota y manda a depurar codigo que esta bien.',
+      '⚠️ **Y el 5 tampoco era cosmetico.** Ese titulo es un `<input>`: es el `defaultValue` del campo que renombra el producto y el valor contra el que se compara para decidir si escribir. Con «Funnel principal» ahi, quien renombraba arrancaba desde el valor equivocado — y tipear el nombre que el producto YA tenia contaba como un cambio.',
+      'El 1 llego con su medicion al lado: los 13 embudos vivos suman **99 casillas**, 7,6 de promedio y 9 en la forma mas comun. De esas 9, solo 5 son de verdad una nutricion.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '11:33', chat: 'CRM tanda 6', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La nutricion pasa a ser una lista editable, y el nombre del embudo sale de UN lugar',
+    puntos: [
+      '**La subtab deja de ser casillas.** Una fila por nutricion con su segundo renglon («Sale de X · por que»), su ✕ y un «Agregar» al pie. «Sale de X» es TEXTO y no un desplegable: Martin dijo «obligatoriamente», asi que lo decide la FORMA del recorrido — un selector ahi prometeria poder cambiar un hecho. Lo dinamico es el nombre, que sale de la clave de la etapa.',
+      '**Cuatro cosas estaban mal en la lista, y ninguna daba error.** `noshow_r3` era un `transitions.push` a mano que IGNORABA `suppressed` (se destildaba y volvia tildada sola); la Reactivacion entera colgaba de `firstMeeting`, asi que un embudo sin reuniones no podia reactivar a nadie; `ETAPAS_SIN_SECUENCIA` vivia detras de `server-only` —una decision tomada que la pantalla no podia leer, y una fila que decia literal «No Paga → Reunion excepcional»—; y una nutricion con dos origenes se dibujaba como dos casillas con el mismo nombre, asi que apagar una la dejaba corriendo.',
+      '**El rotulo salia del catalogo de FABRICA**: `cfg.labels` solo tiene las terminales renombradas y de ahi caia al catalogo, que no conoce las claves de un pipeline propio. El ws13 veia `st0` y `st1`. Con `cfg.stages` primero, «si yo cambio el nombre, si pongo R1, R2...» se cumple solo, sin un campo mas.',
+      '**Las tres por defecto se CALCULAN** (`suppressedInicial`), no se escriben por plantilla: las ids de `suppressed` salen de las claves del pipeline y una lista fija se rompe en cuanto alguien agrega una reunion. Va en `crearFunnel`, que es el choke point — de sus tres llamadores uno solo pasaba la lista. Y SOLO al crear: suprimir una nutricion borra su etapa del tablero, y este repo ya pago esa cuenta con 1.057 leads del ws1.',
+      '**El nombre del embudo queda en UNA funcion** (`productosPorFunnel`), que llaman el desplegable y el pop-up. El otro lector de la vista se queda: `renombrarFunnel` pide el `producto_id` para ESCRIBIR, que es otra pregunta. El guard cuenta cuantos lugares resuelven el nombre — si son dos, vuelven a divergir.',
+      '**Un renglon de menu sin rotulo son DOS botones** (`soloAcciones`), no un renglon con el texto vacio: el renglon con `acciones` le da el `flex: 1` al rotulo, asi que vaciarlo deja media fila que se ve clicable y no hace nada. Y su hover va inline, porque el `Dropdown` se dibuja por PORTAL y el velo de `.crm-hover` del `<main>` no lo alcanza.',
+      '**Las guardas se probaron rompiendolas**: 13 roturas, 13 cazadas. La de `NUTRICIONES_POR_DEFECTO` sin `reactivacion` tira 2 de 8; las otras doce, una cada una. Suite entera: 2788 en verde.',
+    ],
+    commits: [
+      { sha: 'f0117f0e', msg: 'crm: el editor de nutriciones, el titulo que decia otro nombre y las flechas sin rotulo', lineas: 763, archivos: 13 },
+    ],
+    archivos: [
+      'lib/pipeline.ts — las nutriciones por defecto, `suppressedInicial` y `ETAPAS_SIN_SECUENCIA` (sin `server-only`, para que la pantalla las pueda leer)',
+      'app/crm/EtapasModal.tsx — la subtab de nutricion: quitar, agregar y el «de que depende»',
+      'lib/funnels.ts — `productosPorFunnel`, el unico cruce funnel → producto → nombre',
+      'app/components/Dropdown.tsx — `soloAcciones` y el filete debajo de «Nuevo producto»',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '05:40', chat: 'CRM tanda 4', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Diez cosas: el desplegable, el hover, las columnas, el aviso y los leads en varios productos',
