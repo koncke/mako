@@ -5464,3 +5464,64 @@ en el tipo, da un `string` que miente.
   de su negocio. El .md de origen quedó del lado de quien lo cargó, y `scripts/cargar-criterio.ts`
   lo toma por parámetro a propósito: un default apuntando a Descargas se rompe en la
   máquina siguiente y encima sugiere que el documento es del repo.
+
+## «Hay duplicadas»: el techo real fue 25 → 23, y la pregunta al refutador estaba mal
+
+Cosechado del pedido «son una cantidad impresionante de tareas… intenta reducirlas al
+maximo… estoy seguro que hay duplicadas o tareas que no son relevantes», sobre las 25
+abiertas de «Feature: CRM». Dos corridas: cinco lentes buscando fusiones, y refutación.
+
+**Vive en:** el proyecto `crm-automtico-leads` del ws9
+
+### La primera pasada tumbó 5 de 5, y el que estaba mal era yo
+
+Le pregunté al refutador: **«¿el «qué falta» de la tarjeta que queda CUBRE el de la que
+se va?»**. Esa pregunta se contesta **que no SIEMPRE, por construcción**: el texto de la
+que queda se escribió antes y no puede mencionar el trabajo de la otra. Las cinco
+refutaciones dijeron lo mismo —«se pierde tal frase»— y en cuatro de las cinco esa frase
+era **un bullet**, no una tarjeta.
+
+Es la regla de «el default de un refutador es parte de la PREGUNTA» con una vuelta más: acá
+el default estaba bien (fundir es destructivo) y **lo que estaba mal era el PREDICADO**. Una
+tasa del 100% no es rigor ni default mal puesto: es que la pregunta no podía dar otra cosa.
+
+**La pregunta correcta: fundir NO borra texto.** La fusión se aplica MUDANDO el «qué falta»
+de la que se va al detalle de la que queda. Con eso puesto, lo único que decide es:
+
+1. ¿Se **entregan por separado** y cada mitad ya le sirve a alguien? → son dos tarjetas.
+2. ¿Lo que se va es tan **grande** que como bullet se pierde de vista? → no se funde.
+
+Con ese predicado las refutaciones dejaron de ser genéricas y pasaron a ser **parciales y
+medidas**: «#623 sí se funde en #621, #622 no», «el ítem 2 de #15 es la misma función que
+#40, los otros tres no». Eso es un refutador trabajando.
+
+### Y el resultado fue que casi no había duplicadas
+
+| | |
+|---|---|
+| fusiones reales | **2** (#37→#701 y #623→#621) |
+| mudanzas de un ítem entre tarjetas | 4 |
+| no son tarea | 1 (#20) |
+| **25 →** | **23** |
+
+La intuición de «hay duplicadas» era correcta para dos pares y para nada más. Lo que sí
+apareció, y es lo que de verdad explica la sensación, es otra cosa: **«Feature: CRM» no es
+una feature.** Adentro hay ocho: el importador, Fathom, el funnel fijo, el tracking, las
+secuencias, los pagos, Calendly y el motor. Veinticinco tarjetas de ocho temas distintos en
+un proyecto se leen como una montaña; las mismas veinticinco repartidas en ocho se leen como
+ocho listas cortas. **Cuando alguien dice «son demasiadas», la primera pregunta no es cuáles
+se funden: es si el CONTENEDOR tiene el tamaño correcto.**
+
+### Dos hallazgos de producto que salieron de buscar duplicadas
+
+- **#621 sola es ACTIVAMENTE DAÑINA sin #623.** Si se despliega el arreglo del apellido y
+  la clienta hace lo único obvio —volver a subir la planilla corregida—, cada lead que ya
+  está en el CRM se marca `duplicado` (`leads-importar.ts:150`) y, si lo tilda —que la UI
+  permite a propósito—, se crea una SEGUNDA fila. El arreglo de una tarjeta rompe a la otra:
+  ése es el caso donde fundir no es prolijidad, es corrección.
+- **El pisado de links de Fathom tiene mejor sede que la que decía su tarjeta.**
+  `applyFathomRecording` (`lib/leads.ts:1019-1022`) deriva `fathom_links` del objeto que le
+  pasaron; releer la columna ahí arregla los TRES call sites de producción de una, y la
+  tarjeta sólo nombraba uno.
+
+*2026-09-30 · crm-reducir-tareas*
