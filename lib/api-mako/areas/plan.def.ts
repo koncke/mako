@@ -95,6 +95,19 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
+    // ⚠️ POR QUÉ NO ALCANZABA CON `listar_tareas_vencidas`. Esa mira el DEADLINE, y una
+    // tarea sin fecha no aparece en ninguna lista de vencidas por mucho que lleve
+    // parada. El ranking SÍ la castiga desde hace meses (`castigoQuietud`), o sea que el
+    // score se hunde solo y no había forma de preguntar por qué ni a quiénes les pasó.
+    id: 'listar_tareas_paradas', area: 'plan', tipo: 'lectura',
+    titulo: 'Tareas que nadie toca hace tiempo',
+    descripcion: 'Las tareas abiertas que llevan N o más días sin que una PERSONA las toque, de la más parada a la menos, con cuándo nacieron. Responde «¿qué está trabado?», «¿qué vengo arrastrando?» y «¿de qué no se habla hace un mes?». No es lo mismo que las vencidas: una tarea SIN deadline puede llevar meses parada y no aparecer ahí. Lo que hace MaKo no cuenta como tocarla — si contara, el Perro reseteando scores dejaría el tablero entero como recién movido. Las recurrentes no entran: no se completan, se repiten.',
+    parametros: [
+      { nombre: 'dias', tipo: 'number', descripcion: 'días mínimos sin moverse (default 30, que es cuando el ranking empieza a castigarla).', entero: true, minimo: 1, maximo: 365 },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
     id: 'listar_tareas_sin_datos', area: 'plan', tipo: 'lectura',
     titulo: 'Tareas sin deadline',
     descripcion: 'Las tareas abiertas a las que les falta fecha límite: lo que el Perro Guardián no pudo decidir y conviene completar. Devuelve la lista con su total. No requiere parámetros.',

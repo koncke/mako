@@ -26,6 +26,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import type { Dep } from '@/app/plan/board/dependencias';
 // «Se repite para siempre» (mig 0163): el predicado sale del módulo de datos, no se
 // reescribe acá. Sin `server-only`, así que se puede importar desde cualquier lado.
+import { diasQuieta } from '@/app/plan/board/envejecer';
 import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
 import { tableroDeCapa } from '../../tablero-de-capa';
 
@@ -53,6 +54,15 @@ export type TareaPlan = {
   historial: EntradaHistorial[];
   fuente: { tipo: string; etiqueta?: string; url?: string } | null;
   enPrioridad: boolean;
+  /**
+   * CUÁNDO NACIÓ (epoch ms), o null si la fila no lo trae.
+   *
+   * Es el insumo de «cuántos días lleva parada», que es el único eje del tiempo que un
+   * agente NO puede deducir del JSON: el deadline lo ve, la quietud no. Y sin ella,
+   * MaKo propone «habría que arrancar con X» sobre una tarjeta que lleva cuarenta días
+   * abierta sin que nadie la toque — que es un consejo distinto.
+   */
+  creadaEn: number | null;
   /**
    * true = se repite para siempre (mig 0163). No compite en el ranking, no lleva deadline
    * y no cuenta para el avance de su proyecto.
@@ -136,6 +146,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
         checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
         quarter: t.quarter ?? null, historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.enPrioridad,
+        creadaEn: t.creadaEn ?? null,
         recurrente: esRecurrente(t),
         repeticion: textoRepeticion(t.recurrencia),
       })),
@@ -157,8 +168,13 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       avance: t.progreso ?? 0, deadline: t.deadline ?? null, proyectoId: t.categorias[0] != null ? String(t.categorias[0]) : null,
       labels: t.categorias.map(String),
       checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
-      notas: '', scoreRazon: t.score_razon ?? null, deadlineRazon: null, quarter: t.quarter ?? null,
+      // ⚠️ `notas` y `deadlineRazon` estaban CLAVADOS en '' y null acá. Era cierto
+      // mientras el tablero del cliente no los guardaba (#157, arreglado el 30/09/2026):
+      // ahora los guarda, y dejarlos clavados sería el consumidor huérfano al revés —
+      // un campo que se escribe y que MaKo no ve.
+      notas: t.notas ?? '', scoreRazon: t.score_razon ?? null, deadlineRazon: t.deadline_razon ?? null, quarter: t.quarter ?? null,
       historial: hist(t.historial), fuente: t.fuente ?? null, enPrioridad: !!t.en_prioridad,
+      creadaEn: Date.parse(String(t.created_at ?? '')) || null,
       // El cast que había acá era un puente hasta que `lib/todo.ts` declarara el campo, y
       // ya lo declara: `Tarea.recurrente` desde la 0163, `Categoria.recurrente` desde la
       // 0164. Un cast que sobrevive a su motivo esconde el próximo campo que falte.
@@ -203,7 +219,21 @@ export function buscarProyecto(tab: Tablero, ref: string): ProyectoPlan | null {
 }
 
 /** La forma corta de una tarea para las listas: lo que se necesita para decidir. */
+/**
+ * Cuántos días lleva sin que nadie la toque. Sale de `diasQuieta`, la MISMA función
+ * pura que usa el reparto del servidor para castigarla en el ranking: un número que le
+ * decimos a un agente y otro que mueve el score son dos números que van a divergir.
+ */
+export const diasParada = (t: TareaPlan, ahora = Date.now()): number =>
+  diasQuieta(t.historial as Parameters<typeof diasQuieta>[0], t.creadaEn ?? undefined, ahora);
+
+/** Desde cuándo vale la pena decirlo. Es el mismo umbral en el que `castigoQuietud`
+ *  empieza a bajarle el score: antes de eso no pasó nada y el dato es ruido en el
+ *  prompt, igual que `se_repite: false` en las 300 tareas normales. */
+export const DIAS_PARADA_NOTORIA = 30;
+
 export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>) {
+  const parada = diasParada(t);
   return {
     id: t.id, ...(t.num != null ? { num: t.num } : {}), titulo: t.titulo, score: t.score, prioridad: t.prioridad,
     avance_pct: t.avance, deadline: t.deadline, proyecto: t.proyectoId ? nombreProyecto.get(t.proyectoId) ?? null : null,
@@ -217,6 +247,15 @@ export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>)
     // más que la otra. `null` es un valor y no una ausencia: dice «se repite y nadie declaró
     // el ritmo», que es algo que hay que preguntar, no adivinar.
     ...(esRecurrente(t) ? { se_repite: true, repeticion: t.repeticion, se_repite_nota: 'Se repite para siempre (la reunión semanal, el seguimiento diario). No compite en el ranking ni lleva deadline: su score y su prioridad no se leen. Ya existe, no hay que volver a crearla. `repeticion` es la frase completa de cuándo se repite («Cada semana, los lunes y miércoles»), la misma que se lee en la tarjeta; null = todavía no se dijo.' } : {}),
+    // ⚠️ EL ÚNICO EJE DEL TIEMPO QUE EL AGENTE NO PUEDE DEDUCIR. El deadline viaja y se
+    // lee solo; la quietud no está en ningún otro campo. Sin esto, MaKo propone «habría
+    // que arrancar con X» sobre una tarjeta que lleva 40 días abierta sin que nadie la
+    // toque, que es un consejo distinto — y tampoco puede contestar «¿qué está trabado?».
+    // Sale recién a los 30 días, que es cuando el ranking empieza a castigarla: antes no
+    // pasó nada y una clave más en 300 tareas es ruido en el prompt.
+    ...(parada >= DIAS_PARADA_NOTORIA && !esRecurrente(t)
+      ? { dias_sin_moverse: parada, dias_sin_moverse_nota: 'Días desde el último cambio de una PERSONA (lo que hace MaKo no cuenta). Desde los 30 el ranking le baja el score de a un punto por día, con tope 20. No es lo mismo que el deadline: una tarea sin fecha puede llevar meses parada y no aparecer en ninguna lista de vencidas.' }
+      : {}),
     link: linkTarea(t.id),
   };
 }

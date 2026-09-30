@@ -51,6 +51,7 @@ import { esRecurrente, sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurr
 import {
   leerTablero, usaPlanBoard, buscarTarea, buscarProyecto, tareaCompacta, nombresDeProyectos,
   linkTarea, linkProyecto, linkBorrador, soloFueraDeHttp, fuenteParaCanal, terminosDelGlosario,
+  diasParada, DIAS_PARADA_NOTORIA,
   type Tablero, type TareaPlan,
 } from './plan.helpers';
 
@@ -304,6 +305,35 @@ export const RUNNERS: Runners = {
           .map((t) => ({ ...tareaCompacta(t, nombres), ...(todasBloqueadas ? { bloqueada: true } : {}) })),
         ...(todasBloqueadas ? { nota: 'Todas las tareas abiertas están bloqueadas por una dependencia abierta: estas son las de mayor score, marcadas bloqueada: true. Qué las frena está en ver_tarea_plan.' } : {}),
         ...aviso(tab),
+      });
+    },
+  },
+
+  listar_tareas_paradas: {
+    leer: async (input, ctx) => {
+      const dias = num(input, 'dias') ?? DIAS_PARADA_NOTORIA;
+      const tab = await leerTablero(ctx.ws);
+      const ahora = Date.now();
+      const nombres = nombresDeProyectos(tab);
+      const hits = tab.tareas
+        // `compite` saca las hechas y las recurrentes. Una recurrente no se puede
+        // «trabar»: no se completa, se repite — y saldría siempre primera, porque su
+        // historial no se toca entre una vuelta y la otra.
+        .filter(compite)
+        .map((t) => ({ t, parada: diasParada(t, ahora) }))
+        .filter((x) => x.parada >= dias)
+        .sort((a, b) => b.parada - a.parada);
+      return json({
+        board: tab.board,
+        desde_dias: dias,
+        total: hits.length,
+        tareas: hits.slice(0, 100).map(({ t, parada }) => ({
+          ...tareaCompacta(t, nombres),
+          dias_sin_moverse: parada,
+          nacio: t.creadaEn ? new Date(t.creadaEn).toISOString().slice(0, 10) : null,
+        })),
+        ...(hits.length > 100 ? { afuera: `${hits.length - 100} tareas más no se muestran` } : {}),
+        nota: 'Los días se cuentan desde el último cambio de una PERSONA; lo que escribe MaKo no cuenta. Desde los 30 el ranking le baja el score de a un punto por día (tope 20), así que una tarea muy parada está abajo en el ranking POR eso y no porque no importe.',
       });
     },
   },

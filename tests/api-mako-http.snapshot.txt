@@ -223,6 +223,7 @@ listar_secuencias_email
 listar_secuencias_nutricion
 listar_segmentos_email
 listar_tabs_por_configurar
+listar_tareas_paradas
 listar_tareas_plan
 listar_tareas_sin_datos
 listar_tareas_vencidas

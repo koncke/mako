@@ -3091,19 +3091,54 @@ function ProyectoVacioBloque({ proj }: { proj: Label }) {
 // El `escalon` y el `desbloquea` SIGUEN en la base y los sigue usando el Perro para
 // priorizar: lo que se sacó es el chip.
 
-/** La versión larga del `TiempoChip`, para el detalle: acá sí hay lugar para la frase. */
+/**
+ * EL FACTOR TIEMPO, en el detalle (#158).
+ *
+ * Dos renglones y son dos cosas distintas:
+ *  · la EDAD y la QUIETUD, que se dicen SIEMPRE. Cuándo nació y hace cuánto que nadie
+ *    la toca es contexto de la tarjeta, no una consecuencia: una tarea de hace tres
+ *    meses que nadie movió se lee distinto que una de ayer, tenga o no el score tocado.
+ *  · el AJUSTE del ranking, que sale sólo cuando el tiempo MOVIÓ el número, porque eso
+ *    sí es algo que pasó y que hay que poder discutir.
+ *
+ * ⚠️ VA EN EL DETALLE Y NO EN LA TARJETA DEL KANBAN, y esa parte es una decisión del
+ * dueño, no una omisión. El 25/09/2026 sacó de la tarjeta el chip de tiempo con todas
+ * las letras —«quita los íconos de subió de prioridad o bajó»— y el motivo está medido
+ * en el comentario que quedó en su lugar: la card mide 249px y cada ícono le come ancho
+ * al nombre del proyecto, que es lo que ÉL reclamó dos veces. Devolverlo ahí es
+ * reinstalar lo que se sacó.
+ *
+ * Los días salen de `diasQuieta`, la MISMA función pura que usa el reparto del servidor
+ * para castigarla: un chip que dice una cosa y un ranking que hace otra es el bug que
+ * este tablero ya pagó dos veces.
+ */
 function TiempoLinea({ t }: { t: BoardTask }) {
   const ahora = Date.now();
-  const aj = ajusteTemporal({ quieta: diasQuieta(t.historial, t.creadaEn, ahora), alDeadline: diasAlDeadline(t.deadline || undefined, ahora) });
-  if (aj.delta === 0) return null;
+  const quieta = diasQuieta(t.historial, t.creadaEn, ahora);
+  const aj = ajusteTemporal({ quieta, alDeadline: diasAlDeadline(t.deadline || undefined, ahora) });
   const sube = aj.delta > 0;
+  // Una recurrente no se «traba»: no se completa, se repite. Decirle que lleva 40 días
+  // parada es acusarla de algo que no puede dejar de pasar.
+  const repite = esRecurrente(t);
+  const nacio = Number.isFinite(t.creadaEn) ? new Date(t.creadaEn as number) : null;
+  const edad = nacio ? Math.floor((ahora - nacio.getTime()) / 86400000) : null;
   return (
-    <div style={{ fontSize: 11.5, color: sube ? 'var(--warn, #B4762A)' : 'var(--dim)', lineHeight: 1.4, marginBottom: 8 }}>
-      {/* Antes decía «debatila y el Perro la vuelve a fijar», y esa era la única salida.
-          Desde que el número se mueve acá arriba, mandar a debatir es mandar por el camino
-          largo: el debate queda para cuando querés que te discutan el número. */}
-      {sube ? '◷' : '💤'} {sube ? 'Subió' : 'Bajó'} de prioridad porque {aj.razon}. Si no corresponde, cámbiala arriba.
-    </div>
+    <>
+      {edad != null && (
+        <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: aj.delta === 0 ? 8 : 4 }}>
+          Nació hace {edad === 0 ? 'hoy' : `${edad} ${edad === 1 ? 'día' : 'días'}`}
+          {!repite && quieta >= 1 && ` · ${quieta} ${quieta === 1 ? 'día' : 'días'} sin que nadie la mueva`}
+        </div>
+      )}
+      {aj.delta !== 0 && (
+        <div style={{ fontSize: 11.5, color: sube ? 'var(--warn, #B4762A)' : 'var(--dim)', lineHeight: 1.4, marginBottom: 8 }}>
+          {/* Antes decía «debatila y el Perro la vuelve a fijar», y esa era la única salida.
+              Desde que el número se mueve acá arriba, mandar a debatir es mandar por el camino
+              largo: el debate queda para cuando querés que te discutan el número. */}
+          {sube ? '◷' : '💤'} {sube ? 'Subió' : 'Bajó'} de prioridad porque {aj.razon}. Si no corresponde, cámbiala arriba.
+        </div>
+      )}
+    </>
   );
 }
 
