@@ -43,6 +43,41 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '11:55', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los ocho que estaban mal, con dos capturas',
+    pedido: 'Hay muchas cosas que no hiciste que te pedí... Que onda? Por que te lo tengo que repetir... 1. Te dije que el RECORDATORIO se debe configurar dentro del MENSAJE. 2. No cambiaste los títulos de MENSAJE y RECORDATORIO. 3. Qué es ese botón de \"Nada más\" no tiene sentido.!!! Quitalo... Son 2 botones como te dije, o por tiempo o por acción. 4. Estas PRECONFIGURANDO el cron, pusiste \"Los lunes a la mañana\" pero hard codeado, cuando JUSTAMENTE lo estamos haciendo editable... 5. No agregaste los parametros en el mensaje, para enviar datos dentro de MaKo 6. Por defecto se pone una nueva acción luego de un mensaje, que es eso? Por que se comporta de esa manera random... No debería agregar nada por defecto... Y lo peor, no me deja apretar el botón de + al lado de cada caja, porque al intentar arrastrar ek cursor, desaparece el botón de + 7. El título de la automatización NO puede ser más chico que el desplegable de abajo de categoría, tiene que ser más grande... 8. El mensaje de \"Sin publicar\" debería estar en todo caso abajo, al lado del botón de publicar... Que sentido tiene que esté arriba... Realmente muchas cosas mal, por favor, lanza multi agente o haz lo que tengas que hacer para hacerlo bien',
+    puntos: [
+      'Cuatro de los ocho ya los había pedido en la tanda anterior y no se habían hecho: RECORDATORIOS adentro del MENSAJE, los dos títulos, los parámetros de datos y los dos botones del CRON.',
+      'Y dos eran defectos que había dejado la verificación en SU workspace: el paso «Crear una tarea» que apareció solo, y el ＋ inalcanzable.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '15:40', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los ocho, con un relevo de 10 agentes por delante',
+    puntos: [
+      'DOS nodos: CRON y MENSAJE. «Si no contestas» y «Te insiste» se fueron adentro del panel del mensaje, bajo el rótulo RECORDATORIOS — con la cadencia en día/semana/mes y las palabras de corte editables.',
+      'El CRON son DOS botones y apagan al volver a apretarlos: lo único que «Nada más» tenía de propio era apagar. Y se fue la línea del catálogo que se leía como una preconfiguración; el hecho nativo sigue, en la tarjeta y rotulado «Hoy sale solo».',
+      'El ＋ vive ahora adentro de un span que arranca en el borde de la tarjeta: medido, el hueco de 8 px lo apagaba en el paso 9 de 10 del camino del cursor. Y sólo sale donde el paso va a caer de verdad.',
+      'El título del mensaje pasó a la escala de tipografía (15,5 contra los 14 del desplegable, que es lo que se reclamó) con el ancho pineado, porque un input no mide su texto y agrandar la letra habría agrandado el salto de la caja al hacer click.',
+      '«Sin publicar» y el flash bajaron al lado de «Publicar»: estaban a 544 px de distancia, en esquinas opuestas.',
+      'Los parámetros: un catálogo de 11 datos y links con la regla de admisión «sólo lo que el emisor ya tiene en la mano». Antes hubo que enseñarles a los DOS renderers a no partir los tokens — la itálica `_x_` se comía los guiones bajos de {{lead_nombre}}.',
+      'Verificado en el navegador punto por punto, y el borrador y el paso que dejaron las pruebas en el ws1 se borraron en el acto.',
+    ],
+    archivos: [
+      'lib/flujo-aviso.ts — dos nodos, el detalle del mensaje',
+      'lib/variables-aviso.ts — el catálogo y el partido de tokens',
+      'lib/variables-resolver.ts — los valores, en el server',
+      'lib/flujos-tipos.ts — la cadencia en unidades y el saneo de las palabras',
+      'lib/insistencias.ts — las palabras de corte por negocio',
+      'app/_components/Lienzo.tsx — el puente de hover del ＋',
+      'app/agencia/FlujoAviso.tsx — RECORDATORIOS adentro, el CRON de dos botones',
+      'app/agencia/EditorMensaje.tsx — el selector de datos',
+      'tests/variables-aviso.test.ts — 13 guards, las 9 roturas probadas',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '02:20', chat: '—', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La sección CRON: un mensaje sale por TIEMPO o por una ACCIÓN, y el tiempo no existía',

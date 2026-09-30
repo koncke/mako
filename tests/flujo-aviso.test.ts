@@ -20,7 +20,7 @@ import {
   type AvisoParaGrafo,
 } from '../lib/flujo-aviso';
 import type { Paso } from '../lib/flujos-tipos';
-import { FRECUENCIAS } from '../lib/disparador-mensaje';
+import { ANCHO_NODO } from '../lib/lienzo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -29,9 +29,14 @@ const aviso = (p: Partial<AvisoParaGrafo> = {}): AvisoParaGrafo => ({
   canales: { wa: true, email: false }, insistir: null, evento: null, pasos: [], ...p,
 });
 
-test('Tres nodos: qué lo dispara, el mensaje, y si no contestas', () => {
+test('DOS nodos: CRON y MENSAJE', () => {
+  // Eran tres. «Si no contestas» se dibujaba SIEMPRE, con o sin recordatorio
+  // prendido, así que era literalmente la caja que aparece sin que nadie la pida —
+  // y un nodo es algo que OCURRE, mientras que «si no contestas» es una CONDICIÓN
+  // del mensaje. Su interruptor se mudó adentro del panel del mensaje.
   const g = grafoDeAviso(aviso());
-  assert.deepEqual(g.nodos.map((n) => n.id), ['entrada', 'mensaje', 'respuesta']);
+  assert.deepEqual(g.nodos.map((n) => n.id), ['entrada', 'mensaje']);
+  assert.deepEqual(g.nodos.map((n) => n.titulo), ['CRON', 'MENSAJE']);
 });
 
 test('⚠️ «Te llega al grupo» NO es un nodo: un nodo es algo que OCURRE', () => {
@@ -40,18 +45,36 @@ test('⚠️ «Te llega al grupo» NO es un nodo: un nodo es algo que OCURRE', (
   // que no se puede tocar desde ahí, porque el canal se elige al entrar.
   const g = grafoDeAviso(aviso());
   assert.ok(!g.nodos.some((n) => n.id === 'salida'), 'volvió el nodo que no hacía nada');
-  assert.match(g.nodos.find((n) => n.id === 'mensaje')?.titulo ?? '', /WhatsApp/,
+  // ⚠️ Y AHORA SE LEE EN EL `detalle`, NO EN EL TÍTULO: el título pasó a ser «MENSAJE»
+  // a pedido, y este hecho —el único lugar del lienzo donde se dice por dónde llega—
+  // se habría ido con él sin que nada fallara.
+  assert.match(g.nodos.find((n) => n.id === 'mensaje')?.detalle ?? '', /WhatsApp/,
     'el destino tiene que leerse en el propio nodo del mensaje');
 });
 
-test('El recordatorio cuelga de SI NO CONTESTAS, no del mensaje', () => {
-  // Es lo que el formulario no podía decir: apilado, «¿y si no contestas?» se leía
-  // como un bloque más que ocurre siempre, en fila con los otros tres.
+test('⚠️ El recordatorio se lee EN el mensaje, y no tiene nodo propio', () => {
+  // Pedido dos veces: «no debería ser una nueva sección, sino una opción dentro de la
+  // sección de mensaje», y después «te dije que el RECORDATORIO se debe configurar
+  // dentro del MENSAJE». El estado no se pierde al sacar la tarjeta: baja al `detalle`.
   const g = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 3 } }));
-  const a = g.aristas.find((x) => x.hasta === 'recordatorio');
-  assert.equal(a?.desde, 'respuesta', 'el recordatorio se colgó del nodo equivocado');
-  assert.equal(a?.tono, 'condicional');
-  assert.match(g.nodos.find((n) => n.id === 'recordatorio')?.detalle ?? '', /Cada 30 minutos, hasta 3 veces/);
+  assert.ok(!g.nodos.some((n) => n.id === 'recordatorio'), 'volvió la tarjeta del recordatorio');
+  assert.ok(!g.nodos.some((n) => n.id === 'respuesta'), 'volvió la caja que se dibujaba siempre');
+  assert.equal(g.aristas.length, 1, 'quedó una flecha apuntando a un nodo que ya no existe');
+  assert.match(g.nodos.find((n) => n.id === 'mensaje')?.detalle ?? '', /cada 30 minutos, hasta 3 veces/);
+  // Sin recordatorio, el detalle no lo menciona: no hay un «se manda una vez» que
+  // ocupe un renglón para decir que no pasa nada.
+  assert.ok(!/recuerda/i.test(grafoDeAviso(aviso()).nodos.find((n) => n.id === 'mensaje')?.detalle ?? ''));
+});
+
+test('La cadencia se dice en unidades que alguien puede leer', () => {
+  // «Cada 43200 minutos» no es una frase. Pedido: «se debería poder recordar 1 vez al
+  // día, a la semana, al mes».
+  const det = (min: number) => grafoDeAviso(aviso({ insistir: { cadaMin: min, veces: 2 } }))
+    .nodos.find((n) => n.id === 'mensaje')?.detalle ?? '';
+  assert.match(det(1440), /cada día/);
+  assert.match(det(10080), /cada semana/);
+  assert.match(det(43200), /cada mes/);
+  assert.match(det(45), /cada 45 minutos/);
 });
 
 test('⚠️ Con los DOS canales apagados, el MENSAJE lo dice y la flecha se pone mala', () => {
@@ -60,7 +83,7 @@ test('⚠️ Con los DOS canales apagados, el MENSAJE lo dice y la flecha se pon
   // puede aparecer es acá.
   const g = grafoDeAviso(aviso({ canales: { wa: false, email: false } }));
   const m = g.nodos.find((n) => n.id === 'mensaje')!;
-  assert.match(m.titulo, /ning[úu]n lado/i);
+  assert.match(m.detalle ?? '', /ning[úu]n lado/i);
   assert.ok(m.advertencia, 'un mensaje que no sale por ningún lado tiene que estar marcado');
   assert.equal(g.aristas.find((a) => a.hasta === 'mensaje')?.tono, 'mala');
 });
@@ -68,10 +91,17 @@ test('⚠️ Con los DOS canales apagados, el MENSAJE lo dice y la flecha se pon
 test('⚠️ Un recordatorio sin WhatsApp está dibujando algo que no puede ocurrir', () => {
   // El choke point abre la insistencia ADENTRO del `if` del envío al grupo: sin
   // WhatsApp, no hay recordatorio posible. Se dice, no se esconde.
+  // ⚠️ AHORA ES DEL NODO `mensaje`, que es el que se quedó con el recordatorio. Y la
+  // versión vieja de este assert PASABA EN VERDE por vacío: sin el nodo,
+  // `find(...)?.advertencia` da undefined y el `assert.equal(..., undefined)` no mira
+  // nada. Por eso los dos lados piden el nodo que sí existe.
   const conWa = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 2 }, canales: { wa: true, email: true } }));
-  assert.equal(conWa.nodos.find((n) => n.id === 'recordatorio')?.advertencia, undefined);
+  assert.equal(conWa.nodos.find((n) => n.id === 'mensaje')!.advertencia, undefined);
   const sinWa = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 2 }, canales: { wa: false, email: true } }));
-  assert.match(sinWa.nodos.find((n) => n.id === 'recordatorio')?.advertencia ?? '', /WhatsApp/);
+  assert.match(sinWa.nodos.find((n) => n.id === 'mensaje')!.advertencia ?? '', /WhatsApp/);
+  // Y sin NINGÚN canal manda la otra: el mensaje no sale, que es más grave.
+  const sinNada = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 2 }, canales: { wa: false, email: false } }));
+  assert.match(sinNada.nodos.find((n) => n.id === 'mensaje')!.advertencia ?? '', /no sale/);
 });
 
 // ── Los disparadores que se suman ───────────────────────────────────────────
@@ -80,10 +110,16 @@ test('Un evento elegido se suma al hecho nativo, no lo reemplaza', () => {
   // El aviso sigue saliendo por su camino de siempre. Lo que se elige acá es un
   // disparador MÁS, y el nodo tiene que decir las dos cosas: si dijera sólo el
   // evento, apagaría en la pantalla un camino que en el motor sigue vivo.
+  // ⚠️ Y EL NATIVO VA ÚLTIMO Y ROTULADO «Hoy sale solo». Iba primero y pelado, así
+  // que la tarjeta titulada «CRON» arrancaba con «Cron los lunes a la mañana» y se
+  // leyó como una preconfiguración: «estás PRECONFIGURANDO el cron, pusiste Los lunes
+  // a la mañana pero hard codeado, cuando JUSTAMENTE lo estamos haciendo editable».
   const t = textoDisparador({ disparador: 'Cron los lunes', evento: { tipo: 'evento', evento: 'lead.agendo' } });
-  assert.match(t, /Cron los lunes/);
-  assert.match(t, /también/i);
-  assert.equal(textoDisparador({ disparador: 'Cron los lunes', evento: null }), 'Cron los lunes');
+  assert.match(t, /Hoy sale solo: cron los lunes/);
+  assert.ok(t.indexOf('Cuando') < t.indexOf('Hoy sale solo'), 'lo configurado va primero');
+  assert.equal(textoDisparador({ disparador: 'Cron los lunes', evento: null }), 'Hoy sale solo: cron los lunes');
+  // Y sin nada, la tarjeta no inventa un horario.
+  assert.equal(textoDisparador({ disparador: '', evento: null }), 'Sin configurar');
 });
 
 test('⚠️ Un paso agregado SIN evento se dibuja con su advertencia', () => {
@@ -131,9 +167,13 @@ test('Las posiciones de nodos que ya no existen se podan', () => {
 test('La caja del grafo crece con la tarjeta que se arrastró lejos', () => {
   // El encuadre automático mira esta caja: si no creciera, arrastrar una tarjeta
   // hacia afuera la dejaría fuera de cuadro para siempre.
-  const g = grafoDeAviso(aviso({ posiciones: { respuesta: { x: 1500, y: 700 } } }));
+  const g = grafoDeAviso(aviso({ posiciones: { mensaje: { x: 1500, y: 700 } } }));
   assert.ok(g.ancho > 1500);
   assert.ok(g.alto > 700);
+  // ⚠️ Y LA HOLGURA DERECHA TIENE QUE METER AL ＋ ADENTRO. Cuelga 8 px a la derecha de
+  // la última tarjeta, mide 26 y tira 6 de sombra: con el MARGEN de 28 quedaba cortado
+  // contra el `overflow: hidden` de la caja, y «Centrar» no lo traía de vuelta.
+  assert.ok(g.ancho >= 1500 + ANCHO_NODO + 40, 'el ＋ de la última tarjeta queda fuera de cuadro');
 });
 
 // ── El resto ────────────────────────────────────────────────────────────────
@@ -177,8 +217,9 @@ test('⚠️ El nodo CRON dice el agendado Y lo nativo, no uno de los dos', () =
     cron: { unidad: 'semana', cada: 1, hora: 9, minuto: 0, diaSemana: 1 },
     tz: 'America/Tijuana',
   });
-  assert.match(txt, /Sale cuando entra un lead/, 'se perdió el disparador nativo');
+  assert.match(txt, /Hoy sale solo: sale cuando entra un lead/, 'se perdió el disparador nativo');
   assert.match(txt, /lunes a las 09:00 de America\/Tijuana/, 'se perdió el agendado');
+  assert.ok(txt.indexOf('lunes a las') < txt.indexOf('Hoy sale solo'), 'el nativo tiene que ir último');
   assert.ok(!/Con condiciones/.test(txt), 'volvió el texto largo del catálogo');
 });
 

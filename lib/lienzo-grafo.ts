@@ -66,10 +66,22 @@ export const GAP_Y = 34;
 export const MARGEN = 28;
 
 /** La caja que encierra a todos los nodos, con su margen. */
+/**
+ * A la DERECHA de la última tarjeta cuelga el ＋ de «agregar un paso», y el encuadre
+ * tiene que meterlo adentro o queda cortado contra el `overflow: hidden` de la caja.
+ *
+ * Son 8 px de puente + 26 del botón + 6 de su sombra = 40, y el `MARGEN` de 28 no
+ * alcanza. Va como constante propia y NO subiendo `MARGEN`: ése es el ORIGEN del
+ * layout de los dos grafos (`col(i) = MARGEN + …`), así que tocarlo corre todas las
+ * tarjetas calculadas mientras las guardadas se quedan donde están — un layout mixto,
+ * y con las posiciones que ya hay en la base eso son 160 px de desalineación.
+ */
+export const HOLGURA_DERECHA = 42;
+
 export function encerrar(nodos: NodoFlujo[]): { ancho: number; alto: number } {
   if (nodos.length === 0) return { ancho: ANCHO_NODO + MARGEN * 2, alto: ALTO_MIN + MARGEN * 2 };
   return {
-    ancho: Math.max(...nodos.map((n) => n.x + n.ancho)) + MARGEN,
+    ancho: Math.max(...nodos.map((n) => n.x + n.ancho)) + HOLGURA_DERECHA,
     alto: Math.max(...nodos.map((n) => n.y + n.alto)) + MARGEN,
   };
 }

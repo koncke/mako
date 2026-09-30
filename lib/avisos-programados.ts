@@ -20,6 +20,7 @@ import { tzDeWorkspace } from './timezone';
 import { referenciaPlantilla, plantillaActiva, getPlantilla } from './plantillas';
 import { emitirAviso } from './avisos';
 import { proximaOcurrencia, sanearCron, type CronAviso } from './cron-aviso';
+import { conVariables } from './variables-resolver';
 
 export type Programado = {
   avisoId: string;
@@ -143,10 +144,17 @@ export async function drenarProgramados(): Promise<{ enviados: number; saltados:
     if (!(await plantillaActiva(f.aviso_id))) { saltados++; continue; }
     try {
       const p = await getPlantilla(f.aviso_id);
+      // ⚠️ ACÁ NO HAY MODELO, y por eso este camino es el correcto para las variables:
+      // un dato exacto que pasa por un LLM deja de ser exacto, y un link mal copiado
+      // abre la ficha de OTRO lead sin verse roto. Éste sustituye con código.
+      const ws = await getWorkspaceActual();
+      const texto = ws == null
+        ? await referenciaPlantilla(f.aviso_id)
+        : await conVariables(await referenciaPlantilla(f.aviso_id), { ws });
       await emitirAviso({
         tipo: f.aviso_id,
         titulo: p?.titulo ?? f.aviso_id,
-        texto: await referenciaPlantilla(f.aviso_id),
+        texto,
         categoria: p?.categoria,
       });
       enviados++;

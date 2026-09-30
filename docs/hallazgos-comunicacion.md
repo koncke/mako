@@ -6628,3 +6628,194 @@ cascada gratis no da:
   cascada por capacidad para las rutas con herramientas** — no saltarla.
 - **`wa_mensajes` del ws9 está vacío ese día**, así que ni el «Te escucho» quedó
   registrado ahí. La línea del grupo no persiste por ese camino y no se midió por qué.
+
+---
+
+## Un nodo que se dibuja SIEMPRE es la caja que aparece sin que nadie la pida
+
+**Vive en:** `lib/flujo-aviso.ts` (`grafoDeAviso`) · `app/agencia/FlujoAviso.tsx`
+
+El dueño, sobre el lienzo de un aviso: *«Por defecto se pone una nueva acción luego de
+un mensaje, que es eso? Por que se comporta de esa manera random... No debería agregar
+nada por defecto»*.
+
+Eran **dos** cajas, no una, y sólo una era culpa de una acción:
+
+1. **«Si no contestas»** se dibujaba SIEMPRE —con o sin recordatorio prendido— porque
+   su `nodos.push` no colgaba de ninguna condición. Y «Te insiste» se dibujaba con
+   cualquier `insistir`, **incluido uno heredado del workspace del dueño**: medido, el
+   ws1 tiene un `reporte-semanal` con insistencia y los ws 3, 4 y 13 la ven sin haberla
+   prendido nunca.
+2. **«Hace algo → Crear una tarea»** sí salió de un clic: el mío, verificando el ＋ en
+   el workspace del dueño. Quedó guardado en su store y él lo vio al día siguiente.
+
+**La regla que ya estaba escrita y que esto vuelve a probar: un nodo es algo que
+OCURRE.** «Si no contestas» no ocurre — es una CONDICIÓN del mensaje. Su interruptor se
+mudó adentro del panel del nodo del mensaje, bajo el rótulo RECORDATORIOS, que es donde
+el dueño lo había pedido dos veces.
+
+⚠️ **Y APAGARLO TIENE QUE ESCRIBIR `pasos: []`, NUNCA `null`.** El store se hereda del
+dueño entrada por entrada y `mutar` hace copy-on-write desde lo EFECTIVO: mandar `null`
+borra la clave propia —que nunca existió— y la lectura siguiente vuelve a traer la del
+dueño, así que el recordatorio **reaparece en el mismo frame**. Con un objeto explícito,
+el cliente tiene su propia copia diciendo «acá no hay recordatorio». Es la misma trampa
+que «si la misma pregunta se contesta en DOS lugares, el borrado va por una función»,
+vista desde la herencia.
+
+⚠️ **Y AL SACAR UN NODO, SU HECHO SE QUEDA SIN DUEÑO.** El título del nodo del mensaje
+ERA «por dónde te llega» —el único lugar del lienzo donde ese dato se afirma, porque el
+interruptor de canal vive en otra pantalla—. Renombrarlo a «MENSAJE», que es lo que se
+pidió, lo habría borrado sin que nada fallara. Bajó al `detalle`, junto con el estado
+del recordatorio, que también perdió su tarjeta. Antes de renombrar un nodo hay que
+preguntar qué AFIRMA su título.
+
+*2026-09-30*
+
+---
+
+## El hover de una tarjeta es la UNIÓN de sus hijos absolutos, no un rectángulo
+
+**Vive en:** `app/_components/Lienzo.tsx`
+
+El dueño: *«no me deja apretar el botón de + al lado de cada caja, porque al intentar
+arrastrar el cursor, desaparece el botón de +»*. Medido con Playwright, moviendo el
+cursor de la tarjeta al botón en diez pasos: **se apagaba en el paso 9 de 10**. No era
+difícil de apretar — era **inalcanzable**.
+
+La causa no está en el botón sino en la caja que no existe. El envoltorio de cada nodo
+no tiene `style`, y su padre es un `position: absolute` **sin ancho ni alto**: como los
+descendientes absolutos no cuentan para el shrink-to-fit de un absoluto, el envoltorio
+mide **0×0**. Su región de hover es sólo la unión de los hijos posicionados — y entre la
+tarjeta (que termina en `x + ancho`) y el ＋ (que empezaba en `x + ancho + 8`) había 8 px
+de aire que pertenecen a la capa, no al envoltorio. Cruzarlos dispara `pointerleave` y
+el botón se desmonta **bajo el cursor**.
+
+**La cura es que no haya aire:** el ＋ va adentro de un `<span>` que ARRANCA en el borde
+de la tarjeta y se come los 8 px como `padding`. Un `margin` no sirve — el margen no
+recibe eventos de puntero.
+
+Tres cosas que costaron una vuelta cada una:
+
+- **El `data-no-pan` va en el SPAN, no sólo en el botón.** Un `pointerdown` en los 8 px
+  de padding no encuentra `[data-nodo]` —el span no está adentro de la tarjeta— y el
+  lienzo lo tomaría como un gesto de paneo.
+- **El botón se DESHABILITA mientras guarda, no se desmonta.** Estaba
+  `onAgregarTras={editable && !busy ? … : undefined}`, así que el primer clic lo hacía
+  desaparecer. Un control que se borra bajo el dedo se lee como un clic que no registró.
+- **Y el ＋ se mueve CON la tarjeta durante el arrastre.** `setPointerCapture` retargetea
+  los eventos al contenedor, así que en todo el gesto no se dispara ni un enter ni un
+  leave: el estado de hover queda congelado y el botón se quedaría flotando en el lugar
+  viejo mientras la tarjeta viaja — justo en el gesto que el dueño nombró.
+
+⚠️ **Y el rectángulo del grafo tiene que incluirlo.** El ＋ cuelga 8 px a la derecha de
+la última tarjeta, mide 26 y tira 6 de sombra: con el margen de 28 quedaba cortado
+contra el `overflow: hidden`, y «Centrar» no lo traía de vuelta. Va una constante propia
+(`HOLGURA_DERECHA`) y **no** subiendo `MARGEN`: ése es el ORIGEN del layout de los dos
+grafos, así que tocarlo corre todas las tarjetas calculadas mientras las guardadas se
+quedan donde están — y en la base hay posiciones guardadas, o sea 160 px de layout
+mixto.
+
+⚠️ **Y el ＋ sólo sale donde el paso VA A CAER.** `insertarPasoTras` cuelga del MENSAJE
+todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del CRON señalaba un lugar y
+el paso aparecía en otro. Eso, y no el botón, es el «se comporta de manera random».
+
+*2026-09-30*
+
+---
+
+## Un token `{{…}}` se parte solo contra las marcas de WhatsApp
+
+**Vive en:** `lib/variables-aviso.ts` · `app/agencia/EditorMensaje.tsx` ·
+`app/_components/TextoMarcas.tsx`
+
+La itálica de WhatsApp es `_texto_`. Un token de variable es `{{lead_nombre}}`, con un
+guión bajo adentro. Con **dos** tokens en la misma línea, el `_` de uno cierra con el
+del otro:
+
+```
+Hola {{lead_nombre}}, mirá {{link_crm}}   →   Hola {{leadnombre}}, mirá {{linkcrm}}
+```
+
+en itálica, y con una negrita en el medio salen etiquetas **cruzadas** que el navegador
+reparenta — y ahí el serializador del editor devuelve un texto distinto del que se
+escribió, **sin que nada falle**. O sea que la feature entregaría un control que se ve
+roto y que además corrompe lo guardado.
+
+Los tokens se separan ANTES de aplicar las marcas, y en **los dos** renderers: el del
+editor (lo que se escribe, y el que decide qué se guarda) y el de la burbuja (lo que se
+lee en la tarjeta y en el hilo de WhatsApp). Con uno solo arreglado, el texto se ve bien
+de un lado y partido del otro.
+
+⚠️ **Y EL TOKEN SE INSERTA COMO TEXTO PLANO, NUNCA COMO UN CHIP.** El serializador
+aplana todo lo que no sea negrita, itálica o tachado, y **no avisa**: un `<span>` bonito
+que dijera «Nombre del lead» se guardaría como ese texto y la variable desaparecería
+entera. El color se lo pone el pintado, no la etiqueta.
+
+⚠️ **Y NO SE REUSA `aplicarVariables`.** Es de la nutrición: acepta `{una llave}`, su
+regex no tiene dígitos, y la MISMA función decide qué parámetros se registran en Meta.
+Ampliarla para estos tokens convertiría un `{1}` de un copy en un candidato. Son dos
+preguntas distintas y llevan dos regex.
+
+⚠️ **Y LA REGLA DE ADMISIÓN DEL CATÁLOGO ES «lo que el emisor YA TIENE en la mano».**
+Cero queries nuevas. El presupuesto y el gasto de los anuncios NO entran: una llamada a
+Meta son ~900 ms medidos y esas lecturas están marcadas `lenta` en el registro — un
+webhook con `maxDuration` que espera eso es un aviso que no sale. Para eso está
+`{{link_anuncios}}`, que lleva a la pantalla donde el número está FRESCO, que es
+exactamente lo que el dueño pidió: *«para evitar poner mucha info dentro de un mensaje y
+aprovechar este sistema»*.
+
+⚠️ **Y SE OFRECE SÓLO LO QUE ESE MENSAJE PUEDE RESOLVER.** El resolvedor deja intacto lo
+que no sabe —a propósito: un token crudo se ve raro y se nota, uno borrado deja el
+mensaje cojo y nadie se entera— así que el filtro del selector es lo ÚNICO que evita que
+un `{{lead_nombre}}` llegue crudo al WhatsApp de un cliente en un aviso que no habla de
+ningún lead.
+
+⚠️ **Y LA SUSTITUCIÓN VA EN EL CALL SITE, EN LOS TRES RETORNOS.** `generarMensajeAviso`
+tiene tres salidas y **dos se saltean el modelo** (la respuesta vacía y el `catch`). Con
+la sustitución sólo en el camino feliz, la variable falla exactamente cuando falla la
+IA, que es cuando menos se la mira.
+
+*2026-09-30*
+
+---
+
+## Un guard que busca el NOMBRE de una función no ve que nadie la llama
+
+**Vive en:** `tests/variables-aviso.test.ts`
+
+El guard de que la burbuja no parte los tokens decía
+`assert.match(src, /tramosConVariables\(/)`. Apagando el `if` que la llama —dejándolo en
+`if (false)`— el nombre seguía en el archivo y el test daba **VERDE sobre el bug**.
+Medido con el arnés de roturas: exit 0.
+
+Es la tercera vez que pasa en esta casa con la misma forma. Lo que lo cierra es medir el
+COMPORTAMIENTO: el componente se renderiza de verdad con `renderToStaticMarkup` y se
+afirma que el token sale entero y que no hay un `<i>` en el HTML. Un guard que lee el
+fuente sirve para «esto no volvió a aparecer»; para «esto funciona», hay que correrlo.
+
+*2026-09-30*
+
+---
+
+## Verificar en el workspace del dueño DEJA COSAS, y hay que limpiarlas en el acto
+
+**Vive en:** nada del repo — es la disciplina de verificar.
+
+Tres veces en dos días, en el ws1, que es un cliente real:
+
+| qué quedó | cómo se vio |
+|---|---|
+| un paso `crear_tarea` | el dueño lo reportó como «por defecto se pone una nueva acción» |
+| una fila en `avisos_programados` | le habría mandado un reporte por día hasta que alguien la borrara |
+| un borrador con `{{link_crm}}` | «Sin publicar» sobre un texto que él no escribió |
+
+Los tres los dejó una verificación correcta, y ninguno falló: quedaron guardados porque
+la pantalla hace su trabajo. **Lo que hay que cambiar no es la verificación sino el
+cierre: la limpieza va en el mismo comando que la prueba, no en el siguiente turno.**
+
+Y sigue en pie lo que ya estaba escrito: esto se prueba en el **Cliente de Prueba
+(ws3)**, no en el ws1. La única razón por la que se usa el ws1 es que es el único
+workspace exento del onboarding global — y esa excusa ya se pagó una vez con el acento
+del avatar de un cliente.
+
+*2026-09-30*

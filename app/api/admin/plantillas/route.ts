@@ -13,6 +13,8 @@ import {
   setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado } from '@/lib/avisos-programados';
+import { acusesDe, setAcuses } from '@/lib/insistencias';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
@@ -34,6 +36,7 @@ type Body = {
   frecuenciaMin?: number;
   posiciones?: Record<string, { x: number; y: number }>;
   cron?: unknown;
+  acuses?: unknown;
 };
 
 export async function POST(req: NextRequest) {
@@ -84,6 +87,13 @@ export async function POST(req: NextRequest) {
     /* El cron por TIEMPO. `cron: null` desagenda. */
     case 'cron-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, programado: await getProgramado(b.id) }); }
     case 'cron-set': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) }); }
+    /* Las palabras que cortan los recordatorios: del workspace, no del mensaje. */
+    case 'acuses-get': { const ws = await getWorkspaceActual(); return NextResponse.json({ ok: true, acuses: ws == null ? [] : await acusesDe(ws) }); }
+    case 'acuses-set': {
+      const ws = await getWorkspaceActual();
+      if (ws == null) return NextResponse.json({ ok: false, error: 'sin workspace' }, { status: 400 });
+      return NextResponse.json({ ok: true, acuses: await setAcuses(ws, b.acuses) });
+    }
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }
     case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usa datos de ejemplo realistas.') }); }
     case 'flujo-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) }); }

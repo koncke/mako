@@ -16,6 +16,7 @@ import { chatClaude } from './anthropic';
 import { CATALOGO_AVISOS, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from './avisos-catalogo';
 import { esFlujoValido, type Flujo } from './flujos-tipos';
 import { sanearFrecuencia } from './disparador-mensaje';
+import { conVariables } from './variables-resolver';
 
 const KEY_STORE = 'mako.plantillas.store';
 
@@ -467,7 +468,19 @@ const SYS_AVISO =
  * datos reales. Si algo falla, cae a la referencia literal (best-effort).
  */
 export async function generarMensajeAviso(id: string, contexto: string): Promise<string> {
-  const ref = await referenciaPlantilla(id);
+  const refCruda = await referenciaPlantilla(id);
+  /**
+   * ⚠️ LAS VARIABLES SE RESUELVEN ANTES DEL MODELO Y EN LOS TRES RETORNOS.
+   *
+   * Antes, porque un dato exacto que pasa por un LLM deja de ser exacto —la casa ya lo
+   * pagó con un link que resolvía a un borrador REAL pero equivocado— y el modelo
+   * trabaja mejor sobre un texto que ya dice «Sofía Contreras» que sobre uno que dice
+   * `{{lead_nombre}}`. Y en los TRES retornos porque dos de ellos se saltean el modelo
+   * (el vacío y el `catch`): con la sustitución sólo en el camino feliz, la variable
+   * falla exactamente cuando falla la IA, que es cuando menos se la mira.
+   */
+  const ws = await getWorkspaceActual();
+  const ref = ws == null ? refCruda : await conVariables(refCruda, { ws });
   try {
     const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribe el mensaje.`;
     const out = await chatClaude(SYS_AVISO, [{ role: 'user', content: user }], {

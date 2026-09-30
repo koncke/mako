@@ -22,7 +22,8 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
-import { INSISTIR_VENTANA, sanearInsistir, proximaSalida } from './flujos-tipos';
+import { INSISTIR_VENTANA, sanearInsistir, proximaSalida, sanearAcuses, ACUSES } from './flujos-tipos';
+import { getSetting, setSetting } from './settings';
 import { enviarAlGrupoMaKo } from './mako-grupo';
 import { tzDeWorkspace } from './timezone';
 
@@ -156,4 +157,40 @@ export async function drenarInsistencias(): Promise<{ enviadas: number; cerradas
     }
   }
   return { enviadas, cerradas };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * LAS PALABRAS QUE CORTAN LOS RECORDATORIOS, por NEGOCIO.
+ *
+ * Pedido textual: «también se debería poder configurar qué palabra hacen que paren
+ * los recordatorios, no solo un ok».
+ *
+ * ⚠️ ES DEL WORKSPACE Y NO DEL MENSAJE, y la pantalla lo DICE. El campo se edita
+ * adentro de la sección del mensaje —que es donde el dueño lo pidió— pero el corte
+ * lo ejecuta `cerrarPorAcuse`, que cierra TODAS las insistencias vivas del workspace
+ * de un saque, sin mirar de qué flujo salieron: el webhook recibe un mensaje de un
+ * grupo y no sabe a cuál de los avisos le está contestando. Guardarlas por mensaje
+ * sería un campo que promete algo que el motor no puede cumplir, y para cumplirlo
+ * hace falta una columna en `insistencias` y comparar fila por fila. El día que se
+ * decida, esto es lo que se muda — no lo que se rompe.
+ */
+const KEY_ACUSES = 'mako.acuses';
+
+export async function acusesDe(ws: number): Promise<string[]> {
+  try {
+    const raw = await runWithWorkspace(ws, () => getSetting(KEY_ACUSES));
+    const propias = sanearAcuses(raw ? (JSON.parse(raw) as unknown) : null);
+    // Sin nada guardado manda el catálogo de fábrica. Una lista VACÍA guardada a
+    // propósito también cae acá, y es correcto: dejar un recordatorio sin ninguna
+    // forma de cortarlo es lo único que esta pantalla no puede ofrecer.
+    return propias.length ? propias : [...ACUSES];
+  } catch { return [...ACUSES]; }
+}
+
+export async function setAcuses(ws: number, v: unknown): Promise<string[]> {
+  const limpias = sanearAcuses(v);
+  await runWithWorkspace(ws, () => setSetting(KEY_ACUSES, JSON.stringify(limpias)));
+  return limpias.length ? limpias : [...ACUSES];
 }

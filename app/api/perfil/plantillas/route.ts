@@ -23,6 +23,7 @@ import {
   setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado } from '@/lib/avisos-programados';
+import { acusesDe, setAcuses } from '@/lib/insistencias';
 
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     frecuenciaMin?: number;
     posiciones?: Record<string, { x: number; y: number }>;
     cron?: unknown;
+    acuses?: unknown;
   };
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -179,6 +181,22 @@ export async function POST(req: NextRequest) {
       case 'cron-set':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) });
+      /**
+       * LAS PALABRAS QUE CORTAN LOS RECORDATORIOS. Son del NEGOCIO —el webhook que
+       * las compara recibe un mensaje del grupo y no sabe a cuál de los avisos le
+       * está contestando— así que valen para todos sus mensajes, y la pantalla lo
+       * dice donde se editan. No pasan por `esAdministrativo`: eligen CUÁNDO deja de
+       * insistir, no qué dice el mensaje.
+       */
+      case 'acuses-get': {
+        const ws = await getWorkspaceActual();
+        return NextResponse.json({ ok: true, acuses: ws == null ? [] : await acusesDe(ws) });
+      }
+      case 'acuses-set': {
+        const ws = await getWorkspaceActual();
+        if (ws == null) return NextResponse.json({ ok: false, error: 'sin workspace' }, { status: 400 });
+        return NextResponse.json({ ok: true, acuses: await setAcuses(ws, b.acuses) });
+      }
       case 'borrar':
         if (!b.id) return faltaId();
         return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) });

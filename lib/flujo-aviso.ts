@@ -82,12 +82,25 @@ export function porDondeLlega(c: { wa: boolean; email: boolean }): string {
  * es la mitad que nadie va a auditar, porque suena completa.
  */
 export function textoDisparador(a: Pick<AvisoParaGrafo, 'disparador' | 'evento' | 'cron' | 'tz'>): string {
-  const partes = [disparadorCorto(a.disparador)];
+  const partes: string[] = [];
   if (a.cron) partes.push(textoCron(a.cron, a.tz));
   const d = a.evento;
   const ev = d && d.tipo === 'evento' ? EVENTOS.find((e) => e.key === d.evento)?.label : null;
-  if (ev) partes.push(`Y también: ${ev.toLowerCase()}.`);
-  return partes.join(NL_TXT);
+  if (ev) partes.push(`Cuando ${ev.toLowerCase()}.`);
+  // ⚠️ EL HECHO NATIVO VA ÚLTIMO Y ROTULADO, o se lee como una PRECONFIGURACIÓN.
+  //
+  // Antes iba primero y pelado, así que la tarjeta titulada «CRON» arrancaba con
+  // «Cron los lunes a la mañana» y el dueño lo leyó exactamente así: «estás
+  // PRECONFIGURANDO el cron, pusiste "Los lunes a la mañana" pero hard codeado,
+  // cuando JUSTAMENTE lo estamos haciendo editable». Y tenía razón en lo que veía:
+  // ese texto es el campo `disparador` del catálogo —la descripción de fábrica del
+  // aviso— con el agendado real en null al lado.
+  //
+  // No se borra, porque es cierto y es la única línea que dice que ~30 de los 65
+  // mensajes ya salen solos desde el código que los produce. Se rotula: «Hoy sale
+  // solo» es un hecho del sistema, no un ajuste que alguien eligió.
+  if (a.disparador.trim()) partes.push(`Hoy sale solo: ${disparadorCorto(a.disparador).toLowerCase()}`);
+  return partes.join(NL_TXT) || 'Sin configurar';
 }
 const NL_TXT = '\n';
 
@@ -107,16 +120,47 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   nodos.push({
     id: 'entrada', tipo: 'entrada', titulo: 'CRON', icono: '⚡',
     detalle: textoDisparador(a),
-    ...en('entrada', col(0), MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + 26 + (conEvento ? 28 : 0) + (a.cron ? 28 : 0),
+    // El alto sale de las líneas que `textoDisparador` va a dibujar, contadas acá:
+    // es aritmética fija y no medición, así que sumar una línea al texto sin sumarla
+    // acá deja el borde de abajo fuera del encuadre.
+    ...en('entrada', col(0), MARGEN), ancho: ANCHO_NODO,
+    alto: ALTO_MIN + 26 + (conEvento ? 28 : 0) + (a.cron ? 28 : 0),
   });
 
   // ── El mensaje, como llega. Con el aviso de por dónde sale: es del mensaje,
   // no un paso aparte.
-  const altoMensaje = Math.min(300, ALTO_MIN + Math.min(Math.ceil((a.texto || '').length / 32), 10) * 17);
+  /**
+   * ⚠️ EL TÍTULO ES «MENSAJE», Y POR ESO EL DETALLE EXISTE.
+   *
+   * Hasta acá el título ERA el hecho «por dónde te llega», y es el único lugar del
+   * lienzo donde ese dato se afirma (el interruptor de canal vive en /perfil). Al
+   * renombrar el nodo —pedido textual: «la siguiente sección debe tener el título de
+   * MENSAJE»— ese hecho se queda sin dueño, así que baja al `detalle`, junto con el
+   * estado del recordatorio, que también perdió su nodo.
+   *
+   * El título manda en DOS lugares: la tarjeta y la cabecera del panel del editor
+   * (`Lienzo.tsx` pinta `nodoSel.titulo` cuando nadie pasa `tituloEditor`). O sea que
+   * esta línea sola cumple el punto en las dos superficies donde se lee un título.
+   */
+  const lineasMensaje = [porDondeLlega(a.canales)];
+  if (a.insistir) {
+    const { cadaMin, veces } = a.insistir;
+    lineasMensaje.push(`🔔 Te lo recuerda cada ${textoCadencia(cadaMin)}, hasta ${veces} ${veces === 1 ? 'vez' : 'veces'}`);
+  }
+  const altoMensaje = Math.min(300, ALTO_MIN + 18 * lineasMensaje.length
+    + Math.min(Math.ceil((a.texto || '').length / 32), 10) * 17);
   nodos.push({
-    id: 'mensaje', tipo: 'mensaje', titulo: porDondeLlega(a.canales), icono: sinCanal ? '🔇' : a.canales.email && !a.canales.wa ? '✉️' : '💬',
+    id: 'mensaje', tipo: 'mensaje', titulo: 'MENSAJE', icono: sinCanal ? '🔇' : a.canales.email && !a.canales.wa ? '✉️' : '💬',
     orden: 1,
-    advertencia: sinCanal ? 'Con los dos canales apagados este mensaje no sale.' : undefined,
+    detalle: lineasMensaje.join(NL_TXT),
+    // `advertencia` es UN campo, así que las dos condiciones se encadenan: sin canal
+    // no sale nada (y eso manda), y con WhatsApp apagado el recordatorio no puede
+    // ocurrir aunque el mensaje sí salga por mail.
+    advertencia: sinCanal
+      ? 'Con los dos canales apagados este mensaje no sale.'
+      : a.insistir && !a.canales.wa
+        ? 'Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.'
+        : undefined,
     ...en('mensaje', col(1), MARGEN), ancho: ANCHO_NODO, alto: altoMensaje,
   });
   // ⚠️ LA FLECHA YA NO DICE «cada cuánto, como máximo»: ese desplegable salió de la
@@ -130,29 +174,20 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   // borrar el lugar donde un día se enchufa.
   aristas.push({ desde: 'entrada', hasta: 'mensaje', tono: sinCanal ? 'mala' : 'normal' });
 
-  // ── Y si no contestás. Cuelga del MENSAJE: es lo que pasa después de que salió.
-  const yAbajo = MARGEN + Math.max(altoMensaje, ALTO_MIN + 54) + GAP_Y + 10;
-  nodos.push({
-    id: 'respuesta', tipo: 'respuesta', titulo: 'Si no contestas', icono: '↩️',
-    detalle: a.insistir ? 'MaKo te lo vuelve a mandar' : 'Se manda una vez y listo',
-    ...en('respuesta', col(1), yAbajo), ancho: ANCHO_NODO, alto: ALTO_MIN,
-  });
-  aristas.push({ desde: 'mensaje', hasta: 'respuesta', etiqueta: 'si no contestas', tono: 'normal' });
-
-  if (a.insistir) {
-    const { cadaMin, veces } = a.insistir;
-    nodos.push({
-      id: 'recordatorio', tipo: 'recordatorio', titulo: 'Te insiste', icono: '🔔',
-      detalle: `Cada ${cadaMin} minutos, hasta ${veces} ${veces === 1 ? 'vez' : 'veces'}`,
-      // ⚠️ Los recordatorios salen SÓLO por WhatsApp: el choke point los abre
-      // adentro del `if` del envío al grupo. Con WhatsApp apagado, el nodo está
-      // dibujando algo que no puede ocurrir — y eso se dice, no se esconde.
-      advertencia: a.canales.wa ? undefined : 'Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.',
-      ...en('recordatorio', col(2), yAbajo), ancho: ANCHO_NODO, alto: ALTO_MIN,
-    });
-    aristas.push({ desde: 'respuesta', hasta: 'recordatorio', etiqueta: 'te lo recuerdo', tono: 'condicional' });
-  }
-
+  // ⚠️ ACÁ VIVÍAN «Si no contestas» y «Te insiste», Y SE FUERON ADENTRO DEL MENSAJE.
+  //
+  // Pedido textual, dos veces: «lo de "Si no contesta" debería llamarse RECORDATORIOS, y no debería ser
+  // una nueva sección, sino una opción dentro de la sección de mensaje, que se pueda
+  // activar o desactivar» y, cuando no se hizo, «te dije que el RECORDATORIO se debe
+  // configurar dentro del MENSAJE».
+  //
+  // Y la regla de esta casa lo dice igual: un nodo es algo que OCURRE. «Si no
+  // contestas» no ocurre — es una CONDICIÓN del mensaje, y su tarjeta se dibujaba
+  // siempre, con o sin recordatorio prendido. Era, literalmente, la caja que aparece
+  // sin que nadie la pida.
+  //
+  // El estado del recordatorio no se pierde: va en el `detalle` del nodo del mensaje
+  // (arriba) y su interruptor, en el panel de ese mismo nodo.
   // ── Lo que pasa DESPUÉS del aviso. Son los pasos del flujo, y corren por el
   // camino del EVENTO: `dispararEvento` es lo único que los ejecuta. Sin un
   // evento elegido quedan dibujados y quietos — y eso lo dice el nodo, porque un
@@ -252,4 +287,20 @@ export function disparadorCorto(txt: string): string {
   const primera = txt.split(/[.;:]/)[0]?.trim() ?? '';
   const base = (primera || txt.trim()).replace(/\s*\([^)]*\)\s*$/, '').trim();
   return base.length > 96 ? base.slice(0, 95).trimEnd() + '…' : base;
+}
+
+/**
+ * CADA CUÁNTO INSISTE, en palabras.
+ *
+ * El paso guarda MINUTOS y siempre los va a guardar —es lo que el motor lee de la
+ * fila (`insistencias.cada_min`)— pero «cada 43200 minutos» no es una frase que
+ * alguien pueda leer. Las unidades son las que el dueño nombró: «se debería poder
+ * recordar 1 vez al día, a la semana, al mes».
+ */
+export function textoCadencia(min: number): string {
+  if (min >= 43200 && min % 43200 === 0) { const n = min / 43200; return n === 1 ? 'mes' : `${n} meses`; }
+  if (min >= 10080 && min % 10080 === 0) { const n = min / 10080; return n === 1 ? 'semana' : `${n} semanas`; }
+  if (min >= 1440 && min % 1440 === 0) { const n = min / 1440; return n === 1 ? 'día' : `${n} días`; }
+  if (min >= 60 && min % 60 === 0) { const n = min / 60; return n === 1 ? 'hora' : `${n} horas`; }
+  return `${min} minutos`;
 }

@@ -12,6 +12,7 @@ import { Dropdown } from '../components/Dropdown';
 import { FlujoAviso } from './FlujoAviso';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
 import { Confirm } from '@/app/_ui/Confirm';
+import { type as tipo } from '@/app/_ui/tokens';
 import { CATEGORIAS_AVISO, EMOJI_CATEGORIA, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 // El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
@@ -246,19 +247,34 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
              y «a la derecha del todo debería estar la X de cerrar». */
           chrome={(
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ ...tarjetaChrome, minWidth: 0, maxWidth: 380 }}>
+                {/**
+                  * ⚠️ EL ANCHO ES FIJO, Y NO ES UN DETALLE: es lo que hace que subir la
+                  * tipografía no empeore otra cosa. Con `maxWidth` el ancho lo decide el
+                  * contenido, y en modo edición el contenido es un `<input>`, que NO mide
+                  * su texto — mide `size=20 × el avance del «0»` de la fuente activa. La
+                  * tarjeta encogía 84 px al hacer click, y con el título más grande serían
+                  * 96. Fijándolo, los dos estados miden lo mismo.
+                  */}
+                <div style={{ ...tarjetaChrome, minWidth: 0, width: 380 }}>
                   {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
-                      casa: un lápiz al lado es un segundo control para la misma acción. */}
+                      casa: un lápiz al lado es un segundo control para la misma acción.
+
+                      ⚠️ Y MANDA SOBRE LA CATEGORÍA. Medido en pantalla: el título estaba
+                      en 13,5 px y el desplegable de abajo en 14 — el nombre de la
+                      automatización era literalmente más chico que su propia etiqueta.
+                      «El título de la automatización NO puede ser más chico que el
+                      desplegable de abajo de categoría, tiene que ser más grande.» Sale
+                      del token y no de un número suelto, así que sube solo en mobile. */}
                   {editandoTitulo ? (
                     <input
                       autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)}
                       onBlur={() => void guardarTitulo()}
                       onKeyDown={(e) => { if (e.key === 'Enter') void guardarTitulo(); if (e.key === 'Escape') { setTitulo(plantilla.titulo); setEditandoTitulo(false); } }}
-                      style={{ width: '100%', boxSizing: 'border-box', padding: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 13.5, fontWeight: 700, fontFamily: 'inherit' }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: tipo.card, fontWeight: 700, fontFamily: 'inherit' }}
                     />
                   ) : (
                     <button onClick={() => setEditandoTitulo(true)} title="Cambiar el nombre"
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, border: 'none', background: 'none', cursor: 'text', fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, border: 'none', background: 'none', cursor: 'text', fontSize: tipo.card, fontWeight: 700, color: 'var(--ink)', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {titulo || plantilla.titulo}
                     </button>
                   )}
@@ -273,8 +289,6 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                 {id && <PrefsDeMensaje id={id} estilo={tarjetaChrome} />}
 
                 <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                  {sinPublicar && <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--warn)' }}>Sin publicar</span>}
-                  {flash && <span style={{ fontSize: 12.5, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>}
                   <div style={{ ...tarjetaChrome, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     {/* Un mensaje FIJO no ofrece el switch: es el que avisa que MaKo se
                         quedó sin datos, y un botón que no hace nada es peor que ninguno. */}
@@ -304,12 +318,35 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
              «el botón de guardar debería estar abajo en donde hoy está acción […] y
              el botón de abajo en lugar de guardar, que se llame Publicar». Agregar
              un paso pasó al ＋ que aparece al costado de cada tarjeta. */
-          pie={puedeEditarTexto ? (
-            <button onClick={() => void publicar()} disabled={busy === 'pub' || !sinPublicar}
-              title={sinPublicar ? 'Publicar: MaKo empieza a usar este texto' : 'No hay cambios sin publicar'}
-              style={{ ...btn, padding: '9px 18px', opacity: busy === 'pub' || !sinPublicar ? 0.45 : 1 }}>
-              {busy === 'pub' ? 'Publicando…' : 'Publicar'}
-            </button>
+          /* ⚠️ «Sin publicar» VIVE AL LADO DEL BOTÓN, no en la esquina de enfrente.
+             Estaba arriba a la derecha y «Publicar» abajo a la derecha: 544 px de
+             distancia medidos. «El mensaje de "Sin publicar" debería estar en todo caso
+             abajo, al lado del botón de publicar. Qué sentido tiene que esté arriba.»
+
+             Y el `flash` («Publicado ✓», los errores) baja con él: mudar uno solo
+             dejaría dos mensajes de estado en dos esquinas opuestas, que es peor que
+             los dos arriba.
+
+             La condición es `sinPublicar || puedeEditarTexto` y no sólo la segunda: sin
+             eso el cartel desaparece en toda superficie donde el texto no se pueda
+             editar, y ahí alguien tendría un borrador sin publicar, sin cartel y sin
+             botón — sin nada que lo avise. */
+          pie={(sinPublicar || puedeEditarTexto || flash) ? (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              {sinPublicar && (
+                <span style={{ ...tarjetaChrome, fontSize: tipo.meta, fontWeight: 600, color: 'var(--warn)' }}>Sin publicar</span>
+              )}
+              {flash && (
+                <span style={{ ...tarjetaChrome, fontSize: tipo.meta, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>
+              )}
+              {puedeEditarTexto && (
+                <button onClick={() => void publicar()} disabled={busy === 'pub' || !sinPublicar}
+                  title={sinPublicar ? 'Publicar: MaKo empieza a usar este texto' : 'No hay cambios sin publicar'}
+                  style={{ ...btn, padding: '9px 18px', opacity: busy === 'pub' || !sinPublicar ? 0.45 : 1 }}>
+                  {busy === 'pub' ? 'Publicando…' : 'Publicar'}
+                </button>
+              )}
+            </div>
           ) : undefined}
         />
       ) : null}

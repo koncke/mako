@@ -33,6 +33,9 @@
 //    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
 import { useEffect, useRef, type CSSProperties } from 'react';
+import { tramosConVariables } from '@/lib/variables-aviso';
+import { Dropdown } from '../components/Dropdown';
+import type { VariableAviso } from '@/lib/variables-aviso';
 
 const SANS = "'Geist', sans-serif";
 
@@ -45,12 +48,22 @@ const MARCAS = [
 const escaparHtml = (s: string) => s
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Marcas → HTML, para pintar. Una marca abre y cierra en la MISMA línea. */
+/**
+ * Marcas → HTML, para pintar. Una marca abre y cierra en la MISMA línea.
+ *
+ * ⚠️ LOS TOKENS `{{…}}` QUEDAN AFUERA DE LAS MARCAS. La itálica es `_texto_` y un
+ * token trae guiones bajos adentro: sin esto, `Hola {{lead_nombre}}, mirá
+ * {{link_crm}}` se dibuja «Hola {{leadnombre}}, mirá {{linkcrm}}» en itálica, y con
+ * una negrita en el medio salen etiquetas CRUZADAS que el navegador reparenta — y ahí
+ * `domAMarcas` devuelve un texto distinto del que se escribió, sin que nada falle.
+ */
 function marcasAHtmlEditor(texto: string): string {
-  const porLinea = escaparHtml(texto ?? '').split('\n').map((l) => l
+  const conMarcas = (l: string) => l
     .replace(/\*([^*\n]+?)\*/g, '<b>$1</b>')
     .replace(/_([^_\n]+?)_/g, '<i>$1</i>')
-    .replace(/~([^~\n]+?)~/g, '<s>$1</s>'));
+    .replace(/~([^~\n]+?)~/g, '<s>$1</s>');
+  const porLinea = escaparHtml(texto ?? '').split('\n').map((l) =>
+    tramosConVariables(l).map((t) => (t.esVar ? t.txt : conMarcas(t.txt))).join(''));
   return porLinea.join('<br>') || '';
 }
 
@@ -82,11 +95,13 @@ function domAMarcas(nodo: Node): string {
   return out;
 }
 
-export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
+export function EditorMensaje({ valor, onChange, filas = 7, disabled, variables }: {
   valor: string;
   onChange: (v: string) => void;
   filas?: number;
   disabled?: boolean;
+  /** Los datos de MaKo que ESTE mensaje puede resolver. Sin lista, no hay botón. */
+  variables?: VariableAviso[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   /** Lo último que ESTE editor emitió. Ver la trampa 1. */
@@ -106,6 +121,25 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
     const txt = domAMarcas(el);
     propio.current = txt;
     onChange(txt);
+  }
+
+  /**
+   * METE UN DATO DE MAKO EN EL CURSOR.
+   *
+   * ⚠️ ES TEXTO PLANO, NO UN CHIP. `domAMarcas` —la mitad que decide qué se GUARDA—
+   * aplana todo lo que no sea b/i/s y no avisa: un `<span>` que dijera «Nombre del
+   * lead» se serializaría como ese texto y la variable desaparecería entera, sin un
+   * error. Lo que se escribe es `{{lead_nombre}}`; el color se lo pone el pintado.
+   *
+   * `insertText` es el mismo camino que ya usa el pegado, y es lo único que respeta
+   * el deshacer del navegador y la posición del cursor.
+   */
+  function insertarVariable(key: string) {
+    const el = ref.current;
+    if (!el || disabled) return;
+    el.focus();
+    document.execCommand('insertText', false, `{{${key}}}`);
+    emitir();
   }
 
   function formato(comando: string) {
@@ -139,6 +173,18 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
             {m.label}
           </button>
         ))}
+        {variables && variables.length > 0 && (
+          <div onMouseDown={(e) => e.preventDefault()} style={{ marginLeft: 'auto' }}>
+            <Dropdown
+              value="" width={148} ariaLabel="Meter un dato de MaKo"
+              options={[
+                { value: '', label: '＋ Dato de MaKo', disabled: true },
+                ...variables.map((v) => ({ value: v.key, label: v.label, sub: v.ejemplo })),
+              ]}
+              onChange={(k) => k && insertarVariable(k)}
+            />
+          </div>
+        )}
       </div>
 
       <div

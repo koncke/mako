@@ -23,7 +23,8 @@
 // vacía. Tratarlo como markdown haría desaparecer los asteriscos de la pantalla y
 // que al lead le lleguen igual.
 
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
+import { tramosConVariables } from '@/lib/variables-aviso';
 
 type Marca = { char: string; estilo: React.CSSProperties };
 
@@ -44,6 +45,18 @@ const esc = (c: string) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * hay pareja, el regex no matchea y el texto sale tal cual.
  */
 function pintar(texto: string, marcas: Marca[], clave: string): ReactNode[] {
+  // ⚠️ LOS TOKENS `{{…}}` NO SE TOCAN. Su guión bajo es el mismo carácter que abre la
+  // itálica, así que dos tokens en una línea se emparejan entre sí y el mensaje se
+  // dibuja con los nombres partidos. Se parten primero, y las marcas corren sólo
+  // afuera. (Es la primera vuelta: adentro ya no hay tokens que separar.)
+  if (marcas.length === MARCAS.length) {
+    const tramos = tramosConVariables(texto);
+    if (tramos.some((t) => t.esVar)) {
+      return tramos.map((t, i) => (t.esVar
+        ? <span key={`${clave}v${i}`} style={{ color: 'var(--primary-strong)', fontWeight: 600 }}>{t.txt}</span>
+        : <Fragment key={`${clave}t${i}`}>{pintar(t.txt, marcas, `${clave}t${i}`)}</Fragment>));
+    }
+  }
   if (marcas.length === 0) return [texto];
   const [m, ...resto] = marcas;
   const c = esc(m!.char);

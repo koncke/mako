@@ -63,10 +63,20 @@ export const INSISTIR_VENTANA = { desde: 8, hasta: 21 } as const;
 export const ACUSES = ['ok', 'okey', 'oka', 'dale', 'listo', 'visto', 'lo vi', 'ya está', 'ya esta', 'perfecto', 'gracias', 'enterado', 'anotado', '👍', '✅', '🙏'];
 
 /** ¿Este texto del grupo es un acuse de recibo? Tolerante: cualquier mensaje corto que lo contenga. */
-export function esAcuse(texto: string): boolean {
+/**
+ * ¿Este mensaje del grupo corta los recordatorios?
+ *
+ * ⚠️ LAS PALABRAS SON UN PARÁMETRO CON DEFAULT, y eso es lo que permite que el
+ * negocio las configure sin tocar a nadie: los diez tests que comparan contra
+ * `ACUSES` siguen llamando con un solo argumento y siguen en verde.
+ *
+ * Pedido textual: «también se debería poder configurar qué palabra hacen que paren
+ * los recordatorios, no solo un ok».
+ */
+export function esAcuse(texto: string, palabras: readonly string[] = ACUSES): boolean {
   const t = (texto || '').trim().toLowerCase();
   if (!t || t.length > 40) return false;   // un mensaje largo es otra conversación, no un «ok»
-  return ACUSES.some((a) => t === a || t.startsWith(a + ' ') || t.endsWith(' ' + a) || t.includes(a));
+  return palabras.some((a) => t === a || t.startsWith(a + ' ') || t.endsWith(' ' + a) || t.includes(a));
 }
 
 /**
@@ -139,4 +149,60 @@ export function esFlujoValido(x: unknown): x is Flujo {
   if (!x || typeof x !== 'object') return false;
   const f = x as Flujo;
   return f.version === 1 && typeof f.activo === 'boolean' && !!f.disparador && Array.isArray(f.pasos);
+}
+
+// ── CADA CUÁNTO INSISTE, EN UNIDADES QUE ALGUIEN PUEDE ELEGIR ──────────────
+// El paso guarda MINUTOS y los va a seguir guardando: es lo que el motor lee de la
+// fila (`insistencias.cada_min`) y lo que el CHECK de la migración 0180 valida. Lo
+// que falta es el vocabulario para elegirlos, porque «cada 43200 minutos» no es una
+// frase. Pedido textual: «solo está configurado para recordatorios por minutos, se
+// debería poder recordar 1 vez al día, a la semana, al mes».
+//
+// ⚠️ NO HACE FALTA MIGRACIÓN NI CAMPO NUEVO, y está medido: el CHECK de
+// `cada_min` es un PISO (`>= 30`) y `sanearInsistir` tampoco tiene techo, así que
+// 1440, 10080 y 43200 entran tal cual. Y los tres conservan la hora de pared,
+// porque `proximaSalida` avanza en horas y los tres son múltiplos de 24 h.
+
+export type UnidadRecordatorio = 'min' | 'hora' | 'dia' | 'semana' | 'mes';
+
+export const UNIDADES_RECORDATORIO: Array<{ key: UnidadRecordatorio; label: string; plural: string; min: number }> = [
+  { key: 'min', label: 'minuto', plural: 'minutos', min: 1 },
+  { key: 'hora', label: 'hora', plural: 'horas', min: 60 },
+  { key: 'dia', label: 'día', plural: 'días', min: 1440 },
+  { key: 'semana', label: 'semana', plural: 'semanas', min: 10080 },
+  { key: 'mes', label: 'mes', plural: 'meses', min: 43200 },
+];
+
+/** Minutos → el par (cuántos, de qué). Elige la unidad MÁS GRANDE que divida justo. */
+export function cadaDeMin(min: number): { n: number; u: UnidadRecordatorio } {
+  for (const u of [...UNIDADES_RECORDATORIO].reverse()) {
+    if (u.min > 1 && min >= u.min && min % u.min === 0) return { n: min / u.min, u: u.key };
+  }
+  return { n: Math.max(1, Math.round(min)), u: 'min' };
+}
+
+/** El par → minutos, ya recortado por el piso que el motor exige. */
+export function aMinutos(n: number, u: UnidadRecordatorio): number {
+  const base = UNIDADES_RECORDATORIO.find((x) => x.key === u)?.min ?? 1;
+  const v = Math.floor(Number(n));
+  return Math.max(INSISTIR_MIN_MINUTOS, (Number.isFinite(v) && v > 0 ? v : 1) * base);
+}
+
+/**
+ * LAS PALABRAS DE CORTE QUE ESCRIBE EL NEGOCIO, saneadas.
+ *
+ * Se topean en 12 y en 24 caracteres cada una por la misma razón que `esAcuse` no
+ * mira mensajes largos: una palabra de corte que sea una frase común convierte
+ * cualquier charla del grupo en un «lo vi», y el recordatorio deja de existir sin
+ * que nadie lo apague.
+ */
+export function sanearAcuses(v: unknown): string[] {
+  const crudo = Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : [];
+  const out: string[] = [];
+  for (const x of crudo) {
+    const p = String(x).trim().toLowerCase().replace(/[!¡.,;:]+$/g, '');
+    if (p && p.length <= 24 && !out.includes(p)) out.push(p);
+    if (out.length >= 12) break;
+  }
+  return out;
 }

@@ -34,11 +34,13 @@ import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { Dropdown } from '../components/Dropdown';
 import { EditorMensaje } from './EditorMensaje';
-import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, disparadorCorto, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
+import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
 import { UNIDADES, CADA_MAX, DIA_MES_MAX, sanearCron, textoCron, type CronAviso } from '@/lib/cron-aviso';
+import { variablesPara } from '@/lib/variables-aviso';
 import {
   EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
   type Flujo, type Paso, type AccionFlujo,
+  ACUSES, UNIDADES_RECORDATORIO, cadaDeMin, aMinutos, type UnidadRecordatorio,
 } from '@/lib/flujos-tipos';
 import type { NodoFlujo } from '@/lib/lienzo-grafo';
 
@@ -93,6 +95,10 @@ export function FlujoAviso({
    *  se hereda del dueño y lo reescribe el navegador entero (ver la mig 0183). */
   const [cron, setCron] = useState<CronAviso | null>(null);
   const [tz, setTz] = useState<string | null>(null);
+  /** Las palabras que cortan los recordatorios. Son del NEGOCIO, no del mensaje: el
+   *  webhook que las compara recibe un mensaje del grupo y no sabe a cuál de los
+   *  avisos le está contestando. La pantalla lo dice donde se editan. */
+  const [acusesTxt, setAcusesTxt] = useState('');
   const [pos, setPos] = useState<Posiciones>(posiciones);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -110,6 +116,9 @@ export function FlujoAviso({
   useEffect(() => {
     let vivo = true;
     void api({ action: 'flujo-get', id }).then((r) => { if (vivo) setFlujo((r?.flujo as Flujo | null) ?? null); });
+    void api({ action: 'acuses-get', id }).then((r) => {
+      if (vivo) setAcusesTxt(((r?.acuses as string[] | undefined) ?? ACUSES).join(', '));
+    });
     void api({ action: 'cron-get', id }).then((r) => {
       if (!vivo) return;
       const p = r?.programado as { cron?: unknown; tz?: string } | null | undefined;
@@ -121,6 +130,17 @@ export function FlujoAviso({
 
   /** Agenda o desagenda. El saneo y la zona los resuelve el server, que es el único
    *  que puede: `tzDeWorkspace` sale a la red y no vive en el navegador. */
+  /** Se escribe al SOLTAR el campo, no en cada tecla: son palabras separadas por
+   *  coma y guardar a mitad de una deja «ok, gr» en la lista del negocio. */
+  async function guardarAcuses(v: string, soloPintar = false) {
+    setAcusesTxt(v);
+    if (soloPintar) return;
+    const r = await api({ action: 'acuses-set', id, acuses: v });
+    // Se repinta con lo que el server SANEÓ: si alguien escribió una palabra de 40
+    // caracteres, el campo tiene que mostrar que no entró — no dejarla escrita.
+    if (r?.ok) setAcusesTxt(((r.acuses as string[] | undefined) ?? ACUSES).join(', '));
+  }
+
   async function guardarCron(c: CronAviso | null) {
     // ⚠️ SE REVIERTE SI FALLA, y esta regla viene heredada del control que esta
     // sección reemplazó (`Disparador.tsx`, que hacía `setMin(previo)`): sin ella el
@@ -190,7 +210,12 @@ export function FlujoAviso({
     <>
       <Lienzo
         grafo={grafo} seleccion={sel} onSeleccion={setSel} onMover={mover}
-        onAgregarTras={editable && !busy ? agregarTras : undefined}
+        onAgregarTras={editable ? agregarTras : undefined}
+        // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
+        // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
+        // CRON señalaba un lugar y el paso aparecía en otro.
+        puedeAgregarTras={(idNodo) => idNodo === 'mensaje' || /^paso-\d+$/.test(idNodo)}
+        agregarOcupado={busy}
         chrome={chrome} sinMarco alto="100%"
         renderNodo={(n, activo) => (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
@@ -208,6 +233,7 @@ export function FlujoAviso({
             nodo={n} id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
             texto={texto} endpoint={endpoint} editable={editable} guardando={guardando || busy}
             canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
+            acusesTxt={acusesTxt} onAcuses={guardarAcuses}
             onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo}
             onQuitarPaso={(i) => {
               const base = flujo ?? FLUJO_VACIO;
@@ -230,7 +256,7 @@ export function FlujoAviso({
 
 function EditorDelAviso({
   nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, guardando, canales,
-  flujo, insistir, cron, tz, onCron, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
+  flujo, insistir, cron, tz, onCron, acusesTxt, onAcuses, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
   endpoint: string; editable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
@@ -239,6 +265,8 @@ function EditorDelAviso({
   cron: CronAviso | null;
   tz: string | null;
   onCron: (c: CronAviso | null) => void;
+  acusesTxt: string;
+  onAcuses: (v: string, soloPintar?: boolean) => void;
   onTexto: (v: string) => void;
   onCambio?: () => void;
   onFlujo: (f: Flujo | null) => void;
@@ -250,12 +278,102 @@ function EditorDelAviso({
   if (nodo.tipo === 'entrada') {
     return (
       <SeccionCron
-        disparador={disparador} base={base} cron={cron} tz={tz}
+        base={base} cron={cron} tz={tz}
         guardando={guardando} onFlujo={onFlujo} onCron={onCron}
       />
     );
   }
   if (nodo.id === 'mensaje') {
+    /**
+     * ⚠️ RECORDATORIOS VIVE ACÁ, NO EN UN NODO APARTE.
+     *
+     * Pedido textual, dos veces: «lo de «Si no contesta» debería llamarse
+     * RECORDATORIOS, y no debería ser una nueva sección, sino una opción dentro de
+     * la sección de mensaje, que se pueda activar o desactivar» y, cuando no se
+     * hizo, «te dije que el RECORDATORIO se debe configurar dentro del MENSAJE».
+     *
+     * ⚠️ Y VA ARRIBA DEL `if (!editable)`, no debajo del editor. Hasta acá el
+     * interruptor vivía en una rama que NO miraba `editable`, así que era alcanzable
+     * siempre; pegarlo abajo del `<EditorMensaje>` lo dejaría detrás de ese return y
+     * desaparecería para los avisos que redacta MaKo — que el server SÍ deja
+     * configurar (`flujo-set` no pasa por `esAdministrativo`). Esconder un control
+     * que el servidor acepta es sacar una función sin decirlo.
+     */
+    const prender = () => onFlujo({
+      ...base, activo: true,
+      pasos: [...base.pasos.filter((p) => p.tipo !== 'insistir'), sanearInsistir({ texto: '', cadaMin: INSISTIR_MIN_MINUTOS, veces: 2 })],
+    });
+    /**
+     * ⚠️ APAGAR ESCRIBE UN FLUJO CON `pasos: []`, NUNCA `null`.
+     *
+     * El store se HEREDA del dueño entrada por entrada, y `mutar` hace copy-on-write
+     * desde lo EFECTIVO: mandar `null` borra la clave propia —que nunca existió— y la
+     * lectura vuelve a traer la del dueño, así que el recordatorio reaparece en el
+     * mismo frame. Medido: el ws1 tiene `reporte-semanal` con un `insistir` y los ws
+     * 3, 4 y 13 lo heredan sin haberlo prendido. Con un objeto explícito, el cliente
+     * tiene su propia copia diciendo «acá no hay recordatorio».
+     *
+     * Y sigue cerrando las insistencias ya abiertas: `setFlujo` lo dispara cuando el
+     * flujo pasa de tener `insistir` a no tenerlo (lib/plantillas.ts).
+     */
+    const apagar = () => onFlujo({ ...base, pasos: base.pasos.filter((p) => p.tipo !== 'insistir') });
+    const cambiar = (p: Partial<{ cadaMin: number; veces: number }>) => {
+      if (!insistir) return;
+      const nuevo = sanearInsistir({ ...insistir, ...p });
+      onFlujo({ ...base, pasos: base.pasos.map((x) => (x.tipo === 'insistir' ? nuevo : x)) });
+    };
+
+    // El campo se pinta en el frame y se GUARDA al soltar: son palabras separadas por
+    // coma, y escribir en la base a mitad de una deja «ok, gr» en la lista del negocio.
+    const onAcusesLocal = (v: string) => onAcuses(v, true);
+    const recordatorios = (
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <label style={rotuloLienzo}>Recordatorios</label>
+        <div style={{ display: 'flex', gap: 7, marginBottom: insistir ? 10 : 0 }}>
+          <Opcion activa={!insistir} onClick={() => insistir && apagar()} disabled={guardando}>Se manda una vez</Opcion>
+          <Opcion activa={!!insistir} onClick={() => !insistir && prender()} disabled={guardando}>Te lo recuerdo</Opcion>
+        </div>
+        {insistir && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* ⚠️ LA UNIDAD ES UN DESPLEGABLE Y EL DATO SIGUEN SIENDO MINUTOS: el motor
+                lee `cada_min` de la fila y el CHECK de la migración es un PISO (>= 30),
+                así que día, semana y mes entran sin migración ni campo nuevo. Pedido
+                textual: «se debería poder recordar 1 vez al día, a la semana, al mes». */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Cada</span>
+              <input type="number" min={1} max={99} value={cadaDeMin(insistir.cadaMin).n} disabled={guardando}
+                onChange={(e) => cambiar({ cadaMin: aMinutos(Number(e.target.value), cadaDeMin(insistir.cadaMin).u) })}
+                aria-label="Cada cuántos" style={{ ...inpLienzo, width: 62, flex: 'none' }} />
+              <Dropdown value={cadaDeMin(insistir.cadaMin).u} width="100%" ariaLabel="Unidad del recordatorio"
+                options={UNIDADES_RECORDATORIO.map((x) => ({ value: x.key, label: cadaDeMin(insistir.cadaMin).n === 1 ? x.label : x.plural }))}
+                onChange={(v) => cambiar({ cadaMin: aMinutos(cadaDeMin(insistir.cadaMin).n, v as UnidadRecordatorio) })} />
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Hasta</span>
+              <input type="number" min={1} max={INSISTIR_MAX_VECES} value={insistir.veces} disabled={guardando}
+                onChange={(e) => cambiar({ veces: Number(e.target.value) })}
+                aria-label="Cuántas veces" style={{ ...inpLienzo, width: 62, flex: 'none' }} />
+              <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>{insistir.veces === 1 ? 'vez' : 'veces'}</span>
+            </div>
+            {/* Las palabras que lo cortan. El dueño: «se debería poder configurar qué
+                palabra hacen que paren los recordatorios, no solo un ok». */}
+            <div>
+              <label style={rotuloLienzo}>Se corta si alguien escribe</label>
+              <input value={acusesTxt} disabled={guardando}
+                onChange={(e) => onAcusesLocal(e.target.value)} onBlur={() => onAcuses(acusesTxt)}
+                placeholder={ACUSES.slice(0, 4).join(', ')} aria-label="Palabras que cortan los recordatorios"
+                style={{ ...inpLienzo, width: '100%', boxSizing: 'border-box' }} />
+            </div>
+            {!canales.wa && (
+              <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, margin: 0 }}>
+                Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+
     if (!editable) {
       return (
         <>
@@ -263,19 +381,25 @@ function EditorDelAviso({
           <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 9, marginBottom: 0 }}>
             Este lo redacta MaKo: informa algo técnico y tiene que decir exactamente lo que pasó.
           </p>
+          {recordatorios}
         </>
       );
     }
     return (
       <>
-        <EditorMensaje valor={texto} onChange={onTexto} filas={6} disabled={guardando} />
+        {/* ⚠️ SE OFRECE SÓLO LO QUE ESTE MENSAJE PUEDE RESOLVER. Un `{{lead_nombre}}`
+            en un aviso que no habla de ningún lead sale CRUDO al WhatsApp del cliente:
+            el resolvedor deja intacto lo que no sabe, a propósito, y el filtro de acá
+            es lo único que evita que llegue ahí. */}
+        <EditorMensaje valor={texto} onChange={onTexto} filas={6} disabled={guardando}
+          variables={variablesPara({ conLead: base.disparador.tipo === 'evento' })} />
         <button onClick={onProbar} disabled={probando} style={{ ...btnFantasma, marginTop: 10 }}>
           {probando ? 'Escribiendo…' : '✨ Que lo escriba MaKo'}
         </button>
         {/* ⚠️ LA SUGERENCIA SE APLICA, NO SE MIRA. El botón dejaba un texto en azul
             debajo y no tocaba el mensaje: «no hace nada, me escribe algo abajo pero
             no cambia el texto». Un botón que produce algo y no lo pone donde va es
-            medio botón. Nada se guarda hasta «Guardar», así que es reversible. */}
+            medio botón. Nada se publica hasta «Publicar», así que es reversible. */}
         {prueba && prueba !== texto && (
           <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)' }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 5 }}>MaKo lo escribiría así</div>
@@ -285,59 +409,7 @@ function EditorDelAviso({
             </button>
           </div>
         )}
-      </>
-    );
-  }
-
-  if (nodo.tipo === 'respuesta' || nodo.tipo === 'recordatorio') {
-    const prender = () => onFlujo({
-      ...base, activo: true,
-      pasos: [...base.pasos.filter((p) => p.tipo !== 'insistir'), sanearInsistir({ texto: '', cadaMin: INSISTIR_MIN_MINUTOS, veces: 2 })],
-    });
-    const apagar = () => {
-      const pasos = base.pasos.filter((p) => p.tipo !== 'insistir');
-      // Sin pasos y sin evento, el flujo no tiene nada que hacer: se va entero. Y
-      // `setFlujo` cierra las insistencias ya abiertas — apagar algo que tiene cola
-      // tiene que cerrar la cola, o siguen saliendo hasta cinco mensajes más.
-      onFlujo(pasos.length || base.disparador.tipo !== 'manual' ? { ...base, pasos } : null);
-    };
-    const cambiar = (p: Partial<{ cadaMin: number; veces: number }>) => {
-      if (!insistir) return;
-      const nuevo = sanearInsistir({ ...insistir, ...p });
-      onFlujo({ ...base, pasos: base.pasos.map((x) => (x.tipo === 'insistir' ? nuevo : x)) });
-    };
-    return (
-      <>
-        <div style={{ display: 'flex', gap: 7, marginBottom: insistir ? 12 : 0 }}>
-          <Opcion activa={!insistir} onClick={() => insistir && apagar()} disabled={guardando}>Se manda una vez</Opcion>
-          <Opcion activa={!!insistir} onClick={() => !insistir && prender()} disabled={guardando}>Te lo recuerdo</Opcion>
-        </div>
-        {insistir && (
-          <>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--ink)', flexWrap: 'wrap' }}>
-              Cada
-              <input type="number" min={INSISTIR_MIN_MINUTOS} step={15} value={insistir.cadaMin} disabled={guardando}
-                onChange={(e) => cambiar({ cadaMin: Number(e.target.value) })}
-                style={{ ...inpLienzo, width: 76 }} />
-              min, hasta
-              <input type="number" min={1} max={INSISTIR_MAX_VECES} value={insistir.veces} disabled={guardando}
-                onChange={(e) => cambiar({ veces: Number(e.target.value) })}
-                style={{ ...inpLienzo, width: 62 }} />
-              veces
-            </label>
-            {/* El techo se DICE, no se ofrece como campo: es lo único que impide que
-                esto se convierta en quemar la línea de WhatsApp del cliente. */}
-            <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 7, marginBottom: 0 }}>
-              Se corta apenas alguien escribe «ok» en el grupo, y de noche espera a la mañana.
-              El máximo son {INSISTIR_MAX_VECES} cada {INSISTIR_MIN_MINUTOS} minutos.
-            </p>
-            {!canales.wa && (
-              <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, marginTop: 6, marginBottom: 0 }}>
-                Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.
-              </p>
-            )}
-          </>
-        )}
+        {recordatorios}
       </>
     );
   }
@@ -504,19 +576,36 @@ function EditorCron({ cron, tz, disabled, onCron }: {
  * los 10 workspaces lo tienen en 0, así que no apaga ninguna protección que hoy
  * funcione. El CAMPO y sus dos lectores quedan.
  */
-type ModoCron = 'nada' | 'tiempo' | 'accion';
+type ModoCron = 'tiempo' | 'accion' | null;
 
-function SeccionCron({ disparador, base, cron, tz, guardando, onFlujo, onCron }: {
-  disparador: string; base: Flujo; cron: CronAviso | null; tz: string | null;
+function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
+  base: Flujo; cron: CronAviso | null; tz: string | null;
   guardando: boolean; onFlujo: (f: Flujo | null) => void; onCron: (c: CronAviso | null) => void;
 }) {
   const evento = base.disparador.tipo === 'evento' ? base.disparador.evento : '';
-  const guardado: ModoCron = cron ? 'tiempo' : evento ? 'accion' : 'nada';
-  const [intencion, setIntencion] = useState<ModoCron | null>(null);
+  const guardado: ModoCron = cron ? 'tiempo' : evento ? 'accion' : null;
+  const [intencion, setIntencion] = useState<ModoCron>(null);
+  // Sin nada elegido los dos botones están apagados, y eso es cierto para los 65: nadie
+  // configuró cuándo sale. Lo que ese estado NO dice es «no sale» — eso lo dice la
+  // tarjeta, con el disparador nativo rotulado.
   const modo = intencion ?? guardado;
 
+  /**
+   * ⚠️ LOS BOTONES SON DOS Y APAGAN AL VOLVER A APRETARLOS.
+   *
+   * «Qué es ese botón de "Nada más" no tiene sentido!!! Quitalo... Son 2 botones como
+   * te dije, o por tiempo o por acción.» Lo único que ese tercer botón tenía de propio
+   * era APAGAR, así que eso pasa al toggle del que está activo: sin él, elegir «Por
+   * tiempo» una vez dejaría el mensaje agendado para siempre, sin ninguna salida que
+   * no sea apagar el mensaje entero.
+   */
   const elegir = (m: ModoCron) => {
-    if (m === modo) return;
+    if (m === modo) {
+      setIntencion(null);
+      if (m === 'tiempo') onCron(null);
+      else onFlujo({ ...base, disparador: { tipo: 'manual' } });
+      return;
+    }
     setIntencion(m);
     // Elegir uno APAGA el otro, y es una ESCRITURA y no un `disabled`: las dos
     // mitades viven en lugares distintos —el evento en el store del flujo, el
@@ -529,9 +618,13 @@ function SeccionCron({ disparador, base, cron, tz, guardando, onFlujo, onCron }:
 
   return (
     <>
-      <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.45, marginBottom: 10 }}>{disparadorCorto(disparador)}</div>
+      {/* ⚠️ ACÁ NO VA EL DISPARADOR DEL CATÁLOGO. Esa línea decía «Cron los lunes a la
+          mañana» —el campo `disparador`, la descripción de fábrica— arriba de un
+          agendado vacío, y se leyó exactamente como lo que parecía: «estás
+          PRECONFIGURANDO el cron… cuando JUSTAMENTE lo estamos haciendo editable».
+          El hecho no se pierde: lo dice la TARJETA, rotulado «Hoy sale solo». */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {([['nada', 'Nada más'], ['tiempo', 'Por tiempo'], ['accion', 'Por una acción']] as const).map(([k, txt]) => (
+        {([['tiempo', 'Por tiempo'], ['accion', 'Por una acción']] as const).map(([k, txt]) => (
           <button key={k} onClick={() => elegir(k)} disabled={guardando} aria-pressed={modo === k}
             style={{
               flex: 1, padding: '7px 4px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',

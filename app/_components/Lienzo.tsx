@@ -66,7 +66,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
-  alto = 'min(54svh, 460px)', onMover, onAgregarTras, chrome, sinMarco = false,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, chrome, sinMarco = false,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -96,6 +96,13 @@ export function Lienzo({
    *  tarjeta, a su derecha — que es donde va a aparecer lo que se agregue. Un botón
    *  suelto en una esquina no dice DÓNDE entra el paso; éste sí. */
   onAgregarTras?: (id: string) => void;
+  /** En qué nodos tiene sentido el ＋. Sin esto sale en TODOS, incluido el de entrada
+   *  — y el paso que agrega ahí no cuelga de él sino del mensaje, así que el botón
+   *  señala un lugar y el paso cae en otro. Eso es el «se comporta de manera random». */
+  puedeAgregarTras?: (id: string) => boolean;
+  /** Hay un guardado en vuelo: el ＋ se DESHABILITA, no se desmonta. Un control que
+   *  desaparece bajo el dedo se lee como un clic que no registró. */
+  agregarOcupado?: boolean;
 }) {
   const caja = useRef<HTMLDivElement | null>(null);
   const capa = useRef<HTMLDivElement | null>(null);
@@ -238,6 +245,17 @@ export function Lienzo({
         el.style.left = `${movido.current.x}px`;
         el.style.top = `${movido.current.y}px`;
       }
+      // ⚠️ Y EL ＋ SE MUEVE CON ELLA. `setPointerCapture` retargetea los eventos al
+      // contenedor, así que durante todo el arrastre no se dispara ni un enter ni un
+      // leave en los envoltorios: `encima` queda congelado en el nodo agarrado. Sin
+      // esto, el botón se queda flotando en el lugar viejo mientras la tarjeta viaja —
+      // justo en el gesto que el dueño nombró.
+      const mas = caja.current?.querySelector(`[data-mas="${g.nodo}"]`);
+      const nodoMov = grafo.nodos.find((x) => x.id === g.nodo);
+      if (mas instanceof HTMLElement && nodoMov) {
+        mas.style.left = `${movido.current.x + nodoMov.ancho}px`;
+        mas.style.top = `${movido.current.y + 10}px`;
+      }
       return;
     }
     vista.current = { ...vista.current, tx: g.tx0 + dx, ty: g.ty0 + dy };
@@ -361,24 +379,58 @@ export function Lienzo({
           })}
 
           {grafo.nodos.map((n) => (
+            /**
+             * ⚠️ EL ENVOLTORIO MIDE 0×0: SU REGIÓN DE HOVER ES LA UNIÓN DE SUS HIJOS.
+             *
+             * `capa` es `position:absolute` sin ancho ni alto, y los descendientes
+             * ABSOLUTOS no cuentan para el shrink-to-fit de un absoluto, así que este
+             * div no tiene caja propia. Cualquier separación entre la tarjeta y el ＋
+             * es aire de `capa`, no del envoltorio — y cruzarlo dispara `pointerleave`,
+             * que desmonta el botón justo cuando el cursor va hacia él.
+             *
+             * Medido con Playwright: el ＋ vivía 8 px afuera y se apagaba en el paso 9
+             * de 10 del camino del cursor. No era difícil de apretar: era INALCANZABLE.
+             * El dueño: «no me deja apretar el botón de + al lado de cada caja, porque
+             * al intentar arrastrar el cursor, desaparece el botón de +».
+             *
+             * La cura es que no haya aire: el ＋ va adentro de un span que ARRANCA en el
+             * borde de la tarjeta y se come los 8 px como padding. El puente es
+             * continuo, y como es el span el que tiene caja, el hover no se corta.
+             * (Un `margin` no sirve: el margen no recibe eventos de puntero.)
+             */
             <div key={n.id}
               onPointerEnter={() => setEncima(n.id)}
               onPointerLeave={() => setEncima((prev) => (prev === n.id ? null : prev))}
+              onFocus={() => setEncima(n.id)}
+              onBlur={() => setEncima((prev) => (prev === n.id ? null : prev))}
             >
               {renderNodo(n, seleccion === n.id)}
-              {onAgregarTras && encima === n.id && (
-                <button
-                  data-no-pan onClick={() => onAgregarTras(n.id)}
-                  title="Agregar un paso después de este" aria-label="Agregar un paso después de este"
+              {onAgregarTras && encima === n.id && (puedeAgregarTras?.(n.id) ?? true) && (
+                <span
+                  // ⚠️ El `data-no-pan` va en el SPAN y no sólo en el botón: un
+                  // pointerdown en los 8 px de padding no encuentra `[data-nodo]` —el
+                  // span no está adentro de la tarjeta— y el lienzo lo tomaría como un
+                  // gesto de PANEO. Con la marca, sale por el early return.
+                  data-no-pan data-mas={n.id}
                   style={{
-                    position: 'absolute', left: n.x + n.ancho + 8, top: n.y + 18,
-                    width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',
-                    border: '1px solid var(--border-strong)', background: 'var(--surface)',
-                    color: 'var(--dim)', fontFamily: SANS, fontSize: 14, lineHeight: 1,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 2px 6px rgba(0,0,0,.10)',
+                    position: 'absolute', left: n.x + n.ancho, top: n.y + 10,
+                    paddingLeft: 8, paddingTop: 8, paddingBottom: 8, paddingRight: 8,
+                    display: 'inline-flex', lineHeight: 0,
                   }}
-                >＋</button>
+                >
+                  <button
+                    onClick={() => onAgregarTras(n.id)} disabled={agregarOcupado}
+                    title="Agregar un paso después de este" aria-label="Agregar un paso después de este"
+                    style={{
+                      width: 26, height: 26, borderRadius: '50%',
+                      cursor: agregarOcupado ? 'default' : 'pointer', opacity: agregarOcupado ? 0.5 : 1,
+                      border: '1px solid var(--border-strong)', background: 'var(--surface)',
+                      color: 'var(--dim)', fontFamily: SANS, fontSize: 14, lineHeight: 1,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 2px 6px rgba(0,0,0,.10)',
+                    }}
+                  >＋</button>
+                </span>
               )}
             </div>
           ))}

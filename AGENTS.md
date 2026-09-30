@@ -5419,3 +5419,67 @@ default; y el store lo reescribe el navegador entero mientras el drenador escrib
 de cualquier workspace y el drenador de un cliente avanzaba y mandaba las filas de
 todos. No da error; contesta con las filas de más. El compilador no ve nada: es un `Set`
 de strings.
+
+# El hover de una tarjeta es la UNIÓN de sus hijos, y un `margin` no recibe eventos
+
+Un contenedor `position: absolute` **sin ancho ni alto** no tiene caja propia: los
+descendientes absolutos no cuentan para su shrink-to-fit, así que mide 0×0 y su región
+de hover es sólo la unión de los hijos posicionados. Cualquier separación entre dos de
+esos hijos es aire del ABUELO, y cruzarlo dispara `pointerleave`.
+
+Medido el 30/09/2026 con Playwright, moviendo el cursor en diez pasos de una tarjeta al
+botón «＋» que cuelga 8 px a su derecha: **se apagaba en el paso 9 de 10**. No era
+difícil de apretar — era INALCANZABLE, y el dueño lo reportó como «no me deja apretar
+el botón de +, porque al intentar arrastrar el cursor desaparece».
+
+- **La cura es que no haya aire**: el botón va adentro de un elemento que ARRANCA en el
+  borde del vecino y se come la separación como `padding`. Un `margin` no sirve: el
+  margen no recibe eventos de puntero.
+- **La marca que exime del gesto va en el ENVOLTORIO, no sólo en el botón.** Un
+  `pointerdown` en el padding no encuentra el nodo —el envoltorio no está adentro de la
+  tarjeta— y el lienzo lo toma como un paneo.
+- **Un control que se deshabilita NO se desmonta.** Estaba montado detrás de
+  `!ocupado`, así que el primer clic lo hacía desaparecer: un control que se borra bajo
+  el dedo se lee como un clic que no registró.
+- **Y durante un arrastre con `setPointerCapture` no se dispara ni un enter ni un
+  leave**: el estado de hover queda congelado, así que todo lo que cuelgue de la
+  tarjeta hay que moverlo a mano en el mismo handler o se queda flotando en el vacío.
+
+⚠️ **Y AL SACAR UN NODO DE UN LIENZO, SU HECHO SE QUEDA SIN DUEÑO.** El título del nodo
+del mensaje ERA «por dónde te llega» — el único lugar de la pantalla donde ese dato se
+afirmaba. Renombrarlo, que es lo que se pidió, lo habría borrado sin que nada fallara.
+Antes de renombrar o borrar un nodo, la pregunta es **qué AFIRMA hoy** y dónde se dice
+después.
+
+# Un token `{{…}}` se parte solo contra las marcas de WhatsApp
+
+La itálica del dialecto de la casa es `_texto_`, y un token de variable trae guiones
+bajos adentro: con dos tokens en la misma línea, el `_` de uno cierra con el del otro y
+`Hola {{lead_nombre}}, mirá {{link_crm}}` se dibuja «Hola {{leadnombre}}, mirá
+{{linkcrm}}» en itálica. Con una negrita en el medio salen etiquetas CRUZADAS, el
+navegador reparenta, y el serializador del editor devuelve un texto distinto del que se
+escribió — o sea que además corrompe lo guardado, sin que nada falle.
+
+- **Los tokens se separan ANTES de aplicar las marcas, y en los DOS renderers**: el que
+  escribe y el que lee. Con uno solo arreglado se ve bien de un lado y partido del otro.
+- **El token se inserta como TEXTO PLANO, nunca como un chip.** El serializador aplana
+  todo lo que no sea negrita, itálica o tachado y NO avisa: un `<span>` que diga «Nombre
+  del lead» se guarda como ese texto y la variable desaparece entera.
+- **Y no se reusa la sustitución de otra área.** La de la nutrición acepta `{una llave}`,
+  su regex no tiene dígitos y la misma función decide qué parámetros se registran en
+  Meta: ampliarla convertiría un `{1}` de un copy en un candidato.
+
+⚠️ **LA REGLA DE ADMISIÓN DE UN CATÁLOGO DE VARIABLES ES «lo que el emisor YA TIENE en
+la mano».** Cero queries nuevas y cero proveedores: una llamada a Meta son ~900 ms
+medidos, y un webhook con `maxDuration` que espera eso es un aviso que no sale. Para un
+número que hay que ir a buscar va el LINK a la pantalla donde está fresco.
+
+⚠️ **Y SE OFRECE SÓLO LO QUE ESE MENSAJE PUEDE RESOLVER.** Lo que no se resuelve sale
+CRUDO —a propósito: crudo se nota, borrado deja el mensaje cojo y nadie se entera— así
+que el filtro del selector es lo único que evita que un token llegue así al cliente.
+
+⚠️ **Y LA SUSTITUCIÓN VA EN EL CALL SITE, CUBRIENDO LOS RETORNOS QUE SE SALTEAN EL
+MODELO.** El generador de texto con IA tiene tres salidas y dos no pasan por el modelo
+(la respuesta vacía y el `catch`): con la sustitución sólo en el camino feliz, la
+variable falla exactamente cuando falla la IA, que es cuando menos se la mira.
+

@@ -19,7 +19,7 @@ import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz
 import { instanciaVoz } from '@/lib/mako-grupo';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
-import { cerrarPorAcuse } from '@/lib/insistencias';
+import { cerrarPorAcuse, acusesDe } from '@/lib/insistencias';
 import { esAcuse } from '@/lib/flujos-tipos';
 
 /**
@@ -186,10 +186,12 @@ export async function POST(req: NextRequest) {
         // MaKo al grupo también llegan por acá, y con un «listo» suyo se acusaría a sí misma.
         after(async () => {
           try {
+            // Las palabras las elige el negocio; sin nada guardado son las de fábrica.
+            const palabras = await acusesDe(ws);
             const texto = grupos
               .filter((m) => !(m?.key as { fromMe?: boolean } | undefined)?.fromMe)
               .map((m) => textoDeMensaje(m))
-              .find((t) => t && esAcuse(t));
+              .find((t) => t && esAcuse(t, palabras));
             if (texto) {
               const n = await cerrarPorAcuse(ws);
               if (n) console.log(`[webhook:evolution] acuse «${texto}» → ${n} insistencia(s) cerrada(s) en ws${ws}`);
