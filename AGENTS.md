@@ -726,6 +726,16 @@ la persona estaba mirando.
 | Cabecera de una vista | el nombre y el número | nada más |
 | `title` / `aria-label` | una frase | la acción y su objeto (acá SÍ va texto: no ocupa lugar) |
 | Confirmación de algo irreversible | una frase | la consecuencia, pegada al botón |
+| **Una fila de una lista de N** | **una frase, ~110 caracteres** | lo que distingue a ESA fila de las otras |
+
+⚠️ **Y EL VOLCADO DE UNA CORRIDA DE AGENTES NO ES UN ENTREGABLE: es materia prima.** Lo
+que devuelven N lectores son N párrafos de 900 a 2.000 caracteres con su evidencia, y
+están bien así — el error es publicarlos. Medido el 30/09/2026: una auditoría de 25
+tareas salió a pantalla con 105.013 caracteres y Martín contestó «te pedí poco texto,
+que sea entendible… y mirá lo que hiciste». **La línea se ESCRIBE leyendo las N, no se
+saca truncando el párrafo del agente**: cortar a los 110 caracteres deja la frase por la
+mitad y se lee peor todavía. Y en una lista larga el rótulo repetido deja de informar —
+se AGRUPA por veredicto en vez de ponerle un chip a cada fila.
 
 Y tres cortes que se repiten:
 

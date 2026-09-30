@@ -18,14 +18,22 @@
 // trampa y —sobre todo— cuándo el diagnóstico obvio era el equivocado.
 
 import type { Hito, Parte } from '../_registro/tipos';
-
+// ⚠️ ESTO SE QUEDA VIEJO SOLO, y se quedó: Martín lo miró el 30/09 y dijo «creo que el
+// Roadmap era viejo, cosas que ya habíamos hecho». Tenía razón — el área había recibido
+// 41 commits en septiembre (el embudo por producto, el pop-up que lo edita, los leads
+// entre productos) y ninguno figuraba acá. Cuando se cierre una parte o nazca otra, se
+// toca ESTA lista: el contador «N de M» del encabezado sale de acá, así que un roadmap
+// viejo no se lee como incompleto, se lee como que el área no avanzó.
 export const PARTES: Parte[] = [
   { titulo: 'El tablero, la ficha y el corte por etapa', detalle: 'Kanban · tabla · «Datos sin marcar» · y mover un lead exige lo que esa etapa necesita', estado: 'hecha' },
   { titulo: 'Una sola puerta de alta', detalle: 'createLead con anti-duplicado propio · el lead de landing entra solo · los webhooks avisan cuando fusionan', estado: 'hecha' },
-  { titulo: 'La bandeja de propuestas', detalle: '/crm/revisar: lo que escribe un canal se confirma antes de valer, con la MISMA tabla del importador', estado: 'hecha' },
-  { titulo: 'El resumen del lead', detalle: '/crm/[id]/resumen para leer en el celular antes y después de la reunión · el análisis de la llamada a un botón', estado: 'hecha' },
+  { titulo: 'La bandeja de propuestas', detalle: '/crm/revisar: lo que escribe un canal se confirma antes de valer', estado: 'hecha' },
+  { titulo: 'El resumen del lead', detalle: '/crm/[id]/resumen para leer en el celular · el análisis de la llamada a un botón', estado: 'hecha' },
+  { titulo: 'Un embudo por producto', detalle: 'Cada producto con sus etapas, su TOFU y su tablero de leads (mig 0181)', estado: 'hecha' },
+  { titulo: 'El embudo se edita DENTRO del CRM', detalle: 'Etapas, entradas y nutriciones en un pop-up · el editor viejo y la ruta /funnel se retiraron', estado: 'hecha' },
+  { titulo: 'Los leads se mueven entre productos', detalle: 'Traerlos de otro embudo con filtros y en lote · y aviso si esa persona ya está en otro', estado: 'hecha' },
   { titulo: 'Aislamiento del CRM por workspace', detalle: 'Ningún módulo de cliente lleva datos del dueño · un lead ajeno dice qué pasó en vez de un 404', estado: 'sigue' },
-  { titulo: 'El lead y lo que se le vendió', detalle: 'leads.producto_id existe en la base (mig 0117) y NINGUNA línea de TypeScript la lee ni la escribe', estado: 'cola' },
+  { titulo: 'El lead y lo que se le vendió', detalle: 'leads.producto_id sigue sin una sola línea que la lea o la escriba: hoy el vínculo es funnel_id', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [

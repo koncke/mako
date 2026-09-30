@@ -63,7 +63,12 @@ test('⚠️ el panel dibuja el veredicto Y nombra cuándo contradice al avance'
   // cuando es el dato más útil: ese avance no lo respalda nada. Medido el
   // 30/09/2026 en /admin/dev/crm: pasa en #38.
   const d = readFileSync(join(RAIZ, 'app/admin/dev/_registro/Derivados.tsx'), 'utf8');
-  assert.match(d, /ChipAuditoria/, 'se fue el chip del veredicto');
+  // ⚠️ SE AGRUPA, NO SE ETIQUETA FILA POR FILA. Con 25 filas el mismo chip repetido 19
+  // veces deja de informar y pasa a ser textura; el rótulo va UNA vez, en el encabezado
+  // del grupo, así que el color nunca queda como único portador.
+  assert.match(d, /grupo\('A medias'/, 'se fue el grupo «A medias»');
+  assert.match(d, /grupo\('Sin empezar'/, 'se fue el grupo «Sin empezar»');
+  assert.ok(!/ChipAuditoria/.test(d), 'volvió el chip por fila, que con 25 filas es textura');
   assert.match(d, /aud\?\.filas\[t\.num\]/, 'la fila dejó de mirar la auditoría');
   assert.match(d, /estado === 'sin' && t\.progreso > 0/, 'dejó de nombrar la contradicción entre el % y el veredicto');
   assert.match(d, /\{aud\.fecha\}/, 'el veredicto se dibuja sin su fecha');

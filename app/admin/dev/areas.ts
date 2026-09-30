@@ -164,7 +164,10 @@ export const AREAS: AreaDev[] = [
     vive: ['app/crm/page.tsx', 'app/crm/CrmBoard.tsx', 'app/crm/CrmToolbar.tsx', 'app/crm/crm-map.ts', 'app/crm/actions.ts', 'app/crm/LeadSheet.tsx', 'app/crm/StageMoveDialog.tsx', 'app/crm/ImportarLeadsModal.tsx', 'app/crm/TablaRevisionLeads.tsx', 'app/crm/leads-exportar.ts', 'app/crm/calendly-widget.ts', 'app/crm/[id]/page.tsx', 'app/crm/[id]/resumen/page.tsx', 'app/crm/lead-view/ComportamientoCard.tsx', 'app/crm/revisar/page.tsx', 'app/crm/revisar/[id]/RevisarLead.tsx', 'app/api/agente/lead/route.ts', 'app/api/track/optin/route.ts', 'lib/leads.ts', 'lib/pipeline.ts', 'lib/leads-duplicados.ts', 'lib/stage-requirements.ts', 'lib/propuestas.ts', 'lib/lead-resumen.ts', 'lib/closing-job-estado.ts', 'supabase/migrations/0128_propuestas.sql', 'supabase/migrations/0130_closing_jobs.sql'],
     proyectos: ['Feature: CRM'],
     hallazgos: 'hallazgos-crm',
-    nota: 'El vive[] estaba recortado al tablero (7 archivos) y por eso el panel de historial no veía nada del trabajo de agosto, que cayó casi todo AL COSTADO: la ficha (app/crm/[id]), el resumen para el celular (app/crm/[id]/resumen), la bandeja de propuestas (app/crm/revisar) y el alta (lib/leads-duplicados.ts, app/api/track/optin). Ampliado el 17/08 por la regla «una ruta que apunta a la nada». OJO con el solape: app/crm/lead-view/GeneratedInsightCard.tsx pertenece a `lead-insights`, y app/crm/[id]/deal-actions.ts + DealDetailsCard a `contracts-receipts` — no se listan acá a propósito.',
+    // ⚠️ LA NOTA SE LEE ANTES QUE NADA, así que dice lo que cambia una decisión y nada
+    // más. La versión anterior contaba por qué el `vive[]` se había ampliado en agosto —
+    // archivología que ya está en el commit— y era el primer párrafo de la pantalla.
+    nota: 'Tres archivos de app/crm NO son de esta área y por eso no aparecen en su historial: GeneratedInsightCard.tsx es de `lead-insights`, y deal-actions.ts + DealDetailsCard son de `contracts-receipts`.',
   },
   {
     slug: 'lead-insights', titulo: 'Lead Insights', familia: 'Operate', grupo: 'CRM',

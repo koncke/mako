@@ -36,44 +36,6 @@ const contador: React.CSSProperties = { marginLeft: 'auto', fontSize: 12.5, colo
 const tono = (score: number) =>
   score >= 75 ? 'var(--bad)' : score >= 50 ? 'var(--warn-fill)' : score >= 25 ? 'var(--good)' : 'var(--faint)';
 
-/**
- * Las tareas abiertas del tablero para esta área.
- *
- * ⚠️ Se llama «Tareas abiertas» en pantalla y no «Roadmap», aunque la función
- * conserve el nombre: convive con el Roadmap escrito a mano en la MISMA tab, y
- * dos secciones con el mismo `<h3>` no se distinguen — el subtítulo chiquito no
- * alcanza para decir cuál es cuál. Son dos cosas distintas: una es el plan que
- * escribimos, la otra es lo que hoy está abierto en el board.
- */
-/**
- * El veredicto de una auditoría, pegado a la tarea que juzga.
- *
- * ⚠️ VA CON SU FECHA A LA VISTA, y no es decoración: un veredicto sin fecha se lee como
- * el estado de HOY, y el día que alguien arregle la tarea la línea miente sin que nada
- * avise. Es una foto, y la pantalla lo dice.
- *
- * ⚠️ Y EL COLOR NO ES EL ÚNICO PORTADOR: el rótulo va escrito al lado, como el resto
- * de los chips de esta pantalla.
- */
-const AUD = {
-  medias: { t: 'A medias', bg: 'var(--warn-bg)', c: 'var(--warn)' },
-  sin: { t: 'Sin empezar', bg: 'var(--surface-2)', c: 'var(--faint)' },
-} as const;
-
-function ChipAuditoria({ estado }: { estado: 'medias' | 'sin' }) {
-  const c = AUD[estado];
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none', padding: '2px 8px', borderRadius: 999,
-      fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', background: c.bg, color: c.c,
-      border: `1px solid ${estado === 'sin' ? 'var(--border-strong)' : `color-mix(in srgb, ${c.c} 35%, transparent)`}`,
-    }}>
-      {estado === 'medias' && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />}
-      {c.t}
-    </span>
-  );
-}
-
 export function RoadmapDelPlan({ tareas, proyectos, auditoria }: { tareas: TareaRoadmap[]; proyectos: string[]; auditoria?: Auditoria }) {
   if (!proyectos.length) {
     return (
@@ -86,76 +48,100 @@ export function RoadmapDelPlan({ tareas, proyectos, auditoria }: { tareas: Tarea
       </div>
     );
   }
-  // Sólo cuenta las que están EN PANTALLA: una auditoría puede traer filas de tareas que
-  // desde entonces se cerraron, y contarlas diría «25 de 23».
+
   const aud = auditoria;
-  const medidas = aud ? tareas.filter((t) => aud.filas[t.num]).length : 0;
-  const nMedias = aud ? tareas.filter((t) => aud.filas[t.num]?.estado === 'medias').length : 0;
-  const nSin = medidas - nMedias;
-  // ⚠️ EL % Y EL VEREDICTO SALEN DE DOS LUGARES, y cuando se contradicen hay que DECIRLO.
-  // El avance lo escribió una persona en la tarjeta; el veredicto salió de ir a leer el
-  // código. Dibujar los dos al lado sin nombrar la diferencia deja la fila afirmando «75%»
-  // y «sin empezar» a la vez, que se lee como que la pantalla está rota — cuando en
-  // realidad es el dato más útil de acá: ese avance no lo respalda nada.
-  const infladas = aud ? tareas.filter((t) => aud.filas[t.num]?.estado === 'sin' && t.progreso > 0) : [];
+  // ⚠️ SE AGRUPA POR VEREDICTO EN VEZ DE PONERLE UN CHIP A CADA FILA. Con 25 filas, el
+  // mismo chip repetido 19 veces deja de informar y pasa a ser textura: lo que el ojo
+  // tiene que poder hacer es contar de un saque cuántas hay de cada clase. El rótulo
+  // sigue escrito —una vez, en el encabezado del grupo—, así que el color nunca queda
+  // como único portador.
+  const de = (e: 'medias' | 'sin') => (aud ? tareas.filter((t) => aud.filas[t.num]?.estado === e) : []);
+  const medias = de('medias');
+  const sin = de('sin');
+  const resto = aud ? tareas.filter((t) => !aud.filas[t.num]) : tareas;
+  const medidas = medias.length + sin.length;
+
+  const fila = (t: TareaRoadmap) => {
+    const f = aud?.filas[t.num];
+    // ⚠️ EL % Y EL VEREDICTO SALEN DE DOS LUGARES, y cuando se contradicen se DICE, en la
+    // fila y no en un cartel arriba: el avance lo escribió una persona en la tarjeta y el
+    // veredicto salió de leer el código. Dibujar «75%» al lado de «sin empezar» sin
+    // nombrar la diferencia se lee como que la pantalla está rota, cuando es el dato más
+    // útil que hay acá — ese avance no lo respalda nada.
+    const inflada = f?.estado === 'sin' && t.progreso > 0;
+    return (
+      <li
+        key={`${t.num}-${t.proyecto}`}
+        style={{ display: 'grid', gridTemplateColumns: '3px 46px minmax(0,1fr) auto', gap: 12, alignItems: 'baseline', padding: '10px 20px 10px 0', borderTop: '1px solid var(--border)' }}
+      >
+        <span style={{ alignSelf: 'stretch', background: tono(t.score), borderRadius: '0 2px 2px 0' }} aria-hidden />
+        <span style={{ fontFamily: 'var(--mono, ui-monospace, monospace)', fontSize: 12, color: 'var(--faint)' }}>#{t.num}</span>
+        <span style={{ minWidth: 0 }}>
+          <span style={{ display: 'block' }}>{t.titulo}</span>
+          {f && <span style={{ display: 'block', marginTop: 3, fontSize: 12.5, lineHeight: 1.45, color: 'var(--dim)' }}>{f.falta}</span>}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          {inflada
+            ? <span style={{ color: 'var(--warn)' }} title="La tarjeta dice 75% y el código no lo respalda">{t.progreso}% sin respaldo · </span>
+            : t.progreso > 0 && <span style={{ color: 'var(--good)' }}>{t.progreso}% · </span>}
+          {t.score}
+        </span>
+      </li>
+    );
+  };
+
+  const grupo = (rotulo: string, color: string, filas: TareaRoadmap[]) => filas.length > 0 && (
+    <div key={rotulo}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 20px', background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: color }} aria-hidden />
+        <strong style={{ fontSize: 12.5, fontWeight: 640 }}>{rotulo}</strong>
+        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{filas.length}</span>
+      </div>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{filas.map(fila)}</ul>
+    </div>
+  );
+
   return (
     <div style={caja}>
       <div style={cabecera}>
         <h3 style={titulo}>Tareas abiertas</h3>
-        <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>en el tablero · {proyectos.join(' · ')}</span>
+        <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{proyectos.join(' · ')}</span>
         <span style={contador}>{tareas.length}</span>
       </div>
-      {/* ⚠️ LA FECHA VA ARRIBA Y UNA SOLA VEZ, no repetida en cada fila: es la misma para
-          todas, y repetirla 25 veces es ruido. Lo que cada fila tiene que decir es SU
-          veredicto. */}
-      {aud && (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '10px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', fontSize: 12.5, color: 'var(--dim)' }}>
-          <strong style={{ color: 'var(--ink)', fontWeight: 620 }}>{medidas} de {tareas.length} medidas contra el código</strong>
-          <span>· {nMedias} a medias · {nSin} sin empezar · ninguna cerrable</span>
-          {infladas.length > 0 && (
-            <span style={{ color: 'var(--warn)' }}>
-              · {infladas.length === 1 ? 'una marca' : `${infladas.length} marcan`} avance que el código no respalda ({infladas.map((t) => `#${t.num}`).join(', ')})
+      {/* La barra dice la proporción de un vistazo; los números van debajo porque una
+          barra sin su cifra obliga a estimarla. */}
+      {aud && medidas > 0 && (
+        <div style={{ padding: '13px 20px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', height: 8, borderRadius: 999, overflow: 'hidden', background: 'var(--surface-2)' }}>
+            <span style={{ width: `${(medias.length / medidas) * 100}%`, background: 'var(--warn-fill)' }} aria-hidden />
+            <span style={{ width: `${(sin.length / medidas) * 100}%`, background: 'var(--border-strong)' }} aria-hidden />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 8, fontSize: 12.5, color: 'var(--dim)' }}>
+            <span><strong style={{ color: 'var(--ink)', fontWeight: 620 }}>{medias.length}</strong> a medias</span>
+            <span><strong style={{ color: 'var(--ink)', fontWeight: 620 }}>{sin.length}</strong> sin empezar</span>
+            <span><strong style={{ color: 'var(--ink)', fontWeight: 620 }}>0</strong> cerrables</span>
+            <span style={{ marginLeft: 'auto', whiteSpace: 'nowrap', color: 'var(--faint)' }}>
+              {aud.fecha}
+              {aud.doc && <> · <a href={`/admin/docs?d=${aud.doc}`} style={{ color: 'var(--primary)' }}>detalle</a></>}
             </span>
-          )}
-          <span style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-            {aud.fecha}
-            {aud.doc && <> · <a href={`/admin/docs?d=${aud.doc}`} style={{ color: 'var(--primary)' }}>ver el detalle</a></>}
-          </span>
+          </div>
         </div>
       )}
       {tareas.length === 0 ? (
         <EmptyState titulo="Nada abierto" detalle="No quedan tareas pendientes de esta área en el tablero." />
+      ) : aud ? (
+        <>
+          {grupo('A medias', 'var(--warn-fill)', medias)}
+          {grupo('Sin empezar', 'var(--border-strong)', sin)}
+          {grupo('Sin medir', 'var(--surface-2)', resto)}
+        </>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {tareas.map((t) => (
-            <li
-              key={`${t.num}-${t.proyecto}`}
-              style={{ display: 'grid', gridTemplateColumns: '3px 52px minmax(0,1fr) auto', gap: 12, alignItems: 'baseline', padding: '10px 20px 10px 0', borderTop: '1px solid var(--border)' }}
-            >
-              <span style={{ alignSelf: 'stretch', background: tono(t.score), borderRadius: '0 2px 2px 0' }} aria-hidden />
-              <span style={{ fontFamily: 'var(--mono, ui-monospace, monospace)', fontSize: 12, color: 'var(--faint)' }}>#{t.num}</span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                  <span>{t.titulo}</span>
-                  {aud?.filas[t.num] && <ChipAuditoria estado={aud.filas[t.num].estado} />}
-                </span>
-                {aud?.filas[t.num] && (
-                  <span style={{ display: 'block', marginTop: 3, fontSize: 12.5, lineHeight: 1.45, color: 'var(--dim)' }}>
-                    {aud.filas[t.num].falta}
-                  </span>
-                )}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                {t.progreso > 0 && <span style={{ color: 'var(--good)' }}>{t.progreso}% · </span>}
-                {t.deadline ? `${t.deadline.slice(5, 10)} · ` : ''}{t.score}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{tareas.map(fila)}</ul>
       )}
     </div>
   );
 }
+
 
 export function HistorialDeGit({ commits, conBitacora }: { commits: CommitArea[]; conBitacora: boolean }) {
   if (!commits.length) {
