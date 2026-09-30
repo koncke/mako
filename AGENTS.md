@@ -180,6 +180,16 @@ Reglas que salen de eso:
 - **Nunca `git add -A`.** Commiteá por ruta explícita. El día que coincidan, `add -A` se
   lleva el trabajo a medias de la otra sesión adentro de tu commit y nadie se entera
   hasta que rompe.
+- ⚠️ **Y «por ruta explícita» es también el `git commit`, no sólo el `git add`.** Un `git
+  commit` PELADO commitea el ÍNDICE ENTERO, así que se lleva lo que el vecino ya tenía
+  stageado aunque vos hayas hecho `git add` sólo de lo tuyo. Medido el 30/09/2026: la otra
+  sesión tenía STAGEADO el borrado de `app/agencia/Disparador.tsx` y todavía no había
+  commiteado el `FlujoAviso.tsx` que deja de importarlo; un commit del CRM se llevó el
+  borrado, publicó **la mitad de un cambio ajeno** y tiró el build de producción con
+  «Module not found: Can't resolve './Disparador'». El typecheck no lo caza —en el árbol de
+  trabajo el import ya no está— y los tests tampoco. Va `git commit -- <rutas>`, o
+  `git status --short` antes de cada commit mirando la PRIMERA columna: lo que está en
+  verde y no es tuyo, viaja.
 - **Commitear por ruta explícita NO alcanza: lo que se mira es el HUNK.** Un mismo
   archivo puede tener trabajo de las dos sesiones. Pasó con `lib/razones.ts`: una sesión
   agregó una fila a `PASO_TXT` y la otra una función nueva, y al armar el commit «por
