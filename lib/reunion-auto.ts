@@ -29,6 +29,9 @@ import 'server-only';
 
 import { listReunionesRecientes, extraerTareasDeReunion, preguntasDeContexto, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
 import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
+import { criterioDelWorkspace } from './plan-criterio';
+import { juzgarConCriterio, type SalidaJuez } from './plan-criterio-juez';
+import { normCita, type Veredicto } from './plan-criterio-reglas';
 import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
 import { emitirDelCatalogo } from './avisos';
@@ -130,6 +133,42 @@ export type ResultadoReunionesAuto = {
  * eligiera mal, las tareas saldrían con proyectos de un tablero que no es el que
  * después las recibe.
  */
+/**
+ * Por que el criterio puso esta tarea donde la puso, para que se LEA en la revision.
+ *
+ * Lleva la cita siempre que haya: la regla 5 del criterio dice que un compromiso que
+ * no se puede citar no existe, y al reves, una tarea descartada con su frase al lado
+ * es la unica forma de que la persona pueda desmentir al juez sin volver a la
+ * grabacion. Es literalmente lo que el criterio pide de la tercera cubeta: «se
+ * registra con la regla que lo excluyo y con su cita, para que la decision sea
+ * auditable».
+ */
+function porQueDelVeredicto(v: Veredicto): string {
+  const cabeza = v.cubeta === 'compromiso'
+    ? 'Compromiso'
+    : v.cubeta === 'acuerdo_interno'
+      ? 'Acuerdo entre los otros: no es un compromiso tuyo'
+      : `Descartada${v.regla ? ` por la regla ${v.regla}` : ''}`;
+  return [
+    `${cabeza}${v.razon ? ` — ${v.razon}` : ''}`,
+    v.cita ? `«${v.cita}»` : '',
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * El dueño DEL TABLERO, como lo nombra el criterio.
+ *
+ * ⚠️ NO es `resolverYo`. Esa resuelve al HOST de la reunión y cae a su nombre de
+ * Fathom cuando no tiene cuenta acá: en una sesión grabada por el cliente, el juez
+ * recibiría al CLIENTE como dueño del tablero y clasificaría al revés toda la
+ * reunión — la regla 4 del criterio es, entera, «¿el dueño es parte?».
+ */
+async function duenoDelTablero(ws: number, yo: Yo): Promise<string> {
+  const usuarios = await listarUsuarios().catch(() => []);
+  const admin = usuarios.find((u) => u.workspace_id === ws && u.estado !== 'suspendido' && u.rol_ws === 'admin');
+  return (admin?.nombre || yo.nombre || '').trim() || 'el dueño del tablero';
+}
+
 async function proyectosDelWorkspace(ws: number): Promise<ProyectoRef[]> {
   const usaPlanBoard = tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
   if (usaPlanBoard) {
@@ -220,7 +259,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const clienteDeLaReunion = await resolverClienteDeReunion({
         titulo: r.titulo, participantes: r.participantes, emails: [r.host?.email ?? ''].filter(Boolean),
       }).catch(() => null);
-      const { tareas, partesFallidas = 0 } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
+      const { tareas, partesFallidas = 0, transcript } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
         glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
         rolDelDueno: clienteDeLaReunion ? ROL_CONSULTOR : ROL_DESCONOCIDO,
       });
@@ -258,6 +297,40 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const proyCliente = cliente ? await nombreDeProyectoPara(cliente) : '';
       if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
 
+      // ── EL JUEZ DEL CRITERIO ────────────────────────────────────────────────
+      // Solo en los workspaces que cargaron su criterio de compromisos. Sin el, todo
+      // sigue EXACTAMENTE igual que antes (lib/plan-criterio.ts explica por que es un
+      // solo interruptor). El juez no extrae: lee la lista que ya salio y pone cada
+      // tarea en su cubeta, con la regla y la cita — y ademas devuelve lo que el
+      // criterio encuentra y el extractor no saco (`faltantes`).
+      //
+      // ⚠️ VA ACA Y NO DESPUES DE `crearPropuesta`. Lo que el criterio descarta tiene
+      // que llegar al borrador ya clasificado: si se juzgara despues, las setenta
+      // tarjetas ya estarian creadas y el criterio seria una etiqueta sobre trabajo
+      // que ya ensucio el tablero, que es justo lo que vino a evitar.
+      const criterio = await criterioDelWorkspace().catch((e) => {
+        console.error(`[reunion-auto] ws=${ws}: no pude leer el criterio (${e instanceof Error ? e.message : String(e)}) — sigo sin el`);
+        return null;
+      });
+      let juicio: SalidaJuez | null = null;
+      if (criterio && transcript.trim()) {
+        const dueno = await duenoDelTablero(ws, yo);
+        const j = await juzgarConCriterio({
+          criterio, transcript, dueno,
+          candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle, dueño: t.dueño, esDeOtro: t.esDeOtro })),
+          usoMotivo: 'Reunión nueva → criterio de compromisos (automático)',
+        }).catch((e) => {
+          console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: el juez tiró (${e instanceof Error ? e.message : String(e)})`);
+          return null;
+        });
+        // `fallo` = no contesto NINGUNA corrida. Ahi no hay juicio: las tareas entran
+        // como siempre. Tratar un fallo de red como «el criterio no encontro nada»
+        // vaciaria el borrador de una reunion entera sin que nadie se entere.
+        juicio = j && !j.fallo ? j : null;
+        if (!juicio) console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId}: hay criterio y el juez no se pronunció — las tareas entran sin juzgar`);
+      }
+
+
       // ⚠️ ACÁ COLGABA EL BUCLE DE ENTREGA, Y SE FUE EL 26/09/2026. En las juntas
       // `entrega` con el cliente identificado, MaKo reescribía con lo que se había
       // afinado en la sesión las respuestas que ese cliente había dado en el
@@ -265,7 +338,13 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // El programa era de UN cliente y se fue entero: no queda bloque que reescribir,
       // y dejarlo habría sido pagar un modelo en cada junta de entrega para escribir
       // en una tabla que ya nadie lee.
-      if (!tareas.length) {
+      // ⚠️ Y EL CORTE MIRA LAS DOS COSAS. El extractor pone el techo de lo que se
+      // puede clasificar, pero no el de lo que se puede encontrar: el juez lee la
+      // reunión entera y trae lo que la lista no traía. Con `!tareas.length` a secas,
+      // una reunión con compromisos que el extractor no vio se cerraba como «leída
+      // completa, sin compromisos» — y se cerraba PARA SIEMPRE, porque esa rama
+      // escribe el candado.
+      if (!tareas.length && !juicio?.faltantes.length) {
         if (parcial) {
           out.errores += 1;
           console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la lectura FALLÓ (${partesFallidas} tramo(s) sin leer) — queda para reintentar`);
@@ -295,7 +374,15 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // test, y por eso el bug del 12/8 no lo cazó nadie.
       const conCuenta = emailsConCuenta(await listarUsuarios().catch(() => []));
 
-      const propuestas: PropuestaTarea[] = tareas.map((t) => ({
+      const propuestas: PropuestaTarea[] = tareas
+        .map((t, i) => ({ t, v: juicio?.veredictos[i] ?? null }))
+        // `fuera` no llega al borrador: no tiene forma de compromiso —una idea, un
+        // diagnostico, algo ya hecho— y el criterio es explicito en que eso «no se
+        // registra en ninguna parte». Si entrara como descartada, la lista de
+        // descartes «se convertiria en un basurero y nadie la revisaria, que es
+        // exactamente el fracaso que este diseno evita».
+        .filter(({ v }) => v?.cubeta !== 'fuera')
+        .map(({ t, v }) => ({
         titulo: t.titulo,
         detalle: t.detalle || undefined,
         prioridad: t.prioridad,
@@ -316,9 +403,52 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // camino por el que entra la MAYORÍA de las tareas de reunión, así que una
         // recurrente que no se copie acá nace compitiendo en el ranking y pidiendo una
         // fecha que nunca va a tener.
-        recurrente: t.recurrente,
+        //
+        // Y con juez, manda EL JUEZ: es la cuarta pregunta del criterio y el juez la
+        // contesta viendo la reunión entera, mientras que el extractor la marca
+        // mirando un tramo. Sin juez, lo del extractor, como siempre.
+        recurrente: v ? v.recurrente || undefined : t.recurrente,
+        cubeta: v && v.cubeta !== 'fuera' ? v.cubeta : undefined,
+        porQue: v ? porQueDelVeredicto(v) : undefined,
+        // Tildada solo la que el criterio llamó compromiso. Las otras dos cubetas
+        // VIAJAN igual, destildadas y con su razón escrita: el criterio pide que se
+        // registren, no que se escondan, y promoverlas es tildar una casilla.
+        // Sin juez, `undefined` = tildada, que es el default de siempre.
+        incluir: v ? (v.cubeta === 'compromiso' ? undefined : false) : undefined,
       }));
-      const mias = cuantasSonMias(propuestas);
+
+      // LO QUE EL EXTRACTOR NO SACÓ. Es la mitad cara del juez y la que ataca el techo
+      // de la extracción: por bien que clasifique, un compromiso que la lista no trae
+      // no lo puede rescatar nadie más. Todos vienen con su cita ya verificada contra
+      // la transcripción (`sanearFaltantes` descarta el que no se verifica), así que
+      // acá no entra nada que el modelo no pueda respaldar con una frase dicha.
+      if (juicio?.faltantes.length) {
+        const duenoTab = normCita(await duenoDelTablero(ws, yo));
+        for (const f of juicio.faltantes) {
+          const mio = !!duenoTab && normCita(f.quien).includes(duenoTab.split(' ')[0]);
+          propuestas.push({
+            titulo: f.titulo,
+            detalle: [f.producto ? `Producto: ${f.producto}` : '', f.tema ? `Tema: ${f.tema}` : ''].filter(Boolean).join('\n') || undefined,
+            proyecto: proyCliente || undefined,
+            // El dueño sale del nombre que el juez leyó en la transcripción. NO se le
+            // busca email: `duenoEmail` es «a dónde le escribo» y adivinarlo desde un
+            // nombre es justo la clase de dato exacto que un modelo no transporta.
+            dueno: mio ? undefined : f.quien,
+            esDeOtro: mio ? undefined : true,
+            recurrente: f.recurrente || undefined,
+            cubeta: f.cubeta,
+            porQue: `Lo encontró el criterio y no estaba en la lista${f.razon ? ` — ${f.razon}` : ''}\n«${f.cita}»`,
+            incluir: f.cubeta === 'compromiso' ? undefined : false,
+          });
+        }
+      }
+
+      // El número que se promete cuenta lo que se va a CREAR si se confirma, no todo
+      // lo que viaja: con juez, el borrador lleva también los acuerdos internos y los
+      // descartes, destildados. Anunciar 40 y crear 8 es el mismo bug que ya se
+      // arregló una vez acá con las tareas de otras personas.
+      const aCrear = propuestas.filter((t) => t.incluir !== false);
+      const mias = cuantasSonMias(aCrear);
       const conQuien = r.participantes
         .filter((p) => p.email !== (r.host?.email ?? ''))
         .map((p) => p.nombre || p.email.split('@')[0])
@@ -340,7 +470,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // El resumen sale del MISMO cálculo que la clasificación. Escrito aparte decía
         // «sacó 37 compromisos tuyos» sobre una reunión donde 26 eran de Mau: el aviso
         // confirmaba el bug en vez de delatarlo.
-        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${resumenDelReparto(propuestas)}.`,
+        resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${resumenDelReparto(aCrear)}.`,
       });
       // RECIÉN ACÁ se cierra la reunión: el borrador ya está guardado. Antes esto
       // corría ANTES de crearPropuesta (con otra llamada de IA en el medio), así que

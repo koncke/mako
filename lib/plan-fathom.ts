@@ -22,7 +22,7 @@ import { chatClaude } from './anthropic';
 import { sanearPregunta, avisoSaneo, CONTRATO_TIPOS_PREGUNTA, type Pregunta } from './preguntas-contrato';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
-import type { UsageInfo } from './anthropic-usage';
+import { sumarUsage, type UsageInfo } from './anthropic-usage';
 import {
   listMeetingsPage,
   fetchRecordingSummary,
@@ -463,6 +463,20 @@ export type ExtractOut = {
    * alguien gatea con un `if` es una falla silenciosa esperando.
    */
   cabecera: string;
+  /**
+   * La transcripción ENTERA, como la arma `transcriptToText` (renglones
+   * `[hh:mm:ss] Nombre: texto`). Vacía si no había o si no se pudo bajar.
+   *
+   * Se devuelve porque el JUEZ DEL CRITERIO la necesita completa y esta funcion ya
+   * la bajo: pedirla nunca es otra llamada a Fathom por reunion, y peor, la segunda
+   * llamada puede traer otra cosa (o fallar) y el juez terminaria verificando citas
+   * contra un texto distinto del que produjo las tareas.
+   *
+   * ⚠️ OBLIGATORIA, por la misma razon que `cabecera` aca arriba: ese campo nacio
+   * opcional, la funcion que lo arma se olvido de devolverlo, el consumidor lo
+   * gateaba con un `if` y quedo codigo MUERTO en produccion sin que nada fallara.
+   */
+  transcript: string;
 };
 
 export const PLAN_FATHOM_DEDUP_SYSTEM_TEMPLATE = `Eres un revisor. Te paso las tareas que se sacaron de UNA reunión. En una charla larga, la MISMA tarea se habla varias veces (se plantea, se discute, se cierra), y por eso la lista trae tarjetas casi iguales dichas con otras palabras.
@@ -760,19 +774,9 @@ function trocear(texto: string): string[] {
 export { mismaTarea, normTitulo, palabrasClave } from './tareas-dedup';
 import { mismaTarea, normTitulo } from './tareas-dedup';
 
-/** Suma el gasto de varias pasadas en un solo UsageInfo (para el panel de costo). */
-function sumarUsage(us: Array<UsageInfo | undefined>): UsageInfo | undefined {
-  const vivos = us.filter((u): u is UsageInfo => !!u);
-  if (!vivos.length) return undefined;
-  return {
-    inputTokens: vivos.reduce((s, u) => s + u.inputTokens, 0),
-    outputTokens: vivos.reduce((s, u) => s + u.outputTokens, 0),
-    cacheCreation: vivos.reduce((s, u) => s + u.cacheCreation, 0),
-    cacheRead: vivos.reduce((s, u) => s + u.cacheRead, 0),
-    costUsd: vivos.reduce((s, u) => s + u.costUsd, 0),
-    model: vivos[0].model,
-  };
-}
+// `sumarUsage` se mudo a lib/anthropic-usage.ts, que es donde vive `UsageInfo`: el
+// juez del criterio suma el gasto de sus tres corridas y necesitaba la misma cuenta.
+// Copiarla habria sido la segunda implementacion de una suma de plata.
 
 /**
  * NÚCLEO de extracción: de un TEXTO ya provisto a tareas candidatas. Lo comparten
@@ -783,7 +787,7 @@ function sumarUsage(us: Array<UsageInfo | undefined>): UsageInfo | undefined {
  * (ver trocear): así una reunión de dos horas no se resume en ocho tarjetas.
  */
 export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
-  if (!texto.trim()) return { tareas: [], dudas: [], cabecera: opts.cabecera ?? '' };
+  if (!texto.trim()) return { tareas: [], dudas: [], cabecera: opts.cabecera ?? '', transcript: '' };
 
   const listaProyectos = proyectos.length
     ? proyectos.map((p) => `- ${p.id}: ${p.emoji} ${p.nombre}`).join('\n')
@@ -905,6 +909,10 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     // La que faltaba. Se recibe por `opts` y se devuelve: quien llama necesita
     // saber DE QUÉ SE HABLÓ, no solo qué tareas salieron.
     cabecera: opts.cabecera ?? '',
+    // El texto ENTERO que se leyo, sin trocear: el juez del criterio verifica cada
+    // cita contra EL MISMO texto que produjo las tareas. Bajarlo de nuevo seria otra
+    // llamada y, peor, otra chance de leer algo distinto.
+    transcript: texto,
   };
 }
 
@@ -925,7 +933,7 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   // (extraerTareasDeTexto): el tope queda como red de seguridad para no bajar un
   // transcript absurdo, en ~6 horas de charla.
   const texto = transcriptToText(transcript, 400000);
-  if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '' };
+  if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '', transcript: '' };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.
@@ -984,5 +992,9 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
     texto ? `TRANSCRIPCIÓN:\n${texto}` : '', proyectos, yo,
     { ...opts, participantes, cabecera, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' },
   );
-  return { ...out, cabecera };
+  // Y el transcript CRUDO, no el que le pasamos al nucleo con su renglon de
+  // «TRANSCRIPCION:» adelante: el juez lo parsea por renglon para sacar quienes
+  // hablaron y normaliza para verificar citas, y un renglon nuestro ahi adentro es
+  // texto que nadie dijo.
+  return { ...out, cabecera, transcript: texto };
 }

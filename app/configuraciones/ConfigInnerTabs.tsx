@@ -12,10 +12,11 @@ import Link from '@/app/_ui/Link';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
+import { CriterioPanel } from './CriterioPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'equipo';
+type TabKey = 'notif' | 'fiscal' | 'equipo' | 'criterio';
 
 export function ConfigInnerTabs({ equipoPanel }: {
   /** Panel server-rendered embebido (data cargada en page.tsx). */
@@ -35,6 +36,10 @@ export function ConfigInnerTabs({ equipoPanel }: {
     { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel /> },
     { key: 'fiscal', label: 'Identidades fiscales', panel: <IdentidadesFiscalesPanel /> },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },
+    // El criterio gobierna QUE ENTRA al tablero de todo el workspace, asi que solo lo
+    // ve (y lo guarda, ver criterio-actions.ts) un admin. Un closer que lo cambie
+    // decide que compromisos existen para su jefe.
+    ...(esAdmin ? [{ key: 'criterio' as TabKey, label: 'Criterio de reuniones', panel: <CriterioPanel /> }] : []),
   ];
   // Solo el Método (agencia) sigue siendo ruta aparte.
   const LINKS: Array<{ href: string; label: string; adminOnly?: boolean }> = [

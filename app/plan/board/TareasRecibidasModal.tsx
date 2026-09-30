@@ -28,14 +28,23 @@ import { ayudaDePregunta, type TipoPregunta } from '@/lib/preguntas-contrato';
 import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
 import { type Label, type Prio } from './types';
 
+import type { PropuestaTarea } from '@/lib/plan-propuesta';
+
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[]; incluir?: boolean;
-  /** el cruce anti-duplicados YA guardado (mig 0123): no se vuelve a correr. */
-  enriquece?: { id: string; razon: string; confianza?: 'alta' | 'media' }; ampliar?: boolean;
-  /** el dueño destildó la AMPLIACIÓN: no se le suma nada a la tarjeta. */
-  omitir?: boolean };
+/**
+ * La tarea de un borrador, EL TIPO DEL SERVER — no una copia.
+ *
+ * Era una copia escrita a mano, con los doce campos enumerados, y ese es el olor que
+ * AGENTS.md nombra: «un tipo copiado a mano para no importar del server es la señal de
+ * que falta esta frontera», y la copia se queda vieja sin que nada falle. Se quedó vieja:
+ * al sumarle la CUBETA del criterio al borrador, esta pantalla no la podía ver.
+ *
+ * Se importa con `import type`, que se borra en compilación: el `server-only` de
+ * `lib/plan-propuesta` no viaja, y el compilador sí avisa del próximo campo.
+ */
+type PropTarea = PropuestaTarea;
 // El `tipo` es el del contrato, NO un `string` suelto: mientras fue string, el
 // compilador no podía avisar que esta pantalla y la de /plan/revisar dibujaban cosas
 // distintas para el mismo valor (y de hecho lo hacían).
@@ -243,6 +252,10 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // aplicar: la tarea entraba SIN proyecto aunque el server sabe crearlo por nombre.
       proyectoPropuesto: (t.proyecto ?? '').trim(),
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto, minutos: t.minutos,
+      // Lo que dijo el criterio de compromisos, si el workspace tiene uno. Viaja hasta
+      // la fila para poder DIBUJARLO: el borrador ya lo trae guardado, y sin copiarlo
+      // acá la persona ve filas destildadas sin ninguna razón al lado.
+      cubeta: t.cubeta, porQue: t.porQue,
       // `incluir` sale de UN solo cálculo (`tildada`), abajo: mientras estuvo acá y
       // además adentro del spread del cruce, la segunda pisaba a la primera y cuál
       // ganaba dependía del orden de las líneas.

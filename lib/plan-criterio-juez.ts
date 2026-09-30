@@ -22,6 +22,23 @@ import {
   CRITERIO_JUEZ_SYSTEM_TEMPLATE, CRITERIO_JUEZ_USER_TEMPLATE, CRITERIO_JUEZ_JSON_SHAPE,
   type Veredicto, type Faltante,
 } from './plan-criterio-reglas';
+import { unirVeredictos, unirFaltantes, aporteDeCadaCorrida } from './plan-criterio-consenso';
+import { sumarUsage } from './anthropic-usage';
+
+/**
+ * CUANTAS VECES se lee la misma reunion. Lo pide el documento de Mauricio del
+ * 8/9/2026 con el numero medido: «Tres corridas del mismo transcript y union de
+ * las tres. No es opcional: una corrida suelta pierde entre 5 y 8 puntos de
+ * recall contra la union.»
+ *
+ * Es lo UNICO de su configuracion que se puede cumplir tal cual: lo otro que pide
+ * es Claude Sonnet 5, y el dueno de este repo decidio lo contrario, textual —
+ * «NO, JAMAS algo pago para el plan» (30/09/2026). Tres corridas gratis cuestan
+ * tres veces la CUOTA, que no es plata, y son justo lo que compensa el modelo.
+ *
+ * El porque del numero y de que se una (y no se vote) esta en plan-criterio-consenso.ts.
+ */
+export const CORRIDAS_JUEZ = 3;
 
 export type CandidataJuez = { titulo: string; detalle?: string; dueño?: string; esDeOtro?: boolean };
 
@@ -97,13 +114,39 @@ export async function juzgarConCriterio(p: {
 
   // Un reintento, como el extractor: un 429 o un JSON cortado no pueden leerse como
   // «el juez no se pronunció» sin que nadie se entere.
-  const primera = await unaVez().catch((e) => { console.error('[plan-criterio] el juez falló:', e instanceof Error ? e.message : String(e)); return null; });
-  const salida = primera ?? await new Promise((r) => setTimeout(r, 1500)).then(unaVez).catch((e) => {
-    console.error('[plan-criterio] el juez falló también en el reintento:', e instanceof Error ? e.message : String(e));
+  const intento = async (etiqueta: string) => unaVez().catch((e) => {
+    console.error(`[plan-criterio] ${etiqueta} falló:`, e instanceof Error ? e.message : String(e));
     return null;
   });
-  if (!salida) return { veredictos: p.candidatas.map(() => null), faltantes: [], fallo: true };
-  const r = resumenVeredictos(salida.veredictos);
-  console.log(`[plan-criterio] ${n} tareas → ${r.compromiso} compromisos · ${r.acuerdo_interno} acuerdos internos · ${r.descartado} descartadas (${r.degradadas} por cita que no aparece) · ${r.fuera} fuera · ${r.sin_juzgar} sin juzgar · +${salida.faltantes.length} que faltaban`);
-  return { veredictos: salida.veredictos, faltantes: salida.faltantes, fallo: false, usage: salida.usage };
+
+  // ⚠️ SECUENCIALES, NO EN PARALELO. Son tres llamadas grandes contra la misma key:
+  // en paralelo el 429 esta garantizado, y esta feature va con `fallback: []` — no
+  // degrada de modelo, FALLA. Tres corridas paralelas que se pisan la cuota dejan
+  // una corrida buena, que es exactamente lo que se venia a arreglar.
+  const ok: Array<{ veredictos: Array<Veredicto | null>; faltantes: Faltante[]; usage?: UsageInfo }> = [];
+  for (let k = 0; k < CORRIDAS_JUEZ; k++) {
+    if (k) await new Promise((r) => setTimeout(r, 1200));
+    const r = await intento(`corrida ${k + 1}/${CORRIDAS_JUEZ}`);
+    if (r) ok.push(r);
+  }
+  // Un reintento SOLO si no contesto ninguna: un 429 o un JSON cortado no pueden
+  // leerse como «el juez no se pronuncio» sin que nadie se entere. Con una sola que
+  // haya contestado no se reintenta: se pierde recall, no el juicio.
+  if (!ok.length) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const r = await intento('el reintento');
+    if (r) ok.push(r);
+  }
+  if (!ok.length) return { veredictos: p.candidatas.map(() => null), faltantes: [], fallo: true };
+
+  const veredictos = unirVeredictos(ok.map((x) => x.veredictos), n);
+  const faltantes = unirFaltantes(ok.map((x) => x.faltantes), norm);
+  const r = resumenVeredictos(veredictos);
+  // El aporte de cada corrida se MIDE y se escribe. Si la segunda y la tercera suman
+  // 0 reunion tras reunion, las tres corridas son cuota tirada y hay que enterarse —
+  // el documento las pide sobre Sonnet 5 con pensamiento adaptativo, y este juez
+  // corre en otro modelo: el numero medido de alla no se hereda.
+  const aporte = aporteDeCadaCorrida(ok.map((x) => x.faltantes), norm);
+  console.log(`[plan-criterio] ${ok.length}/${CORRIDAS_JUEZ} corridas · ${n} tareas → ${r.compromiso} compromisos · ${r.acuerdo_interno} acuerdos internos · ${r.descartado} descartadas (${r.degradadas} por cita que no aparece) · ${r.fuera} fuera · ${r.sin_juzgar} sin juzgar · +${faltantes.length} que faltaban (aporte por corrida: ${aporte.join(' + ')})`);
+  return { veredictos, faltantes, fallo: false, usage: sumarUsage(ok.map((x) => x.usage)) };
 }

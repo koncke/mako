@@ -39,6 +39,12 @@ const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 const normNom = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
 
+/** Las cubetas que llegan a un borrador. `fuera` no: no tiene forma de compromiso y
+ *  no se registra en ninguna parte (regla del criterio: si entrara, la lista de
+ *  descartados se volveria un basurero y nadie la revisaria). */
+export const CUBETAS_BORRADOR = ['compromiso', 'acuerdo_interno', 'descartado'] as const;
+export type CubetaBorrador = (typeof CUBETAS_BORRADOR)[number];
+
 export type PropuestaTarea = {
   titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio;
   // Reparto por persona (reuniones): quién asumió la tarea y si es de OTRO. Viajan
@@ -78,6 +84,22 @@ export type PropuestaTarea = {
    *  campo aparte de `incluir` porque una ampliación tiene `incluir: false` por
    *  definición —no se crea— y meterlos juntos apagaba todas de entrada. */
   omitir?: boolean;
+  /**
+   * EN QUE CUBETA la puso el criterio de compromisos del workspace, si lo hay
+   * (lib/plan-criterio-juez.ts). undefined = no se juzgo: el workspace no tiene
+   * criterio, o el juez fallo. Las `fuera` no llegan hasta aca.
+   *
+   * No es lo mismo que `incluir`. `incluir` es lo que la PERSONA decidio y se
+   * reescribe en cada click; la cubeta es lo que dijo el criterio y no cambia. Las
+   * dos hacen falta: sin la cubeta, una tarea destildada no se distingue de una que
+   * el criterio descarto, y la tercera cubeta existe justamente «para que la
+   * decision sea auditable».
+   */
+  cubeta?: CubetaBorrador;
+  /** Por que el criterio la puso ahi, con la regla y la cita. Se MUESTRA en la
+   *  revision y NO entra al detalle de la tarea creada: es el fundamento de una
+   *  clasificacion, no contexto del trabajo. */
+  porQue?: string;
 };
 /**
  * Los títulos de las tareas ABIERTAS del tablero del workspace actual, para no volver
@@ -216,6 +238,12 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     })(),
     ampliar: o.ampliar === false ? false : undefined,
     omitir: o.omitir === true ? true : undefined,
+    // ⚠️ VAN ACA O NO EXISTEN. Este saneo RECONSTRUYE la tarea campo por campo, asi
+    // que todo campo nuevo que no se lea aca vuelve `undefined` en cada lectura de la
+    // fila — sin error, sin log, y con la pantalla mostrando una tarea perfecta a la
+    // que le falta el dato. Es la trampa que este repo ya pago con `landing.config`.
+    cubeta: CUBETAS_BORRADOR.includes(o.cubeta as CubetaBorrador) ? (o.cubeta as CubetaBorrador) : undefined,
+    porQue: o.porQue ? str(o.porQue).trim().slice(0, 800) : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {

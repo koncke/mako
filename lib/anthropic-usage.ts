@@ -83,6 +83,28 @@ const DEFAULT_PRICE = { in: 5, out: 25 };
 // Precio de Gemini cuando el cliente cargó créditos (tier pago). En free tier no cobra
 // (costFor devuelve 0 al escribir); getUsageSummary recomputa el costo real de las filas
 // de Gemini SOLO si hay saldo registrado → así el restante de créditos baja de verdad.
+/**
+ * Suma el gasto de varias pasadas en un solo UsageInfo (para el panel de costo).
+ *
+ * Vive aca y no en quien la usa porque ya son dos: el extractor de reuniones
+ * (que trocea el transcript) y el juez del criterio (que lo lee tres veces).
+ * `model` es el de la primera: son pasadas de la MISMA feature, asi que o es el
+ * mismo modelo o la cascada degrado en el medio, y ahi el primero es el que se
+ * pidio. Sin `server-only` por herencia del modulo, que ya lo tiene.
+ */
+export function sumarUsage(us: Array<UsageInfo | undefined>): UsageInfo | undefined {
+  const vivos = us.filter((u): u is UsageInfo => !!u);
+  if (!vivos.length) return undefined;
+  return {
+    inputTokens: vivos.reduce((s, u) => s + u.inputTokens, 0),
+    outputTokens: vivos.reduce((s, u) => s + u.outputTokens, 0),
+    cacheCreation: vivos.reduce((s, u) => s + u.cacheCreation, 0),
+    cacheRead: vivos.reduce((s, u) => s + u.cacheRead, 0),
+    costUsd: vivos.reduce((s, u) => s + u.costUsd, 0),
+    model: vivos[0].model,
+  };
+}
+
 export const GEMINI_PRICE_PAGO = { in: 0.30, out: 2.50 }; // gemini-2.5-flash ≈ USD/1M in/out
 
 // STT: precio por SEGUNDO de audio (USD). El STT cobra por duración, no por tokens.

@@ -39,6 +39,21 @@ export type CandidataTarea = {
   minuto?: number;
   /** todos los momentos en que se habló de esto (la misma tarea vuelve en la charla). */
   minutos?: number[];
+  /** En qué cubeta la puso el criterio de compromisos del workspace, si lo hay
+   *  (lib/plan-criterio-juez.ts). undefined = este workspace no tiene criterio. */
+  cubeta?: 'compromiso' | 'acuerdo_interno' | 'descartado';
+  /** Por qué el criterio la puso ahí: la regla y la cita. */
+  porQue?: string;
+};
+
+/** Cómo se llama cada cubeta en pantalla, y de qué color.
+ *
+ *  «Compromiso» NO se dibuja: es el caso normal y una etiqueta en cada fila de la lista
+ *  no informa nada — lo que hay que poder ver de un vistazo es lo que el criterio dejó
+ *  AFUERA, que son las dos que vienen destildadas. */
+export const ROTULO_CUBETA: Record<string, { txt: string; color: string }> = {
+  acuerdo_interno: { txt: 'ENTRE ELLOS', color: 'var(--faint)' },
+  descartado: { txt: 'NO ES COMPROMISO', color: 'var(--faint)' },
 };
 
 /** Los momentos de una tarea, siempre como lista (compat con el campo viejo). */
@@ -747,6 +762,20 @@ export function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: F
         {/* Corregir incluye el TÍTULO: es lo que se lee en la tarjeta y en la vista de
             Prioridades, así que si la transcripción lo dejó torcido no alcanza con
             arreglar el detalle — la tarjeta sigue diciendo cualquier cosa. */}
+        {/* LO QUE DIJO EL CRITERIO. Va PEGADO al título y antes del detalle porque es lo
+            que explica por qué esta fila viene destildada: sin esto, una tarea sin tildar
+            se lee como un descuido de MaKo y la persona la tilda sin leer nada. El texto
+            largo —la regla y la cita— es el fundamento de una decisión, no una glosa:
+            el criterio pide que se registre «con la regla que lo excluyó y con su cita,
+            para que la decisión sea auditable». */}
+        {!editando && f.cubeta && ROTULO_CUBETA[f.cubeta] && (
+          <div style={{ marginTop: 6 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', color: ROTULO_CUBETA[f.cubeta].color, border: `1px solid var(--border-strong)`, borderRadius: 999, padding: '2px 8px' }}>
+              {ROTULO_CUBETA[f.cubeta].txt}
+            </span>
+            {f.porQue && <div style={{ marginTop: 5, fontSize: 12, lineHeight: 1.5, color: 'var(--dim)', whiteSpace: 'pre-line' }}>{f.porQue}</div>}
+          </div>
+        )}
         {editando
           ? <>
               <input autoFocus value={f.titulo} onChange={(e) => onFila({ titulo: e.target.value })} placeholder="Título de la tarea"

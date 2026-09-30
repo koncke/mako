@@ -207,7 +207,14 @@ test('LA CADENA NO SE CORTA EN NINGÚN MAPEO INTERMEDIO', () => {
     ['lib/reunion-auto.ts', AUTO],
     ['lib/importar-en-segundo-plano.ts', IMPORTAR],
   ] as const) {
-    assert.match(src, /recurrente: t\.recurrente/, `${donde} no copia «recurrente» al borrador`);
+    // ⚠️ `t.recurrente` PUEDE venir con un override delante, y por eso el patron no
+    // exige que sea el renglon entero. Desde el 30/09/2026 el cron pregunta primero al
+    // JUEZ DEL CRITERIO (`v ? v.recurrente || undefined : t.recurrente`): el juez ve la
+    // reunion completa y el extractor un tramo, asi que en un workspace con criterio
+    // manda el juez. Lo que este guard cuida sigue igual: que el valor del extractor
+    // LLEGUE cuando no hay quien lo pise. Un `t.recurrente` que desaparece del archivo
+    // es la cadena cortada; uno con un `?:` adelante, no.
+    assert.match(src, /recurrente: (?:[^;\n]*[?:]\s*)?t\.recurrente/, `${donde} no copia «recurrente» al borrador`);
   }
   // Y el borrador lo declara y lo persiste: sin esto, el `map` copia a la nada.
   assert.match(PROPUESTA, /recurrente\?: boolean;/, 'PropuestaTarea no declara el campo');
