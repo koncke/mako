@@ -34,10 +34,54 @@ export const PARTES: Parte[] = [
   { titulo: 'Objetivo, desenlace y hand-off', detalle: 'La secuencia sabe cuándo terminó · encadena a la siguiente · si el lead se sale del guion, MaKo se calla', estado: 'hecha' },
   { titulo: 'Go-live: que el motor mande de verdad', detalle: 'Flags apagados · el fallo que no avanza ni reagenda · qué hacer con el paso del canal apagado', estado: 'sigue' },
   { titulo: 'La prospección acordada con Mauricio', detalle: 'Audio como primer toque · lead magnet como archivo · presupuesto anti-ban propio', estado: 'cola' },
-  { titulo: 'Editor de flujos + Chat Analyst', detalle: 'Volver al dibujo por paso · métricas de cómo responde el bot', estado: 'cola' },
+  { titulo: 'El flujo, en un lienzo', detalle: 'La secuencia como grafo: se dispara → los mensajes → si contesta → desenlace → «sigue con» otra secuencia · las aristas salen del DATO (orden, `requiere`, `logradoSecuencia`), nadie configura flechas · tocar un nodo lo edita ahí mismo · reemplazó a las tres sub-tabs', estado: 'hecha' },
+  { titulo: 'Chat Analyst', detalle: 'Métricas de cómo responde el bot · era la otra mitad de «Editor de flujos + Chat Analyst», que quedó frenado desde el 15/07 esperando la guía del dueño — la guía llegó el 30/09 como una captura de ManyChat', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
+  {
+    fecha: '30 sep', hora: '00:20', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El flujo de conversación, como el editable de ManyChat',
+    pedido: 'Quiero que los editables del flujo de conversación sea como el editable de Manychat, que tiene una pantalla tipo flujo, y ahí se edita todo. Investigalo a profundidad e implementalo.',
+    puntos: [
+      'Vino con una captura del Flow Builder de ManyChat: lienzo infinito, nodos conectados por curvas, «Tap some step to edit», y la cabecera con Saved / Preview / Publish.',
+      'Cierra la mitad que quedó frenada el 15/07: aquel día se construyó el editor «dibujado» por pasos y él lo mandó revertir 42 minutos después, «punto de partida para rediseñarlo juntos con su guía». La guía era esto.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '03:10', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Cinco relevos, cinco refutados: el flujo de conversación no era el que se llama «flujo»',
+    puntos: [
+      'El pedido nombra una pantalla que no existe: «flujo de conversación» tiene CERO coincidencias en app/ y lib/. Hay siete cosas que modelan pasos y dos se llaman «flujo».',
+      'Medido en producción: el que se llama «Flow Editor» tiene 4 flujos con 0 pasos; `nutricion_secuencias` tiene 62 secuencias, 136 pasos y ramas que el motor ejecuta de verdad. El candidato se eligió por las filas, no por el nombre.',
+      'Los cinco relevos volvieron refutados y las refutaciones cambiaron el plan: el primero apuntaba al modelo vacío, y el que decía «no hay nada que dibujar» estaba mirando el motor que no importa.',
+      'El hallazgo incómodo: el pedido contradice una decisión suya versionada — el canvas drag-to-connect del funnel se construyó (14 etapas, 24 flechas), lo llamó «rebuscado», y la memoria lo guarda como «lista/forms, no canvas». Se resolvió separando QUÉ de CÓMO: lo rebuscado era configurar flechas.',
+      'Y el tamaño que decidió el diseño: la secuencia más grande de toda la base tiene TRES pasos. Por eso el layout se calcula y no se guarda.',
+    ],
+    archivos: ['docs/hallazgos-comunicacion.md — las cinco entradas de esta tanda'],
+  },
+  {
+    fecha: '30 sep', hora: '05:40', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El lienzo: la secuencia como grafo, y se edita tocando un nodo',
+    puntos: [
+      'Nodos: se dispara → los mensajes (la burbuja REAL de WhatsApp, con su audio reproducible) → si contesta → qué pregunta → el desenlace con sus DOS puertos → «sigue con» otra secuencia. Tocar cualquiera abre su editor encima del lienzo, que es literalmente lo que hace ManyChat.',
+      'Las aristas salen del dato: el orden de los pasos, `delay_horas`, `requiere`, y `logradoSecuencia`/`falloSecuencia`. Nadie conecta nada — y el encadenamiento con otra secuencia, que NINGUNA pantalla mostraba, ahora se ve y lleva.',
+      'Reemplazó a las tres sub-tabs (Estrategia / Mensajes / Variantes) y a `MensajesChat`. No conviven: dos editores del mismo jsonb divergen, que es la razón escrita por la que se borró el editor de diagramas del funnel dos días antes.',
+      'Lo que el lienzo NO edita y por qué: el gancho, las preguntas y el criterio son lo que MaKo DICE, no la forma del flujo; editarlos es decidir siete cosas juntas y para eso está el wizard, un paso por pantalla.',
+      'El lienzo no puede mentir: `requiere: sin_respuesta` está en 7 pasos de producción y el motor no lo evalúa, así que se dibuja «sale siempre» con su marca en vez de una bifurcación que no ocurre. Lo ata un guard que lee las condiciones de la fuente del motor.',
+      'Verificado en el navegador desde un worktree limpio (el clon compartido no compilaba por trabajo en curso de la otra sesión): abre, el nodo refleja lo que se escribe, la flecha refleja el tiempo, el paneo y el zoom andan, y el panel no tapa el nodo que se está editando.',
+    ],
+    archivos: [
+      'lib/flujo-conversacion.ts — el grafo y su layout, puro y testeable',
+      'app/chatbot/FlujoLienzo.tsx — el lienzo y el editor por nodo',
+      'app/chatbot/SecuenciaPerfil.tsx — las tres sub-tabs se fueron',
+      'tests/flujo-conversacion.test.ts — 20 guards, tres probados rompiéndolos',
+      'AGENTS.md — la regla: un lienzo dibuja una afirmación',
+    ],
+  },
   // ── Junio: el motor, antes de que existiera la tab ──────────────────────────
   {
     fecha: '22 jun', hora: '14:55', chat: CH_VSL, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',

@@ -468,7 +468,7 @@ export const AREAS: AreaDev[] = [
     slug: 'chatbot', titulo: 'Chatbot', familia: 'Sales Machine',
     estado: 'listo', agente: true, verEnApp: '/chatbot',
     alcance: 'El cockpit del agente que conversa: secuencias de mensajes con estrategia, simulación como lead, métricas y hand-off al humano. Su H1 en pantalla todavía dice «Chat Agent».',
-    vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts'],
+    vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts'],
     proyectos: ['Agente: Chatbot'],
   },
   {

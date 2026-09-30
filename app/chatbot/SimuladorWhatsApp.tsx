@@ -279,6 +279,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
       {detalle && sel ? (
         <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
+          secuencias={secuencias}
+          onAbrirClave={(clave) => {
+            // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra
+            // secuencia y no la abre es la mitad inútil del encadenamiento.
+            const otra = secuencias.find((j) => j.clave === clave);
+            if (otra) setSelId(otra.id);
+          }}
           onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
       ) : sel ? (
         <ChatHilo

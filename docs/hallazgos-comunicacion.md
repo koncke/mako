@@ -5925,3 +5925,140 @@ uno por día». Y el paso que no se saltea: **se deja como estaba**, porque el �
 workspace donde esa pantalla se puede ver es el **ws1, que es un cliente real**.
 
 *2026-09-29*
+
+### «El flujo de conversación» no existía como pantalla, y elegir cuál era es la decisión cara
+
+**Vive en:** `app/chatbot/FlujoLienzo.tsx` · `lib/flujo-conversacion.ts`
+
+El pedido dijo «los editables del flujo de conversación» como si hubiera uno. Hay
+**siete cosas que modelan pasos** y sólo dos se llaman «flujo» en el código — y la
+frase «flujo de conversación» **no aparece en una sola pantalla del producto** (0 hits
+en `app/` y `lib/`). O sea que el nombre no desempata: desempata el dato.
+
+Medido en producción el 30/09/2026:
+
+| Candidato | Filas | Pasos | ¿El motor ejecuta ramas? |
+|---|---|---|---|
+| `Flujo` de aviso (`lib/flujos-tipos.ts`), el que se llama «Flow Editor» | **4** | **0** | no: `esperar` hace `break` y ningún cron lo drena |
+| `nutricion_secuencias.pasos` (el Chat Agent) | **62** | **136** | **sí**: `requiere` (27 usos), `variantes`, y `logradoSecuencia`/`falloSecuencia` con `encadenar()` cableado al cron vivo |
+
+El que se LLAMA editor de flujos está vacío; el que no se llama así es el único con
+algo que dibujar. **Cuando un pedido nombra una pantalla que no existe, el candidato
+se elige por dónde están las filas y qué ejecuta el motor, no por el nombre del
+módulo** — y son treinta minutos de consulta contra una semana construyendo el
+editor de un modelo muerto.
+
+⚠️ Y el segundo número da vuelta el diseño: **la secuencia más grande de toda la base
+tiene TRES pasos** (promedio 2,2). Un lienzo infinito con paneo, zoom y posiciones
+guardadas para siete nodos es maquinaria desproporcionada — por eso el layout se
+calcula y no se guarda.
+
+*2026-09-30*
+
+### Un pedido puede contradecir una decisión escrita del MISMO dueño
+
+**Vive en:** el comentario de cabecera de `lib/flujo-conversacion.ts`
+
+«Quiero que sea como el editable de Manychat» choca de frente con tres cosas suyas ya
+escritas: el canvas drag-to-connect del funnel **se construyó** (14 etapas, 24
+flechas), él lo llamó **«rebuscado»**, y la conclusión quedó en tres lugares —
+`docs/estado-del-arte.md`, `docs/hallazgos-crm.md` y la memoria, esta última con la
+frase «el editor manual es el último recurso, y simple (**lista/forms, no canvas**)».
+Más: en las 48 horas previas mandó borrar **dos** editores, uno de ellos el mapa de
+transiciones con flechas, pidiendo «que sea simple la edición, nada compleja».
+
+Lo que resuelve la contradicción no es elegir un bando: es **separar QUÉ pidió de
+CÓMO**. Releyendo su propia cita, lo rebuscado era *configurar flechas* — «así se
+evita que el usuario tenga que configurar flechas». Un lienzo donde las aristas
+**salen del dato** (el orden de los pasos, `requiere`, `logradoSecuencia`) no pide
+configurar ninguna: aparecen porque la secuencia hace eso. Se cumple el pedido nuevo
+sin revertir el viejo.
+
+**La regla: cuando un pedido contradice una decisión suya versionada, se busca la
+dimensión en la que las dos son ciertas — y si no la hay, se dice antes de construir,
+no después.** Gana el pedido más NUEVO, siempre; lo que no se puede es no haberlo
+mirado.
+
+*2026-09-30*
+
+### Un lienzo DIBUJA UNA AFIRMACIÓN, y por eso miente más fuerte que un formulario
+
+**Vive en:** `CONDICIONES_VIVAS` en `lib/flujo-conversacion.ts` · el guard en
+`tests/flujo-conversacion.test.ts`
+
+Una flecha que se bifurca dice «acá el motor decide». Se lee sin abrir nada y parece
+la estructura del sistema, así que si el motor no decide ahí, el dibujo miente con la
+autoridad de un diagrama — bastante más que un campo en un formulario.
+
+El caso concreto: `requiere: 'sin_respuesta'` está escrito en **7 pasos de
+producción**, y `lib/nutricion.ts` tiene rama para `respondio`, `ya_contactado` y
+`primer_contacto` **y para ésta no**: cae de largo y el mensaje sale igual, le haya
+contestado el lead o no. El lienzo dibuja lo que PASA («sale siempre», con su marca) y
+no lo que el campo promete.
+
+Lo que lo sostiene es un guard que **lee las condiciones del motor de su propia
+fuente** y falla si las dos listas se separan — en cualquiera de las dos direcciones.
+
+⚠️ **Y la primera versión de ese guard midió el universo equivocado**: contaba también
+el SANEO (`...(p.requiere === 'respondio' || … || p.requiere === 'sin_respuesta' ?
+…)`, que sólo dice qué valores se GUARDAN) y concluía que el motor evalúa las cuatro —
+o sea que habría dado permiso para dibujar la bifurcación muerta. Lo que decide si un
+paso sale es un `if` del despachador o el `findIndex` que salta al siguiente. **Al
+atar un dibujo a un motor, la pregunta no es «¿dónde aparece el campo?» sino «¿qué
+línea DECIDE?».**
+
+*2026-09-30*
+
+### `setPointerCapture` retargetea el `pointerup`: el clic se anota al APRETAR
+
+**Vive en:** `onPointerDown` / `onPointerUp` en `app/chatbot/FlujoLienzo.tsx`
+
+Un lienzo captura el puntero para que el paneo no se corte al salirse del contenedor.
+La captura **retargetea todos los eventos siguientes al elemento que capturó**, así
+que en el `pointerup` el `e.target` **es el contenedor** y `closest('[data-nodo]')`
+devuelve null SIEMPRE. Síntoma: tocar un paso no abre nada, con el handler leyéndose
+perfecto. El nodo se anota en el `pointerdown`, que es el único momento en que
+`e.target` todavía es el nodo.
+
+⚠️ **Y `releasePointerCapture` puede TIRAR, y llevarse el clic puesto.** Estaba antes
+de resolver la selección; un `InvalidPointerId` —cuando la captura no llegó a
+tomarse— abortaba el handler entero. Va adentro de un `try` y **después** de resolver
+el clic.
+
+⚠️ **Y `overflow: hidden` NO impide que el contenedor se scrollee POR CÓDIGO.** Un
+`scrollIntoView`, el foco de un input de un nodo fuera de cuadro o el buscar-en-página
+lo corren, y ahí el `transform` sigue diciendo una cosa y en pantalla todo está en
+otra: medido, un nodo a 1652 px se «movió» 330 px con el transform intacto. La vista
+la gobierna el transform y nada más — `onScroll` devuelve el scroll a cero.
+
+⚠️ **Y `ResizeObserver.observe()` dispara al suscribirse.** Cualquier cosa que
+reinstale el observer vuelve a encuadrar y deshace el paneo que la persona acaba de
+hacer; se lee como que el lienzo «rebota solo». Reencuadrar es una DECISIÓN: se guarda
+la firma de lo último encuadrado (grafo + caja) y el botón «Centrar» es el único que
+lo fuerza.
+
+*2026-09-30*
+
+### Verificar una pantalla nueva cuando el árbol compartido no compila
+
+**Vive en:** el procedimiento, no un archivo
+
+La otra sesión tenía trabajo a medias (`leadsDeOtrosProductosAction` sin exportar) y la
+app **entera** no hidrataba: cualquier verificación en el clon compartido habría dado
+«la pantalla no existe» sobre una pantalla que estaba perfecta. Se verifica desde un
+worktree limpio con los propios archivos copiados encima.
+
+⚠️ **Y el junction de `node_modules` que alcanza para pushear NO alcanza para correr
+el dev server**: Turbopack lo rechaza con «Symlink [project]/node_modules is invalid,
+it points out of the filesystem root», porque su raíz es el worktree y el destino está
+por encima. Se arregla subiendo `turbopack.root` al clon principal **en el worktree
+solamente** — copiar `node_modules` no es una opción, es del orden de los minutos.
+
+⚠️ **Y `innerText` aplica `text-transform`.** Un rótulo con `textTransform:
+'uppercase'` vuelve en MAYÚSCULAS, así que un `includes('El mensaje')` da false sobre
+un editor perfectamente abierto. Costó dos vueltas diagnosticando un clic que
+funcionaba: lo que estaba roto era la aserción. **Antes de creerle a una verificación
+que dice «no aparece», comprobá que el DOM no esté diciendo lo mismo con otras
+letras** — `aria-pressed` del elemento no miente y `innerText` sí.
+
+*2026-09-30*

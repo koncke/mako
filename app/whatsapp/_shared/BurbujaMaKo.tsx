@@ -4,7 +4,7 @@
 // BurbujaMaKo — un mensaje que MANDA el negocio, como se ve en WhatsApp
 // =============================================================================
 // La anatomía de la burbuja saliente, en UN lugar. Antes vivía copiada a mano en
-// dos: `ChatHilo` (el hilo real, solo lectura) y `MensajesChat` (los pasos de una
+// dos: `ChatHilo` (el hilo real, solo lectura) y `FlujoLienzo` (los pasos de una
 // secuencia, editables), con un ⚠️ en cada archivo avisando que si alguien cambiaba
 // una había que mover la otra. Dos copias con un comentario que pide sincronizarlas
 // a mano son dos copias que se van a desincronizar; al sumar la tercera —el texto de

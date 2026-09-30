@@ -5164,3 +5164,59 @@ contestaba media pregunta. QUÉ lo produce no es una opción; CADA CUÁNTO llega
 la que faltaba. El pedido volvió textual: «el "Qué lo dispara" NO es editable». Lo que lo
 destraba es buscar el MECANISMO antes que el control: el número ya existía y estaba
 cableado en cada call site en vez de salir de la pantalla.
+
+# Un lienzo DIBUJA UNA AFIRMACIÓN: las aristas salen del DATO, no de un gesto
+
+Una flecha que se bifurca dice «acá el motor decide». Se lee sin abrir nada y parece
+la estructura del sistema, así que un diagrama miente con más autoridad que un campo
+en un formulario: nadie va a auditar una flecha.
+
+De ahí las dos reglas de cualquier pantalla tipo flujo en este repo:
+
+1. **Las aristas se DERIVAN del dato, no se configuran.** Lo que conecta dos cosas ya
+   está escrito y el motor ya lo ejecuta (el orden de los pasos, una condición, la
+   clave de la secuencia que sigue). Nadie arrastra una flecha — el editor de flechas
+   del funnel se construyó, el dueño lo llamó «rebuscado» y se borró. Y el beneficio
+   no es sólo de UX: una arista derivada no puede quedar vieja respecto del motor, y
+   una dibujada a mano sí.
+2. **Sólo se dibuja la rama que el motor EJECUTA.** Se ata con un guard que lee las
+   condiciones de la fuente del motor y falla si las dos listas se separan, en
+   cualquiera de las dos direcciones (molde: `CONDICIONES_VIVAS` en
+   `lib/flujo-conversacion.ts` + `tests/flujo-conversacion.test.ts`).
+
+⚠️ **Y al medir qué ejecuta el motor, contá las líneas que DECIDEN, no las que nombran
+el campo.** La primera versión de ese guard sumaba el SANEO —que sólo dice qué valores
+se guardan— y concluía que el motor evalúa una condición que ignora: habría dado
+permiso para dibujar la bifurcación muerta. Lo que decide es un `if` del despachador o
+el `findIndex` que salta al paso siguiente.
+
+⚠️ **Y el layout no se guarda mientras el grafo sea chico.** Guardar posiciones es un
+campo nuevo, y en este repo los pasos pasan por un saneo que reconstruye cada uno CAMPO
+POR CAMPO y descarta lo que no conoce: el layout se perdería en silencio en el primer
+guardado hecho desde otra pantalla. Medido antes de decidirlo: la secuencia más grande
+de la base tiene TRES pasos.
+
+## Y el gesto de un lienzo: pointer events, con tres trampas medidas
+
+No es HTML5 drag-and-drop —acá no se transporta nada, se mueve un valor continuo— y no
+aplican las reglas de la foto que dibuja el SO. Las que sí:
+
+- **`setPointerCapture` RETARGETEA el `pointerup` al elemento que capturó**, así que el
+  `e.target` de ese evento es el CONTENEDOR y `closest(...)` devuelve null siempre. El
+  nodo del clic se anota en el `pointerdown`. Síntoma: tocar un nodo no abre nada, con
+  el handler leyéndose perfecto. Y `releasePointerCapture` puede TIRAR: va adentro de un
+  `try` y DESPUÉS de resolver el clic, o una excepción se lleva el clic puesto.
+- **`overflow: hidden` no impide que el contenedor se scrollee POR CÓDIGO** (un
+  `scrollIntoView`, el foco de un input fuera de cuadro, el buscar-en-página). Ahí el
+  `transform` y lo que se ve dejan de coincidir y el clic cae al lado: medido, 330 px de
+  corrimiento con el transform intacto. `onScroll` devuelve el scroll a cero.
+- **`ResizeObserver.observe()` dispara al suscribirse**, así que cualquier cosa que
+  reinstale el observer vuelve a encuadrar y deshace el paneo que la persona acaba de
+  hacer — se lee como que el lienzo «rebota solo». Reencuadrar es una decisión: se
+  guarda la firma de lo último encuadrado y sólo el botón de centrar la fuerza.
+
+⚠️ **Y `innerText` aplica `text-transform`.** Un rótulo en `uppercase` vuelve en
+MAYÚSCULAS, así que una verificación que busca el texto como se escribió da «no
+aparece» sobre una pantalla perfectamente abierta. Antes de diagnosticar el código, leé
+`aria-pressed` o el `textContent`, que no se transforman.
+
