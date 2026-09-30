@@ -4380,3 +4380,58 @@ al revés: por participación es correcto y por persona es falso. No es el mismo
 los dos.
 
 **Vive en:** `docs/modelo-oferta-producto-funnel.md` · *2026-09-30 crm-tanda-4*
+
+## Borrar un embudo de verdad deja a sus leads invisibles, porque `funnel_id` no tiene FK (30/09/2026)
+
+«Eliminar» un producto lo ARCHIVA (`activo = false`) y eso está bien. Cuando se sumó el borrado
+definitivo, la pregunta que decide todo es qué pasa con su gente — y la respuesta estaba en el
+esquema, no en el código:
+
+| tabla | FK a `funnels` | al borrar |
+|---|---|---|
+| `nutricion_secuencias` | sí, `on delete cascade` | se borran |
+| `funnel_ofertas` | sí, `on delete cascade` | se borran |
+| **`leads`** | **ninguna** (mig 0181, a propósito) | **no pasa nada** |
+
+O sea que un `delete from funnels` deja a los leads con un `funnel_id` que ya no resuelve a nada.
+`listLeadsDeFunnel` los busca por igualdad exacta, así que **no aparecen en ninguna pantalla,
+para siempre**: no falla, no avisa y no borra una fila. Con los 1.146 del ws1 ahí, es la clase de
+pérdida que se descubre semanas después.
+
+**La regla: antes de escribir un borrado, mirá qué apunta a eso y CÓMO.** Un `cascade` es una
+decisión tomada; la ausencia de FK **no** es «nada apunta acá», es «nadie decidió qué pasa». Las
+personas no son configuración: vuelven al embudo del negocio, y el rescate va ANTES del delete —
+al revés, si el borrado sale bien y el rescate falla, el dato que decía dónde estaban se fue con
+la fila.
+
+⚠️ **Y borrar de verdad exige DOS decisiones en DOS momentos**: sólo se puede sobre algo que ya
+está archivado (`if (fila.activo) throw`). Es el guard en positivo que hace que nada se pierda de
+un clic, y es lo que convierte «Eliminar» en reversible sin tener que prometerlo.
+
+**Vive en:** `lib/funnels.ts` (`eliminarFunnelDefinitivo`) · *2026-09-30 crm-tanda-5*
+
+## Un buscador de una línea y una tabla con filtros no son dos tamaños de lo mismo (30/09/2026)
+
+«Traer un lead de otro producto» se implementó primero como un renglón al pie del alta que
+desplegaba un buscador. Martín lo rechazó en la misma tanda: *«cuando le doy, debe reemplazar al
+formulario de arriba, con un botón de atrás claro… que aparezcan todas las columnas, los filtros,
+la barra de busqueda. Y que se pueda hacer selección múltiple»*.
+
+Lo que estaba mal no era el tamaño: era que **el modal pedía dos cosas a la vez**. Cargar a
+alguien nuevo y buscar a alguien que ya está son dos tareas, y ninguna es un paso de la otra. Por
+eso ahora son dos VISTAS de la misma caja, con «Atrás» y no «Cancelar»: se vuelve al alta, no se
+cierra el modal.
+
+⚠️ **Y la vista la decide el PADRE, no el formulario.** La de traer necesita 1040 px y un título
+distinto; un form no puede cambiar el tamaño de la caja que lo contiene. El form sólo avisa
+(`onTraer`), y el padre cambia ancho, alto y título — con el alto FIJO, o la caja salta al ir y
+volver.
+
+⚠️ **Y «tildar todos» tilda lo VISIBLE, no lo que hay.** Con 1.146 leads y un filtro puesto que
+deja 20, un «todos» que se lleve los 1.146 mueve de tablero a gente que la persona nunca vio.
+Medido en el navegador: con «jesus» escrito, tildar todos dice «Mover 20 aquí».
+
+⚠️ Y la lista corta en 300 **diciéndolo** («Se muestran 300 de 1146»). Una lista que corta en
+silencio se lee como que ahí termina el producto.
+
+**Vive en:** `app/crm/TraerDeOtroProducto.tsx` · `app/crm/CrmBoard.tsx` · *2026-09-30 crm-tanda-5*

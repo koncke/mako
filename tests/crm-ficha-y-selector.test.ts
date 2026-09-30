@@ -262,8 +262,16 @@ test('«Nuevo producto» es la salida para CREAR: apagada, y se enciende al pasa
 
   // El primitive: apagada de entrada, encendida al hover.
   assert.ok(/crear\?: boolean/.test(drop), 'el flag existe en el tipo');
-  assert.ok(/color: o\.crear \? 'var\(--faint\)'/.test(drop), 'apagada: --faint');
+  // ⚠️ AHORA SON DOS FLAGS APAGADOS: `crear` («Nuevo producto», con su ＋ y su filete) y
+  //    `sutil` («Productos eliminados», sólo texto y más chico). Comparten el color
+  //    porque los dos son secundarios; lo que los distingue es el peso, y eso se mide
+  //    abajo. La aserción pedía el ternario exacto y se rompió al sumar el segundo.
+  assert.match(drop, /color: o\.crear \|\| o\.sutil \? 'var\(--faint\)'/, 'apagada: --faint');
+  assert.match(drop, /sutil\?: boolean/, 'se fue el renglón SUTIL, que es el de lo eliminado');
+  // El sutil es MÁS chico que el de crear, o los dos pesan igual y vuelve el problema.
+  assert.match(drop, /fontSize: o\.sutil \? 12\.5 : 13\.5/, 'el renglón sutil dejó de ser más chico');
   assert.ok(/o\.crear \? 0\.8/.test(drop), 'y con opacidad, como «＋ Nueva tarea» del plan');
-  assert.ok(/if \(o\.crear\) \{ e\.currentTarget\.style\.color = 'var\(--primary\)'/.test(drop), 'al pasar el cursor SE ILUMINA');
+  assert.match(drop, /if \(o\.crear \|\| o\.sutil\) \{ e\.currentTarget\.style\.color = 'var\(--primary\)'/,
+    'al pasar el cursor SE ILUMINA — los dos renglones apagados, o el sutil queda muerto');
   assert.ok(/o\.crear && <span aria-hidden[^>]*>＋<\/span>/.test(drop), 'lleva el ＋, como el molde del plan');
 });

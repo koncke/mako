@@ -174,10 +174,12 @@ test('⚠️ el alta devuelve las COINCIDENCIAS, no un string, y sólo una perso
     assert.ok(nf.includes(salida), `la pantalla del duplicado perdió la salida «${salida}»`);
   }
   // «Traer de otro producto» va APARTE del formulario, que es como se pidió.
-  assert.match(nf, /Traer uno de otro producto/,
-    'se fue la opción de traer un lead de otro producto');
-  assert.match(nf, /function TraerDeOtroProducto/,
-    'el buscador de otros productos dejó de ser su propio componente: adentro del form es «dentro del formulario»');
+  // ⚠️ EL BOTÓN NO ABRE NADA EN EL FORM: avisa al padre, que cambia la VISTA del modal.
+  //    «Cuando le doy, debe reemplazar al formulario de arriba, con un botón de atrás
+  //    claro» (30/09). Abriéndose debajo, el modal pedía dos cosas a la vez.
+  assert.match(nf, />\s*Traer de otro producto\s*</, 'se fue la opción de traer un lead de otro producto');
+  assert.match(nf, /onTraer\?: \(\) => void/, 'el form volvió a resolver el traer por su cuenta: no puede, la vista necesita otro ancho');
+  assert.ok(!/function TraerDeOtroProducto/.test(nf), 'el traedor volvió a vivir adentro del form');
 });
 
 test('⚠️ el velo de hover cubre el CRM entero, y se apaga donde tiene que apagarse', () => {
@@ -250,19 +252,18 @@ test('⚠️ el botón partido vive en UN lugar, y los dos ejes salen de ahí', 
   // lugar de los que sí se pueden usar.
   assert.match(mp, /if \(!puedeAntes && !puedeDespues\) return null;/,
     'el botón partido volvió a dibujarse entero en gris');
-  for (const [arch, eje] of [
-    ['app/crm/EtapasModal.tsx', 'vertical'],
-    ['app/crm/CrmBoard.tsx', 'horizontal'],
-  ] as Array<[string, string]>) {
-    const src = limpio(leer(arch));
-    assert.match(src, /from '\.\/MoverPartido'/, `${arch} no importa el control compartido: se escribió una copia`);
-    if (eje === 'horizontal') assert.match(src, /eje="horizontal"/, `${arch} dibuja el control con el eje equivocado`);
-  }
-  // ⚠️ Y el MISMO predicado decide si se arrastra y si se dibujan las flechas: con dos,
-  // una columna podría arrastrarse y no tener botón, o al revés.
+  assert.match(limpio(leer('app/crm/EtapasModal.tsx')), /from '\.\/MoverPartido'/,
+    'el pop-up del embudo no importa el control compartido: se escribió una copia');
+
+  // ⚠️ EN EL TABLERO LAS FLECHAS VIVEN ADENTRO DEL MENÚ DE LOS TRES PUNTOS, no en la
+  //    cabecera: «las flechas de desplazar en las columnas deben de estar DENTRO del
+  //    desplegable» (30/09/2026). Estuvieron sueltas menos de un día — con 12 columnas, dos
+  //    botones más por cabecera son 24 controles arriba de las listas.
   const bd = limpio(leer('app/crm/CrmBoard.tsx'));
-  assert.match(bd, /renombrando !== c\.key && seArrastraCol\(c\) && \(/,
-    'las flechas de la columna dejaron de colgar del mismo predicado que el arrastre');
+  assert.ok(!/<MoverPartido/.test(bd), 'el control partido volvió a la cabecera de la columna');
+  assert.match(bd, /\.\.\.\(seArrastraCol\(c\) \? \[\{[\s\S]{0,200}value: 'mover'/,
+    'la fila «Mover» del menú dejó de colgar del mismo predicado que el arrastre, o desapareció');
+  assert.match(bd, /FlechaIzquierdaIcon/, 'las flechas del menú de la columna no son horizontales');
 });
 
 test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la tabla de revisión', () => {
@@ -280,8 +281,22 @@ test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la 
   //   · el traído se manda por la tabla         -> 9 / 1 (el import de la action desaparece)
   const mod = limpio(leer('app/crm/ImportarLeadsModal.tsx'));
   assert.match(mod, /useState<'archivo' \| 'producto'>/, 'el modal de importar volvió a tener un solo origen');
-  assert.match(mod, /moverLeadsAFunnelAction/, 'traer de otro producto dejó de mover en lote');
-  assert.match(mod, /function TraerDeProducto/, 'se fue el segundo origen');
+  // ⚠️ ES EL MISMO COMPONENTE QUE EL DE «Nuevo lead», no una copia. Acá había un buscador
+  //    de una línea y allá una tabla con filtros, haciendo lo mismo: la segunda pantalla
+  //    para una misma tarea es siempre la que se queda vieja.
+  assert.match(mod, /<TraerDeOtroProducto/, 'el modal de importar se escribió su propio traedor otra vez');
+  assert.ok(!/function TraerDeProducto\b/.test(mod), 'volvió el traedor propio del importador');
+  const tr = limpio(leer('app/crm/TraerDeOtroProducto.tsx'));
+  assert.match(tr, /moverLeadsAFunnelAction/, 'traer de otro producto dejó de mover en lote');
+  // Las tres cosas que Martín pidió ver en esa pantalla.
+  assert.match(tr, /Traer de/, 'se fue el selector de DE QUÉ producto traer');
+  assert.match(tr, /Buscar por nombre, email o teléfono/, 'se fue la barra de búsqueda');
+  assert.match(tr, /Todas las etapas/, 'se fue el filtro por etapa');
+  assert.match(tr, /alternarTodos/, 'se fue la selección múltiple');
+  // ⚠️ Y «tildar todos» tilda lo VISIBLE, no lo que hay: con un filtro puesto, llevarse lo
+  //    escondido mueve gente que la persona no vio.
+  assert.match(tr, /const ids = enPantalla\.map/,
+    '«tildar todos» volvió a mirar la lista entera en vez de lo que está en pantalla');
   // El lote dice lo que ENTRÓ y lo que no: «listo» sobre diez cuando entraron seis manda a
   // buscar los cuatro a un tablero donde no están.
   const ac = limpio(leer('app/crm/actions.ts'));

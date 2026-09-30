@@ -62,7 +62,8 @@ import {
 import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
-import { MoverPartido } from './MoverPartido';
+import { TraerDeOtroProducto } from './TraerDeOtroProducto';
+import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
@@ -1346,7 +1347,14 @@ export function CrmBoard({
   const [importar, setImportar] = useState(false);
   // El alta lleva A DÓNDE va: `etapa: null` = el botón del header (cae donde el alta lo
   // ponga), una clave = el placeholder de esa columna (pedido 7).
-  const [nuevoLead, setNuevoLead] = useState<{ etapa: string | null } | null>(null);
+  /**
+   * El modal de alta. `etapa` = la columna desde donde se abrió (el placeholder);
+   * `traer` = está en la vista de traer de otro producto en vez de en el formulario.
+   *
+   * Las dos viven en el MISMO estado porque son la misma caja: volver de «traer» al alta
+   * no puede perder desde qué columna se abrió.
+   */
+  const [nuevoLead, setNuevoLead] = useState<{ etapa: string | null; traer?: boolean } | null>(null);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
@@ -1691,26 +1699,6 @@ export function CrmBoard({
               </>
             )}
           </div>
-          {/* ⚠️ EL BOTÓN DOBLE, «que esté en la misma linea y se divida a la mitad… y que
-              cada uno sirva para mover la etapa de lugar. Obvio a los que no se puedan
-              mover, que no tengan esto» (Martín, 30/09/2026). Es la otra forma del gesto
-              del pedido 3: arrastrar sirve, y con 12 columnas y scroll horizontal arrastrar
-              una de punta a punta no. Acá el eje es HORIZONTAL — las etapas del tablero son
-              columnas— y el mismo control lo dibuja vertical el pop-up del embudo.
-
-              Las que no se mueven (las terminales, las de nutrición y la de entrada) no lo
-              llevan: `seArrastraCol` es el MISMO predicado que decide si se puede arrastrar,
-              así que las dos formas del gesto no pueden contradecirse. */}
-          {renombrando !== c.key && seArrastraCol(c) && (
-            <MoverPartido
-              label={c.label}
-              eje="horizontal"
-              puedeAntes={colsPropias.indexOf(c.key) > pisoCol}
-              puedeDespues={colsPropias.indexOf(c.key) < colsPropias.length - 1}
-              onAntes={() => moverCol(c.key, -1)}
-              onDespues={() => moverCol(c.key, 1)}
-            />
-          )}
           {renombrando !== c.key && (
             /* ⚠️ EL `⋯` QUEDA FUERA DEL AGARRE, y por eso el `<span data-nodrag>`: el
                `Dropdown` tiene la lista de props cerrada (sin `...rest`), así que el atributo
@@ -1729,6 +1717,33 @@ export function CrmBoard({
                 buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
                 options={[
                   { value: 'renombrar', label: 'Cambiar el nombre' },
+                  // ⚠️ MOVER VIVE ADENTRO DEL MENÚ: «las flechas de desplazar en las columnas
+                  // deben de estar DENTRO del desplegable de los 3 puntos» (Martín,
+                  // 30/09/2026). Estuvieron sueltas en la cabecera menos de un día: con 12
+                  // columnas, dos botones más por cabecera es una barra de controles arriba de
+                  // cada lista.
+                  //
+                  // El renglón NO es un botón —lo convierte `acciones`, que es el mismo molde
+                  // del lápiz de cada producto en el selector— así que las dos flechas viven
+                  // «en la misma línea» sin anidar un <button> dentro de otro, que no es HTML
+                  // válido. Y sólo se dibuja en las que se pueden mover: es el MISMO predicado
+                  // que habilita el arrastre, para que las dos formas del gesto no se
+                  // contradigan.
+                  ...(seArrastraCol(c) ? [{
+                    value: 'mover', label: 'Mover',
+                    acciones: [
+                      {
+                        icono: <FlechaIzquierdaIcon />,
+                        title: `Mover ${c.label} a la izquierda`,
+                        onClick: () => moverCol(c.key, -1),
+                      },
+                      {
+                        icono: <FlechaDerechaIcon />,
+                        title: `Mover ${c.label} a la derecha`,
+                        onClick: () => moverCol(c.key, 1),
+                      },
+                    ],
+                  }] : []),
                   // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
                   // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
                   // mecanismo, y desde el menú de una columna el lugar ya se entiende.
@@ -2064,7 +2079,7 @@ export function CrmBoard({
       )}
 
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
-      {importar && <ImportarLeadsModal funnelId={funnelActivo} onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
+      {importar && <ImportarLeadsModal funnelId={funnelActivo} productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))} onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
       {/* ⚠️ LA SEMILLA VA SÓLO SI EL POP-UP ABRE SOBRE EL EMBUDO QUE SE ESTÁ MIRANDO.
           Desde el desplegable se puede editar OTRO producto sin cambiar de tablero, y
@@ -2084,9 +2099,33 @@ export function CrmBoard({
           ficha no se abre (`selected` la busca en `leads`) y sin el aviso el botón
           se leería como que no hizo nada. */}
       {nuevoLead && (
-        <Modal titulo="Nuevo lead" ancho={720} onCerrar={() => setNuevoLead(null)}>
+        // ⚠️ DOS VISTAS, DOS TAMAÑOS. El alta es un formulario de seis campos y entra en
+        // 720; traer de otro producto es una tabla con seis columnas, su buscador y su
+        // filtro, y ahí 720 deja cada fila en dos renglones. Por eso la vista la decide el
+        // PADRE y no el form: un formulario no puede cambiar el tamaño de la caja que lo
+        // contiene. Y el alto va FIJO, o la caja salta al cambiar de vista.
+        <Modal
+          titulo={nuevoLead.traer ? 'Traer de otro producto' : 'Nuevo lead'}
+          ancho={nuevoLead.traer ? 1040 : 720}
+          alto={nuevoLead.traer ? "min(88vh, 720px)" : undefined}
+          onCerrar={() => setNuevoLead(null)}
+        >
+          {nuevoLead.traer ? (
+            <TraerDeOtroProducto
+              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
+              destino={funnelActivo}
+              onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
+              onTraidos={(movidos, fallaron) => {
+                setNuevoLead(null);
+                const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
+                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`);
+                router.refresh();
+              }}
+            />
+          ) : (
           <NewLeadForm enModal={{
             funnelId: funnelActivo,
+            onTraer: () => setNuevoLead({ ...nuevoLead, traer: true }),
             onCerrar: () => setNuevoLead(null),
             onCreado: (id) => {
               const etapa = nuevoLead.etapa;
@@ -2099,6 +2138,7 @@ export function CrmBoard({
               router.refresh();
             },
           }} />
+          )}
         </Modal>
       )}
       <Toast state={avisoBoard} onClose={limpiarAviso} />

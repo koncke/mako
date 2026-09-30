@@ -58,7 +58,7 @@ import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
-  renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados } from '@/lib/funnels';
+  renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, problemasDePipeline, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
@@ -692,51 +692,65 @@ export type ChoqueDeLead = {
   coincidencias: Array<{ id: number; nombre: string; funnelId: number | null; producto: string | null; motivo: string }>;
 };
 
+/** Un lead de otro producto, como lo dibuja la tabla de «traer». */
+export type LeadParaTraer = {
+  id: number;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  empresa: string | null;
+  /** La etapa donde está HOY, ya resuelta a su nombre. */
+  etapa: string;
+  /** La clave de esa etapa, para poder filtrar sin comparar textos. */
+  etapaKey: string;
+  creado: string | null;
+};
+
 /**
- * Los leads que viven en OTRO producto, para poder traerlos a éste.
+ * Los leads de UN producto, para elegir cuáles traer a otro.
  *
- * Pedido de Martín: «En nuevo lead me tiene que dar la opción de traer un lead de otro
- * producto, que esté aparte esa opción claro, no dentro del formulario».
+ * Pedido de Martín (30/09/2026): «al seleccionar traer de otro producto, se seleccione de
+ * qué otro producto y aparezcan todas las columnas, los filtros, la barra de búsqueda. Y
+ * que se pueda hacer selección múltiple».
  *
- * ⚠️ BUSCA EN EL WORKSPACE Y EXCLUYE EL PRODUCTO ACTUAL, no al revés. Listar «los de los
- * otros productos» exigiría enumerar los embudos y armar un `in(...)`, y ahí un embudo
- * ARCHIVADO se queda afuera — y sus leads siguen existiendo con su `funnel_id` apuntando
- * ahí. Un lead que no aparece en ninguna lista es un lead perdido, así que se excluye el
- * de acá y entra todo lo demás.
+ * ⚠️ LA ETAPA SE RESUELVE ACÁ, EN EL SERVER, y no en el navegador. Derivarla exige el
+ * pipeline de ESE embudo (no el del que se está mirando) más el switch de
+ * `deriveStageKey` sobre ocho columnas del lead; mandarlas todas al navegador para que las
+ * derive sería bajar la mitad de la tabla `leads` para pintar una columna de texto.
+ *
+ * ⚠️ Y SE PAGINA CON `leerTodo`: un producto con 1.146 leads —el ws1 tiene exactamente eso—
+ * toca el techo de 1.000 filas de PostgREST y devolvería 1.000 redondo, que es un número
+ * plausible. Acá el tope es de la PANTALLA y se dice cuántos quedaron afuera.
  */
-export async function leadsDeOtrosProductosAction(q: string, funnelId?: number | null): Promise<Array<{ id: number; nombre: string; email: string | null; telefono: string | null; producto: string | null }>> {
-  const texto = (q ?? '').trim();
-  if (texto.length < 2) return [];
+export async function leadsDeProductoAction(funnelId: number | null): Promise<{ filas: LeadParaTraer[]; total: number }> {
   try {
-    const db = await getTenantDb();
-    const funnels = await listarFunnels().catch(() => []);
-    const porId = new Map(funnels.map((f) => [f.id, f.nombre]));
-    const delNegocio = funnels.find((f) => f.esDefault) ?? null;
-    // ⚠️ Los comodines de PostgREST se escapan: `_` y `%` son de lo más común en un email,
-    // y sin escaparlos `juan_perez@x.com` matchea `juanXperez@x.com`. Acá el resultado no
-    // decide identidad —lo elige una persona mirando la lista— pero traer de más igual
-    // esconde al que se buscaba.
-    const patron = '%' + texto.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
-    const { data, error } = await db
-      .from('leads')
-      .select('id, nombre, email, telefono, funnel_id')
-      .or(`nombre.ilike.${patron},email.ilike.${patron},telefono.ilike.${patron}`)
-      .order('id', { ascending: false })
-      .limit(40);
-    if (error) { console.error('[leadsDeOtrosProductos]', error.message); return []; }
-    const actual = funnelId ?? null;
-    return (data ?? [])
-      .filter((l) => ((l.funnel_id as number | null) ?? null) !== actual)
-      .map((l) => ({
-        id: l.id as number,
-        nombre: String(l.nombre ?? '').trim() || 'Sin nombre',
-        email: (l.email as string | null) ?? null,
-        telefono: (l.telefono as string | null) ?? null,
-        producto: (l.funnel_id as number | null) == null ? (delNegocio?.nombre ?? null) : (porId.get(l.funnel_id as number) ?? null),
-      }));
+    const [leads, cfg] = await Promise.all([
+      listLeadsDeFunnel(funnelId),
+      funnelId != null ? getFunnelDe(funnelId) : getFunnelDefault(),
+    ]);
+    const stages = cfg.origen === 'error' ? DEFAULT_STAGES : cfg.stages;
+    const filas = leads.map((l) => {
+      // El override manual gana sobre lo derivado, igual que en el tablero — pero sólo si
+      // ESTE embudo tiene esa etapa: una clave de otro embudo se dibujaría como una
+      // columna que no existe.
+      const override = l.pipeline_stage && stages.some((st) => st.key === l.pipeline_stage) ? l.pipeline_stage : null;
+      const key = override ?? deriveStageKey(l as unknown as StageDerivable);
+      const meta = stages.length ? stageMeta(stages, key) : null;
+      return {
+        id: l.id,
+        nombre: (l.nombre ?? '').trim() || 'Sin nombre',
+        email: l.email ?? null,
+        telefono: l.telefono ?? null,
+        empresa: l.empresa ?? null,
+        etapa: meta?.label ?? key,
+        etapaKey: key,
+        creado: l.created_at ?? null,
+      };
+    });
+    return { filas, total: filas.length };
   } catch (e) {
-    console.error('[leadsDeOtrosProductos]', e instanceof Error ? e.message : e);
-    return [];
+    console.error('[leadsDeProducto]', e instanceof Error ? e.message : e);
+    return { filas: [], total: 0 };
   }
 }
 export async function crearLeadEnTableroAction(formData: FormData, funnelId?: number | null, permitirDuplicado?: boolean): Promise<{ id: number } | ChoqueDeLead> {
@@ -2347,6 +2361,21 @@ export async function archivarEmbudoAction(funnelId: number): Promise<{ ok: true
 }
 
 /** Devuelve un embudo archivado a la lista, con sus leads. */
+/**
+ * Borra un producto archivado para siempre. Sus leads vuelven al producto del negocio.
+ *
+ * Pedido de Martín (30/09/2026): «dentro la opción de eliminarlos definitivamente».
+ */
+export async function eliminarEmbudoDefinitivoAction(funnelId: number): Promise<{ ok: true; rescatados: number } | { ok: false; error: string }> {
+  try {
+    const { rescatados } = await eliminarFunnelDefinitivo(funnelId);
+    bust(TAG.pipeline, TAG.leads);
+    revalidatePath('/crm');
+    return { ok: true, rescatados };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo borrar el producto.' };
+  }
+}
 export async function restaurarEmbudoAction(funnelId: number): Promise<{ ok: true } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede restaurar un embudo.' };
   try {

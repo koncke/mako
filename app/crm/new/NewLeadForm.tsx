@@ -16,9 +16,9 @@
 //   · «Cancelar» — cierra en vez de navegar
 //   · la caja — sin borde ni fondo propios: el Modal ya los pone
 
-import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import { createLeadAction, crearLeadEnTableroAction, leadsDeOtrosProductosAction, moverLeadAFunnelAction, type ChoqueDeLead } from '../actions';
+import { createLeadAction, crearLeadEnTableroAction, moverLeadAFunnelAction, type ChoqueDeLead } from '../actions';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
@@ -31,6 +31,14 @@ export function NewLeadForm({ enModal }: {
     onCreado: (id: number) => void;
     /** El funnel que se está mirando. null = el del negocio. */
     funnelId?: number | null;
+    /**
+     * Cambiar a la vista de «traer de otro producto».
+     *
+     * ⚠️ LA DECIDE EL PADRE, no este form: la vista de traer necesita un modal mucho más
+     * ancho (una tabla con seis columnas) y un título distinto. Un form no puede cambiar
+     * el tamaño de la caja que lo contiene. Ausente = no se ofrece.
+     */
+    onTraer?: () => void;
   };
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
@@ -43,8 +51,7 @@ export function NewLeadForm({ enModal }: {
   const [choque, setChoque] = useState<ChoqueDeLead['coincidencias'] | null>(null);
   /** Lo tipeado, para poder reintentar el alta con «Crear igual» sin volver a escribirlo. */
   const [pendiente, setPendiente] = useState<FormData | null>(null);
-  /** El buscador de «traer de otro producto», que va APARTE del formulario. */
-  const [trayendo, setTrayendo] = useState(false);
+
 
   /** La validación de acá es la MISMA que la del server, y corre antes para no
    *  perder lo tipeado en un viaje. El server la repite: este chequeo es
@@ -168,104 +175,24 @@ export function NewLeadForm({ enModal }: {
         <button type="submit" disabled={guardando} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>{guardando ? 'Creando…' : 'Crear lead'}</button>
       </div>
 
-      {/* ⚠️ APARTE DEL FORMULARIO, y es literal del pedido: «que esté aparte esa opción
-          claro, no dentro del formulario». Va al final y plegado: el camino normal es
-          cargar a alguien nuevo, y una lista de leads ajenos arriba de los campos
-          convierte un alta de tres campos en una pantalla de búsqueda. */}
-      {enModal && (
+      {/* ⚠️ ESTE BOTÓN NO ABRE NADA ACÁ: avisa al padre, que cambia la VISTA ENTERA del
+          modal. «Cuando le doy, debe reemplazar al formulario de arriba, con un botón de
+          atrás claro» (Martín, 30/09/2026). Antes desplegaba un buscador debajo del
+          formulario, y con eso el modal pedía dos cosas a la vez —cargar a alguien nuevo y
+          buscar a alguien que ya está—, que son dos tareas y ninguna es un paso de la otra. */}
+      {enModal?.onTraer && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          {!trayendo ? (
-            <button type="button" onClick={() => setTrayendo(true)}
-              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-              Traer uno de otro producto
-            </button>
-          ) : (
-            <TraerDeOtroProducto
-              funnelId={enModal.funnelId ?? null}
-              onCerrar={() => setTrayendo(false)}
-              onTraido={(id) => enModal.onCreado(id)}
-            />
-          )}
+          <button type="button" onClick={enModal.onTraer}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Traer de otro producto
+          </button>
         </div>
       )}
     </form>
   );
 }
 
-/**
- * Buscar a alguien que ya está en OTRO producto y moverlo a éste.
- *
- * ⚠️ MUEVE, NO COPIA. Con el producto viviendo en una sola columna del lead, traerlo acá
- * es sacarlo de allá con su recorrido entero. El botón lo dice con esa palabra: prometer
- * «traer» sobre un movimiento destructivo es lo que se descubre cuando ya no se puede
- * deshacer.
- */
-function TraerDeOtroProducto({ funnelId, onCerrar, onTraido }: {
-  funnelId: number | null;
-  onCerrar: () => void;
-  onTraido: (id: number) => void;
-}) {
-  const [q, setQ] = useState('');
-  const [filas, setFilas] = useState<Array<{ id: number; nombre: string; email: string | null; telefono: string | null; producto: string | null }>>([]);
-  const [buscando, setBuscando] = useState(false);
-  const [moviendo, startMover] = useTransition();
-  const [err, setErr] = useState<string | null>(null);
-
-  // ⚠️ Con retraso: una consulta por tecla sobre la tabla de leads es una consulta por
-  // tecla. Y el resultado se descarta si llegó tarde — sin eso, la respuesta de «ju»
-  // puede pisar a la de «juan» y la lista muestra lo que ya no se buscó.
-  useEffect(() => {
-    const texto = q.trim();
-    if (texto.length < 2) { setFilas([]); return; }
-    let vivo = true;
-    setBuscando(true);
-    const t = setTimeout(() => {
-      void leadsDeOtrosProductosAction(texto, funnelId)
-        .then((r) => { if (vivo) setFilas(r); })
-        .catch(() => { if (vivo) setFilas([]); })
-        .finally(() => { if (vivo) setBuscando(false); });
-    }, 250);
-    return () => { vivo = false; clearTimeout(t); };
-  }, [q, funnelId]);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} autoFocus
-          placeholder="Nombre, email o teléfono"
-          style={{ ...field, flex: 1 }} />
-        <button type="button" onClick={onCerrar}
-          style={{ flex: 'none', background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
-      </div>
-      {/* «No encontré nada» y «todavía no busqué» son respuestas distintas, y la segunda
-          no se dibuja: un vacío apenas se abre el buscador se lee como que no hay nadie. */}
-      {q.trim().length >= 2 && !buscando && filas.length === 0 && (
-        <span style={{ fontSize: 13, color: 'var(--faint)' }}>Nadie con esos datos en tus otros productos.</span>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
-        {filas.map((l) => (
-          <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-2)', borderRadius: 10, padding: '9px 12px' }}>
-            <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.nombre}</span>
-            <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 12.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.email || l.telefono || ''}</span>
-            <span style={{ flex: 1 }} />
-            {l.producto && <span style={{ flex: 'none', fontSize: 12.5, color: 'var(--faint)' }}>{l.producto}</span>}
-            <button type="button" disabled={moviendo}
-              onClick={() => startMover(async () => {
-                const r = await moverLeadAFunnelAction(l.id, funnelId);
-                if ('error' in r) { setErr(r.error); return; }
-                onTraido(l.id);
-              })}
-              style={{ flex: 'none', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              Moverlo aquí
-            </button>
-          </div>
-        ))}
-      </div>
-      {err && <span style={{ fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
-    </div>
-  );
-}
-
+/** Un campo con su rótulo, su asterisco de obligatorio y su ayuda. */
 function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: ReactNode }) {
   return (
     <label style={{ display: 'block' }}>

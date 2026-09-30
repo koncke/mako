@@ -59,11 +59,13 @@ function renderOption(
     padding: '9px 11px', borderRadius: 8, border: 'none',
     cursor: o.disabled ? 'default' : 'pointer',
     background: on ? 'var(--surface-2)' : 'transparent',
-    color: o.crear ? 'var(--faint)' : 'var(--ink)',
-    fontFamily: SANS, fontSize: 13.5,
-    opacity: o.disabled ? 0.45 : o.crear ? 0.8 : 1,
-    // La línea la separa de las opciones de verdad sin gastar un título.
+    color: o.crear || o.sutil ? 'var(--faint)' : 'var(--ink)',
+    fontFamily: SANS, fontSize: o.sutil ? 12.5 : 13.5,
+    opacity: o.disabled ? 0.45 : o.sutil ? 0.7 : o.crear ? 0.8 : 1,
+    // La línea la separa de las opciones de verdad sin gastar un título. El SUTIL no la
+    // lleva: ya viene detrás del de crear, y dos filetes seguidos parten el menú en tres.
     ...(o.crear ? { borderTop: '1px solid var(--border)', borderRadius: 0, marginTop: 4, paddingTop: 11 } : null),
+    ...(o.sutil ? { padding: '5px 11px 3px' } : null),
     transition: 'color .12s, opacity .12s',
   };
   const elegir = () => { if (!o.disabled) { onChange(o.value); close(); } };
@@ -78,11 +80,11 @@ function renderOption(
         // existe»; encendido, «esto se puede hacer».
         onMouseEnter={(e) => {
           if (o.disabled || on) return;
-          if (o.crear) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.opacity = '1'; }
+          if (o.crear || o.sutil) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.opacity = '1'; }
           else e.currentTarget.style.background = 'var(--surface-2)';
         }}
         onMouseLeave={(e) => {
-          if (o.crear) { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.opacity = '0.8'; return; }
+          if (o.crear || o.sutil) { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.opacity = o.sutil ? '0.7' : '0.8'; return; }
           if (!on) e.currentTarget.style.background = 'transparent';
         }}
         style={estilo}>
@@ -145,7 +147,15 @@ export type DropdownOption = { value: string; label: string; sub?: string; color
    * haciendo es elegir entre las que ya existen. Eso vale para todo desplegable, no
    * para éste — y si vive en el llamador, el próximo nace sin él.
    */
-  crear?: boolean };
+  crear?: boolean;
+  /**
+   * Un renglón que es CASI sólo texto: más chico, más apagado y sin el `+` de `crear`.
+   *
+   * Para lo que tiene que estar pero no compite con las opciones de verdad — la puerta de
+   * vuelta a lo eliminado, por ejemplo. Con `crear` se veía igual que «Nuevo producto», y
+   * dos renglones con el mismo peso son dos acciones con el mismo peso.
+   */
+  sutil?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`). */
 export type DropdownGroup = { title: string; options: DropdownOption[] };
 

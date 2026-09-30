@@ -34,7 +34,8 @@ import { Icon } from '@/app/_components/icons';
 
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
-import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction } from './actions';
+import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
+import { Confirm } from '@/app/_ui/Confirm';
 import { useCrmAuto } from './CrmAutoToggle';
 import { LapizIcon } from './iconos';
 
@@ -611,11 +612,16 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.
   // El flag `crear` es el que apaga la fila y la enciende al pasar el cursor.
   opciones.push({ value: NUEVA, label: 'Nuevo producto', crear: true });
-  // ⚠️ LA PUERTA DE VUELTA. Eliminar un embudo lo ARCHIVA —la fila y sus leads quedan
+  // ⚠️ LA PUERTA DE VUELTA. Eliminar un producto lo ARCHIVA —la fila y sus leads quedan
   // enteros— pero sin una pantalla que los nombre, para la persona desapareció igual: una
   // copia de seguridad que nadie puede ver no es una copia de seguridad. El renglón sólo
   // se dibuja cuando hay alguno, para no ofrecer una lista vacía todos los días.
-  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'Embudos eliminados', crear: true });
+  //
+  // ⚠️ Y VA `sutil`, NO `crear`: «debe ser mucho más sutil, solo un texto» (Martín,
+  // 30/09/2026). Con `crear` salía con el mismo `＋` y el mismo peso que «Nuevo producto»,
+  // y dos renglones con el mismo peso son dos acciones con el mismo peso — pero una se usa
+  // todas las semanas y la otra casi nunca.
+  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'Productos eliminados', sutil: true });
   // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
   // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
   // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
@@ -858,6 +864,8 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
   const [filas, setFilas] = useState<Array<{ id: number; nombre: string; leads: number }> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [trabajando, startTrabajo] = useTransition();
+  /** Cuál se va a borrar PARA SIEMPRE. El diálogo es lo único que separa de lo irreversible. */
+  const [borrar, setBorrar] = useState<{ id: number; nombre: string; leads: number } | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -875,7 +883,7 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
 
   return (
     <Modal
-      titulo="Embudos eliminados"
+      titulo="Productos eliminados"
       ancho={520}
       onCerrar={onCerrar}
       pie={(
@@ -887,7 +895,7 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
     >
       {filas === null && !err && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>Cargando…</p>}
       {filas?.length === 0 && (
-        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>No eliminaste ningún embudo.</p>
+        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0 }}>No eliminaste ningún producto.</p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {(filas ?? []).map((f) => (
@@ -904,11 +912,46 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
               style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: trabajando ? 'default' : 'pointer' }}>
               Recuperar
             </button>
+            {/* ⚠️ BORRAR DE VERDAD VA COMO TEXTO ROJO, no como botón: es el mismo criterio
+                que «Eliminar producto» en el pop-up del embudo. Dos botones del mismo peso
+                en una fila dejan la acción irreversible a la misma distancia que la que se
+                deshace sola, y acá una de las dos no tiene vuelta. */}
+            <button type="button" disabled={trabajando} onClick={() => { setErr(null); setBorrar(f); }}
+              style={{ flex: 'none', background: 'none', border: 'none', padding: 0, color: 'var(--bad)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: trabajando ? 'default' : 'pointer' }}>
+              Borrar
+            </button>
           </div>
         ))}
       </div>
       {err && (
         <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
+      )}
+
+      {/* ⚠️ LA CONSECUENCIA VA PEGADA AL BOTÓN Y NOMBRA A LA GENTE. Borrar el producto no
+          borra a sus leads —son personas, no configuración— pero SÍ los cambia de tablero,
+          y eso hay que decirlo antes, no después. Lo que sí se pierde para siempre son sus
+          etapas y sus secuencias de nutrición. */}
+      {borrar && (
+        <Confirm
+          title={`Borrar «${borrar.nombre}» para siempre`}
+          message={borrar.leads > 0
+            ? `Sus ${borrar.leads} ${borrar.leads === 1 ? 'lead pasa' : 'leads pasan'} a tu producto principal. Se pierden sus etapas y su nutrición, y esto no se puede deshacer.`
+            : 'Se pierden sus etapas y su nutrición, y esto no se puede deshacer.'}
+          confirmLabel="Borrar para siempre"
+          onCancel={() => setBorrar(null)}
+          onConfirm={() => {
+            const f = borrar;
+            startTrabajo(async () => {
+              const r = await eliminarEmbudoDefinitivoAction(f.id);
+              if (!r.ok) { setErr(r.error); setBorrar(null); return; }
+              setBorrar(null);
+              setFilas((p) => (p ?? []).filter((x) => x.id !== f.id));
+              // Si su gente cambió de tablero, el de atrás está mostrando otra cosa.
+              if (r.rescatados > 0) onRestaurado(f.id);
+            });
+          }}
+          loading={trabajando}
+        />
       )}
     </Modal>
   );

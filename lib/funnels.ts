@@ -325,6 +325,53 @@ export async function archivarFunnel(funnelId: number): Promise<void> {
   if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese embudo no es de este workspace.');
 }
 
+/**
+ * Borra un embudo archivado PARA SIEMPRE, y antes pone a salvo a su gente.
+ *
+ * ⚠️ EL RESCATE NO ES CORTESÍA: SIN ÉL LOS LEADS DESAPARECEN DE TODOS LOS TABLEROS.
+ * `leads.funnel_id` NO tiene foreign key (mig 0181, a propósito), así que borrar la fila
+ * de `funnels` no toca a los leads: se quedan con un id que ya no resuelve a nada, y
+ * `listLeadsDeFunnel` los busca por igualdad exacta. No falla, no avisa y no borra una
+ * fila — simplemente no aparecen en ninguna pantalla, para siempre. Las personas no son
+ * configuración: vuelven al embudo del negocio.
+ *
+ * ⚠️ Y ESTO SÍ BORRA, EN CASCADA, lo que era del embudo: sus secuencias de nutrición y su
+ * ligazón con las ofertas (las dos FKs son `on delete cascade`). Eso está bien —son
+ * configuración de un producto que deja de existir— y es lo que hace que esta función sea
+ * irreversible de verdad, a diferencia de `archivarFunnel`.
+ *
+ * Devuelve cuántos leads rescató, para que la pantalla pueda decirlo. Un «listo» pelado
+ * sobre 300 personas que cambiaron de tablero es lo que se descubre al día siguiente.
+ */
+export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ rescatados: number }> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('funnels').select('id, es_default, activo').eq('id', funnelId).limit(1);
+  if (error) throw new Error(`No se pudo leer el embudo: ${error.message}`);
+  const fila = ((data ?? []) as Array<{ id: number; es_default: boolean; activo: boolean }>)[0];
+  if (!fila) throw new Error('Ese producto no es de este workspace.');
+  if (fila.es_default) throw new Error('Este es tu producto principal: no se puede eliminar.');
+  // ⚠️ SÓLO SE BORRA LO QUE YA ESTÁ ARCHIVADO. Es el guard en positivo que hace que
+  // eliminar de verdad exija DOS decisiones en dos momentos: nada se pierde de un clic.
+  if (fila.activo) throw new Error('Primero hay que eliminarlo del tablero; recién después se puede borrar para siempre.');
+
+  // El embudo del negocio, que es a donde vuelve su gente.
+  const { data: defs } = await supabase
+    .from('funnels').select('id').eq('es_default', true).eq('activo', true).limit(1);
+  const destino = ((defs ?? []) as Array<{ id: number }>)[0]?.id ?? null;
+
+  // ⚠️ EL RESCATE VA PRIMERO. Al revés, si el borrado sale bien y el rescate falla, los
+  // leads quedan apuntando a un embudo que ya no existe y no hay forma de encontrarlos:
+  // el dato que decía dónde estaban se fue con la fila.
+  const { data: movidos, error: eMov } = await supabase
+    .from('leads').update({ funnel_id: destino }).eq('funnel_id', funnelId).select('id');
+  if (eMov) throw new Error(`No se pudo poner a salvo a sus leads: ${eMov.message}`);
+  const rescatados = ((movidos ?? []) as unknown[]).length;
+
+  const { data: borradas, error: eDel } = await supabase.from('funnels').delete().eq('id', funnelId).select('id');
+  if (eDel) throw new Error(`No se pudo borrar el producto: ${eDel.message}`);
+  if (!((borradas ?? []) as unknown[]).length) throw new Error('Ese producto no es de este workspace.');
+  return { rescatados };
+}
 /** Devuelve un embudo archivado a la lista. Lo inverso exacto de `archivarFunnel`. */
 export async function restaurarFunnel(funnelId: number): Promise<void> {
   const supabase = await getTenantDb();

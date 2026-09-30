@@ -619,9 +619,23 @@ test('⚠️ eliminar un embudo lo ARCHIVA, y hay por dónde recuperarlo', () =>
   //   · el conteo de leads devuelve 0 cuando la consulta falla -> 16 / 1
   const fn = readFileSync(join(RAIZ, 'lib/funnels.ts'), 'utf8');
 
-  // 1) Archiva, no borra. En ningún lado hay un DELETE sobre funnels.
+  // 1) Eliminar ARCHIVA. Borrar de verdad existe desde el 30/09, y es OTRA decisión en OTRO
+  //    momento: sólo se puede sobre algo YA archivado, y antes pone a salvo a su gente.
   assert.match(fn, /activo: false/, 'eliminar un embudo dejó de archivarlo');
-  assert.ok(!/from\('funnels'\)[\s\S]{0,80}\.delete\(/.test(fn), 'apareció un DELETE sobre funnels: eso no se recupera');
+  assert.match(fn, /export async function eliminarFunnelDefinitivo/, 'se fue el borrado definitivo');
+  const def = fn.slice(fn.indexOf('export async function eliminarFunnelDefinitivo'));
+  // ⚠️ EL GUARD EN POSITIVO: sólo lo archivado. Sin esto, «eliminar» y «borrar para
+  //    siempre» quedarían a un clic de distancia y nada se podría recuperar.
+  assert.match(def.slice(0, 2200), /if \(fila\.activo\) throw new Error/,
+    'se puede borrar para siempre un producto que todavía está en el tablero');
+  // ⚠️ Y EL RESCATE VA ANTES DEL DELETE. `leads.funnel_id` no tiene foreign key: borrar la
+  //    fila sin mover a su gente los deja apuntando a un id que no resuelve, y
+  //    `listLeadsDeFunnel` los busca por igualdad exacta — no aparecen en ninguna pantalla,
+  //    para siempre, sin un error y sin una fila borrada.
+  const iRescate = def.indexOf("update({ funnel_id: destino })");
+  const iDelete = def.indexOf('.delete()');
+  assert.ok(iRescate > 0 && iDelete > iRescate,
+    'el borrado definitivo no pone a salvo a los leads ANTES de borrar: quedarían invisibles en todos los tableros');
 
   // 2) ⚠️ EL DEFAULT NO SE ARCHIVA, y el guard vive en el SERVER. El índice parcial
   //    `funnels_ws_default_uk` garantiza que un ws tiene exactamente uno, y medio repo
@@ -634,7 +648,12 @@ test('⚠️ eliminar un embudo lo ARCHIVA, y hay por dónde recuperarlo', () =>
   assert.match(fn, /export async function restaurarFunnel/, 'no hay forma de recuperar un embudo eliminado');
   assert.match(fn, /export async function listarFunnelsArchivados/, 'no hay forma de VER los embudos eliminados');
   const tb = readFileSync(join(RAIZ, 'app/crm/CrmToolbar.tsx'), 'utf8');
-  assert.ok(tb.includes("label: 'Embudos eliminados'"), 'el selector no ofrece la puerta de vuelta');
+  // ⚠️ SE LLAMA «PRODUCTOS», NO «EMBUDOS», y va `sutil`: «debe ser Productos eliminados y
+  //    ser mucho más sutil, solo un texto» (30/09/2026). El nombre del negocio es el del
+  //    producto — «embudo» es como lo llama la tabla, no el cliente.
+  assert.ok(tb.includes("label: 'Productos eliminados', sutil: true"),
+    'el selector no ofrece la puerta de vuelta, o volvió a llamarse «embudos» / a pesar como una opción más');
+  assert.ok(!/label: 'Embudos eliminados'/.test(tb), 'volvió el nombre viejo');
   assert.match(tb, /restaurarEmbudoAction/, 'la pantalla de eliminados no puede restaurar nada');
 
   // 4) ⚠️ EL CONTEO DE LEADS NO PUEDE DEVOLVER 0 CUANDO FALLA. «Este embudo no tiene leads»
