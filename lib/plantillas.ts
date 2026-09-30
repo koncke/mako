@@ -26,6 +26,7 @@ type EntradaStore = {
   flujo?: Flujo;       // FLUJO editable (disparador + pasos). Sin esto = aviso clásico.
   canales?: { wa?: boolean; email?: boolean };  // por dónde sale. Ver CANALES_DEFAULT.
   frecuenciaMin?: number;  // cada cuánto COMO MÁXIMO. Ver `frecuenciaDe`.
+  posiciones?: Record<string, { x: number; y: number }>;  // dónde quedó cada tarjeta del lienzo.
 };
 type Store = Record<string, EntradaStore>;
 
@@ -63,6 +64,27 @@ function frecuenciaDe(e: EntradaStore | undefined): number {
   return sanearFrecuencia(e?.frecuenciaMin);
 }
 
+/**
+ * DÓNDE QUEDÓ CADA TARJETA del lienzo, por id de nodo.
+ *
+ * Se sanea entero: son coordenadas que escribe el navegador y gobiernan lo que se
+ * dibuja. Un `NaN` o un `Infinity` mandan una tarjeta a un lugar del que no se
+ * puede volver — y el encuadre automático, que mira la caja de todos los nodos,
+ * se lleva al resto con ella.
+ */
+function posicionesDe(e: EntradaStore | undefined): Record<string, { x: number; y: number }> {
+  const out: Record<string, { x: number; y: number }> = {};
+  for (const [k, v] of Object.entries(e?.posiciones ?? {})) {
+    const x = Number((v as { x?: unknown })?.x);
+    const y = Number((v as { y?: unknown })?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    // El tope no es estético: es lo que impide que el encuadre colapse el zoom a
+    // cero por un nodo perdido a un millón de píxeles.
+    out[k] = { x: Math.max(-4000, Math.min(20000, x)), y: Math.max(-4000, Math.min(20000, y)) };
+  }
+  return out;
+}
+
 function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   return {
     wa: typeof e?.canales?.wa === 'boolean' ? e.canales.wa : CANALES_DEFAULT.wa,
@@ -70,7 +92,7 @@ function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   };
 }
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number };
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }> };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -139,6 +161,10 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // resolverlo aparte dejaría el detalle mostrando «cada vez» sobre un mensaje
     // que el negocio ya espació.
     frecuenciaMin: frecuenciaDe(e),
+    // Dónde arrastró cada tarjeta quien editó este mensaje. Viaja con la vista por
+    // lo mismo que los canales: resolverlo aparte deja el lienzo dibujando el layout
+    // calculado durante un parpadeo, y las tarjetas saltando a su lugar después.
+    posiciones: posicionesDe(e),
     esCustom,
   };
 }
@@ -307,6 +333,15 @@ export async function setCanalesPlantilla(id: string, canales: Partial<CanalesAv
  */
 export async function setFrecuenciaPlantilla(id: string, min: number): Promise<void> {
   await mutar(id, (e) => ({ ...e, frecuenciaMin: sanearFrecuencia(min) }));
+}
+
+/**
+ * Dónde quedó cada tarjeta del lienzo. Se guarda el mapa ENTERO, no un parche:
+ * quien arrastra ya tiene todas las posiciones en pantalla, y un merge por nodo
+ * dejaría vivas las de los que se borraron.
+ */
+export async function setPosicionesPlantilla(id: string, posiciones: Record<string, { x: number; y: number }>): Promise<void> {
+  await mutar(id, (e) => ({ ...e, posiciones }));
 }
 
 /** Elimina: las custom se borran; las built-in NO se pueden borrar → se desactivan. */

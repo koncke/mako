@@ -1,40 +1,86 @@
 'use client';
 
 // =============================================================================
-// EditorMensaje — el texto de un mensaje, con los botones de formato del canal
+// EditorMensaje — el texto de un mensaje, escrito COMO SE VE
 // =============================================================================
-// «El mensaje debe estar formateado, se debe poder editar, ponerle negrita, etc.»
+// «El mensaje también se tiene que formatear en el editor» y «en el editor dice
+// "negrita, itálica…", eso quítalo, basta con los botones».
 //
-// ── Por qué ASTERISCOS y no HTML ────────────────────────────────────────────
-// El formato de este mensaje no lo elige la pantalla: lo eligen los canales por
-// los que sale. WhatsApp entiende `*negrita*`, `_itálica_` y `~tachado~`, y el
-// email los traduce solo (`marcasAHtml` en lib/email-html.ts los pasa a
-// `<strong>`, `<em>` y tachado). O sea que una barra de formato que envuelve la
-// selección con esas marcas se ve bien en LOS DOS canales hoy.
+// ── EL MODELO SIGUEN SIENDO LAS MARCAS DEL CANAL ───────────────────────────
+// Lo que se guarda es `*negrita*`, `_itálica_` y `~tachado~`, porque eso es lo
+// que WhatsApp entiende y lo que el email traduce solo (`marcasAHtml`). Un editor
+// que emitiera HTML se vería bien acá y le llegaría al cliente como `<b>` literal
+// — al canal principal.
 //
-// Un editor que emitiera HTML se vería bien acá y llegaría a WhatsApp como
-// `<b>texto</b>` literal, que es el canal principal. Por eso no hay
-// contentEditable: el dialecto del canal es el formato, y el textarea lo muestra
-// tal cual va a salir.
+// Lo que cambió es CÓMO SE ESCRIBE, no qué se guarda: antes era un textarea que
+// mostraba los asteriscos («lo que se ve es lo que sale») y el dueño lo reportó
+// como un error del producto. Ahora es un `contenteditable` que pinta el formato
+// y SERIALIZA de vuelta a marcas en cada tecla. El string que sale por WhatsApp
+// es exactamente el mismo.
 //
-// ⚠️ LOS BOTONES ENVUELVEN, NO REEMPLAZAN. Los dos precedentes del repo que
-// insertan en un campo (los slots de un prompt, los parámetros de una plantilla de
-// Meta) SUSTITUYEN la selección por un token y dejan el caret detrás. Copiado tal
-// cual, apretar «B» con texto seleccionado lo BORRA y deja dos asteriscos. Acá se
-// envuelve y se vuelve a seleccionar lo de adentro, que es lo que hace que se
-// pueda encadenar (negrita y después itálica sobre lo mismo).
+// ── LAS TRES TRAMPAS DE UN contenteditable, Y CÓMO SE ESQUIVAN ─────────────
+// 1. EL CARET SALTA SI SE REESCRIBE EL HTML EN CADA TECLA. React no controla este
+//    nodo: el HTML se escribe UNA vez y sólo se vuelve a escribir cuando el valor
+//    cambia desde AFUERA (lo compara contra lo último que este editor emitió). Sin
+//    eso, escribir manda el cursor al principio en cada letra.
+// 2. `execCommand` ESTÁ DEPRECADO Y ES LO CORRECTO ACÁ. Es lo único que sabe
+//    envolver una selección respetando los límites de los nodos y dejando el caret
+//    donde va; reimplementarlo con Range es el bug de «apretar B con texto
+//    seleccionado lo borra», que este repo ya pagó una vez. Se le pide
+//    `styleWithCSS = false` para que emita `<b>` y no un `<span style>`.
+// 3. LO QUE PEGA EL PORTAPAPELES ENTRA CON SU HTML. Se intercepta `paste` y se
+//    inserta TEXTO PLANO: un copiar-pegar de un doc trae tablas, colores y fuentes
+//    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 const SANS = "'Geist', sans-serif";
-const MONO = "'Geist Mono', monospace";
 
-/** Las marcas que los dos canales entienden. Ver la cabecera. */
 const MARCAS = [
-  { marca: '*', label: 'B', titulo: 'Negrita', estilo: { fontWeight: 800 } as CSSProperties },
-  { marca: '_', label: 'I', titulo: 'Itálica', estilo: { fontStyle: 'italic' } as CSSProperties },
-  { marca: '~', label: 'S', titulo: 'Tachado', estilo: { textDecoration: 'line-through' } as CSSProperties },
+  { comando: 'bold', label: 'B', titulo: 'Negrita', estilo: { fontWeight: 800 } as CSSProperties },
+  { comando: 'italic', label: 'I', titulo: 'Itálica', estilo: { fontStyle: 'italic' } as CSSProperties },
+  { comando: 'strikeThrough', label: 'S', titulo: 'Tachado', estilo: { textDecoration: 'line-through' } as CSSProperties },
 ] as const;
+
+const escaparHtml = (s: string) => s
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Marcas → HTML, para pintar. Una marca abre y cierra en la MISMA línea. */
+function marcasAHtmlEditor(texto: string): string {
+  const porLinea = escaparHtml(texto ?? '').split('\n').map((l) => l
+    .replace(/\*([^*\n]+?)\*/g, '<b>$1</b>')
+    .replace(/_([^_\n]+?)_/g, '<i>$1</i>')
+    .replace(/~([^~\n]+?)~/g, '<s>$1</s>'));
+  return porLinea.join('<br>') || '';
+}
+
+/**
+ * El DOM → marcas. Es la mitad que decide qué se guarda, así que no adivina:
+ * sólo reconoce las tres etiquetas y el `span` con estilo que algunos navegadores
+ * emiten igual. Todo lo demás se aplana a texto — pegar un documento entero deja
+ * su texto y tira su formato, que es lo correcto para un canal que sólo tiene tres.
+ */
+function domAMarcas(nodo: Node): string {
+  let out = '';
+  for (const hijo of Array.from(nodo.childNodes)) {
+    if (hijo.nodeType === Node.TEXT_NODE) { out += hijo.textContent ?? ''; continue; }
+    if (!(hijo instanceof HTMLElement)) continue;
+    const tag = hijo.tagName.toLowerCase();
+    if (tag === 'br') { out += '\n'; continue; }
+    const dentro = domAMarcas(hijo);
+    const est = hijo.style;
+    const negrita = tag === 'b' || tag === 'strong' || est.fontWeight === 'bold' || Number(est.fontWeight) >= 600;
+    const italica = tag === 'i' || tag === 'em' || est.fontStyle === 'italic';
+    const tachado = tag === 's' || tag === 'strike' || tag === 'del' || est.textDecoration.includes('line-through');
+    // Una marca vacía no se escribe: `**` suelto le llegaría al lead tal cual.
+    const envuelto = dentro.trim()
+      ? `${tachado ? '~' : ''}${italica ? '_' : ''}${negrita ? '*' : ''}${dentro}${negrita ? '*' : ''}${italica ? '_' : ''}${tachado ? '~' : ''}`
+      : dentro;
+    // `div` y `p` son renglones: el navegador los mete solo al apretar Enter.
+    out += (tag === 'div' || tag === 'p') && out && !out.endsWith('\n') ? `\n${envuelto}` : envuelto;
+  }
+  return out;
+}
 
 export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
   valor: string;
@@ -42,26 +88,35 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
   filas?: number;
   disabled?: boolean;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  /** Lo último que ESTE editor emitió. Ver la trampa 1. */
+  const propio = useRef<string | null>(null);
 
-  /** Envuelve la selección con la marca, y la deja seleccionada adentro. */
-  function envolver(marca: string) {
+  useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const { selectionStart: a, selectionEnd: b } = el;
-    const dentro = valor.slice(a, b);
+    if (valor === propio.current) return;   // vino de nuestra propia tecla: el DOM ya está bien
+    el.innerHTML = marcasAHtmlEditor(valor);
+    propio.current = valor;
+  }, [valor]);
 
-    // Sin selección no se adivina qué envolver: se ponen las dos marcas y el caret
-    // queda en el medio, listo para escribir. Es lo que hace cualquier editor.
-    const nuevo = valor.slice(0, a) + marca + dentro + marca + valor.slice(b);
-    onChange(nuevo);
+  function emitir() {
+    const el = ref.current;
+    if (!el) return;
+    const txt = domAMarcas(el);
+    propio.current = txt;
+    onChange(txt);
+  }
 
-    // El foco y la selección se restauran en el tick siguiente: React todavía no
-    // pintó el valor nuevo, así que moverlos ahora los aplica sobre el viejo.
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(a + marca.length, b + marca.length);
-    });
+  function formato(comando: string) {
+    const el = ref.current;
+    if (!el || disabled) return;
+    el.focus();
+    // Sin esto, Chrome emite `<span style="font-weight: bold">` y el serializador
+    // tiene que adivinar; con tags, lo que se lee es lo que se escribió.
+    try { document.execCommand('styleWithCSS', false, 'false'); } catch { /* no todos lo soportan */ }
+    document.execCommand(comando);
+    emitir();
   }
 
   return (
@@ -69,10 +124,10 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
       <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
         {MARCAS.map((m) => (
           <button
-            key={m.marca} type="button" disabled={disabled}
-            onClick={() => envolver(m.marca)}
-            title={`${m.titulo} — se manda como ${m.marca}texto${m.marca}`}
-            aria-label={m.titulo}
+            key={m.comando} type="button" disabled={disabled}
+            onMouseDown={(e) => e.preventDefault()}   // no perder la selección al apretar
+            onClick={() => formato(m.comando)}
+            title={m.titulo} aria-label={m.titulo}
             style={{
               width: 30, height: 28, borderRadius: 7, cursor: disabled ? 'default' : 'pointer',
               border: '1px solid var(--border-strong)', background: 'var(--surface)',
@@ -84,21 +139,27 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled }: {
             {m.label}
           </button>
         ))}
-        {/* No es una glosa de más: el asterisco que aparece en el campo ES el
-            formato, y sin esta línea se lee como un error de tipeo. */}
-        <span style={{ alignSelf: 'center', marginLeft: 4, fontSize: 11, color: 'var(--faint)', fontFamily: MONO }}>
-          *negrita* _itálica_ ~tachado~
-        </span>
       </div>
 
-      <textarea
-        ref={ref} value={valor} rows={filas} disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
+      <div
+        ref={ref}
+        contentEditable={!disabled}
+        suppressContentEditableWarning
+        role="textbox" aria-multiline="true" aria-label="El mensaje"
+        onInput={emitir}
+        onBlur={emitir}
+        onPaste={(e) => {
+          e.preventDefault();
+          const txt = e.clipboardData.getData('text/plain');
+          document.execCommand('insertText', false, txt);
+        }}
         style={{
           width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10,
           border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
           color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS, lineHeight: 1.55,
-          outline: 'none', resize: 'vertical',
+          outline: 'none', minHeight: filas * 22, maxHeight: 320, overflowY: 'auto',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          opacity: disabled ? 0.6 : 1,
         }}
       />
     </div>

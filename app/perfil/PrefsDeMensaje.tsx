@@ -47,7 +47,13 @@ const ES_RESUMEN = 'avisos-resumen';
  * dice dónde va: adentro del mensaje, como un comando del texto.
  */
 
-export function PrefsDeMensaje({ id }: { id: string }) {
+export function PrefsDeMensaje({ id, estilo }: {
+  id: string;
+  /** El envoltorio lo pone QUIEN LO MONTA, pero lo aplica este componente: si la
+   *  tarjeta la dibujara el padre, un mensaje sin nada que configurar dejaría una
+   *  cajita blanca vacía flotando. Sólo hay envoltorio si hay contenido. */
+  estilo?: React.CSSProperties;
+}) {
   const [prefs, setPrefs] = useState<NotifPrefs | null>(null);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -93,6 +99,8 @@ export function PrefsDeMensaje({ id }: { id: string }) {
   // El interruptor de email vive ahora donde la pregunta es una sola: la bandeja de
   // correo, sobre el mensaje abierto.
   if (!prefs) return null;
+  // Hoy lo único que este panel edita es el resumen. Sin eso, no hay nada que dibujar.
+  if (id !== ES_RESUMEN) return null;
 
   const lbl: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', display: 'block', marginBottom: 6 };
   const pill = (on: boolean): CSSProperties => ({
@@ -103,7 +111,7 @@ export function PrefsDeMensaje({ id }: { id: string }) {
   });
 
   return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={estilo ?? { marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {prefs && id === ES_RESUMEN && (
         <div>
           <label style={lbl}>Cuándo llegan los que no son urgentes</label>

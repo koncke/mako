@@ -18,7 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import {
-  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla,
+  listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
 } from '@/lib/plantillas';
 import { esFlujoValido } from '@/lib/flujos-tipos';
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
     action?: string; id?: string; texto?: string; enabled?: boolean; canales?: { wa?: boolean; email?: boolean }; contexto?: string;
     titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
     frecuenciaMin?: number;
+    posiciones?: Record<string, { x: number; y: number }>;
   };
   try { b = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -120,6 +121,14 @@ export async function POST(req: NextRequest) {
         // mensaje DICE, así que no pasa por `esAdministrativo`. Y no puede producir uno de
         // más — el choke point toma el MAYOR entre esto y lo que pide el call site.
         await setFrecuenciaPlantilla(b.id, sanearFrecuencia(b.frecuenciaMin));
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
+      }
+      case 'posiciones': {
+        if (!b.id) return faltaId();
+        // DÓNDE puso cada tarjeta es suyo, como el canal y la frecuencia: no cambia
+        // lo que el mensaje dice ni a quién le llega. El saneo de los números vive en
+        // `setPosicionesPlantilla`, que es la única puerta al store.
+        await setPosicionesPlantilla(b.id, b.posiciones ?? {});
         return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       }
       case 'borrar':

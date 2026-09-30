@@ -43,7 +43,10 @@ test('⚠️ El nodo del clic se anota en el pointerDOWN, no al soltar', () => {
 
 test('El movimiento no pasa por setState', () => {
   // Un setState por `pointermove` redibuja el grafo entero 60 veces por segundo.
-  const src = leer(LIENZO);
+  // ⚠️ SIN SUS COMENTARIOS. El propio comentario que explica esta regla dice la
+  // palabra «setState», así que el guard se acusaba a sí mismo — el modo de falla
+  // que esta casa ya tiene escrito para las guardas que leen fuente.
+  const src = leer(LIENZO).replace(/^[ 	]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mover = src.slice(src.indexOf('function onPointerMove'), src.indexOf('function onPointerUp'));
   assert.ok(!/set[A-Z]/.test(mover), 'el paneo volvió a pasar por el estado de React');
   assert.match(mover, /pintar\(\)/);

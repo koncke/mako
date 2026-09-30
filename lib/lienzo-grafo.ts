@@ -16,7 +16,7 @@
 
 export type TipoNodo =
   | 'entrada' | 'mensaje' | 'respuesta' | 'cualifica' | 'desenlace' | 'ir-a' | 'suelto'
-  | 'recordatorio' | 'salida';
+  | 'recordatorio' | 'accion' | 'mensaje-lead';
 
 export type TonoArista = 'normal' | 'buena' | 'mala' | 'condicional';
 

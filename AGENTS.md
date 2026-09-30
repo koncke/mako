@@ -5249,3 +5249,33 @@ del `margin: 0 auto` leía los 1400 caracteres anteriores al montaje del lienzo;
 contenedor estaba ochenta líneas más arriba, así que devolver el bug pasó en VERDE.
 Si la afirmación es «esto no vuelve a aparecer», el universo es el archivo entero.
 
+## Y qué es un nodo, qué flota, y cómo se arrastra
+
+- **Un nodo es algo que OCURRE, no un campo del objeto.** «Te llega al grupo de
+  WhatsApp» era un nodo y el dueño lo tumbó con la frase que lo resume: «es un paso
+  que no hace nada». Por dónde sale un mensaje es una propiedad del mensaje. La
+  prueba antes de agregar un nodo: **¿esto ocurre, o esto es un campo?** Si es un
+  campo, va adentro del nodo al que pertenece — incluida su advertencia.
+- **Todo lo que no es el dibujo FLOTA sobre el lienzo.** Con topbar, cabecera y pie
+  en sus propios renglones se le comían ~180 px de 620 y el grafo entraba al 33%:
+  tarjetas del tamaño de una uña. Y lo que estaba abajo queda DEBAJO, no al lado —
+  el botón de guardar terminó pintado detrás del dibujo. La capa flotante va con
+  `pointerEvents: none` y su contenido con `auto`, o la franja se traga el paneo.
+- **Al arrastrar un nodo, el delta del mouse se DIVIDE POR LA ESCALA.** Al 50%, mover
+  el cursor 100 px tiene que mover la tarjeta 200 en coordenadas del grafo. El
+  guardado va al soltar y con un respiro (un POST por `pointermove` son sesenta por
+  segundo), es optimista, y las posiciones se PODAN: la coordenada de un nodo que ya
+  no existe sobrevive para siempre y el próximo con ese id nace en su lugar.
+
+⚠️ **Y un componente que puede no mostrar nada tiene que poder NO DIBUJARSE.**
+Envuelto en una tarjeta desde afuera, un `return null` se convierte en una cajita
+vacía flotando. El envoltorio lo elige quien monta y lo APLICA el componente,
+después del early-return.
+
+⚠️ **Y DOS COMPONENTES QUE LLAMAN AL MISMO SETTER DE UN OBJETO COMPLETO SON UN BUG
+ESPERANDO.** `setFlujo(id, flujo)` reemplaza el flujo entero: con dos dueños, cada
+uno con su copia, el que guarda segundo escribe la suya vieja encima. No hace falta
+que se pisen hoy — basta con que los dos puedan escribir. La cura no es coordinarlos,
+es que haya uno; y al absorber al otro se enumera lo que tenía de propio antes de
+borrarlo.
+

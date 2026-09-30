@@ -59,7 +59,8 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 };
 
 export function Lienzo({
-  grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion, ayuda, alto = 'min(54svh, 460px)',
+  grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion, ayuda,
+  alto = 'min(54svh, 460px)', onMover, chrome, sinMarco = false,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -74,11 +75,29 @@ export function Lienzo({
   accion?: ReactNode;
   ayuda?: string;
   alto?: string;
+  /** Mover una tarjeta. Sin esto el lienzo sólo se panea: los nodos no se agarran.
+   *  Llega con la posición YA en coordenadas del grafo, no de la pantalla. */
+  onMover?: (id: string, x: number, y: number) => void;
+  /** Lo que va FLOTANDO sobre el lienzo, arriba a la izquierda: el título, el
+   *  interruptor, la salida. Va acá y no arriba del lienzo por el pedido textual
+   *  —«el lienzo tiene que ocupar absolutamente todo el recuadro, incluso donde
+   *  dice cerrar el editor»—: un chrome que ocupa su propio renglón le come 80 px
+   *  al dibujo, y en una caja de 460 eso es el 17%. */
+  chrome?: ReactNode;
+  /** Sin borde ni radio: cuando el lienzo ES el recuadro, el marco lo pone la caja
+   *  de afuera y dos marcos anidados dejan un filete doble. */
+  sinMarco?: boolean;
 }) {
   const caja = useRef<HTMLDivElement | null>(null);
   const capa = useRef<HTMLDivElement | null>(null);
   const vista = useRef({ k: 1, tx: 0, ty: 0 });
-  const gesto = useRef<{ x0: number; y0: number; tx0: number; ty0: number; movido: number; nodo: string | null } | null>(null);
+  const gesto = useRef<{
+    x0: number; y0: number; tx0: number; ty0: number; movido: number; nodo: string | null;
+    /** La posición del nodo al empezar, en coordenadas del GRAFO. */
+    nx0: number; ny0: number; arrastrandoNodo: boolean;
+  } | null>(null);
+  /** Lo que se está moviendo AHORA, para pintarlo sin pasar por el estado. */
+  const movido = useRef<{ id: string; x: number; y: number } | null>(null);
   const [zoomTxt, setZoomTxt] = useState(100);
   /** La última forma encuadrada: grafo + caja. Ver `encuadrar`. */
   const encuadrado = useRef('');
@@ -155,9 +174,15 @@ export function Lienzo({
     // `pointerup` el `e.target` ya es el contenedor, así que buscar el nodo ahí
     // devuelve null SIEMPRE. Medido en el navegador: tocar un paso no abría nada, y
     // el handler se leía perfecto.
+    const id = (e.target as HTMLElement).closest('[data-nodo]')?.getAttribute('data-nodo') ?? null;
+    const n = id ? grafo.nodos.find((x) => x.id === id) : null;
     gesto.current = {
-      x0: e.clientX, y0: e.clientY, tx0: v.tx, ty0: v.ty, movido: 0,
-      nodo: (e.target as HTMLElement).closest('[data-nodo]')?.getAttribute('data-nodo') ?? null,
+      x0: e.clientX, y0: e.clientY, tx0: v.tx, ty0: v.ty, movido: 0, nodo: id,
+      nx0: n?.x ?? 0, ny0: n?.y ?? 0,
+      // Agarrar una TARJETA la mueve a ella; agarrar el fondo panea el lienzo. Es
+      // la misma distinción que hace cualquier editor de nodos, y sin ella no hay
+      // forma de acomodar el dibujo.
+      arrastrandoNodo: Boolean(id) && Boolean(onMover),
     };
     try { caja.current?.setPointerCapture(e.pointerId); } catch { /* el gesto sigue sin captura */ }
   }
@@ -167,6 +192,21 @@ export function Lienzo({
     if (!g) return;
     const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
     g.movido = Math.max(g.movido, dx * dx + dy * dy);
+    if (g.arrastrandoNodo && g.nodo) {
+      // ⚠️ EL DELTA SE DIVIDE POR EL ZOOM. Al 50%, mover el mouse 100 px tiene que
+      // mover la tarjeta 200 en coordenadas del grafo, o el dibujo se despega del
+      // cursor — y cuanto más lejos del 100%, más se despega.
+      const k = vista.current.k || 1;
+      movido.current = { id: g.nodo, x: g.nx0 + dx / k, y: g.ny0 + dy / k };
+      // Se escribe sobre el nodo del DOM, no con setState: un setState por
+      // `pointermove` redibuja el grafo entero 60 veces por segundo.
+      const el = caja.current?.querySelector(`[data-nodo="${g.nodo}"]`);
+      if (el instanceof HTMLElement) {
+        el.style.left = `${movido.current.x}px`;
+        el.style.top = `${movido.current.y}px`;
+      }
+      return;
+    }
     vista.current = { ...vista.current, tx: g.tx0 + dx, ty: g.ty0 + dy };
     pintar();
   }
@@ -181,6 +221,12 @@ export function Lienzo({
     // El CLIC se resuelve acá y no en un onClick del nodo: con la captura puesta,
     // los eventos siguientes van al contenedor y el onClick del hijo no dispara.
     if (g.movido <= ARRASTRE2) onSeleccion(g.nodo && seleccion === g.nodo ? null : g.nodo);
+    else if (g.arrastrandoNodo && movido.current) {
+      // El guardado va al SOLTAR, no en cada píxel: un POST por `pointermove` son
+      // sesenta por segundo contra la misma fila.
+      onMover?.(movido.current.id, Math.round(movido.current.x), Math.round(movido.current.y));
+    }
+    movido.current = null;
     try { caja.current?.releasePointerCapture(e.pointerId); } catch { /* ya se soltó */ }
   }
 
@@ -218,15 +264,6 @@ export function Lienzo({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-      {/* La barra: lo que no es el lienzo va afuera del lienzo, o el pan se lo lleva. */}
-      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        {ayuda && <span style={{ fontSize: 12, color: 'var(--faint)', marginRight: 'auto' }}>{ayuda}</span>}
-        <BotonChico onClick={() => zoom(1 / 1.2)} rotulo="Alejar">−</BotonChico>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--dim)', minWidth: 38, textAlign: 'center' }}>{zoomTxt}%</span>
-        <BotonChico onClick={() => zoom(1.2)} rotulo="Acercar">＋</BotonChico>
-        <BotonChico onClick={() => encuadrar(true)} rotulo="Centrar">⤢</BotonChico>
-      </div>
-
       <div
         ref={caja}
         onPointerDown={onPointerDown}
@@ -242,7 +279,7 @@ export function Lienzo({
         onScroll={(e) => { e.currentTarget.scrollLeft = 0; e.currentTarget.scrollTop = 0; }}
         style={{
           position: 'relative', flex: 1, minHeight: alto, overflow: 'hidden',
-          borderRadius: 14, border: '1px solid var(--border)',
+          borderRadius: sinMarco ? 0 : 14, border: sinMarco ? 'none' : '1px solid var(--border)',
           background: 'var(--surface-2)',
           // El punteado hace que el paneo se SIENTA: sin un fondo con textura,
           // arrastrar un lienzo vacío parece que no hizo nada.
@@ -293,7 +330,23 @@ export function Lienzo({
           {grafo.nodos.map((n) => renderNodo(n, seleccion === n.id))}
         </div>
 
-        {/* La acción va FUERA de la capa transformada, o se achica con el zoom. */}
+        {/* TODO LO QUE NO ES EL DIBUJO FLOTA. Va fuera de la capa transformada —o se
+            achica con el zoom— y encima del lienzo, no arriba: el recuadro entero es
+            el lienzo. */}
+        {chrome && (
+          <div data-no-pan style={{ position: 'absolute', left: 0, right: 0, top: 0, padding: 14, pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'auto' }}>{chrome}</div>
+          </div>
+        )}
+
+        <div data-no-pan style={{ position: 'absolute', right: 12, top: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {ayuda && <span style={{ fontSize: 11.5, color: 'var(--faint)', marginRight: 4 }}>{ayuda}</span>}
+          <BotonChico onClick={() => zoom(1 / 1.2)} rotulo="Alejar">−</BotonChico>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--dim)', minWidth: 38, textAlign: 'center' }}>{zoomTxt}%</span>
+          <BotonChico onClick={() => zoom(1.2)} rotulo="Acercar">＋</BotonChico>
+          <BotonChico onClick={() => encuadrar(true)} rotulo="Centrar">⤢</BotonChico>
+        </div>
+
         {accion && <div data-no-pan style={{ position: 'absolute', right: 12, bottom: 12 }}>{accion}</div>}
 
         {/* EL EDITOR. Va acá adentro y en coordenadas de PANTALLA: si viviera en la

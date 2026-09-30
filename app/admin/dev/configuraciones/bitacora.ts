@@ -43,6 +43,38 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '30 sep', hora: '17:05', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Diez cosas del lienzo',
+    pedido: '1. El mensaje tiene cosas como ** pero no se formatea, eso está mal... 2. Cuando le doy a editar, el lienzo tiene que ocupar absolutamente todo el recuadro, incluso donde dice "cerrar el editor", de lo contrario, se ve muy chico. 3. El mesaje también se tiene que formatear en el editor. 4. "Que lo dispara" solo tiene tiempo, cuando hay acciones que pueden disparar esto... Como que llegue un lead al CRM, deberías poner todo lo que podría disparar un mensaje. 5. Hay un botón azul detrás del lienzo, no tiene sentido. 6. No tiene sentido el "Te llega al grupo de whatsapp" es un paso que no hace nada. 7. No se pueden arrastrar por el lienzo las tarjetas. Si deberían. 8. No se puede agregar un nuevo paso... 9. En el editor del mensaje dice "negrita, italica..." eso quitalo, no tiene sentido el texto, basta con los botones. 10. El botón de "Probar con IA" no hace nada. me escribe algo en azul abajo, pero no cambia el texto.',
+    puntos: [
+      'Vino con cinco capturas del detalle abierto. Tres de los diez puntos —el disparador por evento, arrastrar las tarjetas y agregar pasos— piden motor y almacenamiento, no pantalla.',
+      'El 6 dejó una regla que vale para cualquier lienzo de esta casa: un nodo es algo que OCURRE. Por dónde sale un mensaje es un campo del mensaje, no un paso del flujo.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '21:30', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los diez: el lienzo es el recuadro, las tarjetas se arrastran y el disparador ofrece los eventos que existen',
+    puntos: [
+      'El texto se PINTA con su formato, en la burbuja y en el editor. El modelo sigue siendo las marcas del canal (`*negrita*`), que es lo que WhatsApp entiende; lo que cambió es cómo se escribe: un contenteditable que serializa de vuelta a marcas. Las tres trampas —el caret, `execCommand`, el pegado— están en el hallazgo.',
+      'El lienzo ocupa TODO el recuadro y el chrome flota encima. Antes la topbar, la cabecera y el pie le comían ~180 px de 620 y el grafo entraba al 33%.',
+      'El disparador ofrece los CINCO eventos que tienen choke point cableado, y se suman al disparador nativo en vez de reemplazarlo. Lo ejecuta `dispararEvento`, que ya existía y corría sin pantalla desde el 29/09.',
+      'Se pueden agregar pasos (una acción o un mensaje al lead) y arrastrar las tarjetas, con la posición guardada por mensaje. Un paso agregado SIN evento elegido se dibuja con su advertencia: sólo corre por el camino del evento, y un paso que no corre y no lo dice es el control que se dibuja y no hace nada.',
+      'Se fue el nodo «te llega»: su advertencia —los dos canales apagados— se mudó al nodo del mensaje. Y «Probar con IA» pasó a aplicar el texto en vez de dejarlo mirándose abajo.',
+      '`Recordatorios` se absorbió en el lienzo: con dos componentes escribiendo el mismo `Flujo` por `setFlujo`, que lo reemplaza entero, el segundo en guardar se llevaba puesto al primero.',
+      'Verificado en el navegador, los diez: el lienzo pasó de 344x420 a 1130x618, la negrita se pinta, arrastrar mueve 160 px y sobrevive al F5, agregar una acción crea su nodo, y «Que lo escriba MaKo» cambia el texto de 189 a 201 caracteres.',
+    ],
+    archivos: [
+      'app/_components/Lienzo.tsx — arrastre de nodos y chrome flotante',
+      'app/_components/TextoMarcas.tsx — el dialecto de WhatsApp, pintado',
+      'app/agencia/EditorMensaje.tsx — contenteditable sobre el modelo de marcas',
+      'app/agencia/FlujoAviso.tsx — el único dueño del flujo del mensaje',
+      'lib/flujo-aviso.ts — el grafo, con eventos, pasos y posiciones',
+      'tests/flujo-aviso.test.ts + tests/lienzo.test.ts — 25 guards',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '11:40', chat: '—', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'El lienzo va ACÁ, no en el Chat Agent',

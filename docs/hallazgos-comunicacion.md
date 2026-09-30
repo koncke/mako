@@ -6146,3 +6146,138 @@ página. **Un test que lee una ruta es un test que hay que mudar a mano; lo úni
 que lo hace visible es que la ruta vieja deje de tener lo que el test busca.**
 
 *2026-09-30*
+
+### Un nodo de un lienzo es algo que OCURRE, no un dato del mensaje
+
+**Vive en:** `grafoDeAviso` en `lib/flujo-aviso.ts`
+
+«Te llega al grupo de WhatsApp» era un nodo, y el dueño lo tumbó con una frase que
+vale como regla: **«es un paso que no hace nada»**. Por dónde sale un mensaje es
+una PROPIEDAD del mensaje, no un paso del flujo — y dibujarla como paso hace que
+el grafo cuente un hecho de más, encima uno que desde ahí no se puede tocar
+(el canal se elige al entrar al mensaje, no adentro).
+
+Lo que sí había que conservar es la parte que AVISA: con los dos canales apagados
+el mensaje no sale por ningún lado, y eso no se ve en ninguna otra pantalla desde
+que los chips de canal se sacaron del detalle. Se mudó al título del nodo del
+MENSAJE, que es de quien es.
+
+**La prueba, antes de agregar un nodo: ¿esto ocurre, o esto es un campo?** Si es un
+campo, va adentro del nodo al que pertenece.
+
+*2026-09-30*
+
+### El chrome de un lienzo FLOTA, o el dibujo se queda sin la mitad
+
+**Vive en:** `chrome` en `app/_components/Lienzo.tsx` · `app/agencia/TemplateDetalleModal.tsx`
+
+El detalle tenía topbar + cabecera + lienzo + pie, cada uno con su renglón. Medido:
+entre los tres le comían **~180 px de 620**, el encuadre automático hizo su trabajo
+con lo que quedaba y el grafo entró **al 33%** — cuatro tarjetas del tamaño de una
+uña. El pedido fue literal: «el lienzo tiene que ocupar absolutamente todo el
+recuadro, incluso donde dice "cerrar el editor"».
+
+Todo lo que no es el dibujo pasa a flotar ENCIMA, en tarjetitas con fondo propio
+para leerse sobre el punteado. Y flotar no alcanza: el contenedor tiene que
+entregarle el alto entero (`sinMarco`, porque dos marcos anidados dejan un filete
+doble) y el chrome va con `pointerEvents: 'none'` en su capa y `auto` en su
+contenido, o la franja de arriba se traga el paneo.
+
+⚠️ **Y el botón de guardar estaba PINTADO DETRÁS del dibujo**, asomando por un
+costado: «hay un botón azul detrás del lienzo, no tiene sentido». Cuando un lienzo
+pasa a ocupar el recuadro, todo lo que estaba abajo queda debajo — no al lado.
+
+*2026-09-30*
+
+### Un componente que puede no mostrar nada tiene que poder NO DIBUJARSE
+
+**Vive en:** `PrefsDeMensaje` (`app/perfil/PrefsDeMensaje.tsx`)
+
+`PrefsDeMensaje` devuelve `null` para todos los mensajes menos uno. Envuelto en una
+tarjeta desde AFUERA —`<div style={tarjeta}><PrefsDeMensaje/></div>`— ese `null` se
+convierte en **una cajita blanca vacía flotando sobre el lienzo**. No es un error,
+no rompe nada, y se ve exactamente como un bug.
+
+**El envoltorio lo elige quien monta, pero lo APLICA el componente.** Va como prop
+de estilo, después del `return null`. Vale para cualquier pieza condicional: el que
+sabe si hay algo que mostrar es ella, no el que la coloca.
+
+*2026-09-30*
+
+### Escribir con formato sobre un modelo de MARCAS: contentEditable, y sus tres trampas
+
+**Vive en:** `app/agencia/EditorMensaje.tsx` · `app/_components/TextoMarcas.tsx`
+
+Lo que se guarda son las marcas del canal (`*negrita*`, `_itálica_`, `~tachado~`):
+eso es lo que WhatsApp entiende y lo que el email traduce solo. Hasta ahora el
+campo era un textarea que las MOSTRABA, con el argumento de que «lo que se ve es
+lo que sale» — y el dueño lo reportó dos veces como un defecto: «tiene cosas como
+`**` pero no se formatea, eso está mal».
+
+El modelo no cambió; cambió cómo se escribe. Las tres trampas, todas medidas:
+
+1. **El caret salta si se reescribe el HTML en cada tecla.** React no controla ese
+   nodo: el HTML se escribe una vez y sólo se vuelve a escribir cuando el valor
+   viene de AFUERA — se compara contra lo último que el propio editor emitió.
+2. **`execCommand` está deprecado y es lo correcto acá.** Es lo único que envuelve
+   una selección respetando los límites de los nodos y dejando el caret donde va;
+   reimplementarlo con Range es el bug de «apretar B con texto seleccionado lo
+   borra», que este repo ya pagó. Va con `styleWithCSS = false` para que emita
+   `<b>` y no un `<span style>` que el serializador tenga que adivinar.
+3. **Lo que pega el portapapeles entra con su HTML.** Se intercepta `paste` y se
+   inserta texto plano.
+
+⚠️ **Y el render NO es markdown.** Una marca abre y cierra en la MISMA línea y no
+puede estar vacía: `**` suelto —lo que deja el botón cuando no hay nada
+seleccionado— es TEXTO, y tratarlo como markdown lo haría desaparecer de la
+pantalla mientras al lead le llega igual.
+
+*2026-09-30*
+
+### Arrastrar un nodo: el delta se divide por el ZOOM
+
+**Vive en:** `onPointerMove` en `app/_components/Lienzo.tsx`
+
+La primera versión del lienzo calculaba el layout y no lo guardaba, con el
+argumento de que para cuatro nodos acomodar a mano es ceremonia. El dueño pidió lo
+contrario —«no se pueden arrastrar por el lienzo las tarjetas, sí deberían»— y la
+posición pasó a persistirse por mensaje.
+
+Tres cosas que no son obvias:
+
+- **El delta del mouse va DIVIDIDO por la escala.** Al 50%, mover el cursor 100 px
+  tiene que mover la tarjeta 200 en coordenadas del grafo; sin eso el dibujo se
+  despega del cursor, y cuanto más lejos del 100%, más.
+- **Agarrar una tarjeta la mueve; agarrar el fondo panea.** Es la misma distinción
+  que hace cualquier editor de nodos, y sale del `data-nodo` que ya se anota en el
+  `pointerdown` por la trampa de la captura.
+- **El guardado va al SOLTAR, con un respiro.** Un POST por `pointermove` son
+  sesenta por segundo contra la misma fila. Y es OPTIMISTA a propósito: esperar la
+  respuesta deja la tarjeta volviendo a su lugar en cada arrastre.
+
+⚠️ **Y las posiciones se PODAN al guardar.** Una coordenada de un nodo que ya no
+existe sobrevive para siempre, y el próximo paso con el mismo id nace en el lugar
+del que se fue.
+
+*2026-09-30*
+
+### Dos dueños del mismo objeto: el segundo en guardar se lleva puesto al primero
+
+**Vive en:** `FlujoAviso` (`app/agencia/FlujoAviso.tsx`), donde se absorbió `Recordatorios`
+
+`setFlujo(id, flujo)` reemplaza el flujo ENTERO. Mientras el único que lo tocaba
+era el paso `insistir`, tener a `Recordatorios` leyéndolo y escribiéndolo por su
+cuenta funcionaba. En cuanto el lienzo pasó a editar también el DISPARADOR y los
+PASOS, eran dos componentes con su propia copia del mismo objeto: el que guardara
+segundo escribía su copia vieja encima.
+
+**El olor que lo delata antes de que pase: dos componentes que llaman al mismo
+setter de un objeto COMPLETO.** No hace falta que se pisen hoy — basta con que los
+dos puedan escribir. La cura no es coordinarlos: es que haya uno.
+
+Al absorberlo se enumeró lo que tenía de propio (las dos opciones, los números con
+su techo dicho, el aviso de WhatsApp apagado, y que apagar cierre las insistencias
+ya abiertas) y se movió todo. Lo único que quedó del componente viejo es su nombre
+en el `vive[]` del área, que el test de rutas cazó en el acto.
+
+*2026-09-30*

@@ -5,26 +5,37 @@
 // aquél dibuja la charla con un LEAD, éste dibuja lo que MaKo te dice A VOS.
 // Los tipos, la geometría y las curvas son de `lib/lienzo-grafo.ts`.
 //
-// ── UN AVISO ES UN FLUJO CORTO, Y HAY QUE DECIRLO ──────────────────────────
-// Son cuatro o cinco nodos, no los veinte de un bot de ManyChat. Lo que el dibujo
-// aporta acá no es domar una maraña: es que las CUATRO preguntas de un aviso
-// —qué lo dispara, cada cuánto, qué dice, y qué pasa si no contestás— se veían
-// como cuatro bloques apilados de un formulario, sin que nada mostrara que el
-// recordatorio cuelga de la respuesta y no de la salida del mensaje.
+// ── QUÉ ES UN NODO ACÁ, Y QUÉ NO ──────────────────────────────────────────
+// Un nodo es algo que OCURRE. «Te llega al grupo de WhatsApp» era un nodo y se
+// fue: el dueño lo marcó con una frase que vale como regla — «es un paso que no
+// hace nada». Por dónde sale un mensaje es una propiedad del mensaje, no un paso
+// del flujo, y dibujarla como paso hace que el grafo cuente un hecho de más.
+// El aviso de que los dos canales están apagados se mudó al nodo del MENSAJE,
+// que es de quien es.
 //
-// ── LAS ARISTAS SALEN DEL DATO, IGUAL QUE EN EL OTRO ───────────────────────
-//   · `frecuenciaMin`           → cada cuánto sale, en la flecha de entrada
-//   · el paso `insistir`        → la rama «te lo recuerdo»
-//   · `canales` (wa / email)    → por dónde te llega, al final
+// ── LAS ARISTAS SALEN DEL DATO ─────────────────────────────────────────────
+//   · `frecuenciaMin`            → cada cuánto sale, en la flecha de entrada
+//   · el paso `insistir`         → la rama «te lo recuerdo»
+//   · `flujo.disparador`         → los eventos que TAMBIÉN lo disparan
+//   · `flujo.pasos`              → lo que pasa después, en el camino del evento
 //
-// Nadie conecta nada. El porqué de esa decisión, con la cita del dueño sobre el
-// editor de flechas que descartó por «rebuscado», está en `lib/flujo-conversacion.ts`.
+// ── LO QUE SÍ SE GUARDA: DÓNDE PUSISTE CADA TARJETA ───────────────────────
+// La primera versión calculaba el layout y no lo guardaba, con el argumento de
+// que para cuatro nodos acomodar a mano es ceremonia. El dueño pidió lo
+// contrario — «no se pueden arrastrar por el lienzo las tarjetas, sí deberían»—
+// así que las posiciones se persisten por mensaje (`posiciones` en su entrada del
+// store). El cálculo queda como el DEFAULT y como el botón de reacomodar: una
+// posición guardada de un nodo que ya no existe se ignora sola, y un nodo nuevo
+// nace en su lugar calculado en vez de encimarse en el origen.
 
 import {
   ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, encerrar,
   type NodoFlujo, type AristaFlujo, type GrafoFlujo,
 } from './lienzo-grafo';
 import { FRECUENCIAS, SIN_LIMITE } from './disparador-mensaje';
+import { EVENTOS, describirPaso, type Disparador, type Paso } from './flujos-tipos';
+
+export type Posiciones = Record<string, { x: number; y: number }>;
 
 export type AvisoParaGrafo = {
   /** Qué lo hace salir, en palabras. Sale del catálogo: es un hecho, no una opción. */
@@ -36,8 +47,12 @@ export type AvisoParaGrafo = {
   canales: { wa: boolean; email: boolean };
   /** El paso `insistir` del flujo, si está prendido. */
   insistir: { cadaMin: number; veces: number } | null;
-  /** ¿Este mensaje está activo? Un aviso apagado no sale por ningún lado. */
-  activo: boolean;
+  /** El disparador POR EVENTO del flujo, si se eligió uno. */
+  evento: Disparador | null;
+  /** Los pasos del flujo que NO son `insistir`: lo que pasa después. */
+  pasos: Paso[];
+  /** Dónde arrastró cada tarjeta quien lo editó. */
+  posiciones?: Posiciones;
 };
 
 /** Cada cuánto sale, dicho corto para una flecha. */
@@ -55,48 +70,49 @@ export function porDondeLlega(c: { wa: boolean; email: boolean }): string {
   return 'Por ningún lado: los dos canales están apagados';
 }
 
+/** Lo que dice el nodo de entrada: el hecho, más los eventos que se sumaron. */
+export function textoDisparador(a: Pick<AvisoParaGrafo, 'disparador' | 'evento'>): string {
+  const d = a.evento;
+  const ev = d && d.tipo === 'evento' ? EVENTOS.find((e) => e.key === d.evento)?.label : null;
+  return ev ? `${a.disparador}\n\nY también: ${ev.toLowerCase()}.` : a.disparador;
+}
+
 export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   const nodos: NodoFlujo[] = [];
   const aristas: AristaFlujo[] = [];
   const col = (i: number) => MARGEN + i * (ANCHO_NODO + GAP_X);
+  const pos = a.posiciones ?? {};
+  /** La posición guardada gana sobre la calculada. Sin fila guardada, la calculada. */
+  const en = (id: string, x: number, y: number) => ({ x: pos[id]?.x ?? x, y: pos[id]?.y ?? y });
 
-  // ── Qué lo dispara. Es un HECHO: lo produce el call site que lo emite, y para
-  // 60 de los 65 mensajes no hay nada que elegir ahí. Lo editable es cada cuánto,
-  // y por eso viaja en la FLECHA y no adentro del nodo.
+  const sinCanal = !a.canales.wa && !a.canales.email;
+  const conEvento = a.evento?.tipo === 'evento';
+
+  // ── Qué lo dispara. El hecho nativo es un hecho; lo que se ELIGE son los
+  // eventos que lo disparan ADEMÁS, y ésos el motor sí los corre.
   nodos.push({
     id: 'entrada', tipo: 'entrada', titulo: 'Qué lo dispara', icono: '⚡',
-    detalle: a.disparador,
-    x: col(0), y: MARGEN, ancho: ANCHO_NODO, alto: ALTO_MIN + 26,
+    detalle: textoDisparador(a),
+    ...en('entrada', col(0), MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + (conEvento ? 54 : 26),
   });
 
-  // ── El mensaje, como llega.
+  // ── El mensaje, como llega. Con el aviso de por dónde sale: es del mensaje,
+  // no un paso aparte.
   const altoMensaje = Math.min(300, ALTO_MIN + Math.min(Math.ceil((a.texto || '').length / 32), 10) * 17);
   nodos.push({
-    id: 'mensaje', tipo: 'mensaje', titulo: 'El mensaje', icono: '💬', orden: 1,
-    x: col(1), y: MARGEN, ancho: ANCHO_NODO, alto: altoMensaje,
-  });
-  aristas.push({ desde: 'entrada', hasta: 'mensaje', etiqueta: cadaCuanto(a.frecuenciaMin), tono: 'normal' });
-
-  // ── Por dónde te llega. Es la única salida del mensaje, y se dibuja SIEMPRE —
-  // incluso con los dos canales apagados, que es justo cuando hay algo que decir:
-  // un aviso sin canal no sale, y hoy eso no se ve en ninguna parte.
-  const sinCanal = !a.canales.wa && !a.canales.email;
-  nodos.push({
-    id: 'salida', tipo: 'salida', titulo: 'Te llega', icono: sinCanal ? '🔇' : a.canales.email && !a.canales.wa ? '✉️' : '📲',
-    detalle: porDondeLlega(a.canales),
+    id: 'mensaje', tipo: 'mensaje', titulo: porDondeLlega(a.canales), icono: sinCanal ? '🔇' : a.canales.email && !a.canales.wa ? '✉️' : '💬',
+    orden: 1,
     advertencia: sinCanal ? 'Con los dos canales apagados este mensaje no sale.' : undefined,
-    x: col(2), y: MARGEN, ancho: ANCHO_NODO, alto: ALTO_MIN,
+    ...en('mensaje', col(1), MARGEN), ancho: ANCHO_NODO, alto: altoMensaje,
   });
-  aristas.push({ desde: 'mensaje', hasta: 'salida', tono: sinCanal ? 'mala' : 'buena' });
+  aristas.push({ desde: 'entrada', hasta: 'mensaje', etiqueta: cadaCuanto(a.frecuenciaMin), tono: sinCanal ? 'mala' : 'normal' });
 
-  // ── Y si no contestás. Cuelga del MENSAJE, no de la salida: es lo que pasa
-  // después de que el mensaje salió, y en el formulario viejo era un bloque más
-  // de la columna — se leía como un paso que ocurre siempre.
-  const yAbajo = MARGEN + Math.max(altoMensaje, ALTO_MIN + 26) + GAP_Y + 10;
+  // ── Y si no contestás. Cuelga del MENSAJE: es lo que pasa después de que salió.
+  const yAbajo = MARGEN + Math.max(altoMensaje, ALTO_MIN + 54) + GAP_Y + 10;
   nodos.push({
     id: 'respuesta', tipo: 'respuesta', titulo: 'Si no contestas', icono: '↩️',
     detalle: a.insistir ? 'MaKo te lo vuelve a mandar' : 'Se manda una vez y listo',
-    x: col(1), y: yAbajo, ancho: ANCHO_NODO, alto: ALTO_MIN,
+    ...en('respuesta', col(1), yAbajo), ancho: ANCHO_NODO, alto: ALTO_MIN,
   });
   aristas.push({ desde: 'mensaje', hasta: 'respuesta', etiqueta: 'si no contestas', tono: 'normal' });
 
@@ -109,10 +125,41 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
       // adentro del `if` del envío al grupo. Con WhatsApp apagado, el nodo está
       // dibujando algo que no puede ocurrir — y eso se dice, no se esconde.
       advertencia: a.canales.wa ? undefined : 'Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.',
-      x: col(2), y: yAbajo, ancho: ANCHO_NODO, alto: ALTO_MIN,
+      ...en('recordatorio', col(2), yAbajo), ancho: ANCHO_NODO, alto: ALTO_MIN,
     });
     aristas.push({ desde: 'respuesta', hasta: 'recordatorio', etiqueta: 'te lo recuerdo', tono: 'condicional' });
   }
 
+  // ── Lo que pasa DESPUÉS del aviso. Son los pasos del flujo, y corren por el
+  // camino del EVENTO: `dispararEvento` es lo único que los ejecuta. Sin un
+  // evento elegido quedan dibujados y quietos — y eso lo dice el nodo, porque un
+  // paso que no corre y no lo avisa es el control que se dibuja y no hace nada.
+  let previo = 'mensaje';
+  let x = col(2);
+  a.pasos.forEach((p, i) => {
+    const id = `paso-${i}`;
+    nodos.push({
+      id, tipo: p.tipo === 'accion' ? 'accion' : 'mensaje-lead', orden: i,
+      titulo: p.tipo === 'accion' ? 'Hace algo' : 'Le escribe al lead',
+      icono: p.tipo === 'accion' ? '⚙️' : '📤',
+      detalle: describirPaso(p),
+      advertencia: conEvento ? undefined : 'Este paso sólo corre cuando el mensaje lo dispara un evento, y todavía no elegiste ninguno.',
+      ...en(id, x, MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + 8,
+    });
+    aristas.push({ desde: previo, hasta: id, etiqueta: i === 0 ? 'después' : undefined, tono: conEvento ? 'buena' : 'normal' });
+    previo = id;
+    x += ANCHO_NODO + GAP_X;
+  });
+
   return { nodos, aristas, ...encerrar(nodos) };
+}
+
+/** Las posiciones que ya no corresponden a ningún nodo. Se tiran al guardar: si
+ *  no, borrar un paso deja su coordenada para siempre y el próximo con el mismo
+ *  id nace en el lugar del que se fue. */
+export function podarPosiciones(pos: Posiciones, ids: ReadonlyArray<string>): Posiciones {
+  const vivos = new Set(ids);
+  const out: Posiciones = {};
+  for (const [k, v] of Object.entries(pos)) if (vivos.has(k)) out[k] = v;
+  return out;
 }
