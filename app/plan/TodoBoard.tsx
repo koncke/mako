@@ -181,6 +181,5 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
   // tablero general esconde el tablero de la ficha sin decir por qué.
   const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
-  // `simplePorDefecto`: el tablero del cliente arranca sin el kanban. Ver la prop.
-  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} simplePorDefecto vistaExtra={vistaExtra} onRecargar={onRecargar} />;
+  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} />;
 }

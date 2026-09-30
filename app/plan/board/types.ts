@@ -593,34 +593,3 @@ export function displayPrio(t: BoardTask, _topProjectId?: string | null): Prio {
 }
 export const puedeSerAlta = (t: BoardTask, topProjectId: string | null): boolean =>
   (topProjectId != null && t.labels.includes(topProjectId)) || t.labels.length === 0 || t.score >= EMERGENCY_SCORE;
-
-
-// ── El toggle «Avanzado» (#53) ───────────────────────────────────────────────
-
-/**
- * Las vistas que la vista SIMPLE esconde.
- *
- * Son el tablero completo: el kanban de tareas y la grilla de proyectos. Quedan
- * «prioridades» —la lista corta que cura el Perro, que es donde el cliente tiene que
- * aterrizar— y «recurrentes», que es corta por definición y no compite con nada.
- *
- * El pedido, del 31/08/2026: «una vista SIMPLE por default (3 tareas + experimentos) con
- * el kanban completo detrás de un toggle Avanzado».
- */
-export const SOLO_AVANZADO: readonly string[] = ['tareas', 'proyectos'];
-
-/**
- * ¿Se dibuja la pestaña de esta vista?
- *
- * Vive acá y no adentro del JSX para que se pueda testear: es una condición que, mal
- * escrita, deja una pantalla sin forma de volver.
- *
- * ⚠️ LA VISTA EN LA QUE ESTAS NUNCA SE ESCONDE, aunque sea avanzada, y esa es la mitad
- * que importa. El `?vista=` de la URL es una DECISIÓN y le gana a la preferencia
- * guardada (regla de la casa: «localStorage restaura una PREFERENCIA, nunca pisa una
- * DECISIÓN»): un link compartido al kanban tiene que abrir el kanban. Y esconderle la
- * pestaña a alguien que YA está parado ahí es dejarlo mirando una vista sin control
- * para salir de ella.
- */
-export const vistaVisible = (id: string, avanzado: boolean, actual: string): boolean =>
-  avanzado || !SOLO_AVANZADO.includes(id) || actual === id;
