@@ -19,14 +19,14 @@
 // que esté ANTES del envío, y que no se caiga a pagar.
 //
 // ⚠️ PROBADO ROMPIÉNDOLO, tres veces (30/09/2026):
-//   1. Sacando la guarda entera: fallan 3 de 6 — «hay una guarda», «va antes del envío»
-//      y «guarda el mensaje crudo».
-//   2. Sacando el `&& !linkBorrador` del guardado crudo: falla 1 de 6 — el de «nunca
-//      duplicar». Es el que importa de los tres: sin él, un turno que SÍ creó borrador y
-//      después se quedó sin respuesta crearía un segundo con el texto entero.
-//   3. Metiéndole un `chatClaude` a la guarda: falla 1 de 6 — «no paga». El dueño lo
-//      dijo textual («NO, JAMÁS algo pago para el plan») y es la clase de línea que se
-//      cuela sin que nadie la note, porque «arregla» el síntoma.
+//   1. Sacando la guarda entera: fallan 3 de 7.
+//   2. Sacando el corte de duplicado del helper: falla 1 de 7. Sin él, un turno que SÍ
+//      creó borrador y después se quedó sin respuesta crearía un segundo con el texto.
+//   3. Metiéndole un `chatClaude` a la guarda: fallan 2 de 7 — «no paga» y la guarda,
+//      que deja de encontrar el aviso. El dueño lo dijo textual («NO, JAMÁS algo pago
+//      para el plan») y es la clase de línea que se cuela porque «arregla» el síntoma.
+//   4. Sacando el `guardarCrudo()` del CATCH: falla 1 de 7 — el caso de las keys sin
+//      cuota. Es el que el refutador encontró en la primera versión de este arreglo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -76,14 +76,34 @@ test('si era carga al plan, el mensaje se guarda CRUDO en vez de perderse', () =
   // «Reintenta en un momento» le pide al dueño que vuelva a grabar el audio — y lo que
   // dijo ya está transcripto y guardado. Una tarea sin redactar es peor que una buena e
   // infinitamente mejor que ninguna: el borrador existe para revisarse.
-  const g = guarda(doer());
-  assert.ok(/crearPropuesta\(/.test(g), 'no se guarda nada: el mensaje se pierde');
-  assert.ok(/detalle: crudo/.test(g), 'no guarda el texto entero, que es lo único que no se puede perder');
+  const src = doer();
+  assert.ok(/const guardarCrudo = async/.test(src), 'no existe el guardado crudo');
+  assert.ok(/crearPropuesta\(/.test(src), 'no se guarda nada: el mensaje se pierde');
+  assert.ok(/detalle: crudo/.test(src), 'no guarda el texto entero, que es lo único que no se puede perder');
+  assert.ok(/await guardarCrudo\(\)/.test(guarda(src)), 'la guarda del silencio no lo usa');
 });
 
-test('y NUNCA duplica: sólo guarda crudo si no hay borrador ya', () => {
+test('EL QUE FALTABA: también se guarda cuando la IA TIRA (sin cuota), no sólo cuando calla', () => {
+  // ⚠️ Lo encontró un refutador el mismo día que escribí la primera versión. La IA falla
+  // de DOS formas: el loop puede descartar a todos los proveedores con `continue` —y sale
+  // sin respuesta— o puede TIRAR (`throw err`), que es lo que pasa con las keys sin cuota.
+  // El catch de esa segunda siempre asigna `respuesta`, así que la guarda del final no
+  // entra y el mensaje se perdía igual. Y ése es justo el caso del pedido: «si se queda
+  // sin créditos no puede cargar una tarea que está copiando de una libreta».
+  const src = doer();
+  const iCatch = src.indexOf('fallo de IA (${causa}');
+  assert.ok(iCatch > 0, 'no encontré el camino del fallo con excepción');
+  const bloque = src.slice(iCatch, iCatch + 800);
+  assert.ok(/guardarCrudo\(\)/.test(bloque), 'con las keys sin cuota el mensaje se sigue perdiendo');
+});
+
+test('y NUNCA duplica: el guardado crudo se corta solo si ya hay borrador', () => {
   // Con un borrador creado, esto sería un segundo con el mismo contenido. Es la regla
   // de la casa y acá falla en silencio: los dos se ven bien por separado.
-  const g = guarda(doer());
-  assert.ok(/eraDePlan && !linkBorrador/.test(g), 'puede crear un borrador duplicado');
+  // El corte vive DENTRO del helper, que es lo que deja llamarlo desde los dos caminos
+  // sin repetir la condición en cada uno (y sin que uno de los dos se la olvide).
+  const src = doer();
+  const i = src.indexOf('const guardarCrudo = async');
+  const cuerpo = src.slice(i, src.indexOf('};', i));
+  assert.ok(/if \(linkBorrador\) return linkBorrador;/.test(cuerpo), 'puede crear un borrador duplicado');
 });

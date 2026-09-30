@@ -858,6 +858,51 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // —peor— uno que resolvía a un borrador real pero equivocado.
     // Ver lib/link-borrador.ts.
     let linkBorrador: string | null = null;
+
+    /**
+     * EL MENSAJE NO SE TIRA: si era una carga al plan y la IA no pudo, se guarda CRUDO.
+     *
+     * ⚠️ VIVE ACÁ, SUELTO, PORQUE LA IA FALLA DE DOS FORMAS Y SON CAMINOS DISTINTOS. Al
+     * escribir esto la primera vez sólo cubrí una —el loop que descarta a todos los
+     * proveedores con `continue` y sale sin respuesta— y un refutador encontró la otra
+     * el mismo día: cuando las keys están SIN CUOTA, el loop TIRA (`throw err`), lo
+     * agarra el catch de abajo y ese catch SIEMPRE asigna `respuesta`. Con la respuesta
+     * ya puesta, la guarda del final no entra y el mensaje se perdía igual.
+     *
+     * Y la que faltaba era la que importa: «si se queda sin créditos no puede cargar una
+     * tarea que está copiando de una libreta» es textualmente el motivo de la tarea #769.
+     *
+     * ⚠️ Devuelve el link o null y NO tira nunca: esto corre en el camino de error, y un
+     * fallo acá dejaría al dueño sin el aviso que ya teníamos.
+     */
+    const guardarCrudo = async (): Promise<string | null> => {
+      // Con un borrador ya creado sería un duplicado silencioso («nunca duplicar»).
+      if (linkBorrador) return linkBorrador;
+      const crudo = texto.replace(/\s+/g, ' ').trim();
+      if (!crudo) return null;
+      try {
+        // Import dinámico, como el resto de lo pesado de este archivo: `plan-propuesta`
+        // arrastra el saneo entero y este camino corre una vez cada muerte de obispo.
+        const { crearPropuesta } = await import('@/lib/plan-propuesta');
+        const id = await crearPropuesta({
+          ws: wsData,
+          origen: 'mako',
+          resumen: 'MaKo no pudo procesarlo — quedó tal cual lo dijiste',
+          tareas: [{
+            // El título es el arranque, cortado en palabra: sirve para reconocerlo en la
+            // lista. El texto ENTERO va al detalle, que es lo que no se puede perder.
+            titulo: crudo.length > 90 ? `${crudo.slice(0, 90).replace(/\s+\S*$/, '')}…` : crudo,
+            detalle: crudo,
+          }],
+        });
+        linkBorrador = `${APP_URL}/plan/revisar/${id}`;
+        console.error(`[mako-doer-in] ws=${wsData} guardado CRUDO en ${id}: la IA no pudo y el mensaje no se tira`);
+        return linkBorrador;
+      } catch (eC) {
+        console.error('[mako-doer-in] no pude ni guardarlo crudo:', eC instanceof Error ? eC.message : String(eC));
+        return null;
+      }
+    };
     // El texto del tutorial en video, cuando la tool corrió. Lo manda el CÓDIGO
     // por la misma razón que el mensaje del borrador: en la primera prueba el
     // modelo llamó bien a `buscar_tutorial` y después escribió «ahí tenés el video
@@ -1257,6 +1302,15 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys): ${errsIA.join(' · ').slice(0, 400)}`);
+
+          // ⚠️ Y EL MENSAJE SE SALVA IGUAL. El aviso de arriba explica POR QUÉ falló —y
+          // con una cuota agotada eso es lo accionable—, pero por sí solo manda al dueño
+          // a repetir un audio que ya está transcripto. Las dos cosas no compiten: se
+          // dice el motivo Y se deja el borrador crudo.
+          if (eraDePlan) {
+            const link = await guardarCrudo();
+            if (link) respuesta = `${respuesta}\n\nNo te lo pierdas: lo dejé tal cual lo dijiste 👇\n${link}`;
+          }
         }
       }
     }
@@ -1370,29 +1424,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
        * ⚠️ Sólo cuando NO hay borrador ya creado: con uno hecho, esto sería un duplicado
        * silencioso — la regla de la casa («nunca duplicar»).
        */
-      if (eraDePlan && !linkBorrador) {
-        try {
-          // Import dinámico, como el resto de lo pesado de este archivo: `plan-propuesta`
-          // arrastra el saneo entero y este camino corre una vez cada muerte de obispo.
-          const { crearPropuesta } = await import('@/lib/plan-propuesta');
-          const crudo = texto.replace(/\s+/g, ' ').trim();
-          const id = await crearPropuesta({
-            ws: wsData,
-            origen: 'mako',
-            resumen: 'MaKo no pudo procesarlo — quedó tal cual lo dijiste',
-            tareas: [{
-              // El título es el arranque, cortado en palabra: sirve para reconocerlo en la
-              // lista. El texto ENTERO va al detalle, que es lo que no se puede perder.
-              titulo: crudo.length > 90 ? `${crudo.slice(0, 90).replace(/\s+\S*$/, '')}…` : (crudo || 'Sin texto'),
-              detalle: crudo,
-            }],
-          });
-          linkBorrador = `${APP_URL}/plan/revisar/${id}`;
-          console.error(`[mako-doer-in] ws=${wsData} guardado CRUDO en ${id}: la IA no pudo y el mensaje no se tira`);
-        } catch (e5) {
-          console.error('[mako-doer-in] no pude ni guardarlo crudo:', e5 instanceof Error ? e5.message : String(e5));
-        }
-      }
+      if (eraDePlan) await guardarCrudo();
 
       respuesta = linkBorrador
         ? `No te lo pude ordenar con IA, así que lo dejé tal cual lo dijiste. Revísalo y acomódalo aquí 👇\n${linkBorrador}`
