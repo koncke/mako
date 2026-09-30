@@ -55,7 +55,7 @@ test('los días salen de la MISMA función que usa el reparto, no de una copia',
   // Un número que le decimos a un agente y otro que mueve el score son dos números que
   // van a divergir. Es el bug que este tablero ya pagó dos veces.
   assert.match(HELPERS, /import \{ diasQuieta \} from '@\/app\/plan\/board\/envejecer'/);
-  assert.match(HELPERS, /export const diasParada = [^;]*diasQuieta\(/s);
+  assert.match(HELPERS, /export const diasParada =[\s\S]*?diasQuieta\(/);
   // Y lo que mide: el último toque de una PERSONA, no la creación.
   const hist = [{ id: 'a', ts: haceDias(5), actor: 'user' as const, text: 'la moví' }];
   assert.equal(diasQuieta(hist, haceDias(90), AHORA), 5, 'no cuenta desde el último toque');

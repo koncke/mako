@@ -26,7 +26,7 @@ export const ACTOR_LABEL: Record<Actor, string> = { user: '', ia: 'MaKo', code: 
 
 // La FUENTE de una tarjeta: DE DÓNDE salió (más rico que `origen`, que solo dice quién).
 // Fathom (una reunión), WhatsApp, un archivo, o Claude Code (con nombre + link del chat).
-export type FuenteTipo = 'manual' | 'mako' | 'fathom' | 'whatsapp' | 'archivo' | 'claude-code' | 'retro' | 'experimento';
+export type FuenteTipo = 'manual' | 'mako' | 'fathom' | 'whatsapp' | 'archivo' | 'claude-code' | 'retro' | 'experimento' | 'recurrente';
 export type Fuente = { tipo: FuenteTipo; etiqueta?: string; url?: string }; // etiqueta = reunión/archivo/chat; url = link
 // Si la tarjeta no tiene fuente explícita, se deriva del origen (compat con lo ya guardado).
 export function fuenteEfectiva(t: { origen: Actor; fuente?: Fuente }): Fuente {

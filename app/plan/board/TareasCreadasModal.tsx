@@ -22,6 +22,7 @@ const FUENTE_INFO: Record<string, { label: string; emoji: string }> = {
   mako: { label: 'MaKo', emoji: '✨' }, archivo: { label: 'Archivo', emoji: '📄' },
   'claude-code': { label: 'Claude Code', emoji: '⌨️' }, retro: { label: 'Retro', emoji: '🔁' },
   experimento: { label: 'Experimento', emoji: '🧪' }, manual: { label: 'Manual', emoji: '✍️' },
+  recurrente: { label: 'Se repite', emoji: '⟳' },
 };
 // Orden en que se muestran los grupos por origen (los no listados van al final).
 const ORIGEN_ORDER = ['whatsapp', 'fathom', 'mako', 'archivo', 'experimento', 'retro', 'claude-code', 'manual'];

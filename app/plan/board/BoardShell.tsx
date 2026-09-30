@@ -2522,6 +2522,10 @@ const FUENTE_META: Record<FuenteTipo, { label: string; icon: () => ReactNode; ac
   'claude-code': { label: 'Claude Code', icon: () => <span style={{ fontFamily: MONO, fontWeight: 700 }}>‹╱›</span>, accent: false },
   retro: { label: 'Retro', icon: () => <span>🔎</span>, accent: true },
   experimento: { label: 'Experimento', icon: () => <span>🧪</span>, accent: true },
+  // La instancia de una PLANTILLA recurrente (mig 0185). Su `url` va a la plantilla,
+  // así que el chip es el link a «de dónde vuelve esto cada semana» — que es justo la
+  // pregunta de quien ve la misma tarea por tercera vez y no sabe por qué.
+  recurrente: { label: 'Se repite', icon: () => <span>⟳</span>, accent: false },
 };
 /** ⛔ Tuvo un `soloIcono` (el chip sin una sola palabra) durante unas horas del 25/09 y se
  *  fue con su único call site: «que origen esté más arriba… y que sí tenga texto, no solo
@@ -4212,7 +4216,7 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
                   Texto y no caja: en un pie de tres acciones, una cajita más compite con
                   las dos que cierran la tarjeta, que son las que importan. */}
               <button type="button" onClick={() => setMako(true)} style={btnProfundizar}
-                title={optimizada ? 'MaKo ya le dio una vuelta: probá de nuevo con lo que sepas ahora' : 'MaKo te hace unas preguntas y te propone título, contexto y pasos'}>
+                title={optimizada ? 'MaKo ya le dio una vuelta: prueba de nuevo con lo que sepas ahora' : 'MaKo te hace unas preguntas y te propone título, contexto y pasos'}>
                 {optimizada ? 'Profundizar otra vez' : 'Profundizar'}
               </button>
               <AccionIcono onClick={() => board.toggleDone(t.id)} tono={t.progress >= 100 ? 'ok' : undefined}
