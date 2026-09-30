@@ -4529,3 +4529,63 @@ dibuja por PORTAL sobre el `<body>`, así que la regla del `<main>` de la ruta n
 Es uno de los caminos que el comentario del velo enumera.
 
 **Vive en:** `app/components/Dropdown.tsx` · `app/crm/CrmBoard.tsx` · *2026-09-30 crm-tanda-6*
+
+## «Feature: CRM»: 0 de 25 cerrables, 19 con una mitad hecha (30/09/2026)
+
+Cosechado del pedido «revisa todo el proyecto Feature: CRM y marca como completadas las
+tareas que ya estén». Salió de 25 lectores —uno por tarea abierta— con refutación
+adversarial de dos lentes sobre cualquiera que se propusiera cerrar.
+
+**Vive en:** el proyecto `crm-automtico-leads` del ws9 · `lib/plan-board.ts` (`cerrarPlanTareaOwner`)
+
+### El resultado, y por qué NINGÚN refutador llegó a trabajar
+
+| veredicto | cuántas |
+|---|---|
+| **hecha** (cerrable) | **0** |
+| a medias | 19 |
+| sin empezar | 6 |
+
+Los refutadores no se dispararon ni una vez: ningún lector llegó a proponer un cierre. Eso
+**no es un relevo flojo, es la vara**, y la vara es parte de la pregunta: «una sola promesa
+sin cubrir = no está hecha» es lo correcto para CERRAR —cerrar algo a medias borra del
+tablero el trabajo que falta— y es durísima con los títulos de este proyecto, que nombran
+varias cosas a la vez («Datos del trato + cuotas + reuniones + tracking + chat» son cinco).
+
+⚠️ **Y el corolario que vale para cualquier auditoría de tablero: el entregable no es la
+lista de lo que se cierra, es la lista de lo que FALTA.** Sale la misma conclusión que la
+corrida del mismo día sobre «Feature: Plan» (2 de 13): la sensación de «hay muchas que ya
+están» es correcta sobre el TRABAJO y equivocada sobre las TARJETAS. Lo que falla es el
+título, que sigue nombrando el trabajo entero.
+
+### Los siete agujeros que el barrido encontró de paso, y son los que valen
+
+Ninguno estaba reportado; los siete salieron de ir a leer el código para contestar otra
+pregunta. Todos con su archivo:línea porque se midieron, no se dedujeron.
+
+| Dónde | Qué |
+|---|---|
+| `lib/nutricion.ts` · `lib/crm-auto-plan.ts` · `lib/secuencias-huecos.ts` | **`nutricion_secuencias.funnel_id` existe desde la mig 0170 y NO LA LEE NADIE.** Los tres módulos del motor son funnel-ciegos, así que con dos embudos vivos **el mensaje puede salir del equivocado**. Es el único agujero de la lista que le llega a una persona |
+| `lib/fathom-auto.ts:75-90` | El barrido recorre j1 y j2 con el MISMO objeto `lead` y `applyFathomRecording` deriva `fathom_links` de ahí: **la segunda grabación pisa el link de la primera** — y el contador informa `adjuntados: 2` igual |
+| `lib/leads.ts:854` · `:1288` · `:940` | Los webhooks de **Meta, Calendly, Cal.com y Fathom** comparan el teléfono por igualdad EXACTA (`.eq('telefono_normalizado', …)`) mientras `duplicadosDeLead` compara por los ÚLTIMOS 10 DÍGITOS. O sea que las puertas de MÁS volumen dejan entrar «+52 998…» contra «998…» como lead nuevo, sin aviso |
+| `lib/leads.ts:1812-1856` | `getTrackingEvents` pide 120 filas **por tabla** y recién después descarta lo que no es video, así que con muchos eventos de página el `play` queda afuera del recorte; y devuelve `[]` cuando la lectura falla, o sea que «no pude leer» se dibuja como «no vio el VSL» |
+| `lib/meta-leads.ts:47-55` | `parseLeadFields` saca 4 campos del `field_data` y **tira las respuestas del formulario de Meta**. Y no hay dónde ponerlas: `lead_respuestas` está cerrada a Calendly por su `CHECK (reunion IN ('R1','R2'))` (mig 0062). La `created_time` tampoco se persiste: un lead rescatado de hace 60 días nace con la fecha de la ingesta |
+| `app/crm/crm-map.ts:104` | `originChannel` se calcula y **no lo renderiza nadie**. Es una salida huérfana de manual, y la columna «Origen» de la tabla no mira nunca `origen_lead` |
+| `app/crm/[id]/deal-actions.ts:167` | `saveCuotasAction` filtra `!c.pagado`: **el guardado descarta toda cuota marcada como pagada**, así que «Registrar mensualidad cobrada» no puede asentar un cobro ni arreglándole el helper |
+
+### Un detalle puede citar evidencia que no existe en ningún lado
+
+El detalle de #38 manda a ver un «candado por etapa» y una «revisión de 18 agentes»:
+`grep -rn "candado"` no devuelve ningún candado por etapa del CRM y «18 agentes» no aparece en
+`docs/`. Es la misma familia que las 155 de 260 citas apuntando a la nada que midió la
+auditoría del 24/09, y tiene la misma cura: **antes de cerrar una tarjeta hay que ubicar lo
+que su detalle cita, o borrarlo del detalle** — si no, la próxima revisión vuelve a gastar
+el tiempo buscándolo.
+
+### Y el proyecto gemelo vacío sigue vivo
+
+`Agente: CRM automático` (score 47) tiene **0 tareas**: la fusión con «Feature: CRM» ya se
+hizo y el proyecto vacío nunca se tachó. Por la regla de la casa —tema compartido + cero
+trabajo abierto— hay que tacharlo al fondo con su motivo, y es una decisión de Martín.
+
+**Vive en:** el ws9 · *2026-09-30 crm-auditoria-25*
