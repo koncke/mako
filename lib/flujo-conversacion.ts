@@ -75,52 +75,21 @@ export type EstrategiaParaGrafo = {
   } | null;
 } | null;
 
-export type TipoNodo = 'entrada' | 'mensaje' | 'respuesta' | 'cualifica' | 'desenlace' | 'ir-a' | 'suelto';
+// ⚠️ LOS TIPOS Y LA GEOMETRÍA SE MUDARON A `lib/lienzo-grafo.ts` el 30/09/2026,
+// cuando apareció el SEGUNDO lienzo (el de un aviso de MaKo). Copiarlos habría
+// dejado dos dibujos que se separan en la primera edición — que es la razón escrita
+// por la que se borró el editor de diagramas del funnel. Acá queda lo PROPIO de una
+// conversación: qué nodos tiene, qué los une y cómo se dicen sus tiempos.
+//
+// Se re-exportan porque el lienzo los importaba de acá, y un `export … from` no crea
+// binding local: van los dos, el import y el re-export.
+import {
+  ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y, MARGEN, encerrar,
+  type NodoFlujo, type AristaFlujo, type GrafoFlujo, type TonoArista,
+} from './lienzo-grafo';
+export type { TipoNodo, TonoArista, NodoFlujo, AristaFlujo, GrafoFlujo } from './lienzo-grafo';
+export { curvaEntre, medioDeCurva, ANCHO_NODO, ALTO_MIN, GAP_X, GAP_Y } from './lienzo-grafo';
 
-export type NodoFlujo = {
-  id: string;
-  tipo: TipoNodo;
-  /** El rótulo corto de la cabecera del nodo. Techo: tres palabras. */
-  titulo: string;
-  /** El emoji de la cabecera. Es el mismo vocabulario que ya usa el perfil. */
-  icono: string;
-  /** El paso que este nodo representa, para que la pantalla sepa qué editar. */
-  orden?: number;
-  /** Para un `ir-a`: la clave de la secuencia destino, y si existe de verdad. */
-  claveDestino?: string;
-  destinoExiste?: boolean;
-  /** Lo que el nodo dice adentro cuando no es un mensaje. */
-  detalle?: string;
-  x: number; y: number; ancho: number; alto: number;
-};
-
-export type TonoArista = 'normal' | 'buena' | 'mala' | 'condicional';
-
-export type AristaFlujo = {
-  desde: string;
-  hasta: string;
-  /** Lo que se lee sobre la flecha: «Al instante», «2 h después», «si contesta». */
-  etiqueta?: string;
-  tono: TonoArista;
-  /** Si la etiqueta se puede tocar para editar, y qué paso edita. */
-  editaOrden?: number;
-};
-
-export type GrafoFlujo = {
-  nodos: NodoFlujo[];
-  aristas: AristaFlujo[];
-  /** La caja que ocupa todo el dibujo, para encuadrarlo sin medir el DOM. */
-  ancho: number;
-  alto: number;
-};
-
-// ── La geometría. Números, no clases: el lienzo los usa tal cual ────────────
-export const ANCHO_NODO = 252;
-export const ALTO_MIN = 76;
-/** Separación entre columnas. Tiene que dar lugar a la etiqueta de la arista. */
-export const GAP_X = 118;
-export const GAP_Y = 34;
-const MARGEN = 28;
 
 /** Alto estimado de un nodo de mensaje, sin medir el DOM.
  *
@@ -319,9 +288,7 @@ export function grafoDeSecuencia(
     yGo += ALTO_MIN + GAP_Y;
   }
 
-  const maxX = Math.max(...nodos.map((n) => n.x + n.ancho));
-  const maxY = Math.max(...nodos.map((n) => n.y + n.alto));
-  return { nodos, aristas, ancho: maxX + MARGEN, alto: maxY + MARGEN };
+  return { nodos, aristas, ...encerrar(nodos) };
 }
 
 /**
@@ -334,20 +301,3 @@ export function grafoDeSecuencia(
  * importarlo funciona hoy y se rompe el día que recharts cambie de versión, con
  * un error que no nombra a este archivo.
  */
-export function curvaEntre(a: NodoFlujo, b: NodoFlujo): string {
-  const x1 = a.x + a.ancho;
-  const y1 = a.y + Math.min(a.alto / 2, 44);
-  const x2 = b.x;
-  const y2 = b.y + Math.min(b.alto / 2, 44);
-  const dx = Math.max(38, Math.abs(x2 - x1) * 0.5);
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-}
-
-/** El punto medio de esa misma curva, donde va la etiqueta. */
-export function medioDeCurva(a: NodoFlujo, b: NodoFlujo): { x: number; y: number } {
-  const x1 = a.x + a.ancho;
-  const y1 = a.y + Math.min(a.alto / 2, 44);
-  const x2 = b.x;
-  const y2 = b.y + Math.min(b.alto / 2, 44);
-  return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
-}

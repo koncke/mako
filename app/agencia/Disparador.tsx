@@ -42,7 +42,7 @@ const rotulo: CSSProperties = {
   color: 'var(--dim)', display: 'block', marginBottom: 8,
 };
 
-export function Disparador({ id, disparador, frecuenciaMin, endpoint, onCambio }: {
+export function Disparador({ id, disparador, frecuenciaMin, endpoint, onCambio, compacto = false }: {
   id: string;
   /** Qué lo hace salir, en palabras. Sale del catálogo: es un hecho, no una opción. */
   disparador: string;
@@ -51,6 +51,9 @@ export function Disparador({ id, disparador, frecuenciaMin, endpoint, onCambio }
   endpoint: string;
   /** Para que la lista de al lado refresque su copia de la plantilla. */
   onCambio?: () => void;
+  /** Adentro de un nodo del lienzo: el rótulo y el hecho ya los dibuja la
+   *  tarjeta, y repetirlos convierte el panel en una columna de títulos. */
+  compacto?: boolean;
 }) {
   const [min, setMin] = useState<number>(sanearFrecuencia(frecuenciaMin));
   const [busy, setBusy] = useState(false);
@@ -75,23 +78,25 @@ export function Disparador({ id, disparador, frecuenciaMin, endpoint, onCambio }
   }
 
   return (
-    <div style={{ marginBottom: 18 }}>
-      <span style={rotulo}>Qué lo dispara</span>
+    <div style={{ marginBottom: compacto ? 0 : 18 }}>
+      {!compacto && <span style={rotulo}>Qué lo dispara</span>}
 
       {/* El HECHO. Va arriba y sin control al lado a propósito: lo que sigue configura
           cada cuánto te llega, no qué lo produce. */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-        <span style={{ fontSize: 16, flex: 'none', lineHeight: 1.3 }}>⚡</span>
-        <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{disparador}</div>
-      </div>
+      {!compacto && (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+          <span style={{ fontSize: 16, flex: 'none', lineHeight: 1.3 }}>⚡</span>
+          <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{disparador}</div>
+        </div>
+      )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 11 }}>
-        <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>Cada cuánto, como máximo</span>
+      <div style={{ display: compacto ? 'block' : 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: compacto ? 0 : 11 }}>
+        <span style={compacto ? rotulo : { fontSize: 12.5, color: 'var(--ink)' }}>Cada cuánto, como máximo</span>
         <Dropdown
           value={String(min)}
           options={FRECUENCIAS.map((f) => ({ value: String(f.min), label: f.label }))}
           onChange={(v) => void elegir(v)}
-          width={216}
+          width={compacto ? '100%' : 216}
           disabled={busy}
           ariaLabel={`Cada cuánto llega «${disparador.slice(0, 40)}»`}
         />

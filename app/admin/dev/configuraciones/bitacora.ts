@@ -32,6 +32,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Un canal a la vez, con su bandeja', detalle: 'Los tiles de WhatsApp y Email abren SU canal: el input de destinatarios de ese canal y debajo sus mensajes · los de WhatsApp como chat, los de email como una bandeja de correo, con el remitente leído de `/api/email/dominio` y nunca escrito a mano', estado: 'hecha' },
   { titulo: 'Los avisos administrativos, sólo del super-admin', detalle: 'Los 59 que no están en la lista blanca siguen saliendo y ya no se dibujan en la pantalla del cliente · se ven y se editan desde `/mensajes`', estado: 'hecha' },
   { titulo: 'Cada cuánto llega cada mensaje', detalle: 'El primer paso del detalle dejó de ser prosa: el HECHO que lo dispara arriba y, debajo, «cada cuánto, como máximo» · lo aplica el choke point con el MAYOR entre lo elegido y el dedup del call site, así que la pantalla sólo puede espaciar — nunca producir un mensaje de más', estado: 'hecha' },
+  { titulo: 'El detalle es un lienzo', detalle: 'Qué lo dispara → el mensaje → por dónde te llega, y colgando del mensaje «si no contestas» → te insiste · las flechas salen del dato y los controles son los que ya existían, montados adentro de cada nodo · el chrome se comparte con el flujo de conversación del Chat Agent', estado: 'hecha' },
   { titulo: 'La tab en la URL', detalle: '`ConfigInnerTabs` no lee `?tab=`, así que un link a una tab que no sea Notificaciones no existe · el molde para hacerlo es `app/admin/ui/` (leer en el server + `router.replace` sin scroll)', estado: 'cola' },
   { titulo: 'Email para los avisos, no sólo para los reportes', detalle: 'Cada aviso elige su canal (`canales: { wa, email }` en su plantilla) y el choke point de `lib/avisos.ts` lo despacha · el email nace APAGADO en todos: prenderlo cuesta plata y quema la reputación del dominio para todo el producto, así que sólo un valor explícito lo enciende', estado: 'hecha' },
   { titulo: 'El correo se ve como un correo', detalle: 'La bandeja previsualiza con `renderEmailHtml`, el MISMO que arma el que sale, en un iframe · el mail ganó banda de marca, título, botón y las negritas que un `sinMarcas` le borraba, y perdió el dorado retirado en los links', estado: 'hecha' },
@@ -41,6 +42,36 @@ export const PARTES: Parte[] = [
 ];
 
 export const BITACORA: Hito[] = [
+  {
+    fecha: '30 sep', hora: '11:40', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El lienzo va ACÁ, no en el Chat Agent',
+    pedido: 'Se ve igual, no cambio nada... NO veo el lienzo',
+    puntos: [
+      'Vino con una captura de hola-mako.com/configuraciones, con el detalle de un mensaje abierto. El pedido original —«que los editables del flujo de conversación sea como el editable de Manychat»— se había construido en /chatbot: el relevo midió dónde estaban las filas y él estaba mirando esta pantalla.',
+      'El propio relevo lo había marcado en su lista de «no medido»: «cuál de las dos pantallas quiere… es la ambigüedad que más cambia el alcance». Era la pregunta, no una nota al pie.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '14:20', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El detalle de un aviso es un lienzo, y el chrome se comparte con el otro flujo',
+    puntos: [
+      'Cuatro nodos: qué lo dispara → el mensaje (la burbuja real) → por dónde te llega, y colgando del mensaje, «si no contestas» → te insiste. Las flechas salen del dato: la frecuencia, el paso `insistir` y los canales.',
+      'Los controles son LOS MISMOS, montados adentro de cada nodo con su propio guardado (`Disparador`, `EditorMensaje`, `Recordatorios`). Reescribirlos habría dejado dos escrituras del mismo dato — lo que esta tab ya pagó con los dos interruptores de canal.',
+      'El chrome del lienzo se extrajo a `app/_components/Lienzo.tsx` el mismo día que apareció el segundo: paneo, zoom, encuadre, el panel y las curvas viven una sola vez. Los seis guards del gesto se mudaron con él y se pusieron rojos al mudarse, que es la suerte.',
+      'Dos cosas que el formulario apilado no podía decir: que el recordatorio cuelga de la RESPUESTA y no de la salida del mensaje, y POR DÓNDE te llega — que no se veía en ninguna parte desde que los chips de canal se sacaron del detalle. Con los dos canales apagados, el nodo lo dice y la flecha se pone roja.',
+      'GOTCHA que costó una vuelta: `margin: 0 auto` en un item flex ENCOGE en vez de centrar, así que el lienzo quedó en 344 px dentro de un panel de 1130 y se dibujó al 33%. El auto-encuadre TAPA la causa: hace bien su trabajo con el ancho que le dieron.',
+      'Y el guard que perseguía eso no lo cazaba: recortaba 1400 caracteres antes del montaje y el contenedor estaba ochenta líneas más arriba. Lo descubrió romperlo.',
+    ],
+    archivos: [
+      'app/_components/Lienzo.tsx — el chrome compartido por los dos flujos',
+      'lib/lienzo-grafo.ts — los tipos, la geometría y las curvas',
+      'lib/flujo-aviso.ts — el grafo de un aviso',
+      'app/agencia/FlujoAviso.tsx — los nodos y sus editores',
+      'tests/flujo-aviso.test.ts + tests/lienzo.test.ts — 16 guards, cuatro probados rompiéndolos',
+    ],
+  },
   {
     fecha: '29 sep', hora: '20:10', chat: '—', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',

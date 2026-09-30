@@ -5220,3 +5220,32 @@ MAYÚSCULAS, así que una verificación que busca el texto como se escribió da 
 aparece» sobre una pantalla perfectamente abierta. Antes de diagnosticar el código, leé
 `aria-pressed` o el `textContent`, que no se transforman.
 
+## Y CUÁL pantalla lo dice quien pide, no la medición
+
+Un relevo contesta «¿dónde está el modelo que más se parece a esto?». Eso NO es
+«¿qué pantalla tenía abierta?», y la segunda decide el trabajo entero. El pedido del
+lienzo se midió bien —el modelo con filas y con ramas estaba en el Chat Agent— y se
+construyó en la pantalla equivocada, porque quien lo pidió estaba mirando otra.
+
+⚠️ **Y el aviso estaba en el propio relevo.** En su lista de «no medido» decía, con
+todas las letras, «cuál de las dos pantallas quiere… es la ambigüedad que más cambia
+el alcance». **Un «no medido» que el relevo describe como lo que más cambia el
+alcance no es una nota al pie: es la pregunta.** Si no se puede medir y decide el
+trabajo, se pregunta antes de construir — cuesta una frase, y es la misma regla que
+«al SEGUNDO "sigue igual", se pregunta».
+
+Lo que abarata equivocarse igual: que la pieza nazca sin saber a qué pantalla sirve.
+El lienzo se pudo mudar en una hora porque `app/_components/Lienzo.tsx` no sabe qué
+dibuja — lo propio de cada flujo son el grafo y los editores por nodo.
+
+⚠️ **Y si la misma pieza va a servir a dos pantallas, se extrae ANTES de la segunda,
+no después.** Copiar cuesta cero y deja las mismas trampas resueltas en dos lugares.
+Lo que hace visible la mudanza es que los guards que leen la ruta vieja se pongan
+ROJOS: un test que lee un archivo por su ruta hay que mudarlo a mano, y la versión
+silenciosa —un guard que sigue verde sobre un archivo que ya no manda— es peor.
+
+⚠️ **Y un guard que RECORTA el archivo antes de buscar elige un universo a ojo.** El
+del `margin: 0 auto` leía los 1400 caracteres anteriores al montaje del lienzo; el
+contenedor estaba ochenta líneas más arriba, así que devolver el bug pasó en VERDE.
+Si la afirmación es «esto no vuelve a aparecer», el universo es el archivo entero.
+

@@ -468,7 +468,7 @@ export const AREAS: AreaDev[] = [
     slug: 'chatbot', titulo: 'Chatbot', familia: 'Sales Machine',
     estado: 'listo', agente: true, verEnApp: '/chatbot',
     alcance: 'El cockpit del agente que conversa: secuencias de mensajes con estrategia, simulación como lead, métricas y hand-off al humano. Su H1 en pantalla todavía dice «Chat Agent».',
-    vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts'],
+    vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts', 'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts'],
     proyectos: ['Agente: Chatbot'],
   },
   {
@@ -942,6 +942,8 @@ export const AREAS: AreaDev[] = [
       'lib/notif-catalogo.ts', 'lib/avisos-catalogo.ts', 'lib/plantillas.ts', 'lib/notif-destinatarios.ts',
       'app/api/perfil/plantillas/route.ts', 'app/api/perfil/destinatarios/route.ts', 'app/api/perfil/notif-inapp/route.ts',
       'lib/disparador-mensaje.ts', 'lib/espaciado.ts', 'app/agencia/Disparador.tsx',
+      'app/agencia/FlujoAviso.tsx', 'app/agencia/TemplateDetalleModal.tsx', 'lib/flujo-aviso.ts',
+      'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts',
     ],
     proyectos: ['Feature: Configuraciones y equipo'],
   },

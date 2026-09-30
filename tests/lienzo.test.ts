@@ -1,0 +1,81 @@
+// =============================================================================
+// El lienzo: el gesto, el encuadre y la vista
+// =============================================================================
+// `app/_components/Lienzo.tsx` es el chrome compartido de las dos pantallas tipo
+// flujo (la conversación con un lead y el aviso de MaKo). Lo que este archivo
+// persigue no es qué se dibuja —eso es de cada flujo— sino las cuatro trampas que
+// un lienzo tiene y una lista no, las cuatro medidas en el navegador.
+//
+// Correr: npm test
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
+const LIENZO = '../app/_components/Lienzo.tsx';
+// ── El lienzo, por fuente ───────────────────────────────────────────────────
+
+test('El lienzo NO usa HTML5 drag-and-drop', () => {
+  // Acá no se transporta nada: se mueve un valor continuo. Y el arrastre nativo
+  // trae la foto que dibuja el SO, el congelamiento de rAF y el auto-scroll que
+  // sólo vive adentro de `dragover` — tres problemas que un lienzo no necesita.
+  const src = leer(LIENZO);
+  assert.ok(!/draggable=|onDragStart|setDragImage|dataTransfer/.test(src), 'volvió el drag-and-drop nativo');
+  assert.match(src, /setPointerCapture/, 'el gesto tiene que capturar el puntero');
+});
+
+test('⚠️ El nodo del clic se anota en el pointerDOWN, no al soltar', () => {
+  // `setPointerCapture` retargetea todo lo que sigue al elemento que capturó, así
+  // que en el `pointerup` el `e.target` ES EL CONTENEDOR. Buscar el nodo ahí
+  // devuelve null siempre, y tocar un paso no abre nada — con el handler
+  // leyéndose perfecto. Medido en el navegador antes de arreglarlo.
+  //
+  // Probado rompiéndolo: volviendo a leer `e.target` en el pointerup → 1 fallo,
+  // 17 pases. Y antes que eso, medido en el navegador: con `e.target`, tocar un
+  // paso dejaba `aria-pressed` en false y no abría nada.
+  const src = leer(LIENZO);
+  const abajo = src.slice(src.indexOf('function onPointerDown'), src.indexOf('function onPointerMove'));
+  const arriba = src.slice(src.indexOf('function onPointerUp'));
+  assert.match(abajo, /closest\('\[data-nodo\]'\)/, 'el nodo dejó de anotarse en el pointerdown');
+  assert.ok(!/e\.target[\s\S]{0,80}data-nodo/.test(arriba.slice(0, 700)),
+    'el pointerup volvió a leer e.target: con la captura puesta, eso es el contenedor');
+});
+
+test('El movimiento no pasa por setState', () => {
+  // Un setState por `pointermove` redibuja el grafo entero 60 veces por segundo.
+  const src = leer(LIENZO);
+  const mover = src.slice(src.indexOf('function onPointerMove'), src.indexOf('function onPointerUp'));
+  assert.ok(!/set[A-Z]/.test(mover), 'el paneo volvió a pasar por el estado de React');
+  assert.match(mover, /pintar\(\)/);
+});
+
+test('La vista la gobierna el transform: el scroll del contenedor se anula', () => {
+  // `overflow: hidden` no impide un scroll POR CÓDIGO (un `scrollIntoView`, el foco
+  // de un input fuera de cuadro, el buscar-en-página). Medido en el navegador: un
+  // nodo a 1652 px se «movió» 330 px con el transform intacto — o sea que la
+  // matemática del paneo y lo que se ve dejan de coincidir, y el clic cae al lado.
+  const src = leer(LIENZO);
+  assert.match(src, /onScroll=\{[\s\S]{0,120}scrollLeft = 0/, 'volvió el scroll fantasma del contenedor');
+});
+
+test('Reencuadrar es una DECISIÓN, no algo que pase en cada render', () => {
+  // `ResizeObserver.observe()` dispara al suscribirse, así que cualquier cosa que
+  // reinstale el observer vuelve a centrar y deshace el paneo que la persona acaba
+  // de hacer. Se lee como que el lienzo «rebota solo».
+  const src = leer(LIENZO);
+  assert.match(src, /encuadrado\.current === firma/, 'se perdió la guarda del encuadre');
+  assert.match(src, /encuadrar\(true\)/, 'el botón Centrar tiene que poder forzarlo');
+});
+
+test('El alto del lienzo sale del VIEWPORT, no de una proporción', () => {
+  // Con `aspect-ratio` el lienzo medía 1444×1083 sobre un viewport de 900: crecía
+  // justo en el monitor donde más espacio hay.
+  // El alto es una PROP con default, para que cada flujo pueda pedir el suyo — pero el
+  // default sigue saliendo del viewport, que es lo que evita que el lienzo crezca justo
+  // en el monitor donde más espacio hay.
+  const src = leer(LIENZO);
+  assert.match(src, /alto = 'min\(\d+svh/, 'el alto por default dejó de salir del viewport');
+  assert.match(src, /minHeight: alto/, 'el alto dejó de llegar al contenedor');
+  assert.ok(!/aspectRatio/.test(src), 'un lienzo no se dimensiona por proporción');
+});
+

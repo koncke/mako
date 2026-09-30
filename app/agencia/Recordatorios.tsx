@@ -47,11 +47,17 @@ function insistirDe(f: Flujo | null): Extract<Paso, { tipo: 'insistir' }> | null
   return p?.tipo === 'insistir' ? p : null;
 }
 
-export function Recordatorios({ plantillaId, endpoint, porWhatsApp }: {
+export function Recordatorios({ plantillaId, endpoint, porWhatsApp, onEstado, compacto = false }: {
   plantillaId: string;
   endpoint: string;
   /** ¿Este mensaje sale hoy por WhatsApp? Sin eso, el recordatorio no puede salir. */
   porWhatsApp: boolean;
+  /** Le avisa al GRAFO si la insistencia está prendida y con qué números.
+   *  Sin esto el lienzo no puede dibujar el nodo del recordatorio — y duplicar
+   *  la lectura del flujo en el padre sería un segundo dueño del mismo dato. */
+  onEstado?: (p: { cadaMin: number; veces: number } | null) => void;
+  /** Adentro de un nodo: el rótulo lo dibuja la tarjeta. */
+  compacto?: boolean;
 }) {
   const [flujo, setFlujo] = useState<Flujo | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -89,6 +95,16 @@ export function Recordatorios({ plantillaId, endpoint, porWhatsApp }: {
 
   const paso = insistirDe(flujo);
 
+  // ⚠️ EL AVISO AL PADRE VA EN UN EFECTO, NO ADENTRO DE `guardar`. El estado
+  // también cambia al CARGAR (la primera lectura del flujo) y al revertir un
+  // guardado fallido; puesto sólo en el guardado, el lienzo dibujaría el nodo
+  // del recordatorio recién después de tocarlo.
+  useEffect(() => {
+    onEstado?.(paso ? { cadaMin: paso.cadaMin, veces: paso.veces } : null);
+    // `onEstado` suele ser una lambda del padre: incluirla lo vuelve un bucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso?.cadaMin, paso?.veces, paso == null]);
+
   /** Prender: un flujo mínimo cuyo único paso es el recordatorio. */
   function prender() {
     const nuevo = sanearInsistir({ texto: '', cadaMin: INSISTIR_MIN_MINUTOS, veces: 2 });
@@ -112,7 +128,7 @@ export function Recordatorios({ plantillaId, endpoint, porWhatsApp }: {
 
   return (
     <div>
-      <span style={rotulo}>¿Y si no contestas?</span>
+      {!compacto && <span style={rotulo}>¿Y si no contestas?</span>}
 
       <div style={{ display: 'flex', gap: 7, marginBottom: paso ? 10 : 0 }}>
         <Opcion activa={!paso} onClick={() => paso && apagar()} disabled={busy}>Se manda una vez</Opcion>

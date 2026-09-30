@@ -9,11 +9,9 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { Recordatorios } from './Recordatorios';
-import { Disparador } from './Disparador';
-import { EditorMensaje } from './EditorMensaje';
+import { FlujoAviso } from './FlujoAviso';
 import { PrefsDeMensaje } from '../perfil/PrefsDeMensaje';
-import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
+import { EMOJI_CATEGORIA, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 // El tipo NO se copia: se re-exporta del store, que es quien lo define. Escrito a
 // mano acá se quedo viejo al primer campo nuevo (`canales`) y el compilador no podia
@@ -67,6 +65,10 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   const [prueba, setPrueba] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ txt: string; mal: boolean } | null>(null);
+  // El grafo necesita saber si la insistencia está prendida para dibujar su nodo.
+  // Lo reporta `Recordatorios`, que es quien lee el flujo: leerlo también acá
+  // serían dos dueños del mismo dato, y el segundo se queda viejo.
+  const [insistir, setInsistir] = useState<{ cadaMin: number; veces: number } | null>(null);
 
   // ⚠️ EL ERROR NO PUEDE SALIR EN VERDE. Esto servía a las dos cosas y el span de
   // abajo estaba cableado a `var(--good)`, así que el 403 de un aviso que MaKo
@@ -75,6 +77,11 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
   const flashOk = (m: string) => { setFlash({ txt: m, mal: false }); setTimeout(() => setFlash(null), 2200); };
   const flashMal = (m: string) => { setFlash({ txt: m, mal: true }); setTimeout(() => setFlash(null), 4000); };
   const id = plantilla?.id;
+  // ⚠️ EL MISMO CORTE QUE HACE EL SERVER, para no ofrecer un editor que va a
+  // contestar 403. El que decide sigue siendo la ruta —esconder el campo no
+  // protege nada— pero un textarea que rechaza todo lo que se escriba es peor que
+  // no tenerlo: se lee como que la app está rota, no como que no te corresponde.
+  const puedeEditarTexto = endpoint === ENDPOINT_AGENCIA || (id != null && esAvisoDelCliente(id));
 
   // ⚠️ El `else` no es decoración: la ruta del cliente contesta 403 para todo aviso
   // que redacta MaKo, y sin esta rama «Guardar» no decía NADA — el síntoma exacto que
@@ -112,8 +119,19 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
             cuáles no se pueden apagar. */}
         {!crear && id && plantilla.esCustom && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Eliminar</button>}
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
-        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+      {/* ⚠️ COLUMNA FLEX, NO SCROLL. Un `flex: 1` adentro de un contenedor que
+          scrollea no da alto —el scroll le da al contenido el que pida—, así que el
+          lienzo mediría 0. Y `height: 100%` contra un padre con `flex: 1` es un alto
+          indefinido: Chrome lo resuelve y Safari devuelve CERO. */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: 24 }}>
+        {/* ⚠️ SIN `margin: 0 auto` Y SIN TOPE. Los dos juntos son la trampa que esta
+            casa ya tiene cosechada: `margin-inline: auto` en un ITEM FLEX apaga el
+            estirado y lo deja del ancho de su contenido — medido acá, el lienzo quedó
+            en 344 px adentro de un panel de 1130 y se dibujó al 33%, o sea ilegible.
+            El tope de 560 existía para que el texto de un mensaje no cruzara la
+            pantalla; ahora ese texto vive adentro de un nodo de 252 px, así que ya no
+            protege nada y lo único que hace es ahogar el dibujo. */}
+        <div style={{ width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
         {crear ? (
           <>
@@ -167,40 +185,45 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                 una hablando de un mensaje que estaba en otra lista. */}
             {id && <PrefsDeMensaje id={id} />}
 
-            {/*
-              EL PRIMER PASO ES EL DISPARADOR, y desde el 29/09/2026 se configura.
+            {/* ⚠️ ACÁ HABÍA UNA COLUMNA DE BLOQUES —el disparador, los recordatorios y el
+                mensaje, uno debajo del otro— y desde el 30/09/2026 es un LIENZO.
 
-              Estuvo en prosa una tanda, y el pedido volvió: «el "Qué lo dispara" NO es
-              editable». Lo que se abrió es la mitad que sí es una decisión —CADA CUÁNTO,
-              como máximo—; el hecho que lo produce sigue siendo un hecho. El porqué de
-              ese corte, con la medición de los call sites, está en <Disparador>.
-            */}
+                El pedido, apuntando a esta pantalla: «Quiero que los editables del flujo
+                de conversación sea como el editable de Manychat, que tiene una pantalla
+                tipo flujo, y ahí se edita todo».
+
+                Qué gana un aviso con esto, que son cuatro nodos y no veinte: el
+                recordatorio cuelga de «si no contestas» y no de la salida del mensaje, y
+                la salida —por dónde te llega— no se veía en ninguna parte desde que los
+                chips de canal se fueron. Apilados, los cuatro bloques se leían como
+                cuatro campos de un formulario que ocurren en fila.
+
+                Los controles son LOS MISMOS, con su propio guardado: adentro de cada
+                nodo se monta la pieza que ya existía. Reescribirlos en el lienzo habría
+                dejado dos escrituras del mismo dato. */}
             {id && (
-              <Disparador
+              <FlujoAviso
                 id={id}
                 disparador={plantilla.disparador}
                 frecuenciaMin={plantilla.frecuenciaMin}
+                texto={texto}
+                canales={plantilla.canales}
                 endpoint={endpoint}
+                editable={puedeEditarTexto}
+                guardando={busy === 'save'}
+                insistir={insistir}
+                onTexto={setTexto}
+                onInsistir={setInsistir}
                 onCambio={onCambio}
+                probando={busy === 'probar'}
+                prueba={prueba}
+                onProbar={probar}
               />
             )}
-            <div style={{ marginBottom: 18 }}>
-              {id && <Recordatorios plantillaId={id} endpoint={endpoint} porWhatsApp={plantilla.canales.wa} />}
-            </div>
-
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>El mensaje</div>
-            <EditorMensaje valor={texto} onChange={setTexto} filas={7} disabled={busy === 'save'} />
-
-            {prueba && (
-              <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 5 }}>✨ MaKo lo escribiría así:</div>
-                <div style={{ fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{prueba}</div>
-              </div>
-            )}
-
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
               {flash && <span style={{ fontSize: 13, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)', marginRight: 'auto' }}>{flash.txt}</span>}
-              <button onClick={probar} disabled={busy === 'probar'} style={{ ...btnGhost, opacity: busy === 'probar' ? 0.6 : 1 }}>{busy === 'probar' ? 'Generando…' : '✨ Probar con IA'}</button>
+              {/* «Probar con IA» se mudó al nodo del mensaje: es del mensaje, no de la
+                  pantalla, y en el pie quedaba a tres bloques de lo que prueba. */}
               <button onClick={guardarTexto} disabled={busy === 'save' || texto === orig} style={{ ...btn, opacity: busy === 'save' || texto === orig ? 0.5 : 1 }}>Guardar</button>
             </div>
           </>

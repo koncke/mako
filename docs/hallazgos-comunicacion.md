@@ -6062,3 +6062,87 @@ que dice «no aparece», comprobá que el DOM no esté diciendo lo mismo con otr
 letras** — `aria-pressed` del elemento no miente y `innerText` sí.
 
 *2026-09-30*
+
+### El relevo midió bien y eligió mal: QUÉ pantalla lo dice quien pide, no el dato
+
+**Vive en:** `app/agencia/FlujoAviso.tsx` · `app/chatbot/FlujoLienzo.tsx`
+
+«Quiero que los editables del flujo de conversación sea como el editable de
+Manychat» no nombra una pantalla que exista. Cinco relevos midieron el dato y la
+respuesta fue nítida: el modelo con filas y con ramas es la secuencia del Chat
+Agent (62 secuencias, 136 pasos) y no el que se llama «Flow Editor» (4 flujos, 0
+pasos). Se construyó ahí. **Y él estaba mirando Configuraciones › Notificaciones**,
+que es donde venía trabajando las cinco tandas anteriores.
+
+Lo caro no es que la medición estuviera mal —estaba bien— sino que contestaba otra
+pregunta. «¿Dónde está el modelo que más se parece a esto?» no es «¿qué pantalla
+tenía abierta?», y la segunda la contesta una captura o una frase, no una consulta.
+
+⚠️ **Y el propio relevo lo había marcado.** En su lista de *no medido* decía, con
+todas las letras: «Cuál de las dos pantallas quiere… es la ambigüedad que más
+cambia el alcance». **Un «no medido» que el relevo describe como lo que más cambia
+el alcance no es una nota al pie: es la pregunta.** Si no se puede medir y decide
+el trabajo, se pregunta antes de construir — cuesta una frase.
+
+Lo que abarató el error: el lienzo se había escrito lo bastante genérico como para
+mudarlo. `app/_components/Lienzo.tsx` no sabe qué dibuja; lo propio de cada flujo
+son el grafo y los editores por nodo. Llevarlo a la otra pantalla fue un grafo
+nuevo de 90 líneas, no un editor nuevo.
+
+*2026-09-30*
+
+### `margin: 0 auto` en un item flex dibujó un lienzo al 33%
+
+**Vive en:** el contenedor del detalle en `app/agencia/TemplateDetalleModal.tsx`
+
+Ya estaba escrito que `margin-inline: auto` sin `width: 100%` **encoge** un item
+flex en vez de centrarlo, medido en una barra que salió a 419 px y partida en dos
+renglones. Con un lienzo adentro el mismo bug se ve distinto y peor: el contenedor
+quedó en **344 px dentro de un panel de 1130**, el encuadre automático hizo su
+trabajo y dibujó el grafo **al 33%** — cuatro tarjetas ilegibles del tamaño de una
+uña, sin un solo error, sin nada roto.
+
+**El síntoma de esta familia no es «se desborda»: es «se ve chiquito».** Y con un
+lienzo que se auto-encuadra, el encuadre TAPA la causa — hace exactamente lo que le
+pidieron con el ancho que le dieron. Lo que lo delata es recorrer los ancestros con
+`getComputedStyle` y mirar dónde cae el ancho: el salto fue de 1130 a 344 en un
+solo nivel.
+
+*2026-09-30*
+
+### Un guard que recorta el archivo puede no ver justo lo que persigue
+
+**Vive en:** `tests/flujo-aviso.test.ts`
+
+El guard del `margin: 0 auto` leía los **1400 caracteres anteriores** al montaje del
+lienzo, con un razonamiento razonable: el contenedor está ahí arriba. El contenedor
+estaba ochenta líneas más arriba. Devolver el bug **pasó en verde**.
+
+Lo cazó romperlo, no leerlo: la rotura R1 dio 10 pases y 0 fallos, que es el
+resultado que no tenía que dar. **Recortar el archivo antes de buscar es elegir un
+universo, y un universo elegido a ojo deja afuera lo que uno no está imaginando.**
+Si la afirmación es «esto no vuelve a aparecer», el universo es el archivo entero;
+el recorte sólo se justifica cuando lo que se busca es legítimo en otra parte del
+mismo archivo — y entonces hay que decir por qué.
+
+*2026-09-30*
+
+### Cuando la misma pieza va a servir a dos pantallas, se extrae ANTES de la segunda
+
+**Vive en:** `app/_components/Lienzo.tsx` · `lib/lienzo-grafo.ts`
+
+El segundo lienzo apareció el mismo día que el primero. Extraer el chrome
+—paneo, zoom, encuadre, el panel, las curvas— costó una hora; copiarlo habría
+costado cero y habría dejado dos lienzos con las mismas cuatro trampas resueltas en
+dos lugares, que se separan en la primera edición. Es la razón escrita por la que
+se borró el editor de diagramas del funnel dos días antes.
+
+⚠️ **Y lo que hace que la mudanza sea barata es que los guards se pongan ROJOS.**
+Al mover la maquinaria, los seis tests que leían `FlujoLienzo.tsx` por su ruta
+fallaron en el acto y se mudaron con ella a `tests/lienzo.test.ts`. La versión
+silenciosa de este mismo bug —un guard que sigue VERDE leyendo un archivo que ya no
+manda— es la que esta casa ya pagó al reemplazar un modal por un editor en la
+página. **Un test que lee una ruta es un test que hay que mudar a mano; lo único
+que lo hace visible es que la ruta vieja deje de tener lo que el test busca.**
+
+*2026-09-30*
