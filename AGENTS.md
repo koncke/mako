@@ -737,6 +737,18 @@ Y tres cortes que se repiten:
 - **Si la pantalla necesita un párrafo para entenderse, el problema es la pantalla.** El
   párrafo tapa el síntoma y encima ocupa el lugar del arreglo.
 
+⚠️ **Y EL NOMBRE INTERNO DE UNA COSA NO ES EL NOMBRE DE LA COSA.** «g15», «recording
+179438975», «ws13», «la corrida del 25/09»: son etiquetas de un relevamiento, de una
+tabla o de una sesión, y quien abre la pantalla no tiene de dónde sacarlas. Medido el
+30/09/2026 sobre una tarjeta del tablero que decía «faltan las notas manuales de g15 y
+g17»; el dueño contestó **«NO pongas cosas tecnicas como "g15" eso no se entiende»**.
+
+Es la misma regla de arriba aplicada a un nombre propio: **si el título necesita un
+glosario, está en otro idioma.** Lo que se escribe es lo que la cosa ES para quien la
+lee — «la junta del 3 de septiembre», «Código Inmobiliario»— y el identificador, si hace
+falta para trabajar, va en el detalle o en el comentario del código. Vale para títulos de
+tarjetas, toasts, avisos, mensajes de WhatsApp y cualquier texto que salga del repo.
+
 ⚠️ **Esto NO aplica a lo que se escribe en el repo.** Los comentarios, los mensajes de commit
 y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
 primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.

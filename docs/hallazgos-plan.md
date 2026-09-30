@@ -5446,10 +5446,18 @@ en el tipo, da un `string` que miente.
 
 ### Lo que quedó SIN hacer
 
-- **#768 sigue abierta y no es código.** Faltan las notas que una PERSONA escribió de las
-  reuniones g15 y g17. Sin ellas no se puede medir nada: comparar dos corridas del modelo
-  entre sí mide estabilidad, no acierto — y eso ya se hizo (84% general, 50% en la sesión
-  con la que Mauricio mide).
+- **#768 sigue abierta y no es código.** Falta una SEGUNDA reunión en la que una persona
+  haya anotado a mano lo que se comprometió cada uno: hay una sola (la Junta Macario
+  Romero del 3/9, con sus ocho compromisos escritos). Sin una segunda vara no se puede
+  medir nada — comparar dos corridas del modelo entre sí mide estabilidad, no acierto, y
+  eso ya se hizo (84% general, 50% en la sesión con la que Mauricio mide).
+
+  ⚠️ **Y el título de esa tarjeta decía «g15» y «g17»**, que son etiquetas de un
+  relevamiento interno y no significan nada para quien abre el tablero. Lo reportó el
+  dueño el mismo día: «NO pongas cosas tecnicas como "g15" eso no se entiende». Es la
+  regla del texto que se DIBUJA, aplicada a una tarjeta: **el nombre interno de un
+  archivo, una grabación o una corrida no es el nombre de la cosa.** Si al escribir un
+  título hace falta un glosario para entenderlo, el título está en otro idioma.
 - **La cadena del criterio está construida y sin medir en una reunión real.** Que cargue
   «las 5 que importan y no 70» es lo que la #768 tiene que comprobar.
 - **El criterio de Mauricio vive en `app_settings` del ws1, no en el repo** — es material
