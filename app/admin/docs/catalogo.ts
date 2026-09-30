@@ -88,6 +88,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 
   // --- fotos de un momento, no se mantienen ---
+  'auditoria-crm-30sep': {
+    grupo: 'Auditorías', tabs: ['/crm'],
+    hace: ['Las 25 tareas abiertas de «Feature: CRM», una por una', 'Qué está hecho y qué falta, con archivo:línea'],
+  },
   'auditoria-aislamiento-workspace': {
     grupo: 'Auditorías', tabs: [],
     hace: ['Qué se scopea por workspace y qué no'],
