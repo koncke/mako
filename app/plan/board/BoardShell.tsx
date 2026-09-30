@@ -1989,11 +1989,23 @@ function DetalleDoc({ valor, onChange, placeholder }: { valor: string; onChange:
     const toggle = (k: string, abiertoAhora: boolean) =>
       setTocados((prev) => { const m = new Map(prev); m.set(k, !abiertoAhora); return m; });
     let plegando = false;   // ¿venimos escondiendo el cuerpo del encabezado anterior?
+    /**
+     * ⚠️ EL PRIMER DESPLEGABLE ARRANCA ABIERTO, SEA CUAL SEA. «Siempre el primer
+     * desplegable del detalle de cada tarea o proyecto debe estar desplegado, el resto,
+     * plegado» (30/09/2026).
+     *
+     * Antes la condición era `esIntro`, y eso dejaba el documento ENTERO plegado cuando
+     * no había intro — que es el caso de todo detalle escrito con el molde de la casa,
+     * porque arranca con `**Qué es**` y ahí el primer hijo YA es un encabezado. O sea:
+     * la regla abría el primero sólo cuando el primero era el bloque sin título.
+     *
+     * Y la razón por la que en su momento se eligió el intro sigue valiendo, sin
+     * excepción aparte: cuando hay intro, el intro ES el primero. Lo que aquella captura
+     * mostraba mal —«Lo que ya está decidido» abierto ENCIMA del muro del intro— eran
+     * DOS bloques abiertos a la vez, y con esta regla nunca hay dos.
+     */
+    let yaHuboUno = false;
     for (const hijo of Array.from(ed.children) as HTMLElement[]) {
-      // El intro es el ÚNICO que arranca abierto. Antes arrancaba abierto el primer
-      // encabezado de verdad, que es lo que en la captura dejaba «Lo que ya está decidido»
-      // desplegado con siete renglones debajo, encima del muro del intro: dos bloques largos
-      // antes de poder ver de qué partes se compone el documento.
       const esIntro = hijo.classList.contains('mk-intro');
       // ⚠️ Los dos puntos del final los saca `encabezadoDeBloque` ANTES de preguntar:
       // `esEncabezado` descarta todo lo que termina en `:` (para no comerse un párrafo
@@ -2005,7 +2017,10 @@ function DetalleDoc({ valor, onChange, placeholder }: { valor: string; onChange:
         continue;
       }
       const k = esIntro ? CLAVE_INTRO : claveHead(txt);
-      const abierto = tocados.get(k) ?? esIntro;
+      const esPrimero = !yaHuboUno;
+      yaHuboUno = true;
+      // Lo que la persona abrió o cerró GANA siempre: la regla sólo decide el arranque.
+      const abierto = tocados.get(k) ?? esPrimero;
       plegando = !abierto;
       hijo.setAttribute('data-mk', abierto ? 'ho' : 'h');
       const b = document.createElement('button');
