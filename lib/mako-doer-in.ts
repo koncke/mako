@@ -1335,6 +1335,70 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       console.error(`[mako-doer-in] el dueño enumeró ${nPuntos} puntos y el borrador trajo ${tareasCreadas} · ${ruta.motivo}`);
     }
 
+    /**
+     * ⚠️ NUNCA EN SILENCIO — y era el ÚNICO camino del doer que no contestaba nada.
+     *
+     * EL CASO, medido en prod el 30/09/2026. El dueño mandó una nota de voz al grupo del
+     * super admin para probar. Llegó el «Te escucho 🎧», Whisper la transcribió entera y
+     * bien, el turno quedó guardado… y después **nada**: ni borrador, ni respuesta, ni
+     * turno de MaKo. El último que había contestado en ese workspace era de tres días
+     * antes. Desde afuera se lee como que la app se colgó.
+     *
+     * POR QUÉ. El loop de proveedores descarta con `continue` —texto vacío, centinela,
+     * molde volcado— y si los descarta a TODOS sale del `for` con `respuesta` en ''. Eso
+     * no es una excepción, así que el `catch` de abajo (el que arma el aviso de «no
+     * pude») nunca corre. El comentario del camino barato dice «nunca dejamos al dueño
+     * sin respuesta» y era verdad para ESE camino: el de abajo lo desmentía.
+     *
+     * LO QUE ESTA GUARDA NO HACE ES PAGAR. Decisión del dueño, textual: «NO, JAMÁS algo
+     * pago para el plan» (30/09/2026). Así que cuando la cascada gratis no da, no se cae
+     * a Claude: se contesta con la verdad y se salva el trabajo.
+     */
+    if (!respuesta) {
+      const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
+      console.error(`[mako-doer-in] ws=${wsData} NINGÚN proveedor dejó una respuesta usable · ruta «${ruta.motivo}» · ${texto.length} chars · borrador=${linkBorrador ?? 'no'}`);
+
+      /**
+       * Y SI ERA UNA CARGA AL PLAN, EL MENSAJE NO SE PIERDE: se guarda CRUDO.
+       *
+       * Sin esto, «reintenta en un momento» le pide al dueño que vuelva a grabar el audio
+       * —o que se acuerde de lo que dijo—, y lo que dijo ya lo tenemos transcripto y
+       * guardado. Una tarea con el texto tal cual es peor que una bien redactada y es
+       * INFINITAMENTE mejor que perderla: el borrador se revisa y se edita antes de
+       * entrar, que es para lo que existe.
+       *
+       * ⚠️ Sólo cuando NO hay borrador ya creado: con uno hecho, esto sería un duplicado
+       * silencioso — la regla de la casa («nunca duplicar»).
+       */
+      if (eraDePlan && !linkBorrador) {
+        try {
+          // Import dinámico, como el resto de lo pesado de este archivo: `plan-propuesta`
+          // arrastra el saneo entero y este camino corre una vez cada muerte de obispo.
+          const { crearPropuesta } = await import('@/lib/plan-propuesta');
+          const crudo = texto.replace(/\s+/g, ' ').trim();
+          const id = await crearPropuesta({
+            ws: wsData,
+            origen: 'mako',
+            resumen: 'MaKo no pudo procesarlo — quedó tal cual lo dijiste',
+            tareas: [{
+              // El título es el arranque, cortado en palabra: sirve para reconocerlo en la
+              // lista. El texto ENTERO va al detalle, que es lo que no se puede perder.
+              titulo: crudo.length > 90 ? `${crudo.slice(0, 90).replace(/\s+\S*$/, '')}…` : (crudo || 'Sin texto'),
+              detalle: crudo,
+            }],
+          });
+          linkBorrador = `${APP_URL}/plan/revisar/${id}`;
+          console.error(`[mako-doer-in] ws=${wsData} guardado CRUDO en ${id}: la IA no pudo y el mensaje no se tira`);
+        } catch (e5) {
+          console.error('[mako-doer-in] no pude ni guardarlo crudo:', e5 instanceof Error ? e5.message : String(e5));
+        }
+      }
+
+      respuesta = linkBorrador
+        ? `No te lo pude ordenar con IA, así que lo dejé tal cual lo dijiste. Revísalo y acomódalo aquí 👇\n${linkBorrador}`
+        : avisoNoPude(eraDePlan);
+    }
+
     if (respuesta) {
       const v = validarRespuestaDoer(respuesta, { motivoRuta: ruta.motivo, linkBorrador });
       if (!v.ok && v.razon !== 'sin-borrador') {
