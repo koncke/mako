@@ -115,7 +115,7 @@ export function RegistroArea({
           {propio ? roadmapPropioDe(area.slug, tareasCamino, plan, user) : (
             <>
               {conBitacora && <Roadmap partes={registro.partes} />}
-              <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} />
+              <RoadmapDelPlan tareas={tareas} proyectos={area.proyectos ?? []} auditoria={registro.auditoria} />
             </>
           )}
         </>

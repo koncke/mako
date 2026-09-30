@@ -69,4 +69,26 @@ export type Hito = {
 export type Parte = { titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' };
 
 /** Lo que expone cada área para su tab. */
-export type Registro = { partes: Parte[]; bitacora: Hito[] };
+/**
+ * Lo que una AUDITORÍA midió sobre las tareas abiertas del tablero de un área.
+ *
+ * ⚠️ NO ES EL TABLERO Y NO LO REEMPLAZA. El título, el score y el deadline salen de
+ * `plan_tareas` en cada carga; acá vive sólo el veredicto medido, que ninguna consulta
+ * puede derivar — «esta tarea tiene una mitad hecha de verdad» es el resultado de ir a
+ * leer el código, no un campo de la fila.
+ *
+ * ⚠️ Y ES UNA FOTO CON FECHA, por eso `fecha` es obligatoria y la pantalla la dibuja.
+ * Un veredicto sin su fecha se lee como el estado de HOY, y el día que alguien arregle
+ * una de estas tareas la línea miente sin que nada avise. Cuando la tarea se cierra, la
+ * entrada se BORRA en vez de corregirse: media auditoría vieja es peor que ninguna.
+ */
+export type Auditoria = {
+  /** Cuándo se midió, tal como se dibuja. */
+  fecha: string;
+  /** El slug del .md con el detalle largo, para el link a /admin/docs. */
+  doc?: string;
+  /** Por número de tarea del tablero. */
+  filas: Record<number, { estado: 'medias' | 'sin'; falta: string }>;
+};
+
+export type Registro = { partes: Parte[]; bitacora: Hito[]; auditoria?: Auditoria };

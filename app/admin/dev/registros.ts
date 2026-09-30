@@ -37,6 +37,7 @@ import { PARTES as AIRUNTIMECASCA_PARTES, BITACORA as AIRUNTIMECASCA_BITACORA } 
 import { PARTES as CAROUSELS_PARTES, BITACORA as CAROUSELS_BITACORA } from './carousels/bitacora';
 import { PARTES as CONOCIMIENTOS_PARTES, BITACORA as CONOCIMIENTOS_BITACORA } from './conocimientos/bitacora';
 import { PARTES as CRM_PARTES, BITACORA as CRM_BITACORA } from './crm/bitacora';
+import { AUDITORIA as CRM_AUDITORIA } from './crm/auditoria';
 import { PARTES as GTMOFERTAYPREC_PARTES, BITACORA as GTMOFERTAYPREC_BITACORA } from './gtm-oferta-y-precios/bitacora';
 import { PARTES as INSTAGRAM_PARTES, BITACORA as INSTAGRAM_BITACORA } from './instagram/bitacora';
 import { PARTES as INTEGRACIONES_PARTES, BITACORA as INTEGRACIONES_BITACORA } from './integraciones/bitacora';
@@ -78,7 +79,7 @@ const REGISTROS: Record<string, Registro> = {
   'ai-runtime-cascada': { partes: AIRUNTIMECASCA_PARTES, bitacora: AIRUNTIMECASCA_BITACORA },
   'carousels': { partes: CAROUSELS_PARTES, bitacora: CAROUSELS_BITACORA },
   'conocimientos': { partes: CONOCIMIENTOS_PARTES, bitacora: CONOCIMIENTOS_BITACORA },
-  'crm': { partes: CRM_PARTES, bitacora: CRM_BITACORA },
+  'crm': { partes: CRM_PARTES, bitacora: CRM_BITACORA, auditoria: CRM_AUDITORIA },
   'gtm-oferta-y-precios': { partes: GTMOFERTAYPREC_PARTES, bitacora: GTMOFERTAYPREC_BITACORA },
   'instagram': { partes: INSTAGRAM_PARTES, bitacora: INSTAGRAM_BITACORA },
   'integraciones': { partes: INTEGRACIONES_PARTES, bitacora: INTEGRACIONES_BITACORA },
