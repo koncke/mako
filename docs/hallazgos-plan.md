@@ -5258,3 +5258,61 @@ marca, que vive en la otra pieza.
   regla. Unificarlos mueve algo que el dueño ya aprobó mirándolo, así que es una decisión
   suya y no un refactor: va en las tres o en ninguna.
 - **El detalle abre a 1180 px y no se midió contra pantallas de 1280.**
+
+## Un tablero se revisa contra el CÓDIGO, y «muchas ya están» fueron dos de trece (30/09/2026)
+
+Cosechado del pedido «marca como completo todas las tareas que ya estén… cierra las que ya
+estén, hay muchas que ya están», sobre el proyecto «Feature: Plan». Salió de 13 lectores
+—uno por tarea abierta— con refutación adversarial sobre las que se proponían cerrar.
+
+**Vive en:** el proyecto `board-plan-perro` del ws9 · `lib/plan-board.ts` (`cerrarPlanTareaOwner`)
+
+### El resultado, y por qué no coincide con la sensación
+
+| veredicto | cuántas |
+|---|---|
+| **hecha** (y sobrevivió al refutador) | **2** — #475 y #812 |
+| a medias | 6 — #53, #158, #768, #769, #770, #813 |
+| no hecha | 5 — #157, #766, #793, #794, #795 |
+
+La sensación de «hay muchas» no estaba equivocada: **las seis a medias tienen una mitad
+hecha de verdad**, y en varias la mitad grande. Lo que fallaba era el TÍTULO, que seguía
+nombrando el trabajo entero. Por eso el cierre correcto de esas seis no es cerrarlas: es
+**reescribir el título para que nombre lo que falta**, y dejar en el historial qué se
+verificó hecho. Un título que promete más de lo que queda hace que el tablero se lea como
+si nada avanzara.
+
+**La regla que queda: para saber si una tarea está hecha se lee el «Listo cuando», no el
+«Qué ya está».** El primer párrafo de un detalle casi siempre describe la mitad hecha, y
+leerlo como veredicto es cómo se cierran tareas vivas.
+
+⚠️ **Y una función escrita no es una función enchufada.** El grep que vale es el de los
+CALL SITES. Cuatro de las cinco no-hechas son la misma cadena del criterio de Mauricio:
+el juez existe entero, con 16 tests, y no lo llama nadie fuera de un script de prueba.
+
+### El detalle del proyecto citaba ocho tareas que no llevan a ningún lado
+
+De las 10 que nombraba en «Qué falta»: **cuatro no existen** (#25, #154, #149, #92) y
+**cuatro existen pero ya no están en este proyecto** (#152 —hecha—, #153, #155, #164). Y
+no mencionaba ninguna de las cuatro del criterio, que son las de score más alto. Es el
+mismo problema que la auditoría del 24/09 midió a escala (155 de 260 citas apuntando a la
+nada), servido en el proyecto más alto del tablero.
+
+### Cerrar desde un script se hace con la función del repo, no con SQL
+
+`cerrarPlanTareaOwner` escribe el historial con actor `ia` y la evidencia, y tilda la
+checklist entera —dejar ítems abiertos en una tarjeta al 100% hace que el avance de la
+tarjeta y el del proyecto digan cosas distintas—.
+
+⚠️ **Y todo va envuelto en `runWithWorkspace(9, …)`.** `enPlan` cae a `OWNER_WS` cuando no
+hay contexto de request, y en un script nunca lo hay: sin el envoltorio, un cierre del
+tablero del super admin se escribe en el de Mauricio.
+
+### Lo que quedó SIN hacer
+
+- **Las seis a medias siguen abiertas con el título nuevo.** Ninguna se cerró: cerrar algo
+  a medias borra del tablero el trabajo que falta.
+- **El relevo corrigió mi propio arreglo de una hora antes** (ver
+  `docs/hallazgos-comunicacion.md`). Un lector que mide el código de AHORA encuentra lo que
+  acabás de escribir: es una ventaja, y hay que leer sus veredictos sabiendo que la mitad
+  puede estar hablando de algo que ya cambió.

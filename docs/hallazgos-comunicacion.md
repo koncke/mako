@@ -6566,3 +6566,65 @@ onboarding, que es la misma excusa que ya está escrita en «Verificar una panta
 ESCRIBE»; el costo esta vez fue un mensaje de más y no un dato pisado.
 
 *2026-09-30*
+
+## MaKo escuchó, entendió y se calló tres días (30/09/2026)
+
+Cosechado de una prueba del dueño que no dio ningún resultado: «mandé un mensaje a
+SuperAdmin para hacer una prueba y no pasó nada. Me dijo "Te escucho" y no hizo nada más».
+
+**Vive en:** `lib/mako-doer-in.ts` · `lib/respuesta-doer.ts` · `tests/doer-nunca-calla.test.ts`
+
+### Lo que pasó, medido en producción
+
+| hora | qué |
+|---|---|
+| 11:27:12 | el audio entra a la cola del ws9 |
+| 11:30:31 / 11:30:50 | Whisper lo transcribe (dos llamadas: lote + grupo) |
+| 11:30:53 | se guarda el turno del usuario — **la transcripción salió entera y perfecta** |
+| 11:31:52 | `groq openai/gpt-oss-20b`, motivo `router:sonnet (plan) → capturar`, 667 tokens de salida |
+| 11:31:54 | segunda llamada, `groq · cuenta 2`, 327 tokens |
+| después | **nada**: ni borrador, ni turno de MaKo, ni mensaje |
+
+El último turno de MaKo en ese workspace era de **tres días antes**, y no hay ningún
+`plan_propuestas` del ws9 ese día. Desde afuera es indistinguible de una app colgada.
+
+### El agujero: un `continue` que se queda sin proveedores no es una excepción
+
+El loop de proveedores descarta con `continue` —texto vacío, centinela, molde volcado— y
+si los descarta a TODOS sale del `for` con `respuesta` en `''`. **Eso no tira**, así que
+el `catch` que arma el aviso de «no pude» nunca corre, y el `if (respuesta)` que manda no
+entra. Silencio, y sin una sola línea de log.
+
+Lo que lo vuelve difícil de ver: el camino barato tiene escrito «nunca dejamos al dueño
+sin respuesta» y **era verdad para ese camino**. El de abajo lo desmentía.
+
+⚠️ **Y LA IA FALLA DE DOS FORMAS, NO DE UNA.** El primer arreglo cubrió sólo la de arriba
+y lo cazó un refutador el mismo día: con las keys **sin cuota** el loop TIRA (`throw err`),
+lo agarra el catch, y ese catch **siempre** asigna `respuesta` — así que la guarda del
+final no entra y el mensaje se perdía igual. Y ésa es la forma que importa: «si se queda
+sin créditos no puede cargar una tarea que está copiando de una libreta» es textualmente
+el motivo de la tarea #769 del tablero.
+
+**La regla que queda: cuando cubras un camino de error, enumerá las OTRAS formas de fallar
+del mismo paso.** Acá eran dos y se distinguen por una sola cosa: si el fallo viaja como
+valor o como excepción. La guarda se escribe una vez, como helper, y la llaman las dos —
+con el corte de duplicado adentro, para que ninguna se lo pueda olvidar.
+
+### La salida no fue pagar
+
+Decisión del dueño, textual: **«NO, JAMÁS algo pago para el plan»**. Así que cuando la
+cascada gratis no da:
+
+1. **Se contesta igual.** El modo de falla prohibido es el silencio.
+2. **No se pierde el mensaje.** Si era una carga al plan, el texto se guarda CRUDO como
+   borrador y él lo edita. Ya está transcripto: pedirle que grabe el audio de nuevo es
+   tirarlo. Una tarea sin redactar es peor que una buena e infinitamente mejor que ninguna.
+
+### Lo que quedó SIN hacer
+
+- **El router pidió Sonnet y corrió un modelo de 20B.** `CASCADA_TOOLS` se ordena por
+  CUOTA, no por capacidad, y `openai/gpt-oss-20b` es el que el propio repo documenta como
+  «demasiado chico» (`lib/ai-cheap.ts:231`). Como no se paga, la salida es **ordenar la
+  cascada por capacidad para las rutas con herramientas** — no saltarla.
+- **`wa_mensajes` del ws9 está vacío ese día**, así que ni el «Te escucho» quedó
+  registrado ahí. La línea del grupo no persiste por ese camino y no se midió por qué.
