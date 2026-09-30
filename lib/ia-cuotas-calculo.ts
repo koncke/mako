@@ -10,7 +10,30 @@
 // =============================================================================
 
 export type LimiteProv = { label: string; rpd?: number; tokensDia?: number; nota?: string };
-export type UsoProv = { requests: number; tokens: number };
+export type UsoProv = {
+  requests: number; tokens: number;
+  /**
+   * Cuantas veces HOY el proveedor le dijo 429 a esta cuenta.
+   *
+   * No sale del gauge: el gauge estima cuanto queda contra un tope que ponemos
+   * NOSOTROS, y un rebote es el proveedor CONTESTANDO que ya no hay. Las dos cifras
+   * se contradicen todo el tiempo y la que manda es esta — el tope de Gemini estuvo
+   * 1440 veces mal durante meses y el gauge decia «te sobra» mientras las llamadas
+   * rebotaban. Un tope inventado es una opinion; un 429 es un hecho.
+   */
+  rebotes: number;
+};
+
+/**
+ * Como se marca en `anthropic_usage` la llamada que REBOTO por cuota.
+ *
+ * Va en `model` y no en `motivo` porque el motivo lo escribe cada caller y no hay
+ * forma de contarlo; el modelo es del sistema. Mismo molde que `vetado:` del veto de
+ * Claude, y por la misma razon: una fila de 0 tokens y US$0 en el MISMO lugar que el
+ * dueno ya mira. Un 429 que solo deja un `console.warn` no lo lee nadie, y a los 60
+ * minutos en Vercel ya no existe.
+ */
+export const MARCA_REBOTE = 'rebote429:';
 
 /**
  * Los topes de cada free tier.
@@ -82,6 +105,8 @@ export const claveCuenta = (provider: string, cuenta = 1): string => `${provider
 export type FilaUso = {
   provider: string | null;
   cuenta: number | null;
+  /** Para distinguir la llamada que reboto (`MARCA_REBOTE`) de la que contesto. */
+  model?: string | null;
   input_tokens: number | null;
   output_tokens: number | null;
 };
@@ -95,10 +120,11 @@ export type FilaUso = {
  */
 export function plegarUso(filas: FilaUso[]): Record<string, UsoProv> {
   const out: Record<string, UsoProv> = {};
-  const sumar = (k: string, tok: number): void => {
-    const u = out[k] ?? { requests: 0, tokens: 0 };
+  const sumar = (k: string, tok: number, reboto: boolean): void => {
+    const u = out[k] ?? { requests: 0, tokens: 0, rebotes: 0 };
     u.requests += 1;
     u.tokens += tok;
+    if (reboto) u.rebotes += 1;
     out[k] = u;
   };
   for (const r of filas) {
@@ -106,14 +132,21 @@ export function plegarUso(filas: FilaUso[]): Record<string, UsoProv> {
     // `cuenta` es NULL en las filas anteriores a la mig 0132: se leen como 1, que es la
     // verdad histórica (antes de multi-key había una sola key por proveedor).
     const tok = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
-    sumar(claveCuenta(p, Number(r.cuenta) || 1), tok);
-    sumar(p, tok);
+    // ⚠️ UN REBOTE CUENTA COMO PEDIDO, y es a propósito: el 429 salió, viajó y el
+    // proveedor lo contó contra el límite diario de pedidos. Lo que no suma es
+    // TOKENS, porque no los gastó — la fila nace en 0 y 0.
+    const reboto = typeof r.model === 'string' && r.model.startsWith(MARCA_REBOTE);
+    sumar(claveCuenta(p, Number(r.cuenta) || 1), tok, reboto);
+    sumar(p, tok, reboto);
   }
   return out;
 }
 
 /** % de cuota consumida (el MAYOR entre pedidos/día y tokens/día). 0 = libre, 1 = tope. */
-export function pctDe(uso: UsoProv, lim: LimiteProv): number {
+/** El % consumido. Toma sólo los dos números que le hacen falta: `rebotes` no
+ *  participa de la cuenta —manda en el veredicto, no en la barra— y exigirlo
+ *  obligaría a inventarlo en cada llamador que sólo quiere medir. */
+export function pctDe(uso: Pick<UsoProv, 'requests' | 'tokens'>, lim: LimiteProv): number {
   const pr = lim.rpd ? uso.requests / lim.rpd : 0;
   const pt = lim.tokensDia ? uso.tokens / lim.tokensDia : 0;
   return Math.min(1, Math.max(pr, pt));
@@ -121,4 +154,4 @@ export function pctDe(uso: UsoProv, lim: LimiteProv): number {
 
 /** El uso de una cuenta, o cero si esa cuenta todavía no gastó nada. */
 export const usoDeCuenta = (uso: Record<string, UsoProv>, provider: string, cuenta: number): UsoProv =>
-  uso[claveCuenta(provider, cuenta)] ?? { requests: 0, tokens: 0 };
+  uso[claveCuenta(provider, cuenta)] ?? { requests: 0, tokens: 0, rebotes: 0 };

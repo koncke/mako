@@ -15,7 +15,7 @@ import 'server-only';
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
-import { getSaldo } from '@/lib/anthropic-usage';
+import { getSaldo, recordUsage } from '@/lib/anthropic-usage';
 import { openrouterConCredito } from './openrouter-saldo';
 import { credWs } from '@/lib/credenciales';
 import { clavesDe, slotDe } from '@/lib/ia-keys';
@@ -27,13 +27,33 @@ import {
   OPENROUTER_PAGO,
   UMBRAL,
   claveCuenta,
+  MARCA_REBOTE,
   pctDe,
   plegarUso,
   usoDeCuenta,
 } from '@/lib/ia-cuotas-calculo';
 import type { FilaUso, LimiteProv, UsoProv } from '@/lib/ia-cuotas-calculo';
 
-export { LIMITES_PROVEEDOR, UMBRAL, claveCuenta };
+export { LIMITES_PROVEEDOR, UMBRAL, claveCuenta, MARCA_REBOTE };
+
+/**
+ * ANOTA que una cuenta rebotó por cuota. Best-effort: nunca tira.
+ *
+ * ⚠️ POR QUÉ EXISTE. El 429 dejaba un `console.warn` y nada más, y esta casa ya tiene
+ * escrito que un warn no es un control: los logs de Vercel no los lee nadie y a los 60
+ * minutos no existen. Sin esto, «la cuenta 1 está agotada desde el martes» y «hoy no
+ * se usó» se ven exactamente igual desde la app — los dos son una barra en cero.
+ *
+ * Se escribe una fila de 0 tokens y US$0, el mismo molde que usa el veto de Claude
+ * para registrar lo que bloqueó: en el lugar que el dueño ya mira, no en uno nuevo.
+ */
+export async function anotarRebote429(provider: string, cuenta: number, modelo: string, detalle: string): Promise<void> {
+  await recordUsage(
+    'cuota', `${MARCA_REBOTE}${modelo || '-'}`, {},
+    `429 de ${provider} en la cuenta ${cuenta}: ${detalle.slice(0, 300)}`,
+    provider, cuenta,
+  ).catch(() => {});
+}
 export type { LimiteProv, UsoProv };
 
 /**
@@ -99,7 +119,11 @@ async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
   return out;
 }
 
-export type CuotaCuenta = { cuenta: number; requests: number; tokens: number; pct: number; agotado: boolean };
+export type CuotaCuenta = {
+  cuenta: number; requests: number; tokens: number; pct: number; agotado: boolean;
+  /** Cuántos 429 le tiró el proveedor a ESTA cuenta hoy. Ver `MARCA_REBOTE`. */
+  rebotes: number;
+};
 export type CuotaProv = {
   provider: string; requests: number; tokens: number; rpd?: number; tokensDia?: number;
   pct: number; agotado: boolean; label: string; nota?: string;
@@ -131,7 +155,8 @@ export async function usoHoyPorCuenta(): Promise<Record<string, UsoProv>> {
     // eso — y el número falso invitaba a copiar el patrón.
     const filas: FilaUso[] = [];
     await leerPorPaginas<FilaUso>(
-      getSupabaseServer(), 'anthropic_usage', 'provider, cuenta, input_tokens, output_tokens',
+      // `model` viaja porque es donde se marca el rebote por cuota (MARCA_REBOTE).
+      getSupabaseServer(), 'anthropic_usage', 'provider, cuenta, model, input_tokens, output_tokens',
       (pag) => { filas.push(...pag); },
       { eq: { workspace_id: ws }, filtros: (q) => q.gte('created_at', dayStart.toISOString()) },
     );
@@ -171,9 +196,13 @@ export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<
     const cuentas: CuotaCuenta[] = (slots.length ? slots : [1]).map((slot) => {
       const usoC = usoDeCuenta(u, provider, slot);
       const pct = pctDe(usoC, lim);
-      return { cuenta: slot, requests: usoC.requests, tokens: usoC.tokens, pct, agotado: pct >= UMBRAL };
+      // ⚠️ UN REBOTE MANDA SOBRE EL PORCENTAJE. El pct sale de un tope que ponemos
+      // nosotros; el rebote es el proveedor diciendo que no. Cuando se contradicen,
+      // gana el hecho: el de Gemini estuvo 1440 veces mal y el panel decía «te sobra»
+      // mientras todas las llamadas volvían con 429.
+      return { cuenta: slot, requests: usoC.requests, tokens: usoC.tokens, pct, agotado: pct >= UMBRAL || usoC.rebotes > 0, rebotes: usoC.rebotes };
     });
-    const usoP = u[provider] ?? { requests: 0, tokens: 0 };
+    const usoP = u[provider] ?? { requests: 0, tokens: 0, rebotes: 0 };
     out.push({
       provider, requests: usoP.requests, tokens: usoP.tokens,
       // El tope que se muestra al lado del total es el de TODAS las cuentas juntas,

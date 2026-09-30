@@ -622,7 +622,14 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
                       <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
                         <div style={{ height: 3, width: `${ancho}%`, background: k.agotado ? 'var(--warn-fill)' : '#F55036' }} />
                       </div>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: k.agotado ? 'var(--warn)' : 'var(--faint)', flex: 'none' }}>{k.agotado ? 'sin cuota' : `${real}%`}</span>
+                      {/* ⚠️ EL REBOTE MANDA SOBRE EL PORCENTAJE, y por eso se dibuja en
+                          vez de él. El % sale de un tope que ponemos nosotros; «rebotó»
+                          es el proveedor contestando que ya no hay. El de Gemini estuvo
+                          1440 veces mal durante meses: el panel decía «te sobra» mientras
+                          todas las llamadas volvían con 429, y no había dónde verlo. */}
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: k.rebotes > 0 || k.agotado ? 'var(--warn)' : 'var(--faint)', flex: 'none' }}>
+                        {k.rebotes > 0 ? `rebotó ${k.rebotes}×` : k.agotado ? 'sin cuota' : `${real}%`}
+                      </span>
                     </div>
                   );
                 })}

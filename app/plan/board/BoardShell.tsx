@@ -2611,6 +2611,14 @@ function AccionIcono({ label, onClick, tono, children }: { label: string; onClic
  *  abajo cuando la columna sobra, y los deja al final del contenido cuando no. */
 const pieAcciones: CSSProperties = { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 'auto', paddingTop: 14, borderTop: '1px solid var(--border)' };
 
+/** El único que NO es un ícono en ese pie: `marginRight: auto` lo manda a la izquierda y
+ *  deja a las dos acciones que cierran la tarjeta juntas contra el borde, donde estaban. */
+const btnProfundizar: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 5, padding: 0, marginRight: 'auto',
+  border: 'none', background: 'transparent', color: 'var(--faint)',
+  fontFamily: MONO, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', lineHeight: 1.6,
+};
+
 /** El rótulo de un campo de la columna derecha (DEADLINE, QUARTER, COLOR, PROYECTOS…).
  *  Estaba escrito DOS VECES, una adentro de cada modal y con el mismo literal carácter por
  *  carácter: «al igual que el formateo de change history, aplica todo en ambos, que no haya
@@ -4116,6 +4124,23 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
 
             {/* LAS DOS ACCIONES QUE CIERRAN LA TARJETA. Ver `AccionIcono`. */}
             <div style={pieAcciones}>
+              {/* ⚠️ EL BOTÓN QUE FALTABA. `MakoChecklistModal` estaba escrito, importado y
+                  montado ahí abajo con `{mako && …}` — y `setMako(true)` no existía en
+                  todo el repo: código muerto que compilaba, tipaba y no abría nada.
+                  Es el caso exacto de «escribir la salida no es ofrecerla».
+
+                  Y es OPT-IN, que es lo que lo hace compatible con la decisión del
+                  dueño. El Perro dejó de cobrar peaje en el alta, en la prioridad y al
+                  cambiar de proyecto: crear una tarea es un insert pelado. Esto es lo
+                  contrario de aquella fricción — un botón que se aprieta cuando UNO
+                  quiere que MaKo le dé una vuelta a una tarea escrita a las apuradas.
+
+                  Texto y no caja: en un pie de tres acciones, una cajita más compite con
+                  las dos que cierran la tarjeta, que son las que importan. */}
+              <button type="button" onClick={() => setMako(true)} style={btnProfundizar}
+                title={optimizada ? 'MaKo ya le dio una vuelta: probá de nuevo con lo que sepas ahora' : 'MaKo te hace unas preguntas y te propone título, contexto y pasos'}>
+                {optimizada ? 'Profundizar otra vez' : 'Profundizar'}
+              </button>
               <AccionIcono onClick={() => board.toggleDone(t.id)} tono={t.progress >= 100 ? 'ok' : undefined}
                 label={t.progress >= 100 ? 'Reabrir la tarea' : 'Marcar la tarea como completada'}>
                 <CheckHecho done={t.progress >= 100} size={17} />

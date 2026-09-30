@@ -29,6 +29,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   GEMINI_PAGO,
   LIMITES_PROVEEDOR,
@@ -38,6 +40,7 @@ import {
   plegarUso,
   usoDeCuenta,
   type FilaUso,
+  MARCA_REBOTE,
 } from '../lib/ia-cuotas-calculo';
 
 /** El día real de ws9 (2026-09-18): la cuenta 1 no atendió NADA. */
@@ -59,7 +62,7 @@ test('una cuenta que no atendió ninguna llamada figura en CERO, no con la suma 
 
   // Lo que el panel mostraba en la fila «cuenta 1»: 21 pedidos y 841k tokens que
   // nunca pasaron por esa key.
-  assert.deepEqual(usoDeCuenta(uso, 'gemini', 1), { requests: 0, tokens: 0 });
+  assert.deepEqual(usoDeCuenta(uso, 'gemini', 1), { requests: 0, tokens: 0, rebotes: 0 });
   assert.equal(usoDeCuenta(uso, 'gemini', 2).requests, 10);
   assert.equal(usoDeCuenta(uso, 'gemini', 3).requests, 11);
 
@@ -108,4 +111,62 @@ test('las filas viejas sin columna `cuenta` (pre mig 0132) se leen como la cuent
   const uso = plegarUso([{ provider: 'gemini', cuenta: null, input_tokens: 100, output_tokens: 20 }]);
   assert.equal(usoDeCuenta(uso, 'gemini', 1).tokens, 120);
   assert.equal(uso.gemini.tokens, 120);
+});
+
+// ── El 429 que queda ANOTADO (#770) ──────────────────────────────────────────
+// EL CASO: un 429 dejaba un `console.warn` y nada más. Los logs de Vercel no los lee
+// nadie y a los 60 minutos no existen, así que desde la app «esta cuenta está agotada
+// desde el martes» y «hoy no se usó» eran la misma cosa: una barra en cero.
+//
+// ⚠️ PROBADO ROMPIÉNDOLO, tres veces (30/09/2026):
+//   1. Sacando el `if (reboto) u.rebotes += 1` de `plegarUso`: fallan 2 de 4.
+//   2. Haciendo que un rebote sume TOKENS (`tok` en vez de 0): falla 1 de 4 — es la
+//      que importa, porque inflaría el gauge con tokens que nadie gastó.
+//   3. Sacando `|| usoC.rebotes > 0` de `cuotasProveedores`: falla 1 de 4. Ese lado
+//      necesita base, así que lo cuida el último test leyendo el código — una cuenta
+//      que rebotó y que el pct da por sana es justo lo que pasó durante meses con el
+//      tope de Gemini mal por 1440.
+
+test('EL QUE IMPORTA: un rebote se cuenta como PEDIDO y nunca como tokens', () => {
+  // El 429 salió, viajó y el proveedor lo contó contra su límite diario de pedidos:
+  // contarlo es la verdad. Lo que no gastó son tokens — sumarlos inflaría la barra
+  // que decide si queda cuota, con números que nadie consumió.
+  const uso = plegarUso([
+    { provider: 'gemini', cuenta: 1, model: 'gemini-flash-latest', input_tokens: 800, output_tokens: 200 },
+    { provider: 'gemini', cuenta: 1, model: `${MARCA_REBOTE}gemini-flash-latest`, input_tokens: 0, output_tokens: 0 },
+  ]);
+  const c1 = uso['gemini#1'];
+  assert.equal(c1.requests, 2, 'el rebote no cuenta como pedido, y el proveedor sí lo contó');
+  assert.equal(c1.tokens, 1000, 'el rebote sumó tokens que nadie gastó');
+  assert.equal(c1.rebotes, 1);
+});
+
+test('el rebote se anota en SU cuenta, no en la de al lado', () => {
+  // Con tres keys, «Gemini rebotó» no sirve para nada: lo accionable es cuál de las
+  // tres. Es la misma razón por la que el uso se mide por cuenta y no por proveedor.
+  const uso = plegarUso([
+    { provider: 'gemini', cuenta: 2, model: `${MARCA_REBOTE}x`, input_tokens: 0, output_tokens: 0 },
+  ]);
+  assert.equal(uso['gemini#2'].rebotes, 1);
+  assert.equal(uso['gemini#1'], undefined, 'se anotó en una cuenta que no rebotó');
+  assert.equal(uso.gemini.rebotes, 1, 'el total del proveedor no lo suma');
+});
+
+test('una fila normal NO se lee como rebote, ni la que no trae `model`', () => {
+  // Las filas anteriores a esto no tienen `model` en el select viejo: leerlas como
+  // rebote marcaría agotadas todas las cuentas del día con datos históricos.
+  const uso = plegarUso([
+    { provider: 'groq', cuenta: 1, model: 'openai/gpt-oss-120b', input_tokens: 10, output_tokens: 5 },
+    { provider: 'groq', cuenta: 1, input_tokens: 10, output_tokens: 5 },
+  ]);
+  assert.equal(uso['groq#1'].rebotes, 0);
+});
+
+test('un rebote MANDA sobre el porcentaje: el tope lo ponemos nosotros, el 429 no', () => {
+  // ⚠️ El tope de Gemini estuvo 1440 veces mal durante meses (era el de por MINUTO
+  // leído como el del día) y el panel decía «te sobra» mientras todas las llamadas
+  // volvían con 429. Un pct sale de un número nuestro; un rebote es el proveedor
+  // contestando. Cuando se contradicen gana el hecho, y eso vive en `cuotasProveedores`.
+  const src = readFileSync(resolve(import.meta.dirname, '../lib/ia-cuotas.ts'), 'utf8');
+  assert.match(src, /agotado: pct >= UMBRAL \|\| usoC\.rebotes > 0/, 'una cuenta que rebotó se sigue pintando como sana');
 });

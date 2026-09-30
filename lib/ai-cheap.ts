@@ -26,7 +26,7 @@ import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
-import { ordenarCuentas, ordenarPorCuota } from '@/lib/ia-cuotas';
+import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
@@ -500,6 +500,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           console.warn(`[ai-cheap] cascade ${rotulo(inst)} falló${intento ? ' (reintento)' : ''}: ${m}`);
           opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
           const esCuota = /\b429\b|quota|rate.?limit|resource_exhausted/i.test(m);
+          // ⚠️ EL 429 QUEDA ANOTADO, no sólo logueado. El `console.warn` de arriba es
+          // para depurar después; los logs de Vercel no los lee nadie y a los 60
+          // minutos no existen. Sin la fila, «esta cuenta está agotada desde el
+          // martes» y «hoy no se usó» se ven IGUAL desde la app: las dos son una
+          // barra en cero. Best-effort y sin await bloqueante del camino feliz: esto
+          // corre en el camino de error y un fallo acá no puede costar el fallback.
+          if (esCuota) void anotarRebote429(prov, nroCuenta(inst), model ?? '', m);
           const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(m);
           // Un modelo RETIRADO (404) no se reintenta ni un segundo: no va a volver. Se
           // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
