@@ -953,3 +953,73 @@ test('⚠️ el alta de producto son TRES pasos, uno por pantalla, y la caja no 
   // Y el ejemplo del nombre no nombra a un cliente: «eso está muy mal. Jamás lo hagas».
   assert.ok(!/Sistema DOS/.test(tb), 'el placeholder volvió a nombrar el producto de un cliente');
 });
+
+// ════════════════════════════════════════════════════════════════════════════════
+// El menú de la columna, el desplegable de productos y el editor de NUTRICIÓN
+// ════════════════════════════════════════════════════════════════════════════════
+
+test('⚠️ el filete va DEBAJO de «Nuevo producto», y lo eliminado va centrado', () => {
+  // «Que la linea divisoria esté debajo de "Nuevo producto" y que el "Productos
+  // eliminados" esté centrado» (Martín, 30/09/2026). Crear uno nuevo cierra la LISTA de
+  // productos; lo eliminado es otra cosa, y el filete es lo que las separa.
+  const drop = readFileSync(join(RAIZ, 'app/components/Dropdown.tsx'), 'utf8');
+
+  const crear = /\.\.\.\(o\.crear \? \{([^}]*)\}/.exec(drop)?.[1] ?? '';
+  const sutil = /\.\.\.\(o\.sutil \? \{([^}]*)\}/.exec(drop)?.[1] ?? '';
+  assert.ok(crear, 'se fue la rama de `crear`');
+  assert.ok(sutil, 'se fue la rama de `sutil`');
+  assert.ok(!/borderTop/.test(crear), 'el filete volvió ARRIBA de «Nuevo producto»');
+  assert.ok(/borderTop/.test(sutil), 'lo eliminado quedó sin filete que lo separe');
+  // ⚠️ El centrado va por `textAlign` y NO por `justifyContent`: el rótulo vive en un span
+  // con `flex: 1`, o sea que ocupa el renglón entero y el eje principal no mueve nada.
+  assert.ok(/textAlign: 'center'/.test(sutil), '«Productos eliminados» dejó de estar centrado');
+});
+
+test('⚠️ las flechas de mover son DOS botones sin rótulo, y van primeras del menú', () => {
+  // «El botón de mover, no debería tener la palabra mover, solo las flechas. Debería
+  // estar primero de todos ese botón, y en realidad, deberían ser 2 botones diferentes,
+  // solo que están en la misma linea» (Martín, 30/09/2026).
+  const bd = readFileSync(join(RAIZ, 'app/crm/CrmBoard.tsx'), 'utf8');
+  const drop = readFileSync(join(RAIZ, 'app/components/Dropdown.tsx'), 'utf8');
+
+  // ── 1. El flag existe y el renglón NO dibuja su rótulo ──
+  assert.match(drop, /soloAcciones\?: boolean/, 'se fue el flag del renglón sin rótulo');
+  const rama = drop.slice(drop.indexOf('if (o.soloAcciones'), drop.indexOf('// Sin acciones, el renglón'));
+  assert.ok(rama.length > 200, 'se fue la rama que dibuja el renglón de sólo acciones');
+  assert.ok(!/\{cuerpo\}/.test(rama), 'el renglón de sólo acciones volvió a dibujar el rótulo');
+  assert.ok(!/onClick=\{elegir\}/.test(rama), 'volvió la media fila clicable que no hace nada');
+  // Los dos botones se reparten la línea: si uno no tiene `flex: 1`, no son dos mitades.
+  assert.ok(/flex: 1, height: 30/.test(rama), 'los dos botones dejaron de repartirse la línea');
+
+  // ── 2. En el menú de la columna: con el flag, y ANTES que todo lo demás ──
+  const menu = bd.slice(bd.indexOf('ariaLabel={`Opciones de la etapa'));
+  const opciones = menu.slice(menu.indexOf('options={['), menu.indexOf('onChange={(v) =>'));
+  assert.match(opciones, /value: 'mover', label: 'Mover', soloAcciones: true/,
+    'el renglón de mover volvió a dibujar la palabra «Mover»');
+  const iMover = opciones.indexOf("value: 'mover'");
+  const iRenombrar = opciones.indexOf("value: 'renombrar'");
+  assert.ok(iMover > -1 && iRenombrar > -1, 'faltan opciones del menú de la columna');
+  assert.ok(iMover < iRenombrar, 'las flechas dejaron de ser lo primero del menú');
+  // Y siguen colgando del MISMO predicado que habilita el arrastre: dos formas del mismo
+  // gesto que se contradigan es peor que tener una sola.
+  assert.match(opciones, /\.\.\.\(seArrastraCol\(c\) \? \[\{[\s\S]*?value: 'mover'/,
+    'las flechas dejaron de mirar el mismo predicado que el arrastre');
+});
+
+test('⚠️ el título del pop-up es el nombre del PRODUCTO, igual que el desplegable', () => {
+  // Martín, 30/09/2026: «no entiendo porque se llama "Funnel principal" cuando en el
+  // desplegable me dice "Negocio que escala", eso está muy mal». Y no era cosmético: ese
+  // título es un INPUT, así que renombrar arrancaba desde el valor equivocado.
+  const fn = readFileSync(join(RAIZ, 'lib/funnels.ts'), 'utf8');
+  const ac = readFileSync(join(RAIZ, 'app/crm/actions.ts'), 'utf8');
+
+  assert.match(fn, /export async function productosPorFunnel/, 'se fue el resolvedor del nombre');
+  // ⚠️ UNA SOLA IMPLEMENTACIÓN del cruce funnel → producto → NOMBRE. Dos lectores del
+  // mismo dato con dos respuestas distintas es exactamente lo que produjo el bug.
+  const cruces = fn.split('\n').filter((l) => /from\('productos'\)\.select\('id, nombre'\)/.test(l));
+  assert.equal(cruces.length, 1, 'hay dos lugares resolviendo el nombre del producto');
+  // Los DOS lectores pasan por ahí.
+  assert.match(fn, /const productos = await productosPorFunnel\(\);/, 'el desplegable dejó de usar el helper');
+  assert.match(ac, /productosPorFunnel\(\[cfg\.id\]\)/, 'el pop-up volvió a mostrar el nombre crudo del funnel');
+  assert.ok(!/nombre: cfg\.nombre \|\| 'Tu embudo'/.test(ac), 'volvió el nombre crudo del funnel');
+});

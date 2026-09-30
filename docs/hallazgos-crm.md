@@ -4435,3 +4435,97 @@ Medido en el navegador: con «jesus» escrito, tildar todos dice «Mover 20 aqu�
 silencio se lee como que ahí termina el producto.
 
 **Vive en:** `app/crm/TraerDeOtroProducto.tsx` · `app/crm/CrmBoard.tsx` · *2026-09-30 crm-tanda-5*
+
+## Las NUTRICIONES: pocas por defecto, y editables como las etapas
+
+Pedido de Martín (30/09/2026): «El editor de "Nutrición" debe ser parecido al de Etapas, solo
+que hay que agregarle de que depende que se dispare esa nutrición… Pon por defecto muy
+pocas nutriciones. Pon la de "No Agenda" - "No Show" - "Reactivación"».
+
+### ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: no estaba roto, estaba SIN COMMITEAR
+
+Martín abrió `hola-mako.com/crm`, miró la subtab y escribió **«No cambió nada el editor de
+nutrición»**. Se lee exactamente como un bug de la feature, y manda a releer el código que
+se acaba de escribir. No había nada que releer: los cinco archivos estaban **modificados y
+sin commitear** en el árbol compartido, porque la sesión siguió con otros pedidos antes de
+cerrar ése. Producción estaba sirviendo la versión de antes, que es lo correcto.
+
+**La regla: un «no cambió nada» sobre PRODUCCIÓN se contesta con `git log` y `vercel ls`,
+nunca releyendo el fuente.** En este clon hay dos sesiones y el árbol de trabajo casi nunca
+está limpio, así que «lo escribí» y «está desplegado» son dos preguntas y sólo una la
+contesta el editor. Y el corolario del trabajo en curso: **un pedido que se implementa y no
+se commitea en la misma tanda es trabajo que para el que lo pidió no existe** — y que el
+próximo reporte va a describir como una feature rota.
+
+### «Funnel principal» en el título y «Negocio que Escala» en el desplegable
+
+Martín: «no entiendo porque se llama "Funnel principal" cuando en el desplegable me dice
+"Negocio que escala", eso está muy mal». Las dos pantallas leían el mismo embudo y decían
+cosas distintas: `listarFunnels` tapaba el nombre crudo con el del producto principal y la
+action del pop-up devolvía `cfg.nombre` pelado.
+
+⚠️ **Y el TIPO ya declaraba lo correcto.** `EmbudoEnDetalle.nombre` dice, textual, «el
+nombre que la persona ve: el del producto si lo hay, si no el del embudo» — y la
+implementación devolvía el otro. Un comentario en el tipo no es una implementación, y
+cuando el tipo y el código se contradicen **gana el código y nadie se entera**: no hay
+error, hay un nombre plausible.
+
+⚠️ **Y no era cosmético: ese título es un INPUT.** Lo que se ve es el `defaultValue` del
+campo que renombra, y `guardarNombreEmbudo` compara contra él para decidir si escribe. O
+sea que quien renombraba arrancaba desde el valor equivocado, y escribir el nombre que YA
+tenía el producto contaba como un cambio.
+
+La cura es el cruce en UNA función (`productosPorFunnel`, `lib/funnels.ts`) que llaman los
+dos lectores, y un guard que cuenta cuántos lugares resuelven el nombre: si son dos, vuelven
+a divergir. El otro lector de `v_funnel_productos` (`renombrarFunnel`) se queda: pide el
+`producto_id` para ESCRIBIR, que es otra pregunta.
+
+**Vive en:** `lib/funnels.ts` · `app/crm/actions.ts` · `app/crm/EtapasModal.tsx`
+
+### Las cuatro cosas que estaban mal en la lista de nutriciones
+
+| Síntoma | Causa |
+|---|---|
+| La casilla de «Reunión excepcional» se destildaba, se guardaba, y al reabrir volvía tildada | `noshow_r3` era un `transitions.push` escrito a mano: no pasaba por `nut()`, o sea que **ignoraba `suppressed`**. Un control que se desmarca solo se lee como que la app no guarda |
+| Un embudo SIN reuniones no tenía forma de reactivar a nadie | La Reactivación entera colgaba de `firstMeeting`. Lo que de verdad necesita una reunión es su arista de **vuelta** («Reagenda»), no su existencia — y eso ya lo fijaba `tests/reunion-slot-fuente-unica.test.ts`, que se puso rojo al hacerlo mal |
+| Una fila que decía, literal, «No Paga → Reunión excepcional»: una nutrición cuyo origen es otra nutrición | `ETAPAS_SIN_SECUENCIA` existía desde hacía meses y vivía en `lib/secuencias-huecos.ts`, que tiene `server-only`. **La decisión estaba tomada y la pantalla no la podía leer** |
+| «Reactivación» aparecía DOS veces con el mismo nombre, y destildar una dejaba la nutrición corriendo | La lista era una fila por ARISTA. Reactivación sale de «No responde» Y de «Perdido»: es UNA nutrición con dos orígenes. Ahora se agrupa por DESTINO y el toggle escribe todos sus ids (`tambien`) |
+
+⚠️ **Y el rótulo salía del catálogo de FÁBRICA.** `etiqueta()` miraba `cfg.labels` —que sólo
+tiene las terminales renombradas— y de ahí caía al catálogo, que no conoce las claves de un
+pipeline propio: **el ws13 veía `st0` y `st1`**, y la plantilla de VSL `registro`, `grupo`,
+`webinar` y `checkout`. `cfg.stages` va primero, y con eso «si yo cambio el nombre, si pongo
+R1, R2… las nutriciones deben respetar eso» se cumple solo, sin un campo más.
+
+### Cuántas poner: se midió antes de elegirlas
+
+Los **13 embudos vivos suman 99 casillas**, 7,6 de promedio, y la forma más común da 9. De
+esas 9 sólo 5 son de verdad una nutrición: las otras cuatro son una reunión disfrazada, una
+nutrición de una nutrición, y la Reactivación contada dos veces. Con `NUTRICIONES_POR_DEFECTO`
+un producto de UNA reunión nace con exactamente tres —No Agenda, No Show y Reactivación—, que
+es lo que él pidió.
+
+⚠️ **Y se calcula, no se escribe a mano por plantilla.** Las ids de `suppressed` son
+`"desde>hacia"` y el `desde` sale de las CLAVES del pipeline: una lista fija se rompe en
+cuanto alguien le agrega una reunión. Va en `suppressedInicial(pipeline)` y se aplica en
+`crearFunnel`, que es el choke point — de sus tres llamadores **uno solo** pasaba la lista.
+
+⚠️ **Y SÓLO AL CREAR.** Suprimir una nutrición **borra su etapa del tablero** (`nut()` sale
+antes de `place()`), así que aplicarlo a los embudos que ya existen tiraría a la primera
+columna a todo lead parado ahí. Este repo ya pagó esa cuenta con 1.057 leads del ws1.
+
+**Vive en:** `lib/pipeline.ts` · `lib/funnels.ts` · `app/crm/EtapasModal.tsx` · `tests/nutricion-editor.test.ts`
+
+### Un renglón de menú SIN rótulo son dos botones, no un renglón con adornos
+
+Martín, sobre el menú de la columna: «el botón de mover no debería tener la palabra mover,
+solo las flechas… en realidad, deberían ser 2 botones diferentes, solo que están en la misma
+linea». El renglón con `acciones` del `Dropdown` le da el `flex: 1` al RÓTULO, así que
+vaciarlo no lo saca: deja **media fila que se ve clicable y no hace nada**, que es peor que
+el rótulo que se vino a sacar. Por eso `soloAcciones` es una rama propia del primitive.
+
+⚠️ **Y el hover de ese menú va INLINE, no por el velo de `.crm-hover`:** el `Dropdown` se
+dibuja por PORTAL sobre el `<body>`, así que la regla del `<main>` de la ruta no lo alcanza.
+Es uno de los caminos que el comentario del velo enumera.
+
+**Vive en:** `app/components/Dropdown.tsx` · `app/crm/CrmBoard.tsx` · *2026-09-30 crm-tanda-6*

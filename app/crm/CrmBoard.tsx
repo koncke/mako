@@ -1716,21 +1716,21 @@ export function CrmBoard({
                 ariaLabel={`Opciones de la etapa ${c.label}`}
                 buttonStyle={{ width: 28, height: 28, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
                 options={[
-                  { value: 'renombrar', label: 'Cambiar el nombre' },
-                  // ⚠️ MOVER VIVE ADENTRO DEL MENÚ: «las flechas de desplazar en las columnas
-                  // deben de estar DENTRO del desplegable de los 3 puntos» (Martín,
-                  // 30/09/2026). Estuvieron sueltas en la cabecera menos de un día: con 12
-                  // columnas, dos botones más por cabecera es una barra de controles arriba de
-                  // cada lista.
+                  // ⚠️ LAS FLECHAS VAN PRIMERO Y SIN RÓTULO: «el botón de mover no debería
+                  // tener la palabra mover, solo las flechas. Debería estar primero de todos
+                  // ese botón, y en realidad, deberían ser 2 botones diferentes, solo que
+                  // están en la misma linea» (Martín, 30/09/2026). Antes de eso estuvieron
+                  // sueltas en la cabecera menos de un día —con 12 columnas son dos botones
+                  // más por cabecera, o sea una barra de controles arriba de cada lista— y
+                  // después como un renglón «Mover» con las flechas al costado.
                   //
-                  // El renglón NO es un botón —lo convierte `acciones`, que es el mismo molde
-                  // del lápiz de cada producto en el selector— así que las dos flechas viven
-                  // «en la misma línea» sin anidar un <button> dentro de otro, que no es HTML
-                  // válido. Y sólo se dibuja en las que se pueden mover: es el MISMO predicado
-                  // que habilita el arrastre, para que las dos formas del gesto no se
-                  // contradigan.
+                  // `soloAcciones` es lo que hace que sean DOS botones y no un renglón con
+                  // adornos: sin él, el rótulo se queda con el `flex: 1` y media fila queda
+                  // clicable sin hacer nada. Y sólo se dibuja en las que se pueden mover: es
+                  // el MISMO predicado que habilita el arrastre, para que las dos formas del
+                  // gesto no se contradigan.
                   ...(seArrastraCol(c) ? [{
-                    value: 'mover', label: 'Mover',
+                    value: 'mover', label: 'Mover', soloAcciones: true,
                     acciones: [
                       {
                         icono: <FlechaIzquierdaIcon />,
@@ -1744,6 +1744,7 @@ export function CrmBoard({
                       },
                     ],
                   }] : []),
+                  { value: 'renombrar', label: 'Cambiar el nombre' },
                   // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
                   // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
                   // mecanismo, y desde el menú de una columna el lugar ya se entiende.

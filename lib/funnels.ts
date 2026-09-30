@@ -27,7 +27,7 @@
 
 import 'server-only';
 import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, mergeFunnelData } from './pipeline';
+import { DEFAULT_PIPELINE, mergeFunnelData, suppressedInicial } from './pipeline';
 import { getTenantDb } from './workspace';
 // El mapeo fila → FunnelConfig vive en un módulo PURO para que se pueda testear
 // sin Supabase: ahí está la regla de que `origen` sale de `declarado`.
@@ -133,6 +133,43 @@ export async function getPipelineStagesDeLead(lead: LeadConFunnel): Promise<Stag
   return (await getFunnelDeLead(lead)).stages;
 }
 
+/**
+ * El nombre del PRODUCTO principal de cada embudo — el único que la persona reconoce.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN CADA LECTOR. «Funnel principal» es el nombre que puso la migración
+ * 0170 y es el MISMO en todos los workspaces: no le dice nada a nadie y encima obliga a
+ * pensar en la estructura en vez de en lo que se vende. El desplegable ya lo tapaba; el
+ * pop-up que edita el embudo NO, así que Martín abría «Negocio que Escala» y el título
+ * del pop-up decía «Funnel principal» (30/09/2026). Dos lectores del mismo dato con dos
+ * respuestas distintas es el modo de falla de siempre — y acá es peor que cosmético: ese
+ * título es un INPUT, o sea que quien renombra arranca desde el valor equivocado.
+ *
+ * Nunca tira: si la vista falla, el mapa vuelve vacío y quien llama se cae al nombre del
+ * funnel, que es lo que había.
+ */
+export async function productosPorFunnel(ids?: number[]): Promise<Map<number, string>> {
+  const productos = new Map<number, string>();
+  try {
+    const supabase = await getTenantDb();
+    let q = supabase
+      .from('v_funnel_productos').select('funnel_id, producto_id').eq('es_principal', true);
+    if (ids?.length) q = q.in('funnel_id', ids);
+    const { data: vp } = await q;
+    const pids = [...new Set(((vp ?? []) as Array<{ producto_id: number }>).map((x) => x.producto_id))];
+    if (pids.length) {
+      const { data: ps } = await supabase.from('productos').select('id, nombre').in('id', pids);
+      const nombreDe = new Map(((ps ?? []) as Array<{ id: number; nombre: string }>).map((p) => [p.id, p.nombre]));
+      for (const x of (vp ?? []) as Array<{ funnel_id: number; producto_id: number }>) {
+        const n = nombreDe.get(x.producto_id);
+        if (n) productos.set(x.funnel_id, n);
+      }
+    }
+  } catch (e) {
+    console.warn('[funnels] no se pudo leer el producto de cada funnel:', e instanceof Error ? e.message : e);
+  }
+  return productos;
+}
+
 /** Los funnels del workspace, para el desplegable. El default primero. */
 export async function listarFunnels(): Promise<FunnelResumen[]> {
   try {
@@ -144,26 +181,8 @@ export async function listarFunnels(): Promise<FunnelResumen[]> {
     if (error) { console.error(`[funnels] listarFunnels: ${error.message}`); return []; }
     const filas = (data ?? []) as unknown as FilaFunnel[];
 
-    // El nombre que el negocio reconoce es el del PRODUCTO, no el del funnel —que
-    // se llama «Funnel principal» en todos los workspaces porque lo puso la
-    // migración—. Sale de la vista que ya cruza funnel → oferta → producto.
-    // Nunca rompe: si la vista falla, el desplegable sigue mostrando lo de antes.
-    const productos = new Map<number, string>();
-    try {
-      const { data: vp } = await supabase
-        .from('v_funnel_productos').select('funnel_id, producto_id').eq('es_principal', true);
-      const ids = [...new Set(((vp ?? []) as Array<{ producto_id: number }>).map((x) => x.producto_id))];
-      if (ids.length) {
-        const { data: ps } = await supabase.from('productos').select('id, nombre').in('id', ids);
-        const nombreDe = new Map(((ps ?? []) as Array<{ id: number; nombre: string }>).map((p) => [p.id, p.nombre]));
-        for (const x of (vp ?? []) as Array<{ funnel_id: number; producto_id: number }>) {
-          const n = nombreDe.get(x.producto_id);
-          if (n) productos.set(x.funnel_id, n);
-        }
-      }
-    } catch (e) {
-      console.warn('[funnels] no se pudo leer el producto de cada funnel:', e instanceof Error ? e.message : e);
-    }
+    const productos = await productosPorFunnel();
+
 
     return filas.map((f) => ({
       id: f.id, nombre: f.nombre ?? FUNNEL_DEFAULT_NOMBRE, canal: f.canal ?? null,
@@ -426,6 +445,19 @@ export async function crearFunnel(input: {
   if (!nombre) throw new Error('El funnel necesita un nombre.');
   const supabase = await getTenantDb();
   const tienePipeline = Boolean(input.pipeline?.length);
+  /**
+   * Las nutriciones que nacen APAGADAS. Se calculan ACÁ, en el choke point del alta, y no
+   * en cada llamador: son TRES los caminos que crean un funnel (el alta de producto del
+   * CRM, el onboarding de ofertas y la siembra del embudo del negocio) y sólo uno pasaba
+   * la lista de la plantilla. Un default que depende de por dónde entraste no es un
+   * default: es una lotería.
+   *
+   * Lo que el llamador manda se RESPETA y se suma — la plantilla `presencial` trae la suya
+   * por un motivo propio— y se unen sin duplicar.
+   */
+  const apagadas = tienePipeline
+    ? [...new Set([...(input.suppressed ?? []), ...suppressedInicial(input.pipeline!)])]
+    : (input.suppressed ?? []);
   const { data, error } = await supabase
     .from('funnels')
     .insert({
@@ -434,7 +466,7 @@ export async function crearFunnel(input: {
       plantilla: input.plantilla ?? null,
       // Sin pipeline la fila nace con `{}`: igual que las que creó la 0170 para
       // los workspaces que no tenían funnel_config.
-      data: tienePipeline ? mergeFunnelData({}, input.pipeline!, input.suppressed ?? [], input.extra) : {},
+      data: tienePipeline ? mergeFunnelData({}, input.pipeline!, apagadas, input.extra) : {},
       declarado: input.declarado ?? tienePipeline,
       es_default: input.esDefault === true,
     })

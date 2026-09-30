@@ -39,7 +39,7 @@ import { MAX_LABEL_ETAPA } from '@/lib/pipeline';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
   restaurarEmbudoAction, extrasDelEmbudoAction,
-  type EmbudoEnDetalle, type EtapaDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
+  type EmbudoEnDetalle, type EtapaDelFunnel, type NutricionDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
 } from './actions';
 import { EmbudoEntradas } from './EmbudoEntradas';
 import { CerrarIcon, LapizIcon } from './iconos';
@@ -367,6 +367,22 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
    */
   const caja: CSSProperties = { borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' };
   /** La fila va TRANSPARENTE: el fondo lo pone la caja, o volveríamos a tener dos. */
+  /**
+   * Quitar una nutrición.
+   *
+   * ⚠️ NO PREGUNTA POR LOS LEADS, a diferencia de quitar una etapa, y no es un descuido:
+   * el conteo por etapa sale de `deriveStageKey`, que es un switch cerrado sobre las
+   * columnas del lead y **nunca devuelve** `nopaga`, `nocompro` ni `reactivacion` — a esas
+   * columnas se llega por `pipeline_stage`. O sea que el contador diría 0 para siempre, y
+   * un «¿seguro?» que siempre contesta que no hay nadie es peor que no preguntar: enseña a
+   * apretar sin leer. Se deshace con el toast, que acá alcanza porque apagarla no borra
+   * leads: los que estén parados ahí se siguen viendo en la primera columna.
+   */
+  const quitarNutricion = (n: NutricionDelFunnel) => {
+    aplicar({ op: 'nutricion', id: n.id, tambien: n.ids, activa: false }, () => {
+      show(`Quitada «${n.nombre}»`, () => aplicar({ op: 'nutricion', id: n.id, tambien: n.ids, activa: true }));
+    });
+  };
   const fila: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px',
   };
@@ -582,28 +598,51 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           </>
         )}
 
+        {/* ⚠️ LA SUBTAB DE NUTRICIÓN, con el molde de la de Etapas: una fila por
+            nutrición, su ✕ para quitarla y un «Agregar» al pie. Lo que la hace distinta
+            es el SEGUNDO RENGLÓN, que es el pedido: «hay que agregarle de qué depende que
+            se dispare esa nutrición… la de No show tiene obligatoriamente que el lead
+            venga de Agenda R1».
+
+            ⚠️ Y «Sale de X» ES TEXTO, NO UN DESPLEGABLE. Martín dijo «obligatoriamente»:
+            de dónde sale una nutrición lo decide la FORMA del recorrido, no una elección.
+            Un selector ahí prometería poder cambiar un hecho. Lo que sí es dinámico es el
+            NOMBRE: sale de la clave de la etapa, así que renombrar «Agenda R1» a «R1»
+            mueve esta lista sola. */}
+        {sub === 'nutricion' && !emb && !error && <Cargando />}
         {emb && sub === 'nutricion' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {emb.nutriciones.length === 0 ? (
               <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.55 }}>
-                Este embudo no tiene nutriciones. Salen de las etapas: agrega una reunión o un pago y aparecen solas.
+                Las nutriciones salen de las etapas. Agrega una reunión o un pago y aparecen solas.
               </p>
-            ) : emb.nutriciones.map((n) => (
-              <label key={n.id}
-                style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 12px', borderRadius: 10, background: 'var(--surface-2)', cursor: trabajando ? 'default' : 'pointer' }}>
-                <input type="checkbox" checked={n.activa} disabled={trabajando}
-                  onChange={(e) => aplicar({ op: 'nutricion', id: n.id, activa: e.target.checked })}
-                  style={{ width: 16, height: 16, flex: 'none', accentColor: 'var(--primary)', cursor: trabajando ? 'default' : 'pointer' }} />
-                <span style={{ minWidth: 0, fontFamily: SANS, fontSize: 14, color: n.activa ? 'var(--ink)' : 'var(--faint)' }}>
-                  <strong style={{ fontWeight: 600 }}>{n.desdeLabel}</strong>
-                  <span style={{ color: 'var(--faint)', margin: '0 7px' }}>→</span>
-                  {n.haciaLabel}
+            ) : emb.nutriciones.filter((n) => n.activa).map((n) => (
+              <div key={n.id} style={fila}>
+                <span style={{ flex: 1, minWidth: 0, fontFamily: SANS }}>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{n.nombre}</span>
+                  <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>
+                    Sale de «{n.desdeLabel}» · {n.porque}
+                  </span>
                 </span>
-              </label>
+                {/* ⚠️ SE APAGA LA FILA, NO LA LISTA. `trabajando` es global: deshabilitar
+                    todas al tocar una deja la pantalla muerta mientras se guarda. */}
+                <AccionFila etiqueta={`Quitar ${n.nombre}`} disabled={trabajando}
+                  onClick={() => quitarNutricion(n)}>
+                  <CerrarIcon />
+                </AccionFila>
+              </div>
             ))}
+
+            {/* Lo apagado NO se dibuja en la lista: se ofrece para volver a poner. Una
+                casilla desmarcada entre las puestas obliga a leer cinco filas para saber
+                cuáles corren. */}
+            <NuevaNutricion
+              apagadas={emb.nutriciones.filter((n) => !n.activa)}
+              disabled={trabajando}
+              onPoner={(n) => aplicar({ op: 'nutricion', id: n.id, tambien: n.ids, activa: true })}
+            />
           </div>
         )}
-
         {error && (
           <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{error}</div>
         )}
@@ -678,5 +717,66 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
     >
       + Agregar etapa
     </button>
+  );
+}
+
+/**
+ * «Agregar nutrición»: las que el recorrido PERMITE y hoy están apagadas.
+ *
+ * ⚠️ NO DEJA INVENTAR UNA, y la línea de abajo lo explica en vez de esconderlo. Una
+ * nutrición se dispara porque el motor reconoce la etapa donde está el lead, y esas claves
+ * son un catálogo cerrado: una nutrición declarada sobre una clave inventada matchearía
+ * CERO leads para siempre, sin error y sin log — o sea, una pantalla que promete un mensaje
+ * que no sale. Lo que sí destraba crear más es agregar la ETAPA de la que salen, que es lo
+ * que dice el texto.
+ */
+function NuevaNutricion({ apagadas, disabled, onPoner }: {
+  apagadas: NutricionDelFunnel[];
+  disabled?: boolean;
+  onPoner: (n: NutricionDelFunnel) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+
+  if (!abierto) {
+    return (
+      <button type="button" onClick={() => setAbierto(true)} disabled={disabled}
+        style={{
+          marginTop: 6, padding: '10px 12px', borderRadius: 10, textAlign: 'left',
+          border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--dim)',
+          fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: disabled ? 'default' : 'pointer',
+        }}>
+        ＋ Agregar nutrición
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 6, padding: '11px 12px', borderRadius: 10, background: 'var(--surface-2)' }}>
+      {apagadas.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 10 }}>
+          {apagadas.map((n) => (
+            <button key={n.id} type="button" disabled={disabled}
+              onClick={() => { onPoner(n); setAbierto(false); }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px',
+                borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
+                fontFamily: SANS, cursor: disabled ? 'default' : 'pointer',
+              }}>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{n.nombre}</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>
+                Sale de «{n.desdeLabel}» · {n.porque}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      <p style={{ margin: 0, fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
+        Las nutriciones salen de las etapas. Agrega una reunión o un pago en «Etapas» y aparece la suya.
+      </p>
+      <button type="button" onClick={() => setAbierto(false)}
+        style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>
+        Cancelar
+      </button>
+    </div>
   );
 }

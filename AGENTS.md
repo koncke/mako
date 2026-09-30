@@ -5318,3 +5318,39 @@ ya estaba. Y si el control nuevo repite el rótulo de uno que ya existe, hay dos
 que dicen lo mismo y hacen cosas distintas: lo delató el strict mode de Playwright
 («resolved to 2 elements»), no leer el código.
 
+# Un «no cambió nada» sobre PRODUCCIÓN se contesta con `git log`, no releyendo el código
+
+En este clon hay dos sesiones y el árbol de trabajo casi nunca está limpio, así que **«lo
+escribí» y «está desplegado» son dos preguntas distintas** y sólo una la contesta el editor.
+
+Medido el 30/09/2026: se implementó el editor de nutrición del CRM entero —cinco archivos,
+verificado en el navegador— y la sesión siguió con los pedidos siguientes sin commitear.
+Martín abrió `hola-mako.com`, miró la subtab y escribió **«No cambió nada el editor de
+nutrición»**. Producción servía la versión anterior, que es lo correcto. El reporte se lee
+exactamente igual que una feature rota y manda a depurar código que está bien.
+
+- **Ante «no cambió», el primer comando es `git log --oneline -5 -- <archivo>` y `git status`**,
+  y recién después el código. `vercel ls` para la otra mitad: pushear no es desplegar.
+- **Y un pedido que se implementa y no se commitea en la misma tanda es trabajo que, para
+  quien lo pidió, NO EXISTE.** Si entran pedidos nuevos encima, se cierra el anterior primero
+  o se dice en el chat que quedó sin salir — el modo de falla es que el próximo reporte lo
+  describa como un bug, y entonces se paga dos veces.
+
+# Si un TIPO declara qué SIGNIFICA un campo, lo que hay que medir es la implementación
+
+Un comentario en el tipo no es una implementación, y cuando los dos se contradicen **gana el
+código y nadie se entera**: no hay error, hay un valor plausible.
+
+Medido el 30/09/2026: `EmbudoEnDetalle.nombre` dice textual «el nombre que la persona ve: el
+del producto si lo hay, si no el del embudo», y la action devolvía `cfg.nombre` pelado. El
+desplegable del CRM decía «Negocio que Escala» y el título del pop-up del mismo embudo decía
+**«Funnel principal»** —el nombre que puso la migración 0170, igual en todos los workspaces—.
+Martín: «eso está muy mal».
+
+- **Y el costo casi nunca es cosmético: hay que mirar QUIÉN MÁS lee ese campo.** Acá ese
+  título es un `<input>`: era el `defaultValue` del campo que renombra y el valor contra el
+  que se compara para decidir si escribir. Quien renombraba arrancaba desde el valor
+  equivocado, y tipear el nombre que el producto YA tenía contaba como un cambio.
+- **La cura es UNA función que llamen los dos lectores**, y un guard que CUENTE cuántos
+  lugares resuelven el dato. Dos implementaciones de la misma pregunta no divergen por
+  descuido: divergen porque una se arregla y la otra no se entera.

@@ -527,8 +527,12 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
           if (re) {
             place(re, 'nutricion');
             transitions.push({ from: 'nopaga', to: 'reunion_excepcional', label: 'Reunión excepcional', category: 'nutricion', trigger: 'manual' });
-            const ns3 = lib('noshow_r3');
-            if (ns3) { place(ns3, 'nutricion'); transitions.push({ from: 'reunion_excepcional', to: 'noshow_r3', label: 'No Show R3', category: 'nutricion', trigger: 'asistencia' }); }
+            // ⚠️ PASA POR `nut()` COMO TODAS. Estaba escrito a mano y sin mirar
+            // `suppressed`, así que apagar «No Show R3» se guardaba —el id es válido y el
+            // server lo aceptaba— y la nutrición VOLVÍA prendida en la lectura siguiente:
+            // una casilla que se desmarca sola, que se lee como que el guardado no
+            // funciona. Medido el 30/09/2026.
+            nut('reunion_excepcional', 'noshow_r3', 'No Show R3', 'asistencia');
             transitions.push({ from: 'reunion_excepcional', to: p.key, label: 'Retoma el pago', category: 'avanza', trigger: 'manual' });
             transitions.push({ from: 'reunion_excepcional', to: 'perdido', label: 'Se perdió', category: 'perdida', trigger: 'manual' });
           }
@@ -543,8 +547,18 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
   // Reactivación: re-contacto de leads fríos (No responde / Perdido). El motor del
   // CRM automático los mueve acá por tiempo/re-engagement (ver lib/crm-auto.ts); de
   // la reactivación pueden reagendar y volver a la 1ª reunión.
+  // ⚠️ LA REACTIVACIÓN EXISTE SIEMPRE; LO QUE NECESITA UNA REUNIÓN ES SU VUELTA.
+  // Estaba entera detrás de `firstMeeting`, así que un embudo SIN reuniones —el de
+  // [entrada, grupo, grupo, cierre], que existe en producción— no la tenía. Y es una de
+  // las tres que Martín pidió por defecto: ahí era imposible.
+  //
+  // ⚠️ Y LA VUELTA SIGUE COLGANDO DE `firstMeeting`, no de «la etapa que siga». «Reagenda»
+  // nombra una reunión: dibujarlo hacia un paso cualquiera es prometer una acción que ahí
+  // no existe, y `tests/reunion-slot-fuente-unica.test.ts` lo persigue con razón. Sin
+  // reunión, la reactivación sale sólo hacia «No responde».
   const reac = lib('reactivacion');
-  if (reac && firstMeeting) {
+  const vuelveA = firstMeeting ?? null;
+  if (reac) {
     let usada = false;
     (['noresp', 'perdido'] as const).forEach((from) => {
       if (sup.has(`${from}>reactivacion`)) return;
@@ -552,7 +566,8 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
       transitions.push({ from, to: 'reactivacion', label: 'Reactivar', category: 'nutricion', trigger: 'tiempo' });
     });
     if (usada) {
-      transitions.push({ from: 'reactivacion', to: firstMeeting, label: 'Reagenda', category: 'avanza', trigger: 'agenda' });
+      // La salida de vuelta sólo se dibuja si hay a dónde volver.
+      if (vuelveA) transitions.push({ from: 'reactivacion', to: vuelveA, label: 'Reagenda', category: 'avanza', trigger: 'agenda' });
       transitions.push({ from: 'reactivacion', to: 'noresp', label: 'No responde', category: 'perdida', trigger: 'tiempo' });
     }
   }
@@ -761,6 +776,55 @@ export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fija
     propias: visibles.filter((st) => !esTerminal(st.key)).map(uno),
     fijas: visibles.filter((st) => esTerminal(st.key)).map(uno),
   };
+}
+/**
+ * Las etapas de nutrición que NO se nutren, y por eso no se listan como tales.
+ *
+ * `manual` es la nutrición DEL SETTER por definición —la escribe una persona, no una
+ * secuencia— y `reunion_excepcional` es un estacionamiento, no algo que haya que nutrir.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN `lib/secuencias-huecos.ts`, que es donde nació: ese módulo tiene
+ * `server-only`, así que la pantalla que lista las nutriciones no lo podía importar y
+ * dibujaba las dos igual. El síntoma era una fila que decía, literal, «Nutrición - No Paga
+ * → Reunión excepcional»: una nutrición cuyo origen es otra nutrición. El repo ya había
+ * decidido que esas dos no se nutren; lo que faltaba era que la decisión se pudiera leer
+ * desde el navegador.
+ */
+export const ETAPAS_SIN_SECUENCIA: readonly string[] = ['manual', 'reunion_excepcional'];
+/**
+ * Las TRES familias de nutrición que un producto nuevo trae encendidas.
+ *
+ * Pedido de Martín (30/09/2026), textual: «Pon por defecto muy pocas nutriciones. Pon la
+ * de "No Agenda" - "No Show" - "Reactivación", ya si el usuario quiere puede crear más».
+ *
+ * ⚠️ MEDIDO ANTES DE ELEGIRLAS: los 13 embudos de producción suman **99 casillas**, 7,6 de
+ * promedio y 9 en la forma más común. De esas 9, cuatro son ruido conceptual —una reunión
+ * disfrazada de nutrición, una nutrición de una nutrición, y la Reactivación contada dos
+ * veces—. Con estas tres, un producto de una reunión nace con exactamente las que él pidió.
+ */
+export const NUTRICIONES_POR_DEFECTO: readonly string[] = ['nutri', 'noshow_r1', 'noshow_r2', 'noshow_r3', 'reactivacion'];
+
+/**
+ * Qué nutriciones nacen APAGADAS en un producto nuevo, dado su pipeline.
+ *
+ * ⚠️ SE CALCULA, NO SE ESCRIBE A MANO EN CADA PLANTILLA. Las ids de `suppressed` son
+ * `"desde>hacia"` y el `desde` sale de las CLAVES del pipeline, así que una lista fija por
+ * plantilla se rompe en cuanto alguien le agrega una reunión — y quedarían apagadas unas y
+ * encendidas otras sin ningún criterio visible.
+ *
+ * ⚠️ Y ESTO SÓLO CORRE AL CREAR. Un producto que ya existe NO se toca: suprimir una
+ * nutrición BORRA su etapa del tablero (`nut()` sale antes de `place()`), y los leads que
+ * estuvieran parados ahí caen a la primera columna. Este repo ya pagó esa cuenta con 1.057
+ * leads del ws1, y está escrito en `app/crm/crm-map.ts`.
+ */
+export function suppressedInicial(pipeline: Stage[]): string[] {
+  const { transitions } = generateFunnel(pipeline, [], {});
+  const fuera: string[] = [];
+  for (const t of transitions.filter((x) => x.category === 'nutricion')) {
+    if (NUTRICIONES_POR_DEFECTO.includes(t.to)) continue;
+    fuera.push(`${t.from}>${t.to}`);
+  }
+  return [...new Set(fuera)];
 }
 export function sanearPipeline(v: unknown): Stage[] | null {
   if (!Array.isArray(v) || !v.length) return null;

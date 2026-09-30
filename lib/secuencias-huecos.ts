@@ -20,11 +20,13 @@ import 'server-only';
 
 import { getTenantDb } from './workspace';
 import { getFunnelDefault } from './funnels';
+import { ETAPAS_SIN_SECUENCIA } from './pipeline';
 
-// Etapas derivadas que NO cuentan como hueco: la nutrición manual es del setter
-// por definición y la reunión excepcional es un estacionamiento, no una etapa
-// que haya que nutrir.
-const ETAPAS_SIN_SECUENCIA = new Set(['manual', 'reunion_excepcional']);
+// ⚠️ SE MUDÓ A `lib/pipeline.ts` (30/09/2026). El mismo catálogo lo necesita la pantalla
+// que lista las nutriciones del embudo, y este módulo tiene `server-only`: con la copia
+// acá, el pop-up dibujaba «Nutrición - No Paga → Reunión excepcional» como si fuera una
+// nutrición más.
+const SIN_SECUENCIA = new Set(ETAPAS_SIN_SECUENCIA);
 
 // Qué etapas del funnel cubre cada trigger legacy. La cobertura se decide por
 // TRIGGER y no por la columna `etapa`: sus valores viejos divergen entre
@@ -64,7 +66,7 @@ export async function huecosDeSecuencias(): Promise<HuecoSecuencia[]> {
   // rótulo, «falta la secuencia de No Show R1» aparecería repetido y sin decir
   // de cuál de los dos embudos habla.
   const funnel = await getFunnelDefault();
-  const etapasNutri = funnel.stages.filter((s) => s.band === 'nutricion' && !ETAPAS_SIN_SECUENCIA.has(s.key));
+  const etapasNutri = funnel.stages.filter((s) => s.band === 'nutricion' && !SIN_SECUENCIA.has(s.key));
   if (!etapasNutri.length) return [];
 
   const { data } = await supabase.from('nutricion_secuencias').select('etapa, trigger_tipo, archivada_at');

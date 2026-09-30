@@ -58,9 +58,10 @@ import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
-  renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo } from '@/lib/funnels';
+  renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
+  productosPorFunnel } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
-  conTerminales, esTerminal, problemasDePipeline, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+  conTerminales, esTerminal, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -2150,11 +2151,47 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[], 
 export type EtapaDelFunnel = EtapaVisible;
 
 /** Una nutrición del embudo: de qué etapa sale, a qué secuencia lleva, y si está puesta. */
+/**
+ * Una nutrición del embudo, como la dibuja el pop-up.
+ *
+ * ⚠️ ES UNA FILA POR DESTINO, NO POR ARISTA. «Reactivación» sale de DOS etapas (de «No
+ * responde» y de «Perdido»), así que antes eran dos casillas con el mismo nombre: apagar
+ * una dejaba la nutrición corriendo y la pantalla decía dos veces lo mismo. Por eso el
+ * toggle escribe TODOS los ids del grupo.
+ */
+/**
+ * Por qué se dispara una nutrición, en una frase.
+ *
+ * Es el «de qué depende» que pidió Martín. ⚠️ NO sale del label del trigger: ésos son
+ * `Tiempo`, `Asistencia`, `Manual`, `Pago`, `Agenda (Calendly)` y `Formulario`, y pegarlos
+ * da «Sale de Agenda R1 · Asistencia», que no es una frase. El mismo trigger significa
+ * cosas distintas según de dónde salga: `tiempo` desde la entrada es «no agendó» y desde
+ * «No responde» es «no volvió».
+ */
+function porqueSeDispara(trigger: string, kindOrigen?: string): string {
+  if (trigger === 'asistencia') return 'no asiste a la reunión';
+  if (trigger === 'pago') return 'no aparece el pago';
+  if (trigger === 'manual') return 'alguien lo marca a mano';
+  if (trigger === 'formulario') return 'no completa el registro';
+  if (trigger === 'agenda') return 'no llega a agendar';
+  if (trigger === 'tiempo') {
+    if (kindOrigen === 'entrada') return 'pasa el tiempo sin que agende';
+    if (kindOrigen === 'grupo') return 'espera el día del evento';
+    return 'pasa el tiempo sin que vuelva';
+  }
+  return 'pasa el tiempo';
+}
 export type NutricionDelFunnel = {
-  /** `"desde>hacia"` — la misma clave que vive en `data.suppressed`. */
+  /** El primero de sus ids `"desde>hacia"`. Sirve de key en la lista. */
   id: string;
+  /** TODOS los ids que hay que escribir en `suppressed` para apagarla. */
+  ids: string[];
+  /** Cómo se llama, sin el prefijo «Nutrición». Con dos reuniones lleva de cuál es. */
+  nombre: string;
+  /** De qué etapa sale, con el nombre que el cliente le puso. Varias = «A» y «B». */
   desdeLabel: string;
-  haciaLabel: string;
+  /** Por qué se dispara, en una frase. Es el «de qué depende» del pedido. */
+  porque: string;
   activa: boolean;
 };
 
@@ -2226,22 +2263,79 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
 
     // Las nutriciones POSIBLES de este pipeline, puestas o no.
     const sup = new Set(cfg.suppressed);
-    const etiqueta = (k: string) => cfg.labels[k] ?? labelDeCatalogo(k) ?? k;
-    const nutriciones: NutricionDelFunnel[] = generateFunnel(cfg.pipeline, [], cfg.labels).transitions
+    /**
+     * El nombre de una etapa, con el que el CLIENTE le puso.
+     *
+     * ⚠️ `cfg.stages` VA PRIMERO, y ése era el bug que Martín reportó: «si yo cambio el
+     * nombre, si pongo R1, R2… las nutriciones deben respetar eso». Sin esa fuente se
+     * caía a `cfg.labels` (que sólo tiene las terminales renombradas) y de ahí al
+     * catálogo de fábrica, que no conoce las claves de un pipeline propio. Medido el
+     * 30/09/2026: un cliente real veía **`st0` y `st1`** en esta lista, y la plantilla de
+     * VSL mostraba `registro`, `grupo`, `webinar` y `checkout`. El último eslabón no se
+     * puede sacar: una nutrición suprimida no está en `cfg.stages`.
+     */
+    const deStages = new Map(cfg.stages.map((st) => [st.key, st.label]));
+    const etiqueta = (k: string) => deStages.get(k) ?? cfg.labels[k] ?? labelDeCatalogo(k) ?? k;
+    /** Sin el prefijo de fábrica, y sin dejar la primera letra en minúscula. */
+    const limpiarNombre = (txt: string) => {
+      const sinPrefijo = txt.replace(/^Nutrición\s*-?\s*/i, '').trim() || txt;
+      return sinPrefijo.charAt(0).toUpperCase() + sinPrefijo.slice(1);
+    };
+
+    const todas = generateFunnel(cfg.pipeline, [], cfg.labels).transitions
       .filter((t) => t.category === 'nutricion')
-      .map((t) => ({
-        id: `${t.from}>${t.to}`,
-        desdeLabel: etiqueta(t.from),
-        haciaLabel: etiqueta(t.to).replace('Nutrición - ', '').replace('Nutrición ', ''),
-        activa: !sup.has(`${t.from}>${t.to}`),
-      }));
+      // ⚠️ `manual` y `reunion_excepcional` NO son nutriciones que se nutran, y el repo ya
+      // lo había decidido en `ETAPAS_SIN_SECUENCIA` — la pantalla no lo sabía. Sin esto,
+      // la lista trae una fila que dice, literal, «No Paga → Reunión excepcional»: una
+      // nutrición cuyo origen es otra nutrición.
+      .filter((t) => !ETAPAS_SIN_SECUENCIA.includes(t.to));
+
+    // Se agrupa por DESTINO: una nutrición es una, salga de una etapa o de tres.
+    const porDestino = new Map<string, typeof todas>();
+    for (const t of todas) porDestino.set(t.to, [...(porDestino.get(t.to) ?? []), t]);
+
+    /** Cuántas de la misma familia hay: con dos «No Show» hay que decir de cuál reunión. */
+    const familia = (k: string) => k.replace(/_r\d+$/, '');
+    const porFamilia = new Map<string, number>();
+    for (const k of porDestino.keys()) porFamilia.set(familia(k), (porFamilia.get(familia(k)) ?? 0) + 1);
+
+    const nutriciones: NutricionDelFunnel[] = [...porDestino].map(([to, ts]) => {
+      const desdes = [...new Set(ts.map((t) => etiqueta(t.from)))];
+      const base = limpiarNombre(etiqueta(to));
+      // Con una sola de la familia el nombre alcanza; con dos, se dice de cuál sale — que
+      // es exactamente lo que pidió Martín («la de No show tiene obligatoriamente que venir
+      // de Agenda R1») y se mueve solo cuando él renombra la etapa.
+      const unaSola = (porFamilia.get(familia(to)) ?? 1) <= 1;
+      // ⚠️ Y EL «R1» DEL NOMBRE DE FÁBRICA SE VA cuando se dice de qué reunión sale: el
+      // label del catálogo es «Nutrición No Show R1» y pegarle la etapa daba «No Show R1 ·
+      // Agenda R1» — el mismo número dos veces, y el de la izquierda es el nuestro, no el
+      // que el cliente le puso. Queda «No Show · Agenda R1», que se mueve solo si él
+      // renombra la etapa. Con una sola reunión el nombre base ya alcanza: «No Show».
+      const sinNumero = base.replace(/\s*R\d+$/i, '').trim() || base;
+      const nombre = unaSola || desdes.length !== 1 ? base : `${sinNumero} · ${desdes[0]}`;
+      return {
+        id: `${ts[0].from}>${to}`,
+        ids: ts.map((t) => `${t.from}>${t.to}`),
+        nombre,
+        desdeLabel: desdes.length > 1 ? `${desdes.slice(0, -1).join(', ')} y ${desdes.at(-1)}` : (desdes[0] ?? ''),
+        porque: porqueSeDispara(ts[0].trigger ?? 'tiempo', cfg.stages.find((st) => st.key === ts[0].from)?.kind),
+        // Apagada sólo si TODOS sus ids lo están: con uno encendido la nutrición corre.
+        activa: ts.some((t) => !sup.has(`${t.from}>${t.to}`)),
+      };
+    });
 
 
     return {
       ok: true,
       embudo: {
         id: funnelId ?? null,
-        nombre: cfg.nombre || 'Tu embudo',
+        // ⚠️ EL NOMBRE ES EL DEL PRODUCTO, que es lo que el tipo de acá arriba declara y
+        // lo que el desplegable ya mostraba. Devolver `cfg.nombre` pelado ponía «Funnel
+        // principal» en el título del pop-up mientras el selector decía «Negocio que
+        // Escala» — y como el título es un input, renombrar arrancaba desde el valor
+        // equivocado. Se pide sólo por ESTE id: el mapa entero es para el desplegable.
+        nombre: (cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) : null)?.trim()
+          || cfg.nombre || 'Tu embudo',
         esDefault: cfg.esDefault,
         etapas: propias,
         fijas,
@@ -2438,7 +2532,16 @@ export type OpEtapa =
    * lista. Por eso no hay «agregar nutrición»: las que puede haber las decide el
    * recorrido, y lo único que elige el negocio es cuáles NO usa.
    */
-  | { op: 'nutricion'; id: string; activa: boolean }
+  | { op: 'nutricion'; id: string; activa: boolean;
+      /**
+       * Los OTROS ids de la misma nutrición, si sale de más de una etapa.
+       *
+       * ⚠️ «Reactivación» sale de «No responde» Y de «Perdido»: son dos transiciones con
+       * dos ids, y la pantalla las dibuja como UNA fila (que es lo que son). Apagar sólo
+       * uno dejaba la nutrición corriendo desde el otro lado, con la casilla desmarcada —
+       * o sea, un interruptor que dice que está apagado sobre algo que sigue mandando.
+       */
+      tambien?: string[] }
   /**
    * Subir o bajar una etapa un lugar. `delta` es -1 (antes) o 1 (después).
    *
@@ -2542,7 +2645,10 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       );
       if (!posibles.has(op.id)) return { ok: false, error: 'Esa nutrición no es de este embudo.' };
       const sup = new Set(actual.suppressed);
-      if (op.activa) sup.delete(op.id); else sup.add(op.id);
+      // Todos los ids de la MISMA nutrición se escriben juntos: con uno solo, apagarla la
+      // deja corriendo desde la otra etapa de la que sale.
+      const ids = [...new Set([op.id, ...(op.tambien ?? [])])].filter((k) => posibles.has(k));
+      for (const k of ids) { if (op.activa) sup.delete(k); else sup.add(k); }
       // ⚠️ Se guarda con el pipeline INTACTO: esta operación sólo toca `suppressed`.
       const conGanadoNut = conTerminales(actual.pipeline);
       if (funnelId != null) await saveFunnelDe(funnelId, conGanadoNut, [...sup], { labels });

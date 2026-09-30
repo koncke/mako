@@ -62,14 +62,50 @@ function renderOption(
     color: o.crear || o.sutil ? 'var(--faint)' : 'var(--ink)',
     fontFamily: SANS, fontSize: o.sutil ? 12.5 : 13.5,
     opacity: o.disabled ? 0.45 : o.sutil ? 0.7 : o.crear ? 0.8 : 1,
-    // La línea la separa de las opciones de verdad sin gastar un título. El SUTIL no la
-    // lleva: ya viene detrás del de crear, y dos filetes seguidos parten el menú en tres.
-    ...(o.crear ? { borderTop: '1px solid var(--border)', borderRadius: 0, marginTop: 4, paddingTop: 11 } : null),
-    ...(o.sutil ? { padding: '5px 11px 3px' } : null),
+    // ⚠️ EL FILETE VA DEBAJO DE «Nuevo producto», no encima: «que la linea divisoria esté
+    // debajo de "Nuevo producto" y que el "Productos eliminados" esté centrado» (Martín,
+    // 30/09/2026). Crear uno nuevo es la última acción de la LISTA de productos, así que
+    // va pegada a ella; lo eliminado es otra cosa, y el filete es lo que las separa.
+    // Sólo hay UN call site de `crear` (app/crm/CrmToolbar.tsx), así que mover la línea no
+    // le toca el menú a ninguna otra pantalla. Y sin renglón sutil no hay filete: ahí
+    // «Nuevo producto» cierra la lista y no hay nada de lo que separarse.
+    ...(o.crear ? { borderRadius: 0, marginTop: 4 } : null),
+    // El centrado va por `textAlign` y NO por `justifyContent`: el rótulo vive en un span
+    // con `flex: 1`, o sea que ocupa el renglón entero y el eje principal ya no mueve nada.
+    ...(o.sutil ? { borderTop: '1px solid var(--border)', borderRadius: 0, textAlign: 'center', marginTop: 4, padding: '8px 11px 3px' } : null),
     transition: 'color .12s, opacity .12s',
   };
   const elegir = () => { if (!o.disabled) { onChange(o.value); close(); } };
 
+  // ⚠️ SÓLO LAS ACCIONES: el renglón no lleva rótulo ni parte clicable propia — son DOS
+  // BOTONES en una línea. «El botón de mover no debería tener la palabra mover, solo las
+  // flechas… en realidad, deberían ser 2 botones diferentes, solo que están en la misma
+  // linea» (Martín, 30/09/2026). Se resuelve ANTES del renglón con acciones de abajo,
+  // donde el rótulo se queda con el `flex: 1`: con el texto vacío eso deja media fila que
+  // se ve clicable y no hace nada, que es peor que el rótulo que se vino a sacar.
+  //
+  // ⚠️ Y EL HOVER VA INLINE, no por el velo de `.crm-hover`: el menú se dibuja por PORTAL
+  // sobre el <body>, así que la regla del `<main>` de la ruta no lo alcanza.
+  if (o.soloAcciones && o.acciones?.length) {
+    return (
+      <div key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 4, paddingBottom: 4 }}>
+        {o.acciones.map((a) => (
+          <button key={a.title} type="button" title={a.title} aria-label={a.title}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--faint)'; }}
+            style={{
+              flex: 1, height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer',
+              color: a.tone === 'bad' ? 'var(--bad)' : 'var(--faint)', transition: 'background .12s, color .12s',
+            }}>
+            {a.icono}
+          </button>
+        ))}
+      </div>
+    );
+  }
   // Sin acciones, el renglón es EXACTAMENTE el de siempre: un solo <button>. Se
   // deja intacto a propósito — este componente lo usan decenas de pantallas y la
   // variante nueva no tiene por qué tocarles el marcado.
@@ -155,6 +191,15 @@ export type DropdownOption = { value: string; label: string; sub?: string; color
    * vuelta a lo eliminado, por ejemplo. Con `crear` se veía igual que «Nuevo producto», y
    * dos renglones con el mismo peso son dos acciones con el mismo peso.
    */
+  /**
+   * El renglón NO dibuja su rótulo: son sus `acciones` y nada más, repartidas a lo ancho.
+   *
+   * `label` queda como nombre interno (la key del renglón y lo que se lee en el código);
+   * lo que la persona ve es el `title` de cada botón. Para un par de acciones opuestas
+   * —mover a la izquierda / a la derecha— donde el rótulo no agrega nada: los dos íconos
+   * ya dicen qué hace cada uno, y la palabra de más convierte dos botones en un renglón.
+   */
+  soloAcciones?: boolean;
   sutil?: boolean };
 /** Grupo con título para menús en columnas (ver prop `columns`). */
 export type DropdownGroup = { title: string; options: DropdownOption[] };
