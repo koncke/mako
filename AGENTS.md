@@ -5540,3 +5540,95 @@ MODELO.** El generador de texto con IA tiene tres salidas y dos no pasan por el 
 (la respuesta vacía y el `catch`): con la sustitución sólo en el camino feliz, la
 variable falla exactamente cuando falla la IA, que es cuando menos se la mira.
 
+# Agotar los PASOS de un tool-use no es un fallo: el modelo ya trabajó y falta que escriba
+
+Un loop de herramientas que llega a su `maxSteps` tiene todo el trabajo hecho y guardado
+en el hilo (las `tool_calls` y sus resultados). Lo único que falta es la redacción, que es
+justo lo que no pudo hacer solo — con `tools` puesto puede volver a llamar en vez de
+contestar. Devolver un centinela ahí tira el desenlace del ÚNICO proveedor que contestó.
+
+Medido el 30/09/2026: Gemini contestó **8 × HTTP 200 en nueve segundos** —una fila en
+`anthropic_usage` ES un 200, porque `recordUsage` corre después del `throw`—, agotó los 8
+pasos sin redactar, el doer lo descartó con un `continue` **mudo**, y el veredicto terminó
+juzgando con los errores de los proveedores que no importaban: el dueño leyó «se acabaron
+tus 4 cuentas de IA» con el día al 21% de su cuota.
+
+- **Un pedido más SIN herramientas lo cierra** (`cerrarSinTools` en lib/ai-cheap.ts). Va
+  sin `tools` y **no** con `tool_choice: 'none'`: ese valor lo aceptan OpenAI y Groq y no
+  está garantizado en la capa compatible de Gemini. Y envuelto: si el cierre falla, vuelve
+  el centinela y decide el caller.
+- ⚠️ **Y NINGUNA SALIDA DE UN LOOP DE PROVEEDORES PUEDE SER MUDA.** La regla «todos los
+  errores, no sólo el último» ya estaba escrita y no cubría los `continue`: un `continue`
+  que descarta el resultado de quien SÍ contestó es evidencia que se tira antes de juzgar.
+  Cada salida escribe su motivo en la lista con la que se decide.
+
+# Si el `[]` de una función significa DOS cosas, el caller tiene que preguntar CUÁL
+
+Una lista vacía es una respuesta perfectamente válida, así que un caller que lee una sola
+de las dos lecturas no falla: contesta de menos, en silencio y para siempre.
+
+Medido el 30/09/2026: `clavesCargadas` devuelve `[]` por «este workspace no tiene ninguna»
+y por «este proveedor no admite varias cuentas» —el caso de OpenAI, que cobra por token, y
+su propio módulo lo dice en el comentario: *«los dos casos dan [] y se distinguen
+preguntando primero por el catálogo»*—. `provsDe` no preguntaba, así que **OpenAI no
+existía en NINGUNA cascada del producto desde el 13/08/2026** (commit `85a020b8`): es el
+último escalón de `CASCADA_GRATIS`, `CASCADA_DOCS` y `CASCADA_STT`, o sea el respaldo que
+existe justo para cuando los gratis se caen, y no corrió ni una vez en seis semanas. Y
+como `cheapDisponible()` y `sttDisponible()` iteran eso, a un workspace cuya ÚNICA key sea
+de OpenAI el producto le contesta «no tenés IA» teniéndola cargada.
+
+- **La decisión se muda a un módulo PURO para que tenga test** (`clavesAProbar` en
+  lib/ia-keys.ts). Adentro de un `server-only` ningún test la puede importar, y termina
+  siendo lo único sin red justo donde más duele.
+- **El olor: una función cuyo comentario explica los dos significados de su vacío.** Si el
+  módulo tuvo que aclararlo, hay un caller que no lo leyó.
+
+# Un texto de error de un tercero FABRICA veredictos: filtralo por ÍTEM, no por la bolsa
+
+Cuando la causa de un fallo se elige con una regex sobre los errores juntados, cualquier
+error que traiga por casualidad la palabra que se busca decide por todos.
+
+Dos casos medidos el 30/09/2026, los dos sobre el mismo mensaje al cliente:
+
+- **El 413 de Groq trae `rate-limits` en la URL de su documentación** («Request too large
+  … please reduce your message size … Visit https://console.groq.com/docs/rate-limits»),
+  así que la regex de cuota lo contaba como cuota agotada. Dos daños: le echa la culpa a
+  las cuentas del cliente por algo NUESTRO (le mandamos un prompt que no entra en el tope
+  de entrada) y le dice «reintentá en un rato» sobre lo único que NO se destraba con el
+  tiempo. Es una causa aparte, sin link y sin «reintentá».
+- **Un proveedor que rebota SIEMPRE no es un escalón de la cascada: es una línea de «rate
+  limit» garantizada en la lista con la que se decide.** Mistral devuelve 429 siempre
+  (`limit-req-minute: 0`) y las siete keys de Cerebras devuelven 402. Antes de dejar un
+  proveedor en una lista, **probá la key que YA está en la base**.
+
+El filtro **saca el error de la bolsa**, nunca descarta la bolsa: si otro proveedor rebotó
+con un 429 de verdad, ése sigue siendo el veredicto. Al revés es el mismo bug con el signo
+cambiado.
+
+⚠️ **Y UN NÚMERO QUE SALE DE CONTAR FILAS NO PUEDE AFIRMAR INTENTOS.** «Probé tus 4 cuentas
+y las 4 me rebotaron» mezclaba dos preguntas en una variable: cuántas keys tiene cargadas
+el cliente (que es la que elige la RAMA del mensaje — con dos o más, pedirle «cargá otra»
+es un insulto porque ya lo hizo) y cuántas se probaron de verdad. Cada pregunta, su campo;
+y si el dato no se tiene, no se escribe el número.
+
+# Un cartel de la PLATAFORMA no es un turno de la conversación
+
+Todo lo que se guarde como algo que el asistente DIJO se le devuelve al modelo como su
+propia biografía, y el modelo la continúa. Un «no pude por tus cuotas» guardado con
+`role: 'assistant'` le enseña una caída que nunca tuvo.
+
+Medido el 30/09/2026: después del cartel de fallo, MaKo arrancó el turno siguiente con
+**«Ya estoy de vuelta»**. No era una alucinación — era coherencia con el historial que le
+dimos. El dueño lo reportó como «es aún más raro».
+
+- **El cartel se MANDA y no se guarda.** La persona tiene que leerlo; el incidente queda
+  donde se audita (el log, las filas de uso, la marca del rebote). Diagnóstico y
+  conversación son dos trabajos y no comparten campo.
+- **Lo que escribió la PERSONA se guarda siempre**, pase lo que pase.
+- **Contá las salidas que escriben un cartel antes de marcarlas**: eran TRES y lejos entre
+  sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
+  respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
+  también la cuarta.
+- ⚠️ **El olor: el modelo dice algo sobre SÍ MISMO que nadie le contó.** Lo primero que hay
+  que mirar no es el prompt: es qué hay guardado en el historial con su nombre.
+

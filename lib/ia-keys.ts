@@ -79,6 +79,31 @@ export function clavesDe(prov: string): string[] {
   return [base, ...Array.from({ length: MAX_KEYS - 1 }, (_, i) => `${base}_${i + 2}`)];
 }
 
+/**
+ * Los nombres de clave que hay que PROBAR para un proveedor. Nunca vacío.
+ *
+ * ⚠️ ES OTRA PREGUNTA QUE `clavesDe`, Y CONFUNDIRLAS DEJÓ A OPENAI FUERA DEL PRODUCTO
+ * DURANTE SEIS SEMANAS. `clavesDe` contesta «¿cuántas CUENTAS admite?» y devuelve `[]`
+ * para los que cobran por token, a propósito: rotar entre cuentas pagas no suma cuota,
+ * suma facturas. Esto contesta «¿por qué nombre de credencial pregunto?», y para ésos la
+ * respuesta es una sola clave, no ninguna.
+ *
+ * El bug vivía en `provsDe` (lib/ai-cheap.ts), que iteraba `clavesCargadas` —derivada de
+ * `clavesDe`— y por eso devolvía SIEMPRE cero instancias de OpenAI. Es el último escalón
+ * de las tres cascadas (`CASCADA_GRATIS`, `CASCADA_DOCS`, `CASCADA_STT`), o sea el
+ * respaldo que existe justo para cuando los gratis se caen, y no corrió nunca: a un
+ * workspace cuya única key fuera de OpenAI el producto le contestaba «no tenés IA».
+ *
+ * Vive acá y no en `ai-cheap` por lo de siempre: `ai-cheap` es `server-only` y ningún
+ * test lo puede importar, así que la condición quedaba sin red justo donde más duele.
+ */
+export function clavesAProbar(prov: string): string[] {
+  const c = clavesDe(prov);
+  // `'openai'.toUpperCase()` ya es `OPENAI`, así que el caso especial que había acá
+  // producía exactamente la misma cadena. Se deja el derivado solo.
+  return c.length ? c : [`${prov.toUpperCase()}_API_KEY`];
+}
+
 /** Todas las claves extra del catálogo (las que hay que sumar a la whitelist). */
 export const CLAVES_EXTRA: string[] = PROVS_MULTIKEY.flatMap((p) => clavesDe(p).slice(1));
 

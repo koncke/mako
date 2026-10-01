@@ -32,7 +32,13 @@ export type CausaFalloIA =
   /** Su único proveedor tuvo un bache y no hay una segunda key que lo cubra. */
   | 'sin_respaldo'
   /** Falló todo teniendo con qué: es de los proveedores, no del cliente. */
-  | 'proveedor_caido';
+  | 'proveedor_caido'
+  /**
+   * El mensaje no le ENTRA al proveedor. No es cuota y no es del cliente: es
+   * nuestro tope de entrada, y es la única de las cinco donde «reintenta» es
+   * mentira — el mismo texto va a volver a rebotar.
+   */
+  | 'mensaje_muy_largo';
 
 /** Un error que dice «esa key no existe». Lo tira `proveedor()` en ai-cheap. */
 const SIN_KEY = /sin proveedor de ia barata|falta [A-Z_]*API_KEY|_API_KEY\)/i;
@@ -47,6 +53,26 @@ const SIN_KEY = /sin proveedor de ia barata|falta [A-Z_]*API_KEY|_API_KEY\)/i;
 const SIN_CUOTA = /\b429\b|quota|rate.?limit|resource[_ ]?exhausted|exceeded|insufficient|billing/i;
 
 /**
+ * ⚠️ EL 413 DE GROQ SE LEÍA COMO CUOTA AGOTADA, Y MANDABA AL CLIENTE A CARGAR UNA KEY.
+ *
+ * «Request too large … on tokens per minute (TPM): Limit 6000, Requested 15000, please
+ * reduce your message size and try again. Visit https://console.groq.com/docs/rate-limits»
+ * — ese texto trae `rate-limits` en la URL de la documentación, así que `SIN_CUOTA` matchea
+ * y la causa salía `sin_cuota`. Dos daños: le echa la culpa a las cuentas del cliente por
+ * algo NUESTRO (le mandamos un prompt que no entra en el tope de entrada de ese
+ * proveedor), y le dice «reintenta en un rato» sobre lo único que no se destraba con el
+ * tiempo. Es la misma trampa que Mistral: un texto de error que FABRICA el veredicto.
+ *
+ * Se mira ANTES que la de cuota y se SACA de la lista, no se descarta la lista entera: si
+ * otro proveedor rebotó con un 429 de verdad, ése sigue siendo el veredicto.
+ */
+const ES_TOPE_DE_TAMANO = /\b413\b|request too large|too large for model|reduce your message size|request_too_large|context length|maximum context|too many tokens/i;
+
+/** true si ESE error es «no me entra», no «no me queda cuota». Exportada para que el
+ *  call site pueda contar cuántas cuentas rebotaron de verdad por límite. */
+export const esTopeDeTamano = (error: string): boolean => ES_TOPE_DE_TAMANO.test(error);
+
+/**
  * De QUIÉN fue el problema.
  *
  * `keysDelCliente` es cuántas API keys de IA tiene cargadas ESTE workspace. Es el
@@ -54,9 +80,15 @@ const SIN_CUOTA = /\b429\b|quota|rate.?limit|resource[_ ]?exhausted|exceeded|ins
  * respaldo»: el hecho técnico es el mismo y lo que el cliente puede hacer no.
  */
 export function causaDelFallo(errores: string[], keysDelCliente: number): CausaFalloIA {
-  const txt = errores.join(' · ');
+  // Los «no me entra» salen de la bolsa antes de preguntar por la cuota (ver
+  // ES_TOPE_DE_TAMANO). Si queda alguno adentro, ese decide; si NO queda ninguno, o
+  // sea que el único motivo fue el tamaño, la causa es nuestra y se dice.
+  const porTamano = errores.filter(esTopeDeTamano);
+  const resto = errores.filter((e) => !esTopeDeTamano(e));
+  const txt = resto.join(' · ');
   if (keysDelCliente === 0) return 'sin_keys';
   if (SIN_CUOTA.test(txt)) return 'sin_cuota';
+  if (porTamano.length && !resto.length) return 'mensaje_muy_largo';
   // Con una sola key no hay cascada: cualquier bache de ese proveedor lo deja sin
   // MaKo. Es el caso del ws13 el 25/8 y la razón de que esto exista.
   if (keysDelCliente <= 1) return 'sin_respaldo';
@@ -106,9 +138,17 @@ export function textoFalloIA(
       // ⚠️ Y NO SE ARREGLA CONSULTANDO NUESTRO CONTADOR para decir «entonces no es cuota»:
       // las keys son del CLIENTE y puede gastarlas fuera de MaKo, así que nuestro contador
       // en cero no prueba que le quede cuota. Lo que se arregla es dejar de afirmar.
+      // ⚠️ Y NO SE AFIRMA CUÁNTAS SE PROBARON. Decía «Probé tus 4 cuentas y las 4 me
+      // rebotaron» con un número que sale de CONTAR FILAS en `credenciales`
+      // (`contarKeysIA`), no intentos: el 30/09/2026 el dueño lo leyó y preguntó «¿se
+      // acabó de 4 cuentas con un par de mensajes?». Y tenía razón en dudar — en ese
+      // turno la cascada del doer sólo llega a dos de esos cinco proveedores, y el
+      // proveedor que contestó devolvió OCHO veces HTTP 200. `keysDelCliente` sigue
+      // eligiendo la RAMA (con dos o más, pedirle «cargá otra» es un insulto) y ya no
+      // sale escrito: son dos preguntas distintas y una sola no las puede contestar.
       if (keysDelCliente >= 2) {
         return [
-          `⚠️ Probé tus ${keysDelCliente} cuentas de IA y las ${keysDelCliente} me rebotaron por límite, por eso no puedo ${que}.`,
+          `⚠️ No puedo ${que}: la IA que tengo conectada me está rebotando por límite.`,
           '',
           'Puede ser el límite por minuto o el del día. Si es el del minuto se destraba solo: vuelve a intentarlo en un rato. Si sigue igual, una cuenta más lo resuelve 👇',
           link,
@@ -135,6 +175,15 @@ export function textoFalloIA(
         `No pude ${que}: los proveedores de IA están con problemas en este momento.`,
         '',
         'No es nada tuyo, tus keys están bien. Reintenta en un par de minutos.',
+      ].join('\n');
+    case 'mensaje_muy_largo':
+      // ⚠️ ACÁ NO VA EL LINK NI VA «REINTENTA»: cargar otra key no cambia el tope de
+      // entrada, y el mismo mensaje va a rebotar igual. Lo único que destraba esto lo
+      // puede hacer la persona, así que es lo único que se dice.
+      return [
+        `No pude ${que}: lo que me mandaste es más largo de lo que acepta la IA que tenía libre.`,
+        '',
+        'Mándamelo en partes y lo hago igual. No es nada tuyo: tus keys están bien.',
       ].join('\n');
   }
 }

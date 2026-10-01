@@ -37,6 +37,40 @@ export const PARTES: Parte[] = [
 ];
 
 export const BITACORA: Hito[] = [
+  {
+    fecha: '30 sep', hora: '20:48', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La cuota que no se había acabado, y el «Ya estoy de vuelta»',
+    pedido: 'Revisa esto, como es posible que se acabe tan rapido la cuota... Eso no puede ser así, realmente se acabó de 4 cuentas un par de mensajes? / Revisa que es aún mas raro, ahora dijo "Ya estoy de vuelta"',
+    puntos: [
+      'Llegó con la captura del WhatsApp: «⚠️ Probé tus 4 cuentas de IA y las 4 me rebotaron por límite». Dudó del número, y el número era el síntoma más chico de los cuatro.',
+      'El segundo mensaje es el que destrabó el diagnóstico: un asistente que anuncia que volvió de una caída está leyendo esa caída en su propio historial.',
+    ],
+  },
+  {
+    fecha: '30 sep', hora: '23:10', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'No era la cuota: eran los PASOS, el respaldo que no existía y un 413 disfrazado',
+    puntos: [
+      'Medido para ese turno: Gemini contestó OCHO veces HTTP 200 en nueve segundos y el día iba 54 de 250 llamadas. La cuota estaba al 21%.',
+      'La causa real: el modelo agotó maxSteps llamando herramientas y nunca redactó. Ahora un pedido más SIN herramientas cierra el turno con el trabajo que ya está en el hilo — es el request más barato y es lo único que el modelo no podía hacer solo.',
+      'Y el veredicto juzgaba con los restos: las tres salidas MUDAS del loop (centinela, descarte por validación, red de plataforma) ahora escriben su motivo. Un continue que tira el resultado del único que contestó es evidencia que se descarta antes de juzgar.',
+      'OpenAI no existía en NINGUNA cascada desde el 13/08 (85a020b8): provsDe leía clavesCargadas, que devuelve [] también para los proveedores de UNA sola cuenta. Es el último escalón de las tres cascadas y no corrió en seis semanas; a un ws con sólo esa key el producto le decía «no tenés IA».',
+      'El 413 de Groq se clasificaba como cuota agotada porque su mensaje trae «rate-limits» en la URL de la documentación. Es una causa aparte, sin link y sin «reintentá»: cargar otra key no cambia el tope de entrada.',
+      'Mistral y Cerebras salieron de la cascada del doer: rebotan SIEMPRE (429 con limit-req-minute 0 y 402 en las siete keys), así que le fabricaban el veredicto de cuota a cualquier falla.',
+      'El 429 del doer ahora se anota: anotarRebote429 tenía UN call site, en la cascada que el doer no usa — 4.497 filas en la tabla y cero con la marca, así que el diagnóstico hubo que hacerlo pegándole a la API de Google a mano.',
+      'Y el cartel de fallo dejó de guardarse como turno de MaKo, que es de dónde salía el «Ya estoy de vuelta».',
+      '12 guards nuevos, los 10 probados rompiéndolos uno por uno (el detalle con los números, en los comentarios de cada test).',
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — provsDe pregunta por el catálogo · cerrarSinTools',
+      'lib/ia-keys.ts — clavesAProbar, la decisión en un módulo con test',
+      'lib/fallo-ia-texto.ts — el 413 es su propia causa · el mensaje no cuenta cuentas',
+      'lib/mako-doer-in.ts — las tres salidas mudas · avisoDeSistema · el rebote anotado',
+      'tests/ia-cascada-respaldo.test.ts · tests/doer-aviso-no-es-turno.test.ts',
+      'docs/hallazgos-ia.md · docs/hallazgos-comunicacion.md · AGENTS.md',
+    ],
+  },
   // ── agosto: el medidor se vuelve un instrumento ────────────────────────────
   {
     fecha: '9 ago', hora: '00:24', chat: 'Cobros y planes · análisis de costos', cuenta: 'claude2',

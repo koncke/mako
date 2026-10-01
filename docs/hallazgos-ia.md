@@ -3053,3 +3053,97 @@ saberlo antes de empezar: es la misma familia que «un total sólo se puede suma
 se puede mover de lugar», con la cuota medida en segundos de audio.
 
 **Vive en:** lib/transcribe.ts (`STT_CASCADA`, `sttGemini`) · *2026-09-20 ~accionables-mako-20sep*
+
+---
+
+## «Se acabó la cuota de tus 4 cuentas» era el diagnóstico de TRES bugs apilados, y la cuota estaba al 21%
+
+**Vive en:** `lib/ai-cheap.ts` (`provsDe`, `chatCheapTools`) · `lib/fallo-ia-texto.ts` ·
+`lib/mako-doer-in.ts`
+
+El dueño, el 30/09/2026, sobre un WhatsApp de MaKo que decía «⚠️ Probé tus 4 cuentas de
+IA y las 4 me rebotaron por límite»: *«¿realmente se acabó de 4 cuentas con un par de
+mensajes?»*. No se había acabado nada. Medido en `anthropic_usage` para ese turno:
+**Gemini contestó 8 × HTTP 200 en nueve segundos** —una fila en esa tabla **ES** un 200,
+porque `recordUsage` corre después del `throw`— y el día iba 54 de 250 llamadas, el 21%.
+
+Cuatro causas distintas, y ninguna era la cuota:
+
+| | qué pasó |
+|---|---|
+| **1. Se quedó sin PASOS, no sin cuota** | el modelo agotó `maxSteps: 8` llamando herramientas y nunca redactó. `chatCheapTools` devolvía `'(se alcanzó el máximo de pasos)'` y el doer lo tiraba con un `continue` **sin escribir una línea en `erroresIA`** |
+| **2. El veredicto juzgó con los restos** | `causaDelFallo` recibía una lista donde sólo quedaban los errores de los proveedores que no importaban — y **Mistral devuelve 429 SIEMPRE** (`limit-req-minute: 0`, medido con la key del cliente), así que la regex de cuota matcheaba garantizado |
+| **3. El respaldo no existía** | `provsDe` devolvía **cero** instancias de OpenAI desde el 13/08. Es el último escalón de las tres cascadas |
+| **4. El «4» no eran intentos** | `contarKeysIA` cuenta FILAS en `credenciales` de cinco proveedores; la cascada del doer llega a dos |
+
+⚠️ **AGOTAR LOS PASOS NO ES UN FALLO: el modelo YA TRABAJÓ y lo único que falta es que
+ESCRIBA.** Todo el trabajo está en `msgs` (las `tool_calls` y sus resultados), así que un
+pedido más **sin herramientas** lo cierra: es el request más barato del turno y es lo
+único que el modelo no podía hacer solo — con `tools` puesto puede volver a llamar en vez
+de redactar. Va sin `tools` y **no** con `tool_choice: 'none'`: ese valor lo aceptan
+OpenAI y Groq y no está garantizado en la capa compatible de Gemini, que es justo el
+proveedor del caso. Y envuelto: si el cierre falla, vuelve el centinela y decide el caller
+(`cerrarSinTools`).
+
+⚠️ **`clavesCargadas` DEVUELVE `[]` POR DOS RAZONES Y `provsDe` LEÍA UNA SOLA.** Una es
+«este workspace no tiene ninguna cargada»; la otra es «este proveedor no admite varias
+cuentas», que es OpenAI —cobra por token, así que una segunda cuenta no suma cuota, suma
+factura— y su nombre de clave lo da el fallback `${NOMBRE}_API_KEY`. El propio
+`ia-keys-ws.ts` lo dice en su comentario: *«los dos casos dan [] y se distinguen
+preguntando primero por el catálogo»*. Ese loop no preguntaba, desde el commit `85a020b8`
+(13/08/2026, cuando pasó de `clavesProv` a `clavesCargadas`).
+
+El alcance es todo el producto, no el doer: **OpenAI es el último escalón de
+`CASCADA_GRATIS`, `CASCADA_DOCS` y `CASCADA_STT`** —el respaldo que existe justo para
+cuando los gratis se caen— y no corrió ni una vez en seis semanas. Y como
+`cheapDisponible()` y `sttDisponible()` iteran eso, a un workspace cuya **única** key sea
+de OpenAI el producto le contesta «no tenés IA» teniéndola cargada. No da error, no deja
+log: una lista vacía es una respuesta válida. La decisión se mudó a `clavesAProbar`
+(`lib/ia-keys.ts`, sin `server-only`) para que tenga test — en `ai-cheap` ningún test la
+podía importar.
+
+⚠️ **EL 413 DE GROQ SE LEÍA COMO CUOTA AGOTADA.** Su mensaje es *«Request too large … on
+tokens per minute (TPM): Limit 8000, Requested 12437, please reduce your message size …
+Visit https://console.groq.com/docs/rate-limits»*, y **la URL de la documentación trae
+`rate-limits`**: la regex de cuota matchea sobre un error que no tiene nada que ver con la
+cuota. Dos daños: le echa la culpa a las cuentas del cliente por algo NUESTRO (le mandamos
+un prompt que no entra en el tope de entrada de ese proveedor) y le dice «reintentá en un
+rato» sobre lo único que no se destraba con el tiempo. Es una causa aparte
+(`mensaje_muy_largo`), **sin link y sin «reintentá»**: cargar otra key no cambia el tope.
+
+Y se **SACA de la lista**, no se descarta la lista entera: si otro proveedor rebotó con un
+429 de verdad, ése sigue siendo el veredicto. Al revés es el mismo bug con el signo
+cambiado.
+
+⚠️ **UN PROVEEDOR QUE REBOTA SIEMPRE NO ES UN ESCALÓN DE LA CASCADA: ES UN VEREDICTO
+FABRICADO.** Mistral (429 siempre) y Cerebras (402 en sus siete keys, medido el 12/08)
+sólo agregaban una línea de «rate limit» garantizada a la lista con la que se decide. La
+regla ya estaba escrita para Cerebras y seguía en la cascada del doer como string muerto.
+**Antes de dejar un proveedor en una lista, probá la key que YA está en la base.**
+
+⚠️ **Y EL 429 DEL DOER NO SE ANOTABA EN NINGÚN LADO.** `anotarRebote429` tenía **un solo
+call site**, en `chatCheapCascade` — la cascada SIN herramientas, que el doer no usa.
+Medido: **4.497 filas en `anthropic_usage` y CERO con la marca de rebote**, así que para
+contestar «¿qué pasó a las 20:30?» hubo que salir a pegarle a la API de Google a mano. Y
+esa marca es la que después usa `ordenarPorCuota` para no volver a arrancar por la cuenta
+muerta: sin ella, cada llamada paga el peaje del 429. Es «cerrar cuatro deja la quinta»,
+otra vez.
+
+⚠️ **Y UN NÚMERO QUE SALE DE CONTAR FILAS NO PUEDE AFIRMAR INTENTOS.** «Probé tus 4
+cuentas y las 4 me rebotaron» mezclaba dos preguntas en una variable: cuántas keys tiene
+el cliente (que es la que elige la RAMA del mensaje — con dos o más, pedirle «cargá otra»
+es un insulto porque ya lo hizo) y cuántas se probaron. El número dejó de salir escrito.
+
+**Lo que quedó SIN hacer:**
+
+- **`maxSteps: 8` sigue en 8** (`lib/mako-doer-in.ts`). El cierre sin herramientas lo
+  vuelve inocuo en el caso medido, pero nadie midió cuántos turnos lo agotan ni por qué —
+  la feature `*-cierre` de `recordUsage` existe para poder contarlo.
+- **`contarKeysIA` sigue contando filas** y sigue decidiendo `sin_respaldo` vs
+  `proveedor_caido`. Para eso es correcto; si algún día hace falta «cuántas probé», el
+  dato está en `erroresIA` y hay que pasarlo.
+- **OpenAI volvió a ser alcanzable y COBRA** (gpt-4o-mini). Es lo que estaba diseñado y es
+  centavos, pero ahora corre de verdad: si no se lo quiere en el doer, se saca de `cands`
+  en una línea.
+
+*2026-09-30*

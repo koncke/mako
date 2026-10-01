@@ -6819,3 +6819,46 @@ workspace exento del onboarding global — y esa excusa ya se pagó una vez con 
 del avatar de un cliente.
 
 *2026-09-30*
+
+---
+
+## «Ya estoy de vuelta»: un cartel de fallo guardado como turno se vuelve la biografía de MaKo
+
+**Vive en:** `lib/mako-doer-in.ts` (el `guardarTurno` del final) · `lib/mako-doer-conv.ts`
+
+El dueño, el 30/09/2026, en el mensaje siguiente al del fallo de IA: *«revisa que es aún
+más raro, ahora dijo "Ya estoy de vuelta"»*.
+
+Nadie escribió esa frase y el modelo no estaba inventando: estaba siendo **coherente**. El
+cartel del turno anterior («⚠️ Probé tus 4 cuentas de IA y las 4 me rebotaron por
+límite…») se había guardado en `mako_doer_conv` con `role: 'assistant'`, o sea como algo
+que **MaKo dijo**. Así que en el turno siguiente leyó en su propio historial que se había
+caído, y la continuación natural de una ausencia propia es anunciar que volvió. **Le
+enseñamos una caída que nunca tuvo y después se la hicimos narrar.**
+
+**La regla: un cartel de «no pude» es un aviso de la PLATAFORMA sobre su propia capacidad.
+Se manda —la persona tiene que leerlo— y NO entra al historial.** El incidente queda donde
+se audita: el `console.error` del camino, las filas de `anthropic_usage` y la marca de
+`anotarRebote429`. Es la regla de la casa aplicada a la memoria: diagnóstico y conversación
+son dos trabajos y no comparten campo.
+
+- **El camino del AUDIO ya lo hacía bien** —manda el aviso y cierra con un `return` sin
+  guardar turno— y el del texto era el único que lo guardaba. Cuando dos caminos del mismo
+  archivo tratan distinto al mismo hecho, el que está mal es casi siempre el que nadie
+  comparó.
+- **Lo que escribió la PERSONA se guarda siempre**, pase lo que pase: sin eso el turno
+  siguiente arranca de cero.
+- **Son TRES salidas que escriben un cartel** y están lejos entre sí: el `catch` del
+  modelo, la guarda de «ningún proveedor dejó respuesta» y el bloqueo por respuesta
+  inválida. Las tres marcan `avisoDeSistema`, y el guard busca cualquier línea que use
+  `avisoNoPude` / `AVISO_NO_PUDE` / `textoFalloIA` — así caza también la CUARTA, el día que
+  alguien escriba otro cartel.
+- **Lo que se pierde, y es menos de lo que parece:** MaKo deja de «recordar» que falló, así
+  que al mensaje siguiente simplemente vuelve a intentar — que es el comportamiento
+  correcto. Si vuelve a fallar, el cartel vuelve a salir, y eso no es una ficción.
+
+⚠️ **Y el olor para reconocer esta familia: el modelo dice algo sobre SÍ MISMO que nadie le
+contó.** No es una alucinación — es un dato que le dimos. Lo primero que hay que mirar no
+es el prompt: es qué hay guardado en el historial con su nombre.
+
+*2026-09-30*

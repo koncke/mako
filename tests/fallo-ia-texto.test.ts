@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { causaDelFallo, textoFalloIA, linkKeysIA } from '../lib/fallo-ia-texto';
+import { causaDelFallo, textoFalloIA, linkKeysIA, esTopeDeTamano } from '../lib/fallo-ia-texto';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 const LINK = linkKeysIA('https://hola-mako.com');
@@ -137,4 +137,73 @@ test('⚠️ el doer prueba TODAS las cuentas del cliente, no sólo la primera',
   // distinguirlas: es lo que hizo visible este bug.
   assert.match(doer, /motivo: `\$\{rotulo\(inst\)\}/,
     'el motivo tiene que llevar el rótulo de la cuenta');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El 413: «no me entra» no es «no te queda cuota»
+// ─────────────────────────────────────────────────────────────────────────────
+// PROBADOS ROMPIÉNDOLOS (con todo puesto: 14 pasan, 0 fallan):
+//   · el 413 vuelve a entrar a la bolsa de la cuota        -> 12 / 2
+//   · el mensaje vuelve a contar las cuentas del cliente   -> 13 / 1
+
+/** El 413 de Groq, textual (la URL de su documentación incluida: es la trampa). */
+const G413 = 'chatCheapTools(groq): Request too large for model `openai/gpt-oss-20b` in '
+  + 'organization org_01 service tier `on_demand` on tokens per minute (TPM): Limit 8000, '
+  + 'Requested 12437, please reduce your message size and try again. Visit '
+  + 'https://console.groq.com/docs/rate-limits for more information.';
+
+test('⚠️ EL 413 DE GROQ NO ES CUOTA AGOTADA, y la regex vieja decía que sí', () => {
+  // La trampa está en la URL: el mensaje trae `rate-limits` en el link a la
+  // documentación, así que la regex de cuota matchea sobre un error que no tiene nada
+  // que ver con la cuota. Esto es la PRUEBA de que la exclusión hace falta — si algún
+  // día la regex de cuota deja de matchear acá, este assert lo cuenta.
+  assert.match(G413, /rate.?limit/i, 'la regex de cuota ya no matchearía: revisar el filtro');
+  assert.ok(esTopeDeTamano(G413), 'dejó de reconocerse como un tope de tamaño');
+  // Y el veredicto: NUESTRO tope de entrada, no la cuota del cliente.
+  assert.equal(causaDelFallo([G413], 4), 'mensaje_muy_largo');
+  assert.equal(causaDelFallo([G413], 1), 'mensaje_muy_largo');
+});
+
+test('⚠️ Pero un 429 DE VERDAD al lado sigue ganando: se saca el 413, no la lista', () => {
+  // El filtro saca de la bolsa los errores de tamaño y juzga con lo que queda. Si se
+  // descartara la lista entera, un 429 real quedaría tapado por un 413 de otro
+  // proveedor — que es el mismo bug con el signo cambiado.
+  assert.equal(causaDelFallo([G413, 'chatCheapTools(gemini · cuenta 2): HTTP 429'], 4), 'sin_cuota');
+  assert.equal(causaDelFallo([G413, 'HTTP 503 high demand'], 4), 'proveedor_caido');
+  assert.equal(causaDelFallo([G413], 0), 'sin_keys', 'sin ninguna key cargada, eso manda');
+});
+
+test('⚠️ Y el texto del 413 NO lleva link ni manda a reintentar', () => {
+  // Cargar otra key no cambia el tope de entrada y el mismo texto va a rebotar igual:
+  // es la única de las cinco causas donde «reintenta en un rato» es mentira. Lo único
+  // que lo destraba lo puede hacer la persona, así que es lo único que se dice.
+  const t = textoFalloIA('mensaje_muy_largo', LINK, 'armar el borrador');
+  assert.ok(!t.includes(LINK), `manda a cargar una key que no hace falta: ${t}`);
+  assert.ok(!/reintenta|vuelve a intentar/i.test(t), `manda a repetir algo que va a fallar igual: ${t}`);
+  assert.match(t, /partes/i, 'no dice lo único que se puede hacer');
+  assert.match(t, /armar el borrador/, 'perdió qué era lo que estaba haciendo');
+  assert.match(t, /tus keys están bien/i, 'no aclara que no es del cliente');
+});
+
+test('⚠️ EL MENSAJE DE CUOTA NO AFIRMA CUÁNTAS CUENTAS PROBÓ', () => {
+  // Decía «Probé tus 4 cuentas de IA y las 4 me rebotaron por límite» con un número
+  // que sale de CONTAR FILAS en `credenciales` (`contarKeysIA` mira gemini, groq,
+  // cerebras, mistral y openrouter), no de intentos. El 30/09/2026 el dueño lo leyó y
+  // preguntó «¿realmente se acabó de 4 cuentas con un par de mensajes?» — y tenía
+  // razón en dudar: en ese turno la cascada del doer llega a DOS de esos cinco, y el
+  // que contestó devolvió OCHO veces HTTP 200.
+  //
+  // `keysDelCliente` sigue eligiendo la RAMA (con dos o más, pedirle «cargá otra» es
+  // un insulto: ya lo hizo) y deja de salir escrito. Son dos preguntas distintas.
+  for (const n of [2, 3, 4, 7]) {
+    const t = textoFalloIA('sin_cuota', LINK, 'contestar', n);
+    assert.ok(!new RegExp(`\\b${n}\\b`).test(t), `vuelve a afirmar que probó ${n} cuentas: ${t}`);
+    assert.ok(!/probé tus/i.test(t), `vuelve a contar las cuentas del cliente: ${t}`);
+    // Y no se pierde nada de lo que el mensaje ya tenía que decir.
+    assert.ok(t.includes(LINK), 'se perdió el link');
+    assert.match(t, /minuto/i, 'se perdió la salida barata: el límite por minuto se destraba solo');
+  }
+  // Con UNA sola key el texto es otro —ahí «cargá otra» es el consejo correcto— y ésa
+  // no cuenta nada, así que no se toca.
+  assert.match(textoFalloIA('sin_cuota', LINK, 'contestar', 1), /sin cuota de IA/i);
 });

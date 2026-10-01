@@ -40,13 +40,13 @@ import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/li
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
-import { provsGratisDePlataforma, provsDe, rotulo, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { puedeLeerse, formatosLegibles, porQueNoPuedo } from '@/lib/formatos-archivo';
-import { ordenarPorCuota } from '@/lib/ia-cuotas';
+import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
@@ -1001,6 +1001,27 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // (el acuse instantáneo ya salió arriba; el router ya corrió arriba para el contexto)
     const recorte = texto.slice(0, 80);
     let respuesta = '';
+    /**
+     * ⚠️ «YA ESTOY DE VUELTA»: EL CARTEL DE FALLO NO ES UN TURNO DE LA CONVERSACIÓN.
+     *
+     * Lo reportó el dueño el 30/09/2026, en el mensaje siguiente al del fallo: MaKo
+     * arrancó con «Ya estoy de vuelta». Nadie escribió esa frase y el modelo no estaba
+     * mintiendo — estaba siendo COHERENTE con el historial que le dimos. El turno
+     * anterior figuraba como algo que MaKo había dicho («⚠️ Probé tus 4 cuentas de IA y
+     * las 4 me rebotaron por límite…»), así que la continuación natural de una ausencia
+     * que él mismo había anunciado es anunciar que volvió. Le enseñamos una caída que
+     * nunca tuvo y después se la hicimos narrar.
+     *
+     * Un cartel de «no pude» es un aviso de la PLATAFORMA sobre su propia capacidad: se
+     * manda —la persona tiene que leerlo— y no entra al historial. El incidente queda
+     * registrado donde se audita (el `console.error` de acá, las filas de
+     * `anthropic_usage` y la marca de `anotarRebote429`), que es la regla de la casa:
+     * diagnóstico y conversación son dos trabajos y no comparten campo.
+     *
+     * El camino del AUDIO ya lo hacía bien —manda el aviso y vuelve sin guardar turno—;
+     * el del texto era el único que lo guardaba.
+     */
+    let avisoDeSistema = false;
 
     if (ruta.tier === 'cheap' && !mediaBlocks) {
       // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
@@ -1073,7 +1094,33 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // `esCargaDePlan` sigue mandando aparte: mira el TEXTO y cuando dice que
             // sí, no es una adivinanza.
             const forzarTool = (CONTRATO[intencion.intencion].forzarTool && !intencion.dudosa) || esCargaDePlan(texto);
-            const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            /**
+             * ⚠️ MISTRAL NO ESTÁ ACÁ, Y NO ES POR GUSTO: SU LÍMITE POR MINUTO ES CERO.
+             *
+             * Medido el 30/09/2026 pegándole a la API con la key del cliente: devuelve 429
+             * SIEMPRE, con `limit-req-minute: 0`, y no contesta desde el 29/08. Un
+             * proveedor que rebota siempre con un 429 no es un escalón de la cascada: es
+             * una línea de «rate limit» GARANTIZADA en la lista de errores, y `causaDelFallo`
+             * decide con una regex sobre ese texto. O sea que Mistral le fabricaba el
+             * veredicto `sin_cuota` a cualquier falla, fuera o no de cuota.
+             *
+             * Es la misma jugada que ya se hizo con Cerebras, y la misma regla: antes de
+             * dejar un proveedor en la lista, probá la key que YA está en la base.
+             */
+            /**
+             * ⚠️ CEREBRAS TAMPOCO ESTÁ, Y ES EL MISMO MOTIVO QUE MISTRAL: rebota siempre.
+             *
+             * Medido el 12/08/2026 contra las SIETE keys cargadas en cinco workspaces:
+             * las siete devuelven HTTP 402 «Payment required», en los tres modelos de su
+             * catálogo. Por eso ya había salido de `PROVS_MULTIKEY` (lib/ia-keys.ts) —o
+             * sea que acá era un string muerto— y por eso no vuelve ahora que `provsDe`
+             * sí resuelve a los proveedores de una sola key.
+             *
+             * OpenAI sí queda: es el último escalón, cobra centavos (gpt-4o-mini) y es
+             * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
+             * desde el 13/08 por el bug de `provsDe`.
+             */
+            const cands = [pin.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -1113,7 +1160,28 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             for (const { prov, inst } of instancias) {
               try {
                 const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
-                if (!r.text || r.text.startsWith('(')) continue; // centinelas internos
+                /**
+                 * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
+                 *
+                 * Medido el 30/09/2026 en el grupo del dueño: Gemini contestó OCHO veces
+                 * HTTP 200 en nueve segundos —una fila en `anthropic_usage` ES un 200,
+                 * porque `recordUsage` corre después del `throw`— y el modelo agotó los
+                 * `maxSteps: 8` sin producir un texto final. Este `continue` descartaba ese
+                 * desenlace sin escribir una línea en `erroresIA`, así que río abajo
+                 * `causaDelFallo` recibía una lista donde SÓLO quedaban los errores de los
+                 * proveedores que ni siquiera importaban —y Mistral devuelve 429 siempre—,
+                 * y contestó `sin_cuota`. O sea: MaKo se quedó sin PASOS y le echó la culpa
+                 * a las cuentas del cliente, con el proveedor contestando perfecto.
+                 *
+                 * La regla de la casa estaba escrita a tres líneas de acá («TODOS los
+                 * errores, no solo el último») y no cubría las salidas SIN excepción. Un
+                 * `continue` que descarta el resultado del único proveedor que contestó es
+                 * exactamente eso: evidencia que se tira antes de juzgar.
+                 */
+                if (!r.text || r.text.startsWith('(')) {
+                  erroresIA.push(`${rotulo(inst)}: contestó pero sin texto final (pasos=${r.steps ?? '?'}, fin=${r.stopReason ?? '?'})`);
+                  continue; // centinelas internos
+                }
                 // ⚠️ Acá el único filtro era «que no empiece con paréntesis», y por eso el
                 // 9/8 salió el borrador entero por WhatsApp: el modelo redactó el payload
                 // en vez de llamar la tool y el código lo aceptó. Ver lib/respuesta-doer.ts.
@@ -1154,12 +1222,32 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 }
 
                 if (!vv.ok && vv.razon !== 'sin-borrador' && !linkBorrador) {
+                  // Mismo caso que arriba: el proveedor CONTESTÓ y lo rechazamos nosotros.
+                  // Sin esta línea el veredicto no puede distinguir «nadie me contestó» de
+                  // «me contestaron algo que no sirve», y las dos frases son distintas.
+                  erroresIA.push(`${rotulo(inst)}: contestó y lo descartamos (${vv.razon}${vv.detalle ? `: ${vv.detalle}` : ''})`);
                   console.error(`[mako-doer-in] ${prov}: ${vv.detalle} → probando el próximo proveedor`);
                   continue;
                 }
                 respuesta = texto2.trim();
                 break;
-              } catch (e2) { ultErr = e2; erroresIA.push(e2 instanceof Error ? e2.message : String(e2)); console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
+              } catch (e2) {
+                ultErr = e2;
+                const m2 = e2 instanceof Error ? e2.message : String(e2);
+                erroresIA.push(m2);
+                // ⚠️ Y EL 429 SE ANOTA ACÁ TAMBIÉN. `anotarRebote429` tenía UN solo call
+                // site, en `chatCheapCascade` — la cascada SIN herramientas, que el doer no
+                // usa. Medido: 4.497 filas en la tabla y CERO con la marca de rebote, así
+                // que para contestar «¿qué pasó a las 20:30?» hubo que salir a pegarle a la
+                // API de Google. Es «cerrar cuatro deja la quinta», otra vez.
+                if (/429|rate.?limit|resource.?exhausted|quota/i.test(m2)) {
+                  // La firma pide el Nº de CUENTA, no el nombre de la env var: es lo que
+                  // `ordenarPorCuota` lee después para no volver a arrancar por la muerta.
+                  const modeloPedido = (prov === pin.provider ? pin.model : undefined) ?? inst.chatModel;
+                  void anotarRebote429(prov, nroCuenta(inst), modeloPedido, m2).catch(() => {});
+                }
+                console.warn(`[mako-doer-in] ${prov} falló: ${m2}`);
+              }
             }
             // CLAUDE ES EL ÚLTIMO RECURSO, PERO ES UN RECURSO. El comentario de arriba
             // decía «NUNCA caemos a Claude» y para la charla está bien. Pero si la ruta
@@ -1219,6 +1307,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                   if (rp.text && !rp.text.startsWith('(')) {
                     const vr = validarRespuestaDoer(rp.text, { motivoRuta: ruta.motivo, linkBorrador });
                     if (vr.ok || vr.razon === 'sin-borrador' || linkBorrador) { respuesta = rp.text.trim(); break; }
+                    // El tercer agujero de mudez. Medido el mismo día: la red de plataforma
+                    // contestó DOS veces con 200 en ese turno y las dos se tiraron acá sin
+                    // dejar rastro en ningún lado.
+                    erroresIA.push(`plataforma/${r.provider}: contestó y lo descartamos (${vr.razon})`);
+                  } else {
+                    erroresIA.push(`plataforma/${r.provider}: contestó sin texto final`);
                   }
                 } catch (e4) {
                   const m4 = e4 instanceof Error ? e4.message : String(e4);
@@ -1301,6 +1395,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           respuesta = causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
+          avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys): ${errsIA.join(' · ').slice(0, 400)}`);
 
           // ⚠️ Y EL MENSAJE SE SALVA IGUAL. El aviso de arriba explica POR QUÉ falló —y
@@ -1429,6 +1524,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       respuesta = linkBorrador
         ? `No te lo pude ordenar con IA, así que lo dejé tal cual lo dijiste. Revísalo y acomódalo aquí 👇\n${linkBorrador}`
         : avisoNoPude(eraDePlan);
+      avisoDeSistema = true;
     }
 
     if (respuesta) {
@@ -1440,6 +1536,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // mismo: el modelo dijo que hizo algo que no hizo. Eso no se manda.
         console.error(`[mako-doer-in] BLOQUEADA (${v.razon}): ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
         respuesta = AVISO_NO_PUDE;
+        avisoDeSistema = true;
       } else if (!v.ok) {
         // No bloquea —hay turnos de plan que legítimamente no crean nada («¿qué tengo
         // pendiente?»)— pero deja rastro. Antes, el modo de falla grave era el ÚNICO
@@ -1459,7 +1556,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         if (env.ok && env.id) idsEnv.push(env.id);
       }
       await registrarEnviados(OPS, jid, idsEnv); // un solo write para toda la respuesta
-      await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
+      // Lo que SÍ es conversación se guarda; el cartel de «no pude», no (ver arriba).
+      if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${respuesta.length} chars)`);
+      else await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
     }
     return { engaged: true, reply: respuesta };
   } catch (e) {

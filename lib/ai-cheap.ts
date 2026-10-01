@@ -27,7 +27,7 @@ import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
-import { clavesDe } from '@/lib/ia-keys';
+import { clavesAProbar, clavesDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
@@ -91,11 +91,8 @@ function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
 
 /** Las claves de un proveedor EN ORDEN. Los gratis admiten varias cuentas
  *  (lib/ia-keys.ts); OpenAI y Anthropic, una sola: cobran, y rotar entre cuentas
- *  pagas no suma cuota, suma facturas. */
-const clavesProv = (nombre: ProvName): string[] => {
-  const c = clavesDe(nombre);
-  return c.length ? c : [nombre === 'openai' ? 'OPENAI_API_KEY' : `${nombre.toUpperCase()}_API_KEY`];
-};
+ *  pagas no suma cuota, suma facturas. Vive en el catálogo para que tenga test. */
+const clavesProv = clavesAProbar;
 
 // La key sale POR WORKSPACE (credWs): la fila cifrada del cliente primero, y para
 // el DUEÑO el env queda de respaldo. Así cada cliente usa SU propia key (BYOK real)
@@ -137,7 +134,29 @@ export async function provsDe(nombre: ProvName): Promise<Prov[]> {
   // y esto se comporta como antes.
   // OJO: `nroCuenta` sigue usando `clavesProv` (la lista COMPLETA) a propósito — el
   // número de cuenta tiene que salir del nombre, no de la posición entre las cargadas.
-  for (const cl of await clavesCargadas(nombre)) {
+  /**
+   * ⚠️ `clavesCargadas` DEVUELVE `[]` POR DOS RAZONES DISTINTAS, Y ACÁ SE LEÍA UNA SOLA.
+   *
+   * Una es «este workspace no tiene ninguna cargada». La otra es «este proveedor no
+   * admite varias cuentas», que es el caso de OpenAI: `clavesDe` le devuelve `[]` a
+   * propósito —cobra por token, así que una segunda cuenta no suma cuota gratis, suma
+   * otra factura— y su nombre de clave lo da `clavesProv`, con el fallback
+   * `${NOMBRE}_API_KEY`. El propio `ia-keys-ws.ts` lo dice en su comentario: «los dos
+   * casos dan [] y se distinguen preguntando primero por el catálogo». Este loop no
+   * preguntaba.
+   *
+   * Consecuencia, desde el 13/08/2026 (commit 85a020b8, cuando esto pasó a
+   * `clavesCargadas`): **OpenAI no existe en NINGUNA cascada del producto**. Es el
+   * último escalón de `CASCADA_GRATIS`, de `CASCADA_DOCS` y de `CASCADA_STT`, o sea el
+   * respaldo que existe justo para cuando los gratis se caen — y nunca corrió. Peor:
+   * `cheapDisponible()` y `sttDisponible()` iteran esto, así que a un workspace cuya
+   * ÚNICA key es de OpenAI el producto le contesta «no tenés IA» teniéndola cargada.
+   *
+   * No da error y no deja log: una lista vacía es una respuesta perfectamente válida.
+   */
+  const delCatalogo = clavesDe(nombre);
+  const claves = delCatalogo.length ? await clavesCargadas(nombre) : clavesProv(nombre);
+  for (const cl of claves) {
     const p = await provDe(nombre, cl);
     if (p) out.push(p);
   }
@@ -158,7 +177,7 @@ export const rotulo = (p: Prov): string => {
 
 /** Nº de cuenta (1..3) de una instancia. Es lo que se guarda en `anthropic_usage.cuenta`
  *  (mig 0132) para poder medir la cuota POR CUENTA y no sumada por proveedor. */
-const nroCuenta = (p: Prov): number => Math.max(1, clavesProv(p.nombre).indexOf(p.clave) + 1);
+export const nroCuenta = (p: Prov): number => Math.max(1, clavesProv(p.nombre).indexOf(p.clave) + 1);
 
 /** Proveedor barato para CHAT. `pref` (del registro de modelos) fuerza uno; si no
  *  está, cae a groq→openai. Gemini SOLO sale si lo pide `pref` explícito: necesita
@@ -834,7 +853,65 @@ export async function chatCheapTools(
       msgs.push({ role: 'tool', tool_call_id: c.id, content: out.slice(0, 12000) });
     }
   }
+  /**
+   * ⚠️ AGOTAR LOS PASOS NO ES UN FALLO: EL MODELO YA TRABAJÓ Y SÓLO FALTA QUE ESCRIBA.
+   *
+   * ESTA ES LA CAUSA REAL del incidente del 30/09/2026, el que el dueño reportó como
+   * «¿realmente se acabó la cuota de 4 cuentas con un par de mensajes?». No se había
+   * acabado nada: Gemini contestó OCHO veces HTTP 200 en nueve segundos —una fila en
+   * `anthropic_usage` ES un 200, porque `recordUsage` corre después del `throw`—, llamó
+   * sus herramientas, y se quedó sin pasos antes de redactar la respuesta. Lo único que
+   * volvía de acá era este centinela, el doer lo descartaba, y el veredicto terminaba
+   * juzgando con los errores de los proveedores que no importaban.
+   *
+   * Un pedido más SIN herramientas lo cierra: todo el trabajo ya está en `msgs` (las
+   * tool_calls y sus resultados), es el request más barato del turno, y es lo único que
+   * el modelo no pudo hacer por su cuenta. Sin `tools` no tiene a dónde volver a
+   * llamar, así que contesta en texto.
+   *
+   * Se manda SIN `tools` en vez de con `tool_choice: 'none'` a propósito: ese valor lo
+   * aceptan OpenAI y Groq y no está garantizado en la capa compatible de Gemini, que es
+   * justo el proveedor del caso. Y va envuelto: si ESTE pedido falla, se devuelve el
+   * centinela de siempre y el caller decide — nunca se pierde el desenlace.
+   */
+  const cierre = await cerrarSinTools(p, model, msgs, opts).catch((e) => {
+    console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) no pudo cerrar sin tools: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  });
+  if (cierre) {
+    console.info(`[ai-cheap] chatCheapTools(${rotulo(p)}) agotó ${maxSteps} pasos y cerró sin tools (${cierre.length} chars, ${toolsUsados} tools)`);
+    return { text: cierre, steps: maxSteps, stopReason: 'max_steps_cerrado', toolsUsados };
+  }
   return { text: '(se alcanzó el máximo de pasos)', steps: maxSteps, stopReason: 'max_steps', toolsUsados };
+}
+
+/**
+ * El último pedido de un turno que se quedó sin pasos: el MISMO hilo, sin herramientas.
+ *
+ * Devuelve el texto o null. No reintenta —del otro lado hay alguien mirando el chat— y
+ * registra el gasto como el resto, con la feature marcada para poder medir cuántos
+ * turnos terminan así.
+ */
+async function cerrarSinTools(
+  p: Prov,
+  model: string,
+  msgs: Array<Record<string, unknown>>,
+  opts: { maxTokens?: number; feature?: string; motivo?: string; timeoutMs?: number },
+): Promise<string | null> {
+  const res = await fetch(`${p.base}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: msgs, max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || (data as { error?: unknown }).error) {
+    throw new Error(String((data as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`));
+  }
+  void recordUsage(`${opts.feature || 'ia-barata-tools'}-cierre`, model, (data as { usage?: unknown }).usage, opts.motivo, p.nombre, nroCuenta(p));
+  const txt = String((data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content || '').trim();
+  return txt || null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
