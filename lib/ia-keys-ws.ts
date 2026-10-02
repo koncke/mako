@@ -35,7 +35,7 @@ import { OWNER_WS, getWorkspaceActual } from './workspace';
  * cross-tenant esperando a pasar. El `ws` va como ARGUMENTO —y no se resuelve
  * adentro— justamente para que sea parte de la clave del cache.
  */
-const clavesEnBase = cache(async (ws: number): Promise<Set<string>> => {
+const clavesEnBase = cache(async (ws: number): Promise<Set<string> | null> => {
   try {
     const { data, error } = await getSupabaseServer()
       .from('credenciales')
@@ -44,10 +44,25 @@ const clavesEnBase = cache(async (ws: number): Promise<Set<string>> => {
     if (error) throw new Error(error.message);
     return new Set((data ?? []).map((r) => r.clave as string));
   } catch (e) {
-    // Degradar a «no sé» y NO a «no tiene»: quien llama vuelve a la lista completa
-    // del catálogo y resuelve con credWs, que es más lento pero correcto.
+    /**
+     * ⚠️ «NO PUDE LEER» DEVUELVE `null`, NO UN SET VACÍO — Y ESA ERA LA MISMA TRAMPA QUE
+     * ESTE MÓDULO YA DOCUMENTA UNA FUNCIÓN MÁS ABAJO.
+     *
+     * Degradar a «no sé» está bien y es a propósito: quien llama vuelve al catálogo
+     * entero y resuelve con `credWs`, más lento y correcto. El problema era que el Set
+     * vacío significaba DOS cosas —«la lectura falló» y «este workspace no tiene NINGUNA
+     * credencial»— y la segunda es una respuesta perfectamente normal.
+     *
+     * Consecuencia medida el 02/10/2026: para un workspace sin una sola fila en
+     * `credenciales`, `clavesCargadas` devolvía el catálogo entero y `contarKeysIA`
+     * contestaba **40**. Con eso el veredicto `sin_keys` —«todavía no cargaste ninguna
+     * API key», que es el caso exacto que `lib/fallo-ia-texto.ts` vino a resolver— es
+     * INALCANZABLE, y a quien no conectó nada se le dice «la IA que tengo conectada me
+     * está rebotando por límite». Es el mismo error que el del 30/09 en `provsDe`, una
+     * capa más abajo: un vacío que significa dos cosas y un caller que lee una sola.
+     */
     console.warn(`[ia-keys-ws] no pude listar las claves del ws ${ws}: ${e instanceof Error ? e.message : String(e)}`);
-    return new Set();
+    return null;
   }
 });
 
@@ -68,8 +83,9 @@ export async function clavesCargadas(prov: string, ws?: number): Promise<string[
   if (!delCatalogo.length) return [];
   const w = ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
   const enBase = await clavesEnBase(w);
-  // Si la lectura falló, `enBase` viene vacío: caemos a la lista entera del
-  // catálogo para no dejar al workspace sin IA por un error de red.
-  if (!enBase.size) return delCatalogo;
+  // Si la lectura FALLÓ (`null`), caemos a la lista entera del catálogo para no dejar al
+  // workspace sin IA por un error de red. Un Set VACÍO es otra cosa: es la respuesta
+  // correcta de un workspace que no cargó ninguna credencial, y ahí la lista es [].
+  if (enBase === null) return delCatalogo;
   return delCatalogo.filter((c) => enBase.has(c));
 }

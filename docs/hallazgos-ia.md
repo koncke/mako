@@ -3263,11 +3263,12 @@ arreglarlo donde se vio», otra vez: eran dos listas y se arregló una.
 - **El consumo de las keys de la AGENCIA se registra en el workspace del CLIENTE**
   (`recordUsage` toma el ws del contexto), así que le ensucia su gauge de cuota. Es a
   propósito que se VEA en su Saldo; lo que falta es que no cuente para su cuota.
-- **`contarKeysIA` puede devolver 40.** `clavesCargadas` degrada a «no sé» devolviendo el
-  catálogo entero, y eso pasa también cuando el workspace tiene CERO filas en
-  `credenciales`. Con eso el veredicto `sin_keys` es **inalcanzable** para el caso exacto que
-  `lib/fallo-ia-texto.ts` vino a resolver, y a alguien que no conectó nada se le dice «la IA
-  que tengo conectada me está rebotando por límite».
+- **`contarKeysIA` sigue sin ver OpenAI.** La mitad grande se arregló en la misma pasada —
+  `clavesEnBase` devuelve `null` cuando la lectura FALLA y un Set vacío cuando el workspace
+  no tiene ninguna credencial, que eran dos cosas y daban lo mismo: un workspace sin una
+  sola fila contaba **40** keys, con lo cual `sin_keys` era inalcanzable—. Lo que queda es
+  que `clavesDe` devuelve `[]` para los proveedores de una sola cuenta, así que una key de
+  OpenAI no se cuenta: hay que preguntarle a `credWs`, no al catálogo de cuentas múltiples.
 - **El 429 de la red de plataforma no se anota** (`anotarRebote429` escribiría en el
   workspace del cliente y le prendería «agotado» un proveedor que no tiene).
 - **La cascada del cliente no tiene techo de tiempo ni `timeoutMs`**: 8 pasos × 45 s por

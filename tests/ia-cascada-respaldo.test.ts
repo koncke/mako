@@ -78,6 +78,27 @@ test('⚠️ `provsDe` PREGUNTA PRIMERO POR EL CATÁLOGO, que es lo que distingu
     'el proveedor de una sola cuenta volvió a quedarse sin claves que probar');
 });
 
+test('⚠️ «NO PUDE LEER» Y «NO TIENE NINGUNA» NO PUEDEN SER EL MISMO VACÍO', () => {
+  // Es el mismo bug del 30/09 en `provsDe`, una capa más abajo: `clavesEnBase`
+  // devolvía un Set vacío TAMBIÉN cuando la consulta salía bien y el workspace no
+  // tenía ninguna credencial — y el caller leía eso como «no pude leer» y caía al
+  // catálogo ENTERO. Medido el 02/10/2026: para un workspace sin una sola fila en
+  // `credenciales`, `contarKeysIA` contestaba **40**, con lo cual el veredicto
+  // `sin_keys` («todavía no cargaste ninguna API key») era INALCANZABLE justo para el
+  // caso que vino a resolver, y a quien no conectó nada se le decía «la IA que tengo
+  // conectada me está rebotando por límite».
+  //
+  // Probado rompiéndolo: volviendo a `Promise<Set<string>>` + `if (!enBase.size)`,
+  // 5 pasan y 1 falla.
+  const src = sinComentarios(leer('../lib/ia-keys-ws.ts'));
+  assert.match(src, /Promise<Set<string> \| null>/,
+    'el fallo de lectura volvió a ser indistinguible de «no tiene ninguna»');
+  assert.match(src, /if \(enBase === null\) return delCatalogo;/,
+    'volvió a caer al catálogo entero por un Set vacío legítimo');
+  assert.ok(!/if \(!enBase\.size\)/.test(src),
+    'volvió la condición que confunde los dos vacíos');
+});
+
 // ── 2. agotar los pasos no es un fallo ──────────────────────────────────────
 
 test('⚠️ QUEDARSE SIN PASOS SE CIERRA CON UN PEDIDO SIN HERRAMIENTAS, no se tira', () => {
