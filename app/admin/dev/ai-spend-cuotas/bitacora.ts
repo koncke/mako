@@ -38,6 +38,39 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '1 oct', hora: '22:40', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El cartel de cuota, otra vez, en el grupo de un cliente de una agencia',
+    pedido: 'Realmente hay que solucionar esto, es un producto totalmente defectuoso que MaKo cada 2 mensajes te diga esto...',
+    puntos: [
+      'Llegó con la captura del grupo de Código Inmobiliario: un cliente escribió «hola mako, como venimos de reuniones los ultimos 15 dias» y MaKo contestó «Te quedaste sin cuota de IA».',
+      'El día anterior se había arreglado el mismo síntoma con OTRA causa. Que volviera al día siguiente es el dato: no era un bug, era una familia.',
+      'Y «cada 2 mensajes» no era exageración: medido, a ese cliente le salió en 16 de sus 53 turnos y en las SEIS veces que preguntó por sus agendas.',
+    ],
+  },
+  {
+    fecha: '2 oct', hora: '01:30', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El prompt le ordenaba usar diez herramientas que no se le mandaron',
+    puntos: [
+      'La key del cliente contestó HTTP 200. Los tres 429 que eligieron el texto eran de MISTRAL, y mistral es de la red de plataforma: keys NUESTRAS. De las ocho entradas de la lista, siete eran de la agencia.',
+      'La causa de que fallara: el mensaje se clasificó como saludo (el «hola» de adelante se comía la pregunta), y el contrato de un saludo es CERO herramientas — pero el router lo había escalado al camino caro, así que entró al loop de tool-use con el array vacío y el preámbulo entero.',
+      'Lo que refutó la hipótesis y cambió el arreglo: pegándole en vivo a las dos APIs, la lista vacía NO es la causa. Con un system corto contestan perfecto; con el preámbulo que ordena usar herramientas revientan igual SIN el campo tools. Lo que rompe es el PROMPT.',
+      'Y al partir el preámbulo se fue con él la prohibición de inventar: Groq contestó «hemos tenido 6 reuniones: 3 internas…». Seis reuniones que no existen. Peor que el cartel — se arregló en la misma pasada y se volvió a medir.',
+      'El veredicto ahora se decide sólo con los errores DEL CLIENTE, y hay una causa nueva para «contestó y el problema fue nuestro»: sin link y sin pedirle que cargue nada.',
+      'Y el cartel vuelve a dejar rastro: desde el arreglo del 30/09 no entra al historial y con eso se había perdido la única forma de contarlo.',
+      '13 guards nuevos, los 16 cortes probados rompiéndolos uno por uno. Dos guards viejos se pusieron rojos por contar caracteres y uno era flojo de verdad: afirmaba que una llamada existía, no que fuera alcanzable.',
+    ],
+    archivos: [
+      'lib/mako-doer-in.ts — el preámbulo partido · el system después de las tools · las dos listas de errores',
+      'lib/ai-cheap.ts — sin tools no viaja el campo · la tool fantasma no corre · el 200 mudo se tipa · mistral fuera de la red',
+      'lib/mako-intencion.ts — se pela el saludo · «cuántas» vuelve a ser pregunta',
+      'lib/fallo-ia-texto.ts — la causa «fue nuestro» y el contexto medido',
+      'tests/doer-turno-sin-tools.test.ts · tests/fallo-ia-texto.test.ts',
+      'scripts/probe-saludo-sin-tools.ts — la verificación contra las dos APIs',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '20:48', chat: '—', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'La cuota que no se había acabado, y el «Ya estoy de vuelta»',

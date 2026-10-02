@@ -6862,3 +6862,52 @@ contó.** No es una alucinación — es un dato que le dimos. Lo primero que hay
 es el prompt: es qué hay guardado en el historial con su nombre.
 
 *2026-09-30*
+
+---
+
+## Un «hola» adelante se comía el pedido, y el turno quedaba con el peor de los dos mundos
+
+**Vive en:** `lib/mako-intencion.ts` (`SALUDOS`, `sinSaludoInicial`, `PREGUNTA`) ·
+`lib/mako-doer-in.ts` (la compuerta `ruta.tier === 'cheap'`)
+
+El mensaje que rompió todo era «hola mako, como venimos de reuniones los ultimos 15 dias».
+La regla del clasificador decía, en su comentario, *«Saludo o emoji suelto, corto y **sin
+nada más**»* — y la condición sólo miraba `t.length <= 80`. El largo es un proxy del largo,
+no de «no pidió nada». Esos 55 caracteres entraban como `charlar`, cuyo contrato es
+`tools: []`.
+
+**Medido: el 22/09 «mako, como venimos de agendas…» se contestó bien y el 01/10 «hola mako,
+como venimos…» no. La única diferencia era la palabra «hola».** (El SALUDO del router sí
+incluye `mako`; el del contrato no — dos escrituras del mismo vocabulario.)
+
+Ahora el saludo se **PELA** y se clasifica el resto; `charlar` sólo si no quedó nada. Y el
+vocabulario vive en UNA constante que usan el detector y el pelador, porque dos listas se
+separan — que es precisamente lo que había pasado con la del router.
+
+⚠️ **Y DOS CLASIFICADORES QUE CONTESTAN PREGUNTAS DISTINTAS PRODUCEN EL PEOR DE LOS DOS
+MUNDOS CUANDO SE CONTRADICEN.** El router contesta «¿cuánto gastar?» (el tier) y
+`clasificarIntencion` contesta «¿qué herramientas ve el modelo?». La compuerta que evita el
+loop de tool-use pregunta por el **tier** — o sea por el costo— así que cuando el router
+escaló el mensaje y la intención dijo «cero tools», el turno entró al camino caro **sin
+herramientas**. Medido sobre los 155 turnos reales: 5 son `charlar` + tier barato y andan
+bien; **8 son el choque y revientan**. El filtro selecciona exactamente los mensajes que
+valen algo: un «hola» pelado funciona, el saludo que ADEMÁS pregunta algo, no.
+
+⚠️ **Y `cu[aá]nt` ERA CÓDIGO MUERTO.** En `PREGUNTA`, la alternativa `cu[aá]nt` va seguida
+de `(?![a-záéíóúñ])`, y en español después de «cuánt» **siempre** viene una letra: cuántos,
+cuántas, cuánto. No matcheó nunca. O sea que «cuantas agendas tengo», sin signo de
+pregunta, no era una pregunta para el clasificador y se iba a `capturar` — a anotarse como
+una TAREA. Es la forma que más usa el cliente que se quejó («cuantas agendas tengo?»,
+«Cuantad agendas vamos?», «cuantas llamadas tenemos agendaas esta semana?»), y en WhatsApp
+el signo de apertura no lo escribe nadie. `INTERROGATIVO`, veinte líneas más abajo, lo
+tiene bien desde siempre: eran dos escrituras de la misma regla y sólo una estaba arreglada.
+
+⚠️ **Y UN GUARD CON UNA VENTANA DE CARACTERES SE QUEDA VIEJO SOLO.** Dos de esta zona se
+pusieron rojos ese día sin que ningún bug volviera: uno miraba los 700 caracteres
+siguientes a una firma y otro los 800, y un comentario nuevo empujó lo que buscaban fuera
+de la ventana. El bloque se delimita por su FINAL (la llave de cierre, el marcador de la
+sección siguiente), nunca por una cuenta. Y el tercero era **flojo de verdad**: afirmaba
+que `guardarCrudo()` estaba en el bloque, así que con `if (false)` seguía verde — lo delató
+romperlo.
+
+*2026-10-02*

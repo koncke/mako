@@ -5632,3 +5632,99 @@ dimos. El dueño lo reportó como «es aún más raro».
 - ⚠️ **El olor: el modelo dice algo sobre SÍ MISMO que nadie le contó.** Lo primero que hay
   que mirar no es el prompt: es qué hay guardado en el historial con su nombre.
 
+# Un prompt que ORDENA usar algo que no se mandó no es una instrucción: es una trampa
+
+Si el system nombra herramientas una por una y dice «úsalas», el modelo las llama —y si
+no viajaron en el request, el turno no tiene desenlace bueno. Medido el 01-02/10/2026
+contra las dos APIs, con el preámbulo del doer (8.516 caracteres) y la lista de tools
+vacía: **Groq contesta HTTP 400** («Tool choice is none, but model called a tool», 3/3) y
+**Gemini contesta HTTP 200 con el contenido vacío** y `finish_reason: tool_calls` (2/2).
+Con un system corto y la misma lista vacía, los dos contestan perfecto.
+
+⚠️ **Y SACAR EL CAMPO `tools` DEL BODY NO ARREGLA NADA: falla igual (2/2).** Lo que rompe
+es el texto. Es «una regla en un prompt no es una regla» con el signo dado vuelta — un
+prompt que PROMETE una capacidad que la API no concede.
+
+- **El bloque de herramientas del prompt cuelga de que HAYA herramientas**, y el system se
+  arma DESPUÉS de resolverlas. Si se arma antes, no las puede mirar: así estaba.
+- **Los nombres se escriben DESDE el array que viaja**, no a mano. Enumerarlos en prosa
+  hace que cualquier recorte posterior de la lista vuelva a producir esto.
+- **`tools: []` no es «no mandar herramientas»**: el proveedor resuelve `tool_choice` a
+  `none`. Con la lista vacía no viajan ni `tools` ni `tool_choice`.
+- ⚠️ **Y EL CONTRATO SE APLICA AL EJECUTAR, NO SÓLO AL DECLARAR.** Gemini llamó una tool
+  que sólo estaba en el TEXTO del system y el código **la ejecutó**: nadie miraba la
+  lista. El caso caro no es una lectura de más — es la acción que crea algo. La guarda va
+  con un CORTE (segundo rechazo → salir), o una tool fantasma quema los pasos del turno.
+
+# Al SACAR un bloque de prompt, enumerá qué reglas vivían adentro
+
+Un prompt largo acumula reglas de temas distintos, y la que se pierde al recortarlo no da
+ningún error: cambia lo que el modelo contesta.
+
+Medido el 02/10/2026. Al partir el preámbulo del doer se fue con él «nunca inventes
+nombres, números ni fechas», que era una frase del protocolo de herramientas. Groq, sin
+esa línea, contestó en 548 ms **«hemos tenido 6 reuniones: 3 internas (planificación,
+revisión de KPIs, brainstorming), 2 con cliente…»** — seis reuniones que no existen, con
+su desglose. **Eso es peor que el cartel de error que el arreglo venía a reemplazar: un
+número inventado no se lee como un error.** Con la línea puesta: «Eso lo miro y te lo paso.»
+
+Y la regla ya estaba escrita en el camino barato de al lado (`cheapSys`), que es la señal
+de siempre: era la tercera escritura de la misma regla y la única que faltaba.
+
+# Dos clasificadores que contestan preguntas distintas dan el PEOR de los dos mundos
+
+En este repo, sobre el mismo mensaje, el ROUTER contesta «¿cuánto gastar?» (el tier) y
+`clasificarIntencion` contesta «¿qué herramientas ve el modelo?». Cada uno acierta lo
+suyo. El problema es la compuerta que decide si el turno entra al camino con herramientas:
+preguntaba por el **tier**, o sea por el COSTO.
+
+Medido el 01/10/2026: el router escaló «hola mako, como venimos de reuniones los ultimos
+15 dias» a sonnet (su regex de datos matchea «reuni» y «ultimo») y el contrato de la
+intención dijo `tools: []`. Resultado: el camino caro, con el prompt de tool-use, y cero
+herramientas. Sobre los 155 turnos reales de la historia del doer: 5 son charla + tier
+barato y andan bien; **8 son el choque y revientan** — y el filtro selecciona justo los
+mensajes que piden algo.
+
+**Cuando dos decisiones se derivan de dos preguntas distintas, la compuerta pregunta por
+la que gobierna lo que está a punto de pasar**, no por la que estaba a mano.
+
+# Un prefijo de saludo no es el mensaje
+
+La regla decía en su comentario «saludo suelto, corto y **sin nada más**» y la condición
+era `t.length <= 80`: un proxy del LARGO, no de «no pidió nada». Con eso, «hola mako, como
+venimos de reuniones los ultimos 15 dias» (55 caracteres) era charla — y la pregunta más
+importante que hace ese cliente llegaba al modelo sin una herramienta para mirar el CRM.
+Medido: la misma frase SIN el «hola» adelante se clasificaba y se contestaba bien.
+
+**Se PELA el saludo y se clasifica el resto**; charla sólo si no quedó nada. Y el
+vocabulario del saludo vive en UNA constante que usan el detector y el pelador: ya había
+dos listas (la del router incluye `mako`, la del contrato no) y esa diferencia es
+exactamente la que produjo el bug.
+
+⚠️ **Y OJO CON UN LOOKAHEAD QUE HACE IMPOSIBLE SU PROPIA ALTERNATIVA.** `cu[aá]nt` seguido
+de `(?![a-záéíóúñ])` no matcheó NUNCA: en español después de «cuánt» siempre viene una
+letra. Era código muerto, y por eso «cuantas agendas tengo» sin signo de pregunta se
+clasificaba como material para anotar en vez de como una pregunta. La regex de al lado
+(`INTERROGATIVO`) lo tenía bien desde siempre — dos escrituras, una arreglada.
+
+# Los errores de NUESTRAS credenciales no eligen el texto que lee el cliente
+
+La red de plataforma corre con las keys de la AGENCIA cuando al cliente no le contesta
+nadie. Sus errores entraban a la MISMA lista con la que se elige el mensaje.
+
+Medido el 01/10/2026: de las ocho entradas de ese turno, **SIETE eran de la agencia** y los
+únicos tres 429 —lo único que matchea la regex de cuota— también. El «te quedaste sin cuota
+de IA» que leyó un cliente lo fabricaron nuestras propias keys, con la suya contestando 200.
+
+- **Se separan en el ORIGEN**, en dos listas, y no por un prefijo adentro del texto: una
+  convención dentro de una cadena libre es lo que esta casa ya pagó dos veces.
+- ⚠️ **Y FILTRARLAS NO ALCANZA.** Con sólo las del cliente el veredicto pasaba a «tu
+  proveedor se cayó justo ahora», que también es falso: contestó 200. Faltaba la causa
+  honesta —**fue nuestro**—, sin link y sin «cargá otra key», porque no hay nada que él
+  pueda hacer. **Un 200 del cliente manda sobre cualquier texto de error.**
+- **El veredicto necesita hechos que ningún texto de error puede decir**: cuántas
+  instancias se probaron y cuántas contestaron. Cero probadas no es «se cayó tu proveedor».
+- ⚠️ **Y un proveedor que rebota siempre hay que sacarlo de TODAS las listas.** Mistral
+  salió de la cascada del doer el 30/09 por fabricar el veredicto de cuota, y quedó vivo en
+  la red de plataforma — la lista que corre justo cuando el cliente ya se quedó sin nada.
+

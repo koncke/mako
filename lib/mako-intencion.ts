@@ -184,14 +184,32 @@ const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|clar
 // y MaKo le contestó «No pude armar el borrador con eso». Se le estaba pidiendo
 // parir una tarea de un saludo de tres letras. La regla existía y le faltaba una
 // palabra: por eso se suma acá y no se escribe una regla nueva al lado.
-const SALUDO = /^[\s¡!¿?]*(hola|ola|holis|opa|buenas|buen[oa]s|buen d[ií]a|hey|ey|che|qu[eé] tal|c[oó]mo (and|est|va)|todo bien|gracias|mil gracias|genial|joya|b[aá]rbaro|buen[ií]simo|jaja|abrazo|saludos|chau|nos vemos|buen finde|test|prueba|probando|ping)(?![a-záéíóúñ])/i;
+/** El vocabulario del saludo, UNA vez: lo usan el detector y el pelador.
+ *  Dos listas se separan, y acá ya pasó: el SALUDO del router incluye `mako` y
+ *  el de acá no, que es por lo que «hola mako, cómo venimos» cayó en charlar. */
+const SALUDOS = 'hola|ola|holis|opa|buenas|buen[oa]s|buen d[ií]a|hey|ey|che|qu[eé] tal|c[oó]mo (and|est|va)|todo bien|gracias|mil gracias|genial|joya|b[aá]rbaro|buen[ií]simo|jaja|abrazo|saludos|chau|nos vemos|buen finde|test|prueba|probando|ping';
+const SALUDO = new RegExp(`^[\s¡!¿?]*(${SALUDOS})(?![a-záéíóúñ])`, 'i');
 const SOLO_EMOJI = /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}!?.]+$/u;
 
 // Interrogativos: al ARRANQUE («¿cuántos leads…?») o después de un imperativo
 // («decime cuántos leads…»). El segundo caso importa por costo: sin él, cada
 // «decime…» se clasificaba como 'pensar' y se iba a Opus para leer un número.
 /** Pregunta directa: arranca con un interrogativo, o termina en «?». */
-const PREGUNTA = /^[\s¡!¿?]*(qu[eé]|cu[aá]nt|cu[aá]l|qui[eé]n|cu[aá]ndo|d[oó]nde|c[oó]mo|por\s?qu[eé]|hay|tengo|ten[eé]s)(?![a-záéíóúñ])|\?\s*$/i;
+/**
+ * ⚠️ `cu[aá]nt` ERA CÓDIGO MUERTO: el lookahead lo hacía imposible.
+ *
+ * `(?![a-záéíóúñ])` exige que después no venga una letra, y en español después de
+ * «cuánt» SIEMPRE viene una: cuántos, cuántas, cuánto. O sea que esa alternativa no
+ * matcheó nunca, y «cuantas agendas tengo» sin signo de pregunta no era una pregunta
+ * para el clasificador — se iba a `capturar`, o sea a anotarse como una TAREA.
+ *
+ * Y es la forma que más usa el cliente que se quejó: «cuantas agendas tengo?»,
+ * «Cuantad agendas vamos?», «cuantas llamadas tenemos agendaas esta semana?». En
+ * WhatsApp el signo de apertura no lo escribe nadie. `INTERROGATIVO`, veinte líneas
+ * más abajo, lo tiene bien desde siempre (`cu[aá]nt[oa]s?`): eran dos escrituras de
+ * la misma regla y sólo una se arregló.
+ */
+const PREGUNTA = /^[\s¡!¿?]*(qu[eé]|cu[aá]nt[oa]s?|cu[aá]l|qui[eé]n|cu[aá]ndo|d[oó]nde|c[oó]mo|por\s?qu[eé]|hay|tengo|ten[eé]s)(?![a-záéíóúñ])|\?\s*$/i;
 
 /**
  * Un interrogativo EN CUALQUIER LADO.
@@ -215,6 +233,22 @@ const INTERROGATIVO = /\b(cu[aá]nt[oa]s?|qu[eé]|cu[aá]l(es)?|qui[eé]n(es)?|c
  * `hayPendientes` es lo único externo que entra, porque un «sí» pelado solo
  * significa algo si hay una propuesta esperando.
  */
+/**
+ * Saca el saludo del arranque —y el «mako» que suele venir pegado— y devuelve lo que
+ * queda. Cadena vacía si no quedaba nada más que el saludo.
+ */
+function sinSaludoInicial(t: string): string {
+  let r = t.trim();
+  for (let i = 0; i < 4; i++) {
+    const antes = r;
+    r = r.replace(new RegExp(`^[\s¡!¿?]*(${SALUDOS})(?![a-záéíóúñ])`, 'i'), '');
+    r = r.replace(/^[\s,.:;!¡¿?-]*mako(?![a-záéíóúñ])/i, '');
+    r = r.replace(/^[\s,.:;!¡¿?-]+/, '');
+    if (r === antes) break;
+  }
+  return r.trim();
+}
+
 export function clasificarIntencion(
   texto: string,
   ctx: { hayPendientes?: boolean; hayMedia?: boolean; hayContacto?: boolean } = {},
@@ -245,8 +279,29 @@ export function clasificarIntencion(
   }
 
   // 3) Saludo o emoji suelto, corto y sin nada más.
-  if ((SALUDO.test(t) || SOLO_EMOJI.test(t)) && t.length <= 80 && cuentaLinks(t) === 0) {
-    return { intencion: 'charlar', dudosa: false, porque: 'saludo/charla' };
+  //
+  // ⚠️ «SIN NADA MÁS» LO DECÍA EL COMENTARIO Y NO LO MIRABA EL CÓDIGO: la condición
+  // era un tope de 80 caracteres, que es un proxy del largo y no de «no pidió nada».
+  //
+  // EL CASO (01/10/2026, ws13). «hola mako, como venimos de reuniones los ultimos 15
+  // dias» son 55 caracteres y arranca con «hola», así que entraba acá: `charlar`, cuyo
+  // contrato es `tools: []`. O sea que la pregunta MÁS importante que hace ese cliente
+  // —es una inmobiliaria de generación de leads, las agendas SON el producto— llegaba
+  // al modelo sin una sola herramienta para mirar el CRM. Y de paso chocaba con el
+  // router, que SÍ la había leído como un pedido de datos, y el turno entero reventó.
+  //
+  // Medido: el 22/09 «mako, como venimos de agendas…» NO cayó acá y se contestó bien.
+  // La única diferencia era la palabra «hola» adelante.
+  //
+  // Se pela el saludo y se clasifica EL RESTO. `charlar` sólo si no quedó nada.
+  if ((SALUDO.test(t) || SOLO_EMOJI.test(t)) && cuentaLinks(t) === 0) {
+    const resto = SOLO_EMOJI.test(t) ? '' : sinSaludoInicial(t);
+    if (!resto) return { intencion: 'charlar', dudosa: false, porque: 'saludo/charla' };
+    // Sólo si de verdad se acortó, o esto no termina nunca.
+    if (resto.length < t.length) {
+      const v = clasificarIntencion(resto, ctx);
+      return { ...v, porque: `${v.porque} (saludo adelante)` };
+    }
   }
 
   // ── El cruce que importa: material dictado vs pedido a MaKo ────────────────

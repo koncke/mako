@@ -47,6 +47,7 @@ import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, 
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { puedeLeerse, formatosLegibles, porQueNoPuedo } from '@/lib/formatos-archivo';
 import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
+import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
@@ -229,11 +230,37 @@ function saneaHistorial(turnos: Array<{ role: 'user' | 'assistant'; content: str
 }
 
 // ── preámbulo del doer en el grupo de WhatsApp ────────────────────────────────
-const DOER_WA_PREAMBLE = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
+/**
+ * LA VOZ Y EL FORMATO. Va SIEMPRE, con tools y sin tools.
+ */
+const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
-SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
+SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.`;
 
-HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Úsalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BÚSCALO con las tools antes de decir que no lo tienes.
+/**
+ * ⚠️ EL PROTOCOLO DE HERRAMIENTAS, Y SOLO VA SI DE VERDAD SE MANDAN HERRAMIENTAS.
+ *
+ * EL CASO (01/10/2026, ws13). Un cliente escribió «hola mako, como venimos de
+ * reuniones los ultimos 15 dias» y recibió «⚠️ Te quedaste sin cuota de IA». Su key
+ * había contestado HTTP 200. La intención fue `charlar`, cuyo contrato es `tools: []`
+ * (lib/mako-intencion.ts), y el turno entró igual al loop de tool-use — con el array
+ * vacío y con ESTE texto, que nombra diez herramientas una por una y ORDENA usarlas.
+ *
+ * ⚠️ Y LA LISTA VACÍA NO ERA LA CAUSA: ES EL PROMPT. Medido en vivo contra las dos
+ * APIs, con las keys de la agencia:
+ *   · system CORTO + `tools: []` + `tool_choice: auto` → Groq HTTP 200, contesta bien.
+ *   · ESTE system + `tools: []`            → Groq HTTP 400 «Tool choice is none, but
+ *     model called a tool» (3/3) y Gemini HTTP 200 con el content VACÍO (2/2).
+ *   · ESTE system SIN el campo `tools`     → exactamente lo mismo (2/2).
+ * O sea que sacar el campo del body no alcanza: lo que rompe es pedirle al modelo que
+ * llame algo que no recibió. Es «una regla en un prompt no es una regla» con el signo
+ * dado vuelta — un prompt que PROMETE una capacidad que la API no concede.
+ *
+ * ⚠️ Y encima el modelo la llama igual: Gemini devolvió `finish_reason: tool_calls`
+ * pidiendo `metricas_negocio`, que sólo existía en el TEXTO de acá abajo. Por eso
+ * `runTool` chequea contra la lista del turno (ver `permitidasDelTurno`).
+ */
+const DOER_WA_TOOLS = `HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones_lead, buscar_conocimiento, estado_experimentos, ver_funnel, listar_secuencias_nutricion, listar_campanas_meta, listar_horarios_reunion. Úsalas para responder con datos reales; nunca inventes nombres, números ni fechas. Si te preguntan por un lead/reunión/campaña, BÚSCALO con las tools antes de decir que no lo tienes.
 
 SEGÚN DE QUÉ TE HABLEN, puedes tener MÁS herramientas que las nombradas acá (lecturas y acciones de cada tab de MaKo: email, chatbot, landing, métricas, experimentos…). Úsalas igual que las demás: una lectura trae el dato; una acción NUNCA ejecuta directo — o deja una acción pendiente (pides el "sí") o te devuelve un LINK para revisar en MaKo (lo pasas tal cual y no pides confirmación por el chat).
 
@@ -819,7 +846,6 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // fue el techo de tokens: gastó 933 de 2500. Resumió. Contar no se le pide a un
     // modelo, se le pasa hecho. Ver lib/puntos-mensaje.ts.
     const ctxPuntos = avisoDePuntos(texto);
-    const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
 
     // Tools por ruta (feedback jul-19, costo): 20 tools con schema pesan varios miles de
     // tokens de INPUT en CADA llamada. Los turnos claros (cargar tareas, confirmar) usan
@@ -846,6 +872,38 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       : [];
     const tools = toolsParaIntencion(intencion.intencion, [...toolsDeSiempre, ...toolsDelTurno], intencion.dudosa);
     if (toolsDelTurno.length) console.log(`[doer] ws=${wsData} +${toolsDelTurno.length} del registro (${areasNombradas.join(', ')})`);
+
+    /**
+     * ⚠️ EL SYSTEM SE ARMA DESPUÉS DE LAS TOOLS, PORQUE DEPENDE DE ELLAS.
+     *
+     * Estaba veinticinco líneas más arriba —antes de que se supiera cuántas tools tiene
+     * el turno— así que un turno con la lista VACÍA mandaba igual el protocolo entero.
+     * Ver `DOER_WA_TOOLS`: eso es lo que rompió el turno del ws13 el 01/10.
+     *
+     * Y el nombre de cada tool que SÍ viaja se escribe desde el array, no a mano: el
+     * texto enumeraba diez lecturas fijas, así que recortar la lista por intención
+     * (`toolsParaIntencion`) dejaba el prompt prometiendo lo que la API no recibía.
+     */
+    const permitidasDelTurno = new Set(tools.map((t) => t.name));
+    /**
+     * ⚠️ Y SIN HERRAMIENTAS VA LA PROHIBICIÓN DE INVENTAR, QUE VIVÍA ADENTRO DEL BLOQUE
+     * QUE SE SACA.
+     *
+     * «nunca inventes nombres, números ni fechas» era una frase del protocolo de tools,
+     * así que al no mandarlo se iba con él. Medido el 02/10/2026 pegándole a Groq con el
+     * system ya partido: contestó en 548 ms **«hemos tenido 6 reuniones: 3 internas
+     * (planificación, revisión de KPIs, brainstorming), 2 con cliente…»** — seis reuniones
+     * que no existen, con su desglose. Eso es PEOR que el cartel que vino a reemplazar: un
+     * número inventado no se lee como un error.
+     *
+     * El camino barato de acá al lado ya lo sabía y lo dice en su propio system
+     * (`cheapSys`): era la tercera escritura de la misma regla y la única que faltaba.
+     */
+    const bloqueTools = tools.length
+      ? `\n\n${DOER_WA_TOOLS}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+      : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
+    const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
@@ -1129,6 +1187,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // cuando lo que de verdad pasó fue el 429 del primero. Contar solo el
             // último manda al cliente a cargar la key equivocada.
             const erroresIA: string[] = [];
+            /**
+             * ⚠️ LOS ERRORES DE NUESTRAS KEYS VAN APARTE, Y NO ELIGEN EL VEREDICTO.
+             *
+             * La red de plataforma corre con las keys de la AGENCIA. Medido el 01/10/2026
+             * en el ws13: de las ocho entradas de la lista con la que se eligió el texto,
+             * siete eran de ahí — y los tres únicos 429 también, todos de mistral. El
+             * cliente leyó «te quedaste sin cuota» con su propia key contestando HTTP 200.
+             *
+             * Se separan en el ORIGEN y no por un prefijo dentro del texto: una convención
+             * adentro de una cadena libre es justo lo que esta casa ya pagó dos veces.
+             */
+            const erroresPlataforma: string[] = [];
+            /** Instancias DEL CLIENTE que se llegaron a probar, y cuántas contestaron 200. */
+            let probadasCliente = 0;
+            let contestaronCliente = 0;
             // Lo pone el reintento de arriba: alguna IA escribió un link de borrador, o
             // sea que ENTENDIÓ que este turno cargaba tareas aunque el router no.
             let quisoBorrador = false;
@@ -1158,6 +1231,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               ),
             )).flat();
             for (const { prov, inst } of instancias) {
+              probadasCliente++;
               try {
                 const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined });
                 /**
@@ -1179,6 +1253,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                  * exactamente eso: evidencia que se tira antes de juzgar.
                  */
                 if (!r.text || r.text.startsWith('(')) {
+                  contestaronCliente++;
                   erroresIA.push(`${rotulo(inst)}: contestó pero sin texto final (pasos=${r.steps ?? '?'}, fin=${r.stopReason ?? '?'})`);
                   continue; // centinelas internos
                 }
@@ -1225,6 +1300,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                   // Mismo caso que arriba: el proveedor CONTESTÓ y lo rechazamos nosotros.
                   // Sin esta línea el veredicto no puede distinguir «nadie me contestó» de
                   // «me contestaron algo que no sirve», y las dos frases son distintas.
+                  contestaronCliente++;
                   erroresIA.push(`${rotulo(inst)}: contestó y lo descartamos (${vv.razon}${vv.detalle ? `: ${vv.detalle}` : ''})`);
                   console.error(`[mako-doer-in] ${prov}: ${vv.detalle} → probando el próximo proveedor`);
                   continue;
@@ -1310,13 +1386,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                     // El tercer agujero de mudez. Medido el mismo día: la red de plataforma
                     // contestó DOS veces con 200 en ese turno y las dos se tiraron acá sin
                     // dejar rastro en ningún lado.
-                    erroresIA.push(`plataforma/${r.provider}: contestó y lo descartamos (${vr.razon})`);
+                    erroresPlataforma.push(`plataforma/${r.provider}: contestó y lo descartamos (${vr.razon})`);
                   } else {
-                    erroresIA.push(`plataforma/${r.provider}: contestó sin texto final`);
+                    erroresPlataforma.push(`plataforma/${r.provider}: contestó sin texto final`);
                   }
                 } catch (e4) {
                   const m4 = e4 instanceof Error ? e4.message : String(e4);
-                  erroresIA.push(`plataforma/${r.provider}: ${m4}`);
+                  erroresPlataforma.push(`plataforma/${r.provider}: ${m4}`);
                   console.warn(`[mako-doer-in] red de plataforma ${r.provider} falló: ${m4}`);
                 }
               }
@@ -1352,8 +1428,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               }
             }
             if (!respuesta) {
-              const err = (ultErr instanceof Error ? ultErr : new Error('todas las IA baratas fallaron')) as Error & { erroresIA?: string[] };
+              const err = (ultErr instanceof Error ? ultErr : new Error('todas las IA baratas fallaron')) as Error & {
+                erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number;
+              };
               err.erroresIA = erroresIA;
+              err.erroresPlataforma = erroresPlataforma;
+              err.probadas = probadasCliente;
+              err.contestaron = contestaronCliente;
               throw err;
             }
           } else {
@@ -1388,15 +1469,26 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           //
           // Solo cuando el fallo NO se puede atribuir —o es genuinamente de los
           // proveedores— se cae al aviso genérico de antes.
-          const errsIA = (e as Error & { erroresIA?: string[] })?.erroresIA ?? [msg];
+          const ee = e as Error & { erroresIA?: string[]; erroresPlataforma?: string[]; probadas?: number; contestaron?: number };
+          const errsIA = ee?.erroresIA ?? [msg];
+          const errsPlat = ee?.erroresPlataforma ?? [];
           const nKeys = await contarKeysIA().catch(() => 1);
-          const causa = causaDelFallo(errsIA, nKeys);
+          // El veredicto se decide SÓLO con lo del cliente (ver `erroresPlataforma`). Lo
+          // nuestro va al log, que es donde se diagnostica.
+          const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
           respuesta = causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
-          console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys): ${errsIA.join(' · ').slice(0, 400)}`);
+          console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys, ${ee?.probadas ?? '?'} probadas, ${ee?.contestaron ?? 0} contestaron): ${errsIA.join(' · ').slice(0, 400)}`);
+          if (errsPlat.length) console.error(`[mako-doer-in] ws=${wsData} y NUESTRA red de plataforma: ${errsPlat.join(' · ').slice(0, 400)}`);
+          // ⚠️ Y EL CARTEL QUEDA REGISTRADO. Desde el 30/09 no entra al historial del grupo
+          // —bien: de ahí salía el «Ya estoy de vuelta»— y con eso se perdió la única forma
+          // de contarlo: «¿cuántas veces salió?» dejó de tener respuesta. Va por el mismo
+          // molde que `anotarRebote429`: una fila de US$0 en el mismo gráfico que el dueño
+          // mira, con el motivo escrito.
+          void recordUsage('cartel-ia', `cartel:${causa}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
 
           // ⚠️ Y EL MENSAJE SE SALVA IGUAL. El aviso de arriba explica POR QUÉ falló —y
           // con una cuota agotada eso es lo accionable—, pero por sí solo manda al dueño

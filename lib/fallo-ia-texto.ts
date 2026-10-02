@@ -38,7 +38,12 @@ export type CausaFalloIA =
    * nuestro tope de entrada, y es la única de las cinco donde «reintenta» es
    * mentira — el mismo texto va a volver a rebotar.
    */
-  | 'mensaje_muy_largo';
+  | 'mensaje_muy_largo'
+  /**
+   * Las keys del CLIENTE contestaron y el problema fue NUESTRO: le pedimos mal, o
+   * descartamos lo que devolvieron. No se le pide nada — no hay nada que él pueda hacer.
+   */
+  | 'fallo_nuestro';
 
 /** Un error que dice «esa key no existe». Lo tira `proveedor()` en ai-cheap. */
 const SIN_KEY = /sin proveedor de ia barata|falta [A-Z_]*API_KEY|_API_KEY\)/i;
@@ -79,7 +84,22 @@ export const esTopeDeTamano = (error: string): boolean => ES_TOPE_DE_TAMANO.test
  * dato que separa «se cayó el proveedor» de «se cayó el proveedor Y no tenías
  * respaldo»: el hecho técnico es el mismo y lo que el cliente puede hacer no.
  */
-export function causaDelFallo(errores: string[], keysDelCliente: number): CausaFalloIA {
+/**
+ * Lo que hay que saber ADEMÁS del texto de los errores, y que ningún texto puede decir.
+ *
+ * ⚠️ `errores` tiene que traer SÓLO los de las keys DEL CLIENTE. Medido el 01/10/2026 en
+ * el ws13: de las ocho entradas de ese turno, SIETE eran de la red de plataforma —keys de
+ * la agencia— y los tres únicos 429 también. O sea que el «te quedaste sin cuota» que leyó
+ * un cliente lo fabricaron nuestras propias keys, con la suya contestando HTTP 200.
+ */
+export type ContextoFallo = {
+  /** Cuántas instancias del CLIENTE se llegaron a probar. 0 = no había ninguna usable. */
+  probadas?: number;
+  /** Cuántas de ésas devolvieron HTTP 200 y lo descartamos nosotros. */
+  contestaron?: number;
+};
+
+export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: ContextoFallo = {}): CausaFalloIA {
   // Los «no me entra» salen de la bolsa antes de preguntar por la cuota (ver
   // ES_TOPE_DE_TAMANO). Si queda alguno adentro, ese decide; si NO queda ninguno, o
   // sea que el único motivo fue el tamaño, la causa es nuestra y se dice.
@@ -87,6 +107,13 @@ export function causaDelFallo(errores: string[], keysDelCliente: number): CausaF
   const resto = errores.filter((e) => !esTopeDeTamano(e));
   const txt = resto.join(' · ');
   if (keysDelCliente === 0) return 'sin_keys';
+  // ⚠️ CERO INSTANCIAS PROBADAS NO ES «SE CAYÓ SU PROVEEDOR». Pasa cuando hay filas en
+  // `credenciales` pero ninguna resuelve (no se puede descifrar, quedó de otro entorno),
+  // y el veredicto caía en `sin_respaldo` — que afirma una caída que nadie vio.
+  if (ctx.probadas === 0) return 'sin_keys';
+  // Y si SÍ contestaron, el problema es nuestro: eso manda sobre cualquier texto de error,
+  // porque un 200 es la prueba más fuerte que hay de que del otro lado estaba todo bien.
+  if ((ctx.contestaron ?? 0) > 0) return 'fallo_nuestro';
   if (SIN_CUOTA.test(txt)) return 'sin_cuota';
   if (porTamano.length && !resto.length) return 'mensaje_muy_largo';
   // Con una sola key no hay cascada: cualquier bache de ese proveedor lo deja sin
@@ -175,6 +202,16 @@ export function textoFalloIA(
         `No pude ${que}: los proveedores de IA están con problemas en este momento.`,
         '',
         'No es nada tuyo, tus keys están bien. Reintenta en un par de minutos.',
+      ].join('\n');
+    case 'fallo_nuestro':
+      // ⚠️ ACÁ NO VA NI LINK NI «CARGÁ OTRA KEY»: su IA contestó. Lo que falló fue cómo se
+      // lo pedimos, y el cliente no tiene ninguna palanca. Se dice y se pide de nuevo,
+      // que es lo único verdadero — es la contracara exacta de la regla del dueño: culpar
+      // al cliente por un bache ajeno se paga peor que comerse la culpa propia.
+      return [
+        `No pude ${que}: tu IA respondió bien y el problema fue mío.`,
+        '',
+        'No es nada tuyo ni de tus keys. Mándamelo de nuevo y lo hago.',
       ].join('\n');
     case 'mensaje_muy_largo':
       // ⚠️ ACÁ NO VA EL LINK NI VA «REINTENTA»: cargar otra key no cambia el tope de

@@ -16,6 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+const NL = String.fromCharCode(10);
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 test('El camino del tool-use reintenta la SATURACIÓN, no la cuota', () => {
@@ -40,18 +41,36 @@ test('Nunca se reintenta después de que una tool tocó datos', () => {
     'se perdió la ventana segura del reintento: puede duplicar lo que una tool ya hizo');
 });
 
+// Probado rompiéndolo: devolviendo mistral a la lista, 4 pasan y 1 falla.
 test('La red de plataforma es solo GRATIS y solo último recurso', () => {
   const src = leer('../lib/ai-cheap.ts');
   const i = src.indexOf('export async function provsGratisDePlataforma');
-  const cuerpo = src.slice(i, i + 700);
+  // ⚠️ El cuerpo se corta en la llave de cierre de la función, NO a los 700
+  // caracteres. La versión vieja contaba caracteres y se puso roja el 01/10/2026
+  // con «la red perdió gemini» cuando lo único que había pasado era que el
+  // comentario de por qué salió mistral empujó el `for` fuera de la ventana.
+  const cuerpo = src.slice(i, src.indexOf(NL + '}', i) + 2);
   assert.ok(i > 0, 'desapareció la red de plataforma: un cliente con una key vuelve a quedar sin cascada');
   // ⚠️ `openai` y `anthropic` NO: ahí una llamada de más es una FACTURA de más, y
   // eso es una decisión de plata que no toma el código.
   assert.ok(!/'openai'|'anthropic'/.test(cuerpo),
     'entró un proveedor que COBRA a la red de plataforma: eso le factura a la agencia sin que nadie lo decida');
-  for (const p of ['gemini', 'groq', 'mistral']) {
+  for (const p of ['gemini', 'groq']) {
     assert.ok(cuerpo.includes(`'${p}'`), `la red perdió ${p}`);
   }
+  // ⚠️ MISTRAL SALIÓ, por el mismo motivo que cerebras y con una medición propia.
+  // Devuelve 429 SIEMPRE (`limit-req-minute: 0`), así que no es un escalón de la
+  // cascada: es una línea de «rate limit» GARANTIZADA en la lista con la que
+  // `causaDelFallo` elige el texto que lee el cliente. El 30/09 se lo sacó de la
+  // cascada propia del doer y quedó vivo acá — que es la lista que corre cuando al
+  // cliente no le contesta nadie, o sea el peor momento posible.
+  //
+  // Medido el 01/10/2026 en el ws13: las TRES keys de mistral DE LA AGENCIA
+  // devolvieron 429 en el mismo turno, y esos tres fueron los únicos errores de cuota
+  // de la lista. El cliente leyó «te quedaste sin cuota de IA» con su propia key
+  // contestando HTTP 200.
+  assert.ok(!cuerpo.includes(`'mistral'`),
+    'volvió mistral a la red: su 429 crónico le FABRICA el veredicto «sin cuota» al cliente');
   // ⚠️ CEREBRAS SALIÓ, y tiene que quedar afuera. Medido el 16/08 contra las SIETE keys
   // cargadas en cinco workspaces distintos: las siete devuelven HTTP 402 «Payment
   // required». No es una cuenta sin saldo, es que ya no hay tier gratis. Dejarlo en la

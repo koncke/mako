@@ -219,7 +219,19 @@ export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvN
   const ws = await wsSuperAdmin().catch(() => null);
   if (ws == null) return [];
   const out: Array<{ provider: ProvName; clave: string }> = [];
-  for (const prov of ['gemini', 'groq', 'mistral'] as const) {
+  // ⚠️ MISTRAL NO ESTÁ, Y ES EL MISMO MOTIVO QUE EN LA CASCADA DEL DOER: rebota SIEMPRE.
+  //
+  // El 30/09 se lo sacó de `cands` (lib/mako-doer-in.ts) porque su 429 crónico le
+  // FABRICABA el veredicto `sin_cuota` a cualquier falla — y quedó vivo acá, que es la
+  // lista que corre cuando al cliente no le contesta nadie. Medido el 01/10/2026 en el
+  // ws13: las TRES keys de mistral DE LA AGENCIA devolvieron 429 en el mismo turno, y
+  // esos tres fueron los únicos errores de cuota de la lista con la que se eligió el
+  // texto. O sea que el «te quedaste sin cuota» que leyó un cliente lo fabricaron
+  // nuestras propias keys, con la suya contestando HTTP 200.
+  //
+  // Y además gastaba el presupuesto: el log dice «cortada por tiempo: 7/8 probados», y
+  // tres de esos siete intentos eran mistral.
+  for (const prov of ['gemini', 'groq'] as const) {
     for (const clave of clavesProv(prov)) {
       const k = await credWs(clave, ws).catch(() => null);
       if (k) out.push({ provider: prov, clave });
@@ -785,6 +797,9 @@ export async function chatCheapTools(
 
   const maxSteps = opts.maxSteps ?? 6;
   let toolsUsados = 0;
+  /** Lo que el modelo PUEDE llamar en este turno. Ver la guarda de las fantasmas. */
+  const permitidas = new Set(tools.map((t) => t.name));
+  let rechazadas = 0;
   for (let step = 0; step < maxSteps; step++) {
     // ⚠️ EL REINTENTO QUE FALTABA ACÁ, y que el módulo ya tenía escrito para la
     // otra mitad (`chatCheapCascade`). Este camino —el del tool-use, o sea el que
@@ -808,7 +823,26 @@ export async function chatCheapTools(
       res = await fetch(`${p.base}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages: msgs, tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto', max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+        body: JSON.stringify({
+          model, messages: msgs,
+          // ⚠️ CON LA LISTA VACÍA NO VIAJAN NI `tools` NI `tool_choice`.
+          //
+          // Medido el 01/10/2026 contra Groq con `openai/gpt-oss-20b`: un body con
+          // `tools: []` hace que el proveedor resuelva `tool_choice` a `none`, y si el
+          // modelo igual emite una llamada contesta **HTTP 400 «Tool choice is none, but
+          // model called a tool»**. Mandar un array vacío no es «no mandar nada»: es
+          // pedir explícitamente que no use ninguna, que es otra cosa.
+          //
+          // ⚠️ Y ESTO SOLO NO ALCANZA: con el preámbulo del doer el mismo pedido revienta
+          // igual SIN el campo (2/2 medido). Lo que rompe de fondo es el PROMPT que ordena
+          // usar herramientas que no se mandaron — eso se arregla en el caller
+          // (ver `DOER_WA_TOOLS` en lib/mako-doer-in.ts). Esta guarda cierra la mitad que
+          // es del transporte; aquélla, la del contenido.
+          ...(oaiTools.length
+            ? { tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto' }
+            : {}),
+          max_tokens: opts.maxTokens ?? 1400, temperature: 0.2,
+        }),
         cache: 'no-store',
         signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
       });
@@ -842,8 +876,50 @@ export async function chatCheapTools(
     if (!msg) break;
     msgs.push(msg as Record<string, unknown>);
     const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
-    if (!calls.length) return { text: (msg.content || '').trim() || '(sin respuesta)', steps: step + 1, stopReason: 'stop', toolsUsados };
-    for (const c of calls) {
+    if (!calls.length) {
+      const txt = (msg.content || '').trim();
+      /**
+       * ⚠️ UN 200 CON EL CONTENIDO VACÍO NO ES UNA RESPUESTA, Y TIENE QUE DECIRSE DISTINTO.
+       *
+       * Devolvía el centinela '(sin respuesta)' con `stopReason: 'stop'`, o sea con la
+       * MISMA forma que usa el caller para descartar (`r.text.startsWith('(')`) — así que
+       * un modelo mudo y un modelo que empieza una frase con un paréntesis son
+       * indistinguibles río abajo, y el motivo que se escribe en la lista de errores
+       * decía «fin=stop», que es exactamente lo contrario de lo que pasó.
+       *
+       * Medido el 01/10/2026: la key del ws13 contestó 200 con el content vacío y el
+       * `finish_reason` REAL de Gemini era `tool_calls` (pidió una tool que no se le
+       * declaró). Ese dato lo estábamos tirando: ahora viaja.
+       */
+      const fin = String((data as { choices?: Array<{ finish_reason?: string }> }).choices?.[0]?.finish_reason || 'stop');
+      if (!txt) return { text: '(sin respuesta)', steps: step + 1, stopReason: `vacio:${fin}`, toolsUsados };
+      return { text: txt, steps: step + 1, stopReason: fin, toolsUsados };
+    }
+    /**
+     * ⚠️ EL CONTRATO DE TOOLS SE APLICABA AL DECLARAR Y NO AL EJECUTAR.
+     *
+     * Medido el 01/10/2026: Gemini, con `tools: []`, devolvió un `tool_calls` pidiendo
+     * `metricas_negocio` — un nombre que sólo aparecía en el TEXTO del system. Y el
+     * código la ejecutaba igual: acá no se miraba la lista. O sea que el recorte por
+     * intención (`toolsParaIntencion`) era una sugerencia, no un contrato — y el caso
+     * caro no es una lectura de más: es `proponer_tareas_plan`, que crea un borrador de
+     * verdad sobre un saludo. Ése es exactamente el bug que ese recorte vino a cerrar.
+     *
+     * ⚠️ Y LA GUARDA VIENE CON UN CORTE. Devolverle el error al modelo y seguir deja que
+     * lo reintente: con la lista vacía eso quema los 8 pasos y termina más lento y más
+     * caro que antes. Al SEGUNDO rechazo se sale del loop con lo que haya.
+     */
+    const fantasmas = calls.filter((c) => !permitidas.has(c.function?.name || ''));
+    if (fantasmas.length) {
+      rechazadas += fantasmas.length;
+      console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) llamó ${fantasmas.map((c) => c.function?.name).join(', ')} sin que se le declarara (${rechazadas})`);
+      for (const c of fantasmas) {
+        msgs.push({ role: 'tool', tool_call_id: c.id, content: `No existe la herramienta "${c.function?.name}" en este turno. Contesta con lo que ya sabes.` });
+      }
+      if (rechazadas >= 2) break;
+      if (fantasmas.length === calls.length) continue;
+    }
+    for (const c of calls.filter((x) => permitidas.has(x.function?.name || ''))) {
       toolsUsados++;
       let input: Record<string, unknown> = {};
       try { input = JSON.parse(c.function?.arguments || '{}'); } catch { /* args mal formados → tool con {} */ }

@@ -83,6 +83,7 @@ test('si era carga al plan, el mensaje se guarda CRUDO en vez de perderse', () =
   assert.ok(/await guardarCrudo\(\)/.test(guarda(src)), 'la guarda del silencio no lo usa');
 });
 
+// Probado rompiéndolo: con `if (false)` en vez de `if (eraDePlan)`, 6 pasan y 1 falla.
 test('EL QUE FALTABA: también se guarda cuando la IA TIRA (sin cuota), no sólo cuando calla', () => {
   // ⚠️ Lo encontró un refutador el mismo día que escribí la primera versión. La IA falla
   // de DOS formas: el loop puede descartar a todos los proveedores con `continue` —y sale
@@ -93,8 +94,21 @@ test('EL QUE FALTABA: también se guarda cuando la IA TIRA (sin cuota), no sólo
   const src = doer();
   const iCatch = src.indexOf('fallo de IA (${causa}');
   assert.ok(iCatch > 0, 'no encontré el camino del fallo con excepción');
-  const bloque = src.slice(iCatch, iCatch + 800);
-  assert.ok(/guardarCrudo\(\)/.test(bloque), 'con las keys sin cuota el mensaje se sigue perdiendo');
+  // ⚠️ EL BLOQUE SE DELIMITA POR SU FINAL, NO POR UNA CANTIDAD DE CARACTERES. La primera
+  // versión miraba los 800 siguientes y se puso roja el 01/10/2026 sin que el bug
+  // volviera: el camino del fallo creció (el registro del cartel y el log de la red de
+  // plataforma) y el `guardarCrudo()` quedó a 1.100. Un universo elegido a ojo se queda
+  // viejo solo, y la forma en que falla —rojo sobre código correcto— es la que enseña a
+  // ignorar al guard.
+  const fin = src.indexOf('EL MENSAJE DEL BORRADOR LO ESCRIBE EL CÓDIGO', iCatch);
+  assert.ok(fin > iCatch, 'se movió el final del camino del fallo: revisar este guard');
+  const bloque = src.slice(iCatch, fin);
+  // ⚠️ Y SE MIRA QUE SEA ALCANZABLE, no que la llamada exista. Probado rompiéndolo el
+  // 02/10/2026: con `if (false)` en vez de `if (eraDePlan)` el test seguía VERDE — el
+  // texto `guardarCrudo()` estaba igual en el archivo. Un guard que busca un nombre
+  // encuentra lo que el archivo DICE, no lo que el archivo HACE.
+  assert.match(bloque, /if \(eraDePlan\) \{\s*\n\s*const link = await guardarCrudo\(\);/,
+    'con las keys sin cuota el mensaje se sigue perdiendo');
 });
 
 test('y NUNCA duplica: el guardado crudo se corta solo si ya hay borrador', () => {

@@ -12,6 +12,9 @@ import { causaDelFallo, textoFalloIA, linkKeysIA, esTopeDeTamano } from '../lib/
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 const LINK = linkKeysIA('https://hola-mako.com');
+/** Sin comentarios: un guard que busca lo que NO tiene que estar se acusa solo. */
+const sinComentarios = (src: string): string =>
+  src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('Sin ninguna key cargada, la causa es esa y no otra', () => {
   assert.equal(causaDelFallo(['Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).'], 0), 'sin_keys');
@@ -206,4 +209,68 @@ test('⚠️ EL MENSAJE DE CUOTA NO AFIRMA CUÁNTAS CUENTAS PROBÓ', () => {
   // Con UNA sola key el texto es otro —ahí «cargá otra» es el consejo correcto— y ésa
   // no cuenta nada, así que no se toca.
   assert.match(textoFalloIA('sin_cuota', LINK, 'contestar', 1), /sin cuota de IA/i);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El veredicto se decide con las keys DEL CLIENTE, no con las nuestras
+// ─────────────────────────────────────────────────────────────────────────────
+// PROBADOS ROMPIÉNDOLOS (con todo puesto: 19 pasan, 0 fallan):
+//   · el doer vuelve a meter la plataforma en la misma bolsa  -> 18 / 1
+//   · el veredicto vuelve a decidirse sólo con el texto       -> 18 / 1
+//   · se saca el caso de cero instancias probadas             -> 18 / 1
+//   · el cartel vuelve a no dejar rastro                      -> 18 / 1
+
+test('⚠️ UN 200 DEL CLIENTE MANDA SOBRE CUALQUIER TEXTO DE ERROR', () => {
+  // Es la prueba más fuerte que hay de que del otro lado estaba todo bien. Medido el
+  // 01/10/2026 en el ws13: su Gemini contestó HTTP 200 y el cliente leyó «te quedaste
+  // sin cuota de IA» — un cartel que lo manda a cargar una key que no le hace falta.
+  const errs = ['gemini: contestó pero sin texto final (pasos=1, fin=vacio:tool_calls)'];
+  assert.equal(causaDelFallo(errs, 1, { probadas: 1, contestaron: 1 }), 'fallo_nuestro');
+  // Y manda incluso si al lado hay un 429 de verdad de otra cuenta SUYA.
+  assert.equal(causaDelFallo([...errs, 'HTTP 429'], 3, { probadas: 3, contestaron: 1 }), 'fallo_nuestro');
+});
+
+test('⚠️ Y SU TEXTO NO LLEVA LINK NI CULPA: no hay nada que el cliente pueda hacer', () => {
+  const tx = textoFalloIA('fallo_nuestro', LINK, 'contestar');
+  assert.ok(!tx.includes(LINK), `manda a tocar sus keys por un problema nuestro: ${tx}`);
+  assert.ok(!/cuota|l[ií]mite|cargá|carga otra/i.test(tx), `sigue hablando de su cuota: ${tx}`);
+  assert.match(tx, /fue m[ií]o|no es nada tuyo/i, 'no dice de quién fue');
+});
+
+test('⚠️ CERO INSTANCIAS PROBADAS NO ES «SE CAYÓ TU PROVEEDOR»', () => {
+  // Pasa cuando hay filas en `credenciales` pero ninguna resuelve. El veredicto caía en
+  // `sin_respaldo`, que afirma una caída que nadie vio.
+  assert.equal(causaDelFallo([], 2, { probadas: 0 }), 'sin_keys');
+  // Y con instancias probadas de verdad, la clasificación de siempre no se mueve.
+  assert.equal(causaDelFallo(['HTTP 503'], 1, { probadas: 1, contestaron: 0 }), 'sin_respaldo');
+  assert.equal(causaDelFallo(['HTTP 429'], 3, { probadas: 3, contestaron: 0 }), 'sin_cuota');
+});
+
+test('⚠️ EL DOER SEPARA LAS DOS LISTAS EN EL ORIGEN, no por un prefijo en el texto', () => {
+  // Medido el 01/10/2026: de las OCHO entradas de ese turno, SIETE eran de la red de
+  // plataforma —keys de la AGENCIA— y los tres únicos 429 también, todos de mistral. O
+  // sea que el «te quedaste sin cuota» que leyó un cliente lo fabricaron nuestras
+  // propias keys. Se separan en el origen porque una convención adentro de una cadena
+  // libre es justo lo que esta casa ya pagó dos veces.
+  const doer = sinComentarios(leer('../lib/mako-doer-in.ts'));
+  assert.match(doer, /const erroresPlataforma: string\[\] = \[\];/,
+    'volvió a haber una sola bolsa de errores');
+  // Ninguna línea de la red de plataforma puede empujar a la lista del cliente.
+  const red = doer.slice(doer.indexOf('provsGratisDePlataforma()'));
+  const hastaElFin = red.slice(0, red.indexOf('evaluarPermiso'));
+  assert.ok(!/erroresIA\.push/.test(hastaElFin),
+    'la red de plataforma volvió a escribir en la lista con la que se juzga al cliente');
+  // Y el veredicto se pide con el contexto medido, no sólo con el texto.
+  assert.match(doer, /causaDelFallo\(errsIA, nKeys, \{ probadas: ee\?\.probadas, contestaron: ee\?\.contestaron \}\)/,
+    'el veredicto volvió a decidirse sólo con el texto de los errores');
+});
+
+test('⚠️ Y EL CARTEL QUEDA REGISTRADO: desde el 30/09 no deja rastro en ningún lado', () => {
+  // El arreglo del 30/09 sacó el cartel del historial del grupo —bien: de ahí salía el
+  // «Ya estoy de vuelta»— y con eso se perdió la ÚNICA forma de contarlo. La pregunta
+  // «¿cuántas veces salió?» se podía contestar hasta ese día (12 en 60 días) y desde
+  // entonces no. Rechazar se registra.
+  const doer = sinComentarios(leer('../lib/mako-doer-in.ts'));
+  assert.match(doer, /recordUsage\('cartel-ia'/,
+    'el cartel volvió a salir sin dejar una fila que se pueda contar');
 });

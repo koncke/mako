@@ -3147,3 +3147,130 @@ es un insulto porque ya lo hizo) y cuántas se probaron. El número dejó de sal
   en una línea.
 
 *2026-09-30*
+
+---
+
+## Un prompt que ORDENA usar diez herramientas que no se mandaron: el turno no tiene desenlace bueno
+
+**Vive en:** `lib/mako-doer-in.ts` (`DOER_WA_VOZ` / `DOER_WA_TOOLS`, el armado de `system`) ·
+`lib/ai-cheap.ts` (`chatCheapTools`)
+
+Martín, el 01/10/2026, con la captura del grupo de un cliente de una agencia: *«Realmente
+hay que solucionar esto, es un producto totalmente defectuoso que MaKo cada 2 mensajes te
+diga esto»*. Lo que MaKo le había contestado a «hola mako, como venimos de reuniones los
+ultimos 15 dias» era **«⚠️ Te quedaste sin cuota de IA»** — con la key de ese cliente
+contestando HTTP 200.
+
+**No era exageración.** Medido en `mako_doer_conv`: a ese cliente el cartel le salió en
+**16 de sus 53 turnos (30%)**, y en **las SEIS veces** que preguntó por sus agendas. Es una
+inmobiliaria de generación de leads: las agendas SON el producto.
+
+La cadena, entera:
+
+| | qué pasó |
+|---|---|
+| 1 | `clasificarIntencion` leyó «hola» al principio → `charlar`, cuyo contrato es `tools: []` |
+| 2 | el ROUTER, en cambio, lo leyó como un pedido de datos («reuni», «ultimo») → tier sonnet, así que no tomó el camino barato |
+| 3 | el turno entró al loop de tool-use con el array VACÍO y con el preámbulo entero: **8.516 caracteres que nombran diez herramientas y ORDENAN usarlas** |
+| 4 | Groq → **HTTP 400** «Tool choice is none, but model called a tool». Gemini → **HTTP 200 con el contenido vacío** y `finish_reason: tool_calls` |
+| 5 | como nadie contestó, corrió la red de plataforma —keys de la AGENCIA— y los 429 de mistral eligieron el texto que leyó el cliente |
+
+⚠️ **Y LA LISTA VACÍA NO ERA LA CAUSA: ES EL PROMPT.** Es lo que refutó la medición en vivo
+contra las dos APIs, y cambió el arreglo entero:
+
+| system | body | Groq | Gemini |
+|---|---|---|---|
+| corto, no nombra herramientas | `tools: []` | **200**, contesta bien | — |
+| el preámbulo del doer | `tools: []` | **400** (3/3) | **200 con content vacío** (2/2) |
+| el preámbulo del doer | SIN el campo `tools` | **400** (2/2) | **200 con content vacío** (2/2) |
+
+O sea que «mandalo por el camino sin tools» no arregla nada: lo que rompe es pedirle al
+modelo que llame algo que no recibió. Es «una regla en un prompt no es una regla» con el
+signo dado vuelta — **un prompt que PROMETE una capacidad que la API no concede**. El
+protocolo de herramientas se partió en su propia constante y sólo viaja si `tools.length`,
+y el `system` se arma **después** de las tools (estaba veinticinco líneas más arriba, o sea
+antes de poder mirarlas).
+
+⚠️ **Y AL SACAR UN BLOQUE DE PROMPT, ENUMERÁ QUÉ REGLAS VIVÍAN ADENTRO.** «nunca inventes
+nombres, números ni fechas» era una frase del protocolo de tools, así que se fue con él.
+Medido el 02/10 contra Groq con el system ya partido y sin esa línea: contestó en 548 ms
+**«hemos tenido 6 reuniones: 3 internas (planificación, revisión de KPIs, brainstorming), 2
+con cliente…»** — seis reuniones que no existen, con su desglose. **Eso es peor que el
+cartel que vino a reemplazar: un número inventado no se lee como un error.** Con la línea
+puesta: «Eso lo miro y te lo paso.» El camino barato de al lado ya lo sabía y lo decía en
+su propio system; era la tercera escritura de la misma regla y la única que faltaba.
+
+⚠️ **Y `tools: []` NO ES «no mandar herramientas».** Groq resuelve `tool_choice` a `none` y
+contesta 400 si el modelo igual emite una llamada. Con la lista vacía no viajan **ni
+`tools` ni `tool_choice`**.
+
+⚠️ **Y EL CONTRATO SE APLICABA AL DECLARAR Y NO AL EJECUTAR.** Gemini, con `tools: []`,
+devolvió un `tool_calls` pidiendo `metricas_negocio` — un nombre que sólo estaba en el
+TEXTO del system — y el código **la ejecutaba**: nadie miraba la lista. O sea que recortar
+las tools por intención era una sugerencia. El caso caro no es una lectura de más: es
+`proponer_tareas_plan`, que crea un borrador de verdad sobre un saludo, que es exactamente
+el bug que ese recorte vino a cerrar. La guarda va **con un corte**: devolverle el error y
+seguir deja que lo reintente, y con la lista vacía eso quema los 8 pasos.
+
+⚠️ **Y UN 200 CON EL CONTENIDO VACÍO SE REPORTABA COMO UN CIERRE NORMAL.** Devolvía el
+centinela `'(sin respuesta)'` con `stopReason: 'stop'` — la MISMA forma que usa el caller
+para descartar—, así que el motivo que se escribía decía «fin=stop», lo contrario de lo que
+pasó. El `finish_reason` real era `tool_calls` y lo estábamos tirando.
+
+*2026-10-02*
+
+---
+
+## Los errores de NUESTRAS credenciales no eligen el texto que lee el cliente
+
+**Vive en:** `lib/fallo-ia-texto.ts` (`causaDelFallo`, `ContextoFallo`) ·
+`lib/mako-doer-in.ts` (`erroresPlataforma`) · `lib/ai-cheap.ts` (`provsGratisDePlataforma`)
+
+En el turno del 01/10 la lista con la que se eligió el mensaje tenía **ocho entradas: UNA
+del cliente y SIETE de la agencia (87,5%)** — y los únicos tres 429, lo único que matchea la
+regex de cuota, eran `plataforma/mistral`. El «te quedaste sin cuota de IA» que leyó un
+cliente **lo fabricaron íntegramente nuestras propias keys**.
+
+`causaDelFallo` no las podía distinguir: su firma era `(errores: string[], keys: number)` y
+juntaba todo con un `join`. Se separan **en el origen** —`erroresIA` y `erroresPlataforma`—
+y no por un prefijo adentro del texto: una convención dentro de una cadena libre es justo lo
+que esta casa ya pagó dos veces.
+
+⚠️ **Y FILTRAR LA PLATAFORMA NO ALCANZA.** Medido: con sólo la entrada del cliente el
+veredicto pasa de `sin_cuota` a `sin_respaldo`, que dice «Tu proveedor de IA se cayó justo
+ahora… carga una segunda key». **También es falso**: su proveedor no se cayó, contestó 200.
+Al conjunto de causas le faltaba la honesta, y es la que el cliente no puede accionar:
+
+- **`fallo_nuestro`** — las keys del cliente contestaron y el problema fue nuestro. **Sin
+  link y sin «cargá otra»**: no hay nada que él pueda hacer. «No pude contestar: tu IA
+  respondió bien y el problema fue mío.»
+- Y **un 200 del cliente manda sobre cualquier texto de error**, incluso si al lado hay un
+  429 de otra cuenta suya: es la prueba más fuerte que hay de que del otro lado estaba bien.
+
+⚠️ **Y CERO INSTANCIAS PROBADAS NO ES «SE CAYÓ TU PROVEEDOR».** Pasa cuando hay filas en
+`credenciales` pero ninguna resuelve, y el veredicto afirmaba una caída que nadie vio. Por
+eso `causaDelFallo` recibe ahora **cuántas se probaron y cuántas contestaron**, que son dos
+hechos que ningún texto de error puede decir.
+
+⚠️ **Y MISTRAL SEGUÍA EN LA RED DE PLATAFORMA.** El 30/09 se lo sacó de la cascada propia
+del doer porque su 429 crónico (`limit-req-minute: 0`) le FABRICA el veredicto de cuota a
+cualquier falla — y quedó vivo en la lista que corre **cuando al cliente no le contesta
+nadie**, o sea en el peor momento posible. Es «sacar un patrón es ENUMERAR dónde está, no
+arreglarlo donde se vio», otra vez: eran dos listas y se arregló una.
+
+**Lo que quedó SIN hacer:**
+
+- **El consumo de las keys de la AGENCIA se registra en el workspace del CLIENTE**
+  (`recordUsage` toma el ws del contexto), así que le ensucia su gauge de cuota. Es a
+  propósito que se VEA en su Saldo; lo que falta es que no cuente para su cuota.
+- **`contarKeysIA` puede devolver 40.** `clavesCargadas` degrada a «no sé» devolviendo el
+  catálogo entero, y eso pasa también cuando el workspace tiene CERO filas en
+  `credenciales`. Con eso el veredicto `sin_keys` es **inalcanzable** para el caso exacto que
+  `lib/fallo-ia-texto.ts` vino a resolver, y a alguien que no conectó nada se le dice «la IA
+  que tengo conectada me está rebotando por límite».
+- **El 429 de la red de plataforma no se anota** (`anotarRebote429` escribiría en el
+  workspace del cliente y le prendería «agotado» un proveedor que no tiene).
+- **La cascada del cliente no tiene techo de tiempo ni `timeoutMs`**: 8 pasos × 45 s por
+  llamada, y recién después arrancan los 25 s de la red de plataforma.
+
+*2026-10-02*
