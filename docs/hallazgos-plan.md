@@ -5525,3 +5525,90 @@ se funden: es si el CONTENEDOR tiene el tamaño correcto.**
   tarjeta sólo nombraba uno.
 
 *2026-09-30 · crm-reducir-tareas*
+
+---
+
+## Escribir un plan en FECHAS sobre un tablero que se ordena por SCORE
+
+Salió de aplicar al tablero del super admin (ws9) el plan que cerró la llamada con Leila
+del 01/10 — `docs/llamada-leila-01oct.md`: cinco etapas, catorce proyectos con fecha, tope
+el 4 de noviembre.
+
+### ⚠️ El Perro rankea proyectos SIN VER NI UNA FECHA
+
+`priorizarProyectosOwner` (`lib/plan-board.ts`) arma el payload de cada proyecto con
+`id · nombre · resumen (sale del detalle) · abiertas · hechas · 5 títulos · scoreActual`, y
+**ni `deadline` ni `quarter` entran**. Corre sola todas las noches por
+`app/api/cron/plan-recurvar` y reescribe el score de todo lo que no tenga `score_manual`.
+
+O sea: un plan cuyo contenido ES la fecha —«esto al 7 de octubre, esto al 11»— es
+exactamente lo que el único proceso que reordena el tablero no puede mirar. Lo que lo
+sostiene es la regla de ESTABILIDAD del prompt (`lib/mako-guardian.ts`: «Ante la duda,
+MANTÉN»), que es prosa. Funciona —la escalera del 25/09 sobrevivió una semana de corridas—
+y no es una garantía.
+
+**La regla que queda:** al escribir un orden a mano sobre el tablero, decidí de antemano qué
+lo va a sostener mañana, y son tres cosas distintas:
+
+| Qué | Quién lo respeta | Qué cuesta |
+|---|---|---|
+| `score` + `score_razon` | nadie: lo reescribe la corrida de la noche salvo que el prompt decida mantener | nada |
+| `score_manual` | el Perro, de verdad (`if (antes?.manual)`) | es la firma del DUEÑO: una corrida que lo escribe pone un candado sin llave — el 20/09 ya costó eso |
+| el `detalle` del proyecto | el Perro, porque de ahí sale el `resumen` que lee | hay que escribir dentro del molde y topea en 6000 |
+
+El único de los tres que una corrida puede escribir sin mentir es el primero. Por eso el
+orden del 03/10 se escribió sin tocar el flag — y por eso hay que decirlo al reportar, en
+vez de dar la escalera por clavada.
+
+### Sólo 7 de los 71 proyectos tienen `score_manual`, no los 71
+
+Medido el 03/10/2026 contra producción. AGENTS.md cuenta que el 20/09 una depuración lo fijó
+en los 71 y que eso dejó al dueño sin poder mover una prioridad; el relato es correcto y **la
+base de hoy no se parece**: quedan siete, y son justo los que él discutió uno por uno (CRM,
+Oferta y precios, Landing y VSL, Seguridad, Infraestructura, Integraciones, Orgánico
+Instagram). **Antes de razonar sobre el candado, contalo**: la foto que trae un documento es
+del día que se escribió.
+
+Corolario al aplicar una decisión nueva: tres de esos siete los nombra la llamada del 01/10
+por su nombre, así que se les pisó el número **conservando el flag**. Gana la fuente más
+nueva, y el flag no es la decisión — es la marca de que hubo una.
+
+### `plan_proyectos` no tiene `progress` ni `tachado`
+
+Las dos primeras fotos del tablero devolvieron **0 proyectos** y el script siguió contento,
+que es el modo de falla que AGENTS ya tiene escrito: un `select` de PostgREST con una columna
+inexistente rechaza la consulta ENTERA y `data` vuelve `undefined`. Lo específico que vale
+anotar es **cuáles columnas son del otro lado del tablero**: el avance (`progress`) y el
+tachado viven en `plan_tareas`; un proyecto no tiene ninguno de los dos. Un proyecto
+«cerrado» no existe como columna — se baja de score y se le escribe el motivo.
+
+Y el error sólo apareció al leer `error` de las dos consultas por separado. Con el
+`if (error) throw` puesto, el diagnóstico tarda un segundo; sin él, el script imprime una
+tabla vacía perfectamente plausible.
+
+### Lo que quedó SIN hacer, y es de Martín
+
+La propia llamada lo dice: **la poda no se hizo, se reordenó**. Lo que sigue abierto, con
+dónde vive cada cosa:
+
+1. **La poda fina ítem por ítem**, que era el deber de esa noche. Nada de lo que la llamada
+   no nombró se tocó: de 85 para abajo el tablero quedó igual, a propósito — hacer la poda
+   acá habría sido inventarla.
+2. **Tres contradicciones de la llamada contra sí misma**: el Onboarding se fue al 14/10
+   estando ROTO (la cuota de Gemini lo frena, y con el criterio del 21/09 eso era etapa 1);
+   el video tutorial se descartó y volvió a entrar doce minutos después; y Offer
+   Analyst/Generator está en la etapa 2 según el resumen de Fathom y «en la etapa siguiente»
+   según el transcript. Las tres las decide él, no un agente.
+3. **Seguridad se cayó por segunda llamada seguida**, sin discusión y sin criterio. Se le
+   escribió la razón y **no se le movió el número**: la llamada no dijo dónde ponerlo, y
+   bajarlo por mi cuenta sería la misma invención que la poda.
+4. **El número de WhatsApp recién comprado no tiene historial** y hay que curarlo antes de
+   usarlo. Es el canal de salida de todo el Chatbot del 7/10 y quedó sin método ni fecha —
+   o sea que la etapa 1 cuelga de algo que no es código.
+
+⚠️ **Y no se creó ni una tarea.** `aplicarPropuesta` dispara al Perro y re-curva TODOS los
+proyectos, así que crear tarjetas después de escribir la escalera la borra. El orden va
+siempre después de crear; acá el orden ya estaba escrito, así que lo que sigue —si se decide
+crear algo— es volver a escribir la escalera después.
+
+*2026-10-03 · aplicar-llamada-leila-01oct*
