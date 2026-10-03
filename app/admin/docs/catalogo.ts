@@ -88,6 +88,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 
   // --- fotos de un momento, no se mantienen ---
+  'llamada-leila-01oct': {
+    grupo: 'Auditorías', tabs: [],
+    hace: ['El orden y las fechas del desarrollo (P1 al 7/10 … P5 al 21/10)', 'La poda que quedó sin hacer'],
+  },
   'llamada-leila-21sep': {
     grupo: 'Auditorías', tabs: [],
     hace: ['La poda para poder lanzar: qué entra y qué sale', 'El criterio de descarte, con las citas'],
