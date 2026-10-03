@@ -88,6 +88,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 
   // --- fotos de un momento, no se mantienen ---
+  'panorama-03oct': {
+    grupo: 'Arranque', tabs: [],
+    hace: ['El runway, la poda real y la ventana de venta', 'Cruza los dos audios con las dos llamadas y el tablero'],
+  },
   'llamada-leila-01oct': {
     grupo: 'Auditorías', tabs: [],
     hace: ['El orden y las fechas del desarrollo (P1 al 7/10 … P5 al 21/10)', 'La poda que quedó sin hacer'],
