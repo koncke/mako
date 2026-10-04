@@ -404,4 +404,33 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/crm/lead-view/ComportamientoCard.tsx — la tarjeta de comportamiento del lead: grabación, mapa de calor y retención por video'],
   },
+  // ── octubre: lo que salió de la llamada con Leila ──────────────────────────
+  {
+    fecha: '1 oct', hora: '00:11', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Eliminar una etapa del embudo no se podía, y nadie sabía por qué',
+    pedido: 'LEILA, intentando borrar «Nutrición No Show R1» en vivo: «No se pudo. Esta etapa no es del pipeline, no se la puede eliminar solo». MARTÍN: «Creo que hay un error… tengo que ver ahí de qué depurar eso».',
+    puntos: [
+      'Es la primera de nueve cosas que Martín dictó mirando la pantalla en esa llamada. Ninguna quedó anotada en el momento: la transcripción no existía en el disco y hubo que reconstruirla desde los logs de los subagentes de una corrida del 03/10.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '12:56', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El menú ofrecía borrar 102 columnas que el server rechaza',
+    puntos: [
+      '**Dos condiciones distintas para la misma pregunta, a dos archivos de distancia.** El menú preguntaba `!esTerminal(c.key)`; el server exige además estar guardado en `pipeline` y no ser la ENTRADA. Las etapas de nutrición **no están en `pipeline`**: las agrega `generateFunnel` en cada lectura, así que el menú las ofrecía y el server las rechazaba SIEMPRE.',
+      '**Medido contra producción antes de escribir una línea: 102 columnas de los 16 embudos.** El menú no estaba a veces mal — estaba mal en todos los embudos del producto, y nadie lo había reportado hasta que Leila lo tocó en vivo.',
+      '⚠️ **Y la medición se había quedado corta: la corrigió el test en su PRIMERA corrida.** Contó sólo las de nutrición, comparando contra `pipeline`. Las entradas SÍ están ahí y el server las rechaza igual («por esa etapa entra tu gente»), o sea una más por embudo. Contar contra UNA de las tres guardas del server es medir un tercio.',
+      '**El guard viejo se mudó con la pieza.** `funnel-estructura.test.ts` fijaba `esTerminal(c.key) ? [] : [{ value: eliminar` palabra por palabra; ahora apunta a `colsBorrables`, y quién es borrable de verdad lo prueba el test nuevo contra `generateFunnel`. Un guard que queda apuntando a la condición vieja no avisa: se pone rojo y se lo borra.',
+      '**El cableado se prueba EXTRAYENDO la línea, no buscando en el archivo.** `esTerminal` aparece legítimamente en otras ocho líneas de `CrmBoard.tsx`: un `match` sobre el fuente entero daba verde con el bug puesto.',
+    ],
+    commits: [
+      { sha: '78108a08', msg: 'El menú de una columna sólo ofrece borrar lo que el server sabe borrar', lineas: 190, archivos: 4 },
+    ],
+    archivos: [
+      'app/crm/CrmBoard.tsx — `colsBorrables`: lo que el server acepta borrar, ni una más',
+      'tests/eliminar-etapa-coherente.test.ts — la decisión contra `generateFunnel` y el cableado leyendo la línea del menú',
+    ],
+  },
 ];

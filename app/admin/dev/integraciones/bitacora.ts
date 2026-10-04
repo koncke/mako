@@ -308,4 +308,36 @@ export const BITACORA: Hito[] = [
       { sha: '7008cf60', msg: 'prueba del Pixel: los chequeos miraban una ventana de 25 eventos, y el opt-in la tabla equivocada', lineas: 247, archivos: 5 },
     ],
   },
+  // ── octubre: lo que salió de la llamada con Leila ──────────────────────────
+  {
+    fecha: '1 oct', hora: '00:50', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Calendly: el cliente conecta y no entra nada',
+    pedido: '«Calendly. El cliente conecta, no entra nada y no hay ningún error. No sé por qué, como no uso Calendly. Esto yo creo de que lo que pasa es que está configurado el Calendly de Mauricio y los clientes conectan su calendly y no pasa nada, no hace nada.»',
+    puntos: [
+      'La hipótesis que él mismo dio en voz alta era la equivocada, y vale la pena que quede escrita: no se cruzaba con el Calendly de Mauricio.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '12:56', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El campo que crea la fila de ruteo estaba marcado «opcional»',
+    puntos: [
+      '**Un webhook entrante llega sin sesión**: lo único que dice de quién es el evento es `webhook_routing` (mig 0090), y esa fila la escribe el guardado de una credencial de `ROUTING_CREDS`. Para Calendly son los dos EVENT_TYPE, y los dos estaban `opcional: true`. El único campo obligatorio era el token.',
+      '**Y el webhook es fail-CLOSED a propósito** —sin mapeo no se toca un dato, para que la reserva de un cliente no caiga en el CRM del dueño—, así que conectar «bien» dejaba cero filas de ruteo y todas las reservas ignoradas con un 200 y un `console.warn` que no lee nadie.',
+      '**Medido contra producción: de los 2 workspaces con Calendly conectado, UNO tenía token y signing key y CERO filas de ruteo.** El script quedó en `scripts/probe-calendly-sin-ruteo.ts` para volver a correrlo.',
+      '**Y no hay red por otro lado: no existe ningún cron que ingiera la agenda.** Con el token MaKo COMPLETA las fechas de un lead que ya existe (al mover una tarjeta del CRM) y RESERVA; lo que crea el contacto a partir de una reserva es el webhook y nada más. La ayuda de la signing key decía lo contrario («tus reuniones igual entran, porque MaKo lee tu agenda con el Personal access token») y se corrigió: era el mismo malentendido por la otra puerta.',
+      '**La regla queda en positivo y con guard**: cada servicio de ruteo tiene al menos una clave que el cliente no puede dejar vacía — obligatoria, o `auto` (la completa MaKo, como `META_PAGE_ID` al pegar el token). Sin la excepción de `auto`, el guard habría pedido hacer obligatorio un campo que el cliente no tiene de dónde sacar.',
+      '⚠️ **Lo que esto NO arregla**: el workspace que ya está así. Una regla que se aplica al ESCRIBIR no toca una fila escrita. Lo que sí cambia es que su Calendly deja de contar como conectado, así que la pantalla muestra el campo en «pendiente» en vez de un verde que miente. El valor lo tiene que poner ese cliente: es el nombre de SU event type.',
+    ],
+    commits: [
+      { sha: '1a0c13cf', msg: 'Calendly: el campo que crea la fila de ruteo deja de ser opcional', lineas: 263, archivos: 4 },
+    ],
+    archivos: [
+      'lib/metodo-catalogo.ts — los R1 de Calendly y Cal.com, ahora obligatorios y con la nota diciendo qué se pierde',
+      'lib/webhook-routing.ts — `ROUTING_CREDS`: las claves que escriben la fila de ruteo',
+      'tests/webhook-ruteo-obligatorio.test.ts — cada servicio de ruteo con al menos una clave firme',
+      'scripts/probe-calendly-sin-ruteo.ts — solo lectura: cuenta quién conectó y no tiene por dónde entrar',
+    ],
+  },
 ];
