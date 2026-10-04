@@ -509,13 +509,26 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload) => {
       try {
         const r = await adjuntarFathomAuto({ diasAtras: Number(payload.diasAtras), maxLeads: Number(payload.maxLeads) });
-        const nota = r.revisados && !r.adjuntados
-          ? ' Si esperabas alguna: Fathom pudo no responder (ese fallo no se informa) o el email del invitado no coincide con el del lead.'
-          // lib/fathom-auto.ts arma la segunda grabación de un lead con la lista que leyó
-          // al principio: si en esta corrida se le engancharon R1 y R2, la segunda pisa a
-          // la primera y el contador igual suma 2.
-          : r.adjuntados > 1 ? ' Si a un mismo lead se le engancharon R1 y R2 en esta corrida, pudo quedar solo una: vuelve a correrla y se completa la que falte.' : '';
-        return { ok: true, resumen: `Revisé ${r.revisados} leads y enganché ${r.adjuntados} grabaciones.${nota}`, datos: r };
+        // ⚠️ LOS DOS TEXTOS QUE HABÍA ACÁ QUEDARON FALSOS el 04/10/2026, por arreglos de
+        // lib/fathom-auto.ts hechos en otro archivo. Decían «(ese fallo no se informa)»
+        // —ahora sí: el `.catch(() => [])` se sacó y el catch de abajo lo cuenta— y «si
+        // a un mismo lead se le engancharon R1 y R2 pudo quedar solo una», que era la
+        // segunda grabación pisando a la primera y ya no pasa (`applyFathomRecording`
+        // relee la ficha). Un texto que manda a desconfiar de un resultado correcto
+        // hace repetir una corrida para nada.
+        //
+        // Lo que sí hay que decir son los números con los que alguien puede hacer algo:
+        // una corrida que se ABSTUVO sobre 2 leads ambiguos y no pudo escribir 1 informa
+        // exactamente lo mismo que una perfecta si sólo se cuentan los enganchados.
+        const detalles = [
+          r.porNombre ? `${r.porNombre} por nombre` : '',
+          r.ambiguos ? `${r.ambiguos} sin enganchar porque había más de una grabación posible` : '',
+          r.fallosPorLead ? `${r.fallosPorLead} no se pudieron escribir` : '',
+        ].filter(Boolean);
+        const nota = detalles.length ? ` (${detalles.join(' · ')}).` : '';
+        const vacio = r.revisados && !r.adjuntados
+          ? ' Si esperabas alguna, el email del invitado puede no coincidir con el del lead.' : '';
+        return { ok: true, resumen: `Revisé ${r.revisados} leads y enganché ${r.adjuntados} grabaciones.${nota}${vacio}`, datos: r };
       } catch (err) {
         return { ok: false, resumen: `No se pudieron enganchar las grabaciones (${err instanceof Error ? err.message : 'error'}).` };
       }

@@ -462,3 +462,51 @@ token. Sin esa excepción el guard habría pedido hacer obligatorio un campo que
 tiene de dónde sacar — que es exactamente el candado sin llave que la casa prohíbe.
 
 **Vive en:** `lib/metodo-catalogo.ts` (Calendly y Cal.com) · `lib/webhook-routing.ts` → `ROUTING_CREDS` · *2026-10-04*
+
+## `opcional: true` no es un rótulo: lo cuentan tres lectores y mueve pantallas enteras (04/10/2026)
+
+Sacarle `opcional: true` a un campo del catálogo de integraciones parece un cambio de validación
+de un formulario. No lo es: la bandera la leen `integracionConectada`
+(`lib/credenciales.ts:227-230`), `calcConectada` (`app/integraciones/ServicioConfigForm.tsx:96-98`)
+y `app/api/metodo/route.ts:28`, **los tres exigiendo que estén TODOS los requeridos** para
+contestar «conectado».
+
+Medido: al volver obligatorio el tipo de evento de la R1, el ws 4 pasó de «Calendly conectado» a
+**no conectado**, sin que nadie tocara una credencial y sin un solo error. Para esa persona la
+integración se desconectó sola.
+
+**Antes de sacarle `opcional: true` a un campo, grepeá quién cuenta los requeridos y corré la lista
+de workspaces para ver quién cambia de lado.** Es la misma familia que «un campo nuevo son SEIS
+lugares», del lado de la CONDICIÓN en vez del dato — y acá el cambio es correcto y hay que hacerlo
+igual: lo que no puede pasar es que nadie sepa a quién le cambió la pantalla.
+
+**Vive en:** `lib/metodo-catalogo.ts` · `lib/credenciales.ts:218-231` · `app/integraciones/ServicioConfigForm.tsx:96-98` · *2026-10-04 arreglar-crm*
+
+## Un aviso de «esto está a medias» cuelga de la INTEGRACIÓN, no de la tab (04/10/2026)
+
+El panel de activación del CRM se dibuja con un OR sobre tres fuentes
+(`!calendly && !calcom && !meta`, `app/crm/page.tsx:51-59`), así que **una integración a medias
+queda tapada por cualquier otra que esté entera**.
+
+Medido: el ws 4 tiene Meta conectado y Calendly a medias —token sí, tipo de evento no, cero filas
+de ruteo— o sea que es exactamente el workspace al que se le están tirando reservas, y el único al
+que la pantalla no le puede avisar. El OR lo da por cubierto.
+
+**Un gate que decide si se ve una pantalla de datos se pregunta por los DATOS además de por la
+configuración**, y el aviso de una integración incompleta vive en esa integración: una tab con
+otra fuente conectada no tiene cómo contarlo.
+
+**Vive en:** `app/crm/page.tsx:51-59` · `lib/tab-activacion.ts` · *2026-10-04 arreglar-crm*
+
+## Un encargo con archivo:línea es una FOTO FECHADA, no el estado del árbol (04/10/2026)
+
+El encargo medía, con archivo y línea del 03/10, que los dos campos de tipo de evento de Calendly
+seguían `opcional: true`. En HEAD, uno ya era obligatorio: el commit `1a0c13cf` entró el 04/10, un
+día después de la medición.
+
+**Se relee HEAD y se corre `git log --oneline -5 -- <archivo>` antes de escribir una línea.** Y
+cuando el arreglo ya está, lo que suele quedar son los TEXTOS que ese arreglo dejó viejos —tres
+tutoriales y una nota que seguían describiendo el campo como opcional—, que es trabajo real y que
+ningún compilador reclama.
+
+**Vive en:** `lib/metodo-catalogo.ts:828-861` · *2026-10-04 arreglar-crm*

@@ -21,6 +21,42 @@
 /** Por qué una fila NO se va a importar. Ninguna se esconde: se muestra atenuada. */
 export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repetido-archivo';
 
+/**
+ * De los cuatro motivos, el ÚNICO que es una decisión de la persona.
+ *
+ * «Ya existe en el CRM» es una advertencia: puede ser la misma persona (y entonces no
+ * va) o un homónimo, un socio que comparte el mail de la empresa, o alguien a quien se
+ * quiere cargar igual. Eso lo sabe quien importa y no el código, así que la fila entra
+ * DESTILDADA y se puede tildar a sabiendas.
+ *
+ * Los otros tres no son decisiones, son filas que no se pueden crear:
+ *   · `sin-nombre` → `createLead` tira, el nombre es obligatorio.
+ *   · `sin-contacto` → el alta manual lo prohíbe desde siempre, «sin eso el lead es
+ *     incontactable», y no hay razón para que el importador sea la puerta de atrás.
+ *   · `repetido-archivo` → son dos filas del MISMO archivo; el server las frena con
+ *     `chocaAcá` haga lo que haga el tilde, así que ofrecerlo sería un control muerto.
+ *
+ * ⚠️ POR ESO LA CASILLA SE HABILITA SÓLO PARA ÉSTE. Un tilde que la persona puede
+ * mover y que el server ignora es peor que no tenerlo: es la pantalla prometiendo una
+ * decisión que no existe, que es exactamente el bug del 03/10/2026 visto del otro lado.
+ */
+export const MOTIVO_DECIDIBLE: MotivoDescarte = 'duplicado';
+
+/**
+ * ¿ESTA FILA SE VA A CREAR? La misma pregunta, la misma respuesta, para los tres que
+ * la hacen: la casilla que se dibuja, el número del botón (`contar`) y el portón del
+ * server (`importarLeadsRevisadosAction`).
+ *
+ * ⚠️ ES UNA FUNCIÓN Y NO TRES CONDICIONES PARECIDAS porque las tres divergieron, y lo
+ * que se pagó fue esto: la pantalla dibujaba la fila repetida atenuada y sin tilde, el
+ * botón decía «Crear 80 leads» contando sólo las limpias, y el server creaba 80 MÁS las
+ * repetidas —con la guarda anti-duplicado apagada— porque su portón miraba únicamente
+ * `incluir`, que nace en true y que `recalcular` nunca baja. Tres lectores, tres
+ * respuestas, ningún error. Vivió desde el 14/08/2026.
+ */
+export const entra = (f: FilaImport): boolean =>
+  f.incluir && (!f.motivo || f.motivo === MOTIVO_DECIDIBLE);
+
 export const MOTIVO_LABEL: Record<MotivoDescarte, string> = {
   'sin-nombre': 'sin nombre',
   'sin-contacto': 'sin email ni teléfono',
@@ -192,27 +228,63 @@ export function parseCsv(text: string, delim = ','): string[][] {
  * inclusión ("Nombre completo", "Correo electrónico", "WhatsApp" y demás).
  * Devuelve `error` en vez de tirar: el modal lo muestra y el usuario corrige el
  * archivo, que es distinto de "el archivo está roto".
+ *
+ * ⚠️ EL APELLIDO SE PEGA AL NOMBRE, y hasta el 03/10/2026 se TIRABA. Se buscaban
+ * cuatro encabezados —nombre, email, teléfono, empresa— y ninguno era apellido, así
+ * que un archivo con las dos columnas separadas (la forma normal de exportar de
+ * cualquier CRM) entraba con media identidad: «Juan» a secas, sin forma de
+ * distinguirlo del otro Juan de la lista. Y no es sólo el CSV — por este mismo
+ * parser entra la planilla (`filasDesdePlanilla` con TAB).
+ *
+ * Se PEGA y no se guarda aparte porque la tabla `leads` no tiene columna de
+ * apellido: todo el repo lo deriva partiendo el campo `nombre`
+ * (`lib/template-vars.ts`). O sea que acá no hace falta migración ni columna nueva,
+ * y la tabla de revisión muestra el nombre completo en la celda que el usuario ya
+ * sabe corregir.
  */
 export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]; error?: string } {
   const rows = parseCsv(texto, delim);
   if (rows.length < 2) return { filas: [], error: 'El archivo no tiene filas de datos.' };
   const header = rows[0].map((h) => h.trim().toLowerCase());
-  const idx = (names: string[]) => header.findIndex((h) => names.some((n) => h === n || h.includes(n)));
+  const coincide = (h: string, names: string[]) => names.some((n) => h === n || h.includes(n));
+  const idx = (names: string[]) => header.findIndex((h) => coincide(h, names));
   const iNombre = idx(['nombre', 'name']);
   const iEmail = idx(['email', 'correo', 'e-mail', 'mail']);
   const iTel = idx(['telefono', 'teléfono', 'whatsapp', 'celular', 'phone', 'tel']);
   const iEmpresa = idx(['empresa', 'company', 'negocio']);
   if (iNombre < 0) {
-    return { filas: [], error: 'No encontré una columna "Nombre" en el CSV. Encabezados esperados: Nombre, Email, Teléfono, Empresa.' };
+    return { filas: [], error: 'No encontré una columna "Nombre" en el CSV. Encabezados esperados: Nombre, Apellido, Email, Teléfono, Empresa.' };
   }
+  /**
+   * Las columnas de apellido. Son TODAS las que matcheen y no una: «Apellido
+   * Paterno» + «Apellido Materno» es como exporta media Latinoamérica, y quedarse
+   * con la primera tira el segundo apellido igual que antes se tiraba el único.
+   *
+   * Las dos condiciones que las acotan, y las dos son casos reales:
+   *   · `i !== iNombre` — si no, un archivo cuya única columna es «Last Name»
+   *     (que matchea 'name', así que ES la columna de nombre) se pegaría a sí
+   *     mismo: «Pérez Pérez».
+   *   · `!coincide(h, ['nombre'])` — «Nombre y Apellido» YA trae el nombre
+   *     completo. Sin esto se duplicaría entero: «Juan Pérez Juan Pérez».
+   */
+  const iApellidos = header
+    .map((h, i) => (i !== iNombre && coincide(h, ['apellido', 'last name', 'lastname', 'last_name', 'surname']) && !coincide(h, ['nombre']) ? i : -1))
+    .filter((i) => i >= 0);
   const filas: FilaImport[] = [];
   for (let r = 1; r < rows.length && filas.length < MAX_FILAS_IMPORT; r++) {
     const row = rows[r];
     if (!row || row.every((c) => !c.trim())) continue;
     const celda = (i: number) => (i >= 0 ? (row[i] ?? '').trim() : '');
+    // El orden es nombre y DESPUÉS apellido, lo diga el archivo o no: un CSV con
+    // «Apellido | Nombre» (también común) daría «Pérez Juan», que es el saludo al
+    // revés en toda plantilla. El orden sale de qué ES cada columna, no de dónde está.
+    // Y el espacio lo pone el `join`, con las celdas vacías ya afuera: sin el filtro,
+    // un apellido en blanco deja «Juan » y el nombre guardado termina con un espacio
+    // que después nadie ve y que rompe cualquier comparación por nombre.
+    const nombre = [celda(iNombre), ...iApellidos.map(celda)].filter(Boolean).join(' ');
     filas.push({
       id: `f${r}`,
-      nombre: celda(iNombre),
+      nombre,
       email: celda(iEmail),
       telefono: celda(iTel),
       empresa: celda(iEmpresa),
@@ -224,18 +296,31 @@ export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]
 }
 
 /** Cuántas hay de cada cosa — los chips que se ven arriba de la tabla. */
-export type ConteosImport = { total: number; listas: number; tildadas: number } & Record<MotivoDescarte, number>;
+export type ConteosImport = {
+  total: number;
+  /** Filas sin ningún motivo de descarte. */
+  listas: number;
+  /** Las que SE VAN A CREAR: es el número del botón, y sale de `entra`. */
+  tildadas: number;
+  /** Duplicados tildados a sabiendas. Su propio chip: es lo irreversible de esta pantalla. */
+  aProposito: number;
+} & Record<MotivoDescarte, number>;
 
 export function contar(filas: FilaImport[]): ConteosImport {
   const c: ConteosImport = {
-    total: filas.length, listas: 0, tildadas: 0,
+    total: filas.length, listas: 0, tildadas: 0, aProposito: 0,
     'sin-nombre': 0, 'sin-contacto': 0, duplicado: 0, 'repetido-archivo': 0,
   };
   for (const f of filas) {
     if (f.motivo) c[f.motivo]++;
-    else {
-      c.listas++;
-      if (f.incluir) c.tildadas++;
+    else c.listas++;
+    // ⚠️ `tildadas` cuenta por `entra`, NO por «no tiene motivo y está tildada». Es el
+    // número que el botón promete («Crear N leads»), así que tiene que contar lo mismo
+    // que el server va a crear — incluido el duplicado que alguien tildó a propósito.
+    // Contarlo aparte es cómo el botón decía 80 y entraban 80 más las repetidas.
+    if (entra(f)) {
+      c.tildadas++;
+      if (f.motivo === MOTIVO_DECIDIBLE) c.aProposito++;
     }
   }
   return c;

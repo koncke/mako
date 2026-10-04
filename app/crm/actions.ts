@@ -69,7 +69,8 @@ import {
 } from './leads-exportar';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
-import { MAX_FILAS_IMPORT, filasDesdeCsv, type FilaImport } from './leads-importar';
+import { MAX_FILAS_IMPORT, MOTIVO_DECIDIBLE, entra, type FilaImport } from './leads-importar';
+import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
@@ -638,6 +639,11 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
     // El «Crear igual» de la pantalla de duplicados. Nunca es el default: lo pide una
     // persona que ya vio con quién choca.
     permitirDuplicado,
+    // ⚠️ DE DÓNDE VINO: alguien lo tipeó. Es el único camino que lo puede afirmar —
+    // nadie dejó sus datos en ningún lado— y sin esto el lead nacía con la columna en
+    // NULL, indistinguible de uno que llenó un formulario de la landing. Lo usan la
+    // tarjeta del tablero, el filtro de origen y la ficha.
+    origen_lead: ORIGEN_LEAD.carga_manual.id,
   });
   // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
   // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
@@ -865,7 +871,11 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
   const t = (telefono ?? '').trim();
   if (!n) throw new Error('Falta el nombre del contacto.');
   if (!t) throw new Error('Falta el teléfono del contacto.');
-  const created = await createLead({ nombre: n, telefono: t });
+  // De dónde vino: de una conversación del inbox, o sea que ya hay un hilo abierto
+  // con esta persona. No dice QUIÉN escribió primero —desde acá no se puede saber, y
+  // un dato que se afirma sin medirlo es peor que la columna vacía—: dice por qué
+  // puerta entró, que es lo que separa a este lead de los 1.000 de una lista en frío.
+  const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id });
   if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
   bust(TAG.leads);
   revalidatePath('/crm');
@@ -1154,15 +1164,20 @@ function etapaEfectivaDe(l: FilaLead, validas: Set<string>): string {
   return d.pipeline_stage && validas.has(d.pipeline_stage) ? d.pipeline_stage : derivada;
 }
 
-/** Origen a nivel CAMPAÑA: es el corte con el que se piensa "de dónde vino esta gente". */
+/**
+ * Origen a nivel CAMPAÑA: es el corte con el que se piensa "de dónde vino esta gente".
+ *
+ * ⚠️ EL FALLBACK DEVOLVÍA EL ID CRUDO (`return o ?? 'Directo / orgánico'`), así que
+ * cualquier valor sin su renglón se le escapaba a la pantalla con su nombre interno.
+ * Con las tres altas estampando desde el 03/10/2026 eso habría puesto «carga_manual»
+ * y «chat_whatsapp» en el export, que es justo lo que la casa prohíbe: el nombre
+ * interno de una cosa no es el nombre de la cosa. Ahora el rótulo sale del catálogo,
+ * que es el único lugar donde viven los valores posibles.
+ */
 function origenDeFila(l: FilaLead): string {
   const camp = sTxt(l.meta_campaign_name) ?? sTxt(l.utm_campaign);
   if (camp) return camp;
-  const o = sTxt(l.origen_lead);
-  if (o === 'instant_form') return 'Meta · sin campaña';
-  if (o === 'calendly') return 'Calendly · sin campaña';
-  if (o === 'calcom') return 'Cal.com · sin campaña';
-  return o ?? 'Directo / orgánico';
+  return origenLista(sTxt(l.origen_lead));
 }
 
 /** Qué fecha mira el filtro por período (la eligió el usuario en el paso 6). */
@@ -1469,9 +1484,24 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     bajaConfianza: f?.bajaConfianza === true,
   }));
 
+  // Lo que la PANTALLA alcanzó a ver sobre cada fila. No es un dato de confianza —lo
+  // manda el cliente— y no se usa para dejar pasar nada: se usa sólo para FRENAR.
+  const vioDuplicado = filas.map((f) => f?.motivo === MOTIVO_DECIDIBLE);
+
   // El motivo lo recalcula el SERVER contra la base de ahora (marcarExistentes
   // vuelve a consultar los duplicados y corre las mismas reglas que vio el usuario).
-  const validadas = await marcarExistentes(limpias);
+  //
+  // ⚠️ Y SI EL SERVER DESCUBRE UN DUPLICADO QUE LA PANTALLA NO MOSTRÓ, EL TILDE DE ESA
+  // FILA NO ES UNA DECISIÓN SOBRE ESO. `entra()` honra el tilde de un duplicado porque
+  // la persona lo vio marcado y lo tildó igual — eso vale para el modal de importar,
+  // que pinta el motivo antes de que nadie toque nada. Pero `/crm/revisar/[id]` siembra
+  // sus filas con `incluir: true` y `yaExiste: false` (RevisarLead.tsx), así que el
+  // «ya existe» aparece ACÁ, después de que la pantalla se dibujó: honrar ese tilde es
+  // crear el duplicado y además atribuirle la decisión a alguien que nunca la tomó.
+  // Se baja el tilde y la fila cuenta como omitida, igual que en el modal.
+  const validadas = (await marcarExistentes(limpias)).map((f, i) => (
+    f.motivo === MOTIVO_DECIDIBLE && !vioDuplicado[i] ? { ...f, incluir: false } : f
+  ));
 
   let creados = 0;
   let omitidos = 0;
@@ -1485,26 +1515,47 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     // Además del motivo, se chequea contra lo insertado EN ESTA MISMA corrida:
     // marcarExistentes miró la base antes de empezar y no ve lo que vamos creando.
     const chocaAcá = (!!email && emailsNuevos.has(email)) || (!!tel && telsNuevos.has(tel));
-    // ⚠️ TILDAR UN DUPLICADO AHORA SIRVE. Antes la condición era
-    // `!f.incluir || f.motivo || chocaAcá`, así que una fila marcada como
-    // duplicada se salteaba AUNQUE la persona la hubiera tildado a propósito:
-    // era imposible duplicar a sabiendas, y la pantalla ofrecía un tilde que no
-    // hacía nada. Lo que se pidió es lo contrario — avisar y dejar decidir.
+    const duplicado = f.motivo === 'duplicado';
+    // ⚠️ EL PORTÓN ES `entra()`, LA MISMA FUNCIÓN QUE DIBUJA LA CASILLA Y QUE CUENTA EL
+    // BOTÓN. Hasta el 03/10/2026 acá había una tercera condición escrita a mano
+    // —`!f.incluir || chocaAcá`— y las tres contestaban distinto: la pantalla dibujaba
+    // la fila repetida atenuada y sin tilde, el botón decía «Crear 80 leads» contando
+    // sólo las limpias, y este bucle creaba 80 MÁS las repetidas, encima con
+    // `permitirDuplicado: !!f.motivo` → true justo para las marcadas, o sea con la
+    // guarda anti-duplicado apagada. Ningún error, ningún log, siete semanas a la vista.
     //
-    // `chocaAcá` sí sigue frenando, y es otra cosa: son dos filas del MISMO
-    // archivo que se pisan entre sí. Ahí no hay decisión que respetar, hay un
-    // archivo con la misma persona dos veces.
-    const duplicado = !!f.motivo;
-    if (!f.incluir || chocaAcá) { omitidos++; continue; }
+    // Lo que se decidió el 14/08 sigue en pie y ahora SÍ existe: tildar un duplicado es
+    // una decisión de la persona y el server la respeta. Lo que faltaba era que la
+    // pantalla pudiera tomarla —la casilla estaba deshabilitada justo en esas filas— y
+    // que los tres lectores contestaran lo mismo. Un tilde que la persona no puede mover
+    // no es una decisión: es un default, y el default era duplicar en silencio.
+    //
+    // `chocaAcá` es otra cosa y sigue frenando: son dos filas del MISMO archivo
+    // pisándose. Ahí no hay decisión que respetar, hay un archivo con la misma persona
+    // dos veces, y `marcarExistentes` no lo puede ver porque miró la base antes de
+    // empezar.
+    if (!entra(f) || chocaAcá) { omitidos++; continue; }
     try {
       await createLead({
         nombre: f.nombre,
         email: f.email || null,
         telefono: f.telefono || null,
         empresa: f.empresa || null,
-        // La persona lo vio marcado como duplicado y lo tildó igual: eso ES la
-        // autorización. Sin esto, `createLead` lo volvería a frenar.
+        // La persona lo vio marcado como «ya existe» y lo tildó igual: eso ES la
+        // autorización, y sin esto `createLead` lo volvería a frenar. Ahora es cierto que
+        // alguien lo decidió — la casilla de esas filas se puede mover y nacen
+        // destildadas, así que el tilde sólo está puesto si alguien lo puso.
+        //
+        // Para toda fila que NO es un duplicado tildado, `duplicado` es false y la guarda
+        // de `createLead` queda prendida: es la segunda red, porque `marcarExistentes`
+        // compara exacto (email en minúsculas, teléfono en dígitos) y `duplicadosDeLead`
+        // compara más flojo (los últimos 10 dígitos). Lo que se le escapa al índice lo
+        // frena el alta y sale contado en `errores` CON EL NOMBRE, no creado en silencio.
         permitirDuplicado: duplicado,
+        // De dónde vino: entró en un archivo. Sin esto el lead importado es
+        // indistinguible de uno que llenó un formulario, que es el caso que importa —
+        // una lista en frío de 1.000 contactos conviviendo con los que llegaron solos.
+        origen_lead: ORIGEN_LEAD.importacion.id,
         // El lead nace en el tablero DESDE EL QUE SE LO IMPORTÓ, igual que en el alta.
         funnel_id: funnelId ?? null,
       });
@@ -1523,27 +1574,16 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   return { creados, omitidos, errores: errores.slice(0, 20) };
 }
 
-/** Lo que el wizard muestra ANTES de importar: cuántos entran y cuántos se saltean. */
-export type PreviewImportLeads = { total: number; nuevos: number; omitidos: number; error?: string };
-
-/**
- * Previsualización de un CSV pegado como texto. Queda para los callers que solo
- * tienen el texto (no un File) y no pasan por el modal: cuenta sin insertar nada.
- */
-export async function previsualizarImportLeadsAction(csvText: string): Promise<PreviewImportLeads> {
-  const { filas, error } = filasDesdeCsv(csvText);
-  if (error) return { total: 0, nuevos: 0, omitidos: 0, error };
-  const validadas = await marcarExistentes(filas);
-  const nuevos = validadas.filter((f) => !f.motivo).length;
-  return { total: validadas.length, nuevos, omitidos: validadas.length - nuevos };
-}
-
-/** Importa un CSV entero sin revisión previa (todo lo importable entra). */
-export async function importLeadsCsvAction(csvText: string): Promise<ImportLeadsResult> {
-  const { filas, error } = filasDesdeCsv(csvText);
-  if (error) return { creados: 0, omitidos: 0, errores: [error] };
-  return importarLeadsRevisadosAction(filas);
-}
+// ⚠️ ACÁ VIVÍAN `previsualizarImportLeadsAction` e `importLeadsCsvAction`, y se
+// borraron el 04/10/2026 con CERO call sites en todo el repo. No era código muerto
+// inocente: `importLeadsCsvAction` era el camino «sin revisión previa» y le pasaba
+// a `importarLeadsRevisadosAction` las filas tal como salen de `filasDesdeCsv`, o
+// sea con `incluir: true` de fábrica — así que el portón de `entra()` las dejaba
+// pasar TODAS, duplicados incluidos y con la guarda anti-duplicado apagada. Era
+// exactamente el bug que el portón vino a cerrar, esperando a que alguien la
+// llamara. Si hace falta volver a tener un camino sin revisión, tiene que sembrar
+// `incluir: false` en las filas con motivo antes de llegar al portón, igual que
+// hace hoy `ImportarLeadsModal`.
 
 /**
  * Lo que el modal de reagendar muestra DESPUÉS de guardar. El CRM ya quedó

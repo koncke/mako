@@ -145,7 +145,6 @@ export type CrmLead = {
   fathom: FathomLink[];
   motivo: string;
   calendly: { q: string; a: string }[];
-  originChannel: string;       // canal real (Meta / Campaña / Directo), no hardcodeado
   confirmacion: string | null; // fecha de confirmación verbal de pago (real), o null
   cierre: string | null;       // fecha de cierre ganado (real), o null
 };

@@ -36,6 +36,7 @@ import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portada
 import { createLead, updateLead } from '@/lib/leads';
 // La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
+import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
 import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
@@ -91,7 +92,16 @@ export async function crearClienteAction(datos: {
   }
 
   try {
-    const lead = await createLead({ nombre, empresa: (datos.empresa ?? '').trim() || null, email, telefono });
+    // ⚠️ `carga_manual`, el MISMO valor que el alta del CRM, y no uno propio de esta
+    // pantalla: la pregunta que contesta la columna es «¿cómo llegó esta persona?», y
+    // la respuesta —alguien la tipeó— no cambia porque el formulario viva en otra tab.
+    // Un valor por pantalla partiría el filtro de origen del CRM en dos opciones que
+    // significan lo mismo. De dónde se lo cargó es otra pregunta, y la contesta el
+    // historial del lead, no este campo.
+    const lead = await createLead({
+      nombre, empresa: (datos.empresa ?? '').trim() || null, email, telefono,
+      origen_lead: ORIGEN_LEAD.carga_manual.id,
+    });
     // El desenlace va en una segunda escritura porque `createLead` no lo acepta: su
     // trabajo es dar de alta un lead, y `estado_lead` es del recorrido. `updateLead`
     // deriva `cerro` solo (lib/leads.ts), así que las dos columnas quedan de acuerdo.

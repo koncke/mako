@@ -4419,6 +4419,58 @@ Es la misma razón por la que el verificador del catálogo pregunta por HEAD y n
 árbol de trabajo: un archivo sin commitear no rompe ningún build, así que frenar por él
 sólo traba a la sesión de al lado por algo que no es suyo.
 
+# Antes de reusar el `null` de un campo, leé qué afirma ya ese `null`
+
+Un campo booleano que admite `null` tiene TRES estados, y el `??` de río abajo ya le dio
+un significado al tercero. Reusarlo para un caso nuevo —«acá no sé»— no agrega un estado:
+lo colapsa contra el que ya existía, y el default decide por vos.
+
+Medido el 04/10/2026, y el caso es caro porque **los dos lados eran correctos**:
+`applyFathomRecording` resuelve `const asistValue = attended ?? true`, con su porqué
+escrito al lado («null = no me consta, pero hubo grabación con el invitado presente»). Un
+arreglo de OTRO archivo abrió una fuente nueva de links —los que una persona pega a mano en
+la ficha— y, con razón, se negó a que eso afirmara la asistencia: devolvió `null`. Ese
+`null` entró como `true`: marcó al lead como asistido, lo movió de etapa y disparó el
+QualifiedLead de Meta, que el `revert` de la regla no deshace.
+
+- **Cada pregunta, su campo.** «No me consta la asistencia» y «no quiero que esta llamada
+  afirme nada» son dos cosas; la segunda necesita su propio parámetro
+  (`opts.marcarAsistencia`), no un valor más del primero.
+- **El olor:** un `??` sobre un campo que otro módulo rellena. Grepealo antes de devolver
+  `null` desde un camino nuevo.
+- **Y el contrato entre dos archivos que nadie toca junto no lo cubre ningún test de
+  ninguno de los dos.** Si un paquete escribe el productor y otro el consumidor, el guard
+  va sobre LOS DOS lados en el mismo test, o el día que uno cambie el otro no se entera.
+
+# El fin de línea es POR ARCHIVO, y las herramientas de Git Bash mienten
+
+`core.autocrlf=true` no deja el repo parejo: lo deja MEZCLADO entre archivos, y dos
+vecinos del mismo directorio pueden estar en formatos distintos. Medido el 04/10/2026
+por cuatro paquetes en paralelo, que tropezaron todos con lo mismo:
+
+| CRLF puro | LF puro |
+|---|---|
+| `lib/leads.ts` · `lib/metodo-catalogo.ts` · `lib/tab-activacion.ts` · `app/crm/crm-map.ts` · `app/crm/[id]/DealDetailsCard.tsx` | `lib/fathom-auto.ts` · `lib/auto-reuniones.ts` · `lib/crm-auto.ts` · `app/crm/actions.ts` · `app/crm/[id]/deal-actions.ts` |
+
+El síntoma no es un error: un script de parcheo contesta **«0 coincidencias»** sobre un
+ancla copiada carácter por carácter del propio archivo. Y si el script igual escribe, deja
+el archivo mezclado, que no se ve en ningún diff ni en ningún listado.
+
+- **Un script que edita fuente DETECTA el salto de ese archivo y convierte sus propias
+  anclas a ÉSE**, y lo devuelve igual. Normalizar a LF «de paso» es lo que mezcla.
+- **Y se niega a escribir** si la búsqueda no aparece exactamente una vez, o si el
+  resultado quedaría mezclado. `escribir()` en `scripts/curso-categoria-portada.mjs` es el
+  molde.
+- ⚠️ **`cat -A`, `od -c` y `grep $'
+'` del Git Bash MIENTEN en la dirección
+  tranquilizadora** sobre estos archivos. Se cuenta con node:
+  `(s.match(/
+/g)||[]).length` contra `(s.match(/[^
+]
+/g)||[]).length`.
+- ⚠️ **Y un worktree no contesta «cómo estaba este archivo»**: es un checkout nuevo, con la
+  normalización aplicada de cero. Para eso está `git show HEAD:<ruta>`.
+
 # Que un archivo EXISTA no dice nada de si sirve, y el respaldo tampoco
 
 Un `.mp4` corrupto, un JSON a medio escribir, un PDF truncado: pesan lo que tienen que

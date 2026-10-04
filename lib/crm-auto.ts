@@ -304,18 +304,41 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       }
       // applyFathomRecording audita el diff (asistencia + etapa) como 'Fathom' —
       // la fuente del dato. Acá se agrega quién decidió mirar: el motor.
-      const { addedLink } = await applyFathomRecording(lead, which, fathom.url, asistio);
-      await logRegla(a.leadId, 'T1', `asistencia a ${which === 'j1' ? 'R1' : 'R2'} tomada de la grabación de Fathom (${a.descripcion})`);
+      //
+      // ⚠️ `marcarAsistencia` NO ES REDUNDANTE CON `asistio`, y confundirlos le
+      // afirma a un cliente que su lead vino a una reunión que nadie verificó.
+      // `applyFathomRecording` resuelve `attended ?? true`, así que un `null` —que
+      // acá significa «hay grabación y NADIE dijo si vino»— entra como un «sí»:
+      // mueve la etapa y dispara el QualifiedLead de Meta, que el revert de abajo
+      // no deshace. El `null` existe desde que `buscarReunionesAutomatico` lee
+      // también los links que una persona pegó en la ficha (lib/auto-reuniones.ts:172,
+      // `asistioJ1: anaLinkR1 ? true : null`): un link pegado a mano prueba que la
+      // reunión se grabó, no quién estuvo. Sólo la grabación ANALIZADA lo afirma.
+      const { addedLink, markedAsistencia } = await applyFathomRecording(
+        lead, which, fathom.url, asistio, { marcarAsistencia: asistio != null },
+      );
+      // Si no se marcó nada y el link ya estaba, la regla no hizo NADA: una
+      // confirmación que no cambió un dato es ruido en la bandeja del dueño.
+      if (!markedAsistencia && !addedLink) return 'skip';
+      await logRegla(a.leadId, 'T1', markedAsistencia
+        ? `asistencia a ${which === 'j1' ? 'R1' : 'R2'} tomada de la grabación de Fathom (${a.descripcion})`
+        : `grabación de ${which === 'j1' ? 'R1' : 'R2'} enganchada a la ficha; la asistencia queda sin marcar (${a.descripcion})`);
       const revert: Record<string, unknown> = { [asistField]: prevAsist, pipeline_stage: prevStage };
       if (which === 'j1' && prevFechaJ1 !== lead.fecha_junta_1) revert.fecha_junta_1 = prevFechaJ1;
       if (addedLink) revert.fathom_remove_url = fathom.url; // revert quirúrgico: quita solo este link, no pisa el array
       return confirmarOCompensar(a.leadId, {
         leadId: a.leadId, leadNombre: lead.nombre, regla: 'T1', tipo: a.tipo, clave,
-        titulo: `Asistencia ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`,
+        titulo: markedAsistencia
+          ? `Asistencia ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`
+          : `Grabación de ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`,
         detalle: a.descripcion, aplicado: true,
+        // Cada fila cuelga de que ESO haya pasado. Una fila que afirma un cambio
+        // que no ocurrió es peor que no mostrarla: la persona confirma a ciegas.
         cambios: [
-          { campo: which === 'j1' ? 'Asistió R1' : 'Asistió R2', antes: 'Sin marcar', despues: 'Sí (grabación en Fathom)' },
-          { campo: 'Grabación Fathom', antes: null, despues: fathom.label || 'agregada' },
+          ...(markedAsistencia
+            ? [{ campo: which === 'j1' ? 'Asistió R1' : 'Asistió R2', antes: 'Sin marcar', despues: 'Sí (grabación en Fathom)' }]
+            : []),
+          ...(addedLink ? [{ campo: 'Grabación Fathom', antes: null, despues: fathom.label || 'agregada' }] : []),
         ],
         revert,
       });

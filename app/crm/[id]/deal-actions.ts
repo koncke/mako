@@ -15,7 +15,7 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { logLeadEvent, type Lead } from '@/lib/leads';
-import { saveLeadPlanManual, marcarPago } from '@/lib/pagos';
+import { saveLeadPlanManual, marcarPago, getPagosByLead } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 
 // updateTag en try/catch: la mutación ya ocurrió; si la invalidación fallara,
@@ -156,15 +156,55 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
 // Cuotas explícitas + pagos
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CuotaInput = { monto: number; fecha: string | null; pagado?: boolean };
+export type CuotaInput = {
+  /** id en `pagos`. null = cuota NUEVA: todavía sólo existe en el borrador. */
+  id?: number | null;
+  monto: number;
+  fecha: string | null;
+  pagado?: boolean;
+  /** YYYY-MM-DD del cobro. Sólo lo usan las cuotas nuevas que nacen cobradas. */
+  fecha_pago?: string | null;
+};
 
 /**
  * Reemplaza las cuotas NO pagadas del lead por la lista nueva (cuotas
- * explícitas: cada una con su monto y su fecha). Las pagadas del array se
- * descartan acá porque saveLeadPlanManual las CONSERVA intactas en la base.
+ * explícitas: cada una con su monto y su fecha). Las pagadas que YA están en la
+ * base se descartan acá porque saveLeadPlanManual las CONSERVA intactas.
+ *
+ * ⚠️ Una cuota pagada SIN id es otra cosa: nace cobrada desde "Registrar
+ * mensualidad cobrada" (#697) y no hay nada que conservar, así que la inserta
+ * esta función. Con el filtro de `!c.pagado` solo, ese cobro se perdía entero:
+ * sin error, sin fila y con el botón diciendo que se había guardado.
  */
 export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Promise<void> {
   const nuevas = cuotas.filter((c) => !c.pagado && Number(c.monto) > 0);
+  const cobradas = cuotas.filter((c) => c.pagado && c.id == null && Number(c.monto) > 0);
+  const autor = await autorActual();
+
+  if (cobradas.length > 0) {
+    // Se insertan ANTES de saveLeadPlanManual, por dos razones:
+    // 1) `pagos` tiene un índice único (lead_id, numero), así que hay que numerar
+    //    sobre TODAS las filas que existen ahora, no sólo sobre las pagadas.
+    //    Después saveLeadPlanManual ve estas filas como pagadas, las conserva y
+    //    numera las no pagadas a continuación.
+    // 2) Si el reemplazo de las no pagadas fallara, el cobro ya quedó asentado,
+    //    que es el dato que nadie puede volver a averiguar.
+    const db = await getTenantDb();
+    const existentes = await getPagosByLead(leadId);
+    const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const rows = cobradas.map((c, i) => ({
+      lead_id: leadId,
+      numero: base + 1 + i,
+      monto_usd: Number(c.monto),
+      fecha_esperada: c.fecha ?? hoy,
+      pagado: true,
+      fecha_pago: c.fecha_pago || c.fecha || hoy,
+    }));
+    const { error } = await db.from('pagos').insert(rows);
+    if (error) throw new Error(`Error registrando el cobro del lead ${leadId}: ${error.message}`);
+  }
+
   await saveLeadPlanManual(leadId, {
     total_usd: null,
     duracion_meses: null,
@@ -172,7 +212,15 @@ export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Pr
     fecha_inicio: null,
     cuotas: nuevas.map((c) => ({ monto_usd: Number(c.monto), fecha_esperada: c.fecha })),
   });
-  await logLeadEvent(leadId, 'Plan de pagos', `Cuotas actualizadas desde Deal Details (${nuevas.length} sin pagar)`, await autorActual());
+
+  // El cobro deja su propia fila en el historial: es un hecho distinto del plan
+  // de cuotas, y es el único rastro de que la plata entró por este botón.
+  if (cobradas.length > 0) {
+    const monto = cobradas.reduce((s, c) => s + Number(c.monto), 0);
+    const cuantas = cobradas.length === 1 ? 'Mensualidad cobrada' : `${cobradas.length} mensualidades cobradas`;
+    await logLeadEvent(leadId, 'Pago registrado', `${cuantas} por USD ${monto}`, autor);
+  }
+  await logLeadEvent(leadId, 'Plan de pagos', `Cuotas actualizadas desde Deal Details (${nuevas.length} sin pagar)`, autor);
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
   revalidatePath('/comercial');

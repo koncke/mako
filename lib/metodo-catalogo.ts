@@ -835,7 +835,18 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // Es el MISMO caso de `FATHOM_HOST_EMAIL`, que dejó de ser opcional por esto mismo.
       { env: 'CALENDLY_EVENT_TYPE_J1', label: 'Tipo de evento de R1', placeholder: 'Llamada de auditoría', nota: 'Obligatorio: es lo que le dice a MaKo que esa reserva es tuya. Sin esto, las reuniones que agende tu gente no entran a tu CRM y no vas a ver ningún error. Escribe el nombre de la reunión tal cual figura en Calendly (Calendly a esos links los llama "Event Types"). También acepta la dirección técnica que empieza con https://api.calendly.com/event_types/, si te la pasó tu programador.' },
       { env: 'CALENDLY_EVENT_TYPE_J2', label: 'Tipo de evento de R2', opcional: true, placeholder: 'https://api.calendly.com/event_types/…', nota: 'Opcional. Igual que el anterior, pero para la segunda reunión ("R2"). Llénalo solo si tu segunda reunión se agenda con un link distinto al de la primera.' },
-      { env: 'CALENDLY_WEBHOOK_SIGNING_KEY', label: 'Signing key del webhook', secreto: true, opcional: true, nota: 'Opcional. Un webhook es un aviso automático, y esta signing key es su contraseña. Solo existe si alguien lo creó por programación: Calendly no tiene pantalla para hacerlo. Si te lo montó tu agencia, pídele ese valor; si no sabes de qué se trata, déjalo vacío.' },
+      // ⚠️ ES OPCIONAL DE VERDAD —se puede conectar sin esto—, pero la nota tiene que
+      // decir QUÉ SE PIERDE si queda vacía, no sólo que es opcional: sin el aviso
+      // automático, una reserva NUEVA no crea el contacto. Con el token, MaKo completa
+      // las fechas de un lead que ya existe (lib/auto-reuniones.ts) y reserva
+      // (lib/calendly-agenda.ts); no hay ningún cron que ingiera la agenda.
+      //
+      // Y OJO CON EL OTRO MAL ENTENDIDO, que es el que hay que no volver a escribir:
+      // la key que el cliente pega SÍ se lee. app/api/webhooks/calendly/route.ts hace
+      // credWs('CALENDLY_WEBHOOK_SIGNING_KEY', ws) y sólo cae a la de plataforma si ese
+      // workspace no tiene la suya — lib/tab-activacion.ts afirmaba lo contrario hasta
+      // el 04/10/2026.
+      { env: 'CALENDLY_WEBHOOK_SIGNING_KEY', label: 'Signing key del webhook', secreto: true, opcional: true, nota: 'Opcional. Un webhook es un aviso automático, y esta signing key es su contraseña. Solo existe si alguien lo creó por programación: Calendly no tiene pantalla para hacerlo. Si te lo montó tu agencia, pídele ese valor; si no sabes de qué se trata, déjalo vacío. Lo que se pierde sin ese aviso: una reserva nueva no crea el contacto, MaKo solo completa los datos de alguien que ya está en el CRM.' },
     ],
     tutorial: {
       url: 'https://calendly.com/integrations/api_webhooks',
@@ -851,10 +862,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Toca "Create token".',
         'Toca "Copy token". Calendly lo muestra UNA sola vez: si cierras esa ventana sin copiarlo, no hay forma de recuperarlo y tienes que generar otro.',
         'Pega ese token en el campo "Personal access token".',
-        'Guarda. MaKo prueba la conexión sola al guardar y te dice con qué cuenta de Calendly quedó conectada: si no es la que esperabas, es que copiaste el token de otra cuenta. Con eso ya está listo lo obligatorio.',
-        'Los tres campos que siguen son opcionales. Si los dejas vacíos, la conexión funciona igual.',
-        'Opcional — "Tipo de evento de R1" y "Tipo de evento de R2": llénalos solo si usas dos links de agenda distintos, uno para la primera reunión con un interesado ("R1") y otro para la segunda ("R2"), y quieres que MaKo las distinga. Escribe el nombre de cada reunión tal cual figura en Calendly (Calendly a esos links los llama "Event Types").',
-        'Opcional — "Signing key del webhook": un webhook es un aviso automático, y esa signing key es su contraseña. Solo existe si alguien lo creó por programación, porque Calendly no tiene ninguna pantalla para crearlo. Si te lo montó tu agencia o tu programador, pídele ese valor y pégalo en el campo. Si no sabes de qué se trata, déjalo vacío: no te falta nada.',
+        'Guarda. MaKo prueba la conexión sola al guardar y te dice con qué cuenta de Calendly quedó conectada: si no es la que esperabas, es que copiaste el token de otra cuenta.',
+        'Falta un dato más, y es obligatorio: "Tipo de evento de R1". Es lo que le dice a MaKo que la reserva es tuya, y sin él las reuniones que agende tu gente no entran a tu CRM y no vas a ver ningún error.',
+        'En Calendly, cada link de agenda se llama un "Event Type", y están todos en la lista de la pantalla principal. Escribe en ese campo el nombre del que usas para tu primera reunión, tal cual figura ahí.',
+        'Opcional — "Tipo de evento de R2": llénalo solo si tu segunda reunión se agenda con un link distinto al de la primera, y quieres que MaKo las distinga.',
+        'Opcional — "Signing key del webhook": un webhook es un aviso automático, y esa signing key es su contraseña. Solo existe si alguien lo creó por programación, porque Calendly no tiene ninguna pantalla para crearlo. Si te lo montó tu agencia o tu programador, pídele ese valor y pégalo en el campo.',
+        'Si no sabes qué es ese aviso, deja la signing key vacía. Ojo con una cosa: lo que hace que una reserva NUEVA entre sola a tu CRM es ese aviso — sin él, MaKo usa tu agenda para completar los datos de alguien que ya está en el CRM, pero no crea el contacto.',
         'Ten en cuenta que esos avisos automáticos solo funcionan en los planes pagos de Calendly (Professional, Standard, Standard Plus, Teams, Teams Plus o Enterprise). Leer tu agenda con el token funciona en cualquier plan, incluso el gratis.',
       ],
     },

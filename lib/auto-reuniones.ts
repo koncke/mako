@@ -4,7 +4,8 @@
 // Antes de pedirle nada al humano, MaKo cruza las fuentes ya conectadas:
 //   - Calendly (agenda: fechas reales de R1/R2 por email del invitado)
 //   - Fathom vía closing_analyses (grabaciones ya matcheadas al lead: si hay
-//     grabación, la reunión OCURRIÓ → asistencia + link)
+//     grabación analizada como venta, la reunión OCURRIÓ → asistencia + link)
+//   - `lead.fathom_links`: las grabaciones que YA están en la ficha
 // Google Calendar queda como tercera fuente cuando se conecte el OAuth.
 // Devuelve lo encontrado + reporte legible; el wizard solo pregunta lo que falte.
 
@@ -17,7 +18,11 @@ import type { FathomLink, Lead } from './leads';
 export type AutoReuniones = {
   fechaJ1: string | null;
   fechaJ2: string | null;
-  asistioJ1: boolean | null;   // true si existe grabación de la R1
+  // true SOLO si la grabación la matcheó el análisis de Closing Analyst como venta
+  // (ahí el transcript prueba que la llamada ocurrió). Un link que alguien pegó a
+  // mano en la ficha deja esto en null: que haya un link no prueba quién estuvo, y
+  // afirmarlo es la inferencia que lib/fathom.ts prohíbe.
+  asistioJ1: boolean | null;
   asistioJ2: boolean | null;
   fathomR1: FathomLink | null;
   fathomR2: FathomLink | null;
@@ -117,26 +122,59 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
   const fuenteJ2 = calJ2 ? 'Calendly' : anaR2 ? 'Fathom' : gcalJ2 ? 'Google Calendar' : '';
   const fechaJ1 = extJ1 ?? lead.fecha_junta_1 ?? null;
   const fechaJ2 = extJ2 ?? lead.fecha_junta_2 ?? null;
-  const linkR1 = anaR1 ? (anaR1.share_url || anaR1.call_url) : null;
-  const linkR2 = anaR2 ? (anaR2.share_url || anaR2.call_url) : null;
+  const anaLinkR1 = anaR1 ? (anaR1.share_url || anaR1.call_url) : null;
+  const anaLinkR2 = anaR2 ? (anaR2.share_url || anaR2.call_url) : null;
+
+  // ⚠️ LAS GRABACIONES QUE YA ESTÁN EN LA FICHA SON UNA FUENTE, Y FALTABAN.
+  // `fathom_links` no aparecía en este archivo, así que una grabación cargada a mano
+  // era invisible para el buscador y el asistente la volvía a pedir. Y la mitad caía
+  // peor: `lib/crm-auto.ts` pregunta por `fathomR1/R2` para decidir la regla T1, así
+  // que un lead CON su grabación en la ficha y la asistencia sin marcar caía en la
+  // rama de abajo y el motor lo mandaba a **No Show** — con el video de la reunión
+  // guardado en su propia ficha. Es el caso que lib/fathom.ts:49-71 documenta al
+  // revés («sin grabación no es "no vino"»): acá había grabación y se concluía que no.
+  //
+  // El reparto R1/R2 usa el MISMO `ES_R2` que las fechas, sobre el label del link —
+  // que es lo que escribe `applyFathomRecording` ('Reunión 1' / 'Reunión 2') y lo que
+  // una persona tipea en la ficha. Sin label, cae en R1, que es el orden de carga.
+  const yaEnLaFicha = (lead.fathom_links ?? []).filter((f) => f?.url?.trim());
+  const fichaR1 = yaEnLaFicha.find((f) => !ES_R2.test(f.label ?? '')) ?? null;
+  const fichaR2 = yaEnLaFicha.find((f) => ES_R2.test(f.label ?? '')) ?? null;
+
+  const linkR1 = anaLinkR1 ?? fichaR1?.url ?? null;
+  const linkR2 = anaLinkR2 ?? fichaR2?.url ?? null;
 
   const encontrado: string[] = [];
   const faltante: string[] = [];
+
+  /** Qué se encontró de la grabación de una reunión, y qué queda a mano. */
+  const reportarGrabacion = (cual: 'R1' | 'R2', analizada: string | null, link: string | null, fecha: string | null, asistio: boolean | null) => {
+    if (analizada) { encontrado.push(`Grabación de la ${cual} (Fathom) → asistió`); return; }
+    if (link) {
+      // El link ya está: lo único que puede faltar es que alguien diga si fue.
+      encontrado.push(`Grabación de la ${cual}: ya está en la ficha`);
+      if (asistio == null) faltante.push(`asistencia a la ${cual}`);
+      return;
+    }
+    if (fecha && asistio == null) faltante.push(`grabación / asistencia de la ${cual}`);
+  };
+
   if (extJ1) encontrado.push(`Fecha R1: ${fmt(extJ1)} (${fuenteJ1})`);
   else if (!lead.fecha_junta_1) faltante.push('fecha de la R1');
-  if (linkR1) encontrado.push('Grabación de la R1 (Fathom) → asistió');
-  else if (fechaJ1 && lead.asistio_j1 == null) faltante.push('grabación / asistencia de la R1');
+  reportarGrabacion('R1', anaLinkR1, linkR1, fechaJ1, lead.asistio_j1);
   if (extJ2) encontrado.push(`Fecha R2: ${fmt(extJ2)} (${fuenteJ2})`);
-  if (linkR2) encontrado.push('Grabación de la R2 (Fathom) → asistió');
-  else if (fechaJ2 && lead.asistio_j2 == null) faltante.push('grabación / asistencia de la R2');
+  reportarGrabacion('R2', anaLinkR2, linkR2, fechaJ2, lead.asistio_j2);
 
   return {
     fechaJ1,
     fechaJ2,
-    asistioJ1: linkR1 ? true : null,
-    asistioJ2: linkR2 ? true : null,
-    fathomR1: linkR1 ? { label: 'Reunión 1', url: linkR1 } : null,
-    fathomR2: linkR2 ? { label: 'Reunión 2', url: linkR2 } : null,
+    // Solo la grabación ANALIZADA afirma la asistencia (ver el tipo, arriba).
+    asistioJ1: anaLinkR1 ? true : null,
+    asistioJ2: anaLinkR2 ? true : null,
+    // El label de la ficha se conserva: lo escribió una persona. Quien consume esto
+    // deduplica por url (app/crm/StageMoveDialog.tsx), así que no se duplica nada.
+    fathomR1: linkR1 ? { label: anaLinkR1 ? 'Reunión 1' : (fichaR1?.label || 'Reunión 1'), url: linkR1 } : null,
+    fathomR2: linkR2 ? { label: anaLinkR2 ? 'Reunión 2' : (fichaR2?.label || 'Reunión 2'), url: linkR2 } : null,
     encontrado,
     faltante,
   };

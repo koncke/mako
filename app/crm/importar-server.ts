@@ -84,6 +84,7 @@ const SISTEMA_EXTRAER = `Eres un extractor de contactos. Recibes el TEXTO de un 
 Reglas:
 - Un objeto por PERSONA. No inventes datos: si un campo no está en el texto, déjalo como cadena vacía.
 - "nombre" es el nombre de la persona; "empresa" es la organización, nunca el nombre de la persona.
+- Si el documento trae el nombre y el apellido SEPARADOS (dos columnas, o "Apellido Paterno" y "Apellido Materno"), "nombre" es todo junto y en ese orden: nombre primero, apellidos después. Nunca devuelvas sólo el nombre de pila.
 - "telefono" tal cual aparece (con su prefijo si lo tiene). No lo reformatees ni le agregues códigos de país.
 - "seguro" es false cuando dudas de a qué campo va un valor, cuando el texto está borroso o cortado, o cuando estás partiendo una línea ambigua.
 - Ignora encabezados, totales, notas al pie y todo lo que no sea una persona.

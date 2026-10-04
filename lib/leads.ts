@@ -6,6 +6,7 @@
 // =============================================================================
 
 import 'server-only';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buscarDuplicados, emailComparable, LeadDuplicadoError, nombreComparable, patronesDeNombre, telefonoComparable,
   type CandidatoLead, type Coincidencia, type LeadExistente,
@@ -397,29 +398,104 @@ export async function getLead(id: number): Promise<Lead | null> {
   return data as Lead | null;
 }
 
+/**
+ * El lead más viejo que matchea una columna que NO ES ÚNICA.
+ *
+ * ⚠️ `.maybeSingle()` SOBRE UNA COLUMNA NO ÚNICA TIRA EL WEBHOOK ENTERO. En `leads`
+ * la única columna con índice único es `meta_lead_id` (mig 0007): ni
+ * `telefono_normalizado` ni `email` lo tienen. Con DOS filas, PostgREST no devuelve
+ * la primera — contesta **PGRST116** («JSON object requested, multiple (or no) rows
+ * returned»), y los tres lectores de ingesta lo convierten en `throw`. Río arriba eso
+ * es un HTTP 500 del webhook de Calendly, o sea que la reunión que un lead acaba de
+ * reservar NO entra al CRM y ninguna pantalla lo dice. Lo mismo el instant form de
+ * Meta y el ruteo de la R2.
+ *
+ * Hoy no hay teléfonos repetidos en la base, así que el bug está LATENTE y lo dispara
+ * el primer duplicado — justo lo que trae una importación de listas que se solapan.
+ *
+ * Se pide `limit(2)` en lugar de `limit(1)` a propósito: con el MISMO viaje a la base
+ * se sabe si había más de una fila, así que la ambigüedad no se elige en silencio.
+ * Y no se abstiene —abstenerse acá es perder la reunión—: se elige el más VIEJO, que
+ * es un dato (la ficha original, la que viene trabajando el equipo) y no un desempate
+ * inventado. Fundir dos fichas es la decisión de `duplicadosDeLead`, que es donde
+ * alguien la mira.
+ *
+ * El VALOR no va al log: es el teléfono o el email de una persona. Van los ids, que
+ * es lo único que hace falta para ir a mirar cuáles son.
+ */
+async function primerLeadPor(
+  supabase: SupabaseClient,
+  columna: 'telefono_normalizado' | 'email',
+  valor: string,
+  donde: string,
+): Promise<Lead | null> {
+  const comoSeLlama = columna === 'email' ? 'email' : 'teléfono';
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .eq(columna, valor)
+    .order('id', { ascending: true })
+    .limit(2);
+  if (error) throw new Error(`Error buscando lead por ${comoSeLlama}: ${error.message}`);
+  const filas = (data ?? []) as Lead[];
+  if (filas.length > 1) {
+    console.warn(`[leads] ${donde}: hay más de un lead con el mismo ${columna} (ids ${filas.map((l) => l.id).join(', ')}, puede haber más) — se usa el más viejo`);
+  }
+  return filas[0] ?? null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Nombre del ÚNICO vendedor del workspace, o null si hay 0 o más de 1 (#2:
- * auto-asignar setter/closer cuando hay una sola persona). Excluye admin y MaKo,
- * igual que getEquipoAction. Corre en el workspace actual (webhook o sesión).
+ * Nombre de la persona a la que se le auto-asignan setter y closer al crear un lead,
+ * o null si no se puede decidir sin preguntar (#2). Corre en el workspace actual
+ * (webhook o sesión).
+ *
+ * Son DOS preguntas, en este orden:
+ *   1) ¿hay UN solo vendedor (rol distinto de admin)? → ése.
+ *   2) si no, ¿hay UNA sola persona en el workspace? → ésa, aunque sea admin.
+ *
+ * ⚠️ EL FILTRO DE ADMIN NO PUEDE SER LO ÚLTIMO QUE DECIDE. Lo que ese filtro quería
+ * evitar sigue valiendo: que el admin de una agencia con varios vendedores se lleve
+ * los leads de todos. Pero decidía también el caso opuesto — en un workspace cuya
+ * ÚNICA persona ES admin devolvía null, y entonces `createLead` no escribía ni setter
+ * ni closer y el lead nacía sin nadie. Ése es exactamente el workspace propio de
+ * Martín (medido en producción: una fila, rol admin), y es donde el 17/10 entran
+ * +1.000 leads importados por CSV, que pasan por este mismo `createLead`
+ * (app/crm/actions.ts). Nacer sin vendedor no da ningún error: el lead sale del
+ * primer tramo del embudo y ahí recién empieza a pedir «setter» de a uno, o sea mil
+ * avisos sobre la cartera con la que hay que prospectar.
+ *
+ * Con UNA sola persona no hay a quién más asignarle, así que acá no se adivina: se
+ * nombra al único candidato. Con dos o más —vendedores o admins— sigue devolviendo
+ * null, que es lo correcto: ahí hay una decisión y no es nuestra.
+ *
+ * MaKo se saca de las DOS listas: `MAKO_SETTER` es la firma de la IA, no una persona
+ * a la que repartirle leads. Un workspace cuya única fila es MaKo sigue dando null.
  */
 export async function vendedorUnicoDelWorkspace(): Promise<string | null> {
   try {
     const ws = await getWorkspaceActual();
     if (ws == null) return null;
-    const { data } = await getSupabaseServer()
+    const { data, error } = await getSupabaseServer()
       .from('usuarios')
       .select('nombre, email, rol, estado, workspace_id')
       .eq('workspace_id', ws)
       .neq('estado', 'suspendido');
-    const sellers = ((data ?? []) as Array<{ nombre: string | null; email: string; rol: string; workspace_id: number | null }>)
-      .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email))
-      .map((u) => u.nombre?.trim() || u.email)
-      .filter((n) => n && n !== MAKO_SETTER);
-    return sellers.length === 1 ? sellers[0] : null;
+    // «No pude leer» no es «no hay nadie». Con la consulta caída no se inventa un
+    // vendedor ni se concluye que el workspace está vacío: se deja sin asignar, que
+    // es lo único reversible y lo que una persona arregla después en lote.
+    if (error) return null;
+    const personas = ((data ?? []) as Array<{ nombre: string | null; email: string; rol: string; workspace_id: number | null }>)
+      .filter((u) => u.workspace_id === ws && (u.nombre?.trim() || u.email))
+      .map((u) => ({ nombre: (u.nombre?.trim() || u.email) as string, esAdmin: u.rol === 'admin' }))
+      .filter((p) => p.nombre && p.nombre !== MAKO_SETTER);
+    const vendedores = personas.filter((p) => !p.esAdmin);
+    if (vendedores.length === 1) return vendedores[0].nombre;
+    if (personas.length === 1) return personas[0].nombre;
+    return null;
   } catch { return null; }
 }
 
@@ -847,24 +923,8 @@ export async function upsertLeadFromMeta(input: {
 
   // 3) Buscar existente por teléfono O email
   let existing: Lead | null = null;
-  if (telNorm) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('telefono_normalizado', telNorm)
-      .maybeSingle();
-    if (error) throw new Error(`Error buscando por teléfono: ${error.message}`);
-    existing = (data as Lead | null) ?? null;
-  }
-  if (!existing && emailNorm) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('email', emailNorm)
-      .maybeSingle();
-    if (error) throw new Error(`Error buscando por email: ${error.message}`);
-    existing = (data as Lead | null) ?? null;
-  }
+  if (telNorm) existing = await primerLeadPor(supabase, 'telefono_normalizado', telNorm, 'instant form de Meta');
+  if (!existing && emailNorm) existing = await primerLeadPor(supabase, 'email', emailNorm, 'instant form de Meta');
 
   // Campos de Meta — siempre se escriben (es info nueva de atribución)
   const metaFields = {
@@ -934,23 +994,13 @@ export async function findLeadByContacto(
   const supabase = (await getTenantDb());
   const telNorm = normalizarTelefono(telefono);
   if (telNorm) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('telefono_normalizado', telNorm)
-      .maybeSingle();
-    if (error) throw new Error(`Error buscando lead por teléfono: ${error.message}`);
-    if (data) return data as Lead;
+    const porTel = await primerLeadPor(supabase, 'telefono_normalizado', telNorm, 'findLeadByContacto');
+    if (porTel) return porTel;
   }
   const emailNorm = email?.trim().toLowerCase();
   if (emailNorm) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('email', emailNorm)
-      .maybeSingle();
-    if (error) throw new Error(`Error buscando lead por email: ${error.message}`);
-    if (data) return data as Lead;
+    const porEmail = await primerLeadPor(supabase, 'email', emailNorm, 'findLeadByContacto');
+    if (porEmail) return porEmail;
   }
   return null;
 }
@@ -1000,24 +1050,61 @@ export async function setMeetingManual(leadId: number, which: 'agenda' | 'agenda
  * grabación a fathom_links. `attended` puede venir confirmado por el transcript
  * (true/false) o desconocido (null → asumimos que asistió, porque hubo grabación
  * con el invitado externo presente).
+ *
+ * `opts.marcarAsistencia: false` engancha SOLO el link y deja la asistencia como
+ * estaba. Es para los enganches que no prueban que la persona estuvo —hoy, el match
+ * por NOMBRE de lib/fathom-auto.ts—: ahí el link es una pista para que alguien la
+ * confirme en un click, y afirmar la asistencia sería inferirla. No alcanzaba con
+ * pasar `attended: null`, porque null significa «no sé, hubo grabación» y cae en
+ * `?? true`: son dos preguntas distintas y necesitan dos campos.
+ *
+ * ⚠️ EL ESTADO CONTRA EL QUE SE DECIDE SE RELEE DE LA BASE, NO SALE DEL `lead` QUE
+ * LLEGÓ. `fathom_links` se escribe como el array COMPLETO, así que armarlo desde un
+ * objeto leído hace rato BORRA lo que entró en el medio. Pasaba con las dos
+ * grabaciones del mismo lead: lib/fathom-auto.ts lee los leads una vez, recorre
+ * ['j1','j2'] y pasa el MISMO objeto las dos veces, así que la vuelta de la R2
+ * reescribía la lista entera y el link de la R1 desaparecía — con el contador
+ * informando «adjuntados: 2» igual, que es lo que lo hizo invisible. Se dispara
+ * cuando las dos reuniones caen en la misma corrida sin ningún link cargado (el
+ * botón de admin con ventana de 30 días, o la corrida throttleada del cron).
+ *
+ * La relectura va acá y no en el bucle del caller a propósito: es el CHOKE POINT por
+ * donde pasan los tres caminos que enganchan una grabación (el webhook de Fathom, el
+ * CRM automático y el barrido de fathom-auto), así que el que se escriba mañana lo
+ * hereda sin que nadie se acuerde. Lo que esto NO cubre es que dos procesos escriban
+ * el mismo lead a la vez: sigue siendo leer-modificar-escribir, y para cerrarlo haría
+ * falta un append del lado de Postgres.
  */
 export async function applyFathomRecording(
   lead: Lead,
   which: 'j1' | 'j2',
   shareUrl: string | null,
   attended: boolean | null,
+  opts?: { marcarAsistencia?: boolean },
 ): Promise<{ markedAsistencia: boolean; addedLink: boolean }> {
   const supabase = (await getTenantDb());
   const asistField = which === 'j1' ? 'asistio_j1' : 'asistio_j2';
-  const yaMarcado = which === 'j1' ? lead.asistio_j1 : lead.asistio_j2;
+
+  // `id` SÍ es único, así que acá `.maybeSingle()` es correcto (ver `primerLeadPor`).
+  const { data: fresco, error: errFresco } = await supabase
+    .from('leads')
+    .select('fathom_links, asistio_j1, asistio_j2')
+    .eq('id', lead.id)
+    .maybeSingle();
+  if (errFresco) throw new Error(`Error releyendo el lead ${lead.id} para aplicar la grabación: ${errFresco.message}`);
+  // Sin fila no se inventa nada: queda el `lead` que llegó y `updateLead` falla con
+  // «no existe», que es el mismo final que antes de esta relectura.
+  const antes = (fresco ? { ...lead, ...(fresco as Partial<Lead>) } : lead) as Lead;
+
+  const yaMarcado = which === 'j1' ? antes.asistio_j1 : antes.asistio_j2;
   const asistValue = attended ?? true;
 
-  const markedAsistencia = yaMarcado == null;
+  const markedAsistencia = (opts?.marcarAsistencia ?? true) && yaMarcado == null;
 
   let addedLink = false;
   let newLinks: FathomLink[] | null = null;
   if (shareUrl) {
-    const links = lead.fathom_links ?? [];
+    const links = antes.fathom_links ?? [];
     if (!links.some((l) => l.url === shareUrl)) {
       newLinks = [...links, { label: which === 'j1' ? 'Reunión 1' : 'Reunión 2', url: shareUrl }];
       addedLink = true;
@@ -1036,8 +1123,10 @@ export async function applyFathomRecording(
     const { error } = await supabase.from('leads').update({ fathom_links: newLinks }).eq('id', lead.id);
     if (error) throw new Error(`Error aplicando grabación Fathom a lead ${lead.id}: ${error.message}`);
   }
-  const after = { ...lead, ...(markedAsistencia ? { [asistField]: asistValue } : {}), ...(newLinks ? { fathom_links: newLinks } : {}) } as Lead;
-  await logLeadChanges(lead.id, lead, after, 'Fathom');
+  const after = { ...antes, ...(markedAsistencia ? { [asistField]: asistValue } : {}), ...(newLinks ? { fathom_links: newLinks } : {}) } as Lead;
+  // El diff va contra lo RELEÍDO: con el objeto viejo el historial estampaba cambios
+  // que no pasaron (una lista de links «vacía → dos» sobre un lead que ya tenía uno).
+  await logLeadChanges(lead.id, antes, after, 'Fathom');
   return { markedAsistencia, addedLink };
 }
 
@@ -1281,24 +1370,8 @@ export async function upsertLeadFromCalendly(
   // Match 4B-bis: primero por teléfono normalizado (la señal más confiable
   // — la comparte con el instant form de Meta), después por email.
   let existing: Lead | null = null;
-  if (telNorm) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('telefono_normalizado', telNorm)
-      .maybeSingle();
-    if (error) throw new Error(`Error buscando lead por teléfono: ${error.message}`);
-    existing = (data as Lead | null) ?? null;
-  }
-  if (!existing) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('email', emailNorm)
-      .maybeSingle();
-    if (error) throw new Error(`Error buscando lead por email: ${error.message}`);
-    existing = (data as Lead | null) ?? null;
-  }
+  if (telNorm) existing = await primerLeadPor(supabase, 'telefono_normalizado', telNorm, 'webhook de Calendly');
+  if (!existing) existing = await primerLeadPor(supabase, 'email', emailNorm, 'webhook de Calendly');
 
   // Base de payload — campos de contacto / agenda.
   const basePayload = {

@@ -36,7 +36,8 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkResumenLead } from '@/lib/lead-resumen';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
-import { runWithWorkspace } from '@/lib/workspace';
+import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
+import { getSetting, setSetting } from '@/lib/settings';
 import { credWs, envCred } from '@/lib/credenciales';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 
@@ -52,6 +53,99 @@ function fmtFechaHoraLocal(iso: string, tz: string): string {
   const fecha = new Intl.DateTimeFormat('es-MX', { timeZone: tz, weekday: 'long', day: 'numeric' }).format(d).replace(',', '');
   const hora = new Intl.DateTimeFormat('es-MX', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
   return `${fecha} a las ${hora}`;
+}
+
+// =============================================================================
+// La huella de lo que se DESCARTA: reservas que llegan y no se pueden atribuir
+// =============================================================================
+// Vive en `app_settings` del workspace de la PLATAFORMA (`wsSuperAdmin()`), y no en
+// el de un cliente: aquí, por definición, no se sabe de quién es el evento, así que
+// anotarlo en el workspace de alguien sería inventarle un dueño. `OWNER_WS` tampoco
+// sirve — vale 1 y el 1 es Mauricio, un CLIENTE.
+//
+// El molde es el de `optin_bloqueado` (app/api/track/optin/route.ts) y el de
+// `flow.plantillas_descartes` (app/api/flow/puente/route.ts): una fila que se puede
+// consultar sin abrir los logs —que a los 60 minutos ya no existen—, con el motivo y
+// la fecha, y SIN datos de ninguna persona. Lo que se guarda es que PASÓ y por qué,
+// nunca quién: el invitado de una reserva que el producto decidió no ingestar no tiene
+// por qué quedar escrito en ningún lado, y el motivo del descarte no necesita saberlo.
+//
+// Se pisa ENTERA en cada descarte y topea en `TOPE_SIN_RUTEO` tipos de evento: es una
+// huella, no un log, y no crece sin límite. `veces` es best-effort —se lee y se vuelve
+// a escribir, así que dos reservas simultáneas pueden perder un incremento—; lo que
+// importa y no se pierde es CUÁLES tipos de evento están llegando sin ruteo, que es el
+// único dato con el que alguien puede arreglarlo.
+const KEY_SIN_RUTEO = 'calendly.reservas_sin_ruteo';
+const TOPE_SIN_RUTEO = 20;
+
+type HuellaSinRuteo = {
+  /** ISO de la última reserva descartada. */
+  cuando: string;
+  /** Cuántas se descartaron en total. Best-effort (ver arriba). */
+  veces: number;
+  /** Por tipo de evento entrante: cuántas llegaron, el último evento de Calendly y cuándo. */
+  porEventType: Record<string, { veces: number; evento: string; ultima: string }>;
+};
+
+/**
+ * La huella guardada, saneada. Un valor ilegible NO puede hacer que el descarte
+ * siguiente tampoco deje rastro: se vuelve a empezar de cero y se sigue anotando.
+ */
+function huellaPrevia(crudo: string | null): HuellaSinRuteo {
+  const vacia: HuellaSinRuteo = { cuando: '', veces: 0, porEventType: {} };
+  if (!crudo) return vacia;
+  try {
+    const parsed: unknown = JSON.parse(crudo);
+    if (parsed === null || typeof parsed !== 'object') return vacia;
+    const o = parsed as Partial<HuellaSinRuteo>;
+    return {
+      cuando: typeof o.cuando === 'string' ? o.cuando : '',
+      veces: typeof o.veces === 'number' && Number.isFinite(o.veces) ? o.veces : 0,
+      porEventType:
+        o.porEventType && typeof o.porEventType === 'object'
+          ? (o.porEventType as HuellaSinRuteo['porEventType'])
+          : {},
+    };
+  } catch {
+    return vacia;
+  }
+}
+
+/** Anota que llegó una reserva y no entró: el tipo de evento, el evento y cuándo. Nunca lanza. */
+async function anotarReservaSinRuteo(identificador: string, evento: string): Promise<void> {
+  const clave = (identificador.trim() || '(la reserva no trae tipo de evento)').slice(0, 120);
+  const ahora = new Date().toISOString();
+  try {
+    await runWithWorkspace(await wsSuperAdmin(), async () => {
+      const previa = huellaPrevia(await getSetting(KEY_SIN_RUTEO));
+      const anterior = previa.porEventType[clave];
+      const porEventType: HuellaSinRuteo['porEventType'] = {
+        ...previa.porEventType,
+        [clave]: { veces: (anterior?.veces ?? 0) + 1, evento, ultima: ahora },
+      };
+      // El tope deja los más RECIENTES: un tipo de evento que llegó una vez hace tres
+      // meses no puede empujar afuera al que está llegando hoy.
+      const recientes = Object.entries(porEventType)
+        .sort((a, b) => b[1].ultima.localeCompare(a[1].ultima))
+        .slice(0, TOPE_SIN_RUTEO);
+      await setSetting(
+        KEY_SIN_RUTEO,
+        JSON.stringify({
+          cuando: ahora,
+          veces: previa.veces + 1,
+          porEventType: Object.fromEntries(recientes),
+        } satisfies HuellaSinRuteo),
+      );
+    });
+  } catch (e) {
+    // Anotar el descarte NUNCA puede romper el webhook: si esto tirara, una reserva
+    // ignorada se volvería un 500, Calendly empezaría a reintentar y tras días de
+    // entregas fallidas DESHABILITA la suscripción —y no deja reactivarla—, que es el
+    // daño grande (le pasó a la de MaKo el 11/09/2026: seis reservas perdidas).
+    console.error(
+      `[webhook:calendly] no se pudo anotar la reserva sin ruteo: ${e instanceof Error ? e.message : e}`,
+    );
+  }
 }
 
 export const dynamic = 'force-dynamic';
@@ -138,9 +232,36 @@ export async function POST(request: NextRequest) {
 
   // Firma válida pero sin ruteo: 200 para que Calendly no reintente eternamente algo
   // que nunca vamos a poder atribuir. Fail-CLOSED igual — no se toca un solo dato.
+  //
+  // ⚠️⚠️ Y EL 200 NO PUEDE SER LO ÚNICO QUE QUEDE. Una política puede RECHAZAR; no puede
+  // no dejar rastro. Esta rama devolvía `{ ok: true, ignored: 'sin workspace' }` y un
+  // `console.warn` que a los 60 minutos ya no existe, así que «la reserva no llegó» y «la
+  // tiramos nosotros» se veían EXACTAMENTE igual: mirando la base, mirando los logs y
+  // repitiendo la prueba. Es el síntoma textual de la tarjeta #174 —«el cliente conecta,
+  // no entra nada y no hay ningún error»— y lo que lo vuelve urgente es que el workspace
+  // del super admin no tiene hoy ninguna ruta de agenda: el primero que va a pasar por
+  // aquí es Martín (medido en producción el 03/10/2026).
+  //
+  // EL 200 SE QUEDA, y por una razón medida: Calendly DESHABILITA una suscripción tras
+  // días de entregas fallidas y no deja reactivarla (el porqué, en la cabecera de
+  // scripts/arreglar-webhook-calendly.ts). Devolver 4xx aquí cambiaría un evento
+  // descartado por la integración entera caída, que es peor.
+  //
+  // Lo que cambia son las DOS superficies donde esto sí se puede leer:
+  //   · la huella en la base (`anotarReservaSinRuteo`), consultable sin abrir logs;
+  //   · el CUERPO de la respuesta, que es lo que Calendly muestra en su propio registro
+  //     de entregas — el renglón que decía «sin workspace» ahora dice qué falta y dónde.
   if (ws == null) {
-    console.warn(`[webhook:calendly] sin workspace para event_type=${candidatosWs[0] ?? '—'} evento=${body.event} — ignorado`);
-    return Response.json({ ok: true, event: body.event, ignored: 'sin workspace' });
+    const identificador = candidatosWs[0] ?? '';
+    await anotarReservaSinRuteo(identificador, body.event);
+    console.warn(`[webhook:calendly] sin workspace para event_type=${identificador || '—'} evento=${body.event} — ignorado`);
+    return Response.json({
+      ok: true,
+      event: body.event,
+      ignored: 'sin_ruteo',
+      // Sin nombre, sin email y sin teléfono: el renglón dice QUÉ pasó y por qué, no quién.
+      message: 'La reserva llegó y no entró: ningún negocio de MaKo tiene cargado este tipo de evento de Calendly. Se carga en /integraciones, en el campo «Tipo de evento de R1».',
+    });
   }
 
   // 4) Dispatch por tipo de evento — TODO confinado al workspace resuelto.

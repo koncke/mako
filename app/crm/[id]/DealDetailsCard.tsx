@@ -245,7 +245,12 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
         fecha_inicio_servicio: draft.fechaInicioServicio || null,
       });
       if (draft.cuotasDirty) {
-        await saveCuotasAction(lead.id, draft.cuotas.map((c) => ({ monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado })));
+        // El `id` y la `fecha_pago` viajan porque el server tiene que distinguir
+        // una cuota pagada que YA está en la base (saveLeadPlanManual la conserva
+        // sola) de una NUEVA ya cobrada, que no existe en ningún lado y hay que
+        // insertarla. Sin el id, la mensualidad cobrada caía en el filtro de
+        // `!c.pagado` de saveCuotasAction y el cobro se perdía entero.
+        await saveCuotasAction(lead.id, draft.cuotas.map((c) => ({ id: c.id, monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado, fecha_pago: c.fecha_pago })));
       }
     },
   }), [lead.id, lead.deal_fiscal]);
@@ -254,9 +259,21 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
   const setCuota = (i: number, patch: Partial<DraftCuota>) => setD((prev) => { if (!prev) return prev; const cuotas = prev.cuotas.slice(); cuotas[i] = { ...cuotas[i], ...patch }; return { ...prev, cuotas, cuotasDirty: true }; });
   const quitarCuota = (i: number) => setD((prev) => (prev ? { ...prev, cuotas: prev.cuotas.filter((_, j) => j !== i), cuotasDirty: true } : prev));
   const agregarCuota = () => setD((prev) => { if (!prev) return prev; const ultima = prev.cuotas[prev.cuotas.length - 1] ?? null; const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: '', fecha: unMesDespues(ultima?.fecha || null), pagado: false, fecha_pago: null }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
-  // #363 F2: mensualidad de una suscripción — igual que agregar cuota pero con el
-  // monto mensual precargado (para las indefinidas que se cobran mes a mes).
-  const agregarMensualidad = () => setD((prev) => { if (!prev) return prev; const ultima = prev.cuotas[prev.cuotas.length - 1] ?? null; const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : '', fecha: unMesDespues(ultima?.fecha || null), pagado: false, fecha_pago: null }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
+  // #363 F2 / #697: mensualidad COBRADA de una suscripción. El botón dice
+  // "cobrada", así que la cuota nace PAGADA y con la fecha de hoy, con el monto
+  // mensual precargado (para las indefinidas que se cobran mes a mes).
+  //
+  // Antes nacía con `pagado: false` y `fecha: unMesDespues(...)`, o sea que el
+  // botón del cobro fabricaba una DEUDA a un mes: el cliente que acababa de pagar
+  // seguía figurando en $0 —`total_cobrado_usd` se deriva SÓLO de los pagos
+  // marcados, ver sincronizarTotalCobrado en lib/pagos.ts— y un mes después esa
+  // cuota caía en "A quién cobrarle" de /comercial, o sea se perseguía un cobro
+  // ya hecho. La cuota FUTURA es el otro botón, `agregarCuota`, que no cambia.
+  //
+  // El monto queda editable mientras la cuota no se haya guardado (id === null):
+  // una suscripción sin `suscripcion_monto_usd` cargado nacería en 0, y una cuota
+  // en 0 la descarta el guardado sin decir nada.
+  const agregarMensualidad = () => setD((prev) => { if (!prev) return prev; const hoy = hoyISO(); const nueva: DraftCuota = { key: nextKey.current--, id: null, numero: null, monto: lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : '', fecha: hoy, pagado: true, fecha_pago: hoy }; return { ...prev, cuotas: [...prev.cuotas, nueva], cuotasDirty: true }; });
 
   // ── Totales / semáforo ──
   const cuotasVista = d ? d.cuotas.map((c) => ({ monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado })) : pagos.map((p) => ({ monto: Number(p.monto_usd), fecha: p.fecha_esperada, pagado: p.pagado }));
@@ -499,14 +516,14 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
                   <div key={c.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, border: `1px solid ${c.pagado ? '#BFE6CD' : 'var(--border-strong)'}`, borderRadius: 11, padding: '11px 14px', background: c.pagado ? 'var(--good-bg)' : 'var(--surface-2)', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                       <span style={{ color: 'var(--ink)', fontWeight: 600, fontSize: 14 }}>{etiquetaCuota(c.numero)}</span>
-                      {c.pagado ? (
+                      {c.pagado && c.id !== null ? (
                         <><span style={{ color: 'var(--dim)', fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(parseFloat(c.monto) || 0)}</span><span style={{ fontSize: 13, color: 'var(--dim)' }}>cobrada el {fmtDDMMYYYY(c.fecha_pago)}</span></>
                       ) : (
-                        <><input className="lead-field" type="number" min={0} step="0.01" value={c.monto} onChange={(e) => setCuota(i, { monto: e.target.value })} style={{ width: 112 }} aria-label={`Monto ${etiquetaCuota(c.numero)}`} /><input className="lead-field" type="date" value={c.fecha} onChange={(e) => setCuota(i, { fecha: e.target.value })} style={{ width: 'auto' }} aria-label={`Vencimiento ${etiquetaCuota(c.numero)}`} /></>
+                        <><input className="lead-field" type="number" min={0} step="0.01" value={c.monto} onChange={(e) => setCuota(i, { monto: e.target.value })} style={{ width: 112 }} aria-label={`Monto ${etiquetaCuota(c.numero)}`} />{c.pagado ? <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>cobrada hoy</span> : <input className="lead-field" type="date" value={c.fecha} onChange={(e) => setCuota(i, { fecha: e.target.value })} style={{ width: 'auto' }} aria-label={`Vencimiento ${etiquetaCuota(c.numero)}`} />}</>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {c.pagado ? <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--good)', background: '#fff', border: '1px solid #BFE6CD', borderRadius: 999, padding: '2px 9px' }}>pagada</span> : <button type="button" style={linkBtn} onClick={() => quitarCuota(i)}>quitar</button>}
+                      {c.pagado && c.id !== null ? <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--good)', background: '#fff', border: '1px solid #BFE6CD', borderRadius: 999, padding: '2px 9px' }}>pagada</span> : <button type="button" style={linkBtn} onClick={() => quitarCuota(i)}>quitar</button>}
                     </div>
                   </div>
                 ))}

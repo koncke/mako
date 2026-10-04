@@ -23,7 +23,7 @@
 // =============================================================================
 
 import { useMemo, useState, type CSSProperties } from 'react';
-import { FILAS_POR_PAGINA, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, type FilaImport } from './leads-importar';
+import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, entra, type FilaImport } from './leads-importar';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -56,8 +56,18 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
 
   const editar = (id: string, campo: 'nombre' | 'email' | 'telefono' | 'empresa', v: string) =>
     onFilas((prev) => prev.map((f) => (f.id === id ? { ...f, [campo]: v } : f)));
+  /**
+   * ⚠️ UN DUPLICADO SE PUEDE TILDAR, y hasta el 03/10/2026 no se podía: la condición
+   * era `!f.motivo`, así que la única fila cuyo descarte es una DECISIÓN —«ya existe en
+   * el CRM», que puede ser la misma persona o un homónimo— era justamente la que no se
+   * podía decidir. Mientras tanto el server la creaba igual, con la guarda
+   * anti-duplicado apagada: la pantalla ofrecía lo contrario de lo que pasaba.
+   *
+   * Los otros tres motivos siguen sin tilde porque no son decisiones, son filas que no
+   * se pueden crear (el porqué de cada una está en `MOTIVO_DECIDIBLE`).
+   */
   const tildar = (id: string) =>
-    onFilas((prev) => prev.map((f) => (f.id === id && !f.motivo ? { ...f, incluir: !f.incluir } : f)));
+    onFilas((prev) => prev.map((f) => (f.id === id && (!f.motivo || f.motivo === MOTIVO_DECIDIBLE) ? { ...f, incluir: !f.incluir } : f)));
   const soloNuevas = () => onFilas((prev) => prev.map((f) => ({ ...f, incluir: !f.motivo })));
   const destildarTodo = () => onFilas((prev) => prev.map((f) => ({ ...f, incluir: false })));
 
@@ -67,7 +77,12 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
   const visibles = paginado ? filas.slice(pag * FILAS_POR_PAGINA, (pag + 1) * FILAS_POR_PAGINA) : filas;
 
   const filaTabla = (f: FilaImport) => {
-    const fuera = !!f.motivo;
+    // Tres estados, no dos: la fila que entra, la que NO SE PUEDE crear (atenuada y sin
+    // casilla) y el duplicado, que se puede decidir y por eso no se atenúa igual que un
+    // descarte — atenuar un control que sí funciona es cómo se lee que no funciona.
+    const decidible = f.motivo === MOTIVO_DECIDIBLE;
+    const invalido = !!f.motivo && !decidible;
+    const fuera = !entra(f);
     // El borde rojo marca EL CAMPO que hay que arreglar, no la fila entera: si la
     // fila está sin nombre, el que tiene que llamar la atención es ese input.
     const culpable = (k: string): boolean =>
@@ -81,20 +96,35 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
       <div key={f.id} style={{
         display: 'grid', gridTemplateColumns: GRID, gap: 8, alignItems: 'center',
         padding: '7px 9px', borderRadius: 10,
-        background: fuera ? 'transparent' : f.bajaConfianza ? 'color-mix(in srgb, var(--warn-fill, #D9A400) 8%, transparent)' : 'var(--surface-2)',
-        border: `1px solid ${fuera ? 'var(--border)' : 'transparent'}`,
-        opacity: fuera ? 0.55 : 1,
+        background: invalido ? 'transparent' : f.bajaConfianza ? 'color-mix(in srgb, var(--warn-fill, #D9A400) 8%, transparent)' : 'var(--surface-2)',
+        border: `1px solid ${invalido || decidible ? 'var(--border)' : 'transparent'}`,
+        opacity: invalido ? 0.55 : 1,
       }}>
-        <button type="button" onClick={() => tildar(f.id)} disabled={fuera} aria-label={f.incluir ? 'No importar esta fila' : 'Importar esta fila'}
-          style={{ width: 18, height: 18, borderRadius: 6, cursor: fuera ? 'default' : 'pointer', border: `1.5px solid ${f.incluir && !fuera ? 'var(--primary)' : 'var(--border-strong)'}`, background: f.incluir && !fuera ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, lineHeight: 1, padding: 0 }}>
-          {f.incluir && !fuera ? '✓' : ''}
+        {/*
+          El aria-label de una fila que no se puede crear dice POR QUÉ no entra, no la
+          acción que el botón no puede hacer: antes anunciaba «No importar esta fila»
+          sobre una casilla deshabilitada y dibujada sin tilde, o sea la acción contraria
+          a la que se ve y encima imposible. Y en el duplicado —el único que se decide—
+          la etiqueta dice qué pasa al tildarlo, que es lo que no se ve mirando una
+          casilla: que se va a crear una segunda ficha de alguien que ya está.
+        */}
+        <button type="button" onClick={() => tildar(f.id)} disabled={invalido}
+          aria-label={invalido ? `No entra: ${MOTIVO_LABEL[f.motivo!]}`
+            : decidible ? (f.incluir ? 'No crear este lead repetido' : 'Crear este lead aunque ya exista en el CRM')
+            : f.incluir ? 'No importar esta fila' : 'Importar esta fila'}
+          style={{ width: 18, height: 18, borderRadius: 6, cursor: invalido ? 'default' : 'pointer', border: `1.5px solid ${fuera ? 'var(--border-strong)' : 'var(--primary)'}`, background: fuera ? 'transparent' : 'var(--primary)', color: '#fff', fontSize: 11, lineHeight: 1, padding: 0 }}>
+          {fuera ? '' : '✓'}
         </button>
         {campo('nombre', 'Nombre')}
         {campo('email', 'Email')}
         {campo('telefono', 'Teléfono')}
         {campo('empresa', 'Empresa')}
-        <span style={{ fontFamily: MONO, fontSize: 10.5, color: fuera ? 'var(--bad)' : 'var(--faint)', textAlign: 'right', lineHeight: 1.3 }}>
-          {f.motivo ? MOTIVO_LABEL[f.motivo] : f.bajaConfianza ? 'revisar' : 'entra'}
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: invalido ? 'var(--bad)' : decidible && !fuera ? 'var(--warn)' : fuera ? 'var(--dim)' : 'var(--faint)', textAlign: 'right', lineHeight: 1.3 }}>
+          {/* El duplicado tildado dice que entra IGUAL: el estado tiene que contar lo
+              que va a pasar con esa fila, no sólo lo que se detectó. */}
+          {decidible ? (f.incluir ? 'ya existe · entra igual' : MOTIVO_LABEL[f.motivo!])
+            : f.motivo ? MOTIVO_LABEL[f.motivo]
+            : f.bajaConfianza ? 'revisar' : 'entra'}
         </span>
       </div>
     );
@@ -106,6 +136,9 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
         <Chip n={c.tildadas} texto="se van a crear" color="var(--good)" />
         {c.listas > c.tildadas && <Chip n={c.listas - c.tildadas} texto="destildadas" color="var(--dim)" />}
         {c.duplicado > 0 && <Chip n={c.duplicado} texto="ya existen" color="var(--dim)" />}
+        {/* Lo irreversible de esta pantalla, con su propio número y pegado al resto: un
+            duplicado tildado crea una SEGUNDA ficha de alguien que ya está en el CRM. */}
+        {c.aProposito > 0 && <Chip n={c.aProposito} texto="repetidos a propósito" color="var(--warn)" />}
         {c['repetido-archivo'] > 0 && <Chip n={c['repetido-archivo']} texto="repetidas" color="var(--dim)" />}
         {c['sin-nombre'] > 0 && <Chip n={c['sin-nombre']} texto="sin nombre" color="var(--bad)" />}
         {c['sin-contacto'] > 0 && <Chip n={c['sin-contacto']} texto="sin contacto" color="var(--bad)" />}
@@ -161,7 +194,7 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
       )}
 
       <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55 }}>
-        {nota ?? 'Nada se creó todavía. Puedes corregir cualquier celda aquí mismo; las filas atenuadas no entran hasta que se resuelva su motivo.'}
+        {nota ?? 'Nada se creó todavía. Puedes corregir cualquier celda aquí mismo. Las filas atenuadas no entran; las que ya existen en el CRM entran solo si las tildas.'}
       </div>
     </div>
   );

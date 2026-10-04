@@ -43,7 +43,27 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
     // afirmación, no un fallback. Cada valor que la columna puede tener lleva su case,
     // y el default se reserva para lo que de verdad no se sabe.
     case 'landing': return { texto: 'Formulario de tu landing', color: 'var(--accent)' };
-    default: return { texto: 'Orgánico / manual', color: 'var(--dim)' };
+    // ⚠️ Y LOS TRES DE LAS ALTAS QUE NO ESTAMPABAN NADA (03/10/2026). Hasta entonces el
+    // alta a mano, la importación, el alta desde el chat y el alta de un cliente en
+    // Customer Success llamaban a `createLead` sin pasarle el origen, así que los
+    // cuatro caminos caían en el `default` de abajo. O sea que la ficha de los 1.000
+    // contactos de una lista en frío decía exactamente lo mismo que la de alguien que
+    // llenó un formulario: «Orgánico / manual», que para la mitad de ellos era falso.
+    //
+    // Los ids salen del catálogo (`app/crm/origen-lead.ts`), que es el único lugar
+    // donde viven los valores posibles. Acá vive el rótulo LARGO, el de la ficha, que
+    // es otra superficie que la tarjeta del tablero: ahí entra una frase y en la
+    // tarjeta una palabra. Que los dos cubran los mismos ids lo fija
+    // tests/crm-origen-lead.test.ts.
+    case 'carga_manual': return { texto: 'Lo cargaste a mano', color: 'var(--dim)' };
+    case 'importacion': return { texto: 'Importado de un archivo', color: 'var(--dim)' };
+    case 'chat_whatsapp': return { texto: 'Escribió por WhatsApp', color: 'var(--good)' };
+    // ⚠️ EL DEFAULT YA NO AFIRMA NADA. Decía «Orgánico / manual», que son dos hechos
+    // del negocio —llegó solo, o lo cargamos nosotros— sobre una columna vacía, de la
+    // que no se sabe ninguno de los dos. Con las cuatro altas estampando, acá sólo
+    // llegan los leads que entraron antes de este cambio y los valores que algún
+    // camino nuevo escriba sin pasar por el catálogo.
+    default: return { texto: 'Sin dato de origen', color: 'var(--dim)' };
   }
 }
 

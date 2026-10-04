@@ -7,16 +7,11 @@
 import { resolverNombreCampana } from '@/lib/queries';
 import { deriveStageKey } from '@/lib/pipeline';
 import type { Lead } from '@/lib/leads';
+import { origenLista, SIN_ORIGEN_LISTA } from './origen-lead';
 import type { CrmLead } from './CrmBoard';
 
 export type VisitasMap = Map<string, { total_visitas: number; dias_distintos: number }>;
 
-/** Canal real de adquisición (no hardcodeado). */
-function channelOf(l: Lead): string {
-  if (l.meta_lead_id || l.meta_ad_id) return 'Meta · Instant Form';
-  if (l.utm_campaign?.trim()) return 'Campaña web';
-  return 'Directo / orgánico';
-}
 
 export function origenLegible(lead: Lead, campMap: Record<string, string>): string {
   const nombreMeta = lead.meta_ad_name?.trim() || lead.meta_campaign_name?.trim();
@@ -26,7 +21,12 @@ export function origenLegible(lead: Lead, campMap: Record<string, string>): stri
     if (r.texto) return r.texto;
   }
   if (lead.meta_lead_id || lead.meta_ad_id) return 'Meta · sin nombre';
-  return 'Directo';
+  // ⚠️ ESTE ES EL QUE SE VE. `origin` lo dibuja la tarjeta del tablero (CrmBoard) y
+  // además ARMA las opciones del filtro de origen, que se derivan de los valores
+  // presentes. Antes contestaba «Directo» para todo lo que no tuviera campaña: los
+  // 1.000 contactos de una importación y los que llegaron solos, en la misma bolsa y
+  // con una etiqueta que afirmaba de los dos que habían llegado por su cuenta.
+  return origenLista(lead.origen_lead);
 }
 
 export function fmtDay(s: string | null): string | null {
@@ -101,7 +101,6 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, validStag
     fathom: (l.fathom_links as { label: string; url: string }[] | null) ?? [],
     motivo: l.motivo_perdida ?? '',
     calendly: calendlyDe(l),
-    originChannel: channelOf(l),
     confirmacion: fmtDay(l.fecha_confirmacion),
     cierre: fmtDay(l.fecha_cierre),
     // Fechas crudas (ISO) para construir la línea de tiempo del recorrido.

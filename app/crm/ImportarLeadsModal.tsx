@@ -111,7 +111,17 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
       const data = (await res.json().catch(() => null)) as LecturaImport | null;
       if (!data) { setErr(`No pude leer el archivo (error ${res.status}).`); return; }
       if (!data.ok) { setErr(data.error); return; }
-      setFilas(recalcular(data.filas));
+      // ⚠️ EL DUPLICADO NACE DESTILDADO. `filasDesdeCsv` pone `incluir: true` en todas
+      // las filas y `recalcular` nunca lo baja, así que el default de «ya existe en el
+      // CRM» era CREARLO — y como la casilla además estaba deshabilitada, no había
+      // ninguna forma de decidir lo contrario. Para el que importa tres bases que se
+      // solapan el default correcto es el otro: una ficha de más por cada persona
+      // repetida deja a los dos leads inalcanzables para Calendly, Meta y Fathom (dos
+      // filas con el mismo `telefono_normalizado` rompen sus `.maybeSingle()`).
+      //
+      // Se aplica UNA vez, acá, y no dentro de `recalcular`: ahí correría en cada
+      // edición y le borraría el tilde a la persona que acaba de ponerlo.
+      setFilas(recalcular(data.filas).map((f) => (f.motivo ? { ...f, incluir: false } : f)));
       setViaIA(data.viaIA);
       setAviso(data.aviso ?? null);
       setPaso(1);
@@ -220,8 +230,34 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
   // La tabla es la MISMA que la de /crm/revisar: se extrajo a TablaRevisionLeads para
   // que revisar una importación y revisar lo que propuso un canal se vean y se
   // comporten igual. Antes vivía acá adentro y era el único lugar donde existía.
+  /**
+   * ⚠️ CADA EDICIÓN VUELVE A PASAR POR `recalcular`, y en este camino no pasaba.
+   * La cabecera de leads-importar.ts lo declara desde el día uno («El usuario las
+   * revisa, corrige y tilda. Cada edición recalcula el motivo») y lo cumplía sólo el
+   * OTRO consumidor de esta misma tabla (`RevisarLead`, que lo hace en su `onFilas`).
+   * Acá `recalcular` corría una sola vez, al leer el archivo, así que corregir el
+   * nombre de una fila «sin nombre» la dejaba atenuada y sin casilla en pantalla
+   * mientras el server —que sí recalcula al confirmar— la creaba. La misma mentira que
+   * el duplicado, por el otro camino: la pantalla diciendo que algo no entra y el
+   * server creándolo.
+   */
   const pasoRevisar = () => (
-    <TablaRevisionLeads filas={filas} onFilas={setFilas} viaIA={viaIA} aviso={aviso} />
+    <TablaRevisionLeads
+      filas={filas}
+      onFilas={(v) => setFilas((prev) => recalcular(typeof v === 'function' ? v(prev) : v))}
+      viaIA={viaIA}
+      aviso={aviso}
+      /*
+       * La consecuencia de lo irreversible, antes del click y lo más cerca del botón
+       * que esta pantalla permite: el pie de la tabla es el último renglón arriba del
+       * footer del wizard. Crear un repetido deja una segunda ficha de alguien que ya
+       * está en el CRM y desde acá no se deshace. Sólo aparece cuando hay algo que
+       * advertir — un cartel permanente no lo lee nadie.
+       */
+      nota={c.aProposito > 0
+        ? `Nada se creó todavía. Ojo: ${c.aProposito} ya ${c.aProposito === 1 ? 'existe en el CRM y se va' : 'existen en el CRM y se van'} a crear igual.`
+        : undefined}
+    />
   );
 
   return (

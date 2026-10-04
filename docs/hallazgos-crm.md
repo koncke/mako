@@ -4731,3 +4731,156 @@ contra `generateFunnel`, y el cableado leyendo la línea del menú — extrayén
 el archivo entero daba verde con el bug puesto.
 
 **Vive en:** `app/crm/CrmBoard.tsx` → `colsBorrables` · *2026-10-04*
+
+## El `null` de un campo de TRES estados ya está ocupado, y el default lo convierte en un «sí» (04/10/2026)
+
+`applyFathomRecording(lead, which, url, attended)` resuelve `const asistValue = attended ?? true`
+(`lib/leads.ts:1100`), con su porqué correcto escrito al lado: el `null` significaba «no me
+consta la asistencia, pero hubo grabación con el invitado presente». O sea que **ese `null` ya
+afirmaba algo**.
+
+El 04/10 se abrió una fuente nueva para los links de reunión —los que una persona pegó a mano en
+la ficha, en `lib/auto-reuniones.ts:122-131— y, con razón, se negó a que eso afirmara la
+asistencia: `asistioJ1: anaLinkR1 ? true : null`. Sólo la grabación ANALIZADA la afirma; un link
+pegado prueba que la reunión se grabó, no quién estuvo.
+
+Los dos lados estaban bien. Lo que no existía era el contrato entre ellos: `lib/crm-auto.ts:307`
+—la regla T1 del CRM automático, en un archivo que ninguno de los dos paquetes tocaba— pasaba ese
+`null` tal cual, y el `?? true` lo convertía en **`asistio_j1 = true`**. Resultado: un lead al que
+alguien le pegó un link se marcaba como asistido, cambiaba de etapa y **disparaba el QualifiedLead
+de Meta**, que el `revert` de la propia regla no deshace.
+
+- **Antes de reusar el `null` de un campo para un caso nuevo, leé qué afirma ya ese `null`.** Si
+  hay un `??` río abajo, el campo está ocupado: cada pregunta, su campo (acá, `marcarAsistencia`).
+- **El contrato entre dos archivos que no se tocan no lo cubre ningún test de ninguno de los dos.**
+  Lo encontró una revisión que leyó el camino de punta a punta; el guard quedó en
+  `tests/crm-auto-asistencia.test.ts`, que fija los DOS lados.
+- Es la misma familia que «un `&&` que junta un hecho con un permiso hace desaparecer el hecho»,
+  con el signo cambiado: acá un `??` junta «no sé» con «sí» y hace aparecer un hecho que nadie vio.
+
+**Vive en:** `lib/crm-auto.ts:307` · `lib/leads.ts:1100` · `lib/auto-reuniones.ts:172` · *2026-10-04 arreglar-crm*
+
+## «Vuelve a pedirme algo que ya tengo» es una molestia para la persona y una CONCLUSIÓN FALSA para el motor (04/10/2026)
+
+La tarjeta #38 describía el síntoma que se ve: el asistente sigue pidiendo a mano una grabación
+que ya está guardada en la ficha. Eso se lee como fricción.
+
+El costo real era el opuesto y vivía en otro archivo. `lib/crm-auto.ts:295` decide la regla T1
+preguntando por `auto.fathomR1/R2`, y `buscarReunionesAutomatico` sacaba esos links **sólo** de
+`closing_analyses`: `fathom_links` no aparecía en `lib/auto-reuniones.ts`. Sin link, la rama de
+abajo concluye **No Show** y mueve al lead — sobre una reunión cuya grabación estaba guardada a la
+vista, en su propia ficha.
+
+**Cuando un defecto se reporta como «me vuelve a pedir algo que ya tengo», preguntá quién MÁS lee
+ese dato.** Un buscador que no encuentra algo es una molestia; un motor que lee el mismo resultado
+vacío concluye lo contrario de la verdad y lo escribe. El síntoma que llega es siempre el de quien
+mira la pantalla, nunca el del proceso que corre solo.
+
+**Vive en:** `lib/auto-reuniones.ts:122-131` · `lib/crm-auto.ts:295` y `:347` · *2026-10-04 arreglar-crm*
+
+## Un contador que cuenta INTENTOS no puede informar RESULTADOS (04/10/2026)
+
+El barrido de Fathom informaba `adjuntados: 2` cuando a un mismo lead se le enganchaban R1 y R2 en
+la misma corrida — y la segunda **pisaba** el link de la primera, porque `applyFathomRecording`
+armaba el array nuevo desde el objeto `lead` que el bucle había leído al principio.
+
+El contador decía la verdad sobre OTRA pregunta: cuántas veces la función devolvió `addedLink:
+true`. Las dos vueltas lo devolvían. El bug vivió desde julio **en el archivo que un operador abre
+a mano con un botón de admin**, y el único testigo posible era contar los links en la ficha.
+
+**Si un proceso escribe un array completo armado en memoria, el contador sale de lo que quedó en la
+base** — o la única forma de auditarlo es ir a mirar fila por fila. La cura del pisado fue releer
+dentro de la escritura (el choke point de los tres caminos), no arreglar el bucle que lo disparaba:
+así lo hereda el cuarto camino que alguien escriba mañana.
+
+**Vive en:** `lib/leads.ts:1079-1140` · `lib/fathom-auto.ts:143-195` · *2026-10-04 arreglar-crm*
+
+## Antes de revertir un «bug» bien medido, grepeá `tests/` buscando el guard que lo FIJA (04/10/2026)
+
+«La importación crea el duplicado que la pantalla dice que descartó» se lee como una regresión de
+siete semanas, y el arreglo obvio es cerrar el portón del server.
+
+No era una regresión: era una decisión deliberada **y fijada por un test**.
+`tests/leads-duplicados.test.ts:126-129` exige `permitirDuplicado: duplicado` («el tilde de la
+persona es la autorización») y prohíbe explícitamente la condición vieja. Dar vuelta el server
+habría roto ese guard y revertido una decisión del 14/08 que alguien tomó con su porqué escrito.
+
+Lo que estaba mal era la otra mitad: **la pantalla no podía tomar esa decisión**, porque la casilla
+estaba deshabilitada justo en esas filas. El arreglo correcto fue dejar que se mueva, y que los
+tres lectores —la casilla, el contador del botón y el portón del server— pasen por UNA función
+(`entra` en `app/crm/leads-importar.ts:58`).
+
+⚠️ **Y la segunda mitad, que la corrida no vio:** `/crm/revisar/[id]` siembra sus filas con
+`incluir: true` y `yaExiste: false`, así que el motivo «ya existe» lo descubre el SERVER, después
+de que la pantalla se dibujó. Honrar ese tilde es crear el duplicado **y atribuirle la decisión a
+alguien que nunca la vio**. El server ahora baja el tilde de todo duplicado que la pantalla no
+mostró (`app/crm/actions.ts`, `vioDuplicado`): un tilde sobre algo que la interfaz no exhibió no es
+una decisión, es el default.
+
+**Vive en:** `app/crm/actions.ts` (`vioDuplicado`) · `app/crm/leads-importar.ts:58` · *2026-10-04 arreglar-crm*
+
+## Eran SEIS lectores, no tres: la pregunta es qué columnas tienen la PROPIEDAD (04/10/2026)
+
+El encargo medía tres `.maybeSingle()` sobre `telefono_normalizado`, una columna que no es única:
+con dos filas, PostgREST devuelve `PGRST116` y el webhook entero muere.
+
+Eran seis. En las MISMAS tres funciones, la línea siguiente lee por `email` con el mismo patrón, y
+`leads.email` tampoco tiene índice único — el único de la tabla es `id`.
+
+**Cuando un defecto se mide sobre UNA columna, la pregunta no es «¿dónde más está esta columna?»
+sino «¿cuáles columnas tienen la propiedad que lo causa?»** — acá, no ser única. La respuesta sale
+de las migraciones con un `grep`, y la lista de las que SÍ son únicas es cortísima.
+
+**Vive en:** `lib/leads.ts` (`primerLeadPor`) · `supabase/migrations/` · *2026-10-04 arreglar-crm*
+
+## Un guard que lee fuente tiene que BORRAR los comentarios, y no por higiene (04/10/2026)
+
+Dos guards nuevos pasaron en verde sobre la rotura que tenían que cazar, en el primer intento, por
+una razón que no es la lógica: **el propio arreglo escribe la cadena perseguida dentro de su
+comentario**. La convención de esta casa es explicar en el comentario qué código se sacó, así que
+todo guard que busque una ausencia la va a encontrar ahí al lado.
+
+- El borrado va en ORDEN: primero los comentarios de línea COMPLETOS, después los de bloque. Al
+  revés, un `/*` que vive dentro de un `//` abre un bloque que se cierra páginas más adelante y se
+  lleva puesto todo lo que hay en el medio (ya pagado en el guard de voseo).
+- Y nunca con un regex de «todo lo que sigue a `//` hasta el fin de línea»: se come el `//` de una
+  URL dentro de una cadena.
+- ⚠️ **Y el `doesNotMatch` sobre el texto de una fila no puede cazar su versión vieja** si la fila
+  sigue existiendo adentro de un ternario. Lo que distingue la versión buena de la vieja es la
+  FORMA en que se arma la lista (un spread condicional), no el texto de la fila.
+
+**Vive en:** `tests/crm-importar-duplicados.test.ts` (`soloCodigo`) · `tests/crm-auto-asistencia.test.ts` · *2026-10-04 arreglar-crm*
+
+## Arreglar una función que no lee nadie es arreglar algo que no se ve (04/10/2026)
+
+Al cablear el origen del lead en la lista del CRM aparecieron DOS funciones candidatas en el mismo
+archivo: `channelOf` y `origenLegible`. Las dos convertían un lead en «de dónde vino», las dos
+estaban a cuatro líneas de distancia, y **sólo una se dibuja**.
+
+`channelOf` alimentaba el campo `originChannel`, que tenía exactamente dos apariciones en todo el
+repo: la escritura y la declaración del tipo. Cero lectores. `origin`, el que la tarjeta pinta y
+el que arma las opciones del filtro, sale de `origenLegible`.
+
+El arreglo entró en las dos, así que la pantalla quedó bien — pero el guard que lo fijaba apuntaba
+a las dos, y una era humo. **Un guard sobre una función huérfana da verde sobre una pantalla que
+miente**, y encima la mantiene viva: es un lector sintético que impide borrarla. `channelOf` y
+`originChannel` se borraron, y el guard quedó sobre la única que alguien ve.
+
+**Vive en:** `app/crm/crm-map.ts:16` · `tests/crm-origen-lead.test.ts` · *2026-10-04 arreglar-crm*
+
+## Un «hay workaround» acota la urgencia del CAMINO medido, no la del dato (04/10/2026)
+
+«Registrar mensualidad cobrada» crea la cuota con `pagado: false`: el botón que dice «cobrada»
+fabrica una deuda. Se había pospuesto con el argumento de que hay camino a mano —agregar la cuota,
+guardar, marcarla pagada— y ese camino existe y funciona.
+
+Lo que no se midió es qué OTROS botones de la misma pantalla tocan el dato que el botón roto
+produjo. `aplicarExtraccion` (`DealDetailsCard.tsx:318-321`) reemplaza las cuotas conservando
+**sólo las pagadas**: `next.cuotas = [...next.cuotas.filter((c) => c.pagado), ...extraidas]`. Con
+la mensualidad naciendo impaga, «Completar con IA» o «Subir contrato» **la borran**, sin aviso.
+
+**Antes de bajar una tarjeta por workaround, enumerá qué más toca lo que el botón roto dejó mal.**
+Un `filter(c => c.pagado)` escrito para proteger lo cobrado se vuelve destructivo en cuanto algo
+nace sin cobrar por error.
+
+**Vive en:** `app/crm/[id]/DealDetailsCard.tsx:318-321` y `:253` · `app/crm/[id]/deal-actions.ts:183` · *2026-10-04 arreglar-crm*

@@ -140,15 +140,33 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     titulo: 'CRM',
     servicio: 'calendly',
     eyebrow: '✦ Con tu agenda conectada',
-    queFalta: 'Calendly, con los event types de tu R1 y tu R2 — sin ellos las reuniones no entran. Puedes arrancar sin nada igual: los leads se cargan a mano.',
-    // Honestidad obligada, la cazó la revisión del copy contra el código: los
-    // event types figuran como OPCIONALES pero sin ellos wsPorIdentificador
-    // devuelve null y el webhook descarta el evento con 200 OK, en silencio — el
-    // cliente ve "Calendly conectado" y cero agendas, sin un solo error. Y la
-    // signing key que pega HOY no se lee (el webhook usa la de plataforma), o
-    // sea que su webhook propio devolvería 401 para siempre. Hasta que eso se
-    // arregle en código, el aviso se queda acá.
-    ademas: 'Los event types de R1 y R2 figuran como opcionales pero NO lo son: sin ellos el webhook no sabe de quién es la reunión y la descarta sin avisar. El webhook lo crea y lo firma la agencia — la signing key no la pones tú.',
+    queFalta: 'Calendly, con el tipo de evento de tu R1: es lo que le dice a MaKo que la reserva es tuya. Puedes arrancar sin nada igual: los leads se cargan a mano.',
+    // ⚠️ ESTE AVISO SE REESCRIBIÓ EL 04/10/2026 PORQUE DECÍA DOS COSAS FALSAS, y las
+    // dos eran peores que no decir nada: le afirmaban a alguien que lo que acababa de
+    // cargar no servía.
+    //
+    // (1) «Los event types figuran como opcionales pero NO lo son». Era cierto hasta
+    //     el 04/10 y hoy no: CALENDLY_EVENT_TYPE_J1 dejó de ser opcional en
+    //     lib/metodo-catalogo.ts, así que el formulario no deja terminar de conectar
+    //     sin él y la fila de webhook_routing se escribe siempre. El de R2 sigue
+    //     siendo opcional de verdad —sólo hace falta si la segunda reunión se agenda
+    //     con otro link—, así que nombrarlos juntos pedía un dato que nadie necesita.
+    //     Lo fija tests/webhook-ruteo-obligatorio.test.ts.
+    //
+    // (2) «La signing key que pega HOY no se lee (el webhook usa la de plataforma)».
+    //     FALSO, y medido: app/api/webhooks/calendly/route.ts la lee con
+    //     credWs('CALENDLY_WEBHOOK_SIGNING_KEY', ws) y sólo cae a la de plataforma
+    //     cuando ese workspace no tiene la suya. O sea que la propia gana, y el
+    //     camino que la guarda es el mismo de /integraciones (lo usa
+    //     scripts/arreglar-webhook-calendly.ts, que la generó y la grabó para el ws 1).
+    //
+    // Lo que SÍ queda cierto, y es lo único que el aviso tiene que decir: conectar no
+    // alcanza para que una reserva nueva CREE el contacto. Eso lo hace el webhook, y
+    // Calendly no tiene ninguna pantalla para crearlo —se crea por API—, así que lo
+    // monta la agencia. Sin webhook, el token alcanza para COMPLETAR las fechas de un
+    // lead que ya está en el CRM (lib/auto-reuniones.ts, al mover una tarjeta) y para
+    // RESERVAR (lib/calendly-agenda.ts): no hay ningún cron que ingiera la agenda.
+    ademas: 'Para que una reserva nueva cree el contacto sola hace falta además el aviso automático de Calendly, y eso no tiene pantalla: lo monta la agencia. Sin ese aviso, MaKo completa las fechas de un lead que ya está en el CRM, pero no lo crea.',
     slides: [
       // app/crm/StageMoveDialog.tsx + lib/stage-requirements.ts
       { t: 'El kanban con las reglas puestas', d: 'Arrastras el lead a la etapa y si le falta un dato el asistente te lo pide ahí mismo: el closer, la grabación, el motivo, o las cuotas que tienen que cuadrar con el monto.' },
