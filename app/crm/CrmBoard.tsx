@@ -1479,6 +1479,27 @@ export function CrmBoard({
     () => columnasKanban.filter((s) => (s.band ?? 'pipeline') === 'pipeline' && !esTerminal(s.key)).map((s) => s.key),
     [columnasKanban],
   );
+  /**
+   * Las columnas que el menú puede ofrecer BORRAR: exactamente las que el server sabe
+   * borrar, ni una más.
+   *
+   * ⚠️ ES UNA PREGUNTA DISTINTA DE `colsPropias`, aunque hoy se derive de ella. Aquélla
+   * contesta «¿esto se puede arrastrar?»; ésta, «¿`editarEtapaAction` va a aceptar un
+   * `eliminar` con esta clave?». Las tres respuestas del server son:
+   *   · no está en `pipeline`  → «Esa etapa no es del pipeline: no se puede eliminar»
+   *   · es terminal            → «está en todos los funnels»
+   *   · es la ENTRADA          → «por esa etapa entra tu gente»
+   * Las dos primeras las cubre `colsPropias`; la tercera va acá.
+   *
+   * Medido el 04/10/2026 contra producción antes de escribirlo: con la condición vieja
+   * (`!esTerminal`) el menú ofrecía «Eliminar etapa» en **102 columnas de los 16 embudos**,
+   * todas de la banda `nutricion`, y el server las rechazaba SIEMPRE. Es lo que Leila
+   * encontró en vivo el 01/10 (00:11:07) sobre «Nutrición No Show R1».
+   */
+  const colsBorrables = useMemo(
+    () => new Set(columnasKanban.filter((s) => colsPropias.includes(s.key) && s.kind !== 'entrada').map((s) => s.key)),
+    [columnasKanban, colsPropias],
+  );
   /** Dónde puede caer una columna: nunca antes de la entrada, que el server fuerza a 0. */
   const pisoCol = useMemo(() => {
     const ent = columnasKanban.find((s) => s.kind === 'entrada');
@@ -1754,7 +1775,20 @@ export function CrmBoard({
                   // gris» (Martín, 29/09/2026). Las cuatro terminales están en todos los
                   // funnels: se renombran, no se borran — y el que lo hace cumplir es el server
                   // (`editarEtapaAction` rechaza `eliminar` sobre una terminal), no este array.
-                  ...(esTerminal(c.key) ? [] : [{ value: 'eliminar', label: 'Eliminar etapa' }]),
+                  //
+                  // ⚠️ Y LA CONDICIÓN ES `colsPropias`, NO `!esTerminal`. El server sólo sabe
+                  // borrar lo que está GUARDADO en `pipeline` (app/crm/actions.ts: «Esa etapa
+                  // no es del pipeline: no se puede eliminar, solo renombrar»), y las de
+                  // nutrición/salidas no están ahí: las agrega `generateFunnel` en cada
+                  // lectura. Con `!esTerminal` el menú las ofrecía igual y el server las
+                  // rechazaba SIEMPRE — medido el 04/10/2026 contra producción: **102 columnas
+                  // en los 16 embudos**, todas de la banda `nutricion`. Leila lo encontró en
+                  // vivo el 01/10 intentando borrar «Nutrición No Show R1» (00:11:07).
+                  //
+                  // La condición correcta ya estaba escrita arriba, en `colsPropias`, con su
+                  // porqué — y la usaba el ARRASTRE (`seArrastraCol`) y no el borrado. Es «una
+                  // regla aplicada en un lugar de dos no está implementada, está documentada».
+                  ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa' }] : []),
                 ]}
                 onChange={(v) => {
                   if (v === 'renombrar') { setRenombrando(c.key); return; }

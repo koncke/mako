@@ -454,13 +454,19 @@ test('⚠️ la etapa se edita desde su COLUMNA, y el menú está enchufado', ()
     'el contador quedó FUERA del grupo del título: con space-between se va al otro extremo, que es el layout que Martín pidió cambiar',
   );
 
-  // 5) Y una terminal no se puede eliminar desde acá tampoco.
+  // 5) Y lo que no se puede eliminar NO SE OFRECE desde acá tampoco.
   //    ⚠️ SE OMITE, NO SE APAGA. Antes se dibujaba deshabilitada, con el rótulo «No se
   //    puede eliminar»: «si no se puede eliminar, no pongas directamente esa opción, no la
   //    dejes en gris» (30/09/2026). Una opción en gris ocupa el lugar de las que sí se
   //    pueden usar y se lee como que la app está rota.
-  assert.match(bd, /esTerminal\(c\.key\) \? \[\] : \[\{ value: 'eliminar'/,
-    'la opción de eliminar volvió a dibujarse (apagada o no) sobre una etapa terminal');
+  //
+  //    ⚠️ LA CONDICIÓN DEJÓ DE SER `!esTerminal` EL 04/10/2026, y acá sólo se fija que el
+  //    menú cuelgue de la nueva. `!esTerminal` cubría una de las TRES cosas que el server
+  //    rechaza y dejaba el menú ofreciendo «Eliminar etapa» en 102 columnas de nutrición
+  //    (medido contra producción) más la entrada de cada embudo. Quién es borrable de
+  //    verdad lo prueba `tests/eliminar-etapa-coherente.test.ts`, contra `generateFunnel`.
+  assert.match(bd, /colsBorrables\.has\(c\.key\) \? \[\{ value: 'eliminar'/,
+    'la opción de eliminar dejó de colgar de `colsBorrables`: vuelve a ofrecerse sobre etapas que el server rechaza');
   assert.ok(!/label: 'No se puede eliminar'/.test(bd), 'volvió el rótulo de la opción apagada');
 });
 

@@ -4694,3 +4694,40 @@ Lo que más valió, y no lo podía ver ningún lector solo:
   1/11; medido, el cliente nuevo sin agenda conectada **es Martín**, y eso la corre al 17/10.
 
 **Vive en:** `app/admin/dev/crm/auditoria.ts` · `docs/depuracion-crm-03oct.md` · *2026-10-03 depuracion-crm*
+
+---
+
+## «Eliminar etapa» se ofrecía en 102 columnas que el server rechaza (01/10/2026, arreglado el 04/10)
+
+Leila, en vivo sobre la columna «Nutrición No Show R1» (00:11:07): *«No se pudo. Esta etapa
+no es del pipeline, no se la puede eliminar solo»*. Martín lo reconoció ahí mismo: *«creo
+que hay un error… tengo que ver ahí de qué depurar eso»*.
+
+**La causa son DOS condiciones distintas para la misma pregunta**, a dos archivos de
+distancia:
+
+| | qué preguntaba |
+|---|---|
+| el menú de la columna | `!esTerminal(c.key)` (`app/crm/CrmBoard.tsx`) |
+| el server | `pipeline.some((st) => st.key === op.key)` + no terminal + no entrada (`app/crm/actions.ts`) |
+
+Las etapas de **nutrición no están en `pipeline`**: las agrega `generateFunnel` en cada
+lectura. Así que el menú ofrecía borrarlas y el server las rechazaba SIEMPRE.
+
+**Medido contra producción antes de escribir una línea:** 102 columnas de los 16 embudos
+ofrecían «Eliminar etapa» y ninguna se podía borrar.
+
+⚠️ **Y la medición de producción se había quedado CORTA, y lo corrigió el test.** Contó sólo
+las 102 de nutrición, comparando contra `pipeline`; las **entradas** sí están en `pipeline`
+y el server las rechaza igual («por esa etapa entra tu gente»), o sea una más por embudo:
+16 de regalo. El test falló en su primera corrida con `sobraban de otra banda: lead=pipeline`
+y ahí apareció. Contar contra UNA de las tres guardas del server es medir un tercio.
+
+La regla que queda: **cuando el menú y el server contestan la misma pregunta, la condición
+del menú se deriva enumerando las guardas del SERVER, no la que uno recuerda.** Y el guard
+que lo fija (`tests/eliminar-etapa-coherente.test.ts`) prueba las dos mitades: la decisión
+contra `generateFunnel`, y el cableado leyendo la línea del menú — extrayéndola, porque
+`esTerminal` aparece legítimamente en otras ocho líneas de ese componente y un `match` sobre
+el archivo entero daba verde con el bug puesto.
+
+**Vive en:** `app/crm/CrmBoard.tsx` → `colsBorrables` · *2026-10-04*
