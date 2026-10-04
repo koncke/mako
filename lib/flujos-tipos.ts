@@ -37,6 +37,15 @@ export type Paso =
   | { tipo: 'mensaje'; canal: CanalPaso; texto: string; requiereAprobacion?: boolean }
   | { tipo: 'accion'; accion: AccionFlujo; params?: Record<string, unknown>; requiereAprobacion?: boolean }
   | { tipo: 'esperar'; horas: number }
+  /**
+   * La rama. ⚠️ SU `condicion` SALE DE `CONDICIONES_FLUJO` (lib/flujo-pasos.ts), que
+   * es la lista que el motor SABE evaluar — y hay un guard que falla si el lienzo
+   * dibuja una que `decidir` no resuelve. Un diagrama que muestra una rama que no
+   * ocurre afirma algo falso con más autoridad que un campo, porque nadie audita una
+   * flecha. El tipo es `string` y no la unión para no arrastrar el import a todos los
+   * consumidores; quien decide es el saneo y el guard.
+   */
+  | { tipo: 'condicional'; condicion: string }
   | { tipo: 'insistir'; texto: string; cadaMin: number; veces: number };
 
 // ── EL TECHO DE LA INSISTENCIA ───────────────────────────────────────────────
@@ -140,6 +149,15 @@ export function describirPaso(p: Paso): string {
   if (p.tipo === 'insistir') {
     const cada = p.cadaMin % 60 === 0 ? `${p.cadaMin / 60} h` : `${p.cadaMin} min`;
     return `Insistir hasta que confirmes · cada ${cada}, hasta ${p.veces} ${p.veces === 1 ? 'vez' : 'veces'}`;
+  }
+  // ⚠️ El rótulo del condicional se escribe ACÁ y no se importa de `flujo-pasos`:
+  // ese módulo importa el tipo `Paso` de este, y traer un VALOR de vuelta cierra el
+  // ciclo. Lo que impide que las dos listas se separen es el guard de
+  // `tests/flujo-condicional.test.ts`, que es más honesto que un import: un import
+  // garantiza el mismo string, y lo que hay que garantizar es que el motor SEPA
+  // evaluar lo que el lienzo dibuja.
+  if (p.tipo === 'condicional') {
+    return p.condicion === 'contestaron' ? 'Si alguien contestó en el grupo' : 'Si nadie contestó';
   }
   return `Esperar ${p.horas}h`;
 }

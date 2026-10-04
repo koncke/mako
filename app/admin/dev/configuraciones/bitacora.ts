@@ -414,7 +414,7 @@ export const BITACORA: Hito[] = [
     puntos: [
       "Antes de tocar nada: 6 lectores + 6 verificadores, 620 afirmaciones de archivo:línea confirmadas. Cuatro refutaciones cambiaron el trabajo. (1) El ítem 5 ya estaba hecho a medias: el botón de publicar YA se deshabilitaba y YA bajaba a opacidad .45 sin cambios — lo único nuevo era el chip. (2) Las «categorías» no eran botones ni un rótulo: eran el único filtro de la lista Y el único escritor de `categoria`, que es dato de motor (`accion` y `pregunta` nunca se posponen al resumen diario). (3) El bloqueante del test `const ORDEN = CATEGORIAS_AVISO` NO existía: lo consumen DOS Dropdowns y sólo se saca uno. (4) El ítem 7 ya tenía molde en el repo —la pila de EditorAnuncio— y afordancia en Toast.tsx («ofrecer un Deshacer que no deshace nada es peor que no ofrecerlo»).",
       "La decisión de diseño que los ordena: el canal NO volvió a ser un nodo del lienzo, que es lo que Martín ya había tumbado («es un paso que no hace nada»). Las tarjetas WHATSAPP y EMAIL se DERIVAN de `canales`, el par de booleanos del mensaje: cada una dibuja un mensaje que OCURRE, no la propiedad «por dónde». Y el id de WhatsApp sigue siendo `mensaje` a propósito — las posiciones se podan POR ID y FlujoAviso pregunta `n.id === 'mensaje'` en tres lugares, así que renombrarlo borraba en el primer arrastre la coordenada de todo el que había movido su tarjeta, sin error.",
-      "Verificado EN EL NAVEGADOR, que es donde se prueba un gesto: 16 de 16. Entre otras, el arrastre movió la tarjeta 112 px y Ctrl+Z la devolvió exacto (672 → 784 → 672), los dos botones nacen apagados y se prenden cuando hay algo, y con el foco en el editor de texto el Ctrl+Z NATIVO deshace el texto sin mover el tablero. Y la verificación ESCRIBE: arrastrar guarda posiciones del ws1 contra la base de producción, así que va con `scripts/respaldo-posiciones-plantillas.ts` — al restaurar, una de las 5 entradas tenía posiciones que NO tenía antes, o sea que restaurar fue BORRAR la clave.",
+      "Verificado EN EL NAVEGADOR, que es donde se prueba un gesto: 16 de 16. Entre otras, el arrastre movió la tarjeta 112 px y Ctrl+Z la devolvió exacto (672 → 784 → 672), los dos botones nacen apagados y se prenden cuando hay algo, y con el foco en el editor de texto el Ctrl+Z NATIVO deshace el texto sin mover el tablero. Y la verificación ESCRIBE: arrastrar guarda posiciones del ws1 contra la base de producción, así que va con `scripts/respaldo-store-plantillas.ts` (ese día se llamaba `respaldo-posiciones-plantillas.ts` y cubría sólo las posiciones) — al restaurar, una de las 5 entradas tenía posiciones que NO tenía antes, o sea que restaurar fue BORRAR la clave.",
     ],
     commits: [
       { sha: "2f9a4a3f", msg: "El editor de mensajes: editar por default, una tarjeta por canal y deshacer", lineas: 632, archivos: 8 },
@@ -470,6 +470,43 @@ export const BITACORA: Hito[] = [
     commits: [
       { sha: "7dbbb3b9", msg: "El panel del mensaje: fuera Recordatorios, la barra adentro y el token en azul", lineas: 363, archivos: 3 },
       { sha: "cda37ba6", msg: "El + pregunta que crear, y vuelve a haber como prender el email", lineas: 91, archivos: 3 },
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "19:00", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Hazlo todo funcional, y cuatro cosas mas",
+    pedido: `SI, hazlo y termina lo que te pido. Hazlo todo funcional...
+
+Y también:
+1. Si paso el cursor por una flecha, debería dejarme agregar un condicional en medio. O también un "Delay". En el + también la opción de delay.
+2. La sección de edición del mensaje tiene que ser MUCHO más grande.
+3. La barra donde están las opciones de formateo junto con el botón de IA y el desplegable de acciones, debería ir arriba y no interferir con el texto.
+4. El CRON debería elegirse 1 sola opción, por tiempo o por acción y si se quiera cambiar debería retroceder. No que aparezcan siempre ambos botones.`,
+    puntos: [
+      "«Hazlo todo funcional» es lo que mandó el Condicional y el Delay: la tanda anterior los había dejado afuera con el motivo medido —el motor no tenía dónde guardar en qué paso va— y eso es una tabla, no una rama.",
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "19:00", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El motor se duerme y un cron lo despierta; el + tambien vive en la flecha",
+    puntos: [
+      "Los cuatro, verificados EN EL NAVEGADOR y de un store limpio: 26 de 26. El ＋ ofrece ⏳ Delay y 🔀 Condicional y los dibuja; pasar el cursor por una flecha trae su propio ＋ (que NO ofrece mensajes: en el medio van delay, condicional o acción); el panel pasó de 328 a 460 px con la caja de texto en 220; la barra de formato quedó ARRIBA de la caja —medido, el texto empieza 6 px debajo de donde termina la barra— y el CRON muestra UNA opción con su flecha ← para retroceder.",
+      "Lo que los hace funcionales es `flujo_corridas` (mig 0186, APLICADA a producción: 11 columnas, RLS on, grants sólo postgres/service_role) más un cron cada 5 minutos. El `esperar` existía en el tipo desde el día uno y hacía `break`. Cuatro cosas que no se ven: `decidir` mira DESDE CUÁNDO duerme (si no, la corrida se duerme y despierta para siempre sin avanzar, sin un error); el avance va con compare-and-set; el acuse del grupo MARCA y no despierta (adelantar un delay porque alguien escribió «ok» manda el mensaje antes de tiempo); y `flujo_corridas` entró en TENANT_TABLES, porque `getTenantDb()` es PASSTHROUGH para lo que no está en ese Set y el drenador de un cliente avanzaría las corridas de todos.",
+      "⚠️ Y agrandar el panel se llevaba puesto al lienzo: abrir el disparador corría el grafo 443 px y dejaba la tarjeta de al lado cortada, sin volver al cerrar. La salida que parecía la buena —achicar el grafo para que entren las dos cosas— se escribió con su test, se midió y salió PEOR (el lienzo de /mensajes tiene ~780 px, así que el zoom caía al piso, 40%, con tarjetas ilegibles). Quedó correr y DEVOLVER, con el `antes` guardado una vez y sólo si la persona no paneó.",
+      "⚠️ Y el bug que encontró la pantalla y no los 3064 tests: `insertarPasoTras` tenía DOS listas para «qué paso está oculto», y al pasar `esperar` a dibujarse quedó en las dos — cada inserción DUPLICABA las esperas (un click en Delay dejaba 3 tarjetas ⏳ donde había 1, y el siguiente 6). Verde porque las fixturas de esos tests usan `insistir` como el paso oculto. Lo oculto se deriva de lo dibujado.",
+      "Y dos mediciones que estaban mal, no el código: el ＋ de la flecha «no aparecía» porque la zona de 28 px mide 28×k —6 px al 22% de zoom— y porque calcular el punto medio del `<path>` erraba 81 px (el punto va en unidades de usuario y el rect ya trae el scale). La zona ahora lleva `scale` inverso, y la verificación lee el centro del DOM.",
+    ],
+    archivos: [
+      "lib/flujo-pasos.ts — `decidir`, las condiciones y el techo del delay (sin server-only, para que tenga test)",
+      "lib/flujo-corridas.ts — abrir, drenar, avanzar con compare-and-set, marcar la respuesta",
+      "supabase/migrations/0186_flujo_corridas.sql — aplicada a producción",
+      "app/api/cron/flujo-corridas/route.ts + vercel.json — el drenador cada 5 minutos",
+      "lib/lienzo-grafo.ts — `vistaConPanel`, `vistaAlCerrarPanel` y `AristaFlujo.sinMas`",
+      "app/_components/Lienzo.tsx — el ＋ de la flecha y la vuelta de la vista",
+      "app/agencia/FlujoAviso.tsx — el CRON de una opción, Delay y Condicional en el menú",
+      "scripts/respaldo-store-plantillas.ts — el respaldo pasó a cubrir la ENTRADA ENTERA (antes sólo `posiciones`)",
     ],
   },
 ];

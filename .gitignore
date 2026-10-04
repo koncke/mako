@@ -65,3 +65,8 @@ __pycache__/
 # Respaldos de datos REALES (scripts/checklists-a-bullets.mts y compañía). Nunca van a
 # git: son filas de clientes, y un respaldo versionado es una fuga con historial.
 backups/
+# Lo mismo para el respaldo del store de /mensajes, que lo escribe
+# scripts/respaldo-store-plantillas.ts antes de verificar la pantalla en el navegador:
+# es el contenido de un workspace real, y vive en la raíz porque el script corre ahí.
+.respaldo-store-plantillas-ws*.json
+.respaldo-posiciones-ws*.json

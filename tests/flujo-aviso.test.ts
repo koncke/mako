@@ -34,6 +34,13 @@ const aviso = (p: Partial<AvisoParaGrafo> = {}): AvisoParaGrafo => ({
 // dejar la advertencia del recordatorio sin canal → 1 · apilar las dos tarjetas en la
 // misma Y (una encima de la otra) → 1. Sin esa comprobación serían cuatro
 // afirmaciones: el de la lista de títulos pasaba igual con el nodo viejo.
+//
+// Y las cinco de la tanda del Delay y el Condicional, el mismo día: devolver la segunda
+// lista de pasos ocultos (el bug de la duplicación) → 2 · no dibujar la rama «si no» → 1
+// · hacerla saltar a +1 en vez de +2 → 1 · dibujar la rama condicional como una segura
+// → 1 · dejar que la rama que salta ofrezca el ＋ del medio → 1. La sexta —que el LIENZO
+// ignore `sinMas`— salió CIEGA acá, porque vive en el componente: la caza el guard de
+// cableado de `tests/lienzo.test.ts`.
 test('UNA TARJETA POR CANAL PRENDIDO, y el título es el canal', () => {
   // Eran tres nodos, después dos, y ahora son uno por canal. «Si no contestas» se
   // dibujaba SIEMPRE, con o sin recordatorio prendido, así que era literalmente la
@@ -370,37 +377,56 @@ test('El ＋ de un nodo del TRONCO inserta al principio', () => {
   }
 });
 
-test('⚠️ Un `esperar` en el medio NO corre el índice del ＋', () => {
-  // Los ids del grafo son `paso-<i>` sobre lo DIBUJADO, y `esperar` no se dibuja.
-  // Contar sobre el array crudo mandaría el paso nuevo un lugar más adelante, sin
-  // un solo error: por eso el filtro y la inserción viven en el mismo módulo.
-  const pasos = [accion(1), ESPERA, accion(2)];
-  // ⚠️ `paso-1` es el SEGUNDO DIBUJADO, que acá es el tercero del array. La primera
-  // versión de este test insertaba tras `paso-0` y pasaba en VERDE con el índice
-  // contado sobre el array crudo: el orden dibujado salía igual y lo único roto era
-  // que el `esperar` quedaba DUPLICADO. Lo delató romperlo.
+test('⚠️ Un paso OCULTO en el medio NO corre el índice del ＋', () => {
+  // Los ids del grafo son `paso-<i>` sobre lo DIBUJADO, así que un paso que no se
+  // dibuja no puede correr la cuenta. Contar sobre el array crudo mandaría el paso
+  // nuevo un lugar más adelante, sin un solo error: por eso el filtro y la inserción
+  // viven en el mismo módulo.
+  //
+  // ⚠️ EL PASO OCULTO ES `insistir`, Y ANTES ERA `esperar`. Cambió el 04/10/2026, no
+  // por estilo: el `esperar` pasó a DIBUJARSE porque el motor pasó a ejecutarlo
+  // (mig 0186, `flujo_corridas`). Lo que este test cuida no cambió —que el ＋ caiga
+  // donde dice— y por eso sigue existiendo con el otro oculto. El día que no quede
+  // ninguno escondido, este test deja de poder fallar y hay que decirlo, no borrarlo.
+  const pasos = [accion(1), INSISTE, accion(2)];
+  // `paso-1` es el SEGUNDO DIBUJADO, que acá es el tercero del array. La primera
+  // versión insertaba tras `paso-0` y pasaba en VERDE con el índice contado sobre el
+  // array crudo: el orden dibujado salía igual y lo único roto era que el paso oculto
+  // quedaba DUPLICADO. Lo delató romperlo.
   const out = insertarPasoTras(pasos, 'paso-1', accion(9));
   assert.deepEqual(pasosDibujados(out).map((p) => nota(p)), ['a1', 'a2', 'a9']);
   // Insertar CONSERVA todo lo que había, una sola vez cada cosa.
   assert.equal(out.length, pasos.length + 1, 'insertar duplicó o perdió un paso');
-  assert.equal(out.filter((x) => x === ESPERA).length, 1, 'el `esperar` quedó duplicado');
+  assert.equal(out.filter((x) => x === INSISTE).length, 1, 'el paso oculto quedó duplicado');
 });
 
-test('Insistir y esperar SOBREVIVEN a un alta y a una baja', () => {
-  // Son del MENSAJE, no de la cadena de pasos: una edición de la cadena que los
-  // tire apaga los recordatorios de alguien sin decírselo.
+test('El paso oculto SOBREVIVE a un alta y a una baja', () => {
+  // `insistir` es del MENSAJE, no de la cadena: una edición de la cadena que lo tire
+  // apaga los recordatorios de alguien sin decírselo. Y el `esperar`, que ahora SÍ se
+  // dibuja, tiene que comportarse como cualquier otro paso: se cuenta y se puede
+  // quitar. Las dos mitades en el mismo test, porque lo que se mide es la frontera.
   const pasos = [INSISTE, accion(1), ESPERA];
   const conNuevo = insertarPasoTras(pasos, 'paso-0', accion(9));
-  assert.ok(conNuevo.includes(INSISTE) && conNuevo.includes(ESPERA));
+  assert.ok(conNuevo.includes(INSISTE), 'el paso oculto se perdió al insertar');
+  assert.ok(conNuevo.includes(ESPERA), 'la espera se perdió al insertar');
   const sinUno = quitarPasoDibujado(pasos, 0);
-  assert.ok(sinUno.includes(INSISTE) && sinUno.includes(ESPERA));
-  assert.equal(pasosDibujados(sinUno).length, 0, 'no sacó el paso que se le pidió');
+  assert.ok(sinUno.includes(INSISTE), 'quitar un paso dibujado se llevó el oculto');
+  assert.equal(pasosDibujados(sinUno).map((p) => nota(p)).join(','), 'esperar',
+    'no sacó el paso que se le pidió, o se llevó la espera puesta');
 });
 
 test('Quitar usa el índice de lo DIBUJADO, no del array', () => {
-  const pasos = [ESPERA, accion(1), accion(2)];
+  const pasos = [INSISTE, accion(1), accion(2)];
   const out = quitarPasoDibujado(pasos, 0);
   assert.deepEqual(pasosDibujados(out).map((p) => nota(p)), ['a2']);
+});
+
+test('⚠️ El `esperar` AHORA se dibuja, porque ahora se ejecuta', () => {
+  // Es el cambio de hecho del 04/10/2026, y el que hace funcional el Delay. Estaba
+  // excluido del dibujo por una razón correcta —el motor hacía `break` y no lo
+  // corría— y esconderlo ahora sería el error inverso: un paso que ocurre y no se ve.
+  assert.equal(pasosDibujados([accion(1), ESPERA]).length, 2, 'la espera volvió a esconderse');
+  assert.equal(pasosDibujados([accion(1), INSISTE]).length, 1, 'el insistir dejó de estar oculto');
 });
 
 // ── BORRADOR Y PUBLICAR ──────────────────────────────────────────────────────
@@ -492,4 +518,57 @@ test('⚠️ Las cuatro categorías salen de UN lugar', () => {
   assert.match(leer('../lib/avisos-catalogo.ts'), /export const CATEGORIAS_AVISO/);
   assert.match(leer('../app/agencia/TemplateDetalleModal.tsx'), /const ORDEN = CATEGORIAS_AVISO/,
     'el detalle volvió a escribir su propia lista de categorías');
+});
+
+const COND: Paso = { tipo: 'condicional', condicion: 'contestaron' };
+test('⚠️ insertar NO DUPLICA la espera, que ahora se dibuja', () => {
+  // ⚠️ ES UN BUG QUE PASÓ, no una hipótesis. `insertarPasoTras` partía los pasos en dos
+  // listas —`pasosDibujados` y una enumeración aparte de lo oculto— y el día que
+  // `esperar` pasó a dibujarse quedó en LAS DOS: cada inserción duplicaba todas las
+  // esperas. Medido en el navegador el 04/10/2026: un click en «Delay» dejaba 3 tarjetas
+  // ⏳ donde había 1, y el siguiente 6. Y `npm test` estaba en VERDE, porque los tests
+  // del índice de acá arriba usan `insistir` como el paso oculto: ninguno tenía una
+  // espera adentro. Lo delató la pantalla.
+  const pasos = [accion(1), ESPERA, accion(2)];
+  const out = insertarPasoTras(pasos, 'paso-2', accion(9));
+  assert.equal(out.length, pasos.length + 1, 'insertar duplicó o perdió un paso');
+  assert.equal(out.filter((p) => p.tipo === 'esperar').length, 1, 'la espera quedó duplicada');
+  assert.deepEqual(pasosDibujados(out).map((p) => nota(p)), ['a1', 'esperar', 'a2', 'a9']);
+});
+
+test('⚠️ y tampoco duplica con la espera PRIMERA ni con las dos cosas ocultas', () => {
+  // Las dos posiciones y la mezcla: lo que se persigue es que `otros` sea el complemento
+  // de lo dibujado, no una lista escrita al lado.
+  const conEsperaAlFrente = insertarPasoTras([ESPERA, accion(1)], 'paso-0', accion(9));
+  assert.equal(conEsperaAlFrente.length, 3, 'duplicó con la espera adelante');
+  const mezcla = insertarPasoTras([INSISTE, ESPERA, accion(1)], 'paso-1', accion(9));
+  assert.equal(mezcla.length, 4, 'duplicó con insistir y esperar juntos');
+  assert.equal(mezcla.filter((p) => p.tipo === 'esperar').length, 1);
+  assert.equal(mezcla.filter((p) => p.tipo === 'insistir').length, 1, 'el insistir se perdió o se duplicó');
+});
+
+test('⚠️ un condicional dibuja SUS DOS RAMAS, y la que salta no ofrece el ＋', () => {
+  // `decidir` contesta `paso + 2` cuando la condición no se cumple, o sea que SALTEA el
+  // de al lado. Sin la flecha «si no» el lienzo afirma que después del condicional viene
+  // ese paso y punto. Y esa flecha no lleva ＋: el del medio inserta tras el ORIGEN, o
+  // sea en la otra rama — un control que hace algo distinto de lo que dice la flecha de
+  // la que cuelga es peor que no tenerlo.
+  const g = grafoDeAviso(aviso({ pasos: [COND, accion(1), accion(2)] }));
+  const desdeCond = g.aristas.filter((a) => a.desde === 'paso-0');
+  assert.equal(desdeCond.length, 2, 'el condicional no dibuja sus dos ramas');
+  const siCumple = desdeCond.find((a) => a.hasta === 'paso-1');
+  const siNo = desdeCond.find((a) => a.hasta === 'paso-2');
+  assert.ok(siCumple && siNo, 'las ramas no van a los pasos que el motor elige (+1 y +2)');
+  assert.equal(siCumple.etiqueta, 'si se cumple');
+  assert.equal(siNo.etiqueta, 'si no');
+  assert.equal(siCumple.tono, 'condicional', 'la rama que puede no ocurrir se dibuja igual que una segura');
+  assert.equal(siNo.tono, 'condicional');
+  assert.ok(!siCumple.sinMas, 'la rama normal SÍ ofrece el ＋ del medio');
+  assert.equal(siNo.sinMas, true, 'la rama que salta ofrece un ＋ que inserta en la otra');
+  // Y sin un paso dos más allá, el motor termina: no hay salto que dibujar — queda la
+  // rama normal y nada más.
+  const corto = grafoDeAviso(aviso({ pasos: [COND, accion(1)] }));
+  const desdeCorto = corto.aristas.filter((a) => a.desde === 'paso-0');
+  assert.equal(desdeCorto.length, 1, 'dibujó un salto a un paso que no existe');
+  assert.equal(desdeCorto[0].hasta, 'paso-1');
 });

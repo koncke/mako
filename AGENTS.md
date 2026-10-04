@@ -3543,6 +3543,89 @@ El servidor no cambia: lee con `service_role`, que tiene `BYPASSRLS`. Lo fija
 lista de excusas **por nombre de vista, no por archivo** — una misma vista se re-crea en varias
 migraciones, y exceptuar un archivo dejaría entrar cualquier vista nueva escrita ahí.
 
+# Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
+
+Cuando una función parte una colección en «lo que se ve» y «lo que no», la segunda mitad
+se escribe como filtro propio porque es lo que está a mano. Y entonces hay dos listas
+contestando la misma pregunta: el día que un tipo cambia de lado, queda en las dos.
+
+Medido el 04/10/2026 en `insertarPasoTras` (`lib/flujo-aviso.ts`). El ＋ del lienzo
+inserta un paso y, para no perder lo que no se dibuja, hacía:
+
+```ts
+const vivos = pasosDibujados(pasos);
+const otros = pasos.filter((p) => esInsistir(p) || p.tipo === 'esperar');   // ⛔
+```
+
+Ese mismo día `esperar` pasó a DIBUJARSE —porque pasó a ejecutarse— y quedó en las dos
+listas: **cada inserción duplicaba todas las esperas**. Un click en «Delay» dejaba 3
+tarjetas ⏳ donde había 1, y el siguiente 6.
+
+⚠️ **Y `npm test` estaba en verde con 3064 tests.** Los tres tests que cuidan esa función
+usan `insistir` como el paso oculto —mudados a propósito ese mismo día, justamente porque
+`esperar` dejó de estar escondido— así que ninguna fixture tenía una espera adentro. Lo
+delató la pantalla. La cura es una línea, y no puede divergir:
+
+```ts
+const otros = pasos.filter((p) => !vivos.includes(p));
+```
+
+El olor: un `filter` que repite, con otras palabras, la condición de la función de al
+lado. Vale para cualquier «lo demás»: los nodos que no se dibujan, las filas que no
+entran en la vista, los campos que no se editan.
+
+# Una medida en píxeles adentro de una capa con `transform: scale(k)` NO es la que vas a ver
+
+Todo lo que viva dentro de un contenedor escalado —un lienzo, un minimapa, un preview con
+zoom— se dibuja `k` veces más chico. Un tamaño elegido para que se pueda APUNTAR (una zona
+de hover, un botón, un handle de arrastre) deja de cumplir su promesa en cuanto el zoom
+baja, y no hay error: hay un control que no se puede tocar.
+
+Medido el 04/10/2026 en `app/_components/Lienzo.tsx`: la zona de hover del ＋ del medio de
+una flecha se declaró en 28 px —gorda a propósito, porque un trazo de 1,6 px es imposible
+de apuntar— y con el lienzo al 22% daba **6 px**, con su botón en 5. La cura es un `scale`
+inverso con el zoom que la pantalla ya muestra, que lo deja igual a cualquier zoom.
+
+⚠️ **Y LA MISMA TRAMPA INVALIDA LA VERIFICACIÓN.** Para apuntarle al medio de una flecha se
+calculó `getPointAtLength(L/2)` + el `getBoundingClientRect()` del `<svg>`: el punto está
+en unidades de usuario y el rect ya trae el `scale`, así que al 68% el resultado caía 81 px
+abajo del lugar real. El chequeo dijo «el ＋ no aparece» sobre un ＋ perfectamente vivo, dos
+corridas seguidas. **La posición de algo que vive en una capa transformada se LEE del DOM**
+(`getBoundingClientRect()` del propio elemento), nunca se calcula a mano.
+
+# Si una pantalla corre la vista para hacerle lugar a un panel, al cerrarlo la DEVUELVE
+
+Correr el lienzo para que el panel de edición no tape el nodo que se está editando es
+correcto y ya estaba escrito. Lo que no estaba es la vuelta: al cerrar el panel la vista
+quedaba corrida, con la tarjeta de al lado cortada por el borde y ninguna pista de que
+había más. Reencuadrar solo está prohibido a propósito —deshace el paneo que la persona
+acaba de hacer— y por eso el lienzo no volvía nunca.
+
+**Devolver no es elegir una vista: es deshacer la que eligió el código**, así que no choca
+con esa prohibición. Con dos condiciones, las dos medidas: el `antes` se guarda UNA vez
+(abrir un segundo nodo que necesite más corrimiento no puede pisarlo, o volver deja la
+vista del nodo anterior), y no se devuelve si la persona paneó o hizo zoom en el medio —
+esa vista es suya.
+
+⚠️ **Y LA SALIDA QUE PARECE LA BUENA ES PEOR: achicar para que entren las dos cosas.** Se
+escribió, con su test y su rotura. Medido: el lienzo de `/mensajes` tiene ~780 px, así que
+con 484 de panel quedan ~300 y el zoom caía al piso (40%), con tarjetas ilegibles y sin
+entrar igual. Mientras se edita manda el panel.
+
+# Un arnés que rompe código a propósito restaura de MEMORIA, nunca con `git checkout --`
+
+Probar un test rompiendo la pieza es la regla de esta casa, y el arnés que lo hace guarda
+el original en memoria y lo reescribe al final. Agregarle un `git checkout -- <ruta>` «por
+si acaso» es lo que lo vuelve destructivo: con dos sesiones sobre el mismo clon, ese
+archivo casi siempre tiene trabajo sin commitear — y en el 04/10/2026 ese comando borró de
+un saque DOS cambios míos sin commitear en `lib/lienzo-grafo.ts` (una función nueva con su
+test y un tipo ampliado), sin ningún aviso: `git status` quedó limpio, que se lee como que
+no había nada.
+
+`git checkout -- <ruta>` está en este documento como la CURA de un caso muy puntual —el
+árbol que quedó viejo tras un `git reset` sin `--hard`—, y fuera de ése es una pérdida de
+trabajo. Antes de escribirlo: `git status --short` de esa ruta, y si está modificada, no.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

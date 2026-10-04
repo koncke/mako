@@ -35,7 +35,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
-  curvaEntre, medioDeCurva,
+  curvaEntre, medioDeCurva, vistaConPanel, vistaAlCerrarPanel, type VistaLienzo,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
 } from '@/lib/lienzo-grafo';
 
@@ -50,6 +50,13 @@ const K_MAX = 2.4;
  *  Va al cuadrado para no sacar una raíz por cada `pointermove`. */
 const ARRASTRE2 = 25;
 /** Ancho del panel de edición, y el margen con el que se despega del borde. */
+/**
+ * Ancho del panel de edición. Es el DEFAULT: quien monta el lienzo puede pedir otro
+ * con `panelAncho`, porque lo que entra adentro lo decide él. Lo pidió Martín con la
+ * captura delante — «la sección de edición del mensaje tiene que ser MUCHO más
+ * grande»— y subir la constante a secas se lo habría cambiado a TODOS los lienzos,
+ * incluido el del chatbot, que no lo pidió.
+ */
 const PANEL_ANCHO = 328;
 const PANEL_MARGEN = 12;
 /** Alto de la barra de zoom, que vive en la MISMA esquina. El panel del nodo abre
@@ -68,7 +75,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
-  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, chrome, herramientas, sinMarco = false,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -115,6 +122,8 @@ export function Lienzo({
    * un botón — que es lo correcto para un lienzo con un solo tipo de paso.
    */
   opcionesAgregar?: DropdownOption[];
+  /** Ancho del panel del nodo. El default (328) es el del lienzo del chatbot. */
+  panelAncho?: number;
   /** Hay un guardado en vuelo: el ＋ se DESHABILITA, no se desmonta. Un control que
    *  desaparece bajo el dedo se lee como un clic que no registró. */
   agregarOcupado?: boolean;
@@ -133,6 +142,10 @@ export function Lienzo({
   /** Sobre qué tarjeta está el cursor. Es lo único que este lienzo guarda en el
    *  estado además de la selección: un hover por REF no re-dibujaría el botón. */
   const [encima, setEncima] = useState<string | null>(null);
+  /** Sobre qué flecha está el cursor: es lo que muestra su ＋ del medio. */
+  const [enFlecha, setEnFlecha] = useState<number | null>(null);
+  /** Lo que el panel corrió, para devolverlo al cerrar. Ver `vistaAlCerrarPanel`. */
+  const corrimiento = useRef<{ antes: VistaLienzo; aplicada: VistaLienzo } | null>(null);
   /** La última forma encuadrada: grafo + caja. Ver `encuadrar`. */
   const encuadrado = useRef('');
 
@@ -305,14 +318,28 @@ export function Lienzo({
   // y correr la vista es lo que la persona haría a mano. Sólo cuando hace falta, y
   // nunca al revés — si el nodo ya se ve, no se toca nada.
   useEffect(() => {
-    if (!seleccion || !caja.current) return;
+    if (!caja.current) return;
+    // ⚠️ AL CERRAR, SE DEVUELVE LO QUE EL PANEL SE LLEVÓ. Ver `vistaAlCerrarPanel`.
+    if (!seleccion) {
+      const c = corrimiento.current;
+      if (!c) return;
+      corrimiento.current = null;
+      const vuelta = vistaAlCerrarPanel(vista.current, c.aplicada, c.antes);
+      if (!vuelta) return;
+      vista.current = vuelta;
+      pintar();
+      return;
+    }
     const n = grafo.nodos.find((x) => x.id === seleccion);
     if (!n) return;
-    const v = vista.current;
-    const izquierdaEnPantalla = v.tx + n.x * v.k;
-    const libre = PANEL_ANCHO + PANEL_MARGEN * 2;
-    if (izquierdaEnPantalla >= libre) return;
-    vista.current = { ...v, tx: v.tx + (libre - izquierdaEnPantalla) };
+    // Las dos cuentas viven en `lib/lienzo-grafo.ts`, sin `server-only`, para que
+    // tengan test: adentro de este efecto no las puede importar nadie.
+    const prox = vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN);
+    if (!prox) return;
+    // El `antes` se guarda UNA vez: abrir un segundo nodo que necesite más corrimiento
+    // no puede perder la vista original, que es a la que hay que volver.
+    corrimiento.current = { antes: corrimiento.current?.antes ?? vista.current, aplicada: prox };
+    vista.current = prox;
     pintar();
     // `grafo.nodos` cambia en cada tecla del editor; la dependencia es el NODO
     // elegido, o esto volvería a correr la vista mientras se escribe.
@@ -377,6 +404,54 @@ export function Lienzo({
 
           {/* Las etiquetas de las flechas son HTML, no <text>: llevan fondo, radio
               y el tipo de la casa, y un <text> de SVG no hereda nada de eso. */}
+          {/*
+            ⚠️ EL ＋ DE LA FLECHA: AGREGAR ALGO EN EL MEDIO.
+            Pedido el 04/10/2026: «si paso el cursor por una flecha, debería dejarme
+            agregar un condicional en medio. O también un "Delay"». El ＋ de la
+            TARJETA agrega DESPUÉS de ella; el de la flecha agrega ENTRE dos, que es
+            lo mismo dicho desde el otro lado — y por eso inserta tras el nodo de
+            ORIGEN, reusando el mismo camino y el mismo índice. Un segundo mecanismo
+            de inserción sería el segundo lugar donde la cuenta de `paso-<i>` puede
+            quedar mal.
+
+            Va con una zona de hover PROPIA y gorda (28 px), no sobre el `<path>`: un
+            trazo de 1,6 px es imposible de apuntar, que es la misma medición que ya
+            obligó a darle al ＋ de la tarjeta un puente de 8 px de padding.
+          */}
+          {onAgregarTras && opcionesAgregar && grafo.aristas.map((a, i) => {
+            const d = grafo.nodos.find((n) => n.id === a.desde);
+            const h = grafo.nodos.find((n) => n.id === a.hasta);
+            if (!d || !h || a.sinMas) return null;
+            const m = medioDeCurva(d, h);
+            const abierta = enFlecha === i;
+            return (
+              <div key={`mas-${i}`} data-no-pan
+                onPointerEnter={() => setEnFlecha(i)}
+                onPointerLeave={() => { if (document.querySelector('[role="listbox"]')) return; setEnFlecha((p) => (p === i ? null : p)); }}
+                style={{
+                  position: 'absolute', left: m.x, top: m.y,
+                  // ⚠️ LA ZONA SE MIDE EN PÍXELES DE PANTALLA, NO DEL GRAFO. Vive adentro
+                  // de la capa transformada, así que sus 28 px son 28 × k: medido en el
+                  // navegador el 04/10/2026, con el lienzo al 22% la zona daba **6 px** y
+                  // el ＋ adentro 5 — o sea inalcanzable, que es el mismo problema que
+                  // obligó a no colgarla del `<path>` de 1,6 px. El `scale` inverso la
+                  // deja del mismo tamaño a cualquier zoom, y al ＋ también.
+                  transform: `translate(-50%, -50%) scale(${100 / zoomTxt})`,
+                  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                {abierta && (
+                  <Dropdown
+                    value="" ariaLabel="Agregar algo en el medio"
+                    sinFlecha botonLabel="＋" disabled={agregarOcupado}
+                    buttonStyle={{ width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, lineHeight: 1 }}
+                    options={opcionesAgregar.filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion')}
+                    onChange={(v) => v && onAgregarTras(a.desde, v)}
+                  />
+                )}
+              </div>
+            );
+          })}
+
           {grafo.aristas.map((a, i) => {
             if (!a.etiqueta) return null;
             const d = grafo.nodos.find((n) => n.id === a.desde);
@@ -517,7 +592,7 @@ export function Lienzo({
           <div
             data-no-pan
             style={{
-              position: 'absolute', left: PANEL_MARGEN, bottom: PANEL_MARGEN + ZOOM_ALTO, width: PANEL_ANCHO,
+              position: 'absolute', left: PANEL_MARGEN, bottom: PANEL_MARGEN + ZOOM_ALTO, width: panelAncho,
               maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto', padding: 14, borderRadius: 14,
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
               boxShadow: '0 12px 32px rgba(0,0,0,.14)', cursor: 'default',

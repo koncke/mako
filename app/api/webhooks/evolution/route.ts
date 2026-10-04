@@ -20,6 +20,7 @@ import { instanciaVoz } from '@/lib/mako-grupo';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 import { cerrarPorAcuse, acusesDe } from '@/lib/insistencias';
+import { marcarRespondieron } from '@/lib/flujo-corridas';
 import { esAcuse } from '@/lib/flujos-tipos';
 
 /**
@@ -194,7 +195,19 @@ export async function POST(req: NextRequest) {
               .find((t) => t && esAcuse(t, palabras));
             if (texto) {
               const n = await cerrarPorAcuse(ws);
-              if (n) console.log(`[webhook:evolution] acuse «${texto}» → ${n} insistencia(s) cerrada(s) en ws${ws}`);
+              // ⚠️ EL MISMO ACUSE ES LA SEÑAL DEL CONDICIONAL. Un paso `condicional`
+              // con `contestaron` pregunta por esto y por nada más: es la única
+              // respuesta que el motor de flujos puede OBSERVAR, porque sus mensajes
+              // salen al grupo del dueño y lo que va al lead sale por la cola de
+              // confirmación. Por eso la tarjeta dice «si alguien contestó en el
+              // grupo» y no «si responde el lead» — un rótulo que promete una señal
+              // que no existe es el diagrama que miente, con otra cara.
+              //
+              // Marca y NO despierta: adelantar un delay porque alguien escribió «ok»
+              // manda el mensaje antes de tiempo. La condición se evalúa cuando a la
+              // corrida le toca, con la marca ya puesta.
+              const m = await marcarRespondieron(ws);
+              if (n || m) console.log(`[webhook:evolution] acuse «${texto}» → ${n} insistencia(s) cerrada(s) y ${m} corrida(s) marcada(s) en ws${ws}`);
             }
           } catch (e) { console.error('[webhook:evolution] acuse:', e instanceof Error ? e.message : String(e)); }
         });

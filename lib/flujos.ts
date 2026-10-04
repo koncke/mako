@@ -20,6 +20,8 @@ import { crearPendiente } from './mako-pendientes';
 import { abrirInsistencia } from './insistencias';
 import { OWNER_WS, runWithWorkspace } from './workspace';
 import type { EventoFlujo, Paso } from './flujos-tipos';
+import { decidir } from './flujo-pasos';
+import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 
 export type CtxFlujo = { ws?: number; leadId?: number; leadNombre?: string; reunion?: 'R1' | 'R2'; texto?: string };
 
@@ -44,11 +46,90 @@ export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo = {}): P
   }
 }
 
-async function ejecutarPasos(flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo): Promise<void> {
-  for (const paso of pasos) {
-    if (paso.tipo === 'esperar') break; // los pasos con espera necesitan el cron drenador (pendiente)
-    try { await ejecutarPaso(flujoId, paso, ws, ctx); }
+/**
+ * Corre los pasos desde `desde`. Si se topa con una espera que todavia no vencio,
+ * DEJA O ACTUALIZA una corrida y vuelve; el drenador la retoma.
+ *
+ * ⚠️ LA CORRIDA SE ABRE RECIEN AL DORMIRSE, no al arrancar. Un flujo sin `esperar` ni
+ * `condicional` corre entero en el webhook y no deja fila: escribir una por cada
+ * evento llenaria la tabla de corridas que nacen y mueren en el mismo milisegundo.
+ *
+ * ⚠️ Y TIENE TOPE DE VUELTAS. Un `condicional` que salta y un `esperar` ya vencido
+ * avanzan sin ejecutar nada, asi que un flujo mal armado podria girar: el tope lo
+ * corta y lo DICE, en vez de colgar el webhook en silencio.
+ */
+async function ejecutarPasos(
+  flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo,
+  corrida?: { id: number; paso: number; desdeAt: Date; respondioAt: Date | null },
+): Promise<void> {
+  let i = corrida?.paso ?? 0;
+  let desde = corrida?.desdeAt ?? new Date();
+  const respondioAt = corrida?.respondioAt ?? null;
+  let corridaId = corrida?.id ?? null;
+
+  for (let vuelta = 0; vuelta < pasos.length + 2; vuelta++) {
+    const d = decidir(pasos, { paso: i, desde, respondioAt, ahora: new Date() });
+
+    if (d.que === 'terminar') {
+      if (corridaId) await cerrarCorrida(ws, corridaId, 'hecha');
+      return;
+    }
+
+    if (d.que === 'esperar') {
+      if (corridaId) {
+        // No avanza el paso: sigue siendo el `esperar`. Lo que cambia es cuando
+        // despertar y el `desde_at`, que es contra lo que se mide la espera.
+        await avanzar(ws, corridaId, i, i, d.hasta);
+      } else {
+        corridaId = await abrirCorrida(ws, flujoId, i, d.hasta, ctx);
+      }
+      return;
+    }
+
+    if (d.que === 'saltar') {
+      if (corridaId) {
+        // ⚠️ Si otro se llevo la corrida (compare-and-set), NO se sigue: ejecutar
+        // igual es mandar el mismo paso dos veces.
+        const mio = await avanzar(ws, corridaId, i, d.siguiente, null);
+        if (!mio) return;
+      }
+      i = d.siguiente;
+      desde = new Date();
+      continue;
+    }
+
+    try { await ejecutarPaso(flujoId, d.paso, ws, ctx); }
     catch (e) { console.error(`[flujos] paso de ${flujoId}:`, e instanceof Error ? e.message : String(e)); }
+
+    if (corridaId) {
+      const mio = await avanzar(ws, corridaId, i, d.siguiente, null);
+      if (!mio) return;
+    }
+    i = d.siguiente;
+    desde = new Date();
+  }
+  console.error(`[flujos] ${flujoId}: el flujo dio mas vueltas que pasos y se corto`);
+  if (corridaId) await cerrarCorrida(ws, corridaId, 'cortada');
+}
+
+/**
+ * Retoma una corrida dormida. La llama el cron drenador.
+ *
+ * ⚠️ RELEE EL FLUJO. Entre que se durmio y ahora, el dueno pudo editarlo o apagar el
+ * mensaje: seguir con los pasos que habia al arrancar manda lo que ya no esta escrito.
+ * Si el flujo desaparecio o se apago, la corrida se CORTA — y se distingue de `hecha`
+ * a proposito, porque «termino» y «la cortamos» son dos hechos.
+ */
+export async function retomarCorrida(
+  ws: number, c: { id: number; avisoId: string; paso: number; desdeAt: Date; respondioAt: Date | null; ctx: CtxFlujo },
+): Promise<void> {
+  try {
+    const flujos = await runWithWorkspace(ws, () => listarFlujosActivos());
+    const vivo = flujos.find((f) => f.id === c.avisoId);
+    if (!vivo) { await cerrarCorrida(ws, c.id, 'cortada'); return; }
+    await runWithWorkspace(ws, () => ejecutarPasos(c.avisoId, vivo.flujo.pasos, ws, c.ctx, c));
+  } catch (e) {
+    console.error('[flujos] retomar:', e instanceof Error ? e.message : String(e));
   }
 }
 

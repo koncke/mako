@@ -6,6 +6,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/flujo-corridas",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/insistencias",
       "schedule": "7,37 * * * *"
     },

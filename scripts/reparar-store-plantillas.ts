@@ -1,7 +1,7 @@
 // =============================================================================
 // reparar-store-plantillas — destraba un `mako.plantillas.store` sobre-codificado
 // =============================================================================
-// ⚠️ LO ESCRIBIÓ UN SCRIPT MÍO Y POR ESO EXISTE ESTE. `respaldo-posiciones-plantillas`
+// ⚠️ LO ESCRIBIÓ UN SCRIPT MÍO Y POR ESO EXISTE ESTE. `respaldo-store-plantillas`
 // hacía `update ... set value = ${JSON.stringify(obj)}::jsonb` sobre una columna que el
 // driver ya serializa sola: el resultado es un jsonb que contiene un STRING con el JSON
 // adentro, en vez del objeto. No da error, el UPDATE contesta ok, y la pantalla sigue

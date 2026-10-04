@@ -16,7 +16,10 @@
 
 export type TipoNodo =
   | 'entrada' | 'mensaje' | 'respuesta' | 'cualifica' | 'desenlace' | 'ir-a' | 'suelto'
-  | 'recordatorio' | 'accion' | 'mensaje-lead';
+  | 'recordatorio' | 'accion' | 'mensaje-lead'
+  // Los dos que el motor PASÓ A EJECUTAR el 04/10/2026 (mig 0186, `flujo_corridas`):
+  // antes de eso `esperar` hacía `break` y no había condicional.
+  | 'espera' | 'condicion';
 
 export type TonoArista = 'normal' | 'buena' | 'mala' | 'condicional';
 
@@ -47,6 +50,13 @@ export type AristaFlujo = {
   tono: TonoArista;
   /** Si la etiqueta se puede tocar para editar, y qué paso edita. */
   editaOrden?: number;
+  /**
+   * Esta flecha NO ofrece el ＋ del medio. Es para las que SALTAN —la rama «si no» de un
+   * condicional—: insertar «en el medio» agrega después del nodo de origen, que en un
+   * salto es la OTRA rama. Un control que hace algo distinto de lo que dice la flecha de
+   * la que cuelga es peor que no tenerlo.
+   */
+  sinMas?: boolean;
 };
 
 export type GrafoFlujo = {
@@ -106,6 +116,60 @@ export function curvaEntre(a: NodoFlujo, b: NodoFlujo): string {
 export function medioDeCurva(a: NodoFlujo, b: NodoFlujo): { x: number; y: number } {
   const { x1, y1, x2, y2 } = puntas(a, b);
   return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+}
+
+/** Una vista del lienzo: cuánto zoom y cuánto corrida. */
+export type VistaLienzo = { k: number; tx: number; ty: number };
+
+/**
+ * CÓMO QUEDA LA VISTA CUANDO SE ABRE EL PANEL DE UN NODO.
+ *
+ * El panel está anclado abajo a la izquierda, así que un nodo de la primera columna
+ * queda detrás y se escribiría a ciegas. Lo que se corre es el LIENZO —no el panel, que
+ * iría a tapar otra cosa— y sólo cuando hace falta: devuelve `null` si el nodo ya se ve.
+ */
+export function vistaConPanel(
+  v: VistaLienzo,
+  nodoX: number,
+  panelAncho: number,
+  margen: number,
+): VistaLienzo | null {
+  const libre = panelAncho + margen * 2;
+  const izquierdaEnPantalla = v.tx + nodoX * v.k;
+  if (izquierdaEnPantalla >= libre) return null;
+  return { ...v, tx: v.tx + (libre - izquierdaEnPantalla) };
+}
+
+/**
+ * Y AL CERRAR EL PANEL, EL LIENZO DEVUELVE LO QUE EL PANEL SE LLEVÓ.
+ *
+ * ⚠️ MEDIDO EN EL NAVEGADOR EL 04/10/2026, Y ES LO QUE AGRANDAR EL PANEL DESTAPÓ. Con
+ * el panel en 460 px, abrir el nodo del disparador corría el grafo 443 px: la tarjeta
+ * WHATSAPP quedaba en x=1485 de una ventana de 1600 —cortada por el borde— y al cerrar
+ * el panel el lienzo NO volvía, porque reencuadrar solo está prohibido a propósito (sin
+ * esa guarda, tocar un nodo deshace el paneo que la persona acaba de hacer). O sea que
+ * quedaba una pantalla con media tarjeta y ninguna pista de que había más.
+ *
+ * ⚠️ Y LA SALIDA QUE PARECÍA LA BUENA ERA PEOR: achicar el grafo para que entren las dos
+ * cosas. Medido, el lienzo de /mensajes tiene ~780 px (a la derecha de la lista de
+ * mensajes), así que con 484 de panel quedan ~300 y el zoom caía al piso del lienzo,
+ * 40%: tarjetas ilegibles, y encima ni así entraban. Correr y devolver no pelea por el
+ * espacio — mientras se edita manda el panel, que es lo que se pidió.
+ *
+ * Devolver es simétrico y por eso no viola la regla del reencuadre: no se elige una
+ * vista, se deshace la que eligió el código. Y SÓLO si la persona no tocó nada en el
+ * medio: si paneó o hizo zoom, la vista es suya y se queda.
+ */
+export function vistaAlCerrarPanel(
+  actual: VistaLienzo,
+  aplicada: VistaLienzo,
+  antes: VistaLienzo,
+): VistaLienzo | null {
+  const igual = (a: VistaLienzo, b: VistaLienzo): boolean =>
+    Math.abs(a.k - b.k) < 0.001 && Math.abs(a.tx - b.tx) < 0.5 && Math.abs(a.ty - b.ty) < 0.5;
+  if (!igual(actual, aplicada)) return null;
+  if (igual(actual, antes)) return null;
+  return antes;
 }
 
 /** De dónde sale y a dónde llega la flecha. El tope de 44 px hace que en un nodo

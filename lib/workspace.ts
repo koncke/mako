@@ -98,6 +98,10 @@ const TENANT_TABLES = new Set<string>([
   // 30/09/2026: la tabla quedó vacía porque el upsert fallaba, y eso tapó el agujero
   // de casualidad. Es el mismo modo de falla del `wsDeInstancia` de la 0180.
   'avisos_programados',
+  // ⚠️ SIN ESTA LINEA `getTenantDb()` ES PASSTHROUGH, no «sin scope»: la lectura
+  // devolveria las corridas de CUALQUIER workspace y el drenador de un cliente
+  // avanzaria y mandaria las filas de todos. No da error: contesta de mas.
+  'flujo_corridas',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.

@@ -266,7 +266,8 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
           // `PANEL_ANCHO` o `maxHeight` del panel habría movido TODOS los lienzos.
           minHeight: filas * 22, maxHeight: 430, overflowY: 'auto',
           // El hueco de abajo es el que deja ver la ultima linea con la barra puesta.
-          paddingBottom: enfocado ? 46 : 12,
+          // El hueco de ARRIBA es el que deja la barra sin pisar el texto.
+          paddingTop: enfocado ? 46 : 12,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
         }}
       />
@@ -275,7 +276,13 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
         <div
           onMouseDown={(e) => e.preventDefault()}
           style={{
-            position: 'absolute', left: 8, right: 8, bottom: 8,
+            // ⚠️ ARRIBA, NO ABAJO. Pedido con la captura delante: «la barra donde
+            // están las opciones de formateo junto con el botón de IA y el
+            // desplegable de acciones, debería ir arriba y no interferir con el
+            // texto». Abajo tapaba la última línea justo mientras se escribía, que
+            // es cuando la barra aparece. El `paddingTop` de la caja es lo que la
+            // hace no pisar: flotar sin reservar el espacio es el mismo bug.
+            position: 'absolute', left: 8, right: 8, top: 8,
             display: 'flex', alignItems: 'center', gap: 6,
             padding: 4, borderRadius: 9, background: 'var(--surface)',
             border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(18,21,27,.07)',

@@ -296,7 +296,20 @@ export function FlujoAviso({
       return;
     }
     const base = flujo ?? FLUJO_VACIO;
-    const nuevo: Paso = { tipo: 'accion', accion: 'crear_tarea' };
+    /**
+     * ⚠️ LOS TRES SON PASOS DE VERDAD Y EL MOTOR LOS CORRE. El `esperar` existía en el
+     * tipo desde el día uno y hacía `break`: con `flujo_corridas` (mig 0186) el motor
+     * se duerme y un cron lo despierta, y recién por eso estas dos tarjetas se pueden
+     * ofrecer. La regla de la casa es que sólo se dibuja la rama que el motor EJECUTA,
+     * y `tests/flujo-condicional.test.ts` falla si alguna se separa de la otra.
+     *
+     * Y el condicional nace en `contestaron`, que es la única señal que este motor
+     * puede ver: el acuse en el grupo de MaKo, el mismo que corta las insistencias.
+     */
+    const nuevo: Paso =
+      que === 'delay' ? { tipo: 'esperar', horas: 24 }
+      : que === 'condicional' ? { tipo: 'condicional', condicion: 'contestaron' }
+      : { tipo: 'accion', accion: 'crear_tarea' };
     void guardarFlujo({ ...base, activo: true, pasos: insertarPasoTras(base.pasos, nodoId, nuevo) });
   }
 
@@ -309,12 +322,15 @@ export function FlujoAviso({
           { value: 'wa', label: '💬 WhatsApp', sub: canales.wa ? 'ya sale por aquí' : 'que también salga por WhatsApp', disabled: canales.wa },
           { value: 'email', label: '✉️ Email', sub: canales.email ? 'ya sale por aquí' : 'que también salga por correo', disabled: canales.email },
           { value: 'accion', label: '⚡ Acción', sub: 'que MaKo haga algo, no que avise' },
+          { value: 'delay', label: '⏳ Delay', sub: 'esperar antes de seguir' },
+          { value: 'condicional', label: '🔀 Condicional', sub: 'seguir sólo si alguien contestó' },
         ]}
         // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
         // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
         // CRON señalaba un lugar y el paso aparecía en otro.
         puedeAgregarTras={(idNodo) => idNodo === 'mensaje' || /^paso-\d+$/.test(idNodo)}
         agregarOcupado={busy}
+        panelAncho={460}
         chrome={chrome}
         herramientas={editable ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -679,18 +695,43 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
           agendado vacío, y se leyó exactamente como lo que parecía: «estás
           PRECONFIGURANDO el cron… cuando JUSTAMENTE lo estamos haciendo editable».
           El hecho no se pierde: lo dice la TARJETA, rotulado «Hoy sale solo». */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {([['tiempo', 'Por tiempo'], ['accion', 'Por una acción']] as const).map(([k, txt]) => (
-          <button key={k} onClick={() => elegir(k)} disabled={guardando} aria-pressed={modo === k}
+      {/*
+        ⚠️ UNA SOLA OPCION A LA VEZ, Y SE VUELVE CON LA FLECHA.
+        Pedido con la captura delante: «el CRON debería elegirse 1 sola opción, por
+        tiempo o por acción y si se quiere cambiar debería retroceder. No que
+        aparezcan siempre ambos botones». Con los dos puestos, el apagado se leia como
+        una segunda cosa configurable al lado de la elegida.
+        La salida NO se pierde —que es lo que el toggle de antes resolvia—: la flecha
+        hace exactamente lo mismo que volver a apretar el activo, o sea apagar el
+        agendado. Sin ella, elegir «Por tiempo» una vez dejaria el mensaje agendado
+        para siempre sin mas salida que apagar el mensaje entero.
+      */}
+      {modo === null ? (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {([['tiempo', 'Por tiempo'], ['accion', 'Por una acción']] as const).map(([k, txt]) => (
+            <button key={k} onClick={() => elegir(k)} disabled={guardando}
+              style={{
+                flex: 1, padding: '7px 4px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 11.5, fontWeight: 600, transition: 'background .12s',
+                border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)',
+              }}>{txt}</button>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+          <button onClick={() => elegir(modo)} disabled={guardando}
+            title="Elegir otra cosa: apaga este agendado" aria-label="Elegir otra cosa"
             style={{
-              flex: 1, padding: '7px 4px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 11.5, fontWeight: 600, transition: 'background .12s',
-              border: `1px solid ${modo === k ? 'var(--primary)' : 'var(--border-strong)'}`,
-              background: modo === k ? 'var(--primary)' : 'transparent',
-              color: modo === k ? '#fff' : 'var(--dim)',
-            }}>{txt}</button>
-        ))}
-      </div>
+              flex: 'none', width: 26, height: 26, borderRadius: 7, cursor: 'pointer',
+              border: '1px solid var(--border-strong)', background: 'var(--surface)',
+              color: 'var(--dim)', fontFamily: 'inherit', fontSize: 13, lineHeight: 1,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}>←</button>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>
+            {modo === 'tiempo' ? 'Por tiempo' : 'Por una acción'}
+          </span>
+        </div>
+      )}
       {modo === 'tiempo' && cron && <EditorCron cron={cron} tz={tz} disabled={guardando} onCron={onCron} />}
       {modo === 'accion' && (
         <Dropdown

@@ -240,15 +240,51 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
   let x = col(2);
   a.pasos.forEach((p, i) => {
     const id = `paso-${i}`;
+    /**
+     * ⚠️ CUATRO TIPOS DE TARJETA, Y LAS DOS NUEVAS LAS EJECUTA EL MOTOR. El `esperar`
+     * y el `condicional` se dibujan desde el 04/10/2026 porque desde el 04/10/2026 se
+     * CORREN: antes el motor era un `for` sincronico adentro del webhook y no tenia
+     * donde anotar en que paso iba. Lo garantiza `tests/flujo-condicional.test.ts`,
+     * que falla si el lienzo dibuja un tipo que `decidir` no sabe resolver.
+     */
+    const rotulo = p.tipo === 'accion' ? ['accion', 'Hace algo', '⚙️']
+      : p.tipo === 'esperar' ? ['espera', 'Espera', '⏳']
+      : p.tipo === 'condicional' ? ['condicion', 'Si pasa esto', '🔀']
+      : ['mensaje-lead', 'Le escribe al lead', '📤'];
     nodos.push({
-      id, tipo: p.tipo === 'accion' ? 'accion' : 'mensaje-lead', orden: i,
-      titulo: p.tipo === 'accion' ? 'Hace algo' : 'Le escribe al lead',
-      icono: p.tipo === 'accion' ? '⚙️' : '📤',
+      id, tipo: rotulo[0] as NodoFlujo['tipo'], orden: i,
+      titulo: rotulo[1], icono: rotulo[2],
       detalle: describirPaso(p),
       advertencia: conEvento ? undefined : 'Este paso sólo corre cuando el mensaje lo dispara un evento, y todavía no elegiste ninguno.',
       ...en(id, x, MARGEN), ancho: ANCHO_NODO, alto: ALTO_MIN + 8,
     });
-    aristas.push({ desde: previo, hasta: id, etiqueta: i === 0 ? 'después' : undefined, tono: conEvento ? 'buena' : 'normal' });
+    // ⚠️ LA ETIQUETA DE LA FLECHA SALE DEL PASO ANTERIOR, no de una decisión aparte.
+    // Después de un condicional, la flecha dice «si se cumple» — que es la
+    // afirmación que la rama hace, y la única que el motor respalda: `decidir` saltea
+    // UN paso cuando no se cumple. Una flecha que dijera otra cosa sería el diagrama
+    // mintiendo, que es lo que el guard de este grafo existe para impedir.
+    const anterior = a.pasos[i - 1];
+    const trasCondicional = anterior?.tipo === 'condicional';
+    const etiqueta = i === 0 ? 'después' : trasCondicional ? 'si se cumple' : undefined;
+    aristas.push({
+      desde: previo, hasta: id, etiqueta,
+      // Punteada: es la rama que puede no ocurrir. El tono existe para eso y es lo que
+      // distingue «esto sigue» de «esto sigue SI».
+      tono: trasCondicional ? 'condicional' : conEvento ? 'buena' : 'normal',
+    });
+    // ⚠️ Y LA OTRA RAMA SE DIBUJA, porque el motor la corre: `decidir` contesta
+    // `paso + 2` cuando la condición no se cumple, o sea que SALTEA el de al lado. Sin
+    // esta flecha el lienzo afirma que después del condicional viene ese paso y punto —
+    // un diagrama que esconde el salto es un diagrama que miente, y nadie audita una
+    // flecha. Si no hay un paso dos más allá, el motor termina y no hay nada que dibujar.
+    if (p.tipo === 'condicional' && a.pasos[i + 2]) {
+      aristas.push({
+        desde: id, hasta: `paso-${i + 2}`, etiqueta: 'si no', tono: 'condicional',
+        // El ＋ del medio inserta DESPUÉS del origen, o sea en la otra rama: ofrecerlo
+        // acá sería un control que hace algo distinto de lo que la flecha dice.
+        sinMas: true,
+      });
+    }
     previo = id;
     x += ANCHO_NODO + GAP_X;
   });
@@ -278,8 +314,22 @@ export function podarPosiciones(pos: Posiciones, ids: ReadonlyArray<string>): Po
 export const esInsistir = (p: Paso): p is Extract<Paso, { tipo: 'insistir' }> => p.tipo === 'insistir';
 
 /** Los pasos que el lienzo dibuja como tarjeta, en el orden en que las dibuja. */
+/**
+ * Los pasos que el lienzo dibuja.
+ *
+ * ⚠️ EL `esperar` VOLVIO AL DIBUJO EL 04/10/2026, Y ES UN CAMBIO DE HECHO, NO DE
+ * ESTILO. Estaba excluido por una razon correcta: el motor no lo ejecutaba —hacia
+ * `break`— y la regla de la casa es que solo se dibuja la rama que el motor EJECUTA.
+ * Con `flujo_corridas` (mig 0186) ahora SI corre, asi que esconderlo seria el error
+ * inverso: un paso que ocurre y no se ve.
+ *
+ * El `insistir` sigue afuera y por otro motivo: no es un paso del recorrido sino una
+ * propiedad del mensaje que lo precede (vuelve a mandar el MISMO), asi que dibujarlo
+ * como tarjeta contaba un hecho de mas. Su UI se saco el 04/10 y el motor lo sigue
+ * ejecutando si alguna vez vuelve a aparecer uno.
+ */
 export function pasosDibujados(pasos: Paso[]): Paso[] {
-  return pasos.filter((p) => !esInsistir(p) && p.tipo !== 'esperar');
+  return pasos.filter((p) => !esInsistir(p));
 }
 
 /**
@@ -293,7 +343,14 @@ export function pasosDibujados(pasos: Paso[]): Paso[] {
  */
 export function insertarPasoTras(pasos: Paso[], nodoId: string, nuevo: Paso): Paso[] {
   const vivos = pasosDibujados(pasos);
-  const otros = pasos.filter((p) => esInsistir(p) || p.tipo === 'esperar');
+  // ⚠️ LO OCULTO SE DERIVA DE LO DIBUJADO, NUNCA SE ENUMERA AL LADO. Acá había una
+  // segunda lista (`esInsistir(p) || p.tipo === 'esperar'`) y el día que `esperar` pasó
+  // a DIBUJARSE quedó en las dos: cada inserción DUPLICABA todas las esperas. Medido en
+  // el navegador el 04/10/2026 — un click en «Delay» dejaba 3 tarjetas ⏳ donde había 1,
+  // y el siguiente 6 — y el `npm test` estaba en verde porque los tests del índice usan
+  // `insistir` como el paso oculto. Dos listas que contestan la misma pregunta no
+  // divergen por descuido: divergen porque se arregla una.
+  const otros = pasos.filter((p) => !vivos.includes(p));
   const m = /^paso-(\d+)$/.exec(nodoId);
   const corte = m ? Math.min(vivos.length, Number(m[1]) + 1) : 0;
   return [...vivos.slice(0, corte), nuevo, ...vivos.slice(corte), ...otros];

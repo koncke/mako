@@ -3271,3 +3271,62 @@ mismo modo de falla que `PortadaPicker` ya tenía documentado y medido.
 - **La barra la montan tres pantallas** (`/plan`, la barra de Clientes y el panel de la
   plataforma) y el portal les cambia el z-index a todas. Se verificó en las tres, a dos
   anchos — pero no hay test que lo mire: los tres chequeos son de código, no de pantalla.
+
+## Un control adentro de una capa escalada NO mide lo que declara (04/10/2026)
+
+**Vive en:** `app/_components/Lienzo.tsx` (la zona del ＋ de la flecha)
+
+El lienzo dibuja todo adentro de un `<div>` con `transform: scale(k)`, así que **cada
+medida en píxeles que se escriba ahí adentro es `k` veces más chica en pantalla**. La
+zona de hover del ＋ del medio de una flecha se declaró en 28 px —gorda a propósito,
+porque un trazo de 1,6 px es imposible de apuntar— y medida en el navegador con el
+lienzo al 22% daba **6 px**, con el ＋ adentro en 5. O sea inalcanzable: exactamente el
+problema que el tamaño venía a resolver.
+
+La cura es un `scale` inverso con el zoom que la pantalla ya muestra
+(`scale(${100 / zoomTxt})`), que deja la zona y su botón del mismo tamaño a cualquier
+zoom. `zoomTxt` sirve porque es ESTADO y lo escriben los tres caminos que cambian el
+zoom (encuadrar, la rueda y los botones).
+
+⚠️ **Y la misma trampa invalida la VERIFICACIÓN.** Para apuntarle al medio de una flecha
+se calculó `getPointAtLength(L/2)` sumado al `getBoundingClientRect()` del `<svg>`: el
+punto está en unidades de usuario y el rect ya tiene el `scale` aplicado, así que al 68%
+el resultado caía **81 px abajo** del lugar real. El chequeo decía «el ＋ no aparece»
+sobre un ＋ perfectamente vivo, dos corridas seguidas. **El centro se lee del DOM**
+(`getBoundingClientRect()` de la zona), nunca se calcula del `<path>`.
+
+## El lienzo se corre para hacerle lugar al panel, y al cerrarlo DEVUELVE la vista (04/10/2026)
+
+**Vive en:** `lib/lienzo-grafo.ts` → `vistaConPanel` · `vistaAlCerrarPanel`
+
+El panel de edición de un nodo está anclado abajo a la izquierda, así que un nodo de la
+primera columna queda detrás y se escribiría a ciegas. Lo que se corre es el lienzo —no
+el panel, que iría a tapar otra cosa— y eso ya estaba. Lo que se destapó al agrandar el
+panel de 328 a 460 px: abrir el nodo del disparador corría el grafo **443 px** y la
+tarjeta de al lado quedaba en x=1485 de una ventana de 1600, cortada por el borde. Y al
+cerrar el panel **el lienzo no volvía**, porque reencuadrar solo está prohibido a
+propósito (sin esa guarda, tocar un nodo deshace el paneo que la persona acaba de hacer).
+
+⚠️ **Y LA SALIDA QUE PARECÍA LA BUENA ERA PEOR: achicar el grafo para que entren las dos
+cosas.** Se escribió, con su test y su rotura. Medido, el lienzo de `/mensajes` tiene
+~780 px —a la derecha de la lista de mensajes— así que con 484 de panel quedan ~300 y el
+zoom caía al piso del lienzo, **40%**: tarjetas ilegibles, y encima ni así entraban.
+Mientras se edita manda el panel, que es lo que se pidió.
+
+Correr y DEVOLVER no pelea por el espacio, y no viola la regla del reencuadre: no se
+elige una vista, se deshace la que eligió el código. Con dos condiciones:
+
+- **El `antes` se guarda UNA vez.** Abrir un segundo nodo que necesite más corrimiento no
+  puede pisarlo, o volver deja la vista del nodo anterior.
+- **Y no se devuelve si la persona paneó o hizo zoom en el medio**: esa vista es suya.
+
+⚠️ **El achique dejó un test CIEGO como recuerdo**, y vale la pena leerlo: afirmaba que
+un `Math.min(v.k, …)` evitaba AGRANDAR el zoom, y borrando el clamp daba **0 fallos** —
+la rama no se alcanzaba nunca. Era código muerto demostrable por aritmética. Lo que se
+puede medir es la desigualdad, no el clamp.
+
+### Lo que quedó SIN hacer
+
+- **El ＋ de la TARJETA sigue midiéndose en unidades del grafo** (22 px, o sea 15 al 68% y
+  5 al 22%). Al 68% —el zoom de un flujo normal— se clickea bien, y por eso no se tocó;
+  si alguna pantalla monta el lienzo más chico, es el mismo arreglo de una línea.

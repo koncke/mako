@@ -10,6 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { vistaConPanel, vistaAlCerrarPanel } from '../lib/lienzo-grafo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** ⚠️ Un guard que busca el nombre de lo que NO tiene que estar se acusa a sí mismo
@@ -110,3 +111,94 @@ test('⚠️ UN CLICK EN UN PORTAL NO ES UN GESTO DEL LIENZO', () => {
   assert.ok(hs.indexOf('.contains(') < hs.indexOf('no-pan'),
     'el guard del DOM quedó después del de la marca: el portal vuelve a pasar');
 });
+
+// ── La vista cuando se abre y se cierra el panel de un nodo ────────────────
+// ⚠️ PROBADAS ROMPIENDO LAS DOS FUNCIONES, 04/10/2026. Cuatro roturas se cazan: sacar el
+// `return null` del nodo que ya se ve → 1 fallo · no correr nada → 3 · devolver la vista
+// aunque la persona haya paneado en el medio → 1 · no devolverla nunca, o sea el código
+// de antes del arreglo → 2.
+//
+// ⚠️ Y LA QUINTA SALIÓ CIEGA, POR DÓNDE VIVE: pisar el `antes` en cada corrimiento
+// —adentro de `Lienzo.tsx`— dio CERO fallos, porque estos tests componen las dos
+// funciones a mano y no montan el componente. O sea que prueban que la cuenta está bien
+// y no que el lienzo la haga así. Para eso está el guard de cableado de más abajo, que
+// esa misma rotura sí caza (1 fallo).
+//
+// El caso que las hizo existir, medido en el navegador: con el panel ya en 460 px, abrir
+// el nodo del disparador corría el grafo 443 px y la tarjeta WHATSAPP quedaba en x=1485
+// de una ventana de 1600 — cortada por el borde, y sin volver al cerrar el panel.
+const PANEL = 460, MARGEN = 12;
+const LIBRE = PANEL + MARGEN * 2;   // 484
+
+test('un nodo que YA se ve no mueve la vista', () => {
+  assert.equal(vistaConPanel({ k: 1, tx: 500, ty: 0 }, 28, PANEL, MARGEN), null);
+  assert.equal(vistaConPanel({ k: 1, tx: LIBRE - 28, ty: 0 }, 28, PANEL, MARGEN), null,
+    'justo en el borde del panel ya se ve: no se toca');
+});
+
+test('el nodo tapado se corre hasta quedar al lado del panel, sin tocar el zoom', () => {
+  for (const k of [0.4, 1, 2.4]) {
+    const v = vistaConPanel({ k, tx: 0, ty: 7 }, 28, PANEL, MARGEN);
+    assert.ok(v, `con k=${k} tendría que haberse corrido`);
+    assert.equal(v.k, k, 'correr el lienzo no le cambia el zoom a nadie');
+    assert.equal(v.ty, 7, 'ni lo mueve en vertical');
+    assert.equal(Math.round(v.tx + 28 * v.k), LIBRE, 'el nodo tiene que quedar justo al lado del panel');
+  }
+});
+
+test('⚠️ al cerrar, el lienzo DEVUELVE lo que el panel se llevó', () => {
+  const antes = { k: 1, tx: 0, ty: 0 };
+  const aplicada = vistaConPanel(antes, 28, PANEL, MARGEN)!;
+  assert.deepEqual(vistaAlCerrarPanel(aplicada, aplicada, antes), antes);
+});
+
+test('⚠️ pero NO si la persona paneó o hizo zoom en el medio: esa vista es suya', () => {
+  const antes = { k: 1, tx: 0, ty: 0 };
+  const aplicada = vistaConPanel(antes, 28, PANEL, MARGEN)!;
+  assert.equal(vistaAlCerrarPanel({ ...aplicada, tx: aplicada.tx + 120 }, aplicada, antes), null, 'paneó');
+  assert.equal(vistaAlCerrarPanel({ ...aplicada, k: 1.4 }, aplicada, antes), null, 'hizo zoom');
+  // Y si no hubo corrimiento, no hay nada que devolver.
+  assert.equal(vistaAlCerrarPanel(antes, antes, antes), null);
+});
+
+test('⚠️ abrir un SEGUNDO nodo no pierde la vista original', () => {
+  // Es el caso del lienzo: el `antes` se guarda una vez. Si cada corrimiento lo pisara,
+  // volver dejaría la vista del nodo anterior y no la de la persona.
+  const antes = { k: 1, tx: 0, ty: 0 };
+  const uno = vistaConPanel(antes, 28, PANEL, MARGEN)!;
+  const dos = vistaConPanel(uno, -400, PANEL, MARGEN)!;   // un nodo que quedó a la izquierda
+  assert.notDeepEqual(dos, uno, 'el segundo nodo tenía que correr más');
+  assert.deepEqual(vistaAlCerrarPanel(dos, dos, antes), antes);
+});
+
+test('⚠️ y el LIENZO usa las dos, y guarda el `antes` UNA sola vez', () => {
+  // Un guard de CABLEADO: los tests de arriba no montan el componente, así que pisar el
+  // `antes` en cada corrimiento les da verde. Lo que se fija acá es la expresión que
+  // decide, no el cuerpo que cuelga de ella.
+  const src = leer(LIENZO);
+  const ef = src.slice(src.indexOf('if (!caja.current) return;'), src.indexOf('const nodoSel ='));
+  assert.ok(ef.length < 1600, `el recorte del efecto mide ${ef.length}: está mirando otra cosa`);
+  assert.match(ef, /antes: corrimiento\.current\?\.antes \?\? vista\.current/,
+    'el lienzo pisa el `antes` en cada corrimiento: volver deja la vista del nodo anterior');
+  assert.match(ef, /vistaAlCerrarPanel\(vista\.current, c\.aplicada, c\.antes\)/,
+    'al cerrar el panel ya no se devuelve la vista');
+  assert.match(ef, /if \(!seleccion\) \{/, 'la vuelta cuelga de que NO haya selección');
+});
+
+test('⚠️ el ＋ del medio respeta `sinMas`, y mide en píxeles de PANTALLA', () => {
+  // Dos guards de cableado sobre la misma pieza, y los dos salieron de medir:
+  //
+  // · `sinMas` lo pone el grafo en la rama que SALTA (el «si no» de un condicional).
+  //   Ignorarlo acá no rompe ningún test del grafo —lo probé: 0 fallos— y deja un ＋ que
+  //   inserta en la otra rama.
+  // · Y la zona vive adentro de la capa transformada, así que sus 28 px son 28 × k:
+  //   medido en el navegador con el lienzo al 22%, la zona daba 6 px y el ＋ adentro 5,
+  //   o sea inalcanzable. El `scale` inverso la deja igual a cualquier zoom.
+  const src = leer(LIENZO);
+  const i = src.indexOf('EL ＋ DE LA FLECHA');
+  assert.ok(i > 0, 'se fue el bloque del ＋ de la flecha');
+  const bloque = src.slice(i, src.indexOf('{grafo.aristas.map', i));
+  assert.match(bloque, /a\.sinMas\) return null/, 'el ＋ del medio dejó de respetar `sinMas`');
+  assert.match(bloque, /scale\(\$\{100 \/ zoomTxt\}\)/, 'la zona volvió a medirse en unidades del grafo');
+});
+

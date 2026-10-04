@@ -7094,7 +7094,7 @@ está escrito en cada lugar que escribe ese `null`.** Un `grep` del setter los l
 
 ## Verificar el lienzo de /mensajes ESCRIBE las posiciones de un cliente real (04/10/2026)
 
-**Vive en:** `scripts/respaldo-posiciones-plantillas.ts`
+**Vive en:** `scripts/respaldo-store-plantillas.ts`
 
 Arrastrar una tarjeta para comprobar el deshacer llama a `action: 'posiciones'`, que
 escribe en `mako.plantillas.store` del workspace — y el entorno local apunta a la base de
@@ -7190,3 +7190,109 @@ con «cero queries» casi todo el CRM queda afuera.
 del catálogo, que **ES** el texto que MaKo manda. El reporte real lo arma `lib/reportes.ts`
 y **nunca lee la plantilla**. Convertir ese número en token pinta el editor y no cambia
 el mensaje del lunes — que es justo lo que el pedido quería lograr.
+
+## Dos listas que contestan «qué paso está oculto» DUPLICARON los pasos de un flujo (04/10/2026)
+
+**Vive en:** `lib/flujo-aviso.ts` → `insertarPasoTras`
+
+El ＋ del lienzo inserta un paso usando los ids `paso-<i>`, que se cuentan sobre lo
+DIBUJADO. Para no perder lo que no se dibuja, la función partía los pasos en dos:
+
+```ts
+const vivos = pasosDibujados(pasos);
+const otros = pasos.filter((p) => esInsistir(p) || p.tipo === 'esperar');  // ⛔
+```
+
+El mismo día, `esperar` pasó a dibujarse —porque pasó a ejecutarse, ver la entrada del
+Delay más abajo— y quedó en **las dos listas**: cada inserción duplicaba todas las
+esperas. Medido en el navegador: un click en «Delay» dejaba **3 tarjetas ⏳ donde había
+1**, y el siguiente **6**.
+
+⚠️ **Y `npm test` estaba en VERDE, con 3064 tests.** Los tres tests que cuidan el índice
+del ＋ usan `insistir` como el paso oculto —se los había mudado a propósito ese mismo
+día, justamente porque `esperar` dejó de estar escondido— así que **ninguna fixture tenía
+una espera adentro**. Lo delató la pantalla.
+
+**La regla: lo oculto se DERIVA de lo dibujado, nunca se enumera al lado.**
+
+```ts
+const otros = pasos.filter((p) => !vivos.includes(p));
+```
+
+Dos listas que contestan la misma pregunta no divergen por descuido: divergen porque se
+arregla una. `quitarPasoDibujado` ya lo hacía bien (filtra por identidad) y por eso no se
+rompió.
+
+## El Delay y el Condicional del lienzo: lo que faltaba era una TABLA, no una rama (04/10/2026)
+
+**Vive en:** `lib/flujo-pasos.ts` · `lib/flujo-corridas.ts` · `supabase/migrations/0186_flujo_corridas.sql` · `app/api/cron/flujo-corridas/route.ts`
+
+El paso `esperar` existía en `lib/flujos-tipos.ts` desde el día uno y el motor hacía
+`break`: `ejecutarPasos` era un `for` sincrónico adentro del webhook, o sea que **no
+tenía dónde anotar en qué paso iba**. Por eso el lienzo no lo dibujaba, y por eso no
+había condicional.
+
+Lo que lo hace funcional es `flujo_corridas` (una fila por corrida, con `paso`,
+`proxima_at`, `desde_at` y `respondio_at`) más un cron cada 5 minutos que la despierta.
+Cuatro cosas que no se ven en el código:
+
+- **`decidir` mira `desde`, no sólo las horas.** El drenador despierta la corrida y vuelve
+  a llamar con el MISMO índice: si no mirara desde cuándo duerme, contestaría «esperar»
+  otra vez y la corrida se dormiría y despertaría para siempre sin avanzar — sin error,
+  sin log, y con el mensaje sin salir.
+- **El avance va con compare-and-set** (`.eq('paso', pasoViejo).eq('estado','pendiente')`),
+  el mismo reclamo atómico que `lib/insistencias.ts`: es lo único que evita mandar el
+  mismo paso dos veces cuando dos ticks se pisan o Vercel reintenta.
+- **El acuse del grupo MARCA y NO despierta.** Adelantar un delay porque alguien escribió
+  «ok» manda el mensaje antes de tiempo; la condición se evalúa cuando a la corrida le
+  toca, con la marca ya puesta.
+- **`flujo_corridas` entró en `TENANT_TABLES`.** `getTenantDb()` es PASSTHROUGH para lo
+  que no está en ese `Set` —no «sin scope»— así que sin esa línea el drenador de un
+  cliente avanza las corridas de TODOS, sin un error.
+
+Y la condición nace en `contestaron`, que es la única señal que este motor puede
+OBSERVAR: sus mensajes salen al grupo del dueño, y lo que va al lead sale por la cola de
+confirmación. Por eso la tarjeta dice «si alguien contestó» y no «si responde el lead» —
+un rótulo que promete una señal que no existe es el diagrama mintiendo, con otra cara.
+
+## Un condicional que dibuja UNA rama esconde el salto que el motor hace (04/10/2026)
+
+**Vive en:** `lib/flujo-aviso.ts` · `lib/lienzo-grafo.ts` (`AristaFlujo.sinMas`)
+
+`decidir` contesta `paso + 2` cuando la condición no se cumple: **saltea el de al lado**.
+La cadena del lienzo era lineal, así que afirmaba «después del condicional viene este
+paso» y punto. Ahora salen las dos, punteadas y rotuladas «si se cumple» / «si no».
+
+⚠️ **Y la rama que SALTA no puede ofrecer el ＋ del medio.** Ese ＋ inserta después del
+nodo de ORIGEN, que en un salto es la OTRA rama: un control que hace algo distinto de lo
+que dice la flecha de la que cuelga es peor que no tenerlo. Va una bandera en la arista
+(`sinMas`), y el guard de `tests/lienzo.test.ts` falla si el lienzo deja de mirarla —
+medido, ignorarla da **0 fallos** en los tests del grafo.
+
+Si no hay un paso dos más allá, el motor termina y no hay salto que dibujar.
+
+## El CRON de un mensaje elige UNA cosa, y se retrocede con la flecha (04/10/2026)
+
+**Vive en:** `app/agencia/FlujoAviso.tsx` → `SeccionCron`
+
+Pedido con la captura delante: «el CRON debería elegirse 1 sola opción, por tiempo o por
+acción y si se quiere cambiar debería retroceder. No que aparezcan siempre ambos
+botones». Con los dos puestos, el apagado se leía como una segunda cosa configurable al
+lado de la elegida.
+
+Elegir uno **APAGA el otro con una ESCRITURA**, no con un `disabled`: las dos mitades
+viven en lugares distintos —el evento en el store del flujo, el horario en su tabla— así
+que dejar el de al lado puesto y sólo grisarlo dejaría un mensaje disparado por las dos
+cosas con la pantalla diciendo una. Y la flecha ← hace exactamente lo que hacía volver a
+apretar el activo (apagar el agendado): sin ella, elegir «Por tiempo» una vez dejaba el
+mensaje agendado para siempre sin más salida que apagar el mensaje entero.
+
+### Lo que quedó SIN hacer
+
+- **Las plantillas de EMAIL siguen sin asunto propio.** Son seis lugares (`EntradaStore`,
+  el lector saneado, `PlantillaVista`, el mutador, el `case 'asunto'` en las DOS rutas y
+  un default para las 65 filas del catálogo), y el cuerpo es UN solo `texto` para los dos
+  canales: un cuerpo de email aparte son dos borradores y dos «sin publicar».
+- **El catálogo extenso del CRM** sigue pendiente con lo medido en la entrada de más
+  arriba: el resolvedor casi no se usa y la vara de admisión escrita contradice la
+  aplicada.
