@@ -78,7 +78,14 @@ async function main() {
       tocadas++;
     }
     if (!tocadas) { console.log(`✓ ws${WS}: nada cambió, no hace falta restaurar`); await sql.end(); return; }
-    await sql`update app_settings set value = ${JSON.stringify(ahora)}::jsonb, updated_at = now() where workspace_id = ${WS} and key = ${CLAVE}`;
+    // ⚠️ VA EL OBJETO, NO `JSON.stringify(obj)::jsonb`. El driver ya serializa para
+    // jsonb: pasarle el texto guarda un jsonb que CONTIENE UN STRING con el JSON
+    // adentro, y entonces `Object.keys(store)` devuelve 0,1,2,3… —los índices del
+    // string— en vez de los ids. No da error, el UPDATE contesta ok, y la pantalla
+    // sigue dibujando las plantillas porque el catálogo vive en el código: lo que
+    // desaparece en silencio son los OVERRIDES del cliente. Pasó acá el 04/10/2026 y
+    // lo destraba scripts/reparar-store-plantillas.ts.
+    await sql`update app_settings set value = ${sql.json(ahora as never)}, updated_at = now() where workspace_id = ${WS} and key = ${CLAVE}`;
     // Se verifica el valor LEÍDO de vuelta, no el que se mandó.
     const releido = await leerStore();
     const quedo = Object.entries(releido ?? {}).filter(([id, e]) => {

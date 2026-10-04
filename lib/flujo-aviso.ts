@@ -186,7 +186,7 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
       const lineas = recordatorio ? [recordatorio] : [];
       const alto = altoDe(Math.max(1, lineas.length));
       nodos.push({
-        id: 'mensaje', tipo: 'mensaje', titulo: 'WHATSAPP', icono: '💬', orden: 1,
+        id: 'mensaje', tipo: 'mensaje', titulo: 'WHATSAPP', icono: 'whatsapp', orden: 1,
         detalle: lineas.join(NL_TXT),
         ...en('mensaje', col(1), yMensaje), ancho: ANCHO_NODO, alto,
       });
@@ -195,7 +195,7 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
     if (a.canales.email) {
       const alto = altoDe(1);
       nodos.push({
-        id: 'mensaje-email', tipo: 'mensaje', titulo: 'EMAIL', icono: '✉️', orden: 1,
+        id: 'mensaje-email', tipo: 'mensaje', titulo: 'EMAIL', icono: 'email', orden: 1,
         detalle: '',
         // El recordatorio sale SÓLO por WhatsApp (`insistir`, abajo). Con el mail
         // prendido y WhatsApp apagado, la advertencia viaja en la tarjeta del canal

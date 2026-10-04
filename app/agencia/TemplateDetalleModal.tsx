@@ -264,7 +264,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                   * tarjeta encogía 84 px al hacer click, y con el título más grande serían
                   * 96. Fijándolo, los dos estados miden lo mismo.
                   */}
-                <div style={{ ...tarjetaChrome, minWidth: 0, width: 380 }}>
+                <div style={{ ...tarjetaChrome, minWidth: 0, width: 420 }}>
                   {/* ⚠️ LA CATEGORÍA ES UN EMOJI ANTES DEL TÍTULO, Y SIGUE SIENDO EL ÚNICO
                       CONTROL QUE LA ESCRIBE. Pedido el 04/10/2026: «esos botones de
                       categoría deberían ser un simple emoji antes del título, para que se
@@ -280,10 +280,16 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                       dice que cuando se pospuso «ya pasó una vez y duplicó dos tareas». Así
                       que el emoji ES el control: se clickea y abre el mismo desplegable.
                       El `Dropdown` lo ancla en un portal, así que no ocupa lugar en la fila. */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 }}>
-                    <div style={{ flex: 'none', marginTop: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    {/* ⚠️ SIN `width`. Con `width={168}` el emoji ocupaba 168 px —el
+                        Dropdown se lo pone al BOTÓN, no al menú— y empujaba el título
+                        medio ancho de tarjeta a la derecha, cortándolo con «…». El menú
+                        se dimensiona solo (`width: max-content` + `minWidth` del botón),
+                        así que sacarlo no lo achica. Reportado con captura: «mira como se
+                        ve el título de cortado, tiene que estar pegado el emoji». */}
+                    <div style={{ flex: 'none', display: 'flex' }}>
                       <Dropdown value={categoria} onChange={(v) => void guardarCategoria(v as CategoriaAviso)}
-                        width={168} ariaLabel="Categoría del mensaje"
+                        ariaLabel="Categoría del mensaje"
                         buttonStyle={{ padding: 0, border: 'none', background: 'none', fontSize: 19, lineHeight: 1 }}
                         sinFlecha botonLabel={EMOJI_CATEGORIA[categoria]}
                         options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
@@ -313,15 +319,20 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                   )}
                     </div>
                   </div>
-                  {/* ⚠️ «ACTIVAR» VIVE ACÁ, DONDE ESTABA EL DESPLEGABLE DE CATEGORÍA.
-                      Pedido el 04/10/2026: «el botón de Activar pasa a estar donde hoy
-                      están las categorías». Venía de arriba a la derecha, que es donde un
-                      pedido anterior lo había puesto («el botón de Activa debería estar
-                      arriba a la derecha») — gana el nuevo.
+                </div>
 
-                      Y se muda CON su rama `fijo`: un mensaje fijo no ofrece switch, y
-                      mover sólo el `else` lo dejaría sin ningún rótulo de estado. */}
-                  <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {/* ⚠️ «ACTIVAR» VIVE EN SU PROPIA TARJETA, A LA DERECHA DEL TÍTULO.
+                    Pasó por tres lugares en un día y gana el último, con la captura
+                    delante: estaba arriba a la derecha («el botón de Activa debería estar
+                    arriba a la derecha»), se mudó ADENTRO de la tarjeta del título («pasa
+                    a estar donde hoy están las categorías»), y ahí se veía mal —el
+                    interruptor debajo del nombre hacía la tarjeta de dos renglones y
+                    apretaba el título—. Queda al lado: «el botón de activar sería bueno
+                    que esté aparte, a la derecha del título».
+
+                    Y se muda CON su rama `fijo`: un mensaje fijo no ofrece switch, y
+                    mover sólo el `else` lo dejaría sin ningún rótulo de estado. */}
+                <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     {plantilla.fijo ? (
                       <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
                         style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Siempre activa</span>
@@ -334,7 +345,6 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
                         </button>
                       </>
                     )}
-                  </div>
                 </div>
 
                 {id && <PrefsDeMensaje id={id} estilo={tarjetaChrome} />}

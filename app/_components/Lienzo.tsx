@@ -32,6 +32,7 @@
 //    página: por eso el alto tiene tope y el lienzo no ocupa todo el largo.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
 import {
   curvaEntre, medioDeCurva,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
@@ -66,7 +67,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
-  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, chrome, sinMarco = false,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, chrome, herramientas, sinMarco = false,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -89,6 +90,13 @@ export function Lienzo({
    *  dice cerrar el editor»—: un chrome que ocupa su propio renglón le come 80 px
    *  al dibujo, y en una caja de 460 eso es el 17%. */
   chrome?: ReactNode;
+  /**
+   * Lo que va PEGADO AL ZOOM, abajo a la izquierda: las herramientas del tablero
+   * (deshacer, rehacer). Es un slot y no un botón cableado porque el estado de la
+   * pila vive en quien monta el lienzo, no acá — cablearlo adentro obligaría al
+   * Lienzo a saber qué se está editando.
+   */
+  herramientas?: ReactNode;
   /** Sin borde ni radio: cuando el lienzo ES el recuadro, el marco lo pone la caja
    *  de afuera y dos marcos anidados dejan un filete doble. */
   sinMarco?: boolean;
@@ -439,6 +447,12 @@ export function Lienzo({
         {/* TODO LO QUE NO ES EL DIBUJO FLOTA. Va fuera de la capa transformada —o se
             achica con el zoom— y encima del lienzo, no arriba: el recuadro entero es
             el lienzo. */}
+        {/* ⚠️ SIN ESTO EL LOGO SALE VACÍO, sin error y sin hueco visible: `SvcIcon`
+            dibuja un `<use href="#ic-…">` y los símbolos los define `BrandDefs`. Va
+            condicionado a que ALGÚN nodo use una marca, para no sembrar ids
+            duplicados en las pantallas que no los necesitan. */}
+        {grafo.nodos.some((n) => ICON[n.icono]) && <BrandDefs />}
+
         {chrome && (
           <div data-no-pan style={{ position: 'absolute', left: 0, right: 0, top: 0, padding: 14, pointerEvents: 'none' }}>
             <div style={{ pointerEvents: 'auto' }}>{chrome}</div>
@@ -453,6 +467,22 @@ export function Lienzo({
           <BotonChico onClick={() => zoom(1.2)} rotulo="Acercar">＋</BotonChico>
           <BotonChico onClick={() => encuadrar(true)} rotulo="Centrar">⤢</BotonChico>
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginLeft: 2 }}>{zoomTxt}%</span>
+          {/* ⚠️ HERRAMIENTAS DEL TABLERO, EN SU PROPIO GRUPO Y PEGADAS AL ZOOM.
+              Pedido con la captura delante: «los botones de retroceder en una sección
+              aparte, pero abajo a la izquierda, cerca de los botones de zoom». Estaban
+              arriba, colgando bajo la tarjeta del título, donde se leían como parte del
+              título y no del lienzo.
+
+              Van en ESTA fila y no en un renglón encima del zoom porque el panel del
+              nodo abre justo ahí: `ZOOM_ALTO` existe para que ese panel no lo tape, y un
+              segundo renglón volvería a quedar debajo. El separador es lo que los hace
+              «una sección aparte» sin sumar altura. */}
+          {herramientas && (
+            <>
+              <span aria-hidden style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px', flex: 'none' }} />
+              {herramientas}
+            </>
+          )}
         </div>
 
         {accion && <div data-no-pan style={{ position: 'absolute', right: 12, bottom: 12 }}>{accion}</div>}
@@ -472,7 +502,7 @@ export function Lienzo({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               {tituloEditor ? tituloEditor(nodoSel) : (
                 <>
-                  <span style={{ fontSize: 15 }}>{nodoSel.icono}</span>
+                  <IconoNodo icono={nodoSel.icono} tam={17} />
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', flex: 1, minWidth: 0 }}>{nodoSel.titulo}</div>
                 </>
               )}
@@ -509,7 +539,7 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-        <span style={{ fontSize: 13 }}>{nodo.icono}</span>
+        <IconoNodo icono={nodo.icono} tam={15} />
         <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)' }}>
           {nodo.titulo}
         </span>
@@ -547,3 +577,23 @@ export const rotuloLienzo: CSSProperties = {
   fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
   color: 'var(--dim)', display: 'block', marginBottom: 6,
 };
+
+/**
+ * El ícono de un nodo: el LOGO de la marca cuando lo hay, el emoji cuando no.
+ *
+ * Pedido con la captura delante: «WhatsApp y Email con los logos de los mismos,
+ * tenemos los logos». Y los teníamos: el catálogo de `ServicioVisual` es el mismo que
+ * usan las integraciones y los tiles de notificaciones, así que WhatsApp sale con su
+ * verde oficial y el mail con el logo de Resend — un logo ajeno es peor que uno
+ * inventado, y esto vive en un solo lugar.
+ *
+ * ⚠️ ES UN SOLO CAMPO, A PROPÓSITO. La tentación es sumar un `logo?:` al lado de
+ * `icono` y que el render elija — y dos campos para el mismo renglón es exactamente
+ * cómo se muere uno de los dos (ya pasó acá con `sub` y `titulo`). El valor DICE qué
+ * es: si `icono` es una clave del catálogo de marcas, se dibuja la marca; si es
+ * cualquier otra cosa, es texto. Un emoji nunca va a ser una clave.
+ */
+function IconoNodo({ icono, tam }: { icono: string; tam: number }) {
+  if (ICON[icono]) return <SvcIcon k={icono} size={Math.round(tam * 0.74)} box={tam + 7} radius={6} />;
+  return <span style={{ fontSize: tam - 2 }}>{icono}</span>;
+}

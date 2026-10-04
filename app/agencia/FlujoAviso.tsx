@@ -268,27 +268,14 @@ export function FlujoAviso({
         // CRON señalaba un lugar y el paso aparecía en otro.
         puedeAgregarTras={(idNodo) => idNodo === 'mensaje' || /^paso-\d+$/.test(idNodo)}
         agregarOcupado={busy}
-        chrome={(
-          /* ⚠️ LOS BOTONES LOS DIBUJA ESTE COMPONENTE, NO EL PARENT, aunque la banda
-             de arriba sea un slot que el parent llena. El estado del tablero vive
-             acá: pasarle al parent un `onDeshacer` habría dejado la capacidad en un
-             archivo y el call site en otro, que es exactamente cómo esta casa produce
-             salidas huérfanas. Se compone: primero lo del parent, después lo nuestro.
-
-             Y van ACÁ y no en una esquina del lienzo porque las cuatro esquinas están
-             tomadas y con dueño escrito: arriba el título y el grupo de la derecha,
-             abajo a la izquierda el zoom —«la esquina la pidió el dueño»— y abajo a la
-             derecha Publicar. La banda de arriba es la única que puede crecer. */
-          <>
-            {chrome}
-            {editable && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 10 }} data-no-pan>
-                <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
-                <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
-              </div>
-            )}
-          </>
-        )} sinMarco alto="100%"
+        chrome={chrome}
+        herramientas={editable ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
+            <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
+          </div>
+        ) : undefined}
+        sinMarco alto="100%"
         renderNodo={(n, activo) => (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && n.id === 'mensaje'
@@ -735,8 +722,8 @@ function BotonPila({ titulo, onClick, activo, children }: {
   return (
     <button type="button" onClick={onClick} disabled={!activo} title={titulo} aria-label={titulo}
       style={{
-        width: 32, height: 32, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)',
+        width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)',
         color: activo ? 'var(--dim)' : 'var(--faint)', fontSize: 15, fontFamily: 'inherit',
         cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.45,
       }}>

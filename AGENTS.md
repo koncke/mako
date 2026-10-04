@@ -5889,3 +5889,56 @@ reaparece un estado que nadie puede volver a producir.
 ⚠️ **Y un botón de deshacer apagado es obligatorio, no un detalle.** `app/_ui/Toast.tsx`
 ya lo tiene escrito para su `onUndo` opcional: «ofrecer un "Deshacer" que no deshace nada
 es peor que no ofrecerlo».
+
+# El respaldo CORROMPIO lo que venia a proteger, y la verificación no lo vio
+
+Medido el 04/10/2026 sobre `mako.plantillas.store` del ws1, que es un cliente real.
+
+Un script de respaldo leía el store, lo mutaba y lo devolvía con
+`update … set value = ${JSON.stringify(obj)}::jsonb`. **El driver `postgres` ya
+serializa para `jsonb`**, así que pasarle el TEXTO guarda un jsonb que **contiene un
+string con el JSON adentro**. El síntoma es que `Object.keys(store)` devuelve
+`['0','1','2','3'…]` —los índices del string— en vez de los ids.
+
+**Y no se nota.** El UPDATE contesta ok, la pantalla sigue dibujando las 65 plantillas
+—el catálogo vive en el CÓDIGO y el store sólo guarda los OVERRIDES—, y lo que
+desaparece en silencio es exactamente lo del cliente: qué apagó, qué renombró, sus
+plantillas propias y sus borradores. Para `jsonb` va el OBJETO: `sql.json(obj)`.
+
+⚠️ **Y LO QUE MÁS CUESTA: LA VERIFICACIÓN PASÓ EN VERDE.** El script hacía lo correcto
+—releer y comparar, no confiar en el UPDATE— y releía con SU PROPIO lector, que hacía
+`typeof v === 'string' ? JSON.parse(v) : v`. Esa línea deshace exactamente la capa de
+más, así que el verificador veía el objeto correcto sobre una fila rota.
+
+**La regla: una relectura que usa el MISMO lector que escribió no puede ver una capa de
+codificación de más.** Se verifica con el lector del PRODUCTO, o con una pregunta que
+el lector propio no pueda contestar bien — acá alcanzaba con `Object.keys()[0]`: un id
+de plantilla nunca es `"0"`. Es la misma familia que «lo verifiqué ejecutándolo» no
+verifica nada si lo que ejecutás es tu transcripción.
+
+⚠️ **Y la que sigue: un script que escribe en la base de un CLIENTE se prueba primero
+contra el Cliente de Prueba (ws3).** Acá el respaldo se estrenó directo sobre el ws1
+porque es el único workspace donde esa pantalla se puede abrir — eso es una razón para
+tener más cuidado, no menos. Lo que lo salvó fue que el daño era reversible
+(`scripts/reparar-store-plantillas.ts` decodifica hasta llegar a un objeto sano), y eso
+fue suerte del formato, no del método.
+
+# Un `useState` sembrado de props no se resiembra: si la vista deja de desmontarse, hay que poner el `key`
+
+Un componente que hace `useState(props.x)` muestra el valor del PRIMER render para
+siempre. Mientras esa pantalla se abra y se cierre, no se nota: cada apertura es un
+montaje nuevo. El día que pasa a ser la vista por DEFAULT deja de desmontarse, y
+empieza a mostrar —y a guardar— los datos del anterior.
+
+Medido el 04/10/2026 en el editor de mensajes: al volverlo la vista por default, la
+lista marcaba «Reporte semanal» y el editor seguía mostrando «Proyectos atrasados».
+Seis `useState` sembrados de props (título, categoría, texto, el publicado contra el
+que compara, el interruptor). **Lo encontró la captura, no el código**: no hay error,
+no hay pantalla rota — hay dos nombres distintos en la misma pantalla.
+
+La cura es el `key` con la identidad de lo que se edita: fuerza el remonte, que además
+es el camino que ya guarda el borrador al desmontar.
+
+**Y la regla general: cuando cambies CUÁNDO se monta un componente, grepeá sus
+`useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
+componente y le cambia el ciclo de vida entero.

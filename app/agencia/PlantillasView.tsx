@@ -161,6 +161,23 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
 
       {creando || (vista === 'editar' && sel) ? (
         <TemplateDetalleModal
+          /*
+           * ⚠️ EL `key` NO ES DECORACIÓN: SIN ÉL EL EDITOR MUESTRA OTRA PLANTILLA.
+           *
+           * `TemplateDetalleModal` siembra seis `useState` de sus props (título,
+           * categoría, texto, el publicado contra el que compara, y el interruptor), y
+           * un `useState` sembrado NO se resiembra cuando la prop cambia. Mientras el
+           * editor era la vista que se ABRÍA, eso no se notaba: cambiar de mensaje
+           * hacía `setDetalle(null)`, lo desmontaba, y al volver a abrirlo nacía con
+           * los datos nuevos. Con el editor como vista por DEFAULT ya no se desmonta
+           * nunca, así que al tocar otra fila la lista marcaba una y el editor seguía
+           * mostrando —y guardando— la anterior.
+           *
+           * Lo encontró la captura, no el código: no hay error, no hay pantalla rota,
+           * hay dos nombres distintos en la misma pantalla. El `key` fuerza el
+           * remonte, que además es el camino que YA guarda el borrador al desmontar.
+           */
+          key={creando ? 'crear' : (sel?.id ?? 'ninguna')}
           plantilla={creando ? null : (sel ?? null)}
           onClose={() => setCreando(false)}
           onCambio={recargar}

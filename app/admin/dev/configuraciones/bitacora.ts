@@ -420,4 +420,26 @@ export const BITACORA: Hito[] = [
       { sha: "2f9a4a3f", msg: "El editor de mensajes: editar por default, una tarjeta por canal y deshacer", lineas: 632, archivos: 8 },
     ],
   },
+  {
+    fecha: "4 oct", hora: "13:20", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Cuatro correcciones con la captura delante",
+    pedido: `1. Mira como se ve el título de cortado, tiene que estar pegado el emoji.
+2. Y el botón de activar sería bueno que esté aparte, a la derecha del título.
+3. Los botones de retroceder en una sección aparte, pero abajo a la izquierda, cerca de los botones de zoom.
+4. WhatsApp y Email con los logos de los mismos, tenemos los logos`,
+    puntos: [
+      "Las cuatro sobre lo que se había hecho una hora antes, y las cuatro visibles en una captura que el código no podía dar.",
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "13:20", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "correccion",
+    titulo: "El título se cortaba por un `width` que el Dropdown le pone al BOTÓN, y la captura destapó un bug mío",
+    puntos: [
+      "El título cortado no era el título: era el emoji midiendo 168 px. `Dropdown` usa `width` para el BOTÓN (y el menú se dimensiona solo con `max-content`), así que al pasarle 168 para el menú le fijé el ancho al emoji y empujó el nombre medio ancho de tarjeta. Sacarlo lo dejó en 26 px, pegado al título con 8 px de hueco y el nombre entero. «Activar» salió a su propia tarjeta a la derecha, y deshacer/rehacer bajaron al renglón del zoom con un separador — van en ESA fila y no encima, porque el panel del nodo abre justo ahí y `ZOOM_ALTO` existe para que no lo tape. Los logos salen del catálogo de `ServicioVisual`, el mismo de las integraciones, y el nodo los pide por su CLAVE (`icono: 'whatsapp'`) en vez de sumar un segundo campo — dos campos para el mismo renglón es cómo se muere uno de los dos.",
+      "⚠️ Y la captura destapó algo que yo había roto al hacer el editor la vista por default: la lista marcaba «Reporte semanal» y el editor mostraba «Proyectos atrasados». Los seis `useState` sembrados de props no se resiembran, y antes eso no se notaba porque cambiar de mensaje DESMONTABA el editor. Se arregló con el `key`. No hay error ni pantalla rota: hay dos nombres distintos en la misma pantalla, y sólo se ve mirándola.",
+      "⚠️ Y lo más caro: mi propio script de respaldo CORROMPIÓ el store del ws1, que es un cliente real. `update … = ${JSON.stringify(obj)}::jsonb` guarda un jsonb que contiene un STRING con el JSON adentro — el driver ya serializa— y entonces las claves del store pasan a ser 0,1,2,3. La pantalla sigue dibujando las 65 plantillas porque el catálogo vive en el código; lo que desaparece en silencio son los overrides del cliente. Y la verificación del propio script pasó en VERDE porque releía con su mismo lector, que deshacía justo esa capa. Reparado y releído (5 entradas, ids reales); queda `scripts/reparar-store-plantillas.ts` y las dos reglas en AGENTS.md.",
+    ],
+  },
 ];
