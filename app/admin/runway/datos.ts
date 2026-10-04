@@ -97,25 +97,8 @@ export const CUENTA = [
   { v: 'US$15.000', l: 'facturado', fin: true },
 ];
 
-export const RIESGOS_MECANISMO = [
-  '**El desarrollo canibaliza la venta**, que es lo único que paga.',
-  'Y lo nombraste: **eliges tareas técnicas porque tienen final**, y la prospección no cierra. Cualquier plan que te deje producto por hacer te da una salida.',
-  '**Estás quemado y lo dices** — y el plan se sigue armando después de ese punto.',
-];
 
-export const RIESGOS_SUPUESTOS = [
-  '**Tu talón de Aquiles es el show rate**, no el cierre. El problema no es cerrar: es que lleguen.',
-  '**La fecha del 14 está impugnada.** La persona con la que hablas te dice en la cara que no llegas con lo técnico. No la refutas: cortas el tema.',
-  'Los creativos, los anuncios y el VSL de la oferta pasada **están hechos y nunca se lanzaron**.',
-];
 
-export const ROTO_HOY = [
-  '**La cuota de Gemini se agota con uno o dos prompts** y sin eso no se puede pasar el onboarding. Cada cliente nuevo se traba en la puerta.',
-  'El envío de WhatsApp está fallando — y es el canal del Chatbot del P1.',
-  'La landing pública tiene **los botones muertos**: no se puede agendar llamada.',
-  'La thank you page no existe.',
-  'El lector del archivero está roto.',
-];
 
 // =============================================================================
 // La depuración del CRM — qué se hace con cada una de las 25 tarjetas abiertas
@@ -145,42 +128,53 @@ export const VEREDICTO_LABEL: Record<Veredicto, string> = {
   va: 'Se va',
 };
 
+/**
+ * ⚠️ EL MOTIVO EXPLICA LA DECISIÓN, NO EL PROBLEMA. Es la columna «por qué» de la
+ * tabla, al lado de «qué hacemos», así que tiene que contestar la pregunta de SU
+ * veredicto y ninguna otra:
+ *
+ *   · `queda`    → **qué se rompe si no está** antes del 7/10 o del 17/10.
+ *   · `pospone`  → **cómo se sobrevive sin eso** hasta el 15/12: el camino a mano,
+ *                  o por qué hoy no le toca a nadie.
+ *   · `va`       → **por qué ya no queda nada que hacer**.
+ *
+ * Medido el 04/10: la primera versión de #6 decía «lo ÚNICO que se pierde de verdad:
+ * Meta lo borra a los 90 días» —que es un argumento para HACERLA— al lado de un chip
+ * que decía «Se pospone». Martín: «¿qué carajos me dice eso? no me explica por qué se
+ * pospone». Un motivo que describe el problema se lee como una contradicción con su
+ * propio chip.
+ */
 export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string }> = {
-  // ── Se queda: sin esto, algo del plan no funciona ──
-  621: { que: 'queda', motivo: 'Sin apellido, la prospección entra con media identidad' },
-  702: { que: 'queda', motivo: 'Es lo único que separa los 1.000 en frío de los que llegan solos' },
-  39: { que: 'queda', motivo: 'Tu equipo es una persona: los 1.000 nacerían sin vendedor' },
-  38: { que: 'queda', motivo: 'Se pierde el link de la primera reunión, y hay que repegarlo a mano' },
-  174: { que: 'queda', motivo: 'Tu agenda no está conectada y la pantalla no lo dice' },
+  // ── Se queda: qué se rompe sin esto ──
+  621: { que: 'queda', motivo: 'Sin esto los 1.000 entran con medio nombre y no se pueden distinguir entre sí' },
+  702: { que: 'queda', motivo: 'Es lo único que después separa los 1.000 en frío de los que te escribieron solos' },
+  39: { que: 'queda', motivo: 'Los 1.000 entrarían sin vendedor: tu equipo es una persona y el asignador la saltea' },
+  38: { que: 'queda', motivo: 'Cada vez que las dos reuniones caen juntas se borra el link de la primera' },
+  174: { que: 'queda', motivo: 'Si conectas tu agenda y no entra ninguna cita, hoy no hay error que lo diga' },
 
-  // ── Se va: está hecho, o es la misma que otra ──
-  37: { que: 'va', motivo: 'En producción. Lo único vivo se midió: 0 casos reales en 10.137 visitantes' },
-  698: { que: 'va', motivo: 'Hecha: es un renglón, se ignora en lote y guardar nunca se bloquea' },
-  627: { que: 'va', motivo: 'Construido. Lo que falta —medir por producto— se escribe dentro de #798' },
-  15: { que: 'va', motivo: 'Es la misma que #40, que ya nombra el mismo pendiente' },
+  // ── Se va: por qué ya no queda nada que hacer ──
+  37: { que: 'va', motivo: 'Ya está en producción. Lo único que quedaba vivo da 0 casos reales en 10.137 visitantes' },
+  698: { que: 'va', motivo: 'Ya está hecho: es un renglón, se ignora en lote y nunca bloquea el guardado' },
+  627: { que: 'va', motivo: 'Ya está construido. Lo único que falta se escribe dentro de #798' },
+  15: { que: 'va', motivo: 'Es la misma tarea que #40, que ya nombra lo mismo que falta' },
+  689: { que: 'va', motivo: 'Es la misma que #38: su texto se muda ahí, con sus dos mitades' },
 
-  // ── Se pospone: hay camino a mano ──
-  19: { que: 'pospone', motivo: 'La cuota vencida ya sale en Comercial y se marca cobrada con un clic' },
-  697: { que: 'pospone', motivo: 'Se corrige a mano en la ficha — y el arreglo real es una línea' },
-  800: { que: 'pospone', motivo: 'El lead se mueve a mano. Vuelve si no prendes el motor automático' },
-  671: { que: 'pospone', motivo: 'La segunda reunión se agenda a mano: un minuto por reunión' },
-  622: { que: 'pospone', motivo: 'Tus 1.000 son fríos, no clientes pagos. Y se mueven a mano' },
-
-  // ── Se pospone: sirve a un cliente que configura su embudo ──
-  798: { que: 'pospone', motivo: 'Hoy ningún negocio tiene un embudo propio que medir' },
-  40: { que: 'pospone', motivo: 'Hoy nadie vende en tres reuniones' },
-  332: { que: 'pospone', motivo: 'Lo que dijo en la llamada ya se lee en la ficha, a pedido' },
-  696: { que: 'pospone', motivo: 'El formulario ya entra solo. Queda decidir si la casilla sigue haciendo falta' },
-
-  // ── Se pospone: el dato no se pierde ──
-  6: { que: 'pospone', motivo: 'Lo ÚNICO que se pierde de verdad: Meta lo borra a los 90 días' },
-  701: { que: 'pospone', motivo: 'Los clics ya están guardados: lo que falta es dibujarlos' },
-  623: { que: 'pospone', motivo: 'El contacto entra igual; lo que no se suma es el dato nuevo' },
-  626: { que: 'pospone', motivo: 'Duplica la ficha, no pierde el lead' },
-
-  // ── Se pospone: no es programar / es más seguro no tocarlo ──
-  18: { que: 'pospone', motivo: 'El mecanismo está. Falta escribir el texto y prenderlo' },
-  20: { que: 'pospone', motivo: 'Apagar la automatización vieja cortaría los recordatorios al lead' },
+  // ── Se pospone: cómo se sobrevive sin eso ──
+  6: { que: 'pospone', motivo: 'Hoy nadie usa esas respuestas para vender. Ojo: es lo único que no se recupera después' },
+  697: { que: 'pospone', motivo: 'Mientras tanto se corrige a mano en la ficha. Y si lo quieres de paso, es una línea' },
+  800: { que: 'pospone', motivo: 'Mientras tanto el lead se mueve a mano. Vuelve si no prendes el motor automático' },
+  671: { que: 'pospone', motivo: 'Mientras tanto la segunda reunión se agenda a mano: un minuto por reunión' },
+  622: { que: 'pospone', motivo: 'Tus 1.000 son contactos fríos, no clientes que ya pagaron: no te toca todavía' },
+  19: { que: 'pospone', motivo: 'La cuota vencida ya te sale en Comercial y se marca cobrada con un clic' },
+  798: { que: 'pospone', motivo: 'Ningún cliente tiene todavía un embudo propio que medir' },
+  40: { que: 'pospone', motivo: 'Nadie vende hoy en tres reuniones: el recorrido de dos alcanza' },
+  332: { que: 'pospone', motivo: 'Lo que dijo en la llamada ya se puede leer en la ficha cuando lo necesitas' },
+  696: { que: 'pospone', motivo: 'El formulario ya entra solo; lo que queda es una decisión, no código' },
+  701: { que: 'pospone', motivo: 'El dato está guardado: se puede dibujar cuando haga falta, sin perder nada' },
+  623: { que: 'pospone', motivo: 'El contacto entra igual; lo único que no pasa es que se le sume el dato nuevo' },
+  626: { que: 'pospone', motivo: 'Te deja la ficha duplicada, no te pierde el lead' },
+  18: { que: 'pospone', motivo: 'El mecanismo ya está: lo que falta es escribir el texto, no programar' },
+  20: { que: 'pospone', motivo: 'Apagarlo cortaría los recordatorios que hoy le llegan al lead' },
 };
 
 /**
@@ -189,19 +183,8 @@ export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string }> 
  */
 export const CRM_NUEVA = {
   titulo: 'La importación crea el duplicado que la pantalla dice que descartó',
-  motivo: 'Vivo desde el 14 de agosto. Con tres bases que se solapan, cada repetido entra dos veces',
+  motivo: 'Importar tres bases que se solapan crea cada contacto repetido dos veces, en silencio',
 };
-
-/** Lo que el 17/10 necesita y no tiene tarjeta. No es código: son filas que faltan. */
-export const CRM_SIN_TARJETA = [
-  { que: 'Por dónde escribirles a los 100', estado: 'No hay línea de WhatsApp, y el interruptor de envío no tiene fila: apagado' },
-  { que: 'Dónde reservan los que contesten', estado: 'Cero credenciales de agenda, y ninguna ruta conectada' },
-  { que: 'Quién hace el seguimiento', estado: 'El motor automático está apagado ahí' },
-  { que: 'Que entren 1.000 filas de una vez', estado: 'Tope de 3.000 sobre 60 segundos, con el alta de a una. Al cortar, reintentar duplica' },
-  { que: 'Que el teléfono sirva para escribir', estado: 'En el libro de una clienta, 47 de 52 no se pueden contactar como están' },
-  { que: 'Filtrar los 100 mejores', estado: 'No existe en el CRM. La salida sin código es filtrar en la planilla ANTES de importar' },
-  { que: 'Separar los 1.000 en frío de los que llegan solos', estado: 'Se guarda el origen y ningún motor lo lee' },
-];
 
 export const CRM_DECISIONES = [
   '**¿Prendes el motor automático antes de importar?** De eso depende que #800 quede afuera: con 1.000 leads, darse cuenta de que uno está quieto abriendo su ficha no escala.',
@@ -210,8 +193,3 @@ export const CRM_DECISIONES = [
   '**«Agente: CRM automático»** sigue vivo con 0 tareas y parte en dos la respuesta a «¿dónde está lo del CRM?». ¿Se tacha?',
 ];
 
-export const CONTRADICCIONES = [
-  'Eliminaste **Offer Analysis**, y el último entregable que te queda de tu propia oferta —bajarla a un PDF— lo ibas a hacer justamente con esa feature.',
-  'Toda la prospección se apoya en **Video/Image Generator**, que todavía no está hecho. Si se corre, la prospección pierde su gancho.',
-  'El precedente para estabilizar un funnel son **tres meses**; la ventana son **seis semanas**.',
-];

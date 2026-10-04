@@ -759,6 +759,29 @@ lee — «la junta del 3 de septiembre», «Código Inmobiliario»— y el ident
 falta para trabajar, va en el detalle o en el comentario del código. Vale para títulos de
 tarjetas, toasts, avisos, mensajes de WhatsApp y cualquier texto que salga del repo.
 
+⚠️ **Y CUANDO LA PANTALLA SÍ MUESTRA UN PORQUÉ, ES EL PORQUÉ DE LA DECISIÓN QUE
+ESTÁ AL LADO — no el del problema.** Una columna «por qué» pegada a una columna
+«qué hacemos» promete explicar ESA celda, y es facilísimo llenarla con lo que uno
+sabe del tema en vez de con lo que sostiene el veredicto.
+
+Medido el 04/10/2026 en `/admin/runway`: la fila de «salvar los datos de Meta»
+decía **«Lo ÚNICO que se pierde de verdad: Meta lo borra a los 90 días»** al lado de
+un chip que decía **«Se pospone»**. Las dos cosas son ciertas y juntas se leen como
+una contradicción — el texto es un argumento para HACERLA. Martín: *«¿qué carajos me
+dice eso? no me explica por qué se pospone»*.
+
+El molde, y es una pregunta distinta por veredicto:
+
+| El chip dice | El porqué contesta |
+|---|---|
+| **se queda** | qué se ROMPE si no está |
+| **se pospone** | cómo se SOBREVIVE sin eso: el camino a mano, o por qué hoy no le toca a nadie |
+| **se va** | por qué ya NO QUEDA NADA que hacer |
+
+La advertencia que no entra en ese molde —«ojo, esto es lo único que no se recupera»—
+va igual, pero **después** del motivo y marcada como lo que es. Primero se contesta la
+pregunta de la columna.
+
 ⚠️ **Esto NO aplica a lo que se escribe en el repo.** Los comentarios, los mensajes de commit
 y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
 primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.

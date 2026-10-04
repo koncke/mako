@@ -6,9 +6,15 @@
 // dibujado: lo que un documento no puede mostrar es que **la plata se termina en
 // el día 58 de 73 y la venta recién arranca en el día 29**, que es el hallazgo.
 //
-// ⚠️ SIN UN BYTE DE JAVASCRIPT PROPIO, como /admin/docs. Todo es estático: los
-// datos viven en `datos.ts` y las posiciones del riel se calculan en el server.
-// Una foto no necesita hidratarse.
+// ⚠️ SIN UN BYTE DE JAVASCRIPT EN EL NAVEGADOR, como /admin/docs: todo se arma en
+// el server y una foto no necesita hidratarse.
+//
+// ⚠️ PERO NO TODO ES ESTÁTICO, y la diferencia importa. Lo que salió de una
+// grabación —la plata, el show up, la ventana de venta, el veredicto de cada
+// tarea— vive en `datos.ts`, porque no está en ninguna tabla y derivarlo sería
+// inventarlo. Lo que el producto ya sabe se LEE en cada carga: el título y la
+// prioridad de cada tarea salen del tablero, y los días que faltan, del reloj.
+// Escribir eso a mano es la forma de que la pantalla empiece a mentir sola.
 //
 // ⚠️ Y LOS COLORES SALEN DE LOS TOKENS DE LA CASA, nunca literales: esta
 // pantalla se ve en claro y en oscuro como cualquier otra, sin un tema propio.
@@ -16,11 +22,9 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { Pagina, PageHeader } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
 import {
   MEDIDO, DESDE, HASTA, HITOS, CIFRAS, ESCALONES, CUENTA,
-  RIESGOS_MECANISMO, RIESGOS_SUPUESTOS, ROTO_HOY, CONTRADICCIONES,
-  CRM_VEREDICTOS, CRM_NUEVA, CRM_SIN_TARJETA, CRM_DECISIONES, VEREDICTO_LABEL,
+  CRM_VEREDICTOS, CRM_NUEVA, CRM_DECISIONES, VEREDICTO_LABEL,
   type Veredicto,
 } from './datos';
 // El chip de prioridad es EL MISMO del tablero: la banda y el color salen de
@@ -307,23 +311,6 @@ export default async function RunwayPage() {
         Mauricio</strong>, y con 33% las 20 agendas dan <strong>menos de 7 llamadas</strong>, no 10.
       </div>
 
-      {/* ── riesgos ── */}
-      <h2 style={h2}>Lo que tú mismo dijiste que puede salir mal</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-        <div style={caja}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em' }}>El mecanismo</h3>
-          <Lista items={RIESGOS_MECANISMO} malo />
-        </div>
-        <div style={caja}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em' }}>Los supuestos</h3>
-          <Lista items={RIESGOS_SUPUESTOS} malo />
-        </div>
-      </div>
-
-      {/* ── roto hoy ── */}
-      <h2 style={h2}>Roto hoy, y en ningún escalón del plan</h2>
-      <div style={caja}><Lista items={ROTO_HOY} malo /></div>
-
       {/* ── la depuración del CRM: UNA tabla, como la del tablero ── */}
       <h2 style={h2}>El CRM · qué se hace con cada tarea</h2>
       <div style={caja}>
@@ -405,52 +392,10 @@ export default async function RunwayPage() {
         cosas es como vuelve el trabajo que se sacó. La prioridad sale del tablero al abrir esta pantalla.
       </p>
 
-      {/* ── el agujero: lo que no tiene tarjeta ── */}
-      <h2 style={h2}>Lo que el 17 de octubre necesita y no tiene tarjeta</h2>
-      <div style={{ ...caja, padding: 0, overflow: 'hidden' }}>
-        <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 460 }}>
-            <tbody>
-              {CRM_SIN_TARJETA.map((f, i) => (
-                <tr key={f.que}>
-                  <td style={{ padding: '11px 14px', borderTop: i ? '1px solid var(--border)' : undefined, fontWeight: 600, width: '38%' }}>{f.que}</td>
-                  <td style={{ padding: '11px 14px', borderTop: i ? '1px solid var(--border)' : undefined, color: 'var(--dim)' }}>{f.estado}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.55 }}>
-        <strong>No es código: son filas que ese tablero nunca creó.</strong> Por eso ninguna auditoría del
-        repo lo encuentra — todas miran el código, y el código está bien.
-      </p>
-
       {/* ── lo que decide Martín ── */}
       <h2 style={h2}>Lo que tienes que decidir</h2>
       <div style={caja}><Lista items={CRM_DECISIONES} /></div>
 
-      {/* ── contradicciones ── */}
-      <h2 style={h2}>Las tres contradicciones a resolver</h2>
-      <div style={caja}><Lista items={CONTRADICCIONES} /></div>
-
-      <div style={{
-        marginTop: 44, paddingTop: 18, borderTop: '1px solid var(--border)',
-        fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 10,
-      }}>
-        <p style={{ margin: 0 }}>
-          <strong>Una corrección de fuente:</strong> el audio de 60 minutos no es un monólogo. Hay un
-          tercero —no es Leila, a ella la citas en tercera persona— y varios de los cortes más duros
-          (bajar cuatro días a dos, sacar landing y VSL, prospección antes que landing) los propone él.
-          No son conclusiones tuyas: son concesiones.
-        </p>
-        <p style={{ margin: 0 }}>
-          Fuentes: llamada con Leila del 21/09 (2h20, 263 citas) · llamada del 01/10 (1h44, 164 citas) ·
-          audio del 03/10 (60 min, 152 citas). Las 579 se verificaron con comparación exacta contra la
-          transcripción. El detalle, en{' '}
-          <Link href="/admin/docs?d=panorama-03oct" style={{ color: 'var(--primary)' }}>panorama-03oct</Link>.
-        </p>
-      </div>
     </Pagina>
   );
 }
