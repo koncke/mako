@@ -18,6 +18,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
+import { sinLoAjenoDelDueno } from './rag-prestamo';
 import { embed, cosine, hashText } from './embeddings';
 
 export type EstadoIndex = 'indexado' | 'pendiente' | 'error';
@@ -51,6 +52,9 @@ async function wsParaRag(): Promise<number[]> {
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   return ws === OWNER_WS ? [OWNER_WS] : [ws, OWNER_WS];
 }
+
+// El préstamo del workspace del dueño vive en `lib/rag-prestamo.ts`, sin `server-only`
+// para que tenga test: es la regla del Reset aplicada a una fuga cross-tenant.
 
 async function getById(id: number): Promise<KnowledgeEntry | null> {
   const { data } = await (await getTenantDb()).from('mako_knowledge').select(COLS).eq('id', id).maybeSingle();
@@ -92,7 +96,14 @@ export async function listKnowledgeAgencia(): Promise<Array<KnowledgeEntry & { e
     .in('workspace_id', await wsParaRag())
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`listKnowledgeAgencia: ${error.message}`);
-  return ((data ?? []) as Array<KnowledgeEntry & { workspace_id: number }>)
+  // ⚠️ EL MISMO PRÉSTAMO QUE EL RAG, Y ACÁ ES PEOR: esto no alimenta un prompt, se DIBUJA.
+  // Sin el filtro, abrir esta pantalla desde otro workspace listaba las 22 entradas del
+  // glosario del dueño —nombres y apellidos de gente de sus reuniones— una debajo de la
+  // otra. Lo encontró el test del cableado: `searchKnowledge` y `listActiveKnowledgeByArea`
+  // ya filtraban y éste era el TERCER lector de `wsParaRag`, que se había pasado por alto.
+  // No se pierde nada editable: lo del dueño ya venía con `esDelDueno: true`, o sea de solo
+  // lectura desde acá.
+  return sinLoAjenoDelDueno((data ?? []) as Array<KnowledgeEntry & { workspace_id: number }>, ws, OWNER_WS)
     .map((r) => ({ ...r, esDelDueno: r.workspace_id !== ws }));
 }
 
@@ -163,9 +174,36 @@ export async function cursoExiste(curso: string): Promise<boolean> {
 }
 
 /**
+ * POR QUÉ EL RAG NO DEVOLVIÓ NADA LA ÚLTIMA VEZ. `null` = la última corrida anduvo.
+ *
+ * ⚠️ EXISTE PORQUE «NO HAY CONOCIMIENTO» Y «NO PUDE LEERLO» SON DOS COSAS, Y
+ * `searchKnowledge` DEVUELVE `[]` PARA LAS DOS. Medido el 04/10/2026 contra producción:
+ * `embed()` tiraba `embeddings: You have no credits remaining` —OpenAI, que es su único
+ * proveedor y no tiene cascada— y el `catch { return []; }` de abajo lo convertía en una
+ * lista vacía. O sea: **el RAG entero del producto estaba caído y ninguna pantalla, ningún
+ * log y ningún aviso lo decían.** La nutrición, el copywriting y el contexto de MaKo
+ * seguían generando, sin método adentro, exactamente igual de convencidos.
+ *
+ * ⚠️ Y LA CURA NO ES UNA CASCADA A OTRO PROVEEDOR. Los vectores guardados son de
+ * `text-embedding-3-small`: un vector de Gemini contra ésos da un coseno sin sentido, o sea
+ * resultados PLAUSIBLES Y EQUIVOCADOS — peor que vacío. Cambiar de proveedor obliga a
+ * re-embeber las 119 filas, y eso es una decisión, no un fallback.
+ *
+ * Es sólo lectura y vive en memoria del proceso: alcanza para que una pantalla de salud o
+ * un log puedan decir la verdad en vez de un cero plausible.
+ */
+let ultimoFalloRag: { cuando: string; motivo: string } | null = null;
+export const falloDelRag = (): { cuando: string; motivo: string } | null => ultimoFalloRag;
+
+/**
  * Top-k entradas activas más relevantes a la consulta (coseno). Lee el conocimiento
  * del workspace propio + el método curado del dueño (RAG compartido, read-only).
  * opts.area filtra por área de aplicación (ej. 'mensajes' para WhatsApp).
+ *
+ * ⚠️ SIGUE DEVOLVIENDO `[]` ANTE UN FALLO, a propósito: los siete call sites inyectan esto
+ * en un prompt y ninguno puede romperse porque el RAG no conteste. Lo que cambia es que el
+ * fallo deja RASTRO (`falloDelRag()` + un `console.error` con el motivo del proveedor) en
+ * vez de desaparecer.
  */
 export async function searchKnowledge(
   query: string,
@@ -174,10 +212,15 @@ export async function searchKnowledge(
 ): Promise<Array<{ titulo: string; categoria: string | null; cuerpo: string; score: number }>> {
   const q = query.trim();
   if (!q) return [];
+  let data: Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; fuente: string; workspace_id: number; embedding: number[] }>;
+  const wsPropio = (await getWorkspaceActual()) ?? OWNER_WS;
   try {
     let sel = getSupabaseServer()
       .from('mako_knowledge')
-      .select('titulo, categoria, cuerpo, area, embedding')
+      // `workspace_id` y `fuente` viajan para poder sacar lo que es del NEGOCIO del dueño
+      // y no método (ver `sinLoAjenoDelDueno`). Sin las dos columnas el filtro no se puede
+      // escribir, y era por donde se colaban sus 22 nombres propios.
+      .select('titulo, categoria, cuerpo, area, fuente, workspace_id, embedding')
       .in('workspace_id', await wsParaRag())
       .eq('activo', true)
       .not('embedding', 'is', null);
@@ -185,33 +228,58 @@ export async function searchKnowledge(
     // ninguno es metodología de marketing para el chat de un cliente. El filtro
     // va en JS (encadenar .neq() acá dispara TS2589 en el tipo del builder).
     if (opts.area) sel = sel.eq('area', opts.area);
-    const { data, error } = await sel;
-    if (error || !data || data.length === 0) return [];
-    const qv = await embed(q);
-    return (data as Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; embedding: number[] }>)
-      // Sin área pedida, las reservadas quedan afuera del RAG general.
-      .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)))
-      .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv, r.embedding) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, k)
-      .filter((r) => r.score > 0.15);
-  } catch {
+    const r = await sel;
+    // ⚠️ EL ERROR DE LA CONSULTA SE LEE Y SE SEPARA DEL VACÍO. Un `select` de PostgREST con
+    // una columna inexistente rechaza la consulta entera y `data` vuelve `undefined`: sin
+    // esto, un esquema cambiado se lee igual que «este workspace no cargó nada».
+    if (r.error) { ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude leer el conocimiento: ${r.error.message}` }; console.error('[mako-knowledge] RAG caído —', ultimoFalloRag.motivo); return []; }
+    if (!r.data || r.data.length === 0) { ultimoFalloRag = null; return []; }
+    data = r.data as typeof data;
+  } catch (e) {
+    ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude leer el conocimiento: ${e instanceof Error ? e.message : String(e)}` };
+    console.error('[mako-knowledge] RAG caído —', ultimoFalloRag.motivo);
     return [];
   }
+
+  let qv: number[];
+  try {
+    qv = await embed(q);
+  } catch (e) {
+    // ⚠️ ACÁ HAY FILAS Y NO HAY RESPUESTA: el peor de los dos ceros. Devolver `[]` sin
+    // decirlo afirma «este negocio no tiene método cargado» sobre un negocio que tiene 119
+    // entradas indexadas y un proveedor sin crédito.
+    ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude embeber la consulta: ${e instanceof Error ? e.message : String(e)}` };
+    console.error(`[mako-knowledge] RAG caído con ${data.length} entradas disponibles —`, ultimoFalloRag.motivo);
+    return [];
+  }
+
+  ultimoFalloRag = null;
+  return sinLoAjenoDelDueno(data, wsPropio, OWNER_WS)
+    // Sin área pedida, las reservadas quedan afuera del RAG general.
+    .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)))
+    .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv, r.embedding) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k)
+    .filter((r) => r.score > 0.15);
 }
 
 /** Todas las entradas ACTIVAS de un área (workspace propio + método curado del dueño),
  *  para inyectar una metodología completa. Ordenadas por id (orden de carga del curso). */
 export async function listActiveKnowledgeByArea(area: string): Promise<Array<{ titulo: string; categoria: string | null; cuerpo: string }>> {
+  const wsPropio = (await getWorkspaceActual()) ?? OWNER_WS;
   const { data, error } = await getSupabaseServer()
     .from('mako_knowledge')
-    .select('titulo, categoria, cuerpo')
+    // Las dos columnas de más son las que permiten aplicar la MISMA regla de préstamo que
+    // `searchKnowledge`: este lector inyecta una metodología ENTERA en un prompt, así que
+    // sin el filtro era la otra puerta por la que salía el glosario del dueño.
+    .select('titulo, categoria, cuerpo, fuente, workspace_id')
     .in('workspace_id', await wsParaRag())
     .eq('activo', true)
     .eq('area', area)
     .order('id', { ascending: true });
   if (error || !data) return [];
-  return data as Array<{ titulo: string; categoria: string | null; cuerpo: string }>;
+  return sinLoAjenoDelDueno(data as Array<{ titulo: string; categoria: string | null; cuerpo: string; fuente: string; workspace_id: number }>, wsPropio, OWNER_WS)
+    .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo }));
 }
 
 export function formatKnowledge(items: Array<{ titulo: string; cuerpo: string }>): string {

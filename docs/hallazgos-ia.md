@@ -3275,3 +3275,53 @@ arreglarlo donde se vio», otra vez: eran dos listas y se arregló una.
   llamada, y recién después arrancan los 25 s de la red de plataforma.
 
 *2026-10-02*
+
+---
+
+## «¿Quién es este?»: el RAG de cada cliente leía el workspace entero del dueño (01/10/2026, arreglado el 04/10)
+
+Leila abrió el editor de una secuencia en su propio workspace, leyó un nombre que no conocía
+y preguntó **«¿quién es este?»** (00:29:00). Martín: *«esos son ejemplos… está tomando
+ejemplos de Mauricio siempre»*.
+
+La causa es `wsParaRag()`: le presta a cada cliente su conocimiento **más el del
+`OWNER_WS`**, con la idea de compartir el método curado de la agencia. El problema es que
+**`OWNER_WS` es Mauricio, un cliente** (AGENTS.md → «`OWNER_WS` NO es la plataforma»), así
+que lo que se presta no es «el método»: es su workspace entero.
+
+**Medido contra producción antes de escribir una línea:** de las 54 entradas servibles del
+ws1, **42 entraban al RAG general de los otros workspaces**, y 22 de ésas son un glosario de
+NOMBRES PROPIOS sacado de sus reuniones — «Patricia Muñoz», «Francisco Hernandez»,
+«Rogelio», «Zulema», «Anel», «Rocío».
+
+### El filtro va por FUENTE, no por área, y eso es lo que hace que no envejezca
+
+Sacar `glosario` del préstamo cerraría el caso medido y dejaría abierto el próximo:
+cualquier área nueva que una reunión escriba en el ws1 se prestaría sola. La pregunta que
+decide no es «¿de qué habla esta entrada?» sino **«¿la curó alguien para que la use todo el
+mundo, o se la encontró un transcript?»** — `fuente: 'manual' | 'mako'` se presta,
+`'reunión'` no. Y la lista va **en positivo**, porque con «todas menos reunión» la fuente
+que se invente mañana entra sin que nadie lo decida.
+
+### ⚠️ El tercer lector era el que DIBUJA, y lo encontró el test, no leer los call sites
+
+Con los dos lectores obvios ya arreglados (`searchKnowledge` y `listActiveKnowledgeByArea`,
+que inyectan lo que traen en un prompt), el guard del cableado falló con **«3 lectores
+prestan y sólo 2 filtran»**. El tercero era `listKnowledgeAgencia`, que no alimenta ningún
+prompt: **pinta la lista en `/conocimiento`**, o sea que los 22 nombres del dueño se leían
+en pantalla.
+
+Contar los `await wsParaRag()` y compararlos con los `sinLoAjenoDelDueno(` encontró lo que
+leer los dos call sites que yo tenía en la cabeza no iba a encontrar nunca. **Un guard que
+CUENTA las dos puntas vale más que uno que busca la palabra**: con un solo lector filtrado,
+un `assert.match` sobre el archivo habría dado verde con la fuga abierta por el otro.
+
+### ⚠️ Y la medición de punta a punta falló, no dio cero
+
+El primer intento de medir la fuga de verdad —correr `searchKnowledge` para cuatro
+workspaces— devolvió **0 para todos, incluido el ws9**. Eso no era un resultado: era la
+medición rota. Partiendo el camino en dos (la query y el `embed()`) apareció
+`embeddings: You have no credits remaining`. Un cero parejo sobre el caso que uno sabe que
+tiene datos es la señal; creerle habría cerrado la búsqueda sobre una fuga viva.
+
+**Vive en:** `lib/rag-prestamo.ts` (sin `server-only`, para que haya test) · `lib/mako-knowledge.ts` → los tres lectores de `wsParaRag` · *2026-10-04*
