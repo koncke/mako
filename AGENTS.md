@@ -1014,6 +1014,14 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   acción sobre 12 tareas dispara 12 toasts y el que queda arriba deshace UNA. El lote toma
   su propio snapshot y pisa con un toast que revierte todo junto, que es la unidad en la que
   la persona decidió.
+- ⚠️ **Y si el campo lo escribe el SERVER, el lote tiene que poder APAGAR el deshacer de cada
+  paso.** Lo de arriba alcanza cuando el board persiste solo: el lote saca su foto y pisa. El
+  score del plan no se persiste desde el navegador (`plan-reprio`, a propósito), así que la
+  pantalla se sincroniza con una función que ofrece SU deshacer por ítem — y ahí pisar no es
+  suficiente: durante el lote la persona ve N carteles parpadear y puede apretar el de uno
+  intermedio. Va un parámetro que lo apague (`aplicarCascadaManual(..., conDeshacer = false)`)
+  y el deshacer del lote **vuelve a llamar al server** con el valor anterior, porque revertir
+  sólo la pantalla miente hasta el próximo F5.
 
 # Un ACCIONABLE no es una TAREA, y volcar una lista de accionables al tablero lo arruina
 
@@ -1451,6 +1459,19 @@ Cada uno falla distinto, y ninguno grita:
   estaba mal: era de otro producto. **Un logo ajeno es peor que uno inventado**: no se lee
   como un error nuestro, se lee como que la app se confundio de servicio. El fallback es
   un letter-mark, feo a proposito.
+
+⚠️ **Y SI LA INTEGRACIÓN RECIBE UN WEBHOOK, EL CAMPO QUE CREA SU FILA DE RUTEO NO ES
+OPCIONAL.** Un webhook entrante llega sin sesión: lo único que dice de quién es el evento es
+`webhook_routing`, y esa fila la escribe el guardado de una credencial de `ROUTING_CREDS`
+(`lib/webhook-routing.ts`). Los webhooks son fail-CLOSED a propósito, así que un servicio
+cuyas claves de ruteo son TODAS `opcional: true` deja conectar «bien» y no recibir nada —
+200, un `console.warn` que no lee nadie, y el cliente creyendo que quedó andando. Medido el
+04/10/2026: de los 2 workspaces con Calendly conectado, uno tenía token y signing key y CERO
+filas de ruteo. La regla, en positivo y con guard
+(`tests/webhook-ruteo-obligatorio.test.ts`): **cada servicio de ruteo tiene al menos una
+clave que el cliente no puede dejar vacía** — obligatoria, o `auto` (la completa MaKo, como
+`META_PAGE_ID` al pegar el token). Y la nota del campo dice qué se pierde si se deja vacío,
+no sólo que hace falta.
 
 Y hay un CUARTO registro que no es obligatorio y cambia lo que la gente lee: `AYUDA_CAMPO`
 (en `metodo-catalogo.ts`). El componente hace `ayuda={c.ayuda ?? servicio.tutorial}`, asi
@@ -3375,6 +3396,13 @@ con eso la barra lateral de una pantalla se iba con el scroll. Medido a 1920x880
 
 - **Si necesitas recortar un eje, recorta en el elemento que ya scrollea**, no en el
   documento; o usa `overflow-x: clip`, que no crea contenedor de scroll.
+- ⚠️ **Y el corolario al escribir: un `sticky` va AFUERA de la caja que recorta.** Mordió de
+  nuevo el 04/10/2026 con la barra de lote de las tablas del plan, que vivía adentro de un
+  contenedor con `overflow-x: auto`. Ese contenedor nunca scrollea en vertical —crece con su
+  contenido—, así que el sticky se posiciona contra algo que no se mueve y queda clavado
+  igual que antes, **con el `position: sticky` puesto y sin un solo error**. Antes de
+  escribirlo, caminá los ancestros hasta el primero con `overflow-y` en `auto`/`scroll` y
+  preguntá si ÉSE es el que la persona scrollea.
 - **Y verificalo SCROLLEANDO.** Con `scrollY = 0` un sticky roto se ve igual que uno sano,
   asi que cualquier chequeo que no mueva la pagina da verde sobre algo roto. Esto se pago
   cinco veces seguidas sobre la misma pantalla.
