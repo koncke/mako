@@ -404,3 +404,61 @@ Es también por qué la API **no** escribe credenciales:
 API. El día que exista, `servicioDelWs` se borra.
 
 *Corrida del 16/09/2026 — api-mako-areas.*
+
+---
+
+## «El cliente conecta Calendly, no entra nada y no hay ningún error» (01/10/2026, arreglado el 04/10)
+
+Martín, en la llamada del 01/10 (00:50:03): *«Calendly: el cliente conecta, no entra nada y
+no hay ningún error. No sé por qué, como no uso Calendly. Esto yo creo que lo que pasa es
+que está configurado el Calendly de Mauricio y los clientes conectan el suyo y no pasa
+nada»*.
+
+**Su hipótesis era la equivocada, y la causa estaba escrita en el propio webhook.**
+
+Un webhook entrante llega SIN sesión, así que lo único que dice de quién es el evento es la
+tabla `webhook_routing` (mig 0090), y esa fila la escribe el guardado de **una credencial**:
+las de `ROUTING_CREDS` (`lib/webhook-routing.ts`). Para Calendly son
+`CALENDLY_EVENT_TYPE_J1` y `_J2`… y las dos estaban declaradas **`opcional: true`** en
+`lib/metodo-catalogo.ts`. El único campo obligatorio era el token.
+
+O sea: conectar Calendly «bien» —token y signing key— dejaba al cliente con **cero filas de
+ruteo**, y el webhook es fail-CLOSED a propósito (sin mapeo no se toca un solo dato, para
+que la reserva de un cliente no caiga en el CRM del dueño). Resultado: 200, un
+`console.warn` que no lee nadie, y ninguna reserva en el CRM.
+
+**Medido contra producción el 04/10/2026:** de los 2 workspaces con Calendly conectado,
+**uno (el ws 4) tenía token y signing key y CERO filas de ruteo**. El script quedó en
+`scripts/probe-calendly-sin-ruteo.ts`.
+
+Y no hay red por otro lado: **no existe ningún cron que ingiera la agenda**. Con el token,
+MaKo COMPLETA las fechas de un lead que ya existe (`lib/auto-reuniones.ts`, al mover una
+tarjeta del CRM) y RESERVA (`lib/calendly-agenda.ts`). Lo que crea el contacto a partir de
+una reserva es el webhook y nada más — así que la ayuda de la signing key, que decía «deja
+el campo vacío, tus reuniones igual entran porque MaKo lee tu agenda con el Personal access
+token», prometía algo que no pasa. Era el mismo malentendido por la otra puerta.
+
+### Lo que quedó
+
+- `CALENDLY_EVENT_TYPE_J1` y `CALCOM_EVENT_TYPE_J1` dejaron de ser opcionales, y su nota
+  dice qué se pierde: *«sin esto, las reuniones que agende tu gente no entran a tu CRM y no
+  vas a ver ningún error»*. El `_J2` sigue opcional, que es lo correcto: sólo hace falta si
+  la segunda reunión va por otro link. Es el MISMO precedente que `FATHOM_HOST_EMAIL`, que
+  dejó de ser opcional por esto mismo y lo dice en su comentario; estos dos se habían
+  quedado atrás.
+- **La regla, en positivo y con guard**: cada servicio de `ROUTING_CREDS` tiene al menos una
+  clave que el cliente no puede dejar vacía — obligatoria, o `auto` (la completa MaKo, como
+  `META_PAGE_ID` al pegar el token). `tests/webhook-ruteo-obligatorio.test.ts`.
+
+⚠️ **Y esto no arregla al ws 4**, por la regla de siempre: una regla que se aplica AL
+ESCRIBIR no toca una fila ya escrita. Lo que sí cambia es que su Calendly deja de contar
+como «conectado» (`calcConectada` exige los no-opcionales), así que la pantalla pasa a
+mostrar el campo en «pendiente» en vez de un verde que miente. El dato lo tiene que poner
+ese cliente: es el nombre de SU event type.
+
+⚠️ **Y la excepción de `auto` no es un detalle del guard: es la mitad que lo hace usable.**
+`META_PAGE_ID` ES `opcional: true` y está bien así, porque lo completa MaKo al pegar el
+token. Sin esa excepción el guard habría pedido hacer obligatorio un campo que el cliente no
+tiene de dónde sacar — que es exactamente el candado sin llave que la casa prohíbe.
+
+**Vive en:** `lib/metodo-catalogo.ts` (Calendly y Cal.com) · `lib/webhook-routing.ts` → `ROUTING_CREDS` · *2026-10-04*
