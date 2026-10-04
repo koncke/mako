@@ -59,8 +59,17 @@ async function api(endpoint: string, body: unknown): Promise<{ ok: boolean; erro
  * scroll anidado. Son dos props y no un `embebido` porque son dos decisiones: el
  * alto lo manda la fila del grid, y el marco, quién lo dibuja.
  */
-export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true }: {
-  plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void; endpoint?: string;
+export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, endpoint = ENDPOINT_AGENCIA, alto = 620, marco = true }: {
+  plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void;
+  /**
+   * Abre la vista de PROBAR (el chat). Opcional a propósito: el que no la implementa
+   * NO DIBUJA EL BOTÓN, que es la regla de la casa para un componente compartido —
+   * mostrarlo sin poder usarlo se lee como que la app está rota. Hoy lo pasa
+   * `PlantillasView`; `BandejaEmail` no, porque ahí el chat de WhatsApp no es la
+   * preview de nada.
+   */
+  onVerChat?: () => void;
+  endpoint?: string;
   alto?: number | string; marco?: boolean;
 }) {
   const crear = plantilla === null;
@@ -256,6 +265,30 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                   * 96. Fijándolo, los dos estados miden lo mismo.
                   */}
                 <div style={{ ...tarjetaChrome, minWidth: 0, width: 380 }}>
+                  {/* ⚠️ LA CATEGORÍA ES UN EMOJI ANTES DEL TÍTULO, Y SIGUE SIENDO EL ÚNICO
+                      CONTROL QUE LA ESCRIBE. Pedido el 04/10/2026: «esos botones de
+                      categoría deberían ser un simple emoji antes del título, para que se
+                      entienda de qué se trata, pero que no se confunda con algo útil
+                      dentro de la secuencia» — el desplegable de 168 px debajo del título
+                      se leía como un paso del lienzo.
+
+                      Lo que NO se podía hacer es dejarla de sólo lectura: `guardarCategoria`
+                      es el único escritor de `categoria` en toda la app (el otro Dropdown,
+                      el del alta, sólo la elige al crear), y la categoría es dato de MOTOR,
+                      no un rótulo — `lib/avisos-agrupables.ts` declara que un `accion` o un
+                      `pregunta` NUNCA se posponen al resumen diario, y el comentario de ahí
+                      dice que cuando se pospuso «ya pasó una vez y duplicó dos tareas». Así
+                      que el emoji ES el control: se clickea y abre el mismo desplegable.
+                      El `Dropdown` lo ancla en un portal, así que no ocupa lugar en la fila. */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 }}>
+                    <div style={{ flex: 'none', marginTop: 1 }}>
+                      <Dropdown value={categoria} onChange={(v) => void guardarCategoria(v as CategoriaAviso)}
+                        width={168} ariaLabel="Categoría del mensaje"
+                        buttonStyle={{ padding: 0, border: 'none', background: 'none', fontSize: 19, lineHeight: 1 }}
+                        sinFlecha botonLabel={EMOJI_CATEGORIA[categoria]}
+                        options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                   {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
                       casa: un lápiz al lado es un segundo control para la misma acción.
 
@@ -278,20 +311,17 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                       {titulo || plantilla.titulo}
                     </button>
                   )}
-                  {/* La categoría es un desplegable y no un rótulo: se cambia donde se lee. */}
-                  <div style={{ marginTop: 4 }}>
-                    <Dropdown value={categoria} onChange={(v) => void guardarCategoria(v as CategoriaAviso)}
-                      width={168} ariaLabel="Categoría del mensaje"
-                      options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
+                    </div>
                   </div>
-                </div>
+                  {/* ⚠️ «ACTIVAR» VIVE ACÁ, DONDE ESTABA EL DESPLEGABLE DE CATEGORÍA.
+                      Pedido el 04/10/2026: «el botón de Activar pasa a estar donde hoy
+                      están las categorías». Venía de arriba a la derecha, que es donde un
+                      pedido anterior lo había puesto («el botón de Activa debería estar
+                      arriba a la derecha») — gana el nuevo.
 
-                {id && <PrefsDeMensaje id={id} estilo={tarjetaChrome} />}
-
-                <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ ...tarjetaChrome, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    {/* Un mensaje FIJO no ofrece el switch: es el que avisa que MaKo se
-                        quedó sin datos, y un botón que no hace nada es peor que ninguno. */}
+                      Y se muda CON su rama `fijo`: un mensaje fijo no ofrece switch, y
+                      mover sólo el `else` lo dejaría sin ningún rótulo de estado. */}
+                  <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     {plantilla.fijo ? (
                       <span title="Este avisa que MaKo dejó de recibir datos: si se apaga, el resto de los números miente sin que nadie se entere."
                         style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Siempre activa</span>
@@ -305,12 +335,37 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
                       </>
                     )}
                   </div>
+                </div>
+
+                {id && <PrefsDeMensaje id={id} estilo={tarjetaChrome} />}
+
+                {/* ⚠️ ACÁ ESTABA LA ✕, Y SE FUE CON EL MODAL. Pedido el 04/10/2026: el
+                    editor pasa a ser la vista por DEFAULT, así que ya no hay nada que
+                    cerrar — «pon un botón arriba a la derecha, donde está el botón de
+                    cerrar (que ya no debería estar más), que diga "Probar"».
+
+                    Lo que la ✕ hacía de más era disparar el Confirm «¿Publicar los
+                    cambios?» al salir con un borrador. Eso NO se perdió, cambió de forma:
+                    el borrador ya se guardaba solo (al desmontar y por `visibilitychange`,
+                    con test), así que lo único que el Confirm agregaba era el AVISO de que
+                    MaKo sigue mandando el texto viejo — y un aviso que aparece al salir es
+                    un EVENTO. Ahora es un ESTADO: la lista marca toda plantilla con
+                    borrador sin publicar (`PlantillasView`), así que sobrevive a cambiar de
+                    mensaje, al reload y a la vista de Probar. Es la regla de la casa: «un
+                    aviso es un EVENTO, una bandeja es un ESTADO».
+
+                    Y el rótulo del botón nuevo es «Probar» sólo en pantalla: adentro se
+                    llama `onVerChat`, porque `onProbar` YA existe en este archivo y es otra
+                    cosa — «✨ Que lo escriba MaKo», que paga IA. */}
+                <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                   {plantilla.esCustom && (
                     <button onClick={eliminar} disabled={busy === 'del'} title="Eliminar este mensaje"
                       style={{ ...tarjetaChrome, color: 'var(--bad)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Eliminar</button>
                   )}
-                  <button onClick={intentarCerrar} title="Cerrar el editor" aria-label="Cerrar el editor"
-                    style={{ ...tarjetaChrome, width: 34, height: 34, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>
+                  {onVerChat && (
+                    <button onClick={onVerChat} title="Ver cómo le llega este mensaje"
+                      style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' }}>Probar</button>
+                  )}
                 </div>
               </div>
           )}
@@ -327,15 +382,19 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, endpoint = 
              dejaría dos mensajes de estado en dos esquinas opuestas, que es peor que
              los dos arriba.
 
-             La condición es `sinPublicar || puedeEditarTexto` y no sólo la segunda: sin
-             eso el cartel desaparece en toda superficie donde el texto no se pueda
-             editar, y ahí alguien tendría un borrador sin publicar, sin cartel y sin
-             botón — sin nada que lo avise. */
-          pie={(sinPublicar || puedeEditarTexto || flash) ? (
+             ⚠️ Y LA CONDICIÓN PERDIÓ SU PRIMERA RAMA CON EL CHIP (04/10/2026). Era
+             `sinPublicar || puedeEditarTexto || flash` porque el chip «Sin publicar»
+             tenía que salir aunque el texto no se pudiera editar — si no, alguien con un
+             borrador quedaba sin cartel y sin botón. El chip se fue por pedido («elimina
+             el chip de "Sin publicar", es simple: si ya está todo publicado, el botón de
+             publicar debe estar más opaco y que no permita clickearlo»), así que dejar la
+             rama `sinPublicar` ahí sólo dibujaba una caja VACÍA en esas superficies.
+
+             El aviso que esa rama protegía no se perdió: se mudó a la LISTA, que marca
+             toda plantilla con borrador sin publicar. Es un estado y no un evento, así
+             que además sobrevive a cambiar de mensaje y al reload. */
+          pie={(puedeEditarTexto || flash) ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-              {sinPublicar && (
-                <span style={{ ...tarjetaChrome, fontSize: tipo.meta, fontWeight: 600, color: 'var(--warn)' }}>Sin publicar</span>
-              )}
               {flash && (
                 <span style={{ ...tarjetaChrome, fontSize: tipo.meta, fontWeight: 600, color: flash.mal ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>
               )}

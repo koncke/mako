@@ -142,27 +142,71 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
    * (`Lienzo.tsx` pinta `nodoSel.titulo` cuando nadie pasa `tituloEditor`). O sea que
    * esta línea sola cumple el punto en las dos superficies donde se lee un título.
    */
-  const lineasMensaje = [porDondeLlega(a.canales)];
-  if (a.insistir) {
-    const { cadaMin, veces } = a.insistir;
-    lineasMensaje.push(`🔔 Te lo recuerda cada ${textoCadencia(cadaMin)}, hasta ${veces} ${veces === 1 ? 'vez' : 'veces'}`);
-  }
-  const altoMensaje = Math.min(300, ALTO_MIN + 18 * lineasMensaje.length
+  /**
+   * ⚠️ UNA TARJETA POR CANAL, Y EL CANAL SIGUE SIENDO UN CAMPO.
+   *
+   * Pedido el 04/10/2026: «cambia la tarjeta de "Mensaje" por "WhatsApp" y agrega la
+   * tarjeta de "Email" así utilizamos el mismo tablero para ambos», junto con «las
+   * secuencias de email o WhatsApp es lo mismo, no se gestiona aparte».
+   *
+   * Lo que NO se hizo es volver el canal un NODO, que es lo que el dueño ya tumbó una
+   * vez («es un paso que no hace nada»): estas dos tarjetas se DERIVAN de `a.canales`,
+   * el par de booleanos del mensaje, igual que todo lo demás del lienzo sale del dato.
+   * Cada una dibuja un mensaje que OCURRE —uno que sale por WhatsApp, uno que sale por
+   * mail—, no la propiedad «por dónde». Y así el hecho que antes vivía en una línea de
+   * prosa del `detalle` (`porDondeLlega`) pasa a tener dueño visible: se ve en el
+   * tablero cuántos mensajes salen y por dónde, sin leer nada.
+   *
+   * ⚠️ EL ID DE WHATSAPP SIGUE SIENDO `mensaje`, A PROPÓSITO. Las posiciones guardadas
+   * se podan POR ID (`podarPosiciones`, abajo), así que renombrarlo borraba en el primer
+   * arrastre la coordenada de todo el que había movido su tarjeta — y además
+   * `FlujoAviso.tsx` pregunta `n.id === 'mensaje'` en tres lugares para decidir dónde se
+   * puede agregar un paso. El del mail es nuevo y no tiene nada que conservar.
+   */
+  const recordatorio = a.insistir
+    ? `🔔 Te lo recuerda cada ${textoCadencia(a.insistir.cadaMin)}, hasta ${a.insistir.veces} ${a.insistir.veces === 1 ? 'vez' : 'veces'}`
+    : null;
+  const altoDe = (lineas: number) => Math.min(300, ALTO_MIN + 18 * lineas
     + Math.min(Math.ceil((a.texto || '').length / 32), 10) * 17);
-  nodos.push({
-    id: 'mensaje', tipo: 'mensaje', titulo: 'MENSAJE', icono: sinCanal ? '🔇' : a.canales.email && !a.canales.wa ? '✉️' : '💬',
-    orden: 1,
-    detalle: lineasMensaje.join(NL_TXT),
-    // `advertencia` es UN campo, así que las dos condiciones se encadenan: sin canal
-    // no sale nada (y eso manda), y con WhatsApp apagado el recordatorio no puede
-    // ocurrir aunque el mensaje sí salga por mail.
-    advertencia: sinCanal
-      ? 'Con los dos canales apagados este mensaje no sale.'
-      : a.insistir && !a.canales.wa
-        ? 'Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.'
-        : undefined,
-    ...en('mensaje', col(1), MARGEN), ancho: ANCHO_NODO, alto: altoMensaje,
-  });
+
+  if (sinCanal) {
+    // Con los dos apagados no hay tarjeta de canal que dibujar, y el hecho sigue
+    // necesitando dónde decirse: queda UNA que dice que no sale por ningún lado. Sin
+    // esto el lienzo mostraría el disparador y después nada, que se lee como que
+    // falta algo en la pantalla y no como que el mensaje está apagado.
+    nodos.push({
+      id: 'mensaje', tipo: 'mensaje', titulo: 'MENSAJE', icono: '🔇', orden: 1,
+      detalle: porDondeLlega(a.canales),
+      advertencia: 'Con los dos canales apagados este mensaje no sale.',
+      ...en('mensaje', col(1), MARGEN), ancho: ANCHO_NODO, alto: altoDe(1),
+    });
+  } else {
+    let yMensaje = MARGEN;
+    if (a.canales.wa) {
+      const lineas = recordatorio ? [recordatorio] : [];
+      const alto = altoDe(Math.max(1, lineas.length));
+      nodos.push({
+        id: 'mensaje', tipo: 'mensaje', titulo: 'WHATSAPP', icono: '💬', orden: 1,
+        detalle: lineas.join(NL_TXT),
+        ...en('mensaje', col(1), yMensaje), ancho: ANCHO_NODO, alto,
+      });
+      yMensaje += alto + GAP_Y;
+    }
+    if (a.canales.email) {
+      const alto = altoDe(1);
+      nodos.push({
+        id: 'mensaje-email', tipo: 'mensaje', titulo: 'EMAIL', icono: '✉️', orden: 1,
+        detalle: '',
+        // El recordatorio sale SÓLO por WhatsApp (`insistir`, abajo). Con el mail
+        // prendido y WhatsApp apagado, la advertencia viaja en la tarjeta del canal
+        // que sí existe, que es la única que alguien va a mirar.
+        advertencia: recordatorio && !a.canales.wa
+          ? 'Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.'
+          : undefined,
+        ...en('mensaje-email', col(1), yMensaje), ancho: ANCHO_NODO, alto,
+      });
+    }
+  }
   // ⚠️ LA FLECHA YA NO DICE «cada cuánto, como máximo»: ese desplegable salió de la
   // pantalla («realmente no me hace ningun tipo de sentido») y una etiqueta que
   // describe un control que no está es una afirmación sin dueño.

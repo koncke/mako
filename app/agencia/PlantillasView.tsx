@@ -41,7 +41,22 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
   const [selId, setSelId] = useState<string>('');
   const [mensajes, setMensajes] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right'; autor?: string } | null>(null);
-  const [detalle, setDetalle] = useState<PlantillaVista | 'crear' | null>(null);
+  /**
+   * ⚠️ EDITAR ES LA VISTA POR DEFAULT, Y EL CHAT PASÓ A SER «PROBAR».
+   *
+   * Pedido el 04/10/2026: «quiero que la vista de editar sea la vista por default en
+   * lugar del chat… cuando quiera simular el chat, o la preview, pon un botón arriba a
+   * la derecha… que diga "Probar"».
+   *
+   * Antes esto era `PlantillaVista | 'crear' | null`, o sea que el estado guardaba la
+   * plantilla ABIERTA y `null` significaba «mostrá el chat». Eso tenía el default
+   * escondido en dos lugares: acá y en `elegir`, que hacía `setDetalle(null)` al cambiar
+   * de mensaje. Ahora el estado dice qué VISTA se mira y la plantilla sale de `selId`,
+   * que es donde ya vivía: invertir el default es una sola línea y cambiar de mensaje no
+   * puede devolverte al chat sin que alguien lo escriba.
+   */
+  const [vista, setVista] = useState<'editar' | 'probar'>('editar');
+  const [creando, setCreando] = useState(false);
 
   const recargar = useCallback(async () => {
     try { const j = await (await fetch(endpoint)).json(); if (j.ok) setPlantillas(j.plantillas as PlantillaVista[]); } catch { setPlantillas([]); }
@@ -85,8 +100,15 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
     );
   }
 
-  // Elegir una plantilla cierra el detalle y muestra su preview.
-  const elegir = (id: string) => { setSelId(id); setDetalle(null); };
+  /**
+   * Elegir una plantilla la abre EN LA VISTA QUE ESTÉS. Antes hacía `setDetalle(null)`,
+   * que te devolvía al chat: con el editor como default eso era el segundo lugar que
+   * decidía el default, y cambiar de mensaje deshacía lo que el pedido pide.
+   *
+   * Y sale de `creando`: si estabas en el alta y elegís una plantilla de la lista, lo
+   * que querés ver es ésa.
+   */
+  const elegir = (id: string) => { setSelId(id); setCreando(false); };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
@@ -102,7 +124,7 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
           {/* Crear nueva (contacto gris, arriba de todo) */}
-          <button type="button" onClick={() => setDetalle('crear')}
+          <button type="button" onClick={() => { setCreando(true); setVista('editar'); }}
             style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85 }}>
             <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--faint)' }}>+</span>
             <div style={{ fontWeight: 600, fontSize: 13.5 }}>Crear nueva plantilla</div>
@@ -119,6 +141,16 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo}{!a.enabled && <span style={{ color: 'var(--faint)', fontWeight: 500 }}> · inactiva</span>}</div>
                   <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.ejemplo.replace(/[*_\n]/g, ' ').slice(0, 40)}</div>
                 </div>
+                {/* ⚠️ ACÁ VIVE EL AVISO QUE ANTES ERA UN CONFIRM AL CERRAR EL EDITOR.
+                    Al sacarse la ✕ (04/10/2026) se fue con ella el «¿Publicar los
+                    cambios?» de salida. El texto del borrador nunca estuvo en riesgo —se
+                    guarda al desmontar y por `visibilitychange`, con test—, así que lo
+                    único que ese Confirm agregaba era el aviso de que MaKo sigue mandando
+                    el texto VIEJO. Un aviso al salir es un EVENTO: se lee una vez y se
+                    olvida. Acá es un ESTADO, y por eso sobrevive a cambiar de mensaje, a
+                    la vista de Probar y al reload — y encima se ve de los OTROS mensajes,
+                    que un Confirm no podía mostrar nunca. */}
+                {a.borrador && <span title="Tiene cambios sin publicar: MaKo todavía manda el texto anterior" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />}
                 <span title={a.enabled ? 'Activa' : 'Inactiva'} style={{ width: 8, height: 8, borderRadius: '50%', background: a.enabled ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
                 {a.esCustom && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 5, padding: '1px 4px' }}>tuya</span>}
               </button>
@@ -127,8 +159,14 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
         </div>
       </div>
 
-      {detalle ? (
-        <TemplateDetalleModal plantilla={detalle === 'crear' ? null : detalle} onClose={() => setDetalle(null)} onCambio={recargar} endpoint={endpoint} />
+      {creando || (vista === 'editar' && sel) ? (
+        <TemplateDetalleModal
+          plantilla={creando ? null : (sel ?? null)}
+          onClose={() => setCreando(false)}
+          onCambio={recargar}
+          onVerChat={creando ? undefined : () => setVista('probar')}
+          endpoint={endpoint}
+        />
       ) : sel ? (
         <ChatHilo
           readOnly
@@ -138,14 +176,14 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
           typing={typing}
           header={(
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <button type="button" onClick={() => setDetalle(sel)} title="Ver detalle / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+              <button type="button" onClick={() => setVista('editar')} title="Ver detalle / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
                 <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{EMOJI_CATEGORIA[sel.categoria]}</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.titulo}</div>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[sel.categoria]} {LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''}{sel.enabled ? '' : ' · inactiva'} · toca para editar</div>
                 </div>
               </button>
-              <button type="button" onClick={() => setDetalle(sel)} title="Editar plantilla"
+              <button type="button" onClick={() => setVista('editar')} title="Editar plantilla"
                 style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Editar</button>
             </div>
           )}

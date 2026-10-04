@@ -29,27 +29,62 @@ const aviso = (p: Partial<AvisoParaGrafo> = {}): AvisoParaGrafo => ({
   canales: { wa: true, email: false }, insistir: null, evento: null, pasos: [], ...p,
 });
 
-test('DOS nodos: CRON y MENSAJE', () => {
-  // Eran tres. «Si no contestas» se dibujaba SIEMPRE, con o sin recordatorio
-  // prendido, así que era literalmente la caja que aparece sin que nadie la pida —
-  // y un nodo es algo que OCURRE, mientras que «si no contestas» es una CONDICIÓN
-  // del mensaje. Su interruptor se mudó adentro del panel del mensaje.
-  const g = grafoDeAviso(aviso());
-  assert.deepEqual(g.nodos.map((n) => n.id), ['entrada', 'mensaje']);
-  assert.deepEqual(g.nodos.map((n) => n.titulo), ['CRON', 'MENSAJE']);
+// ⚠️ PROBADOS ROMPIENDO LA PIEZA, 04/10/2026. Las cuatro roturas se cazan: volver el
+// título de WhatsApp a «MENSAJE» → 2 fallos · no dibujar la tarjeta de EMAIL → 3 ·
+// dejar la advertencia del recordatorio sin canal → 1 · apilar las dos tarjetas en la
+// misma Y (una encima de la otra) → 1. Sin esa comprobación serían cuatro
+// afirmaciones: el de la lista de títulos pasaba igual con el nodo viejo.
+test('UNA TARJETA POR CANAL PRENDIDO, y el título es el canal', () => {
+  // Eran tres nodos, después dos, y ahora son uno por canal. «Si no contestas» se
+  // dibujaba SIEMPRE, con o sin recordatorio prendido, así que era literalmente la
+  // caja que aparece sin que nadie la pida — y un nodo es algo que OCURRE, mientras
+  // que «si no contestas» es una CONDICIÓN del mensaje. Su interruptor se mudó
+  // adentro del panel del mensaje.
+  //
+  // ⚠️ Y EL TÍTULO «MENSAJE» PASÓ A SER EL CANAL, por pedido del 04/10/2026: «cambia
+  // la tarjeta de "Mensaje" por "WhatsApp" y agrega la tarjeta de "Email"». Las dos
+  // se DERIVAN de `canales`, el campo del mensaje: el canal no volvió a ser un nodo
+  // (ver el test de abajo), lo que hay es un mensaje por cada lado por el que sale.
+  const soloWa = grafoDeAviso(aviso({ canales: { wa: true, email: false } }));
+  assert.deepEqual(soloWa.nodos.map((n) => n.id), ['entrada', 'mensaje']);
+  assert.deepEqual(soloWa.nodos.map((n) => n.titulo), ['CRON', 'WHATSAPP']);
+
+  const soloMail = grafoDeAviso(aviso({ canales: { wa: false, email: true } }));
+  assert.deepEqual(soloMail.nodos.map((n) => n.id), ['entrada', 'mensaje-email']);
+  assert.deepEqual(soloMail.nodos.map((n) => n.titulo), ['CRON', 'EMAIL']);
+
+  const losDos = grafoDeAviso(aviso({ canales: { wa: true, email: true } }));
+  assert.deepEqual(losDos.nodos.map((n) => n.titulo), ['CRON', 'WHATSAPP', 'EMAIL']);
+  // ⚠️ El id de WhatsApp sigue siendo `mensaje` A PROPÓSITO: las posiciones guardadas
+  // se podan por id, y `FlujoAviso.tsx` pregunta `n.id === 'mensaje'` en tres lugares
+  // para decidir dónde se puede agregar un paso. Renombrarlo borraba la coordenada de
+  // todo el que había movido su tarjeta, en el primer arrastre y sin error.
+  assert.deepEqual(losDos.nodos.map((n) => n.id), ['entrada', 'mensaje', 'mensaje-email']);
+  // Y no se pisan: la del mail va DEBAJO, no encima.
+  const wa = losDos.nodos.find((n) => n.id === 'mensaje')!;
+  const mail = losDos.nodos.find((n) => n.id === 'mensaje-email')!;
+  assert.equal(wa.x, mail.x, 'las dos tarjetas del mensaje van en la misma columna');
+  assert.ok(mail.y >= wa.y + (wa.alto ?? 0), 'la tarjeta del mail se dibuja encima de la de WhatsApp');
 });
 
 test('⚠️ «Te llega al grupo» NO es un nodo: un nodo es algo que OCURRE', () => {
   // Por dónde sale un mensaje es una PROPIEDAD del mensaje, no un paso del flujo.
   // Dibujarla como paso hace que el grafo cuente un hecho de más — y encima uno
   // que no se puede tocar desde ahí, porque el canal se elige al entrar.
-  const g = grafoDeAviso(aviso());
+  const g = grafoDeAviso(aviso({ canales: { wa: true, email: true } }));
   assert.ok(!g.nodos.some((n) => n.id === 'salida'), 'volvió el nodo que no hacía nada');
-  // ⚠️ Y AHORA SE LEE EN EL `detalle`, NO EN EL TÍTULO: el título pasó a ser «MENSAJE»
-  // a pedido, y este hecho —el único lugar del lienzo donde se dice por dónde llega—
-  // se habría ido con él sin que nada fallara.
-  assert.match(g.nodos.find((n) => n.id === 'mensaje')?.detalle ?? '', /WhatsApp/,
-    'el destino tiene que leerse en el propio nodo del mensaje');
+  // ⚠️ Y EL HECHO VOLVIÓ AL TÍTULO, QUE ES DONDE SE LEE SIN ABRIR NADA. Pasó por los
+  // tres lugares: era el título («Te llega al grupo de WhatsApp»), bajó al `detalle`
+  // cuando el título se volvió «MENSAJE» a pedido, y el 04/10/2026 volvió arriba como
+  // el NOMBRE de cada tarjeta. Lo que el test cuida no es dónde está: es que el dato
+  // no se pueda ir sin que nada falle. Por eso pide los dos canales por su nombre.
+  const titulos = g.nodos.map((n) => n.titulo);
+  assert.ok(titulos.includes('WHATSAPP'), 'el destino tiene que leerse en la tarjeta');
+  assert.ok(titulos.includes('EMAIL'), 'el destino tiene que leerse en la tarjeta');
+  // Y sigue siendo un CAMPO, no un nodo: apagar un canal saca su tarjeta, no agrega
+  // una que diga «por acá no». Un nodo es algo que ocurre.
+  const unaSola = grafoDeAviso(aviso({ canales: { wa: true, email: false } }));
+  assert.equal(unaSola.nodos.filter((n) => n.tipo === 'mensaje').length, 1);
 });
 
 test('⚠️ El recordatorio se lee EN el mensaje, y no tiene nodo propio', () => {
@@ -97,8 +132,12 @@ test('⚠️ Un recordatorio sin WhatsApp está dibujando algo que no puede ocur
   // nada. Por eso los dos lados piden el nodo que sí existe.
   const conWa = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 2 }, canales: { wa: true, email: true } }));
   assert.equal(conWa.nodos.find((n) => n.id === 'mensaje')!.advertencia, undefined);
+  // ⚠️ SIN WHATSAPP YA NO HAY TARJETA `mensaje`: la advertencia viaja a la del MAIL,
+  // que es la única que queda dibujada y por lo tanto la única que alguien va a mirar.
+  // Puesta en una tarjeta que no se dibuja, el aviso existía y no se leía nunca.
   const sinWa = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 2 }, canales: { wa: false, email: true } }));
-  assert.match(sinWa.nodos.find((n) => n.id === 'mensaje')!.advertencia ?? '', /WhatsApp/);
+  assert.equal(sinWa.nodos.find((n) => n.id === 'mensaje'), undefined, 'sin WhatsApp no hay tarjeta de WhatsApp');
+  assert.match(sinWa.nodos.find((n) => n.id === 'mensaje-email')!.advertencia ?? '', /WhatsApp/);
   // Y sin NINGÚN canal manda la otra: el mensaje no sale, que es más grave.
   const sinNada = grafoDeAviso(aviso({ insistir: { cadaMin: 30, veces: 2 }, canales: { wa: false, email: false } }));
   assert.match(sinNada.nodos.find((n) => n.id === 'mensaje')!.advertencia ?? '', /no sale/);

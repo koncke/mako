@@ -218,6 +218,7 @@ export function Dropdown({
   resetAfterSelect = false,
   sinFlecha = false,
   ariaLabel,
+  botonLabel,
   disabled = false,
   search,
   portalTo,
@@ -265,6 +266,19 @@ export function Dropdown({
    *  está elegido. Va acá y no en cada `option` porque no cambia con la selección: un
    *  desplegable de filtro tiene que leerse como filtro incluso cuando dice «todo». */
   icono?: ReactNode;
+  /**
+   * Qué dibuja el BOTÓN, cuando no alcanza con el label de la opción elegida.
+   *
+   * Existe por la categoría del editor de mensajes: el MENÚ tiene que decir
+   * «⚡ Acción» —un emoji solo no alcanza, lo fija docs/branding-mako.md: «un color
+   * solo deja afuera a quien no lo distingue»— y el BOTÓN tiene que ser nada más que
+   * el emoji, porque vive antes del título y un desplegable de 168 px ahí se lee como
+   * un paso de la secuencia. Son dos preguntas distintas y antes compartían campo.
+   *
+   * ⚠️ No reemplaza al `ariaLabel`: el botón sigue anunciándose por él, que es lo que
+   * hace que un emoji suelto no deje a nadie afuera.
+   */
+  botonLabel?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -388,7 +402,7 @@ export function Dropdown({
           {icono && <span style={{ flex: 'none', display: 'flex', color: 'var(--faint)' }}>{icono}</span>}
           {selected?.avatar !== undefined && <OptAvatar url={selected.avatar} name={selected.label} size={20} cuadrado={selected.avatarCuadrado} />}
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : placeholder}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{botonLabel ?? (selected ? selected.label : placeholder)}</span>
         </span>
         {/* ⚠️ UN MENÚ DE ACCIONES NO LLEVA FLECHA. La flecha dice «acá se elige un valor
             y el elegido queda escrito»; un menú de tres puntos dice «acá hay cosas para

@@ -37,7 +37,6 @@ import { CanalToggle } from '../_components/CanalToggle';
 import { type Destinatarios } from './DestinatariosLista';
 import { DestinatariosCanal } from './DestinatariosCanal';
 import { PlantillasView } from '../agencia/PlantillasView';
-import { BandejaEmail } from './BandejaEmail';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -47,7 +46,6 @@ const ENDPOINT = '/api/perfil/plantillas';
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
-const btnLink: CSSProperties = { border: 0, background: 'transparent', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
 // Sin `alignItems`, o sea ESTIRADOS: los tres miden lo mismo siempre, que es lo que
 // pidió el dueño. Lo que lo hace posible es que ya no haya nada que se abra y cierre
 // adentro —la configuración de destinatarios se ve siempre—, así que el alto de la
@@ -94,35 +92,29 @@ function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
 }
 
 /**
- * Tile de un canal: qué es, a quién le llega —con su editor SIEMPRE a la vista— y,
- * al pie, el botón que abre sus mensajes debajo de la fila.
+ * Tile de un canal: qué es y a quién le llega, con su editor SIEMPRE a la vista.
  *
- * ⚠️ EL EDITOR NO SE ABRE NI SE CIERRA. Estuvo un rato detrás de «Gestionar» y el
- * dueño lo cortó: «la configuración de número e email, siempre abierta». Y arregla
- * algo que no era de gusto — un tile que crece al tocarlo hace saltar el alto de
- * toda la fila, que es justo lo contrario de «todos siempre la misma altura».
+ * ⚠️ NO ABRE NI CIERRA NADA. El editor de destinatarios ya era «siempre abierto» por
+ * pedido del dueño («la configuración de número e email, siempre abierta»), y el
+ * 04/10/2026 se cayó también el botón que abría los MENSAJES del canal debajo de la
+ * fila: «no quiero que se abra más con el "Gestionar notificaciones", elimina eso,
+ * que esté abierto siempre». Los mensajes se dibujan solos más abajo.
  *
- * Lo que el botón abre es OTRA cosa: los mensajes de ese canal, que viven debajo del
- * recuadro. Por eso dice «Gestionar notificaciones» y no «Gestionar» a secas: nombra
- * su objeto, y así no promete tocar los destinatarios que ya están arriba.
+ * Y con el botón se fue el par `abierto`/`onToggle`: sin un canal elegido, el borde
+ * azul y el halo no tenían qué marcar. Queda el borde de `alerta`, que sigue
+ * contestando otra cosa — que ese canal no tiene a nadie.
  */
-function TileCanal({ icono, color, nombre, detalle, alerta, abierto, onToggle, editor }: {
+function TileCanal({ icono, color, nombre, detalle, alerta, editor }: {
   icono: string; color: string; nombre: string; detalle?: string;
-  alerta?: boolean; abierto?: boolean; onToggle: () => void; editor: ReactNode;
+  alerta?: boolean; editor: ReactNode;
 }) {
   return (
     <Tile
       icono={icono} color={color} titulo={nombre}
       detalle={detalle}
-      borde={abierto ? 'var(--primary)' : alerta ? 'var(--warn)' : undefined}
-      sombra={abierto ? '0 0 0 3px var(--primary-bg)' : undefined}
+      borde={alerta ? 'var(--warn)' : undefined}
     >
       {editor}
-      {/* `marginTop: auto` lo empuja al piso del tile: con los tres estirados al mismo
-          alto, los dos botones quedan a la misma altura sin calcular nada. */}
-      <button type="button" onClick={onToggle} style={{ ...btnLink, marginTop: 'auto', paddingTop: 12, textAlign: 'left' }}>
-        {abierto ? 'Cerrar' : 'Gestionar notificaciones'}
-      </button>
     </Tile>
   );
 }
@@ -213,7 +205,6 @@ export function NotificacionesPanel() {
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
   const [dest, setDest] = useState<Destinatarios | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
-  const [canal, setCanal] = useState<'whatsapp' | 'email' | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
@@ -330,27 +321,34 @@ export function NotificacionesPanel() {
               cuando no hay nadie, que es cuando la lista está vacía y no dice nada. */}
           <TileCanal
             icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
-            alerta={!hayWa} abierto={canal === 'whatsapp'}
+            alerta={!hayWa}
             detalle={hayWa ? (tieneGrupo ? 'Al grupo de MaKo' : undefined) : 'Sin conectar — MaKo no puede avisar por aquí'}
-            onToggle={() => setCanal((c) => (c === 'whatsapp' ? null : 'whatsapp'))}
             editor={<DestinatariosCanal key="whatsapp" canal="whatsapp" inicial={dest} onGuardado={guardarDest} />}
           />
           <TileCanal
             icono="email" color={hayMail ? 'var(--primary)' : 'var(--warn)'} nombre="Email"
-            alerta={!hayMail} abierto={canal === 'email'}
+            alerta={!hayMail}
             detalle={hayMail ? undefined : 'Sin conectar — falta una dirección'}
-            onToggle={() => setCanal((c) => (c === 'email' ? null : 'email'))}
             editor={<DestinatariosCanal key="email" canal="email" inicial={dest} onGuardado={guardarDest} />}
           />
         </div>
       </div>
 
-      {/* Los mensajes de ese canal: el chat de WhatsApp (la MISMA pantalla de
-          /mensajes) o la bandeja de correo. Van FUERA del recuadro de arriba porque
-          contestan otra pregunta —qué dicen, no a quién llegan— y porque cada uno
-          mide 560px: adentro, el recuadro dejaría de leerse como una caja. */}
-      {canal === 'whatsapp' && <PlantillasView endpoint={ENDPOINT} />}
-      {canal === 'email' && <BandejaEmail emails={dest.emails} endpoint={ENDPOINT} />}
+      {/* Los mensajes, SIEMPRE a la vista y UNO para los dos canales. Van FUERA del
+          recuadro de arriba porque contestan otra pregunta —qué dicen, no a quién
+          llegan— y porque miden 560px: adentro, el recuadro dejaría de leerse como
+          una caja.
+
+          ⚠️ ANTES ERAN DOS TABLEROS Y SE ELEGÍA CON EL TILE. Lo cortó el dueño el
+          04/10/2026: «las secuencias de email o WhatsApp es lo mismo, no se gestiona
+          aparte». Por dónde sale un mensaje es un CAMPO del mensaje (`canales`), no
+          una pantalla — que es la misma regla por la que el canal no es un nodo del
+          lienzo. El canal se prende ahora en el tablero, con la tarjeta de cada uno.
+
+          `BandejaEmail` sigue existiendo y ya no se monta acá: lo que hacía de más
+          —ver los correos que salieron— no es configurar un mensaje. Si vuelve, vuelve
+          por su propia puerta y no como la mitad email de esta pantalla. */}
+      <PlantillasView endpoint={ENDPOINT} />
     </div>
   );
 }

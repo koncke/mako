@@ -30,6 +30,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
+import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { Dropdown } from '../components/Dropdown';
@@ -59,6 +60,9 @@ const ACCIONES: Array<{ value: AccionFlujo; label: string }> = [
 ];
 
 const FLUJO_VACIO: Flujo = { version: 1, activo: true, disparador: { tipo: 'manual' }, pasos: [] };
+
+/** Lo que una pasada de deshacer restaura: el tablero entero, no un campo. */
+type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
 
 /** Lo que se agenda al elegir TIEMPO: todos los días a las 9 de la mañana. Es el
  *  caso que más se pidió y el que no necesita ningún campo más. */
@@ -157,12 +161,48 @@ export function FlujoAviso({
     setBusy(false);
   }
 
-  async function guardarFlujo(f: Flujo | null) {
+  /**
+   * ⚠️ EL CHOKE POINT DEL TABLERO, Y POR ESO ES DONDE SE APILA EL DESHACER.
+   *
+   * Pedido el 04/10/2026: «agrega los botones de deshacer y rehacer, y que funcione el
+   * ctrl z / y». Todas las mutaciones del flujo pasan por acá —prender y apagar el
+   * recordatorio, cambiar su cadencia, insertar un paso, quitarlo, cambiar su acción—,
+   * así que apilar en este lugar le da deshacer a las seis y al paso que se agregue
+   * mañana. Puesto en cada handler cubriría sólo los que existen hoy, que es la regla
+   * de la casa sobre lo que vale para TODOS los cambios.
+   *
+   * ⚠️ Y DESHACER ESCRIBE EN EL SERVER, no sólo en la pantalla: este cambio YA se
+   * guardó, así que revertir sólo el estado de React es mentir hasta el próximo F5.
+   * Por eso `aplicarFoto` vuelve a llamar a este mismo camino con el valor anterior.
+   */
+  async function guardarFlujo(f: Flujo | null, opts: { apilar?: boolean } = {}) {
+    if (opts.apilar !== false) apilar({ flujo, pos });
     setBusy(true); setErr(null);
     const r = await api({ action: 'flujo-set', id, flujo: f });
     if (r?.ok) setFlujo((r.flujo as Flujo | null) ?? null);
     setBusy(false);
   }
+
+  /**
+   * Restaura una foto del tablero y DEVUELVE la que estaba, que es lo que la pila de
+   * rehacer necesita. Las posiciones se escriben acá mismo y no por el debounce de
+   * `mover`: un deshacer tiene que quedar guardado aunque la persona cierre enseguida.
+   */
+  const aplicarFoto = (foto: FotoTablero): FotoTablero => {
+    const antes: FotoTablero = { flujo, pos };
+    setSel(null);
+    setPos(foto.pos);
+    void api({ action: 'posiciones', id, posiciones: foto.pos });
+    void guardarFlujo(foto.flujo, { apilar: false });
+    return antes;
+  };
+
+  const { apilar, deshacer, rehacer, puedeDeshacer, puedeRehacer } = usePilaDeshacer<FotoTablero>(
+    aplicarFoto,
+    // `activa` cuelga de `editable`: en un aviso que redacta MaKo no hay nada que
+    // deshacer, y un atajo que no hace nada es peor que ninguno.
+    { activa: editable },
+  );
 
   const insistir = (flujo?.pasos ?? []).find(esInsistir) ?? null;
   const pasosExtra = pasosDibujados(flujo?.pasos ?? []);
@@ -180,7 +220,19 @@ export function FlujoAviso({
   // cada vez. Si falla, se dice — no se revierte: revertir una posición a mitad de
   // una sesión de acomodar es más desconcertante que un cartel.
   const guardarPos = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * ⚠️ EL ARRASTRE APILA UNA VEZ POR GESTO, NO POR PÍXEL. `mover` se llama decenas de
+   * veces por segundo: apilar en cada una haría que Ctrl+Z devolviera la tarjeta un
+   * píxel y hubiera que apretarlo cuarenta veces para volver donde uno estaba. El
+   * gesto se reconoce por el hueco: si pasaron más de 450 ms desde el último `mover`,
+   * esto es el PRIMER movimiento de un arrastre nuevo. Es el mismo umbral del debounce
+   * que ya guarda la posición, así que no hay un segundo número que mantener.
+   */
+  const ultimoMover = useRef(0);
   function mover(nodoId: string, x: number, y: number) {
+    const ahora = performance.now();
+    if (ahora - ultimoMover.current > 450) apilar({ flujo, pos });
+    ultimoMover.current = ahora;
     const sig = podarPosiciones({ ...pos, [nodoId]: { x, y } }, grafo.nodos.map((n) => n.id));
     setPos(sig);
     if (guardarPos.current) clearTimeout(guardarPos.current);
@@ -216,7 +268,27 @@ export function FlujoAviso({
         // CRON señalaba un lugar y el paso aparecía en otro.
         puedeAgregarTras={(idNodo) => idNodo === 'mensaje' || /^paso-\d+$/.test(idNodo)}
         agregarOcupado={busy}
-        chrome={chrome} sinMarco alto="100%"
+        chrome={(
+          /* ⚠️ LOS BOTONES LOS DIBUJA ESTE COMPONENTE, NO EL PARENT, aunque la banda
+             de arriba sea un slot que el parent llena. El estado del tablero vive
+             acá: pasarle al parent un `onDeshacer` habría dejado la capacidad en un
+             archivo y el call site en otro, que es exactamente cómo esta casa produce
+             salidas huérfanas. Se compone: primero lo del parent, después lo nuestro.
+
+             Y van ACÁ y no en una esquina del lienzo porque las cuatro esquinas están
+             tomadas y con dueño escrito: arriba el título y el grupo de la derecha,
+             abajo a la izquierda el zoom —«la esquina la pidió el dueño»— y abajo a la
+             derecha Publicar. La banda de arriba es la única que puede crecer. */
+          <>
+            {chrome}
+            {editable && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 10 }} data-no-pan>
+                <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
+                <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
+              </div>
+            )}
+          </>
+        )} sinMarco alto="100%"
         renderNodo={(n, activo) => (
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={Boolean(n.advertencia)}>
             {n.tipo === 'mensaje' && n.id === 'mensaje'
@@ -645,5 +717,30 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
         />
       )}
     </>
+  );
+}
+
+/**
+ * Un botón de la pila. Apagado cuando no hay nada que deshacer o rehacer, que es lo
+ * que lo vuelve honesto: ofrecer un «Deshacer» que no deshace nada es peor que no
+ * ofrecerlo — la misma regla que ya está escrita en `app/_ui/Toast.tsx` para su
+ * `onUndo` opcional.
+ *
+ * ⚠️ `data-no-pan` lo pone el envoltorio y no cada botón: un `pointerdown` en los
+ * píxeles de separación no encuentra el botón, y el lienzo lo tomaría como un paneo.
+ */
+function BotonPila({ titulo, onClick, activo, children }: {
+  titulo: string; onClick: () => void; activo: boolean; children: React.ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={!activo} title={titulo} aria-label={titulo}
+      style={{
+        width: 32, height: 32, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)',
+        color: activo ? 'var(--dim)' : 'var(--faint)', fontSize: 15, fontFamily: 'inherit',
+        cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.45,
+      }}>
+      {children}
+    </button>
   );
 }
