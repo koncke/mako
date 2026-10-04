@@ -782,6 +782,21 @@ La advertencia que no entra en ese molde —«ojo, esto es lo único que no se r
 va igual, pero **después** del motivo y marcada como lo que es. Primero se contesta la
 pregunta de la columna.
 
+⚠️ **Y CUANDO ESA FILA SE TERMINA, EL PORQUÉ DE LA DECISIÓN YA ES HISTORIA.** El
+motivo de un «se pospone» es, por construcción, un argumento para NO hacerla: al
+lado de un chip que diga «Hecha» se lee como una contradicción, que es justo lo
+que esta columna no puede producir. Medido el 04/10/2026 al marcar lo terminado en
+`/admin/runway`: «Mientras tanto se corrige a mano en la ficha. Y si lo quieres de
+paso, es una línea» al lado de un ✓.
+
+Lo que la columna dice de una fila cerrada es **qué quedó funcionando**, y eso es
+un dato nuevo que no se deriva de nada: va en su propio campo (`hecho`), que gana
+cuando la fila está hecha. El motivo de un «se queda» sobrevive solo —dice qué se
+rompía sin eso, o sea por qué se hizo—, así que el campo hace falta sólo donde el
+veredicto era NO hacerla. Y como «cerrada» sale del tablero en vivo, nada puede
+exigirlo: la advertencia va en el comentario del catálogo, que es lo que lee el
+que cierre la próxima.
+
 ⚠️ **Esto NO aplica a lo que se escribe en el repo.** Los comentarios, los mensajes de commit
 y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
 primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.

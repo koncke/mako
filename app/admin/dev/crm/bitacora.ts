@@ -466,4 +466,31 @@ export const BITACORA: Hito[] = [
       'tests/eliminar-etapa-coherente.test.ts — la decisión contra `generateFunnel` y el cableado leyendo la línea del menú',
     ],
   },
+  {
+    fecha: '4 oct', hora: '14:12', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Marcar en el runway y en el tablero lo que ya está terminado',
+    pedido: 'Marca en la ruta de runway y en el proyecto de CRM las que ya están terminadas.',
+    puntos: [
+      'Cierra la tanda que arrancó con «comienza a solucionar absolutamente todo lo que puedas hacer sin mi ayuda o intervención». Nueve tarjetas cerradas en el tablero con su evidencia al commit `01cf2164`, y la pantalla mostrándolo.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '14:40', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo terminado se ve marcado: el lector de /admin/dev lo escondía',
+    puntos: [
+      '**`roadmapDe` filtra por progress < 100 EN LA CONSULTA**, así que para él una tarea cerrada no existe. Para /admin/dev eso es correcto —su pregunta es «¿qué queda?»— y acá es justo lo contrario: las nueve recién cerradas desaparecían, o sea que lo hecho se leía igual que lo que nunca existió. Va un lector propio que trae abiertas y cerradas, con el título y la prioridad saliendo del tablero en cada carga.',
+      '**Se acota al universo de la depuración.** El proyecto arrastra once tareas cerradas de antes que nadie decidió acá: medido, 37 filas sin filtro contra 26 con él (las 25 revisadas + la nueva). Lo que se abra después entra igual y sale «sin revisar», que es lo que no se puede esconder.',
+      '⚠️ **El porqué de una fila cerrada no es el de la decisión.** El motivo de un «se pospone» es un argumento para NO hacerla: al lado de un ✓ se lee como una contradicción. #697 decía «mientras tanto se corrige a mano… es una línea» sobre una tarea ya resuelta. Va un campo `hecho` que gana cuando está cerrada; el de un «se queda» sobrevive solo, porque dice qué se rompía sin eso.',
+      'Y el verde pasa a significar «hecha», no «se queda»: dos cosas distintas no pueden compartir color en la misma barra.',
+    ],
+    commits: [
+      { sha: 'c2dfdfdf', msg: 'runway: las tareas terminadas del CRM se ven marcadas, no desaparecen', lineas: 142, archivos: 3 },
+    ],
+    archivos: [
+      'app/admin/runway/tareas.ts — el lector que trae abiertas Y cerradas, con el porqué de no reusar `roadmapDe`',
+      'app/admin/runway/datos.ts — los veredictos de la depuración y el campo `hecho`',
+    ],
+  },
 ];

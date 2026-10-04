@@ -5650,7 +5650,22 @@ función no contesta nada. Cuando una función tiene una salida temprana que dep
 un catálogo incompleto, **el comentario que hace falta está en la salida temprana**,
 no en el catálogo.
 
-**Vive en:** `app/admin/dev/roadmap.ts:94-96` · *2026-10-04 runway-crm*
+⚠️ **Y `roadmapDe` TAMPOCO SIRVE PARA PREGUNTAR QUÉ ESTÁ HECHO: filtra
+`.lt('progress', 100)` EN LA CONSULTA.** Para /admin/dev eso es correcto —su
+pregunta es «¿qué queda?»— pero significa que para ese lector una tarea cerrada
+**no existe**, y eso no se nota hasta que alguien le pregunta otra cosa. Medido
+el mismo día, al marcar lo terminado en el runway: las nueve tarjetas que se
+acababan de cerrar desaparecían de la tabla, o sea que el trabajo hecho se leía
+igual que el que nunca existió.
+
+El lector propio quedó en `app/admin/runway/tareas.ts`, y lo que se gana es que
+el título, la prioridad y el avance sigan saliendo del tablero en cada carga: la
+alternativa —escribir los títulos a mano en el catálogo de la pantalla— es la
+segunda copia que se queda vieja. **Antes de reusar un lector, mirá qué FILTRA en
+la consulta, no sólo qué devuelve**: un `where` es una pregunta hecha, y los
+lectores de esta casa están escritos para la suya.
+
+**Vive en:** `app/admin/dev/roadmap.ts:94-96` y `:63` · `app/admin/runway/tareas.ts` · *2026-10-04 runway-crm*
 
 ---
 
