@@ -38,6 +38,7 @@ import { EditorMensaje } from './EditorMensaje';
 import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
 import { UNIDADES, CADA_MAX, DIA_MES_MAX, sanearCron, textoCron, type CronAviso } from '@/lib/cron-aviso';
 import { variablesPara } from '@/lib/variables-aviso';
+import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import {
   EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
   type Flujo, type Paso, type AccionFlujo,
@@ -252,7 +253,48 @@ export function FlujoAviso({
    * el botón diga DÓNDE va a caer el paso, que es lo que un botón suelto en una
    * esquina no puede decir.
    */
-  function agregarTras(nodoId: string) {
+  /**
+   * ⚠️ EL ＋ PREGUNTA QUE CREAR, Y DOS DE LAS TRES OPCIONES NO SON UN PASO.
+   *
+   * Pedido el 04/10/2026: «si le doy al botón de +, antes de crear una tarjeta
+   * debería salir un desplegable que me pregunte qué quiero crear… otro "WhatsApp" o
+   * un "Email" o una "Acción" que es lo que sale por defecto ahora».
+   *
+   * WhatsApp y Email NO son pasos: las tarjetas de canal se DERIVAN de
+   * `canales:{wa,email}`, dos booleanos del mensaje, y en el motor `CanalPaso` sólo
+   * tiene `aviso_dueno | wa_lead` — no hay ninguna rama que mande mail. Elegirlos
+   * PRENDE el canal, que es lo que hace aparecer su tarjeta. Es la decisión de
+   * siempre: por dónde sale un mensaje es un campo, no un nodo.
+   *
+   * ⚠️ Y ESTO ARREGLA ALGO QUE ROMPÍ YO. El único control vivo que escribía
+   * `canales.email` vivía en `BandejaEmail`, que dejé de montar el 04/10. Medido
+   * después: CERO de los 65 mensajes tenía el canal de mail prendido en los cuatro
+   * workspaces que tocaron el store, así que la tarjeta EMAIL no se dibujaba para
+   * nadie y no quedaba forma de prenderla. El comentario que dejé en
+   * `NotificacionesPanel` afirmaba que «el canal se prende ahora en el tablero»:
+   * esto es lo que lo vuelve cierto.
+   *
+   * ⚠️ Y VA POR `guardarCanalDeMensaje`, NO ESCRIBIENDO `canales` DERECHO. Los tres
+   * reportes tienen su canal en OTRA tienda (`notification_prefs`) y ese módulo es el
+   * que sabe cuál mirar: escribir el store a mano los dejaría con el tablero diciendo
+   * una cosa y el correo saliendo igual.
+   *
+   * El «Condicional» que también se pidió NO está en el menú, a propósito: el motor
+   * no puede ejecutarlo hoy —`ejecutarPasos` es un `for` sincrónico adentro del
+   * webhook, sin fila, sin estado y sin reanudación, tanto que el paso `esperar` que
+   * ya existe hace `break`— y la regla de la casa es que sólo se dibuja la rama que
+   * el motor EJECUTA. Un botón que no hace nada se lee como que la app está rota.
+   */
+  async function agregarTras(nodoId: string, que: string) {
+    if (que === 'wa' || que === 'email') {
+      if (!id) return;
+      setBusy(true); setErr(null);
+      const r = await guardarCanalDeMensaje(id, que, true, endpoint);
+      if (!r.ok) setErr(r.error ?? 'No pude prender el canal');
+      setBusy(false);
+      onCambio?.();
+      return;
+    }
     const base = flujo ?? FLUJO_VACIO;
     const nuevo: Paso = { tipo: 'accion', accion: 'crear_tarea' };
     void guardarFlujo({ ...base, activo: true, pasos: insertarPasoTras(base.pasos, nodoId, nuevo) });
@@ -262,7 +304,12 @@ export function FlujoAviso({
     <>
       <Lienzo
         grafo={grafo} seleccion={sel} onSeleccion={setSel} onMover={mover}
-        onAgregarTras={editable ? agregarTras : undefined}
+        onAgregarTras={editable ? ((nodoId, que) => void agregarTras(nodoId, que)) : undefined}
+        opcionesAgregar={[
+          { value: 'wa', label: '💬 WhatsApp', sub: canales.wa ? 'ya sale por aquí' : 'que también salga por WhatsApp', disabled: canales.wa },
+          { value: 'email', label: '✉️ Email', sub: canales.email ? 'ya sale por aquí' : 'que también salga por correo', disabled: canales.email },
+          { value: 'accion', label: '⚡ Acción', sub: 'que MaKo haga algo, no que avise' },
+        ]}
         // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
         // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
         // CRON señalaba un lugar y el paso aparecía en otro.

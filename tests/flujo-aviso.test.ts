@@ -462,7 +462,11 @@ test('⚠️ El botón de abajo dice PUBLICAR, y agregar un paso salió de ahí'
   assert.ok(!/Mensaje al lead/.test(flujo), 'volvió el botón de mensaje al lead');
   assert.match(flujo, /onAgregarTras=\{/, 'el ＋ de la tarjeta dejó de estar enchufado');
   const lienzo = leer('../app/_components/Lienzo.tsx');
-  assert.match(lienzo, /onAgregarTras\(n\.id\)/, 'el ＋ dejó de decir SOBRE QUÉ tarjeta se agrega');
+  // ⚠️ AHORA LLEVA UN SEGUNDO ARGUMENTO: el ＋ pregunta QUÉ crear (04/10/2026), así
+  // que la llamada es `onAgregarTras(n.id, …)`. Lo que el assert cuida no cambió —
+  // que el ＋ diga SOBRE QUÉ tarjeta se agrega, que es lo que un botón suelto en una
+  // esquina no puede decir— y por eso sigue exigiendo el `n.id` como primer argumento.
+  assert.match(lienzo, /onAgregarTras\(n\.id,/, 'el ＋ dejó de decir SOBRE QUÉ tarjeta se agrega');
 });
 
 test('⚠️ El título y la categoría se editan, y el `id` no cambia', () => {

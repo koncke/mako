@@ -33,6 +33,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { SvcIcon, ICON, BrandDefs } from './ServicioVisual';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import {
   curvaEntre, medioDeCurva,
   type GrafoFlujo, type NodoFlujo, type TonoArista,
@@ -67,7 +68,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
-  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, chrome, herramientas, sinMarco = false,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, chrome, herramientas, sinMarco = false,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -103,11 +104,17 @@ export function Lienzo({
   /** Agregar un paso DESPUÉS de este nodo. Dibuja un «＋» al pasar el cursor por la
    *  tarjeta, a su derecha — que es donde va a aparecer lo que se agregue. Un botón
    *  suelto en una esquina no dice DÓNDE entra el paso; éste sí. */
-  onAgregarTras?: (id: string) => void;
+  onAgregarTras?: (id: string, que: string) => void;
   /** En qué nodos tiene sentido el ＋. Sin esto sale en TODOS, incluido el de entrada
    *  — y el paso que agrega ahí no cuelga de él sino del mensaje, así que el botón
    *  señala un lugar y el paso cae en otro. Eso es el «se comporta de manera random». */
   puedeAgregarTras?: (id: string) => boolean;
+  /**
+   * Si viene, el ＋ PREGUNTA qué crear en vez de crear una sola cosa. Un desplegable
+   * de una opción es una pregunta ya contestada, así que sin esto el ＋ sigue siendo
+   * un botón — que es lo correcto para un lienzo con un solo tipo de paso.
+   */
+  opcionesAgregar?: DropdownOption[];
   /** Hay un guardado en vuelo: el ＋ se DESHABILITA, no se desmonta. Un control que
    *  desaparece bajo el dedo se lee como un clic que no registró. */
   agregarOcupado?: boolean;
@@ -408,7 +415,14 @@ export function Lienzo({
              */
             <div key={n.id}
               onPointerEnter={() => setEncima(n.id)}
-              onPointerLeave={() => setEncima((prev) => (prev === n.id ? null : prev))}
+              /**
+               * ⚠️ NO SE APAGA MIENTRAS HAYA UN MENU ABIERTO. El ＋ sólo existe con
+               * `encima === n.id`, y el menú del desplegable se monta por PORTAL en el
+               * body, fuera de esta caja: al ir del botón al menú se dispara el leave y
+               * el menú se desmonta CON el botón, en el medio del gesto. Es la misma
+               * familia que el bug de los 8 px que ya está medido acá abajo.
+               */
+              onPointerLeave={() => { if (document.querySelector('[role="listbox"]')) return; setEncima((prev) => (prev === n.id ? null : prev)); }}
               onFocus={() => setEncima(n.id)}
               onBlur={() => setEncima((prev) => (prev === n.id ? null : prev))}
             >
@@ -426,8 +440,17 @@ export function Lienzo({
                     display: 'inline-flex', lineHeight: 0,
                   }}
                 >
-                  <button
-                    onClick={() => onAgregarTras(n.id)} disabled={agregarOcupado}
+                  {opcionesAgregar ? (
+                    <Dropdown
+                      value="" ariaLabel="Agregar algo después de esta tarjeta"
+                      sinFlecha botonLabel="＋" disabled={agregarOcupado}
+                      buttonStyle={{ width: 26, height: 26, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, lineHeight: 1 }}
+                      options={opcionesAgregar}
+                      onChange={(v) => v && onAgregarTras(n.id, v)}
+                    />
+                  ) : (
+                    <button
+                    onClick={() => onAgregarTras(n.id, 'accion')} disabled={agregarOcupado}
                     title="Agregar un paso después de este" aria-label="Agregar un paso después de este"
                     style={{
                       width: 26, height: 26, borderRadius: '50%',
@@ -438,6 +461,7 @@ export function Lienzo({
                       boxShadow: '0 2px 6px rgba(0,0,0,.10)',
                     }}
                   >＋</button>
+                  )}
                 </span>
               )}
             </div>
