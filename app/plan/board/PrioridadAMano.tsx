@@ -26,6 +26,12 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react';
 import { MakoStar } from '../../_components/MakoBrand';
+// ⚠️ LAS BANDAS SE IMPORTAN, NO SE REESCRIBEN. Acá vivía una copia de los cuatro umbrales
+// con sus nombres y sus colores, idéntica a la de `types.ts` por casualidad. Desde el
+// 04/10/2026 el desplegable de la barra de lote ofrece las bandas Y este pop-up en el
+// MISMO control: dos catálogos que se vean juntos y digan cosas distintas del mismo número
+// es la falla que «una cosa, un lugar» describe, y acá se vería en la misma pantalla.
+import { PLABEL, PCOLOR, prioFromScore } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -78,14 +84,8 @@ export function LapizPrioridad({ onClick, titulo = 'Cambiar la prioridad', tam =
  */
 export type Vecino = { id: string; titulo: string; score: number };
 
-/** La banda a la que pertenece un número, y su color. UNA sola definición para el pop-up. */
-const BANDAS: Array<{ min: number; label: string; color: string }> = [
-  { min: 75, label: 'Alta', color: '#D0504A' },
-  { min: 50, label: 'Media', color: '#C8870C' },
-  { min: 25, label: 'Baja', color: '#1E9E57' },
-  { min: 1, label: 'A futuro', color: '#98A0AC' },
-];
-const bandaDe = (n: number) => BANDAS.find((b) => n >= b.min) ?? BANDAS[BANDAS.length - 1];
+/** La banda a la que pertenece un número, con el nombre y el color del catálogo único. */
+const bandaDe = (n: number) => { const p = prioFromScore(n); return { label: PLABEL[p], color: PCOLOR[p] }; };
 
 /**
  * El pop-up del 1 al 100. Sale al arrastrar una tarjeta Y al tocar el lápiz.
@@ -104,13 +104,35 @@ const bandaDe = (n: number) => BANDAS.find((b) => n >= b.min) ?? BANDAS[BANDAS.l
  * `onDebate` es la única puerta que le queda a la audiencia con el Perro, y es un ÍCONO
  * arriba a la derecha: discutirle el número es la excepción, no el botón principal.
  */
-export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onAplicado, onDebate, onAbrir, onClose }: {
+export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], cuantos = 1, consecutivos = false, onAplicado, onDebate, onAbrir, onClose }: {
   titulo: string;
-  score: number;
+  /**
+   * El número que tiene HOY. `null` = son varias y no hay uno solo (modo lote): con eso el
+   * botón deja de apagarse por «no cambiaste nada», que para N tarjetas con N números
+   * distintos no quiere decir nada.
+   */
+  score: number | null;
   /** el número con el que arranca el slider: el de la columna donde la soltaste, o el actual */
   sugerido: number;
   /** el resto del MISMO nivel (tareas con tareas, proyectos con proyectos), para comparar */
   vecinos?: Vecino[];
+  /**
+   * CUÁNTAS se están moviendo. 1 = el pop-up de siempre. Más de una = modo LOTE, y entonces
+   * `titulo` es la cuenta («4 proyectos») en vez del nombre de una tarjeta.
+   *
+   * ⚠️ NO HAY UN SEGUNDO POP-UP PARA EL LOTE, y es la razón por la que estas tres props
+   * existen: el comentario de acá arriba dice que este control vive para que haya UN SOLO
+   * lugar donde se elige un número del 1 al 100. Escribir el segundo sería deshacer eso.
+   */
+  cuantos?: number;
+  /**
+   * ¿El tablero DESEMPATA? Sale de `repo.prioridadDesempata`, nunca de la entidad.
+   *
+   * Con `true` y varias seleccionadas, pedirles el mismo número no las deja a todas ahí: la
+   * cascada reparte slots únicos y terminan en [v−(N−1), v]. El pop-up lo dice ANTES de
+   * escribir, porque después ya es tarde para explicarlo.
+   */
+  consecutivos?: boolean;
   onAplicado: (score: number) => Promise<void> | void;
   /** abrir la audiencia con el Perro. Ausente = este tablero no la tiene. */
   onDebate?: () => void;
@@ -147,19 +169,36 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onA
    * El orden es el del tablero (de mayor a menor), que es como se van a ver después. Se
    * recalcula con cada movimiento del slider.
    */
+  /**
+   * ⚠️ CON VARIAS, EL BLOQUE OCUPA UN RANGO Y EL «ABAJO» ARRANCA DEBAJO DEL PISO. Si el
+   * tablero desempata, N tarjetas pedidas en `v` terminan en [v−(N−1), v]: cortar el
+   * «abajo» en `score <= v` metería entre los vecinos a tarjetas que el bloque va a
+   * desplazar, y la lista mostraría una posición que no va a existir.
+   */
+  const piso = consecutivos ? Math.max(1, v - (cuantos - 1)) : v;
+  /**
+   * LO QUE VA A QUEDAR, DICHO ANTES DE ESCRIBIR. Con una, el número. Con varias en un
+   * tablero que desempata, el rango — porque prometer que las cuatro quedan en 85 y que
+   * después queden en 82-85 es un éxito falso, y éste es el único momento en que se puede
+   * decir la verdad sin que suene a excusa.
+   */
+  const numeroDelBloque = cuantos > 1 && consecutivos && piso < v ? `${piso}–${v}` : String(v);
   const alrededor = useMemo(() => {
     const orden = vecinos.slice().sort((x, y) => y.score - x.score);
     const arriba = orden.filter((x) => x.score > v).slice(-3);
-    const abajo = orden.filter((x) => x.score <= v).slice(0, 3);
+    const abajo = orden.filter((x) => x.score < piso).slice(0, 3);
     return [...arriba, { id: '__yo__', titulo, score: v, yo: true }, ...abajo];
-  }, [vecinos, v, titulo]);
+  }, [vecinos, v, piso, titulo]);
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(18,21,27,.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.3)', padding: '18px 20px 16px' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cambiar prioridad</span>
+          {/* Con varias, el encabezado dice la cuenta: es el único lugar del pop-up donde
+              se ve que esto no es una tarjeta sola, y lo que sigue abajo —el slider y el
+              «Dónde queda»— se lee distinto sabiéndolo. */}
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cambiar prioridad{cuantos > 1 ? ` · ${titulo}` : ''}</span>
           <span style={{ flex: 1 }} />
           {onDebate && (
             <button type="button" onClick={() => { onClose(); onDebate(); }} title="Que lo decida MaKo: discútele el número al Perro" aria-label="Que lo decida MaKo"
@@ -190,7 +229,7 @@ export function MoverPrioridadModal({ titulo, score, sugerido, vecinos = [], onA
                 const c = bandaDe(x.score).color;
                 const fila = (
                   <>
-                    <span style={{ flex: 'none', width: 30, textAlign: 'right', fontFamily: MONO, fontSize: yo ? 12 : 11, fontWeight: 700, color: c }}>{x.score}</span>
+                    <span style={{ flex: 'none', width: yo && numeroDelBloque.length > 3 ? 46 : 30, textAlign: 'right', fontFamily: MONO, fontSize: yo ? 12 : 11, fontWeight: 700, color: c }}>{yo ? numeroDelBloque : x.score}</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{x.titulo}</span>
                   </>
                 );

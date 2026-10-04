@@ -57,9 +57,10 @@
 
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { type BoardTask, type Label, type Prio, PRIOS, PLABEL, PCOLOR, enOrdenParaLaBanda, scoreFromPrio } from './types';
+import { type BoardTask, type Label, type Prio, PRIOS, PLABEL, PCOLOR, enOrdenParaLaBanda, enOrdenParaElNumero, scoreFromPrio } from './types';
 import type { Board } from './useBoard';
 import { IconoTacho, IconoRepite } from './piezas';
+import { MoverPrioridadModal, type Vecino } from './PrioridadAMano';
 import { ScoreIcon } from './guardian-form';
 import { Dropdown } from '@/app/components/Dropdown';
 // ⚠️ EL CAMPO ES UNO SOLO Y GUARDA UNA **RRULE DE RFC 5545** (mig 0167), que es lo que
@@ -77,7 +78,7 @@ import { Dropdown } from '@/app/components/Dropdown';
 // martes»), y las columnas se van en la 0168. Dos modelos de lo mismo es el bug que la
 // 0167 vino a cerrar, así que no queda ni un nombre suelto de los viejos.
 import {
-  ROTULO_RECURRENTE, esRecurrente,
+  ROTULO_RECURRENTE, esRecurrente, sinRecurrentes,
   ROTULO_REPETICION, PRESETS, DIAS, UNIDADES, ORDINALES, DIA_MES_MAX, INTERVALO_MAX,
   leerRRule, escribirRRule, recurrenciaOk, textoRepeticion, textoRepeticionCorto,
   type Repeticion, type Freq, type Dia,
@@ -136,6 +137,26 @@ export const SIN_REPETICION = 'Indefinida';
  * contrato es la segunda capa.
  */
 export const VALOR_PERSONALIZADO = '@personalizado';
+
+/**
+ * LOS CENTINELAS DE LOS OTROS DOS DESPLEGABLES, con la MISMA regla que el de arriba: van
+ * con `@` adelante porque tienen que ser imposibles de confundir con un valor real.
+ *
+ * ⚠️ NO PUEDEN SER `''`. La cadena vacía ya significa dos cosas en esta barra —es
+ * «Indefinida» para la repetición y es el estado de reposo de todo `Dropdown` con
+ * `resetAfterSelect`—, así que un centinela vacío se dispara solo al cerrar un menú.
+ *
+ * ⚠️ Y SE INTERCEPTAN ANTES DE CUALQUIER CAST. El de la prioridad es el caso caro: el
+ * `onChange` del desplegable de bandas hace `v as Prio`, que no chequea nada, y
+ * `scoreFromPrio['@numero']` es `undefined` → `Math.round(undefined)` es NaN y se escribe
+ * un score NaN. Y de paso `enOrdenParaLaBanda` no filtraría a nadie, porque ninguna banda
+ * es igual al centinela: movería la selección ENTERA. Dos fallas mudas del mismo descuido.
+ */
+export const VALOR_NUMERO_EXACTO = '@numero';
+/** Abrir el calendario. El menú de fechas es de ACCIÓN: ninguna de sus dos filas es un valor. */
+export const VALOR_ELEGIR_FECHA = '@elegir-fecha';
+/** Quitarles el deadline. «Un texto, no un "—"» (04/10/2026). */
+export const VALOR_QUITAR_FECHA = '@quitar-fecha';
 
 /**
  * LA RRULE CANÓNICA **PARA UN CONTROL**: lo mismo que `recurrenciaOk`, con `''` donde aquél
@@ -578,6 +599,12 @@ type CfgLote<T> = {
   setRecurrencia: (t: T, v: string | null) => void;
   setDeadline: (t: T, iso: string) => void;
   /**
+   * ¿ESTA TARJETA TIENE FECHA HOY? Lo mira la fila «Quitar deadline» del desplegable: una
+   * opción que no puede hacer nada se lee como que la app está rota, y el toast diría
+   * «Sin deadline en 4» sobre cuatro que ya no tenían ninguna.
+   */
+  tieneFecha: (t: T) => boolean;
+  /**
    * LA PRIORIDAD EN LOTE. `null` = este tablero no la puede escribir.
    *
    * «También debería poder subir prioridades desde ahí arriba… debería poder cambiar
@@ -591,7 +618,20 @@ type CfgLote<T> = {
    * llamar a `repo.prioridadManual` — qué entidad es y, de cada tarjeta, el número y el
    * candado que tenía ANTES, que es lo único con lo que el deshacer puede volver.
    */
-  prioridad: { entidad: 'proyecto' | 'tarea'; score: (t: T) => number; manual: (t: T) => boolean } | null;
+  prioridad: {
+    entidad: 'proyecto' | 'tarea';
+    score: (t: T) => number;
+    manual: (t: T) => boolean;
+    /**
+     * EL RESTO DEL MISMO NIVEL, para que el pop-up pueda decir DÓNDE queda el bloque.
+     *
+     * ⚠️ SIN LAS RECURRENTES, igual que el universo del server (`sinRecurrentes` en
+     * `fijarPrioridadAMano`). El único call site viejo del pop-up no las saca, y eso hace
+     * que el «Dónde queda» muestre como vecina a una tarjeta que el desempate ni mira:
+     * acá no se copia ese desfase.
+     */
+    universo: () => Vecino[];
+  } | null;
   /** completar / reabrir. `null` = esta entidad no se completa (ver la cabecera). */
   estado: { hecha: (t: T) => boolean; toggle: (t: T) => void } | null;
   /** mover a un proyecto. `null` = esta entidad no vive adentro de un proyecto. */
@@ -621,7 +661,13 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
         setRecurrente: (t, v) => board.setRecurrente(t.id, v),
         setRecurrencia: (t, v) => board.setRecurrencia(t.id, v),
         setDeadline: (t, iso) => board.setDeadline(t.id, iso, t.deadline),
-        prioridad: { entidad: 'tarea', score: (t) => t.score, manual: (t) => !!t.scoreManual },
+        tieneFecha: (t) => !!t.deadline,
+        prioridad: {
+          entidad: 'tarea', score: (t) => t.score, manual: (t) => !!t.scoreManual,
+          // Las abiertas que compiten. Las terminadas no son vara de nada: ya salieron del
+          // ranking, igual que en el `vecinos` del pop-up de una tarjeta sola.
+          universo: () => sinRecurrentes(board.tasks.filter((t) => t.progress < 100)).map((t) => ({ id: t.id, titulo: t.title, score: t.score })),
+        },
         estado: { hecha: (t) => t.progress >= 100, toggle: (t) => board.toggleDone(t.id) },
         mover: (t, labelId) => board.setTaskLabels(t.id, [labelId], `Movida a «${board.labelById(labelId)?.name ?? ''}»`),
         borrar: (t) => board.removeSilent(t.id),
@@ -663,7 +709,11 @@ export function AccionesLoteProyectos({ elegidos, board, onLimpiar, estilo }: {
         setRecurrente: (l, v) => board.setLabelRecurrente(l.id, v),
         setRecurrencia: (l, v) => board.setLabelRecurrencia(l.id, v),
         setDeadline: (l, iso) => board.setLabelDeadline(l.id, iso),
-        prioridad: { entidad: 'proyecto', score: (l) => l.score, manual: (l) => !!l.scoreManual },
+        tieneFecha: (l) => !!l.deadline,
+        prioridad: {
+          entidad: 'proyecto', score: (l) => l.score, manual: (l) => !!l.scoreManual,
+          universo: () => sinRecurrentes(board.labels).map((l) => ({ id: l.id, titulo: l.name, score: l.score })),
+        },
         estado: null,
         mover: null,
         borrar: null,
@@ -722,6 +772,18 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
    * que ya no son los de antes.
    */
   const [aplicando, setAplicando] = useState(false);
+  /**
+   * ¿ESTÁ ABIERTO EL POP-UP DEL 1 AL 100 SOBRE LA SELECCIÓN? (04/10/2026)
+   *
+   * «En el cambio de prioridad en lote, no solo debe darme las opciones de alta, media,
+   * baja… sino también la barra deslizable para seleccionar el número de prioridad.»
+   *
+   * ⚠️ ES UN BOOLEANO Y EL POP-UP SE MONTA CONDICIONALMENTE, no se esconde. `MoverPrioridadModal`
+   * siembra su slider con `useState(sugerido)` y un `useState` sembrado de props NO se
+   * resiembra: montado siempre, la segunda apertura mostraría —y guardaría— el número de la
+   * selección anterior. Sin error y sin pantalla rota: dos números distintos.
+   */
+  const [numeroAbierto, setNumeroAbierto] = useState(false);
   const pickerAbierto = useRef(false);
 
   if (!elegidas.length) return null;
@@ -737,7 +799,11 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
     if (!mantenerSeleccion) onLimpiar();
     board.showUndo(texto, () => snaps.forEach((snap) => cfg.restaurar(snap)));
   };
-  const cerrarEditores = () => { setEditandoFecha(false); setCustom(false); };
+  // ⚠️ EL POP-UP DEL NÚMERO SE APAGA ACÁ TAMBIÉN. En la tabla el `return null` de arriba NO
+  // desmonta esta instancia, así que todo editor que no se cierre en el choke point deja a
+  // la próxima selección naciendo con él abierto — es el bug que este mismo comentario ya
+  // documentaba para la fecha y el ritmo.
+  const cerrarEditores = () => { setEditandoFecha(false); setCustom(false); setNumeroAbierto(false); };
 
   // ⚠️ UN SOLO BOTÓN PARA LAS DOS DIRECCIONES. «Elimina el "Reabrir", sería lo mismo que
   // "completar" solo que si lo aprieto a la inversa se descompleta, pero no debe haber 2
@@ -780,7 +846,18 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
   const rotFecha = conFecha.length === n
     ? `Ponerle${plural} deadline a ${cosas}`
     : `Ponerle deadline a ${conFecha.length} de ${cosas} (las que se repiten no llevan fecha)`;
-  const rotQuitarFecha = `Quitarle el deadline a ${conFecha.length === n ? cosas : `${conFecha.length} de ${cosas}`}`;
+  /** ¿Hay al menos una fecha que quitar? Si no, la fila no se ofrece. */
+  const hayFecha = conFecha.some((t) => cfg.tieneFecha(t));
+  /**
+   * LO QUE EL MENÚ DE FECHAS DICE CUANDO NO SE APLICA A TODAS. Va como `sub` de sus dos
+   * filas y sólo cuando es un subconjunto: con «4 de 4» sería ruido.
+   *
+   * ⚠️ Y VA EN EL MENÚ Y NO EN UN `title` PORQUE EL `Dropdown` NO TIENE `title` POR
+   * OPCIÓN. El botón de ícono que había antes sí lo tenía, así que al pasar a desplegable
+   * esto era lo único que se perdía — y es justo lo que impide prometer una escritura que
+   * no va a ocurrir sobre las que se repiten.
+   */
+  const subFecha = conFecha.length === n ? undefined : `Sólo a ${conFecha.length} de ${n}`;
   /**
    * ── LA PRIORIDAD EN LOTE, POR BANDA ─────────────────────────────────────
    *
@@ -819,19 +896,28 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
    * —revertir sólo la pantalla sería mentir hasta el próximo F5— y le devuelve la decisión
    * al Perro a la que NO estaba fijada a mano antes: el candado lo puso este cambio.
    */
-  const ponerPrioridad = async (p: Prio) => {
+  const escribirPrioridad = async (mueven: T[], numero: number, texto: (hechas: number) => string) => {
     const cap = cfg.prioridad;
     const fijar = board.repo.prioridadManual;
     if (!cap || !fijar || aplicando) return;
-    const mueven = enOrdenParaLaBanda(compiten, p, cap.score);
     cerrarEditores();
     if (!mueven.length) { onLimpiar(); return; }
     const antes = mueven.map((t) => ({ id: t.id, score: cap.score(t), manual: cap.manual(t) }));
     onLimpiar();
     setAplicando(true);
+    /**
+     * ⚠️ LAS QUE DE VERDAD SE ESCRIBIERON, Y NO LAS QUE SE PIDIERON. `repo.prioridadManual`
+     * TIRA cuando el server rechaza (repo-plan.ts), así que el `for` puede cortarse a la
+     * mitad. Antes el `catch` era un `console.error` pelado y el `showUndo` quedaba AFUERA
+     * del try: la persona no veía nada y el cartel ofrecía deshacer las N, incluidas las
+     * que nunca se escribieron — un lote a medias con un cartel diciendo que pasó entero.
+     * Se arregló en la misma tanda que lo encontró (04/10/2026).
+     */
+    const hechas: typeof antes = [];
     try {
       for (const t of mueven) {
-        const r = await fijar(cap.entidad, t.id, scoreFromPrio[p]);
+        const r = await fijar(cap.entidad, t.id, numero);
+        hechas.push(antes.find((a) => a.id === t.id)!);
         board.aplicarCascadaManual(cap.entidad, { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos, false);
       }
     } catch (e) {
@@ -839,9 +925,12 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
     } finally {
       setAplicando(false);
     }
-    // 3-4 palabras, como todo deshacer: qué pasó y a cuántas.
-    board.showUndo(`${mueven.length} a ${PLABEL[p]}`, async () => {
-      for (const a of antes) {
+    // Nada escrito: nada que deshacer, y el cartel lo dice en vez de callarse.
+    if (!hechas.length) { board.showUndo('No se pudo cambiar'); return; }
+    // 3-4 palabras, como todo deshacer: qué pasó y a cuántas. Si quedó a medias, el número
+    // es el que SE ESCRIBIÓ — «4 a Alta» sobre dos escritas es el éxito falso de siempre.
+    board.showUndo(texto(hechas.length), async () => {
+      for (const a of hechas) {
         try {
           const r = await fijar(cap.entidad, a.id, a.score);
           if (!a.manual) await board.repo.prioridadAlPerro?.(cap.entidad, a.id);
@@ -852,6 +941,35 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
       }
     });
   };
+  /** POR BANDA: la que ya está en la banda no se toca (ver `enOrdenParaLaBanda`). */
+  const ponerPrioridad = (p: Prio) => {
+    const cap = cfg.prioridad;
+    if (!cap) return;
+    void escribirPrioridad(enOrdenParaLaBanda(compiten, p, cap.score), scoreFromPrio[p], (hechas) => `${hechas} a ${PLABEL[p]}`);
+  };
+  /**
+   * POR NÚMERO EXACTO, y acá NO se filtra a las que ya lo tienen: filtrar las da vuelta en
+   * un tablero que desempata. El porqué, con la traza, está en `enOrdenParaElNumero`.
+   */
+  const ponerNumeroExacto = (num: number) => {
+    const cap = cfg.prioridad;
+    if (!cap) return;
+    void escribirPrioridad(enOrdenParaElNumero(compiten, cap.score), num, (hechas) => `${hechas} en ${num}`);
+  };
+  /**
+   * CON QUÉ NÚMERO ABRE EL SLIDER. El MÁS ALTO de la selección, y no el promedio ni un 50:
+   * es el único que no inventa un dato — es un número que una de las tildadas YA tiene. Y
+   * en un tablero que desempata el bloque cae en [v−(N−1), v], así que abrir en el máximo
+   * deja a la más alta donde estaba y mueve sólo a las de abajo, que es el mismo principio
+   * por el que subir de banda no le baja la prioridad a nadie.
+   */
+  const sugeridoDelLote = cfg.prioridad && compiten.length
+    ? Math.max(...compiten.map((t) => cfg.prioridad!.score(t)))
+    : 50;
+  /** El tablero MENOS la selección: contra qué se compara el bloque que se está moviendo. */
+  const vecinosDelLote = cfg.prioridad
+    ? cfg.prioridad.universo().filter((x) => !compiten.some((t) => t.id === x.id))
+    : [];
   const rotPrioridad = compiten.length === n
     ? `Cambiarle la prioridad a ${cosas}`
     : `Cambiarle la prioridad a ${compiten.length} de ${cosas} (las que se repiten no compiten)`;
@@ -1128,14 +1246,25 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
             quedan las tres a la vez —y ahí la barra no entra— o ninguna, y el grupo del
             medio se queda con un solo control. */}
         {puedeFechar ? (
+          /* ⚠️ EL CALENDARIO ABIERTO MIDE 118 EN VEZ DE 108, y con `space-between` eso no
+             corre a nadie de lugar: lo que se achica es el AIRE repartido.
+             Cómo un desplegable abre un calendario: la primera fila del menú monta el
+             `<input type=date>` de verdad y el ref le llama `showPicker()`. Es el mecanismo
+             de `CeldaFecha` (Tablas.tsx) —las dos únicas líneas de todo el repo que llaman a
+             `showPicker`— con sus dos gotchas intactos:
+             · `pickerAbierto` es un `useRef` y NO estado: el ref callback corre en cada
+               render y sin el flag `showPicker()` se volvería a llamar. Se resetea al elegir
+               la fila, NO en un efecto.
+             · `showPicker?.()` va dentro de un `try` con el catch vacío a propósito: no
+               existe en Safari viejo y tira si la llamada no cuelga de un gesto del usuario.
+               Sin picker nativo queda el input, que igual se edita a mano — por eso el input
+               es real y visible, y no uno escondido detrás del ícono.
+             ⚠️ Y LA CADENA DEL GESTO NO PUEDE TENER UN `await` NI UN `setTimeout` EN EL
+             MEDIO: hoy es clic → `onChange` del Dropdown → `setState` → ref callback, todo
+             en la misma tarea, así que la activación del usuario sigue viva. Con un salto de
+             tarea Chrome tira `NotAllowedError`, el catch vacío se lo come, y el síntoma es
+             «el calendario no abre» sin un solo error en la consola. */
           editandoFecha ? (
-            /* ⚠️ EL INPUT Y SU «—» SON **UN** CONTROL, así que van en su propia caja con
-               `gap: 6` y no sueltos en el grupo, que separa a 14. Los 14 son para dos
-               pastillas distintas «que a 6 px se leen como un solo bloque partido por una
-               raya»; acá el efecto buscado es el contrario — el «—» es QUÉ HACER CON ESTA
-               FECHA, no una acción aparte. Y de paso devuelve los 8 px que el botón nuevo
-               le sumó al estado más ancho de la barra (ver LA CUENTA). */
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
             <input type="date" autoFocus
               ref={(el) => {
                 if (!el || pickerAbierto.current) return;
@@ -1143,7 +1272,7 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
                 try { el.showPicker?.(); } catch { /* sin picker nativo queda el input, que igual se edita */ }
               }}
               // ⚠️ EL `if (v)` NO ES DEFENSIVO ACÁ, ES OBLIGATORIO — y QUITAR la fecha va
-              // por el botón de al lado, no por este input. Los dos motivos:
+              // por la fila del desplegable, no por este input. Los dos motivos:
               //   · este input nace VACÍO (no tiene `value`), así que no hay nada que
               //     limpiar: el picker ni siquiera dibuja su ✕. Ésa es la mitad del bug
               //     que el `if` no explicaba.
@@ -1166,31 +1295,61 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
                 borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
                 color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS, cursor: 'pointer',
               }} />
-              {/* ⚠️ QUITAR LA FECHA ES SU PROPIO BOTÓN, no un input vacío. Pedido en vivo
-                  el 01/10/2026 (01:08:32): «quitarle por ahora el deadline a los que
-                  todavía no le voy a asignar, porque si no me confunde» — y lo que pasaba
-                  era que no había forma de expresarlo: el input abre sin valor, así que no
-                  hay nada que limpiar y el picker ni dibuja su ✕. «Le doy a deadline,
-                  borra… y no se borra. Tengo que ir uno por uno.»
-                  El «—» es el mismo glifo con el que la tabla dice «sin fecha»
-                  (`CeldaFecha`), así que no hay un idioma nuevo que aprender. */}
-              <button type="button" title={rotQuitarFecha} aria-label={rotQuitarFecha}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  setEditandoFecha(false);
-                  enLote(`Sin deadline en ${conFecha.length}`, (t) => { if (!esRecurrente(t)) cfg.setDeadline(t, ''); });
-                }}
-                style={{
-                  flex: 'none', boxSizing: 'border-box', width: 34, height: 34, padding: 0,
-                  borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
-                  color: 'var(--faint)', fontFamily: MONO, fontSize: 15, lineHeight: 1, cursor: 'pointer',
-                }}>—</button>
-            </span>
           ) : (
-            <BtnIcono rotulo={rotFecha} texto="Deadline"
-              onClick={() => { pickerAbierto.current = false; setEditandoFecha(true); }}>
-              <CalendarioLote />
-            </BtnIcono>
+            /* ⛔ ACÁ HABÍA UN BOTÓN DE ÍCONO Y, AL LADO, UN «—» PARA QUITAR LA FECHA. Los
+               dos se fueron el 04/10/2026: «el botón de quitar deadline en lote debe estar
+               DENTRO del desplegable de fechas, no al lado, no es intuitivo… y debe ser un
+               texto, no un "—"».
+
+               ⚠️ Y «EL DESPLEGABLE DE FECHAS» NO EXISTÍA: lo que se abría era el calendario
+               NATIVO del `<input type=date>`, que lo dibuja el navegador y al que no se le
+               puede agregar un renglón. Así que el desplegable hay que ser: éste es el
+               `Dropdown` de la casa, el MISMO que ya usan Repetición, Prioridad y Proyecto
+               —Deadline era la única ranura del medio que no lo era—, y las dos filas de su
+               menú son las dos cosas que se pueden hacer con una fecha.
+
+               ⚠️ EL COSTO, PARA QUE ESTÉ DICHO: poner una fecha pasa de UN clic a dos. Se
+               acepta porque la alternativa (dejar el botón y colgar un panel propio del
+               input abierto) obliga a escribir un portal a mano con tres hooks nuevos —y
+               todos tendrían que ir arriba del `return null` de más arriba—, y deja a esta
+               ranura como la única de la barra con un menú que no es un Dropdown.
+
+               ⚠️ EL «—» SE VA Y NO SE EXTRAÑA, y el motivo es el reclamo mismo: ese glifo
+               ya significa otras DOS cosas en este tablero. En `CeldaFecha` dice «está
+               vacío, tocame para poner una fecha» (abre), y en `NoAplica` dice «esto no se
+               mide así». Acá decía «borrame la fecha», que es una tercera. Tres significados
+               para un guion es exactamente «no es intuitivo».
+
+               ⚠️ Y LO QUE SE PIERDE DEL BOTÓN VIEJO ES EL `title`: el `Dropdown` no tiene
+               esa prop (está anotado como pendiente en el propio componente), así que el
+               rótulo que dice a CUÁNTAS se aplica viaja en el `<span>` de afuera y en el
+               `ariaLabel`. Sin eso, el control pierde la única forma que tiene de decir que
+               no se aplica a toda la selección. */
+            <span title={rotFecha} style={{ flex: '0 1 auto', minWidth: 0, display: 'inline-flex' }}>
+              <Dropdown
+                value=""
+                resetAfterSelect
+                placeholder="Deadline"
+                align="right"
+                ariaLabel={rotFecha}
+                icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><CalendarioLote /></span>}
+                buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
+                /* «Quitar deadline» va `sutil`: el componente la dibuja apagada, centrada y
+                   con un filete que la separa de la de arriba, que es exactamente «lo que
+                   tiene que estar pero no compite con la opción de verdad». No lleva
+                   `color: var(--bad)` porque ese prop NO tiñe el texto: dibuja un punto de
+                   9 px al costado, que acá no diría nada.
+                   Y no se ofrece si no hay ninguna fecha que quitar: una opción que no puede
+                   hacer nada se lee como que la app está rota. */
+                options={[
+                  { value: VALOR_ELEGIR_FECHA, label: 'Elegir fecha…', sub: subFecha },
+                  ...(hayFecha ? [{ value: VALOR_QUITAR_FECHA, label: 'Quitar deadline', sutil: true }] : []),
+                ]}
+                onChange={(v) => {
+                  if (v === VALOR_ELEGIR_FECHA) { pickerAbierto.current = false; setEditandoFecha(true); return; }
+                  if (v === VALOR_QUITAR_FECHA) enLote(`Sin deadline en ${conFecha.length}`, (t) => { if (!esRecurrente(t)) cfg.setDeadline(t, ''); });
+                }} />
+            </span>
           )
         ) : (
           /* LA REPETICIÓN, EN LA RANURA QUE DEJÓ EL DEADLINE. La lista sale de
@@ -1245,8 +1404,28 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
               ariaLabel={rotPrioridad}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><ScoreIcon size={13} /></span>}
               buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
-              options={PRIOS.map((p) => ({ value: p, label: PLABEL[p], color: PCOLOR[p] }))}
-              onChange={(v) => { if (v) void ponerPrioridad(v as Prio); }} />
+              /* ⚠️ LA QUINTA FILA ES UN CENTINELA, NO UNA BANDA, y por eso va `sutil`: el
+                 componente la dibuja apagada, centrada y con un filete arriba, que es
+                 exactamente «lo que tiene que estar pero no compite con las opciones de
+                 verdad». Las cuatro bandas son la respuesta rápida; el número exacto es
+                 para cuando hace falta. Mismo idioma que «Personalizado…» del desplegable
+                 de al lado, y los puntos suspensivos son la convención de la casa para una
+                 opción que abre otra cosa. */
+              options={[
+                ...PRIOS.map((p) => ({ value: p, label: PLABEL[p], color: PCOLOR[p] })),
+                { value: VALOR_NUMERO_EXACTO, label: 'Un número exacto…', sutil: true },
+              ]}
+              /* ⚠️ EL CENTINELA SE INTERCEPTA ANTES DEL `as Prio`, que no chequea nada:
+                 `scoreFromPrio['@numero']` es `undefined`, el server recibe NaN, y de paso
+                 `enOrdenParaLaBanda` no filtraría a nadie y movería la selección entera.
+                 ⚠️ Y ABRIR EL POP-UP **NO LIMPIA LA SELECCIÓN** —no pasa por
+                 `escribirPrioridad`—, por lo mismo que «Personalizado…»: si limpiara, el
+                 pop-up se quedaría sin a quién escribirle. El que limpia es el guardado. */
+              onChange={(v) => {
+                if (!v) return;
+                if (v === VALOR_NUMERO_EXACTO) { setNumeroAbierto(true); return; }
+                ponerPrioridad(v as Prio);
+              }} />
           </span>
         )}
 
@@ -1350,6 +1529,45 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
           valor={todasIgual ? rComun : null}
           onGuardar={ponerRepeticion}
           onCerrar={() => setCustom(false)} />
+      )}
+
+      {/* EL POP-UP DEL 1 AL 100, SOBRE LA SELECCIÓN ENTERA. Es el MISMO componente que abre
+          el chip de una fila y el arrastre de una tarjeta: no hay un segundo lugar donde se
+          elija un número, que es textualmente lo que su propio encabezado viene defendiendo.
+
+          ⚠️ VA EN UN PORTAL AL `body`, Y NO ES DECORATIVO. Las dos envolturas de esta barra
+          son `position: sticky` con `zIndex: 20`, y un `sticky` con z-index distinto de
+          `auto` CREA UN CONTEXTO DE APILAMIENTO: el `zIndex: 150` que el pop-up declara
+          adentro queda clampeado contra ese 20 y el modal se dibuja debajo de cualquier cosa
+          con z mayor — sin un error y sin nada en el código que lo explique. Es el mismo
+          portal que ya usa el diálogo de la repetición, cuatro líneas más arriba.
+
+          ⚠️ Y SE MONTA CONDICIONALMENTE: `MoverPrioridadModal` siembra el slider con
+          `useState(sugerido)` y un estado sembrado de props no se resiembra. Escondido en
+          vez de desmontado, la segunda apertura muestra el número de la selección anterior.
+
+          ⚠️ SIN `onDebate` NI `onAbrir`, y las dos ausencias son decisiones. La audiencia
+          recibe UN item y discute el score de esa tarjeta: dibujarla con cuatro tildadas es
+          un botón que contesta otra pregunta. Y `onAbrir` cierra el pop-up antes de navegar,
+          o sea que tocar un vecino tiraría el número que la persona estaba eligiendo. */}
+      {numeroAbierto && cfg.prioridad && board.repo.prioridadManual && compiten.length > 0 && createPortal(
+        <MoverPrioridadModal
+          titulo={cfg.nombre(compiten.length)}
+          cuantos={compiten.length}
+          /* ⚠️ `null`, no un número: son N tarjetas con N números distintos, así que «no
+             cambiaste nada» no se puede contestar y el botón no se apaga por eso. */
+          score={compiten.length === 1 ? cfg.prioridad.score(compiten[0]) : null}
+          sugerido={sugeridoDelLote}
+          consecutivos={!!board.repo.prioridadDesempata && compiten.length > 1}
+          /* ⚠️ LOS VECINOS SON EL RESTO DEL TABLERO, SIN LAS SELECCIONADAS. Pasarle el
+             universo entero le mostraría a la persona, como vara contra la que comparar,
+             las mismas tarjetas que está moviendo — y la lista se recalcula con cada
+             movimiento del slider, así que entrarían y saldrían del «arriba» mientras
+             arrastra. */
+          vecinos={vecinosDelLote}
+          onAplicado={(nuevo) => ponerNumeroExacto(nuevo)}
+          onClose={() => setNumeroAbierto(false)} />,
+        document.body,
       )}
     </div>
   );

@@ -5810,3 +5810,191 @@ mientras alguien sepa en qué `runId` buscarlo. La transcripción quedó en disc
 defectos están enumerados en la entrada de acá arriba.
 
 **Vive en:** `llamada-leila-01oct-transcripcion.txt` (fuera del repo, junto a él) · *2026-10-04*
+
+---
+
+## La selección en lote, cuatro pedidos del 04/10/2026 — y lo que encontró cada capa
+
+Cuatro cosas sobre la misma barra, pedidas juntas: desplegar el «Ver más» al seleccionar en
+tarjetas y que la barra baje con el scroll; que «quitar deadline» viva dentro del
+desplegable de fechas y sea texto; que el lote ofrezca también la barra deslizable del 1 al
+100; y que la selección sobreviva al cambio de formato.
+
+Lo que vale la pena de esta tanda no son los cuatro arreglos: es que **cada capa de
+verificación encontró una cosa distinta, y la más cara la encontró la última.**
+
+### ⚠️ «El desplegable de fechas» no existía
+
+El pedido 2 nombra un control que no estaba: lo que se abría al tocar «Deadline» era el
+calendario **NATIVO** del `<input type=date>`, que lo dibuja el navegador y al que no se le
+puede agregar un renglón. O sea que el pedido obliga a decidir **quién va a ser ese
+desplegable**, y no hay una lectura literal.
+
+Se eligió que la ranura PASE a ser un `Dropdown` de la casa, con dos filas: «Elegir fecha…»
+y «Quitar deadline» (ésta `sutil`, que el componente dibuja apagada y con un filete). No
+inventa nada: las otras tres ranuras del medio —Repetición, Prioridad, Proyecto— ya eran
+Dropdowns con el mismo `buttonStyle`, y Deadline era **la única que no lo era**. Cuesta un
+clic más poner una fecha, y eso está dicho en el comentario en vez de escondido.
+
+**Y el «—» se fue con un argumento que es el reclamo mismo.** Ese glifo ya significaba otras
+dos cosas en este tablero: en `CeldaFecha` dice «está vacío, tocame para poner una fecha»
+(abre) y en `NoAplica` dice «esto no se mide así». Acá decía «borrame la fecha», una
+tercera. Tres significados para un guion es literalmente «no es intuitivo».
+
+**Vive en:** `app/plan/board/AccionesLote.tsx` → la ranura temporal · *2026-10-04*
+
+### ⚠️ Un comportamiento que depende de CÓMO se llegó se deriva, no se dispara — y lo encontró el navegador
+
+El pedido 1 se escribió primero como un gesto: un `cambiarSel()` por el que pasaban los
+**dos** caminos que cambian la selección —la casilla de la tarjeta y el `onLimpiar` que la
+barra dispara en seis lugares internos—, con su propio ref para no pisar la decisión de la
+persona. Estaba bien razonado, los dos caminos cubiertos, y con guard.
+
+Y estaba mal, porque el pedido 4 de la misma tanda **creó un tercer camino**: tildar en la
+TABLA y conmutar a tarjetas. Medido con Playwright: **tres tildados y cinco tarjetas
+dibujadas**, o sea una barra en lote actuando sobre lo que no está en pantalla.
+
+La cura no fue agregar el tercer camino al wrapper: fue dejar de tener caminos.
+
+```tsx
+const desplegadoPorSeleccion = selProy.size > 0;
+const visibles = (verTodos || needle || desplegadoPorSeleccion) ? shown : shown.slice(0, REALES);
+```
+
+**La regla que queda: si el estado correcto se puede CALCULAR, calcularlo le gana a
+dispararlo desde los eventos que lo producen** — un cálculo no tiene caminos que olvidar, y
+el que se invente mañana lo hereda gratis. Y el corolario que vino pegado: con la expansión
+mandada por la selección, el botón de «Ver más» no puede plegar nada mientras haya algo
+tildado, así que **no se dibuja**; un control que no hace nada se lee como que la app está
+rota.
+
+**Vive en:** `app/plan/board/BoardShell.tsx` → `desplegadoPorSeleccion` · *2026-10-04*
+
+### ⚠️ CUATRO guards nuevos pasaron su propia rotura en verde
+
+Al probar los tests rompiéndolos —la regla de la casa—, cuatro de veintidós roturas no los
+movieron. Las cuatro por dos defectos, y los dos son el mismo con dos caras:
+
+1. **Dos guards leían el archivo pero no EJECUTABAN la función.** `enOrdenParaElNumero` se
+   escribió con su comentario y sus guards de cableado, y no tenía **ni un test que la
+   llamara**: quitarle el `filter` y quitarle el `sort` daban verde. Un guard de cableado
+   contesta «¿está enchufado?», nunca «¿hace lo que dice?».
+2. **Dos guards medían el TEXTO del cuerpo, no la CONDICIÓN.** Uno afirmaba
+   `/abrioPorSeleccion\.current = true; setVerTodos\(true\)/`: reemplazar la condición por
+   `if (false)` dejaba ese texto intacto. El otro recortaba `slice(i, i + 800)` **a ojo** y
+   se comía el `!verTodos && !needle` del ARRASTRE, que está pegado y dice lo mismo — romper
+   el de la selección daba verde porque el guard veía el del vecino.
+
+**La regla: un guard de texto recorta por el CIERRE REAL del bloque —nunca por un número de
+caracteres— y fija la CONDICIÓN entera, no el cuerpo que cuelga de ella.** Es la misma
+familia que «un guard que lee el archivo entero encuentra lo que el archivo dice de sí», un
+escalón más fino: ahí el universo era el archivo, acá es un recorte elegido de más.
+
+**Vive en:** `tests/plan-prioridad-tabla-y-lote.test.ts` · *2026-10-04*
+
+### ⚠️ El lote de prioridad del 01/10 anunciaba entero un lote a medias
+
+Lo encontró un lector de esta tanda leyendo código que yo había escrito el mismo día.
+`repo.prioridadManual` TIRA cuando el server rechaza, así que el `for` del lote se puede
+cortar a la mitad; el `catch` era un `console.error` pelado y el `showUndo` quedaba **afuera
+del try**. Resultado: la persona no veía nada, y el cartel ofrecía deshacer las N —
+incluidas las que nunca se escribieron.
+
+Ahora la escritura acumula las que de verdad entraron (`hechas`), el toast cuenta ésas y no
+las pedidas, el deshacer recorre ésas, y con cero escritas el cartel lo dice en vez de
+callarse. **Un lote que puede fallar a la mitad necesita saber dónde quedó: el número que se
+anuncia y el universo que se deshace salen de lo ESCRITO, nunca de lo pedido.**
+
+**Vive en:** `app/plan/board/AccionesLote.tsx` → `escribirPrioridad` · *2026-10-04*
+
+### Filtrar «las que ya tienen ese número» lo DA VUELTA
+
+En la banda, sacar a las que ya están ahí es lo correcto y es lo que hace que «subir» nunca
+baje a nadie. Para un número EXACTO es al revés, y la traza sobre la cascada lo muestra con
+A=50, B=20, C=10 pidiendo los tres a 50:
+
+- **Filtrando a A** (que ya está en 50): se aplica B, que toma 50 y empuja a A a 49; después
+  C, que empuja a B a 49 y a A a 48. **A, que ya estaba arriba, termina última.**
+- **Sin filtrar y de menor a mayor** (C, B, A): A se aplica última y se queda con 50.
+
+Y para la que ya tenía el número la escritura igual significa algo: le pone el candado de
+`score_manual`. El no-op real lo resuelve el server, que tiene su salida temprana para
+«mismo número Y ya estaba fijada a mano».
+
+**Vive en:** `app/plan/board/types.ts` → `enOrdenParaElNumero` · *2026-10-04*
+
+### Si el tablero DESEMPATA no lo dice la entidad: lo dice el repo
+
+Pedirle el mismo número a N tarjetas no las deja a todas ahí. En el tablero del dueño
+`fijarYDesempatar` reparte slots únicos, así que terminan en `[v−(N−1), v]`; el pop-up lo
+dice ANTES de escribir, con el rango en la fila del medio de «Dónde queda» (medido en
+pantalla: «98–100» para tres proyectos).
+
+**Derivarlo de `entidad === 'proyecto'` es falso en el tablero del CLIENTE**: allá
+`prioridadManual` escribe el número pelado, sin cascada, así que las N sí quedan todas en el
+mismo número y mostrar un rango sería inventar. Lo que decide es **quién escribe**, no qué
+se escribe, y por eso es una bandera del Repo (`prioridadDesempata`) y no una deducción.
+
+**Vive en:** `app/plan/board/types.ts` → `Repo.prioridadDesempata` · *2026-10-04*
+
+### ⚠️ Un `sticky` con z-index CREA contexto de apilamiento, y le clampea el z-index a lo que nazca adentro
+
+El pop-up del 1 al 100 declara `zIndex: 150` en su backdrop. Montado desde la barra de lote
+—que vive dentro de un `position: sticky` con `zIndex: 20`— ese 150 queda **clampeado contra
+el 20 de la página**: el modal se dibuja debajo de cualquier cosa con z mayor, sin un solo
+error y sin nada en el código que lo explique. Va con `createPortal` al `body`, que es lo
+que ya hacía el diálogo de la repetición cuatro líneas más arriba.
+
+**Vive en:** `app/plan/board/AccionesLote.tsx` → el montaje de `MoverPrioridadModal` · *2026-10-04*
+
+### El sticky de un ÍTEM DE GRILLA sí se pega — dos lectores dijeron lo contrario y lo resolvió medirlo
+
+Un relevo midió que el patrón del Kanban (`gridColumn: 1/-1` + `position: sticky`) se pega;
+otro dedujo del spec que el bloque contenedor de un ítem de grilla es su ÁREA —la fila 1,
+que mide lo que mide la barra— y que el recorrido es cero. **Medido en la grilla real,
+inyectando una sonda con los mismos estilos: y=8 desde scrollY=400 hasta 10.000.** En Chrome
+el bloque contenedor es el contenedor de grilla, no el área. Los dos moldes sirven.
+
+⚠️ **Pero el alcance SÍ es el contenedor, y en Recurrentes eso importa:** ahí hay dos
+grillas, una por grupo, así que cada barra se pega dentro de SU grupo y no de la pantalla.
+Con un solo ítem por grupo —que es el dato de hoy— no hay nada que scrollear adentro y el
+sticky no se puede observar. Las dos van escalonadas (`top: 8` y `top: 66`) porque las dos
+selecciones de esa vista pueden estar vivas a la vez y al mismo `top` se taparían.
+
+**Vive en:** `app/plan/board/BoardShell.tsx` → las barras de Recurrentes · *2026-10-04*
+
+### La selección sobrevive al FORMATO y no a la VISTA, y el motivo es un choque de ids
+
+Compartir un solo Set entre vistas suena a lo más simple y es incorrecto en el tablero del
+CLIENTE: ahí `toBoard` hace `String(t.id)` sobre el bigint de `experimento_tareas` y
+`toLabel` hace `String(c.id)` sobre el de `tarea_categorias` — **dos secuencias
+independientes**, o sea que la tarea 7 y la categoría 7 son la misma clave. En el tablero
+del dueño no pasa, porque `genId` prefija `t` y `p`: un Set único anda perfecto en el único
+tablero donde se prueba y cross-selecciona en el del cliente, sin un solo error.
+
+Y aun sin eso, los universos de las vistas son disjuntos por construcción (`conFin` contra
+`lasRecurrentes`), así que una selección arrastrada de Tareas a Recurrentes intersecta en
+cero ítems: la barra aparecería vacía, se leería como que la selección se perdió, y al
+volver reaparecería sola. Por eso se limpia al cambiar de vista y no al conmutar formato.
+
+**Vive en:** `app/plan/board/BoardShell.tsx` → `selTareasVista` y su efecto sobre `view` · *2026-10-04*
+
+### Lo que quedó SIN hacer
+
+- **La barra de la grilla de Proyectos cuenta sobre `shown` y no sobre `visibles`.** Hoy es
+  inalcanzable —la selección fuerza el despliegue, así que lo tildado está dibujado— pero la
+  diferencia sigue ahí, y la tabla tiene el mismo desfase con su fila plegada de
+  completadas. El comentario que está dos líneas más arriba de ese cálculo ya declara la
+  regla contraria («sobre lo VISIBLE, nunca sobre el tablero entero»). Cambiarlo es una
+  decisión de producto: hoy tildar y plegar conserva la marca, estilo Gmail.
+  **Vive en:** `app/plan/board/BoardShell.tsx:5249` y `app/plan/board/Tablas.tsx` → `elegidas` / `elegidos`.
+- **`soloLectura` es una prop MUERTA en las dos tablas: cero call sites.** Su único
+  consumidor, `app/admin/TableroDelCliente.tsx`, se borró. El comentario sigue describiendo
+  un montaje que no existe.
+- **`MoverPrioridadModal` escucha Escape en `document` sin registrarse en la pila de
+  modales**, así que un Escape con el pop-up abierto adentro del detalle de un proyecto
+  cierra los dos. Ya existía por el camino del lápiz; el del lote lo hace más visible porque
+  la barra vive DENTRO de ese modal.
+- **El `Dropdown` de la casa no tiene `title` por opción.** Lo que decía a cuántas se aplica
+  el deadline viaja ahora en el `<span>` de afuera y en el `sub` de la primera fila; el
+  arreglo de fondo está anotado como pendiente en el propio componente desde antes.

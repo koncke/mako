@@ -786,6 +786,40 @@ pregunta de la columna.
 y `docs/hallazgos-*` siguen yendo completos y con su porqué: ahí el largo se paga solo la
 primera vez que alguien lo busca. Lo que se recorta es lo que se dibuja.
 
+# Si el estado correcto se puede CALCULAR, calcularlo le gana a dispararlo
+
+Cuando una pantalla tiene que estar de cierta forma *mientras* pasa algo —la grilla
+desplegada mientras hay una selección, un panel abierto mientras se edita, un botón apagado
+mientras se guarda—, la salida que aparece primero es engancharlo a los eventos que lo
+producen. Y esa salida es correcta exactamente hasta que aparece un camino más.
+
+Medido el 04/10/2026 en `/plan`. El «Ver más» de la grilla de proyectos tenía que
+desplegarse al empezar una selección en lote y plegarse al soltarla. Se escribió como gesto:
+un `cambiarSel()` por el que pasaban los DOS caminos que cambian la selección —la casilla de
+la tarjeta y el `onLimpiar` que la barra dispara en seis lugares internos—, con su ref para
+no pisar la decisión de la persona. Los dos caminos cubiertos, con guard y con test.
+
+Y en la MISMA tanda, otro pedido creó el tercero: que la selección sobreviva al cambio de
+formato. Tildar en la TABLA y conmutar a tarjetas no pasa por ninguno de los dos caminos —
+tres tildados, cinco tarjetas dibujadas, y una barra de lote actuando sobre lo que no está
+en pantalla. La cura no fue sumar el tercer camino: fue dejar de tener caminos.
+
+```tsx
+const desplegadoPorSeleccion = selProy.size > 0;
+const visibles = (verTodos || needle || desplegadoPorSeleccion) ? shown : shown.slice(0, REALES);
+```
+
+- **Un cálculo no tiene caminos que olvidar**, y el que se invente mañana lo hereda gratis.
+- **Y el control que ese cálculo deja sin trabajo NO SE DIBUJA.** Con la expansión mandada
+  por la selección, el botón de «Ver más» no puede plegar nada mientras haya algo tildado:
+  un control que no hace nada se lee como que la app está rota.
+- ⚠️ **Lo que NO se deriva es lo que la persona DECIDIÓ.** Acá el cálculo gana porque
+  «desplegado» es una consecuencia de estar seleccionando, no una elección; un `localStorage`
+  restaurado encima de lo que alguien acaba de elegir es el error opuesto, y está más abajo.
+- **El olor que lo delata a tiempo:** si estás escribiendo un wrapper para que «todos los
+  caminos pasen por acá», contá los caminos. Si son más de uno, probablemente haya un
+  cálculo.
+
 # Si algo no entra, preguntá primero si tiene el TAMAÑO que le corresponde
 
 Antes de acomodar las piezas alrededor de lo que se desborda, mirá si lo que se desborda
@@ -3419,6 +3453,12 @@ con eso la barra lateral de una pantalla se iba con el scroll. Medido a 1920x880
 
 - **Si necesitas recortar un eje, recorta en el elemento que ya scrollea**, no en el
   documento; o usa `overflow-x: clip`, que no crea contenedor de scroll.
+- ⚠️ **Y UN `sticky` CON z-index CREA UN CONTEXTO DE APILAMIENTO, y le clampea el z-index a
+  todo lo que nazca adentro.** Un modal montado desde una barra pegada declara su
+  `zIndex: 150` y se dibuja igual DEBAJO de cualquier cosa con z mayor, porque ese 150 se
+  resuelve contra el 20 del sticky y no contra la página. No da error y no hay nada en el
+  código que lo explique. Va con `createPortal` al `body`. Medido el 04/10/2026 con el
+  pop-up de prioridad abierto desde la barra de lote del tablero.
 - ⚠️ **Y el corolario al escribir: un `sticky` va AFUERA de la caja que recorta.** Mordió de
   nuevo el 04/10/2026 con la barra de lote de las tablas del plan, que vivía adentro de un
   contenedor con `overflow-x: auto`. Ese contenedor nunca scrollea en vertical —crece con su
@@ -4795,6 +4835,25 @@ el que explicaba por qué esa migración no lleva default.
 Se extrae el BLOQUE antes de buscar (la función, el tipo, la sentencia SQL, las líneas que
 no son comentario) y recién ahí se pregunta. Y cada capa lleva SU test: un guard que junta
 seis en uno dice que algo se rompió y no cuál, que es lo único que ahorra tiempo.
+
+⚠️ **Y «EL BLOQUE» ES SU CIERRE REAL, NUNCA UN NÚMERO DE CARACTERES.** Un `slice(i, i + 800)`
+elegido a ojo es el mismo bug con otra cara: el universo sigue siendo más grande que la
+pregunta. Medido el 04/10/2026 en el tablero — un guard que exigía `!verTodos && !needle`
+adentro de una función daba VERDE con esa condición borrada, porque sus 800 caracteres
+llegaban hasta la función de al lado, que tiene la MISMA condición para otro gesto. Va
+`slice(ini, SRC.indexOf('<lo que abre el bloque siguiente>', ini))`, y conviene afirmar
+además el largo del recorte: si mañana mide 4.000, está mirando otra cosa.
+
+⚠️ **Y SE FIJA LA CONDICIÓN, NO EL CUERPO QUE CUELGA DE ELLA.** El mismo día, otro guard
+afirmaba que el cuerpo del `if` existiera: reemplazar la condición por `if (false)` lo dejó
+intacto y en verde. Lo que decide si algo se ejecuta es la condición — el cuerpo es lo que
+se ve.
+
+⚠️ **Y UN GUARD DE CABLEADO NO REEMPLAZA A UN TEST DE LA FUNCIÓN.** Contesta «¿está
+enchufado?», nunca «¿hace lo que dice?». En esa misma tanda se escribió una función pura con
+su comentario y sus guards, y quitarle el `filter` y quitarle el `sort` pasaron los dos en
+verde: no la llamaba nadie. Toda función pura nueva lleva su test que la EJECUTA, aunque ya
+tenga tres guards que la nombren.
 
 ⚠️ **Y UN TEST QUE LEE UN ARCHIVO POR SU RUTA NO SE ENTERA DE QUE ESE ARCHIVO MURIÓ.**
 Los guards de esta casa leen fuente con `readFileSync` y preguntan por una cadena, así

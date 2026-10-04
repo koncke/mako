@@ -76,6 +76,11 @@ export function repoPlan(): Repo {
       const j = await apiPlan({ action: 'prioridad-al-perro', entidad, id });
       if (!j.ok) throw new Error(j.error || 'no se pudo');
     },
+    // ESTE tablero desempata: `fijarYDesempatar` reparte slots únicos, así que pedirle el
+    // mismo número a varias las deja en números consecutivos y no en el mismo. Lo mira el
+    // pop-up del lote para decir un rango en vez de un número que sería mentira. El del
+    // cliente no lo declara, y no es un olvido: allá no hay cascada.
+    prioridadDesempata: true,
     priorizarNuevas: async (ids, proyectoIds, contexto) => {
       const j = await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' });
       if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');

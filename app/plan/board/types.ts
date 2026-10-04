@@ -430,6 +430,22 @@ export type Repo = {
   prioridadManual?(entidad: 'proyecto' | 'tarea', id: string, score: number): Promise<{ score: number; movidos: Array<{ id: string; nombre: string; antes: number; despues: number }> }>;
   /** Devolverle la decisión a MaKo (saca el candado de la mig 0143). Va de la mano del anterior. */
   prioridadAlPerro?(entidad: 'proyecto' | 'tarea', id: string): Promise<void>;
+  /**
+   * ¿ESTE TABLERO DESEMPATA? `true` = pedirle el MISMO número a varias no las deja a todas
+   * en ese número: la cascada del server reparte slots únicos.
+   *
+   * Existe por el lote de prioridad del 04/10/2026, y es lo que le permite al pop-up decir
+   * la verdad ANTES de escribir. En el tablero del DUEÑO, `fijarYDesempatar` le da el
+   * número exacto a la que se está fijando y empuja un escalón a las que ya lo ocupaban, así
+   * que N pedidas «en 85» terminan en [85−(N−1), 85]. En el del CLIENTE no hay cascada
+   * —`prioridadManual` escribe el número pelado y devuelve `movidos: []`—, así que ahí las
+   * N sí quedan todas en 85.
+   *
+   * ⚠️ NO SE DERIVA DE LA ENTIDAD. «Es un proyecto, entonces desempata» es falso en el
+   * tablero del cliente, donde las categorías tampoco desempatan: lo que decide es QUIÉN
+   * ESCRIBE, no qué se escribe. La prop ES la capacidad, igual que las dos de arriba.
+   */
+  prioridadDesempata?: boolean;
   addDep?(d: { entidad: 'tarea' | 'proyecto'; deId: string; aId: string; clase?: 'bloquea' | 'ordena'; razon?: string }): Promise<{ ok: boolean; error?: string; camino?: string[]; deps?: import('./dependencias').Dep[] }>;
   delDep?(entidad: 'tarea' | 'proyecto', deId: string, aId: string): Promise<{ ok: boolean; deps?: import('./dependencias').Dep[] }>;
 };
@@ -602,6 +618,31 @@ export const scoreFromPrio: Record<Prio, number> = { alta: 85, media: 62, baja: 
  */
 export function enOrdenParaLaBanda<T>(items: readonly T[], destino: Prio, score: (t: T) => number): T[] {
   return items.filter((t) => prioFromScore(score(t)) !== destino).sort((a, b) => score(a) - score(b));
+}
+
+/**
+ * LO MISMO PARA UN NÚMERO EXACTO, Y **SIN FILTRAR** — que es la diferencia que importa.
+ *
+ * «En el cambio de prioridad en lote, no solo debe darme las opciones de alta, media,
+ * baja… sino también la barra deslizable para seleccionar el número» (04/10/2026).
+ *
+ * ⚠️ ACÁ NO SE SACAN LAS QUE YA TIENEN ESE NÚMERO, aunque sea lo simétrico con la banda, y
+ * el motivo es que en PROYECTOS filtrar los DA VUELTA. La escalera del dueño no admite
+ * empates: `fijarYDesempatar` le da el número exacto al que se está fijando y empuja un
+ * escalón hacia abajo a los que ya lo ocupaban. Trazado sobre el código con A=50, B=20 y
+ * C=10 pidiendo los tres a 50:
+ *   · FILTRANDO a A (que ya está en 50): se aplica B → B=50 y A cae a 49; después C → C=50,
+ *     B=49, A=48. **A, que ya estaba arriba, termina última.**
+ *   · SIN filtrar y de menor a mayor (C, B, A): A se aplica última y se queda con 50.
+ * Y para la que ya tenía el número, la escritura igual significa algo: le pone el candado
+ * de `score_manual` (mig 0143). El no-op real lo resuelve el server, que tiene su salida
+ * temprana para «mismo número Y ya estaba fijada a mano» (lib/plan-reprio.ts).
+ *
+ * El orden es el mismo de `enOrdenParaLaBanda` y por el mismo motivo: el ÚLTIMO aplicado
+ * queda arriba, así que la que venía más alta se aplica última y sigue siendo la más alta.
+ */
+export function enOrdenParaElNumero<T>(items: readonly T[], score: (t: T) => number): T[] {
+  return items.slice().sort((a, b) => score(a) - score(b));
 }
 
 // Score a partir del cual una tarea es EMERGENCIA (entra a Alta aunque no sea del

@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo, useCallback } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
@@ -296,6 +296,34 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     vistaValida(vistaInicial)
     ?? (vistaExtra && vistaInicial === vistaExtra.id ? vistaExtra.id : 'prioridades'),
   );
+  /**
+   * LO TILDADO EN LA VISTA TAREAS, Y VIVE ACÁ PORQUE ACÁ NO SE DESMONTA.
+   *
+   * «Si estoy seleccionando en lote desde una vista, como la de tarjetas, y paso a la vista
+   * de tabla, debería seguir la selección tal cual» (04/10/2026). El conmutador de formato
+   * cambia de COMPONENTE —`Kanban` o `TablaTareas`—, así que un `useState` adentro de
+   * cualquiera de los dos muere con el desmonte. No hay forma de que sobreviva sin sacarlo
+   * del que se desmonta, y el pedido es exactamente eso.
+   *
+   * ⚠️ NO VA POR `prefs.ts`, y no es por comodidad: ese archivo dice con todas las letras
+   * que guarda una PREFERENCIA y nunca una decisión. Y además no funcionaría — `usePref`
+   * arranca con el default y lee recién en el primer efecto, así que la barra parpadearía
+   * vacía al cambiar de formato; y `usePrefSet` persiste al F5, con lo que el tablero
+   * abriría con doce tarjetas tildadas que nadie eligió en esta sesión.
+   */
+  const [selTareasVista, setSelTareasVista] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * ⚠️ Y SE LIMPIA AL CAMBIAR DE VISTA, no al conmutar formato. Subirla acá la hace
+   * sobrevivir también al cambio de tab, y eso NO es lo que se pidió: una barra que
+   * reaparece con doce tildadas al volver a Tareas después de haber estado en otra cosa es
+   * una acción destructiva esperando — la persona no eligió esas doce en este momento.
+   *
+   * Y lo que lo decide no es sólo prudencia: los universos de las vistas son DISJUNTOS por
+   * construcción (`conFin` contra `lasRecurrentes`), así que una selección arrastrada de
+   * Tareas a Recurrentes intersecta en cero ítems y la barra aparecería vacía — se lee como
+   * que la selección se perdió, y al volver reaparece sola.
+   */
+  useEffect(() => { setSelTareasVista(new Set()); }, [view]);
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [peekProjId, setPeekProjId] = useState<string | null>(null); // proyecto abierto DESDE una tarea (encima de ella; feedback jul-19)
   const [nuevoProj, setNuevoProj] = useState(false);
@@ -1387,6 +1415,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
               </button>
             </div>
             <TablaTareas tareas={visibles} board={board} hoy={hoyISO()} onOpen={setOpenId} onOpenProj={setOpenProj} ask={ask} onEliminar={setEliminarTaskId} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)}
+              /* LA MISMA selección que el Kanban: es el pedido entero del 04/10/2026. */
+              seleccion={{ ids: selTareasVista, set: setSelTareasVista }}
               /* «Que en el formato tabla también pueda arrastrar y cambiar la prioridad»
                  (25/09/2026). Soltar dice DÓNDE y abre el MISMO pop-up del 1 al 100 que el
                  Kanban, el lápiz y la grilla de proyectos: la persona dice CUÁNTO.
@@ -1394,7 +1424,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                  cliente no tiene con qué escribir una prioridad a mano, así que ahí la
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
               onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
@@ -3297,8 +3327,14 @@ function useArrastreCopia() {
   return { empujarScroll, pararScroll, montarCopia, soltarCopia };
 }
 
-function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, onOpen, onNew, onWarn, onOpenProj, onEliminar, onSoltar }: {
+function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, sel, setSel, onOpen, onNew, onWarn, onOpenProj, onEliminar, onSoltar }: {
   tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; ask: (msg: string, onOk: () => void) => void; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
+  /**
+   * LO TILDADO, Y VIENE DE AFUERA. Vivía acá adentro hasta el 04/10/2026, y por eso se
+   * perdía al conmutar a la tabla: este componente se desmonta entero. Lo guarda
+   * `BoardShell`, que es el ancestro que las dos formas comparten.
+   */
+  sel: ReadonlySet<string>; setSel: Dispatch<SetStateAction<ReadonlySet<string>>>;
   /** soltaste una tarjeta: NO se fija sola, se pregunta el número — con el que sugiere la POSICIÓN */
   onSoltar: (id: string, destino: Prio, sugerido?: number) => void;
 }) {
@@ -3315,10 +3351,11 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, o
    * es un control más compitiendo con el check de completar, el chip del proyecto y el
    * aviso de fecha. Apareciendo al hover no le saca lugar a nada hasta que hace falta.
    */
-  const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
+  // ⚠️ LAS DEPS SON `[setSel]`, no `[]` ni el objeto entero: el setter de `useState` es
+  // estable, así que el `useCallback` sigue valiendo lo que valía cuando el estado vivía acá.
   const alternarSel = useCallback((id: string) => {
     setSel((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  }, []);
+  }, [setSel]);
   const elegidas = tasks.filter((t) => sel.has(t.id));
   /**
    * El punto MEDIO de cada tarjeta, por columna y en coordenadas de PÁGINA.
@@ -4863,15 +4900,25 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
             {filasProy.length > 0 && (
               <GrupoRecurrente rotulo={board.repo.labelPlural} n={filasProy.length}>
                 {tabla
-                  ? <TablaProyectos filas={filasProy} board={board} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={board.repo.labelPlural} onOpen={onOpenProj} onDeadline={(id, v) => board.setLabelDeadline(id, v)} onSoltar={onSoltarProy} sinRanking />
+                  /* La MISMA selección que las tarjetas de este grupo: el comentario de
+                     arriba decía que esto era «sólo para las TARJETAS» porque la tabla
+                     traía la suya adentro. Desde el 04/10/2026 ya no. */
+                  ? <TablaProyectos filas={filasProy} board={board} topProjectId={topProjectId} hoy={hoyISO()} labelPlural={board.repo.labelPlural} onOpen={onOpenProj} onDeadline={(id, v) => board.setLabelDeadline(id, v)} onSoltar={onSoltarProy} seleccion={{ ids: selProy, set: setSelProy }} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
                       {/* La barra ocupa el ancho de la grilla entera y se dibuja pegada a lo
                           que va a cambiar: en esta vista lo que se hace en lote es ponerle el
                           ritmo (y su día) a varias de una. */}
                       {selProy.size > 0 && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <AccionesLoteProyectos elegidos={proyectos.filter((l) => selProy.has(l.id))} board={board} onLimpiar={() => setSelProy(new Set())} />
+                        /* ⚠️ PEGADA, igual que la del Kanban y la de las tablas. Medido en
+                           la grilla real (04/10/2026): un ítem de grilla con
+                           `gridColumn: 1/-1` y `position: sticky` SÍ se pega —y=8 desde
+                           scrollY=400 hasta 10.000—, así que el molde del Kanban sirve acá.
+                           ⚠️ Y ÉSTA VA EN `top: 8` Y LA DE TAREAS MÁS ABAJO: en esta vista
+                           las dos selecciones pueden estar vivas a la vez, y las dos en el
+                           mismo `top` se pisan cuando los dos grupos están en pantalla. */
+                        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 8, zIndex: 20 }}>
+                          <AccionesLoteProyectos elegidos={proyectos.filter((l) => selProy.has(l.id))} board={board} onLimpiar={() => setSelProy(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
                         </div>
                       )}
                       {/* La MISMA tarjeta de la tab Proyectos, con el MISMO agarre. Lo único
@@ -4890,7 +4937,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
             {tareas.length > 0 && (
               <GrupoRecurrente rotulo="Tareas" n={tareas.length}>
                 {tabla
-                  ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} onSoltar={onSoltarTarea} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)} sinRanking />
+                  ? <TablaTareas tareas={tareas} board={board} hoy={hoyISO()} onOpen={onOpen} onOpenProj={onOpenProj} ask={ask} onEliminar={onEliminar} onSoltar={onSoltarTarea} onFecha={(id, v, antes) => board.setDeadline(id, v, antes)} onHecha={(id) => board.toggleDone(id)} seleccion={{ ids: selTareas, set: setSelTareas }} sinRanking />
                   : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
                       {/* La barra de TAREAS: la de siempre, sobre la selección de este grupo.
@@ -4898,8 +4945,11 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                           verdad — toda esta vista se repite, así que el deadline no aplica y
                           su ranura la ocupa el ritmo. */}
                       {selTareas.size > 0 && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <AccionesLote elegidas={tareas.filter((t) => selTareas.has(t.id))} board={board} ask={ask} onLimpiar={() => setSelTareas(new Set())} />
+                        /* ⚠️ `top: 66` Y NO 8: en esta vista la barra de PROYECTOS también
+                           puede estar viva, y las dos pegadas al mismo borde se tapan entre
+                           sí. 66 = los 8 de la de arriba + sus 50 de alto + 8 de aire. */
+                        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 66, zIndex: 19 }}>
+                          <AccionesLote elegidas={tareas.filter((t) => selTareas.has(t.id))} board={board} ask={ask} onLimpiar={() => setSelTareas(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
                         </div>
                       )}
                       {/* La MISMA tarjeta del Kanban. `warn={false}`: el triangulito es «alta
@@ -5049,7 +5099,6 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
    * hook detrás de ese `return` es el «Minified React error #300».
    */
   const [selProy, setSelProy] = useState<ReadonlySet<string>>(new Set());
-  const alternarProy = (id: string) => setSelProy((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   /**
    * EL «VER MÁS» SE ABRE SOLO AL AGARRAR UNA TARJETA. «Lo único que habría que
    * automáticamente desplegar el "ver más" si agarro uno. Y si me arrepiento y lo suelto,
@@ -5155,7 +5204,29 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
     // arriba» (01/10/2026, 01:01:00). El `sort` es estable desde ES2019, así que adentro
     // de cada grupo se conserva el orden que eligió el header.
     .sort((a, b) => Number(proyectoTerminado(a.prog)) - Number(proyectoTerminado(b.prog)));
-  const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
+  /**
+   * MIENTRAS HAYA SELECCIÓN, LA GRILLA ESTÁ DESPLEGADA. No es un gesto: es una propiedad
+   * de estar seleccionando.
+   *
+   * «Cuando hago selección en lote en los proyectos, en la vista de tarjetas, primero se
+   * tienen que desplegar todas las del "ver más", si no, no tiene sentido… y cuando dejo de
+   * seleccionar el lote, volver a plegar» (04/10/2026). Con cinco a la vista y el resto
+   * escondido, tildar «todos los de la fase» es imposible.
+   *
+   * ⚠️ SE DERIVA Y NO SE DISPARA, y lo decidió el navegador. La primera versión abría y
+   * cerraba desde un `cambiarSel()` por el que pasaban los dos caminos que cambian la
+   * selección —la casilla y el `onLimpiar` de la barra—, y era correcta para los dos… y
+   * dejaba un tercero afuera: desde que la selección sobrevive al cambio de formato, se
+   * puede tildar en la TABLA y conmutar a tarjetas. Medido: tres tildados y cinco tarjetas
+   * dibujadas, o sea una barra actuando sobre lo que no está en pantalla. Derivado no hay
+   * camino que se pueda olvidar — tampoco el que se invente mañana.
+   *
+   * ⚠️ Y POR ESO EL BOTÓN DE «Ver más» NO SE DIBUJA MIENTRAS HAY SELECCIÓN (más abajo):
+   * apretarlo no podría plegar nada, y un control que no hace nada se lee como que la app
+   * está rota. Mientras se selecciona, la expansión es de la selección.
+   */
+  const desplegadoPorSeleccion = selProy.size > 0;
+  const visibles = (verTodos || needle || desplegadoPorSeleccion) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
 
   /**
@@ -5168,13 +5239,16 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
    * —`score_manual` es una columna que su tabla no tiene—, y un control que sólo puede
    * contestar «solo admin» se lee como que la app está rota.
    */
+  const alternarProy = (id: string) => setSelProy((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const sePuedeArrastrar = !!repo.prioridadManual && sortMode === 'score';
   const agarrarProy = (id: string, nodo: HTMLElement, dx: number, dy: number) => {
     arrastradoRef.current = id;
     setArrastrado(id);
     montarCopia(nodo, dx, dy);
     rects.current = [];
-    if (!verTodos && !needle && shown.length > REALES) { abriPorArrastre.current = true; setVerTodos(true); }
+    // El `desplegadoPorSeleccion` en el guard es lo que impide que este gesto marque su ref
+    // sobre una grilla que ya estaba abierta: al soltar la plegaría con la selección viva.
+    if (!verTodos && !needle && !desplegadoPorSeleccion && shown.length > REALES) { abriPorArrastre.current = true; setVerTodos(true); }
   };
   const terminarProy = () => {
     arrastradoRef.current = null;
@@ -5228,6 +5302,9 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
                porque la tabla se ordena por su cuenta (su propia pref por navegador) y ella
                misma apaga el agarre cuando no está ordenada por prioridad. */
             onSoltar={repo.prioridadManual ? onSoltar : undefined}
+            /* LA MISMA selección que la grilla de tarjetas. Acá no hace falta `cambiarSel`:
+               en la tabla entran todas, así que no hay «Ver más» que desplegar. */
+            seleccion={{ ids: selProy, set: setSelProy }}
             onDeadline={(id, v) => board.setLabelDeadline(id, v)} />
           <HistorialDeLaTab labels={labels} board={board} />
         </div>
@@ -5246,8 +5323,18 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
              Con la lista entera, un id que quedó tildado antes de filtrar seguiría contando
              en el número y recibiendo la escritura sin estar en pantalla — que es la forma
              de cambiar de más sin verlo. */
-          <AccionesLoteProyectos elegidos={shown.filter(({ l }) => selProy.has(l.id)).map(({ l }) => l)} board={board}
-            onLimpiar={() => setSelProy(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+          /* ⚠️ PEGADA. «La barra que me permite hacer las acciones en lote también debe
+             bajar con el scroll» (04/10/2026). Acá la barra es HERMANA de la grilla, dentro
+             de un flex column, así que su bloque contenedor es toda la vista y el `sticky`
+             recorre la pantalla entera; medido a scrollY 400, 1.200, 4.000 y 10.000.
+             ⚠️ Y `onLimpiar` ES EL SETTER PELADO: el repliegue no cuelga de ningún camino,
+             se deriva de que la selección esté vacía (ver `desplegadoPorSeleccion`). Así
+             vale igual para los seis caminos internos de la barra, para la casilla de la
+             tarjeta y para el que se invente mañana. */
+          <div style={{ position: 'sticky', top: 8, zIndex: 20 }}>
+            <AccionesLoteProyectos elegidos={shown.filter(({ l }) => selProy.has(l.id)).map(({ l }) => l)} board={board}
+              onLimpiar={() => setSelProy(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+          </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}
           // `preventDefault` en dragOver es lo que HABILITA el drop: sin él el navegador lo
@@ -5308,7 +5395,10 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
           ))}
           {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '10px 0 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
         </div>
-        {shown.length > REALES && (
+        {/* ⚠️ NO SE DIBUJA MIENTRAS HAY SELECCIÓN: ahí la expansión la manda la selección,
+            así que este botón no podría plegar nada — y un control que no hace nada se lee
+            como que la app está rota. Vuelve solo al soltar la selección. */}
+        {shown.length > REALES && !desplegadoPorSeleccion && (
           <button onClick={() => setVerTodos((v) => !v)}
             style={{ alignSelf: 'center', marginTop: -4, padding: '9px 20px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>

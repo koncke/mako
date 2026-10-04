@@ -49,7 +49,7 @@
 // ⚠️ `DragEvent` de React se importa con OTRO nombre a propósito: el del arrastre en
 // `document` es el DragEvent del DOM, y con el de React importado a secas el global queda
 // tapado y el listener nativo deja de tipar.
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as DragReact, type ReactNode, type SetStateAction } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
 import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, LineaDeadline, proyectoTerminado, ANCHO_TABLA_EN_PROYECTO } from './piezas';
@@ -692,6 +692,30 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
 // ── PROYECTOS ────────────────────────────────────────────────────────────────────────
 
 /**
+ * LA SELECCIÓN, CONTROLADA DESDE AFUERA CUANDO EL PADRE LA TIENE.
+ *
+ * «Si estoy seleccionando en lote desde una vista, como la de tarjetas, y paso a la vista de
+ * tabla, debería seguir la selección tal cual» (04/10/2026). Hoy no sigue, y el porqué está
+ * escrito dos veces en este repo: cada tabla trae la suya adentro, así que conmutar formato
+ * DESMONTA el componente que la guarda. El propio comentario de la vista Recurrentes lo
+ * decía — «las tablas de esta vista traen su propia selección adentro, así que esto es sólo
+ * para las TARJETAS».
+ *
+ * ⚠️ EL `useState` SE LLAMA SIEMPRE, y lo que elige es un `const` de después. Un hook
+ * detrás de un `if (seleccion)` para «no gastarlo» es el «Minified React error #300»:
+ * pantalla entera en blanco, sin archivo ni línea, y el typecheck no lo ve.
+ *
+ * ⚠️ Y EL SETTER SE TIPA COMO EL DE `useState`, NO COMO `(ids) => void`. Adentro de la
+ * tabla hay llamadas con VALOR (`setSel(new Set())`, la casilla de «todas») y con UPDATER
+ * (el toggle de una fila). Con la firma angosta hay que reescribir las cuatro; con ésta el
+ * cuerpo de las tablas no cambia una línea, y el padre pasa su setter de `useState` tal cual.
+ *
+ * ⚠️ UN PADRE CON `soloLectura` NO PASA ESTO. Ahí no se dibuja ni la columna de tildes ni
+ * la barra, así que una selección controlada sería estado que nadie puede ver ni limpiar.
+ */
+type Seleccion = { ids: ReadonlySet<string>; set: Dispatch<SetStateAction<ReadonlySet<string>>> };
+
+/**
  * LA BARRA DE LOTE, PEGADA ARRIBA MIENTRAS SCROLLEÁS.
  *
  * «Que la barra de opciones en donde le puedo cambiar el deadline, cuando estoy
@@ -716,11 +740,11 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
  * La sombra es la misma del Kanban: sin ella la barra flota sobre las filas y nada dice
  * que está encima.
  */
-function BarraPegada({ children }: { children: ReactNode }) {
+export function BarraPegada({ children }: { children: ReactNode }) {
   return <div style={{ position: 'sticky', top: 8, zIndex: 20 }}>{children}</div>;
 }
 
-export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, soloLectura = false, sinRanking = false }: {
+export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, seleccion, soloLectura = false, sinRanking = false }: {
   filas: Array<{ l: Label; prog: { pct: number; total: number; done: number } }>;
   /** ⚠️ ENTRA ENTERO PORQUE LA BARRA DE SELECCIÓN MÚLTIPLE ESCRIBE (26/09/2026, «proyecto
    *  también debería poder tener selección múltiple»). Es exactamente lo que ya hace
@@ -749,6 +773,8 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
    * Y se va la COLUMNA, no sólo la barra: una casilla que se tilda y no habilita nada
    * es peor que ninguna.
    */
+  /** La selección, si la tiene el padre. Ausente = la tabla usa la suya (ver `Seleccion`). */
+  seleccion?: Seleccion;
   soloLectura?: boolean;
   labelPlural: string;
   /**
@@ -787,7 +813,9 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
    * avance lo calculan sus tareas. Así que acá la primera columna es el único cuadrado de la
    * fila y no hay con qué confundirlo.
    */
-  const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
+  const [selPropia, setSelPropia] = useState<ReadonlySet<string>>(new Set());
+  const sel = seleccion?.ids ?? selPropia;
+  const setSel = seleccion?.set ?? setSelPropia;
   const [ordenPref, setOrden] = usePref<OrdenProy>('proyectos.tabla.orden', 'deadline', esUnoDe('deadline', 'score', 'nombre', 'avance'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('proyectos.tabla.dir', 'asc', esUnoDe('asc', 'desc'));
   const [verHechos, setVerHechos] = useState(false);
@@ -1000,7 +1028,7 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
 
 // ── TAREAS ───────────────────────────────────────────────────────────────────────────
 
-export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar, onFecha, onHecha, soloLectura = false, sinRanking = false }: {
+export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocultarProyecto = false, onEliminar, onSoltar, onFecha, onHecha, seleccion, soloLectura = false, sinRanking = false }: {
   /** TODAS: abiertas Y terminadas. La tabla las separa sola (ver `FilaPlegada`). */
   tareas: BoardTask[];
   board: Board;
@@ -1058,6 +1086,8 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
    * Y se va la COLUMNA, no sólo la barra: una casilla que se tilda y no habilita nada
    * es peor que ninguna.
    */
+  /** La selección, si la tiene el padre. Ausente = la tabla usa la suya (ver `Seleccion`). */
+  seleccion?: Seleccion;
   soloLectura?: boolean;
   /**
    * LA TABLA DE ALGO QUE NO SE RANKEA: sin la columna Prioridad y sin la columna Deadline.
@@ -1096,7 +1126,9 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
    * Las dos conviven porque tienen forma distinta —cuadrado selecciona, redondo completa—,
    * que es la única manera de que un mismo control signifique lo mismo en toda la app.
    */
-  const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
+  const [selPropia, setSelPropia] = useState<ReadonlySet<string>>(new Set());
+  const sel = seleccion?.ids ?? selPropia;
+  const setSel = seleccion?.set ?? setSelPropia;
   const [ordenPref, setOrden] = usePref<OrdenTarea>('kanban.tabla.orden', 'score', esUnoDe('deadline', 'score', 'proyecto', 'num'));
   const [dir, setDir] = usePref<'asc' | 'desc'>('kanban.tabla.dir', 'desc', esUnoDe('asc', 'desc'));
   const [verHechas, setVerHechas] = useState(false);
