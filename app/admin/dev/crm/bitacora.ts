@@ -493,4 +493,47 @@ export const BITACORA: Hito[] = [
       'app/admin/runway/datos.ts — los veredictos de la depuración y el campo `hecho`',
     ],
   },
+  {
+    fecha: '4 oct', hora: '19:40', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La tarjeta mas urgente del CRM no se entendia, y por eso se cayo',
+    pedido: 'Haz la configuración de salvar los datos... Que por cierto, no entiendo muy bien eso... Si los "datos" que guarda Meta ya MaKo los guarda en el CRM en todos los leads entrantes... Pero bueno, revisalo y cierra todas las otras tareas que puedas cerrar',
+    puntos: [
+      '**El pedido trae la refutacion adentro, y tenia razon.** La tarjeta #6 era la de score mas alto del proyecto (87) y afirmaba tres cosas: que se estaban perdiendo respuestas, que el anuncio y la campana «nunca» se guardan, y que habia que correr un rescate. Dos eran falsas y la tercera no tenia nada que rescatar.',
+      'Lo que lo destapo fue que el dueno leyera la fila de la pantalla y dijera que no la entendia. Ninguna de las dos auditorias anteriores habia dudado de la premisa.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '20:10', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Medido contra la API de Meta: 0 respuestas descartadas sobre 686 leads',
+    puntos: [
+      '**El unico formulario que recibio leads pregunta exactamente los 4 campos que ya se guardaban.** 686 leads, 0 respuestas perdidas. Y el anuncio y la campana estan en 1.039 de 1.041 leads y se dibujan en la ficha desde antes: la tarjeta se contradecia sola, citando tres lineas mas abajo el codigo que hace lo que decia que no se hacia.',
+      '**Lo que si era cierto vivia en OTRO cliente.** El ws13 tiene cinco formularios con preguntas personalizadas y cero leads: la urgencia era real y estaba fechada al reves — no corre contra lo que se pierde hoy, corre contra el dia que ese cliente prenda sus anuncios.',
+      '⚠️ **El universo de la medicion es el conjunto de CLIENTES, no el que reporto.** Mirar solo el ws1 habria cerrado la tarjeta como fantasma y dejado al ws13 perdiendo respuestas dentro de un mes.',
+      'Y de las 15 tareas abiertas que se midieron contra el codigo, **ninguna volvio como «ya esta hecha»**: 11 parciales y 4 abiertas. Lo cerrable se habia cerrado el dia anterior.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '21:30', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que Meta borra queda guardado, y cuatro tarjetas mas que eran codigo',
+    puntos: [
+      '**No se construyo lo que la tarjeta pedia.** El rescate no se corrio porque no hay nada que rescatar; lo que se hizo es que no haya nada que rescatar la proxima vez: mig 0187 guarda el formulario crudo y la fecha real de Meta, y el descarte deja rastro en el historial del lead.',
+      '⚠️ **La columna no se pisa con vacio, y el mecanismo es que la clave NO VIAJE.** Escrita como las otras cinco (`input.x ?? null`), una ingesta posterior le borraria al lead las respuestas que Meta ya no tiene. Con el spread condicional, «no lo mando» y «lo mando vacio» son el mismo caso y gana lo guardado.',
+      '**#626**: al lead que entra SOLO se le aplicaba el criterio mas estricto que al que carga una persona. El criterio por los ultimos 10 digitos ya estaba escrito y testeado; faltaba aplicarlo donde nadie mira.',
+      '**#623**: el control que faltaba no era un boton, era un ID — `indiceContactos` devolvia Sets, o sea existencia y no identidad.',
+      '**#798**: el diagnostico obvio era el equivocado. Las keys canonicas SI existian; lo que medi­a cero era la COHORTE, porque `fecha_junta_1` es null en todo lead de un funnel sin reuniones.',
+      'Cerradas #6, #623, #626 y #798. #671 y #701 quedaron al 50% con lo que falta escrito: una necesita verse en el navegador de un cliente real y la otra que el dueno decida si vale repegar el Pixel.',
+    ],
+    commits: [
+      { sha: '640785a5', msg: 'CRM: lo que Meta borra queda guardado, y cuatro tarjetas mas que eran codigo', lineas: 3382, archivos: 31 },
+    ],
+    archivos: [
+      'lib/meta-leads-campos.ts — el parser del formulario de Meta, sin server-only para que tenga test',
+      'supabase/migrations/0187_meta_field_data.sql — las respuestas crudas y la fecha real de Meta',
+      'lib/funnel-comercial.ts — las etapas del embudo de cada cliente para el tramo comercial',
+      'app/crm/leads-importar.ts — el tercer destino de una fila repetida: enriquecer',
+    ],
+  },
 ];

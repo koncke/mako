@@ -4999,3 +4999,114 @@ sin reuniones cuente sobre la cohorte de la R1, **11 / 2**; sacarle el tope de d
 canónica en `getFunnelEtapas`, **12 / 1**.
 
 **Vive en:** `lib/funnel-comercial.ts` · `lib/queries.ts` (`getFunnelEtapas`, `_getFunnelSeries`) · `lib/retro-datos.ts:220` y `:320` · `lib/api-mako/areas/metricas.run.ts:205` y `:240` · `tests/funnel-comercial.test.ts` · *2026-10-04 paquete #798*
+
+
+---
+
+## La tarjeta más urgente del CRM afirmaba TRES cosas y dos eran falsas (04/10/2026)
+
+«Salvar los datos de Meta antes de que los borre (URGENTE)», score 87, la más alta del
+proyecto. Decía que Meta borra las respuestas de los formularios a los 90 días, que el
+anuncio y la campaña de origen **nunca** se guardan —«eso no es una ventana, es un agujero
+permanente»— y que había que correr un rescate contra reloj.
+
+Lo que lo destapó no fue una medición: fue que el dueño leyera la fila y contestara **«no
+entiendo muy bien eso… si los datos que guarda Meta ya MaKo los guarda en el CRM en todos
+los leads entrantes»**. Medido contra la API de Meta y contra la base:
+
+| Lo que la tarjeta afirmaba | Lo medido |
+|---|---|
+| Meta borra respuestas que estamos perdiendo | El único formulario que recibió leads (**686**, ws1) pregunta exactamente los 4 campos que el parser ya saca. **0 respuestas descartadas** |
+| El anuncio y la campaña «nunca se guardan» | Se guardan desde siempre: **1.039 de 1.041** leads los tienen, y se dibujan en la ficha |
+| Hay que correr un rescate de los últimos 90 días | Meta entrega hoy 685 leads, el más viejo de hace 89 días — y re-pollearlos no traería **ni una** respuesta nueva |
+
+**La tarjeta se contradecía sola**: tres líneas debajo de «nunca se están guardando» citaba
+`lib/leads.ts:753-760`, que es el código que los guarda. Un detalle que enumera un problema
+y a renglón seguido cita la solución es la firma de un diagnóstico que quedó viejo y que
+nadie volvió a leer entero.
+
+### Lo que sí era cierto estaba en otro cliente, y nadie lo había mirado
+
+`parseLeadFields` saca cuatro campos por coincidencia de palabra clave y tira el resto. Hoy
+eso no pierde nada **porque el formulario de ese cliente no pregunta nada más**. Pero el
+ws13 tiene **cinco formularios con preguntas personalizadas** («¿en qué plazo busca
+vender?», «¿cuál es su situación actual?», con opciones cerradas) y **cero leads**. El día
+que entre el primero, esa respuesta se descarta en silencio, no hay columna donde ponerla, y
+Meta la borra a los 90 días.
+
+O sea: la urgencia era real y estaba **fechada al revés**. No corría contra el reloj de lo
+que se está perdiendo; corre contra el reloj de cuándo ese cliente prenda sus anuncios.
+
+- **Cuando una tarjeta dice «URGENTE» y un porcentaje alto, lo primero que se mide es su
+  premisa, no su alcance.** Acá el alcance era cero y la premisa valía para otro workspace.
+- **El universo de la medición es el conjunto de CLIENTES, no el cliente que reportó.** Mirar
+  sólo el ws1 habría cerrado la tarjeta como fantasma y dejado al ws13 perdiendo respuestas
+  dentro de un mes, que es el peor de los dos errores posibles.
+- ⚠️ **Y lo que se construyó NO fue lo que la tarjeta pedía.** El rescate no se corrió (no
+  hay nada que rescatar); lo que se hizo es que no haya nada que rescatar la próxima vez.
+  Cuando la premisa de una tarjeta cae, el trabajo correcto casi nunca es su «Listo cuando».
+
+### El dato irrecuperable no se pisa con una ingesta posterior, y el mecanismo es que la clave NO VIAJE
+
+Meta borra `field_data` a los 90 días. Si se escribiera como las otras cinco columnas de
+atribución —`input.x ?? null`— el UPDATE de un lead que vuelve a entrar **le borraría las
+respuestas que Meta ya no tiene**. `columnasCrudasDeMeta` devuelve la clave sólo si esta
+ingesta trae el dato; con un spread, `undefined`, `null` y `[]` colapsan a lo mismo y lo
+guardado gana. **Para una columna que guarda algo irrecuperable, «no lo mandó» y «lo mandó
+vacío» tienen que ser el mismo caso, y la forma de conseguirlo es no emitir la clave.**
+
+Y la columna nació **sin default y nullable** a propósito: un `default '[]'` les pondría a
+los 1.549 leads existentes una respuesta vacía con cara de medida, y ningún lector podría
+distinguir «no vino de Meta» de «Meta mandó un formulario vacío».
+
+### Y el descarte, que no dejaba ni un `console.warn`
+
+Hasta hoy, un campo que el parser no reconocía desaparecía sin rastro: «no llegó» y «lo
+tiramos nosotros» se veían iguales. Ahora `parseLeadFields` devuelve también los `name` que
+no matchearon ningún keyword y el choke point de escritura los deja en el historial del
+lead. Es la regla de la casa aplicada a una ingesta: **una política puede rechazar; no puede
+no dejar rastro.**
+
+**Vive en:** `lib/meta-leads-campos.ts` (el parser, sin `server-only` para que tenga test) · `lib/leads.ts` (`metaFields`, `dejarRastroDeDescartes`) · `app/api/webhooks/meta-leads/route.ts` · `supabase/migrations/0187_meta_field_data.sql` · *2026-10-04 cerrar-crm*
+
+---
+
+## Al lead que entra SOLO se le aplicaba el criterio más estricto que al que carga una persona (04/10/2026)
+
+#626 se leía como «falta decidir cómo comparar teléfonos». No faltaba decidir nada: el
+criterio estaba escrito, testeado y en uso —`telefonoComparable`, los últimos 10 dígitos— en
+`duplicadosDeLead` (el alta manual) y en `lib/evolution-mensajes.ts:108`. Lo que faltaba era
+aplicarlo **donde el lead entra sin que nadie mire**: los webhooks comparaban con `.eq`.
+
+La asimetría es lo que hay que recordar. `5219981234567` llegando por WhatsApp y
+`9981234567` tipeado a mano eran dos personas para la ingesta — y el resultado no es una
+ficha de más: son **dos leads inalcanzables**, porque dos filas con el mismo
+`telefono_normalizado` rompen con `PGRST116` el `.maybeSingle()` de la ingesta siguiente.
+
+**Cuando un criterio de identidad existe en dos lugares y no en otros dos, la pregunta no es
+cuál es el criterio: es quién NO lo aplica.**
+
+- **La consulta EXACTA va primero**, y no es paranoia: es lo que permite afirmar que el
+  cambio no empeora nada. Con sólo el `like('%<últimos 10>')` y su `limit`, un match que hoy
+  es exacto y limpio puede volverse ambiguo y el tope puede esconder al exacto detrás de
+  veinte parecidos. Con la exacta adelante, el sufijo sólo opina donde antes no había nada.
+- **Ante un patrón ambiguo, abstenerse**, por la asimetría del daño: crear una ficha de más
+  es reversible (alguien las funde); escribir la agenda, las respuestas y la atribución de
+  Meta **encima de la persona equivocada** no lo es y no deja una línea en el historial. Un
+  IGSID de Instagram también termina en diez dígitos.
+
+### Y el control que le faltaba a #623 no era un botón: era un ID
+
+«Enriquecer al que ya existe» necesita saber **a quién**, y `indiceContactos` devolvía
+`Set`s: existencia, no identidad. Un `Map` ingenuo habría mentido —con dos leads que
+comparten el email, `get()` devuelve uno arbitrario—. **`has()` contesta «ya existe» y el
+VALOR contesta «a quién completar»: son dos preguntas, y la segunda se puede quedar sin
+respuesta.**
+
+⚠️ **Y un destino nuevo es una pregunta APARTE, no un tercer valor de la casilla.** Hacer un
+enum de tres en el tilde habría roto el guard del 03/10 y revertido en silencio la decisión
+del 14/08. Con `incluir` («¿hace algo?») + `enriquecer` («¿y qué hace?») compuestos en
+`destinoDe`, los tres lectores —la casilla, el contador del botón y el portón del server—
+siguen pasando por UNA función y el guard viejo sigue verde.
+
+**Vive en:** `lib/leads.ts` (las ingestas por webhook) · `lib/leads-duplicados.ts` (`camposParaCompletar`, sin `server-only`) · `app/crm/leads-importar.ts` (`DestinoFila`, `destinoDe`) · *2026-10-04 cerrar-crm*

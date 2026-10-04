@@ -169,19 +169,19 @@ export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string; he
   689: { que: 'va', motivo: 'Es la misma que #38: su texto se muda ahí, con sus dos mitades' },
 
   // ── Se pospone: cómo se sobrevive sin eso ──
-  6: { que: 'pospone', motivo: 'Hoy nadie usa esas respuestas para vender. Ojo: es lo único que no se recupera después' },
+  6: { que: 'pospone', motivo: 'Hoy nadie usa esas respuestas para vender. Ojo: es lo único que no se recupera después', hecho: 'El formulario que te trae los leads pregunta solo los 4 campos que ya se guardaban: no se perdió nada. Y de ahora en más se guarda entero' },
   697: { que: 'pospone', motivo: 'Mientras tanto se corrige a mano en la ficha. Y si lo quieres de paso, es una línea', hecho: 'La mensualidad nace cobrada: el botón ya no deja una deuda que «Completar con IA» borraba' },
   800: { que: 'pospone', motivo: 'Mientras tanto el lead se mueve a mano. Vuelve si no prendes el motor automático' },
   671: { que: 'pospone', motivo: 'Mientras tanto la segunda reunión se agenda a mano: un minuto por reunión' },
   622: { que: 'pospone', motivo: 'Tus 1.000 son contactos fríos, no clientes que ya pagaron: no te toca todavía' },
   19: { que: 'pospone', motivo: 'La cuota vencida ya te sale en Comercial y se marca cobrada con un clic' },
-  798: { que: 'pospone', motivo: 'Ningún cliente tiene todavía un embudo propio que medir' },
+  798: { que: 'pospone', motivo: 'Ningún cliente tiene todavía un embudo propio que medir', hecho: 'El tramo comercial mide las etapas del embudo de cada cliente; el que no tiene uno propio ve lo mismo de siempre' },
   40: { que: 'pospone', motivo: 'Nadie vende hoy en tres reuniones: el recorrido de dos alcanza' },
   332: { que: 'pospone', motivo: 'Lo que dijo en la llamada ya se puede leer en la ficha cuando lo necesitas' },
   696: { que: 'pospone', motivo: 'El formulario ya entra solo; lo que queda es una decisión, no código' },
   701: { que: 'pospone', motivo: 'El dato está guardado: se puede dibujar cuando haga falta, sin perder nada' },
-  623: { que: 'pospone', motivo: 'El contacto entra igual; lo único que no pasa es que se le sume el dato nuevo' },
-  626: { que: 'pospone', motivo: 'Te deja la ficha duplicada, no te pierde el lead' },
+  623: { que: 'pospone', motivo: 'El contacto entra igual; lo único que no pasa es que se le sume el dato nuevo', hecho: 'Reimportar el mismo archivo ahora ofrece sumarle los datos nuevos al que ya está, sin pisar lo que cargaste' },
+  626: { que: 'pospone', motivo: 'Te deja la ficha duplicada, no te pierde el lead', hecho: 'El lead que entra solo se compara por los últimos 10 dígitos, igual que cuando lo cargas tú' },
   18: { que: 'pospone', motivo: 'El mecanismo ya está: lo que falta es escribir el texto, no programar' },
   20: { que: 'pospone', motivo: 'Apagarlo cortaría los recordatorios que hoy le llegan al lead' },
 };
