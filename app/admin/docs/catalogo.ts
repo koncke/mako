@@ -88,6 +88,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
   },
 
   // --- fotos de un momento, no se mantienen ---
+  'depuracion-crm-03oct': {
+    grupo: 'Arranque', tabs: ['/crm'],
+    hace: ['Qué entra y qué sale de las 25 tarjetas del CRM', 'Lo que el 17/10 necesita y no tiene tarjeta'],
+  },
   'panorama-03oct': {
     grupo: 'Arranque', tabs: [],
     hace: ['El runway, la poda real y la ventana de venta', 'Cruza los dos audios con las dos llamadas y el tablero'],

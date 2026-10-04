@@ -14,6 +14,13 @@
 // dibuja con su fecha al lado y no como un estado del sistema — y por eso la
 // entrada se BORRA de acá cuando la tarea se cierra, en vez de corregirse.
 //
+// ⚠️ Y EL 03/10 SE LA REMIDIÓ CONTRA HEAD, con el runway encima: seis veredictos
+// cambiaron. Dos de estas filas ya no son ciertas —#37 y #698 están hechas— y la de
+// #623 describe lo contrario de lo que hace el código. Gana la más NUEVA:
+// docs/depuracion-crm-03oct.md dice qué entra, qué se posterga y qué se va del
+// tablero. Esta foto queda como el estado del 30/09 y se borra fila por fila a
+// medida que Martín decida.
+//
 // El detalle largo de cada una, con archivo:línea, está en
 // docs/auditoria-crm-30sep.md (se lee en /admin/docs).
 

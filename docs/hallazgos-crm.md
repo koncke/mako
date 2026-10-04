@@ -4589,3 +4589,108 @@ hizo y el proyecto vacío nunca se tachó. Por la regla de la casa —tema compa
 trabajo abierto— hay que tacharlo al fondo con su motivo, y es una decisión de Martín.
 
 **Vive en:** el ws9 · *2026-09-30 crm-auditoria-25*
+
+## La importación AUTORIZA el duplicado que la pantalla dice que descartó (03/10/2026)
+
+La pantalla de revisión dibuja la fila repetida **gris, con la casilla vacía y el cartel «ya
+existe»**, y el server la importa igual, con la guarda anti-duplicado **explícitamente
+apagada**. No hay error, no hay aviso, y el botón promete un número menor que el que crea.
+
+Las cuatro piezas, cada una correcta por separado:
+
+| Dónde | Qué hace |
+|---|---|
+| `app/crm/leads-importar.ts:219` | toda fila nace con `incluir: true` |
+| `app/crm/leads-importar.ts:144-163` | `recalcular` escribe `motivo` y **nunca toca `incluir`** |
+| `app/crm/TablaRevisionLeads.tsx:60` y `:88` | `tildar` exige `!f.motivo` y el botón va `disabled={fuera}`: **la fila marcada no se puede destildar**, y se dibuja sin ✓ porque el render es `f.incluir && !fuera` |
+| `app/crm/actions.ts:1498` y `:1507` | el server saltea sólo con `!f.incluir \|\| chocaAcá`, y a esa misma fila le pasa `permitirDuplicado: !!f.motivo` → **`true` justo para las marcadas** |
+
+El comentario de `:1488-1494` explica la intención y es razonable — *«tildar un duplicado
+ahora sirve… lo que se pidió es avisar y dejar decidir»*. Lo que no se ve desde ahí es que
+**la decisión que la pantalla ofrece no existe**: el único control que baja `incluir` para
+una fila marcada está deshabilitado justo para esas filas. El único camino que la baja es el
+botón «Sólo nuevas» (`:61`), que nadie está obligado a apretar — y que *parece redundante*,
+porque la casilla ya se ve vacía.
+
+Vive desde el **14/08/2026** (`2dfa4bab`, «el anti-duplicado avisa en vez de decidir»): siete
+semanas, con el único testigo posible siendo contar los leads después de importar.
+
+⚠️ **Y el contador de la pantalla no lo puede delatar**, porque mide bien: `contar`
+(`leads-importar.ts:234-238`) suma `tildadas` sólo entre las que **no** tienen motivo, así
+que el botón dice «Crear 80 leads» y el server crea 80 **más** las repetidas. Los dos números
+son correctos sobre preguntas distintas, que es cómo un bug así sobrevive a que alguien mire.
+
+**La regla que queda:** si la pantalla DESHABILITA un control, el server tiene que aplicar lo
+que ese control deshabilitado significa. Un campo que la UI no puede cambiar no es una
+decisión de la persona: es un **default**, y el default es la política real del sistema.
+
+**Vive en:** `app/crm/actions.ts:1498` · `app/crm/TablaRevisionLeads.tsx:88` · *2026-10-03 depuracion-crm*
+
+## El workspace donde va a pasar la prospección no tiene canal, ni agenda, ni motor (03/10/2026)
+
+El plan del 03/10 es importar **+1.000 contactos en frío al CRM de MaKo**, filtrar los 100
+mejores, escribirles el **17/10** y cerrar el **18/10**. Eso ocurre en el workspace del super
+admin (**ws9**), y medido contra producción ese workspace está así:
+
+| Qué hace falta | Estado hoy en ws9 |
+|---|---|
+| Leads cargados | **3** (ws1 tiene 1.154) |
+| Línea de WhatsApp para escribir | **no hay fila** en `evolution_instancias` (sólo ws1 y ws11 conectadas) |
+| Interruptor de envío | **no hay fila** de `envio_whatsapp_enabled` → `lib/envio-flags.ts:23-30` es fail-closed: **apagado** |
+| Agenda donde reservan | **cero** credenciales `CALENDLY_*` / `CALCOM_*`, y sus tres filas de routing son agente, landing y fathom |
+| Motor de seguimiento | **no hay fila** de `crm_auto_enabled` → apagado (el piloto corrió en ws1 y ws11, no acá) |
+| Vendedor asignable | **un solo usuario y es `admin`** → `vendedorUnicoDelWorkspace` (`lib/leads.ts:419`) filtra `u.rol !== 'admin'` y devuelve `null`: los 1.000 nacen **sin setter ni closer** |
+
+Ninguna de las 25 tarjetas abiertas del CRM nombra una sola de esas seis filas. **No es
+código: es configuración**, y por eso no aparece en ninguna auditoría del repo — las
+auditorías miran el código, y acá el código está bien.
+
+**El patrón que generaliza:** cuando el plan muda la operación a un workspace nuevo, lo que
+falta no son features sino **las filas que ese inquilino nunca creó**. Se mide con una
+consulta por interruptor, y conviene hacerla ANTES de priorizar trabajo, porque mueve el
+orden entero: de nada sirve arreglar el importador si después no hay por dónde escribir.
+
+**Vive en:** el ws9 · `lib/envio-flags.ts:23-30` · `lib/leads.ts:409-423` · *2026-10-03 depuracion-crm*
+
+## Mil filas no entran en el presupuesto de la pantalla, y al cortar reintentar DUPLICA (03/10/2026)
+
+`MAX_FILAS_IMPORT = 3000` (`app/crm/leads-importar.ts:59`) sobre una ruta con
+`maxDuration = 60` (`app/crm/page.tsx:35`), y el bucle de `importarLeadsRevisadosAction`
+(`app/crm/actions.ts:1481-1517`) es **secuencial**, con varias esperas a la base por lead
+(el chequeo de duplicados, la búsqueda del vendedor único, el insert).
+
+Es el patrón de «el entorno tiene un tope y tu código declara otro»: el número de la
+constante promete 3.000 sobre un límite físico que no los aguanta. Y acá la consecuencia no
+es sólo que corte — **lo ya creado queda**, así que volver a apretar reimporta desde el
+principio… contra el portón de la entrada de arriba, que autoriza el duplicado. Las dos
+cosas por separado son molestas; juntas, un reintento multiplica la base.
+
+Lo que falta no es el comparador (eso son #621, #623 y #626): es **el volumen** — el tope
+real medido, el insert en lote, y que al cortar la pantalla diga **cuántos entraron** para
+que el reintento empiece donde quedó.
+
+**Vive en:** `app/crm/actions.ts:1481-1517` · *2026-10-03 depuracion-crm*
+
+## La depuración del 03/10: de 25 tarjetas abiertas a 6 con fecha
+
+Seis lectores midieron las 25 contra HEAD, un cruzador buscó solapes y lo que faltaba, y
+tres refutadores atacaron por CLASE de afirmación (cerrar · postergar · meter al P1), con
+el default calibrado distinto en cada uno. **6 veredictos de 25 cayeron.**
+
+Lo que más valió, y no lo podía ver ningún lector solo:
+
+- **Dos tarjetas pueden pasarse el mismo defecto y dejarlo en CERO tarjetas.** #37 lo cerró
+  diciendo «eso es el pendiente medido de #701» y #701 lo postergó diciendo «vive en la
+  misma función que ya es el pendiente de #37». Las dos citan `getTrackingEvents`. Cuando un
+  veredicto justifica una salida con *«eso lo cubre la otra»*, hay que ir a leer qué dice la
+  otra: la mitad de las veces dice lo mismo al revés.
+- **Tres lectores describieron la misma pantalla de tres formas incompatibles** (#621 «la
+  fila repetida se saltea», #623 «se descarta en silencio», #626 «pinta entra y cuenta
+  error») y **las tres estaban equivocadas**: el server hace algo peor que las tres. Tres
+  descripciones distintas de una misma pantalla no son tres matices — son la señal de que
+  nadie leyó el camino entero.
+- **Un refutador cambió el sujeto de una tarjeta y con eso su fecha.** #174 («Calendly: el
+  cliente conecta y no entra nada») se había leído como un problema de un cliente nuevo del
+  1/11; medido, el cliente nuevo sin agenda conectada **es Martín**, y eso la corre al 17/10.
+
+**Vive en:** `app/admin/dev/crm/auditoria.ts` · `docs/depuracion-crm-03oct.md` · *2026-10-03 depuracion-crm*

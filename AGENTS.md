@@ -5728,3 +5728,34 @@ de IA» que leyó un cliente lo fabricaron nuestras propias keys, con la suya co
   salió de la cascada del doer el 30/09 por fabricar el veredicto de cuota, y quedó vivo en
   la red de plataforma — la lista que corre justo cuando el cliente ya se quedó sin nada.
 
+# Si la pantalla DESHABILITA un control, el server aplica lo que ese control significa
+
+Un campo que la interfaz nunca puede cambiar no es una decisión de la persona: es un
+**default**. Y si el server lee ese campo para decidir, el default es la política real del
+sistema — por más que el comentario de al lado diga que ahí hay una decisión humana.
+
+Medido el 03/10/2026 en la importación de leads del CRM, y las cuatro piezas son correctas
+por separado:
+
+| Dónde | Qué hace |
+|---|---|
+| `app/crm/leads-importar.ts:219` | toda fila nace con `incluir: true` |
+| `:144-163` | `recalcular` escribe `motivo` y **nunca toca `incluir`** |
+| `app/crm/TablaRevisionLeads.tsx:60` y `:88` | la fila marcada **no se puede destildar** (`disabled`), y se dibuja sin ✓ |
+| `app/crm/actions.ts:1498` y `:1507` | el server saltea con `!f.incluir` y le pasa `permitirDuplicado: !!f.motivo` |
+
+Resultado: la pantalla dibuja la fila repetida gris, con la casilla vacía y el cartel «ya
+existe», **y el server la crea igual, con la guarda anti-duplicado apagada**. El comentario
+que lo gobierna dice, con razón, «lo que se pidió es avisar y dejar decidir» — y la decisión
+que la pantalla ofrece **no existe**, porque el único control que la expresa está
+deshabilitado justo en esas filas.
+
+- **El par a mirar es `disabled` + el campo que ese control escribe.** Si el control está
+  apagado, preguntá quién más baja ese valor. Si la respuesta es «nadie» o «un botón
+  opcional», el server está leyendo una constante.
+- **Y un contador correcto no lo delata.** Acá el botón decía «Crear 80 leads» contando bien
+  (sólo las limpias) mientras el server creaba 80 **más** las repetidas: dos números
+  correctos sobre preguntas distintas. Por eso sobrevivió siete semanas a la vista.
+- Es el espejo de «esconder el botón no protege nada»: ahí la UI escondía y el server
+  protegía; acá la UI muestra que no va a pasar y el server lo hace igual. La pregunta es la
+  misma — **quién decide de verdad** — y la respuesta siempre es el server.
