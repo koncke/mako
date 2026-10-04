@@ -38,6 +38,39 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '4 oct', hora: '16:01', chat: 'CRM depuracion', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Todo lo que se pueda sin intervencion suya',
+    pedido: 'Bien, ahora comienza a solucionar absolutamente todo lo que puedas hacer sin mi ayuda o intervencion, lo que ya tengas claridad... No importa si esta a futuro o lo que sea, hazlo todo.',
+    puntos: [
+      'El filtro no es «lo urgente» sino **«¿necesito que Martin decida algo?»**. De las 25 del CRM eso da SEIS mas una nueva: todas con archivo y linea medidos el 03/10, ninguna con una decision adentro.',
+      'Lo que NO entro por eso: prender el motor automatico, conectar su linea de WhatsApp y su agenda, filtrar los 100 en la planilla, tachar el proyecto gemelo y escribir el texto de las nutriciones. Cinco cosas, y ninguna es codigo.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '16:01', chat: 'CRM depuracion', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Siete arreglos en cuatro paquetes, y el bloqueante que aparecio al juntarlos',
+    puntos: [
+      '**Cuatro paquetes en paralelo, sin un solo archivo compartido** — importacion+origen, leads+fathom, calendly y la cuota. El reparto por archivo es lo correcto y GARANTIZA salidas huerfanas, asi que cerro una revision cruzada que leyo los caminos de punta a punta.',
+      '⚠️ **Y encontro un bloqueante que no era de ningun paquete.** Abrir una fuente nueva de links —los que una persona pega a mano en la ficha— y negarse, con razon, a que eso afirme la asistencia significa devolver `null`. Y `applyFathomRecording` resuelve `attended ?? true`: **ese `null` entraba como un SI**. El lead quedaba marcado como asistido, cambiaba de etapa y disparaba el QualifiedLead de Meta, que el revert no deshace. Los dos lados estaban bien; **el contrato entre ellos no existia**, y vivia en `lib/crm-auto.ts`, que ningun paquete tenia asignado.',
+      '**Lo que se borro era una trampa cargada, no codigo muerto.** `importLeadsCsvAction` tenia cero call sites y era el camino «sin revision»: le pasaba al porton filas con `incluir: true` de fabrica, o sea exactamente el bug que el porton venia a cerrar, esperando a que alguien la llamara.',
+      '**Y `channelOf` convertia un lead en «de donde vino» sin que nadie leyera el resultado.** El arreglo del origen habia entrado en las DOS funciones del archivo y solo una se dibuja — un guard sobre la huerfana da verde sobre una pantalla que miente, y ademas la mantiene viva.',
+      '**La mitad que la corrida no vio:** /crm/revisar siembra sus filas con el tilde puesto y sin saber si son duplicados (el motivo lo descubre el server despues de que la pantalla se dibujo). Honrar ese tilde es crear el duplicado Y atribuirle la decision a alguien que nunca la vio.',
+      '2997 tests en verde. Los cinco guards nuevos se probaron rompiendolos; el del bloqueante cayo en las cuatro roturas (1, 2, 1 y 1 fallo).',
+    ],
+    commits: [
+      { sha: '01cf2164', msg: 'CRM: las seis que no necesitaban una decision, y el bug que destapo juntarlas', lineas: 2676, archivos: 30 },
+    ],
+    archivos: [
+      'lib/crm-auto.ts — el bloqueante: `marcarAsistencia` y las filas de confirmacion que cuelgan de lo que de verdad paso',
+      'app/crm/leads-importar.ts — `entra()`, la unica respuesta a «¿esta fila entra?» para los tres lectores',
+      'app/crm/origen-lead.ts — el catalogo de origenes (nuevo)',
+      'lib/fathom-auto.ts · lib/auto-reuniones.ts · lib/leads.ts — las grabaciones, el vendedor unico y los seis `.maybeSingle()`',
+      'docs/hallazgos-crm.md · docs/hallazgos-integraciones.md · AGENTS.md — la cosecha y las dos reglas nuevas',
+    ],
+  },
+  {
     fecha: '3 oct', hora: '22:06', chat: 'CRM depuracion', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Con el panorama encima, que entra y que sale del CRM',
