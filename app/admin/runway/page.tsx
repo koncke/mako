@@ -31,8 +31,10 @@ import {
 // `board/types`, no de una copia. Si mañana «alta» deja de ser 75, esta pantalla
 // se entera sola.
 import { prioFromScore, PCOLOR } from '@/app/plan/board/types';
-// Y las tareas salen del lector que ya usa /admin/dev, con su caché de 30 s.
-import { roadmapDe, wsDelBoard } from '@/app/admin/dev/roadmap';
+// Las tareas salen del tablero, ABIERTAS Y CERRADAS: una terminada tiene que poder
+// verse marcada, y el lector de /admin/dev las filtra en la consulta.
+import { wsDelBoard } from '@/app/admin/dev/roadmap';
+import { tareasDelCrm } from './tareas';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,10 +97,21 @@ function Lista({ items, malo }: { items: string[]; malo?: boolean }) {
 const TONO: Record<Veredicto, { fg: string; bg: string }> = {
   queda: { fg: 'var(--bad)', bg: 'color-mix(in srgb, var(--bad) 11%, transparent)' },
   pospone: { fg: 'var(--dim)', bg: 'var(--surface-2)' },
-  va: { fg: 'var(--good)', bg: 'color-mix(in srgb, var(--good) 11%, transparent)' },
+  va: { fg: 'var(--primary)', bg: 'color-mix(in srgb, var(--primary) 11%, transparent)' },
 };
 
-function Decision({ v }: { v: Veredicto | null }) {
+function Decision({ v, hecha }: { v: Veredicto | null; hecha?: boolean }) {
+  // ⚠️ «Hecha» gana sobre el veredicto, y no lo reemplaza en los datos: el veredicto
+  // dice qué se decidió el 03/10 y esto dice qué pasó después. Pintar «Se queda» sobre
+  // algo que ya se entregó manda a trabajar dos veces.
+  if (hecha) {
+    return (
+      <span style={{
+        display: 'inline-block', whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
+        fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--good)',
+      }}>✓ Hecha</span>
+    );
+  }
   if (!v) return <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>sin revisar</span>;
   const t = TONO[v];
   return (
@@ -125,18 +138,32 @@ export default async function RunwayPage() {
   // `if (!TITULOS_PROPIOS[slug]) return []` y hoy esa tabla sólo tiene
   // customer-success, así que para cualquier otra área devuelve vacío SIN MIRAR
   // sus proyectos — un cero perfectamente válido sobre la pregunta equivocada.
-  const abiertas = (await roadmapDe('crm', wsDelBoard(admin.ws))).tareas
-    .filter((t) => t.proyecto === 'Feature: CRM');
   const SIN_REVISAR: { que: Veredicto | null; motivo: string } = { que: null, motivo: 'Entró después de la depuración' };
-  const FILAS = abiertas
-    .map((t) => ({ num: t.num, titulo: t.titulo, score: t.score, ...(CRM_VEREDICTOS[t.num] ?? SIN_REVISAR) }))
-    .sort((a, b) => b.score - a.score);
-  const cuenta = (v: Veredicto) => FILAS.filter((f) => f.que === v).length;
+  // ⚠️ «HECHA» NO SE ESCRIBE EN `datos.ts`: SALE DEL TABLERO. Lo que está terminado lo
+  // dice `progress`, que es el mismo número que mueve la tarjeta en /plan — así que
+  // reabrir una allá se ve acá sin que nadie toque este archivo. Una lista de hechas
+  // escrita a mano empieza a mentir el día que alguien cierra la décima.
+  const FILAS = (await tareasDelCrm(wsDelBoard(admin.ws)))
+    // ⚠️ El proyecto tiene tareas cerradas de antes de la depuración y no son de esta
+    // foto: traerlas llenaría la tabla de trabajo viejo que nadie decidió acá. Entran
+    // las 25 que la depuración revisó —estén abiertas o ya cerradas— y las que se hayan
+    // abierto después, que salen marcadas «sin revisar» en vez de esconderse.
+    .filter((t) => CRM_VEREDICTOS[t.num] || t.progreso < 100)
+    .map((t) => ({
+    num: t.num,
+    titulo: t.titulo,
+    score: t.score,
+    hecha: t.progreso >= 100,
+    ...(CRM_VEREDICTOS[t.num] ?? SIN_REVISAR),
+  }));
+  const cuenta = (v: Veredicto) => FILAS.filter((f) => !f.hecha && f.que === v).length;
   const REPARTO = [
-    // +1 en «se queda»: la tarjeta nueva del pie, que todavía no existe en el tablero.
-    { k: 'se quedan', n: cuenta('queda') + 1, bg: 'var(--bad)', ink: '#fff' },
+    // La tarjeta nueva del pie no existe en el tablero, así que suma a mano — del lado
+    // que le corresponda hoy, no del que le correspondía cuando se escribió.
+    { k: 'terminadas', n: FILAS.filter((f) => f.hecha).length + (CRM_NUEVA.hecha ? 1 : 0), bg: 'var(--good)', ink: '#fff' },
+    { k: 'se quedan', n: cuenta('queda') + (CRM_NUEVA.hecha ? 0 : 1), bg: 'var(--bad)', ink: '#fff' },
     { k: 'se posponen', n: cuenta('pospone'), bg: 'var(--surface-2)', ink: 'var(--ink)' },
-    { k: 'se van del tablero', n: cuenta('va'), bg: 'var(--good)', ink: '#fff' },
+    { k: 'se funden en otra', n: cuenta('va'), bg: 'var(--primary)', ink: '#fff' },
   ];
 
   return (
@@ -350,7 +377,7 @@ export default async function RunwayPage() {
             </thead>
             <tbody>
               {FILAS.map((f) => (
-                <tr key={f.num}>
+                <tr key={f.num} style={f.hecha ? { color: 'var(--dim)' } : undefined}>
                   <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', lineHeight: 1.4 }}>
                     <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>#{f.num}</span>{' '}
                     {f.titulo}
@@ -364,10 +391,12 @@ export default async function RunwayPage() {
                     }}>{f.score}</span>
                   </td>
                   <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
-                    <Decision v={f.que} />
+                    <Decision v={f.que} hecha={f.hecha} />
                   </td>
                   <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', color: 'var(--dim)', lineHeight: 1.4 }}>
-                    {f.motivo}
+                    {/* Cerrada: el porque de la decision ya es historia, y el de una
+                        pospuesta se contradice con el «Hecha» de al lado. */}
+                    {(f.hecha && f.hecho) || f.motivo}
                   </td>
                 </tr>
               ))}
@@ -378,7 +407,7 @@ export default async function RunwayPage() {
                   {CRM_NUEVA.titulo}
                 </td>
                 <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', color: 'var(--faint)' }}>—</td>
-                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)' }}><Decision v="queda" /></td>
+                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)' }}><Decision v="queda" hecha={CRM_NUEVA.hecha} /></td>
                 <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', color: 'var(--dim)', lineHeight: 1.4 }}>
                   {CRM_NUEVA.motivo}
                 </td>

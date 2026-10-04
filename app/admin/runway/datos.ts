@@ -122,10 +122,19 @@ export const CUENTA = [
 
 export type Veredicto = 'queda' | 'pospone' | 'va';
 
+// ⚠️ EL PORQUE DE UNA FILA YA CERRADA NO ES EL DE LA DECISION. El motivo de un
+// «se pospone» es, por construccion, un argumento para NO hacerla: al lado de un
+// «Hecha» se lee como una contradiccion, que es exactamente lo que la columna no
+// puede hacer (AGENTS.md, «cuando la pantalla si muestra un porque»). El de un
+// «se queda» sobrevive —dice que se rompia sin eso, o sea por que se hizo—, asi
+// que `hecho` solo hace falta cuando el motivo deja de tener sentido una vez
+// resuelta. Si cierras una pospuesta y no le escribis el texto, la fila va a
+// mostrar el argumento de posponerla: por eso esta escrito aca y no en un commit.
+
 export const VEREDICTO_LABEL: Record<Veredicto, string> = {
   queda: 'Se queda',
   pospone: 'Se pospone',
-  va: 'Se va',
+  va: 'Se funde',
 };
 
 /**
@@ -144,7 +153,7 @@ export const VEREDICTO_LABEL: Record<Veredicto, string> = {
  * pospone». Un motivo que describe el problema se lee como una contradicción con su
  * propio chip.
  */
-export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string }> = {
+export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string; hecho?: string }> = {
   // ── Se queda: qué se rompe sin esto ──
   621: { que: 'queda', motivo: 'Sin esto los 1.000 entran con medio nombre y no se pueden distinguir entre sí' },
   702: { que: 'queda', motivo: 'Es lo único que después separa los 1.000 en frío de los que te escribieron solos' },
@@ -161,7 +170,7 @@ export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string }> 
 
   // ── Se pospone: cómo se sobrevive sin eso ──
   6: { que: 'pospone', motivo: 'Hoy nadie usa esas respuestas para vender. Ojo: es lo único que no se recupera después' },
-  697: { que: 'pospone', motivo: 'Mientras tanto se corrige a mano en la ficha. Y si lo quieres de paso, es una línea' },
+  697: { que: 'pospone', motivo: 'Mientras tanto se corrige a mano en la ficha. Y si lo quieres de paso, es una línea', hecho: 'La mensualidad nace cobrada: el botón ya no deja una deuda que «Completar con IA» borraba' },
   800: { que: 'pospone', motivo: 'Mientras tanto el lead se mueve a mano. Vuelve si no prendes el motor automático' },
   671: { que: 'pospone', motivo: 'Mientras tanto la segunda reunión se agenda a mano: un minuto por reunión' },
   622: { que: 'pospone', motivo: 'Tus 1.000 son contactos fríos, no clientes que ya pagaron: no te toca todavía' },
@@ -182,14 +191,18 @@ export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string }> 
  * paso. Se dibuja al pie de la tabla porque no tiene número hasta que se cree.
  */
 export const CRM_NUEVA = {
-  titulo: 'La importación crea el duplicado que la pantalla dice que descartó',
-  motivo: 'Importar tres bases que se solapan crea cada contacto repetido dos veces, en silencio',
+  titulo: 'La importación creaba el duplicado que la pantalla decía que descartó',
+  // Se encontró y se arregló el mismo día. `hecha` va escrito acá —y no sale del
+  // tablero como las otras— porque esta tarjeta nunca se creó: el arreglo salió
+  // antes. Si alguna vez se abre, este bloque se borra y la fila sale de la tabla.
+  hecha: true,
+  motivo: 'Las tres respuestas a «¿esta fila entra?» pasan por una sola función (01cf2164)',
 };
 
 export const CRM_DECISIONES = [
   '**¿Prendes el motor automático antes de importar?** De eso depende que #800 quede afuera: con 1.000 leads, darse cuenta de que uno está quieto abriendo su ficha no escala.',
   '**¿Filtras los 100 en la planilla, o importas los 1.000?** Si entran los 1.000, después hace falta separarlos y eso no existe.',
-  '**#697**, el botón que anota la cuota como impaga: se pospone, pero el arreglo es **una línea**. ¿De paso o pospuesto?',
+  '**#627 y #15 se funden en #798 y #40**, y fundirse MUEVE texto: lo que falta de cada una tiene que quedar escrito adentro de la otra antes de cerrarlas. ¿Las fundo?',
   '**«Agente: CRM automático»** sigue vivo con 0 tareas y parte en dos la respuesta a «¿dónde está lo del CRM?». ¿Se tacha?',
 ];
 
