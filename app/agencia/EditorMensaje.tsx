@@ -32,7 +32,7 @@
 //    inserta TEXTO PLANO: un copiar-pegar de un doc trae tablas, colores y fuentes
 //    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { tramosConVariables } from '@/lib/variables-aviso';
 import { Dropdown } from '../components/Dropdown';
 import type { VariableAviso } from '@/lib/variables-aviso';
@@ -62,8 +62,21 @@ function marcasAHtmlEditor(texto: string): string {
     .replace(/\*([^*\n]+?)\*/g, '<b>$1</b>')
     .replace(/_([^_\n]+?)_/g, '<i>$1</i>')
     .replace(/~([^~\n]+?)~/g, '<s>$1</s>');
+  /**
+   * ⚠️ EL TOKEN VA AZUL Y CON `color` A SECAS — NINGUN OTRO ESTILO.
+   *
+   * Pedido: «los datos deberían salir como {NOMBRE DEL DATO} y en el texto, pintado
+   * de azul para que se diferencie». La burbuja (`TextoMarcas`) ya lo pintaba; el
+   * editor no, y era el unico lugar donde el token se escribe.
+   *
+   * ⚠️ Y NO SE PUEDE COPIAR EL ESTILO DE LA BURBUJA. Alla el token va con
+   * `fontWeight: 600`, y `domAMarcas` (abajo) trata `Number(est.fontWeight) >= 600`
+   * como NEGRITA: copiarlo guarda `*{{lead_nombre}}*` en el texto, o sea le mete
+   * asteriscos al mensaje sin que nada falle. Un span con SOLO color se aplana
+   * limpio y el token vuelve entero — medido.
+   */
   const porLinea = escaparHtml(texto ?? '').split('\n').map((l) =>
-    tramosConVariables(l).map((t) => (t.esVar ? t.txt : conMarcas(t.txt))).join(''));
+    tramosConVariables(l).map((t) => (t.esVar ? `<span style="color:var(--primary-strong)">${t.txt}</span>` : conMarcas(t.txt))).join(''));
   return porLinea.join('<br>') || '';
 }
 
@@ -95,15 +108,38 @@ function domAMarcas(nodo: Node): string {
   return out;
 }
 
-export function EditorMensaje({ valor, onChange, filas = 7, disabled, variables }: {
+export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables, accion }: {
   valor: string;
   onChange: (v: string) => void;
   filas?: number;
+  /** Lo que va al final de la barra de adentro: hoy el boton de IA. */
+  accion?: ReactNode;
   disabled?: boolean;
   /** Los datos de MaKo que ESTE mensaje puede resolver. Sin lista, no hay botón. */
   variables?: VariableAviso[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const cajaRef = useRef<HTMLDivElement | null>(null);
+  const [enfocado, setEnfocado] = useState(false);
+
+  /**
+   * Cerrar la barra con un `pointerdown` del documento y NO con el `onBlur` de la
+   * caja: el menú del desplegable se monta por portal FUERA de la caja, así que
+   * elegir un dato disparaba el blur y la barra desaparecía a mitad del gesto. Acá
+   * se pregunta dónde cayó el click, que es el dato que de verdad decide.
+   */
+  useEffect(() => {
+    if (!enfocado) return;
+    const alTocar = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      if (cajaRef.current?.contains(t)) return;
+      if (t.closest('[role="listbox"]')) return;
+      setEnfocado(false);
+    };
+    document.addEventListener('pointerdown', alTocar, true);
+    return () => document.removeEventListener('pointerdown', alTocar, true);
+  }, [enfocado]);
   /** Lo último que ESTE editor emitió. Ver la trampa 1. */
   const propio = useRef<string | null>(null);
 
@@ -140,6 +176,29 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled, variables 
     el.focus();
     document.execCommand('insertText', false, `{{${key}}}`);
     emitir();
+    // Se pinta en el acto: el dato recién insertado es justo el que tiene que
+    // verse distinto, y acá el caret puede ir al final sin molestar a nadie.
+    repintar();
+    const sel = window.getSelection();
+    if (sel && el.lastChild) { const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
+  }
+
+  /**
+   * Vuelve a pintar el HTML desde el texto. Es lo que hace que un token tipeado a
+   * mano se ponga azul.
+   *
+   * ⚠️ CORRE AL SALIR DE LA CAJA, NO EN CADA TECLA. Reescribir el innerHTML mientras
+   * se escribe manda el caret al principio en cada letra — es la trampa nº1 que la
+   * cabecera de este archivo documenta, y por eso el efecto de abajo sólo repinta
+   * cuando el valor viene de AFUERA. Al salir no hay caret que cuidar, así que el
+   * token se ve azul en cuanto dejás de escribirlo. (Tampoco las negritas tipeadas a
+   * mano se pintan antes de eso: es el mismo contrato, no una excepción del token.)
+   */
+  function repintar() {
+    const el = ref.current;
+    if (!el) return;
+    const html = marcasAHtmlEditor(propio.current ?? valor ?? "");
+    if (el.innerHTML !== html) el.innerHTML = html;
   }
 
   function formato(comando: string) {
@@ -154,60 +213,106 @@ export function EditorMensaje({ valor, onChange, filas = 7, disabled, variables 
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
-        {MARCAS.map((m) => (
-          <button
-            key={m.comando} type="button" disabled={disabled}
-            onMouseDown={(e) => e.preventDefault()}   // no perder la selección al apretar
-            onClick={() => formato(m.comando)}
-            title={m.titulo} aria-label={m.titulo}
-            style={{
-              width: 30, height: 28, borderRadius: 7, cursor: disabled ? 'default' : 'pointer',
-              border: '1px solid var(--border-strong)', background: 'var(--surface)',
-              color: 'var(--dim)', fontFamily: SANS, fontSize: 13, lineHeight: 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              ...m.estilo,
-            }}
-          >
-            {m.label}
-          </button>
-        ))}
-        {variables && variables.length > 0 && (
-          <div onMouseDown={(e) => e.preventDefault()} style={{ marginLeft: 'auto' }}>
-            <Dropdown
-              value="" width={148} ariaLabel="Meter un dato de MaKo"
-              options={[
-                { value: '', label: '＋ Dato de MaKo', disabled: true },
-                ...variables.map((v) => ({ value: v.key, label: v.label, sub: v.ejemplo })),
-              ]}
-              onChange={(k) => k && insertarVariable(k)}
-            />
-          </div>
-        )}
-      </div>
-
+    /**
+     * ⚠️ LA BARRA VA ADENTRO DE LA CAJA, PERO NO ADENTRO DEL `contentEditable`.
+     *
+     * Pedido: «las opciones de formateo de texto, como también el llamado a cosas
+     * dentro de MaKo, deberían salir dentro de la caja de texto, y aparecer solo si
+     * apreto para escribir». Lo primero es visual y lo segundo es un estado.
+     *
+     * Y la distincion no es un detalle de maqueta: `domAMarcas` camina TODOS los
+     * `childNodes` de la caja y aplana a texto lo que no sea b/i/s/br/div/p. Un boton
+     * que fuera HIJO del contentEditable se guardaria en el mensaje como la letra
+     * «B», sin error y sin que nada quede rojo — es el mismo mecanismo que ya se
+     * llevo puesto un chip de variables. Asi que el borde pasa al ENVOLTORIO, el
+     * contentEditable se queda sin borde adentro, y la barra es su HERMANA flotando
+     * encima.
+     *
+     * El foco no es el problema: cada boton ya lleva `onMouseDown preventDefault`, asi
+     * que la seleccion viva sobrevive. Lo que faltaba era saber si la caja esta
+     * enfocada, y eso no se puede colgar del `onBlur` del contentEditable: el menu del
+     * desplegable se monta por PORTAL fuera de la caja, asi que elegir un dato
+     * disparaba el blur y la barra se iba en el medio del gesto. Se cierra con un
+     * `pointerdown` del documento que mira si el click cayo afuera de la caja Y afuera
+     * de cualquier menu abierto.
+     */
+    <div ref={cajaRef} style={{
+      position: 'relative', borderRadius: 10, background: 'var(--surface-2)',
+      border: '1px solid ' + (enfocado ? 'var(--primary)' : 'var(--border-strong)'),
+      boxShadow: enfocado ? '0 0 0 3px var(--primary-bg)' : undefined,
+      opacity: disabled ? 0.6 : 1, transition: 'border-color .12s',
+    }}>
       <div
         ref={ref}
         contentEditable={!disabled}
         suppressContentEditableWarning
         role="textbox" aria-multiline="true" aria-label="El mensaje"
         onInput={emitir}
-        onBlur={emitir}
+        onFocus={() => setEnfocado(true)}
+        onBlur={() => { emitir(); repintar(); }}
         onPaste={(e) => {
           e.preventDefault();
           const txt = e.clipboardData.getData('text/plain');
           document.execCommand('insertText', false, txt);
         }}
         style={{
-          width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10,
-          border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
+          width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 10,
+          border: 'none', background: 'transparent',
           color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS, lineHeight: 1.55,
-          outline: 'none', minHeight: filas * 22, maxHeight: 320, overflowY: 'auto',
+          outline: 'none',
+          // ⚠️ EL ALTO SALE DE ACA Y DE NINGUNA CONSTANTE COMPARTIDA. «La opcion de
+          // editar el texto debería ser bastante más grande, para que entre todo
+          // bien»: lo paga haber sacado RECORDATORIOS, que liberó el espacio. Subir
+          // `PANEL_ANCHO` o `maxHeight` del panel habría movido TODOS los lienzos.
+          minHeight: filas * 22, maxHeight: 430, overflowY: 'auto',
+          // El hueco de abajo es el que deja ver la ultima linea con la barra puesta.
+          paddingBottom: enfocado ? 46 : 12,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          opacity: disabled ? 0.6 : 1,
         }}
       />
+
+      {enfocado && !disabled && (
+        <div
+          onMouseDown={(e) => e.preventDefault()}
+          style={{
+            position: 'absolute', left: 8, right: 8, bottom: 8,
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: 4, borderRadius: 9, background: 'var(--surface)',
+            border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(18,21,27,.07)',
+          }}
+        >
+          {MARCAS.map((m) => (
+            <button
+              key={m.comando} type="button"
+              onClick={() => formato(m.comando)}
+              title={m.titulo} aria-label={m.titulo}
+              style={{
+                width: 28, height: 26, borderRadius: 6, cursor: 'pointer',
+                border: 'none', background: 'transparent',
+                color: 'var(--dim)', fontFamily: SANS, fontSize: 13, lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                ...m.estilo,
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+          {variables && variables.length > 0 && (
+            <div style={{ marginLeft: 'auto' }}>
+              <Dropdown
+                value="" width={160} ariaLabel="Meter un dato de MaKo"
+                buttonStyle={{ padding: '5px 9px', fontSize: 12 }}
+                options={[
+                  { value: '', label: '＋ Dato de MaKo', disabled: true },
+                  ...variables.map((v) => ({ value: v.key, label: v.label, sub: v.ejemplo })),
+                ]}
+                onChange={(k) => k && insertarVariable(k)}
+              />
+            </div>
+          )}
+          {accion}
+        </div>
+      )}
     </div>
   );
 }

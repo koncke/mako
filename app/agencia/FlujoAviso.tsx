@@ -86,7 +86,7 @@ export function FlujoAviso({
   onCambio?: () => void;
   probando: boolean;
   prueba: string | null;
-  onProbar: () => void;
+  onProbar: (contexto?: string) => void;
   /** El título, el interruptor y la salida: flotan SOBRE el lienzo. */
   chrome?: React.ReactNode;
   /** Lo que va abajo a la derecha del lienzo. Hoy es «Publicar», y lo pone el
@@ -330,7 +330,7 @@ function EditorDelAviso({
   onCambio?: () => void;
   onFlujo: (f: Flujo | null) => void;
   onQuitarPaso: (i: number) => void;
-  probando: boolean; prueba: string | null; onProbar: () => void;
+  probando: boolean; prueba: string | null; onProbar: (contexto?: string) => void;
 }) {
   const base = flujo ?? FLUJO_VACIO;
 
@@ -358,80 +358,34 @@ function EditorDelAviso({
      * configurar (`flujo-set` no pasa por `esAdministrativo`). Esconder un control
      * que el servidor acepta es sacar una función sin decirlo.
      */
-    const prender = () => onFlujo({
-      ...base, activo: true,
-      pasos: [...base.pasos.filter((p) => p.tipo !== 'insistir'), sanearInsistir({ texto: '', cadaMin: INSISTIR_MIN_MINUTOS, veces: 2 })],
-    });
     /**
-     * ⚠️ APAGAR ESCRIBE UN FLUJO CON `pasos: []`, NUNCA `null`.
+     * ⚠️ ACA VIVIA «RECORDATORIOS», Y SE FUE EL 04/10/2026.
      *
-     * El store se HEREDA del dueño entrada por entrada, y `mutar` hace copy-on-write
-     * desde lo EFECTIVO: mandar `null` borra la clave propia —que nunca existió— y la
-     * lectura vuelve a traer la del dueño, así que el recordatorio reaparece en el
-     * mismo frame. Medido: el ws1 tiene `reporte-semanal` con un `insistir` y los ws
-     * 3, 4 y 13 lo heredan sin haberlo prendido. Con un objeto explícito, el cliente
-     * tiene su propia copia diciendo «acá no hay recordatorio».
+     * Pedido: «elimina el apartado de "Recordatorios", para eso ya tendremos los
+     * condicionales y la opción de poner más mensajes». Lo que se sacó es la UI: el
+     * paso `insistir` sigue existiendo en el motor (lib/flujos.ts), con su techo de
+     * 5 veces, sus 30 minutos mínimos y su corte con un «ok» en el grupo.
      *
-     * Y sigue cerrando las insistencias ya abiertas: `setFlujo` lo dispara cuando el
-     * flujo pasa de tener `insistir` a no tenerlo (lib/plantillas.ts).
+     * Se midió antes de sacarlo, que es lo que la regla de la casa pide cuando se
+     * saca un patrón: **cero flujos tienen hoy un paso `insistir`** en los cuatro
+     * workspaces que tocaron el store. O sea que no quedó ningún mensaje con un
+     * recordatorio prendido que ya no se pueda editar — que es el peor de los dos
+     * mundos y la razón de medir.
+     *
+     * ⚠️ Lo que NO se fue y hay que acordarse: el motor sigue ejecutando `insistir`
+     * si alguna vez vuelve a aparecer uno (una fila heredada del dueño, un flujo
+     * escrito por la API). Si el condicional lo reemplaza de verdad, ahí se saca
+     * también del motor; mientras tanto, el código que lo ejecuta es correcto y no
+     * tiene quién lo encienda.
+     *
+     * Y pagó el ítem 6: sacarlo liberó el alto que hacía falta para que la caja de
+     * texto creciera sin tocar `PANEL_ANCHO` ni el `maxHeight` del panel, que son
+     * constantes compartidas por TODOS los lienzos.
      */
-    const apagar = () => onFlujo({ ...base, pasos: base.pasos.filter((p) => p.tipo !== 'insistir') });
-    const cambiar = (p: Partial<{ cadaMin: number; veces: number }>) => {
-      if (!insistir) return;
-      const nuevo = sanearInsistir({ ...insistir, ...p });
-      onFlujo({ ...base, pasos: base.pasos.map((x) => (x.tipo === 'insistir' ? nuevo : x)) });
-    };
 
     // El campo se pinta en el frame y se GUARDA al soltar: son palabras separadas por
     // coma, y escribir en la base a mitad de una deja «ok, gr» en la lista del negocio.
     const onAcusesLocal = (v: string) => onAcuses(v, true);
-    const recordatorios = (
-      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-        <label style={rotuloLienzo}>Recordatorios</label>
-        <div style={{ display: 'flex', gap: 7, marginBottom: insistir ? 10 : 0 }}>
-          <Opcion activa={!insistir} onClick={() => insistir && apagar()} disabled={guardando}>Se manda una vez</Opcion>
-          <Opcion activa={!!insistir} onClick={() => !insistir && prender()} disabled={guardando}>Te lo recuerdo</Opcion>
-        </div>
-        {insistir && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {/* ⚠️ LA UNIDAD ES UN DESPLEGABLE Y EL DATO SIGUEN SIENDO MINUTOS: el motor
-                lee `cada_min` de la fila y el CHECK de la migración es un PISO (>= 30),
-                así que día, semana y mes entran sin migración ni campo nuevo. Pedido
-                textual: «se debería poder recordar 1 vez al día, a la semana, al mes». */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Cada</span>
-              <input type="number" min={1} max={99} value={cadaDeMin(insistir.cadaMin).n} disabled={guardando}
-                onChange={(e) => cambiar({ cadaMin: aMinutos(Number(e.target.value), cadaDeMin(insistir.cadaMin).u) })}
-                aria-label="Cada cuántos" style={{ ...inpLienzo, width: 62, flex: 'none' }} />
-              <Dropdown value={cadaDeMin(insistir.cadaMin).u} width="100%" ariaLabel="Unidad del recordatorio"
-                options={UNIDADES_RECORDATORIO.map((x) => ({ value: x.key, label: cadaDeMin(insistir.cadaMin).n === 1 ? x.label : x.plural }))}
-                onChange={(v) => cambiar({ cadaMin: aMinutos(cadaDeMin(insistir.cadaMin).n, v as UnidadRecordatorio) })} />
-            </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Hasta</span>
-              <input type="number" min={1} max={INSISTIR_MAX_VECES} value={insistir.veces} disabled={guardando}
-                onChange={(e) => cambiar({ veces: Number(e.target.value) })}
-                aria-label="Cuántas veces" style={{ ...inpLienzo, width: 62, flex: 'none' }} />
-              <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>{insistir.veces === 1 ? 'vez' : 'veces'}</span>
-            </div>
-            {/* Las palabras que lo cortan. El dueño: «se debería poder configurar qué
-                palabra hacen que paren los recordatorios, no solo un ok». */}
-            <div>
-              <label style={rotuloLienzo}>Se corta si alguien escribe</label>
-              <input value={acusesTxt} disabled={guardando}
-                onChange={(e) => onAcusesLocal(e.target.value)} onBlur={() => onAcuses(acusesTxt)}
-                placeholder={ACUSES.slice(0, 4).join(', ')} aria-label="Palabras que cortan los recordatorios"
-                style={{ ...inpLienzo, width: '100%', boxSizing: 'border-box' }} />
-            </div>
-            {!canales.wa && (
-              <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, margin: 0 }}>
-                Los recordatorios salen por WhatsApp, y este mensaje lo tienes apagado ahí.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    );
 
     if (!editable) {
       return (
@@ -440,7 +394,6 @@ function EditorDelAviso({
           <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 9, marginBottom: 0 }}>
             Este lo redacta MaKo: informa algo técnico y tiene que decir exactamente lo que pasó.
           </p>
-          {recordatorios}
         </>
       );
     }
@@ -450,11 +403,9 @@ function EditorDelAviso({
             en un aviso que no habla de ningún lead sale CRUDO al WhatsApp del cliente:
             el resolvedor deja intacto lo que no sabe, a propósito, y el filtro de acá
             es lo único que evita que llegue ahí. */}
-        <EditorMensaje valor={texto} onChange={onTexto} filas={6} disabled={guardando}
-          variables={variablesPara({ conLead: base.disparador.tipo === 'evento' })} />
-        <button onClick={onProbar} disabled={probando} style={{ ...btnFantasma, marginTop: 10 }}>
-          {probando ? 'Escribiendo…' : '✨ Que lo escriba MaKo'}
-        </button>
+        <EditorMensaje valor={texto} onChange={onTexto} disabled={guardando}
+          variables={variablesPara({ conLead: base.disparador.tipo === 'evento' })}
+          accion={<PedirleAMaKo onProbar={onProbar} probando={probando} />} />
         {/* ⚠️ LA SUGERENCIA SE APLICA, NO SE MIRA. El botón dejaba un texto en azul
             debajo y no tocaba el mensaje: «no hace nada, me escribe algo abajo pero
             no cambia el texto». Un botón que produce algo y no lo pone donde va es
@@ -468,7 +419,6 @@ function EditorDelAviso({
             </button>
           </div>
         )}
-        {recordatorios}
       </>
     );
   }
@@ -729,5 +679,65 @@ function BotonPila({ titulo, onClick, activo, children }: {
       }}>
       {children}
     </button>
+  );
+}
+
+/**
+ * El botón de IA: un ícono que PREGUNTA QUÉ ESCRIBIR antes de escribir.
+ *
+ * Pedido el 04/10/2026, las dos mitades: «"Que lo escriba MaKo" solo debería ser el
+ * ícono de IA, y de última si paso el cursor que diga lo que hace» y «si lo escribe
+ * MaKo, debería primero preguntar QUÉ escribir, sino, no tiene contexto sobre que
+ * escribir».
+ *
+ * ⚠️ LA SEGUNDA MITAD ERA UN CAMPO QUE FALTABA DEL LADO DEL CLIENTE, NO UNA
+ * CAPACIDAD QUE FALTARA. El parámetro `contexto` ya estaba aceptado en las DOS rutas
+ * y nadie lo mandaba nunca: sin él, el server caía a «Usa datos de ejemplo
+ * realistas», o sea que MaKo escribía a ciegas. Por eso esto es un input y no un
+ * segundo botón.
+ *
+ * Y no cuesta plata: la feature `avisos` corre en gemini-flash por la cascada gratis
+ * con la key del propio workspace, y no está en `CLAUDE_PERMITIDO`, así que el
+ * fallback pago muere en el veto. Preguntar antes no cambia quién paga: cambia que
+ * la respuesta sirva.
+ */
+function PedirleAMaKo({ onProbar, probando }: { onProbar: (contexto?: string) => void; probando: boolean }) {
+  const [abierto, setAbierto] = useState(false);
+  const [que, setQue] = useState('');
+  const mandar = () => { onProbar(que); setAbierto(false); setQue(''); };
+
+  if (!abierto) {
+    return (
+      <button type="button" onClick={() => setAbierto(true)} disabled={probando}
+        title="Que lo escriba MaKo: le dices qué quieres que diga y te lo redacta"
+        aria-label="Que lo escriba MaKo"
+        style={{
+          width: 28, height: 26, borderRadius: 6, border: 'none', background: 'transparent',
+          cursor: probando ? 'default' : 'pointer', fontSize: 14, lineHeight: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: probando ? 0.5 : 1,
+        }}>
+        {probando ? '…' : '✨'}
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+      <input
+        autoFocus value={que} onChange={(e) => setQue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') mandar(); if (e.key === 'Escape') setAbierto(false); }}
+        placeholder="¿Qué quieres que diga?"
+        style={{
+          flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '5px 9px', borderRadius: 6,
+          border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
+          color: 'var(--ink)', fontSize: 12, fontFamily: 'inherit', outline: 'none',
+        }} />
+      <button type="button" onClick={mandar} disabled={!que.trim()} title="Que MaKo lo escriba"
+        style={{
+          flex: 'none', padding: '5px 10px', borderRadius: 6, border: 'none',
+          background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 600,
+          fontFamily: 'inherit', cursor: que.trim() ? 'pointer' : 'default', opacity: que.trim() ? 1 : 0.45,
+        }}>✨</button>
+    </div>
   );
 }

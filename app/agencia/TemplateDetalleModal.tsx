@@ -189,7 +189,21 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   };
   const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api(endpoint, { action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
   const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api(endpoint, { action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
-  const probar = async () => { if (!id) return; setBusy('probar'); const r = await api(endpoint, { action: 'probar', id }); if (r.ok && r.texto) setPrueba(r.texto); setBusy(null); };
+  /**
+   * ⚠️ EL `contexto` YA ESTABA ACEPTADO EN LAS DOS RUTAS Y NADIE LO MANDABA NUNCA.
+   * Medido: cero ocurrencias de «contexto» en app/agencia/. Sin él la ruta caía a
+   * «Usa datos de ejemplo realistas», que es exactamente lo que el dueño reportó:
+   * «si lo escribe MaKo, debería primero preguntar QUÉ escribir, si no no tiene
+   * contexto sobre qué escribir». Era un campo que faltaba del lado del cliente, no
+   * una capacidad que faltara del lado del server.
+   */
+  const probar = async (contexto?: string) => {
+    if (!id) return;
+    setBusy('probar');
+    const r = await api(endpoint, { action: 'probar', id, contexto: contexto?.trim() || undefined });
+    if (r.ok && r.texto) setPrueba(r.texto);
+    setBusy(null);
+  };
   const crearNueva = async () => {
     setBusy('crear');
     const r = await api(endpoint, { action: 'crear', titulo, categoria, requiereRespuesta: requiereResp, texto });
