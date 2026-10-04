@@ -7018,3 +7018,95 @@ es peor: un corchete que no esté en la lista deja el paso congelado para siempr
 ⚠️ **La decisión es binaria y hay que tomarla**: o existe un catálogo de links del negocio
 —hoy inexistente— o se saca el `[tu link …]` de los prompts. Mientras no se decida,
 cualquier secuencia que mande un link sale rota.
+
+## Las «categorías» no eran botones ni un rótulo: eran el único escritor del dato (04/10/2026)
+
+**Vive en:** `app/agencia/TemplateDetalleModal.tsx` · `app/agencia/PlantillasView.tsx` ·
+`lib/avisos-catalogo.ts` · `lib/avisos-agrupables.ts`
+
+El pedido decía «esos botones de categoría deberían ser un simple emoji antes del
+título». Medido: no eran botones (era UN `Dropdown`), no estaban donde el pedido suponía
+(a la izquierda pegados al título, no a la derecha), y sobre todo **no eran un rótulo**:
+
+- En la lista son el **único filtro** por categoría, sobre 65 plantillas (35 aviso, 18
+  acción, 7 pregunta, 5 reporte). La búsqueda libre de al lado mira título, ejemplo y
+  disparador — **no mira `categoria`**, así que buscar «aviso» no filtra, matchea texto.
+- En el editor son el **único control que escribe `categoria`** en toda la app. El otro
+  `Dropdown` del mismo archivo sólo la elige al CREAR.
+- Y `categoria` es **dato de motor**: `lib/avisos-agrupables.ts` declara que `accion` y
+  `pregunta` NUNCA se posponen al resumen diario —su comentario dice que cuando se
+  pospuso «ya pasó una vez y duplicó dos tareas»— y la API de MaKo hace que un `reporte`
+  no sea silenciable por el interruptor de WhatsApp.
+
+**La regla que queda: antes de degradar un control a un adorno, contá quién ESCRIBE por
+él y quién LEE lo que escribe.** Un desplegable que parece una etiqueta puede ser la
+única puerta a una columna que gobierna comportamiento, y volverlo decorativo no deja
+un hueco visible: deja el valor congelado en lo que diga el default, para siempre.
+
+La salida fue que el emoji **sea** el control: se clickea y abre el mismo desplegable.
+Para eso `Dropdown` ganó `botonLabel`, que separa lo que dibuja el BOTÓN de lo que dice
+el MENÚ — dos preguntas que compartían campo, y la segunda tiene que seguir diciendo la
+palabra porque «un color solo deja afuera a quien no lo distingue».
+
+⚠️ **Y el repo tiene escrita la regla contraria:** `docs/branding-mako.md` dice «Cero
+emojis. Los botones llevan `<Icon>`» y que los emojis son sólo para WhatsApp y email.
+Ya estaba violada en siete lugares de UI antes de este cambio. Queda dicho y sin
+derogar: la decisión es del dueño.
+
+## Un Confirm al SALIR es un evento; la marca en la lista es un estado (04/10/2026)
+
+**Vive en:** `app/agencia/TemplateDetalleModal.tsx` · `app/agencia/PlantillasView.tsx`
+
+Al sacar la ✕ del editor —pedido, porque el editor pasó a ser la vista por default— se
+iba con ella el Confirm «¿Publicar los cambios?». El reflejo es recablearlo a las otras
+salidas. Medido, lo que ese Confirm hacía era más chico de lo que parecía: **el texto del
+borrador nunca estuvo en riesgo**, se guarda al desmontar y por `visibilitychange`, las
+dos con test. Lo único que el Confirm agregaba era el AVISO de que MaKo sigue mandando
+el texto viejo.
+
+Y un aviso que aparece al salir es un EVENTO: se lee una vez y se olvida. La marca en la
+fila de la lista es un ESTADO, así que sobrevive a cambiar de mensaje, a la vista de
+Probar y al reload — **y además se ve de los OTROS mensajes**, que un Confirm no podía
+mostrar nunca. `PlantillaVista.borrador` ya venía en el payload: no hizo falta un campo.
+
+⚠️ **Y SACAR EL CHIP DEJABA UNA CAJA VACÍA.** La condición del pie era `sinPublicar ||
+puedeEditarTexto || flash`, y la primera rama estaba ahí **por el chip** (para que
+saliera incluso donde el texto no se puede editar). Borrar el chip sin tocar la condición
+dibujaba el contenedor sin nada adentro. Cuando saques un elemento, mirá si alguna
+condición existía POR él.
+
+## El default de una pantalla puede estar escondido en dos lugares (04/10/2026)
+
+**Vive en:** `app/agencia/PlantillasView.tsx`
+
+«Que editar sea la vista por default» parecía una línea: el `useState` que arrancaba en
+`null`. Era dos. El otro era `elegir`, que hacía `setDetalle(null)` al cambiar de
+plantilla — o sea que invertir el `useState` dejaba la pantalla abriendo en el editor y
+volviendo al chat en cuanto alguien tocaba la lista.
+
+Lo que lo hacía fácil de pasar por alto es que el estado guardaba **la plantilla
+abierta** y usaba `null` como «mostrá el chat»: un campo con dos trabajos. Pasó a guardar
+qué VISTA se mira, con la plantilla saliendo de donde ya vivía (`selId`), y entonces el
+default es una sola línea y cambiar de mensaje no puede moverlo sin que alguien lo escriba.
+
+**La regla: si un estado usa `null` para significar otra cosa que «vacío», el default
+está escrito en cada lugar que escribe ese `null`.** Un `grep` del setter los lista.
+
+## Verificar el lienzo de /mensajes ESCRIBE las posiciones de un cliente real (04/10/2026)
+
+**Vive en:** `scripts/respaldo-posiciones-plantillas.ts`
+
+Arrastrar una tarjeta para comprobar el deshacer llama a `action: 'posiciones'`, que
+escribe en `mako.plantillas.store` del workspace — y el entorno local apunta a la base de
+PRODUCCIÓN. O sea que verificar un gesto le deja el tablero movido a un cliente.
+
+El respaldo es de **lo que la action toca** (la clave `posiciones` de cada entrada), no
+del estado que se está mirando, y se restaura verificando el valor **releído**. Medido al
+restaurar: de las 5 entradas del ws1, una había quedado con posiciones y **no las tenía
+antes**, así que restaurar fue BORRAR la clave, no devolverle un valor. Es la mitad de la
+regla que más se olvida.
+
+⚠️ **Y el editor de texto de esa pantalla es `contentEditable`, no un `<textarea>`.** Una
+verificación que busca `textarea` contesta «no encontré dónde tipear» sobre una pantalla
+perfectamente abierta — el mismo modo de falla que «una verificación que no verifica»:
+la primera hipótesis correcta es la medición, no el código.

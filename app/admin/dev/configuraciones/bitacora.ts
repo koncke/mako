@@ -392,4 +392,32 @@ export const BITACORA: Hito[] = [
       'AGENTS.md — la regla: al reemplazar una pieza, sus tests se mueven con ella en el mismo commit',
     ],
   },
+  {
+    fecha: "4 oct", hora: "12:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Siete cambios al editor de mensajes",
+    pedido: `1. Quiero que la vista de editar sea la vista por default en lugar del chat... Cuando quiera simular el chat, o la preview, pon un botón arriba a la derecha, donde está el botón de cerrar (que ya no debería estar más), que diga "Probar", y ahí se abre el chat para probar esa secuencia...
+2. No quiero que se abra más con el "Gestionar notificaciones" elimina eso, que este abierto siempre.
+3. Y las secuencias de email o Whatsapp es lo mismo, no se gestiona aparte.
+4. Cambia la tarjeta de "Mensaje" por "WhatsApp" y agrega la tarjeta de "Email" así utilizamos el mismo tablero para ambos...
+5. Elimina el chip de "Sin publicar", es simple, si ya está todo publicado, simplemente el botón de publicar debe estar más opaco en color y que no permita clickearlo, entocnes se entiende que está todo publicado. Y si hay cambios ahí que se active y te permita publicar.
+6. El botón de "Activar" pasa a estar donde hoy están las categorías de "Reporte, aviso, acción, pregunta"... Y esos botones de categoría, deberían ser un simple emoji antes del título, para que se entienda de que se trata, pero que no se confunda con algo util dentro de la secuencia.
+7. Agrega los botones de deshacer y rehacer, y que funcione el ctrl z / y`,
+    puntos: [
+      "Los siete son sobre /mensajes, que es la misma pantalla que sirve /configuraciones › Notificaciones (y /agencia?tab=plantillas, que redirige). NO es /chatbot: ahí no hay categorías ni «Sin publicar», y ya tiene su propio «Probar de verdad».",
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "12:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El relevo cambió cuatro de los siete, y para mejor",
+    puntos: [
+      "Antes de tocar nada: 6 lectores + 6 verificadores, 620 afirmaciones de archivo:línea confirmadas. Cuatro refutaciones cambiaron el trabajo. (1) El ítem 5 ya estaba hecho a medias: el botón de publicar YA se deshabilitaba y YA bajaba a opacidad .45 sin cambios — lo único nuevo era el chip. (2) Las «categorías» no eran botones ni un rótulo: eran el único filtro de la lista Y el único escritor de `categoria`, que es dato de motor (`accion` y `pregunta` nunca se posponen al resumen diario). (3) El bloqueante del test `const ORDEN = CATEGORIAS_AVISO` NO existía: lo consumen DOS Dropdowns y sólo se saca uno. (4) El ítem 7 ya tenía molde en el repo —la pila de EditorAnuncio— y afordancia en Toast.tsx («ofrecer un Deshacer que no deshace nada es peor que no ofrecerlo»).",
+      "La decisión de diseño que los ordena: el canal NO volvió a ser un nodo del lienzo, que es lo que Martín ya había tumbado («es un paso que no hace nada»). Las tarjetas WHATSAPP y EMAIL se DERIVAN de `canales`, el par de booleanos del mensaje: cada una dibuja un mensaje que OCURRE, no la propiedad «por dónde». Y el id de WhatsApp sigue siendo `mensaje` a propósito — las posiciones se podan POR ID y FlujoAviso pregunta `n.id === 'mensaje'` en tres lugares, así que renombrarlo borraba en el primer arrastre la coordenada de todo el que había movido su tarjeta, sin error.",
+      "Verificado EN EL NAVEGADOR, que es donde se prueba un gesto: 16 de 16. Entre otras, el arrastre movió la tarjeta 112 px y Ctrl+Z la devolvió exacto (672 → 784 → 672), los dos botones nacen apagados y se prenden cuando hay algo, y con el foco en el editor de texto el Ctrl+Z NATIVO deshace el texto sin mover el tablero. Y la verificación ESCRIBE: arrastrar guarda posiciones del ws1 contra la base de producción, así que va con `scripts/respaldo-posiciones-plantillas.ts` — al restaurar, una de las 5 entradas tenía posiciones que NO tenía antes, o sea que restaurar fue BORRAR la clave.",
+    ],
+    commits: [
+      { sha: "2f9a4a3f", msg: "El editor de mensajes: editar por default, una tarjeta por canal y deshacer", lineas: 632, archivos: 8 },
+    ],
+  },
 ];

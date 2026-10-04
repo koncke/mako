@@ -5792,3 +5792,49 @@ Tres reglas, y la tercera es la que gobierna código nuevo:
    ficticio por regla**, como cualquier placeholder: «hola fulanito», «$1.000». Es el mismo
    criterio que la frontera de `'use client'` —no mostrarle a un cliente lo que no es suyo—
    aplicado al copy en vez de al bundle.
+
+# Una pila de deshacer se llena en el CHOKE POINT, y el Ctrl+Z nativo gana en un texto
+
+Tres decisiones que no se ven en la firma de `usePilaDeshacer` (`app/_ui/`) y que valen
+para cualquier deshacer nuevo.
+
+**1. Se apila donde pasan TODOS los cambios, no en cada handler.** Es la regla de la
+casa sobre lo que vale para un conjunto, aplicada al historial: en el editor de mensajes
+el choke point es `guardarFlujo`, por donde pasan las seis mutaciones del tablero —y la
+que se agregue mañana la hereda sin que nadie se acuerde—. Puesto en cada handler cubre
+sólo los que existían el día que se escribió.
+
+**Y los caminos que NO pasan por ahí se enumeran.** Acá era uno: `mover`, el arrastre,
+que guarda la posición por su cuenta.
+
+**2. ⚠️ SE APILA UNA VEZ POR GESTO, NO POR CAMBIO.** Un arrastre dispara decenas de
+`setX` por segundo: apilando en cada uno, Ctrl+Z deshace un píxel y hay que apretarlo
+cuarenta veces para volver donde uno estaba. El gesto se reconoce por el HUECO —si
+pasaron más de N ms desde el último evento, esto es el primero de un gesto nuevo— y el N
+se toma del debounce que ya guarda ese dato, para no mantener un segundo número.
+
+**3. ⚠️ EL CTRL+Z NATIVO DEL TEXTO GANA, Y ESO ES UNA DECISIÓN POR PANTALLA.** La pila
+que ya existía (`app/video-generator/EditorAnuncio.tsx`) escucha en `window` y hace
+`preventDefault()` **sin mirar el foco**, con su porqué escrito: «un atajo que sólo anda
+con el foco en el lugar correcto es un atajo que no anda». Ahí es correcto, porque ese
+modal no tiene dónde tipear. Pegado igual en una pantalla que SÍ tiene un editor de
+texto, le roba a la persona el deshacer de lo que está escribiendo para deshacerle otra
+cosa. Son dos pilas y el atajo es uno: **gana la de más cerca del foco**, y lo que se
+mira es el FOCO (`document.activeElement`, incluido `isContentEditable`), no el evento.
+
+⚠️ **Y un `<input type="checkbox">` no recibe texto**: la guarda pregunta por el `type`,
+no por el `tagName`, o el atajo queda muerto con el foco en una casilla.
+
+**4. Y DESHACER ESCRIBE EN EL SERVER.** Si el cambio ya se guardó, revertir sólo el
+estado de React es mentir hasta el próximo F5 — ya está escrito para el toast del
+tablero y vale igual acá: el deshacer vuelve a llamar al MISMO camino con el valor
+anterior. Por eso `aplicar` devuelve el estado que reemplazó: sin ese retorno, rehacer
+no tiene qué reaplicar.
+
+**5. Rehacer se BORRA al apilar.** Si se deshacen tres pasos y después se hace algo
+nuevo, esos tres ya no son un futuro alcanzable: dejarlos deja un «rehacer» que
+reaparece un estado que nadie puede volver a producir.
+
+⚠️ **Y un botón de deshacer apagado es obligatorio, no un detalle.** `app/_ui/Toast.tsx`
+ya lo tiene escrito para su `onUndo` opcional: «ofrecer un "Deshacer" que no deshace nada
+es peor que no ofrecerlo».
