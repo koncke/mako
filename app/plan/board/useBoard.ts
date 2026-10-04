@@ -279,9 +279,22 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     entidad: 'proyecto' | 'tarea',
     fijado: { id: string; score: number; razon: string; texto: string },
     movidos: Array<{ id: string; despues: number }> = [],
+    /**
+     * ⚠️ EN FALSE PARA UNA ACCIÓN EN LOTE, y es la Única razón por la que existe el
+     * parámetro. El toast vive en UN solo casillero (`useToast`: `show` pisa al anterior),
+     * así que fijarle la prioridad a cuatro tarjetas dispara cuatro carteles seguidos y el
+     * que queda arriba deshace UNA — exactamente lo que la regla de la casa prohíbe. Quien
+     * hace el lote saca su propia foto de las N y pisa con un deshacer que las revierte
+     * juntas.
+     *
+     * ⚠️ Y `fijado.texto` VACÍO NO ESCRIBE ENTRADA DE HISTORIAL. Es para el camino de
+     * VUELTA de ese deshacer: un cambio deshecho no es historia, que es el mismo criterio
+     * que usa el deshacer de acá abajo cuando le saca su entrada a la tarjeta.
+     */
+    conDeshacer = true,
   ) => {
     const otros = new Map(movidos.filter((m) => m.id !== fijado.id).map((m) => [m.id, m.despues]));
-    const entry: Hist = { id: uid(), ts: now(), actor: 'user', text: fijado.texto };
+    const entry: Hist | null = fijado.texto ? { id: uid(), ts: now(), actor: 'user', text: fijado.texto } : null;
 
     // ⚠️ ESTE CAMINO NO PASA POR `patchLog`, ASÍ QUE NO HEREDABA EL DESHACER. Y es el único
     // que escribe el score a mano: el slider, el lápiz y el arrastre terminan todos acá.
@@ -298,7 +311,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const previoL = entidad === 'proyecto' ? labels.find((l) => l.id === fijado.id) ?? null : null;
     const scorePrevio = previoT?.score ?? previoL?.score ?? null;
     const manualPrevio = !!(previoT?.scoreManual ?? previoL?.scoreManual);
-    if (scorePrevio != null && scorePrevio !== clampScore(fijado.score)) {
+    if (conDeshacer && scorePrevio != null && scorePrevio !== clampScore(fijado.score)) {
       show(`Prioridad ${scorePrevio} → ${clampScore(fijado.score)}`, async () => {
         try {
           await repo.prioridadManual?.(entidad, fijado.id, scorePrevio);
@@ -309,11 +322,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
         // historia, mismo criterio que `undoHist`).
         if (entidad === 'tarea') {
           setTasks((ts) => ts.map((x) => (x.id === fijado.id
-            ? { ...x, score: scorePrevio, scoreBase: scorePrevio, priority: prioFromScore(scorePrevio), scoreManual: manualPrevio, scoreRazon: previoT?.scoreRazon, historial: x.historial.filter((h) => h.id !== entry.id) }
+            ? { ...x, score: scorePrevio, scoreBase: scorePrevio, priority: prioFromScore(scorePrevio), scoreManual: manualPrevio, scoreRazon: previoT?.scoreRazon, historial: x.historial.filter((h) => h.id !== entry?.id) }
             : x)));
         } else {
           setLabels((ls) => ls.map((l) => (l.id === fijado.id
-            ? { ...l, score: clampProj(scorePrevio), scoreManual: manualPrevio, scoreRazon: previoL?.scoreRazon, historial: l.historial.filter((h) => h.id !== entry.id) }
+            ? { ...l, score: clampProj(scorePrevio), scoreManual: manualPrevio, scoreRazon: previoL?.scoreRazon, historial: l.historial.filter((h) => h.id !== entry?.id) }
             : l)));
         }
       });
@@ -323,7 +336,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       setTasks((ts) => ts.map((x) => {
         if (x.id === fijado.id) {
           const s = clampScore(fijado.score);
-          return { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: fijado.razon, scoreManual: true, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
+          return { ...x, score: s, scoreBase: s, priority: prioFromScore(s), scoreRazon: fijado.razon || x.scoreRazon, scoreManual: true, historial: entry ? [entry, ...x.historial].slice(0, HIST_CAP) : x.historial };
         }
         const s = otros.get(x.id);
         return s == null ? x : { ...x, score: clampScore(s), priority: prioFromScore(clampScore(s)) };
@@ -331,7 +344,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       return;
     }
     setLabels((ls) => ls.map((l) => {
-      if (l.id === fijado.id) return { ...l, score: clampProj(fijado.score), scoreRazon: fijado.razon, scoreManual: true, historial: [entry, ...l.historial].slice(0, HIST_CAP) };
+      if (l.id === fijado.id) return { ...l, score: clampProj(fijado.score), scoreRazon: fijado.razon || l.scoreRazon, scoreManual: true, historial: entry ? [entry, ...l.historial].slice(0, HIST_CAP) : l.historial };
       const s = otros.get(l.id);
       return s == null ? l : { ...l, score: clampProj(s) };
     }));

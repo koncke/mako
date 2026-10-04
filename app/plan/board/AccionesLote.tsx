@@ -50,14 +50,17 @@
 //     proyectos no puede decir qué pasa con las 80 tareas de adentro, así que la barra no la
 //     hace: se borra de a uno, desde el detalle, que es donde la pregunta cabe.
 // Lo que SÍ puede —y es exactamente lo que el pedido necesitaba— es lo temporal: «Se
-// repite», la repetición (con su diálogo «Personalizado…») y el deadline.
+// repite», la repetición (con su diálogo «Personalizado…») y el deadline. Y desde el
+// 04/10/2026, la PRIORIDAD: ahí las dos entidades pueden lo mismo, porque las dos la
+// tienen y las dos la escriben por `repo.prioridadManual`.
 // =============================================================================
 
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { BoardTask, Label } from './types';
+import { type BoardTask, type Label, type Prio, PRIOS, PLABEL, PCOLOR, enOrdenParaLaBanda, scoreFromPrio } from './types';
 import type { Board } from './useBoard';
 import { IconoTacho, IconoRepite } from './piezas';
+import { ScoreIcon } from './guardian-form';
 import { Dropdown } from '@/app/components/Dropdown';
 // ⚠️ EL CAMPO ES UNO SOLO Y GUARDA UNA **RRULE DE RFC 5545** (mig 0167), que es lo que
 // guarda Google Calendar por debajo: `FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR`. Del contrato
@@ -574,6 +577,21 @@ type CfgLote<T> = {
    *  a escribir en dos renders; con la 0167 el valor viaja entero y es una escritura. */
   setRecurrencia: (t: T, v: string | null) => void;
   setDeadline: (t: T, iso: string) => void;
+  /**
+   * LA PRIORIDAD EN LOTE. `null` = este tablero no la puede escribir.
+   *
+   * «También debería poder subir prioridades desde ahí arriba… debería poder cambiar
+   * prioridades en bucle, o sea, de varios juntos» (01/10/2026, 01:04:44), con las cuatro
+   * tarjetas de la oferta tildadas y la barra ofreciéndole sólo el deadline.
+   *
+   * ⚠️ NO ES UN `setX(t, v)` COMO LOS DE ARRIBA, y la diferencia es que ESTO YA LO
+   * ESCRIBIÓ EL SERVER. Los demás campos los persiste el board solo, así que revertirlos
+   * en pantalla alcanza; el score NO tiene ningún camino desde el navegador (`plan-reprio`,
+   * a propósito) y encima arrastra una cascada. Por eso acá viaja lo que hace falta para
+   * llamar a `repo.prioridadManual` — qué entidad es y, de cada tarjeta, el número y el
+   * candado que tenía ANTES, que es lo único con lo que el deshacer puede volver.
+   */
+  prioridad: { entidad: 'proyecto' | 'tarea'; score: (t: T) => number; manual: (t: T) => boolean } | null;
   /** completar / reabrir. `null` = esta entidad no se completa (ver la cabecera). */
   estado: { hecha: (t: T) => boolean; toggle: (t: T) => void } | null;
   /** mover a un proyecto. `null` = esta entidad no vive adentro de un proyecto. */
@@ -603,6 +621,7 @@ export function AccionesLote({ elegidas, board, ask, onLimpiar, estilo }: {
         setRecurrente: (t, v) => board.setRecurrente(t.id, v),
         setRecurrencia: (t, v) => board.setRecurrencia(t.id, v),
         setDeadline: (t, iso) => board.setDeadline(t.id, iso, t.deadline),
+        prioridad: { entidad: 'tarea', score: (t) => t.score, manual: (t) => !!t.scoreManual },
         estado: { hecha: (t) => t.progress >= 100, toggle: (t) => board.toggleDone(t.id) },
         mover: (t, labelId) => board.setTaskLabels(t.id, [labelId], `Movida a «${board.labelById(labelId)?.name ?? ''}»`),
         borrar: (t) => board.removeSilent(t.id),
@@ -644,6 +663,7 @@ export function AccionesLoteProyectos({ elegidos, board, onLimpiar, estilo }: {
         setRecurrente: (l, v) => board.setLabelRecurrente(l.id, v),
         setRecurrencia: (l, v) => board.setLabelRecurrencia(l.id, v),
         setDeadline: (l, iso) => board.setLabelDeadline(l.id, iso),
+        prioridad: { entidad: 'proyecto', score: (l) => l.score, manual: (l) => !!l.scoreManual },
         estado: null,
         mover: null,
         borrar: null,
@@ -691,6 +711,17 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
    * selección exactamente como estaba.
    */
   const [custom, setCustom] = useState(false);
+  /**
+   * ¿ESTÁ CORRIENDO EL LOTE DE PRIORIDAD? Es el único control de la barra cuya escritura
+   * es del SERVER y de a una: `fijarPrioridadAMano` relee el tablero y, en un proyecto,
+   * reescribe la escalera de los 70 — así que cuatro proyectos son cuatro viajes en fila y
+   * no cuatro en paralelo (en paralelo cada uno pisaría la cascada del anterior).
+   *
+   * ⚠️ Y POR ESO EL CONTROL SE APAGA MIENTRAS TANTO. Sin eso, el segundo click manda un
+   * lote nuevo sobre un tablero a medio reacomodar y el deshacer del primero guarda números
+   * que ya no son los de antes.
+   */
+  const [aplicando, setAplicando] = useState(false);
   const pickerAbierto = useRef(false);
 
   if (!elegidas.length) return null;
@@ -749,6 +780,81 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
   const rotFecha = conFecha.length === n
     ? `Ponerle${plural} deadline a ${cosas}`
     : `Ponerle deadline a ${conFecha.length} de ${cosas} (las que se repiten no llevan fecha)`;
+  const rotQuitarFecha = `Quitarle el deadline a ${conFecha.length === n ? cosas : `${conFecha.length} de ${cosas}`}`;
+  /**
+   * ── LA PRIORIDAD EN LOTE, POR BANDA ─────────────────────────────────────
+   *
+   * MISMO CONJUNTO QUE `conFecha`, Y NO ES CASUALIDAD: lo que se repite no compite en el
+   * ranking —`fijarPrioridadAMano` lo rechaza con `PORQUE_NO_COMPITE`— y tampoco termina,
+   * así que «cuándo vence» y «cuánto importa» las contestan exactamente las mismas
+   * tarjetas. Ofrecer el control sobre una selección de puras recurrentes sería prometer
+   * una escritura que el server va a rebotar: un éxito falso, el modo de falla más caro.
+   */
+  const compiten = conFecha;
+  /**
+   * SE ELIGE UNA BANDA, NO UN NÚMERO, y ésa es la decisión de diseño de este control.
+   *
+   * El Kanban AGRUPA por `prioFromScore` (ALTA ≥ 75 · MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO),
+   * así que un reorden que no cambia de banda es invisible (AGENTS.md). Para varias de una
+   * la unidad útil es la banda: «subir estas cuatro» es moverlas de columna, y es
+   * literalmente el mismo gesto que arrastrarlas de a una al Kanban — el número sale del
+   * MISMO `scoreFromPrio` con el que el pop-up abre cuando solás una tarjeta en otra
+   * columna, así que no hay dos escalas diciendo lo mismo.
+   *
+   * Para fijar un número EXACTO sigue estando el pop-up del 1 al 100, que es de a UNA: el
+   * desempate contra los vecinos no se puede contestar para N tarjetas a la vez.
+   *
+   * ⚠️ A QUIÉNES MUEVE Y EN QUÉ ORDEN LO DECIDE `enOrdenParaLaBanda` (types.ts), que es
+   * puro y tiene test: las que YA están en la banda no se tocan —si no, pedir ALTA le
+   * bajaría la prioridad al que ya estaba en 96— y el resto se aplica de menor a mayor
+   * para que la cascada no las dé vuelta.
+   *
+   * SE ESCRIBE DE A UNA Y EN FILA, porque la cascada del server reescribe la escalera
+   * entera en cada llamada (ver `aplicando`). En tareas no hay cascada: todas quedan en el
+   * mismo número, que es lo normal ahí (medido: 241 abiertas en 85 números distintos).
+   *
+   * ⚠️ UN SOLO DESHACER PARA LAS N, de ahí el `false` de `aplicarCascadaManual`: cada
+   * llamada ofrecía el suyo y el toast vive en un solo casillero, así que el que quedaba
+   * arriba deshacía UNA. Y el deshacer vuelve a llamar al SERVER con el número anterior
+   * —revertir sólo la pantalla sería mentir hasta el próximo F5— y le devuelve la decisión
+   * al Perro a la que NO estaba fijada a mano antes: el candado lo puso este cambio.
+   */
+  const ponerPrioridad = async (p: Prio) => {
+    const cap = cfg.prioridad;
+    const fijar = board.repo.prioridadManual;
+    if (!cap || !fijar || aplicando) return;
+    const mueven = enOrdenParaLaBanda(compiten, p, cap.score);
+    cerrarEditores();
+    if (!mueven.length) { onLimpiar(); return; }
+    const antes = mueven.map((t) => ({ id: t.id, score: cap.score(t), manual: cap.manual(t) }));
+    onLimpiar();
+    setAplicando(true);
+    try {
+      for (const t of mueven) {
+        const r = await fijar(cap.entidad, t.id, scoreFromPrio[p]);
+        board.aplicarCascadaManual(cap.entidad, { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `Fijaste la prioridad en ${r.score} a mano` }, r.movidos, false);
+      }
+    } catch (e) {
+      console.error('[lote] prioridad', e);
+    } finally {
+      setAplicando(false);
+    }
+    // 3-4 palabras, como todo deshacer: qué pasó y a cuántas.
+    board.showUndo(`${mueven.length} a ${PLABEL[p]}`, async () => {
+      for (const a of antes) {
+        try {
+          const r = await fijar(cap.entidad, a.id, a.score);
+          if (!a.manual) await board.repo.prioridadAlPerro?.(cap.entidad, a.id);
+          // `texto` vacío: un cambio deshecho no es historia.
+          board.aplicarCascadaManual(cap.entidad, { id: a.id, score: r.score, razon: '', texto: '' }, r.movidos, false);
+          if (!a.manual) board.soltarCandadoManual(cap.entidad, a.id);
+        } catch (e) { console.error('[lote] deshacer prioridad', e); }
+      }
+    });
+  };
+  const rotPrioridad = compiten.length === n
+    ? `Cambiarle la prioridad a ${cosas}`
+    : `Cambiarle la prioridad a ${compiten.length} de ${cosas} (las que se repiten no compiten)`;
   const rotBorrar = `Eliminar ${cosas} — no se puede deshacer`;
   /**
    * ── «SE REPITE» EN LOTE, Y EL RITMO EN EL LUGAR DEL DEADLINE ───────────────────────
@@ -873,31 +979,41 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
     // `flex: none` porque son los que no se pueden perder: con qué se está trabajando, y
     // las dos acciones que cierran.
     //
-    // ── LA CUENTA, contra los ~499 del lugar más angosto (el detalle de un proyecto) ────
-    // Medida ANTES de escribir, que es lo que el pedido pide, y en los DOS estados que la
-    // ranura temporal puede tener. Los anchos de los botones con palabra salen de los
-    // medidos el 25/09 («Deadline» 96 · «Proyecto» 108) y el del desplegable se estima con
-    // la misma regla: `Dropdown` con ícono + caret ≈ 54 + el ancho del texto a 12.5 px, o
-    // sea «Repetición» (10 caracteres, ~70) ≈ 124 — el MISMO ancho que medía «Frecuencia»,
-    // que es lo que hace que esta cuenta no cambie con la 0167.
+    // ── LA CUENTA, contra el lugar más angosto donde vive la barra ──────────────────
+    // ⚠️ EL NÚMERO CONTRA EL QUE SE MIDE ES **856**, Y ACÁ DECÍA 499. No cambió la barra:
+    // cambió el modal. `ANCHO_TABLA_EN_PROYECTO` (piezas.tsx) es una RESTA sobre
+    // `MODAL_DETALLE`, y el modal pasó de 820 a 1180 — esta cuenta se quedó apuntando al
+    // 499 que salía del 820, que es el olor de «dos números que dicen lo mismo y uno no se
+    // enteró». Se DERIVA, no se copia: 1180 − 2 − 264 − 44 − 9 − 2 − 3 = 856.
+    //
+    // Y los anchos de abajo están MEDIDOS en el navegador el 04/10/2026 (Chromium, la tabla
+    // de /plan con tres tareas tildadas, apretando el contenedor a mano), no estimados:
     //
     //   izquierda  16 casilla + 8 + 24 número                                =  48
-    //   medio A    34 «Se repite» + 14 + 96 Deadline + 14 + 108 Proyecto     = 266
-    //              (con el calendario abierto el Deadline mide 118)          = 288
-    //   medio B    34 «Se repite» + 14 + 124 Repetición + 14 + 108 Proyecto  = 294
-    //              (y ahora B no tiene segundo estado: el paso del día se fue
-    //               con el modelo viejo, así que la ranura mide siempre 124)
+    //   medio A    34 «Se repite» + 14 + 99 Deadline + 14 + 106 Prioridad
+    //              + 14 + 107 Proyecto                                       = 388
+    //              (con el calendario abierto la fecha y su «—» miden 158
+    //               juntos —118 + 6 + 34, en su propia caja—: +59)            = 447
+    //   medio B    34 «Se repite» + 14 + 124 Repetición + 14 + 107 Proyecto  = 293
+    //              (B no lleva Prioridad: lo que se repite no compite y el
+    //               server rebota cada llamada — ver `compiten`)
     //   derecha    34 tilde + 6 + 34 tacho                                   =  74
     //   los dos huecos entre grupos, como mínimo                             =  20
     //   padding 24 + borde 2                                                 =  26
-    //   ─────────────────────────────────────────────────────────────────────────────
-    //   A 434 · A con el calendario abierto 456 · **B 462, que es el peor**
-    //   Contra 499: 37 px de aire en el peor estado. Entra, y por eso el ritmo REEMPLAZA al
-    //   deadline en vez de sumarse: los dos juntos pedirían 558 y la barra se partiría en
-    //   dos renglones, que es exactamente el reporte que la ronda del 25/09 vino a cerrar.
+    //   ──────────────────────────────────────────────────────────────────────────
+    //   A 556 · **A con el calendario abierto 615, que es el peor** · B 461
+    //   Contra 856: 241 px de aire en el peor estado, y un renglón (50 px de alto) medido a
+    //   1440, 856 y 700. El piso de verdad es 615: por debajo, los grupos de los costados
+    //   —que son `flex: 1`— se encogen por debajo de su contenido antes de que el `wrap`
+    //   llegue a dispararse, y el tilde y el tacho se empiezan a pisar. Medido: a 560 el
+    //   grupo de la derecha mide 34 px para 74 px de botones.
+    //
+    // ⚠️ Y EL RITMO SIGUE REEMPLAZANDO AL DEADLINE aunque ahora sobre lugar. No era por
+    // ancho: son la misma pregunta —«¿cuándo?»— con dos respuestas que no pueden convivir,
+    // igual que en el detalle y en la columna temporal de las dos tablas.
     //
     // La barra de PROYECTOS es más angosta todavía (sin «Proyecto», sin tilde y sin tacho):
-    // 48 + 172 + 0 + 20 + 26 = 266 en su peor estado, y vive en vistas de 860 y 1180 px.
+    // 48 + (34 + 14 + 99 + 14 + 106) + 0 + 20 + 26 = 361, y vive en vistas de 1180 px.
     //
     // El tilde y el tacho se quedan SIN palabra a propósito y no es por ahorrar: significan
     // lo mismo en la fila, en la tarjeta y al pie del detalle, así que ahí el ícono ya es el
@@ -1013,12 +1129,27 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
             medio se queda con un solo control. */}
         {puedeFechar ? (
           editandoFecha ? (
+            /* ⚠️ EL INPUT Y SU «—» SON **UN** CONTROL, así que van en su propia caja con
+               `gap: 6` y no sueltos en el grupo, que separa a 14. Los 14 son para dos
+               pastillas distintas «que a 6 px se leen como un solo bloque partido por una
+               raya»; acá el efecto buscado es el contrario — el «—» es QUÉ HACER CON ESTA
+               FECHA, no una acción aparte. Y de paso devuelve los 8 px que el botón nuevo
+               le sumó al estado más ancho de la barra (ver LA CUENTA). */
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
             <input type="date" autoFocus
               ref={(el) => {
                 if (!el || pickerAbierto.current) return;
                 pickerAbierto.current = true;
                 try { el.showPicker?.(); } catch { /* sin picker nativo queda el input, que igual se edita */ }
               }}
+              // ⚠️ EL `if (v)` NO ES DEFENSIVO ACÁ, ES OBLIGATORIO — y QUITAR la fecha va
+              // por el botón de al lado, no por este input. Los dos motivos:
+              //   · este input nace VACÍO (no tiene `value`), así que no hay nada que
+              //     limpiar: el picker ni siquiera dibuja su ✕. Ésa es la mitad del bug
+              //     que el `if` no explicaba.
+              //   · y un `type="date"` emite `change` con `''` mientras se tipea una
+              //     fecha incompleta. Sobre UNA tarea eso es un parpadeo; sobre una
+              //     selección de doce es borrarles la fecha a las doce a mitad de camino.
               onChange={(e) => {
                 const v = e.target.value;
                 setEditandoFecha(false);
@@ -1035,6 +1166,26 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
                 borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
                 color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS, cursor: 'pointer',
               }} />
+              {/* ⚠️ QUITAR LA FECHA ES SU PROPIO BOTÓN, no un input vacío. Pedido en vivo
+                  el 01/10/2026 (01:08:32): «quitarle por ahora el deadline a los que
+                  todavía no le voy a asignar, porque si no me confunde» — y lo que pasaba
+                  era que no había forma de expresarlo: el input abre sin valor, así que no
+                  hay nada que limpiar y el picker ni dibuja su ✕. «Le doy a deadline,
+                  borra… y no se borra. Tengo que ir uno por uno.»
+                  El «—» es el mismo glifo con el que la tabla dice «sin fecha»
+                  (`CeldaFecha`), así que no hay un idioma nuevo que aprender. */}
+              <button type="button" title={rotQuitarFecha} aria-label={rotQuitarFecha}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setEditandoFecha(false);
+                  enLote(`Sin deadline en ${conFecha.length}`, (t) => { if (!esRecurrente(t)) cfg.setDeadline(t, ''); });
+                }}
+                style={{
+                  flex: 'none', boxSizing: 'border-box', width: 34, height: 34, padding: 0,
+                  borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
+                  color: 'var(--faint)', fontFamily: MONO, fontSize: 15, lineHeight: 1, cursor: 'pointer',
+                }}>—</button>
+            </span>
           ) : (
             <BtnIcono rotulo={rotFecha} texto="Deadline"
               onClick={() => { pickerAbierto.current = false; setEditandoFecha(true); }}>
@@ -1069,6 +1220,33 @@ function BarraLote<T extends { id: string; recurrente?: boolean; recurrencia?: s
               buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
               options={opcionesRepeticion()}
               onChange={elegirRepeticion} />
+          </span>
+        )}
+
+        {/* LA PRIORIDAD, EN BANDAS. Mismo molde que los otros dos desplegables de la barra:
+            de ACCIÓN (`value=""` + `resetAfterSelect`), así que lo que se lee en el botón es
+            el NOMBRE del campo y no un valor — son N tarjetas y no hay UNA prioridad que
+            mostrar.
+            ⚠️ LA PROP **ES** LA CAPACIDAD, dos veces: `cfg.prioridad` dice que la entidad
+            compite y `repo.prioridadManual` dice que ESTE tablero puede escribirla. Un
+            control que se dibuja y no puede escribir se lee como que la app está rota, y
+            es justo lo que este archivo viene evitando.
+            ⚠️ Y NO SE DIBUJA SI TODA LA SELECCIÓN SE REPITE (`compiten.length`): ahí el
+            server rebota cada llamada con `PORQUE_NO_COMPITE`. Es el MISMO corte que el
+            deadline, por el mismo motivo — ver `compiten`. */}
+        {cfg.prioridad && board.repo.prioridadManual && compiten.length > 0 && (
+          <span title={rotPrioridad} style={{ flex: '0 1 auto', minWidth: 0, display: 'inline-flex' }}>
+            <Dropdown
+              value=""
+              resetAfterSelect
+              disabled={aplicando}
+              placeholder="Prioridad"
+              align="right"
+              ariaLabel={rotPrioridad}
+              icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><ScoreIcon size={13} /></span>}
+              buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
+              options={PRIOS.map((p) => ({ value: p, label: PLABEL[p], color: PCOLOR[p] }))}
+              onChange={(v) => { if (v) void ponerPrioridad(v as Prio); }} />
           </span>
         )}
 

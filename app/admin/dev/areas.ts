@@ -125,7 +125,7 @@ export const AREAS: AreaDev[] = [
     slug: 'plan', titulo: 'Plan', familia: 'Operate', grupo: 'Plan',
     estado: 'listo', verEnApp: '/plan',
     alcance: 'El tablero de tareas. Misma UI en dos adapters: cliente (/plan → TodoBoard, Supabase por workspace) y super-admin sin impersonar (/plan/agencia → PlanBoard).',
-    vive: ['app/plan/page.tsx', 'app/plan/TodoBoard.tsx', 'app/plan/PlanBoard.tsx', 'app/plan/agencia/page.tsx', 'app/plan/board/BoardShell.tsx', 'app/plan/board/useBoard.ts', 'app/plan/board/types.ts', 'app/plan/board/dependencias.ts', 'app/plan/board/DependenciasBloque.tsx', 'app/plan/board/envejecer.ts', 'lib/todo.ts', 'lib/plan-board.ts', 'lib/plan-proyecto-vacio.ts', 'app/api/cron/plan-recurvar/route.ts', 'supabase/migrations/0140_plan_dependencias.sql', 'supabase/migrations/0141_plan_score_base.sql'],
+    vive: ['app/plan/page.tsx', 'app/plan/TodoBoard.tsx', 'app/plan/PlanBoard.tsx', 'app/plan/agencia/page.tsx', 'app/plan/board/BoardShell.tsx', 'app/plan/board/useBoard.ts', 'app/plan/board/types.ts', 'app/plan/board/Tablas.tsx', 'app/plan/board/AccionesLote.tsx', 'app/plan/board/piezas.tsx', 'app/plan/board/dependencias.ts', 'app/plan/board/DependenciasBloque.tsx', 'app/plan/board/envejecer.ts', 'lib/todo.ts', 'lib/plan-board.ts', 'lib/plan-proyecto-vacio.ts', 'app/api/cron/plan-recurvar/route.ts', 'supabase/migrations/0140_plan_dependencias.sql', 'supabase/migrations/0141_plan_score_base.sql'],
     proyectos: ['Feature: Plan'],
   },
   {

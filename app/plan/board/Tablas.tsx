@@ -52,7 +52,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
 import type { Board } from './useBoard';
-import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, LineaDeadline, ANCHO_TABLA_EN_PROYECTO } from './piezas';
+import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, LineaDeadline, proyectoTerminado, ANCHO_TABLA_EN_PROYECTO } from './piezas';
 // El predicado de «se repite» sale del modulo de datos, nunca de un `t.recurrente` suelto.
 // ⚠️ Y EL TEXTO SALE DE `textoRepeticion` (mig 0167), la ÚNICA función que convierte una
 // misma función que usan la tarjeta, la fila y la API: la que junta el ritmo con su día
@@ -531,19 +531,23 @@ function Th({ children, orden, activo, dir, onSort, ancho, ayuda }: { children: 
  * vista vino a sacar. En las tarjetas, donde el aviso va solo y es la única señal, el
  * triangulito sigue.
  */
-function CeldaFecha({ iso, hoy, onSet, nombre }: { iso: string; hoy: string; onSet: (v: string) => void; nombre: string }) {
+function CeldaFecha({ iso, hoy, onSet, nombre, hecho = false }: { iso: string; hoy: string; onSet: (v: string) => void; nombre: string; hecho?: boolean }) {
   // El guión es un BOTÓN: al tocarlo aparece el `input`. Un `input type=date` vacío dibuja
   // «dd/mm/aaaa», que es justo el texto de más que el guión vino a reemplazar.
   const [editando, setEditando] = useState(false);
   const pickerAbierto = useRef(false);
   const dias = iso ? diasHasta(iso, hoy) : null;
-  const plazo = dias == null ? null : plazoTexto(dias);
+  // ⚠️ TERMINADO = SIN PLAZO, igual que en `LineaDeadline`. Es el mismo bug del 01/10 en la
+  // otra superficie: acá el plazo no se escribe pero SÍ se pinta, así que una tarea al 100%
+  // con la fecha pasada quedaba con la celda en ROJO y el borde grueso, para siempre. La
+  // fecha se sigue viendo y se sigue pudiendo editar; lo que se apaga es la alarma.
+  const plazo = dias == null || hecho ? null : plazoTexto(dias);
   // La escala sale de `plazoTexto`, la misma que usan las tarjetas: vencido y hoy en rojo,
   // esta semana en ámbar, más lejos neutro. Lo único que se cambia es ese último tramo:
   // `--faint` sobre el dato principal de una celda lo vuelve ilegible, y «falta mucho» no
   // necesita un color propio — necesita no gritar.
   const tinta = dias == null || plazo == null ? 'var(--ink)' : dias > 7 ? 'var(--dim)' : plazo.color;
-  const enPalabras = plazo ? `${fechaConDia(iso)} · ${plazo.texto}` : 'sin deadline';
+  const enPalabras = plazo ? `${fechaConDia(iso)} · ${plazo.texto}` : iso && hecho ? `${fechaConDia(iso)} · ya está hecho` : 'sin deadline';
 
   if (!iso && !editando) {
     return (
@@ -617,8 +621,34 @@ function CheckHecha({ hecha, onToggle, titulo }: { hecha: boolean; onToggle?: ()
  * `title` y en el `aria-label` —que es lo único que lee un lector de pantalla y lo único
  * que sobrevive a un daltonismo—.
  */
-function Score({ score, color, titulo }: { score: number; color: string; titulo?: string }) {
-  return <span title={titulo} aria-label={titulo} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: '2px 7px 2px 6px' }}><ScoreIcon size={11} color={color} />{score}</span>;
+/**
+ * El chip de prioridad de una fila. Con `onCambiar` es un BOTÓN que abre el pop-up del 1 al
+ * 100; sin la capacidad, el mismo chip de sólo lectura de siempre.
+ *
+ * ⚠️ NO ES UN CONTROL NUEVO: abre EL MISMO pop-up que el arrastre de filas y que el lápiz
+ * del detalle. El panel del detalle ya llegó una vez a tener tres formas de cambiar este
+ * número y el reporte fue «¿para qué está el deslizable si para eso teníamos el pop-up?»;
+ * acá no se agrega una cuarta, se le da a la tabla la que ya existe. La escritura sigue
+ * entrando por `repo.prioridadManual` con su cascada, así que la pantalla se reacomoda sola.
+ *
+ * Pedido en vivo el 01/10/2026 (01:01:00), mirando la tabla: «si estoy en la vista de tabla
+ * y quiero cambiar la prioridad, así como le doy clic a la fecha, **si le doy clic al
+ * botoncito de prioridad debería poder cambiar ahí mismo**… esto lo voy a poner como 75,
+ * tengo que recargarlo para que esto me haga caso. Otra cosa: si le bajo la prioridad, que
+ * se baje automáticamente, no que le tenga que refrescar la página».
+ *
+ * ⚠️ Y EL `sugerido` ES EL SCORE ACTUAL, no el punto medio entre dos vecinos. Desde el
+ * arrastre la sugerencia sale de DÓNDE soltaste; desde el chip no hay un «dónde», así que
+ * el pop-up abre en el número que la fila tiene hoy — que es lo que se va a corregir.
+ */
+function Score({ score, color, titulo, onCambiar }: { score: number; color: string; titulo?: string; onCambiar?: () => void }) {
+  const estilo: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: '2px 7px 2px 6px' };
+  if (!onCambiar) return <span title={titulo} aria-label={titulo} style={estilo}><ScoreIcon size={11} color={color} />{score}</span>;
+  const rot = `${titulo ?? `Prioridad ${score}`} · toca para cambiarla`;
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); onCambiar(); }} title={rot} aria-label={rot}
+      style={{ ...estilo, cursor: 'pointer' }}><ScoreIcon size={11} color={color} />{score}</button>
+  );
 }
 
 function Barra({ pct, color }: { pct: number; color: string }) {
@@ -660,6 +690,35 @@ function FilaPlegada({ n, abierto, onToggle, cols, texto }: { n: number; abierto
 }
 
 // ── PROYECTOS ────────────────────────────────────────────────────────────────────────
+
+/**
+ * LA BARRA DE LOTE, PEGADA ARRIBA MIENTRAS SCROLLEÁS.
+ *
+ * «Que la barra de opciones en donde le puedo cambiar el deadline, cuando estoy
+ * seleccionando varias cosas, baje con mi scroll, porque si no como que tengo que subir
+ * hasta arriba» (01/10/2026, 00:57:43). El Kanban ya lo hacía desde el 24/09 (BoardShell:
+ * `position: sticky, top: 8`); la tabla no — y es donde más duele, porque ahí se tildan
+ * filas de a diez y la lista es larga.
+ *
+ * ⚠️ Y POR ESO LA BARRA SALIÓ DE ADENTRO DE `cajaStyle`, QUE ES LA MITAD QUE NO SE VE.
+ * Esa caja declara `overflow-x: auto` con el eje Y en `visible`, y el valor USADO del Y
+ * pasa entonces a `auto`: la caja ES un contenedor de scroll. Un `sticky` se posiciona
+ * contra el ancestro que scrollea, y ese ancestro no scrollea nunca en vertical —crece con
+ * su contenido—, así que la barra se habría quedado clavada igual que antes, con el
+ * `position: sticky` puesto y sin un solo error. Es la regla de AGENTS.md («Un eje en
+ * `hidden` convierte el otro en `auto`, y eso rompe todo `sticky` de adentro»), y la
+ * conclusión acá es la misma: el sticky vive AFUERA de la caja que recorta.
+ *
+ * Afuera, el que scrollea es el de verdad: la página en `/plan`, y la columna del detalle
+ * (`overflowY: auto`) cuando la tabla vive adentro del modal de un proyecto. No hay que
+ * elegirlo — `sticky` toma solo el ancestro que corresponda.
+ *
+ * La sombra es la misma del Kanban: sin ella la barra flota sobre las filas y nada dice
+ * que está encima.
+ */
+function BarraPegada({ children }: { children: ReactNode }) {
+  return <div style={{ position: 'sticky', top: 8, zIndex: 20 }}>{children}</div>;
+}
 
 export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, soloLectura = false, sinRanking = false }: {
   filas: Array<{ l: Label; prog: { pct: number; total: number; done: number } }>;
@@ -764,8 +823,11 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
     };
     const orde = filas.slice().sort(cmp);
     return {
-      vivos: orde.filter(({ prog }) => !(prog.total > 0 && prog.pct >= 100)),
-      hechos: orde.filter(({ prog }) => prog.total > 0 && prog.pct >= 100),
+      // La condición vive en `proyectoTerminado` (piezas.tsx) y la comparten las DOS
+      // vistas: escrita acá adentro, la de tarjetas no la tenía y los completos se
+      // quedaban arriba — el reporte del 01/10 (01:01:00).
+      vivos: orde.filter(({ prog }) => !proyectoTerminado(prog)),
+      hechos: orde.filter(({ prog }) => proyectoTerminado(prog)),
     };
   }, [filas, orden, dir]);
 
@@ -831,7 +893,8 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
             mismo que ya hace la fila de una tarea recurrente mezclada con las demás. */}
         {!sinRanking && <td style={td}>{esRecurrente(l)
           ? <NoAplica porQue="Se repite: no compite en el ranking" />
-          : <Score score={l.score} color={l.color} titulo={`Prioridad ${l.score} de 100 · ${PLABEL[prioFromScore(l.score)]}`} />}</td>}
+          : <Score score={l.score} color={l.color} titulo={`Prioridad ${l.score} de 100 · ${PLABEL[prioFromScore(l.score)]}`}
+              onCambiar={onSoltar && !hecho && !soloLectura ? () => onSoltar(l.id, l.score) : undefined} />}</td>}
         <td style={td}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Barra pct={prog.pct} color={l.color} />
@@ -853,8 +916,8 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
             <td style={td} data-nodrag data-parar>{esRecurrente(l)
               ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
               : onDeadline
-                ? <CeldaFecha iso={l.deadline || ''} hoy={hoy} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
-                : <LineaDeadline iso={l.deadline || ''} hoy={hoy} />}
+                ? <CeldaFecha iso={l.deadline || ''} hoy={hoy} hecho={hecho} nombre={`«${l.name}»`} onSet={(v) => onDeadline(l.id, v)} />
+                : <LineaDeadline iso={l.deadline || ''} hoy={hoy} hecho={hecho} />}
             </td>
           )}
       </tr>
@@ -868,12 +931,18 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
   const cols = 4 + (sinRanking ? 0 : 1);
 
   return (
-    <div style={cajaStyle} className="mk-scroll-x">
+    <div style={{ width: '100%' }}>
       {/* La barra vive en `AccionesLote`, la MISMA pieza que la tabla de tareas con otra
           configuración: lo que un proyecto puede hacer en lote es lo temporal («Se repite»,
-          el ritmo con su día y el deadline) y nada más. Qué queda afuera y por qué está
-          enumerado en la cabecera de ese archivo. */}
-      {!soloLectura && <AccionesLoteProyectos elegidos={elegidos} board={board} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />}
+          el ritmo con su día y el deadline) y la prioridad. Qué queda afuera y por qué
+          está enumerado en la cabecera de ese archivo.
+          ⚠️ Y VA AFUERA DE `cajaStyle`, QUE ES LO QUE LA DEJA PEGARSE — ver `BarraPegada`. */}
+      {!soloLectura && (
+        <BarraPegada>
+          <AccionesLoteProyectos elegidos={elegidos} board={board} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10, boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+        </BarraPegada>
+      )}
+      <div style={cajaStyle} className="mk-scroll-x">
       {/* El piso es la SUMA de lo que las columnas piden (ver arriba), no un número
           copiado de la tabla de al lado. Bajó de 600 a 544 al irse la palabra de la
           prioridad y al apretarse el padding: lo que sobra se lo queda el nombre. */}
@@ -924,6 +993,7 @@ export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDead
           {verHechos && hechos.map((f) => fila(f, true))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -1180,7 +1250,8 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
             ordena nada y una fecha de fin de algo que no termina. */}
         {!sinRanking && <td style={td}>{rec
           ? <NoAplica porQue="Se repite: no compite en el ranking" />
-          : <Score score={t.score} color={c} titulo={`Prioridad ${t.score} de 100 · ${PLABEL[prioFromScore(t.score)]}`} />}</td>}
+          : <Score score={t.score} color={c} titulo={`Prioridad ${t.score} de 100 · ${PLABEL[prioFromScore(t.score)]}`}
+              onCambiar={onSoltar && !hecha && !soloLectura ? () => onSoltar(t.id, t.score) : undefined} />}</td>}
         {/* ⚠️ LA MISMA COLUMNA CONTESTA DOS PREGUNTAS DISTINTAS, Y POR ESO CAMBIA DE
             ENCABEZADO. Con ranking pregunta «¿cuándo vence?», y para algo que se repite la
             respuesta honesta es que no aplica; sin ranking —la vista Recurrentes, donde
@@ -1194,10 +1265,10 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
           : <td style={td} data-nodrag data-parar>{rec
             ? <NoAplica porQue="Se repite: no tiene una fecha de fin" />
             : onFecha
-              ? <CeldaFecha iso={t.deadline || ''} hoy={hoy} nombre={`«${t.title}»`} onSet={(v) => onFecha(t.id, v, t.deadline ?? '')} />
+              ? <CeldaFecha iso={t.deadline || ''} hoy={hoy} hecho={t.progress >= 100} nombre={`«${t.title}»`} onSet={(v) => onFecha(t.id, v, t.deadline ?? '')} />
               /* Sin la capacidad, la fecha se LEE. Un campo editable que no guarda es
                  peor que uno de sólo lectura: se escribe y se pierde. */
-              : <LineaDeadline iso={t.deadline || ''} hoy={hoy} />}</td>}
+              : <LineaDeadline iso={t.deadline || ''} hoy={hoy} hecho={t.progress >= 100} />}</td>}
         {/* LAS DOS ACCIONES QUE CIERRAN UNA TAREA, JUNTAS: el check y el tacho.
             · El ESTADO se cambia desde acá: «otra columna para cambiar el estado»
               (25/09/2026). En este tablero el estado de una tarea es uno solo —activa o
@@ -1231,10 +1302,16 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
   };
 
   return (
-    <div style={cajaStyle} className="mk-scroll-x">
+    <div style={{ width: '100%' }}>
       {/* La barra vive en `AccionesLote`: la usa también el Kanban desde el 24/09/2026, y
-          dos copias de una barra de acciones divergen a la primera acción nueva. */}
-      {!soloLectura && <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10 }} />}
+          dos copias de una barra de acciones divergen a la primera acción nueva.
+          ⚠️ Y VA AFUERA DE `cajaStyle`, QUE ES LO QUE LA DEJA PEGARSE — ver `BarraPegada`. */}
+      {!soloLectura && (
+        <BarraPegada>
+          <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ marginBottom: 10, boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+        </BarraPegada>
+      )}
+      <div style={cajaStyle} className="mk-scroll-x">
       {/* ⚠️ EL PISO ES LO QUE LAS COLUMNAS PIDEN, Y ADENTRO DE UN PROYECTO SE TOPEA CONTRA
           LO QUE HAY. Las dos mitades importan y cada una se aprendió rompiendo la otra:
           · Sumar lo que uno QUIERE no contesta si entra. El 25/09/2026 el piso fue 520
@@ -1303,6 +1380,7 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
           {verHechas && hechas.map((t) => fila(t, true))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

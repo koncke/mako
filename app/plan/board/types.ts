@@ -580,6 +580,30 @@ export function prioFromScore(score: number): Prio {
 // score representativo de cada columna (migración de tareas viejas / bajar prioridad a mano)
 export const scoreFromPrio: Record<Prio, number> = { alta: 85, media: 62, baja: 37, futuro: 12 };
 
+/**
+ * A QUIÉNES MUEVE DE VERDAD UN CAMBIO DE BANDA EN LOTE, Y EN QUÉ ORDEN APLICARLO.
+ *
+ * «También debería poder subir prioridades desde ahí arriba… de varios juntos» (01/10/2026).
+ * La barra de lote ofrece las cuatro BANDAS y no un número, porque la banda es la unidad
+ * que la pantalla agrupa: un reorden que no cambia de banda es invisible.
+ *
+ * ⚠️ LAS QUE YA ESTÁN EN LA BANDA SE QUEDAN AFUERA, y es lo que hace que «subir» nunca
+ * baje nada. Con un proyecto en 96 y otro en 30, pedir ALTA tiene que mover al de 30 y
+ * dejar al de 96 donde está: ponerlos a los dos en el representativo (85) le BAJARÍA la
+ * prioridad a uno mientras el control dice lo contrario.
+ *
+ * ⚠️ Y EL ORDEN ES DE MENOR A MAYOR, PARA NO DARLOS VUELTA. La escalera de PROYECTOS no
+ * admite empates: fijar el segundo en 85 corre al primero a 84, así que el ÚLTIMO aplicado
+ * queda arriba. Ordenando por el score que TENÍAN, el que venía más alto se aplica último
+ * y sigue siendo el más alto. En tareas no hay cascada y el orden da igual.
+ *
+ * Vive acá —y no adentro de la barra— por la regla de siempre: la condición de algo que
+ * escribe en lote tiene que poder importarla un test.
+ */
+export function enOrdenParaLaBanda<T>(items: readonly T[], destino: Prio, score: (t: T) => number): T[] {
+  return items.filter((t) => prioFromScore(score(t)) !== destino).sort((a, b) => score(a) - score(b));
+}
+
 // Score a partir del cual una tarea es EMERGENCIA (entra a Alta aunque no sea del
 // proyecto top). Ej: cuenta de Meta suspendida.
 export const EMERGENCY_SCORE = 90;

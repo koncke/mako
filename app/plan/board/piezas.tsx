@@ -124,6 +124,23 @@ export const ANCHO_TABLA_EN_PROYECTO = MODAL_DETALLE - 2 - COL_DER - 44 - 9 - 2 
  * que mirar `total` primero, y quien pregunte «¿este proyecto esta vacio?» tiene que
  * preguntar `total === 0 && recurrentes === 0`, que es «¿no tiene NADA?».
  */
+/**
+ * ¿ESTE PROYECTO ESTÁ TERMINADO? Un proyecto SIN trabajo que termine no está hecho: está
+ * vacío, o es puras recurrentes. Las dos cosas dicen 0% y ninguna es «listo».
+ *
+ * ⚠️ VIVE ACÁ Y NO EN CADA VISTA, y ése es todo el punto. La TABLA partía sus filas en
+ * `vivos` / `hechos` con esta misma condición escrita adentro, y la vista de TARJETAS no
+ * la tenía: los proyectos completos se iban al fondo en una y se quedaban arriba en la
+ * otra. Martín lo vio en vivo el 01/10/2026 (01:01:00): «completado 5 — acá, en la vista
+ * de tablas, sí se va para abajo; pero en la vista de tarjetas se queda de arriba», y
+ * antes, a las 00:59:57: «las que ya están completas deberían, chau… irse para abajo los
+ * proyectos que ya están completos. Yo creería que esto ya lo había corregido».
+ *
+ * Lo había corregido — en una de las dos vistas. Con la condición en un solo lugar, la
+ * próxima vista que se agregue la hereda sin que nadie se acuerde.
+ */
+export const proyectoTerminado = (prog: { pct: number; total: number }): boolean => prog.total > 0 && prog.pct >= 100;
+
 export function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number; recurrentes: number } {
   const suyas = tasks.filter((t) => t.labels.includes(labelId));
   const conFin = suyas.filter((t) => !esRecurrente(t));
@@ -291,9 +308,24 @@ const SIN_FECHA = 'Falta el deadline';
  * escribir el plazo: sería la segunda implementación del código de colores de `CeldaFecha`,
  * con una sola viva. Si algún día hace falta, la escala sale de `plazoTexto`.
  */
-export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(--faint)', style }: {
+export function LineaDeadline({ iso, hoy, hecho = false, tam = 10.5, mono = true, color = 'var(--faint)', style }: {
   /** Vacío = el campo no está completado. Ver la guarda, arriba. */
   iso: string | null | undefined; hoy: string;
+  /**
+   * ¿Ya está TERMINADO? Con esto puesto se dibuja la fecha y NO el plazo.
+   *
+   * ⚠️ ESTA PIEZA NO PUEDE DEDUCIRLO, y por eso es una prop. Sólo recibe `iso` y `hoy`,
+   * así que una tarea al 100% con la fecha vencida decía «4 días atrasado» — y al día
+   * siguiente, cinco. Lo reportó Martín en vivo el 01/10/2026 (00:58:25): «¿y por qué si
+   * está completado te dice cuatro días atrasado?… **error que resolver en el plan.
+   * Termino una tarea, un proyecto y sigue contabilizando los días atrasados. Que quede
+   * ahí anotado**».
+   *
+   * Lo que se va es el PLAZO, no la fecha: cuándo vencía sigue siendo un dato de algo
+   * terminado. Y no se reemplaza por «entregado a tiempo / tarde» — eso es un juicio
+   * nuevo que nadie pidió, y la tarjeta ya muestra que está hecha.
+   */
+  hecho?: boolean;
   tam?: number;
   /** false = tipografía de texto (el detalle), donde esto se lee como una frase. */
   mono?: boolean;
@@ -304,6 +336,15 @@ export function LineaDeadline({ iso, hoy, tam = 10.5, mono = true, color = 'var(
   if (!iso) return (
     <span title={SIN_FECHA} aria-label={SIN_FECHA}
       style={{ display: 'inline-flex', flex: 'none', fontFamily: mono ? MONO : undefined, fontSize: tam, color: 'var(--faint)', ...style }}>—</span>
+  );
+
+  // TERMINADO: la fecha sola. Sin plazo no hay nada que pueda ceder, así que tampoco hace
+  // falta el reparto de flex de abajo — y el `title` dice lo que el renglón ya no escribe.
+  if (hecho) return (
+    <span title={`Vencía el ${fechaConDia(iso)} · ya está hecho`}
+      style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: mono ? MONO : undefined, fontSize: tam, color: 'var(--faint)', ...style }}>
+      ◷ {fechaConDia(iso)}
+    </span>
   );
 
   const p = plazoTexto(diasHasta(iso, hoy));

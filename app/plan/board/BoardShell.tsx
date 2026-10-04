@@ -81,7 +81,7 @@ import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
-import { WarnMark, projProgress, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, hoyISO, COL_DER, MODAL_DETALLE } from './piezas';
+import { WarnMark, projProgress, proyectoTerminado, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, hoyISO, COL_DER, MODAL_DETALLE } from './piezas';
 // ⚠️ `LineaRepeticion` VIVE EN `Tablas.tsx` Y NO ACÁ, y el motivo es el grafo de imports:
 // este archivo ya importa de aquél, así que al revés sería un ciclo. El lugar que le
 // correspondería por tema es `piezas.tsx`; queda anotado y no hecho porque ese archivo no es
@@ -2968,7 +2968,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
         {esRecurrente(t)
           ? <LineaRepeticion de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
           : t.deadline
-            ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
+            ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
             : <span style={{ flex: 'none' }} />}
         <span style={{ flex: 1 }} />
         <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
@@ -3595,7 +3595,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                     la checklist («una tarea se completa o no se completa»), y lo que
                     faltaba era justamente cuándo vence y cuánto falta. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
+                  {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
                   <span style={{ flex: 1 }} />
                   <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
                     aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
@@ -4404,7 +4404,7 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen, o
           se repite eso es «cada cuánto», no «para cuándo». La condición es `llevaDeadline`
           en las dos ramas —la regla del contrato— y no un `!esRecurrente` escrito acá. */}
       {llevaDeadline(l)
-        ? l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} />
+        ? l.deadline && <LineaDeadline iso={l.deadline} hoy={hoyISO()} hecho={completo} />
         : <LineaRepeticion de={l} />}
       {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
       {/* ⚠️ «SIN TAREAS» ES UNA AFIRMACIÓN, Y SOBRE UN PROYECTO DE PURAS RECURRENTES ES
@@ -5148,7 +5148,13 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
     // deja el orden que traía `ordenados` — el del header — sin volver a compararlo.
     .sort((a, b) => a.esc - b.esc)
     .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)) || tieneTareasDe(l.id))
-    .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
+    .filter(({ prog }) => pasaEstado(prog.pct, projFilter))
+    // ⚠️ LO TERMINADO VA AL FONDO, igual que en la tabla. Mismo criterio y misma función
+    // (`proyectoTerminado`), porque el bug era justamente que cada vista tenía el suyo:
+    // «en la vista de tablas sí se va para abajo, pero en la vista de tarjetas se queda de
+    // arriba» (01/10/2026, 01:01:00). El `sort` es estable desde ES2019, así que adentro
+    // de cada grupo se conserva el orden que eligió el header.
+    .sort((a, b) => Number(proyectoTerminado(a.prog)) - Number(proyectoTerminado(b.prog)));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
 

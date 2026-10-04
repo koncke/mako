@@ -5651,3 +5651,162 @@ un catálogo incompleto, **el comentario que hace falta está en la salida tempr
 no en el catálogo.
 
 **Vive en:** `app/admin/dev/roadmap.ts:94-96` · *2026-10-04 runway-crm*
+
+---
+
+## La prioridad en la TABLA, y el lote: lo que el dueño dictó mirando la pantalla (01/10/2026, arreglado el 04/10)
+
+La llamada con Leila del 01/10 no fue de roadmap: fue una sesión de uso con el tablero
+abierto, y entre 00:57 y 01:09 Martín dictó nueve defectos seguidos sin que nadie los
+anotara. **La transcripción no existía en ningún lado del disco** — hubo que reconstruirla
+desde los `agent-*.jsonl` de una corrida del 03/10, y eso está abajo en su propia entrada.
+
+### ⚠️ El diagnóstico que dio el propio dueño era el equivocado, y se corrigió solo un minuto después
+
+A las 01:01:00: *«esto lo voy a poner como 75, **tengo que recargarlo para que esto me haga
+caso**»*. A las 01:02:36, sobre lo mismo: *«ah, se está por deadline, no se está ordenando
+por prioridad, por eso ahí está»*.
+
+O sea que «tengo que recargar» eran DOS cosas y sólo una era un bug: la tarjeta no se movía
+porque la tabla estaba ordenada por DEADLINE, y el camino que escribe el score
+(`MoverPrioridadModal` → `aplicarCascadaManual`) ya parcheaba el estado sin recargar desde el
+23/09. Lo que sí faltaba era poder cambiar la prioridad **desde la fila**, que es la otra
+mitad de la misma frase (*«así como le doy clic a la fecha… si le doy clic al botoncito de
+prioridad debería poder cambiar ahí mismo»*). Arreglar sólo lo que la palabra «recargar»
+sugiere habría sido buscar un reload que no existía.
+
+### El chip de prioridad era un `<span>` y la capacidad ya estaba enchufada
+
+`onSoltar` —la prop que abre el pop-up del 1 al 100— ya existía en las dos tablas desde el
+25/09 **para el arrastre de filas**, y el `<Score>` de al lado era texto. El arreglo fue
+darle un `onCambiar` al chip que llama a esa misma prop con el score actual: ningún control
+nuevo y ningún camino de escritura nuevo. Es la regla de la casa aplicada antes de escribir
+(«ANTES DE AGREGAR UN CONTROL, CONTÁ LOS QUE YA CONTESTAN ESA MISMA PREGUNTA») — el panel
+del detalle ya había llegado a tener TRES formas de cambiar este número.
+
+**Vive en:** `app/plan/board/Tablas.tsx` → `Score` · *2026-10-04*
+
+### Una acción en LOTE sobre algo que escribe el server necesita apagar el deshacer de cada paso
+
+El pedido: *«también debería poder subir prioridades desde ahí arriba… de varios juntos»*
+(01:04:44). La barra de lote ya tenía deadline, repetición y proyecto, y los tres se
+persisten solos; **la prioridad no**: la escribe el server (`fijarPrioridadAMano`, con
+cascada) y la pantalla se sincroniza con `aplicarCascadaManual`, que ofrece SU deshacer.
+
+Con eso, un lote de cuatro dispara cuatro carteles —el toast vive en un casillero único, así
+que `show` pisa al anterior— y el que queda arriba deshace UNA. La regla ya estaba escrita
+(«una acción en lote necesita UN deshacer») y no alcanzaba, porque el deshacer de este
+camino no lo pone el lote: lo pone la función que sincroniza. Hizo falta un parámetro para
+apagarlo (`conDeshacer`), y que el deshacer del lote **vuelva a llamar al server** con el
+número anterior —revertir sólo la pantalla miente hasta el próximo F5— y le devuelva la
+decisión al Perro a las que no estaban fijadas a mano antes.
+
+**Vive en:** `app/plan/board/useBoard.ts` → `aplicarCascadaManual` · `app/plan/board/AccionesLote.tsx` → `ponerPrioridad` · *2026-10-04*
+
+### El lote elige BANDA, y lo que ya está en la banda no se toca
+
+Para varias a la vez la unidad útil no es el número sino la banda, por la regla que ya está
+en este documento: el Kanban agrupa por `prioFromScore` y un reorden que no cruza una banda
+es invisible. Dos decisiones que no se ven en el código:
+
+- **Las que YA están en la banda quedan afuera.** Con un proyecto en 96 y otro en 30, pedir
+  ALTA tiene que mover al de 30; poner a los dos en el representativo (85) le BAJARÍA la
+  prioridad a uno mientras el control dice «subir».
+- **Se aplican de menor a mayor.** La escalera de proyectos no admite empates, así que fijar
+  el segundo en 85 corre al primero a 84: el ÚLTIMO aplicado queda arriba. Ordenando por el
+  score que tenían, el que venía más alto se aplica último y sigue siendo el más alto.
+
+La condición vive en `types.ts` y no adentro de la barra, para que la pueda importar un test.
+
+**Vive en:** `app/plan/board/types.ts` → `enOrdenParaLaBanda` · *2026-10-04*
+
+### ⚠️ Un `sticky` adentro de `cajaStyle` NO SE DISPARA, y no da ningún error
+
+*«Que la barra de opciones… baje con mi scroll, porque si no como que tengo que subir hasta
+arriba»* (00:57:43). El Kanban ya la tenía pegada desde el 24/09; la tabla no.
+
+Lo caro no era ponerle `position: sticky`: era **dónde**. La barra vivía adentro del `<div
+style={cajaStyle}>` de la tabla, y esa caja declara `overflow-x: auto` con el eje Y en
+`visible` — con lo cual el valor USADO del Y pasa a `auto` y la caja ES un contenedor de
+scroll. Un sticky se posiciona contra el ancestro que scrollea, y ese ancestro no scrollea
+nunca en vertical (crece con su contenido), así que la barra se habría quedado clavada igual
+que antes, con el `position: sticky` puesto, sin un error y sin nada que lo explique. La
+regla ya estaba en AGENTS.md («Un eje en `hidden` convierte el otro en `auto`») y acá vuelve
+con la conclusión operativa: **el sticky vive AFUERA de la caja que recorta.**
+
+**Y se verificó SCROLLEANDO, en los dos scrollers que esta pantalla tiene** (Chromium,
+04/10/2026): en `/plan` scrollea la página y la barra queda en `y = 8`; adentro del modal de
+un proyecto scrollea la columna del detalle y la barra queda a 28 px de su borde — los 20 de
+padding del contenedor más el `top: 8`. Con `scrollY = 0` las dos se ven igual que una rota.
+
+**Vive en:** `app/plan/board/Tablas.tsx` → `BarraPegada` · *2026-10-04*
+
+### ⚠️ La cuenta de ancho de la barra apuntaba a 499 y el lugar más angosto pasó a ser 856
+
+`AccionesLote.tsx` trae una cuenta de px, escrita el 25/09, «contra los ~499 del lugar más
+angosto (el detalle de un proyecto)». Ese 499 salía de `MODAL_DETALLE = 820`; el modal pasó a
+1180 y `ANCHO_TABLA_EN_PROYECTO` —que es una RESTA sobre él— vale hoy **856**. La cuenta no
+se enteró: es el olor de «dos números que dicen lo mismo y uno se quedó viejo», y acá el que
+se quedó viejo era el que frenaba agregarle un control a la barra.
+
+Medido en el navegador con tres tareas tildadas: el peor estado (calendario abierto) pide
+**615 px** — 447 el grupo del medio, 48 la izquierda, 74 la derecha, 20 de huecos, 26 de
+padding y borde — y se dibuja en UN renglón a 1440, 856 y 700. Por debajo de 615 lo que
+falla **no es el `wrap`**: los grupos de los costados son `flex: 1` con `minWidth: 0`, así
+que se encogen por debajo de su contenido y el tilde y el tacho se empiezan a pisar (a 560 el
+grupo de la derecha mide 34 px para 74 px de botones). O sea que la red del `wrap` no cubre
+el modo en que esta barra se rompe primero.
+
+**Vive en:** `app/plan/board/AccionesLote.tsx` → «LA CUENTA» · *2026-10-04*
+
+### El «—» que borra el deadline y el input de fecha son UN control
+
+Pedido el 01/10 (01:08:32): *«quitarle por ahora el deadline a los que todavía no le voy a
+asignar… le doy a deadline, borra… y no se borra. Tengo que ir uno por uno»*. El input nace
+VACÍO (no tiene `value`), así que no hay nada que limpiar y el picker ni dibuja su ✕. El
+botón nuevo va en la MISMA caja que el input, con `gap: 6` y no con los 14 del grupo: los 14
+son para dos pastillas distintas «que a 6 px se leen como un solo bloque partido por una
+raya», y acá el efecto buscado es el contrario.
+
+**Vive en:** `app/plan/board/AccionesLote.tsx` · *2026-10-04*
+
+### Lo que NO era un bug
+
+- *«¿Dónde se fue? Desapareció»* (01:04:03). La encontró cuatro segundos después
+  («parece que tenía un emoji de cebolla») y el toast de deshacer ya sale en ese camino desde
+  el 23/09. No hay nada que arreglar, y escribir un cambio igual habría sido inventar.
+- *«La P, ¿qué es?»* (01:06:21, y lo contesta Leila sola dos segundos después). Martín lo
+  descartó explícitamente al repartir el trabajo.
+
+---
+
+## La transcripción de una llamada puede existir SÓLO adentro de los logs de los subagentes (04/10/2026)
+
+Los nueve defectos de arriba salían de una llamada del 01/10 que **no estaba en ningún
+archivo del disco ni en el repo**, y el MCP de Fathom no la podía traer:
+`get_recording_by_url` y `get_recording_by_call_id` contestaban las dos «not found or access
+denied», y la key del workspace sólo devolvía las reuniones de septiembre de Mauricio.
+
+Sí estaba, partida, adentro de
+`~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/agent-*.jsonl`: una
+corrida del 03/10 le había pasado pedazos a varios agentes. Reconstruirla costó dos intentos
+fallidos y los dos fallan en silencio, que es lo que vale la pena anotar:
+
+1. **Keyear por NÚMERO DE LÍNEA da 159 líneas de una llamada de dos horas.** Cada chunk viene
+   numerado desde 1, así que al deduplicar por número se pisan entre sí. La clave que
+   funciona es el **timestamp** `[HH:MM:SS]`, que es global a la llamada.
+2. **Una regex que exige `número + tab` antes del timestamp deja un hueco de 22 minutos.**
+   Dos de los agentes habían recibido el transcript entero en OTRO formato, sin esa parte.
+   Con la regex floja: 1.052 líneas y cero huecos entre el minuto 0 y el 103.
+
+**La señal de que la reconstrucción está mal es el LARGO**, no un error: 159 líneas para dos
+horas es imposible, y 665 con un hueco se lee perfecto si uno no verifica la continuidad de
+los timestamps. La verificación barata es contar minutos faltantes, no leer el resultado.
+
+Y la lección de fondo es la de AGENTS.md vista desde el otro lado: **esto pasó porque la
+corrida del 03/10 no cosechó el transcript.** Lo que no se escribe en el repo existe sólo
+mientras alguien sepa en qué `runId` buscarlo. La transcripción quedó en disco como
+`llamada-leila-01oct-transcripcion.txt`, un nivel arriba del repo (86 KB), y los nueve
+defectos están enumerados en la entrada de acá arriba.
+
+**Vive en:** `llamada-leila-01oct-transcripcion.txt` (fuera del repo, junto a él) · *2026-10-04*
