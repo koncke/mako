@@ -27,6 +27,15 @@ import { encuentroGrabable } from './encuentro-ws';
 import { adjuntarFathomAutoThrottled } from './fathom-auto';
 import { registrarEtapasDerivadas } from './etapa-historial';
 import { etapaVigenteDe, slotDeReunion } from './funnel-etapas';
+// QUÉ pasos tiene el tramo comercial de ESTE funnel (y de qué contador sale cada
+// lado) lo decide UN módulo puro, para que no haya una segunda tabla de keys
+// canónicas acá adentro. Ver la cabecera de lib/funnel-comercial.ts.
+import {
+  pasosComercialesDe,
+  rolesComercialesDe,
+  type ContadorComercial,
+  type RolesComerciales,
+} from './funnel-comercial';
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
 
 /**
@@ -1217,6 +1226,13 @@ export type FunnelEtapa = {
 export type FunnelMes = {
   etapas: FunnelEtapa[];
   cuelloKey: string | null;    // etapa con peor conversión (entre las que tienen datos)
+  /**
+   * Dónde está cada número del tramo comercial EN ESTE funnel. Viaja acá —y no lo
+   * vuelve a resolver cada consumidor— porque el que ya leyó el funnel es esta
+   * función: dos resoluciones de la misma pregunta son dos cosas que divergen, y
+   * la segunda además pagaría otra lectura a la base.
+   */
+  roles: RolesComerciales;
 };
 
 // Mínimo de denominador para tratar un % como confiable (Fase 7)
@@ -1229,16 +1245,48 @@ export async function getFunnelEtapas(
 ): Promise<FunnelMes> {
   const supabase = (await getTenantDb());
 
-  const [mkt, leadsRes] = await Promise.all([
+  // El funnel del workspace. No entra por parámetro a propósito: ninguno de los
+  // cuatro llamadores lo tiene en la mano, y un parámetro opcional que nadie pasa
+  // es un segundo lugar donde esta pregunta se puede contestar distinto.
+  // Que la lectura falle NO cambia nada: `pasosComercialesDe(null)` cae al tramo de
+  // dos reuniones, que es exactamente lo que esta función hacía siempre.
+  const stages = await getPipelineStagesDefault().catch(() => null);
+  const pasosComerciales = pasosComercialesDe(stages);
+  const roles = rolesComercialesDe(stages);
+  // Los contadores de la cohorte del ALTA sólo los pide el tramo SIN reuniones, y
+  // son una consulta más: se piden únicamente si algún paso los nombra. Un funnel
+  // de reuniones no paga nada por esto.
+  const necesitaEntradas = pasosComerciales.some(
+    (p) => p.entrada === 'entradas' || p.salida === 'cierres_entradas',
+  );
+
+  // La cohorte del ALTA se pide como COUNT y no como filas: acá sólo hacen falta
+  // dos totales, y un `.select()` de filas topea en las 1000 de PostgREST sin dar
+  // error — con 1.066 leads en un workspace, eso es un total redondo que miente.
+  const altaDesde = `${start}T00:00:00Z`;
+  const altaHasta = `${end}T23:59:59Z`;
+
+  const [mkt, leadsRes, altasRes, altasGanadasRes] = await Promise.all([
     getMarketingWindow(start, end),
     supabase
       .from('leads')
       .select('asistio_j1, calificado, estado_lead, fecha_junta_1')
       .gte('fecha_junta_1', start)
       .lte('fecha_junta_1', end),
+    necesitaEntradas
+      ? supabase.from('leads').select('id', { count: 'exact', head: true })
+          .gte('created_at', altaDesde).lte('created_at', altaHasta)
+      : Promise.resolve(null),
+    necesitaEntradas
+      ? supabase.from('leads').select('id', { count: 'exact', head: true })
+          .eq('estado_lead', 'ganado')
+          .gte('created_at', altaDesde).lte('created_at', altaHasta)
+      : Promise.resolve(null),
   ]);
 
   if (leadsRes.error) throw new Error(`Funnel leads falló: ${leadsRes.error.message}`);
+  if (altasRes?.error) throw new Error(`Funnel altas falló: ${altasRes.error.message}`);
+  if (altasGanadasRes?.error) throw new Error(`Funnel altas ganadas falló: ${altasGanadasRes.error.message}`);
   const rows = leadsRes.data ?? [];
 
   const total_j1 = rows.length;
@@ -1246,6 +1294,19 @@ export async function getFunnelEtapas(
   const limpias = rows.filter((r) => r.asistio_j1 === true && r.calificado === true).length;
   // Cierre = estado_lead 'ganado' (Fase 8), no el viejo booleano cerro.
   const cierres = rows.filter((r) => r.estado_lead === 'ganado').length;
+
+  // Un contador por nombre del NEGOCIO. Los pasos del tramo nombran de acá, así
+  // que la pregunta «de dónde sale este número» se contesta en un solo lugar.
+  const contadores: Record<ContadorComercial, number> = {
+    forms: mkt.leads_count,
+    agendas: mkt.reuniones_en_ventana,
+    r1_cohorte: total_j1,
+    asistencias,
+    limpias,
+    cierres_cohorte: cierres,
+    entradas: altasRes?.count ?? 0,
+    cierres_entradas: altasGanadasRes?.count ?? 0,
+  };
 
   const pctDe = (salida: number, entrada: number): number | null =>
     entrada > 0 ? (salida / entrada) * 100 : null;
@@ -1280,52 +1341,21 @@ export async function getFunnelEtapas(
       fuenteKey: 'meta_insights',
       contexto: false,
     },
-    // ── FILA PUENTE (Meta forms → Calendly) ──
-    {
-      key: 'form_agenda',
-      label: 'Formulario → Agenda',
-      bloque: 'puente',
-      entrada: mkt.leads_count,
-      salida: mkt.reuniones_en_ventana,
-      benchmark: 'Del instant form a agendar la R1 — el puente clave del camino principal. Cruza Meta (forms) y Calendly (agendas): tómalo como tendencia. Subirlo = mejor seguimiento y CTA del VSL.',
-      umbral: { rojo: 25, ambar: 45, max: 100 },
-      fuenteKey: 'meta_insights',
+    // ── FILA PUENTE (Meta forms → Calendly) + BLOQUE COMERCIAL ──
+    // No se escriben acá: los decide `pasosComercialesDe` contra el funnel del
+    // workspace. Con el funnel por defecto (dos reuniones) devuelve exactamente
+    // los cuatro de siempre, en el mismo orden y con los mismos umbrales.
+    ...pasosComerciales.map((p) => ({
+      key: p.key,
+      label: p.label,
+      bloque: p.bloque,
+      entrada: contadores[p.entrada],
+      salida: contadores[p.salida],
+      benchmark: p.benchmark,
+      umbral: p.umbral,
+      fuenteKey: p.fuenteKey,
       contexto: false,
-    },
-    // ── BLOQUE COMERCIAL (calendly + carga manual) ──
-    {
-      key: 'agenda_asistio',
-      label: 'Agenda → Asistió R1',
-      bloque: 'comercial',
-      entrada: total_j1,
-      salida: asistencias,
-      benchmark: 'No-show >35% (asistencia <65%) sugiere problema de recordatorios o calificación previa.',
-      umbral: { rojo: 65, ambar: 75, max: 100 },
-      fuenteKey: 'calendly',
-      contexto: false,
-    },
-    {
-      key: 'asistio_calificado',
-      label: 'Asistió → Limpia',
-      bloque: 'comercial',
-      entrada: asistencias,
-      salida: limpias,
-      benchmark: 'Mide la calidad del lead que llega a R1. Bajo = atraes al perfil equivocado.',
-      umbral: { rojo: 40, ambar: 60, max: 100 },
-      fuenteKey: null, // carga manual — siempre "disponible"
-      contexto: false,
-    },
-    {
-      key: 'calificado_cierre',
-      label: 'Limpia → Cierre',
-      bloque: 'comercial',
-      entrada: limpias,
-      salida: cierres,
-      benchmark: 'Ratio joya. ≥30% sano, 20-30% mixto, <20% problema de venta (R2, oferta, objeciones).',
-      umbral: { rojo: 20, ambar: 30, max: 100 },
-      fuenteKey: null,
-      contexto: false,
-    },
+    })),
     // ── CONTEXTO DE CONTENIDO (landing / VSL) ──
     // No es el camino principal: el instant form vive ANTES de la landing, así
     // que esta caída es esperable. Informativo, NO compite por ser el cuello.
@@ -1391,7 +1421,7 @@ export async function getFunnelEtapas(
     ? pool.reduce((peor, e) => (severidad(e) > severidad(peor) ? e : peor))
     : null;
 
-  return { etapas, cuelloKey: cuello?.key ?? null };
+  return { etapas, cuelloKey: cuello?.key ?? null, roles };
 }
 
 // =============================================================================
@@ -1403,7 +1433,12 @@ export async function getFunnelEtapas(
 
 export type FunnelSeries = Record<string, Array<number | null>>;
 
-export const getFunnelSeries = cachedRead('getFunnelSeries', _getFunnelSeries, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
+// ⚠️ `TAG.pipeline` NO es de adorno: desde que las claves del tramo comercial salen
+// del funnel del workspace, esta lectura DEPENDE de la forma del embudo. Hoy las
+// escrituras del embudo ya revientan `TAG.leads` (app/crm/actions.ts), así que el
+// caché se invalida igual — y el día que una de ellas deje de hacerlo, la serie
+// quedaría con las claves del embudo anterior hasta que venza el `revalidate`.
+export const getFunnelSeries = cachedRead('getFunnelSeries', _getFunnelSeries, { tags: [TAG.marketing, TAG.leads, TAG.pipeline], revalidate: TTL.cron });
 async function _getFunnelSeries(
   end: string = new Date().toISOString().slice(0, 10),
   semanas = 12,
@@ -1420,7 +1455,16 @@ async function _getFunnelSeries(
   // 12 semanas = 84 días. Medido el 02/09/2026 en el ws1: 767 filas de Meta, a
   // dos semanas del techo de 1.000. Paginado.
   const enRango = (q: ConsultaPaginada) => q.gte('fecha', rangoInicio).lte('fecha', rangoFin);
-  const [metaRows, pandaRows, agendaRes, j1Res] = await Promise.all([
+  // El tramo comercial de ESTE funnel: las series salen con las keys de los pasos
+  // que ese workspace tiene de verdad. Antes emitía siempre las cuatro canónicas, y
+  // para un funnel sin reuniones las cuatro eran null en las doce semanas.
+  const stages = await getPipelineStagesDefault().catch(() => null);
+  const pasosComerciales = pasosComercialesDe(stages);
+  const necesitaEntradas = pasosComerciales.some(
+    (p) => p.entrada === 'entradas' || p.salida === 'cierres_entradas',
+  );
+
+  const [metaRows, pandaRows, agendaRes, j1Res, altasRes] = await Promise.all([
     leerTodo<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>(
       supabase, T_METRICAS,
       'id, fecha, ad_id, impressions, link_clicks, landing_page_views, leads_count',
@@ -1440,6 +1484,16 @@ async function _getFunnelSeries(
       .select('fecha_junta_1, asistio_j1, calificado, estado_lead')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
+    // La cohorte del ALTA: una lectura más, y sólo cuando algún paso la nombra.
+    // ⚠️ PAGINADA. Acá hacen falta las FILAS (hay que repartirlas por semana), así
+    // que no se puede resolver con un count — y un `.select()` suelto topea en las
+    // 1000 de PostgREST sin dar error: las semanas viejas quedarían vacías.
+    necesitaEntradas
+      ? leerTodo<{ created_at: string | null; estado_lead: string }>(
+          supabase, 'leads', 'id, created_at, estado_lead',
+          { orden: 'id', filtros: (q) => q.gte('created_at', `${rangoInicio}T00:00:00Z`).lte('created_at', `${rangoFin}T23:59:59Z`) },
+        )
+      : Promise.resolve([]),
   ]);
 
   for (const r of [agendaRes, j1Res]) {
@@ -1450,9 +1504,9 @@ async function _getFunnelSeries(
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
 
   // Acumuladores por semana
-  type Acc = { imp: number; clk: number; form: number; land: number; vsl: number; agenda: number; j1: number; asis: number; lmp: number; cie: number };
+  type Acc = { imp: number; clk: number; form: number; land: number; vsl: number; agenda: number; j1: number; asis: number; lmp: number; cie: number; alta: number; altaCie: number };
   const porSemana = new Map<string, Acc>();
-  for (const s of inicios) porSemana.set(s, { imp: 0, clk: 0, form: 0, land: 0, vsl: 0, agenda: 0, j1: 0, asis: 0, lmp: 0, cie: 0 });
+  for (const s of inicios) porSemana.set(s, { imp: 0, clk: 0, form: 0, land: 0, vsl: 0, agenda: 0, j1: 0, asis: 0, lmp: 0, cie: 0, alta: 0, altaCie: 0 });
   const add = (semana: string, f: (a: Acc) => void) => {
     const a = porSemana.get(semana);
     if (a) f(a);
@@ -1476,22 +1530,51 @@ async function _getFunnelSeries(
       if (r.estado_lead === 'ganado') a.cie += 1;
     });
   }
+  for (const r of altasRes) {
+    if (!r.created_at) continue;
+    add(semanaDe(r.created_at.slice(0, 10)), (a) => {
+      a.alta += 1;
+      if (r.estado_lead === 'ganado') a.altaCie += 1;
+    });
+  }
 
   const ratio = (num: number, den: number): number | null => (den > 0 ? (num / den) * 100 : null);
   const serie = (f: (a: Acc) => number | null): Array<number | null> =>
     inicios.map((s) => f(porSemana.get(s)!));
 
+  // Cada contador del tramo comercial, leído por su nombre del negocio. El mismo
+  // mapa que `getFunnelEtapas` usa para el período: si divergieran, la sparkline y
+  // el número de arriba medirían dos cosas distintas con el mismo rótulo.
+  const semanal: Record<ContadorComercial, (a: Acc) => number> = {
+    forms: (a) => a.form,
+    agendas: (a) => a.agenda,
+    r1_cohorte: (a) => a.j1,
+    asistencias: (a) => a.asis,
+    limpias: (a) => a.lmp,
+    cierres_cohorte: (a) => a.cie,
+    entradas: (a) => a.alta,
+    cierres_entradas: (a) => a.altaCie,
+  };
+
+  // El orden de las claves se conserva (puente entre el camino principal y el
+  // contexto, comercial al final): MaKo devuelve esta serie con `Object.entries`,
+  // así que el orden es lo que el modelo lee.
+  const serieDe = (bloque: 'puente' | 'comercial') =>
+    Object.fromEntries(
+      pasosComerciales
+        .filter((p) => p.bloque === bloque)
+        .map((p) => [p.key, serie((a) => ratio(semanal[p.salida](a), semanal[p.entrada](a)))]),
+    );
+
   return {
     imp_click: serie((a) => ratio(a.clk, a.imp)),
     // Camino principal (v3 Fase D): Click→Formulario→Agenda
     click_form: serie((a) => ratio(a.form, a.clk)),
-    form_agenda: serie((a) => ratio(a.agenda, a.form)),
+    ...serieDe('puente'),
     // Contexto de contenido (no es el camino principal)
     click_landing: serie((a) => ratio(a.land, a.clk)),
     landing_vsl: serie((a) => ratio(a.vsl, a.land)),
-    agenda_asistio: serie((a) => ratio(a.asis, a.j1)),
-    asistio_calificado: serie((a) => ratio(a.lmp, a.asis)),
-    calificado_cierre: serie((a) => ratio(a.cie, a.lmp)),
+    ...serieDe('comercial'),
   };
 }
 

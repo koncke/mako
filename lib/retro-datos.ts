@@ -32,6 +32,9 @@ import { getScriptAnalystView, type ScriptAnalystView, type ScriptView } from '.
 import { getCuotasPendientes, type CuotaPendiente } from './pagos';
 import { listExperimentos, type Experimento } from './experimentos';
 import { diasAntes } from './date-utils';
+// Los números del tramo comercial se leen por ROL. La resolución rol → paso vive
+// en UN módulo y viaja dentro de `FunnelMes.roles`.
+import { ROL_LABEL, ROLES_EN_ORDEN, type FuenteDeRol, type RolComercial } from './funnel-comercial';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Contrato
@@ -216,26 +219,36 @@ function chartCrm(forms: FormSinAgenda[]): RetroCharts['crm'] | null {
 // charts.closing — embudo comercial corto + score promedio
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Saca los pasos Agendas → R1 → R2 → Cierres del funnel (keys reales). */
-function pasosComerciales(funnel: FunnelMes): Array<{ label: string; valor: number }> | null {
+/**
+ * El número de cada rol del tramo comercial, leído por el ROL y no por la key
+ * canónica.
+ *
+ * ⚠️ ACÁ ESTABA EL CERO SILENCIOSO. Esto hacía `por.get('form_agenda')`,
+ * `por.get('agenda_asistio')`, `por.get('asistio_calificado')` y
+ * `por.get('calificado_cierre')` — las cuatro keys del embudo de dos reuniones.
+ * Un workspace que vende sin reuniones no tiene ninguno de esos pasos, así que los
+ * cuatro `por.get` devolvían undefined, los cuatro números caían a 0 por el
+ * `?? 0`, y el gráfico del cierre salía con cuatro barras en cero sin un error.
+ * De dónde sale cada rol en ESTE funnel lo decide `funnel.roles`.
+ *
+ * Los roles que el funnel no tiene NO se dibujan: una barra «R2» en cero sobre un
+ * negocio de una sola reunión afirma una caída que no existe.
+ */
+type NumeroComercial = { rol: RolComercial; label: string; valor: number };
+
+function pasosComerciales(funnel: FunnelMes): NumeroComercial[] | null {
   const por = new Map(funnel.etapas.map((e) => [e.key, e]));
-  const formAgenda = por.get('form_agenda');       // puente: salida = agendas
-  const agendaAsistio = por.get('agenda_asistio'); // comercial: salida = asistió R1
-  const asistioCalificado = por.get('asistio_calificado'); // salida = limpias (pasan a R2)
-  const calificadoCierre = por.get('calificado_cierre');   // salida = cierres
-
-  const agendas = formAgenda?.salida ?? agendaAsistio?.entrada ?? null;
-  const r1 = agendaAsistio?.salida ?? null;
-  const r2 = asistioCalificado?.salida ?? null;
-  const cierres = calificadoCierre?.salida ?? null;
-  if (agendas === null && r1 === null && r2 === null && cierres === null) return null;
-
-  return [
-    { label: 'Agendas', valor: rInt(agendas) ?? 0 },
-    { label: 'R1', valor: rInt(r1) ?? 0 },
-    { label: 'R2', valor: rInt(r2) ?? 0 },
-    { label: 'Cierres', valor: rInt(cierres) ?? 0 },
-  ];
+  const valorDe = (f: FuenteDeRol | null): number | null => {
+    if (!f) return null;
+    const e = por.get(f.key);
+    return e ? e[f.campo] : null;
+  };
+  const out: NumeroComercial[] = [];
+  for (const rol of ROLES_EN_ORDEN) {
+    const valor = valorDe(funnel.roles[rol]);
+    if (valor !== null) out.push({ rol, label: ROL_LABEL[rol], valor: rInt(valor) ?? 0 });
+  }
+  return out.length > 0 ? out : null;
 }
 
 function chartClosing(funnel: FunnelMes | null, closing: ClosingViewData | null): RetroCharts['closing'] | null {
@@ -322,18 +335,31 @@ function datosConversion(funnel: FunnelMes | null, closing: ClosingViewData | nu
   if (funnel) {
     const pasos = pasosComerciales(funnel);
     if (pasos) {
-      const [agendas, r1, r2, cierres] = pasos;
-      d.agendas = agendas?.valor ?? null;
-      d.r1 = r1?.valor ?? null;
-      d.r2 = r2?.valor ?? null;
-      d.cierres = cierres?.valor ?? null;
-      const agAsistio = funnel.etapas.find((e) => e.key === 'agenda_asistio');
+      // Por ROL: un funnel sin R2 deja `r2` en null, que es «no existe», y nunca
+      // en 0, que sería «existe y nadie pasó».
+      const de = (rol: RolComercial): number | null => pasos.find((p) => p.rol === rol)?.valor ?? null;
+      d.agendas = de('agendas');
+      d.r1 = de('r1');
+      d.r2 = de('r2');
+      const cierres = de('cierres');
+      d.cierres = cierres;
+
+      // El no-show sale del paso que mide la asistencia EN ESTE funnel; sin
+      // reuniones no hay no-show que medir (y antes salía como 0%).
+      const keyR1 = funnel.roles.r1?.key;
+      const asistencia = keyR1 ? funnel.etapas.find((e) => e.key === keyR1) : undefined;
       d.no_show_pct =
-        agAsistio && agAsistio.pct !== null && !agAsistio.fuente_pendiente
-          ? rPct(100 - agAsistio.pct)
+        asistencia && asistencia.pct !== null && !asistencia.fuente_pendiente
+          ? rPct(100 - asistencia.pct)
           : null;
+
+      // El denominador es cuánta gente ENTRÓ al tramo comercial: las agendas con
+      // reuniones, los leads dados de alta sin ellas.
+      const base = funnel.roles.base;
+      const etapaBase = base ? funnel.etapas.find((e) => e.key === base.key) : undefined;
+      const entraron = etapaBase && base ? etapaBase[base.campo] : null;
       d.tasa_cierre_pct =
-        agendas && cierres && agendas.valor > 0 ? rPct((cierres.valor / agendas.valor) * 100) : null;
+        cierres !== null && entraron !== null && entraron > 0 ? rPct((cierres / entraron) * 100) : null;
     }
   }
   if (closing) {

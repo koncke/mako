@@ -42,17 +42,38 @@ import {
  * trajo, y un lead que falta en el índice es un DUPLICADO que se crea igual —
  * el importador decía "nuevo" sobre alguien que ya estaba en el CRM.
  */
-export async function indiceContactos(): Promise<{ emails: Set<string>; tels: Set<string> }> {
+export type IndiceContactos = {
+  /**
+   * El dato → el ID del lead que lo tiene. `null` = lo tienen DOS leads distintos.
+   *
+   * ⚠️ QUE LA CLAVE ESTÉ Y QUE EL VALOR SEA `null` SON DOS COSAS. `has()` contesta
+   * «esto ya está en el CRM», que es lo único que necesita `yaExiste`; el valor contesta
+   * «a quién completar», y con dos leads que comparten el email no hay respuesta. Leerlo
+   * con `get()` a secas confundiría «no está» con «hay dos», y la segunda es justo
+   * donde completar le escribiría a la persona equivocada.
+   */
+  emails: Map<string, number | null>;
+  tels: Map<string, number | null>;
+};
+
+export async function indiceContactos(): Promise<IndiceContactos> {
   const db = await getTenantDb();
-  const emails = new Set<string>();
-  const tels = new Set<string>();
+  const emails = new Map<string, number | null>();
+  const tels = new Map<string, number | null>();
+  // Dos leads con el mismo dato no se desempatan acá: la clave queda en `null` y el
+  // «ya existe» sigue siendo cierto. Lo que se pierde es la oferta de completar, que es
+  // exactamente lo correcto — no hay a quién.
+  const anotar = (m: Map<string, number | null>, k: string, id: number) => {
+    if (!m.has(k)) { m.set(k, id); return; }
+    if (m.get(k) !== id) m.set(k, null);
+  };
   try {
-    await leerPorPaginas<{ email: string | null; telefono: string | null }>(
-      db, 'leads', 'email, telefono',
+    await leerPorPaginas<{ id: number; email: string | null; telefono: string | null }>(
+      db, 'leads', 'id, email, telefono',
       (chunk) => {
         for (const r of chunk) {
-          if (r.email) emails.add(r.email.trim().toLowerCase());
-          if (r.telefono) { const dg = soloDigitos(r.telefono); if (dg) tels.add(dg); }
+          if (r.email) anotar(emails, r.email.trim().toLowerCase(), r.id);
+          if (r.telefono) { const dg = soloDigitos(r.telefono); if (dg) anotar(tels, dg, r.id); }
         }
       },
     );
@@ -65,16 +86,34 @@ export async function indiceContactos(): Promise<{ emails: Set<string>; tels: Se
 }
 
 /**
- * Marca qué filas ya existen en el CRM y recalcula todos los motivos de descarte.
- * Se corre DOS veces: al leer el archivo (para mostrarlo) y al confirmar (porque
- * entre una cosa y la otra pudo entrar un lead por el webhook de Calendly o Meta).
+ * Marca qué filas ya existen en el CRM —y CUÁL es el lead que ya existe— y recalcula
+ * todos los motivos de descarte. Se corre DOS veces: al leer el archivo (para
+ * mostrarlo) y al confirmar (porque entre una cosa y la otra pudo entrar un lead por el
+ * webhook de Calendly o Meta).
+ *
+ * ⚠️ EL ID LO RESUELVE ACÁ EL SERVER, Y NO SE LE CREE AL NAVEGADOR. Es lo que decide a
+ * quién se le escribe cuando la persona elige «completar» en vez de «duplicar» (#623),
+ * o sea el único camino de esta pantalla que ESCRIBE sobre un lead que ya existe. Un id
+ * que viaja en el payload del cliente es un id que cualquiera puede cambiar.
+ *
+ * ⚠️ Y SI LAS DOS SEÑALES APUNTAN A LEADS DISTINTOS, NO HAY ID. Pasa de verdad: el email
+ * de la fila es el de la ficha de Ana y el teléfono es el de la de Juan (el mail de la
+ * empresa, el número de la recepción). Ahí «ya existe» sigue siendo cierto y «a quién
+ * completar» no tiene respuesta — se ofrece saltear o duplicar, que es lo reversible.
  */
 export async function marcarExistentes(filas: FilaImport[]): Promise<FilaImport[]> {
   const { emails, tels } = await indiceContactos();
   return recalcular(filas.map((f) => {
     const email = f.email.trim().toLowerCase();
     const tel = soloDigitos(f.telefono);
-    return { ...f, yaExiste: (!!email && emails.has(email)) || (!!tel && tels.has(tel)) };
+    // `undefined` = ese dato no está en el CRM. `null` = está y lo tienen dos leads.
+    const porEmail = email && emails.has(email) ? emails.get(email) ?? null : undefined;
+    const porTel = tel && tels.has(tel) ? tels.get(tel) ?? null : undefined;
+    const apuntan = [porEmail, porTel].filter((v) => v !== undefined);
+    const unico = apuntan.length && apuntan.every((v) => v != null && v === apuntan[0])
+      ? (apuntan[0] as number)
+      : null;
+    return { ...f, yaExiste: apuntan.length > 0, leadExistenteId: unico };
   }));
 }
 

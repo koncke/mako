@@ -23,7 +23,7 @@
 // =============================================================================
 
 import { useMemo, useState, type CSSProperties } from 'react';
-import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, entra, type FilaImport } from './leads-importar';
+import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, destinoDe, type FilaImport } from './leads-importar';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -31,7 +31,21 @@ const MONO = "'Geist Mono', monospace";
 const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' };
 const celdaInput: CSSProperties = { width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, outline: 'none', minWidth: 0 };
 /** Mismo reparto de columnas para el encabezado y para cada fila. */
-const GRID = '26px 1.2fr 1.4fr 1fr 1fr 128px';
+const GRID = '26px 1.2fr 1.4fr 1fr 1fr 156px';
+
+/**
+ * Los dos destinos de una fila que YA EXISTE, cuando alguien la tildó. Es una pregunta
+ * APARTE de la casilla («¿esta fila hace algo?») y no un tercer valor suyo: sin tilde
+ * no hay nada que decidir, y con el tilde puesto siguen quedando dos cosas que se
+ * pueden hacer con la misma persona.
+ *
+ * El rótulo es de UNA palabra porque vive en una celda de tabla; la frase entera va en
+ * el `aria-label`, que no ocupa lugar.
+ */
+const DESTINOS: Array<{ enriquecer: boolean; txt: string; dice: (quien: string) => string }> = [
+  { enriquecer: false, txt: 'Duplicar', dice: (q) => `Crear una segunda ficha de ${q}` },
+  { enriquecer: true, txt: 'Completar', dice: (q) => `Completar los datos vacíos de ${q}, sin tocar los que ya tiene` },
+];
 
 function Chip({ n, texto, color }: { n: number; texto: string; color: string }) {
   return (
@@ -68,6 +82,16 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
    */
   const tildar = (id: string) =>
     onFilas((prev) => prev.map((f) => (f.id === id && (!f.motivo || f.motivo === MOTIVO_DECIDIBLE) ? { ...f, incluir: !f.incluir } : f)));
+  /**
+   * El destino de una fila repetida: duplicar, o completar la ficha que ya está (#623).
+   *
+   * Sólo tiene sentido en `MOTIVO_DECIDIBLE` —es la única fila donde hay algo que ya
+   * existe— y `destinoDe` además exige que el server haya resuelto A QUIÉN
+   * (`leadExistenteId`): si el email de la fila matchea un lead y el teléfono matchea
+   * otro, no hay ficha que completar y el control no se dibuja.
+   */
+  const elegirDestino = (id: string, enriquecer: boolean) =>
+    onFilas((prev) => prev.map((f) => (f.id === id && f.motivo === MOTIVO_DECIDIBLE ? { ...f, enriquecer } : f)));
   const soloNuevas = () => onFilas((prev) => prev.map((f) => ({ ...f, incluir: !f.motivo })));
   const destildarTodo = () => onFilas((prev) => prev.map((f) => ({ ...f, incluir: false })));
 
@@ -82,7 +106,14 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
     // descarte — atenuar un control que sí funciona es cómo se lee que no funciona.
     const decidible = f.motivo === MOTIVO_DECIDIBLE;
     const invalido = !!f.motivo && !decidible;
-    const fuera = !entra(f);
+    const destino = destinoDe(f);
+    // `fuera` es «esta fila NO HACE NADA», no «no se crea»: una que completa la ficha
+    // que ya está tiene que dibujarse tildada. Colgarlo de `entra()` —que contesta
+    // «¿se CREA?»— dejaba la casilla en blanco justo en la fila que sí va a escribir,
+    // o sea la pantalla diciendo lo contrario de lo que pasa.
+    const fuera = destino === 'omitir';
+    // Y completar sólo se puede ofrecer si el server resolvió a quién.
+    const puedeCompletar = decidible && !fuera && f.leadExistenteId != null;
     // El borde rojo marca EL CAMPO que hay que arreglar, no la fila entera: si la
     // fila está sin nombre, el que tiene que llamar la atención es ese input.
     const culpable = (k: string): boolean =>
@@ -119,12 +150,33 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
         {campo('email', 'Email')}
         {campo('telefono', 'Teléfono')}
         {campo('empresa', 'Empresa')}
-        <span style={{ fontFamily: MONO, fontSize: 10.5, color: invalido ? 'var(--bad)' : decidible && !fuera ? 'var(--warn)' : fuera ? 'var(--dim)' : 'var(--faint)', textAlign: 'right', lineHeight: 1.3 }}>
-          {/* El duplicado tildado dice que entra IGUAL: el estado tiene que contar lo
-              que va a pasar con esa fila, no sólo lo que se detectó. */}
-          {decidible ? (f.incluir ? 'ya existe · entra igual' : MOTIVO_LABEL[f.motivo!])
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: invalido ? 'var(--bad)' : destino === 'enriquecer' ? 'var(--good)' : decidible && !fuera ? 'var(--warn)' : fuera ? 'var(--dim)' : 'var(--faint)', textAlign: 'right', lineHeight: 1.3 }}>
+          {/* El duplicado tildado dice QUÉ va a pasar con esa fila, no sólo lo que se
+              detectó: duplicar deja una segunda ficha y completar escribe en la que ya
+              está. Son dos resultados distintos y el rótulo los distingue. */}
+          {decidible ? (destino === 'enriquecer' ? 'ya existe · se completa' : destino === 'crear' ? 'ya existe · entra igual' : MOTIVO_LABEL[f.motivo!])
             : f.motivo ? MOTIVO_LABEL[f.motivo]
             : f.bajaConfianza ? 'revisar' : 'entra'}
+          {/* El tercer destino (#623), apilado debajo del estado: en 156px los dos
+              rótulos al lado del texto no entran, y AGENTS.md es explícito — si el más
+              largo no entra, no se achica, se apila. */}
+          {puedeCompletar && (
+            <span style={{ display: 'flex', gap: 3, justifyContent: 'flex-end', marginTop: 4 }}>
+              {DESTINOS.map((d) => {
+                const puesto = !!f.enriquecer === d.enriquecer;
+                return (
+                  <button key={d.txt} type="button" onClick={() => elegirDestino(f.id, d.enriquecer)}
+                    aria-pressed={puesto} aria-label={d.dice(f.nombre.trim() || 'este contacto')}
+                    style={{
+                      padding: '2px 6px', borderRadius: 7, cursor: 'pointer', fontFamily: MONO, fontSize: 9.5, lineHeight: 1.4,
+                      border: `1px solid ${puesto ? 'var(--primary)' : 'var(--border-strong)'}`,
+                      background: puesto ? 'var(--primary)' : 'var(--surface)',
+                      color: puesto ? '#fff' : 'var(--dim)',
+                    }}>{d.txt}</button>
+                );
+              })}
+            </span>
+          )}
         </span>
       </div>
     );
@@ -139,6 +191,9 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
         {/* Lo irreversible de esta pantalla, con su propio número y pegado al resto: un
             duplicado tildado crea una SEGUNDA ficha de alguien que ya está en el CRM. */}
         {c.aProposito > 0 && <Chip n={c.aProposito} texto="repetidos a propósito" color="var(--warn)" />}
+        {/* Las que completan la ficha que ya está: no son leads nuevos, así que no
+            pueden viajar en el número de «se van a crear» (#623). */}
+        {c.aEnriquecer > 0 && <Chip n={c.aEnriquecer} texto="se completan" color="var(--good)" />}
         {c['repetido-archivo'] > 0 && <Chip n={c['repetido-archivo']} texto="repetidas" color="var(--dim)" />}
         {c['sin-nombre'] > 0 && <Chip n={c['sin-nombre']} texto="sin nombre" color="var(--bad)" />}
         {c['sin-contacto'] > 0 && <Chip n={c['sin-contacto']} texto="sin contacto" color="var(--bad)" />}
@@ -167,7 +222,7 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
 
       {/* La tabla scrollea en su propio eje: el contenedor nunca se va de ancho. */}
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 700, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ minWidth: 730, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '0 9px 4px' }}>
             <span />
             {['Nombre', 'Email', 'Teléfono', 'Empresa'].map((t) => <span key={t} style={rotulo}>{t}</span>)}

@@ -53,6 +53,7 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
   type RespuestaQA,
   type EstadoLead,
   moverLeadDeFunnel,
+  enriquecerLead,
 } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
@@ -69,7 +70,7 @@ import {
 } from './leads-exportar';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
-import { MAX_FILAS_IMPORT, MOTIVO_DECIDIBLE, entra, type FilaImport } from './leads-importar';
+import { MAX_FILAS_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
@@ -1449,7 +1450,19 @@ export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
 // vuelve a validar todo: lo que manda el cliente es una propuesta, no la verdad.
 // Un lead pudo entrar por el webhook de Calendly o Meta entre la revisión y el OK,
 // y el navegador no tiene forma de saberlo.
-export type ImportLeadsResult = { creados: number; omitidos: number; errores: string[] };
+export type ImportLeadsResult = {
+  creados: number;
+  /**
+   * Fichas que ya existían y a las que se les COMPLETÓ algún campo vacío (#623).
+   *
+   * Es un campo aparte y no parte de `creados`: «3 leads nuevos» sobre una importación
+   * que no creó ninguno es la clase de número correcto sobre la pregunta equivocada que
+   * esta pantalla ya pagó una vez.
+   */
+  enriquecidos: number;
+  omitidos: number;
+  errores: string[];
+};
 
 /** Crea los leads de las filas ya revisadas y tildadas por el usuario. */
 /**
@@ -1466,9 +1479,9 @@ export type ImportLeadsResult = { creados: number; omitidos: number; errores: st
  * y ahí `undefined` significa «el del negocio», que es donde caían todos hasta hoy.
  */
 export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null): Promise<ImportLeadsResult> {
-  if (!Array.isArray(filas) || !filas.length) return { creados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
+  if (!Array.isArray(filas) || !filas.length) return { creados: 0, enriquecidos: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
   if (filas.length > MAX_FILAS_IMPORT) {
-    return { creados: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Parte el archivo en dos.`] };
+    return { creados: 0, enriquecidos: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Parte el archivo en dos.`] };
   }
 
   // Sanitizar ANTES de mirar nada: el cliente pudo mandar cualquier cosa en cada
@@ -1481,12 +1494,25 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     empresa: String(f?.empresa ?? '').trim().slice(0, 200),
     incluir: f?.incluir === true,
     yaExiste: false,
+    // El id NO se copia del cliente: lo resuelve `marcarExistentes` contra la base de
+    // ahora. Es el id al que se le ESCRIBE si la persona eligió completar, así que un
+    // id que viaja en el payload es un id que cualquiera puede cambiar.
+    leadExistenteId: null,
+    enriquecer: f?.enriquecer === true,
     bajaConfianza: f?.bajaConfianza === true,
   }));
 
   // Lo que la PANTALLA alcanzó a ver sobre cada fila. No es un dato de confianza —lo
   // manda el cliente— y no se usa para dejar pasar nada: se usa sólo para FRENAR.
   const vioDuplicado = filas.map((f) => f?.motivo === MOTIVO_DECIDIBLE);
+  /**
+   * Y SOBRE CUÁL lead la pantalla le ofreció completar. Mismo criterio que `vioDuplicado`
+   * y por la misma razón: el server resuelve el id de nuevo, y si ahora apunta a OTRO
+   * lead —entró un webhook en el medio, o la fila se editó— la decisión de completar no
+   * era sobre ése. Completar escribe sobre una ficha que alguien viene trabajando, así
+   * que acá no se elige el lead que quedó a mano: se cae al default, que es no tocarla.
+   */
+  const idQueVio = filas.map((f) => (typeof f?.leadExistenteId === 'number' ? f.leadExistenteId : null));
 
   // El motivo lo recalcula el SERVER contra la base de ahora (marcarExistentes
   // vuelve a consultar los duplicados y corre las mismas reglas que vio el usuario).
@@ -1499,11 +1525,14 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   // «ya existe» aparece ACÁ, después de que la pantalla se dibujó: honrar ese tilde es
   // crear el duplicado y además atribuirle la decisión a alguien que nunca la tomó.
   // Se baja el tilde y la fila cuenta como omitida, igual que en el modal.
-  const validadas = (await marcarExistentes(limpias)).map((f, i) => (
-    f.motivo === MOTIVO_DECIDIBLE && !vioDuplicado[i] ? { ...f, incluir: false } : f
-  ));
+  const validadas = (await marcarExistentes(limpias)).map((f, i) => {
+    if (f.motivo === MOTIVO_DECIDIBLE && !vioDuplicado[i]) return { ...f, incluir: false, enriquecer: false };
+    if (f.enriquecer && f.leadExistenteId !== idQueVio[i]) return { ...f, enriquecer: false };
+    return f;
+  });
 
   let creados = 0;
+  let enriquecidos = 0;
   let omitidos = 0;
   const errores: string[] = [];
   const emailsNuevos = new Set<string>();
@@ -1534,6 +1563,34 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     // pisándose. Ahí no hay decisión que respetar, hay un archivo con la misma persona
     // dos veces, y `marcarExistentes` no lo puede ver porque miró la base antes de
     // empezar.
+    /**
+     * EL TERCER DESTINO: completar la ficha que ya está (#623). Va ANTES del portón
+     * porque `entra()` contesta «¿se va a CREAR?» y la respuesta acá es no — y las dos
+     * salen de `destinoDe`, que es la única función que decide qué le pasa a una fila.
+     *
+     * `chocaAcá` sigue frenando: dos filas del mismo archivo completando el mismo lead
+     * es el archivo con la misma persona dos veces, igual que al crear.
+     *
+     * Y «no había nada que llenar» cuenta como OMITIDA, no como completada: la ficha
+     * tenía todo cargado y no se escribió una sola columna. Decir «completé 3» sobre eso
+     * es afirmar un cambio que no pasó.
+     */
+    if (destinoDe(f) === 'enriquecer' && !chocaAcá && f.leadExistenteId != null) {
+      try {
+        const llenados = await enriquecerLead(f.leadExistenteId, {
+          nombre: f.nombre || null,
+          email: f.email || null,
+          telefono: f.telefono || null,
+          empresa: f.empresa || null,
+        });
+        if (llenados.length) enriquecidos++;
+        else omitidos++;
+      } catch (e) {
+        omitidos++;
+        errores.push(`${f.nombre}: ${e instanceof Error ? e.message : 'error'}`);
+      }
+      continue;
+    }
     if (!entra(f) || chocaAcá) { omitidos++; continue; }
     try {
       await createLead({
@@ -1571,7 +1628,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   bust(TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { creados, omitidos, errores: errores.slice(0, 20) };
+  return { creados, enriquecidos, omitidos, errores: errores.slice(0, 20) };
 }
 
 // ⚠️ ACÁ VIVÍAN `previsualizarImportLeadsAction` e `importLeadsCsvAction`, y se

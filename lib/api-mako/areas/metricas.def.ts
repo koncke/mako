@@ -102,7 +102,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_serie_funnel_semanal', area: 'metricas', tipo: 'lectura',
     titulo: 'Serie semanal del embudo',
-    descripcion: 'El porcentaje de paso de cada etapa del embudo semana a semana (imp_click, click_form, form_agenda, click_landing, landing_vsl, agenda_asistio, asistio_calificado, calificado_cierre), con el lunes de cada semana. Una semana sin denominador sale null, no 0. Úsala para ver si una etapa viene cayendo o mejorando; para el número del período usa diagnosticar_funnel.',
+    // ⚠️ LAS CLAVES NO SE ENUMERAN ACÁ. Las del tramo de Meta son fijas; las del CRM
+    // dependen del funnel del cliente (lib/funnel-comercial.ts), así que una lista a
+    // mano le prometía al modelo etapas que un negocio sin reuniones no tiene.
+    descripcion: 'El porcentaje de paso de cada etapa del embudo semana a semana, con el lunes de cada semana. Las etapas de Meta son siempre imp_click, click_form, click_landing y landing_vsl; las del CRM salen del embudo que tenga ese cliente, así que lee las claves que vengan en vez de darlas por sabidas. Una semana sin denominador sale null, no 0. Úsala para ver si una etapa viene cayendo o mejorando; para el número del período usa diagnosticar_funnel.',
     parametros: [
       hasta(' La última semana es la que contiene este día. Default: hoy en la zona del negocio.'),
       { nombre: 'semanas', tipo: 'number', entero: true, minimo: 1, maximo: 26, descripcion: 'Cuántas semanas hacia atrás. Default 12.' },

@@ -43,6 +43,41 @@ export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repe
 export const MOTIVO_DECIDIBLE: MotivoDescarte = 'duplicado';
 
 /**
+ * QUÉ LE PASA A ESTA FILA. Son TRES destinos y no dos (#623): la fila repetida se
+ * puede saltear, se puede duplicar a sabiendas, y desde el 04/10/2026 se puede usar
+ * para COMPLETAR la ficha que ya está — llenarle los campos que tiene vacíos sin
+ * pisarle ni uno de los que tiene cargados.
+ *
+ * ⚠️ ES UNA FUNCIÓN Y NO TRES CONDICIONES PARECIDAS, y el porqué ya se pagó acá (está
+ * abajo, en `entra`): las tres divergieron y la pantalla dibujó una cosa, el botón
+ * contó otra y el server hizo una tercera. Un destino nuevo entra POR ACÁ o vuelve a
+ * pasar lo mismo, y la próxima vez con una escritura sobre un lead que ya existe.
+ *
+ * El orden de las preguntas no es decorativo:
+ *
+ *   · **Sin tilde no pasa nada.** La casilla sigue contestando «¿esta fila hace algo?»,
+ *     igual que siempre, y es lo que hace que `enriquecer` sea una pregunta APARTE y no
+ *     un tercer valor de la misma: con la fila destildada no hay nada que decidir.
+ *   · **Los motivos que NO son decisiones ganan.** Sin nombre, sin contacto o repetida
+ *     dentro del archivo: ahí no hay fila que crear ni ficha que completar.
+ *   · **Completar necesita A QUIÉN.** Sin `leadExistenteId` —porque el «ya existe»
+ *     matchea dos leads distintos, o porque el server no lo pudo resolver— el destino
+ *     vuelve a `crear`: es la decisión reversible. Escribirle los datos de una persona
+ *     a la ficha de otra no lo es, y no deja una línea en ningún lado.
+ */
+export type DestinoFila = 'omitir' | 'crear' | 'enriquecer';
+
+export function destinoDe(f: FilaImport): DestinoFila {
+  if (!f.incluir) return 'omitir';
+  if (f.motivo && f.motivo !== MOTIVO_DECIDIBLE) return 'omitir';
+  if (f.motivo === MOTIVO_DECIDIBLE && f.enriquecer && f.leadExistenteId != null) return 'enriquecer';
+  return 'crear';
+}
+
+/** ¿Esta fila va a COMPLETAR el lead que ya existe? */
+export const enriquece = (f: FilaImport): boolean => destinoDe(f) === 'enriquecer';
+
+/**
  * ¿ESTA FILA SE VA A CREAR? La misma pregunta, la misma respuesta, para los tres que
  * la hacen: la casilla que se dibuja, el número del botón (`contar`) y el portón del
  * server (`importarLeadsRevisadosAction`).
@@ -54,8 +89,7 @@ export const MOTIVO_DECIDIBLE: MotivoDescarte = 'duplicado';
  * `incluir`, que nace en true y que `recalcular` nunca baja. Tres lectores, tres
  * respuestas, ningún error. Vivió desde el 14/08/2026.
  */
-export const entra = (f: FilaImport): boolean =>
-  f.incluir && (!f.motivo || f.motivo === MOTIVO_DECIDIBLE);
+export const entra = (f: FilaImport): boolean => destinoDe(f) === 'crear';
 
 export const MOTIVO_LABEL: Record<MotivoDescarte, string> = {
   'sin-nombre': 'sin nombre',
@@ -75,6 +109,26 @@ export type FilaImport = {
   incluir: boolean;
   /** Resuelto contra la base al leer el archivo; se recalcula al confirmar. */
   yaExiste: boolean;
+  /**
+   * Lo elige la persona SOBRE UNA FILA QUE YA EXISTE: completar la ficha que hay en
+   * vez de crear una segunda. Es una pregunta DISTINTA de `incluir` («¿esta fila hace
+   * algo?»), no un tercer valor suyo: con la fila destildada no hay nada que decidir.
+   *
+   * Default `false` a propósito, y es la decisión del 14/08 intacta: tildar un
+   * repetido CREA otra ficha, y eso ya está fijado por
+   * tests/crm-importar-duplicados.test.ts. Completar es lo que antes no se podía
+   * elegir, no lo que ahora pasa solo.
+   */
+  enriquecer?: boolean;
+  /**
+   * A QUÉ lead apunta el «ya existe». Lo resuelve el SERVER (`marcarExistentes`), nunca
+   * el navegador: lo que manda el cliente es una propuesta.
+   *
+   * `null` = no se puede decidir a quién completar, y los dos casos son reales: el email
+   * de la fila matchea un lead y el teléfono matchea OTRO, o hay dos leads guardados con
+   * el mismo dato. Ahí `destinoDe` no ofrece `enriquecer`.
+   */
+  leadExistenteId?: number | null;
   /** La IA no estaba segura de esta fila → entra destildada. */
   bajaConfianza?: boolean;
   /** Derivado (no se persiste): por qué se descarta. null = entra. */
@@ -304,16 +358,23 @@ export type ConteosImport = {
   tildadas: number;
   /** Duplicados tildados a sabiendas. Su propio chip: es lo irreversible de esta pantalla. */
   aProposito: number;
+  /** Las que COMPLETAN un lead que ya existe en vez de crear uno nuevo (#623). */
+  aEnriquecer: number;
 } & Record<MotivoDescarte, number>;
 
 export function contar(filas: FilaImport[]): ConteosImport {
   const c: ConteosImport = {
-    total: filas.length, listas: 0, tildadas: 0, aProposito: 0,
+    total: filas.length, listas: 0, tildadas: 0, aProposito: 0, aEnriquecer: 0,
     'sin-nombre': 0, 'sin-contacto': 0, duplicado: 0, 'repetido-archivo': 0,
   };
   for (const f of filas) {
     if (f.motivo) c[f.motivo]++;
     else c.listas++;
+    // Las que completan NO entran en `tildadas`: ése es el número que el botón promete
+    // CREAR, y una ficha completada no es un lead nuevo. Son dos hechos distintos y por
+    // eso van en dos campos — meterlos en uno hace que el resumen diga «3 leads nuevos»
+    // sobre una importación que no creó ninguno.
+    if (enriquece(f)) c.aEnriquecer++;
     // ⚠️ `tildadas` cuenta por `entra`, NO por «no tiene motivo y está tildada». Es el
     // número que el botón promete («Crear N leads»), así que tiene que contar lo mismo
     // que el server va a crear — incluido el duplicado que alguien tildó a propósito.

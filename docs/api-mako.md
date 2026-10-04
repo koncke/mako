@@ -4679,7 +4679,7 @@ curl -s "https://hola-mako.com/api/v1/metricas/diagnosticar_funnel" -H "Authoriz
 
 ### `GET /api/v1/metricas/ver_serie_funnel_semanal` — Serie semanal del embudo
 
-El porcentaje de paso de cada etapa del embudo semana a semana (imp_click, click_form, form_agenda, click_landing, landing_vsl, agenda_asistio, asistio_calificado, calificado_cierre), con el lunes de cada semana. Una semana sin denominador sale null, no 0. Úsala para ver si una etapa viene cayendo o mejorando; para el número del período usa diagnosticar_funnel.
+El porcentaje de paso de cada etapa del embudo semana a semana, con el lunes de cada semana. Las etapas de Meta son siempre imp_click, click_form, click_landing y landing_vsl; las del CRM salen del embudo que tenga ese cliente, así que lee las claves que vengan en vez de darlas por sabidas. Una semana sin denominador sale null, no 0. Úsala para ver si una etapa viene cayendo o mejorando; para el número del período usa diagnosticar_funnel.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json

@@ -1,0 +1,187 @@
+// =============================================================================
+// meta-leads-campos — qué saca el parser de un field_data de Meta, y qué DESCARTA
+// =============================================================================
+// Puro y SIN `server-only` A PROPÓSITO. Estas cuatro decisiones son las que
+// deciden qué se guarda de un lead de Meta, y adentro de un módulo con
+// `server-only` ningún test las puede importar: terminarían siendo lo único sin
+// red justo donde más duele (AGENTS.md → «La condición va en un módulo SIN
+// `server-only`, para que se pueda testear»). Medido el 04/10/2026: importar
+// `lib/meta-leads` desde `npm test` revienta con «This module cannot be imported
+// from a Client Component module», porque el runner corre sin
+// `--conditions react-server`.
+//
+// Las cuatro:
+//
+//  · `parseLeadFields` saca los CUATRO campos de contacto por coincidencia de
+//    palabra clave, y ahora devuelve TAMBIÉN los `name` que no reconoció. Hasta
+//    el 04/10/2026 los descartaba sin dejar ni un `console.warn`, así que «no
+//    llegó» y «lo tiramos nosotros» se veían exactamente iguales — que es la
+//    política que esta casa prohíbe («Una política puede RECHAZAR; no puede no
+//    dejar rastro»).
+//
+//  · `columnasCrudasDeMeta` decide qué columnas crudas viajan en el upsert, y es
+//    lo único que impide que una ingesta posterior PISE CON VACÍO las respuestas
+//    ya guardadas. Meta borra el field_data a los 90 días y no se recupera de
+//    ningún lado: lo que costó plata no se sobrescribe con un `?? null`.
+//
+//  · `fechaDeMeta` normaliza el `created_time`: cuándo creó Meta el lead, que no
+//    es cuándo lo ingestamos. Un lead rescatado por el poll de hace 60 días nacía
+//    con la fecha de la ingesta.
+//
+//  · `rastroDescartes` redacta la línea que el historial del lead va a mostrar.
+//
+// ⚠️ EL CONTACTO SE SIGUE BUSCANDO POR PALABRA CLAVE, y eso no cambia: un
+// formulario con DOS teléfonos sigue aportando uno solo a la columna `telefono`,
+// y ese segundo teléfono no cuenta como «no reconocido» porque el keyword sí lo
+// matcheó. Lo que cambia es que ahora la respuesta entera queda en
+// `leads.meta_field_data`, así que nada se pierde aunque el parser elija uno.
+// =============================================================================
+
+export type MetaFieldData = Array<{ name?: string; values?: string[] }>;
+
+/**
+ * Las palabras clave de cada campo de contacto, en UN lugar.
+ *
+ * Viven acá y no sueltas en `parseLeadFields` porque ahora se leen DOS veces: para
+ * sacar el valor y para decidir si un `name` quedó sin reconocer. Con dos listas,
+ * la que se quede vieja acusa de «no reconocido» a un campo que el parser sí usó.
+ */
+export const KEYWORDS_CONTACTO = {
+  email: ['email', 'correo'],
+  nombre: ['full_name', 'full name', 'nombre completo', 'name', 'nombre'],
+  telefono: ['phone', 'teléfono', 'telefono', 'celular'],
+  empresa: ['company', 'empresa', 'negocio', 'organiz'],
+} as const;
+
+/** Lo que se guarda como nombre cuando el formulario no pregunta ninguno. */
+export const NOMBRE_SIN_NOMBRE = 'Lead sin nombre (Meta)';
+
+/**
+ * Extrae el primer field cuyo `name` contenga alguno de los keywords
+ * (case-insensitive). Devuelve su primer value (trim) o null.
+ */
+export function extractField(
+  fieldData: MetaFieldData | undefined,
+  names: readonly string[],
+): string | null {
+  if (!fieldData) return null;
+  const lowered = names.map((n) => n.toLowerCase());
+  const found = fieldData.find(
+    (f) => f.name && lowered.some((n) => f.name!.toLowerCase().includes(n)),
+  );
+  return found?.values?.[0]?.trim() || null;
+}
+
+export type LeadContacto = {
+  email: string | null;
+  nombre: string;
+  telefono: string | null;
+  empresa: string | null;
+  /**
+   * Los `name` de field_data que no matchearon NINGÚN keyword — las preguntas
+   * personalizadas del formulario («en qué plazo busca vender»). Sin repetidos y
+   * en el orden en que Meta las manda.
+   */
+  noReconocidos: string[];
+};
+
+/** ¿Este `name` lo mira alguno de los cuatro campos de contacto? */
+function reconocido(name: string): boolean {
+  const n = name.toLowerCase();
+  return Object.values(KEYWORDS_CONTACTO).some((ks) => ks.some((k) => n.includes(k)));
+}
+
+/**
+ * Saca email / nombre / teléfono / empresa de un field_data de Meta, y dice qué
+ * campos NO reconoció. Mismos keywords en el webhook y en el polling.
+ */
+export function parseLeadFields(fieldData: MetaFieldData | undefined): LeadContacto {
+  const email = extractField(fieldData, KEYWORDS_CONTACTO.email);
+  const nombre = extractField(fieldData, KEYWORDS_CONTACTO.nombre) ?? NOMBRE_SIN_NOMBRE;
+  const telefono = extractField(fieldData, KEYWORDS_CONTACTO.telefono);
+  const empresa = extractField(fieldData, KEYWORDS_CONTACTO.empresa);
+
+  const vistos = new Set<string>();
+  const noReconocidos: string[] = [];
+  for (const f of fieldData ?? []) {
+    const name = f.name?.trim();
+    if (!name || reconocido(name) || vistos.has(name)) continue;
+    vistos.add(name);
+    noReconocidos.push(name);
+  }
+
+  return { email, nombre, telefono, empresa, noReconocidos };
+}
+
+/** Un field_data con AL MENOS una respuesta. `undefined`, `null` y `[]` son lo mismo acá. */
+export function tieneRespuestas(fd: unknown): fd is MetaFieldData {
+  return Array.isArray(fd) && fd.length > 0;
+}
+
+/**
+ * El `created_time` de Meta, normalizado a ISO para una columna timestamptz.
+ *
+ * Acepta el string ISO que devuelve Graph para un nodo de lead y también el
+ * entero en SEGUNDOS que viaja en el cuerpo del webhook — son las dos formas en
+ * que Meta manda la misma cosa. Una fecha ilegible vuelve `null`: la columna es
+ * nullable justamente para poder decir «no sé», y un `Invalid Date` reventaría
+ * el insert de un lead entero por un campo de atribución.
+ */
+export function fechaDeMeta(v: string | number | null | undefined): string | null {
+  if (v == null || v === '') return null;
+  const d = new Date(typeof v === 'number' ? v * 1000 : v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+export type MetaCrudoEntra = {
+  fieldData?: MetaFieldData | null;
+  createdTime?: string | number | null;
+};
+
+/** Las columnas crudas que viajan en el upsert. Lo que no está, no se toca. */
+export type ColumnasCrudasDeMeta = {
+  meta_field_data?: MetaFieldData;
+  meta_created_at?: string;
+};
+
+/**
+ * Qué columnas crudas se escriben de esta ingesta.
+ *
+ * ⚠️ LA CLAVE AUSENTE ES EL MECANISMO, y es todo el mecanismo. Una ingesta que no
+ * trae respuestas NO manda `meta_field_data`, así que PostgREST deja la columna
+ * como estaba y gana lo guardado. Escribirla como `input.field_data ?? null`
+ * —que es la forma natural de armar el objeto, y lo que hacen las otras cinco
+ * columnas de Meta de al lado— le BORRA al lead las respuestas que Meta ya no
+ * tiene: a los 90 días no se recuperan de ningún lado.
+ *
+ * Por eso tampoco recibe el lead guardado: no hay nada que comparar. Lo único que
+ * se decide es si la clave viaja.
+ */
+export function columnasCrudasDeMeta(entra: MetaCrudoEntra): ColumnasCrudasDeMeta {
+  const out: ColumnasCrudasDeMeta = {};
+  if (tieneRespuestas(entra.fieldData)) out.meta_field_data = entra.fieldData;
+  const fecha = fechaDeMeta(entra.createdTime);
+  if (fecha) out.meta_created_at = fecha;
+  return out;
+}
+
+/** Con qué nombre aparece el descarte en el historial del lead. */
+export const CAMPO_RESPUESTAS_META = 'Respuestas de Meta';
+
+/** Techo de la línea del historial: es una fila de una lista de N. */
+export const TOPE_RASTRO = 110;
+
+/**
+ * La línea del historial para las respuestas que el parser no reconoció, o null
+ * si no hubo ninguna (no se escribe una línea para decir que no pasó nada).
+ *
+ * El texto nombra lo que distingue a ESA fila —qué preguntas fueron— y se topea
+ * en 110 caracteres como cualquier fila de una lista. Las respuestas enteras no
+ * van acá: viven en `leads.meta_field_data`, que es donde se leen.
+ */
+export function rastroDescartes(nombres: string[]): string | null {
+  const limpios = nombres.map((n) => n.trim()).filter(Boolean);
+  if (!limpios.length) return null;
+  const texto = `Sin columna: ${limpios.join(', ')}`;
+  return texto.length <= TOPE_RASTRO ? texto : `${texto.slice(0, TOPE_RASTRO - 1).trimEnd()}…`;
+}

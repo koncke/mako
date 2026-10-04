@@ -4,8 +4,9 @@
 // TrackingTimelineCard — actividad del lead con fecha y hora, evento por evento
 // =============================================================================
 // "03/07/2026 14:04 · Ingresó a la landing" / "Reprodujo el VSL" / "Llegó al
-// 40% del VSL" / "Abandonó en el 73%". Con la URL de la landing y el título del
-// VSL cuando el beacon los manda (pruebas A/B multi-landing / multi-VSL).
+// 40% del VSL" / "Abandonó en el 73%" / "Hizo clic en «Agendar ahora»". Con la
+// URL de la landing y el título del VSL cuando el beacon los manda (pruebas A/B
+// multi-landing / multi-VSL).
 //
 // 'use client' por la zona horaria: la hora de cada evento va en la zona del
 // WORKSPACE, que se resuelve en el server (useTzWorkspace). Era un componente de
@@ -15,6 +16,7 @@
 import type { CSSProperties } from 'react';
 import type { TrackingEvent } from '@/lib/leads';
 import { useTzWorkspace } from './useTzWorkspace';
+import { textoDeClic } from './clic-detalle';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -30,6 +32,13 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
   switch (e.tipo) {
     case 'pageview':
       return { texto: 'Ingresó a la landing', detalle: e.landing_url, color: 'var(--accent)' };
+    case 'click': {
+      // Qué se apretó, no sólo que hubo un clic: el dato viaja en el evento desde
+      // la mig 0133 y lo lee `textoDeClic`. Ámbar porque es el único tipo que no
+      // habla del video: el ojo tiene que poder separarlo de la retención.
+      const c = textoDeClic(e.detalle);
+      return { texto: c.que, detalle: c.adonde, color: 'var(--warn)' };
+    }
     case 'play':
       return { texto: 'Reprodujo el VSL', detalle: e.vsl_titulo ?? (e.video_id ? `video ${e.video_id}` : null), color: 'var(--primary)' };
     case 'exit':
@@ -42,7 +51,10 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
 export function TrackingTimelineCard({ eventos }: { eventos: TrackingEvent[] }) {
   const tz = useTzWorkspace();
   // Los hitos de retención cada 5% son ruido en la lista: nos quedamos con los
-  // pageviews, plays, abandonos y el hito MÁXIMO de cada racha de retención.
+  // pageviews, plays, clics, abandonos y el hito MÁXIMO de cada racha de
+  // retención. Los clics NO se colapsan: apretar dos veces el mismo botón es un
+  // dato (el link no llevó a ningún lado, o la persona volvió a intentarlo), y el
+  // snippet ya los topea en 40 por carga.
   const filtrados: TrackingEvent[] = [];
   for (let i = 0; i < eventos.length; i++) {
     const e = eventos[i];

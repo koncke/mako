@@ -211,14 +211,29 @@ export const RUNNERS: Runners = {
         // getFunnelEtapas lee los leads de la ventana sin paginar.
         contarFilas('leads', (q) => q.gte('fecha_junta_1', desde).lte('fecha_junta_1', hasta)),
       ]);
-      const recorte = avisoRecorte('Las etapas del CRM (Agenda→Asistió, Asistió→Calificado, Calificado→Cierre) y con ellas el cuello de botella', filasR1, 'los conteos reales son MAYORES y los porcentajes salen de una parte de los leads (cuál, no está definido)');
+      // ⚠️ LOS RÓTULOS DE LAS ETAPAS DEL CRM SE LEEN DEL FUNNEL, NO SE ESCRIBEN ACÁ.
+      // Estaban a mano («Agenda→Asistió, Asistió→Calificado, Calificado→Cierre») y
+      // son los del embudo de dos reuniones: a un negocio que vende sin reuniones el
+      // aviso le nombraba tres etapas que no tiene. Lo que le llega al modelo es
+      // sólo este JSON — no ve la pantalla, así que una nota que nombra un paso
+      // inexistente es un dato falso.
+      const delCrm = f.etapas.filter((e) => e.bloque === 'comercial');
+      const nombresCrm = delCrm.map((e) => e.label).join(', ');
+      const recorte = delCrm.length > 0
+        ? avisoRecorte(`Las etapas del CRM (${nombresCrm}) y con ellas el cuello de botella`, filasR1, 'los conteos reales son MAYORES y los porcentajes salen de una parte de los leads (cuál, no está definido)')
+        : null;
+      const puente = f.etapas.find((e) => e.bloque === 'puente');
       const notas = [
         ...(recorte ? [recorte] : []),
         'pct_paso = salida ÷ entrada × 100; null = entrada 0 (no se puede calcular, no es 0%).',
         'muestra_chica = la entrada es menor a 3: di el conteo, no el porcentaje.',
         'Los umbrales (rojo/ámbar) y la referencia son valores fijos de la plataforma, no metas del negocio del cliente.',
-        'Agenda→Asistió cuenta como no-asistencia a las reuniones que nadie marcó: si hay muchas sin marcar, la tasa sale más baja de lo real.',
-        'Las etapas de Meta y el CRM se cruzan por fecha, no por persona: Formulario→Agenda compara formularios de Meta con reuniones 1 del CRM.',
+        ...(f.roles.r1
+          ? ['La etapa de asistencia cuenta como no-asistencia a las reuniones que nadie marcó: si hay muchas sin marcar, la tasa sale más baja de lo real.']
+          : ['Este negocio no vende con reuniones: su etapa de cierre mide los leads que entraron en el período y cuántos de ellos compraron.']),
+        ...(puente
+          ? [`Las etapas de Meta y el CRM se cruzan por fecha, no por persona: ${puente.label} compara formularios de Meta con reuniones 1 del CRM.`]
+          : []),
       ];
       if (!fuentes) notas.unshift('No se pudo leer el estado de las fuentes: ninguna etapa se marcó fuente_pendiente, así que un 0% puede ser una fuente desconectada.');
       return json({
@@ -250,7 +265,10 @@ export const RUNNERS: Runners = {
         series_pct: Object.fromEntries(Object.entries(s).map(([k, vals]) => [k, vals.map(r2)])),
         notas: [
           'Cada lista va de la semana más vieja a la más nueva, alineada con semanas_lunes. null = la semana no tuvo denominador (no es 0%).',
-          'form_agenda y agenda_asistio usan reuniones 1 por la fecha de la reunión; calificado_cierre cuenta la etapa ganado. La semana en curso está incompleta.',
+          // Las claves que vienen son las del funnel de ESTE workspace: nombrar
+          // `form_agenda` o `calificado_cierre` acá le afirmaba al modelo unas etapas
+          // que un negocio sin reuniones no tiene.
+          'Las etapas del CRM agrupan por la fecha de la 1ª reunión; si el funnel no tiene reuniones, agrupan por la fecha de alta del lead. El cierre cuenta la etapa ganado. La semana en curso está incompleta.',
         ],
       });
     },

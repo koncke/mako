@@ -15,45 +15,34 @@ import { META_PAGE_ID } from './config';
 
 export const META_GRAPH_VERSION = process.env.META_API_VERSION || 'v24.0';
 
-export type MetaFieldData = Array<{ name?: string; values?: string[] }>;
+// ─────────────────────────────────────────────────────────────────────────────
+// El parser de field_data vive en ./meta-leads-campos
+// ─────────────────────────────────────────────────────────────────────────────
+// Se mudó el 04/10/2026 por una razón y una sola: ese módulo NO tiene
+// `server-only`, así que sus decisiones —qué campo se reconoce, qué se descarta
+// y qué columna cruda se pisa— se pueden EJECUTAR en un test. Este archivo sí lo
+// tiene (línea 10), y con él puesto cualquier import desde `npm test` revienta.
+//
+// Se re-exporta para que los dos caminos de ingesta (el webhook y el poll) sigan
+// importando de un solo lugar: una cosa, un lugar.
+import { parseLeadFields, type MetaFieldData } from './meta-leads-campos';
 
-/**
- * Extrae el primer field cuyo `name` contenga alguno de los keywords
- * (case-insensitive). Devuelve su primer value (trim) o null.
- */
-export function extractField(
-  fieldData: MetaFieldData | undefined,
-  names: string[],
-): string | null {
-  if (!fieldData) return null;
-  const lowered = names.map((n) => n.toLowerCase());
-  const found = fieldData.find(
-    (f) => f.name && lowered.some((n) => f.name!.toLowerCase().includes(n)),
-  );
-  return found?.values?.[0]?.trim() || null;
-}
-
-export type LeadContacto = {
-  email: string | null;
-  nombre: string;
-  telefono: string | null;
-  empresa: string | null;
-};
-
-/**
- * Saca email / nombre / teléfono / empresa de un field_data de Meta.
- * Mismos keywords en el webhook y en el polling.
- */
-export function parseLeadFields(fieldData: MetaFieldData | undefined): LeadContacto {
-  const email = extractField(fieldData, ['email', 'correo']);
-  const nombre =
-    extractField(fieldData, [
-      'full_name', 'full name', 'nombre completo', 'name', 'nombre',
-    ]) ?? 'Lead sin nombre (Meta)';
-  const telefono = extractField(fieldData, ['phone', 'teléfono', 'telefono', 'celular']);
-  const empresa = extractField(fieldData, ['company', 'empresa', 'negocio', 'organiz']);
-  return { email, nombre, telefono, empresa };
-}
+export {
+  extractField,
+  parseLeadFields,
+  tieneRespuestas,
+  fechaDeMeta,
+  columnasCrudasDeMeta,
+  rastroDescartes,
+  KEYWORDS_CONTACTO,
+  NOMBRE_SIN_NOMBRE,
+  CAMPO_RESPUESTAS_META,
+} from './meta-leads-campos';
+export type {
+  MetaFieldData,
+  LeadContacto,
+  ColumnasCrudasDeMeta,
+} from './meta-leads-campos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Polling de leads por workspace (cron diario + backfill del onboarding)
@@ -167,7 +156,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
         if (!lr.id) continue;
         vistos++;
         try {
-          const { email, nombre, telefono, empresa } = parseLeadFields(lr.field_data);
+          const { email, nombre, telefono, empresa, noReconocidos } = parseLeadFields(lr.field_data);
           const { created } = await upsertLeadFromMeta({
             email,
             nombre,
@@ -178,6 +167,15 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
             meta_ad_name: lr.ad_name ?? null,
             meta_campaign_name: lr.campaign_name ?? null,
             meta_adset_name: lr.adset_name ?? null,
+            // Las respuestas CRUDAS y la fecha real de Meta. El poll ya las pedía
+            // () y el created_time sólo servía para cortar la
+            // ventana de arriba, así que un lead rescatado de hace 60 días nacía con
+            // la fecha de la INGESTA. Y el field_data entero se descartaba: el día que
+            // entre el primer lead del ws13 —cinco formularios con preguntas propias—
+            // esa respuesta no tiene columna, y Meta la borra a los 90 días.
+            meta_field_data: lr.field_data ?? null,
+            meta_created_at: lr.created_time ?? null,
+            meta_campos_no_reconocidos: noReconocidos,
           });
           if (created) creados++;
           else existentes++;

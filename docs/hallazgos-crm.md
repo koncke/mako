@@ -4884,3 +4884,118 @@ Un `filter(c => c.pagado)` escrito para proteger lo cobrado se vuelve destructiv
 nace sin cobrar por error.
 
 **Vive en:** `app/crm/[id]/DealDetailsCard.tsx:318-321` y `:253` · `app/crm/[id]/deal-actions.ts:183` · *2026-10-04 arreglar-crm*
+
+## El tramo comercial del tablero medía el embudo fijo de dos reuniones (04/10/2026)
+
+### El diagnóstico obvio era el equivocado: las keys SÍ existían
+
+La hipótesis con la que arrancó el trabajo era que `lib/retro-datos.ts` buscaba las etapas por
+key canónica —`por.get('form_agenda')`, `por.get('agenda_asistio')`,
+`por.get('asistio_calificado')`, `por.get('calificado_cierre')`— y que con un funnel propio
+esas keys **no existían**, así que los cuatro `por.get` devolvían `undefined`.
+
+Medido: **las cuatro keys existían siempre**. `getFunnelEtapas` las emitía incondicionalmente,
+porque su lista de pasos estaba escrita a mano y no miraba el funnel de nadie. O sea que un
+`grep` de `por.get(` encuentra al CONSUMIDOR y no encuentra la causa, y quien parchee sólo el
+consumidor no arregla nada.
+
+Lo que medía cero era la **COHORTE**. Los cuatro pasos se contaban sobre
+`leads where fecha_junta_1 ∈ ventana`:
+
+```ts
+.select('asistio_j1, calificado, estado_lead, fecha_junta_1')
+.gte('fecha_junta_1', start).lte('fecha_junta_1', end)
+```
+
+Las plantillas `directa` (lead → pago) y `conversaciones` (lead → charla → pago) **no tienen
+ninguna etapa `kind: 'reunion'`**, así que ningún lead de esos workspaces tiene `fecha_junta_1`.
+La cohorte sale vacía, y con ella `asistencias`, `limpias` **y los cierres** — `cierres` se
+contaba sobre esas mismas filas. Cuatro renglones en cero, el `pct` en null, cero errores en el
+log. Un cliente que cerró veinte ventas veía el embudo comercial entero apagado.
+
+### Con UNA reunión el daño es distinto y se esconde mejor
+
+`simple`, `presencial` y `vsl` tienen una sola etapa de reunión. Ahí `agenda_asistio` funciona
+—`slotPorIndice(0)` le da `fecha_junta_1`/`asistio_j1` sea cual sea la key de esa etapa— y lo que
+se rompe es el paso siguiente: `asistio_calificado` mide «cuántas pasan a la R2» sobre un funnel
+sin R2, así que su salida es 0 **por construcción**. Y esa salida es el DENOMINADOR de
+`calificado_cierre`, o sea que los cierres vuelven en `null`.
+
+**La regla: un paso de medición cuyo denominador es la salida del paso anterior hereda sus
+ceros.** Antes de dar por bueno un tramo de pasos encadenados, preguntá qué pasa cuando uno del
+medio no aplica — no da error, apaga a todos los de abajo.
+
+### Lo que varía es CUÁNTAS reuniones, y no es una elección de diseño
+
+La tabla `leads` tiene exactamente DOS pares de columnas de reunión
+(`fecha_junta_1`/`asistio_j1` y `fecha_junta_2`/`asistio_j2`), y `slotPorIndice`
+(`lib/funnel-etapas.ts`) ya topea ahí: una tercera reunión no tiene dónde guardar su fecha. Así
+que el tramo comercial tiene exactamente tres formas posibles —0, 1 o 2 reuniones— y por eso la
+resolución es una tabla de tres entradas y no un motor.
+
+La resolución vive en `lib/funnel-comercial.ts`, **sin `server-only`** (si no, ningún test la
+puede importar) y **tolerante** con el molde de `umbralesDelWorkspace` (`lib/crm-auto.ts`): sin
+funnel a mano —la lectura falló, o el workspace no declaró nada— cae al tramo de dos reuniones,
+que es exactamente lo que el código hacía siempre. Devuelve dos cosas, y de la misma tabla para
+que no puedan divergir: los PASOS (key, label, benchmark, umbral, de qué contador sale cada lado)
+y los ROLES (`agendas`, `r1`, `r2`, `cierres`, `base`), que es lo que los tableros consumen en
+vez de la key.
+
+Los roles resueltos viajan dentro de `FunnelMes.roles`: el que ya leyó el funnel es
+`getFunnelEtapas`, así que resolverlo otra vez en cada consumidor sería una segunda respuesta a
+la misma pregunta **y** otra lectura a la base.
+
+### Sin reuniones, la cohorte se ancla en el ALTA del lead
+
+Es la decisión del paquete y conviene que quede escrita. Un funnel sin reuniones no tiene
+ninguna fecha de encuentro donde anclar la cohorte, así que el paso `lead_cierre` cuenta sobre
+`leads where created_at ∈ ventana`: «de los que entraron en el período, cuántos compraron». Mismo
+contrato de cohorte que los otros dos tramos, con la única fecha que todo lead tiene.
+
+⚠️ **Y `mkt.cierres_en_ventana` NO sirve para esto, aunque sea lo primero que aparece.** Esa
+cuenta usa `cerro = true` —el booleano VIEJO— más `fecha_cierre`, mientras todo el resto del
+archivo dice «Cierre = `estado_lead` 'ganado' (Fase 8), no el viejo booleano cerro». Son dos
+definiciones de cierre y mezclarlas haría que el mismo tablero contara distinto según el funnel.
+
+⚠️ **Y la consulta de la cohorte del alta se pide SÓLO si algún paso la nombra**
+(`necesitaEntradas`): un funnel de reuniones no paga una lectura más por esto.
+
+⚠️ **Y esa cohorte NO se lee como filas donde alcanza un COUNT.** En `getFunnelEtapas` hacen
+falta dos totales, así que van dos `count: 'exact', head: true`; en `getFunnelSeries` hacen falta
+las filas (hay que repartirlas por semana), así que va `leerTodo` ordenado por `id`. Un
+`.select()` suelto topea en las 1000 de PostgREST **sin dar error**, y con 1.066 leads en un
+workspace eso es un total redondo que miente — en la serie semanal se vería como semanas viejas
+vacías, que es indistinguible de «ese mes no vendimos».
+
+### Lo que le llega al modelo son las notas, no la pantalla
+
+`lib/api-mako/areas/metricas.run.ts` escribía las etapas del CRM a mano en sus `notas`
+—«Agenda→Asistió, Asistió→Calificado, Calificado→Cierre»— y en la `descripcion` de
+`ver_serie_funnel_semanal` enumeraba las ocho keys. Para un negocio sin reuniones eso le afirma
+al modelo tres etapas que no tiene, y el modelo **no ve la pantalla**: lo único que le llega es
+ese JSON. Los rótulos ahora salen de `f.etapas` y la descripción dice que las claves del CRM
+dependen del embudo y hay que leer las que vengan.
+
+### Lo que quedó SIN hacer
+
+- **Nadie declaró todavía un funnel sin reuniones.** El código está listo y la mejora no se ve
+  hasta que un workspace tenga una plantilla que no sea `highticket`; eso es una decisión del
+  dueño (o del onboarding, que ya mapea canal → plantilla en `FUNNEL_POR_CANAL`,
+  `lib/pipeline.ts`). No se pudo medir cuántos workspaces vivos tienen 0 o 1 reunión: hace falta
+  una consulta a `funnels.data.pipeline` en producción.
+- **`app/marketing/page.tsx` dibuja el embudo con rótulos propios** (`Impresión`, `Click`,
+  `Landing`, `VSL`) y sólo lee `imp_click`, que es de Meta y no cambia con el funnel: quedó
+  intacto. Si algún día pinta el tramo comercial, tiene que salir de `funnel.roles` y no de las
+  keys.
+- **`lib/queries.ts:getFunnelEtapas` lee el funnel por su cuenta** en vez de recibirlo. Los
+  cuatro llamadores no lo tienen en la mano, así que un parámetro opcional sería un segundo lugar
+  donde contestar la misma pregunta; el costo es una lectura de `funnels` por llamada (la función
+  no está cacheada).
+
+**Probado rompiéndolo** (`tests/funnel-comercial.test.ts`, 13 pasan / 0 fallan con el arreglo):
+devolver siempre el tramo de dos reuniones —el bug original— deja **8 / 5**; hacer que el tramo
+sin reuniones cuente sobre la cohorte de la R1, **11 / 2**; sacarle el tope de dos a
+`reunionesMedibles`, **12 / 1**; dejar de resolver `base`, **10 / 3**; volver a cablear una key
+canónica en `getFunnelEtapas`, **12 / 1**.
+
+**Vive en:** `lib/funnel-comercial.ts` · `lib/queries.ts` (`getFunnelEtapas`, `_getFunnelSeries`) · `lib/retro-datos.ts:220` y `:320` · `lib/api-mako/areas/metricas.run.ts:205` y `:240` · `tests/funnel-comercial.test.ts` · *2026-10-04 paquete #798*

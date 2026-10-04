@@ -98,6 +98,8 @@ function verifyMetaSignature(rawBody: string, signatureHeader: string | null): b
 type GraphLeadResponse = {
   id?: string;
   field_data?: Array<{ name?: string; values?: string[] }>;
+  /** Cuándo creó Meta el lead (ISO). Hasta el 04/10/2026 el webhook ni lo pedía. */
+  created_time?: string;
   campaign_name?: string;
   adset_name?: string;
   ad_name?: string;
@@ -114,7 +116,12 @@ async function fetchLeadFromGraph(leadgenId: string, ws: number): Promise<GraphL
   }
   const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${leadgenId}`);
   url.searchParams.set('access_token', token);
-  url.searchParams.set('fields', 'field_data,campaign_name,adset_name,ad_name,ad_id');
+  // `created_time` es cuándo creó Meta el lead, que no es cuándo lo ingestamos: el
+  // webhook llega en segundos, pero un reintento de Meta o una cola trabada pueden
+  // llegar horas después, y el poll rescata leads de hasta 90 días. Sin pedirlo,
+  // `leads.meta_created_at` nace vacío por este camino y la atribución por fecha
+  // mide la ingesta.
+  url.searchParams.set('fields', 'field_data,created_time,campaign_name,adset_name,ad_name,ad_id');
 
   const res = await fetch(url.toString());
   const body = (await res.json()) as GraphLeadResponse;
@@ -205,7 +212,7 @@ export async function POST(request: NextRequest) {
       // Todo el procesamiento (Graph, upsert, chat, aviso, flujo) confinado al ws.
       await runWithWorkspace(ws, async () => {
         const graphLead = await fetchLeadFromGraph(leadgenId, ws);
-        const { email, nombre, telefono, empresa } = parseLeadFields(graphLead.field_data);
+        const { email, nombre, telefono, empresa, noReconocidos } = parseLeadFields(graphLead.field_data);
 
         const { created, lead } = await upsertLeadFromMeta({
           email,
@@ -217,6 +224,13 @@ export async function POST(request: NextRequest) {
           meta_ad_name: graphLead.ad_name ?? null,
           meta_campaign_name: graphLead.campaign_name ?? null,
           meta_adset_name: graphLead.adset_name ?? null,
+          // Las respuestas CRUDAS del formulario y la fecha real de Meta. El parser
+          // saca cuatro campos por palabra clave; lo demás se descartaba sin rastro, y
+          // Meta borra el field_data a los 90 días. `noReconocidos` termina en el
+          // historial del lead (lo escribe upsertLeadFromMeta, por los dos caminos).
+          meta_field_data: graphLead.field_data ?? null,
+          meta_created_at: graphLead.created_time ?? null,
+          meta_campos_no_reconocidos: noReconocidos,
         });
 
         console.log(

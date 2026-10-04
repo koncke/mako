@@ -8,10 +8,18 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  buscarDuplicados, emailComparable, LeadDuplicadoError, nombreComparable, patronesDeNombre, telefonoComparable,
+  buscarDuplicados, camposParaCompletar, elegirPorTelefono, emailComparable, LeadDuplicadoError, nombreComparable, patronesDeNombre, telefonoComparable,
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual } from './workspace';
+// Las columnas CRUDAS de Meta y el rastro del descarte: puro y sin `server-only`
+// para que la decisión de "no pisar con vacío" tenga test. Ver lib/meta-leads-campos.ts.
+import {
+  columnasCrudasDeMeta,
+  rastroDescartes,
+  CAMPO_RESPUESTAS_META,
+  type MetaFieldData,
+} from './meta-leads-campos';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { getSupabaseServer } from './supabase';
@@ -141,6 +149,18 @@ export type Lead = {
   meta_ad_name: string | null;
   meta_campaign_name: string | null;
   meta_adset_name: string | null;
+  /**
+   * Las respuestas CRUDAS del formulario, tal como las manda Meta (mig 0187).
+   *
+   * El parser saca cuatro campos por palabra clave y hasta el 04/10/2026 tiraba el
+   * resto. Acá queda entero: el ws13 tiene cinco formularios con preguntas propias
+   * («en qué plazo busca vender») y Meta borra el field_data a los 90 días. Opcional
+   * y nullable: un lead que no vino de Meta no tiene nada que poner, y `null` (no
+   * aplica) no es `[]` (vino vacío).
+   */
+  meta_field_data?: MetaFieldData | null;
+  /** Cuándo creó Meta el lead — NO cuándo lo ingestamos nosotros (mig 0187). */
+  meta_created_at?: string | null;
   origen_lead: string | null;            // 'instant_form' | 'calendly' | null
   telefono_normalizado: string | null;   // solo dígitos — llave de match
 
@@ -399,7 +419,8 @@ export async function getLead(id: number): Promise<Lead | null> {
 }
 
 /**
- * El lead más viejo que matchea una columna que NO ES ÚNICA.
+ * El lead más viejo con ESE email.
+ *
  *
  * ⚠️ `.maybeSingle()` SOBRE UNA COLUMNA NO ÚNICA TIRA EL WEBHOOK ENTERO. En `leads`
  * la única columna con índice único es `meta_lead_id` (mig 0007): ni
@@ -410,8 +431,13 @@ export async function getLead(id: number): Promise<Lead | null> {
  * reservar NO entra al CRM y ninguna pantalla lo dice. Lo mismo el instant form de
  * Meta y el ruteo de la R2.
  *
- * Hoy no hay teléfonos repetidos en la base, así que el bug está LATENTE y lo dispara
- * el primer duplicado — justo lo que trae una importación de listas que se solapan.
+ * Hoy no hay emails repetidos en la base, así que el bug está LATENTE y lo dispara el
+ * primer duplicado — justo lo que trae una importación de listas que se solapan.
+ *
+ * ⚠️ EL TELÉFONO YA NO PASA POR ACÁ: tiene su propia puerta (`primerLeadPorTelefono`),
+ * porque el mismo número escrito con y sin código de país es el mismo número y un
+ * `.eq` no lo ve. El email, en cambio, se compara entero: no hay un «sufijo de un
+ * email» que signifique lo mismo.
  *
  * Se pide `limit(2)` en lugar de `limit(1)` a propósito: con el MISMO viaje a la base
  * se sabe si había más de una fila, así que la ambigüedad no se elige en silencio.
@@ -425,23 +451,96 @@ export async function getLead(id: number): Promise<Lead | null> {
  */
 async function primerLeadPor(
   supabase: SupabaseClient,
-  columna: 'telefono_normalizado' | 'email',
+  columna: 'email',
   valor: string,
   donde: string,
 ): Promise<Lead | null> {
-  const comoSeLlama = columna === 'email' ? 'email' : 'teléfono';
   const { data, error } = await supabase
     .from('leads')
     .select('*')
     .eq(columna, valor)
     .order('id', { ascending: true })
     .limit(2);
-  if (error) throw new Error(`Error buscando lead por ${comoSeLlama}: ${error.message}`);
+  if (error) throw new Error(`Error buscando lead por email: ${error.message}`);
   const filas = (data ?? []) as Lead[];
   if (filas.length > 1) {
     console.warn(`[leads] ${donde}: hay más de un lead con el mismo ${columna} (ids ${filas.map((l) => l.id).join(', ')}, puede haber más) — se usa el más viejo`);
   }
   return filas[0] ?? null;
+}
+
+/**
+ * El lead de ESE teléfono, para las ingestas por las que el lead entra SOLO (#626).
+ *
+ * ⚠️ EL CRITERIO YA ESTABA TOMADO Y SE APLICABA EN LA MITAD DE LAS PUERTAS. «El mismo
+ * número con y sin código de país es el mismo número» es textual de
+ * `telefonoComparable`, y es lo que usan el alta manual (`duplicadosDeLead`, que FRENA
+ * con eso) y el inbox de WhatsApp (`lib/evolution-mensajes.ts`). Las ingestas —instant
+ * form de Meta, webhook de Calendly, ruteo de la R2— comparaban con `.eq`, o sea que al
+ * lead que entra SOLO se le aplicaba un criterio MÁS ESTRICTO que al que carga una
+ * persona: uno llega desde WhatsApp como `5219981234567` y el otro tipeado
+ * `9981234567`, y para el webhook eran dos personas. Resultado: una ficha nueva, y las
+ * DOS inalcanzables desde ahí en adelante — dos filas con el mismo
+ * `telefono_normalizado` rompen con PGRST116 el `.maybeSingle()` de la ingesta
+ * siguiente.
+ *
+ * Son DOS consultas y en este orden, igual que en el inbox y en el webhook de Chatwoot:
+ *
+ *   1. **Exacta.** Si hay, el sufijo no opina: así este cambio no puede volver ambiguo
+ *      ningún match que antes era limpio, y el tope de filas de la segunda no puede
+ *      esconder al exacto detrás de veinte parecidos.
+ *   2. **Sufijo de 10 dígitos**, sólo si la exacta no trajo nada. Un patrón trae
+ *      CANDIDATOS: quién es quién lo decide `elegirPorTelefono`, que vive sin
+ *      `server-only` en lib/leads-duplicados.ts para que tenga test.
+ *
+ * El email viaja para DESEMPATAR, no para matchear: con dos leads que terminan en los
+ * mismos diez dígitos (el teléfono de la recepción, un número reciclado por la
+ * operadora), el email del que entra es el único dato que dice cuál de los dos es. Sin
+ * él no se elige ninguno, y el lead entra como nuevo.
+ */
+async function primerLeadPorTelefono(
+  supabase: SupabaseClient,
+  telNorm: string,
+  donde: string,
+  emailDelQueEntra?: string | null,
+): Promise<Lead | null> {
+  // El patrón se arma con DÍGITOS y nada más. `normalizarTelefono` ya los deja así,
+  // pero `_` es comodín de un carácter en `like` y el teléfono es justo el campo donde
+  // entra texto tipeado a mano: si alguna vez llega con uno, el patrón dejaría de
+  // preguntar lo que dice preguntar.
+  const digitos = (telNorm || '').replace(/[^0-9]/g, '');
+  if (!digitos) return null;
+
+  const exacta = await supabase
+    .from('leads')
+    .select('*')
+    .eq('telefono_normalizado', digitos)
+    .order('id', { ascending: true })
+    .limit(2);
+  if (exacta.error) throw new Error(`Error buscando lead por teléfono: ${exacta.error.message}`);
+  let candidatos = (exacta.data ?? []) as Lead[];
+
+  const suf = telefonoComparable(digitos);
+  if (!candidatos.length && suf) {
+    const porSufijo = await supabase
+      .from('leads')
+      .select('*')
+      .like('telefono_normalizado', `%${suf}`)
+      .order('id', { ascending: true })
+      .limit(20);
+    if (porSufijo.error) throw new Error(`Error buscando lead por teléfono: ${porSufijo.error.message}`);
+    candidatos = (porSufijo.data ?? []) as Lead[];
+  }
+
+  const { elegido, ambiguos } = elegirPorTelefono(candidatos, digitos, emailDelQueEntra);
+  // El VALOR no va al log: es el teléfono de una persona. Van los ids, que es lo único
+  // que hace falta para ir a mirar cuáles son — y el veredicto, porque «se usa el más
+  // viejo» y «no se elige ninguno» mandan a mirar cosas distintas.
+  if (ambiguos.length) {
+    const veredicto = elegido ? `se usa el más viejo (${elegido.id})` : 'no se elige ninguno: entra como lead nuevo y se funden a mano';
+    console.warn(`[leads] ${donde}: hay más de un lead que termina en los mismos dígitos (ids ${ambiguos.join(', ')}) — ${veredicto}`);
+  }
+  return elegido;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -851,6 +950,72 @@ export async function updateLead(
 }
 
 /**
+ * COMPLETA un lead que ya existe con los campos que tiene VACÍOS (#623).
+ *
+ * Es el tercer destino de una fila repetida en el importador, además de saltearla y de
+ * duplicarla: reimportar la misma lista con una columna nueva —el teléfono que faltaba,
+ * la empresa— tenía que poder sumarle ese dato a la ficha que ya está en vez de crear
+ * una segunda.
+ *
+ * ⚠️ NO PISA NUNCA. Lo cargado gana sobre lo importado, siempre, y no es una preferencia
+ * de estilo: lo que hay en la ficha lo escribió una persona o lo trajo el proveedor
+ * (Calendly, Meta), y una lista en frío de 1.000 contactos es el dato MENOS fresco del
+ * repo. Un campo que se pisa desde un CSV no da error, no deja rastro en ninguna
+ * pantalla, y el teléfono que se perdió era la llave con la que ese lead matcheaba su
+ * chat de WhatsApp.
+ *
+ * ⚠️ EL TELÉFONO Y SU FORMA NORMALIZADA VIAJAN JUNTOS, y por eso no se preguntan por
+ * separado: `telefono_normalizado` es la llave de match de los webhooks, así que
+ * escribir uno sin el otro deja el número a la vista de la persona y al lead
+ * inencontrable para Calendly, Meta y el inbox. Se exige que los DOS estén vacíos.
+ *
+ * Devuelve los RÓTULOS de lo que llenó —vacío si no había nada que llenar—, porque el
+ * llamador tiene que poder contar la diferencia: «completé 3 fichas» y «no había nada
+ * que completar» son dos resultados distintos, y con un booleano se ven iguales.
+ *
+ * El cambio queda en el HISTORIAL del lead con su autor, como cualquier otra edición:
+ * una escritura sobre una ficha que alguien viene trabajando sin una línea que diga de
+ * dónde salió es exactamente la fusión en silencio que `avisarFusion` vino a cerrar.
+ */
+export async function enriquecerLead(
+  id: number,
+  datos: { nombre?: string | null; email?: string | null; telefono?: string | null; empresa?: string | null },
+  autor = 'Importación',
+): Promise<string[]> {
+  const supabase = (await getTenantDb());
+  // El estado contra el que se decide se RELEE de la base: el índice de duplicados se
+  // armó antes de empezar el bucle, y entre eso y esta escritura pudo entrar un webhook.
+  const actual = await getLead(id);
+  if (!actual) throw new Error(`Lead ${id} no existe`);
+
+  // QUÉ se completa lo decide `camposParaCompletar` (lib/leads-duplicados.ts, sin
+  // `server-only`): la regla «lo cargado gana, solo se rellena lo vacío» es lo único
+  // que se puede equivocar acá, así que vive donde un test la puede EJECUTAR. De este
+  // lado queda sólo escribirla.
+  const campos = camposParaCompletar(actual, datos);
+  if (!campos.length) return [];
+
+  const payload: Record<string, unknown> = {};
+  for (const c of campos) {
+    payload[c.columna] = c.valor;
+    // La llave de match viaja con el teléfono o no viaja: un lead con el número a la
+    // vista y sin `telefono_normalizado` es invisible para Calendly, Meta y el inbox.
+    if (c.columna === 'telefono') payload.telefono_normalizado = normalizarTelefono(c.valor);
+  }
+  const llenados = campos.map((c) => c.label);
+
+  const { data, error } = await supabase
+    .from('leads')
+    .update(payload)
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw new Error(`Error completando el lead ${id}: ${error.message}`);
+  await logLeadChanges(id, actual, data as Lead, autor);
+  return llenados;
+}
+
+/**
  * Borra un lead. Hard delete — no hay soft delete en el esquema actual.
  */
 export async function deleteLead(id: number): Promise<void> {
@@ -896,6 +1061,12 @@ export async function upsertLeadFromMeta(input: {
   meta_ad_name?: string | null;
   meta_campaign_name?: string | null;
   meta_adset_name?: string | null;
+  /** Las respuestas crudas del formulario. Vacío NO borra lo guardado (ver abajo). */
+  meta_field_data?: MetaFieldData | null;
+  /** El `created_time` de Meta: ISO de Graph o el entero en segundos del webhook. */
+  meta_created_at?: string | number | null;
+  /** Los `name` que el parser no reconoció. Van al historial del lead, no a una pantalla nueva. */
+  meta_campos_no_reconocidos?: string[];
 }): Promise<{ created: boolean; lead: Lead }> {
   if (!input.meta_lead_id) {
     throw new Error('meta_lead_id es requerido');
@@ -923,10 +1094,18 @@ export async function upsertLeadFromMeta(input: {
 
   // 3) Buscar existente por teléfono O email
   let existing: Lead | null = null;
-  if (telNorm) existing = await primerLeadPor(supabase, 'telefono_normalizado', telNorm, 'instant form de Meta');
+  if (telNorm) existing = await primerLeadPorTelefono(supabase, telNorm, 'instant form de Meta', emailNorm);
   if (!existing && emailNorm) existing = await primerLeadPor(supabase, 'email', emailNorm, 'instant form de Meta');
 
   // Campos de Meta — siempre se escriben (es info nueva de atribución)
+  //
+  // ⚠️ LAS DOS COLUMNAS CRUDAS NO LLEVAN `?? null`, Y ESO ES EL MECANISMO.
+  // `columnasCrudasDeMeta` devuelve la clave SÓLO si esta ingesta trae el dato, así
+  // que en el UPDATE de un lead que ya existía una ingesta sin respuestas deja la
+  // columna como estaba y gana lo guardado. Escritas como las cinco de arriba, una
+  // ingesta posterior le BORRARÍA al lead el field_data que Meta ya no tiene: lo
+  // borra a los 90 días y no se recupera de ningún lado. La condición vive en
+  // lib/meta-leads-campos.ts —sin `server-only`— para que se pueda ejecutar en un test.
   const metaFields = {
     meta_lead_id: input.meta_lead_id,
     meta_ad_id: input.meta_ad_id ?? null,
@@ -934,6 +1113,19 @@ export async function upsertLeadFromMeta(input: {
     meta_campaign_name: input.meta_campaign_name ?? null,
     meta_adset_name: input.meta_adset_name ?? null,
     origen_lead: 'instant_form',
+    ...columnasCrudasDeMeta({ fieldData: input.meta_field_data, createdTime: input.meta_created_at }),
+  };
+
+  /**
+   * Lo que el parser NO reconoció queda escrito en el historial del lead, que es
+   * donde alguien lo lee. Las respuestas enteras ya están en `meta_field_data`; esta
+   * línea es la que hace que «no llegó» y «lo tiramos nosotros» dejen de verse
+   * iguales. Queda DESPUÉS de la idempotencia de arriba a propósito: un reintento de
+   * Meta sobre el mismo leadgen_id no vuelve a estampar la misma línea.
+   */
+  const dejarRastroDeDescartes = async (leadId: number) => {
+    const rastro = rastroDescartes(input.meta_campos_no_reconocidos ?? []);
+    if (rastro) await logLeadEvent(leadId, CAMPO_RESPUESTAS_META, rastro, 'Meta');
   };
 
   if (existing) {
@@ -961,6 +1153,7 @@ export async function upsertLeadFromMeta(input: {
       .single();
     if (error) throw new Error(`Error actualizando lead ${existing.id} desde Meta: ${error.message}`);
     await avisarFusion('Meta', data as Lead, existing.email ? 'mismo email' : 'mismo teléfono');
+    await dejarRastroDeDescartes(existing.id);
     return { created: false, lead: data as Lead };
   }
 
@@ -980,6 +1173,7 @@ export async function upsertLeadFromMeta(input: {
     .select('*')
     .single();
   if (error) throw new Error(`Error creando lead desde Meta: ${error.message}`);
+  await dejarRastroDeDescartes((data as Lead).id);
   return { created: true, lead: data as Lead };
 }
 
@@ -994,7 +1188,7 @@ export async function findLeadByContacto(
   const supabase = (await getTenantDb());
   const telNorm = normalizarTelefono(telefono);
   if (telNorm) {
-    const porTel = await primerLeadPor(supabase, 'telefono_normalizado', telNorm, 'findLeadByContacto');
+    const porTel = await primerLeadPorTelefono(supabase, telNorm, 'findLeadByContacto', email);
     if (porTel) return porTel;
   }
   const emailNorm = email?.trim().toLowerCase();
@@ -1370,7 +1564,7 @@ export async function upsertLeadFromCalendly(
   // Match 4B-bis: primero por teléfono normalizado (la señal más confiable
   // — la comparte con el instant form de Meta), después por email.
   let existing: Lead | null = null;
-  if (telNorm) existing = await primerLeadPor(supabase, 'telefono_normalizado', telNorm, 'webhook de Calendly');
+  if (telNorm) existing = await primerLeadPorTelefono(supabase, telNorm, 'webhook de Calendly', emailNorm);
   if (!existing) existing = await primerLeadPor(supabase, 'email', emailNorm, 'webhook de Calendly');
 
   // Base de payload — campos de contacto / agenda.
@@ -1869,17 +2063,30 @@ export async function getLeadRespuestas(lead: Lead): Promise<{ R1: RespuestaQA[]
 
 // ── Timeline de comportamiento por lead (tab Tracking) ──────────────────────
 // Merge cronológico de landing_visits + vsl_events del visitor: cada visita a
-// la landing (con URL si la manda el beacon nuevo), cada play del VSL y los
-// hitos de retención/abandono, todos con fecha y hora reales (created_at).
+// la landing (con URL si la manda el beacon nuevo), cada play del VSL, los
+// hitos de retención/abandono y cada CLIC en un botón o un link (con qué se
+// apretó), todos con fecha y hora reales (created_at).
 
 export type TrackingEvent = {
   ts: string;                                   // ISO
-  tipo: 'pageview' | 'play' | 'retencion' | 'exit';
+  tipo: 'pageview' | 'play' | 'retencion' | 'exit' | 'click';
   porcentaje: number | null;                    // retención/abandono
   landing_url: string | null;
   referrer: string | null;
   video_id: string | null;
   vsl_titulo: string | null;
+  /**
+   * QUÉ se clickeó, para `tipo: 'click'`. Sale tal cual de `vsl_events.detalle`
+   * (mig 0133), que el snippet escribe con el destino PRIMERO y el texto del botón
+   * después: `ancla #registro — Ver precios`, `https://wa.me/52… — Escríbenos`, o
+   * `boton: Agendar ahora` cuando el elemento no tiene href.
+   *
+   * `null` en todos los demás tipos, y eso es información: un evento de video no
+   * tiene detalle. Por eso la columna nació aparte de `vsl_titulo` en vez de
+   * reusarla — son dos preguntas («cómo se llama el video» vs «qué se clickeó») y
+   * meterlas en el mismo campo es cómo se pierde una de las dos.
+   */
+  detalle: string | null;
 };
 
 export async function getTrackingEvents(visitorId: string | null, limit = 120): Promise<TrackingEvent[]> {
@@ -1893,16 +2100,16 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
         .order('created_at', { ascending: false })
         .limit(limit),
       supabase.from('vsl_events')
-        .select('created_at, tipo_evento, porcentaje, event, video_id, vsl_titulo')
+        .select('created_at, tipo_evento, porcentaje, event, video_id, vsl_titulo, detalle')
         .eq('visitor_id', visitorId)
         .order('created_at', { ascending: false })
         .limit(limit),
     ]);
     const out: TrackingEvent[] = [];
     for (const v of (visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null; referrer: string | null }>) {
-      out.push({ ts: v.created_at, tipo: 'pageview', porcentaje: null, landing_url: v.landing_url, referrer: v.referrer, video_id: null, vsl_titulo: null });
+      out.push({ ts: v.created_at, tipo: 'pageview', porcentaje: null, landing_url: v.landing_url, referrer: v.referrer, video_id: null, vsl_titulo: null, detalle: null });
     }
-    for (const e of (eventos.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; event: string | null; video_id: string | null; vsl_titulo: string | null }>) {
+    for (const e of (eventos.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; event: string | null; video_id: string | null; vsl_titulo: string | null; detalle: string | null }>) {
       const esPlay = e.tipo_evento === 'play' || e.event === 'vsl_play';
       // ⚠️ LO QUE NO ES DE VIDEO NO ENTRA. Esta línea de tiempo tiene cuatro tipos
       // y todo lo que no era play ni exit caía en 'retencion', que la tarjeta del
@@ -1916,11 +2123,50 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
       // aplicar acá. Los eventos de página no se pierden —están en la base y en el
       // panel de la prueba—; lo que no se hace es disfrazarlos de retención. El día
       // que la tarjeta tenga un renglón propio para ellos, se agregan con su tipo.
-      if (!esPlay && !esEventoDeVideo(e.tipo_evento)) continue;
-      const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
-      out.push({ ts: e.created_at, tipo, porcentaje: e.porcentaje, landing_url: null, referrer: null, video_id: e.video_id, vsl_titulo: e.vsl_titulo });
+      //
+      // ── EL CLIC YA TIENE SU RENGLÓN (tarea #701) ──────────────────────────────
+      // Los clics eran lo único de esa lista que ya estaba GUARDADO con el dato
+      // adentro: `vsl_events.detalle` dice qué se apretó desde la mig 0133, y el
+      // snippet lo manda desde la v6. O sea que no faltaba capturar nada — faltaba
+      // dejarlos pasar y que `TrackingTimelineCard` les diera su propia frase. Para
+      // una landing cuyo CTA es un ancla o un link de WhatsApp, el clic ES el
+      // embudo: entre «entró» y «dejó sus datos» no había ningún punto intermedio.
+      //
+      // `salio`, `volvio`, `cierre` y `agendo` siguen afuera, y siguen afuera por lo
+      // mismo que dice el párrafo de arriba: no tienen renglón propio todavía.
+      const esClick = e.tipo_evento === 'click';
+      if (!esPlay && !esClick && !esEventoDeVideo(e.tipo_evento)) continue;
+      const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : esClick ? 'click' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
+      out.push({
+        ts: e.created_at, tipo,
+        // Un clic no tiene porcentaje y el snippet no lo manda, así que en la base es
+        // NULL. Se fuerza igual: si algún día alguien escribe un 0 ahí, la tarjeta no
+        // puede ponerse a escribir «0%» sobre un clic — es la misma mezcla de unidades
+        // que `avanceDe` ya tuvo que cortar (segundos de PÁGINA como % de VIDEO).
+        porcentaje: esClick ? null : e.porcentaje,
+        landing_url: null, referrer: null,
+        video_id: esClick ? null : e.video_id,
+        vsl_titulo: esClick ? null : e.vsl_titulo,
+        detalle: esClick ? e.detalle : null,
+      });
     }
     out.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+    // ⚠️ EL TOPE ES POR TABLA Y SE APLICA EN LA BASE, ANTES DE ESTE FILTRO: las dos
+    // consultas de arriba piden `limit` filas cada una y acá se descarta lo que no
+    // tiene renglón. Así que un visitante con más de `limit` filas en `vsl_events`
+    // puede quedarse sin los clics aunque los tenga, porque los `salio`/`volvio`/
+    // `cierre` más recientes se comieron la cuota — y el corte no deja rastro: la
+    // ficha muestra menos eventos y se lee igual que un lead poco activo.
+    //
+    // No se puede acotar por tipo en la consulta: los hitos son `pNN`/`sNN` con NN
+    // abierto (los segundos de Panda no tienen techo), así que no hay lista que
+    // enumerarle al `.in()`, y el `play` viejo viene con `tipo_evento` NULL y la
+    // marca en `event`. Queda medido y escrito acá; el arreglo es otra consulta.
+    //
+    // Y este `slice` final recorta la MEZCLA: con los clics adentro, un lead que
+    // apretó muchos botones puede empujar sus visitas a la landing fuera de los
+    // `limit` que se devuelven. El caller que necesita más pide más (la API de MaKo
+    // pide 200 y corta a 60 ella misma, lib/api-mako/areas/crm.run.ts).
     return out.slice(0, limit);
   } catch {
     return [];

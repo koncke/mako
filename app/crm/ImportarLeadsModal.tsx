@@ -137,9 +137,14 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
     setErr(null);
     importarLeadsRevisadosAction(filas, funnelId)
       .then((r) => {
-        if (!r.creados && r.errores.length) { setErr(r.errores[0]); setCargando(false); return; }
+        // «Completé 2 fichas» es un resultado, así que un error con 0 creados y 2
+        // completadas NO es una importación fallida: antes se mostraba el error y se
+        // tiraba el único hecho de la corrida.
+        if (!r.creados && !r.enriquecidos && r.errores.length) { setErr(r.errores[0]); setCargando(false); return; }
         const extra = r.errores.length ? ` · ${r.errores.length} con error` : '';
-        onListo(`✓ ${r.creados} lead${r.creados === 1 ? '' : 's'} nuevo${r.creados === 1 ? '' : 's'} · ${r.omitidos} omitido${r.omitidos === 1 ? '' : 's'}${extra}`);
+        // Dos hechos distintos, dos números: una ficha completada no es un lead nuevo.
+        const completadas = r.enriquecidos ? ` · ${r.enriquecidos} completada${r.enriquecidos === 1 ? '' : 's'}` : '';
+        onListo(`✓ ${r.creados} lead${r.creados === 1 ? '' : 's'} nuevo${r.creados === 1 ? '' : 's'}${completadas} · ${r.omitidos} omitido${r.omitidos === 1 ? '' : 's'}${extra}`);
       })
       .catch((e) => { setErr(e instanceof Error ? e.message : 'No se pudo importar'); setCargando(false); });
   };
@@ -148,7 +153,14 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
 
 
   const enUltimo = paso === 1;
-  const puede = paso === 0 ? !!file && !err : c.tildadas > 0;
+  /**
+   * Cuántas filas HACEN algo. No es `c.tildadas`: desde #623 una fila repetida puede
+   * completar la ficha que ya está en vez de crear una nueva, y con el botón colgado
+   * sólo de las que se crean, una importación de puras fichas a completar decía «No hay
+   * nada tildado» sobre una pantalla con todo tildado.
+   */
+  const haceAlgo = c.tildadas + c.aEnriquecer;
+  const puede = paso === 0 ? !!file && !err : haceAlgo > 0;
 
   // ── Paso 1: el archivo ─────────────────────────────────────────────────────
 
@@ -273,7 +285,12 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
       pending={cargando}
       puedeAvanzar={origen === 'producto' && paso === 0 ? false : puede}
       enUltimo={enUltimo}
-      confirmLabel={c.tildadas > 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →` : 'No hay nada tildado'}
+      // El botón promete LO QUE EL SERVER VA A HACER, y son dos cosas: crear y
+      // completar. Prometer sólo una es cómo el rótulo decía 80 y entraban 80 más.
+      confirmLabel={haceAlgo === 0 ? 'No hay nada tildado'
+        : c.aEnriquecer === 0 ? `Crear ${c.tildadas} lead${c.tildadas === 1 ? '' : 's'} →`
+        : c.tildadas === 0 ? `Completar ${c.aEnriquecer} ficha${c.aEnriquecer === 1 ? '' : 's'} →`
+        : `Crear ${c.tildadas} · completar ${c.aEnriquecer} →`}
       siguienteLabel="Revisar →"
       atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'}
       onAtras={() => (paso === 0 ? onClose() : setPaso(0))}

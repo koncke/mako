@@ -10,6 +10,7 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead, FathomLink, RespuestaQA } from '@/lib/leads';
 import type { MiembroEquipo } from '../actions';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
+import { AgendarR2 } from './AgendarR2';
 
 const iniciales = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -142,6 +143,17 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             respuestas={r2}
           />
         )}
+        {/* ⚠️ AL LADO DE LAS REUNIONES Y SÓLO SI TODAVÍA NO HAY R2. El caso que
+            esto resuelve es salir de la R1 con la segunda reunión ya agendada, así
+            que con una R2 encima el botón ofrecería una segunda — reagendar es
+            otra cosa y se hace desde el wizard de etapa.
+
+            Y `sin_r2` lo apaga igual: es «cierre sin Reunión 2», o sea una persona
+            que ya declaró que esta venta no la lleva. Ofrecerle agendarla es
+            ofrecerle deshacer una decisión que tomó en otra pantalla.
+
+            El control se apaga solo si el negocio no puede usarlo (ver AgendarR2). */}
+        {!tuvoR2 && !lead.sin_r2 && <AgendarR2 leadId={lead.id} email={lead.email ?? null} />}
       </div>
 
       {/* Closer · Setter · Confirmación en recuadros que llegan hasta el ancho. */}

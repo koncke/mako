@@ -143,6 +143,67 @@ export function patronesDeNombre(nombre: string): string[] {
 }
 
 /**
+ * Los candidatos que un patrón de SUFIJO trajo, y cuál de ellos es el mismo teléfono.
+ *
+ * ⚠️ UN PATRÓN TRAE CANDIDATOS; QUIÉN ES QUIÉN LO DECIDE ESTA COMPARACIÓN. `like
+ * '%<últimos 10>'` es flojo a propósito —es lo que hace que `+52 998…` y `998…` sean
+ * el mismo número— y por eso mismo puede traer de más: un IGSID de Instagram también
+ * termina en diez dígitos. Elegir `[0]` del patrón es escribirle los datos de una
+ * persona en la ficha de otra, y de eso no queda rastro.
+ *
+ * El orden es el de siempre, de más concluyente a menos:
+ *
+ *   1. **Igualdad exacta del normalizado.** Es lo que hacían las ingestas antes de que
+ *      existiera el sufijo, así que acá no se introduce ninguna ambigüedad nueva: si
+ *      hay exactos, el sufijo no opina. Con dos exactos gana el más VIEJO (la ficha
+ *      original, la que viene trabajando el equipo), que es la decisión que ya estaba
+ *      tomada y escrita en `primerLeadPor`.
+ *   2. **Un solo candidato por sufijo** → ése. Es el caso que el sufijo viene a ganar.
+ *   3. **Varios por sufijo** → se desempata con un DATO: el email del que entra. Si
+ *      eso resuelve a uno, es ése.
+ *   4. **Sigue habiendo varios** → NO SE ELIGE. Crear una ficha de más es reversible
+ *      (alguien las funde desde `duplicadosDeLead`); escribir la agenda, las
+ *      respuestas y la atribución de Meta ENCIMA de la persona equivocada no lo es, y
+ *      no deja ni una línea en el historial que lo diga.
+ *
+ * `ambiguos` sale aparte para que el caller pueda dejar el rastro con los ids. El
+ * teléfono no va al log: es el de una persona.
+ */
+export type CandidatoPorTelefono = {
+  id: number;
+  email?: string | null;
+  telefono_normalizado: string | null;
+};
+
+export function elegirPorTelefono<T extends CandidatoPorTelefono>(
+  candidatos: T[],
+  telNorm: string,
+  emailDelQueEntra?: string | null,
+): { elegido: T | null; ambiguos: number[] } {
+  const masViejo = (xs: T[]): T => xs.reduce((a, b) => (b.id < a.id ? b : a));
+  const digitos = (v: unknown) => limpio(v).replace(/[^0-9]/g, '');
+
+  const buscado = digitos(telNorm);
+  if (!buscado) return { elegido: null, ambiguos: [] };
+
+  const exactos = candidatos.filter((l) => digitos(l.telefono_normalizado) === buscado);
+  if (exactos.length) {
+    return { elegido: masViejo(exactos), ambiguos: exactos.length > 1 ? exactos.map((l) => l.id) : [] };
+  }
+
+  const suf = telefonoComparable(buscado);
+  if (!suf) return { elegido: null, ambiguos: [] };
+  const porSufijo = candidatos.filter((l) => telefonoComparable(l.telefono_normalizado) === suf);
+  if (porSufijo.length === 1) return { elegido: porSufijo[0], ambiguos: [] };
+  if (!porSufijo.length) return { elegido: null, ambiguos: [] };
+
+  const email = emailComparable(emailDelQueEntra);
+  const porEmail = email ? porSufijo.filter((l) => emailComparable(l.email) === email) : [];
+  if (porEmail.length === 1) return { elegido: porEmail[0], ambiguos: [] };
+  return { elegido: null, ambiguos: porSufijo.map((l) => l.id) };
+}
+
+/**
  * Los leads que parecen el mismo que el candidato.
  *
  * ⚠️ Devuelve TODAS las coincidencias, no la primera. Con dos parecidos, decir
@@ -198,6 +259,61 @@ export function textoDuplicado(cs: Coincidencia[], producto?: string | null): st
   // nada es peor que no decirlo, y el techo de un aviso es una frase.
   const donde = producto ? ` en ${producto}` : '';
   return `Ya tienes a «${quien}»${resto}${donde} con el ${c.texto.replace(/^mismo /, '')}.`;
+}
+
+/**
+ * QUÉ CAMPOS SE LE PUEDEN COMPLETAR a un lead que ya existe (#623), y el nombre dice el
+ * alcance: **solo los que tiene VACÍOS**.
+ *
+ * ⚠️ LO CARGADO GANA SOBRE LO IMPORTADO, SIEMPRE, y no es una preferencia de estilo. Lo
+ * que está en la ficha lo escribió una persona o lo trajo el proveedor (Calendly, Meta,
+ * el inbox de WhatsApp); una lista en frío reimportada es el dato MENOS fresco que entra
+ * al CRM. Un campo pisado desde un CSV no da error, no deja rastro en ninguna pantalla,
+ * y si el campo era el teléfono, lo que se perdió es la llave con la que ese lead
+ * matcheaba su chat.
+ *
+ * ⚠️ EL TELÉFONO Y SU FORMA NORMALIZADA SON UN SOLO CAMPO PARA ESTA DECISIÓN.
+ * `telefono_normalizado` es la llave de match de los webhooks, así que un lead con la
+ * llave puesta y el `telefono` vacío NO está vacío: completarlo con otro número lo
+ * dejaría con un teléfono a la vista y matcheando por otro. Se exige que los dos estén
+ * vacíos.
+ *
+ * Devuelve la LISTA de lo que llenaría, con su rótulo. Vacía = no hay nada que
+ * completar, que es un resultado distinto de «lo completé» y el llamador tiene que
+ * poder contarlos aparte.
+ */
+export type FichaExistente = {
+  nombre?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  telefono_normalizado?: string | null;
+  empresa?: string | null;
+};
+
+export type CampoCompletado = {
+  columna: 'nombre' | 'email' | 'telefono' | 'empresa';
+  /** Cómo se llama en el historial del lead. */
+  label: string;
+  valor: string;
+};
+
+export function camposParaCompletar(actual: FichaExistente, datos: FichaExistente): CampoCompletado[] {
+  const vacio = (v: unknown) => limpio(v) === '';
+  const out: CampoCompletado[] = [];
+  const completar = (columna: 'nombre' | 'email' | 'empresa', label: string, valor: string) => {
+    if (!valor || !vacio(actual[columna])) return;
+    out.push({ columna, label, valor });
+  };
+  completar('nombre', 'Nombre', limpio(datos.nombre));
+  // El email se guarda en minúsculas en todo el repo (es la llave de match del webhook
+  // de Calendly): completar con la caja del CSV dejaría una fila que no matchea.
+  completar('email', 'Email', emailComparable(datos.email) ?? '');
+  completar('empresa', 'Empresa', limpio(datos.empresa));
+  const tel = limpio(datos.telefono);
+  if (tel && vacio(actual.telefono) && vacio(actual.telefono_normalizado)) {
+    out.push({ columna: 'telefono', label: 'Teléfono', valor: tel });
+  }
+  return out;
 }
 
 /** El error que frena el alta cuando hay un duplicado y nadie lo autorizó.
