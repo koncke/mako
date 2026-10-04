@@ -20,8 +20,15 @@ import Link from '@/app/_ui/Link';
 import {
   MEDIDO, DESDE, HASTA, HITOS, CIFRAS, ESCALONES, CUENTA,
   RIESGOS_MECANISMO, RIESGOS_SUPUESTOS, ROTO_HOY, CONTRADICCIONES,
-  CRM_ENTRA, CRM_SALE, CRM_SEVAN, CRM_SIN_TARJETA, CRM_DECISIONES,
+  CRM_VEREDICTOS, CRM_NUEVA, CRM_SIN_TARJETA, CRM_DECISIONES, VEREDICTO_LABEL,
+  type Veredicto,
 } from './datos';
+// El chip de prioridad es EL MISMO del tablero: la banda y el color salen de
+// `board/types`, no de una copia. Si mañana «alta» deja de ser 75, esta pantalla
+// se entera sola.
+import { prioFromScore, PCOLOR } from '@/app/plan/board/types';
+// Y las tareas salen del lector que ya usa /admin/dev, con su caché de 30 s.
+import { roadmapDe, wsDelBoard } from '@/app/admin/dev/roadmap';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,27 +43,14 @@ const pos = (f: string) => `${pct(f)}%`;
 // corta el scroller: la fecha más importante —el 15 DIC, cuando dejan de comprar—
 // quedaba pidiendo que alguien scrollee de costado para leerla. Los extremos se
 // anclan a su borde; sólo el medio se centra.
-/**
- * El reparto de las 25, y las horas de lo que queda. Se DERIVAN de las listas:
- * un número escrito a mano al lado de una lista es el que se queda viejo cuando
- * alguien mueve una tarjeta de grupo.
- */
+const anclaje = (p: number) => (p < 8 ? 'translateX(0)' : p > 92 ? 'translateX(-100%)' : 'translateX(-50%)');
+
 /**
  * Hoy, para lo único que se cuenta contra el reloj: los días que faltan y la
  * marca en el riel. La página es `force-dynamic`, así que se recalcula al abrir.
  */
 const HOY = new Date().toISOString().slice(0, 10);
 const faltan = (f: string) => Math.max(0, dia(f) - dia(HOY));
-
-const SALEN = CRM_SALE.reduce((a, g) => a + g.items.length, 0);
-const HORAS_ENTRA = CRM_ENTRA.reduce((a, f) => a + f.horas, 0);
-const REPARTO = [
-  { k: 'entran, con fecha', n: CRM_ENTRA.length, bg: 'var(--bad)', ink: '#fff' },
-  { k: 'se posponen', n: SALEN, bg: 'var(--surface-2)', ink: 'var(--ink)' },
-  { k: 'se van del tablero', n: CRM_SEVAN.length, bg: 'var(--good)', ink: '#fff' },
-];
-
-const anclaje = (p: number) => (p < 8 ? 'translateX(0)' : p > 92 ? 'translateX(-100%)' : 'translateX(-50%)');
 
 /**
  * El **negrita** de los textos de `datos.ts`.
@@ -93,11 +87,53 @@ function Lista({ items, malo }: { items: string[]; malo?: boolean }) {
   );
 }
 
+/** El chip de la decisión. Tres valores y nada más: no hay un cuarto estado. */
+const TONO: Record<Veredicto, { fg: string; bg: string }> = {
+  queda: { fg: 'var(--bad)', bg: 'color-mix(in srgb, var(--bad) 11%, transparent)' },
+  pospone: { fg: 'var(--dim)', bg: 'var(--surface-2)' },
+  va: { fg: 'var(--good)', bg: 'color-mix(in srgb, var(--good) 11%, transparent)' },
+};
+
+function Decision({ v }: { v: Veredicto | null }) {
+  if (!v) return <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>sin revisar</span>;
+  const t = TONO[v];
+  return (
+    <span style={{
+      display: 'inline-block', whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
+      fontSize: 12.5, fontWeight: 700, color: t.fg, background: t.bg,
+    }}>{VEREDICTO_LABEL[v]}</span>
+  );
+}
+
 export default async function RunwayPage() {
   // El mismo guard que /admin/docs: es el rol de AGENCIA, no `rol_ws` —que vale
   // 'admin' para el dueño de CADA workspace y abriría esto a todos los clientes.
   const admin = await getSesionAdmin();
   if (!admin) redirect('/inicio');
+
+  // ⚠️ El título y la PRIORIDAD salen del tablero en cada carga, no de `datos.ts`:
+  // el Perro recurva los scores todos los días, así que un número escrito acá
+  // estaría viejo mañana. Lo único propio de esta pantalla es el veredicto.
+  //
+  // Una tarea sin veredicto se dibuja igual, marcada «sin revisar»: entró después
+  // de la depuración, y esconderla sería mentir sobre cuántas hay.
+  // ⚠️ `roadmapDe` y NO `tareasDelCamino`: la segunda arranca con un
+  // `if (!TITULOS_PROPIOS[slug]) return []` y hoy esa tabla sólo tiene
+  // customer-success, así que para cualquier otra área devuelve vacío SIN MIRAR
+  // sus proyectos — un cero perfectamente válido sobre la pregunta equivocada.
+  const abiertas = (await roadmapDe('crm', wsDelBoard(admin.ws))).tareas
+    .filter((t) => t.proyecto === 'Feature: CRM');
+  const SIN_REVISAR: { que: Veredicto | null; motivo: string } = { que: null, motivo: 'Entró después de la depuración' };
+  const FILAS = abiertas
+    .map((t) => ({ num: t.num, titulo: t.titulo, score: t.score, ...(CRM_VEREDICTOS[t.num] ?? SIN_REVISAR) }))
+    .sort((a, b) => b.score - a.score);
+  const cuenta = (v: Veredicto) => FILAS.filter((f) => f.que === v).length;
+  const REPARTO = [
+    // +1 en «se queda»: la tarjeta nueva del pie, que todavía no existe en el tablero.
+    { k: 'se quedan', n: cuenta('queda') + 1, bg: 'var(--bad)', ink: '#fff' },
+    { k: 'se posponen', n: cuenta('pospone'), bg: 'var(--surface-2)', ink: 'var(--ink)' },
+    { k: 'se van del tablero', n: cuenta('va'), bg: 'var(--good)', ink: '#fff' },
+  ];
 
   return (
     <Pagina ancho="completo">
@@ -288,21 +324,18 @@ export default async function RunwayPage() {
       <h2 style={h2}>Roto hoy, y en ningún escalón del plan</h2>
       <div style={caja}><Lista items={ROTO_HOY} malo /></div>
 
-      {/* ── la depuración del CRM ── */}
-      <h2 style={h2}>La depuración del CRM · 25 tarjetas abiertas</h2>
-
-      {/* La proporción primero: el reparto se lee antes que cualquier lista. */}
+      {/* ── la depuración del CRM: UNA tabla, como la del tablero ── */}
+      <h2 style={h2}>El CRM · qué se hace con cada tarea</h2>
       <div style={caja}>
-        <div style={{ display: 'flex', height: 34, borderRadius: 8, overflow: 'hidden', gap: 2 }}>
+        <div style={{ display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden', gap: 2 }}>
           {REPARTO.map((r) => (
             <div key={r.k} style={{
-              flex: r.n, background: r.bg, color: r.ink, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: 13, fontWeight: 700, minWidth: 0,
-              fontVariantNumeric: 'tabular-nums',
+              flex: Math.max(r.n, 1), background: r.bg, color: r.ink, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 13, fontWeight: 700, minWidth: 0, fontVariantNumeric: 'tabular-nums',
             }}>{r.n}</div>
           ))}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12, fontSize: 13, color: 'var(--dim)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 11, fontSize: 13, color: 'var(--dim)' }}>
           {REPARTO.map((r) => (
             <span key={r.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
               <span aria-hidden style={{ width: 12, height: 12, borderRadius: 4, background: r.bg, display: 'inline-block' }} />
@@ -312,87 +345,65 @@ export default async function RunwayPage() {
         </div>
       </div>
 
-      {/* ── lo que sale, agrupado por el MOTIVO que lo saca ── */}
-      <h2 style={h2}>Lo que sale, y por qué</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-        {CRM_SALE.map((g) => (
-          <div key={g.motivo} style={caja}>
-            <h3 style={{ margin: '0 0 6px', fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.35 }}>
-              {g.motivo}
-            </h3>
-            <p style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{g.detalle}</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {g.items.map((it) => (
-                <li key={it.num} style={{ display: 'flex', gap: 9, fontSize: 13.5, lineHeight: 1.45 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none', paddingTop: 1 }}>#{it.num}</span>
-                  <span>{it.que}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <p style={{ margin: '14px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-        Ninguna se descarta: quedan <strong>pospuestas con su motivo escrito</strong>. Mezclar las dos
-        cosas es como vuelve el trabajo que se sacó.
-      </p>
-
-      {/* ── lo que queda adentro ── */}
-      <h2 style={h2}>Lo que queda, con fecha</h2>
-      <div style={{ ...caja, padding: 0, overflow: 'hidden' }}>
+      <div style={{ ...caja, padding: 0, overflow: 'hidden', marginTop: 14 }}>
         <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 520 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 760 }}>
             <thead>
-              <tr>{['Tarjeta', 'Qué falta', 'Cuándo', 'Horas'].map((t) => (
-                <th key={t} style={{ ...rotulo, textAlign: t === 'Horas' ? 'right' : 'left', padding: '11px 14px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>{t}</th>
-              ))}</tr>
+              <tr>
+                {[
+                  { t: 'Tarea', w: '36%' }, { t: 'Prioridad', w: '1%' },
+                  { t: 'Qué hacemos', w: '1%' }, { t: 'Por qué', w: '' },
+                ].map((c) => (
+                  <th key={c.t} style={{
+                    ...rotulo, textAlign: 'left', padding: '11px 14px', fontWeight: 600,
+                    borderBottom: '1px solid var(--border)', width: c.w || undefined, whiteSpace: 'nowrap',
+                  }}>{c.t}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
-              {CRM_ENTRA.map((f) => (
+              {FILAS.map((f) => (
                 <tr key={f.num}>
-                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>
-                    {f.num ? '#' + f.num : 'nueva'}
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', lineHeight: 1.4 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>#{f.num}</span>{' '}
+                    {f.titulo}
                   </td>
-                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>{f.linea}</td>
-                  <td style={{
-                    padding: '10px 14px', borderTop: '1px solid var(--border)', whiteSpace: 'nowrap',
-                    fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--bad)',
-                  }}>{f.cuando}</td>
-                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--dim)' }}>{f.horas}</td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums', color: PCOLOR[prioFromScore(f.score)],
+                      border: `1px solid ${PCOLOR[prioFromScore(f.score)]}`,
+                      background: `color-mix(in srgb, ${PCOLOR[prioFromScore(f.score)]} 10%, transparent)`,
+                    }}>{f.score}</span>
+                  </td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
+                    <Decision v={f.que} />
+                  </td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', color: 'var(--dim)', lineHeight: 1.4 }}>
+                    {f.motivo}
+                  </td>
                 </tr>
               ))}
+              {/* La que no existe todavía: sin número, y por eso al pie. */}
               <tr>
-                <td colSpan={3} style={{ ...rotulo, padding: '10px 14px', borderTop: '1px solid var(--border-strong)' }}>En total</td>
-                <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border-strong)', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                  {HORAS_ENTRA}
+                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', lineHeight: 1.4 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--bad)', fontWeight: 700 }}>NUEVA</span>{' '}
+                  {CRM_NUEVA.titulo}
+                </td>
+                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', color: 'var(--faint)' }}>—</td>
+                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)' }}><Decision v="queda" /></td>
+                <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border-strong)', color: 'var(--dim)', lineHeight: 1.4 }}>
+                  {CRM_NUEVA.motivo}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div style={{
-        marginTop: 14, borderLeft: '3px solid var(--bad)', padding: '12px 15px',
-        background: 'var(--surface)', borderRadius: '0 10px 10px 0', fontSize: 14, lineHeight: 1.55,
-      }}>
-        <strong>La única nueva es un bug vivo desde el 14 de agosto.</strong> La fila repetida se dibuja
-        gris, con la casilla vacía y el cartel «ya existe», y se crea igual con la guarda anti-duplicado
-        apagada. El botón dice «Crear 80 leads» y entran 80 más las repetidas — y el contador no lo puede
-        delatar, porque cuenta bien. Con tres bases que se solapan, cada repetido entra dos veces.
-      </div>
-
-      {/* ── las que se van ── */}
-      <h2 style={h2}>Se van del tablero</h2>
-      <div style={caja}>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 13 }}>
-          {CRM_SEVAN.map((t) => (
-            <li key={t.num} style={{ fontSize: 14, lineHeight: 1.5 }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>#{t.num}</span>{' '}
-              <strong>{t.titulo}</strong> — <Marcado t={t.porque} />
-            </li>
-          ))}
-        </ul>
-      </div>
+      <p style={{ margin: '14px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+        Lo que se pospone <strong>no se descarta</strong>: queda con su motivo escrito. Mezclar las dos
+        cosas es como vuelve el trabajo que se sacó. La prioridad sale del tablero al abrir esta pantalla.
+      </p>
 
       {/* ── el agujero: lo que no tiene tarjeta ── */}
       <h2 style={h2}>Lo que el 17 de octubre necesita y no tiene tarjeta</h2>

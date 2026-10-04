@@ -92,6 +92,12 @@ const normTitulo = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase();
 
 export async function tareasDelCamino(slug: string, ws: number): Promise<TareaRoadmap[]> {
+  // ⚠️ SIN ENTRADA EN `TITULOS_PROPIOS` ESTA FUNCIÓN NO CONTESTA NADA, ni siquiera
+  // los proyectos que el área declara — hoy la tabla tiene UNA clave, así que para
+  // las otras 121 áreas el `[]` significa «no te puedo contestar», no «no hay
+  // tareas». Para las tareas de un área cualquiera va `roadmapDe`. Pagado el
+  // 04/10/2026: la tabla del CRM de /admin/runway salió con cero filas sobre un
+  // proyecto con 25 abiertas, sin un error ni un log.
   const titulos = TITULOS_PROPIOS[slug];
   if (!titulos) return [];
   const area = AREAS.find((a) => a.slug === slug);

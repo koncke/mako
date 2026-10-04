@@ -118,80 +118,79 @@ export const ROTO_HOY = [
 ];
 
 // =============================================================================
-// La depuración del CRM — 25 tarjetas abiertas, medidas el 03/10 contra el código
+// La depuración del CRM — qué se hace con cada una de las 25 tarjetas abiertas
 // =============================================================================
-// Seis lectores las midieron una por una contra el repo, un cruzador buscó
-// solapes y lo que NO tenía tarjeta, y tres refutadores atacaron por separado los
-// «cerrar», los «posponer» y los «meter al P1» — cada uno con una vara distinta,
-// que es lo que hizo que esta vez cortara: la misma pregunta sin el marco del
-// runway se había hecho el 30/09 y dio 0 de 25 cerrables.
+// Medido el 03/10: seis lectores pasaron las 25 por el código una por una, un
+// cruzador buscó solapes y lo que NO tenía tarjeta, y tres refutadores atacaron
+// por separado los «se va», los «se pospone» y los «se queda» — cada uno con una
+// vara distinta, que es lo que hizo que esta vez cortara. La misma pregunta sin
+// el marco del runway se había hecho el 30/09 y dio 0 de 25 cerrables.
 //
-// El detalle de cada una, en docs/depuracion-crm-03oct.md.
+// ⚠️ ACÁ VIVE SÓLO EL VEREDICTO. El título, la prioridad y el deadline salen del
+// tablero en cada carga: el Perro recurva los scores todos los días, así que un
+// número escrito acá estaría viejo mañana. Es el mismo reparto que ya usa
+// app/admin/dev/crm/auditoria.ts.
+//
+// ⚠️ Y SE BORRA UNA FILA CUANDO LA TAREA SE CIERRA, en vez de corregirla: lo que
+// no está en el tablero no se dibuja, y lo que está sin veredicto sale marcado
+// como sin revisar — que es la verdad, no un hueco.
+//
+// El detalle de cada una, con archivo:línea, en docs/depuracion-crm-03oct.md.
 
-export type TareaCrm = { num: number; linea: string; cuando: string; horas: number };
+export type Veredicto = 'queda' | 'pospone' | 'va';
 
-export const CRM_ENTRA: TareaCrm[] = [
-  { num: 621, linea: 'Al importar toma el nombre y tira el apellido cuando vienen en dos columnas', cuando: '7 OCT', horas: 2 },
-  { num: 702, linea: 'El lead nace sin origen, y la lista del CRM nunca lo mira', cuando: '7 OCT', horas: 6 },
-  { num: 39, linea: 'Con una sola persona en el equipo el lead nace sin vendedor asignado', cuando: '7 OCT', horas: 2 },
-  { num: 38, linea: 'Al pegar la grabación de la 2ª reunión se borra el link de la 1ª', cuando: '7 OCT', horas: 5 },
-  { num: 174, linea: 'Conectar la agenda sin cargar las reuniones tira las citas sin un solo aviso', cuando: '7 OCT', horas: 4 },
-  { num: 0, linea: 'La importación crea el duplicado que la pantalla dice que descartó', cuando: '17 OCT', horas: 2 },
-];
+export const VEREDICTO_LABEL: Record<Veredicto, string> = {
+  queda: 'Se queda',
+  pospone: 'Se pospone',
+  va: 'Se va',
+};
 
-export type GrupoCrm = { motivo: string; detalle: string; items: { num: number; que: string }[] };
+export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string }> = {
+  // ── Se queda: sin esto, algo del plan no funciona ──
+  621: { que: 'queda', motivo: 'Sin apellido, la prospección entra con media identidad' },
+  702: { que: 'queda', motivo: 'Es lo único que separa los 1.000 en frío de los que llegan solos' },
+  39: { que: 'queda', motivo: 'Tu equipo es una persona: los 1.000 nacerían sin vendedor' },
+  38: { que: 'queda', motivo: 'Se pierde el link de la primera reunión, y hay que repegarlo a mano' },
+  174: { que: 'queda', motivo: 'Tu agenda no está conectada y la pantalla no lo dice' },
 
-/** Lo que SALE, agrupado por el motivo que lo saca. El motivo es el entregable. */
-export const CRM_SALE: GrupoCrm[] = [
-  {
-    motivo: 'Hay un camino a mano que aguanta hasta el 15/12',
-    detalle: 'Cuesta tiempo tuyo, no un lead ni un cobro.',
-    items: [
-      { num: 19, que: 'Cobranza automática por WhatsApp' },
-      { num: 697, que: 'El botón de mensualidad cobrada' },
-      { num: 800, que: 'Aviso de lead quieto' },
-      { num: 671, que: 'Agendar la 2ª reunión desde la ficha' },
-      { num: 622, que: 'Importar clientes que ya pagaron' },
-    ],
-  },
-  {
-    motivo: 'Sirve a un cliente que configura su embudo, no a estas seis semanas',
-    detalle: 'Hoy no hay ningún negocio en esa situación. Vende por llamada, con un solo embudo.',
-    items: [
-      { num: 798, que: 'Métricas del embudo de cada cliente' },
-      { num: 40, que: 'El recorrido con más de dos reuniones' },
-      { num: 332, que: 'Completar el formulario con lo que salió en la llamada' },
-      { num: 696, que: 'La casilla de «landing como entrada»' },
-    ],
-  },
-  {
-    motivo: 'El dato no se pierde: queda mal ubicado o invisible',
-    detalle: 'Se puede recuperar después. Con una excepción: lo de Meta caduca a los 90 días.',
-    items: [
-      { num: 6, que: 'Las respuestas del formulario de Facebook' },
-      { num: 701, que: 'Los clics de la landing en la ficha' },
-      { num: 623, que: 'Sumar el dato nuevo al reimportar' },
-      { num: 626, que: 'El mismo teléfono con y sin código de país' },
-    ],
-  },
-  {
-    motivo: 'No es programar: es escribir el texto y prender',
-    detalle: 'El mecanismo está. Falta el contenido y una decisión.',
-    items: [{ num: 18, que: 'La tanda de seguimiento a quien no compró' }],
-  },
-  {
-    motivo: 'Posponer es más seguro que hacerlo',
-    detalle: 'Apagar la automatización vieja cortaría los recordatorios que hoy le llegan al lead.',
-    items: [{ num: 20, que: 'Unificar las dos bases' }],
-  },
-];
+  // ── Se va: está hecho, o es la misma que otra ──
+  37: { que: 'va', motivo: 'En producción. Lo único vivo se midió: 0 casos reales en 10.137 visitantes' },
+  698: { que: 'va', motivo: 'Hecha: es un renglón, se ignora en lote y guardar nunca se bloquea' },
+  627: { que: 'va', motivo: 'Construido. Lo que falta —medir por producto— se escribe dentro de #798' },
+  15: { que: 'va', motivo: 'Es la misma que #40, que ya nombra el mismo pendiente' },
 
-export const CRM_SEVAN = [
-  { num: 37, titulo: 'Datos del trato', porque: 'Está en producción. Lo único vivo —que la ficha diga «no vio el video» sin saberlo— se midió hoy: **0 casos reales** en 10.137 visitantes.' },
-  { num: 698, titulo: 'Alerta de campos fiscales', porque: 'Hecha: ya es un renglón, se ignora de a uno o en lote, y guardar nunca se bloquea.' },
-  { num: 627, titulo: 'Embudo por producto', porque: 'Construido. Lo único que falta —medir por producto— se escribe **adentro de #798** antes de cerrarla.' },
-  { num: 15, titulo: 'Piloto del CRM automático', porque: 'Se funde en #40. Su número se guarda: **Mauricio rechazó 35 de las 69 propuestas** que resolvió, y 3 siguen pendientes.' },
-];
+  // ── Se pospone: hay camino a mano ──
+  19: { que: 'pospone', motivo: 'La cuota vencida ya sale en Comercial y se marca cobrada con un clic' },
+  697: { que: 'pospone', motivo: 'Se corrige a mano en la ficha — y el arreglo real es una línea' },
+  800: { que: 'pospone', motivo: 'El lead se mueve a mano. Vuelve si no prendes el motor automático' },
+  671: { que: 'pospone', motivo: 'La segunda reunión se agenda a mano: un minuto por reunión' },
+  622: { que: 'pospone', motivo: 'Tus 1.000 son fríos, no clientes pagos. Y se mueven a mano' },
+
+  // ── Se pospone: sirve a un cliente que configura su embudo ──
+  798: { que: 'pospone', motivo: 'Hoy ningún negocio tiene un embudo propio que medir' },
+  40: { que: 'pospone', motivo: 'Hoy nadie vende en tres reuniones' },
+  332: { que: 'pospone', motivo: 'Lo que dijo en la llamada ya se lee en la ficha, a pedido' },
+  696: { que: 'pospone', motivo: 'El formulario ya entra solo. Queda decidir si la casilla sigue haciendo falta' },
+
+  // ── Se pospone: el dato no se pierde ──
+  6: { que: 'pospone', motivo: 'Lo ÚNICO que se pierde de verdad: Meta lo borra a los 90 días' },
+  701: { que: 'pospone', motivo: 'Los clics ya están guardados: lo que falta es dibujarlos' },
+  623: { que: 'pospone', motivo: 'El contacto entra igual; lo que no se suma es el dato nuevo' },
+  626: { que: 'pospone', motivo: 'Duplica la ficha, no pierde el lead' },
+
+  // ── Se pospone: no es programar / es más seguro no tocarlo ──
+  18: { que: 'pospone', motivo: 'El mecanismo está. Falta escribir el texto y prenderlo' },
+  20: { que: 'pospone', motivo: 'Apagar la automatización vieja cortaría los recordatorios al lead' },
+};
+
+/**
+ * La única que NO está en el tablero: un bug vivo que la depuración encontró de
+ * paso. Se dibuja al pie de la tabla porque no tiene número hasta que se cree.
+ */
+export const CRM_NUEVA = {
+  titulo: 'La importación crea el duplicado que la pantalla dice que descartó',
+  motivo: 'Vivo desde el 14 de agosto. Con tres bases que se solapan, cada repetido entra dos veces',
+};
 
 /** Lo que el 17/10 necesita y no tiene tarjeta. No es código: son filas que faltan. */
 export const CRM_SIN_TARJETA = [
@@ -207,7 +206,7 @@ export const CRM_SIN_TARJETA = [
 export const CRM_DECISIONES = [
   '**¿Prendes el motor automático antes de importar?** De eso depende que #800 quede afuera: con 1.000 leads, darse cuenta de que uno está quieto abriendo su ficha no escala.',
   '**¿Filtras los 100 en la planilla, o importas los 1.000?** Si entran los 1.000, después hace falta separarlos y eso no existe.',
-  '**#697**, el botón que anota la cuota como impaga: sale como tarjeta, pero el arreglo es **una línea**. ¿De paso o pospuesto?',
+  '**#697**, el botón que anota la cuota como impaga: se pospone, pero el arreglo es **una línea**. ¿De paso o pospuesto?',
   '**«Agente: CRM automático»** sigue vivo con 0 tareas y parte en dos la respuesta a «¿dónde está lo del CRM?». ¿Se tacha?',
 ];
 

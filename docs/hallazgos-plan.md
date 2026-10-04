@@ -5612,3 +5612,42 @@ siempre después de crear; acá el orden ya estaba escrito, así que lo que sigu
 crear algo— es volver a escribir la escalera después.
 
 *2026-10-03 · aplicar-llamada-leila-01oct*
+
+## `tareasDelCamino` devuelve `[]` para 121 de las 122 áreas, y no es un error (04/10/2026)
+
+El nombre no lo dice y la firma tampoco: `tareasDelCamino(slug, ws)`
+(`app/admin/dev/roadmap.ts:94`) arranca con
+
+```ts
+const titulos = TITULOS_PROPIOS[slug];
+if (!titulos) return [];
+```
+
+y `TITULOS_PROPIOS` tiene **una sola clave**: `customer-success`. Para cualquier otra
+área devuelve vacío **sin mirar los proyectos que esa área declara**, que es
+justamente lo que el llamador cree estar pidiendo.
+
+Medido el 04/10 construyendo la tabla del CRM de `/admin/runway`: la pantalla salió
+con **cero filas** y el reparto en `1 / 0 / 0` sobre un proyecto que tiene 25 tareas
+abiertas. No hubo error, ni log, ni fila rara — una tabla vacía y un contador en
+cero, que se leen como «no hay nada que mostrar».
+
+La función correcta es **`roadmapDe(slug, ws)`** (`:63`), que sí cruza
+`area.proyectos` contra las tareas abiertas y devuelve `{ tareas, estado }`.
+
+**La regla ya está escrita en AGENTS.md** —«si el `[]` de una función significa DOS
+cosas, el caller tiene que preguntar CUÁL»— y esta vez la pagué desde el otro lado:
+no por escribir la función ambigua, sino por llamarla. Lo que la delata antes de
+mirar el código es **el cero redondo sobre un universo que sabés que no está vacío**:
+25 tarjetas que se acababan de leer con un script aparecieron como 0 en la pantalla.
+Un total que contradice una medición previa que se sabe buena es la señal más barata
+que existe.
+
+⚠️ **Y el comentario de arriba de `TITULOS_PROPIOS` explica para qué sirve, no para
+qué NO sirve.** Dice —con razón— que un camino cruza varios proyectos y que por eso
+hace falta el match por título. Lo que no dice es que sin entrada en esa tabla la
+función no contesta nada. Cuando una función tiene una salida temprana que depende de
+un catálogo incompleto, **el comentario que hace falta está en la salida temprana**,
+no en el catálogo.
+
+**Vive en:** `app/admin/dev/roadmap.ts:94-96` · *2026-10-04 runway-crm*
