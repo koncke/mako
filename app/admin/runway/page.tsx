@@ -19,7 +19,8 @@ import { Pagina, PageHeader } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import {
   MEDIDO, DESDE, HASTA, HITOS, CIFRAS, ESCALONES, CUENTA,
-  RIESGOS_MECANISMO, RIESGOS_SUPUESTOS, ROTO_HOY, CRM, CONTRADICCIONES,
+  RIESGOS_MECANISMO, RIESGOS_SUPUESTOS, ROTO_HOY, CONTRADICCIONES,
+  CRM_ENTRA, CRM_SALE, CRM_SEVAN, CRM_SIN_TARJETA, CRM_DECISIONES,
 } from './datos';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,26 @@ const pos = (f: string) => `${pct(f)}%`;
 // corta el scroller: la fecha más importante —el 15 DIC, cuando dejan de comprar—
 // quedaba pidiendo que alguien scrollee de costado para leerla. Los extremos se
 // anclan a su borde; sólo el medio se centra.
+/**
+ * El reparto de las 25, y las horas de lo que queda. Se DERIVAN de las listas:
+ * un número escrito a mano al lado de una lista es el que se queda viejo cuando
+ * alguien mueve una tarjeta de grupo.
+ */
+/**
+ * Hoy, para lo único que se cuenta contra el reloj: los días que faltan y la
+ * marca en el riel. La página es `force-dynamic`, así que se recalcula al abrir.
+ */
+const HOY = new Date().toISOString().slice(0, 10);
+const faltan = (f: string) => Math.max(0, dia(f) - dia(HOY));
+
+const SALEN = CRM_SALE.reduce((a, g) => a + g.items.length, 0);
+const HORAS_ENTRA = CRM_ENTRA.reduce((a, f) => a + f.horas, 0);
+const REPARTO = [
+  { k: 'entran, con fecha', n: CRM_ENTRA.length, bg: 'var(--bad)', ink: '#fff' },
+  { k: 'se posponen', n: SALEN, bg: 'var(--surface-2)', ink: 'var(--ink)' },
+  { k: 'se van del tablero', n: CRM_SEVAN.length, bg: 'var(--good)', ink: '#fff' },
+];
+
 const anclaje = (p: number) => (p < 8 ? 'translateX(0)' : p > 92 ? 'translateX(-100%)' : 'translateX(-50%)');
 
 /**
@@ -97,7 +118,7 @@ export default async function RunwayPage() {
             <p style={{
               margin: 0, fontSize: 'clamp(30px, 5vw, 42px)', fontWeight: 800, letterSpacing: '-0.03em',
               lineHeight: 1.05, fontVariantNumeric: 'tabular-nums', color: c.urge ? 'var(--bad)' : 'var(--ink)',
-            }}>{c.valor}</p>
+            }}>{c.faltanHasta ? `${faltan(c.faltanHasta)} días` : c.valor}</p>
             <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.45 }}>
               <Marcado t={c.detalle} />
             </p>
@@ -124,6 +145,17 @@ export default async function RunwayPage() {
               position: 'absolute', top: 84, height: 10, borderRadius: 5, left: pos('2026-11-01'), right: 0,
               background: 'var(--primary)', opacity: 0.85,
             }} />
+            {/* Dónde estamos parados. Sin esto, un riel de 73 días no dice si
+                faltan dos meses o si la plata se termina la semana que viene. */}
+            {pct(HOY) >= 0 && pct(HOY) <= 100 && (
+              <div style={{ position: 'absolute', top: 44, bottom: 24, width: 2, left: pos(HOY), background: 'var(--primary)' }}>
+                <span style={{
+                  position: 'absolute', top: -17, left: 0, transform: anclaje(pct(HOY)), whiteSpace: 'nowrap',
+                  fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                  color: 'var(--primary)', background: 'var(--surface)', padding: '0 5px',
+                }}>HOY</span>
+              </div>
+            )}
             {HITOS.map((h, i) => (
               <div key={h.fecha} style={{
                 position: 'absolute', top: 0, width: 1, height: 60, left: pos(h.fecha),
@@ -256,43 +288,136 @@ export default async function RunwayPage() {
       <h2 style={h2}>Roto hoy, y en ningún escalón del plan</h2>
       <div style={caja}><Lista items={ROTO_HOY} malo /></div>
 
-      {/* ── el CRM ── */}
-      <h2 style={h2}>El CRM · 23 tarjetas abiertas, ninguna terminada</h2>
+      {/* ── la depuración del CRM ── */}
+      <h2 style={h2}>La depuración del CRM · 25 tarjetas abiertas</h2>
+
+      {/* La proporción primero: el reparto se lee antes que cualquier lista. */}
+      <div style={caja}>
+        <div style={{ display: 'flex', height: 34, borderRadius: 8, overflow: 'hidden', gap: 2 }}>
+          {REPARTO.map((r) => (
+            <div key={r.k} style={{
+              flex: r.n, background: r.bg, color: r.ink, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 13, fontWeight: 700, minWidth: 0,
+              fontVariantNumeric: 'tabular-nums',
+            }}>{r.n}</div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12, fontSize: 13, color: 'var(--dim)' }}>
+          {REPARTO.map((r) => (
+            <span key={r.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <span aria-hidden style={{ width: 12, height: 12, borderRadius: 4, background: r.bg, display: 'inline-block' }} />
+              <strong style={{ color: 'var(--ink)' }}>{r.n}</strong> {r.k}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── lo que sale, agrupado por el MOTIVO que lo saca ── */}
+      <h2 style={h2}>Lo que sale, y por qué</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+        {CRM_SALE.map((g) => (
+          <div key={g.motivo} style={caja}>
+            <h3 style={{ margin: '0 0 6px', fontSize: 15.5, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.35 }}>
+              {g.motivo}
+            </h3>
+            <p style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{g.detalle}</p>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {g.items.map((it) => (
+                <li key={it.num} style={{ display: 'flex', gap: 9, fontSize: 13.5, lineHeight: 1.45 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none', paddingTop: 1 }}>#{it.num}</span>
+                  <span>{it.que}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p style={{ margin: '14px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+        Ninguna se descarta: quedan <strong>pospuestas con su motivo escrito</strong>. Mezclar las dos
+        cosas es como vuelve el trabajo que se sacó.
+      </p>
+
+      {/* ── lo que queda adentro ── */}
+      <h2 style={h2}>Lo que queda, con fecha</h2>
       <div style={{ ...caja, padding: 0, overflow: 'hidden' }}>
         <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 520 }}>
             <thead>
-              <tr>{['Tarjeta', 'Qué falta', 'Cuándo'].map((t) => (
-                <th key={t} style={{ ...rotulo, textAlign: 'left', padding: '11px 14px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>{t}</th>
+              <tr>{['Tarjeta', 'Qué falta', 'Cuándo', 'Horas'].map((t) => (
+                <th key={t} style={{ ...rotulo, textAlign: t === 'Horas' ? 'right' : 'left', padding: '11px 14px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>{t}</th>
               ))}</tr>
             </thead>
             <tbody>
-              {CRM.map((f) => (
+              {CRM_ENTRA.map((f) => (
                 <tr key={f.num}>
-                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
-                    <strong>#{f.num}</strong> {f.titulo}
+                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>
+                    {f.num ? '#' + f.num : 'nueva'}
                   </td>
-                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', color: 'var(--dim)' }}>{f.falta}</td>
+                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>{f.linea}</td>
                   <td style={{
                     padding: '10px 14px', borderTop: '1px solid var(--border)', whiteSpace: 'nowrap',
-                    fontFamily: MONO, fontSize: 12, fontWeight: f.dentro ? 600 : 400,
-                    color: f.dentro ? 'var(--bad)' : 'var(--faint)',
+                    fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--bad)',
                   }}>{f.cuando}</td>
+                  <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--dim)' }}>{f.horas}</td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={3} style={{ ...rotulo, padding: '10px 14px', borderTop: '1px solid var(--border-strong)' }}>En total</td>
+                <td style={{ padding: '10px 14px', borderTop: '1px solid var(--border-strong)', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                  {HORAS_ENTRA}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style={{
+        marginTop: 14, borderLeft: '3px solid var(--bad)', padding: '12px 15px',
+        background: 'var(--surface)', borderRadius: '0 10px 10px 0', fontSize: 14, lineHeight: 1.55,
+      }}>
+        <strong>La única nueva es un bug vivo desde el 14 de agosto.</strong> La fila repetida se dibuja
+        gris, con la casilla vacía y el cartel «ya existe», y se crea igual con la guarda anti-duplicado
+        apagada. El botón dice «Crear 80 leads» y entran 80 más las repetidas — y el contador no lo puede
+        delatar, porque cuenta bien. Con tres bases que se solapan, cada repetido entra dos veces.
+      </div>
+
+      {/* ── las que se van ── */}
+      <h2 style={h2}>Se van del tablero</h2>
+      <div style={caja}>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          {CRM_SEVAN.map((t) => (
+            <li key={t.num} style={{ fontSize: 14, lineHeight: 1.5 }}>
+              <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>#{t.num}</span>{' '}
+              <strong>{t.titulo}</strong> — <Marcado t={t.porque} />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* ── el agujero: lo que no tiene tarjeta ── */}
+      <h2 style={h2}>Lo que el 17 de octubre necesita y no tiene tarjeta</h2>
+      <div style={{ ...caja, padding: 0, overflow: 'hidden' }}>
+        <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 460 }}>
+            <tbody>
+              {CRM_SIN_TARJETA.map((f, i) => (
+                <tr key={f.que}>
+                  <td style={{ padding: '11px 14px', borderTop: i ? '1px solid var(--border)' : undefined, fontWeight: 600, width: '38%' }}>{f.que}</td>
+                  <td style={{ padding: '11px 14px', borderTop: i ? '1px solid var(--border)' : undefined, color: 'var(--dim)' }}>{f.estado}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-      <div style={{
-        marginTop: 14, borderLeft: '3px solid var(--warn-fill)', padding: '12px 15px',
-        background: 'var(--surface)', borderRadius: '0 10px 10px 0', fontSize: 14, lineHeight: 1.55,
-      }}>
-        <strong>Y el audio le agrega un requisito que no tenía.</strong> Vas a meterle <strong>tus propios
-        +1.000 leads en frío</strong> para prospectar. Eso sube de golpe lo que era secundario: <strong>#626</strong>,
-        el dedup por teléfono — hoy los webhooks de Meta, Calendly y Cal.com comparan el número exacto, así
-        que «+52 998…» contra «998…» entra como lead nuevo y sin aviso.
-      </div>
+      <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.55 }}>
+        <strong>No es código: son filas que ese tablero nunca creó.</strong> Por eso ninguna auditoría del
+        repo lo encuentra — todas miran el código, y el código está bien.
+      </p>
+
+      {/* ── lo que decide Martín ── */}
+      <h2 style={h2}>Lo que tienes que decidir</h2>
+      <div style={caja}><Lista items={CRM_DECISIONES} /></div>
 
       {/* ── contradicciones ── */}
       <h2 style={h2}>Las tres contradicciones a resolver</h2>

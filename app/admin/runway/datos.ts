@@ -44,13 +44,27 @@ export const HITOS: Hito[] = [
   { fecha: '2026-12-15', rotulo: '15 DIC', nota: 'dejan de comprar', tono: 'malo' },
 ];
 
-export const CIFRAS = [
+export type Cifra = {
+  clave: string;
+  /** El valor escrito. Excluyente con `faltanHasta`. */
+  valor?: string;
+  /** Si está, el valor son los días que faltan hasta esa fecha, contados al abrir. */
+  faltanHasta?: string;
+  urge: boolean;
+  detalle: string;
+};
+
+export const CIFRAS: Cifra[] = [
   {
     clave: 'Capital restante', valor: 'US$2.000', urge: true,
     detalle: 'Dos pagos de **un solo cliente**, y menos en la práctica. Se termina en noviembre.',
   },
   {
-    clave: 'Al primer deadline', valor: '4 días', urge: true,
+    // ⚠️ El ÚNICO valor que no se escribe: se cuenta contra el reloj. Un «4 días»
+    // escrito a mano es verdad el día que se escribe y miente todos los demás, y
+    // justo esa cifra es la que aprieta. Lo demás —el capital, el show up— no
+    // sale de ninguna tabla y por eso sí va escrito.
+    clave: 'Al primer deadline', faltanHasta: '2026-10-07', urge: true,
     detalle: 'Chatbot, Ads Manager, CRM y Customer Success al 100% el 7/10. Cuatro frentes en paralelo.',
   },
   {
@@ -103,16 +117,98 @@ export const ROTO_HOY = [
   'El lector del archivero está roto.',
 ];
 
-export type FilaCrm = { num: string; titulo: string; falta: string; cuando: string; dentro: boolean };
+// =============================================================================
+// La depuración del CRM — 25 tarjetas abiertas, medidas el 03/10 contra el código
+// =============================================================================
+// Seis lectores las midieron una por una contra el repo, un cruzador buscó
+// solapes y lo que NO tenía tarjeta, y tres refutadores atacaron por separado los
+// «cerrar», los «posponer» y los «meter al P1» — cada uno con una vara distinta,
+// que es lo que hizo que esta vez cortara: la misma pregunta sin el marco del
+// runway se había hecho el 30/09 y dio 0 de 25 cerrables.
+//
+// El detalle de cada una, en docs/depuracion-crm-03oct.md.
 
-export const CRM: FilaCrm[] = [
-  { num: '621', titulo: 'Apellido en el CSV', falta: 'El parser no busca ninguna columna «Apellido»', cuando: 'P1 · 7 OCT', dentro: true },
-  { num: '38', titulo: 'Reuniones automáticas', falta: 'La R2 pisa el link de la R1', cuando: 'P1 · 7 OCT', dentro: true },
-  { num: '702', titulo: 'Origen del lead', falta: 'Las tres altas no lo estampan', cuando: 'P1 · 7 OCT', dentro: true },
-  { num: '39', titulo: 'Setter y closer', falta: 'Falla en cuentas con un solo admin', cuando: 'P1 · 7 OCT', dentro: true },
-  { num: '174', titulo: 'Calendly', falta: 'R1 y R2 opcionales, el descarte es mudo', cuando: 'P1 · 7 OCT', dentro: true },
-  { num: '800', titulo: 'SLA por etapa', falta: 'Hay workaround: el lead se mueve a mano', cuando: 'fuera', dentro: false },
-  { num: '798', titulo: 'Funnel del cliente', falta: 'Las 8 etapas siguen escritas a mano', cuando: 'fuera', dentro: false },
+export type TareaCrm = { num: number; linea: string; cuando: string; horas: number };
+
+export const CRM_ENTRA: TareaCrm[] = [
+  { num: 621, linea: 'Al importar toma el nombre y tira el apellido cuando vienen en dos columnas', cuando: '7 OCT', horas: 2 },
+  { num: 702, linea: 'El lead nace sin origen, y la lista del CRM nunca lo mira', cuando: '7 OCT', horas: 6 },
+  { num: 39, linea: 'Con una sola persona en el equipo el lead nace sin vendedor asignado', cuando: '7 OCT', horas: 2 },
+  { num: 38, linea: 'Al pegar la grabación de la 2ª reunión se borra el link de la 1ª', cuando: '7 OCT', horas: 5 },
+  { num: 174, linea: 'Conectar la agenda sin cargar las reuniones tira las citas sin un solo aviso', cuando: '7 OCT', horas: 4 },
+  { num: 0, linea: 'La importación crea el duplicado que la pantalla dice que descartó', cuando: '17 OCT', horas: 2 },
+];
+
+export type GrupoCrm = { motivo: string; detalle: string; items: { num: number; que: string }[] };
+
+/** Lo que SALE, agrupado por el motivo que lo saca. El motivo es el entregable. */
+export const CRM_SALE: GrupoCrm[] = [
+  {
+    motivo: 'Hay un camino a mano que aguanta hasta el 15/12',
+    detalle: 'Cuesta tiempo tuyo, no un lead ni un cobro.',
+    items: [
+      { num: 19, que: 'Cobranza automática por WhatsApp' },
+      { num: 697, que: 'El botón de mensualidad cobrada' },
+      { num: 800, que: 'Aviso de lead quieto' },
+      { num: 671, que: 'Agendar la 2ª reunión desde la ficha' },
+      { num: 622, que: 'Importar clientes que ya pagaron' },
+    ],
+  },
+  {
+    motivo: 'Sirve a un cliente que configura su embudo, no a estas seis semanas',
+    detalle: 'Hoy no hay ningún negocio en esa situación. Vende por llamada, con un solo embudo.',
+    items: [
+      { num: 798, que: 'Métricas del embudo de cada cliente' },
+      { num: 40, que: 'El recorrido con más de dos reuniones' },
+      { num: 332, que: 'Completar el formulario con lo que salió en la llamada' },
+      { num: 696, que: 'La casilla de «landing como entrada»' },
+    ],
+  },
+  {
+    motivo: 'El dato no se pierde: queda mal ubicado o invisible',
+    detalle: 'Se puede recuperar después. Con una excepción: lo de Meta caduca a los 90 días.',
+    items: [
+      { num: 6, que: 'Las respuestas del formulario de Facebook' },
+      { num: 701, que: 'Los clics de la landing en la ficha' },
+      { num: 623, que: 'Sumar el dato nuevo al reimportar' },
+      { num: 626, que: 'El mismo teléfono con y sin código de país' },
+    ],
+  },
+  {
+    motivo: 'No es programar: es escribir el texto y prender',
+    detalle: 'El mecanismo está. Falta el contenido y una decisión.',
+    items: [{ num: 18, que: 'La tanda de seguimiento a quien no compró' }],
+  },
+  {
+    motivo: 'Posponer es más seguro que hacerlo',
+    detalle: 'Apagar la automatización vieja cortaría los recordatorios que hoy le llegan al lead.',
+    items: [{ num: 20, que: 'Unificar las dos bases' }],
+  },
+];
+
+export const CRM_SEVAN = [
+  { num: 37, titulo: 'Datos del trato', porque: 'Está en producción. Lo único vivo —que la ficha diga «no vio el video» sin saberlo— se midió hoy: **0 casos reales** en 10.137 visitantes.' },
+  { num: 698, titulo: 'Alerta de campos fiscales', porque: 'Hecha: ya es un renglón, se ignora de a uno o en lote, y guardar nunca se bloquea.' },
+  { num: 627, titulo: 'Embudo por producto', porque: 'Construido. Lo único que falta —medir por producto— se escribe **adentro de #798** antes de cerrarla.' },
+  { num: 15, titulo: 'Piloto del CRM automático', porque: 'Se funde en #40. Su número se guarda: **Mauricio rechazó 35 de las 69 propuestas** que resolvió, y 3 siguen pendientes.' },
+];
+
+/** Lo que el 17/10 necesita y no tiene tarjeta. No es código: son filas que faltan. */
+export const CRM_SIN_TARJETA = [
+  { que: 'Por dónde escribirles a los 100', estado: 'No hay línea de WhatsApp, y el interruptor de envío no tiene fila: apagado' },
+  { que: 'Dónde reservan los que contesten', estado: 'Cero credenciales de agenda, y ninguna ruta conectada' },
+  { que: 'Quién hace el seguimiento', estado: 'El motor automático está apagado ahí' },
+  { que: 'Que entren 1.000 filas de una vez', estado: 'Tope de 3.000 sobre 60 segundos, con el alta de a una. Al cortar, reintentar duplica' },
+  { que: 'Que el teléfono sirva para escribir', estado: 'En el libro de una clienta, 47 de 52 no se pueden contactar como están' },
+  { que: 'Filtrar los 100 mejores', estado: 'No existe en el CRM. La salida sin código es filtrar en la planilla ANTES de importar' },
+  { que: 'Separar los 1.000 en frío de los que llegan solos', estado: 'Se guarda el origen y ningún motor lo lee' },
+];
+
+export const CRM_DECISIONES = [
+  '**¿Prendes el motor automático antes de importar?** De eso depende que #800 quede afuera: con 1.000 leads, darse cuenta de que uno está quieto abriendo su ficha no escala.',
+  '**¿Filtras los 100 en la planilla, o importas los 1.000?** Si entran los 1.000, después hace falta separarlos y eso no existe.',
+  '**#697**, el botón que anota la cuota como impaga: sale como tarjeta, pero el arreglo es **una línea**. ¿De paso o pospuesto?',
+  '**«Agente: CRM automático»** sigue vivo con 0 tareas y parte en dos la respuesta a «¿dónde está lo del CRM?». ¿Se tacha?',
 ];
 
 export const CONTRADICCIONES = [
