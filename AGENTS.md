@@ -5759,3 +5759,36 @@ deshabilitado justo en esas filas.
 - Es el espejo de «esconder el botón no protege nada»: ahí la UI escondía y el server
   protegía; acá la UI muestra que no va a pasar y el server lo hace igual. La pregunta es la
   misma — **quién decide de verdad** — y la respuesta siempre es el server.
+
+# Lo que alguien LEE de la pantalla compartida no es su testimonio
+
+En una llamada donde se muestra el producto, la mitad de lo que dice quien mira es **el
+texto de la app en voz alta**. Extraído como si fuera su opinión, convierte copy nuestro en
+un pedido del cliente, y un ejemplo sembrado por nosotros en un dato de su negocio.
+
+Mordió **tres veces en la misma llamada** (Leila, 01/10/2026), y las tres se leen perfecto
+como testimonio:
+
+| Lo que parece | Lo que es |
+|---|---|
+| «la cuota 2 de Vertice venció hace 3 días» — el caso de cobranza de la clienta | El `ejemplo:` de un aviso del catálogo, verbatim en `lib/avisos-catalogo.ts:697`, escrito **dos días antes**. Vértice es una cuenta del tablero, no de ella |
+| «quedó guardado pero no entró al grupo / WhatsApp no deja agregarlo directo / tampoco pude mandarle la invitación» — tres bugs reportados | Tres strings del repo (`DestinatariosCanal.tsx:113`, `lib/mako-grupo.ts:316` y `:393`). **Uno** de los tres sí era una falla real |
+| «está tomando ejemplos de Mauricio siempre, que se note que es un ejemplo» — la clienta pidiendo despersonalizar | Es **Martín** criticando su propia pantalla |
+
+Tres reglas, y la tercera es la que gobierna código nuevo:
+
+1. **Antes de atribuirle una frase a quien reporta, grepeala en el repo.** Si aparece
+   verbatim en un `.ts`, no es testimonio: es la pantalla. Cuesta un `grep` y cambia de quién
+   salió el pedido.
+2. **La etiqueta de hablante de un transcript no vale dentro de un bloque fusionado.** Fathom
+   mete varias voces en una línea, así que el que comparte pantalla aparece como autor de lo
+   que el otro le dicta. Lo que decide es el CONTENIDO (quién puede saber eso, quién habla en
+   primera persona del producto), y cuando la etiqueta y el contenido se contradicen hay que
+   **decir que es una inferencia**, no marcarla como verificada.
+3. ⚠️ **Y el ejemplo que una pantalla dibuja con datos de un cliente REAL se lee como un
+   dato.** El `ejemplo:` de cada aviso del catálogo salía del workspace de un cliente, con su
+   nombre y sus montos — así que cualquiera que abra esa pantalla ve la cuenta de otro, y
+   cualquiera que lo cuente en una reunión lo cuenta como propio. **Un ejemplo de UI es
+   ficticio por regla**, como cualquier placeholder: «hola fulanito», «$1.000». Es el mismo
+   criterio que la frontera de `'use client'` —no mostrarle a un cliente lo que no es suyo—
+   aplicado al copy en vez de al bundle.

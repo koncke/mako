@@ -6911,3 +6911,110 @@ que `guardarCrudo()` estaba en el bloque, así que con `if (false)` seguía verd
 romperlo.
 
 *2026-10-02*
+
+## El motor de FLUJOS está entero y muere en el último metro (04/10/2026)
+
+**Vive en:** `lib/flujos-tipos.ts` · `lib/flujos.ts` · `lib/api-mako/acciones.ts`
+
+Salió relevando el Chatbot para la llamada con Leila del 01/10, y es el hallazgo más caro
+del área: el motor que hace EXACTAMENTE lo que se pidió ya está construido, y las cuatro
+acciones que tocan al lead **mueren al confirmarse**.
+
+`lib/flujos-tipos.ts` es un motor genérico y editable —disparador + pasos, donde un paso es
+*mensaje* (`aviso_dueno` | `wa_lead`) · *acción* (`crear_tarea` | `inscribir_nutricion` |
+`marcar_lead`) · *esperar* · *insistir*— con su techo de producto cableado (5 veces, nunca
+menos de 30 min, ventana 8-21, corta con un «ok» en el grupo). Se edita en
+`app/agencia/FlujoAviso.tsx` y lo ejecuta `lib/flujos.ts:27`.
+
+Y `flujo_wa_lead`, `flujo_inscribir_nutricion`, `flujo_crear_tarea` y `flujo_marcar_lead`
+**no están ni en el registro de la API de MaKo ni en `TIPOS_HEREDADOS`**
+(`lib/api-mako/acciones.ts:70-72`), así que la pendiente resuelve a «operación desconocida»
+(`:238`). Más: un paso `esperar` **corta la ejecución** porque falta el cron drenador
+(`lib/flujos.ts:50`).
+
+O sea que «atar una automatización a una persona» —el problema que la llamada puso como
+central— está implementado y falla donde nadie miró. No hay síntoma: la pendiente se crea,
+la pantalla la muestra, y el «sí» contesta un error genérico.
+
+⚠️ **Y es la cuarta vez que esta casa paga el mismo patrón** («Escribir la salida no es
+ofrecerla»). La diferencia es de escala: acá lo huérfano no es una prop, es un motor.
+Al agregar un `tipoPendiente` nuevo, el trabajo termina cuando se CONFIRMÓ una de verdad,
+no cuando la pendiente se creó.
+
+## Un disparador que la UI ofrece y el cron no sabe resolver (04/10/2026)
+
+**Vive en:** `lib/nutricion.ts:528-530` · `lib/email-marketing.ts:229-249`
+
+El catálogo tiene 17 disparadores y `leadsDeCohorte` resuelve 16. El que falta es `manual`,
+que **la UI ofrece con la etiqueta «Manual (no se dispara solo)»** y que cae en el
+fallthrough: devuelve lista vacía, el cron no inscribe a nadie, y no hay ningún otro camino
+que lo haga. **No existe ninguna función para inscribir UN lead en UNA secuencia** — las
+tres únicas escrituras de `nutricion_inscripciones` son `enrolarPorEvento`
+(`lib/nutricion.ts:730`), `comprometerInscripciones` (`:807`) y el encadenado de
+`lib/nutricion-desenlace.ts:169`, y las tres son por cohorte.
+
+El rótulo dice la mitad de la verdad y por eso nadie lo buscó: «no se dispara solo» se lee
+como «lo disparás vos», y **tampoco se dispara a mano**, porque el botón no existe.
+
+## El motor de nutrición nunca entregó un mensaje (medido el 04/10/2026)
+
+**Vive en:** `nutricion_envios` · `nutricion_secuencias` · `evolution_instancias`
+
+Medido contra producción con `scripts/probe-chatbot-estado.ts`:
+
+| Qué | Cuánto |
+|---|---|
+| `nutricion_envios` | **12 filas en TODA la tabla, las 12 en `fallo`, las 12 del ws1**, la última el 24/09 |
+| `nutricion_secuencias` | 27 en el ws1 (15 activas), 11 en cada uno de ws9/10/11 |
+| Inscripciones del ws1 | 5 `no_responde`, 58 `cancelada`, 2 `completada` |
+| Línea de ws13 (Código Inmobiliario) | `desconectado`, `numero` NULL, sin un evento desde el 18/08, **cero** filas en `wa_mensajes` |
+
+Es la contracara de «un cero perfectamente correcto»: 65 secuencias configuradas y una tabla
+de envíos que no distingue «nadie encoló nada» de «todo lo encolado falló». Lo segundo, y
+está escrito en las 12 filas.
+
+⚠️ **Antes de diseñar sobre el motor, mirar esta tabla.** Un pedido de producto sobre un
+motor que nunca entregó se cotiza como una feature y es un arreglo.
+
+## El puente etapa↔etiqueta de WhatsApp existe, está vacío, y las etiquetas reales ya están sincronizadas (04/10/2026)
+
+**Vive en:** `evolution_labels` · `evolution_stage_labels` · `lib/evolution-labels.ts` ·
+`app/configuraciones/EtiquetasWhatsAppPanel.tsx`
+
+Martín pidió a 01:43:16 «que el chatbot también maneje las etiquetas del propio WhatsApp».
+Medido: **ya está construido a medias y nadie lo enchufó.**
+
+- `evolution_labels` **sincroniza las etiquetas reales del celular**: 11 filas en el ws1 y
+  **23 en el de Leila**, con nombres que son de su operación — «Respondidos por la IA»,
+  «Transferencia de la IA», «Seguimiento», «Seguimiento semanal», «Nuevo cliente», «Clientes».
+- `evolution_stage_labels` tiene las columnas `(workspace_id, etapa, label_id)` —el puente
+  exacto que el pedido necesita— y **cero filas**.
+- `lib/evolution-labels.ts:78` ya aplica y saca la etiqueta sola al mover un lead
+  (`aplicarEtiquetaActual` es idempotente), llamado desde `lib/leads.ts:772` y `:2099`.
+- Y el panel que lo configura está declarado **huérfano** en `app/admin/dev/areas.ts:255`.
+
+⚠️ **La consecuencia para el diseño: «tag» puede no ser un campo nuevo.** En la misma
+llamada la palabra significa dos cosas —«etiquetas **dentro de MaKo**» (00:34:18, un campo
+que no existe) y «las etiquetas del **propio WhatsApp**» (01:43:16, que ya están
+sincronizadas)—. La diferencia entre las dos lecturas es una migración con rama nueva en
+`leadsDeCohorte` contra enchufar una tabla que ya se llena sola. **Antes de cotizar un eje
+de segmentación, mirá si el dato ya está entrando por otra puerta.**
+
+## Un paso de mensaje es `{ canal, texto }`, y el transporte ya sabe mandar media (04/10/2026)
+
+**Vive en:** `lib/flujos-tipos.ts` · `lib/evolution.ts`
+
+«El mensaje puede contener archivos, puede contener audio, puede contener lo que sea»
+(00:34:41), y el transporte lo cumple: `lib/evolution.ts` tiene `enviarMedia` (imagen, video,
+documento) y el audio como nota de voz PTT real. Lo que no existe es el campo: un paso de
+tipo `mensaje` es `{ canal, texto }` y **desde el editor no hay forma de adjuntar nada**.
+
+Es el mismo agujero que los links: `aplicarVariables` (`lib/template-vars.ts:41`) sustituye
+**cuatro** claves (nombre, nombre_completo, apellido, empresa) y nada más, así que los
+`[tu link de agenda]` que el generador escribe **salen literales al lead** — y el prompt le
+jura al modelo que el sistema los reemplaza (`lib/nutricion-generator.ts:146`). Su hermano
+es peor: un corchete que no esté en la lista deja el paso congelado para siempre, sin aviso.
+
+⚠️ **La decisión es binaria y hay que tomarla**: o existe un catálogo de links del negocio
+—hoy inexistente— o se saca el `[tu link …]` de los prompts. Mientras no se decida,
+cualquier secuencia que mande un link sale rota.

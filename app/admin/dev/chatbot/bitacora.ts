@@ -386,4 +386,23 @@ export const BITACORA: Hito[] = [
       { sha: "073d606b", msg: "onboarding: no se puede saltear un paso, y sin saber no se muestra el dashboard", lineas: 136, archivos: 4 },
     ],
   },
+  {
+    fecha: "4 oct", hora: "11:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Extraer el feedback del chatbot de la llamada con Leila del 01/10",
+    pedido: "Revisa la ultima llamada que tuvimos con Leila, del 1 de octubre, ya otros chats hicieron la extracción, por si te puedes aprovechar... De allí salió feedback del chatbot, de como encararlo, extrae todo y trabajemos sobre eso",
+    puntos: [
+      "La extracción anterior (docs/llamada-leila-01oct.md) contestaba otra pregunta —el orden, las fechas y la poda— y del Chatbot sólo traía dos líneas. El pedido es el hilo entero.",
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "11:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "investigacion",
+    titulo: "El motor que la llamada pidió ya existe, y las cuatro acciones que tocan al lead mueren al confirmarse",
+    puntos: [
+      "5 lectores sobre el transcript completo (1.001 intervenciones) con panel de verificación, más el estado de producción medido contra la base. El entregable es docs/chatbot-leila-01oct.md. Lo que la llamada dejó decidido y el doc anterior no tenía: el encargo es «un soporte para la MASA, no para esos nueve» (01:37:00) y es de MARTÍN, no de Leila; el P1 lo empuja MAURICIO (00:26:25, 00:40:38, 00:51:00); y el problema central —atar una automatización libre a una persona— se resolvió en la llamada en 40 segundos: etapa del CRM (lo propuso Leila en dos palabras) más tags.",
+      "El hallazgo gordo es que el motor pedido está entero y roto en el último metro: los cuatro `flujo_*` no están en el registro de la API ni en TIPOS_HEREDADOS, así que la pendiente muere con «operación desconocida», y un paso `esperar` corta porque falta el cron drenador. Y tres cosas que la llamada trató como nuevas ya están pagas: las etiquetas de WhatsApp (el backend corre desde el 28/08 y `evolution_stage_labels` es el puente, vacío, con las 23 etiquetas reales de Leila ya sincronizadas en `evolution_labels`), la miniatura del link (una bandera del payload) y que MaKo arme la secuencia desde un audio (la transcripción y las cuatro acciones de la API ya están).",
+      "Lo que midió la base y cambia el encare: `nutricion_envios` tiene 12 filas en toda la tabla, las 12 en `fallo`, las 12 del ws1 — el motor NUNCA entregó un mensaje, con 65 secuencias configuradas. Un pedido de producto sobre eso se cotiza como feature y es un arreglo. Y la trampa de extracción que quedó como regla en AGENTS.md: la mitad de lo que dice quien mira la pantalla compartida es el texto de la app en voz alta — «la cuota 2 de Vertice venció hace 3 días» es el `ejemplo:` de lib/avisos-catalogo.ts:697, escrito dos días antes, no el caso de la clienta.",
+    ],
+  },
 ];
