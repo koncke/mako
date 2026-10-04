@@ -38,6 +38,39 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
+    fecha: '3 oct', hora: '22:06', chat: 'CRM depuracion', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Con el panorama encima, que entra y que sale del CRM',
+    pedido: 'Bueno, con todo este panorama, ahora si hazme una depuracion de las tareas del proyecto de CRM y proponme que si y que no',
+    puntos: [
+      '«Con todo este panorama» es la parte que cambia el trabajo: el runway del 03/10 (US$2.000 de un solo cliente, la venta del 1/11 al 15/12) y, sobre todo, que el usuario numero uno de este CRM de aca al 18/10 **es Martin prospectando en frio con 1.000 contactos importados**. Ese CRM tiene hoy **3 leads**.',
+      'La misma pregunta sin ese marco ya se habia contestado el 30/09 y dio **0 de 25 cerrables**. Con el marco puesto, la pregunta deja de ser «¿esta hecho?» y pasa a ser «¿el negocio corre sin esto?» — y ahi si corta.',
+    ],
+  },
+  {
+    fecha: '3 oct', hora: '22:06', chat: 'CRM depuracion', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: '25 abiertas a 6 con fecha, y tres cosas que no tenian tarjeta',
+    puntos: [
+      '**El reparto: 6 entran, 15 se posponen, 4 se van del tablero.** Entran las cinco que Martin ya habia mandado al P1 el 01/10 (#621, #702, #39, #38, #174) mas una nueva por el bug de abajo. Se cierran #37 y #698 (hechas), y #627 y #15 se funden en #798 y #40 **arrastrando su texto**, que es la unica forma de que lo que falta no desaparezca.',
+      '⚠️ **LA IMPORTACION AUTORIZA EL DUPLICADO QUE LA PANTALLA DICE QUE DESCARTO.** La fila repetida se dibuja gris, con la casilla vacia y el cartel «ya existe», y el server la crea igual con `permitirDuplicado: true`. Cuatro piezas correctas por separado: nace con `incluir: true`, `recalcular` solo escribe `motivo`, la UI no deja destildar una fila marcada, y el server saltea solo con `!f.incluir`. Vive desde el 14/08. El boton dice «Crear 80 leads» y entran 80 **mas** las repetidas — y el contador no lo delata porque mide bien: cuenta solo las limpias.',
+      '⚠️ **EL WORKSPACE DONDE VA A PASAR LA PROSPECCION NO TIENE CANAL, NI AGENDA, NI MOTOR.** Medido en prod: sin linea de WhatsApp, sin interruptor de envio (fail-closed = apagado), cero credenciales de agenda, el motor automatico apagado, y **un unico usuario que es admin** — asi que `vendedorUnicoDelWorkspace` lo filtra y los 1.000 nacerian sin setter ni closer. **No es codigo: son filas que ese inquilino nunca creo**, y por eso ninguna auditoria del repo lo encuentra.',
+      '**Dos tarjetas pueden pasarse el mismo defecto y dejarlo en CERO tarjetas.** #37 lo cerro diciendo «eso es el pendiente de #701» y #701 lo pospuso diciendo «vive en la funcion que ya es el pendiente de #37». Cuando un veredicto justifica una salida con «eso lo cubre la otra», hay que ir a leer que dice la otra.',
+      '**Tres lectores describieron la misma pantalla de tres formas incompatibles y las tres estaban mal**: el server hace algo peor que las tres. Tres descripciones distintas de una misma pantalla no son tres matices — es que nadie leyo el camino entero.',
+      '**Un refutador cambio el SUJETO de una tarjeta y con eso su fecha**: #174 se leia como «un cliente nuevo que conecta su agenda» (venta del 1/11); medido, el cliente nuevo sin agenda conectada **es Martin**, y eso la corre al 17/10.',
+      '**Calibrar el refutador por CLASE fue lo que hizo que cortara.** Un solo refutador con una sola vara da el 80% de refutacion que esta casa ya midio; con tres varas distintas —cerrar es irreversible, posponer puede costar plata, meter al P1 es lo que ya rompio el plan dos veces— cayeron 6 de 25, y los seis por motivos distintos.',
+    ],
+    commits: [
+      { sha: '984ca9cd', msg: 'Depuracion de «Feature: CRM»: 25 abiertas -> 6 con fecha', lineas: 0, archivos: 5 },
+    ],
+    archivos: [
+      'docs/depuracion-crm-03oct.md — la propuesta: que entra, que se pospone y que se va, con lo que el 17/10 necesita y no tiene tarjeta',
+      'docs/hallazgos-crm.md — los tres hallazgos medidos y lo que enseño la corrida',
+      'AGENTS.md — la regla: si la pantalla DESHABILITA un control, el server aplica lo que ese control significa',
+      'app/admin/dev/crm/auditoria.ts — la nota de que la foto del 30/09 tiene una medicion mas nueva que le gana',
+    ],
+  },
+  {
     fecha: '30 sep', hora: '11:33', chat: 'CRM tanda 6', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'El editor de nutricion, el titulo que dice otro nombre y las flechas sin rotulo',
