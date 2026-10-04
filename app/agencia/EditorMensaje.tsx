@@ -32,8 +32,8 @@
 //    inserta TEXTO PLANO: un copiar-pegar de un doc trae tablas, colores y fuentes
 //    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { tramosConVariables } from '@/lib/variables-aviso';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
+import { tramosConVariables, PORQUE_NO_SE_PUEDE } from '@/lib/variables-aviso';
 import { Dropdown } from '../components/Dropdown';
 import type { VariableAviso } from '@/lib/variables-aviso';
 
@@ -115,9 +115,17 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
   /** Lo que va al final de la barra de adentro: hoy el boton de IA. */
   accion?: ReactNode;
   disabled?: boolean;
-  /** Los datos de MaKo que ESTE mensaje puede resolver. Sin lista, no hay botón. */
-  variables?: VariableAviso[];
+  /**
+   * Los datos de MaKo, agrupados y con `resoluble` por fila. Sin lista, no hay botón.
+   *
+   * Llegan AGRUPADOS y no planos a propósito: la agrupación y el motivo de lo apagado
+   * los decide el catálogo (`variablesOfrecidas`), así que un grupo nuevo o una regla de
+   * alcance nueva las hereda esta barra sin tocarla.
+   */
+  variables?: Array<{ titulo: string; items: Array<VariableAviso & { resoluble: boolean }> }>;
 }) {
+  // Los grupos salen del catálogo, no de esta pantalla. Ver el comentario del selector.
+  const grupos = useMemo(() => variables ?? [], [variables]);
   const ref = useRef<HTMLDivElement>(null);
   const cajaRef = useRef<HTMLDivElement | null>(null);
   const [enfocado, setEnfocado] = useState(false);
@@ -306,14 +314,44 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
           ))}
           {variables && variables.length > 0 && (
             <div style={{ marginLeft: 'auto' }}>
+              {/*
+                ⚠️ POR GRUPOS Y CON BUSCADOR, y las dos cosas las da el `Dropdown` solo.
+                Pedido el 04/10/2026: «Hay muy pocas acciones o datos que extraer dentro
+                de MaKo… te invito a que hagas un listado extenso, y que sea fácil de
+                llegar a eso, que esté categorizado, y que tenga una barra de busqueda el
+                desplegable para acceder facil». Con 42 filas, una lista plana es un
+                scroll de dos pantallas: `columns` dibuja los grupos y la búsqueda
+                aparece sola pasadas las 8 opciones (filtra por título Y por ejemplo, que
+                es por donde uno busca «1.500» para encontrar el monto del cierre).
+
+                La agrupación la decide el CATÁLOGO (`variablesPorGrupo`), no esta
+                pantalla: el día que entre un grupo nuevo, el selector lo hereda.
+              */}
               <Dropdown
-                value="" width={160} ariaLabel="Meter un dato de MaKo"
+                value="" width={170} ariaLabel="Meter un dato de MaKo"
                 buttonStyle={{ padding: '5px 9px', fontSize: 12 }}
-                options={[
-                  { value: '', label: '＋ Dato de MaKo', disabled: true },
-                  ...variables.map((v) => ({ value: v.key, label: v.label, sub: v.ejemplo })),
-                ]}
+                columns={[grupos.map((g) => ({
+                  title: g.titulo,
+                  options: g.items.map((v) => ({
+                    value: v.key, label: v.label,
+                    // El ejemplo cuando se puede poner; el MOTIVO cuando no. Y la
+                    // búsqueda del `Dropdown` mira el `sub`, así que lo apagado también
+                    // se encuentra escribiendo «acción».
+                    sub: v.resoluble ? v.ejemplo : PORQUE_NO_SE_PUEDE,
+                    disabled: !v.resoluble,
+                    // El token, para que buscar «saldo» encuentre «Cuánto falta
+                    // cobrarle»: la palabra que uno tiene en la cabeza es la de la
+                    // variable, y no está escrita en ningún renglón.
+                    buscar: `{{${v.key}}}`,
+                  })),
+                }))]}
                 onChange={(k) => k && insertarVariable(k)}
+                placeholder="＋ Dato de MaKo"
+                // El `sub` de cada fila es el valor de ejemplo —o el motivo cuando está
+                // apagada— y en columnas se omite por defecto: sin esto, una fila gris no
+                // dice por qué, y un renglón que no se puede elegir y no se explica se
+                // lee como que la app está rota.
+                subEnColumnas
               />
             </div>
           )}

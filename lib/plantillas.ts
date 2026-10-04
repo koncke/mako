@@ -29,6 +29,20 @@ type EntradaStore = {
   frecuenciaMin?: number;  // cada cuánto COMO MÁXIMO. Ver `frecuenciaDe`.
   posiciones?: Record<string, { x: number; y: number }>;  // dónde quedó cada tarjeta del lienzo.
   titulo?: string;         // cómo lo llamó ESTE negocio. Pisa el del catálogo. Ver `aVista`.
+  /**
+   * EL ASUNTO DEL EMAIL. Vacío o ausente = se usa el título.
+   *
+   * Existe porque el mismo mensaje sale por dos canales y el asunto es la única pieza
+   * que SÓLO tiene sentido en uno: en WhatsApp no hay asunto, y en un correo el título
+   * interno («Lead sin confirmar») se lee como un log. El cuerpo sigue siendo uno
+   * (`texto`): dos cuerpos serían dos borradores y dos «sin publicar», y eso se decide
+   * cuando alguien lo pida.
+   *
+   * Se guarda el OVERRIDE crudo, no el resuelto: con el resuelto, vaciar el campo
+   * devolvería el título y la pantalla mostraría un texto que la persona no escribió —
+   * que es cómo se pierde la diferencia entre «no puse nada» y «puse esto».
+   */
+  asunto?: string;
   categoria?: CategoriaAviso;  // en qué grupo lo puso ESTE negocio.
   /**
    * LO ESCRITO Y TODAVÍA NO PUBLICADO.
@@ -104,7 +118,7 @@ function canalesDe(e: EntradaStore | undefined): CanalesAviso {
   };
 }
 
-export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }>; borrador: string | null };
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean; fijo: boolean; canales: CanalesAviso; frecuenciaMin: number; posiciones: Record<string, { x: number; y: number }>; borrador: string | null; asunto: string };
 
 /**
  * EL STORE ES POR WORKSPACE, CON LOS DEL DUEÑO COMO PLANTILLA.
@@ -188,6 +202,10 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // catálogo sigue siendo el default para todos los demás.
     titulo: (e?.titulo && e.titulo.trim()) || cat.titulo,
     categoria: e?.categoria ?? cat.categoria,
+    // El asunto del email, CRUDO. Vacío significa «usá el título», y lo resuelve quien
+    // manda (`emitirDelCatalogo`): resolverlo acá dejaría a la pantalla mostrando el
+    // título adentro del campo, o sea un texto que nadie escribió.
+    asunto: (e?.asunto ?? '').trim(),
     // Lo escrito sin publicar. `null` y no `''`: «no hay borrador» y «hay uno
     // vacío» son dos cosas, y la segunda es alguien que borró el texto a propósito
     // y todavía no lo publicó.
@@ -301,6 +319,21 @@ export async function getPlantilla(id: string): Promise<PlantillaVista | null> {
 export async function referenciaPlantilla(id: string): Promise<string> {
   return (await getPlantilla(id))?.ejemplo ?? '';
 }
+
+/**
+ * Lo mismo, con los datos ya puestos. Es lo que sale cuando el aviso no pasa por el
+ * modelo.
+ *
+ * ⚠️ EL CONTEXTO DEL LEAD VIAJA POR PARÁMETRO Y NO SE DEDUCE. Hasta el 04/10/2026 la
+ * sustitución corría con `{ ws }` pelado, así que `{{lead_nombre}}` y los 30 datos del
+ * CRM no se resolvían en NINGÚN camino — aunque la pantalla los ofreciera y aunque el
+ * evento que dispara el aviso traiga el `leadId` en la mano (`dispararEvento` lo pasa).
+ * El selector ofrecía un dato que nadie podía poner, y lo que salía al WhatsApp era el
+ * token crudo.
+ */
+export async function referenciaResuelta(id: string, ctx: { ws: number; leadId?: number | null; leadNombre?: string | null }): Promise<string> {
+  return conVariables(await referenciaPlantilla(id), ctx);
+}
 export async function plantillaActiva(id: string): Promise<boolean> {
   return (await getPlantilla(id))?.enabled ?? true;
 }
@@ -389,6 +422,19 @@ export async function setTituloPlantilla(id: string, titulo: string): Promise<vo
 }
 
 /** En qué grupo lo pone este negocio. Mismo patrón que el título. */
+/**
+ * El asunto del email de ESTE mensaje. Vacío lo BORRA de la entrada, que es lo que hace
+ * que vuelva a usarse el título: guardar `''` dejaría un asunto vacío de verdad, y el
+ * correo saldría sin asunto.
+ */
+export async function setAsuntoPlantilla(id: string, asunto: string): Promise<void> {
+  const a = asunto.trim().slice(0, 160);
+  await mutar(id, (e) => {
+    const { asunto: _viejo, ...resto } = e;
+    return a ? { ...resto, asunto: a } : resto;
+  });
+}
+
 export async function setCategoriaPlantilla(id: string, categoria: CategoriaAviso): Promise<void> {
   await mutar(id, (e) => ({
     ...e, categoria,
@@ -467,7 +513,10 @@ const SYS_AVISO =
  * Genera el texto de un aviso con IA, usando la plantilla como REFERENCIA + los
  * datos reales. Si algo falla, cae a la referencia literal (best-effort).
  */
-export async function generarMensajeAviso(id: string, contexto: string): Promise<string> {
+export async function generarMensajeAviso(
+  id: string, contexto: string,
+  ctxLead: { leadId?: number | null; leadNombre?: string | null } = {},
+): Promise<string> {
   const refCruda = await referenciaPlantilla(id);
   /**
    * ⚠️ LAS VARIABLES SE RESUELVEN ANTES DEL MODELO Y EN LOS TRES RETORNOS.
@@ -480,7 +529,7 @@ export async function generarMensajeAviso(id: string, contexto: string): Promise
    * falla exactamente cuando falla la IA, que es cuando menos se la mira.
    */
   const ws = await getWorkspaceActual();
-  const ref = ws == null ? refCruda : await conVariables(refCruda, { ws });
+  const ref = ws == null ? refCruda : await conVariables(refCruda, { ws, ...ctxLead });
   try {
     const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribe el mensaje.`;
     const out = await chatClaude(SYS_AVISO, [{ role: 'user', content: user }], {

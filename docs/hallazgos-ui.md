@@ -3330,3 +3330,41 @@ puede medir es la desigualdad, no el clamp.
 - **El ＋ de la TARJETA sigue midiéndose en unidades del grafo** (22 px, o sea 15 al 68% y
   5 al 22%). Al 68% —el zoom de un flujo normal— se clickea bien, y por eso no se tocó;
   si alguna pantalla monta el lienzo más chico, es el mismo arreglo de una línea.
+
+## Un desplegable en COLUMNAS no dibuja el `sub`, y ahí vive el motivo (04/10/2026)
+
+**Vive en:** `app/components/Dropdown.tsx` · `app/agencia/EditorMensaje.tsx`
+
+`Dropdown` tiene dos modos y no se portan igual: en lista plana dibuja el subtítulo de
+cada opción, y en columnas lo OMITE —con su porqué escrito: «el título del grupo ya da ese
+contexto»—. Correcto para una lista de personas agrupadas por equipo, y falso cuando el
+`sub` no es contexto sino **el dato** (un valor de ejemplo) o **el motivo** por el que la
+opción está apagada.
+
+Medido en el navegador con el catálogo de datos de un mensaje: la fila «Cuánto falta
+cobrarle» salía gris, sin una palabra que dijera por qué no se podía elegir. Una opción
+`disabled` sin su motivo es exactamente lo que esta casa llama un control que se lee como
+roto. Va `subEnColumnas` (opt-in, así ningún otro call site cambia).
+
+⚠️ **Y LA BÚSQUEDA NO ENCONTRABA LO QUE LA GENTE BUSCA.** Filtra por título y subtítulo, y
+el token de la variable no está escrito en ninguno de los dos: buscar **«saldo»** en una
+lista de 42 datos devolvía **cero**, porque la fila se llama «Cuánto falta cobrarle». Va un
+campo `buscar` por opción (el token), y el `value` NO se mira: en una lista de personas o
+de ids eso haría matchear números sueltos sin que nadie lo pida.
+
+## Ofrecer apagado o no ofrecer: la pregunta no es la misma que «esconder el botón» (04/10/2026)
+
+**Vive en:** `lib/variables-aviso.ts` → `variablesOfrecidas` · `PORQUE_NO_SE_PUEDE`
+
+El selector de datos filtraba lo que ese mensaje no puede resolver, con una regla
+correcta: ofrecer un valor que va a salir crudo al WhatsApp del cliente es prometer un
+dato que no existe. Lo que la regla no contestaba es qué ve quien abre el menú. Medido: un
+mensaje con disparador **por tiempo** —que son casi todos— ofrecía **9 datos de 42**, o sea
+que el catálogo extenso que se pidió no existía para quien lo abría.
+
+La casa tiene las dos reglas y parecen contradecirse: «esconder el botón no protege nada» y
+«mostrarlo sin poder usarlo se lee como que la app está roto». Lo que las separa es si el
+renglón dice **cómo se consigue**: apagado y con «sólo si el mensaje lo dispara una acción»
+es información y una salida (cambiar el disparador), que es la misma forma de un guard que
+bloquea sólo lo que se arregla haciendo lo que pide. Y un `disabled` del `Dropdown` no se
+puede elegir, así que el token no puede entrar al texto.

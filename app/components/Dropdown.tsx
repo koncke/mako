@@ -29,7 +29,13 @@ function OptAvatar({ url, name, size = 22, cuadrado = false }: { url: string | n
 }
 
 // Botón de una opción del menú (compartido por la lista plana y las columnas).
-// En columnas el `sub` se omite: el título del grupo ya da ese contexto.
+//
+// En columnas el `sub` se omite POR DEFECTO: el título del grupo ya da ese contexto. Lo
+// vuelve a prender `subEnColumnas`, para las listas donde el `sub` no es contexto sino
+// el DATO —un valor de ejemplo— o el MOTIVO por el que la opción está apagada. Sin eso,
+// una opción `disabled` en columnas es un renglón gris sin una palabra que lo explique,
+// que es exactamente lo que esta casa llama un control que se lee como roto. Medido en
+// el navegador el 04/10/2026 con el catálogo de datos de un mensaje.
 function renderOption(
   o: DropdownOption,
   value: string,
@@ -37,6 +43,7 @@ function renderOption(
   onChange: (v: string) => void,
   close: () => void,
   enColumna: boolean,
+  conSub = false,
 ) {
   const on = !resetAfterSelect && o.value === value;
   const cuerpo = (
@@ -46,7 +53,7 @@ function renderOption(
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{ display: 'block', fontWeight: on ? 700 : 600, color: on ? 'var(--ink)' : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
-        {!enColumna && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
+        {(!enColumna || conSub) && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
       </span>
       {/* ⚠️ ACÁ HABÍA UN ✓ y se fue el 29/09/2026: «no pongas un check, solo haz que sea
           más notorio que estamos parados en ese producto». Lo elegido ya se dice DOS veces
@@ -168,7 +175,7 @@ function renderOption(
  */
 export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; onClick: () => void };
 
-export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
+export type DropdownOption = { value: string; label: string; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
   /**
    * La salida para CREAR uno nuevo, no una opción más de la lista.
    *
@@ -221,6 +228,7 @@ export function Dropdown({
   botonLabel,
   disabled = false,
   search,
+  subEnColumnas = false,
   portalTo,
   icono,
 }: {
@@ -250,6 +258,13 @@ export function Dropdown({
    * documento de rediseño pide combobox. `false` la apaga a mano.
    */
   search?: boolean;
+  /**
+   * Dibuja el `sub` TAMBIÉN en modo columnas. Por defecto se omite porque el título del
+   * grupo ya da el contexto; se prende cuando el `sub` es el dato (un valor de ejemplo) o
+   * el motivo por el que la opción está apagada — que es lo único que explica un renglón
+   * gris, y sin él se lee como un control roto.
+   */
+  subEnColumnas?: boolean;
   /**
    * Dónde se monta el menú. Por defecto `document.body`, que es lo correcto en toda la
    * app.
@@ -374,7 +389,14 @@ export function Dropdown({
   // (en las listas de personas el dato que uno recuerda suele ser el subtítulo).
   const conBusqueda = search ?? flat.length > 8;
   const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-  const coincide = (o: DropdownOption) => !q.trim() || norm(`${o.label} ${o.sub ?? ''}`).includes(norm(q.trim()));
+  // ⚠️ Y TAMBIÉN POR `buscar`, cuando la opción lo trae. Es para las listas donde el
+  // dato que uno recuerda no está escrito en ningún renglón: el catálogo de datos de un
+  // mensaje se llama «Cuánto falta cobrarle» y el token es `{{lead_saldo}}`, así que
+  // buscar «saldo» —que es la palabra que esa persona tiene en la cabeza— daba CERO
+  // resultados sobre una lista de 42 (medido en el navegador el 04/10/2026). No se mira
+  // el `value` de toda opción a propósito: en una lista de personas o de ids eso haría
+  // matchear números sueltos sin que nadie lo pida.
+  const coincide = (o: DropdownOption) => !q.trim() || norm(`${o.label} ${o.sub ?? ''} ${o.buscar ?? ''}`).includes(norm(q.trim()));
   const optsVisibles = (options ?? []).filter(coincide);
   const colsVisibles = columns?.map((col) => col.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length));
   const sinResultados = q.trim().length > 0 && (columns ? !colsVisibles?.some((c) => c.length) : optsVisibles.length === 0);
@@ -432,7 +454,7 @@ export function Dropdown({
                   {col.map((g) => (
                     <div key={g.title}>
                       <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', padding: '8px 11px 4px' }}>{g.title}</div>
-                      {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), true))}
+                      {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), true, subEnColumnas))}
                     </div>
                   ))}
                 </div>

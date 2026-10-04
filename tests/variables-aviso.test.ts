@@ -20,8 +20,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { TextoMarcas } from '../app/_components/TextoMarcas';
 import {
   VARIABLES_AVISO, RUTA_DE_LINK, tramosConVariables, variablesPara,
-  resolverVariables, valoresDeEjemplo,
+  resolverVariables, valoresDeEjemplo, GRUPOS_VARIABLES, CLAVES_DEL_LEAD,
+  necesitaFichaDelLead, agruparVariables, variablesPorGrupo, RE_VARIABLE,
+  variablesOfrecidas, PORQUE_NO_SE_PUEDE,
 } from '../lib/variables-aviso';
+import { valoresDelLead, plata, fecha } from '../lib/variables-del-lead';
+import type { Lead } from '../lib/leads';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** ⚠️ Sin comentarios: un guard que busca el nombre de lo que NO tiene que estar se
@@ -169,3 +173,173 @@ test('⚠️ Y el camino CON modelo sustituye ANTES, en los TRES retornos', () =
   assert.match(cuerpo, /out\.trim\(\) \|\| ref/);
   assert.match(cuerpo, /return ref;/);
 });
+
+// ── El catálogo extenso del CRM (04/10/2026) ────────────────────────────────
+// Pedido textual: «Hay muy pocas acciones o datos que extraer dentro de MaKo… Faltan
+// muchas cosas del CRM, que se debería poder extraer… Te invito a que hagas un listado
+// extenso, y que sea fácil de llegar a eso, que esté categorizado, y que tenga una barra
+// de busqueda el desplegable para acceder facil.»
+//
+// ⚠️ PROBADOS ROMPIENDO LAS PIEZAS, 04/10/2026. Las seis roturas se cazan, 1 fallo cada
+// una: sacarle el resolvedor a una fila del catálogo —una fila que se ofrece y nadie
+// resuelve, que es el modo de falla que esta tanda vino a cerrar— · meter `lead_nombre`
+// en las claves que piden la ficha (una lectura por un dato que ya estaba en la mano) ·
+// hacer que `necesitaFichaDelLead` conteste siempre que sí · poner una fila en un grupo
+// que no existe · formatear la plata sin el `US$` · y tratar el 0 como un faltante.
+//
+// ⚠️ La última salió CIEGA en el primer intento (0 fallos) y está contada adentro de su
+// test: el único 0 que miraba venía del saldo, que se calcula en su propia rama y no pasa
+// por el camino de los montos.
+
+test('⚠️ TODA fila del catálogo que pide la ficha del lead TIENE quien la resuelva', () => {
+  // Es la regla de la casa aplicada a este catálogo: escribir la salida no es ofrecerla.
+  // La tanda anterior midió que el resolvedor casi no se usaba y que 23 de 26 call sites
+  // del emisor pasan el texto ya armado; lo que NO puede pasar es que el selector ofrezca
+  // un dato que ninguna función sabe poner — eso sale al WhatsApp del cliente como
+  // `{{lead_saldo}}` crudo, y la pantalla lo ofreció.
+  const l = leadCompleto();
+  const puestos = valoresDelLead(l);
+  const faltan = [...CLAVES_DEL_LEAD].filter((k) => !(k in puestos));
+  assert.deepEqual(faltan, [], `el selector ofrece datos que nadie resuelve: ${faltan.join(', ')}`);
+});
+
+test('⚠️ y la ficha se lee SÓLO si el texto la nombra', () => {
+  // Es la regla de admisión nueva —una lectura por ENTIDAD que el texto nombra— y acá es
+  // donde se mide. La vieja («cero queries») ya era falsa el día que se escribió: el
+  // resolvedor hacía dos lecturas.
+  assert.equal(necesitaFichaDelLead('Hola, ¿cómo va?'), false, 'sin tokens no hay lectura');
+  assert.equal(necesitaFichaDelLead('Mirá {{link_crm}} y {{fecha}}'), false, 'los de siempre no piden la ficha');
+  // Los dos que el EVENTO ya trae: pedir la fila por ellos sería una lectura por un dato
+  // que estaba en la mano.
+  assert.equal(necesitaFichaDelLead('Hola {{lead_nombre}}'), false);
+  assert.equal(necesitaFichaDelLead('Abrí {{link_lead}}'), false);
+  // Y cualquier dato del CRM sí.
+  assert.equal(necesitaFichaDelLead('Debe {{lead_saldo}}'), true);
+  assert.equal(necesitaFichaDelLead('Está {{lead_estado}} y agendó el {{lead_fecha_r1}}'), true);
+  assert.ok(!CLAVES_DEL_LEAD.has('lead_nombre') && !CLAVES_DEL_LEAD.has('link_lead'));
+});
+
+test('El catálogo está bien formado: claves únicas, tokeneables y con grupo', () => {
+  const grupos = new Set(GRUPOS_VARIABLES.map((g) => g.key));
+  const vistas = new Set<string>();
+  for (const v of VARIABLES_AVISO) {
+    assert.ok(!vistas.has(v.key), `la clave ${v.key} está dos veces`);
+    vistas.add(v.key);
+    // Si la clave no matchea el molde del token, el botón inserta algo que el
+    // sustituidor no va a encontrar nunca: sale crudo y nadie entiende por qué.
+    assert.match(`{{${v.key}}}`, new RegExp(`^${RE_VARIABLE.source}$`, 'i'), `${v.key} no es un token válido`);
+    assert.ok(grupos.has(v.grupo), `${v.key} está en un grupo que no existe: ${v.grupo}`);
+    assert.ok(v.label.trim() && v.ejemplo.trim(), `${v.key} sin rótulo o sin ejemplo`);
+  }
+  assert.ok(VARIABLES_AVISO.length >= 35, `el catálogo tiene ${VARIABLES_AVISO.length} filas: se pidió uno EXTENSO`);
+});
+
+test('⚠️ sin lead, los datos del CRM se OFRECEN APAGADOS, nunca resolubles', () => {
+  // Las dos mitades de la misma decisión:
+  //
+  // · `variablesPara` (lo que se puede RESOLVER) no devuelve ni un dato del CRM sin
+  //   lead. Ofrecer un valor que va a salir crudo al WhatsApp del cliente es lo que
+  //   esta función impide, y sigue siendo la regla.
+  // · `variablesOfrecidas` (lo que se DIBUJA) los trae igual, con `resoluble: false`.
+  //   Medido en el navegador: filtrándolos, un mensaje con disparador por tiempo —que
+  //   son casi todos— ofrecía NUEVE datos de 42, o sea que el catálogo extenso no
+  //   existía para quien lo abría. Apagada y con su motivo, la fila es información.
+  const sinLead = variablesPara({ conLead: false });
+  assert.deepEqual(sinLead.filter((v) => v.alcance === 'lead'), []);
+
+  const gs = variablesOfrecidas({ conLead: false });
+  const filas = gs.flatMap((g) => g.items);
+  assert.equal(filas.length, VARIABLES_AVISO.length, 'el selector dejó de ofrecer el catálogo entero');
+  assert.deepEqual(gs.map((g) => g.titulo), GRUPOS_VARIABLES.map((g) => g.titulo), 'faltan grupos en el desplegable');
+  for (const f of filas) {
+    assert.equal(f.resoluble, f.alcance !== 'lead', `${f.key} dice que se puede resolver sin lead`);
+  }
+  // Con lead, TODO se puede: es lo que hace que el motivo sea accionable («cambiá el
+  // disparador») y no un cartel sin salida.
+  assert.ok(variablesOfrecidas({ conLead: true }).flatMap((g) => g.items).every((f) => f.resoluble));
+  assert.ok(PORQUE_NO_SE_PUEDE.includes('acción'), 'el motivo tiene que decir CÓMO se consigue');
+  // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.
+  assert.ok(gs.every((g) => g.items.length > 0), 'quedó un grupo vacío en el desplegable');
+  // Agrupar lo YA filtrado da el mismo orden: dos caminos, una regla.
+  assert.deepEqual(
+    agruparVariables(sinLead).map((g) => g.titulo),
+    variablesPorGrupo({ conLead: false }).map((g) => g.titulo),
+  );
+});
+
+test('⚠️ y el EDITOR apaga exactamente eso, con el motivo en el renglón', () => {
+  // Un guard de cableado: el test de arriba prueba el catálogo, no la barra. Si la barra
+  // se olvida el `disabled`, el token entra al texto y sale crudo al WhatsApp.
+  const src = leer('../app/agencia/EditorMensaje.tsx');
+  const i = src.indexOf('columns={[grupos.map(');
+  const bloque = src.slice(i, src.indexOf('onChange=', i));
+  assert.ok(i > 0 && bloque.length < 900, `el recorte del selector mide ${bloque.length}: mira otra cosa`);
+  assert.match(bloque, /disabled: !v\.resoluble/, 'el selector dejó de apagar lo que no se puede poner');
+  assert.match(bloque, /v\.resoluble \? v\.ejemplo : PORQUE_NO_SE_PUEDE/, 'el renglón apagado no dice por qué');
+  // Y el que lo monta pasa el catálogo ENTERO, no el filtrado.
+  const flujo = leer('../app/agencia/FlujoAviso.tsx');
+  assert.match(flujo, /variables=\{variablesOfrecidas\(\{ conLead:/, 'volvió a pasar sólo lo resoluble');
+});
+
+test('⚠️ el formato lo pone el RESOLVEDOR, y el 0 no es un faltante', () => {
+  // Tres formas de escribir el mismo monto en tres canales es cómo se arma una
+  // contradicción entre el WhatsApp y el correo. Y `0` es un hecho: «no debe nada».
+  assert.equal(plata(1500), 'US$ 1.500');
+  assert.equal(plata(0), 'US$ 0');
+  assert.equal(fecha('2026-10-14'), '14/10');
+  assert.equal(fecha('mañana'), 'mañana', 'lo que no es fecha se deja como vino');
+
+  const l = leadCompleto({ monto_cierre_usd: 1500, total_cobrado_usd: 1500, asistio_j1: false });
+  const v = valoresDelLead(l);
+  assert.equal(v.lead_saldo, 'US$ 0', 'un saldo en cero tiene que SALIR: es el hecho de que ya pagó');
+  assert.equal(v.lead_asistio_r1, 'no', 'un booleano en false no es un faltante');
+  // ⚠️ Y UN 0 QUE VIENE DE LA COLUMNA, no del cálculo. La primera versión de este test
+  // sólo miraba el saldo —que tiene su propia rama— así que un `if (v)` en el camino de
+  // los montos daba CERO fallos: el caso que perseguía no pasaba por ahí. Medido.
+  assert.equal(valoresDelLead(leadCompleto({ total_cobrado_usd: 0 })).lead_cobrado, 'US$ 0',
+    '«todavía no pagó nada» es un hecho, y con `if (v)` desaparece');
+  assert.equal(valoresDelLead(leadCompleto({ dia_de_pago: 0 })).lead_dia_de_pago, '0');
+
+  // Lo que está en null NO entra, y entonces su token sale crudo. Es la decisión que ya
+  // estaba escrita para los otros alcances: crudo se nota, vacío deja el mensaje cojo.
+  const pelado = valoresDelLead(leadCompleto({ monto_cierre_usd: null, total_cobrado_usd: null, asistio_j1: null, empresa: null }));
+  for (const k of ['lead_monto_cierre', 'lead_saldo', 'lead_asistio_r1', 'lead_empresa']) {
+    assert.ok(!(k in pelado), `${k} entró al mapa con un null: el mensaje diría «undefined»`);
+  }
+  // Y el saldo NO se calcula sin monto de cierre: sería el negativo de lo pagado.
+  assert.ok(!('lead_saldo' in valoresDelLead(leadCompleto({ monto_cierre_usd: null, total_cobrado_usd: 500 }))));
+});
+
+test('El estado se dice en palabras, no con el slug de la base', () => {
+  assert.equal(valoresDelLead(leadCompleto({ estado_lead: 'no_responde' })).lead_estado, 'no responde');
+  assert.equal(valoresDelLead(leadCompleto({ estado_lead: 'ganado' })).lead_estado, 'ganado');
+});
+
+/** Un lead con TODO puesto: es lo que hace medible «toda fila tiene quien la resuelva». */
+function leadCompleto(over: Partial<Lead> = {}): Lead {
+  return {
+    id: 2498, nombre: 'Sofía Contreras', email: 'sofia@ejemplo.com', telefono: '+5215512345678',
+    empresa: 'Inmobiliaria del Valle',
+    fecha_agenda: '2026-10-12', fecha_junta_1: '2026-10-14', fecha_junta_2: '2026-10-21',
+    junta_1_at: null, junta_2_at: null,
+    asistio_j1: true, asistio_j2: false, calificado: true, cerro: true,
+    estado_lead: 'ganado', motivo_perdida: 'sin presupuesto',
+    monto_cierre_usd: 1500, fecha_cierre: '2026-09-28', fecha_confirmacion: null,
+    fecha_primer_pago: '2026-09-29', monto_primer_pago: 500, total_cobrado_usd: 500,
+    fecha_inicio_servicio: null, cobro_inicial_usd: 500, monto_cuota_usd: 250,
+    total_cuotas: 4, dia_de_pago: 10,
+    venta_tipo: 'suscripcion', suscripcion_monto_usd: 500, suscripcion_meses: 6,
+    adset_id_origen: null,
+    utm_source: 'facebook', utm_medium: 'cpc', utm_campaign: 'oct-leads', utm_content: null,
+    fbclid: null,
+    respuesta_facturacion: 'US$ 10k - 30k', respuesta_colaboradores: '5 a 10',
+    respuesta_objetivo: 'duplicar las ventas', respuesta_cuando_empezar: 'este mes',
+    respuesta_inversion: 'US$ 1k - 3k', respuesta_decisor: 'sí',
+    meta_lead_id: null, meta_ad_id: null, meta_ad_name: 'Video testimonio 3',
+    meta_campaign_name: 'Inmobiliario · Octubre', meta_adset_name: null,
+    origen_lead: 'instant_form', telefono_normalizado: '5215512345678',
+    visitor_id: null, nutricion_realizada: false,
+    closer: 'Mauricio', setter: 'Leila',
+    ...over,
+  } as Lead;
+}

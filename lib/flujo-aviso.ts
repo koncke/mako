@@ -45,6 +45,10 @@ export type AvisoParaGrafo = {
   /** El texto que llega. */
   texto: string;
   canales: { wa: boolean; email: boolean };
+  /** El asunto del correo, si tiene uno propio. Lo dibuja la tarjeta EMAIL. */
+  asunto?: string;
+  /** Cómo se llama el mensaje: es el asunto por default. */
+  titulo?: string;
   /** El paso `insistir` del flujo, si está prendido. */
   insistir: { cadaMin: number; veces: number } | null;
   /** El disparador POR EVENTO del flujo, si se eligió uno. */
@@ -196,7 +200,10 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
       const alto = altoDe(1);
       nodos.push({
         id: 'mensaje-email', tipo: 'mensaje', titulo: 'EMAIL', icono: 'email', orden: 1,
-        detalle: '',
+        // El ASUNTO del correo, que es lo único propio de este canal. Vacío = el título
+        // del mensaje, y entonces la tarjeta lo muestra en gris: «(el título)» sería
+        // un dato inventado, y el título a secas se lee como el asunto de verdad.
+        detalle: a.asunto?.trim() || a.titulo,
         // El recordatorio sale SÓLO por WhatsApp (`insistir`, abajo). Con el mail
         // prendido y WhatsApp apagado, la advertencia viaja en la tarjeta del canal
         // que sí existe, que es la única que alguien va a mirar.

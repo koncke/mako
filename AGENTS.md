@@ -3626,6 +3626,51 @@ no había nada.
 árbol que quedó viejo tras un `git reset` sin `--hard`—, y fuera de ése es una pérdida de
 trabajo. Antes de escribirlo: `git status --short` de esa ruta, y si está modificada, no.
 
+# Arreglar un bug de CONTEXTO en una función: contá cuántas veces esa función pregunta
+
+Cuando se arregla un «esto lee el workspace equivocado» —o la zona horaria, o el tenant, o
+la sesión— el reflejo es envolver la línea que falló. Y si la función hace la MISMA
+pregunta en otro lado, queda medio arreglada: la mitad buena le da cobertura a la mitad
+rota, porque el síntoma grande desaparece.
+
+Medido el 04/10/2026 en `emitirDelCatalogo` (`lib/avisos.ts`). En septiembre se arregló
+que el INTERRUPTOR de un aviso se leyera en el workspace del aviso y no en el ambiente,
+con su comentario de ocho líneas y su test. En la misma función, **dos líneas más abajo
+del comentario**, el TEXTO seguía resolviéndose afuera: un cron que itera inquilinos
+pasando `ws` explícito —así llaman todos— le mandaba a cada cliente **el texto del
+DUEÑO**, con el interruptor del cliente respetado justo arriba. Y el TÍTULO salía del
+catálogo de fábrica, así que renombrar un mensaje no se veía en el feed ni en el asunto
+del correo.
+
+- **Contá las lecturas del mismo store en esa función, y dejá UNA.** Acá eran tres
+  (`plantillaActiva`, `referenciaPlantilla`, `cat.titulo`) y ahora es un `getPlantilla`:
+  una sola no se puede desincronizar consigo misma.
+- **Y el guard mira las DOS mitades**, no la que se arregló. El que existía fijaba
+  `runWithWorkspace(ws, () => plantillaActiva(id))` — o sea exactamente la línea buena,
+  mientras la de al lado estaba mal y en verde.
+
+# Una regla de admisión que nadie puede cumplir no protege: se MIDE y se reescribe
+
+Un comentario que dice «acá sólo entra lo que no cuesta nada» envejece de la peor forma:
+el código lo desobedece de a poco, nadie lo nota porque la regla sigue escrita, y el día
+que alguien la toma en serio bloquea trabajo legítimo.
+
+Medido el 04/10/2026 en `lib/variables-aviso.ts`. La regla decía «cero queries nuevas,
+cero proveedores» y el resolvedor hacía **dos lecturas a Supabase** el día que se
+escribió. Con la vara literal, casi todo el CRM quedaba afuera del catálogo de datos de
+un mensaje — que era exactamente lo que el dueño había pedido.
+
+La que quedó, y protege lo mismo: **una lectura por ENTIDAD que el texto NOMBRA, y sólo
+si la nombra. Cero proveedores.** Lo que la regla vieja cuidaba era el webhook con
+`maxDuration` esperando 900 ms a Meta, no un `select` indexado por id.
+
+- **Antes de ampliar un catálogo, releé su regla de admisión y comprobá si el código la
+  cumple.** Si no la cumple, la regla ya no es la regla: es documentación de una
+  intención.
+- **Y la nueva se escribe con el mecanismo que la hace cierta**, no en prosa: acá es
+  `necesitaFichaDelLead(texto)`, que decide mirando los tokens que el mensaje trae de
+  verdad.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

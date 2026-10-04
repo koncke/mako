@@ -7296,3 +7296,83 @@ mensaje agendado para siempre sin más salida que apagar el mensaje entero.
 - **El catálogo extenso del CRM** sigue pendiente con lo medido en la entrada de más
   arriba: el resolvedor casi no se usa y la vara de admisión escrita contradice la
   aplicada.
+
+## El catálogo de datos del CRM: el problema no era escribir las filas (04/10/2026)
+
+**Vive en:** `lib/variables-aviso.ts` · `lib/variables-del-lead.ts` · `lib/variables-resolver.ts` · `lib/avisos.ts`
+
+Pedido: «Hay muy pocas acciones o datos que extraer dentro de MaKo… Faltan muchas cosas
+del CRM… un listado extenso, categorizado, con una barra de búsqueda». Lo que costó no
+fue el listado (42 filas, 8 grupos): fue que hasta hoy **ningún camino resolvía un dato
+del CRM**, y por tres razones distintas.
+
+**1. La regla de admisión estaba mal escrita, y además no era cierta.** Decía «cero
+queries nuevas, cero proveedores» y el resolvedor ya hacía **dos lecturas** a Supabase el
+día que se escribió (la zona horaria y el nombre del negocio). Con la vara literal, casi
+todo el CRM queda afuera. La que quedó:
+
+> **UNA lectura por ENTIDAD que el texto NOMBRA, y sólo si la nombra. Cero proveedores.**
+
+Lo que sigue prohibido es lo que motivó la regla vieja: un número de Meta son ~900 ms
+medidos y las lecturas de ads están marcadas `lenta`, así que un webhook con
+`maxDuration` que espere eso es un aviso que no sale. La decisión la toma
+`necesitaFichaDelLead(texto)`, que mira los tokens que el mensaje trae de verdad: el 99%
+de los avisos no nombra ninguno y no toca `leads`.
+
+**2. El emisor no tenía por dónde recibir un lead.** `EmitirAvisoInput` no tenía el
+campo, y `generarMensajeAviso` resolvía con `{ ws }` pelado — aunque
+`dispararEvento('lead.agendo', { leadId, leadNombre })` trae el id en la mano desde
+siempre. O sea que `{{lead_nombre}}` tampoco se resolvía: la pantalla ofrecía un dato que
+ninguna función sabía poner, y lo que salía al WhatsApp era el token crudo.
+
+**3. Y el texto se resolvía en el workspace EQUIVOCADO.** Esta es la que más duele, porque
+el comentario que la explica estaba escrito arriba, en la misma función:
+`emitirDelCatalogo` resolvía el interruptor con `runWithWorkspace(ws, …)` —arreglado en
+septiembre, con su autopsia— y **el texto, fuera**. Así que un cron que itera inquilinos
+pasando `ws` explícito —así llaman todos— mandaba a cada cliente **el texto del DUEÑO**,
+con el interruptor del cliente respetado dos líneas más arriba. La mitad arreglada le
+daba cobertura a la mitad rota.
+
+⚠️ **La regla que generaliza:** cuando se arregla un bug de contexto en una función,
+contá cuántas lecturas del mismo store hace esa función. Acá eran tres (interruptor,
+texto, título) y se arregló una. Ahora es UNA sola (`getPlantilla`), que no se puede
+desincronizar consigo misma.
+
+### Y el título del mensaje no viajaba a ningún lado
+
+`emitirDelCatalogo` mandaba `titulo: cat.titulo` —el del catálogo, el de fábrica—
+mientras el renombre por workspace vivía en el store. Resultado: renombrar un mensaje
+cambiaba la lista de `/mensajes` y **no** el feed ni el asunto del correo. El renombre se
+veía en la pantalla donde se hizo y en ninguna otra.
+
+## Las plantillas del email: lo que faltaba era el ASUNTO, y el panel en blanco (04/10/2026)
+
+**Vive en:** `lib/plantillas.ts` · `app/agencia/FlujoAviso.tsx` · `lib/flujo-aviso.ts`
+
+Pedido: «me faltan las plantillas de los email, que ahora como es todo un mismo editor
+falta eso». Medido: la tarjeta EMAIL del lienzo existía y **tocarla abría un panel vacío**
+— caía en el `return` del final, que dibuja `nodo.detalle`, y para esa tarjeta el detalle
+era la cadena vacía.
+
+Lo propio del correo es **uno solo**: el asunto. El cuerpo es un `texto` compartido por
+los dos canales, y partirlo serían dos borradores y dos «sin publicar» — eso se decide
+cuando alguien lo pida, no de paso. Tres decisiones del campo:
+
+- **Se guarda el OVERRIDE crudo, no el resuelto.** Con el resuelto, vaciar el campo
+  devolvería el título y la pantalla mostraría un texto que la persona no escribió: así
+  se pierde la diferencia entre «no puse nada» y «puse esto». Vacío BORRA la clave.
+- **El título es el placeholder**, que es lo que se usa si queda vacío. Verlo ahí es la
+  única forma de que «vacío» signifique algo.
+- **Y el asunto resuelto va al `subject`, no al `titulo` de la banda del correo**: son dos
+  renglones distintos y mezclarlos deja el mail repitiendo lo mismo dos veces.
+
+### Lo que quedó SIN hacer
+
+- **El cuerpo del email sigue siendo el mismo que el de WhatsApp**, y el panel lo DICE en
+  una línea. Un cuerpo propio son dos borradores y dos estados de publicación.
+- **Los 23 de 26 call sites del emisor que pasan el `texto:` ya armado a mano** siguen sin
+  tocar la plantilla ni el resolvedor: para esos, editar el mensaje en `/mensajes` no
+  cambia lo que sale. Es el trabajo grande que queda, y es uno por uno.
+- **El lead sólo viaja desde los pasos de un flujo y desde quien lo pase explícito.** Los
+  webhooks que tienen el lead en la mano (Calendly, Meta Lead Ads, Cal.com) pasan `texto`
+  armado, así que ahí no cambia nada hasta que se los pase a plantilla.

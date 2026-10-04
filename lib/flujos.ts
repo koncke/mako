@@ -140,7 +140,8 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
   // acá no se valida nada a mano, para que haya UN solo lugar donde vive el tope.
   if (paso.tipo === 'insistir') {
     const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
-    const texto = await generarMensajeAviso(flujoId, contexto).catch(() => paso.texto) || paso.texto;
+    // El lead viaja al generador: es lo que resuelve los datos del CRM del catálogo.
+    const texto = await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }).catch(() => paso.texto) || paso.texto;
     await enviarAlGrupoMaKo(ws, texto);
     // El texto que vuelve es el MISMO que salió, no uno nuevo generado cada vez: si
     // cada repetición se redactara distinta, el dueño leería cuatro avisos que parecen
@@ -152,7 +153,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     if (paso.canal === 'aviso_dueno') {
       // MaKo adapta el texto (referencia) con el contexto y lo manda al grupo del dueño.
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
-      const texto = await generarMensajeAviso(flujoId, contexto).catch(() => paso.texto) || paso.texto;
+      const texto = await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }).catch(() => paso.texto) || paso.texto;
       await enviarAlGrupoMaKo(ws, texto);
       return;
     }

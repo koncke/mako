@@ -88,6 +88,13 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
    */
   const [texto, setTexto] = useState(plantilla?.borrador ?? plantilla?.ejemplo ?? '');
   const [orig, setOrig] = useState(plantilla?.ejemplo ?? '');
+  /**
+   * EL ASUNTO DEL EMAIL. Sembrado de props como los otros cinco — y por eso el
+   * `key={…}` del editor en PlantillasView es obligatorio: un `useState(props.x)` no se
+   * resiembra, y con la vista de editar por default este componente ya no se desmonta al
+   * cambiar de mensaje.
+   */
+  const [asunto, setAsunto] = useState(plantilla?.asunto ?? '');
   const [editandoTitulo, setEditandoTitulo] = useState(false);
   const [preguntandoSalida, setPreguntandoSalida] = useState(false);
   const [enabled, setEnabled] = useState(plantilla?.enabled ?? true);
@@ -180,6 +187,20 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
     else { flashMal(r.error || 'No se pudo cambiar el nombre'); setTitulo(plantilla?.titulo ?? ''); }
   };
 
+  /**
+   * El asunto se guarda al SALIR del campo, no en cada tecla: son 160 caracteres y
+   * escribir en la base a mitad de una palabra deja «Tu reporte de la sem» en la bandeja
+   * de alguien si el aviso sale en ese segundo. Vacío es un valor válido —«usá el
+   * título»— así que no hay guard de «no mandes vacío».
+   */
+  const guardarAsunto = async () => {
+    const a = asunto.trim();
+    if (!id || a === (plantilla?.asunto ?? '')) return;
+    const r = await api(endpoint, { action: 'asunto', id, asunto: a });
+    if (r.ok) { flashOk(a ? 'Asunto guardado ✓' : 'Vuelve a usar el título ✓'); onCambio?.(); }
+    else { flashMal(r.error || 'No se pudo guardar el asunto'); setAsunto(plantilla?.asunto ?? ''); }
+  };
+
   const guardarCategoria = async (c: CategoriaAviso) => {
     setCategoria(c);
     if (!id) return;
@@ -253,6 +274,8 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
           frecuenciaMin={plantilla.frecuenciaMin}
           texto={texto}
           canales={plantilla.canales}
+          asunto={asunto} onAsunto={setAsunto} onAsuntoGuardar={() => void guardarAsunto()}
+          tituloMensaje={titulo || plantilla.titulo}
           posiciones={plantilla.posiciones}
           endpoint={endpoint}
           editable={puedeEditarTexto}

@@ -37,7 +37,7 @@ import { Dropdown } from '../components/Dropdown';
 import { EditorMensaje } from './EditorMensaje';
 import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
 import { UNIDADES, CADA_MAX, DIA_MES_MAX, sanearCron, textoCron, type CronAviso } from '@/lib/cron-aviso';
-import { variablesPara } from '@/lib/variables-aviso';
+import { variablesOfrecidas } from '@/lib/variables-aviso';
 import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import {
   EVENTOS, INSISTIR_MAX_VECES, INSISTIR_MIN_MINUTOS, sanearInsistir,
@@ -71,6 +71,7 @@ const CRON_DEFAULT: CronAviso = { unidad: 'dia', cada: 1, hora: 9, minuto: 0 };
 
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
+  asunto, onAsunto, onAsuntoGuardar, tituloMensaje,
   onTexto, onCambio, probando, prueba, onProbar, chrome, pie,
 }: {
   id: string;
@@ -78,6 +79,12 @@ export function FlujoAviso({
   frecuenciaMin: number;
   texto: string;
   canales: { wa: boolean; email: boolean };
+  /** El asunto del email (vacío = se usa el título). Vive en el nodo EMAIL. */
+  asunto?: string;
+  /** Cómo se llama el mensaje. Es el asunto por default, así que la tarjeta lo dibuja. */
+  tituloMensaje?: string;
+  onAsunto?: (v: string) => void;
+  onAsuntoGuardar?: () => void;
   posiciones: Posiciones;
   endpoint: string;
   /** Los avisos que redacta MaKo no dejan editar su TEXTO: son hechos exactos. */
@@ -210,6 +217,9 @@ export function FlujoAviso({
 
   const aviso: AvisoParaGrafo = {
     disparador, frecuenciaMin, texto, canales, posiciones: pos, cron, tz,
+    // El asunto va al grafo para que la tarjeta EMAIL lo muestre: una tarjeta que no
+    // dice qué asunto sale es una tarjeta que hay que abrir para saber qué hace.
+    asunto, titulo: tituloMensaje,
     insistir: insistir ? { cadaMin: insistir.cadaMin, veces: insistir.veces } : null,
     evento: flujo?.disparador ?? null,
     pasos: pasosExtra,
@@ -354,6 +364,7 @@ export function FlujoAviso({
           <EditorDelAviso
             nodo={n} id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
             texto={texto} endpoint={endpoint} editable={editable} guardando={guardando || busy}
+            asunto={asunto} onAsunto={onAsunto} onAsuntoGuardar={onAsuntoGuardar}
             canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
             acusesTxt={acusesTxt} onAcuses={guardarAcuses}
             onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo}
@@ -378,10 +389,12 @@ export function FlujoAviso({
 
 function EditorDelAviso({
   nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, guardando, canales,
+  asunto, onAsunto, onAsuntoGuardar,
   flujo, insistir, cron, tz, onCron, acusesTxt, onAcuses, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
   endpoint: string; editable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
+  asunto?: string; onAsunto?: (v: string) => void; onAsuntoGuardar?: () => void;
   flujo: Flujo | null;
   insistir: Extract<Paso, { tipo: 'insistir' }> | null;
   cron: CronAviso | null;
@@ -403,6 +416,43 @@ function EditorDelAviso({
         base={base} cron={cron} tz={tz}
         guardando={guardando} onFlujo={onFlujo} onCron={onCron}
       />
+    );
+  }
+  /**
+   * EL NODO DEL EMAIL. Hasta el 04/10/2026 caía en el `return` del final y mostraba el
+   * `detalle`, que para esta tarjeta es la cadena vacía: tocarla abría un panel EN
+   * BLANCO. Pedido así: «me faltan las plantillas de los email, que ahora como es todo
+   * un mismo editor falta eso».
+   *
+   * ⚠️ EL CUERPO ES UNO, Y SE DICE. El mensaje tiene UN `texto` para los dos canales, y
+   * lo único que es propio del correo es el ASUNTO —en WhatsApp no hay asunto, y en una
+   * bandeja el título interno («Lead sin confirmar») se lee como un log—. Dibujar acá un
+   * segundo editor de cuerpo sería prometer dos textos: serían dos borradores y dos
+   * «sin publicar», y eso se decide cuando alguien lo pida. Mientras tanto el panel lo
+   * DICE en una línea, que es más honesto que un campo que pisa el otro.
+   */
+  if (nodo.id === 'mensaje-email') {
+    return (
+      <>
+        <label style={rotuloLienzo}>Asunto del correo</label>
+        <input
+          value={asunto ?? ''} disabled={guardando || !editable || !onAsunto}
+          onChange={(e) => onAsunto?.(e.target.value)}
+          onBlur={() => onAsuntoGuardar?.()}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAsuntoGuardar?.(); } }}
+          // El título como placeholder: es lo que se usa si esto queda vacío, y verlo
+          // acá es la diferencia entre «no puse nada» y «puse esto».
+          placeholder={nodo.detalle || 'El título del mensaje'}
+          maxLength={160}
+          style={{ ...inpLienzo, marginBottom: 8 }}
+        />
+        <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, margin: 0 }}>
+          Vacío: va el título. El cuerpo es el mismo que el de WhatsApp.
+        </p>
+        {nodo.advertencia && (
+          <p style={{ fontSize: 11.5, color: 'var(--warn)', lineHeight: 1.45, marginTop: 8, marginBottom: 0 }}>{nodo.advertencia}</p>
+        )}
+      </>
     );
   }
   if (nodo.id === 'mensaje') {
@@ -467,7 +517,7 @@ function EditorDelAviso({
             el resolvedor deja intacto lo que no sabe, a propósito, y el filtro de acá
             es lo único que evita que llegue ahí. */}
         <EditorMensaje valor={texto} onChange={onTexto} disabled={guardando}
-          variables={variablesPara({ conLead: base.disparador.tipo === 'evento' })}
+          variables={variablesOfrecidas({ conLead: base.disparador.tipo === 'evento' })}
           accion={<PedirleAMaKo onProbar={onProbar} probando={probando} />} />
         {/* ⚠️ LA SUGERENCIA SE APLICA, NO SE MIRA. El botón dejaba un texto en azul
             debajo y no tocaba el mensaje: «no hace nada, me escribe algo abajo pero

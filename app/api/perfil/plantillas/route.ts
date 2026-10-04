@@ -20,7 +20,7 @@ import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
-  setTituloPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
+  setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado } from '@/lib/avisos-programados';
 import { acusesDe, setAcuses } from '@/lib/insistencias';
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   if (no) return no;
   let b: {
     action?: string; id?: string; texto?: string; enabled?: boolean; canales?: { wa?: boolean; email?: boolean }; contexto?: string;
-    titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
+    titulo?: string; asunto?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
     frecuenciaMin?: number;
     posiciones?: Record<string, { x: number; y: number }>;
     cron?: unknown;
@@ -154,6 +154,10 @@ export async function POST(req: NextRequest) {
         const publico = await publicarBorrador(b.id);
         return NextResponse.json({ ok: true, publico, plantilla: await getPlantilla(b.id) });
       }
+      case 'asunto':
+        if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+        await setAsuntoPlantilla(b.id, b.asunto ?? '');
+        return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) });
       case 'titulo':
         if (!b.id) return faltaId();
         // CÓMO LO LLAMA en su lista es suyo, como el canal: no cambia lo que el

@@ -58,6 +58,25 @@ export type EmitirAvisoInput = {
   ws?: number;
   /** forzar el canal del dueño (grupo SuperAdmin) aunque ws no sea OWNER_WS. */
   alDueno?: boolean;
+  /**
+   * El asunto del EMAIL, cuando el mensaje tiene uno propio. Vacío = el título.
+   *
+   * Son dos campos porque son dos cosas: el título es el nombre interno del mensaje
+   * —lo que se lee en el feed y en la lista de /mensajes— y el asunto es lo que ve
+   * alguien en su bandeja. «Lead sin confirmar» está bien como título y se lee como un
+   * log adentro de un correo.
+   */
+  asuntoEmail?: string;
+  /**
+   * De QUÉ LEAD habla este aviso, cuando habla de uno.
+   *
+   * ⚠️ ES LO QUE HACE RESOLVIBLES LOS DATOS DEL CRM. Hasta el 04/10/2026 el emisor no
+   * tenía por dónde recibir un lead, así que los tokens del catálogo (`{{lead_saldo}}`,
+   * `{{lead_estado}}`, …) no se resolvían en NINGÚN camino aunque el evento que dispara
+   * el aviso traiga el id en la mano — y lo que salía al WhatsApp era el token crudo.
+   * El `nombre` viaja aparte porque el evento lo tiene y es más nuevo que la fila.
+   */
+  lead?: { id: number; nombre?: string | null };
 };
 
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
@@ -286,15 +305,19 @@ async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string):
     if (!para.length) return false;   // nadie a quien escribirle no es un error
 
     const cuerpo = a.texto;
+    // El asunto propio del mensaje si lo tiene; si no, el título. El `titulo` de la
+    // banda del correo NO cambia: es el nombre del aviso, y el asunto es el renglón de
+    // la bandeja — mezclarlos deja el correo repitiendo lo mismo dos veces.
+    const asunto = a.asuntoEmail?.trim() || a.titulo;
     const html = renderEmailHtml({
-      subject: a.titulo, titulo: a.titulo, bodyText: cuerpo, marca: 'mako',
+      subject: asunto, titulo: a.titulo, bodyText: cuerpo, marca: 'mako',
       cta: a.link ? { texto: 'Verlo en MaKo', url: a.link.startsWith('http') ? a.link : `${APP_BASE_URL}${a.link}` } : undefined,
     });
     // Uno por destinatario, no en copia: son personas distintas del mismo negocio y
     // no tienen por qué verse los mails entre ellas (igual que los reportes).
     let salio = false;
     for (const to of para) {
-      const r = await sendEmail({ to, from: REMITENTE_MAKO, replyTo: EMAIL_MAKO, subject: a.titulo, html, text: textoConRotulo });
+      const r = await sendEmail({ to, from: REMITENTE_MAKO, replyTo: EMAIL_MAKO, subject: asunto, html, text: textoConRotulo });
       if (r.ok) salio = true;
     }
     return salio;
@@ -321,11 +344,11 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
  * cual. Si no, cae a la referencia literal. Respeta activar/desactivar la plantilla.
  */
 export async function emitirDelCatalogo(
-  id: string, opts: { texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; dedupKey?: string; alDueno?: boolean } = {},
+  id: string, opts: { texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; dedupKey?: string; alDueno?: boolean; lead?: { id: number; nombre?: string | null } } = {},
 ): Promise<EmitirAvisoResult> {
   const cat = avisoDelCatalogo(id);
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
-  const { plantillaActiva, referenciaPlantilla, generarMensajeAviso } = await import('./plantillas');
+  const { getPlantilla, referenciaResuelta, generarMensajeAviso } = await import('./plantillas');
   // ⚠️ EL WORKSPACE SE RESUELVE ANTES DE LEER LA PLANTILLA. Esta línea leía el store
   // del contexto AMBIENTE, no el de `opts.ws`: un cron que pasa el workspace explícito
   // sin estar adentro de un `runWithWorkspace` —así llaman los que iteran inquilinos—
@@ -333,7 +356,11 @@ export async function emitirDelCatalogo(
   // `estadoAviso(ws, …)`. O sea: un aviso que el dueño tenía apagado moría acá para
   // todos sus clientes, sin importar lo que cada uno hubiera configurado.
   const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
-  if (!(await runWithWorkspace(ws, () => plantillaActiva(id)))) return { ok: true, feedId: null, wa: false, deduped: true }; // desactivada → no manda
+  // UNA lectura de la plantilla, y trae las cuatro respuestas que hacen falta: si está
+  // prendida, cómo la llamó ESTE negocio, qué asunto le puso al correo y —vía
+  // `referenciaResuelta`— qué texto manda. Eran tres lecturas del mismo store.
+  const pl = await runWithWorkspace(ws, () => getPlantilla(id));
+  if (!(pl?.enabled ?? true)) return { ok: true, feedId: null, wa: false, deduped: true }; // desactivada → no manda
   // ⚠️ EL MODELO SE PAGA DESPUÉS DE SABER SI EL MENSAJE VA A SALIR. `generarMensajeAviso`
   // es una llamada a la IA, y hasta hoy corría SIEMPRE — también para un aviso que el
   // interruptor tenía apagado o que el dedup iba a descartar. Con el resumen diario eso se
@@ -345,11 +372,27 @@ export async function emitirDelCatalogo(
   // MISMA frase para todos los avisos de ese tipo, así que el renglón del resumen no diría
   // de qué reunión, de qué retro ni de qué objetivo habla — que es la única parte
   // accionable. El contexto es feo (son notas para el modelo) pero es el dato.
-  const texto = opts.texto
-    ?? (opts.contexto ? (alResumen ? opts.contexto : await generarMensajeAviso(id, opts.contexto)) : await referenciaPlantilla(id));
+  // ⚠️ EL TEXTO SE RESUELVE DENTRO DEL WORKSPACE DEL AVISO, igual que el interruptor.
+  // Esta línea corría FUERA de `runWithWorkspace(ws, …)`, así que `referenciaPlantilla`
+  // leía el store del contexto AMBIENTE: un cron que itera inquilinos pasando `ws`
+  // explícito —así llaman todos— mandaba a cada cliente el texto del DUEÑO, con el
+  // interruptor del cliente respetado dos líneas más arriba. Es exactamente el bug que
+  // el comentario de arriba documenta para el interruptor, en la otra mitad de la misma
+  // función y sin arreglar. Y es también donde se resuelven los datos del CRM, así que
+  // el lead tiene que viajar hasta acá.
+  const ctxLead = { leadId: opts.lead?.id ?? null, leadNombre: opts.lead?.nombre ?? null };
+  const texto = opts.texto ?? await runWithWorkspace(ws, async () => (
+    opts.contexto
+      ? (alResumen ? opts.contexto! : await generarMensajeAviso(id, opts.contexto!, ctxLead))
+      : await referenciaResuelta(id, { ws, ...ctxLead })
+  ));
   return emitirAviso({
-    tipo: cat.id, titulo: cat.titulo, texto,
+    // Cómo lo llamó ESTE negocio. `cat.titulo` es el de fábrica: con él, renombrar un
+    // mensaje cambiaba la lista de /mensajes y NO el feed ni el asunto del correo, o sea
+    // que el renombre se veía en la pantalla donde se hizo y en ninguna otra.
+    tipo: cat.id, titulo: pl?.titulo?.trim() || cat.titulo, asuntoEmail: pl?.asunto, texto,
     categoria: cat.categoria, semaforo: cat.semaforo,
     ws: opts.ws, dedupTtlMin: opts.dedupTtlMin, dedupKey: opts.dedupKey, alDueno: opts.alDueno,
+    lead: opts.lead,
   });
 }

@@ -128,21 +128,54 @@ test('El interruptor y el canal son DOS preguntas, y apagar los dos canales apag
   assert.ok(/const email = canal\.email \? await enviarAvisoPorEmail/.test(src), 'el envío por email dejó de colgar del canal elegido');
 });
 
-test('El workspace se resuelve ANTES de leer la plantilla', () => {
+test('⚠️ TODO lo que sale de la plantilla se lee en el WORKSPACE DEL AVISO', () => {
   // `emitirDelCatalogo` leía `plantillaActiva(id)` en el contexto AMBIENTE, antes de
   // resolver `opts.ws`: un cron que pasa el workspace explícito sin estar adentro de un
   // `runWithWorkspace` —así llaman los que iteran inquilinos— consultaba el interruptor
   // del DUEÑO ahí y el del CLIENTE ocho líneas más abajo. O sea que un aviso que el
   // dueño tenía apagado moría para todos sus clientes.
+  //
+  // ⚠️ Y ESA MITAD ESTUVO ARREGLADA UN MES CON LA OTRA ROTA. El TEXTO se resolvía fuera
+  // del `runWithWorkspace`, en la misma función y dos líneas más abajo del comentario
+  // que explica el bug: el interruptor era del cliente y el texto, del dueño. Medido y
+  // arreglado el 04/10/2026. Por eso este guard mira las DOS, y no la que se arregló.
   const src = leer('../lib/avisos.ts');
-  const iWs = src.indexOf('const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;');
-  const iPlantilla = src.indexOf('plantillaActiva(id)');
+  const i = src.indexOf('export async function emitirDelCatalogo');
+  const fn = src.slice(i, src.indexOf('\nexport ', i + 10));
+  assert.ok(fn.length > 400 && fn.length < 4000, `el recorte de emitirDelCatalogo mide ${fn.length}: mira otra cosa`);
+
+  const iWs = fn.indexOf('const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;');
+  const iPlantilla = fn.indexOf('getPlantilla(id)');
   assert.ok(iWs > 0 && iPlantilla > 0, 'no se ubicaron las dos marcas en emitirDelCatalogo');
-  assert.ok(iWs < iPlantilla, 'la plantilla se vuelve a leer en el contexto ambiente: lee el store del dueño');
-  assert.ok(
-    /runWithWorkspace\(ws, \(\) => plantillaActiva\(id\)\)/.test(src),
-    'la lectura de la plantilla perdió su runWithWorkspace',
-  );
+  assert.ok(iWs < iPlantilla, 'la plantilla se lee antes de resolver el workspace: lee el store del dueño');
+  assert.match(fn, /runWithWorkspace\(ws, \(\) => getPlantilla\(id\)\)/,
+    'la lectura de la plantilla perdió su runWithWorkspace');
+  // La otra mitad: el texto. `referenciaResuelta` y `generarMensajeAviso` leen el store
+  // y resuelven las variables, así que los dos tienen que correr en el ws del aviso.
+  const iTexto = fn.indexOf('const texto = opts.texto');
+  const bloqueTexto = fn.slice(iTexto, fn.indexOf('return emitirAviso', iTexto));
+  assert.match(bloqueTexto, /runWithWorkspace\(ws,/,
+    'el texto se resuelve en el contexto ambiente: un cron le manda a cada cliente el texto del DUEÑO');
+  for (const q of ['referenciaResuelta', 'generarMensajeAviso']) {
+    assert.ok(bloqueTexto.includes(q), `${q} quedó fuera del bloque que corre en el ws del aviso`);
+  }
+});
+
+test('⚠️ el aviso usa el título y el asunto de ESTE negocio, no los de fábrica', () => {
+  // `titulo: cat.titulo` es el del catálogo. Con él, renombrar un mensaje cambiaba la
+  // lista de /mensajes y NO el feed ni el asunto del correo: el renombre se veía en la
+  // pantalla donde se hizo y en ninguna otra. Y el asunto propio es lo que hace que la
+  // plantilla del email exista: sin esta línea el campo del panel no haría nada.
+  const src = leer('../lib/avisos.ts');
+  const i = src.indexOf('export async function emitirDelCatalogo');
+  const fn = src.slice(i, src.indexOf('\nexport ', i + 10));
+  assert.match(fn, /titulo: pl\?\.titulo\?\.trim\(\) \|\| cat\.titulo/, 'volvió al título de fábrica');
+  assert.match(fn, /asuntoEmail: pl\?\.asunto/, 'el asunto del email no viaja: el campo del panel no hace nada');
+  // Y el que manda el correo tiene que PREFERIRLO. Un campo que viaja y no se usa es la
+  // mitad de la feature, y es la mitad que no se ve.
+  const envio = src.slice(src.indexOf('async function enviarAvisoPorEmail'));
+  assert.match(envio, /a\.asuntoEmail\?\.trim\(\) \|\| a\.titulo/, 'el correo volvió a usar siempre el título');
+  assert.match(envio, /subject: asunto/, 'el asunto resuelto no llega al sendEmail');
 });
 
 test('El escape sigue siendo el de siempre', () => {

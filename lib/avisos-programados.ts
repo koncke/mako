@@ -154,6 +154,9 @@ export async function drenarProgramados(): Promise<{ enviados: number; saltados:
       await emitirAviso({
         tipo: f.aviso_id,
         titulo: p?.titulo ?? f.aviso_id,
+        // El asunto propio del mensaje, si le escribieron uno. Sin esto el agendado
+        // manda el correo con el título interno y el campo del panel no haría nada.
+        asuntoEmail: p?.asunto,
         texto,
         categoria: p?.categoria,
       });

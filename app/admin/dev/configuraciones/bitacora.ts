@@ -509,4 +509,25 @@ Y también:
       "scripts/respaldo-store-plantillas.ts — el respaldo pasó a cubrir la ENTRADA ENTERA (antes sólo `posiciones`)",
     ],
   },
+  {
+    fecha: "4 oct", hora: "21:00", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Los dos que quedaban: el asunto del email y el catalogo del CRM",
+    puntos: [
+      "Verificados EN EL NAVEGADOR, 17 de 17. La tarjeta EMAIL abría un panel VACÍO (caía en el `return` del final, que dibuja `nodo.detalle`, y para esa tarjeta el detalle era la cadena vacía): ahora tiene su ASUNTO, que se guarda, sobrevive a la recarga, se dibuja en la tarjeta y al vaciarlo vuelve al título — que es lo que su placeholder promete. El cuerpo sigue siendo UNO para los dos canales y el panel lo dice en una línea: dos cuerpos son dos borradores y dos «sin publicar», y eso se decide cuando se pida.",
+      "El catálogo pasó de 11 a 42 datos en 8 grupos, con buscador. Pero escribir las filas no era el problema: NINGÚN camino resolvía un dato del CRM, por tres razones distintas. (1) La regla de admisión decía «cero queries nuevas» y el resolvedor ya hacía DOS lecturas a Supabase el día que se escribió — con la vara literal, casi todo el CRM quedaba afuera; ahora es «una lectura por ENTIDAD que el texto NOMBRA, y sólo si la nombra», decidida por `necesitaFichaDelLead`. (2) El emisor no tenía por dónde recibir un lead, aunque `dispararEvento` trae el `leadId` en la mano desde siempre: `{{lead_nombre}}` tampoco se resolvía. (3) Y el TEXTO se resolvía en el workspace del AMBIENTE.",
+      "⚠️ Esa tercera es la que más duele: el comentario que la explica estaba escrito ARRIBA, en la misma función. `emitirDelCatalogo` leía el interruptor con `runWithWorkspace(ws, …)` —arreglado en septiembre, con su autopsia— y el texto, fuera. O sea que un cron que itera inquilinos le mandaba a cada cliente EL TEXTO DEL DUEÑO, con el interruptor del cliente respetado dos líneas más arriba, y el guard existente fijaba justo la línea buena. La regla que queda: al arreglar un bug de contexto, contá cuántas veces esa función hace la misma pregunta y dejá UNA.",
+      "Y el título: `emitirDelCatalogo` mandaba `cat.titulo`, el de fábrica, así que renombrar un mensaje cambiaba la lista de /mensajes y NO el feed ni el asunto del correo — el renombre se veía en la pantalla donde se hizo y en ninguna otra.",
+      "Dos del desplegable, las dos medidas en el navegador: en modo COLUMNAS no dibuja el `sub`, y ahí vive el motivo por el que una opción está apagada (una fila gris sin explicación se lee como un control roto); y la búsqueda no encontraba lo que la gente busca — «saldo» sobre 42 datos daba CERO, porque la fila se llama «Cuánto falta cobrarle». Y la decisión de producto que las ordena: lo que este mensaje no puede resolver se OFRECE APAGADO con su motivo, no se esconde. Filtrándolo, un mensaje con disparador por tiempo —que son casi todos— ofrecía 9 datos de 42, o sea que el catálogo extenso no existía para quien lo abría.",
+    ],
+    archivos: [
+      "lib/variables-aviso.ts — 42 filas, 8 grupos, `variablesOfrecidas` y `necesitaFichaDelLead`",
+      "lib/variables-del-lead.ts — los valores de la ficha, SIN server-only para que tengan test",
+      "lib/variables-resolver.ts — la lectura cuelga de que el texto nombre la ficha",
+      "lib/avisos.ts — `asuntoEmail`, el lead, y UNA lectura de la plantilla en el ws del aviso",
+      "lib/plantillas.ts — el `asunto` del email y `referenciaResuelta`",
+      "app/components/Dropdown.tsx — `subEnColumnas` y el campo `buscar`",
+      "app/agencia/FlujoAviso.tsx — el panel del nodo EMAIL",
+    ],
+  },
 ];
