@@ -7110,3 +7110,83 @@ regla que más se olvida.
 verificación que busca `textarea` contesta «no encontré dónde tipear» sobre una pantalla
 perfectamente abierta — el mismo modo de falla que «una verificación que no verifica»:
 la primera hipótesis correcta es la medición, no el código.
+
+## Sacar la pantalla que montaba un control deja el campo sin ningún escritor (04/10/2026)
+
+**Vive en:** `app/perfil/NotificacionesPanel.tsx` · `app/perfil/BandejaEmail.tsx` ·
+`lib/mensaje-canales.ts` · `app/agencia/FlujoAviso.tsx`
+
+Al unificar los dos tableros de /configuraciones se dejó de montar `BandejaEmail`. Lo
+que nadie contó es que ahí vivía **el único escritor vivo de `canales.email`** en toda
+la app. Medido dos horas después: **cero de los 65 mensajes** tenía el canal de mail
+prendido en los cuatro workspaces que tocaron el store, así que **la tarjeta EMAIL del
+lienzo no se dibujaba para nadie** — y no quedaba forma de prenderla.
+
+Y el comentario que quedó escrito en el lugar del borrado decía, textual, «el canal se
+prende ahora en el tablero, con la tarjeta de cada uno». Era falso: una afirmación
+sobre una capacidad que el commit no construyó.
+
+**Las dos reglas que quedan:**
+
+1. **Antes de dejar de montar una pantalla, enumerá qué ESCRIBE** — no qué muestra. Un
+   `grep` del campo (`action: 'canales'`) lo contesta en segundos, y es la pregunta que
+   «¿quién MIRA el campo que esto llenaba?» no cubre: acá el problema era el inverso,
+   quién lo LLENABA.
+2. ⚠️ **Y un comentario que afirma una capacidad futura es una mentira con fecha.** «Se
+   prende ahora en el tablero» describía la intención, no el código. Si la capacidad se
+   mueve en el mismo commit, se verifica; si no, el comentario dice dónde quedó.
+
+⚠️ **Y hay una tercera tienda que el tablero no mira.** Los tres REPORTES tienen su
+canal en `notification_prefs`, no en el store de plantillas, y `TemplateDetalleModal`
+pasa `plantilla.canales` crudo sin pasar por `lib/mensaje-canales.ts` — que es el módulo
+que sabe cuál de las dos mirar. Medido: en ws1 y ws9 el reporte diario y el semanal
+tienen `email:true` y **salen por correo hoy**, y el lienzo les dibuja sólo la tarjeta
+WHATSAPP. Cualquier interruptor nuevo tiene que ir por ese módulo o deja el tablero
+diciendo una cosa y el correo saliendo igual.
+
+## El motor de flujos no puede ramificar: no tiene dónde guardar en qué paso va (04/10/2026)
+
+**Vive en:** `lib/flujos.ts` · `lib/flujos-tipos.ts` · `lib/plantillas.ts`
+
+Se pidió una tarjeta «Condicional» («si responde al mensaje anterior»). Medido, no es
+una feature de UI y faltan tres cosas, no una:
+
+- `ejecutarPasos` es un **`for` sincrónico adentro del webhook**: no escribe ninguna
+  fila y no hay tabla de corridas de flujo.
+- Por eso el paso `esperar` **ya existe y hace `break`**: no se ejecuta ni se dibuja.
+  Es la prueba de que el problema no es el tipo de paso, es el estado.
+- Un `Flujo` de aviso vive como **JSON adentro del store de plantillas**, que además se
+  HEREDA del dueño: no tiene `paso_actual`, ni `estado`, ni `proximo_envio_at`.
+
+La rama por respuesta **sí existe**, pero en otro motor: `requiere: 'respondio'` lo
+evalúa la nutrición apoyada en `nutricion_inscripciones`, que tiene esas tres columnas.
+No se presta: lo que le falta al de avisos es la fila, no la condición.
+
+**La regla: antes de cotizar una rama en un lienzo, preguntá dónde guarda el motor en
+qué paso va.** Si la respuesta es «no guarda», lo que se está pidiendo es una tabla.
+
+## Un catálogo de variables no sirve de nada si el camino que las resuelve no se usa (04/10/2026)
+
+**Vive en:** `lib/variables-aviso.ts` · `lib/variables-resolver.ts` · `lib/avisos.ts`
+
+Se pidió un catálogo extenso de datos del CRM para insertar en un mensaje. Lo caro no
+es escribir las filas:
+
+- De los **26 call sites reales** del emisor, **23 pasan el `texto:` ya armado a mano** y
+  nunca tocan la plantilla editable ni el resolvedor.
+- `conVariables` tiene **dos** call sites y los dos pasan `{ ws }` pelado, así que
+  `{{lead_nombre}}` y `{{link_lead}}` **no se resuelven en ningún lado hoy** — aunque la
+  pantalla los ofrezca cuando el disparador es un evento.
+- Y el emisor no tiene por dónde recibir un lead: ni `EmitirAvisoInput` ni
+  `emitirDelCatalogo` tienen el campo.
+
+⚠️ **Y la vara escrita y la aplicada no coinciden.** AGENTS.md dice «cero queries nuevas
+y cero proveedores», y `valoresDeVariables` ya hace **dos lecturas a Supabase**. Lo único
+que un guard impide hoy son cinco claves por nombre (`presupuesto, gasto, cpl, roas,
+saldo`). Antes de escribir el listado hay que elegir cuál de las dos varas rige, porque
+con «cero queries» casi todo el CRM queda afuera.
+
+⚠️ **Y «Ads: $640 · 92 leads» no es una variable sin resolver**: es el campo `ejemplo`
+del catálogo, que **ES** el texto que MaKo manda. El reporte real lo arma `lib/reportes.ts`
+y **nunca lee la plantilla**. Convertir ese número en token pinta el editor y no cambia
+el mensaje del lunes — que es justo lo que el pedido quería lograr.

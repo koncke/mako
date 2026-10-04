@@ -442,4 +442,34 @@ export const BITACORA: Hito[] = [
       "⚠️ Y lo más caro: mi propio script de respaldo CORROMPIÓ el store del ws1, que es un cliente real. `update … = ${JSON.stringify(obj)}::jsonb` guarda un jsonb que contiene un STRING con el JSON adentro — el driver ya serializa— y entonces las claves del store pasan a ser 0,1,2,3. La pantalla sigue dibujando las 65 plantillas porque el catálogo vive en el código; lo que desaparece en silencio son los overrides del cliente. Y la verificación del propio script pasó en VERDE porque releía con su mismo lector, que deshacía justo esa capa. Reparado y releído (5 entradas, ids reales); queda `scripts/reparar-store-plantillas.ts` y las dos reglas en AGENTS.md.",
     ],
   },
+  {
+    fecha: "4 oct", hora: "15:30", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Ocho cambios al panel del nodo",
+    pedido: `1. Me faltan las plantillas de los email, que ahora como es todo un mismo editor falta eso...
+2. Si le doy al botón de +, ante de crear una tarjeta debería salir un desplegable que me pregunte que quiero crear... Otro "WhatsApp" o un "Email" o una "Acción" que es lo que sale por defecto ahora... O un "Condicional", que este último es por ejemplo, si responde al mensaje anterior...
+3. Elimina el apartado de "Recordatorios", para eso ya tendremos los condicionales y la opción de poner más mensajes...
+4. "Que lo escriba MaKo" solo debería ser el ícono de IA, y de última si paso el cursor que diga lo que hace... Y claro, si lo escribe MaKo, debería primero preguntar QUE escribir, sino, no tiene contexto sobre que escribir...
+5. Las opciones de formateo de texto, como también el llamado a cosas dentro de MaKo, deberían salir dentro de la caja de texto, y aparecer solo si apreto para escribir, como para editar el texto.
+6. La opción de editar el texto debería ser bastante más grande, para que entre todo bien.
+7. Fijate que hoy en día hay cosas como "Ads: $640 · 92 leads" y esos son datos dentro de MaKo... Los datos deberían salir como {NOMBRE DEL DATO} y en el texto, pintado de azul para que se diferencie. Recién en "Probar" debería salir un ejemplo real.
+8. Hay muy pocas acciones o datos que extraer dentro de MaKo... Faltan muchas cosas del CRM, que se debería poder extraer... Te invito a que hagas un listado extenso, y que sea fácil de llegar a eso, que esté categorizado, y que tenga una barra de busqueda el desplegable para acceder facil.`,
+    puntos: [
+      "⚠️ Y un segundo prompt, el mismo día, que es el que importa para el proceso: «¿Qué pasó que no hay nada aplicado?». Se había gastado el turno entero relevando y reportando, sin escribir una línea. Tercera vez que pregunta por qué tarda: lo que cuesta son las barreras.",
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "15:30", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Seis de los ocho, y dos que no son UI sino motor",
+    puntos: [
+      "Hechos y verificados en el navegador (13/13 + el ＋): fuera «Recordatorios» (medido antes: CERO flujos tenían un paso `insistir` vivo), la caja de texto de 132 a 220 px —lo pagó el ítem 3, porque subir `PANEL_ANCHO` habría movido todos los lienzos—, la barra de formato adentro de la caja y sólo al enfocar, el botón de IA como ícono que PREGUNTA qué escribir, el token en azul también en el editor, y el ＋ con desplegable.",
+      "Tres de los seis salieron distintos de lo pedido porque el relevo los midió: el `contexto` del ítem 4 YA estaba aceptado en las dos rutas y nadie lo mandaba (el server caía a «usa datos de ejemplo realistas», o sea que MaKo escribía a ciegas); el ítem 5 no era un problema de foco —ya resuelto con `preventDefault`— sino del serializador, que habría guardado un botón hijo del contentEditable como la letra «B» en el mensaje; y el azul del ítem 7 no puede copiar el estilo de la burbuja, porque su `fontWeight: 600` hace que el serializador lo lea como negrita y guarde `*{{lead_nombre}}*`.",
+      "⚠️ Y el relevo destapó que al unificar los tableros había dejado el canal de email SIN NINGÚN ESCRITOR: `BandejaEmail` era el único, dejé de montarlo, y medido después cero de los 65 mensajes tenía el mail prendido — con un comentario mío afirmando que «el canal se prende ahora en el tablero». El ＋ del ítem 2 es lo que lo vuelve cierto. Quedan afuera el «Condicional» (el motor no tiene dónde guardar en qué paso va: `ejecutarPasos` es un for sincrónico sin fila, tanto que el `esperar` que ya existe hace `break`) y el catálogo extenso del ítem 8 (23 de los 26 call sites del emisor pasan el texto ya armado y nunca tocan el resolvedor).",
+    ],
+    commits: [
+      { sha: "7dbbb3b9", msg: "El panel del mensaje: fuera Recordatorios, la barra adentro y el token en azul", lineas: 363, archivos: 3 },
+      { sha: "cda37ba6", msg: "El + pregunta que crear, y vuelve a haber como prender el email", lineas: 91, archivos: 3 },
+    ],
+  },
 ];
