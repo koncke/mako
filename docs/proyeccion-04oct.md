@@ -159,11 +159,23 @@ cobrar nada sin que lo hayas acordado antes»*. Y cero cláusulas de suscripció
 cancelación o reembolso. **El día que la pasarela esté viva, esa URL pública —la que abren
 los revisores de Google y del merchant of record— afirma algo falso.**
 
-### 4.6 · El comprador de la app entra al CRM y a los 2 días le escribís «no agendaste»
+### 4.6 · El día que cobres por un camino nuevo, el CRM le escribe «no agendaste» al que pagó
 
-El que compra la app entra en etapa `lead` sin fecha de agenda. El CRM automático lo manda a
-**«Nutrición - No Agenda» a los 2 días** y a **«Reactivación» a los 7**: le escribe «no
-agendaste la llamada» a alguien que acaba de pagarte.
+Hoy esto **mide cero** y conviene saber por qué, porque el motivo es frágil: la regla del CRM
+automático saltea cualquier lead que no esté `abierto` (`lib/crm-auto.ts:246`), y de los **19
+leads con un pago cobrado en los 6 workspaces con datos, ninguno quedó abierto** — el camino
+que marca el pago hoy también cierra el estado.
+
+**Un camino de cobro nuevo que escriba la plata y no toque `estado_lead` lo despierta**: el
+comprador queda en etapa `lead` sin fecha de agenda, y a los 2 días el CRM lo manda a
+«Nutrición - No Agenda» y a los 7 a «Reactivación» — o sea, «no agendaste la llamada» a
+alguien que acaba de pagarte.
+
+Y el camino nuevo es justo el del audio. La medición se hizo sobre los leads con fila en
+`pagos` (mig 0060): **un carrito, un Whop o un cobro manual que no escriba ahí no entró en esa
+cuenta**, así que para ésos el riesgo está sin medir. Cuesta una línea evitarlo: que el
+webhook de pago cierre el estado, o declarar el embudo «Venta directa · sin reunión» que ya
+existe (`lib/pipeline.ts:928`).
 
 Y hay un segundo filo: `nutricion_secuencias.funnel_id` existe desde la mig 0170 y **no lo
 lee nadie**, así que con dos embudos vivos el mismo lead se enrola en las dos secuencias y
