@@ -57,7 +57,21 @@ test('⚠️ NADIE rellena `leads.funnel_id` masivamente: eso vacía el CRM de l
     // `tests/funnel-estructura.test.ts`: un guard que mira la PALABRA no distingue la receta
     // del texto que explica por qué está prohibida. Se excluye por NOMBRE, no por carpeta,
     // para que un documento nuevo de otra familia entre igual.
-    .filter((f) => !/hallazgos[^/]*\.md$/.test(f));
+    // ⚠️ Y `docs/relevo.md` ES DE LA MISMA FAMILIA, aunque no se llame «hallazgos».
+    // El relevo del 05/10 (`6785dc16`) cita este mismo SQL como la trampa más cara de la
+    // ventana —«lo más caro no era un pedido: era una receta de migración»— y dejó el
+    // guard EN ROJO en `main` desde ese commit. No lo frenó el push porque el pre-push no
+    // corre `npm test`, así que nadie se enteró hasta la corrida siguiente.
+    //
+    // La regla, que es la que ya estaba escrita y le faltaba un nombre: lo que se excluye
+    // es el documento cuyo TRABAJO es citar lo prohibido. Sigue siendo por NOMBRE y no por
+    // carpeta, para que un documento nuevo de otra familia entre igual.
+    //
+    // Probado rompiéndolo con la exclusión nueva puesta: un `docs/tmp-rotura.md` con
+    // `update leads set funnel_id = 9;` stageado da 9 pasan / 1 falla, y sin él 10 / 0.
+    // O sea que excluir el relevo no neutralizó el guard. (El archivo tiene que estar
+    // STAGEADO: esto enumera con `git ls-files`, que lista el índice y no el disco.)
+    .filter((f) => !/hallazgos[^/]*\.md$/.test(f) && f !== 'docs/relevo.md');
   // «No encontré nada que revisar» y «revisé y está todo bien» son respuestas distintas.
   assert.ok(sqlYDocs.length > 100, `git ls-files devolvió ${sqlYDocs.length}: esto no corrió en el repo`);
 

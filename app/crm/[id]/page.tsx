@@ -41,6 +41,7 @@ import { CalificacionCard } from '../lead-view/CalificacionCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
+import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { faltantesDeLead } from '@/lib/leads';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
 import { getLeadInsights, getEquipoAction } from '../actions';
@@ -118,6 +119,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   void _e;
   const textoJ1 = textoCohorteJ1(lead.fecha_junta_1);
 
+  // Las preguntas propias del formulario de Meta, resueltas en el SERVER: la
+  // sección de abajo sólo las dibuja.
+  const respuestasForm = respuestasPropias(lead.meta_field_data);
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm = stages.length ? stageMeta(stages, stageKey) : null;
 
@@ -209,6 +213,33 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                       Se sacaron de la ruta el 27/09 junto con la pestaña, y volvieron
                       SOLO al modal: quien entra por el link del WhatsApp de la landing
                       se quedó sin notas. Es la misma trampa de las pestañas en inglés. */}
+                  {/* LO QUE LA PERSONA CONTESTÓ EN EL FORMULARIO DEL ANUNCIO.
+                      Pedido de Martín (05/10): «hay un cliente de Código Inmobiliario
+                      que está corriendo campañas de formulario y hace esas preguntas…
+                      no lo estamos guardando en el detalle del CRM».
+
+                      ⚠️ GUARDAR YA SE GUARDABA: `leads.meta_field_data` existe desde la
+                      mig 0187 y el webhook la escribe. Lo que faltaba era LEERLA — cero
+                      lectores en toda la pantalla. Es la diferencia entre «no llegó» y
+                      «lo tenemos y no lo mostramos», y desde afuera se ven igual.
+
+                      Sólo las preguntas PROPIAS del formulario: nombre, email, teléfono y
+                      empresa ya están arriba con su rótulo. Y no se dibuja nada cuando no
+                      hay — un bloque vacío diciendo «sin respuestas» sobre un lead que no
+                      vino de un formulario es ruido fijo. */}
+                  {respuestasForm.length > 0 && (
+                    <section style={card}>
+                      <div style={{ ...sectLabel, marginBottom: 10 }}>Respondió en el formulario</div>
+                      <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
+                        {respuestasForm.map((r) => (
+                          <div key={r.pregunta}>
+                            <dt style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.35 }}>{r.pregunta}</dt>
+                            <dd style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{r.respuesta}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  )}
                   <NotasCard leadId={lead.id} />
                   {/* ⚠️ LAS MISMAS DOS TARJETAS QUE EL MODAL, y acá es la primera vez
                       que aparecen: el motivo de salida no se veía en esta ruta ni de

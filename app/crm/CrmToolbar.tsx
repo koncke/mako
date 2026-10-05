@@ -322,47 +322,27 @@ export function VistaSelector({ vista, onVista, pendientes }: {
         </button>
       ))}
     </div>
-    <PendientesAtajo cuantos={pendientes} onIr={() => onVista('pendientes')} />
     </>
   );
 }
 
-/**
- * Lo que falta marcar: una COLA DE TRABAJO, no una vista.
- *
- * ⚠️ ERA LA TERCERA PESTAÑA DEL TOGGLE y Martín pidió sacarla de ahí. El motivo de
- * fondo, que es el que importa para no repetirlo: las otras dos muestran LOS MISMOS
- * leads de otra forma; ésta mostraba una lista distinta. Mezclar «cómo lo miro» con
- * «qué me falta» en el mismo control hacía que un contador de tareas se leyera como
- * un modo de ver — y el badge rojo, como si una de las vistas estuviera rota.
- *
- * ⚠️ PERO LA PUERTA NO SE VA CON LA PESTAÑA. Sin esto, `?pendientes=1` queda sin
- * forma de llegar y la cola se vuelve invisible: el caso clásico de esta casa, sacar
- * un patrón y llevarse puesto lo único que lo mostraba.
- *
- * Desaparece cuando no hay nada: un control que dice «0 pendientes» es ruido fijo.
- */
-function PendientesAtajo({ cuantos, onIr }: { cuantos: number; onIr: () => void }) {
-  if (cuantos <= 0) return null;
-  return (
-    <button
-      type="button"
-      onClick={onIr}
-      title={`${cuantos} lead${cuantos === 1 ? '' : 's'} con datos que faltan marcar`}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7, flex: 'none',
-        padding: '8px 13px', borderRadius: 11, cursor: 'pointer', fontFamily: SANS,
-        fontSize: 13.5, fontWeight: 600, color: 'var(--ink)',
-        background: 'var(--surface-2)', border: '1px solid var(--border)',
-      }}
-    >
-      Sin marcar
-      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--bad)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
-        {cuantos}
-      </span>
-    </button>
-  );
-}
+// -- «Sin marcar» se mudó al panel de abajo a la derecha ---------------------
+// Acá vivía `PendientesAtajo`, un chip con su contador al lado del toggle. Primero
+// fue la TERCERA PESTAÑA del toggle y Martín la sacó de ahí (las otras dos muestran
+// los mismos leads de otra forma; ésta mostraba una lista distinta). El 05/10 pidió
+// el paso que faltaba: «"Sin marcar" ya no debería existir, debe vivir en el
+// desplegable de abajo a la derecha de "MaKo movió 3 leads"».
+//
+// Es el mismo criterio llevado hasta el final: la barra de arriba contesta «¿cómo
+// miro esto?» y el panel de abajo «¿qué me falta revisar?». Son dos preguntas y
+// ahora cada una tiene su lugar — por eso el panel pasó a llamarse «A revisar».
+//
+// ⚠️ LA PUERTA NO SE VA CON EL CHIP. `?pendientes=1` tiene que seguir teniendo cómo
+// llegar, o la cola se vuelve invisible: es el caso clásico de esta casa, sacar un
+// patrón y llevarse puesto lo único que lo mostraba. Vive ahora en
+// `app/_components/MakoConfirmGate.tsx`, que lee el contador de
+// `/api/datos-sin-marcar-count` por su cuenta — está montado en el layout y no
+// recibe props, y ésa era la razón por la que esto no se había mudado antes.
 
 // El input NO filtra: solo reporta lo tipeado. El filtrado vive en CrmBoard y usa
 // `coincideBusqueda` de lib/buscar-texto.ts — misma regla que el board del plan:

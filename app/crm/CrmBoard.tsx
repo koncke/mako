@@ -12,7 +12,7 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { empujeDeColumna } from './arrastre-columna';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter } from '@/app/_ui/Link';
-import {
+import { Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -1349,6 +1349,53 @@ export function CrmBoard({
   // limpia en `dragend` Y en `drop`, los dos.
   const { pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
 
+  /**
+   * DÓNDE VA A CAER LA TARJETA: la columna Y el índice exacto. Es lo que dibuja el HUECO.
+   *
+   * ⚠️ HASTA EL 05/10 EL CRM SÓLO TEÑÍA LA COLUMNA. Martín: «al arrastrar se marca el
+   * lugar donde dejarlas, y en el CRM no pasa». Teñir el fondo contesta «la estoy
+   * soltando en esta columna»; el hueco contesta «la estoy soltando ACÁ», que es la
+   * mitad del gesto que el Plan sí tiene. El molde corto es el kanban de la entrega
+   * (`app/customer-success/KanbanEntrega.tsx`), no las 3.000 líneas de `BoardShell`.
+   */
+  const [insTarjeta, setInsTarjeta] = useState<{ col: string; idx: number } | null>(null);
+
+  /**
+   * LOS PUNTOS MEDIOS DE CADA TARJETA, MEDIDOS UNA VEZ Y EN COORDENADAS DE PÁGINA.
+   *
+   * ⚠️ UNA VEZ, porque leer layout en cada `dragover` es lo que hace que un arrastre se
+   * sienta pegajoso: el tablero del Plan se reportó roto siete veces por re-medir sus 55
+   * tarjetas sesenta veces por segundo.
+   *
+   * ⚠️ Y DE PÁGINA (`+ window.scrollY` y `+ scrollTop` del carril), porque los dos
+   * auto-scroll que este gesto ya tiene invalidan cualquier rectángulo medido contra la
+   * ventana: después de correr 600 px, lo medido al agarrar apunta 600 px arriba del
+   * cursor — o sea que el scroll rompía el destino justo cuando hacía su trabajo. El
+   * `dragover` suma lo mismo del otro lado, así que la comparación se sostiene.
+   */
+  const medidasTarjetas = useRef<Record<string, number[]>>({});
+
+  /** Al agarrar: fotografía los puntos medios de TODAS las columnas, una sola vez. */
+  const medirTarjetas = () => {
+    const out: Record<string, number[]> = {};
+    for (const col of document.querySelectorAll<HTMLElement>('[data-colkey]')) {
+      const dy = window.scrollY + (col.querySelector<HTMLElement>('[data-carril]')?.scrollTop ?? 0);
+      out[col.dataset.colkey ?? ''] = [...col.querySelectorAll<HTMLElement>('[data-leadcard]')]
+        .map((el) => { const q = el.getBoundingClientRect(); return q.top + q.height / 2 + dy; });
+    }
+    medidasTarjetas.current = out;
+  };
+
+  /** Al soltar o cancelar: sin esto el hueco queda dibujado después del gesto. */
+  const limpiarArrastreTarjeta = () => {
+    setDragId(null);
+    setDragOverCol(null);
+    setInsTarjeta(null);
+    medidasTarjetas.current = {};
+    pararScroll();
+    soltarCopia();
+  };
+
   const selected = selectedId != null ? leads.find((l) => l.id === selectedId) ?? null : null;
 
   // Leads que esperan tu validación (los que están en "Datos sin marcar").
@@ -1677,6 +1724,10 @@ export function CrmBoard({
         /* `data-colprop` marca las columnas que el arrastre reordena: es de donde
            `onBoardDragOver` saca los puntos medios, así que no es decoración. */
         data-colprop={iProp >= 0 ? c.key : undefined}
+        /* `data-colkey` es de donde `medirTarjetas` saca los puntos medios de ESTA
+           columna. Va en TODAS, no sólo en las reordenables como `data-colprop`: una
+           tarjeta se puede soltar en cualquiera. */
+        data-colkey={c.key}
         onDragOver={(e) => {
           e.preventDefault();
           if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key);
@@ -1686,8 +1737,26 @@ export function CrmBoard({
           if (!carril) return;
           const d = empujeDeColumna(carril.getBoundingClientRect(), e.clientY);
           if (d !== 0) carril.scrollTop += d;
+          // DÓNDE cae: el primer punto medio que queda por debajo del cursor. Y sólo se
+          // re-renderiza cuando el destino cambia DE VERDAD — con un `setState` por
+          // `dragover` el tablero se redibuja sesenta veces por segundo y el arrastre
+          // se siente roto, que es el bug que el Plan pagó siete veces.
+          if (dragId == null) return;
+          const y = e.clientY + window.scrollY + carril.scrollTop;
+          const ms = medidasTarjetas.current[c.key] ?? [];
+          let idx = ms.length;
+          for (let k = 0; k < ms.length; k++) { if (y < ms[k]) { idx = k; break; } }
+          setInsTarjeta((p) => (p && p.col === c.key && p.idx === idx ? p : { col: c.key, idx }));
         }}
-        onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); pararScroll(); soltarCopia(); }}
+        onDragLeave={(e) => {
+          // Sólo al salir DE VERDAD: `dragleave` también salta al pasar de la columna a
+          // una tarjeta de adentro, y sin esta guarda el hueco parpadea en cada cruce.
+          if (dragId == null) return;
+          if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) {
+            setInsTarjeta((p) => (p && p.col === c.key ? null : p));
+          }
+        }}
+        onDrop={(e) => { e.preventDefault(); handleDrop(c.key); limpiarArrastreTarjeta(); }}
         style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
@@ -1842,15 +1911,22 @@ export function CrmBoard({
             title={`Cargar un lead en ${c.label}`}
             style={{ flex: 'none', textAlign: 'left', border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--faint)', borderRadius: 11, padding: '7px 13px', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
           >＋ Nuevo lead</button>
-          {cards.map((l) => {
+          {cards.map((l, iCard) => {
             const isGanado = effStage(l) === 'ganado';
             const isManual = effStage(l) === 'manual';
             const dl = l.nutriManualDeadline;
             const dlFmt = dl ? `${dl.slice(8, 10)}/${dl.slice(5, 7)}/${dl.slice(0, 4)}` : null;
             const overdueManual = isManual && l.estadoLead === 'abierto' && !!dl && dl < hoy;
             const waiting = pendingLeadIds.has(l.id);
+            const hueco = insTarjeta?.col === c.key && insTarjeta.idx === iCard;
             return (
-              <div key={l.id}
+              <Fragment key={l.id}>
+              {/* EL HUECO: el alto de una tarjeta, punteado del color de la banda, en el
+                  índice exacto donde va a caer. Es lo que convierte «en esta columna» en
+                  «acá». */}
+              {hueco && <div aria-hidden style={{ flex: 'none', height: 92, borderRadius: 11, border: '2px dashed ' + bandC, background: 'var(--surface-2)' }} />}
+              <div
+                data-leadcard
                 onClick={() => openDetail(l)}
                 draggable
                 onDragStart={(ev) => {
@@ -1860,8 +1936,10 @@ export function CrmBoard({
                   const nodo = ev.currentTarget as HTMLElement;
                   const r = nodo.getBoundingClientRect();
                   montarCopia(nodo, ev.clientX - r.left, ev.clientY - r.top);
+                  // Los puntos medios se fotografían ACÁ, con el tablero todavía quieto.
+                  medirTarjetas();
                 }}
-                onDragEnd={() => { setDragId(null); setDragOverCol(null); pararScroll(); soltarCopia(); }}
+                onDragEnd={limpiarArrastreTarjeta}
                 style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: 1, transform: 'none', boxShadow: 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -1901,8 +1979,16 @@ export function CrmBoard({
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : overdueManual ? 'var(--bad)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : isManual ? (dlFmt ?? 'sin fecha') : l.agenda || '—'}</span>
                 </div>
               </div>
+              </Fragment>
             );
           })}
+          {/* EL HUECO DEL FINAL: soltar DEBAJO de la última tarjeta. Es el único índice
+              que no tiene una tarjeta delante, así que sin esto la columna no puede
+              decir «va al fondo» — y el fondo es donde cae casi todo lo que se mueve a
+              una columna vacía. */}
+          {insTarjeta?.col === c.key && insTarjeta.idx >= cards.length && (
+            <div aria-hidden style={{ flex: 'none', height: 92, borderRadius: 11, border: '2px dashed ' + bandC, background: 'var(--surface-2)' }} />
+          )}
         </div>
       </div>
     );

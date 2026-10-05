@@ -139,6 +139,15 @@ function Tarjeta() {
   const [cargado, setCargado] = useState(false);
   // Plegada por defecto: entrar al CRM no puede empezar con una lista de deberes.
   const [abierta, setAbierta] = useState(false);
+  // «Sin marcar»: los leads con datos que faltan. Vivía como un chip al lado del
+  // toggle de vistas y Martín lo mudó acá el 05/10 — la barra de arriba contesta
+  // «¿cómo miro esto?» y este panel «¿qué me falta revisar?».
+  //
+  // ⚠️ SE PIDE POR FETCH Y NO POR PROPS, y no es una preferencia: este componente lo
+  // monta `app/layout.tsx`, que no sabe nada del CRM. Ésa era exactamente la razón
+  // por la que la mudanza había quedado a medias. El endpoint ya existía y ya lo
+  // consume el Sidebar, así que no hay una segunda definición de «sin marcar».
+  const [sinMarcar, setSinMarcar] = useState(0);
 
   // ⚠️ `funnelParam` VA EN LAS DEPS. El selector de producto navega SOFT: cambia el query
   // y NO el pathname, así que con `[enCrm, pathname]` el efecto no se volvía a disparar y
@@ -155,6 +164,13 @@ function Tarjeta() {
     listConfirmacionesAction(alcanceDe(pathname, funnelParam))
       .then((r) => { if (vivo) { setItems(r); setCargado(true); } })
       .catch(() => { if (vivo) setCargado(true); });
+    // El contador NO se corta por producto: `getPendientesDeMarcar` es del workspace
+    // y la vista que abre tampoco filtra por embudo. Mostrarlo recortado acá diría un
+    // número que la pantalla de destino contradice al abrirse.
+    fetch('/api/datos-sin-marcar-count')
+      .then((r) => r.json())
+      .then((d) => { if (vivo) setSinMarcar(Number(d?.total) || 0); })
+      .catch(() => { /* sin contador no se dibuja la fila: no hay nada que afirmar */ });
     return () => { vivo = false; };
   }, [enCrm, pathname, funnelParam]);
 
@@ -172,9 +188,26 @@ function Tarjeta() {
     }
   }, [router, busy]);
 
-  if (!enCrm || !cargado || items.length === 0) return null;
+  // Antes cortaba con `items.length === 0`. Ahora el panel tiene DOS motivos para
+  // existir y alcanza con uno: si no hay nada que MaKo movió pero sí leads sin marcar,
+  // el panel es lo único que lleva a la cola.
+  /**
+   * La puerta a la cola. Conserva el `?funnel=` que esté puesto: la vista de datos sin
+   * marcar vive dentro del CRM y salir de ella tiene que devolver al mismo producto.
+   * El `?ws=` lo pone solo el router de `app/_ui/Link` — es una de las cuatro formas de
+   * navegar de esta casa y la única que no pierde al cliente que se está mirando.
+   */
+  const irAPendientes = useCallback(() => {
+    const qs = new URLSearchParams();
+    if (funnelParam) qs.set('funnel', funnelParam);
+    qs.set('pendientes', '1');
+    router.push(`/crm?${qs.toString()}`);
+  }, [router, funnelParam]);
+
+  if (!enCrm || !cargado || (items.length === 0 && sinMarcar === 0)) return null;
 
   const cuantos = `${items.length} ${items.length === 1 ? 'lead' : 'leads'}`;
+  const total = items.length + sinMarcar;
   const marco: CSSProperties = {
     position: 'fixed', right: 20, bottom: 20, zIndex: 65, fontFamily: SANS,
     width: abierta ? 'min(380px, calc(100vw - 32px))' : 'auto',
@@ -188,21 +221,38 @@ function Tarjeta() {
       <button type="button" aria-expanded={false} onClick={() => setAbierta(true)}
         style={{ ...marco, display: 'flex', alignItems: 'center', gap: 9, padding: '10px 14px', cursor: 'pointer', textAlign: 'left' }}>
         <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>Mk</span>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>MaKo movió {cuantos}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Revisar</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{total}</span>
       </button>
     );
   }
 
   return (
-    <section aria-label={`MaKo movió ${cuantos}`} style={{ ...marco, display: 'flex', flexDirection: 'column', maxHeight: 'min(520px, calc(100vh - 40px))' }}>
+    <section aria-label={`A revisar: ${total}`} style={{ ...marco, display: 'flex', flexDirection: 'column', maxHeight: 'min(520px, calc(100vh - 40px))' }}>
       <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px', borderBottom: '1px solid var(--border)' }}>
         <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>Mk</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>MaKo movió {cuantos}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
         <button type="button" onClick={() => setAbierta(false)} aria-label="Plegar"
           style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, padding: 4 }}>Después</button>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0 15px 15px' }}>
+        {/* Los datos que faltan: una fila que LLEVA, no una lista. La cola entera vive en
+            su vista (`?pendientes=1`) y duplicarla acá serían dos lugares donde mirar lo
+            mismo. Desaparece en cero: un renglón que dice «0» es ruido fijo. */}
+        {sinMarcar > 0 && (
+          <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, marginTop: 13, padding: '11px 13px', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Sin marcar</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{sinMarcar}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver</span>
+          </button>
+        )}
+        {/* Con las dos cosas en el mismo panel, «MaKo movió N» deja de ser el título y
+            pasa a ser el rótulo de SU grupo: sin esto no se sabe cuál de los dos números
+            es cuál. */}
+        {items.length > 0 && (
+          <div style={{ marginTop: 13, marginBottom: 2, fontSize: 11, fontFamily: MONO, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>MaKo movió {cuantos}</div>
+        )}
         {items.map((c) => <ItemCard key={c.id} c={c} busy={busy === c.id} bloqueado={busy !== null} error={err === c.id} onResolve={resolver} />)}
       </div>
     </section>

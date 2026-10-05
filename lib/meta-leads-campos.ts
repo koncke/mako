@@ -113,6 +113,40 @@ export function parseLeadFields(fieldData: MetaFieldData | undefined): LeadConta
   return { email, nombre, telefono, empresa, noReconocidos };
 }
 
+/**
+ * LAS RESPUESTAS PROPIAS DEL FORMULARIO: lo que la persona contestó y que no es
+ * nombre, email, teléfono ni empresa.
+ *
+ * Esas cuatro ya se leen en la ficha con su rótulo; repetirlas acá sería escribir
+ * dos veces el mismo dato. Lo que falta mostrar es lo OTRO — «¿en qué zona buscas?»,
+ * «¿cuál es tu presupuesto?» —, que hoy se guarda en `leads.meta_field_data` (mig
+ * 0187) y no lo leía una sola pantalla.
+ *
+ * ⚠️ MIDE EN EL MISMO LUGAR QUE `parseLeadFields`: usa `reconocido()`, la misma
+ * función que decide si el parser miró un campo. Con dos listas, la que se quede
+ * vieja muestra como «pregunta propia» algo que la ficha ya dibuja arriba — o peor,
+ * esconde una respuesta real porque su nombre se parece a «nombre».
+ *
+ * Se queda con el PRIMER valor no vacío de cada pregunta y conserva el orden en que
+ * Meta las manda, que es el orden en que la persona las contestó.
+ */
+export function respuestasPropias(fieldData: MetaFieldData | null | undefined): Array<{ pregunta: string; respuesta: string }> {
+  if (!Array.isArray(fieldData)) return [];
+  const vistas = new Set<string>();
+  const out: Array<{ pregunta: string; respuesta: string }> = [];
+  for (const f of fieldData) {
+    const pregunta = f.name?.trim();
+    if (!pregunta || reconocido(pregunta) || vistas.has(pregunta)) continue;
+    const respuesta = (f.values ?? []).map((v) => (v ?? '').trim()).find((v) => v.length > 0);
+    // Una pregunta sin respuesta no se dibuja: un renglón con el rótulo y nada al
+    // lado se lee como que el dato se perdió, cuando lo que pasó es que no contestó.
+    if (!respuesta) continue;
+    vistas.add(pregunta);
+    out.push({ pregunta, respuesta });
+  }
+  return out;
+}
+
 /** Un field_data con AL MENOS una respuesta. `undefined`, `null` y `[]` son lo mismo acá. */
 export function tieneRespuestas(fd: unknown): fd is MetaFieldData {
   return Array.isArray(fd) && fd.length > 0;
