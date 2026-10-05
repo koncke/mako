@@ -10,10 +10,16 @@
 //   guardar:    NODE_OPTIONS="--conditions=react-server" npx tsx scripts/respaldo-disparadores.ts guardar <ws>
 //   restaurar:  NODE_OPTIONS="--conditions=react-server" npx tsx scripts/respaldo-disparadores.ts restaurar <ws>
 //
-// Son las CUATRO columnas que el disparador escribe —`trigger_tipo`, `etapa`, `funnel_id`
-// y `producto_id` (mig 0189, el ámbito de una secuencia de ENTREGA)—
-// de TODAS las secuencias del workspace, no sólo de la que se va a tocar: un respaldo que
-// cubre una fila de N es peor que ninguno, porque deja restaurar con confianza.
+// Son las SEIS columnas que el disparador escribe —`trigger_tipo`, `etapa`, `funnel_id`,
+// `producto_id` (mig 0189, el ámbito de una secuencia de ENTREGA) y `cron` +
+// `cron_proxima_at` (mig 0192, la mitad «por tiempo»)— de TODAS las secuencias del
+// workspace, no sólo de la que se va a tocar: un respaldo que cubre una fila de N es peor
+// que ninguno, porque deja restaurar con confianza.
+//
+// ⚠️ EL RESPALDO SE HACE POR LO QUE LAS ACTIONS TOCAN, NO POR EL CAMPO QUE ESTÁS MIRANDO.
+// Al sumar el horario había que sumarlo acá en el MISMO commit: la vez anterior este
+// script cubría 3 de 4 columnas (le faltaba `producto_id`) y «restauró» dejando un
+// producto viejo — o sea restauró con confianza y mal.
 // =============================================================================
 
 import { config } from 'dotenv';
@@ -29,10 +35,22 @@ const ARCHIVO = resolve(process.cwd(), `.respaldo-disparadores-ws${WS}.json`);
 
 const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
 
-type Fila = { id: number; clave: string; trigger_tipo: string | null; etapa: string | null; funnel_id: number | null; producto_id: number | null };
+type Fila = {
+  id: number; clave: string; trigger_tipo: string | null; etapa: string | null;
+  funnel_id: number | null; producto_id: number | null;
+  cron: unknown; cron_proxima_at: string | null;
+};
+
+/** El horario es jsonb: se compara por su TEXTO, que es lo único estable entre una
+ *  lectura del driver y lo que quedó escrito en el archivo. */
+const mismoCron = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+const fechaIgual = (a: unknown, b: unknown): boolean => {
+  const t = (v: unknown) => (v == null ? '' : new Date(v as string).toISOString());
+  return t(a) === t(b);
+};
 
 const leer = async (): Promise<Fila[]> => (await sql`
-  select id, clave, trigger_tipo, etapa, funnel_id, producto_id
+  select id, clave, trigger_tipo, etapa, funnel_id, producto_id, cron, cron_proxima_at
     from nutricion_secuencias where workspace_id = ${WS} order by id`) as unknown as Fila[];
 
 async function main() {
@@ -53,10 +71,16 @@ async function main() {
       if (!hoy) { console.warn(`  · sec ${g.id} «${g.clave}» ya no existe`); continue; }
       const igual = hoy.trigger_tipo === g.trigger_tipo && hoy.etapa === g.etapa
         && Number(hoy.funnel_id ?? -1) === Number(g.funnel_id ?? -1)
-        && Number(hoy.producto_id ?? -1) === Number(g.producto_id ?? -1);
+        && Number(hoy.producto_id ?? -1) === Number(g.producto_id ?? -1)
+        && mismoCron(hoy.cron, g.cron) && fechaIgual(hoy.cron_proxima_at, g.cron_proxima_at);
       if (igual) continue;
+      // ⚠️ EL JSONB VA COMO OBJETO (`sql.json`), NUNCA COMO TEXTO. El driver ya serializa
+      // para jsonb: pasarle el string guarda un jsonb que CONTIENE el JSON adentro, y la
+      // relectura con un lector propio lo deshace y da verde sobre una fila corrupta.
+      // Esta casa lo pagó el 04/10/2026 con el store de plantillas de un cliente real.
       await sql`update nutricion_secuencias
-                   set trigger_tipo = ${g.trigger_tipo}, etapa = ${g.etapa}, funnel_id = ${g.funnel_id}, producto_id = ${g.producto_id}
+                   set trigger_tipo = ${g.trigger_tipo}, etapa = ${g.etapa}, funnel_id = ${g.funnel_id}, producto_id = ${g.producto_id},
+                       cron = ${g.cron == null ? null : sql.json(g.cron as never)}, cron_proxima_at = ${g.cron_proxima_at}
                  where id = ${g.id}`;
       console.log(`  ✓ sec ${g.id} «${g.clave}»: ${hoy.trigger_tipo}/${hoy.etapa}/f${hoy.funnel_id}/p${hoy.producto_id} → ${g.trigger_tipo}/${g.etapa}/f${g.funnel_id}/p${g.producto_id}`);
       tocadas += 1;
@@ -69,7 +93,8 @@ async function main() {
       if (!d) continue;
       if (d.trigger_tipo !== g.trigger_tipo || d.etapa !== g.etapa
         || Number(d.funnel_id ?? -1) !== Number(g.funnel_id ?? -1)
-        || Number(d.producto_id ?? -1) !== Number(g.producto_id ?? -1)) {
+        || Number(d.producto_id ?? -1) !== Number(g.producto_id ?? -1)
+        || !mismoCron(d.cron, g.cron) || !fechaIgual(d.cron_proxima_at, g.cron_proxima_at)) {
         throw new Error(`sec ${g.id} no quedó como el respaldo: ${d.trigger_tipo}/${d.etapa}/f${d.funnel_id}/p${d.producto_id}`);
       }
     }

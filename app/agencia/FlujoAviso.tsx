@@ -36,7 +36,8 @@ import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { Dropdown } from '../components/Dropdown';
 import { EditorMensaje } from './EditorMensaje';
 import { grafoDeAviso, podarPosiciones, esInsistir, pasosDibujados, insertarPasoTras, quitarPasoDibujado, type AvisoParaGrafo, type Posiciones } from '@/lib/flujo-aviso';
-import { UNIDADES, CADA_MAX, DIA_MES_MAX, sanearCron, textoCron, type CronAviso } from '@/lib/cron-aviso';
+import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
+import { EditorCron, SelectorDisparo, useModoDisparo, CRON_DEFAULT, type ModoDisparo } from '@/app/_components/EditorCron';
 import { variablesOfrecidas } from '@/lib/variables-aviso';
 import { guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import {
@@ -67,7 +68,6 @@ type FotoTablero = { flujo: Flujo | null; pos: Posiciones };
 
 /** Lo que se agenda al elegir TIEMPO: todos los días a las 9 de la mañana. Es el
  *  caso que más se pidió y el que no necesita ningún campo más. */
-const CRON_DEFAULT: CronAviso = { unidad: 'dia', cada: 1, hora: 9, minuto: 0 };
 
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
@@ -619,72 +619,6 @@ function Opcion({ activa, onClick, disabled, children }: {
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * EL CONTROL DEL CRON POR TIEMPO.
- *
- * Un desplegable de unidad y, al lado, SÓLO los campos que esa unidad necesita:
- * una semana pide el día, un mes pide el número, un año pide mes y número, y «cada
- * hora» no pide hora de pared porque ahí no la decide nadie. Dibujar los cinco
- * siempre y desactivar tres es pedirle a la persona que adivine cuáles miran.
- *
- * ⚠️ Y LA FRASE DE ABAJO NOMBRA LA ZONA. Medido el 30/09/2026: de los 10 workspaces
- * activos, SEIS no tienen `mako.timezone` y caen a America/Tijuana. Un «a la mañana»
- * sobre eso es una afirmación que nadie verificó; «9:00 de America/Tijuana» deja que
- * el dueño vea que está mal y lo arregle.
- */
-function EditorCron({ cron, tz, disabled, onCron }: {
-  cron: CronAviso; tz: string | null; disabled: boolean; onCron: (c: CronAviso | null) => void;
-}) {
-  const set = (p: Partial<CronAviso>) => { const c = sanearCron({ ...cron, ...p }); if (c) onCron(c); };
-  const num = (v: number, min: number, max: number, onSet: (n: number) => void, rotulo: string) => (
-    <input type="number" value={v} min={min} max={max} disabled={disabled} aria-label={rotulo}
-      onChange={(e) => onSet(Number(e.target.value))}
-      style={{ ...inpLienzo, width: 62, flex: 'none' }} />
-  );
-  const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>Cada</span>
-        {num(cron.cada, 1, CADA_MAX, (n) => set({ cada: n }), 'Cada cuántos')}
-        <Dropdown value={cron.unidad} width="100%" ariaLabel="Unidad"
-          options={UNIDADES.map((u) => ({ value: u.key, label: cron.cada === 1 ? u.label : u.plural }))}
-          onChange={(v) => set({ unidad: v as CronAviso['unidad'] })} />
-      </div>
-      {cron.unidad === 'semana' && (
-        <Dropdown value={String(cron.diaSemana ?? 1)} width="100%" ariaLabel="Día de la semana"
-          options={DIAS.map((d, i) => ({ value: String(i), label: d }))}
-          onChange={(v) => set({ diaSemana: Number(v) })} />
-      )}
-      {(cron.unidad === 'mes' || cron.unidad === 'anio') && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>El día</span>
-          {num(cron.diaMes ?? 1, 1, DIA_MES_MAX, (n) => set({ diaMes: n }), 'Día del mes')}
-          {cron.unidad === 'anio' && (
-            <Dropdown value={String(cron.mes ?? 1)} width="100%" ariaLabel="Mes"
-              options={MESES.map((m, i) => ({ value: String(i + 1), label: m }))}
-              onChange={(v) => set({ mes: Number(v) })} />
-          )}
-        </div>
-      )}
-      {cron.unidad !== 'hora' && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontSize: 11.5, color: 'var(--dim)', flex: 'none' }}>A las</span>
-          {num(cron.hora, 0, 23, (n) => set({ hora: n }), 'Hora')}
-          <span style={{ fontSize: 12, color: 'var(--faint)' }}>:</span>
-          {num(cron.minuto, 0, 59, (n) => set({ minuto: n }), 'Minuto')}
-        </div>
-      )}
-      {/* Y el día 31 no está: no existe en febrero, y saltear el mes o correrlo al 1
-          de marzo son dos decisiones que nadie tomó. El tope es 28. */}
-      <div style={{ fontSize: 11, color: 'var(--good)', lineHeight: 1.4, fontWeight: 600 }}>{textoCron(cron, tz)}</div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-
-/**
  * LA SECCIÓN «CRON»: TIEMPO **o** ACCIÓN, nunca las dos.
  *
  * Pedido textual: «El cron debería ser uno de dos… O el usuario lo configura para
@@ -716,19 +650,16 @@ function EditorCron({ cron, tz, disabled, onCron }: {
  * los 10 workspaces lo tienen en 0, así que no apaga ninguna protección que hoy
  * funcione. El CAMPO y sus dos lectores quedan.
  */
-type ModoCron = 'tiempo' | 'accion' | null;
-
 function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
   base: Flujo; cron: CronAviso | null; tz: string | null;
   guardando: boolean; onFlujo: (f: Flujo | null) => void; onCron: (c: CronAviso | null) => void;
 }) {
   const evento = base.disparador.tipo === 'evento' ? base.disparador.evento : '';
-  const guardado: ModoCron = cron ? 'tiempo' : evento ? 'accion' : null;
-  const [intencion, setIntencion] = useState<ModoCron>(null);
+  const guardado: ModoDisparo = cron ? 'tiempo' : evento ? 'accion' : null;
   // Sin nada elegido los dos botones están apagados, y eso es cierto para los 65: nadie
   // configuró cuándo sale. Lo que ese estado NO dice es «no sale» — eso lo dice la
   // tarjeta, con el disparador nativo rotulado.
-  const modo = intencion ?? guardado;
+  const [modo, setIntencion] = useModoDisparo(guardado);
 
   /**
    * ⚠️ LOS BOTONES SON DOS Y APAGAN AL VOLVER A APRETARLOS.
@@ -739,7 +670,7 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
    * tiempo» una vez dejaría el mensaje agendado para siempre, sin ninguna salida que
    * no sea apagar el mensaje entero.
    */
-  const elegir = (m: ModoCron) => {
+  const elegir = (m: ModoDisparo) => {
     if (m === modo) {
       setIntencion(null);
       if (m === 'tiempo') onCron(null);
@@ -774,32 +705,7 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
         agendado. Sin ella, elegir «Por tiempo» una vez dejaria el mensaje agendado
         para siempre sin mas salida que apagar el mensaje entero.
       */}
-      {modo === null ? (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          {([['tiempo', 'Por tiempo'], ['accion', 'Por una acción']] as const).map(([k, txt]) => (
-            <button key={k} onClick={() => elegir(k)} disabled={guardando}
-              style={{
-                flex: 1, padding: '7px 4px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 11.5, fontWeight: 600, transition: 'background .12s',
-                border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)',
-              }}>{txt}</button>
-          ))}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-          <button onClick={() => elegir(modo)} disabled={guardando}
-            title="Elegir otra cosa: apaga este agendado" aria-label="Elegir otra cosa"
-            style={{
-              flex: 'none', width: 26, height: 26, borderRadius: 7, cursor: 'pointer',
-              border: '1px solid var(--border-strong)', background: 'var(--surface)',
-              color: 'var(--dim)', fontFamily: 'inherit', fontSize: 13, lineHeight: 1,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            }}>←</button>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>
-            {modo === 'tiempo' ? 'Por tiempo' : 'Por una acción'}
-          </span>
-        </div>
-      )}
+      <SelectorDisparo modo={modo} disabled={guardando} onModo={(m) => elegir(m ?? modo)} />
       {modo === 'tiempo' && cron && <EditorCron cron={cron} tz={tz} disabled={guardando} onCron={onCron} />}
       {modo === 'accion' && (
         <Dropdown

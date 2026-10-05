@@ -150,14 +150,17 @@ test('Una secuencia sin mensajes dibuja el HUECO, no un lienzo vacío', () => {
   assert.match(hueco?.detalle ?? '', /no le dice nada/i);
 });
 
-test('Las preguntas cuelgan de la RESPUESTA, no de la cadena de mensajes', () => {
-  // Cualificar es algo que pasa cuando el lead contesta. Colgado de la cadena se
-  // lee como un mensaje más que sale solo.
+test('Las preguntas cuelgan del ÚLTIMO MENSAJE, con la arista «si contesta»', () => {
+  // Cualificar es algo que pasa cuando el lead contesta ESE mensaje. Hasta el
+  // 05/10/2026 colgaba de un nodo «Si contesta» que el dueño mandó sacar («sigue el
+  // "Si no contesta" cuando eso lo habíamos eliminado»); lo que ese nodo decía —el
+  // modo— es un CAMPO y se edita en la entrada, no un paso que ocurre.
   const g = grafoDeSecuencia([paso({ orden: 1 })], { preguntas: ['¿Cuánto facturas?', ' '] }, 'X');
   const q = g.nodos.find((n) => n.tipo === 'cualifica');
   assert.ok(q);
   assert.equal(q?.titulo, 'Pregunta 1', 'las preguntas vacías no cuentan');
-  assert.ok(g.aristas.some((a) => a.desde === 'respuesta' && a.hasta === 'cualifica'));
+  assert.ok(!g.nodos.some((n) => n.tipo === 'respuesta'), 'volvió el nodo «Si contesta»');
+  assert.ok(g.aristas.some((a) => a.desde === 'paso-1' && a.hasta === 'cualifica' && a.etiqueta === 'si contesta'));
 });
 
 test('Ningún nodo se pisa con otro, y todos entran en la caja declarada', () => {

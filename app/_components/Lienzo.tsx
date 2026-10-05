@@ -75,7 +75,7 @@ export const COLOR_TONO: Record<TonoArista, string> = {
 
 export function Lienzo({
   grafo, seleccion, onSeleccion, renderNodo, renderEditor, tituloEditor, accion,
-  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false,
+  alto = 'min(54svh, 460px)', onMover, onAgregarTras, puedeAgregarTras, agregarOcupado = false, opcionesAgregar, panelAncho = PANEL_ANCHO, chrome, herramientas, sinMarco = false, insetIzq = 0,
 }: {
   grafo: GrafoFlujo;
   /** El nodo abierto. Va CONTROLADO: quien lo usa tiene que poder cerrarlo al
@@ -105,6 +105,21 @@ export function Lienzo({
    * Lienzo a saber qué se está editando.
    */
   herramientas?: ReactNode;
+  /**
+   * CUÁNTO SE CORREN A LA DERECHA LAS COSAS QUE FLOTAN (el chrome y la fila del zoom),
+   * porque la pantalla tiene algo apoyado sobre el borde izquierdo del lienzo.
+   *
+   * ⚠️ NO ANGOSTA EL LIENZO, Y ESA ES LA DIFERENCIA QUE IMPORTA. En /chatbot la lista de
+   * secuencias flota encima porque se pidió que «por atrás pase también la grilla»:
+   * si esto fuera un `padding` del lienzo, la cuadrícula volvería a cortarse donde
+   * empieza la lista, que es justo lo que se mandó corregir. Lo único que se mueve son
+   * los controles — el dibujo sigue de borde a borde.
+   *
+   * Medido el 05/10/2026 con el arnés: sin esto, el título flotante nace DEBAJO de la
+   * lista y el buscador se come sus clicks («input … intercepts pointer events»). No da
+   * error y en pantalla se lee como un título que no se puede editar.
+   */
+  insetIzq?: number;
   /** Sin borde ni radio: cuando el lienzo ES el recuadro, el marco lo pone la caja
    *  de afuera y dos marcos anidados dejan un filete doble. */
   sinMarco?: boolean;
@@ -179,14 +194,30 @@ export function Lienzo({
     // tocar un nodo devolvía el lienzo a su posición inicial y deshacía el paneo que
     // la persona acababa de hacer. El síntoma no se lee como un bug del encuadre:
     // se lee como que el lienzo «rebota solo».
-    const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}`;
+    const firma = `${Math.round(grafo.ancho)}x${Math.round(grafo.alto)}@${w}x${h}+${insetIzq}`;
     if (!forzar && encuadrado.current === firma) return;
     encuadrado.current = firma;
-    const k = Math.min(1, Math.min(w / grafo.ancho, h / grafo.alto));
-    vista.current = { k, tx: (w - grafo.ancho * k) / 2, ty: (h - grafo.alto * k) / 2 };
+    /**
+     * ⚠️ EL ENCUADRE DESCUENTA EL INSET, Y NO ES COSMÉTICA: SIN ESO LA PRIMERA TARJETA
+     * ES INALCANZABLE.
+     *
+     * El dibujo ocupa el ancho entero a propósito —se pidió que la cuadrícula pase por
+     * detrás de la lista—, pero centrar sobre ese ancho mete el nodo de más a la
+     * izquierda DEBAJO de la lista, que está encima y se come sus clicks. Medido el
+     * 05/10/2026 con el arnés: hover sobre la tarjeta de entrada, 55 reintentos y
+     * «<div class="mk-scroll-oscuro"> … intercepts pointer events». No da error: en
+     * pantalla se ve la tarjeta y no responde, que se lee como que la app está rota.
+     *
+     * Lo que se centra es el ancho ÚTIL (el que nadie tapa); el `tx` arranca después
+     * del inset. Lo tapado sigue dibujándose —la cuadrícula es lo que se quería ver
+     * ahí— y nada del grafo nace abajo.
+     */
+    const wUtil = Math.max(1, w - insetIzq);
+    const k = Math.min(1, Math.min(wUtil / grafo.ancho, h / grafo.alto));
+    vista.current = { k, tx: insetIzq + (wUtil - grafo.ancho * k) / 2, ty: (h - grafo.alto * k) / 2 };
     setZoomTxt(Math.round(k * 100));
     pintar();
-  }, [grafo.ancho, grafo.alto, pintar]);
+  }, [grafo.ancho, grafo.alto, insetIzq, pintar]);
 
   useEffect(() => { encuadrar(); }, [encuadrar]);
 
@@ -346,7 +377,9 @@ export function Lienzo({
     if (!n) return;
     // Las dos cuentas viven en `lib/lienzo-grafo.ts`, sin `server-only`, para que
     // tengan test: adentro de este efecto no las puede importar nadie.
-    const prox = vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN);
+    // El panel abre a `PANEL_MARGEN + insetIzq`, así que el borde contra el que se
+    // corre el lienzo para no taparlo es ése, no el del contenedor.
+    const prox = vistaConPanel(vista.current, n.x, panelAncho, PANEL_MARGEN + insetIzq);
     if (!prox) return;
     // El `antes` se guarda UNA vez: abrir un segundo nodo que necesite más corrimiento
     // no puede perder la vista original, que es a la que hay que volver.
@@ -579,7 +612,7 @@ export function Lienzo({
         {grafo.nodos.some((n) => ICON[n.icono]) && <BrandDefs />}
 
         {chrome && (
-          <div data-no-pan style={{ position: 'absolute', left: 0, right: 0, top: 0, padding: 14, pointerEvents: 'none' }}>
+          <div data-no-pan style={{ position: 'absolute', left: insetIzq, right: 0, top: 0, padding: 14, pointerEvents: 'none' }}>
             <div style={{ pointerEvents: 'auto' }}>{chrome}</div>
           </div>
         )}
@@ -587,7 +620,7 @@ export function Lienzo({
         {/* El zoom abajo a la izquierda, y el porcentaje AL COSTADO: entre los dos
             botones obliga a apuntar a un blanco que se mueve cuando el número cambia
             de ancho (100% → 33%). */}
-        <div data-no-pan style={{ position: 'absolute', left: 12, bottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div data-no-pan style={{ position: 'absolute', left: 12 + insetIzq, bottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
           <BotonChico onClick={() => zoom(1 / 1.2)} rotulo="Alejar">−</BotonChico>
           <BotonChico onClick={() => zoom(1.2)} rotulo="Acercar">＋</BotonChico>
           <BotonChico onClick={() => encuadrar(true)} rotulo="Centrar">⤢</BotonChico>
@@ -618,7 +651,12 @@ export function Lienzo({
           <div
             data-no-pan
             style={{
-              position: 'absolute', left: PANEL_MARGEN, bottom: PANEL_MARGEN + ZOOM_ALTO, width: panelAncho,
+              // Las TRES cosas que flotan llevan el inset, no dos: el chrome, la fila
+              // del zoom y ESTE panel, que abre justo abajo a la izquierda — o sea exactamente
+              // donde se apoya la lista de secuencias de /chatbot. Medido con el arnés: la
+              // flecha del selector de disparo no se podía apretar («aside … intercepts
+              // pointer events»), con el panel dibujado y a la vista.
+              position: 'absolute', left: PANEL_MARGEN + insetIzq, bottom: PANEL_MARGEN + ZOOM_ALTO, width: panelAncho,
               maxHeight: `calc(100% - ${24 + ZOOM_ALTO}px)`, overflowY: 'auto', padding: 14, borderRadius: 14,
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
               boxShadow: '0 12px 32px rgba(0,0,0,.14)', cursor: 'default',

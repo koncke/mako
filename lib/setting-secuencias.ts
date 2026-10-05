@@ -12,6 +12,8 @@ import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
+import { sanearCron, proximaOcurrencia } from './cron-aviso';
+import { tzActual, TZ_DEFAULT } from './timezone';
 import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from './funnels';
 import { entregasDeProductos } from './entrega-servicio';
 import type { EntregaConfig } from './servicio-etapas';
@@ -85,6 +87,59 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
     .single();
   if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
   return (data as { id: number }).id;
+}
+
+/**
+ * Renombrar una secuencia.
+ *
+ * ⚠️ CAMBIA EL NOMBRE, NUNCA LA CLAVE. La `clave` es con lo que el desenlace de OTRA
+ * secuencia la nombra (`logradoSecuencia`), así que renombrarla rompería el encadenado
+ * en silencio — es la regla de la casa sobre referenciar por nombre, y acá ya la
+ * pagamos una vez con el nodo «Sigue con» dibujado roto.
+ */
+/**
+ * EL HORARIO DE UNA SECUENCIA: la mitad «por tiempo» del disparador (mig 0192).
+ *
+ * `null` la devuelve a disparar POR UNA ACCIÓN, que es lo que hacen hoy las 62 filas.
+ *
+ * ⚠️ LA ZONA SE RESUELVE ACÁ Y LA PRÓXIMA OCURRENCIA SE SIEMBRA ACÁ, igual que en
+ * `lib/avisos-programados.ts` y por el mismo motivo: el motor itera workspaces con el
+ * `ws` por parámetro, así que resolver la zona ahí sería preguntarle al inquilino del
+ * CONTEXTO —que para un cron es el dueño— y el horario de cada cliente se movería solo
+ * el día que `tzDeWorkspace` contestara otra cosa.
+ *
+ * ⚠️ Y SE SIEMBRA SIN DISPARAR. `decidirAgenda` devuelve `toca: false` cuando siembra,
+ * pero sembrar desde acá es mejor: si el horario naciera sin ocurrencia, la primera
+ * corrida del cron la escribiría y la persona tendría que esperar DOS ciclos para ver
+ * algo. Poner un horario tampoco dispara en el momento: la primera ocurrencia es
+ * estrictamente posterior a ahora (`proximaOcurrencia`).
+ */
+export async function setCronSecuencia(secuenciaId: number, cron: unknown): Promise<void> {
+  const c = cron == null ? null : sanearCron(cron);
+  if (cron != null && !c) throw new Error('Ese horario no se entiende: elegí la unidad de la lista.');
+  const supabase = await getTenantDb();
+  const ahora = new Date();
+  const tz = c ? await tzActual().catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({
+      cron: c,
+      cron_proxima_at: c ? proximaOcurrencia(c, ahora, tz, ahora).toISOString() : null,
+      updated_at: ahora.toISOString(),
+    })
+    .eq('id', secuenciaId);
+  if (error) throw new Error(`setCronSecuencia: ${error.message}`);
+}
+
+export async function renombrarSecuencia(secuenciaId: number, nombre: string): Promise<void> {
+  const n = (nombre ?? '').trim();
+  if (!n) throw new Error('El nombre no puede quedar vacío.');
+  const supabase = await getTenantDb();
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ nombre: n.slice(0, 120), updated_at: new Date().toISOString() })
+    .eq('id', secuenciaId);
+  if (error) throw new Error(`renombrarSecuencia: ${error.message}`);
 }
 
 /**

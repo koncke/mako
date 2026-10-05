@@ -3368,3 +3368,47 @@ renglón dice **cómo se consigue**: apagado y con «sólo si el mensaje lo disp
 es información y una salida (cambiar el disparador), que es la misma forma de un guard que
 bloquea sólo lo que se arregla haciendo lo que pide. Y un `disabled` del `Dropdown` no se
 puede elegir, así que el token no puede entrar al texto.
+
+## Lo que FLOTA sobre un lienzo son TRES cosas, y el encuadre es la cuarta (05/10/2026)
+
+**Vive en:** `app/_components/Lienzo.tsx` → `insetIzq` · `app/chatbot/SimuladorWhatsApp.tsx`
+→ `LISTA_ANCHO` / `LISTA_HUECO` · `app/chatbot/FlujoLienzo.tsx` · `app/chatbot/SecuenciaPerfil.tsx`
+
+El pedido era que la lista de secuencias se apoyara ENCIMA del lienzo, con sombra y
+bordes redondos, **y que la cuadrícula pasara por detrás** — o sea que el dibujo no se
+corte donde empieza la lista. Eso descarta la salida obvia: un `padding` izquierdo del
+lienzo vuelve a cortar la cuadrícula justo ahí. La lista va `position: absolute` con
+`zIndex`, y el lienzo sigue de borde a borde.
+
+**Lo que eso rompe es todo lo que el lienzo apoya en su propio borde izquierdo, y son
+cuatro cosas, no una.** Aparecieron de a una, cada una con el mismo síntoma —un control
+dibujado, a la vista, que no responde— y las tres primeras las encontró el ARNÉS, no el
+código:
+
+| Qué | Cómo falló | Lo que dijo el arnés |
+|---|---|---|
+| El `chrome` (título + Activar + Probar) | `left: 0` | `<input … placeholder="Buscar…"> intercepts pointer events`, 56 reintentos |
+| El panel del nodo | `left: PANEL_MARGEN`, abajo a la izquierda | `<aside aria-label="Tus secuencias"> intercepts pointer events` |
+| La fila del zoom + deshacer | `left: 12` | — (se corrigió con el chrome) |
+| **El ENCUADRE** | centra el grafo sobre el ancho TOTAL | hover sobre la tarjeta de entrada: 55 reintentos |
+
+El cuarto es el que más cuesta ver, porque no es un control: es que el nodo de más a la
+izquierda del grafo **nace debajo de la lista**. `encuadrar` centraba sobre `w`; ahora
+centra sobre el ancho ÚTIL (`w - insetIzq`) y el `tx` arranca después del inset. El
+dibujo sigue entrando abajo —la cuadrícula es justo lo que se quería ver ahí— pero
+ningún nodo cae en la zona tapada.
+
+⚠️ **Y NINGUNO DE LOS CUATRO DA ERROR.** El elemento existe, es visible, está habilitado,
+`getComputedStyle` lo da perfecto y el clic no llega nunca. En pantalla se lee como un
+título que no se puede editar y una tarjeta que no se abre, o sea como que la app está
+rota. Lo único que los vio fue arrastrar y clickear de verdad en un navegador.
+
+La regla que queda: **al apoyar cualquier cosa sobre el borde de un lienzo, el inset va
+en UNA constante y lo consumen los cuatro** (los tres slots flotantes y el encuadre).
+Con dos números, el título vuelve a nacer debajo del buscador en cuanto alguien toque
+uno — y la firma del encuadre lleva el inset adentro, o cambiarlo no reencuadra.
+
+⚠️ **Y UN SLOT FLOTANTE NO SE PRUEBA CON `scrollY = 0` NI CON EL PANEL CERRADO.** El
+panel del nodo sólo existe con un nodo seleccionado, así que una verificación que no abre
+un nodo da verde sobre el control tapado. Es la misma familia que «un `sticky` roto se ve
+igual que uno sano hasta que scrolleás».

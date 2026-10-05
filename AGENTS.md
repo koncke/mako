@@ -6409,3 +6409,54 @@ puestas.** No da error, y lo que se rompe es la única cosa que el editor promet
 - **Y lo que el motor no puede resolver, el selector no lo OFRECE** (ya es regla de la
   casa). Un token escrito a mano que llega literal al cliente es el mismo bug por la otra
   puerta.
+
+# Apoyar algo sobre el borde de un lienzo son CUATRO lugares, y el encuadre es el que no se ve
+
+Cuando una pantalla pone una pieza ENCIMA del lienzo —una lista, un panel, una barra— y
+se pide que el dibujo pase por detrás (o sea: `position: absolute`, no una columna del
+flex), el lienzo sigue midiendo el ancho entero y **todo lo que él apoya en su propio
+borde izquierdo nace debajo de esa pieza**. Son cuatro, y la cuarta no es un control:
+
+1. el `chrome` (lo que flota arriba),
+2. la fila del zoom y las herramientas,
+3. el panel del nodo seleccionado (abre abajo a la izquierda),
+4. **el ENCUADRE**, que centra el grafo sobre el ancho total y mete el nodo de más a la
+   izquierda en la zona tapada.
+
+Va UNA constante (`insetIzq` en `app/_components/Lienzo.tsx`) y la consumen las cuatro
+—incluida la FIRMA del encuadre, o cambiarla no reencuadra—. No es un `padding`: el
+dibujo tiene que seguir de borde a borde, que es lo que se pidió.
+
+⚠️ **NINGUNO DE LOS CUATRO DA ERROR.** El elemento existe, es visible, está habilitado,
+`getComputedStyle` lo da perfecto y el clic no llega nunca. En pantalla se lee como un
+título que no se puede editar y una tarjeta que no se abre — o sea como que la app está
+rota. Lo único que los encontró (los cuatro, el 05/10/2026) fue clickear y arrastrar de
+verdad en un navegador: el arnés contesta `<aside …> intercepts pointer events` con 55
+reintentos, que es la firma exacta de esta familia.
+
+⚠️ **Y SE PRUEBA CON EL PANEL ABIERTO.** El panel del nodo sólo existe con un nodo
+seleccionado, así que una verificación que no abre un nodo da verde sobre el control
+tapado. Es la misma forma que «un `sticky` roto se ve igual que uno sano hasta que
+scrolleás».
+
+# Un test sobre un horario periódico mide el ancla con la unidad RELATIVA
+
+Todo lo que vuelve a salir se ancla en la ocurrencia AGENDADA anterior y no en `now()` —
+eso ya es regla de esta casa. Lo que falta es cómo se PRUEBA, y la salida intuitiva da un
+verde falso.
+
+Medido el 05/10/2026 escribiendo `tests/nutricion-agenda.test.ts`: el test del ancla usaba
+«todos los lunes a las 9» y pasó **11/11 EN VERDE con el ancla cambiada a `ahora`**. La
+causa es que `proximaOcurrencia` (`lib/cron-aviso.ts`), para `dia`, `semana`, `mes` y
+`anio`, **reconstruye la hora de pared desde el cron** (`instanteDe(tz, y, m, d, c.hora,
+c.minuto)`): la deriva de minutos no puede sobrevivir a eso. El único lado donde el ancla
+decide el resultado es **`unidad: 'hora'`**, que es aritmética pura sobre el timestamp
+(`anterior + cada × 3.600.000`) — y era justo el que el test no miraba.
+
+**La regla: el caso que mide un ancla es el de la unidad relativa.** Con `{unidad:'hora',
+cada:2}`, un ancla en `ahora` sobre una corrida 7 minutos tarde devuelve `18:07:33` en vez
+de `18:00:00`, y el test cae. Con cualquier unidad de calendario, no.
+
+Y el corolario general, que vale para cualquier guard sobre una función con ramas: **si la
+función tiene un camino que NO pasa por la normalización que te protege, ése es el único
+caso que prueba algo.**

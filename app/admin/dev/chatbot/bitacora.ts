@@ -489,4 +489,26 @@ export const BITACORA: Hito[] = [
       { sha: "d6ed9f7d", msg: "El selector ofrece las etapas de la ENTREGA, en su propia seccion", lineas: 216, archivos: 6 },
     ],
   },
+  {
+    fecha: "5 oct", hora: "09:20", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Nueve cosas mal en el editor: la sidebar, el titulo, los botones y el CRON",
+    pedido: "No estás entendiendo: 1. Fijate la sidebar que quiero que copies, es como flotando, con bordes mas redondos, con la barra de busqueda... Replicala tal cual... Y por atrás debe pasar también la grilla. 2. Elimita todo el título y la topbar, ahí debe estar la grilla. 3. Mira en el ejemplo de notificaciones DONDE están los botones... No existe el botón de GUARDAR, solo el de publicar, y está abajo... 4. El título editable con el emoji... Y al lado el botón de activar. 5. ¿Dónde está el botón de deshacer y rehacer al lado del zoom? Debe funcionar el ctrl z y 6. Ese desplegable no tiene ningún sentido, eso se configura con las tarjetas, eliminalo. 7. El botón de \"+mensaje\" tampoco tiene sentido... Si para eso habiamos hecho el botón de + al lado de cada tarjeta... Que hoy no está... 8. Sigue el \"Si no contesta\" cuando eso lo habiamos eliminado... 9. El CRON está mal, lo habiamos hecho ya... Con las 2 opciones por tiempo o por acción... Muchas cosas mal, intenta hacerlo bien",
+    puntos: [
+      "Llegó con tres capturas del editor de /mensajes al lado: lo que pide es que las dos pantallas sean la MISMA pieza, no que se parezcan.",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "10:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El lienzo ES la tab, la lista se le apoya encima, y el CRON vuelve a tener sus dos opciones",
+    puntos: [
+      "Lo que más costó no fue ninguno de los nueve puntos: fue que la lista FLOTE y la cuadrícula pase por detrás. Eso descarta el `padding` izquierdo (volvería a cortar la grilla ahí) y deja al lienzo midiendo el ancho entero — así que las CUATRO cosas que él apoya en su borde izquierdo nacen debajo de la lista: el chrome, la fila del zoom, el panel del nodo y el ENCUADRE, que centra el grafo sobre el ancho total y mete la primera tarjeta en la zona tapada. Ninguna da error: el elemento existe, es visible, está habilitado y el clic no llega. Las cuatro las encontró el ARNÉS («intercepts pointer events», 55 reintentos), no leer el código. Va UNA constante (`insetIzq`) que consumen las cuatro, incluida la firma del encuadre.",
+      "El CRON: para que las dos opciones no sean un dibujo, la de tiempo tiene que existir en el motor — un lienzo que ofrece una rama que el motor no ejecuta es la mentira que AGENTS.md prohíbe. Quedó con mig 0192 (`cron` + `cron_proxima_at`), la puerta en los DOS caminos de inscripción, el ancla en la ocurrencia AGENDADA y la marca ANTES de inscribir con compare-and-set. `cron = null` es «por una acción» y es lo que dicen las 62 filas: sin backfill y sin cambio de comportamiento.",
+      "Y el EditorCron se EXTRAJO de /mensajes antes de usarlo acá (app/_components/EditorCron.tsx), que es la regla de la casa: copiarlo cuesta cero y deja las mismas cinco trampas resueltas en dos lugares que después divergen.",
+      "El test del ancla daba 11/11 EN VERDE con el bug puesto, y es el hallazgo que más ahorra: `proximaOcurrencia` reconstruye la hora de pared desde el cron para día/semana/mes/año, así que la deriva no sobrevive — el único lado donde el ancla decide es `unidad: hora`, y era justo el que el test no miraba. Probado con seis roturas, anotadas con sus números en la cabecera del test.",
+      "Verificado en el navegador: 30/30 sobre los nueve puntos. De los dos que al principio daban rojo, los dos eran la MEDICIÓN y no el código (el selector buscaba `repeating-linear-gradient` y la cuadrícula son dos `linear-gradient`).",
+    ],
+    commits: [],
+  },
 ];

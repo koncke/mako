@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia,
-  muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega,
+  muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -28,6 +28,7 @@ import { renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getFunnelDefault } from '@/lib/funnels';
 import { huecosDeSecuencias, archivarSecuencias, desarchivarSecuencia } from '@/lib/secuencias-huecos';
+import { tzActual } from '@/lib/timezone';
 import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
 import { getEntregables, setEntregables } from '@/lib/entregable';
@@ -97,7 +98,11 @@ export async function GET() {
     // wizard que crea una secuencia, y romperlo de paso no es parte de este cambio.
     const productos = await productosConEtapas().catch(() => []);
     return Response.json({
+      // ⚠️ LA ZONA VIAJA. El texto del horario la nombra a propósito: de los 10
+      // workspaces activos SEIS no tienen `mako.timezone` y caen a America/Tijuana,
+      // así que un «a las 9» sin zona es una afirmación que nadie verificó.
       ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas, productos, disparadores: TRIGGERS,
+      tz: await tzActual().catch(() => null),
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
       negocio: wsRow?.nombre ?? '', huecos, handoffs: await handoffsPendientes().catch(() => []),
       canal,
@@ -133,10 +138,33 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown };
+  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown; cron?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
+    // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes).
+    if (body.action === 'nombre') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      await renombrarSecuencia(id, String(body.nombre ?? ''));
+      return Response.json({ ok: true });
+    }
+
+    /**
+     * EL HORARIO: la mitad «POR TIEMPO» del disparador (mig 0192).
+     *
+     * `cron: null` la devuelve a disparar por una ACCIÓN. Son dos acciones distintas y
+     * no una con un flag, porque las dos mitades viven en columnas distintas y elegir
+     * una tiene que APAGAR la otra — dejar las dos puestas sería una secuencia
+     * disparada por las dos cosas con la pantalla diciendo una.
+     */
+    if (body.action === 'cron') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      await setCronSecuencia(id, body.cron ?? null);
+      return Response.json({ ok: true });
+    }
+
     // El disparador de una secuencia: «si un lead cae en ESTA etapa de ESTE producto».
     if (body.action === 'disparador') {
       const id = Number(body.secuenciaId);

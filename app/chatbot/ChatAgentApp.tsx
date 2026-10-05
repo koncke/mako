@@ -23,6 +23,7 @@ import { Icon } from '@/app/_components/icons';
 import Link from '@/app/_ui/Link';
 import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp } from './SimuladorWhatsApp';
+import type { CronAviso } from '@/lib/cron-aviso';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
 // Vive en app/whatsapp porque nacio ahi; lo que se mudo es DONDE se muestra.
@@ -56,6 +57,11 @@ export type SecuenciaDto = {
   funnel_id?: number | null;
   /** El PRODUCTO de cuya ENTREGA cuelga (trigger entrega_actual, mig 0189). */
   producto_id?: number | null;
+  /**
+   * EL HORARIO con el que inscribe (mig 0192). `null`/ausente = se dispara por una
+   * ACCIÓN, que es lo que hacen hoy todas las filas. Ver lib/nutricion-agenda.ts.
+   */
+  cron?: CronAviso | null;
 };
 
 /** Un producto del CRM con las etapas que el dueño le configuró. */
@@ -116,6 +122,8 @@ function ChatAgentInner() {
   // Etapas de nutrición sin ninguna secuencia que las cubra. Reemplaza al viejo
   // seed: en vez de inventar secuencias con copy de relleno, se avisa qué falta.
   const [huecos, setHuecos] = useState<Array<{ etapa: string; label: string }>>([]);
+  /** La zona del negocio: la dice el texto del horario, no se adivina. */
+  const [tz, setTz] = useState<string | null>(null);
   // Leads que escribieron algo fuera del guion: MaKo no contestó y espera que le
   // enseñen el caso.
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
@@ -150,7 +158,7 @@ function ChatAgentInner() {
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
-      setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []);
+      setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []); setTz(j.tz ?? null);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
       setError(null);
@@ -291,12 +299,18 @@ function ChatAgentInner() {
           Y los dos botones de la derecha: el de crear ya está en la grilla (la tarjeta
           punteada), y «Archivar todas» era una salida de emergencia para las secuencias
           que el sistema sembraba solo, que hace rato no se siembran. */}
-      <header style={{ flex: 'none', padding: '18px 24px 0' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: '28px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
-          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="tag" size={24} /></span>
-          Chatbot
-        </h1>
-      </header>
+      {/* ⚠️ ACÁ HABÍA UN <header> CON «Chatbot», Y SE FUE EL 05/10/2026.
+          Martín, con la captura de /mensajes al lado: «elimina todo el título y la
+          topbar, ahí debe estar la grilla».
+
+          Es la tercera pasada del mismo pedido —antes cayeron las cuatro sub-tabs y los
+          dos botones grandes— y lo que lo cierra es que el lienzo arranque en el borde
+          de arriba. El nombre de la tab ya lo dice la navegación de la izquierda, que es
+          la que contesta «dónde estoy»; repetirlo acá costaba 46 px de pizarra, que es
+          lo único que esta pantalla tiene para dar.
+
+          Lo que una pantalla sin cabecera SÍ necesita es que el editor diga qué se está
+          editando: el nombre vive flotando sobre el lienzo, y es editable. */}
 
       {/* Qué etapas de nutrición quedaron sin secuencia. MaKo conoce el funnel
           entero, así que puede decir exactamente qué falta — y eso es más útil
@@ -342,30 +356,6 @@ function ChatAgentInner() {
 
       {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
 
-      {/* ⚠️ ERA UNA BANDA ÁMBAR CON LAS SEIS ETAPAS ENUMERADAS Y UN BOTÓN NEGRO, y
-          ocupaba más que el trabajo. Martín: «Haz que "Hay 6 etapas sin secuencia de
-          mensajes:" sea mucho más sutil».
-
-          Lo que el aviso tiene que decir sigue estando —cuántas etapas no reciben nada,
-          y cuáles— pero en un renglón: el número y el detalle en el `title`, que es
-          donde el largo no ocupa lugar. Un hueco no es un error: es trabajo que falta. */}
-      {rolAdmin && huecos.length > 0 && (
-        <div
-          title={huecos.map((h) => h.label).join(', ')}
-          style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 24px 10px', fontSize: 12.5, color: 'var(--faint)' }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
-          <span>
-            {huecos.length === 1
-              ? <>{huecos[0].label} no tiene secuencia</>
-              : <>{huecos.length} etapas sin secuencia</>}
-          </span>
-          <button onClick={() => setWizard('nueva')}
-            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
-            Armar una
-          </button>
-        </div>
-      )}
 
       {error && (
         <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
@@ -387,8 +377,30 @@ function ChatAgentInner() {
       {secuencias !== null && secuencias.length > 0 && (
         <SimuladorWhatsApp
           secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
-          negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
+          negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onWizard={(id) => setWizard(id)} onReload={() => void load()}
+          /* ⚠️ QUÉ ETAPAS QUEDARON SIN SECUENCIA — ERA UNA FRANJA ARRIBA DEL LIENZO.
+             Primero fue una banda ámbar con las seis etapas enumeradas y un botón negro
+             («haz que sea mucho más sutil»), después un renglón gris, y las dos le
+             comían alto a la pizarra en una pantalla donde el título entero se sacó por
+             eso mismo. Ahora cuelga del pie de la LISTA, que es lo que nombra.
+
+             Lo que el aviso tiene que decir sigue estando —cuántas etapas no reciben
+             nada, y cuáles en el `title`, donde el largo no ocupa lugar—. Un hueco no es
+             un error: es trabajo que falta. */
+          pie={rolAdmin && huecos.length > 0 ? (
+            <div title={huecos.map((h) => h.label).join(', ')}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--faint)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
+              <span style={{ minWidth: 0, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {huecos.length === 1 ? `${huecos[0].label} no tiene secuencia` : `${huecos.length} etapas sin secuencia`}
+              </span>
+              <button onClick={() => setWizard('nueva')}
+                style={{ flex: 'none', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
+                Armar una
+              </button>
+            </div>
+          ) : undefined}
         />
       )}
 

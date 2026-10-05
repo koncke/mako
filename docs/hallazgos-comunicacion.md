@@ -7978,3 +7978,56 @@ en producción le manda un WhatsApp a una persona. Se prueba con un lead de prue
 `leadsDeCohorte`) · `lib/cs-mover-etapa.ts` · `lib/setting-secuencias.ts`
 (`productosConEtapas`, `setDisparadorEntrega`) · `app/chatbot/SecuenciaPerfil.tsx` ·
 `supabase/migrations/0189_secuencia_producto.sql`
+
+## Una secuencia disparada POR TIEMPO: el horario, su ancla, y el test que daba verde con el bug (05/10/2026)
+
+**Vive en:** `lib/nutricion-agenda.ts` (`decidirAgenda`) · `lib/nutricion.ts`
+(`planificarInscripciones`, `comprometerInscripciones`) · `lib/setting-secuencias.ts`
+(`setCronSecuencia`) · `tests/nutricion-agenda.test.ts` ·
+`supabase/migrations/0192_secuencia_cron.sql`
+
+El editor del chatbot dibujaba el disparador como una sola pregunta («¿qué lo dispara?»)
+y el pedido fue el control que /mensajes ya tenía: **«el CRON está mal, lo habíamos hecho
+ya… con las 2 opciones por tiempo o por acción»**. Para que esas dos opciones no sean un
+dibujo, la de tiempo tiene que existir en el MOTOR — un lienzo que ofrece una rama que el
+motor no ejecuta es la mentira que `AGENTS.md` prohíbe.
+
+Cómo quedó, y las cuatro decisiones que lo gobiernan:
+
+- **`cron = null` es «por una acción», y es lo que dicen las 62 filas.** Sin backfill y
+  sin cambio de comportamiento: la puerta devuelve `toca: true` y el cron horario inscribe
+  como siempre. **Ese es el caso que más había que proteger**: si se invirtiera, la
+  nutrición entera dejaría de inscribir SIN UN SOLO ERROR.
+- **El horario no es un trigger más: es una PUERTA sobre el trigger.** El `trigger_tipo`
+  sigue diciendo A QUIÉN y el horario dice CUÁNDO, así que el selector de cohorte no se
+  esconde en modo tiempo — se re-rotula «A quién». Esconderlo dejaría un agendado que no
+  inscribe a nadie, que se lee como que el horario no funciona.
+- **El ancla es la ocurrencia AGENDADA**, no `now()` ni «cuándo salió». Es la regla de la
+  casa y acá se paga con un campo propio (`cron_proxima_at`), que por eso vive aparte de
+  cualquier `updated_at`.
+- **La marca va ANTES de inscribir, con compare-and-set** (`.eq('cron_proxima_at', <lo
+  leído>)`). Es el orden que esta casa ya pagó con 21 pares duplicados el 27/09: si la
+  inscripción falla se pierde UNA ocurrencia, y eso se nota menos que dos mensajes
+  iguales en el teléfono de un cliente.
+- **Sembrar NO dispara.** Una secuencia con horario y sin ocurrencia agenda y se abstiene.
+  Si sembrar disparara, elegir «todos los lunes a las 9» mandaría los mensajes en ese
+  mismo instante, sobre leads reales — lo contrario de lo que la persona acaba de pedir.
+
+⚠️ **EL TEST DEL ANCLA DABA 11/11 EN VERDE CON EL BUG PUESTO, Y ES EL HALLAZGO QUE MÁS
+AHORRA.** La primera versión usaba «los lunes a las 9» y cambiaba el ancla a `ahora`: pasó
+entero. La causa es que `proximaOcurrencia` (`lib/cron-aviso.ts`), para las unidades
+`dia`, `semana`, `mes` y `anio`, **RECONSTRUYE la hora de pared desde el cron**
+(`instanteDe(tz, y, m, d, c.hora, c.minuto)`), así que la deriva de minutos no puede
+sobrevivir. **El único lado donde el ancla decide el resultado es `unidad: 'hora'`**,
+que es aritmética pura sobre el timestamp (`anterior + cada × 3.600.000`) — y era justo
+el que el test no miraba. Un verde sobre la propiedad equivocada.
+
+Las seis roturas con las que se probó, y lo que contestó cada una, están en la cabecera
+del test. La que importa: **si escribís un test sobre un horario periódico, el caso que
+mide el ancla es el de la unidad RELATIVA.**
+
+⚠️ **Y EL RESPALDO SE AMPLÍA EN EL MISMO COMMIT.** `scripts/respaldo-disparadores.ts`
+cubría cuatro columnas y ahora seis: verificar esta pantalla ESCRIBE en producción, y un
+respaldo que cubre 4 de 6 deja restaurar con confianza y mal — que es exactamente lo que
+ya pasó la vez anterior, cuando le faltaba `producto_id`. El `cron` es jsonb y va al
+driver como OBJETO (`sql.json`), nunca como texto.

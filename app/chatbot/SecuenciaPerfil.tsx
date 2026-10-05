@@ -8,7 +8,10 @@
 // pausar, abrir el wizard para que MaKo redacte, y probarla DE VERDAD (te llega
 // a tu teléfono/mail). Setter = solo lectura (sin botones de escritura).
 
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
+import { EditorCron, SelectorDisparo, CRON_DEFAULT } from '@/app/_components/EditorCron';
+import type { CronAviso } from '@/lib/cron-aviso';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { EstrategiaWizard } from './EstrategiaWizard';
 import { FlujoLienzo } from './FlujoLienzo';
@@ -35,7 +38,15 @@ const lineas = (s: string): string[] => s.split(/\r?\n/).map((x) => x.trim()).fi
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onElegir, onNueva, onProbar, onClose, onCambio, onWizard }: {
+/** Las tarjetas del chrome FLOTANTE: fondo propio para leerse sobre la cuadrícula del
+ *  lienzo, y el mismo radio que el resto de la casa. Copiado de TemplateDetalleModal a
+ *  propósito: son la misma pieza en las dos pantallas. */
+const tarjetaChrome: CSSProperties = {
+  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
+  padding: '7px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+};
+
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onElegir, onNueva, onProbar, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver el «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -59,6 +70,10 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   negocio: string;
   /** El WhatsApp del negocio está caído. */
   canalCaido: boolean;
+  /** La zona del negocio: la NOMBRA el texto del horario, no se adivina. */
+  tz: string | null;
+  /** Cuánto se corre lo que flota, para no nacer debajo de la lista de secuencias. */
+  insetIzq?: number;
   /** Un audio grabado desde un paso se suma a la biblioteca del padre. */
   onAudioNuevo: (a: AudioSetting) => void;
   onClose?: () => void;
@@ -96,6 +111,97 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    * se edita; si no, se dice por qué se dispara de verdad y hay un botón para cambiarla.
    */
   const [cambiandoAEtapa, setCambiandoAEtapa] = useState(false);
+
+  /**
+   * CÓMO SE DISPARA: POR TIEMPO O POR UNA ACCIÓN.
+   *
+   * Martín, con la captura delante: «el CRON está mal, lo habíamos hecho ya… con las 2
+   * opciones por tiempo o por acción». El control es el MISMO que el de /mensajes, y
+   * por eso vive en `app/_components/EditorCron.tsx` desde hoy: se extrajo ANTES de
+   * usarlo acá, que es la regla de la casa — copiarlo cuesta cero y después divergen.
+   *
+   * ⚠️ `eligiendo` ES UN ESTADO PROPIO Y NO SE DERIVA DEL DATO. Toda secuencia tiene
+   * `trigger_tipo`, así que «qué hay guardado» siempre contesta tiempo o acción y los
+   * dos botones no aparecerían NUNCA: cambiar de modo sería imposible. La flecha pone
+   * esto en true, que es lo que vuelve a la elección — pedido textual: «si se quiere
+   * cambiar debería retroceder, no que aparezcan siempre ambos botones».
+   */
+  const [eligiendo, setEligiendo] = useState(false);
+
+  /**
+   * ⚠️ EL HORARIO SE PINTA OPTIMISTA, Y NO ES UN LUJO: MEDIDO, TARDABA 6 SEGUNDOS.
+   *
+   * `onCambio()` recarga el GET entero de la tab (secuencias + métricas de 30 días +
+   * la serie diaria), así que esperar la vuelta para dibujar el editor del horario deja
+   * el botón «Por tiempo» sin ningún efecto visible por 4-6 s. Medido en el navegador
+   * el 05/10/2026, sondeando cada vez que pasaba: a los 3.001 ms el editor NO estaba, a
+   * los 6.001 sí. Y un botón que hace su trabajo y recién te lo muestra cinco segundos
+   * después es indistinguible de un botón roto — ya es regla de esta casa.
+   *
+   * `undefined` significa «todavía no tocaron nada, manda la prop». Un `null` a secas no
+   * alcanzaría: null es un valor VÁLIDO del campo («se dispara por una acción»), así que
+   * con null como centinela apagar el horario no se podría pintar hasta la recarga.
+   */
+  const [cronOptimista, setCronOptimista] = useState<CronAviso | null | undefined>(undefined);
+  const cron = cronOptimista !== undefined ? cronOptimista : (secuencia.cron ?? null);
+  const guardarCron = async (c: CronAviso | null) => {
+    setEligiendo(false);
+    const previo = cron;
+    setCronOptimista(c);
+    const j = await api({ action: 'cron', secuenciaId: secuencia.id, cron: c });
+    // Y si el server dice que no, se VUELVE. Un optimista que no revierte es una
+    // pantalla que afirma un horario que no está guardado.
+    if (!j.ok) { setCronOptimista(previo); setErr(j.error ?? 'No se pudo guardar el horario'); return; }
+    setErr(null);
+    onCambio();
+  };
+  /** El nombre, editable tocándolo. Se siembra de la prop y el `key` por secuencia del
+   *  caller es lo que lo vuelve a sembrar al cambiar de secuencia. */
+  const [nombre, setNombre] = useState(secuencia.nombre);
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const guardarNombre = async () => {
+    setEditandoNombre(false);
+    const t = nombre.trim();
+    if (!t || t === secuencia.nombre) { setNombre(secuencia.nombre); return; }
+    const j = await api({ action: 'nombre', secuenciaId: secuencia.id, nombre: t });
+    if (!j.ok) { setErr(j.error ?? 'No se pudo cambiar el nombre'); setNombre(secuencia.nombre); return; }
+    setErr(null);
+    onCambio();
+  };
+
+  /**
+   * LA PILA DE DESHACER del tablero. «¿Dónde está el botón de deshacer y rehacer al lado
+   * del zoom? Debe funcionar el ctrl z».
+   *
+   * La foto es el array de pasos, que es lo único que el lienzo edita. `aplicar` devuelve
+   * la foto ANTERIOR porque es lo que rehacer necesita; sin eso, rehacer no tendría de
+   * dónde sacar el estado que se deshizo.
+   */
+  const { apilar, deshacer, rehacer, puedeDeshacer, puedeRehacer } = usePilaDeshacer<PasoSecuenciaDto[]>(
+    (foto) => { const antes = pasos; setPasos(foto); return antes; },
+    { activa: rolAdmin },
+  );
+  /** Una foto ANTES de cada cambio: apilar después deja el deshacer un paso corrido. */
+  const antesDeCambiar = () => apilar(pasos.map((p) => ({ ...p })));
+
+  /**
+   * Agregar un paso DESPUÉS de una tarjeta. El ＋ del lienzo dice dónde entra, así que
+   * el paso tiene que entrar ahí: insertar y renumerar, no apilar al final.
+   */
+  const agregarTras = (idNodo: string) => {
+    antesDeCambiar();
+    const m = /^paso-(\d+)$/.exec(idNodo);
+    const tras = m ? Number(m[1]) : 0;   // `entrada` → 0, o sea primero de todo
+    setPasos((prev) => {
+      const nuevo: PasoSecuenciaDto = {
+        orden: 0, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '',
+        proveedor: 'no_oficial', template_wa: null,
+      };
+      const antes = prev.filter((p) => p.orden <= tras);
+      const despues = prev.filter((p) => p.orden > tras);
+      return [...antes, nuevo, ...despues].map((p, i) => ({ ...p, orden: i + 1 }));
+    });
+  };
   const esDeEtapa = secuencia.trigger_tipo === TRIGGER_ETAPA;
   const esDeEntrega = secuencia.trigger_tipo === TRIGGER_ENTREGA;
   const etiquetaDisparador = disparadores.find((d) => d.value === secuencia.trigger_tipo)?.label ?? secuencia.trigger_tipo;
@@ -398,189 +504,206 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   }
 
 
+  /**
+   * ⚠️ EL LIENZO ES LA PANTALLA. No hay barra, ni cabecera, ni pie: el título, el
+   * interruptor, «Probar», el deshacer y «Publicar» FLOTAN encima, que es exactamente
+   * cómo quedó el editor de /mensajes y lo que Martín pidió replicar «tal cual».
+   *
+   * Lo que se fue, con su pedido al lado:
+   *  · la barra con el nombre y los botones → «elimina todo el título y la topbar, ahí
+   *    debe estar la grilla»;
+   *  · el menú «⋯» → «ese desplegable no tiene ningún sentido, eso se configura con las
+   *    tarjetas, elimínalo»;
+   *  · «Guardar» → «no existe el botón de GUARDAR, solo el de publicar, y está abajo»;
+   *  · la línea del disparador → ahora se edita adentro de la tarjeta de entrada.
+   */
   return (
-    // ⚠️ `flex: 1` + `minHeight: 0`, NO `height: 100%`: el padre saca su alto de un flex,
-    // y para el motor eso es un alto INDEFINIDO — Chrome lo resuelve igual y Safari
+    // `flex: 1` + `minHeight: 0`, NO `height: 100%`: el padre saca su alto de un flex y
+    // para el motor eso es un alto INDEFINIDO — Chrome lo resuelve igual y Safari
     // devuelve CERO, o sea la pantalla en blanco (AGENTS.md, ya pagado con un cliente).
-    //
-    // Y sin borde ni esquinas redondeadas: el recuadro ERA el problema. «No pongas a la
-    // grilla chiquita en el medio en un recuadro, haz que ocupe TODA la tab».
-    <div style={{ flex: 1, minHeight: 0, width: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* ⚠️ UNA SOLA BARRA, Y LO QUE NO ES DE TODOS LOS DÍAS VA ADENTRO DE «⋯».
-          Martín: «aquí hay botones de más innecesarios y otros mal ubicados», con la
-          captura al lado. Había SIETE controles repartidos en tres franjas: dos
-          interruptores «Pausada» (uno duplicado), dos botones de probar, y abajo una
-          fila con «Qué dice y a quién le sirve» + «Variantes de cada mensaje» y otra con
-          «MaKo redacta (wizard)» + «Guardar». Cuatro de esos se usan de vez en cuando y
-          le estaban comiendo ~90 px de alto al lienzo en todas las pantallas.
-          Quedan arriba los tres que se tocan editando —el interruptor, Probar y
-          Guardar— y los otros cuatro viven en el menú, que es el patrón que la casa ya
-          usa en /admin y en la barra de clientes. */}
-      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: '1px solid var(--border)', minWidth: 0 }}>
-        <span style={{ flex: 'none', width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</span>
-        <span style={{ minWidth: 0, flex: 1 }}>
-          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secuencia.nombre}</span>
-          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}
-          </span>
-        </span>
-
-        {flash && <span style={{ flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>}
-
-        <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Pausada'}</span>
-          {rolAdmin && (
-            <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
-              style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
-              <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
-            </button>
-          )}
-        </span>
-
-        {onProbar && (
-          <button onClick={onProbar} style={{ flex: 'none', padding: '7px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Probar</button>
-        )}
-
-        {rolAdmin && (
-          <>
-            <Dropdown
-              value="" resetAfterSelect align="right" placeholder="⋯"
-              ariaLabel="Más acciones de esta secuencia"
-              disabled={busy != null}
-              buttonStyle={{ padding: '7px 11px', fontSize: 13, borderRadius: 10 }}
-              options={[
-                { value: 'estrategia', label: 'Qué dice y a quién le sirve' },
-                { value: 'variantes', label: busy === 'variantes' ? 'MaKo está escribiendo…' : 'Variantes de cada mensaje' },
-                { value: 'wizard', label: 'MaKo redacta (wizard)' },
-                // «Probar de verdad» MANDA MENSAJES REALES a tu teléfono: va en el menú y
-                // no al lado del «Probar» de mentira, que es lo que lo hacía peligroso.
-                { value: 'real', label: busy === 'probar' ? 'Enviando…' : 'Probar de verdad (te llega a ti)' },
-              ]}
-              onChange={(v) => {
-                if (v === 'estrategia') { setErr(null); setEditandoEstrategia(true); }
-                else if (v === 'variantes') void generarVariantes();
-                else if (v === 'wizard') onWizard();
-                else if (v === 'real') void probar();
-              }}
-            />
-            <button onClick={guardar} disabled={busy === 'save'}
-              style={{ flex: 'none', padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'save' ? 0.5 : 1, fontFamily: 'inherit' }}>
-              {busy === 'save' ? 'Guardando…' : 'Guardar'}
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* ⚠️ SIN PADDING: «no quiero que esté en un contenedor, quiero que ocupe TODA la
-          tab». Lo único que queda entre el lienzo y el borde de la pantalla es la línea
-          del disparador, que es un control. */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Sin `maxWidth`: el lienzo es de los que necesitan cada píxel. Lo que
-            SÍ se acota es el texto de adentro de cada nodo, que lo hace el nodo. */}
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', width: '100%' }}>
-
-          {/* El nombre, el estado y «Probar» viven en la barra de arriba. Lo que queda acá
-              es el DISPARADOR, que es un control y no un rótulo: dice —y deja cambiar— qué
-              hace que esta secuencia salga. */}
-          <div style={{ flex: 'none', minWidth: 0, padding: '7px 14px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)', display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                {rolAdmin && productos.length > 0 && (esDeEtapa || esDeEntrega || cambiandoAEtapa) ? (
-                  <>
-                    <span>Se dispara al caer en</span>
-                    <Dropdown
-                      value={valorEtapa}
-                      secciones={seccionesEtapa}
-                      onChange={(v) => {
-                        // El valor trae la clase y, en la entrega, el producto:
-                        // `venta:<etapa>` | `entrega:<producto>:<etapa>`.
-                        const [clase, ...resto] = v.split(':');
-                        if (clase === 'entrega') {
-                          const [pid, ...keyPartes] = resto;
-                          const producto = Number(pid);
-                          if (!Number.isFinite(producto)) { setErr('Esa etapa de entrega no tiene producto: elegí una de la lista.'); return; }
-                          void guardarDisparador(keyPartes.join(':'), 'entrega', producto);
-                          return;
-                        }
-                        void guardarDisparador(resto.join(':'), 'venta', funnelSel);
-                      }}
-                      ariaLabel="Etapa que dispara la secuencia"
-                      buttonStyle={{ fontSize: 11.5, padding: '2px 6px' }}
-                    />
-                    <span>de</span>
-                    <Dropdown
-                      value={funnelSel == null ? '' : String(funnelSel)}
-                      options={[{ value: '', label: 'Todos los productos' }, ...productos.map((pr) => ({ value: String(pr.funnelId), label: pr.nombre }))]}
-                      onChange={(v) => {
-                        const fid = v === '' ? null : Number(v);
-                        setFunnelSel(fid);
-                        // Sólo se guarda si la etapa que ya está puesta existe en ese
-                        // producto. Si no, se espera a que elija una de las suyas: la
-                        // lista de arriba ya cambió y la de abajo lo dice.
-                        const pr = fid == null ? null : productos.find((x) => x.funnelId === fid);
-                        const enVenta = fid == null
-                          ? productos.some((x) => x.etapas.some((e) => e.value === secuencia.etapa))
-                          : !!pr?.etapas.some((e) => e.value === secuencia.etapa);
-                        const enEntrega = !!pr?.etapasEntrega.some((e) => e.value === secuencia.etapa);
-                        // Una secuencia de ENTREGA se re-apunta al producto nuevo; una de
-                        // venta, al embudo nuevo. Si la etapa no existe en ninguno de los
-                        // dos lados del producto elegido, no se guarda nada todavía.
-                        if (esDeEntrega && enEntrega && pr?.productoId != null) void guardarDisparador(secuencia.etapa, 'entrega', pr.productoId);
-                        else if (!esDeEntrega && enVenta) void guardarDisparador(secuencia.etapa, 'venta', fid);
-                      }}
-                      ariaLabel="Producto del que se miran las etapas"
-                      buttonStyle={{ fontSize: 11.5, padding: '2px 6px' }}
-                    />
-                    {!etapaEstaEnElProducto && <span style={{ color: 'var(--warn)' }}>Elegí una etapa de este producto</span>}
-                  </>
+    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <FlujoLienzo
+        pasos={pasos}
+        estrategia={{ objetivo, gancho, preguntas: lineas(preguntas), modo, antiguedad_max_horas: antiguedad, envio_automatico: envioAuto, desenlace }}
+        etiquetaEtapa={etiquetaEtapa(secuencia.etapa)}
+        secuencias={secuencias.map((j) => ({ clave: j.clave, nombre: j.nombre }))}
+        audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy != null}
+        onEditarPaso={editarPaso} onAgregarPaso={agregarPaso} onQuitarPaso={quitarPaso}
+        onAudio={(orden, id) => void setAudioDePaso(orden, id)}
+        onAudioNuevo={onAudioNuevo} onError={setErr}
+        onEditarVariante={editarVariante} onQuitarVariante={quitarVariante}
+        onModo={setModo} onDesenlace={setDesenlace} onAntiguedad={setAntiguedad}
+        onAbrirSecuencia={onAbrirClave}
+        onAgregarTras={agregarTras}
+        insetIzq={insetIzq}
+        chrome={(
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            {/* El ancho es FIJO por lo mismo que en /mensajes: en modo edición el
+                contenido es un `<input>`, que NO mide su texto —mide `size` por el
+                avance del «0» de la fuente— así que con `maxWidth` la tarjeta encoge al
+                hacer click. Con el ancho puesto, los dos estados miden lo mismo. */}
+            <div style={{ ...tarjetaChrome, minWidth: 0, width: 400, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ flex: 'none', fontSize: 18, lineHeight: 1 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                {/* El nombre se cambia HACIENDO CLICK EN ÉL, como en el resto de la
+                    casa: un lápiz al lado es un segundo control para la misma acción. */}
+                {editandoNombre ? (
+                  <input
+                    autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)}
+                    onBlur={() => void guardarNombre()}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void guardarNombre(); if (e.key === 'Escape') { setNombre(secuencia.nombre); setEditandoNombre(false); } }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit' }}
+                  />
                 ) : (
-                  <>
-                    <span>Se dispara: {etiquetaDisparador}</span>
-                    {rolAdmin && productos.length > 0 && (
-                      <button onClick={() => setCambiandoAEtapa(true)}
-                        style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
-                        Cambiar a una etapa
-                      </button>
-                    )}
-                  </>
+                  <button onClick={() => rolAdmin && setEditandoNombre(true)} title={rolAdmin ? 'Cambiar el nombre' : undefined}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, border: 'none', background: 'none', cursor: rolAdmin ? 'text' : 'default', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {nombre || secuencia.nombre}
+                  </button>
                 )}
               </div>
+            </div>
+
+            {/* «Activar» en su propia tarjeta, a la derecha del título: igual que en
+                /mensajes, y por el mismo motivo —adentro de la del título la hace de dos
+                renglones y aprieta el nombre. */}
+            <div style={{ ...tarjetaChrome, flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
+              <button onClick={toggle} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+                style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
+                <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+              </button>
+            </div>
+
+            {onProbar && (
+              <button onClick={onProbar} title="Ver cómo le llega esta secuencia al lead"
+                style={{ ...tarjetaChrome, flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' }}>▶ Probar</button>
+            )}
           </div>
-
-          {/* ⚠️ ACÁ HABÍA TRES SUB-TABS —Estrategia / Mensajes / Variantes— y se fueron
-              el 30/09/2026. El pedido: «Quiero que los editables del flujo de
-              conversación sea como el editable de Manychat, que tiene una pantalla tipo
-              flujo, y ahí se edita todo».
-
-              Las tres partían la misma secuencia en tres pantallas y ninguna mostraba
-              la forma del conjunto: «Estrategia» dibujaba una columna de tarjetas con
-              flechas ↓ que era ESTRICTAMENTE LINEAL —la rama de logrado/fallo no se
-              dibujaba nunca, así que el encadenamiento con otra secuencia no existía en
-              ninguna pantalla—, «Mensajes» tenía el chat, y «Variantes» una lista.
-
-              El lienzo las reemplaza; no convive con ellas. Es la lección del editor de
-              diagramas del funnel, borrado dos días antes: dos editores del mismo dato
-              divergen, y el que se queda viejo es el que menos se abre. */}
-          <FlujoLienzo
-            pasos={pasos}
-            estrategia={{ objetivo, gancho, preguntas: lineas(preguntas), modo, antiguedad_max_horas: antiguedad, envio_automatico: envioAuto, desenlace }}
-            etiquetaEtapa={etiquetaEtapa(secuencia.etapa)}
-            secuencias={secuencias.map((j) => ({ clave: j.clave, nombre: j.nombre }))}
-            audios={audios} negocio={negocio} rolAdmin={rolAdmin} busy={busy != null}
-            onEditarPaso={editarPaso} onAgregarPaso={agregarPaso} onQuitarPaso={quitarPaso}
-            onAudio={(orden, id) => void setAudioDePaso(orden, id)}
-            onAudioNuevo={onAudioNuevo} onError={setErr}
-            onEditarVariante={editarVariante} onQuitarVariante={quitarVariante}
-            onModo={setModo} onDesenlace={setDesenlace} onAntiguedad={setAntiguedad}
-            onAbrirSecuencia={onAbrirClave}
-          />
-
-          {/* El error va PEGADO al lienzo y no al fondo de una pantalla que ya no tiene
-              fondo: es lo único que queda debajo, y sólo cuando hay algo que decir.
-              Las cuatro acciones que vivían acá (la estrategia, las variantes, el wizard
-              y el envío real) están en el menú de la barra. */}
-          {err && <div style={{ flex: 'none', margin: '0 14px 12px', padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}
-        </div>
-      </div>
+        )}
+        herramientas={rolAdmin ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <BotonPila titulo="Deshacer (Ctrl+Z)" onClick={deshacer} activo={puedeDeshacer}>↶</BotonPila>
+            <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
+          </div>
+        ) : undefined}
+        pie={rolAdmin ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            {flash && <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>}
+            {/* ⚠️ «PUBLICAR», NO «GUARDAR»: «no existe el botón de GUARDAR, solo el de
+                publicar, y está abajo». Es el mismo verbo que en /mensajes y dice lo que
+                pasa: lo escrito pasa a ser lo que MaKo manda. */}
+            <button onClick={guardar} disabled={busy === 'save'}
+              style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'save' ? 0.45 : 1, fontFamily: 'inherit' }}>
+              {busy === 'save' ? 'Publicando…' : 'Publicar'}
+            </button>
+          </div>
+        ) : undefined}
+        editorEntrada={(
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Cuándo se dispara</label>
+            {rolAdmin && (
+              <SelectorDisparo
+                modo={eligiendo ? null : (cron ? 'tiempo' : 'accion')}
+                disabled={busy != null}
+                onModo={(m) => {
+                  if (m === null) { setEligiendo(true); return; }
+                  // Elegir uno APAGA el otro, y es una ESCRITURA y no un `disabled`:
+                  // dejar el horario puesto y sólo grisarlo dejaría una secuencia que
+                  // el motor sigue disparando por tiempo con la pantalla diciendo que
+                  // la dispara una acción.
+                  if (m === 'tiempo' && !cron) { void guardarCron(CRON_DEFAULT); return; }
+                  if (m === 'accion' && cron) { void guardarCron(null); return; }
+                  setEligiendo(false);
+                }}
+              />
+            )}
+            {cron && (
+              <div style={{ marginBottom: 12 }}>
+                <EditorCron cron={cron} tz={tz} disabled={!rolAdmin || busy != null} onCron={(c) => void guardarCron(c)}
+                  nota={(
+                    // ⚠️ EL HORARIO DICE CUÁNDO, NO A QUIÉN. El motor sigue necesitando
+                    // la cohorte —a quién le escribe— así que el selector de abajo no se
+                    // esconde: un horario sin cohorte no inscribiría a nadie, y eso se
+                    // leería como que el agendado no funciona.
+                    <span style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.4 }}>
+                      En ese momento inscribe a quien esté en lo que elijas abajo.
+                    </span>
+                  )} />
+              </div>
+            )}
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>{cron ? 'A quién' : 'Qué lo dispara'}</label>
+            {rolAdmin && productos.length > 0 && (esDeEtapa || esDeEntrega || cambiandoAEtapa) ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <Dropdown
+                  value={valorEtapa}
+                  secciones={seccionesEtapa}
+                  onChange={(v) => {
+                    // El valor trae la clase y, en la entrega, el producto:
+                    // `venta:<etapa>` | `entrega:<producto>:<etapa>`.
+                    const [clase, ...resto] = v.split(':');
+                    if (clase === 'entrega') {
+                      const [pid, ...keyPartes] = resto;
+                      const producto = Number(pid);
+                      if (!Number.isFinite(producto)) { setErr('Esa etapa de entrega no tiene producto: elegí una de la lista.'); return; }
+                      void guardarDisparador(keyPartes.join(':'), 'entrega', producto);
+                      return;
+                    }
+                    void guardarDisparador(resto.join(':'), 'venta', funnelSel);
+                  }}
+                  ariaLabel="Etapa que dispara la secuencia"
+                  width="100%"
+                />
+                <Dropdown
+                  value={funnelSel == null ? '' : String(funnelSel)}
+                  options={[{ value: '', label: 'Todos los productos' }, ...productos.map((pr) => ({ value: String(pr.funnelId), label: pr.nombre }))]}
+                  onChange={(v) => {
+                    const fid = v === '' ? null : Number(v);
+                    setFunnelSel(fid);
+                    const pr = fid == null ? null : productos.find((x) => x.funnelId === fid);
+                    const enVenta = fid == null
+                      ? productos.some((x) => x.etapas.some((e) => e.value === secuencia.etapa))
+                      : !!pr?.etapas.some((e) => e.value === secuencia.etapa);
+                    const enEntrega = !!pr?.etapasEntrega.some((e) => e.value === secuencia.etapa);
+                    if (esDeEntrega && enEntrega && pr?.productoId != null) void guardarDisparador(secuencia.etapa, 'entrega', pr.productoId);
+                    else if (!esDeEntrega && enVenta) void guardarDisparador(secuencia.etapa, 'venta', fid);
+                  }}
+                  ariaLabel="Producto del que se miran las etapas"
+                  width="100%"
+                />
+                {!etapaEstaEnElProducto && <span style={{ fontSize: 11.5, color: 'var(--warn)' }}>Elegí una etapa de este producto</span>}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>
+                {etiquetaDisparador}
+                {rolAdmin && productos.length > 0 && (
+                  <button onClick={() => setCambiandoAEtapa(true)}
+                    style={{ display: 'block', marginTop: 6, background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 12.5, color: 'var(--primary)', cursor: 'pointer' }}>
+                    Cambiar a una etapa
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      />
+      {err && <div style={{ flex: 'none', margin: '8px 14px 0', padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}
     </div>
+  );
+}
+
+/** Los dos botones de la pila, pegados al zoom. Mismo molde que el de /mensajes. */
+function BotonPila({ titulo, onClick, activo, children }: {
+  titulo: string; onClick: () => void; activo: boolean; children: ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={!activo} title={titulo} aria-label={titulo}
+      style={{
+        width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)',
+        color: activo ? 'var(--dim)' : 'var(--faint)', fontSize: 15, fontFamily: 'inherit',
+        cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.45,
+      }}>
+      {children}
+    </button>
   );
 }

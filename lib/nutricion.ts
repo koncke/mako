@@ -26,6 +26,9 @@ import { canalNoOficial, proveedorDelPaso } from '@/lib/nutricion-canal';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+import { sanearCron, type CronAviso } from '@/lib/cron-aviso';
+import { decidirAgenda } from '@/lib/nutricion-agenda';
+import { tzActual, TZ_DEFAULT } from '@/lib/timezone';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -111,6 +114,13 @@ export type Secuencia = {
    * keyeadas por producto. Lo decide el trigger, no la presencia del dato.
    */
   producto_id: number | null;
+  /**
+   * EL HORARIO con el que inscribe (mig 0192). `null` = se dispara por una ACCIÓN,
+   * que es lo que hacen hoy las 62 filas de la base. Ver lib/nutricion-agenda.ts.
+   */
+  cron: CronAviso | null;
+  /** La próxima ocurrencia AGENDADA (mig 0192). El ancla, no «cuándo salió». */
+  cron_proxima_at: string | null;
 };
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
@@ -149,7 +159,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at')
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null);
@@ -157,7 +167,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
-    funnel_id: number | null;
+    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null;
   }>;
   return rows.map((r) => ({
     id: r.id,
@@ -173,6 +183,10 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
     funnel_id: r.funnel_id == null ? null : Number(r.funnel_id),
     producto_id: r.producto_id == null ? null : Number(r.producto_id),
+    // Por el MISMO saneador que la pantalla, como `envio_automatico`: la regla de
+    // qué es un horario válido vive en un lugar (lib/cron-aviso.ts).
+    cron: sanearCron(r.cron),
+    cron_proxima_at: r.cron_proxima_at ?? null,
   }));
 }
 
@@ -185,7 +199,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id, cron, cron_proxima_at')
     // Las archivadas no se listan, no enrolan y no envían. No se borran porque
     // las inscripciones y los envíos las referencian: borrarlas se llevaría
     // puesto el historial de a quién se le escribió.
@@ -195,7 +209,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
-    funnel_id: number | null;
+    funnel_id: number | null; cron: unknown; cron_proxima_at: string | null;
   }>;
 
   // Contados PÁGINA POR PÁGINA (se agrega al vuelo, no se materializa). Eran dos
@@ -236,6 +250,10 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
     funnel_id: r.funnel_id == null ? null : Number(r.funnel_id),
     producto_id: r.producto_id == null ? null : Number(r.producto_id),
+    // Por el MISMO saneador que la pantalla, como `envio_automatico`: la regla de
+    // qué es un horario válido vive en un lugar (lib/cron-aviso.ts).
+    cron: sanearCron(r.cron),
+    cron_proxima_at: r.cron_proxima_at ?? null,
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -788,7 +806,14 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const secuencias = await getSecuenciasActivas();
   const plan: PlanInscripcion[] = [];
 
+  const tz = await tzActual().catch(() => TZ_DEFAULT);
+  const ahora = new Date();
+
   for (const sec of secuencias) {
+    // ⚠️ LA MISMA PUERTA QUE EL COMMIT, o el preview miente sobre a quién va a
+    // inscribir. Acá NO se escribe `cron_proxima_at`: un dry-run que avanza el ancla
+    // deja al commit de al lado sin su ocurrencia.
+    if (!decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora).toca) continue;
     const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
     if (candidatos.length === 0) continue;
     const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
@@ -831,7 +856,33 @@ export async function comprometerInscripciones(): Promise<number> {
   const secuencias = await getSecuenciasActivas();
   let creadas = 0;
 
+  const tz = await tzActual().catch(() => TZ_DEFAULT);
+  const ahora = new Date();
+
   for (const sec of secuencias) {
+    /**
+     * ⚠️ LA PUERTA DEL HORARIO, Y EL AVANCE VA ANTES DE INSCRIBIR.
+     *
+     * Marcar primero es la regla de la casa, y está medida: dos invocaciones del
+     * mismo tick inscribían dos veces (21 pares duplicados el 27/09 por los 7-10 s
+     * que el envío por WhatsApp retiene el HTTP abierto). El costo de este orden es
+     * el opuesto y es el correcto: si la inscripción falla se pierde UNA ocurrencia,
+     * y eso se nota menos que dos mensajes iguales en el teléfono de un cliente.
+     *
+     * El `eq('cron_proxima_at', …)` es el compare-and-set: si otra invocación ya la
+     * avanzó, el update toca 0 filas y esta corrida se abstiene.
+     */
+    const agenda = decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora);
+    if (agenda.proxima) {
+      const q = supabase.from('nutricion_secuencias').update({ cron_proxima_at: agenda.proxima }).eq('id', sec.id);
+      const { data: reclamadas, error: eCron } = sec.cron_proxima_at == null
+        ? await q.is('cron_proxima_at', null).select('id')
+        : await q.eq('cron_proxima_at', sec.cron_proxima_at).select('id');
+      if (eCron) throw new Error(`comprometerInscripciones (cron): ${eCron.message}`);
+      // Sembrar NO dispara (ver lib/nutricion-agenda.ts), así que `toca` manda igual.
+      if (agenda.toca && (reclamadas ?? []).length === 0) continue;
+    }
+    if (!agenda.toca) continue;
     const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y

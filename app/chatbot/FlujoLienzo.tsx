@@ -31,7 +31,7 @@
 // A las tres sub-tabs del perfil (Estrategia / Mensajes / Variantes), no se suma
 // a ellas: dos editores del mismo dato divergen, y el segundo se queda viejo.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/Lienzo';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
@@ -51,6 +51,7 @@ export function FlujoLienzo({
   onEditarPaso, onAgregarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError,
   onEditarVariante, onQuitarVariante,
   onModo, onDesenlace, onAntiguedad, onAbrirSecuencia,
+  chrome, herramientas, pie, editorEntrada, onAgregarTras, insetIzq,
 }: {
   pasos: PasoSecuenciaDto[];
   estrategia: EstrategiaParaGrafo;
@@ -74,6 +75,26 @@ export function FlujoLienzo({
   onAntiguedad: (h: number | null) => void;
   /** Abrir OTRA secuencia: es el «Go To», y tiene que llevar de verdad. */
   onAbrirSecuencia: (clave: string) => void;
+  /** El título, el interruptor y «Probar»: FLOTAN sobre el lienzo, arriba a la
+   *  izquierda. Mismo contrato que el editor de /mensajes. */
+  chrome?: ReactNode;
+  /** Pegado al zoom, abajo a la izquierda: deshacer y rehacer. */
+  herramientas?: ReactNode;
+  /** Abajo a la derecha: «Publicar». */
+  pie?: ReactNode;
+  /**
+   * El editor del nodo de ENTRADA (el disparador). Viene de afuera porque su estado
+   * —qué etapa, de qué producto— vive en quien monta el lienzo, igual que la pila de
+   * deshacer. Antes era una línea de prosa ARRIBA del lienzo, que es justo lo que el
+   * dueño sacó: «eso se configura con las tarjetas».
+   */
+  editorEntrada?: ReactNode;
+  /** Cuánto se corre lo que FLOTA, porque la lista de secuencias se apoya sobre el
+   *  borde izquierdo del lienzo. No angosta el dibujo — ver `Lienzo.insetIzq`. */
+  insetIzq?: number;
+  /** Agregar un paso DESPUÉS de este nodo: el ＋ que aparece al pasar el cursor por la
+   *  tarjeta. Reemplaza al botón suelto «＋ Mensaje», que no decía DÓNDE entraba. */
+  onAgregarTras?: (id: string) => void;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const grafo = grafoDeSecuencia(pasos as PasoParaGrafo[], estrategia, etiquetaEtapa, secuencias);
@@ -82,6 +103,17 @@ export function FlujoLienzo({
   return (
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
+      sinMarco alto="100%" insetIzq={insetIzq}
+      chrome={chrome} herramientas={herramientas}
+      /* ⚠️ EL ＋ VA EN LA TARJETA, NO EN UNA ESQUINA. «El botón de "+mensaje" tampoco
+         tiene sentido... si para eso habíamos hecho el botón de ＋ al lado de cada
+         tarjeta... que hoy no está». Un botón suelto no dice dónde entra el paso; éste
+         aparece a la derecha de la tarjeta, que es donde va a aparecer lo que se agregue. */
+      onAgregarTras={rolAdmin && onAgregarTras ? ((id) => onAgregarTras(id)) : undefined}
+      /* Sólo donde el paso que se agregue cuelga de verdad de esa tarjeta: en la entrada
+         (sería el primer mensaje) y después de cada mensaje. En el desenlace o en un
+         «Sigue con» el ＋ señalaría un lugar y el paso caería en otro. */
+      puedeAgregarTras={(idNodo) => idNodo === 'entrada' || /^paso-\d+$/.test(idNodo)}
       renderNodo={(n, activo) => (
         <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={n.tipo === 'ir-a' && n.destinoExiste === false}>
           {n.tipo === 'mensaje' && pasoDe(n)
@@ -98,16 +130,10 @@ export function FlujoLienzo({
           onEditarVariante={onEditarVariante} onQuitarVariante={onQuitarVariante}
           onModo={onModo} onDesenlace={onDesenlace} onAntiguedad={onAntiguedad}
           onAbrirSecuencia={onAbrirSecuencia}
+          editorEntrada={editorEntrada}
         />
       )}
-      accion={rolAdmin ? (
-        <button onClick={onAgregarPaso} disabled={busy}
-          style={{
-            padding: '9px 14px', borderRadius: 10, border: '1px dashed var(--border-strong)',
-            background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS,
-            fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-          }}>＋ Mensaje</button>
-      ) : undefined}
+      accion={pie}
     />
   );
 }
@@ -145,7 +171,7 @@ function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audio
 function EditorDeNodo({
   nodo, paso, estrategia, secuencias, audios, rolAdmin, busy,
   onEditarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError, onEditarVariante, onQuitarVariante,
-  onModo, onDesenlace, onAntiguedad, onAbrirSecuencia,
+  onModo, onDesenlace, onAntiguedad, onAbrirSecuencia, editorEntrada,
 }: {
   nodo: NodoFlujo; paso: PasoSecuenciaDto | null; estrategia: EstrategiaParaGrafo;
   secuencias: ReadonlyArray<{ clave: string; nombre: string }>;
@@ -161,6 +187,8 @@ function EditorDeNodo({
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
   onAbrirSecuencia: (clave: string) => void;
+  /** Lo que se edita en el nodo de ENTRADA: QUÉ dispara la secuencia. Ver FlujoLienzo. */
+  editorEntrada?: ReactNode;
 }) {
   const des = (estrategia?.desenlace ?? {}) as Partial<Desenlace>;
   const cambiarDes = (p: Partial<Desenlace>) => onDesenlace({
@@ -189,7 +217,11 @@ function EditorDeNodo({
     const h = estrategia?.antiguedad_max_horas ?? null;
     return (
       <>
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>{nodo.detalle}</div>
+        {/* ⚠️ EL DISPARADOR SE EDITA ACÁ, EN LA TARJETA. Era una línea de prosa arriba
+            del lienzo con dos desplegables sueltos, y el dueño la sacó con todas las
+            letras: «eso se configura con las tarjetas». El nodo de entrada ES la
+            pregunta «qué lo dispara», así que su editor es el lugar. */}
+        {editorEntrada ?? <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>{nodo.detalle}</div>}
         <label style={rotuloLienzo}>Solo a leads recientes</label>
         <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
           <input

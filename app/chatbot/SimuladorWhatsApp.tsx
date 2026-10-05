@@ -10,7 +10,8 @@
 // derecha); escribes/mandás audio y MaKo responde como setter. La topbar /
 // Editar abre el PERFIL de la secuencia de mensajes (SecuenciaPerfil, cubre el chat).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Dropdown } from '../components/Dropdown';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SecuenciaPerfil } from './SecuenciaPerfil';
 import type { ProductoOpcion } from './ChatAgentApp';
@@ -20,7 +21,15 @@ import type { Objetivo } from '@/lib/setting-estrategia';
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 // El objetivo puede ser uno del catálogo O uno que escribió el dueño: para esos
 // no hay emoji propio y cae al genérico.
-export const emojiSecuencia = (j: SecuenciaDto): string =>
+export /**
+ * EL ANCHO DE LA LISTA, Y SU HUECO AL BORDE. Son UNA constante porque los usan dos
+ * cosas: la caja de la lista y el corrimiento de lo que flota sobre el lienzo. Con dos
+ * números, el título vuelve a nacer debajo del buscador en cuanto alguien toque uno.
+ */
+const LISTA_ANCHO = 272;
+const LISTA_HUECO = 16;
+
+const emojiSecuencia = (j: SecuenciaDto): string =>
   (j.estrategia ? (EMOJI_OBJETIVO[j.estrategia.objetivo as Objetivo] ?? '🎯') : '⚑');
 
 // Variables de plantilla → lead de prueba (solo visual, espejo del motor).
@@ -63,7 +72,7 @@ async function blobABase64(b: Blob): Promise<string> {
 
 type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores, pie, tz }: {
   productos: ProductoOpcion[];
   disparadores: Opcion[];
   secuencias: SecuenciaDto[];
@@ -77,8 +86,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onAudioNuevo: (a: AudioSetting) => void;
   onWizard: (id: number | 'nueva') => void;
   onReload: () => void;
+  /** El pie de la LISTA (hoy: qué etapas quedaron sin secuencia). Viene de la tab
+   *  porque el dato es del workspace, no de esta pieza. */
+  pie?: ReactNode;
+  /** La zona del negocio, para el texto del horario. */
+  tz: string | null;
 }) {
   const [busq, setBusq] = useState('');
+  const [filtro, setFiltro] = useState<'todas' | 'activas' | 'pausadas'>('todas');
   const [selId, setSelId] = useState<number | ''>('');
   const [mensajes, setMensajes] = useState<HiloMsg[]>([]);
   const [typing, setTyping] = useState<{ lado: 'left' | 'right'; autor?: string } | null>(null);
@@ -95,11 +110,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
   const lista = useMemo(() => {
     const q = busq.trim().toLowerCase();
-    return secuencias.filter((j) => !q
+    return secuencias.filter((j) => (filtro === 'todas' || (filtro === 'activas') === j.activa) && (!q
       || j.nombre.toLowerCase().includes(q)
       || (j.estrategia?.gancho ?? '').toLowerCase().includes(q)
-      || etiquetaEtapa(j.etapa).toLowerCase().includes(q));
-  }, [secuencias, busq, etiquetaEtapa]);
+      || etiquetaEtapa(j.etapa).toLowerCase().includes(q)));
+  }, [secuencias, busq, filtro, etiquetaEtapa]);
   const sel = secuencias.find((j) => j.id === selId);
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -276,55 +291,22 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * El chat REEMPLAZA al lienzo (no se abre al lado): es la misma secuencia vista de otra
    * forma, y sale sólo de «Probar».
    */
+  /**
+   * LA TAB ES EL LIENZO, Y LA LISTA SE LE APOYA ENCIMA.
+   *
+   * Martín, con la captura de /mensajes al lado: «fijate la sidebar que quiero que
+   * copies, es como flotando, con bordes más redondos, con la barra de búsqueda…
+   * replicala tal cual… Y por atrás debe pasar también la grilla».
+   *
+   * O sea: la cuadrícula NO se corta donde empieza la lista. El lienzo ocupa el ancho
+   * entero y la lista es una tarjeta con su sombra encima. La versión anterior era una
+   * columna de 248 px con borde que PARTÍA la pantalla en dos, y eso es exactamente lo
+   * que se pidió corregir: `position: absolute` y no una columna del flex, porque en el
+   * flex le quitaría ancho al lienzo y la cuadrícula volvería a terminar ahí.
+   */
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', minWidth: 0 }}>
-      {/* ⚠️ LA COLUMNA NO SCROLLEA SOLA SIN AVISAR: lleva su propio `overflowY` y la
-          barra teñida de la casa. Una columna de navegación que corta en silencio es la
-          regla que el dueño ya escribió dos veces («la sidebar se puede scrollear, eso NO
-          debe ser posible NUNCA»): acá el scroll es del CONTENIDO —sus secuencias— y no
-          de la navegación de la app, así que se ve y se tiñe. */}
-      {/* `aria-label` porque la app YA tiene un <aside>: el de la navegación global. Sin
-          nombre, los dos son «complementary» y no hay forma de distinguirlos —ni para
-          un lector de pantalla ni para una verificación, que es como un arnés terminó
-          clickeando los íconos del menú de la izquierda creyendo que eran secuencias. */}
-      <aside aria-label="Tus secuencias" className="mk-scroll-oscuro" style={{
-        flex: 'none', width: 248, minWidth: 0, display: 'flex', flexDirection: 'column',
-        borderRight: '1px solid var(--border)', background: 'var(--surface)', overflowY: 'auto',
-      }}>
-        {secuencias.length > 6 && (
-          <div style={{ flex: 'none', padding: '10px 10px 6px' }}>
-            <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar secuencia…"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13, outline: 'none' }} />
-          </div>
-        )}
-        <div style={{ padding: 8 }}>
-          {rolAdmin && (
-            <button type="button" onClick={() => onWizard('nueva')}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 9, alignItems: 'center', padding: '9px 10px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit', fontSize: 13 }}>
-              <span style={{ width: 28, height: 28, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: 'var(--faint)' }}>＋</span>
-              <span style={{ fontWeight: 600 }}>Nueva secuencia</span>
-            </button>
-          )}
-          {lista.length === 0 && <div style={{ padding: 12, color: 'var(--faint)', fontSize: 12.5 }}>Ninguna coincide.</div>}
-          {lista.map((j) => {
-            const on = j.id === selId;
-            return (
-              <button key={j.id} type="button" onClick={() => elegir(j.id)}
-                style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 9, alignItems: 'center', padding: '9px 10px', borderRadius: 10, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, fontFamily: 'inherit' }}>
-                <span style={{ width: 28, height: 28, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{emojiSecuencia(j)}</span>
-                <span style={{ minWidth: 0, flex: 1 }}>
-                  <span style={{ display: 'block', fontWeight: 600, fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.nombre}</span>
-                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiquetaEtapa(j.etapa)}</span>
-                </span>
-                {/* El punto dice el estado sin una palabra: en una fila de 248 px, «pausada»
-                    se come el nombre. El rótulo entero está en la barra del editor. */}
-                <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 7, height: 7, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-
+    <div style={{ flex: 1, minHeight: 0, position: 'relative', minWidth: 0, display: 'flex' }}>
+      {/* EL LIENZO: debajo de todo y de borde a borde. */}
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {!sel ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
@@ -367,9 +349,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
            * ⚠️ EL `key` ES OBLIGATORIO, y es un hallazgo de esta casa: «un `useState`
            * sembrado de props no se resiembra; si la vista deja de desmontarse, hay que
            * poner el key». Se cambia de secuencia SIN desmontar, así que sin esto el
-           * texto, el interruptor y el producto se quedarían con los de la anterior.
+           * nombre, el texto, el interruptor y el producto se quedarían con los de la
+           * anterior.
            */
-          <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
+          <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} tz={tz} insetIzq={LISTA_ANCHO + LISTA_HUECO * 2} onAudioNuevo={onAudioNuevo}
             productos={productos} disparadores={disparadores}
             secuencias={secuencias}
             onAbrirClave={(clave) => {
@@ -382,6 +365,70 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             onCambio={onReload} onWizard={() => onWizard(sel.id)} />
         )}
       </div>
+
+      {/* LA LISTA, FLOTANDO.
+          `aria-label` porque la app YA tiene un <aside>: el de la navegación global. Sin
+          nombre los dos son «complementary» y no hay forma de distinguirlos —ni para un
+          lector de pantalla ni para una verificación, que es como un arnés terminó
+          clickeando los íconos del menú de la izquierda creyendo que eran secuencias.
+          Y lleva su `overflowY` con la barra teñida de la casa: el scroll es del
+          CONTENIDO —sus secuencias—, no de la navegación de la app, así que se ve. */}
+      <aside aria-label="Tus secuencias" style={{
+        position: 'absolute', left: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: LISTA_ANCHO, zIndex: 3,
+        display: 'flex', flexDirection: 'column', minHeight: 0,
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
+        boxShadow: '0 8px 28px rgba(18,21,27,.12)', overflow: 'hidden',
+      }}>
+        {/* El buscador va SIEMPRE, como en el molde. Antes aparecía con más de seis
+            secuencias, y un control que aparece solo es un control que nadie busca. */}
+        <div style={{ flex: 'none', padding: '14px 14px 12px', borderBottom: '1px solid var(--border)' }}>
+          <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar por nombre o texto…"
+            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
+          <div style={{ marginTop: 10 }}>
+            {/* El filtro del molde es por categoría; acá la pregunta equivalente es por
+                ESTADO. Una pausada no manda nada, y es lo que uno busca cuando algo no
+                sale. Un filtro que devuelve siempre la misma lista sería ruido. */}
+            <Dropdown value={filtro} onChange={(v) => setFiltro(v as 'todas' | 'activas' | 'pausadas')} width={180}
+              ariaLabel="Filtrar secuencias" buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
+              options={[
+                { value: 'todas', label: `Todas · ${secuencias.length}` },
+                { value: 'activas', label: `Activas · ${secuencias.filter((j) => j.activa).length}` },
+                { value: 'pausadas', label: `Pausadas · ${secuencias.filter((j) => !j.activa).length}` },
+              ]} />
+          </div>
+        </div>
+        <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
+          {rolAdmin && (
+            <button type="button" onClick={() => onWizard('nueva')}
+              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
+              <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--faint)' }}>＋</span>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva secuencia</span>
+            </button>
+          )}
+          {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna secuencia coincide.</div>}
+          {lista.map((j) => {
+            const on = j.id === selId;
+            const texto = j.estrategia?.gancho ?? j.pasos.find((p) => p.canal === 'whatsapp')?.cuerpo ?? j.pasos[0]?.cuerpo ?? '';
+            return (
+              <button key={j.id} type="button" onClick={() => elegir(j.id)}
+                style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: j.activa ? 1 : 0.55, fontFamily: 'inherit' }}>
+                <span style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(j)}</span>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ display: 'block', fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.nombre}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{texto ? texto.replace(/[*_]/g, ' ').replace(/\s+/g, ' ').slice(0, 42) : etiquetaEtapa(j.etapa)}</span>
+                </span>
+                {/* El punto dice el estado sin una palabra: en una fila de 272 px,
+                    «pausada» se come el nombre. El rótulo entero está en el lienzo. */}
+                <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 8, height: 8, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
+              </button>
+            );
+          })}
+        </div>
+        {/* El pie de la lista: lo que antes era una franja arriba del lienzo y le comía
+            alto a la pizarra. Acá cuelga de lo que nombra —las secuencias— y no ocupa
+            un renglón de la tab. */}
+        {pie && <div style={{ flex: 'none', borderTop: '1px solid var(--border)', padding: '9px 14px' }}>{pie}</div>}
+      </aside>
     </div>
   );
 }

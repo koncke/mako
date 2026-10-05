@@ -237,13 +237,20 @@ export function grafoDeSecuencia(
   // se leía como un renglón más del final, cuando en realidad es lo que pasa
   // MIENTRAS la secuencia corre.
   const yRespuesta = yFila + altoCadena + GAP_Y + 16;
-  const modo = estrategia?.modo ?? 'asistido';
-  nodos.push({
-    id: 'respuesta', tipo: 'respuesta', titulo: 'Si contesta', icono: '↩️',
-    detalle: modo === 'asistido' ? 'MaKo te deja el borrador' : 'Se frena y sigues tú',
-    x: x - ANCHO_NODO - GAP_X, y: yRespuesta, ancho: ANCHO_NODO, alto: ALTO_MIN,
-  });
-  aristas.push({ desde: previo, hasta: 'respuesta', etiqueta: 'si contesta', tono: 'buena' });
+  /**
+   * ⚠️ ACÁ HABÍA UN NODO «SI CONTESTA», Y SE FUE EL 05/10/2026.
+   *
+   * Martín, con la captura delante: «Sigue el "Si no contesta" cuando eso lo habíamos
+   * eliminado». Es el mismo pedido que ya se había ejecutado del lado de los avisos
+   * —«elimina el apartado de Recordatorios, para eso ya tendremos los condicionales y la
+   * opción de poner más mensajes»— y que acá no se aplicó: dos lienzos del mismo dato
+   * divergen, y el que se queda viejo es el que menos se abre.
+   *
+   * ⚠️ LO QUE EL NODO AFIRMABA NO SE PIERDE. Decía el MODO (si MaKo deja el borrador o
+   * se frena), que es una propiedad de la conversación y no un paso que ocurre: ahora se
+   * edita adentro del nodo de entrada, junto al disparador. La regla es la de la casa:
+   * «¿esto ocurre, o esto es un campo?» — y esto es un campo.
+   */
 
   // Lo que MaKo PREGUNTA cuelga de la respuesta, no de la cadena: cualificar es
   // algo que pasa cuando el lead contesta. En el dibujo viejo era un renglón más
@@ -253,9 +260,12 @@ export function grafoDeSecuencia(
     nodos.push({
       id: 'cualifica', tipo: 'cualifica', titulo: `Pregunta ${preguntas.length}`, icono: '❓',
       detalle: preguntas.slice(0, 3).join(' · '),
-      x, y: yRespuesta, ancho: ANCHO_NODO, alto: ALTO_MIN + 8,
+      x: x - ANCHO_NODO - GAP_X, y: yRespuesta, ancho: ANCHO_NODO, alto: ALTO_MIN + 8,
     });
-    aristas.push({ desde: 'respuesta', hasta: 'cualifica', tono: 'buena' });
+    // Colgaba de «Si contesta»; con ese nodo fuera, cuelga del último mensaje, que es
+    // lo que de verdad lo precede: preguntar es algo que pasa cuando el lead contesta
+    // ESE mensaje.
+    aristas.push({ desde: previo, hasta: 'cualifica', etiqueta: 'si contesta', tono: 'buena' });
   }
 
   // ── El desenlace, con sus DOS puertos ──────────────────────────────────
