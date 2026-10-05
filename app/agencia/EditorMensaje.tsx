@@ -284,7 +284,7 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
           {variables && variables.length > 0 && (
             <div style={{ marginLeft: 'auto' }}>
               {/*
-                ⚠️ POR GRUPOS Y CON BUSCADOR, y las dos cosas las da el `Dropdown` solo.
+                ⚠️ POR SECCIONES Y CON BUSCADOR, y las dos cosas las da el `Dropdown` solo.
                 Pedido el 04/10/2026: «Hay muy pocas acciones o datos que extraer dentro
                 de MaKo… te invito a que hagas un listado extenso, y que sea fácil de
                 llegar a eso, que esté categorizado, y que tenga una barra de busqueda el
@@ -299,7 +299,7 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
               <Dropdown
                 value="" width={170} ariaLabel="Meter un dato de MaKo"
                 buttonStyle={{ padding: '5px 9px', fontSize: 12 }}
-                columns={[grupos.map((g) => ({
+                secciones={grupos.map((g) => ({
                   title: g.titulo,
                   options: g.items.map((v) => ({
                     value: v.key, label: v.label,
@@ -312,14 +312,9 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
                     // variable, y no está escrita en ningún renglón.
                     buscar: `{{${v.key}}}`,
                   })),
-                }))]}
+                }))}
                 onChange={(k) => k && insertarVariable(k)}
                 placeholder="＋ Dato de MaKo"
-                // El `sub` de cada fila es el valor de ejemplo —o el motivo cuando está
-                // apagada— y en columnas se omite por defecto: sin esto, una fila gris no
-                // dice por qué, y un renglón que no se puede elegir y no se explica se
-                // lee como que la app está rota.
-                subEnColumnas
               />
             </div>
           )}

@@ -122,16 +122,18 @@ export function Lienzo({
    * un botón — que es lo correcto para un lienzo con un solo tipo de paso.
    */
   /**
-   * Qué se puede agregar, POR CATEGORÍA. Es la forma que pidió Martín el 05/10/2026:
-   * «para las acciones, utiliza este mismo desplegable, el diseño, donde tengo
-   * categorías, y dentro tengo las opciones» — el mismo que ya usa el selector de datos
-   * de un mensaje.
+   * Qué se puede agregar. Lista PLANA: emoji + título, sin categorías ni subtítulos.
    *
-   * ⚠️ Y NO ES COSMÉTICO: con las cinco opciones planas, «WhatsApp» y «Delay» se leían
-   * como cosas del mismo tipo, y no lo son — una agrega un mensaje y la otra parte el
-   * recorrido en el tiempo. El grupo es lo que dice de qué estás eligiendo.
+   * ⚠️ ESTUVO AGRUPADO UNA HORA, Y ERA LEER MAL EL PEDIDO. Martín pidió el desplegable
+   * por secciones «para el desplegable de acciones de MaKo… que justamente son muchas», y
+   * yo se lo puse acá: «no me refería a poner categorías dentro del "+", eso no tiene
+   * sentido, son pocas opciones… vuelve a como estaba antes, solo con el título y el
+   * emoji». Son cuatro opciones: agruparlas agrega un nivel para ahorrar nada.
+   *
+   * La regla que queda: un patrón de navegación se elige por el TAMAÑO de la lista, no
+   * por coherencia visual con la lista de al lado.
    */
-  opcionesAgregar?: Array<{ titulo: string; items: DropdownOption[] }>;
+  opcionesAgregar?: DropdownOption[];
   /** Ancho del panel del nodo. El default (328) es el del lienzo del chatbot. */
   panelAncho?: number;
   /** Hay un guardado en vuelo: el ＋ se DESHABILITA, no se desmonta. Un control que
@@ -466,12 +468,9 @@ export function Lienzo({
                     value="" ariaLabel="Agregar algo en el medio"
                     sinFlecha botonLabel="＋" disabled={agregarOcupado}
                     buttonStyle={{ width: 22, height: 22, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, lineHeight: 1 }}
-                    columns={[opcionesAgregar
-                      // En el MEDIO de una flecha no se ofrece un mensaje: un canal se
-                      // prende para el mensaje entero, no entre dos pasos. Lo que entra
-                      // acá es lo que parte el recorrido o hace algo.
-                      .map((g) => ({ title: g.titulo, options: g.items.filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion') }))
-                      .filter((g) => g.options.length)]}
+                    // En el MEDIO de una flecha no se ofrece un mensaje: un canal se
+                    // prende para el mensaje entero, no entre dos pasos.
+                    options={opcionesAgregar.filter((o) => o.value === 'delay' || o.value === 'condicional' || o.value === 'accion')}
                     onChange={(v) => v && onAgregarTras(a.desde, v)}
                   />
                 )}
@@ -547,7 +546,7 @@ export function Lienzo({
                       value="" ariaLabel="Agregar algo después de esta tarjeta"
                       sinFlecha botonLabel="＋" disabled={agregarOcupado}
                       buttonStyle={{ width: 26, height: 26, padding: 0, borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, lineHeight: 1 }}
-                      columns={[opcionesAgregar.map((g) => ({ title: g.titulo, options: g.items }))]}
+                      options={opcionesAgregar}
                       onChange={(v) => v && onAgregarTras(n.id, v)}
                     />
                   ) : (

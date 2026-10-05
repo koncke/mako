@@ -331,32 +331,19 @@ export function FlujoAviso({
         grafo={grafo} seleccion={sel} onSeleccion={setSel} onMover={mover}
         onAgregarTras={editable ? ((nodoId, que) => void agregarTras(nodoId, que)) : undefined}
         /**
-         * ⚠️ POR CATEGORÍA, Y LOS CANALES YA PRENDIDOS NO SE OFRECEN. Lo primero lo pidió
-         * Martín («el mismo desplegable… donde tengo categorías, y dentro tengo las
-         * opciones»); lo segundo es la misma decisión del selector de datos del mismo
-         * día: lo que no se puede elegir no se dibuja en gris, no se dibuja. Un canal ya
+         * ⚠️ EL CANAL YA PRENDIDO NO SE OFRECE. Es la misma decisión del selector de
+         * datos: lo que no se puede elegir no se dibuja en gris, no se dibuja. Un canal
          * prendido no es una opción — su tarjeta ya está en el lienzo.
+         *
+         * Y la lista va PLANA, con emoji y título: son cuatro opciones.
          */
         opcionesAgregar={[
-          {
-            titulo: 'Un mensaje más',
-            items: [
-              ...(canales.wa ? [] : [{ value: 'wa', label: '💬 WhatsApp', sub: 'que también salga por WhatsApp' }]),
-              ...(canales.email ? [] : [{ value: 'email', label: '✉️ Email', sub: 'que también salga por correo' }]),
-            ],
-          },
-          {
-            titulo: 'Cómo sigue',
-            items: [
-              { value: 'delay', label: '⏳ Delay', sub: 'esperar antes de seguir' },
-              { value: 'condicional', label: '🔀 Condicional', sub: 'seguir sólo si alguien contestó' },
-            ],
-          },
-          {
-            titulo: 'Que MaKo haga algo',
-            items: [{ value: 'accion', label: '⚡ Acción', sub: 'no avisar: hacer' }],
-          },
-        ].filter((g) => g.items.length)}
+          ...(canales.wa ? [] : [{ value: 'wa', label: '💬 WhatsApp' }]),
+          ...(canales.email ? [] : [{ value: 'email', label: '✉️ Email' }]),
+          { value: 'delay', label: '⏳ Delay' },
+          { value: 'condicional', label: '🔀 Condicional' },
+          { value: 'accion', label: '⚡ Acción' },
+        ]}
         // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
         // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
         // CRON señalaba un lugar y el paso aparecía en otro.

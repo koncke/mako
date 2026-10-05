@@ -287,7 +287,10 @@ test('⚠️ y el EDITOR no dibuja NADA apagado en ese selector', () => {
   // volviera a pasar `disabled`, se vería el gris que Martín mandó sacar; si dejara de
   // preguntarle al catálogo, se vería de más.
   const src = leer('../app/agencia/EditorMensaje.tsx');
-  const i = src.indexOf('columns={[grupos.map(');
+  // ⚠️ POR SECCIONES, no por columnas: el 05/10/2026 el selector pasó al patrón del
+  // filtro del plan («copia el estilo del desplegable del filtro del plan, que
+  // justamente se abren secciones dentro del desplegable»). Son 42 datos en 8 grupos.
+  const i = src.indexOf('secciones={grupos.map(');
   const bloque = src.slice(i, src.indexOf('onChange=', i));
   assert.ok(i > 0 && bloque.length < 900, `el recorte del selector mide ${bloque.length}: mira otra cosa`);
   assert.ok(!/disabled:/.test(bloque), 'el selector volvió a dibujar opciones apagadas');

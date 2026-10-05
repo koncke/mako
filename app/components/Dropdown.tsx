@@ -228,6 +228,7 @@ export function Dropdown({
   botonLabel,
   disabled = false,
   search,
+  secciones,
   subEnColumnas = false,
   portalTo,
   icono,
@@ -258,6 +259,25 @@ export function Dropdown({
    * documento de rediseño pide combobox. `false` la apaga a mano.
    */
   search?: boolean;
+  /**
+   * MENÚ POR SECCIONES: primero se elige la CATEGORÍA y adentro la opción, con una
+   * flecha para volver. Si se pasa, `options` y `columns` se ignoran.
+   *
+   * ⚠️ ES EL PATRÓN DEL FILTRO DEL PLAN, y lo pidió Martín así: «para el desplegable de
+   * acciones, copia el estilo del desplegable del filtro del plan, que justamente se
+   * abren secciones dentro del desplegable». Aquel (app/plan/board/BoardShell.tsx) no se
+   * puede reusar tal cual —cada categoría suya dibuja un control distinto: casillas,
+   * radios, un orden— así que lo que se trae es la NAVEGACIÓN, que es lo que él señaló.
+   *
+   * ⚠️ Y SE ELIGE POR EL TAMAÑO DE LA LISTA, NO POR COHERENCIA. Dos niveles sobre cuatro
+   * opciones es un clic de más para no ahorrar nada: el mismo día se probó en el ＋ del
+   * lienzo y Martín lo devolvió («son pocas opciones»). Acá son 42 en 8 grupos.
+   *
+   * ⚠️ Buscar APLANA. Con texto escrito no hay secciones: se ven los resultados de
+   * todas, con su grupo como rótulo. Obligar a entrar a una sección para buscar sería
+   * pedirle a la persona que sepa dónde está lo que está buscando.
+   */
+  secciones?: DropdownGroup[];
   /**
    * Dibuja el `sub` TAMBIÉN en modo columnas. Por defecto se omite porque el título del
    * grupo ya da el contexto; se prende cuando el `sub` es el dato (un valor de ejemplo) o
@@ -301,6 +321,8 @@ export function Dropdown({
   const ref = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  /** En qué sección está parada la persona. `null` = la raíz, con la lista de secciones. */
+  const [seccion, setSeccion] = useState<string | null>(null);
 
   // Calcula la posición fija del menú a partir del rect del botón. Abre hacia
   // arriba si abajo no hay lugar (sin empujar el layout). En coordenadas de
@@ -382,7 +404,9 @@ export function Dropdown({
     };
   }, [open]);
 
-  const flat = columns ? columns.flat().flatMap((g) => g.options) : (options ?? []);
+  const flat = secciones ? secciones.flatMap((g) => g.options)
+    : columns ? columns.flat().flatMap((g) => g.options)
+    : (options ?? []);
   const selected = resetAfterSelect ? undefined : flat.find((o) => o.value === value);
 
   // Búsqueda: aparece sola pasadas las 8 opciones. Filtra por título Y subtítulo
@@ -399,16 +423,27 @@ export function Dropdown({
   const coincide = (o: DropdownOption) => !q.trim() || norm(`${o.label} ${o.sub ?? ''} ${o.buscar ?? ''}`).includes(norm(q.trim()));
   const optsVisibles = (options ?? []).filter(coincide);
   const colsVisibles = columns?.map((col) => col.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length));
-  const sinResultados = q.trim().length > 0 && (columns ? !colsVisibles?.some((c) => c.length) : optsVisibles.length === 0);
+  // Las secciones con algo que mostrar, ya filtradas por la búsqueda.
+  const seccVisibles = secciones?.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length);
+  const buscando = q.trim().length > 0;
+  const abierta = seccVisibles?.find((g) => g.title === seccion) ?? null;
+  const sinResultados = q.trim().length > 0 && (
+    secciones ? !seccVisibles?.length
+      : columns ? !colsVisibles?.some((c) => c.length)
+      : optsVisibles.length === 0);
 
   // El foco entra solo en la búsqueda: con el menú abierto ya se puede escribir,
   // sin tener que ir a buscar el campo con el mouse.
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setSeccion(null); return; }   // se reabre en la raíz, siempre
     const t = setTimeout(() => searchRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [open]);
 
+  const rotuloGrupo: CSSProperties = {
+    fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em',
+    textTransform: 'uppercase', color: 'var(--faint)', padding: '8px 11px 4px',
+  };
   const btn: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)',
@@ -447,7 +482,38 @@ export function Dropdown({
                 style={{ minHeight: 34, padding: '7px 10px', fontSize: 13.5, borderRadius: 9 }} />
             </div>
           )}
-          {columns ? (
+          {secciones ? (
+            // ── Por secciones: la raíz lista las categorías; adentro, sus opciones.
+            buscando ? (
+              // Buscando se APLANA: el grupo pasa a ser el rótulo de cada tramo.
+              (seccVisibles ?? []).map((g) => (
+                <div key={g.title}>
+                  <div style={rotuloGrupo}>{g.title}</div>
+                  {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
+                </div>
+              ))
+            ) : abierta ? (
+              <>
+                <button type="button" onClick={() => setSeccion(null)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 }}>
+                  ‹ {abierta.title}
+                </button>
+                {abierta.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
+              </>
+            ) : (
+              (seccVisibles ?? []).map((g) => (
+                <button key={g.title} type="button" onClick={() => setSeccion(g.title)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '10px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  <span style={{ fontWeight: 600 }}>{g.title}</span>
+                  {/* El conteo es el «resumen» de la fila, como en el filtro del plan:
+                      dice si vale la pena entrar antes de entrar. */}
+                  <span style={{ fontSize: 12, color: 'var(--faint)', flex: 'none' }}>{g.options.length} ›</span>
+                </button>
+              ))
+            )
+          ) : columns ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {(colsVisibles ?? columns).map((col, ci) => (
                 <div key={ci} style={{ flex: '1 1 190px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
