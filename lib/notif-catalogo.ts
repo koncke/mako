@@ -174,4 +174,5 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'objetivo-en-riesgo', titulo: 'Tu objetivo del trimestre va atrasado', sub: 'Lo acumulado quedó por debajo del ritmo que hace falta para llegar.' },
   { id: 'meta-alcanzada', titulo: 'Cumpliste un objetivo', sub: 'Un objetivo del trimestre llegó a su meta.' },
   { id: 'quarter-planificar', titulo: 'Falta planificar el trimestre que viene', sub: 'Se está terminando el Quarter y el siguiente todavía está vacío.' },
+  { id: 'crm-lead-estancado', titulo: 'Leads quietos en una etapa', sub: 'MaKo movió los que pasaron el plazo de su columna. UN mensaje por día con todos juntos.' },
 ];

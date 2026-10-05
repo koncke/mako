@@ -24,6 +24,7 @@ import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags
 import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
 import { canalNoOficial } from '@/lib/nutricion-canal';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
+import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -95,6 +96,11 @@ export type Secuencia = {
   envio_automatico: boolean;
   /** Solo leads que llegaron hace menos de esto (ver `Estrategia.antiguedad_max_horas`). */
   antiguedad_max_horas: number | null;
+  /**
+   * A qué embudo le escribe (mig 0170). `null` = a TODOS, que es lo que dicen hoy
+   * las 62 filas de la base. Lo lee `leadsDeCohorte` — ver lib/nutricion-ambito.ts.
+   */
+  funnel_id: number | null;
 };
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
@@ -133,7 +139,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id')
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null);
@@ -141,6 +147,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
+    funnel_id: number | null;
   }>;
   return rows.map((r) => ({
     id: r.id,
@@ -154,6 +161,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     // (solo `true` literal) vive en un lugar.
     envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
     antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
+    funnel_id: r.funnel_id == null ? null : Number(r.funnel_id),
   }));
 }
 
@@ -166,7 +174,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id')
     // Las archivadas no se listan, no enrolan y no envían. No se borran porque
     // las inscripciones y los envíos las referencian: borrarlas se llevaría
     // puesto el historial de a quién se le escribió.
@@ -176,6 +184,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
     trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
+    funnel_id: number | null;
   }>;
 
   // Contados PÁGINA POR PÁGINA (se agrega al vuelo, no se materializa). Eran dos
@@ -214,6 +223,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     estrategia: r.estrategia ?? null,
     envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
     antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
+    funnel_id: r.funnel_id == null ? null : Number(r.funnel_id),
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -310,11 +320,12 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
 async function filasCohorte<T>(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   etiqueta: string,
+  ambito: AmbitoFunnel,
   cols: string,
   filtros: (q: ConsultaPaginada) => unknown,
 ): Promise<T[]> {
   try {
-    return await leerTodo<T>(db, 'leads', cols, { orden: 'id', filtros: (q) => filtros(q) as ConsultaPaginada });
+    return await leerTodo<T>(db, 'leads', cols, { orden: 'id', filtros: (q) => conAmbito(filtros(q) as ConsultaPaginada, ambito) });
   } catch (e) {
     throw new Error(`cohorte ${etiqueta}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -322,9 +333,49 @@ async function filasCohorte<T>(
 async function idsCohorte(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   etiqueta: string,
+  ambito: AmbitoFunnel,
   filtros: (q: ConsultaPaginada) => unknown,
 ): Promise<number[]> {
-  return (await filasCohorte<{ id: number }>(db, etiqueta, 'id', filtros)).map((r) => r.id);
+  return (await filasCohorte<{ id: number }>(db, etiqueta, ambito, 'id', filtros)).map((r) => r.id);
+}
+
+/**
+ * El filtro del ámbito, pegado a la consulta de la cohorte. La DECISIÓN (cuál de
+ * los tres filtros, y con qué expresión) vive en lib/nutricion-ambito.ts, que no
+ * tiene `server-only` y por eso se puede ejecutar en un test; acá sólo se encadena.
+ */
+function conAmbito(q: ConsultaPaginada, ambito: AmbitoFunnel): ConsultaPaginada {
+  const f = filtroDeAmbito(ambito);
+  if (f === null) return q;
+  return ('or' in f ? q.or(f.or) : q.eq('funnel_id', f.eq)) as ConsultaPaginada;
+}
+
+/**
+ * El ámbito de embudo de una secuencia, resuelto contra `funnels`.
+ *
+ * ⚠️ SÓLO LEE LA BASE SI LA SECUENCIA DECLARA UN EMBUDO. Hoy las 62 filas lo
+ * tienen en NULL, así que esta consulta no corre ni una vez y el motor junta
+ * EXACTAMENTE la misma cohorte que antes de este cambio.
+ *
+ * ⚠️ Y SI LA LECTURA FALLA, TIRA. Es la misma política que `filasCohorte` (una
+ * cohorte que no se pudo leer corta la corrida y el cron vuelve en una hora) y es
+ * la dirección correcta del error: dar por bueno un `todos` acá sería mandarle
+ * WhatsApps y emails REALES a los leads de otro producto, que es justo lo que este
+ * ámbito existe para evitar. Quién es el embudo del negocio no se deduce del
+ * número: lo dice `funnels.es_default`.
+ */
+async function ambitoDeFunnel(funnelId: number | null | undefined): Promise<AmbitoFunnel> {
+  if (funnelId == null) return { modo: 'todos' };
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase.from('funnels').select('es_default').eq('id', funnelId).limit(1);
+  if (error) throw new Error(`ambitoDeFunnel(${funnelId}): ${error.message}`);
+  // Sin fila no se puede caer a `negocio`: eso enrolaría a los leads con
+  // `funnel_id` NULL —o sea a todos— en una secuencia declarada para otro
+  // producto. Queda `propio`, que junta sólo lo que apunte a ese id. No es
+  // alcanzable mientras la columna sea `references funnels(id) on delete
+  // cascade`: borrar el embudo se lleva la secuencia.
+  const fila = ((data ?? []) as Array<{ es_default: boolean | null }>)[0];
+  return ambitoDeSecuencia(funnelId, fila?.es_default === true);
 }
 
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
@@ -333,7 +384,25 @@ async function idsCohorte(
 // una etapa del funnel derivado (nutricion_secuencias.etapa = stage key) y
 // enrola a los leads cuya etapa EFECTIVA (override manual o derivada) coincide —
 // sirve para cualquier funnel, incluidas etapas custom del editor.
-export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null): Promise<number[]> {
+//
+// ⚠️ Y TODOS SE ACOTAN AL EMBUDO QUE LA SECUENCIA DECLARA (#627, mig 0170). El
+// `funnelId` es el de la secuencia, tal cual está en la fila, y el ámbito se
+// resuelve UNA vez acá: con NULL —hoy, las 62 filas— la cohorte se arma como
+// siempre, sin filtrar y sin leer nada. El porqué de los tres casos está en
+// lib/nutricion-ambito.ts.
+export async function leadsDeCohorte(
+  triggerTipo: string,
+  etapa?: string | null,
+  funnelId?: number | null,
+): Promise<number[]> {
+  return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId));
+}
+
+// El ámbito viaja YA RESUELTO para que la rama de la post-agenda —que se llama a
+// sí misma con otro trigger— no vuelva a consultar `funnels`, y sobre todo para
+// que no pueda perderlo en el camino: el trigger hermano juntaría los leads de
+// todos los embudos y la exclusión de familia no se enteraría.
+async function cohorteDeTrigger(triggerTipo: string, etapa: string | null, ambito: AmbitoFunnel): Promise<number[]> {
   const supabase = (await getTenantDb());
   const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
   const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
@@ -353,7 +422,10 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
       data = await leerTodo<unknown>(
         supabase, 'leads',
         'id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada, created_at',
-        { eq: { estado_lead: 'abierto' } },
+        // El ámbito del embudo entra acá y no en el filtro en memoria de abajo: una
+        // cohorte de ~1000 ids que después se descarta es el mismo techo de PostgREST
+        // que este paginado vino a cerrar.
+        { eq: { estado_lead: 'abierto' }, filtros: (q) => conAmbito(q, ambito) },
       );
     } catch (e) {
       throw new Error(`cohorte etapa_actual(${etapa}): ${e instanceof Error ? e.message : String(e)}`);
@@ -374,7 +446,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   }
 
   if (triggerTipo === 'instant_form_sin_agenda') {
-    return idsCohorte(supabase, 'form-sin-agenda', (q) => q
+    return idsCohorte(supabase, 'form-sin-agenda', ambito, (q) => q
       .not('meta_lead_id', 'is', null)
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
@@ -382,7 +454,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   }
 
   if (triggerTipo === 'vio_vsl_sin_agendar') {
-    const rows = await filasCohorte<{ id: number; visitor_id: string }>(supabase, 'vio-vsl', 'id, visitor_id', (q) => q
+    const rows = await filasCohorte<{ id: number; visitor_id: string }>(supabase, 'vio-vsl', ambito, 'id, visitor_id', (q) => q
       .not('visitor_id', 'is', null)
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
@@ -396,7 +468,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   if (triggerTipo === 'vio_poco_vsl') {
     // Tiene tracking de visitante (entró a la landing) pero NO alcanzó el umbral
     // de retención del VSL y no agendó. Complemento exacto de vio_vsl_sin_agendar.
-    const rows = await filasCohorte<{ id: number; visitor_id: string }>(supabase, 'vio-poco-vsl', 'id, visitor_id', (q) => q
+    const rows = await filasCohorte<{ id: number; visitor_id: string }>(supabase, 'vio-poco-vsl', ambito, 'id, visitor_id', (q) => q
       .not('visitor_id', 'is', null)
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
@@ -410,7 +482,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   if (triggerTipo === 'agendado_sin_confirmar') {
     // J1 futura y todavía sin asistencia registrada. El modelo no tiene un campo
     // "confirmó asistencia" → usamos la J1 próxima como disparador del recordatorio.
-    return idsCohorte(supabase, 'agendado-sin-confirmar', (q) => q
+    return idsCohorte(supabase, 'agendado-sin-confirmar', ambito, (q) => q
       .not('fecha_junta_1', 'is', null)
       .gte('fecha_junta_1', hoy)
       .is('asistio_j1', null)
@@ -434,7 +506,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   // en CUALQUIERA de las dos queda fuera de las dos. Se decide una vez, al
   // entrar, y ningún envío posterior la puede dar vuelta.
   if (triggerTipo === TRIGGER_AGENDA_CONOCIDO || triggerTipo === TRIGGER_AGENDA_NUEVO) {
-    const base = await leadsDeCohorte('agendado_sin_confirmar', etapa);
+    const base = await cohorteDeTrigger('agendado_sin_confirmar', etapa, ambito);
     if (base.length === 0) return [];
     const yaEnLaFamilia = await leadsEnFamiliaPostAgenda(base);
     const libres = base.filter((id) => !yaEnLaFamilia.has(id));
@@ -445,7 +517,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'no_show_j1') {
     // No asistió a J1 (asistio_j1 = false), todavía abierto, J1 reciente.
-    return idsCohorte(supabase, 'no-show-j1', (q) => q
+    return idsCohorte(supabase, 'no-show-j1', ambito, (q) => q
       .eq('asistio_j1', false)
       .eq('estado_lead', 'abierto')
       .gte('fecha_junta_1', fechaDesde45));
@@ -453,7 +525,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'post_j1_sin_avanzar') {
     // Asistió a J1 pero sigue sin calificar y sin J2 agendada.
-    return idsCohorte(supabase, 'post-j1-sin-avanzar', (q) => q
+    return idsCohorte(supabase, 'post-j1-sin-avanzar', ambito, (q) => q
       .eq('asistio_j1', true)
       .is('calificado', null)
       .is('fecha_junta_2', null)
@@ -463,7 +535,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'post_j1_calificado_sin_j2') {
     // Calificado en J1 pero todavía no agendó la J2.
-    return idsCohorte(supabase, 'calificado-sin-j2', (q) => q
+    return idsCohorte(supabase, 'calificado-sin-j2', ambito, (q) => q
       .eq('calificado', true)
       .is('fecha_junta_2', null)
       .is('asistio_j2', null)
@@ -472,7 +544,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   }
 
   if (triggerTipo === 'no_show_j2') {
-    return idsCohorte(supabase, 'no-show-j2', (q) => q
+    return idsCohorte(supabase, 'no-show-j2', ambito, (q) => q
       .eq('asistio_j2', false)
       .eq('estado_lead', 'abierto')
       .gte('fecha_junta_2', fechaDesde45));
@@ -480,7 +552,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'post_j2_sin_cerrar') {
     // Asistió a J2 pero todavía no hay cierre.
-    return idsCohorte(supabase, 'post-j2-sin-cerrar', (q) => q
+    return idsCohorte(supabase, 'post-j2-sin-cerrar', ambito, (q) => q
       .eq('asistio_j2', true)
       .is('cerro', null)
       .is('fecha_cierre', null)
@@ -490,7 +562,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'confirmado_sin_pago') {
     // Confirmó verbalmente (fecha_confirmacion) pero todavía no registró el primer pago.
-    return idsCohorte(supabase, 'confirmado-sin-pago', (q) => q
+    return idsCohorte(supabase, 'confirmado-sin-pago', ambito, (q) => q
       .not('fecha_confirmacion', 'is', null)
       .is('fecha_primer_pago', null)
       .in('estado_lead', ['abierto', 'ganado'])
@@ -499,7 +571,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'post_pago') {
     // Registró el primer pago hace poco → bienvenida (una sola vez por dedup de inscripción).
-    return idsCohorte(supabase, 'post-pago', (q) => q
+    return idsCohorte(supabase, 'post-pago', ambito, (q) => q
       .not('fecha_primer_pago', 'is', null)
       .gte('fecha_primer_pago', fechaDesde45)
       .in('estado_lead', ['abierto', 'ganado']));
@@ -507,7 +579,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
 
   if (triggerTipo === 'reactivacion_viejo') {
     // Frío: nunca agendó, abierto, creado entre 30 y 90 días atrás.
-    return idsCohorte(supabase, 'reactivacion-viejo', (q) => q
+    return idsCohorte(supabase, 'reactivacion-viejo', ambito, (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', desde)
@@ -517,7 +589,7 @@ export async function leadsDeCohorte(triggerTipo: string, etapa?: string | null)
   if (triggerTipo === 'ultimo_intento_antes_noresp') {
     // Último intento antes de marcar no-responde: nunca agendó, abierto, creado
     // entre 90 y 365 días atrás (más viejo que la reactivación).
-    return idsCohorte(supabase, 'ultimo-intento', (q) => q
+    return idsCohorte(supabase, 'ultimo-intento', ambito, (q) => q
       .is('fecha_agenda', null)
       .eq('estado_lead', 'abierto')
       .lt('created_at', haceDiasISO(90))
@@ -667,7 +739,7 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const plan: PlanInscripcion[] = [];
 
   for (const sec of secuencias) {
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa));
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id));
     if (candidatos.length === 0) continue;
     const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
@@ -710,7 +782,7 @@ export async function comprometerInscripciones(): Promise<number> {
   let creadas = 0;
 
   for (const sec of secuencias) {
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa));
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
     // el insert moría contra el unique — o sea que igual cortaba, pero con un

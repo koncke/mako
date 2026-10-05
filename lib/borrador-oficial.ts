@@ -1,0 +1,192 @@
+// =============================================================================
+// borrador-oficial — el camino de salida del borrador por el canal OFICIAL
+// =============================================================================
+// MEDIDO el 05/10/2026: el panel de borradores existía y funcionaba, pero su
+// único envío era `enviarBorrador` (lib/evolution-envio.ts), que sale por
+// Evolution. En un workspace que solo tiene el WhatsApp OFICIAL el borrador era
+// INERTE: MaKo lo redactaba, la pantalla lo mostraba y no había por dónde
+// mandarlo. Peor: el panel vive en EmpresaInbox, que no se renderiza sin
+// Evolution conectado — el borrador ni se veía.
+//
+// Acá vive la decisión de POR DÓNDE sale cada borrador, y la decisión la toma
+// el SERVIDOR: el cliente nunca elige canal ni calcula la ventana.
+//
+//   · El NO OFICIAL gana cuando está vivo. El borrador nació para ese número
+//     (regla anti-ban del PDF: a leads calientes no se les manda automático por
+//     el no oficial) y el hilo del lead está ahí. 'conectando' cuenta como vivo:
+//     quitarle el botón a un número que está re-vinculando es sacarle una
+//     función que en un minuto vuelve.
+//   · Si no hay no oficial vivo, sale por el OFICIAL (Chatwoot/WABA) — pero
+//     SOLO dentro de la ventana de 24 h de Meta. Fuera de la ventana no se
+//     intenta: el gate lo decide lib/ventana-24h.ts y el botón no se dibuja.
+//   · Si no hay ninguno, el camino es `null` con el motivo en una frase, que es
+//     lo que la pantalla muestra en lugar del botón.
+//
+// ⚠️ EL CAMINO OFICIAL NO ESPEJA EN `wa_mensajes`. Esa tabla es el espejo del
+// NO oficial y es lo que pinta EmpresaInbox: una fila ahí sería un mensaje
+// fantasma en el inbox del número de empresa. Lo que sale por Chatwoot ya se
+// lee del propio Chatwoot (/api/whatsapp/contacts/[id]/messages).
+// =============================================================================
+
+import 'server-only';
+import { getTenantDb } from '@/lib/workspace';
+import { listConversations, contactoIdPorTelefono, sendToContact } from '@/lib/chatwoot';
+import { integracionConectada } from '@/lib/credenciales';
+import { getInstanciaRow } from '@/lib/evolution';
+import { enviarBorrador } from '@/lib/evolution-envio';
+import { MOTIVO_FUERA_DE_VENTANA, venceVentana24h, ventanaAbierta24h } from '@/lib/ventana-24h';
+
+/** Últimos 10 dígitos: la MISMA clave con que agrupa por persona el inbox oficial. */
+const ult10 = (tel: string | null | undefined): string => (tel || '').replace(/\D/g, '').slice(-10);
+
+export type ViaBorrador = 'empresa' | 'oficial';
+
+/**
+ * Por dónde puede salir un borrador. `via: null` = no puede salir, y `motivo`
+ * es la frase que la pantalla dibuja EN LUGAR del botón.
+ */
+export type CaminoBorrador = {
+  via: ViaBorrador | null;
+  motivo: string | null;
+  /** Vencimiento de la ventana de 24 h, epoch en SEGUNDOS. Solo en el oficial. */
+  venceAt: number | null;
+};
+
+/**
+ * El camino de un borrador para el que `caminosDeEnvio` no devolvió entrada.
+ * No puede pasar (devuelve una por id recibido) y existe igual: un hueco se
+ * leería como «todavía no sé» y dejaría el botón en «Comprobando…» para
+ * siempre, que es un control muerto.
+ */
+export const CAMINO_INDETERMINADO: CaminoBorrador = { via: null, motivo: 'No se pudo determinar por dónde mandarlo.', venceAt: null };
+
+const POR_EMPRESA: CaminoBorrador = { via: 'empresa', motivo: null, venceAt: null };
+const SIN_CANAL: CaminoBorrador = { via: null, motivo: 'No hay ningún WhatsApp conectado para mandarlo.', venceAt: null };
+const SIN_LECTURA: CaminoBorrador = { via: null, motivo: 'No se pudo leer el estado del WhatsApp oficial.', venceAt: null };
+const FUERA_DE_VENTANA: CaminoBorrador = { via: null, motivo: MOTIVO_FUERA_DE_VENTANA, venceAt: null };
+
+type VentanaPersona = { abierta: boolean; venceAt: number | null };
+
+/**
+ * La ventana de 24 h por PERSONA (últimos 10 dígitos), leída de la bandeja
+ * oficial en UNA sola llamada para todos los borradores juntos.
+ *
+ * Chatwoot abre una conversación por interacción, así que una persona puede
+ * tener varias: basta UNA abierta para poder escribirle (mismo criterio que el
+ * `prev.ventanaAbierta || c.puedeResponder` de /api/whatsapp/conversations).
+ */
+async function ventanasOficiales(paginas = 12): Promise<Map<string, VentanaPersona>> {
+  const convs = await listConversations(paginas);
+  const porPersona = new Map<string, VentanaPersona>();
+  for (const c of convs) {
+    const d = ult10(c.telefono);
+    if (d.length < 10) continue; // sin teléfono completo no hay a quién mandarle
+    const abierta = ventanaAbierta24h({ puedeResponder: c.puedeResponder, ultimaActividadSeg: c.ultimaActividad });
+    const venceAt = abierta ? venceVentana24h(c.ultimaActividad) : null;
+    const prev = porPersona.get(d);
+    if (!prev) { porPersona.set(d, { abierta, venceAt }); continue; }
+    prev.abierta = prev.abierta || abierta;
+    if (venceAt != null && (prev.venceAt == null || venceAt > prev.venceAt)) prev.venceAt = venceAt;
+  }
+  return porPersona;
+}
+
+/**
+ * El camino de CADA borrador, en un solo viaje. Devuelve una entrada por id
+ * recibido (nunca un hueco: un borrador sin entrada dibujaría un botón sin
+ * gate). Pasar la lista completa es lo que evita una llamada a Chatwoot por
+ * borrador.
+ */
+export async function caminosDeEnvio(
+  borradores: Array<{ id: number; telefono: string | null }>,
+): Promise<Map<number, CaminoBorrador>> {
+  const out = new Map<number, CaminoBorrador>();
+  if (!borradores.length) return out;
+
+  const inst = await getInstanciaRow().catch(() => null);
+  if (inst && (inst.estado === 'conectado' || inst.estado === 'conectando')) {
+    for (const b of borradores) out.set(b.id, POR_EMPRESA);
+    return out;
+  }
+
+  if (!(await integracionConectada('whatsapp').catch(() => false))) {
+    for (const b of borradores) out.set(b.id, SIN_CANAL);
+    return out;
+  }
+
+  let ventanas: Map<string, VentanaPersona>;
+  try {
+    ventanas = await ventanasOficiales();
+  } catch (e) {
+    // Chatwoot caído no es «ventana cerrada»: es «no sé». Fail-closed igual —
+    // pero con su propio motivo, para que nadie lea «vencida» sobre una ventana
+    // que puede estar abierta.
+    console.warn(`[borrador-oficial] no pude leer la bandeja oficial: ${e instanceof Error ? e.message : String(e)}`);
+    for (const b of borradores) out.set(b.id, SIN_LECTURA);
+    return out;
+  }
+
+  for (const b of borradores) {
+    const v = ventanas.get(ult10(b.telefono));
+    out.set(b.id, v?.abierta ? { via: 'oficial', motivo: null, venceAt: v.venceAt } : FUERA_DE_VENTANA);
+  }
+  return out;
+}
+
+type BorradorFila = { id: number; telefono: string | null; texto: string | null; estado: string };
+
+async function leerBorrador(id: number): Promise<BorradorFila | null> {
+  const db = await getTenantDb();
+  const { data } = await db.from('wa_borradores').select('id, telefono, texto, estado').eq('id', id).maybeSingle();
+  return (data as BorradorFila | null) ?? null;
+}
+
+/**
+ * Manda el borrador por Chatwoot. PRIVADA a propósito: entra solo con el camino
+ * ya verificado por `enviarBorradorPorSuCanal`, así la ventana se calcula UNA
+ * vez por clic (cada cálculo es una lectura paginada de la bandeja).
+ */
+async function mandarPorOficial(b: BorradorFila, porEmail: string): Promise<{ ok: boolean; error?: string }> {
+  const texto = (b.texto ?? '').trim();
+  if (!texto) return { ok: false, error: 'el borrador no tiene texto' };
+
+  const contactId = await contactoIdPorTelefono(b.telefono ?? '');
+  if (!contactId) return { ok: false, error: 'ese teléfono no tiene contacto en el WhatsApp oficial' };
+
+  // CLAIM atómico, el mismo patrón que `enviarBorrador` de lib/evolution-envio:
+  // el UPDATE ... WHERE estado='pendiente' hace la exclusión mutua en la DB, así
+  // dos setters (o un doble clic) no le mandan el mismo mensaje dos veces al lead.
+  const db = await getTenantDb();
+  const { data: claimed } = await db.from('wa_borradores')
+    .update({ estado: 'enviando' })
+    .eq('id', b.id).eq('estado', 'pendiente')
+    .select('id');
+  if (!((claimed ?? []) as unknown[]).length) return { ok: false, error: 'el borrador ya no está pendiente' };
+
+  const r = await sendToContact(contactId, texto);
+  if (!r.ok) {
+    // Falló Chatwoot → vuelve a 'pendiente' para reintentar (igual que el no oficial).
+    await db.from('wa_borradores').update({ estado: 'pendiente' }).eq('id', b.id);
+    return { ok: false, error: r.error };
+  }
+  await db.from('wa_borradores')
+    .update({ estado: 'enviado', enviado_at: new Date().toISOString(), enviado_por: porEmail })
+    .eq('id', b.id);
+  return { ok: true };
+}
+
+/**
+ * ÚNICA puerta de envío de un borrador: el servidor decide el canal y re-verifica
+ * la ventana acá, no en el cliente. El gate del botón se calculó al cargar la
+ * lista y la ventana se cierra sola con el reloj, así que entre el dibujo y el
+ * clic puede haber vencido.
+ */
+export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Promise<{ ok: boolean; error?: string }> {
+  const b = await leerBorrador(id);
+  if (!b || b.estado !== 'pendiente') return { ok: false, error: 'el borrador ya no está pendiente' };
+
+  const camino = (await caminosDeEnvio([{ id: b.id, telefono: b.telefono }])).get(b.id);
+  if (camino?.via === 'empresa') return enviarBorrador(id, porEmail);
+  if (camino?.via === 'oficial') return mandarPorOficial(b, porEmail);
+  return { ok: false, error: camino?.motivo ?? SIN_CANAL.motivo ?? 'No hay por dónde mandarlo.' };
+}

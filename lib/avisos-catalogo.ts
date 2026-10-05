@@ -197,6 +197,9 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'datos-sin-marcar': 'sistema', 'cron-ingesta-fallo': 'sistema',
   'saldo-ia-bajo': 'sistema', 'accion-confirmada': 'sistema',
   'lead-no-confirmo': 'lead',
+  // Habla de los leads que se quedaron quietos, no del motor que los movió: el rótulo
+  // tiene que decirle al dueño de qué le están hablando desde la primera línea.
+  'crm-lead-estancado': 'lead',
 };
 
 export function areaDeAviso(id: string): AreaAviso {
@@ -714,6 +717,13 @@ https://hola-mako.com/plan — MaKo`,
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Cola de nutrición con mensajes sin salir (token/ventana).',
     ejemplo: `🔴 La nutrición se *frenó sola*: 8 mensajes quedaron en cola sin salir (parece que expiró el token de WhatsApp). Nadie está recibiendo follow-up ahora. Revisa la conexión en /configuraciones. — MaKo`,
+  },
+
+  {
+    id: 'crm-lead-estancado', titulo: 'Leads quietos más de lo que marca tu embudo', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'El CRM automático movió leads que pasaron el plazo de su etapa. UN mensaje por corrida con todos juntos, y como máximo uno por día.',
+    ejemplo: `⏳ Moví *6 leads* que quedaron más tiempo del que marca tu embudo: 4 de *Lead entrante* (plazo 2 días) y 2 de *No responde* (plazo 30 días). El motivo quedó en el historial de cada uno. — MaKo`,
   },
 
   // ── COBRANZA / CASH ────────────────────────────────────────────────────────

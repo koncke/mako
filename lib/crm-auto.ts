@@ -28,12 +28,16 @@ import { buscarReunionesAutomatico } from './auto-reuniones';
 import { contactoIdPorTelefono, getContactMessages } from './chatwoot';
 import { crearConfirmacion, type CrearConfirmacionInput } from './mako-confirmaciones';
 import { crmAutoHabilitado } from './envio-flags';
-import { AUTO_UMBRALES, planLeadAuto, type AutoAccion, type AutoLead, type AutoReglaId, type AutoUmbrales } from './crm-auto-plan';
+import { emitirDelCatalogo } from './avisos';
+import {
+  AUTO_UMBRALES, planLeadAuto, plazoDeEtapa, sanearPlazosPorEtapa, resumenEstancados,
+  type AutoAccion, type AutoLead, type AutoReglaId, type AutoUmbrales, type EstancadoAplicado,
+} from './crm-auto-plan';
 
 // El planificador PURO (AUTO_UMBRALES/AutoAccion/AutoLead/planLeadAuto) vive en
 // crm-auto-plan.ts (sin server-only) para poder testearlo. Se re-exporta acá para
 // no romper los imports existentes desde '@/lib/crm-auto'.
-export { AUTO_UMBRALES, planLeadAuto };
+export { AUTO_UMBRALES, planLeadAuto, plazoDeEtapa };
 export type { AutoAccion, AutoLead, AutoReglaId };
 
 const AUTO_COLS =
@@ -49,18 +53,31 @@ export type AutoEvalWs = { acciones: AutoAccion[]; totalLeads: number; porRegla:
  * DEFAULT y no por lead: el motor barre la cartera entera de una, y los tiempos
  * («cuándo un lead está frío») son una política del negocio. El día que un funnel
  * quiera los suyos, esto se resuelve por participación dentro del loop.
+ *
+ * ⚠️ Y DESDE HOY TAMBIÉN EL PLAZO POR ETAPA (`umbrales.porEtapa`), con la MISMA
+ * tolerancia: una etapa sin plazo declarado cae al umbral global de siempre, así que un
+ * workspace que no declaró nada sigue viendo exactamente lo que ve hoy. Lo que se declara
+ * se cruza contra las etapas REALES del embudo de este workspace —un plazo escrito sobre
+ * una columna que ese embudo no tiene no gobierna a nadie— y lo descartado se LOGUEA con
+ * motivo: sin esa línea, «escribí el plazo en la etapa equivocada» y «no escribí ninguno»
+ * se ven exactamente igual desde afuera.
  */
 async function umbralesDelWorkspace(): Promise<AutoUmbrales> {
   try {
     const { umbralesDelFunnelDefault } = await import('./funnels');
-    const u = (await umbralesDelFunnelDefault()) as Partial<AutoUmbrales> | null;
+    const u = (await umbralesDelFunnelDefault()) as (Partial<AutoUmbrales> & { porEtapa?: unknown }) | null;
     if (!u || typeof u !== 'object') return AUTO_UMBRALES;
     const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d);
+    // El embudo se lee de la caché de la corrida (la misma que usa `etapaDibujable`): no
+    // suma una query por workspace. `null` = no se pudo leer → no se descarta nada.
+    const { plazos, descartes } = sanearPlazosPorEtapa(u.porEtapa, await etapasDelWs());
+    if (descartes.length) console.warn(`[crm-auto] plazos por etapa descartados: ${descartes.join(' · ')}`);
     return {
       diasLeadSinAgenda: num(u.diasLeadSinAgenda, AUTO_UMBRALES.diasLeadSinAgenda),
       diasSinAgendaFrio: num(u.diasSinAgendaFrio, AUTO_UMBRALES.diasSinAgendaFrio),
       diasReactivacion: num(u.diasReactivacion, AUTO_UMBRALES.diasReactivacion),
       horasPostReunion: num(u.horasPostReunion, AUTO_UMBRALES.horasPostReunion),
+      porEtapa: plazos,
     };
   } catch {
     return AUTO_UMBRALES;
@@ -206,22 +223,33 @@ async function moverAuto(
  * lectura no es un hecho sobre el embudo (AGENTS.md: «un chequeo que no puede mirar se
  * abstiene»).
  */
-const etapasPorWs = new Map<number, Set<string> | null>();
-async function etapaDibujable(key: string): Promise<boolean> {
+// Guarda key → RÓTULO, no sólo las keys. El rótulo hace falta porque el aviso de abajo lo
+// lee un dueño: «noresp» o «st0» son nombres internos y quien abre el WhatsApp no tiene de
+// dónde sacarlos (AGENTS.md: «el nombre interno de una cosa no es el nombre de la cosa»).
+// `null` = no se pudo leer el embudo.
+const etapasPorWs = new Map<number, Map<string, string> | null>();
+
+/** Las etapas del embudo de este workspace (key → rótulo), cacheadas por corrida. */
+async function etapasDelWs(): Promise<Map<string, string> | null> {
   const ws = await getWorkspaceActual();
-  // Sin workspace resuelto no hay embudo contra el que comparar: se abstiene.
-  if (ws == null) return true;
+  if (ws == null) return null;
   if (!etapasPorWs.has(ws)) {
     try {
       const stages = await getPipelineStagesDefault();
-      etapasPorWs.set(ws, new Set(stages.map((x) => x.key)));
+      etapasPorWs.set(ws, new Map(stages.map((x) => [x.key, x.label || x.key])));
     } catch (e) {
       console.error(`[crm-auto] no pude leer el embudo del ws ${ws}: ${e instanceof Error ? e.message : String(e)}`);
       etapasPorWs.set(ws, null);
     }
   }
-  const set = etapasPorWs.get(ws);
-  return !set || set.has(key);
+  return etapasPorWs.get(ws) ?? null;
+}
+
+async function etapaDibujable(key: string): Promise<boolean> {
+  // Sin workspace resuelto no hay embudo contra el que comparar: se abstiene.
+  if ((await getWorkspaceActual()) == null) return true;
+  const etapas = await etapasDelWs();
+  return !etapas || etapas.has(key);
 }
 
 /** Asigna a MaKo como setter de una nutrición automática — y lo deja registrado. */
@@ -441,7 +469,41 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
   return 'skip';
 }
 
-export type AplicarResult = { ws: number; ok: boolean; modo?: 'commit' | 'off'; error?: string; auto?: number; confirmaciones?: number; restantes?: number };
+/**
+ * El aviso de leads estancados — UNO por corrida, con todo lo que se movió adentro.
+ *
+ * ⚠️ UNO Y NO N. Emitido adentro del loop, una corrida que mueve 30 leads manda 30
+ * WhatsApps: es la misma forma de «una acción en LOTE necesita UN deshacer, no N»
+ * (AGENTS.md), y el que queda arriba tapa a los otros 29.
+ *
+ * ⚠️ VA `texto` Y NO `contexto`. Con `contexto`, `emitirDelCatalogo` le paga a un modelo
+ * para que redacte el mensaje con esos datos adentro — y un dato exacto que pasa por las
+ * manos de un LLM deja de ser exacto. Acá los datos exactos son cuántos leads se movieron
+ * y de qué columna, que es todo lo que el mensaje dice.
+ *
+ * El dedup de ~20 h es el que convierte «nueve corridas por día» (vercel.json:
+ * `20 15-23 * * *`) en un mensaje por día. El HECHO igual queda en el feed: `emitirAviso`
+ * escribe la fila ANTES de mirar el interruptor y antes del espaciado, así que silenciar
+ * el WhatsApp no borra la bitácora.
+ *
+ * Best-effort a propósito: si el aviso falla, el motor ya movió los leads y eso no se
+ * deshace por un WhatsApp caído.
+ */
+async function avisarEstancados(aplicadas: EstancadoAplicado[]): Promise<boolean> {
+  try {
+    const etapas = await etapasDelWs();
+    const texto = resumenEstancados(aplicadas, (k) => etapas?.get(k) ?? k);
+    if (!texto) return false;
+    const ws = (await getWorkspaceActual()) ?? undefined;
+    const r = await emitirDelCatalogo('crm-lead-estancado', { ws, texto, dedupTtlMin: 1200 });
+    return r.ok && !r.deduped;
+  } catch (e) {
+    console.error(`[crm-auto] el aviso de leads estancados no salió: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
+
+export type AplicarResult = { ws: number; ok: boolean; modo?: 'commit' | 'off'; error?: string; auto?: number; confirmaciones?: number; restantes?: number; aviso?: boolean };
 
 /** Aplica las acciones del CRM automático en el workspace ACTUAL (modo commit). */
 export async function aplicarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Promise<AplicarResult> {
@@ -454,6 +516,10 @@ export async function aplicarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Pro
     for (const r of (data ?? []) as Array<{ lead_id: number; clave: string }>) yaConf.add(r.lead_id + '|' + r.clave);
   } catch { /* si falla, crearConfirmacion igual dedup-ea por índice único */ }
   let auto = 0, confirmaciones = 0, externas = 0, restantes = 0;
+  // Lo que de VERDAD se movió, para el aviso. Sólo entran los resultados 'auto' y
+  // 'confirma' —los dos aplicaron el cambio— y nunca un 'skip': un mensaje que se manda
+  // solo no puede afirmar lo que no verificó.
+  const aplicadas: EstancadoAplicado[] = [];
   for (const a of acciones) {
     const esExterna = a.tipo === 'reunion_check' || a.tipo === 'manual_vencida';
     if (esExterna && externas >= MAX_EXTERNAS_POR_CORRIDA) { restantes++; continue; }
@@ -461,12 +527,14 @@ export async function aplicarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Pro
       const r = await aplicarAccion(a, yaConf);
       if (r === 'auto') auto++;
       else if (r === 'confirma') confirmaciones++;
+      if (r !== 'skip' && a.desde) aplicadas.push({ regla: a.regla, desde: a.desde, plazoDias: a.plazoDias });
       if (esExterna) externas++;
     } catch (e) {
       console.error(`[crm-auto] aplicar lead ${a.leadId} (${a.regla}) falló:`, e);
     }
   }
-  return { ws: 0, ok: true, auto, confirmaciones, restantes };
+  const aviso = aplicadas.length ? await avisarEstancados(aplicadas) : false;
+  return { ws: 0, ok: true, auto, confirmaciones, restantes, aviso };
 }
 
 /**

@@ -36,6 +36,9 @@ export const AVISOS_AGRUPABLES: ReadonlySet<string> = new Set([
   'landing-cambio',                // le cambiaron una pieza a la landing
   'prueba-grabada',                // quedó grabada una prueba
   'lead-fusionado',                // «lo sumé a X, que ya tenías»: informativo
+  // El motor ya movió los leads cuando esto se emite: no hay nada que hacer corriendo, y
+  // llega junto en vez de nueve veces por día (el cron corre 9 veces: vercel.json).
+  'crm-lead-estancado',
 ]);
 
 /** Las categorías que NUNCA se posponen, aunque el tipo esté en la lista. */

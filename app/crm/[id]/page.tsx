@@ -37,7 +37,6 @@ import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
-import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -126,6 +125,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     estadoLead: lead.estado_lead,
     monto: lead.monto_cierre_usd ?? 0,
     hoyISO: new Date().toISOString().slice(0, 10),
+    // Las reuniones del recorrido son las etapas `kind: 'reunion'` DE ESTE
+    // embudo, con el nombre que les puso el dueño. `stageKey` sólo decide si se
+    // dibuja una reunión sin slot (la 3ª en adelante, que no tiene columnas).
+    etapas: stages, etapaActual: stageKey,
   });
 
   const esVenta = lead.estado_lead === 'ganado' || stageKey === 'facturando';
@@ -205,9 +208,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               key: 'comportamiento', label: 'Tracking',
               content: (
                 <>
-                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />
-                  <TrackingTimelineCard eventos={trackingEventos} pixelPuesto={pixelPuesto} />
+                  
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />{/* ⚠️ EL ORDEN ES PARTE DEL ARREGLO: «qué hizo» antes que «de dónde vino». Origen ocupa ~320 px y empujaba el recorrido a 601 px del tope, fuera del alto visible del panel (583). Medido en el navegador el 05/10/2026. */}<OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
                 </>
               ),
             },

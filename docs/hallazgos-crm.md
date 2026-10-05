@@ -5466,3 +5466,149 @@ con tope.
   pueden contar dos versiones de la misma llamada. Quedó uno.
 
 **Vive en:** `lib/insights-llamada.ts` · `lib/leads.ts` (`applyFathomRecording`) · `app/crm/lead-view/InsightsLlamadaCard.tsx` · *2026-10-04 cuatro-decisiones*
+
+
+---
+
+## El plazo por etapa del CRM: un lector sin escritor, y el aviso que el motor nunca mandaba (05/10/2026)
+
+Las dos mitades del «Listo cuando» del SLA por etapa, y ninguna era una decisión del dueño:
+el plazo colgaba de las cuatro perillas GLOBALES de `umbralesDelWorkspace`
+(lib/crm-auto.ts) y el motor movía leads sin que nadie se enterara.
+
+**El plazo NO puede colgar del objeto `Stage`, aunque sea un dato de una etapa.**
+`applyTemplate` (app/funnel/FunnelEditor.tsx) hace `setPipeline(tpl.pipeline)` y `pk()`
+reconstruye cada Stage desde `DEFAULT_STAGES`: un campo colgado del Stage sobrevive por
+spread accidental y **se borra con UN clic en «Aplicar plantilla», sin error y sin log**. Es
+textualmente el aviso que `lib/pipeline.ts` dejó escrito cuando `entradas` se mudó a
+`funnels.data`, y acá volvía a aplicar. Vive en `funnels.data.umbrales.porEtapa` —un mapa
+`key de Stage → días`— que `saveFunnelDe` conserva porque mergea en vez de reemplazar.
+
+**El plazo declarado es el PISO de la salida, no un reemplazo del umbral que decide el
+destino.** Era el bug fácil: con `lead: 10` y el corte de frío global en 7, la versión
+ingenua movía el lead a Reactivación a los 7 días — o sea que el plazo declarado habría sido
+una promesa que el motor no cumple. Va `Math.max(plazoEtapa, diasSinAgendaFrio)`, y con los
+defaults eso da exactamente lo de hoy (`Math.max(2, 7) = 7`).
+
+**Y lo miran DOS de las cuatro reglas, por decisión:** T1 mide horas desde una reunión con
+fecha y hora (un plazo en días de la etapa no contesta esa pregunta) y T3 cuelga de
+`nutricion_manual_deadline`, una fecha que una PERSONA escribió para ESE lead — un plazo de
+etapa encima sería el código contradiciendo una decisión.
+
+⚠️ **LO QUE QUEDÓ SIN HACER, Y ES LO QUE FALTA PARA CERRARLO: no hay pantalla que escriba
+`funnels.data.umbrales`.** No es una regresión de esta tanda — ninguna de las cuatro
+perillas globales tuvo escritor nunca (AGENTS.md ya lo tenía anotado como «un lector sin
+escritor»), y el plazo por etapa hereda la misma situación: hoy se declara pasándolo en el
+`extra` de `saveFunnelDe` y nada más. Los call-sites de esa función están en
+`app/crm/actions.ts:2309`, `:2826`, `:2873` y `:2907`, y el control le toca al pop-up del
+embudo (subtab «por dónde pasa»). Mientras eso no exista, el plazo por etapa es una
+capacidad sin forma de declararla desde el producto.
+
+### El aviso: UNO por corrida, no uno por lead
+
+El motor mueve la cartera entera de una pasada, así que emitir adentro del loop son **30
+WhatsApps por una corrida de 30 leads** — la misma forma de «una acción en LOTE necesita UN
+deshacer, no N». El texto se arma una vez con todo lo APLICADO (`resumenEstancados`, puro y
+con test), y el dedup de ~20 h convierte las nueve corridas diarias del cron
+(`vercel.json`: `20 15-23 * * *`) en un mensaje por día.
+
+Tres cosas que el aviso no puede hacer, y las tres estaban ya escritas en otra parte:
+
+- **No afirma lo que no verificó.** Al resumen entran sólo los resultados `auto` y
+  `confirma` —los dos aplicaron el cambio—, nunca un `skip`. Un `skip` es «el lead cambió
+  entre el plan y el apply», y contarlo le diría al dueño que movimos algo que no se movió.
+- **No sale el nombre INTERNO de la etapa.** `noresp` o `st0` son keys de una tabla y quien
+  abre el WhatsApp no tiene de dónde sacarlas, así que la caché del embudo del motor pasó a
+  guardar `key → rótulo` en vez de sólo las keys — y con eso `etapaDibujable` y el aviso
+  leen la MISMA estructura, en una sola query por workspace.
+- **Va `texto` y no `contexto`.** Con `contexto`, `emitirDelCatalogo` le paga a un modelo
+  para redactar el mensaje con esos números adentro, y un dato exacto que pasa por un LLM
+  deja de ser exacto. El hecho igual queda en el feed aunque el WhatsApp esté apagado:
+  `emitirAviso` escribe la fila ANTES de mirar el interruptor y antes del espaciado.
+
+⚠️ **Y un aviso nuevo son TRES registros más el catálogo de voz.** La entrada en
+`CATALOGO_AVISOS` (para poder leerlo y editarlo), su área en `AREA_POR_AVISO` (el rótulo de
+la primera línea: habla de contactos, así que es «👤 LEAD» y no «🔧 SISTEMA»),
+`AVISOS_AGRUPABLES` (el motor ya movió: no hay nada que hacer corriendo) y
+`AVISOS_WA_EN_VIVO` — sin este último el aviso sale igual y **lo que se pierde es la
+posibilidad de apagarlo**, que es peor que el aviso.
+
+### Dos trampas del ENTORNO que costaron una vuelta cada una
+
+- ⚠️ **Un backtick dentro de un `node -e "…"` desde Bash lo COME la sustitución de
+  comandos.** Al escribir un comentario que nombraba un tipo entre backticks, bash intentó
+  ejecutarlo (`ReadonlySet: No such file or directory`), el script contestó `ok` y el
+  archivo quedó con **la palabra borrada y el comentario mintiendo**. Está escrito para los
+  template literals del repo y vale igual para el argumento de `node -e`: el parche va en un
+  `.mjs` del scratchpad, nunca en una cadena que pase por el shell.
+- ⚠️ **El tipo del cruce contra las etapas es `{ has(k) }`, no `ReadonlySet`.** Lo único que
+  el saneo necesita del embudo es poder preguntar si la etapa existe; pedir un Set obligaba
+  al motor a armar una segunda estructura con la misma información, que es el segundo lugar
+  donde vive el mismo dato.
+
+**Vive en:** `lib/crm-auto-plan.ts` (`PlazosPorEtapa`, `plazoDeEtapa`, `sanearPlazosPorEtapa`, `resumenEstancados`) · `lib/crm-auto.ts` (`umbralesDelWorkspace`, `etapasDelWs`, `avisarEstancados`) · `lib/avisos-catalogo.ts` · `lib/avisos-agrupables.ts` · `lib/notif-catalogo.ts` · `tests/crm-auto-sla-etapa.test.ts` · *2026-10-05 paquete-800*
+
+---
+
+## La línea de tiempo del lead nombraba DOS reuniones que el embudo podía no tener
+
+**Síntoma.** El funnel es configurable por workspace desde la 0170, así que un negocio
+cuyas etapas `kind: 'reunion'` se llaman «Diagnóstico» y «Propuesta» veía su Kanban con
+esos nombres y, en la ficha del mismo lead, una línea de tiempo que decía **«Reunión 1» y
+«Reunión 2»**. No falla nada: son dos vocabularios para la misma cosa, y un título que
+necesita glosario está en otro idioma.
+
+**Causa real.** `buildJourney` (lib/journey.ts) armaba los hitos de reunión con dos ramas
+cableadas (`if (r1date…) 'Reunión 1'` / `if (i.fechaJ2…) 'Reunión 2'`) y jamás recibía el
+pipeline. La fuente única del mapeo «quién es reunión, en qué orden y qué par de columnas
+le toca» ya existía desde antes (`reunionesDe` + `slotPorIndice`, lib/funnel-etapas.ts) y
+la consumían `generateFunnel` y `funnelReqInfo` — la línea de tiempo era el tercer lector
+que no se había enchufado. Es «una regla aplicada en dos lugares de tres no está
+implementada, está documentada», con el agravante de que los otros dos sí estaban bien.
+
+**Lo que queda (y las tres decisiones que no se ven en la firma).**
+
+- **Sin embudo no se inventa nada.** `etapas` es opcional y, cuando no llega —o cuando el
+  embudo no declara ninguna etapa `kind: 'reunion'`—, el recorrido cae a los dos rótulos de
+  siempre. Importa porque los dos call-sites de pantalla caen a `DEFAULT_STAGES` cuando la
+  lectura del funnel falla, y **`DEFAULT_STAGES` no trae `kind`** (el `kind` lo agrega
+  `DEFAULT_PIPELINE`): o sea que el camino de error pasa solo por la rama que se abstiene,
+  sin un `if` extra. Un chequeo que no puede mirar se abstiene.
+- ⚠️ **Un slot CON DATO que el embudo de hoy ya no reclama se dibuja igual.** Si alguien
+  reconfigura su funnel a UNA reunión, los leads que ya tenían la segunda hecha seguirían
+  teniendo `fecha_junta_2` en la base. Derivar los hitos del embudo y nada más los habría
+  borrado de la pantalla: la fecha es un hecho que pasó, y un cambio de configuración no
+  puede llevárselo. Va un barrido de los slots que el embudo no cubrió, con el rótulo
+  genérico. Es la misma familia que «"no puedo hacer X con este dato" no es "este dato es
+  falso"», aplicada al render.
+- ⚠️ **La TERCERA reunión no tiene dónde vivir, y eso se DICE.** `leads` sólo tiene
+  `fecha_junta_1/_2` + `asistio_j1/_j2`, así que a partir del índice 2 `slotPorIndice`
+  devuelve null. Omitir ese hito dejaba la línea de tiempo terminando ANTES de donde el
+  lead está parado, sin un solo error — la falla silenciosa de siempre. Se dibuja sólo
+  cuando `etapaActual` es esa etapa (si no, sería un renglón permanente que no informa
+  nada) y declara el hueco: «Sin fecha registrada», estado `pending`. **Ése es el único
+  caso que necesita la migración del slot de la reunión N; todo el resto ya funciona sin
+  tocar el esquema.**
+
+**La trampa del entorno.** `app/crm/LeadSheet.tsx` está en **CRLF** y sus tres vecinos del
+mismo cambio (`lib/journey.ts`, `app/crm/[id]/page.tsx`, `lib/api-mako/areas/crm.run.ts`)
+en LF, dentro del mismo directorio. Un parche escrito con `\n` contesta «0 coincidencias»
+sobre un ancla copiada carácter por carácter, y si igual escribe deja el archivo mezclado
+sin que se vea en ningún diff. El salto se detecta por archivo y se devuelve igual.
+
+**Lo que quedó SIN hacer**, con el archivo donde vive:
+
+- `lib/crm-auto-plan.ts` — el **PLANIFICADOR** del CRM automático sigue razonando en R1/R2:
+  `planLeadAuto` lee `l.fecha_junta_1 / fecha_junta_2 / asistio_j1 / asistio_j2` directo y
+  su copy dice «R1 del …» / «R2 del …» (líneas ~178-189), con `which: 'j1' | 'j2'`. Las
+  COLUMNAS son slots genéricos, así que las dos primeras reuniones de cualquier embudo ya
+  se revisan bien; lo que falta son dos cosas distintas: (a) que la descripción nombre la
+  etapa como la ve el dueño —no necesita migración, necesita que `planLeadAuto` reciba las
+  etapas, y `lib/crm-auto.ts` ya las tiene cacheadas en `etapasDelWs()`—, y (b) la reunión
+  N≥3, que **sí** necesita la migración 0188 y un backfill que siga leyendo
+  `fecha_junta_1/_2` o los recorridos existentes se vacían.
+- **La migración 0188 NO se escribió a propósito.** Una columna que nadie lee todavía es un
+  esquema que envejece solo; va en el mismo paquete que su lector. Cuando se escriba:
+  AGREGA, así que se despliega ANTES o JUNTO con el código que la lee.
+
+**Vive en:** `lib/journey.ts` (`buildJourney`, `EtapaReunion`, `reunionesDelRecorrido`, `datosDeSlot`) · `lib/funnel-etapas.ts` (`reunionesDe`, `slotPorIndice`) · `app/crm/LeadSheet.tsx` · `app/crm/[id]/page.tsx` · `lib/api-mako/areas/crm.run.ts` (`journey_lead`) · `tests/journey-reuniones-embudo.test.ts` · *2026-10-05 paquete-40*

@@ -46,6 +46,7 @@ import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
 import { idDeclaraHost } from './video-id';
+import { esClicDelConstructor } from './clic-ruido';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -2173,6 +2174,12 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
       // un solo video, que es exactamente el disfraz que el párrafo de arriba corta.
       const esScroll = e.tipo_evento === 'scroll';
       if (!esPlay && !esClick && !esScroll && !esEventoDeVideo(e.tipo_evento)) continue;
+      // ⚠️ EL SELLO DEL CONSTRUCTOR NO ES UN CLIC DE LA PERSONA. Una landing hecha con
+      // un constructor lleva pegado su propio badge, y el Pixel lo captura como
+      // cualquier otro clic. Medido el 05/10/2026: 208 de los 441 clics del ws1 son
+      // el «Edit with Lovable», y el primer renglón del recorrido de un lead era el
+      // cartelito del editor. El evento NO se borra de la base — se saca del renglón.
+      if (esClick && esClicDelConstructor(e.detalle)) continue;
       const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : esClick ? 'click' : esScroll ? 'scroll' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
       out.push({
         ts: e.created_at, tipo,

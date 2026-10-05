@@ -269,11 +269,15 @@ export const RUNNERS: Runners = {
   journey_lead: {
     leer: (input, ctx) => conLead(input, async (lead) => {
       const { hoy } = await hoyDelWorkspace(ctx.ws);
+      // Las reuniones del recorrido salen del embudo DE ESTE LEAD, no de dos
+      // rótulos fijos: si falla la lectura, buildJourney cae a «Reunión 1/2».
+      const etapas = await etapasDelFunnelDeLead(lead).catch(() => []);
       const pasos = buildJourney({
         createdISO: lead.created_at, fechaAgenda: lead.fecha_agenda, fechaJ1: lead.fecha_junta_1, asistioJ1: lead.asistio_j1,
         fechaJ2: lead.fecha_junta_2, asistioJ2: lead.asistio_j2, fechaConfirmacion: lead.fecha_confirmacion,
         fechaPrimerPago: lead.fecha_primer_pago, fechaCierre: lead.fecha_cierre, estadoLead: lead.estado_lead,
         monto: lead.monto_cierre_usd ?? 0, hoyISO: hoy,
+        etapas, etapaActual: etapaVigenteDe(lead, etapas),
       });
       return json({ lead_id: lead.id, nombre: lead.nombre, hoy, hitos: pasos.map((p) => ({ hito: p.label, detalle: p.sub ?? null, fecha: p.date, estado: p.state })) });
     }),

@@ -1408,7 +1408,16 @@ test('el redirect de Panda se DETECTA, pero no vive en los pasos de la prueba', 
 
 test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
   const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
-  assert.ok(/Ver el video de lo que hizo/.test(card), 'falta el acceso a su grabación');
+  // ⚠️ EL RÓTULO CAMBIÓ EL 05/10/2026, y el bloque entero bajó al final de la
+  // tarjeta y más chico. «Ver el video de lo que hizo» era un botón grande de
+  // acento arriba de todo, y con eso la ficha se leía como si la app tuviera que
+  // mostrar la grabación adentro — no puede: Clarity responde
+  // `X-Frame-Options: SAMEORIGIN`. Se reportó como que el producto no mide nada:
+  // «aún no se está mostrando la grabación, los clicks, aún sigue redirigiendo a
+  // clarity». Lo que faltaba era el ORDEN, no el botón: ahora dice qué es y dónde
+  // se abre. El orden lo fija `tests/crm-tracking-ficha.test.ts`.
+  assert.ok(/Ver su grabación/.test(card), 'falta el acceso a su grabación');
+  assert.ok(/Se abre en Clarity/.test(card), 'el botón tiene que decir que se abre afuera');
   assert.ok(/Mapa de calor de la página/.test(card), 'falta el mapa de calor');
   // ⚠️ El rótulo distingue de quién es cada cosa: el mapa de calor es de TODOS los
   // visitantes —Clarity agrega y no se puede filtrar por persona— y un botón al
@@ -1430,8 +1439,18 @@ test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
   // muestra las 35 sesiones del proyecto—, así que el botón prometía «lo que hizo
   // ÉL» y entregaba «lo que hizo todo el mundo». Hasta que el link filtre solo,
   // el id a mano es lo que vuelve utilizable la pantalla.
-  assert.ok(/Su ID para el filtro de Clarity/.test(card), 'sin el id, el link lleva a una lista donde no se puede encontrar a nadie');
+  //
+  // ⚠️ PERO DESDE EL 05/10/2026 NO SE DIBUJA: el renglón «Su ID para el filtro de
+  // Clarity» con el uuid crudo a la vista es ruido técnico en la ficha de una
+  // PERSONA, y competía con el recorrido. Sigue accesible —en un botón que lo
+  // copia, con el `title` diciendo dónde se pega— que es para lo único que sirve.
+  // La aserción queda INVERTIDA para que el uuid no vuelva solo a la pantalla.
+  assert.ok(!/>\s*\{visitorId\}\s*</.test(card), 'el uuid no se dibuja: se copia');
   assert.ok(/navigator\.clipboard\?\.writeText\(visitorId\)/.test(card), 'el id tiene que ser copiable: se pega en el filtro de Clarity');
+  // ⚠️ «dónde se pega» NO se puede comprobar acá: el `leer` de este archivo NO saca
+  // los comentarios, y el comentario que EXPLICA el `title` contiene las mismas
+  // palabras — probado, da verde con el `title` vaciado. Vive en
+  // `tests/crm-tracking-ficha.test.ts`, que lee el fuente sin prosa.
   // El dato tiene que llegar por los DOS caminos que arman la ficha.
   assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/actions.ts')), 'el mapa no llega por el camino del sheet');
   assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/[id]/page.tsx')), 'el mapa no llega por el camino de la página');

@@ -26,6 +26,7 @@ import { EmpresaInbox } from './EmpresaInbox';
 import { crearLeadDesdeWhatsappAction } from '../crm/actions';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 import { AudioPlay } from './_shared/AudioPlay';
+import { PanelBorradores } from './_shared/PanelBorradores';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
 // Se carga on-demand (ssr:false) igual que en app/_components/Desglose.tsx.
@@ -962,6 +963,11 @@ function WhatsAppInner({ puedeChatbot }: { puedeChatbot: boolean }) {
               </div>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
+              {/* La cola de borradores también acá: antes vivía solo en el inbox del
+                  número de empresa, así que en un workspace del canal oficial se
+                  redactaba y no había dónde verla. El botón de enviar lo dibuja el
+                  panel solo si el servidor dice que hay por dónde. */}
+              <PanelBorradores onEnviado={() => { if (sel) void refetchHilo(sel); }} />
               {loadingConvs && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
               {!loadingConvs && filtrados.length === 0 && <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13.5px' }}>Sin conversaciones.</div>}
               {filtrados.map((c) => {
