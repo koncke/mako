@@ -439,4 +439,23 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-customer-success.md \u2014 la cosecha de esta pasada",
     ],
   },
+  {
+    fecha: "5 oct", hora: "18:17", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "El modal de \u00abAbrir cuenta\u00bb debajo de la tarjeta de al lado",
+    pedido: "Soluciona ese bug",
+    puntos: [
+      "Pedido con una captura sobre C\u00f3digo Inmobiliario: al abrir \u00abAbrir cuenta\u00bb en una tarjeta, la tarjeta de la columna siguiente se pintaba ENCIMA del modal.",
+      "\u26a0\ufe0f DOS COSAS CORRECTAS POR SEPARADO: `Modal` no se portalea y `TarjetaEntidad` le da z-index 1 a cada hijo de la tarjeta, as\u00ed que un modal montado desde la fila de acciones queda atrapado en esa tarjeta. Lo dej\u00f3 pasar que el control se MUD\u00d3 de la ficha (donde no se ve) a la tarjeta, el 27/09.",
+      "El portal no alcanza solo: los eventos sint\u00e9ticos suben por el \u00e1rbol de React, y arrastrar texto en el email del modal agarraba la tarjeta. El arrastre ignora lo que no naci\u00f3 adentro de ella en el DOM.",
+    ],
+    commits: [
+      { sha: "a9d4471c", msg: "El modal de «Abrir cuenta» deja de quedar debajo de la tarjeta de al lado", lineas: 68, archivos: 5 },
+    ],
+    archivos: [
+      "app/customer-success/CuentaDeMaKo.tsx \u2014 el modal va por portal al body",
+      "app/customer-success/KanbanEntrega.tsx \u2014 agarrar ignora gestos que no nacieron en la tarjeta",
+      "tests/cs-kanban-fases.test.ts \u2014 el guard, probado rompi\u00e9ndolo",
+    ],
+  },
 ];
