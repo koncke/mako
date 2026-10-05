@@ -34,7 +34,7 @@ export default async function WhatsAppPage() {
   await guardOnboarding();
 
   // WhatsApp tiene onboarding PROPIO (conectar y probar los dos métodos), y se
-  // renderiza acá mismo: los pasos se comparten con el Chat Agent, así que lo
+  // renderiza acá mismo: los pasos se comparten con el Chatbot, así que lo
   // que se haga acá no se vuelve a pedir allá.
   const faltaOnboarding = await onboardingTabPendiente('whatsapp');
 

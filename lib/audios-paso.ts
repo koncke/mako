@@ -1,5 +1,5 @@
 // =============================================================================
-// Los audios que graba el dueño en el onboarding del Chat Agent
+// Los audios que graba el dueño en el onboarding del Chatbot
 // =============================================================================
 // No es "un audio de bienvenida" y ya: son SITUACIONES distintas, y usar el de
 // una en la otra rompe la naturalidad al instante. La diferencia que más importa

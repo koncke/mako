@@ -1006,7 +1006,7 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
  * corresponden, porque es lo único que se consume: `reunionesDe()` y `funnelReqInfo()`
  * leen solo eso, y de ahí salen los requisitos para mover un lead, la nutrición de No
  * Show, los huecos de secuencias y hasta qué audios se le piden al dueño en el
- * onboarding del Chat Agent.
+ * onboarding del Chatbot.
  *
  * ⚠️ Y EQUIVOCARSE PARA ARRIBA NO ES EL LADO SEGURO, aunque lo parezca. Con dos
  * reuniones, para marcar Ganado el wizard exige fecha, asistencia y Fathom de una R2 que

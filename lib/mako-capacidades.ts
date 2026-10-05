@@ -67,7 +67,7 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a WhatsApp', 'Abre la conversación', 'Pídele a MaKo que te sugiera la respuesta y ajústala'],
   },
   {
-    // ⚠️ Decía `tab: 'Chat Agent', ruta: '/chat-agent'` y las DOS cosas eran
+    // ⚠️ Decía `tab: 'Chatbot', ruta: '/chat-agent'` y las DOS cosas eran
     // falsas: la tab se llama **Chatbot** en el sidebar (nav.ts:207) y
     // `/chat-agent` es un redirect a `/chatbot`. O sea que MaKo mandaba al
     // cliente a una tab con un nombre que no existe y por una URL de rebote.

@@ -6203,7 +6203,7 @@ curl -s "https://hola-mako.com/api/v1/negocio/ver_estado_onboarding" -H "Authori
 
 ### `GET /api/v1/negocio/listar_tabs_por_configurar` — Tabs que faltan configurar
 
-Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Chat Agent, Instagram, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.
+Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Chatbot, Instagram, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -6250,7 +6250,7 @@ curl -s "https://hola-mako.com/api/v1/negocio/listar_lead_magnets" -H "Authoriza
 
 ### `GET /api/v1/negocio/ver_personalidad_voz` — Personalidad de voz de marca
 
-Cómo suena la marca según el quiz de personalidad: por cada pregunta contestada, la dimensión, el rasgo elegido y la frase de ejemplo; las muletillas; cuántas preguntas están contestadas de cuántas y si el quiz está completo. Úsala antes de escribir copy con la voz del negocio. Es distinta de guia_voz_negocio (la voz del Chat Agent destilada de conversaciones).
+Cómo suena la marca según el quiz de personalidad: por cada pregunta contestada, la dimensión, el rasgo elegido y la frase de ejemplo; las muletillas; cuántas preguntas están contestadas de cuántas y si el quiz está completo. Úsala antes de escribir copy con la voz del negocio. Es distinta de guia_voz_negocio (la voz del Chatbot destilada de conversaciones).
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json

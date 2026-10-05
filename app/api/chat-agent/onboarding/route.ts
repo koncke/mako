@@ -2,7 +2,7 @@
 // API: onboarding de una tab (regla: toda tab tiene onboarding)
 // =============================================================================
 // GET  ?tab=setting|whatsapp|email → { estado, def }: en qué paso quedó y
-//      cuáles son los pasos. El default es el Chat Agent, que es el recorrido
+//      cuáles son los pasos. El default es el Chatbot, que es el recorrido
 //      completo; WhatsApp y Email piden solo su tramo.
 // POST → { action:'paso', paso, done? }   → marca un paso (cierra la tab en el último)
 //        { action:'reabrir' }             → rehacer el onboarding desde cero
@@ -17,7 +17,7 @@ import { getEstadoTab, marcarPasoTab, reabrirOnboardingTab, tabOnboardingDef } f
 export const dynamic = 'force-dynamic';
 
 const TABS_VALIDAS = new Set(['setting', 'whatsapp', 'email']);
-/** El default es el recorrido completo del Chat Agent. */
+/** El default es el recorrido completo del Chatbot. */
 const tabDe = (v: string | null): string => (v && TABS_VALIDAS.has(v) ? v : 'setting');
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 

@@ -98,7 +98,7 @@ type TablaClon = {
 export type AmbitoKey = string;
 
 /** Las secciones del panel de agencia: agrupan los ámbitos por recorrido. */
-export const SECCIONES = ['Onboarding principal', 'Integraciones', 'Chat Agent', 'Datos del negocio', 'Configuración'] as const;
+export const SECCIONES = ['Onboarding principal', 'Integraciones', 'Chatbot', 'Datos del negocio', 'Configuración'] as const;
 export type Seccion = (typeof SECCIONES)[number];
 
 type AmbitoDef = {
@@ -201,14 +201,14 @@ export const AMBITOS: Record<AmbitoKey, AmbitoDef> = {
       'script_avatares', 'script_angles', 'mako.guion_angulos', 'mako.guion_estructuras',
     ],
   },
-  // Trae TODO el recorrido del Chat Agent, no solo el resultado: la idea es
+  // Trae TODO el recorrido del Chatbot, no solo el resultado: la idea es
   // poder rehacer el onboarding entero en la cuenta de prueba, y para eso
   // hacen falta la voz destilada Y su evidencia, los tres audios con su mapa
   // por clave, el link del video, lo respondido en el ensayo y los objetivos
   // que el dueño escribió a mano.
   setting: {
-    titulo: 'Chat Agent completo',
-    seccion: 'Chat Agent',
+    titulo: 'Chatbot completo',
+    seccion: 'Chatbot',
     label: 'los audios, la voz y las secuencias de mensajes de Mau',
     settings: [
       // Voz: el resumen que se muestra Y de dónde salió, si no la pantalla de

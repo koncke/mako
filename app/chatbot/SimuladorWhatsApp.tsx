@@ -10,9 +10,10 @@
 // derecha); escribes/mandás audio y MaKo responde como setter. La topbar /
 // Editar abre el PERFIL de la secuencia de mensajes (SecuenciaPerfil, cubre el chat).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SecuenciaPerfil } from './SecuenciaPerfil';
+import { TarjetaEntidad, GrillaTarjetas, TarjetaNueva, PieNumeros, colorDe } from '@/app/_components/TarjetaEntidad';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
@@ -85,7 +86,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // La prueba TERMINA cuando la secuencia cumple su objetivo o queda claro que
   // no lo va a cumplir. Mientras es null la conversación sigue viva.
   const [cerradaSim, setCerradaSim] = useState<'positivo' | 'negativo' | null>(null);
-  const [detalle, setDetalle] = useState(false);
+  const [modo, setModo] = useState<'grilla' | 'editor' | 'chat'>('grilla');
   const seq = useRef(0);
 
   useEffect(() => { if (selId === '' && secuencias.length) setSelId(secuencias[0].id); }, [secuencias, selId]);
@@ -117,13 +118,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
   useEffect(() => {
     timers.current.forEach(clearTimeout); timers.current = [];
-    setMensajes([]); setTyping(null); setDetalle(false);
+    setMensajes([]); setTyping(null);
     if (selId !== '' && guionKey) reproducirGuion();
     return () => { timers.current.forEach(clearTimeout); timers.current = []; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId, guionKey]);
 
-  const elegir = (id: number) => { setSelId(id); setDetalle(false); };
+  const elegir = (id: number) => { setSelId(id); setModo('editor'); };
 
   // Reproduce la secuencia como mensajes ENTRANTES del negocio (tú = el lead).
   function reproducirGuion() {
@@ -243,93 +244,126 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     return true;
   }
 
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-          <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar secuencia…"
-            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
-        </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
-          {/* Crear nueva (contacto gris, arriba de todo — patrón PlantillasView) */}
-          {rolAdmin && (
-            <button type="button" onClick={() => onWizard('nueva')}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, opacity: 0.85, fontFamily: 'inherit' }}>
-              <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: 'var(--faint)' }}>+</span>
-              <div style={{ fontWeight: 600, fontSize: 13.5 }}>Nueva secuencia de mensajes</div>
-            </button>
-          )}
-
-          {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna secuencia de mensajes coincide.</div>}
-          {lista.map((j) => {
-            const on = j.id === selId;
-            const snippet = j.estrategia?.gancho ?? j.pasos.find((p) => p.canal === 'whatsapp')?.cuerpo ?? j.pasos[0]?.cuerpo ?? '';
-            return (
-              <button key={j.id} type="button" onClick={() => elegir(j.id)}
-                style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: j.activa ? 1 : 0.5, fontFamily: 'inherit' }}>
-                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{emojiSecuencia(j)}</span>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.nombre}{!j.activa && <span style={{ color: 'var(--faint)', fontWeight: 500 }}> · pausada</span>}</div>
-                  <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiquetaEtapa(j.etapa)} · {snippet.replace(/[*_\n]/g, ' ').slice(0, 34)}</div>
+  // ⚠️ LA TAB ABRE EN LA GRILLA, Y EL CHAT ES UNA CONSECUENCIA DE «PROBAR».
+  //
+  // Martín, 05/10/2026: «Recuerda que por DEFAULT abro la tab y debe salir la grilla
+  // para editar las secuencias, y al darle a PROBAR recién la vista del chat» y «No
+  // pongas a la grilla chiquita en el medio en un recuadro, haz que ocupe TODA la tab».
+  //
+  // Antes la pantalla abría en el CHAT con una lista de 300 px al costado: el simulador
+  // —que es para probar— ocupaba el lugar del trabajo, que es armar la secuencia. Ahora
+  // son tres momentos y uno solo a la vez: la grilla (todas, a ancho completo), el
+  // lienzo de UNA, y el chat de UNA. La lista lateral se fue: la grilla ES la lista.
+  if (modo !== 'grilla' && sel) {
+    return (
+      // El alto lo marca la ventana y no un número: un `height: 620` adentro de una tab
+      // que mide 100vh deja el lienzo chico y la pantalla medio vacía.
+      <div style={{ height: 'calc(100vh - 170px)', minHeight: 520, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {modo === 'editor' ? (
+          <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
+            productos={productos} disparadores={disparadores}
+            secuencias={secuencias}
+            onAbrirClave={(clave) => {
+              // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra
+              // secuencia y no la abre es la mitad inútil del encadenamiento.
+              const otra = secuencias.find((j) => j.clave === clave);
+              if (otra) setSelId(otra.id);
+            }}
+            onProbar={() => setModo('chat')}
+            onClose={() => setModo('grilla')} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <ChatHilo
+              accent="var(--wa)"
+              accentBubble="var(--wa-bubble)"
+              mensajes={mensajes}
+              typing={typing}
+              draftKey={`setting-sim-${sel.id}`}
+              readOnly={!!cerradaSim}
+              placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
+              onEnviarTexto={enviarTexto}
+              onEnviarArchivo={enviarArchivo}
+              vacio={(
+                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
+                  Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
                 </div>
-                <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 8, height: 8, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
-                {!j.estrategia && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 5, padding: '1px 4px' }}>sin estrategia</span>}
-              </button>
-            );
-          })}
-        </div>
+              )}
+              header={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  {/* La salida va PRIMERA y lleva a la grilla, que es de donde se vino.
+                      El destino de «Volver» es una propiedad de la pantalla, no del
+                      historial (AGENTS.md). */}
+                  <button type="button" onClick={() => setModo('grilla')} title="Volver a tus secuencias"
+                    style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>←</button>
+                  <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Prueba · escribe como el lead</div>
+                  </div>
+                  {/* Volver a verla desde el principio después de haber chateado, no
+                      para arrancarla: ya se reprodujo sola al entrar. */}
+                  <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
+                    style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+                  <button type="button" onClick={() => setModo('editor')} title="Editar la secuencia"
+                    style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
+                </div>
+              )}
+            />
+          </div>
+        )}
       </div>
+    );
+  }
 
-      {detalle && sel ? (
-        <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
-          productos={productos} disparadores={disparadores}
-          secuencias={secuencias}
-          onAbrirClave={(clave) => {
-            // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra
-            // secuencia y no la abre es la mitad inútil del encadenamiento.
-            const otra = secuencias.find((j) => j.clave === clave);
-            if (otra) setSelId(otra.id);
-          }}
-          onClose={() => setDetalle(false)} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
-      ) : sel ? (
-        <ChatHilo
-          accent="var(--wa)"
-          accentBubble="var(--wa-bubble)"
-          mensajes={mensajes}
-          typing={typing}
-          draftKey={`setting-sim-${sel.id}`}
-          readOnly={!!cerradaSim}
-          placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
-          onEnviarTexto={enviarTexto}
-          onEnviarArchivo={enviarArchivo}
-          vacio={(
-            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
-              Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
-            </div>
-          )}
-          header={(
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <button type="button" onClick={() => setDetalle(true)} title="Ver perfil / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(sel.etapa)}{sel.estrategia ? ` · ${objetivos.find((o) => o.value === sel.estrategia!.objetivo)?.label ?? sel.estrategia.objetivo}` : ' · sin estrategia definida'} · toca para {rolAdmin ? 'editar' : 'ver'}</div>
-                </div>
-              </button>
-              {/* La secuencia ya se reprodujo sola al entrar. Esto es para
-                  volver a verla desde el principio después de haber chateado,
-                  no para arrancarla: por eso es un ícono discreto y no la
-                  acción principal de la pantalla. */}
-              <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
-                style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
-              <button type="button" onClick={() => setDetalle(true)} title="Perfil de la secuencia de mensajes"
-                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
-            </div>
-          )}
-        />
-      ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elige una secuencia de mensajes.</div>
+  return (
+    // ⚠️ `--cartera-max: none` ES LO QUE HACE QUE LA GRILLA OCUPE LA TAB. `.cl-grid`
+    // trae `max-width: var(--cartera-max)` + `margin: 0 auto` —el tope de la cartera de
+    // clientes, que es de donde viene el componente—, y acá eso la dejaba en 1180 de
+    // 1460 px, centrada: justo «la grilla chiquita en el medio» que Martín marcó. El
+    // token es el escape que el propio componente documenta para este caso.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, ['--cartera-max' as string]: 'none' } as CSSProperties}>
+      {/* El buscador sólo cuando hay suficientes como para buscar: con tres secuencias
+          es un control que no resuelve nada y ocupa el lugar del trabajo. */}
+      {secuencias.length > 6 && (
+        <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar secuencia…"
+          style={{ maxWidth: 340, boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
       )}
+
+      {lista.length === 0
+        ? <div style={{ color: 'var(--faint)', fontSize: 13.5 }}>Ninguna secuencia coincide.</div>
+        : (
+          <GrillaTarjetas>
+            {rolAdmin && <TarjetaNueva label="Nueva secuencia de mensajes" onClick={() => onWizard('nueva')} />}
+            {lista.map((j) => {
+              const wa = j.pasos.filter((p) => p.canal === 'whatsapp').length;
+              const email = j.pasos.filter((p) => p.canal === 'email').length;
+              return (
+                <TarjetaEntidad
+                  key={j.id}
+                  nombre={j.nombre}
+                  color={colorDe(j.nombre)}
+                  bajada={<>{emojiSecuencia(j)} {etiquetaEtapa(j.etapa)}</>}
+                  chips={(
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: j.activa ? 'var(--good)' : 'var(--faint)' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)' }} />
+                      {j.activa ? 'Activa' : 'Pausada'}
+                    </span>
+                  )}
+                  pie={<PieNumeros datos={[{ v: wa, k: 'WhatsApp' }, { v: email, k: 'email' }, { v: j.inscriptos, k: 'inscriptos' }]} />}
+                  acciones={(
+                    // PROBAR es lo único que abre el chat, que es lo que pidió Martín.
+                    <button type="button" onClick={() => { setSelId(j.id); setModo('chat'); }}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Probar
+                    </button>
+                  )}
+                  onAbrir={() => { setSelId(j.id); setModo('editor'); }}
+                  etiqueta={`Editar ${j.nombre}`}
+                />
+              );
+            })}
+          </GrillaTarjetas>
+        )}
     </div>
   );
 }

@@ -21,15 +21,11 @@ import { Icon } from '@/app/_components/icons';
 // next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
 // en vez del que está mirando.
 import Link from '@/app/_ui/Link';
-import { Dropdown } from '../components/Dropdown';
 import { SecuenciaWizard } from './SecuenciaWizard';
-import { SimuladorWhatsApp, emojiSecuencia } from './SimuladorWhatsApp';
-import { SimuladorEmail } from './SimuladorEmail';
-import { DashboardChatAgent } from './DashboardChatAgent';
+import { SimuladorWhatsApp } from './SimuladorWhatsApp';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 import { OnboardingChatAgent } from './OnboardingChatAgent';
 // Vive en app/whatsapp porque nacio ahi; lo que se mudo es DONDE se muestra.
-import { PlantillasPanel } from '../whatsapp/PlantillasPanel';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -105,7 +101,6 @@ export function ChatAgentApp() {
 
 function ChatAgentInner() {
   const [secuencias, setSecuencias] = useState<SecuenciaDto[] | null>(null);
-  const [serie, setSerie] = useState<PuntoSerie[]>([]);
   const [rolAdmin, setRolAdmin] = useState(false);
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
   const [etapas, setEtapas] = useState<Opcion[]>([]);
@@ -120,15 +115,7 @@ function ChatAgentInner() {
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [negocio, setNegocio] = useState('');
   const [error, setError] = useState<string | null>(null);
-  // «plantillas» llego el 25/09 desde /whatsapp: las de Meta son parte de la automatizacion
-  // (un paso oficial no sale sin una plantilla aprobada), no de la bandeja de conversaciones.
-  const [vista, setVista] = useState<'whatsapp' | 'email' | 'plantillas' | 'dashboard'>('whatsapp');
-  // ?tpl=<nombre>: el aviso manda a UNA plantilla (ej. la que Meta rechazo).
-  const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null);
-  // Lo que el asesor del inbox venía diciendo y se perdía al cambiar de pantalla.
-  const [plantillaSeed, setPlantillaSeed] = useState<{ objetivo: string; etapa: string } | null>(null);
   const [audios, setAudios] = useState<AudioSetting[]>([]);
-  const [emailSecuenciaId, setEmailSecuenciaId] = useState<number | null>(null);
   // Wizard: null = cerrado; 'nueva' = secuencia nueva; number = definir sobre esa secuencia.
   const [wizard, setWizard] = useState<null | 'nueva' | number>(null);
   // Onboarding de la tab (regla: toda tab tiene onboarding). null = todavía no
@@ -148,38 +135,18 @@ function ChatAgentInner() {
   // momentaneo mandaba a re-escanear un QR que no hacia falta.
   const canalCaido = canal.estado === 'desconectado' || canal.estado === 'sin_vincular';
 
-  // Archiva TODAS las secuencias vigentes: la salida para el dueño que se
-  // encontró con las sembradas y quiere arrancar de cero. No borra (las
-  // inscripciones y los envíos las referencian) y se puede deshacer.
-  const [archivando, setArchivando] = useState(false);
-  async function archivarTodas() {
-    if (archivando) return;
-    setArchivando(true);
-    try {
-      const r = await fetch('/api/chat-agent/secuencias', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'archivar' }),
-      });
-      const j = await r.json();
-      if (!j.ok) { setError(j.error || 'No se pudieron archivar.'); return; }
-      await load();
-    } catch { setError('Sin conexión — vuelve a intentarlo.'); }
-    finally { setArchivando(false); }
-  }
-
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'No se pudieron cargar las secuencias de mensajes.'); setSecuencias([]); return; }
       const lista = j.secuencias as SecuenciaDto[];
-      setSecuencias(lista); setSerie(j.serie ?? []); setRolAdmin(Boolean(j.rolAdmin));
+      setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
       setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
       setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
-      setEmailSecuenciaId((prev) => (prev != null && lista.some((x) => x.id === prev) ? prev : (lista.find((x) => x.pasos.some((p) => p.canal === 'email'))?.id ?? lista[0]?.id ?? null)));
       setError(null);
     } catch {
       setError('Sin conexión — recarga la página.'); setSecuencias([]);
@@ -231,18 +198,11 @@ function ChatAgentInner() {
     const cambio = q !== ultimaQuery.current;
     ultimaQuery.current = q;
     if (anclaAplicada.current && !cambio) return;
-    const stab = params.get('stab');
-    if (stab === 'whatsapp' || stab === 'email' || stab === 'plantillas' || stab === 'dashboard') setVista(stab);
-    if (stab === 'plantillas') {
-      setPlantillaTarget(params.get('tpl'));
-      // El asesor del inbox manda su diagnóstico (objetivo + etapa) para que MaKo redacte
-      // la plantilla con eso. Sin esto, «redactar plantilla con MaKo» abría el redactor
-      // vacío y el diagnóstico se tiraba a la basura.
-      const obj = params.get('obj');
-      const etapa = params.get('etapa');
-      setPlantillaSeed(obj || etapa ? { objetivo: obj ?? '', etapa: etapa ?? '' } : null);
-    }
-
+    // ⚠️ `?stab=` YA NO ELIGE NADA: las cuatro sub-tabs se fueron el 05/10 y la tab es
+    // UNA sola pantalla. Los links viejos (`?stab=plantillas`, `?stab=dashboard`) caen
+    // acá y abren el Chatbot, que es lo correcto: un parámetro que ya no existe no
+    // puede dejar la pantalla en blanco. Las plantillas de Meta viven en /whatsapp y
+    // los números en /chat-analyst.
     const sec = params.get('sec');
     if (!sec) { anclaAplicada.current = true; return; }
     // Hay que esperar a que carguen: sin la lista no se puede resolver ni la
@@ -265,10 +225,6 @@ function ChatAgentInner() {
     (key: string) => etapas.find((e) => e.value === key)?.label ?? ETAPA_LABEL[key] ?? key,
     [etapas],
   );
-  const emailSecuencia = (secuencias ?? []).find((j) => j.id === emailSecuenciaId) ?? null;
-
-  const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-ink)' };
-  const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
 
   // Mientras no sabemos si va el onboarding o la tab, NO se pinta ninguna de
   // las dos: mostrar la tab y reemplazarla medio segundo después por el wizard
@@ -282,7 +238,7 @@ function ChatAgentInner() {
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
         <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
         <span style={{ width: 34, height: 34, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
-        <span style={{ fontSize: 14, color: 'var(--dim)' }}>Abriendo tu Chat Agent…</span>
+        <span style={{ fontSize: 14, color: 'var(--dim)' }}>Abriendo tu Chatbot…</span>
       </main>
     );
   }
@@ -305,40 +261,26 @@ function ChatAgentInner() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto', padding: '30px 36px 40px' }}>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 18 }}>
-        <div>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 7px', color: 'var(--ink)' }}>
-            <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="tag" size={34} /></span>
-            Chat Agent
-          </h1>
-          <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
-            Tus <strong style={{ color: 'var(--ink)' }}>secuencias</strong>: pruébalas como el lead, chatea con MaKo-setter y mira cómo rinden.
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: 4, gap: 4 }}>
-            <button onClick={() => setVista('whatsapp')} style={vista === 'whatsapp' ? tabActive : tabIdle}>WhatsApp</button>
-            <button onClick={() => setVista('email')} style={vista === 'email' ? tabActive : tabIdle}>Email</button>
-            <button onClick={() => setVista('plantillas')} style={vista === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
-            <button onClick={() => setVista('dashboard')} style={vista === 'dashboard' ? tabActive : tabIdle}>Dashboard</button>
-          </div>
-          {/* Antes se escondía justo en la vista WhatsApp, que es la vista por
-              defecto: había que irse a otra sub-tab para poder crear una. */}
-          {rolAdmin && (
-            <button onClick={() => setWizard('nueva')} style={btnDark}>+ Nueva secuencia de mensajes</button>
-          )}
-          {/* Salida para quien se encontró con las secuencias que el sistema
-              sembraba solo: las saca de en medio sin borrarlas. */}
-          {rolAdmin && (secuencias?.length ?? 0) > 0 && (
-            <button
-              onClick={() => void archivarTodas()} disabled={archivando}
-              title="Las saca de la lista sin borrarlas: el historial de envíos se conserva"
-              style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, cursor: archivando ? 'default' : 'pointer', textDecoration: 'underline' }}
-            >
-              {archivando ? 'Archivando…' : 'Archivar todas y empezar de cero'}
-            </button>
-          )}
-        </div>
+      {/* ⚠️ EL ENCABEZADO SE DESARMÓ EL 05/10/2026, y lo que se fue no fue por estética
+          (Martín, textual): «Elimina las pestañas, ya no hay "Email" si todo se crea en
+          un mismo lugar… Ya no hay plantillas si todo es lo mismo… Y la pestaña de
+          dashboard ponlo en una nueva ruta dentro de "Analysts"», «Elimina el botón
+          grande de "Nueva secuencia", si ya tenemos otro para eso… elimina lo de
+          "Archivar todo…", elimina "Tus secuencias: pruébalas como el lead…"».
+
+          Las cuatro sub-tabs partían UNA cosa en cuatro pantallas: el email y el
+          WhatsApp son dos canales de la MISMA secuencia y se arman en el mismo lienzo,
+          las plantillas de Meta son del canal oficial —que ya no gobierna este editor—
+          y los números son otra pregunta, así que viven en /chat-analyst.
+
+          Y los dos botones de la derecha: el de crear ya está en la grilla (la tarjeta
+          punteada), y «Archivar todas» era una salida de emergencia para las secuencias
+          que el sistema sembraba solo, que hace rato no se siembran. */}
+      <header style={{ marginBottom: 18 }}>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="tag" size={34} /></span>
+          Chatbot
+        </h1>
       </header>
 
       {/* Qué etapas de nutrición quedaron sin secuencia. MaKo conoce el funnel
@@ -385,14 +327,28 @@ function ChatAgentInner() {
 
       {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
 
+      {/* ⚠️ ERA UNA BANDA ÁMBAR CON LAS SEIS ETAPAS ENUMERADAS Y UN BOTÓN NEGRO, y
+          ocupaba más que el trabajo. Martín: «Haz que "Hay 6 etapas sin secuencia de
+          mensajes:" sea mucho más sutil».
+
+          Lo que el aviso tiene que decir sigue estando —cuántas etapas no reciben nada,
+          y cuáles— pero en un renglón: el número y el detalle en el `title`, que es
+          donde el largo no ocupa lugar. Un hueco no es un error: es trabajo que falta. */}
       {rolAdmin && huecos.length > 0 && (
-        <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '11px 15px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13.5, color: 'var(--ink)', flex: 1, minWidth: 240, lineHeight: 1.55 }}>
+        <div
+          title={huecos.map((h) => h.label).join(', ')}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 12.5, color: 'var(--faint)' }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
+          <span>
             {huecos.length === 1
-              ? <>La etapa <strong>{huecos[0].label}</strong> no tiene una secuencia de mensajes: los leads que caen ahí no reciben nada.</>
-              : <>Hay <strong>{huecos.length} etapas</strong> sin secuencia de mensajes: {huecos.map((h) => h.label).join(', ')}. Los leads que caen ahí no reciben nada.</>}
+              ? <>{huecos[0].label} no tiene secuencia</>
+              : <>{huecos.length} etapas sin secuencia</>}
           </span>
-          <button onClick={() => setWizard('nueva')} style={{ ...btnDark, flex: 'none' }}>Armar una</button>
+          <button onClick={() => setWizard('nueva')}
+            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
+            Armar una
+          </button>
         </div>
       )}
 
@@ -409,47 +365,13 @@ function ChatAgentInner() {
         </div>
       )}
 
-      {/* La biblioteca de audios no depende de que existan secuencias. */}
-
-      {/* Las plantillas de Meta TAMPOCO: vienen de /whatsapp, donde se montaban sueltas. Un
-          workspace sin secuencias (o que apretó «Archivar todas») tocaba «Plantillas» y no
-          se pintaba nada — un botón que no hace nada es peor que no tenerlo. */}
-      {vista === 'plantillas' && (
-        <PlantillasPanel initialSelect={plantillaTarget} makoSeed={plantillaSeed} onMakoSeedApplied={() => setPlantillaSeed(null)} />
-      )}
 
       {secuencias !== null && secuencias.length > 0 && (
-        <>
-          {vista === 'whatsapp' && (
-            <SimuladorWhatsApp
-              secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
-              negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-              onWizard={(id) => setWizard(id)} onReload={() => void load()}
-            />
-          )}
-
-          {vista === 'email' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', color: 'var(--faint)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600 }}>Secuencia de mensajes</span>
-                <Dropdown
-                  value={emailSecuenciaId != null ? String(emailSecuenciaId) : ''}
-                  onChange={(v) => setEmailSecuenciaId(Number(v))}
-                  width="340px"
-                  ariaLabel="Elegir secuencia"
-                  options={secuencias.map((j) => ({ value: String(j.id), label: `${emojiSecuencia(j)} ${j.nombre} · ${etiquetaEtapa(j.etapa)}` }))}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
-                <SimuladorEmail secuencia={emailSecuencia} nombreNegocio={negocio} />
-              </div>
-            </div>
-          )}
-
-          {vista === 'dashboard' && (
-            <DashboardChatAgent secuencias={secuencias} serie={serie} etiquetaEtapa={etiquetaEtapa} />
-          )}
-        </>
+        <SimuladorWhatsApp
+          secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
+          negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
+          onWizard={(id) => setWizard(id)} onReload={() => void load()}
+        />
       )}
 
       {wizard !== null && (
@@ -470,7 +392,7 @@ function ChatAgentInner() {
 }
 
 /**
- * Primera pantalla del Chat Agent cuando no hay NADA configurado: en vez de
+ * Primera pantalla del Chatbot cuando no hay NADA configurado: en vez de
  * empujar los 11 pasos, se pregunta por dónde arrancar. Cada opción es un
  * recorrido real (lib/tab-onboarding-state.ts) y comparten los pasos, así que
  * elegir "solo WhatsApp" hoy y "todo" mañana no repite lo ya hecho.
@@ -487,7 +409,7 @@ function ElegirRecorrido({ onElegir, onSaltar }: {
   return (
     <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
       <div style={{ width: '100%', maxWidth: 560, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 12 }}>✦ Chat Agent</div>
+        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 12 }}>✦ Chatbot</div>
         <h1 style={{ fontWeight: 700, fontSize: 30, letterSpacing: '-0.025em', color: 'var(--ink)', margin: '0 0 8px' }}>¿Por dónde arrancamos?</h1>
         <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 26px', lineHeight: 1.55 }}>Puedes configurarlo todo de una vez o avanzar canal por canal. Lo que completes ahora no se vuelve a pedir.</p>
 

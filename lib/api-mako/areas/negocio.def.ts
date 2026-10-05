@@ -122,7 +122,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_tabs_por_configurar', area: 'negocio', tipo: 'lectura',
     titulo: 'Tabs que faltan configurar',
-    descripcion: 'Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Chat Agent, Instagram, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.',
+    descripcion: 'Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Chatbot, Instagram, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
@@ -170,7 +170,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_personalidad_voz', area: 'negocio', tipo: 'lectura',
     titulo: 'Personalidad de voz de marca',
-    descripcion: 'Cómo suena la marca según el quiz de personalidad: por cada pregunta contestada, la dimensión, el rasgo elegido y la frase de ejemplo; las muletillas; cuántas preguntas están contestadas de cuántas y si el quiz está completo. Úsala antes de escribir copy con la voz del negocio. Es distinta de guia_voz_negocio (la voz del Chat Agent destilada de conversaciones).',
+    descripcion: 'Cómo suena la marca según el quiz de personalidad: por cada pregunta contestada, la dimensión, el rasgo elegido y la frase de ejemplo; las muletillas; cuántas preguntas están contestadas de cuántas y si el quiz está completo. Úsala antes de escribir copy con la voz del negocio. Es distinta de guia_voz_negocio (la voz del Chatbot destilada de conversaciones).',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'ads-writer', rolMinimo: 'admin' },
   },

@@ -3,7 +3,7 @@
 // =============================================================================
 // DatosDeMau — traer (y devolver) el pedazo de Mau que corresponde a este lugar
 // =============================================================================
-// En el Archivero trae documentos, en el CRM leads, en el Chat Agent secuencias.
+// En el Archivero trae documentos, en el CRM leads, en el Chatbot secuencias.
 // Nunca "todo": para eso está el botón de completar el onboarding entero.
 //
 // Se pinta solo si la API dice que corresponde (super-admin de la agencia,

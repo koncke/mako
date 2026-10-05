@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// OnboardingChatAgent — el recorrido que deja la tab Chat Agent lista
+// OnboardingChatAgent — el recorrido que deja la tab Chatbot lista
 // =============================================================================
 // Aplica la metodología de .claude/skills/tab-onboarding (Conectar → Contexto →
 // Ensayo) con el MISMO chrome que el onboarding global (WizardShell fullscreen +
@@ -1031,7 +1031,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     <WizardShell
       fullscreen
       embebido
-      titulo={def?.titulo ?? 'Chat Agent'}
+      titulo={def?.titulo ?? 'Chatbot'}
       total={def?.pasos.length ?? 5}
       idx={idx}
       // En la vista de preguntas el título es la PREGUNTA: es lo que hay que
@@ -1056,7 +1056,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
-      confirmLabel="Listo, entrar al Chat Agent"
+      confirmLabel="Listo, entrar al Chatbot"
       // En el ensayo el pie no "pasa": CIERRA el caso y lo guarda. Decirlo es lo
       // que evita que se lea como saltearlo.
       siguienteLabel={pasoKey === 'ensayo' && !ensayoTerminado ? labelEnsayo : undefined}
@@ -1108,7 +1108,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           )}
         </div>
       )}
-      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chat Agent" slides={slides} eyebrow="✦ Dejemos tu Chat Agent listo" />}
+      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chatbot" slides={slides} eyebrow="✦ Dejemos tu Chatbot listo" />}
     >
       {/* WHATSAPP NO OFICIAL — el QR se genera y se escanea en este mismo paso */}
       {pasoKey === 'wa_no_oficial' && (
@@ -1717,12 +1717,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
               ))}
 
               <div style={okBox}>
-                Quedaron <strong>pausadas</strong>. No sale nada a ningún lead hasta que las actives desde el Chat Agent.
+                Quedaron <strong>pausadas</strong>. No sale nada a ningún lead hasta que las actives desde el Chatbot.
               </div>
 
               {resumen.huecos.length > 0 && (
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.55, textAlign: 'left' }}>
-                  Te faltan secuencias para {resumen.huecos.length === 1 ? 'la etapa' : 'las etapas'} {resumen.huecos.map((h) => h.label).join(', ')}. Las puedes armar desde el Chat Agent cuando quieras.
+                  Te faltan secuencias para {resumen.huecos.length === 1 ? 'la etapa' : 'las etapas'} {resumen.huecos.map((h) => h.label).join(', ')}. Las puedes armar desde el Chatbot cuando quieras.
                 </div>
               )}
             </>

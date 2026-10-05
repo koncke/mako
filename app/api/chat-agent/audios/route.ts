@@ -1,5 +1,5 @@
 // =============================================================================
-// API: biblioteca de notas de voz del Chat Agent (mig 0108)
+// API: biblioteca de notas de voz del Chatbot (mig 0108)
 // =============================================================================
 // GET    → { audios, porClave, linkVideo }
 // POST   → { titulo, base64, mime, duracionS, clave? } → sube y transcribe

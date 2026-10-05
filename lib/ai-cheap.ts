@@ -448,7 +448,7 @@ const tokensAprox = (texto: string): number => Math.ceil(texto.length / 3.5);
 // sin tener que cambiar cómo usa el string que ya devuelve chatCheapCascade.
 // `temperature` es opcional y por default sigue siendo la de chatCheap (0.2), que
 // es la correcta para extraer y clasificar. Existe porque hay un caller que NO
-// hace eso: el ensayo del Chat Agent, donde el modelo interpreta a un lead. Con
+// hace eso: el ensayo del Chatbot, donde el modelo interpreta a un lead. Con
 // 0.2 se pegaba a la salida más probable y repetía la misma objeción turno tras
 // turno, hasta copiar literalmente las frases de ejemplo del prompt.
 export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato }): Promise<string> {

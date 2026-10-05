@@ -1,5 +1,5 @@
 // =============================================================================
-// Los ESCENARIOS del ensayo del onboarding del Chat Agent
+// Los ESCENARIOS del ensayo del onboarding del Chatbot
 // =============================================================================
 // El ensayo dejó de ser "un chat" para ser una serie de casos con nombre. El
 // motivo es concreto: cuando la IA elegía la situación Y redactaba el primer

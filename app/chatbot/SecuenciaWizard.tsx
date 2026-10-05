@@ -277,7 +277,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
       onConfirmar={avanzar}
       onClose={onClose}
       extraFooter={<button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>}
-      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chat Agent" slides={slides} eyebrow="✦ Armemos tu secuencia" />}
+      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chatbot" slides={slides} eyebrow="✦ Armemos tu secuencia" />}
     >
       {/* ① a quién */}
       {pasoKey === 'quien' && (

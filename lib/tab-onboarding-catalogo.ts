@@ -79,7 +79,7 @@ export type TabOnboardingDef = {
 export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // ── WhatsApp: conectar y probar los dos métodos ──
   // Vive en su tab porque es donde el cliente llega buscando WhatsApp. Los
-  // mismos pasos aparecen dentro del Chat Agent cuando elige "configurar todo":
+  // mismos pasos aparecen dentro del Chatbot cuando elige "configurar todo":
   // no se repiten, se comparten (ver PASOS_COMPARTIDOS).
   whatsapp: {
     key: 'whatsapp',
@@ -101,22 +101,22 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     titulo: 'Configuración del email',
     nombre: 'Email',
     // Acá NO son opcionales: son los únicos pasos de la tab. Lo son dentro del
-    // Chat Agent, donde el email es una mejora sobre un canal que ya funciona.
+    // Chatbot, donde el email es una mejora sobre un canal que ya funciona.
     pasos: [
       { key: 'email_conectar', label: 'Tu email' },
       { key: 'email_prueba', label: 'Verificación del email' },
     ],
   },
 
-  // ── Chat Agent: la cabeza. Necesita al menos un canal vivo ──
+  // ── Chatbot: la cabeza. Necesita al menos un canal vivo ──
   // ORDEN (regla en .claude/skills/tab-onboarding): lo aburrido al final,
   // EXCEPTO lo que bloquea. El WhatsApp de empresa sí bloquea: el paso de
   // contexto lee las conversaciones reales de ese número, así que sin él no hay
   // nada que leer.
   setting: {
     key: 'setting',
-    titulo: 'Configuración del Chat Agent',
-    nombre: 'Chat Agent',
+    titulo: 'Configuración del Chatbot',
+    nombre: 'Chatbot',
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
       { key: 'wa_no_oficial_prueba', label: 'Verificación' },
@@ -163,7 +163,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       // impedir.
       //
       // Medido el 03/09/2026: el ws11 tiene `instagram.contexto` con el timestamp
-      // 2026-08-10T20:36:51.948Z, y el `contexto` del Chat Agent con
+      // 2026-08-10T20:36:51.948Z, y el `contexto` del Chatbot con
       // 2026-08-10T20:36:52.603Z — 0,6 s después. Lo marcó /chatbot. El ws13 está
       // igual.
       //
@@ -183,7 +183,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // marca solo desde la primera pieza generada (patrón landing-an: la tab se
   // configura usándola).
   // ⚠️ Keys con prefijo `carousels_` a propósito: 'contexto'/'ensayo' a secas
-  // COLISIONAN vía KEY_PASOS_COMPARTIDOS con el Chat Agent y con Instagram
+  // COLISIONAN vía KEY_PASOS_COMPARTIDOS con el Chatbot y con Instagram
   // (gotcha conocido, ver el def de instagram) — un paso que NO es la misma
   // configuración no comparte key.
   carousels: {
@@ -272,7 +272,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // inferencia de la zona horaria, que es lo que se venía usando en silencio.
   //
   // ⚠️ Keys con prefijo `vg_` a propósito: `contexto`/`ensayo` pelados COLISIONAN
-  // vía KEY_PASOS_COMPARTIDOS con el Chat Agent y con Instagram (gotcha ya
+  // vía KEY_PASOS_COMPARTIDOS con el Chatbot y con Instagram (gotcha ya
   // documentado arriba) — un paso que no es la misma configuración no comparte
   // key.
   'video-generator': {
@@ -349,8 +349,8 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // NUNCA lo marca por su cuenta (se deriva del estado vivo de /instagram).
   // Los otros dos pasos van namespaced (stories_*) adrede: unos `contexto` /
   // `ensayo` pelados colisionarían vía el registro compartido con instagram y
-  // con el Chat Agent, y terminar el ensayo de Stories marcaría «Ensayo de
-  // conversación» del Chat Agent como hecho (el gotcha ya documentado de
+  // con el Chatbot, y terminar el ensayo de Stories marcaría «Ensayo de
+  // conversación» del Chatbot como hecho (el gotcha ya documentado de
   // KEY_PASOS_COMPARTIDOS).
   stories: {
     key: 'stories',

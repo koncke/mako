@@ -29,7 +29,7 @@
 //
 // Dos parejas que conviene no confundir, porque son la razón del reparto:
 //   · Ads Manager (Operate) EJECUTA · Ads Analyst (Analyze) COMPRENDE.
-//   · Chat Agent (Create) se configura y se entrena · WhatsApp/Email (Operate)
+//   · Chatbot (Create) se configura y se entrena · WhatsApp/Email (Operate)
 //     es la conversación de todos los días.
 //
 // ⚠️ Las `key` son contrato: `tabEnCapa()` (lib/capas.ts) y el estado del

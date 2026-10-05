@@ -16,7 +16,7 @@
 // automático muere en el guard de ventana de lib/ig-chatbot.ts).
 //
 // Guard de rol: enviar un DM a un lead real es una acción outward-facing —
-// admin y setter, igual que el simulador del Chat Agent.
+// admin y setter, igual que el simulador del Chatbot.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';

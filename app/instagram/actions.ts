@@ -225,7 +225,7 @@ Devuelve SOLO el texto del mensaje, sin comillas ni encabezados.`;
 /**
  * Ensayo del onboarding: un DM simulado → el borrador que MaKo redactaría.
  * Corre en IA barata (cascada gratis) — mismo criterio que el simulador del
- * Chat Agent, porque en producción esto corre en cada mensaje entrante.
+ * Chatbot, porque en producción esto corre en cada mensaje entrante.
  */
 export async function ensayoDmAction(mensaje: string): Promise<{ ok: true; respuesta: string } | { ok: false; error: string }> {
   const ctx = await ctxAdmin();

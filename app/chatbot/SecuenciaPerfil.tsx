@@ -35,7 +35,7 @@ const lineas = (s: string): string[] => s.split(/\r?\n/).map((x) => x.trim()).fi
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onClose, onCambio, onWizard }: {
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onProbar, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver el «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -44,6 +44,9 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   /** Las etiquetas de los 18 disparadores, para decir la verdad del que tiene puesto. */
   disparadores: Opcion[];
   onAbrirClave: (clave: string) => void;
+  /** Abre el CHAT de prueba. Lo decide quien monta: desde la grilla el chat es una
+   *  vista hermana, no un panel de adentro del editor. */
+  onProbar?: () => void;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
   rolAdmin: boolean;
@@ -334,6 +337,9 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
       {/* Topbar fija (no scrollea) — patrón TemplateDetalleModal */}
       <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
         <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver al chat</button>
+        {onProbar && (
+          <button onClick={onProbar} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', marginRight: 16, fontFamily: 'inherit' }}>▶ Probar como el lead</button>
+        )}
         {rolAdmin && <button onClick={probar} disabled={busy === 'probar'} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'probar' ? 0.5 : 1 }}>{busy === 'probar' ? 'Enviando…' : '📲 Probar de verdad (te llega a ti)'}</button>}
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 24 }}>

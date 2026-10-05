@@ -1,5 +1,5 @@
 // =============================================================================
-// API: ensayo del onboarding del Chat Agent — MaKo hace de CLIENTE
+// API: ensayo del onboarding del Chatbot — MaKo hace de CLIENTE
 // =============================================================================
 // El usuario no escribe su secuencia: la DESCUBRE respondiendo. MaKo se pone en
 // el papel de un lead real y el dueño contesta como contestaría de verdad.

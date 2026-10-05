@@ -3,7 +3,7 @@
 // =============================================================================
 // OnboardingCanalWhatsApp — el tramo de WhatsApp, en su propia tab
 // =============================================================================
-// Es el MISMO wizard del Chat Agent, con la lista de pasos de la tab whatsapp
+// Es el MISMO wizard del Chatbot, con la lista de pasos de la tab whatsapp
 // (conectar el número de empresa, probar que llega, y el oficial si lo quiere).
 // No es una copia: el componente está parametrizado por tab y los pasos se
 // comparten, así que escanear el QR acá lo da por hecho también allá.

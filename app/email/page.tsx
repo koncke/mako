@@ -21,7 +21,7 @@ export default async function Page() {
   const tabEmail = tabActivacion('email');
   if (tabEmail && !(await integracionConectada('email'))) return <PanelActivacion tab={tabEmail} />;
   // Email tiene onboarding PROPIO (conectar el dominio y probar que llega). Se
-  // renderiza acá; sus pasos se comparten con el Chat Agent.
+  // renderiza acá; sus pasos se comparten con el Chatbot.
   if (await onboardingTabPendiente('email')) return <OnboardingCanalEmail />;
   return <EmailApp />;
 }

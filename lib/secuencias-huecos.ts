@@ -5,7 +5,7 @@
 // vale la pena explicarlo: antes, al crear un workspace —y en CADA corrida del
 // cron— se creaban ~23 secuencias de relleno con copy tipo [placeholder]. La
 // intención era buena (que nadie arranque con la pantalla vacía), pero el efecto
-// era el contrario: el dueño entraba a su Chat Agent y encontraba dos docenas de
+// era el contrario: el dueño entraba a su Chatbot y encontraba dos docenas de
 // secuencias que no escribió, no reconocía y no sabía si estaban enviando algo.
 // Lo primero que hacía era desconfiar de todas, incluidas las suyas.
 //

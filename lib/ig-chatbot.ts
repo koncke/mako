@@ -1,5 +1,5 @@
 // =============================================================================
-// ig-chatbot — el puente entre los DMs de Instagram (Zernio) y el Chat Agent
+// ig-chatbot — el puente entre los DMs de Instagram (Zernio) y el Chatbot
 // =============================================================================
 // Replica el camino asistido de WhatsApp (asistirRespuesta, lib/nutricion.ts):
 // al mensaje entrante, PRIMERO clasificarEscenario (hand-off fail-closed: si el

@@ -41,7 +41,7 @@ import { TAB_ONBOARDINGS, type TabOnboardingDef } from './tab-onboarding-catalog
 
 /**
  * Los pasos que aparecen en más de un onboarding. Conectar el WhatsApp desde la
- * tab WhatsApp tiene que contar también adentro del Chat Agent: es el MISMO
+ * tab WhatsApp tiene que contar también adentro del Chatbot: es el MISMO
  * número, no dos configuraciones. Por eso, además del estado por tab, cada paso
  * hecho se anota en un registro compartido del workspace y al leer se cruzan
  * los dos. Sin esto, el cliente escanearía el mismo QR dos veces.

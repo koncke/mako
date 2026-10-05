@@ -3,9 +3,9 @@
 // =============================================================================
 // OnboardingCanalEmail — el tramo de email, en su propia tab
 // =============================================================================
-// Mismo wizard del Chat Agent con los pasos de la tab email (conectar el
+// Mismo wizard del Chatbot con los pasos de la tab email (conectar el
 // dominio y probar que el correo llega). Los pasos se comparten: hacerlo acá
-// también lo deja hecho adentro del Chat Agent.
+// también lo deja hecho adentro del Chatbot.
 
 import { useRouter } from '@/app/_ui/Link';
 import { OnboardingChatAgent } from '../chatbot/OnboardingChatAgent';

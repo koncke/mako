@@ -1,5 +1,5 @@
 // =============================================================================
-// API: contexto del onboarding del Chat Agent — leer CÓMO VENDE el negocio
+// API: contexto del onboarding del Chatbot — leer CÓMO VENDE el negocio
 // =============================================================================
 // Principio de baja fricción: no se le pide al dueño que redacte cómo habla con
 // sus clientes; se lee de sus PROPIAS conversaciones. Pero leer todo lo que

@@ -3,7 +3,7 @@
 // =============================================================================
 // Parte 3 del rediseño (tarea #520). El diagnóstico del documento: «La
 // inteligencia de MaKo aparece fragmentada. Retro, Second Brain, Perro Guardián,
-// Semáforo, Chat Agent, Pregúntale a MaKo y recomendaciones analíticas no
+// Semáforo, Chatbot, Pregúntale a MaKo y recomendaciones analíticas no
 // comparten todavía una gramática única».
 //
 // Medido sobre el repo antes de escribir esto: 35 archivos resuelven por su

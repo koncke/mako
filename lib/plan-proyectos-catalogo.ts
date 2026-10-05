@@ -70,7 +70,7 @@ export const PREFIJO_CLIENTE = 'Cliente: ';
 /**
  * Los que TRABAJAN SOLOS. Un agente no es una pantalla que abrís: es una IA que
  * decide y ejecuta sin que se lo pidas — el Perro puntúa cuando entran tareas, el
- * Doer actúa cuando le hablás por WhatsApp, el Chat Agent nutre por su cuenta.
+ * Doer actúa cuando le hablás por WhatsApp, el Chatbot nutre por su cuenta.
  *
  * La frontera la fijó el dueño y es nítida: **si corre solo, es agente; si lo
  * abrís y lo usás, es feature.** Por eso los Analysts y los Generators —que son
@@ -192,7 +192,7 @@ const CRUDO: ProyectoCatalogo[] = [
   { nombre: 'Cierre automático', emoji: '✅', familia: 'agente', que: 'Mira el mundo real (los commits, las señales del producto) y propone cerrar lo que ya está hecho, con la evidencia. Otro criterio que el del Perro: aquel prioriza lo que entra, este cierra lo que salió.' },
   { nombre: 'MaKo Doer', emoji: '🤖', familia: 'agente', que: 'MaKo que ACTÚA por WhatsApp con el dueño: escucha audios, entiende el pedido, ejecuta con sus tools y confirma. NO es el chat dentro de la app («Feature: Preguntale a MaKo») ni el canal en sí («Feature: WhatsApp»).' },
   // Se llama como la TAB (nav.ts dice «Chatbot»), no como el módulo. En el tablero ya
-  // vivía así con 15 tareas: renombrarlo a «Chat Agent» habría abierto un segundo
+  // vivía así con 15 tareas: renombrarlo a «Chatbot» habría abierto un segundo
   // proyecto con el mismo trabajo adentro.
   { nombre: 'Chatbot', emoji: '💬', familia: 'agente', que: 'El agente que conversa con los LEADS solo: secuencias de nutrición, canales fríos, jugadas de setting, plantillas y las métricas de esa conversación.' },
   { nombre: 'CRM automático', emoji: '⚙️', familia: 'agente', que: 'El motor que mueve los leads de etapa SOLO, por sus reglas (T1..T6), sin que nadie arrastre una tarjeta. NO es la pantalla del CRM (esa es «Feature: CRM»): aquí va el criterio con el que decide mover, no la ficha ni la vista.' },
@@ -271,7 +271,7 @@ export const REGLA_NOMBRE_PROYECTO = `El nombre se entiende SOLO, en 1 a 4 palab
 
 EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUTA SOLO, se VENDE, o CRUZA todo?
 · «${PREFIJO_FEATURE}NOMBRE» → una PANTALLA o módulo del producto que el usuario abre y usa. «${PREFIJO_FEATURE}Facturación», igual que «${PREFIJO_FEATURE}CRM» o «${PREFIJO_FEATURE}Ads Manager». Los analistas y los generadores van aquí aunque usen IA: los disparas tú.
-· «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chat Agent». La prueba: si corre solo, es agente; si lo abres y lo usas, es feature.
+· «${PREFIJO_AGENTE}NOMBRE» → una IA que TRABAJA SOLA, sin que se lo pidas, y cuyo trabajo es su CRITERIO (cómo decide, sus prompts, sus reglas). «${PREFIJO_AGENTE}Perro Guardián», «${PREFIJO_AGENTE}Chatbot». La prueba: si corre solo, es agente; si lo abres y lo usas, es feature.
 · «Cliente: NOMBRE» → el trabajo que se hace PARA un cliente de la plataforma: su cuenta, su contenido, sus campañas, lo que se le entrega. «Cliente: Mauricio». La prueba: si el resultado lo usa SOLO ese cliente, es suyo; si lo van a tener todos, es producto y va a su tab.
 · SIN prefijo → un área del negocio ("Legal y fiscal", "Soporte"), algo transversal ("Seguridad y multi-inquilino") o el trabajo de vender ("Vender MaKo: Ads").
 

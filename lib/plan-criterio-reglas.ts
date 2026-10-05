@@ -167,7 +167,7 @@ const palabrasDe = (norm: string): { t: string[]; tr: string[] } => {
 };
 
 /**
- * Un pedazo, con la regla del Chat Agent: menos de 12 caracteres no prueba nada
+ * Un pedazo, con la regla del Chatbot: menos de 12 caracteres no prueba nada
  * («dale», «sí, claro»), y si el modelo le estiró el final, un prefijo largo alcanza.
  *
  * Y una tolerancia, medida el 17/9 en la sesión del anexo de Mauricio. Su compromiso nº 3
@@ -201,7 +201,7 @@ function pedazoVerificado(c: string, transcriptNorm: string): boolean {
 /**
  * ¿La cita está en la transcripción, palabra por palabra?
  *
- * Una diferencia con la del Chat Agent, medida: el modelo pega dos frases de la misma
+ * Una diferencia con la del Chatbot, medida: el modelo pega dos frases de la misma
  * intervención con «...» aunque el prompt le diga que no, y así se cayó a descartado un
  * compromiso REAL de la sesión del anexo de Mauricio (3/9). Se acepta si CADA pedazo entre
  * «...» aparece literal: sigue sin haber una sola palabra inventada. Uno que no aparece

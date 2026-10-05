@@ -160,7 +160,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'generar_borrador_dm_instagram', area: 'instagram', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Redactar respuesta a un DM',
-    descripcion: 'Pide a MaKo que redacte (o rehaga) el borrador de respuesta de una conversación cuyo último mensaje es del lead, con el mismo motor del Chat Agent: si el mensaje no encaja en la secuencia activa en modo asistido, no redacta y avisa al dueño. Reemplaza el borrador pendiente si ya había uno (el texto anterior se pierde). Nunca envía: con la auto-respuesta prendida y la ventana de 24 h abierta se niega, porque ahí la respuesta sale sola; para rehacerla hay que apagar antes la auto-respuesta (revisa config_instagram).',
+    descripcion: 'Pide a MaKo que redacte (o rehaga) el borrador de respuesta de una conversación cuyo último mensaje es del lead, con el mismo motor del Chatbot: si el mensaje no encaja en la secuencia activa en modo asistido, no redacta y avisa al dueño. Reemplaza el borrador pendiente si ya había uno (el texto anterior se pierde). Nunca envía: con la auto-respuesta prendida y la ventana de 24 h abierta se niega, porque ahí la respuesta sale sola; para rehacerla hay que apagar antes la auto-respuesta (revisa config_instagram).',
     escribe: 'crea o reemplaza el borrador en ig_mensajes y avisa al dueño; no envía el DM',
     parametros: [CONVERSACION_ID],
     canales: APP, costo: 'ia', lenta: true, gating: GATING,
