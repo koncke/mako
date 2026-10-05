@@ -305,4 +305,91 @@ export const BITACORA: Hito[] = [
       { sha: "6e2e9c25", msg: "Tres cosas que aparecieron al hacer que scrollee el contenido y no la pagina", lineas: 87, archivos: 4 },
     ],
   },
+  {
+    fecha: "5 oct", hora: "03:07", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El kanban de la ENTREGA de un servicio, y TODO por producto",
+    pedido: "si un CLIENTE actual llega a X etapa de mi SERVICIO (onboarding, hito 1, hito 2, o lo que sea que el usuario configure en su entrega de servicio\u2026). Todo por producto, siempre, justamente pueden tener muchos productos, por eso la instruccion es que repliques todo lo que creamos en el CRM",
+    puntos: [
+      "Es el pedido que funda la tab: las columnas son las etapas de la entrega de UN servicio y las tarjetas son los clientes. \u00abTodo por producto\u00bb es lo que decide el modelo entero \u2014 un cliente que compro la mentoria Y el servicio mensual aparece en los dos tableros, en la etapa que le toca en cada uno.",
+      "\u26a0\ufe0f Y lo que hubo que MEDIR para no equivocarse: la entrega NO es otro embudo del mismo producto. Era la hipotesis barata y esta medida como falsa \u2014 `leads.funnel_id` es UNA columna, un cliente ES un lead ganado, y las dos etapas son SIMULTANEAS (el mismo cliente es `ganado` en ventas y `hito2` en entrega al mismo tiempo), asi que meterlo en un embudo de entrega lo sacaria del tablero del CRM donde esta ganado. Y `leads.producto_id` tampoco sirve: es el producto con el que se CERRO, y es uno, y el pedido dice N.",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "04:42", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La capa de datos: un choke point de escritura, y lo que una FK en cascada envejecio sin que nadie la tocara",
+    puntos: [
+      "La mig 0188 trae `producto_entrega` (el catalogo de columnas de cada producto) y `cliente_entrega` (en que etapa esta cada cliente en cada producto), y TODA escritura pasa por `moverClienteDeEtapa` (`lib/cs-mover-etapa.ts`). El CRM no tenia un choke point para copiar \u2014 alla la etapa se DERIVA y el historial se audita por DIFF, y `app/crm/mover-etapa.ts`, que por su nombre parecia el camino de escritura, tiene 24 lineas.",
+      "\u26a0\ufe0f UN MOVIMIENTO IDEMPOTENTE QUE IGUAL ESCRIBE MIENTE SOBRE EL TIEMPO: pisar la fila resetea `etapa_desde`, o sea que un segundo click convierte un cliente trabado hace tres semanas en uno que acaba de llegar. Sale temprano antes de escribir.",
+      "\u26a0\ufe0f Y LA MITAD QUE UNA MIGRACION ENVEJECE SIN TOCARLA: `cliente_entrega.producto_id` es `on delete cascade`, asi que desde la 0188 borrar un producto se lleva la etapa de entrega de CADA cliente \u2014 y el resumen que una persona lee antes de confirmar `borrar_producto` seguia diciendo solo \u00abBorrar el producto X. No se puede deshacer\u00bb: verdadero y a la mitad. Al agregar una FK en cascada hay que grepear quien borra la fila PADRE y leer lo que esa pantalla le promete a quien confirma. El contador devuelve `number | null` y no reusa un `[]`: un \u00ab0 clientes\u00bb sobre una consulta caida es la afirmacion que hace apretar el boton.",
+    ],
+    commits: [
+      { sha: "cc15ad24", msg: "Entrega de servicio: el catalogo por producto y el choke point del kanban de CS", lineas: 1132, archivos: 10 },
+      { sha: "1e668734", msg: "Las secuencias de la ENTREGA: evento propio, ambito por PRODUCTO", lineas: 302, archivos: 10 },
+      { sha: "00e6a079", msg: "El kanban de la ENTREGA en /customer-success: por producto, con su editor de etapas", lineas: 1348, archivos: 13 },
+      { sha: "9a842cbb", msg: "La cabecera del choke point de entrega dice lo que ES, no lo que faltaba", lineas: 56, archivos: 1 },
+      { sha: "446ef9b5", msg: "Salir de una etapa de entrega CIERRA lo que esa etapa tenia agendado", lineas: 121, archivos: 3 },
+      { sha: "478090c6", msg: "Borrar un producto AVISA cuantos clientes pierden su etapa de entrega", lineas: 96, archivos: 4 },
+      { sha: "e9e8609b", msg: "Borrar una etapa avisa tambien las SECUENCIAS que quedan sin disparador", lineas: 5363, archivos: 6 },
+    ],
+    archivos: [
+      "supabase/migrations/0188_entrega_servicio.sql \u2014 las dos tablas, con el porque de que la entrega NO sea otro embudo en la cabecera",
+      "lib/servicio-etapas.ts \u2014 el catalogo PURO (sin `server-only`, para que la pantalla lo importe y los tests lo ejecuten)",
+      "lib/cs-mover-etapa.ts \u2014 el UNICO camino de escritura de `cliente_entrega`",
+      "lib/entrega-servicio.ts \u2014 las lecturas del server",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "09:06", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Fuera la vista de Tarjetas: el kanban es la de por defecto",
+    pedido: "No quiero que exista la vista de \u2018Tarjetas\u2019 es la vista de kanban por default y la otra es la vista de tabla. Solo que dentro del kanban, las tarjetas no son como las del CRM, son como las nuevas que hicimos, de clientes.",
+    puntos: [
+      "\u26a0\ufe0f LA TARJETA NO SE BORRO, CAMBIO DE LUGAR \u2014 y ahi estaba el problema: la hoja de estilos viajaba con la GRILLA y no con la tarjeta, asi que dibujarla adentro de una columna la deja sin banda, sin bordes y sin pie. No es un error: es una tarjeta mal hecha. Se extrajo `EstilosTarjeta` y se monta a nivel de PANTALLA, asi la vista de tabla tambien conserva su `.cl-nada`.",
+      "Mas lo que solo se contesta midiendo en el navegador: el `dragstart` SI burbujea desde el boton invisible que cubre la tarjeta, pero el cursor NO (sale `pointer`), y todo el contenido tiene `pointer-events: none` salvo la fila de acciones \u2014 un control extra dibujado en cualquier otro lado se ve y no se puede apretar. Y esa fila es `nowrap`: en una columna 44 px mas angosta que la grilla y con un cuarto boton desborda una tarjeta con `overflow: hidden`, o sea que el ultimo control DESAPARECE sin dejar rastro.",
+    ],
+    commits: [
+      { sha: "60edd6ea", msg: "La vista de Tarjetas se va: kanban por default, y la tarjeta de cliente adentro", lineas: 557, archivos: 7 },
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "10:03", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Los diez puntos de diseno del kanban",
+    pedido: "Muchas cosas mal en diseno\u2026 1. Elimina \u20180 de 14 clientes en esta entrega\u2019 2. Elimina \u2018Etapas de ejemplo. Define las tuyas\u2019. 3. Elimina ese boton de al lado de \u2018nuevo cliente\u2019 para eso justamente ya hay un boton de nuevo cliente en cada columna\u2026 Deberia haberlo. 4. Elimina el texto de \u2018Servicio\u2019 5. El desplegable de productos se deberia ver exactamente igual como este\u2026 Y siempre que se crea un nuevo producto en el CRM debe aparecer aca. Y viceversa, si creo un nuevo producto aca, debe aparecer en el CRM\u2026 6. Copia el estilo de las columnas\u2026 Que no sean transparentes. 7. Pon a todos los leads en la primera columna, los de Mauricio\u2026 No puede ser que yo vea muchos leads en la vista de tabla y luego no vea nada en la vista de kanban\u2026 Jamas puede ser eso. 8. Recuerda la animacion de arrastrar tarjetas por el kanban, eso replicalo tal cual de como lo hacemos en PLAN, de mover tarjetas. 9. El boton de filtro va luego de la barra de busqueda. Y los iconos de kanban y tabla, antes de la barra de busqueda. 10. Toda la topbar, donde esta la barra de busqueda, etc\u2026 va al mismo ancho que el kanban, no se queda agrupado en el medio. Ocupa casi todo el ancho.",
+    puntos: [
+      "\u26a0\ufe0f \u00abQUE NO SEAN TRANSPARENTES\u00bb NO ERA TRANSPARENCIA, ERA CONTRASTE CERO. Las columnas tenian fondo \u2014 `--surface-2`, que en el tema claro por defecto es #F5F7FA sobre un `--bg` de #F4F6F9: UNA unidad por canal. Tenian fondo, y era el mismo fondo de la pagina. Y solo pasa en el claro: en oscuro y en true-north los dos tokens si se distinguen, asi que nadie que probara en otro tema lo habria visto. Se da vuelta el par como en el CRM (columna `--surface`, tarjeta `--surface-2`), con la linea de arriba sacada de `dot` y NO de la banda \u2014 la banda son tres colores y pintaria las cinco columnas del mismo verde.",
+      "\u26a0\ufe0f LA TABLA MOSTRABA 14 CLIENTES Y EL KANBAN NINGUNO, y era un bug de modelo: el tablero solo dibujaba a quien tuviera fila en `cliente_entrega`, y nadie la tenia. Ahora UN CLIENTE SIN FILA ESTA EN LA PRIMERA ETAPA, derivado y no sembrado \u2014 un backfill habria arreglado a los catorce de hoy y dejado al decimoquinto afuera. Y eso le dio un sentido exacto a algo que habia quedado sin ninguno: `sacarEntrega` es el DESHACER DEL PRIMER MOVIMIENTO, porque lo contrario de mover a alguien que nunca se movio no es moverlo a la primera (seria escribirle una fila con un reloj arrancando hoy) sino borrar la que acaba de nacer.",
+      "EL ARRASTRE NO SE REPLICA: SE IMPORTA. El nucleo del Plan ya estaba extraido adentro de `BoardShell.tsx` y ninguno de sus tres helpers estaba exportado. Salieron a `app/plan/board/arrastre-copia.ts` y ahora las dos pantallas usan la misma pieza. Al leer el molde aparecieron TRES contradicciones del kanban \u2014 le pintaba un anillo al nodo origen (el Plan no le hace NADA, y esta medido: con la copia siguiendo al cursor y el hueco marcando el destino, atenuar el original hace aparecer la misma tarjeta tres veces), forzaba el fondo de la copia en vez de leer el computado, y le faltaba el `rotate(1.5deg)`. Y lo que de verdad faltaba era EL HUECO.",
+      "\u26a0\ufe0f \u00abIGUAL QUE EL DESPLEGABLE DEL CRM\u00bb ERA EL PRIMITIVE, NO EL COMPONENTE: el de la captura es el `Dropdown` del repo, que ya trae el lapiz por renglon, el \u00ab+ Nuevo producto\u00bb y el renglon gris. Lo que NO se pudo importar es el `SelectorFunnel`: elige un EMBUDO y su `value` es `funnels.id`, asi que copiarlo habria traido el id equivocado. Y \u00absi creo un producto aca debe aparecer en el CRM\u00bb NO sale con `upsertProducto`: el desplegable del CRM lista EMBUDOS, asi que hace falta la cadena entera (producto \u2192 oferta_productos \u2192 oferta \u2192 funnel_ofertas \u2192 funnel, con el funnel naciendo CON sus etapas). El sentido inverso no necesitaba nada.",
+      "\u26a0\ufe0f Y DOS TRAMPAS DE TIMING DE REACT, las dos encontradas ARRASTRANDO en el navegador: la decision de un arrastre no puede colgar de un `useState` \u2014 el primer `dragover` lee `null`, no llama a `preventDefault()` y el `drop` NO SE DISPARA NUNCA, sin un solo error; y el callback de \u00abDeshacer\u00bb de un toast corre con el estado de SU render, asi que una guarda de idempotencia adentro de la funcion que vuelve a llamar lo mata en silencio (el cartel se cierra y la tarjeta no vuelve).",
+    ],
+    commits: [
+      { sha: "0f156de5", msg: "El kanban se ve como el del CRM y se arrastra como el del Plan", lineas: 1215, archivos: 11 },
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "11:13", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las FASES, el scroll de la tab y el editor con el diseno del CRM",
+    pedido: "1. La tab NO tiene que tener scroll, las columnas tienen su scroll propio. La tab si debe tener scroll de izquierda a derecha. 2. Dile al chat que esta trabajando el CRM que: 1. Elimine la tab de \u2018Pendientes\u2019 y que todos los pendientes aparezcan abajo, en el desplegable que dice \u2018MaKo movio 3 leads\u2019\u2026 Que se fije si debe cambiar el titulo del desplegable. 2. Que en lugar que diga \u2018Kanban\u2019 y \u2018Tabla\u2019, que sean los iconos que vos usaste. 3. Que replique la animacion del PLAN al arrastrar tarjetas, tal vez puedes indicarle como es, o como replicarlo, para que no tenga que lanzar un multi agente y mapear eso\u2026 3. El boton de filtrar que si tenga el texto \u2018Filtrar\u2019. 4. Fijate que en el CRM los colores de las columnas son 3, porque alli hay \u2018Activo, nutricion o descartado\u2019\u2026 Y esas 3 categorias engloban varias columnas/etapas\u2026 Seria bueno duplicar eso aqui. Que al crear columnas tambien se puedan crear FASES\u2026 Entonces dentro de una fase pueden haber varias etapas (columnas), y que se le ponga el color a esa fase y que sus columnas adopten eso. Eso te permite traer los botones similares del CRM para solo ver las columnas de esa fase. Esto sirve, porque por ejemplo, en todo programa existen \u2018fases\u2019, por ejemplo, Fase 1: \u2018Cimientos\u2019 y dentro estan las etapas\u2026 5. No pongas el texto \u2018Sin clientes.\u2019 6. Dentro del editable del producto, no pongas el texto \u2018Son las columnas del tablero de este servicio. El cliente entra por la primera.\u2019 y tampoco pongas divisores. Copia el diseno del CRM que te adjunto, para agregar una etapa hay un boton como el que se ve\u2026 Y no existe el boton de \u2018No cambiar nada\u2019 o el de guardar\u2026 Se guarda automaticamente\u2026",
+    puntos: [
+      "LAS FASES, con el color decidido en UNA funcion. `colorDeEtapa(e, fases)` devuelve el color de la fase si la etapa tiene una y el propio si no, y el propio NO se pisa al asignarla: sacar una etapa de su fase le devuelve el suyo, y una que apunta a una fase BORRADA cae a su color propio por la misma linea. Leyendo `e.dot` en la pantalla \u2014que es lo que habia\u2014 las cinco columnas de una fase salen de cinco colores distintos: AGRUPAR NO SE VE, que es lo unico que las fases vienen a mostrar. La clave lleva prefijo `f_` porque una fase y una etapa pueden llamarse igual (\u00abCimientos\u00bb las dos) y sin el compartirian clave.",
+      "\u26a0\ufe0f EL FILTRO POR FASE ES DEL RENDER, NUNCA DEL REPARTO. Pasarle a `repartirEnEtapas` las columnas ya filtradas por el chip manda a todos los clientes de las escondidas a HUERFANOS, y el pie del tablero anuncia \u00ab12 clientes estan en una etapa que ya no existe\u00bb \u2014 falso, plausible, y producido por mirar una fase. Y las fases viajan en el MISMO upsert que las etapas, SIN default en la firma: el `data` se reemplaza entero, asi que olvidarselas es BORRARLAS.",
+      "EL SCROLL: el recorte vive en la COLUMNA (`max-height: 68vh`, el mismo numero que el tablero del CRM) y no en la pagina, porque un alto en vh es un numero cerrado mientras que `height: 100%` contra un padre de alto indefinido resuelve CERO en Safari \u2014 y con un overflow hidden encima, cero es una pantalla en blanco. El min-height en 0 del cuerpo no es decorativo: sin el, un hijo flex no baja de su alto de contenido y el overflow no recorta nada. \u26a0\ufe0f Y DESDE QUE LA COLUMNA SCROLLEA, EL ARRASTRE NECESITA SU PROPIO EMPUJE VERTICAL: `scrollerDe` resuelve el scroller UNA vez, en el `dragstart`, con la tarjeta de ORIGEN, asi que empujaria la columna de la que salio y no la que esta bajo el cursor \u2014 y `empujarScroll` estaba destructurado SIN llamarse: la capacidad escrita, el gesto muerto y el typecheck en verde.",
+      "EL EDITOR, SIN BOTON DE GUARDAR, mueve el aviso AL CLICK: guardando solo no hay donde frenar despues, asi que la consecuencia va pegada a la \u2715 y ANTES, con las dos separadas (un cliente sin columna se puede volver a mover y el tablero lo lista aparte; una secuencia sin etapa deja de dispararse y no se ve en ningun lado). Y NO SE GUARDA AL MONTAR, porque ese upsert marca el servicio como DECLARADO: sin la guarda, abrir el editor y cerrarlo convierte el default en una configuracion que nadie escribio.",
+      "\u26a0\ufe0f EL CONTEO DEL EDITOR CONTABA FILAS, NO CLIENTES \u2014 lo encontro el navegador, no el codigo. Decia 0 en la primera columna mientras el tablero dibujaba 5 tarjetas ahi, las dos pantallas con la MISMA funcion y el mismo overlay. Se le pasaban las FILAS de `cliente_entrega` y no los CLIENTES, y \u00abun cliente sin fila esta en la primera etapa\u00bb es una regla DERIVADA: a quien no aparece en la lista no hay de donde derivarsela. No es cosmetico \u2014 ese numero es lo unico que hace que sacar una columna sea una decision, asi que con el 0 puesto el \u00ab\u00bfseguro?\u00bb NO SE DISPARA y la columna se va con cinco clientes adentro, en silencio. La regla general quedo en AGENTS.md.",
+      "Y dos trampas del propio guard: los asserts de \u00abesto NO esta\u00bb fallaron TRES veces encontrando lo que el archivo dice DE SI (el comentario que explica que el texto se fue, el que cita el pedido), asi que se busca sobre el texto SIN comentarios y con las lineas antes que los bloques; y el mismo archivo pago DOS VECES el backtick adentro del template de estilos, con el typecheck senalando lineas que no tenian nada que ver.",
+    ],
+    commits: [
+      { sha: "50a2a672", msg: "Las etapas de la entrega se agrupan en FASES, y el editor guarda solo", lineas: 1535, archivos: 13 },
+    ],
+    archivos: [
+      "app/customer-success/KanbanEntrega.tsx \u2014 el tablero, los chips de fase y los dos empujes del arrastre",
+      "app/customer-success/EtapasEntregaModal.tsx \u2014 el editor con el molde del CRM y guardado automatico",
+      "tests/cs-kanban-fases.test.ts \u2014 los 11 guards de cableado, cada uno probado rompiendolo (9/1)",
+      "docs/hallazgos-customer-success.md \u2014 la cosecha de las dos tandas del 5/10",
+    ],
+  },
 ];
