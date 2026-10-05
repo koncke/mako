@@ -392,4 +392,29 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-customer-success.md \u2014 la cosecha de las dos tandas del 5/10",
     ],
   },
+  {
+    fecha: "5 oct", hora: "16:01", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Acciones en lote, la tabla del Plan y el editor del CRM",
+    pedido: "1. Tiene que cambiar la animaci\u00f3n de mover tarjetas si estoy en la vista de tabla deber\u00eda poder moverse tambi\u00e9n, ya tenemos animaci\u00f3n de eso en el plan...\n2. El \u00edcono de kanban deber\u00eda ser como en el plan, que son cubos. Y el placeholder deber\u00eda ser \"Ven en Kanban\".\n3. Tambi\u00e9n revisa el dise\u00f1o de la tabla, que se parezca m\u00e1s a como lo tenemos en el plan. Con acciones \u00fatiles. Y aplica lo que te ped\u00ed de mover filas, ya tenemos esa animaci\u00f3n.\nMuy importante que implementes las acciones en LOTE, tanto para la vista de tablas como kanban... Copia todo del plan. Y piensa que acciones en lote valdr\u00eda la pena.\n4. En la vista de tabla siempre deber\u00eda estar el desplegable de los productos, porque desaparece.\n5. Revisa el desplegable de productos, haz puesto otros que no existen, eliminalos... En el CRM de Mauricio, solo hay esos 2.\n6. En el editable, agregar fase deber\u00eda estar arriba del todo, no abajo. Y tal como en el editable del CRM, deber\u00eda poder cambiar el nombre del producto, y se debe cambiar en todos lados, en el CRM y aqu\u00ed. Y viceversa, si lo cambio en el CRM debe aparecer aqu\u00ed.\n7. Fijate el dise\u00f1o de ese editable en el CRM y copialo tal cual. El tama\u00f1o del contenedor, los botones, etc...\n8. Tu que conoces al 100% el servicio de Mauricio, con las fases y etapas, modifica al 100% el producto de Negocio que Escala con la info que tienes.",
+    puntos: [
+      "\u26a0\ufe0f ELIMINAR UN PRODUCTO EN EL CRM NO LO DESACTIVA: archiva su embudo (`funnels.activo = false`) y el producto sigue con `activo = true`, as\u00ed que el selector, leyendo la tabla de productos, ofrec\u00eda lo que el CRM ya hab\u00eda borrado. La regla obvia \u2014s\u00f3lo productos con embudo\u2014 era la equivocada: el ws13 tiene tres productos sin embudo y una entrega REAL sobre uno. Se ofrece todo producto activo que no est\u00e9 atado \u00daNICAMENTE a embudos archivados.",
+      "RENOMBRAR EN LOS DOS LADOS NO NECESITABA SINCRONIZAR NADA: las dos pantallas leen `productos.nombre`, y `renombrarFunnel` ya lo escribe cuando el embudo tiene producto principal. Customer Success pasa por esa misma funci\u00f3n; el otro sentido andaba solo.",
+      "EL LOTE ES UNA LLAMADA Y UN DESHACER. Mover a, Siguiente etapa, Exportar y Seleccionar todos, en kanban y tabla con la selecci\u00f3n compartida. Para quien nunca se movi\u00f3, deshacer es BORRAR su fila: escribirle la primera etapa arrancar\u00eda hoy el reloj de \u00aben la etapa\u00bb.",
+      "\u26a0\ufe0f EL EDITOR TEN\u00cdA CUATRO BUGS QUE EL DEL CRM PROBABLEMENTE COMPARTE: una guarda de primer render que Strict Mode saltea (abrir guardaba y marcaba el servicio como DECLARADO), el Escape que `Modal` se come en captura antes de llegar al campo, el nombre perdido al cerrar dentro del respiro, y la primera etapa que se pod\u00eda mover y mandaba en silencio a los clientes sin fila a otra columna. El del CRM no se midi\u00f3.",
+      "Y DOS QUE S\u00d3LO SE VIERON EN EL NAVEGADOR: la casilla del kanban era una franja blanca porque `.ke-card > *` le daba el ancho de la tarjeta (un `> *` es una regla sobre los hijos que todav\u00eda no existen), y el l\u00e1piz del desplegable dejaba el men\u00fa flotando ENCIMA del editor (flag `cierra` en el primitive).",
+      "NEGOCIO QUE ESCALA qued\u00f3 con 9 etapas en 5 fases (Inicio, Contexto y Norte, Criterio y Palancas, Tablero y Ritmo, Cierre), escritas en producci\u00f3n con respaldo. Los 14 clientes quedan en Bienvenida: su etapa real no se adivin\u00f3.",
+    ],
+    commits: [
+      { sha: "42d91a41", msg: "Customer Success: acciones en lote, la tabla del Plan y el editor del CRM", lineas: 3283, archivos: 16 },
+    ],
+    archivos: [
+      "app/customer-success/LoteClientes.tsx \u2014 la barra de acciones en lote, copia declarada de la del Plan",
+      "app/customer-success/TablaClientes.tsx \u2014 la tabla agrupada por etapa, con el arrastre de filas del Plan",
+      "app/customer-success/EtapasEntregaModal.tsx \u2014 el editor con el molde del CRM: t\u00edtulo que renombra, fases arriba, eliminar",
+      "app/customer-success/entrega.ts \u2014 productosOfrecibles: lo que el CRM elimin\u00f3 no se ofrece",
+      "app/components/Dropdown.tsx \u2014 DropdownAccion.cierra",
+      "docs/hallazgos-customer-success.md \u2014 la cosecha de esta tanda",
+    ],
+  },
 ];
