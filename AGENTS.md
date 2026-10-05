@@ -1663,6 +1663,18 @@ La guardia es `tests/landing-snippet-emitido.test.ts`: reconstruye el snippet ap
 reglas de escape y lo audita contra los propios detectores. **Si escribís código generado,
 el test mira lo EMITIDO, no el fuente.**
 
+⚠️ **Y LA LANDING NO SE EDITA A MANO: `app/vsl/landing-html.ts` ES GENERADO.** No es un
+template literal — son **170.816 caracteres** de un string entre comillas dobles,
+auto-generado desde Claude Design. Se lee como un archivo fuente y no lo es: cualquier
+cambio escrito ahí se desincroniza de su origen y **la próxima regeneración se lo come**,
+sin dar error y sin aparecer en ningún diff que alguien vaya a mirar.
+
+Lo que se agrega a la landing —una sección de precios, un botón de compra, un bloque
+nuevo— se monta desde `app/vsl/Landing.tsx`, que ya inserta nodos sobre ese HTML en cuatro
+lugares (`:66`, `:114`, `:135-142`, `:204`) con `insertAdjacentElement`. Y todo lo que
+necesite estado o un handler **tiene** que vivir ahí igual: un string no puede tener un
+`onClick`.
+
 ⚠️ **Y adentro de un template literal no va NINGÚN backtick, ni siquiera en un comentario.**
 Es la convención del repo nombrar una clase o una función entre backticks, y adentro de una
 cadena eso la CIERRA a la mitad. Pasó el 30/08/2026 en la hoja de estilos del portal de
