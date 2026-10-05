@@ -33,7 +33,24 @@
 //     Es el bug REAL que se vio en pantalla: «1 secuencia... al guardar DEJAN».
 //   · el plural sacado de la primera entrada en vez del total -> 22 pass / 1 fail.
 //   · las etapas con 0 secuencias entrando a la frase -> 22 pass / 1 fail.
-//   Restaurado: 23 pass / 0 fail.
+//   Y las FASES, cada una cazada por exactamente un test (30 pass / 1 fail las cinco):
+//   · el color PROPIO ganando sobre el de la fase -> «el color de la FASE gana sobre el
+//     propio». Es la rotura que hace que agrupar no se vea.
+//   · la clave de fase sin su prefijo `f_` -> «la clave de una fase no puede chocar con la
+//     de una etapa»: sin el prefijo, una etapa apunta a una fase por accidente.
+//   · `normalizarFases` devolviendo media lista (un `continue` en vez del `return []`) ->
+//     «vacio es LEGITIMO, roto se tira entero»: media lista deja etapas apuntando a una
+//     fase que no se dibuja, o sea columnas con el color equivocado.
+//   · el saneo de etapas comiendose el campo `fase` -> «`fase` sobrevive al saneo»: es el
+//     mapper que borra un campo en el proximo guardado de cualquier otro.
+//   · el huerfano repartido en la PRIMERA columna -> «el que apunta a una etapa borrada
+//     sale APARTE».
+//   Y el CONTEO, probado con las dos roturas que lo producen:
+//   · `conteoDeEtapas` con su propio bucle en vez de delegar en `repartirEnEtapas` (o sea
+//     sin la regla «sin fila, primera etapa») -> 32 pass / 1 fail.
+//   · devolviendo solo las etapas que encontro, con las vacias AUSENTES en vez de en cero
+//     -> 31 pass / 2 fail: `undefined` tiene que significar «no se pudo leer» y nada mas.
+//   Restaurado: 33 pass / 0 fail.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -43,6 +60,8 @@ import {
   nuevaClaveEtapa, colorNuevaEtapa, normalizarEtapas,
   campoEntrega, esCampoEntrega, PREFIJO_CAMPO_ENTREGA, fraseEntregaAlBorrar,
   fraseSecuenciasHuerfanas,
+  colorDeEtapa, faseDe, etapasDeFase, nuevaClaveFase, normalizarFases, repartirEnEtapas,
+  conteoDeEtapas,
 } from '../lib/servicio-etapas';
 
 // ── El default existe y se declara como default ──────────────────────────────
@@ -228,5 +247,127 @@ test('las etapas sin secuencias no entran a la frase', () => {
   const f = fraseSecuenciasHuerfanas([{ label: 'Arranque', n: 0 }, { label: 'Hito 1', n: 2 }]);
   assert.doesNotMatch(f, /Arranque/);
   assert.match(f, /2 secuencias en Hito 1/);
+});
+
+// ── Las FASES ────────────────────────────────────────────────────────────────
+
+const F = [{ key: 'f_cimientos', label: 'Cimientos', tone: 'info', dot: '#2F6DDB' }] as const;
+
+// La fase existe para que varias columnas compartan color, que es lo que el CRM hace con
+// Activo / Nutricion / Descartado. Si el color propio ganara, agrupar no se veria.
+test('el color de la FASE gana sobre el propio', () => {
+  const e = { key: 'a', label: 'A', tone: 'good', dot: '#AAAAAA', fase: 'f_cimientos' } as const;
+  assert.equal(colorDeEtapa(e, F), '#2F6DDB');
+});
+
+// ⚠️ EL CASO QUE IMPORTA: el propio NO se pisa al asignar la fase, asi que sacarla de la
+// fase le devuelve el suyo. Si se hubiera pisado, habria que inventarle un color.
+test('sin fase, o con una que ya no existe, manda el color propio', () => {
+  const sinFase = { key: 'a', label: 'A', tone: 'good', dot: '#AAAAAA' } as const;
+  assert.equal(colorDeEtapa(sinFase, F), '#AAAAAA');
+  const huerfana = { ...sinFase, fase: 'f_borrada' } as const;
+  assert.equal(colorDeEtapa(huerfana, F), '#AAAAAA', 'una fase borrada no puede dejar la columna sin color');
+  assert.equal(faseDe(F, 'f_borrada'), null);
+  assert.equal(faseDe(F, null), null);
+});
+
+test('etapasDeFase: null es TODAS, y no un caso especial', () => {
+  const es = [
+    { key: 'a', label: 'A', tone: 'good', dot: '#1', fase: 'f_cimientos' },
+    { key: 'b', label: 'B', tone: 'good', dot: '#2' },
+  ] as const;
+  assert.equal(etapasDeFase(es, null).length, 2);
+  assert.deepEqual(etapasDeFase(es, 'f_cimientos').map((e) => e.key), ['a']);
+  assert.deepEqual(etapasDeFase(es, 'f_nada').map((e) => e.key), []);
+});
+
+// Una fase y una etapa pueden llamarse igual. Sin prefijo compartirian clave, y una etapa
+// terminaria apuntando a una fase por accidente.
+test('la clave de una fase no puede chocar con la de una etapa', () => {
+  const k = nuevaClaveFase('Cimientos', []);
+  assert.match(k, /^f_/);
+  assert.notEqual(k, nuevaClaveEtapa('Cimientos', []));
+  // Y no se reusa, igual que la de etapa: la fase borrada se sigue pasando.
+  assert.notEqual(nuevaClaveFase('Cimientos', [k]), k);
+});
+
+test('normalizarFases: vacio es LEGITIMO, roto se tira entero', () => {
+  // No tener fases es el estado normal de un servicio.
+  assert.deepEqual(normalizarFases(undefined), []);
+  assert.deepEqual(normalizarFases([]), []);
+  // Media lista dejaria etapas apuntando a una fase que no se dibuja.
+  assert.deepEqual(normalizarFases([{ key: 'f_a', label: 'A' }, { key: 'sin-prefijo', label: 'B' }]), []);
+  assert.deepEqual(normalizarFases([{ key: 'f_a', label: 'A' }, { key: 'f_a', label: 'otra' }]), []);
+  const ok = normalizarFases([{ key: 'f_a', label: 'Cimientos' }]);
+  assert.equal(ok.length, 1);
+  assert.equal(ok[0].label, 'Cimientos');
+  assert.ok(ok[0].dot, 'una fase sin color igual sale con uno');
+});
+
+// ⚠️ Un mapper que reconstruye campo por campo y se olvida uno lo BORRA en el proximo
+// guardado de cualquier otro campo. Aca lo que se borraria es el color de la columna.
+test('`fase` sobrevive al saneo de etapas', () => {
+  const e = normalizarEtapas([{ key: 'a', label: 'A', fase: 'f_cimientos' }]);
+  assert.equal(e?.[0]?.fase, 'f_cimientos');
+  // Y una fase con una clave que no es de fase no entra: seria apuntar a cualquier cosa.
+  const mala = normalizarEtapas([{ key: 'a', label: 'A', fase: 'cimientos' }]);
+  assert.equal(mala?.[0]?.fase, undefined);
+});
+
+// ── El reparto, que es lo que hace que la tabla y el tablero cuenten lo mismo ─
+
+test('un cliente sin etapa va a la PRIMERA columna', () => {
+  const es = [...ETAPAS_ENTREGA_DEFAULT];
+  const { porEtapa, huerfanos } = repartirEnEtapas(es, ['x', 'y', 'z'], () => null);
+  assert.equal(porEtapa[es[0].key].length, 3);
+  assert.equal(huerfanos.length, 0);
+  for (const e of es.slice(1)) assert.deepEqual(porEtapa[e.key], [], 'las demas existen y estan vacias');
+});
+
+// Una etapa guardada que ya no esta en el catalogo NO se reparte: inventarle una columna
+// seria afirmar algo que nadie decidio, y ademas la esconderia.
+test('el que apunta a una etapa borrada sale APARTE, no en la primera', () => {
+  const es = [...ETAPAS_ENTREGA_DEFAULT];
+  const { porEtapa, huerfanos } = repartirEnEtapas(es, ['a'], () => 'etapa_que_no_existe');
+  assert.deepEqual(huerfanos, ['a']);
+  for (const e of es) assert.deepEqual(porEtapa[e.key], []);
+});
+
+// ── El conteo, que es lo que hace que sacar una columna sea una DECISION ─────
+
+// ⚠️ EL CASO MEDIDO EN EL NAVEGADOR el 05/10/2026, con 8 clientes y 3 filas: el tablero
+// dibujaba 5 tarjetas en la primera columna y el editor decia 0. La funcion estaba bien;
+// lo que se le pasaba eran las FILAS de `cliente_entrega` y no los CLIENTES, y «un cliente
+// sin fila esta en la primera etapa» es una regla derivada: a quien no aparece en la lista
+// no hay de donde derivarsela. No es cosmetico — ese numero es lo que dispara el «¿seguro?»
+// al sacar la columna, asi que con el 0 puesto se iba con cinco clientes adentro.
+test('el conteo cuenta CLIENTES, no filas: el que no tiene fila esta en la primera', () => {
+  const es = [...ETAPAS_ENTREGA_DEFAULT];
+  const ultima = es[es.length - 1].key;
+  // Ocho clientes; tres con fila (dos en la ultima etapa, uno en la segunda).
+  const porCliente = [undefined, undefined, undefined, undefined, undefined,
+    ultima, ultima, es[1].key];
+  const bien = conteoDeEtapas(es, porCliente);
+  assert.equal(bien[es[0].key], 5, 'los cinco sin fila van a la primera');
+  assert.equal(bien[es[1].key], 1);
+  assert.equal(bien[ultima], 2);
+  assert.equal(Object.values(bien).reduce((a, b) => a + b, 0), 8, 'no se pierde ni se duplica nadie');
+
+  // Y asi se veia el bug: pasando SOLO las filas, la primera columna da 0.
+  const soloFilas = porCliente.filter((k) => k !== undefined);
+  const mal = conteoDeEtapas(es, soloFilas);
+  assert.equal(mal[es[0].key], 0, 'con las filas sueltas la primera da CERO: el bug medido');
+});
+
+// Una etapa sin nadie tiene que estar en el mapa Y en cero: `undefined` queda reservado
+// para «no se pudo leer», que es la unica forma de distinguirlo de un cero de verdad.
+test('todas las etapas entran al conteo, aunque esten vacias', () => {
+  const es = [...ETAPAS_ENTREGA_DEFAULT];
+  const c = conteoDeEtapas(es, []);
+  for (const e of es) assert.equal(c[e.key], 0, e.key + ' tiene que estar en cero, no ausente');
+  assert.equal(Object.keys(c).length, es.length);
+  // Y una etapa que ya no esta en el catalogo NO suma a ninguna columna.
+  const conHuerfano = conteoDeEtapas(es, ['etapa_que_no_existe']);
+  assert.equal(Object.values(conHuerfano).reduce((a, b) => a + b, 0), 0);
 });
 

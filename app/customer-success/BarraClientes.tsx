@@ -367,6 +367,11 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M3 5h18l-7 8v6l-4 2v-8Z" />
         </svg>
+        {/* ⚠️ LA PALABRA VA EN EL BOTÓN, no sólo en el `title`: «el botón de filtrar que
+            sí tenga el texto "Filtrar"» (Martín, 05/10/2026). Un embudo de 15 px al lado
+            de dos íconos de vista no se lee como un filtro hasta que alguien lo aprieta,
+            y el `title` aparece recién al pasar el mouse — o sea nunca en un celular. */}
+        <span className="bc-btn-txt">Filtrar</span>
         {/* El número de lo que está puesto, y limpia al tocarlo. Sin esto, un filtro
             activo con el panel cerrado es una lista recortada sin explicación. */}
         {n > 0 && (
@@ -486,8 +491,10 @@ const CSS = `
 .bc-toggle button.on{ background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(18,21,27,.08); }
 
 .bc-pop{ position:relative; flex:none; }
-.bc-btn{ display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px;
-  border:1px solid var(--border); border-radius:9px; background:var(--surface); color:var(--dim); cursor:pointer; }
+.bc-btn{ display:inline-flex; align-items:center; justify-content:center; gap:7px; height:38px;
+  padding:0 13px; border:1px solid var(--border); border-radius:9px; background:var(--surface);
+  color:var(--dim); cursor:pointer; font:inherit; }
+.bc-btn-txt{ font-size:13px; font-weight:600; white-space:nowrap; }
 .bc-btn:hover{ border-color:var(--border-strong); color:var(--ink); }
 .bc-btn.on{ border-color:var(--primary); color:var(--primary); }
 .bc-menu{ position:absolute; top:calc(100% + 6px); left:0; z-index:40; min-width:230px;

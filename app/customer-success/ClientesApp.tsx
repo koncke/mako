@@ -33,7 +33,7 @@ import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
 import { SelectorServicio } from './SelectorServicio';
 import type { CarteraEnEntrega } from './entrega';
-import { conteoDeEtapas, type EtapaEntrega } from '@/lib/servicio-etapas';
+import { conteoDeEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
 import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction } from './actions';
 
@@ -347,10 +347,16 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     });
   }
 
-  /** Las etapas del servicio elegido, como las dejo el editor. */
-  async function guardarEtapas(etapas: EtapaEntrega[]): Promise<string | null> {
+  /**
+   * Las etapas del servicio elegido, como las dejo el editor.
+   *
+   * ⚠️ LAS FASES VIAJAN EN LA MISMA LLAMADA. El server reemplaza el `data` entero, asi
+   * que guardar las etapas sin mandar las fases las BORRA — y lo que se borraria es el
+   * color de cada columna, en el proximo guardado de cualquier otra cosa.
+   */
+  async function guardarEtapas(etapas: EtapaEntrega[], fases: FaseEntrega[]): Promise<string | null> {
     if (!servicio) return 'No hay ningun servicio elegido.';
-    const r = await guardarEtapasEntregaAction(servicio.productoId, etapas);
+    const r = await guardarEtapasEntregaAction(servicio.productoId, etapas, fases);
     return r.ok ? null : r.error;
   }
 
@@ -478,6 +484,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           {enKanban && servicio ? (
             <KanbanEntrega
               etapas={servicio.etapas}
+              fases={servicio.fases}
               origen={servicio.origen}
               servicio={servicio.nombre}
               clientes={visibles}
@@ -542,9 +549,25 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         <EtapasEntregaModal
           servicio={servicio.nombre}
           etapas={servicio.etapas}
+          fases={servicio.fases}
           /* El conteo por etapa sale del MISMO overlay que dibuja el tablero: con dos
-             fuentes, el editor diria «3 en Hito 1» sobre una columna que ya muestra 2. */
-          conteo={conteoDeEtapas(servicio.etapas, Object.values(asignacionDe(servicio.productoId)).map((a) => a.etapa))}
+             fuentes, el editor diria «3 en Hito 1» sobre una columna que ya muestra 2.
+
+             ⚠️ Y SE CUENTA UNA ENTRADA POR CLIENTE, NO UNA POR FILA. Lo de antes era
+             `Object.values(asignacion)`, o sea las filas de `cliente_entrega` — y «un
+             cliente sin fila esta en la PRIMERA etapa» es una regla DERIVADA, asi que a
+             quien no tiene fila no hay de donde derivarselo si ni aparece en la lista.
+             Medido en el navegador el 05/10/2026 con 8 clientes y 3 filas: el tablero
+             dibujaba 5 tarjetas en Diagnostico y el editor decia 0. No es cosmetico — ese
+             numero es lo que hace que sacar una columna sea una decision, asi que con el
+             0 puesto el Confirm no se dispara y la columna se va con cinco clientes
+             adentro, en silencio. La funcion estaba bien; lo que se le pasaba, no.
+
+             ⚠️ Y SOBRE LA CARTERA ENTERA (`clientes`), NO SOBRE `visibles`: con un
+             filtro o una busqueda puesta, lo que el editor avisa al sacar una columna
+             dejaria de contar a los que el buscador escondio. */
+          conteo={conteoDeEtapas(servicio.etapas,
+            clientes.map((c) => asignacionDe(servicio.productoId)[c.leadId]?.etapa))}
           /* ⚠️ `undefined` y `null` NO son lo mismo acá: sin la lectura (el server no
              la trajo) y con la lectura caída, el editor tiene que decir las dos veces
              que no pudo revisar — nunca «ninguna». Por eso el `??` cae a `null`. */

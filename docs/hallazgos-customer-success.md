@@ -2875,3 +2875,198 @@ de Prueba tiene el CRM sin activar y `/crm` le muestra su pantalla de arranque.
   tabla y la grilla. Redefinir `--cartera-max: none` en esta pantalla lo mueve en las TRES
   a la vez, que es lo que hay que cuidar: si una queda en 1180 y las otras no, la pantalla
   se ve torcida y eso no se nota en el diff. /admin sigue con su 1180.
+
+---
+
+### Las FASES, el scroll de la tab y el editor del CRM (05/10/2026)
+
+Segunda tanda del mismo día: seis puntos de Martín. Cuatro eran de pantalla y dos dejaron
+reglas que valen fuera de esta tab.
+
+#### El pedido que lo gobierna
+
+> «En todo programa existen "fases", por ejemplo, Fase 1: "Cimientos" y dentro están las
+> etapas… que al crear columnas también se puedan crear FASES, y que se le ponga el color a
+> esa fase y que sus columnas adopten eso. Eso te permite traer los botones similares del
+> CRM para solo ver las columnas de esa fase.»
+
+Es el mismo modelo que el CRM ya tiene con Activo / Nutrición / Descartado, y por eso los
+chips se copian de `BandasToggle` (`app/crm/CrmToolbar.tsx`) y no se inventan.
+
+**Vive en:** `lib/servicio-etapas.ts` · `app/customer-success/KanbanEntrega.tsx` ·
+`app/customer-success/EtapasEntregaModal.tsx` · `lib/entrega-servicio.ts`
+
+#### Quién gana el color se decide UNA vez, al pintar
+
+`colorDeEtapa(e, fases)` devuelve el `dot` de la fase si la etapa tiene una, y el propio si
+no. Tres cosas que esa firma decide:
+
+- **El color propio NO se pisa al asignar la fase.** Sacar una etapa de su fase le devuelve
+  el suyo; si se hubiera pisado habría que inventarle uno.
+- **Una etapa que apunta a una fase BORRADA no queda sin color**: cae a su propio, por la
+  misma línea. No hace falta limpiar nada al sacar una fase.
+- **Y se decide en UNA función, no en la pantalla.** El punto de la cabecera y la línea de
+  arriba de la columna son el mismo color por construcción. Leyendo `e.dot` en la pantalla
+  —que es lo que había— las cinco columnas de una fase salen de cinco colores distintos:
+  **agrupar no se ve, que es lo único que las fases vienen a mostrar.** Hay guard
+  (`tests/cs-kanban-fases.test.ts`), y la rotura da 9/1.
+
+⚠️ **La clave de una fase lleva prefijo `f_`, y no es cosmético.** Una fase y una etapa
+pueden llamarse igual —«Cimientos» las dos— y sin prefijo compartirían clave: una etapa
+apuntaría a una fase por accidente. Es la misma familia que «no reusar una clave borrada»,
+un nivel más arriba.
+
+⚠️ **Y `normalizarFases` falla distinto que `normalizarEtapas`, a propósito.** Vacío es
+LEGÍTIMO (no tener fases es el estado normal de un servicio, así que devuelve `[]` y no
+`null`); lo que se descarta ENTERO es una lista rota, porque media lista de fases deja
+etapas apuntando a una fase que no se dibuja, o sea columnas con el color equivocado.
+
+#### El filtro por fase es del RENDER, nunca del reparto
+
+Es el error que parece obvio y produce una afirmación falsa: pasarle a `repartirEnEtapas`
+las columnas ya filtradas por el chip hace que **todos los clientes de las columnas
+escondidas salgan como HUÉRFANOS**, y el pie del tablero anuncia «12 clientes están en una
+etapa que ya no existe». No da error, el número es plausible, y lo produce mirar una fase.
+
+El reparto recibe `etapas` enteras y lo que se dibuja es `visibles`. Guard + rotura: 9/1.
+
+⚠️ **Y los chips son UNA fase a la vez, con un «Todas» de verdad**, al revés de los
+interruptores independientes del CRM. Allá hacen falta tres guardas para que nadie apague
+la última —con cero bandas el tablero queda vacío y no hay nada en pantalla que lo
+explique— y con «Todas» ese estado no se puede producir. El pedido además es ése: «solo ver
+las columnas de esa fase».
+
+⚠️ **Y el chip elegido es un valor, NO una copia de las fases.** `KanbanEntrega` no se
+desmonta al cambiar de servicio, así que un `useState(props.fases)` seguiría mostrando los
+tramos del anterior — la trampa que ya se pagó en el editor de mensajes. Lo único que hay
+que cubrir es que una fase borrada no vacíe el tablero, y eso se DERIVA: si la clave elegida
+no está en `fases`, vale «todas».
+
+#### Las fases viajan en el MISMO upsert que las etapas
+
+`producto_entrega.data` se reemplaza entero, así que guardar `{ etapas }` sin `fases` las
+**borra** — y lo que se borraría es el color de cada columna, en el próximo guardado de
+cualquier otra cosa, sin un error y sin un log. Es el modo de falla de los mappers de
+lectura, del lado de la escritura.
+
+⚠️ **Por eso `fases` NO lleva default en la firma.** Un `= []` deja que un llamador se las
+olvide y olvidarlas es borrarlas; exigirlo hace que el compilador enumere los call sites el
+día que aparezca el segundo. Es la misma regla que «borralo: no lo cambies de tipo».
+
+#### «La tab NO tiene que tener scroll»
+
+> «La tab NO tiene que tener scroll, las columnas tienen su scroll propio. La tab si debe
+> tener scroll de izquierda a derecha.»
+
+El recorte vive en la COLUMNA (`max-height: 68vh`, el mismo número que el tablero del CRM)
+y no en la página: un alto en `vh` es un número cerrado, mientras que `height: 100%` contra
+un padre de alto indefinido resuelve **cero en Safari** — y con un `overflow: hidden`
+encima, cero es una pantalla en blanco. La cabecera y el botón de alta quedan fijos; lo que
+corre son las tarjetas.
+
+⚠️ **`min-height: 0` en el cuerpo no es decorativo:** sin él un hijo flex no baja de su alto
+de contenido, el `overflow` no recorta NADA, la columna crece y vuelve el scroll de la tab.
+Medido en el navegador: documento 950 px contra una ventana de 950.
+
+⚠️ **Y DESDE QUE LA COLUMNA SCROLLEA, EL ARRASTRE NECESITA SU PROPIO EMPUJE VERTICAL.** Dos
+cosas que el molde del Plan no podía dar:
+
+- `empujarScroll` del hook resuelve el scroller **una vez, en el `dragstart`, con la tarjeta
+  de ORIGEN** (`scrollerDe`). En el Plan eso es la página o el cuerpo del modal y da igual;
+  acá cada columna tiene su propio scroll, así que empujaría la columna de la que salió la
+  tarjeta en vez de la que está bajo el cursor. Por eso el empuje vertical se escribe acá,
+  adentro del `dragover` de cada columna. **Y estaba destructurado sin llamarse**: la
+  capacidad escrita y el gesto muerto, con el typecheck en verde.
+- **La medida del hueco pasa a coordenadas de CONTENIDO de la columna** (`+ scrollTop`). Es
+  la misma trampa que `+ window.scrollY` un nivel más abajo: correr el cuerpo mueve las
+  tarjetas sin mover la ventana, así que los puntos medios medidos al agarrar apuntan al
+  lugar equivocado y el hueco aparece en otro índice. Sumarlo en los DOS lados lo hace
+  invariante: si el cuerpo baja N, el `top` del rectángulo baja N y el `scrollTop` sube N.
+
+#### El editor, con el diseño del CRM y sin botón de guardar
+
+> «Dentro del editable del producto, no pongas el texto "Son las columnas del tablero de
+> este servicio…" y tampoco pongas divisores. Copia el diseño del CRM que te adjunto, para
+> agregar una etapa hay un botón como el que se ve… Y no existe el botón de "No cambiar
+> nada" o el de guardar… Se guarda automáticamente.»
+
+Es el molde de `app/crm/EtapasModal.tsx`: la `caja` por etapa, la `fila` transparente
+encima, el nombre como un `<button>` que **no estira** —«solo si clickeo en el texto del
+título de esa etapa debería abrirme el input, no en toda la fila»— y el renglón punteado de
+`+ Agregar etapa` que pide el nombre ahí mismo.
+
+⚠️ **SIN BOTÓN DE GUARDAR, EL AVISO SE MUEVE AL CLICK.** Mientras había un pie, sacar una
+columna con gente adentro se avisaba en un banner arriba y la decisión la tomaba el botón
+de guardar. Guardando solo **no hay dónde frenar después**, así que la consecuencia va
+pegada a la ✕ y ANTES: un `Confirm` que dice cuántos clientes y cuántas secuencias se lleva
+puestos, con las dos consecuencias SEPARADAS (un cliente sin columna se puede volver a
+mover y el tablero lo lista aparte; una secuencia sin etapa deja de dispararse y no se ve
+en ningún lado). Verificado en el navegador: la ✕ de una columna con 5 clientes abre
+«5 clientes quedan sin columna» y cancelar la deja en su lugar; la de una columna vacía se
+va sin fricción.
+
+⚠️ **Y NO SE GUARDA AL MONTAR.** El efecto sale temprano en el primer render
+(`primera.current`), porque ese upsert marca el servicio como **DECLARADO**: sin la guarda,
+abrir el editor y cerrarlo convierte el default en una configuración que nadie escribió — y
+con eso se pierde la única forma que tiene la pantalla de decir «todavía no configuraste la
+entrega de este producto». El respiro de 600 ms existe porque renombrar es una tecla por
+letra.
+
+#### ⚠️ El conteo del editor contaba FILAS, no CLIENTES
+
+Es el hallazgo más caro de la tanda y **lo encontró el navegador, no el código**. El editor
+mostraba **0 en la primera columna mientras el tablero dibujaba 5 tarjetas ahí** — las dos
+pantallas leyendo el mismo overlay, con la misma función (`conteoDeEtapas`, que delega en
+`repartirEnEtapas` justamente para que no puedan contar distinto).
+
+La función estaba bien. Lo que se le pasaba, no: `Object.values(asignacionDe(prod))` son las
+FILAS de `cliente_entrega`, y **«un cliente sin fila está en la primera etapa» es una regla
+DERIVADA** — a quien no aparece en la lista no hay de dónde derivársela. El tablero pasa un
+cliente por tarjeta y resuelve `asignacion[c.leadId]?.etapa`; el editor pasaba tres filas
+para ocho clientes.
+
+**No es cosmético:** ese número es lo único que hace que sacar una columna sea una decisión,
+así que con el 0 puesto el `Confirm` **no se dispara** y la columna se va con cinco clientes
+adentro, en silencio. El comentario que había al lado decía la verdad sobre el overlay y
+escondía el bug: «sale del MISMO overlay» es cierto, y la pregunta era otra.
+
+La regla que queda: **una función que aplica una regla derivada necesita el UNIVERSO, no las
+filas.** Si el conteo lo alimenta una tabla y el dibujo lo alimenta una lista de entidades,
+los dos van a contestar distinto el día que la regla derive algo — y el que cuenta filas
+siempre cuenta de menos. Hay test funcional con los números del caso (8 clientes / 3 filas)
+y guard del call site; las roturas dan 10/1 y 32/1.
+
+⚠️ **Y se cuenta sobre `clientes` (la cartera entera), nunca sobre `visibles`:** con un
+filtro o una búsqueda puesta, el aviso al sacar una columna dejaría de contar a los que el
+buscador escondió.
+
+#### Lo chico, que igual deja regla
+
+- **«Sin clientes.» se fue.** El contador de la cabecera ya dice 0 en el mismo renglón que
+  el nombre, así que el renglón repetía el único dato que había y le robaba el lugar al
+  único que importa en una columna vacía: que ahí se puede soltar una tarjeta.
+- **El botón de filtrar DICE «Filtrar».** Un embudo de 15 px al lado de dos íconos de vista
+  no se lee como un filtro hasta que alguien lo aprieta, y el `title` aparece recién al
+  pasar el mouse — o sea nunca en un celular. Toca también `/admin`, que monta la misma
+  barra; ahí la palabra es igual de correcta.
+- ⚠️ **Y la primera corrida del guard nuevo falló TRES VECES por la trampa de siempre:** los
+  asserts de «esto NO está» encontraban lo que el archivo dice DE SÍ — el ⛔ que explica que
+  «Sin clientes.» se fue, el ⚠️ que dice que no se lee `e.dot`, y el encabezado del editor
+  que CITA el pedido («no existe el botón de "No cambiar nada"»). Los tres son prosa
+  correcta y los tres hacían fallar un guard sano. La cura es `sinComentarios()` antes de
+  buscar, **con las líneas de comentario primero y los bloques después**: al revés, un `/*`
+  dentro de un comentario de línea abre un bloque que se cierra páginas abajo.
+
+#### Y el mismo archivo pagó DOS VECES el backtick adentro del template
+
+La convención de la casa es nombrar una clase o una propiedad entre backticks, y adentro de
+la hoja de estilos eso **cierra la cadena a la mitad**. Pasó escribiendo los comentarios de
+`max-height` y de `min-height: 0`: cinco backticks en cuatro renglones de prosa, y el
+typecheck señalando líneas que no tenían nada que ver («Module declaration names may only
+use quoted strings»). El chequeo es una línea y conviene correrlo antes del typecheck:
+
+```bash
+node -e "const s=require('fs').readFileSync(RUTA,'utf8'); const i=s.indexOf('const CSS = '); console.log((s.slice(i).match(/\`/g)||[]).length)"
+```
+
+Dos es lo correcto. Cualquier otro número es esto.

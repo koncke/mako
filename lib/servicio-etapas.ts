@@ -39,6 +39,27 @@
 
 import { NEW_STAGE_PALETTE, NEW_STAGE_TONES, type StageTone } from './pipeline';
 
+/**
+ * Una FASE: el tramo del programa al que pertenecen varias etapas.
+ *
+ * Pedido de Martín (05/10/2026), con su ejemplo: «en todo programa existen fases, por
+ * ejemplo, Fase 1: "Cimientos" y dentro están las etapas». Es el mismo modelo que el CRM
+ * ya tiene con Activo / Nutrición / Descartado: tres botones arriba que engloban varias
+ * columnas y les dan su color.
+ *
+ * ⚠️ LA FASE ES OPCIONAL Y EL DEFAULT ES NO TENERLA. Un negocio con cinco etapas y sin
+ * tramos no gana nada agrupándolas, y obligarlo a inventar una fase para poder crear una
+ * etapa es fricción por una estructura que no pidió. Sin fases, el tablero se dibuja
+ * exactamente como antes.
+ */
+export type FaseEntrega = {
+  /** Estable y única. Lo que apunta una etapa. NUNCA se renombra ni se reusa. */
+  key: string;
+  label: string;
+  tone: StageTone;
+  dot: string;
+};
+
 /** Una etapa de la entrega de UN producto. */
 export type EtapaEntrega = {
   /** Estable y única dentro del producto. NUNCA se renombra ni se reusa. */
@@ -48,6 +69,15 @@ export type EtapaEntrega = {
   /** Color del chip en el kanban. Misma paleta que el CRM, no una segunda. */
   tone: StageTone;
   dot: string;
+  /**
+   * La fase a la que pertenece, si pertenece a alguna.
+   *
+   * ⚠️ EL COLOR DE LA FASE GANA SOBRE EL PROPIO, y el propio NO se borra al asignarla:
+   * sacar la etapa de su fase tiene que devolverle el suyo, y si se hubiera pisado
+   * habría que inventarle uno. Quién gana se decide al PINTAR (`colorDeEtapa`), que es
+   * lo que permite que las dos cosas convivan sin que una destruya a la otra.
+   */
+  fase?: string;
 };
 
 /**
@@ -63,6 +93,15 @@ export type EtapaEntrega = {
 export type EntregaConfig = {
   productoId: number;
   etapas: EtapaEntrega[];
+  /**
+   * Los tramos que agrupan a las etapas. Vacío es el caso normal.
+   *
+   * ⚠️ VIAJA PEGADO A LAS ETAPAS Y NO EN UN CAMPO APARTE DE LA PANTALLA, porque el
+   * color de una columna sale de las dos cosas juntas (`colorDeEtapa`): una pantalla
+   * que reciba las etapas sin las fases dibuja los colores propios, que es el estado
+   * de ANTES de agrupar — y se lee como que agrupar no hizo nada.
+   */
+  fases: FaseEntrega[];
   origen: 'declarado' | 'default';
 };
 
@@ -85,7 +124,34 @@ export const ETAPAS_ENTREGA_DEFAULT: readonly EtapaEntrega[] = [
 /** La entrega de un producto que no declaró nada. Nunca devuelve `[]`: un tablero
  *  sin columnas no se puede dibujar, y «no configuró» no es «no tiene». */
 export function entregaPorDefecto(productoId: number): EntregaConfig {
-  return { productoId, etapas: [...ETAPAS_ENTREGA_DEFAULT], origen: 'default' };
+  // Sin fases: cinco etapas genéricas no ganan nada agrupadas, y un tramo de fábrica
+  // sería una estructura que nadie pidió con cara de configuración.
+  return { productoId, etapas: [...ETAPAS_ENTREGA_DEFAULT], fases: [], origen: 'default' };
+}
+
+/**
+ * El color con el que se dibuja una etapa: el de su FASE si tiene, el suyo si no.
+ *
+ * ⚠️ SE DECIDE ACÁ Y NO EN LA PANTALLA. El punto de la cabecera y la línea de arriba de
+ * la columna son el mismo color por construcción; si cada uno lo resolviera por su
+ * cuenta, el día que alguien cambie la regla quedan dos colores para la misma etapa.
+ */
+export function colorDeEtapa(e: EtapaEntrega, fases: readonly FaseEntrega[]): string {
+  return faseDe(fases, e.fase)?.dot ?? e.dot;
+}
+
+export function faseDe(fases: readonly FaseEntrega[], key: string | null | undefined): FaseEntrega | null {
+  return (key && fases.find((f) => f.key === key)) || null;
+}
+
+/**
+ * Las etapas de una fase, en el orden del tablero.
+ *
+ * `null` = todas. Es lo que usan los chips de arriba del tablero: el de «Todas» no es un
+ * caso especial, es la ausencia de filtro.
+ */
+export function etapasDeFase(etapas: readonly EtapaEntrega[], fase: string | null): EtapaEntrega[] {
+  return fase === null ? [...etapas] : etapas.filter((e) => e.fase === fase);
 }
 
 /** La primera columna: donde cae un cliente que entra a la entrega. */
@@ -129,6 +195,19 @@ export function nuevaClaveEtapa(label: string, existentes: readonly string[]): s
   // 500 etapas con el mismo nombre no es un caso real; igual no se devuelve algo
   // que colisione.
   return `${raiz}_${usadas.size + 1}`;
+}
+
+/**
+ * Una clave nueva de FASE. Misma regla que la de etapa y por el mismo motivo: una clave
+ * reusada haría que las etapas de una fase borrada reaparezcan dentro de la nueva.
+ *
+ * El prefijo evita el otro choque, que es más silencioso: una fase y una etapa pueden
+ * llamarse igual («Cimientos» las dos), y sin prefijo compartirían clave — con lo cual
+ * una etapa apuntaría a una fase por accidente.
+ */
+export function nuevaClaveFase(label: string, existentes: readonly string[]): string {
+  const sinPrefijo = existentes.map((k) => k.replace(/^f_/, ''));
+  return `f_${nuevaClaveEtapa(label, sinPrefijo)}`;
 }
 
 /** El color de la próxima etapa que se agregue, rotando la paleta del CRM para
@@ -298,6 +377,34 @@ export function conteoDeEtapas(
  * clientes de esa etapa simplemente no se dibujan, y eso se lee como «no tengo
  * clientes ahí», que es una afirmación falsa.
  */
+export function normalizarFases(raw: unknown): FaseEntrega[] {
+  // ⚠️ ACÁ EL VACÍO ES LEGÍTIMO, al revés que con las etapas: no tener fases es el
+  // estado normal de un servicio, así que un jsonb sin `fases` devuelve `[]` y no `null`.
+  // Lo que sí se descarta entero es una lista ROTA: media lista de fases dejaría etapas
+  // apuntando a una fase que no se dibuja, o sea columnas con el color equivocado.
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const vistas = new Set<string>();
+  const out: FaseEntrega[] = [];
+  for (const [i, item] of raw.entries()) {
+    if (!item || typeof item !== 'object') return [];
+    const o = item as Record<string, unknown>;
+    const key = typeof o.key === 'string' ? o.key.trim() : '';
+    if (!CLAVE_FASE_OK.test(key) || vistas.has(key)) return [];
+    vistas.add(key);
+    const fallback = colorNuevaEtapa(i);
+    out.push({
+      key,
+      label: typeof o.label === 'string' && o.label.trim() ? o.label.trim() : key,
+      tone: typeof o.tone === 'string' ? (o.tone as StageTone) : fallback.tone,
+      dot: typeof o.dot === 'string' && o.dot.trim() ? o.dot : fallback.dot,
+    });
+  }
+  return out;
+}
+
+/** Las claves de fase llevan el prefijo: ver `nuevaClaveFase`. */
+const CLAVE_FASE_OK = /^f_[a-z0-9_]+$/;
+
 export function normalizarEtapas(raw: unknown): EtapaEntrega[] | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const vistas = new Set<string>();
@@ -315,6 +422,12 @@ export function normalizarEtapas(raw: unknown): EtapaEntrega[] | null {
       label,
       tone: typeof o.tone === 'string' ? (o.tone as StageTone) : fallback.tone,
       dot: typeof o.dot === 'string' && o.dot.trim() ? o.dot : fallback.dot,
+      // ⚠️ SOBREVIVE AL SANEO. Un mapper que reconstruye campo por campo y se olvida uno
+      // lo borra en el próximo guardado de cualquier otro campo — y acá lo que se
+      // borraría es a qué fase pertenece la columna, o sea su color. Se valida contra el
+      // catálogo al PINTAR (`colorDeEtapa` cae al color propio si la fase no existe), no
+      // acá: este saneo no conoce las fases.
+      ...(typeof o.fase === 'string' && CLAVE_FASE_OK.test(o.fase.trim()) ? { fase: o.fase.trim() } : {}),
     });
   }
   return out;

@@ -5194,6 +5194,27 @@ Se extrae el BLOQUE antes de buscar (la función, el tipo, la sentencia SQL, las
 no son comentario) y recién ahí se pregunta. Y cada capa lleva SU test: un guard que junta
 seis en uno dice que algo se rompió y no cuál, que es lo único que ahorra tiempo.
 
+⚠️ **Y UN `doesNotMatch` SE PREGUNTA SOBRE EL TEXTO SIN COMENTARIOS, SIEMPRE.** Es la misma
+regla llevada a su caso más frecuente, y es inevitable acá: la convención de la casa es
+explicar en el comentario lo que se sacó y CITAR el pedido que lo pidió, así que todo guard
+de «esto NO está» se acusa a sí mismo. Medido el 05/10/2026: la primera corrida de
+`tests/cs-kanban-fases.test.ts` falló **tres de once** por el ⛔ que explica que «Sin
+clientes.» se fue, el ⚠️ que dice que ya no se lee `e.dot`, y el encabezado que cita «no
+existe el botón de "No cambiar nada"». Los tres son prosa correcta y los tres hacían fallar
+un guard sano — que es peor que un falso negativo, porque manda a «arreglar» algo que está
+bien.
+
+```ts
+const sinComentarios = (src: string) => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')   // las líneas PRIMERO
+  .replace(/\/\*[\s\S]*?\*\//g, '');  // y los bloques después
+```
+
+Las líneas antes que los bloques, por lo que ya está escrito más arriba: un `/*` que
+aparezca dentro de un comentario de línea abre un bloque que se cierra páginas abajo y se
+come el código del medio. Y sólo las líneas que ARRANCAN con `//`, para no partir un
+`https://` adentro de una cadena.
+
 ⚠️ **Y «EL BLOQUE» ES SU CIERRE REAL, NUNCA UN NÚMERO DE CARACTERES.** Un `slice(i, i + 800)`
 elegido a ojo es el mismo bug con otra cara: el universo sigue siendo más grande que la
 pregunta. Medido el 04/10/2026 en el tablero — un guard que exigía `!verTodos && !needle`
@@ -5226,6 +5247,37 @@ alguien.
 vieja tenía de propio se enumera antes de borrarla.** Si el archivo viejo se va, un test
 que pregunte «¿no volvió?» (`readdirSync` del directorio) vale más que uno que lo lea: un
 segundo editor del mismo dato es lo que produjo este agujero.
+
+# Una regla DERIVADA necesita el UNIVERSO, no las filas
+
+Cuando la respuesta a «¿dónde está esto?» no se lee de una tabla sino que se DERIVA —«un
+cliente sin fila está en la primera etapa», «una tarea sin quarter lo saca de su deadline»,
+«un paso sin estado está pendiente»—, la función que la aplica sólo puede derivársela a lo
+que RECIBE. Alimentarla con las filas de la tabla en vez de con las entidades es un cero
+perfectamente correcto sobre la pregunta equivocada, y **el que cuenta filas siempre cuenta
+de menos**.
+
+Medido el 05/10/2026 en Customer Success, con 8 clientes y 3 filas de `cliente_entrega`: el
+tablero dibujaba **5 tarjetas** en la primera columna y el editor de etapas decía **0**, los
+dos leyendo el mismo overlay y los dos llamando a la MISMA función —que delega en
+`repartirEnEtapas` justamente para que no puedan contar distinto—. La función estaba bien: a
+una le pasaban un cliente por tarjeta y a la otra `Object.values(asignacion)`, o sea las
+filas.
+
+- **No es cosmético: casi siempre ese número gobierna una decisión.** Acá era lo único que
+  hacía que sacar una columna fuera una decisión, así que con el 0 puesto el «¿seguro?» **no
+  se dispara** y la columna se va con cinco clientes adentro, en silencio.
+- **El comentario de al lado puede ser cierto y esconder el bug.** Decía «sale del MISMO
+  overlay que dibuja el tablero», que es verdad — y la pregunta era otra.
+- **Y el universo se elige:** se cuenta sobre la cartera ENTERA, nunca sobre lo que un
+  filtro o un buscador dejaron a la vista, o el aviso deja de contar a los que se
+  escondieron.
+- **El olor:** dos llamadas a la misma función de conteo cuyos argumentos salen de colecciones
+  de distinto tamaño. Si una es `Object.values(<mapa de filas>)` y la otra una lista de
+  entidades, ya es esto.
+- **Lo encuentra el navegador, no el código.** Las dos pantallas compilan, los tests pasan y
+  los dos números son plausibles; lo que lo delató fue ver el 0 al lado de las cinco
+  tarjetas.
 
 # El copy que ve un cliente no relevé un campo LIBRE
 

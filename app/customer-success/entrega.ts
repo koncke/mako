@@ -14,13 +14,22 @@ import 'server-only';
 import { listProductos } from '@/lib/productos';
 import { secuenciasPorEtapaDeEntrega } from '@/lib/nutricion';
 import { entregasDeProductos, clientesEnEntrega, type ClienteEnEntrega } from '@/lib/entrega-servicio';
-import type { EtapaEntrega } from '@/lib/servicio-etapas';
+import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 
 /** Un servicio que se puede entregar, con las columnas de SU entrega. */
 export type Servicio = {
   productoId: number;
   nombre: string;
   etapas: EtapaEntrega[];
+  /**
+   * Los tramos que agrupan a las columnas. Vacío es el caso normal.
+   *
+   * ⚠️ VIAJA CON LAS ETAPAS, no aparte: el color de una columna sale de las dos cosas
+   * juntas (`colorDeEtapa`), así que una pantalla que reciba las etapas sin las fases
+   * dibuja los colores propios — o sea el estado de ANTES de agrupar, que se lee como
+   * que agrupar no hizo nada.
+   */
+  fases: FaseEntrega[];
   /** `default` = nadie configuró estas etapas. La pantalla lo tiene que DECIR. */
   origen: 'declarado' | 'default';
 };
@@ -85,6 +94,7 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
         productoId: p.id,
         nombre: p.nombre,
         etapas: cat?.etapas ?? [],
+        fases: cat?.fases ?? [],
         origen: cat?.origen ?? 'default',
       };
     });

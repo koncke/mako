@@ -50,7 +50,7 @@ import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo } from './trabajo';
 import { ClienteCard } from './ClienteCard';
-import { repartirEnEtapas, type EtapaEntrega } from '@/lib/servicio-etapas';
+import { repartirEnEtapas, colorDeEtapa, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 // ⚠️ EL MISMO MOLDE QUE EL PLAN, no una copia. «La animación de arrastrar tarjetas por
 // el kanban, eso replicalo tal cual de como lo hacemos en PLAN» (Martín, 05/10/2026).
 // Estaba inline en `BoardShell.tsx` y salió a su módulo para que las dos pantallas usen
@@ -87,11 +87,19 @@ function hace(iso: string | null | undefined): string | null {
 const DIAS_TRABADO = 21;
 
 export function KanbanEntrega({
-  etapas, origen, servicio, clientes, asignacion, numeroDe,
+  etapas, fases, origen, servicio, clientes, asignacion, numeroDe,
   trabajoDe, tableroOk, cuentas,
   onMover, onAbrir, onEquipo, onNuevoCliente, onError,
 }: {
   etapas: EtapaEntrega[];
+  /**
+   * Los TRAMOS del programa, que le dan su color a las columnas de cada uno.
+   *
+   * «En todo programa existen "fases", por ejemplo, Fase 1: "Cimientos" y dentro están
+   * las etapas» (Martín, 05/10/2026). Vacío es el caso normal y no cambia nada de lo que
+   * se dibuja: sin fases, cada columna usa su color propio y los chips no existen.
+   */
+  fases: FaseEntrega[];
   /** `default` = nadie configuró estas columnas. La pantalla lo DICE. */
   origen: 'declarado' | 'default';
   servicio: string;
@@ -139,8 +147,27 @@ export function KanbanEntrega({
    * el hueco es la mitad del gesto que el Plan sí tiene.
    */
   const [ins, setIns] = useState<{ etapa: string; idx: number } | null>(null);
-  const copia = useRef<HTMLElement | null>(null);
   const riel = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * QUÉ FASE SE ESTÁ MIRANDO. `null` = todas, `''` = las columnas sueltas.
+   *
+   * ⚠️ ES UN VALOR ELEGIDO Y NO UNA COPIA DE LAS FASES, así que cambiar de servicio no lo
+   * deja viejo: este componente NO se desmonta al cambiar de servicio, y un
+   * `useState(props.fases)` seguiría mostrando los tramos del anterior. Lo único que hace
+   * falta es que una fase borrada no vacíe el tablero, y eso se deriva abajo.
+   *
+   * ⚠️ Y ES UNA SOLA FASE A LA VEZ, con un «Todas» de verdad, en vez de los interruptores
+   * independientes del CRM. Ahí hacen falta tres guardas para que nadie apague la última
+   * —con cero bandas el tablero queda vacío y no hay nada en pantalla que lo explique— y
+   * con «Todas» ese estado no se puede producir. El pedido también es éste: «solo ver las
+   * columnas de esa fase».
+   */
+  const [fasePedida, setFasePedida] = useState<string | null>(null);
+  /** Una fase que ya no existe se trata como «todas»: nunca deja el tablero en blanco. */
+  const faseVista = fasePedida !== null && (fasePedida === '' || fases.some((f) => f.key === fasePedida))
+    ? fasePedida
+    : null;
 
   /**
    * Cada cliente en su columna.
@@ -156,6 +183,16 @@ export function KanbanEntrega({
     [etapas, clientes, asignacion],
   );
 
+  /**
+   * LAS COLUMNAS QUE SE DIBUJAN. El filtro por fase es del RENDER, no del reparto.
+   *
+   * ⚠️ POR ESO `repartirEnEtapas` SIGUE RECIBIENDO LAS ETAPAS ENTERAS. Pasarle la lista
+   * filtrada haría que todos los clientes de las columnas escondidas salieran como
+   * HUÉRFANOS, y el pie del tablero anunciaría «12 clientes están en una etapa que ya no
+   * existe» — una afirmación falsa, producida por mirar una fase.
+   */
+  const visibles = faseVista === null ? etapas : etapas.filter((e) => (e.fase ?? '') === faseVista);
+
   // ── El gesto ───────────────────────────────────────────────────────────────
 
   /**
@@ -169,13 +206,27 @@ export function KanbanEntrega({
    * rectángulo medido contra la ventana — después de correr 600 px, los medidos al agarrar
    * apuntan 600 px arriba del cursor. O sea que el scroll rompía el drop justo cuando
    * hacía su trabajo.
+   *
+   * ⚠️ Y MÁS EL `scrollTop` DE LA COLUMNA, que es la misma trampa un nivel más abajo:
+   * desde que el cuerpo scrollea solo, correrlo mueve las tarjetas sin mover la ventana.
+   * Sumarlo pone la medida en coordenadas del CONTENIDO de esa columna, que no cambian
+   * cuando se la scrollea: si el cuerpo baja N, el `top` del rectángulo baja N y el
+   * `scrollTop` sube N. La comparación del `dragover` suma lo mismo del otro lado.
    */
   const medidas = useRef<Record<string, number[]>>({});
 
-  // La copia que sigue al cursor y el empuje VERTICAL salen del molde del Plan. El empuje
-  // HORIZONTAL del riel se queda acá: `scrollerDe` sólo mira `overflowY`, así que un riel
-  // `overflow-x: auto` no es un scroller para él y devuelve la ventana.
-  const { empujarScroll, pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
+  /**
+   * La copia que sigue al cursor sale del molde del Plan. LOS DOS EMPUJES se quedan acá, y
+   * `empujarScroll` del hook NO se usa a propósito:
+   *
+   * · el HORIZONTAL es del riel, y `scrollerDe` sólo mira `overflowY` — un riel
+   *   `overflow-x: auto` no es un scroller para él y devuelve la ventana;
+   * · el VERTICAL es de la columna BAJO EL CURSOR, y `scrollerDe` resuelve el scroller UNA
+   *   vez en el `dragstart`, con la tarjeta de ORIGEN: en el Plan eso es la página (o el
+   *   cuerpo del modal) y da igual, pero acá cada columna tiene su propio scroll, así que
+   *   empujaría la columna de la que salió la tarjeta en vez de la que se está mirando.
+   */
+  const { pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
 
   function agarrar(e: React.DragEvent<HTMLElement>, leadId: number) {
     const tarjeta = e.currentTarget.closest<HTMLElement>('[data-tarjeta]');
@@ -191,8 +242,9 @@ export function KanbanEntrega({
 
     const out: Record<string, number[]> = {};
     for (const col of document.querySelectorAll<HTMLElement>('[data-etapa]')) {
+      const dy = window.scrollY + (col.querySelector<HTMLElement>('[data-cuerpo]')?.scrollTop ?? 0);
       out[col.dataset.etapa ?? ''] = [...col.querySelectorAll<HTMLElement>('[data-tarjeta]')]
-        .map((el) => { const q = el.getBoundingClientRect(); return q.top + q.height / 2 + window.scrollY; });
+        .map((el) => { const q = el.getBoundingClientRect(); return q.top + q.height / 2 + dy; });
     }
     medidas.current = out;
   }
@@ -218,6 +270,23 @@ export function KanbanEntrega({
     const BORDE = 110;
     const dir = e.clientX < r.left + BORDE ? -1 : e.clientX > r.right - BORDE ? 1 : 0;
     if (dir !== 0) el.scrollLeft += dir * 18;
+  }
+
+  /**
+   * El empuje VERTICAL, DENTRO de la columna que está bajo el cursor.
+   *
+   * ⚠️ HACE FALTA DESDE QUE LA COLUMNA TIENE SU PROPIO SCROLL. «La tab NO tiene que tener
+   * scroll, las columnas tienen su scroll propio» (Martín, 05/10/2026): con el cuerpo
+   * recortado, una columna de veinte tarjetas tiene la mitad fuera de la vista y sin esto
+   * no hay forma de soltar ahí — el gesto queda sin salida, igual que el tablero del Plan
+   * con 19.630 px de alto y sin auto-scroll.
+   */
+  function empujarColumna(cuerpo: HTMLElement | null, clientY: number) {
+    if (!cuerpo || cuerpo.scrollHeight <= cuerpo.clientHeight + 1) return;
+    const r = cuerpo.getBoundingClientRect();
+    const BORDE = 64;
+    const dir = clientY < r.top + BORDE ? -1 : clientY > r.bottom - BORDE ? 1 : 0;
+    if (dir !== 0) cuerpo.scrollTop += dir * 18;
   }
 
   function soltarEn(key: string) {
@@ -247,9 +316,16 @@ export function KanbanEntrega({
           edita las etapas de CUALQUIERA de los servicios, no sólo del que estás mirando.
           Un renglón entero para un solo link era, además, el único que separaba la barra
           del tablero. */}
+      {/* ⚠️ LOS CHIPS VAN ARRIBA DEL RIEL Y NO EN LA BARRA. Son una propiedad del TABLERO
+          —qué columnas se ven— y no un filtro de la cartera: el mismo criterio por el que
+          el CRM tiene sus tres bandas al lado del tablero y no adentro de «Filtrar». */}
+      <FasesChips fases={fases} etapas={etapas} porEtapa={porEtapa}
+        vista={faseVista} onVista={setFasePedida} />
+
       <div className="ke-riel" ref={riel} onDragOver={autoScroll}>
-        {etapas.map((e, i) => {
+        {visibles.map((e) => {
           const cards = porEtapa[e.key] ?? [];
+          const color = colorDeEtapa(e, fases);
           return (
             <section key={e.key}
               data-etapa={e.key}
@@ -259,15 +335,22 @@ export function KanbanEntrega({
                  sale); una etapa de entrega no tiene banda —a propósito: acá no hay
                  nutrición ni descarte— así que copiado tal cual pintaría las cinco columnas
                  del mismo verde. `dot` ya es un color por etapa y es el mismo que el punto
-                 de la cabecera, así que la línea y el punto no pueden desincronizarse. */
-              style={{ borderTop: `3px solid ${e.dot}` }}
+                 de la cabecera, así que la línea y el punto no pueden desincronizarse.
+
+                 ⚠️ Y SALE DE `colorDeEtapa`, no de `e.dot`: el color de la FASE le gana al
+                 propio, y quién gana se decide en UNA función. Leyendo `e.dot` acá, las
+                 columnas de una fase quedarían con cinco colores distintos y agrupar no se
+                 vería — que es exactamente lo que las fases vienen a mostrar. */
+              style={{ borderTop: `3px solid ${color}` }}
               /* `preventDefault` es lo que HABILITA el drop: sin él el navegador lo
                  rechaza y no pasa nada, que se lee como que el arrastre no anda. */
               onDragOver={(ev) => {
                 if (enMano.current == null) return;
                 ev.preventDefault();
                 ev.dataTransfer.dropEffect = 'move';
-                const y = ev.clientY + window.scrollY;
+                const cuerpo = ev.currentTarget.querySelector<HTMLElement>('[data-cuerpo]');
+                empujarColumna(cuerpo, ev.clientY);
+                const y = ev.clientY + window.scrollY + (cuerpo?.scrollTop ?? 0);
                 const ms = medidas.current[e.key] ?? [];
                 let idx = ms.length;
                 for (let k = 0; k < ms.length; k++) { if (y < ms[k]) { idx = k; break; } }
@@ -282,7 +365,7 @@ export function KanbanEntrega({
               onDrop={(ev) => { ev.preventDefault(); soltarEn(e.key); }}
             >
               <header className="ke-cab">
-                <span className="ke-dot" style={{ background: e.dot }} aria-hidden />
+                <span className="ke-dot" style={{ background: color }} aria-hidden />
                 <span className="ke-label">{e.label}</span>
                 <span className="ke-n">{cards.length}</span>
               </header>
@@ -302,7 +385,7 @@ export function KanbanEntrega({
                   ⚠️ El `+ '1f'` es un sufijo de alfa HEX y sólo funciona con hex de 6
                   dígitos: `dot` lo es (lib/servicio-etapas.ts). Con un `rgb()` o un
                   `var()` el color sale inválido y el navegador lo descarta en silencio. */}
-              <ul className="ke-cards">
+              <ul className="ke-cards" data-cuerpo>
                 {cards.map((c, iCard) => {
                   const a = asignacion[c.leadId];
                   const desde = hace(a?.etapa_desde);
@@ -311,7 +394,7 @@ export function KanbanEntrega({
                   const hueco = ins?.etapa === e.key && ins.idx === iCard;
                   return (
                     <li key={c.leadId}>
-                      {hueco && <div className="ke-hueco" style={{ borderColor: e.dot, background: `${e.dot}1f` }} />}
+                      {hueco && <div className="ke-hueco" style={{ borderColor: color, background: `${color}1f` }} />}
                       {/* ⚠️ EL `draggable` VA EN EL ENVOLTORIO Y NO EN LA TARJETA.
                           `TarjetaEntidad` cubre su superficie con un `<button>` absoluto
                           y pone todo lo demás en `pointer-events: none`. Medido en el
@@ -347,13 +430,13 @@ export function KanbanEntrega({
                 {/* El hueco del final: soltar DEBAJO de la última tarjeta, y el único que
                     se ve en una columna vacía. */}
                 {ins?.etapa === e.key && ins.idx >= cards.length && (
-                  <li><div className="ke-hueco" style={{ borderColor: e.dot, background: `${e.dot}1f` }} /></li>
+                  <li><div className="ke-hueco" style={{ borderColor: color, background: `${color}1f` }} /></li>
                 )}
               </ul>
-              {/* ⚠️ UNA COLUMNA VACÍA LO DICE. Sin esto, una columna sin tarjetas y una
-                  columna que no se pudo leer se ven iguales — y el hueco además no deja
-                  claro que ahí se puede soltar. */}
-              {!cards.length && <p className="ke-vacia">Sin clientes.</p>}
+              {/* ⛔ ACÁ DECÍA «Sin clientes.» y se fue (Martín, 05/10/2026). El contador de
+                  la cabecera ya dice 0 en el mismo renglón que el nombre, así que el
+                  renglón repetía el único dato que había y le robaba el lugar al único que
+                  importa en una columna vacía: que ahí se puede soltar una tarjeta. */}
             </section>
           );
         })}
@@ -374,8 +457,70 @@ export function KanbanEntrega({
   );
 }
 
+/**
+ * Los chips de fase: cuáles columnas se ven.
+ *
+ * Es la anatomía de `BandasToggle` del CRM (grupo en `--surface-2`, un segmento por
+ * tramo, su punto de color y su conteo), con una diferencia que viene del modelo: acá
+ * «Todas» es una opción de verdad y se elige UNA, así que no hace falta la guarda de «no
+ * se puede apagar la última» ni existe el estado de cero columnas.
+ *
+ * ⚠️ NO SE DIBUJA SI NO HAY FASES. Un grupo con un solo botón que ya está encendido es un
+ * control que no hace nada, y eso se lee como que la app está rota.
+ */
+function FasesChips({ fases, etapas, porEtapa, vista, onVista }: {
+  fases: FaseEntrega[];
+  etapas: EtapaEntrega[];
+  porEtapa: Record<string, unknown[]>;
+  vista: string | null;
+  onVista: (v: string | null) => void;
+}) {
+  if (!fases.length) return null;
+  const cuantos = (clave: string | null) => etapas
+    .filter((e) => clave === null || (e.fase ?? '') === clave)
+    .reduce((n, e) => n + (porEtapa[e.key]?.length ?? 0), 0);
+  // Las sueltas sólo aparecen si hay alguna: un botón que siempre dice 0 es ruido fijo.
+  const sueltas = etapas.some((e) => !e.fase || !fases.some((f) => f.key === e.fase));
+  const items: { clave: string | null; label: string; color: string | null }[] = [
+    { clave: null, label: 'Todas', color: null },
+    ...fases.map((f) => ({ clave: f.key, label: f.label, color: f.dot })),
+    ...(sueltas ? [{ clave: '', label: 'Sin fase', color: null }] : []),
+  ];
+  return (
+    <div className="ke-fases">
+      {items.map((it) => {
+        const on = vista === it.clave;
+        return (
+          <button key={it.clave ?? '__todas'} type="button" aria-pressed={on}
+            onClick={() => onVista(it.clave)}
+            title={on ? 'Es lo que estás viendo' : 'Ver sólo ' + it.label}
+            className={on ? 'ke-fase-on' : undefined}
+            style={on && it.color ? { background: it.color, borderColor: it.color } : undefined}>
+            {it.color && <span className="ke-fase-dot" style={{ background: on ? '#fff' : it.color }} aria-hidden />}
+            {it.label}
+            <span className="ke-fase-n">{cuantos(it.clave)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const CSS = `
 .ke { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
+/* Los chips de fase, con la anatomia de las bandas del CRM. */
+.ke-fases { display: inline-flex; flex: none; align-self: flex-start; align-items: center; gap: 3px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px;
+  max-width: 100%; flex-wrap: wrap; }
+.ke-fases button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px;
+  border: 1px solid transparent; background: transparent; color: var(--dim); cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.ke-fases button:hover { color: var(--ink); }
+/* El activo SIN color de fase (Todas, Sin fase) va en tinta, igual que el segmento del CRM. */
+.ke-fase-on { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--on-ink) !important; }
+.ke-fase-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ke-fase-n { font-size: 11px; font-weight: 700; opacity: .85; font-variant-numeric: tabular-nums; }
 .ke-arriba { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ke-cuenta { font-size: 12.5px; color: var(--dim); }
 .ke-default { font-size: 12.5px; color: var(--dim); }
@@ -410,10 +555,17 @@ const CSS = `
    desde los 258 px, y a 300 la banda de 74 px y la marca montada encima quedan en
    proporción en vez de parecer una tarjeta apretada. Con 300 entran cuatro columnas en
    1480; el riel scrollea, que es contenido corriéndose y no navegación escondida. */
+/* ⚠️ EL TOPE DE ALTO ES LO QUE SACA EL SCROLL DE LA TAB. «La tab NO tiene que tener
+   scroll, las columnas tienen su scroll propio. La tab si debe tener scroll de izquierda a
+   derecha» (Martin, 05/10/2026). Son 68vh, el mismo numero que el tablero del CRM, y el
+   recorte vive en la COLUMNA y no en la pagina: un alto en vh sobre un contenedor flex es
+   un numero cerrado, mientras que un height al 100% contra un padre de alto indefinido
+   resuelve CERO en Safari — y con el el overflow hidden de arriba, cero es una pantalla en
+   blanco. La cabecera y el boton de alta se quedan fijos; lo que corre son las tarjetas. */
 .ke-col {
   flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 11px; min-height: 248px;
+  border-radius: 14px; padding: 11px; min-height: 248px; max-height: 68vh;
   transition: background .12s, border-color .12s;
 }
 /* ⚠️ LA TARJETA SE DA VUELTA ADENTRO DE LA COLUMNA, y acá, no en TarjetaEntidad: esa
@@ -438,7 +590,11 @@ const CSS = `
   transition: background .12s, border-color .12s, color .12s;
 }
 .ke-nuevo-col:hover { color: var(--ink); border-color: var(--ink); background: var(--surface-2); }
-.ke-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+/* ⚠️ El min-height en 0 NO ES DECORATIVO: sin el, un hijo flex no baja de su alto de
+   contenido y el overflow no recorta nada — la columna crece y vuelve el scroll de la
+   tab. El padding derecho deja aire para la barra sin que tape el borde de la tarjeta. */
+.ke-cards { list-style: none; margin: 0; padding: 0 2px 0 0; display: flex; flex-direction: column; gap: 10px;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 /* El envoltorio que se arrastra. La tarjeta de adentro trae su propia caja. */
 .ke-card { display: flex; border-radius: 18px; }
 .ke-card > * { width: 100%; }
@@ -462,7 +618,6 @@ const CSS = `
   padding: 1px 8px; white-space: nowrap; }
 .ke-chip-trabado { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
 
-.ke-vacia { margin: 0; padding: 10px 2px; font-size: 12px; color: var(--dim); }
 .ke-huerfanos { margin: 0; font-size: 12.5px; color: var(--bad); }
 .ke-nada { margin: 10px 0 0; font-size: 13px; color: var(--dim); }
 

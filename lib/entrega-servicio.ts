@@ -24,8 +24,8 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import {
-  entregaPorDefecto, normalizarEtapas, conteoDeEtapas,
-  type EntregaConfig, type EtapaEntrega,
+  entregaPorDefecto, normalizarEtapas, normalizarFases, conteoDeEtapas,
+  type EntregaConfig, type EtapaEntrega, type FaseEntrega,
 } from './servicio-etapas';
 
 const COLS_CATALOGO = 'producto_id, data, declarado';
@@ -59,7 +59,11 @@ function filaAEntrega(f: FilaCatalogo): EntregaConfig {
   // tablero sin columnas no se puede dibujar, y la lista a medias es peor que el
   // default porque esconde clientes sin avisar (ver `normalizarEtapas`).
   if (!etapas) return entregaPorDefecto(f.producto_id);
-  return { productoId: f.producto_id, etapas, origen: 'declarado' };
+  // Las FASES saben caer solas: vacío es su estado legítimo, así que una lista rota
+  // deja el servicio sin tramos y con los colores propios de cada etapa — nunca sin
+  // columnas. Por eso no participa del fallback de arriba.
+  const fases = normalizarFases((f.data as { fases?: unknown } | null)?.fases);
+  return { productoId: f.producto_id, etapas, fases, origen: 'declarado' };
 }
 
 /**
@@ -101,15 +105,31 @@ export async function entregaDeProducto(productoId: number): Promise<EntregaConf
  * `nuevaClaveEtapa` nunca reuse una clave borrada, para que las filas viejas de
  * `cliente_entrega` no reaparezcan dentro de una columna nueva.
  */
-export async function guardarEtapasEntrega(productoId: number, etapas: readonly EtapaEntrega[]): Promise<boolean> {
+export async function guardarEtapasEntrega(
+  productoId: number,
+  etapas: readonly EtapaEntrega[],
+  /**
+   * ⚠️ SIN DEFAULT, A PROPÓSITO. Un `= []` deja que un llamador se olvide las fases y,
+   * como el `data` se reemplaza entero, eso las BORRA: el color de cada columna se
+   * perdería en el próximo guardado de cualquier otra cosa, sin un error y sin un log.
+   * Exigirlo hace que el compilador enumere los call sites el día que aparezca el segundo.
+   */
+  fases: readonly FaseEntrega[],
+): Promise<boolean> {
   const limpias = normalizarEtapas(etapas);
   if (!limpias) {
     console.error(`[entrega-servicio] etapas inválidas para el producto ${productoId}: no se guardó nada`);
     return false;
   }
+  // ⚠️ LAS FASES SE ESCRIBEN EN EL MISMO UPSERT, no en una llamada aparte. El `data`
+  // se reemplaza entero, así que guardar las etapas sin mandar las fases las BORRA —
+  // y lo que se borraría es el color de cada columna, en el próximo guardado de
+  // cualquier otra cosa. Es el modo de falla de los mappers de lectura, del lado de
+  // la escritura.
+  const tramos = normalizarFases(fases);
   const db = await getTenantDb();
   const { error } = await db.from('producto_entrega').upsert(
-    { producto_id: productoId, data: { etapas: limpias }, declarado: true, updated_at: new Date().toISOString() },
+    { producto_id: productoId, data: { etapas: limpias, fases: tramos }, declarado: true, updated_at: new Date().toISOString() },
     { onConflict: 'workspace_id,producto_id' },
   );
   if (error) {

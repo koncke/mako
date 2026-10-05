@@ -44,7 +44,7 @@ import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { guardarEtapasEntrega } from '@/lib/entrega-servicio';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
-import type { EtapaEntrega } from '@/lib/servicio-etapas';
+import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
@@ -424,12 +424,17 @@ export async function sacarDeEntregaAction(leadId: number, productoId: number): 
  * tenga la tab —es el trabajo del día—, pero RENOMBRAR o BORRAR una columna le cambia
  * el tablero a todo el equipo y puede dejar clientes en una etapa que ya no existe.
  */
-export async function guardarEtapasEntregaAction(productoId: number, etapas: EtapaEntrega[]): Promise<
+export async function guardarEtapasEntregaAction(
+  productoId: number,
+  etapas: EtapaEntrega[],
+  /** Sin default: ver el porqué en `guardarEtapasEntrega`. */
+  fases: FaseEntrega[],
+): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede cambiar las etapas de un servicio.' };
-    const ok = await guardarEtapasEntrega(productoId, etapas);
+    const ok = await guardarEtapasEntrega(productoId, etapas, fases);
     if (!ok) return { ok: false, error: 'Esas etapas no se pudieron guardar. Revisa que ninguna quede sin nombre.' };
     revalidatePath('/customer-success');
     return { ok: true };
