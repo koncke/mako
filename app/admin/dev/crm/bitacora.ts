@@ -582,4 +582,34 @@ export const BITACORA: Hito[] = [
       'tests/variables-aviso.test.ts — el guard de nombres reales, extendido a los placeholders',
     ],
   },
+  {
+    fecha: '5 oct', hora: '00:30', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El tracking de la ficha manda a Clarity en vez de mostrar',
+    pedido: 'Lo que veo es que aquí en el tracking, aún no se está mostrando la grabación, los clicks, aún sigue redirigiendo a clarity, eso solucionalo, que se muestre allí mismo.\nY también en el botón de "Ponles nombre" al vídeo que no tiene etiqueta, sería bueno que si le doy se abra un pop-up allí mismo para asignarle nombre, no que una redirección a otro lado.',
+    puntos: [
+      'Vino con una captura de la ficha de un lead. Dos de los tres defectos que se arreglaron NO estaban en el pedido: aparecieron al medir por que la pantalla se veia asi.',
+    ],
+  },
+  {
+    fecha: '5 oct', hora: '02:00', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El sello del constructor era la mitad de los clics del lead',
+    puntos: [
+      '⚠️ **208 de los 441 clics del ws1 son el badge «Edit with Lovable»** que la landing lleva pegado, y el PRIMER renglon del recorrido de un lead era el cartelito del editor. En el ws11 y el ws13 el mismo patron da 0: no se puede descartar «lo raro» a ojo, hay que contar. Se filtra AL LEER y no al capturar, porque un arreglo en el snippet solo vale para quien repegue el codigo y no limpia los 208 ya guardados.',
+      '**La grabacion de Clarity NO se puede embeber**: re-medido, contesta X-Frame-Options SAMEORIGIN. El boton queda y ahora DICE que abre Clarity, que es lo honesto.',
+      '⚠️ **Una fusion no es un reorden.** La primera version metio el recorrido adentro de la tarjeta y en el codigo el pedido se leia cumplido; en el navegador seguia a 798,5 px del tope con 583 visibles. Lo que lo arreglo fue el ORDEN —«que hizo» antes que «de donde vino»—: 281 px, medido por los dos caminos.',
+      '**Y «Ponles un nombre» abria un pop-up sin nada que contestar en 59 de 64 leads**: el contador incluia el balde de eventos sin video_id, que es justo el que el pop-up descarta. Cuando una pantalla OFRECE y otra RESUELVE, las dos cuentan sobre el mismo conjunto.',
+      'De paso quedaron #627 cerrada y #800, #18 y #40 al 50% con lo que falta escrito adentro: a #800 le falta la PANTALLA que declare el plazo por etapa (ninguna escribe funnels.data.umbrales), a #18 el texto que escribe Martin, y a #40 el planificador.',
+    ],
+    commits: [
+      { sha: '99d89e07', msg: 'CRM: lo que hizo el lead se lee en la ficha, y cuatro tarjetas mas', lineas: 2544, archivos: 30 },
+    ],
+    archivos: [
+      'lib/clic-ruido.ts — el sello del constructor no es un clic de la persona',
+      'app/crm/lead-view/ComportamientoCard.tsx — el recorrido primero, y el contador acotado',
+      'app/crm/lead-view/NombrarVideosModal.tsx — nombrar un video sin salir de la ficha',
+      'lib/ventana-24h.ts — fuera de las 24 h el boton de enviar no se dibuja',
+    ],
+  },
 ];

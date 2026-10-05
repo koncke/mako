@@ -164,7 +164,7 @@ export const CRM_VEREDICTOS: Record<number, { que: Veredicto; motivo: string; he
   // ── Se va: por qué ya no queda nada que hacer ──
   37: { que: 'va', motivo: 'Ya está en producción. Lo único que quedaba vivo da 0 casos reales en 10.137 visitantes' },
   698: { que: 'va', motivo: 'Ya está hecho: es un renglón, se ignora en lote y nunca bloquea el guardado' },
-  627: { que: 'va', motivo: 'Ya está construido. Lo único que falta se escribe dentro de #798' },
+  627: { que: 'va', motivo: 'Ya está construido. Lo único que falta se escribe dentro de #798', hecho: 'Una nutrición ahora puede ser de UN producto: respeta el embudo que declara, y la que no declara ninguno sigue funcionando igual' },
   15: { que: 'va', motivo: 'Es la misma tarea que #40, que ya nombra lo mismo que falta' },
   689: { que: 'va', motivo: 'Es la misma que #38: su texto se muda ahí, con sus dos mitades' },
 

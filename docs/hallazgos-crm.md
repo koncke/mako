@@ -5612,3 +5612,94 @@ sin que se vea en ningún diff. El salto se detecta por archivo y se devuelve ig
   AGREGA, así que se despliega ANTES o JUNTO con el código que la lee.
 
 **Vive en:** `lib/journey.ts` (`buildJourney`, `EtapaReunion`, `reunionesDelRecorrido`, `datosDeSlot`) · `lib/funnel-etapas.ts` (`reunionesDe`, `slotPorIndice`) · `app/crm/LeadSheet.tsx` · `app/crm/[id]/page.tsx` · `lib/api-mako/areas/crm.run.ts` (`journey_lead`) · `tests/journey-reuniones-embudo.test.ts` · *2026-10-05 paquete-40*
+
+
+---
+
+## El Pixel contaba como clic del lead el sello del constructor de la landing (05/10/2026)
+
+Martín, mirando la ficha de un lead: **«aquí en el tracking, aún no se está mostrando la
+grabación, los clicks, aún sigue redirigiendo a clarity»**. De ese pedido salieron dos
+defectos que no estaban en el pedido, y éste es el caro.
+
+El snippet captura **todo** clic de la página — y una landing hecha con un constructor
+lleva pegado el badge del constructor. Medido contra producción: **208 de los 441 clics del
+ws1 son el «Edit with Lovable»**, casi la mitad, y el PRIMER renglón del recorrido de un
+lead decía «Hizo clic en "Edit with" — lovable.dev/projects/…». Lo primero que se leía de
+lo que hizo una persona era el cartelito del editor.
+
+En el ws11 y el ws13 el mismo patrón da **0**: no es un problema de todos, es de quien usa
+ese constructor. Por eso no se puede descartar «lo raro» a ojo — hay que contar.
+
+- **Se filtra AL LEER, no al capturar.** El snippet vive en la página del cliente, así que
+  un arreglo allá sólo vale para quien vuelva a pegar el código, y no limpia los 208 que ya
+  están guardados. En el lector vale para los dos lados.
+- **El evento no se borra de la base: lo que se saca es el renglón.** Si mañana hace falta
+  medir cuánta gente toca el badge, el dato está — una política puede rechazar, no puede no
+  dejar rastro.
+- ⚠️ **Y el filtro se prueba en las DOS direcciones.** La mitad fácil es que el ruido no
+  pase; la cara es que el contenido del negocio SÍ pase. Un patrón goloso acá no deja un
+  error: borra de la ficha clics que ocurrieron de verdad, y eso no se recupera. Por eso
+  `wix.com` sólo cuenta con `/editor` (un sitio publicado con Wix vive en ese host) y
+  `framer.com` sólo con `/projects`. Medido rompiéndolo: aflojar el de Wix tira el test de
+  «un clic del negocio SÍ entra».
+
+**Vive en:** `lib/clic-ruido.ts` · `lib/leads.ts` (el gate del lector de eventos) · `tests/clic-ruido.test.ts` · *2026-10-05 ficha-tracking*
+
+---
+
+## Una FUSIÓN no es un REORDEN, y la diferencia sólo se ve en el navegador (05/10/2026)
+
+El mismo pedido —«que se muestre allí mismo»— se implementó primero fusionando: el
+recorrido dejó de ser una tarjeta suelta y pasó a vivir dentro de la de Comportamiento, con
+lo externo al final y más chico. Leído en el código, el pedido estaba cumplido.
+
+Medido en el navegador, no: **el primer renglón quedaba a 798,5 px del tope, en un área
+visible de 583**. O sea que seguía habiendo que scrollear para ver lo único que la pestaña
+promete, que era exactamente el reclamo. Lo que ocupaba esos 800 px era lo que iba ANTES:
+«Origen del lead» (320 px) y los números con la retención por video.
+
+Con el recorrido primero dentro de la tarjeta y «Origen» mandado al final: **281 px**, y
+entra en la ventana por los dos caminos (el panel lateral y `/crm/<id>`).
+
+- **Mover algo adentro de un contenedor no lo mueve en la pantalla.** La pregunta no es
+  «¿está en la tarjeta correcta?» sino «¿a cuántos píxeles del tope queda?», y eso no se
+  contesta leyendo JSX.
+- **Lo de afuera manda tanto como lo de adentro.** Dos tarjetas que ni se tocaron —Origen y
+  los números— eran las que producían el defecto.
+- Es la regla de la casa aplicada al layout: un gesto no se verifica leyendo el handler. Un
+  ORDEN tampoco se verifica leyendo el componente.
+
+### Y las dos puntas de una oferta miran el MISMO universo
+
+El otro defecto que apareció midiendo: el botón «Ponles un nombre» abría un pop-up **sin una
+sola fila que contestar en 59 de los 64 leads que lo mostraban**. El contador de «videos sin
+identificar» incluía el balde de eventos sin `video_id` —los viejos que no se pudieron
+atribuir— y el pop-up descarta justo ése, porque no hay contra qué guardar un nombre.
+
+Las dos mitades eran correctas por separado. **Cuando una pantalla OFRECE algo y otra lo
+RESUELVE, las dos tienen que contar sobre el mismo conjunto**, o la oferta promete lo que no
+existe. Y no falla ruidoso: abre un pop-up vacío, que se lee como que la app está rota.
+
+**Vive en:** `app/crm/lead-view/ComportamientoCard.tsx` (`nombrables`) · `app/crm/LeadSheet.tsx` y `app/crm/[id]/page.tsx` (el orden de la tab) · *2026-10-05 ficha-tracking*
+
+---
+
+## Un script que valida DESPUÉS de escribir ya hizo el daño (05/10/2026)
+
+Pagado en esta misma tanda, con la guarda puesta y escrita por mí. Un script de parcheo
+comprobaba que el archivo no quedara con los saltos de línea MEZCLADOS… después del
+`write`. El assert saltó, el script abortó — y el archivo ya estaba en disco, mezclado.
+
+La regla ya estaba en `AGENTS.md` («se niega a escribir si el resultado quedaría mezclado»,
+molde: `escribir()` en `scripts/curso-categoria-portada.mjs`) y la implementé al revés.
+**Validar y escribir no son dos pasos en cualquier orden: es UN paso que empieza por
+validar.** Mejor no hacer el trabajo que dejarlo a medias.
+
+⚠️ **Y el LF suelto que lo disparó no era mío**: lo había dejado un agente de la corrida
+anterior en un `import`, uno solo, en un archivo de 348 CRLF. Eso no se ve en ningún diff,
+no lo caza el typecheck y rompe cualquier ancla posterior sobre ese archivo. Cuando un
+parche falle sobre un archivo que acaba de tocar otro, **lo primero es contar los saltos**,
+no releer el ancla.
+
+**Vive en:** `AGENTS.md` (§ del fin de línea por archivo) · *2026-10-05 ficha-tracking*
