@@ -380,12 +380,13 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
  * llamar sin ese dato lo dejaría en la primera columna — o sea que deshacer perdería
  * el avance del cliente.
  */
-export async function moverEntregaAction(leadId: number, productoId: number, etapa: string | null): Promise<
+export async function moverEntregaAction(leadId: number, productoId: number, etapa: string | null, relojPrevio?: string | null): Promise<
   { ok: true; desde: string | null; hacia: string; rotulo: string; producto: string; cambio: boolean } | { ok: false; error: string }
 > {
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
-    const m = await moverClienteDeEtapa({ leadId, productoId, etapa });
+    // `relojPrevio` sólo lo manda el DESHACER: el reloj que la fila tenía antes.
+    const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio });
     if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo mover.' };
     // ⚠️ SÓLO SE REVALIDA SI ALGO CAMBIÓ. Un movimiento idempotente que igual
     // revalida tira las 78 KB del trabajo de la cartera por un gesto que no movió nada.
@@ -413,7 +414,7 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
  * Devuelve cada resultado por separado: un lote puede salir a medias, y el deshacer
  * tiene que reponer exactamente los que se movieron, no todos.
  */
-export async function moverEntregaLoteAction(productoId: number, movs: Array<{ leadId: number; etapa: string | null }>): Promise<
+export async function moverEntregaLoteAction(productoId: number, movs: Array<{ leadId: number; etapa: string | null; relojPrevio?: string | null }>): Promise<
   { ok: true; resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> } | { ok: false; error: string }
 > {
   try {
@@ -437,7 +438,7 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
         resultados.push({ leadId, ok: true, desde: r.etapa, hacia: null, cambio: true });
         continue;
       }
-      const r = await moverClienteDeEtapa({ leadId, productoId, etapa: m.etapa });
+      const r = await moverClienteDeEtapa({ leadId, productoId, etapa: m.etapa, relojPrevio: m.relojPrevio });
       if (!r.ok) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: r.motivo ?? 'No se pudo mover.' }); continue; }
       if (r.cambio) alguno = true;
       resultados.push({ leadId, ok: true, desde: r.desde, hacia: r.hacia, cambio: r.cambio });

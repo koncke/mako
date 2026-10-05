@@ -1,8 +1,8 @@
 // =============================================================================
 // Hace cuánto que un cliente está en su etapa de entrega (app/customer-success/en-etapa.ts)
 // =============================================================================
-// La función la leen la columna «En la etapa» de la tabla de Customer Success y, cuando se
-// mude, el chip de la tarjeta del kanban. Lo que se fija acá son los tres bordes que una
+// La función la leen la columna «En la etapa» de la tabla de Customer Success y el chip de
+// la tarjeta del kanban. Lo que se fija acá son los tres bordes que una
 // pantalla no deja ver:
 //  · SIN DATO NO SE INVENTA UN «recién». Un cliente sin fila nunca se movió y su reloj no
 //    arrancó; una fecha del futuro es un reloj corrido. Las dos dan `null`, nunca «recién».

@@ -221,7 +221,9 @@ export type DropdownOption = { value: string; label: string; sub?: string; /** T
 /** Grupo con título para menús en columnas (ver prop `columns`). */
 export type DropdownGroup = { title: string; options: DropdownOption[] };
 
-type MenuPos = { top?: number; bottom?: number; left?: number; right?: number; width: number };
+type MenuPos = { top?: number; bottom?: number; left?: number; right?: number; width: number;
+  /** El alto que queda entre el botón y el borde de la ventana, del lado donde abre. */
+  espacio?: number };
 
 export function Dropdown({
   value,
@@ -240,6 +242,7 @@ export function Dropdown({
   search,
   secciones,
   subEnColumnas = false,
+  alContenido = false,
   portalTo,
   icono,
 }: {
@@ -296,6 +299,18 @@ export function Dropdown({
    */
   subEnColumnas?: boolean;
   /**
+   * Con `columns` de UNA columna (grupos uno debajo del otro): el menú mide lo que su
+   * contenido —tope 360, como una lista— y no los 500 px de un menú a varias columnas.
+   *
+   * ⚠️ OPT-IN, y no la regla para toda columna única: hay pantallas que la usan con
+   * opciones largas y cuentan con ese ancho. Medido el 05/10/2026 en «Mover a» de
+   * Customer Success: nueve etapas de 10 a 20 letras en un menú de 500, con dos tercios
+   * vacíos y la última etapa cortada por el alto. Por eso también sube el tope de alto —y
+   * lo topea el lugar que QUEDA del lado donde abre: con un tope fijo, abierto desde la
+   * mitad de una tabla, se salía 32 px por debajo de la ventana (medido el mismo día).
+   */
+  alContenido?: boolean;
+  /**
    * Dónde se monta el menú. Por defecto `document.body`, que es lo correcto en toda la
    * app.
    *
@@ -343,17 +358,19 @@ export function Dropdown({
     const below = window.innerHeight - r.bottom;
     const up = below < 300 && r.top > below;
     const vertical = up ? { bottom: window.innerHeight - r.top + 6 } : { top: r.bottom + 6 };
+    const espacio = Math.floor((up ? r.top : below) - 18);
     // Con columnas el ancho del menú es conocido → clampear al viewport para
     // que en pantallas angostas no se salga por el lado del anclaje.
-    if (columns) {
+    if (columns && !alContenido) {
       const w = Math.min(500, window.innerWidth - 24);
       const left = Math.min(Math.max(12, align === 'right' ? r.right - w : r.left), window.innerWidth - 12 - w);
-      setPos({ width: r.width, ...vertical, left });
+      setPos({ width: r.width, ...vertical, left, espacio });
       return;
     }
     setPos({
       width: r.width,
       ...vertical,
+      espacio,
       ...(align === 'right' ? { right: window.innerWidth - r.right } : { left: r.left }),
     });
   };
@@ -481,7 +498,7 @@ export function Dropdown({
         )}
       </button>
       {open && pos && createPortal(
-        <div ref={menuRef} role="listbox" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns ? undefined : 360, maxHeight: columns ? 'min(480px, calc(100dvh - 40px))' : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
+        <div ref={menuRef} role="listbox" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : 360, maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : 'min(480px, calc(100dvh - 40px))') : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
           {conBusqueda && (
             // Queda PEGADA arriba: en una lista larga el buscador tiene que
             // seguir a la vista mientras se scrollea, o deja de servir.

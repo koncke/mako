@@ -446,3 +446,21 @@ test('el botón de filtrar DICE «Filtrar»', () => {
   assert.doesNotMatch(css, /width:38px/);
   assert.match(css, /padding:0 13px/);
 });
+
+// ── El menú de «mover a una etapa» es UNO ───────────────────────────────────
+
+// La barra de lote y el chip de la columna Etapa de la tabla hacen la misma pregunta, y
+// hasta el 05/10/2026 la contestaban con dos menús: uno agrupado por fase en 500 px (dos
+// tercios vacíos, la última etapa cortada) y otro plano con la fase repetida en cada renglón.
+// ROTO (05/10/2026): el chip de la tabla sin `columns`/`alContenido` → 21 pass / 1 fail; la
+// barra sin `alContenido` → 21 pass / 1 fail. Restaurado: 22 pass / 0 fail.
+test('la barra y el chip de la tabla usan el MISMO menú de etapas, del ancho de su contenido', () => {
+  const lote = sinComentarios(leer('app/customer-success/LoteClientes.tsx'));
+  const tabla = sinComentarios(leer('app/customer-success/TablaClientes.tsx'));
+  assert.match(lote, /export function opcionesDeEtapas\(/);
+  assert.match(tabla, /opcionesDeEtapas\(etapas \?\? \[\], fases\)/);
+  assert.match(tabla, /columns=\{menuEtapa\.columns\} alContenido/);
+  assert.match(lote, /columns=\{menu\.columns\}\s*alContenido/);
+  // Y la tabla no vuelve a armar su propia lista con la fase como subtítulo.
+  assert.doesNotMatch(tabla, /sub: faseDe\(/);
+});

@@ -33,7 +33,7 @@ import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
 import { SelectorServicio } from './SelectorServicio';
 import type { CarteraEnEntrega } from './entrega';
-import { conteoDeEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
+import { conteoDeEtapas, relojDeVuelta, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
 import { LoteClientes } from './LoteClientes';
 import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction } from './actions';
@@ -304,8 +304,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    *
    * ⚠️ Y EL DESHACER NO OFRECE SU PROPIO DESHACER (`conDeshacer = false`): dos carteles
    * encadenados dejan a la persona apretando el de un paso intermedio.
+   *
+   * ⚠️ Y DEVUELVE EL RELOJ, no sólo la etapa (`relojPrevio`, que manda sólo el deshacer).
+   * Sin él el server escribía `etapa_desde = ahora` y un cliente trabado hace tres semanas
+   * volvía como recién llegado — mientras la pantalla mostraba la fecha vieja hasta el F5.
    */
-  function moverEntrega(leadId: number, etapa: string, prodId: number, conDeshacer = true) {
+  function moverEntrega(leadId: number, etapa: string, prodId: number, conDeshacer = true, relojPrevio?: string | null) {
     const previa = asignacionDe(prodId)[leadId] ?? null;
     // ⚠️ ACA NO VA UNA GUARDA DE IDEMPOTENCIA, y costo verlo en el navegador: un
     // `if (previa?.etapa === etapa) return` parece gratis y ROMPE EL DESHACER. El
@@ -317,17 +321,18 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     // la prop del render en curso; y el choke point es idempotente de todas formas.
     setMal('');
     empezar(async () => {
-      const r = await moverEntregaAction(leadId, prodId, etapa);
+      const r = await moverEntregaAction(leadId, prodId, etapa, relojPrevio);
       if (!r.ok) { setMal(r.error); return; }
       // Un movimiento que no movio nada no se anuncia ni se pinta.
       if (!r.cambio) return;
-      setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: { etapa: r.hacia, etapa_desde: new Date().toISOString(), por: 'CRM' } }));
+      // La misma regla que el server (`relojDeVuelta`): si no, la pantalla y la base dicen dos fechas.
+      setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: { etapa: r.hacia, etapa_desde: relojDeVuelta(relojPrevio) ?? new Date().toISOString(), por: 'CRM' } }));
       if (!conDeshacer) return;
       // El toast dice QUE paso, en tres palabras. El porque de la etapa vive en el
       // catalogo, no en un cartel de cinco segundos.
       show(`En ${r.rotulo}`, () => {
         clear();
-        if (previa) moverEntrega(leadId, previa.etapa, prodId, false);
+        if (previa) moverEntrega(leadId, previa.etapa, prodId, false, previa.etapa_desde);
         else sacarEntrega(leadId, prodId, false);
       });
     });
@@ -379,7 +384,11 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       const unaEtapa = new Set(movidos.map((x) => x.hacia)).size === 1 ? etapas.find((e) => e.key === movidos[0].hacia)?.label : null;
       show(unaEtapa ? `${movidos.length} en ${unaEtapa}` : `${movidos.length} movidos`, () => {
         clear();
-        const volver = movidos.map((x) => ({ leadId: x.leadId, etapa: previas.get(x.leadId)?.etapa ?? null }));
+        // Con su RELOJ: volver a la etapa de antes no es llegar hoy (ver `relojDeVuelta`).
+        const volver = movidos.map((x) => {
+          const p = previas.get(x.leadId) ?? null;
+          return { leadId: x.leadId, etapa: p?.etapa ?? null, relojPrevio: p?.etapa_desde ?? null };
+        });
         empezar(async () => {
           const d = await moverEntregaLoteAction(prodId, volver);
           if (!d.ok) { setMal(d.error); return; }

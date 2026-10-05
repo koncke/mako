@@ -167,6 +167,29 @@ export function etapaDe(etapas: readonly EtapaEntrega[], key: string | null | un
   return etapas.find((e) => e.key === key) ?? null;
 }
 
+/**
+ * El reloj que vuelve con un DESHACER: la `etapa_desde` que la fila tenía ANTES del
+ * movimiento que se está deshaciendo. `null` = no hay uno válido y se usa «ahora».
+ *
+ * ⚠️ SIN ESTO, DESHACER MIENTE SOBRE EL TIEMPO. El deshacer llega al choke point como un
+ * movimiento más, y un movimiento escribe `etapa_desde = ahora`: un cliente trabado hace
+ * tres semanas (el rojo de «En la etapa») que alguien arrastró por error y devolvió con
+ * el toast quedaba como recién llegado. Y la pantalla no lo mostraba — restauraba en su
+ * estado la fila de antes, con su fecha vieja — así que el dato cambiaba recién en el
+ * próximo F5. Medido leyendo el código el 05/10/2026, verificando la integración del lote.
+ *
+ * Lo manda el navegador, así que se valida: una fecha ilegible o del FUTURO no se escribe.
+ * No hay tolerancia de relojes porque la fecha la escribió el server (es la que leyó la
+ * página); la única que nace en el navegador es la de un movimiento de esta misma sesión,
+ * y si ése quedó adelantado, «ahora» es la misma respuesta.
+ */
+export function relojDeVuelta(iso: string | null | undefined, ahora: number = Date.now()): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t) || t > ahora) return null;
+  return new Date(t).toISOString();
+}
+
 /** Sólo letras, números y guión bajo: la clave viaja en JSON, en la URL y en el
  *  `value` de un `<option>`. */
 const CLAVE_OK = /^[a-z0-9_]+$/;

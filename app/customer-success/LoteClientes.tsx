@@ -193,8 +193,14 @@ function BtnIcono({ rotulo, texto, tono = 'dim', onClick, children }: {
  * lee de arriba abajo como el tablero se lee de izquierda a derecha. Las etapas sin fase
  * (o con una fase que ya no existe, que `colorDeEtapa` también trata como suelta) van en
  * «Sin fase», en el lugar donde aparece la primera.
+ *
+ * ⚠️ ES EL MENÚ DE «MOVER A UNA ETAPA» EN LAS DOS VISTAS: lo usan esta barra y el chip de la
+ * columna Etapa de la tabla. Hasta el 05/10/2026 la tabla armaba el suyo —una lista plana
+ * con la fase repetida debajo de cada etapa, cinco de nueve a la vista— y la barra éste:
+ * la misma pregunta con dos menús distintos. Se monta con `alContenido` en el `Dropdown`,
+ * o una sola columna sale con los 500 px de un menú a varias.
  */
-function opcionesDeEtapas(etapas: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { options?: DropdownOption[]; columns?: DropdownGroup[][] } {
+export function opcionesDeEtapas(etapas: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { options?: DropdownOption[]; columns?: DropdownGroup[][] } {
   const opcion = (e: EtapaEntrega): DropdownOption => ({ value: e.key, label: e.label, color: colorDeEtapa(e, fases) });
   if (!fases.length) return { options: etapas.map(opcion) };
   const grupos: DropdownGroup[] = [];
@@ -317,6 +323,7 @@ export function LoteClientes({ elegidos, etapas, fases, onMover, onSiguiente, on
                 buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
                 options={menu.options}
                 columns={menu.columns}
+                alContenido
                 onChange={(v) => { if (v) onMover(v); }} />
             </span>
           )}

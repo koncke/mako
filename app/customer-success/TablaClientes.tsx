@@ -39,8 +39,9 @@ import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import type { Asignacion } from './KanbanEntrega';
 import { Marca } from '@/app/_components/Marca';
-import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { Dropdown } from '@/app/components/Dropdown';
 import { colorDe } from './ClienteCard';
+import { opcionesDeEtapas } from './LoteClientes';
 import { tiempoEnEtapa } from './en-etapa';
 import { repartirEnEtapas, colorDeEtapa, faseDe, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 // ⚠️ EL MISMO MOLDE DE ARRASTRE QUE EL PLAN Y QUE EL KANBAN DE ESTA PANTALLA, importado y no
@@ -362,10 +363,9 @@ export function TablaClientes({
     : filas.map((c) => c.leadId);
   const todosSel = idsVisibles.length > 0 && idsVisibles.every((id) => seleccion.has(id));
 
-  const opciones: DropdownOption[] = (etapas ?? []).map((e) => ({
-    value: e.key, label: e.label, color: colorDeEtapa(e, fases),
-    sub: faseDe(fases, e.fase)?.label,
-  }));
+  // El MISMO menú que «Mover a» de la barra de lote: agrupado por fase (ver
+  // `opcionesDeEtapas`). Una lista propia acá repetía la fase debajo de cada etapa.
+  const menuEtapa = opcionesDeEtapas(etapas ?? [], fases);
 
   // Las columnas que se DIBUJAN: lo mira el `colSpan` de la cabecera de cada grupo. Un
   // número suelto es lo que hacía desbordar la fila plegada del Plan.
@@ -422,7 +422,7 @@ export function TablaClientes({
              salida sin arrastre — con el teclado, o en una tabla larga donde el grupo de
              destino está tres pantallas más abajo. */
           <td data-parar style={td}>
-            <Dropdown value={k} options={opciones} placeholder="Etapa borrada"
+            <Dropdown value={k} options={menuEtapa.options} columns={menuEtapa.columns} alContenido placeholder="Etapa borrada"
               ariaLabel={`Mover «${nombre}» de etapa`}
               onChange={(v) => { if (v && v !== k) onMover(c.leadId, v); }}
               buttonStyle={{

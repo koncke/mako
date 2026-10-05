@@ -64,7 +64,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { entregaDeProducto } from './entrega-servicio';
-import { campoEntrega, etapaValida, etapaDe, etapaInicial } from './servicio-etapas';
+import { campoEntrega, etapaValida, etapaDe, etapaInicial, relojDeVuelta } from './servicio-etapas';
 
 /** Quién mueve, con el mismo vocabulario que `lead_audit.autor`. */
 export const POR_PERSONA = 'CRM';
@@ -80,6 +80,12 @@ export type PedidoMovimiento = {
   etapa?: string | null;
   /** Quién lo movió. Default: una persona desde la pantalla. */
   por?: string;
+  /**
+   * SÓLO PARA UN DESHACER: el `etapa_desde` que la fila tenía antes del movimiento que se
+   * deshace. Sin él, volver a la etapa anterior arranca el reloj hoy (ver `relojDeVuelta`).
+   * Un movimiento normal no lo manda.
+   */
+  relojPrevio?: string | null;
 };
 
 export type Movimiento = {
@@ -197,7 +203,7 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
   const { error: errUp } = await db.from('cliente_entrega').upsert(
     {
       lead_id: pedido.leadId, producto_id: pedido.productoId,
-      etapa: hacia, etapa_desde: ahora, por, updated_at: ahora,
+      etapa: hacia, etapa_desde: relojDeVuelta(pedido.relojPrevio) ?? ahora, por, updated_at: ahora,
     },
     { onConflict: 'workspace_id,lead_id,producto_id' },
   );

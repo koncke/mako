@@ -8,8 +8,8 @@
 // adentro de `KanbanEntrega.tsx` (`hace` + `DIAS_TRABADO`, sin exportar), y la tabla
 // necesitó el mismo dato para su columna «En la etapa». Escrita dos veces, la primera
 // corrección —cambiar el umbral de «trabado», o cómo se dice «recién»— deja a la tarjeta
-// y a la fila del MISMO cliente contando cosas distintas. El kanban todavía tiene su copia
-// local: mudarlo a este módulo es una línea en un archivo que no es de esta pasada.
+// y a la fila del MISMO cliente contando cosas distintas. Desde el commit 42d91a41 el
+// kanban también lo importa de acá: ya no queda una segunda copia.
 
 /** A partir de cuántos días sin moverse se dice en rojo. El mismo número que el kanban. */
 export const DIAS_TRABADO = 21;

@@ -3203,3 +3203,80 @@ se arranca en otro puerto.
   celular depende del navegador; las acciones en lote no dependen de eso.
 - Los dos «sin medir» de arriba (Escape del editor del CRM, menú del lápiz del CRM).
 - La copia de fila del arrastre duplicada entre `TablaClientes.tsx` y `app/plan/board/Tablas.tsx`.
+
+## Verificar lo que integró el workflow: el deshacer que reseteaba el reloj, y un menú para una pregunta (05/10/2026, noche)
+
+El workflow `cs-tabla-lote-editor` (tres agentes: editor, tabla, kanban+lote) terminó entero, y
+los siete pedidos que dejaron «para el orquestador» estaban enchufados en `42d91a41`. Lo que no
+había hecho nadie era probar en el navegador lo que ellos no pudieron (no tenían permiso para
+levantar el server contra datos reales). Esta pasada lo hizo, con las escrituras bloqueadas, y
+encontró dos cosas que ningún agente podía ver desde su archivo.
+
+### Deshacer un movimiento reseteaba «hace cuánto está en la etapa» — y la pantalla lo tapaba
+
+El deshacer de una tarjeta y el del lote vuelven a llamar al choke point con la etapa anterior,
+que es lo correcto (revertir sólo la pantalla miente hasta el F5). Pero para `moverClienteDeEtapa`
+un deshacer es un movimiento más, y un movimiento escribe `etapa_desde = ahora`: un cliente en
+rojo por 21 días sin moverse, arrastrado por error y devuelto con el toast, quedaba en la base
+como recién llegado.
+
+⚠️ **Y no se veía**, que es por qué sobrevivió a dos rondas de verificación: la pantalla, al
+deshacer, restaura en su estado la fila de ANTES —con la fecha vieja—, así que el chip seguía
+rojo. El dato cambiaba en el próximo F5. **Lo encontró leer el código del deshacer buscando qué
+estado arrastra el movimiento**, no el navegador. Es la regla de la casa «el deshacer restaura
+también el estado que ese cambio trajo de arrastre», aplicada a un campo que el movimiento
+escribe sin que nadie lo pida.
+
+La cura: el deshacer manda el reloj previo (`relojPrevio`), el choke point lo escribe si es
+válido (`relojDeVuelta`: legible y no del futuro, porque lo manda el navegador) y la pantalla usa
+la misma función para su estado local, o la base y la pantalla vuelven a decir dos fechas. Un
+movimiento normal no lo manda. Lo que el deshacer NO devuelve es la línea del historial y el
+enrolamiento de secuencias: eso ya estaba así a propósito (ver el comentario de
+`enrolarPorEvento` en el choke point).
+
+**Vive en:** `lib/servicio-etapas.ts` (`relojDeVuelta`), `lib/cs-mover-etapa.ts`,
+`app/customer-success/actions.ts`, `app/customer-success/ClientesApp.tsx`. Guard:
+`tests/cs-deshacer-reloj.test.ts`.
+
+### La misma pregunta con dos menús, y un menú que se salía de la ventana
+
+«Mover a» de la barra y el chip de la columna Etapa preguntan lo mismo y tenían dos menús: el de
+la barra agrupado por fase en **500 px** (dos tercios vacíos y «Sistema instalado» cortado por el
+alto) y el de la tabla plano, con la fase repetida debajo de cada etapa y cinco de nueve a la
+vista. Ahora es una función (`opcionesDeEtapas`) y un menú.
+
+- ⚠️ **Los 500 px los pone el primitive para todo `columns`**, también con una sola columna, y
+  hay pantallas que la usan así contando con ese ancho. El arreglo es opt-in (`alContenido` en
+  `Dropdown`): mide su contenido, tope 360.
+- ⚠️ **Y un tope de alto FIJO no sabe dónde abre el menú.** Con `min(560px, 100dvh - 40px)` el
+  menú abierto desde la mitad de la tabla salía 32 px por debajo de la ventana (abre hacia abajo
+  si quedan 300 px o más). `alContenido` lo topea con el espacio que QUEDA del lado donde abre;
+  ahí scrollea, que es lo honesto. Los menús de columnas viejos tienen el mismo riesgo y no se
+  tocaron.
+
+**Vive en:** `app/components/Dropdown.tsx` (`alContenido`, `MenuPos.espacio`),
+`app/customer-success/LoteClientes.tsx`, `app/customer-success/TablaClientes.tsx`.
+
+### Tres trampas del arnés que se leen como bugs de la pantalla
+
+- **`locator.dragTo()` de Playwright no prueba un arrastre en lote.** Con dos tarjetas marcadas
+  no salió ningún POST; el mismo gesto hecho a mano (`mouse.down`, doce `mouse.move`,
+  `mouse.up`) mandó `[1,[{21,"contexto"},{28,"contexto"}]]`. Sin selección `dragTo` sí andaba,
+  así que la diferencia parecía del código. Instrumentar `dragstart`/`drop` en `document` y
+  mover en pasos lo resolvió en una corrida.
+- **`getByRole('button', { name })` mira el `aria-label`, no el texto.** Los botones de la barra
+  dicen «Mover a» y se anuncian con una frase más larga, así que el selector por nombre no los
+  encuentra y el click «se cuelga» 30 s. Va `locator('button', { hasText })`.
+- **Una opción con subtítulo no matchea su rótulo exacto**: el texto del botón es
+  «RitmoTablero y Ritmo». Lo mismo cualquier `/^…$/` sobre un renglón con `sub`.
+
+### Lo que el workflow dejó SIN hacer, y sigue así
+
+- Reordenar fases en el editor (las nuevas van al final).
+- Arrastre con el dedo: el táctil del Plan (`app/plan/board/arrastre-tactil.ts`) está tipado
+  contra sus columnas de prioridad.
+- La copia de FILA del arrastre está duplicada entre `TablaClientes.tsx` y
+  `app/plan/board/Tablas.tsx`; unificar es sacarla a `arrastre-copia.ts`.
+- Una acción en lote sugerida y no hecha: «Copiar emails/teléfonos».
+- La línea «Productos eliminados» en la confirmación de eliminar (necesita saber si el producto
+  tiene embudo).
