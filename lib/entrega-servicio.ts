@@ -24,7 +24,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import {
-  entregaPorDefecto, normalizarEtapas,
+  entregaPorDefecto, normalizarEtapas, conteoDeEtapas,
   type EntregaConfig, type EtapaEntrega,
 } from './servicio-etapas';
 
@@ -166,16 +166,18 @@ export async function entregaDeCliente(leadId: number, productoId: number): Prom
   return ((data ?? []) as ClienteEnEntrega[])[0] ?? null;
 }
 
-/** Cuántos clientes hay en cada etapa de la entrega de un producto. */
+/**
+ * Cuántos clientes hay en cada etapa de la entrega de un producto.
+ *
+ * ⚠️ LA CUENTA LA HACE `conteoDeEtapas` (módulo puro, con test) y no un `reduce` de
+ * acá. La pantalla cuenta lo mismo sobre lo que ya tiene en memoria, y dos
+ * implementaciones de la misma cuenta es cómo el editor de etapas termina diciendo
+ * «3 en Hito 1» sobre una columna que muestra 2. Lo que esa función garantiza —y es
+ * la razón de ser de las dos— es que el contador se inicializa con el UNIVERSO: sin
+ * eso, una columna vacía no entra al mapa y `undefined` deja de significar «no se
+ * pudo leer».
+ */
 export async function conteoPorEtapa(productoId: number, etapas: readonly EtapaEntrega[]): Promise<Record<string, number>> {
-  // ⚠️ El contador se inicializa con el UNIVERSO, no con lo que encontró. Si no, una
-  // columna sin clientes no entra al mapa, el lector recibe `undefined`, y un
-  // `if (n === 0)` —la rama que saca la fricción de borrar una etapa vacía— no corre
-  // NUNCA. Así, `undefined` vuelve a significar lo único que debería: no se pudo leer.
-  const out: Record<string, number> = {};
-  for (const e of etapas) out[e.key] = 0;
-  for (const c of await clientesEnEntrega(productoId)) {
-    if (c.etapa in out) out[c.etapa] += 1;
-  }
-  return out;
+  const filas = await clientesEnEntrega(productoId);
+  return conteoDeEtapas(etapas, filas.map((c) => c.etapa));
 }

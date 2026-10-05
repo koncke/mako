@@ -167,6 +167,31 @@ export function esCampoEntrega(campo: string): boolean {
 }
 
 /**
+ * Cuantos hay en cada etapa.
+ *
+ * ⚠️ SE INICIALIZA CON EL UNIVERSO, y es toda la razon por la que existe en vez de un
+ * `reduce` en cada pantalla. Contando solo lo que aparece, una etapa sin clientes no
+ * entra al mapa y el lector recibe `undefined`: un `if (n === 0)` —la rama que saca la
+ * friccion de borrar una columna vacia— no corre NUNCA, y un `if (!n)` trata un error
+ * de lectura como un cero. Con el universo puesto, `undefined` vuelve a significar lo
+ * unico que deberia: no se pudo leer. Es el bug que el CRM ya pago el 29/09/2026 con el
+ * conteo de leads por etapa.
+ *
+ * Lo que NO cuenta: una etapa guardada que ya no esta en el catalogo. Esos clientes
+ * existen y el tablero los lista aparte — sumarlos a una columna que no les toca seria
+ * inventarles una etapa.
+ */
+export function conteoDeEtapas(
+  etapas: readonly EtapaEntrega[],
+  etapasDeCadaUno: Iterable<string>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const e of etapas) out[e.key] = 0;
+  for (const k of etapasDeCadaUno) if (k in out) out[k] += 1;
+  return out;
+}
+
+/**
  * Lee lo que haya en la base y devuelve etapas usables, o `null` si no hay nada
  * declarado.
  *

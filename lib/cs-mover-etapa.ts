@@ -230,6 +230,12 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
  * Devuelve la fila que sacó para que quien llama pueda OFRECER UN DESHACER que
  * reponga la MISMA etapa: volver a llamar a `moverClienteDeEtapa` sin ese dato lo
  * repondría en la primera columna, o sea que deshacer perdería el avance.
+ *
+ * ⚠️ Y DEJA RASTRO, igual que el movimiento. Borrar la fila y no escribir nada hace
+ * indistinguibles dos cosas que no se parecen: «nunca estuvo en esta entrega» y «lo
+ * sacamos». La primera es un hueco por llenar y la segunda una decisión, y seis meses
+ * después nadie puede saber cuál fue — es la regla de la casa: una política puede
+ * rechazar, no puede no dejar rastro.
  */
 export async function sacarClienteDeEntrega(leadId: number, productoId: number): Promise<{ ok: boolean; etapa: string | null; motivo?: string }> {
   const db = await getTenantDb();
@@ -239,5 +245,33 @@ export async function sacarClienteDeEntrega(leadId: number, productoId: number):
     console.error(`[cs-mover-etapa] no pude sacar al cliente ${leadId} de la entrega ${productoId}: ${error.message}`);
     return { ok: false, etapa: null, motivo: 'No pude sacarlo de la entrega.' };
   }
-  return { ok: true, etapa: ((data ?? []) as Array<{ etapa: string }>)[0]?.etapa ?? null };
+  const etapa = ((data ?? []) as Array<{ etapa: string }>)[0]?.etapa ?? null;
+
+  // Sin fila borrada no pasó nada, así que no hay nada que registrar: una línea de
+  // historial sobre un cliente que no estaba en la entrega es un hecho inventado.
+  if (etapa) {
+    // El nombre del producto y el rótulo de la etapa se leen DESPUÉS de borrar, a
+    // propósito: lo que no se puede perder es el borrado, y el rastro no puede
+    // frenarlo. Si alguna de las dos lecturas falla, la línea sale con la CLAVE —
+    // menos legible, pero el hecho queda.
+    try {
+      const { data: prods } = await db.from('productos').select('nombre').eq('id', productoId).limit(1);
+      const nombre = ((prods ?? []) as Array<{ nombre: string }>)[0]?.nombre ?? '';
+      const entrega = await entregaDeProducto(productoId);
+      const { error: errAudit } = await db.from('lead_audit').insert([{
+        lead_id: leadId,
+        campo: campoEntrega(nombre),
+        valor_anterior: etapaDe(entrega.etapas, etapa)?.label ?? etapa,
+        // ⚠️ `null` y no «Sin etapa»: es el mismo vacío con el que la ficha dibuja un
+        // «—», y el texto de la pantalla no se inventa acá adentro.
+        valor_nuevo: null,
+        autor: POR_PERSONA,
+      }]);
+      if (errAudit) console.error(`[cs-mover-etapa] salió de la entrega pero la línea de historial falló: ${errAudit.message}`);
+    } catch (e) {
+      console.error('[cs-mover-etapa] salió de la entrega pero no pude escribir el historial:', e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return { ok: true, etapa };
 }

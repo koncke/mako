@@ -22,6 +22,7 @@ import { requireCapa } from '@/lib/tab-access';
 import { ClientesApp } from './ClientesApp';
 import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
+import { carteraEnEntrega } from './entrega';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { AdminView } from '@/app/admin/AdminView';
 import { carteraDeAgencia, esAgencia, altasDeAgencia } from '@/lib/agencia';
@@ -120,6 +121,19 @@ export default async function CustomerSuccessPage() {
 
   const perfil = await getPerfil().catch(() => ({ nombre: '', avatarUrl: '' }));
 
+  /**
+   * LA ENTREGA DE CADA SERVICIO VIENE CON EL HTML (mig 0188), por lo mismo que el
+   * trabajo: cambiar de servicio en el selector del kanban no puede tener estado de
+   * carga — es un filtro sobre lo que ya llegó.
+   *
+   * ⚠️ Y SE LEE AUNQUE NO HAYA CLIENTES. Las etapas de un servicio son una
+   * configuración del negocio y existen antes del primer cliente; además es la
+   * lectura que decide si el botón de la vista se ofrece. `carteraEnEntrega` no tira:
+   * devuelve `ok: false` con su motivo, y la pantalla lo dice en vez de mostrar un
+   * tablero vacío que afirmaría que nadie está en entrega.
+   */
+  const entrega = await carteraEnEntrega();
+
   // ⚠️ LA CARTERA VIENE CON EL HTML, por lo mismo que el trabajo: la ficha es un
   // modal sin estado de carga, y pedirle esto al abrirse le devolvería el «Leyendo
   // lo suyo» que esta pantalla ya se sacó de encima. Son dos consultas chicas sobre
@@ -191,6 +205,14 @@ export default async function CustomerSuccessPage() {
       trabajo={trabajo}
       user={{ nombre: perfil.nombre, avatarUrl: perfil.avatarUrl }}
       cuentas={cuentas}
+      entrega={entrega}
+      /* Renombrar o borrar una columna le cambia el tablero a todo el equipo y puede
+         dejar clientes en una etapa que ya no existe, así que la decide un admin del
+         workspace. Mover un cliente de columna lo hace cualquiera que tenga la tab: es
+         el trabajo del día. Y esto sólo decide si se DIBUJA el botón — el guard de
+         verdad lo vuelve a hacer el server action, porque esconder un botón no protege
+         nada. */
+      puedeEditarEtapas={(await adminDeWorkspaceActual()) != null}
     />
   );
 }

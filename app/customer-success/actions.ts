@@ -41,6 +41,9 @@ import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
 import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
+import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
+import { guardarEtapasEntrega } from '@/lib/entrega-servicio';
+import type { EtapaEntrega } from '@/lib/servicio-etapas';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
  *  con el id de un lead ajeno leería o escribiría datos de otro inquilino. */
@@ -358,5 +361,78 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
     return { ok: true, clienteWs: ws.id, estado: 'pendiente' };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo abrir la cuenta.' };
+  }
+}
+
+// ── La ENTREGA de un servicio (mig 0188) ─────────────────────────────────────
+// Las tres pasan por el choke point o por el guardado del catálogo; ninguna escribe
+// `cliente_entrega` por su cuenta. Y las tres vuelven a preguntar si el lead es un
+// cliente DE ESTE workspace: `getTenantDb()` scopea las tablas de entrega, pero el
+// `leadId` lo manda el navegador y un id ajeno tiene que rebotar acá, no en una FK.
+
+/**
+ * Mueve a un cliente a una etapa de la entrega de un servicio.
+ *
+ * Devuelve el movimiento entero para que la pantalla pueda ofrecer un DESHACER que
+ * reponga la etapa ANTERIOR: sin `desde`, deshacer tendría que adivinar, y volver a
+ * llamar sin ese dato lo dejaría en la primera columna — o sea que deshacer perdería
+ * el avance del cliente.
+ */
+export async function moverEntregaAction(leadId: number, productoId: number, etapa: string | null): Promise<
+  { ok: true; desde: string | null; hacia: string; rotulo: string; producto: string; cambio: boolean } | { ok: false; error: string }
+> {
+  try {
+    if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
+    const m = await moverClienteDeEtapa({ leadId, productoId, etapa });
+    if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo mover.' };
+    // ⚠️ SÓLO SE REVALIDA SI ALGO CAMBIÓ. Un movimiento idempotente que igual
+    // revalida tira las 78 KB del trabajo de la cartera por un gesto que no movió nada.
+    if (m.cambio) revalidatePath('/customer-success');
+    return { ok: true, desde: m.desde, hacia: m.hacia, rotulo: m.rotulo, producto: m.producto, cambio: m.cambio };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
+  }
+}
+
+/** Saca a un cliente de la entrega de un servicio, devolviendo la etapa que tenía
+ *  para que el deshacer lo reponga DONDE ESTABA. */
+export async function sacarDeEntregaAction(leadId: number, productoId: number): Promise<
+  { ok: true; etapa: string | null } | { ok: false; error: string }
+> {
+  try {
+    if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
+    const r = await sacarClienteDeEntrega(leadId, productoId);
+    if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo sacar de la entrega.' };
+    revalidatePath('/customer-success');
+    return { ok: true, etapa: r.etapa };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sacar de la entrega.' };
+  }
+}
+
+/**
+ * Las etapas de la entrega de un producto, como las dejó el editor.
+ *
+ * ⚠️ RECIBE LA LISTA ENTERA, no un cambio. Las etapas son un ORDEN, y un merge por
+ * clave no puede expresar «esta columna va antes que aquélla» ni un borrado. Lo que
+ * protege de perder algo es que la pantalla arme la lista desde lo que leyó — y que
+ * `nuevaClaveEtapa` nunca reuse una clave borrada, para que los clientes que estaban
+ * en la etapa vieja no reaparezcan dentro de una columna nueva.
+ *
+ * ⚠️ Y SÓLO UN ADMIN DEL WORKSPACE. Mover un cliente de columna lo hace cualquiera que
+ * tenga la tab —es el trabajo del día—, pero RENOMBRAR o BORRAR una columna le cambia
+ * el tablero a todo el equipo y puede dejar clientes en una etapa que ya no existe.
+ */
+export async function guardarEtapasEntregaAction(productoId: number, etapas: EtapaEntrega[]): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  try {
+    if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede cambiar las etapas de un servicio.' };
+    const ok = await guardarEtapasEntrega(productoId, etapas);
+    if (!ok) return { ok: false, error: 'Esas etapas no se pudieron guardar. Revisa que ninguna quede sin nombre.' };
+    revalidatePath('/customer-success');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }
 }

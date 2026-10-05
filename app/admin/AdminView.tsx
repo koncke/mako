@@ -842,7 +842,12 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
           TarjetaEntidad.tsx y BarraClientes—, no una copia del diseño: copiar un
           diseño es escribir el segundo, que es el que se queda viejo. */}
       <BarraClientes
-        q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
+        q={q} onQ={setQ}
+        /* ⚠️ SIN KANBAN, y es la razón por la que la barra lo pide en POSITIVO: acá la
+           lista es de WORKSPACES, que no tienen etapas de entrega. Un tercer botón que
+           no puede dibujar nada se lee como que la app está rota. La vista sigue siendo
+           un booleano de este lado porque de este lado son dos. */
+        vista={tabla ? 'tabla' : 'tarjetas'} onVista={(v) => setTabla(v === 'tabla')}
         filtro={filtro} onFiltro={setFiltro} orden={orden} onOrden={setOrden}
         nVisibles={visibles.length} nTotal={deMaKo.length}
         placeholder="Buscar un cliente por nombre o slug…"

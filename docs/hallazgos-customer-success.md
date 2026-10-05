@@ -2386,3 +2386,147 @@ muestra (script temporal, borrado al terminar):
   (0183), `insistencias` (0180) y `flujo_corridas` (0186) están en `TENANT_TABLES` y **NO**
   en `TABLAS_DE_INQUILINO`: vaciar un workspace les deja las filas. No se tocó —es del área
   de infra y de avisos— pero es el mismo modo de falla que esa lista ya documentó.
+
+---
+
+## El kanban de la entrega (05/10/2026) — la pantalla, y lo que sólo se vio arrastrando
+
+La otra mitad de la entrada de arriba. Acá está lo que el navegador encontró y leer el
+código no: las dos cosas que se rompían en silencio eran **de timing de React**, y las
+dos daban una pantalla que se ve perfecta.
+
+**Vive en:** `app/customer-success/KanbanEntrega.tsx` · `EtapasEntregaModal.tsx` ·
+`entrega.ts` · `ClientesApp.tsx` · `BarraClientes.tsx`
+
+### LA DECISIÓN DE UN ARRASTRE NO PUEDE COLGAR DE UN `useState`
+
+Primer intento: `setAgarrado(leadId)` en `dragstart`, y `onDragOver` arrancaba con
+`if (agarrado == null) return`. Medido en el navegador: **la tarjeta no se movía a
+ninguna parte**, el destino no se marcaba, y no había un solo error.
+
+React vuelca un `setState` un frame después, y los handlers del gesto corren ANTES. Así
+que el primer `dragover` leía `null`, se iba por el early-return, **no llamaba a
+`preventDefault()`** — y sin eso el navegador no dispara el `drop`. Nunca.
+
+Es la misma familia que «la foto del arrastre sale opaca aunque atenúes la tarjeta en el
+mismo handler», que ya estaba escrita en AGENTS.md, aplicada a la LÓGICA en vez de al
+estilo. La cura es la que el CRM ya usa para el arrastre de columnas: **un ref para
+decidir y un estado para pintar**.
+
+```tsx
+const enMano = useRef<number | null>(null);   // decide: lo leen los handlers del gesto
+const [agarrado, setAgarrado] = useState<number | null>(null);  // pinta: mueve un borde
+```
+
+⚠️ **Y no se nota en una verificación mal escrita.** El primer arnés despachaba
+`dragstart` y `dragover` en el MISMO tick y leía la marca del destino enseguida: con el
+ref puesto el drop ya funcionaba y la marca seguía dando `false`, porque pintarla es un
+re-render. Hacen falta dos `requestAnimationFrame` en el medio. Sin eso, el arreglo
+correcto parece a medias.
+
+### UN «DESHACER» DE UN TOAST CORRE CON EL ESTADO DE SU RENDER, NO CON EL DE AHORA
+
+Segundo hallazgo del navegador, y el más caro de ver leyendo: el cartel aparecía con su
+«↶ Deshacer», se apretaba, **el cartel se cerraba y la tarjeta no volvía**.
+
+El callback que se le pasa a `show()` se queda con la versión de la función del render
+que lo creó, o sea con el `movs` de ANTES del movimiento. Arriba de esa función había
+una guarda que parecía gratis:
+
+```ts
+const previa = asignacionDe(prodId)[leadId] ?? null;
+if (previa?.etapa === etapa) return;   // ⛔ mata el deshacer
+```
+
+Desde el closure viejo, «volver a onboarding» se ve como «ya está en onboarding», así que
+**la llamada al server nunca sale**. Se lee exactamente como un deshacer roto.
+
+La regla que queda: **una guarda de idempotencia no va en la función que un callback
+diferido va a volver a llamar.** El corte del viaje al server lo hace quien mira el
+estado del render EN CURSO (acá, el kanban, que tiene la asignación como prop), y la
+autoridad es el choke point, que ya es idempotente y está testeado. Un viaje de más es
+barato; un deshacer que no deshace, no.
+
+### Las dos trampas del guard de voseo, medidas de los dos lados
+
+Se escribieron dos textos con voseo en la pantalla nueva. El guard del repo
+(`tests/puente-panel-copy.test.ts`) **cazó uno y no pudo cazar el otro**, y la diferencia
+no es azar:
+
+| texto | ¿lo caza? | por qué |
+|---|---|---|
+| «Arrastralos a una columna» | **SÍ** — `KanbanEntrega.tsx:329 — «Arrastralos» → «arrástralos»` | `arrastrar` está en la lista de infinitivos y el generador arma también los clíticos |
+| «Definí las tuyas» | **NO** | `definir` es `-ir`, y su imperativo voseante es idéntico al pretérito de yo («yo definí»): marcarlo sería un falso positivo en cada «ya lo definí» |
+
+El agujero de los `-ir` ya estaba documentado como permanente. Lo que agrega este caso es
+que **se cae solo en copy de interfaz**, porque «Definí», «Elegí», «Escribí» son
+justamente los verbos de un CTA. Para esa familia no hay guard: hay que leerla.
+
+⚠️ **Y CUIDADO CON MEDIR EL DETECTOR EQUIVOCADO.** Hay DOS: `marcasDeVoseo`
+(`lib/puestas-data.ts`) es una lista a mano de 21 formas y es para los GUIONES DE VIDEO;
+el que barre `app/` y `lib/` vive adentro del test y GENERA las formas desde infinitivos.
+Probar las ocho frases contra el primero dio **0 de 8** — y de ahí salía el reporte «el
+guard del repo está ciego», que es falso y habría mandado a arreglar algo que funciona.
+Es «un grep sobre un archivo contesta sobre ESE archivo», aplicado a un detector.
+
+### `npm test` ANTES del `git add` no vio NADA de esta pantalla
+
+La regla ya está en AGENTS.md y se pagó igual, dos veces en la misma tanda:
+
+- El guard de voseo enumera con `git ls-files`, o sea el ÍNDICE. Con los cuatro archivos
+  nuevos sin stagear, **3276 tests en verde sobre una pantalla que nadie revisó**.
+- Y el gemelo, que es peor porque frena a las otras sesiones: `npm run typecheck` corrió
+  ANTES de que existiera `tests/cs-mover-etapa.test.ts`, así que no vio el flag `/s`
+  (dotAll) de una regex. **`tsconfig` apunta a ES2017 y ese flag es ES2018**: el typecheck
+  del pre-push habría bloqueado el push de las tres sesiones. Lo encontró la sesión del
+  Chatbot y lo arregló con `[\s\S]*`.
+
+El orden, entonces, no es «correr los tests»: es **`git add` y recién después `npm test`
+y `npm run typecheck`** — los dos miran cosas distintas y los dos se quedan ciegos igual.
+
+### Lo que se verificó arrastrando, y con qué números
+
+Contra `localhost:3000` con el Cliente de Prueba (ws3) sembrado con dos servicios y
+cuatro clientes, y limpiado al terminar (ws3 volvió a 0 leads / 0 productos / 0 filas de
+entrega / sin la clave de onboarding que hubo que poner para poder entrar):
+
+| qué | resultado |
+|---|---|
+| columnas del default + «Etapas de ejemplo» | 5, con las 5 diciendo que están vacías |
+| sumar los cuatro | `4/0/0/0/0`, y el botón se deshabilita solo |
+| arrastre | copia propia creada (1) y limpiada (0) · alto del origen **58 → 58** · destino marcado · `4/0/0/0/0 → 3/0/1/0/0` |
+| toast | «En Hito 1 · ↶ Deshacer» |
+| deshacer | `3/0/1/0/0 → 4/0/0/0/0`, **y después de un F5 sigue así** (escribió en el server) |
+| sacar de la entrega | `4/0/0/0/0 → 3/0/0/0/0`, y su deshacer lo repone **en la misma columna** |
+| borrar una columna con gente | «4 en Onboarding: al guardar quedan sin columna…» |
+| guardar una etapa nueva | 6 columnas, y el aviso de «etapas de ejemplo» desaparece |
+| errores de consola | 0 |
+
+El rastro en `lead_audit` quedó legible de punta a punta sobre el mismo cliente:
+`— → Onboarding`, `Onboarding → Hito 1`, `Hito 1 → Onboarding` (el deshacer),
+`Onboarding → null` (lo sacaron) y `— → Onboarding` otra vez.
+
+### Sacar a alguien de una entrega también deja rastro
+
+`sacarClienteDeEntrega` borraba la fila y no escribía nada. Eso hace indistinguibles dos
+cosas que no se parecen: **«nunca estuvo en esta entrega»** (un hueco por llenar) y
+**«lo sacamos»** (una decisión). Ahora escribe su línea con `valor_nuevo: null`, y el
+rastro no puede frenar el borrado: las lecturas del nombre y del rótulo van DESPUÉS, y si
+fallan la línea sale con la clave.
+
+### Lo que quedó SIN hacer
+
+- **El gesto de arrastre está escrito por TERCERA vez** en este repo: el Kanban del plan,
+  el del CRM (`app/crm/CrmBoard.tsx`, para columnas) y ahora éste. Las tres resuelven las
+  mismas cuatro trampas. Un `useArrastreKanban` en `app/_components/` las unifica, y no se
+  hizo acá porque extraerlo toca `app/crm/CrmBoard.tsx`, que es de otra sesión y estaba
+  trabajando en él.
+- **El kanban no filtra la grilla ni la tabla.** El selector de servicio aparece sólo en
+  la vista de etapas, a propósito: las otras dos contestan «quiénes son mis clientes y qué
+  trabajo tienen», que no depende de ningún servicio. Si alguna vez hace falta ver la
+  cartera filtrada por servicio, es otra pregunta y otro control.
+- **La ficha de un cliente todavía no muestra sus entregas.** Un cliente puede estar en
+  varias a la vez y hoy eso sólo se ve tablero por tablero. `entregasDeCliente(leadId)` ya
+  existe en `lib/entrega-servicio.ts` y **no la llama nadie**.
+- **La línea de entrega cae en «Información» y no en «Status»** en la ficha del CRM
+  (`STATUS_FIELDS` es igualdad exacta). Es una línea en un archivo de la sesión del CRM.

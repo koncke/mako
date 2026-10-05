@@ -12,7 +12,7 @@
 // cliente, un proyecto, una tarea o una recurrente, no va acá.
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status } from '@/app/_ui';
+import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
@@ -23,14 +23,18 @@ import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
-import { BarraClientes, CUANDO_LABEL, entraEnVentana, type FiltroClientes, type OrdenClientes } from './BarraClientes';
+import { BarraClientes, CUANDO_LABEL, entraEnVentana, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
+import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
+import { EtapasEntregaModal } from './EtapasEntregaModal';
+import type { CarteraEnEntrega } from './entrega';
+import { conteoDeEtapas, type EtapaEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
-import { guardarImagenClienteAction, autoasignarAction } from './actions';
+import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
 
-export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }: {
+export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
    *  cliente. Ese orden es el que numera («Cliente 1»); la grilla se ordena aparte. */
   clientes: ClienteCruce[];
@@ -45,6 +49,17 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
    *  ve el control y por qué puerta entra. La forma vive en `CuentaDeMaKo` y se
    *  importa: escrita tres veces, la tercera se queda vieja. */
   cuentas?: CuentasProp;
+  /**
+   * Las etapas de entrega de cada servicio y en que etapa esta cada cliente (mig 0188).
+   *
+   * ⚠️ `ok: false` NO ES «no entregas nada»: son dos pantallas. Con la lectura caida
+   * el kanban no se ofrece y el banner dice por que — un tablero vacio sobre una
+   * lectura que fallo afirma que no hay nadie en entrega.
+   */
+  entrega?: CarteraEnEntrega;
+  /** Renombrar o borrar una columna le cambia el tablero a todo el equipo: lo decide
+   *  un admin del workspace. Mover un cliente lo hace cualquiera con la tab. */
+  puedeEditarEtapas?: boolean;
 }) {
   const [creando, setCreando] = useState(false);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
@@ -65,11 +80,34 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
   const [, empezar] = useTransition();
   /** Lo que la barra de arriba decide: qué se busca, cómo se mira y en qué orden. */
   const [q, setQ] = useState('');
-  const [tabla, setTabla] = useState(false);
+  /** UNA vista y no dos booleanos: ver el porque en el tipo (./BarraClientes). */
+  const [vista, setVista] = useState<VistaClientes>('tarjetas');
   const [filtro, setFiltro] = useState<FiltroClientes>('todos');
   const [cuando, setCuando] = useState('siempre');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [orden, setOrden] = useState<OrdenClientes>('nombre');
+  const { toast, show, clear } = useToast();
+
+  // ── La entrega de un servicio (el kanban) ────────────────────────────
+  const servicios = entrega?.ok ? entrega.servicios : [];
+  /** De que servicio es el tablero. `null` = todavia no se eligio; cae al primero. */
+  const [servicioId, setServicioId] = useState<number | null>(null);
+  const servicio = servicios.find((s) => s.productoId === servicioId) ?? servicios[0] ?? null;
+  const [editandoEtapas, setEditandoEtapas] = useState(false);
+  /**
+   * LO QUE SE MOVIO ACA ADENTRO, encima de lo que trajo el server.
+   *
+   * ⚠️ NO ES UN CACHE: es el resultado que el server action YA devolvio, aplicado sin
+   * esperar a que `revalidatePath` vuelva con las 78 KB del trabajo de la cartera.
+   * Arrastrar una tarjeta y verla volver a su columna medio segundo se lee como que el
+   * tablero no dejo moverla. Misma razon que `imgs`.
+   *
+   * `null` = se saco de la entrega. Es distinto de «no esta en el mapa», que significa
+   * «no se toco en esta sesion»: sin esa diferencia, sacar a alguien lo dejaria en su
+   * columna hasta el proximo F5.
+   */
+  const [movs, setMovs] = useState<Record<string, Asignacion | null>>({});
+  const claveMov = (leadId: number, prodId: number) => `${prodId}:${leadId}`;
 
   const resumenDe = (leadId: number): ResumenTrabajo | null =>
     (tablero.ok ? tablero.porLead[leadId] : null) ?? null;
@@ -188,6 +226,96 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes.length]);
 
+  /**
+   * En que etapa esta cada cliente en ESTE servicio, con lo movido en esta sesion encima.
+   *
+   * Se calcula y no se guarda: es la regla de la casa aplicada a un overlay. Un estado
+   * «la asignacion ya mergeada» tendria que re-sincronizarse cada vez que el server
+   * revalida, y ese es el camino por el que una tarjeta vuelve sola a su columna vieja.
+   */
+  const asignacionDe = (prodId: number): Record<number, Asignacion> => {
+    const out: Record<number, Asignacion> = {};
+    const base = entrega?.ok ? (entrega.porServicio[prodId] ?? {}) : {};
+    for (const [lead, f] of Object.entries(base)) {
+      out[Number(lead)] = { etapa: f.etapa, etapa_desde: f.etapa_desde, por: f.por };
+    }
+    for (const [k, v] of Object.entries(movs)) {
+      const corte = k.indexOf(':');
+      if (Number(k.slice(0, corte)) !== prodId) continue;
+      const lead = Number(k.slice(corte + 1));
+      // `null` = se saco de la entrega. Borrar la clave y no ponerla en null serian
+      // dos cosas distintas: la segunda es «no se toco» y dejaria la fila del server.
+      if (v === null) delete out[lead]; else out[lead] = v;
+    }
+    return out;
+  };
+
+  /**
+   * Mueve un cliente de etapa en la entrega de un servicio.
+   *
+   * ⚠️ EL DESHACER VUELVE A LLAMAR AL SERVER con la etapa anterior. Revertir solo la
+   * pantalla miente hasta el proximo F5 — y la etapa anterior viaja desde ACA porque el
+   * choke point ya no la tiene despues de escribir.
+   *
+   * ⚠️ Y EL DESHACER NO OFRECE SU PROPIO DESHACER (`conDeshacer = false`): dos carteles
+   * encadenados dejan a la persona apretando el de un paso intermedio.
+   */
+  function moverEntrega(leadId: number, etapa: string, prodId: number, conDeshacer = true) {
+    const previa = asignacionDe(prodId)[leadId] ?? null;
+    // ⚠️ ACA NO VA UNA GUARDA DE IDEMPOTENCIA, y costo verlo en el navegador: un
+    // `if (previa?.etapa === etapa) return` parece gratis y ROMPE EL DESHACER. El
+    // callback del toast se queda con la version de esta funcion del render que lo
+    // creo, o sea con el `movs` de ANTES del movimiento: desde ahi, «volver a
+    // onboarding» se ve como «ya esta en onboarding» y la llamada nunca sale. El
+    // cartel se cierra, la tarjeta no se mueve, y eso se lee como un deshacer roto.
+    // Quien corta el viaje de un drop sobre su propia columna es el kanban, que mira
+    // la prop del render en curso; y el choke point es idempotente de todas formas.
+    setMal('');
+    empezar(async () => {
+      const r = await moverEntregaAction(leadId, prodId, etapa);
+      if (!r.ok) { setMal(r.error); return; }
+      // Un movimiento que no movio nada no se anuncia ni se pinta.
+      if (!r.cambio) return;
+      setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: { etapa: r.hacia, etapa_desde: new Date().toISOString(), por: 'CRM' } }));
+      if (!conDeshacer) return;
+      // El toast dice QUE paso, en tres palabras. El porque de la etapa vive en el
+      // catalogo, no en un cartel de cinco segundos.
+      show(`En ${r.rotulo}`, () => {
+        clear();
+        if (previa) moverEntrega(leadId, previa.etapa, prodId, false);
+        else sacarEntrega(leadId, prodId, false);
+      });
+    });
+  }
+
+  /**
+   * Saca a un cliente de la entrega de un servicio.
+   *
+   * ⚠️ EL DESHACER LO REPONE DONDE ESTABA, con la etapa que el server devolvio. Volver
+   * a llamar a «sumar» lo dejaria en la primera columna, o sea que deshacer le perderia
+   * el avance — y eso se lee como que el deshacer funciono.
+   */
+  function sacarEntrega(leadId: number, prodId: number, conDeshacer = true) {
+    setMal('');
+    empezar(async () => {
+      const r = await sacarDeEntregaAction(leadId, prodId);
+      if (!r.ok) { setMal(r.error); return; }
+      setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: null }));
+      // Sin etapa anterior no hay nada que reponer, y ofrecer un «Deshacer» que no
+      // deshace nada es peor que no ofrecerlo.
+      const volverA = r.etapa;
+      if (!conDeshacer || !volverA) return;
+      show('Fuera de la entrega', () => { clear(); moverEntrega(leadId, volverA, prodId, false); });
+    });
+  }
+
+  /** Las etapas del servicio elegido, como las dejo el editor. */
+  async function guardarEtapas(etapas: EtapaEntrega[]): Promise<string | null> {
+    if (!servicio) return 'No hay ningun servicio elegido.';
+    const r = await guardarEtapasEntregaAction(servicio.productoId, etapas);
+    return r.ok ? null : r.error;
+  }
+
   function correrMako() {
     setMako(null);
     empezar(async () => {
@@ -227,6 +355,10 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
       {/* ⚠️ «Cero resultados» no es «no hay». Si el tablero no se pudo leer, las tarjetas
           dirían 0 en los tres números sobre clientes que sí tienen trabajo. */}
       {!error && !tablero.ok && <Banner tono="bad">No pude leer el tablero. {tablero.error}</Banner>}
+      {/* ⚠️ «NO PUDE LEER» NO ES «NO ENTREGAS NADA». Sin este renglon, una lectura
+          caida esconde el boton del kanban sin decir por que, y eso se lee como que la
+          vista desaparecio. */}
+      {!error && entrega && !entrega.ok && <Banner tono="bad">No pude leer la entrega de tus servicios. {entrega.error}</Banner>}
       {mal && <Banner tono="bad">{mal}</Banner>}
 
       {error ? (
@@ -242,7 +374,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
       ) : (
         <>
           <BarraClientes
-            q={q} onQ={setQ} tabla={tabla} onTabla={setTabla}
+            q={q} onQ={setQ} vista={vista} onVista={setVista}
+            /* ⚠️ EL KANBAN SE OFRECE SOLO SI HAY TABLERO QUE DIBUJAR: la lectura
+               salio bien Y el negocio tiene al menos un servicio activo. Un boton que
+               abre una pantalla vacia se lee como que la app esta rota, y con la
+               lectura caida mentiria — el banner de arriba dice por que. */
+            conKanban={Boolean(entrega?.ok && servicios.length)}
+            servicios={servicios.map((sv) => ({ id: sv.productoId, nombre: sv.nombre }))}
+            servicio={servicio?.productoId ?? null} onServicio={setServicioId}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
             cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
             nVisibles={visibles.length} nTotal={lista.length}
@@ -260,7 +399,31 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
             onExportar={() => exportarCSV(visibles, numeroDe, resumenDe)}
             onImportar={() => { window.location.href = '/crm?importar=1'; }} />
 
-          {tabla ? (
+          {vista === 'kanban' ? (
+            /* ⚠️ EL KANBAN NO DIBUJA LA CARTERA: dibuja la ENTREGA de UN servicio, y por
+               eso necesita un servicio elegido. Sin servicios activos no hay tablero
+               posible, y eso se DICE — un tablero de cero columnas sobre una pantalla
+               en blanco no distingue «no configuraste» de «se rompio». */
+            servicio ? (
+              <KanbanEntrega
+                etapas={servicio.etapas}
+                origen={servicio.origen}
+                servicio={servicio.nombre}
+                clientes={visibles}
+                asignacion={asignacionDe(servicio.productoId)}
+                numeroDe={numeroDe}
+                onMover={(leadId, etapa) => moverEntrega(leadId, etapa, servicio.productoId)}
+                onSacar={(leadId) => sacarEntrega(leadId, servicio.productoId)}
+                onAbrir={setAbiertoId}
+                onEditarEtapas={() => setEditandoEtapas(true)}
+                puedeEditar={puedeEditarEtapas}
+              />
+            ) : (
+              <p className="cl-nada">
+                Para ver la entrega en etapas, carga tus servicios en el catálogo de productos.
+              </p>
+            )
+          ) : vista === 'tabla' ? (
             <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
               tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando(true)} />
           ) : (
@@ -286,7 +449,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
           {/* ⚠️ «NO ENCONTRÉ» NO ES «NO TENÉS». Sin este renglón, buscar algo que no
               existe deja una grilla con una sola tarjeta de crear, y eso se lee como
               que se borró la cartera. */}
-          {visibles.length === 0 && (
+          {visibles.length === 0 && vista !== 'kanban' && (
             <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>
           )}
         </>
@@ -313,6 +476,20 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas }
       )}
 
       {creando && <NuevoCliente onCerrar={() => setCreando(false)} />}
+
+      {editandoEtapas && servicio && (
+        <EtapasEntregaModal
+          servicio={servicio.nombre}
+          etapas={servicio.etapas}
+          /* El conteo por etapa sale del MISMO overlay que dibuja el tablero: con dos
+             fuentes, el editor diria «3 en Hito 1» sobre una columna que ya muestra 2. */
+          conteo={conteoDeEtapas(servicio.etapas, Object.values(asignacionDe(servicio.productoId)).map((a) => a.etapa))}
+          onGuardar={guardarEtapas}
+          onCerrar={() => setEditandoEtapas(false)}
+        />
+      )}
+
+      <Toast state={toast} onClose={clear} />
 
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Pagina>

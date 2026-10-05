@@ -30,6 +30,18 @@ import { useEffect, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 
+/**
+ * Las TRES formas de mirar la misma cartera. Es UN valor y no dos booleanos: con
+ * `tabla` y `kanban` por separado, el día que los dos sean true gana el que lea
+ * primero el que dibuja — y ya está escrito en esta casa que dos campos para el
+ * mismo lugar es cómo se muere uno de los dos.
+ *
+ * `kanban` SÓLO lo ofrece quien pueda dibujarlo (`conKanban`): /admin monta esta
+ * misma barra sobre una lista de WORKSPACES, que no tiene etapas de entrega, y un
+ * botón que no hace nada se lee como que la app está rota.
+ */
+export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban';
+
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto' | 'con-cuenta' | 'sin-cuenta';
 
@@ -102,7 +114,9 @@ export const FILTRO_LABEL: Record<FiltroClientes, string> = {
  * sigue llamándola igual que antes.
  */
 export function BarraClientes({
-  q, onQ, tabla, onTabla, filtro, onFiltro, orden, onOrden, onExportar, onImportar,
+  q, onQ, vista, onVista, conKanban = false,
+  servicios = [], servicio = null, onServicio,
+  filtro, onFiltro, orden, onOrden, onExportar, onImportar,
   nVisibles, nTotal, progreso, placeholder = 'Buscar por nombre o empresa…',
   filtros = FILTRO_LABEL, ordenes = ORDEN_LABEL, filtroBase = 'todos', ordenBase = 'nombre',
   cuandos, cuando = 'siempre', onCuando, dir = 'desc', onDir,
@@ -110,8 +124,20 @@ export function BarraClientes({
 }: {
   q: string;
   onQ: (v: string) => void;
-  tabla: boolean;
-  onTabla: (v: boolean) => void;
+  vista: VistaClientes;
+  onVista: (v: VistaClientes) => void;
+  /** Dibujar el botón de kanban. Sólo lo prende quien tiene un tablero que mostrar. */
+  conKanban?: boolean;
+  /**
+   * Los servicios entre los que elige el kanban, y cuál está elegido.
+   *
+   * ⚠️ APARECE SÓLO EN KANBAN, y no es una decisión de prolijidad: las otras dos
+   * vistas contestan «quiénes son mis clientes y qué trabajo tienen», que no depende
+   * de ningún servicio. Un selector a la vista ahí prometería que filtra la grilla.
+   */
+  servicios?: { id: number; nombre: string }[];
+  servicio?: number | null;
+  onServicio?: (id: number) => void;
   filtro: string;
   onFiltro: (v: string) => void;
   orden: string;
@@ -175,7 +201,13 @@ export function BarraClientes({
 
       <span style={{ flex: 1 }} />
 
-      <VistaToggleClientes tabla={tabla} onSet={onTabla} />
+      {/* ⚠️ EL SELECTOR DE SERVICIO VA ANTES DEL TOGGLE, no después: es lo que decide
+          QUÉ tablero se está mirando, y un control que gobierna la vista entera no
+          puede vivir a la derecha de los tres puntos. */}
+      {vista === 'kanban' && servicios.length > 1 && onServicio && (
+        <SelectorServicio servicios={servicios} servicio={servicio} onServicio={onServicio} />
+      )}
+      <VistaToggleClientes vista={vista} onSet={onVista} conKanban={conKanban} />
       <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
         filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase}
         cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir} />
@@ -214,24 +246,55 @@ export function BarraClientes({
   );
 }
 
-/** Tarjetas o tabla. Mismo molde y mismos íconos que el del tablero, a propósito. */
-function VistaToggleClientes({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => void }) {
+/** Tarjetas, tabla o kanban. Mismo molde y mismos íconos que el del tablero. */
+function VistaToggleClientes({ vista, onSet, conKanban }: { vista: VistaClientes; onSet: (v: VistaClientes) => void; conKanban: boolean }) {
   return (
     <div className="bc-toggle">
-      <button type="button" onClick={() => onSet(false)} aria-pressed={!tabla}
-        className={!tabla ? 'on' : ''} title="Ver en tarjetas" aria-label="Ver en tarjetas">
+      <button type="button" onClick={() => onSet('tarjetas')} aria-pressed={vista === 'tarjetas'}
+        className={vista === 'tarjetas' ? 'on' : ''} title="Ver en tarjetas" aria-label="Ver en tarjetas">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
           <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
         </svg>
       </button>
-      <button type="button" onClick={() => onSet(true)} aria-pressed={tabla}
-        className={tabla ? 'on' : ''} title="Ver en tabla" aria-label="Ver en tabla">
+      <button type="button" onClick={() => onSet('tabla')} aria-pressed={vista === 'tabla'}
+        className={vista === 'tabla' ? 'on' : ''} title="Ver en tabla" aria-label="Ver en tabla">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
         </svg>
       </button>
+      {/* Tres columnas: el ícono dice que lo que se agrupa son ETAPAS, no filas. */}
+      {conKanban && (
+        <button type="button" onClick={() => onSet('kanban')} aria-pressed={vista === 'kanban'}
+          className={vista === 'kanban' ? 'on' : ''} title="Ver la entrega en etapas" aria-label="Ver la entrega en etapas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="3" y="3" width="5" height="18" rx="1.5" /><rect x="10" y="3" width="5" height="12" rx="1.5" /><rect x="17" y="3" width="4" height="8" rx="1.5" />
+          </svg>
+        </button>
+      )}
     </div>
+  );
+}
+
+/**
+ * De qué servicio es el tablero.
+ *
+ * ⚠️ SÓLO SE DIBUJA CON MÁS DE UNO. Con un servicio único el selector no ofrece
+ * ninguna decisión, y el nombre del servicio ya está arriba de las columnas.
+ */
+function SelectorServicio({ servicios, servicio, onServicio }: {
+  servicios: { id: number; nombre: string }[];
+  servicio: number | null;
+  onServicio: (id: number) => void;
+}) {
+  return (
+    <label className="bc-serv">
+      <span className="bc-serv-rot">Servicio</span>
+      <select value={servicio ?? ''} onChange={(e) => onServicio(Number(e.target.value))}
+        aria-label="De qué servicio es el tablero">
+        {servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -411,6 +474,15 @@ const CSS = `
 .bc-buscar button:hover{ color:var(--ink); }
 .bc-cuenta{ font-size:12.5px; color:var(--dim); white-space:nowrap; }
 
+/* El selector de servicio: gobierna QUE tablero se mira, asi que se lee como un
+   control y no como un dato. */
+.bc-serv{ display:inline-flex; align-items:center; gap:7px; flex:0 1 auto; min-width:0; }
+.bc-serv-rot{ flex:none; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase;
+  font-weight:700; color:var(--dim); }
+.bc-serv select{ flex:0 1 auto; min-width:0; max-width:230px; padding:6px 9px; font:inherit;
+  font-size:13px; font-weight:600; color:var(--ink); background:var(--surface);
+  border:1px solid var(--border); border-radius:9px; cursor:pointer; }
+.bc-serv select:hover{ border-color:var(--border-strong); }
 .bc-toggle{ display:inline-flex; flex:none; background:var(--surface-2); border:1px solid var(--border);
   border-radius:9px; padding:2px; }
 .bc-toggle button{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px;
