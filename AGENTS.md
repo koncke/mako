@@ -6139,6 +6139,19 @@ Tres reglas, y la tercera es la que gobierna código nuevo:
    criterio que la frontera de `'use client'` —no mostrarle a un cliente lo que no es suyo—
    aplicado al copy en vez de al bundle.
 
+   ⚠️ **Y SE ROMPIÓ EL MISMO DÍA, en el commit de la tarde.** Al escribir las 42 filas del
+   catálogo de datos de un mensaje salieron el closer «Mauricio», el setter «Leila» y el
+   negocio «Código Inmobiliario»: dos clientes y una clienta de muestra en la pantalla que
+   abren los demás. Lo encontró un barrido de la sesión vecina, no el que escribió la
+   regla. Lección: **esta regla necesita un guard, no un párrafo** — hay uno en
+   `tests/variables-aviso.test.ts` con la lista de nombres reales (caza los conocidos, que
+   es lo que se puede automatizar) y los otros dos lugares con placeholders reales quedan
+   anotados en `docs/hallazgos-comunicacion.md`.
+
+   ⚠️ Y un nombre de ejemplo no puede ser un **verbo voseado**: «Tomás» frenó los tests
+   porque el guard del voseo mira la FORMA, y un nombre y una conjugación son la misma. No
+   se excepciona — se cambia el nombre.
+
 # Una pila de deshacer se llena en el CHOKE POINT, y el Ctrl+Z nativo gana en un texto
 
 Tres decisiones que no se ven en la firma de `usePilaDeshacer` (`app/_ui/`) y que valen

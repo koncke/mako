@@ -120,6 +120,18 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
  * token que dijera una etapa equivocada en un WhatsApp es peor que no tenerlo, así que
  * va `{{lead_estado}}`, que es una COLUMNA, y el que quiera la etapa tiene el link.
  */
+// ⚠️ LOS EJEMPLOS SON FICTICIOS, Y ACÁ SE ESCRIBIERON MAL DOS VECES. El 04/10/2026 el
+// catálogo salió con el closer «Mauricio», el setter «Leila» y el negocio «Código
+// Inmobiliario»: un cliente, una clienta y otro cliente, dibujados como ejemplo en la
+// pantalla que abre cualquiera de los demás. La regla ya estaba cosechada ESE MISMO DÍA
+// —por un caso donde el ejemplo de un aviso se contó en una reunión como si fuera
+// propio— y se volvió a romper al escribir estas 42 filas. Lo caza
+// `tests/variables-aviso.test.ts` con la lista de nombres reales.
+//
+// ⚠️ Y UN NOMBRE DE EJEMPLO NO PUEDE SER UN VERBO VOSEADO. «Tomás» duró un minuto: el
+// guard del voseo lo leyó como la conjugación de «tomar» y frenó los tests. No es un
+// falso positivo que valga la pena excepcionar —ese guard mira la FORMA y un nombre y una
+// conjugación son la misma— así que el nombre se cambia.
 export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Quién es. Una sola lectura de `leads` por id los trae todos.
   { key: 'lead_nombre', label: 'Nombre', ejemplo: 'Sofía Contreras', alcance: 'lead', grupo: 'lead' },
@@ -130,8 +142,8 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Dónde está. `estado_lead` y los asignados son columnas, no derivaciones.
   { key: 'lead_estado', label: 'Estado', ejemplo: 'abierto', alcance: 'lead', grupo: 'estado' },
   { key: 'lead_motivo_perdida', label: 'Motivo de la pérdida', ejemplo: 'sin presupuesto', alcance: 'lead', grupo: 'estado' },
-  { key: 'lead_closer', label: 'Closer asignado', ejemplo: 'Mauricio', alcance: 'lead', grupo: 'estado' },
-  { key: 'lead_setter', label: 'Setter asignado', ejemplo: 'Leila', alcance: 'lead', grupo: 'estado' },
+  { key: 'lead_closer', label: 'Closer asignado', ejemplo: 'Daniela', alcance: 'lead', grupo: 'estado' },
+  { key: 'lead_setter', label: 'Setter asignado', ejemplo: 'Valeria', alcance: 'lead', grupo: 'estado' },
   { key: 'lead_calificado', label: '¿Está calificado?', ejemplo: 'sí', alcance: 'lead', grupo: 'estado', formato: 'si_no' },
 
   // ── Su agenda.
@@ -178,7 +190,7 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── El momento, en la zona del negocio. Se calculan.
   { key: 'fecha', label: 'La fecha de hoy', ejemplo: '30/09', alcance: 'siempre', grupo: 'momento', formato: 'fecha' },
   { key: 'hora', label: 'La hora', ejemplo: '09:00', alcance: 'siempre', grupo: 'momento' },
-  { key: 'negocio', label: 'El nombre del negocio', ejemplo: 'Código Inmobiliario', alcance: 'siempre', grupo: 'momento' },
+  { key: 'negocio', label: 'El nombre del negocio', ejemplo: 'Inmobiliaria del Valle', alcance: 'siempre', grupo: 'momento' },
 
   // ── Los links a una pantalla: una constante más la base. Son los que evitan pegar
   //    media pantalla adentro de un WhatsApp.

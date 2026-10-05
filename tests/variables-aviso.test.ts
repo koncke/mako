@@ -358,3 +358,30 @@ function leadCompleto(over: Partial<Lead> = {}): Lead {
     ...over,
   } as Lead;
 }
+
+test('⚠️ NINGÚN ejemplo del catálogo nombra a una persona o un negocio REAL', () => {
+  // ⚠️ ESTE GUARD EXISTE PORQUE LA REGLA SE ROMPIÓ EL MISMO DÍA QUE SE ESCRIBIÓ. El
+  // 04/10/2026 se cosechó que «el ejemplo que una pantalla dibuja con datos de un cliente
+  // REAL se lee como un dato» —el caso fue un aviso cuyo ejemplo salía del workspace de un
+  // cliente, y alguien lo contó en una reunión como si fuera propio— y ese mismo día estas
+  // 42 filas salieron con el closer «Mauricio», el setter «Leila» y el negocio «Código
+  // Inmobiliario»: dos clientes y una clienta, dibujados como ejemplo en la pantalla que
+  // abre cualquiera de los demás. Un comentario no alcanzó; esto sí.
+  //
+  // La lista son los nombres que ya están en el repo (bitácoras, hallazgos, catálogos), o
+  // sea que el guard no agrega información que no esté — y caza LOS CONOCIDOS, que es lo
+  // que se puede automatizar. La regla general, para los que no están acá, vive en
+  // AGENTS.md: un ejemplo de UI es ficticio por regla, como cualquier placeholder.
+  const REALES = [
+    'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
+    'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
+  ];
+  const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  for (const v of VARIABLES_AVISO) {
+    for (const r of REALES) {
+      assert.ok(!sinAcentos(v.ejemplo).includes(sinAcentos(r)),
+        `el ejemplo de ${v.key} nombra a ${r}, que es real: esa pantalla la abren los demás clientes`);
+    }
+  }
+});
+

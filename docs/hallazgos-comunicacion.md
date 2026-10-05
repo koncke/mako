@@ -7457,3 +7457,39 @@ no el código**: los tests del grafo pasaban porque ninguno tenía un paso con
 - **El cron no está medido contra producción.** Se probó la decisión (12 roturas) y la
   pantalla, no una corrida real: hoy no hay ninguna cuota vencida en el ws1, así que
   verificarlo de punta a punta pide escribir una fila de `pagos` en la base de un cliente.
+
+## La regla de los ejemplos ficticios se rompió el MISMO día, y por eso ahora tiene guard (04/10/2026)
+
+**Vive en:** `lib/variables-aviso.ts` · `tests/variables-aviso.test.ts`
+
+Por la mañana se cosechó que «el ejemplo que una pantalla dibuja con datos de un cliente
+REAL se lee como un dato» —el caso fue el `ejemplo:` de un aviso que alguien contó en una
+reunión como si fuera propio— y por la tarde, escribiendo las 42 filas del catálogo de
+datos de un mensaje, salieron: closer **«Mauricio»**, setter **«Leila»**, negocio
+**«Código Inmobiliario»**. Dos clientes y una clienta, de muestra en la pantalla que abren
+todos los demás.
+
+**No lo encontró quien escribió la regla: lo encontró un barrido de la sesión vecina.** Es
+la prueba de que una regla de copy sin un chequeo determinista se cumple «casi siempre»,
+que es otra cosa — el mismo patrón que `AGENTS.md` ya tiene escrito para las reglas que
+gobiernan la salida de un modelo.
+
+El guard lista los nombres que ya están en el repo (bitácoras, hallazgos, catálogos), así
+que no agrega información que no esté, y compara sin acentos ni mayúsculas. Caza los
+CONOCIDOS; para los que no están, la regla general sigue siendo la de AGENTS.md.
+
+⚠️ **Y un nombre de ejemplo no puede ser un verbo voseado.** El reemplazo «Tomás» duró un
+minuto: el guard del voseo lo leyó como la conjugación de «tomar». No se excepciona —ese
+guard mira la forma, y un nombre y una conjugación son la misma— se cambia el nombre.
+
+### Lo que quedó SIN hacer (lo toma el chat del CRM)
+
+Dos placeholders con datos reales, en archivos que en este momento tiene en el camino una
+corrida de agentes de la otra sesión:
+
+- `lib/onboarding.ts:33` — «¿Cómo se llama tu oferta?» con el placeholder **«Negocio que
+  Escala™»**, que es el nombre de la oferta de un cliente ofrecido como ejemplo de oferta
+  a todos los demás; y es el producto que aparece en sus campañas de Meta.
+- `lib/metodo-catalogo.ts:289` — el remitente de Resend con **«Mauricio
+  <hola@tudominio.com>»**, dos veces (el campo y su nota).
+
