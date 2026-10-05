@@ -78,7 +78,16 @@ for (const art of ARTEFACTOS) {
 
   const destino = join(raiz, art.a);
   const actual = existsSync(destino) ? readFileSync(destino) : null;
-  const igual = actual != null && actual.equals(bytes);
+  // ⚠️ SE COMPARA SIN LOS SALTOS DE WINDOWS, Y ES LA REGLA DE LA CASA. Con
+  // `core.autocrlf=true`, git le mete CRLF a estos bundles al hacer checkout: medido
+  // el 05/10/2026, `r.js` pesa 63.925 B en el clon y 63.930 en un worktree recién
+  // creado — cinco saltos convertidos. Comparando bytes exactos, este guard frena el
+  // push sobre un archivo IDÉNTICO, y pasa sólo en el clon donde el script corrió.
+  // El `.gitattributes` le pide a git que no los toque de ahora en más; esto cubre a
+  // los que ya están guardados normalizados, y a cualquier clon que llegue con otra
+  // configuración. Se normaliza para DECIDIR; lo que se ESCRIBE son los bytes crudos.
+  const sinCR = (b) => Buffer.from(b.toString('binary').split('\r\n').join('\n'), 'binary');
+  const igual = actual != null && sinCR(actual).equals(sinCR(bytes));
 
   if (check) {
     if (!igual) {
