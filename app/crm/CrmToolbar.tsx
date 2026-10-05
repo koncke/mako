@@ -19,6 +19,7 @@
 //    title con el valor completo.
 
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
 import { conWs } from '@/lib/ws-tab';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
@@ -307,21 +308,59 @@ export function VistaSelector({ vista, onVista, pendientes }: {
     color: activo ? 'var(--on-ink)' : 'var(--dim)',
   });
   return (
+    <>
     <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
-      <button type="button" onClick={() => onVista('kanban')} style={seg(vista === 'kanban')}>Kanban</button>
-      <button type="button" onClick={() => onVista('tabla')} style={seg(vista === 'tabla')}>Tabla</button>
-      <button type="button" onClick={() => onVista('pendientes')} style={seg(vista === 'pendientes')}
-        title={pendientes > 0 ? `${pendientes} lead${pendientes === 1 ? '' : 's'} con datos que faltan marcar` : 'Datos sin marcar — no hay ninguno pendiente'}>
-        Pendientes
-        {/* El latido va en el BADGE, no en el segmento: un botón entero pulsando al
-            lado de las otras dos vistas leía como una alarma, no como una pestaña. */}
-        {pendientes > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--bad)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
-            {pendientes}
-          </span>
-        )}
-      </button>
+      {/* ⚠️ LOS ÍCONOS SALEN DE UN SOLO LUGAR (app/_ui/iconos-vista), no de una copia.
+          Son los mismos que usa el tablero de Customer Success, y el pedido fue
+          justamente que el toggle se vea IGUAL en las dos pantallas: dos SVG
+          «parecidos» divergen en cuanto alguien ajusta uno. El estilo del botón sí es
+          de cada barra — acá el segmento con `--ink`, allá su `.bc-toggle`. */}
+      {(['kanban', 'tabla'] as const).map((v) => (
+        <button key={v} type="button" onClick={() => onVista(v)} style={seg(vista === v)}
+          title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} aria-pressed={vista === v}>
+          {ICONO_VISTA[v].icono}
+        </button>
+      ))}
     </div>
+    <PendientesAtajo cuantos={pendientes} onIr={() => onVista('pendientes')} />
+    </>
+  );
+}
+
+/**
+ * Lo que falta marcar: una COLA DE TRABAJO, no una vista.
+ *
+ * ⚠️ ERA LA TERCERA PESTAÑA DEL TOGGLE y Martín pidió sacarla de ahí. El motivo de
+ * fondo, que es el que importa para no repetirlo: las otras dos muestran LOS MISMOS
+ * leads de otra forma; ésta mostraba una lista distinta. Mezclar «cómo lo miro» con
+ * «qué me falta» en el mismo control hacía que un contador de tareas se leyera como
+ * un modo de ver — y el badge rojo, como si una de las vistas estuviera rota.
+ *
+ * ⚠️ PERO LA PUERTA NO SE VA CON LA PESTAÑA. Sin esto, `?pendientes=1` queda sin
+ * forma de llegar y la cola se vuelve invisible: el caso clásico de esta casa, sacar
+ * un patrón y llevarse puesto lo único que lo mostraba.
+ *
+ * Desaparece cuando no hay nada: un control que dice «0 pendientes» es ruido fijo.
+ */
+function PendientesAtajo({ cuantos, onIr }: { cuantos: number; onIr: () => void }) {
+  if (cuantos <= 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={onIr}
+      title={`${cuantos} lead${cuantos === 1 ? '' : 's'} con datos que faltan marcar`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7, flex: 'none',
+        padding: '8px 13px', borderRadius: 11, cursor: 'pointer', fontFamily: SANS,
+        fontSize: 13.5, fontWeight: 600, color: 'var(--ink)',
+        background: 'var(--surface-2)', border: '1px solid var(--border)',
+      }}
+    >
+      Sin marcar
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--bad)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
+        {cuantos}
+      </span>
+    </button>
   );
 }
 
