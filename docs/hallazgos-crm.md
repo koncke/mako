@@ -6368,40 +6368,45 @@ texto del `<button>`: 34/1.
 `tests/crm-campo-inline.test.ts` (19 pases, con las 7 roturas y su numero) ·
 *2026-10-05*
 
-## Mover una fila en la tabla necesita un DESTINO, y en el CRM el destino es una ETAPA
+## Mover una fila necesita un DESTINO, y el destino NO puede costar una forma nueva
 
-**Vive en:** `app/crm/CrmBoard.tsx` (la vista de tabla, `gruposTabla`) ·
-`app/plan/board/Tablas.tsx` (`useArrastreFilas`, el molde que NO se copió)
+**Vive en:** `app/crm/CrmBoard.tsx` (la vista de tabla) · `app/plan/board/Tablas.tsx`
+(`useArrastreFilas`, el molde que NO se copió)
 
 Pedido de Martín (05/10/2026): «aplica lo que te pedí de mover filas, ya tenemos esa
 animación». La animación existe y es compartida (`app/plan/board/arrastre-copia.ts`), así
 que la parte difícil no era el gesto: era **qué escribe el gesto**.
 
-**El diagnóstico obvio era el equivocado.** «Copiar el arrastre del plan» suena a traer el
-hook y listo. Pero en el plan la fila se suelta **ENTRE** otras dos y lo que cambia es el
-`score`: hay un orden manual que reordenar, y el hook devuelve un número sugerido por la
-POSICIÓN. En el CRM no existe ese orden — los leads no se rankean entre sí, y mover un lead
-significa **cambiarle la etapa**. Sobre una tabla plana con una columna «Etapa», soltar una
-fila en otro renglón no tiene ningún significado que escribir.
+**El diagnóstico obvio era el equivocado, dos veces seguidas.**
 
-Por eso la tabla pasó a **agruparse por etapa**, con cada grupo como destino. No es una
-decisión estética: es lo único que le da un destino al gesto, y de paso es lo que el Kanban
-de al lado ya hace. El orden de las columnas sigue vivo y ordena **adentro** de cada grupo.
+**Primer error — copiar el hook.** En el plan la fila se suelta **ENTRE** otras dos y lo
+que cambia es el `score`: hay un orden manual que reordenar, y el hook devuelve un número
+sugerido por la POSICIÓN. En el CRM no existe ese orden — los leads no se rankean entre sí,
+y mover un lead significa **cambiarle la etapa**. Sobre una tabla plana, soltar una fila en
+otro renglón no tiene ningún significado que escribir.
 
-Tres cosas que se aprendieron armándolo, y las tres valen para cualquier tabla agrupada:
+**Segundo error, y es el que costó una tanda: agrupar la tabla por etapa.** De la
+observación correcta («hace falta un destino») salió una solución que cambiaba la pantalla
+ENTERA para habilitar un gesto. Martín la rechazó en una línea: **«No separes las etapas,
+se ve horrible, para eso están los filtros...»** — y tenía razón por partida doble: el
+agrupado se ve SIEMPRE, mientras que el gesto que justificaba existe sólo mientras alguien
+arrastra. Se pagó una forma permanente por una capacidad momentánea.
 
-- **El destino es el GRUPO ENTERO, no su cabecera.** Con los handlers sólo en la cabecera,
-  arrastrar hasta el medio de un grupo largo no resalta nada y el drop se pierde — el
-  cursor está sobre una fila, que no es un destino. Y el `onDragLeave` del contenedor
-  necesita el guard `contains(relatedTarget)`, o pasar de una fila a la de al lado
-  **dentro del mismo grupo** dispara un leave y el resaltado parpadea en cada fila.
-- **Se resalta la caja, no se dibuja una línea de inserción.** La línea de la tabla del plan
-  dice ENTRE qué dos filas cae; acá adentro del grupo no hay orden que cambiar, así que una
-  línea **prometería una posición que no existe**.
-- **Las etapas VACÍAS se dibujan igual.** Es lo mismo que el Kanban hace con sus columnas
-  desde el 28/09: una etapa que no aparece no se puede usar como destino, así que no habría
-  forma de poner el primer lead en «Ganado». Y el vacío lo DICE, o la cabecera sola se lee
-  como un grupo que no cargó.
+**La regla que queda: un destino de arrastre no puede costar una forma nueva.** Si para
+habilitar un gesto hay que reorganizar lo que se ve cuando nadie lo está haciendo, el
+destino está mal elegido. El que sobrevive acá es **OTRA FILA**: se suelta el lead sobre
+otro y adopta su etapa. Huella visual en reposo: **cero**.
+
+Lo que lo hace legible, y las tres valen para cualquier destino fila-a-fila:
+
+- **La fila sólo es destino si la etapa CAMBIA de verdad.** Resaltar una fila que no va a
+  hacer nada es ofrecer un movimiento que no existe.
+- **Se marca con un filete y un fondo, nunca con un hueco.** En una tabla, abrir un espacio
+  del alto de una fila empuja todo lo de abajo y el ojo pierde la referencia de dónde
+  estaba soltando. (En el Kanban el hueco SÍ va: ahí la columna es corta y el hueco dice
+  el índice.)
+- **El `onDragLeave` lleva el guard `contains(relatedTarget)`**, o pasar por encima de un
+  hijo de la fila dispara un leave y el resaltado parpadea.
 
 ⚠️ **Y el drop llama a `handleDrop`, el MISMO del Kanban.** Ese camino ya sabe lo que la
 tabla no: que «Nutrición - Manual» pide su plazo, que las etapas de Calendly abren la
@@ -6409,12 +6414,28 @@ agenda, que hay señales que ofrecerle a Meta, y que al soltar va el toast con �
 que escribe **en el server**. Escribir la etapa desde la tabla sería la segunda
 implementación de mover un lead, muda y sin deshacer.
 
-⚠️ **Y no hizo falta copiar `useArrastreFilas`.** Ese hook tiene 200 líneas porque un
-`<tr>` **no se puede posicionar** (`position` no aplica a `display: table-row`), así que
+⚠️ **Y no hizo falta copiar `useArrastreFilas`.** Sus 200 líneas vienen de que un `<tr>`
+**no se puede posicionar** (`position` no aplica a `display: table-row`), así que
 reconstruye una tabla entera para la copia que sigue al cursor. La tabla del CRM es una
-grilla de `div`: el nodo se clona tal cual con `montarCopia`, que es la pieza que el
-Kanban del CRM ya montaba. **Antes de copiar un hook grande, mirá si su tamaño viene de un
-problema que vos no tenés.**
+grilla de `div`: el nodo se clona tal cual con `montarCopia`, la pieza que el Kanban del
+CRM ya montaba. **Antes de copiar un hook grande, mirá si su tamaño viene de un problema
+que vos no tenés.**
+
+## La casilla de una tarjeta sale al pasar el cursor, y se esconde con `opacity`
+
+**Vive en:** `app/globals.css` (`.mk-sel-tarjeta`) · `app/crm/CrmBoard.tsx` (la tarjeta)
+
+«En la tarjeta, no debe estar el recuadro de selección múltiple por defecto, solo si paso
+el cursor» (05/10/2026). Va por CSS y no por estado: el `:hover` no existe en un estilo en
+línea, y menos el hover del PADRE, que es lo que la revela.
+
+- ⚠️ **Se oculta con `opacity`, NUNCA con `display`.** Con `display: none` la casilla no
+  ocupa lugar, así que al pasar el cursor aparece y **empuja el nombre del lead 23 px a la
+  derecha**: la tarjeta entera salta cada vez que el mouse la toca.
+- ⚠️ **Y sigue visible si está marcada** (`data-marcada`). Una casilla tildada que se
+  esconde al sacar el cursor deja la selección invisible: la barra diría «3» y no habría
+  forma de saber cuáles son los tres.
+- Y `:focus-visible`, o con el teclado se llega a un control que no se ve.
 
 ## La barra de acciones en lote del CRM, y por qué no es la del plan
 
