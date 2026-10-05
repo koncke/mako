@@ -35,6 +35,27 @@ export type LandingConfig = {
    * mezclando las grabaciones de dos negocios distintos en un mismo panel.
    */
   clarityProjectId?: string;
+  /**
+   * El EMBUDO al que entran los leads de ESTA pagina — o sea, el PRODUCTO que
+   * vende. `undefined` = no asignado, y entonces el lead cae donde cae hoy: el
+   * embudo del negocio (`leads.funnel_id = null`).
+   *
+   * ⚠️ POR QUE CUELGA DE LA URL Y NO DEL TOKEN. El token es UNO por workspace y
+   * es determinista —`tokenDeterminista(ws)` es un HMAC de `landing:<ws>` y se
+   * guarda en el unico setting `landing_token` (lib/landing-token.ts)—, asi que
+   * colgar el producto de el seria decir «todas mis landings venden lo mismo»:
+   * no hay un segundo token que asignar. La pagina si distingue, y esta tabla ya
+   * existe POR PAGINA por la misma razon que `clarityProjectId` (ver la cabecera).
+   *
+   * ⚠️ NO es la fuente de verdad de que el embudo exista: el numero se guarda
+   * tal cual y quien lo USA lo valida contra los embudos vivos del workspace. Un
+   * embudo archivado o borrado tiene que caer al del negocio, no romper el alta
+   * con una violacion de clave ajena.
+   *
+   * ⚠️ Y puede llegar como STRING: `funnels.id` es `bigint`, y en este repo ya
+   * se midio que segun el driver eso vuelve como texto. Se sanea al parsear.
+   */
+  funnelId?: number;
 };
 
 export const CONFIG_KEY = 'landing.config';
@@ -42,6 +63,12 @@ export const MAX_LANDINGS = 12;
 
 const limpio = (v: unknown, max: number): string =>
   (typeof v === 'string' ? v : '').trim().slice(0, max);
+
+/** Un id de fila: entero positivo, venga como numero o como texto (bigint). */
+const idFila = (v: unknown): number | undefined => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+};
 
 /**
  * Lee la configuración, y MIGRA el formato viejo sin perder nada.
@@ -65,9 +92,21 @@ export function parsearConfig(crudo: string | null): LandingConfig[] {
     const pid = typeof x === 'object' && x
       ? limpio((x as Record<string, unknown>).clarityProjectId, 40).toLowerCase()
       : '';
-    out.push(pid ? { url, clarityProjectId: pid } : { url });
+    const fid = typeof x === 'object' && x ? idFila((x as Record<string, unknown>).funnelId) : undefined;
+    out.push({ url, ...(pid ? { clarityProjectId: pid } : {}), ...(fid ? { funnelId: fid } : {}) });
   }
   return out.slice(0, MAX_LANDINGS);
+}
+
+/**
+ * A que embudo entran los leads de esta pagina. `null` = no se asigno ninguno.
+ *
+ * Es la parte que se puede equivocar —comparar dos URLs que son la misma con
+ * distinta barra final— y por eso vive aca, sin `server-only` y con test. Quien
+ * la llama todavia tiene que validar que ese embudo exista y este activo.
+ */
+export function funnelIdDeLanding(configs: LandingConfig[], url: string | null | undefined): number | null {
+  return landingDe(configs, url)?.funnelId ?? null;
 }
 
 /** La landing elegida, o null. Compara normalizado en las dos puntas. */
@@ -82,7 +121,7 @@ export function landingDe(configs: LandingConfig[], url: string | null | undefin
  * ⚠️ `clarityProjectId: undefined` significa «no lo toques», no «bórralo». Es la
  * misma regla que ya mordió con `esVsl` en los videos: guardar la URL corregida
  * de una landing no puede desconectarle Clarity, porque renombrar no contesta esa
- * pregunta.
+ * pregunta. Lo mismo vale para `funnelId`, y ahi lo que borra es un `0`.
  */
 export function conLanding(
   actuales: LandingConfig[],
@@ -97,7 +136,18 @@ export function conLanding(
   const pid = parcial.clarityProjectId !== undefined
     ? limpio(parcial.clarityProjectId, 40).toLowerCase()
     : base?.clarityProjectId ?? '';
-  const fila: LandingConfig = pid ? { url: nueva, clarityProjectId: pid } : { url: nueva };
+  // Misma regla que `clarityProjectId`: `undefined` es «no lo toques». Lo que
+  // BORRA la asignacion es un `0` explicito — corregirle la URL a una landing no
+  // puede desasignarle el producto, que es la trampa de un mapper que reconstruye
+  // la fila campo por campo.
+  const fid = parcial.funnelId !== undefined
+    ? idFila(parcial.funnelId)
+    : base?.funnelId;
+  const fila: LandingConfig = {
+    url: nueva,
+    ...(pid ? { clarityProjectId: pid } : {}),
+    ...(fid ? { funnelId: fid } : {}),
+  };
   // Se conserva la POSICIÓN al editar: en un desplegable, que un renglón salte al
   // final porque le corregiste una letra es desconcertante.
   const lista = base

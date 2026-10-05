@@ -5110,3 +5110,223 @@ del 14/08. Con `incluir` («¿hace algo?») + `enriquecer` («¿y qué hace?») 
 siguen pasando por UNA función y el guard viejo sigue verde.
 
 **Vive en:** `lib/leads.ts` (las ingestas por webhook) · `lib/leads-duplicados.ts` (`camposParaCompletar`, sin `server-only`) · `app/crm/leads-importar.ts` (`DestinoFila`, `destinoDe`) · *2026-10-04 cerrar-crm*
+
+---
+
+# Los insights de la llamada ya estaban escritos: lo que faltaba era quién los ENLAZA
+
+**El diagnóstico obvio era el equivocado.** El pedido («un apartado para los insights que
+salieron de la llamada») se lee como que hay que producir y guardar algo nuevo, y el primer
+reflejo es una tabla. No hacía falta ninguna: el Closing Analyst YA persiste una fila por
+grabación en `closing_analyses` con el resumen de la charla, el desenlace, las objeciones
+(abiertas o respondidas), los momentos y el próximo paso, y `lib/lead-resumen.ts` ya la leía
+por lead para la pantalla que MaKo linkea por WhatsApp. Lo que faltaba era un lector
+compartido, el apartado, y —la parte caro-silenciosa— **que la fila llegue al lead**.
+
+Tres cosas medidas que explican por qué no llegaba:
+
+- **`syncClosingCalls` le pone `lead_id` a su fila SÓLO cuando el email del invitado matchea
+  un lead** (`matchMeetingToLead`). Una grabación matcheada por NOMBRE (`lib/fathom-auto.ts`,
+  que a propósito no afirma la asistencia) o pegada a mano en la ficha se analiza igual y
+  **nunca llega a la ficha**: el análisis existe, se pagó, y la pantalla dice que no hay nada.
+  El re-link por `share_url` existía desde siempre (Paso 0 de `analizarLlamadasDeLead`) y no
+  lo llamaba nadie salvo el botón.
+- **`redactarFollowUpPostLlamada` es el único camino que dispara el análisis solo, y se va
+  antes de disparalo si el lead no tiene teléfono** (`lib/post-llamada.ts:132`, el guard de
+  «lead sin teléfono» está ARRIBA del `analizarLlamadasDeLead` de la línea 153). O sea que un
+  lead cargado por email, sin teléfono, no tiene insights nunca — y es el mismo lead que
+  `fathom-auto` sí sabe enganchar. Dos guardas correctas por separado que juntas dejan un
+  hueco.
+- **`lead_respuestas` NO sirve para guardar esto**, y la trampa es que parece el lugar: su
+  CHECK la ata a Calendly (`reunion in ('R1','R2')`, `supabase/migrations/0062_lead_respuestas.sql:14`).
+  Lo que el lead contestó al agendar y lo que dijo hablando son dos cosas; meterlas en la
+  misma tabla es la mezcla que la decisión del dueño vino a cortar.
+
+**La regla que queda: en el choke point va la mitad GRATIS; la que cobra necesita
+presupuesto.** `applyFathomRecording` (`lib/leads.ts`) es el choke point por el que pasan los
+tres caminos que enganchan una grabación, y es el lugar correcto para el disparo — pero ahí
+no se puede pagar: ese mismo camino lo dispara el render del CRM con un `void`
+(`adjuntarFathomAutoThrottled`), y una llamada al modelo de 90-120 s colgada de un render se
+paga y se pierde cuando la plataforma mata la función. Se partió en dos: enlazar el análisis
+que ya existe (un SELECT por `embed_token` y un UPDATE) va en el choke point; analizar una
+grabación nueva lo drena el cron de closing, que ya reparte un deadline absoluto y reserva
+`RESERVA_LLAMADA_MS` por llamada.
+
+⚠️ **Y UNA COLA CALCULADA NO TIENE MEMORIA DEL FRACASO.** La cola del drenaje no se escribe:
+se calcula («tiene grabación y ninguna llamada analizada»), que es lo que la hace cubrir los
+tres caminos y el cuarto que se escriba mañana. El precio es que un lead cuya grabación no
+está en Fathom —un link pegado a mano que apunta a otra cosa— vuelve a entrar en CADA ronda y
+paga el barrido de Fathom para no analizar nada, para siempre. Se cierra excluyendo a quien ya
+tenga fila en `closing_jobs`: esa fila la deja `cerrarAnalisis` con lo que encontró o con el
+motivo, así que significa «a este ya se le intentó», y el único que puede volver a gastar es
+la persona desde el botón.
+
+⚠️ **Y DOS COSAS DE LA MISMA LLAMADA NO PUEDEN DECIDIR POR SEPARADO DÓNDE SE DIBUJAN.** El
+bloque de la grabación reparte los links entre R1 y R2 por su ETIQUETA; el análisis trae
+además un `tipo` que escribió el modelo leyendo el transcript. Si cada uno decide solo, el
+link de la R2 queda en un bloque y lo que se dijo en esa llamada en el otro, dentro de la
+MISMA tarjeta. Manda la etiqueta y el `tipo` es el respaldo; la función que lo decide
+(`etiquetaEsR2`) vive en un módulo sin `server-only` y la llaman los dos.
+
+**Lo que quedó SIN hacer:** el hueco de `lib/post-llamada.ts` (un lead sin teléfono no
+dispara el análisis por el webhook) sigue abierto — hoy lo tapa el drenaje del cron, con hasta
+una hora de retraso, pero el camino inmediato sigue atado a tener teléfono. Y el apartado pide
+sus datos desde el navegador (`insightsDeLlamadaAction`) en vez de bajar por props: es a
+propósito, porque `ReunionesCard` se dibuja desde dos parents (el modal del CRM, que es
+client, y `/crm/[id]`, que es server) y bajarlos por props obligaba a tocar los dos.
+
+**Vive en:** `lib/insights-llamada.ts` (el lector, el enlace y el drenaje) ·
+`lib/insights-llamada-reparto.ts` (el reparto R1/R2 y la cola, sin `server-only`) ·
+`lib/leads.ts` (`applyFathomRecording`, el choke point) · `app/api/cron/closing-sync/route.ts`
+(el drenaje, uno por ronda) · `app/crm/lead-view/InsightsLlamadaCard.tsx` ·
+`app/crm/lead-view/ReunionesCard.tsx` · `tests/insights-llamada.test.ts` · *2026-10-04 #332*
+
+---
+
+## La columna de pago entra como venta — y el cruce no filtraba por etapa: filtraba por TELÉFONO
+
+**El pedido** (Martín, 04/10/2026, textual): *«Si, que lo detecte, pero no solo los "Ganados"
+sino, todos los leads de cualquier etapa... Eso es importante para evitar duplicados.»* La
+tarjeta (#622) sale de que Leila carga a mano sus clientes de pago recurrente y TODOS caían en
+«Lead (Instant form)»: gente que ya pagó, esperando a que alguien les agende una primera
+reunión.
+
+### ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO, y las dos mitades están medidas
+
+La sospecha era que el cruce anti-duplicados de la importación filtraba por etapa. **No
+filtra, y nunca filtró.** `indiceContactos` (`app/crm/importar-server.ts`) lee `leads` con
+`leerPorPaginas` sin un solo `.eq` de etapa, de `estado_lead` ni de funnel: el único recorte
+es el `workspace_id` que pone `getTenantDb`, que es aislamiento y no un filtro de producto.
+Medido ese día contra producción: **entran las 1.549 filas de los 6 workspaces con leads, y
+72 de ellas están en un estado terminal** (ws1: 14 ganado + 16 perdido + 8 descalificado + 2
+no responde; ws4: 2; ws9: 3; ws10: 1; ws11: 12; ws13: 14) — y entran todas.
+
+Lo que **sí** dejaba leads afuera del cruce era otra cosa, y es por donde se colaban los
+duplicados: **el índice comparaba los DÍGITOS COMPLETOS del teléfono.**
+
+| dígitos del `telefono` guardado | leads de ws1 |
+|---|---|
+| 10 | **1** |
+| 12 | 3 |
+| 13 | **1.027** |
+| 14 | 3 |
+| 15 | 3 |
+| 16 | **115** |
+| 21 / 40 | 1 / 1 |
+
+Los de 13 y 16 entraron desde WhatsApp y desde Meta, con código de país. O sea que un CSV con
+números locales —como se tipea una lista de clientes— **matcheaba 1 de 1.154**: los otros
+1.153 se importaban como leads nuevos, y las dos fichas quedaban inalcanzables para la ingesta
+siguiente, porque dos filas con el mismo `telefono_normalizado` rompen con PGRST116 el
+`.maybeSingle()` de Calendly y del instant form.
+
+Y el criterio ya existía: `telefonoComparable` (los últimos 10 dígitos) es el que usan el alta
+manual (`duplicadosDeLead`, que FRENA con eso) y el inbox de WhatsApp. **Esta puerta era la que
+aplicaba el criterio MÁS ESTRICTO** — el mismo modo de falla que el #626 ya había arreglado
+para las ingestas, visto del otro lado.
+
+**La regla que queda:** cuando se va a comprobar «¿esto filtra por X?», se mide igual aunque la
+respuesta sea no, y después se mira **qué OTRA cosa deja filas afuera**. Un índice construido
+con una clave más estricta que la del resto del repo no filtra: contesta de menos, y contesta
+de menos en silencio.
+
+**Cómo quedó:** dos mapas y la precedencia escrita. `exactos` (dígitos completos) y `sufijos`
+(últimos 10), y `buscarTelefono` prueba el exacto PRIMERO — el mismo orden que
+`elegirPorTelefono` y que las ingestas, así que el cruce más ancho no puede volver ambiguo
+ningún match que antes era limpio. Un sufijo compartido por dos leads deja la clave en `null`:
+«ya existe» sigue siendo cierto y la oferta de completar desaparece, que es lo correcto porque
+no hay a quién. Pares que hoy comparten los últimos 10 dígitos sin compartir los completos:
+**0 en los 6 workspaces**. Y la lectura trae además `telefono_normalizado` (0 filas hoy lo
+tienen con el `telefono` vacío, pero es la llave de match de todos los webhooks).
+
+⚠️ **La comparación vive SIN `server-only`**, en `app/crm/leads-importar.ts`
+(`clavesDeTelefono` + `buscarTelefono`), por la regla de la casa: el índice necesita Supabase,
+la COMPARACIÓN no, y es lo único que se puede equivocar.
+
+### La etapa de venta NO se cablea por nombre, y el funnel de ws13 lo prueba
+
+`etapaDeGanado(stages)` (`lib/pipeline.ts`, al lado de `terminalEstadoFor`) busca en el
+pipeline de ESE embudo la etapa cuya clave resuelve a `'ganado'`. Dos cosas medidas sobre los
+**16 embudos de producción** (04/10/2026):
+
+- Los 16 tienen una etapa con clave `ganado`, así que no hace falta ningún fallback.
+- **Quince coinciden y el de ws13 no:** armado a mano, tiene `ganado` tipada como `grupo` y su
+  `kind: 'cierre'` en `st0`, que es el DESCARTE («NO Calificado») — el mismo embudo que
+  `problemasDePipeline` ya denuncia. Buscando por `kind`, un cliente que pagó entraría en el
+  descarte, y encima `terminalEstadoFor('st0')` da `'abierto'`: la venta no sumaría en ninguna
+  parte. La CLAVE manda porque es lo que lee `terminalEstadoFor`; el `kind` lo configura el
+  cliente en /funnel.
+
+Si el embudo no la tiene, `etapaDeGanado` devuelve `null`, la propuesta no se honra y la
+respuesta lo DICE («Este embudo no tiene etapa de cierre: esos leads entraron en la primera
+etapa»). Escribir en `pipeline_stage` una clave que el embudo no tiene no falla y deja al lead
+en una columna que el tablero no dibuja: así desaparecieron 1.057 leads.
+
+**Y el movimiento NO le agregó una columna a `createLead`:** el lead se crea igual que todos y
+después pasa por `setPipelineStage`, que es por donde pasa el tablero — sincroniza
+`estado_lead`, escribe el monto y deja la línea en el historial. Una segunda forma de poner una
+etapa se desincroniza, y lo que queda mal es el número que suma la facturación.
+
+### «1.200» no es uno con veinte
+
+`montoDeTexto` existe por esto: `Number('1.200')` da **1,2**, así que un cliente de 1.200
+entraría al CRM como una venta de un dólar con veinte, sin un solo error. Las dos convenciones
+son reales y se confunden entre sí («1.200,50» y «1,200.50»), y la regla es el separador que
+aparece ÚLTIMO. Tres cosas más que salieron de ahí:
+
+- **Una fecha no sobrevive al parser, a propósito.** «2026-03-15» devuelve `null`: un monto
+  inventado a partir de una fecha es peor que no proponer nada. Por eso un header con «fecha»
+  tampoco puede SER la columna de pago — «Fecha de pago» matchea 'pago' y suele venir ANTES
+  que el monto, así que sin la exclusión `findIndex` se queda con la fecha y el archivo que SÍ
+  traía el importe entra sin importe.
+- **Un 0, un negativo y lo fuera de escala no son un pago.** El negativo no se toma por valor
+  absoluto: eso convertiría una devolución en una venta. Y el tope (`MAX_MONTO_IMPORT`) es lo
+  que evita que una celda con un teléfono pegado entre como una venta de mil millones.
+- **La lista de alias es corta a propósito:** están afuera «total», «precio» y «venta», que
+  aparecen en catálogos de productos sin decir que alguien pagó. «Total cobrado» entra igual,
+  por 'cobrado'.
+
+### Lo que encontró ROMPER los tests (dos agujeros en el test, no en el código)
+
+Las 17 roturas están anotadas con sus números en el encabezado de
+`tests/crm-importar-pago.test.ts`. Dos dieron **VERDE sobre la rotura** y valen aparte:
+
+1. **Un assert de salida puede estar midiendo otra pieza.** El test de «una columna ya mapeada
+   no puede ser la de pago» pasaba con la exclusión quitada: con los alias de hoy, ninguna
+   columna ya mapeada sobrevive al parser del importe (un nombre y un email no tienen dígitos;
+   un teléfono los tiene y lo frena el tope; una empresa es texto). O sea que estaba midiendo
+   el parser. Se convirtió en un guard de la CONDICIÓN, con el porqué escrito: protege del
+   alias que todavía no existe.
+2. **Un guard que lee el BLOQUE entero encuentra lo que el bloque dice de sí mismo** — otra
+   vez. Un `assert.match` de `entraGanado` sobre el cuerpo de la action seguía verde con el
+   portón cambiado por `f.comoGanado` pelado, porque esa función aparece también arriba, en el
+   `some(...)` que decide si hay que resolver la etapa. Se recorta la CONDICIÓN del call site
+   y se afirma además su largo.
+
+### Lo que quedó SIN hacer
+
+- **Un PDF o una foto con columna de pago no se detecta.** Ese camino pasa por la IA
+  (`SISTEMA_EXTRAER` en `app/crm/importar-server.ts`), cuyo JSON no tiene campo de pago: la
+  propuesta sólo existe para CSV y planillas, que entran por `filasDesdeCsv`. No es un
+  descuido — un importe que pasa por un modelo deja de ser exacto, y es justo el campo que se
+  escribe en la facturación.
+- **`/crm/revisar/[id]` (lo que propuso un canal) nunca trae `pagoEnArchivo`**, así que ahí la
+  propuesta no aparece. Es correcto hoy: esas filas las siembra `RevisarLead.tsx` desde un
+  webhook, no desde un archivo con columnas.
+- **La MONEDA del importe no se pregunta.** Se escribe en `monto_cierre_usd` tal como vino, que
+  es exactamente lo que ya hace el wizard del tablero cuando una persona tipea el monto al
+  mover una tarjeta a Ganado — así que no se introduce una ambigüedad nueva, pero sigue
+  abierta la de siempre (`app/crm/actions.ts`, la llamada a `setPipelineStage`). Un CSV
+  mexicano con pesos entra como dólares.
+- **El cruce de la importación no compara por NOMBRE.** `indiceContactos` arma mapas de email
+  y de teléfono; `buscarDuplicados` sí compara nombres cuando no hay dato fuerte, y ese camino
+  no pasa por acá. No crea duplicados —una fila sin email ni teléfono se descarta por
+  `sin-contacto` antes de llegar—, pero deja 3 leads de ws9 (sin email y sin teléfono)
+  imposibles de cruzar por cualquier puerta.
+
+**Vive en:** `app/crm/leads-importar.ts` (`pagoDeCelda`, `montoDeTexto`, `ALIAS_PAGO`,
+`entraGanado`, `clavesDeTelefono`, `buscarTelefono`) · `app/crm/importar-server.ts` (el índice
+con sus dos mapas y `marcarExistentes`) · `lib/pipeline.ts` (`etapaDeGanado`) ·
+`app/crm/actions.ts` (`importarLeadsRevisadosAction`: la etapa y el contador `ganados`) ·
+`app/crm/TablaRevisionLeads.tsx` (la propuesta y su chip) · `app/crm/ImportarLeadsModal.tsx` ·
+`tests/crm-importar-pago.test.ts` · *2026-10-04 #622*

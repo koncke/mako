@@ -4,7 +4,7 @@
 // Header fijo (etapa, nombre, cohorte, acciones rápidas) + tabs. La edición vive
 // en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.
 
-import { getVideosLanding } from '@/lib/landing-token';
+import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
 import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -57,7 +57,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos, videosLanding, urlClarityLead, urlMapaCalorProyecto] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos, videosLanding, urlClarityLead, urlMapaCalorProyecto, pixelPuesto] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
@@ -72,6 +72,12 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     // El mapa de calor es del PROYECTO, no del lead: Clarity agrega los clics de
     // todos los visitantes y no permite filtrarlo por persona.
     urlPanel(undefined, 'heatmaps').catch(() => null),
+  // ¿El Pixel de MaKo está midiendo? Es para el VACÍO de la tarjeta de tracking:
+  // sin código pegado, «sin eventos» no es un lead que no interactuó, es un negocio
+  // que todavía no mide — y eso se arregla en otra pantalla. Misma señal que el
+  // semáforo de /integraciones (1 fila con LIMIT 1 sobre un índice) para que las dos
+  // pantallas no puedan contradecirse. Nunca rompe la ficha.
+    landingRecibioEventos().catch(() => true),
   ]);
 
   // ⚠️ EL LINK A LA GRABACIÓN SE GATEA POR LA RETENCIÓN, no por «tiene
@@ -201,7 +207,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />
-                  <TrackingTimelineCard eventos={trackingEventos} />
+                  <TrackingTimelineCard eventos={trackingEventos} pixelPuesto={pixelPuesto} />
                 </>
               ),
             },

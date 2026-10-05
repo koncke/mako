@@ -399,4 +399,36 @@ export const BITACORA: Hito[] = [
       '⚠️ Al commitear aparecio otra, y vale para cualquier sesion de este clon: el vecino tenia SU trabajo ya en el indice, asi que un git add <mis rutas> + git commit se llevo 20 archivos ajenos adentro de mi commit. Con un indice ajeno sucio va git commit -F msg -- <rutas>, que es un commit PARCIAL: ignora el indice y lo deja intacto',
     ],
   },
+  {
+    fecha: '4 oct', hora: '—', chat: 'CRM', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El Pixel cuenta como declarar, y se asigna a un PRODUCTO',
+    pedido: 'Si, cargar el pixel en una landing ya deberia contar... Ahora, la configuracion que falta es que el pixel deberiamos poder ASIGNAR a un PRODUCTO. Con la implementacion que hicimos, para que lleguen los leads a ese CRM y no a otro.',
+    puntos: [
+      'Son DOS cosas y la segunda es la nueva. La primera cierra una puerta que el propio archivo ya le habia abierto a Cal.com/Calendly el 24/08 con el mismo razonamiento — «conectarla ES el acto de declararla»— y que al Pixel nadie le habia aplicado.',
+      'La segunda es el agujero: medido antes de escribir una linea, `app/api/track/optin/route.ts` no pasaba `funnel_id` en NINGUN lado (cero coincidencias), asi que todo lead de landing nacia en el embudo del negocio. Con dos productos, los leads de la landing del segundo aparecian en el tablero del primero, sin un solo error.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '—', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pegar el Pixel declara la entrada, y la landing se asigna a un producto',
+    puntos: [
+      '**La puerta: una tercera excepcion, no una rama nueva.** `!entradas.includes(\'landing\') && !deAgendaConectada && !delPixelEnUnaPagina`. De que el Pixel esta puesto da fe la PAGINA: el snippet manda `pagina: location.href` en cada opt-in desde la v2, asi que una URL valida prueba que esto salio de una pagina real con el codigo adentro. Lo que NO la trae es un POST pelado con el token copiado del HTML, y ESO es lo que sigue cayendo a la rama que descarta — con su rastro intacto (`optin_bloqueado`, ahora con `detalle: sin_pagina`).',
+      '⚠️ **El test que congelaba la puerta se cambio CON la decision**, con quien la cambio y cuando escrito en su comentario (Martin, 04/10/2026). Si no, el proximo que lo lea va a creer que se rompio un guard.',
+      '**La asignacion cuelga de la PAGINA, no del token, y eso no fue una preferencia:** `getOrCreateLandingToken` acuna UN token por workspace y determinista (un HMAC de `landing:<ws>` en el unico setting `landing_token`), asi que no hay un segundo token que asignar. `landing.config` ya es una tabla POR PAGINA desde que `clarityProjectId` necesito exactamente lo mismo. **Cero migraciones:** `createLead` ya acepta `funnel_id`.',
+      '⚠️ **La trampa que mas cerca estuvo de salir: el embudo por defecto NO se escribe con su id.** `listLeadsDeFunnel(null)` pide sus leads con `.is(\'funnel_id\', null)`, asi que un lead nacido con el ID del default DESAPARECE del unico tablero que el cliente mira — con el producto correcto escrito en la fila y sin un 4xx. Por eso el default es el valor VACIO del desplegable y `funnelDeLanding` mapea su id a `null`.',
+      '**La resolucion es TOLERANTE, y no por prolijidad:** `leads.funnel_id` referencia `funnels(id)`, asi que un id de un embudo borrado haria FALLAR el insert, y aca un alta que falla cae a propuesta. Se valida contra `listarFunnels()`, que es la MISMA lista que ofrece la pantalla.',
+      '⚠️ **Y la otra mitad: quien MIRABA el campo que decidia.** `declarado` lo consumia el probador del Pixel (`landingDiagnostico`): el paso 5 le pintaba en rojo «falta marcar la landing como entrada» a un cliente cuyo formulario SI esta entrando, y lo mandaba a un tramite que ya no cambia nada. Pasa a `entraAlCrm = declarado || hayPageview`, y el boton «Activar la landing como entrada de leads» se retira con todo su deep-link: no estaba mal hecho, se quedo sin trabajo.',
+      '⚠️ **El guard que escribi para fijar eso fallo contra MI PROPIO COMENTARIO** — la frase del boton retirado esta en el comentario que explica que se retiro. Se filtran las lineas de comentario antes de preguntar.',
+    ],
+    archivos: [
+      'app/api/track/optin/route.ts — la tercera excepcion y el `funnel_id` del alta',
+      'lib/landing-funnel.ts — nuevo: la UNICA resolucion «a que embudo entra un lead de esta pagina», que leen la ruta y la pantalla',
+      'lib/landing-config.ts — el campo `funnelId` por pagina, su saneo de bigint-como-string y `funnelIdDeLanding` (puro, con test)',
+      'app/integraciones/SelectorLanding.tsx — el desplegable, en el PASO 1 del Pixel: no hay pantalla nueva',
+      'lib/landing-token.ts — `entraAlCrm` en el probador, y los textos que ya no mandan a la casilla',
+      '⚠️ Queda ABIERTO: el camino del DUPLICADO no lleva el producto. `FilaImport` (app/crm/leads-importar.ts) no declara `funnel_id`, asi que el campo NO se escribio en la propuesta a proposito — un dato que solo existe en su declaracion se lee como que ya funciona',
+    ],
+  },
 ];

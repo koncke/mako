@@ -1319,3 +1319,23 @@ export function terminalEstadoFor(stageKey: string): EstadoLead {
     default: return 'abierto';
   }
 }
+
+/**
+ * LA ETAPA DE VENTA DE *ESTE* EMBUDO, o `null` si no tiene ninguna.
+ *
+ * ⚠️ SALE DE LAS ETAPAS QUE EL EMBUDO TIENE, NO DE UN NOMBRE CABLEADO, y ésa es la
+ * diferencia que ya se pagó: escribir en `pipeline_stage` una clave que el pipeline no
+ * tiene NO falla —no hay FK, no hay check— y deja al lead en una columna que el tablero
+ * no dibuja. Así desaparecieron 1.057 leads fuera del embudo.
+ *
+ * ⚠️ Y SE BUSCA POR LA CLAVE, NO POR `kind: 'cierre'`. La clave es lo que manda porque es
+ * lo que lee `terminalEstadoFor` para escribir `estado_lead`, y el `kind` lo configura el
+ * cliente en /funnel. La diferencia está medida sobre los 16 embudos de producción
+ * (04/10/2026): quince coinciden, y el de ws13 —armado a mano— tiene `ganado` tipada como
+ * «grupo» y su `cierre` es `st0`, que es el DESCARTE. Buscando por `kind` ahí, un cliente
+ * que pagó entraría en «NO Calificado»; buscando por la clave entra donde el sistema
+ * cuenta las ventas. Es el mismo embudo que `problemasDePipeline` ya denuncia.
+ */
+export function etapaDeGanado(stages: Stage[] | null | undefined): string | null {
+  return (stages ?? []).find((s) => terminalEstadoFor(s.key) === 'ganado')?.key ?? null;
+}

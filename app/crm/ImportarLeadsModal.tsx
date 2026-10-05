@@ -144,7 +144,10 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
         const extra = r.errores.length ? ` · ${r.errores.length} con error` : '';
         // Dos hechos distintos, dos números: una ficha completada no es un lead nuevo.
         const completadas = r.enriquecidos ? ` · ${r.enriquecidos} completada${r.enriquecidos === 1 ? '' : 's'}` : '';
-        onListo(`✓ ${r.creados} lead${r.creados === 1 ? '' : 's'} nuevo${r.creados === 1 ? '' : 's'}${completadas} · ${r.omitidos} omitido${r.omitidos === 1 ? '' : 's'}${extra}`);
+        // Los ganados van ENTRE PARÉNTESIS pegados a los nuevos, no como un tercer número:
+        // son un subconjunto de `creados` y sumarlos aparte contaría dos veces al mismo lead.
+        const comoGanados = r.ganados ? ` (${r.ganados} ganado${r.ganados === 1 ? '' : 's'})` : '';
+        onListo(`✓ ${r.creados} lead${r.creados === 1 ? '' : 's'} nuevo${r.creados === 1 ? '' : 's'}${comoGanados}${completadas} · ${r.omitidos} omitido${r.omitidos === 1 ? '' : 's'}${extra}`);
       })
       .catch((e) => { setErr(e instanceof Error ? e.message : 'No se pudo importar'); setCargando(false); });
   };

@@ -16,6 +16,7 @@
 import type { CSSProperties } from 'react';
 import type { TrackingEvent } from '@/lib/leads';
 import { useTzWorkspace } from './useTzWorkspace';
+import Link from '@/app/_ui/Link';
 import { textoDeClic } from './clic-detalle';
 
 const MONO = "'Geist Mono', monospace";
@@ -39,6 +40,12 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
       const c = textoDeClic(e.detalle);
       return { texto: c.que, detalle: c.adonde, color: 'var(--warn)' };
     }
+    case 'scroll':
+      // La otra mitad de la visita: cuánto LEYÓ, no sólo qué apretó. El % es de la
+      // PÁGINA, así que la frase lo dice — con «Llegó al 50%» a secas se lee como
+      // retención de video, que es el disfraz que `getTrackingEvents` ya cortó del
+      // lado del dato.
+      return { texto: e.porcentaje != null ? `Bajó hasta el ${e.porcentaje}% de la página` : 'Bajó por la página', detalle: null, color: 'var(--accent)' };
     case 'play':
       return { texto: 'Reprodujo el VSL', detalle: e.vsl_titulo ?? (e.video_id ? `video ${e.video_id}` : null), color: 'var(--primary)' };
     case 'exit':
@@ -48,7 +55,17 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
   }
 }
 
-export function TrackingTimelineCard({ eventos }: { eventos: TrackingEvent[] }) {
+/**
+ * `pixelPuesto` = el Pixel de MaKo está midiendo de verdad (`landingRecibioEventos`,
+ * la MISMA señal que el semáforo de /integraciones, para que las dos pantallas no
+ * puedan contradecirse). Se usa sólo en el vacío: si llegaron eventos, el Pixel
+ * está puesto y no hay nada que ofrecer.
+ *
+ * Por defecto `true` para no acusar de falta de Pixel a quien no pasó el dato: un
+ * cartel que dice «conéctalo» sobre algo ya conectado manda a desconectar y
+ * reconectar lo que funciona.
+ */
+export function TrackingTimelineCard({ eventos, pixelPuesto = true }: { eventos: TrackingEvent[]; pixelPuesto?: boolean }) {
   const tz = useTzWorkspace();
   // Los hitos de retención cada 5% son ruido en la lista: nos quedamos con los
   // pageviews, plays, clics, abandonos y el hito MÁXIMO de cada racha de
@@ -58,13 +75,38 @@ export function TrackingTimelineCard({ eventos }: { eventos: TrackingEvent[] }) 
   const filtrados: TrackingEvent[] = [];
   for (let i = 0; i < eventos.length; i++) {
     const e = eventos[i];
-    if (e.tipo !== 'retencion') { filtrados.push(e); continue; }
+    // El scroll se colapsa por lo mismo: el snippet manda 25/50/75/100 y el punto
+    // exacto al irse, así que una visita entera deja hasta cinco renglones que
+    // dicen la misma cosa. Queda el más profundo de cada racha.
+    if (e.tipo !== 'retencion' && e.tipo !== 'scroll') { filtrados.push(e); continue; }
     // eventos está ordenado desc: el primero de cada racha es el hito más alto.
     const prev = filtrados[filtrados.length - 1];
-    if (!prev || prev.tipo !== 'retencion') filtrados.push(e);
+    if (!prev || prev.tipo !== e.tipo) filtrados.push(e);
   }
 
   if (!filtrados.length) {
+    // ⚠️ SIN PIXEL, EL VACÍO NO ES DEL LEAD: es del negocio. Decir «entró antes del
+    // tracking» a quien nunca pegó el código manda a buscar una causa que no
+    // existe, y el control vive tres pantallas más allá. El link aterriza en el
+    // modal que ENTREGA el código (`?servicio=landing` abre esa tarjeta), no en la
+    // grilla de /integraciones: un link que promete un control y deja a la persona
+    // frente a veintipico de tarjetas se lee como un producto roto.
+    if (!pixelPuesto) {
+      return (
+        <section style={card}>
+          <div style={{ ...sectLabel, marginBottom: 10 }}>Actividad registrada</div>
+          <p style={{ fontSize: 14, color: 'var(--faint)', margin: '0 0 14px' }}>
+            Nada registrado: el Pixel de MaKo no está midiendo tu página. Con el código puesto, cada visita, clic y scroll aparece aquí.
+          </p>
+          <Link
+            href="/integraciones?servicio=landing"
+            style={{ display: 'inline-block', fontSize: 13.5, fontWeight: 600, padding: '9px 16px', borderRadius: 10, background: 'var(--primary)', color: 'var(--on-primary)', textDecoration: 'none' }}
+          >
+            Conectar el Pixel
+          </Link>
+        </section>
+      );
+    }
     return (
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: 10 }}>Actividad registrada</div>

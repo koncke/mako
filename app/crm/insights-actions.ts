@@ -9,6 +9,7 @@
 import { revalidatePath } from 'next/cache';
 import { generarInsightLead, type GenerarInsightResult } from '@/lib/lead-insights';
 import { analizarLlamadasDeLead } from '@/lib/closing';
+import { insightsDeLlamadaDeLead, type InsightLlamada } from '@/lib/insights-llamada';
 
 export async function generateLeadInsightAction(leadId: number): Promise<GenerarInsightResult> {
   if (!Number.isFinite(leadId) || leadId <= 0) {
@@ -60,4 +61,27 @@ export async function leadTieneLlamadaAction(leadId: number): Promise<boolean> {
     if (r.share_url && shareSet.has(norm(r.share_url))) return true;
   }
   return false;
+}
+
+export type InsightsDeLlamadaResult =
+  | { ok: true; llamadas: InsightLlamada[] }
+  | { ok: false; motivo: string };
+
+/**
+ * Lo que salió de la LLAMADA, para el apartado de la ficha (ReunionesCard).
+ *
+ * NO GASTA IA: lee la fila que el Closing Analyst ya escribió por grabación. El
+ * botón que paga un análisis es otro y vive en /crm/[id]/resumen.
+ *
+ * ⚠️ DEVUELVE EL MOTIVO EN VEZ DE UN ARRAY VACÍO. Con un `catch(() => [])`, «no
+ * pude leer» se ve igual que «esta llamada no se analizó» — y el apartado
+ * ofrecería analizarla, o sea pagarle de nuevo a un análisis que ya está hecho.
+ */
+export async function insightsDeLlamadaAction(leadId: number): Promise<InsightsDeLlamadaResult> {
+  if (!Number.isFinite(leadId) || leadId <= 0) return { ok: false, motivo: 'Lead inválido.' };
+  try {
+    return { ok: true, llamadas: await insightsDeLlamadaDeLead(leadId) };
+  } catch (e) {
+    return { ok: false, motivo: e instanceof Error ? e.message : String(e) };
+  }
 }

@@ -190,6 +190,63 @@ test('un video lo mide UNA rama sola, no dos', () => {
   );
 });
 
+test('el scroll se mide, y SIEMPRE con freno', () => {
+  // ⚠️ EL FRENO ES LO QUE SE CUIDA ACÁ, no que el evento exista. El `scroll` del
+  // navegador se dispara por cada pixel que se mueve la página: un `enviar()`
+  // adentro del handler son cientos de requests por visita desde la página de un
+  // cliente, y el que los recibe es nuestro beacon. Eso no se ve en una prueba a
+  // mano —una landing corta manda cuatro y parece sano— y se ve en la factura.
+  //
+  // Dos frenos, los dos verificados: el handler agenda y sale (no calcula nada), y
+  // sólo se manda al CRUZAR un hito que no se mandó todavía.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 7 pasan y 0 fallan):
+  //   · el handler llama a mirarScroll() directo, sin setTimeout  -> 6 pasan / 1 falla
+  //   · se saca el guard `h > scrollHito` (manda en cada mirada)  -> 6 / 1
+  //   · se saca 'scroll' de CONOCIDOS en el route                 -> 6 / 1
+  const gen = snippetEmitido();
+
+  // 1) Se mide, y por el MISMO camino que los clics (enviar(), que es donde se le
+  //    pega el token, la página y el marcador de prueba).
+  assert.ok(/tipo_evento: 'scroll'/.test(gen), 'el snippet no manda ningún evento de scroll');
+  assert.ok(/function profundidadScroll/.test(gen), 'falta la medición de hasta dónde bajó la persona');
+
+  // 2) El handler del evento del navegador NO manda: agenda.
+  const i = gen.indexOf("addEventListener('scroll'");
+  assert.ok(i > 0, 'el snippet no escucha el scroll');
+  const cuerpo = gen.slice(i, gen.indexOf('}', gen.indexOf('scrollTimer = setTimeout', i)));
+  assert.ok(
+    !/enviar\(/.test(cuerpo),
+    'el handler de scroll manda el evento en línea: eso es un request por pixel scrolleado',
+  );
+  assert.ok(
+    /setTimeout/.test(cuerpo) && /if \(scrollTimer\) return/.test(cuerpo),
+    'falta el freno: el handler tiene que agendar UNA mirada y salir si ya hay una agendada',
+  );
+
+  // 3) Y el envío sólo ocurre al cruzar un hito nuevo. Sin este guard, cada mirada
+  //    (una cada 400 ms mientras la persona scrollea) manda un evento igual.
+  assert.ok(
+    /h > scrollHito/.test(gen),
+    'falta el guard del hito: sin él se manda un evento cada 400 ms de scroll',
+  );
+  assert.ok(/HITOS_SCROLL = \[25, 50, 75, 100\]/.test(gen), 'los hitos del scroll cambiaron de forma');
+});
+
+test('el beacon conoce el evento de scroll', () => {
+  // El snippet y el receptor son DOS archivos, y el receptor tiene lista blanca:
+  // un tipo que no está en CONOCIDOS se guarda como 'desconocido'. O sea que el
+  // snippet puede medir perfecto y el dato llegar con un nombre que ninguna
+  // pantalla busca. Ya pasó con los eventos de página, que se guardaron bien y la
+  // ficha del lead los disfrazaba de retención de video.
+  const route = readFileSync(new URL('../app/api/track/vsl/route.ts', import.meta.url), 'utf8');
+  const linea = /const CONOCIDOS = \[([^\]]*)\]/.exec(route)?.[1] ?? '';
+  assert.ok(
+    linea.includes("'scroll'"),
+    "el route no acepta 'scroll': el evento entra como 'desconocido' y el dato queda mudo",
+  );
+});
+
 test('la versión del snippet sube junto con su renglón de novedades', () => {
   // Un cliente al que se le pide repegar el código sin decirle qué gana no lo
   // repega. `novedadesDesde()` arma ese texto leyendo NOVEDADES.

@@ -49,12 +49,37 @@ test('el ruteo del workspace es fail-closed', () => {
   );
 });
 
-test('solo ingesta si el negocio declaró la landing como entrada', () => {
+// ⚠️⚠️ ESTE TEST CAMBIÓ DE SENTIDO A PROPÓSITO, Y LO CAMBIÓ **MARTÍN EL
+// 04/10/2026**, textual: «cargar el pixel en una landing ya debería contar».
+//
+// Antes exigía que un opt-in NO entrara sin la casilla «landing» marcada en el
+// funnel, y lo CONGELABA. No se rompió un guard: cambió la decisión que el guard
+// defendía, y el razonamiento es el que el propio archivo ya le había aplicado a
+// Cal.com/Calendly el 24/08/2026 — «conectarla ES el acto de declararla».
+//
+// Lo que NO cambió, y por eso sigue abajo con sus assertions: la rama que
+// descarta tiene que seguir dejando RASTRO. El costo de no tenerlo está medido —
+// un cliente se agendó en su propia landing en vivo y el lead se cayó por ahí sin
+// un evento, sin un log y sin un contador.
+// PROBADO ROMPIENDOLO: quitando ` && !delPixelEnUnaPagina` de la condicion de
+// la ruta, este archivo pasa de **pass 66 / fail 0** a **pass 65 / fail 1**.
+test('pegar el Pixel YA declara la entrada (Martín, 04/10/2026)', () => {
   const src = RUTA();
   // `getFunnelDefault` (lib/funnels.ts, mig 0170) y no un lector propio: la puerta es
   // del NEGOCIO, y leerla de otro lado sería el segundo lugar que decide lo mismo.
-  assert.ok(/getFunnelDefault\(\)/.test(src), 'la puerta se lee de donde el cliente la configura (/funnel), no de una copia');
-  assert.ok(/entradas\.includes\('landing'\)/.test(src), 'falta la puerta: sin esto el mismo snippet le llena el CRM a cualquiera');
+  assert.ok(/getFunnelDefault\(\)/.test(src), 'la puerta se lee de donde el cliente la configura, no de una copia');
+  // La casilla sigue valiendo: quien la marcó no tiene que notar nada.
+  assert.ok(/entradas\.includes\('landing'\)/.test(src), 'la casilla declarada sigue abriendo la puerta');
+  // Y el Pixel es la TERCERA excepción, al lado de la agenda conectada. De que el
+  // Pixel está puesto da fe la PÁGINA: el snippet manda `pagina: location.href` en
+  // cada opt-in desde la v2, así que una URL válida prueba que esto salió de una
+  // página real con el código adentro.
+  assert.ok(/delPixelEnUnaPagina/.test(src), 'falta la excepción del Pixel: pegarlo ya declara la entrada');
+  assert.ok(
+    /!entradas\.includes\('landing'\) && !deAgendaConectada && !delPixelEnUnaPagina/.test(src),
+    'las tres formas de declarar van en la MISMA condición: una cuarta rama es otro lugar que decide lo mismo',
+  );
+  assert.ok(/normalizarUrl\(urlTxt\(body\.pagina\)/.test(src), 'la página se normaliza: `location.href` trae barra, hash y los UTM de la campaña');
   // 200 y no 403: la página del cliente no puede mostrarle un error a SU visitante
   // por una config que le falta al dueño de la página.
   // ⚠️ Se mira hasta el PRIMER return después de la puerta, no una ventana de N
@@ -65,12 +90,15 @@ test('solo ingesta si el negocio declaró la landing como entrada', () => {
   assert.ok(/return ok\(/.test(bloque), 'un negocio sin la landing declarada recibe 200, no un error');
   assert.ok(!/status:\s*4\d\d/.test(bloque), 'la página del cliente no puede mostrarle un error a SU visitante por una config del dueño');
 
-  // ⚠️⚠️ Y NO SE DESCARTA EN SILENCIO. Esta rama devolvía 200 y se iba: ni fila,
-  // ni log, ni contador. El 24/08/2026 un cliente se agendó en su propia landing
-  // durante una prueba en vivo y el lead se cayó por acá sin dejar NADA — no
-  // había forma de saberlo mirando la base, ni los logs, ni repitiendo la prueba.
-  // La política no cambia (sin declarar, no entra al CRM); lo que no puede volver
-  // a pasar es que no quede huella.
+  // ⚠️⚠️ Y LO QUE SIGA DESCARTÁNDOSE NO SE DESCARTA EN SILENCIO. Esta rama
+  // devolvía 200 y se iba: ni fila, ni log, ni contador. El 24/08/2026 un cliente
+  // se agendó en su propia landing durante una prueba en vivo y el lead se cayó
+  // por acá sin dejar NADA — no había forma de saberlo mirando la base, ni los
+  // logs, ni repitiendo la prueba.
+  //
+  // Desde el 04/10/2026 lo que cae acá es otra cosa —un opt-in que no vino de
+  // ninguna página, o sea un POST con el token suelto— y justamente por eso el
+  // rastro importa igual: es el único lugar donde se puede contar.
   assert.ok(/optin_bloqueado/.test(bloque), 'un opt-in que se descarta tiene que dejar un evento: si no, «no llegó» y «lo tiramos» se ven igual');
   assert.ok(/console\.warn/.test(bloque), 'y un log, para poder contarlos sin abrir la base');
   // Sin datos de la persona: una tabla de eventos no es lugar para el contacto de
@@ -250,7 +278,12 @@ test('la prueba del código chequea el formulario, y la versión NO se adivina',
   // silencio, así que sin esta fila la única forma de saber si andaba era llenar
   // el formulario y después ir a buscar el lead a otra pantalla.
   assert.ok(/id: 'optin'/.test(bloque), 'la prueba no verifica que el formulario entre al CRM');
-  assert.ok(/!declarado/.test(bloque), 'tiene que distinguir «no lo declaraste en /funnel» de «todavía no probaste»: se arreglan en lugares distintos');
+  // ⚠️ `!entraAlCrm` y ya no `!declarado`: lo cambió MARTÍN el 04/10/2026 («cargar
+  // el pixel en una landing ya debería contar»). Lo que separa los dos estados
+  // sigue siendo lo mismo —«todavía no llega nada de esta página» se arregla
+  // pegando el código, «todavía no probaste» llenando tu formulario— pero ya no lo
+  // decide la casilla del funnel, que dejó de gobernar la ingesta.
+  assert.ok(/!entraAlCrm/.test(bloque), 'tiene que distinguir «no llega nada de esta página» de «todavía no probaste»: se arreglan en lugares distintos');
   assert.ok(/completa tu propio formulario/.test(bloque), 'una prueba tiene que decir QUÉ hacer para probarla');
 
   // La versión se PREGUNTA, no se infiere. La heurística vieja (ausencia de
@@ -533,35 +566,56 @@ test('el chequeo del formulario cuenta los que ESPERAN, no solo los que llegaron
   // que la página SÍ tiene por dónde entrar un lead —o peor, si ya bloqueamos
   // uno—, no es «no aplica»: es una puerta abierta sin conectar, y eso es una
   // tarea con acción.
-  assert.ok(/estado: !declarado \? \(puedeCaptar \? 'falta' : 'na'\) : hayOptin \? 'ok' : 'falta'/.test(lib),
-    'el chequeo mide si el formulario entra, no si quedó alguien por decidir');
-  assert.ok(/const hayOptinBloqueado = eventos\.some/.test(lib),
-    'un opt-in que ya bloqueamos es la prueba más fuerte de que esa página capta');
+  //
+  // ⚠️⚠️ Y CAMBIÓ OTRA VEZ EL 04/10/2026, Y LO CAMBIÓ **MARTÍN**: «cargar el pixel
+  // en una landing ya debería contar». La casilla dejó de decidir si el contacto
+  // entra (app/api/track/optin/route.ts), así que un chequeo colgado de
+  // `declarado` le pintaba en rojo «falta marcar la landing» a un cliente cuyo
+  // formulario SÍ está entrando — y lo mandaba a un trámite que no arregla nada.
+  // Lo que ahora decide es `entraAlCrm` = la casilla **o** un pageview de esta
+  // página, que es de lo que la ruta da fe.
+  //
+  // Probado rompiéndolo: cambiando `entraAlCrm` por `declarado` en el `estado` del
+  // paso 5 -> este archivo pasa de pass 66 / fail 0 a pass 65 / fail 1.
+  assert.ok(/estado: !entraAlCrm \? \(puedeCaptar \? 'falta' : 'na'\) : hayOptin \? 'ok' : 'falta'/.test(lib),
+    'el chequeo mide si el formulario entra, no si alguien marcó una casilla que ya no gobierna');
+  assert.ok(/const entraAlCrm = declarado \|\| hayPageview/.test(lib),
+    'pegar el Pixel ya declara la entrada: un pageview de esta página es la prueba');
+  // ⚠️ Y UN BLOQUEO SOLO CUENTA SI HOY SEGUIRÍA BLOQUEANDO. Las filas
+  // `optin_bloqueado` anteriores al 04/10/2026 son de la política vieja: tratarlas
+  // como un problema vivo es volver a mandar a marcar la casilla.
+  assert.ok(/const hayOptinBloqueado = !entraAlCrm && eventos\.some/.test(lib),
+    'un bloqueo viejo no puede pintar en rojo una página cuyo formulario entra');
   assert.ok(/const puedeCaptar = hayOptinBloqueado/.test(lib),
     'el hecho medido tiene que pesar más que la lectura del HTML, que puede estar vieja');
-  // Y el 'falta' lleva a resolverlo: mandar a «Funnel → De dónde entran tus
-  // leads» en prosa, desde una ventana de 440 px, es mandarlo a buscarlo a mano.
+  // ⚠️⚠️ Y EL BOTÓN «Activar la landing como entrada de leads» SE FUE EL
+  // 04/10/2026. Llevaba a `/crm?embudo=entradas` con todo el camino cableado (el
+  // deep-link del 28/09 que abría el pop-up en esa subtab, con su propia rotura
+  // probada), y la decisión de Martín de ese día lo dejó sin trabajo: marcar esa
+  // casilla ya no cambia si el contacto entra. Un botón que manda a hacer un
+  // trámite que no arregla nada es peor que ninguno — se lee como que ahí está la
+  // respuesta.
   //
-  // ⚠️ Y LLEVA A LA TAB, NO A LA PANTALLA (28/09/2026). El destino era /funnel, que se
-  // retiró; la tarjeta de entradas quedó en el editor completo, que hoy vive en la
-  // décima de las once pastillas de /onboarding. Un link a /onboarding pelado deja a la
-  // persona en «Matriz» buscando algo cuyo nombre no conoce, y este botón lo aprieta un
-  // CLIENTE desde su propia landing.
+  // Lo que arregla el 'falta' de hoy es PEGAR EL CÓDIGO, y eso es el paso 3 de
+  // esta misma pantalla: no hace falta un link a ningún lado.
   //
-  // Probado rompéndolo: se le saca el `?tab=funnel` al href -> 1 fallo; se le saca el
-  // `tabInicial` a /onboarding -> 1 fallo.
-  assert.ok(/href: '\/crm\?embudo=entradas'/.test(lib), 'el chequeo tiene que llevar a la pantalla donde se arregla');
-  // Y `?embudo=entradas` tiene que ABRIR el pop-up en esa subtab: si sólo llevara a /crm, la
-  // persona aterriza en el tablero buscando un menú que no sabe que existe.
+  // Probado rompiéndolo: devolviendo el `accion` viejo al paso 5 -> este archivo
+  // pasa de pass 66 / fail 0 a pass 65 / fail 1.
+  //
+  // ⚠️ SE MIRA EL CÓDIGO, NO LOS COMENTARIOS. La primera versión de este assert
+  // falló contra el comentario que explica que el botón se retiró: un guard que
+  // lee el archivo entero encuentra lo que el archivo dice de sí mismo.
+  const libCodigo = lib.split(String.fromCharCode(10)).filter((l) => !l.trim().startsWith('//')).join(String.fromCharCode(10));
+  assert.ok(!/Activar la landing como entrada de leads/.test(libCodigo),
+    'volvió el botón de la casilla: desde el 04/10/2026 marcarla no cambia si el contacto entra');
+  // El pop-up de entradas sigue existiendo y sigue llegándose por el deep-link
+  // desde el onboarding del Chat Agent: lo que se retiró es este botón, no la
+  // pantalla.
   const cp = leer('../app/crm/page.tsx');
   assert.ok(/sp\?\.embudo === 'entradas'/.test(cp), '/crm dejó de leer ?embudo= de la URL');
   assert.ok(/abrirEmbudo=\{abrirEmbudo\}/.test(cp), '/crm no le pasa al tablero qué pop-up abrir');
   const md = leer('../app/crm/EtapasModal.tsx');
   assert.ok(md.includes('<EmbudoEntradas'), 'el pop-up dejó de preguntar cómo entra la gente');
-  // ⚠️ «Cómo entran» dejó de ser una subtab y es un desplegable de la tab de etapas, así
-  // que lo que el link pide ahora es que ese desplegable venga ABIERTO. Si sólo abriera el
-  // pop-up, el botón dejaría a la persona mirando la lista de etapas sin la casilla que
-  // fue a marcar.
   assert.ok(/abrirEntradas === true/.test(md), 'el pop-up ignora que le pidieron abrir las entradas');
   assert.ok(lib.includes('Hay ${pendientes} pendiente'), 'los que coinciden se mencionan, no se esconden');
   // «Ver el pendiente», no «Revisar»: revisar sugiere que hay que aprobar cada
@@ -1627,4 +1681,65 @@ test('cerrar la ventana de la prueba la TERMINA, y avisa', () => {
   // Son DOS avisos distintos y en dos momentos: este al terminar, y
   // `prueba-grabada` 45 minutos después con el link.
   assert.ok(/id: 'prueba-grabada'/.test(cat), 'el de la grabación lista sigue existiendo');
+});
+
+// =============================================================================
+// A QUE CRM entra el lead (Martín, 04/10/2026)
+// =============================================================================
+// «Ahora, la configuración que falta es que el pixel deberíamos poder ASIGNAR a
+// un PRODUCTO. Con la implementación que hicimos, para que lleguen los leads a
+// ese CRM y no a otro.»
+//
+// MEDIDO antes de escribirlo: esta ruta no pasaba `funnel_id` en ningún lado
+// (grep: cero coincidencias), así que TODO lead de landing nacía en el embudo del
+// negocio. Con dos productos, los leads de la landing del segundo aparecían en el
+// tablero del primero.
+
+// PROBADO ROMPIENDOLO: borrando la linea `funnel_id: funnelDeLaLanding,` del
+// `createLead`, este archivo pasa de **pass 66 / fail 0** a **pass 65 / fail 1**.
+test('el lead NACE en el embudo de su landing', () => {
+  const src = RUTA();
+  // ⚠️ Se mira el bloque del `createLead`, no el archivo: la palabra `funnel`
+  // aparece en los comentarios y en el import de `getFunnelDefault`, así que un
+  // assert sobre el archivo entero daría verde con el campo sin pasar.
+  const i = src.indexOf('createLead({');
+  assert.ok(i > 0, 'no se encontró el alta directa');
+  const bloque = src.slice(i, src.indexOf('}));', i));
+  // El recorte tiene que ser el del alta y nada más: si mañana mide 4.000, está
+  // mirando otra cosa y el assert de abajo dejó de probar lo que dice.
+  assert.ok(bloque.length < 2500, `el bloque del alta mide ${bloque.length}: se está leyendo de más`);
+  assert.ok(/funnel_id: funnelDeLaLanding/.test(bloque), 'sin esto el lead cae siempre al embudo del negocio, diga lo que diga la landing');
+  // Y lo resuelve el módulo compartido, no un lector propio de la ruta.
+  assert.ok(/funnelDeLanding\(ws, paginaOptin\)/.test(src), 'la resolución vive en lib/landing-funnel.ts, con la pantalla leyendo lo mismo');
+});
+
+// PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de
+// lib/landing-funnel.ts, este archivo pasa de **pass 66 / fail 0** a
+// **pass 65 / fail 1**.
+test('⚠️ una landing SIN producto cae exactamente donde cae hoy', () => {
+  // La resolución es TOLERANTE, como `umbralesDelWorkspace` (lib/crm-auto.ts):
+  // sin dato, el default de siempre. No es prolijidad — `leads.funnel_id`
+  // referencia `funnels(id)`, así que un id de un embudo borrado haría FALLAR el
+  // insert, y en esta ruta un alta que falla cae a propuesta: el lead que entraba
+  // solo pasaría a esperar un click que nadie sabe que hay que dar.
+  const lib = leer('../lib/landing-funnel.ts');
+  assert.ok(/if \(!pagina\) return null;/.test(lib), 'sin página no se inventa un producto');
+  assert.ok(/if \(!elegido\) return null;/.test(lib), 'un embudo que ya no está en la lista cae al del negocio, no rompe el alta');
+  assert.ok(/catch \(e\)[\s\S]{0,200}return null;/.test(lib), 'una lectura que falla no puede cambiar a qué CRM entra el lead');
+});
+
+const DOSESP = String.fromCharCode(10) + '  ';
+
+test('el camino del DUPLICADO no finge llevar el producto', () => {
+  // `datos.leads[]` lo aplica `importarLeadsRevisadosAction` a través de
+  // `FilaImport`, que no declara `funnel_id` (grep: cero «funnel» en
+  // app/crm/leads-importar.ts). Un campo puesto ahí no lo leería nadie, y un dato
+  // que solo existe en su declaración se lee como que ya funciona.
+  const src = RUTA();
+  const i = src.indexOf('crearPropuesta({');
+  assert.ok(i > 0, 'no se encontró la propuesta');
+  const bloque = src.slice(i, src.indexOf(DOSESP + '});', i));
+  assert.ok(!/funnel_id/.test(bloque), 'escribir funnel_id en la propuesta sería una salida huérfana: nadie la lee');
+  // Pero queda ESCRITO qué falta y dónde vive, o el próximo lo lee como resuelto.
+  assert.ok(/FilaImport/.test(src), 'el comentario tiene que nombrar el archivo donde falta el campo');
 });

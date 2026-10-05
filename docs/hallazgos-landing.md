@@ -495,6 +495,76 @@ landing. Se ve bien y se pega lo que no es, que es la peor variante posible de e
 **Vive en:** `app/integraciones/landing-config-actions.ts` (`snippetDeLandingAction`) ·
 `app/integraciones/IntegracionesBoard.tsx`
 
+### El SCROLL (snippet v19): tres whitelists para un evento, y un candado con la llave vieja
+
+**Hecho el 04/10/2026.** Decisión de Martín, textual: *«Si, debería aparecer en tracking los
+clicks que hizo, junto a la grabación del scroll... Hazlo. Y si no tiene el Pixel de MaKo
+conectado, allí mismo un botón para conectarlo.»*
+
+**⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: no alcanza con medir y subir la versión.** Un
+evento nuevo del snippet tiene que pasar **tres listas blancas** escritas en tres archivos
+distintos, y las tres fallan en silencio:
+
+1. `CONOCIDOS` en `app/api/track/vsl/route.ts`. Un tipo que no está ahí **se guarda como
+   `'desconocido'`**. No se pierde la fila: se pierde el nombre, y ninguna pantalla lo busca.
+2. `ES_EVENTO_DE_VIDEO` en `lib/vsl-retencion.ts`. Esta hay que dejarla **quieta**: si el scroll
+   entrara, su `porcentaje` —que es de la PÁGINA— saldría convertido en retención de video por
+   `avanceDe`. Es la misma mezcla de unidades que ya costó 3.416 filas de avance inventado.
+3. El filtro de `getTrackingEvents` en `lib/leads.ts`. Es el que decide qué llega a la ficha, y
+   el que ya había disfrazado a `salio`/`volvio`/`cierre` de «Siguió mirando el VSL».
+
+**La regla: medir un evento nuevo es un cuarto del trabajo.** El resto es que sobreviva a las
+tres listas — y la prueba de que está enchufado es contar los call sites, no que compile.
+
+**⚠️ Y UN CANDADO CON LA LLAVE DE LA VERSIÓN ANTERIOR.** `landingDiagnostico` decide si te pide
+repegar el código con `ganaConLaNueva`, que preguntaba por una lista de **hosts de video de la
+v16** (`HOSTS_DE_LA_V16`). Eso era correcto para ese salto —la v16 solo le cambiaba algo a quien
+aloja el video afuera— y con la v19 puesta mentía al revés: el scroll le sirve a **cualquier**
+página, y a una landing de Panda le habría dicho *«para esta página miden igual, no hay apuro»*
+sobre la única versión que le agrega algo. Ahora se pregunta por la versión
+(`instalada < VERSION_DEL_SCROLL`), no por las piezas. **Un gate por catálogo caduca con el
+catálogo; un gate por versión no.**
+
+**El freno, que no es prolijidad.** El evento `scroll` del navegador se dispara **por cada pixel**
+que se mueve la página: un `enviar()` adentro del handler son cientos de requests por visita, y
+el que los recibe es **nuestro** beacon, no la página del cliente. No se ve probando a mano —una
+landing corta manda cuatro y parece sano— y se ve en la factura. Van dos frenos encimados: el
+handler agenda una mirada cada 400 ms y sale sin calcular nada, y sólo se manda **al cruzar** un
+hito (25/50/75/100), una vez cada uno. Techo: 4 eventos por visita más el del cierre, el mismo
+orden de magnitud que los clics (topeados en 40).
+
+**Dos trampas de la medición misma:**
+
+- **Una página que entra entera en la pantalla no se scrollea**, y ahí reportar 0% es mentir: la
+  persona la vio completa sin mover un dedo. Se reporta 100.
+- **Por eso la primera medida espera al `load`.** Mientras la página carga, el alto del documento
+  todavía no cuenta las imágenes: se mide una página corta que no lo es, y la regla de arriba
+  mandaría un **100 falso en la primera línea de cada visita**.
+- El hito no sabe dar el punto exacto: quien llegó al 68% quedaría registrado como 50. Va un
+  evento más al irse (`pagehide` + `visibilitychange`), topeado en 3 y sólo si supera el hito ya
+  mandado.
+
+**El vacío de la ficha no era del lead, era del negocio.** La tarjeta de tracking decía *«entró
+antes del tracking, o llegó por instant form»* **también cuando el Pixel no está puesto** — o
+sea que mandaba a buscar una causa inexistente, y el control vive tres pantallas más allá. Ahora,
+sin Pixel, dice que falta y lleva a `/integraciones?servicio=landing`, que **abre el modal que
+entrega el código**, no la grilla de veintipico de tarjetas. La señal es
+`landingRecibioEventos()`, la MISMA que el semáforo de /integraciones, para que las dos pantallas
+no puedan contradecirse.
+
+**Lo que quedó SIN hacer:**
+
+- `docs/lovable-tracking.md` (tabla de payloads, ~línea 51) está vieja de varias versiones: lista
+  pageview/play/pNN/sNN/exit y **le faltan** `click`, `salio`, `volvio`, `cierre`, `agendo` y
+  ahora `scroll`. Es el documento que el propio snippet cita como contrato.
+- No hay chequeo de scroll en `landingDiagnostico` (`lib/landing-token.ts`, la union de
+  `chequeos`): el probador de /integraciones no puede decir «se está midiendo hasta dónde bajan».
+
+**Vive en:** `lib/landing-token.ts` (bloque SCROLL del snippet, `SNIPPET_VERSION`, `NOVEDADES`,
+`ganaConLaNueva`) · `app/api/track/vsl/route.ts` (`CONOCIDOS`) · `lib/leads.ts`
+(`getTrackingEvents`) · `app/crm/lead-view/TrackingTimelineCard.tsx` ·
+`tests/landing-snippet-emitido.test.ts`
+
 ## Retención del VSL
 
 ### ⚠️ Un video puede tener TRES identidades, y ninguna pantalla lo dice
@@ -2317,3 +2387,137 @@ No son de la landing, pero se rompieron acá:
   títulos, ordenada y visible en super admin. *«si yo lo puedo entender fácil eso me habilita a
   darle mejores prompts al otro claude»* (2026-08-07). Por eso este documento está ordenado por
   subsistema y no por tipo de hallazgo.
+
+---
+
+## El Pixel pegado YA declara la entrada, y se ASIGNA a un producto (2026-10-04)
+
+Dos decisiones de Martín el mismo día, y la segunda es la que faltaba de verdad.
+
+**Vive en:** `app/api/track/optin/route.ts`, `lib/landing-funnel.ts`,
+`lib/landing-config.ts`, `app/integraciones/SelectorLanding.tsx`,
+`app/integraciones/landing-config-actions.ts`
+
+### 1. La casilla del funnel dejó de ser un peaje
+
+*«cargar el pixel en una landing ya debería contar».* La puerta de `/api/track/optin`
+exigía que el workspace hubiera marcado «landing» en `funnels.data.entradas` y, si no,
+descartaba el opt-in. El razonamiento que la sostenía —el Pixel se le entrega a todos por
+defecto, así que cualquiera que lo pegue podría llenar un CRM que nadie pidió— **ya se
+había caído el 24/08/2026 para Cal.com/Calendly**, con la frase que ahora vale también
+para el Pixel: *conectarla ES el acto de declararla*. Era la tercera excepción de la misma
+condición y nadie la había escrito.
+
+**De qué da fe el Pixel:** de la PÁGINA. El snippet manda `pagina: location.href` en cada
+opt-in desde la v2, así que una URL válida (`normalizarUrl`) prueba que esto salió de una
+página real con el código adentro. Lo que **no** la trae es un POST pelado con el token
+copiado del HTML —un bot, un `curl`, un formulario escrito a mano— y de eso no se puede
+afirmar que el negocio pegó nada: sigue cayendo a la rama que descarta, **con su rastro**
+(`vsl_events` con `tipo_evento: 'optin_bloqueado'` y `detalle: 'sin_pagina'`, más el
+`console.warn`). O sea que la rama no quedó muerta: cambió de caso, y encima el caso nuevo
+es el único que el token nunca autorizó.
+
+⚠️ **El test que la congelaba se cambió CON la decisión, no contra ella.**
+`tests/landing-optin.test.ts` exigía la casilla a propósito. Quedó escrito en su comentario
+quién la cambió y cuándo (**Martín, 04/10/2026**), porque si no, el próximo que lo lea va a
+creer que se rompió un guard. El rastro del descarte sigue con sus assertions intactas.
+
+### 2. El agujero real: todo lead de landing nacía en el embudo del negocio
+
+**MEDIDO antes de escribir una línea:** `app/api/track/optin/route.ts` no pasaba `funnel_id`
+en ningún lado — cero coincidencias en el archivo. Con dos productos (mig 0170/0171, que ya
+modelan `funnels`, `funnel_ofertas` y `v_funnel_productos`), los leads de la landing del
+segundo aparecían en el tablero del primero. Nada fallaba: el lead entraba, con su nombre y
+su teléfono, en el CRM equivocado.
+
+**Cuelga de la PÁGINA, no del token — y esto no fue una preferencia.** El token es UNO por
+workspace y determinista: `tokenDeterminista(ws)` es un HMAC de `landing:<ws>` guardado en
+el único setting `landing_token` (`lib/landing-token.ts`). **No hay un segundo token que
+asignar**, así que colgar el producto de ahí sería afirmar que todas las landings del
+cliente venden lo mismo. La página sí distingue, y `landing.config` ya es una tabla POR
+PÁGINA desde que `clarityProjectId` necesitó exactamente lo mismo (un proyecto de Clarity
+es de un sitio; un producto es de una landing). **Cero migraciones**: `createLead` ya acepta
+`funnel_id` y el campo nuevo entra en un `app_settings` que ya existe.
+
+### La trampa que más cerca estuvo de salir: el default NO se escribe con su id
+
+`listLeadsDeFunnel(null)` pide los leads del tablero por defecto con
+`.is('funnel_id', null)` (`lib/leads.ts`), y `app/crm/page.tsx` sin `?funnel=` llama con
+`null`. O sea que un lead nacido con **el id del embudo por defecto** desaparece de la única
+pantalla que el cliente mira — con el producto correcto escrito en la fila, sin un 4xx y sin
+un log. Son dos formas de decir lo mismo y sólo una la encuentra el CRM.
+
+Por eso el embudo por defecto **no se ofrece como opción propia**: en la pantalla es el
+valor VACÍO, rotulado con su nombre de producto para que se sepa dónde caen los no
+asignados, y `funnelDeLanding` mapea su id a `null` explícitamente
+(`elegido.esDefault ? null : id`).
+
+### Lo demás que costó una vuelta cada uno
+
+- **La resolución es TOLERANTE, y no por prolijidad.** `leads.funnel_id` referencia
+  `funnels(id)`: un id de un embudo borrado haría **fallar el insert**, y en esta ruta un
+  alta que falla cae a propuesta — el lead que entraba solo pasaría a esperar un click que
+  nadie sabe que hay que dar. Se valida contra `listarFunnels()` (sólo activos), que es la
+  MISMA lista que ofrece la pantalla: con dos lectores, la pantalla podría ofrecer un
+  producto al que el lead nunca llega.
+- **El `ws` se pinnea en la PRIMERA línea del cuerpo.** `getSetting` resuelve el workspace
+  del request por cookies y esta ruta no tiene sesión. Sin `runWithWorkspace(ws, …)` leería
+  la configuración del inquilino del contexto.
+- **`funnels.id` es `bigint` y puede llegar como STRING.** Un `funnelId: "7"` guardado tal
+  cual haría que el `===` del validador diera false SIEMPRE: nadie entraría nunca a su
+  producto, con el dato bien escrito en el setting. Se sanea al parsear (`idFila`).
+- **Corregir la URL de una landing no puede desasignarle el producto.** `conLanding`
+  reconstruye la fila campo por campo, que es la trampa que ya mordió con `clarityProjectId`
+  y con `esVsl`: `undefined` es «no lo toques» y lo que desasigna es un `0` explícito.
+- **El `<select>` lleva el valor guardado aunque ya no se pueda elegir.** Un embudo
+  archivado dejaría el control mostrando la primera opción, y el primer click **borraría la
+  asignación** sin que nadie la toque.
+- **Con UN solo producto el desplegable no se dibuja.** Un desplegable de un elemento no
+  ofrece una decisión: ofrece confirmar la única que hay.
+
+### Y la otra mitad: ¿QUIÉN MIRABA el campo que decidía?
+
+Cambiar quién decide no termina en la ruta. `declarado` —`funnels.data.entradas` con
+«landing»— lo consumía el **probador del Pixel** (`landingDiagnostico`, `lib/landing-token.ts`):
+el paso 5 («Deja sus datos») sacaba su estado de ahí, y con la ruta ya aceptando el opt-in
+eso le pintaba **en rojo «falta marcar la landing como entrada»** a un cliente cuyo
+formulario SÍ está entrando — y lo mandaba a un trámite que no cambia nada.
+
+Lo que decide ahora es `entraAlCrm = declarado || hayPageview`: un pageview de ESA página es
+la prueba de que el Pixel está ahí, que es exactamente de lo que la ruta da fe.
+
+Tres consecuencias que no se ven en el diff del gate:
+
+- **La consulta de opt-ins colgaba de `declarado`** (`declarado ? await db.from('propuestas')…
+  : { data: null }`), así que sin la casilla el chequeo no podía ponerse verde ni con leads
+  entrando.
+- **Un `optin_bloqueado` viejo no es un problema vivo.** Las filas anteriores al 04/10/2026
+  son de la política anterior; tratarlas como actuales vuelve a mandar a la casilla. Va
+  `hayOptinBloqueado = !entraAlCrm && …`.
+- **El botón «Activar la landing como entrada de leads» se fue**, con todo su camino cableado
+  (el deep-link del 28/09 que abría el pop-up en la subtab de entradas). No estaba mal hecho:
+  se quedó sin trabajo. Un botón que manda a hacer un trámite que no arregla nada se lee como
+  que ahí está la respuesta. Lo que arregla el «falta» de hoy es pegar el código, y eso es el
+  paso 3 de la misma pantalla. El pop-up sigue existiendo y se sigue llegando por el
+  deep-link desde el onboarding del Chat Agent — lo que se retiró es el botón, no la pantalla.
+- **Y el paso 4 de «dónde pegar» decía textualmente «marca "Llenan un formulario en tu
+  página" en Funnel → De dónde entran tus leads»** — una instrucción obsoleta que además
+  nombraba una ruta retirada.
+
+⚠️ **Y el guard que escribí para fijar esto falló contra MI PROPIO COMENTARIO.** El
+`assert.ok(!/Activar la landing como entrada de leads/.test(lib))` dio rojo porque el
+comentario que explica que el botón se retiró contiene la frase. Es la regla de la casa otra
+vez: *un guard que lee el archivo entero encuentra lo que el archivo dice de sí mismo*. Se
+filtran las líneas de comentario antes de preguntar.
+
+### Lo que quedó SIN hacer
+
+**El camino del DUPLICADO no lleva el producto.** Cuando el contacto choca con uno que ya
+existe, la ruta deja una propuesta y `confirmarLeadsAction` la aplica con
+`importarLeadsRevisadosAction`, cuyo `FilaImport` **no declara `funnel_id`** (grep: cero
+«funnel» en `app/crm/leads-importar.ts`). El campo NO se escribió en `datos.leads[]` a
+propósito: un dato que sólo existe en su declaración se lee como que ya funciona. Mientras
+tanto el duplicado cae en el embudo del negocio —donde cae hoy— y lo decide una persona que
+está mirando el CRM, con `moverLeadDeFunnel` a un click. Lo que lo cierra son dos líneas:
+un `funnelId` en `FilaImport` (`app/crm/leads-importar.ts`) y pasarlo al `createLead` del
+importador (`app/crm/actions.ts`).

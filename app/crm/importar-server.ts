@@ -26,7 +26,7 @@ import { CASCADA_DOCS, MODELO_DOCS, chatCheapCascade } from '@/lib/ai-cheap';
 import { getTenantDb } from '@/lib/workspace';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import {
-  MAX_FILAS_IMPORT, esCsv, esPlanilla, esPlanillaLeible, filasDesdeCsv, filasDesdePlanilla, MENSAJE_PLANILLA, recalcular, soloDigitos,
+  MAX_FILAS_IMPORT, buscarTelefono, clavesDeTelefono, esCsv, esPlanilla, esPlanillaLeible, filasDesdeCsv, filasDesdePlanilla, MENSAJE_PLANILLA, recalcular,
   type FilaImport,
 } from './leads-importar';
 
@@ -53,13 +53,40 @@ export type IndiceContactos = {
    * donde completar le escribiría a la persona equivocada.
    */
   emails: Map<string, number | null>;
+  /** Los DÍGITOS COMPLETOS del teléfono guardado. */
   tels: Map<string, number | null>;
+  /**
+   * Los ÚLTIMOS 10 DÍGITOS — y ésta es la que de verdad cruza (#622).
+   *
+   * ⚠️ EL CRUCE POR TELÉFONO COMPARABA LOS DÍGITOS COMPLETOS, Y ESO DEJABA AFUERA A CASI
+   * TODA LA TABLA. Medido contra producción el 04/10/2026: de los 1.154 leads de ws1 con
+   * teléfono, UNO tiene 10 dígitos; 1.027 tienen 13 y 115 tienen 16 (entraron desde
+   * WhatsApp y Meta, con código de país). O sea que una lista tipeada a mano —que es
+   * como llega un CSV de clientes de pago— matcheaba 1 de 1.154. Los otros 1.153 se
+   * importaban como leads nuevos, y las dos fichas quedaban inalcanzables para la
+   * ingesta siguiente: dos filas con el mismo `telefono_normalizado` rompen con PGRST116
+   * el `.maybeSingle()` de Calendly y del instant form.
+   *
+   * El criterio no se inventó acá: es `telefonoComparable`, el MISMO que ya usaban el
+   * alta manual (`duplicadosDeLead`, que FRENA con eso) y el inbox de WhatsApp. Esta
+   * puerta era la que aplicaba el criterio MÁS ESTRICTO, igual que les pasaba a las
+   * ingestas antes del #626.
+   *
+   * ⚠️ TRAE DE MÁS A PROPÓSITO, y por eso es un mapa APARTE: un sufijo que dos leads
+   * comparten deja la clave en `null` —«ya existe» sigue siendo cierto y la oferta de
+   * completar desaparece, que es lo correcto porque no hay a quién— y la búsqueda prueba
+   * primero el exacto, así que ningún match que antes era limpio se vuelve ambiguo.
+   * Pares que hoy comparten los últimos 10 dígitos sin compartir los completos: 0 en los
+   * 6 workspaces.
+   */
+  telsSufijo: Map<string, number | null>;
 };
 
 export async function indiceContactos(): Promise<IndiceContactos> {
   const db = await getTenantDb();
   const emails = new Map<string, number | null>();
   const tels = new Map<string, number | null>();
+  const telsSufijo = new Map<string, number | null>();
   // Dos leads con el mismo dato no se desempatan acá: la clave queda en `null` y el
   // «ya existe» sigue siendo cierto. Lo que se pierde es la oferta de completar, que es
   // exactamente lo correcto — no hay a quién.
@@ -68,12 +95,26 @@ export async function indiceContactos(): Promise<IndiceContactos> {
     if (m.get(k) !== id) m.set(k, null);
   };
   try {
-    await leerPorPaginas<{ id: number; email: string | null; telefono: string | null }>(
-      db, 'leads', 'id, email, telefono',
+    // ⚠️ NINGÚN FILTRO, Y NO ES UN OLVIDO: el cruce mira TODAS las etapas y todos los
+    // estados. «No contesta» y «Perdido» siguen siendo la misma persona, así que un
+    // filtro por etapa, por `estado_lead` o por funnel acá es lo que CREA el duplicado
+    // (Martín, 04/10/2026: «no solo los Ganados sino todos los leads de cualquier
+    // etapa»). Medido ese día: entran las 1.549 filas de los 6 workspaces con leads, 72
+    // de ellas en un estado terminal — y entran. El único recorte es el `workspace_id`
+    // que pone getTenantDb, que es aislamiento y no un filtro de producto.
+    //
+    // ⚠️ Y VIAJA `telefono_normalizado` ADEMÁS DEL `telefono`: es la llave con la que
+    // matchean todos los webhooks, así que un lead con la llave puesta y el `telefono`
+    // vacío está en el CRM aunque esta lectura no lo viera. Hoy son 0 filas en los 6
+    // workspaces; cuesta una columna y cierra el caso antes de que exista.
+    await leerPorPaginas<{ id: number; email: string | null; telefono: string | null; telefono_normalizado: string | null }>(
+      db, 'leads', 'id, email, telefono, telefono_normalizado',
       (chunk) => {
         for (const r of chunk) {
           if (r.email) anotar(emails, r.email.trim().toLowerCase(), r.id);
-          if (r.telefono) { const dg = soloDigitos(r.telefono); if (dg) anotar(tels, dg, r.id); }
+          const { exacta, sufijo } = clavesDeTelefono(r.telefono || r.telefono_normalizado || '');
+          if (exacta) anotar(tels, exacta, r.id);
+          if (sufijo) anotar(telsSufijo, sufijo, r.id);
         }
       },
     );
@@ -82,7 +123,7 @@ export async function indiceContactos(): Promise<IndiceContactos> {
     // así que esto NUNCA degrada a "no hay duplicados".
     throw new Error(`No se pudo revisar los duplicados: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return { emails, tels };
+  return { emails, tels, telsSufijo };
 }
 
 /**
@@ -102,13 +143,14 @@ export async function indiceContactos(): Promise<IndiceContactos> {
  * completar» no tiene respuesta — se ofrece saltear o duplicar, que es lo reversible.
  */
 export async function marcarExistentes(filas: FilaImport[]): Promise<FilaImport[]> {
-  const { emails, tels } = await indiceContactos();
+  const { emails, tels, telsSufijo } = await indiceContactos();
   return recalcular(filas.map((f) => {
     const email = f.email.trim().toLowerCase();
-    const tel = soloDigitos(f.telefono);
     // `undefined` = ese dato no está en el CRM. `null` = está y lo tienen dos leads.
     const porEmail = email && emails.has(email) ? emails.get(email) ?? null : undefined;
-    const porTel = tel && tels.has(tel) ? tels.get(tel) ?? null : undefined;
+    // El teléfono lo decide `buscarTelefono` (exacto primero, sufijo después), que vive
+    // sin `server-only` en ./leads-importar para que la COMPARACIÓN tenga test.
+    const porTel = buscarTelefono({ exactos: tels, sufijos: telsSufijo }, f.telefono);
     const apuntan = [porEmail, porTel].filter((v) => v !== undefined);
     const unico = apuntan.length && apuntan.every((v) => v != null && v === apuntan[0])
       ? (apuntan[0] as number)

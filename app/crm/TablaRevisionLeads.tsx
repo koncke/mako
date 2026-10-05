@@ -23,7 +23,7 @@
 // =============================================================================
 
 import { useMemo, useState, type CSSProperties } from 'react';
-import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, destinoDe, type FilaImport } from './leads-importar';
+import { FILAS_POR_PAGINA, MOTIVO_DECIDIBLE, MOTIVO_LABEL, UMBRAL_PAGINADO, contar, destinoDe, entraGanado, type FilaImport } from './leads-importar';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -92,6 +92,18 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
    */
   const elegirDestino = (id: string, enriquecer: boolean) =>
     onFilas((prev) => prev.map((f) => (f.id === id && f.motivo === MOTIVO_DECIDIBLE ? { ...f, enriquecer } : f)));
+  /**
+   * La propuesta de entrar como VENTA (#622): el archivo traía un pago para esta persona.
+   *
+   * ⚠️ SE PROPONE Y LA PERSONA CONFIRMA. Nace prendida —ésa es la propuesta— y este
+   * control existe para apagarla: lo que se escribe es `estado_lead = 'ganado'` y el monto
+   * de la venta, o sea el número que después suma la facturación.
+   *
+   * Sólo sobre una fila con `pagoEnArchivo`: prenderlo en una fila que el archivo no marcó
+   * sería elegir la etapa a mano, que es otra cosa y no es lo que se pidió.
+   */
+  const elegirGanado = (id: string, comoGanado: boolean) =>
+    onFilas((prev) => prev.map((f) => (f.id === id && f.pagoEnArchivo ? { ...f, comoGanado } : f)));
   const soloNuevas = () => onFilas((prev) => prev.map((f) => ({ ...f, incluir: !f.motivo })));
   const destildarTodo = () => onFilas((prev) => prev.map((f) => ({ ...f, incluir: false })));
 
@@ -114,6 +126,14 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
     const fuera = destino === 'omitir';
     // Y completar sólo se puede ofrecer si el server resolvió a quién.
     const puedeCompletar = decidible && !fuera && f.leadExistenteId != null;
+    /**
+     * La propuesta de venta (#622) se dibuja sólo sobre la fila que SE CREA: una que
+     * completa la ficha que ya está (#623) le llena los campos vacíos y no le mueve la
+     * etapa a nadie, así que ahí el control no decidiría nada. Sale de `destinoDe`, igual
+     * que todo lo demás de esta celda.
+     */
+    const proponeGanado = !!f.pagoEnArchivo && destino === 'crear';
+    const esGanado = entraGanado(f);
     // El borde rojo marca EL CAMPO que hay que arreglar, no la fila entera: si la
     // fila está sin nombre, el que tiene que llamar la atención es ese input.
     const culpable = (k: string): boolean =>
@@ -156,7 +176,26 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
               está. Son dos resultados distintos y el rótulo los distingue. */}
           {decidible ? (destino === 'enriquecer' ? 'ya existe · se completa' : destino === 'crear' ? 'ya existe · entra igual' : MOTIVO_LABEL[f.motivo!])
             : f.motivo ? MOTIVO_LABEL[f.motivo]
-            : f.bajaConfianza ? 'revisar' : 'entra'}
+            : f.bajaConfianza ? 'revisar'
+            : esGanado ? 'entra · ganado' : 'entra'}
+          {/* La propuesta de venta (#622). Un solo control porque la respuesta de al lado ya
+              está escrita arriba: el rótulo dice «entra» o «entra · ganado». Y el monto no
+              se dibuja —en 156px no entra—: viaja en el aria-label, que no ocupa lugar. */}
+          {proponeGanado && (
+            <span style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+              <button type="button" onClick={() => elegirGanado(f.id, !esGanado)}
+                aria-pressed={esGanado}
+                aria-label={esGanado
+                  ? `No marcar a ${f.nombre.trim() || 'este contacto'} como venta: entra en la primera etapa`
+                  : `Marcar a ${f.nombre.trim() || 'este contacto'} como venta${f.montoPago != null ? ` por ${f.montoPago}` : ''}`}
+                style={{
+                  padding: '2px 6px', borderRadius: 7, cursor: 'pointer', fontFamily: MONO, fontSize: 9.5, lineHeight: 1.4,
+                  border: `1px solid ${esGanado ? 'var(--good)' : 'var(--border-strong)'}`,
+                  background: esGanado ? 'var(--good)' : 'var(--surface)',
+                  color: esGanado ? '#fff' : 'var(--dim)',
+                }}>Ganado</button>
+            </span>
+          )}
           {/* El tercer destino (#623), apilado debajo del estado: en 156px los dos
               rótulos al lado del texto no entran, y AGENTS.md es explícito — si el más
               largo no entra, no se achica, se apila. */}
@@ -194,6 +233,9 @@ export function TablaRevisionLeads({ filas, onFilas, viaIA, aviso, nota }: {
         {/* Las que completan la ficha que ya está: no son leads nuevos, así que no
             pueden viajar en el número de «se van a crear» (#623). */}
         {c.aEnriquecer > 0 && <Chip n={c.aEnriquecer} texto="se completan" color="var(--good)" />}
+        {/* Las que entran como venta (#622). Es un SUBCONJUNTO de «se van a crear», no un
+            número aparte: esos leads se crean igual y después se los mueve de etapa. */}
+        {c.comoGanado > 0 && <Chip n={c.comoGanado} texto="entran ganados" color="var(--good)" />}
         {c['repetido-archivo'] > 0 && <Chip n={c['repetido-archivo']} texto="repetidas" color="var(--dim)" />}
         {c['sin-nombre'] > 0 && <Chip n={c['sin-nombre']} texto="sin nombre" color="var(--bad)" />}
         {c['sin-contacto'] > 0 && <Chip n={c['sin-contacto']} texto="sin contacto" color="var(--bad)" />}

@@ -33,6 +33,8 @@ import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { createLead, duplicadosDeLead } from '@/lib/leads';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault } from '@/lib/funnels';
+import { normalizarUrl } from '@/lib/landing-paginas';
+import { funnelDeLanding } from '@/lib/landing-funnel';
 import { textoDuplicado } from '@/lib/leads-duplicados';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
@@ -123,7 +125,27 @@ export async function POST(req: NextRequest) {
     && await runWithWorkspace(ws, async () =>
       (await integracionConectada('calcom')) || (await integracionConectada('calendly')));
 
-  if (!entradas.includes('landing') && !deAgendaConectada) {
+  // ⚠️⚠️ Y PEGAR EL PIXEL TAMBIEN ES DECLARAR LA ENTRADA. Lo decidio MARTIN el
+  // 04/10/2026, textual: «cargar el pixel en una landing ya deberia contar».
+  //
+  // Es el MISMO razonamiento del parrafo de arriba, que hasta hoy solo valia para
+  // las agendas: la casilla del funnel existia porque el Pixel se le entrega a
+  // TODOS por defecto, asi que cualquiera que lo pegara podia empezar a llenar un
+  // CRM que nadie pidio. Eso deja de ser cierto cuando el acto de pegarlo es
+  // deliberado — y lo es: el codigo se copia de /integraciones, de una pagina que
+  // la persona eligio, y despues hay que publicar el sitio. Pedir ademas una
+  // casilla en otra pantalla es la burocracia que el dueno ya rechazo una vez.
+  //
+  // DE QUE DA FE: la PAGINA. El snippet manda `pagina: location.href` en cada
+  // opt-in desde la v2, asi que una URL valida es la prueba de que esto salio de
+  // una pagina web real con el codigo adentro. Lo que NO la trae es un POST pelado
+  // con el token copiado del HTML —un bot, un curl, un formulario escrito a mano—
+  // y de eso no se puede afirmar que el negocio pego nada: cae a la rama de abajo,
+  // que descarta DEJANDO RASTRO.
+  const paginaOptin = normalizarUrl(urlTxt(body.pagina) ?? '');
+  const delPixelEnUnaPagina = paginaOptin != null;
+
+  if (!entradas.includes('landing') && !deAgendaConectada && !delPixelEnUnaPagina) {
     // ⚠️⚠️ DESCARTAR EN SILENCIO ES PERDER UN LEAD SIN QUE NADIE SE ENTERE.
     //
     // Esta rama devolvía `ok:true` y se iba: ni una fila, ni un log, ni un
@@ -132,9 +154,15 @@ export async function POST(req: NextRequest) {
     // lead se caía por acá. No había forma de saberlo — ni mirando la base, ni
     // mirando los logs, ni corriendo la prueba otra vez.
     //
-    // La política no cambia: sin declarar la landing en /funnel, el contacto NO
-    // entra al CRM. Lo que cambia es que ahora deja HUELLA, y la huella es lo
-    // que convierte «esto no anda» en «te falta una casilla»:
+    // ⚠️ QUE CAE ACA DESDE EL 04/10/2026. Ya no es «no marco la casilla»: pegar
+    // el Pixel declara la entrada (ver arriba), asi que lo unico que sigue
+    // descartandose es un opt-in que NO viene de una pagina —sin `pagina`, o con
+    // algo que no es una URL— y que tampoco es de una agenda conectada. O sea un
+    // POST con el token suelto, que es exactamente lo que el token no autoriza.
+    //
+    // La huella se queda igual, y por el mismo motivo por el que se escribio: sin
+    // ella «no llego» y «lo tiramos nosotros» se ven identicos, y el que
+    // investiga llega a la conclusion equivocada las tres veces.
     //   · un evento, que el probador ya sabe leer y filtrar por marcador;
     //   · un log, para poder contarlos sin abrir la base.
     //
@@ -148,7 +176,9 @@ export async function POST(req: NextRequest) {
           visitor_id: txt(body.visitor_id) ?? 'desconocido',
           event: 'optin_bloqueado',
           tipo_evento: 'optin_bloqueado',
-          detalle: txt(body.origen_captura) === 'agenda' ? 'agenda' : 'formulario',
+          // De donde decia venir, para poder contar los bloqueos por tipo. Un
+          // opt-in sin pagina es el caso nuevo y se nombra: `sin_pagina`.
+          detalle: txt(body.origen_captura) === 'agenda' ? 'agenda' : 'sin_pagina',
           prueba: txt(body.prueba),
           landing_url: txt(body.pagina),
         });
@@ -157,8 +187,8 @@ export async function POST(req: NextRequest) {
       // Nunca romper la página del cliente por no poder anotar el bloqueo.
       console.error(`[track:optin] no se pudo anotar el bloqueo: ${e instanceof Error ? e.message : e}`);
     }
-    console.warn(`[track:optin] ws ${ws}: opt-in BLOQUEADO — la landing no está declarada como entrada de leads en /funnel`);
-    return ok({ ignorado: 'este negocio no tiene la landing declarada como entrada de leads' });
+    console.warn(`[track:optin] ws ${ws}: opt-in BLOQUEADO — no vino de ninguna página y el negocio no declaró esta entrada`);
+    return ok({ ignorado: 'este opt-in no vino de una página con el Pixel instalado' });
   }
 
   const nombre = txt(body.nombre) ?? txt(body.name) ?? txt(body.nombre_completo);
@@ -229,6 +259,24 @@ export async function POST(req: NextRequest) {
     return filas.length ? filas.map(([k, v]) => `• ${k}: ${v}`).join('\n') : null;
   })();
 
+  // ⚠️ A QUE CRM ENTRA. Pedido de MARTIN el 04/10/2026, textual: «el pixel
+  // deberiamos poder ASIGNAR a un PRODUCTO. Con la implementacion que hicimos,
+  // para que lleguen los leads a ese CRM y no a otro».
+  //
+  // Hasta hoy esta ruta no pasaba `funnel_id` en ningun lado —cero coincidencias
+  // en el archivo— asi que TODO lead de landing nacia en el embudo del negocio
+  // (`funnel_id = null`), que es donde lo busca `listLeadsDeFunnel(null)`. Con dos
+  // productos, los leads de la landing del segundo aparecian en el tablero del
+  // primero.
+  //
+  // La asignacion cuelga de la PAGINA (`landing.config`, por URL normalizada) y
+  // no del TOKEN: el token es UNO por workspace y determinista —un HMAC de
+  // `landing:<ws>`, un solo setting `landing_token`— asi que no hay un segundo
+  // token que asignar, y colgarlo de ahi seria decir «todas mis landings venden
+  // lo mismo». La pagina si distingue, y esa tabla ya existe POR PAGINA desde que
+  // `clarityProjectId` necesito lo mismo (lib/landing-config.ts).
+  const funnelDeLaLanding = await funnelDeLanding(ws, paginaOptin);
+
   const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
 
   if (!dup.length) {
@@ -250,6 +298,10 @@ export async function POST(req: NextRequest) {
         // se agrega en uno solo se apaga solo: el guardado siguiente es un upsert de la
         // fila armada desde acá, así que lo que este objeto no traiga sale como null.
         fbclid: atrib.fbclid,
+        // El CRM al que entra. `null` NO es «sin producto»: es el embudo DEL
+        // NEGOCIO, que es donde caen hoy los 1.530 leads de la base. Una landing
+        // sin producto asignado sigue cayendo exactamente ahi.
+        funnel_id: funnelDeLaLanding,
       }));
       await runWithWorkspace(ws, () =>
         emitirDelCatalogo('lead-de-landing', {
@@ -283,6 +335,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ⚠️ EL CAMINO DEL DUPLICADO TODAVIA NO LLEVA EL PRODUCTO, y no se escribe el
+  // campo para disimularlo: `datos.leads[]` lo aplica
+  // `importarLeadsRevisadosAction` a traves de `FilaImport`, que NO declara
+  // `funnel_id` (grep: cero coincidencias de «funnel» en app/crm/leads-importar.ts),
+  // asi que un campo puesto aca no lo leeria nadie. Un dato que solo existe en su
+  // declaracion es peor que su ausencia: se lee como que ya funciona.
+  //
+  // Mientras tanto el duplicado cae en el embudo del negocio, que es donde cae
+  // hoy — y ahi lo decide una PERSONA que esta mirando el CRM, con
+  // `moverLeadDeFunnel` a un click. Lo que falta para cerrarlo es un `funnel_id`
+  // en `FilaImport` (app/crm/leads-importar.ts) y pasarlo al `createLead` del
+  // importador (app/crm/actions.ts).
   const { id, nueva } = await crearPropuesta({
     ws,
     tipo: 'lead',

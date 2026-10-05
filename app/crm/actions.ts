@@ -7,7 +7,7 @@
 // y revalidan las páginas relevantes.
 // =============================================================================
 
-import { getVideosLanding } from '@/lib/landing-token';
+import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
 import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { revalidatePath, updateTag } from 'next/cache';
@@ -62,7 +62,7 @@ import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineSta
   renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
   productosPorFunnel } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
-  conTerminales, esTerminal, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
+  conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -70,7 +70,7 @@ import {
 } from './leads-exportar';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
-import { MAX_FILAS_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, type FilaImport } from './leads-importar';
+import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
@@ -165,6 +165,8 @@ export type LeadFullData = {
   visitas: { total_visitas: number; dias_distintos: number };
   insights: LeadInsightRow[];
   tracking: TrackingEvent[];
+  /** El Pixel de MaKo está midiendo. Gobierna el vacío de la tarjeta de tracking. */
+  pixelPuesto: boolean;
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
   insightGen: LeadInsightGen | null;
   faltantesInsight: Step[];
@@ -182,7 +184,7 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, urlClarity, urlMapaCalor] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, urlClarity, urlMapaCalor, pixelPuesto] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
@@ -196,6 +198,12 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     urlSesionesDeLead(lead.visitor_id).catch(() => null),
     // Del PROYECTO: Clarity agrega los clics de todos y no se filtra por persona.
     urlPanel(undefined, 'heatmaps').catch(() => null),
+  // ¿El Pixel de MaKo está midiendo? Es para el VACÍO de la tarjeta de tracking:
+  // sin código pegado, «sin eventos» no es un lead que no interactuó, es un negocio
+  // que todavía no mide — y eso se arregla en otra pantalla. Misma señal que el
+  // semáforo de /integraciones (1 fila con LIMIT 1 sobre un índice) para que las dos
+  // pantallas no puedan contradecirse. Nunca rompe la ficha.
+    landingRecibioEventos().catch(() => true),
   ]);
 
   // ⚠️ EL LINK A LA GRABACIÓN SE GATEA POR LA RETENCIÓN, no por «tiene
@@ -222,7 +230,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, campana, adNombre, adId: adIdCand, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -1460,6 +1468,14 @@ export type ImportLeadsResult = {
    * esta pantalla ya pagó una vez.
    */
   enriquecidos: number;
+  /**
+   * De los `creados`, cuántos entraron como VENTA en vez de en la primera etapa (#622).
+   *
+   * ⚠️ Está DENTRO de `creados` y no al lado: son los mismos leads, creados por el mismo
+   * camino y después movidos de etapa. Sumarlo aparte diría «5 nuevos y 3 ganados» sobre
+   * una importación de 5 filas.
+   */
+  ganados: number;
   omitidos: number;
   errores: string[];
 };
@@ -1479,9 +1495,9 @@ export type ImportLeadsResult = {
  * y ahí `undefined` significa «el del negocio», que es donde caían todos hasta hoy.
  */
 export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null): Promise<ImportLeadsResult> {
-  if (!Array.isArray(filas) || !filas.length) return { creados: 0, enriquecidos: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
+  if (!Array.isArray(filas) || !filas.length) return { creados: 0, enriquecidos: 0, ganados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
   if (filas.length > MAX_FILAS_IMPORT) {
-    return { creados: 0, enriquecidos: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Parte el archivo en dos.`] };
+    return { creados: 0, enriquecidos: 0, ganados: 0, omitidos: 0, errores: [`Son ${filas.length} filas y el tope por importación es ${MAX_FILAS_IMPORT}. Parte el archivo en dos.`] };
   }
 
   // Sanitizar ANTES de mirar nada: el cliente pudo mandar cualquier cosa en cada
@@ -1499,6 +1515,18 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     // id que viaja en el payload es un id que cualquiera puede cambiar.
     leadExistenteId: null,
     enriquecer: f?.enriquecer === true,
+    // La propuesta de entrar como venta (#622). `pagoEnArchivo` es el GATE —lo manda el
+    // cliente, así que no autoriza nada por sí solo, pero frena la fila que llega
+    // marcada como venta sin que el archivo lo dijera— y `comoGanado` es la decisión.
+    pagoEnArchivo: f?.pagoEnArchivo === true,
+    comoGanado: f?.comoGanado === true,
+    // ⚠️ EL MONTO SE ACOTA ACÁ, y no es paranoia de tipos: esto se escribe en
+    // `monto_cierre_usd`, o sea en el número que después suman Revenue, el Segundo
+    // Cerebro y la ficha del cliente. Lo que no es un número positivo y en escala no es
+    // un monto: queda en null y la venta entra sin importe, que es un estado legítimo.
+    montoPago: Number.isFinite(Number(f?.montoPago)) && Number(f?.montoPago) > 0 && Number(f?.montoPago) <= MAX_MONTO_IMPORT
+      ? Number(f?.montoPago)
+      : null,
     bajaConfianza: f?.bajaConfianza === true,
   }));
 
@@ -1533,10 +1561,32 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
 
   let creados = 0;
   let enriquecidos = 0;
+  let ganados = 0;
   let omitidos = 0;
   const errores: string[] = [];
   const emailsNuevos = new Set<string>();
   const telsNuevos = new Set<string>();
+
+  /**
+   * LA ETAPA DE VENTA DEL EMBUDO AL QUE ENTRAN ESTAS FILAS (#622).
+   *
+   * ⚠️ SALE DEL PIPELINE DE *ESE* EMBUDO, nunca de la constante `'ganado'`. Escribir en
+   * `pipeline_stage` una clave que el embudo no tiene no falla —no hay FK, no hay check— y
+   * deja al lead en una columna que el tablero no dibuja: así desaparecieron 1.057 leads
+   * fuera del embudo. Si el embudo no la tiene, `etapaDeGanado` devuelve null y la
+   * propuesta no se honra: el lead entra como cualquier otro y la respuesta lo DICE, que
+   * es la única forma de que alguien se entere.
+   *
+   * Se resuelve UNA vez y sólo si hay algo que mover: es una lectura por importación, no
+   * una por fila.
+   */
+  const hayGanados = validadas.some((f) => entraGanado(f));
+  const etapaGanado = hayGanados
+    ? etapaDeGanado((funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault()).stages)
+    : null;
+  if (hayGanados && !etapaGanado) {
+    errores.push('Este embudo no tiene etapa de cierre: esos leads entraron en la primera etapa.');
+  }
 
   for (const f of validadas) {
     const email = f.email.toLowerCase();
@@ -1593,7 +1643,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     }
     if (!entra(f) || chocaAcá) { omitidos++; continue; }
     try {
-      await createLead({
+      const creado = await createLead({
         nombre: f.nombre,
         email: f.email || null,
         telefono: f.telefono || null,
@@ -1619,6 +1669,31 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
       creados++;
       if (email) emailsNuevos.add(email);
       if (tel) telsNuevos.add(tel);
+      /**
+       * LA VENTA (#622): el lead se crea igual que todos y DESPUÉS se lo mueve, por el
+       * MISMO camino que usa el tablero (`setPipelineStage`).
+       *
+       * ⚠️ NO SE LE AGREGÓ UNA COLUMNA A `createLead`, y el porqué es «una cosa, un
+       * lugar»: poner una etapa es sincronizar `estado_lead`, escribir el monto y dejar
+       * la línea en el historial del lead. Eso ya vive en un lugar; una segunda forma de
+       * hacerlo se desincroniza, y lo que queda mal es el número que suma la facturación.
+       *
+       * `requisitos: { omitir }` porque acá no hay a quién preguntarle, y el motivo queda
+       * en el historial: un salteo se saltea DICIÉNDOLO. Y si falla, el lead ya está
+       * creado —eso no se deshace—: se cuenta con su nombre en `errores`, que es lo único
+       * que permite ir a moverlo a mano.
+       */
+      if (etapaGanado && entraGanado(f)) {
+        try {
+          await setPipelineStage(creado.id, etapaGanado, {
+            monto: f.montoPago ?? null,
+            requisitos: { omitir: 'Importación: el archivo traía un pago cargado para este contacto' },
+          });
+          ganados++;
+        } catch (e) {
+          errores.push(`${f.nombre}: entró, pero no pude marcarlo como ganado (${e instanceof Error ? e.message : 'error'}).`);
+        }
+      }
     } catch (e) {
       omitidos++;
       errores.push(`${f.nombre}: ${e instanceof Error ? e.message : 'error'}`);
@@ -1628,7 +1703,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   bust(TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { creados, enriquecidos, omitidos, errores: errores.slice(0, 20) };
+  return { creados, enriquecidos, ganados, omitidos, errores: errores.slice(0, 20) };
 }
 
 // ⚠️ ACÁ VIVÍAN `previsualizarImportLeadsAction` e `importLeadsCsvAction`, y se

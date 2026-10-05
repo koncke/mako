@@ -90,12 +90,16 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *  15 — AGENDÓ también con Cal.com, no solo con Calendly, y con el nombre y el
  *       mail de quien reserva (24/08/2026). Y se arregla el texto de los clics:
  *       el snippet servido borraba todas las eses («¿Qué pa a de pué…»).
+ *  19 — se mide el SCROLL: hasta dónde bajó la persona en la página (hitos de
+ *       25/50/75/100 + el punto exacto al irse). CON FRENO — el evento del
+ *       navegador se dispara por cada pixel, así que el handler agenda una mirada
+ *       cada 400 ms y solo se manda al cruzar un hito.
  *  10 — se miden AGENDÓ (Calendly avisa al padre por postMessage) y el ciclo de
  *       vida del video: pausa, retoma y fin. Sin lo primero, el embudo de quien
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 18;
+export const SNIPPET_VERSION = 19;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -125,6 +129,7 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
+  19: 'hasta dónde baja cada persona en tu página. Hasta ahora se sabía quién entró, qué video vio y qué botón apretó, y nada de cuánto leyó: quien se fue arriba sin leer la oferta y quien llegó hasta el final y no la apretó se veían iguales, y son dos problemas distintos',
   18: 'la retención de tu VSL cuando usa un reproductor moderno: se estaba midiendo dos veces, como si fueran dos videos distintos, así que las reproducciones salían al doble y la curva partida en dos',
   17: 'de qué anuncio viene cada persona que deja sus datos, y qué contestó en tu formulario. Antes el lead entraba sin origen —tu CRM decía «Directo» aunque hubiera llegado por una campaña— y el WhatsApp de aviso solo traía el nombre y el teléfono; ahora trae también lo que completó, así sabes qué le interesa antes de escribirle',
   16: 'la medición de los videos que NO están subidos a tu página: Wistia, YouTube y Vimeo. Hasta ahora un VSL alojado ahí no registraba ni una reproducción, y el panel te decía que lo subieras a otro lado; ahora se mide igual, con su curva de retención. Y de los que no se pueden medir —los de Google Drive— al menos queda registrado que la persona los tocó',
@@ -860,7 +865,21 @@ export async function landingDiagnostico(
   const { getFunnelDefault } = await import('./funnels');
   const { entradas } = await getFunnelDefault().catch(() => ({ entradas: [] as string[] }));
   const declarado = (entradas as string[]).includes('landing');
-  const { data: optins } = declarado
+  // ⚠️⚠️ PEGAR EL PIXEL YA DECLARA LA ENTRADA (Martín, 04/10/2026): «cargar el
+  // pixel en una landing ya debería contar». La ruta del opt-in acepta cualquier
+  // opt-in que venga de una PÁGINA, sin mirar la casilla
+  // (app/api/track/optin/route.ts), así que `declarado` dejó de decidir si el
+  // formulario entra — y este renglón se leía de `declarado`.
+  //
+  // Es la otra mitad de la regla de la casa: al cambiar quién decide, hay que
+  // buscar QUIÉN MIRABA el campo que decidía. Sin esto, la pantalla le pinta en
+  // rojo «falta marcar la landing como entrada» a un cliente cuyo formulario SÍ
+  // está entrando, y lo manda a una casilla que ya no hace nada.
+  //
+  // Un pageview de ESTA página es la prueba de que el Pixel está ahí, que es
+  // exactamente de lo que la ruta da fe.
+  const entraAlCrm = declarado || hayPageview;
+  const { data: optins } = entraAlCrm
     ? await db.from('propuestas').select('created_at').eq('origen', 'landing').gte('created_at', desde).limit(1)
     : { data: null };
   const hayOptin = (optins?.length ?? 0) > 0 || ((leadsOptin.data?.length ?? 0) > 0);
@@ -918,7 +937,13 @@ export async function landingDiagnostico(
   //
   // `!piezas` es «no se»: ahi se frena, como en el resto de los chequeos.
   const HOSTS_DE_LA_V16 = ['video-wistia', 'video-youtube', 'video-vimeo', 'video-drive'];
-  const ganaConLaNueva = !piezas || piezas.some((p) => HOSTS_DE_LA_V16.includes(p));
+  // ⚠️ LA V19 LE SIRVE A TODAS. Mide el scroll, y no hay landing que no se pueda
+  // bajar: el gate por host era correcto para el salto a la v16 —que solo le
+  // cambiaba algo a quien aloja el video afuera— y con la v19 puesto deja mudo
+  // justo el caso general. Se pregunta por la version, no por las piezas.
+  const VERSION_DEL_SCROLL = 19;
+  const ganaConLaNueva = instalada < VERSION_DEL_SCROLL
+    || !piezas || piezas.some((p) => HOSTS_DE_LA_V16.includes(p));
   const codigoViejo = instalada > 0 && instalada < SNIPPET_VERSION && ganaConLaNueva;
 
   // ⚠️ EL ORDEN ES EL DEL EMBUDO, no el de cuándo se escribió cada chequeo.
@@ -965,7 +990,10 @@ export async function landingDiagnostico(
   // bloqueamos nosotros. Eso no es una lectura de HTML que puede estar vieja —
   // es una persona que completó algo en esa página. Si eso pasó, «no aplica» es
   // directamente falso.
-  const hayOptinBloqueado = eventos.some((e) => e.tipo === 'optin_bloqueado');
+  // ⚠️ Y UN BLOQUEO SOLO CUENTA SI HOY SEGUIRÍA BLOQUEANDO. Las filas
+  // `optin_bloqueado` de antes del 04/10/2026 son de la política vieja: tratarlas
+  // como un problema vivo mandaría a marcar una casilla que ya no cambia nada.
+  const hayOptinBloqueado = !entraAlCrm && eventos.some((e) => e.tipo === 'optin_bloqueado');
   const puedeCaptar = hayOptinBloqueado
     || (!!piezas && (piezas.includes('formulario') || piezas.includes('embed-agenda')));
   const paso5: Omit<ChequeoDiag, 'id'> = tieneAgenda && !tieneFormPropio
@@ -981,12 +1009,16 @@ export async function landingDiagnostico(
         // está perdiendo es peor que un rojo.
         estado: hayOptinBloqueado ? 'falta' : hayAgendo ? 'ok' : 'falta',
         detalle: hayOptinBloqueado
-          ? 'Se registra la reserva, pero el contacto de quien reserva NO entra al CRM: falta marcar la landing como entrada de leads. Estás midiendo la venta y perdiendo a la persona.'
+          ? 'Se registra la reserva, pero el contacto de quien reserva no entra al CRM. Pega el código en esta página y vuelve a probar.'
           : hayAgendo
           ? 'Se registra cuando alguien reserva en tu calendario: es el final de tu embudo.'
           : enPrueba ? 'Aún no llega. Reserva un horario en tu propio calendario para probarlo.'
           : 'Aún no llega ninguna reserva. Se registra sola cuando alguien agenda.',
-        accion: hayOptinBloqueado ? { texto: 'Activar la landing como entrada de leads', href: '/crm?embudo=entradas' } : undefined,
+        // Ya NO se ofrece «Activar la landing como entrada de leads»: desde el
+        // 04/10/2026 esa casilla no decide si el contacto entra, así que el botón
+        // mandaría a hacer un trámite que no arregla nada. Lo que lo arregla es
+        // pegar el código, y eso es el paso 3 de esta misma pantalla.
+        accion: undefined,
       }
     : {
         label: 'Deja sus datos',
@@ -996,13 +1028,13 @@ export async function landingDiagnostico(
         // ámbar queda para lo que SÍ hay que hacer; un aviso permanente entrena
         // a ignorar la lista entera. Pero si su página TIENE formulario o agenda,
         // el problema existe y es de una sola casilla.
-        estado: !declarado ? (puedeCaptar ? 'falta' : 'na') : hayOptin ? 'ok' : 'falta',
-        detalle: !declarado
+        estado: !entraAlCrm ? (puedeCaptar ? 'falta' : 'na') : hayOptin ? 'ok' : 'falta',
+        detalle: !entraAlCrm
           ? (hayOptinBloqueado
-            ? 'Alguien ya dejó sus datos en tu página y NO entró al CRM: falta marcar la landing como entrada de leads. Hasta que lo hagas, cada persona que lo complete se pierde.'
+            ? 'Alguien dejó sus datos y NO entró al CRM. Pega el código en esta página y vuelve a probar.'
             : puedeCaptar
-            ? `Tu página tiene ${piezas!.includes('formulario') ? 'un formulario' : 'una agenda'} y sus leads NO están entrando a MaKo: falta marcar la landing como entrada de leads. Hasta que lo hagas, cada persona que lo complete se pierde.`
-            : 'No aplica: no marcaste la landing como entrada de leads. Si tu página capta contactos, actívala en Funnel → De dónde entran tus leads.')
+            ? `Tu página tiene ${piezas!.includes('formulario') ? 'un formulario' : 'una agenda'} y sus leads no están entrando. Pega el código en esta página.`
+            : 'Este paso aún no aplica: no llega ninguna visita de esta página.')
           : hayOptin
             ? `El formulario llega y la persona ingresa sola al CRM.${pendientes > 0 ? ` Hay ${pendientes} pendiente${pendientes === 1 ? '' : 's'}: ${pendientes === 1 ? 'coincide' : 'coinciden'} con un contacto que ya tienes, así que esa decisión es tuya.` : ''}`
             : enPrueba ? 'Aún no llega. Completa tu formulario en la pestaña que abrimos: ingresará solo al CRM.'
@@ -1014,7 +1046,7 @@ export async function landingDiagnostico(
         // prosa, o sea a buscarlo a mano desde una ventana de 440 px.
         accion: pendientes > 0
           ? { texto: pendientes === 1 ? 'Ver el pendiente' : `Ver los ${pendientes} pendientes`, href: '/crm/revisar' }
-          : !declarado && puedeCaptar ? { texto: 'Activar la landing como entrada de leads', href: '/crm?embudo=entradas' } : undefined,
+          : undefined,
       };
 
   const chequeos: ChequeoDiag[] = [
@@ -2345,6 +2377,82 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
       enviar({ tipo_evento: 'click', detalle: detalle.slice(0, 300) + (texto && href ? ' — ' + texto : '') });
     } catch (e) {}
   }, true);
+
+  // ── SCROLL ──────────────────────────────────────────────────────────────────
+  // HASTA DONDE BAJO LA PERSONA EN LA PAGINA. Faltaba la otra mitad de la visita:
+  // se sabia que entro, que video vio y que apreto, y nada de cuanto LEYO. En una
+  // pagina larga eso es la diferencia entre alguien que se fue arriba y alguien
+  // que llego hasta la oferta y no la apreto — dos problemas distintos, con
+  // arreglos distintos, que hasta hoy se veian iguales.
+  //
+  // ⚠️ VA CON FRENO, y no es prolijidad: el evento 'scroll' del navegador se
+  // dispara por cada pixel que se mueve la pagina, asi que un enviar() adentro del
+  // handler son cientos de requests por visita. Hay dos frenos encimados:
+  //   · el handler no calcula nada: agenda UNA mirada cada 400 ms y sale;
+  //   · y solo se manda al CRUZAR un hito (25/50/75/100), una vez cada uno.
+  // Techo: 4 eventos por visita, mas el del cierre. El mismo orden de magnitud
+  // que los clics, que estan topeados en 40.
+  //
+  // Y sale por enviar(), igual que los clics: un solo camino, un solo lugar donde
+  // se le pega el token, la pagina y el marcador de prueba.
+  var HITOS_SCROLL = [25, 50, 75, 100];
+  var scrollHito = 0;      // el hito mas alto YA mandado
+  var scrollMax = 0;       // lo mas abajo que llego, exacto
+  var scrollTimer = 0;
+  var scrollFinales = 0;
+  function profundidadScroll() {
+    var doc = document.documentElement || {};
+    var cuerpo = document.body || {};
+    var alto = Math.max(doc.scrollHeight || 0, cuerpo.scrollHeight || 0, doc.offsetHeight || 0);
+    var visible = window.innerHeight || doc.clientHeight || 0;
+    if (!visible || !alto) return 0;
+    // Una pagina que entra ENTERA en la pantalla no se scrollea, y ahi un 0%
+    // seria mentir: la persona la vio completa sin mover un dedo. Va 100.
+    if (alto <= visible) return 100;
+    var y = window.pageYOffset || doc.scrollTop || cuerpo.scrollTop || 0;
+    var pct = Math.round(((y + visible) * 100) / alto);
+    return pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+  }
+  function mirarScroll() {
+    try {
+      var pct = profundidadScroll();
+      if (pct > scrollMax) scrollMax = pct;
+      for (var i = 0; i < HITOS_SCROLL.length; i++) {
+        var h = HITOS_SCROLL[i];
+        if (scrollMax >= h && h > scrollHito) {
+          scrollHito = h;
+          enviar({ tipo_evento: 'scroll', porcentaje: h });
+        }
+      }
+    } catch (e) {}
+  }
+  window.addEventListener('scroll', function () {
+    if (scrollTimer) return;
+    scrollTimer = setTimeout(function () { scrollTimer = 0; mirarScroll(); }, 400);
+  }, { passive: true });
+  // El punto EXACTO al irse, que el hito no sabe dar: quien llego al 68% quedaria
+  // registrado como 50. Topeado en 3 — la pestana puede esconderse y volver varias
+  // veces — y solo si supera al hito ya mandado, porque si no no agrega nada.
+  function cerrarScroll() {
+    try {
+      if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = 0; }
+      mirarScroll();
+      if (scrollFinales >= 3 || scrollMax <= scrollHito) return;
+      scrollFinales++;
+      scrollHito = scrollMax;
+      enviar({ tipo_evento: 'scroll', porcentaje: scrollMax });
+    } catch (e) {}
+  }
+  window.addEventListener('pagehide', cerrarScroll);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') cerrarScroll();
+  });
+  // ⚠️ LA PRIMERA MEDIDA ESPERA AL 'load'. Mientras la pagina carga, el alto del
+  // documento todavia no cuenta las imagenes: se mide una pagina corta que no lo
+  // es, y la regla de arriba (entra entera -> 100) mandaria un 100 falso en la
+  // primera linea de cada visita.
+  if (document.readyState === 'complete') setTimeout(mirarScroll, 500);
+  else window.addEventListener('load', function () { setTimeout(mirarScroll, 500); });
 
 ${bloqueClarity(clarityProjectId)}
   // ── AGENDÓ ────────────────────────────────────────────────────────────────

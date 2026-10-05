@@ -24,7 +24,7 @@ import { APP_BASE_URL } from './app-url';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from './queries';
-import type { ClosingObjection, ClosingMoment, CallTipo, Tone } from './closing';
+import { insightsDeLlamadaDeLead, type InsightLlamada } from './insights-llamada';
 
 /**
  * El link que MaKo manda por WhatsApp. Lo arma el CÓDIGO y nunca el modelo:
@@ -36,23 +36,16 @@ export function linkResumenLead(leadId: number): string {
   return `${APP_BASE_URL}/crm/${leadId}/resumen`;
 }
 
-/** Una llamada ya analizada de este lead, con lo único que se lee en el celular. */
-export type LlamadaResumen = {
-  recordingId: number;
-  tipo: CallTipo | null;
-  titulo: string | null;
-  /** ISO exacto del arranque de la grabación. */
-  startedAt: string | null;
-  duracionMin: number | null;
-  outcome: string | null;
-  outcomeTone: Tone | null;
-  resumen: string | null;
-  proximoPaso: string | null;
-  objeciones: ClosingObjection[];
-  momentos: ClosingMoment[];
-  /** Link a la grabación (share_url cuando existe, si no el call_url). */
-  url: string | null;
-};
+/**
+ * Una llamada ya analizada de este lead.
+ *
+ * ⚠️ ES EL MISMO TIPO QUE LEE EL APARTADO DE LA FICHA, y la lectura también
+ * (`insightsDeLlamadaDeLead`). Acá vivía una copia del `select` y del mapeo de
+ * `closing_analyses`, y con dos lecturas de la misma fila el día que una agregue
+ * un campo o cambie el filtro, el resumen del celular y la ficha cuentan dos
+ * versiones de la misma llamada.
+ */
+export type LlamadaResumen = InsightLlamada;
 
 /** Una pregunta del formulario de Calendly con su respuesta. */
 export type RespuestaFormulario = { pregunta: string; respuesta: string };
@@ -113,27 +106,6 @@ const PREGUNTAS: ReadonlyArray<{ campo: keyof Lead; pregunta: string }> = [
   { campo: 'respuesta_cuando_empezar', pregunta: '¿Cuándo quiere empezar?' },
 ];
 
-const COLS = [
-  'recording_id', 'tipo', 'title', 'started_at', 'duration_min', 'outcome', 'outcome_tone',
-  'summary', 'next_step', 'objections', 'moments', 'share_url', 'call_url',
-].join(', ');
-
-type Fila = {
-  recording_id: number;
-  tipo: CallTipo | null;
-  title: string | null;
-  started_at: string | null;
-  duration_min: number | null;
-  outcome: string | null;
-  outcome_tone: Tone | null;
-  summary: string | null;
-  next_step: string | null;
-  objections: ClosingObjection[] | null;
-  moments: ClosingMoment[] | null;
-  share_url: string | null;
-  call_url: string | null;
-};
-
 /**
  * La reunión que VIENE: la primera de R1/R2 que todavía no pasó.
  *
@@ -167,15 +139,13 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
   const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   const supabase = await getTenantDb();
 
-  const [tz, filas, campMap, adMap, borrador] = await Promise.all([
+  const [tz, llamadas, campMap, adMap, borrador] = await Promise.all([
     tzDeWorkspace(ws).catch(() => TZ_DEFAULT),
-    supabase
-      .from('closing_analyses')
-      .select(COLS)
-      .eq('lead_id', leadId)
-      .eq('status', 'analizada')
-      .order('started_at', { ascending: false })
-      .then((r) => (r.data ?? []) as unknown as Fila[]),
+    // ⚠️ SIN `.catch(() => [])`: «no pude leer el análisis» y «esta llamada no se
+    // analizó» mandan a lugares distintos, y acá el segundo caso ya tiene su
+    // pantalla (el botón de analizar). Un vacío por un error de lectura la
+    // ofrecería y pagaría un análisis que ya está hecho.
+    insightsDeLlamadaDeLead(leadId),
     getCampaignNameMap().catch(() => ({} as Record<string, string>)),
     getAdNameMap().catch(() => ({} as Record<string, string>)),
     // Solo el PENDIENTE: uno ya enviado o descartado no es algo «que te dejé
@@ -193,23 +163,6 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
       .then((r) => ((r.data ?? [])[0] as { texto: string; created_at: string } | undefined) ?? null)
       .catch(() => null),
   ]);
-
-  const llamadas: LlamadaResumen[] = filas.map((f) => ({
-    recordingId: f.recording_id,
-    tipo: f.tipo,
-    titulo: f.title,
-    startedAt: f.started_at,
-    duracionMin: f.duration_min,
-    outcome: f.outcome,
-    outcomeTone: f.outcome_tone,
-    resumen: f.summary,
-    proximoPaso: f.next_step,
-    // Las objeciones ABIERTAS primero: es lo único de toda la pantalla que hay
-    // que resolver, y en el celular lo que queda abajo no se lee.
-    objeciones: [...(f.objections ?? [])].sort((a, b) => Number(a.handled) - Number(b.handled)),
-    momentos: f.moments ?? [],
-    url: f.share_url || f.call_url || null,
-  }));
 
   const respuestas: RespuestaFormulario[] = PREGUNTAS
     .map(({ campo, pregunta }) => ({ pregunta, respuesta: String(lead[campo] ?? '').trim() }))

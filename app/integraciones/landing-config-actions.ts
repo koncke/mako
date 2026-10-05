@@ -18,6 +18,7 @@ import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { clarityProjectId } from '@/lib/clarity';
 import { getWorkspaceActual } from '@/lib/workspace';
+import { productosAsignables, type ProductoAsignable } from '@/lib/landing-funnel';
 
 export type LandingsResult = { ok: true; landings: LandingConfig[] } | { ok: false; error: string };
 
@@ -36,10 +37,32 @@ export async function getLandingsAction(): Promise<LandingConfig[]> {
   return leer().catch(() => []);
 }
 
-/** Agrega o actualiza una landing. `anterior` convierte «guardar» en «editar». */
+/**
+ * Los productos que se le pueden asignar a una landing.
+ *
+ * Sale de `lib/landing-funnel.ts`, el MISMO modulo que usa la ruta del opt-in
+ * para resolver a que CRM entra el lead: con dos lectores, la pantalla podria
+ * ofrecer un producto al que el lead nunca llega.
+ */
+export async function getProductosAction(): Promise<ProductoAsignable[]> {
+  try {
+    await requireRolWs([], { nav: 'integraciones' });
+    return await productosAsignables();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Agrega o actualiza una landing. `anterior` convierte «guardar» en «editar».
+ *
+ * ⚠️ `funnelId` sigue la misma regla que `clarityProjectId`: ausente es «no lo
+ * toques», y lo que DESASIGNA es un `0`. Sin eso, corregirle la URL a una landing
+ * le borraria el producto, porque `conLanding` reconstruye la fila campo por campo.
+ */
 export async function guardarLandingAction(
   url: string,
-  parcial: { clarityProjectId?: string } = {},
+  parcial: { clarityProjectId?: string; funnelId?: number } = {},
   anterior?: string | null,
 ): Promise<LandingsResult> {
   try {

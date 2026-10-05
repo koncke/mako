@@ -21,6 +21,9 @@ import {
   type MetaFieldData,
 } from './meta-leads-campos';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
+// El apartado de insights de la llamada LEE closing_analyses; acá sólo se engancha
+// a este lead el análisis que ya existe de la grabación recién cargada (gratis).
+import { enlazarAnalisisDeGrabacion } from './insights-llamada';
 import { enTandas } from './ids-con-filas';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
@@ -1317,6 +1320,27 @@ export async function applyFathomRecording(
     const { error } = await supabase.from('leads').update({ fathom_links: newLinks }).eq('id', lead.id);
     if (error) throw new Error(`Error aplicando grabación Fathom a lead ${lead.id}: ${error.message}`);
   }
+  // ── EL ANÁLISIS DE ESA LLAMADA, ENGANCHADO A ESTE LEAD ────────────────────
+  // Acá pasan los TRES caminos que enganchan una grabación (el webhook de Fathom,
+  // el barrido de fathom-auto y el link que alguien pega a mano en la ficha), así
+  // que el disparo va acá y no en cada uno: puesto en los tres, el cuarto que se
+  // escriba mañana nace sin esto.
+  //
+  // Lo que se hace es la mitad GRATIS: el Closing Analyst le pone `lead_id` a su
+  // fila sólo cuando el email del invitado matchea un lead, así que una grabación
+  // matcheada por NOMBRE o pegada a mano queda analizada y nunca llega a la ficha.
+  // Enlazarla es un SELECT por `embed_token` y un UPDATE.
+  //
+  // ⚠️ LO QUE CUESTA PLATA NO VA ACÁ. Analizar una grabación nueva es una llamada
+  // al modelo de 90-120 s, y este camino lo dispara también el render del CRM con
+  // un `void` (lib/fathom-auto.ts): ahí la plataforma mata la función y el análisis
+  // se paga y se pierde. Eso vive en el cron, que es el único con presupuesto
+  // (lib/insights-llamada.ts → drenarInsightsDeLlamada).
+  if (addedLink && shareUrl) {
+    const { enlazado, motivo } = await enlazarAnalisisDeGrabacion(lead.id, shareUrl, { nombre: antes.nombre, empresa: antes.empresa });
+    console.log(`[fathom] lead ${lead.id}: insights de la llamada — ${enlazado ? 'enlazados' : `sin enlazar (${motivo})`}`);
+  }
+
   const after = { ...antes, ...(markedAsistencia ? { [asistField]: asistValue } : {}), ...(newLinks ? { fathom_links: newLinks } : {}) } as Lead;
   // El diff va contra lo RELEÍDO: con el objeto viejo el historial estampaba cambios
   // que no pasaron (una lista de links «vacía → dos» sobre un lead que ya tenía uno).
@@ -2069,8 +2093,14 @@ export async function getLeadRespuestas(lead: Lead): Promise<{ R1: RespuestaQA[]
 
 export type TrackingEvent = {
   ts: string;                                   // ISO
-  tipo: 'pageview' | 'play' | 'retencion' | 'exit' | 'click';
-  porcentaje: number | null;                    // retención/abandono
+  tipo: 'pageview' | 'play' | 'retencion' | 'exit' | 'click' | 'scroll';
+  /**
+   * Retención/abandono DEL VIDEO — y, en un `scroll`, hasta dónde bajó la persona
+   * en la PÁGINA (snippet v19). Son dos unidades distintas en la misma columna
+   * porque en la base también lo son: lo que las separa es `tipo`, y por eso la
+   * tarjeta nunca escribe un % sin decir de qué es.
+   */
+  porcentaje: number | null;
   landing_url: string | null;
   referrer: string | null;
   video_id: string | null;
@@ -2135,8 +2165,15 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
       // `salio`, `volvio`, `cierre` y `agendo` siguen afuera, y siguen afuera por lo
       // mismo que dice el párrafo de arriba: no tienen renglón propio todavía.
       const esClick = e.tipo_evento === 'click';
-      if (!esPlay && !esClick && !esEventoDeVideo(e.tipo_evento)) continue;
-      const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : esClick ? 'click' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
+      // ── Y EL SCROLL TAMBIÉN TIENE EL SUYO (tarea #701) ─────────────────────
+      // Lo manda el snippet desde la v19 y es la otra mitad de la visita: cuánto
+      // LEYÓ, no solo qué apretó. Entra con su `porcentaje`, que acá es de la PÁGINA
+      // y no del video — por eso el tipo es propio y no 'retencion': con el tipo
+      // compartido la ficha escribiría «Llegó al 50% del VSL» sobre una página sin
+      // un solo video, que es exactamente el disfraz que el párrafo de arriba corta.
+      const esScroll = e.tipo_evento === 'scroll';
+      if (!esPlay && !esClick && !esScroll && !esEventoDeVideo(e.tipo_evento)) continue;
+      const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : esClick ? 'click' : esScroll ? 'scroll' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
       out.push({
         ts: e.created_at, tipo,
         // Un clic no tiene porcentaje y el snippet no lo manda, así que en la base es
@@ -2145,8 +2182,11 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
         // que `avanceDe` ya tuvo que cortar (segundos de PÁGINA como % de VIDEO).
         porcentaje: esClick ? null : e.porcentaje,
         landing_url: null, referrer: null,
-        video_id: esClick ? null : e.video_id,
-        vsl_titulo: esClick ? null : e.vsl_titulo,
+        // Un scroll no habla de ningún video: si llegara con `video_id`, `videosDe`
+        // lo contaría como un video EN JUEGO y el avance de esa persona pasaría a
+        // «—» (es la misma trampa que el 'toque_video' del snippet documenta).
+        video_id: esClick || esScroll ? null : e.video_id,
+        vsl_titulo: esClick || esScroll ? null : e.vsl_titulo,
         detalle: esClick ? e.detalle : null,
       });
     }

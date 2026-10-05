@@ -4,6 +4,12 @@
 // Cada reunión es un bloque: fecha + asistencia (+ calificado en R1) + sus
 // grabaciones de Fathom + las respuestas del formulario de Calendly de ESA
 // agenda (R1 y R2 tienen forms propios). Al pie, el equipo y la confirmación.
+//
+// ⚠️ Y DEBAJO, EN SU PROPIO APARTADO, lo que salió de la LLAMADA. Decisión del
+// dueño (04/10/2026): «las respuestas del Calendly son diferentes, debería haber
+// un apartado para los insights que salieron de la llamada». Lo que contestó al
+// agendar y lo que dijo hablando son dos cosas: ninguna pisa a la otra y cada
+// apartado dice de dónde salió (el de la llamada lo firma MaKo).
 
 import type { CSSProperties, ReactNode } from 'react';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -11,6 +17,11 @@ import type { Lead, FathomLink, RespuestaQA } from '@/lib/leads';
 import type { MiembroEquipo } from '../actions';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { AgendarR2 } from './AgendarR2';
+import { InsightsLlamadaCard } from './InsightsLlamadaCard';
+// El mismo criterio que reparte los análisis entre R1 y R2 decide acá en qué
+// bloque va cada grabación. Con dos copias, el día que alguien acepte otra
+// etiqueta el link queda en un bloque y su análisis en el otro.
+import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
 
 const iniciales = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -105,7 +116,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
   const agendo = !!lead.fecha_junta_1 || !!lead.fecha_junta_2 || !!lead.fecha_agenda || lead.asistio_j1 != null;
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
   // Heurística de asignación de grabaciones: por etiqueta; lo no etiquetado va a R1.
-  const esR2 = (f: FathomLink) => /r2|reuni[oó]n 2|junta 2/i.test(f.label ?? '');
+  const esR2 = (f: FathomLink) => etiquetaEsR2(f.label);
   const fathomR1 = links.filter((f) => !esR2(f));
   const fathomR2 = links.filter(esR2);
   const tuvoR2 = !!lead.fecha_junta_2 || lead.asistio_j2 != null;
@@ -155,6 +166,15 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             El control se apaga solo si el negocio no puede usarlo (ver AgendarR2). */}
         {!tuvoR2 && !lead.sin_r2 && <AgendarR2 leadId={lead.id} email={lead.email ?? null} />}
       </div>
+
+      {/* Lo que salió de la llamada. Va DEBAJO de los bloques y no adentro de
+          cada uno, por una razón de datos: es UNA lectura por lead (una fila por
+          grabación en closing_analyses) y partirla en dos la pediría dos veces.
+          Cada fila dice a qué reunión pertenece. */}
+      {/* Sin envoltorio a propósito: este apartado puede no dibujarse (sin
+          grabación no falta nada), y una caja puesta desde afuera convierte ese
+          `return null` en un hueco de 16 px que nadie puso. El margen va adentro. */}
+      <InsightsLlamadaCard leadId={lead.id} links={links} hayGrabacion={links.length > 0} />
 
       {/* Closer · Setter · Confirmación en recuadros que llegan hasta el ancho. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginTop: 16 }}>

@@ -277,7 +277,11 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   // 'salio'/'volvio'/'cierre' son de la PAGINA, no del video: la pestaña dejó de
   // estar a la vista, volvió, o se cerró. Distinto de 'exit', que es el punto de
   // abandono DEL video.
-  const CONOCIDOS = ['play', 'exit', 'click', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre'];
+  // 'scroll' (snippet v19) es de la PAGINA y viaja en `porcentaje`: hasta donde
+  // bajo la persona. No entra a la retencion del video — eso lo corta
+  // `esEventoDeVideo`, que es lista blanca — pero sin estar ACA se guardaba como
+  // 'desconocido' y el dato quedaba con un nombre que no dice nada.
+  const CONOCIDOS = ['play', 'exit', 'click', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre'];
   if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un

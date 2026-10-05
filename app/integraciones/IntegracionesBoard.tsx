@@ -814,7 +814,12 @@ const DONDE_PEGAR: PasoPegar[] = [
   {
     // El mismo script hace las dos cosas: sin esto, quien tiene formulario cree
     // que le falta pegar algo más — y no hay nada más que pegar.
-    paso: 'Si tu página tiene un formulario, el mismo Pixel ya lo captura: quien lo complete ingresa solo a tu CRM. Para activarlo, marca «Llenan un formulario en tu página» en Funnel → De dónde entran tus leads.',
+    //
+    // ⚠️ Y YA NO HAY NINGUNA CASILLA QUE MARCAR. Este paso mandaba a «Funnel → De
+    // dónde entran tus leads», y desde el 04/10/2026 pegar el Pixel ES declarar la
+    // entrada (app/api/track/optin/route.ts). Dejar la instrucción manda a hacer un
+    // trámite que no cambia nada, en una pantalla que además se retiró.
+    paso: 'Si tu página tiene un formulario, el mismo Pixel ya lo captura: quien lo complete ingresa solo a tu CRM.',
   },
 ];
 

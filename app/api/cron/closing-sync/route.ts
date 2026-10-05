@@ -17,6 +17,7 @@
 import type { NextRequest } from 'next/server';
 import { syncClosingCalls, RESERVA_LLAMADA_MS, type SyncResult } from '@/lib/closing';
 import { adjuntarFathomAutoThrottled } from '@/lib/fathom-auto';
+import { drenarInsightsDeLlamada } from '@/lib/insights-llamada';
 import { correrRonda } from '@/lib/cron-workspaces';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { credWs } from '@/lib/credenciales';
@@ -59,22 +60,46 @@ export async function GET(request: NextRequest) {
     // llamada a Claude.
     await adjuntarFathomAutoThrottled().catch((e) =>
       console.error(`[cron:closing-sync] fathom-auto: ${e instanceof Error ? e.message : String(e)}`));
+    // LOS QUE YA TIENEN GRABACIÓN Y NINGÚN ANÁLISIS, PRIMERO. La cola no se
+    // escribe en ningún lado: se CALCULA (lib/insights-llamada-reparto.ts), así
+    // que cubre los tres caminos por los que entra una grabación y el cuarto que
+    // se escriba mañana. Van antes que el barrido general porque son los leads
+    // cuya reunión acaba de pasar — los que alguien está por abrir.
+    //
+    // ⚠️ UNO POR RONDA, a propósito: una llamada al modelo reserva 135 s de los
+    // 300 del techo, y con dos este drenaje se come el presupuesto entero y el
+    // backlog de `syncClosingCalls` no corre nunca. Son 10 rondas por día.
+    const insights = await drenarInsightsDeLlamada({ deadline, max: 1 }).catch((e) => {
+      console.error(`[cron:closing-sync] insights de llamada: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    });
+    if (insights) {
+      console.log(
+        `[cron:closing-sync] ws=${ws} insights_pendientes=${insights.pendientes} corridos=${insights.corridos} ` +
+        `ocupados=${insights.ocupados} sin_turno=${insights.sinTurno}`,
+      );
+    }
     const res = await syncClosingCalls({ deadline });
     console.log(
       `[cron:closing-sync] ws=${ws} fathom=${res.total_fathom} ya=${res.ya_procesadas} cand=${res.candidatas} ` +
       `analizadas=${res.analizadas} ventas=${res.ventas} servicio=${res.servicio} otras=${res.otras} ` +
       `err=${res.errores} restantes=${res.restantes} corto_por=${res.corto_por} ms=${res.ms}`,
     );
-    return res;
+    return { ...res, insights };
   }, { techoMs: TECHO_MS, minimoMs: MINIMO_UTIL_MS, rotacion: 'closing-sync' });
 
-  const sync = (x: { resultado?: unknown }) => x.resultado as SyncResult | undefined;
+  const sync = (x: { resultado?: unknown }) => x.resultado as (SyncResult & { insights?: { pendientes: number; corridos: number } | null }) | undefined;
   const sinIA = ronda.resultados
     .filter((x) => (x.resultado as { sin_ia?: boolean } | undefined)?.sin_ia)
     .map((x) => x.ws);
   const corridos = ronda.resultados.filter((x) => x.ok && !sinIA.includes(x.ws));
   const analizadas = corridos.reduce((a, x) => a + (sync(x)?.analizadas ?? 0), 0);
   const pendientes = corridos.reduce((a, x) => a + (sync(x)?.restantes ?? 0), 0);
+  // Dos colas distintas y dos números distintos: `pendientes` son grabaciones sin
+  // analizar y `insights_pendientes` son LEADS con grabación y sin análisis en su
+  // ficha. Sumarlos daría un total que no se puede accionar.
+  const insightsCorridos = corridos.reduce((a, x) => a + (sync(x)?.insights?.corridos ?? 0), 0);
+  const insightsPendientes = corridos.reduce((a, x) => a + (sync(x)?.insights?.pendientes ?? 0), 0);
   const fallidos = ronda.resultados.filter((x) => !x.ok).length;
 
   // TRES estados, no dos: corrió · SIN TURNO (diferido a la próxima ronda, que NO es
@@ -100,6 +125,8 @@ export async function GET(request: NextRequest) {
       fallidos,
       analizadas,
       pendientes,
+      insights_corridos: insightsCorridos,
+      insights_pendientes: insightsPendientes,
     },
     orden: ronda.orden,
     sin_turno: ronda.sinTurno,
