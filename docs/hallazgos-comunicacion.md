@@ -7493,3 +7493,37 @@ corrida de agentes de la otra sesión:
 - `lib/metodo-catalogo.ts:289` — el remitente de Resend con **«Mauricio
   <hola@tudominio.com>»**, dos veces (el campo y su nota).
 
+## Con más de un embudo vivo, la glosa del cohorte de una nutrición describe el embudo EQUIVOCADO (04/10/2026)
+
+**Vive en:** `lib/nutricion-generator.ts` → `contextoDeSecuencia`
+
+El chat del CRM hizo que el opt-in de una landing guarde el `funnel_id` del producto de
+esa página (`865dffb4`): hasta entonces TODO lead de landing caía al embudo por defecto.
+Avisaron del cambio por si alguna secuencia se elegía por embudo. Medido en producción
+ese mismo día:
+
+| | |
+|---|---|
+| Workspaces con **más de un embudo vivo** | **4** (ws1, ws11, ws15, ws17 — dos cada uno) |
+| Secuencias de nutrición con `funnel_id` | **0 de 62** (la columna de la mig 0170 nace NULL) |
+| Leads con `funnel_id` | 2 de 1.549 (recién empieza a poblarse) |
+
+**Ninguna secuencia se SELECCIONA por embudo**, así que nada se dispara mal: el trigger
+`etapa_actual` es funnel-agnóstico a propósito. Lo que sí cambia de significado es la
+GLOSA del cohorte que va al prompt: `contextoDeSecuencia` arma «Lead parado en la etapa
+"X" del funnel del negocio» leyendo `getFunnelDefault()`, y en esos cuatro workspaces el
+lead puede estar ahora en el OTRO embudo vivo. Si la clave de etapa no existe en el
+embudo por defecto, cae a la glosa genérica (inofensivo); si existe con otro rótulo, al
+modelo se le dice una etapa en la que el lead no está.
+
+**No se arregló hoy, y el motivo es que no hay de dónde leer la respuesta correcta**: con
+las 62 secuencias en `funnel_id` NULL, `getFunnelDe(sec.funnel_id)` —que es lo que el
+comentario de esa función ya dice que va— no tiene qué resolver. El arreglo necesita que
+una secuencia DECLARE su embudo, que es la punta abierta de la mig 0170.
+
+⚠️ **Y la regla que generaliza, que es por qué esto se escribe:** cuando una columna pasa
+de «siempre NULL» a poblarse, lo que cambia no es sólo quién la lee — **cambia el
+significado de todo lo que asumía que había UNO**. Acá el default dejó de ser «el embudo
+del negocio» para pasar a ser «uno de los embudos del negocio», sin que ninguna línea de
+este archivo se tocara.
+
