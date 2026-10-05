@@ -246,6 +246,10 @@ export const TRIGGERS: Opcion[] = [
   { value: 'reactivacion_viejo', label: 'Reactivación de lead frío' },
   { value: 'ultimo_intento_antes_noresp', label: 'Último intento' },
   { value: 'etapa_actual', label: 'Está en la etapa de la secuencia (funnel)' },
+  // La ENTREGA del servicio (el kanban de Customer Success, mig 0188/0189). Trigger
+  // propio y no un valor más de `etapa_actual`: las claves de las dos listas de etapas
+  // las edita el cliente y podrían chocar — ver lib/nutricion-etapa.ts.
+  { value: 'entrega_actual', label: 'Llegó a una etapa de la ENTREGA del servicio' },
 ];
 
 // ── Segmentos para broadcasts ─────────────────────────────────────────────────

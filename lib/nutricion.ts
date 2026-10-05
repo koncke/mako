@@ -25,7 +25,7 @@ import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
 import { canalNoOficial, proveedorDelPaso } from '@/lib/nutricion-canal';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
-import { secuenciasDeEtapa, TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
+import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -102,6 +102,15 @@ export type Secuencia = {
    * las 62 filas de la base. Lo lee `leadsDeCohorte` — ver lib/nutricion-ambito.ts.
    */
   funnel_id: number | null;
+  /**
+   * De qué PRODUCTO es la entrega de la que cuelga (mig 0189, `trigger_tipo =
+   * 'entrega_actual'`). `null` = la entrega de cualquier producto.
+   *
+   * No es `funnel_id` con otro nombre: la entrega de un servicio no tiene embudo, sus
+   * etapas viven en `producto_entrega` y el cliente en `cliente_entrega`, las dos
+   * keyeadas por producto. Lo decide el trigger, no la presencia del dato.
+   */
+  producto_id: number | null;
 };
 
 // % de retención del VSL a partir del cual consideramos "lo vio en serio".
@@ -140,14 +149,14 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id')
     .eq('activa', true)
     // Archivada nunca enrola ni envía, aunque haya quedado con activa=true.
     .is('archivada_at', null);
   if (error) throw new Error(`getSecuenciasActivas: ${error.message}`);
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
-    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
+    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
     funnel_id: number | null;
   }>;
   return rows.map((r) => ({
@@ -163,6 +172,7 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
     antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
     funnel_id: r.funnel_id == null ? null : Number(r.funnel_id),
+    producto_id: r.producto_id == null ? null : Number(r.producto_id),
   }));
 }
 
@@ -175,7 +185,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id')
     // Las archivadas no se listan, no enrolan y no envían. No se borran porque
     // las inscripciones y los envíos las referencian: borrarlas se llevaría
     // puesto el historial de a quién se le escribió.
@@ -184,7 +194,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
   if (error) throw new Error(`getSecuenciasConStats: ${error.message}`);
   const rows = (data ?? []) as Array<{
     id: number; clave: string; nombre: string; etapa: string;
-    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown;
+    trigger_tipo: string; activa: boolean; pasos: unknown; estrategia: unknown; producto_id: number | null;
     funnel_id: number | null;
   }>;
 
@@ -225,6 +235,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     envio_automatico: parseEstrategia(r.estrategia)?.envio_automatico === true,
     antiguedad_max_horas: parseEstrategia(r.estrategia)?.antiguedad_max_horas ?? null,
     funnel_id: r.funnel_id == null ? null : Number(r.funnel_id),
+    producto_id: r.producto_id == null ? null : Number(r.producto_id),
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -395,7 +406,45 @@ export async function leadsDeCohorte(
   triggerTipo: string,
   etapa?: string | null,
   funnelId?: number | null,
+  productoId?: number | null,
 ): Promise<number[]> {
+  /**
+   * La ENTREGA no pasa por el ámbito de embudo ni por las columnas del funnel: su
+   * estado es un HECHO DECLARADO que vive en `cliente_entrega` (mig 0188), una fila por
+   * (cliente, producto), y se pregunta directo.
+   *
+   * ⚠️ ESTO ES LA RED DEL EVENTO, NO SU REEMPLAZO. El movimiento real lo dispara
+   * `moverClienteDeEtapa` en el acto; esto existe para dos casos que el evento no puede
+   * cubrir: (a) el enrolamiento instantáneo es best-effort —si falla, sin esto el
+   * cliente se queda sin la secuencia PARA SIEMPRE y en silencio— y (b) una secuencia
+   * que se crea HOY tiene que alcanzar a los clientes que YA están parados en esa
+   * etapa, que es exactamente lo que hace `etapa_actual` del lado de la venta.
+   */
+  if (triggerTipo === TRIGGER_ENTREGA) {
+    const key = (etapa ?? '').trim();
+    if (!key) return [];
+    const supabase = (await getTenantDb());
+    try {
+      // Paginado por `id`: una fila por cliente y por producto cruza las 1000 con el
+      // uso, y un `.select()` suelto devuelve 1000 con un 200 — el cliente que cae del
+      // corte no se enrola NUNCA, en cada pasada, sin un log (AGENTS.md § el techo de
+      // 1000 filas).
+      const filas = await leerTodo<{ lead_id: number }>(
+        supabase, 'cliente_entrega', 'id, lead_id',
+        {
+          orden: 'id',
+          filtros: (q) => {
+            const conEtapa = q.eq('etapa', key);
+            // NULL = la entrega de cualquier producto (igual que `funnel_id` NULL).
+            return (productoId == null ? conEtapa : conEtapa.eq('producto_id', productoId)) as ConsultaPaginada;
+          },
+        },
+      );
+      return [...new Set(filas.map((f) => Number(f.lead_id)).filter((n) => Number.isFinite(n)))];
+    } catch (e) {
+      throw new Error(`cohorte entrega_actual(${key}): ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   return cohorteDeTrigger(triggerTipo, etapa ?? null, await ambitoDeFunnel(funnelId));
 }
 
@@ -740,7 +789,7 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
   const plan: PlanInscripcion[] = [];
 
   for (const sec of secuencias) {
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id));
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
     if (candidatos.length === 0) continue;
     const inscriptos = await inscriptosDe(supabase, candidatos, (q) => q.eq('secuencia_id', sec.id))
       .catch((e: unknown) => { throw new Error(`planificarInscripciones: ${e instanceof Error ? e.message : String(e)}`); });
@@ -783,7 +832,7 @@ export async function comprometerInscripciones(): Promise<number> {
   let creadas = 0;
 
   for (const sec of secuencias) {
-    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id));
+    const candidatos = await aTiempo(supabase, sec, await leadsDeCohorte(sec.trigger_tipo, sec.etapa, sec.funnel_id, sec.producto_id));
     if (candidatos.length === 0) continue;
     // Un error acá LANZA: antes se ignoraba, «nadie inscripto» reinsertaba a todos y
     // el insert moría contra el unique — o sea que igual cortaba, pero con un
@@ -816,14 +865,20 @@ export async function comprometerInscripciones(): Promise<number> {
 // evento cae fuera de 9-21 MX, la inscripción queda vencida y la levanta la
 // primera corrida del cron de la mañana.
 
-export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva' | 'etapa';
+export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega';
 
 /** Lo que el evento de ETAPA necesita saber, porque no se deduce del lead id. */
 export type CtxEvento = {
   /** La etapa a la que ACABA de caer. Sin esto el evento de etapa no enrola a nadie. */
   etapa?: string | null;
-  /** El embudo del lead, o sea su PRODUCTO. NULL = el del negocio. */
+  /** El embudo del lead. NULL = el del negocio. Es el ámbito de las etapas de VENTA. */
   funnelId?: number | string | null;
+  /**
+   * El PRODUCTO cuya entrega se movió. Es el ámbito del evento `'entrega'` y NO es lo
+   * mismo que `funnelId`: del producto al embudo hay dos saltos, así que mandar uno
+   * donde va el otro es un número correcto sobre la pregunta equivocada.
+   */
+  productoId?: number | string | null;
 };
 
 // Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
@@ -835,6 +890,9 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   // etapa pueden ser muchas y cada una es de UNA etapa y de UN producto. El filtro fino
   // lo hace `secuenciasDeEtapa` unas líneas más abajo; esta lista sólo acota qué mirar.
   etapa: [TRIGGER_ETAPA],
+  // La ENTREGA de un servicio (el kanban de Customer Success). Trigger propio: ver
+  // `secuenciasDeEntrega`.
+  entrega: [TRIGGER_ENTREGA],
 };
 
 /**
@@ -872,6 +930,9 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       for (const sec of delEvento) conAmbito.push({ ...sec, ambito: await ambitoDeFunnel(sec.funnel_id) });
       delEvento = secuenciasDeEtapa(conAmbito, ctx?.etapa, ctx?.funnelId);
     }
+    // La ENTREGA no necesita resolver ningún ámbito contra la base: el producto es el
+    // producto, sin default ni NULL que signifique otra cosa.
+    if (evento === 'entrega') delEvento = secuenciasDeEntrega(delEvento, ctx?.etapa, ctx?.productoId);
     // El tope de antigüedad vale también acá: un evento de un lead viejo (una
     // agenda nueva, un lead re-importado) no lo mete a una secuencia que no le
     // escribe a leads de esa edad.

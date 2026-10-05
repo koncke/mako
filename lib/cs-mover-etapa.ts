@@ -199,8 +199,28 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
   }]);
   if (errAudit) console.error(`[cs-mover-etapa] el movimiento se guardó pero la línea de historial falló: ${errAudit.message}`);
 
-  // ⚠️ ACÁ VA `enrolarPorEvento` (ver la cabecera): sólo con `cambio: true`, y con un
-  // evento PROPIO de entrega, no con el de etapa de venta.
+  /**
+   * LAS SECUENCIAS DE LA ENTREGA, enganchadas donde pide la cabecera: en el único
+   * `return` de éxito y sólo con `cambio: true` — un movimiento que no movió nada no
+   * puede disparar mensajes.
+   *
+   * Con el evento PROPIO (`'entrega'` → trigger `entrega_actual`) y con el PRODUCTO,
+   * que son las dos cosas que esta sesión midió antes de que existiera el código: la
+   * clave de una etapa de entrega puede chocar con una de venta el día que el cliente
+   * las renombre, y del producto al embudo hay dos saltos. El filtro vive en
+   * `secuenciasDeEntrega` (lib/nutricion-etapa.ts), puro y con test.
+   *
+   * Import dinámico y best-effort, por lo mismo que en `setBoardStageOverride`: mover un
+   * cliente tiene que funcionar aunque la nutrición falle, y el cron barre
+   * `cliente_entrega` como red si este enrolamiento se cayó.
+   */
+  try {
+    const { enrolarPorEvento } = await import('./nutricion');
+    await enrolarPorEvento(pedido.leadId, 'entrega', { etapa: hacia, productoId: pedido.productoId });
+  } catch (e) {
+    console.error(`[cs-mover-etapa] el cliente ${pedido.leadId} se movió a «${hacia}» pero no pude enrolarlo:`, e instanceof Error ? e.message : String(e));
+  }
+
   return { ...base, cambio: true };
 }
 

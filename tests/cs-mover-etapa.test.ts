@@ -47,7 +47,11 @@ const CUERPO = SRC.slice(INI, FIN);
 test('el recorte es la función y no media biblioteca', () => {
   assert.ok(INI > 0, 'no encontré moverClienteDeEtapa');
   assert.ok(FIN > INI, 'no encontré dónde termina: ¿se renombró sacarClienteDeEntrega?');
-  assert.ok(CUERPO.length > 1500 && CUERPO.length < 6000, `el recorte mide ${CUERPO.length}: está mirando otra cosa`);
+  // El techo subió de 6000 a 8000 el 05/10 porque la función creció a propósito: el
+  // enrolamiento de las secuencias de entrega se enganchó acá, con su porqué. Lo que
+  // el número cuida sigue siendo lo mismo —que el recorte no se coma la función de al
+  // lado— y por eso sigue habiendo un techo y no `> 0`.
+  assert.ok(CUERPO.length > 1500 && CUERPO.length < 8000, `el recorte mide ${CUERPO.length}: está mirando otra cosa`);
   assert.ok(!CUERPO.includes('sacarClienteDeEntrega'), 'el recorte se comió la función siguiente');
 });
 
@@ -76,7 +80,10 @@ test('el historial no puede romper un movimiento ya guardado', () => {
   // El error del insert se LOGUEA y la función sigue. Si se hiciera `return fallo(...)`
   // ahí, la pantalla diría «no se pudo mover» sobre un cliente que YA se movió, y la
   // persona lo volvería a arrastrar.
-  assert.ok(/errAudit\).*console\.error/s.test(CUERPO), 'el fallo del historial tiene que quedar logueado');
+  // `[\s\S]` y no el flag `/s`: dotAll es ES2018 y el tsconfig de la casa apunta a
+  // ES2017, así que el flag no compila y el typecheck del pre-push bloquea el push de
+  // TODAS las sesiones (lo arregló la sesión del Chatbot el 05/10; misma intención).
+  assert.ok(/errAudit\)[\s\S]*console\.error/.test(CUERPO), 'el fallo del historial tiene que quedar logueado');
   assert.ok(!/if \(errAudit\) return fallo/.test(CUERPO), 'un historial que falla no puede deshacer el movimiento');
 });
 

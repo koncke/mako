@@ -67,3 +67,56 @@ export function secuenciasDeEtapa<T extends SecuenciaDeEtapa>(
     && leadEnAmbito(s.ambito, leadFunnelId)
   ));
 }
+
+/** El trigger que se cuelga de una etapa de la ENTREGA de un servicio. */
+export const TRIGGER_ENTREGA = 'entrega_actual';
+
+/** Lo mínimo de una secuencia para saber si una etapa de ENTREGA la dispara. */
+export type SecuenciaDeEntrega = {
+  id: number;
+  trigger_tipo: string;
+  etapa: string | null;
+  /** El producto de cuya entrega cuelga. NULL = la entrega de cualquier producto. */
+  producto_id?: number | string | null;
+};
+
+/**
+ * Las secuencias que dispara un CLIENTE que acaba de caer en una etapa de la entrega.
+ *
+ * ⚠️ ES UN EVENTO PROPIO Y NO UN STRING MÁS ADENTRO DEL DE VENTA, y el porqué lo midió
+ * la sesión de Customer Success antes de que existiera este código: `secuenciasDeEtapa`
+ * compara la etapa con `===`, y las dos listas de etapas —la del embudo y la de la
+ * entrega— las edita el CLIENTE. Hoy el choque entre los dos defaults es CERO (venta:
+ * lead, agenda, agendaj2, facturando, ganado · entrega: onboarding, arranque, hito1,
+ * hito2, entregado), pero nada lo impide: el día que alguien llame `facturando` a una
+ * etapa de entrega, mover un cliente en el kanban de Customer Success dispararía una
+ * secuencia de VENTA. Un trigger aparte lo cierra por construcción, no por suerte.
+ *
+ * ⚠️ Y EL ÁMBITO ES EL PRODUCTO, NO EL EMBUDO. Son dos columnas distintas
+ * (`producto_id` de la mig 0189 vs `funnel_id` de la 0170) porque del producto al embudo
+ * hay dos saltos: pasar el id de un producto como si fuera el de un embudo hace match
+ * con el embudo que tenga ese número, que es el de cualquier otra cosa.
+ */
+export function secuenciasDeEntrega<T extends SecuenciaDeEntrega>(
+  secuencias: readonly T[],
+  etapa: string | null | undefined,
+  productoId: number | string | null | undefined,
+): T[] {
+  // La misma guarda que arriba, y por lo mismo: sin etapa no se enrola a nadie.
+  const key = (etapa ?? '').trim();
+  if (!key) return [];
+  // Y sin producto tampoco. Acá es MÁS estricto que en la venta: un lead sin embudo es
+  // normal (NULL = el del negocio), pero un movimiento de entrega SIEMPRE trae su
+  // producto —la fila de `cliente_entrega` lo tiene NOT NULL—, así que un evento sin
+  // producto es un llamador roto, no un caso de negocio.
+  const prod = productoId == null || productoId === '' ? null : Number(productoId);
+  if (prod == null || !Number.isFinite(prod)) return [];
+  return secuencias.filter((s) => {
+    if (s.trigger_tipo !== TRIGGER_ENTREGA) return false;
+    if ((s.etapa ?? '').trim() !== key) return false;
+    // NULL = la entrega de CUALQUIER producto, igual que `funnel_id` NULL en la venta.
+    if (s.producto_id == null || s.producto_id === '') return true;
+    const suyo = Number(s.producto_id);
+    return Number.isFinite(suyo) && suyo === prod;
+  });
+}

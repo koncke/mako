@@ -33,6 +33,7 @@ import { join } from 'node:path';
 // el runtime de Next, que bajo tsx no carga. Por eso las constantes viven
 // aparte — ver la cabecera de lib/nutricion-familias.ts.
 import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, mitadPostAgenda, secuenciasParaElLead, puedeAfirmarEtapa } from '../lib/nutricion-familias';
+import { TRIGGER_ENTREGA } from '../lib/nutricion-etapa';
 
 const raiz = join(__dirname, '..');
 const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
@@ -49,6 +50,7 @@ function triggersDelMotor(): string[] {
   const consts: Record<string, string> = {
     TRIGGER_AGENDA_CONOCIDO,
     TRIGGER_AGENDA_NUEVO,
+    TRIGGER_ENTREGA,
   };
   for (const m of src.matchAll(/triggerTipo === ([A-Z][A-Z0-9_]+)/g)) {
     const v = consts[m[1]];

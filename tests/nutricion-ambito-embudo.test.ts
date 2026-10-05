@@ -146,12 +146,15 @@ test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
   const sitios = [...src.matchAll(/leadsDeCohorte\(sec\.trigger_tipo, sec\.etapa([^)]*)\)/g)];
   assert.equal(sitios.length, 2, `los call-sites de leadsDeCohorte son ${sitios.length}: el plan y el commit`);
   for (const s of sitios) {
-    assert.equal(s[1], ', sec.funnel_id', 'un call-site resuelve la cohorte sin el embudo de la secuencia: el filtro queda muerto');
+    // Desde el 05/10 viaja también `sec.producto_id`: el ámbito de una secuencia de
+    // ENTREGA es el producto y no el embudo (mig 0189). Lo que el guard cuida sigue
+    // siendo lo mismo — que el call-site no resuelva la cohorte SIN el ámbito.
+    assert.equal(s[1], ', sec.funnel_id, sec.producto_id', 'un call-site resuelve la cohorte sin el ámbito de la secuencia: el filtro queda muerto');
   }
   // Y el dato tiene que llegar desde la base, o `sec.funnel_id` es `undefined`
   // para siempre y el ámbito es «todos» aunque el dueño declare el embudo.
-  assert.match(src, /select\('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id'\)/,
-    'las secuencias se leen sin funnel_id: la declaración del dueño no llega al motor');
+  assert.match(src, /select\('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id'\)/,
+    'las secuencias se leen sin el ámbito: la declaración del dueño no llega al motor');
 });
 
 // ── Las SEIS roturas, con su conteo ─────────────────────────────────────────

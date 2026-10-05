@@ -175,6 +175,9 @@ Un objeto por paso, en el MISMO orden y con el MISMO canal que recibiste. Para e
 // Cubre los 13 triggers legacy; las secuencias funnel-agnósticas (etapa_actual)
 // arman su glosa con la etapa real del funnel del workspace en generarSecuencia.
 export const COHORTE_GLOSS: Record<string, string> = {
+  // Un CLIENTE, no un lead: ya compró y está en la entrega. El tono es otro y por eso
+  // la glosa lo dice primero — MaKo escribe el copy leyendo esto.
+  entrega_actual: 'YA ES CLIENTE: compró y está avanzando por las etapas de la entrega de tu servicio. No se le vende de nuevo: se lo acompaña, se le dice qué sigue y qué hace falta de su lado.',
   instant_form_sin_agenda: 'Dejó sus datos en el formulario/anuncio pero todavía no agendó la llamada.',
   vio_vsl_sin_agendar: 'Vio buena parte del video de ventas pero no agendó: le interesa y algo lo frena.',
   vio_poco_vsl: 'Entró a la página pero vio poco del video; todavía no conectó con la propuesta.',

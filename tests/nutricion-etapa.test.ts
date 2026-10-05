@@ -11,7 +11,7 @@
 // el mensaje de «Facturando» y el del producto de al lado.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { secuenciasDeEtapa, TRIGGER_ETAPA } from '../lib/nutricion-etapa';
+import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '../lib/nutricion-etapa';
 import { ambitoDeSecuencia, leadEnAmbito } from '../lib/nutricion-ambito';
 import { readFileSync } from 'node:fs';
 
@@ -143,3 +143,73 @@ test('setBoardStageOverride dispara el evento de etapa, con la etapa y el produc
 //   · sacando la comparación `antes.pipeline_stage !== stageKey`: 1 fallo.
 // Los tres sobre 9 tests, con los 8 de arriba intactos: el guard mide el cableado y los
 // otros miden la decisión, que son dos preguntas distintas.
+
+// ── Y la ENTREGA de un servicio, que es otra pregunta ────────────────────────
+// El kanban de Customer Success mueve CLIENTES por las etapas de la entrega
+// (onboarding, hito 1, hito 2…). Lo midió la sesión de Customer Success antes de que
+// existiera este código: reusar el evento de venta sería un bug esperando, porque las
+// dos listas de etapas las edita el cliente y `secuenciasDeEtapa` compara con `===` —
+// el día que alguien llame `facturando` a una etapa de entrega, mover un cliente en el
+// kanban dispararía una secuencia de VENTA.
+
+const ENTREGAS = [
+  { id: 10, trigger_tipo: TRIGGER_ENTREGA, etapa: 'onboarding', producto_id: null },
+  { id: 11, trigger_tipo: TRIGGER_ENTREGA, etapa: 'onboarding', producto_id: 5 },
+  { id: 12, trigger_tipo: TRIGGER_ENTREGA, etapa: 'hito2', producto_id: 5 },
+  // Una de VENTA con la MISMA clave de etapa: el choque que el trigger propio cierra.
+  { id: 13, trigger_tipo: TRIGGER_ETAPA, etapa: 'onboarding', producto_id: null },
+];
+
+test('la entrega dispara por su propio trigger: una de venta con la misma clave no entra', () => {
+  assert.deepEqual(ids(secuenciasDeEntrega(ENTREGAS, 'onboarding', 5)), [10, 11]);
+  assert.equal(secuenciasDeEntrega(ENTREGAS, 'onboarding', 5).some((x) => x.id === 13), false);
+});
+
+test('el PRODUCTO acota, y sin producto declarado la secuencia es de todas las entregas', () => {
+  // El cliente del producto 9 recibe la global (10) y no la del 5.
+  assert.deepEqual(ids(secuenciasDeEntrega(ENTREGAS, 'onboarding', 9)), [10]);
+  assert.deepEqual(ids(secuenciasDeEntrega(ENTREGAS, 'hito2', 9)), []);
+  assert.deepEqual(ids(secuenciasDeEntrega(ENTREGAS, 'hito2', 5)), [12]);
+  // bigint que llega como texto: un `===` contra un número daría false SIEMPRE.
+  assert.deepEqual(ids(secuenciasDeEntrega(ENTREGAS, 'hito2', '5')), [12]);
+});
+
+test('sin etapa o SIN PRODUCTO no enrola a nadie', () => {
+  for (const vacio of [undefined, null, '', '  ']) {
+    assert.deepEqual(secuenciasDeEntrega(ENTREGAS, vacio, 5), [], `etapa ${JSON.stringify(vacio)}`);
+  }
+  // ⚠️ Acá es MÁS estricto que en la venta, y a propósito: un lead sin embudo es normal
+  // (NULL = el del negocio), pero `cliente_entrega.producto_id` es NOT NULL, así que un
+  // evento de entrega sin producto es un llamador roto — y «entonces todos los
+  // productos» sería mandarle los mensajes de otro servicio.
+  for (const vacio of [undefined, null, '', 'ocho']) {
+    assert.deepEqual(secuenciasDeEntrega(ENTREGAS, 'onboarding', vacio), [], `producto ${JSON.stringify(vacio)}`);
+  }
+});
+
+test('el choke point de Customer Success enrola con el evento de ENTREGA y con el producto', () => {
+  // La contracara del guard de tests/cs-mover-etapa.test.ts, que fija que NO sea el de
+  // venta: acá se fija que la llamada EXISTA y lleve los dos datos. Un test que sólo
+  // prohíbe pasa también cuando no hay ninguna llamada.
+  const bloque = bloqueDe(
+    'lib/cs-mover-etapa.ts',
+    'export async function moverClienteDeEtapa(',
+    '\nexport async function sacarClienteDeEntrega(',
+  );
+  assert.match(bloque, /enrolarPorEvento\(pedido\.leadId, 'entrega'/, 'el choke point tiene que enrolar con el evento de entrega');
+  assert.match(bloque, /productoId:\s*pedido\.productoId/, 'sin el producto, la secuencia de otro servicio también dispararía');
+  assert.match(bloque, /etapa:\s*hacia/, 'la etapa que viaja es la de DESTINO');
+  // Y después del upsert: enrolar antes de que la fila exista le manda un mensaje a
+  // alguien que todavía no se movió.
+  assert.ok(bloque.indexOf('enrolarPorEvento') > bloque.indexOf('lead_audit'), 'el enrolamiento va al final, con el movimiento ya guardado');
+});
+
+// Probado rompiéndolo (05/10/2026):
+//   · sacando la guarda del producto (`if (prod == null …) return []`): **1 fallo**, el
+//     de «sin etapa o SIN PRODUCTO», que es el que separa «no enrola» de «le manda los
+//     mensajes de otro servicio».
+//   · sacando el filtro de trigger: **1 fallo**, el primero — entra la de VENTA.
+//   · sacando el filtro de producto (`suyo === prod`): **1 fallo**, el segundo.
+//   · borrando la llamada en lib/cs-mover-etapa.ts: **1 fallo**, el guard de cableado
+//     (y el de la sesión de Customer Success sigue en verde, que es justo su punto
+//     ciego: prohíbe el evento de venta y no exige que haya alguno).
