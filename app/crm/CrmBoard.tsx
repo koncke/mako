@@ -2155,7 +2155,12 @@ export function CrmBoard({
                     onChange={() => { /* lo hace el onClick: ver arriba */ }}
                     title={selLeads.has(l.id) ? rotQuitar(l.name) : rotPoner(l.name)}
                     aria-label={selLeads.has(l.id) ? rotQuitar(l.name) : rotPoner(l.name)}
-                    style={{ width: 15, height: 15, marginTop: 2, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
+                    /* ⚠️ SIN `width`: lo gobierna `.mk-sel-tarjeta`, que lo lleva de 0 a 15 al
+                       pasar el cursor. Un ancho en linea le gana a la clase y dejaria la
+                       casilla siempre ancha —o sea el nombre corrido por defecto, que es
+                       justo lo que se saco— con la transicion de opacidad funcionando, que
+                       es como se ve arreglado sin estarlo. */
+                    style={{ height: 15, marginTop: 2, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0, flex: 1 }}>{l.name}</div>
                   {/* Sin parpadeo (08-T22). Un tablero donde cada card incompleta
                       titilaba en rojo le decía a Mauricio, apenas entraba, que tenía

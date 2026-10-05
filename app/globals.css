@@ -690,16 +690,30 @@ textarea.mako-field {
 
 /* ── La casilla de seleccion de una tarjeta del CRM ───────────────────────────
    «En la tarjeta, no debe estar el recuadro de seleccion multiple por defecto,
-   solo si paso el cursor» (05/10/2026).
+   solo si paso el cursor» (05/10/2026), y minutos despues la correccion que
+   decide COMO: «los nombres no deben estar desplazados por default, solo cuando
+   paso el cursor se debe desplazar».
+
+   O sea que la casilla no puede limitarse a estar invisible: no puede OCUPAR
+   LUGAR. La primera version usaba solo `opacity` —para que el nombre no saltara
+   al pasar el mouse— y el precio era justo lo que se rechazo: 23 px de sangria
+   permanente en cada tarjeta, con el nombre corrido aunque nadie este
+   seleccionando nada. El desplazamiento al pasar el cursor es lo PEDIDO, no un
+   efecto colateral, asi que va animado en vez de evitado.
 
    Vive aca y no en un style={{}} porque :hover no existe en los estilos en linea
    —el mismo motivo que el resto de este archivo— y porque lo que la revela es el
    hover del PADRE, que un inline no puede expresar de ninguna forma.
 
-   ⚠️ SE OCULTA CON `opacity`, NUNCA CON `display`. Con display:none la casilla
-   no ocupa lugar, asi que al pasar el cursor aparece y EMPUJA el nombre del lead
-   23 px a la derecha: la tarjeta entera salta cada vez que el mouse la toca. Con
-   opacity el hueco siempre esta y lo unico que cambia es que se vea.
+   ⚠️ EL `margin-right` NEGATIVO CANCELA EL `gap` DEL PADRE. La fila de la
+   tarjeta es un flex con `gap: 8`, y un `gap` se aplica igual entre un elemento
+   de ancho CERO y el siguiente: sin el -8 quedarian 8 px de sangria fantasma,
+   que es el mismo defecto que esto viene a sacar, mas chico y mas dificil de ver.
+
+   ⚠️ Y EL ANCHO NO PUEDE ESTAR EN EL `style` DE LA TARJETA. Un estilo en linea le
+   gana a cualquier clase, asi que un `width: 15` inline dejaria la casilla
+   siempre ancha y la animacion no haria nada — con el `opacity` funcionando, que
+   es como se ve «arreglado» y no lo esta. El alto si queda inline: no participa.
 
    ⚠️ Y SIGUE VISIBLE SI ESTA MARCADA. Una casilla tildada que se esconde al sacar
    el cursor deja la seleccion invisible: la barra de abajo diria «3» y no habria
@@ -707,10 +721,21 @@ textarea.mako-field {
    escribe junto al `checked`.
 
    ⚠️ Y :focus-visible, o con el teclado se llega a un control que no se ve. */
-.mk-sel-tarjeta { opacity: 0; transition: opacity .12s ease; }
+.mk-sel-tarjeta {
+  width: 0;
+  /* ⚠️ EL CHECKBOX TRAE MARGEN DEL NAVEGADOR, y distinto en cada motor. Sin este 0, con
+     la casilla en ancho cero el nombre quedaba igual corrido: medido, 4 px en Chromium y
+     2 px en WebKit — el mismo defecto que esto saca, chico y desparejo entre navegadores.
+     Es la hoja por defecto de la ETIQUETA, que no esta escrita en ningun lado del repo. */
+  margin-left: 0;
+  margin-right: -8px;
+  opacity: 0;
+  overflow: hidden;
+  transition: width .13s ease, margin-right .13s ease, opacity .13s ease;
+}
 .mk-tarjeta-lead:hover .mk-sel-tarjeta,
 .mk-sel-tarjeta:focus-visible,
-.mk-sel-tarjeta[data-marcada='1'] { opacity: 1; }
+.mk-sel-tarjeta[data-marcada='1'] { width: 15px; margin-right: 0; opacity: 1; }
 
 /* ⚠️ En la fila de un video los botones van AL ALTO DEL DESPLEGABLE. El botón de
    ícono mide 34 px y el `Select` mide `--touch` (40, y 44 en táctil): puestos en
