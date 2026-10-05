@@ -387,4 +387,55 @@ export const BITACORA: Hito[] = [
       '~/.claude/bitacora-sesion.sh — el hook ahora avisa que su contexto es una foto',
     ],
   },
+  {
+    fecha: '5 oct', hora: '10:36', chat: 'Estrategia 2 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Se acaba la cuota: que los cuatro chats guarden bien el contexto',
+    pedido: 'Estoy cercano a acabar la cuota mensual y me pasaré a la otra cuenta... Asegurate de que todos los chats estén guardando bien el contexto para seguir en la otra cuenta',
+    puntos: [
+      'El riesgo real no era el cambio de cuenta sino lo que había en el árbol: **60+ archivos sin commitear de TRES sesiones a la vez**, dos migraciones nuevas y la feature `replay` entera. Si alguna hacía `git add -A` se llevaba el trabajo a medio hacer de las otras dos adentro de su commit.',
+      'Se les mandó a los cuatro el mismo checklist por `send_message`, con la lista de qué archivos parecía de cada uno y la instrucción de no tocar lo dudoso. Los cuatro cerraron: árbol verde, typecheck 0, suite 3410/0 y producción Ready.',
+      '⚠️ Y apareció un bloqueo que no es de nadie en particular: **el `pre-push` typechequea el árbol ENTERO**, así que un refactor a medio hacer de una sesión le frena el push a las otras tres.',
+    ],
+  },
+  {
+    fecha: '5 oct', hora: '11:10', chat: 'Estrategia 2 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '¿Y los audios y llamadas que son el Norte del negocio?',
+    pedido: 'Seguro que esta guardado todo el contexto para la otra cuenta? Incluido los audios y llamadas que estuvimos analizando como «Norte» del negocio',
+    puntos: [
+      'La pregunta encontró el hueco que yo no había mirado. Los **análisis** estaban commiteados; las **fuentes** no, y medido con grep sobre `docs/` y `AGENTS.md`: `llamada-leila-01oct-transcripcion.txt` lo nombraban 3 documentos, y **`audio-mau-04oct.txt` y `audios-22-sep-transcripcion.md` no los nombraba NADIE**.',
+      '⚠️ Y `audio-mau-04oct.txt` es la fuente de `docs/proyeccion-04oct.md`, que es lo primero del traspaso.',
+      'Es el modo de falla de «una ruta que apunta a la nada» **dado vuelta**: no una ruta sin archivo, sino un archivo sin ruta que lo nombre. Una sesión nueva no puede buscar lo que no sabe que existe. Ya había mordido el 16/09 con `entrega-martin.md`: estaba en Descargas, se dio por perdido y se bloquearon cuatro tareas por nada.',
+      '⏳ Lo que no espera a nadie: **los audios de WhatsApp caducan a los ~30 días** y los `.ogg` de Descargas son la última copia. El más viejo que queda es del 21/08. Sale `docs/fuentes-fuera-del-repo.md`.',
+    ],
+  },
+  {
+    fecha: '5 oct', hora: '11:40', chat: 'Estrategia 2 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el chat orquestador sepa dónde quedaron los otros tres',
+    pedido: 'Ahora los otros 3 chats terminaron. Voy a dejarlo acá y pasarme a la otra cuenta. Quiero que te ASEGURES de que la otra cuenta tiene absolutamente todo el contexto. Mis prompts, lo ultimo que trabajé... Quiero iniciar en la otra cuenta y en el chat de «Estrategia e cuentas» preguntarle como seguimos y que sepa que estoy trabajando en los ultimos 3 chats y en que quedaron',
+    puntos: [
+      'Lo que faltaba era el briefing del **propio chat orquestador**: los otros cuatro tenían el suyo y éste no. Sale `docs/relevo/estrategia-2-cuentas.md`, pensado para contestar «¿cómo seguimos?» sin que Martín cuente nada.',
+      'Lo que lleva, y es lo que no sale de ningún commit: **las cuatro decisiones que lo esperan a él** — el «por tiempo» de una secuencia que el Chatbot decidió solo, las secuencias de la entrega (el motor espera un EMBUDO y esto tiene un PRODUCTO), dónde vive el programa de Mauricio, y si se carga o no `proyeccion-04oct.md`.',
+      '⚠️ Más los límites medidos para que nadie los redescubra: no se puede abrir un chat nuevo desde una sesión, la lista de chats está partida por cuenta aunque los transcripts sean compartidos, y el id de la app no es el del transcript.',
+    ],
+  },
+  {
+    fecha: '5 oct', hora: '11:45', chat: 'Estrategia 2 CUENTAS', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Las cuatro trampas del clon compartido, y dos errores míos',
+    puntos: [
+      '⚠️ **`/tmp` está compartido entre las sesiones.** Chatbot corrió `/tmp/probe.mjs` y le volvió la salida del script de OTRO chat. Customer Success encontró la mitad cara: **`git commit -F /tmp/msg.txt`** commitea el mensaje de otra sesión con tu diff y tu trailer, y sale bien, así que nadie lo audita.',
+      '⚠️ **El número de migración es un recurso compartido:** CRM y Chatbot eligieron `0190` a la vez. Lo resolvió que uno le avisara al otro, no una herramienta.',
+      '⚠️ **`git add <ruta>` NO acota el commit** — se commitea todo el índice. Me llevé una baja de 430 líneas de la sesión del CRM adentro de un commit mío, justo después de advertírselo a los cuatro. Para acotar de verdad: `git commit <ruta>`.',
+      '⚠️ **Un reporte a otra sesión sin hora es una acusación.** Le dije a Customer Success que su edición bloqueaba el push del repo; la cronología mostró que el árbol ya estaba verde desde 14 minutos antes. Gastó un turno de cuota defendiéndose. «Leí esto a las 11:08» envejece solo; «tu edición bloquea el repo» obliga a defenderse.',
+      'Y una de medición: grepear `fecha: \'5 oct\'` con comillas simples da CERO sobre un archivo que usa dobles. Reporté un cero falso. El patrón que asume una convención mide la convención, no el dato.',
+    ],
+    archivos: [
+      'docs/relevo/estrategia-2-cuentas.md — el briefing del chat orquestador',
+      'docs/fuentes-fuera-del-repo.md — los audios y llamadas que no están versionados',
+      'AGENTS.md — las cuatro trampas del clon compartido',
+    ],
+  },
 ];
