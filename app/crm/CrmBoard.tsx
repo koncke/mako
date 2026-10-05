@@ -1630,6 +1630,44 @@ export function CrmBoard({
   };
 
   /**
+   * EL EMPUJE HORIZONTAL DEL TABLERO VIVE EN `document` Y EN CAPTURA, no en el tablero.
+   *
+   * ⚠️ Martín, 05/10/2026: «si lo muevo muy al costado, se sale del contenedor del
+   * kanban y deja de desplazar». Y era exactamente eso: el handler colgaba del `div`
+   * que scrollea, así que en cuanto el cursor salía de su caja —pasando el borde
+   * derecho, o por arriba y por abajo— el navegador dejaba de mandarle `dragover` y el
+   * tablero se frenaba. Lo incómodo es justo el caso en que más falta hace: para llegar
+   * a una columna que está fuera de la vista hay que llevar el cursor AL borde, y el
+   * borde es donde el evento se corta.
+   *
+   * La regla ya estaba escrita en AGENTS.md para la copia que sigue al cursor —«el
+   * listener va en `document` y en captura: el `dragover` de las columnas no cubre los
+   * huecos entre ellas ni el fondo de la página»— y `useArrastreCopia` la cumple. Lo
+   * que faltaba era aplicarla al SCROLL, que es el otro efecto del mismo gesto.
+   *
+   * La cuenta no cambia: la dirección sale de comparar el cursor con los bordes del
+   * tablero, y pasado el borde la condición sigue siendo verdadera. Lo único que
+   * cambiaba era si el evento llegaba.
+   *
+   * ⚠️ Y el `dragover` del `document` NO lleva `preventDefault()`: eso habilitaría el
+   * drop sobre CUALQUIER punto de la página, incluida la barra lateral, y soltar ahí
+   * tiene que seguir sin hacer nada.
+   */
+  useEffect(() => {
+    if (dragId == null && arrastrandoCol == null) return;
+    const empujeDelRiel = (e: DragEvent) => {
+      const el = boardScrollRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const EDGE = 90;
+      const dir = e.clientX < r.left + EDGE ? -1 : e.clientX > r.right - EDGE ? 1 : 0;
+      if (dir !== 0) el.scrollLeft += dir * 18;
+    };
+    document.addEventListener('dragover', empujeDelRiel, true);
+    return () => document.removeEventListener('dragover', empujeDelRiel, true);
+  }, [dragId, arrastrandoCol]);
+
+  /**
    * El `dragover` del contenedor, que atiende los DOS gestos.
    *
    * ⚠️ EL AUTO-SCROLL VA ACÁ Y NO EN UN `requestAnimationFrame`. Durante un arrastre
@@ -1645,13 +1683,17 @@ export function CrmBoard({
     if (!el) return;
     const agarre = colAgarrada.current;
     if (dragId == null && !agarre) return;
-    const r = el.getBoundingClientRect();
-    const EDGE = 90;
-    const dir = e.clientX < r.left + EDGE ? -1 : e.clientX > r.right - EDGE ? 1 : 0;
-    if (dir !== 0) el.scrollLeft += dir * 18;
+    // ⚠️ EL EMPUJE HORIZONTAL YA NO ESTÁ ACÁ: vive en un listener de `document` (ver
+    // `empujeDelRiel` más arriba). Dejarlo en los dos lo duplicaría —el tablero
+    // correría al doble de velocidad mientras el cursor está encima— y «una cosa, un
+    // lugar» vale igual para un gesto.
     if (!agarre) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    // El rect se mide acá y ya no arriba: lo único que lo usaba era el empuje, que se
+    // mudó al `document`. Lo que queda es el reorden de COLUMNAS, que sí necesita saber
+    // dónde empieza el tablero para pasar el cursor a coordenadas del contenedor.
+    const r = el.getBoundingClientRect();
     // Se mide desde el `dragover` y no desde el `dragstart` —el mismo motivo que
     // `medirSiHaceFalta` en app/plan/board/BoardShell.tsx— y se re-mide sólo si cambió la
     // CANTIDAD de columnas: `getBoundingClientRect` fuerza layout y acá no puede correr
