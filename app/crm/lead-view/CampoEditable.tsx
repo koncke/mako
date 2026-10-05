@@ -28,7 +28,7 @@
 // marcarlo ahí guardaría y volvería solo al valor anterior.
 
 import { useRef, useState, useTransition, type CSSProperties } from 'react';
-import { useRouter } from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -325,7 +325,25 @@ export function PersonaEditable({ leadId, campo, valor, equipo, hint }: {
   const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
   const actual = valor?.trim() ?? '';
 
-  if (equipo.length === 0 && !actual) return <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--faint)' }}>{hint || '—'}</span>;
+  // ⚠️ ERA UNA PUERTA DE IDA. La condición es correcta —sin equipo y sin valor no hay
+  // a quién asignar— y lo que estaba mal es lo que se DIBUJABA: un guión mudo. En un
+  // workspace que todavía no cargó su equipo (cualquier cliente nuevo), poner el setter
+  // en «Sin asignar» hacía que al recargar el control DESAPARECIERA: el campo quedaba
+  // inasignable justo después de vaciarlo. Medido el 05/10/2026 en el ws4 — el closer,
+  // que conservó su valor, sobrevivió; el setter no. La única salida era «Restaurar»
+  // desde el historial, que ADEMÁS borra esa entrada: recuperar el dato perdiendo el
+  // rastro de que se tocó.
+  //
+  // Un campo que no se puede llenar se EXPLICA y lleva a donde se arregla; uno que
+  // desaparece se lee como que la app está rota. Es la regla de la casa: si la única
+  // salida vive en otra pantalla, no hay salida.
+  if (equipo.length === 0 && !actual) {
+    return (
+      <Link href="/equipo" style={{ fontSize: 13, fontWeight: 600, color: 'var(--dim)', textDecoration: 'none' }}>
+        Carga tu equipo →
+      </Link>
+    );
+  }
   if (esMaKo(actual)) {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>

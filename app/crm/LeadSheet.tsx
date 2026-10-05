@@ -195,6 +195,16 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>Va bien: su {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} es el <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'hoy' : `en ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
         </section>
       )}
+      {/* ⚠️ A ESTE MONTAJE LE FALTA LA COHORTE, y es una diferencia REAL entre las dos
+          puertas: medido el 05/10/2026 en un lead con R1, la ruta /crm/[id] dibuja
+          «Cohorte · Madura · 48 dias desde R1» y este panel no dibuja nada. Quien entra
+          por el link de WhatsApp ve un dato que el tablero le esconde.
+          NO se arregla pasando la prop acá: la cohorte sale de `labelMadurez` y
+          `textoCohorteJ1`, que viven en lib/leads.ts — 2.600 lineas y sus dependencias de
+          servidor— y este archivo es 'use client'. Importar un VALOR de ahi se lleva el
+          modulo entero al navegador del cliente, que es la frontera que esta casa ya pago.
+          Se calcula en el SERVER y baja por props, como hace la ruta. Queda anotado en
+          docs/relevo/crm.md. */}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} direccion={lead.deal_fiscal?.domicilio ?? null} />
       {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del lead. Como
           pestaña propia se escribieron 4 en toda la base — no porque no sirvan,
