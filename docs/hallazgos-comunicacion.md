@@ -7516,6 +7516,15 @@ lead puede estar ahora en el OTRO embudo vivo. Si la clave de etapa no existe en
 embudo por defecto, cae a la glosa genérica (inofensivo); si existe con otro rótulo, al
 modelo se le dice una etapa en la que el lead no está.
 
+⚠️ **ACTUALIZACIÓN DEL 05/10/2026: el campo YA LLEGA.** Cuando se escribió esto,
+`getSecuenciasConStats()` no seleccionaba `funnel_id`, así que `puedeAfirmarEtapa` leía un
+campo que nunca iba a tener valor y la rama de «la secuencia declara su embudo» era un
+camino sin enchufar. Desde `99d89e07` el select lo trae, el tipo `Secuencia` lo declara
+(`funnel_id: number | null`) y el ÁMBITO de a quién alcanza una secuencia se decide en
+`lib/nutricion-ambito.ts` — con la trampa del NULL escrita ahí: en este repo **NULL es el
+embudo por defecto**, no «ninguno». Las 62 filas siguen en NULL, así que hoy no cambia el
+resultado; lo que cambió es que el camino existe de verdad.
+
 **Lo que se arregló es que la glosa SE ABSTENGA**, que es lo que se puede hacer sin
 decidir nada: con más de un embudo vivo y una secuencia que no declara el suyo, cae a la
 glosa genérica. Se pierde una frase de contexto, no el mensaje — «"no puedo hacer X con
@@ -7537,3 +7546,37 @@ significado de todo lo que asumía que había UNO**. Acá el default dejó de se
 del negocio» para pasar a ser «uno de los embudos del negocio», sin que ninguna línea de
 este archivo se tocara.
 
+## Un canal con VENTANA no se pregunta «¿a quién le escribo?» sino «¿qué me deja mandar AHORA?» (04/10/2026)
+
+**Vive en:** `lib/ventana-24h.ts` · `app/whatsapp/_shared/PanelBorradores.tsx` · `lib/evolution-envio.ts`
+
+Medido por la sesión del CRM implementando los follow-ups post-llamada, y cosechado acá
+porque el código vive en `app/whatsapp/`. El síntoma era el de siempre: el borrador se
+redactaba y **no salía**. Las causas eran DOS, y la segunda es la que generaliza.
+
+**1. El botón mandaba por el canal equivocado.** `enviarBorrador` salía por Evolution, así
+que en un workspace de WABA/Chatwoot el borrador era inerte: se escribía bien y no había
+por dónde mandarlo. Es la familia de «escribir la salida no es ofrecerla», con el canal
+como el call site que faltaba.
+
+**2. ⚠️ Y AUNQUE HUBIERA CAMINO, FUERA DE LAS 24 h META SÓLO ACEPTA PLANTILLAS
+APROBADAS.** Un botón que manda texto libre a las 25 horas falla **del lado del
+proveedor**, y un control que devuelve el error de un tercero se lee como que la app está
+rota. Así que el botón **no se dibuja** cuando la ventana está cerrada, y la pantalla dice
+por qué en una frase (`MOTIVO_FUERA_DE_VENTANA`).
+
+**La regla: cuando un canal tiene una ventana temporal, el gate no es «¿hay a quién
+escribirle?» sino «¿qué me deja mandar AHORA?»** — y las dos respuestas se ven iguales
+hasta que pasan 24 horas. Es la misma forma que «una guarda bloquea sólo lo que se arregla
+haciendo lo que ella pide»: acá no se puede arreglar escribiendo mejor el mensaje, así que
+ofrecer el botón es ofrecer una pared.
+
+La condición vive en `lib/ventana-24h.ts`, sin `server-only`, para que tenga test — el
+mismo criterio que `puedeAfirmarEtapa` y que `exigirClienteDePrueba`.
+
+⚠️ **Y esto le aplica a todo lo que el chatbot mande por el canal oficial**, no sólo a un
+follow-up: un recordatorio de cobranza, un aviso de nutrición o cualquier paso `wa_lead`
+de un flujo tienen la misma pared a las 24 h. Hoy ninguno de esos caminos la mira — el de
+cobranza sale al grupo de MaKo, que es un canal propio y no tiene ventana, y el paso al
+lead todavía no se puede ejecutar. El día que se enchufe, la pregunta es ésta y no «¿tengo
+el número?».
