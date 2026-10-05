@@ -6367,3 +6367,92 @@ texto del `<button>`: 34/1.
 `app/crm/actions.ts` (`guardarCampoLeadAction`, con la via `fathom`) ·
 `tests/crm-campo-inline.test.ts` (19 pases, con las 7 roturas y su numero) ·
 *2026-10-05*
+
+## Mover una fila en la tabla necesita un DESTINO, y en el CRM el destino es una ETAPA
+
+**Vive en:** `app/crm/CrmBoard.tsx` (la vista de tabla, `gruposTabla`) ·
+`app/plan/board/Tablas.tsx` (`useArrastreFilas`, el molde que NO se copió)
+
+Pedido de Martín (05/10/2026): «aplica lo que te pedí de mover filas, ya tenemos esa
+animación». La animación existe y es compartida (`app/plan/board/arrastre-copia.ts`), así
+que la parte difícil no era el gesto: era **qué escribe el gesto**.
+
+**El diagnóstico obvio era el equivocado.** «Copiar el arrastre del plan» suena a traer el
+hook y listo. Pero en el plan la fila se suelta **ENTRE** otras dos y lo que cambia es el
+`score`: hay un orden manual que reordenar, y el hook devuelve un número sugerido por la
+POSICIÓN. En el CRM no existe ese orden — los leads no se rankean entre sí, y mover un lead
+significa **cambiarle la etapa**. Sobre una tabla plana con una columna «Etapa», soltar una
+fila en otro renglón no tiene ningún significado que escribir.
+
+Por eso la tabla pasó a **agruparse por etapa**, con cada grupo como destino. No es una
+decisión estética: es lo único que le da un destino al gesto, y de paso es lo que el Kanban
+de al lado ya hace. El orden de las columnas sigue vivo y ordena **adentro** de cada grupo.
+
+Tres cosas que se aprendieron armándolo, y las tres valen para cualquier tabla agrupada:
+
+- **El destino es el GRUPO ENTERO, no su cabecera.** Con los handlers sólo en la cabecera,
+  arrastrar hasta el medio de un grupo largo no resalta nada y el drop se pierde — el
+  cursor está sobre una fila, que no es un destino. Y el `onDragLeave` del contenedor
+  necesita el guard `contains(relatedTarget)`, o pasar de una fila a la de al lado
+  **dentro del mismo grupo** dispara un leave y el resaltado parpadea en cada fila.
+- **Se resalta la caja, no se dibuja una línea de inserción.** La línea de la tabla del plan
+  dice ENTRE qué dos filas cae; acá adentro del grupo no hay orden que cambiar, así que una
+  línea **prometería una posición que no existe**.
+- **Las etapas VACÍAS se dibujan igual.** Es lo mismo que el Kanban hace con sus columnas
+  desde el 28/09: una etapa que no aparece no se puede usar como destino, así que no habría
+  forma de poner el primer lead en «Ganado». Y el vacío lo DICE, o la cabecera sola se lee
+  como un grupo que no cargó.
+
+⚠️ **Y el drop llama a `handleDrop`, el MISMO del Kanban.** Ese camino ya sabe lo que la
+tabla no: que «Nutrición - Manual» pide su plazo, que las etapas de Calendly abren la
+agenda, que hay señales que ofrecerle a Meta, y que al soltar va el toast con «Deshacer»
+que escribe **en el server**. Escribir la etapa desde la tabla sería la segunda
+implementación de mover un lead, muda y sin deshacer.
+
+⚠️ **Y no hizo falta copiar `useArrastreFilas`.** Ese hook tiene 200 líneas porque un
+`<tr>` **no se puede posicionar** (`position` no aplica a `display: table-row`), así que
+reconstruye una tabla entera para la copia que sigue al cursor. La tabla del CRM es una
+grilla de `div`: el nodo se clona tal cual con `montarCopia`, que es la pieza que el
+Kanban del CRM ya montaba. **Antes de copiar un hook grande, mirá si su tamaño viene de un
+problema que vos no tenés.**
+
+## La barra de acciones en lote del CRM, y por qué no es la del plan
+
+**Vive en:** `app/crm/AccionesLoteLeads.tsx` · `app/plan/board/AccionesLote.tsx` (el molde)
+
+`BarraLote` del plan **ya es genérica sobre la entidad** y sirve a dos (tareas y
+proyectos), así que la salida obvia es pasarle una tercera configuración. Se midió antes de
+escribir y no se puede: su firma pide un `Board` y adentro usa `showUndo`,
+`aplicarCascadaManual`, `soltarCandadoManual`, `labels`, `labelById` y `repo`. Un lead no
+tiene board, ni score, ni recurrencia, ni proyecto — **de sus seis acciones, cinco se
+apagarían** y la sexta (borrar) es la única compartida.
+
+Lo que sí se comparte, que es lo que hace que las dos se vean y se usen igual: la clase
+`.mk-icon-btn` con su `data-tone`, el `Dropdown` con `resetAfterSelect`, el molde de tres
+ranuras (`flex: 1` en los costados, el grupo del medio en `flex: none`) y la casilla
+marcada que limpia. **Lo que podría divergir es el CSS, y el CSS está compartido.**
+
+⚠️ **`bulkFillLeadFieldAction` SÓLO RELLENABA VACÍOS, y eso es correcto en un lugar y un
+bug en el otro.** En el worklist de higiene los leads los eligió un FILTRO («a estos les
+falta el Setter»), así que pisar sería cambiar un dato que nadie miró. En la barra de
+selección es al revés: los tildó una persona, de a uno, mirándolos. Con el comportamiento
+viejo, asignarle un Closer a doce leads que ya tienen otro **no escribía nada y contestaba
+«0 actualizados»** — un control que no puede hacer nada, con un cero perfectamente
+plausible. Va un parámetro `pisar` cuyo default es `false` (el worklist no cambia) y la
+confirmación dice **cuántos** va a reemplazar: sin ese número, «asignar» no es una decisión.
+
+⚠️ **Y mover en lote devuelve TRES números, no uno.** Mover no bloquea (decisión del
+17/09): lo que la etapa pida y falte queda pendiente. Con un «N movidos» pelado, un lote
+que quedó a medias se lee como un éxito. Y `StageMoveResultado` es una **unión**: la rama
+`ok: false` NO movió el lead, así que contarla como movida producía exactamente ese número
+mentiroso.
+
+**Lo que se dejó AFUERA a propósito:** meter los seleccionados en una secuencia de
+nutrición. Es la única acción de la lista que **manda mensajes**, y la línea del chatbot es
+la NO OFICIAL — lo que la protege es el ritmo, no una API. Un botón que dispara N
+conversaciones de una necesita su propia pantalla, con el ritmo a la vista.
+
+⚠️ **PENDIENTE: el gesto no se verificó en un navegador.** La regla de la casa es
+arrastrarlo de verdad, y no se pudo sin escribir en producción (el entorno local apunta a
+la Supabase de prod y mover un lead del ws1 mueve el lead de un cliente real). Si se
+verifica, va contra el **Cliente de Prueba (ws3)**.

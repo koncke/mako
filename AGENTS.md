@@ -159,6 +159,29 @@ catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` ant
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
 de los cambios no los necesita — pero los renombres, sí.
 
+# En un archivo `'use server'` SOLO se exportan funciones async
+
+Un `export const`, un `export type` con valor, un `export function` sincrónico: los tres
+**tipan perfecto, pasan el typecheck y TIRAN EL BUILD**. Y no lo tiran con un error que
+nombre la línea: Turbopack escupe **125 errores** que listan media app por el grafo de
+imports, con el archivo culpable en el primero de la lista y el resto puro ruido.
+
+Medido el 05/10/2026: `export const TOPE_LOTE = 200;` en `app/crm/actions.ts`. El
+typecheck dio **0 errores** —es una constante perfectamente tipada—, el pre-push pasó sus
+trece chequeos, el push salió, y el deploy quedó en **Error** con producción sirviendo la
+versión anterior. O sea el modo de falla de siempre: no se rompe nada para el cliente y
+**tampoco llega nada**, sin que ninguna pantalla lo diga.
+
+- **La constante va donde se la pueda exportar**: un módulo de datos sin `'use server'`,
+  o sin exportar si sólo la usa ese archivo (un guard que la lee del fuente no necesita
+  que se exporte).
+- **El typecheck NO es la red acá, y el pre-push tampoco**: los trece chequeos no compilan
+  la app. Lo caza `npm run build`, que es justamente lo que AGENTS.md ya pide correr
+  «si tocaste rutas nuevas» — y hay que leerlo también como **«si tocaste un archivo
+  `'use server'`»**.
+- **Y el síntoma delata el archivo en el PRIMER error, no en el último.** Con 125 errores
+  la reacción es mirar el final; ahí están los `Import traces`, que nombran a cualquiera.
+
 # Hay dos cuentas de Claude trabajando sobre este repo
 
 No estás solo en este clon. Hay **dos cuentas** (`claude1` / `claude2` en el `$PROFILE`)
