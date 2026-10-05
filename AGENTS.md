@@ -293,6 +293,23 @@ tiene una HORA.** El 04/10/2026 hubo tres a la vez sobre este clon (CRM, Chatbot
 Guardián), y en un mismo día se pagó tres veces el mismo error: leer el árbol como si
 fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
 
+
+- ⚠️ **`/tmp` está COMPARTIDO entre las sesiones: usá el scratchpad de la tuya.** Medido el
+  05/10/2026 por la sesión de Chatbot: escribió `/tmp/probe.mjs`, lo corrió, y le volvió **la
+  salida del script de OTRO chat** que se llamaba igual. No da error — da el resultado
+  equivocado, que es peor, porque se lee como un hallazgo propio. Los nombres genéricos
+  (`probe`, `t`, `check`, `out.json`) colisionan solos cuando hay tres sesiones trabajando.
+  Lo mismo vale para cualquier archivo intermedio: va al directorio de scratchpad de la
+  sesión, que es único por `sessionId`.
+
+- ⚠️ **El próximo número de migración es un recurso COMPARTIDO, y dos sesiones eligen el
+  mismo a la vez.** El 05/10 la sesión de Chatbot creó `0190_secuencia_cron.sql` mientras la
+  del CRM ya tenía `0190_clic_con_su_punto.sql` commiteada y aplicada. Se destrabó porque el
+  CRM avisó y Chatbot renumeró a `0192`; sin ese aviso entraban dos migraciones distintas con
+  el mismo número. **Antes de nombrar una migración: `git pull` y `ls supabase/migrations/ |
+  tail -5`,** y si al commitear alguien se te adelantó, renumerá **antes** de pushear. Si
+  renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
+  worktree se aplica solo el día que alguien corre las migraciones en orden.
 - **Rojo que no es tuyo y al minuto está verde.** Dos sesiones distintas corrieron el
   typecheck sobre un archivo que la tercera estaba tipeando: una vio cuatro errores de
   sintaxis y la otra, un minuto después, cero, sin que nadie tocara nada. Una de las dos
