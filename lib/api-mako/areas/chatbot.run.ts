@@ -15,6 +15,7 @@ import 'server-only';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, type PasoSecuencia } from '@/lib/nutricion';
+import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia, muestraParaCriterio } from '@/lib/setting-secuencias';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
@@ -100,7 +101,7 @@ export const RUNNERS: Runners = {
         id: s.id, clave: s.clave, nombre: s.nombre, etapa: s.etapa, trigger: s.trigger_tipo, activa: s.activa,
         pasos: s.pasos.map((p) => ({
           orden: p.orden, canal: p.canal, delay_horas: p.delay_horas, ancla: p.ancla ?? null, tipo: p.tipo ?? 'texto',
-          audio_id: p.audio_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? (p.proveedor ?? 'oficial') : null,
+          audio_id: p.audio_id ?? null, requiere: p.requiere ?? null, proveedor: p.canal === 'whatsapp' ? proveedorDelPaso(p) : null,
           asunto: p.asunto, cuerpo: p.cuerpo, variantes: (p.variantes ?? []).length, plantilla_meta: p.template_wa,
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),

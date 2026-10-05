@@ -22,7 +22,7 @@ import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
-import { canalNoOficial } from '@/lib/nutricion-canal';
+import { canalNoOficial, proveedorDelPaso } from '@/lib/nutricion-canal';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
@@ -290,9 +290,9 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       asunto: typeof p.asunto === 'string' ? p.asunto : null,
       preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
-      // Un audio SIEMPRE sale por el no oficial: Meta no aprueba plantillas con
-      // nota de voz, así que el proveedor no es elegible en ese caso.
-      proveedor: (p.tipo === 'audio' && Number(p.audio_id)) || p.proveedor === 'no_oficial' ? 'no_oficial' : 'oficial',
+      // El oficial va DECLARADO; la ausencia del campo cae al no oficial, que es
+      // el canal real del chatbot. El porqué, en `proveedorDelPaso`.
+      proveedor: proveedorDelPaso(p),
       template_wa: p.template_wa ?? null,
       template_categoria: p.template_categoria,
       template_idioma: p.template_idioma ?? 'es_MX',

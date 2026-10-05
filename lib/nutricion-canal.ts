@@ -44,3 +44,45 @@ export function canalNoOficial(sondeo: Sondeo | null, estadoFila: string | null 
   const listo = estadoFila === 'conectado';
   return { listo, fuente: 'fila', motivo: listo ? null : 'WhatsApp de empresa no conectado (según el último registro; no se pudo comprobar en vivo)' };
 }
+
+/**
+ * ¿Por cuál de los dos WhatsApp sale un paso? — y por qué el default se dio vuelta
+ *
+ * DECISIÓN DE MARTÍN (05/10/2026), textual: «olvidate de WhatsApp oficial, no
+ * entiendo de donde lo sigues sacando, si todo esto es para la no oficial».
+ *
+ * El saneo de `setSecuenciaPasos` resolvía `p.proveedor === 'no_oficial' ?
+ * 'no_oficial' : 'oficial'`, o sea que **la AUSENCIA del campo elegía el
+ * oficial**. Y todo lo que nace sin el campo es justo lo que el dueño está
+ * armando: el editor de flujos, el wizard de secuencias, la API de MaKo. Esos
+ * pasos caían en la rama que exige `template_wa` y morían con «paso sin
+ * template_wa», una fila de `fallo` por día, para siempre (`lib/nutricion.ts`,
+ * la rama `waOn && canal === 'whatsapp'`). No da error: el mensaje no sale, que
+ * es indistinguible de «no había nada que mandar».
+ *
+ * Esto NO apaga el oficial — los dos canales siguen existiendo y la pared de 24 h
+ * rige donde hay WABA (ver AGENTS.md, «El WhatsApp del chatbot es el NO
+ * OFICIAL»). Lo que cambia es que el oficial hay que DECLARARLO:
+ *
+ *   · `proveedor: 'oficial'` explícito manda (lo escribe `vincularPlantilla` y
+ *     el toggle de la pantalla).
+ *   · un `template_wa` sin proveedor también: el nombre de una plantilla sólo se
+ *     escribe sabiendo que existe en Meta, así que es la señal más CARA de
+ *     producir, y gana sobre un campo que falta. Eso cubre a los clientes con
+ *     WABA cuya fila perdió el `proveedor` en algún guardado.
+ *   · la ausencia ya no decide nada: cae al no oficial, que es el canal real.
+ */
+export function proveedorDelPaso(p: {
+  tipo?: string | null;
+  audio_id?: unknown;
+  proveedor?: string | null;
+  template_wa?: string | null;
+}): 'oficial' | 'no_oficial' {
+  // Un audio SIEMPRE sale por el no oficial: Meta no aprueba plantillas con nota
+  // de voz, así que acá el proveedor no es elegible. Va PRIMERO, incluso sobre un
+  // 'oficial' explícito, porque la alternativa es un envío que Meta rechaza.
+  if (p.tipo === 'audio' && Number(p.audio_id) > 0) return 'no_oficial';
+  if (p.proveedor === 'oficial') return 'oficial';
+  if (p.proveedor === 'no_oficial') return 'no_oficial';
+  return p.template_wa ? 'oficial' : 'no_oficial';
+}

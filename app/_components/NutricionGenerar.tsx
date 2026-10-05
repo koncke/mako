@@ -9,6 +9,7 @@
 // admin-only: el GET da 403 al resto → el chip se oculta.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { proveedorDelPaso } from '@/lib/nutricion-canal';
 
 type Paso = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
@@ -252,7 +253,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
                     <div key={i} style={{ padding: '14px', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--surface-2)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                         <span style={chip(p.canal === 'email' ? 'var(--primary-bg)' : 'var(--good-bg)', p.canal === 'email' ? 'var(--primary)' : 'var(--good)')}>
-                          {p.canal === 'email' ? '✉️ Email' : `💬 WhatsApp${p.proveedor === 'no_oficial' ? ' (no oficial)' : ''}`}
+                          {p.canal === 'email' ? '✉️ Email' : `💬 WhatsApp${proveedorDelPaso(p) === 'no_oficial' ? ' (no oficial)' : ''}`}
                         </span>
                         <span style={{ fontSize: '11.5px', color: 'var(--faint)' }}>Mensaje {p.orden} · {fmtDelay(p.delay_horas)}</span>
                         <button onClick={() => setVerAntes(verAntes === i ? null : i)} style={{ ...btnGhost, marginLeft: 'auto', padding: '4px 9px', fontSize: '11.5px' }}>
@@ -279,12 +280,15 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '11.5px', color: 'var(--faint)' }}>Se manda por:</span>
                             <div style={{ display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: '8px', overflow: 'hidden' }}>
-                              <button onClick={() => setProv(i, 'oficial')} style={segBtn(p.proveedor !== 'no_oficial')}>Oficial (Meta)</button>
-                              <button onClick={() => setProv(i, 'no_oficial')} style={segBtn(p.proveedor === 'no_oficial')}>No oficial</button>
+                              {/* El seleccionado sale de `proveedorDelPaso`, el MISMO que usa el motor:
+                                  con `p.proveedor !== 'no_oficial'` la pantalla marcaba «Oficial» en
+                                  todo paso sin el campo y el motor mandaba por el otro. */}
+                              <button onClick={() => setProv(i, 'oficial')} style={segBtn(proveedorDelPaso(p) === 'oficial')}>Oficial (Meta)</button>
+                              <button onClick={() => setProv(i, 'no_oficial')} style={segBtn(proveedorDelPaso(p) === 'no_oficial')}>No oficial</button>
                             </div>
                           </div>
 
-                          {p.proveedor === 'no_oficial' ? (
+                          {proveedorDelPaso(p) === 'no_oficial' ? (
                             <div style={{ fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.45 }}>
                               Se manda tal cual por tu número no oficial (Evolution), con el anti-ban. A leads calientes queda como borrador para que un humano lo mande con un clic.
                             </div>
