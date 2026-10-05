@@ -451,4 +451,42 @@ export const BITACORA: Hito[] = [
       { sha: "1dc96035", msg: "El disparador de una secuencia: «al caer en ESTA etapa de ESTE producto», elegible", lineas: 467, archivos: 8 },
     ],
   },
+  {
+    fecha: "5 oct", hora: "04:00", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Seis cosas de /chatbot: el nombre, las pestañas y la grilla",
+    pedido: "Elimina lo de \"Chat agent\" de todos lados, es Chatbot... Elimina las pestañas, ya no hay \"Email\" si todo se crea en un mismo lugar... Ya no hay plantillas si todo es lo mismo... Y la pestaña de dashboard ponlo en una nueva ruta dentro de \"Analysts\" de la sidebar... Elimina el botón grande de \"Nueva secuencia\", si ya tenemos otro para eso... Elimina lo de \"Archivar todo...\", elimina \"Tus secuencias: pruébalas como el lead, chatea con MaKo-setter y mira cómo rinden.\"... Haz que \"Hay 6 etapas sin secuencia de mensajes: \" sea mucho más sutil... Recuerda que por DEFAULT abro la tab y debe salir la grilla para editar las secuencias, y al darle a PROBAR recién la vista del chat... No pongas a la grilla chiquita en el medio en un recuadro, haz que ocupe TODA la tab.",
+
+    puntos: [
+      "Llegó con cuatro capturas: la tab con sus cuatro pestañas, la pantalla de carga que decía «Abriendo tu Chat Agent…», el menú de Analysts abierto y el chat ocupando el lugar del trabajo.",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "04:40", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tab abre en la grilla, el chat es consecuencia de PROBAR, y el dashboard se fue a Chat Analyst",
+    puntos: [
+      "Las cuatro sub-tabs partían UNA cosa en cuatro pantallas: Email y WhatsApp son dos canales de la MISMA secuencia y se arman en el mismo lienzo, Plantillas son las de Meta (canal oficial, que ya no gobierna este editor) y el Dashboard contesta otra pregunta. Quedó en /chat-analyst, que estaba en la sidebar con cartel de PRONTO — y eso es una decisión que se revierte en una línea: ese nombre estaba pensado para analizar CONVERSACIONES.",
+      "La grilla ocupaba 1180 de 1460 px y centrada, y la causa no era el layout: `.cl-grid` viene de la cartera de clientes y trae `max-width: var(--cartera-max)` + `margin: 0 auto`. Se apaga con el token, que es el escape que el propio componente documenta.",
+      "El renombre tocó 39 archivos y NO las bitácoras de /admin: un registro fechado dice lo que se dijo ESE día. Los nombres de archivo quedan (ChatAgentApp.tsx): renombrarlos con otras dos sesiones sobre el mismo clon es pisarle imports a alguien, y el nombre de un archivo no se dibuja.",
+    ],
+    commits: [
+      { sha: "44d9fee6", msg: "/chatbot: se llama Chatbot, abre en la grilla, y el chat sale de PROBAR", lineas: 329, archivos: 40 },
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "05:10", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Las secuencias de la ENTREGA, con la sesión de Customer Success del otro lado",
+    puntos: [
+      "Ellos el choke point y el catálogo de etapas (mig 0188), yo el motor y el selector. Las dos cosas que lo salvaron las midieron ELLOS antes de que existiera mi código, y las dos se veían como «reusá lo que ya hay»: (1) reusar el evento de etapa de venta funciona HOY porque el choque entre los dos defaults es cero, y las dos listas las edita el cliente — el día que alguien llame «facturando» a una etapa de entrega, mover un cliente en el kanban dispara una secuencia de VENTA; (2) un productoId no es un funnelId, y del producto al embudo hay dos saltos.",
+      "El «Deshacer» del toast revierte llamando al MISMO choke point con la etapa anterior, así que dispara un segundo evento hacia atrás. No se resolvió detectándolo —un flag de UI en el modelo es peor— sino con la regla que ya estaba escrita: salir de una etapa CIERRA lo que esa etapa tenía agendado. Cubre el deshacer y el caso que era un bug igual sin ningún deshacer. Lo que NO cubre: un primer paso con delay 0 sale en el mismo movimiento, y el cron de nutrición corre una vez por hora, así que demorarlo convierte «al instante» en «en algún momento de la próxima hora»: decisión de producto.",
+      "Y dos cosas pagadas en la misma tanda: un respaldo que cubría 3 de 4 columnas restauró diciendo «verificado» (la columna nueva entra al respaldo el mismo día que al modelo), y ofrecer la sección de entrega sólo con un producto ya elegido dejaba el desplegable con UNA sección — o sea, una capacidad que no se podía ni descubrir.",
+    ],
+    commits: [
+      { sha: "1e668734", msg: "Las secuencias de la ENTREGA: evento propio, ambito por PRODUCTO", lineas: 285, archivos: 10 },
+      { sha: "446ef9b5", msg: "Salir de una etapa de entrega CIERRA lo que esa etapa tenia agendado", lineas: 120, archivos: 3 },
+      { sha: "d6ed9f7d", msg: "El selector ofrece las etapas de la ENTREGA, en su propia seccion", lineas: 216, archivos: 6 },
+    ],
+  },
 ];

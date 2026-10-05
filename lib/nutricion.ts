@@ -898,6 +898,52 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
 };
 
 /**
+ * CUÁNTAS SECUENCIAS CUELGAN DE CADA ETAPA DE LA ENTREGA de un producto.
+ *
+ * Lo pidió la sesión de Customer Success para su editor de etapas, y el agujero que
+ * tapa está escrito en AGENTS.md con todas las letras: «sacar algo de un catálogo no es
+ * borrarlo: hay gente APUNTÁNDOLE… preguntá si hay algo apuntándole; es una query, no
+ * una intuición». Su editor ya avisa cuántos CLIENTES quedan sin columna al borrar una
+ * etapa; lo que no veía es el otro que apunta — una secuencia colgada de «Hito 1» que,
+ * borrada la etapa, no dispara nunca más y sin un solo aviso.
+ *
+ * ⚠️ VIVE ACÁ Y NO ALLÁ, Y NO ES COMODIDAD: `trigger_tipo = 'entrega_actual'` es una
+ * convención de la nutrición. Un `select` con esa constante escrito en otra pantalla es
+ * el segundo lugar que la conoce, o sea el que se queda viejo el día que cambie.
+ *
+ * ⚠️ Y `null` SIGNIFICA «NO PUDE LEER», que no es «ninguna». Quien llama tiene que poder
+ * distinguirlas: con la consulta caída, afirmar «no hay secuencias apuntando» deja
+ * borrar una etapa sobre una afirmación que nadie midió. Las etapas sin secuencias NO
+ * vienen en cero — vienen ausentes — porque el universo de etapas lo tiene el que
+ * pregunta y no el motor (es su catálogo, no el mío).
+ */
+export async function secuenciasPorEtapaDeEntrega(productoId: number): Promise<Record<string, number> | null> {
+  if (!Number.isFinite(productoId) || productoId <= 0) return null;
+  try {
+    const supabase = await getTenantDb();
+    const { data, error } = await supabase
+      .from('nutricion_secuencias')
+      .select('etapa')
+      .eq('trigger_tipo', TRIGGER_ENTREGA)
+      .eq('producto_id', productoId);
+    if (error) {
+      console.error(`[nutricion] secuenciasPorEtapaDeEntrega(${productoId}): ${error.message}`);
+      return null;
+    }
+    const out: Record<string, number> = {};
+    for (const r of (data ?? []) as Array<{ etapa: string | null }>) {
+      const key = (r.etapa ?? '').trim();
+      if (!key) continue;
+      out[key] = (out[key] ?? 0) + 1;
+    }
+    return out;
+  } catch (e) {
+    console.error(`[nutricion] secuenciasPorEtapaDeEntrega(${productoId}):`, e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
+/**
  * CERRAR lo que la etapa anterior tenía pendiente.
  *
  * ⚠️ UNA SECUENCIA DE ETAPA HABLA DE UN MOMENTO, Y EL MOMENTO SE TERMINA. Un cliente

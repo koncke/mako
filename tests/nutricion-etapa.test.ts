@@ -257,3 +257,23 @@ test('salir de la entrega también cierra, y no enrola nada', () => {
 //   · reemplazando `secuenciasDeEntrega` por un filtro a mano adentro del cierre:
 //     1 fallo, el de «el mismo criterio».
 //   · borrando el cierre de `sacarClienteDeEntrega`: 1 fallo.
+
+// ── Quién está APUNTANDO a una etapa de entrega ─────────────────────────────
+// Lo pidió el editor de etapas de Customer Success: al borrar una columna ya avisa
+// cuántos CLIENTES quedan sin ella, y le faltaba el otro que apunta — las secuencias.
+// Es la regla de AGENTS.md: «sacar algo de un catálogo no es borrarlo, hay gente
+// apuntándole; es una query, no una intuición».
+test('el conteo por etapa vive en la nutrición, y su `null` significa «no pude leer»', () => {
+  const bloque = bloqueDe('lib/nutricion.ts', 'export async function secuenciasPorEtapaDeEntrega(', '\n/**\n * CERRAR');
+  assert.ok(bloque.length < 2500, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+  // Filtra por el trigger Y por el producto: sin el producto cuenta las de otro servicio.
+  assert.match(bloque, /\.eq\('trigger_tipo', TRIGGER_ENTREGA\)/, 'tiene que filtrar por el trigger de entrega');
+  assert.match(bloque, /\.eq\('producto_id', productoId\)/, 'sin el producto cuenta las secuencias de otro servicio');
+  // ⚠️ El `null` del error es lo que separa «ninguna» de «no sé»: con la consulta caída,
+  // afirmar «no hay secuencias apuntando» deja borrar una etapa sobre un dato inventado.
+  assert.match(bloque, /if \(error\)[\s\S]{0,200}return null;/, 'un error de lectura no puede devolver un conteo vacío');
+  assert.ok(!/out\[key\] = 0/.test(bloque), 'las etapas sin secuencias vienen ausentes: el universo lo tiene quien pregunta');
+});
+
+// Probado rompiéndolo (05/10/2026): devolviendo `{}` en vez de `null` en el `catch` y en
+// el `if (error)` → 1 fallo; sacando el `.eq('producto_id', …)` → 1 fallo.

@@ -7887,3 +7887,94 @@ salir.
 (`setBoardStageOverride`) · `lib/setting-secuencias.ts` (`productosConEtapas`,
 `setDisparadorEtapa`) · `app/chatbot/SecuenciaPerfil.tsx` ·
 `app/api/chat-agent/secuencias/route.ts` · `scripts/respaldo-disparadores.ts`
+
+## Las secuencias de la ENTREGA: lo que no se podía reusar del disparador de venta (05/10/2026)
+
+Pedido de Martín: *«si un CLIENTE actual llega a X etapa de mi SERVICIO (onboarding, hito
+1, hito 2…) … Y así también tu puedes aprovechar esto para poder hacer secuencias de
+mensajes, ahora cuando caen en una etapa de CUSTOMER SUCCESS»*.
+
+Se hizo con la sesión de Customer Success del otro lado: ellos el choke point
+(`moverClienteDeEtapa`) y el catálogo (`producto_entrega`, mig 0188), yo el motor. **Las
+dos cosas que lo salvaron las midieron ELLOS antes de que existiera mi código**, y las dos
+se veían como «reusá lo que ya hay»:
+
+1. ⚠️ **NO ALCANZA CON REUSAR EL EVENTO DE ETAPA, AUNQUE HOY FUNCIONE.**
+   `secuenciasDeEtapa` compara la etapa con `===` y **las dos listas de etapas las edita
+   el cliente**: la del embudo y la de la entrega. Medido ese día, el choque entre los dos
+   defaults es **CERO** (venta: `lead, agenda, agendaj2, facturando, ganado`; entrega:
+   `onboarding, arranque, hito1, hito2, entregado`), y nada lo impide: el día que alguien
+   llame «facturando» a una etapa de entrega, mover un cliente en el kanban de Customer
+   Success dispara una secuencia de **VENTA**. Lo que lo cierra por construcción es un
+   trigger propio (`entrega_actual`), no un string más adentro del otro.
+
+   **La regla: cuando dos catálogos EDITABLES por el usuario comparten el espacio de
+   claves, el discriminante no puede ser la clave.** Es la misma familia que «referenciar
+   cosas por NOMBRE», con el agravante de que acá los dos nombres son legítimos.
+
+2. ⚠️ **UN `productoId` NO ES UN `funnelId`,** y del producto al embudo hay dos saltos
+   (`producto ──oferta_productos──> oferta ──funnel_ofertas──> funnel`). Pasar uno donde
+   va el otro es **un número correcto sobre la pregunta equivocada**: hace match con el
+   embudo que tenga ese id, que es el de cualquier otra cosa. Por eso la mig 0189 agrega
+   `nutricion_secuencias.producto_id` en vez de reusar `funnel_id`, y por eso guardar un
+   disparador **limpia la columna del otro**: dos ámbitos escritos en la misma fila son
+   dos verdades a la vez.
+
+### El DESHACER de un kanban es un movimiento, y no hay que detectarlo
+
+El toast del kanban revierte **llamando al mismo choke point con la etapa anterior** —
+revertir sólo la pantalla mentiría hasta el próximo F5 —, así que deshacer dispara un
+segundo evento, hacia atrás. Desde la pantalla no se puede distinguir de un movimiento de
+verdad, y **no debería**: un flag «esto es un deshacer» es un dato de la interfaz metido
+en el modelo.
+
+**Lo que lo cubre es una regla que ya estaba escrita y vale igual para los dos casos:**
+salir de una etapa CIERRA las inscripciones activas de las secuencias de esa etapa, y
+recién después se enrola en la nueva. No es un parche del deshacer: un cliente que estaba
+en «onboarding» con un mensaje agendado para dentro de tres días y que hoy está en «hito
+2» no puede recibir «¿cómo venís con el arranque?» — la condición que hacía verdadero a
+ese mensaje dejó de valer. El orden importa (cerrar antes de enrolar) o un movimiento de
+ida y vuelta deja viva la inscripción de la etapa que el cliente ya no tiene.
+
+⚠️ **Lo que NO cubre, dicho en voz alta:** un primer paso con `delay_horas: 0` sale en el
+mismo movimiento, así que el deshacer a los tres segundos llega tarde. Un mensaje que ya
+está en el teléfono de alguien no se deshace. La única forma de cerrarlo sería demorar el
+primer envío, y **el cron de nutrición corre una vez por hora** (`0 15-23 * * *`): demorar
+convierte «sale al instante» en «sale en algún momento de la próxima hora». Es una
+decisión de producto, no un arreglo.
+
+### Dos cosas que se pagaron en la misma tanda
+
+- ⚠️ **UN RESPALDO QUE CUBRE 3 DE 4 COLUMNAS RESTAURA DICIENDO «VERIFICADO».**
+  `scripts/respaldo-disparadores.ts` nació cubriendo `trigger_tipo`, `etapa` y
+  `funnel_id`; `producto_id` llegó con la mig 0189 **el mismo día** y el script quedó una
+  tanda sin ella. Restauró en verde y dejó el producto de una secuencia de entrega puesto
+  sobre un disparador de venta (1 fila, limpiada). Es su propia cabecera —«un respaldo que
+  cubre una fila de N es peor que ninguno»— aplicada a las COLUMNAS. **Una columna nueva
+  entra al respaldo el mismo día que entra al modelo.**
+- **OFRECER LA ENTREGA SÓLO CON UN PRODUCTO YA ELEGIDO ES NO OFRECERLA.** La primera
+  versión del selector mostraba la sección de entrega únicamente cuando había un producto
+  seleccionado —razonable: una etapa de entrega no significa nada sin producto— y el
+  navegador midió el resultado: el desplegable abría con **UNA** sección, así que desde la
+  pantalla no había forma de llegar a una secuencia de entrega ni de enterarse de que
+  existía. La salida no fue pedir el producto primero: el producto **viaja en el valor**
+  (`entrega:<producto>:<etapa>`) y hay una sección por producto. Deducirlo de la etapa
+  habría sido elegir uno al azar: con los defaults, los dos productos tienen las mismas
+  cinco claves.
+
+### Lo que hace que esto se pueda verificar sin mandarle un WhatsApp a nadie
+
+El filtro vive en `secuenciasDeEntrega` (`lib/nutricion-etapa.ts`, puro, sin imports de
+servidor) y el cableado en guards que leen el bloque de cada función. Los **dos lados**
+hacen falta y se descubrió acá: el guard de Customer Success fija que no se llame con el
+evento de venta, y eso **se cumple también cuando no hay ninguna llamada**; el mío fija
+que la llamada exista y lleve el producto. Ninguno de los dos solo alcanza.
+
+**Y el circuito completo sigue sin verificarse a propósito:** mover un cliente de verdad
+en producción le manda un WhatsApp a una persona. Se prueba con un lead de prueba en el
+**ws3**.
+
+**Vive en:** `lib/nutricion-etapa.ts` · `lib/nutricion.ts` (`cerrarEntregaDeEtapa`,
+`leadsDeCohorte`) · `lib/cs-mover-etapa.ts` · `lib/setting-secuencias.ts`
+(`productosConEtapas`, `setDisparadorEntrega`) · `app/chatbot/SecuenciaPerfil.tsx` ·
+`supabase/migrations/0189_secuencia_producto.sql`
