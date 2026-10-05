@@ -1,11 +1,13 @@
 // =============================================================================
-// /crm/[id] — detalle del lead en tabs: Resumen / Editar / Cobranza / Actividad
+// /crm/[id] — detalle del lead en tabs: Resumen / Tracking / Reuniones / …
 // =============================================================================
-// Header fijo (etapa, nombre, cohorte, acciones rápidas) + tabs. La edición vive
-// en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.
+// Header fijo (etapa, nombre, acciones rápidas) + tabs. ⚠️ YA NO HAY MODO EDICIÓN:
+// cada dato se corrige donde se lee (ver `app/crm/campo-inline.ts`). `?edit=1` abre
+// el editor del DEAL, que es lo único que sigue teniendo pantalla propia.
 
 import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
 import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
+import { replayDeLead } from '@/lib/replay-leer';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
@@ -30,6 +32,7 @@ import { LeadDetailBody, BackButton } from './LeadDetailBody';
 import { OrigenCard } from '../lead-view/OrigenCard';
 import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { NotasCard } from '../lead-view/NotasCard';
+import { MotivoCard, PlazoNutricionCard, leadSalio } from '../lead-view/MotivoYPlazoCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 // «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
@@ -93,7 +96,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const grabacionVigente_ = grabacionVigente(ultimaActividad);
   const urlClarityVigente = grabacionVigente_ ? urlClarityLead : null;
   const grabacionVencida = !!urlClarityLead && !grabacionVigente_;
-  const [respuestas, insightGen, equipo, funnels] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => [])]);
+  // La grabación PROPIA va con `ultimaActividad`, el mismo dato que gatea el link de
+  // Clarity: dos tarjetas de la misma pantalla no pueden contradecirse sobre cuándo
+  // entró esta persona por última vez. No tira nunca, y distingue «no pude leer».
+  const [respuestas, insightGen, equipo, funnels, replay] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => []), replayDeLead(lead.visitor_id, ultimaActividad)]);
   // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
   // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
   // al navegador.
@@ -204,6 +210,13 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                       SOLO al modal: quien entra por el link del WhatsApp de la landing
                       se quedó sin notas. Es la misma trampa de las pestañas en inglés. */}
                   <NotasCard leadId={lead.id} />
+                  {/* ⚠️ LAS MISMAS DOS TARJETAS QUE EL MODAL, y acá es la primera vez
+                      que aparecen: el motivo de salida no se veía en esta ruta ni de
+                      lectura, y el plazo de la nutrición manual en ninguna de las dos.
+                      Eran los últimos dos campos que sólo se podían tocar desde
+                      «Editar lead →». */}
+                  {leadSalio(lead.estado_lead) && <MotivoCard leadId={lead.id} motivo={lead.motivo_perdida} />}
+                  {stageKey === 'manual' && <PlazoNutricionCard leadId={lead.id} deadline={lead.nutricion_manual_deadline ?? null} />}
                 </>
               ),
             },
@@ -227,7 +240,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
                   <CalificacionCard lead={lead} />
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} replay={replay} />
                 </>
               ),
             },

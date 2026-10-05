@@ -153,8 +153,24 @@ test('el motor le pasa a la cohorte el embudo DE LA SECUENCIA', () => {
   }
   // Y el dato tiene que llegar desde la base, o `sec.funnel_id` es `undefined`
   // para siempre y el ámbito es «todos» aunque el dueño declare el embudo.
-  assert.match(src, /select\('id, clave, nombre, etapa, trigger_tipo, activa, pasos, estrategia, funnel_id, producto_id'\)/,
-    'las secuencias se leen sin el ámbito: la declaración del dueño no llega al motor');
+  // ⚠️ NO SE FIJA LA LISTA EXACTA DE COLUMNAS. La primera versión de este guard pedía
+  // el `select(...)` completo y se puso ROJO el 05/10 cuando la sesión vecina le sumó
+  // `cron, cron_proxima_at` — dos columnas legítimas que no tienen nada que ver con lo
+  // que acá se cuida. Un guard que fija el texto entero convierte cualquier agregado de
+  // al lado en una falla, y lo que se aprende de eso es a ignorarlo. Lo que importa es
+  // que el ÁMBITO viaje: que los dos campos estén adentro del select de las secuencias.
+  // Probado rompiéndolo: sacando `funnel_id` de los dos selects → 1 fallo, 7 pases.
+  // ⚠️ Y la rotura se hace con un script, no con `sed -i`: en este entorno `sed -i` no
+  // aplicó y NO avisó — el test dio 8/0 sobre un archivo que yo creía roto, que es un
+  // verde sobre una medición que nunca ocurrió.
+  for (const campo of ['funnel_id', 'producto_id']) {
+    const selects = [...src.matchAll(/\.select\('([^']*trigger_tipo[^']*)'\)/g)];
+    assert.ok(selects.length > 0, 'no encontré el select de las secuencias');
+    for (const sel of selects) {
+      assert.ok(sel[1].includes(campo),
+        `el select de las secuencias no trae ${campo}: la declaración del dueño no llega al motor`);
+    }
+  }
 });
 
 // ── Las SEIS roturas, con su conteo ─────────────────────────────────────────

@@ -6232,3 +6232,138 @@ controles, mismo candado) ·
 `lib/api-mako/areas/crm.run.ts` + `crm.def.ts` (el canal de MaKo) ·
 `tests/crm-calificado-sin-reunion.test.ts` (7 pases, con las 11 roturas y su número) ·
 *2026-10-05*
+
+---
+
+## El boton «Editar lead →»: el bloqueante de ayer no existia
+
+**Sintoma.** Martin pidio DOS veces que el boton de editar dejara de existir y que cada
+campo se corrigiera con un click sobre el valor. La primera vez se contesto que no se
+podia porque **«de el cuelga el Deal Details entero (799 lineas)»**.
+
+**Esa afirmacion era falsa, y la medicion es de dos greps.** El boton era un
+`<Link href={/crm/{id}?edit=1}>` y lo que abria era `app/crm/[id]/EditLeadForm.tsx`
+(430 lineas). `DealDetailsCard` (799) tiene **tres** call sites y ninguno es el boton:
+`app/crm/[id]/page.tsx:244` y `app/crm/LeadSheet.tsx:213` lo montan de LECTURA en la tab
+Pagos, y `EditLeadForm.tsx:293` lo montaba con `editing` + un `ref`.
+
+Lo que si colgaba del boton, medido, es **el modo EDICION del deal**: ~20 campos mas el
+plan de cuotas, con guardado transaccional (`saveDealSectionsAction` y, solo si las cuotas
+cambiaron, `saveCuotasAction`, que hard-setea `estado_lead = ganado`). Eso no se puede
+partir en campos: cada tecla cerraria el lead. O sea que la afirmacion de ayer tenia una
+mitad cierta —el deal— y la uso para bloquear la otra, que eran **los 15 campos** del
+formulario. Separarlas era todo el trabajo.
+
+⚠️ **La regla que queda: un «no se puede porque X cuelga de esto» se contesta contando los
+CALL SITES de X.** Si X se monta en otro lado, no cuelga; y si cuelga solo una de sus dos
+caras, lo que hay que separar son las caras, no abandonar el pedido.
+
+### Lo que faltaba de verdad: 4 de 15, y eran los que mantenian vivo el boton
+
+Medido campo por campo contra `app/crm/campo-inline.ts` (el catalogo de lo editable en la
+ficha), que tenia OCHO entradas:
+
+| Ya era editable en la ficha | Faltaba |
+|---|---|
+| Nombre · Empresa · Email · Telefono (`EditableInline` en `InfoPrincipalCard`) | **Fecha de agendamiento** |
+| Fecha R1 · Fecha R2 · ¿Asistio R1? · ¿Asistio R2? · ¿Era calificado? | **Motivo de salida** |
+| Fecha de confirmacion · Closer · Setter | **Fecha limite de la nutricion manual** |
+| | **Links de Fathom R1/R2** |
+| | **Borrar lead** (existia en el modal, NO en la ruta) |
+
+Once de quince ya estaban. **La lista de lo que falta es el trabajo real y se mide antes de
+escribir una linea** — sin ella el pedido se lee como «rehacer la ficha».
+
+### Los links de Fathom: el formulario BORRABA datos y nadie lo sabia
+
+Su `buildFathom(u1, u2)` reconstruia `fathom_links` desde cero con dos slots, asi que
+**todo link que no cayera en esos dos se perdia al guardar** — sin aviso y sin linea en el
+historial. Editando campo por campo eso seria peor (tocar la R1 borraria la R2), asi que el
+parche va por slot: `ponerLinkFathom` reemplaza EN SU POSICION el primer link de esa reunion
+y no toca nada mas. Que link es de la R2 lo decide `etiquetaEsR2`, la misma funcion que
+reparte los analisis entre los dos bloques.
+
+⚠️ **Y la validacion del link NO EXISTIA en la ficha.** El formulario solo ponia un
+`placeholder="https://fathom.video/…"`: guardaba cualquier cosa. La regla si estaba escrita
+—pero en el canal de MaKo (`lib/api-mako/areas/crm.run.ts:715`), o sea que **el bot era mas
+estricto que la pantalla**. Es «una regla aplicada en un lugar de dos esta documentada, no
+implementada» en su forma mas cara: la pantalla es por donde entran los datos a mano. Ahora
+la regex vive una sola vez, en `campo-inline.ts`.
+
+⚠️ **Y pegar el link en el bloque de la reunion destapo otro escondite:** `tuvoR2` no miraba
+las grabaciones, asi que un lead con la grabacion de la R2 cargada por el webhook de Fathom
+(que no escribe `fecha_junta_2`) **no dibujaba el bloque de la R2 y el link desaparecia de
+la pantalla**. Mientras el link era de lectura daba igual; en cuanto el bloque es el unico
+lugar donde se edita, esconderlo es perderlo.
+
+### El guardado campo por campo es OTRA semantica, y lo que se perdio esta enumerado
+
+El formulario guardaba TODO al apretar, con un diff y una confirmacion. Ahora cada campo se
+guarda solo. Lo que eso cambia, medido:
+
+- **Las tres dependencias siguen cubiertas y el candado es el de siempre**: `updateLead`
+  fuerza `asistio_j1` a null sin `fecha_junta_1`, `asistio_j2` sin `fecha_junta_2`, y
+  `calificado` por `calificadoSeDescarta`. La ficha no los dibuja clickeables en esos casos
+  (un campo que invita a editar y rebota se lee como que la app esta rota).
+- **El motivo va por `updateLead` y NO por el camino corto**, porque la invariante es suya:
+  «motivo solo tiene sentido en perdido/descalificado». Por `saveLeadMeta` un lead reabierto
+  se quedaba con el motivo viejo.
+- **La unica validacion de campo que el formulario tenia de verdad se conservo**: «Para
+  Nutricion - Manual tienes que poner una fecha limite». Vive en `valorDeCampo` y no en la
+  pantalla, porque de esa fecha cuelga el aviso de nutricion vencida
+  (`lib/crm-auto-plan.ts`): vaciarla saca al lead del radar en silencio.
+- **La confirmacion en lote se reemplaza por el Toast con Deshacer**, que es la decision ya
+  escrita en `app/_ui/Toast.tsx` (mas barato y mas honesto que preguntar si estas seguro).
+  No es una perdida: es el criterio de la casa.
+- **Lo que NO se replica y no hacia falta**: los chips de «Precio / Timing / No calificado /
+  Fantasma / Otro» del motivo. Siguen donde se DECIDE la salida (`StageMoveDialog`); en la
+  ficha se corrige uno ya escrito, y cinco botones para eso son la caja que el pedido venia
+  a sacar.
+
+### Sacar el boton es sacar la RUTA: el formulario se borro, y su action tambien
+
+`?edit=1` sigue vivo pero significa **solo el deal** (`app/crm/[id]/EditarDeal.tsx`), que es
+a donde llegan los dos links que lo usan y que Martin no cuestiono: el «Editar deal →» de la
+tab Pagos (`LeadSheet.tsx:214`) y el «Completar con IA» del propio `DealDetailsCard.tsx:405`,
+que ademas necesita `&ia=1`.
+
+⚠️ **Y `saveLeadEditorAction` se BORRO en vez de quedarse sin callers.** Una server action es
+una URL: esa escribia los 15 campos **y la etapa** (`setBoardStageOverride`) sin mas guard
+que la sesion del workspace. Dejarla viva es la version afilada de «una pantalla huerfana a
+la que se llega por un link viejo» — nadie la ve en ningun menu y sigue escribiendo.
+
+Y al borrar el archivo, **tres guards se pusieron rojos y uno de ellos media otra cosa**:
+`tests/funnel-estructura.test.ts` enumera con `git ls-files`, que lista el **indice**, asi
+que seguia leyendo el archivo borrado hasta que la supresion se stageo. Es la contracara de
+«`npm test` antes del `git add` no ve los archivos nuevos».
+
+### Lo que la rotura enseno
+
+Las siete roturas del arnes dieron 34/1 cada una **menos una**: «la ruta se queda sin Borrar
+lead» daba **35/0** con el boton renombrado a «Quitar». El assert era
+`assert.match(f, /Borrar lead/)` y «Borrar lead» es TAMBIEN el `title` del `ConfirmDialog`
+dos lineas mas abajo — o sea el guard encontrando lo que el archivo dice de si. Reanclado al
+texto del `<button>`: 34/1.
+
+### Lo que quedo SIN hacer
+
+- **El deal sigue sin editarse en el lugar.** Es la decision tomada aca y esta argumentada
+  (guardado transaccional + `saveCuotasAction` cierra el lead), pero si algun dia se pide, el
+  trabajo es darle a cada seccion su propio guardado — no partir el `save()` del ref.
+- **`solTab` con el valor `edit`** sigue declarado en `lib/queries.ts:2154` y
+  `app/crm/CrmBoard.tsx:172` y lo pasa `app/crm/page.tsx:191`: **nadie lo lee para navegar**.
+  Era el camino al formulario y quedo como un valor muerto en un tipo.
+- **Agregar un link de Fathom a la R2 exige que la R2 exista** (fecha, asistencia o una
+  grabacion ya cargada). Es coherente con el candado de la asistencia y no esta dicho en la
+  pantalla.
+
+**Vive en:** `app/crm/campo-inline.ts` (el catalogo: 13 campos, 5 gestos, `ponerLinkFathom` y
+`FATHOM_URL`) ·
+`app/crm/lead-view/CampoEditable.tsx` (`TextoEditable`, `EnlaceFathomEditable`) ·
+`app/crm/lead-view/MotivoYPlazoCard.tsx` (las dos tarjetas que montan las DOS fichas) ·
+`app/crm/lead-view/ReunionesCard.tsx` (el agendamiento y el slot de Fathom por reunion) ·
+`app/crm/[id]/EditarDeal.tsx` (lo que quedo de `EditLeadForm.tsx`, borrado) ·
+`app/crm/[id]/LeadDetailBody.tsx` (sin lapiz, con «Borrar lead») ·
+`app/crm/actions.ts` (`guardarCampoLeadAction`, con la via `fathom`) ·
+`tests/crm-campo-inline.test.ts` (19 pases, con las 7 roturas y su numero) ·
+*2026-10-05*

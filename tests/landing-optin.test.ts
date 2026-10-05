@@ -1268,7 +1268,12 @@ test('cada evento dice en CUÁL página pasó, no solo la visita', () => {
   // Colgarlo de cada llamada garantiza que el próximo evento nuevo se olvide.
   assert.ok(/if \(data\.landing_url == null\) data\.landing_url = location\.href;/.test(lib),
     'la página tiene que viajar en cada evento, no solo en el pageview');
-  const iEnviar = lib.indexOf('function enviar(data) {');
+  // ⚠️ El ancla NO incluye la lista de parámetros. La tenía (`function enviar(data) {`)
+  // y se rompió sola el día que `enviar` recibió un segundo parámetro para leer la
+  // respuesta del pageview (snippet v21): el indexOf dio -1, el test falló, y lo que
+  // persigue —que la página se pegue adentro de enviar()— seguía intacto. Un ancla que
+  // depende de la firma es un test que falla por un renombre y no por un bug.
+  const iEnviar = lib.indexOf('function enviar(data');
   const iPageview = lib.indexOf("tipo_evento: 'pageview'", iEnviar);
   assert.ok(iEnviar > 0 && iEnviar < lib.indexOf('data.landing_url = location.href') && lib.indexOf('data.landing_url = location.href') < iPageview,
     'si no está dentro de enviar(), cada evento nuevo nace sin página');

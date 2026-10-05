@@ -157,3 +157,51 @@ export const eventIdCalificado = (leadId: number) => `calif:${leadId}`;
 
 /** La clave del lead crudo. El webhook de Meta reintenta el batch entero. */
 export const eventIdLeadCrudo = (leadgenId: string) => `lead:${leadgenId}`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A DÓNDE SE MANDA EL EVENTO
+// ─────────────────────────────────────────────────────────────────────────────
+// Hasta el 05/10/2026 el único destino era `META_PIXEL_ID`, el píxel del SITIO, y
+// la doc de Conversion Leads dice textual lo contrario: «Refrain from using this
+// payload specification for other event types, such as website leads». El destino
+// correcto de las etapas del embudo es un conjunto de datos de tipo CRM, que es
+// lo único de Meta sin endpoint: lo crea la persona en el Administrador de eventos
+// (ver el tutorial de META_CRM_DATASET_ID en lib/metodo-catalogo.ts).
+//
+// ⚠️ EL ORDEN IMPORTA Y NO ES AL REVÉS: primero el conjunto de datos de CRM si
+// existe, y si no el píxel de siempre. Cortar el envío cuando no hay conjunto de
+// datos apagaría conversiones que HOY entran en todos los workspaces, que ninguno
+// lo tiene — el camino del CRM es la segunda ruta, no un requisito nuevo.
+//
+// ⚠️ `credWs` NO devuelve solo null o un valor: devuelve también el centinela
+// `PENDING…` que escribe el alta de una credencial sin cargar. Un `??` lo tomaría
+// como un id bueno y mandaría los eventos a un destino que no existe, así que el
+// filtro vive acá adentro, donde hay test, y no en el call-site.
+
+export type DestinoCAPI = {
+  /** El id al que se postea el evento. */
+  id: string;
+  /** true → es un conjunto de datos de CRM, y el payload lleva los campos que Meta
+   *  exige solo para ese caso (`event_source`, `lead_event_source`). */
+  esCrm: boolean;
+};
+
+/** true si lo que vino de `credWs` es un valor cargado de verdad. */
+const cargado = (v: string | null | undefined): v is string =>
+  typeof v === 'string' && v.trim() !== '' && !v.startsWith('PENDING');
+
+/**
+ * El destino del evento: el conjunto de datos de CRM si el cliente lo creó, y si no
+ * el píxel del sitio. Null si no hay ninguno de los dos cargado.
+ */
+export function destinoCAPI(dataset: string | null | undefined, pixel: string | null | undefined): DestinoCAPI | null {
+  if (cargado(dataset)) return { id: dataset.trim(), esCrm: true };
+  if (cargado(pixel)) return { id: pixel.trim(), esCrm: false };
+  return null;
+}
+
+/**
+ * Los dos campos que Meta exige SOLO en el payload de un conjunto de datos de CRM.
+ * Van aparte porque mandarlos al píxel del sitio es justo lo que la doc prohíbe.
+ */
+export const CUSTOM_DATA_CRM = { event_source: 'crm', lead_event_source: 'MaKo' } as const;

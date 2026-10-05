@@ -1,25 +1,31 @@
 'use client';
 
 // =============================================================================
-// LeadDetailBody — cuerpo del detalle del lead: tabs + mover de etapa + edición
+// LeadDetailBody — cuerpo del detalle del lead: tabs + mover de etapa
 // =============================================================================
-// La etapa se cambia SIN entrar a editar: "Mover a…" en la barra de tabs abre
-// el mismo wizard progresivo del Kanban. "Editar" es un botón (no una tab): el
-// modo edición usa las mismas tabs con sus campos editables, y al guardar
-// (confirmado) o cancelar se vuelve a la tab donde estaba el usuario.
-// "Volver" usa el historial del navegador (regresa al contexto exacto).
+// ⚠️ YA NO HAY BOTÓN «EDITAR» (05/10/2026, pedido DOS veces): cada dato del lead se
+// corrige donde se lee, con un click sobre el valor (ver `app/crm/campo-inline.ts`).
+// El lápiz que vivía arriba a la derecha se fue con el formulario que abría.
+//
+// Lo que sí queda en una pantalla aparte es el DEAL —`?edit=1` monta `EditarDeal`—
+// porque su guardado es transaccional y no se puede partir en campos; se llega desde
+// donde el deal se lee (tab Pagos).
+//
+// La etapa se cambia con el desplegable del header, que abre el mismo wizard
+// progresivo del Kanban. "Volver" usa el historial del navegador.
 
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { reactivarPendientesAction } from '../actions';
+import { reactivarPendientesAction, deleteLeadAction } from '../actions';
+import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
-import { hayPasoDeWizard, type Step } from '@/lib/stage-requirements';
+import type { Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import type { MiembroEquipo } from '../actions';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { EditLeadForm } from './EditLeadForm';
+import { EditarDeal } from './EditarDeal';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
 import { ProductoDelLead, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
@@ -30,13 +36,10 @@ import { Dropdown } from '@/app/components/Dropdown';
 
 const SANS = "'Geist', sans-serif";
 
-// Mapea la tab de LECTURA a la de EDICIÓN (solo 3 son editables); el resto abre
-// en Overview. Así "Editar" respeta dónde estaba el usuario si esa tab se edita.
-const TAB_EDITABLE: Record<string, string> = { resumen: 'resumen', reuniones: 'reuniones', cobranza: 'cobranza' };
-
-function IconPencil() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>;
-}
+// ⚠️ ACÁ ESTABA `TAB_EDITABLE`, el mapa de la tab de lectura a la de edición, y el
+// `IconPencil` del botón «Editar». Los dos se fueron con el formulario: ya no hay
+// dos juegos de tabs que mantener en paridad —era la trampa de «las TRES fichas»,
+// que mordió tres veces— porque la ficha es una sola y es la editable.
 
 export function BackButton() {
   const router = useRouter();
@@ -89,18 +92,24 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   const router = useRouter();
   const pathname = usePathname();
   const currentStage = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
-  // Si solo faltan datos estáticos (tel/empresa/detalle del cierre), no hay
-  // asistente: se completan en Editar. Con algún dato de reunión/venta → wizard.
-  const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
-  const [editing, setEditing] = useState(!!initialEdit || (!!initialSolucionar && soloEdit));
+  // ⚠️ «SOLUCIONAR» SIEMPRE ABRE EL WIZARD, igual que en el modal. Antes, cuando lo
+  // único faltante eran datos estáticos (teléfono, empresa, el detalle del cierre), se
+  // derivaba al formulario de edición — que ya no existe. El wizard es el ÚNICO que
+  // marca los datos del worklist (`completeStageMoveAction`), así que no hay una
+  // segunda escritura que reemplazar: lo que se saca es la bifurcación.
+  const [editandoDeal, setEditandoDeal] = useState(!!initialEdit);
   const [tab, setTab] = useState(initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : tabs[0]?.key ?? 'resumen');
-  const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && !soloEdit && faltantes.length > 0 ? currentStage : null);
+  const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && faltantes.length > 0 ? currentStage : null);
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
-  // Si una navegación pone ?edit=1 (ej. la alarma "Editar y completar" del deal),
-  // abrir el modo edición. Patrón prev-prop: reacciona al cambio del prop.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [delErr, setDelErr] = useState<string | null>(null);
+  const [borrando, startBorrar] = useTransition();
+  // Si una navegación pone ?edit=1 (el «Editar deal →» de la tab Pagos o el «Completar
+  // con IA» del propio DealDetailsCard), abrir el editor del deal. Patrón prev-prop:
+  // reacciona al cambio del prop.
   const [prevInitEdit, setPrevInitEdit] = useState(!!initialEdit);
-  if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditing(true); }
-  const salirEdicion = () => { setEditing(false); if (initialEdit || initialSolucionar) router.replace(pathname); };
+  if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditandoDeal(true); }
+  const salirEdicion = () => { setEditandoDeal(false); if (initialEdit || initialSolucionar) router.replace(pathname); };
   const chip = CHIP[chipTone] || CHIP.neutral;
 
   const moveInfo: MoveLeadInfo = {
@@ -141,7 +150,16 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   const [, startReactivar] = useTransition();
   const reactivar = () => { startReactivar(async () => { try { await reactivarPendientesAction(lead.id); router.refresh(); } catch { /* noop */ } }); };
 
-  const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
+  const borrar = () => {
+    setConfirmDelete(false);
+    startBorrar(async () => {
+      // `deleteLeadAction` redirige al tablero: acá la ficha ES la pantalla, así que
+      // quedarse mirando un lead borrado no es una opción. (El modal usa la versión
+      // que no redirige, porque ahí la pantalla de atrás sigue viva.)
+      try { await deleteLeadAction(lead.id); }
+      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo borrar. Reintenta.'); }
+    });
+  };
 
   // Selector de etapa: muestra la ETAPA ACTUAL; elegir otra abre el wizard.
   // Dos columnas lado a lado (Pipeline + Salida | Nutrición) para verlo entero
@@ -198,7 +216,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
               completa. Al revés, la etapa cuelga de un embudo que todavía no se nombró. */}
           <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} />
           {stageSelector}
-          {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
+          {/* ⚠️ ACÁ ESTABA EL BOTÓN «✎ Editar», y se fue el 05/10/2026 (pedido DOS veces).
+              No se cambió por un lápiz: los 15 campos que ese formulario editaba se editan
+              en la ficha, cada uno donde se lee. Lo único que sigue teniendo pantalla propia
+              es el DEAL, y su entrada está en la tab Pagos, al lado del deal. */}
         </div>
         {/* ⚠️ DEBAJO DEL DESPLEGABLE DE ETAPA, no en su propia franja. Ocupaba un renglón
             de ancho completo arriba de las tabs para decir un número — y era el renglón
@@ -219,18 +240,37 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   return (
     <div>
       {header}
-      {editing ? (
-        <EditLeadForm
+      {editandoDeal ? (
+        <EditarDeal
           lead={lead}
           stages={stages}
           pagos={pagos}
-          initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
-          equipo={equipo}
           onDone={() => { salirEdicion(); router.refresh(); }}
           onCancel={salirEdicion}
         />
       ) : (
-        <LeadTabs initial={tab} onChange={setTab} tabs={tabs} />
+        <>
+          <LeadTabs initial={tab} onChange={setTab} tabs={tabs} />
+          {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
+              que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
+              suyo). Es irreversible, así que queda discreto al fondo y con su confirmación
+              nombrando la consecuencia, pegada al botón. */}
+          {delErr && <div style={{ marginTop: 14, color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 18 }}>
+            <button type="button" onClick={() => setConfirmDelete(true)} disabled={borrando} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: borrando ? 0.5 : 1 }}>Borrar lead</button>
+          </div>
+        </>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Borrar lead"
+          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
+          confirmLabel="Borrar definitivamente"
+          onConfirm={borrar}
+          onCancel={() => setConfirmDelete(false)}
+          zIndex={130}
+        />
       )}
 
       {moveTo && (

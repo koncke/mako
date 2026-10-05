@@ -9,6 +9,8 @@
 
 import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
 import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
+import { replayDeLead } from '@/lib/replay-leer';
+import type { ReplayEnLaFicha } from '@/lib/replay-ficha';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -72,7 +74,11 @@ import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
-import { VIA_INLINE, esCampoInline, montoEnRiesgo, valorDeCampo, type ValorInline } from './campo-inline';
+import { VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline } from './campo-inline';
+// Qué grabación es de la R2: la MISMA función que reparte los análisis entre los
+// dos bloques de la ficha. Con una copia acá, el link caería en un bloque y su
+// análisis en el otro.
+import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
@@ -159,6 +165,10 @@ export type LeadFullData = {
   urlMapaCalor: string | null;
   /** Existió pero Clarity ya la borró. Distinto de «nunca hubo». */
   grabacionVencida: boolean;
+  /** Las grabaciones PROPIAS (rrweb) de esta persona, o POR QUÉ no hay ninguna.
+   *  Se resuelve en el server: necesita el apagador del workspace y el índice
+   *  scopeado por cliente, que el navegador no puede leer. */
+  replay: ReplayEnLaFicha;
   campana: { texto: string | null; tooltip: string | null };
   adNombre: string | null;
   /** ad_id resuelto (meta_ad_id, utm_content numérico o por nombre) para el deep-link. */
@@ -218,7 +228,11 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const grabacionVigente_ = grabacionVigente(ultimaActividad);
   const urlClarityVigente = grabacionVigente_ ? urlClarity : null;
   const grabacionVencida = !!urlClarity && !grabacionVigente_;
-  const [respuestas, insightGen, equipo, grabable] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable()]);
+  // La grabación propia va DESPUÉS de `ultimaActividad`, que es el mismo dato con el
+  // que se gatea el link de Clarity: así las dos tarjetas de la misma pantalla no
+  // pueden contradecirse sobre cuándo fue la última vez que esta persona entró.
+  // Nunca rompe la ficha: `replayDeLead` no tira y distingue «no pude leer».
+  const [respuestas, insightGen, equipo, grabable, replay] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -231,7 +245,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -1933,7 +1947,17 @@ export async function guardarCampoLeadAction(id: number, campo: string, valor: V
   const before = await getLead(id);
   if (!before) throw new Error(`Lead ${id} no existe`);
 
-  if (VIA_INLINE[campo] === 'meta') {
+  const via = VIA_INLINE[campo];
+  if (via === 'fathom') {
+    // ⚠️ SE PARCHEA EL SLOT, NO SE REESCRIBE EL ARRAY. `fathom_links` guarda un
+    // link por reunión y el formulario lo rearmaba entero en cada guardado: tocar
+    // la R1 te borraba la R2 (y cualquier tercer link). Editando campo por campo
+    // eso pasaría en cada click, así que el array se lee y se parchea.
+    const links = (before.fathom_links ?? []) as FathomLink[];
+    await saveLeadMeta(id, {
+      fathom_links: ponerLinkFathom(links, campo as 'fathom_r1' | 'fathom_r2', v as string | null, etiquetaEsR2),
+    });
+  } else if (via === 'meta') {
     await saveLeadMeta(id, { [campo]: v as string | null });
   } else {
     await updateLead(id, { [campo]: v } as Parameters<typeof updateLead>[1]);
@@ -2266,72 +2290,19 @@ export async function markMeetingManualAction(
   revalidatePath('/general');
 }
 
-/** Input del editor completo del lead (ruta /crm/[id]). */
-export type LeadEditorInput = {
-  stage: string;
-  deadline: string | null;        // deadline de nutrición manual (solo si stage='manual')
-  nombre: string | null;
-  email: string | null;
-  telefono: string | null;
-  empresa: string | null;
-  fecha_agenda: string | null;
-  fecha_junta_1: string | null;
-  fecha_junta_2: string | null;
-  asistio_j1: boolean | null;
-  asistio_j2: boolean | null;
-  calificado: boolean | null;
-  motivo_perdida: string | null;
-  // Cierre: lo edita el DealDetailsCard (dentro de Pagos). Opcionales acá: si no
-  // vienen, saveLeadEditorAction NO los toca (el card los guarda por su cuenta).
-  monto_cierre_usd?: number | null;
-  fecha_cierre?: string | null;
-  fecha_inicio_servicio?: string | null;
-  fecha_confirmacion: string | null;
-  closer: string | null;
-  setter: string | null;
-  fathom_links: FathomLink[];
-};
-
 /**
- * Guarda TODO el editor del lead (ruta /crm/[id]) en una sola acción:
- *  1) updateLead: datos + estado_lead derivado de la etapa (invariantes + Meta CAPI),
- *  2) saveLeadMeta: closer/setter/fathom,
- *  3) setBoardStageOverride: columna del tablero (pipeline_stage) + deadline manual.
- * Registra el diff en el historial.
+ * ⚠️ ACÁ VIVÍA `LeadEditorInput` + `saveLeadEditorAction`, el guardado en lote del
+ * formulario de «Editar lead →» (app/crm/[id]/EditLeadForm.tsx). Los dos se fueron el
+ * 05/10/2026 con el botón: los 15 campos se editan en la ficha y cada uno guarda por
+ * `guardarCampoLeadAction`, que es el mismo choke point (updateLead/saveLeadMeta +
+ * logLeadChanges).
+ *
+ * ⚠️ Y SE BORRÓ EN VEZ DE DEJARLA SIN CALLERS A PROPÓSITO: una server action es una URL.
+ * Ésta escribía los 15 campos Y la etapa (`setBoardStageOverride`) sin más guard que la
+ * sesión del workspace, así que dejarla viva es la versión afilada de la «pantalla
+ * huérfana a la que se llega por un link viejo». Lo que de ella NO se replica campo por
+ * campo está enumerado en el comentario de `app/crm/campo-inline.ts`.
  */
-export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Promise<void> {
-  const before = await getLead(id).catch(() => null);
-  const estado = terminalEstadoFor(p.stage);
-  const esGanado = estado === 'ganado';
-  const esLost = estado === 'perdido' || estado === 'descalificado';
-  // Backstop: Ganado sin monto positivo cuenta $0. Solo si el caller ENVÍA el
-  // monto (el editor de la ficha ya no lo manda: lo maneja el DealDetailsCard).
-  if (esGanado && p.monto_cierre_usd !== undefined && !(Number(p.monto_cierre_usd) > 0)) {
-    throw new Error('Para Ganado, el monto de cierre debe ser un número positivo.');
-  }
-  const upd: Parameters<typeof updateLead>[1] = {
-    nombre: p.nombre ?? undefined, email: p.email, telefono: p.telefono, empresa: p.empresa,
-    fecha_agenda: p.fecha_agenda, fecha_junta_1: p.fecha_junta_1, fecha_junta_2: p.fecha_junta_2,
-    asistio_j1: p.asistio_j1, asistio_j2: p.asistio_j2, calificado: p.calificado,
-    estado_lead: estado,
-    motivo_perdida: esLost ? p.motivo_perdida : null,
-    fecha_confirmacion: p.fecha_confirmacion,
-  };
-  // El Cierre solo se toca si el caller lo mandó (ver LeadEditorInput).
-  if (p.monto_cierre_usd !== undefined) upd.monto_cierre_usd = esGanado ? p.monto_cierre_usd : null;
-  if (p.fecha_cierre !== undefined) upd.fecha_cierre = esGanado ? p.fecha_cierre : null;
-  if (p.fecha_inicio_servicio !== undefined) upd.fecha_inicio_servicio = esGanado ? p.fecha_inicio_servicio : null;
-  await updateLead(id, upd);
-  await saveLeadMeta(id, { closer: p.closer, setter: p.setter, fathom_links: p.fathom_links });
-  await setBoardStageOverride(id, p.stage, p.deadline);
-  const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, await autorActual());
-  bust(TAG.leads, TAG.pagos);
-  revalidatePath('/crm');
-  revalidatePath(`/crm/${id}`);
-  revalidatePath('/general');
-}
-
 /**
  * Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas)
  * desde la tab "Funnel".

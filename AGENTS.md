@@ -44,7 +44,7 @@ Reglas para cualquier agente que trabaje acá:
   cuando haya algo que probar, no después de cada paso interno — lo que se ahorra es el
   deploy entero, nunca segundos.
 
-⚠️ El hook hace DOCE chequeos: los tipos, que las skills tengan el contrato del
+⚠️ El hook hace TRECE chequeos: los tipos, que las skills tengan el contrato del
 `detalle` al día (`node scripts/sync-contrato-detalle.mjs --check`), que el manual de
 marca tenga la gramática de MaKo al día
 (`node --import tsx scripts/sync-gramatica-doc.mjs --check`), que `plugin/` —la copia
@@ -66,7 +66,11 @@ de MaKo (`docs/api-mako.md`) y la lista de lo que sale por HTTP
 (`tests/api-mako-http.snapshot.txt`) digan lo mismo que el registro
 (`node --import tsx scripts/generar-api-doc.mjs --check`, que compara contra HEAD y se
 abstiene si `lib/api-mako` tiene cambios sin commitear, para no frenar a la sesión
-vecina). Si lo recreás, poné los doce.
+vecina). Y que los artefactos del replay de sesion (`public/replay/<v>/`) no hayan quedado viejos
+respecto de `node_modules` (`node scripts/replay-libs.mjs --check`): ese `r.js` lo baja el
+navegador de un VISITANTE de la landing de un cliente, asi que si queda viejo el que graba
+es el de `public/` y no hay un solo error que lo diga. Es la misma familia que el zip de la
+extension y que `plugin/`. Si lo recreás, poné los trece.
 
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports

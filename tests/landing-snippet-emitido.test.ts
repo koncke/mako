@@ -421,3 +421,355 @@ test('el beacon conoce el clic al vacío, y guarda el punto sin inventarlo', () 
     'pixel() recorta en vez de descartar: un número fuera de rango acotado inventa un punto que nadie tocó',
   );
 });
+
+// ── El GRABADOR de sesión (snippet v21) ─────────────────────────────────────────
+// Lo que estos seis cuidan no es que el grabador exista: es que no pueda hacer daño.
+// Va pegado en la página de un tercero, graba a personas que nunca aceptaron nada con
+// nosotros, y no se puede volver a tocar. Las decisiones viven en lib/replay-contrato.ts;
+// acá se comprueba que el texto que le llega al cliente las cumpla.
+
+/** El snippet sin comentarios: lo único que de verdad se ejecuta. */
+function codigoEmitido(): string {
+  return snippetEmitido().replace(/\/\/[^\n]*/g, '');
+}
+
+test('el grabador se baja APARTE, y si no baja la landing sigue midiendo', async () => {
+  // ⚠️ ESTO ES EL ARREGLO DEL PROBLEMA MÁS CARO DEL PIXEL, y se puede deshacer sin
+  // que nada falle. El snippet queda congelado en el HTML de un tercero —medido el
+  // 05/10/2026: el workspace con 7.052 visitas corre la v14 y la actual es la 21—, así
+  // que inlinear la librería acá sería congelar el grabador para siempre.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 17 pasan y 0 fallan):
+  //   · la URL de la librería se escribe relativa, sin APP_BASE_URL  -> 16 pasan / 1 falla
+  //   · se saca el onerror del <script>                              -> 16 / 1
+  //   · la visita se manda al FINAL del IIFE, no en la primera línea -> 16 / 1
+  const gen = snippetEmitido();
+  const cod = codigoEmitido();
+
+  // 1) La librería NO está adentro: lo que hay es un <script> que la trae.
+  assert.ok(
+    /createElement\('script'\)/.test(cod) && /\.src = RLIB_A \+ v \+ RLIB_B;/.test(cod),
+    'el grabador tiene que entrar por un <script> externo, no inlineado en el snippet',
+  );
+
+  // 2) ⚠️ LA URL VA ABSOLUTA. La ruta del contrato es relativa (`/replay/<v>/r.js`) y
+  //    el snippet vive en el dominio del CLIENTE: pegada tal cual, el navegador la
+  //    buscaría en su sitio y daría 404 en todas las landings.
+  assert.ok(
+    /var RLIB_A = '\$\{APP_BASE_URL\}/.test(cod),
+    'la URL de la librería no arranca en APP_BASE_URL: relativa, el navegador la busca en el dominio del cliente',
+  );
+
+  // 3) Y la FORMA de la ruta sale del CONTRATO, no escrita de nuevo acá. Las dos
+  //    mitades son interpolaciones, así que lo que se comprueba es de dónde salen:
+  //    el valor no está en el template, está en el fuente que lo arma.
+  const { rutaDeLibreria } = await import('../lib/replay-contrato');
+  const [antes, despues] = rutaDeLibreria(7777777).split('7777777');
+  assert.ok(antes && despues, 'rutaDeLibreria cambió de forma: el snippet la parte por el número de versión');
+  assert.ok(
+    cod.includes("var RLIB_A = '${APP_BASE_URL}${libAntes}'") && cod.includes("var RLIB_B = '${libDespues}'"),
+    `la ruta de la librería tiene que interpolarse partida; el contrato dice ${antes}<v>${despues}`,
+  );
+  assert.ok(
+    /const \[libAntes, libDespues\] = rutaDeLibreria\(SENAL\)\.split\(String\(SENAL\)\);/.test(fuente()),
+    'las dos mitades de la ruta no salen de rutaDeLibreria(): escritas a mano se separan del contrato sin que nada falle',
+  );
+
+  // 4) Si no baja, NO PASA NADA MÁS. Una landing no puede dejar de registrar visitas
+  //    porque no bajó una librería.
+  assert.ok(/s\.onerror = function \(\) \{ Rparado = true; \};/.test(cod), 'el <script> del grabador no maneja el onerror');
+  assert.ok(
+    /s\.onload = function \(\) \{ try \{ replayGrabar\(\); \} catch \(e\) \{ Rparado = true; \} \};/.test(cod),
+    'el arranque del grabador tiene que estar en try/catch: una excepción ahí no puede tocar el resto del Pixel',
+  );
+
+  // 4bis) ⚠️ QUE EL <script> CARGUE NO ES QUE LA LIBRERÍA ESTÉ. Un 404 que el router
+  //    sirve como HTML dispara `onload` perfectamente y no define nada, así que se
+  //    pregunta por el GLOBAL. Es la misma regla que el reproductor ya cumple del
+  //    otro lado (lib/replay-reproductor.ts), y acá importa más: sin ella se acuña
+  //    el id de sesión y se cuelgan los listeners de una grabación que no existe.
+  assert.ok(
+    /var grabar = \(window\.rrweb && window\.rrweb\.record\) \|\| window\.rrwebRecord;/.test(cod) &&
+      /if \(typeof grabar !== 'function'\) return;/.test(cod),
+    'el grabador tiene que preguntar por el global de la librería, no por el onload del <script>',
+  );
+
+  // 5) Y la visita ya salió ANTES. El bloque del grabador va al final del IIFE a
+  //    propósito: todo esto es un IIFE y una excepción adentro mata lo que viene
+  //    después, así que lo peor que puede pasar es que no grabe.
+  const visita = gen.indexOf("tipo_evento: 'pageview'");
+  const grabador = gen.indexOf('var RLOTE =');
+  assert.ok(visita > 0 && grabador > visita, 'el bloque del grabador tiene que ir DESPUÉS del envío de la visita');
+});
+
+test('maskAllInputs llega en TRUE, viene del contrato, y no se puede bajar', async () => {
+  // ⚠️ rrweb trae maskAllInputs en FALSE: de fábrica tapa la contraseña y nada más, o
+  // sea que manda el teléfono, el mail y el nombre que la persona está tecleando,
+  // carácter por carácter, antes de que apriete enviar. Clarity los tapa en sus tres
+  // modos: el default de la librería es PEOR que la herramienta que esto reemplaza.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 17 pasan y 0 fallan):
+  //   · el snippet escribe sus opciones a mano en vez de interpolar el contrato -> 16 pasan / 1 falla
+  //   · se agrega `o.maskAllInputs = false;` después de copiar ROPT             -> 16 / 1
+  //   · el contrato pasa maskAllInputs a false                                  -> 16 / 1
+  const cod = codigoEmitido();
+  const { REPLAY_OPCIONES_RRWEB } = await import('../lib/replay-contrato');
+
+  // 1) El contrato lo dice, y es lo PRIMERO que dice.
+  assert.equal(REPLAY_OPCIONES_RRWEB.maskAllInputs, true, 'el contrato tiene que arrancar con maskAllInputs en true');
+  assert.equal(
+    Object.keys(REPLAY_OPCIONES_RRWEB)[0], 'maskAllInputs',
+    'maskAllInputs va PRIMERO en el contrato: es la primera línea de lo que el grabador recibe',
+  );
+
+  // 2) El snippet las INTERPOLA, no las escribe. Copiadas a mano, el día que el
+  //    contrato cambie el snippet va a seguir mandando las de antes.
+  assert.ok(
+    /var ROPT = \$\{JSON\.stringify\(REPLAY_OPCIONES_RRWEB\)\};/.test(cod),
+    'las opciones del grabador tienen que salir del contrato interpolado, nunca escritas en el snippet',
+  );
+
+  // 3) ⚠️ Y NO SE PUEDEN BAJAR DESDE NINGÚN LADO. El servidor manda el permiso para
+  //    grabar; las opciones de privacidad no viajan por la red. Si un día lo hicieran,
+  //    algún día van a venir mal.
+  for (const clave of ['maskAllInputs', 'maskInputOptions', 'maskTextSelector', 'blockClass']) {
+    assert.ok(
+      !new RegExp(clave).test(cod),
+      `el código del snippet nombra ${clave}: las opciones sólo pueden existir adentro del contrato interpolado`,
+    );
+  }
+
+  // 4) Lo único que se lee de la respuesta del server es la VERSIÓN de la librería.
+  const i = cod.indexOf('function replayArrancar');
+  assert.ok(i > 0, 'no está la función que arranca el grabador');
+  const cuerpo = cod.slice(i, cod.indexOf('appendChild(s);', i));
+  assert.ok(cuerpo.length > 100 && cuerpo.length < 1200, `el recorte quedó en ${cuerpo.length}: está mirando otra cosa`);
+  const campos = new Set((cuerpo.match(/cfg(?:\s*&&\s*cfg)?\.\w+/g) ?? []).map((s) => s.split('.').pop()));
+  assert.deepEqual(campos, new Set(['v']), 'de la respuesta del server sólo se puede leer la versión de la librería');
+});
+
+test('los números del grabador son los del CONTRATO, no copias', async () => {
+  // ⚠️ El grabador, el receptor y el reproductor no se ven entre sí, y un número
+  // distinto en cualquiera de los tres rompe al otro EN SILENCIO: un tope de lote más
+  // chico del lado del server descarta la cola de cada sesión y nadie se entera.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 17 pasan y 0 fallan):
+  //   · RTOPE_BYTES se escribe 2097152 a mano  -> 16 pasan / 1 falla
+  //   · RBEACON_MAX se escribe 65536 a mano    -> 16 / 1
+  const cod = codigoEmitido();
+  const C = await import('../lib/replay-contrato');
+
+  const pares: Array<[string, string]> = [
+    ['RV', 'REPLAY_VERSION'],
+    ['RTOPE_MS', 'REPLAY_TOPE_SEGUNDOS'],
+    ['RTOPE_BYTES', 'REPLAY_TOPE_BYTES'],
+    ['RPISO_MS', 'REPLAY_PISO_SEGUNDOS'],
+    ['RPISO_EV', 'REPLAY_PISO_EVENTOS'],
+    ['RCADA_MS', 'REPLAY_LOTE_MS'],
+    ['RCADA_EV', 'REPLAY_LOTE_EVENTOS'],
+    ['RBEACON_MAX', 'REPLAY_BEACON_MAX_BYTES'],
+  ];
+  for (const [varDelSnippet, delContrato] of pares) {
+    assert.ok(
+      new RegExp('var ' + varDelSnippet + ' = \\$\\{' + delContrato + '\\}').test(cod),
+      `${varDelSnippet} no sale de ${delContrato}: un número escrito a mano acá se desincroniza del receptor sin que nada falle`,
+    );
+  }
+
+  // Y ninguno está ESCRITO: si alguien pega el valor, las dos cosas dicen lo mismo hoy
+  // y mañana no. Se miran los que no pueden aparecer por otra razón.
+  const bloque = cod.slice(cod.indexOf('var RLOTE ='));
+  for (const n of [C.REPLAY_TOPE_BYTES, C.REPLAY_BEACON_MAX_BYTES, C.REPLAY_LOTE_MS]) {
+    assert.ok(
+      !new RegExp('[^\\w]' + n + '[^\\w]').test(bloque),
+      `el bloque del grabador trae el número ${n} escrito: tiene que venir del contrato`,
+    );
+  }
+});
+
+test('lo pendiente sale por sendBeacon, un false no se finge, y el lote normal no gasta la cuota', () => {
+  // ⚠️ DOS TRAMPAS MEDIDAS Y NINGUNA DA ERROR:
+  //
+  //   · `sendBeacon` devuelve FALSE cuando el cuerpo no entra en la cuota del documento
+  //     (64 KiB); `fetch(keepalive)` tiene la MISMA cuota y no avisa — su promesa
+  //     resuelve igual. El camino que parece más moderno es el que pierde datos sin
+  //     decirlo, y por eso al salir se usa el otro.
+  //   · esa cuota es de TODO el documento y la comparten los dos, así que un lote de
+  //     ~17 kB marcado keepalive le come un cuarto de la cuota al beacon del final.
+  //     Mientras la pestaña está abierta no hace falta.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 17 pasan y 0 fallan):
+  //   · el lote normal se manda con keepalive: true          -> 16 pasan / 1 falla
+  //   · la cola se vacía ANTES de mirar el false del beacon  -> 16 / 1
+  //   · el cuerpo del beacon va como application/json        -> 16 / 1
+  const cod = codigoEmitido();
+
+  // 1) El lote de todos los días: fetch SIN keepalive.
+  const m = cod.indexOf('function replayMandar');
+  assert.ok(m > 0, 'no está la función que manda el lote');
+  const mandar = cod.slice(m, cod.indexOf('function replayBeacon', m));
+  assert.ok(mandar.length > 400 && mandar.length < 3000, `el recorte quedó en ${mandar.length}: está mirando otra cosa`);
+  assert.ok(/fetch\(RLOTE/.test(mandar), 'el lote normal tiene que salir por fetch');
+  assert.ok(
+    !/keepalive/.test(mandar),
+    'el lote normal va con keepalive: le come al beacon del final la cuota de 64 KiB que comparten',
+  );
+
+  // 2) Al salir, sendBeacon.
+  const b = cod.indexOf('function replayBeacon');
+  const beacon = cod.slice(b, cod.indexOf('function replayEmitir', b));
+  assert.ok(beacon.length > 500 && beacon.length < 3000, `el recorte quedó en ${beacon.length}: está mirando otra cosa`);
+  assert.ok(/navigator\.sendBeacon\(RLOTE, b\)/.test(beacon), 'al irse de la página el lote tiene que salir por sendBeacon');
+
+  // 3) ⚠️ Y COMO text/plain. Con application/json el navegador pide permiso primero
+  //    (preflight), y un preflight disparado mientras la página se cierra es un lote
+  //    que no sale. El receptor parsea el CUERPO, no la etiqueta.
+  assert.ok(
+    /type: 'text\/plain'/.test(beacon),
+    'el cuerpo del beacon tiene que ir como text/plain: con application/json hace falta un preflight que al cerrar no llega',
+  );
+
+  // 4) EL FALSE SE MIRA: si el navegador no se quedó con el lote, la cola no se vacía
+  //    y el número de lote no avanza. Darlo por enviado deja un agujero que el
+  //    reproductor no puede ver — pega dos momentos como si fueran seguidos.
+  const guard = beacon.indexOf('if (!salio) return;');
+  assert.ok(guard > 0, 'falta mirar el false de sendBeacon: la cola se da por enviada sin que nadie la haya aceptado');
+  assert.ok(guard < beacon.indexOf('RCOLA = [];', guard), 'la cola se vacía ANTES de saber si el lote salió');
+  assert.ok(guard < beacon.indexOf('RN++', guard), 'el número de lote avanza ANTES de saber si el lote salió');
+});
+
+test('el apagador: sin la orden del servidor no se baja NADA', () => {
+  // ⚠️ APAGADO POR DEFECTO, y el permiso viaja en la respuesta del pageview que el
+  // snippet ya manda (cero requests extra). Mientras el server no diga que sí, la
+  // librería ni se baja: lo que se ahorra no es el tiempo de grabar, es la DESCARGA.
+  // El código pegado en la página del cliente no decide nada.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 17 pasan y 0 fallan):
+  //   · replayArrancar() se llama suelto, sin esperar la respuesta -> 16 pasan / 1 falla
+  //   · el guard pasa a ser `if (r)` en vez de `if (r && r.rec)`   -> 16 / 1
+  //   · se saca el saneo de la versión                             -> 16 / 1
+  const cod = codigoEmitido();
+
+  // 1) Un solo call site, y es la respuesta del pageview.
+  const usos = cod.match(/replayArrancar\(/g) ?? [];
+  assert.equal(usos.length, 2, `replayArrancar aparece ${usos.length} veces: tiene que ser la declaración y UN solo call site`);
+  assert.ok(
+    /enviar\(\s*\{ tipo_evento: 'pageview'[\s\S]{0,400}?function \(r\) \{ if \(r && r\.rec\) replayArrancar\(r\.rec\); \}/.test(cod),
+    'el grabador tiene que arrancar sólo desde la respuesta del pageview, y sólo si trae `rec`',
+  );
+
+  // 2) Y la versión que manda el server se sanea antes de armar una URL con ella.
+  assert.ok(
+    /if \(!\(v >= 1 && v <= 9999\)\) return;/.test(cod),
+    'la versión de la librería entra sin saneo: cualquier cosa termina adentro de la URL de un <script>',
+  );
+
+  // 3) El receptor del lote es NUESTRO endpoint, no uno que venga en la respuesta.
+  assert.ok(
+    /var RLOTE = '\$\{APP_BASE_URL\}\/api\/track\/replay';/.test(cod),
+    'el endpoint de los lotes tiene que estar fijo en el snippet, nunca venir en una respuesta',
+  );
+});
+
+test('el grabador se ata al visitor_id que YA existe, y la sesión vive en sessionStorage', () => {
+  // ⚠️ LA IDENTIDAD NO SE INVENTA: el lote viaja con el token de landing y con el
+  // visitor_id de la cookie nqe_visitor_id, igual que todo lo que manda enviar(). Ése
+  // es el enganche que hace que la grabación aparezca en la ficha del lead —
+  // leads.visitor_id ya se cose por Calendly y por el Camino 1 del beacon.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 17 pasan y 0 fallan):
+  //   · el lote acuña su propio id de visitante  -> 16 pasan / 1 falla
+  //   · el id de sesión se guarda en una cookie  -> 16 / 1
+  const cod = codigoEmitido();
+
+  const i = cod.indexOf('function replayArmar');
+  assert.ok(i > 0, 'no está la función que arma el lote');
+  const lote = cod.slice(i, cod.indexOf('function replayGzip', i));
+  assert.ok(lote.length > 200 && lote.length < 1200, `el recorte quedó en ${lote.length}: está mirando otra cosa`);
+  assert.ok(
+    /t: TOKEN/.test(lote) && /visitor_id: visitorId/.test(lote),
+    'el lote tiene que viajar con el token y con el visitor_id que el snippet ya usa, sin inventar una identidad nueva',
+  );
+
+  // La sesión en sessionStorage y NO en una cookie: una cookie haría que «la sesión»
+  // durara un año, y una sesión es una visita. La misma decisión que mko_test.
+  const s = cod.indexOf('function replaySesion');
+  const ses = cod.slice(s, cod.indexOf('function replayPiso', s));
+  assert.ok(ses.length > 300 && ses.length < 1500, `el recorte quedó en ${ses.length}: está mirando otra cosa`);
+  assert.ok(/sessionStorage\.setItem\('mko_rs'/.test(ses), 'el id de sesión tiene que guardarse en sessionStorage');
+  assert.ok(!/document\.cookie/.test(ses), 'el id de sesión en una cookie haría que una sesión durara un año');
+});
+
+test('el lote se parte con el tope del RECEPTOR, y la foto de la página no se tira en silencio', async () => {
+  // ⚠️ EL CASO NORMAL, NO EL RARO. El primer evento de CUALQUIER sesión es la foto
+  // entera de la página con su hoja de estilos adentro (inlineStylesheet: true), y
+  // sola puede pasar los 256 KiB que el receptor acepta por lote: él la tira
+  // ('pesado' en cuerpoDeLote) y el grabador ya tiró los eventos. La grabación queda
+  // sin su foto —o sea sin nada que reproducir— y el agujero no lo ve nadie.
+  //
+  // El productor y el consumidor están en archivos distintos y nadie los toca junto,
+  // así que este test lee LOS DOS: el número tiene que ser el mismo.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 18 pasan y 0 fallan):
+  //   · el tope se escribe 262144 a mano en el snippet              -> 17 pasan / 1 falla
+  //   · replayPartir corta también con la tanda vacía (tira el evento
+  //     solo que no entra, que es justo la foto de la página)       -> 17 / 1
+  //   · el peso de un cuerpo comprimido se mide sobre el base64     -> 17 / 1
+  const cod = codigoEmitido();
+  const sellado = readFileSync(new URL('../lib/replay-sellado.ts', import.meta.url), 'utf8');
+
+  // 1) El número es UNO, y el snippet lo interpola del módulo que lo define.
+  assert.ok(
+    /export const REPLAY_LOTE_MAX_BYTES =/.test(sellado),
+    'REPLAY_LOTE_MAX_BYTES ya no vive en lib/replay-sellado.ts: el grabador lo interpola de ahí',
+  );
+  assert.ok(
+    /var RLOTE_MAX = \$\{REPLAY_LOTE_MAX_BYTES\};/.test(cod),
+    'el tope por lote del grabador no sale de REPLAY_LOTE_MAX_BYTES: escrito a mano se separa del receptor sin que nada falle',
+  );
+  // Y el que recibe lo sigue mirando: si dejara de rechazar por tamaño, partir acá
+  // sería trabajo por nada — pero si lo rechaza y acá no se parte, es una sesión
+  // sin foto.
+  assert.ok(
+    /if \(cuerpo\.length > REPLAY_LOTE_MAX_BYTES\) return \{ rechazo: 'pesado' \};/.test(sellado),
+    'el receptor dejó de rechazar un lote por tamaño: revisá si el grabador todavía tiene que partir',
+  );
+
+  // 2) Se parte, y la partición la pide el camino que manda.
+  assert.ok(/function replayPartir\(eventos\) \{/.test(cod), 'falta la partición por tamaño del lote');
+  assert.ok(/var tandas = replayPartir\(eventos\);/.test(cod), 'replayMandar no parte el lote antes de mandarlo');
+
+  // 3) ⚠️ Y SE EJECUTA, no se lee. La función vive adentro del snippet, así que se
+  //    saca del texto EMITIDO —el único que le llega al cliente— y se corre.
+  const { REPLAY_LOTE_MAX_BYTES } = await import('../lib/replay-sellado');
+  const i = cod.indexOf('function replayPartir(eventos) {');
+  const fin = cod.indexOf('\n  }', cod.indexOf('return tandas;', i));
+  const fuenteFn = cod.slice(i, fin + 4);
+  assert.ok(fuenteFn.length > 300 && fuenteFn.length < 1200, `el recorte quedó en ${fuenteFn.length}: está mirando otra cosa`);
+  const partir = new Function('RLOTE_MAX', fuenteFn + '\nreturn replayPartir;')(REPLAY_LOTE_MAX_BYTES) as
+    (e: unknown[]) => unknown[][];
+
+  // Nada que partir.
+  assert.deepEqual(partir([]), [], 'sin eventos no hay tandas');
+  // Chicos: UNA tanda, para no gastar un request por evento.
+  const chicos = Array.from({ length: 50 }, (_, k) => ({ type: 3, data: { x: k } }));
+  assert.equal(partir(chicos).length, 1, '50 eventos chicos tienen que entrar en un solo lote');
+  // La FOTO: un solo evento que no entra viaja igual, en su tanda, sin partirse.
+  const foto = { type: 2, data: { html: 'x'.repeat(REPLAY_LOTE_MAX_BYTES + 5000) } };
+  const soloFoto = partir([foto]);
+  assert.equal(soloFoto.length, 1, 'un evento que no entra no se puede partir: va igual');
+  assert.deepEqual(soloFoto[0], [foto], 'la foto de la página no se puede tirar: sin ella no hay nada que reproducir');
+  // Y la foto no arrastra a los que vienen detrás: se corta ANTES de pasarse.
+  const mixto = partir([foto, ...chicos]);
+  assert.ok(mixto.length >= 2, 'la foto tiene que quedar sola: con los demás pegados, la tanda entera se pasa del tope');
+  assert.deepEqual(mixto[0], [foto], 'la foto va primera y sola');
+  assert.equal(mixto.reduce((n, t) => n + t.length, 0), 1 + chicos.length, 'partir no puede perder ni un evento');
+
+  // 4) El peso de un cuerpo comprimido se mide sobre los BYTES del gzip, que es lo
+  //    que el receptor mide después de decodificar el base64 — no sobre el base64,
+  //    que es un tercio más grande y rechazaría lotes perfectamente buenos.
+  assert.ok(
+    /var pesa = z === 1 \? Math\.ceil\(cuerpo\.length \* 3 \/ 4\) : cuerpo\.length;/.test(cod),
+    'el peso de un lote comprimido se mide sobre el base64: un tercio de los lotes buenos no se mandaría',
+  );
+});

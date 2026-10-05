@@ -39,6 +39,22 @@ import { estadoVideo } from './landing-analisis';
 import { enumerar } from './landing-snapshot';
 import { leerPorPaginas, type ConsultaPaginada } from './supabase-paginado';
 import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
+// Los números del replay NO se escriben de nuevo acá: el grabador los interpola del
+// contrato. Un tope distinto del lado del server descarta la cola de cada sesión y
+// nadie se entera (ver lib/replay-contrato.ts).
+import { REPLAY_LOTE_MAX_BYTES } from './replay-sellado';
+import {
+  REPLAY_VERSION,
+  REPLAY_OPCIONES_RRWEB,
+  REPLAY_TOPE_SEGUNDOS,
+  REPLAY_TOPE_BYTES,
+  REPLAY_PISO_SEGUNDOS,
+  REPLAY_PISO_EVENTOS,
+  REPLAY_LOTE_MS,
+  REPLAY_LOTE_EVENTOS,
+  REPLAY_BEACON_MAX_BYTES,
+  rutaDeLibreria,
+} from './replay-contrato';
 
 /** Key en app_settings. setSetting la espeja a webhook_routing('landing', …). */
 export const LANDING_TOKEN_KEY = 'landing_token';
@@ -104,8 +120,13 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       vida del video: pausa, retoma y fin. Sin lo primero, el embudo de quien
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
+ *  21 — GRABACIÓN DE SESIÓN: el snippet puede grabar lo que la persona ve y hace
+ *       en la página y reproducirlo después. ⚠️ APAGADO para todos: el permiso lo
+ *       contesta el servidor en la respuesta del pageview (`landing.replay`, por
+ *       workspace), y mientras diga que no, la librería ni se baja. Los campos
+ *       tapados viajan tapados desde la primera línea. Ver docs/replay-diseno.md.
  */
-export const SNIPPET_VERSION = 20;
+export const SNIPPET_VERSION = 21;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -135,6 +156,12 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
+  // ⚠️ El renglón de la 21 NO repite el de la 20 a propósito: `novedadesDesde()`
+  // junta todos los que faltan con un «·», así que quien está en la 14 —el caso
+  // real: el workspace con 7.052 visitas— lee las dos cosas y vuelve a pegar el
+  // código UNA sola vez. Repetirlas acá le mostraría dos veces lo mismo a quien ya
+  // está en la 20.
+  21: 'la grabación de la sesión: poder mirar lo que hizo cada persona en tu página —dónde se detuvo, qué intentó tocar, en qué punto se fue—, que es lo que hoy se tiene que ir a buscar a otra herramienta. Llega APAGADA: se prende una vez desde la app y vale para todo tu negocio, y lo que alguien escribe en un formulario viaja tapado, así que no queda grabado',
   20: 'EN QUÉ PUNTO de tu página toca cada persona, que es lo que hace falta para dibujar el mapa de calor. Hasta ahora se guardaba a dónde iba cada clic y nunca dónde se hizo, así que no se podía pintar sobre tu página; y los toques en algo que no es un botón —una foto que parece clickeable, un precio que la gente aprieta esperando que pase algo— se tiraban, cuando son lo que más te dice qué está confundiendo a la gente',
   19: 'hasta dónde baja cada persona en tu página. Hasta ahora se sabía quién entró, qué video vio y qué botón apretó, y nada de cuánto leyó: quien se fue arriba sin leer la oferta y quien llegó hasta el final y no la apretó se veían iguales, y son dos problemas distintos',
   18: 'la retención de tu VSL cuando usa un reproductor moderno: se estaba midiendo dos veces, como si fueran dos videos distintos, así que las reproducciones salían al doble y la curva partida en dos',
@@ -1189,6 +1216,12 @@ export async function landingDiagnostico(
  * volver a pegarlo. Así se perdieron 18 días de medición (15/jul → 3/ago 2026).
  */
 export function landingSnippet(token: string, clarityProjectId: string | null = null): string {
+  // La ruta de la librería del grabador sale del contrato, PARTIDA por el número de
+  // versión: la versión la dice el servidor en cada visita, no el snippet. Es la
+  // única forma de que arreglar el grabador no exija que el cliente vuelva a pegar
+  // el código — hoy hay un workspace con 7.052 visitas midiendo con la v14.
+  const SENAL = 7777777;
+  const [libAntes, libDespues] = rutaDeLibreria(SENAL).split(String(SENAL));
   return `<script>
 (function () {
   var ENDPOINT = '${APP_BASE_URL}/api/track/vsl';
@@ -1225,7 +1258,7 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
     else prueba = sessionStorage.getItem('mko_test');
   } catch (e) {}
 
-  function enviar(data) {
+  function enviar(data, alResponder) {
     data.t = TOKEN;
     data.sv = SV;
     data.visitor_id = visitorId;
@@ -1238,17 +1271,30 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
     if (prueba) data.prueba = prueba;
     if (leadToken) data.l = leadToken;
     try {
-      fetch(ENDPOINT, {
+      var pedido = fetch(ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
         keepalive: true
-      }).catch(function () {});
+      });
+      // La respuesta se LEE solo cuando alguien la pidio. El pageview la pide: ahi
+      // viene el permiso para grabar la sesion (ver el bloque del grabador, al
+      // final). Cero requests extra, y el server es el unico que decide — la misma
+      // regla que ya cumple el bloque de opt-in.
+      if (alResponder) {
+        pedido
+          .then(function (r) { return r && r.ok ? r.json() : null; })
+          .then(function (j) { if (j) { try { alResponder(j); } catch (e) {} } })
+          .catch(function () {});
+      } else pedido.catch(function () {});
     } catch (e) {}
   }
 
-  // Visita a la landing
-  enviar({ tipo_evento: 'pageview', landing_url: location.href, referrer: document.referrer || null });
+  // Visita a la landing. Su respuesta trae el interruptor del grabador de sesion.
+  enviar(
+    { tipo_evento: 'pageview', landing_url: location.href, referrer: document.referrer || null },
+    function (r) { if (r && r.rec) replayArrancar(r.rec); }
+  );
 
   // VSL (Panda Video) — si no hay video en la página, esto no hace nada.
   function tituloVsl(id) {
@@ -3051,6 +3097,296 @@ ${bloqueClarity(clarityProjectId)}
       });
     } catch (e) { /* nunca romper el formulario del cliente */ }
   }, true);
+
+  // ── GRABACIÓN DE SESIÓN (v21) ─────────────────────────────────────────────
+  // El contrato entero —qué se graba, qué no, cuánto se guarda, cuánto vive y por
+  // qué— está en lib/replay-contrato.ts y en docs/replay-diseno.md. Acá va SOLO el
+  // grabador: junta los eventos, los manda por lotes y se calla.
+  //
+  // ⚠️ VA AL FINAL DEL SNIPPET A PROPÓSITO. Todo esto es un IIFE: una excepción
+  // adentro mata lo que viene después. Con el grabador último, lo peor que puede
+  // pasar es que no grabe — la visita ya se mandó en la primera línea y el video,
+  // el scroll, los clics y el formulario ya están enganchados.
+  //
+  // ⚠️ Y NADA ARRANCA SOLO. El permiso lo contesta el SERVIDOR en la respuesta del
+  // pageview que este snippet ya manda: mientras no diga que sí, la librería ni se
+  // baja — lo que se ahorra no es el tiempo de grabar, es la DESCARGA. El código
+  // pegado en la página no decide nada, la misma regla del bloque de opt-in.
+  var RLOTE = '${APP_BASE_URL}/api/track/replay';
+  // ⚠️ LA URL DE LA LIBRERÍA VA ABSOLUTA, y el número de versión lo pone el server.
+  // Con la ruta relativa que devuelve rutaDeLibreria() el navegador la buscaría en
+  // el dominio de la landing del cliente y daría 404 en todas.
+  var RLIB_A = '${APP_BASE_URL}${libAntes}';
+  var RLIB_B = '${libDespues}';
+  // Los números son los del contrato, interpolados. El grabador, el receptor y el
+  // reproductor no se ven entre sí: un tope más chico de un lado descarta la cola
+  // del otro EN SILENCIO.
+  var RV = ${REPLAY_VERSION};
+  var RTOPE_MS = ${REPLAY_TOPE_SEGUNDOS} * 1000;
+  var RTOPE_BYTES = ${REPLAY_TOPE_BYTES};
+  var RPISO_MS = ${REPLAY_PISO_SEGUNDOS} * 1000;
+  var RPISO_EV = ${REPLAY_PISO_EVENTOS};
+  var RCADA_MS = ${REPLAY_LOTE_MS};
+  var RCADA_EV = ${REPLAY_LOTE_EVENTOS};
+  var RBEACON_MAX = ${REPLAY_BEACON_MAX_BYTES};
+  // ⚠️ EL TOPE DE UN LOTE ES DEL RECEPTOR, Y ÉSTE ES EL CASO NORMAL, NO EL RARO.
+  // El primer evento de CUALQUIER sesión es la foto entera de la página con su hoja
+  // de estilos adentro (inlineStylesheet), y sola puede pasar los 256 KiB que el
+  // receptor acepta por lote. Si se pasa, él lo tira ('pesado') y acá los eventos ya
+  // se tiraron: la grabación queda sin su foto —o sea sin nada que reproducir— y el
+  // agujero no lo ve nadie. Así que el grabador PARTE por tamaño, no sólo por
+  // cantidad, con el mismo número que mira el que recibe.
+  var RLOTE_MAX = ${REPLAY_LOTE_MAX_BYTES};
+  // ⚠️ maskAllInputs EN TRUE DESDE LA PRIMERA LÍNEA, y viene del contrato tal cual
+  // —no escrito de nuevo acá—. De fábrica la librería lo trae en FALSE: tapa la
+  // contraseña y NADA MÁS, o sea que manda el teléfono, el mail y el nombre que la
+  // persona está tecleando, carácter por carácter, antes de que apriete enviar. El
+  // servidor manda el permiso para grabar; las opciones no se piden ni se reciben,
+  // así que esto no se puede bajar desde ningún lado.
+  var ROPT = ${JSON.stringify(REPLAY_OPCIONES_RRWEB)};
+
+  var RSID = null, RCOLA = [], RN = 0, RMS = 0, RBYTES = 0, REV = 0;
+  var Rultimo = 0, Rtimer = 0, Rparado = false, Rdetener = null, Rprendido = false;
+
+  // El id de sesión: 'rs_' + 20 del alfabeto de URL, en sessionStorage y NO en una
+  // cookie. Una cookie haría que «la sesión» durara un año; sessionStorage sobrevive
+  // a navegar dentro de la pestaña —que es lo que hace un botón que lleva a otra
+  // página, y ahí la grabación es la misma— y muere al cerrarla. La misma decisión
+  // que ya toma mko_test más arriba.
+  function replaySesion() {
+    var A = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-';
+    var id = null;
+    try { id = sessionStorage.getItem('mko_rs'); } catch (e) {}
+    if (id && /^rs_[A-Za-z0-9_-]{16,32}$/.test(id)) return id;
+    id = 'rs_';
+    for (var i = 0; i < 20; i++) id += A.charAt(Math.floor(Math.random() * A.length));
+    try { sessionStorage.setItem('mko_rs', id); } catch (e) {}
+    return id;
+  }
+
+  // EL PISO, en la punta del navegador. Debajo de 10 s o 20 eventos no sale NI UN
+  // request: el 32,4 % de las sesiones del workspace grande duran menos de 10 s
+  // (46,6 % en otro) y son rebotes. Una grabación de dos segundos no se puede mirar
+  // y cuesta una fila, un objeto y una llamada igual que una de diez minutos. Lo
+  // único que de verdad se ahorra acá es el request, y es el que se ahorra.
+  function replayPiso() { return RMS >= RPISO_MS && REV >= RPISO_EV; }
+
+  function replayArmar(fin, z, cuerpo, n) {
+    var l = { v: RV, t: TOKEN, visitor_id: visitorId, s: RSID, n: n, e: cuerpo, z: z, ms: Math.round(RMS) };
+    l.landing_url = location.href;
+    if (prueba) l.prueba = prueba;
+    if (fin) l.fin = 1;
+    return l;
+  }
+
+  // Comprimir en el navegador ahorra la SUBIDA DEL VISITANTE, que es el único
+  // tráfico que alguien siente (un celular con datos). Donde no haya compresor va
+  // crudo y el campo z lo dice, así que el servidor nunca adivina.
+  //
+  // ⚠️ z=1 ES base64 DEL GZIP, no el gzip pelado: el campo e viaja dentro de un JSON y los
+  // bytes de un gzip no son texto válido. El base64 agrega un tercio sobre lo
+  // comprimido, así que la cuenta sigue dando a favor; el receptor tiene que
+  // decodificar en ese orden.
+  //
+  // ⚠️ Y ESTO SOLO SIRVE MIENTRAS LA PESTAÑA ESTÁ ABIERTA: comprimir es asíncrono y
+  // al irse de la página no hay dónde esperarlo. Ese camino manda crudo a propósito.
+  function replayGzip(txt, listo) {
+    try {
+      if (!window.CompressionStream || !window.Blob || !window.Response) { listo(txt, 0); return; }
+      var cs = new CompressionStream('gzip');
+      new Response(new Blob([txt]).stream().pipeThrough(cs)).arrayBuffer().then(function (buf) {
+        try {
+          var b = new Uint8Array(buf), s = '';
+          // En pedazos: fromCharCode.apply con un arreglo de cientos de kB revienta
+          // la pila del navegador.
+          for (var i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
+          listo(btoa(s), 1);
+        } catch (e) { listo(txt, 0); }
+      }).catch(function () { listo(txt, 0); });
+    } catch (e) { listo(txt, 0); }
+  }
+
+  // El lote de todos los días, mientras la persona está en la página.
+  //
+  // ⚠️ SIN keepalive, Y NO ES UN OLVIDO. La cuota de keepalive es de 64 KiB para
+  // TODO el documento y la comparten fetch(keepalive) y sendBeacon: un lote de ~17
+  // kB marcado keepalive le come un cuarto de la cuota al beacon del final, que es
+  // el único camino que queda al irse. Con la pestaña abierta no hace falta.
+  //
+  // ⚠️ Y el cuerpo va etiquetado text/plain, igual que el del beacon: con
+  // application/json el navegador pide permiso primero (preflight) y son dos
+  // requests por lote. El receptor parsea el CUERPO, no la etiqueta.
+  function replayMandar(fin) {
+    if (Rtimer) { try { clearTimeout(Rtimer); } catch (e) {} Rtimer = 0; }
+    if (!RSID) return;
+    if (!replayPiso()) { if (fin) RCOLA = []; return; }
+    if (!RCOLA.length && !(fin && RN > 0)) return;
+    var eventos = RCOLA;
+    RCOLA = [];
+    // Se parte por TAMAÑO: ver RLOTE_MAX. Cada tanda se lleva su propio número de
+    // lote, así que el reproductor las vuelve a pegar en orden.
+    var tandas = replayPartir(eventos);
+    // Con la cola vacía y el aviso de cierre, la tanda vacía es el mensaje.
+    if (!tandas.length) tandas = [[]];
+    for (var i = 0; i < tandas.length; i++) {
+      replayPost(tandas[i], fin && i === tandas.length - 1 ? 1 : 0, RN++);
+    }
+  }
+
+  /**
+   * Parte los eventos en tandas que entren en lo que el receptor acepta.
+   *
+   * ⚠️ UN EVENTO SOLO QUE NO ENTRA NO SE PUEDE PARTIR, y va igual: la foto de una
+   * página grande es un solo evento. Comprimido casi siempre entra —el tope se
+   * aplica a los bytes comprimidos—, y si no entra lo tira el que recibe, que es
+   * quien tiene el número de verdad. Lo que no se puede hacer es tirarlo acá en
+   * silencio: una sesión sin su foto no se puede reproducir.
+   */
+  function replayPartir(eventos) {
+    var tandas = [], actual = [], largo = 2;
+    for (var i = 0; i < eventos.length; i++) {
+      var s;
+      try { s = JSON.stringify(eventos[i]); } catch (e) { continue; }
+      if (actual.length && largo + s.length + 1 > RLOTE_MAX) { tandas.push(actual); actual = []; largo = 2; }
+      actual.push(eventos[i]);
+      largo += s.length + 1;
+    }
+    if (actual.length) tandas.push(actual);
+    return tandas;
+  }
+
+  function replayPost(eventos, fin, n) {
+    var txt = JSON.stringify(eventos);
+    // ⚠️ SE CUENTA LO CRUDO, no lo comprimido, y eso corta ANTES del tope de sesión.
+    // El navegador no puede saber cuánto va a pesar comprimido antes de decidir si
+    // sigue grabando, y de los dos errores posibles este es el bueno: el tope existe
+    // para la página con un carrusel que tira megas por minuto, y errarle para el
+    // lado de cortar antes la frena igual. El tope de verdad lo aplica el servidor.
+    RBYTES += txt.length;
+    replayGzip(txt, function (cuerpo, z) {
+      // El tope del receptor se mira sobre lo que de verdad va a recibir: con z=1
+      // son los bytes del gzip (el base64 los infla un tercio en el cable, pero él
+      // lo decodifica antes de medir), con z=0 el texto tal cual.
+      var pesa = z === 1 ? Math.ceil(cuerpo.length * 3 / 4) : cuerpo.length;
+      // No entra: no se manda, y el agujero queda EN EL NÚMERO DE LOTE, que es la
+      // verdad. Mandarlo para que el receptor lo tire gasta la subida del visitante
+      // dos veces y deja el mismo agujero.
+      if (pesa > RLOTE_MAX) return;
+      try {
+        fetch(RLOTE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(replayArmar(fin, z, cuerpo, n))
+        }).catch(function () {});
+      } catch (e) {}
+    });
+  }
+
+  // ── AL IRSE DE LA PÁGINA ──────────────────────────────────────────────────
+  // sendBeacon, no fetch(keepalive). La cuota es la misma (64 KiB de documento),
+  // pero sendBeacon DEVUELVE FALSE cuando el cuerpo no entra y fetch(keepalive) no
+  // avisa: su promesa resuelve igual. El camino que parece más moderno es el que
+  // pierde datos sin decirlo.
+  function replayBeacon(fin) {
+    if (!RSID || Rparado) return;
+    if (!replayPiso()) { RCOLA = []; return; }
+    // Con la cola vacía pero con lotes ya enviados, el aviso de cierre vale el
+    // beacon igual: es lo que le dice al receptor que puede sellar la sesión en vez
+    // de esperar a que un barrido por fecha la encuentre.
+    if (!RCOLA.length && !(fin && RN > 0)) return;
+    var txt = JSON.stringify(RCOLA);
+    var cuerpo = JSON.stringify(replayArmar(fin, 0, txt, RN));
+    var b;
+    try { b = new Blob([cuerpo], { type: 'text/plain' }); } catch (e) { return; }
+    // No entra en la cuota: se tira, y el agujero queda EN EL NÚMERO DE LOTE, que es
+    // la verdad. Partirlo no ayuda —la cuota es del documento, no del request— y
+    // fingir que salió le haría al reproductor pegar dos momentos como si fueran
+    // seguidos.
+    if (b.size > RBEACON_MAX) { RCOLA = []; RN++; RBYTES += txt.length; return; }
+    var salio = false;
+    try { salio = !!(navigator.sendBeacon && navigator.sendBeacon(RLOTE, b)); } catch (e) { salio = false; }
+    // ⚠️ EL FALSE SE MIRA. Si el navegador no se quedó con el lote, el lote sigue
+    // siendo nuestro: la cola NO se vacía y el número NO avanza, así que lo que no
+    // salió ahora sale en el próximo intento (una pestaña que se esconde puede
+    // volver). Darlo por enviado deja un agujero que el reproductor no puede ver.
+    if (!salio) return;
+    RCOLA = [];
+    RN++;
+    RBYTES += txt.length;
+  }
+
+  function replayEmitir(ev) {
+    if (Rparado) return;
+    try {
+      var ahora = Date.now();
+      // ⚠️ EL TOPE SE MIDE EN TIEMPO GRABADO, NO EN RELOJ DE PARED. Una pestaña
+      // escondida no genera eventos, así que Date.now() menos el inicio le comería
+      // los 10 minutos sin haber grabado nada: el cierre más largo medido en la base
+      // es de 34 horas. Se suma el hueco ENTRE eventos, topeado en lo que dura un
+      // lote — un hueco más largo que eso es tiempo en el que no pasó nada.
+      if (Rultimo) RMS += Math.min(ahora - Rultimo, RCADA_MS);
+      Rultimo = ahora;
+      RCOLA.push(ev);
+      REV++;
+      if (RMS >= RTOPE_MS || RBYTES >= RTOPE_BYTES) { replayCerrar(); return; }
+      // Los dos cortes a la vez, y gana el primero: solo por tiempo, una página con
+      // una animación manda un lote gigante; solo por cantidad, una página quieta no
+      // manda nada durante minutos y una pestaña que se cierra se lleva todo.
+      if (RCOLA.length >= RCADA_EV) replayMandar(0);
+      else if (!Rtimer) Rtimer = setTimeout(function () { Rtimer = 0; replayMandar(0); }, RCADA_MS);
+    } catch (e) {}
+  }
+
+  function replayCerrar() {
+    if (Rparado) return;
+    Rparado = true;
+    // Se APAGA la grabación, que es para lo que existe el tope: si no, una pestaña
+    // olvidada sigue generando eventos para siempre.
+    try { if (Rdetener) Rdetener(); } catch (e) {}
+    Rdetener = null;
+    // ⚠️ ACÁ NO VIAJA NINGÚN MOTIVO DE CORTE. El navegador no sabe cuántos bytes
+    // quedaron guardados de verdad —se le pueden haber perdido lotes en el camino— y
+    // el receptor sí: el corte lo decide quien tiene los números finales. Mandarlo
+    // desde acá sería una conclusión servida como dato.
+    replayMandar(1);
+  }
+
+  function replayGrabar() {
+    var grabar = (window.rrweb && window.rrweb.record) || window.rrwebRecord;
+    if (typeof grabar !== 'function') return;
+    RSID = replaySesion();
+    var o = {};
+    for (var k in ROPT) if (Object.prototype.hasOwnProperty.call(ROPT, k)) o[k] = ROPT[k];
+    o.emit = replayEmitir;
+    Rultimo = Date.now();
+    Rdetener = grabar(o) || null;
+    // Los listeners se cuelgan SOLO acá: con el grabador apagado no queda ni uno.
+    window.addEventListener('pagehide', function () { replayBeacon(1); });
+    document.addEventListener('visibilitychange', function () {
+      // Escondida puede ser el cierre o puede volver, y no se sabe de antemano cuál
+      // de los dos va a pasar. Se manda lo que hay sin marcar el fin; si el navegador
+      // no lo aceptó, queda en la cola para el próximo intento.
+      if (document.visibilityState === 'hidden') replayBeacon(0);
+    });
+  }
+
+  function replayArrancar(cfg) {
+    if (Rprendido) return;
+    Rprendido = true;
+    try {
+      var v = Math.trunc(Number(cfg && cfg.v));
+      if (!(v >= 1 && v <= 9999)) return;
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = RLIB_A + v + RLIB_B;
+      // ⚠️ SI NO BAJA, NO PASA NADA MÁS. Una landing no puede dejar de registrar
+      // visitas porque no bajó una librería: el pageview ya salió, el resto de la
+      // medición ya está enganchado y acá no queda ni un listener puesto.
+      s.onerror = function () { Rparado = true; };
+      s.onload = function () { try { replayGrabar(); } catch (e) { Rparado = true; } };
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) {}
+  }
 })();
 </script>`;
 }

@@ -7,14 +7,17 @@
 // arriba y ya puedo sobre escribir» (Martín, 05/10/2026).
 //
 // El texto libre ya tenía su molde y no se toca: `EditableInline` (nombre,
-// empresa, email, teléfono). Acá van los TRES que no se pueden «sobre escribir»
-// porque no son texto, cada uno con el gesto que le corresponde:
+// empresa, email, teléfono). Acá va cada campo con el gesto que le corresponde:
 //
 //   · fecha   → el click abre el campo de fecha (y su calendario).
 //   · tri     → el click abre Sí / No / —, en el mismo renglón.
 //   · persona → el click abre el desplegable del equipo.
+//   · texto   → el click pone el cursor y se sobrescribe (reusa `EditableInline`).
+//   · enlace  → igual que texto, pero el link de Fathom se valida ANTES de pedir
+//     nada: un texto cualquiera ahí deja un «Abrir →» que no abre y un análisis
+//     de la llamada huérfano.
 //
-// Los tres guardan AL SALIR o al elegir, Escape cancela, y el cambio queda en el
+// Todos guardan AL SALIR o al elegir, Escape cancela, y el cambio queda en el
 // historial del lead porque pasan por `guardarCampoLeadAction` — el mismo camino
 // que «Deshacer» del historial, no uno nuevo.
 //
@@ -26,6 +29,7 @@
 
 import { useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
+import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -33,7 +37,7 @@ import { guardarCampoLeadAction } from '../actions';
 import { opcionesEquipo } from '../equipo-opciones';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { ChipTri } from './chip-tri';
-import type { CampoInline, ValorInline } from '../campo-inline';
+import { FATHOM_URL, type CampoInline, type ValorInline } from '../campo-inline';
 import type { MiembroEquipo } from '../actions';
 
 const SANS = "'Geist', sans-serif";
@@ -73,7 +77,9 @@ function useGuardarCampo(leadId: number, campo: CampoInline) {
       }
     });
   };
-  return { guardar, toast, clear };
+  // `show` sale afuera porque hay avisos que NO son el resultado de un guardado:
+  // el link de Fathom se rechaza sin pedir nada al server (ver EnlaceFathomEditable).
+  return { guardar, toast, clear, show };
 }
 
 // ── Fecha ────────────────────────────────────────────────────────────────────
@@ -91,7 +97,7 @@ function useGuardarCampo(leadId: number, campo: CampoInline) {
  */
 export function FechaEditable({ leadId, campo, valor, fallback = null, titulo, vacio = 'sin fecha', bloqueado = false, estilo }: {
   leadId: number;
-  campo: Extract<CampoInline, 'fecha_junta_1' | 'fecha_junta_2' | 'fecha_confirmacion'>;
+  campo: Extract<CampoInline, 'fecha_agenda' | 'fecha_junta_1' | 'fecha_junta_2' | 'fecha_confirmacion' | 'nutricion_manual_deadline'>;
   valor: string | null;
   fallback?: string | null;
   titulo: string;
@@ -205,6 +211,91 @@ export function TriEditable({ leadId, campo, valor, si, no, titulo, bloqueado = 
           <ChipTri valor={valor} si={si} no={no} />
         </button>
       )}
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+// ── Texto libre (motivo de salida) ───────────────────────────────────────────
+
+/**
+ * Texto que se sobrescribe con un click. Es la preferencia textual de Martín
+ * («o mucho mejor si no conlleva lápiz, sino que como el nombre, simplemente le
+ * doy click arriba y ya puedo sobre escribir»).
+ *
+ * ⚠️ NO ES UN CONTROL NUEVO: envuelve `EditableInline`, el mismo que ya edita el
+ * nombre y el teléfono en `InfoPrincipalCard`. Lo único que agrega es el ruteo por
+ * `guardarCampoLeadAction` (historial + Deshacer) en vez de `saveLeadMetaAction`.
+ */
+export function TextoEditable({ leadId, campo, valor, titulo, placeholder = '—', maxLargo = 500, className }: {
+  leadId: number;
+  campo: Extract<CampoInline, 'motivo_perdida'>;
+  valor: string | null;
+  titulo: string;
+  placeholder?: string;
+  maxLargo?: number;
+  className?: string;
+}) {
+  const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
+  return (
+    <>
+      <EditableInline
+        valor={valor ?? ''}
+        onGuardar={(v) => guardar(v.trim() || null, valor)}
+        placeholder={placeholder}
+        titulo={titulo}
+        maxLargo={maxLargo}
+        className={className}
+      />
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+// ── Enlace de Fathom (la grabación de una reunión) ───────────────────────────
+
+/**
+ * El link de la grabación de UNA reunión, pegado en el lugar donde se lee.
+ *
+ * ⚠️ SE VALIDA ANTES DE PEDIR NADA, y es lo que el formulario NO hacía: ahí el
+ * campo era un `<input>` con un placeholder y guardaba cualquier cosa. Un texto
+ * que no es una URL de Fathom deja el renglón con un «Abrir →» que no abre y
+ * deja al análisis de la llamada sin con qué emparejarse.
+ *
+ * ⚠️ Y GUARDAR LA R1 NO TOCA LA R2: el parche por slot vive en el server
+ * (`ponerLinkFathom`), porque el formulario rearmaba el array entero y perdía
+ * todo link con otra etiqueta.
+ */
+export function EnlaceFathomEditable({ leadId, campo, url, titulo }: {
+  leadId: number;
+  campo: Extract<CampoInline, 'fathom_r1' | 'fathom_r2'>;
+  url: string | null;
+  titulo: string;
+}) {
+  const { guardar, toast, clear, show } = useGuardarCampo(leadId, campo);
+  const actual = url?.trim() || null;
+  return (
+    <>
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flexWrap: 'wrap' }}>
+        <span style={{ flex: 1, minWidth: 140, fontSize: 12.5, color: actual ? 'var(--dim)' : 'var(--faint)', wordBreak: 'break-all', lineHeight: 1.45 }}>
+          <EditableInline
+            valor={actual ?? ''}
+            onGuardar={(v) => {
+              const nuevo = v.trim() || null;
+              if (nuevo === actual) return;
+              // Cinco palabras y dicen qué hacer, no la regla. El porqué vive arriba.
+              if (nuevo && !FATHOM_URL.test(nuevo)) { show('Pega un link de Fathom', undefined, 'bad'); return; }
+              guardar(nuevo, actual);
+            }}
+            placeholder="Pega el link de Fathom"
+            titulo={titulo}
+            maxLargo={500}
+          />
+        </span>
+        {actual && (
+          <a href={actual} target="_blank" rel="noopener noreferrer" style={{ flex: 'none', fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none' }}>Abrir →</a>
+        )}
+      </span>
       <Toast state={toast} onClose={clear} />
     </>
   );

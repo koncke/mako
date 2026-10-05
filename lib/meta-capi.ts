@@ -7,7 +7,8 @@
 // client-side.
 //
 // Credenciales:
-//   - META_PIXEL_ID     (requerida)
+//   - META_CRM_DATASET_ID (OPCIONAL — el destino PREFERIDO: ver `destinoCAPI`)
+//   - META_PIXEL_ID     (el destino de siempre; hace falta uno de los dos)
 //   - META_CAPI_TOKEN   (OPCIONAL — si no está, se usa META_ACCESS_TOKEN)
 //   - META_API_VERSION  (opcional, default 'v24.0' — matchea Marketing API)
 //
@@ -30,7 +31,7 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import { credWs } from './credenciales';
-import { falloEnRespuesta, eventosRecibidos, hayIdentidad, leadIdDeMeta, tiempoDelHecho } from './meta-capi-payload';
+import { CUSTOM_DATA_CRM, destinoCAPI, falloEnRespuesta, eventosRecibidos, hayIdentidad, leadIdDeMeta, tiempoDelHecho } from './meta-capi-payload';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -134,7 +135,9 @@ function hashPhone(phone: string | null): string | null {
  * al historial de la ficha (`logLeadEvent`), que es donde el dueño mira.
  */
 export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIResultado> {
-  const pixelId = await credWs('META_PIXEL_ID');
+  // Primero el conjunto de datos de CRM si el cliente lo creó, y si no el píxel del
+  // sitio: el porqué y el centinela PENDING están en `destinoCAPI`.
+  const destino = destinoCAPI(await credWs('META_CRM_DATASET_ID'), await credWs('META_PIXEL_ID'));
   // El token de CAPI dejó de ser obligatorio: el botón "Generar token de acceso"
   // de Events Manager arma por detrás un token con ads_management sobre ese píxel
   // — no es un tipo especial de credencial. El token principal sirve igual si el
@@ -144,9 +147,9 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
   const accessToken = usado && !usado.startsWith('PENDING') ? usado : await credWs('META_ACCESS_TOKEN');
   const apiVersion = process.env.META_API_VERSION || 'v24.0';
 
-  if (!pixelId || pixelId.startsWith('PENDING')) {
-    console.error('[capi] skip: META_PIXEL_ID no configurado');
-    return { ok: false, motivo: 'sin_pixel', detalle: 'META_PIXEL_ID no configurado' };
+  if (!destino) {
+    console.error('[capi] skip: no hay destino (ni META_CRM_DATASET_ID ni META_PIXEL_ID)');
+    return { ok: false, motivo: 'sin_pixel', detalle: 'no hay conjunto de datos ni píxel de Meta configurado' };
   }
   if (!accessToken || accessToken.startsWith('PENDING')) {
     console.error('[capi] skip: no hay token para CAPI (ni META_CAPI_TOKEN ni META_ACCESS_TOKEN)');
@@ -188,12 +191,15 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
     ...(params.eventId ? { event_id: params.eventId } : {}),
     ...(params.eventSourceUrl ? { event_source_url: params.eventSourceUrl } : {}),
     user_data,
-    ...(params.customData || t.recortado
-      ? { custom_data: { ...params.customData, ...(t.recortado && t.real ? { hecho_en: t.real } : {}) } }
+    // Los dos campos de CRM van PRIMERO: si un llamador declara su propio
+    // `event_source`, el suyo gana. Y solo cuando el destino es el conjunto de datos
+    // de CRM — mandarlos al píxel del sitio es lo que la doc de Meta prohíbe.
+    ...(params.customData || t.recortado || destino.esCrm
+      ? { custom_data: { ...(destino.esCrm ? CUSTOM_DATA_CRM : {}), ...params.customData, ...(t.recortado && t.real ? { hecho_en: t.real } : {}) } }
       : {}),
   };
 
-  const url = `https://graph.facebook.com/${apiVersion}/${pixelId}/events`;
+  const url = `https://graph.facebook.com/${apiVersion}/${destino.id}/events`;
 
   try {
     const res = await fetch(url, {

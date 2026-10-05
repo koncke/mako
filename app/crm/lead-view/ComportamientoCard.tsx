@@ -51,6 +51,8 @@ import { filaDeRetencionInforma, rotuloDe, videoNombrable, type VideoLanding } f
 import type { TrackingEvent, VideoEngagement } from '@/lib/leads';
 import { TrackingTimelineCard } from './TrackingTimelineCard';
 import { NombrarVideosModal } from './NombrarVideosModal';
+import { GrabacionCard } from './GrabacionCard';
+import type { ReplayEnLaFicha } from '@/lib/replay-ficha';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -121,7 +123,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
 
 export function ComportamientoCard({
   visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], eventos = [], pixelPuesto = true,
-  urlClarity = null, urlMapaCalor = null, visitorId = null, grabacionVencida = false,
+  urlClarity = null, urlMapaCalor = null, visitorId = null, grabacionVencida = false, replay = null,
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -150,6 +152,17 @@ export function ComportamientoCard({
    *  de «no hay link»: acá SÍ hubo algo que ver, y decirlo evita que la persona
    *  crea que la medición nunca funcionó. */
   grabacionVencida?: boolean;
+  /** Las grabaciones PROPIAS de esta persona, o por qué no hay ninguna. Lo resuelve
+   *  el server (`replayDeLead`, lib/replay-leer.ts): necesita el apagador del
+   *  workspace y el índice scopeado, que el navegador no puede leer.
+   *
+   *  ⚠️ `null` NO ES «no hay grabación»: es «esta pantalla no preguntó», y entonces
+   *  la sección no se dibuja. Es opcional porque la tarjeta la montan DOS parents
+   *  (el modal y la ruta) y un prop obligatorio los rompería a los dos a la vez;
+   *  pero los dos la pasan, y `tests/replay-ficha.test.ts` cuenta los call sites —
+   *  una prop opcional que nadie pasa es una pantalla donde no hay nada que
+   *  apretar, con el typecheck en verde. */
+  replay?: ReplayEnLaFicha | null;
 }) {
   // ⚠️ EL CATÁLOGO RECIÉN GUARDADO GANA, pero sólo hasta que llegue el del server.
   // `null` significa «usá la prop»: el nombre lo acaba de escribir el pop-up y
@@ -287,6 +300,11 @@ export function ComportamientoCard({
           suelto en los dos montajes — si volviera, la misma ficha lo dibujaría dos
           veces (lo fija `tests/crm-tracking-ficha.test.ts`). */}
       <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />
+
+      {/* La grabación PROPIA, después de lo nuestro y ANTES de «Fuera de MaKo»: es
+          lo único que el replay propio compra sobre Clarity, y lo externo sigue
+          último. Con `null` no se dibuja: ver el prop. */}
+      {replay && <GrabacionCard replay={replay} />}
 
       {externo && (
         <section style={cardExterna}>

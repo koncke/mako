@@ -2600,6 +2600,511 @@ nada con nosotros, y tiene consecuencia legal, no sólo técnica.
 
 ---
 
+### El PROMEDIO de `cierre.segundos` miente por 14x: lo que se dimensiona sale de la MEDIANA (2026-10-05)
+
+**Síntoma / la trampa:** al dimensionar cuánto pesaría guardar las grabaciones, el insumo
+obvio es `vsl_events` con `tipo_evento = 'cierre'`, que trae los segundos que duró la visita.
+Promediado, el ws 1 da **262 segundos por sesión**. Con eso, 8.893 visitas al mes son ~38.800
+minutos de grabación y el cálculo entero sale 14 veces más caro de lo que es.
+
+**La causa:** esa columna es **reloj de pared**, no tiempo de uso. La mediana del mismo
+workspace es **19 segundos** y el máximo medido es **124.055 — 34 horas**: pestañas olvidadas
+abiertas de un día para el otro. El promedio *es* la pestaña de 34 horas.
+
+**Medido el 05/10/2026** sobre septiembre (el mes pico), los cuatro workspaces que miden:
+
+| ws | cierres | p50 | p90 | p99 | máx | minutos sin tope | con tope de 10 min |
+|---|---|---|---|---|---|---|---|
+| 1 | 3.385 | 19 s | 141 s | 5.129 s | 124.055 s | 15.669 | 3.474 |
+| 13 | 1.059 | 27 s | 335 s | 1.824 s | 17.149 s | 2.342 | 1.355 |
+| 11 | 189 | 12 s | 3.248 s | 76.951 s | 100.167 s | 6.498 | 415 |
+| 14 | 50 | 28 s | 717 s | 52.049 s | 52.049 s | 1.859 | 131 |
+
+O sea: **un tope de 10 minutos por sesión corta el 4,8 % de las sesiones del workspace
+grande y ahorra el 80 % de los minutos** (26.368 → 5.375). Y el **32,4 %** de las sesiones
+del ws 1 duran menos de 10 segundos (46,6 % en el ws 11): son rebotes sin nada que mirar.
+
+**La regla, y vale para cualquier cosa que se cobre por tiempo de sesión** (una grabación, un
+heatmap de atención, una métrica de engagement): el número que dimensiona es la **mediana con
+un tope por sesión**, nunca el promedio. Y si lo que se mide es trabajo del navegador, el tope
+se cuenta en **tiempo con eventos**, no en `Date.now() - inicio`: una pestaña escondida no
+genera nada y se comería el tope entera sin haber grabado un píxel.
+
+**Vive en:** `lib/replay-contrato.ts` (`REPLAY_TOPE_SEGUNDOS`, `REPLAY_PISO_SEGUNDOS`) ·
+`docs/replay-diseno.md`
+
+---
+
+### Nadie repega el Pixel: medido, el workspace con 7.052 visitas corre la v14 de 20 (2026-10-05)
+
+**Síntoma:** cada mejora del snippet trae su renglón en `novedadesDesde()` y su aviso de
+«copia el código y reemplázalo», y el semáforo de `/integraciones` se queda en verde igual
+porque los eventos siguen llegando. Así que la pregunta «¿le llegó la mejora a alguien?» no
+la contesta ninguna pantalla.
+
+**Lo medido el 05/10/2026 contra producción:**
+
+- `SNIPPET_VERSION` es **20**. El setting `landing.snippet_version` del **ws 1** —el
+  workspace con **7.052 visitas en septiembre**— dice **14**.
+- La columna `vsl_events.clic_vacio`, que estrenó la v20 (un toque en algo que no es botón ni
+  enlace, el dato más útil que hay para un mapa de calor), tiene **CERO filas en tres meses**
+  en los cuatro workspaces que miden. No es que se use poco: no está desplegada en ninguno.
+
+**La consecuencia de diseño, y es la razón por la que el grabador NO se inlinea:** rrweb son
+23.697 B gzip encima de un snippet que ya son 96.880 bytes de fuente servidos sin minificar,
+y el problema no es el peso — es que **pegarlo una vez más es pedir algo que la evidencia
+dice que no pasa**. Va como script externo desde una ruta nuestra y **versionada**
+(`/replay/<n>/r.js`, inmutable, cacheable un año): el loader vive en nuestro archivo, así que
+arreglar el grabador es subir un número y no hay nada que repegar.
+
+⚠️ **Y la ruta versionada no es un detalle de caché:** cambiar el contenido de una ruta ya
+cacheada en el navegador de un visitante es un cambio que llega cuando quiere y que además
+pisa la versión que se probó. Un arreglo es una ruta nueva.
+
+⚠️ **Y NO va por un CDN público** (cdnjs, unpkg). El único argumento a favor —que se cachea
+entre sitios— **ya no existe**: los navegadores particionan la caché HTTP por sitio de primer
+nivel desde 2020. Lo que sí queda es un `<script>` de un tercero en la página de un cliente
+de nuestro cliente, leyendo su DOM, que es exactamente lo que la decisión de
+`docs/heatmaps-decision.md` rechazó de Clarity.
+
+**Vive en:** `lib/landing-token.ts` (`SNIPPET_VERSION`, `novedadesDesde`) ·
+`lib/replay-contrato.ts` (`REPLAY_LIB_VERSION`, `rutaDeLibreria`) · `docs/replay-diseno.md`
+
+---
+
+### Guardar sólo las sesiones que convierten invierte el valor de la feature (2026-10-05)
+
+**El razonamiento que suena bien:** si una grabación pesa, se guardan sólo las que importan —
+las que dejaron el lead. Con los números parece obvio: en septiembre, **45 de 5.919**
+visitantes agendaron y **41 de 155** leads del mes llevan `visitor_id`, así que se pasaría de
+8.893 sesiones a 45.
+
+**Por qué está mal, y no por el volumen:** la razón para mirar un replay es ver por qué
+alguien **no** convirtió. Quedarse con los que sí deja la grabación de la gente que ya
+compró y tira la de todos los que se fueron, que es la pregunta. Y encima no se puede
+decidir al grabar: el `visitor_id` se cose al lead **después** (por Calendly o por el Camino
+1 del beacon), así que al momento de grabar la respuesta todavía no existe.
+
+**Lo que sí se corta, con sus números:** el piso (menos de 10 s o 20 eventos se tiran, y eso
+es el 32 % de las sesiones medidas) y el tope por sesión. Eso baja el costo sin tocar qué
+preguntas se pueden contestar.
+
+**Y la retención es donde el lead sí cambia algo:** 30 días para todas (lo mismo que Clarity,
+para que nada quede peor que hoy) y **180 si ese visitante terminó en un lead** — que es el
+agujero de Clarity que ya nos mordió, el que hizo falta para que existan el aviso
+`clarity-grabacion-por-vencer` y su cron. Cuesta ~4 % más de disco: seis veces la retención
+sobre el 0,7 % del volumen. **Se decide al borrar, no al grabar.**
+
+**Vive en:** `lib/replay-contrato.ts` (`motivoDeDescarte`, `grabacionVencio`) ·
+`docs/replay-diseno.md`
+
+---
+
+### `sendBeacon` avisa cuando no entra; `fetch(keepalive)` no (2026-10-05)
+
+Los dos tienen la misma cuota de **64 KiB por documento** para lo que sale mientras la página
+se está yendo. La diferencia está en qué contestan cuando se pasa: `navigator.sendBeacon`
+devuelve **`false`**, y `fetch(..., { keepalive: true })` **resuelve la promesa igual** y
+pierde el cuerpo sin decirlo.
+
+El snippet hoy manda el `cierre` por `fetch(keepalive)` y está bien: es un JSON de 200 bytes.
+Un lote de grabación es ~17 kB y la cola al salir puede ser más, así que ese camino no sirve —
+y el que parece más moderno es el que pierde datos en silencio. El grabador tiene que **mirar
+el `false` y tirar la cola**, no fingir que salió.
+
+**Vive en:** `lib/replay-contrato.ts` (`REPLAY_BEACON_MAX_BYTES`, `puedeIrPorBeacon`) ·
+`lib/landing-token.ts` (`enviar()`)
+
+### El receptor NO sella, y la razón es la misma por la que `n` existe (2026-10-05)
+
+**Vive en:** `app/api/track/replay/route.ts` · `lib/replay-ingesta.ts` ·
+`supabase/migrations/0191_replay_de_sesion.sql` (`fin_at`)
+
+**El diseño obvio era el equivocado.** El lote trae `fin: 1` cuando la persona se va, así
+que lo natural es sellar ahí mismo: leer los lotes, comprimirlos, subir el objeto y
+contestar. Y eso **tira el último pedazo de la grabación**, que es justo el momento que
+alguien iba a mirar.
+
+La razón ya estaba escrita dos secciones arriba y en la columna `n` de la migración: *el
+orden no se deduce de la llegada*. Un `sendBeacon` y un `fetch(keepalive)` salen sin
+esperar respuesta y el navegador los entrega cuando puede, así que **el lote con `fin`
+puede llegar antes que el anterior**. Sellar en ese request deja al que venía en camino
+sin dónde entrar — y lo pierde del final, no del principio.
+
+La cura son dos columnas que parecen la misma y no lo son: `fin_at` (el grabador dijo
+«terminé») y `sellada_at` (nosotros escribimos el objeto). El `fin` sólo anota, y el cron
+sella dos minutos después. Gratis vinieron otras dos cosas:
+
+- **El beacon deja de ser caro.** Sellar es leer hasta 2 MiB de la base, descomprimir N
+  lotes, parsearlos, re-comprimir con gzip 9 y subir un objeto. Adentro del `pagehide` de
+  la página de un tercero, eso es latencia que paga el visitante de nuestro cliente.
+- **Un solo camino de sellado**, el mismo para la sesión que avisó y para la HUÉRFANA —la
+  que cerró el navegador de golpe y nunca mandó el `fin`—. Sin eso, las huérfanas dejan
+  sus filas en el buffer caliente para siempre y nadie las busca.
+
+⚠️ **Y el contador de la sesión es idempotente porque `ms` viaja ACUMULADO.** El contrato
+define `ms` como «milisegundos de grabación acumulados al cerrar este lote», no el largo
+del lote, y eso vuelve el `update` un `max(…)` en vez de una suma: dos lotes en vuelo a la
+vez no se pisan el contador, que es con el que se decide el tope de 10 minutos. Si `ms`
+fuera el delta, una carrera entre dos POST dejaría la sesión midiendo de menos y el tope no
+cortaría nunca.
+
+### ⚠️ EL ÍNDICE PARCIAL DE LA PURGA NO VEÍA JUSTO LO QUE CRECE SIN TECHO (2026-10-05)
+
+**Vive en:** `supabase/migrations/0191_replay_de_sesion.sql`
+(`replay_sesiones_purga_idx`, `replay_sesiones_sellar_idx`)
+
+El índice de la purga nació como `on replay_sesiones (workspace_id, inicio) where
+storage_path is not null`, con un argumento que se lee impecable: lo sellado es lo único
+que tiene un objeto que borrar, y así el índice no se paga por cada sesión a medio grabar.
+
+Las dos mitades de la frase son ciertas y la conclusión es falsa, porque **la purga no sólo
+borra lo sellado**. Lo que no tiene techo son las otras dos poblaciones, y las dos tienen
+`storage_path` en NULL:
+
+| | `storage_path` | qué deja atrás |
+|---|---|---|
+| sellada | la ruta | el objeto, que vence a los 30 días |
+| **huérfana** (el `fin` no llegó nunca) | NULL | sus filas de `replay_lotes`, **para siempre** |
+| **descartada por el piso** | NULL | su fila índice |
+
+O sea que el índice escrito para «borrar lo viejo» era ciego a lo único que crece solo. El
+modo de falla no es un error: es una consulta que corre sin índice y devuelve cero filas, o
+sea indistinguible de «no había nada que purgar».
+
+Quedó sin la condición, más uno nuevo y parcial para el SELLADOR (`where sellada_at is null
+and descarte is null`), que en régimen son un puñado de filas. **La regla: antes de hacer
+parcial un índice, enumerá las poblaciones que la consulta tiene que ver — no las que la
+consulta veía el día que se escribió.**
+
+### El piso borraba la fila, y con ella el único rastro de que lo tiramos nosotros (2026-10-05)
+
+**Vive en:** `lib/replay-ingesta.ts` (`sellarSesion`) ·
+`supabase/migrations/0191_replay_de_sesion.sql` (`descarte`, `descartados`)
+
+El piso tira todo lo que no llegue a 10 s / 20 eventos, y está bien: el **32,4 %** de las
+sesiones del ws1 son rebotes. Lo que estaba mal era borrar la fila junto con los lotes,
+porque con eso no queda nada y «no llegó ninguna grabación» y «las tiramos nosotras» se ven
+exactamente igual. Nadie puede contestar cuántas descarta el piso ni si está demasiado alto.
+
+El argumento original —«un rebote ocupa una fila, un objeto y una llamada igual que una
+sesión de diez minutos»— mezcla tres costos de órdenes distintos. Lo caro es el **objeto**
+(cientos de kB) y los **lotes** (el buffer caliente); la fila índice son ~200 B, así que
+2.900 rebotes al mes son **580 kB**. La fila sobrevive al descarte con `descarte` puesto
+(`'corta'` / `'vacia'`), `storage_path` en NULL y sus lotes borrados.
+
+Y el otro descarte, el del tope, tiene su propio contador: `descartados` cuenta los lotes
+que llegaron DESPUÉS de cortar la sesión. Es lo único que contesta si el tope de 10 minutos
+quedó corto — una sesión con `corte='tiempo'` y 200 descartados es alguien que siguió usando
+la página media hora. Sin el contador, el exceso se descarta en silencio y el tope no se
+puede auditar.
+
+### La rotura que NO falló: un guard de COSTO no tiene red, y hay que decirlo (2026-10-05)
+
+**Vive en:** `lib/replay-sellado.ts` (`cuerpoDeLote`) · `tests/replay-sellado.test.ts`
+
+Probando el test rompiéndolo (base **16 pases, 0 fallos**; diez roturas, nueve con su
+fallo), una quedó en **16 pases y 0 fallos**: sacar el chequeo de tamaño que corre ANTES de
+decodificar el lote. Y no era un test flojo — ningún test puede verlo, y la cuenta dice por
+qué:
+
+| | dispara el chequeo PREVIO | dispara el de DESPUÉS |
+|---|---|---|
+| `z: 0` (texto crudo) | 524.288 bytes | **262.144** |
+| `z: 1` (base64 de un gzip) | 393.216 bytes | **262.144** |
+
+El segundo es **siempre** más estricto, así que el primero no puede cambiar un solo
+veredicto. Ese `if` no decide qué lote entra: decide si se asigna medio mega de Buffer
+antes de tirarlo. Queda, y queda escrito en el módulo y en el test que es un guard de costo
+— el día que alguien lo borre «porque está duplicado», lo que se pierde no es una
+validación sino no parsear basura.
+
+Es la contracara de «un test verde sobre la propiedad equivocada»: acá el verde es correcto
+y lo que falta es **declarar que esa línea no tiene red**, que es lo que AGENTS.md pide
+cuando una regla no se puede validar de forma determinista.
+
+⚠️ **Y una trampa del entorno medida en la misma pasada: `bytea` sobre PostgREST viaja en
+HEXADECIMAL, o sea al doble.** La migración elige `bytea` en vez de `text` con un argumento
+correcto —«guardar un binario como texto lo infla un 33 % en base64»— y el precio que no se
+ve es que el único formato que PostgREST acepta y devuelve para esa columna es el texto
+hexadecimal de Postgres (`\x1f8b…`): **dos caracteres por byte, peor que el base64 que el
+argumento descartaba**. Sigue siendo la decisión correcta (lo que se infla es el tránsito
+entre nuestro server y la base, en la misma región, no lo que queda guardado durante
+minutos ni lo que se vuelve a codificar al sellar), pero el que lo lea tiene que saber que
+el ahorro del 33 % no existe. Y de paso: `Buffer.from(x, 'base64')` **no se queja de nada**
+ante un texto que no es base64, y `deBytea` sin mirar el prefijo acepta cualquier cadena —
+las dos cosas meten bytes inventados adentro de una grabación.
+
+---
+
+### Un lead sin grabación son SEIS cosas distintas, y se leen igual (2026-10-05)
+
+**Síntoma:** el estado NORMAL de la tarjeta de grabación en la ficha de un lead, durante
+semanas, va a ser el vacío. Escrito como «sin grabación» se lee como que el producto no
+mide — el mismo reporte que ya costó el botón de Clarity sobre leads de hace tres meses
+(«aún no se está mostrando la grabación»).
+
+**Las seis causas, y lo que las separa es DÓNDE se arreglan:**
+
+| causa | ¿se arregla? | dónde |
+|---|---|---|
+| el lead no trae `visitor_id` | no, nunca | — |
+| no se pudo LEER el índice | sí, reintentando | — |
+| el workspace lo tiene APAGADO | sí | `landing.replay` (**sin pantalla todavía**) |
+| el código de la página es anterior al grabador | sí | /integraciones?abrir=landing |
+| la purga ya la borró | no | — |
+| de verdad no hay | no | — |
+
+**El orden en que se preguntan NO es estético: es el orden en que se tapan entre sí.**
+
+- Una grabación que EXISTE gana sobre todo, incluido el apagador: apagarlo hoy no borra lo
+  de ayer, y esconderlo sería tirar un dato por una configuración de ahora.
+- «No trae identificador» va antes que «no pude leer»: es un hecho que no depende de
+  ninguna consulta, y decir «no pude leer» ahí manda a reintentar algo que va a contestar
+  lo mismo siempre.
+- El **apagador va antes que el pixel**: con el interruptor en false, repegar el código no
+  cambia NADA. Es el candado sin llave de AGENTS.md aplicado a un estado vacío.
+- El **pixel va antes que el vencimiento**: si esa página nunca tuvo el grabador, no hubo
+  nada que vencer — decir «ya la borramos» inventaría una grabación que no existió.
+
+Y dos frases que la pantalla NO puede escribir: `apagado` **no lleva link** (el interruptor
+se prende con `setSetting` y no hay pantalla; un botón que lleva a donde la respuesta no
+está es peor que ninguno) y `vencida` **no afirma que hubo una** — la purga borra también la
+fila del índice, así que desde la ficha no hay forma de distinguir «existió y venció» de
+«nunca hubo». Dice la condición, no el hecho.
+
+⚠️ Y `no_se_pudo_leer` **no es prudencia**: `replay_sesiones` no existe hasta que se aplique
+la 0191, y un `select` de PostgREST contra una tabla que no existe devuelve `data:
+undefined` **sin tirar**. Sin leer el `error`, «no hay grabación» y «la migración no está
+aplicada» son la misma pantalla.
+
+**Vive en:** `lib/replay-ficha.ts` (`motivoDelVacio`, `textoDelVacio`) ·
+`tests/replay-ficha.test.ts` · `app/crm/lead-view/GrabacionCard.tsx`
+
+---
+
+### El reproductor de rrweb no se instala: se SIRVE (2026-10-05)
+
+**El diagnóstico obvio era el equivocado.** El pedido decía «cargalo con import dinámico»,
+y `import('@rrweb/replay')` no compila: la dependencia **no está** (`npm ls rrweb` no
+devuelve nada) y un import literal de un paquete que no existe **tira el build entero**, no
+esa pantalla. La salida que aparece primero es `npm install`, y es la que no se puede tomar
+acá: hay **tres sesiones sobre este clon** y un install reescribe `package-lock.json` y
+`node_modules`, que son de todos — el candado del `tmp-` sin commitear, pero de minutos y
+para los tres.
+
+**Lo que queda:** el reproductor se baja a pedido desde una ruta NUESTRA y versionada,
+`/replay/<v>/player.js`, con un `<script>` inyectado la primera vez que alguien abre una
+grabación. Nada de rrweb viaja en el bundle de la app, que es lo que el pedido quería, y
+cambiar a una dependencia instalada es cambiar UNA función (`cargar()`).
+
+Y no es sólo conveniencia: la pantalla que monta el reproductor es la ficha de un lead, con
+la cookie de sesión del equipo y los datos de los clientes a la vista. Un `<script>` de un
+CDN de un tercero ahí es la misma decisión que la de heatmaps rechazó de Clarity, del lado
+de adentro — y el único argumento a favor de un CDN (la caché compartida entre sitios) **no
+existe desde 2020**.
+
+⚠️ **Que un `<script>` cargue no es que el reproductor esté.** Un 404 que el router sirve
+como HTML dispara `onload` perfectamente y no define nada. Se pregunta por el GLOBAL
+(`window.rrwebPlayer`), nunca por el `onload`. Y un fallo **no se memoiza**: la causa más
+probable es la red de quien está mirando.
+
+**Falta el archivo** (`public/replay/1/player.js`, el bundle UMD de `rrweb-player`), igual
+que falta `/replay/<v>/r.js` del lado del grabador. Mientras no esté, el pop-up **lo dice y
+ofrece bajarse la grabación**: el reproductor no puede ser la única puerta a un dato que ya
+está en la pestaña.
+
+**Vive en:** `lib/replay-reproductor.ts` · `app/crm/lead-view/GrabacionModal.tsx`
+
+---
+
+### El FORMATO del objeto en Storage es parte del contrato, y no estaba (2026-10-05)
+
+El contrato dice `<ws>/<YYYY-MM-DD>/<sesion>.jsonl.gz` y nada más. `.jsonl` admite dos
+cosas igual de válidas —**un evento por línea** o **un lote (un array) por línea**— y el
+sellador y el reproductor los escribió gente que no se ve: elegir la que no es deja un
+reproductor que no dibuja nada sobre un objeto que está perfecto, sin un solo error.
+
+Medido sobre el árbol a las **09:31 del 05/10/2026** (sin commitear): `lineaDeLote`
+(`lib/replay-sellado.ts`) escribe **un lote por línea** —`JSON.stringify` de un array, y
+`'[]'` cuando el lote vino vacío—. El lector acepta las DOS formas y cuenta las líneas que
+no entendió; las `[]` no son un error (no aportan eventos y no son ilegibles).
+
+**La regla:** cuando dos paquetes se hablan por un ARCHIVO, el formato del archivo es parte
+del contrato — igual que los topes y la ruta. Y mientras no lo sea, el que lee se hace
+tolerante y **cuenta lo que descarta**: una grabación a la que le faltan pedazos no se
+puede mostrar como completa.
+
+⚠️ Y con menos de **dos** eventos no se reproduce: rrweb dibuja un cuadro negro con un play
+que no avanza, que se lee como un reproductor roto. Es mejor decir que llegó cortada.
+
+**Vive en:** `lib/replay-ficha.ts` (`parsearCuerpo`, `REPLAY_MINIMO_EVENTOS`) ·
+`lib/replay-sellado.ts` (`lineaDeLote`)
+
+---
+
+### La versión del Pixel se pregunta por LEAD, no por workspace (2026-10-05)
+
+Para decir «esa visita no se grabó porque tu código es viejo» hace falta una versión, y hay
+tres candidatas: el setting `landing.snippet_version` (que escribe el **último** evento que
+llega, venga de la página que venga), el `sv` de las visitas de ESA página, y el `sv` de las
+visitas de ESTE lead. La unidad que gana algo acá es el lead.
+
+- Se toma el **máximo** entre el `sv` del lead y el setting del workspace: el setting puede
+  estar más adelantado si acaban de repegar el código y la visita nueva todavía no llegó, y
+  un «tenés el código viejo» sobre una página recién actualizada es el mismo falso positivo
+  al revés.
+- **`null` es «no se sabe» y NO acusa.** Un lead que entró por un formulario de Meta no
+  tiene ni una visita con `sv`: ahí el código de la página no es el problema, y la frase que
+  sale es «no hay grabación suya», no «actualizá el código».
+- `0` tampoco es una versión: nadie midió nunca con la 0. Vuelve a ser «no se sabe».
+
+Es la misma trampa que ya costó el botón «Probar» bloqueado para los cuatro clientes
+(AGENTS.md: «un bloqueo derivado de una versión GLOBAL bloquea a todos»), con la unidad una
+vuelta más abajo.
+
+**Vive en:** `lib/replay-ficha.ts` (`REPLAY_DESDE_SNIPPET`) · `lib/replay-leer.ts`
+
+---
+
+### El PRIMER lote de toda sesión no entra en el tope del receptor, y el grabador lo tiraba (2026-10-05)
+
+**El caso cruzado entre dos paquetes, que ninguno de los dos podía ver solo.** El receptor
+rechaza un lote de más de **256 KiB** ya decodificado (`REPLAY_LOTE_MAX_BYTES = 4 ×` la
+cuota de `sendBeacon`, en `lib/replay-sellado.ts`) y lo contesta como `pesado`. El grabador
+cortaba **sólo por cantidad** —100 eventos o 10 segundos— y al mandar ya había vaciado la
+cola y consumido su número de lote.
+
+Y el lote que se pasa no es el raro: es el **primero de cualquier sesión**. El primer evento
+de rrweb es la foto entera de la página, y con `inlineStylesheet: true` —que está prendido a
+propósito, para que el reproductor no dibuje una página sin estilo el día que el cliente la
+rediseñe— la hoja de estilos viaja adentro de ese evento. Una landing armada con un builder
+pasa los 256 KiB en la foto sola.
+
+Lo que se pierde con eso no es «un pedazo»: es **la foto**, o sea lo único que el
+reproductor necesita para dibujar algo. La sesión queda guardada, con sus eventos
+incrementales, y no se puede reproducir — sin un error, y con la fila de índice diciendo que
+está todo bien.
+
+**La cura, y por qué va del lado del que MANDA:** el grabador parte por TAMAÑO con el mismo
+número que mira el que recibe (`replayPartir`), y cada tanda se lleva su propio `n`.
+
+- **Un evento solo que no entra NO se parte y va igual.** Comprimido casi siempre entra —el
+  tope se aplica a los bytes del gzip, no al base64— y si no entra lo tira quien tiene el
+  número de verdad. Lo que no se puede hacer es tirarlo en el navegador: una sesión sin su
+  foto no se puede mirar, y el descarte del receptor por lo menos queda contado en
+  `replay_sesiones.descartados`.
+- **El corte se evalúa ANTES de pasarse, no después**: `if (actual.length && …)`. Con la
+  condición sin el `actual.length`, el evento grande arrastra a los que vienen detrás y la
+  tanda entera se pasa — que es el bug servido de nuevo.
+- **El peso de un cuerpo comprimido se mide sobre los bytes del gzip** (`× 3/4` del base64),
+  que es lo que el receptor mide después de decodificar. Medirlo sobre el base64 rechazaría
+  un tercio de los lotes perfectamente buenos.
+
+⚠️ **Y `z: 1` es base64 DEL gzip, no el gzip pelado.** `e` es un campo de un JSON y los
+bytes de un gzip no son texto válido, así que el base64 lo fuerza el formato del lote. Las
+dos puntas ya coinciden —`cuerpoDeLote` hace `Buffer.from(e, 'base64')` y mira la firma
+`0x1f 0x8b`— y eso fue suerte, no contrato: el tipo `ReplayLote` dice «Gzip si z es 1» y no
+dice nada del base64. Queda dicho acá y en el snippet.
+
+**Vive en:** `lib/landing-token.ts` (`replayPartir`, `replayPost`) · `lib/replay-sellado.ts`
+(`REPLAY_LOTE_MAX_BYTES`, `cuerpoDeLote`) · `tests/landing-snippet-emitido.test.ts` («el
+lote se parte con el tope del RECEPTOR»), que lee los DOS archivos y además EJECUTA
+`replayPartir` sacándola del texto emitido
+
+---
+
+### La cuota de `keepalive` es del DOCUMENTO, y los dos caminos la comparten (2026-10-05)
+
+Complemento de «`sendBeacon` avisa cuando no entra; `fetch(keepalive)` no»: ahí lo que se
+mide es **quién avisa**. Esto es lo otro, y muerde en el camino que parece inofensivo.
+
+Los 64 KiB no son un tope por request: son la cuota de **todo el documento**, y la comparten
+`fetch(keepalive)` y `sendBeacon`. El snippet manda sus eventos con `keepalive: true` desde
+la v1 —correcto, son 200 bytes y tienen que sobrevivir a la navegación— y copiar ese molde
+para el lote del replay es lo que aparece primero. Un lote son ~17 kB: **uno solo se come un
+cuarto de la cuota que el beacon del final necesita**, y ese beacon es el único camino que
+queda al irse de la página.
+
+Así que el lote de todos los días va con un `fetch` **normal**. Mientras la pestaña está
+abierta no hace falta nada más, y lo que se compra es que el último lote —el que lleva el
+`fin: 1` y cierra la sesión— tenga la cuota entera.
+
+⚠️ **Y el cuerpo viaja etiquetado `text/plain`, en los dos caminos.** Con
+`application/json` el navegador tiene que pedir permiso primero (preflight), y un preflight
+disparado mientras la página se cierra es un lote que no sale. `text/plain` es un valor
+seguro de CORS, así que no hay preflight — y funciona porque `request.json()` **parsea el
+cuerpo y no mira la etiqueta**. Es un contrato real entre el snippet y el receptor, y no se
+ve en ninguno de los dos archivos: si alguien le pusiera a la ruta un guard por
+Content-Type, el replay se apagaría al cerrar la pestaña y en ningún otro momento.
+
+**Vive en:** `lib/landing-token.ts` (`replayPost`, `replayBeacon`) ·
+`app/api/track/replay/route.ts` (`request.json()`)
+
+---
+
+### Un interruptor interpolado en el snippet queda congelado para siempre (2026-10-05)
+
+El snippet se arma en el server, así que la salida barata para el apagador es interpolar el
+estado: `var GRABA = true`. No se puede, y por la misma razón por la que existe la ruta
+versionada de la librería — **el snippet queda congelado en el HTML de un tercero**. Un
+`true` pegado hoy no se apaga nunca, y un cliente que deja de querer que grabemos tendría
+que volver a pegar el código para que lo dejemos de hacer.
+
+Lo mismo vale para el **número de versión de la librería**: si saliera interpolado, «arreglar
+el grabador es subir un número» sería falso para todo el que no repegue — o sea para el
+workspace con 7.052 visitas, que corre la v14.
+
+Las dos cosas viajan en la **respuesta del `pageview`** que el snippet ya manda: cero
+requests extra, y el server es el único que decide. Lo que eso costó del lado del snippet es
+que `enviar()` aprendiera a leer una respuesta (un segundo parámetro opcional, que sólo el
+pageview pasa); el resto de los eventos siguen sin mirarla.
+
+- **Lo único que viaja es la versión.** Las opciones de privacidad NO se piden ni se
+  reciben: viven interpoladas del contrato y el snippet no las lee de ningún lado. Si el
+  permiso para tapar los campos viniera por la red, algún día va a venir mal.
+- **Y se sanea antes de armar la URL** (`v >= 1 && v <= 9999`): ese número termina adentro
+  del `src` de un `<script>` en la página de un cliente.
+- **Mientras el server no conteste `rec`, la librería ni se baja.** Lo que se ahorra no es
+  el tiempo de grabar: es la descarga.
+- ⚠️ **Y que el `<script>` cargue no es que la librería esté** — un 404 servido como HTML
+  dispara `onload` perfectamente. Se pregunta por el global (`window.rrweb.record`), igual
+  que el reproductor del otro lado. Sin eso se acuña el id de sesión y se cuelgan los
+  listeners de una grabación que no existe.
+
+**Vive en:** `lib/landing-token.ts` (`enviar`, `replayArrancar`, `replayGrabar`) ·
+`app/api/track/vsl/route.ts` (la rama `pageview`, que contesta `rec` con `grabaA`)
+
+---
+
+### Un ancla de test con la FIRMA de la función se rompe por un renombre (2026-10-05)
+
+`tests/landing-optin.test.ts` anclaba en `'function enviar(data) {'` para comprobar que la
+página se pega **adentro** de `enviar()` y no en cada llamada. Al darle a `enviar` un
+segundo parámetro, el `indexOf` dio **-1**, el test falló, y lo que persigue seguía intacto:
+un rojo que no es un bug.
+
+Es el espejo de los guards que dan verde de más (AGENTS.md: «un guard que lee el archivo
+entero encuentra lo que el archivo dice de sí»). Acá el universo era demasiado CHICO: la
+lista de parámetros no es parte de lo que el test cuida. El ancla quedó en
+`'function enviar(data'`, y se comprobó rompiéndolo —sacando la línea de `enviar()` y
+dejándola suelta— que sigue cazando el bug: **65 pasan / 1 falla**.
+
+**La regla:** un ancla incluye lo que el test cuida y nada más. Si incluye la firma, el test
+falla el día que alguien agrega un parámetro — y lo que se aprende de un test que falla por
+un renombre es a cambiar el test sin leerlo.
+
+**Lo que queda SIN hacer, y es lo único que separa esto de grabar de verdad:**
+`public/replay/1/r.js` **no existe** (el bundle UMD de `rrweb-record`), igual que falta
+`public/replay/1/player.js` del lado del reproductor. rrweb no es una dependencia del repo y
+no se puede instalar con tres sesiones sobre el mismo clon. Mientras no esté, el apagador
+prendido baja un 404, `onload` dispara, el global no está y el grabador se apaga solo — que
+es el comportamiento correcto y es, exactamente, no grabar nada.
+
+**Vive en:** `tests/landing-optin.test.ts` · `lib/landing-token.ts` (`enviar`)
+
+---
+
 ## La analítica POR PÁGINA del Pixel: lo que ya estaba medido y no miraba nadie
 
 **Vive en:** `lib/landing-pulso.ts` (puro, con test) · `lib/landing-pulso-server.ts` (la

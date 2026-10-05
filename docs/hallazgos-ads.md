@@ -2505,3 +2505,107 @@ desfasado y Meta rechaza cualquier adelanto.
 - **El payload sigue yendo al píxel del sitio**, no a un dataset de CRM, y le faltan
   `custom_data.event_source: 'crm'` y `lead_event_source`. Eso es la segunda ruta y arranca cuando
   haya dataset.
+
+---
+
+## El dataset de CRM: qué es, y el tutorial que no existía (05/10)
+
+**Corrida del 05/10/2026.** Martín: «explicame qué es el dataset, si ya tenemos un tutorial en
+integraciones de cómo el usuario lo debe configurar, así como tenemos un tutorial de cómo traer el
+access token, y de lo contrario deberíamos crearlo».
+
+**Vive en:** `lib/metodo-catalogo.ts` (campo `META_CRM_DATASET_ID` + su `AYUDA_CAMPO`) ·
+`lib/meta-capi-payload.ts` (`destinoCAPI`, `CUSTOM_DATA_CRM`) · `lib/meta-capi.ts` ·
+`tests/meta-crm-dataset.test.ts`.
+
+### Qué es, traducido
+
+Un **conjunto de datos** («dataset» en la jerga de Meta) es el buzón donde Meta junta todo lo que
+le contamos de una persona. El píxel del sitio es uno; el de CRM es **otro, separado**, y el que
+recibe las ETAPAS de un lead («entró», «calificó», «compró»). Con eso Meta deja de buscar gente
+que deje sus datos y empieza a buscar gente que CALIFIQUE: es lo que habilita el objetivo
+«Clientes potenciales de conversión». Sin él no se pierde nada de lo que hay — los anuncios, las
+métricas y los contactos siguen igual.
+
+### Lo que medimos de la pantalla de HOY
+
+Doc oficial leída el **05/10/2026**
+(`developers.facebook.com/documentation/ads-commerce/conversions-api/conversion-leads-integration`,
+pasos 2 a 6; la raíz 404ea y las páginas se leen con el sufijo `.md`). Rótulos textuales:
+
+- **«Connect Data Sources» → «CRM» → «Connect» → «Create New Dataset»**, y nombrarlo. La doc
+  recomienda uno NUEVO: «Create a new dataset so the CRM events do not overlap with existing
+  dataset events», y si se convierte uno existente, que los eventos no reusen nombres.
+- **Verificación: «Double check that the icon for your CRM dataset has updated.»**
+- El **embudo** se configura en la pestaña *Overview* del conjunto de datos: «Arrange the rest to
+  reflect the order of your sales funnel», en *Positive stages* y *Other stages*, y «Select the
+  earliest lead stage you would like to optimize for» — Meta optimiza también las de abajo.
+- **Cobertura de leads** = «the percentage of leads that have matching events uploaded to Meta»,
+  mínimo **60%**, visible con el botón *View Reports* de la pestaña *Settings*.
+- **Aprendizaje: «there is a 2-4 week learning phase»**, y el objetivo se prende en *Optimization
+  and Delivery* del administrador de anuncios.
+- El token del conjunto sale de *Settings* → *Conversions API* → **«Generate access token»**, y los
+  tres campos obligatorios del payload son `event_source: "crm"`, `lead_event_source` (el nombre
+  del CRM) y `lead_id` (15-17 dígitos).
+
+**Lo que NO cambió:** sigue sin haber endpoint para crearlo. Confirmado contra la doc de la
+integración: todos los pasos de creación son de UI.
+
+### Lo que ya existía, uno por uno
+
+Meta tenía **siete** tutoriales y NINGUNO nombraba el conjunto de datos de CRM:
+
+| Dónde | Qué contesta |
+|---|---|
+| `servicio.tutorial` (29 pasos) | cómo conectar Meta Ads de punta a punta |
+| `META_ACCESS_TOKEN` (26 pasos) | el token de usuario del sistema — el molde que se copió |
+| `META_AD_ACCOUNT_ID` | el `act_` de la cuenta publicitaria |
+| `META_PAGE_ACCESS_TOKEN` | por qué quedó vacío el token de página |
+| `META_PIXEL_ID` | el píxel del SITIO, no el de CRM |
+| `META_CAPI_TOKEN` | «dejalo vacío», y el caso raro del píxel ajeno |
+| `META_PAGE_ID` | el id de la página |
+
+El de `META_PIXEL_ID` es el que más se le parece y es **otra cosa**: manda al mismo Administrador
+de eventos y a elegir un píxel que ya existe. Ninguno pasa por «Conectar orígenes de datos».
+
+### El campo es OPCIONAL, y no es un detalle de copy
+
+`opcional` lo leen los TRES lectores de «está conectado» (`lib/credenciales.ts:227`,
+`lib/metodo-verificar.ts:601`, `app/api/metodo/route.ts:28`). Marcarlo requerido dejaría «no
+conectado» a Meta Ads en los diez workspaces que hoy funcionan, sin que nadie tocara una
+credencial — ya pasó una vez. Y el criterio de fondo es el de la casa: **sin este dato no se
+pierde nada de lo que hay**, así que es opcional y su nota dice qué se gana con él.
+
+Tampoco es `auto`: el conjunto no existe hasta que la persona lo crea, y no hay endpoint, así que
+`auto: true` prometería un autocompletado que nunca llega.
+
+**Medición de paso, que no era la esperada:** los requeridos de Meta son DOS, no uno —
+`META_ACCESS_TOKEN` y `META_AD_ACCOUNT_ID`. El segundo es `auto` (lo completa MaKo al pegar el
+token) pero **no** `opcional`. El test salió rojo la primera vez por asumir que era uno solo.
+
+### Y el campo no quedó muerto: `destinoCAPI`
+
+Un campo del catálogo cuyo `env` no lo lee ninguna lib es `credWs` devolviendo null en silencio.
+`lib/meta-capi.ts` ahora manda al conjunto de datos de CRM si está cargado y **al píxel si no**, y
+los dos campos que Meta exige SOLO para CRM (`event_source`, `lead_event_source`) viajan
+únicamente en ese caso — la doc es explícita: «Refrain from using this payload specification for
+other event types, such as website leads».
+
+**El orden no es al revés, y eso es el arreglo:** cortar el envío cuando no hay conjunto de datos
+apagaría conversiones que HOY entran en todos los workspaces, porque ninguno lo tiene. El camino
+del CRM es la segunda ruta, no un requisito nuevo. Y el filtro del centinela `PENDING…` vive
+adentro de `destinoCAPI`: un `??` lo tomaría por un id bueno y mandaría los eventos a un destino
+que no existe.
+
+### Lo que quedó SIN hacer
+
+- **Nada lee `META_CRM_DATASET_ID` fuera de CAPI.** `lib/meta-descubrir.ts` no lo descubre (no hay
+  endpoint) y `lib/metodo-verificar.ts` no lo pinga: un id mal pegado no se detecta hasta que un
+  evento rebota. El ping sería `GET /{id}` con el token, igual que el de `META_PIXEL_ID`.
+- **Sigue sin medirse si algún workspace llega a los 200 leads/mes** de una sola cuenta
+  publicitaria. Es el número que decide si el dataset se pide o no se pide nunca.
+- **`POST /{business_id}/adspixels` para parir un dataset de tipo CRM** sigue sin probarse. Si
+  funciona, el tutorial deja de hacer falta.
+- De los pendientes de la entrada anterior, **el payload al dataset y los dos `custom_data`
+  quedaron CERRADOS** por esta corrida; la conversión personalizada por API y el camino de polling
+  siguen abiertos.

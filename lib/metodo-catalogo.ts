@@ -171,6 +171,20 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. El píxel es el medidor que Meta pone en tu página web para saber qué anuncio trajo cada venta. Si tienes más de uno, MaKo te pregunta cuál.' },
       { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Déjalo vacío. MaKo ya manda esas mediciones con el token del campo "Access token". Solo hace falta en un caso raro: que tu píxel viva en otro negocio de Meta que no puedas asignarle a tu usuario del sistema.' },
       { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Es lo que hace que los contactos de tus formularios de Facebook e Instagram lleguen a tu cuenta y no se pierdan.' },
+      // ⚠️ OPCIONAL A PROPÓSITO, Y NO ES UN DETALLE DE COPY. `opcional` es lo que
+      // leen los TRES lectores de «está conectado» (lib/credenciales.ts:227,
+      // lib/metodo-verificar.ts:601, app/api/metodo/route.ts:28): marcarlo requerido
+      // dejaría «no conectado» a Meta Ads en todos los workspaces que ya funcionan,
+      // sin que nadie tocara una credencial — ya pasó. Y el criterio de fondo es que
+      // sin este dato NO se pierde nada de lo que hay: el píxel sigue recibiendo las
+      // conversiones (ver `destinoCAPI` en lib/meta-capi-payload.ts). Lo único que se
+      // pierde es optimizar por CALIDAD de lead, y eso lo dice la nota.
+      //
+      // Tampoco es `auto`: el conjunto de datos de CRM no existe hasta que la persona
+      // lo crea en el Administrador de eventos, y Meta no tiene endpoint para crearlo
+      // (medido el 05/10/2026, ver docs/hallazgos-ads.md). Marcarlo `auto` prometería
+      // un autocompletado que nunca va a llegar.
+      { env: 'META_CRM_DATASET_ID', label: 'ID del conjunto de datos de CRM', opcional: true, placeholder: '1234567890', nota: 'Opcional, y el único dato de Meta que MaKo no puede completar sola: hay que crearlo una vez en el Administrador de eventos. Sirve para que Meta busque contactos que CALIFIQUEN y no solo contactos. Los pasos están en el "?" de este campo. Sin esto todo lo demás sigue igual.' },
     ],
     tutorial: {
       url: 'https://business.facebook.com/settings',
@@ -1100,6 +1114,40 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',
+  },
+  // El ÚNICO paso de Meta que no tiene endpoint: `POST /{business_id}/adspixels` crea
+  // píxeles de sitio, y la doc de la integración de CRM no ofrece ninguna llamada para
+  // crear un conjunto de datos de tipo CRM ni para configurar el embudo. Por eso esto
+  // es un tutorial de CAMPO y no un paso automático.
+  //
+  // Los pasos salen de la doc oficial leída el 05/10/2026
+  // (developers.facebook.com/documentation/ads-commerce/conversions-api/conversion-leads-integration),
+  // con los rótulos de la pantalla de HOY: "Connect Data Sources" → "CRM" → "Connect"
+  // → "Create New Dataset". Meta renombra este panel seguido —lo que antes era un
+  // "píxel" hoy es un "conjunto de datos"—, así que al editar esto se vuelve a mirar la
+  // doc, no la memoria.
+  META_CRM_DATASET_ID: {
+    pasos: [
+        'Para qué sirve: hoy Meta busca gente que DEJE sus datos, y le da igual si sirve o no. Con este dato pasa a buscar gente que califique, porque MaKo le cuenta cuáles de tus contactos avanzaron y cuáles no.',
+        'Es el único dato de Meta que MaKo no puede completar sola: hay que crear el conjunto de datos una vez en su pantalla. Toma unos cinco minutos y no se repite.',
+        'Si lo dejas vacío no se rompe nada: tus anuncios, tus métricas y tus contactos siguen igual. Lo único que no pasa es esto, que Meta aprenda a quién le sirve tu negocio.',
+        'Entra a business.facebook.com/events_manager2, que es el "Administrador de eventos".',
+        'Toca "Conectar orígenes de datos". Si tu pantalla está en inglés, dice "Connect Data Sources".',
+        'Elige la opción "CRM" y confirma con "Conectar".',
+        'Cuando pregunte si usar uno que ya tienes o crear uno nuevo, elige crear uno nuevo. Meta lo recomienda así: mezclado con el de tu página web, los dos tipos de dato se confunden y después no se sabe cuál falló.',
+        'Ponle un nombre que lo distinga —"CRM" sirve— y créalo.',
+        'Si pregunta qué programa usas, escribe "MaKo". Y donde ofrezca conectarlo con un socio o hacerlo por tu cuenta, elige hacerlo por tu cuenta: la conexión ya está hecha de este lado.',
+        'Vuelves a la lista de orígenes de datos. Comprueba que el nuevo tenga el icono de CRM: es lo que dice que quedó listo.',
+        'Tócalo. Junto a su nombre aparece un número largo: ese es el identificador.',
+        'Cópialo y pégalo en el campo "ID del conjunto de datos de CRM". Solo dígitos, sin espacios ni comillas.',
+        'Guarda. Desde ese momento MaKo le manda ahí cada avance de tus contactos, además del contacto crudo.',
+        'A los pocos días, en la pestaña "Información general" de ese conjunto de datos, Meta habilita el paso para ordenar tus etapas y elegir cuál quieres que persiga. Elige la primera que ya signifique "este contacto sirve": Meta persigue también las que vienen después.',
+        'Recién entonces aparece el objetivo "Clientes potenciales de conversión" en el administrador de anuncios, dentro de "Optimización y entrega". Al activarlo, Meta tarda de dos a cuatro semanas en aprender antes de que se note la mejora.',
+        'Dos cosas que conviene saber antes de empezar. Meta pide un mínimo de 200 contactos por mes en la cuenta y que al menos 6 de cada 10 tengan sus avances cargados; con menos, no habilita el objetivo.',
+        'Y solo cuenta los contactos de los formularios de Facebook e Instagram: los que llegan por tu página web no entran en esta cuenta, aunque los veas igual en tu tablero.',
+      ],
+    url: 'https://business.facebook.com/events_manager2',
+    urlLabel: 'Administrador de eventos',
   },
   CHATWOOT_BASE_URL: {
     pasos: [

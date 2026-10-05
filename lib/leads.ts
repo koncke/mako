@@ -2548,6 +2548,15 @@ export type LeadMetaInput = {
   motivo_perdida?: string | null;
   fecha_junta_1?: string | null;   // fecha de la J1, editable al mover a Agenda J1
   fecha_junta_2?: string | null;   // fecha de la J2, editable al mover a Agenda J2 / Facturando
+  /**
+   * Fecha límite de la nutrición manual, corregible desde la ficha.
+   *
+   * ⚠️ NO LIMPIA NADA AL CAMBIAR DE ETAPA, y por eso sólo se manda desde un lugar
+   * donde el lead YA está en «Nutrición - Manual». El que sí la limpia es
+   * `setBoardStageOverride` (la nulea en cuanto la etapa deja de ser `manual`):
+   * ése es el camino del cambio de etapa, éste es el de corregir el plazo.
+   */
+  nutricion_manual_deadline?: string | null;
   // Contacto (editable a mano desde la ficha, con confirmación en la UI).
   nombre?: string | null;
   email?: string | null;
@@ -2628,6 +2637,7 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.motivo_perdida !== undefined) payload.motivo_perdida = meta.motivo_perdida;
   if (meta.fecha_junta_1 !== undefined) payload.fecha_junta_1 = meta.fecha_junta_1;
   if (meta.fecha_junta_2 !== undefined) payload.fecha_junta_2 = meta.fecha_junta_2;
+  if (meta.nutricion_manual_deadline !== undefined) payload.nutricion_manual_deadline = meta.nutricion_manual_deadline;
   if (meta.nombre !== undefined && meta.nombre) payload.nombre = meta.nombre;
   if (meta.email !== undefined) payload.email = meta.email;
   if (meta.empresa !== undefined) payload.empresa = meta.empresa;

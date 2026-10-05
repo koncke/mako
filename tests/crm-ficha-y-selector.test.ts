@@ -23,7 +23,7 @@
 //   · la página de /crm/[id] recupera «Chat»          → 4 / 2
 //   · el selector pierde su `width`                   → 5 / 1
 //   · el renglón de crear deja de iluminarse          → 5 / 1
-//   · la TERCERA ficha (EditLeadForm) vuelve al inglés → 8 / 1
+//   · vuelve la TERCERA ficha (EditLeadForm)        → 8 / 1
 //   · la ruta /crm/[id] pierde las notas otra vez      → 8 / 1
 
 import { test } from 'node:test';
@@ -172,19 +172,20 @@ test('Análisis va pegado a Historial, en las DOS fichas', () => {
   // 1 fallo; en la página, otro.
 });
 
-test('las TRES fichas hablan el mismo idioma y muestran lo mismo', () => {
-  // ⚠️ SON TRES, NO DOS, y ésa es la razón por la que esto falló DOS veces. El 27/09
-  // se tradujeron las pestañas del modal; después apareció que la ruta /crm/[id] tenía
-  // las suyas en inglés; y al arreglar la ruta quedó afuera la TERCERA — el modo
-  // EDICIÓN (`EditLeadForm`), que está a un clic del tablero («Editar lead →»).
+test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
+  // ⚠️ ERAN TRES Y DESDE EL 05/10/2026 SON DOS. La tercera era el modo EDICIÓN
+  // (`EditLeadForm`), a un clic del tablero («Editar lead →»), y era la razón por la que
+  // esto falló DOS veces: cada vez que se traducían las pestañas, la que quedaba afuera
+  // era la que nadie recordaba que existía. El botón se fue —cada campo se edita donde se
+  // lee, ver `app/crm/campo-inline.ts`— y con él la superficie que había que mantener en
+  // paridad: lo que la reemplaza es un juego de tabs MENOS, no otro archivo.
   //
-  // Ninguna es una pantalla muerta: al modal se llega desde el tablero, a la ruta desde
-  // el WhatsApp que avisa de un lead nuevo de la landing y desde el Closing Analyst, y
-  // al form desde el botón de la ficha.
+  // Ninguna de las dos es una pantalla muerta: al modal se llega desde el tablero, y a la
+  // ruta desde el WhatsApp que avisa de un lead nuevo de la landing y desde el Closing
+  // Analyst.
   const SUPERFICIES = [
     '../app/crm/LeadSheet.tsx',
     '../app/crm/[id]/page.tsx',
-    '../app/crm/[id]/EditLeadForm.tsx',
   ];
   for (const ruta of SUPERFICIES) {
     const f = leer(ruta);

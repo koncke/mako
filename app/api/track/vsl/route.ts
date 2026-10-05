@@ -44,6 +44,7 @@ import type { NextRequest } from 'next/server';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { LANDING_SERVICIO, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
+import { REPLAY_CONFIG_KEY, REPLAY_LIB_VERSION, grabaA, parsearReplay } from '@/lib/replay-contrato';
 import { getSetting, setSetting } from '@/lib/settings';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { canonizarVideoId } from '@/lib/video-id';
@@ -276,7 +277,33 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
     } catch (err) {
       console.error(`[track:vsl] landing_visits error: ${err instanceof Error ? err.message : String(err)}`);
     }
-    return json({ ok: true });
+    // ── El interruptor de la grabación de sesión ──────────────────────────────
+    // ⚠️ VIAJA EN ESTA RESPUESTA, no en un request propio. El snippet ya manda el
+    // pageview en su primera línea, así que preguntar «¿grabo?» por separado sería
+    // una llamada más por visita para contestar algo que acá ya sabemos.
+    //
+    // ⚠️ Y LO DECIDE EL SERVIDOR, SIEMPRE. El código pegado en la página de un
+    // cliente no decide nada —la misma regla que ya cumple el opt-in—, y mientras
+    // esto no conteste, el grabador ni se baja: lo que se ahorra no es el tiempo de
+    // grabar, es la descarga. El muestreo también se resuelve acá, porque es
+    // DETERMINISTA sobre el visitor_id (`grabaA`): con Math.random() del lado del
+    // navegador la misma persona entra en la landing y queda afuera en la página de
+    // gracias, y media sesión guardada es peor que ninguna.
+    //
+    // ⚠️ Lo único que viaja es la VERSIÓN de la librería. Las opciones de privacidad
+    // no se mandan: si el permiso para tapar los campos viniera por la red, un
+    // día va a venir mal. Viven en el snippet, que no las lee de ningún lado.
+    //
+    // Best-effort y después del insert: un setting ilegible no puede costar la
+    // visita, que es el dato que de verdad importa.
+    let rec: { v: number } | null = null;
+    try {
+      const cfg = parsearReplay(await getSetting(REPLAY_CONFIG_KEY));
+      if (grabaA(cfg, visitorId)) rec = { v: REPLAY_LIB_VERSION };
+    } catch (err) {
+      console.error(`[track:vsl] landing.replay ilegible: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return json({ ok: true, rec });
   }
 
   if (!tipoEvento) tipoEvento = 'play';

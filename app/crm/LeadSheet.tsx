@@ -1,11 +1,13 @@
 'use client';
 
 // =============================================================================
-// LeadSheet — ficha del lead en modal: PREVIEW de solo lectura, organizada en tabs
+// LeadSheet — ficha del lead en modal, organizada en tabs
 // =============================================================================
-// Tabs: Resumen / Cobranza / Actividad. La edición vive en /crm/[id] (botón
-// "Editar lead →"). Los movimientos del Kanban que exigen datos usan su propio
-// pop-up chico (StageMoveDialog), no esta ficha.
+// ⚠️ YA NO ES UN PREVIEW DE SOLO LECTURA, y por eso no tiene botón de editar: cada
+// dato se corrige donde se lee (ver `app/crm/campo-inline.ts`). El «Editar lead →»
+// que vivía en el pie se fue el 05/10/2026. Lo que todavía tiene pantalla aparte es
+// el DEAL, con su entrada en la tab Pagos. Los movimientos del Kanban que exigen
+// datos usan su propio pop-up chico (StageMoveDialog), no esta ficha.
 
 import Link from '@/app/_ui/Link';
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
@@ -33,6 +35,7 @@ import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { NotasCard } from './lead-view/NotasCard';
+import { MotivoCard, PlazoNutricionCard, leadSalio } from './lead-view/MotivoYPlazoCard';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 import { profundidadModales } from '@/app/_components/pila-modales';
@@ -49,7 +52,7 @@ function IconX() {
 }
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, urlClarity, urlMapaCalor, grabacionVencida } = data;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, urlClarity, urlMapaCalor, grabacionVencida, replay } = data;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -98,7 +101,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm: Stage | undefined = stageMeta(stages, stageKey);
   const chip = sm ? CHIP[sm.tone] || CHIP.neutral : CHIP.neutral;
-  const isLost = lead.estado_lead === 'perdido' || lead.estado_lead === 'descalificado';
   const isGanado = lead.estado_lead === 'ganado';
   const monto = lead.monto_cierre_usd ?? 0;
 
@@ -199,12 +201,11 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           sino porque escribir una costaba un viaje a otro lado. Acá abajo del
           resumen están a la vista, que es donde se usan. */}
       <NotasCard leadId={lead.id} />
-      {isLost && lead.motivo_perdida && (
-        <section style={card}>
-          <div style={{ ...sectLabel, marginBottom: 12 }}>Motivo de pérdida</div>
-          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>{lead.motivo_perdida}</div>
-        </section>
-      )}
+      {/* ⚠️ EL MOTIVO Y EL PLAZO SE EDITAN ACÁ, y es lo que terminó de vaciar el botón
+          «Editar lead →». Las dos tarjetas son las MISMAS que monta la ruta /crm/[id]:
+          es la misma ficha por dos puertas. */}
+      {leadSalio(lead.estado_lead) && <MotivoCard leadId={lead.id} motivo={lead.motivo_perdida} />}
+      {stageKey === 'manual' && <PlazoNutricionCard leadId={lead.id} deadline={lead.nutricion_manual_deadline ?? null} />}
     </>
   );
 
@@ -275,7 +276,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // ⚠️ Y ESTE MONTAJE Y EL DE `app/crm/[id]/page.tsx` TIENEN QUE QUEDAR IGUALES:
               // es la MISMA ficha por dos puertas, y ya se pagó que una se quedara con la
               // versión anterior.
-              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /></> },
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} replay={replay} /></> },
               { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
               // pestaña no decía más que «está vacía» —y con tres redacciones
@@ -325,9 +326,14 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         {delErr && <div style={{ padding: '8px clamp(16px,4vw,28px)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px clamp(16px,4vw,28px)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <button onClick={() => setConfirmDelete(true)} disabled={pending} style={{ padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Borrar lead</button>
+          {/* ⚠️ ACÁ ESTABA «Editar lead →», y se fue el 05/10/2026 (pedido DOS veces:
+              «que ya no exista el botón de "editar" … simplemente le doy click arriba y
+              ya puedo sobre escribir»). No se reemplazó por un lápiz: los 15 campos que
+              ese formulario editaba se editan en la ficha, cada uno donde se lee.
+              Lo único que sigue teniendo pantalla propia es el DEAL, y su entrada está
+              donde el deal se lee (el «Editar deal →» de la tab Pagos). */}
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Cerrar</button>
-            <Link href={`/crm/${lead.id}?edit=1`} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'none' }}>Editar lead →</Link>
           </div>
         </div>
       </div>

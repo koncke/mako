@@ -32,9 +32,7 @@
 //   · la tarjeta de Reuniones vuelve a esconderlo tras `asistio_j1 === true`  → 6 / 1
 //   · el canal de MaKo vuelve a exigir la asistencia                         → 6 / 1
 //   · la tarjeta de Tracking copia el candado a mano (`asistio_j1 === false`) → 6 / 1
-//   · el formulario de «Editar» vuelve a exigir la asistencia                → 6 / 1
-//   · borrar la fecha de R1 vuelve a borrar el calificado (formulario)       → 6 / 1
-//   · la asistencia sin marcar vuelve a limpiar el calificado (formulario)   → 6 / 1
+//   · vuelve el formulario de «Editar» (el CUARTO control)                   → 6 / 1
 //
 // ⚠️ DOS MUTACIONES HABRÍAN DADO «NO MUTÓ» con anclas de `\n`: `core.autocrlf` deja
 // este árbol MEZCLADO (lib/leads.ts y ReunionesCard.tsx son CRLF, page.tsx es LF).
@@ -42,7 +40,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calificadoSeDescarta } from '../lib/calificado-reunion';
 
@@ -140,17 +138,17 @@ test('Reuniones y Tracking muestran el MISMO estado del calificado', () => {
     'y bloquea por la misma regla que la tarjeta de Tracking');
 });
 
-test('el formulario de «Editar» tampoco exige la asistencia', () => {
-  // Es el CUARTO control de la misma pregunta, y escribe por el mismo camino
-  // (`saveLeadEditorAction` → `updateLead`). Con la regla vieja acá, el mismo lead
-  // tenía el dato editable en Tracking y gris en el formulario.
-  const form = leer('../app/crm/[id]/EditLeadForm.tsx');
-  assert.ok(!/calificadoDisabled = asistioJ1 !== true/.test(form),
-    'la regla vieja dejaba gris lo que la ficha permite');
-  assert.match(form, /calificadoDisabled = calificadoSeDescarta\(/, 'usa la regla compartida');
-  // Y borrar la fecha de la R1 ya no borra el calificado: `updateLead` no lo hace.
-  assert.match(form, /if \(!v\) setAsistioJ1\(null\);/, 'sin fecha se limpia la asistencia, no el calificado');
-  assert.match(form, /if \(v === false\) setCalificado\(null\)/, 'sólo un «no asistió» lo limpia');
+test('ya NO hay un cuarto control de la misma pregunta', () => {
+  // ⚠️ ESTE TEST MEDÍA EL FORMULARIO DE «Editar lead →», que era el CUARTO control de
+  // «¿era calificado?» (Reuniones, Tracking, el wizard de etapa y él). El formulario se
+  // borró el 05/10/2026 con el botón: cada campo se edita donde se lee. Lo que queda que
+  // fijar es que no vuelva — mientras no exista, no puede divergir del candado compartido.
+  assert.equal(existsSync(join(import.meta.dirname, '../app/crm/[id]/EditLeadForm.tsx')), false,
+    'volvió el formulario: tiene que usar calificadoSeDescarta, no una copia del candado');
+  // Y los dos controles que quedan en la ficha bloquean por la MISMA regla compartida.
+  for (const ruta of ['../app/crm/lead-view/ReunionesCard.tsx', '../app/crm/lead-view/CalificacionCard.tsx']) {
+    assert.match(leer(ruta), /calificadoSeDescarta\(lead\)/, `${ruta}: usa la regla compartida`);
+  }
 });
 
 // ── 5 · El canal de MaKo no puede ser más estricto que la ficha ──────────────
