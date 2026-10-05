@@ -405,4 +405,50 @@ export const BITACORA: Hito[] = [
       "Lo que midió la base y cambia el encare: `nutricion_envios` tiene 12 filas en toda la tabla, las 12 en `fallo`, las 12 del ws1 — el motor NUNCA entregó un mensaje, con 65 secuencias configuradas. Un pedido de producto sobre eso se cotiza como feature y es un arreglo. Y la trampa de extracción que quedó como regla en AGENTS.md: la mitad de lo que dice quien mira la pantalla compartida es el texto de la app en voz alta — «la cuota 2 de Vertice venció hace 3 días» es el `ejemplo:` de lib/avisos-catalogo.ts:697, escrito dos días antes, no el caso de la clienta.",
     ],
   },
+  {
+    fecha: "5 oct", hora: "02:00", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Diez cosas del editor de mensajes, y ManyChat a fondo",
+    pedido: "Las plantillas deberían poder crearse desde 0, nada \"hardcodeado\" · La barra de edición del mensaje afuera del cuadro de texto · Para el desplegable de acciones de MaKo, copia el estilo del desplegable del filtro del plan, que se abren secciones dentro del desplegable · Si no está disponible no lo muestres directamente, no que esté en gris, eso confunde · Dentro del mensaje de WhatsApp: mensaje fijo o IA conversacional, investiga cómo lo hace ManyChat · Olvidate de WhatsApp oficial, no entiendo de donde lo sigues sacando, si todo esto es para la no oficial · Revisa que hay acciones que están tardando más de la cuenta, cargar la vista tipo pizarra es lento y crear una nueva tarjeta se tarda bastante · El fondo de la pizarra con cuadrícula · Falta audio, archivo, imagen, link: replica el editor que ya existe · Llevar todo a /chatbot conservando las secuencias de Mauricio y sus audios grabados",
+    puntos: [
+      "Y aparte: «Quiero que investigues a fondo la documentación y todo lo que encuentres de Manychat, para que lo repliquemos y utilicemos a nuestro favor… qué otras cosas que no estamos teniendo en cuenta que manychat ya tiene».",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "02:21", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "investigacion",
+    titulo: "ManyChat a fondo: 130 afirmaciones contrastadas, 55 caídas",
+    puntos: [
+      "25 agentes sobre 7 ángulos (modelo de datos, editor, IA, disparadores, WhatsApp, buenas prácticas y el cruce contra nuestro código). De 151 hallazgos salieron 130 afirmaciones verificables que se contrastaron una por una contra la fuente: 75 sostenidas, 55 caídas. Cuatro cosas del primer barrido no se usaron, y la más instructiva es que la «prueba» de un renombre por el slug de una URL no prueba nada: Zendesk redirige cualquier slug al canónico.",
+      "Lo que decide trabajo: para WhatsApp ManyChat NO es el molde, es el techo de la API oficial de Meta (su doc le prohíbe video, audio, archivos, galerías y quick replies), y nosotros estamos ARRIBA de ese techo porque el canal de empresa va por Evolution, que ya manda las cuatro cosas. Y lo que publican es el formato del MENSAJE, no el grafo del flujo: su API expone el objeto Flow con TRES campos.",
+      "El molde que queda para los ítems 5 y 9: la IA es un CAMPO del nodo de mensaje y no un tipo de nodo (un nodo nuevo son CINCO puertas, y la quinta ya costó las variantes borradas en silencio), el cuerpo escrito es obligatorio también en modo IA porque es el fallback, los adjuntos van por REFERENCIA a una biblioteca como el audio, y hay una condición de entrada que no se ve: la columna nutricion_envios.texto_enviado, porque hoy el log guarda el asunto y el error pero NO el cuerpo — un nodo IA sin eso le habla a los leads del dueño y no le deja auditarlo.",
+      "Las 13 cosas que ellos tienen y nosotros no, con la más barata primero: las métricas por PASO son un group-by sobre una columna que ya existe. Y dos bugs NUESTROS que salieron del cruce: el lienzo resolvía {{negocio}} y el motor no (al lead le llegaban las llaves puestas) y la ventana de envío está hardcodeada 9-21 en hora de México para todo inquilino. Todo en docs/hallazgos-comunicacion.md.",
+    ],
+    commits: [
+      { sha: "6e4f5c0d", msg: "ManyChat a fondo: el molde del nodo, y el lienzo resolvia un token que el motor no", lineas: 357, archivos: 6 },
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "02:30", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Disparar una secuencia cuando un lead cae en una etapa de un producto",
+    pedido: "Tienes que poner un CRON que se active mediante que un lead caiga en X etapa de X producto. Recuerda que ahora tenemos varios productos en el CRM, y dentro de cada producto se pueden configurar etapas, entonces esto debería leer eso y que el usuario pueda elegir que si cae en dicha etapa, se dispare esa secuencia.",
+    puntos: [
+      "Y la segunda mitad, que se repartió al chat de Customer Success: que lo mismo valga para un CLIENTE que llega a una etapa de la ENTREGA del servicio (onboarding, hito 1, hito 2…), con el kanban en /customer-success copiando del CRM la vista de tarjetas, la de tabla, la selección de productos, los filtros y la búsqueda.",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "03:10", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El disparador por etapa existía en la base y no tenía pantalla ni evento",
+    puntos: [
+      "Las dos puntas que faltaban. (1) El EVENTO: lo descubría sólo el barrido horario del cron, así que mover una tarjeta y que salga el mensaje estaban separados por hasta una hora; ahora lo dispara setBoardStageOverride, que es el choke point por donde pasan la ficha, el arrastre del kanban y la confirmación de MaKo. (2) La PANTALLA: el perfil de la secuencia ofrece las etapas reales de cada producto (un producto es un embudo desde la mig 0171), sin las de salida, y «Todos los productos» es una opción con ese nombre y no la ausencia del dato.",
+      "El filtro fino es lo que hace seguro el camino: enrolarPorEvento enrola en TODAS las secuencias de su trigger —correcto para lead_nuevo— y acá sería mandarle al que cayó en «Agenda» también el mensaje de «Facturando» y el del producto de al lado. Lo decide secuenciasDeEtapa, puro y con test, y su condición más importante es la del vacío: un evento sin etapa devuelve [], nunca «entonces todas».",
+      "LO QUE CAZÓ EL NAVEGADOR Y EL CÓDIGO NO: no toda secuencia se dispara por una etapa. De los 17 disparadores, 16 consultan columnas del funnel, así que para ésos la columna `etapa` existe pero no es lo que los dispara — y la primera versión del control mostraba «Se dispara al caer en X» para todos, de modo que guardar ahí convertía un disparador de formulario en uno de etapa sin que nadie lo pidiera. En el ws1 las tres secuencias son de ese tipo. El control ahora se OFRECE: si ya se dispara por etapa se edita, y si no, se dice por qué se dispara de verdad.",
+      "Verificado en el navegador 10 de 10 contra producción, con respaldo propio (scripts/respaldo-disparadores.ts) y comprobando la FILA después de guardar. Lo que queda sin verificar a propósito: el circuito completo, porque mover un lead real le manda un WhatsApp a una persona — se prueba con un lead de prueba en el ws3.",
+    ],
+    commits: [
+      { sha: "1dc96035", msg: "El disparador de una secuencia: «al caer en ESTA etapa de ESTE producto», elegible", lineas: 467, archivos: 8 },
+    ],
+  },
 ];

@@ -7801,3 +7801,89 @@ Y dos de ManyChat que valen como lección general:
 
 **Vive en:** `lib/nutricion.ts` · `lib/template-vars.ts` · `app/chatbot/FlujoLienzo.tsx` ·
 `lib/flujo-conversacion.ts` · `lib/evolution-envio.ts` · `supabase/migrations/0034_nutricion.sql`
+
+## El disparador por etapa estaba en la base, sin pantalla y sin evento (05/10/2026)
+
+Pedido: *«un CRON que se active mediante que un lead caiga en X etapa de X producto…
+que el usuario pueda elegir que si cae en dicha etapa, se dispare esa secuencia»*.
+
+**El dato existía desde la mig 0170**: `trigger_tipo = 'etapa_actual'` + `etapa` (la key
+del stage) + `funnel_id` (el producto). Lo que no existía eran las dos puntas, y cada una
+falla distinto:
+
+- **Sin EVENTO**, eso lo descubría sólo el barrido horario del cron, así que mover una
+  tarjeta en el CRM y que salga el mensaje estaban separados por hasta una hora. No es un
+  bug: es que nadie había escrito el disparo.
+- **Sin PANTALLA**, el campo no se podía elegir: las 62 secuencias de producción tienen
+  `funnel_id` NULL porque ninguna vista lo ofrecía, y la etapa se fijaba al CREAR la
+  secuencia y no se podía cambiar nunca.
+
+### ⚠️ Lo que cazó el navegador: el control AFIRMABA algo falso para 16 de 17 secuencias
+
+De los 17 disparadores del catálogo (`TRIGGERS`, `lib/email-marketing.ts`), **16 consultan
+columnas del funnel** («dejó el formulario sin agendar», «no asistió a R1», «confirmó pero
+no pagó»): para ésos la columna `etapa` existe —se escribe al crear la secuencia— y **no
+es lo que los dispara**. La primera versión del control mostraba «Se dispara al caer en
+〈etapa〉» para todas, y guardar ahí **convertía un disparador de formulario en uno de
+etapa sin que nadie lo pidiera**.
+
+Medido en el ws1: las tres secuencias tienen triggers legacy
+(`instant_form_sin_agenda`, `agendado_ya_contactado`, `agendado_primer_contacto`) y
+etapas legacy (`nutri`, `postagenda`) que **no existen en ninguno de sus dos productos**.
+
+**La regla: un control que puede reescribir un campo que la pantalla no entiende se OFRECE,
+no se impone.** Si la secuencia ya se dispara por etapa, se edita; si no, se dice por qué
+se dispara de verdad y hay un botón para cambiarlo. Y el rótulo de lo que hay sale del
+catálogo de disparadores, que viaja en el payload del GET: un componente cliente no puede
+importar un módulo con `server-only`, y copiar las 17 etiquetas es crear la segunda copia
+que se desfasa.
+
+⚠️ **Y lo delató MIRAR LA PANTALLA, no leer el código.** El tipo compila igual, los tests
+de la función pasan, y el síntoma sólo existe cuando el dato real es el del ws1.
+
+### Las tres condiciones del disparo, y la que importa es el vacío
+
+`enrolarPorEvento` enrola en **todas** las secuencias activas de los triggers del evento.
+Para `lead_nuevo` es correcto (son un puñado y le aplican a cualquier lead nuevo); para
+una etapa sería mandarle al que cayó en «Agenda» también el mensaje de «Facturando» y el
+del producto de al lado. Así que el evento de etapa pasa por `secuenciasDeEtapa`
+(`lib/nutricion-etapa.ts`, puro y con test) y pide las tres cosas: que el trigger sea de
+etapa, que sea ESA etapa, y que el lead esté en el ámbito de embudo que la secuencia
+declara.
+
+**La condición que hace seguro el camino es la del VACÍO**: un evento sin la etapa adentro
+devuelve `[]`, nunca «entonces todas». Medido rompiéndola: cae 1 test de 9, y es el único
+que separa «no enrola a nadie» de «enrola en todo».
+
+⚠️ **Y el ámbito tiene su espejo en memoria, pegado al de PostgREST.** El cron filtra con
+`filtroDeAmbito` (una expresión de PostgREST) y el evento con `leadEnAmbito` (en memoria):
+son la MISMA pregunta y viven en el mismo módulo a propósito. Si divergen, el barrido y el
+disparo instantáneo eligen leads distintos y nada falla.
+
+**Y `funnel_id` NULL significa «de todos los productos»**, que es como están las 62 filas
+de hoy: un lead del producto 13 que cae en «agenda» recibe la secuencia global Y la del
+13. Es la semántica del cron y cambiarla apagaría en silencio todas las secuencias el día
+que alguien declare el producto en una. Lo que la pantalla tiene que hacer con eso es
+**decirlo**: el desplegable ofrece «Todos los productos» como opción con ese nombre, no
+como la ausencia del dato. (Una aserción de mi propio test afirmaba lo contrario y el
+código tenía razón; lo delató correrlo.)
+
+### Lo que NO se verificó, a propósito
+
+El circuito completo —mover un lead de verdad y que salga el mensaje— no se probó: mover
+un lead real en producción le manda un WhatsApp a una persona. Se prueba con un lead de
+prueba en el **ws3** (el Cliente de Prueba), que es la regla de la casa para esto. Lo que
+sí está verificado en el navegador, 10 de 10 contra producción y con respaldo
+(`scripts/respaldo-disparadores.ts`): el catálogo que baja del server, el control, el POST
+y **la fila después de guardar**.
+
+⚠️ **Y la etapa DERIVADA no pasa por el choke point.** Un lead al que le cargan la fecha de
+la J1 cambia de etapa EFECTIVA sin que nadie escriba `pipeline_stage`; ese camino sigue
+siendo del cron, que deriva de verdad. Lo que el evento agrega es el disparo instantáneo
+del movimiento EXPLÍCITO, que es el que la persona hace con la mano y el que espera ver
+salir.
+
+**Vive en:** `lib/nutricion-etapa.ts` · `lib/nutricion-ambito.ts` · `lib/leads.ts`
+(`setBoardStageOverride`) · `lib/setting-secuencias.ts` (`productosConEtapas`,
+`setDisparadorEtapa`) · `app/chatbot/SecuenciaPerfil.tsx` ·
+`app/api/chat-agent/secuencias/route.ts` · `scripts/respaldo-disparadores.ts`
