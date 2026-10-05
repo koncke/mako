@@ -330,13 +330,33 @@ export function FlujoAviso({
       <Lienzo
         grafo={grafo} seleccion={sel} onSeleccion={setSel} onMover={mover}
         onAgregarTras={editable ? ((nodoId, que) => void agregarTras(nodoId, que)) : undefined}
+        /**
+         * ⚠️ POR CATEGORÍA, Y LOS CANALES YA PRENDIDOS NO SE OFRECEN. Lo primero lo pidió
+         * Martín («el mismo desplegable… donde tengo categorías, y dentro tengo las
+         * opciones»); lo segundo es la misma decisión del selector de datos del mismo
+         * día: lo que no se puede elegir no se dibuja en gris, no se dibuja. Un canal ya
+         * prendido no es una opción — su tarjeta ya está en el lienzo.
+         */
         opcionesAgregar={[
-          { value: 'wa', label: '💬 WhatsApp', sub: canales.wa ? 'ya sale por aquí' : 'que también salga por WhatsApp', disabled: canales.wa },
-          { value: 'email', label: '✉️ Email', sub: canales.email ? 'ya sale por aquí' : 'que también salga por correo', disabled: canales.email },
-          { value: 'accion', label: '⚡ Acción', sub: 'que MaKo haga algo, no que avise' },
-          { value: 'delay', label: '⏳ Delay', sub: 'esperar antes de seguir' },
-          { value: 'condicional', label: '🔀 Condicional', sub: 'seguir sólo si alguien contestó' },
-        ]}
+          {
+            titulo: 'Un mensaje más',
+            items: [
+              ...(canales.wa ? [] : [{ value: 'wa', label: '💬 WhatsApp', sub: 'que también salga por WhatsApp' }]),
+              ...(canales.email ? [] : [{ value: 'email', label: '✉️ Email', sub: 'que también salga por correo' }]),
+            ],
+          },
+          {
+            titulo: 'Cómo sigue',
+            items: [
+              { value: 'delay', label: '⏳ Delay', sub: 'esperar antes de seguir' },
+              { value: 'condicional', label: '🔀 Condicional', sub: 'seguir sólo si alguien contestó' },
+            ],
+          },
+          {
+            titulo: 'Que MaKo haga algo',
+            items: [{ value: 'accion', label: '⚡ Acción', sub: 'no avisar: hacer' }],
+          },
+        ].filter((g) => g.items.length)}
         // Sólo donde el paso va a caer de verdad: `insertarPasoTras` cuelga del
         // MENSAJE todo lo que no sea un `paso-N`, así que el ＋ de la tarjeta del
         // CRON señalaba un lugar y el paso aparecía en otro.
