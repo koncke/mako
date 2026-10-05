@@ -536,4 +536,50 @@ export const BITACORA: Hito[] = [
       'app/crm/leads-importar.ts — el tercer destino de una fila repetida: enriquecer',
     ],
   },
+  {
+    fecha: '4 oct', hora: '22:05', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las cinco decisiones que destrabaron el CRM',
+    pedido: '1. Si, deber\u00eda aparecer en tracking los clicks que hizo, junto a la grabaci\u00f3n del scroll... Hazlo. Y si no tiene el Pixel de MaKo conectado, all\u00ed mismo un bot\u00f3n para conectarlo.\n2. Eso es una tarea para Chatbot, no para el CRM... Enviasela al chat interno que estamos trabajando el chatbot, deber\u00eda hacer recordatorios a clientes como en el grupo de MaKo en WhatsApp.\n3. Si, cargar el pixel en una landing ya deber\u00eda contar... Ahora, la configuraci\u00f3n que falta es que el pixel deber\u00edamos poder ASIGNAR a un PRODUCTO. Con la implementaci\u00f3n que hicimos, para que lleguen los leads a ese CRM y no a otro.\n4. Es que las respuestas del Calendly son diferentes, deber\u00eda haber un apartado para los insights que salieron de la llamada.\n5. Si, que lo detecte, pero no solo los "Ganados" sino, todos los leads de cualquier etapa... Eso es importante para evitar duplicados.',
+    puntos: [
+      'Las cinco salieron de preguntarle las decisiones que bloqueaban el trabajo, una por tarjeta, despues de medir que ninguna de las 15 abiertas estaba hecha. Cuatro se implementaron y una cambio de equipo.',
+      '**La #2 decidio una arquitectura sin nombrarla.** Al contestar «para eso estamos configurando el chatbot, que cada usuario lo pueda editar», los dias de la cobranza dejaron de vivir en el codigo: el cron decide cuando ENTRA una cuota y la cadencia se edita en el lienzo como cualquier flujo.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '23:50', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las cuatro decisiones, y un duplicado que medi­a 1.153 leads',
+    puntos: [
+      '⚠️ **#622: el diagnostico obvio era el equivocado, y lo propuso el pedido.** Martin supuso que el cruce anti-duplicados filtraba por etapa. Ese filtro NO EXISTE: entran 1.549 de 1.549 leads, incluidos los 72 terminales. Lo que si dejaba gente afuera era el telefono comparado por digitos COMPLETOS — de 1.154 leads con telefono, UNO tiene 10 digitos, asi que un CSV con numeros locales duplicaba 1.153. Y las dos fichas quedaban inalcanzables para la ingesta siguiente.',
+      '**#696: el opt-in no nombraba `funnel_id` ni una vez.** El lead de una landing no estaba mal asignado: no se asignaba. Ahora el Pixel se asigna a un producto y el lead cae en SU embudo; cuelga de la URL y no del token, porque hay un solo token por workspace.',
+      '**#332: el analisis de la llamada existia y no llegaba a la ficha.** `syncClosingCalls` solo ata el analisis al lead cuando el EMAIL del invitado matchea, asi que una grabacion pegada a mano se analizaba —pagando— y quedaba huerfana. El enganche se mudo al choke point de las tres entradas.',
+      '**#701: el scroll, con dos frenos y la version marcada.** Y el gate que lo habria dejado mudo: `ganaConLaNueva` decidia si pedir repegar el Pixel mirando hosts de VIDEO, asi que a una landing sin video le decia «miden igual» sobre la unica version que le servia.',
+      '**Y la tarjeta de cobranza (#19) se fue a «Feature: Chatbot»** con el relevo medido. Quedo al 50%, no cerrada: anda el mensaje al grupo y falta el del cliente, que es la otra mitad que Martin pidio.',
+    ],
+    commits: [
+      { sha: '865dffb4', msg: 'CRM: las cuatro decisiones de Martin, y un duplicado que medi­a 1.153 leads', lineas: 2903, archivos: 34 },
+    ],
+    archivos: [
+      'lib/landing-funnel.ts — a que embudo entra un lead segun la pagina que lo trajo',
+      'lib/insights-llamada.ts — el analisis de la llamada, enganchado y leido en un solo lugar',
+      'app/crm/importar-server.ts — el cruce por los ultimos 10 digitos',
+      'lib/landing-token.ts — el scroll en el snippet, v19',
+    ],
+  },
+  {
+    fecha: '5 oct', hora: '00:20', chat: 'Debug de la llamada con Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'Tres sesiones sobre un clon: el arbol no tiene un estado, tiene una hora',
+    puntos: [
+      'El 04/10 hubo TRES sesiones a la vez sobre este clon y en un mismo dia se pago tres veces el mismo error: leer el arbol como si fuera un hecho. Una sesion vio cuatro errores de sintaxis en un archivo que otra estaba tipeando y los reporto como ajenos; un minuto despues daba cero.',
+      '⚠️ **Un `tmp-` sin commitear es un candado para TODOS, y el que lo escribe es el unico que no lo sufre.** Un script de diagnostico con un error de tipos bloqueo el push de las otras dos sesiones ~3 horas y costo dos pushes desde worktree limpio; su autor no se entero nunca.',
+      'Y los dos ejemplos de pantalla que nombraban gente real: el onboarding proponia «Negocio que Escala™» —la oferta de Mauricio— como ejemplo de oferta a todos los clientes. El guard del vecino se EXTENDIO a los placeholders en vez de escribir otro, probado rompiendolo.',
+    ],
+    archivos: [
+      'AGENTS.md — la regla de las tres sesiones y del tmp- como candado',
+      'docs/hallazgos-crm.md — el duplicado del telefono, el funnel_id del opt-in y el analisis huerfano',
+      'tests/variables-aviso.test.ts — el guard de nombres reales, extendido a los placeholders',
+    ],
+  },
 ];

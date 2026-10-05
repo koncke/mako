@@ -5330,3 +5330,139 @@ con sus dos mapas y `marcarExistentes`) · `lib/pipeline.ts` (`etapaDeGanado`) �
 `app/crm/actions.ts` (`importarLeadsRevisadosAction`: la etapa y el contador `ganados`) ·
 `app/crm/TablaRevisionLeads.tsx` (la propuesta y su chip) · `app/crm/ImportarLeadsModal.tsx` ·
 `tests/crm-importar-pago.test.ts` · *2026-10-04 #622*
+
+
+---
+
+## Lo que le pasa en el CRM al que PAGA sin agendar (04/10/2026)
+
+Lo midió la sesión del Perro Guardián y lo verificó contra producción la del CRM, el
+04/10/2026. Vino de `hallazgos-planes-y-cobro.md`, que es donde se descubrió.
+
+1. **RIESGO LATENTE, hoy en CERO, y el disparador está identificado.** Si un lead queda
+   `abierto` después de pagar, el CRM automático lo manda a «Nutrición - No Agenda» a los 2
+   días y a «Reactivación» a los 7: **le escribe "no agendaste la llamada" a alguien que
+   acaba de pagarte.** Hoy no pasa, y el motivo es frágil: la regla saltea todo lead que no
+   esté `abierto` (`lib/crm-auto.ts:246`) y **de los 19 leads con pago cobrado en los 6
+   workspaces con datos, ninguno quedó abierto** — el camino que marca el pago hoy también
+   cierra el estado. Un camino de cobro nuevo que escriba la plata y no toque `estado_lead`
+   lo despierta. Medido por la sesión del CRM el 04/10/2026 sobre los leads con fila en
+   `pagos` (mig 0060): **un carrito, un Whop o un cobro manual que no escriba ahí quedó
+   fuera del universo**, y ése es justo el camino que el plan nuevo agrega. El arreglo es
+   declarar el embudo «Venta directa · sin reunión», que ya existe (`lib/pipeline.ts:928`).
+
+   ⚠️ **Y la forma de escribirlo es parte del hallazgo.** La primera redacción decía «le
+   escribe» en presente sobre algo que mide cero. Un hallazgo que afirma un bug vivo y no lo
+   es le hace perder autoridad a todo el documento; uno que dice «esto pasa si alguien
+   agrega X» se vuelve útil el día que alguien agrega X.
+2. **`TRIGGER.pago` está declarado `auto: true, autoHoy: false`** (`lib/pipeline.ts:103`):
+   el embudo sabe que el pago debería mover la etapa y **no hay quién lo dispare**.
+3. **Cero integraciones de ecommerce.** El grep de `shopify|woocommerce|tiendanube|
+   mercadolibre|hotmart|kajabi|gumroad|paypal` sobre `lib` y `app` da **0**. A un negocio
+   que vende productos el CRM le queda como una planilla que mueve a mano. No está roto —
+   está vacío, que es peor de detectar.
+
+---
+
+---
+
+## Un CSV con teléfonos locales duplicaba 1.153 de 1.154 contactos, y el filtro que buscábamos no existía (04/10/2026)
+
+Martín, sobre la tarjeta de detectar pagos al importar: **«que lo detecte, pero no solo los
+"Ganados" sino, todos los leads de cualquier etapa… Eso es importante para evitar
+duplicados»**. O sea que la hipótesis era que el cruce anti-duplicados filtraba por etapa y
+por eso no veía a los que ya estaban.
+
+**Ese filtro NO existe, y nunca existió.** `indiceContactos`
+(`app/crm/importar-server.ts`) lee `leads` con `leerPorPaginas` sin un solo `.eq`: el único
+recorte es el `workspace_id` que pone `getTenantDb`, que es aislamiento y no un filtro de
+producto. Medido contra producción: entran **1.549 de 1.549** leads al cruce, **incluidos los
+72 en estado terminal** (ganado, perdido, descalificado, no responde).
+
+**Pero sí había leads afuera del cruce, por otra cosa, y era el bug que crea el duplicado.**
+El índice comparaba los **dígitos COMPLETOS** del teléfono:
+
+| cuántos dígitos tiene el teléfono guardado (ws1) | leads |
+|---|---|
+| 10 (como se tipea un número local) | **1** |
+| 13 (con código de país — entraron por WhatsApp) | 1.027 |
+| 16 | 115 |
+
+Un CSV con números locales —que es exactamente cómo se tipea una lista de clientes—
+matcheaba **1 de 1.154**: los otros **1.153 se importaban como leads nuevos**. Y el daño no
+termina en la ficha repetida: dos filas con el mismo `telefono_normalizado` rompen con
+`PGRST116` el `.maybeSingle()` de la ingesta siguiente, así que **las dos quedan inalcanzables
+para Calendly y para el instant form**.
+
+El criterio correcto ya estaba escrito y testeado en la casa —`telefonoComparable`, los
+últimos 10 dígitos, el que usan el alta manual y el inbox de WhatsApp— y ésta era la
+última puerta que aplicaba el más estricto. Es la misma asimetría que la de los webhooks,
+arreglada horas antes: **al lead que llega sin que nadie mire se le pide más que al que carga
+una persona.**
+
+- **Cuando alguien reporta un síntoma y propone la causa, la causa también se mide.** Acá el
+  síntoma era real (duplicados) y la causa propuesta no existía. Buscar el filtro por etapa
+  y no encontrarlo es lo que obligó a mirar qué otra cosa dejaba leads afuera.
+- **El número que lo delata no es el total: es la distribución.** «1.549 de 1.549 entran al
+  cruce» se lee como que está todo bien. «1 de 1.154 tiene 10 dígitos» dice dónde está el
+  problema, y sale de la misma consulta.
+
+**Vive en:** `app/crm/importar-server.ts` (`indiceContactos`) · `lib/leads-duplicados.ts` (`telefonoComparable`) · *2026-10-04 cuatro-decisiones*
+
+---
+
+## El opt-in de una landing nunca pasó un `funnel_id`, así que todo caía al embudo genérico (04/10/2026)
+
+Martín: **«la configuración que falta es que el pixel deberíamos poder ASIGNAR a un PRODUCTO.
+Con la implementación que hicimos, para que lleguen los leads a ese CRM y no a otro»**.
+
+Medido antes de escribir una línea: `app/api/track/optin/route.ts` **no nombra `funnel_id` ni
+una vez** — cero coincidencias en todo el archivo. O sea que el lead de una landing no
+estaba *mal* asignado: **no se asignaba**, y `createLead` lo dejaba en el embudo por defecto
+hiciera lo que hiciera el negocio con sus productos.
+
+Y la asignación **cuelga de la URL de la página, no del token**, por una razón que vale para
+cualquier cosa que alguien quiera colgar de ese token: `getOrCreateLandingToken` acuña **UN
+token por workspace** y determinista (un HMAC de `landing:<ws>` guardado en el único setting
+`landing_token`). No hay un segundo token que asignar, así que atar el producto ahí sería
+decir «todas mis landings venden lo mismo». `landing.config` ya es una tabla POR PÁGINA desde
+que `clarityProjectId` necesitó exactamente eso.
+
+⚠️ **Y el gate que habría dejado muda a la versión nueva del Pixel.** `ganaConLaNueva`
+decidía si pedirle al cliente repegar el código mirando si su landing usaba ciertos **hosts
+de video**. A una página sin video le habría contestado «para esta página miden igual, no hay
+apuro» — sobre la única versión que le agrega algo, porque el scroll le sirve a cualquier
+página. **Un gate que decide si vale la pena actualizar tiene que preguntar por la VERSIÓN,
+no por el motivo de la versión anterior**: el motivo caduca y el gate se queda contestando
+sobre un mundo que ya no es.
+
+**Vive en:** `app/api/track/optin/route.ts` · `lib/landing-funnel.ts` · `lib/landing-config.ts` · `lib/landing-token.ts` (`ganaConLaNueva`) · *2026-10-04 cuatro-decisiones*
+
+---
+
+## Un análisis que sólo se ata al lead por EMAIL pierde todas las reuniones que se matchearon de otro modo (04/10/2026)
+
+Martín, sobre los insights de la llamada: **«las respuestas del Calendly son diferentes,
+debería haber un apartado para los insights que salieron de la llamada»**. O sea: no se
+pisan, se muestran aparte.
+
+Lo que apareció al construirlo es más caro que el apartado. El Closing Analyst ya persistía
+una fila por grabación con resumen, objeciones y próximo paso —no hizo falta ninguna tabla
+nueva— pero `syncClosingCalls` **sólo escribe `lead_id` cuando el email del invitado
+matchea**. Una grabación matcheada por NOMBRE, o un link que alguien pegó a mano en la ficha,
+se analizaba igual y **el análisis no llegaba nunca a la ficha de nadie**: trabajo pago,
+guardado, y huérfano.
+
+El enganche se mudó al choke point por donde pasan los tres caminos (`applyFathomRecording`),
+y es barato a propósito: un SELECT por `embed_token` y un UPDATE, sin Fathom y sin modelo. Lo
+que cuesta plata —correr el analista sobre lo que no tiene análisis— se quedó en el cron,
+con tope.
+
+- **Cuando una pieza ya existe pero «no se ve», preguntá por la LIGA antes que por la
+  pantalla.** Acá el dato estaba, la pantalla faltaba, y entre los dos faltaba un `lead_id`
+  que sólo se escribía en el camino feliz.
+- **Y un segundo lector del mismo dato es un segundo relato.** `lib/lead-resumen.ts` tenía su
+  propia copia del query y del mapeo: con dos lectores, la ficha y el resumen del celular
+  pueden contar dos versiones de la misma llamada. Quedó uno.
+
+**Vive en:** `lib/insights-llamada.ts` · `lib/leads.ts` (`applyFathomRecording`) · `app/crm/lead-view/InsightsLlamadaCard.tsx` · *2026-10-04 cuatro-decisiones*

@@ -286,7 +286,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Envío de emails de nutrición, broadcasts y reportes.',
     campos: [
       { env: 'RESEND_API_KEY', label: 'API key', secreto: true, placeholder: 're_…', nota: 'Empieza con re_. Se saca en resend.com → "API Keys" → "Create API Key", con el permiso "Full access". Se muestra UNA sola vez.' },
-      { env: 'RESEND_FROM', label: 'Remitente', opcional: true, placeholder: 'Mauricio <hola@tudominio.com>', nota: 'Tu nombre, un espacio y tu correo entre < >. Por ejemplo: Mauricio <hola@tunegocio.com>. El dominio (lo que va después de la arroba) tiene que estar verificado en Resend, o el envío falla.' },
+      { env: 'RESEND_FROM', label: 'Remitente', opcional: true, placeholder: 'Tu negocio <hola@tudominio.com>', nota: 'Tu nombre, un espacio y tu correo entre < >. Por ejemplo: Tu negocio <hola@tunegocio.com>. El dominio (lo que va después de la arroba) tiene que estar verificado en Resend, o el envío falla.' },
     ],
     tutorial: {
       url: 'https://resend.com/domains',
@@ -312,7 +312,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Donde dice "Permission" elige "Full access". Es más permiso del que hace falta para mandar correos, pero es el que MaKo necesita para poder revisar si tu dominio quedó bien verificado. Con "Sending access" el correo sale igual, pero MaKo te va a marcar la conexión como fallada.',
         'Si te deja elegir un dominio, elige el que acabas de verificar.',
         'Copia la key —empieza con re_— y pégala en el campo "API key". Se muestra UNA sola vez.',
-        'En el campo "Remitente" escribe cómo quieres que te vean: tu nombre, un espacio, y tu correo entre los signos < >. Por ejemplo: Mauricio <hola@tunegocio.com>.',
+        'En el campo "Remitente" escribe cómo quieres que te vean: tu nombre, un espacio, y tu correo entre los signos < >. Por ejemplo: Tu negocio <hola@tunegocio.com>.',
         'Ese correo tiene que ser del dominio que acabas de verificar, o el envío falla.',
         'El remitente es opcional: si lo dejas vacío MaKo usa uno por defecto, pero entonces tu cliente no ve tu nombre en el correo.',
       ],
@@ -1180,7 +1180,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
         'Ojo con el nombre: Resend los pide sobre send.tudominio.com y no sobre tudominio.com. Si tu proveedor completa solo el final del dominio, escribe únicamente la parte de adelante. Este es el error que más veces deja un dominio sin verificar.',
         'Vuelve a Resend y toca "Verify DNS Records".',
         'Espera a que el dominio figure "Verified". Si queda en "Pending", vuelve a tocar el botón un rato después: un cambio de DNS puede tardar de unos minutos a unas horas en aplicarse.',
-        'Con el dominio verificado, escribe en el campo "Remitente" tu nombre, un espacio, y tu correo entre los signos < >. Por ejemplo: Mauricio <hola@tunegocio.com>.',
+        'Con el dominio verificado, escribe en el campo "Remitente" tu nombre, un espacio, y tu correo entre los signos < >. Por ejemplo: Tu negocio <hola@tunegocio.com>.',
         'Ese correo tiene que ser del dominio que acabas de verificar, o el envío falla.',
       ],
     url: 'https://resend.com/domains',

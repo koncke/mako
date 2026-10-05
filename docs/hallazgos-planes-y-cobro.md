@@ -154,35 +154,12 @@ No falla en el alta: falla en el primer login, cuando ya cobraste.
 
 ---
 
-## Lo que le pasa en el CRM al que PAGA sin agendar *(pertenece a `hallazgos-crm.md`)*
+## Lo que le pasa en el CRM al que PAGA sin agendar
 
-Queda acá porque ese documento tenía trabajo sin commitear de la sesión vecina el día de la
-corrida. **Hay que mudarlo y enlazarlo desde allá.**
-
-1. **RIESGO LATENTE, hoy en CERO, y el disparador está identificado.** Si un lead queda
-   `abierto` después de pagar, el CRM automático lo manda a «Nutrición - No Agenda» a los 2
-   días y a «Reactivación» a los 7: **le escribe "no agendaste la llamada" a alguien que
-   acaba de pagarte.** Hoy no pasa, y el motivo es frágil: la regla saltea todo lead que no
-   esté `abierto` (`lib/crm-auto.ts:246`) y **de los 19 leads con pago cobrado en los 6
-   workspaces con datos, ninguno quedó abierto** — el camino que marca el pago hoy también
-   cierra el estado. Un camino de cobro nuevo que escriba la plata y no toque `estado_lead`
-   lo despierta. Medido por la sesión del CRM el 04/10/2026 sobre los leads con fila en
-   `pagos` (mig 0060): **un carrito, un Whop o un cobro manual que no escriba ahí quedó
-   fuera del universo**, y ése es justo el camino que el plan nuevo agrega. El arreglo es
-   declarar el embudo «Venta directa · sin reunión», que ya existe (`lib/pipeline.ts:928`).
-
-   ⚠️ **Y la forma de escribirlo es parte del hallazgo.** La primera redacción decía «le
-   escribe» en presente sobre algo que mide cero. Un hallazgo que afirma un bug vivo y no lo
-   es le hace perder autoridad a todo el documento; uno que dice «esto pasa si alguien
-   agrega X» se vuelve útil el día que alguien agrega X.
-2. **`TRIGGER.pago` está declarado `auto: true, autoHoy: false`** (`lib/pipeline.ts:103`):
-   el embudo sabe que el pago debería mover la etapa y **no hay quién lo dispare**.
-3. **Cero integraciones de ecommerce.** El grep de `shopify|woocommerce|tiendanube|
-   mercadolibre|hotmart|kajabi|gumroad|paypal` sobre `lib` y `app` da **0**. A un negocio
-   que vende productos el CRM le queda como una planilla que mueve a mano. No está roto —
-   está vacío, que es peor de detectar.
-
----
+Mudado a [hallazgos-crm.md](hallazgos-crm.md) — el código vive ahí
+(`lib/crm-auto.ts`, `lib/pipeline.ts`). Queda el puntero y no una copia: dos
+documentos con el mismo hallazgo son dos que divergen, y el que se queda viejo no
+avisa.
 
 ## El workspace de la plataforma (ws9) no tiene CRM, y arreglarlo son DOS cosas que son UNA
 

@@ -284,6 +284,37 @@ Reglas que salen de eso:
   Y si Martín dice en el chat que cambió, eso gana sobre el archivo y sobre el hook:
   reescribí el marcador en el acto, antes de seguir.
 
+⚠️ **Y NO SON DOS SESIONES: PUEDEN SER TRES. El árbol compartido no tiene un ESTADO,
+tiene una HORA.** El 04/10/2026 hubo tres a la vez sobre este clon (CRM, Chatbot y Perro
+Guardián), y en un mismo día se pagó tres veces el mismo error: leer el árbol como si
+fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
+
+- **Rojo que no es tuyo y al minuto está verde.** Dos sesiones distintas corrieron el
+  typecheck sobre un archivo que la tercera estaba tipeando: una vio cuatro errores de
+  sintaxis y la otra, un minuto después, cero, sin que nadie tocara nada. Una de las dos
+  lo reportaó como «tu código está roto» y mandó a buscar un bug que no existía.
+  Re-correrlo cuesta 7 segundos.
+- **Verde sobre algo que el vecino acaba de romper.** El espejo, y nadie lo nota porque
+  un verde no se audita.
+
+De ahí tres cosas que valen siempre que haya más de una sesión:
+
+1. **Un reporte sobre el árbol se FECHA o no se entiende.** «Leí esto a las 21:40» es una
+   observación; «lo tuyo está roto» es una cacería. Los dos lados pueden tener razón
+   sobre momentos distintos — ya estaba escrito para las corridas de agentes y vale igual
+   entre sesiones.
+2. **Si el pre-push da rojo, lo PRIMERO es `git status --short` de los archivos que el
+   error nombra.** `??` o ` M` ajeno → no es tuyo: worktree limpio y seguir. `M ` propio
+   → es tuyo y se arregla. Saltearse ese paso es lo que produce el reporte equivocado.
+3. ⚠️ **UN `tmp-` SIN COMMITEAR ES UN CANDADO PARA TODOS, Y EL QUE LO ESCRIBE ES EL ÚNICO
+   QUE NO LO SUFRE.** Un script de diagnóstico con un error de tipos bloqueó el push de
+   las otras dos sesiones durante **~3 horas** y les costó dos pushes desde worktree
+   limpio (`a8168162`, `83dce3b8`); su autor no se enteró nunca, porque su sesión sabía
+   que era suyo y lo ignoraba. **Un script temporal se borra al terminar la medición**, y
+   si hay que dejarlo, se commitea con el tipo bien o se deja fuera del repo. Y antes de
+   borrar uno ajeno: se PREGUNTA — con tres sesiones, borrar el archivo de otro es cómo
+   se pierde trabajo que nadie puede recuperar.
+
 El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
 las tres cosas que hay que recrear a mano en uno— está en
 [docs/dos-cuentas.md](docs/dos-cuentas.md).

@@ -30,6 +30,16 @@ import type { Lead } from '../lib/leads';
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** ⚠️ Sin comentarios: un guard que busca el nombre de lo que NO tiene que estar se
  *  acusa a sí mismo por el párrafo que explica por qué no está. */
+/** Gente y negocios REALES de este producto. Vive acá arriba y no adentro de un test
+ *  porque la miran DOS: el catálogo de variables y los placeholders de los formularios.
+ *  Son nombres que YA están en el repo (bitácoras, hallazgos, catálogos), así que el guard
+ *  no agrega información que no esté — caza LOS CONOCIDOS, que es lo automatizable. */
+const REALES = [
+  'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
+  'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
+];
+const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
 const sinComentarios = (src: string): string =>
   src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -372,11 +382,6 @@ test('⚠️ NINGÚN ejemplo del catálogo nombra a una persona o un negocio REA
   // sea que el guard no agrega información que no esté — y caza LOS CONOCIDOS, que es lo
   // que se puede automatizar. La regla general, para los que no están acá, vive en
   // AGENTS.md: un ejemplo de UI es ficticio por regla, como cualquier placeholder.
-  const REALES = [
-    'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
-    'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
-  ];
-  const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   for (const v of VARIABLES_AVISO) {
     for (const r of REALES) {
       assert.ok(!sinAcentos(v.ejemplo).includes(sinAcentos(r)),
@@ -385,3 +390,33 @@ test('⚠️ NINGÚN ejemplo del catálogo nombra a una persona o un negocio REA
   }
 });
 
+
+// ── y los mismos nombres en los PLACEHOLDERS de los formularios ─────────────
+
+test('⚠️ NINGÚN placeholder de un formulario nombra a una persona o un negocio REAL', () => {
+  // El catálogo de variables no era el único lugar, y el que faltaba era peor. El mismo
+  // 04/10/2026 el onboarding preguntaba «¿Cómo se llama tu oferta?» proponiendo «Negocio
+  // que Escala™» — la oferta de Mauricio, la misma que aparece en sus campañas de Meta,
+  // ofrecida de ejemplo a todos los demás clientes— y el remitente de mail proponía
+  // «Mauricio <hola@tudominio.com>» tres veces. Un placeholder es copy: lo ve todo el que
+  // abre esa pantalla, igual que un ejemplo.
+  //
+  // Se lee el FUENTE y no el módulo importado a propósito: `lib/metodo-catalogo.ts` pesa
+  // 145 KB y lleva `server-only`.
+  //
+  // PROBADO ROMPIÉNDOLO: devolviendo el placeholder 'Negocio que Escala™' a
+  // lib/onboarding.ts → 1 fallo. Devolviendo 'Mauricio <hola@tudominio.com>' a
+  // lib/metodo-catalogo.ts → 1 fallo. Restaurados los dos → en verde.
+  for (const a of ['../lib/onboarding.ts', '../lib/metodo-catalogo.ts']) {
+    const src = sinComentarios(leer(a));
+    // Sólo lo que se DIBUJA. El resto del archivo nombra clientes con todo derecho.
+    const dibujado = [...src.matchAll(/(?:placeholder|nota):\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]);
+    assert.ok(dibujado.length > 0, `no encontré un solo placeholder en ${a}: el regex quedó viejo`);
+    for (const txt of dibujado) {
+      for (const real of REALES) {
+        assert.ok(!sinAcentos(txt).includes(sinAcentos(real)),
+          `un placeholder de ${a} nombra a ${real}, que es real: esa pantalla la abren los demás — «${txt.slice(0, 70)}»`);
+      }
+    }
+  }
+});
