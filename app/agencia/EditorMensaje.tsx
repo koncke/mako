@@ -33,7 +33,7 @@
 //    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
-import { tramosConVariables, porqueNoSePuede } from '@/lib/variables-aviso';
+import { tramosConVariables } from '@/lib/variables-aviso';
 import { Dropdown } from '../components/Dropdown';
 import type { VariableAviso } from '@/lib/variables-aviso';
 
@@ -116,13 +116,14 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
   accion?: ReactNode;
   disabled?: boolean;
   /**
-   * Los datos de MaKo, agrupados y con `resoluble` por fila. Sin lista, no hay botón.
+   * Los datos de MaKo que ESTE mensaje puede resolver, ya agrupados. Sin lista, no hay
+   * botón.
    *
-   * Llegan AGRUPADOS y no planos a propósito: la agrupación y el motivo de lo apagado
-   * los decide el catálogo (`variablesOfrecidas`), así que un grupo nuevo o una regla de
-   * alcance nueva las hereda esta barra sin tocarla.
+   * Llegan AGRUPADOS y no planos a propósito: qué se ofrece y cómo se agrupa lo decide el
+   * catálogo (`variablesOfrecidas`), así que un grupo nuevo o una regla de alcance nueva
+   * las hereda esta barra sin tocarla.
    */
-  variables?: Array<{ titulo: string; items: Array<VariableAviso & { resoluble: boolean }> }>;
+  variables?: Array<{ titulo: string; items: VariableAviso[] }>;
 }) {
   // Los grupos salen del catálogo, no de esta pantalla. Ver el comentario del selector.
   const grupos = useMemo(() => variables ?? [], [variables]);
@@ -244,56 +245,24 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
      * `pointerdown` del documento que mira si el click cayo afuera de la caja Y afuera
      * de cualquier menu abierto.
      */
-    <div ref={cajaRef} style={{
-      position: 'relative', borderRadius: 10, background: 'var(--surface-2)',
-      border: '1px solid ' + (enfocado ? 'var(--primary)' : 'var(--border-strong)'),
-      boxShadow: enfocado ? '0 0 0 3px var(--primary-bg)' : undefined,
-      opacity: disabled ? 0.6 : 1, transition: 'border-color .12s',
-    }}>
-      <div
-        ref={ref}
-        contentEditable={!disabled}
-        suppressContentEditableWarning
-        role="textbox" aria-multiline="true" aria-label="El mensaje"
-        onInput={emitir}
-        onFocus={() => setEnfocado(true)}
-        onBlur={() => { emitir(); repintar(); }}
-        onPaste={(e) => {
-          e.preventDefault();
-          const txt = e.clipboardData.getData('text/plain');
-          document.execCommand('insertText', false, txt);
-        }}
-        style={{
-          width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 10,
-          border: 'none', background: 'transparent',
-          color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS, lineHeight: 1.55,
-          outline: 'none',
-          // ⚠️ EL ALTO SALE DE ACA Y DE NINGUNA CONSTANTE COMPARTIDA. «La opcion de
-          // editar el texto debería ser bastante más grande, para que entre todo
-          // bien»: lo paga haber sacado RECORDATORIOS, que liberó el espacio. Subir
-          // `PANEL_ANCHO` o `maxHeight` del panel habría movido TODOS los lienzos.
-          minHeight: filas * 22, maxHeight: 430, overflowY: 'auto',
-          // El hueco de abajo es el que deja ver la ultima linea con la barra puesta.
-          // El hueco de ARRIBA es el que deja la barra sin pisar el texto.
-          paddingTop: enfocado ? 46 : 12,
-          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-        }}
-      />
-
+    <div ref={cajaRef} style={{ opacity: disabled ? 0.6 : 1 }}>
+      {/*
+        ⚠️ EL ALTO SE RESERVA AUNQUE LA BARRA NO ESTÉ. Con la barra adentro de la caja, su
+        `paddingTop` le hacía lugar; afuera, mostrarla y esconderla movería la caja 34 px
+        cada vez que alguien clickea para escribir — el texto se va de abajo del cursor
+        justo al empezar a tipear. El envoltorio mide siempre lo mismo y lo que cambia es
+        su contenido.
+      */}
+      <div style={{ minHeight: 34, marginBottom: 6 }}>
       {enfocado && !disabled && (
         <div
           onMouseDown={(e) => e.preventDefault()}
           style={{
-            // ⚠️ ARRIBA, NO ABAJO. Pedido con la captura delante: «la barra donde
-            // están las opciones de formateo junto con el botón de IA y el
-            // desplegable de acciones, debería ir arriba y no interferir con el
-            // texto». Abajo tapaba la última línea justo mientras se escribía, que
-            // es cuando la barra aparece. El `paddingTop` de la caja es lo que la
-            // hace no pisar: flotar sin reservar el espacio es el mismo bug.
-            position: 'absolute', left: 8, right: 8, top: 8,
+            // Un bloque propio, arriba de la caja y FUERA de su borde. Ya no flota:
+            // flotar era lo que obligaba a reservarle un hueco adentro del texto.
             display: 'flex', alignItems: 'center', gap: 6,
             padding: 4, borderRadius: 9, background: 'var(--surface)',
-            border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(18,21,27,.07)',
+            border: '1px solid var(--border)',
           }}
         >
           {MARCAS.map((m) => (
@@ -334,13 +303,10 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
                   title: g.titulo,
                   options: g.items.map((v) => ({
                     value: v.key, label: v.label,
-                    // El ejemplo cuando se puede poner; el MOTIVO cuando no. Y la
-                    // búsqueda del `Dropdown` mira el `sub`, así que lo apagado también
-                    // se encuentra escribiendo «acción».
-                    // El motivo depende de QUÉ falta: «cambiá el disparador» sobre un
-                    // dato de cobranza manda a hacer algo que no lo consigue.
-                    sub: v.resoluble ? v.ejemplo : porqueNoSePuede(v.alcance),
-                    disabled: !v.resoluble,
+                    // Sólo llegan acá los que este mensaje PUEDE resolver, así que el
+                    // `sub` es siempre el valor de ejemplo. Lo que no se puede poner no
+                    // se dibuja en gris: no se dibuja. Ver `variablesOfrecidas`.
+                    sub: v.ejemplo,
                     // El token, para que buscar «saldo» encuentre «Cuánto falta
                     // cobrarle»: la palabra que uno tiene en la cabeza es la de la
                     // variable, y no está escrita en ningún renglón.
@@ -360,6 +326,41 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
           {accion}
         </div>
       )}
+      </div>
+
+      <div style={{
+        borderRadius: 10, background: 'var(--surface-2)',
+        border: '1px solid ' + (enfocado ? 'var(--primary)' : 'var(--border-strong)'),
+        boxShadow: enfocado ? '0 0 0 3px var(--primary-bg)' : undefined,
+        transition: 'border-color .12s',
+      }}>
+      <div
+        ref={ref}
+        contentEditable={!disabled}
+        suppressContentEditableWarning
+        role="textbox" aria-multiline="true" aria-label="El mensaje"
+        onInput={emitir}
+        onFocus={() => setEnfocado(true)}
+        onBlur={() => { emitir(); repintar(); }}
+        onPaste={(e) => {
+          e.preventDefault();
+          const txt = e.clipboardData.getData('text/plain');
+          document.execCommand('insertText', false, txt);
+        }}
+        style={{
+          width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 10,
+          border: 'none', background: 'transparent',
+          color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS, lineHeight: 1.55,
+          outline: 'none',
+          // ⚠️ EL ALTO SALE DE ACA Y DE NINGUNA CONSTANTE COMPARTIDA. «La opcion de
+          // editar el texto debería ser bastante más grande, para que entre todo
+          // bien»: lo paga haber sacado RECORDATORIOS, que liberó el espacio. Subir
+          // `PANEL_ANCHO` o `maxHeight` del panel habría movido TODOS los lienzos.
+          minHeight: filas * 22, maxHeight: 430, overflowY: 'auto',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        }}
+      />
+      </div>
     </div>
   );
 }

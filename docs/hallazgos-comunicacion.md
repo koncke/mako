@@ -7574,9 +7574,24 @@ ofrecer el botón es ofrecer una pared.
 La condición vive en `lib/ventana-24h.ts`, sin `server-only`, para que tenga test — el
 mismo criterio que `puedeAfirmarEtapa` y que `exigirClienteDePrueba`.
 
-⚠️ **Y esto le aplica a todo lo que el chatbot mande por el canal oficial**, no sólo a un
-follow-up: un recordatorio de cobranza, un aviso de nutrición o cualquier paso `wa_lead`
-de un flujo tienen la misma pared a las 24 h. Hoy ninguno de esos caminos la mira — el de
-cobranza sale al grupo de MaKo, que es un canal propio y no tiene ventana, y el paso al
-lead todavía no se puede ejecutar. El día que se enchufe, la pregunta es ésta y no «¿tengo
-el número?».
+⚠️ **CORRECCIÓN DEL 05/10/2026, Y ES UNA DECISIÓN DE MARTÍN: ESTO NO GOBIERNA AL
+CHATBOT.** Acá decía que la pared de 24 h le aplicaba a todo lo que el chatbot mandara, y
+está mal de alcance. Textual: «olvidate de WhatsApp oficial, no entiendo de donde lo
+sigues sacando, si todo esto es para la no oficial».
+
+El editor de flujos, los recordatorios y lo que se construya en `/chatbot` salen por la
+línea NO OFICIAL (Evolution, un WhatsApp Web automatizado). Esa conexión **no tiene
+ventana de 24 h, no tiene plantillas aprobadas y no tiene botones interactivos**: manda lo
+que mandaría una persona desde su teléfono. Así que ni la ventana ni las plantillas son
+una restricción de diseño para este editor — y suponerlo lleva a construir un gate que
+apaga botones que sí funcionan, que es peor que no tenerlo.
+
+Lo que SÍ sigue siendo cierto, y por eso la entrada de arriba no se borra: hay workspaces
+con WABA/Chatwoot, y el panel de borradores del CRM vive ahí. La pared es de ESE canal, no
+del producto. **Antes de escribir un guard que cuelgue de una regla de WhatsApp, preguntá
+por QUÉ CONEXIÓN sale ese mensaje** — son dos productos distintos con el mismo nombre.
+
+⚠️ Y la otra cara, que es la que el canal propio sí tiene: la línea no oficial se puede
+**banear**. Lo que la protege no es una ventana, es el ritmo y el contenido (no mandar
+cientos de mensajes idénticos, no escribirle a quien nunca escribió). Eso ya está medido
+en esta casa con la línea de MaKo y es la restricción real del editor.

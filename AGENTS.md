@@ -3781,6 +3781,38 @@ autoridad de un dato puesto por código.
 - **El olor:** un valor que es una resta contra `hoy`. Si se puede escribir como una
   cuenta con la fecha de hoy adentro, es una foto.
 
+# El WhatsApp del chatbot es el NO OFICIAL: ni ventana de 24 h ni plantillas aprobadas
+
+Decisión de Martín, textual (05/10/2026): **«olvidate de WhatsApp oficial, no entiendo de
+dónde lo sigues sacando, si todo esto es para la no oficial»**. Vale para el editor de
+flujos, los recordatorios, `/chatbot` y todo lo que ese editor produzca.
+
+El producto habla WhatsApp por DOS caminos y se parecen sólo en el nombre:
+
+| | la línea de MaKo / el chatbot | el canal del CRM de algunos clientes |
+|---|---|---|
+| Qué es | Evolution: un WhatsApp Web automatizado | WABA oficial, vía Chatwoot |
+| Ventana de 24 h | **no existe** | existe: fuera de ella sólo plantillas aprobadas |
+| Plantillas aprobadas | no hay, y no hacen falta | hay que registrarlas en Meta |
+| Botones / listas interactivas | no | sí |
+| El riesgo real | que **baneen la línea** | que Meta rechace el mensaje |
+
+Lo que se sigue de eso al escribir código nuevo del editor:
+
+- **No se escribe un gate que cuelgue de la ventana de 24 h.** Un botón apagado por una
+  regla que no rige ese canal es un control que no funciona por una razón inventada, y es
+  más caro que no tener el control.
+- **Lo que protege a una línea no oficial es el RITMO y el CONTENIDO**, no una API: no
+  mandar cientos de mensajes idénticos, no escribirle primero a quien nunca escribió, no
+  disparar en ráfaga. Si hay que poner un límite, ése es el que importa.
+- **Y antes de copiar una regla de «WhatsApp», preguntá por qué CONEXIÓN sale ese
+  mensaje.** La mitad de lo que se lee sobre WhatsApp Business API no aplica acá, y la
+  otra mitad aplica sólo en el CRM de los clientes que tengan WABA.
+
+⚠️ Esto NO borra la pared de 24 h donde sí existe: el panel de borradores del CRM la mira
+con razón (`lib/ventana-24h.ts`). Lo que la decisión fija es el ALCANCE — son dos canales,
+y el del chatbot no es el oficial.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

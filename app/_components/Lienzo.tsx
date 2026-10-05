@@ -374,10 +374,22 @@ export function Lienzo({
           position: 'relative', flex: 1, minHeight: alto, overflow: 'hidden',
           borderRadius: sinMarco ? 0 : 14, border: sinMarco ? 'none' : '1px solid var(--border)',
           background: 'var(--surface-2)',
-          // El punteado hace que el paneo se SIENTA: sin un fondo con textura,
-          // arrastrar un lienzo vacío parece que no hizo nada.
-          backgroundImage: 'radial-gradient(var(--border) 1px, transparent 1px)',
-          backgroundSize: '22px 22px',
+          // ⚠️ CUADRÍCULA, NO PUNTOS. Pedido el 05/10/2026: «el fondo de la pizarra
+          // tenga la cuadricula típica». El punteado hacía su trabajo —que el paneo se
+          // SIENTA, porque arrastrar un lienzo liso parece que no hizo nada— y la
+          // cuadrícula hace ese mismo trabajo mejor: las líneas dan dirección, así que
+          // también se ve CUÁNTO se movió y si quedó derecho.
+          //
+          // Dos capas de líneas de 1 px y no una imagen: se repinta sola a cualquier
+          // zoom y no pesa un byte. El color es el borde de la casa a media opacidad —
+          // una cuadrícula al 100% compite con las tarjetas, que es lo que tiene que
+          // mirar el ojo.
+          backgroundImage:
+            'linear-gradient(var(--border) 1px, transparent 1px),'
+            + 'linear-gradient(90deg, var(--border) 1px, transparent 1px)',
+          backgroundSize: '22px 22px, 22px 22px',
+          backgroundPosition: '-1px -1px, -1px -1px',
+          opacity: 1,
           touchAction: 'none', cursor: 'grab', userSelect: 'none',
         }}
       >

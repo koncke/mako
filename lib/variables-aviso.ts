@@ -244,39 +244,25 @@ export function variablesPara(opts: { conLead: boolean; conCuota?: boolean }): V
   ));
 }
 
-/** El motivo por el que un dato no se puede poner en ESTE mensaje. Sale en el renglón
- *  apagado del desplegable, que es donde alguien lo va a leer. */
-export const PORQUE_NO_SE_PUEDE = 'sólo si el mensaje lo dispara una acción';
-/** Y para los datos de una cuota, que no se consiguen cambiando el disparador: los
- *  aporta el cron de cobranza y nada más. Decir «cambiá el disparador» acá sería mandar
- *  a hacer algo que no lo arregla, que es el candado sin llave de siempre. */
-export const PORQUE_NO_HAY_CUOTA = 'sólo en los mensajes de cobranza';
-/** El motivo que corresponde a cada alcance que falta. */
-export const porqueNoSePuede = (a: VariableAviso['alcance']): string =>
-  (a === 'cuota' ? PORQUE_NO_HAY_CUOTA : PORQUE_NO_SE_PUEDE);
-
 /**
- * LO QUE EL SELECTOR DIBUJA: el catálogo ENTERO, agrupado, con cada fila diciendo si
- * este mensaje la puede resolver.
+ * LO QUE EL SELECTOR DIBUJA: los datos que ESTE mensaje puede resolver, agrupados.
  *
- * ⚠️ Y SE OFRECEN TAMBIÉN LAS QUE NO, APAGADAS Y CON EL MOTIVO. La versión anterior las
- * FILTRABA, y la regla que lo justificaba es correcta pero no era esta pregunta: lo que
- * no se puede hacer es prometer un valor que va a salir crudo. Medido en el navegador el
- * 04/10/2026: un mensaje con disparador por tiempo —que son casi todos— ofrecía NUEVE
- * datos de 42, así que el catálogo extenso que se pidió no existía para quien lo abría.
+ * ⚠️ LO QUE NO SE PUEDE PONER NO SE MUESTRA, Y ESTUVO AL REVÉS MEDIO DÍA. El 04/10 se
+ * ofrecían TODOS con los no resolubles apagados y su motivo al lado, con un argumento que
+ * sonaba bien: apagada y explicada, la fila es información y dice cómo conseguirla. Al
+ * verlo, Martín: «si no está disponible porque elegí por tiempo y no por acción, no lo
+ * muestres directamente, no que esté en gris, eso confunde» (05/10).
  *
- * Apagada con su motivo, la fila es información y además dice cómo conseguirla (cambiar
- * el disparador a «por una acción»), que es la diferencia entre un control roto y un
- * guard que se arregla haciendo lo que pide. Un `disabled` del `Dropdown` no se puede
- * elegir, así que el token no puede entrar al texto.
+ * Tiene razón y la lección es sobre la regla, no sobre el estilo: «mostrarlo sin poder
+ * usarlo se lee como que la app está rota» no se cancela porque el renglón traiga un
+ * motivo. Un desplegable de 42 filas con 31 en gris es un desplegable en el que lo que
+ * sirve está escondido entre lo que no.
+ *
+ * El dato no se pierde: lo que un mensaje PUEDE resolver cuelga de su disparador, y eso
+ * se ve y se cambia en la tarjeta de entrada del lienzo.
  */
-export function variablesOfrecidas(opts: { conLead: boolean; conCuota?: boolean }): Array<{ titulo: string; items: Array<VariableAviso & { resoluble: boolean }> }> {
-  const puede = (a: VariableAviso['alcance']): boolean =>
-    a === 'siempre' || (a === 'lead' ? opts.conLead : opts.conCuota === true);
-  const marcadas = VARIABLES_AVISO.map((v) => ({ ...v, resoluble: puede(v.alcance) }));
-  return GRUPOS_VARIABLES
-    .map((g) => ({ titulo: g.titulo, items: marcadas.filter((v) => v.grupo === g.key) }))
-    .filter((g) => g.items.length > 0);
+export function variablesOfrecidas(opts: { conLead: boolean; conCuota?: boolean }): Array<{ titulo: string; items: VariableAviso[] }> {
+  return agruparVariables(variablesPara(opts));
 }
 
 /**

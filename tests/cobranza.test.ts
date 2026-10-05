@@ -177,13 +177,14 @@ test('⚠️ y el editor OFRECE los datos de la cuota en los mensajes de cobranz
   assert.deepEqual([...(cat?.aporta ?? [])].sort(), ['cuota', 'lead']);
   const conCuota = variablesOfrecidas({ conLead: true, conCuota: true }).flatMap((g) => g.items);
   for (const k of CLAVES_DE_CUOTA) {
-    assert.equal(conCuota.find((v) => v.key === k)?.resoluble, true, `${k} no se ofrece en un mensaje de cobranza`);
+    assert.ok(conCuota.some((v) => v.key === k), `${k} no se ofrece en un mensaje de cobranza`);
   }
-  // Y en un mensaje que no es de cobranza se ofrecen APAGADAS, con su motivo: el dato
-  // no se consigue cambiando el disparador, así que decirlo sería un candado sin llave.
+  // Y en un mensaje que NO es de cobranza no se dibujan — ni apagadas. Era al revés hasta
+  // el 05/10/2026: «si no está disponible… no lo muestres directamente, no que esté en
+  // gris, eso confunde».
   const sinCuota = variablesOfrecidas({ conLead: true }).flatMap((g) => g.items);
   for (const k of CLAVES_DE_CUOTA) {
-    assert.equal(sinCuota.find((v) => v.key === k)?.resoluble, false, `${k} dice que se puede resolver sin cuota`);
+    assert.ok(!sinCuota.some((v) => v.key === k), `${k} se ofrece en un mensaje que no habla de ninguna cuota`);
   }
 });
 
