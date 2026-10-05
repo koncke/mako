@@ -142,7 +142,11 @@ test('⚠️ TODO lo que sale de la plantilla se lee en el WORKSPACE DEL AVISO',
   const src = leer('../lib/avisos.ts');
   const i = src.indexOf('export async function emitirDelCatalogo');
   const fn = src.slice(i, src.indexOf('\nexport ', i + 10));
-  assert.ok(fn.length > 400 && fn.length < 4000, `el recorte de emitirDelCatalogo mide ${fn.length}: mira otra cosa`);
+  // El techo es una guarda de que el recorte sigue siendo ESTA función y no se comió la
+  // de al lado. Subió de 4.000 a 6.000 el 04/10/2026 cuando la función creció a propósito
+  // (el campo `datos`, los valores exactos que pasa el emisor): el número se sube
+  // mirando, no se saca.
+  assert.ok(fn.length > 400 && fn.length < 6000, `el recorte de emitirDelCatalogo mide ${fn.length}: mira otra cosa`);
 
   const iWs = fn.indexOf('const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;');
   const iPlantilla = fn.indexOf('getPlantilla(id)');

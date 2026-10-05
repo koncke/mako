@@ -62,8 +62,11 @@ export type VariableAviso = {
    * · `siempre` — se calcula o es una constante más la base.
    * · `lead`    — necesita que el aviso hable de UN lead. Los eventos del CRM lo
    *               traen (`dispararEvento` pasa `leadId`); un cron horario, no.
+   * · `cuota`   — necesita la cuota de la que habla el aviso. La trae el emisor en
+   *               `datos`, que es lo que el cron de cobranza ya tiene en la mano: no
+   *               hay lectura extra, y por eso puede estar acá.
    */
-  alcance: 'siempre' | 'lead';
+  alcance: 'siempre' | 'lead' | 'cuota';
   /** En qué grupo lo muestra el selector. El orden lo fija `GRUPOS_VARIABLES`. */
   grupo: GrupoVariable;
   /**
@@ -162,6 +165,16 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'lead_inversion', label: 'Cuánto puede invertir', ejemplo: 'US$ 1k - 3k', alcance: 'lead', grupo: 'formulario' },
   { key: 'lead_decisor', label: '¿Decide él?', ejemplo: 'sí', alcance: 'lead', grupo: 'formulario' },
 
+  // ── La CUOTA de la que habla el aviso. Las trae el emisor en `datos`: el cron de
+  //    cobranza ya leyó la fila de `pagos` para decidir que hay que avisar, así que
+  //    pasarlas no cuesta una lectura. Y van por CÓDIGO y no por el modelo, que es la
+  //    regla de la casa para un dato exacto: un monto que pasa por un LLM deja de ser
+  //    exacto, y acá el dato exacto es plata que alguien debe.
+  { key: 'cuota_numero', label: 'Número de cuota', ejemplo: '2', alcance: 'cuota', grupo: 'plata' },
+  { key: 'cuota_monto', label: 'Monto de esta cuota', ejemplo: 'US$ 1.700', alcance: 'cuota', grupo: 'plata', formato: 'plata' },
+  { key: 'cuota_vence', label: 'Cuándo vence esta cuota', ejemplo: '10/10', alcance: 'cuota', grupo: 'plata', formato: 'fecha' },
+  { key: 'cuota_dias', label: 'Hace cuánto venció (o en cuánto vence)', ejemplo: '3 días', alcance: 'cuota', grupo: 'plata' },
+
   // ── El momento, en la zona del negocio. Se calculan.
   { key: 'fecha', label: 'La fecha de hoy', ejemplo: '30/09', alcance: 'siempre', grupo: 'momento', formato: 'fecha' },
   { key: 'hora', label: 'La hora', ejemplo: '09:00', alcance: 'siempre', grupo: 'momento' },
@@ -213,13 +226,22 @@ export const RUTA_DE_LINK: Readonly<Record<string, string>> = {
 
 /** Las que ese mensaje puede resolver de verdad. Ofrecer el resto es prometer un dato
  *  que no existe — y lo que sale al WhatsApp del cliente es el `{{token}}` crudo. */
-export function variablesPara(opts: { conLead: boolean }): VariableAviso[] {
-  return VARIABLES_AVISO.filter((v) => v.alcance !== 'lead' || opts.conLead);
+export function variablesPara(opts: { conLead: boolean; conCuota?: boolean }): VariableAviso[] {
+  return VARIABLES_AVISO.filter((v) => (
+    v.alcance === 'siempre' || (v.alcance === 'lead' ? opts.conLead : opts.conCuota === true)
+  ));
 }
 
 /** El motivo por el que un dato no se puede poner en ESTE mensaje. Sale en el renglón
  *  apagado del desplegable, que es donde alguien lo va a leer. */
 export const PORQUE_NO_SE_PUEDE = 'sólo si el mensaje lo dispara una acción';
+/** Y para los datos de una cuota, que no se consiguen cambiando el disparador: los
+ *  aporta el cron de cobranza y nada más. Decir «cambiá el disparador» acá sería mandar
+ *  a hacer algo que no lo arregla, que es el candado sin llave de siempre. */
+export const PORQUE_NO_HAY_CUOTA = 'sólo en los mensajes de cobranza';
+/** El motivo que corresponde a cada alcance que falta. */
+export const porqueNoSePuede = (a: VariableAviso['alcance']): string =>
+  (a === 'cuota' ? PORQUE_NO_HAY_CUOTA : PORQUE_NO_SE_PUEDE);
 
 /**
  * LO QUE EL SELECTOR DIBUJA: el catálogo ENTERO, agrupado, con cada fila diciendo si
@@ -236,8 +258,10 @@ export const PORQUE_NO_SE_PUEDE = 'sólo si el mensaje lo dispara una acción';
  * guard que se arregla haciendo lo que pide. Un `disabled` del `Dropdown` no se puede
  * elegir, así que el token no puede entrar al texto.
  */
-export function variablesOfrecidas(opts: { conLead: boolean }): Array<{ titulo: string; items: Array<VariableAviso & { resoluble: boolean }> }> {
-  const marcadas = VARIABLES_AVISO.map((v) => ({ ...v, resoluble: v.alcance !== 'lead' || opts.conLead }));
+export function variablesOfrecidas(opts: { conLead: boolean; conCuota?: boolean }): Array<{ titulo: string; items: Array<VariableAviso & { resoluble: boolean }> }> {
+  const puede = (a: VariableAviso['alcance']): boolean =>
+    a === 'siempre' || (a === 'lead' ? opts.conLead : opts.conCuota === true);
+  const marcadas = VARIABLES_AVISO.map((v) => ({ ...v, resoluble: puede(v.alcance) }));
   return GRUPOS_VARIABLES
     .map((g) => ({ titulo: g.titulo, items: marcadas.filter((v) => v.grupo === g.key) }))
     .filter((g) => g.items.length > 0);

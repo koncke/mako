@@ -71,7 +71,7 @@ const CRON_DEFAULT: CronAviso = { unidad: 'dia', cada: 1, hora: 9, minuto: 0 };
 
 export function FlujoAviso({
   id, disparador, frecuenciaMin, texto, canales, posiciones, endpoint, editable, guardando,
-  asunto, onAsunto, onAsuntoGuardar, tituloMensaje,
+  asunto, onAsunto, onAsuntoGuardar, tituloMensaje, aporta = [],
   onTexto, onCambio, probando, prueba, onProbar, chrome, pie,
 }: {
   id: string;
@@ -83,6 +83,8 @@ export function FlujoAviso({
   asunto?: string;
   /** Cómo se llama el mensaje. Es el asunto por default, así que la tarjeta lo dibuja. */
   tituloMensaje?: string;
+  /** Qué entidades trae el disparador de este mensaje. Sale del catálogo (`aporta`). */
+  aporta?: ReadonlyArray<'lead' | 'cuota'>;
   onAsunto?: (v: string) => void;
   onAsuntoGuardar?: () => void;
   posiciones: Posiciones;
@@ -365,6 +367,7 @@ export function FlujoAviso({
             nodo={n} id={id} disparador={disparador} frecuenciaMin={frecuenciaMin}
             texto={texto} endpoint={endpoint} editable={editable} guardando={guardando || busy}
             asunto={asunto} onAsunto={onAsunto} onAsuntoGuardar={onAsuntoGuardar}
+            aporta={aporta}
             canales={canales} flujo={flujo} insistir={insistir} cron={cron} tz={tz} onCron={guardarCron}
             acusesTxt={acusesTxt} onAcuses={guardarAcuses}
             onTexto={onTexto} onCambio={onCambio} onFlujo={guardarFlujo}
@@ -389,12 +392,13 @@ export function FlujoAviso({
 
 function EditorDelAviso({
   nodo, id, disparador, frecuenciaMin, texto, endpoint, editable, guardando, canales,
-  asunto, onAsunto, onAsuntoGuardar,
+  asunto, onAsunto, onAsuntoGuardar, aporta,
   flujo, insistir, cron, tz, onCron, acusesTxt, onAcuses, onTexto, onCambio, onFlujo, onQuitarPaso, probando, prueba, onProbar,
 }: {
   nodo: NodoFlujo; id: string; disparador: string; frecuenciaMin: number; texto: string;
   endpoint: string; editable: boolean; guardando: boolean; canales: { wa: boolean; email: boolean };
   asunto?: string; onAsunto?: (v: string) => void; onAsuntoGuardar?: () => void;
+  aporta: ReadonlyArray<'lead' | 'cuota'>;
   flujo: Flujo | null;
   insistir: Extract<Paso, { tipo: 'insistir' }> | null;
   cron: CronAviso | null;
@@ -517,7 +521,14 @@ function EditorDelAviso({
             el resolvedor deja intacto lo que no sabe, a propósito, y el filtro de acá
             es lo único que evita que llegue ahí. */}
         <EditorMensaje valor={texto} onChange={onTexto} disabled={guardando}
-          variables={variablesOfrecidas({ conLead: base.disparador.tipo === 'evento' })}
+          // ⚠️ LO QUE SE PUEDE RESOLVER NO SALE SÓLO DEL FLUJO. Un cron puede traer el
+          // lead en la mano —la cobranza es el caso— y preguntando únicamente por el
+          // disparador del flujo, ese mensaje mostraba los datos del CRM apagados
+          // teniendo cómo resolverlos. Lo declara el catálogo (`aporta`).
+          variables={variablesOfrecidas({
+            conLead: base.disparador.tipo === 'evento' || aporta.includes('lead'),
+            conCuota: aporta.includes('cuota'),
+          })}
           accion={<PedirleAMaKo onProbar={onProbar} probando={probando} />} />
         {/* ⚠️ LA SUGERENCIA SE APLICA, NO SE MIRA. El botón dejaba un texto en azul
             debajo y no tocaba el mensaje: «no hace nada, me escribe algo abajo pero

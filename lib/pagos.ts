@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
 
 export type Pago = {
@@ -270,6 +270,29 @@ export async function marcarPago(
   if (error) throw new Error(`Error marcando pago ${pagoId}: ${error.message}`);
 
   await sincronizarTotalCobrado(pago.lead_id as number);
+
+  // ⚠️ MARCAR EL PAGO CORTA EL RECORDATORIO, y por eso vive acá y no en la pantalla: el
+  // pago se marca desde la ficha, desde el doer de WhatsApp y desde la API, y una cura
+  // puesta en un call site deja los otros dos mandando cobranza sobre algo ya cobrado.
+  // Es la mitad de la tarjeta #19 que dice «sin que nadie la pause a mano».
+  //
+  // Sólo al marcar PAGADO: desmarcar un pago (un error de carga) no reabre la
+  // secuencia, porque las corridas cerradas no vuelven a `pendiente` — y reabrirla
+  // sería mandar de nuevo los mensajes que ya salieron.
+  if (pagado) {
+    try {
+      const ws = await getWorkspaceActual();
+      if (ws != null) {
+        const { cerrarCorridasDeCuota } = await import('./flujo-corridas');
+        const n = await cerrarCorridasDeCuota(ws, pagoId);
+        if (n) console.log(`[pagos] cuota ${pagoId} pagada → ${n} recordatorio(s) cortado(s)`);
+      }
+    } catch (e) {
+      // Que falle el corte no puede tumbar el registro del pago: lo peor que pasa es
+      // que el recordatorio siguiente salga, y eso se ve. Perder el pago, no.
+      console.error('[pagos] no pude cortar los recordatorios:', e instanceof Error ? e.message : String(e));
+    }
+  }
 }
 
 /**

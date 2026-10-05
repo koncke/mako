@@ -146,6 +146,40 @@ export async function cerrarCorrida(ws: number, id: number, estado: 'hecha' | 'c
  *
  * Devuelve cuántas marcó (0 es lo normal: casi nunca hay una corrida abierta).
  */
+/**
+ * CIERRA LAS CORRIDAS QUE HABLABAN DE ESA CUOTA. La llama `marcarPago`.
+ *
+ * ⚠️ CERRAR Y NO «EVALUAR UNA CONDICIÓN». Lo que la tarjeta #19 pide es que «al marcar
+ * el pago en la ficha la secuencia queda cortada sin que nadie la pause a mano», y eso
+ * es un corte, no una rama: una condición `¿ya pagó?` adentro del flujo haría que la
+ * corrida siga viva, despierte, pregunte y recién ahí se termine — o sea que seguiría
+ * existiendo un camino por el que el recordatorio sale después del pago si el orden de
+ * los pasos no es el que uno supone. Cerrada, no hay camino.
+ *
+ * Se cierra como `cortada` y no como `hecha`: «terminó» y «la cortamos» son dos hechos,
+ * y el segundo es el que explica por qué no salieron los mensajes que faltaban.
+ *
+ * El `ctx` de la corrida es un jsonb, así que el filtro va sobre su clave: la cuota
+ * viaja ahí desde que el cron de cobranza abre la corrida.
+ */
+export async function cerrarCorridasDeCuota(ws: number, cuotaId: number): Promise<number> {
+  try {
+    return await runWithWorkspace(ws, async () => {
+      const db = await getTenantDb();
+      const { data, error } = await db.from('flujo_corridas')
+        .update({ estado: 'cortada', proxima_at: null })
+        .eq('estado', 'pendiente')
+        .eq('ctx->>cuotaId', String(cuotaId))
+        .select('id');
+      if (error) { console.error('[corridas] cerrar por cuota:', error.message); return 0; }
+      return (data as unknown[] | null)?.length ?? 0;
+    });
+  } catch (e) {
+    console.error('[corridas] cerrar por cuota:', e instanceof Error ? e.message : String(e));
+    return 0;
+  }
+}
+
 export async function marcarRespondieron(ws: number): Promise<number> {
   try {
     return await runWithWorkspace(ws, async () => {

@@ -1,0 +1,209 @@
+// =============================================================================
+// La cobranza por WhatsApp: cuándo entra una cuota, y qué NO puede llevarse puesto
+// =============================================================================
+// La tarjeta #19 la repartió Martín al chat del chatbot el 04/10/2026 — «debería hacer
+// recordatorios a clientes como en el grupo de MaKo en WhatsApp» — y sobre la cadencia
+// dijo: «Para eso estamos configurando el chatbot, que cada usuario lo pueda editar! Y
+// en la plantilla por defecto, haz lo que te parezca mejor».
+//
+// De ahí sale qué persigue este archivo: que la cadencia NO esté cableada en el código
+// que dispara (si lo estuviera, el cliente no podría editarla), que una cuota entre UNA
+// vez, que marcar el pago CORTE lo que está en vuelo, y que un dato exacto que viaja
+// días no se vuelva mentira en el camino.
+//
+// ⚠️ PROBADOS ROMPIENDO LAS PIEZAS, 04/10/2026. Las DOCE roturas se cazan, 1 fallo cada
+// una: avisar el día exacto sin ventana (una cuota que el cron no vio ese día se pierde
+// para siempre) · dedupear por lead en vez de por cuota (dos cuotas del mismo cliente y
+// sólo avisa una) · avisar una cuota que vence en 5 días · avisar una que venció hace 30
+// · hacer que `cuota_dias` viaje con la corrida · cablear un `esperar` adentro del cron
+// (la cadencia deja de ser editable) · que el cron no corra el flujo (la cadencia que la
+// persona VE no la corre nadie) · sacarle a `marcarPago` el corte · que el corte mire el
+// lead en vez de la cuota · que la cadencia por defecto le escriba al LEAD · que nazca
+// apagada · y que un recordatorio use el dato que envejece.
+//
+// ⚠️ Y UNA DE ESAS DOCE SALIÓ CIEGA EN EL PRIMER INTENTO, por cómo estaba escrita la
+// rotura y no por el test: duplicar la función en vez de agregarle la clave deja la que
+// el código usa intacta. Una rotura que no toca el camino que se ejecuta no prueba nada.
+//
+// Correr: npm test
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  disparosDeCobranza, enDias, VENTANA_VENCIDA_DIAS, DIAS_ANTES,
+  TTL_UNA_POR_CUOTA_MIN, CLAVES_DE_CUOTA, CLAVE_QUE_ENVEJECE,
+  type CuotaParaAvisar,
+} from '../lib/cobranza';
+import { VARIABLES_AVISO, variablesOfrecidas } from '../lib/variables-aviso';
+import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
+import { grafoDeAviso } from '../lib/flujo-aviso';
+
+const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
+
+const cuota = (o: Partial<CuotaParaAvisar> = {}): CuotaParaAvisar => ({
+  pago_id: 77, lead_id: 2498, lead_nombre: 'Sofía Contreras',
+  numero: 2, monto_usd: 1700, fecha_esperada: '2026-10-10', dias: -1, ...o,
+});
+
+// ── Cuándo entra una cuota ──────────────────────────────────────────────────
+
+test('⚠️ una cuota entra cualquier día de la VENTANA, no sólo el primero', () => {
+  // Avisar sólo cuando `dias === -1` parece lo prolijo y pierde la cuota para siempre si
+  // ese día el cron no corrió, o el workspace no tenía la línea conectada, o la fila se
+  // cargó tarde. Con ventana + dedup por cuota, cualquier día sirve y entra UNA vez.
+  for (const d of [-1, -3, -VENTANA_VENCIDA_DIAS]) {
+    const out = disparosDeCobranza({ vencidas: [cuota({ dias: d })], porVencer: [] });
+    assert.equal(out.length, 1, `con ${d} días de atraso no entró`);
+    assert.equal(out[0]!.avisoId, 'cuota-vencida');
+  }
+});
+
+test('y NO entra lo que todavía no venció ni lo que venció hace un mes', () => {
+  // El de arriba es el que importa: una cuota de hace 30 días no es «acaba de vencer»,
+  // y meterla al recordatorio automático es empezar a cobrar hoy algo de hace un mes.
+  assert.equal(disparosDeCobranza({ vencidas: [cuota({ dias: 0 })], porVencer: [] }).length, 0);
+  assert.equal(disparosDeCobranza({ vencidas: [cuota({ dias: -30 })], porVencer: [] }).length, 0);
+  // Y la de «por vencer» entra sólo en su ventana.
+  assert.equal(disparosDeCobranza({ vencidas: [], porVencer: [cuota({ dias: DIAS_ANTES })] }).length, 1);
+  assert.equal(disparosDeCobranza({ vencidas: [], porVencer: [cuota({ dias: DIAS_ANTES + 4 })] }).length, 0);
+});
+
+test('⚠️ el dedup es por CUOTA, no por lead ni por tipo', () => {
+  // Dos cuotas del MISMO cliente vencidas el mismo día son dos hechos y dos cobros. Con
+  // la clave por lead —o sin clave, que es la clave por tipo— sale una y la otra queda
+  // muda, sin que nada lo diga. Es el mismo bug que ya se pagó con los agendados.
+  const out = disparosDeCobranza({
+    vencidas: [cuota({ pago_id: 77, numero: 2 }), cuota({ pago_id: 78, numero: 3 })],
+    porVencer: [],
+  });
+  assert.equal(out.length, 2);
+  assert.equal(new Set(out.map((d) => d.dedupKey)).size, 2, 'las dos cuotas comparten la clave de dedup');
+  assert.ok(out.every((d) => d.dedupKey.includes(String(d.cuota.pago_id))));
+  // Y la ventana del dedup cubre un plan de 6 cuotas mensuales: si fuera más corta, la
+  // cuota 2 volvería a entrar al mes siguiente como si fuera nueva.
+  assert.ok(TTL_UNA_POR_CUOTA_MIN >= 60 * 24 * 90, 'la ventana del dedup no cubre un plan de pagos');
+});
+
+// ── Los datos exactos ───────────────────────────────────────────────────────
+
+test('⚠️ lo que VIAJA con la corrida no incluye el dato que envejece', () => {
+  // Un dato guardado en el `ctx` de una corrida es la FOTO del día en que se abrió, y
+  // los pasos siguientes salen 48 y 120 horas más tarde: un `{{cuota_dias}}` guardado
+  // diría «1 día» sobre un atraso de cuatro. Es la misma familia que «un mensaje que
+  // habla de un MOMENTO se re-pregunta al salir», aplicada a un dato.
+  const [d] = disparosDeCobranza({ vencidas: [cuota({ dias: -1 })], porVencer: [] });
+  assert.ok(d);
+  assert.equal(d.datos[CLAVE_QUE_ENVEJECE], '1 día', 'el mensaje de entrada sí lo dice, y sale hoy');
+  assert.ok(!(CLAVE_QUE_ENVEJECE in d.datosEstables), 'el dato que envejece viaja con la corrida');
+  // Y los que viajan son todos los demás del catálogo de cuota.
+  for (const k of CLAVES_DE_CUOTA) {
+    if (k === CLAVE_QUE_ENVEJECE) continue;
+    assert.ok(d.datosEstables[k], `${k} no viaja con la corrida: el mensaje de la semana que viene lo diría crudo`);
+  }
+});
+
+test('⚠️ TODA variable de alcance `cuota` la llena el cron', () => {
+  // La regla que esta familia ya pagó: escribir la salida no es ofrecerla. Una fila del
+  // catálogo que el selector ofrece y nadie resuelve sale CRUDA al WhatsApp del cliente.
+  const delCatalogo = VARIABLES_AVISO.filter((v) => v.alcance === 'cuota').map((v) => v.key);
+  assert.deepEqual([...delCatalogo].sort(), [...CLAVES_DE_CUOTA].sort());
+  const [d] = disparosDeCobranza({ vencidas: [cuota()], porVencer: [] });
+  for (const k of delCatalogo) assert.ok(d!.datos[k], `${k} se ofrece y el cron no la llena`);
+});
+
+test('el plural se escribe bien: lo lee una persona', () => {
+  assert.equal(enDias(-1), '1 día');
+  assert.equal(enDias(-3), '3 días');
+  assert.equal(enDias(1), '1 día');
+});
+
+// ── La cadencia es del CLIENTE, no del código ───────────────────────────────
+
+test('⚠️ el cron NO cablea la cadencia: la corre desde el flujo editable', () => {
+  // Es lo que Martín pidió con todas las letras («que cada usuario lo pueda editar»), y
+  // es verificable: el código que dispara no puede tener un número de días ni un paso
+  // de espera. Si alguien los mete acá, la pantalla pasa a mostrar una cadencia que no
+  // es la que corre — que es la forma más caótica de romper esto, porque se ve bien.
+  const src = leer('../app/api/cron/cobranza/route.ts');
+  const sinComentarios = src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/tipo:\s*'esperar'/.test(sinComentarios), 'el cron cableó un paso de espera');
+  assert.ok(!/horas:\s*\d/.test(sinComentarios), 'el cron cableó una cantidad de horas');
+  assert.match(sinComentarios, /correrFlujoDe\(/, 'el cron dejó de correr el flujo: la cadencia editable no la corre nadie');
+  // Y lo que corre es el flujo DE ESE aviso, con la cuota adentro del contexto: sin el
+  // `cuotaId` no hay por dónde cortar la secuencia al cobrar.
+  assert.match(sinComentarios, /cuotaId: d\.cuota\.pago_id/, 'la corrida no sabe de qué cuota habla');
+});
+
+test('⚠️ la cadencia por defecto existe, sale al GRUPO y no usa el dato que envejece', () => {
+  const cat = CATALOGO_AVISOS.find((c) => c.id === 'cuota-vencida');
+  assert.ok(cat?.flujoPorDefecto, 'el mensaje de cobranza nace sin cadencia: el lienzo abre vacío');
+  const f = cat.flujoPorDefecto;
+  assert.equal(f.activo, true, 'la cadencia nace apagada: el recordatorio no insistiría nunca');
+  const esperas = f.pasos.filter((p) => p.tipo === 'esperar');
+  const mensajes = f.pasos.filter((p) => p.tipo === 'mensaje');
+  assert.ok(esperas.length >= 1 && mensajes.length >= 1, 'el default no tiene ni una espera y un mensaje');
+  assert.ok(mensajes.length <= 3, 'insistir más de tres veces es lo que hace que alguien apague el aviso entero');
+  for (const m of mensajes) {
+    assert.equal(m.tipo === 'mensaje' && m.canal, 'aviso_dueno',
+      'un paso del default le escribe al LEAD: hoy esa pendiente muere con «operación desconocida»');
+    // ⚠️ El dato que envejece no puede estar en un paso que sale días después.
+    assert.ok(m.tipo === 'mensaje' && !m.texto.includes(`{{${CLAVE_QUE_ENVEJECE}}}`),
+      'un recordatorio diría los días de atraso del día de la entrada');
+  }
+});
+
+test('⚠️ marcar el pago CORTA lo que está en vuelo, y lo hace `marcarPago`', () => {
+  // «Al marcar el pago en la ficha la secuencia queda cortada sin que nadie la pause a
+  // mano» es la mitad de la tarjeta que se puede olvidar sin que nada falle: la
+  // secuencia sigue y le cobra a alguien que ya pagó. Va en `marcarPago` y no en la
+  // pantalla porque el pago se marca desde la ficha, desde WhatsApp y desde la API.
+  const pagos = leer('../lib/pagos.ts');
+  const fn = pagos.slice(pagos.indexOf('export async function marcarPago'), pagos.indexOf('export async function sincronizarTotalCobrado'));
+  assert.ok(fn.length > 200 && fn.length < 3000, `el recorte de marcarPago mide ${fn.length}: mira otra cosa`);
+  assert.match(fn, /cerrarCorridasDeCuota\(ws, pagoId\)/, 'marcar el pago dejó de cortar los recordatorios');
+  assert.match(fn, /if \(pagado\)/, 'desmarcar un pago también cortaría, o peor, reabriría la secuencia');
+  // Y el corte filtra por la cuota, no por el lead: un cliente con dos cuotas en vuelo
+  // no deja de deber la otra porque pagó una.
+  const corridas = leer('../lib/flujo-corridas.ts');
+  const corte = corridas.slice(corridas.indexOf('export async function cerrarCorridasDeCuota'));
+  assert.match(corte, /ctx->>cuotaId/, 'el corte dejó de mirar la cuota');
+  assert.match(corte, /\.eq\('estado', 'pendiente'\)/, 'el corte puede revivir una corrida ya cerrada');
+});
+
+test('⚠️ y el editor OFRECE los datos de la cuota en los mensajes de cobranza', () => {
+  // La otra mitad de «lo que se ofrece es lo que se puede resolver»: si el selector no
+  // los ofreciera, el dato existiría y nadie podría ponerlo en el texto.
+  const cat = CATALOGO_AVISOS.find((c) => c.id === 'cuota-vencida');
+  assert.deepEqual([...(cat?.aporta ?? [])].sort(), ['cuota', 'lead']);
+  const conCuota = variablesOfrecidas({ conLead: true, conCuota: true }).flatMap((g) => g.items);
+  for (const k of CLAVES_DE_CUOTA) {
+    assert.equal(conCuota.find((v) => v.key === k)?.resoluble, true, `${k} no se ofrece en un mensaje de cobranza`);
+  }
+  // Y en un mensaje que no es de cobranza se ofrecen APAGADAS, con su motivo: el dato
+  // no se consigue cambiando el disparador, así que decirlo sería un candado sin llave.
+  const sinCuota = variablesOfrecidas({ conLead: true }).flatMap((g) => g.items);
+  for (const k of CLAVES_DE_CUOTA) {
+    assert.equal(sinCuota.find((v) => v.key === k)?.resoluble, false, `${k} dice que se puede resolver sin cuota`);
+  }
+});
+
+test('⚠️ la tarjeta de un recordatorio al GRUPO no dice «le escribe al lead»', () => {
+  // Lo delató el navegador: los dos pasos de la cadencia salían dibujados «LE ESCRIBE AL
+  // LEAD» con `canal: 'aviso_dueno'`, porque el rótulo no miraba el canal. Un diagrama
+  // que dice a quién le escribe y se equivoca es peor que uno que no lo dice — y acá
+  // decía justo lo contrario de lo que Martín pidió, que es que salga al grupo.
+  const g = grafoDeAviso({
+    disparador: 'cron', frecuenciaMin: 0, texto: 'x',
+    canales: { wa: true, email: false }, insistir: null, evento: null,
+    pasos: [
+      { tipo: 'mensaje', canal: 'aviso_dueno', texto: 'al grupo' },
+      { tipo: 'mensaje', canal: 'wa_lead', texto: 'al lead' },
+    ],
+  });
+  const alGrupo = g.nodos.find((n) => n.id === 'paso-0');
+  const alLead = g.nodos.find((n) => n.id === 'paso-1');
+  assert.equal(alGrupo?.tipo, 'recordatorio', 'un mensaje al grupo se dibuja como un mensaje al lead');
+  assert.ok(!/lead/i.test(alGrupo?.titulo ?? ''), `el título dice «${alGrupo?.titulo}» sobre un mensaje al grupo`);
+  assert.equal(alLead?.tipo, 'mensaje-lead', 'y el que SÍ va al lead dejó de decirlo');
+  assert.match(alLead?.titulo ?? '', /lead/i);
+});

@@ -24,6 +24,8 @@ export type SemaforoAviso = 'verde' | 'amarillo' | 'rojo' | 'na';
 export type PrioridadAviso = 'alta' | 'media' | 'baja';
 export type EstadoImplementacion = 'si' | 'parcial' | 'no';
 
+import type { Flujo } from './flujos-tipos';
+
 export type AvisoCatalogo = {
   /** slug estable; sirve de `tipo` en el feed y de key de dedup. */
   id: string;
@@ -39,6 +41,31 @@ export type AvisoCatalogo = {
   disparador: string;
   /** ejemplo con datos de muestra, en la voz de MaKo (rioplatense). */
   ejemplo: string;
+  /**
+   * QUÉ ENTIDADES TRAE EL DISPARADOR DE ESTE AVISO. Ausente = ninguna.
+   *
+   * ⚠️ ES LO QUE DECIDE QUÉ DATOS OFRECE EL EDITOR, y no se puede deducir del
+   * `disparador`, que es prosa. Hasta el 04/10/2026 el selector preguntaba
+   * `disparador.tipo === 'evento'` del FLUJO, así que un aviso que lo dispara un cron
+   * con el lead en la mano —la cobranza es el caso— mostraba los datos del CRM
+   * apagados sobre un mensaje que sí podía resolverlos.
+   *
+   * Lo declara el catálogo y no la pantalla: el día que un cron nuevo aporte otra
+   * entidad, el editor lo hereda sin tocarlo.
+   */
+  aporta?: ReadonlyArray<'lead' | 'cuota'>;
+  /**
+   * LA CADENCIA CON LA QUE NACE ESTE MENSAJE, si tiene una. Es un FLUJO como cualquier
+   * otro —se dibuja en el lienzo y se edita ahí— y el día que alguien lo toque, lo que
+   * guarda el store gana para siempre: esto es el default, no una plantilla que se
+   * reaplique.
+   *
+   * ⚠️ VIVE EN EL CATÁLOGO Y NO EN UN SEED. Un seed corre una vez por workspace y deja
+   * 10 copias que divergen; acá es el default de todos, así que mejorarlo mejora a todo
+   * el que no lo editó — que es la misma razón por la que el TEXTO de un aviso se
+   * hereda en vez de materializarse.
+   */
+  flujoPorDefecto?: Flujo;
   /**
    * CON QUÉ NACE UNA CUENTA NUEVA. Ausente = 'off'.
    *
@@ -692,15 +719,51 @@ https://hola-mako.com/plan — MaKo`,
   // ── COBRANZA / CASH ────────────────────────────────────────────────────────
   {
     id: 'cuota-vencida', titulo: 'Cuota vencida → cobrar', categoria: 'accion', porDefecto: 'on',
-    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'parcial',
-    disparador: 'getCuotasPendientes.vencidas.',
-    ejemplo: `💸 *Cobranza*: la cuota 2 de Vértice venció hace 3 días — *$1.700 sin cobrar*. Conviene mandarle el recordatorio hoy antes de que se estire más.\n\n¿Te escribo el mensaje de cobro? — MaKo`,
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'si',
+    aporta: ['lead', 'cuota'],
+    /**
+     * ⚠️ LA CADENCIA POR DEFECTO, Y SE EDITA EN EL LIENZO. Martín, 04/10/2026: «Para eso
+     * estamos configurando el chatbot, que cada usuario lo pueda editar! Y en la
+     * plantilla por defecto, haz lo que te parezca mejor». Elegido: la entrada el día
+     * que vence, y dos recordatorios más —a las 48 h y 72 h después— o sea tres toques
+     * repartidos en cinco días. Deja margen para el que paga tarde sin volverse
+     * insistente, y el tope existe porque insistir para siempre lo apaga entero.
+     *
+     * ⚠️ LOS DOS SALEN AL GRUPO DE MaKo (`aviso_dueno`), no al cliente. Es lo que él
+     * pidió —«recordatorios a clientes como en el grupo de MaKo en WhatsApp»— y además
+     * es lo único que hoy FUNCIONA: el paso `wa_lead` deja una pendiente de tipo
+     * `flujo_wa_lead` que `confirmarPendiente` no sabe ejecutar («operación
+     * desconocida»), medido y escrito en docs/hallazgos-comunicacion.md. Poner ese paso
+     * acá sería dibujar un recordatorio al cliente que muere al confirmarlo.
+     *
+     * ⚠️ Y NO USAN `{{cuota_dias}}`: ese dato es la FOTO del día de la entrada y viaja
+     * con la corrida, así que tres días después diría «1 día» sobre un atraso de cuatro.
+     * Los que no envejecen son el número, el monto y la fecha de vencimiento.
+     */
+    flujoPorDefecto: {
+      version: 1,
+      activo: true,
+      disparador: { tipo: 'manual' },
+      pasos: [
+        { tipo: 'esperar', horas: 48 },
+        { tipo: 'mensaje', canal: 'aviso_dueno', texto: 'Sigue sin cobrarse la cuota {{cuota_numero}} de {{lead_nombre}} — {{cuota_monto}}, vencía el {{cuota_vence}}.' },
+        { tipo: 'esperar', horas: 72 },
+        { tipo: 'mensaje', canal: 'aviso_dueno', texto: 'Último recordatorio por la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}): si ya se cobró, márcalo en su ficha y dejo de insistir.' },
+      ],
+    },
+    disparador: 'El cron de cobranza (cada día) ve una cuota pasada de fecha en `pagos` y avisa UNA vez por cuota. Lo que viene después —cada cuántos días insistir y cuántas veces— lo decide el FLUJO de este mensaje, que se edita en el lienzo. Al marcar el pago en la ficha, la secuencia se corta sola.',
+    // ⚠️ EL EJEMPLO ES FICTICIO, A PROPÓSITO. Acá decía «la cuota 2 de Vértice», que es
+    // una cuenta REAL del tablero: quien abre esta pantalla ve la cobranza de otro, y
+    // quien lo cuenta en una reunión lo cuenta como propio — pasó, y está medido en
+    // docs/hallazgos-comunicacion.md (lo que alguien LEE de la pantalla compartida).
+    ejemplo: `💸 *Cobranza*: la cuota {{cuota_numero}} de {{lead_nombre}} venció hace {{cuota_dias}} — *{{cuota_monto}} sin cobrar*.\n\n¿Le escribo el recordatorio? — MaKo`,
   },
   {
     id: 'cuota-por-vencer', titulo: 'Cuota por vencer (recordatorio proactivo)', categoria: 'aviso',
-    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'Cuota con vencimiento en 24–48h.',
-    ejemplo: `🟡 Mañana vence la cuota 3 de Dental Ramos ($1.500). Avísale hoy y te ahorras perseguirlo después. ¿Preparo el recordatorio? — MaKo`,
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'si',
+    aporta: ['lead', 'cuota'],
+    disparador: 'El cron de cobranza, el día antes del vencimiento. Una vez por cuota.',
+    ejemplo: `🟡 Mañana vence la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}). Avisarle hoy sale más barato que perseguirlo después.\n\n¿Le escribo? — MaKo`,
   },
   {
     id: 'pago-recibido', titulo: 'Pago recibido / cash collected', categoria: 'aviso',

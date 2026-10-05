@@ -251,12 +251,20 @@ test('⚠️ sin lead, los datos del CRM se OFRECEN APAGADOS, nunca resolubles',
   const filas = gs.flatMap((g) => g.items);
   assert.equal(filas.length, VARIABLES_AVISO.length, 'el selector dejó de ofrecer el catálogo entero');
   assert.deepEqual(gs.map((g) => g.titulo), GRUPOS_VARIABLES.map((g) => g.titulo), 'faltan grupos en el desplegable');
+  // ⚠️ POR ALCANCE, no «todo lo que no es lead». Desde el 04/10/2026 hay un tercero
+  // (`cuota`, los datos de cobranza que aporta su cron) y una condición escrita en
+  // negativo lo habría declarado resoluble sin que nadie lo note: es la regla de la casa
+  // sobre los guards en positivo, en un test.
   for (const f of filas) {
-    assert.equal(f.resoluble, f.alcance !== 'lead', `${f.key} dice que se puede resolver sin lead`);
+    assert.equal(f.resoluble, f.alcance === 'siempre', `${f.key} (alcance ${f.alcance}) dice que se puede resolver sin nada`);
   }
-  // Con lead, TODO se puede: es lo que hace que el motivo sea accionable («cambiá el
-  // disparador») y no un cartel sin salida.
-  assert.ok(variablesOfrecidas({ conLead: true }).flatMap((g) => g.items).every((f) => f.resoluble));
+  // Con lead se puede todo lo del lead; lo de la CUOTA sigue apagado, porque no se
+  // consigue cambiando el disparador — lo aporta el cron de cobranza y nada más. Por eso
+  // su motivo es otro, y por eso `porqueNoSePuede` es una función y no una constante.
+  const conLead = variablesOfrecidas({ conLead: true }).flatMap((g) => g.items);
+  assert.ok(conLead.filter((f) => f.alcance === 'lead').every((f) => f.resoluble));
+  assert.ok(conLead.filter((f) => f.alcance === 'cuota').every((f) => !f.resoluble));
+  assert.ok(variablesOfrecidas({ conLead: true, conCuota: true }).flatMap((g) => g.items).every((f) => f.resoluble));
   assert.ok(PORQUE_NO_SE_PUEDE.includes('acción'), 'el motivo tiene que decir CÓMO se consigue');
   // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.
   assert.ok(gs.every((g) => g.items.length > 0), 'quedó un grupo vacío en el desplegable');
@@ -273,12 +281,19 @@ test('⚠️ y el EDITOR apaga exactamente eso, con el motivo en el renglón', (
   const src = leer('../app/agencia/EditorMensaje.tsx');
   const i = src.indexOf('columns={[grupos.map(');
   const bloque = src.slice(i, src.indexOf('onChange=', i));
-  assert.ok(i > 0 && bloque.length < 900, `el recorte del selector mide ${bloque.length}: mira otra cosa`);
+  assert.ok(i > 0 && bloque.length < 1400, `el recorte del selector mide ${bloque.length}: mira otra cosa`);
   assert.match(bloque, /disabled: !v\.resoluble/, 'el selector dejó de apagar lo que no se puede poner');
-  assert.match(bloque, /v\.resoluble \? v\.ejemplo : PORQUE_NO_SE_PUEDE/, 'el renglón apagado no dice por qué');
+  assert.match(bloque, /v\.resoluble \? v\.ejemplo : porqueNoSePuede\(v\.alcance\)/, 'el renglón apagado no dice por qué, o dice el motivo de otro alcance');
   // Y el que lo monta pasa el catálogo ENTERO, no el filtrado.
   const flujo = leer('../app/agencia/FlujoAviso.tsx');
-  assert.match(flujo, /variables=\{variablesOfrecidas\(\{ conLead:/, 'volvió a pasar sólo lo resoluble');
+  // El `conLead` ya no es una sola condición (un cron puede traer el lead), así que la
+  // llamada quedó multilínea: se busca la llamada y sus dos preguntas, no su formato.
+  const i2 = flujo.indexOf('variables={variablesOfrecidas(');
+  assert.ok(i2 > 0, 'volvió a pasar sólo lo resoluble, o se fue el selector');
+  const llamada = flujo.slice(i2, flujo.indexOf('})}', i2));
+  assert.match(llamada, /conLead:/, 'el selector dejó de preguntar por el lead');
+  assert.match(llamada, /conCuota: aporta\.includes\('cuota'\)/, 'los datos de cobranza no se ofrecen en ningún mensaje');
+  assert.match(llamada, /aporta\.includes\('lead'\)/, 'un cron que trae el lead volvería a mostrar el CRM apagado');
 });
 
 test('⚠️ el formato lo pone el RESOLVEDOR, y el 0 no es un faltante', () => {

@@ -7376,3 +7376,84 @@ cuando alguien lo pida, no de paso. Tres decisiones del campo:
 - **El lead sólo viaja desde los pasos de un flujo y desde quien lo pase explícito.** Los
   webhooks que tienen el lead en la mano (Calendly, Meta Lead Ads, Cal.com) pasan `texto`
   armado, así que ahí no cambia nada hasta que se los pase a plantilla.
+
+## La cobranza por WhatsApp: lo que faltaba era el BRAZO, y la cadencia no es del código (04/10/2026)
+
+**Vive en:** `lib/cobranza.ts` · `app/api/cron/cobranza/route.ts` · `lib/flujos.ts` (`correrFlujoDe`) · `lib/pagos.ts`
+
+La tarjeta #19 llegó del chat del CRM con el reparto que decidió Martín —«eso es una
+tarea para Chatbot… debería hacer recordatorios a clientes como en el grupo de MaKo en
+WhatsApp»— y los datos estaban completos desde la mig 0060: `pagos` guarda una fila por
+movimiento y `getCuotasPendientes` ya devolvía vencidas y por vencer, leídas por el
+dashboard. Lo que faltaba era el brazo que actúa: `cuota-vencida` figuraba en el catálogo
+como `parcial`, `cuota-por-vencer` como `no`, y **ninguno de los dos emitía nada**.
+
+Y sobre la cadencia, su respuesta decidió la arquitectura: «Para eso estamos configurando
+el chatbot, que cada usuario lo pueda editar! Y en la plantilla por defecto, haz lo que te
+parezca mejor». O sea que los días NO pueden estar en el código que dispara:
+
+| Quién | Qué decide |
+|---|---|
+| el cron (`/api/cron/cobranza`, 1×día) | **cuándo ENTRA** una cuota, una sola vez |
+| el FLUJO del mensaje (editable en el lienzo) | **la cadencia**: cuántos toques y cada cuánto |
+| `marcarPago` | **el corte**, sin que nadie pause nada a mano |
+
+Lo fija `tests/cobranza.test.ts`, que falla si aparece un `horas:` o un `tipo: 'esperar'`
+adentro del cron.
+
+### Cuatro cosas que no se ven en el código
+
+**1. Un cron no es un evento, así que el flujo editable no lo corría nadie.**
+`dispararEvento` matchea los flujos cuyo `disparador.tipo === 'evento'`, y esta cadencia
+cuelga de un aviso que dispara un cron. Sin `correrFlujoDe(avisoId, ws, ctx)` el mensaje
+de entrada salía y los pasos que la persona VE en el lienzo quedaban quietos — el control
+que se dibuja y no hace nada, otra vez.
+
+**2. El default de la cadencia vive en el CATÁLOGO, no en un seed.** Un seed corre una
+vez por workspace y deja 10 copias que divergen; en el catálogo es el default de todos, y
+mejorarlo mejora a quien no lo editó. Lo que el store tenga pisa al de fábrica. Y
+`listarFlujosActivos` tuvo que aprender a devolverlo: el runtime busca ahí, así que un
+default que sólo se dibujara sería una cadencia que nadie corre.
+
+**3. ⚠️ UN DATO EXACTO QUE VIAJA CON UNA CORRIDA ES LA FOTO DE CUANDO SE ABRIÓ.** El cron
+pasa los números de la cuota por código (`datos`), porque un monto que pasa por un modelo
+deja de ser exacto. Pero los pasos siguientes salen 48 y 120 horas después, y
+`{{cuota_dias}}` guardado en el `ctx` diría «1 día» sobre un atraso de cuatro. Viajan sólo
+los que no envejecen (número, monto, fecha de vencimiento) y el que sí se usa únicamente
+en el mensaje de entrada, que sale hoy. Es la misma familia que «un mensaje que habla de
+un MOMENTO se re-pregunta al salir», aplicada a un dato en vez de a una condición.
+
+**4. El corte es un CIERRE, no una condición.** Una rama `¿ya pagó?` adentro del flujo
+deja la corrida viva: despierta, pregunta y recién ahí termina — o sea que sigue
+existiendo un camino por el que el recordatorio sale después del pago si el orden de los
+pasos no es el que uno supone. `cerrarCorridasDeCuota` la cierra, y vive en `marcarPago`
+porque el pago se marca desde la ficha, desde el doer de WhatsApp y desde la API: una cura
+puesta en un call site deja los otros dos cobrando lo ya cobrado.
+
+### Y una tarjeta que decía lo contrario de lo que pasaba
+
+El rótulo de un paso de mensaje era `['mensaje-lead', 'Le escribe al lead', '📤']` **sin
+mirar el `canal`**, así que los dos recordatorios de la cadencia —que salen al grupo de
+MaKo, que es lo que se pidió— se dibujaban «LE ESCRIBE AL LEAD». Un diagrama que dice a
+quién le escribe y se equivoca es peor que uno que no lo dice. **Lo delató el navegador,
+no el código**: los tests del grafo pasaban porque ninguno tenía un paso con
+`canal: 'aviso_dueno'`.
+
+### Lo que quedó SIN hacer, y por qué
+
+- **El mensaje AL CLIENTE.** Martín eligió «al grupo, y al cliente sólo si lo confirmás
+  una vez por cuota». La primera mitad está; la segunda no se puede hacer hoy: el paso
+  `wa_lead` deja una pendiente de tipo `flujo_wa_lead` que **`confirmarPendiente` no sabe
+  ejecutar** — no está en `TIPOS_HEREDADOS` ni declarada en el registro de la API, así que
+  confirmarla contesta «operación desconocida: flujo_wa_lead» y la cierra con error. Está
+  medido desde la extracción de la llamada del 1/10 y sigue igual. Repararlo es declarar
+  la capacidad en `lib/api-mako/areas/<área>.def.ts` + `.run.ts`, con sus `canales` (nunca
+  `http`), su `confirmacion: 'chat'` y su `rolMinimo: 'admin'`. Por eso la cadencia por
+  defecto NO incluye un paso al lead: sería dibujar un recordatorio que muere al
+  confirmarlo.
+- **La autorización por cuota** (que el primero se confirme y los siguientes de ESA cuota
+  salgan solos) cuelga de lo anterior: necesita que la pendiente lleve el id de la corrida
+  y que el confirmador la marque.
+- **El cron no está medido contra producción.** Se probó la decisión (12 roturas) y la
+  pantalla, no una corrida real: hoy no hay ninguna cuota vencida en el ws1, así que
+  verificarlo de punta a punta pide escribir una fila de `pagos` en la base de un cliente.

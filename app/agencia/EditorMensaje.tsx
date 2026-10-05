@@ -33,7 +33,7 @@
 //    que el serializador tira igual, pero mientras tanto rompen el renglón.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, useMemo } from 'react';
-import { tramosConVariables, PORQUE_NO_SE_PUEDE } from '@/lib/variables-aviso';
+import { tramosConVariables, porqueNoSePuede } from '@/lib/variables-aviso';
 import { Dropdown } from '../components/Dropdown';
 import type { VariableAviso } from '@/lib/variables-aviso';
 
@@ -337,7 +337,9 @@ export function EditorMensaje({ valor, onChange, filas = 10, disabled, variables
                     // El ejemplo cuando se puede poner; el MOTIVO cuando no. Y la
                     // búsqueda del `Dropdown` mira el `sub`, así que lo apagado también
                     // se encuentra escribiendo «acción».
-                    sub: v.resoluble ? v.ejemplo : PORQUE_NO_SE_PUEDE,
+                    // El motivo depende de QUÉ falta: «cambiá el disparador» sobre un
+                    // dato de cobranza manda a hacer algo que no lo consigue.
+                    sub: v.resoluble ? v.ejemplo : porqueNoSePuede(v.alcance),
                     disabled: !v.resoluble,
                     // El token, para que buscar «saldo» encuentre «Cuánto falta
                     // cobrarle»: la palabra que uno tiene en la cabeza es la de la

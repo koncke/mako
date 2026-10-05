@@ -23,7 +23,18 @@ import type { EventoFlujo, Paso } from './flujos-tipos';
 import { decidir } from './flujo-pasos';
 import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 
-export type CtxFlujo = { ws?: number; leadId?: number; leadNombre?: string; reunion?: 'R1' | 'R2'; texto?: string };
+export type CtxFlujo = {
+  ws?: number; leadId?: number; leadNombre?: string; reunion?: 'R1' | 'R2'; texto?: string;
+  /** La cuota de la que habla la corrida. Es lo que permite CORTARLA al cobrar. */
+  cuotaId?: number;
+  /**
+   * Valores EXACTOS que el disparador tenía en la mano, por clave del catálogo de
+   * variables. Viajan con la corrida porque los pasos siguientes salen DÍAS después:
+   * volver a leerlos sería otra lectura, y peor, podría dar otro número que el del
+   * mensaje que ya salió.
+   */
+  datos?: Record<string, string>;
+};
 
 /** Dispara los flujos ACTIVOS que matchean un evento. Best-effort. */
 export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo = {}): Promise<void> {
@@ -43,6 +54,31 @@ export async function dispararEvento(evento: EventoFlujo, ctx: CtxFlujo = {}): P
     }
   } catch (e) {
     console.error('[flujos] dispararEvento:', e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * CORRE EL FLUJO DE UN AVISO, sin pasar por un evento.
+ *
+ * ⚠️ EXISTE PORQUE UN CRON NO ES UN EVENTO. `dispararEvento` matchea los flujos cuyo
+ * `disparador.tipo === 'evento'`, y la cadencia de la cobranza cuelga de un aviso que
+ * dispara un CRON: sin esto, el flujo que el dueño edita en el lienzo no lo corría
+ * NADIE — el mensaje de entrada salía y los pasos siguientes quedaban dibujados y
+ * quietos, que es exactamente el control que se dibuja y no hace nada.
+ *
+ * No mira el `disparador` del flujo a propósito: quien llama ya sabe que a este aviso
+ * le toca. Lo que sí respeta es `activo`, que es el interruptor del flujo.
+ */
+export async function correrFlujoDe(avisoId: string, ws: number, ctx: CtxFlujo = {}): Promise<boolean> {
+  try {
+    const flujos = await runWithWorkspace(ws, () => listarFlujosActivos());
+    const vivo = flujos.find((f) => f.id === avisoId);
+    if (!vivo || !vivo.flujo.pasos.length) return false;
+    await runWithWorkspace(ws, () => ejecutarPasos(avisoId, vivo.flujo.pasos, ws, ctx));
+    return true;
+  } catch (e) {
+    console.error(`[flujos] correrFlujoDe ${avisoId}:`, e instanceof Error ? e.message : String(e));
+    return false;
   }
 }
 
@@ -153,7 +189,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     if (paso.canal === 'aviso_dueno') {
       // MaKo adapta el texto (referencia) con el contexto y lo manda al grupo del dueño.
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
-      const texto = await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }).catch(() => paso.texto) || paso.texto;
+      const texto = await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }, ctx.datos).catch(() => paso.texto) || paso.texto;
       await enviarAlGrupoMaKo(ws, texto);
       return;
     }

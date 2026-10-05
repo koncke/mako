@@ -321,7 +321,9 @@ export const AREAS: AreaDev[] = [
     slug: 'flow-editor', titulo: 'Flow Editor', familia: 'Operate', grupo: 'Agenda y flujos',
     estado: 'parcial', verEnApp: '/mensajes',
     alcance: 'El motor (lib/flujos.ts, 5 eventos desde 5 webhooks) y lo único suyo que un aviso sí ejecuta: el paso `insistir`, que hoy se edita en el nodo «Si no contestas» del lienzo de cada mensaje — junto con el disparador por evento y los pasos, que desde el 30/09/2026 tienen UN solo dueño (`FlujoAviso`): con dos, `setFlujo` reemplaza el flujo entero y el segundo en guardar se lleva puesto lo del primero. ⚠️ El EDITOR DE FLUJO COMPLETO se retiró el 29/09/2026 (ver la bitácora de configuraciones): salía de «editar el flujo (avanzado)», que el dueño mandó a sacar, y medido antes de borrarlo había 4 flujos guardados en toda la base, los 4 sin un solo paso, y CERO filas en insistencias. El motor sigue vivo y sin pantalla.',
-    vive: ['lib/flujos-tipos.ts', 'lib/flujos.ts', 'lib/insistencias.ts', 'app/agencia/FlujoAviso.tsx', 'app/api/cron/insistencias/route.ts'],
+    vive: ['lib/flujos-tipos.ts', 'lib/flujos.ts', 'lib/flujo-pasos.ts', 'lib/flujo-corridas.ts', 'lib/insistencias.ts',
+      'app/agencia/FlujoAviso.tsx', 'app/api/cron/insistencias/route.ts', 'app/api/cron/flujo-corridas/route.ts',
+      'lib/cobranza.ts', 'app/api/cron/cobranza/route.ts', 'supabase/migrations/0186_flujo_corridas.sql'],
   },
 
   // ─────────────────────────────────────────────────────────── Analyze

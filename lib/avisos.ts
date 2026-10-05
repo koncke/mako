@@ -344,7 +344,17 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
  * cual. Si no, cae a la referencia literal. Respeta activar/desactivar la plantilla.
  */
 export async function emitirDelCatalogo(
-  id: string, opts: { texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; dedupKey?: string; alDueno?: boolean; lead?: { id: number; nombre?: string | null } } = {},
+  id: string, opts: {
+    texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; dedupKey?: string;
+    alDueno?: boolean; lead?: { id: number; nombre?: string | null };
+    /**
+     * Valores EXACTOS que este disparador ya tiene en la mano, por clave del catálogo
+     * de variables (`cuota_monto`, `cuota_numero`, …). Ganan sobre lo que el resolvedor
+     * saque de la base, y van por CÓDIGO: un monto que pasa por un modelo deja de ser
+     * exacto, y acá el dato exacto es plata que alguien debe.
+     */
+    datos?: Record<string, string>;
+  } = {},
 ): Promise<EmitirAvisoResult> {
   const cat = avisoDelCatalogo(id);
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
@@ -383,8 +393,8 @@ export async function emitirDelCatalogo(
   const ctxLead = { leadId: opts.lead?.id ?? null, leadNombre: opts.lead?.nombre ?? null };
   const texto = opts.texto ?? await runWithWorkspace(ws, async () => (
     opts.contexto
-      ? (alResumen ? opts.contexto! : await generarMensajeAviso(id, opts.contexto!, ctxLead))
-      : await referenciaResuelta(id, { ws, ...ctxLead })
+      ? (alResumen ? opts.contexto! : await generarMensajeAviso(id, opts.contexto!, ctxLead, opts.datos))
+      : await referenciaResuelta(id, { ws, ...ctxLead }, opts.datos)
   ));
   return emitirAviso({
     // Cómo lo llamó ESTE negocio. `cat.titulo` es el de fábrica: con él, renombrar un

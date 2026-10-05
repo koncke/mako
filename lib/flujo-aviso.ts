@@ -254,9 +254,16 @@ export function grafoDeAviso(a: AvisoParaGrafo): GrafoFlujo {
      * donde anotar en que paso iba. Lo garantiza `tests/flujo-condicional.test.ts`,
      * que falla si el lienzo dibuja un tipo que `decidir` no sabe resolver.
      */
+    // ⚠️ UN PASO DE MENSAJE NO ES SIEMPRE «AL LEAD», Y LA TARJETA LO TIENE QUE DECIR.
+    // Hasta el 04/10/2026 todo `mensaje` se dibujaba «LE ESCRIBE AL LEAD» sin mirar el
+    // `canal`, así que la cadencia de cobranza —que sale al GRUPO de MaKo, que es lo que
+    // Martín pidió— se veía como tres mensajes al cliente. Un diagrama que dice a quién
+    // le escribe y se equivoca es peor que uno que no lo dice: nadie audita una flecha.
+    // Lo delató el navegador, no el código.
     const rotulo = p.tipo === 'accion' ? ['accion', 'Hace algo', '⚙️']
       : p.tipo === 'esperar' ? ['espera', 'Espera', '⏳']
       : p.tipo === 'condicional' ? ['condicion', 'Si pasa esto', '🔀']
+      : p.tipo === 'mensaje' && p.canal === 'aviso_dueno' ? ['recordatorio', 'Te lo recuerda', '🔔']
       : ['mensaje-lead', 'Le escribe al lead', '📤'];
     nodos.push({
       id, tipo: rotulo[0] as NodoFlujo['tipo'], orden: i,

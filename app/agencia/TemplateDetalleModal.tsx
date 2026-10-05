@@ -276,6 +276,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
           canales={plantilla.canales}
           asunto={asunto} onAsunto={setAsunto} onAsuntoGuardar={() => void guardarAsunto()}
           tituloMensaje={titulo || plantilla.titulo}
+          aporta={plantilla.aporta ?? []}
           posiciones={plantilla.posiciones}
           endpoint={endpoint}
           editable={puedeEditarTexto}

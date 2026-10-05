@@ -245,9 +245,21 @@ function customACatalogo(id: string, e: EntradaStore): AvisoCatalogo {
 
 // ── FLUJO de una plantilla (disparador + pasos editables) ─────────────────────
 /** El flujo guardado de una plantilla (o null si es un aviso clásico). */
+/**
+ * El flujo con el que nace un mensaje, cuando el catálogo le puso uno.
+ *
+ * ⚠️ EL DEFAULT NO SE MATERIALIZA. Si se copiara al store del workspace la primera vez
+ * que alguien abre la pantalla, quedarían 10 copias que divergen y mejorar la cadencia
+ * no le llegaría a nadie — es la misma razón por la que el TEXTO de un aviso se hereda
+ * en vez de guardarse. Lo que guarda el store gana; mientras no haya nada, gana esto.
+ */
+const flujoDeFabrica = (id: string): Flujo | null =>
+  CATALOGO_AVISOS.find((c) => c.id === id)?.flujoPorDefecto ?? null;
+
 export async function getFlujo(id: string): Promise<Flujo | null> {
   const e = (await leerStore())[id];
-  return e?.flujo && esFlujoValido(e.flujo) ? e.flujo : null;
+  if (e?.flujo && esFlujoValido(e.flujo)) return e.flujo;
+  return flujoDeFabrica(id);
 }
 /** Guarda (o borra con null) el flujo de una plantilla. */
 export async function setFlujo(id: string, flujo: Flujo | null): Promise<void> {
@@ -274,9 +286,21 @@ export async function setFlujo(id: string, flujo: Flujo | null): Promise<void> {
 /** Todos los flujos ACTIVOS (para el runtime / dispararEvento). */
 export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: Flujo }>> {
   const store = await leerStore();
-  return Object.entries(store)
+  const vivos = Object.entries(store)
     .filter(([, e]) => e.flujo && esFlujoValido(e.flujo) && e.flujo.activo && e.enabled !== false)
     .map(([id, e]) => ({ id, flujo: e.flujo as Flujo }));
+  // ⚠️ Y LOS DE FÁBRICA, O LA CADENCIA POR DEFECTO NO LA CORRE NADIE. El runtime busca
+  // acá: si el default sólo se dibujara en el lienzo, el mensaje de entrada saldría y
+  // los pasos que la persona VE quedarían quietos — el control que se dibuja y no hace
+  // nada. El que el store tenga pisa al de fábrica (por eso el filtro por id), y un
+  // mensaje APAGADO no corre su flujo aunque el catálogo le dé uno.
+  const yaEstan = new Set(vivos.map((f) => f.id));
+  for (const cat of CATALOGO_AVISOS) {
+    if (!cat.flujoPorDefecto || yaEstan.has(cat.id)) continue;
+    if (!estaPrendida(cat, store[cat.id])) continue;
+    if (cat.flujoPorDefecto.activo) vivos.push({ id: cat.id, flujo: cat.flujoPorDefecto });
+  }
+  return vivos;
 }
 
 /** Lista COMPLETA (catálogo + custom) con estado enabled + texto efectivo. */
@@ -331,8 +355,12 @@ export async function referenciaPlantilla(id: string): Promise<string> {
  * El selector ofrecía un dato que nadie podía poner, y lo que salía al WhatsApp era el
  * token crudo.
  */
-export async function referenciaResuelta(id: string, ctx: { ws: number; leadId?: number | null; leadNombre?: string | null }): Promise<string> {
-  return conVariables(await referenciaPlantilla(id), ctx);
+export async function referenciaResuelta(
+  id: string,
+  ctx: { ws: number; leadId?: number | null; leadNombre?: string | null },
+  datos?: Record<string, string>,
+): Promise<string> {
+  return conVariables(await referenciaPlantilla(id), ctx, datos);
 }
 export async function plantillaActiva(id: string): Promise<boolean> {
   return (await getPlantilla(id))?.enabled ?? true;
@@ -516,6 +544,7 @@ const SYS_AVISO =
 export async function generarMensajeAviso(
   id: string, contexto: string,
   ctxLead: { leadId?: number | null; leadNombre?: string | null } = {},
+  datos?: Record<string, string>,
 ): Promise<string> {
   const refCruda = await referenciaPlantilla(id);
   /**
@@ -529,7 +558,7 @@ export async function generarMensajeAviso(
    * falla exactamente cuando falla la IA, que es cuando menos se la mira.
    */
   const ws = await getWorkspaceActual();
-  const ref = ws == null ? refCruda : await conVariables(refCruda, { ws, ...ctxLead });
+  const ref = ws == null ? refCruda : await conVariables(refCruda, { ws, ...ctxLead }, datos);
   try {
     const user = `PLANTILLA DE REFERENCIA:\n${ref || '(sin referencia)'}\n\nDATOS REALES DEL EVENTO:\n${contexto}\n\nEscribe el mensaje.`;
     const out = await chatClaude(SYS_AVISO, [{ role: 'user', content: user }], {

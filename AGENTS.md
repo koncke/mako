@@ -3692,6 +3692,26 @@ si la nombra. Cero proveedores.** Lo que la regla vieja cuidaba era el webhook c
   `necesitaFichaDelLead(texto)`, que decide mirando los tokens que el mensaje trae de
   verdad.
 
+# Un dato EXACTO que viaja con un trabajo diferido es la FOTO de cuando se guardó
+
+Pasar los valores por código en vez de dejar que un modelo los transporte es la regla de
+esta casa, y está bien. Lo que esa regla no dice es qué pasa cuando el trabajo no sale
+ahora: un monto, un contador de días o un «hace cuánto» guardados en el contexto de una
+corrida que despierta en 48 horas siguen siendo exactos **respecto del momento en que se
+guardaron**, que ya no es el momento en que alguien los lee.
+
+Medido el 04/10/2026 escribiendo la cobranza por WhatsApp: el cron pasa el número, el
+monto, el vencimiento y los días de atraso de la cuota; los recordatorios salen 48 y 120
+horas después. `{{cuota_dias}}` guardado diría «1 día» sobre un atraso de cuatro, con la
+autoridad de un dato puesto por código.
+
+- **Al guardar datos para un paso diferido, partilos en los que ENVEJECEN y los que no.**
+  Número, monto y fecha de vencimiento no envejecen; «hace cuánto» y «cuánto falta», sí.
+- **Lo que envejece se usa sólo en el mensaje que sale AHORA**, o se vuelve a calcular en
+  el momento del envío.
+- **El olor:** un valor que es una resta contra `hoy`. Si se puede escribir como una
+  cuenta con la fecha de hoy adentro, es una foto.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

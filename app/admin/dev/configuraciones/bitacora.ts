@@ -530,4 +530,41 @@ Y también:
       "app/agencia/FlujoAviso.tsx — el panel del nodo EMAIL",
     ],
   },
+  {
+    fecha: "4 oct", hora: "22:30", chat: "Chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "La cobranza por WhatsApp: la cadencia la edita el cliente",
+    pedido: `Eso es una tarea para Chatbot, no para el CRM... Enviasela al chat interno que estamos trabajando el chatbot, debería hacer recordatorios a clientes como en el grupo de MaKo en WhatsApp.
+
+[y a las dos preguntas con opciones, horas después]
+· Cadencia: «Para eso estamos configurando el chatbot, que cada usuario lo pueda editar! Y en la plantilla por defecto, haz lo que te parezca mejor»
+· Destinatario: «Al grupo, y al cliente sólo si lo confirmás una vez por cuota»`,
+    puntos: [
+      "La tarjeta #19 («Cobranza por WhatsApp que arranca desde los pagos») llegó por un mensaje del chat del CRM, que la movió al proyecto «Feature: Chatbot» y pasó el relevo medido. La cadencia la preguntó ese chat y Martín contestó sólo el reparto; estas dos respuestas salieron de volver a preguntar con opciones concretas, que es como contesta rápido.",
+      "⚠️ Y la primera respuesta decidió la ARQUITECTURA, no un número: si cada usuario la edita, los días NO pueden vivir en el código que dispara. De ahí el reparto: el cron decide cuándo ENTRA una cuota, el flujo del mensaje (editable en el lienzo) decide la cadencia, y `marcarPago` corta.",
+    ],
+  },
+  {
+    fecha: "4 oct", hora: "22:30", chat: "Chatbot", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La cobranza entra sola, con la cadencia editable y el corte al cobrar",
+    puntos: [
+      "Verificado en el navegador (9/9) y con 12 roturas medidas sobre la decisión. Los datos estaban completos desde la mig 0060 y lo que faltaba era el BRAZO: `cuota-vencida` figuraba como `parcial` y `cuota-por-vencer` como `no`, y ninguno de los dos emitía nada. Ahora hay un cron diario que da la entrada una vez por cuota (dedup por cuota, 120 días) y el lienzo dibuja la cadencia por defecto: la entrada el día que vence y dos recordatorios más, a las 48 y 72 horas, los dos al GRUPO.",
+      "⚠️ Un cron NO es un evento, así que el flujo editable no lo corría nadie: `dispararEvento` matchea los flujos con `disparador.tipo === 'evento'`. Sin `correrFlujoDe` el mensaje de entrada salía y los pasos que la persona VE quedaban quietos — el control que se dibuja y no hace nada.",
+      "⚠️ Y un dato exacto que VIAJA con una corrida es la foto de cuando se abrió: los recordatorios salen 48 y 120 horas después, así que un `{{cuota_dias}}` guardado diría «1 día» sobre un atraso de cuatro. Viajan sólo los que no envejecen (número, monto, vencimiento); el de los días se usa en el mensaje de entrada, que sale hoy.",
+      "El corte es un CIERRE y no una condición: una rama «¿ya pagó?» deja la corrida viva, despierta y pregunta — o sea que sigue habiendo un camino por el que el recordatorio sale después del pago. `cerrarCorridasDeCuota` vive en `marcarPago`, no en la pantalla, porque el pago se marca desde la ficha, desde WhatsApp y desde la API.",
+      "⚠️ Y lo que lo delató el navegador: los dos recordatorios se dibujaban «LE ESCRIBE AL LEAD» porque el rótulo del paso no miraba el `canal` — justo lo contrario de lo que se pidió. Los tests del grafo pasaban porque ninguno tenía un paso con `canal: 'aviso_dueno'`.",
+      "LO QUE QUEDA, con su motivo medido: el mensaje AL CLIENTE. El paso `wa_lead` deja una pendiente `flujo_wa_lead` que `confirmarPendiente` no sabe ejecutar («operación desconocida»), así que ponerla en la cadencia por defecto sería dibujar un recordatorio que muere al confirmarlo. Repararlo es declarar la capacidad en el registro de la API, con sus canales y su confirmación.",
+    ],
+    archivos: [
+      "lib/cobranza.ts — qué cuota entra hoy, sin un solo número de cadencia",
+      "app/api/cron/cobranza/route.ts + vercel.json — la entrada, una vez por día",
+      "lib/flujos.ts — `correrFlujoDe`, y el ctx con la cuota y los datos exactos",
+      "lib/flujo-corridas.ts — `cerrarCorridasDeCuota`",
+      "lib/pagos.ts — marcar el pago corta lo que está en vuelo",
+      "lib/avisos-catalogo.ts — `aporta`, `flujoPorDefecto` y los ejemplos sin clientes reales",
+      "lib/flujo-aviso.ts — la tarjeta dice a quién le escribe",
+      "tests/cobranza.test.ts — 11 guards, las 12 roturas probadas",
+    ],
+  },
 ];

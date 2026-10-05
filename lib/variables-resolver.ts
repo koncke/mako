@@ -39,7 +39,7 @@ export type CtxVariables = { ws: number; leadId?: number | null; leadNombre?: st
  * `texto` es opcional y es lo que decide si se lee la ficha del lead. Sin él no se lee:
  * quien no pasa el texto no puede estar pidiendo un dato del CRM.
  */
-export async function valoresDeVariables(ctx: CtxVariables, texto?: string): Promise<Record<string, string>> {
+export async function valoresDeVariables(ctx: CtxVariables, texto?: string, datos?: Record<string, string>): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const [k, ruta] of Object.entries(RUTA_DE_LINK)) out[k] = `${APP_BASE_URL}${ruta}`;
   if (ctx.leadId) out.link_lead = `${APP_BASE_URL}/crm/${ctx.leadId}/resumen`;
@@ -67,11 +67,17 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string): Pro
       console.error('[variables] no pude leer la ficha del lead:', e instanceof Error ? e.message : String(e));
     }
   }
+  // ⚠️ LO QUE PASA EL EMISOR GANA, y va último a propósito. Son los valores que ese
+  // disparador ya tenía en la mano —el número y el monto de la cuota que el cron de
+  // cobranza acaba de leer— y nadie los puede resolver mejor: ir a buscarlos otra vez
+  // sería una lectura por un dato que estaba acá, y dejar que un default los pise sería
+  // mandar el monto de otra cuota.
+  if (datos) for (const [k, v] of Object.entries(datos)) if (v) out[k] = v;
   return out;
 }
 
 /** El texto con los datos puestos. Azúcar sobre las dos de arriba. */
-export async function conVariables(texto: string, ctx: CtxVariables): Promise<string> {
+export async function conVariables(texto: string, ctx: CtxVariables, datos?: Record<string, string>): Promise<string> {
   if (!texto.includes('{{')) return texto;   // el 99% de los avisos, sin una sola lectura
-  return resolverVariables(texto, await valoresDeVariables(ctx, texto));
+  return resolverVariables(texto, await valoresDeVariables(ctx, texto, datos));
 }
