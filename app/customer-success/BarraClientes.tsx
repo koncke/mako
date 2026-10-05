@@ -29,6 +29,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
+import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
 
 /**
  * Las formas de mirar la misma lista. Es UN valor y no un booleano por vista: con
@@ -48,35 +49,19 @@ export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban';
 /** El orden en que se dibujan los botones, sea cual sea el orden de `vistas`. */
 const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla'];
 
-/** Qué dibuja cada botón del toggle. Acá, para que el rótulo y el ícono vivan juntos. */
-const VISTA_META: Record<VistaClientes, { titulo: string; icono: ReactNode }> = {
-  tarjetas: {
-    titulo: 'Ver en tarjetas',
-    icono: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
-      </svg>
-    ),
-  },
-  tabla: {
-    titulo: 'Ver en tabla',
-    icono: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-      </svg>
-    ),
-  },
-  kanban: {
-    // Tres columnas de alto distinto: el ícono dice que lo que se agrupa son ETAPAS.
-    titulo: 'Ver la entrega en etapas',
-    icono: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="3" width="5" height="18" rx="1.5" /><rect x="10" y="3" width="5" height="12" rx="1.5" /><rect x="17" y="3" width="4" height="8" rx="1.5" />
-      </svg>
-    ),
-  },
-};
+/**
+ * Qué dibuja cada botón del toggle: el catálogo COMPARTIDO con el CRM y el Plan.
+ *
+ * ⚠️ ACÁ HABÍA UNA COPIA PROPIA, con el kanban dibujado como tres columnas de alto
+ * distinto y el rótulo «Ver la entrega en etapas». Martín (05/10/2026): «el ícono de
+ * kanban debería ser como en el plan, que son cubos. Y el placeholder debería ser "Ven
+ * en Kanban"». El catálogo `ICONO_VISTA` ya lo tenía resuelto para el CRM ese mismo día
+ * —los cuatro cubos y «Ver en Kanban»—; la copia era justo lo que hacía que los dos
+ * toggles se vieran distintos. Ningún uso de esta barra ofrece kanban Y tarjetas a la
+ * vez (Customer Success: kanban + tabla; /admin: tarjetas + tabla), así que los cubos
+ * no se confunden con nada.
+ */
+const VISTA_META: Record<VistaClientes, { titulo: string; icono: ReactNode }> = ICONO_VISTA;
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto' | 'con-cuenta' | 'sin-cuenta';

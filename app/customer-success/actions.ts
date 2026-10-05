@@ -44,6 +44,7 @@ import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { guardarEtapasEntrega } from '@/lib/entrega-servicio';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
+import { renombrarFunnel, archivarFunnel } from '@/lib/funnels';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
@@ -395,6 +396,59 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
   }
 }
 
+/**
+ * Mueve VARIOS clientes en la entrega de un servicio: la acción en lote, el arrastre
+ * de una selección y su deshacer.
+ *
+ * Cada movimiento trae su destino: `etapa: null` es «volver al estado derivado» (borrar
+ * la fila), que es lo único que deshace el PRIMER movimiento de un cliente que nunca se
+ * había movido — escribirle la primera etapa le inventaría una fila y un reloj de etapa
+ * que arranca hoy.
+ *
+ * ⚠️ UNA SOLA LLAMADA, NO N. Desde la pantalla, N server actions se encolan de a una
+ * (Next las despacha en serie, medido: ver AGENTS.md «los server actions se encolan»), y
+ * un lote de doce serían doce viajes. Acá adentro el orden es el mismo choke point de
+ * siempre, uno por cliente: no hay una segunda forma de escribir `cliente_entrega`.
+ *
+ * Devuelve cada resultado por separado: un lote puede salir a medias, y el deshacer
+ * tiene que reponer exactamente los que se movieron, no todos.
+ */
+export async function moverEntregaLoteAction(productoId: number, movs: Array<{ leadId: number; etapa: string | null }>): Promise<
+  { ok: true; resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> } | { ok: false; error: string }
+> {
+  try {
+    const ids = [...new Set(movs.map((m) => Number(m.leadId)).filter((n) => Number.isFinite(n) && n > 0))];
+    if (!ids.length) return { ok: true, resultados: [] };
+    // ⚠️ LA PERTENENCIA SE PREGUNTA PARA TODOS EN UNA CONSULTA, y fail-closed: el que no
+    // es un cliente de ESTE workspace no se mueve, aunque el resto sí.
+    const db = await getTenantDb();
+    const { data, error } = await db.from('leads').select('id').in('id', ids).eq('estado_lead', 'ganado');
+    if (error) return { ok: false, error: `No pude verificar los clientes: ${error.message}` };
+    const mios = new Set(((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)));
+    const resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> = [];
+    let alguno = false;
+    for (const m of movs) {
+      const leadId = Number(m.leadId);
+      if (!mios.has(leadId)) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: 'Ese cliente no es tuyo.' }); continue; }
+      if (m.etapa === null) {
+        const r = await sacarClienteDeEntrega(leadId, productoId);
+        if (!r.ok) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: r.motivo ?? 'No se pudo deshacer.' }); continue; }
+        alguno = true;
+        resultados.push({ leadId, ok: true, desde: r.etapa, hacia: null, cambio: true });
+        continue;
+      }
+      const r = await moverClienteDeEtapa({ leadId, productoId, etapa: m.etapa });
+      if (!r.ok) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: r.motivo ?? 'No se pudo mover.' }); continue; }
+      if (r.cambio) alguno = true;
+      resultados.push({ leadId, ok: true, desde: r.desde, hacia: r.hacia, cambio: r.cambio });
+    }
+    if (alguno) revalidatePath('/customer-success');
+    return { ok: true, resultados };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
+  }
+}
+
 /** Saca a un cliente de la entrega de un servicio, devolviendo la etapa que tenía
  *  para que el deshacer lo reponga DONDE ESTABA. */
 export async function sacarDeEntregaAction(leadId: number, productoId: number): Promise<
@@ -470,5 +524,88 @@ export async function crearServicioAction(nombre: string): Promise<
     return { ok: true, productoId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo crear el producto.' };
+  }
+}
+
+/** Los embudos atados a un producto (vía `v_funnel_productos`), con su estado. */
+async function embudosDelProducto(productoId: number): Promise<Array<{ id: number; activo: boolean; esDefault: boolean }>> {
+  const db = await getTenantDb();
+  const { data: vp, error } = await db.from('v_funnel_productos').select('funnel_id').eq('producto_id', productoId);
+  if (error) throw new Error(`No pude leer los embudos del producto: ${error.message}`);
+  const fids = [...new Set(((vp ?? []) as Array<{ funnel_id: number }>).map((r) => Number(r.funnel_id)))];
+  if (!fids.length) return [];
+  const { data: fs, error: e2 } = await db.from('funnels').select('id, activo, es_default').in('id', fids);
+  if (e2) throw new Error(`No pude leer los embudos del producto: ${e2.message}`);
+  return ((fs ?? []) as Array<{ id: number; activo: boolean; es_default: boolean }>)
+    .map((f) => ({ id: Number(f.id), activo: f.activo !== false, esDefault: f.es_default === true }));
+}
+
+/**
+ * Renombra un PRODUCTO desde el editor de etapas.
+ *
+ * ⚠️ «SE DEBE CAMBIAR EN TODOS LADOS, EN EL CRM Y AQUÍ. Y VICEVERSA» (Martín,
+ * 05/10/2026). No hay sincronización que escribir: las dos pantallas leen el MISMO
+ * campo, `productos.nombre` (el CRM lo pone encima del embudo con `productosPorFunnel`).
+ * Lo que hay que garantizar es que las dos ESCRIBAN por el mismo camino: si el producto
+ * tiene embudo, va por `renombrarFunnel` —el mismo que usa el título del editor del CRM,
+ * con su saneo, su tope de 60 y su choque de nombres traducido—; si no tiene (productos
+ * que nacieron en el catálogo antes de la cadena), se escribe el producto con el mismo
+ * saneo. Dos caminos que validaran distinto aceptarían acá un nombre que el CRM rechaza.
+ */
+export async function renombrarServicioAction(productoId: number, nombreCrudo: string): Promise<
+  { ok: true; nombre: string } | { ok: false; error: string }
+> {
+  try {
+    if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede renombrar un producto.' };
+    const nombre = String(nombreCrudo ?? '').trim().replace(/\s+/g, ' ');
+    if (!nombre) return { ok: false, error: 'El producto necesita un nombre.' };
+    if (nombre.length > 60) return { ok: false, error: 'El nombre no puede pasar de 60 caracteres.' };
+    const embudos = await embudosDelProducto(productoId);
+    const conEmbudo = embudos.find((f) => f.activo) ?? embudos[0];
+    if (conEmbudo) {
+      await renombrarFunnel(conEmbudo.id, nombre);
+    } else {
+      const db = await getTenantDb();
+      const { data: tocadas, error } = await db.from('productos').update({ nombre }).eq('id', productoId).select('id');
+      if (error) return { ok: false, error: /duplicate key|unique constraint|23505/i.test(error.message) ? `Ya tienes un producto que se llama «${nombre}».` : `No se pudo renombrar: ${error.message}` };
+      if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
+    }
+    revalidatePath('/customer-success');
+    revalidatePath('/crm');
+    return { ok: true, nombre };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo renombrar.' };
+  }
+}
+
+/**
+ * «Eliminar» un producto desde el editor de etapas: lo MISMO que el «Eliminar» del CRM.
+ *
+ * ⚠️ ARCHIVA, NO BORRA. En el CRM eliminar un producto archiva su embudo y queda en
+ * «Productos eliminados» para recuperarlo; acá hace exactamente eso (`archivarFunnel`, el
+ * mismo de allá, con su guarda de que el embudo principal no se archiva). Un producto sin
+ * embudo no tiene «Productos eliminados» donde aparecer, así que se da de baja con
+ * `activo = false` — que es lo que el catálogo de productos ya entiende por baja.
+ * Las filas de `cliente_entrega` NO se tocan: el histórico del cliente dice lo que pasó.
+ */
+export async function eliminarServicioAction(productoId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede eliminar un producto.' };
+    const embudos = await embudosDelProducto(productoId);
+    const vivos = embudos.filter((f) => f.activo);
+    if (vivos.some((f) => f.esDefault)) return { ok: false, error: 'Es tu producto principal: no se puede eliminar. Puedes cambiarle el nombre.' };
+    if (vivos.length) {
+      for (const f of vivos) await archivarFunnel(f.id);
+    } else if (!embudos.length) {
+      const db = await getTenantDb();
+      const { data: tocadas, error } = await db.from('productos').update({ activo: false }).eq('id', productoId).select('id');
+      if (error) return { ok: false, error: `No se pudo eliminar: ${error.message}` };
+      if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
+    }
+    revalidatePath('/customer-success');
+    revalidatePath('/crm');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo eliminar.' };
   }
 }

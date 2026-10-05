@@ -35,7 +35,8 @@ import { SelectorServicio } from './SelectorServicio';
 import type { CarteraEnEntrega } from './entrega';
 import { conteoDeEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
-import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction } from './actions';
+import { LoteClientes } from './LoteClientes';
+import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
@@ -143,6 +144,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    */
   const [movs, setMovs] = useState<Record<string, Asignacion | null>>({});
   const claveMov = (leadId: number, prodId: number) => `${prodId}:${leadId}`;
+  /**
+   * Los clientes ELEGIDOS para una acción en lote. Una sola selección para las DOS
+   * vistas, a propósito: elegir cinco en la tabla y pasar al kanban no puede perderlos
+   * —es la misma cartera mirada de otra forma—, y con una selección por vista la barra
+   * de lote estaría actuando sobre algo que la pantalla ya no muestra.
+   */
+  const [sel, setSel] = useState<Set<number>>(() => new Set());
 
   const resumenDe = (leadId: number): ResumenTrabajo | null =>
     (tablero.ok ? tablero.porLead[leadId] : null) ?? null;
@@ -219,6 +227,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       .sort((a, b) => signo * cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes, imgs, q, filtro, orden, cuando, dir, tablero]);
+  /** Los elegidos que la pantalla está mostrando, en el orden en que se ven. */
+  const elegidosVisibles = visibles.filter((c) => sel.has(c.leadId)).map((c) => c.leadId);
   /** Cuántos tienen algo abierto. Con el tablero caído no se cuenta nada: sería un 0
    *  con cara de dato sobre una lectura que falló. */
   const conTrabajo = tablero.ok ? lista.filter((c) => (resumenDe(c.leadId)?.abiertas ?? 0) > 0).length : 0;
@@ -321,6 +331,80 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         else sacarEntrega(leadId, prodId, false);
       });
     });
+  }
+
+  /**
+   * Mueve VARIOS clientes: la barra de acciones en lote y el arrastre de una selección.
+   *
+   * `destino` es una etapa fija («Mover a…») o una función que la calcula POR CLIENTE
+   * («Siguiente etapa», donde cada uno avanza desde la suya).
+   *
+   * ⚠️ UN SOLO DESHACER PARA TODO EL LOTE, y es la regla de la casa: N toasts dejan a la
+   * persona apretando el de un paso intermedio. El deshacer repone exactamente a los que
+   * SE MOVIERON —un lote puede salir a medias—, cada uno a la etapa que tenía, y al que
+   * no tenía fila se la borra (`null`): escribirle la primera etapa le inventaría una
+   * fila con un reloj que arranca hoy. Y vuelve a llamar al server: revertir sólo la
+   * pantalla mentiría hasta el próximo F5.
+   */
+  function moverLote(leadIds: number[], destino: string | ((leadId: number) => string | null), prodId: number, conDeshacer = true) {
+    const asig = asignacionDe(prodId);
+    const movs: Array<{ leadId: number; etapa: string | null }> = [];
+    const previas = new Map<number, Asignacion | null>();
+    for (const leadId of leadIds) {
+      const etapa = typeof destino === 'function' ? destino(leadId) : destino;
+      if (!etapa) continue;
+      previas.set(leadId, asig[leadId] ?? null);
+      movs.push({ leadId, etapa });
+    }
+    if (!movs.length) return;
+    setMal('');
+    empezar(async () => {
+      const r = await moverEntregaLoteAction(prodId, movs);
+      if (!r.ok) { setMal(r.error); return; }
+      const movidos = r.resultados.filter((x) => x.ok && x.cambio);
+      const fallaron = r.resultados.filter((x) => !x.ok);
+      if (fallaron.length) setMal(`${fallaron.length} no se ${fallaron.length === 1 ? 'pudo' : 'pudieron'} mover: ${fallaron[0].error ?? ''}`);
+      if (!movidos.length) return;
+      // Como el Plan: una acción en lote que salió limpia la selección. Dejarla puesta
+      // invita a apretar «Siguiente etapa» dos veces sobre el mismo grupo sin querer.
+      if (conDeshacer) setSel(new Set());
+      const ahora = new Date().toISOString();
+      setMovs((v) => {
+        const n = { ...v };
+        for (const x of movidos) n[claveMov(x.leadId, prodId)] = x.hacia ? { etapa: x.hacia, etapa_desde: ahora, por: 'CRM' } : null;
+        return n;
+      });
+      if (!conDeshacer) return;
+      const etapas = servicios.find((s) => s.productoId === prodId)?.etapas ?? [];
+      const unaEtapa = new Set(movidos.map((x) => x.hacia)).size === 1 ? etapas.find((e) => e.key === movidos[0].hacia)?.label : null;
+      show(unaEtapa ? `${movidos.length} en ${unaEtapa}` : `${movidos.length} movidos`, () => {
+        clear();
+        const volver = movidos.map((x) => ({ leadId: x.leadId, etapa: previas.get(x.leadId)?.etapa ?? null }));
+        empezar(async () => {
+          const d = await moverEntregaLoteAction(prodId, volver);
+          if (!d.ok) { setMal(d.error); return; }
+          setMovs((v) => {
+            const n = { ...v };
+            for (const x of d.resultados) {
+              if (!x.ok) continue;
+              const p = previas.get(x.leadId) ?? null;
+              n[claveMov(x.leadId, prodId)] = p;
+            }
+            return n;
+          });
+        });
+      });
+    });
+  }
+
+  /** La etapa que sigue a la actual de un cliente. Sin fila está en la PRIMERA (regla
+   *  derivada, `repartirEnEtapas`); en la última no hay siguiente y no se mueve. */
+  function siguienteDe(leadId: number, prodId: number): string | null {
+    const etapas = servicios.find((s) => s.productoId === prodId)?.etapas ?? [];
+    if (!etapas.length) return null;
+    const actual = asignacionDe(prodId)[leadId]?.etapa;
+    const i = Math.max(0, etapas.findIndex((e) => e.key === actual));
+    return etapas[i + 1]?.key ?? null;
   }
 
   /**
@@ -432,9 +516,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
                vista el toggle entero no se dibuja, porque un botón que no se puede
                apagar es un control trabado. */
             vistas={vistasDisponibles}
-            /* El selector va al final de la barra y SOLO en la vista de etapas: las otras
-               dos contestan «quienes son mis clientes», que no depende de ningun servicio. */
-            extremo={enKanban && servicios.length > 0 ? (
+            /* El selector va al final de la barra y EN LAS DOS VISTAS. «En la vista de tabla
+               siempre debería estar el desplegable de los productos, porque desaparece»
+               (Martín, 05/10/2026): la tabla también se agrupa por las etapas de UN servicio
+               y se arrastra entre ellas, así que también depende de cuál se está mirando.
+               Antes vivía sólo en el kanban, con el porqué de que la tabla contestaba
+               «quiénes son mis clientes» — dejó de ser cierto el día que la tabla tuvo etapas. */
+            extremo={servicios.length > 0 ? (
               <SelectorServicio
                 servicios={servicios.map((sv) => ({ id: sv.productoId, nombre: sv.nombre }))}
                 servicio={servicio?.productoId ?? null}
@@ -481,6 +569,28 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             </p>
           )}
 
+          {/* LA BARRA DE ACCIONES EN LOTE: una para las DOS vistas, porque la selección es
+              una sola (ver `sel`). «Muy importante que implementes las acciones en LOTE,
+              tanto para la vista de tablas como kanban» (Martín, 05/10/2026). Mover y
+              avanzar sólo existen con un servicio elegido: sin etapas no hay a dónde. */}
+          {/* ⚠️ EL LOTE ACTÚA SOBRE LOS ELEGIDOS QUE SE VEN, como la barra del Plan. Con
+              un buscador puesto, `sel` puede tener clientes que la pantalla esconde, y
+              moverlos sería actuar sobre algo que nadie está mirando. */}
+          {elegidosVisibles.length > 0 && (
+            <LoteClientes
+              elegidos={elegidosVisibles.length}
+              visibles={visibles.length}
+              etapas={servicio ? servicio.etapas : null}
+              fases={servicio ? servicio.fases : []}
+              puedeAvanzar={Boolean(servicio && elegidosVisibles.some((id) => siguienteDe(id, servicio.productoId)))}
+              onMover={(etapa) => { if (servicio) moverLote(elegidosVisibles, etapa, servicio.productoId); }}
+              onSiguiente={() => { if (servicio) moverLote(elegidosVisibles, (id) => siguienteDe(id, servicio.productoId), servicio.productoId); }}
+              onExportar={() => exportarCSV(visibles.filter((c) => sel.has(c.leadId)), numeroDe, resumenDe)}
+              onTodos={() => setSel(new Set(visibles.map((c) => c.leadId)))}
+              onLimpiar={() => setSel(new Set())}
+            />
+          )}
+
           {enKanban && servicio ? (
             <KanbanEntrega
               etapas={servicio.etapas}
@@ -498,10 +608,23 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               onEquipo={(leadId) => { setAbrirEn('equipo'); setAbiertoId(leadId); }}
               onNuevoCliente={(etapa) => setCreando(etapa)}
               onError={setMal}
+              seleccion={sel}
+              onSeleccion={setSel}
+              onMoverLote={(leadIds, etapa) => moverLote(leadIds, etapa, servicio.productoId)}
             />
           ) : (
             <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
-              tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando('')} />
+              tableroOk={tablero.ok}
+              /* Con un servicio elegido la tabla se agrupa por SUS etapas y se arrastra
+                 entre ellas; sin servicio queda plana, como antes. */
+              etapas={servicio ? servicio.etapas : null}
+              fases={servicio ? servicio.fases : []}
+              asignacion={servicio ? asignacionDe(servicio.productoId) : {}}
+              onMover={(leadId, etapa) => { if (servicio) moverEntrega(leadId, etapa, servicio.productoId); }}
+              onMoverLote={(leadIds, etapa) => { if (servicio) moverLote(leadIds, etapa, servicio.productoId); }}
+              seleccion={sel}
+              onSeleccion={setSel}
+              onAbrir={setAbiertoId} onNuevo={() => setCreando('')} />
           )}
           {/* ⚠️ «NO ENCONTRÉ» NO ES «NO TENÉS». Sin este renglón, buscar algo que no
               existe deja una tabla vacía, y una tabla vacía se lee como que se borró la
@@ -573,6 +696,25 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
              que no pudo revisar — nunca «ninguna». Por eso el `??` cae a `null`. */
           secuencias={entrega?.ok ? (entrega.secuenciasPorServicio[servicio.productoId] ?? null) : null}
           onGuardar={guardarEtapas}
+          /* «Debería poder cambiar el nombre del producto, y se debe cambiar en todos
+             lados, en el CRM y aquí» (05/10/2026). El server escribe el MISMO campo que
+             lee el CRM; el `revalidatePath` trae el nombre nuevo al selector. */
+          onRenombrar={async (nombre) => {
+            const r = await renombrarServicioAction(servicio.productoId, nombre);
+            return r.ok ? null : r.error;
+          }}
+          /* El producto del embudo principal no se elimina (el server lo frena): sin
+             botón, como en el CRM. Un botón cuya única respuesta es «no se puede» se
+             lee como que la app está rota. */
+          onEliminar={servicio.principal ? undefined : async () => {
+            const r = await eliminarServicioAction(servicio.productoId);
+            if (!r.ok) return r.error;
+            // Se cierra y se vuelve al primero: quedarse mirando un producto que ya no
+            // está en el selector se lee como que no se borró.
+            setEditandoEtapas(false);
+            setServicioId(null);
+            return null;
+          }}
           onCerrar={() => setEditandoEtapas(false)}
         />
       )}

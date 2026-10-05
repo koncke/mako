@@ -6,7 +6,7 @@
 // «El desplegable de productos se debería ver exactamente igual como este» (Martín,
 // 05/10/2026, señalando el del CRM). Y se ve igual porque es LA MISMA PIEZA: el
 // primitive `Dropdown` del repo ya trae las tres cosas de esa captura —el lápiz por
-// renglón (`acciones`), el «＋ Nuevo producto» (`crear`) y el renglón gris con filete
+// renglón (`acciones`), el «Nuevo producto» con su ＋ (`crear`) y el renglón gris con filete
 // (`sutil`)—. Lo que no se pudo importar es el `SelectorFunnel` del CRM, y el porqué
 // importa:
 //
@@ -75,11 +75,16 @@ export function SelectorServicio({ servicios, servicio, onServicio, onEditarEtap
         icono: <LapizIcon />,
         title: `Editar las etapas de ${s.nombre}`,
         onClick: () => onEditarEtapas(s.id),
+        // El lápiz ABRE el editor: sin cerrar, el menú queda flotando encima del modal
+        // (vive en un portal con su propio z-index) y le tapa el título.
+        cierra: true,
       }],
     } : {}),
   }));
   if (puedeEditar) {
-    opciones.push({ value: '__nuevo', label: '＋ Nuevo producto', crear: true });
+    // ⚠️ SIN «＋» EN EL RÓTULO: `crear` ya lo dibuja. Con los dos salía «＋＋ Nuevo
+    // producto»; el del CRM (`CrmToolbar.tsx`) dice 'Nuevo producto' a secas.
+    opciones.push({ value: '__nuevo', label: 'Nuevo producto', crear: true });
   }
 
   const crear = async () => {

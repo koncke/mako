@@ -98,7 +98,7 @@ function renderOption(
       <div key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 4, paddingBottom: 4 }}>
         {o.acciones.map((a) => (
           <button key={a.title} type="button" title={a.title} aria-label={a.title}
-            onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); }}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); if (a.cierra) close(); }}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--ink)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--faint)'; }}
@@ -153,7 +153,7 @@ function renderOption(
           // stopPropagation Y preventDefault: el menú se cierra por un listener de
           // click en el documento, así que sin esto la acción corre y el panel
           // desaparece — que se lee como que no pasó nada.
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); a.onClick(); if (a.cierra) close(); }}
           onMouseDown={(e) => e.stopPropagation()}
           // ⚠️ SIN RECUADRO: «pon solo el lápiz, no un recuadro alrededor del lápiz». Un
           // borde por renglón convierte una lista de cuatro productos en ocho cajas.
@@ -173,7 +173,17 @@ function renderOption(
  * que está seleccionada: con 40 renglones, «quitá el que sobra» obligaba a
  * seleccionarlo primero — o sea, a elegir lo que se quiere sacar.
  */
-export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; onClick: () => void };
+export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; onClick: () => void;
+  /**
+   * La acción ABRE OTRA PANTALLA (un editor, un modal): el menú se cierra al tocarla.
+   *
+   * ⚠️ El default es NO cerrar, y está bien para lo que se hace ADENTRO del menú (quitar
+   * un renglón y seguir mirando la lista). Lo que abre un modal es lo contrario: el menú
+   * vive en un portal sobre el `body` con su propio z-index, así que queda flotando
+   * ENCIMA del modal que se acaba de abrir — medido el 05/10/2026 con el lápiz del
+   * selector de productos de Customer Success, tapando el título del editor.
+   */
+  cierra?: boolean };
 
 export type DropdownOption = { value: string; label: string; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
   /**

@@ -43,11 +43,12 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
     // molde de los otros dos rótulos de este mismo catálogo.
     //
     // ⚠️ ES EL MISMO DIBUJO QUE `tarjetas`, Y NO ES UN DESCUIDO. Un toggle de DOS
-    // vistas —el Plan y el CRM— no tiene una vista «tarjetas» de la que distinguirse:
-    // ahí el tablero ES las tarjetas y el cubo es lo que la persona reconoce. El de
-    // Customer Success ofrece las TRES, y ahí los cubos ya significan «tarjetas», así
-    // que su kanban necesita otro dibujo. Por eso este catálogo no puede tener una
-    // sola respuesta para «kanban», y por eso las dos entradas conviven.
+    // vistas —el Plan, el CRM y Customer Success (kanban + tabla)— no tiene una vista
+    // «tarjetas» de la que distinguirse: ahí el tablero ES las tarjetas y el cubo es lo
+    // que la persona reconoce. /admin ofrece tarjetas + tabla, sin kanban. Si algún día
+    // una pantalla ofrece kanban Y tarjetas a la vez, ESA necesita otro dibujo para uno
+    // de los dos: por eso las dos entradas conviven y no son una.
+    // (Customer Success dejó de tener su propia copia de estos íconos el 05/10/2026.)
     titulo: 'Ver en Kanban',
     icono: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

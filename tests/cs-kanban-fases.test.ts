@@ -52,8 +52,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+// Las dos reglas puras del arrastre en lote. Se importan del archivo de la BARRA y no del
+// kanban porque el kanban no se puede importar desde node: arrastra módulos con
+// `server-only` (medido: «This module cannot be imported from a Client Component»).
+import { quienesViajan, dondeCae } from '../app/customer-success/LoteClientes';
 
-const leer = (p: string) => readFileSync(p, 'utf8');
+// ⚠️ SIN LOS `\r`: las anclas de `bloque` llevan `\n`, y con `core.autocrlf=true` un clon
+// nuevo o un worktree trae estos archivos en CRLF — ahí las anclas no calzan y el guard
+// falla sobre un archivo idéntico (AGENTS.md: «toda guarda que compare texto normaliza»).
+const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 
 /**
  * El pedazo que va de `abre` hasta `cierra`.
@@ -107,7 +114,10 @@ const CODIGO = sinComentarios(RENDER);
 test('el recorte del render y el de la hoja son lo que digo que son', () => {
   // Si estos largos se van al doble, el guard está mirando otra cosa y los de abajo
   // dejan de significar lo que dicen.
-  assert.ok(RENDER.length > 3_000 && RENDER.length < 16_000, `el render mide ${RENDER.length}`);
+  // ⚠️ El techo subió de 16.000 a 24.000 el 05/10/2026 con la SELECCIÓN y el arrastre en
+  // LOTE (la casilla, `quienesViajan`, `dondeCae` y su prosa): el render medía ~19.000 y
+  // el recorte sigue yendo de la misma ancla a la misma ancla. No es «mirar otra cosa».
+  assert.ok(RENDER.length > 3_000 && RENDER.length < 24_000, `el render mide ${RENDER.length}`);
   assert.ok(HOJA.length > 2_000 && HOJA.length < 12_000, `la hoja mide ${HOJA.length}`);
   assert.doesNotMatch(RENDER, /const CSS/, 'el render no puede incluir la hoja');
   assert.doesNotMatch(HOJA, /useMemo/, 'la hoja no puede incluir el render');
@@ -168,42 +178,227 @@ test('el arrastre puede llegar al fondo de una columna que scrollea', () => {
   // entregando durante un arrastre nativo.
   const over = bloque(RENDER, 'onDragOver={(ev) => {', 'onDragLeave');
   assert.match(over, /empujarColumna\(cuerpo, ev\.clientY\)/);
-  // ⚠️ Y la medida suma el `scrollTop` de la columna, o el hueco apunta al lugar
-  // equivocado en cuanto el cuerpo se corre: ver el porqué en `medidas`.
-  assert.match(over, /ev\.clientY \+ window\.scrollY \+ \(cuerpo\?\.scrollTop \?\? 0\)/);
-  assert.match(KANBAN, /scrollTop \?\? 0\);\s*$/m, 'y las midió en el mismo espacio');
+  // ⛔ ACÁ SE FIJABA QUE LA ALTURA DEL CURSOR SUMARA EL `scrollTop` DE LA COLUMNA, y se
+  // fue el 05/10/2026 con la idea que cuidaba: el hueco ya NO sigue al cursor. En el Plan
+  // el lugar donde soltás se respeta (el número sale de ahí); acá una etapa no tiene orden
+  // propio —la columna se dibuja en el orden de la lista—, así que un hueco que siguiera
+  // la altura prometía «acá» y la tarjeta aparecía «allá». Lo que se fija ahora es lo
+  // contrario: el índice sale de los DATOS (`dondeCae`) y no se lee layout de tarjetas.
+  // ROTO: el índice calculado con un número fijo en vez de `dondeCae` → 14 pass / 1 fail.
+  assert.match(over, /dondeCae\(e\.key, mano\.ids, etapaActual,/, 'el hueco va donde la tarjeta VA a aparecer');
+  assert.doesNotMatch(sinComentarios(KANBAN), /medidas\.current/, 'sin puntos medios: no se mide la altura de ninguna tarjeta');
+});
+
+// ── La selección y el arrastre en LOTE ────────────────────────────────────────
+
+// PROBADOS ROMPIÉNDOLOS (05/10/2026), cada rotura cazada por el test que le toca:
+//   · `quienesViajan` sin el `seleccion.has(agarrado)` (arrastrar una SUELTA se llevaba
+//     la selección entera) → 14 pass / 1 fail.
+//   · `quienesViajan` devolviendo la selección sin filtrar por la lista (movía ids que la
+//     búsqueda escondió) → 14 pass / 1 fail.
+//   · `dondeCae` sin el filtro de los que ya están en el destino (la columna de origen
+//     abría hueco y prometía un movimiento que no ocurre) → 14 pass / 1 fail.
+//   · `soltarEn` mandando un lote por `onMover` (doce toasts, el de arriba deshace UNO)
+//     → 14 pass / 1 fail.
+//   Restaurado: 15 pass / 0 fail.
+
+test('qué viaja: la agarrada sola, salvo que esté MARCADA con otras', () => {
+  const lista = [10, 20, 30, 40];
+  // Suelta, aunque haya otras marcadas: viaja sola.
+  assert.deepEqual(quienesViajan(20, new Set([10, 30]), lista), [20]);
+  // Marcada pero única: sola.
+  assert.deepEqual(quienesViajan(20, new Set([20]), lista), [20]);
+  // Marcada con otras: todas, EN EL ORDEN DE LA LISTA (no el de la selección).
+  assert.deepEqual(quienesViajan(30, new Set([40, 30, 10]), lista), [10, 30, 40]);
+  // Una marcada que la búsqueda escondió no viaja: no está en pantalla.
+  assert.deepEqual(quienesViajan(30, new Set([30, 99]), lista), [30]);
+});
+
+test('dónde cae: donde la tarjeta VA a aparecer, o en ningún lado', () => {
+  const pos = new Map([[1, 0], [2, 1], [3, 2], [4, 3], [5, 4]]);
+  const posicion = (id: number) => pos.get(id) ?? Number.MAX_SAFE_INTEGER;
+  const etapa = new Map([[1, 'a'], [2, 'b'], [3, 'a'], [4, 'b'], [5, 'a']]);
+  const etapaDe = (id: number) => etapa.get(id) ?? 'a';
+  // La 3 (posición 2) entra a «b», donde están la 2 (pos 1) y la 4 (pos 3): cae en el medio.
+  assert.equal(dondeCae('b', [3], etapaDe, [2, 4], posicion), 1);
+  // La 5 (pos 4) entra a «b»: cae al final.
+  assert.equal(dondeCae('b', [5], etapaDe, [2, 4], posicion), 2);
+  // Soltar en su propia etapa no mueve a nadie: no hay hueco que dibujar.
+  assert.equal(dondeCae('a', [3], etapaDe, [1, 3, 5], posicion), null);
+  // En un lote cuenta el PRIMERO que de verdad se mueve: la 2 ya está en «b».
+  assert.equal(dondeCae('b', [1, 2, 5], etapaDe, [2, 4], posicion), 0);
+  assert.equal(dondeCae('b', [2, 4], etapaDe, [2, 4], posicion), null);
+});
+
+test('soltar un lote va por onMoverLote, y sólo con los que cambian de etapa', () => {
+  const fn = bloque(KANBAN, '  function soltarEn(', '\n  }');
+  assert.match(fn, /const mueven = mano\.ids\.filter\(\(id\) => etapaActual\(id\) !== key\);/);
+  assert.match(fn, /if \(mano\.ids\.length > 1\) onMoverLote\(mueven, key\);/,
+    'un lote es UN deshacer, aunque al final cambie uno solo');
+  assert.match(fn, /else onMover\(mueven\[0\], key\);/);
+  // Y lo que viaja se decide al AGARRAR, con la selección de afuera.
+  const agarrar = bloque(KANBAN, '  function agarrar(', '\n  }');
+  assert.match(agarrar, /quienesViajan\(leadId, seleccion, clientes\.map\(\(c\) => c\.leadId\)\)/);
+});
+
+test('la casilla vive en el ENVOLTORIO y se ve al hover o con algo marcado', () => {
+  // Adentro de la tarjeta no se podría apretar: `TarjetaEntidad` apaga los clicks de
+  // todo menos `.cl-acc`.
+  const tarjeta = bloque(RENDER, '<div data-tarjeta', '<ClienteCard');
+  assert.match(tarjeta, /<input type="checkbox" checked=\{elegida\} onChange=\{\(\) => alternar\(c\.leadId\)\}/);
+  assert.match(RENDER, /className=\{`ke\$\{seleccion\.size > 0 \? ' ke-hay-sel' : ''\}`\}/);
+  assert.match(HOJA, /\.ke-card:hover \.ke-sel, \.ke-hay-sel \.ke-sel \{ display: inline-flex; \}/);
+  // Y el hueco es el del Plan: 64 de alto, no el alto entero de una tarjeta.
+  assert.match(bloque(HOJA, '.ke-hueco {', '}'), /height: 64px/);
 });
 
 // ── El editor ───────────────────────────────────────────────────────────────
 
 const EDITOR = leer('app/customer-success/EtapasEntregaModal.tsx');
+/** El editor sin prosa: lo que de verdad se ejecuta. */
+const EDITOR_CODIGO = sinComentarios(EDITOR);
 
-// ROTO: el `if (primera.current)` sacado → 8 pass / 1 fail.
-// ROTO: un `pie=` con dos botones → 8 pass / 1 fail.
+// ⚠️ ESTA SECCIÓN SE REESCRIBIÓ EL 05/10/2026, con el editor copiado del CRM («fijate el
+// diseño de ese editable en el CRM y copialo tal cual»). Dos cosas que se fijaban antes
+// dejaron de ser ciertas A PROPÓSITO, y conviene saber por qué antes de «arreglarlas»:
+//  · `if (primera.current)` era la guarda contra guardar al montar, y NO GUARDABA NADA:
+//    Next 16 corre el App Router en Strict Mode y cada efecto corre DOS veces al montar —
+//    la segunda ya encuentra la bandera en false—. MEDIDO con el editor de HEAD en
+//    Chromium + Strict Mode: abrir y esperar 1,5 s → 1 guardado, o sea el servicio marcado
+//    como DECLARADO por mirarlo (y bootear local escribe en la base de producción). Lo que
+//    la reemplaza es comparar la FIRMA de lo que se mandaría contra la de lo último que se
+//    mandó: no depende de cuántas veces corra el efecto. Con el editor nuevo: 0 guardados.
+//  · «no hay `pie=`»: ahora hay uno, y es el «Eliminar producto» del CRM. Lo que esa regla
+//    cuidaba —ningún botón de guardar ni de «No cambiar nada»— se sigue fijando, sobre el pie.
+//  · `sacar` ya no es `async` con `await confirm(`: la pregunta es el `Confirm` declarativo
+//    del CRM, porque el Escape de una pregunta abierta lo tiene que poder cerrar el editor
+//    (ver el test del Escape) y el `useConfirm` con promesa no deja resolverla desde afuera.
+//
+// PROBADOS ROMPIÉNDOLOS (05/10/2026), cada rotura cazada por el test que le toca y por
+// ninguno más (el resto del archivo, en verde):
+//   1. sin `if (firma === enviada.current)` (guarda al montar).
+//   2. `enviada` sembrada con '' en vez de la firma de las props (guarda al montar).
+//   3. sin el `useEffect(() => () => enviar(), [enviar])` (cerrar pierde lo último).
+//   4. los envíos en paralelo (`Promise.resolve().then` en vez de la cola).
+//   5. `sacar` sin `if (!partes.length)` (pregunta aunque no haya nada que perder).
+//   6. `mover` sin la guarda de la entrada (otra columna pasa por encima de la primera).
+//   7. `aFase` moviendo la entrada de lugar al cambiarle la fase.
+//   8. `mover` intercambiando con el vecino de la lista GLOBAL (la flecha no hace nada).
+//   9. el Escape escuchado en burbuja (`false`): llega después del del Modal.
+//  10. sin el `if (hayPregunta)`: el Escape de la pregunta cierra el editor.
+//  11. `guardarNombre` mandando el nombre aunque no haya cambiado.
+//  12. «+ Agregar fase» abajo de la lista.
+//  13. el pie dibujado sin `onEliminar`.
+//   Las trece dieron 20 pass / 1 fail, y el que cae es siempre el de su rótulo `ROTO:`.
+//   Restaurado (de memoria, nunca con `git checkout`): 21 pass / 0 fail.
+
+// ROTO: 1 y 2 de la lista de arriba.
 test('el editor guarda solo, y NO al montar', () => {
-  const efecto = bloque(EDITOR, '  useEffect(() => {', '  }, [lista, tramos]);');
-  assert.match(efecto, /if \(primera\.current\) \{ primera\.current = false; return; \}/,
+  const efecto = bloque(EDITOR, '    if (lista.length < MINIMO)', '  }, [lista, tramos, enviar]);');
+  assert.ok(efecto.length > 300 && efecto.length < 1_500, `el efecto mide ${efecto.length}`);
+  assert.match(efecto, /if \(firma === enviada\.current\) \{ pendiente\.current = null; return; \}/,
     'sin esto, abrir y cerrar marca el servicio como DECLARADO');
-  assert.match(efecto, /setTimeout\(/, 'con un respiro: renombrar es una tecla por letra');
-  assert.match(efecto, /guardarRef\.current\(limpias, tramos\)/, 'las fases viajan en la MISMA llamada');
-  // Y no hay pie: «no existe el botón de "No cambiar nada" o el de guardar».
-  const editor = sinComentarios(EDITOR);
-  assert.doesNotMatch(editor, /No cambiar nada/);
-  assert.doesNotMatch(editor, /pie=/);
-  assert.doesNotMatch(editor, /Guardar las etapas/);
+  assert.match(efecto, /setTimeout\(enviar, RESPIRO_MS\)/, 'con un respiro: renombrar es una tecla por letra');
+  assert.match(efecto, /pendiente\.current = \{ etapas: limpias, fases: tramos, firma \}/,
+    'las fases viajan en la MISMA llamada');
+  // La firma de partida es la de lo que vino del server: con una vacía, montar ya «cambió».
+  assert.match(EDITOR_CODIGO, /const \[firmaInicial\] = useState\(\(\) => firmaDe\(limpiar\(etapas\) \?\? etapas, fases\)\);/);
+  assert.match(EDITOR_CODIGO, /const enviada = useRef\(firmaInicial\);/);
+  assert.doesNotMatch(EDITOR_CODIGO, /primera\.current/, 'una bandera de «primer render» no sobrevive a Strict Mode');
+  const envio = bloque(EDITOR, '  const enviar = useCallback(', '  }, []);');
+  assert.match(envio, /guardarRef\.current\(p\.etapas, p\.fases\)/);
+  // Y ningún botón de guardar: el pie es sólo «Eliminar producto».
+  assert.doesNotMatch(EDITOR_CODIGO, /No cambiar nada/);
+  assert.doesNotMatch(EDITOR_CODIGO, /Guardar las etapas/);
 });
 
-// ROTO: el `confirm` sacado de `sacar` → 8 pass / 1 fail.
+// ROTO: 13 de la lista de arriba.
+test('el pie es «Eliminar producto», y sólo si alguien lo puede hacer', () => {
+  const pie = sinComentarios(bloque(EDITOR, '        pie={', '\n        }\n'));
+  assert.match(pie, /onEliminar \? \(/, 'sin `onEliminar` no se dibuja: un «Eliminar» que contesta «no se puede» se lee como roto');
+  assert.match(pie, /Eliminar producto/);
+  assert.doesNotMatch(pie, /Guardar|Cancelar|No cambiar/);
+  // Eliminar PREGUNTA: el botón abre la pregunta y nunca llama directo.
+  const eliminar = bloque(EDITOR, '  const eliminar = () => {', '\n  };');
+  assert.match(eliminar, /setConfirmar\(\{/);
+  assert.doesNotMatch(eliminar, /onEliminar\(\)/);
+});
+
+// ROTO: 3 y 4 de la lista de arriba. Es el bug MEDIDO con el editor de HEAD: renombrar una
+// columna y cerrar en el mismo medio segundo → 0 guardados; con el nuevo, 1.
+test('cerrar no pierde lo que esperaba el respiro, y los guardados salen en fila', () => {
+  assert.match(EDITOR_CODIGO, /useEffect\(\(\) => \(\) => enviar\(\), \[enviar\]\);/);
+  // Dos upserts del objeto ENTERO que salen a la vez pueden llegar al revés: gana el viejo.
+  const envio = bloque(EDITOR, '  const enviar = useCallback(', '  }, []);');
+  assert.match(envio, /cola\.current = cola\.current\.then\(/);
+});
+
+// ROTO: 5 de la lista de arriba.
 test('sacar una columna con gente adentro avisa ANTES, y con el número', () => {
-  const fn = bloque(EDITOR, '  const sacar = async (e: EtapaEntrega) => {', '\n  };');
-  assert.match(fn, /await confirm\(/, 'sin botón de guardar, el aviso va pegado al click');
+  const fn = bloque(EDITOR, '  const sacar = (e: EtapaEntrega) => {', '\n  };');
   assert.match(fn, /conteo\[e\.key\]/, 'y dice cuántos clientes');
   assert.match(fn, /secuencias\?\.\[e\.key\]/, 'y cuántas secuencias');
   // «No pude revisar» no es «no hay»: con la lectura caída se avisa igual.
   assert.match(fn, /secuencias === null/);
-  // El `setLista` que saca la etapa va DESPUÉS del `confirm`, no antes.
-  assert.ok(fn.indexOf('await confirm(') < fn.indexOf('setLista((v) => v.filter'),
-    'preguntar después de sacar no es preguntar');
+  // Sin nada que perder no hay fricción —queda el «Deshacer», como en el CRM—; con algo,
+  // la única salida es la que va ADENTRO de la pregunta.
+  assert.match(fn, /if \(!partes\.length\) \{ hacer\(\); return; \}/);
+  assert.match(fn, /setConfirmar\(\{[\s\S]*\bhacer,\s*\}\);/);
+  assert.equal((fn.match(/hacer\(\)/g) ?? []).length, 1, 'preguntar después de sacar no es preguntar');
+});
+
+// ROTO: 6, 7 y 8 de la lista de arriba.
+test('la primera etapa es la ENTRADA, y mover es DENTRO del grupo que se ve', () => {
+  // «Un cliente sin fila está en la PRIMERA etapa» es DERIVADO: mover otra columna arriba
+  // pasaba a todos esos clientes a ella, en silencio. Ni se mueve ni se le pasa por encima.
+  const mover = bloque(EDITOR, '  const mover = (key: string, d: -1 | 1) => setLista((v) => {', '\n  });');
+  assert.match(mover, /if \(lugares\[p\] === 0 \|\| lugares\[q\] === 0\) return v;/);
+  const soltar = bloque(EDITOR, '  const soltarEn = (key: string, grupo: string, destino: number) => setLista((v) => {', '\n  });');
+  assert.match(soltar, /if \(v\[0\]\?\.key === key\) return v;/);
+  assert.match(soltar, /const piso = lugares\[0\] === 0 \? 1 : 0;/);
+  const aFase = bloque(EDITOR, '  const aFase = (key: string, fase: string | undefined) => setLista((v) => {', '\n  });');
+  assert.match(aFase, /if \(i === 0\) return v\.map/, 'cambiarle la fase a la entrada no la mueve de lugar');
+  // Ni flechas ni ✕ en la entrada.
+  assert.match(EDITOR_CODIGO, /\{!entra && \(k > piso \|\| k < g\.etapas\.length - 1\) \? \(\s*<MoverPartido/);
+  assert.match(EDITOR_CODIGO, /\{!entra \? \(\s*<AccionFila/);
+  // Y la flecha permuta DENTRO del grupo: con el vecino de la lista global, bajar una
+  // etapa cuyo vecino es de otra fase no movía nada en pantalla.
+  assert.match(mover, /const lugares = lugaresDe\(v, grupoDe\(e, tramos\), tramos\);/);
+  const agregar = bloque(EDITOR, '  const agregarEtapa = (label: string, fase?: string) => {', '\n  };');
+  assert.match(agregar, /lugaresDe\(v, fase \?\? '', tramos\)/, 'una etapa nueva cae al final de SU grupo');
+});
+
+// ROTO: 9 y 10 de la lista de arriba. MEDIDO con el editor de HEAD: Escape en el nombre
+// de una etapa → editor cerrado; Escape en el «¿seguro?» → editor cerrado. Con el nuevo,
+// abierto las dos veces.
+test('el Escape de un campo o de la pregunta no cierra el editor', () => {
+  // `window` y en CAPTURA: es lo único que corre antes que el listener del Modal, que vive
+  // en `document` en captura y además frena la propagación.
+  assert.match(EDITOR_CODIGO, /window\.addEventListener\('keydown', alTeclear, true\);/);
+  const tecla = bloque(EDITOR, '    const alTeclear = (ev: KeyboardEvent) => {', '\n    };');
+  assert.match(tecla, /if \(hayPregunta\) \{ ev\.stopPropagation\(\); setConfirmar\(null\); return; \}/);
+  assert.match(tecla, /el\.value = el\.dataset\.eeEsc;\s*el\.blur\(\);/);
+  // Los cuatro campos llevan la marca: el título, el nombre de una etapa, el de una fase y
+  // el renglón nuevo.
+  assert.equal((EDITOR_CODIGO.match(/data-ee-esc=/g) ?? []).length, 4);
+});
+
+// ROTO: 11 de la lista de arriba.
+test('el título renombra el PRODUCTO, recortado y sólo si cambió', () => {
+  const fn = bloque(EDITOR, '  const guardarNombre = async (valor: string) => {', '\n  };');
+  assert.match(fn, /valor\.trim\(\)\.replace\(\/\\s\+\/g, ' '\)/);
+  assert.match(fn, /if \(!limpio \|\| limpio === nombreOk\) \{/, 'vacío o igual no se manda');
+  assert.match(fn, /await onRenombrar\(limpio\)/);
+  assert.match(fn, /if \(err\) \{ setMalProducto\(err\); return; \}/, 'el error del server se muestra tal cual');
+});
+
+// ROTO: 12 de la lista de arriba.
+test('«Agregar fase» va ARRIBA de todo; «Agregar etapa», al pie de cada grupo', () => {
+  const fase = EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="fase"');
+  assert.notEqual(fase, -1);
+  assert.equal(EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="fase"', fase + 1), -1, 'uno solo');
+  assert.ok(fase < EDITOR_CODIGO.indexOf('<div ref={listaRef}'), '«agregar fase debería estar arriba del todo, no abajo»');
+  assert.ok(EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="etapa"') > EDITOR_CODIGO.indexOf('{g.etapas.map('));
 });
 
 // ── El write path ───────────────────────────────────────────────────────────

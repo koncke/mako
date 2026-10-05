@@ -3070,3 +3070,136 @@ node -e "const s=require('fs').readFileSync(RUTA,'utf8'); const i=s.indexOf('con
 ```
 
 Dos es lo correcto. Cualquier otro número es esto.
+
+## Lote, tabla del Plan, el producto que el CRM borró y el editor del CRM (05/10/2026, tarde)
+
+El pedido fueron ocho puntos sobre `/customer-success` (texto literal en
+`app/admin/dev/customer-success/bitacora.ts`). Lo que se hizo está en el commit; acá va lo que
+costó entender.
+
+### «Activo» no alcanza: eliminar un producto en el CRM no lo desactiva
+
+«Haz puesto otros que no existen… En el CRM de Mauricio, solo hay esos 2». El selector leía
+`productos` con `activo = true` y ofrecía cuatro. Y no estaba mal leído: **eliminar un
+producto en el CRM ARCHIVA SU EMBUDO** (`archivarFunnel`, `funnels.activo = false`) y deja el
+producto con `activo = true`. «Sistema DOS» vive en «Productos eliminados» del CRM y seguía
+vivo para cualquier pantalla que leyera la tabla de productos.
+
+- **La regla, en positivo:** se ofrece todo producto activo que NO esté atado ÚNICAMENTE a
+  embudos archivados. Restaurar el embudo en el CRM lo devuelve acá sin hacer nada.
+- ⚠️ **La regla obvia («sólo productos con embudo») era la equivocada, y se midió antes de
+  escribirla.** El ws13 tiene tres productos sin embudo —nacieron en el catálogo antes de la
+  cadena producto → oferta → embudo— y una entrega REAL sobre uno. Exigir el embudo le
+  borraba el tablero a un cliente.
+- El cuarto («Prueba 3», producto 15 del ws1) no tenía embudo ni nada: era un huérfano de una
+  prueba y se desactivó a mano. Respaldo del antes en
+  `backups/entrega-nqe-ws1-antes-2026-10-05.json`.
+- Si la lectura del cruce falla, se ofrecen todos los activos: mostrar de más es recuperable;
+  un selector vacío sobre una lectura caída afirma que no hay servicios.
+
+**Vive en:** `app/customer-success/entrega.ts` (`productosOfrecibles`).
+
+### Renombrar «en los dos lados» no necesitaba sincronizar nada
+
+Las dos pantallas leen `productos.nombre`, así que renombrar en una se ve en la otra si la
+escritura llega ahí. `renombrarFunnel` (CRM) ya escribe `productos.nombre` cuando el embudo
+tiene producto principal; Customer Success pasa por esa misma función cuando el producto
+tiene embudo, y escribe `productos.nombre` directo cuando no. El otro sentido funcionaba solo.
+Eliminar es `archivarFunnel` sobre cada embudo vivo (o `activo = false` sin embudo), y el
+producto del embudo PRINCIPAL no se puede eliminar: el botón no se dibuja, porque su única
+respuesta sería «no».
+
+**Vive en:** `app/customer-success/actions.ts` (`renombrarServicioAction`, `eliminarServicioAction`).
+
+### El editor «igual al del CRM» tenía cuatro bugs que el del CRM probablemente también tiene
+
+Los cuatro están explicados en el encabezado de `EtapasEntregaModal.tsx`. Los que valen fuera
+de esta pantalla:
+
+- **Una guarda `if (primera.current)` no impide guardar al abrir.** Next 16 corre el App
+  Router en Strict Mode: en desarrollo cada efecto corre DOS veces al montar, la segunda con
+  la bandera ya en false. O sea que abrir el editor en local programaba un upsert que marca el
+  servicio como DECLARADO — y bootear local escribe en producción. Se compara la FIRMA de lo
+  que se mandaría contra la de lo último mandado, que no depende de cuántas veces corra el
+  efecto.
+- **El Escape de un campo nunca le llega al campo.** `Modal` escucha en `document` y en
+  CAPTURA, así que cancelar un nombre cerraba el editor entero, y el `stopPropagation` del
+  input no servía porque la tecla nunca bajaba hasta él. Lo único que llega antes es `window`
+  en captura.
+- **Un nombre escrito y cerrado en el mismo medio segundo se perdía**: el desmonte limpiaba
+  el timer del respiro. El desmonte manda lo pendiente, y los guardados van en fila.
+- **La primera etapa es la entrada y no se mueve ni se quita**, porque «sin fila = primera
+  etapa» es una regla derivada: mover otra columna arriba pasaba en silencio a todos los
+  clientes sin fila a esa columna.
+
+⚠️ **SIN MEDIR:** el `EtapasModal` del CRM tiene la misma estructura (Modal + input del
+título + `stopPropagation`), así que lo esperable es que tenga el bug del Escape. No se tocó
+porque es otra pantalla y otro archivo; se mide abriéndolo y apretando Escape adentro del
+título.
+
+### `.ke-card > * { width: 100% }` captura a todo hijo directo, incluido el que llega después
+
+La casilla de selección del kanban salió como una franja blanca del ancho de la tarjeta.
+`getComputedStyle` dio `right: -10px` y `width: 274px` sobre un elemento `absolute` con
+`left: 10px`: el ancho venía de una regla escrita para que la tarjeta llenara su envoltorio,
+y la casilla, que se agregó después como hija directa del mismo envoltorio, la heredó.
+
+**Un selector `> *` es una regla sobre los hijos que todavía no existen.** Al agregar un hijo
+directo (una casilla, un badge, un overlay), grepeá las reglas `> *` del padre. La cura fue
+`.ke-card > .ke-sel { width: auto }`, que necesita el padre adelante para ganar en
+especificidad.
+
+**Vive en:** `app/customer-success/KanbanEntrega.tsx` (CSS de `.ke-sel`).
+
+### Una acción del desplegable que abre un modal deja el menú flotando ENCIMA del modal
+
+El lápiz del selector abría el editor y el menú quedaba arriba, tapándole el título: vive en
+un portal sobre el `body` con su propio z-index, y las acciones de un renglón NO cierran el
+menú a propósito (para quitar un renglón y seguir mirando la lista). Va un flag por acción,
+`cierra: true`, en el primitive. El default sigue siendo no cerrar.
+
+⚠️ **SIN MEDIR:** el lápiz del CRM (`CrmToolbar.tsx`) abre su editor por el mismo camino y
+no lleva el flag. Si el menú queda encima allá también, es una línea.
+
+Y el «＋＋ Nuevo producto»: `crear: true` ya dibuja su ＋, y el rótulo traía otro. El del CRM
+dice «Nuevo producto» a secas.
+
+**Vive en:** `app/components/Dropdown.tsx` (`DropdownAccion.cierra`), `app/customer-success/SelectorServicio.tsx`.
+
+### El lote: una llamada, un deshacer, y el deshacer de «nunca se movió» es BORRAR la fila
+
+Mover N clientes es UNA server action (`moverEntregaLoteAction`) que valida la propiedad de
+todos en una consulta y devuelve el resultado por cliente. El deshacer es uno por lote y
+vuelve a llamar a la misma acción con la etapa anterior de cada uno — y para el que no tenía
+fila la etapa anterior es `null`, que significa **sacar la fila**, no escribirle la primera
+etapa con el reloj arrancando hoy (eso le mentiría a «en la etapa hace…»).
+
+El hueco del arrastre en lote sale de los DATOS y no del cursor: acá no hay orden dentro de
+una etapa, así que un hueco que siguiera al cursor prometería un lugar que el tablero no
+honra. La copia de la FILA que sigue al cursor no se pudo importar del Plan (vive adentro de
+`useArrastreFilas`, sin exportar) y es una copia declarada: unificarla es sacarla a
+`arrastre-copia.ts`, y quedó anotado en `TablaClientes.tsx`.
+
+### Verificar esta pantalla sin escribir: el POST del montaje no se puede abortar
+
+El arnés aborta todo POST para no mover clientes reales del ws1, y con eso la pantalla se
+rompía: al montar corre `autoasignarAction` (body `[]`), y abortarlo deja el árbol de React
+en un estado que el resto del recorrido no puede usar. Se deja pasar SÓLO ese, que es lo que
+ya corre cada vez que alguien abre la tab en producción, y se recarga la página antes de cada
+arrastre (un POST abortado a mitad de un gesto rompe la siguiente interacción). Los
+arrastres se verifican por el CUERPO del POST bloqueado: `[21,1,"contexto"]` en el kanban y
+`[491,1,"palancas"]` en la tabla.
+
+Y «Another next dev server running» con un PID que ya no existe es un lock viejo: se borra y
+se arranca en otro puerto.
+
+### Lo que quedó SIN hacer
+
+- **Los 14 clientes de Mauricio están todos en «Bienvenida».** Las etapas del programa
+  (Bienvenida → Contexto → Propósito (PAS) → Visión y Norte → Criterio → Palancas y umbrales →
+  Tablero → Ritmo → Sistema instalado, en cinco fases) se escribieron en producción; la etapa
+  REAL de cada cliente no se adivinó. Se ubican arrastrando o con «Mover a».
+- **Arrastre táctil**: no se probó con el dedo. Los dos gestos son HTML5 drag-and-drop, que en
+  celular depende del navegador; las acciones en lote no dependen de eso.
+- Los dos «sin medir» de arriba (Escape del editor del CRM, menú del lápiz del CRM).
+- La copia de fila del arrastre duplicada entre `TablaClientes.tsx` y `app/plan/board/Tablas.tsx`.
