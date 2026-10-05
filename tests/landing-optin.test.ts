@@ -1732,9 +1732,14 @@ test('el lead NACE en el embudo de su landing', () => {
   // El recorte tiene que ser el del alta y nada más: si mañana mide 4.000, está
   // mirando otra cosa y el assert de abajo dejó de probar lo que dice.
   assert.ok(bloque.length < 2500, `el bloque del alta mide ${bloque.length}: se está leyendo de más`);
-  assert.ok(/funnel_id: funnelDeLaLanding/.test(bloque), 'sin esto el lead cae siempre al embudo del negocio, diga lo que diga la landing');
+  assert.ok(/funnel_id: funnelDelLead/.test(bloque), 'sin esto el lead cae siempre al embudo del negocio, diga lo que diga la landing');
   // Y lo resuelve el módulo compartido, no un lector propio de la ruta.
   assert.ok(/funnelDeLanding\(ws, paginaOptin\)/.test(src), 'la resolución vive en lib/landing-funnel.ts, con la pantalla leyendo lo mismo');
+  // Y la campaña asignada MANDA sobre la landing (05/10/2026), resuelta por el módulo
+  // compartido y no por un lector propio de la ruta. Si este orden se diera vuelta, una
+  // campaña asignada a un producto dejaría de enrutar en cuanto su landing tenga otro.
+  assert.ok(/funnelDeCampana\(\{ campaignId: atrib\.utm_campaign, adId: atrib\.utm_content \}\)/.test(src), 'el opt-in tiene que preguntar por la campaña con el utm_campaign');
+  assert.ok(/porCampana\.asignada \? porCampana\.funnelId : funnelDeLaLanding/.test(src), 'la campaña asignada manda; sin asignar decide la landing');
 });
 
 // PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de

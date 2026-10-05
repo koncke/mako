@@ -35,6 +35,7 @@ import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault } from '@/lib/funnels';
 import { normalizarUrl } from '@/lib/landing-paginas';
 import { funnelDeLanding } from '@/lib/landing-funnel';
+import { funnelDeCampana } from '@/lib/campana-funnel';
 import { textoDuplicado } from '@/lib/leads-duplicados';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
@@ -276,6 +277,27 @@ export async function POST(req: NextRequest) {
   // lo mismo». La pagina si distingue, y esa tabla ya existe POR PAGINA desde que
   // `clarityProjectId` necesito lo mismo (lib/landing-config.ts).
   const funnelDeLaLanding = await funnelDeLanding(ws, paginaOptin);
+  // ── Y LA CAMPAÑA, que MANDA cuando está asignada (05/10/2026) ──────────────
+  // Pedido de Martín: «si asigno a un producto una campaña que va a Landing 1… eso
+  // debe medirse en el detalle del lead». O sea que el mapeo es campaña → producto, y
+  // la landing es por donde pasó (y lo que aporta las métricas). Si la campaña NO está
+  // asignada, decide la landing exactamente como antes: para un workspace sin campañas
+  // asignadas —todos, el día que esto sale— no cambia nada.
+  //
+  // ⚠️ Se compara el `utm_campaign` contra los ids asignados, y es una comparación
+  // EXACTA, no un parecido: medido el 05/10/2026, el `utm_campaign` de los leads de
+  // landing ES el id de la campaña (35 de 35 en un cliente, 72 de 119 en otro; el resto
+  // trae un nombre, y un nombre no matchea nunca — cae a la landing, que es lo seguro).
+  // `esIdMeta` adentro de `funnelDeCampana` descarta lo que no sea un id antes de leer
+  // nada.
+  //
+  // ⚠️ Envuelto en `runWithWorkspace`: esta ruta no tiene sesión, y `funnelDeCampana`
+  // lee el workspace del CONTEXTO (ver su cabecera).
+  // Y el ANUNCIO (`utm_content`), del que sale el CONJUNTO: sin él, asignar un conjunto
+  // enrutaba el formulario de Meta y no la landing de esa misma campaña.
+  const porCampana = await runWithWorkspace(ws, () => funnelDeCampana({ campaignId: atrib.utm_campaign, adId: atrib.utm_content }))
+    .catch(() => ({ asignada: false as const }));
+  const funnelDelLead = porCampana.asignada ? porCampana.funnelId : funnelDeLaLanding;
 
   const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
 
@@ -301,7 +323,7 @@ export async function POST(req: NextRequest) {
         // El CRM al que entra. `null` NO es «sin producto»: es el embudo DEL
         // NEGOCIO, que es donde caen hoy los 1.530 leads de la base. Una landing
         // sin producto asignado sigue cayendo exactamente ahi.
-        funnel_id: funnelDeLaLanding,
+        funnel_id: funnelDelLead,
       }));
       await runWithWorkspace(ws, () =>
         emitirDelCatalogo('lead-de-landing', {

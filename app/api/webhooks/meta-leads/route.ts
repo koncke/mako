@@ -106,6 +106,9 @@ type GraphLeadResponse = {
   adset_name?: string;
   ad_name?: string;
   ad_id?: string;
+  /** Los ids que DECIDEN el producto (los nombres de arriba sólo se muestran). */
+  campaign_id?: string;
+  adset_id?: string;
   error?: { code?: number; message?: string };
 };
 
@@ -123,7 +126,11 @@ async function fetchLeadFromGraph(leadgenId: string, ws: number): Promise<GraphL
   // llegar horas después, y el poll rescata leads de hasta 90 días. Sin pedirlo,
   // `leads.meta_created_at` nace vacío por este camino y la atribución por fecha
   // mide la ingesta.
-  url.searchParams.set('fields', 'field_data,created_time,campaign_name,adset_name,ad_name,ad_id');
+  //
+  // `campaign_id` y `adset_id` desde el 05/10/2026: un nombre no es una clave (se
+  // renombra, se repite) y con estos ids el lead nace en el tablero del PRODUCTO al que
+  // esa campaña o ese conjunto están asignados (lib/campana-funnel.ts).
+  url.searchParams.set('fields', 'field_data,created_time,campaign_name,adset_name,ad_name,ad_id,campaign_id,adset_id');
 
   const res = await fetch(url.toString());
   const body = (await res.json()) as GraphLeadResponse;
@@ -226,6 +233,8 @@ export async function POST(request: NextRequest) {
           meta_ad_name: graphLead.ad_name ?? null,
           meta_campaign_name: graphLead.campaign_name ?? null,
           meta_adset_name: graphLead.adset_name ?? null,
+          meta_campaign_id: graphLead.campaign_id ?? null,
+          meta_adset_id: graphLead.adset_id ?? null,
           // Las respuestas CRUDAS del formulario y la fecha real de Meta. El parser
           // saca cuatro campos por palabra clave; lo demás se descartaba sin rastro, y
           // Meta borra el field_data a los 90 días. `noReconocidos` termina en el

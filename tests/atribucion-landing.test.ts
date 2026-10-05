@@ -164,8 +164,23 @@ test('⚠️ el `fbclid` se escribe en TODOS los lugares donde se escribe un utm
       // interpola `utm_content` y no escribe nada. Una línea con backtick es una cadena que
       // se DIBUJA: lo que este guard persigue son las escrituras.
       .split(/\r?\n/).filter((l) => !l.includes('`')).join('\n');
-    const utms = (t.match(/utm_content/g) ?? []).length;
-    const fbs = (t.match(/fbclid/g) ?? []).length;
+    // ⚠️ Y SE DESCUENTAN LAS LECTURAS (05/10/2026). El segundo falso positivo de la misma
+    // familia: el opt-in pasó a LEER `atrib.utm_content` para enrutar por campaña
+    // (`funnelDeCampana({ …, adId: atrib.utm_content })`), una lectura que no escribe nada y
+    // contaba como escritor. Una ESCRITURA es toda mención que NO sea una lectura de
+    // propiedad: `x.campo` cuenta sólo si es una asignación (`x.campo = …`, no `==`).
+    // Así siguen contando las cuatro formas de escribir que hay en estos archivos —la
+    // clave de un objeto, `setIfEmpty('campo', …)`, `extraUpdates.campo = …` y la
+    // declaración del tipo— y deja de contar lo que sólo usa el valor.
+    // Medido al cambiarlo: sano, 2/2 en el opt-in y 7/7 en leads.ts; sacando el fbclid de
+    // cualquiera de los cuatro escritores (el alta del opt-in, el insert, el setIfEmpty o
+    // el extraUpdates), falla. La regex de sólo-claves que se probó antes se perdía dos de
+    // esas cuatro formas.
+    const escrituras = (k: string) =>
+      (t.match(new RegExp(`\\b${k}\\b`, 'g')) ?? []).length
+      - (t.match(new RegExp(`\\.${k}\\b(?!\\s*=(?!=))`, 'g')) ?? []).length;
+    const utms = escrituras('utm_content');
+    const fbs = escrituras('fbclid');
     assert.ok(
       fbs >= utms,
       `${ruta}: ${utms} menciones de utm_content y sólo ${fbs} de fbclid. Todo lugar que escribe un utm tiene que escribir el fbclid, o el campo se apaga en el próximo guardado`,

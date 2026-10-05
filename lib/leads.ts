@@ -20,6 +20,7 @@ import {
   CAMPO_RESPUESTAS_META,
   type MetaFieldData,
 } from './meta-leads-campos';
+import { funnelDeCampana } from './campana-funnel';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 // El apartado de insights de la llamada LEE closing_analyses; acá sólo se engancha
 // a este lead el análisis que ya existe de la grabación recién cargada (gratis).
@@ -126,6 +127,8 @@ export type Lead = {
   suscripcion_meses?: number | null;        // plazo fijo en meses; null = indefinida
 
   adset_id_origen: string | null;
+  /** La campaña de Meta de la que vino (mig 0193). Decide el producto si está asignada. */
+  meta_campaign_id?: string | null;
 
   // UTMs — vienen del webhook de Calendly (vía landing en Lovable)
   utm_source: string | null;
@@ -1093,6 +1096,13 @@ export async function upsertLeadFromMeta(input: {
   meta_ad_name?: string | null;
   meta_campaign_name?: string | null;
   meta_adset_name?: string | null;
+  /**
+   * Los IDS de la campaña y el conjunto. Los nombres de arriba se muestran; estos
+   * DECIDEN: si la campaña o el conjunto están asignados a un producto
+   * (`lib/campana-funnel.ts`), el lead NUEVO nace en el tablero de ese producto.
+   */
+  meta_campaign_id?: string | null;
+  meta_adset_id?: string | null;
   /** Las respuestas crudas del formulario. Vacío NO borra lo guardado (ver abajo). */
   meta_field_data?: MetaFieldData | null;
   /** El `created_time` de Meta: ISO de Graph o el entero en segundos del webhook. */
@@ -1145,6 +1155,13 @@ export async function upsertLeadFromMeta(input: {
     meta_campaign_name: input.meta_campaign_name ?? null,
     meta_adset_name: input.meta_adset_name ?? null,
     origen_lead: 'instant_form',
+    // ⚠️ LOS DOS IDS VAN SÓLO SI VIENEN, igual que las columnas crudas de abajo y por
+    // la misma razón: este objeto se escribe también en el UPDATE de un lead que ya
+    // existía, y un `?? null` haría que una ingesta sin el id (una respuesta de Graph
+    // incompleta) le BORRARA la campaña al lead. El conjunto va a `adset_id_origen`,
+    // la columna que existe desde la 0001 y que nadie escribía (ver la mig 0193).
+    ...(input.meta_campaign_id?.trim() ? { meta_campaign_id: input.meta_campaign_id.trim() } : {}),
+    ...(input.meta_adset_id?.trim() ? { adset_id_origen: input.meta_adset_id.trim() } : {}),
     ...columnasCrudasDeMeta({ fieldData: input.meta_field_data, createdTime: input.meta_created_at }),
   };
 
@@ -1159,6 +1176,12 @@ export async function upsertLeadFromMeta(input: {
     const rastro = rastroDescartes(input.meta_campos_no_reconocidos ?? []);
     if (rastro) await logLeadEvent(leadId, CAMPO_RESPUESTAS_META, rastro, 'Meta');
   };
+
+  // ── A QUÉ PRODUCTO VA, según la campaña o el conjunto ─────────────────────
+  // Se resuelve UNA vez y lo usan las dos ramas: el INSERT para decidir el tablero, el
+  // UPDATE para dejar rastro si la persona volvió por un producto distinto. Tolerante:
+  // sin poder leer la asignación devuelve `asignada: false` y todo sigue como hoy.
+  const porCampana = await funnelDeCampana({ campaignId: input.meta_campaign_id, adsetId: input.meta_adset_id });
 
   if (existing) {
     // Completar contacto solo si estaba vacío — no pisar datos existentes
@@ -1186,6 +1209,20 @@ export async function upsertLeadFromMeta(input: {
     if (error) throw new Error(`Error actualizando lead ${existing.id} desde Meta: ${error.message}`);
     await avisarFusion('Meta', data as Lead, existing.email ? 'mismo email' : 'mismo teléfono');
     await dejarRastroDeDescartes(existing.id);
+    // ⚠️ LA PERSONA VOLVIÓ POR UNA CAMPAÑA DE OTRO PRODUCTO: NO SE LA MUEVE. Sacarla del
+    // tablero donde la están trabajando —con su etapa, su closer, quizás ya Ganada—
+    // porque vio otro anuncio es destructivo y nadie lo pidió. Pero que pasó es un
+    // DATO, y sin esta línea se pierde: el lead quedaría con la campaña nueva escrita
+    // arriba y ninguna pista de que esa campaña es de otro producto.
+    const funnelActual = existing.funnel_id ?? null;
+    if (porCampana.asignada && porCampana.funnelId !== funnelActual) {
+      await logLeadEvent(
+        existing.id,
+        'Producto',
+        `Volvió a entrar por «${porCampana.nombre}», que es de ${porCampana.producto}. Sigue en su tablero.`,
+        'Meta',
+      ).catch(() => { /* el rastro no puede tumbar la ingesta */ });
+    }
     return { created: false, lead: data as Lead };
   }
 
@@ -1201,6 +1238,9 @@ export async function upsertLeadFromMeta(input: {
       telefono_normalizado: telNorm,
       ...(soloMeta ? { setter: soloMeta, closer: soloMeta } : {}),
       ...metaFields,
+      // Sólo con un embudo CONCRETO: el del negocio es `null`, que es lo que la fila ya
+      // tiene sin escribir nada. Ver `lib/campana-funnel.ts`.
+      ...(porCampana.asignada && porCampana.funnelId != null ? { funnel_id: porCampana.funnelId } : {}),
     })
     .select('*')
     .single();

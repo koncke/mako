@@ -42,6 +42,7 @@ import {
   type EmbudoEnDetalle, type EtapaDelFunnel, type NutricionDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
 } from './actions';
 import { EmbudoEntradas } from './EmbudoEntradas';
+import { CampanasDelProducto } from './CampanasDelProducto';
 import { CerrarIcon, LapizIcon } from './iconos';
 import { MoverPartido } from './MoverPartido';
 
@@ -585,6 +586,17 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         funnelId={funnelId ?? undefined}
                         onGuardado={() => { void cargar(); setEntradasAbierto(false); router.refresh(); }}
                       />
+                      {/* LAS CAMPAÑAS QUE ENTRAN A ESTE PRODUCTO (05/10/2026). Van en la
+                          misma caja que «cómo entra tu gente» porque contestan lo mismo
+                          —por dónde llega la gente a ESTE embudo— con un dato más exacto.
+                          Cada cambio se guarda solo: no espera al «Guardar» de arriba, que
+                          es de las casillas. */}
+                      {/* ⚠️ EL PRINCIPAL VA COMO `null`, y no con su id: el selector del
+                          tablero abre este pop-up con el id NUMÉRICO del principal, y con
+                          ese número el selector no veía sus campañas y no dejaba asignar
+                          ninguna (revisión adversarial del 05/10/2026). Es la misma guarda
+                          que este modal ya tiene arriba (`!emb.esDefault && funnelId != null`). */}
+                      <CampanasDelProducto funnelId={emb.esDefault ? null : emb.id} nombreProducto={emb.nombre} />
                     </div>
                   )}
                 </div>

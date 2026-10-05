@@ -78,6 +78,8 @@ type LeadRow = {
   ad_name?: string;
   adset_name?: string;
   campaign_name?: string;
+  campaign_id?: string;
+  adset_id?: string;
   field_data?: MetaFieldData;
 };
 
@@ -140,7 +142,10 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
     if (!form.id) continue;
     let leadsUrl: string | null =
       `${GRAPH}/${META_GRAPH_VERSION}/${form.id}/leads` +
-      `?fields=created_time,ad_id,ad_name,adset_name,campaign_name,field_data` +
+      // `campaign_id,adset_id`: los mismos dos que pide el webhook. Si una de las dos
+      // puertas los pidiera y la otra no, el mismo lead naceria en un producto u otro
+      // segun por donde entro — sin error, y sin forma de saberlo despues.
+      `?fields=created_time,ad_id,ad_name,adset_name,campaign_name,campaign_id,adset_id,field_data` +
       `&limit=${PAGE_SIZE}&access_token=${token}`;
     let leadPages = 0;
     let cortar = false;
@@ -167,6 +172,8 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
             meta_ad_name: lr.ad_name ?? null,
             meta_campaign_name: lr.campaign_name ?? null,
             meta_adset_name: lr.adset_name ?? null,
+            meta_campaign_id: lr.campaign_id ?? null,
+            meta_adset_id: lr.adset_id ?? null,
             // Las respuestas CRUDAS y la fecha real de Meta. El poll ya las pedía
             // () y el created_time sólo servía para cortar la
             // ventana de arriba, así que un lead rescatado de hace 60 días nacía con

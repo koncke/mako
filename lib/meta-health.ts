@@ -289,6 +289,45 @@ async function edgeUrl(path: string, fields: string): Promise<() => URL> {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Campañas y conjuntos, para ASIGNARLOS a un producto (05/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CampanaMeta = { id: string; nombre: string; estado: string };
+export type ConjuntoMeta = { id: string; nombre: string; estado: string; campanaId: string };
+
+/**
+ * Las campañas y los conjuntos de la cuenta publicitaria del workspace, para el
+ * selector de «Lead entrante» (app/crm/CampanasDelProducto.tsx).
+ *
+ * Vive acá y no en un módulo nuevo porque éste ya es el que habla con las edges de la
+ * cuenta (`edgeUrl` + `graphGetAll`, con su paginación y su lector de errores que mira
+ * el `body.error` adentro de un 200). Un segundo cliente de Graph para lo mismo sería
+ * la segunda implementación del paginado, y ahí es donde se cuelan los topes mudos.
+ *
+ * ⚠️ Pide en VIVO y no a `marketing_metrics_daily`, que ya tiene campañas guardadas:
+ * esa tabla sólo conoce lo que GASTÓ (sale de los insights), así que una campaña recién
+ * creada —justo la que alguien quiere asignar antes de prenderla— no estaría.
+ *
+ * Tira si no hay credenciales o Meta contesta un error: quien llama decide qué mostrar.
+ * Un `[]` acá diría «tu cuenta no tiene campañas», que es otra cosa.
+ */
+export async function campanasYConjuntos(): Promise<{ campanas: CampanaMeta[]; conjuntos: ConjuntoMeta[] }> {
+  const [campRaw, adsetRaw] = await Promise.all([
+    (async () => graphGetAll(await edgeUrl('campaigns', 'id,name,effective_status')))(),
+    (async () => graphGetAll(await edgeUrl('adsets', 'id,name,campaign_id,effective_status')))(),
+  ]);
+  const txt = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+  return {
+    campanas: campRaw
+      .map((r) => ({ id: txt(r.id), nombre: txt(r.name), estado: txt(r.effective_status) }))
+      .filter((c) => c.id),
+    conjuntos: adsetRaw
+      .map((r) => ({ id: txt(r.id), nombre: txt(r.name), estado: txt(r.effective_status), campanaId: txt(r.campaign_id) }))
+      .filter((c) => c.id),
+  };
+}
+
 function centavosAMxn(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
