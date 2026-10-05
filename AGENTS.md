@@ -317,6 +317,21 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   Re-correrlo cuesta 7 segundos.
 - **Verde sobre algo que el vecino acaba de romper.** El espejo, y nadie lo nota porque
   un verde no se audita.
+- ⚠️ **Y si se lo reportás a la otra sesión, FECHÁ la observación y volvé a medir
+  antes de mandarla.** No alcanza con verificar de quién es el archivo — eso puede estar
+  bien y el reporte igual llegar mintiendo, porque entre que mediste y el otro lee pasaron
+  minutos y él siguió tipeando. Medido el 05/10/2026: el árbol estuvo **rojo ∼10:48, verde
+  ∼10:57** (un push pasó los hooks ahí) y el commit que lo cerraba de verdad llegó **11:13**.
+  En el medio salió un mensaje diciendo «tu edición está BLOQUEANDO EL PUSH DE TODO EL
+  REPO» sobre algo que ya estaba verde: mandó a cazar un bloqueo que no existía, y el dueño
+  del archivo tuvo que gastar un turno en demostrar que no.
+
+  **«Leí esto a las 11:08» es una observación; «tu edición bloquea el repo» es una
+  acusación.** La primera envejece sola y el otro la puede descartar en un vistazo; la
+  segunda obliga a defenderse. Un ` M` en `git status --short` mientras alguien trabaja es
+  una **ventana**, no un bug: se nombra como tal. Re-medir cuesta 7 segundos y el mensaje
+  lleva la hora.
+
 
 De ahí tres cosas que valen siempre que haya más de una sesión:
 
