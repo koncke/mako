@@ -879,6 +879,8 @@ export type CtxEvento = {
    * donde va el otro es un número correcto sobre la pregunta equivocada.
    */
   productoId?: number | string | null;
+  /** De qué etapa SALIÓ. `null` = recién entra. Ver `cerrarEntregaDeEtapa`. */
+  desde?: string | null;
 };
 
 // Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
@@ -894,6 +896,58 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   // `secuenciasDeEntrega`.
   entrega: [TRIGGER_ENTREGA],
 };
+
+/**
+ * CERRAR lo que la etapa anterior tenía pendiente.
+ *
+ * ⚠️ UNA SECUENCIA DE ETAPA HABLA DE UN MOMENTO, Y EL MOMENTO SE TERMINA. Un cliente
+ * que estaba en «onboarding» con un mensaje agendado para dentro de tres días y que hoy
+ * pasó a «hito 2» no puede recibir «¿cómo venís con el arranque?»: la condición que
+ * hacía verdadero a ese mensaje dejó de valer. Es la misma regla que ya está escrita
+ * para la post-agenda («un mensaje que habla de un MOMENTO se re-pregunta al salir»),
+ * aplicada acá — y lo que la dispara no es una pantalla, es el movimiento.
+ *
+ * Y de paso resuelve el DESHACER, que es lo que avisó la sesión de Customer Success: el
+ * toast del kanban vuelve a llamar al choke point con la etapa anterior, así que un
+ * arrepentimiento a los tres segundos llega acá como un movimiento de vuelta. Cerrando
+ * lo pendiente de la etapa que se deja, el mensaje de la etapa equivocada no sale —
+ * **salvo que ya hubiera salido**, que es el caso de un primer paso con `delay_horas: 0`
+ * y no tiene cura de este lado: un mensaje que ya está en el teléfono de alguien no se
+ * deshace. Por eso esto NO necesita saber si fue un deshacer o un movimiento de verdad:
+ * la regla es la misma para los dos, y meterle un dato de UI al modelo sería peor.
+ *
+ * Devuelve cuántas cerró. Nunca tira: cerrar de menos deja un mensaje de más, que es
+ * malo, pero romper el movimiento del kanban es peor.
+ */
+export async function cerrarEntregaDeEtapa(
+  leadId: number,
+  etapaDesde: string | null | undefined,
+  productoId: number | string | null | undefined,
+): Promise<number> {
+  try {
+    const key = (etapaDesde ?? '').trim();
+    if (!key) return 0;
+    const supabase = await getTenantDb();
+    // Las secuencias de LA ETAPA QUE SE DEJA, con el mismo criterio con el que se
+    // enrolan las de la etapa nueva: una función, no dos.
+    const deLaEtapa = secuenciasDeEntrega(await getSecuenciasActivas(), key, productoId);
+    if (!deLaEtapa.length) return 0;
+    const { data, error } = await supabase
+      .from('nutricion_inscripciones')
+      .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() })
+      .eq('lead_id', leadId)
+      .eq('estado', 'activa')
+      .in('secuencia_id', deLaEtapa.map((x) => x.id))
+      .select('id');
+    if (error) { console.error(`[nutricion] cerrarEntregaDeEtapa(${leadId}, ${key}): ${error.message}`); return 0; }
+    const n = (data ?? []).length;
+    if (n) console.log(`[nutricion] lead ${leadId} salió de «${key}»: ${n} inscripción(es) cerrada(s)`);
+    return n;
+  } catch (e) {
+    console.error(`[nutricion] cerrarEntregaDeEtapa(${leadId}):`, e instanceof Error ? e.message : String(e));
+    return 0;
+  }
+}
 
 /**
  * Enrola a UN lead en las secuencias activas del evento y dispara su primer
@@ -932,7 +986,13 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     }
     // La ENTREGA no necesita resolver ningún ámbito contra la base: el producto es el
     // producto, sin default ni NULL que signifique otra cosa.
-    if (evento === 'entrega') delEvento = secuenciasDeEntrega(delEvento, ctx?.etapa, ctx?.productoId);
+    if (evento === 'entrega') {
+      // PRIMERO se cierra lo de la etapa que se deja y DESPUÉS se enrola en la nueva:
+      // al revés, un movimiento de ida y vuelta dejaría viva la inscripción de la etapa
+      // que el cliente ya no tiene.
+      await cerrarEntregaDeEtapa(leadId, ctx?.desde, ctx?.productoId);
+      delEvento = secuenciasDeEntrega(delEvento, ctx?.etapa, ctx?.productoId);
+    }
     // El tope de antigüedad vale también acá: un evento de un lead viejo (una
     // agenda nueva, un lead re-importado) no lo mete a una secuencia que no le
     // escribe a leads de esa edad.

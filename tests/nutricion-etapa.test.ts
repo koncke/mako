@@ -213,3 +213,47 @@ test('el choke point de Customer Success enrola con el evento de ENTREGA y con e
 //   · borrando la llamada en lib/cs-mover-etapa.ts: **1 fallo**, el guard de cableado
 //     (y el de la sesión de Customer Success sigue en verde, que es justo su punto
 //     ciego: prohíbe el evento de venta y no exige que haya alguno).
+
+// ── Salir de una etapa CIERRA lo que esa etapa tenía agendado ───────────────
+// Lo avisó la sesión de Customer Success: el «Deshacer» del toast del kanban vuelve a
+// llamar al choke point con la etapa anterior, así que un arrepentimiento a los tres
+// segundos llega al motor como un movimiento de vuelta. Y la regla que lo cubre no es
+// «detectar el deshacer» —eso sería meter un dato de UI en el modelo— sino la que ya
+// está escrita en AGENTS.md: un mensaje que habla de un MOMENTO se re-pregunta al salir.
+
+test('el motor cierra lo pendiente de la etapa que se DEJA, antes de enrolar la nueva', () => {
+  const bloque = bloqueDe('lib/nutricion.ts', "    if (evento === 'entrega') {", '\n    const secuencias:');
+  assert.ok(bloque.length < 1200, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+  assert.match(bloque, /cerrarEntregaDeEtapa\(leadId, ctx\?\.desde/, 'el evento de entrega tiene que cerrar lo de la etapa anterior');
+  // El ORDEN importa: al revés, un movimiento de ida y vuelta deja viva la inscripción
+  // de la etapa que el cliente ya no tiene.
+  assert.ok(
+    bloque.indexOf('cerrarEntregaDeEtapa') < bloque.indexOf('secuenciasDeEntrega'),
+    'primero se cierra lo viejo y después se enrola lo nuevo',
+  );
+});
+
+test('cerrar usa EL MISMO criterio que enrolar, no una copia', () => {
+  // Dos formas de preguntar «qué secuencias son de esta etapa de este producto» es
+  // cómo se desincronizan: la que cierra tiene que ser la misma que la que enrola.
+  const bloque = bloqueDe('lib/nutricion.ts', 'export async function cerrarEntregaDeEtapa(', '\nexport async function enrolarPorEvento(');
+  assert.match(bloque, /secuenciasDeEntrega\(/, 'el cierre tiene que resolver las secuencias con la misma función');
+  assert.match(bloque, /estado: 'completada'/, 'se cierra con el mismo estado que usa el motor');
+  assert.match(bloque, /\.eq\('estado', 'activa'\)/, 'sólo se cierran las ACTIVAS: una ya cerrada no se vuelve a tocar');
+  assert.ok(!/throw/.test(bloque), 'no puede tirar: romper el movimiento del kanban es peor que cerrar de menos');
+});
+
+test('salir de la entrega también cierra, y no enrola nada', () => {
+  // El cierre es el `}` a COLUMNA CERO: `sacarClienteDeEntrega` es la última función del
+  // archivo, así que anclarse en «lo que viene después» la ata a que no venga nada.
+  const bloque = bloqueDe('lib/cs-mover-etapa.ts', 'export async function sacarClienteDeEntrega(', '\n}\n');
+  assert.match(bloque, /cerrarEntregaDeEtapa\(leadId, etapa, productoId\)/, 'salir de la entrega deja mensajes agendados sobre una etapa que ya no existe');
+  assert.ok(!/enrolarPorEvento/.test(bloque), 'salir no es llegar a ninguna etapa: no se enrola nada');
+});
+
+// Probado rompiéndolo (05/10/2026):
+//   · borrando la llamada a `cerrarEntregaDeEtapa` del evento: 1 fallo.
+//   · invirtiendo el orden (enrolar antes de cerrar): 1 fallo, el del orden.
+//   · reemplazando `secuenciasDeEntrega` por un filtro a mano adentro del cierre:
+//     1 fallo, el de «el mismo criterio».
+//   · borrando el cierre de `sacarClienteDeEntrega`: 1 fallo.

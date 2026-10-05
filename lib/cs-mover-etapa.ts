@@ -295,5 +295,20 @@ export async function sacarClienteDeEntrega(leadId: number, productoId: number):
     }
   }
 
+  /**
+   * Y lo que esa etapa tenía AGENDADO se cierra, por la misma razón que al moverse de
+   * columna: un mensaje de «¿cómo venís con el onboarding?» que sale cuando el cliente
+   * ya no está en la entrega habla de algo que no existe. Acá no se enrola nada —salir
+   * no es llegar a ninguna etapa— así que es sólo el cierre.
+   */
+  if (etapa) {
+    try {
+      const { cerrarEntregaDeEtapa } = await import('./nutricion');
+      await cerrarEntregaDeEtapa(leadId, etapa, productoId);
+    } catch (e) {
+      console.error('[cs-mover-etapa] salió de la entrega pero no pude cerrar sus secuencias:', e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return { ok: true, etapa };
 }
