@@ -16,15 +16,19 @@ Lo lee la sesión de la otra cuenta: es el único canal entre las dos.
 
 ## Lo que quedó SIN TERMINAR, en orden de riesgo
 
-### 1. ⚠️ La verificación en el navegador de la ficha sin botón «Editar»
-Quedó una corrida de agentes **corriendo y sin leer** cuando se cerró la cuenta
-(`wf_75bcd300-1f6`). El implementador terminó y dejó typecheck verde; **nadie abrió
-la pantalla**. El botón se sacó, `EditLeadForm.tsx` se borró y aparecieron
-`app/crm/[id]/EditarDeal.tsx` y `app/crm/lead-view/MotivoYPlazoCard.tsx`.
+### 1. La ficha sin botón «Editar»: VERIFICADA, con un bug arreglado y otro abierto
+La corrida terminó y se leyó. Veredicto: el botón se fue por las dos puertas (cero
+controles de editar en 10 pasadas), la edición de texto guarda de verdad y «Borrar
+lead» sigue existiendo en las dos con su confirmación.
 
-**Qué mirar:** que `/crm/<id>` no muestre «Editar lead →», que un campo de texto se
-edite con click y guarde, que un desplegable (closer/setter) abra, y que **Borrar
-lead siga existiendo** — vivía adentro del formulario borrado.
+**Arreglado (commit 1c08d4d7):** vaciar el setter en un workspace sin equipo cargado
+hacía DESAPARECER el desplegable al recargar — el campo quedaba inasignable justo
+después de vaciarlo, y la única salida era «Restaurar» desde el historial, que además
+borra esa entrada. Le pegaba a todo cliente nuevo.
+
+**ABIERTO:** al panel lateral le falta la COHORTE que la ruta sí dibuja. No se arregla
+pasando la prop: sale de `lib/leads.ts` (2.600 líneas con dependencias de servidor) y
+`LeadSheet` es `use client`. Se calcula en el server y baja por props, como hace la ruta.
 
 ### 2. ⚠️ El replay de sesión: completo pero sin la vuelta entera
 Está todo: grabador, ingesta, retención, reproductor, artefactos en `public/replay/1/`
