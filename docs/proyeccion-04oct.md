@@ -177,6 +177,15 @@ cuenta**, así que para ésos el riesgo está sin medir. Cuesta una línea evita
 webhook de pago cierre el estado, o declarar el embudo «Venta directa · sin reunión» que ya
 existe (`lib/pipeline.ts:928`).
 
+⚠️ **Y «declarar el embudo» recién alcanza desde HOY.** Hasta el commit `865dffb4` de esta
+tarde, el opt-in de una landing **no pasaba `funnel_id` en ninguna línea** (cero
+coincidencias en todo el archivo), así que todo lead de landing caía al embudo por defecto
+hubiera o no un embudo propio declarado. Ya está arreglado — pero **el importador sigue sin
+pasarlo** (`app/crm/leads-importar.ts`, cero menciones de «funnel»), así que cualquier lista
+que se suba a mano entra al embudo genérico igual. Si la proyección cuenta con que el
+tráfico frío caiga en un embudo propio, esa pata existe para la landing y no para la
+importación.
+
 Y hay un segundo filo: `nutricion_secuencias.funnel_id` existe desde la mig 0170 y **no lo
 lee nadie**, así que con dos embudos vivos el mismo lead se enrola en las dos secuencias y
 **recibe los dos WhatsApp.**
