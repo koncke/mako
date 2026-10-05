@@ -6013,3 +6013,89 @@ volver reaparecería sola. Por eso se limpia al cambiar de vista y no al conmuta
 - **El `Dropdown` de la casa no tiene `title` por opción.** Lo que decía a cuántas se aplica
   el deadline viaja ahora en el `<span>` de afuera y en el `sub` de la primera fila; el
   arreglo de fondo está anotado como pendiente en el propio componente desde antes.
+
+---
+
+## ⚠️ Un plan tiene FECHA, y el tablero sobre el que se aplica también (03-04/10/2026)
+
+**«Yo había depurado y sacado muchos deadline como el de offer analyst y generator… me
+cambiaste todo eso, vuelve a lo que estaba»** (Martín, 04/10/2026).
+
+La cronología, leída del historial del propio tablero y en UTC:
+
+| cuándo | quién | qué |
+|---|---|---|
+| **01/10 22:32-22:52** | Martín | pone fechas a mano sobre catorce proyectos |
+| **03/10 19:26** | Martín | **saca** el deadline de SEIS: Offer Analyst, Offer Generator, Landing Analyst, Landing Generator, VSL Analyst, VSL Generator |
+| **03/10 19:30** | Martín | Onboarding y Oferta y precios → 2026-10-09 |
+| **03/10 19:33** | Martín | Video Generator e Image Generator → 2026-10-14 |
+| **03/10 19:40** | *mi corrida* | aplica el plan de la llamada con Leila **del 1/10** y escribe las fechas de ese plan encima de los diez |
+
+**Catorce minutos.** El plan que escribí era de una llamada de dos días antes; lo que pisé
+se había decidido esa misma tarde. Y la corrida no miró ni una vez si lo que iba a
+sobrescribir había cambiado desde que ese plan se decidió.
+
+La regla que esto viola ya estaba escrita en este documento —«dos fuentes con fecha distinta
+que se contradicen: gana la más NUEVA»— y estaba escrita mirando el otro lado del problema
+(un `detalle` viejo que resucita un modelo de negocio muerto). Acá yo TENÍA la fuente nueva
+respecto del detalle… y el tablero tenía una más nueva todavía, que era la mano de la
+persona esa misma tarde.
+
+### La regla que queda
+
+**Antes de escribir un plan sobre un tablero, comparar lo que se va a escribir contra lo que
+HAY, y frenar en todo lo que una persona tocó después de que ese plan se decidiera.** Es
+una consulta, no una intuición: `updated_at` y la última entrada de historial de cada fila
+dicen exactamente eso. Lo que se encuentre no se resuelve solo — se reporta y lo decide
+quien hizo el cambio.
+
+⚠️ **Y el caso más caro es el que NO se ve en un diff de valores: la ausencia.** Cuatro de
+los diez cambiaron de fecha y eso se nota; los otros seis habían quedado **sin** fecha a
+propósito, y escribirles una no se lee como «te pisé una decisión» sino como «apareció una
+fecha». Una depuración es un trabajo que deja el campo VACÍO, y un vacío es justo lo que un
+plan que enumera fechas no tiene cómo distinguir de un hueco por llenar.
+
+### Cómo se revirtió, y por qué el cruce importa
+
+No alcanza con «borrarle la fecha a los que alguna vez la tuvieron»: eso sería inventar otra
+depuración. Las dos mitades se revirtieron con un cruce que cada una verifica contra el
+historial:
+
+- **Los seis que habían quedado sin fecha** (`scripts/revertir-deadlines-resucitados.ts`):
+  se revierte sólo el que cumple LAS DOS condiciones — su historial dice «Quitó el deadline»
+  **y** hoy tiene exactamente el mismo valor que tenía ANTES de que se lo quitaran. La
+  segunda es la que lo hace seguro: cinco proyectos más tienen «Quitó el deadline» en su
+  historial y una fecha hoy, y a esos **no se los tocó**, porque alguien les puso una fecha
+  nueva después — eso es una decisión, no un pisotón.
+- **Los cuatro a los que les cambió la fecha** (`scripts/revertir-deadlines-del-roadmap.ts`):
+  cada uno vuelve al valor de la última entrada `user` anterior a la mía, y el script lo
+  **verifica** contra el historial en vez de confiar en la lista cableada.
+
+⚠️ **Y «sin deadline» se escribe `''`, no `null`.** La columna es NOT NULL: el primer intento
+rebotó con «violates not-null constraint» en los seis. Es lo que escribe `labelToRow`
+(`lib/plan-board.ts:193`), y la buena noticia del modo de falla es que falló RUIDOSO y no
+escribió nada a medias.
+
+### ⚠️ Y dos veces me equivoqué de diagnóstico antes de llegar a éste
+
+Vale la pena anotarlo porque las dos son trampas del método, no del código:
+
+1. **«Fue un upsert de la fila entera desde un estado viejo».** Encajaba perfecto —el valor
+   viejo de vuelta, y aparentemente sin rastro en el historial— y es un modo de falla que
+   este repo ya tiene documentado, así que sonaba conocido. Era falso: el mensaje de mi
+   propio commit (`89eac723`) nombra una por una las fechas que escribió. **Antes de culpar
+   a un mecanismo, leé el commit que hizo el cambio.**
+2. **«Lo escribió sin dejar entrada de historial».** También falso, y la causa es del
+   arnés: mi probe cortaba el texto de cada entrada a 34 caracteres, y la entrada decía
+   `Llamada con Leila del 1/10: prioridad 94 a 96 **y fecha 2026-…**`. El rastro estaba y mi
+   medición se lo comía. Es «Grep sirve para ENCONTRAR, no para CITAR» con otra cara: un
+   recorte de visualización que se usa para concluir.
+
+### Lo que NO se tocó, y lo decide Martín
+
+La misma corrida **reordenó los scores** de esos catorce proyectos (las entradas dicen
+«prioridad 94 a 96», «93 a 88», «92 a 87»…). Eso no se revirtió: reordenar era lo que se le
+había pedido a la corrida en ese momento, y deshacerlo por mi cuenta sería la misma falta en
+el otro sentido. Queda dicho para que lo decida él.
+
+**Vive en:** `scripts/revertir-deadlines-resucitados.ts` · `scripts/revertir-deadlines-del-roadmap.ts` · `scripts/probe-deadlines-tocados.ts` · *2026-10-04*

@@ -1228,6 +1228,27 @@ Un detalle que enumera un modelo de negocio y una sesión posterior que lo desca
 «dos opiniones»: gana la más NUEVA, siempre. Si no sabés cuál es más nueva, todavía no
 tenés el contexto para reordenar nada.
 
+⚠️ **Y LA FUENTE MÁS NUEVA PUEDE SER EL TABLERO MISMO — lo que la persona tocó HOY.** Es la
+misma regla mirada del otro lado, y se pagó el 03/10/2026. Una corrida aplicó al tablero el
+plan de una llamada del 1/10; catorce minutos antes Martín había depurado las fechas a mano
+—le sacó el deadline a SEIS proyectos y se lo cambió a otros cuatro— y la corrida escribió
+las fechas del plan encima de los diez sin mirar una sola vez si lo que iba a pisar había
+cambiado desde que ese plan se decidió. Lo reportó al día siguiente: «yo había depurado y
+sacado muchos deadline… me cambiaste todo eso».
+
+**Antes de escribir un plan sobre un tablero, compará lo que vas a escribir contra lo que
+HAY, y frená en todo lo que una persona tocó después de que ese plan se decidiera.** Es una
+consulta y no una intuición —`updated_at` y la última entrada del historial de cada fila lo
+dicen—, y lo que aparezca no se resuelve solo: se reporta y lo decide quien lo cambió.
+
+⚠️ **Y el caso que NO se ve en un diff de valores es la AUSENCIA.** Que una fecha cambie de
+10-14 a 10-21 se nota; que aparezca una fecha donde alguien la había sacado A PROPÓSITO no
+se lee como «te pisé una decisión» sino como «apareció una fecha». Una depuración es trabajo
+que deja el campo VACÍO, y un vacío es exactamente lo que un plan que enumera fechas no
+tiene cómo distinguir de un hueco por llenar. Si tu plan escribe un campo, la pregunta no es
+sólo «¿qué valor tiene hoy?» sino **«¿alguien lo vació a propósito?»** — y eso lo contesta
+el historial, no la columna.
+
 # Crear tareas dispara al Perro, y el Perro re-curva TODOS los proyectos
 
 `aplicarPropuesta` corre la priorización sobre el tablero entero, no sólo sobre lo que
