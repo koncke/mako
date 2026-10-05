@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SecuenciaPerfil } from './SecuenciaPerfil';
+import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
 
@@ -62,7 +63,9 @@ async function blobABase64(b: Blob): Promise<string> {
 
 type Paso = { t: 'typing' } | { t: 'msg'; msg: HiloMsg };
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onWizard, onReload, productos, disparadores }: {
+  productos: ProductoOpcion[];
+  disparadores: Opcion[];
   secuencias: SecuenciaDto[];
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
@@ -279,6 +282,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
       {detalle && sel ? (
         <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
+          productos={productos} disparadores={disparadores}
           secuencias={secuencias}
           onAbrirClave={(clave) => {
             // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra

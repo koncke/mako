@@ -14,10 +14,14 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia,
-  muestraParaCriterio, muestraATexto,
+  muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
+// El catálogo de disparadores vive en UN lugar (lib/email-marketing.ts, junto al de
+// etapas) y viaja en el payload: un componente cliente no puede importar un módulo con
+// `server-only`, y copiar las 18 etiquetas acá es crear la segunda copia que se desfasa.
+import { TRIGGERS } from '@/lib/email-marketing';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { chatClaude } from '@/lib/anthropic';
 import { renderPrompt } from '@/lib/prompt-render';
@@ -88,8 +92,12 @@ export async function GET() {
     const etapas = (funnel?.stages ?? [])
       .filter((s) => (s.band ?? 'pipeline') !== 'salidas')
       .map((s) => ({ value: s.key, label: s.label }));
+    // Los PRODUCTOS con sus etapas: lo que el desplegable del disparador necesita.
+    // `etapas` (arriba) sigue siendo el del embudo del NEGOCIO y no se saca: lo usa el
+    // wizard que crea una secuencia, y romperlo de paso no es parte de este cambio.
+    const productos = await productosConEtapas().catch(() => []);
     return Response.json({
-      ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas,
+      ok: true, secuencias, serie, rolAdmin: rol === 'admin', objetivos: OBJETIVOS, etapas, productos, disparadores: TRIGGERS,
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
       negocio: wsRow?.nombre ?? '', huecos, handoffs: await handoffsPendientes().catch(() => []),
       canal,
@@ -125,10 +133,22 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown };
+  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown; funnelId?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
+    // El disparador de una secuencia: «si un lead cae en ESTA etapa de ESTE producto».
+    if (body.action === 'disparador') {
+      const id = Number(body.secuenciaId);
+      if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+      // `funnelId` ausente o null = «todos los productos», que es una elección y no un
+      // olvido: la pantalla la ofrece como opción con ese nombre.
+      const fid = body.funnelId == null || body.funnelId === '' ? null : Number(body.funnelId);
+      if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'producto inválido' }, { status: 400 });
+      await setDisparadorEtapa(id, String(body.etapa ?? ''), fid);
+      return Response.json({ ok: true });
+    }
+
     if (body.action === 'crear') {
       const etapa = String(body.etapa ?? '').trim();
       const nombre = String(body.nombre ?? '').trim();

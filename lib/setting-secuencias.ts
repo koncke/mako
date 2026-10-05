@@ -11,6 +11,8 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
+import { TRIGGER_ETAPA } from './nutricion-etapa';
+import { listarFunnels, getFunnelDe, getFunnelDefault } from './funnels';
 import { parseEstrategia, type Estrategia } from './setting-estrategia';
 import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasSecuencia, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
@@ -81,6 +83,87 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
     .single();
   if (error) throw new Error(`crearSecuenciaDesdeEtapa: ${error.message}`);
   return (data as { id: number }).id;
+}
+
+/**
+ * Los PRODUCTOS del workspace con las etapas de cada uno, para el desplegable del
+ * disparador. Un producto es un embudo (mig 0170/0171) y sus etapas son las que el
+ * dueño configuró en /funnel, así que esto no inventa un catálogo: lee el que ya hay.
+ *
+ * ⚠️ EL NOMBRE QUE SE MUESTRA ES EL DEL PRODUCTO, NO EL DEL EMBUDO. «Funnel principal»
+ * lo escribió la migración y es igual en todos los workspaces: quien mira piensa en su
+ * producto. Es la misma lección que ya está escrita en `FunnelResumen.producto`.
+ *
+ * Las etapas de SALIDA (band 'salidas': perdido, descalificado) no se ofrecen: colgar
+ * una secuencia de mensajes de «perdido» es escribirle a quien dijo que no.
+ */
+export type ProductoConEtapas = {
+  funnelId: number;
+  nombre: string;
+  esDefault: boolean;
+  etapas: Array<{ value: string; label: string }>;
+};
+
+export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
+  const funnels = await listarFunnels();
+  const out: ProductoConEtapas[] = [];
+  for (const f of funnels) {
+    // El default se lee con `getFunnelDefault` (es el camino que ya cachea la pantalla);
+    // el resto por id. Son pocas filas —6 en producción— y se piden una vez por carga.
+    const cfg = f.esDefault ? await getFunnelDefault().catch(() => null) : await getFunnelDe(f.id).catch(() => null);
+    out.push({
+      funnelId: f.id,
+      nombre: f.producto ?? f.nombre,
+      esDefault: f.esDefault,
+      etapas: (cfg?.stages ?? [])
+        .filter((st) => (st.band ?? 'pipeline') !== 'salidas')
+        .map((st) => ({ value: st.key, label: st.label })),
+    });
+  }
+  return out;
+}
+
+/**
+ * «Si un lead cae en ESTA etapa de ESTE producto, disparate» — el disparador de una
+ * secuencia, elegido por el dueño.
+ *
+ * Pedido de Martín (05/10/2026): «esto debería leer eso y que el usuario pueda elegir que
+ * si cae en dicha etapa, se dispare esa secuencia». Antes la etapa se fijaba al CREAR la
+ * secuencia y no se podía cambiar, y el producto no se podía elegir nunca: las 62 filas de
+ * producción tienen `funnel_id` NULL, o sea «todos los productos», porque ninguna pantalla
+ * ofrecía el dato.
+ *
+ * ⚠️ VALIDA QUE LA ETAPA EXISTA EN ESE PRODUCTO, Y NO ES UN LUJO. Una etapa de otro embudo
+ * es una combinación imposible: la secuencia queda colgada de una key que ese funnel no
+ * tiene y no dispara NUNCA — sin error, sin aviso, y leyéndose como «la secuencia no
+ * funciona». La regla de la casa es que eso se ataja al guardar y no en el log de un cron.
+ *
+ * `funnelId = null` es «todos los productos», y es una elección explícita del dueño: la
+ * secuencia le aplica a cualquier lead que caiga en una etapa con esa key.
+ */
+export async function setDisparadorEtapa(secuenciaId: number, etapa: string, funnelId: number | null): Promise<void> {
+  const key = (etapa ?? '').trim();
+  if (!key) throw new Error('Elegí la etapa que dispara la secuencia.');
+
+  const productos = await productosConEtapas();
+  if (funnelId == null) {
+    // «Todos los productos»: la etapa tiene que existir en ALGUNO, o es una key muerta.
+    const existe = productos.some((pr) => pr.etapas.some((e) => e.value === key));
+    if (!existe) throw new Error(`La etapa «${key}» no existe en ninguno de tus productos.`);
+  } else {
+    const pr = productos.find((x) => x.funnelId === funnelId);
+    if (!pr) throw new Error('Ese producto no existe o está archivado.');
+    if (!pr.etapas.some((e) => e.value === key)) {
+      throw new Error(`«${key}» no es una etapa de ${pr.nombre}: elegí una de las suyas.`);
+    }
+  }
+
+  const supabase = await getTenantDb();
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ trigger_tipo: TRIGGER_ETAPA, etapa: key, funnel_id: funnelId, updated_at: new Date().toISOString() })
+    .eq('id', secuenciaId);
+  if (error) throw new Error(`setDisparadorEtapa: ${error.message}`);
 }
 
 // ── Prompts del wizard (editables en /configuraciones vía prompt-registry) ────

@@ -8,11 +8,13 @@
 // pausar, abrir el wizard para que MaKo redacte, y probarla DE VERDAD (te llega
 // a tu teléfono/mail). Setter = solo lectura (sin botones de escritura).
 
-import { useState, type CSSProperties } from 'react';
-import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto } from './ChatAgentApp';
+import { useMemo, useState, type CSSProperties } from 'react';
+import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { EstrategiaWizard } from './EstrategiaWizard';
 import { FlujoLienzo } from './FlujoLienzo';
+import { Dropdown } from '@/app/components/Dropdown';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
+import { TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -33,10 +35,14 @@ const lineas = (s: string): string[] => s.split(/\r?\n/).map((x) => x.trim()).fi
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, onAbrirClave, onClose, onCambio, onWizard }: {
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver el «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
+  /** Los productos del CRM con sus etapas, para elegir el disparador. */
+  productos: ProductoOpcion[];
+  /** Las etiquetas de los 18 disparadores, para decir la verdad del que tiene puesto. */
+  disparadores: Opcion[];
   onAbrirClave: (clave: string) => void;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
@@ -53,6 +59,38 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   onWizard: () => void;
 }) {
   const est = secuencia.estrategia;
+  /**
+   * EL DISPARADOR: «si un lead cae en ESTA etapa de ESTE producto».
+   *
+   * Pedido de Martín (05/10/2026). El dato existía en la base desde la mig 0170 y no
+   * había pantalla: las 62 secuencias de producción tienen `funnel_id` NULL porque
+   * ninguna lo ofrecía, y la etapa se fijaba al CREAR y no se podía cambiar.
+   *
+   * ⚠️ EL PRODUCTO ES ESTADO LOCAL Y LA ETAPA NO. Cambiar de producto no guarda nada
+   * todavía: la etapa que estaba puesta puede no existir en el producto nuevo, y guardar
+   * eso deja la secuencia colgada de una key que ese embudo no tiene — o sea, una
+   * secuencia que no dispara nunca, sin error. Se guarda cuando el par es válido.
+   */
+  const [funnelSel, setFunnelSel] = useState<number | null>(secuencia.funnel_id ?? null);
+  /**
+   * ⚠️ NO TODA SECUENCIA SE DISPARA POR UNA ETAPA, Y DECIR QUE SÍ ERA MENTIRA.
+   *
+   * Hay 18 disparadores (`TRIGGERS`, lib/email-marketing.ts) y 17 consultan columnas del
+   * funnel («dejó el formulario sin agendar», «no asistió a R1»…): para ésos la columna
+   * `etapa` existe pero NO es lo que los dispara. La primera versión de este control
+   * mostraba «Se dispara al caer en <etapa>» para todos, y guardar ahí convertía un
+   * disparador de formulario en uno de etapa SIN QUE NADIE LO PIDIERA.
+   *
+   * Lo cazó el navegador, no el código: en el ws1 las tres secuencias tienen triggers
+   * legacy (`instant_form_sin_agenda`) con `etapa` legacy (`nutri`, `postagenda`), que
+   * además NO existe en ninguno de los dos productos del workspace.
+   *
+   * Así que el control se OFRECE y no se impone: si la secuencia ya se dispara por etapa,
+   * se edita; si no, se dice por qué se dispara de verdad y hay un botón para cambiarla.
+   */
+  const [cambiandoAEtapa, setCambiandoAEtapa] = useState(false);
+  const esDeEtapa = secuencia.trigger_tipo === TRIGGER_ETAPA;
+  const etiquetaDisparador = disparadores.find((d) => d.value === secuencia.trigger_tipo)?.label ?? secuencia.trigger_tipo;
   // string y no Objetivo: el dueño puede haber escrito el suyo con "Otro".
   const [objetivo, setObjetivo] = useState<string>(est?.objetivo ?? 'agendar');
   const [gancho, setGancho] = useState(est?.gancho ?? '');
@@ -160,6 +198,13 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     setBusy(null);
   }
 
+    const guardarDisparador = async (etapa: string, funnelId: number | null) => {
+    const j = await api({ action: 'disparador', secuenciaId: secuencia.id, etapa, funnelId });
+    if (!j.ok) { setErr(j.error ?? 'No se pudo guardar el disparador'); return; }
+    setErr(null);
+    onCambio();
+  };
+
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
     try {
@@ -224,6 +269,32 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   }
 
   const nPreg = preguntas.split('\n').filter((p) => p.trim()).length;
+  /**
+   * Las etapas que se ofrecen: las del producto elegido, o la unión de todos cuando es
+   * «Todos los productos».
+   *
+   * ⚠️ Y LA QUE ESTÁ PUESTA ENTRA SIEMPRE, MARCADA. Es la trampa del `<select>` que ya
+   * está escrita en AGENTS.md: un `value` que no está entre sus `<option>` no muestra
+   * nada —el control queda en la primera opción— y el primer click lo BORRA, o sea que
+   * cambiar de producto podría reescribir el disparador sin que nadie lo pida.
+   */
+  const etapasOfrecidas = useMemo(() => {
+    const pr = funnelSel == null ? null : productos.find((x) => x.funnelId === funnelSel);
+    const base = pr
+      ? pr.etapas
+      : [...new Map(productos.flatMap((x) => x.etapas).map((e) => [e.value, e])).values()];
+    if (secuencia.etapa && !base.some((e) => e.value === secuencia.etapa)) {
+      return [{ value: secuencia.etapa, label: `${etiquetaEtapa(secuencia.etapa)} (no es de este producto)` }, ...base];
+    }
+    return base;
+  }, [funnelSel, productos, secuencia.etapa, etiquetaEtapa]);
+
+  const etapaEstaEnElProducto = useMemo(() => {
+    const pr = funnelSel == null ? null : productos.find((x) => x.funnelId === funnelSel);
+    const base = pr ? pr.etapas : productos.flatMap((x) => x.etapas);
+    return !secuencia.etapa || base.some((e) => e.value === secuencia.etapa);
+  }, [funnelSel, productos, secuencia.etapa]);
+
   const pasosWa = secuencia.pasos.filter((p) => p.canal === 'whatsapp').length;
   const pasosEmail = secuencia.pasos.filter((p) => p.canal === 'email').length;
 
@@ -274,7 +345,51 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{secuencia.nombre}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{etiquetaEtapa(secuencia.etapa)} · {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--faint)', display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                {rolAdmin && productos.length > 0 && (esDeEtapa || cambiandoAEtapa) ? (
+                  <>
+                    <span>Se dispara al caer en</span>
+                    <Dropdown
+                      value={secuencia.etapa}
+                      options={etapasOfrecidas}
+                      onChange={(v) => void guardarDisparador(v, funnelSel)}
+                      ariaLabel="Etapa que dispara la secuencia"
+                      buttonStyle={{ fontSize: 11.5, padding: '2px 6px' }}
+                    />
+                    <span>de</span>
+                    <Dropdown
+                      value={funnelSel == null ? '' : String(funnelSel)}
+                      options={[{ value: '', label: 'Todos los productos' }, ...productos.map((pr) => ({ value: String(pr.funnelId), label: pr.nombre }))]}
+                      onChange={(v) => {
+                        const fid = v === '' ? null : Number(v);
+                        setFunnelSel(fid);
+                        // Sólo se guarda si la etapa que ya está puesta existe en ese
+                        // producto. Si no, se espera a que elija una de las suyas: la
+                        // lista de arriba ya cambió y la de abajo lo dice.
+                        const pr = fid == null ? null : productos.find((x) => x.funnelId === fid);
+                        const vale = fid == null
+                          ? productos.some((x) => x.etapas.some((e) => e.value === secuencia.etapa))
+                          : !!pr?.etapas.some((e) => e.value === secuencia.etapa);
+                        if (vale) void guardarDisparador(secuencia.etapa, fid);
+                      }}
+                      ariaLabel="Producto del que se miran las etapas"
+                      buttonStyle={{ fontSize: 11.5, padding: '2px 6px' }}
+                    />
+                    {!etapaEstaEnElProducto && <span style={{ color: 'var(--warn)' }}>Elegí una etapa de este producto</span>}
+                  </>
+                ) : (
+                  <>
+                    <span>Se dispara: {etiquetaDisparador}</span>
+                    {rolAdmin && productos.length > 0 && (
+                      <button onClick={() => setCambiandoAEtapa(true)}
+                        style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', cursor: 'pointer' }}>
+                        Cambiar a una etapa
+                      </button>
+                    )}
+                  </>
+                )}
+                <span>· {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}</span>
+              </div>
             </div>
             <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Pausada'}</span>

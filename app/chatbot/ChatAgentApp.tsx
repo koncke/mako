@@ -56,6 +56,14 @@ export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
   activa: boolean; pasos: PasoSecuenciaDto[]; inscriptos: number; enviados: number;
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
+  /** El PRODUCTO al que se acota (el embudo). null = todos los productos. */
+  funnel_id?: number | null;
+};
+
+/** Un producto del CRM con las etapas que el dueño le configuró. */
+export type ProductoOpcion = {
+  funnelId: number; nombre: string; esDefault: boolean;
+  etapas: Array<{ value: string; label: string }>;
 };
 export type Opcion = { value: string; label: string };
 
@@ -101,6 +109,8 @@ function ChatAgentInner() {
   const [rolAdmin, setRolAdmin] = useState(false);
   const [objetivos, setObjetivos] = useState<Opcion[]>([]);
   const [etapas, setEtapas] = useState<Opcion[]>([]);
+  const [productos, setProductos] = useState<ProductoOpcion[]>([]);
+  const [disparadores, setDisparadores] = useState<Opcion[]>([]);
   const [leadMagnets, setLeadMagnets] = useState<Array<{ id: string; nombre: string }>>([]);
   // Etapas de nutrición sin ninguna secuencia que las cubra. Reemplaza al viejo
   // seed: en vez de inventar secuencias con copy de relleno, se avisa qué falta.
@@ -165,6 +175,7 @@ function ChatAgentInner() {
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setSerie(j.serie ?? []); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
+      setProductos(j.productos ?? []); setDisparadores(j.disparadores ?? []);
       setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
@@ -411,7 +422,7 @@ function ChatAgentInner() {
         <>
           {vista === 'whatsapp' && (
             <SimuladorWhatsApp
-              secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa}
+              secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
               negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
               onWizard={(id) => setWizard(id)} onReload={() => void load()}
             />
