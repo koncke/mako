@@ -150,8 +150,7 @@ export const FILTRO_LABEL: Record<FiltroClientes, string> = {
  * sigue llamándola igual que antes.
  */
 export function BarraClientes({
-  q, onQ, vista, onVista, vistas = ['tarjetas', 'tabla'],
-  servicios = [], servicio = null, onServicio,
+  q, onQ, vista, onVista, vistas = ['tarjetas', 'tabla'], extremo,
   filtro, onFiltro, orden, onOrden, onExportar, onImportar,
   nVisibles, nTotal, progreso, placeholder = 'Buscar por nombre o empresa…',
   filtros = FILTRO_LABEL, ordenes = ORDEN_LABEL, filtroBase = 'todos', ordenBase = 'nombre',
@@ -165,15 +164,13 @@ export function BarraClientes({
   /** Las vistas que ESTA pantalla puede dibujar. Ver el porqué en `VistaClientes`. */
   vistas?: readonly VistaClientes[];
   /**
-   * Los servicios entre los que elige el kanban, y cuál está elegido.
+   * Lo que va al final de la barra, pegado a los tres puntos.
    *
-   * ⚠️ APARECE SÓLO EN KANBAN, y no es una decisión de prolijidad: las otras dos
-   * vistas contestan «quiénes son mis clientes y qué trabajo tienen», que no depende
-   * de ningún servicio. Un selector a la vista ahí prometería que filtra la grilla.
+   * Lo pone quien la monta y no esta pieza: Customer Success manda ahí el selector de
+   * servicio —y sólo en la vista de etapas, porque las otras dos contestan «quiénes
+   * son mis clientes», que no depende de ningún servicio— y /admin no manda nada.
    */
-  servicios?: { id: number; nombre: string }[];
-  servicio?: number | null;
-  onServicio?: (id: number) => void;
+  extremo?: ReactNode;
   filtro: string;
   onFiltro: (v: string) => void;
   orden: string;
@@ -216,6 +213,11 @@ export function BarraClientes({
 }) {
   return (
     <div className="bc">
+      {/* ⚠️ EL ORDEN ES PEDIDO Y NO ESTÉTICO (05/10/2026): primero CÓMO se mira, después
+          QUÉ se busca, y recién ahí con qué se recorta. «El botón de filtro va luego de la
+          barra de búsqueda. Y los íconos de kanban y tabla, antes de la barra de búsqueda.» */}
+      <VistaToggleClientes vista={vista} onSet={onVista} vistas={vistas} />
+
       <label className="bc-buscar">
         {/* El ícono no es decorativo: sin él, un input vacío al lado de dos botones
             cuadrados se lee como un campo más y no como «buscá acá». */}
@@ -230,6 +232,10 @@ export function BarraClientes({
         )}
       </label>
 
+      <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
+        filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase}
+        cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir} />
+
       {/* ⚠️ EL CONTADOR SÓLO APARECE CUANDO LA VISTA ESTÁ RECORTADA. «3 de 12» con los
           12 a la vista no informa nada; con un filtro puesto es lo único que dice por
           qué faltan nueve. Un filtro que esconde sin decirlo es esconder sin pista. */}
@@ -237,23 +243,12 @@ export function BarraClientes({
 
       <span style={{ flex: 1 }} />
 
-      {/* ⚠️ EL SELECTOR DE SERVICIO VA ANTES DEL TOGGLE, no después: es lo que decide
-          QUÉ tablero se está mirando, y un control que gobierna la vista entera no
-          puede vivir a la derecha de los tres puntos. */}
-      {vista === 'kanban' && servicios.length > 1 && onServicio && (
-        <SelectorServicio servicios={servicios} servicio={servicio} onServicio={onServicio} />
-      )}
-      <VistaToggleClientes vista={vista} onSet={onVista} vistas={vistas} />
-      <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
-        filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase}
-        cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir} />
-      {/* ⚠️ ES **LA** BARRA DEL PLAN, no una parecida. «Falta la barra de progreso en
-          los 3 puntitos en clientes, y los íconos; asegurate de copiar el diseño»
-          (27/09/2026) — y copiar un diseño es escribir el segundo, que es el que se
-          queda viejo. Se importa la pieza y se le pasan las acciones de acá.
-          `compacto` va fijo en `true`: en el plan el header MIDE si los botones
-          entran y los pliega; acá son dos y siempre viven adentro del menú, así que
-          medir sería una decisión que no cambia nunca. */}
+      {/* ⚠️ EL SELECTOR DE SERVICIO VA A LA DERECHA, pegado a los tres puntos: es lo que
+          decide QUÉ tablero se está mirando, y arriba del todo hay una sola cosa de esas. */}
+      {/* ⚠️ EL SELECTOR LO PONE QUIEN MONTA LA BARRA, y no esta pieza: /admin tambien
+          la monta y no tiene servicios. Entra por `extremo`, que es el hueco de la
+          derecha, pegado a los tres puntos. */}
+      {extremo}
       <BarraAcciones compacto progreso={progreso} acciones={[
         { key: 'exportar',
           nodo: null,
@@ -305,28 +300,6 @@ function VistaToggleClientes({ vista, onSet, vistas }: {
         </button>
       ))}
     </div>
-  );
-}
-
-/**
- * De qué servicio es el tablero.
- *
- * ⚠️ SÓLO SE DIBUJA CON MÁS DE UNO. Con un servicio único el selector no ofrece
- * ninguna decisión, y el nombre del servicio ya está arriba de las columnas.
- */
-function SelectorServicio({ servicios, servicio, onServicio }: {
-  servicios: { id: number; nombre: string }[];
-  servicio: number | null;
-  onServicio: (id: number) => void;
-}) {
-  return (
-    <label className="bc-serv">
-      <span className="bc-serv-rot">Servicio</span>
-      <select value={servicio ?? ''} onChange={(e) => onServicio(Number(e.target.value))}
-        aria-label="De qué servicio es el tablero">
-        {servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-      </select>
-    </label>
   );
 }
 
@@ -506,15 +479,6 @@ const CSS = `
 .bc-buscar button:hover{ color:var(--ink); }
 .bc-cuenta{ font-size:12.5px; color:var(--dim); white-space:nowrap; }
 
-/* El selector de servicio: gobierna QUE tablero se mira, asi que se lee como un
-   control y no como un dato. */
-.bc-serv{ display:inline-flex; align-items:center; gap:7px; flex:0 1 auto; min-width:0; }
-.bc-serv-rot{ flex:none; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase;
-  font-weight:700; color:var(--dim); }
-.bc-serv select{ flex:0 1 auto; min-width:0; max-width:230px; padding:6px 9px; font:inherit;
-  font-size:13px; font-weight:600; color:var(--ink); background:var(--surface);
-  border:1px solid var(--border); border-radius:9px; cursor:pointer; }
-.bc-serv select:hover{ border-color:var(--border-strong); }
 .bc-toggle{ display:inline-flex; flex:none; background:var(--surface-2); border:1px solid var(--border);
   border-radius:9px; padding:2px; }
 .bc-toggle button{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px;

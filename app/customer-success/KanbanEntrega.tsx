@@ -46,14 +46,18 @@
 // rAF mueve 0 px.
 
 import { useMemo, useRef, useState } from 'react';
-import { Marca } from '@/app/_components/Marca';
-import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
-import { Modal } from '@/app/_ui';
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo } from './trabajo';
-import { ClienteCard, colorDe } from './ClienteCard';
-import type { EtapaEntrega } from '@/lib/servicio-etapas';
+import { ClienteCard } from './ClienteCard';
+import { repartirEnEtapas, type EtapaEntrega } from '@/lib/servicio-etapas';
+// ⚠️ EL MISMO MOLDE QUE EL PLAN, no una copia. «La animación de arrastrar tarjetas por
+// el kanban, eso replicalo tal cual de como lo hacemos en PLAN» (Martín, 05/10/2026).
+// Estaba inline en `BoardShell.tsx` y salió a su módulo para que las dos pantallas usen
+// la misma pieza: todo lo que ahí está medido —la foto que pinta el sistema operativo,
+// el `transform` sobre un ref, el listener en captura, el auto-scroll adentro del
+// `dragover`— viajó con el código en vez de volver a escribirse.
+import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 
 /** Dónde está un cliente en esta entrega. */
 export type Asignacion = { etapa: string; etapa_desde: string; por: string };
@@ -85,7 +89,7 @@ const DIAS_TRABADO = 21;
 export function KanbanEntrega({
   etapas, origen, servicio, clientes, asignacion, numeroDe,
   trabajoDe, tableroOk, cuentas,
-  onMover, onSacar, onAbrir, onEquipo, onNuevoCliente, onEditarEtapas, onError, puedeEditar,
+  onMover, onAbrir, onEquipo, onNuevoCliente, onError,
 }: {
   etapas: EtapaEntrega[];
   /** `default` = nadie configuró estas columnas. La pantalla lo DICE. */
@@ -103,15 +107,17 @@ export function KanbanEntrega({
   tableroOk: boolean;
   cuentas?: CuentasProp;
   onMover: (leadId: number, etapa: string) => void;
-  onSacar: (leadId: number) => void;
   onAbrir: (leadId: number) => void;
   onEquipo: (leadId: number) => void;
-  /** Crear un cliente. ⚠️ VIVE ACÁ PORQUE LA GRILLA SE FUE: era la primera tarjeta de
-   *  la grilla, y sin este botón la única puerta de alta quedaba en la vista de tabla. */
-  onNuevoCliente: () => void;
-  onEditarEtapas: () => void;
+  /**
+   * Crear un cliente, naciendo en ESA etapa.
+   *
+   * ⚠️ RECIBE LA ETAPA, y no es un detalle: un botón de alta por columna que crea
+   * siempre en la primera es un control que promete algo que no hace. La etapa viaja
+   * para que el alta termine donde se apretó.
+   */
+  onNuevoCliente: (etapa: string) => void;
   onError: (m: string) => void;
-  puedeEditar: boolean;
 }) {
   /**
    * La tarjeta en la mano, DOS VECES: un ref para DECIDIR y un estado para PINTAR.
@@ -125,47 +131,51 @@ export function KanbanEntrega({
    */
   const enMano = useRef<number | null>(null);
   const [agarrado, setAgarrado] = useState<number | null>(null);
-  /** La columna sobre la que está el cursor. Sólo se repinta cuando CAMBIA. */
-  const [encima, setEncima] = useState<string | null>(null);
-  const [sumando, setSumando] = useState(false);
+  /**
+   * DÓNDE VA A CAER: la columna Y el índice exacto. Sólo se repinta cuando CAMBIA.
+   *
+   * ⚠️ ES LO QUE CONVIERTE «la estoy soltando en esta columna» EN «la estoy soltando
+   * ACÁ». Antes esto era sólo la columna, y lo único que se veía era el fondo teñido:
+   * el hueco es la mitad del gesto que el Plan sí tiene.
+   */
+  const [ins, setIns] = useState<{ etapa: string; idx: number } | null>(null);
   const copia = useRef<HTMLElement | null>(null);
   const riel = useRef<HTMLDivElement | null>(null);
 
-  /** Los clientes de esta entrega, por etapa. */
-  const porEtapa = useMemo(() => {
-    // ⚠️ SE INICIALIZA CON EL UNIVERSO. Una columna sin clientes tiene que existir como
-    // lista VACÍA: si no entrara al mapa, el lector recibiría `undefined` y «nadie acá»
-    // sería indistinguible de «no pude leer».
-    const m: Record<string, ClienteCruce[]> = {};
-    for (const e of etapas) m[e.key] = [];
-    for (const c of clientes) {
-      const a = asignacion[c.leadId];
-      // Una etapa guardada que ya no está en el catálogo NO se dibuja en ningún lado, y
-      // eso es un cliente invisible: lo junta la bolsa de abajo, que lo dice.
-      if (a && m[a.etapa]) m[a.etapa].push(c);
-    }
-    return m;
-  }, [etapas, clientes, asignacion]);
-
   /**
-   * Los que están en la entrega con una etapa que el catálogo ya no tiene.
+   * Cada cliente en su columna.
    *
-   * ⚠️ ESTO NO PUEDE QUEDAR MUDO. `nuevaClaveEtapa` nunca reusa una clave borrada —para
-   * que nadie reaparezca dentro de una columna nueva— así que el cliente de una etapa
-   * eliminada queda sin columna. Sin este renglón se vería como que se fue de la
-   * entrega, que es una afirmación falsa.
+   * ⚠️ UN CLIENTE SIN FILA ESTÁ EN LA PRIMERA, no afuera del tablero: la regla y su
+   * porqué viven en `repartirEnEtapas`. Acá lo que importa es que el reparto NO se
+   * escribe dos veces — el editor de etapas cuenta con la misma función, y si una de
+   * las dos supiera la regla y la otra no, el editor diría «0 en Onboarding» sobre una
+   * columna con catorce tarjetas a la vista.
    */
-  const huerfanos = useMemo(
-    () => clientes.filter((c) => { const a = asignacion[c.leadId]; return a && !etapas.some((e) => e.key === a.etapa); }),
-    [clientes, asignacion, etapas],
+  const { porEtapa, huerfanos } = useMemo(
+    () => repartirEnEtapas(etapas, clientes, (c) => asignacion[c.leadId]?.etapa),
+    [etapas, clientes, asignacion],
   );
 
-  /** Los clientes de la cartera que todavía no están en esta entrega. */
-  const afuera = useMemo(() => clientes.filter((c) => !asignacion[c.leadId]), [clientes, asignacion]);
-
-  const enEntrega = clientes.length - afuera.length;
-
   // ── El gesto ───────────────────────────────────────────────────────────────
+
+  /**
+   * LOS PUNTOS MEDIOS DE CADA TARJETA, MEDIDOS UNA SOLA VEZ Y EN COORDENADAS DE PÁGINA.
+   *
+   * ⚠️ UNA VEZ, porque leer layout en cada `dragover` es lo que hace que un arrastre se
+   * sienta pegajoso: el tablero del Plan se reportó roto siete veces por re-medir las 55
+   * tarjetas de una columna sesenta veces por segundo.
+   *
+   * ⚠️ Y DE PÁGINA (`+ window.scrollY`), porque el auto-scroll invalida cualquier
+   * rectángulo medido contra la ventana — después de correr 600 px, los medidos al agarrar
+   * apuntan 600 px arriba del cursor. O sea que el scroll rompía el drop justo cuando
+   * hacía su trabajo.
+   */
+  const medidas = useRef<Record<string, number[]>>({});
+
+  // La copia que sigue al cursor y el empuje VERTICAL salen del molde del Plan. El empuje
+  // HORIZONTAL del riel se queda acá: `scrollerDe` sólo mira `overflowY`, así que un riel
+  // `overflow-x: auto` no es un scroller para él y devuelve la ventana.
+  const { empujarScroll, pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
 
   function agarrar(e: React.DragEvent<HTMLElement>, leadId: number) {
     const tarjeta = e.currentTarget.closest<HTMLElement>('[data-tarjeta]');
@@ -174,51 +184,38 @@ export function KanbanEntrega({
     setAgarrado(leadId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(leadId));
-    try {
-      const vacio = document.createElement('canvas');
-      vacio.width = 1; vacio.height = 1;
-      e.dataTransfer.setDragImage(vacio, 0, 0);
-    } catch { /* si el navegador no deja, queda la suya y el gesto igual funciona */ }
+    fotoVaciaDeArrastre(e.dataTransfer);
 
     const r = tarjeta.getBoundingClientRect();
-    const clon = tarjeta.cloneNode(true) as HTMLElement;
-    Object.assign(clon.style, {
-      position: 'fixed', top: '0', left: '0', width: `${r.width}px`, margin: '0',
-      // El fondo se fuerza OPACO: si el computado del original fuera transparente, la
-      // copia hereda lo que haya detrás y se ve igual de fantasmal que la del sistema.
-      background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '12px',
-      boxShadow: '0 18px 40px rgba(18,21,27,.34)', pointerEvents: 'none', zIndex: '3000',
-      transform: `translate3d(${r.left}px, ${r.top}px, 0)`, transition: 'none', opacity: '1',
-    });
-    document.body.appendChild(clon);
-    copia.current = clon;
+    montarCopia(tarjeta, e.clientX - r.left, e.clientY - r.top);
 
-    const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    const seguir = (ev: globalThis.DragEvent) => {
-      if (!copia.current) { document.removeEventListener('dragover', seguir, true); return; }
-      copia.current.style.transform = `translate3d(${ev.clientX - dx}px, ${ev.clientY - dy}px, 0)`;
-    };
-    document.addEventListener('dragover', seguir, true);
-    const fin = () => {
-      document.removeEventListener('dragover', seguir, true);
-      document.removeEventListener('dragend', fin, true);
-      document.removeEventListener('drop', fin, true);
-      copia.current?.remove();
-      copia.current = null;
-    };
-    document.addEventListener('dragend', fin, true);
-    document.addEventListener('drop', fin, true);
+    const out: Record<string, number[]> = {};
+    for (const col of document.querySelectorAll<HTMLElement>('[data-etapa]')) {
+      out[col.dataset.etapa ?? ''] = [...col.querySelectorAll<HTMLElement>('[data-tarjeta]')]
+        .map((el) => { const q = el.getBoundingClientRect(); return q.top + q.height / 2 + window.scrollY; });
+    }
+    medidas.current = out;
   }
 
-  function soltarGesto() { enMano.current = null; setAgarrado(null); setEncima(null); }
+  function soltarGesto() {
+    enMano.current = null;
+    setAgarrado(null);
+    setIns(null);
+    medidas.current = {};
+    pararScroll();
+    soltarCopia();
+  }
 
-  /** Auto-scroll horizontal. Va adentro del `dragover` porque es lo único que el
-   *  navegador sigue entregando durante un arrastre nativo. */
+  /**
+   * El empuje HORIZONTAL del riel. Va adentro del `dragover` por lo mismo que el vertical:
+   * durante un arrastre nativo el navegador congela `requestAnimationFrame` y los timers, y
+   * lo único que sigue entregando es este evento.
+   */
   function autoScroll(e: React.DragEvent) {
     const el = riel.current;
     if (!el || enMano.current == null) return;
     const r = el.getBoundingClientRect();
-    const BORDE = 90;
+    const BORDE = 110;
     const dir = e.clientX < r.left + BORDE ? -1 : e.clientX > r.right - BORDE ? 1 : 0;
     if (dir !== 0) el.scrollLeft += dir * 18;
   }
@@ -227,9 +224,9 @@ export function KanbanEntrega({
     const id = enMano.current;
     soltarGesto();
     if (id == null) return;
-    // Soltar donde ya estaba no es un movimiento. El choke point también lo ignora,
-    // pero cortar acá evita el viaje y el banner de «se movió» sobre algo que no.
-    if (asignacion[id]?.etapa === key) return;
+    // Soltar donde ya estaba no es un movimiento, y el choke point también lo ignora:
+    // cortar acá evita el viaje y el cartel de «se movió» sobre algo que no se movió.
+    if ((asignacion[id]?.etapa ?? etapas[0]?.key) === key) return;
     onMover(id, key);
   }
 
@@ -241,47 +238,46 @@ export function KanbanEntrega({
 
   return (
     <div className="ke">
-      <div className="ke-arriba">
-        <span className="ke-cuenta">
-          {enEntrega} de {clientes.length} {clientes.length === 1 ? 'cliente' : 'clientes'} en esta entrega
-        </span>
-        {/* ⚠️ «ORIGEN DEFAULT» SE DICE. Sin este renglón, las etapas genéricas se leen
-            como una decisión del negocio — es el síntoma que ya se pagó con los funnels,
-            donde tres productos nuevos mostraban lo mismo que el embudo del negocio y
-            los tres parecían roto. */}
-        {origen === 'default' && (
-          <span className="ke-default">
-            Etapas de ejemplo.{' '}
-            {puedeEditar
-              ? <button type="button" onClick={onEditarEtapas}>Define las tuyas</button>
-              : 'Las define un administrador.'}
-          </span>
-        )}
-        {origen === 'declarado' && puedeEditar && (
-          <button type="button" className="ke-editar" onClick={onEditarEtapas}>Editar etapas</button>
-        )}
-        {/* ⚠️ CREAR UN CLIENTE VIVE ACÁ DESDE QUE LA GRILLA SE FUE. Era la primera
-            tarjeta punteada de la grilla; al quedar sólo kanban y tabla, sin esto el
-            alta sólo existía en la tabla — o sea, escondida detrás de cambiar de vista.
-            No se confunde con «Sumar un cliente» de la primera columna: aquél mete a un
-            cliente QUE YA EXISTE en esta entrega. */}
-        <button type="button" className="ke-nuevo" onClick={onNuevoCliente}>＋ Nuevo cliente</button>
-      </div>
-
+      {/* ⛔ ACÁ HUBO UNA CABECERA Y YA NO HAY NINGUNA (05/10/2026). Se fueron, en este
+          orden: «N de M clientes en esta entrega» —que dejó de tener sentido el día que
+          TODOS los clientes entran al tablero—, «Etapas de ejemplo · Define las tuyas»
+          —una glosa arriba del tablero sobre algo que se arregla en otro lado—, un
+          «＋ Nuevo cliente» —que ahora vive en cada columna y además dice en qué etapa
+          nace— y «Editar etapas», que se mudó al LÁPIZ del desplegable de servicios: ahí
+          edita las etapas de CUALQUIERA de los servicios, no sólo del que estás mirando.
+          Un renglón entero para un solo link era, además, el único que separaba la barra
+          del tablero. */}
       <div className="ke-riel" ref={riel} onDragOver={autoScroll}>
         {etapas.map((e, i) => {
           const cards = porEtapa[e.key] ?? [];
           return (
             <section key={e.key}
-              className={`ke-col${encima === e.key ? ' ke-col-destino' : ''}`}
+              data-etapa={e.key}
+              className={`ke-col${ins?.etapa === e.key ? ' ke-col-destino' : ''}`}
+              /* ⚠️ LA LÍNEA DE ARRIBA SALE DE LA ETAPA, no de una banda. El CRM la saca de
+                 `CATEGORY[bandToCategory(c.band)]`, que son TRES colores (avanza / nutre /
+                 sale); una etapa de entrega no tiene banda —a propósito: acá no hay
+                 nutrición ni descarte— así que copiado tal cual pintaría las cinco columnas
+                 del mismo verde. `dot` ya es un color por etapa y es el mismo que el punto
+                 de la cabecera, así que la línea y el punto no pueden desincronizarse. */
+              style={{ borderTop: `3px solid ${e.dot}` }}
+              /* `preventDefault` es lo que HABILITA el drop: sin él el navegador lo
+                 rechaza y no pasa nada, que se lee como que el arrastre no anda. */
               onDragOver={(ev) => {
                 if (enMano.current == null) return;
                 ev.preventDefault();
                 ev.dataTransfer.dropEffect = 'move';
-                // Sólo se repinta cuando el destino CAMBIA: es la diferencia entre un
-                // arrastre que se siente bien y uno que redibuja el tablero 60 veces
-                // por segundo.
-                setEncima((p) => (p === e.key ? p : e.key));
+                const y = ev.clientY + window.scrollY;
+                const ms = medidas.current[e.key] ?? [];
+                let idx = ms.length;
+                for (let k = 0; k < ms.length; k++) { if (y < ms[k]) { idx = k; break; } }
+                // Y sólo se re-renderiza cuando el destino cambia DE VERDAD.
+                setIns((p) => (p && p.etapa === e.key && p.idx === idx ? p : { etapa: e.key, idx }));
+              }}
+              onDragLeave={(ev) => {
+                if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) {
+                  setIns((p) => (p?.etapa === e.key ? null : p));
+                }
               }}
               onDrop={(ev) => { ev.preventDefault(); soltarEn(e.key); }}
             >
@@ -291,32 +287,43 @@ export function KanbanEntrega({
                 <span className="ke-n">{cards.length}</span>
               </header>
 
-              {/* Sumar vive en la PRIMERA columna, que es donde entra un cliente nuevo
-                  a una entrega. En las demás sería ofrecer saltearse el onboarding. */}
-              {i === 0 && (
-                <button type="button" className="ke-sumar" onClick={() => setSumando(true)}
-                  disabled={!afuera.length}
-                  title={afuera.length ? 'Sumar un cliente a esta entrega' : 'Todos tus clientes ya están en esta entrega'}>
-                  ＋ Sumar un cliente
-                </button>
-              )}
+              {/* ⚠️ CREAR VIVE EN CADA COLUMNA, como «＋ Nuevo lead» en el CRM. Antes era
+                  «Sumar un cliente» y SÓLO en la primera, porque un cliente podía estar
+                  afuera del tablero; desde que todos están adentro, «sumar» no existe como
+                  acción — lo que falta es dar de alta a uno nuevo, y desde una columna eso
+                  dice además en qué etapa nace. */}
+              <button type="button" className="ke-nuevo-col" onClick={() => onNuevoCliente(e.key)}>
+                ＋ Nuevo cliente
+              </button>
 
+              {/* EL HUECO: un recuadro punteado del alto de una tarjeta, en el índice
+                  exacto donde va a caer y SÓLO en la columna bajo el cursor. Es lo que
+                  convierte «la estoy soltando en esta columna» en «la estoy soltando ACÁ».
+                  ⚠️ El `+ '1f'` es un sufijo de alfa HEX y sólo funciona con hex de 6
+                  dígitos: `dot` lo es (lib/servicio-etapas.ts). Con un `rgb()` o un
+                  `var()` el color sale inválido y el navegador lo descarta en silencio. */}
               <ul className="ke-cards">
-                {cards.map((c) => {
+                {cards.map((c, iCard) => {
                   const a = asignacion[c.leadId];
                   const desde = hace(a?.etapa_desde);
                   const dias = a?.etapa_desde ? (Date.now() - Date.parse(a.etapa_desde)) / 86_400_000 : 0;
                   const trabado = Number.isFinite(dias) && dias >= DIAS_TRABADO;
-                  const nombre = c.nombre.trim() || 'Sin nombre';
+                  const hueco = ins?.etapa === e.key && ins.idx === iCard;
                   return (
                     <li key={c.leadId}>
+                      {hueco && <div className="ke-hueco" style={{ borderColor: e.dot, background: `${e.dot}1f` }} />}
                       {/* ⚠️ EL `draggable` VA EN EL ENVOLTORIO Y NO EN LA TARJETA.
                           `TarjetaEntidad` cubre su superficie con un `<button>` absoluto
                           y pone todo lo demás en `pointer-events: none`. Medido en el
                           navegador: el `dragstart` igual burbujea desde ese botón hasta
                           acá, así que el gesto arranca; lo que NO viaja es el cursor, y
                           por eso la hoja de abajo le pone `grab` a mano. */}
-                      <div data-tarjeta className={`ke-card${agarrado === c.leadId ? ' ke-card-mano' : ''}`}
+                      {/* ⚠️ AL NODO ORIGEN NO SE LE HACE NADA, y es una decisión medida del
+                          Plan, no un olvido: se probaron `opacity: .5`, un borde de color y
+                          un `scale`, y los tres se reportaron como ruido — con la copia
+                          siguiendo al cursor Y el hueco marcando el destino, atenuar el
+                          original hace aparecer la misma tarjeta tres veces. */}
+                      <div data-tarjeta className="ke-card"
                         draggable
                         onDragStart={(ev) => agarrar(ev, c.leadId)}
                         onDragEnd={soltarGesto}
@@ -332,17 +339,16 @@ export function KanbanEntrega({
                               {trabado ? `${desde.replace(/^hace /, '')} sin moverse` : desde}
                             </span>
                           )}
-                          accionExtra={(
-                            <button type="button" className="ke-sacar"
-                              title={`Sacar a ${nombre} de la entrega de ${servicio}`}
-                              aria-label={`Sacar a ${nombre} de la entrega de ${servicio}`}
-                              onClick={() => onSacar(c.leadId)}>Sacar</button>
-                          )}
                         />
                       </div>
                     </li>
                   );
                 })}
+                {/* El hueco del final: soltar DEBAJO de la última tarjeta, y el único que
+                    se ve en una columna vacía. */}
+                {ins?.etapa === e.key && ins.idx >= cards.length && (
+                  <li><div className="ke-hueco" style={{ borderColor: e.dot, background: `${e.dot}1f` }} /></li>
+                )}
               </ul>
               {/* ⚠️ UNA COLUMNA VACÍA LO DICE. Sin esto, una columna sin tarjetas y una
                   columna que no se pudo leer se ven iguales — y el hueco además no deja
@@ -361,74 +367,10 @@ export function KanbanEntrega({
         </p>
       )}
 
-      {sumando && (
-        <SumarCliente
-          servicio={servicio} candidatos={afuera} numeroDe={numeroDe}
-          etapa={etapas[0]}
-          onElegir={(leadId) => { setSumando(false); onMover(leadId, etapas[0].key); }}
-          onCerrar={() => setSumando(false)}
-        />
-      )}
-
-      {/* ⚠️ LA HOJA DE LA TARJETA SE MONTA ACÁ. Hasta hoy la traía `GrillaTarjetas`, y
-          al irse la grilla de esta pantalla el `<style>` se iba con ella: las tarjetas
-          salían como spans sin banda, sin bordes y sin pie — no un error, una tarjeta
-          mal hecha. */}
-      <EstilosTarjeta />
+      {/* La hoja de la tarjeta la monta la PANTALLA (ClientesApp), no este tablero: la
+          vista de tabla también la necesita. */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </div>
-  );
-}
-
-/**
- * Quién entra a esta entrega.
- *
- * ⚠️ ES UN PICKER Y NO UNA COLUMNA «Sin empezar». Esa columna habría puesto la cartera
- * ENTERA a la izquierda del tablero —con veinte clientes, un muro— y además habría
- * afirmado que todos ésos deberían estar en esta entrega, que es un juicio que nadie
- * hizo: un cliente puede no haber comprado este servicio.
- */
-function SumarCliente({ servicio, candidatos, numeroDe, etapa, onElegir, onCerrar }: {
-  servicio: string;
-  candidatos: ClienteCruce[];
-  numeroDe: Map<number, number>;
-  etapa: EtapaEntrega;
-  onElegir: (leadId: number) => void;
-  onCerrar: () => void;
-}) {
-  const [q, setQ] = useState('');
-  const t = q.trim().toLowerCase();
-  const lista = t
-    ? candidatos.filter((c) => `${c.nombre} ${c.empresa ?? ''}`.toLowerCase().includes(t))
-    : candidatos;
-
-  return (
-    <Modal titulo={`Sumar a la entrega de ${servicio}`} onCerrar={onCerrar} ancho={520}>
-      <p className="ke-sub">Entra en <strong>{etapa.label}</strong>, la primera etapa.</p>
-      <input className="ke-buscar" value={q} onChange={(e) => setQ(e.target.value)}
-        placeholder="Buscar por nombre o empresa…" aria-label="Buscar un cliente" autoFocus />
-      <ul className="ke-lista">
-        {lista.map((c) => {
-          const nombre = c.nombre.trim() || 'Sin nombre';
-          return (
-            <li key={c.leadId}>
-              <button type="button" onClick={() => onElegir(c.leadId)}>
-                <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={24}
-                  y={c.avatarY} color={colorDe(nombre)} />
-                <span className="ke-lnom">{nombre}</span>
-                <span className="ke-lnum">Cliente {numeroDe.get(c.leadId) ?? 0}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {/* «No encontré» y «no hay» son dos pantallas. */}
-      {!lista.length && (
-        <p className="ke-nada">
-          {candidatos.length ? 'Ningún cliente coincide con lo que buscaste.' : 'Todos tus clientes ya están en esta entrega.'}
-        </p>
-      )}
-    </Modal>
   );
 }
 
@@ -454,9 +396,15 @@ const CSS = `
   display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
   padding-bottom: 6px; align-items: flex-start; scrollbar-width: thin;
 }
-/* ⚠️ Y EL MINIMO DE ALTO ES UNA TARJETA, no un numero cualquiera: una columna vacia
-   es un DESTINO, y con 140 px era un recuadro mas chico que lo que se le quiere soltar
-   adentro. Con el alto de una tarjeta, soltar en la columna de al lado no exige apuntar.
+/* ⚠️ EL FONDO ES --surface (BLANCO) Y LA TARJETA PASA A --surface-2, igual que en el
+   CRM y al revés de como estaba. «Copia el estilo de las columnas... Que no sean
+   transparentes» (Martín, 05/10/2026) — y no eran transparentes: la columna estaba en
+   --surface-2 (#F5F7FA) sobre un --bg de #F4F6F9, o sea UNA unidad por canal. Tenía
+   fondo, y era el mismo fondo de la página. No es transparencia, es contraste cero, y
+   sólo pasa en el tema claro por defecto: en oscuro y en true-north los dos tokens sí se
+   distinguen. Dar vuelta el par es lo que lo arregla en los tres a la vez.
+   ⚠️ Y EL MINIMO DE ALTO ES UNA TARJETA: una columna vacia es un DESTINO, y con 140 px
+   era un recuadro mas chico que lo que se le quiere soltar adentro.
    ⚠️ EL ANCHO LO DECIDE LA TARJETA, no el gusto. La de cliente mide 230 px de alto y
    su pie son TRES números con sus rótulos; medido en el navegador, «Recurrentes» entra
    desde los 258 px, y a 300 la banda de 74 px y la marca montada encima quedan en
@@ -464,23 +412,32 @@ const CSS = `
    1480; el riel scrollea, que es contenido corriéndose y no navegación escondida. */
 .ke-col {
   flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
-  padding: 11px; min-height: 248px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 11px; min-height: 248px;
   transition: background .12s, border-color .12s;
 }
-/* El destino se marca en la COLUMNA y no moviendo las tarjetas: un hueco más la copia
-   que sigue al cursor hacen aparecer al mismo cliente tres veces. */
-.ke-col-destino { background: var(--accent-bg); border-color: var(--accent); }
+/* ⚠️ LA TARJETA SE DA VUELTA ADENTRO DE LA COLUMNA, y acá, no en TarjetaEntidad: esa
+   pieza la usan /admin y la ficha de un workspace, donde la columna no existe. */
+.ke-card .cl-card { background: var(--surface-2); }
+/* El destino se marca en la COLUMNA, sin mover nada. El HUECO dice el lugar exacto. */
+.ke-col-destino { background: var(--primary-weak, var(--accent-bg)); border-color: var(--primary, var(--accent)); }
+
+/* El hueco: el alto de una tarjeta, punteado del color de la etapa. */
+.ke-hueco { height: 230px; border-radius: 18px; border: 2px dashed currentColor; margin-bottom: 10px; }
+.ke-cards > li:last-child > .ke-hueco:only-child { margin-bottom: 0; }
+
 .ke-cab { display: flex; align-items: center; gap: 7px; padding: 0 2px; }
 .ke-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
 .ke-label { font-size: 13px; font-weight: 700; color: var(--ink); flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ke-n { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 700; color: var(--dim); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; }
-.ke-sumar {
+/* El pill contrasta contra la columna, que ahora es --surface: va en --surface-2. */
+.ke-n { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 700; color: var(--dim); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; }
+/* Va PRIMERO adentro de la columna, arriba de las tarjetas, igual que el del CRM. */
+.ke-nuevo-col {
   width: 100%; border: 1px dashed var(--border-strong); background: none; border-radius: 10px;
-  padding: 7px; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
+  padding: 8px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
 }
-.ke-sumar:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
-.ke-sumar:disabled { opacity: .45; cursor: default; }
+.ke-nuevo-col:hover { color: var(--ink); border-color: var(--ink); background: var(--surface-2); }
 .ke-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 /* El envoltorio que se arrastra. La tarjeta de adentro trae su propia caja. */
 .ke-card { display: flex; border-radius: 18px; }
@@ -505,14 +462,6 @@ const CSS = `
   padding: 1px 8px; white-space: nowrap; }
 .ke-chip-trabado { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
 
-/* ⚠️ flex: none Y CORTO: la fila de acciones es nowrap, así que un hijo ancho la
-   desborda en vez de bajar de renglón. */
-.ke-sacar {
-  flex: none; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--dim); cursor: pointer;
-  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
-}
-.ke-sacar:hover { color: var(--bad); border-color: var(--bad); }
 .ke-vacia { margin: 0; padding: 10px 2px; font-size: 12px; color: var(--dim); }
 .ke-huerfanos { margin: 0; font-size: 12.5px; color: var(--bad); }
 .ke-nada { margin: 10px 0 0; font-size: 13px; color: var(--dim); }

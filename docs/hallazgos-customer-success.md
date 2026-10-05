@@ -2741,3 +2741,137 @@ puede apagar es un control trabado.
 - **`ClientesApp.tsx` estaba MEZCLADO** (558 CRLF + 7 LF) por un parche mío anterior, y el
   síntoma fue una aserción que fallaba con `count == 0` sobre un texto copiado del propio
   archivo. Misma familia que los 38 CR sueltos del documento de hallazgos.
+
+### El tablero que se ve como el del CRM y se arrastra como el del Plan (05/10/2026)
+
+Diez puntos de Martín sobre el kanban de la entrega, en una tanda. Cuatro eran sacar
+texto; los otros seis son los que dejaron algo escrito.
+
+**Vive en:** `app/customer-success/{KanbanEntrega,BarraClientes,ClientesApp,SelectorServicio}.tsx`
+· `app/plan/board/arrastre-copia.ts` · `lib/servicio-etapas.ts`
+
+#### ⚠️ «NO SE VEN TRANSPARENTES»: NO ERA TRANSPARENCIA, ERA CONTRASTE CERO
+
+«Copia el estilo de las columnas... Que no sean transparentes». Las columnas **tenían**
+fondo: estaban en `--surface-2`. Medido en los tokens del tema claro por defecto
+(`app/globals.css`):
+
+| token | valor |
+|---|---|
+| `--bg` (la página) | `#F4F6F9` |
+| `--surface-2` (la columna) | `#F5F7FA` |
+
+**Una unidad por canal.** Tenían fondo, y era el mismo fondo de la página. Y sólo pasa en
+el claro por defecto: en oscuro (`#22262E` vs `#333944`) y en true-north (`#E5E9F0` vs
+`#D8DEE9`) los dos tokens sí se distinguen, así que nadie que probara en otro tema lo
+habría visto.
+
+El CRM lo hace al revés y por eso se ve: **columna `--surface` (blanco) y tarjeta
+`--surface-2`**. Dar vuelta el par es lo que lo arregla en los tres temas a la vez. Pero
+no alcanza con cambiar la columna: `TarjetaEntidad` pinta su tarjeta en `--surface`, así
+que con la columna en blanco las tarjetas desaparecerían contra ella. Hace falta además
+`.ke-card .cl-card { background: var(--surface-2) }` — **y acá, no en `TarjetaEntidad`**,
+que la usan /admin y la ficha de un workspace, donde la columna no existe.
+
+⚠️ **Y la línea de color de arriba NO se copia del CRM.** Allá sale de la BANDA
+(`CATEGORY[bandToCategory(c.band)]`), que son **tres** colores —avanza / nutre / sale—; una
+etapa de entrega no tiene banda, a propósito, así que copiada tal cual pintaría las cinco
+columnas del mismo verde. Sale de `e.dot`, que ya es un color por etapa y es el mismo que
+el punto de la cabecera: así la línea y el punto no se pueden desincronizar.
+
+#### LA VISTA DE TABLA MOSTRABA CATORCE CLIENTES Y EL KANBAN NINGUNO
+
+«No puede ser que yo vea muchos leads en la vista de tabla y luego no vea nada en la vista
+de kanban... Jamás puede ser eso.» Tenía razón y era un bug de modelo, no de pantalla: el
+tablero sólo dibujaba a quien tuviera fila en `cliente_entrega`, y nadie la tenía.
+
+**Un cliente sin fila está en la PRIMERA etapa.** Y es DERIVADO, no sembrado: no se le
+escribe una fila a nadie. Un backfill habría arreglado a los catorce de hoy y dejado al
+decimoquinto afuera; derivándolo, el cliente que se gane mañana aparece solo.
+
+⚠️ **Y la regla vive en UNA función** (`repartirEnEtapas`, `lib/servicio-etapas.ts`) que
+usan el tablero **y** el contador del editor de etapas. Con dos implementaciones, el editor
+diría «0 en Onboarding» sobre una columna con catorce tarjetas a la vista — porque una de
+las dos sabría la regla y la otra no.
+
+⚠️ **Y eso le dio un sentido exacto a algo que había quedado sin ninguno.** Con todos en
+el tablero, «sacar de la entrega» dejó de existir como acción y el botón se fue. Pero
+`sacarEntrega` NO quedó muerto: es lo que hace el **deshacer del primer movimiento**. Si
+alguien mueve a un cliente que nunca se había movido, lo contrario de eso no es moverlo a
+la primera —sería escribirle una fila que antes no tenía, con un reloj de etapa que
+arranca hoy— sino **borrar la que acaba de nacer**. Verificado: mover, deshacer, y después
+de un F5 sigue en la primera.
+
+#### El arrastre no se replica: se importa
+
+«Replicalo tal cual de como lo hacemos en PLAN.» El núcleo ya estaba extraído adentro de
+`BoardShell.tsx` —`fotoVaciaDeArrastre`, `scrollerDe`, `useArrastreCopia`, los tres
+genéricos— y **ninguno estaba exportado**. Salieron a `app/plan/board/arrastre-copia.ts` y
+ahora las dos pantallas usan la misma pieza: todo lo que ahí está medido (la foto que
+pinta el sistema operativo, el `transform` sobre un ref, el listener en captura, el
+auto-scroll adentro del `dragover`) viajó con el código en vez de volver a escribirse.
+
+Tres cosas en las que el kanban **contradecía** al Plan sin saberlo, y que la lectura del
+molde corrigió:
+
+| | el kanban hacía | el Plan hace, y por qué |
+|---|---|---|
+| nodo origen | le pintaba un anillo | **nada** — se probaron `opacity:.5`, borde y `scale`, y los tres se reportaron como ruido: con la copia siguiendo al cursor Y el hueco marcando el destino, atenuar el original hace aparecer la misma tarjeta tres veces |
+| fondo de la copia | forzado a `--surface` | el **computado** del origen, con fallback a `--surface-2` |
+| la copia | sin inclinación | `rotate(1.5deg)` |
+
+⚠️ **Y lo que faltaba de verdad era EL HUECO.** Un recuadro punteado del alto de una
+tarjeta, en el índice exacto y sólo en la columna bajo el cursor. Es lo que convierte «la
+estoy soltando en esta columna» en «la estoy soltando ACÁ» — y era la mitad del gesto que
+el tablero no tenía.
+
+Dos detalles del hueco que no se deducen: los puntos medios se miden **una sola vez** al
+agarrar y **en coordenadas de página** (`+ window.scrollY`), porque el auto-scroll invalida
+cualquier rectángulo medido contra la ventana; y el `+ '1f'` del fondo es un sufijo de
+**alfa hex** que sólo funciona con hex de 6 dígitos — `dot` lo es, pero con un `rgb()` o un
+`var()` el color sale inválido y el navegador lo descarta en silencio.
+
+⚠️ **Y `scrollerDe` sólo mira `overflowY`**: un riel `overflow-x: auto` no es un scroller
+para él y devuelve la ventana. El empuje horizontal se queda de este lado.
+
+#### «Igual que el desplegable del CRM» era el primitive, no el componente
+
+El de la captura **no es un componente de productos**: es el `Dropdown` del repo, que ya
+trae las tres cosas que Martín señaló — el lápiz por renglón (`acciones`), el «＋ Nuevo
+producto» (`crear`) y el renglón gris con filete (`sutil`). Se ve igual porque es la misma
+pieza.
+
+Lo que **no** se pudo importar es el `SelectorFunnel` del CRM, y la razón importa:
+**elige un EMBUDO, no un producto.** Su `value` es `funnels.id` y del producto sólo viaja
+el nombre; acá el tablero es por producto (mig 0188). Dos preguntas distintas que se ven
+igual — copiar el componente habría traído el id equivocado. (Y el otro además navega:
+cambiar de producto allá es `router.push('/crm?funnel=N')`.)
+
+⚠️ **«Y si creo un producto acá, debe aparecer en el CRM» NO SALE CON `upsertProducto`.**
+El desplegable del CRM lista EMBUDOS: un producto suelto no aparece ahí por más que esté
+en la tabla. Hace falta la cadena entera —`producto → oferta_productos → oferta →
+funnel_ofertas → funnel`, con el funnel naciendo CON sus etapas— y eso ya estaba escrito
+en `crearProductoConFunnel`. **El sentido inverso no necesitaba nada**: el alta del CRM
+escribe en `productos` con `activo: true`, que es justo lo que lee esta pantalla.
+
+Verificado creando uno desde Customer Success y mirando la BASE: producto, funnel y los
+dos enlaces, los cuatro creados. En la pantalla del CRM no se pudo ver porque el Cliente
+de Prueba tiene el CRM sin activar y `/crm` le muestra su pantalla de arranque.
+
+#### Lo que se movió de lugar, y por qué
+
+- **El alta de un cliente ahora es un botón por COLUMNA**, como «＋ Nuevo lead» en el CRM,
+  y nace en esa etapa. El de arriba se fue: desde una columna el botón dice ADEMÁS dónde
+  nace, que el de arriba no podía decir. ⚠️ Y el modal **no recarga** cuando quien lo abrió
+  le pasa un `onCreado`: recargar mataría la llamada que mueve al cliente a su etapa antes
+  de que salga, y el cliente aparecería en la primera columna sin que nada lo diga.
+- **«Editar etapas» se mudó al lápiz del desplegable**, donde edita las de CUALQUIER
+  servicio y no sólo las del que estás mirando. Con eso la cabecera del tablero quedó sin
+  nada adentro y desapareció entera — era, además, lo único que separaba la barra del
+  tablero.
+- **El orden de la barra es pedido, no estético:** primero CÓMO se mira (el toggle),
+  después QUÉ se busca, y recién ahí con qué se recorta (el filtro).
+- **El ancho:** el tope de 1180 lo declara `CSS_TARJETA` en `:root` y lo miran la barra, la
+  tabla y la grilla. Redefinir `--cartera-max: none` en esta pantalla lo mueve en las TRES
+  a la vez, que es lo que hay que cuidar: si una queda en 1180 y las otras no, la pantalla
+  se ve torcida y eso no se nota en el diff. /admin sigue con su 1180.

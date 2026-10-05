@@ -25,7 +25,21 @@ import { crearClienteAction } from './actions';
 
 type Paso = 0 | 1 | 2;
 
-export function NuevoCliente({ onCerrar }: { onCerrar: () => void }) {
+export function NuevoCliente({ onCerrar, onCreado }: {
+  onCerrar: () => void;
+  /**
+   * Quién nació, para que quien lo abrió pueda hacer algo con él.
+   *
+   * Lo usa el kanban de la entrega: el alta vive en CADA columna, así que el cliente
+   * tiene que quedar en la etapa donde se apretó — un botón por columna que crea
+   * siempre en la primera es un control que promete algo que no hace.
+   *
+   * ⚠️ SI SE PASA, EL MODAL NO RECARGA: quien lo recibe decide qué hacer y cuándo
+   * refrescar. Recargar acá mataria la llamada que mueve al cliente a su etapa antes
+   * de que salga, y el cliente aparecería en la primera columna sin que nada lo diga.
+   */
+  onCreado?: (leadId: number) => void;
+}) {
   const [paso, setPaso] = useState<Paso>(0);
   const [nombre, setNombre] = useState('');
   const [empresa, setEmpresa] = useState('');
@@ -45,8 +59,9 @@ export function NuevoCliente({ onCerrar }: { onCerrar: () => void }) {
     const r = await crearClienteAction({ nombre, empresa, email, telefono });
     setPending(false);
     if (!r.ok) { setError(r.error ?? 'No se pudo cargar.'); return; }
-    // La página es `force-dynamic` y la action revalida: recargar es lo que hace que el
-    // cliente nuevo aparezca en la grilla con sus números, sin duplicar el estado acá.
+    if (onCreado && r.leadId) { onCreado(r.leadId); onCerrar(); return; }
+    // Sin `onCreado`: la página es `force-dynamic` y la action revalida, así que recargar
+    // es lo que hace que el cliente nuevo aparezca con sus números sin duplicar el estado.
     window.location.reload();
   }
 

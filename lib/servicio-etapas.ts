@@ -216,6 +216,50 @@ export function esCampoEntrega(campo: string): boolean {
 }
 
 /**
+ * Dónde va cada cliente en el tablero de un servicio.
+ *
+ * ⚠️ UN CLIENTE SIN FILA ESTÁ EN LA PRIMERA ETAPA, no afuera del tablero. Es la regla
+ * que gobierna todo esto y se pagó viéndola: «no puede ser que yo vea muchos leads en la
+ * vista de tabla y luego no vea nada en la vista de kanban... Jamás puede ser eso»
+ * (Martín, 05/10/2026). Con 14 clientes y cero filas, el tablero dibujaba cinco columnas
+ * vacías al lado de una tabla con catorce renglones — dos vistas de la misma cartera
+ * contando cosas distintas.
+ *
+ * Y es DERIVADO, no sembrado: no hay que escribirle una fila a nadie. El cliente que se
+ * gane mañana aparece solo en la primera columna, y recién se le escribe una fila cuando
+ * alguien lo mueve. Un backfill habría arreglado a los catorce de hoy y dejado al
+ * decimoquinto afuera.
+ *
+ * `huerfanos` son los que SÍ tienen fila, con una etapa que el catálogo ya no tiene
+ * (alguien borró esa columna). Esos NO se reparten: inventarles una etapa sería afirmar
+ * algo que nadie decidió, y por eso salen aparte para que la pantalla los nombre.
+ */
+export function repartirEnEtapas<T>(
+  etapas: readonly EtapaEntrega[],
+  clientes: readonly T[],
+  etapaDe: (c: T) => string | null | undefined,
+): { porEtapa: Record<string, T[]>; huerfanos: T[] } {
+  const porEtapa: Record<string, T[]> = {};
+  // Se inicializa con el UNIVERSO: una columna sin nadie tiene que existir como lista
+  // vacía, o «nadie acá» se vuelve indistinguible de «no pude leer».
+  for (const e of etapas) porEtapa[e.key] = [];
+  const primera = etapas[0]?.key ?? null;
+  const huerfanos: T[] = [];
+  for (const c of clientes) {
+    const k = (etapaDe(c) ?? '').trim();
+    if (!k) {
+      if (primera) porEtapa[primera].push(c);
+      // Sin etapas no hay tablero, y entonces tampoco hay dónde ponerlo. No se pierde:
+      // el llamador no puede dibujar un tablero de cero columnas y lo dice antes.
+      continue;
+    }
+    if (k in porEtapa) porEtapa[k].push(c);
+    else huerfanos.push(c);
+  }
+  return { porEtapa, huerfanos };
+}
+
+/**
  * Cuantos hay en cada etapa.
  *
  * ⚠️ SE INICIALIZA CON EL UNIVERSO, y es toda la razon por la que existe en vez de un
@@ -232,11 +276,15 @@ export function esCampoEntrega(campo: string): boolean {
  */
 export function conteoDeEtapas(
   etapas: readonly EtapaEntrega[],
-  etapasDeCadaUno: Iterable<string>,
+  etapasDeCadaUno: Iterable<string | null | undefined>,
 ): Record<string, number> {
+  // ⚠️ CUENTA LO MISMO QUE SE DIBUJA, y por eso delega en `repartirEnEtapas` en vez de
+  // tener su propio bucle: con dos implementaciones, el editor de etapas termina
+  // diciendo «0 en Onboarding» sobre una columna que muestra catorce clientes — porque
+  // una de las dos sabe que un cliente sin fila está en la primera y la otra no.
+  const { porEtapa } = repartirEnEtapas(etapas, [...etapasDeCadaUno], (k) => k);
   const out: Record<string, number> = {};
-  for (const e of etapas) out[e.key] = 0;
-  for (const k of etapasDeCadaUno) if (k in out) out[k] += 1;
+  for (const e of etapas) out[e.key] = porEtapa[e.key]?.length ?? 0;
   return out;
 }
 

@@ -43,6 +43,7 @@ import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { guardarEtapasEntrega } from '@/lib/entrega-servicio';
+import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import type { EtapaEntrega } from '@/lib/servicio-etapas';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
@@ -434,5 +435,35 @@ export async function guardarEtapasEntregaAction(productoId: number, etapas: Eta
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
+  }
+}
+
+/**
+ * Crea un producto DESDE Customer Success, con su embudo.
+ *
+ * ⚠️ NO ES `upsertProducto`, y es el error que parece obvio. El desplegable del CRM
+ * lista EMBUDOS, no productos: un producto suelto no aparece ahí por más que esté en la
+ * tabla — o sea que «creo un producto acá y lo veo allá» sería falso. `crearProductoConFunnel`
+ * arma la cadena entera (producto → oferta_productos → oferta → funnel_ofertas → funnel) y
+ * además hace nacer el funnel CON sus etapas, que es lo que evita que el tablero nuevo se
+ * vea idéntico al del negocio — el síntoma que Martín reportó tres veces.
+ *
+ * El sentido inverso no necesita nada: el alta del CRM escribe en `productos` con
+ * `activo: true`, que es exactamente lo que lee esta pantalla.
+ *
+ * ⚠️ Y LO PUEDE HACER UN ADMIN DEL WORKSPACE, igual que editar las etapas: un producto
+ * nuevo le aparece al equipo entero y en las dos pantallas.
+ */
+export async function crearServicioAction(nombre: string): Promise<
+  { ok: true; productoId: number } | { ok: false; error: string }
+> {
+  try {
+    if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede crear un producto.' };
+    const { productoId } = await crearProductoConFunnel(nombre);
+    revalidatePath('/customer-success');
+    revalidatePath('/crm');
+    return { ok: true, productoId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo crear el producto.' };
   }
 }

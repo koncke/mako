@@ -17,7 +17,7 @@
 // que UN cliente tenía armada para su negocio. Antes de agregarle algo: si no es un
 // cliente, un proyecto, una tarea o una recurrente, no va acá.
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
@@ -29,11 +29,13 @@ import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
 import { BarraClientes, CUANDO_LABEL, entraEnVentana, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
 import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
+import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
+import { SelectorServicio } from './SelectorServicio';
 import type { CarteraEnEntrega } from './entrega';
 import { conteoDeEtapas, type EtapaEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
-import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction } from './actions';
+import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
@@ -65,7 +67,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    *  un admin del workspace. Mover un cliente lo hace cualquiera con la tab. */
   puedeEditarEtapas?: boolean;
 }) {
-  const [creando, setCreando] = useState(false);
+  /**
+   * El alta, y EN QUÉ ETAPA se apretó.
+   *
+   * `''` = se abrió desde la tabla, que no tiene columnas: ahí el cliente nace y la
+   * página recarga, como siempre. Un string vacío y no `null` para que el booleano de
+   * «está abierto» no se confunda con «no hay etapa».
+   */
+  const [creando, setCreando] = useState<string | null>(null);
   const [abiertoId, setAbiertoId] = useState<number | null>(null);
   /** Con qué tab abre la ficha. `null` = la que la ficha elija (el tablero). Existe
    *  para que «Ver su equipo» de la tarjeta caiga en Equipo y no en el tablero. */
@@ -315,11 +324,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   }
 
   /**
-   * Saca a un cliente de la entrega de un servicio.
+   * Borra la fila de un cliente en esta entrega.
    *
-   * ⚠️ EL DESHACER LO REPONE DONDE ESTABA, con la etapa que el server devolvio. Volver
-   * a llamar a «sumar» lo dejaria en la primera columna, o sea que deshacer le perderia
-   * el avance — y eso se lee como que el deshacer funciono.
+   * ⚠️ YA NO ES «sacarlo del tablero»: desde que un cliente SIN FILA se dibuja en la
+   * primera columna, no existe el estado «afuera». Lo que esto hace es volver al estado
+   * derivado, y por eso su ÚNICO llamador es el DESHACER del primer movimiento: si alguien
+   * mueve a un cliente que nunca se había movido, lo contrario de eso no es moverlo a la
+   * primera —sería escribirle una fila que antes no tenía, con un reloj de etapa que
+   * arranca hoy— sino borrar la que acaba de nacer.
    */
   function sacarEntrega(leadId: number, prodId: number, conDeshacer = true) {
     setMal('');
@@ -363,7 +375,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   }
 
   return (
-    <Pagina ancho="completo">
+    /* ⚠️ `--cartera-max: none` ES LO QUE DESCENTRA LA PANTALLA ENTERA. «Toda la
+       topbar va al mismo ancho que el kanban, no se queda agrupado en el medio»
+       (Martín, 05/10/2026). El tope de 1180 lo declara `CSS_TARJETA` en `:root` y lo
+       miran la barra, la tabla y la grilla; redefinirlo ACÁ es el camino que el
+       propio archivo deja escrito, y lo mueve en las TRES a la vez — que es lo que
+       hay que cuidar: si una queda en 1180 y las otras no, la pantalla se ve torcida
+       y eso no se nota en el diff. /admin sigue con su 1180, porque es otra pantalla. */
+    <Pagina ancho="completo" style={{ '--cartera-max': 'none' } as CSSProperties}>
       <PageHeader
         titulo="Clientes"
         estado={lista.length > 0
@@ -395,7 +414,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         <EmptyState
           titulo="Todavía no tienes clientes"
           detalle="Cárgalo aquí, o marca la venta de un lead como ganada en el CRM."
-          accion={{ label: 'Cargar un cliente', onClick: () => setCreando(true) }}
+          accion={{ label: 'Cargar un cliente', onClick: () => setCreando('') }}
         />
       ) : (
         <>
@@ -407,8 +426,28 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
                vista el toggle entero no se dibuja, porque un botón que no se puede
                apagar es un control trabado. */
             vistas={vistasDisponibles}
-            servicios={servicios.map((sv) => ({ id: sv.productoId, nombre: sv.nombre }))}
-            servicio={servicio?.productoId ?? null} onServicio={setServicioId}
+            /* El selector va al final de la barra y SOLO en la vista de etapas: las otras
+               dos contestan «quienes son mis clientes», que no depende de ningun servicio. */
+            extremo={enKanban && servicios.length > 0 ? (
+              <SelectorServicio
+                servicios={servicios.map((sv) => ({ id: sv.productoId, nombre: sv.nombre }))}
+                servicio={servicio?.productoId ?? null}
+                onServicio={setServicioId}
+                puedeEditar={puedeEditarEtapas}
+                /* El lapiz abre las etapas de ESE servicio, que no tiene por que ser el
+                   que se esta mirando: por eso primero se cambia de servicio y despues se
+                   abre, en vez de editar a ciegas el de otra columna. */
+                onEditarEtapas={(id) => { setServicioId(id); setEditandoEtapas(true); }}
+                onNuevo={async (nombre) => {
+                  const r = await crearServicioAction(nombre);
+                  if (!r.ok) return r.error;
+                  // Se queda mirando el que acaba de crear: crear algo y no verlo se lee
+                  // como que no pasó nada. El `revalidatePath` trae su tablero.
+                  setServicioId(r.productoId);
+                  return null;
+                }}
+              />
+            ) : undefined}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
             cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
             nVisibles={visibles.length} nTotal={lista.length}
@@ -448,17 +487,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               tableroOk={tablero.ok}
               cuentas={cuentas}
               onMover={(leadId, etapa) => moverEntrega(leadId, etapa, servicio.productoId)}
-              onSacar={(leadId) => sacarEntrega(leadId, servicio.productoId)}
               onAbrir={(leadId) => { setAbrirEn(null); setAbiertoId(leadId); }}
               onEquipo={(leadId) => { setAbrirEn('equipo'); setAbiertoId(leadId); }}
-              onNuevoCliente={() => setCreando(true)}
-              onEditarEtapas={() => setEditandoEtapas(true)}
+              onNuevoCliente={(etapa) => setCreando(etapa)}
               onError={setMal}
-              puedeEditar={puedeEditarEtapas}
             />
           ) : (
             <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
-              tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando(true)} />
+              tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando('')} />
           )}
           {/* ⚠️ «NO ENCONTRÉ» NO ES «NO TENÉS». Sin este renglón, buscar algo que no
               existe deja una tabla vacía, y una tabla vacía se lee como que se borró la
@@ -490,7 +526,17 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         />
       )}
 
-      {creando && <NuevoCliente onCerrar={() => setCreando(false)} />}
+      {creando !== null && (
+        <NuevoCliente
+          onCerrar={() => setCreando(null)}
+          /* Desde una COLUMNA el cliente nace y se mueve a esa etapa en el acto; desde
+             la tabla no hay etapa que elegir, así que se deja el camino de siempre
+             (el modal recarga) en vez de inventar una. */
+          onCreado={creando && servicio
+            ? (leadId) => moverEntrega(leadId, creando, servicio.productoId)
+            : undefined}
+        />
+      )}
 
       {editandoEtapas && servicio && (
         <EtapasEntregaModal
@@ -510,6 +556,11 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
 
       <Toast state={toast} onClose={clear} />
 
+      {/* ⚠️ LA HOJA DE LA TARJETA SE MONTA EN LA PANTALLA, no en el kanban. Hasta hoy
+          la traía `GrillaTarjetas`; al irse la grilla quedó montada en el tablero, y
+          con eso la vista de TABLA perdía `.cl-nada` —el renglón de «ningún cliente
+          coincide»— que vive en la misma hoja. Acá cubre a las dos vistas. */}
+      <EstilosTarjeta />
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </Pagina>
   );
@@ -558,15 +609,9 @@ function exportarCSV(
 const nombreDe = (c: ClienteCruce): string => c.nombre.trim() || 'Sin nombre';
 
 const CSS = `
-/* ⚠️ MÁS GRANDES Y CENTRADAS. «Queda todo muy chiquito y mucho espacio en blanco»
-   (27/09/2026): con auto-fill y 258 px, en una pantalla de 1440 entraban cinco
-   columnas chicas y el resto era aire. Van tres cosas juntas: auto-fit en vez de
-   auto-fill —que colapsa las columnas vacías en vez de reservarlas—, un mínimo de
-   320, y un tope de 1180 centrado. El tope es lo que impide el efecto contrario:
-   sin él, en un monitor ancho las tarjetas se estiran hasta deformar la foto. */
-/* La tarjeta de CREAR: el mismo hueco que una de verdad, punteada y sin peso. Es la
-   misma pieza que «Crear nuevo proyecto…» en el tablero, a propósito — si la misma
-   acción se ve distinta en dos pantallas, se aprende dos veces. */
+/* ⛔ ACA vivian las reglas de la grilla de tarjetas y el porque de su tope de 1180
+   centrado. La grilla se fue el 05/10/2026 y el tope tambien: esta pantalla ahora
+   ocupa el ancho entero (ver --cartera-max arriba). */
 .cl-acciones{ display:flex; align-items:center; gap:10px; }
 .cl-mako{ font-size:12.5px; color:var(--dim); }
 .cl-auto{ background:none; border:0; font:inherit; font-size:12.5px; color:var(--dim); cursor:pointer;

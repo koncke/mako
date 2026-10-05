@@ -80,6 +80,18 @@ import { PARTES_DETALLE, PARTES_PROYECTO } from '@/lib/detalle-contrato';
 import { capacidad } from '@/lib/mako-capacidades';
 import { cuandoDe, quartersElegibles, quarterDeFecha, esCuando, CUANDO_LABEL, CUANDO_OPS, type Cuando } from './cuando';
 import { usePref, usePrefSet, esUnoDe, esBool, setScopePrefs } from './prefs';
+/**
+ * EL MOLDE DEL ARRASTRE VIVE EN SU PROPIO MODULO desde el 05/10/2026.
+ *
+ * `fotoVaciaDeArrastre`, `scrollerDe` y `useArrastreCopia` estaban declarados acá y
+ * salieron a ./arrastre-copia cuando el kanban de la ENTREGA tuvo que arrastrar igual
+ * («replicalo tal cual de como lo hacemos en PLAN», Martín). Son genéricos —no saben de
+ * tareas ni de proyectos— y lo que estaba medido sobre ellos (la foto que pinta el
+ * sistema operativo, el `transform` sobre un ref, el listener en captura, el auto-scroll
+ * adentro del `dragover`) viajó con el código, que es donde tiene que estar.
+ */
+import { fotoVaciaDeArrastre, scrollerDe, useArrastreCopia } from './arrastre-copia';
+
 import { useArrastreTactil, type ArrastreTactil } from './arrastre-tactil';
 import { WarnMark, projProgress, proyectoTerminado, fechaConDia, diasHasta, plazoTexto, LineaDeadline, IconoTacho, RepiteChip, IconoRepite, hoyISO, COL_DER, MODAL_DETALLE } from './piezas';
 // ⚠️ `LineaRepeticion` VIVE EN `Tablas.tsx` Y NO ACÁ, y el motivo es el grafo de imports:
@@ -3199,132 +3211,6 @@ function scoreEntre(items: { score: number }[], idx: number, destino: Prio): num
   if (abajo) return clamp(abajo.score + 2);
   if (arriba) return clamp(arriba.score - 2);
   return scoreFromPrio[destino];
-}
-
-/**
- * LA FOTO QUE EL SISTEMA OPERATIVO PINTA DETRÁS DEL CURSOR, VACÍA.
- *
- * No la gobierna ninguna regla CSS: en Windows Chrome la dibuja translúcida y la ancla
- * donde quiere, y `setDragImage(nodo)` cambia QUÉ se fotografía, no CÓMO se pinta. Así que
- * se le pasa una imagen de 1×1 y la copia de verdad la monta `useArrastreCopia`.
- *
- * Está acá suelto —y no adentro del hook— porque lo llama el `dragstart` de cada TARJETA y
- * el hook vive en el contenedor. Lo usan el Kanban y la vista de proyectos: un segundo
- * `try/catch` copiado es el que se queda sin el `catch` la primera vez que alguien lo toca.
- */
-function fotoVaciaDeArrastre(dt: DataTransfer) {
-  try {
-    const vacio = document.createElement('canvas');
-    vacio.width = 1; vacio.height = 1;
-    dt.setDragImage(vacio, 0, 0);
-  } catch { /* si no deja, queda la del navegador y se ve como antes */ }
-}
-
-/**
- * EL MOLDE DEL ARRASTRE CON MOUSE — UNO SOLO PARA TODO EL TABLERO.
- *
- * Nació adentro del Kanban y se midió a lo largo de SIETE rondas de reportes; cuando la
- * vista de proyectos también tuvo que arrastrar (25/09/2026) se extrajo acá en vez de
- * escribir un segundo. Las cuatro cosas que tiene y por qué, que es lo que costó:
- *
- * 1. **La copia la dibujamos nosotros** (`montarCopia`), opaca y nítida, porque la del
- *    sistema operativo se ve fantasmal y no hay CSS que la toque (ver `fotoVaciaDeArrastre`).
- * 2. **Se mueve escribiendo `transform` sobre un ref, NUNCA con `setState`.** Un `setState`
- *    por `dragover` redibuja el tablero 60 veces por segundo, que es el bug que hizo que el
- *    arrastre se sintiera roto tres rondas seguidas.
- * 3. **El listener va en `document` y EN CAPTURA.** El `dragover` de las columnas no cubre
- *    los huecos entre ellas ni el fondo de la página, y ahí la copia se queda clavada.
- * 4. **El auto-scroll va adentro del `dragover`.** Medido el 23/09/2026: mientras Chrome
- *    corre su bucle nativo de arrastre no entrega frames de animación **ni corre los
- *    timers** — sobre `requestAnimationFrame`, 1,2 s en el borde movieron 0 px (y su único
- *    tick llegó DESPUÉS de soltar); con `setInterval`, 0 px y 112 px de scroll largados con
- *    el gesto ya terminado. Lo único que el navegador sigue entregando es `dragover`.
- *
- * ⚠️ Y AL NODO ORIGEN NO SE LE TOCA EL TAMAÑO: colapsarlo a altura cero —lo que hacen
- * Trello y Linear— dejó el gesto sin salida (el arnés no completó un solo drop). Eso no vive
- * acá porque acá no se toca ninguna tarjeta: se menciona para que no vuelva.
- */
-/**
- * EL CONTENEDOR QUE DE VERDAD SCROLLEA arriba de este nodo, o `null` si es la página.
- *
- * ⚠️ EXISTE PORQUE EL TABLERO YA NO ES SIEMPRE LA PANTALLA. Adentro de la ficha de un
- * cliente, el `Modal` de la casa pone `document.body.style.overflow = 'hidden'` y el que
- * scrollea pasa a ser `.mk-modal__cuerpo`: un `window.scrollBy` ahí no mueve NADA, así que
- * agarrabas una tarjeta, la llevabas al borde y no pasaba nada. Es literalmente el bug que
- * AGENTS.md ya tiene medido para `/plan` («19.630 px de tablero contra una ventana de 900,
- * sin auto-scroll en el camino del mouse»), reproducido un nivel más adentro.
- *
- * Se resuelve UNA vez, al agarrar: durante un arrastre el navegador congela `rAF` y los
- * timers, y lo único que sigue entregando es `dragover` — no es momento de caminar el DOM
- * en cada evento.
- */
-function scrollerDe(el: HTMLElement | null): HTMLElement | null {
-  for (let n = el?.parentElement ?? null; n && n !== document.body; n = n.parentElement) {
-    const oy = getComputedStyle(n).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return n;
-  }
-  return null;  // la página: se sigue usando `window`, igual que siempre
-}
-
-function useArrastreCopia() {
-  const scrollDir = useRef(0);
-  /** Quién scrollea en ESTE arrastre. `null` = la ventana, que es el caso de `/plan`. */
-  const scroller = useRef<HTMLElement | null>(null);
-  const pararScroll = useCallback(() => { scrollDir.current = 0; }, []);
-  const empujarScroll = useCallback((clientY: number) => {
-    const BORDE = 110;
-    const sc = scroller.current;
-    // El borde se mide contra la caja del que scrollea, no contra el viewport: adentro de
-    // un modal el tablero empieza 90 px más abajo y termina 90 px más arriba.
-    const arriba = sc ? sc.getBoundingClientRect().top : 0;
-    const abajo = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
-    const dir = clientY < arriba + BORDE ? -1 : clientY > abajo - BORDE ? 1 : 0;
-    scrollDir.current = dir;
-    if (!dir) { pararScroll(); return; }
-    if (sc) sc.scrollTop += dir * 18; else window.scrollBy(0, dir * 18);
-  }, [pararScroll]);
-  useEffect(() => () => pararScroll(), [pararScroll]);
-
-  const copia = useRef<HTMLElement | null>(null);
-  const soltarCopia = useCallback(() => { copia.current?.remove(); copia.current = null; }, []);
-  useEffect(() => soltarCopia, [soltarCopia]);
-
-  const montarCopia = useCallback((origen: HTMLElement, dx: number, dy: number) => {
-    soltarCopia();
-    // Quién scrollea se decide acá, en el `dragstart`, y vale para todo el gesto.
-    scroller.current = scrollerDe(origen);
-    const r = origen.getBoundingClientRect();
-    const nodo = origen.cloneNode(true) as HTMLElement;
-    const fondo = getComputedStyle(origen).backgroundColor;
-    Object.assign(nodo.style, {
-      position: 'fixed', top: '0', left: '0', margin: '0',
-      width: `${r.width}px`, height: `${r.height}px`,
-      // Opaca de verdad: si el fondo computado fuese transparente, la copia deja ver el
-      // tablero por debajo y se ve igual de fantasmal que la del navegador.
-      background: fondo && fondo !== 'rgba(0, 0, 0, 0)' ? fondo : 'var(--surface-2)',
-      opacity: '1', pointerEvents: 'none', zIndex: '3000',
-      boxShadow: '0 18px 40px rgba(18,21,27,.34)', transform: `translate3d(${r.left}px, ${r.top}px, 0) rotate(1.5deg)`,
-      transition: 'none', cursor: 'grabbing',
-    });
-    document.body.appendChild(nodo);
-    copia.current = nodo;
-    const mover = (e: DragEvent) => {
-      if (!copia.current) { document.removeEventListener('dragover', mover, true); return; }
-      copia.current.style.transform = `translate3d(${e.clientX - dx}px, ${e.clientY - dy}px, 0) rotate(1.5deg)`;
-    };
-    document.addEventListener('dragover', mover, true);
-    // Se saca en `dragend` Y en `drop`, los dos, o queda un nodo colgado por arrastre.
-    const fin = () => {
-      document.removeEventListener('dragover', mover, true);
-      document.removeEventListener('dragend', fin, true);
-      document.removeEventListener('drop', fin, true);
-      soltarCopia();
-    };
-    document.addEventListener('dragend', fin, true);
-    document.addEventListener('drop', fin, true);
-  }, [soltarCopia]);
-
-  return { empujarScroll, pararScroll, montarCopia, soltarCopia };
 }
 
 function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, sel, setSel, onOpen, onNew, onWarn, onOpenProj, onEliminar, onSoltar }: {
