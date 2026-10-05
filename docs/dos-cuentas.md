@@ -79,6 +79,29 @@ Los hooks son dos, los dos en `~/.claude/settings.json`: `SessionStart` (registr
 apertura, inyecta la cuenta al contexto y avisa si hay otra sesión viva) y `SessionEnd`
 (registra el cierre).
 
+### ⚠️ Y ni el id de la app ni el del transcript dicen QUÉ CHAT hizo un commit
+
+Hay **dos espacios de nombres distintos** para la misma sesión, y no se mapean entre sí:
+
+- El de la app: `local_<uuid>`, lo que devuelven `list_sessions` / `send_message`.
+- El del disco: `~/.claude/projects/<proyecto>/<otro-uuid>.jsonl`.
+
+Medido el 05/10/2026: el chat «Perro Guardián» es `local_50dc47b3…` para la app y
+`48dddbc4…` en el disco. **Dos uuid distintos para el mismo chat.** Y pasó lo mismo con los
+otros tres: se les mandó a `local_84421aa0`, `local_06a1bed5` y `local_416dcc4b`, y los
+transcripts que despertaron fueron `7a6bc4be`, `461dd390` y `debe2ade`.
+
+Peor: **el `lastActivityAt` de la app también miente.** Ese día reportó `01:35` para «Perro
+Guardián» cuando ese mismo chat había commiteado `ba4a2289` a las **10:30**. Sobre esa
+lectura le dije que había quedado parado, y me corrigió él.
+
+**La regla:** el conteo de sesiones vivas del hook sirve para lo único que tiene que servir
+— avisar *«no estás solo en el clon, commiteá por ruta explícita»* — y **no sirve para
+atribuir trabajo**. Para saber quién hizo qué, la única fuente es **el commit**: su trailer
+`Claude-Cuenta`, su hora y sus archivos. No el `lastActivityAt`, no el `mtime`, no el nombre
+del `.jsonl`. Y si vas a decirle a otra sesión lo que estuvo haciendo, no se lo deduzcas:
+preguntáselo.
+
 ### Detectar la sesión paralela: por qué el `mtime` no alcanza
 
 El hook cuenta las sesiones con actividad reciente sobre este clon. La primera versión
