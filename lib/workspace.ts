@@ -128,6 +128,12 @@ const TENANT_TABLES = new Set<string>([
   // El funnel y la oferta, desde el día uno de su migración (0169-0171). `funnels`
   // reemplaza a `funnel_config`, que era singleton y por eso quedaba afuera.
   'funnels', 'ofertas', 'oferta_productos', 'funnel_ofertas', 'lead_magnets',
+  // Grabación de sesión (mig 0191). Las DOS, y acá no hay margen: son las filas más
+  // sensibles del producto —la pantalla de un visitante— y `getTenantDb()` sin esta
+  // línea es PASSTHROUGH, así que la ficha de un lead listaría las grabaciones de
+  // cualquier cliente y el sellador comprimiría los lotes de todos. El contrato
+  // (lib/replay-contrato.ts) no puede atajarlo: decide qué se graba, no quién lo lee.
+  'replay_sesiones', 'replay_lotes',
   'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
   // Canal Instagram vía Zernio (mig 0136). zernio_workspace es el mapeo
