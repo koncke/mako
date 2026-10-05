@@ -482,7 +482,8 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   if (Object.keys(meta).length) await saveLeadMeta(id, meta);
 
   // 2) Asistencias + calificado por updateLead (invariantes + CAPI: marcar
-  //    calificado=true con asistencia dispara Lead/QualifiedLead a Meta).
+  //    calificado=true manda SubmitApplication + QualifiedLead a Meta, con o sin
+  //    reunión; la asistencia sola no le manda nada).
   const upd: Parameters<typeof updateLead>[1] = {};
   if (d.asistioJ1 !== undefined && d.asistioJ1 !== null) upd.asistio_j1 = d.asistioJ1;
   if (d.asistioJ2 !== undefined && d.asistioJ2 !== null) upd.asistio_j2 = d.asistioJ2;

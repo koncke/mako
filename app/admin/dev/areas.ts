@@ -225,7 +225,7 @@ export const AREAS: AreaDev[] = [
     slug: 'meta-platform', titulo: 'Meta Platform', familia: 'Operate', grupo: 'Ads Manager',
     estado: 'parcial',
     alcance: 'La app de Meta: BM, App Review, OAuth, multi-cuenta. Distinto de la ingesta.',
-    vive: ['lib/meta-ads.ts', 'lib/meta-write.ts', 'lib/meta-descubrir.ts', 'lib/meta-capi.ts', 'lib/meta-leads.ts', 'lib/meta-templates.ts', 'app/api/webhooks/meta-leads'],
+    vive: ['lib/meta-ads.ts', 'lib/meta-write.ts', 'lib/meta-descubrir.ts', 'lib/meta-capi.ts', 'lib/meta-capi-payload.ts', 'lib/meta-leads.ts', 'lib/meta-templates.ts', 'app/api/webhooks/meta-leads'],
   },
   {
     slug: 'whatsapp', titulo: 'WhatsApp', familia: 'Operate', grupo: 'Comunicación',

@@ -2,7 +2,7 @@
 // El motor NO afirma una asistencia que nadie verificó
 // =============================================================================
 // `applyFathomRecording` resuelve `attended ?? true`, así que un `null` entra como
-// un «sí»: marca `asistio_j1`, mueve la etapa y dispara el QualifiedLead de Meta —
+// un «sí»: marca `asistio_j1` y mueve la etapa del lead —
 // que el revert de la regla T1 no deshace. Y el `null` es un valor NORMAL desde que
 // `buscarReunionesAutomatico` lee también los links que una persona pegó a mano en
 // la ficha: un link pegado prueba que la reunión se grabó, no quién estuvo.

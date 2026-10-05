@@ -57,7 +57,7 @@ test('sólo los campos del catálogo se pueden editar desde la ficha', () => {
 });
 
 test('«calificado» y las asistencias se escriben por updateLead, que es el que avisa a Meta', () => {
-  // El evento `Lead` / `QualifiedLead` de Meta CAPI se dispara DENTRO de
+  // Las conversiones de Meta CAPI (SubmitApplication / QualifiedLead) se disparan DENTRO de
   // updateLead (lib/leads.ts). Un campo de estos ruteado a 'meta' guarda bien y
   // no avisa: la falla no se ve en la pantalla, se ve en el Ads Manager semanas
   // después, cuando Meta trae leads peores por falta de señal.

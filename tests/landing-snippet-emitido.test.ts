@@ -259,3 +259,165 @@ test('la versión del snippet sube junto con su renglón de novedades', () => {
     'va a recibir «mejoras de medición», que no le dice qué gana repegando',
   );
 });
+
+// ── El PUNTO del clic (snippet v20) ─────────────────────────────────────────────
+// Lo que estos cuatro cuidan es que el clic llegue DIBUJABLE. Hasta la v19 el
+// snippet guardaba a dónde iba cada clic y nunca en qué punto se hizo, así que el
+// dato servía para el embudo y el mapa de calor era imposible — y encima descartaba
+// los clics que no son botón ni enlace, que es justo lo que un mapa de calor llama
+// «clic al vacío» y lo más informativo que tiene.
+
+test('el clic viaja con SU PUNTO, y el punto es de la PÁGINA', () => {
+  // Probado rompiéndolo (con el arreglo puesto, 11 pasan y 0 fallan):
+  //   · se saca `ancho_ventana` del enviar()                       -> 10 pasan / 1 falla
+  //   · el punto se mide con clientX/clientY sin sumar el scroll   -> 10 / 1
+  //   · se saca el guard del (0,0)                                 -> 10 / 1
+  const gen = snippetEmitido();
+
+  // 1) Las CUATRO medidas viajan. Un par (x, y) solo no se puede pintar: sin el
+  //    ancho de la ventana, un punto de un celular no se puede ubicar sobre la
+  //    captura de un escritorio y el mapa sale corrido sin que nadie sepa por qué.
+  for (const campo of ['clic_x', 'clic_y', 'ancho_ventana', 'alto_pagina']) {
+    assert.ok(
+      new RegExp(campo + ': ').test(gen),
+      `el clic no manda ${campo}: sin las cuatro, el punto no se puede dibujar sobre la página`,
+    );
+  }
+
+  // 2) Y la posición es de la PÁGINA, no de la ventana. Con la posición en la
+  //    ventana, el mismo clic sobre el mismo botón da un número distinto según
+  //    cuánto había bajado la persona: los puntos salen apilados arriba.
+  const i = gen.indexOf('function puntoDelClic');
+  assert.ok(i > 0, 'no está la función que mide el punto del clic');
+  const cuerpo = gen.slice(i, gen.indexOf('function accionable', i));
+  assert.ok(cuerpo.length > 300 && cuerpo.length < 3000, `el recorte quedó en ${cuerpo.length}: está mirando otra cosa`);
+  assert.ok(/pageX/.test(cuerpo) && /pageY/.test(cuerpo), 'el punto tiene que salir de la posición en la PÁGINA');
+  assert.ok(
+    /clientX[\s\S]{0,160}pageXOffset/.test(cuerpo) && /clientY[\s\S]{0,160}pageYOffset/.test(cuerpo),
+    'el respaldo de clientX/clientY tiene que sumarle el scroll: si no, en una página scrolleada el punto sale corrido',
+  );
+
+  // 3) El (0,0) NO es un punto: es lo que reporta un clic disparado por código (el
+  //    propio sitio llamando a click(), un cartel de cookies que se cierra solo).
+  //    Dejarlo pasar le pone al mapa una mancha fija en la esquina que nadie hizo.
+  assert.ok(
+    /if \(!px && !py\) return null;/.test(cuerpo),
+    'falta descartar el (0,0): un clic sintético pinta una mancha en la esquina de arriba a la izquierda',
+  );
+});
+
+test('el clic al VACÍO entra, con tipo propio y sin una letra del elemento', () => {
+  // Probado rompiéndolo (con el arreglo puesto, 11 pasan y 0 fallan):
+  //   · el clic al vacío sale como tipo_evento 'click'            -> 10 pasan / 1 falla
+  //   · etiquetaDe devuelve el innerText del elemento             -> 10 / 1
+  //   · vuelve el `return` que descartaba lo que no es accionable ->  8 / 3
+  //     (ése cae en los tres guards nuevos a la vez, que es lo correcto: sin la rama
+  //      no hay tipo propio, no hay tope propio y no queda un enviar() con el punto)
+  const gen = snippetEmitido();
+  const i = gen.indexOf("addEventListener('click'");
+  assert.ok(i > 0, 'el snippet no escucha los clics');
+  const bloque = gen.slice(i, gen.indexOf('}, true);', i));
+  assert.ok(bloque.length > 1000 && bloque.length < 7000, `el recorte quedó en ${bloque.length}: está mirando otra cosa`);
+
+  // 1) Entra, y con tipo PROPIO. No alcanza con una marca adentro del 'click': todo
+  //    lo que hoy cuenta 'click' —el chequeo «hace clic en tus botones», el pulso de
+  //    la página, el recorrido del lead— cuenta llamados a la acción del negocio, y
+  //    un toque en una foto no es uno. Con una marca, ese chequeo se pondría verde
+  //    porque alguien tocó una imagen.
+  const tipos = new Set(bloque.match(/tipo_evento: '[a-z_]+'/g) ?? []);
+  assert.deepEqual(
+    tipos,
+    new Set(["tipo_evento: 'click'", "tipo_evento: 'clic_vacio'"]),
+    'el handler de clics tiene que emitir DOS tipos distintos: el accionable y el que cae al vacío',
+  );
+
+  // 2) ⚠️ PRIVACIDAD. Un clic al vacío cae muchas veces sobre un campo del
+  //    formulario YA COMPLETADO, y el texto de esa zona es el nombre, el mail o el
+  //    teléfono de quien está mirando. Lo único que viaja es la ETIQUETA (DIV, IMG,
+  //    INPUT), que dice todo lo que el mapa necesita y no identifica a nadie.
+  const desde = bloque.indexOf('if (!accionable(el))');
+  assert.ok(desde > 0, 'no está la rama del clic al vacío');
+  const rama = bloque.slice(desde, bloque.indexOf("tipo_evento: 'clic_vacio'"));
+  assert.ok(rama.length > 100 && rama.length < 2500, `el recorte de la rama quedó en ${rama.length}: está mirando otra cosa`);
+  assert.ok(
+    !/innerText|textContent/.test(rama),
+    'la rama del clic al vacío lee el texto del elemento: si el clic cae sobre un campo lleno, eso son los datos de la persona',
+  );
+  const e = gen.indexOf('function etiquetaDe');
+  assert.ok(e > 0, 'no está la función que nombra el elemento del clic al vacío');
+  const cuerpoEtiqueta = gen.slice(e, gen.indexOf("document.addEventListener('click'", e));
+  assert.ok(cuerpoEtiqueta.length > 80 && cuerpoEtiqueta.length < 1200, `el recorte quedó en ${cuerpoEtiqueta.length}`);
+  assert.ok(
+    /tagName/.test(cuerpoEtiqueta) && !/innerText|textContent|\.value/.test(cuerpoEtiqueta),
+    'etiquetaDe tiene que mandar SOLO la etiqueta del elemento, nunca su texto ni el valor de un campo',
+  );
+});
+
+test('el clic al vacío tiene su PROPIO tope, y no le come el presupuesto al del embudo', () => {
+  // ⚠️ ESTO ES LO QUE SE CUIDA ACÁ, no que el evento exista. El tope de 40 por carga
+  // está desde la v6 por algo: una visita larga, o un doble toque repetido, manda
+  // cientos de eventos a NUESTRO beacon desde la página de un cliente. Los clics al
+  // vacío son muchísimo más frecuentes que los CTA —gente tocando fotos, títulos,
+  // precios—, así que con un presupuesto compartido una visita que toca doce fotos
+  // se queda sin lugar para el clic que ES el embudo.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 11 pasan y 0 fallan):
+  //   · los dos comparten el contador CLICKS                  -> 10 pasan / 1 falla
+  //   · se saca la salida temprana con los dos topes agotados  -> 10 / 1
+  const gen = snippetEmitido();
+  const i = gen.indexOf("addEventListener('click'");
+  const bloque = gen.slice(i, gen.indexOf('}, true);', i));
+
+  assert.ok(/VACIOS >= 12/.test(bloque), 'falta el tope propio de los clics al vacío: una visita larga puede mandar cientos');
+  assert.ok(/CLICKS >= 40/.test(bloque), 'se perdió el tope de los clics accionables');
+  assert.ok(
+    /VACIOS\+\+/.test(bloque) && /CLICKS\+\+/.test(bloque),
+    'cada tope necesita su propio contador: con uno solo, los toques al vacío le comen el presupuesto al clic del embudo',
+  );
+  // Y con los dos agotados el handler sale sin medir: leer el alto del documento
+  // fuerza al navegador a recalcular el layout, y eso no se paga por un clic que no
+  // se va a mandar.
+  assert.ok(
+    /if \(CLICKS >= 40 && VACIOS >= 12\) return;/.test(bloque),
+    'falta la salida temprana con los dos presupuestos agotados: mide el documento en cada clic para nada',
+  );
+});
+
+test('el beacon conoce el clic al vacío, y guarda el punto sin inventarlo', () => {
+  // El snippet y el receptor son DOS archivos, y el receptor tiene lista blanca: un
+  // tipo que no está en CONOCIDOS se guarda como 'desconocido'. Un snippet que mide
+  // perfecto y un route que no guarda la columna son el mismo dato perdido, una capa
+  // más abajo.
+  //
+  // Probado rompiéndolo (con el arreglo puesto, 11 pasan y 0 fallan):
+  //   · se saca 'clic_vacio' de CONOCIDOS                   -> 10 pasan / 1 falla
+  //   · se saca `ancho_ventana` del insert                  -> 10 / 1
+  //   · pixel() acota con Math.min en vez de devolver null  -> 10 / 1
+  const route = readFileSync(new URL('../app/api/track/vsl/route.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+
+  const linea = /const CONOCIDOS = \[([^\]]*)\]/.exec(route)?.[1] ?? '';
+  assert.ok(
+    linea.includes("'clic_vacio'"),
+    "el route no acepta 'clic_vacio': el evento entra como 'desconocido' y el dato queda con un nombre que ninguna pantalla busca",
+  );
+
+  for (const col of ['clic_x', 'clic_y', 'ancho_ventana', 'alto_pagina']) {
+    assert.ok(
+      new RegExp('^\\s*' + col + ': pixel\\(', 'm').test(route),
+      `el route no escribe ${col}: el snippet la manda y se tira en el insert`,
+    );
+  }
+
+  // ⚠️ FUERA DE RANGO VA NULL, NO EL TOPE. Acotar un 999999 a 500000 pone un punto
+  // en un lugar donde nadie hizo clic, y un punto inventado en un mapa de calor es
+  // indistinguible de uno real.
+  const i = route.indexOf('const pixel =');
+  assert.ok(i > 0, 'no está el saneador del punto del clic');
+  const cuerpo = route.slice(i, route.indexOf(';', route.indexOf('Math.round', i)) + 1);
+  assert.ok(cuerpo.length > 80 && cuerpo.length < 400, `el recorte quedó en ${cuerpo.length}: está mirando otra cosa`);
+  assert.ok(/v >= 0/.test(cuerpo) && /v <= max/.test(cuerpo), 'pixel() tiene que acotar el rango antes de aceptar el número');
+  assert.ok(
+    /: null/.test(cuerpo) && !/Math\.min|Math\.max/.test(cuerpo),
+    'pixel() recorta en vez de descartar: un número fuera de rango acotado inventa un punto que nadie tocó',
+  );
+});

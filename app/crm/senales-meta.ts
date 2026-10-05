@@ -5,15 +5,22 @@
 //
 // Desde el 17/09 mover de etapa ya no exige los datos de la etapa: se guarda y
 // lo que falta queda pendiente (ver registrarPendientes en app/crm/actions.ts).
-// Hay DOS datos que igual se ofrecen en el momento, y es por Meta:
+// Hay DOS datos que igual se ofrecen en el momento, y uno de ellos es por Meta:
 //
-//   · `calificado`                → evento Lead
-//   · `asistió a la R1` + calif.  → evento QualifiedLead
+//   · `calificado`         → `SubmitApplication` + `QualifiedLead` (lib/leads.ts)
+//   · `asistió a la R1`    → NO le manda nada a Meta; mueve la etapa del CRM
 //
-// Son los únicos del CRM que le llegan a Meta (lib/leads.ts, updateLead). Mover
-// de etapa no le manda nada — ni siquiera pasar a Ganado: no existe un evento de
-// compra. Si estos dos se postergan con todo lo demás, Meta los recibe una semana
-// tarde o nunca, que es justo lo que la regla vieja quería evitar y no lograba.
+// `calificado` es el ÚNICO dato del CRM que le llega a Meta. Mover de etapa no le
+// manda nada — ni siquiera pasar a Ganado: no existe un evento de compra. Si se
+// posterga con todo lo demás, Meta lo recibe una semana tarde o nunca, que es justo
+// lo que la regla vieja quería evitar y no lograba.
+//
+// ⚠️ LA ASISTENCIA SALIÓ DE LA CUENTA EL 05/10/2026, y la asistencia se sigue
+// ofreciendo igual. `asistio_j1 && calificado` disparaba `QualifiedLead` como PROXY
+// de «califica», de cuando calificar exigía una reunión; desde que `calificado` se
+// marca en cualquier embudo es la MISMA etapa, y un segundo evento con el mismo
+// nombre la contaba dos veces. Lo que la asistencia decide hoy es la etapa derivada
+// del lead, que es razón suficiente para preguntarla al mover.
 //
 // Se OFRECEN, no se exigen: el botón de mover funciona sin tocarlos. Cada uno es
 // un toque, y solo aparecen si hoy faltan y si hay una reunión de la que hablar.
@@ -58,7 +65,8 @@ export function senalesAOfrecer(lead: LeadParaSenales, opts: { tr?: TransicionPa
   // asistencia cuando falta la fecha, así que preguntarla sería inútil.
   //
   // ⚠️ «Calificado» SÍ se puede marcar sin reunión desde el 05/10/2026 (pestaña
-  // Tracking de la ficha, ver lib/calificado-reunion.ts). Acá no se ofrece igual, y
+  // Tracking de la ficha, ver lib/calificado-reunion.ts), y es lo que viaja a Meta.
+  // Acá no se ofrece igual, y
   // a propósito: esto es lo que se pregunta AL MOVER de etapa, y un movimiento sin
   // reunión no es el momento de esa pregunta. No hay dos verdades — el control de
   // la ficha escribe la misma columna por el mismo camino y los dos leen `lead`.

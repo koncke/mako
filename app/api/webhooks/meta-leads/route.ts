@@ -19,7 +19,9 @@
 
 import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { upsertLeadFromMeta } from '@/lib/leads';
+import { upsertLeadFromMeta, logLeadEvent } from '@/lib/leads';
+import { sendMetaCAPIEvent } from '@/lib/meta-capi';
+import { eventIdLeadCrudo } from '@/lib/meta-capi-payload';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { emitirDelCatalogo } from '@/lib/avisos';
@@ -237,6 +239,34 @@ export async function POST(request: NextRequest) {
           `[webhook:meta-leads] ws=${ws} ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} page=${pageId ?? '—'} leadgen=${leadgenId} ad=${graphLead.ad_name ?? '—'} ms=${Date.now() - tStart}`,
         );
         results.push({ leadgen_id: leadgenId, status: created ? 'created' : 'updated', lead_id: lead.id });
+
+        // CAPI: el evento `Lead` — el lead CRUDO, la primera etapa del embudo que
+        // Meta necesita para poder optimizar por calidad. Acá y no en el CRM: hasta
+        // el 05/10/2026 lo disparaba `calificado` (lib/leads.ts), o sea el lead crudo
+        // y el calificado viajaban con el MISMO nombre y Meta no podía distinguir
+        // dos etapas. Este es el único lugar que sabe cuándo ENTRA uno.
+        //
+        // Va con el `lead_id` sin hashear (el identificador de más prioridad de
+        // Meta), con la hora REAL del formulario —no la de este request, que puede
+        // llegar tarde— y con un event_id derivado del leadgen_id, porque Meta
+        // reintenta el batch entero cuando el webhook no contesta 200.
+        //
+        // ⚠️ NO se agrega al camino de POLLING (lib/meta-leads.ts): ése hace una
+        // pasada de 90 días, así que mandaría `Lead` por leads viejísimos que caen
+        // fuera de la ventana de CAPI. Ahí no hay nada que optimizar.
+        const capi = await sendMetaCAPIEvent({
+          eventName: 'Lead',
+          email: lead.email,
+          phone: lead.telefono,
+          metaLeadId: leadgenId,
+          eventTime: graphLead.created_time ?? null,
+          eventId: eventIdLeadCrudo(leadgenId),
+          customData: { lead_type: 'formulario_meta' },
+        });
+        if (!capi.ok && (capi.motivo === 'rechazado' || capi.motivo === 'http' || capi.motivo === 'red')) {
+          // Lo que Meta rechaza va donde el dueño lo lee, no sólo al log.
+          await logLeadEvent(lead.id, 'Meta', `No entró la conversión Lead: ${capi.detalle}`.slice(0, 300), 'MaKo');
+        }
 
         // Alta del chat: contacto + conversación en Chatwoot para que el 100% de
         // los leads tenga su hilo de WhatsApp desde el día cero (silencioso).

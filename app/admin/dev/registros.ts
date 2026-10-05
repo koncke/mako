@@ -46,6 +46,7 @@ import { PARTES as PLANSENTITLEME_PARTES, BITACORA as PLANSENTITLEME_BITACORA } 
 import { PARTES as RATELIMITING_PARTES, BITACORA as RATELIMITING_BITACORA } from './rate-limiting/bitacora';
 import { PARTES as REELS_PARTES, BITACORA as REELS_BITACORA } from './reels/bitacora';
 import { PARTES as SELFHEALINGDEV_PARTES, BITACORA as SELFHEALINGDEV_BITACORA } from './self-healing-dev-agent/bitacora';
+import { PARTES as METAPLATFORM_PARTES, BITACORA as METAPLATFORM_BITACORA } from './meta-platform/bitacora';
 import { PARTES as CONFIGURACIONES_PARTES, BITACORA as CONFIGURACIONES_BITACORA } from './configuraciones/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
@@ -88,6 +89,7 @@ const REGISTROS: Record<string, Registro> = {
   'rate-limiting': { partes: RATELIMITING_PARTES, bitacora: RATELIMITING_BITACORA },
   'reels': { partes: REELS_PARTES, bitacora: REELS_BITACORA },
   'self-healing-dev-agent': { partes: SELFHEALINGDEV_PARTES, bitacora: SELFHEALINGDEV_BITACORA },
+  'meta-platform': { partes: METAPLATFORM_PARTES, bitacora: METAPLATFORM_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

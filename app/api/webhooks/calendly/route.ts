@@ -26,6 +26,7 @@ import {
   setFechaJunta2,
   cancelarJuntaEnLead,
   saveLeadRespuestas,
+  logLeadEvent,
 } from '@/lib/leads';
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
@@ -439,10 +440,15 @@ export async function POST(request: NextRequest) {
         // que Meta optimice sobre reservas reales. event_id determinístico por
         // reserva (email + hora de inicio) → deduplica reintentos y permite
         // deduplicar con el pixel del navegador si éste envía el mismo id.
-        await sendMetaCAPIEvent({
+        const capiSchedule = await sendMetaCAPIEvent({
           eventName: 'Schedule',
           email,
           phone: telefono,
+          // El `leadgen_id`, si este lead vino de un formulario de Meta: es el
+          // identificador de más prioridad para el match y lo único que mueve la
+          // Cobertura de leads. Un lead orgánico no lo tiene y va sin él — mandar el
+          // campo vacío es peor que no mandarlo (Meta rechaza el evento entero).
+          metaLeadId: lead.meta_lead_id,
           actionSource: 'website',
           eventId: `schedule:${email.toLowerCase()}:${startTimeIso}`,
           customData: {
@@ -450,6 +456,11 @@ export async function POST(request: NextRequest) {
             ...(utm_campaign ? { utm_campaign } : {}),
           },
         });
+        // Lo que Meta rechaza va al historial de la ficha, no sólo al log: un 200
+        // con el error adentro no deja ningún rastro que alguien vaya a abrir.
+        if (!capiSchedule.ok && (capiSchedule.motivo === 'rechazado' || capiSchedule.motivo === 'http' || capiSchedule.motivo === 'red')) {
+          await logLeadEvent(lead.id, 'Meta', `No entró la conversión Schedule: ${capiSchedule.detalle}`.slice(0, 300), 'MaKo');
+        }
 
         // Aviso al dueño: nuevo lead que agendó una R1 (best-effort, no bloquea).
         const anuncio = utm_campaign ? ` Vino del anuncio "${utm_campaign}".` : '';

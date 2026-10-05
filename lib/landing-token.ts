@@ -94,12 +94,18 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       25/50/75/100 + el punto exacto al irse). CON FRENO — el evento del
  *       navegador se dispara por cada pixel, así que el handler agenda una mirada
  *       cada 400 ms y solo se manda al cruzar un hito.
+ *  20 — el clic viaja con SU PUNTO (posición en la página, ancho de la ventana y
+ *       alto del documento), que es lo que el mapa de calor necesita para pintarlo
+ *       sobre la página. Y entran los clics al VACÍO, que hasta acá se descartaban:
+ *       son el dato más informativo del mapa —gente tocando algo que no es
+ *       clickeable— y van con tipo propio ('clic_vacio') para no contaminar el
+ *       escalón del embudo, con 12 por carga de tope y SIN texto del elemento.
  *  10 — se miden AGENDÓ (Calendly avisa al padre por postMessage) y el ciclo de
  *       vida del video: pausa, retoma y fin. Sin lo primero, el embudo de quien
  *       vende por llamada terminaba en «vio el video»; sin lo segundo, «vio 3
  *       minutos» no distinguía a quien miraba de quien lo dejó corriendo.
  */
-export const SNIPPET_VERSION = 19;
+export const SNIPPET_VERSION = 20;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -129,6 +135,7 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
+  20: 'EN QUÉ PUNTO de tu página toca cada persona, que es lo que hace falta para dibujar el mapa de calor. Hasta ahora se guardaba a dónde iba cada clic y nunca dónde se hizo, así que no se podía pintar sobre tu página; y los toques en algo que no es un botón —una foto que parece clickeable, un precio que la gente aprieta esperando que pase algo— se tiraban, cuando son lo que más te dice qué está confundiendo a la gente',
   19: 'hasta dónde baja cada persona en tu página. Hasta ahora se sabía quién entró, qué video vio y qué botón apretó, y nada de cuánto leyó: quien se fue arriba sin leer la oferta y quien llegó hasta el final y no la apretó se veían iguales, y son dos problemas distintos',
   18: 'la retención de tu VSL cuando usa un reproductor moderno: se estaba midiendo dos veces, como si fueran dos videos distintos, así que las reproducciones salían al doble y la curva partida en dos',
   17: 'de qué anuncio viene cada persona que deja sus datos, y qué contestó en tu formulario. Antes el lead entraba sin origen —tu CRM decía «Directo» aunque hubiera llegado por una campaña— y el WhatsApp de aviso solo traía el nombre y el teléfono; ahora trae también lo que completó, así sabes qué le interesa antes de escribirle',
@@ -2340,23 +2347,93 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
   // intermedio, así que una página que convierte mal no se distinguía de una que
   // nadie mira. Va en captura y NUNCA frena el click: lo que la persona quería
   // hacer tiene que pasar igual, aunque el envío falle.
+  //
+  // ⚠️ Y DESDE LA v20 EL CLIC VIAJA CON SU PUNTO. Hasta la v19 se guardaba ADÓNDE
+  // iba el clic y nunca EN QUÉ PUNTO se hizo, así que el dato servía para el embudo
+  // y no se podía DIBUJAR sobre la página: un mapa de calor necesita coordenadas,
+  // no destinos.
   var CLICKS = 0;
+  var VACIOS = 0;
+  // ⚠️ EL PUNTO VA EN COORDENADAS DE LA PÁGINA, NO DE LA VENTANA. Con la posición
+  // en la ventana, el mismo clic sobre el mismo botón da un número distinto según
+  // cuánto había bajado la persona: los puntos salen apilados arriba y el mapa no
+  // se parece a la página.
+  //
+  // Y con cada punto viajan el ANCHO de la ventana y el ALTO del documento. Sin el
+  // ancho, un punto de un celular no se puede ubicar sobre la captura de un
+  // escritorio —el mapa sale corrido y no hay forma de saber por qué—; sin el alto,
+  // un y de 3000 no dice si fue al final de la página o a un tercio.
+  function puntoDelClic(ev) {
+    var doc = document.documentElement || {};
+    var cuerpo = document.body || {};
+    // pageX/pageY no están en todos los navegadores: se reconstruyen con el scroll.
+    var px = typeof ev.pageX === 'number' ? ev.pageX : (ev.clientX || 0) + (window.pageXOffset || doc.scrollLeft || 0);
+    var py = typeof ev.pageY === 'number' ? ev.pageY : (ev.clientY || 0) + (window.pageYOffset || doc.scrollTop || 0);
+    var ancho = window.innerWidth || doc.clientWidth || 0;
+    var alto = Math.max(doc.scrollHeight || 0, cuerpo.scrollHeight || 0, doc.offsetHeight || 0);
+    // ⚠️ EL (0,0) NO ES UN PUNTO: es lo que reporta un clic disparado POR CÓDIGO
+    // —el propio sitio llamando a click(), un cartel de cookies que se cierra
+    // solo—. Dejarlo pasar le pone al mapa una mancha fija en la esquina de arriba
+    // a la izquierda que nadie hizo. El evento igual sale, porque al embudo le
+    // sirve; lo que no sale son las coordenadas, que es la verdad.
+    if (!px && !py) return null;
+    return { x: Math.round(px), y: Math.round(py), vw: Math.round(ancho), dh: Math.round(alto) };
+  }
+  function accionable(el) {
+    if (!el || !el.tagName) return false;
+    var t = el.tagName.toUpperCase();
+    return t === 'A' || t === 'BUTTON' || (el.getAttribute && el.getAttribute('role') === 'button');
+  }
+  // ⚠️ SÓLO LA ETIQUETA, Y NINGÚN TEXTO. Ver el aviso de privacidad más abajo.
+  function etiquetaDe(el) {
+    var t = String((el && el.tagName) || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 24);
+    return 'vacio: ' + (t || 'nada');
+  }
   document.addEventListener('click', function (ev) {
     try {
-      // Tope por carga. Sin esto, un click accidental repetido —o una página con
+      // Topes por carga. Sin esto, un click accidental repetido —o una página con
       // un carrusel— manda cientos de eventos, y el ruido tapa lo que importa.
-      if (CLICKS >= 40) return;
-      var el = ev.target;
+      // Se preguntan los dos ACÁ para que, con el presupuesto agotado, el handler
+      // salga sin medir: leer el alto del documento fuerza al navegador a
+      // recalcular el layout, y eso no se paga en un clic que no se va a mandar.
+      if (CLICKS >= 40 && VACIOS >= 12) return;
+      var punto = puntoDelClic(ev);
+      var tocado = ev.target;
+      var el = tocado;
       // Se sube hasta el elemento accionable: el click casi siempre cae en el
       // <span> de adentro del botón, no en el botón.
-      for (var i = 0; el && i < 5; i++) {
-        var t = (el.tagName || '').toUpperCase();
-        if (t === 'A' || t === 'BUTTON' || el.getAttribute && el.getAttribute('role') === 'button') break;
-        el = el.parentElement;
+      for (var i = 0; el && i < 5 && !accionable(el); i++) el = el.parentElement;
+      // ── EL CLIC AL VACÍO ──────────────────────────────────────────────────
+      // Hasta la v19 esto se DESCARTABA, y es el dato más informativo que tiene un
+      // mapa de calor: gente tocando algo que no es clickeable. Una foto que parece
+      // un botón, un título que parece un enlace, un precio que la gente aprieta
+      // esperando que pase algo. Eso no se deduce de ninguna otra señal que midamos.
+      //
+      // Va con tipo_evento PROPIO y no con una marca adentro del clic: todo lo que
+      // hoy lee 'click' —el chequeo «hace clic en tus botones», el pulso de la
+      // página y el recorrido del lead— cuenta llamados a la acción del negocio, y
+      // un toque en una foto no es uno. Con una marca, el chequeo se pondría verde
+      // porque alguien tocó una imagen.
+      if (!accionable(el)) {
+        // Sin punto no hay nada que dibujar, y al embudo no le suma: no es un CTA.
+        if (!punto) return;
+        // TOPE PROPIO, Y MÁS BAJO QUE EL DE LOS CLICS DE VERDAD. Un mapa de calor se
+        // lee por densidad ENTRE visitas, no adentro de una: el toque número 13 de la
+        // misma persona en el mismo lugar no agrega información, le mete sesgo. Y el
+        // presupuesto no se comparte con los 40 accionables, porque esto no puede
+        // taparle el lugar al clic que ES el embudo. Techo por carga: 40 + 12.
+        if (VACIOS >= 12) return;
+        if (esDeW(tocado)) return;
+        VACIOS++;
+        // ⚠️ ACÁ NO VIAJA NINGÚN TEXTO, y es a propósito. Un clic al vacío cae muchas
+        // veces sobre un campo del formulario YA COMPLETADO, y el texto de esa zona es
+        // el nombre, el mail o el teléfono de quien está mirando. La etiqueta del
+        // elemento (DIV, IMG, INPUT) dice todo lo que el mapa necesita y no identifica
+        // a nadie; una coordenada tampoco.
+        enviar({ tipo_evento: 'clic_vacio', detalle: etiquetaDe(tocado), clic_x: punto.x, clic_y: punto.y, ancho_ventana: punto.vw, alto_pagina: punto.dh });
+        return;
       }
-      if (!el || !el.tagName) return;
-      var tag = el.tagName.toUpperCase();
-      if (tag !== 'A' && tag !== 'BUTTON' && el.getAttribute('role') !== 'button') return;
+      if (CLICKS >= 40) return;
       // Los controles del embed inline de «W» son botones de SU reproductor: apretar
       // play no es un clic en un llamado a la acción del negocio (medido: el primer
       // clic, el del botón grande de play, salía como «boton: » vacío).
@@ -2374,7 +2451,12 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
       var detalle = href ? (href.indexOf('#') === 0 ? 'ancla ' + href : href) : ('boton: ' + texto);
       if (!detalle) return;
       CLICKS++;
-      enviar({ tipo_evento: 'click', detalle: detalle.slice(0, 300) + (texto && href ? ' — ' + texto : '') });
+      var d = { tipo_evento: 'click', detalle: detalle.slice(0, 300) + (texto && href ? ' — ' + texto : '') };
+      // Las coordenadas se SUMAN cuando las hay: un clic disparado por código no
+      // tiene punto y el evento tiene que salir igual, porque para el embudo ese
+      // clic ocurrió. Mandar un 0 inventaría una mancha en la esquina.
+      if (punto) { d.clic_x = punto.x; d.clic_y = punto.y; d.ancho_ventana = punto.vw; d.alto_pagina = punto.dh; }
+      enviar(d);
     } catch (e) {}
   }, true);
 

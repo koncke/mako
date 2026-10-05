@@ -29,6 +29,9 @@ Lo que más muerde acá:
   componente pinta → [El catálogo de features y sus landings](#el-catálogo-de-features-y-sus-landings).
 - Un cambio en la landing principal que no se replicó en las de feature: el dueño lo tuvo
   que pedir dos veces → [El copy: cómo se escribe](#el-copy-cómo-se-escribe).
+- El VSL **no se ve en ningún replay de sesión, tampoco en Clarity** (lo dicen sus docs), y
+  Clarity además **pierde el clic sobre el play**; el default de privacidad de rrweb NO tapa
+  los formularios → [Replay de sesión y mapas de calor](#replay-de-sesión-y-mapas-de-calor-clarity-vs-uno-propio).
 
 ⚠️ **Parte de este documento es material de segunda mano.** Las entradas fechadas entre
 junio y agosto de 2026 salen de los journals de las corridas multi-agente (261 corridas;
@@ -2521,3 +2524,198 @@ tanto el duplicado cae en el embudo del negocio —donde cae hoy— y lo decide 
 está mirando el CRM, con `moverLeadDeFunnel` a un click. Lo que lo cierra son dos líneas:
 un `funnelId` en `FilaImport` (`app/crm/leads-importar.ts`) y pasarlo al `createLead` del
 importador (`app/crm/actions.ts`).
+
+---
+
+## Replay de sesión y mapas de calor (Clarity vs. uno propio)
+
+### El VSL no se ve en NINGÚN replay de DOM — tampoco en Clarity, que es lo que vuelve discutible la objeción
+
+**Síntoma / la discusión:** al evaluar "replicar Clarity adentro de MaKo" (grabación de
+sesión propia con rrweb en Landing Analyst), el argumento para NO hacerlo fue que el replay
+no puede grabar adentro del iframe del VSL y se vería un recuadro vacío. Eso es cierto,
+pero **es exactamente igual de cierto en Clarity**, así que no es una diferencia entre las
+dos opciones: es una limitación de la técnica.
+
+**Lo medido (docs oficiales de Microsoft, octubre 2026):**
+
+- `learn.microsoft.com/clarity/session-recordings/inline-player`, sección *Inline player
+  limitations*: «Clarity can't capture third-party iFrames and HTML Canvas elements. They
+  appear in your recording as shown» (con captura del recuadro vacío). Y más arriba: «While
+  the masked content is shielded, third-party iFrame content is blocked on the playback
+  viewer».
+- `learn.microsoft.com/clarity/faq`: «Though any site architecture is supported, Clarity
+  can't render inside third-party 'iFrame' or 'canvas' elements». Y en heatmaps: «Clarity
+  captures clicks on first-party iFrames (that is, iFrames source is the same domain as
+  original page source) but not on third-party iFrames» — o sea que en Clarity **el clic
+  sobre el play del VSL ni siquiera entra al mapa de calor**.
+- Lado nuestro: `app/vsl/_detalle/PandaPlayer.tsx` monta un `<iframe src>` a
+  `player-vz-*.tv.pandavideo.com.br`. Es third-party por definición de dominio.
+- rrweb: `recordCrossOriginIframes` existe pero su default es `false` y su propia doc dice
+  «rrweb has to be injected in each child iframe for this to work». No podemos inyectar nada
+  dentro del player de un proveedor, así que la opción no nos sirve ni prendiéndola.
+
+**La causa real:** un replay de sesión no es un video de la pantalla, es una reconstrucción
+del DOM. El navegador no deja leer el DOM de un documento de otro origen (same-origin
+policy), y ningún proveedor esquiva eso: lo esquivarían sólo grabando píxeles, que es lo que
+ninguno hace. Clarity lo dice con todas las letras.
+
+**La regla que queda:**
+
+1. La profundidad de visualización del VSL **no sale de ningún replay, ni propio ni
+   comprado**. Sale de los eventos del player (`panda_timeupdate` → `app/api/track/vsl`) o de
+   la API de Panda. Ese beacon no es redundante con Clarity: mide lo único que Clarity no
+   puede ver.
+2. Lo que sí compra un replay de DOM: scroll y hasta dónde llegó, clics (con rage/dead
+   click), movimiento del mouse, foco y tipeo en formularios, selección de texto, resize y
+   cambios de orientación, pestaña visible/oculta, errores de JS, y el texto exacto que leyó
+   esa persona. En rrweb eso son los `IncrementalSource`: `Mutation`, `MouseMove`,
+   `MouseInteraction`, `Scroll`, `ViewportResize`, `Input`, `TouchMove`, `MediaInteraction`,
+   `Selection`.
+3. Matiz que conviene no perder: un `<video>` NATIVO servido desde nuestro dominio **sí** se
+   graba — rrweb tiene `MediaInteraction` con `Play / Pause / Seeked / VolumeChange /
+   RateChange`. El problema es el iframe, no el video.
+
+### Privacidad: el default de rrweb NO es el default de Clarity
+
+**La trampa:** se suele asumir que "rrweb y Clarity enmascaran los formularios por defecto".
+Clarity sí; rrweb **no**.
+
+- Clarity: «Clarity masks sensitive content on your website by default and never captures
+  anything that is masked or sent over the wire». El modo por defecto es **Balanced** (sólo
+  números y emails), y aparte: «Content in the input boxes is masked in all modes and can't
+  be customized» — los inputs y los dropdowns van enmascarados en los tres modos, incluido
+  Relaxed. Lo que NO enmascara: «Clarity doesn't mask content within style sheets or style
+  tags».
+- rrweb: `maskAllInputs` tiene default **`false`**, y `maskInputOptions` default
+  **`{ password: true }`**. Es decir: de fábrica rrweb graba el contenido de los inputs tal
+  cual, y lo único tapado es el campo de contraseña.
+
+**La regla:** si alguna vez se graba sesión sobre landings de clientes reales y sus
+visitantes, `maskAllInputs: true` no es una opción de configuración, es el piso. Y los
+números y emails no están tapados por default ni siquiera así si viven como texto fuera de un
+input (precios, teléfonos ya renderizados, datos del lead en una gracias/thank-you): eso pide
+`maskTextClass` / `blockClass` explícitos. Esto es dato personal de terceros que no aceptaron
+nada con nosotros, y tiene consecuencia legal, no sólo técnica.
+
+---
+
+## La analítica POR PÁGINA del Pixel: lo que ya estaba medido y no miraba nadie
+
+**Vive en:** `lib/landing-pulso.ts` (puro, con test) · `lib/landing-pulso-server.ts` (la
+lectura) · `app/api/landing-analyst/pulso/route.ts` · `app/landing-analyst/PulsoPaginas.tsx`
+(la vista «Lo que mide tu Pixel» de Landing Analyst) · `tests/landing-pulso.test.ts`
+
+Corrida del 05/10/2026. El pedido fue «una pantalla con el mapa de calor y los gráficos que
+mide el Pixel, dentro de Landing Analyst». Se construyó la mitad que NO necesita tocar el
+Pixel: profundidad de scroll y clics por destino, por página. El mapa de calor de PUNTOS
+sigue sin poderse hacer — ver «Lo que quedó sin hacer», abajo.
+
+### ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: `vsl_events` SÍ dice de qué página vino cada evento
+
+El relevo de entrada decía que `vsl_events` tiene `(visitor_id, tipo_evento, porcentaje,
+segundos, video_id, detalle)`, y de ahí sale una conclusión razonable y falsa: que los clics
+y el scroll hay que atribuirlos **por visitante** (como hace `getComportamiento` con la
+retención del VSL, que lo documenta: «`vsl_events` no guarda a qué página pertenece el
+evento»). Ese comentario quedó viejo: la **mig 0137** le agregó `landing_url`, y el snippet
+la manda en CADA evento desde la v12 (`enviar()` en `lib/landing-token.ts`: «LA PÁGINA VIAJA
+EN CADA EVENTO, no solo en la visita»).
+
+O sea que la atribución por página es DIRECTA y no hay ambigüedad que avisar. Lo que sí hay
+es el caso de los eventos viejos:
+
+- **Un evento con `landing_url` NULL no se reparte entre las páginas.** Son los de un Pixel
+  anterior a la v12 y nunca van a traer otra cosa. `landingDiagnostico` los DEJA PASAR a
+  propósito —allá la pregunta es «¿anda mi Pixel?» y descartarlos pintaría en rojo a quien
+  sólo lo tiene viejo— y acá la pregunta es «¿en CUÁL de mis páginas?», donde repartirlos
+  sería inventar. Se cuentan aparte (`eventosSinPagina`) y la pantalla ofrece repegarlo.
+- **La regla que generaliza:** antes de escribir que una tabla «no tiene» una columna,
+  mirá las migraciones POSTERIORES al comentario que lo afirma. Un comentario describe el
+  mundo del día en que se escribió, y acá el que mentía tenía tres meses.
+
+### El denominador de la profundidad NO son los visitantes
+
+El scroll llegó en el **snippet v19** (`NOVEDADES[19]` en `lib/landing-token.ts`), y el
+snippet va PEGADO en la página del cliente: quien no lo repegó no manda un solo evento de
+scroll. Dividir los hitos por `visitantes` daría «el 0,2% llega a tu oferta» sobre una
+página que nadie está midiendo — una conclusión sobre un agujero de instrumentación, que es
+la falla que `lib/vsl-retencion.ts` trata como innegociable.
+
+`profundidadDe()` devuelve **null con cero personas medidas** (nunca una barra en 0%) y
+`base` viaja al lado de `visitantes` para que la pantalla muestre el hueco: «Medido en 7 de
+las 1.204 personas que entraron». Y el vacío tiene TRES textos distintos, porque son tres
+problemas con tres arreglos: no hay Pixel (`instalada === 0`), el Pixel es anterior a la
+v19, o está al día y todavía no llegó nada.
+
+### El sello del constructor no era sólo un problema de la ficha de un lead
+
+`esClicDelConstructor` (`lib/clic-ruido.ts`) existía con **un solo call site** (el lector de
+eventos de `lib/leads.ts`), y su propia medición dice que en el ws de prueba eran **208 de
+441 clics**. Sin llamarlo desde la vista agregada, el botón más tocado de cualquier landing
+hecha con un constructor es «Edit with Lovable». Se filtra al LEER —el evento queda en la
+base— y la pantalla DICE cuántos descartó, para que la lista no parezca incompleta por
+magia.
+
+### Dos consultas y no un `.in()`: el índice de los clics es PARCIAL
+
+`idx_vsl_events_click` (mig 0133) es `on vsl_events (workspace_id, created_at desc) where
+tipo_evento = 'click'`. Un `.in('tipo_evento', ['click','scroll'])` **no lo usa**: son dos
+lecturas separadas (`eq`), la del scroll apoyada en `idx_vsl_events_ws_created` (mig 0121).
+
+Y las dos van por `leerPorPaginas` (`lib/supabase-paginado.ts`), barriendo por `id`:
+`vsl_events` pasa las 75.000 filas en un workspace y un `.select()` suelto topea en 1000 sin
+avisar.
+
+⚠️ **`landing_visits` no se puede filtrar por página en la base.** El beacon guarda
+`location.href` con sus utm, así que la comparación es NORMALIZADA y en memoria
+(`normalizarUrl`). De ahí dos cosas: la ventana (`PULSO_DIAS = 90`) es lo único que acota
+esa lectura, y es **una pasada por tabla para TODAS las páginas** — leerla una vez por
+página multiplicaría el barrido por el selector.
+
+### El `server-only` partió el módulo en dos, y la pantalla lo obligaba igual
+
+Se escribió todo en un `lib/landing-pulso.ts` con `server-only`, y falló por los DOS lados a
+la vez:
+
+1. El test no puede importar nada de un módulo con `server-only` (`Error: This module cannot
+   be imported from a Client Component module`), así que la parte que se puede equivocar
+   —partir el `detalle` de un clic, agrupar por destino, leer la profundidad— quedaba sin red.
+2. Y la PANTALLA (`'use client'`) necesita las constantes de versión del Pixel para explicar
+   un bloque vacío. Importar un VALOR de un módulo `server-only` desde un cliente rompe el
+   build, y lo caza `tests/frontera-use-client.test.ts`.
+
+Quedó el reparto de la casa: el contrato y lo puro en `lib/landing-pulso.ts` **sin**
+`server-only`, la lectura en `lib/landing-pulso-server.ts` **con**. Un guard del test fija
+las dos mitades en las dos direcciones.
+
+### GOTCHA del guard: `indexOf('\n}')` cierra el TIPO de las props, no el componente
+
+Un guard que recortaba el bloque de un componente con `UI.slice(i, UI.indexOf('\n}', i))`
+daba «`Profundidad` dejó de mirar si su lectura falló» sobre código que SÍ miraba: en
+
+```tsx
+function Profundidad({ pag, pixel, falla }: {
+  …
+}) {
+  if (falla) return <NoSePudo … />;
+```
+
+el primer `\n}` es el que cierra el **tipo de las props** (`}) {`), así que el recorte
+terminaba antes de la primera línea del cuerpo. Es la misma familia que «el bloque es su
+cierre real, nunca un número de caracteres»: ahora se corta en la declaración siguiente
+(`/\n(?:export )?function /`) y se **afirma el largo** del recorte.
+
+### Lo que quedó SIN hacer
+
+- **El mapa de calor de PUNTOS no se puede hacer todavía.** El snippet manda
+  `{ tipo_evento: 'click', detalle }` y `detalle` es el destino o el texto del botón
+  (mig 0133): **no hay coordenadas**. Para pintar dónde se hace clic hacen falta el `x`/`y`
+  y el tamaño del viewport, y eso es tocar el snippet (`lib/landing-token.ts` ~2377) + una
+  columna, o sea que **el cliente tiene que repegar el Pixel** para que empiece a medir.
+- **La pantalla no se verificó en el navegador** (sólo typecheck + 19 tests + los guards del
+  repo). El riesgo vivo es visual: la vista nueva monta `Barras`/`Cifra` de
+  `app/admin/dev/pricing/Piezas.tsx` y el `Select` de `app/_ui`.
+- **`npm run build` no se corrió**, y hay una ruta nueva (`/api/landing-analyst/pulso`): el
+  typecheck sólo valida los tipos generados de rutas si `.next/types` está fresco.
+- **La ventana de 90 días no es configurable desde la pantalla.** El endpoint ya acepta
+  `?dias=` (1 a 365); falta el control.

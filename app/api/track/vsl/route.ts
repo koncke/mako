@@ -150,6 +150,13 @@ type Payload = {
   detalle?: unknown;
   /** true = el video arrancó SOLO (autoplay), sin que nadie lo pidiera. */
   auto?: unknown;
+  // ── El PUNTO del clic (mig 0190, snippet v20) ──────────────────────────────
+  // Las cuatro viajan juntas o no viajan: un punto sin el ancho de la ventana no
+  // se puede ubicar sobre una captura, así que por separado no sirven de nada.
+  clic_x?: unknown;        // posición en la PÁGINA, no en la ventana
+  clic_y?: unknown;
+  ancho_ventana?: unknown; // ancho del viewport en px CSS
+  alto_pagina?: unknown;   // alto del documento en px CSS
   /** Marcador de sesión de prueba (?mko_test=). NULL en el tráfico real. */
   prueba?: unknown;  // título del video de Panda, si la landing lo puede leer
   landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
@@ -232,6 +239,15 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   const texto = (v: unknown, max: number): string | null =>
     typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
 
+  // Un píxel: entero, no negativo y por debajo de un techo generoso.
+  //
+  // ⚠️ FUERA DE RANGO DEVUELVE NULL, NO EL TOPE. Acotar un 999999 a 500000 pone un
+  // punto en un lugar donde nadie hizo clic, y un punto inventado en un mapa de
+  // calor es indistinguible de uno real. NULL dice lo único que sabemos: que ese
+  // número no sirve.
+  const pixel = (v: unknown, max: number): number | null =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v) : null;
+
   // Visita a la landing → tabla propia (landing_visits), NO vsl_events.
   // Se intercepta antes de la coerción a 'play' de tipos desconocidos.
   if (tipoEvento === 'pageview') {
@@ -281,7 +297,14 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   // bajo la persona. No entra a la retencion del video — eso lo corta
   // `esEventoDeVideo`, que es lista blanca — pero sin estar ACA se guardaba como
   // 'desconocido' y el dato quedaba con un nombre que no dice nada.
-  const CONOCIDOS = ['play', 'exit', 'click', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre'];
+  // 'clic_vacio' (snippet v20) es un toque en algo que NO es boton ni enlace, y
+  // tiene tipo propio a proposito: todo lo que hoy cuenta 'click' —el chequeo «hace
+  // clic en tus botones», el pulso de la pagina, el recorrido del lead— cuenta
+  // llamados a la accion del negocio, y un toque en una foto no es uno. Con una
+  // marca adentro del 'click', ese chequeo se pondria verde porque alguien toco una
+  // imagen. Lo que SI lo lee es el mapa de calor, que es donde ese toque es el dato
+  // mas util que hay.
+  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre'];
   if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un
@@ -341,6 +364,21 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       // cada tipo de evento con lo suyo. En los demás queda NULL, que es la
       // verdad: un default inventaría un dato.
       detalle: texto(payload.detalle, 300),
+      // DÓNDE se hizo el clic (mig 0190, snippet v20). Es lo único que le faltaba
+      // al clic para poder DIBUJARSE: hasta la v19 se guardaba a dónde iba y nunca
+      // en qué punto se hizo. La posición es de la PÁGINA, no de la ventana, y va
+      // con el ancho del viewport y el alto del documento porque sin ellos un punto
+      // de un celular no se puede ubicar sobre la captura de un escritorio.
+      //
+      // NULL en todo lo que no es un clic, y también en los clics de un Pixel
+      // anterior a la v20 o en los que un script disparó por código (sin punto
+      // real). Las cuatro son nulables y sin default por lo mismo que `auto` y
+      // `landing_url`: un 0 no es «no se sabe», es una mancha en la esquina de
+      // arriba a la izquierda que nadie hizo.
+      clic_x: pixel(payload.clic_x, 50_000),
+      clic_y: pixel(payload.clic_y, 500_000),
+      ancho_ventana: pixel(payload.ancho_ventana, 50_000),
+      alto_pagina: pixel(payload.alto_pagina, 500_000),
       prueba: texto(payload.prueba, 40),
       // De qué página vino ESTE evento (mig 0137, snippet v12). Antes solo lo
       // decían las visitas, así que con dos landings los videos y los clics de

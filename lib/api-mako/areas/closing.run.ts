@@ -503,7 +503,7 @@ export const RUNNERS: Runners = {
       const maxLeads = num(input, 'maxLeads') ?? 60;
       return {
         payload: { diasAtras, maxLeads },
-        resumen: `Buscar en Fathom las grabaciones de los leads con R1 o R2 pasada en los últimos ${diasAtras} días y con menos de 2 grabaciones (hasta ${maxLeads} leads), cargarlas en su ficha y marcar asistencia solo donde estaba vacía. Marcar asistencia puede mandar el evento QualifiedLead a Meta, y eso no se deshace.`,
+        resumen: `Buscar en Fathom las grabaciones de los leads con R1 o R2 pasada en los últimos ${diasAtras} días y con menos de 2 grabaciones (hasta ${maxLeads} leads), cargarlas en su ficha y marcar asistencia solo donde estaba vacía. Marcar asistencia mueve la etapa derivada del lead, y eso no se deshace.`,
       };
     },
     ejecutar: async (payload) => {

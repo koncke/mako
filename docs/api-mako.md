@@ -1370,11 +1370,11 @@ curl -s -X POST "https://hola-mako.com/api/v1/crm/proponer_lead" -H "Authorizati
 
 ### `POST /api/v1/crm/marcar_asistencia_reunion` — Marcar asistencia a una reunión
 
-PROPONE registrar si un lead asistió o no a su R1 o R2 ya agendada (queda pendiente hasta el «sí»). Exige que la reunión tenga fecha cargada. Cambiar la asistencia cambia la etapa derivada del lead y, si ya estaba calificado, puede mandar la conversión QualifiedLead a Meta, que no se deshace. Marcar que NO asistió a la R1 borra el calificado que tuviera cargado. Para «no asistió y pasa a no-show» también sirve proponer_cambio_etapa.
+PROPONE registrar si un lead asistió o no a su R1 o R2 ya agendada (queda pendiente hasta el «sí»). Exige que la reunión tenga fecha cargada. Cambiar la asistencia cambia la etapa derivada del lead. Marcar que NO asistió a la R1 borra el calificado que tuviera cargado, y eso sí se le resta a Meta. Para «no asistió y pasa a no-show» también sirve proponer_cambio_etapa.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** cambia asistio_j1 o asistio_j2 del lead y deja historial; si la R1 pasa a no asistida borra el calificado; puede mandar la conversión a Meta, que no se deshace
+- **Escribe:** cambia asistio_j1 o asistio_j2 del lead y deja historial; si la R1 pasa a no asistida borra el calificado, y la conversión que ya salió a Meta no se deshace
 - **Reversible:** no
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -1392,7 +1392,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/crm/marcar_asistencia_reunion" -H 
 
 ### `POST /api/v1/crm/marcar_calificado` — Marcar lead calificado
 
-PROPONE registrar si un lead era un buen fit (queda pendiente hasta el «sí»). NO exige reunión: también se marca en un funnel que no tiene llamadas. Lo único que se rechaza al proponer es un lead que consta que NO asistió a su R1, porque ahí el dato se descarta. Marcar calificado manda la conversión Lead a Meta (y QualifiedLead si además asistió a la R1), que no se deshace.
+PROPONE registrar si un lead era un buen fit (queda pendiente hasta el «sí»). NO exige reunión: también se marca en un funnel que no tiene llamadas. Lo único que se rechaza al proponer es un lead que consta que NO asistió a su R1, porque ahí el dato se descarta. Marcar calificado manda a Meta las conversiones SubmitApplication y QualifiedLead, que no se deshacen.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -6085,11 +6085,11 @@ curl -s -X POST "https://hola-mako.com/api/v1/closing/analizar_llamadas_lead" -H
 
 ### `POST /api/v1/closing/adjuntar_grabaciones_fathom` — Enganchar grabaciones de Fathom a leads
 
-PROPONE revisar los leads con R1 o R2 ya pasada en los últimos días y con menos de 2 grabaciones, buscar en Fathom la grabación más cercana (±3 días) por el email del invitado y cargarla en su ficha, marcando asistencia solo si estaba vacía (eso puede mandar el evento QualifiedLead a Meta, que no se deshace). No mueve etapas ni analiza. El CRM ya lo corre solo cada 20 minutos al abrirse. Toca varios leads: se confirma en una pantalla. Sirve cuando «la reunión ya pasó y sigue sin Fathom».
+PROPONE revisar los leads con R1 o R2 ya pasada en los últimos días y con menos de 2 grabaciones, buscar en Fathom la grabación más cercana (±3 días) por el email del invitado y cargarla en su ficha, marcando asistencia solo si estaba vacía (eso mueve la etapa derivada del lead y no se deshace). No mueve etapas a mano ni analiza. El CRM ya lo corre solo cada 20 minutos al abrirse. Toca varios leads: se confirma en una pantalla. Sirve cuando «la reunión ya pasó y sigue sin Fathom».
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** agrega links a fathom_links de los leads, marca asistio_j1/j2 solo si estaba vacío (puede disparar el evento QualifiedLead a Meta por CAPI al marcar asistencia) y deja historial en lead_audit
+- **Escribe:** agrega links a fathom_links de los leads, marca asistio_j1/j2 solo si estaba vacío (eso cambia la etapa derivada del lead) y deja historial en lead_audit
 - **Reversible:** no
 - **Costo:** externo
 - **Solo el administrador del workspace.**

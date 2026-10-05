@@ -29,6 +29,7 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
 import { sendMetaCAPIEvent } from './meta-capi';
+import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
 import { calificadoSeDescarta } from './calificado-reunion';
@@ -875,18 +876,29 @@ export async function updateLead(
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // Detección de transiciones para Meta CAPI (Prompts 7 y 8 del mentor)
+  // Detección de transiciones para Meta CAPI
   // ───────────────────────────────────────────────────────────────────
-  // Lead         — calificado pasa a true (no lo era antes)
-  // QualifiedLead — asistio_j1=true Y calificado=true ambos juntos, no lo eran antes
-  // Se detectan ANTES del save (usando actual vs merged ya validado) y se
-  // disparan DESPUÉS del save exitoso. CAPI nunca rompe el flujo.
+  // La ÚNICA que sale de acá: `calificado` pasa a true (no lo era antes). Se
+  // detecta ANTES del save (actual vs merged ya validado) y se dispara DESPUÉS del
+  // save exitoso. CAPI nunca rompe el flujo.
+  //
+  // ⚠️ ANTES ERAN DOS Y LAS DOS DECÍAN MAL QUÉ ETAPA SON (05/10/2026):
+  //
+  //   · `calificado` disparaba **`Lead`**, que es el evento del lead CRUDO. Con eso,
+  //     el embudo que Meta necesita —lead que entra, lead que califica— quedaba
+  //     conflacionado en un nombre y no se podía distinguir. `Lead` se mudó al único
+  //     lugar que sabe cuándo ENTRA un lead de Meta: el webhook de formularios
+  //     (app/api/webhooks/meta-leads/route.ts).
+  //   · `asistio_j1 && calificado` disparaba `QualifiedLead`. Era un PROXY de
+  //     «califica» de cuando calificar exigía una reunión; desde que `calificado` se
+  //     marca en cualquier embudo (lib/calificado-reunion.ts) la etapa es la misma, y
+  //     mandar un segundo evento con el mismo nombre la contaba dos veces. La
+  //     asistencia sigue moviendo la etapa del CRM; lo que ya no hace es ser una
+  //     etapa aparte para Meta. Si hace falta una tercera, necesita su propio nombre
+  //     y su conversión personalizada declarada (ver docs/hallazgos-ads.md).
   // ───────────────────────────────────────────────────────────────────
-  const fireLeadEvent =
+  const fireCalificado =
     actual.calificado !== true && merged.calificado === true;
-  const fireQualifiedLeadEvent =
-    !(actual.asistio_j1 === true && actual.calificado === true) &&
-    merged.asistio_j1 === true && merged.calificado === true;
 
   // Solo enviamos los campos editables (no id, created_at, updated_at)
   const payload = {
@@ -928,29 +940,37 @@ export async function updateLead(
   // ───────────────────────────────────────────────────────────────────
   // Disparar eventos CAPI POST-save (con guardia defensiva extra)
   // ───────────────────────────────────────────────────────────────────
-  if (fireLeadEvent) {
-    try {
-      await sendMetaCAPIEvent({
-        eventName: 'Lead',
-        email: merged.email,
-        phone: merged.telefono,
-        customData: { lead_type: 'calificado' },
-      });
-    } catch (err) {
-      console.error('[updateLead] error firing Lead CAPI event:', err);
-    }
-  }
-
-  if (fireQualifiedLeadEvent) {
-    try {
-      await sendMetaCAPIEvent({
-        eventName: 'QualifiedLead',
-        email: merged.email,
-        phone: merged.telefono,
-        customData: { lead_type: 'j1_limpia', value: 1 },
-      });
-    } catch (err) {
-      console.error('[updateLead] error firing QualifiedLead CAPI event:', err);
+  if (fireCalificado) {
+    // Los dos nombres de la calificación, con el MISMO event_id: el estándar para
+    // que Meta pueda optimizar sin que nadie declare nada, el propio para medirlo
+    // con su nombre. El id es estable por lead, así que marcar → desmarcar → marcar
+    // deja de mandar dos conversiones.
+    const eventId = eventIdCalificado(id);
+    for (const eventName of EVENTOS_CALIFICADO) {
+      try {
+        const r = await sendMetaCAPIEvent({
+          eventName,
+          email: merged.email,
+          phone: merged.telefono,
+          // El identificador de más prioridad de Meta, y lo único que mueve la
+          // Cobertura de leads. Un lead que no vino de un formulario no lo tiene:
+          // `leadIdDeMeta` lo filtra, porque uno inválido hace que Meta rechace.
+          metaLeadId: merged.meta_lead_id,
+          // El hecho es ESTE cambio de etapa, no la hora de otra cosa.
+          eventTime: new Date(),
+          eventId,
+          customData: { lead_type: 'calificado', value: 1 },
+        });
+        // ⚠️ Lo que Meta rechaza no puede fallar en silencio. El log de Vercel no lo
+        // lee nadie y a los 60 minutos no existe: la línea va al historial de la
+        // ficha, que es donde el dueño mira. Y sólo el rechazo real — que al lead le
+        // falte el píxel o el token no es noticia de ESTE lead.
+        if (!r.ok && (r.motivo === 'rechazado' || r.motivo === 'http' || r.motivo === 'red')) {
+          await logLeadEvent(id, 'Meta', `No entró la conversión ${eventName}: ${r.detalle}`.slice(0, 300), 'MaKo');
+        }
+      } catch (err) {
+        console.error(`[updateLead] error firing ${eventName} CAPI event:`, err);
+      }
     }
   }
 

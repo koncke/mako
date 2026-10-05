@@ -478,8 +478,9 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "CAPI de fondo de embudo, atada al estado real del CRM",
         bullets: [
-          "El evento <strong>Lead</strong> no se dispara cuando entra el formulario: se dispara cuando el lead pasa a <strong>calificado=true</strong> en tu CRM.",
-          "<strong>QualifiedLead</strong> cuando asistió a la R1 y calificó; <strong>Schedule</strong> cuando reserva la llamada en Calendly. Meta optimiza hacia gente que agenda, no hacia el clic más barato.",
+          "<strong>Dos etapas separadas</strong>, que es lo que Meta necesita para optimizar por calidad: <strong>Lead</strong> cuando entra el formulario, y <strong>SubmitApplication + QualifiedLead</strong> cuando ese lead pasa a <strong>calificado</strong> en tu CRM.",
+          "Calificar <strong>no exige una reunión</strong>: si filtras por WhatsApp, esa señal le llega a Meta igual. Y <strong>Schedule</strong> cuando reserva la llamada. Meta optimiza hacia gente que califica, no hacia el clic más barato.",
+          "Cuando el lead vino de un formulario de Meta, viaja también su <strong>lead_id</strong>: es el identificador de mayor prioridad para el match y es lo que mueve la cobertura de leads de tu cuenta.",
           "Son señales <em>server-side</em> desde la verdad del negocio — no desde el lead crudo del navegador que cualquier bot o curioso puede inflar.",
           "Honestidad: todavía <strong>no mandamos el evento Purchase por CAPI</strong>. Meta se entera del calificado y del agendado, no de la venta cerrada. No te prometemos 'optimización hacia la compra' server-side.",
         ],
@@ -495,7 +496,8 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "CAPI que jamás rompe tu operación",
         bullets: [
-          "<code>sendMetaCAPIEvent</code> <strong>nunca lanza excepción</strong>: si falta el token, la red falla o Meta responde no-200, loguea y sigue.",
+          "<code>sendMetaCAPIEvent</code> <strong>nunca lanza excepción</strong>: si falta el token, la red falla o Meta responde no-200, lo registra y sigue.",
+          "Y si Meta <strong>rechaza</strong> la conversión —contesta 200 con el error adentro—, queda escrito en el historial del lead. Un rechazo que solo va al log es un rechazo que nadie ve.",
           "Tu lead <strong>se guarda igual</strong> aunque Meta esté caído. La venta nunca se cae por un problema de tracking.",
           "Doble guardia try/catch alrededor del disparo, para que ni un bug futuro en esta capa toque el flujo del negocio.",
         ],

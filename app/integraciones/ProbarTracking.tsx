@@ -87,6 +87,11 @@ function legible(e: Evento): { texto: string; color: string } {
   // El click trae su destino en `detalle`, y eso es lo que hay que mostrar: «hizo
   // click» sin decir en qué no distingue el botón de WhatsApp del de arriba.
   if (e.tipo === 'click') return { texto: e.detalle ? `Hizo clic en: ${e.detalle}` : 'Hizo clic', color: 'var(--primary)' };
+  // ⚠️ SIN EL `detalle`, y no es por ahorrar: en un clic al vacío ese campo trae la
+  // etiqueta cruda del elemento («vacio: DIV»), que no le dice nada a nadie. Y lleva
+  // rótulo propio porque el feed cae al default —que pinta el nombre interno del
+  // tipo— y ahí se leería literalmente «clic_vacio», que parece que algo se rompió.
+  if (e.tipo === 'clic_vacio') return { texto: 'Clic fuera de un botón', color: 'var(--dim)' };
   // ⚠️ «desconocido» NO es un evento: es lo que el beacon escribe cuando le llega
   // un tipo que no sabe clasificar (código viejo o modificado). Mostrarlo crudo
   // hacía aparecer la palabra «desconocido» en la lista, que se lee como que algo

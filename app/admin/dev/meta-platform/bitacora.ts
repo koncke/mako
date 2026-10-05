@@ -1,0 +1,77 @@
+// =============================================================================
+// Meta Platform — el registro de construcción del área
+// =============================================================================
+// Alcance: la app de Meta y todo lo que sale HACIA Meta. Vive en: lib/meta-capi.ts
+// + lib/meta-capi-payload.ts (las conversiones server-side), lib/meta-ads.ts,
+// lib/meta-write.ts, lib/meta-descubrir.ts, lib/meta-leads.ts (la ingesta por
+// polling), lib/meta-templates.ts y app/api/webhooks/meta-leads/ (la ingesta en
+// vivo). Los disparos viven en lib/leads.ts (updateLead) y en los dos webhooks.
+//
+// ⚠️ ESTA BITÁCORA NACIÓ EL 5/10/2026, con el área ya a medio construir. Lo
+// anterior está en docs/hallazgos-ads.md, que es largo y está ordenado por
+// corrida; acá entra sólo lo que tiene un pedido textual de Martín detrás.
+//
+// NO es un changelog. Lo que git ya guarda no se repite: va el motivo, la trampa
+// y —sobre todo— cuándo el diagnóstico obvio era el equivocado.
+
+import type { Hito, Parte } from '../_registro/tipos';
+
+export const PARTES: Parte[] = [
+  { titulo: 'Las conversiones server-side', detalle: 'lib/meta-capi.ts manda Lead, SubmitApplication, QualifiedLead y Schedule con identidad hasheada · nunca rompe el flujo del negocio', estado: 'hecha' },
+  { titulo: 'El embudo con DOS etapas distinguibles', detalle: 'Lead sale del webhook de formularios (el lead crudo) y la calificación del CRM · antes las dos viajaban con el mismo nombre', estado: 'hecha' },
+  { titulo: 'El lead_id de Meta en el payload', detalle: 'user_data.lead_id sin hashear, validado por forma (15-17 dígitos) · es lo único que mueve la Cobertura de leads', estado: 'hecha' },
+  { titulo: 'Lo que Meta rechaza se ve', detalle: 'El 200 con el error adentro se lee y la línea va al historial del lead · antes alcanzaba con res.ok y la función devolvía void', estado: 'hecha' },
+  { titulo: 'La conversión personalizada declarada por API', detalle: 'POST /act_{cuenta}/customconversions sobre QualifiedLead, listando antes porque el edge no tiene update ni delete · hoy no existe en ninguna parte del repo', estado: 'cola' },
+  { titulo: 'El dataset de CRM', detalle: 'Es el destino obligatorio de «Clientes potenciales de conversión» y NO tiene endpoint: se crea a mano en Events Manager · lo decide Martín, porque es lo único que hay que pedirle al cliente', estado: 'cola' },
+  { titulo: 'Idempotencia que dure meses', detalle: 'Hoy la dedup es el event_id de Meta, con la ventana de Meta · una garantía nuestra necesita una columna y no existe', estado: 'cola' },
+];
+
+export const BITACORA: Hito[] = [
+  {
+    fecha: '5 oct', hora: '04:11', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que MaKo le mande a Meta lo que le falta, sin pedirle nada al cliente',
+    pedido: 'Y si los usuarios configurar y ponen su Meta Token, no puede MaKo automatizar todo y justamente mandarle los datos de los leads cualificados independientemente del funnel?\n\nSi, calificado significa lo mismo sin reunión, porque puedo hacer un filtro por WhatsApp y marcarlo como calificado.\n\nPrefiero no pedirle nada, pero sería bueno ver si lo podemos automatizar dentro de MaKo, de lo contrario, si no queda otra opción, si se lo pedimos',
+    puntos: [
+      'Las tres frases cierran una cosa cada una: que la señal viaje **independientemente del funnel**, que **calificado significa lo mismo sin reunión** (un filtro por WhatsApp alcanza) y que **no se le pide nada al cliente** salvo que no quede otra.',
+      'La primera ya estaba resuelta ese mismo día por otro lado: `calificado` dejó de exigir una reunión (`lib/calificado-reunion.ts`), así que el dato se guarda en cualquier embudo. Lo que faltaba era que lo que se guarda LLEGUE bien.',
+      '⚠️ La tercera es la que define el alcance, y es la que obligó a medir del lado de Meta antes de escribir código: «se automatiza» y «hay que pedírselo» son dos listas distintas, y el día anterior se habían confundido.',
+    ],
+  },
+  {
+    fecha: '5 oct', hora: '04:11', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Declarar el evento propio SÍ es una llamada de API — el bloqueante del día anterior no existía',
+    puntos: [
+      'El día anterior se cerró con «`QualifiedLead` no es estándar, así que hay que declararlo del lado de Meta» y de ahí se saltó a «hay que pedírselo al cliente». **La primera mitad es cierta; la segunda era el diagnóstico equivocado**: declararlo es `POST /act_{cuenta}/customconversions`, con el token que ya guardamos. Dos límites duros medidos: el edge **no tiene update ni delete** (hay que listar antes de crear) y hay un **tope de 100 por cuenta publicitaria**.',
+      '**Hay una salida que no necesita declarar nada:** `SubmitApplication` es un evento ESTÁNDAR y significa exactamente «este lead califica». Es elegible como objetivo de un conjunto de anuncios hoy. Se mandan los dos —el estándar para que Meta optimice, el propio para medirlo con su nombre— y es seguro porque el dedup de Meta es por el par (`event_name`, `event_id`).',
+      'Los 8 eventos priorizados del AEM **son sólo pantalla y no hacen falta**: `aem_conversion_configs` es de sólo lectura, está scopeado a un app id móvil, y el AEM sólo toca la atribución del tráfico web de iOS — nuestros eventos salen del servidor con `system_generated` y no pasan por ahí. Pedirlo es fricción que no compra nada.',
+      '⚠️ **Lo único que sí hay que pedir, y es UNA cosa:** el **dataset de CRM** (Events Manager → Conectar orígenes → CRM) es el destino obligatorio de «Clientes potenciales de conversión» y no tiene endpoint. Pero los arreglos del payload funcionan sin él, así que la recomendación es hacerlos primero y pedir el dataset recién cuando el cliente quiera el paso siguiente.',
+      '**El bar de Meta, que es lo que decide si vale la pena:** 200 leads/mes por cuenta publicitaria, cobertura de leads ≥60%, la etapa a optimizar dentro de 28 días con tasa entre 1% y 40%, y **sólo cuentan los formularios instantáneos nativos de FB/IG** — los leads de la landing y del VSL no entran. Sin medir: si algún workspace llega a esos 200 (hay 1.041 `meta_lead_id` acumulados, sin ventana ni corte por cliente). De esa consulta depende si el dataset se pide o no se pide nunca.',
+      'Sin medir tampoco: si `POST /{business_id}/adspixels` puede parir un dataset de tipo CRM. Ningún doc lo dice ni a favor ni en contra, y si funciona **el único pedido desaparece**. Es la pregunta de mayor rendimiento que quedó abierta.',
+    ],
+    archivos: ['docs/hallazgos-ads.md — las mediciones con su fuente, endpoint por endpoint'],
+  },
+  {
+    fecha: '5 oct', hora: '04:11', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las dos etapas, el lead_id, la hora del hecho y el rechazo que ahora se ve',
+    puntos: [
+      '**`calificado` disparaba `Lead`, que es el evento del lead CRUDO.** Las dos etapas que Meta necesita para armar el embudo viajaban con el mismo nombre, así que no se podían distinguir. `Lead` se mudó al único lugar que sabe cuándo ENTRA un lead de Meta: el webhook de formularios. La calificación manda `SubmitApplication` + `QualifiedLead`.',
+      '**El `asistió a la R1` + calificado dejó de mandar nada a Meta.** Era un PROXY de «califica» de cuando calificar exigía una reunión; desde que se marca en cualquier embudo es la MISMA etapa, y un segundo evento con el mismo nombre la contaba dos veces. La asistencia sigue moviendo la etapa del CRM, que es razón suficiente para seguir preguntándola al mover.',
+      '⚠️ **El filtro del `lead_id` es lo que más cerca estuvo de salir mal.** La validación obvia —«si el campo no está vacío, mandalo»— habría empeorado las cosas: la doc de Meta dice que ante un `lead_id` inválido **rechaza el evento entero**, y en esta base hay un centinela que parece un id (`meta_lead_id = \'0\'` en los leads cargados a mano de un negocio que prospecta en frío, ver lib/audios-paso.ts). Se valida la FORMA: 15-17 dígitos.',
+      '**`res.ok` no era «salió bien» y además no había dónde contestar:** la función devolvía `void`, así que un evento RECHAZADO por Meta (200 con `body.error`) se veía igual que uno que entró. Ahora devuelve un resultado y los tres call sites escriben la línea en el **historial del lead**, que es donde el dueño mira — el log de Vercel no lo lee nadie y a los 60 minutos no existe. Y un 200 que no confirma ningún evento tampoco se da por bueno.',
+      '**`event_time` era `Date.now()`.** Para una calificación interactiva eso es correcto; donde mentía es en el webhook, que puede llegar tarde. Y la ventana de CAPI es de 7 días, así que un hecho más viejo **no tiene hora buena**: o se recorta o Meta lo rechaza y la conversión se pierde. Se recorta al borde y el recorte se DECLARA (`custom_data.hecho_en` lleva el instante real, y queda el warn).',
+      '**La duplicación medida: el disparo compara el valor viejo contra el nuevo**, así que marcar → desmarcar → marcar mandaba DOS. La cura es un `event_id` derivado del lead (`calif:<id>`), que llega igual las dos veces y Meta descarta el segundo. ⚠️ La ventana de dedup es de META, no nuestra: cubre el rebote de minutos u horas, que es el caso real, y una garantía que tenga que valer meses necesita una columna que hoy no existe.',
+      '⚠️ **Lo que NO se tocó, a propósito:** el camino de POLLING (`lib/meta-leads.ts`) no manda CAPI. Hace una pasada de 90 días, así que mandaría `Lead` por leads que caen fuera de la ventana. Y el payload sigue yendo al **píxel del sitio** y no a un dataset de CRM: hasta que exista un dataset, ese payload es justo lo que la doc dice que no se haga, y el orden correcto es primero el píxel actual y el camino de CRM como segunda ruta.',
+    ],
+    archivos: [
+      'lib/meta-capi-payload.ts — las cuatro decisiones puras, sin server-only para que tengan test',
+      'lib/meta-capi.ts — el cliente HTTP: devuelve resultado y lee el cuerpo del 200',
+      'lib/leads.ts — updateLead: la calificación con los dos nombres y un solo event_id',
+      'app/api/webhooks/meta-leads/route.ts — el Lead crudo, con la hora real del formulario',
+      'app/api/webhooks/calendly/route.ts — Schedule, ahora con lead_id y con el rechazo visible',
+      'tests/meta-capi-lead-id.test.ts — 8 tests, los 8 probados rompiéndolos',
+    ],
+  },
+];

@@ -318,19 +318,19 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_asistencia_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Marcar asistencia a una reunión',
-    descripcion: 'PROPONE registrar si un lead asistió o no a su R1 o R2 ya agendada (queda pendiente hasta el «sí»). Exige que la reunión tenga fecha cargada. Cambiar la asistencia cambia la etapa derivada del lead y, si ya estaba calificado, puede mandar la conversión QualifiedLead a Meta, que no se deshace. Marcar que NO asistió a la R1 borra el calificado que tuviera cargado. Para «no asistió y pasa a no-show» también sirve proponer_cambio_etapa.',
+    descripcion: 'PROPONE registrar si un lead asistió o no a su R1 o R2 ya agendada (queda pendiente hasta el «sí»). Exige que la reunión tenga fecha cargada. Cambiar la asistencia cambia la etapa derivada del lead. Marcar que NO asistió a la R1 borra el calificado que tuviera cargado, y eso sí se le resta a Meta. Para «no asistió y pasa a no-show» también sirve proponer_cambio_etapa.',
     parametros: [
       leadId(),
       cualReunion,
       { nombre: 'asistio', tipo: 'boolean', obligatorio: true, descripcion: 'true asistió, false no se presentó.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: false, escribe: 'cambia asistio_j1 o asistio_j2 del lead y deja historial; si la R1 pasa a no asistida borra el calificado; puede mandar la conversión a Meta, que no se deshace',
+    reversible: false, escribe: 'cambia asistio_j1 o asistio_j2 del lead y deja historial; si la R1 pasa a no asistida borra el calificado, y la conversión que ya salió a Meta no se deshace',
   },
   {
     id: 'marcar_calificado', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Marcar lead calificado',
-    descripcion: 'PROPONE registrar si un lead era un buen fit (queda pendiente hasta el «sí»). NO exige reunión: también se marca en un funnel que no tiene llamadas. Lo único que se rechaza al proponer es un lead que consta que NO asistió a su R1, porque ahí el dato se descarta. Marcar calificado manda la conversión Lead a Meta (y QualifiedLead si además asistió a la R1), que no se deshace.',
+    descripcion: 'PROPONE registrar si un lead era un buen fit (queda pendiente hasta el «sí»). NO exige reunión: también se marca en un funnel que no tiene llamadas. Lo único que se rechaza al proponer es un lead que consta que NO asistió a su R1, porque ahí el dato se descarta. Marcar calificado manda a Meta las conversiones SubmitApplication y QualifiedLead, que no se deshacen.',
     parametros: [
       leadId(),
       { nombre: 'calificado', tipo: 'boolean', obligatorio: true, descripcion: 'true calificado, false no calificado.' },

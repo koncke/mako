@@ -336,9 +336,11 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       // ⚠️ `marcarAsistencia` NO ES REDUNDANTE CON `asistio`, y confundirlos le
       // afirma a un cliente que su lead vino a una reunión que nadie verificó.
       // `applyFathomRecording` resuelve `attended ?? true`, así que un `null` —que
-      // acá significa «hay grabación y NADIE dijo si vino»— entra como un «sí»:
-      // mueve la etapa y dispara el QualifiedLead de Meta, que el revert de abajo
-      // no deshace. El `null` existe desde que `buscarReunionesAutomatico` lee
+      // acá significa «hay grabación y NADIE dijo si vino»— entra como un «sí» y
+      // mueve la etapa, que el revert de abajo no deshace. (Desde el 05/10/2026 la
+      // asistencia ya NO manda un evento a Meta: ver lib/leads.ts. Lo que se afirma
+      // mal sigue siendo una reunión a la que nadie verificó que vino.)
+      // El `null` existe desde que `buscarReunionesAutomatico` lee
       // también los links que una persona pegó en la ficha (lib/auto-reuniones.ts:172,
       // `asistioJ1: anaLinkR1 ? true : null`): un link pegado a mano prueba que la
       // reunión se grabó, no quién estuvo. Sólo la grabación ANALIZADA lo afirma.

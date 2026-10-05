@@ -211,13 +211,13 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'adjuntar_grabaciones_fathom', area: 'closing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Enganchar grabaciones de Fathom a leads',
-    descripcion: 'PROPONE revisar los leads con R1 o R2 ya pasada en los últimos días y con menos de 2 grabaciones, buscar en Fathom la grabación más cercana (±3 días) por el email del invitado y cargarla en su ficha, marcando asistencia solo si estaba vacía (eso puede mandar el evento QualifiedLead a Meta, que no se deshace). No mueve etapas ni analiza. El CRM ya lo corre solo cada 20 minutos al abrirse. Toca varios leads: se confirma en una pantalla. Sirve cuando «la reunión ya pasó y sigue sin Fathom».',
+    descripcion: 'PROPONE revisar los leads con R1 o R2 ya pasada en los últimos días y con menos de 2 grabaciones, buscar en Fathom la grabación más cercana (±3 días) por el email del invitado y cargarla en su ficha, marcando asistencia solo si estaba vacía (eso mueve la etapa derivada del lead y no se deshace). No mueve etapas a mano ni analiza. El CRM ya lo corre solo cada 20 minutos al abrirse. Toca varios leads: se confirma en una pantalla. Sirve cuando «la reunión ya pasó y sigue sin Fathom».',
     parametros: [
       { nombre: 'diasAtras', tipo: 'number', entero: true, minimo: 1, maximo: 14, descripcion: 'cuántos días hacia atrás mirar reuniones pasadas (default 5).' },
       { nombre: 'maxLeads', tipo: 'number', entero: true, minimo: 1, maximo: 60, descripcion: 'tope de leads a revisar (default 60).' },
     ],
     canales: TODOS, costo: 'externo', gating: { tab: 'crm', integracion: 'fathom', rolMinimo: 'admin' },
-    reversible: false, escribe: 'agrega links a fathom_links de los leads, marca asistio_j1/j2 solo si estaba vacío (puede disparar el evento QualifiedLead a Meta por CAPI al marcar asistencia) y deja historial en lead_audit',
+    reversible: false, escribe: 'agrega links a fathom_links de los leads, marca asistio_j1/j2 solo si estaba vacío (eso cambia la etapa derivada del lead) y deja historial en lead_audit',
   },
   {
     id: 'redactar_followup_post_llamada', area: 'closing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',

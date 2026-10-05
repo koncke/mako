@@ -2311,3 +2311,197 @@ workspace; el tutorial de Meta.
 `app/ads-manager/NuevaCampanaModal.tsx` · `app/ads-manager/AgregarConjuntoModal.tsx` ·
 `app/ads-manager/AgregarAnuncioModal.tsx` · `lib/meta-publicar-errores.ts` ·
 `tests/ganadores-reuso.test.ts` · `tests/meta-publicar-errores.test.ts`.
+
+## El evento propio SÍ se puede declarar por API — lo que no se puede es el dataset de CRM (05/10)
+
+**El diagnóstico obvio era el equivocado.** La conclusión de ayer fue: «`QualifiedLead` no es un
+evento estándar de Meta, así que no se puede elegir como objetivo de campaña hasta declararlo del
+lado de Meta» → y de ahí se saltó a «hay que pedirle al cliente que lo declare en Events Manager».
+La primera mitad es cierta. La segunda no: **declararlo es una llamada de API**.
+
+`POST /act_{ad_account_id}/customconversions` crea una conversión personalizada sobre un evento
+propio y ésa sí es elegible como evento de conversión del conjunto de anuncios. Lo que hay que
+saber antes de usarla:
+
+- **Parámetros:** `name` (único obligatorio), `custom_event_type`, `event_source_id` (el píxel o
+  dataset), `rule` (la regla que machea `event == QualifiedLead`), `action_source_type`.
+- **`custom_event_type` admite 20 valores**, entre ellos `LEAD`, `SUBMIT_APPLICATION`, `SCHEDULE`,
+  `CONTACT`, `OTHER`. Son los mismos que acepta `promoted_object.custom_event_type` del ad set.
+- **El edge NO tiene update ni delete.** Una conversión personalizada creada con el nombre o la
+  regla mal se queda así: hay que listar antes de crear, no crear y corregir.
+- **Tope: 100 conversiones personalizadas por cuenta publicitaria.**
+- Pide acceso **Estándar** del Marketing API (eje de la app de MaKo, no del cliente) y
+  `ads_management` sobre la cuenta. Es el token que ya guardamos.
+
+**Lo que de verdad es solo-pantalla son otras dos cosas, y una no importa:**
+
+1. **Los 8 eventos priorizados (AEM).** `GET /{application-id}/aem_conversion_configs` existe y es
+   **de solo lectura**: la doc dice textual «No puedes realizar esta operación en este extremo»
+   para crear, actualizar y borrar. Además está scopeado a un **app id** (móvil), no a un dominio
+   web. El orden de prioridad del AEM web es Events Manager y nada más. **Pero**: el AEM solo toca
+   la atribución del tráfico web de iOS 14.5+, y nuestros eventos salen con
+   `action_source: 'system_generated'` desde el servidor — no pasan por ahí. **No vale pedírselo.**
+2. **El dataset de CRM.** Esto sí es un bloqueante real y es UI: Events Manager → Conectar
+   orígenes de datos → CRM. La doc de la integración de plataforma no ofrece ningún endpoint para
+   crearlo, y el «configurá tu embudo de ventas» también vive en Events Manager.
+
+**Y `QualifiedLead` no es la única salida: `SubmitApplication` es estándar y significa lo mismo.**
+«When a person applies for a product, service, or program you offer» — encaja con «este lead
+califica» sin reunión, y es uno de los cuatro que el ad set acepta en `promoted_object`. Se pueden
+mandar LOS DOS: el dedup de Meta es por el par (`event_name`, `event_id`), así que dos entradas con
+el mismo `event_id` y nombres distintos se cuentan por separado. Lo que se pierde al usar el
+estándar es el nombre en los informes y el riesgo de colisión si el cliente ya lo usa para otra
+cosa. Ojo con `Lead`: hoy `calificado` dispara `Lead` (`app/crm/senales-meta.ts`), que es el evento
+del lead CRUDO — están conflacionados.
+
+**Tres cosas que `lib/meta-capi.ts` manda mal para «Clientes potenciales de conversión»:**
+
+- **No manda `user_data.lead_id`**, que es el identificador de MÁXIMA prioridad y va **sin
+  hashear** (15-17 dígitos, el `leadgen_id` del webhook). Lo tenemos: `leads.meta_lead_id`, lo
+  escribe `app/api/webhooks/meta-leads/route.ts:222`. Es lo que mueve la **Cobertura de leads**
+  (el % de leads con eventos macheados), y Meta exige ≥60%.
+- **`event_time` es `Date.now()`** (`lib/meta-capi.ts:131`), no el momento en que la etapa cambió.
+  La ventana de Meta es de 7 días alrededor de la generación del lead: un lead calificado tres
+  semanas después entra con una hora que no es la del hecho.
+- **Falta `custom_data.event_source: 'crm'` y `custom_data.lead_event_source`**, los dos
+  obligatorios del payload de Conversion Leads. Y el payload va al **dataset de CRM**, no al píxel
+  del sitio — hoy mandamos a `META_PIXEL_ID` (`lib/meta-capi.ts:98`). La doc es explícita:
+  «Refrain from using this payload specification for other event types, such as website leads.»
+
+**Los umbrales que Meta pide para Conversion Leads** (y que deciden si vale la pena):
+200 leads/mes en una campaña corriendo · cobertura de leads ≥60% · la etapa a optimizar ocurre
+dentro de 28 días de generado el lead, con tasa de conversión entre 1% y 40% · mínimo 2 etapas del
+embudo, 3+ recomendado (hay que mandar también el lead crudo) · subida al menos diaria · y **solo
+funciona con formularios instantáneos nativos de FB/IG**: los leads de la landing y del VSL no
+entran.
+
+**Sin medir:** si algún workspace llega a los 200 leads/mes de una sola cuenta publicitaria
+(tenemos 1.041 `meta_lead_id` acumulados, sin ventana ni corte por cliente); y si
+`POST /{business_id}/adspixels` puede parir un dataset de tipo CRM — ningún doc lo dice, y conviene
+probarlo con una llamada antes de pedirle la pantalla al cliente.
+
+**Vive en:** `lib/meta-capi.ts` · `app/crm/senales-meta.ts` · `lib/leads.ts` (updateLead, ~548-620)
+· `app/api/webhooks/meta-leads/route.ts`.
+
+---
+
+## Lo que le mandamos a Meta: dos etapas con un nombre, un rechazo invisible y un centinela que parece un id
+
+**Corrida del 05/10/2026.** Martín: «si los usuarios configuran y ponen su Meta Token, no puede MaKo
+automatizar todo y mandarle los datos de los leads cualificados independientemente del funnel?» y
+«prefiero no pedirle nada». La investigación de Meta está en la entrada de arriba; acá va lo que
+apareció al IMPLEMENTAR, que es otra cosa.
+
+**Vive en:** `lib/meta-capi.ts` · `lib/meta-capi-payload.ts` · `lib/leads.ts` (updateLead) ·
+`app/api/webhooks/meta-leads/route.ts` · `app/api/webhooks/calendly/route.ts` ·
+`app/crm/senales-meta.ts` · `tests/meta-capi-lead-id.test.ts`.
+
+### 1. El diagnóstico obvio del `lead_id` era el que rompía
+
+El pedido era «mandá el `lead_id` cuando exista». La implementación obvia es
+`if (lead.meta_lead_id) user_data.lead_id = …`, y **habría hecho que Meta dejara de aceptar eventos
+que hoy acepta**: la doc dice que ante un `lead_id` inválido rechaza el evento ENTERO, y en esta base
+hay un valor que pasa cualquier chequeo de «no está vacío» y no es un id — `meta_lead_id = '0'`, el
+centinela de los leads cargados a mano de un negocio que prospecta en frío (está escrito en la
+cabecera de `lib/audios-paso.ts` y en `lib/pipeline.ts`). O sea que mejorar la cobertura de un
+cliente habría apagado las conversiones de otro, sin un solo error.
+
+**La regla: cuando mandar un campo MAL es peor que no mandarlo, se valida la FORMA y no la
+presencia.** `leadIdDeMeta` exige 15-17 dígitos, y lo que se descarta se DECLARA en el log: un
+`meta_lead_id` tirado sin rastro hace indistinguibles «este lead no vino de un formulario» de «lo
+tiramos nosotros», que es exactamente la pregunta de la Cobertura de leads.
+
+### 2. El rechazo no se podía ver, y leer el cuerpo no alcanzaba
+
+`sendMetaCAPIEvent` devolvía `void` y se quedaba con `res.ok`. La regla de la casa («los proveedores
+mandan el fallo ADENTRO del 200») ya estaba escrita y Meta ya había mordido con el subcode 4841013 —
+y acá falla la mitad que no se nota: **aunque la función hubiera leído el cuerpo, no tenía a quién
+contestarle.** Un `console.error` en Vercel no lo lee nadie y a los 60 minutos no existe.
+
+Ahora devuelve `{ ok, motivo, detalle }` y los TRES call sites escriben la línea en el **historial
+del lead** (`logLeadEvent`), que es donde el dueño mira. Dos cosas más:
+
+- **Un 200 sin `error` tampoco es un éxito.** Si `events_received` no viene o viene en 0, Meta dijo
+  «te escuché y no hice nada», que es indistinguible de un ok si sólo se mira el error.
+- **El motivo se separa por lo que hay que HACER.** Que el workspace no tenga píxel o token no es
+  noticia de ESE lead y no va a su historial; un rechazo de Meta, sí.
+
+### 3. `calificado` disparaba `Lead`: dos etapas del embudo con un solo nombre
+
+`Lead` es el evento del lead CRUDO. Con `calificado` disparándolo, las dos etapas que Meta necesita
+para armar el embudo de Conversion Leads viajaban con el mismo nombre y no se podían distinguir.
+Quedó así:
+
+| Etapa | Evento | Dónde se dispara |
+|---|---|---|
+| lead crudo | `Lead` | el webhook de formularios de Meta |
+| califica | `SubmitApplication` + `QualifiedLead` | `updateLead`, al pasar `calificado` a true |
+| reserva la llamada | `Schedule` | el webhook de Calendly |
+
+`SubmitApplication` es ESTÁNDAR y elegible como objetivo hoy, sin declarar nada; el propio va igual
+para medirlo con su nombre, y los dos con el MISMO `event_id` (Meta deduplica por el par
+`(event_name, event_id)`, así que dos nombres se cuentan por separado).
+
+⚠️ **Y el evento de la asistencia era un PROXY que quedó redundante.** `asistio_j1 && calificado`
+disparaba `QualifiedLead`: eso tenía sentido cuando calificar exigía una reunión. Desde que
+`calificado` se marca en cualquier embudo (`lib/calificado-reunion.ts`, el mismo día) es la MISMA
+etapa, y un segundo evento con el mismo nombre la contaba dos veces. **Cuando una condición se
+relaja, hay que ir a buscar los eventos que existían como su proxy** — si no, el proxy se convierte
+en un duplicado. La asistencia sigue moviendo la etapa del CRM y se sigue preguntando al mover.
+
+### 4. La duplicación, medida: el disparo compara viejo contra nuevo
+
+`updateLead` dispara con `actual.calificado !== true && merged.calificado === true`, así que
+**marcar → desmarcar → marcar manda DOS conversiones**. La cura es un `event_id` derivado del lead
+(`calif:<id>`): llega igual las dos veces y Meta descarta el segundo.
+
+⚠️ **La ventana de deduplicación es de META, no nuestra.** Esto cubre el rebote de minutos u horas,
+que es el caso real (alguien se equivoca y corrige). Una idempotencia que tenga que valer meses
+necesita una columna nuestra, y **no existe** — queda pendiente.
+
+### 5. `event_time`: las dos salidas honestas son «rechazar» y «recortar»
+
+Era `Date.now()` siempre. Para una calificación interactiva eso es correcto y el arreglo no cambia
+nada; donde mentía es en el webhook, que puede llegar tarde, y en cualquier camino diferido. Pero la
+ventana de CAPI es de 7 días, así que **un hecho más viejo no tiene hora buena**: con la real Meta
+rechaza el evento y la conversión se pierde entera; con `Date.now()` entra con una hora inventada.
+
+Se recorta al borde de la ventana **y el recorte se declara**: `custom_data.hecho_en` lleva el
+instante real y queda un warn. Un recorte invisible es una hora inventada; uno declarado es una
+aproximación acotada que se puede auditar. Un hecho en el FUTURO también se recorta: es un reloj
+desfasado y Meta rechaza cualquier adelanto.
+
+### 6. Las trampas del entorno que costaron tiempo en esta corrida
+
+- ⚠️ **El fin de línea es POR ARCHIVO y la tabla de AGENTS.md es una FOTO.** `lib/meta-capi.ts` es
+  CRLF y `lib/leads.ts` hoy es LF (AGENTS.md lo listaba como CRLF el 04/10). Un guard que corta un
+  bloque con un ancla de `\n` contesta «no encontré el cierre» sobre código perfectamente bien. El
+  `\r` se saca EN LA ENTRADA, antes de buscar — ya estaba escrito y se pagó igual.
+- ⚠️ **El heredoc del Bash se come las barras, otra vez.** De ocho reemplazos por script, DOS se
+  saltearon en silencio porque sus patrones traían `\(` y `\[`. Lo único que lo cazó fue que el
+  script **contaba las coincidencias y avisaba del 0** en vez de reemplazar a ciegas. Lo que lleva
+  barras va por el editor, nunca por un heredoc.
+- **Un `.ts` con un comentario stale es una fuente que le miente a un MODELO.** Cinco lugares decían
+  «marcar asistencia dispara el QualifiedLead de Meta», y dos de ellos son `descripcion` de
+  `lib/api-mako/areas/*.def.ts`, o sea lo que lee MaKo antes de proponer. Al cambiar un evento hay
+  que grepear su nombre en el repo entero: salieron también el copy de la landing
+  (`app/vsl/_detalle/features.ts`) y la cabecera de `app/crm/senales-meta.ts`.
+
+### Lo que quedó SIN hacer, con su archivo
+
+- **La conversión personalizada por API** (`POST /act_{cuenta}/customconversions` sobre
+  `QualifiedLead`, listando antes porque el edge no tiene update ni delete, tope 100 por cuenta).
+  Hoy **no existe en ninguna parte del repo** y es lo que destraba el bloqueante del día anterior.
+  Sin ella `SubmitApplication` ya es elegible como objetivo, así que no bloquea nada.
+- **El dataset de CRM**: sin endpoint, se crea a mano en Events Manager. Es lo ÚNICO que hay que
+  pedirle al cliente, y sólo hace falta para «Clientes potenciales de conversión». Lo decide Martín.
+- **Si algún workspace llega a los 200 leads/mes** de una sola cuenta publicitaria. Es el número que
+  decide si el dataset se pide o no se pide nunca, y se contesta con una consulta (leads con
+  `meta_lead_id` no nulo, agrupados por workspace y por mes).
+- **Idempotencia propia** más allá de la ventana de Meta: necesita una columna.
+- **El camino de POLLING** (`lib/meta-leads.ts`) sigue sin mandar CAPI, a propósito: hace una pasada
+  de 90 días y mandaría `Lead` por leads fuera de la ventana. Si algún día se quiere, primero hay
+  que decidir el recorte.
+- **El payload sigue yendo al píxel del sitio**, no a un dataset de CRM, y le faltan
+  `custom_data.event_source: 'crm'` y `lead_event_source`. Eso es la segunda ruta y arranca cuando
+  haya dataset.

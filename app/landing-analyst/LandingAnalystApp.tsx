@@ -10,13 +10,20 @@
 // La decisión visual que importa: el bloque de COMPORTAMIENTO va arriba del
 // diagnóstico, no abajo. Es lo único medido de la página —el resto es juicio de
 // MaKo— y verlo primero cambia cómo se leen los hallazgos.
+//
+// Son DOS vistas hermanas y por eso van en tabs, no en rutas distintas: el
+// diagnóstico es el JUICIO de MaKo sobre el copy, y el pulso es lo que el Pixel
+// MIDIÓ de cada página. Contestan dos preguntas del mismo lugar, y la segunda no
+// se paga si nadie la abre (la pide su propio endpoint al montarse).
 // =============================================================================
 
 import { useCallback, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import Link from '@/app/_ui/Link';
+import { Tabs } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { MakoLogo } from '../_components/MakoBrand';
+import { PulsoPaginas } from './PulsoPaginas';
 import type { LandingViewData, LandingAnalysisRow, LandingHallazgo, Severidad, Tone } from '@/lib/landing-analyst';
 
 const MONO = "'Geist Mono', monospace";
@@ -207,6 +214,7 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
   const [corriendo, setCorriendo] = useState<string | null>(null);
   const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: string } | null>(null);
   const [selUrl, setSelUrl] = useState<string | null>(landings[0]?.url ?? null);
+  const [vista, setVista] = useState<'copy' | 'pulso'>('copy');
   // Página que no se pudo leer sola: se ofrece pegar el texto en vez de dejar
   // al usuario contra la pared. `pegar.url` es la que quedó esperando su copy.
   const [pegar, setPegar] = useState<{ url: string; texto: string } | null>(null);
@@ -286,6 +294,16 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
           Qué le pasa a tu página
         </h1>
 
+        <div style={{ marginTop: 18 }}>
+          <Tabs
+            tabs={[{ id: 'copy', label: 'Diagnóstico' }, { id: 'pulso', label: 'Lo que mide tu Pixel' }]}
+            activa={vista}
+            onCambio={(id) => setVista(id === 'pulso' ? 'pulso' : 'copy')}
+          />
+        </div>
+
+        {vista === 'copy' && (
+          <>
         {/* Analizar una URL */}
         <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
@@ -357,9 +375,15 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
             ))}
           </div>
         )}
+          </>
+        )}
       </header>
 
-      {landings.length === 0 ? (
+      {vista === 'pulso' ? (
+        <div style={{ padding: '0 32px' }}>
+          <PulsoPaginas />
+        </div>
+      ) : landings.length === 0 ? (
         <div style={{ padding: '0 32px' }}>
           <div style={{ ...card, padding: 40, textAlign: 'center', maxWidth: 560, margin: '30px auto 0' }}>
             {/* Se centra con FLEX, no con el `textAlign: 'center'` del padre: el preflight
@@ -533,7 +557,7 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
       )}
 
       {/* KPIs al pie: contexto, no protagonista */}
-      {landings.length > 0 && (
+      {vista === 'copy' && landings.length > 0 && (
         <div style={{ display: 'flex', gap: 12, padding: '26px 32px 0', flexWrap: 'wrap' }}>
           <Kpi label="Páginas analizadas" valor={String(kpis.total)} />
           <Kpi label="Puntaje promedio" valor={fmtScore(kpis.scorePromedio)} color={scoreColor(kpis.scorePromedio)} />
