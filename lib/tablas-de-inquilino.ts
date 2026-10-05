@@ -34,7 +34,7 @@
 // avisar de que la lista tiene un duplicado o perdió una tabla crítica.
 
 /**
- * Las 89 tablas de inquilino, en orden alfabético.
+ * Las 91 tablas de inquilino, en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -45,9 +45,9 @@ export const TABLAS_DE_INQUILINO = [
   'ad_transcripts', 'adset_budget_daily', 'agente_consentimiento', 'agente_sesiones',
   'anthropic_usage', 'api_llamadas', 'app_settings', 'archivero_files',
   'avisos_cola', 'branding_assets', 'chart_chats', 'chart_sessions',
-  'chat_agent_handoffs', 'closing_analyses', 'closing_jobs', 'contenido_posts',
-  'creative_transcripts', 'credenciales', 'credenciales_auditoria', 'cs_clientes',
-  'cs_respuestas', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
+  'chat_agent_handoffs', 'cliente_entrega', 'closing_analyses', 'closing_jobs',
+  'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria',
+  'cs_clientes', 'cs_respuestas', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'formatos',
   'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',
@@ -59,9 +59,9 @@ export const TABLAS_DE_INQUILINO = [
   'montaje_trabajos', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias',
   'objectives', 'oferta_productos', 'ofertas', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
-  'plan_reprios', 'plan_tareas', 'productos', 'propuestas',
-  'retros', 'review_queue', 'script_analyses', 'script_drafts',
-  'service_incidents', 'setting_audios', 'shares', 'tarea_categorias',
+  'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
+  'propuestas', 'retros', 'review_queue', 'script_analyses',
+  'script_drafts', 'service_incidents', 'setting_audios', 'shares', 'tarea_categorias',
   'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes',
   'wa_ocultos', 'webhook_routing', 'whatsapp_template_drafts', 'workspace_telefonos',
   'zernio_workspace',] as const;

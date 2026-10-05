@@ -2247,3 +2247,142 @@ escribió a alguien. Un solo rótulo para los dos sería mentira en uno de los d
 - **El formulario es uno y los endpoints son dos**, así que el error de cada uno llega con
   su propio texto. No hay un test que compruebe que los dos caminos terminan en una
   persona adentro de la cuenta: eso necesita tocar la base.
+
+---
+
+## El kanban de la ENTREGA de un servicio (05/10/2026) — la capa de datos
+
+Pedido de Martín, textual: «si un CLIENTE actual llega a X etapa de mi SERVICIO
+(onboarding, hito 1, hito 2, o lo que sea que el usuario configure en su entrega de
+servicio…), que implemente el kanban y copie lo que ya tenemos en el CRM pero para la tab
+de Customer Success». Y la aclaración que decidió la forma de todo: **«Todo por producto,
+siempre, justamente pueden tener muchos productos»**.
+
+**Vive en:** `lib/servicio-etapas.ts` (puro) · `lib/entrega-servicio.ts` (lecturas) ·
+`lib/cs-mover-etapa.ts` (el choke point) · `supabase/migrations/0188_entrega_servicio.sql`
+
+### EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: la entrega NO es otro embudo del mismo producto
+
+Era la hipótesis razonable y la barata —reusar `funnels`, que ya es por producto, y no
+agregar una tabla—. Está **medida como falsa**, y los tres hechos no se pueden tener a la
+vez:
+
+- `leads.funnel_id` es **UNA** columna (mig 0181). Un lead vive en un embudo, no en dos.
+- Un cliente **ES** un lead ganado: no hay tabla de clientes (`app/customer-success/BarraClientes.tsx`).
+- La etapa del lead también es UNA: `pipeline_stage` + la derivada + `etapa_vista`.
+
+Lo que lo cierra es que **las dos etapas son SIMULTÁNEAS, no sucesivas**: el mismo cliente
+es `ganado` en ventas y `hito2` en entrega al mismo tiempo. Meterlo en un embudo de entrega
+lo **sacaría del tablero del CRM donde está ganado** — o sea que el CRM perdería un cierre
+para que Customer Success ganara una columna, y nadie lo reportaría como un bug de Customer
+Success. Por eso la asignación vive aparte (`cliente_entrega`) y lo que se reusa del CRM es
+la **forma** del catálogo (`data jsonb`, igual que `funnels.data`), no su almacenamiento.
+
+⚠️ **Y `leads.producto_id` (mig 0117) tampoco sirve, que es la confusión fácil**: ese campo
+es el producto con el que se **cerró** la venta, y es uno. El pedido dice N.
+
+### El CRM no tiene un choke point para copiar — y por eso Customer Success SÍ puede tener uno
+
+La instrucción era «copiá lo que ya tenemos en el CRM», y acá no se podía: **en el CRM la
+etapa se DERIVA de señales** (`pipelineStageOf`), así que no existe el instante en que «se
+mueve». Es la razón por la que allá el historial se audita por DIFF (`logLeadChanges`, con
+el comentario textual «La ETAPA se calcula, no se diffea») y por la que `app/crm/mover-etapa.ts`
+—el archivo que parecía ser el camino de escritura por su nombre— tiene **24 líneas** y una
+sola función que decide si abrir un wizard.
+
+En entrega la etapa es un **hecho declarado**: alguien dice «este cliente llegó a hito 2».
+Entonces sí hay un instante, y `moverClienteDeEtapa()` es el único camino de escritura —
+que es lo que le permite al enrolamiento de secuencias engancharse en UN lugar en vez de en
+cada pantalla. **Un nombre de archivo no dice qué hace: dice cómo lo llamaron.**
+
+### Un movimiento idempotente que igual escribe MIENTE sobre el tiempo
+
+Si `moverClienteDeEtapa` pisara la fila cuando el cliente ya está en esa etapa, el upsert
+resetearía `etapa_desde` — y `etapa_desde` es el reloj de «hace cuánto que no se mueve».
+Un segundo click, un reintento o dos pestañas convertirían **un cliente trabado hace tres
+semanas en uno que acaba de llegar**, más una línea de historial de un movimiento que no
+ocurrió. No da error, y el número que se arruina es justo el que la tab existe para mirar.
+
+Por eso `etapa_desde` es un campo propio y **no** `updated_at`: cambiar cualquier otra cosa
+de la fila no puede resetear el reloj de la columna.
+
+### `lead_audit` tiene dos columnas de valor y el hecho tiene tres datos
+
+Un movimiento de entrega son producto + etapa anterior + etapa nueva, y `lead_audit` sólo
+tiene `valor_anterior` y `valor_nuevo`. El tercero no tiene otro lugar donde ir, así que el
+nombre del producto viaja en el `campo`: `campoEntrega(nombre)` da `Entrega: Mentoría 90 días`.
+Sin eso, dos líneas que dijeran «Onboarding → Hito 1» sobre un cliente con dos servicios son
+**indistinguibles**.
+
+Que una línea vieja conserve el nombre que el producto tenía **entonces** es correcto, no un
+defecto: un historial dice lo que pasó. Es exactamente por esto que la **clave** de la etapa
+es estable y el rótulo es decoración (la lección de ManyChat, que apunta a todo por nombre).
+
+⚠️ **Y la ficha del CRM archiva esa línea en «Información», no en «Status».**
+`STATUS_FIELDS` en `app/crm/lead-view/AuditHistory.tsx` es un `Set` con **igualdad exacta**
+(`STATUS_FIELDS.has(r.campo)`), así que un campo con el producto adentro no entra. No se
+tocó a propósito: ese archivo es de la sesión del CRM. Lo que sí se verificó es que **no
+rompe nada**: el «Deshacer» del CRM filtra por `REVERTIBLES.has(r.campo)`, así que ignora
+la línea de entrega en vez de intentar revertirla a medias.
+
+### LA TRAMPA QUE VIENE: la clave de una etapa de entrega puede chocar con una de venta
+
+`secuenciasDeEtapa` (`lib/nutricion-etapa.ts`) matchea la etapa por **igualdad de string**
+y el ámbito por `funnel_id`. Medido hoy entre los dos defaults:
+
+| | claves |
+|---|---|
+| venta (`DEFAULT_PIPELINE`) | `lead, agenda, agendaj2, facturando, ganado` |
+| entrega (`ETAPAS_ENTREGA_DEFAULT`) | `onboarding, arranque, hito1, hito2, entregado` |
+| choque | **0** |
+
+Cero **hoy**, y las dos listas las edita el cliente: el día que alguien llame `facturando`
+a una etapa de entrega, mover un cliente en el kanban dispara una secuencia de **venta**.
+Lo que lo cierra por construcción es un evento propio (`entrega`), no un string más adentro
+del de etapa.
+
+⚠️ **Y el segundo desajuste es un número correcto sobre la pregunta equivocada**: el choke
+point tiene un `productoId` y `CtxEvento.funnelId` quiere un **embudo**. Del producto al
+embudo hay dos saltos (`producto` → `oferta_productos` → `oferta` → `funnel_ofertas` →
+`funnel`), así que pasar el id del producto como si fuera el del embudo hace match con el
+embudo que tenga ese id — el de cualquier otra cosa. Los dos avisos están escritos en la
+cabecera de `lib/cs-mover-etapa.ts`, que es lo que va a leer quien enganche el enrolamiento.
+
+### El contador del kanban se inicializa con el UNIVERSO
+
+`conteoPorEtapa` arranca poniendo `0` en cada etapa del catálogo antes de contar. Sin eso,
+una columna sin clientes no entra al mapa, el lector recibe `undefined`, y un `if (n === 0)`
+—la rama que saca la fricción de borrar una columna vacía— **no corre nunca**. Es el mismo
+bug que ya se pagó el 29/09 con el conteo de leads por etapa del CRM, escrito antes de
+volver a pagarlo.
+
+### Lo que se midió contra la base, y con qué
+
+Aplicada la 0188 y verificada con `information_schema` + `pg_indexes` + un insert de
+muestra (script temporal, borrado al terminar):
+
+- las 7 y 9 columnas con sus defaults, `rls = true` en las dos;
+- `grants` sólo `postgres` y `service_role` — el `revoke all … from anon, authenticated`
+  entró (sin él, el grant depende de QUIÉN aplica el DDL, y eso no se puede dejar al azar);
+- el **ON CONFLICT** del choke point: dos inserts sobre el mismo (ws, lead, producto)
+  dejaron **1 fila** con la etapa del segundo. Es el candado que impide que dos pestañas
+  dejen al mismo cliente en dos columnas del mismo producto, que en un kanban se lee como
+  un cliente duplicado;
+- limpiado: 0 filas.
+
+### Lo que quedó SIN hacer
+
+- **La pantalla.** No hay kanban todavía: esto es la capa de datos. El toggle de vista y el
+  selector de servicio van en `app/customer-success/BarraClientes.tsx`, y el tablero es un
+  componente nuevo de `app/customer-success/`.
+- **El editor de etapas por producto.** `guardarEtapasEntrega` existe y no la llama nadie,
+  así que hoy todo producto muestra `ETAPAS_ENTREGA_DEFAULT` con `origen: default` — que es
+  correcto y la pantalla lo tiene que **decir**, o un cliente lee las etapas genéricas como
+  si fueran una decisión suya.
+- **El enrolamiento de secuencias**, que es de la sesión del Chatbot (ver la trampa de
+  arriba).
+- **`producto_entrega` y `cliente_entrega` están en `TENANT_TABLES` y en
+  `TABLAS_DE_INQUILINO`** (91 tablas). ⚠️ De paso quedó visto que `avisos_programados`
+  (0183), `insistencias` (0180) y `flujo_corridas` (0186) están en `TENANT_TABLES` y **NO**
+  en `TABLAS_DE_INQUILINO`: vaciar un workspace les deja las filas. No se tocó —es del área
+  de infra y de avisos— pero es el mismo modo de falla que esa lista ya documentó.

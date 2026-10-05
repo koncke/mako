@@ -102,6 +102,11 @@ const TENANT_TABLES = new Set<string>([
   // devolveria las corridas de CUALQUIER workspace y el drenador de un cliente
   // avanzaria y mandaria las filas de todos. No da error: contesta de mas.
   'flujo_corridas',
+  // La ENTREGA de un servicio (mig 0188): el catálogo de etapas por producto y en qué
+  // etapa está cada cliente. Las dos van acá por la misma razón que `funnels`: tienen N
+  // filas por workspace, así que olvidarse el .eq ya no da «no encuentra» — da el
+  // tablero de Customer Success de OTRO cliente, con sus clientes adentro.
+  'producto_entrega', 'cliente_entrega',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.
