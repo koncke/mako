@@ -417,4 +417,26 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-customer-success.md \u2014 la cosecha de esta tanda",
     ],
   },
+  {
+    fecha: "5 oct", hora: "16:30", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Verificar lo que integr\u00f3 el workflow de la tabla, el lote y el editor",
+    pedido: "Revis\u00e1 el estado del workflow wwocfwu5a (cs-tabla-lote-editor) y segu\u00ed con la integraci\u00f3n y verificaci\u00f3n de Customer Success.",
+    puntos: [
+      "EL WORKFLOW HAB\u00cdA TERMINADO ENTERO, y los siete pedidos que sus tres agentes dejaron \u00abpara el orquestador\u00bb ya estaban enchufados en 42d91a41. Lo que faltaba era lo que ninguno pudo hacer: probarlo en el navegador. Se hizo con las escrituras bloqueadas, leyendo el cuerpo de cada POST.",
+      "\u26a0\ufe0f EL DESHACER RESETEABA EL RELOJ DE LA ETAPA, y la pantalla lo tapaba. Para el choke point un deshacer es un movimiento m\u00e1s y escribe `etapa_desde = ahora`: un cliente en rojo por 21 d\u00edas, arrastrado por error y devuelto con el toast, quedaba en la base como reci\u00e9n llegado. La pantalla restauraba la fila vieja, as\u00ed que el chip segu\u00eda rojo hasta el F5. Lo encontr\u00f3 leer el c\u00f3digo buscando qu\u00e9 estado arrastra el movimiento, no el navegador.",
+      "LA MISMA PREGUNTA TEN\u00cdA DOS MEN\u00daS: \u00abMover a\u00bb de la barra en 500 px con la \u00faltima etapa cortada, y el chip de la tabla con la fase repetida en cada rengl\u00f3n y cinco de nueve a la vista. Ahora es uno. Los 500 px los pone el primitive a todo `columns`, tambi\u00e9n con una sola columna, y el tope de alto fijo no miraba d\u00f3nde abre el men\u00fa (se sal\u00eda 32 px de la ventana).",
+      "Y TRES TRAMPAS DEL ARN\u00c9S que se leen como bugs: `dragTo` de Playwright no prueba un arrastre en lote (a mano, en pasos, mand\u00f3 los dos clientes), `getByRole` busca por el `aria-label` y no por el texto, y una opci\u00f3n con subt\u00edtulo no matchea su r\u00f3tulo exacto.",
+    ],
+    commits: [
+      { sha: "9b5a4c9b", msg: "Customer Success: el deshacer devuelve el reloj de la etapa, y un solo menú de etapas", lineas: 302, archivos: 13 },
+    ],
+    archivos: [
+      "lib/servicio-etapas.ts \u2014 relojDeVuelta: el reloj que vuelve con un deshacer, validado",
+      "lib/cs-mover-etapa.ts \u2014 el choke point escribe el reloj previo si viene",
+      "app/components/Dropdown.tsx \u2014 alContenido: una columna del ancho de su contenido, topeada por la ventana",
+      "tests/cs-deshacer-reloj.test.ts \u2014 7 tests, cada pieza probada rompi\u00e9ndola",
+      "docs/hallazgos-customer-success.md \u2014 la cosecha de esta pasada",
+    ],
+  },
 ];
