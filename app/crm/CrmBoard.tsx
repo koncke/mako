@@ -9,6 +9,7 @@
 // en sesión (no se persisten en esta iteración).
 
 import { useSearchParams, usePathname } from 'next/navigation';
+import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter } from '@/app/_ui/Link';
 import {
   useEffect,
@@ -1334,6 +1335,19 @@ export function CrmBoard({
   // ── worklist "datos sin marcar" ──
   const marcarPending = marcar.length;
 
+  // ⚠️ LA COPIA QUE SIGUE AL CURSOR LA DIBUJAMOS NOSOTROS, no el navegador. La foto
+  // del arrastre la pinta el SISTEMA OPERATIVO y no la gobierna ningún CSS: en Windows
+  // sale semitransparente y anclada donde quiere, así que un `getComputedStyle` puede
+  // decir `opacity: 1` mientras en pantalla se ve un fantasma. Por eso va un canvas de
+  // 1x1 como imagen (el SO no pinta nada) y la copia la monta el hook.
+  // La pieza es la MISMA que usa el Plan (`app/plan/board/arrastre-copia.ts`): no se
+  // reescribe, porque adentro están las tres cosas que costaron tres rondas allá — la
+  // copia se mueve con `transform` sobre un ref y nunca con `setState` (uno por
+  // `dragover` redibuja el tablero 60 veces por segundo), el listener va en `document`
+  // y en CAPTURA (el `dragover` de las columnas no cubre los huecos entre ellas), y se
+  // limpia en `dragend` Y en `drop`, los dos.
+  const { pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
+
   const selected = selectedId != null ? leads.find((l) => l.id === selectedId) ?? null : null;
 
   // Leads que esperan tu validación (los que están en "Datos sin marcar").
@@ -1663,7 +1677,7 @@ export function CrmBoard({
            `onBoardDragOver` saca los puntos medios, así que no es decoración. */
         data-colprop={iProp >= 0 ? c.key : undefined}
         onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
-        onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
+        onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); pararScroll(); soltarCopia(); }}
         style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
@@ -1829,9 +1843,16 @@ export function CrmBoard({
               <div key={l.id}
                 onClick={() => openDetail(l)}
                 draggable
-                onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
-                onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
-                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
+                onDragStart={(ev) => {
+                  setDragId(l.id);
+                  ev.dataTransfer.effectAllowed = 'move';
+                  fotoVaciaDeArrastre(ev.dataTransfer);
+                  const nodo = ev.currentTarget as HTMLElement;
+                  const r = nodo.getBoundingClientRect();
+                  montarCopia(nodo, ev.clientX - r.left, ev.clientY - r.top);
+                }}
+                onDragEnd={() => { setDragId(null); setDragOverCol(null); pararScroll(); soltarCopia(); }}
+                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: 1, transform: 'none', boxShadow: 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
