@@ -3,8 +3,14 @@
 // =============================================================================
 // Clientes — quién es cliente, y qué trabajo tiene
 // =============================================================================
-// Una grilla de tarjetas y, al abrir una: sus proyectos, sus tareas y sus recurrentes.
-// Eso es toda la pantalla.
+// La ENTREGA de un servicio en etapas y, al abrir una tarjeta: sus proyectos, sus
+// tareas y sus recurrentes. Eso es toda la pantalla.
+//
+// ⚠️ LA GRILLA DE TARJETAS NO EXISTE MÁS (05/10/2026). «No quiero que exista la vista
+// de Tarjetas, es la vista de kanban por default y la otra es la vista de tabla. Solo
+// que dentro del kanban, las tarjetas no son como las del CRM, son como las nuevas que
+// hicimos, de clientes». La tarjeta de cliente NO se fue con la grilla: ahora es lo que
+// se dibuja adentro de cada columna, así que la pieza es la misma y el lugar es otro.
 //
 // ⚠️ LO QUE NO ESTÁ, NO FALTA. Se fueron la señal de atención en tres niveles, el reloj
 // del contrato, los cuatro números de cabecera y las cinco tabs: venían de calcar la tab
@@ -17,8 +23,6 @@ import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, Toast, useT
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
-import { ClienteCard } from './ClienteCard';
-import { GrillaTarjetas, TarjetaNueva } from '@/app/_components/TarjetaEntidad';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
@@ -80,8 +84,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   const [, empezar] = useTransition();
   /** Lo que la barra de arriba decide: qué se busca, cómo se mira y en qué orden. */
   const [q, setQ] = useState('');
-  /** UNA vista y no dos booleanos: ver el porque en el tipo (./BarraClientes). */
-  const [vista, setVista] = useState<VistaClientes>('tarjetas');
+  /**
+   * UNA vista y no un booleano por vista: ver el porqué en el tipo (./BarraClientes).
+   *
+   * `null` = nadie eligió todavía, y entonces manda el DEFAULT calculado más abajo. No
+   * arranca en `'kanban'` a secas porque el kanban no siempre se puede dibujar, y una
+   * pantalla que abre vacía no distingue «no configuraste» de «se rompió».
+   */
+  const [vistaElegida, setVista] = useState<VistaClientes | null>(null);
   const [filtro, setFiltro] = useState<FiltroClientes>('todos');
   const [cuando, setCuando] = useState('siempre');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
@@ -90,9 +100,25 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
 
   // ── La entrega de un servicio (el kanban) ────────────────────────────
   const servicios = entrega?.ok ? entrega.servicios : [];
+  /**
+   * ⚠️ SE CALCULA, NO SE DISPARA. El kanban es el default, pero sólo se puede dibujar
+   * si la entrega se leyó Y el negocio tiene al menos un servicio activo. Un `useEffect`
+   * que «corrigiera» la vista al montar dejaría a la persona viendo medio segundo una
+   * pantalla que no es, y encima pisaría su elección en cuanto `entrega` cambie. Como
+   * cálculo, el caso que todavía no existe lo hereda gratis.
+   */
+  const hayKanban = Boolean(entrega?.ok && servicios.length);
+  const vistasDisponibles: VistaClientes[] = hayKanban ? ['kanban', 'tabla'] : ['tabla'];
+  const vista: VistaClientes = vistaElegida && vistasDisponibles.includes(vistaElegida)
+    ? vistaElegida
+    : (vistasDisponibles[0] ?? 'tabla');
   /** De que servicio es el tablero. `null` = todavia no se eligio; cae al primero. */
   const [servicioId, setServicioId] = useState<number | null>(null);
   const servicio = servicios.find((s) => s.productoId === servicioId) ?? servicios[0] ?? null;
+  /** Lo que de verdad se está dibujando. ⚠️ No es `vista === 'kanban'` a secas: lo
+   *  escribiría dos veces y el día que una de las dos cambie, el renglón de «no
+   *  encontré» aparece sobre un tablero o desaparece sobre una tabla. */
+  const enKanban = vista === 'kanban' && Boolean(servicio);
   const [editandoEtapas, setEditandoEtapas] = useState(false);
   /**
    * LO QUE SE MOVIO ACA ADENTRO, encima de lo que trajo el server.
@@ -375,11 +401,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         <>
           <BarraClientes
             q={q} onQ={setQ} vista={vista} onVista={setVista}
-            /* ⚠️ EL KANBAN SE OFRECE SOLO SI HAY TABLERO QUE DIBUJAR: la lectura
-               salio bien Y el negocio tiene al menos un servicio activo. Un boton que
-               abre una pantalla vacia se lee como que la app esta rota, y con la
-               lectura caida mentiria — el banner de arriba dice por que. */
-            conKanban={Boolean(entrega?.ok && servicios.length)}
+            /* ⚠️ LAS VISTAS QUE ESTA PANTALLA PUEDE DIBUJAR, en positivo. Sin servicios
+               —o con la lectura de la entrega caída— el kanban no se ofrece: un botón que
+               abre una pantalla vacía se lee como que la app está rota. Con una sola
+               vista el toggle entero no se dibuja, porque un botón que no se puede
+               apagar es un control trabado. */
+            vistas={vistasDisponibles}
             servicios={servicios.map((sv) => ({ id: sv.productoId, nombre: sv.nombre }))}
             servicio={servicio?.productoId ?? null} onServicio={setServicioId}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
@@ -399,57 +426,45 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             onExportar={() => exportarCSV(visibles, numeroDe, resumenDe)}
             onImportar={() => { window.location.href = '/crm?importar=1'; }} />
 
-          {vista === 'kanban' ? (
-            /* ⚠️ EL KANBAN NO DIBUJA LA CARTERA: dibuja la ENTREGA de UN servicio, y por
-               eso necesita un servicio elegido. Sin servicios activos no hay tablero
-               posible, y eso se DICE — un tablero de cero columnas sobre una pantalla
-               en blanco no distingue «no configuraste» de «se rompio». */
-            servicio ? (
-              <KanbanEntrega
-                etapas={servicio.etapas}
-                origen={servicio.origen}
-                servicio={servicio.nombre}
-                clientes={visibles}
-                asignacion={asignacionDe(servicio.productoId)}
-                numeroDe={numeroDe}
-                onMover={(leadId, etapa) => moverEntrega(leadId, etapa, servicio.productoId)}
-                onSacar={(leadId) => sacarEntrega(leadId, servicio.productoId)}
-                onAbrir={setAbiertoId}
-                onEditarEtapas={() => setEditandoEtapas(true)}
-                puedeEditar={puedeEditarEtapas}
-              />
-            ) : (
-              <p className="cl-nada">
-                Para ver la entrega en etapas, carga tus servicios en el catálogo de productos.
-              </p>
-            )
-          ) : vista === 'tabla' ? (
-            <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
-              tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando(true)} />
-          ) : (
-            <GrillaTarjetas>
-              {/* ⚠️ CREAR ES LA PRIMERA TARJETA, no un botón en la esquina. «Que sea una
-                  preview de card, transparente, que diga Nuevo cliente, al principio de
-                  todo, así como tenemos a los nuevos proyectos» (27/09/2026). Y vale
-                  para algo más que parecerse: con la grilla vacía de resultados por un
-                  filtro, sigue habiendo una salida a la vista. */}
-              <li><TarjetaNueva label="Nuevo cliente" onClick={() => setCreando(true)} /></li>
-              {visibles.map((c) => (
-                <li key={c.leadId}>
-                  <ClienteCard c={c} n={numeroDe.get(c.leadId) ?? 0}
-                    trabajo={resumenDe(c.leadId)} tableroOk={tablero.ok}
-                    cuentas={cuentas} onError={setMal}
-                    onAbrir={() => { setAbrirEn(null); setAbiertoId(c.leadId); }}
-                    onEquipo={() => { setAbrirEn('equipo'); setAbiertoId(c.leadId); }} />
-                </li>
-              ))}
-            </GrillaTarjetas>
+          {/* ⚠️ SIN SERVICIOS NO HAY TABLERO POSIBLE, Y SE DICE ANTES DE LA VISTA.
+              El kanban ni se ofrece en ese caso, así que sin este renglón la persona ve
+              una tabla y no se entera de que la vista de etapas existe ni de qué le
+              falta para tenerla — que es la única acción que hay acá. */}
+          {!hayKanban && entrega?.ok && (
+            <p className="cl-nada">
+              Para ver la entrega en etapas, carga tus servicios en el catálogo de productos.
+            </p>
           )}
 
+          {enKanban && servicio ? (
+            <KanbanEntrega
+              etapas={servicio.etapas}
+              origen={servicio.origen}
+              servicio={servicio.nombre}
+              clientes={visibles}
+              asignacion={asignacionDe(servicio.productoId)}
+              numeroDe={numeroDe}
+              trabajoDe={resumenDe}
+              tableroOk={tablero.ok}
+              cuentas={cuentas}
+              onMover={(leadId, etapa) => moverEntrega(leadId, etapa, servicio.productoId)}
+              onSacar={(leadId) => sacarEntrega(leadId, servicio.productoId)}
+              onAbrir={(leadId) => { setAbrirEn(null); setAbiertoId(leadId); }}
+              onEquipo={(leadId) => { setAbrirEn('equipo'); setAbiertoId(leadId); }}
+              onNuevoCliente={() => setCreando(true)}
+              onEditarEtapas={() => setEditandoEtapas(true)}
+              onError={setMal}
+              puedeEditar={puedeEditarEtapas}
+            />
+          ) : (
+            <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
+              tableroOk={tablero.ok} onAbrir={setAbiertoId} onNuevo={() => setCreando(true)} />
+          )}
           {/* ⚠️ «NO ENCONTRÉ» NO ES «NO TENÉS». Sin este renglón, buscar algo que no
-              existe deja una grilla con una sola tarjeta de crear, y eso se lee como
-              que se borró la cartera. */}
-          {visibles.length === 0 && vista !== 'kanban' && (
+              existe deja una tabla vacía, y una tabla vacía se lee como que se borró la
+              cartera. En el kanban no va: ahí lo dice cada columna, y un renglón más
+              debajo de cinco «Sin clientes» es repetir lo mismo seis veces. */}
+          {visibles.length === 0 && !enKanban && (
             <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>
           )}
         </>

@@ -2622,3 +2622,122 @@ buscaba los avisos por `[class*=banner]` y devolvía UNO de los dos: el de tono 
 matcheaba. O sea que el chequeo decía «el aviso de clientes no sale» sobre un aviso
 perfectamente dibujado. Para preguntar «¿esta pantalla dice X?», lo que se lee es el
 `innerText` del diálogo, no una clase que uno supone.
+
+### La grilla de tarjetas se fue, y la tarjeta se quedó (05/10/2026)
+
+Pedido de Martín, textual: «No quiero que exista la vista de Tarjetas, es la vista de
+kanban por default y la otra es la vista de tabla. Solo que dentro del kanban, las
+tarjetas no son como las del CRM, son como las nuevas que hicimos, de clientes».
+
+**Vive en:** `app/customer-success/{ClientesApp,BarraClientes,KanbanEntrega,ClienteCard}.tsx`
+· `app/_components/TarjetaEntidad.tsx`
+
+Lo que lo vuelve interesante es que **la pieza no se borró: cambió de lugar**. La tarjeta
+de cliente es la misma; lo que desapareció es la grilla que la contenía. Y ahí estaba el
+problema.
+
+#### ⚠️ LA HOJA DE ESTILOS VIAJABA CON LA GRILLA, NO CON LA TARJETA
+
+`CSS_TARJETA` se montaba **únicamente** adentro de `<GrillaTarjetas>`. Mientras el único
+lugar donde había tarjetas era una grilla, las dos cosas eran indistinguibles. Al dibujar
+una `TarjetaEntidad` en una columna de kanban sin la grilla, el `<style>` no viaja — y lo
+que sale **no es un error ni una pantalla rota**: son los mismos spans sin banda, sin
+bordes y sin pie, que se leen como una tarjeta mal hecha.
+
+La regla: **la hoja es de la pieza, no del contenedor de la pieza**. Se extrajo
+`<EstilosTarjeta />` y lo monta quien dibuja tarjetas — la grilla de /admin y el kanban.
+
+El olor que lo delata antes de pagarlo: un `grep` del nombre de la constante de estilos
+que devuelve **un solo call site**, y ese call site no es la pieza.
+
+#### El arrastre SÍ arranca sobre el botón invisible; el cursor NO viaja
+
+`TarjetaEntidad` cubre su superficie con un `<button className="cl-abrir">` en
+`position:absolute; inset:0` y pone **todo el resto del contenido en
+`pointer-events:none`**, salvo `.cl-acc`. Antes de escribir nada se midió en el navegador
+con un fixture del DOM, porque esto no se contesta leyendo:
+
+| pregunta | medido |
+|---|---|
+| ¿el `dragstart` burbujea desde el botón absoluto hasta un envoltorio `draggable`? | **sí** (1 disparo, `target: cl-abrir`) |
+| ¿quién recibe el puntero en el centro de la tarjeta? | `.cl-abrir` — siempre |
+| ¿y sobre la banda, que tiene `pointer-events:none`? | `.cl-abrir` también |
+| ¿y sobre un botón dentro de `.cl-acc`? | **ese botón** |
+| ¿qué cursor se ve? | **`pointer`**, no `grab` |
+| ¿el clon conserva el `style` de la banda? | sí |
+
+De ahí salen tres decisiones que no son de gusto: el `draggable` va en un **envoltorio**
+(no en la tarjeta), el cursor se pone **a mano** (`.ke-card .cl-abrir { cursor: grab }`,
+porque el del botón gana sobre el del envoltorio), y **un control extra sólo puede vivir
+en `.cl-acc`** — dibujado en cualquier otro lado se ve y no se puede apretar.
+
+#### ⚠️ `.cl-acc` ES `nowrap`, Y LA COLUMNA ES 44 px MÁS ANGOSTA QUE LA GRILLA
+
+En la grilla la tarjeta medía 320 px y la fila de acciones llevaba dos controles. En una
+columna mide 276 y, **para una AGENCIA**, lleva cuatro: «Entrar como», el menú de
+Acciones y el «Sacar» de esta pantalla. Un flex sin `wrap` no los apila: los desborda — y
+`.cl-card` tiene `overflow: hidden`, así que **el último control desaparece sin dejar
+rastro**. El propio comentario de `ClienteCard` ya avisaba del `nowrap`; lo que cambió es
+que ahora hay un cuarto hijo y 44 px menos.
+
+Se arregla con un `flex-wrap: wrap` **scopeado al kanban**, no en la pieza compartida:
+en /admin la fila sigue entrando y envolver ahí sería cambiarle el remate a una pantalla
+que no lo pidió.
+
+#### Una columna vacía es un DESTINO, y medía menos que lo que se le suelta adentro
+
+`min-height: 140px` contra una tarjeta de cliente de **311 px**. Soltar en la columna de
+al lado exigía apuntar a un recuadro más chico que la tarjeta en la mano. Subió a 248.
+
+#### La vista por default se CALCULA, no se dispara
+
+El kanban es el default **y no siempre se puede dibujar**: hace falta que la lectura de la
+entrega haya salido bien y que el negocio tenga al menos un servicio activo. Un
+`useEffect` que «corrigiera» la vista al montar dejaría medio segundo de pantalla que no
+es, y pisaría la elección de la persona en cuanto `entrega` cambie.
+
+```ts
+const hayKanban = Boolean(entrega?.ok && servicios.length);
+const vistasDisponibles = hayKanban ? ['kanban', 'tabla'] : ['tabla'];
+const vista = vistaElegida && vistasDisponibles.includes(vistaElegida)
+  ? vistaElegida : (vistasDisponibles[0] ?? 'tabla');
+```
+
+El estado guarda **lo que la persona eligió**, no lo que se dibuja; lo que se dibuja sale
+de cruzarlo con lo que hay. Así, el caso que todavía no existe lo hereda gratis — y
+`vistaElegida === 'kanban'` sobre un workspace que todavía no cargó productos no deja a
+nadie mirando una pantalla vacía.
+
+⚠️ **Y el toggle lo dirige una LISTA, no un flag por vista.** `BarraClientes` la montan
+dos pantallas que NO ofrecen lo mismo (Customer Success: kanban + tabla · /admin:
+tarjetas + tabla, porque un workspace no tiene etapas de entrega). Con `conKanban` el día
+que aparezca una cuarta vista hay un segundo flag; con `vistas` en positivo, cada pantalla
+declara lo suyo. **Y con una sola vista el toggle entero no se dibuja**: un botón que no se
+puede apagar es un control trabado.
+
+#### Lo que se enumeró antes de sacar la grilla, porque se iba con ella
+
+- **El alta de un cliente.** Era la primera tarjeta punteada (`TarjetaNueva`). La tabla
+  tiene su propio botón; el kanban no tenía ninguno, así que crear un cliente habría
+  quedado escondido detrás de cambiar de vista. Ahora vive en la cabecera del tablero, y
+  **no se confunde con «Sumar un cliente»** de la primera columna: aquél mete a un cliente
+  QUE YA EXISTE en esta entrega.
+- **«Para ver la entrega en etapas, carga tus servicios»** era el cuerpo de la vista de
+  kanban. Ahora el kanban ni se ofrece en ese caso, así que el renglón se mudó ARRIBA de
+  la tabla: sin él, alguien sin productos ve una tabla y no se entera de que la vista de
+  etapas existe ni de qué le falta para tenerla.
+- **«Ningún cliente coincide»** se dibuja sólo fuera del kanban, y cuelga de `enKanban`
+  —lo que de verdad se está dibujando— y no de `vista === 'kanban'` escrito dos veces. En
+  el tablero lo dice cada columna; un renglón más abajo de cinco «Sin clientes» es repetir
+  lo mismo seis veces.
+
+#### Lo que volvió a morder, con la regla ya escrita
+
+- **Backticks adentro del template literal del CSS.** Tres comentarios nuevos citaban
+  nombres entre backticks —la convención del repo— y **cerraron la cadena a la mitad**: el
+  typecheck escupió «Module declaration names may only use quoted strings» en líneas que
+  no tenían nada que ver. Está en AGENTS.md y se pagó igual. Lo que lo cierra en segundos
+  es contar los backticks del bloque: tienen que ser **exactamente dos**.
+- **`ClientesApp.tsx` estaba MEZCLADO** (558 CRLF + 7 LF) por un parche mío anterior, y el
+  síntoma fue una aserción que fallaba con `count == 0` sobre un texto copiado del propio
+  archivo. Misma familia que los 38 CR sueltos del documento de hallazgos.

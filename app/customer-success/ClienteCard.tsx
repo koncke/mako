@@ -23,7 +23,7 @@
 // que un rótulo mienta un poco es chico al lado del de que tres pantallas
 // cuenten lo mismo con nombres distintos. El campo sigue siendo `abiertas`.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import { TarjetaEntidad, PieNumeros, PieTexto, colorDe } from '@/app/_components/TarjetaEntidad';
@@ -36,7 +36,7 @@ import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-avis
 // tabla, la ficha y el picker de clientes del tablero).
 export { colorDe };
 
-export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEquipo, onError }: {
+export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, accionExtra, onAbrir, onEquipo, onError }: {
   c: ClienteCruce;
   /** Su número de cliente: «Cliente 1». No es el id del lead — ver `NumeroCliente`. */
   n: number;
@@ -45,6 +45,26 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
   /** Quién ve «Inspeccionar», el plan de cada cuenta y su equipo. Sin esto no hay
    *  botonera: un cliente común no tiene nada que inspeccionar. */
   cuentas?: CuentasProp;
+  /**
+   * Un chip más al lado del nombre, puesto por la pantalla que monta la tarjeta.
+   *
+   * Lo usa el kanban de la entrega para «hace 3 días» / «21 días sin moverse», que es
+   * el dato que esa pantalla existe para mirar y que no es del cliente sino de DÓNDE
+   * ESTÁ: la misma persona tiene un «hace cuánto» distinto en cada servicio.
+   */
+  chipExtra?: ReactNode;
+  /**
+   * Un control más en la fila de acciones.
+   *
+   * ⚠️ TIENE QUE IR EN ESA FILA Y NO EN CUALQUIER LADO. `TarjetaEntidad` pone todo su
+   * contenido en `pointer-events: none` para que el click en cualquier parte abra la
+   * ficha, y `.cl-acc` es lo ÚNICO que los vuelve a aceptar: un botón fuera de ahí se
+   * dibuja y no se puede apretar. Medido en el navegador el 05/10/2026.
+   *
+   * ⚠️ Y ES `flex: none` Y CORTO: esa fila es `nowrap`, así que un hijo ancho la
+   * desborda en vez de bajar a su renglón.
+   */
+  accionExtra?: ReactNode;
   onAbrir: () => void;
   /** Abre la ficha directamente en la tab «Equipo». */
   onEquipo: () => void;
@@ -121,7 +141,12 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
       /* El PLAN de su cuenta de MaKo, cuando tiene una. «Estas tarjetas de clientes
          también deben tener el plan, cada uno, con normalidad» (27/09/2026) — es el
          mismo chip que la grilla de la plataforma, sacado de la misma `capaDef`. */
-      chips={plan ? <span className="cl-plan">{plan}</span> : undefined}
+      chips={plan || chipExtra ? (
+        <>
+          {plan && <span className="cl-plan">{plan}</span>}
+          {chipExtra}
+        </>
+      ) : undefined}
       /* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner
          ceros sería afirmar que no tiene trabajo — que es distinto de no haber
          podido mirar. */
@@ -146,15 +171,15 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
       /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. `cuentas.visible` lo decide el
          SERVER (page.tsx): una agencia habilitada y el super admin. Dibujarlos para un
          cliente común sería ofrecerle entrar a una cuenta que no existe. */
-      acciones={cuentas?.visible ? (
+      acciones={cuentas?.visible || accionExtra ? (
         <>
-          <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />
+          {cuentas?.visible && <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />}
           <span style={{ flex: 1 }} />
           {/* ⚠️ SIN OPCIONES NO SE DIBUJA. `Dropdown` no tiene rama de lista vacía: con
               `options={[]}` igual pinta el botón y abre un popover en blanco, que se lee
               como una app rota. Pasa de verdad — un cliente sin cuenta y sin equipo no
               tiene ninguna. */}
-          {opciones.length > 0 && (
+          {cuentas?.visible && opciones.length > 0 && (
             <Dropdown
               value="" resetAfterSelect align="right" placeholder="Acciones"
               ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}
@@ -163,6 +188,7 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, onAbrir, onEqui
               onChange={elegir}
             />
           )}
+          {accionExtra}
         </>
       ) : undefined}
     />

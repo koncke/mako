@@ -134,9 +134,26 @@ export function GrillaTarjetas({ children, sinEstirar = false }: {
   return (
     <>
       <ul className={sinEstirar ? 'cl-grid cl-grid-fija' : 'cl-grid'}>{children}</ul>
-      <style dangerouslySetInnerHTML={{ __html: CSS_TARJETA }} />
+      <EstilosTarjeta />
     </>
   );
+}
+
+/**
+ * La hoja de la tarjeta, suelta.
+ *
+ * ⚠️ VIVE ACÁ Y NO ADENTRO DE `GrillaTarjetas` PORQUE LA HOJA ES DE LA TARJETA, NO DE
+ * LA GRILLA. Mientras el único lugar donde había tarjetas era una grilla las dos cosas
+ * se podían confundir; el día que una `TarjetaEntidad` se dibuja en otro lado —una
+ * columna de kanban— sin la grilla no viaja el `<style>`, y lo que sale no es un error
+ * ni una pantalla rota: son los mismos spans sin banda, sin bordes y sin pie, que se
+ * leen como una tarjeta mal hecha.
+ *
+ * Montarla dos veces no duplica nada visible (son las mismas reglas), pero no hace
+ * falta: cada pantalla la monta UNA vez al lado de donde dibuja sus tarjetas.
+ */
+export function EstilosTarjeta() {
+  return <style dangerouslySetInnerHTML={{ __html: CSS_TARJETA }} />;
 }
 
 /** La tarjeta de CREAR: el mismo hueco que una de verdad, punteada y sin peso. */

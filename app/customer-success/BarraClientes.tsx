@@ -26,21 +26,57 @@
 // que se queda viejo. Lo que sí vive acá es EXPORTAR, que es de esta vista: sale lo
 // que la grilla está mostrando, con sus filtros puestos.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 
 /**
- * Las TRES formas de mirar la misma cartera. Es UN valor y no dos booleanos: con
+ * Las formas de mirar la misma lista. Es UN valor y no un booleano por vista: con
  * `tabla` y `kanban` por separado, el día que los dos sean true gana el que lea
  * primero el que dibuja — y ya está escrito en esta casa que dos campos para el
  * mismo lugar es cómo se muere uno de los dos.
  *
- * `kanban` SÓLO lo ofrece quien pueda dibujarlo (`conKanban`): /admin monta esta
- * misma barra sobre una lista de WORKSPACES, que no tiene etapas de entrega, y un
- * botón que no hace nada se lee como que la app está rota.
+ * ⚠️ CADA PANTALLA DECLARA CUÁLES OFRECE (`vistas`), y no hay un flag por vista.
+ * Las dos que montan esta barra no ofrecen las mismas: Customer Success muestra la
+ * ENTREGA de un servicio (kanban + tabla, y el kanban es el default), y /admin una
+ * lista de WORKSPACES, que no tiene etapas de entrega (tarjetas + tabla). Un botón
+ * que no puede dibujar nada se lee como que la app está rota, así que la lista va en
+ * POSITIVO: se dibuja lo que la pantalla declara, no «todas menos».
  */
 export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban';
+
+/** El orden en que se dibujan los botones, sea cual sea el orden de `vistas`. */
+const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla'];
+
+/** Qué dibuja cada botón del toggle. Acá, para que el rótulo y el ícono vivan juntos. */
+const VISTA_META: Record<VistaClientes, { titulo: string; icono: ReactNode }> = {
+  tarjetas: {
+    titulo: 'Ver en tarjetas',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  tabla: {
+    titulo: 'Ver en tabla',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+      </svg>
+    ),
+  },
+  kanban: {
+    // Tres columnas de alto distinto: el ícono dice que lo que se agrupa son ETAPAS.
+    titulo: 'Ver la entrega en etapas',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="5" height="18" rx="1.5" /><rect x="10" y="3" width="5" height="12" rx="1.5" /><rect x="17" y="3" width="4" height="8" rx="1.5" />
+      </svg>
+    ),
+  },
+};
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto' | 'con-cuenta' | 'sin-cuenta';
@@ -114,7 +150,7 @@ export const FILTRO_LABEL: Record<FiltroClientes, string> = {
  * sigue llamándola igual que antes.
  */
 export function BarraClientes({
-  q, onQ, vista, onVista, conKanban = false,
+  q, onQ, vista, onVista, vistas = ['tarjetas', 'tabla'],
   servicios = [], servicio = null, onServicio,
   filtro, onFiltro, orden, onOrden, onExportar, onImportar,
   nVisibles, nTotal, progreso, placeholder = 'Buscar por nombre o empresa…',
@@ -126,8 +162,8 @@ export function BarraClientes({
   onQ: (v: string) => void;
   vista: VistaClientes;
   onVista: (v: VistaClientes) => void;
-  /** Dibujar el botón de kanban. Sólo lo prende quien tiene un tablero que mostrar. */
-  conKanban?: boolean;
+  /** Las vistas que ESTA pantalla puede dibujar. Ver el porqué en `VistaClientes`. */
+  vistas?: readonly VistaClientes[];
   /**
    * Los servicios entre los que elige el kanban, y cuál está elegido.
    *
@@ -207,7 +243,7 @@ export function BarraClientes({
       {vista === 'kanban' && servicios.length > 1 && onServicio && (
         <SelectorServicio servicios={servicios} servicio={servicio} onServicio={onServicio} />
       )}
-      <VistaToggleClientes vista={vista} onSet={onVista} conKanban={conKanban} />
+      <VistaToggleClientes vista={vista} onSet={onVista} vistas={vistas} />
       <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
         filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase}
         cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir} />
@@ -246,32 +282,28 @@ export function BarraClientes({
   );
 }
 
-/** Tarjetas, tabla o kanban. Mismo molde y mismos íconos que el del tablero. */
-function VistaToggleClientes({ vista, onSet, conKanban }: { vista: VistaClientes; onSet: (v: VistaClientes) => void; conKanban: boolean }) {
+/**
+ * Los botones de vista. Se dibuja UNO por cada vista que la pantalla declara.
+ *
+ * ⚠️ CON UNA SOLA VISTA NO SE DIBUJA NADA. Un toggle de un botón no ofrece ninguna
+ * decisión y, peor, el botón queda permanentemente activo: se lee como un control
+ * trabado. Mismo molde y mismos íconos que el del tablero.
+ */
+function VistaToggleClientes({ vista, onSet, vistas }: {
+  vista: VistaClientes;
+  onSet: (v: VistaClientes) => void;
+  vistas: readonly VistaClientes[];
+}) {
+  const disponibles = ORDEN_VISTAS.filter((v) => vistas.includes(v));
+  if (disponibles.length < 2) return null;
   return (
     <div className="bc-toggle">
-      <button type="button" onClick={() => onSet('tarjetas')} aria-pressed={vista === 'tarjetas'}
-        className={vista === 'tarjetas' ? 'on' : ''} title="Ver en tarjetas" aria-label="Ver en tarjetas">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
-          <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
-        </svg>
-      </button>
-      <button type="button" onClick={() => onSet('tabla')} aria-pressed={vista === 'tabla'}
-        className={vista === 'tabla' ? 'on' : ''} title="Ver en tabla" aria-label="Ver en tabla">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
-      {/* Tres columnas: el ícono dice que lo que se agrupa son ETAPAS, no filas. */}
-      {conKanban && (
-        <button type="button" onClick={() => onSet('kanban')} aria-pressed={vista === 'kanban'}
-          className={vista === 'kanban' ? 'on' : ''} title="Ver la entrega en etapas" aria-label="Ver la entrega en etapas">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="3" y="3" width="5" height="18" rx="1.5" /><rect x="10" y="3" width="5" height="12" rx="1.5" /><rect x="17" y="3" width="4" height="8" rx="1.5" />
-          </svg>
+      {disponibles.map((v) => (
+        <button key={v} type="button" onClick={() => onSet(v)} aria-pressed={vista === v}
+          className={vista === v ? 'on' : ''} title={VISTA_META[v].titulo} aria-label={VISTA_META[v].titulo}>
+          {VISTA_META[v].icono}
         </button>
-      )}
+      ))}
     </div>
   );
 }

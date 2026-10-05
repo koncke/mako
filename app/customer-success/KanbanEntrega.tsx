@@ -12,10 +12,17 @@
 // y el servicio mensual aparece en los dos tableros, en la etapa que le toca en cada uno
 // — y en el CRM sigue siendo `ganado`, porque las dos etapas son simultáneas.
 //
-// ⚠️ LA TARJETA NO REPITE LO QUE LA GRILLA YA DICE. Acá la pregunta es «¿quién está
-// trabado?», así que lleva el nombre, su cara y HACE CUÁNTO que no se mueve. Los tres
-// números del trabajo viven en la tarjeta de la grilla y en la tabla; traerlos también
-// acá sería la tarjeta otra vez, más angosta y en una columna.
+// ⚠️ LA TARJETA ES LA DE CLIENTE, LA MISMA PIEZA, no una compacta parecida. Pedido de
+// Martín (05/10/2026): «dentro del kanban, las tarjetas no son como las del CRM, son
+// como las nuevas que hicimos, de clientes». Antes acá había una tarjeta propia —avatar
+// chico, nombre y un renglón— calcada del CRM; el reemplazo no es cosmético: la grilla
+// de tarjetas DEJÓ DE EXISTIR en esta pantalla, así que si el kanban dibujara otra cosa,
+// la tarjeta de cliente no se vería en ningún lado.
+//
+// Lo propio de esta pantalla entra por los dos huecos que `ClienteCard` ofrece:
+// `chipExtra` (hace cuánto que no se mueve, que es de DÓNDE ESTÁ y no del cliente — la
+// misma persona tiene uno distinto en cada servicio) y `accionExtra` (sacarlo de la
+// entrega).
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // EL ARRASTRE: imagen VACÍA y la copia la dibujamos nosotros
@@ -40,9 +47,12 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Marca } from '@/app/_components/Marca';
+import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { Modal } from '@/app/_ui';
 import type { ClienteCruce } from './cruce';
-import { colorDe } from './ClienteCard';
+import type { CuentasProp } from './CuentaDeMaKo';
+import type { ResumenTrabajo } from './trabajo';
+import { ClienteCard, colorDe } from './ClienteCard';
 import type { EtapaEntrega } from '@/lib/servicio-etapas';
 
 /** Dónde está un cliente en esta entrega. */
@@ -74,7 +84,8 @@ const DIAS_TRABADO = 21;
 
 export function KanbanEntrega({
   etapas, origen, servicio, clientes, asignacion, numeroDe,
-  onMover, onSacar, onAbrir, onEditarEtapas, puedeEditar,
+  trabajoDe, tableroOk, cuentas,
+  onMover, onSacar, onAbrir, onEquipo, onNuevoCliente, onEditarEtapas, onError, puedeEditar,
 }: {
   etapas: EtapaEntrega[];
   /** `default` = nadie configuró estas columnas. La pantalla lo DICE. */
@@ -85,10 +96,21 @@ export function KanbanEntrega({
   /** leadId → su etapa en ESTE servicio. Lo que no está acá, no está en la entrega. */
   asignacion: Record<number, Asignacion>;
   numeroDe: Map<number, number>;
+  /** Los tres números del tablero que la tarjeta pinta al pie. */
+  trabajoDe: (leadId: number) => ResumenTrabajo | null;
+  /** Con el tablero caído la tarjeta pone un renglón en vez de tres ceros: un 0 es una
+   *  afirmación sobre su trabajo, y si la lectura falló nadie la hizo. */
+  tableroOk: boolean;
+  cuentas?: CuentasProp;
   onMover: (leadId: number, etapa: string) => void;
   onSacar: (leadId: number) => void;
   onAbrir: (leadId: number) => void;
+  onEquipo: (leadId: number) => void;
+  /** Crear un cliente. ⚠️ VIVE ACÁ PORQUE LA GRILLA SE FUE: era la primera tarjeta de
+   *  la grilla, y sin este botón la única puerta de alta quedaba en la vista de tabla. */
+  onNuevoCliente: () => void;
   onEditarEtapas: () => void;
+  onError: (m: string) => void;
   puedeEditar: boolean;
 }) {
   /**
@@ -238,6 +260,12 @@ export function KanbanEntrega({
         {origen === 'declarado' && puedeEditar && (
           <button type="button" className="ke-editar" onClick={onEditarEtapas}>Editar etapas</button>
         )}
+        {/* ⚠️ CREAR UN CLIENTE VIVE ACÁ DESDE QUE LA GRILLA SE FUE. Era la primera
+            tarjeta punteada de la grilla; al quedar sólo kanban y tabla, sin esto el
+            alta sólo existía en la tabla — o sea, escondida detrás de cambiar de vista.
+            No se confunde con «Sumar un cliente» de la primera columna: aquél mete a un
+            cliente QUE YA EXISTE en esta entrega. */}
+        <button type="button" className="ke-nuevo" onClick={onNuevoCliente}>＋ Nuevo cliente</button>
       </div>
 
       <div className="ke-riel" ref={riel} onDragOver={autoScroll}>
@@ -282,37 +310,40 @@ export function KanbanEntrega({
                   const nombre = c.nombre.trim() || 'Sin nombre';
                   return (
                     <li key={c.leadId}>
-                      <div data-tarjeta
-                        className={`ke-card${agarrado === c.leadId ? ' ke-card-mano' : ''}`}
+                      {/* ⚠️ EL `draggable` VA EN EL ENVOLTORIO Y NO EN LA TARJETA.
+                          `TarjetaEntidad` cubre su superficie con un `<button>` absoluto
+                          y pone todo lo demás en `pointer-events: none`. Medido en el
+                          navegador: el `dragstart` igual burbujea desde ese botón hasta
+                          acá, así que el gesto arranca; lo que NO viaja es el cursor, y
+                          por eso la hoja de abajo le pone `grab` a mano. */}
+                      <div data-tarjeta className={`ke-card${agarrado === c.leadId ? ' ke-card-mano' : ''}`}
                         draggable
                         onDragStart={(ev) => agarrar(ev, c.leadId)}
                         onDragEnd={soltarGesto}
-                        onClick={() => onAbrir(c.leadId)}
-                        tabIndex={0}
-                        onKeyDown={(ev) => { if (ev.key === 'Enter') onAbrir(c.leadId); }}
                       >
-                        <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={26}
-                          y={c.avatarY} color={colorDe(nombre)} />
-                        <span className="ke-quien">
-                          <span className="ke-nom">{nombre}</span>
-                          {desde && (
-                            <span className={`ke-desde${trabado ? ' ke-trabado' : ''}`}>
+                        <ClienteCard
+                          c={c} n={numeroDe.get(c.leadId) ?? 0}
+                          trabajo={trabajoDe(c.leadId)} tableroOk={tableroOk}
+                          cuentas={cuentas} onError={onError}
+                          onAbrir={() => onAbrir(c.leadId)}
+                          onEquipo={() => onEquipo(c.leadId)}
+                          chipExtra={desde && (
+                            <span className={`ke-chip${trabado ? ' ke-chip-trabado' : ''}`}>
                               {trabado ? `${desde.replace(/^hace /, '')} sin moverse` : desde}
                             </span>
                           )}
-                        </span>
-                        {/* `data-nodrag` para que agarrar el botón no arranque el
-                            arrastre: ahí el gesto significa otra cosa. */}
-                        <button type="button" data-nodrag className="ke-sacar"
-                          title={`Sacar a ${nombre} de la entrega de ${servicio}`}
-                          aria-label={`Sacar a ${nombre} de la entrega de ${servicio}`}
-                          onClick={(ev) => { ev.stopPropagation(); onSacar(c.leadId); }}>✕</button>
+                          accionExtra={(
+                            <button type="button" className="ke-sacar"
+                              title={`Sacar a ${nombre} de la entrega de ${servicio}`}
+                              aria-label={`Sacar a ${nombre} de la entrega de ${servicio}`}
+                              onClick={() => onSacar(c.leadId)}>Sacar</button>
+                          )}
+                        />
                       </div>
                     </li>
                   );
                 })}
               </ul>
-
               {/* ⚠️ UNA COLUMNA VACÍA LO DICE. Sin esto, una columna sin tarjetas y una
                   columna que no se pudo leer se ven iguales — y el hueco además no deja
                   claro que ahí se puede soltar. */}
@@ -339,6 +370,11 @@ export function KanbanEntrega({
         />
       )}
 
+      {/* ⚠️ LA HOJA DE LA TARJETA SE MONTA ACÁ. Hasta hoy la traía `GrillaTarjetas`, y
+          al irse la grilla de esta pantalla el `<style>` se iba con ella: las tarjetas
+          salían como spans sin banda, sin bordes y sin pie — no un error, una tarjeta
+          mal hecha. */}
+      <EstilosTarjeta />
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </div>
   );
@@ -406,16 +442,30 @@ const CSS = `
   font-weight: 600; cursor: pointer; text-decoration: underline;
 }
 .ke-editar { margin-left: auto; }
+.ke-nuevo {
+  flex: none; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+.ke-nuevo:hover { border-color: var(--ink); }
 
 /* El riel scrollea en horizontal: es CONTENIDO que se corre, no navegación. */
 .ke-riel {
   display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
   padding-bottom: 6px; align-items: flex-start; scrollbar-width: thin;
 }
+/* ⚠️ Y EL MINIMO DE ALTO ES UNA TARJETA, no un numero cualquiera: una columna vacia
+   es un DESTINO, y con 140 px era un recuadro mas chico que lo que se le quiere soltar
+   adentro. Con el alto de una tarjeta, soltar en la columna de al lado no exige apuntar.
+   ⚠️ EL ANCHO LO DECIDE LA TARJETA, no el gusto. La de cliente mide 230 px de alto y
+   su pie son TRES números con sus rótulos; medido en el navegador, «Recurrentes» entra
+   desde los 258 px, y a 300 la banda de 74 px y la marca montada encima quedan en
+   proporción en vez de parecer una tarjeta apretada. Con 300 entran cuatro columnas en
+   1480; el riel scrollea, que es contenido corriéndose y no navegación escondida. */
 .ke-col {
-  flex: 0 0 258px; display: flex; flex-direction: column; gap: 8px;
+  flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
-  padding: 11px; min-height: 140px;
+  padding: 11px; min-height: 248px;
   transition: background .12s, border-color .12s;
 }
 /* El destino se marca en la COLUMNA y no moviendo las tarjetas: un hueco más la copia
@@ -431,26 +481,38 @@ const CSS = `
 }
 .ke-sumar:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
 .ke-sumar:disabled { opacity: .45; cursor: default; }
-.ke-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.ke-card {
-  display: flex; align-items: center; gap: 9px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  padding: 9px 10px; cursor: grab;
-}
-.ke-card:hover { border-color: var(--border-strong); }
-/* Al nodo ORIGEN no se le toca el TAMAÑO: un borde y una sombra, nada de altura cero. */
-.ke-card-mano { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
-.ke-quien { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; }
-.ke-nom { font-size: 13.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ke-desde { font-size: 11px; color: var(--dim); }
-.ke-trabado { color: var(--warn-ink, var(--accent-ink)); font-weight: 600; }
+.ke-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+/* El envoltorio que se arrastra. La tarjeta de adentro trae su propia caja. */
+.ke-card { display: flex; border-radius: 18px; }
+.ke-card > * { width: 100%; }
+/* ⚠️ EL CURSOR SE PONE A MANO. El botón que TarjetaEntidad monta en inset: 0 para
+   que la tarjeta entera sea clicable declara cursor: pointer, y gana sobre el del
+   envoltorio: sin esto, algo que se puede arrastrar muestra el cursor de un click. */
+.ke-card .cl-abrir { cursor: grab; }
+/* ⚠️ LA FILA DE ACCIONES BAJA DE RENGLON ACA, Y SOLO ACA. En la grilla medía 320 px y
+   llevaba dos controles; en una columna mide 276 y, para una AGENCIA, lleva cuatro
+   (entrar como, el menu, y el Sacar de esta pantalla). Un flex sin wrap no los apila:
+   los desborda fuera de la tarjeta, que ademas tiene overflow hidden — o sea que el
+   ultimo control desaparece sin dejar rastro. */
+.ke-card .cl-acc { flex-wrap: wrap; row-gap: 7px; }
+.ke-card:active .cl-abrir { cursor: grabbing; }
+/* Al nodo ORIGEN no se le toca el TAMAÑO: un anillo, nada de altura cero. */
+.ke-card-mano .cl-card { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+
+/* El chip de hace cuánto, al lado del nombre: es de DÓNDE ESTÁ, no del cliente. */
+.ke-chip { font-size: 10.5px; font-weight: 650; color: var(--dim);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 1px 8px; white-space: nowrap; }
+.ke-chip-trabado { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
+
+/* ⚠️ flex: none Y CORTO: la fila de acciones es nowrap, así que un hijo ancho la
+   desborda en vez de bajar de renglón. */
 .ke-sacar {
-  flex: none; width: 22px; height: 22px; border-radius: 7px; border: 1px solid transparent;
-  background: none; color: var(--dim); cursor: pointer; font-size: 12px; line-height: 1;
-  opacity: 0; transition: opacity .12s;
+  flex: none; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--dim); cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
 }
-.ke-card:hover .ke-sacar, .ke-sacar:focus-visible { opacity: 1; }
-.ke-sacar:hover { color: var(--bad); border-color: var(--border); }
+.ke-sacar:hover { color: var(--bad); border-color: var(--bad); }
 .ke-vacia { margin: 0; padding: 10px 2px; font-size: 12px; color: var(--dim); }
 .ke-huerfanos { margin: 0; font-size: 12.5px; color: var(--bad); }
 .ke-nada { margin: 10px 0 0; font-size: 13px; color: var(--dim); }
