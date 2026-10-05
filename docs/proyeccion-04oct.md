@@ -180,11 +180,14 @@ existe (`lib/pipeline.ts:928`).
 ⚠️ **Y «declarar el embudo» recién alcanza desde HOY.** Hasta el commit `865dffb4` de esta
 tarde, el opt-in de una landing **no pasaba `funnel_id` en ninguna línea** (cero
 coincidencias en todo el archivo), así que todo lead de landing caía al embudo por defecto
-hubiera o no un embudo propio declarado. Ya está arreglado — pero **el importador sigue sin
-pasarlo** (`app/crm/leads-importar.ts`, cero menciones de «funnel»), así que cualquier lista
-que se suba a mano entra al embudo genérico igual. Si la proyección cuenta con que el
-tráfico frío caiga en un embudo propio, esa pata existe para la landing y no para la
-importación.
+hubiera o no un embudo propio declarado. Ya está arreglado, y con eso las dos entradas de
+gente quedan cubiertas: la landing desde hoy, y la importación desde antes
+(`app/crm/actions.ts:1667` escribe `funnel_id: funnelId ?? null` — *«el lead nace en el
+tablero DESDE EL QUE SE LO IMPORTÓ»*).
+
+**Lo que sigue sin cubrir nadie es el pago**, que es la entrada que el plan agrega: el
+webhook, cuando exista, tiene que cerrar el estado del lead. Sin eso, declarar el embudo no
+alcanza.
 
 Y hay un segundo filo: `nutricion_secuencias.funnel_id` existe desde la mig 0170 y **no lo
 lee nadie**, así que con dos embudos vivos el mismo lead se enrola en las dos secuencias y
