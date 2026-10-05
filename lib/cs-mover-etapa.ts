@@ -19,28 +19,46 @@
 // cuelgan de esta función y los hereda la pantalla que todavía no existe.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// PARA LA SESIÓN DEL CHATBOT: dónde va `enrolarPorEvento`
+// DE ACÁ SALEN LAS SECUENCIAS DE ENTREGA, Y POR QUÉ CON UN EVENTO PROPIO
 // ─────────────────────────────────────────────────────────────────────────────
-// El enganche va en el único `return` de éxito de abajo, y SÓLO cuando
+// El enrolamiento está enganchado en el único `return` de éxito de abajo y SÓLO con
 // `cambio === true`: un movimiento que no movió nada no puede disparar mensajes.
+// Va con import dinámico y best-effort —mover un cliente tiene que funcionar aunque
+// la nutrición falle— y un cron barre `cliente_entrega` como RED, no como reemplazo:
+// sin esa cohorte, un enrolamiento caído dejaría al cliente sin su secuencia para
+// siempre y en silencio.
 //
-// ⚠️ Y NO ALCANZA CON REUSAR EL EVENTO `'etapa'`. `secuenciasDeEtapa`
-// (lib/nutricion-etapa.ts) matchea la etapa por IGUALDAD DE STRING y el ámbito por
-// `funnel_id`, y acá hay dos desajustes:
+// ⚠️ EL EVENTO ES `'entrega'` Y NO EL `'etapa'` DE VENTA, A PROPÓSITO. Las dos
+// razones, que es lo que no se puede perder si alguien algún día quiere unificarlos:
 //
-//   1. La CLAVE puede chocar. Medido hoy entre los dos defaults —venta: lead,
-//      agenda, agendaj2, facturando, ganado · entrega: onboarding, arranque, hito1,
-//      hito2, entregado— el choque es CERO. Pero las dos listas las edita el
-//      cliente, así que nada lo impide: el día que alguien llame `facturando` a una
-//      etapa de entrega, mover un cliente en el kanban dispara una secuencia de
-//      VENTA. Lo que lo cierra por construcción es un evento propio (`'entrega'`),
-//      no un string más adentro del de etapa.
+//   1. La CLAVE puede chocar. El matcheo es por IGUALDAD DE STRING, y entre los dos
+//      defaults —venta: lead, agenda, agendaj2, facturando, ganado · entrega:
+//      onboarding, arranque, hito1, hito2, entregado— el choque medido el 05/10/2026
+//      es CERO. Pero las dos listas las edita el cliente: el día que alguien llame
+//      `facturando` a una etapa de entrega, mover un cliente en el kanban de Customer
+//      Success dispararía una secuencia de VENTA. Un evento propio lo cierra por
+//      construcción; un string más adentro del de etapa, no.
 //   2. Acá hay un `productoId`, NO un `funnelId`. `CtxEvento.funnelId` dice «el
 //      embudo del lead, o sea su PRODUCTO», y del producto al embudo hay dos saltos
-//      (`producto ──oferta_productos──> oferta ──funnel_ofertas──> funnel`).
-//      Pasarle el id del producto como si fuera el del embudo es un número correcto
-//      sobre la pregunta equivocada: va a hacer match con el embudo que tenga ese
-//      id, que es el de cualquier otra cosa.
+//      (`producto ──oferta_productos──> oferta ──funnel_ofertas──> funnel`): pasarle
+//      el id del producto como si fuera el del embudo es un número correcto sobre la
+//      pregunta equivocada. Por eso el ámbito de una secuencia de entrega vive en su
+//      propia columna (`nutricion_secuencias.producto_id`, mig 0189) y el filtro es
+//      `secuenciasDeEntrega` (lib/nutricion-etapa.ts), no `secuenciasDeEtapa`.
+//
+// ⚠️ Y EL GUARD DE ESTO SON DOS, de los dos lados, porque ninguno solo alcanza:
+// `tests/cs-mover-etapa.test.ts` fija que desde acá NO se llame con `'etapa'`, y
+// `tests/nutricion-etapa.test.ts` fija que la llamada EXISTA, lleve `productoId` y
+// `etapa`, y vaya después del upsert y del historial. «No uses el evento de venta»
+// también se cumple cuando no hay ninguna llamada.
+//
+// ⚠️ EL DESHACER DEL KANBAN VUELVE A PASAR POR ACÁ. El toast de `/customer-success`
+// revierte llamando a esta misma función con la etapa anterior —revertir sólo la
+// pantalla mentiría hasta el próximo F5—, así que deshacer dispara un SEGUNDO evento
+// de entrega, hacia atrás. Este módulo no puede distinguirlo de un movimiento normal
+// y no debería: un flag de «esto es un deshacer» sería un dato de la interfaz metido
+// adentro del modelo. Si una secuencia no tiene que salir cuando alguien se arrepiente
+// a los tres segundos, eso se decide en la nutrición.
 // =============================================================================
 
 import 'server-only';
@@ -216,7 +234,11 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
    */
   try {
     const { enrolarPorEvento } = await import('./nutricion');
-    await enrolarPorEvento(pedido.leadId, 'entrega', { etapa: hacia, productoId: pedido.productoId });
+    // `desde` viaja para que el motor pueda CERRAR lo que la etapa anterior tenía
+    // agendado: un mensaje de «onboarding» que sale cuando el cliente ya está en el
+    // hito 2 habla de un momento que terminó. Y es lo que hace inofensivo al
+    // «Deshacer» del toast, que llega acá como un movimiento de vuelta.
+    await enrolarPorEvento(pedido.leadId, 'entrega', { etapa: hacia, productoId: pedido.productoId, desde });
   } catch (e) {
     console.error(`[cs-mover-etapa] el cliente ${pedido.leadId} se movió a «${hacia}» pero no pude enrolarlo:`, e instanceof Error ? e.message : String(e));
   }
