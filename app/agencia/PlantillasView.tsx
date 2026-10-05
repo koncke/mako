@@ -34,8 +34,13 @@ function guion(a: PlantillaVista): Paso[] {
   return g;
 }
 
-export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoint?: string } = {}) {
-  const [plantillas, setPlantillas] = useState<PlantillaVista[] | null>(null);
+export function PlantillasView({ endpoint = '/api/admin/plantillas', iniciales }: {
+  endpoint?: string;
+  /** Las plantillas que ya trajo el SERVER: sin esto la pantalla las pide al montar y
+   *  la lista aparece ~800 ms después de que se dibuja todo lo demás. */
+  iniciales?: PlantillaVista[];
+} = {}) {
+  const [plantillas, setPlantillas] = useState<PlantillaVista[] | null>(iniciales ?? null);
   const [filtro, setFiltro] = useState<CategoriaAviso | 'todas'>('todas');
   const [busq, setBusq] = useState('');
   const [selId, setSelId] = useState<string>('');
@@ -61,7 +66,20 @@ export function PlantillasView({ endpoint = '/api/admin/plantillas' }: { endpoin
   const recargar = useCallback(async () => {
     try { const j = await (await fetch(endpoint)).json(); if (j.ok) setPlantillas(j.plantillas as PlantillaVista[]); } catch { setPlantillas([]); }
   }, []);
-  useEffect(() => { recargar(); }, [recargar]);
+  /**
+   * ⚠️ SI EL SERVER YA LAS MANDÓ, NO SE VUELVEN A PEDIR.
+   *
+   * Medido el 05/10/2026: la pantalla pintaba a los 268-412 ms y la LISTA recién a los
+   * 1.100-1.308, porque el componente se montaba vacío y recién ahí pedía
+   * `GET /api/…/plantillas` (264-472 ms, 44,6 kB). Eran ~800 ms de spinner por una ida y
+   * vuelta que el server podía ahorrar: la página ya es `force-dynamic` y ya resuelve la
+   * sesión, o sea que leer el catálogo ahí no cuesta una request más.
+   *
+   * Se sigue pudiendo recargar: `recargar()` es el camino de después de cada cambio, y
+   * el salto es SÓLO el primer efecto.
+   */
+  const sembradas = useRef(Boolean(iniciales?.length));
+  useEffect(() => { if (sembradas.current) { sembradas.current = false; return; } recargar(); }, [recargar]);
   useEffect(() => { if (!selId && plantillas && plantillas.length) setSelId(plantillas[0].id); }, [plantillas, selId]);
 
   const lista = useMemo(() => {

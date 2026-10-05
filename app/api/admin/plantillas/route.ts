@@ -102,8 +102,9 @@ export async function POST(req: NextRequest) {
       if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
       const flujo = b.flujo == null ? null : (esFlujoValido(b.flujo) ? b.flujo : null);
       if (b.flujo != null && !flujo) return NextResponse.json({ ok: false, error: 'flujo inválido' }, { status: 400 });
-      await setFlujo(b.id, flujo);
-      return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) });
+      // El flujo que contesta sale de la MISMA escritura, no de una relectura: era la
+      // cuarta ida a la misma fila en un solo POST (medido: 992-1108 ms en total).
+      return NextResponse.json({ ok: true, flujo: await setFlujo(b.id, flujo) });
     }
     default: return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });
   }

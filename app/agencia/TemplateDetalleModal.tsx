@@ -115,10 +115,26 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
   // Los refs son para el cierre — el `useEffect` de desmonte se crea una vez y no
   // puede leer el `texto` de un render futuro.
   const timerBorrador = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ultimo = useRef({ texto, orig, id, endpoint });
-  ultimo.current = { texto, orig, id, endpoint };
+  /**
+   * ⚠️ LO ÚLTIMO QUE SE GUARDÓ, que NO es lo publicado. Al salir se mandaba el borrador
+   * cuando `texto !== orig`, y `orig` es el texto PUBLICADO: para cualquier mensaje que
+   * ya tenga un borrador, esa comparación es verdadera desde el primer render, así que
+   * ABRIR la pantalla escribía en la base sin que nadie tipeara una letra. Medido el
+   * 05/10/2026: un POST de 1.085 ms por cada clic en la lista, y uno al cargar — en el
+   * ws1 el mensaje que se abre por defecto tiene borrador, así que pasaba siempre.
+   *
+   * La pregunta correcta es «¿cambió desde lo último que guardé?», y eso arranca en el
+   * borrador que vino del server (o en el publicado, si no había ninguno).
+   */
+  const guardado = useRef(plantilla?.borrador ?? plantilla?.ejemplo ?? '');
+  const ultimo = useRef({ texto, id, endpoint });
+  ultimo.current = { texto, id, endpoint };
 
-  const mandarBorrador = (v: string) => { if (id) void api(endpoint, { action: 'borrador', id, texto: v }); };
+  const mandarBorrador = (v: string) => {
+    if (!id || v === guardado.current) return;   // nada cambió: no hay nada que escribir
+    guardado.current = v;
+    void api(endpoint, { action: 'borrador', id, texto: v });
+  };
 
   /** Lo que llama el editor en cada tecla: pinta ya y guarda con retraso. */
   const escribir = (v: string) => {
@@ -139,7 +155,10 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio, onVerChat, 
     const vaciar = () => {
       const u = ultimo.current;
       if (timerBorrador.current) { clearTimeout(timerBorrador.current); timerBorrador.current = null; }
-      if (u.id && u.texto !== u.orig) void api(u.endpoint, { action: 'borrador', id: u.id, texto: u.texto });
+      if (u.id && u.texto !== guardado.current) {
+        guardado.current = u.texto;
+        void api(u.endpoint, { action: 'borrador', id: u.id, texto: u.texto });
+      }
     };
     const alEsconder = () => { if (document.visibilityState === 'hidden') vaciar(); };
     document.addEventListener('visibilitychange', alEsconder);

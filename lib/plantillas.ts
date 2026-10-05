@@ -150,16 +150,28 @@ async function leerStorePropio(): Promise<Store> {
 }
 
 /**
- * Lo EFECTIVO: lo propio pisando lo heredado del dueño, entrada por entrada.
- * La fusión es por CAMPO y no por objeto entero: un cliente que sólo apagó un aviso
- * conserva el texto y el flujo que venían del dueño.
+ * Las DOS caras del store de un workspace en UNA sola ida: lo PROPIO (lo que se muta) y
+ * lo EFECTIVO (lo propio pisando lo heredado del dueño).
+ *
+ * ⚠️ LOS DOS VIAJES VAN EN PARALELO, Y ANTES ERAN SECUENCIALES. Medido el 05/10/2026
+ * contra producción: un viaje a Supabase desde una máquina de desarrollo son 229-248 ms,
+ * así que el costo de esta pantalla no es el payload —el store del ws1 pesa 1.193 B—
+ * sino cuántas veces se va. Con dos `await` seguidos, cada lectura del store de un
+ * cliente costaba dos viajes en fila.
+ *
+ * ⚠️ Y SE DEVUELVEN LAS DOS JUNTAS porque quien MUTA necesita las dos: el efectivo para
+ * no perder lo heredado y el propio para escribir. Antes las pedía por separado
+ * (`Promise.all([leerStore(), leerStorePropio()])`), y eso leía la fila propia DOS veces
+ * en la misma operación.
  */
-async function leerStore(): Promise<Store> {
+async function leerPar(): Promise<{ propio: Store; efectivo: Store }> {
   const ws = await getWorkspaceActual();
-  const propio = await leerStorePropio();
-  if (ws === OWNER_WS) return propio;
-  const base = await leerStoreDe(OWNER_WS);
-  const out: Store = {};
+  if (ws === OWNER_WS) {
+    const propio = await leerStorePropio();
+    return { propio, efectivo: propio };   // al dueño no se le hereda nada: su store ES el default
+  }
+  const [propio, base] = await Promise.all([leerStorePropio(), leerStoreDe(OWNER_WS)]);
+  const efectivo: Store = {};
   for (const id of new Set([...Object.keys(base), ...Object.keys(propio)])) {
     // ⚠️ EL BORRADOR NO SE HEREDA, y es el único campo con esa excepción. Lo del
     // dueño es el DEFAULT de todos, y un borrador no es un default: es trabajo a
@@ -167,9 +179,18 @@ async function leerStore(): Promise<Store> {
     // un «Sin publicar» y un texto que nunca tipeó — y al apretar Publicar estaría
     // publicando en SU negocio el borrador de la agencia.
     const { borrador: _sinHeredar, ...heredable } = base[id] ?? {};
-    out[id] = { ...heredable, ...(propio[id] ?? {}) };
+    efectivo[id] = { ...heredable, ...(propio[id] ?? {}) };
   }
-  return out;
+  return { propio, efectivo };
+}
+
+/**
+ * Lo EFECTIVO: lo propio pisando lo heredado del dueño, entrada por entrada.
+ * La fusión es por CAMPO y no por objeto entero: un cliente que sólo apagó un aviso
+ * conserva el texto y el flujo que venían del dueño.
+ */
+async function leerStore(): Promise<Store> {
+  return (await leerPar()).efectivo;
 }
 
 /** Escribe SIEMPRE en el workspace actual: nadie edita el default de otro. */
@@ -262,13 +283,15 @@ export async function getFlujo(id: string): Promise<Flujo | null> {
   return flujoDeFabrica(id);
 }
 /** Guarda (o borra con null) el flujo de una plantilla. */
-export async function setFlujo(id: string, flujo: Flujo | null): Promise<void> {
-  const antes = (await leerStore())[id]?.flujo;
-  await mutar(id, (e) => {
+export async function setFlujo(id: string, flujo: Flujo | null): Promise<Flujo | null> {
+  // El `antes` sale de la MISMA lectura que usa la mutación: pedirlo aparte era un
+  // viaje entero a la base para mirar un campo que ya venía en camino.
+  const { antes: entradaAntes, despues } = await mutar(id, (e) => {
     const next = { ...e };
     if (flujo && esFlujoValido(flujo)) next.flujo = flujo; else delete next.flujo;
     return next;
   });
+  const antes = entradaAntes.flujo;
 
   // ⚠️ APAGAR EL RECORDATORIO TIENE QUE APAGAR LOS QUE YA ESTÁN EN VUELO. El
   // drenador no consulta ninguna configuración: manda lo que haya en la tabla hasta
@@ -282,6 +305,9 @@ export async function setFlujo(id: string, flujo: Flujo | null): Promise<void> {
     const { cerrarPorConfiguracion } = await import('./insistencias');
     await cerrarPorConfiguracion(ws, id).catch(() => 0);
   }
+  // Lo que quedó guardado, para que el handler conteste sin volver a leer. Es el flujo
+  // efectivo de esta entrada: si se borró, el de fábrica vuelve a mandar.
+  return (despues?.flujo && esFlujoValido(despues.flujo)) ? despues.flujo : flujoDeFabrica(id);
 }
 /** Todos los flujos ACTIVOS (para el runtime / dispararEvento). */
 export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: Flujo }>> {
@@ -371,11 +397,19 @@ export async function plantillaActiva(id: string): Promise<boolean> {
 // texto que venía del dueño) pero escribe sólo sobre lo PROPIO: guardar el efectivo
 // entero materializaría las 49 entradas en el workspace y lo congelaría — un aviso que
 // el dueño mejore después ya no le llegaría a ese cliente.
-async function mutar(id: string, patch: (e: EntradaStore) => EntradaStore | null): Promise<void> {
-  const [efectivo, propio] = await Promise.all([leerStore(), leerStorePropio()]);
-  const next = patch(efectivo[id] ?? {});
+async function mutar(
+  id: string, patch: (e: EntradaStore) => EntradaStore | null,
+): Promise<{ antes: EntradaStore; despues: EntradaStore | null }> {
+  const { propio, efectivo } = await leerPar();
+  const antes = efectivo[id] ?? {};
+  const next = patch(antes);
   if (next === null) delete propio[id]; else propio[id] = next;
   await guardarStore(propio);
+  // ⚠️ DEVUELVE EL ANTES Y EL DESPUÉS para que quien llama no tenga que volver a leer.
+  // Medido: el POST que agrega un paso al lienzo hacía CUATRO oleadas contra la MISMA
+  // fila —leer para el `antes`, leer para mutar, escribir, y leer otra vez para
+  // contestar— y tardaba 992-1108 ms. Tres de esas cuatro preguntaban lo mismo.
+  return { antes, despues: next };
 }
 export const setTextoPlantilla = (id: string, texto: string) => mutar(id, (e) => ({ ...e, texto }));
 

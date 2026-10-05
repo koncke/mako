@@ -212,8 +212,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) });
       case 'flujo-set': {
         if (!b.id) return faltaId();
-        await setFlujo(b.id, esFlujoValido(b.flujo) ? b.flujo : null);
-        return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) });
+        // El flujo que contesta sale de la MISMA escritura, no de una relectura: era la
+        // cuarta ida a la misma fila en un solo POST.
+        return NextResponse.json({ ok: true, flujo: await setFlujo(b.id, esFlujoValido(b.flujo) ? b.flujo : null) });
       }
       default:
         return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });

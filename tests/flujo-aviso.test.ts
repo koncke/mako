@@ -446,8 +446,13 @@ test('⚠️ El borrador NO se hereda del dueño', () => {
   // Lo del dueño es el DEFAULT de todos; un borrador no es un default, es trabajo
   // a medio escribir de UNA persona. Heredado, cada cliente abre el mensaje con un
   // «Sin publicar» que no escribió — y al publicar, publica el de la agencia.
+  // ⚠️ EL RECORTE MIRA `leerPar`, y antes miraba `leerStore`. El merge se mudó ahí el
+  // 05/10/2026 al juntar las dos lecturas del store en una sola ida (el POST del ＋ hacía
+  // cuatro oleadas contra la misma fila). El guard hizo su trabajo: se puso rojo cuando
+  // la pieza que vigila cambió de casa, que es para lo que está.
   const store = leer('../lib/plantillas.ts');
-  const merge = store.slice(store.indexOf('async function leerStore('), store.indexOf('guardarStore(s: Store)'));
+  const merge = store.slice(store.indexOf('async function leerPar('), store.indexOf('guardarStore(s: Store)'));
+  assert.ok(merge.length > 200 && merge.length < 3000, `el recorte del merge mide ${merge.length}: mira otra cosa`);
   assert.match(merge, /borrador: \w+, \.\.\./, 'el merge volvió a heredar el borrador');
 });
 
