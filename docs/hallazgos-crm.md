@@ -5703,3 +5703,23 @@ parche falle sobre un archivo que acaba de tocar otro, **lo primero es contar lo
 no releer el ancla.
 
 **Vive en:** `AGENTS.md` (§ del fin de línea por archivo) · *2026-10-05 ficha-tracking*
+
+---
+
+## `funnel_id = NULL` ES el embudo del negocio, así que un `.eq()` pierde 1.530 leads en silencio (05/10/2026)
+
+Lo que más cuesta de filtrar por embudo no es escribir el filtro: es que **`NULL` no
+significa «este lead no tiene embudo», significa «el embudo por defecto»**. Son los 1.530
+leads que existen desde antes de que hubiera más de uno.
+
+Entonces, cuando una secuencia declara el embudo POR DEFECTO, la consulta honesta no es
+`.eq('funnel_id', N)` — ésa deja afuera a todos los viejos sin dar un error, sin un log y
+sin una fila rara: la cohorte simplemente sale más chica. Es `.or('funnel_id.is.null,
+funnel_id.eq.N')`, porque el id crudo del default y el `NULL` son **el mismo lugar**.
+
+⚠️ **Y esto es exactamente lo que alguien va a «simplificar» dentro de tres meses**, porque
+un `.or()` con un `is.null` adentro se lee como ruido defensivo. Queda escrito acá y en el
+comentario del módulo: el día que se cambie por un `.eq()`, lo que se rompe no avisa — deja
+de enrolar a 1.530 personas y la pantalla sigue diciendo que la secuencia está activa.
+
+**Vive en:** `lib/nutricion-ambito.ts` · `lib/leads.ts` (`listLeadsDeFunnel`, que pide los del default con `.is('funnel_id', null)`) · *2026-10-05 cerrar-crm*
