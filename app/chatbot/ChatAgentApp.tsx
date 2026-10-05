@@ -271,7 +271,11 @@ function ChatAgentInner() {
     // chico y la pantalla a medio llenar — que es lo que Martín marcó dos veces. La regla
     // está en AGENTS.md: una vista a pantalla completa estira con flex, `height: 100%` no
     // existe, y el hijo que estira lleva `flex: 1` + `minHeight: 0`.
-    <main style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '22px 28px 20px' }}>
+    // ⚠️ EL PADDING SE FUE DEL <main> Y VIVE EN CADA FRANJA. Con padding acá, la fila
+    // del editor arranca a 28 px del borde y el lienzo queda adentro de un marco — que
+    // es lo que Martín marcó tres veces. Ahora el título y los avisos llevan el suyo y
+    // el lienzo llega al borde de la tab.
+    <main style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* ⚠️ EL ENCABEZADO SE DESARMÓ EL 05/10/2026, y lo que se fue no fue por estética
           (Martín, textual): «Elimina las pestañas, ya no hay "Email" si todo se crea en
           un mismo lugar… Ya no hay plantillas si todo es lo mismo… Y la pestaña de
@@ -287,7 +291,7 @@ function ChatAgentInner() {
           Y los dos botones de la derecha: el de crear ya está en la grilla (la tarjeta
           punteada), y «Archivar todas» era una salida de emergencia para las secuencias
           que el sistema sembraba solo, que hace rato no se siembran. */}
-      <header style={{ flex: 'none', marginBottom: 10 }}>
+      <header style={{ flex: 'none', padding: '18px 24px 0' }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: '28px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
           <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="tag" size={24} /></span>
           Chatbot
@@ -308,7 +312,7 @@ function ChatAgentInner() {
           Solo se avisa si hay alguna secuencia ACTIVA: con todo pausado, el
           número desconectado no rompe nada y el aviso sería ruido. */}
       {canalCaido && (secuencias ?? []).some((s) => s.activa) && (
-        <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--bad)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
           <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
             {canal.estado === 'sin_vincular' ? (
@@ -348,7 +352,7 @@ function ChatAgentInner() {
       {rolAdmin && huecos.length > 0 && (
         <div
           title={huecos.map((h) => h.label).join(', ')}
-          style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12.5, color: 'var(--faint)' }}
+          style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 24px 10px', fontSize: 12.5, color: 'var(--faint)' }}
         >
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
           <span>
@@ -364,7 +368,7 @@ function ChatAgentInner() {
       )}
 
       {error && (
-        <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
+        <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
       )}
 
       {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando secuencias…</div>}
@@ -377,8 +381,9 @@ function ChatAgentInner() {
       )}
 
 
-      {/* EL QUE ESTIRA. Todo lo de arriba es `flex: none`; esto se lleva el alto que
-          sobra, que es lo que convierte la tab en el lienzo. */}
+      {/* EL QUE ESTIRA, Y PEGADO A LOS BORDES. Todo lo de arriba es `flex: none` con su
+          propio padding; esto se lleva el alto que sobra y llega hasta el borde de la
+          tab, que es lo que significa «que ocupe TODA la tab». */}
       {secuencias !== null && secuencias.length > 0 && (
         <SimuladorWhatsApp
           secuencias={secuencias} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}

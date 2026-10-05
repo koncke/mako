@@ -406,38 +406,28 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     // Y sin borde ni esquinas redondeadas: el recuadro ERA el problema. «No pongas a la
     // grilla chiquita en el medio en un recuadro, haz que ocupe TODA la tab».
     <div style={{ flex: 1, minHeight: 0, width: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* ⚠️ LA BARRA DE ARRIBA ES EL CAMBIO DE SECUENCIA, no un «volver».
-          La tab ES este lienzo: no hay pantalla de listado a la que volver, así que lo
-          que ahí se necesita es ELEGIR OTRA. Un desplegable cuesta una fila y no se
-          lleva ni un píxel de alto del lienzo; una pantalla intermedia se lleva la
-          pantalla entera. */}
-      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)', minWidth: 0 }}>
-        <span style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</span>
-        {onElegir && secuencias.length > 1 ? (
-          <Dropdown
-            value={String(secuencia.id)}
-            // Con muchas, buscar: es el mismo control que ya usa el resto de la casa y
-            // ahorra la pantalla de listado que esta tab no tiene.
-            search={secuencias.length > 6}
-            width={320}
-            ariaLabel="Secuencia que estás editando"
-            options={secuencias.map((j) => ({
-              value: String(j.id),
-              label: j.nombre,
-              sub: `${etiquetaEtapa(j.etapa)}${j.activa ? '' : ' · pausada'}`,
-            }))}
-            onChange={(v) => onElegir(Number(v))}
-            buttonStyle={{ fontSize: 14, fontWeight: 600, padding: '4px 8px' }}
-          />
-        ) : (
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secuencia.nombre}</span>
-        )}
-        {rolAdmin && onNueva && (
-          <button onClick={onNueva} title="Nueva secuencia de mensajes" aria-label="Nueva secuencia de mensajes"
-            style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>＋</button>
-        )}
+      {/* ⚠️ UNA SOLA BARRA, Y LO QUE NO ES DE TODOS LOS DÍAS VA ADENTRO DE «⋯».
+          Martín: «aquí hay botones de más innecesarios y otros mal ubicados», con la
+          captura al lado. Había SIETE controles repartidos en tres franjas: dos
+          interruptores «Pausada» (uno duplicado), dos botones de probar, y abajo una
+          fila con «Qué dice y a quién le sirve» + «Variantes de cada mensaje» y otra con
+          «MaKo redacta (wizard)» + «Guardar». Cuatro de esos se usan de vez en cuando y
+          le estaban comiendo ~90 px de alto al lienzo en todas las pantallas.
+          Quedan arriba los tres que se tocan editando —el interruptor, Probar y
+          Guardar— y los otros cuatro viven en el menú, que es el patrón que la casa ya
+          usa en /admin y en la barra de clientes. */}
+      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: '1px solid var(--border)', minWidth: 0 }}>
+        <span style={{ flex: 'none', width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secuencia.nombre}</span>
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}
+          </span>
+        </span>
 
-        <span style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {flash && <span style={{ flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>}
+
+        <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Pausada'}</span>
           {rolAdmin && (
             <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
@@ -445,13 +435,46 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
               <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
             </button>
           )}
-          {onProbar && (
-            <button onClick={onProbar} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Probar</button>
-          )}
-          {rolAdmin && <button onClick={probar} disabled={busy === 'probar'} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'probar' ? 0.5 : 1, fontFamily: 'inherit' }}>{busy === 'probar' ? 'Enviando…' : '📲 Probar de verdad'}</button>}
         </span>
+
+        {onProbar && (
+          <button onClick={onProbar} style={{ flex: 'none', padding: '7px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Probar</button>
+        )}
+
+        {rolAdmin && (
+          <>
+            <Dropdown
+              value="" resetAfterSelect align="right" placeholder="⋯"
+              ariaLabel="Más acciones de esta secuencia"
+              disabled={busy != null}
+              buttonStyle={{ padding: '7px 11px', fontSize: 13, borderRadius: 10 }}
+              options={[
+                { value: 'estrategia', label: 'Qué dice y a quién le sirve' },
+                { value: 'variantes', label: busy === 'variantes' ? 'MaKo está escribiendo…' : 'Variantes de cada mensaje' },
+                { value: 'wizard', label: 'MaKo redacta (wizard)' },
+                // «Probar de verdad» MANDA MENSAJES REALES a tu teléfono: va en el menú y
+                // no al lado del «Probar» de mentira, que es lo que lo hacía peligroso.
+                { value: 'real', label: busy === 'probar' ? 'Enviando…' : 'Probar de verdad (te llega a ti)' },
+              ]}
+              onChange={(v) => {
+                if (v === 'estrategia') { setErr(null); setEditandoEstrategia(true); }
+                else if (v === 'variantes') void generarVariantes();
+                else if (v === 'wizard') onWizard();
+                else if (v === 'real') void probar();
+              }}
+            />
+            <button onClick={guardar} disabled={busy === 'save'}
+              style={{ flex: 'none', padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'save' ? 0.5 : 1, fontFamily: 'inherit' }}>
+              {busy === 'save' ? 'Guardando…' : 'Guardar'}
+            </button>
+          </>
+        )}
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px 16px 14px' }}>
+
+      {/* ⚠️ SIN PADDING: «no quiero que esté en un contenedor, quiero que ocupe TODA la
+          tab». Lo único que queda entre el lienzo y el borde de la pantalla es la línea
+          del disparador, que es un control. */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Sin `maxWidth`: el lienzo es de los que necesitan cada píxel. Lo que
             SÍ se acota es el texto de adentro de cada nodo, que lo hace el nodo. */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -459,7 +482,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
           {/* El nombre, el estado y «Probar» viven en la barra de arriba. Lo que queda acá
               es el DISPARADOR, que es un control y no un rótulo: dice —y deja cambiar— qué
               hace que esta secuencia salga. */}
-          <div style={{ flex: 'none', minWidth: 0, marginBottom: 12 }}>
+          <div style={{ flex: 'none', minWidth: 0, padding: '7px 14px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                 {rolAdmin && productos.length > 0 && (esDeEtapa || esDeEntrega || cambiandoAEtapa) ? (
                   <>
@@ -520,17 +543,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
                     )}
                   </>
                 )}
-                <span>· {pasosWa} WhatsApp · {pasosEmail} email{est?.probada_at ? ' · probada ✓' : ''}</span>
               </div>
-            </div>
-            <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Pausada'}</span>
-              {rolAdmin && (
-                <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
-                  style={{ width: 42, height: 24, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
-                  <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(18px)' : 'none', transition: 'transform .15s' }} />
-                </button>
-              )}
           </div>
 
           {/* ⚠️ ACÁ HABÍA TRES SUB-TABS —Estrategia / Mensajes / Variantes— y se fueron
@@ -561,27 +574,11 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             onAbrirSecuencia={onAbrirClave}
           />
 
-          {/* Lo que el lienzo NO edita, y por qué: el gancho, las preguntas y el
-              criterio son lo que MaKo DICE, no la forma del flujo. Editarlos es
-              decidir siete cosas juntas, y para eso está el wizard — un paso por
-              pantalla, que es la regla de la casa. El lienzo lleva hasta acá. */}
-          {rolAdmin && (
-            <div style={{ flex: 'none', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-              <button onClick={() => { setErr(null); setEditandoEstrategia(true); }} style={btnGhost}>Qué dice y a quién le sirve</button>
-              <button onClick={() => void generarVariantes()} disabled={busy === 'variantes'} style={btnGhost}>
-                {busy === 'variantes' ? 'MaKo está escribiendo…' : '✨ Variantes de cada mensaje'}
-              </button>
-            </div>
-          )}
-          {err && <div style={{ flex: 'none', marginBottom: 12, padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}
-
-          {rolAdmin && (
-            <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
-              {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)', marginRight: 'auto' }}>{flash}</span>}
-              <button onClick={onWizard} style={btnGhost}>✍️ MaKo redacta (wizard)</button>
-              <button onClick={guardar} disabled={busy === 'save'} style={{ ...btn, opacity: busy === 'save' ? 0.5 : 1 }}>{busy === 'save' ? 'Guardando…' : 'Guardar'}</button>
-            </div>
-          )}
+          {/* El error va PEGADO al lienzo y no al fondo de una pantalla que ya no tiene
+              fondo: es lo único que queda debajo, y sólo cuando hay algo que decir.
+              Las cuatro acciones que vivían acá (la estrategia, las variantes, el wizard
+              y el envío real) están en el menú de la barra. */}
+          {err && <div style={{ flex: 'none', margin: '0 14px 12px', padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}
         </div>
       </div>
     </div>

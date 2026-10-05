@@ -125,7 +125,6 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   }, [selId, guionKey]);
 
   const elegir = (id: number) => { setSelId(id); setModo('editor'); };
-  void elegir;
 
   // Reproduce la secuencia como mensajes ENTRANTES del negocio (tú = el lead).
   function reproducirGuion() {
@@ -265,80 +264,124 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * Cambiar de secuencia es un desplegable en la barra de arriba, no una pantalla
    * intermedia: volver a un listado para abrir otra es el recuadro otra vez.
    */
-  if (!sel) {
-    return (
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
-        Elige una secuencia de mensajes.
-      </div>
-    );
-  }
-
-  if (modo === 'chat') {
-    return (
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <ChatHilo
-          accent="var(--wa)"
-          accentBubble="var(--wa-bubble)"
-          mensajes={mensajes}
-          typing={typing}
-          draftKey={`setting-sim-${sel.id}`}
-          readOnly={!!cerradaSim}
-          placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
-          onEnviarTexto={enviarTexto}
-          onEnviarArchivo={enviarArchivo}
-          vacio={(
-            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
-              Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
-            </div>
-          )}
-          header={(
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              {/* La salida va PRIMERA y vuelve al LIENZO, que es de donde se vino y es la
-                  pantalla de la tab. El destino de «Volver» es una propiedad de la
-                  pantalla, no del historial (AGENTS.md). */}
-              <button type="button" onClick={() => setModo('editor')} title="Volver a editar la secuencia"
-                style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>←</button>
-              <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Prueba · escribe como el lead</div>
-              </div>
-              {/* Volver a verla desde el principio después de haber chateado, no para
-                  arrancarla: ya se reprodujo sola al entrar. */}
-              <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
-                style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
-              <button type="button" onClick={() => setModo('editor')} title="Editar la secuencia"
-                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
-            </div>
-          )}
-        />
-      </div>
-    );
-  }
-
+  /**
+   * LA TAB: la lista de secuencias a la izquierda y el lienzo ocupando TODO el resto.
+   *
+   * Martín, en tres pasadas: «toda la tab sea la grilla editable» (la grilla es la
+   * PIZARRA, no tarjetas), «no quiero que esté en un contenedor» y «la sidebar con las
+   * secuencias también debe de estar». O sea: la lista vuelve —es la forma de cambiar de
+   * secuencia sin una pantalla intermedia— y el lienzo deja de vivir adentro de una caja
+   * con borde y esquinas: va a sangre contra el borde de la tab.
+   *
+   * El chat REEMPLAZA al lienzo (no se abre al lado): es la misma secuencia vista de otra
+   * forma, y sale sólo de «Probar».
+   */
   return (
-    /**
-     * ⚠️ EL `key` ES OBLIGATORIO ACÁ, y es un hallazgo de esta misma casa escrito hace
-     * unas horas: «un `useState` sembrado de props no se resiembra; si la vista deja de
-     * desmontarse, hay que poner el key». Antes se cambiaba de secuencia volviendo a una
-     * pantalla de listado, así que cada apertura era un montaje nuevo; ahora el
-     * desplegable cambia la secuencia SIN desmontar, y los seis `useState(props.…)` del
-     * perfil —el texto, el publicado contra el que compara, el interruptor, el producto
-     * elegido— se quedarían con los valores de la secuencia ANTERIOR. Se ve como dos
-     * nombres distintos en la misma pantalla, y se guarda como el texto de una en la otra.
-     */
-    <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
-      productos={productos} disparadores={disparadores}
-      secuencias={secuencias}
-      onAbrirClave={(clave) => {
-        // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra secuencia y
-        // no la abre es la mitad inútil del encadenamiento.
-        const otra = secuencias.find((j) => j.clave === clave);
-        if (otra) setSelId(otra.id);
-      }}
-      onElegir={(id) => setSelId(id)}
-      onNueva={() => onWizard('nueva')}
-      onProbar={() => setModo('chat')}
-      onCambio={onReload} onWizard={() => onWizard(sel.id)} />
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', minWidth: 0 }}>
+      {/* ⚠️ LA COLUMNA NO SCROLLEA SOLA SIN AVISAR: lleva su propio `overflowY` y la
+          barra teñida de la casa. Una columna de navegación que corta en silencio es la
+          regla que el dueño ya escribió dos veces («la sidebar se puede scrollear, eso NO
+          debe ser posible NUNCA»): acá el scroll es del CONTENIDO —sus secuencias— y no
+          de la navegación de la app, así que se ve y se tiñe. */}
+      {/* `aria-label` porque la app YA tiene un <aside>: el de la navegación global. Sin
+          nombre, los dos son «complementary» y no hay forma de distinguirlos —ni para
+          un lector de pantalla ni para una verificación, que es como un arnés terminó
+          clickeando los íconos del menú de la izquierda creyendo que eran secuencias. */}
+      <aside aria-label="Tus secuencias" className="mk-scroll-oscuro" style={{
+        flex: 'none', width: 248, minWidth: 0, display: 'flex', flexDirection: 'column',
+        borderRight: '1px solid var(--border)', background: 'var(--surface)', overflowY: 'auto',
+      }}>
+        {secuencias.length > 6 && (
+          <div style={{ flex: 'none', padding: '10px 10px 6px' }}>
+            <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar secuencia…"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13, outline: 'none' }} />
+          </div>
+        )}
+        <div style={{ padding: 8 }}>
+          {rolAdmin && (
+            <button type="button" onClick={() => onWizard('nueva')}
+              style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 9, alignItems: 'center', padding: '9px 10px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginBottom: 6, fontFamily: 'inherit', fontSize: 13 }}>
+              <span style={{ width: 28, height: 28, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: 'var(--faint)' }}>＋</span>
+              <span style={{ fontWeight: 600 }}>Nueva secuencia</span>
+            </button>
+          )}
+          {lista.length === 0 && <div style={{ padding: 12, color: 'var(--faint)', fontSize: 12.5 }}>Ninguna coincide.</div>}
+          {lista.map((j) => {
+            const on = j.id === selId;
+            return (
+              <button key={j.id} type="button" onClick={() => elegir(j.id)}
+                style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 9, alignItems: 'center', padding: '9px 10px', borderRadius: 10, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, fontFamily: 'inherit' }}>
+                <span style={{ width: 28, height: 28, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{emojiSecuencia(j)}</span>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ display: 'block', fontWeight: 600, fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.nombre}</span>
+                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etiquetaEtapa(j.etapa)}</span>
+                </span>
+                {/* El punto dice el estado sin una palabra: en una fila de 248 px, «pausada»
+                    se come el nombre. El rótulo entero está en la barra del editor. */}
+                <span title={j.activa ? 'Activa' : 'Pausada'} style={{ width: 7, height: 7, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {!sel ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
+            Elige una secuencia de mensajes.
+          </div>
+        ) : modo === 'chat' ? (
+          <ChatHilo
+            accent="var(--wa)"
+            accentBubble="var(--wa-bubble)"
+            mensajes={mensajes}
+            typing={typing}
+            draftKey={`setting-sim-${sel.id}`}
+            readOnly={!!cerradaSim}
+            placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
+            onEnviarTexto={enviarTexto}
+            onEnviarArchivo={enviarArchivo}
+            vacio={(
+              <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
+                Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
+              </div>
+            )}
+            header={(
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                {/* La salida va PRIMERA y vuelve al LIENZO, que es la pantalla de la tab. */}
+                <button type="button" onClick={() => setModo('editor')} title="Volver a editar la secuencia"
+                  style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>←</button>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Prueba · escribe como el lead</div>
+                </div>
+                <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
+                  style={{ flex: 'none', width: 30, height: 30, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+                <button type="button" onClick={() => setModo('editor')} title="Editar la secuencia"
+                  style={{ flex: 'none', padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
+              </div>
+            )}
+          />
+        ) : (
+          /**
+           * ⚠️ EL `key` ES OBLIGATORIO, y es un hallazgo de esta casa: «un `useState`
+           * sembrado de props no se resiembra; si la vista deja de desmontarse, hay que
+           * poner el key». Se cambia de secuencia SIN desmontar, así que sin esto el
+           * texto, el interruptor y el producto se quedarían con los de la anterior.
+           */
+          <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
+            productos={productos} disparadores={disparadores}
+            secuencias={secuencias}
+            onAbrirClave={(clave) => {
+              // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra
+              // secuencia y no la abre es la mitad inútil del encadenamiento.
+              const otra = secuencias.find((j) => j.clave === clave);
+              if (otra) setSelId(otra.id);
+            }}
+            onProbar={() => setModo('chat')}
+            onCambio={onReload} onWizard={() => onWizard(sel.id)} />
+        )}
+      </div>
+    </div>
   );
 }
