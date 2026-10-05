@@ -2530,3 +2530,56 @@ fallan la línea sale con la clave.
   existe en `lib/entrega-servicio.ts` y **no la llama nadie**.
 - **La línea de entrega cae en «Información» y no en «Status»** en la ficha del CRM
   (`STATUS_FIELDS` es igualdad exacta). Es una línea en un archivo de la sesión del CRM.
+
+### UNA MIGRACIÓN PUEDE VOLVER MÁS DESTRUCTIVA UNA ACCIÓN QUE NO TOCÓ
+
+`cliente_entrega.producto_id` es `on delete cascade` (mig 0188), y eso está bien: si el
+producto no existe, su tablero de entrega tampoco. Lo que no estaba bien es lo que ESO
+le hizo a una acción que ya existía y que la migración no toca.
+
+`borrar_producto` (`lib/api-mako/areas/negocio.run.ts`) confirma por pantalla, es
+`reversible: false` y pide `rolMinimo: 'admin'` — todo correcto. Su `resumen`, que es la
+frase que una persona lee antes de apretar, decía:
+
+> Borrar el producto «Mentoría 90 días» (USD 1500). No se puede deshacer.
+
+Verdadera, y desde la 0188 le falta la mitad más cara: se lleva también la etapa de
+entrega de **cada** cliente de ese producto. Nadie la escribió mal; **envejeció sola**.
+
+**La regla que queda: al agregar una FK en cascada, grepeá quién borra la fila PADRE y
+leé lo que esa pantalla le promete a quien confirma.** Es «sacar algo de un catálogo no
+es borrarlo: hay gente apuntándole» con el disparador al revés — acá lo que se borra no
+es la cosa a la que se apunta, es su dueño.
+
+Tres detalles del arreglo que no se deducen:
+
+- **`cuantosEnEntrega` devuelve `number | null` y NO reusa `clientesEnEntrega().length`.**
+  Esa otra devuelve `[]` ante un error, que es lo correcto para dibujar un tablero y lo
+  peor posible para una frase que decide un borrado irreversible: un «0 clientes» sobre
+  una consulta caída es exactamente la afirmación que hace que se apriete el botón.
+- **La frase vive en un módulo puro** (`fraseEntregaAlBorrar`, `lib/servicio-etapas.ts`),
+  no adentro del `preparar()`. Adentro de la acción ningún test la puede importar.
+- **Nombra lo que NO se pierde.** El historial de cada movimiento sobrevive (`lead_audit`
+  no tiene FK al producto). Sin decirlo, el aviso suena a que se borra todo rastro del
+  cliente y frenaría un borrado perfectamente legítimo — un aviso que exagera se ignora
+  igual que uno que miente.
+
+⚠️ **Y EL OTRO CAMINO DE BORRADO NO CONFIRMA NADA.** El `×` de
+`app/onboarding/ProductosView.tsx` llama a `deleteProducto` de UN click, sin diálogo. Es
+anterior a la 0188 y no se tocó: meterle fricción a un wizard de onboarding es
+justamente lo que se pidió sacar más de una vez, así que es una decisión de producto.
+Queda anotado acá para que el próximo que mire el borrado de un producto sepa que son
+DOS puertas y que sólo una avisa.
+
+### El arnés que rompe código restaura en un `finally`, o no restaura
+
+Un script de rotura murió a mitad por un `UnicodeEncodeError` al imprimir una flecha
+—la consola de Windows es cp1252— **después** de haber escrito la primera rotura y
+**antes** de restaurar. El archivo quedó con el bug puesto, y el arnés siguiente leyó
+ESO como su original: su ancla no matcheó, y al «restaurar» dejó el repo con un test en
+rojo que parecía un problema del código.
+
+Dos cosas: el restaurado va en un `finally`, y la salida de un arnés se escribe en ASCII
+o con `PYTHONIOENCODING=utf-8`. Es la misma familia que «un arnés que no le pasa todas
+las entradas al código bajo prueba reporta una regresión que no existe», con el fallo en
+la salida en vez de en la entrada.
