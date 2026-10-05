@@ -212,4 +212,39 @@ export const BITACORA: Hito[] = [
       'app/vsl/landing-html.ts — «Precio de fundador»: la ÚNICA superficie pública de precio, y no da cifra. El CTA es «Agenda tu diagnóstico», o sea que hoy todo el precio se dice en la llamada',
     ],
   },
+  {
+    fecha: '4 oct', hora: '22:18', chat: 'Tareas de llamada con Mauricio', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Bajar a tierra el audio del plan contra el runway, y qué perfiles no están mapeados',
+    pedido: 'Baja a tierra esto para agregarlo a mi proyección de los próximos días, ten muy presente esto: https://hola-mako.com/admin/runway\n\nY también quiero evaluar si me faltan cosas que no mapeé, por ejemplo, si van a entrar personas que venden productos... O cosas que me estan faltando',
+    puntos: [
+      'Vino con una nota de voz de WhatsApp de 7.579 caracteres transcritos, con DOS voces: la que propone y hace lo técnico, y Lean, que refuta («en una tarde lo tenés», «no te pongas deadlines pajeros»). Lo que agrega el audio: pasarela de pago (Mercado Pago contra Stripe), bajar la oferta a un documento, el 50% del primer mes, que el tráfico frío entre comprando la app barata y después se le suba al grupal, niveles de acceso por plan, el mail de invitación automático al comprar, y mover el cierre técnico del 14 al domingo 18/10 para arrancar prospección el lunes 19.',
+      'La segunda mitad del pedido —«si van a entrar personas que venden productos»— es la que no se contesta leyendo el audio: es un relevo de qué supuesto del producto rompe cada perfil que entre por un plan barato.',
+    ],
+  },
+  {
+    fecha: '4 oct', hora: '22:33', chat: 'Tareas de llamada con Mauricio', cuenta: 'claude2',
+    actor: 'claude', tipo: 'cosecha',
+    titulo: 'La cuenta del runway no estaba rota: estaba medida contra el otro producto',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era el equivocado, y es lo que más se ganó.** Al leer el audio di por hecho que la cuenta de `/admin/runway` (2.000 ÷ 100 por agenda × 50% = 10 clientes = 15.000) describía el embudo viejo. Es al revés: esos 15.000 son 10 × 1.500 del **grupal** (`ASCENSO_PROGRAMAS.grupal`, caja 1.290,33), y contra esa caja el CAC medido del carrito (136,22) entra con 7× de margen. La cuenta cierra. Lo que NO cierra con ese CAC es la app de 47, cuyo techo está medido en 105,27 — o sea que el producto que el audio pone adelante es el que no se puede llenar con pauta. Los dos números estaban a tres líneas uno del otro.',
+      '**La pregunta que ordena todo lo demás, y que sigue sin contestar:** qué se cobra primero en la ventana del 1/11 al 15/12. No es orden — el merchant of record **prohíbe «coaching» por escrito**, así que el grupal va por Stripe propio y los planes por el MoR: son dos checkouts, y el rail del grupal es justo el que arranca el reloj de 30 días del RFC mexicano.',
+      '⚠️ **El reloj que no se acelera trabajando más, y que ninguna de las dos voces del audio nombra:** el MoR aprueba el negocio «días o semanas ANTES del primer cobro» y pide `/reembolsos`, que no existe. Arranca hoy y en paralelo, porque no lo hace el mismo recurso que lo técnico. Y son 30 días con plata (1/11 al 30/11), no 45: una semana de atraso baja las 20 agendas a ~15.',
+      '**Lean tiene razón en casi todo lo que dio por construido**, y eso es lo que más tiempo ahorra: los niveles de acceso cortan en el server (64 páginas), el mail de acceso y el alta completa existen encadenados con el orden ya pagado, la firma de webhook también. El webhook de pago es extraer el alta a lib y envolverla: una jornada.',
+      '⚠️ **Lo que NO es una tarde es el cartel de «no está en tu plan»:** `requireCapa` devuelve `Promise<void>` con el `redirect()` adentro, así que son 56 call-sites — y el componente que lo diría existe desde agosto con cero emisores.',
+      '⚠️ **El argumento de que «el 47 con Video Generator no es rentable» tiene la premisa al revés:** el video lo pagan los créditos de Flow del cliente. Lo que sí lo hace insostenible está medido en el propio modelo: `IA_POR_PRO` dice literal que reemplaza al 2,52, y con ese número un Pro a 47 sobre el único workspace real medido es **caja negativa**.',
+      '**Lo que no estaba mapeado:** el que vende productos tiene el embudo pero no la entrada (cero integraciones de ecommerce en todo el repo), y la más cara es invisible hasta que pasa — **el login es sólo Google**, así que quien pague con un mail que no sea de Gmail no puede entrar nunca.',
+      'El relevo completo, en `docs/proyeccion-04oct.md`. Las trampas de código, en `docs/hallazgos-planes-y-cobro.md`, que es un área nueva.',
+    ],
+    commits: [
+      { sha: '892713b0', msg: 'Baja a tierra el audio del plan contra el runway, y cosecha lo que midio la corrida', lineas: 592, archivos: 5 },
+      { sha: '0cf4fba2', msg: 'El «no agendaste» al que pago mide CERO: se reescribe como lo que es', lineas: 50, archivos: 2 },
+      { sha: '09d9182e', msg: 'La importacion SI asigna embudo: mi grep midio el archivo que no escribe', lineas: 13, archivos: 1 },
+    ],
+    archivos: [
+      'docs/proyeccion-04oct.md — el entregable: la decisión que reordena todo, el reloj externo, lo que ya está construido y los perfiles que rompen un supuesto',
+      'docs/hallazgos-planes-y-cobro.md — área nueva: `capaDef` es fail-open, el corte por capa es de pantalla y no de API (5 de 251 rutas), los términos publicados afirman que no se cobra',
+      'AGENTS.md — `app/vsl/landing-html.ts` es GENERADO y no se edita a mano: la sección nueva se monta desde `Landing.tsx`',
+    ],
+  },
 ];
