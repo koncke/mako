@@ -464,3 +464,20 @@ test('la barra y el chip de la tabla usan el MISMO menú de etapas, del ancho de
   // Y la tabla no vuelve a armar su propia lista con la fase como subtítulo.
   assert.doesNotMatch(tabla, /sub: faseDe\(/);
 });
+
+// ── El modal de «Abrir cuenta» no puede quedar atrapado en la tarjeta ─────────
+
+// `Modal` se dibuja donde lo montan, y TarjetaEntidad le da a cada hijo de la tarjeta
+// `position: relative; z-index: 1`: montado desde la fila de acciones, la tarjeta de al lado
+// pintaba encima del modal (captura de Martín, 05/10/2026). Va por portal al body, y el
+// arrastre de la tarjeta ignora lo que no nació adentro de ella en el DOM (el portal no la
+// saca del árbol de React, y el dragstart del email subía hasta la tarjeta).
+// ROTO (05/10/2026): sin el createPortal → 22 pass / 1 fail; sin la guarda de `agarrar` →
+// 22 pass / 1 fail. Restaurado: 23 pass / 0 fail.
+test('el modal de «Abrir cuenta» va por portal, y la tarjeta no se agarra desde él', () => {
+  const cuenta = sinComentarios(leer('app/customer-success/CuentaDeMaKo.tsx'));
+  assert.match(cuenta, /pidiendoEmail && createPortal\(\s*<Modal/);
+  assert.match(cuenta, /<\/Modal>,\s*document\.body,?\s*\)/);
+  const agarrar = bloque(KANBAN, '  function agarrar(', '  function soltarGesto(');
+  assert.match(sinComentarios(agarrar), /if \(!e\.currentTarget\.contains\(e\.target as Node\)\) return;/);
+});

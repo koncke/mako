@@ -3280,3 +3280,33 @@ vista. Ahora es una función (`opcionesDeEtapas`) y un menú.
 - Una acción en lote sugerida y no hecha: «Copiar emails/teléfonos».
 - La línea «Productos eliminados» en la confirmación de eliminar (necesita saber si el producto
   tiene embudo).
+
+## El modal de «Abrir cuenta» quedaba DEBAJO de la tarjeta de al lado (05/10/2026)
+
+Captura de Martín sobre Código Inmobiliario: «Abrir cuenta» en la tarjeta de un cliente abría
+el modal, y la tarjeta de la columna siguiente pintaba su banda, su nombre y su
+«Inspeccionar» ENCIMA de él, mientras el resto de la página quedaba bien oscurecido.
+
+**La causa son dos cosas correctas por separado.** `Modal` (`app/_ui/Modal.tsx`) no se
+portalea: se dibuja donde lo montan. Y `TarjetaEntidad` le da a cada hijo de la tarjeta
+`position: relative; z-index: 1` (`.cl-card > *:not(.cl-abrir)`), para que el contenido quede
+sobre el botón que cubre la tarjeta. Con eso la fila de acciones es un contexto de
+apilamiento, y un modal montado ahí adentro vale z 1 *dentro de esa tarjeta*: la siguiente,
+más abajo en el DOM, le gana. Medido después del arreglo: 81 de 81 puntos sobre la caja del
+modal son del modal.
+
+⚠️ **Lo que lo dejó pasar es que el control se MUDÓ.** `CuentaDeMaKo` nació en la ficha del
+cliente —adentro de otro modal, donde esto no se ve— y el 27/09 ganó una variante para la
+tarjeta. El comentario de `anidada` seguía hablando de la ficha. **Al llevar un control que
+abre un modal a otro contenedor, la pregunta es dónde queda montado el modal**, y una
+tarjeta, una fila o una barra pegada son los tres lugares de esta casa que lo atrapan.
+
+**La cura es local y por portal**, como la barra pegada de AGENTS.md: los modales de las
+tarjetas de `/admin` ya se montan arriba de todo, y portalear `Modal` para sus 22 consumidores
+cambia de qué `<main>` heredan el hover. Y la segunda mitad, que el portal no resuelve: **los
+eventos sintéticos suben por el árbol de React, no por el DOM**, así que arrastrar texto en el
+email del modal llegaba al `onDragStart` de la tarjeta y la clonaba como si la agarraran. El
+arrastre ignora lo que no nació adentro de la tarjeta en el DOM.
+
+**Vive en:** `app/customer-success/CuentaDeMaKo.tsx`, `app/customer-success/KanbanEntrega.tsx`
+(`agarrar`). Guard en `tests/cs-kanban-fases.test.ts`.

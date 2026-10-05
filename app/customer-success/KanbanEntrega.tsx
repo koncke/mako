@@ -262,6 +262,11 @@ export function KanbanEntrega({
   const { pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
 
   function agarrar(e: React.DragEvent<HTMLElement>, leadId: number) {
+    // ⚠️ SÓLO SI EL GESTO NACIÓ ADENTRO DE ESTA TARJETA EN EL DOM. Un portal saca el nodo
+    // del DOM pero no del árbol de React, y los eventos sintéticos suben por el árbol: un
+    // texto arrastrado en el email del modal de «Abrir cuenta» (que se monta desde la
+    // tarjeta y se portalea al body) llegaba acá y clonaba la tarjeta como si la agarraran.
+    if (!e.currentTarget.contains(e.target as Node)) return;
     const tarjeta = e.currentTarget.closest<HTMLElement>('[data-tarjeta]');
     if (!tarjeta) return;
     const ids = quienesViajan(leadId, seleccion, clientes.map((c) => c.leadId));

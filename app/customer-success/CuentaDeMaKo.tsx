@@ -35,6 +35,7 @@
 //     ctrl+click — el mismo motivo por el que el de /admin es un ancla.
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Modal } from '@/app/_ui';
 import { emailUtilizable } from '@/lib/agencia-altas';
 import { useRouter } from '@/app/_ui/Link';
@@ -190,7 +191,15 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
   return (
     <>
       {control}
-      {pidiendoEmail && (
+      {/* ⚠️ POR PORTAL AL BODY, porque este control vive ADENTRO DE UNA TARJETA. `Modal`
+          no se portalea: se dibuja donde lo montan, y la tarjeta (TarjetaEntidad) le da a
+          cada hijo `position: relative; z-index: 1` — o sea que la fila de acciones es un
+          contexto de apilamiento y el modal quedaba atrapado en el z 1 de ESA tarjeta. La
+          tarjeta siguiente del kanban, más abajo en el DOM, pintaba su banda, su nombre y
+          su «Inspeccionar» ENCIMA del modal (captura de Martín, 05/10/2026, sobre Código
+          Inmobiliario). Es la regla del sticky de AGENTS.md con otro ancestro. Se monta
+          sólo después de un click, así que `document` siempre existe acá. */}
+      {pidiendoEmail && createPortal(
         <Modal
           titulo={`Abrirle una cuenta a ${c.nombre || 'este cliente'}`}
           encabezado="Cuenta de MaKo"
@@ -223,7 +232,8 @@ export function CuentaDeMaKo({ c, cuentas, onError, variante = 'sutil' }: {
           <p className="cmk-ayuda">
             Ahí le llega su acceso, cuando se apruebe la cuenta.
           </p>
-        </Modal>
+        </Modal>,
+        document.body,
       )}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </>
