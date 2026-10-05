@@ -445,6 +445,17 @@ export function CrmBoard({
    *  porque la pregunta lo NOMBRA, y volver a buscarlo para escribir el nombre seria
    *  pedirle a la lista que no haya cambiado entre el click y la respuesta. */
   const [borrarUno, setBorrarUno] = useState<CrmLead | null>(null);
+  /**
+   * LOS GRUPOS PLEGADOS DE LA TABLA. Arranca con todos abiertos: una tabla que abre
+   * cerrada esconde sus datos detras de un gesto, que es lo contrario de una tabla.
+   */
+  const [plegados, setPlegados] = useState<Set<string>>(new Set());
+  /** La fila en la mano. Es un REF y no estado: se escribe en el `dragstart` y leerlo no
+   *  dibuja nada — un `setState` ahi redibuja la tabla justo en el frame en que arranca
+   *  el gesto, que es el bug clasico de esta familia. */
+  const filaAgarrada = useRef<number | null>(null);
+  /** La etapa sobre la que esta el cursor. ESTO si es estado: es lo unico que se dibuja. */
+  const [grupoDestino, setGrupoDestino] = useState<string | null>(null);
   const limpiarSel = useCallback(() => setSelLeads(new Set()), []);
   const alternarSel = useCallback((id: number) => setSelLeads((p) => {
     const q = new Set(p);
@@ -1677,6 +1688,40 @@ export function CrmBoard({
   }, [stages, activeBands, ordenCols, funnelActivo]);
 
   /**
+   * LA TABLA AGRUPADA POR ETAPA.
+   *
+   * ⚠️ POR QUE AGRUPAR, si lo que se pidio fue «mover filas». Porque mover una fila
+   * necesita un DESTINO, y en el CRM mover un lead es cambiarle la ETAPA: no hay un orden
+   * manual que reordenar, como si lo hay en el plan (ahi la fila se suelta entre otras dos
+   * y lo que cambia es el SCORE). Una tabla plana no tiene adonde soltar — el gesto no
+   * tendria ningun significado que escribir.
+   *
+   * ⚠️ Y SE DIBUJAN LAS ETAPAS VACIAS. Es lo mismo que el Kanban hace con sus columnas
+   * desde el 28/09: una etapa que no aparece no se puede usar como destino, asi que un
+   * tablero sin leads en «Ganado» no tendria forma de poner el primero ahi.
+   *
+   * El orden de la tabla (`ordenTabla`) ordena ADENTRO de cada grupo. Las dos cosas
+   * conviven: el grupo dice en que etapa esta, la columna dice como se mira cada etapa.
+   */
+  const gruposTabla = useMemo(() => {
+    const porEtapa = new Map<string, CrmLead[]>();
+    for (const c of columnasKanban) porEtapa.set(c.key, []);
+    for (const l of filasTabla) {
+      const k = effStage(l);
+      // Un lead cuya etapa guardada este funnel ya no tiene cae en la primera, igual que
+      // en el Kanban: 1.057 leads del ws1 estan en ese caso y no pueden quedar sin fila.
+      const destino = porEtapa.has(k) ? k : (columnasKanban[0]?.key ?? k);
+      if (!porEtapa.has(destino)) porEtapa.set(destino, []);
+      porEtapa.get(destino)!.push(l);
+    }
+    return [...porEtapa.entries()].map(([key, leads]) => ({
+      stage: findStage(stages, key),
+      leads,
+    }));
+  }, [filasTabla, columnasKanban, stages]);
+
+
+  /**
    * Las columnas que el arrastre puede reordenar: las etapas PROPIAS del pipeline.
    *
    * ⚠️ NI LAS TERMINALES NI LAS DE NUTRICIÓN/SALIDAS. Ésas no están en el pipeline: las
@@ -2439,12 +2484,104 @@ export function CrmBoard({
                 que es donde el texto no ocupa lugar. */}
             <span aria-label="Acciones" />
           </div>
-          {filasTabla.map((l) => {
+          {gruposTabla.map((g) => {
+            const plegado = plegados.has(g.stage.key);
+            const esDestino = grupoDestino === g.stage.key;
+            // EL GRUPO ENTERO ES EL DESTINO, no solo su cabecera: soltar sobre una fila
+            // tiene que caer en la etapa de ESA fila, que es lo que la persona esta
+            // mirando. Con los handlers en la cabecera, arrastrar hasta el medio de un
+            // grupo largo no resaltaba nada y el drop se perdia.
+            //
+            // Y se resalta el grupo ENTERO en vez de dibujar una linea de insercion como
+            // la tabla del plan: alla la fila cae ENTRE otras dos y lo que cambia es el
+            // ORDEN; aca cae EN una etapa, y adentro no hay orden que cambiar. Una linea
+            // prometeria una posicion que no existe.
+            return (
+              <div key={g.stage.key}
+                onDragOver={(ev) => {
+                  if (filaAgarrada.current == null) return;
+                  ev.preventDefault();
+                  ev.dataTransfer.dropEffect = 'move';
+                  // Solo se redibuja cuando el destino CAMBIA: un setState por cada
+                  // dragover repinta la tabla 60 veces por segundo.
+                  setGrupoDestino((prev) => (prev === g.stage.key ? prev : g.stage.key));
+                }}
+                onDragLeave={(ev) => {
+                  // Sin el guard, pasar de una fila a la de al lado DENTRO del mismo grupo
+                  // dispara un leave y el resaltado parpadea en cada fila.
+                  if (ev.currentTarget.contains(ev.relatedTarget as Node | null)) return;
+                  setGrupoDestino((prev) => (prev === g.stage.key ? null : prev));
+                }}
+                onDrop={(ev) => {
+                  ev.preventDefault();
+                  const id = filaAgarrada.current;
+                  const lead = id == null ? null : leads.find((x) => x.id === id);
+                  filaAgarrada.current = null;
+                  setGrupoDestino(null);
+                  soltarCopia();
+                  if (!lead || effStage(lead) === g.stage.key) return;
+                  // ⚠️ EL MISMO `handleDrop` QUE EL KANBAN, no una escritura propia. Ese
+                  // camino ya sabe todo lo que esta tabla no: que «Nutricion - Manual»
+                  // pide su plazo, que las etapas de Calendly abren la agenda, que hay
+                  // senales para ofrecerle a Meta, y que al soltar va el toast con
+                  // «Deshacer» que escribe en el SERVER. Escribir la etapa desde aca
+                  // seria la segunda implementacion de mover un lead, muda y sin
+                  // deshacer — que es como divergen dos escrituras del mismo dato.
+                  idASoltar.current = lead.id;
+                  handleDrop(g.stage.key);
+                }}
+                style={{
+                  // El resaltado del destino vive aca y no en la cabecera: lo que se
+                  // ilumina es la caja donde el lead va a caer, que es el grupo entero.
+                  background: esDestino ? 'var(--surface-2)' : undefined,
+                  boxShadow: esDestino ? 'inset 3px 0 0 var(--primary)' : 'none',
+                  transition: 'background .12s, box-shadow .12s',
+                }}>
+                <div
+                  onClick={() => setPlegados((prev) => {
+                    const q = new Set(prev);
+                    if (q.has(g.stage.key)) q.delete(g.stage.key); else q.add(g.stage.key);
+                    return q;
+                  })}
+                  title={plegado ? `Abrir ${g.stage.label}` : `Plegar ${g.stage.label}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 9, padding: '9px 22px',
+                    borderBottom: '1px solid var(--border)', cursor: 'pointer',
+                    background: 'var(--surface-2)',
+                  }}>
+                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: g.stage.dot, flex: 'none' }} />
+                  <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.stage.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{g.leads.length}</span>
+                  {/* El chevron dice que se puede plegar; sin el, la cabecera se lee como
+                      un rotulo y nadie prueba a hacerle click. */}
+                  <span aria-hidden style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--faint)' }}>{plegado ? '▶' : '▼'}</span>
+                </div>
+                {/* Una etapa vacia lo DICE. Sin esta linea, la cabecera sola se lee como
+                    un grupo que no cargo, y encima no se ve que es un destino valido. */}
+                {!plegado && g.leads.length === 0 && (
+                  <div style={{ padding: '13px 22px 13px 50px', borderBottom: '1px solid var(--border)', fontSize: 12.5, color: 'var(--faint)' }}>
+                    Nadie en esta etapa. Arrastra un lead aquí.
+                  </div>
+                )}
+                {!plegado && g.leads.map((l) => {
             const m = findStage(stages, effStage(l));
             const isGanado = effStage(l) === 'ganado';
             const tildado = selLeads.has(l.id);
             return (
               <div key={l.id} onClick={() => openDetail(l)}
+                draggable
+                onDragStart={(ev) => {
+                  filaAgarrada.current = l.id;
+                  ev.dataTransfer.effectAllowed = 'move';
+                  // La misma pieza compartida que usa el Kanban: foto vacia para que el
+                  // SO no pinte su version translucida, y una copia que dibujamos
+                  // nosotros y movemos con transform desde un dragover en captura.
+                  fotoVaciaDeArrastre(ev.dataTransfer);
+                  const nodo = ev.currentTarget as HTMLElement;
+                  const r = nodo.getBoundingClientRect();
+                  montarCopia(nodo, ev.clientX - r.left, ev.clientY - r.top);
+                }}
+                onDragEnd={() => { filaAgarrada.current = null; setGrupoDestino(null); soltarCopia(); }}
                 style={{ display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', alignItems: 'center', cursor: 'pointer', background: tildado ? 'var(--surface-2)' : undefined }}>
                 {/* Igual que en la tarjeta: el click de la FILA abre la ficha, asi que la
                     casilla frena la propagacion o tildar abriria el lead. */}
@@ -2487,6 +2624,9 @@ export function CrmBoard({
                     <IconoTachoFila />
                   </button>
                 </div>
+              </div>
+            );
+                })}
               </div>
             );
           })}

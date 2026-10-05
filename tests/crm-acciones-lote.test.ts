@@ -77,7 +77,11 @@ test('las dos acciones de lote topean la cantidad', () => {
   // Un lote sin techo es una pantalla que se cuelga sobre 1.100 leads, y encima el
   // resultado deja de ser auditable: a partir de cierto número «lo hice» no es una
   // respuesta útil y lo que hace falta es un filtro.
-  assert.match(SRC, /export const TOPE_LOTE = \d+;/);
+  // SIN `export`: en un archivo `use server` solo se pueden exportar funciones async, y
+  // un `export const` tira el BUILD sin que el typecheck diga nada. El guard fija las dos
+  // mitades —que el tope exista y que no se exporte— porque la segunda ya se pago.
+  assert.match(SRC, /^const TOPE_LOTE = \d+;$/m);
+  assert.doesNotMatch(SRC, /export const TOPE_LOTE/);
   for (const f of ['moverLeadsDeEtapaAction', 'eliminarLeadsAction']) {
     assert.match(sinComentarios(bloque(f)), /slice\(0, TOPE_LOTE\)/, `${f} no topea`);
   }

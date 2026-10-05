@@ -1076,9 +1076,17 @@ export async function bulkFillLeadFieldAction(
   return { updated };
 }
 
-/** El techo de una accion en lote. No es una restriccion del motor: es el tamano a partir
- *  del cual «lo hice» deja de ser una respuesta util y lo que hace falta es un filtro. */
-export const TOPE_LOTE = 200;
+/**
+ * El techo de una accion en lote. No es una restriccion del motor: es el tamano a partir
+ * del cual «lo hice» deja de ser una respuesta util y lo que hace falta es un filtro.
+ *
+ * ⚠️ NO SE EXPORTA, y no es una preferencia de estilo: en un archivo `use server` SOLO se
+ * pueden exportar funciones async. Un `export const` tipa perfecto, pasa el typecheck y
+ * TIRA EL BUILD entero con «Only async functions are allowed to be exported in a use
+ * server file» — 125 errores que nombran a media app y a ningun archivo culpable. Ya se
+ * pago una vez (05/10/2026, deploy en Error con produccion sirviendo la version vieja).
+ */
+const TOPE_LOTE = 200;
 
 /**
  * Mueve VARIOS leads a una etapa.
