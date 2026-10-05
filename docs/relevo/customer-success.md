@@ -113,6 +113,11 @@ UNIVERSO») · `app/admin/dev/customer-success/bitacora.ts` · memoria `cs-ficha
   que mi edición bloqueaba el push de todo el repo; era una foto de la ventana en la que
   estaba tipeando un refactor, y cinco minutos después el typecheck daba 0. Si el pre-push
   da rojo, lo PRIMERO es `git status --short` de los archivos que el error nombra.
+- ⚠️ **`/tmp` ES COMPARTIDO ENTRE LAS TRES SESIONES** (es
+  `C:\Users\marti\AppData\Local\Temp`, 3.593 entradas). Todo temporal va al scratchpad
+  de tu sesión. Lo caro no es leer la salida de otro chat: es `git commit -F /tmp/msg.txt`,
+  que con una colisión commitea el mensaje de otra sesión con tu diff adentro y sale bien.
+  La regla entera está en `AGENTS.md`; lo del 05/10 se verificó y quedó correcto.
 - ⚠️ **Bootear local ESCRIBE en la Supabase de PRODUCCIÓN.** Un blur del detalle guarda en
   el tablero real de Mauricio.
 - ⚠️ **`ws3` está EN CERO** (y volvió a cero el 05/10 después de la verificación). El clon

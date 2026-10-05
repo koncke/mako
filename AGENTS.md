@@ -377,6 +377,27 @@ De ahí tres cosas que valen siempre que haya más de una sesión:
    medición y viaja a un entregable: acá llegó a uno que iba a leer Martín para decidir
    trabajo, y lo frena únicamente que alguien del otro lado verifique antes de aceptarlo.
 
+6. ⚠️ **`/tmp` ES COMPARTIDO ENTRE LAS SESIONES: NINGUNA MEDICIÓN SE ESCRIBE AHÍ.** En Git
+   Bash, `/tmp` es `C:\Users\marti\AppData\Local\Temp` — el mismo directorio para las
+   tres sesiones, con 3.593 entradas al 05/10/2026. Un `cmd > /tmp/out.txt` y un
+   `grep … /tmp/out.txt` separados por treinta segundos pueden leer **la salida de otro
+   chat con el mismo nombre**, y como el nombre que a uno se le ocurre es el que se le
+   ocurre a todos (`out.txt`, `tc.txt`, `test.txt`), la colisión es probable y no rara. El
+   resultado no es un error: es un número plausible de otra pregunta. Lo encontró el chat
+   de Chatbot el 05/10 recibiendo la salida de un script ajeno.
+
+   ⚠️ **Y LA MITAD CARA NO ES LEER: ES `git commit -F /tmp/msg.txt`.** Ahí una colisión no
+   devuelve un número equivocado — **commitea el mensaje de otra sesión**, con tu diff
+   adentro y tu trailer, y nadie lo audita porque el commit sale bien. Se cometió el mismo
+   día, en este repo, y zafó por suerte del nombre: `067310aa` llevaba el mensaje correcto
+   (verificado con `git log -1 --format='%b'` **después** de commitear, que es lo único que
+   lo contesta).
+
+   Las dos reglas: **todo archivo temporal va al scratchpad de la sesión**, que es
+   específico por sesión y está aislado; y si una medición ya salió por `/tmp`, **se
+   re-corre antes de escribirla en un entregable**. Acá se re-corrieron el typecheck y la
+   suite (3410 pass / 0 fail, 0 errores de tipos) y se verificó el cuerpo del commit.
+
 El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
 las tres cosas que hay que recrear a mano en uno— está en
 [docs/dos-cuentas.md](docs/dos-cuentas.md).
