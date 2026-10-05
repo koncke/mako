@@ -314,6 +314,32 @@ De ahí tres cosas que valen siempre que haya más de una sesión:
    si hay que dejarlo, se commitea con el tipo bien o se deja fuera del repo. Y antes de
    borrar uno ajeno: se PREGUNTA — con tres sesiones, borrar el archivo de otro es cómo
    se pierde trabajo que nadie puede recuperar.
+4. ⚠️ **UN «remote rejected» PUEDE SIGNIFICAR «YA ESTÁ SUBIDO».** Las sesiones comparten
+   el `.git`, así que el push de una se lleva los commits de la otra que ya estaban en
+   `main` local. Medido dos veces el 04/10/2026, en las dos direcciones: un push salió
+   con `cannot lock ref 'refs/heads/main': is at X but expected Y` y, tras el `fetch`,
+   contestó **«Everything up-to-date»** — el commit ya viajaba adentro del push del
+   vecino. Reintentar a ciegas, rebasar o armar un worktree para «arreglar» esa
+   divergencia es trabajo sobre un problema que no existe. **Primero se pregunta si ya
+   está:**
+
+   ```bash
+   git merge-base --is-ancestor <tu-commit> origin/main && echo "ya está en el remoto"
+   ```
+
+5. ⚠️ **Y UN `grep` SOBRE UN ARCHIVO CONTESTA «ese archivo no lo hace», NUNCA «nadie lo
+   hace».** Es «un cero perfectamente correcto sobre la pregunta equivocada» aplicado a
+   la medición entre sesiones, y se cometió el 04/10 con la regla ya escrita: un grep de
+   `funnel` sobre `app/crm/leads-importar.ts` dio **0** y de ahí salió «la importación
+   manda los leads al embudo genérico», que es falso — ese archivo PARSEA el CSV y el
+   lead lo escribe `app/crm/actions.ts:1667`, con el `funnel_id` puesto. Lo que lo evita
+   es invertir el orden: **primero se pregunta QUIÉN ESCRIBE, y recién ahí se busca el
+   campo en ese archivo.** El nombre de un archivo no dice qué hace: dice cómo lo
+   llamaron.
+
+   Y es caro en una sesión compartida, porque el reporte de un vecino se lee como una
+   medición y viaja a un entregable: acá llegó a uno que iba a leer Martín para decidir
+   trabajo, y lo frena únicamente que alguien del otro lado verifique antes de aceptarlo.
 
 El protocolo completo —qué comparten las dos cuentas y qué no, cuándo usar worktrees y
 las tres cosas que hay que recrear a mano en uno— está en
