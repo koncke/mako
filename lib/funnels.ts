@@ -147,8 +147,17 @@ export async function getPipelineStagesDeLead(lead: LeadConFunnel): Promise<Stag
  * Nunca tira: si la vista falla, el mapa vuelve vacío y quien llama se cae al nombre del
  * funnel, que es lo que había.
  */
-export async function productosPorFunnel(ids?: number[]): Promise<Map<number, string>> {
-  const productos = new Map<number, string>();
+/**
+ * El PRODUCTO principal de cada embudo: su id y su nombre.
+ *
+ * ⚠️ EL ID HACE FALTA Y NO ES EL DEL EMBUDO. Lo necesita todo lo que cuelga del
+ * producto y no del embudo —la ENTREGA del servicio (mig 0188/0189) es el primer
+ * caso—, y del producto al embudo hay dos saltos (`producto ──oferta_productos──>
+ * oferta ──funnel_ofertas──> funnel`): usar uno por el otro es un número correcto
+ * sobre la pregunta equivocada.
+ */
+export async function productoDeFunnel(ids?: number[]): Promise<Map<number, { id: number; nombre: string }>> {
+  const productos = new Map<number, { id: number; nombre: string }>();
   try {
     const supabase = await getTenantDb();
     let q = supabase
@@ -161,13 +170,20 @@ export async function productosPorFunnel(ids?: number[]): Promise<Map<number, st
       const nombreDe = new Map(((ps ?? []) as Array<{ id: number; nombre: string }>).map((p) => [p.id, p.nombre]));
       for (const x of (vp ?? []) as Array<{ funnel_id: number; producto_id: number }>) {
         const n = nombreDe.get(x.producto_id);
-        if (n) productos.set(x.funnel_id, n);
+        if (n) productos.set(x.funnel_id, { id: Number(x.producto_id), nombre: n });
       }
     }
   } catch (e) {
     console.warn('[funnels] no se pudo leer el producto de cada funnel:', e instanceof Error ? e.message : e);
   }
   return productos;
+}
+
+/** Sólo el NOMBRE, que es lo único que mira el desplegable del tablero. */
+export async function productosPorFunnel(ids?: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  for (const [funnelId, p] of await productoDeFunnel(ids)) out.set(funnelId, p.nombre);
+  return out;
 }
 
 /** Los funnels del workspace, para el desplegable. El default primero. */

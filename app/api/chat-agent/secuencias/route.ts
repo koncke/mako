@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, probarSecuencia,
-  muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa,
+  muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
   if (ws == null || rol !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar secuencias.' }, { status: 403 });
   }
-  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown; funnelId?: unknown };
+  let body: { action?: string; secuenciaId?: unknown; estrategia?: unknown; objetivo?: unknown; etapa?: unknown; nombre?: unknown; ids?: unknown; enlace?: unknown; handoffId?: unknown; escenario?: unknown; funnelId?: unknown; productoId?: unknown; clase?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -143,6 +143,15 @@ export async function POST(req: NextRequest) {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
       // `funnelId` ausente o null = «todos los productos», que es una elección y no un
       // olvido: la pantalla la ofrece como opción con ese nombre.
+      // `clase` dice de QUÉ etapa se trata: la del embudo (venta) o la de la entrega del
+      // servicio. No se deduce de la key —las dos listas las edita el cliente y pueden
+      // chocar—, así que la manda la pantalla, que es la que sabe de qué sección salió.
+      if (body.clase === 'entrega') {
+        const pid = Number(body.productoId);
+        if (!Number.isFinite(pid)) return Response.json({ ok: false, error: 'Elegí de qué producto es la entrega.' }, { status: 400 });
+        await setDisparadorEntrega(id, String(body.etapa ?? ''), pid);
+        return Response.json({ ok: true });
+      }
       const fid = body.funnelId == null || body.funnelId === '' ? null : Number(body.funnelId);
       if (fid != null && !Number.isFinite(fid)) return Response.json({ ok: false, error: 'producto inválido' }, { status: 400 });
       await setDisparadorEtapa(id, String(body.etapa ?? ''), fid);

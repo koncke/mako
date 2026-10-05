@@ -14,7 +14,7 @@ import { EstrategiaWizard } from './EstrategiaWizard';
 import { FlujoLienzo } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
-import { TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
+import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -93,6 +93,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    */
   const [cambiandoAEtapa, setCambiandoAEtapa] = useState(false);
   const esDeEtapa = secuencia.trigger_tipo === TRIGGER_ETAPA;
+  const esDeEntrega = secuencia.trigger_tipo === TRIGGER_ENTREGA;
   const etiquetaDisparador = disparadores.find((d) => d.value === secuencia.trigger_tipo)?.label ?? secuencia.trigger_tipo;
   // string y no Objetivo: el dueño puede haber escrito el suyo con "Otro".
   const [objetivo, setObjetivo] = useState<string>(est?.objetivo ?? 'agendar');
@@ -201,8 +202,17 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     setBusy(null);
   }
 
-    const guardarDisparador = async (etapa: string, funnelId: number | null) => {
-    const j = await api({ action: 'disparador', secuenciaId: secuencia.id, etapa, funnelId });
+    /**
+   * ⚠️ LA CLASE VIAJA, NO SE DEDUCE DE LA KEY. Las etapas del embudo y las de la entrega
+   * son dos listas que el cliente edita por separado: hoy no chocan, y el día que
+   * alguien llame «facturando» a una etapa de entrega, adivinar por la clave mandaría el
+   * disparador equivocado. La pantalla sabe de qué SECCIÓN del desplegable salió, así
+   * que lo dice.
+   */
+  const guardarDisparador = async (etapa: string, clase: 'venta' | 'entrega', ambito: number | null) => {
+    const j = await api(clase === 'entrega'
+      ? { action: 'disparador', secuenciaId: secuencia.id, etapa, clase, productoId: ambito }
+      : { action: 'disparador', secuenciaId: secuencia.id, etapa, funnelId: ambito });
     if (!j.ok) { setErr(j.error ?? 'No se pudo guardar el disparador'); return; }
     setErr(null);
     onCambio();
@@ -281,22 +291,74 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    * nada —el control queda en la primera opción— y el primer click lo BORRA, o sea que
    * cambiar de producto podría reescribir el disparador sin que nadie lo pida.
    */
-  const etapasOfrecidas = useMemo(() => {
-    const pr = funnelSel == null ? null : productos.find((x) => x.funnelId === funnelSel);
-    const base = pr
-      ? pr.etapas
+  const prodSel = useMemo(() => (funnelSel == null ? null : productos.find((x) => x.funnelId === funnelSel) ?? null), [funnelSel, productos]);
+
+  /**
+   * Las etapas, en DOS secciones: por dónde pasa el lead antes de comprar (el embudo) y
+   * por dónde pasa el cliente después (la entrega del servicio, el kanban de Customer
+   * Success). Son dos preguntas distintas y en la misma lista plana se confunden: «hito
+   * 2» y «Agenda R2» no son dos etapas del mismo camino.
+   *
+   * ⚠️ Y LA QUE ESTÁ PUESTA ENTRA SIEMPRE, MARCADA. Es la trampa del `<select>` que está
+   * en AGENTS.md: un `value` que no está entre sus opciones no muestra nada y el primer
+   * click lo BORRA — o sea que cambiar de producto podría reescribir el disparador sin
+   * que nadie lo pida.
+   */
+  const seccionesEtapa = useMemo(() => {
+    const venta = prodSel
+      ? prodSel.etapas
       : [...new Map(productos.flatMap((x) => x.etapas).map((e) => [e.value, e])).values()];
-    if (secuencia.etapa && !base.some((e) => e.value === secuencia.etapa)) {
-      return [{ value: secuencia.etapa, label: `${etiquetaEtapa(secuencia.etapa)} (no es de este producto)` }, ...base];
+    /**
+     * ⚠️ LA ENTREGA SE OFRECE AUNQUE NO HAYA PRODUCTO ELEGIDO, Y UNA SECCIÓN POR
+     * PRODUCTO. La primera versión la mostraba sólo con un producto ya elegido —porque
+     * una etapa de entrega no significa nada sin él— y el resultado medido fue un
+     * callejón: el desplegable abría con UNA sección, la de venta, así que desde la
+     * pantalla no había forma de llegar a una secuencia de entrega ni de enterarse de
+     * que existía. Una capacidad que no se ofrece no existe.
+     *
+     * El producto viaja en el VALOR (`entrega:<producto>:<etapa>`) y por eso no hace
+     * falta elegirlo antes ni adivinarlo después: con los defaults, los dos productos
+     * tienen las MISMAS cinco claves, así que deducirlo de la etapa sería elegir uno al
+     * azar.
+     */
+    const deEntrega = prodSel ? [prodSel] : productos;
+    const puesta = (secuencia.etapa ?? '').trim();
+    const estaEnAlguna = [...venta, ...deEntrega.flatMap((x) => x.etapasEntrega)].some((e) => e.value === puesta);
+    const secciones = [
+      { title: 'Antes de comprar (tu embudo)', options: venta.map((e) => ({ ...e, value: `venta:${e.value}` })) },
+    ];
+    for (const pr of deEntrega) {
+      if (!pr.etapasEntrega.length || pr.productoId == null) continue;
+      secciones.push({
+        // El rótulo nombra la pantalla donde esas etapas se mueven: sin eso, «Entrega»
+        // no le dice nada a quien nunca abrió Customer Success. Y lleva el producto
+        // cuando hay más de uno, que es lo único que las distingue.
+        title: productos.length > 1 && !prodSel
+          ? `Ya es cliente · ${pr.nombre} (Customer Success)`
+          : 'Ya es cliente (la entrega, en Customer Success)',
+        options: pr.etapasEntrega.map((e) => ({ ...e, value: `entrega:${pr.productoId}:${e.value}` })),
+      });
     }
-    return base;
-  }, [funnelSel, productos, secuencia.etapa, etiquetaEtapa]);
+    if (puesta && !estaEnAlguna) {
+      secciones.unshift({
+        title: 'La que tiene puesta',
+        options: [{
+          value: esDeEntrega ? `entrega:${secuencia.producto_id ?? ''}:${puesta}` : `venta:${puesta}`,
+          label: `${etiquetaEtapa(puesta)} (no es de este producto)`,
+        }],
+      });
+    }
+    return secciones;
+  }, [prodSel, productos, secuencia.etapa, esDeEntrega, etiquetaEtapa]);
+
+  const valorEtapa = esDeEntrega ? `entrega:${secuencia.producto_id ?? ''}:${secuencia.etapa}` : `venta:${secuencia.etapa}`;
 
   const etapaEstaEnElProducto = useMemo(() => {
-    const pr = funnelSel == null ? null : productos.find((x) => x.funnelId === funnelSel);
-    const base = pr ? pr.etapas : productos.flatMap((x) => x.etapas);
+    const base = prodSel
+      ? [...prodSel.etapas, ...prodSel.etapasEntrega]
+      : productos.flatMap((x) => [...x.etapas, ...x.etapasEntrega]);
     return !secuencia.etapa || base.some((e) => e.value === secuencia.etapa);
-  }, [funnelSel, productos, secuencia.etapa]);
+  }, [prodSel, productos, secuencia.etapa]);
 
   const pasosWa = secuencia.pasos.filter((p) => p.canal === 'whatsapp').length;
   const pasosEmail = secuencia.pasos.filter((p) => p.canal === 'email').length;
@@ -352,13 +414,25 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{secuencia.nombre}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                {rolAdmin && productos.length > 0 && (esDeEtapa || cambiandoAEtapa) ? (
+                {rolAdmin && productos.length > 0 && (esDeEtapa || esDeEntrega || cambiandoAEtapa) ? (
                   <>
                     <span>Se dispara al caer en</span>
                     <Dropdown
-                      value={secuencia.etapa}
-                      options={etapasOfrecidas}
-                      onChange={(v) => void guardarDisparador(v, funnelSel)}
+                      value={valorEtapa}
+                      secciones={seccionesEtapa}
+                      onChange={(v) => {
+                        // El valor trae la clase y, en la entrega, el producto:
+                        // `venta:<etapa>` | `entrega:<producto>:<etapa>`.
+                        const [clase, ...resto] = v.split(':');
+                        if (clase === 'entrega') {
+                          const [pid, ...keyPartes] = resto;
+                          const producto = Number(pid);
+                          if (!Number.isFinite(producto)) { setErr('Esa etapa de entrega no tiene producto: elegí una de la lista.'); return; }
+                          void guardarDisparador(keyPartes.join(':'), 'entrega', producto);
+                          return;
+                        }
+                        void guardarDisparador(resto.join(':'), 'venta', funnelSel);
+                      }}
                       ariaLabel="Etapa que dispara la secuencia"
                       buttonStyle={{ fontSize: 11.5, padding: '2px 6px' }}
                     />
@@ -373,10 +447,15 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
                         // producto. Si no, se espera a que elija una de las suyas: la
                         // lista de arriba ya cambió y la de abajo lo dice.
                         const pr = fid == null ? null : productos.find((x) => x.funnelId === fid);
-                        const vale = fid == null
+                        const enVenta = fid == null
                           ? productos.some((x) => x.etapas.some((e) => e.value === secuencia.etapa))
                           : !!pr?.etapas.some((e) => e.value === secuencia.etapa);
-                        if (vale) void guardarDisparador(secuencia.etapa, fid);
+                        const enEntrega = !!pr?.etapasEntrega.some((e) => e.value === secuencia.etapa);
+                        // Una secuencia de ENTREGA se re-apunta al producto nuevo; una de
+                        // venta, al embudo nuevo. Si la etapa no existe en ninguno de los
+                        // dos lados del producto elegido, no se guarda nada todavía.
+                        if (esDeEntrega && enEntrega && pr?.productoId != null) void guardarDisparador(secuencia.etapa, 'entrega', pr.productoId);
+                        else if (!esDeEntrega && enVenta) void guardarDisparador(secuencia.etapa, 'venta', fid);
                       }}
                       ariaLabel="Producto del que se miran las etapas"
                       buttonStyle={{ fontSize: 11.5, padding: '2px 6px' }}

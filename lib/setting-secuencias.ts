@@ -11,8 +11,10 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
-import { TRIGGER_ETAPA } from './nutricion-etapa';
-import { listarFunnels, getFunnelDe, getFunnelDefault } from './funnels';
+import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
+import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from './funnels';
+import { entregasDeProductos } from './entrega-servicio';
+import type { EntregaConfig } from './servicio-etapas';
 import { parseEstrategia, type Estrategia } from './setting-estrategia';
 import { agregarMetricas, serieDiaria, METRICAS_CERO, type FilaEnvio, type FilaInsc, type MetricasSecuencia, type PuntoSerie } from './setting-metricas';
 import { getContactoReportes } from './perfil';
@@ -99,25 +101,49 @@ export async function crearSecuenciaDesdeEtapa(etapa: string, nombre: string): P
  */
 export type ProductoConEtapas = {
   funnelId: number;
+  /** El id del PRODUCTO, que no es el del embudo. `null` = ese embudo no vende uno. */
+  productoId: number | null;
   nombre: string;
   esDefault: boolean;
+  /** Las etapas del EMBUDO: por dónde pasa el lead antes de comprar. */
   etapas: Array<{ value: string; label: string }>;
+  /**
+   * Las etapas de la ENTREGA del servicio (mig 0188): por dónde pasa el CLIENTE
+   * después de comprar. Vacío si ese embudo no tiene producto.
+   *
+   * ⚠️ `origenEntrega: 'default'` significa que el cliente todavía NO configuró sus
+   * etapas y está viendo las de fábrica. Colgar una secuencia de una de esas es
+   * legítimo —son las que su kanban dibuja hoy— pero el día que las edite, la clave
+   * puede dejar de existir: `nuevaClaveEtapa` nunca reusa una borrada, así que la
+   * secuencia queda apuntando a NINGUNA etapa, que es lo correcto y se puede detectar.
+   */
+  etapasEntrega: Array<{ value: string; label: string }>;
+  origenEntrega: 'declarado' | 'default' | null;
 };
 
 export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
   const funnels = await listarFunnels();
+  const delFunnel = await productoDeFunnel(funnels.map((f) => f.id))
+    .catch(() => new Map<number, { id: number; nombre: string }>());
+  const entregas = await entregasDeProductos([...delFunnel.values()].map((p) => p.id))
+    .catch(() => new Map<number, EntregaConfig>());
   const out: ProductoConEtapas[] = [];
   for (const f of funnels) {
     // El default se lee con `getFunnelDefault` (es el camino que ya cachea la pantalla);
     // el resto por id. Son pocas filas —6 en producción— y se piden una vez por carga.
     const cfg = f.esDefault ? await getFunnelDefault().catch(() => null) : await getFunnelDe(f.id).catch(() => null);
+    const prod = delFunnel.get(f.id) ?? null;
+    const entrega = prod ? entregas.get(prod.id) ?? null : null;
     out.push({
       funnelId: f.id,
+      productoId: prod?.id ?? null,
       nombre: f.producto ?? f.nombre,
       esDefault: f.esDefault,
       etapas: (cfg?.stages ?? [])
         .filter((st) => (st.band ?? 'pipeline') !== 'salidas')
         .map((st) => ({ value: st.key, label: st.label })),
+      etapasEntrega: (entrega?.etapas ?? []).map((et) => ({ value: et.key, label: et.label })),
+      origenEntrega: entrega?.origen ?? null,
     });
   }
   return out;
@@ -161,9 +187,45 @@ export async function setDisparadorEtapa(secuenciaId: number, etapa: string, fun
   const supabase = await getTenantDb();
   const { error } = await supabase
     .from('nutricion_secuencias')
-    .update({ trigger_tipo: TRIGGER_ETAPA, etapa: key, funnel_id: funnelId, updated_at: new Date().toISOString() })
+    // `producto_id` se limpia por lo mismo que allá se limpia `funnel_id`.
+    .update({ trigger_tipo: TRIGGER_ETAPA, etapa: key, funnel_id: funnelId, producto_id: null, updated_at: new Date().toISOString() })
     .eq('id', secuenciaId);
   if (error) throw new Error(`setDisparadorEtapa: ${error.message}`);
+}
+
+/**
+ * «Si un CLIENTE llega a ESTA etapa de la entrega de ESTE producto, disparate».
+ *
+ * Es la hermana de `setDisparadorEtapa` y es una función aparte, no un parámetro más:
+ * son dos disparadores distintos (`etapa_actual` / `entrega_actual`) que escriben dos
+ * columnas distintas (`funnel_id` / `producto_id`) porque el ámbito de uno es el embudo
+ * y el del otro el producto. El porqué entero, en lib/nutricion-etapa.ts.
+ *
+ * ⚠️ EL PRODUCTO NO ES OPCIONAL ACÁ. En la venta, `funnel_id` NULL significa «todos los
+ * embudos» y es el estado de las 62 filas de hoy; en la entrega, una etapa suelta no
+ * quiere decir nada sin el producto —«hito 2» es de UN servicio— y el motor directamente
+ * no enrola sin él (`secuenciasDeEntrega` devuelve [] con el producto vacío). Ofrecer
+ * «todos los productos» acá sería ofrecer una configuración que no dispara nunca.
+ */
+export async function setDisparadorEntrega(secuenciaId: number, etapa: string, productoId: number): Promise<void> {
+  const key = (etapa ?? '').trim();
+  if (!key) throw new Error('Elegí la etapa de la entrega que dispara la secuencia.');
+  if (!Number.isFinite(productoId) || productoId <= 0) throw new Error('Elegí de qué producto es la entrega.');
+
+  const pr = (await productosConEtapas()).find((x) => x.productoId === productoId);
+  if (!pr) throw new Error('Ese producto no existe o está archivado.');
+  if (!pr.etapasEntrega.some((e) => e.value === key)) {
+    throw new Error(`«${key}» no es una etapa de la entrega de ${pr.nombre}: elegí una de las suyas.`);
+  }
+
+  const supabase = await getTenantDb();
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    // `funnel_id` se LIMPIA: una secuencia es de venta o es de entrega, y dejar el
+    // embudo puesto deja un ámbito viejo escrito al lado del nuevo.
+    .update({ trigger_tipo: TRIGGER_ENTREGA, etapa: key, producto_id: productoId, funnel_id: null, updated_at: new Date().toISOString() })
+    .eq('id', secuenciaId);
+  if (error) throw new Error(`setDisparadorEntrega: ${error.message}`);
 }
 
 // ── Prompts del wizard (editables en /configuraciones vía prompt-registry) ────

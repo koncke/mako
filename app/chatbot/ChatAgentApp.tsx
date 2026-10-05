@@ -52,14 +52,20 @@ export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
   activa: boolean; pasos: PasoSecuenciaDto[]; inscriptos: number; enviados: number;
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
-  /** El PRODUCTO al que se acota (el embudo). null = todos los productos. */
+  /** El EMBUDO al que se acota una secuencia de venta. null = todos los productos. */
   funnel_id?: number | null;
+  /** El PRODUCTO de cuya ENTREGA cuelga (trigger entrega_actual, mig 0189). */
+  producto_id?: number | null;
 };
 
 /** Un producto del CRM con las etapas que el dueño le configuró. */
 export type ProductoOpcion = {
-  funnelId: number; nombre: string; esDefault: boolean;
+  funnelId: number; productoId: number | null; nombre: string; esDefault: boolean;
+  /** Las del EMBUDO: por dónde pasa el lead antes de comprar. */
   etapas: Array<{ value: string; label: string }>;
+  /** Las de la ENTREGA del servicio: por dónde pasa el CLIENTE después de comprar. */
+  etapasEntrega: Array<{ value: string; label: string }>;
+  origenEntrega: 'declarado' | 'default' | null;
 };
 export type Opcion = { value: string; label: string };
 

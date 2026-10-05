@@ -10,7 +10,8 @@
 //   guardar:    NODE_OPTIONS="--conditions=react-server" npx tsx scripts/respaldo-disparadores.ts guardar <ws>
 //   restaurar:  NODE_OPTIONS="--conditions=react-server" npx tsx scripts/respaldo-disparadores.ts restaurar <ws>
 //
-// Son las TRES columnas que el disparador escribe —`trigger_tipo`, `etapa`, `funnel_id`—
+// Son las CUATRO columnas que el disparador escribe —`trigger_tipo`, `etapa`, `funnel_id`
+// y `producto_id` (mig 0189, el ámbito de una secuencia de ENTREGA)—
 // de TODAS las secuencias del workspace, no sólo de la que se va a tocar: un respaldo que
 // cubre una fila de N es peor que ninguno, porque deja restaurar con confianza.
 // =============================================================================
@@ -28,10 +29,10 @@ const ARCHIVO = resolve(process.cwd(), `.respaldo-disparadores-ws${WS}.json`);
 
 const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
 
-type Fila = { id: number; clave: string; trigger_tipo: string | null; etapa: string | null; funnel_id: number | null };
+type Fila = { id: number; clave: string; trigger_tipo: string | null; etapa: string | null; funnel_id: number | null; producto_id: number | null };
 
 const leer = async (): Promise<Fila[]> => (await sql`
-  select id, clave, trigger_tipo, etapa, funnel_id
+  select id, clave, trigger_tipo, etapa, funnel_id, producto_id
     from nutricion_secuencias where workspace_id = ${WS} order by id`) as unknown as Fila[];
 
 async function main() {
@@ -50,11 +51,14 @@ async function main() {
     for (const g of guardadas) {
       const hoy = porId.get(g.id);
       if (!hoy) { console.warn(`  · sec ${g.id} «${g.clave}» ya no existe`); continue; }
-      if (hoy.trigger_tipo === g.trigger_tipo && hoy.etapa === g.etapa && Number(hoy.funnel_id ?? -1) === Number(g.funnel_id ?? -1)) continue;
+      const igual = hoy.trigger_tipo === g.trigger_tipo && hoy.etapa === g.etapa
+        && Number(hoy.funnel_id ?? -1) === Number(g.funnel_id ?? -1)
+        && Number(hoy.producto_id ?? -1) === Number(g.producto_id ?? -1);
+      if (igual) continue;
       await sql`update nutricion_secuencias
-                   set trigger_tipo = ${g.trigger_tipo}, etapa = ${g.etapa}, funnel_id = ${g.funnel_id}
+                   set trigger_tipo = ${g.trigger_tipo}, etapa = ${g.etapa}, funnel_id = ${g.funnel_id}, producto_id = ${g.producto_id}
                  where id = ${g.id}`;
-      console.log(`  ✓ sec ${g.id} «${g.clave}»: ${hoy.trigger_tipo}/${hoy.etapa}/${hoy.funnel_id} → ${g.trigger_tipo}/${g.etapa}/${g.funnel_id}`);
+      console.log(`  ✓ sec ${g.id} «${g.clave}»: ${hoy.trigger_tipo}/${hoy.etapa}/f${hoy.funnel_id}/p${hoy.producto_id} → ${g.trigger_tipo}/${g.etapa}/f${g.funnel_id}/p${g.producto_id}`);
       tocadas += 1;
     }
     // Se RELEE para verificar, y se compara contra lo guardado: el UPDATE que contesta ok
@@ -63,8 +67,10 @@ async function main() {
     for (const g of guardadas) {
       const d = despues.get(g.id);
       if (!d) continue;
-      if (d.trigger_tipo !== g.trigger_tipo || d.etapa !== g.etapa || Number(d.funnel_id ?? -1) !== Number(g.funnel_id ?? -1)) {
-        throw new Error(`sec ${g.id} no quedó como el respaldo: ${d.trigger_tipo}/${d.etapa}/${d.funnel_id}`);
+      if (d.trigger_tipo !== g.trigger_tipo || d.etapa !== g.etapa
+        || Number(d.funnel_id ?? -1) !== Number(g.funnel_id ?? -1)
+        || Number(d.producto_id ?? -1) !== Number(g.producto_id ?? -1)) {
+        throw new Error(`sec ${g.id} no quedó como el respaldo: ${d.trigger_tipo}/${d.etapa}/f${d.funnel_id}/p${d.producto_id}`);
       }
     }
     console.log(tocadas ? `✓ ws${WS}: ${tocadas} restauradas y verificadas` : `✓ ws${WS}: nada cambió, no hacía falta restaurar`);
