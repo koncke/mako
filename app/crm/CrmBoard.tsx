@@ -9,6 +9,7 @@
 // en sesión (no se persisten en esta iteración).
 
 import { useSearchParams, usePathname } from 'next/navigation';
+import { empujeDeColumna } from './arrastre-columna';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter } from '@/app/_ui/Link';
 import {
@@ -1676,7 +1677,16 @@ export function CrmBoard({
         /* `data-colprop` marca las columnas que el arrastre reordena: es de donde
            `onBoardDragOver` saca los puntos medios, así que no es decoración. */
         data-colprop={iProp >= 0 ? c.key : undefined}
-        onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key);
+          // El scroller es el hijo con `overflowY`, no la columna: la columna topea
+          // en 68vh y el que desborda es el carril de tarjetas de adentro.
+          const carril = (e.currentTarget as HTMLElement).querySelector('[data-carril]') as HTMLElement | null;
+          if (!carril) return;
+          const d = empujeDeColumna(carril.getBoundingClientRect(), e.clientY);
+          if (d !== 0) carril.scrollTop += d;
+        }}
         onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); pararScroll(); soltarCopia(); }}
         style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
@@ -1812,7 +1822,7 @@ export function CrmBoard({
             </span>
           )}
         </div>
-        <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+        <div data-carril style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
           {/* ⚠️ EL PLACEHOLDER PASA POR EL MISMO CAMINO QUE SOLTAR UNA TARJETA ACÁ.
               Pedido de Martín (29/09/2026): «en todas las columnas, siempre al principio un
               placeholder más finito que las cards normales, que diga Nuevo lead».
