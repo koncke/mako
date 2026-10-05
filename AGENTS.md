@@ -181,6 +181,10 @@ versión anterior. O sea el modo de falla de siempre: no se rompe nada para el c
   `'use server'`»**.
 - **Y el síntoma delata el archivo en el PRIMER error, no en el último.** Con 125 errores
   la reacción es mirar el final; ahí están los `Import traces`, que nombran a cualquiera.
+- **Y desde el mismo día tiene GUARD**: `tests/campana-producto.test.ts` barre `app/` y `lib/`
+  y falla nombrando archivo y línea si un archivo `'use server'` exporta algo que no sea una
+  función async. Probado rompiéndolo. La regla escrita sola no alcanzó ni para la sesión que la
+  escribió.
 
 # Hay dos cuentas de Claude trabajando sobre este repo
 

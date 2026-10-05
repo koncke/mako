@@ -643,4 +643,132 @@ export const BITACORA: Hito[] = [
       'docs/relevo/crm.md — el estado para la sesion de la otra cuenta',
     ],
   },
+  {
+    "fecha": "5 oct",
+    "hora": "14:57",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Acciones en lote, la tabla como la del plan, y mover filas",
+    "pedido": "También revisa el diseño de la tabla, que se parezca más a como lo tenemos en el plan. Con acciones útiles. Y aplica lo que te pedí de mover filas, ya tenemos esa animación.\nMuy importante que implementes las acciones en LOTE, tanto para la vista de tablas como kanban... Copia todo del plan. Y piensa que acciones en lote valdría la pena.",
+    "puntos": [
+      "**Cuatro acciones en lote y una afuera a propósito**: etapa, closer, setter y producto sí; meter los seleccionados en una secuencia de nutrición no — es la única que MANDA MENSAJES, y la línea del chatbot es la no oficial.",
+      "**La barra del plan no se pudo importar**: su `BarraLote` es genérica pero pide un `Board`, y de sus seis acciones cinco se apagarían para un lead. Se comparte el aspecto (la clase, el Dropdown, el molde de tres ranuras), no la pieza."
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "15:19",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "La barra de lote en las dos vistas, y la tabla con casilla, orden y acciones",
+    "puntos": [
+      "⚠️ **`bulkFillLeadFieldAction` sólo rellenaba vacíos**: correcto para el worklist, donde los leads los eligió un filtro, y un bug en una selección deliberada — asignar un Closer a doce que ya tenían otro contestaba «0 actualizados». Va un `pisar` que por defecto es false.",
+      "⚠️ **Y el primer push TIRÓ EL BUILD**: `export const TOPE_LOTE` en un archivo `use server`. El typecheck lo dio por bueno y el deploy quedó en Error con producción sirviendo la versión anterior. Cosechado en AGENTS.md y, desde el punto 5, con un guard para todo el repo."
+    ],
+    "commits": [
+      {
+        "sha": "403e9f40",
+        "msg": "Acciones en lote en el CRM, y la tabla deja de ser una lista",
+        "lineas": 739,
+        "archivos": 4
+      },
+      {
+        "sha": "cceda0d3",
+        "msg": "Arrastrar filas en la tabla del CRM, y el `export const` que tiro el build",
+        "lineas": 162,
+        "archivos": 3
+      }
+    ],
+    "archivos": [
+      "app/crm/AccionesLoteLeads.tsx — la barra",
+      "app/crm/actions.ts — moverLeadsDeEtapaAction y eliminarLeadsAction, por el choke point de a uno"
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "15:46",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "La tabla agrupada por etapa se ve horrible",
+    "pedido": "No separes las etapas, se ve horrible, para eso están los filtros...\nY en la tarjeta, no debe estar el recuadro de selección multiple por defecto, solo si paso el cursor",
+    "puntos": [
+      "**Agrupar la tabla fue el segundo diagnóstico equivocado del arrastre**: de «mover una fila necesita un destino» salió una forma PERMANENTE para una capacidad que existe sólo mientras alguien arrastra. El destino que sobrevivió es otra FILA."
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "16:07",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "El nombre corrido por defecto en la tarjeta",
+    "pedido": "Los nombres no deben estar desplazados por default, solo cuando paso el cursor se debe desplazar",
+    "puntos": [
+      "**El salto con el hover era lo QUERIDO**: yo lo había evitado con `opacity` y eso dejaba 23 px de sangría permanente. Una preferencia de diseño suya, no una regla técnica.",
+      "⚠️ **La medición cazó lo que la lectura no**: con la casilla en ancho cero el nombre quedaba a 4 px en Chromium y 2 en WebKit — el margen que el navegador le pone a todo checkbox."
+    ],
+    "commits": [
+      {
+        "sha": "ef4dcab5",
+        "msg": "La tabla vuelve a ser plana, y la casilla de la tarjeta sale al pasar el cursor",
+        "lineas": 200,
+        "archivos": 2
+      },
+      {
+        "sha": "9dc1cf2e",
+        "msg": "La casilla de la tarjeta deja de ocupar lugar hasta el hover",
+        "lineas": 89,
+        "archivos": 3
+      }
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "18:07",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Asignar campañas a un producto desde «Lead entrante»",
+    "pedido": "Aún no tengo la opción de asignar campaña a un producto en la etapa de lead entrante",
+    "puntos": [
+      "Es el punto 5 del pedido original: «que podamos asignar una campaña y/o adsets a un determinado producto... la configuración de la primera etapa en todo funnel de \"Leads entrantes\", que se pueda tener un desplegable o algo para seleccionar las campañas que deberían caer allí»."
+    ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "18:47",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Campañas y conjuntos de Meta → producto, por las tres puertas",
+    "puntos": [
+      "**Tres mediciones cambiaron el diseño**: el `utm_campaign` de la landing YA ES el id de la campaña (35/35 y 72/119), `adset_id_origen` existía y nadie lo escribía (0 filas), y `marketing_metrics_daily` tiene ad_id y adset_id juntos — el conjunto de un lead de landing sale del anuncio sin llamar a Meta.",
+      "**La campaña manda sobre la landing**, como lo dijo Martín, y un lead que ya existe NO se mueve si vuelve por otro producto: queda escrito en su historial.",
+      "⚠️ **La revisión adversarial (8 agentes) encontró siete problemas antes del push**, y el peor lo habría encontrado él en el primer intento: el pop-up del principal abierto desde el lápiz del selector no mostraba sus campañas ni dejaba asignar ninguna. Seis arreglados; el séptimo era un hueco viejo.",
+      "**Migración 0193 aplicada ANTES del push** y verificada en information_schema: sin la columna, el webhook perdía los leads del formulario (contesta 200 y Meta no reintenta)."
+    ],
+    "commits": [
+      {
+        "sha": "c2a02c1a",
+        "msg": "Asignar campañas y conjuntos de Meta a un producto, desde «Lead entrante»",
+        "lineas": 1113,
+        "archivos": 14
+      }
+    ],
+    "archivos": [
+      "lib/campana-config.ts — el mapa, la precedencia y los tres estados (puro, con test)",
+      "lib/campana-funnel.ts — la resolución: embudos vivos, el del negocio como null, el conjunto desde el anuncio",
+      "app/crm/CampanasDelProducto.tsx — el selector en la tarjeta de «Lead entrante»",
+      "supabase/migrations/0193_lead_campana_meta.sql — leads.meta_campaign_id"
+    ]
+  }
 ];

@@ -6477,3 +6477,80 @@ conversaciones de una necesita su propia pantalla, con el ritmo a la vista.
 arrastrarlo de verdad, y no se pudo sin escribir en producción (el entorno local apunta a
 la Supabase de prod y mover un lead del ws1 mueve el lead de un cliente real). Si se
 verifica, va contra el **Cliente de Prueba (ws3)**.
+
+## Campañas y conjuntos de Meta → producto: lo que decide el embudo de un lead que entra solo
+
+**Vive en:** `lib/campana-config.ts` (el mapa, la precedencia, los tres estados) ·
+`lib/campana-funnel.ts` (la resolución) · `lib/leads.ts` (`upsertLeadFromMeta`) ·
+`app/api/track/optin/route.ts` · `app/crm/CampanasDelProducto.tsx` · mig 0193
+
+Pedido de Martín (05/10/2026): asignar campañas y/o conjuntos de Meta a un PRODUCTO desde la
+tarjeta de «Lead entrante» del pop-up del embudo. Un lead NUEVO de esa campaña nace en el
+tablero de ese producto, por las tres puertas (webhook del formulario, poll de 90 días,
+opt-in de la landing).
+
+**Tres mediciones de producción cambiaron el diseño antes de escribir una línea**, y las tres
+valen para quien toque atribución:
+
+- **El `utm_campaign` de los leads de landing YA ES el id de la campaña**: 35 de 35 en un
+  cliente, 72 de 119 en otro (el resto trae un nombre). Por eso la landing se enruta con una
+  comparación EXACTA (`esIdMeta`) y sin llamar a Meta en una ruta pública. Un nombre nunca
+  matchea, y eso es lo seguro: cae a la regla de la landing.
+- **`leads.adset_id_origen` existía desde la 0001 con CERO filas escritas** en los 7
+  workspaces. Se usa ésa para el conjunto en vez de crear un `meta_adset_id`: dos columnas para
+  el mismo dato es cómo alguien lee la vacía creyendo que está vacía por otra razón.
+- **`marketing_metrics_daily` tiene `ad_id` y `adset_id` en la misma fila** (mig 0009). En la
+  landing no viaja el conjunto, viaja el ANUNCIO (`utm_content`): el conjunto sale de ahí. Sin
+  eso, asignar un conjunto enrutaba el formulario y no la landing de la MISMA campaña. Límite:
+  un anuncio sin un día de métricas no está, y ese lead se enruta por la campaña.
+
+**Las cuatro decisiones, y por qué cada una:**
+
+- **Un MAPA por id, no una lista por embudo.** Una campaña cae en UN producto (el lead tiene un
+  solo `funnel_id`); con la clave en el id, asignarla a otro la MUEVE y el estado ambiguo no se
+  puede escribir.
+- **Setting propio (`meta.campanas`), no `funnels.data`.** Ese jsonb lo reescriben entero
+  varias operaciones del pop-up; un campo nuevo ahí se borra en el primer guardado de un
+  escritor que no lo conoce.
+- **La campaña MANDA sobre la landing** en el opt-in, porque así lo planteó Martín (campaña →
+  producto; la landing es por dónde pasó). Sin campaña asignada decide la landing como antes.
+- **Un lead que YA existe NO se mueve** si vuelve por la campaña de otro producto: queda una
+  línea en su historial («Volvió a entrar por «X», que es de Y. Sigue en su tablero»).
+
+⚠️ **Y `funnelIdDeCampana` devuelve TRES estados, no un `number | null`.** «Nadie asignó esta
+campaña» y «la asignaron al producto del negocio» serían los dos `null`, y el opt-in no podría
+saber si la campaña tiene que ganarle a la landing o dejarla decidir. Es «antes de reusar el
+`null` de un campo, leé qué afirma ya ese `null`» (AGENTS.md).
+
+### Lo que encontró la revisión adversarial, y es trampa para quien venga después
+
+- ⚠️ **El pop-up del embudo recibe el producto principal de DOS formas.** Desde el lápiz del
+  selector del tablero (`onEditarEtapas(f.id)` en TODAS las filas) llega con su id NUMÉRICO;
+  desde otros caminos llega `null`. `EmbudoEnDetalle.id` dice «null = el del negocio» y
+  **miente a medias**: también puede ser el número con `esDefault: true`. Todo lo que se monte
+  adentro de `EtapasModal` y guarde algo «del producto» normaliza con
+  `emb.esDefault ? null : emb.id`. Acá, sin normalizar, el principal no mostraba sus campañas y
+  rechazaba asignar cualquiera — el primer caso que Martín iba a probar.
+- ⚠️ **Leer-modificar-escribir un setting con `getSetting` borra la configuración entera ante
+  una lectura caída.** `getSetting` convierte un error en `null`, el saneo lo vuelve `[]`, y el
+  guardado escribe `[la nueva]`. Las escrituras leen con `getSettingEstricto`, que existía
+  justo para eso; el RUTEO sigue tolerante a propósito (un lead tiene que entrar igual).
+- ⚠️ **Validar el ganador DESPUÉS de la precedencia deja que una asignación muerta tape a una
+  viva.** Conjunto → producto archivado, su campaña → producto vivo: el lead caía al del
+  negocio. La validación (`esViva`) va ANTES de elegir.
+
+### Lo que quedó SIN hacer
+
+- **El lead que cae a PROPUESTA en el opt-in** (duplicados o alta fallida) no lleva el producto,
+  ni el de la campaña ni el de la landing. Es un hueco anterior a esto y está documentado por su
+  propio test («el camino del DUPLICADO no finge llevar el producto», `tests/landing-optin.test.ts`):
+  `FilaImport` no declara `funnel_id`.
+- **La segunda mitad del pedido original: el detalle del lead mostrando las métricas de la
+  landing de ESA campaña, y el desplegable de producto en la ficha cambiando esas métricas.**
+  No está. Lo que lo destraba: (1) los leads de landing no copian el id a `meta_campaign_id`
+  (vive en `utm_campaign`), así que «de qué campaña vino» todavía son dos columnas según la
+  puerta; (2) `landing_visits` no guarda atribución por visita, así que el recorrido de una
+  persona por dos campañas sólo se puede registrar de acá en adelante; (3) una persona en dos
+  productos a la vez necesita otro modelo (una fila por participación) — y con dos embudos
+  vivos, `nutricion_secuencias.funnel_id` no lo lee nadie y la misma persona recibiría los
+  WhatsApps de los dos.
