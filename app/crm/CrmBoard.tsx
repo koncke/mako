@@ -13,6 +13,7 @@ import { empujeDeColumna } from './arrastre-columna';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter } from '@/app/_ui/Link';
 import { Fragment,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -59,6 +60,7 @@ import {
   resolverQueHacerAction,
   linkDeAgendaAction,
   editarEtapaAction,
+  eliminarLeadsAction,
   type OpEtapa,
 } from './actions';
 import type { ReagendarResultado, StageMoveData } from './actions';
@@ -107,6 +109,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
 import { NewLeadForm } from './new/NewLeadForm';
+import { AccionesLoteLeads } from './AccionesLoteLeads';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -189,6 +192,76 @@ export type CrmMarcar = {
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
+
+/** Los rotulos de los controles de una fila. Viven en una funcion y no inline porque
+ *  cada uno sale DOS veces (el `title` que se ve al pasar el cursor y el `aria-label`
+ *  que se anuncia), y dos copias de un texto divergen a la primera correccion. */
+const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
+const rotPoner = (nombre: string) => `Seleccionar «${nombre}»`;
+const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
+const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
+/** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
+const waDe = (telefono: string) => `https://wa.me/${telefono}`;
+
+function IconoWhatsapp() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2m0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.5.7.7-2.4-.2-.3A8 8 0 0 1 12 4m-3.4 4c-.2 0-.5 0-.7.4-.2.4-.8.9-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.6 4 3.5 1.9.8 2.3.6 2.8.6.4 0 1.3-.5 1.5-1.1.2-.5.2-1 .1-1.1l-.6-.3-1.4-.7c-.2 0-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6.5 6.5 0 0 1-3.2-2.8c-.1-.3 0-.4.1-.5l.4-.5.2-.4v-.4l-.7-1.6c-.1-.4-.3-.4-.4-.4Z" />
+    </svg>
+  );
+}
+function IconoTachoFila() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+    </svg>
+  );
+}
+
+/** Por que columna se ordena la tabla. */
+type OrdenTabla = 'nombre' | 'empresa' | 'origen' | 'etapa' | 'agenda' | 'monto' | 'creado';
+
+/** Las columnas de la tabla, en una sola constante: la usan el encabezado Y cada fila.
+ *  Con dos listas, agregar una columna desalinea la tabla entera y no lo dice nadie. */
+const COLS_TABLA = '34px 2fr 1.4fr 1.5fr 1.25fr .95fr .95fr .8fr 64px';
+
+/**
+ * Un encabezado que ORDENA. Copiado del `Th` de la tabla del plan
+ * (app/plan/board/Tablas.tsx), con lo mismo que lo hace usable ahi:
+ *
+ *   · sin `onSort` no dibuja boton — una columna que no se puede ordenar no finge que si;
+ *   · la flecha sale SOLO en la columna activa, o siete flechas grises compiten con los
+ *     rotulos y ninguna dice nada;
+ *   · `aria-sort` para que se anuncie, que es lo unico que le queda a quien no ve la flecha.
+ */
+function ThCrm({ children, activo, dir, onSort, alinear = 'left' }: {
+  children: ReactNode;
+  activo?: boolean;
+  dir?: 'asc' | 'desc';
+  onSort?: () => void;
+  alinear?: 'left' | 'right';
+}) {
+  const base: CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
+    justifyContent: alinear === 'right' ? 'flex-end' : 'flex-start',
+  };
+  if (!onSort) return <span style={base}>{children}</span>;
+  return (
+    <span style={base} aria-sort={activo ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" onClick={onSort}
+        title={`Ordenar por ${typeof children === 'string' ? children.toLowerCase() : 'esta columna'}`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, border: 0,
+          background: 'none', cursor: 'pointer', font: 'inherit', letterSpacing: 'inherit',
+          textTransform: 'inherit', color: activo ? 'var(--ink)' : 'inherit',
+          fontWeight: activo ? 700 : 'inherit',
+        }}>
+        {children}
+        {activo && <span aria-hidden style={{ fontSize: 9, lineHeight: 1 }}>{dir === 'asc' ? '▲' : '▼'}</span>}
+      </button>
+    </span>
+  );
+}
 
 /**
  * Las tres bandas del Kanban, en el orden en que se dibujan.
@@ -357,6 +430,27 @@ export function CrmBoard({
     setView(v === 'kanban' ? 'kanban' : 'table');
   };
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  /**
+   * LO TILDADO, COMPARTIDO POR LAS DOS VISTAS. Un `Set` de ids y no de leads: la lista se
+   * recarga sola (`router.refresh`) y guardar los objetos dejaria la barra operando sobre
+   * copias viejas — el mismo caso que `selectedId`, que por eso tambien es un id.
+   *
+   * ⚠️ VIVE EN EL TABLERO Y NO EN CADA VISTA, a proposito: conmutar entre Kanban y tabla
+   * NO pierde la seleccion. En el plan eso se aprendio al reves (tildar en la tabla y
+   * conmutar a tarjetas dejaba la barra actuando sobre lo que no estaba en pantalla), y la
+   * cura fue exactamente esta: un solo estado arriba de las dos.
+   */
+  const [selLeads, setSelLeads] = useState<Set<number>>(new Set());
+  /** El lead cuyo tacho de fila se apreto, esperando confirmacion. Es un LEAD y no un id
+   *  porque la pregunta lo NOMBRA, y volver a buscarlo para escribir el nombre seria
+   *  pedirle a la lista que no haya cambiado entre el click y la respuesta. */
+  const [borrarUno, setBorrarUno] = useState<CrmLead | null>(null);
+  const limpiarSel = useCallback(() => setSelLeads(new Set()), []);
+  const alternarSel = useCallback((id: number) => setSelLeads((p) => {
+    const q = new Set(p);
+    if (q.has(id)) q.delete(id); else q.add(id);
+    return q;
+  }), []);
   const [stageMove, setStageMove] = useState<{ leadId: number; move: StageMoveTarget } | null>(null);   // pop-up chico de completar movimiento
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
@@ -1331,6 +1425,60 @@ export function CrmBoard({
   const originOptions = useMemo(() => [...new Set(leads.map((l) => l.origin))].filter(Boolean).sort((a, b) => a.localeCompare(b)), [leads]);
   const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || search.trim().length > 0;
   const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setSearch(''); };
+
+  /**
+   * EL ORDEN DE LA TABLA. Es lo que separa una tabla de una lista: el plan ordena por
+   * cualquiera de sus columnas y esta no ordenaba por ninguna — llegaba como la devolvia
+   * la consulta y no habia forma de pedir «los de mayor monto» ni «los mas viejos».
+   *
+   * ⚠️ VIVE SOLO EN LA TABLA. El Kanban tiene su propio orden (la columna y la posicion
+   * dentro de ella), y conmutar de vista no puede reordenar un tablero que se ordena solo.
+   */
+  const [ordenTabla, setOrdenTabla] = useState<OrdenTabla>('creado');
+  const [dirTabla, setDirTabla] = useState<'asc' | 'desc'>('desc');
+  const sortearTabla = (c: OrdenTabla) => {
+    if (c === ordenTabla) { setDirTabla((d) => (d === 'asc' ? 'desc' : 'asc')); return; }
+    setOrdenTabla(c);
+    // Al CAMBIAR de columna se arranca por lo que esa columna contesta mejor: un nombre de
+    // la A a la Z, un monto y una fecha de mayor a menor. Heredar la direccion anterior
+    // deja la primera vista de cada columna al reves la mitad de las veces.
+    setDirTabla(c === 'monto' || c === 'creado' ? 'desc' : 'asc');
+  };
+
+  const filasTabla = useMemo(() => {
+    const etiqueta = (l: CrmLead) => findStage(stages, effStage(l)).label;
+    // Lo vacio va SIEMPRE al final, suba o baje el orden: un hueco no es «antes de la A»
+    // ni «despues de la Z», y mezclarlo con los valores deja la tabla contestando que el
+    // lead sin empresa es el primero de la lista.
+    const txt = (v: string) => (v ?? '').trim();
+    const cmp = (a: CrmLead, b: CrmLead): number => {
+      const signo = dirTabla === 'asc' ? 1 : -1;
+      const porTexto = (x: string, y: string) => {
+        if (!x && !y) return 0;
+        if (!x) return 1;        // sin signo: el vacio al fondo en las dos direcciones
+        if (!y) return -1;
+        return signo * x.localeCompare(y, 'es');
+      };
+      switch (ordenTabla) {
+        case 'nombre':  return porTexto(txt(a.name), txt(b.name));
+        case 'empresa': return porTexto(txt(a.company), txt(b.company));
+        case 'origen':  return porTexto(txt(a.origin), txt(b.origin));
+        case 'etapa':   return porTexto(etiqueta(a), etiqueta(b));
+        case 'agenda':  return porTexto(txt(a.agendaISO ?? ''), txt(b.agendaISO ?? ''));
+        case 'monto':   return signo * ((a.monto || 0) - (b.monto || 0));
+        // Por el ISO y no por lo que se DIBUJA: «04/10/2026» ordenado como texto pone
+        // noviembre antes que octubre, y el error no se ve hasta que cambia el mes.
+        default:        return porTexto(txt(a.createdISO), txt(b.createdISO));
+      }
+    };
+    return [...filtered].sort(cmp);
+  }, [filtered, ordenTabla, dirTabla, stages]);
+
+  /** Lo tildado que TODAVIA existe. La lista se recarga sola, asi que un id que ya no
+   *  esta (lo borro otra pestaña, se movio de producto) no puede seguir contando. */
+  const elegidos = useMemo(() => leads.filter((l) => selLeads.has(l.id)), [leads, selLeads]);
+  const idsVisibles = filtered.map((l) => l.id);
+  const todosSel = idsVisibles.length > 0 && idsVisibles.every((id) => selLeads.has(id));
   const abrirFiltro = (cat: FiltroCat) => setFiltroAbierto(cat);
 
   // ── worklist "datos sin marcar" ──
@@ -1985,7 +2133,19 @@ export function CrmBoard({
                 style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: 1, transform: 'none', boxShadow: 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
+                  {/* LA CASILLA. `onClick` con `stopPropagation` y no `onChange`: el click
+                      en la tarjeta ABRE la ficha, asi que sin frenarlo tildar abriria el
+                      lead. Y el `onPointerDown` frena el ARRASTRE — la tarjeta entera es
+                      `draggable`, y sin esto agarrar la casilla empieza a mover el lead en
+                      vez de tildarlo (el molde de `data-nodrag` de la tabla del plan). */}
+                  <input type="checkbox" checked={selLeads.has(l.id)}
+                    onPointerDown={(ev) => ev.stopPropagation()}
+                    onClick={(ev) => { ev.stopPropagation(); alternarSel(l.id); }}
+                    onChange={() => { /* lo hace el onClick: ver arriba */ }}
+                    title={selLeads.has(l.id) ? `Quitar «${l.name}» de la selección` : `Seleccionar «${l.name}»`}
+                    aria-label={selLeads.has(l.id) ? `Quitar «${l.name}» de la selección` : `Seleccionar «${l.name}»`}
+                    style={{ width: 15, height: 15, marginTop: 2, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
+                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0, flex: 1 }}>{l.name}</div>
                   {/* Sin parpadeo (08-T22). Un tablero donde cada card incompleta
                       titilaba en rojo le decía a Mauricio, apenas entraba, que tenía
                       un chorro de cosas por contestar — y lo abandonaba. Lo que falta
@@ -2172,6 +2332,34 @@ export function CrmBoard({
         />
       )}
 
+      {/* LA BARRA DE LOTE: UNA, ARRIBA DE LAS DOS VISTAS.
+          La seleccion vive en el tablero y SOBREVIVE al cambio de vista (ver `selLeads`),
+          asi que la barra tambien: montarla adentro de cada rama serian dos copias del
+          mismo control, y el dia que una gane una accion la otra se queda vieja.
+
+          No se dibuja en «datos sin marcar»: esa vista tiene su propio lote
+          (`BulkHigiene`), que contesta otra pregunta — ahi los leads los eligio un
+          filtro y aca los tildo una persona.
+
+          `position: sticky` + `top: 8` es `BarraPegada` del plan, escrita aca porque es
+          una linea y porque importarla arrastraria `Tablas.tsx` entero (95 KB) al bundle
+          del CRM. ⚠️ Y VA AFUERA de la caja de la tabla, que lleva `overflow: hidden`:
+          un sticky adentro de algo que recorta se queda clavado igual que si no lo
+          tuviera, con el `position` puesto y sin un solo error. */}
+      {!showSinMarcar && elegidos.length > 0 && (
+        <div style={{ position: 'sticky', top: 8, zIndex: 20, marginBottom: 10 }}>
+          <AccionesLoteLeads
+            elegidos={elegidos.map((l) => ({ id: l.id, name: l.name, stage: effStage(l), closer: l.closer, setter: l.setter }))}
+            stages={stages}
+            productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
+            equipo={equipo}
+            funnelActivo={funnelActivo}
+            onLimpiar={limpiarSel}
+            onListo={(r) => { mostrarAviso(r.texto); router.refresh(); }}
+            estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
+        </div>
+      )}
+
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
         <SinMarcar
@@ -2226,24 +2414,79 @@ export function CrmBoard({
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.6fr 1.3fr 1fr 1fr 0.8fr', gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: MONO, fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)' }}>
-            <span>Nombre</span><span>Empresa</span><span>Origen</span><span>Etapa</span><span>¿Agendó?</span><span>Estado / Monto</span><span style={{ textAlign: 'right' }}>Creado</span>
+          {/* ⚠️ LA CASILLA DE «TODAS» MARCA LO QUE SE VE, no la tabla entera. Con un filtro
+              puesto, «todas» tiene que significar las que el filtro dejo — seleccionar en
+              silencio 1.100 leads que no estan en pantalla y despues ofrecer «Eliminar» es
+              exactamente el boton que nadie puede auditar antes de apretarlo. */}
+          <div style={{ display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: MONO, fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)', alignItems: 'center' }}>
+            <span>
+              <input type="checkbox" checked={todosSel}
+                ref={(el) => { if (el) el.indeterminate = !todosSel && idsVisibles.some((id) => selLeads.has(id)); }}
+                onChange={() => setSelLeads(todosSel ? new Set() : new Set(idsVisibles))}
+                title={todosSel ? 'Quitar la selección' : 'Seleccionar los de esta vista'}
+                aria-label={todosSel ? 'Quitar la selección' : 'Seleccionar los de esta vista'}
+                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+            </span>
+            <ThCrm activo={ordenTabla === 'nombre'} dir={dirTabla} onSort={() => sortearTabla('nombre')}>Nombre</ThCrm>
+            <ThCrm activo={ordenTabla === 'empresa'} dir={dirTabla} onSort={() => sortearTabla('empresa')}>Empresa</ThCrm>
+            <ThCrm activo={ordenTabla === 'origen'} dir={dirTabla} onSort={() => sortearTabla('origen')}>Origen</ThCrm>
+            <ThCrm activo={ordenTabla === 'etapa'} dir={dirTabla} onSort={() => sortearTabla('etapa')}>Etapa</ThCrm>
+            <ThCrm activo={ordenTabla === 'agenda'} dir={dirTabla} onSort={() => sortearTabla('agenda')}>¿Agendó?</ThCrm>
+            <ThCrm activo={ordenTabla === 'monto'} dir={dirTabla} onSort={() => sortearTabla('monto')}>Monto</ThCrm>
+            <ThCrm activo={ordenTabla === 'creado'} dir={dirTabla} onSort={() => sortearTabla('creado')} alinear="right">Creado</ThCrm>
+            {/* SIN ROTULO: la columna trae dos acciones distintas y una palabra nombraria
+                mal a una de las dos. Cada boton se anuncia por su `title`/`aria-label`,
+                que es donde el texto no ocupa lugar. */}
+            <span aria-label="Acciones" />
           </div>
-          {filtered.map((l) => {
+          {filasTabla.map((l) => {
             const m = findStage(stages, effStage(l));
             const isGanado = effStage(l) === 'ganado';
+            const tildado = selLeads.has(l.id);
             return (
-              <div key={l.id} onClick={() => openDetail(l)} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.6fr 1.3fr 1fr 1fr 0.8fr', gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', alignItems: 'center', cursor: 'pointer' }}>
+              <div key={l.id} onClick={() => openDetail(l)}
+                style={{ display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', alignItems: 'center', cursor: 'pointer', background: tildado ? 'var(--surface-2)' : undefined }}>
+                {/* Igual que en la tarjeta: el click de la FILA abre la ficha, asi que la
+                    casilla frena la propagacion o tildar abriria el lead. */}
+                <input type="checkbox" checked={tildado}
+                  onClick={(ev) => { ev.stopPropagation(); alternarSel(l.id); }}
+                  onChange={() => { /* lo hace el onClick */ }}
+                  title={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
+                  aria-label={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.email}</div>
                 </div>
                 <div style={{ fontSize: 13.5, color: 'var(--ink)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
-                <div><span style={chipStyle(m.tone)}>{m.label}</span></div>
+                <div style={{ minWidth: 0 }}><span style={chipStyle(m.tone)}>{m.label}</span></div>
                 <div style={{ fontSize: 13, color: 'var(--dim)' }}>{l.agenda ?? '—'}</div>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : '—'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'right', whiteSpace: 'nowrap' }}>{l.created}</div>
+                {/* ── LAS ACCIONES DE LA FILA. «Con acciones utiles» (05/10/2026). Son las dos
+                    que hoy obligan a abrir la ficha para nada: escribirle, y sacarlo. Las dos
+                    frenan la propagacion — un tacho que ademas abre la ficha deja la
+                    confirmacion detras de un panel. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'flex-end' }}>
+                  {/* Solo con telefono: un boton de WhatsApp sin numero no puede ir a ningun
+                      lado, y uno apagado en cada fila es ruido por fila. */}
+                  {l.telefonoNorm && (
+                    <a href={waDe(l.telefonoNorm)} target="_blank" rel="noopener noreferrer"
+                      onClick={(ev) => ev.stopPropagation()}
+                      title={rotWa(l.name)} aria-label={rotWa(l.name)}
+                      className="mk-icon-btn" data-tone="dim"
+                      style={{ width: 28, height: 28, textDecoration: 'none' }}>
+                      <IconoWhatsapp />
+                    </a>
+                  )}
+                  <button type="button" className="mk-icon-btn" data-tone="dim"
+                    onClick={(ev) => { ev.stopPropagation(); setBorrarUno(l); }}
+                    title={rotEliminar(l.name)} aria-label={rotEliminar(l.name)}
+                    style={{ width: 28, height: 28 }}>
+                    <IconoTachoFila />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -2333,6 +2576,26 @@ export function CrmBoard({
           }} />
           )}
         </Modal>
+      )}
+      {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote, en singular y nombrando
+          al lead: «No se puede deshacer» es lo unico que convierte un icono chico al
+          borde de una fila en una decision. */}
+      {borrarUno && (
+        <ConfirmDialog
+          title={`¿Eliminar «${borrarUno.name}»?`}
+          message="Se va con su historial y sus pagos. No se puede deshacer."
+          confirmLabel="Eliminar"
+          tone="danger"
+          onConfirm={() => {
+            const id = borrarUno.id;
+            const nombre = borrarUno.name;
+            setBorrarUno(null);
+            void eliminarLeadsAction([id]).then((r) => {
+              mostrarAviso(r.borrados ? `Eliminado «${nombre}»` : 'No se pudo eliminar');
+              router.refresh();
+            });
+          }}
+          onCancel={() => setBorrarUno(null)} />
       )}
       <Toast state={avisoBoard} onClose={limpiarAviso} />
 

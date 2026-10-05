@@ -1014,6 +1014,21 @@ export async function bulkFillLeadFieldAction(
   field: 'setter' | 'closer' | 'empresa',
   value: string,
   leadIds: number[],
+  /**
+   * PISAR lo que ya tiene valor. Por defecto NO, que es lo que el worklist de higiene
+   * necesita: ahi los leads los eligio un filtro («a estos les falta el Setter»), asi que
+   * sobrescribir seria cambiar un dato que nadie miro.
+   *
+   * La barra de seleccion es el caso OPUESTO y por eso existe este parametro: ahi los
+   * leads los tildo una persona de a uno, mirandolos. Con el default puesto, asignarle un
+   * Closer a doce leads que ya tienen otro no escribe NADA y contesta «0 actualizados» —
+   * un control que no puede hacer nada se lee como que la app esta rota, y encima el cero
+   * es plausible.
+   *
+   * ⚠️ Quien lo pasa en `true` tiene que DECIR cuantos va a pisar antes de hacerlo: el
+   * dato viejo no vuelve solo, y el historial es el unico lugar donde queda.
+   */
+  pisar = false,
 ): Promise<{ updated: number }> {
   const v = value.trim();
   if (!v) throw new Error('Pon un valor para asignar.');
@@ -1037,8 +1052,11 @@ export async function bulkFillLeadFieldAction(
       // Matchea '' además de null: el worklist marca faltante con !trim(), así que
       // un setter='' se ve pendiente pero .is(null) no lo agarraba (quedaba trabado).
       // `.select('id')` devuelve EXACTAMENTE las filas que se rellenaron.
-      const { data: upd, error: updErr } = await db
-        .from('leads').update(patch).in('id', chunk).or(`${field}.is.null,${field}.eq.`).select('id');
+      // Con `pisar` no va el `.or(...)`: se escribe sobre los doce que la persona tildo.
+      // Sin el, el UPDATE re-chequea que el campo este vacio en la MISMA sentencia, asi que
+      // no hay ventana entre el read y el write.
+      const q = db.from('leads').update(patch).in('id', chunk);
+      const { data: upd, error: updErr } = await (pisar ? q : q.or(`${field}.is.null,${field}.eq.`)).select('id');
       if (updErr) { console.error(`[bulk] update chunk falló: ${updErr.message}`); continue; }
       const hechos = ((upd ?? []) as Array<{ id: number }>).map((r) => Number(r.id));
       if (!hechos.length) continue;
@@ -1056,6 +1074,70 @@ export async function bulkFillLeadFieldAction(
   revalidatePath('/crm');
   revalidatePath('/general');
   return { updated };
+}
+
+/** El techo de una accion en lote. No es una restriccion del motor: es el tamano a partir
+ *  del cual «lo hice» deja de ser una respuesta util y lo que hace falta es un filtro. */
+export const TOPE_LOTE = 200;
+
+/**
+ * Mueve VARIOS leads a una etapa.
+ *
+ * ⚠️ LLAMA AL MISMO `setLeadStageAction` DE A UNO, y es a proposito: ese es el unico camino
+ * que escribe la etapa, el historial, los pendientes y lo que la etapa dispare. Un UPDATE
+ * masivo seria la segunda implementacion de «mover de etapa» —mas rapida y sin historial,
+ * sin pendientes y sin automatismos—, que es exactamente como divergen dos escrituras del
+ * mismo dato en este repo.
+ *
+ * ⚠️ Y NO BLOQUEA, igual que el camino de a uno: mover se guarda SIEMPRE y lo que la etapa
+ * pide y falta vuelve como pendiente (decision del 17/09/2026). Por eso el resultado
+ * distingue TRES numeros y no uno: cuantos se movieron, a cuantos de esos les falta algo, y
+ * cuantos fallaron. Con un solo «N movidos», un lote entero que quedo a medias se lee como
+ * un exito.
+ */
+export async function moverLeadsDeEtapaAction(
+  leadIds: number[],
+  stageKey: string,
+): Promise<{ movidos: number; conPendientes: number; fallaron: number }> {
+  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
+  let movidos = 0, conPendientes = 0, fallaron = 0;
+  // SECUENCIAL: cada vuelta son ~6 consultas y un `revalidatePath`. En paralelo no se gana
+  // nada util y se multiplica la chance de que un lote quede a medias sin poder decir donde.
+  for (const id of ids) {
+    try {
+      const r = await setLeadStageAction(id, stageKey);
+      // ⚠️ `StageMoveResultado` ES UNA UNION, y la rama `ok: false` NO movio el lead.
+      // Contarla como movida seria exactamente el «N movidos» mentiroso que esta action
+      // existe para evitar: el numero se leeria como exito sobre un lote a medias.
+      if (!r.ok) { fallaron += 1; continue; }
+      movidos += 1;
+      if (r.pendientes?.length) conPendientes += 1;
+    } catch (e) {
+      fallaron += 1;
+      console.error(`[lote] no se pudo mover el lead ${id} a ${stageKey}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return { movidos, conPendientes, fallaron };
+}
+
+/**
+ * Borra VARIOS leads. Irreversible: quien la llama PREGUNTA antes, nombrando el numero.
+ *
+ * Mismo criterio que la de arriba: `deleteLead` de a uno, que es el que se lleva por delante
+ * lo que cuelga del lead (pagos, historial, pendientes). Un `delete ... in (...)` dejaria
+ * huerfano todo eso.
+ */
+export async function eliminarLeadsAction(leadIds: number[]): Promise<{ borrados: number; fallaron: number }> {
+  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0).slice(0, TOPE_LOTE);
+  let borrados = 0, fallaron = 0;
+  for (const id of ids) {
+    try { await deleteLead(id); borrados += 1; }
+    catch (e) { fallaron += 1; console.error(`[lote] no se pudo borrar el lead ${id}:`, e instanceof Error ? e.message : e); }
+  }
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/crm');
+  revalidatePath('/general');
+  return { borrados, fallaron };
 }
 
 /**
