@@ -12,6 +12,7 @@ import 'server-only';
 // afirma a alguien que no tiene clientes en entrega.
 
 import { listProductos } from '@/lib/productos';
+import { secuenciasPorEtapaDeEntrega } from '@/lib/nutricion';
 import { entregasDeProductos, clientesEnEntrega, type ClienteEnEntrega } from '@/lib/entrega-servicio';
 import type { EtapaEntrega } from '@/lib/servicio-etapas';
 
@@ -25,7 +26,25 @@ export type Servicio = {
 };
 
 export type CarteraEnEntrega =
-  | { ok: true; servicios: Servicio[]; porServicio: Record<number, Record<number, ClienteEnEntrega>> }
+  | {
+      ok: true;
+      servicios: Servicio[];
+      porServicio: Record<number, Record<number, ClienteEnEntrega>>;
+      /**
+       * Cuántas SECUENCIAS cuelgan de cada etapa de cada servicio.
+       *
+       * Lo necesita el editor: borrar una columna no sólo deja clientes sin lugar,
+       * también deja secuencias apuntando a una etapa que no existe — y ésas dejan
+       * de dispararse sin que nada avise. «Sacar algo de un catálogo no es borrarlo:
+       * hay gente APUNTÁNDOLE», y los clientes eran sólo la mitad de esa gente.
+       *
+       * ⚠️ `null` = NO SE PUDO LEER, y hay que tratarlo distinto de un mapa vacío:
+       * decir «ninguna secuencia» sobre una consulta caída es la afirmación que hace
+       * apretar el botón. Las etapas sin secuencias vienen AUSENTES, no en cero: el
+       * universo de etapas es de acá, no de la nutrición.
+       */
+      secuenciasPorServicio: Record<number, Record<string, number> | null>;
+    }
   | { ok: false; error: string };
 
 /**
@@ -39,7 +58,7 @@ export type CarteraEnEntrega =
 export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
   try {
     const productos = await listProductos(true);
-    if (!productos.length) return { ok: true, servicios: [], porServicio: {} };
+    if (!productos.length) return { ok: true, servicios: [], porServicio: {}, secuenciasPorServicio: {} };
 
     const ids = productos.map((p) => p.id);
     const catalogos = await entregasDeProductos(ids);
@@ -48,6 +67,10 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
     // tenga el negocio (hoy, entre uno y un puñado) y cada una está indexada por
     // (workspace_id, producto_id, etapa) — el índice del tablero de la mig 0188.
     const filas = await Promise.all(ids.map(async (id) => [id, await clientesEnEntrega(id)] as const));
+    // Las secuencias de cada servicio, en la misma tanda. Son una consulta chica por
+    // producto y viajan con el HTML por lo mismo que todo lo demás de esta pantalla:
+    // el editor se abre encima del tablero y no puede tener estado de carga.
+    const secs = await Promise.all(ids.map(async (id) => [id, await secuenciasPorEtapaDeEntrega(id)] as const));
 
     const porServicio: Record<number, Record<number, ClienteEnEntrega>> = {};
     for (const [id, cs] of filas) {
@@ -65,7 +88,7 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
         origen: cat?.origen ?? 'default',
       };
     });
-    return { ok: true, servicios, porServicio };
+    return { ok: true, servicios, porServicio, secuenciasPorServicio: Object.fromEntries(secs) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer la entrega de tus servicios.' };
   }

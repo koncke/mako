@@ -484,6 +484,10 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           /* El conteo por etapa sale del MISMO overlay que dibuja el tablero: con dos
              fuentes, el editor diria «3 en Hito 1» sobre una columna que ya muestra 2. */
           conteo={conteoDeEtapas(servicio.etapas, Object.values(asignacionDe(servicio.productoId)).map((a) => a.etapa))}
+          /* ⚠️ `undefined` y `null` NO son lo mismo acá: sin la lectura (el server no
+             la trajo) y con la lectura caída, el editor tiene que decir las dos veces
+             que no pudo revisar — nunca «ninguna». Por eso el `??` cae a `null`. */
+          secuencias={entrega?.ok ? (entrega.secuenciasPorServicio[servicio.productoId] ?? null) : null}
           onGuardar={guardarEtapas}
           onCerrar={() => setEditandoEtapas(false)}
         />

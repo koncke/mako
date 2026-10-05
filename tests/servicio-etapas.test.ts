@@ -29,7 +29,11 @@
 //     contar NO se dice como ninguno»): es el caso que hace apretar el boton.
 //   · la misma frase sin el NUMERO -> 19 pass / 1 fail.
 //   · `<= 0` cambiado por `=== 0`, o sea un negativo que se escribe -> 19 pass / 1 fail.
-//   Restaurado: 20 pass / 0 fail.
+//   · `fraseSecuenciasHuerfanas` con el verbo cableado en plural -> 22 pass / 1 fail.
+//     Es el bug REAL que se vio en pantalla: «1 secuencia... al guardar DEJAN».
+//   · el plural sacado de la primera entrada en vez del total -> 22 pass / 1 fail.
+//   · las etapas con 0 secuencias entrando a la frase -> 22 pass / 1 fail.
+//   Restaurado: 23 pass / 0 fail.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -38,6 +42,7 @@ import {
   ETAPAS_ENTREGA_DEFAULT, entregaPorDefecto, etapaInicial, etapaValida, etapaDe,
   nuevaClaveEtapa, colorNuevaEtapa, normalizarEtapas,
   campoEntrega, esCampoEntrega, PREFIJO_CAMPO_ENTREGA, fraseEntregaAlBorrar,
+  fraseSecuenciasHuerfanas,
 } from '../lib/servicio-etapas';
 
 // ── El default existe y se declara como default ──────────────────────────────
@@ -190,5 +195,38 @@ test('sin nadie en la entrega no se agrega un renglon', () => {
   assert.equal(fraseEntregaAlBorrar(0), '');
   // Un negativo no deberia llegar, y si llega no se escribe «-3 clientes pierden».
   assert.equal(fraseEntregaAlBorrar(-3), '');
+});
+
+// ── Las secuencias que quedan sin etapa ──────────────────────────────────────
+
+// Es el aviso mas caro del editor: un cliente sin columna se puede volver a mover y el
+// tablero lo muestra; una secuencia sin etapa deja de dispararse y no se ve en ningun lado.
+test('con UNA secuencia el verbo concuerda', () => {
+  const f = fraseSecuenciasHuerfanas([{ label: 'Hito 1', n: 1 }]);
+  assert.match(f, /1 secuencia en Hito 1/);
+  assert.match(f, /deja de dispararse/);
+  assert.doesNotMatch(f, /dejan de dispararse/, 'un aviso que no concuerda se lee como texto automatico');
+  assert.match(f, /Reapuntala|Reap\u00fantala/);
+});
+
+test('con VARIAS, el plural sale del TOTAL y no de cada entrada', () => {
+  // Dos etapas con UNA cada una: cada entrada va en singular y el verbo en plural.
+  const f = fraseSecuenciasHuerfanas([{ label: 'Hito 1', n: 1 }, { label: 'Hito 2', n: 1 }]);
+  assert.match(f, /1 secuencia en Hito 1/);
+  assert.match(f, /1 secuencia en Hito 2/);
+  assert.match(f, /dejan de dispararse/);
+  const g = fraseSecuenciasHuerfanas([{ label: 'Hito 1', n: 3 }]);
+  assert.match(g, /3 secuencias en Hito 1/);
+  assert.match(g, /dejan de dispararse/);
+});
+
+test('las etapas sin secuencias no entran a la frase', () => {
+  assert.equal(fraseSecuenciasHuerfanas([]), '');
+  assert.equal(fraseSecuenciasHuerfanas([{ label: 'Arranque', n: 0 }]), '');
+  // Y una con 0 al lado de una con 2 no se nombra: decir «0 secuencias en Arranque»
+  // es ruido adentro del unico renglon que tiene que frenar a alguien.
+  const f = fraseSecuenciasHuerfanas([{ label: 'Arranque', n: 0 }, { label: 'Hito 1', n: 2 }]);
+  assert.doesNotMatch(f, /Arranque/);
+  assert.match(f, /2 secuencias en Hito 1/);
 });
 

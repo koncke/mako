@@ -24,19 +24,30 @@
 import { useMemo, useState } from 'react';
 import { Modal, Button, Banner } from '@/app/_ui';
 import {
-  nuevaClaveEtapa, colorNuevaEtapa, normalizarEtapas,
+  nuevaClaveEtapa, colorNuevaEtapa, normalizarEtapas, fraseSecuenciasHuerfanas,
   type EtapaEntrega,
 } from '@/lib/servicio-etapas';
 
 /** Un tablero de una sola columna no es un tablero. */
 const MINIMO = 2;
 
-export function EtapasEntregaModal({ servicio, etapas, conteo, onGuardar, onCerrar }: {
+export function EtapasEntregaModal({ servicio, etapas, conteo, secuencias, onGuardar, onCerrar }: {
   servicio: string;
   etapas: EtapaEntrega[];
   /** Cuántos clientes hay en cada etapa. Es lo que hace que borrar sea una decisión
    *  informada y no una sorpresa. */
   conteo: Record<string, number>;
+  /**
+   * Cuántas SECUENCIAS cuelgan de cada etapa. Los clientes eran sólo la mitad de la
+   * gente que apunta a una columna: la otra mitad son los mensajes automáticos, y ésos
+   * no se «listan aparte» cuando la etapa desaparece — dejan de dispararse, en silencio.
+   *
+   * ⚠️ `null` = NO SE PUDO LEER. No es lo mismo que un mapa vacío, y por eso no se
+   * normaliza a `{}` al entrar: decir «ninguna secuencia» sobre una consulta caída es
+   * exactamente la afirmación que hace apretar el botón. Las etapas sin secuencias
+   * vienen AUSENTES del mapa; el universo de etapas lo pone esta pantalla.
+   */
+  secuencias: Record<string, number> | null;
   onGuardar: (etapas: EtapaEntrega[]) => Promise<string | null>;
   onCerrar: () => void;
 }) {
@@ -52,10 +63,26 @@ export function EtapasEntregaModal({ servicio, etapas, conteo, onGuardar, onCerr
   const [mal, setMal] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  /** Las etapas que se sacaron y tenían clientes adentro. */
+  /** Las que se sacaron en esta sesión, con o sin nadie adentro. */
+  const sacadas = useMemo(
+    () => etapas.filter((e) => !lista.some((l) => l.key === e.key)),
+    [etapas, lista],
+  );
+  /** Las que se sacaron y tenían CLIENTES adentro. */
   const sacadasConGente = useMemo(
-    () => etapas.filter((e) => !lista.some((l) => l.key === e.key) && (conteo[e.key] ?? 0) > 0),
-    [etapas, lista, conteo],
+    () => sacadas.filter((e) => (conteo[e.key] ?? 0) > 0),
+    [sacadas, conteo],
+  );
+  /**
+   * Las que se sacaron y tenían SECUENCIAS colgando.
+   *
+   * ⚠️ UNA ETAPA CON 0 CLIENTES Y 2 SECUENCIAS TAMBIÉN AVISA. Antes el aviso colgaba
+   * sólo del conteo de clientes, así que borrar una columna vacía —el caso que se
+   * siente más inofensivo— rompía dos automatismos sin decir una palabra.
+   */
+  const fraseSecuencias = useMemo(
+    () => (secuencias ? fraseSecuenciasHuerfanas(sacadas.map((e) => ({ label: e.label, n: secuencias[e.key] ?? 0 }))) : ''),
+    [sacadas, secuencias],
   );
 
   const agregar = () => {
@@ -119,11 +146,28 @@ export function EtapasEntregaModal({ servicio, etapas, conteo, onGuardar, onCerr
       {mal && <Banner tono="bad">{mal}</Banner>}
 
       {/* ⚠️ LA CONSECUENCIA VA PEGADA AL BOTÓN Y ANTES DEL CLICK, no en un cartel arriba
-          en gris. Y dice el NÚMERO: «quedan sin columna» sin cuántos no es una decisión. */}
+          en gris. Y dice el NÚMERO: «quedan sin columna» sin cuántos no es una decisión.
+
+          ⚠️ Y VAN SEPARADAS PORQUE SON DOS CONSECUENCIAS DISTINTAS. Un cliente sin
+          columna se puede volver a mover y mientras tanto el tablero lo muestra; una
+          secuencia sin etapa deja de dispararse y no se ve en ningún lado. Juntarlas en
+          una frase obliga a elegir un verbo para las dos, y el que sobreviva miente
+          sobre la otra. */}
       {sacadasConGente.length > 0 && (
         <Banner tono="warn">
           {sacadasConGente.map((e) => `${conteo[e.key]} en ${e.label}`).join(' · ')}: al guardar quedan
           sin columna y el tablero los lista aparte hasta que los muevas. No salen de la entrega.
+        </Banner>
+      )}
+
+      {fraseSecuencias && <Banner tono="bad">{fraseSecuencias}</Banner>}
+
+      {/* ⚠️ «NO PUDE REVISAR» NO ES «NO HAY». Sin este renglón, una consulta caída deja
+          el editor exactamente igual que si no hubiera ninguna secuencia — y alguien
+          borra una columna creyendo que no rompe nada. */}
+      {secuencias === null && sacadas.length > 0 && (
+        <Banner tono="warn">
+          No pude revisar si hay secuencias apuntando a {sacadas.length === 1 ? 'esa etapa' : 'esas etapas'}.
         </Banner>
       )}
 

@@ -141,6 +141,31 @@ export function colorNuevaEtapa(cuantas: number): Pick<EtapaEntrega, 'tone' | 'd
 }
 
 /**
+ * Las secuencias que quedan apuntando a una etapa que se está por borrar, en una frase.
+ *
+ * Es el aviso MÁS caro del editor de etapas: un cliente sin columna se puede volver a
+ * mover y mientras tanto el tablero lo muestra, pero una secuencia sin etapa deja de
+ * dispararse y no se ve en ningún lado.
+ *
+ * ⚠️ EL PLURAL SALE DEL TOTAL, no de cada entrada. Con los verbos cableados en plural,
+ * sacar UNA columna con UNA secuencia escribía «1 secuencia en Hito 1: al guardar DEJAN
+ * de dispararse. ReapúntaLAS». Un aviso que no concuerda se lee como un texto
+ * automático, y a un texto automático se le hace menos caso — justo en el renglón que
+ * tiene que frenar a alguien.
+ *
+ * Devuelve `''` cuando no hay nada que avisar.
+ */
+export function fraseSecuenciasHuerfanas(sacadas: readonly { label: string; n: number }[]): string {
+  const vivas = sacadas.filter((x) => x.n > 0);
+  if (!vivas.length) return '';
+  const total = vivas.reduce((a, x) => a + x.n, 0);
+  const lista = vivas.map((x) => `${x.n} ${x.n === 1 ? 'secuencia' : 'secuencias'} en ${x.label}`).join(' · ');
+  const verbo = total === 1 ? 'deja' : 'dejan';
+  const reapunta = total === 1 ? 'Reapúntala' : 'Reapúntalas';
+  return `${lista}: al guardar ${verbo} de dispararse. ${reapunta} en Chatbot antes de guardar.`;
+}
+
+/**
  * Lo que se pierde de la ENTREGA al borrar un producto, en una frase.
  *
  * Vive acá —módulo puro, sin `server-only`— y no adentro de la acción de MaKo por la

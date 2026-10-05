@@ -2583,3 +2583,42 @@ Dos cosas: el restaurado va en un `finally`, y la salida de un arnés se escribe
 o con `PYTHONIOENCODING=utf-8`. Es la misma familia que «un arnés que no le pasa todas
 las entradas al código bajo prueba reporta una regresión que no existe», con el fallo en
 la salida en vez de en la entrada.
+
+### Y la OTRA mitad de la gente que apunta a una columna
+
+El aviso de borrar una etapa colgaba sólo del conteo de CLIENTES. Los clientes son la
+mitad: la otra son las SECUENCIAS que se disparan al caer en esa etapa
+(`nutricion_secuencias`, `trigger_tipo = 'entrega_actual'` + `producto_id`). Y la
+diferencia entre las dos mitades es lo que obliga a avisarlas por separado:
+
+| | qué pasa al borrar la columna | se ve |
+|---|---|---|
+| un cliente | queda sin columna y se puede volver a mover | **sí**, el tablero lo lista aparte |
+| una secuencia | deja de dispararse | **no**, en ningún lado |
+
+⚠️ **Y el caso que antes no decía NADA era el más inofensivo de todos:** una columna con
+CERO clientes y dos secuencias. Con el aviso colgado del conteo de clientes, borrar una
+columna vacía rompía dos automatismos en silencio — y borrar una columna vacía es
+justamente lo que alguien hace por prolijidad, sin pensarlo.
+
+Dos decisiones del contrato con la nutrición, que es de otra sesión:
+
+- **Las etapas sin secuencias vienen AUSENTES del mapa, no en cero.** El universo de
+  etapas es de Customer Success; la nutrición sólo sabe de las que alguien apuntó.
+- **`null` es «no pude leer» y no `{}`.** Con la consulta caída, el editor dice que no
+  pudo revisar y deja pasar el borrado. Decir «ninguna secuencia» sobre una lectura que
+  falló es exactamente la afirmación que hace apretar el botón.
+
+⚠️ **Y EL PLURAL SALE DEL TOTAL, NO DE CADA ENTRADA.** Con los verbos cableados en
+plural, sacar una columna con una secuencia escribía «1 secuencia en Hito 1: al guardar
+**DEJAN** de dispararse. Reapúnta**LAS**». Un aviso que no concuerda se lee como un texto
+automático, y a un texto automático se le hace menos caso — justo en el único renglón que
+tiene que frenar a alguien. Vive en `fraseSecuenciasHuerfanas` (módulo puro, con test y
+con su rotura) por la misma razón que `fraseEntregaAlBorrar`: adentro del componente
+ningún test la puede ejecutar.
+
+⚠️ **Y LO ENCONTRÓ LEER EL MODAL ENTERO, NO EL LOCATOR.** La primera verificación
+buscaba los avisos por `[class*=banner]` y devolvía UNO de los dos: el de tono `warn` no
+matcheaba. O sea que el chequeo decía «el aviso de clientes no sale» sobre un aviso
+perfectamente dibujado. Para preguntar «¿esta pantalla dice X?», lo que se lee es el
+`innerText` del diálogo, no una clase que uno supone.
