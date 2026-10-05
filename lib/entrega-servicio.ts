@@ -167,6 +167,29 @@ export async function entregaDeCliente(leadId: number, productoId: number): Prom
 }
 
 /**
+ * Cuántos clientes están HOY en la entrega de un producto. `null` = no se pudo leer.
+ *
+ * ⚠️ DEVUELVE `null` Y NO `0` CUANDO FALLA, y es la razón por la que existe en vez de
+ * un `clientesEnEntrega(id).length`: esa función devuelve `[]` ante un error —correcto
+ * para dibujar un tablero— y acá el número va adentro de la frase que alguien lee
+ * ANTES de confirmar algo irreversible. Un «0 clientes» sobre una consulta caída es
+ * exactamente la clase de afirmación que hace que se apriete el botón.
+ *
+ * Es un `count` y no una lectura: no hace falta traer las filas para contarlas.
+ */
+export async function cuantosEnEntrega(productoId: number): Promise<number | null> {
+  const db = await getTenantDb();
+  const { count, error } = await db
+    .from('cliente_entrega').select('id', { count: 'exact', head: true })
+    .eq('producto_id', productoId);
+  if (error) {
+    console.error(`[entrega-servicio] no pude contar los clientes en la entrega de ${productoId}: ${error.message}`);
+    return null;
+  }
+  return count ?? 0;
+}
+
+/**
  * Cuántos clientes hay en cada etapa de la entrega de un producto.
  *
  * ⚠️ LA CUENTA LA HACE `conteoDeEtapas` (módulo puro, con test) y no un `reduce` de

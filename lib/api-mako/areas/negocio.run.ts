@@ -32,6 +32,8 @@ import { getPersonalidad, setPersonalidad, personalizarPregunta } from '@/lib/pe
 import { PERSONALIDAD_PREGUNTAS, personalidadCompleta } from '@/lib/personalidad';
 import { getRazones } from '@/lib/razones';
 import { listProductos, deleteProducto } from '@/lib/productos';
+import { cuantosEnEntrega } from '@/lib/entrega-servicio';
+import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { construirVault } from '@/lib/vault';
@@ -515,7 +517,13 @@ export const RUNNERS: Runners = {
       const prods = await listProductos();
       const p = prods.find((x) => x.id === id);
       if (!p) return { error: 'No existe un producto con ese id en este negocio. Pide la lista con listar_productos.' };
-      return { payload: { id }, resumen: `Borrar el producto «${p.nombre}»${p.monto_usd != null ? ` (USD ${p.monto_usd})` : ''}. No se puede deshacer.` };
+      // ⚠️ LA CONSECUENCIA ENTERA, Y ANTES DEL CLICK. Desde la migración 0188, borrar un
+      // producto se lleva por cascada su tablero de entrega y la etapa en la que está
+      // CADA cliente: el resumen decía la verdad y le faltaba la mitad más cara, que es
+      // justo lo que esta pantalla existe para que alguien vea antes de confirmar.
+      // (El historial de cada movimiento sobrevive: `lead_audit` no tiene FK al producto.)
+      const cola = fraseEntregaAlBorrar(await cuantosEnEntrega(id));
+      return { payload: { id }, resumen: `Borrar el producto «${p.nombre}»${p.monto_usd != null ? ` (USD ${p.monto_usd})` : ''}. No se puede deshacer.${cola}` };
     }),
     ejecutar: sinLanzar(async (payload) => {
       const id = Number(payload.id);

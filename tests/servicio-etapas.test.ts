@@ -25,7 +25,11 @@
 //     por entrega»): con el prefijo vacío, `startsWith('')` es true para TODO y la ficha
 //     de Customer Success mostraría las líneas del CRM como movimientos de entrega.
 //   · `campoEntrega` sin el respaldo `|| 'servicio'` → 16 pass / 1 fail.
-//   Restaurado: 17 pass / 0 fail.
+//   · `fraseEntregaAlBorrar` tratando `null` como cero -> 19 pass / 1 fail («no pude
+//     contar NO se dice como ninguno»): es el caso que hace apretar el boton.
+//   · la misma frase sin el NUMERO -> 19 pass / 1 fail.
+//   · `<= 0` cambiado por `=== 0`, o sea un negativo que se escribe -> 19 pass / 1 fail.
+//   Restaurado: 20 pass / 0 fail.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -33,7 +37,7 @@ import assert from 'node:assert/strict';
 import {
   ETAPAS_ENTREGA_DEFAULT, entregaPorDefecto, etapaInicial, etapaValida, etapaDe,
   nuevaClaveEtapa, colorNuevaEtapa, normalizarEtapas,
-  campoEntrega, esCampoEntrega, PREFIJO_CAMPO_ENTREGA,
+  campoEntrega, esCampoEntrega, PREFIJO_CAMPO_ENTREGA, fraseEntregaAlBorrar,
 } from '../lib/servicio-etapas';
 
 // ── El default existe y se declara como default ──────────────────────────────
@@ -155,5 +159,36 @@ test('ningun campo del CRM pasa por entrega', () => {
 test('un producto sin nombre igual produce un campo legible', () => {
   assert.equal(campoEntrega('   '), `${PREFIJO_CAMPO_ENTREGA}servicio`);
   assert.ok(esCampoEntrega(campoEntrega('')));
+});
+
+// ── Lo que se pierde al borrar un producto ───────────────────────────────────
+
+// Desde la mig 0188, borrar un producto se lleva por cascada su tablero de entrega y
+// la etapa de cada cliente. La frase va adentro del `resumen` de `borrar_producto`
+// (lib/api-mako/areas/negocio.run.ts), o sea el texto que alguien lee ANTES de
+// confirmar algo irreversible.
+test('la frase dice el NUMERO, que es lo que la vuelve una decision', () => {
+  const una = fraseEntregaAlBorrar(1);
+  assert.match(una, /\b1 cliente pierde su etapa\b/);
+  const varias = fraseEntregaAlBorrar(14);
+  assert.match(varias, /\b14 clientes pierden su etapa\b/);
+  // La mitad que NO se pierde se nombra: sin eso el aviso suena a que se borra todo
+  // rastro del cliente, y eso frenaria un borrado legitimo.
+  for (const f of [una, varias]) assert.match(f, /historial/);
+});
+
+// ⚠️ EL CASO QUE IMPORTA. Un «0 clientes» sobre una consulta caida es la afirmacion
+// que hace que se apriete el boton: `null` tiene que decir que no se pudo revisar.
+test('«no pude contar» NO se dice como «ninguno»', () => {
+  const f = fraseEntregaAlBorrar(null);
+  assert.ok(f.trim().length > 0, 'un fallo de lectura no puede quedar mudo');
+  assert.doesNotMatch(f, /\b0\b|ninguno|ningun/i, 'no puede afirmar que no hay nadie');
+  assert.match(f, /no pude/i);
+});
+
+test('sin nadie en la entrega no se agrega un renglon', () => {
+  assert.equal(fraseEntregaAlBorrar(0), '');
+  // Un negativo no deberia llegar, y si llega no se escribe «-3 clientes pierden».
+  assert.equal(fraseEntregaAlBorrar(-3), '');
 });
 

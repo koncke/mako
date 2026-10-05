@@ -141,6 +141,30 @@ export function colorNuevaEtapa(cuantas: number): Pick<EtapaEntrega, 'tone' | 'd
 }
 
 /**
+ * Lo que se pierde de la ENTREGA al borrar un producto, en una frase.
+ *
+ * Vive acá —módulo puro, sin `server-only`— y no adentro de la acción de MaKo por la
+ * misma razón de siempre: la condición que gobierna un texto irreversible tiene que
+ * poder testearse. Adentro del `preparar()` ningún test la puede importar, y termina
+ * siendo lo único sin red justo donde más duele.
+ *
+ * ⚠️ `null` NO ES CERO. `null` es «no pude contar», y decir «ninguno» sobre una
+ * consulta caída es exactamente la clase de afirmación que hace que se apriete el
+ * botón. Se dice que no se pudo revisar y la decisión sigue siendo de quien lee.
+ *
+ * Devuelve `''` cuando no hay nada que agregar: un producto sin nadie en su entrega no
+ * necesita un renglón diciendo que no pasa nada.
+ */
+export function fraseEntregaAlBorrar(enEntrega: number | null): string {
+  if (enEntrega === null) return ' No pude revisar si tienes clientes en su entrega.';
+  if (enEntrega <= 0) return '';
+  const q = enEntrega === 1 ? 'cliente pierde su etapa' : 'clientes pierden su etapa';
+  // El historial se nombra a propósito: es la mitad que NO se pierde, y sin decirla el
+  // aviso suena a que se borra todo rastro del cliente.
+  return ` ${enEntrega} ${q} de entrega en Customer Success; el historial de cada uno se conserva.`;
+}
+
+/**
  * El `campo` con el que un movimiento de entrega queda en `lead_audit`.
  *
  * Lleva el NOMBRE DEL PRODUCTO adentro porque un cliente puede estar en varias
