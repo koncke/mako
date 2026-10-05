@@ -13,7 +13,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SecuenciaPerfil } from './SecuenciaPerfil';
-import { TarjetaEntidad, GrillaTarjetas, TarjetaNueva, PieNumeros, colorDe } from '@/app/_components/TarjetaEntidad';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import type { Objetivo } from '@/lib/setting-estrategia';
@@ -86,7 +85,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // La prueba TERMINA cuando la secuencia cumple su objetivo o queda claro que
   // no lo va a cumplir. Mientras es null la conversación sigue viva.
   const [cerradaSim, setCerradaSim] = useState<'positivo' | 'negativo' | null>(null);
-  const [modo, setModo] = useState<'grilla' | 'editor' | 'chat'>('grilla');
+  /** La tab ES el lienzo; el chat sólo sale de «Probar». No hay un tercer modo. */
+  const [modo, setModo] = useState<'editor' | 'chat'>('editor');
   const seq = useRef(0);
 
   useEffect(() => { if (selId === '' && secuencias.length) setSelId(secuencias[0].id); }, [secuencias, selId]);
@@ -125,6 +125,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   }, [selId, guionKey]);
 
   const elegir = (id: number) => { setSelId(id); setModo('editor'); };
+  void elegir;
 
   // Reproduce la secuencia como mensajes ENTRANTES del negocio (tú = el lead).
   function reproducirGuion() {
@@ -244,126 +245,100 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     return true;
   }
 
-  // ⚠️ LA TAB ABRE EN LA GRILLA, Y EL CHAT ES UNA CONSECUENCIA DE «PROBAR».
-  //
-  // Martín, 05/10/2026: «Recuerda que por DEFAULT abro la tab y debe salir la grilla
-  // para editar las secuencias, y al darle a PROBAR recién la vista del chat» y «No
-  // pongas a la grilla chiquita en el medio en un recuadro, haz que ocupe TODA la tab».
-  //
-  // Antes la pantalla abría en el CHAT con una lista de 300 px al costado: el simulador
-  // —que es para probar— ocupaba el lugar del trabajo, que es armar la secuencia. Ahora
-  // son tres momentos y uno solo a la vez: la grilla (todas, a ancho completo), el
-  // lienzo de UNA, y el chat de UNA. La lista lateral se fue: la grilla ES la lista.
-  if (modo !== 'grilla' && sel) {
+  /**
+   * ⚠️ TODA LA TAB ES EL LIENZO. No hay pantalla de listado, ni tarjetas, ni lista al
+   * costado: se entra EDITANDO la secuencia, y el chat es una consecuencia de «Probar».
+   *
+   * Martín, tres veces y la última con el resultado a la vista: «por DEFAULT abro la tab
+   * y debe salir la grilla para editar las secuencias, y al darle a PROBAR recién la
+   * vista del chat», «no pongas a la grilla chiquita en el medio en un recuadro, haz que
+   * ocupe TODA la tab» y «mezclaste las cosas… te pedí que TODO la tab de chatbot sea la
+   * grilla editable, y trajiste las tarjetas de clientes».
+   *
+   * ⚠️ «LA GRILLA» ES LA PIZARRA, NO UNA GRILLA DE TARJETAS. Es el lienzo con fondo de
+   * cuadrícula (app/_components/Lienzo.tsx) que él mismo pidió cuadricular dos pedidos
+   * antes. Leerlo como «una grilla de tarjetas» costó una tanda entera y trajo acá el
+   * componente de la cartera de clientes de /customer-success, que es de OTRA pantalla.
+   * Cuando una palabra puede nombrar dos cosas y una de las dos ya está en la pantalla,
+   * es ésa.
+   *
+   * Cambiar de secuencia es un desplegable en la barra de arriba, no una pantalla
+   * intermedia: volver a un listado para abrir otra es el recuadro otra vez.
+   */
+  if (!sel) {
     return (
-      // El alto lo marca la ventana y no un número: un `height: 620` adentro de una tab
-      // que mide 100vh deja el lienzo chico y la pantalla medio vacía.
-      <div style={{ height: 'calc(100vh - 170px)', minHeight: 520, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {modo === 'editor' ? (
-          <SecuenciaPerfil secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
-            productos={productos} disparadores={disparadores}
-            secuencias={secuencias}
-            onAbrirClave={(clave) => {
-              // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra
-              // secuencia y no la abre es la mitad inútil del encadenamiento.
-              const otra = secuencias.find((j) => j.clave === clave);
-              if (otra) setSelId(otra.id);
-            }}
-            onProbar={() => setModo('chat')}
-            onClose={() => setModo('grilla')} onCambio={onReload} onWizard={() => onWizard(sel.id)} />
-        ) : (
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <ChatHilo
-              accent="var(--wa)"
-              accentBubble="var(--wa-bubble)"
-              mensajes={mensajes}
-              typing={typing}
-              draftKey={`setting-sim-${sel.id}`}
-              readOnly={!!cerradaSim}
-              placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
-              onEnviarTexto={enviarTexto}
-              onEnviarArchivo={enviarArchivo}
-              vacio={(
-                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
-                  Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
-                </div>
-              )}
-              header={(
-                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  {/* La salida va PRIMERA y lleva a la grilla, que es de donde se vino.
-                      El destino de «Volver» es una propiedad de la pantalla, no del
-                      historial (AGENTS.md). */}
-                  <button type="button" onClick={() => setModo('grilla')} title="Volver a tus secuencias"
-                    style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>←</button>
-                  <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Prueba · escribe como el lead</div>
-                  </div>
-                  {/* Volver a verla desde el principio después de haber chateado, no
-                      para arrancarla: ya se reprodujo sola al entrar. */}
-                  <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
-                    style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
-                  <button type="button" onClick={() => setModo('editor')} title="Editar la secuencia"
-                    style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
-                </div>
-              )}
-            />
-          </div>
-        )}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
+        Elige una secuencia de mensajes.
+      </div>
+    );
+  }
+
+  if (modo === 'chat') {
+    return (
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <ChatHilo
+          accent="var(--wa)"
+          accentBubble="var(--wa-bubble)"
+          mensajes={mensajes}
+          typing={typing}
+          draftKey={`setting-sim-${sel.id}`}
+          readOnly={!!cerradaSim}
+          placeholder={cerradaSim ? 'Esta prueba terminó' : 'Escribe como el lead…'}
+          onEnviarTexto={enviarTexto}
+          onEnviarArchivo={enviarArchivo}
+          vacio={(
+            <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--faint)', fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
+              Esta secuencia todavía no tiene mensajes de WhatsApp.<br />Escribe abajo como el lead y MaKo te responde.
+            </div>
+          )}
+          header={(
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+              {/* La salida va PRIMERA y vuelve al LIENZO, que es de donde se vino y es la
+                  pantalla de la tab. El destino de «Volver» es una propiedad de la
+                  pantalla, no del historial (AGENTS.md). */}
+              <button type="button" onClick={() => setModo('editor')} title="Volver a editar la secuencia"
+                style={{ flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit' }}>←</button>
+              <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{emojiSecuencia(sel)}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.nombre}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Prueba · escribe como el lead</div>
+              </div>
+              {/* Volver a verla desde el principio después de haber chateado, no para
+                  arrancarla: ya se reprodujo sola al entrar. */}
+              <button type="button" onClick={reproducirGuion} title="Ver la secuencia otra vez desde el principio" aria-label="Ver la secuencia otra vez desde el principio"
+                style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+              <button type="button" onClick={() => setModo('editor')} title="Editar la secuencia"
+                style={{ flex: 'none', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{rolAdmin ? 'Editar' : 'Perfil'}</button>
+            </div>
+          )}
+        />
       </div>
     );
   }
 
   return (
-    // ⚠️ `--cartera-max: none` ES LO QUE HACE QUE LA GRILLA OCUPE LA TAB. `.cl-grid`
-    // trae `max-width: var(--cartera-max)` + `margin: 0 auto` —el tope de la cartera de
-    // clientes, que es de donde viene el componente—, y acá eso la dejaba en 1180 de
-    // 1460 px, centrada: justo «la grilla chiquita en el medio» que Martín marcó. El
-    // token es el escape que el propio componente documenta para este caso.
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0, ['--cartera-max' as string]: 'none' } as CSSProperties}>
-      {/* El buscador sólo cuando hay suficientes como para buscar: con tres secuencias
-          es un control que no resuelve nada y ocupa el lugar del trabajo. */}
-      {secuencias.length > 6 && (
-        <input value={busq} onChange={(e) => setBusq(e.target.value)} placeholder="Buscar secuencia…"
-          style={{ maxWidth: 340, boxSizing: 'border-box', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, outline: 'none' }} />
-      )}
-
-      {lista.length === 0
-        ? <div style={{ color: 'var(--faint)', fontSize: 13.5 }}>Ninguna secuencia coincide.</div>
-        : (
-          <GrillaTarjetas>
-            {rolAdmin && <TarjetaNueva label="Nueva secuencia de mensajes" onClick={() => onWizard('nueva')} />}
-            {lista.map((j) => {
-              const wa = j.pasos.filter((p) => p.canal === 'whatsapp').length;
-              const email = j.pasos.filter((p) => p.canal === 'email').length;
-              return (
-                <TarjetaEntidad
-                  key={j.id}
-                  nombre={j.nombre}
-                  color={colorDe(j.nombre)}
-                  bajada={<>{emojiSecuencia(j)} {etiquetaEtapa(j.etapa)}</>}
-                  chips={(
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: j.activa ? 'var(--good)' : 'var(--faint)' }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: j.activa ? 'var(--good)' : 'var(--border-strong)' }} />
-                      {j.activa ? 'Activa' : 'Pausada'}
-                    </span>
-                  )}
-                  pie={<PieNumeros datos={[{ v: wa, k: 'WhatsApp' }, { v: email, k: 'email' }, { v: j.inscriptos, k: 'inscriptos' }]} />}
-                  acciones={(
-                    // PROBAR es lo único que abre el chat, que es lo que pidió Martín.
-                    <button type="button" onClick={() => { setSelId(j.id); setModo('chat'); }}
-                      style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      Probar
-                    </button>
-                  )}
-                  onAbrir={() => { setSelId(j.id); setModo('editor'); }}
-                  etiqueta={`Editar ${j.nombre}`}
-                />
-              );
-            })}
-          </GrillaTarjetas>
-        )}
-    </div>
+    /**
+     * ⚠️ EL `key` ES OBLIGATORIO ACÁ, y es un hallazgo de esta misma casa escrito hace
+     * unas horas: «un `useState` sembrado de props no se resiembra; si la vista deja de
+     * desmontarse, hay que poner el key». Antes se cambiaba de secuencia volviendo a una
+     * pantalla de listado, así que cada apertura era un montaje nuevo; ahora el
+     * desplegable cambia la secuencia SIN desmontar, y los seis `useState(props.…)` del
+     * perfil —el texto, el publicado contra el que compara, el interruptor, el producto
+     * elegido— se quedarían con los valores de la secuencia ANTERIOR. Se ve como dos
+     * nombres distintos en la misma pantalla, y se guarda como el texto de una en la otra.
+     */
+    <SecuenciaPerfil key={sel.id} secuencia={sel} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} rolAdmin={rolAdmin} audios={audios} negocio={negocio} canalCaido={canalCaido} onAudioNuevo={onAudioNuevo}
+      productos={productos} disparadores={disparadores}
+      secuencias={secuencias}
+      onAbrirClave={(clave) => {
+        // El «Sigue con» del lienzo tiene que LLEVAR: un nodo que nombra otra secuencia y
+        // no la abre es la mitad inútil del encadenamiento.
+        const otra = secuencias.find((j) => j.clave === clave);
+        if (otra) setSelId(otra.id);
+      }}
+      onElegir={(id) => setSelId(id)}
+      onNueva={() => onWizard('nueva')}
+      onProbar={() => setModo('chat')}
+      onCambio={onReload} onWizard={() => onWizard(sel.id)} />
   );
 }

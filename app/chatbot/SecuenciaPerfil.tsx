@@ -35,7 +35,7 @@ const lineas = (s: string): string[] => s.split(/\r?\n/).map((x) => x.trim()).fi
 
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
-export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onProbar, onClose, onCambio, onWizard }: {
+export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onElegir, onNueva, onProbar, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
   /** Las del workspace: el lienzo las necesita para resolver el «Sigue con». */
   secuencias: ReadonlyArray<SecuenciaDto>;
@@ -44,8 +44,12 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   /** Las etiquetas de los 18 disparadores, para decir la verdad del que tiene puesto. */
   disparadores: Opcion[];
   onAbrirClave: (clave: string) => void;
-  /** Abre el CHAT de prueba. Lo decide quien monta: desde la grilla el chat es una
-   *  vista hermana, no un panel de adentro del editor. */
+  /** Cambiar de secuencia SIN salir del lienzo: no hay pantalla de listado. */
+  onElegir?: (id: number) => void;
+  /** Crear una. Está acá y no en una pantalla aparte por lo mismo. */
+  onNueva?: () => void;
+  /** Abre el CHAT de prueba. Lo decide quien monta: el chat es una vista hermana del
+   *  lienzo, no un panel de adentro del editor. */
   onProbar?: () => void;
   objetivos: Opcion[];
   etiquetaEtapa: (key: string) => string;
@@ -57,7 +61,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   canalCaido: boolean;
   /** Un audio grabado desde un paso se suma a la biblioteca del padre. */
   onAudioNuevo: (a: AudioSetting) => void;
-  onClose: () => void;
+  onClose?: () => void;
   onCambio: () => void;
   onWizard: () => void;
 }) {
@@ -395,24 +399,67 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
 
 
   return (
-    <div style={{ height: '100%', width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Topbar fija (no scrollea) — patrón TemplateDetalleModal */}
-      <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-        <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver al chat</button>
-        {onProbar && (
-          <button onClick={onProbar} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginLeft: 'auto', marginRight: 16, fontFamily: 'inherit' }}>▶ Probar como el lead</button>
+    // ⚠️ `flex: 1` + `minHeight: 0`, NO `height: 100%`: el padre saca su alto de un flex,
+    // y para el motor eso es un alto INDEFINIDO — Chrome lo resuelve igual y Safari
+    // devuelve CERO, o sea la pantalla en blanco (AGENTS.md, ya pagado con un cliente).
+    //
+    // Y sin borde ni esquinas redondeadas: el recuadro ERA el problema. «No pongas a la
+    // grilla chiquita en el medio en un recuadro, haz que ocupe TODA la tab».
+    <div style={{ flex: 1, minHeight: 0, width: '100%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ⚠️ LA BARRA DE ARRIBA ES EL CAMBIO DE SECUENCIA, no un «volver».
+          La tab ES este lienzo: no hay pantalla de listado a la que volver, así que lo
+          que ahí se necesita es ELEGIR OTRA. Un desplegable cuesta una fila y no se
+          lleva ni un píxel de alto del lienzo; una pantalla intermedia se lleva la
+          pantalla entera. */}
+      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)', minWidth: 0 }}>
+        <span style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</span>
+        {onElegir && secuencias.length > 1 ? (
+          <Dropdown
+            value={String(secuencia.id)}
+            // Con muchas, buscar: es el mismo control que ya usa el resto de la casa y
+            // ahorra la pantalla de listado que esta tab no tiene.
+            search={secuencias.length > 6}
+            width={320}
+            ariaLabel="Secuencia que estás editando"
+            options={secuencias.map((j) => ({
+              value: String(j.id),
+              label: j.nombre,
+              sub: `${etiquetaEtapa(j.etapa)}${j.activa ? '' : ' · pausada'}`,
+            }))}
+            onChange={(v) => onElegir(Number(v))}
+            buttonStyle={{ fontSize: 14, fontWeight: 600, padding: '4px 8px' }}
+          />
+        ) : (
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secuencia.nombre}</span>
         )}
-        {rolAdmin && <button onClick={probar} disabled={busy === 'probar'} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'probar' ? 0.5 : 1 }}>{busy === 'probar' ? 'Enviando…' : '📲 Probar de verdad (te llega a ti)'}</button>}
+        {rolAdmin && onNueva && (
+          <button onClick={onNueva} title="Nueva secuencia de mensajes" aria-label="Nueva secuencia de mensajes"
+            style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>＋</button>
+        )}
+
+        <span style={{ marginLeft: 'auto', flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: activa ? 'var(--good)' : 'var(--dim)' }}>{activa ? 'Activa' : 'Pausada'}</span>
+          {rolAdmin && (
+            <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              style={{ width: 38, height: 22, borderRadius: 999, border: 'none', padding: 2, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
+              <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(16px)' : 'none', transition: 'transform .15s' }} />
+            </button>
+          )}
+          {onProbar && (
+            <button onClick={onProbar} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>▶ Probar</button>
+          )}
+          {rolAdmin && <button onClick={probar} disabled={busy === 'probar'} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: busy === 'probar' ? 0.5 : 1, fontFamily: 'inherit' }}>{busy === 'probar' ? 'Enviando…' : '📲 Probar de verdad'}</button>}
+        </span>
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 24 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px 16px 14px' }}>
         {/* Sin `maxWidth`: el lienzo es de los que necesitan cada píxel. Lo que
             SÍ se acota es el texto de adentro de cada nodo, que lo hace el nodo. */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', width: '100%' }}>
 
-          <div style={{ flex: 'none', display: 'flex', gap: 11, alignItems: 'center', minWidth: 0, marginBottom: 18 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{est ? (EMOJI_OBJ[est.objetivo as Objetivo] ?? '🎯') : '⚑'}</div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{secuencia.nombre}</div>
+          {/* El nombre, el estado y «Probar» viven en la barra de arriba. Lo que queda acá
+              es el DISPARADOR, que es un control y no un rótulo: dice —y deja cambiar— qué
+              hace que esta secuencia salga. */}
+          <div style={{ flex: 'none', minWidth: 0, marginBottom: 12 }}>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                 {rolAdmin && productos.length > 0 && (esDeEtapa || esDeEntrega || cambiandoAEtapa) ? (
                   <>
@@ -484,7 +531,6 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
                   <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(18px)' : 'none', transition: 'transform .15s' }} />
                 </button>
               )}
-            </div>
           </div>
 
           {/* ⚠️ ACÁ HABÍA TRES SUB-TABS —Estrategia / Mensajes / Variantes— y se fueron
