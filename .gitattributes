@@ -1,0 +1,21 @@
+# =============================================================================
+# Lo que git NO puede normalizar
+# =============================================================================
+# Este repo corre con `core.autocrlf=true`, así que al hacer checkout git le
+# cambia los saltos de línea a todo lo que considere texto. Para el código fuente
+# eso es inocuo (el fin de línea es por archivo y ya está documentado en
+# AGENTS.md). Para un ARTEFACTO que se compara byte a byte, no.
+#
+# ⚠️ MEDIDO EL 05/10/2026, y costó un push: `public/replay/1/r.js` pesa 63.925 B
+# en el clon y 63.930 en un worktree recién creado — cinco bytes de más, de cinco
+# saltos que git convirtió a CRLF. El guard del pre-push compara ese archivo
+# contra el de `node_modules` y frenó el push sobre un archivo IDÉNTICO.
+#
+# Es exactamente la familia de bugs que AGENTS.md ya enumera para los cinco
+# scripts de sincronía («toda guarda que compare texto generado contra un archivo
+# normaliza los \r\n»), con una diferencia que importa: acá la cura NO es
+# normalizar en el guard. Un bundle minificado no es texto que alguien edite: es
+# un binario con suerte. Lo que corresponde es que git deje de tocarlo, y así el
+# archivo que se sirve al navegador de un visitante es byte por byte el que se
+# probó.
+public/replay/** -text
