@@ -21,6 +21,7 @@ import { metodologiaDeArea } from '@/lib/mako-knowledge';
 import { ejemplosRelevantes } from '@/lib/copywriting-metodo';
 import { resumenFunnel } from '@/lib/mako-context';
 import { parseEstrategia } from '@/lib/setting-estrategia';
+import { puedeAfirmarEtapa } from './nutricion-familias';
 
 const KEY_VOZ = 'mako.voz_guia';
 
@@ -232,15 +233,32 @@ export type GenerarSecuenciaResult =
  * Glosa del cohorte de una secuencia. Para las funnel-agnósticas (etapa_actual)
  * se arma con la etapa REAL del funnel del workspace: MaKo sabe exactamente en
  * qué punto del proceso está el lead, sea el funnel que sea.
+ *
+ * ⚠️ `etapa_actual` ES FUNNEL-AGNÓSTICO A PROPÓSITO, no por olvido. La secuencia se
+ * cuelga de una CLAVE de etapa (`nutricion_secuencias.etapa`), que existe en cualquier
+ * embudo, y por eso sirve para los custom del editor. Quien quiera «arreglarlo» atándolo
+ * a un embudo le saca justamente eso.
+ *
+ * ⚠️ Y LA GLOSA SE ABSTIENE CUANDO NO PUEDE SABER DE QUÉ EMBUDO HABLA. Ver
+ * `puedeAfirmarEtapa` (lib/nutricion-familias.ts), que es donde vive la condición para
+ * que tenga test.
  */
-async function contextoDeSecuencia(sec: { nombre: string; etapa: string; trigger_tipo: string }): Promise<string> {
+async function contextoDeSecuencia(sec: { nombre: string; etapa: string; trigger_tipo: string; funnel_id?: number | null }): Promise<string> {
   if (sec.trigger_tipo === 'etapa_actual') {
     try {
       // DEL FUNNEL DE LA SECUENCIA, no del lead: la etiqueta describe el cohorte.
       // Hoy es el default porque `nutricion_secuencias.funnel_id` (mig 0170) nace
       // en NULL = «sirve a todos los funnels». Cuando una secuencia cuelgue de un
       // funnel, acá va getFunnelDe(sec.funnel_id).
-      const { getFunnelDefault } = await import('./funnels');
+      const { getFunnelDefault, listarFunnels } = await import('./funnels');
+      // `listarFunnels` ya filtra por `activo`, así que su largo ES la cantidad de
+      // embudos vivos: filtrar de nuevo acá sería inventar un campo que no trae.
+      const embudosVivos = (await listarFunnels()).length;
+      if (!puedeAfirmarEtapa({ embudosVivos, secDeclaraFunnel: sec.funnel_id != null })) {
+        // Dos embudos vivos y una secuencia que no dice de cuál es: la etapa del default
+        // puede no ser la del lead. Se pierde la frase de contexto, no el mensaje.
+        return `${sec.nombre}. ${COHORTE_GLOSS[sec.trigger_tipo] ?? `Etapa: ${sec.etapa}.`}`;
+      }
       const st = (await getFunnelDefault()).stages.find((s) => s.key === sec.etapa);
       if (st) return `${sec.nombre}. Lead parado en la etapa "${st.label}" del funnel del negocio: el objetivo del mensaje es destrabarlo y que avance a la etapa siguiente.`;
     } catch { /* cae a la glosa genérica */ }

@@ -7516,10 +7516,20 @@ lead puede estar ahora en el OTRO embudo vivo. Si la clave de etapa no existe en
 embudo por defecto, cae a la glosa genérica (inofensivo); si existe con otro rótulo, al
 modelo se le dice una etapa en la que el lead no está.
 
-**No se arregló hoy, y el motivo es que no hay de dónde leer la respuesta correcta**: con
-las 62 secuencias en `funnel_id` NULL, `getFunnelDe(sec.funnel_id)` —que es lo que el
-comentario de esa función ya dice que va— no tiene qué resolver. El arreglo necesita que
-una secuencia DECLARE su embudo, que es la punta abierta de la mig 0170.
+**Lo que se arregló es que la glosa SE ABSTENGA**, que es lo que se puede hacer sin
+decidir nada: con más de un embudo vivo y una secuencia que no declara el suyo, cae a la
+glosa genérica. Se pierde una frase de contexto, no el mensaje — «"no puedo hacer X con
+este dato" no es "este dato es falso"». La condición vive en `puedeAfirmarEtapa`
+(`lib/nutricion-familias.ts`, el módulo sin imports) para que tenga test, y hay un guard
+de cableado porque los tests de la cuenta no prueban que el generador la llame.
+
+**Lo que NO se arregla con código**: poblar `nutricion_secuencias.funnel_id` son 62
+decisiones de producto que no se deducen de ningún dato —las secuencias se escribieron
+cuando había un embudo solo— así que las contesta una persona, no un backfill. Un backfill
+que elija por nosotros haría que cada secuencia glose (y, el día que el trigger lo use,
+enrole) según un embudo que nadie eligió. Con el embudo declarado, `puedeAfirmarEtapa`
+afirma de nuevo: la rama ya está escrita y probada, así que poblar la columna destraba la
+glosa sin tocar código.
 
 ⚠️ **Y la regla que generaliza, que es por qué esto se escribe:** cuando una columna pasa
 de «siempre NULL» a poblarse, lo que cambia no es sólo quién la lee — **cambia el

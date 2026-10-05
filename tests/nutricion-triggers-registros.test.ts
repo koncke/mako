@@ -32,7 +32,7 @@ import { join } from 'node:path';
 // Del módulo SIN imports: `lib/nutricion` arrastra `lib/workspace` y con eso
 // el runtime de Next, que bajo tsx no carga. Por eso las constantes viven
 // aparte — ver la cabecera de lib/nutricion-familias.ts.
-import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, mitadPostAgenda, secuenciasParaElLead } from '../lib/nutricion-familias';
+import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, mitadPostAgenda, secuenciasParaElLead, puedeAfirmarEtapa } from '../lib/nutricion-familias';
 
 const raiz = join(__dirname, '..');
 const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
@@ -165,3 +165,49 @@ test('con UNA sola mitad configurada no se filtra nada', () => {
   assert.deepEqual(secuenciasParaElLead(soloUna, true).map((s) => s.clave), ['bienvenida', 'nuevo']);
   assert.deepEqual(secuenciasParaElLead(soloUna, false).map((s) => s.clave), ['bienvenida', 'nuevo']);
 });
+
+// ── La glosa no puede afirmar una etapa que no sabe de qué embudo es ───────
+// ⚠️ PROBADAS ROMPIENDO LA PIEZA, 04/10/2026. Las tres roturas se cazan, 1 fallo cada
+// una: afirmar siempre (el código de antes) · abstenerse siempre (se pierde la glosa
+// buena en los 7 workspaces de un solo embudo) · e ignorar que la secuencia declara su
+// embudo, que es la única salida que esto tiene.
+
+test('⚠️ con DOS embudos vivos y una secuencia que no dice de cuál es, no se afirma', () => {
+  // Lo destapó el chat del CRM al hacer que el opt-in de una landing guarde el
+  // `funnel_id` del producto: medido el mismo día, 4 de 11 workspaces ya tienen dos
+  // embudos vivos y las 62 secuencias tienen `funnel_id` NULL. La glosa dice «Lead
+  // parado en la etapa X del funnel del negocio» leyendo el DEFAULT, así que con dos
+  // vivos puede estar describiendo el otro — y se lo afirma al modelo que escribe.
+  assert.equal(puedeAfirmarEtapa({ embudosVivos: 2, secDeclaraFunnel: false }), false);
+  assert.equal(puedeAfirmarEtapa({ embudosVivos: 7, secDeclaraFunnel: false }), false);
+});
+
+test('y con UNO solo sí: el default ES el del lead', () => {
+  // Abstenerse siempre sería el error inverso: hoy son 7 de 11 los workspaces con un
+  // embudo solo, y ahí la glosa es exacta. Lo que se perdería es contexto real.
+  assert.equal(puedeAfirmarEtapa({ embudosVivos: 1, secDeclaraFunnel: false }), true);
+  // Cero embudos no debería pasar, y si pasa el `find` de la etapa no encuentra nada:
+  // la glosa cae a la genérica por el otro camino. Afirmar acá no rompe nada.
+  assert.equal(puedeAfirmarEtapa({ embudosVivos: 0, secDeclaraFunnel: false }), true);
+});
+
+test('⚠️ y una secuencia que DECLARA su embudo puede afirmar siempre', () => {
+  // Es la salida del callejón, y la que hay que recordar cuando alguien pueble
+  // `nutricion_secuencias.funnel_id`: con el embudo declarado no hay ambigüedad, haya
+  // dos vivos o diez. Si esta rama no existiera, poblar la columna no destrabaría nada.
+  assert.equal(puedeAfirmarEtapa({ embudosVivos: 2, secDeclaraFunnel: true }), true);
+  assert.equal(puedeAfirmarEtapa({ embudosVivos: 10, secDeclaraFunnel: true }), true);
+});
+
+test('⚠️ y la glosa LLAMA a esa condición, con el campo del embudo de la secuencia', () => {
+  // Un guard de cableado: los tres de arriba prueban la cuenta, no que el generador la
+  // use. Y el `funnel_id` tiene que llegar: la función que lee las secuencias NO lo
+  // selecciona hoy, así que si alguien lo agrega al `select`, esto ya lo aprovecha.
+  const src = readFileSync(new URL('../lib/nutricion-generator.ts', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('async function contextoDeSecuencia'), src.indexOf('export async function generarSecuencia'));
+  assert.ok(fn.length > 400 && fn.length < 3000, `el recorte de contextoDeSecuencia mide ${fn.length}: mira otra cosa`);
+  assert.match(fn, /puedeAfirmarEtapa\(\{ embudosVivos, secDeclaraFunnel: sec\.funnel_id != null \}\)/,
+    'la glosa dejó de preguntar si puede afirmar la etapa');
+  assert.match(fn, /listarFunnels\(\)/, 'ya no cuenta los embudos vivos: la condición queda sin dato');
+});
+

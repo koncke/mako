@@ -84,3 +84,35 @@ export function secuenciasParaElLead<T extends { trigger_tipo: string }>(secuenc
   const quiero = mitadPostAgenda(yaLeHablamos);
   return secuencias.filter((s) => !FAMILIA_POST_AGENDA.includes(s.trigger_tipo) || s.trigger_tipo === quiero);
 }
+
+// ── ¿Se puede AFIRMAR en qué etapa está el cohorte? ─────────────────────────
+
+/**
+ * Si la glosa del cohorte puede nombrar una etapa, o tiene que abstenerse.
+ *
+ * ⚠️ EL CONTEXTO DE UNA SECUENCIA NO PUEDE AFIRMAR LO QUE NO SABE. La glosa que va al
+ * prompt dice «Lead parado en la etapa "X" del funnel del negocio», y la arma leyendo el
+ * funnel POR DEFECTO. Eso era exacto mientras hubiera uno solo. Desde que el opt-in de
+ * una landing guarda el `funnel_id` del producto de esa página (04/10/2026) hay
+ * workspaces con dos embudos vivos —medido: 4 de 11— y el lead puede estar en el otro:
+ *
+ * · si la clave de etapa NO existe en el default, el `find` no encuentra y la glosa cae
+ *   a la genérica, que es lo correcto y ya pasaba;
+ * · si existe CON OTRO RÓTULO, la función afirma una etapa en la que el lead no está —
+ *   y se lo afirma al modelo que escribe el mensaje.
+ *
+ * O sea que la pregunta no es «qué etiqueta pongo» sino «puedo saberlo». Con más de un
+ * embudo vivo y una secuencia que no declara el suyo, no se puede: se pierde una frase
+ * de contexto y no el mensaje, que es exactamente «"no puedo hacer X con este dato" no
+ * es "este dato es falso"».
+ *
+ * ⚠️ Y LO QUE DESTRABA ESTO NO ES CÓDIGO: es que cada secuencia DECLARE su embudo
+ * (`nutricion_secuencias.funnel_id`, mig 0170, hoy NULL en las 62). Eso son 62
+ * decisiones de producto que no se deducen de ningún dato — las secuencias se
+ * escribieron cuando había un embudo solo— así que las contesta una persona, no un
+ * backfill. Mientras tanto esta función se abstiene.
+ */
+export function puedeAfirmarEtapa(o: { embudosVivos: number; secDeclaraFunnel: boolean }): boolean {
+  if (o.secDeclaraFunnel) return true;        // sabe de cuál habla: puede nombrarlo
+  return o.embudosVivos <= 1;                 // hay uno solo: el default ES el del lead
+}
