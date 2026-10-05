@@ -11,7 +11,6 @@ import Link from '@/app/_ui/Link';
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage, type StageBand } from '@/lib/pipeline';
-import { hayPasoDeWizard, tabDeSolucion } from '@/lib/stage-requirements';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -26,6 +25,9 @@ import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
+// «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
+// ese dato es el que viaja a Meta. Mismo control y misma columna que en Reuniones.
+import { CalificacionCard } from './lead-view/CalificacionCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
 import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
@@ -160,15 +162,22 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     });
   };
 
-  // "Datos sin marcar" (arriba de TODAS las tabs). Solucionar rutea a la ficha:
-  // reunión/venta/higiene → wizard (?solucionar=1); Deal Details/comprobante →
-  // Cobranza; respuestas R2 → Meetings.
-  const tab = tabDeSolucion(faltantes);
-  const solucionarHref = hayPasoDeWizard(faltantes)
-    ? `/crm/${lead.id}?solucionar=1`
-    : tab === 'cobranza' ? `/crm/${lead.id}?edit=1&tab=cobranza&ia=1`
-    : tab === 'reuniones' ? `/crm/${lead.id}?edit=1&tab=reuniones`
-    : `/crm/${lead.id}?edit=1`;
+  // ⚠️ «SOLUCIONAR» SE RESUELVE ACÁ ADENTRO, sin salir de la ficha. Pedido textual de
+  // Martín (05/10/2026): «el botón de "Solucionar" debería permitirme solucionar allí
+  // mismo, sin redirigirme a otra ruta, en el mismo modal».
+  //
+  // Antes navegaba a `/crm/<id>?solucionar=1` (o a `?edit=1&tab=…`, según qué faltara):
+  // cerraba el modal, cargaba otra pantalla, y volver era el botón Atrás. Y el destino
+  // no hacía nada que no se pueda hacer acá — en la ruta, «Solucionar» es exactamente
+  // `setMoveTo(currentStage)` (`app/crm/[id]/LeadDetailBody.tsx`), o sea el MISMO
+  // `StageMoveDialog` que este modal ya monta para cambiar de etapa.
+  //
+  // ⚠️ NO SE ESCRIBE UNA SEGUNDA ESCRITURA. El wizard es el único que marca los datos
+  // del worklist (`completeStageMoveAction`), y `faltantes` —calculado en el server— es
+  // su lista autoritativa. Lo que lo convierte en «Completar datos» en vez de un
+  // movimiento es que `moveTo` apunte a la etapa ACTUAL, igual que en la ruta.
+  const solucionar = () => setMoveTo(stageKey);
+  const completandoDatos = moveTo === stageKey;
   // Nutrición positiva (derivada): el lead avanza dentro de su etapa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
@@ -241,7 +250,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
                 un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
                 en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
             {faltantes.length > 0 && (
-              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={() => router.push(solucionarHref)} ignorado={ignorado} onReactivar={reactivar} />
+              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} ignorado={ignorado} onReactivar={reactivar} />
             )}
           </div>
         </div>
@@ -252,7 +261,21 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             initial={initialTab}
             tabs={[
               { key: 'resumen', label: 'Resumen', content: tabResumen },
-              { key: 'comportamiento', label: 'Tracking', content: <><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />{/* ⚠️ EL ORDEN ES PARTE DEL ARREGLO: «qué hizo» antes que «de dónde vino». Origen ocupa ~320 px y empujaba el recorrido a 601 px del tope, fuera del alto visible del panel (583). Medido en el navegador el 05/10/2026. */}<OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} />{/* ⚠️ EL ORDEN ES PARTE DEL ARREGLO: «qué hizo» antes que «de dónde vino». Origen ocupa ~320 px y empujaba el recorrido a 601 px del tope — fuera del alto visible del panel (583). Medido en el navegador el 05/10/2026. */}</> },
+              // ⚠️ EL ORDEN LO DECIDIÓ MARTÍN, textual (05/10/2026): «la primera sección debe
+              // ser "Origen del lead" y luego "Comportamiento" y por ultimo "Actividad
+              // registrada"». La noche anterior estaba al revés —Comportamiento primero y
+              // Origen al fondo— con una medición de píxeles como argumento (Origen ocupa
+              // ~320 px y empujaba el recorrido a 601 px del tope, sobre 583 visibles). La
+              // medición era cierta y contestaba otra pregunta: es su pantalla y la lee como
+              // una frase, de dónde vino → qué hizo → evento por evento.
+              //
+              // «Actividad registrada» NO se monta acá: va adentro de ComportamientoCard,
+              // que es lo que mantiene a Clarity al final. Lo fija `tests/crm-tracking-ficha.test.ts`.
+              //
+              // ⚠️ Y ESTE MONTAJE Y EL DE `app/crm/[id]/page.tsx` TIENEN QUE QUEDAR IGUALES:
+              // es la MISMA ficha por dos puertas, y ya se pagó que una se quedara con la
+              // versión anterior.
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} /></> },
               { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
               // pestaña no decía más que «está vacía» —y con tres redacciones
@@ -309,15 +332,35 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         </div>
       </div>
 
+      {/* ⚠️ EL CLICK NO PUEDE LLEGAR AL BACKDROP DE LA FICHA. Este wizard se monta
+          DENTRO del overlay de la ficha, que tiene `onClick={onClose}`: en React los
+          eventos suben por el árbol de componentes, así que un click en el fondo del
+          wizard (el `padding: 20` alrededor de su panel) cerraba su diálogo Y la ficha
+          entera — un portal no lo evita, porque la propagación sigue el árbol de React
+          y no el DOM. Da igual cuando mover de etapa cierra la ficha de todos modos, y
+          deja de dar igual con «Completar datos», donde la ficha tiene que quedar.
+          Es el gemelo por CLICK del Escape que `profundidadModales()` ya resuelve. */}
       {moveTo && (
-        <StageMoveDialog
-          lead={moveInfo}
-          stages={stages}
-          move={{ to: moveTo }}
-          equipo={equipo}
-          onClose={() => setMoveTo(null)}
-          onDone={() => { setMoveTo(null); router.refresh(); onClose(); }}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <StageMoveDialog
+            lead={moveInfo}
+            stages={stages}
+            move={{ to: moveTo }}
+            // Completar datos (el «Solucionar» del aviso): es el mismo wizard sobre la
+            // etapa actual, con la lista de faltantes que calculó el server. Los tres
+            // props van juntos y con la misma condición que en `LeadDetailBody`.
+            titulo={completandoDatos ? 'Completar datos' : undefined}
+            completarDatos={completandoDatos}
+            faltantes={completandoDatos ? faltantes : undefined}
+            equipo={equipo}
+            onClose={() => setMoveTo(null)}
+            // Al completar datos la ficha SE QUEDA: la persona no pidió irse de acá, y
+            // cerrarla sería la redirección que este cambio vino a sacar. Mover de
+            // etapa sí la cierra — la tarjeta ya no vive en la columna que se estaba
+            // mirando.
+            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); router.refresh(); if (!quedarse) onClose(); }}
+          />
+        </div>
       )}
 
       {moverDirecto && (

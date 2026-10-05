@@ -72,6 +72,7 @@ import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
+import { VIA_INLINE, esCampoInline, montoEnRiesgo, valorDeCampo, type ValorInline } from './campo-inline';
 import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
@@ -1903,6 +1904,57 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads);
   revalidatePath('/crm');
+}
+
+/**
+ * Guarda UN campo de la ficha editado EN EL LUGAR (sin modo edición).
+ *
+ * «Que ya no exista el botón de "editar" … sino que simplemente le doy click
+ * arriba y ya puedo sobre escribir» (Martín, 05/10/2026).
+ *
+ * ⚠️ NO ES UN CAMINO NUEVO DE ESCRITURA. Es el MISMO que ya usa «Deshacer» del
+ * historial (`revertAuditChangeAction`, unas líneas más abajo): campo por campo,
+ * `updateLead` para las columnas con invariante y evento de Meta, `saveLeadMeta`
+ * para las que no, y `logLeadChanges` al final — así un cambio hecho en la ficha
+ * queda en el historial igual que cualquier otro, y se puede deshacer desde ahí.
+ * Qué campo va por dónde lo decide `app/crm/campo-inline.ts`, que es el catálogo
+ * que también lee la pantalla.
+ *
+ * ⚠️ `campo` ES UN ARGUMENTO DE UNA SERVER ACTION, o sea una URL: se valida contra
+ * el catálogo antes de tocar nada. Sin eso, cualquier columna de `leads` —
+ * `workspace_id` incluido— sería escribible desde el navegador.
+ */
+export async function guardarCampoLeadAction(id: number, campo: string, valor: ValorInline): Promise<void> {
+  if (!esCampoInline(campo)) throw new Error('Ese campo no se edita desde la ficha.');
+  const v = valorDeCampo(campo, valor);
+  // El `before` se LEE (y no se asume) porque además del historial decide si hay
+  // que rescatar el monto de cierre: ver `montoEnRiesgo`.
+  const before = await getLead(id);
+  if (!before) throw new Error(`Lead ${id} no existe`);
+
+  if (VIA_INLINE[campo] === 'meta') {
+    await saveLeadMeta(id, { [campo]: v as string | null });
+  } else {
+    await updateLead(id, { [campo]: v } as Parameters<typeof updateLead>[1]);
+    // ⚠️ RESCATE DEL MONTO. `updateLead` fuerza monto/fecha de cierre a null cuando
+    // `cerro != true`, haya mandado el caller lo que haya mandado — y un lead en
+    // «Facturando» tiene monto con `cerro` null (lo escribe lib/pagos.ts directo).
+    // Sin esto, corregirle «asistió a R1» le borraba la venta en silencio.
+    if (montoEnRiesgo(before)) {
+      const { error } = await (await getTenantDb())
+        .from('leads')
+        .update({ monto_cierre_usd: before.monto_cierre_usd ?? null, fecha_cierre: before.fecha_cierre ?? null })
+        .eq('id', id);
+      if (error) throw new Error(`No se pudo conservar el monto de cierre del lead ${id}: ${error.message}`);
+    }
+  }
+
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, await autorActual());
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/crm');
+  revalidatePath(`/crm/${id}`);
+  revalidatePath('/general');
 }
 
 export type MiembroEquipo = { nombre: string; email: string; foto_url: string | null };

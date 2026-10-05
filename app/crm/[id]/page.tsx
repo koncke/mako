@@ -32,6 +32,9 @@ import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { NotasCard } from '../lead-view/NotasCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
+// «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
+// ese dato es el que viaja a Meta. Mismo control y misma columna que en Reuniones.
+import { CalificacionCard } from '../lead-view/CalificacionCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
@@ -206,10 +209,25 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             },
             {
               key: 'comportamiento', label: 'Tracking',
+              // ⚠️ EL ORDEN LO DECIDIÓ MARTÍN, textual (05/10/2026): «la primera sección debe
+              // ser "Origen del lead" y luego "Comportamiento" y por ultimo "Actividad
+              // registrada"». La noche anterior estaba al revés —Comportamiento primero y
+              // Origen al fondo— con una medición de píxeles como argumento (Origen ocupa
+              // ~320 px y empujaba el recorrido a 601 px del tope, sobre 583 visibles). La
+              // medición era cierta y contestaba otra pregunta: es su pantalla y la lee como
+              // una frase, de dónde vino → qué hizo → evento por evento.
+              //
+              // «Actividad registrada» NO se monta acá: va adentro de ComportamientoCard,
+              // que es lo que mantiene a Clarity al final. Lo fija `tests/crm-tracking-ficha.test.ts`.
+              //
+              // ⚠️ Y ESTE MONTAJE Y EL DE `app/crm/LeadSheet.tsx` TIENEN QUE QUEDAR IGUALES:
+              // es la MISMA ficha por dos puertas, y ya se pagó que una se quedara con la
+              // versión anterior.
               content: (
                 <>
-                  
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />{/* ⚠️ EL ORDEN ES PARTE DEL ARREGLO: «qué hizo» antes que «de dónde vino». Origen ocupa ~320 px y empujaba el recorrido a 601 px del tope, fuera del alto visible del panel (583). Medido en el navegador el 05/10/2026. */}<OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
+                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
+                  <CalificacionCard lead={lead} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} />
                 </>
               ),
             },

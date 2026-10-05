@@ -54,8 +54,14 @@ export function asistenciaImplicita(tr: TransicionParaSenales): boolean | undefi
 
 export function senalesAOfrecer(lead: LeadParaSenales, opts: { tr?: TransicionParaSenales; hoyISO: string }): SenalesAOfrecer {
   const nada: SenalesAOfrecer = { asistio: false, calificado: false, asistioConocida: lead.asistioJ1 };
-  // Sin fecha de R1 no hay reunión de la que hablar: updateLead anula asistencia
-  // y calificado cuando falta la fecha, así que preguntarlos sería inútil.
+  // Sin fecha de R1 no hay reunión de la que hablar: updateLead anula la
+  // asistencia cuando falta la fecha, así que preguntarla sería inútil.
+  //
+  // ⚠️ «Calificado» SÍ se puede marcar sin reunión desde el 05/10/2026 (pestaña
+  // Tracking de la ficha, ver lib/calificado-reunion.ts). Acá no se ofrece igual, y
+  // a propósito: esto es lo que se pregunta AL MOVER de etapa, y un movimiento sin
+  // reunión no es el momento de esa pregunta. No hay dos verdades — el control de
+  // la ficha escribe la misma columna por el mismo camino y los dos leen `lead`.
   if (!lead.fechaJ1) return nada;
   // Una reunión que todavía no ocurrió no tiene asistencia que marcar. La de hoy
   // sí cuenta: si alguien mueve al lead, es porque ya pasó algo.

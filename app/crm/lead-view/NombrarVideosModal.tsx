@@ -28,7 +28,7 @@
 import { useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Input, Modal, Select } from '@/app/_ui';
-import { TIPOS_VIDEO, esTipoVsl, rotuloDe, type VideoLanding } from '@/lib/landing-videos';
+import { TIPOS_VIDEO, esTipoVsl, rotuloDe, videoNombrable, type VideoLanding } from '@/lib/landing-videos';
 import { guardarVideoAction } from '@/app/integraciones/landing-actions';
 import type { VideoEngagement } from '@/lib/leads';
 
@@ -56,7 +56,9 @@ export function NombrarVideosModal({
 
   // Sin id no hay contra qué guardar un nombre: son los eventos viejos que no se
   // pudieron atribuir. Se dejan afuera en vez de dibujar una fila que no guarda.
-  const filas = porVideo.filter((v) => !!v.videoId);
+  // El predicado es el MISMO que usa la tarjeta para decidir a quién le ofrece el
+  // botón: con dos copias, la oferta y lo que hay adentro se separan.
+  const filas = porVideo.filter(videoNombrable);
 
   // Los nombres propios que ya usó este negocio se ofrecen igual que los de
   // fábrica, como en /integraciones: el segundo testimonio se elige en un click.

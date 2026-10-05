@@ -7,7 +7,7 @@
 // completo evento por evento. Compartido por el modal (LeadSheet) y la ruta
 // /crm/[id].
 //
-// ⚠️ EL ORDEN ES EL ARREGLO, y se reportó como que el producto no mide nada:
+// ⚠️ LO EXTERNO VA AL FINAL, y se reportó como que el producto no mide nada:
 // «aún no se está mostrando la grabación, los clicks, aún sigue redirigiendo a
 // clarity». El recorrido YA se dibujaba —`TrackingTimelineCard`, con sus clics y
 // su scroll— pero se montaba SUELTO debajo de esta tarjeta, o sea debajo de dos
@@ -18,6 +18,18 @@
 // lo de Clarity queda al final y más chico. `TrackingTimelineCard` dejó de
 // montarse suelta en los dos lugares: si volviera, la misma ficha mostraría el
 // recorrido dos veces.
+//
+// ⚠️ PERO EL ORDEN DE LAS TRES SECCIONES LO DECIDE MARTÍN, y lo dijo textual el
+// 05/10/2026: «la primera sección debe ser "Origen del lead" y luego
+// "Comportamiento" y por ultimo "Actividad registrada"». La noche anterior se había
+// puesto al revés —el recorrido arriba de todo y Origen al fondo— con una medición
+// de píxeles como argumento: el primer renglón a 798,5 px del tope en un área
+// visible de 583. La medición era cierta y contestaba otra pregunta. Es su pantalla
+// y la lee como una frase: de dónde vino → qué hizo → evento por evento. Si vuelve
+// a quedar apretada, lo que se acorta es lo de arriba, nunca el orden.
+//
+// Queda entonces: Origen (en los montajes) → Comportamiento → Actividad registrada
+// → Fuera de MaKo. Lo externo sigue último, que es lo que el reporte vino a cerrar.
 //
 // 'use client' porque esta tarjeta tiene controles propios (el pop-up para
 // nombrar un video, el botón que copia el id). Era un módulo sin directiva, así
@@ -35,7 +47,7 @@
 // lista de un renglón le agrega ruido al 95% de los casos para resolver el 5%.
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { rotuloDe, type VideoLanding } from '@/lib/landing-videos';
+import { filaDeRetencionInforma, rotuloDe, videoNombrable, type VideoLanding } from '@/lib/landing-videos';
 import type { TrackingEvent, VideoEngagement } from '@/lib/leads';
 import { TrackingTimelineCard } from './TrackingTimelineCard';
 import { NombrarVideosModal } from './NombrarVideosModal';
@@ -67,12 +79,24 @@ const colorDe = (pct: number | null) =>
 function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }) {
   const r = rotuloDe(videos, v.videoId, v.titulo);
   const color = colorDe(v.maxPct);
+  // ⚠️ EL BALDE NO SE PUEDE NOMBRAR, así que no se puede OFRECER nombrar. Es la fila
+  // con `videoId` null: los eventos que `getVslEngagement` no pudo atribuir a ningún
+  // video (`lib/leads.ts`, la clave `''` del mapa). No es un video al que todavía le
+  // falta el nombre — es la bolsa de lo que llegó sin id, y por construcción nunca va
+  // a tener uno: el id del balde se inicializa en `null` y no se escribe nunca más.
+  // Por eso el pop-up la descarta (`porVideo.filter((v) => !!v.videoId)`).
+  //
+  // Hasta el 05/10/2026 se rotulaba «Video sin identificar», que es exactamente una
+  // invitación a identificarlo: Martín lo reportó dos veces («sigue sin dejarme poner
+  // de qué video es»). Lo honesto es decir en una frase qué son, y que no hay nada
+  // que apretar.
+  const balde = !videoNombrable(v);
   return (
     <div style={{ position: 'relative', padding: '11px 2px 12px', borderTop: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-        <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {r.texto}
-          {r.esVsl && <span style={{ marginLeft: 7, fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--mako-ink)' }}>VSL</span>}
+        <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: balde ? 'var(--dim)' : 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {balde ? 'Reproducciones sin identificar' : r.texto}
+          {!balde && r.esVsl && <span style={{ marginLeft: 7, fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--mako-ink)' }}>VSL</span>}
         </span>
         <span style={{ flex: 'none', fontSize: 16, fontWeight: 650, color, fontVariantNumeric: 'tabular-nums' }}>
           {v.maxPct != null ? `${v.maxPct}%` : '—'}
@@ -82,6 +106,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
         {v.plays > 0 ? `${v.plays} ${v.plays === 1 ? 'reproducción' : 'reproducciones'}` : 'sin reproducir'}
         {/* «Reprodujo pero no llegó ningún hito» NO es 0%: es sin dato. */}
         {v.maxPct == null && v.plays > 0 ? ' · sin datos de avance' : ''}
+        {balde ? ' · llegaron sin decir de qué video son, no se pueden nombrar' : ''}
       </div>
       {v.maxPct != null && (
         // ⚠️ Recortada al 100% SIEMPRE: un ancho en % adentro de un carril no
@@ -141,7 +166,19 @@ export function ComportamientoCard({
   const [nombrando, setNombrando] = useState(false);
 
   const pctColor = colorDe(maxPct);
-  const varios = porVideo.length > 1;
+
+  // ⚠️ EL BALDE VACÍO NO SE DIBUJA, y era el que hacía creer que había dos videos.
+  // El porqué, con la medición, en `filaDeRetencionInforma` (lib/landing-videos.ts):
+  // los eventos de la PÁGINA llegan sin `video_id`, así que cualquier lead que haya
+  // visitado la landing tenía una fila «sin identificar · sin reproducir» al lado de
+  // su video real — y con dos entradas `varios` daba true.
+  //
+  // ⚠️ `filas` ES EL UNIVERSO DE TODA ESTA TARJETA de acá para abajo: la cuenta, la
+  // lista, la oferta de nombrar y lo que recibe el pop-up. Un segundo filtro sobre
+  // `porVideo` es cómo una punta vuelve a prometer lo que la otra no tiene.
+  const filas = porVideo.filter(filaDeRetencionInforma);
+
+  const varios = filas.length > 1;
   // Ofrecer ponerles nombre solo cuando hay más de uno Y alguno no lo tiene: con
   // un solo video el nombre no distingue nada, así que pedirlo es tarea de más.
   // ⚠️ SOLO LOS QUE EL POP-UP PUEDE NOMBRAR. Un video sin `videoId` es un evento viejo
@@ -149,7 +186,7 @@ export function ComportamientoCard({
   // Contarlo acá ofrecía «ponles un nombre» y abría un pop-up sin una sola fila que
   // contestar — medido el 05/10/2026: en 59 de los 64 leads que mostraban el botón. Las
   // dos puntas de una oferta miran el MISMO universo, o la pantalla promete lo que no hay.
-  const nombrables = porVideo.filter((v) => !!v.videoId);
+  const nombrables = filas.filter(videoNombrable);
   const faltanNombres = varios && nombrables.some((v) => !rotuloDe(vids, v.videoId, v.titulo).propio);
   const sinDatos = !visitas && !plays && maxPct == null;
 
@@ -166,15 +203,6 @@ export function ComportamientoCard({
 
   return (
     <>
-      {/* ⚠️ EL RECORRIDO VA PRIMERO, Y NO ES UNA PREFERENCIA DE ORDEN. Medido en el
-          navegador el 05/10/2026: con los números y la retención por video arriba, el
-          primer renglón quedaba a 798,5 px del tope en un área visible de 583 — o sea
-          que había que scrollear para ver lo único que la pestaña promete. Lo que el
-          producto SABE de esta persona se lee sin mover nada; el resumen en números y
-          el detalle por video quedan abajo, que es donde se los busca DESPUÉS de haber
-          visto qué hizo. */}
-      <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />
-
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: sinDatos ? 10 : 14 }}>Comportamiento</div>
         {/* Sin ningún dato: mensaje claro en vez de tres cuadros con rayas. */}
@@ -207,7 +235,7 @@ export function ComportamientoCard({
                 <div style={{ fontSize: 22, color: plays ? 'var(--ink)' : 'var(--faint)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
                   {plays || '—'}{plays ? <span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}> {plays === 1 ? 'vez' : 'veces'}</span> : null}
                 </div>
-                {varios && <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>entre {porVideo.length} videos</div>}
+                {varios && <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>entre {filas.length} videos</div>}
               </div>
               {/* ⚠️ CON VARIOS VIDEOS NO HAY «la retención» en singular. El máximo sobre
                   todos es el número que hacía pasar el 80% de un testimonio de 40 s por
@@ -234,7 +262,7 @@ export function ComportamientoCard({
             {varios && (
               <div style={{ marginTop: 18 }}>
                 <div style={{ ...sectLabel, marginBottom: 2 }}>Retención por video</div>
-                {porVideo.map((v) => <FilaVideo key={v.videoId ?? '_'} v={v} videos={vids} />)}
+                {filas.map((v) => <FilaVideo key={v.videoId ?? '_'} v={v} videos={vids} />)}
                 {/* ⚠️ UN POP-UP ACÁ MISMO, NO UNA REDIRECCIÓN. Esto era un
                     `<Link href="/integraciones?abrir=landing">`: para ponerle nombre a un
                     video había que irse de la ficha del lead y volver. */}
@@ -253,6 +281,12 @@ export function ComportamientoCard({
           </>
         )}
       </section>
+
+      {/* «Actividad registrada»: el recorrido evento por evento, TERCERO y último de
+          lo nuestro, que es el orden que pidió Martín. Se monta acá adentro y no
+          suelto en los dos montajes — si volviera, la misma ficha lo dibujaría dos
+          veces (lo fija `tests/crm-tracking-ficha.test.ts`). */}
+      <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />
 
       {externo && (
         <section style={cardExterna}>
@@ -310,7 +344,10 @@ export function ComportamientoCard({
 
       {nombrando && (
         <NombrarVideosModal
-          porVideo={porVideo}
+          // `filas`, no `porVideo`: las dos puntas de la oferta miran el MISMO
+          // universo. Da igual hoy —el modal descarta el balde por su cuenta— y
+          // deja de dar igual el día que uno de los dos filtros cambie.
+          porVideo={filas}
           videos={vids}
           onCerrar={() => setNombrando(false)}
           onGuardado={(nuevos) => setVideosLocal(nuevos)}

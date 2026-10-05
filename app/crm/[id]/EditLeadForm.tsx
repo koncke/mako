@@ -12,8 +12,12 @@ import { useRef, useState, useTransition, type CSSProperties, type ReactNode } f
 import { useRouter } from '@/app/_ui/Link';
 import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
 import { CHIP, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
+// Cuándo se descarta el «calificado»: el mismo candado que aplica `updateLead` y que
+// dibuja la ficha. Hay funnels sin reuniones y ese dato es el que viaja a Meta.
+import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { opcionesEquipo } from '../equipo-opciones';
 import { LeadTabs } from '../lead-view/LeadTabs';
 import { DealDetailsCard, type DealDetailsHandle } from './DealDetailsCard';
 import type { Lead, FathomLink } from '@/lib/leads';
@@ -62,15 +66,9 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   const [closer, setCloser] = useState(lead.closer ?? '');
   const [setter, setSetter] = useState(lead.setter ?? '');
   // Setter/Closer = SIEMPRE seleccionable del equipo del workspace, nunca texto
-  // libre. Si el valor guardado no está en el equipo (dato viejo) se ofrece igual
-  // para no perderlo, marcado "fuera del equipo".
-  const equipoOpts = (current: string): DropdownOption[] => {
-    const opts: DropdownOption[] = [{ value: '', label: 'Sin asignar' }];
-    for (const m of equipo) opts.push({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null });
-    const cur = current.trim();
-    if (cur && !equipo.some((m) => m.nombre === cur)) opts.push({ value: cur, label: cur, sub: 'fuera del equipo', avatar: null });
-    return opts;
-  };
+  // libre. La lista la arma `opcionesEquipo` (una sola copia: la comparte con el
+  // campo editable de la ficha, que ofrece lo mismo sin entrar a editar).
+  const equipoOpts = (current: string): DropdownOption[] => opcionesEquipo(equipo, current);
   const [fathom, setFathom] = useState<FathomLink[]>(lead.fathom_links ?? []);
   const [deadline, setDeadline] = useState(lead.nutricion_manual_deadline ?? '');
   // Fathom en DOS slots fijos (R1/R2), una llamada de venta cada uno → no se
@@ -100,11 +98,17 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   const showComercial = reachedMeeting || isLost;
 
   const asistioJ1Disabled = !fechaJ1;
-  const calificadoDisabled = asistioJ1 !== true;
+  // ⚠️ «Calificado» YA NO EXIGE HABER ASISTIDO (05/10/2026). Era `asistioJ1 !== true`,
+  // la regla vieja de `updateLead`, y con el control de la pestaña Tracking a la vista
+  // eso dejaba la MISMA pregunta contestable en un lugar y gris en el otro. El candado
+  // es uno y vive en `lib/calificado-reunion.ts`: sólo cuando consta que no vino.
+  const calificadoDisabled = calificadoSeDescarta({ fecha_junta_1: fechaJ1 || null, asistio_j1: asistioJ1 });
   const asistioJ2Disabled = !fechaJ2;
 
-  const handleFechaJ1 = (v: string) => { setFechaJ1(v); if (!v) { setAsistioJ1(null); setCalificado(null); } };
-  const handleAsistioJ1 = (v: TriState) => { setAsistioJ1(v); if (v !== true) setCalificado(null); };
+  // Borrar la fecha de la R1 ya no borra el calificado: `updateLead` sólo lo descarta
+  // cuando consta que no asistió. Limpiarlo acá sería una tercera regla.
+  const handleFechaJ1 = (v: string) => { setFechaJ1(v); if (!v) setAsistioJ1(null); };
+  const handleAsistioJ1 = (v: TriState) => { setAsistioJ1(v); if (v === false) setCalificado(null); };
   const handleFechaJ2 = (v: string) => { setFechaJ2(v); if (!v) setAsistioJ2(null); };
 
   const guardar = () => {
@@ -226,7 +230,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
             <Field label="¿Asistió a R1?" disabled={asistioJ1Disabled} hint={asistioJ1Disabled ? 'Marca fecha R1 primero' : undefined}>
               <TriToggle value={asistioJ1} onChange={handleAsistioJ1} disabled={asistioJ1Disabled} />
             </Field>
-            <Field label="¿Era lead calificado?" disabled={calificadoDisabled} hint={calificadoDisabled ? 'Solo si asistió a R1 = Sí' : undefined}>
+            <Field label="¿Era lead calificado?" disabled={calificadoDisabled} hint={calificadoDisabled ? 'No asistió a la R1' : undefined}>
               <TriToggle value={calificado} onChange={setCalificado} disabled={calificadoDisabled} />
             </Field>
             {reachedR2 && (

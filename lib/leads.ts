@@ -29,6 +29,9 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
 import { sendMetaCAPIEvent } from './meta-capi';
+// Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
+// canal de MaKo, para que los tres apliquen la MISMA regla.
+import { calificadoSeDescarta } from './calificado-reunion';
 import type { Stage } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
@@ -790,8 +793,9 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
  * Actualiza un lead con validaciones lógicas.
  *
  * Reglas:
- * - Si fecha_junta_1 es null → asistio_j1 y calificado se fuerzan a null.
- * - Si asistio_j1 != true → calificado se fuerza a null (no aplica).
+ * - Si fecha_junta_1 es null → asistio_j1 se fuerza a null.
+ * - Si consta que NO asistió a una R1 con fecha → calificado se fuerza a null.
+ *   Sin reunión, «calificado» se conserva: ver lib/calificado-reunion.ts.
  * - Si cerro != true → monto_cierre_usd y fecha_cierre se fuerzan a null.
  * - Si cerro = true sin monto → error.
  */
@@ -844,9 +848,13 @@ export async function updateLead(
   // Aplicar reglas de coherencia
   if (!merged.fecha_junta_1) {
     merged.asistio_j1 = null;
-    merged.calificado = null;
   }
-  if (merged.asistio_j1 !== true) {
+  // ⚠️ «Calificado» YA NO EXIGE UNA REUNIÓN. Antes se forzaba a null sin fecha de
+  // R1 y sin `asistio_j1 === true`, así que los funnels sin reuniones no podían
+  // cargarlo nunca — y es una de las dos señales que viajan a Meta. La regla (y el
+  // único caso que sí lo descarta: consta que no vino) vive en un módulo puro para
+  // que la ficha y el canal de MaKo no escriban su propia copia.
+  if (calificadoSeDescarta(merged)) {
     merged.calificado = null;
   }
   if (merged.cerro !== true) {
@@ -2534,13 +2542,61 @@ export type LeadMetaInput = {
  * stageKey=null limpia el override (vuelve a la derivación automática).
  */
 export async function setBoardStageOverride(id: number, stageKey: string | null, deadline: string | null): Promise<void> {
+  const supabase = await getTenantDb();
+  // La etapa ANTERIOR y el embudo del lead, antes de escribir. Las dos cosas son para el
+  // disparo de abajo: una secuencia de etapa se dispara cuando el lead CAE en la etapa,
+  // no cada vez que alguien guarda la ficha con la misma etapa puesta.
+  const { data: previo } = await supabase.from('leads').select('pipeline_stage, funnel_id').eq('id', id).limit(1);
+  const antes = ((previo ?? []) as Array<{ pipeline_stage: string | null; funnel_id: number | null }>)[0];
+
   const patch: Record<string, unknown> = {
     pipeline_stage: stageKey,
     nutricion_manual_deadline: stageKey === 'manual' ? (deadline ?? null) : null,
   };
   if (stageKey && NUTRI_KEYS.includes(stageKey)) patch.nutricion_realizada = true;
-  const { error } = await (await getTenantDb()).from('leads').update(patch).eq('id', id);
+  const { error } = await supabase.from('leads').update(patch).eq('id', id);
   if (error) throw new Error(`Error guardando etapa del lead ${id}: ${error.message}`);
+
+  /**
+   * ⚠️ EL DISPARO DE UNA SECUENCIA DE ETAPA VA ACÁ, QUE ES EL CHOKE POINT.
+   *
+   * Pedido de Martín (05/10/2026): «un CRON que se active mediante que un lead caiga en X
+   * etapa de X producto». El dato existía —`trigger_tipo='etapa_actual'` + `etapa` +
+   * `funnel_id`— y lo descubría sólo el barrido horario del cron, así que mover un lead y
+   * que le llegue el mensaje estaban separados por hasta una hora.
+   *
+   * Va en esta función y no en los call sites porque por acá pasan TODOS los caminos que
+   * escriben la columna del tablero: la ficha (`saveLeadEditorAction`), el arrastre del
+   * kanban, la confirmación de MaKo y el «volver a derivación». Es la regla de la casa:
+   * lo que vale para todos los cambios se escribe donde pasan todos — puesto en cada
+   * camino, el quinto nace sin disparar y nadie se entera.
+   *
+   * Tres cosas que NO hace, a propósito:
+   * · NO dispara si la etapa no cambió. Guardar la ficha reescribe la misma etapa, y un
+   *   mensaje por guardado es cómo se quema una línea de WhatsApp.
+   * · NO dispara con `stageKey = null` («volver a la derivación automática»): ahí la
+   *   etapa efectiva la calcula el funnel a partir de las fechas, y afirmar una acá sería
+   *   inventarla. Esos casos los sigue levantando el cron, que deriva de verdad.
+   * · NO tira nunca. Mover un lead tiene que funcionar aunque la nutrición falle; el
+   *   fallo queda en el log y el cron lo levanta en la próxima corrida.
+   *
+   * ⚠️ Y LA ETAPA DERIVADA NO PASA POR ACÁ. Un lead al que le cargan la fecha de la J1
+   * cambia de etapa EFECTIVA sin que nadie escriba `pipeline_stage`. Ese camino sigue
+   * siendo del cron (`leadsDeCohorte('etapa_actual', …)`, que deriva la etapa en memoria):
+   * lo que esto agrega es el disparo instantáneo del movimiento EXPLÍCITO, que es el que
+   * la persona hace con la mano y el que espera ver salir.
+   */
+  if (stageKey && antes && antes.pipeline_stage !== stageKey) {
+    try {
+      // Import dinámico: `lib/nutricion.ts` importa este módulo, y un import estático de
+      // vuelta es un ciclo que rompe según quién se cargue primero — y falla distinto en
+      // el server, en el cliente y en los tests.
+      const { enrolarPorEvento } = await import('./nutricion');
+      await enrolarPorEvento(id, 'etapa', { etapa: stageKey, funnelId: antes.funnel_id ?? null });
+    } catch (e) {
+      console.error(`[leads] no pude enrolar al lead ${id} por caer en «${stageKey}»:`, e instanceof Error ? e.message : String(e));
+    }
+  }
 }
 
 export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {

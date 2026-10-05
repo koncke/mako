@@ -5723,3 +5723,512 @@ comentario del módulo: el día que se cambie por un `.eq()`, lo que se rompe no
 de enrolar a 1.530 personas y la pantalla sigue diciendo que la secuencia está activa.
 
 **Vive en:** `lib/nutricion-ambito.ts` · `lib/leads.ts` (`listLeadsDeFunnel`, que pide los del default con `.is('funnel_id', null)`) · *2026-10-05 cerrar-crm*
+
+## Las tabs de la ficha son FIJAS, y la que se esconde se lleva el único lugar donde se edita
+
+Síntoma: en un embudo sin reuniones (WhatsApp, carrito) la tab «Reuniones» está vacía
+siempre, y el marcado de «¿era calificado?» —uno de los dos únicos datos del CRM que
+viajan a Meta CAPI— no se puede poner por ningún camino.
+
+Lo medido sobre los 1.549 leads de producción (05/10/2026):
+
+- **1.350 de 1.549 (87%)** no tienen ni `fecha_junta_1`, ni `fecha_junta_2`, ni
+  `fecha_agenda`, ni `asistio_j1`. Abren «Reuniones» y leen «todavía no agendó ninguna
+  reunión». La tab está en el array sin condición, al lado de «Resumen», «Tracking»,
+  «Análisis» e «Historial»; la ÚNICA condicional es «Pagos» (`pagos.length` en el modal,
+  `esVenta || tienePlan` en la ruta).
+- **128 de 1.549 (8%)** tienen `visitor_id`. O sea que «Tracking» está tan vacía como
+  «Reuniones» para el 92%, y por el mismo motivo: nació pensada para el embudo de VSL.
+- **68 leads tienen `calificado` marcado, y CERO de ellos sin `fecha_junta_1`.** No es una
+  casualidad de los datos: `updateLead` lo FUERZA (`lib/leads.ts`, «Aplicar reglas de
+  coherencia»: sin `fecha_junta_1` → `asistio_j1 = null` y `calificado = null`; con
+  `asistio_j1 !== true` → `calificado = null`). Y los tres lugares que lo editan ya vienen
+  apagados por la misma condición: `EditLeadForm` (`calificadoDisabled = asistioJ1 !== true`),
+  `senalesAOfrecer` («sin fecha de R1 no hay reunión de la que hablar») y el paso
+  `calificado` del wizard de `CrmBoard`.
+
+**La trampa, y vale para cualquier tab que se esconda:** el dato no está preso en la TAB,
+está preso en una INVARIANTE DEL SERVIDOR. Esconder «Reuniones» en un embudo sin reuniones
+no empeora nada, pero mudar el botón a «Tracking» tampoco arregla nada: `updateLead` lo
+borra en el mismo guardado. Antes de mover o esconder una tab hay que enumerar qué se EDITA
+adentro, y después preguntar si lo que lo bloquea es la pantalla o una regla de coherencia.
+Hoy se edita: `InfoPrincipalCard` en Resumen (inline, `saveLeadMetaAction`), `NotasCard` en
+Resumen, nombrar videos en Tracking, `AgendarR2` en Reuniones, el deal en Pagos. El resto de
+Reuniones en modo lectura es solo chips.
+
+**Y la derivación ya está servida:** las dos fichas reciben `stages` (el pipeline del
+funnel), así que «¿este embudo tiene una etapa `kind:'reunion'`?» se contesta sin una query
+nueva. Pero `getFunnelDeLead` hoy devuelve el funnel DEFAULT ignorando el lead
+(`lib/funnels.ts`), y **solo 2 de 1.549 leads tienen `funnel_id`**: en un workspace con
+varios embudos (ws1 tiene 3, ws11 3, ws15 2, ws17 2) la derivación va a mirar la forma del
+embudo equivocado. No es un riesgo nuevo —`stages` ya gobierna requisitos, journey y
+columnas con la misma limitación— pero sí es el techo de cualquier cosa «por embudo» en la
+ficha hasta que exista `lead_participaciones`.
+
+**Y el canal ya se declara, no hace falta inventar la pregunta:** `funnels.canal`
+(3 de 16 filas lo tienen: 'presencial') más el canal del negocio del diagnóstico, resueltos
+por `canalEfectivo(cfg.canal, diag?.canal)`, y `TEMPLATE_POR_CANAL` ya mapea los 5 canales a
+plantilla. Lo que falta no es el dato: es que la ficha lo lea.
+
+**Vive en:** `app/crm/LeadSheet.tsx` (array de tabs) · `app/crm/[id]/page.tsx` (el MISMO
+array, duplicado) · `app/crm/lead-view/ReunionesCard.tsx` · `lib/leads.ts` (`updateLead`) ·
+`app/crm/senales-meta.ts` · `lib/funnels.ts` (`getFunnelDeLead`) · `lib/pipeline.ts`
+(`FUNNEL_TEMPLATES`, `TEMPLATE_POR_CANAL`) · *2026-10-05*
+
+## `ChatCard` existe, lee el hilo de WhatsApp del lead, y no la llama nadie
+
+La vista de la conversación de WhatsApp dentro de la ficha está escrita y completa
+(`app/crm/lead-view/ChatCard.tsx`: lee `/api/whatsapp/lead/<id>`, mergea mensajes, separa
+por día en la zona del workspace, tiene botón de reintentar). **Cero call-sites en HEAD**:
+la tanda 2 de fricción sacó las tabs «Notas» y «Chat», y Notas volvió como tarjeta del
+Resumen pero Chat no volvió a ningún lado. Sobrevive solo en
+`.claude/worktrees/awesome-banach-8b60f0/`.
+
+Importa porque **1.545 de 1.549 leads tienen teléfono (99,7%)**: si algún día se reemplaza
+«Reuniones» por «Conversación» en los embudos de chat, el componente no hay que escribirlo,
+hay que volver a enchufarlo. Y el motivo por el que se sacó no era que no sirviera: era que
+estaba en TODOS los embudos, incluido el de llamadas donde no aporta.
+
+**Vive en:** `app/crm/lead-view/ChatCard.tsx` (huérfano) · `app/whatsapp/WhatsAppApp.tsx`
+(`?lead=<id>`, que es a dónde hay que ir hoy para leer el hilo) · *2026-10-05*
+
+## «Calificado» no se puede marcar en un embudo sin reuniones, y lo que sí se manda a Meta no lleva el id del lead
+
+**El diagnóstico obvio era el equivocado.** La pregunta era si el envío a Meta depende del
+embudo. No depende: `sendMetaCAPIEvent` (`lib/meta-capi.ts:97`) no sabe qué es un embudo —
+toma el píxel del workspace con `credWs('META_PIXEL_ID')` y manda. Lo que bloquea es otra
+cosa, dos renglones de `updateLead`:
+
+```
+lib/leads.ts:845   if (!merged.fecha_junta_1) { merged.asistio_j1 = null; merged.calificado = null; }
+lib/leads.ts:849   if (merged.asistio_j1 !== true) { merged.calificado = null; }
+```
+
+`calificado` se pone en `null` **antes** del save. Y la decisión de emitir se calcula sobre
+ese valor ya anulado (`lib/leads.ts:877`: `actual.calificado !== true && merged.calificado
+=== true`), así que no es que el evento falle: **nunca se intenta**. No hay error, no hay
+log, la pantalla dice que guardó. En un embudo de WhatsApp sin llamada, `fecha_junta_1` es
+null por definición → el dato se descarta en silencio.
+
+Los **seis** caminos que escriben `calificado` pasan todos por ahí, así que ninguno escapa:
+la ficha (`app/crm/[id]/EditLeadForm.tsx:229` → `saveLeadEditorAction`, `app/crm/actions.ts:2262`),
+el wizard «¿Qué hacer ahora?» (`app/crm/CrmBoard.tsx:2507` → `app/crm/actions.ts:488`), las
+dos señales que se ofrecen al mover (`app/crm/senales-meta.ts`, mismo destino), MaKo por chat
+(`lib/api-mako/areas/crm.run.ts:470`) y los dos revert del historial
+(`app/crm/actions.ts:2052` y `:2118`). El séptimo es `lib/nutricion.ts:1706`, que escribe
+`calificado: false` con un UPDATE directo salteando `updateLead` — da igual para Meta, porque
+`false` no emite nada, pero es el único que no respeta las invariantes.
+
+La UI además lo bloquea antes: `EditLeadForm.tsx:103` (`calificadoDisabled = asistioJ1 !==
+true`) y `crm.run.ts:474`, que rechaza con *«no tiene marcado que asistió a la R1»*.
+
+**Medido en producción (05/10):** 1.451 de 1.549 leads no se pueden marcar calificado hoy
+(1.351 no tienen fecha de R1 y 100 la tienen sin asistencia marcada). 1.448 de esos tienen
+email o teléfono, o sea que **serían atribuibles**. Marcados hay 58. De los 16 embudos, dos
+no tienen ninguna etapa `kind: 'reunion'` (ws13 y ws15); ws13 igual tiene 9 calificados
+porque usa `fecha_junta_1` para su evento grupal — el campo de reunión está haciendo de
+campo de otra cosa.
+
+**Lo que se le manda a Meta son TRES eventos y ninguno es la compra:** `Lead` y
+`QualifiedLead` desde `updateLead` (`lib/leads.ts:925` y `:938`) y `Schedule` desde el
+webhook de Calendly (`app/api/webhooks/calendly/route.ts:442`). Pasar a Ganado no manda nada
+— está declarado en `app/crm/senales-meta.ts` y hay un aviso que se lo dice al dueño
+(`lib/avisos-catalogo.ts:578`, `capi-cierres-no-reportados`).
+
+**Y el payload va corto para lo que Meta pide en integraciones de CRM.** `CAPIDataEntry.user_data`
+(`lib/meta-capi.ts:46`) sólo admite `em` y `ph`. No manda `lead_id` — el id que Meta genera
+en el formulario instantáneo — aunque la columna existe y está poblada: **1.041 de 1.549
+leads tienen `meta_lead_id`**. Tampoco manda `fbc` (hay 76 leads con `fbclid` guardado),
+ni `fbp`, ni `external_id`, ni IP/user-agent. Para la optimización «Clientes potenciales de
+conversión» de Meta, el `lead_id` es el identificador de match recomendado; sin él el match
+cae a email/teléfono hasheados, que es el piso.
+
+**`QualifiedLead` no es un evento estándar de Meta** (los estándar son `Lead`, `Schedule`,
+`CompleteRegistration`, `SubmitApplication`, `Purchase`…). Un evento personalizado se recibe
+igual, pero **para poder elegirlo como objetivo de campaña hay que configurarlo del lado de
+Meta**: asignarle un slot en Aggregated Event Measurement o armarle una conversión
+personalizada en el Administrador de eventos; y para que la optimización por etapa de CRM
+funcione, el conjunto de datos tiene que tener habilitado ese flujo. Si no, Meta acepta los
+eventos y las campañas no pueden optimizar contra ellos. O sea: **mandarlo no alcanza**, y
+hoy nada en el repo ni en la pantalla de /integraciones le pide al cliente ese paso.
+
+**Lo que ya se está perdiendo por otro lado:** `sendMetaCAPIEvent` sale por `return` cuando
+no hay píxel (`lib/meta-capi.ts:109`). ws11 tiene `META_ACCESS_TOKEN` pero **no** tiene
+`META_PIXEL_ID`, y tiene 12 leads con `calificado = true`: esos 12 eventos se descartaron
+con un `console.error` y nadie se enteró. Con píxel cargado hay 5 workspaces (1, 4, 13, 14, 15).
+
+**Vive en:** `lib/leads.ts` (`updateLead`, las dos invariantes y los dos disparos) ·
+`lib/meta-capi.ts` (el payload) · `app/crm/senales-meta.ts` · `app/crm/actions.ts` ·
+`app/crm/[id]/EditLeadForm.tsx` · `lib/api-mako/areas/crm.run.ts` ·
+`lib/stage-requirements.ts:201` · *2026-10-05*
+
+## El «Video sin identificar» de la ficha no es un video: es el BALDE, y por eso no se puede nombrar
+
+Síntoma, reportado dos veces: «sigue sin dejarme poner de qué video es el "Video sin
+identificar"», y «en caso de que ya no haya video para identificar, porque solo hay 1,
+está mal que aparezca eso allí».
+
+El diagnóstico obvio era el equivocado. «No me deja nombrarlo» se lee como que falta un
+control, y el control existía: el pop-up `NombrarVideosModal`. Lo que pasa es que ese
+renglón **no es un video** y nunca va a poder tener nombre.
+
+`getVslEngagement` (`lib/leads.ts`) agrupa la retención por `video_id` y abre una entrada
+aparte para las filas que llegaron SIN id — la clave `''` del mapa, con `videoId: null`
+escrito al crearla y nunca más. Es el balde: mediciones reales que no se pudieron
+atribuir a ningún video concreto, de antes de la v5 del snippet. No hay contra qué
+guardar un nombre, y el pop-up lo descartaba justo por eso. O sea que la pantalla
+invitaba a hacer algo imposible, y el rótulo —«Video sin identificar»— era literalmente
+la invitación.
+
+**Y la segunda mitad es peor, porque el renglón aparecía en leads que tienen UN video.**
+Esa misma consulta lee `vsl_events` **sin filtrar por tipo**, así que ahí vienen también
+los eventos de la PÁGINA (`pageview`, `click`, `scroll`, `salio`, `volvio`, `cierre`).
+Todos llegan con `video_id` null → caen en el balde; y `avanceDe` los descarta por
+`esEventoDeVideo` → el balde queda en `plays: 0, maxPct: null`. Resultado: **cualquier
+lead que haya visitado la landing tenía una fila fantasma «sin identificar · sin
+reproducir»** al lado de su video real.
+
+No era un renglón de más. Con dos entradas, `porVideo.length > 1` daba true, así que la
+tarjeta creía que había varios videos: **escondía el minicard «Retención del VSL» y
+dibujaba el desglose «Retención por video» para un solo video.** Un bug de layout y un
+bug de dato con la misma causa, y ninguno de los dos se lee como «la lista tiene una fila
+que no corresponde».
+
+La regla que queda, y es la de siempre con otra cara: **una lista que agrupa por una
+clave necesita decidir qué hacer con el grupo SIN clave, y la decisión no es «mostrarlo
+como uno más».** Si no se puede actuar sobre él, no se ofrece; si no informa nada, no se
+dibuja; y si informa, se rotula por lo que ES y no por lo que le falta.
+
+Lo que lo cierra en código: los dos predicados viven juntos en `lib/landing-videos.ts`
+(sin `server-only`, para que tengan test que los EJECUTE) y los llaman las dos puntas —
+la lista que se dibuja y el pop-up que se ofrece. `videoNombrable` («¿hay id contra el
+que guardar?») y `filaDeRetencionInforma` («¿esto dice algo?») son **dos preguntas
+distintas**: un balde con reproducciones informa y no se puede nombrar.
+
+⚠️ Y el universo es UNO para toda la tarjeta: `filas` alimenta el contador, la lista, la
+oferta de nombrar y lo que recibe el pop-up. Un segundo `filter` sobre `porVideo` es cómo
+`varios` vuelve a dar true con un video solo.
+
+**Vive en:** `lib/landing-videos.ts` (`videoNombrable`, `filaDeRetencionInforma`,
+`FilaRetencion`) · `lib/leads.ts:1928` (el balde) · `lib/vsl-retencion.ts`
+(`esEventoDeVideo`, que es por qué el balde queda vacío) ·
+`app/crm/lead-view/ComportamientoCard.tsx` · `app/crm/lead-view/NombrarVideosModal.tsx` ·
+`tests/crm-tracking-ficha.test.ts` · *2026-10-05*
+
+## Una medición de píxeles puede ser cierta y no ser la pregunta
+
+El 04/10 a la noche se dio vuelta el orden de la pestaña Tracking de la ficha: el
+recorrido («Actividad registrada») arriba de todo y «Origen del lead» al fondo. El
+argumento estaba medido en el navegador y era correcto: con Origen primero, el primer
+renglón del recorrido quedaba a 798,5 px del tope en un área visible de 583 — había que
+scrollear para ver lo único que la pestaña promete.
+
+Al día siguiente Martín lo pidió al revés, textual: «la primera sección debe ser "Origen
+del lead" y luego "Comportamiento" y por ultimo "Actividad registrada"».
+
+La medición no estaba mal: estaba contestando «¿qué entra en la primera pantalla?» cuando
+la pregunta era «¿en qué orden se lee esto?». Él la lee como una frase —de dónde vino →
+qué hizo → evento por evento— y eso es una **decisión de producto**, no una optimización
+de scroll. Es la regla de la casa ya escrita («lo que el dueño decidió es una RESTRICCIÓN
+del problema»), y lo que la hizo fácil de pisar es que del otro lado había un número.
+
+**Si la pantalla vuelve a quedar apretada, lo que se acorta es lo de arriba, nunca el
+orden.** Y el comentario que justificaba el orden anterior tuvo que cambiar con el
+código, en los TRES archivos: un comentario que dice lo contrario de lo que el código
+hace es peor que ninguno, porque el próximo lo «arregla» volviéndolo atrás.
+
+**Vive en:** `app/crm/lead-view/ComportamientoCard.tsx` · `app/crm/LeadSheet.tsx` ·
+`app/crm/[id]/page.tsx` · el orden lo fija `tests/crm-tracking-ficha.test.ts` ·
+*2026-10-05*
+
+## Un modal dentro de otro: el Escape ya tenía guarda, el CLICK no
+
+La ficha del lead en modal (`LeadSheet`) es un overlay propio con `<div onClick={onClose}>`
+de backdrop. Todo lo que se monte adentro —el wizard de etapas, la confirmación, el pop-up
+de nombrar videos— es **descendiente de ese div en el árbol de React**, y en React los
+eventos suben por el árbol de COMPONENTES. Así que un click en el fondo del wizard (el
+`padding: 20` alrededor de su panel) cierra su diálogo **y la ficha entera**.
+
+⚠️ **Un `createPortal` NO lo evita.** El portal cambia dónde se dibuja el nodo, no por
+dónde propaga el evento: la burbuja sigue el árbol de React, no el DOM. Es la trampa que
+hace que la cura «portalealo al body» parezca suficiente y no lo sea.
+
+Esto convivió sin síntoma porque el único camino que montaba el wizard desde la ficha era
+mover de etapa, y ahí `onDone` cierra la ficha de todos modos (la tarjeta ya no vive en
+esa columna). Dejó de ser inocuo al agregar «Completar datos», donde la ficha TIENE que
+quedarse: un click al costado del wizard te saca de la ficha a mitad del formulario.
+
+Es el gemelo por CLICK del bug de Escape que `profundidadModales()` ya resolvía —el mismo
+que el 27/09 cerraba la ficha de un cliente al apretar Escape en el detalle de una tarea—.
+La cura es un envoltorio con `onClick={(e) => e.stopPropagation()}` alrededor de lo que se
+monta adentro.
+
+**La regla: todo overlay que cierre con un click en su backdrop y que monte otros modales
+adentro necesita las DOS guardas, y el Escape es la que se nota.** La del click espera a
+que exista un camino en el que cerrar el de abajo sea una pérdida.
+
+**Vive en:** `app/crm/LeadSheet.tsx` (el envoltorio y el `if (!quedarse) onClose()`) ·
+`app/_components/WizardShell.tsx:490` (su backdrop) · `app/_components/pila-modales.ts`
+(la mitad del Escape) · *2026-10-05*
+
+## Un arnés que rompe código dice «NO MUTÓ» y se lee como un test flojo
+
+Probar un test rompiéndolo es la regla de la casa. El arnés que lo automatiza —mutar un
+archivo, correr, restaurar desde memoria— tiene una trampa propia en este clon: con
+`core.autocrlf=true` el árbol queda **MEZCLADO entre archivos**, y una ancla con `\n` no
+calza en un archivo CRLF.
+
+Medido el 05/10/2026 sobre la ficha del lead: `LeadSheet.tsx` y `ComportamientoCard.tsx`
+en disco son CRLF puro, `app/crm/[id]/page.tsx` y los tests son LF. Tres de diecisiete
+mutaciones contestaron «NO MUTÓ» — y las tres eran de las assertions que más importaban
+(`completarDatos`, `faltantes` y el `stopPropagation`). Leído rápido, eso dice «ese test
+no sirve»; con el salto corregido, las tres caen.
+
+**Un arnés de rotura detecta el salto del archivo que va a mutar y convierte sus propias
+anclas a ÉSE.** Y una mutación que no muta tiene que decirlo con un rótulo distinto de
+«el test no falló», porque son dos hechos opuestos.
+
+⚠️ Y la cara de ESCRITURA del mismo problema, pagada en la misma tanda: un
+`cat >> archivo.ts` con heredoc le metió **46 líneas LF a un archivo CRLF**
+(`lib/landing-videos.ts`), dejándolo mezclado. No falla, no se ve en ningún listado y no
+aparece en el diff. Se midió con node —`(s.match(/\r\n/g)||[]).length` contra
+`(s.match(/[^\r]\n/g)||[]).length`— y se normalizó a CRLF, que es lo que el checkout
+sirve. Las herramientas de edición del harness sí preservan el salto; `cat >>` no.
+
+**Vive en:** `tests/crm-tracking-ficha.test.ts` (la tabla de las 17 roturas y su
+advertencia) · *2026-10-05*
+
+## Editar cada campo EN EL LUGAR: el camino corto le saca el evento a Meta (05/10/2026)
+
+Pedido textual de Martín: «sería bueno que ya no exista el botón de "editar" en la ruta de
+cada lead, sino que simplemente en cada campo un lápiz y que se pueda editar allí mismo. O
+mucho mejor si no conlleva lápiz, sino que como el nombre, simplemente le doy click arriba y
+ya puedo sobre escribir».
+
+**El molde ya existía y no hubo que inventarlo:** `app/_components/EditableInline.tsx`, que
+es lo que ya usa el nombre del lead, y que es un `contentEditable` A PROPÓSITO (un `<input>`
+no mide su texto: su ancho sale del atributo `size` contado en el dígito «0» de la fuente, y
+por eso un título editable se corta). Lo que faltaba son los campos que NO son texto, y ahí
+el gesto es otro: `app/crm/lead-view/CampoEditable.tsx` (fecha → el click abre el campo de
+fecha; sí/no → el click abre los tres chips ahí mismo; persona → el click abre el
+desplegable del equipo).
+
+### ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: `saveLeadMetaAction` no sirve para esto
+
+El camino natural para «guardar un campo de la ficha» ya estaba escrito, con su historial
+puesto: `saveLeadMetaAction` → `saveLeadMeta` → `logLeadChanges`. Es el que usan el nombre,
+la empresa, el email y el teléfono, y funciona.
+
+Y para «¿era calificado?» y las asistencias **es el camino equivocado**, porque
+`saveLeadMeta` es un UPDATE de columnas explícitas y los eventos `Lead` / `QualifiedLead` de
+Meta CAPI se disparan **dentro de `updateLead`** (`lib/leads.ts`, los dos
+`sendMetaCAPIEvent`). Escribir `calificado` por el camino corto guarda la columna y deja a
+Meta sin el evento — que es exactamente el dato por el que el cliente marca esa casilla, y
+exactamente la pregunta que Martín hizo el mismo día («¿le llega igual a Meta la info
+dependiendo el funnel?»). No hay error, no hay log, y la pantalla dice que sí.
+
+Por eso el catálogo de `app/crm/campo-inline.ts` declara, campo por campo, por dónde se
+escribe (`VIA_INLINE`): `lead` para lo que tiene invariante o evento, `meta` para lo que no.
+Dos campos, dos preguntas; no es un detalle de implementación.
+
+### ⚠️ `updateLead` LE BORRA EL MONTO DE CIERRE A TODO LEAD EN «FACTURANDO»
+
+Lo más caro de la tanda, y es **anterior a este trabajo**. `updateLead` aplica, sin mirar lo
+que mandó el caller:
+
+```ts
+if (merged.cerro !== true) { merged.monto_cierre_usd = null; merged.fecha_cierre = null; }
+```
+
+Y hay leads con monto y con `cerro` en null: `lib/pagos.ts:216` y
+`app/crm/[id]/deal-actions.ts:142` escriben `monto_cierre_usd` DIRECTO, sin pasar por
+`updateLead`. Un lead en «Facturando» tiene estado `abierto` (`terminalEstadoFor` devuelve
+`abierto` para todo lo que no sea ganado/perdido/descal/noresp), así que corregirle «asistió
+a R1» le vacía la venta — en el lead y en Revenue, sin un error, sin un toast y sin una línea
+en el historial que diga quién lo sacó.
+
+**Ya muerde hoy por otro camino:** `revertAuditChangeAction` (el «Deshacer» del historial)
+llama a `updateLead` campo por campo para «Asistió R1», «Asistió R2», «Calificado», «Fecha
+R1/R2», «Fecha de agendamiento» y «Motivo». Deshacer cualquiera de esos en un lead de
+Facturando le borra el monto.
+
+Acá se puso un rescate LOCAL —`montoEnRiesgo(before)` en `campo-inline.ts`, y el
+`guardarCampoLeadAction` reescribe monto y fecha de cierre después del `updateLead`— porque
+tocar la invariante de `updateLead` es un cambio de semántica para ~20 call sites. **Lo que
+queda sin hacer es la cura de fondo**: que la coerción se aplique sólo cuando el caller tocó
+`estado_lead` / `cerro` / `monto_cierre_usd`, y entonces el rescate local y el de
+`revertAuditChangeAction` sobran.
+
+### Lo que NO se vuelve clickeable, y por qué rebotaría de verdad
+
+`updateLead` fuerza `asistio_j1` a null si no hay `fecha_junta_1`, y `calificado` a null si
+`asistio_j1 !== true`. Un chip clickeable ahí guardaría y volvería solo al valor anterior: un
+campo que invita a editar y rebota se lee como que la app está rota. Así que la asistencia
+lleva `bloqueado={!lead.fecha_junta_1}` y «calificado» directamente no se dibuja si no
+asistió. La salida está al lado: la fecha de arriba se corrige con un click y con eso la
+asistencia se habilita.
+
+Y dos que tampoco: closer/setter no se ofrecen cuando el equipo está vacío y nadie está
+asignado (un desplegable de una sola opción promete una decisión que no existe, el mismo
+criterio del selector de producto), y si el asignado es **MaKo** no se edita, porque lo
+escribió el motor al pasar el lead a una nutrición automática.
+
+### La R1 muestra `fecha_agenda` cuando no tiene `fecha_junta_1`, y el campo editable la precarga
+
+El display de la R1 era `fecha_junta_1 ?? fecha_agenda` — el lead que reservó y todavía no
+tiene fecha de junta confirmada (`lib/crm-auto.ts:330` lo dice: «R1 sin fecha_junta_1 (solo
+tenía fecha_agenda): fijamos la fecha real primero»). Si el campo editable abriera vacío
+sobre una fecha que se está viendo, es la definición de un control que rebota. Abre
+PRECARGADO con la fecha de agendamiento y lo que guarda es `fecha_junta_1`, que es lo que
+hace a mano el automático.
+
+### Qué gesto quedó en qué campo
+
+| Campo | Gesto | Por dónde escribe |
+|---|---|---|
+| nombre · empresa · email · teléfono | click y sobre escribir (`EditableInline`, ya estaba) | `saveLeadMetaAction` |
+| fecha R1 · fecha R2 · confirmación de pago | el click abre el campo de fecha | `updateLead` |
+| asistió R1 · asistió R2 · ¿era calificado? | el click abre Sí / No / — ahí mismo | `updateLead` (dispara CAPI) |
+| closer · setter | el click abre el desplegable del equipo | `saveLeadMeta` |
+
+Los tres guardan al salir (blur) o con Enter, Escape cancela y vuelve el valor anterior, y el
+cambio queda en el historial del lead porque pasan por `logLeadChanges` — el MISMO camino que
+«Deshacer» del historial, no uno nuevo. El `stopImmediatePropagation` del Escape hace falta en
+los dos controles propios: los Escape de los modales viven en `document` y en captura, así que
+sin eso cancelar una fecha cerraría además la ficha entera (es el bug que `EditableInline` ya
+tenía resuelto).
+
+Y los dos montajes de la ficha —`app/crm/[id]/page.tsx` y `app/crm/LeadSheet.tsx`— lo
+heredaron sin tocar una línea, porque la tarjeta es la misma por las dos puertas.
+
+### ⚠️ LO QUE QUEDA SIN HACER: el botón «Editar» NO se pudo sacar, y esto es lo que cuelga de él
+
+Sacar el botón es sacar lo que cuelga, y lo que cuelga no tiene otro lugar donde vivir:
+
+1. **El Deal Details entero** (`app/crm/[id]/DealDetailsCard.tsx`, 799 líneas): servicio,
+   promesa, datos fiscales, obligaciones, plan de cuotas, contrato y el Cierre
+   (monto/fecha/inicio). Su modo edición es la prop `editing`, que **sólo** la pasa
+   `EditLeadForm`, y guarda por `dealRef.current.save()` desde el mismo botón. Su propio
+   comentario dice «UN SOLO modo de edición: el de la ficha; acá NO hay botón Editar deal
+   propio».
+2. **Motivo de pérdida** (perdido / descalificado), con sus chips de sugerencias. No se lee
+   en ninguna tarjeta de la ficha, así que no hay «ahí mismo» donde editarlo.
+3. **Deadline de nutrición manual**, obligatorio cuando la etapa es `manual`. Tampoco se lee
+   en la ficha.
+4. **Fecha de agendamiento** como campo propio (hoy sólo se ve como respaldo de la R1).
+5. **Los links de Fathom** en sus dos slots fijos R1/R2 (y su excepción `fathom_omitido`).
+6. **«Borrar lead»**, con su confirmación.
+7. **La confirmación con el diff legible** antes de guardar («Estás por aplicar estos
+   cambios: Nombre: X → Y…»).
+8. **Tres deep-links de afuera que abren ese modo**: `app/crm/LeadSheet.tsx:211` («Editar deal
+   →»), `:327` («Editar lead →») y `app/crm/[id]/DealDetailsCard.tsx:405`
+   (`?edit=1&tab=cobranza&ia=1`, «✦ Completar con IA»). Más `?solucionar=1` cuando lo único
+   que falta son datos estáticos (`soloEdit` en `LeadDetailBody.tsx`).
+
+El camino para que el botón se pueda ir es el 1: darle al `DealDetailsCard` su propio modo de
+edición dentro de la pestaña Pagos, y recién entonces mudar 2-7 a un lugar donde se lean.
+Mientras eso no exista, sacar el botón es sacar la edición del deal.
+
+**De paso:** `equipoOpts` estaba escrito dos veces (el formulario de edición y el campo nuevo
+de la ficha ofrecen la misma lista); quedó en `app/crm/equipo-opciones.ts`, una sola copia.
+
+**Vive en:** `app/crm/campo-inline.ts` (el catálogo y el rescate del monto) ·
+`app/crm/lead-view/CampoEditable.tsx` (los tres gestos) ·
+`app/crm/lead-view/chip-tri.tsx` · `app/crm/equipo-opciones.ts` ·
+`app/crm/actions.ts` (`guardarCampoLeadAction`, al lado de `revertAuditChangeAction`, que es
+el mismo camino) · `app/crm/lead-view/ReunionesCard.tsx` ·
+`tests/crm-campo-inline.test.ts` (12 pases, con las 9 roturas y su número) · *2026-10-05*
+
+## «¿Era calificado?» no se podía cargar sin reunión, y el botón que faltaba no era el problema
+
+**El síntoma**, textual de Martín (05/10/2026): «es bien importante que esté claro la sección
+de "¿Era calificado?" que hoy en día lo tenemos solo editable en las reuniones… con todos los
+funnels que tenemos y algunos funnel NO tienen reuniones, esa data tan valiosa que le envía a
+Meta CAPI para que nos traigan mejores leads, jamás se pueden editar».
+
+⚠️ **EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO.** El pedido se lee como «falta un control en la
+tab Tracking», y un control nuevo ahí habría guardado, no habría dado ningún error y la
+siguiente lectura habría traído la columna en NULL. La invariante estaba en `updateLead`
+(`lib/leads.ts`), dos líneas:
+
+```ts
+if (!merged.fecha_junta_1) { merged.asistio_j1 = null; merged.calificado = null; }
+if (merged.asistio_j1 !== true) { merged.calificado = null; }
+```
+
+O sea que un lead de un funnel de WhatsApp —sin `fecha_junta_1`— **no podía tener
+`calificado` ni escrito por el camino que sí avisa a Meta**. Lo que había que mover era la
+regla; el control es la consecuencia. Quedó en `lib/calificado-reunion.ts`
+(`calificadoSeDescarta`): el único caso que descarta el dato es que CONSTE que no vino a una
+R1 con fecha. La ausencia de reunión no es una contradicción, es otro funnel.
+
+### Lo medido primero: el camino único NO era la tab de reuniones, eran CUATRO
+
+| Quién escribe | Dónde | Cómo quedaba |
+|---|---|---|
+| El chip de la ficha (tab Reuniones) | `app/crm/lead-view/ReunionesCard.tsx` | sólo se dibujaba con `asistio_j1 === true` |
+| El formulario de «Editar» | `app/crm/[id]/EditLeadForm.tsx:98` | `calificadoDisabled = asistioJ1 !== true`, gris |
+| El wizard de etapa (las «señales a Meta») | `app/crm/senales-meta.ts` → `StageMoveDialog` / `MoverEtapaConfirm` | sólo ofrece si hay R1 con fecha pasada |
+| MaKo por chat (`marcar_calificado`) | `lib/api-mako/areas/crm.run.ts` | rechazaba al proponer con `asistio_j1 !== true` |
+
+Los cuatro escriben por `updateLead`, que es el ÚNICO que dispara el evento a Meta — eso
+estaba bien y no se tocó. Lo que estaba mal es que los cuatro aplicaban la regla vieja por
+su cuenta, cada uno con su propia expresión. Ahora llaman al mismo predicado.
+
+⚠️ **Y el formulario de «Editar» es el que más cuesta encontrar**, porque su bloque comercial
+sólo se dibuja si el lead llegó a una reunión (`showComercial`): para el lead de un funnel sin
+llamadas el control no existía, y para el que tenía la R1 agendada sin asistencia marcada
+existía GRIS. La misma pregunta, editable en una pestaña y gris en la otra. Lo encontró un
+`grep` de `asistio_j1 !== true` al cerrar, no el relevo del principio.
+
+### Las métricas NO se inflan, y eso se midió antes de aflojar la invariante
+
+La sospecha razonable es que permitir `calificado` sin asistencia infle «limpias» y la tasa
+de cierre. No pasa: **todos los consumidores filtran la asistencia en positivo**, en SQL y en
+TypeScript.
+
+- `supabase/migrations/0001`, `0013` y `0084`: `COUNT(*) FILTER (WHERE asistio_j1 = TRUE AND
+  calificado = TRUE) AS limpias` — las cuatro vistas de cohortes.
+- `lib/queries.ts:1294`: `rows.filter(r => r.asistio_j1 === true && r.calificado === true)`.
+- `lib/analisis-negocio.ts`: la lectura de calificación pagina con `eq: { asistio_j1: true }`.
+
+O sea que un lead calificado sin reunión queda fuera del embudo de cohortes, que es lo
+correcto: ese embudo mide reuniones.
+
+### ⚠️ BLOQUEANTE MEDIDO: el evento a Meta NO tiene idempotencia, y marcar dos veces manda dos
+
+`updateLead` detecta la transición y dispara (`lib/leads.ts:922-946`):
+
+```ts
+const fireLeadEvent = actual.calificado !== true && merged.calificado === true;
+```
+
+Eso cubre re-guardar el MISMO valor (no hay transición → no hay evento). **No cubre marcar →
+desmarcar → marcar**: son dos transiciones, y salen dos eventos `Lead`. El transporte sí
+sabe deduplicar —`CAPIEventParams.eventId` → `event_id` (`lib/meta-capi.ts:33` y `:135`)— y
+`updateLead` **no lo pasa**: el único call site que lo usa es
+`app/api/webhooks/calendly/route.ts:447` (`eventId: \`schedule:<email>:<startTime>\``). No se
+inventó un candado: un `eventId` determinista (`calificado:<leadId>`) tampoco sería un
+candado completo, porque la deduplicación de Meta por `event_name` + `event_id` tiene
+ventana. Queda para que lo decida Martín, con el dato: **hoy desmarcar y volver a marcar
+cuesta un evento de más por vuelta**.
+
+### Lo que queda sin hacer
+
+1. **La idempotencia de arriba** — `lib/leads.ts:922-946` + `lib/meta-capi.ts:33`.
+2. **El wizard de etapa sigue sin ofrecerlo sin reunión** (`app/crm/senales-meta.ts`), y es a
+   propósito: ése es el momento de MOVER, no el de esa pregunta. No parte el estado (misma
+   columna, mismo camino, los dos leen `lead`), pero si mañana se quiere ofrecer ahí, la
+   condición `if (!lead.fechaJ1) return nada` es la que hay que abrir.
+3. **Qué hay que declarar del lado de Meta** para que el evento sirva en un funnel sin
+   reuniones: lo está investigando otro agente, no es código.
+
+**Vive en:** `lib/calificado-reunion.ts` (la regla, pura, 5 call sites) ·
+`lib/leads.ts` (`updateLead`, la invariante) ·
+`app/crm/lead-view/CalificacionCard.tsx` (el control en la tab Tracking) ·
+`app/crm/lead-view/ReunionesCard.tsx` y `app/crm/[id]/EditLeadForm.tsx` (los otros dos
+controles, mismo candado) ·
+`app/crm/[id]/page.tsx` y `app/crm/LeadSheet.tsx` (los dos montajes) ·
+`lib/api-mako/areas/crm.run.ts` + `crm.def.ts` (el canal de MaKo) ·
+`tests/crm-calificado-sin-reunion.test.ts` (7 pases, con las 11 roturas y su número) ·
+*2026-10-05*

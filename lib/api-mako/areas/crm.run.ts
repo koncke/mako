@@ -29,6 +29,8 @@ import {
 import { getFunnelDefault } from '@/lib/funnels';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId } from '@/lib/pipeline';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
+// El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
+import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago } from '@/lib/pagos';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -471,7 +473,11 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      if (lead.asistio_j1 !== true) return { error: `${lead.nombre} no tiene marcado que asistió a la R1: sin eso el calificado se descarta. Primero marca la asistencia (marcar_asistencia_reunion).` };
+      // ⚠️ EL CANAL NO PUEDE SER MÁS ESTRICTO QUE LA FICHA. Antes exigía
+      // `asistio_j1 === true`, que es la regla vieja: dejaba sin marcar a cualquier
+      // lead de un funnel sin reuniones. El único caso que sigue rebotando es el que
+      // `updateLead` descarta — consta que NO vino a una R1 con fecha.
+      if (calificadoSeDescarta(lead)) return { error: `${lead.nombre} no asistió a la R1, así que el calificado se descarta. Corrige la asistencia primero (marcar_asistencia_reunion).` };
       const calificado = input.calificado === true;
       if (lead.calificado === calificado) return { error: `${lead.nombre} ya está marcado como ${calificado ? 'calificado' : 'no calificado'}.` };
       return { payload: { leadId: lead.id, calificado }, resumen: `Marcar a ${lead.nombre} como ${calificado ? 'CALIFICADO (manda la conversión a Meta)' : 'NO calificado'}.` };

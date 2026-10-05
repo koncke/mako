@@ -245,3 +245,52 @@ export function rotuloDe(
   if (!i) return { texto: 'Video sin identificar', propio: false, esVsl: false };
   return { texto: i.length > 12 ? `Video ${i.slice(0, 8)}…` : `Video ${i}`, propio: false, esVsl: false };
 }
+
+// ── El BALDE: los eventos que no se pudieron atribuir a ningún video ─────────
+//
+// `getVslEngagement` (lib/leads.ts) agrupa la retención por `video_id` y deja una
+// entrada aparte para las filas que llegaron SIN id. Esa entrada —el balde— tiene
+// `videoId: null` por construcción y no lo pierde nunca: la clave del mapa es `''`
+// y el id se inicializa en null.
+//
+// De ahí salen las dos preguntas de abajo, y son DISTINTAS. Viven acá, juntas,
+// porque las dos puntas de la misma oferta tienen que mirar el MISMO universo: la
+// lista que se dibuja, la que se ofrece nombrar y la que el pop-up contesta. Ya se
+// pagó tenerlas separadas — el botón «ponles un nombre» abría un pop-up sin una
+// sola fila que contestar.
+//
+// El tipo va estructural a propósito: `VideoEngagement` vive en `lib/leads.ts`, que
+// es `server-only`, y este módulo lo importan componentes de cliente.
+
+/** Lo que las dos preguntas necesitan saber de una fila de retención. */
+export type FilaRetencion = { videoId: string | null; plays: number; maxPct: number | null };
+
+/**
+ * ¿Se le puede poner nombre?
+ *
+ * Sólo si hay un id contra el que guardarlo. El balde no tiene y no va a tener, así
+ * que ofrecerle un nombre es invitar a algo imposible — se reportó dos veces:
+ * «sigue sin dejarme poner de qué video es el "Video sin identificar"».
+ */
+export const videoNombrable = (v: FilaRetencion): boolean => !!v.videoId;
+
+/**
+ * ¿Esta fila dice algo, o es el balde vacío?
+ *
+ * ⚠️ UN BALDE SIN REPRODUCCIONES NO SE DIBUJA. `getVslEngagement` consulta
+ * `vsl_events` sin filtrar por tipo, así que los eventos de la PÁGINA (`pageview`,
+ * `click`, `scroll`, `salio`, `volvio`, `cierre`) caen también en el balde —todos
+ * llegan sin `video_id`— y `avanceDe` los descarta por no ser de video. O sea que
+ * cualquier lead que haya visitado la landing termina con una fila
+ * «sin identificar · sin reproducir» al lado de su video real.
+ *
+ * No era un renglón de más: con dos entradas la tarjeta creía que había varios
+ * videos, escondía el minicard «Retención del VSL» y dibujaba un desglose para uno
+ * solo. Martín: «en caso de que ya no haya video para identificar, porque solo hay
+ * 1, está mal que aparezca eso allí».
+ *
+ * Con reproducciones SÍ se dibuja: son mediciones reales de antes de la v5 del
+ * snippet, y esconderlas sería perder plays que ocurrieron.
+ */
+export const filaDeRetencionInforma = (v: FilaRetencion): boolean =>
+  videoNombrable(v) || v.plays > 0 || v.maxPct != null;

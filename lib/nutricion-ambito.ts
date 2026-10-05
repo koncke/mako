@@ -93,3 +93,27 @@ export function filtroDeAmbito(ambito: AmbitoFunnel): FiltroAmbito {
   if (ambito.modo === 'negocio') return { or: `funnel_id.is.null,funnel_id.eq.${ambito.id}` };
   return { eq: ambito.id };
 }
+
+/**
+ * ¿ESTE lead entra en el ámbito? Es el MISMO criterio que `filtroDeAmbito`, resuelto en
+ * memoria en vez de en PostgREST.
+ *
+ * ⚠️ VIVE PEGADO AL OTRO Y NO EN EL MÓDULO QUE LO USA, A PROPÓSITO: son dos formas de la
+ * misma pregunta y la casa ya pagó lo que cuesta tenerlas en dos archivos. El día que la
+ * semántica del ámbito cambie —por ejemplo, que el embudo del negocio deje de aceptar el
+ * NULL— los dos tienen que cambiar juntos o el barrido del cron y el disparo por evento
+ * empiezan a elegir leads distintos, sin que nada falle.
+ *
+ * El `Number(...)` por lo mismo que arriba: la columna es `bigint` y un driver la puede
+ * devolver como texto, con lo cual un `===` contra un número sería false SIEMPRE y nadie
+ * entraría nunca — un fail-closed silencioso que se lee como «la secuencia no dispara».
+ */
+export function leadEnAmbito(ambito: AmbitoFunnel, leadFunnelId: number | string | null | undefined): boolean {
+  if (ambito.modo === 'todos') return true;
+  // El embudo del negocio son DOS valores en la columna: el NULL de quien nunca se movió
+  // y el id escrito a mano (`moverLeadDeFunnel` escribe el id crudo, incluso el default).
+  if (leadFunnelId == null || leadFunnelId === '') return ambito.modo === 'negocio';
+  const id = Number(leadFunnelId);
+  if (!Number.isFinite(id)) return false;
+  return id === ambito.id;
+}

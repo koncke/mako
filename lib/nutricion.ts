@@ -25,6 +25,7 @@ import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
 import { canalNoOficial, proveedorDelPaso } from '@/lib/nutricion-canal';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
+import { secuenciasDeEtapa, TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
 import { esLeadCliente, enviarYEspejar, enviarAudioYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
@@ -815,13 +816,25 @@ export async function comprometerInscripciones(): Promise<number> {
 // evento cae fuera de 9-21 MX, la inscripción queda vencida y la levanta la
 // primera corrida del cron de la mañana.
 
-export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva';
+export type EventoNutricion = 'lead_nuevo' | 'agenda_nueva' | 'etapa';
+
+/** Lo que el evento de ETAPA necesita saber, porque no se deduce del lead id. */
+export type CtxEvento = {
+  /** La etapa a la que ACABA de caer. Sin esto el evento de etapa no enrola a nadie. */
+  etapa?: string | null;
+  /** El embudo del lead, o sea su PRODUCTO. NULL = el del negocio. */
+  funnelId?: number | string | null;
+};
 
 // Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
 // verdad de A QUIÉN le toca: acá solo decidimos QUÉ secuencias mirar ya mismo.
 const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   lead_nuevo: ['instant_form_sin_agenda', 'vio_vsl_sin_agendar', 'vio_poco_vsl'],
   agenda_nueva: ['agendado_sin_confirmar', TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO],
+  // ⚠️ ESTE NO ALCANZA SOLO, y es la diferencia con los dos de arriba: las secuencias de
+  // etapa pueden ser muchas y cada una es de UNA etapa y de UN producto. El filtro fino
+  // lo hace `secuenciasDeEtapa` unas líneas más abajo; esta lista sólo acota qué mirar.
+  etapa: [TRIGGER_ETAPA],
 };
 
 /**
@@ -830,7 +843,7 @@ const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
  * enrolamiento, el lead igual quedó creado y el cron lo levanta después).
  * Devuelve cuántas inscripciones creó.
  */
-export async function enrolarPorEvento(leadId: number, evento: EventoNutricion): Promise<number> {
+export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, ctx?: CtxEvento): Promise<number> {
   try {
     const supabase = await getTenantDb();
     const claves = TRIGGERS_POR_EVENTO[evento] ?? [];
@@ -844,9 +857,21 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion):
     // otro retomando una charla. Es exactamente el duplicado que separar las
     // secuencias vino a evitar.
     const hayFamilia = todas.filter((s) => FAMILIA_POST_AGENDA.includes(s.trigger_tipo)).length > 1;
-    const delEvento = hayFamilia
+    let delEvento = hayFamilia
       ? secuenciasParaElLead(todas, (await leadsYaContactados([leadId])).has(leadId))
       : todas;
+
+    // ⚠️ EL EVENTO DE ETAPA ES EL ÚNICO QUE PREGUNTA POR *CUÁL*. Los otros dos enrolan
+    // en todas las secuencias de su trigger —son un puñado y le aplican a cualquier lead
+    // nuevo— y acá eso sería mandarle a un lead que cayó en «Agenda» también el mensaje
+    // de «Facturando», y el del producto de al lado. La etapa y el embudo van adentro de
+    // la pregunta, y el ámbito se resuelve UNA vez por secuencia (`ambitoDeFunnel` ya
+    // tolera el id que no existe cayendo a `propio`, que no junta a nadie de más).
+    if (evento === 'etapa') {
+      const conAmbito: Array<Secuencia & { ambito: AmbitoFunnel }> = [];
+      for (const sec of delEvento) conAmbito.push({ ...sec, ambito: await ambitoDeFunnel(sec.funnel_id) });
+      delEvento = secuenciasDeEtapa(conAmbito, ctx?.etapa, ctx?.funnelId);
+    }
     // El tope de antigüedad vale también acá: un evento de un lead viejo (una
     // agenda nueva, un lead re-importado) no lo mete a una secuencia que no le
     // escribe a leads de esa edad.

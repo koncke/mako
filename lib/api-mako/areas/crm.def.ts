@@ -330,7 +330,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_calificado', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Marcar lead calificado',
-    descripcion: 'PROPONE registrar si un lead era un buen fit tras la R1 (queda pendiente hasta el «sí»). Solo tiene sentido si ya está marcado que asistió a la R1: si no, se rechaza al proponer, porque el dato se perdería. Marcar calificado manda la conversión Lead a Meta (y QualifiedLead si asistió), que no se deshace.',
+    descripcion: 'PROPONE registrar si un lead era un buen fit (queda pendiente hasta el «sí»). NO exige reunión: también se marca en un funnel que no tiene llamadas. Lo único que se rechaza al proponer es un lead que consta que NO asistió a su R1, porque ahí el dato se descarta. Marcar calificado manda la conversión Lead a Meta (y QualifiedLead si además asistió a la R1), que no se deshace.',
     parametros: [
       leadId(),
       { nombre: 'calificado', tipo: 'boolean', obligatorio: true, descripcion: 'true calificado, false no calificado.' },

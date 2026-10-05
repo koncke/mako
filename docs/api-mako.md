@@ -1392,7 +1392,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/crm/marcar_asistencia_reunion" -H 
 
 ### `POST /api/v1/crm/marcar_calificado` — Marcar lead calificado
 
-PROPONE registrar si un lead era un buen fit tras la R1 (queda pendiente hasta el «sí»). Solo tiene sentido si ya está marcado que asistió a la R1: si no, se rechaza al proponer, porque el dato se perdería. Marcar calificado manda la conversión Lead a Meta (y QualifiedLead si asistió), que no se deshace.
+PROPONE registrar si un lead era un buen fit (queda pendiente hasta el «sí»). NO exige reunión: también se marca en un funnel que no tiene llamadas. Lo único que se rechaza al proponer es un lead que consta que NO asistió a su R1, porque ahí el dato se descarta. Marcar calificado manda la conversión Lead a Meta (y QualifiedLead si además asistió a la R1), que no se deshace.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.

@@ -1,0 +1,18 @@
+[
+  {
+    "ws": "9",
+    "id": "41",
+    "clave": "recordatorio-r1",
+    "activa": false,
+    "tipo": "string",
+    "crudo": "[{\"orden\":1,\"canal\":\"email\",\"delay_horas\":24,\"ancla\":\"reunion\",\"asunto\":\"Mañana tenemos nuestra reunión\",\"cuerpo\":\"Hola 👋 Te escribo para confirmar nuestra reunión de mañana. Vamos a ver [tu problema] y salir con un plan concreto. Si se te complicó el horario, reagendá acá 👉 [tu link de agenda]. ¡Nos vemos!\",\"template_wa\":null},{\"orden\":2,\"canal\":\"whatsapp\",\"delay_horas\":2,\"ancla\":\"reunion\",\"asunto\":null,\"cuerpo\":\"Hola, en un par de horas tenemos nuestra reunión. ¿Confirmamos que llegás bien? Cualquier cosa avisame por acá.\",\"proveedor\":\"no_oficial\",\"template_wa\":null}]"
+  },
+  {
+    "ws": "10",
+    "id": "42",
+    "clave": "recordatorio-r1",
+    "activa": false,
+    "tipo": "string",
+    "crudo": "[{\"orden\":1,\"canal\":\"email\",\"delay_horas\":24,\"ancla\":\"reunion\",\"asunto\":\"Mañana tenemos nuestra reunión\",\"cuerpo\":\"Hola 👋 Te escribo para confirmar nuestra reunión de mañana. Vamos a ver [tu problema] y salir con un plan concreto. Si se te complicó el horario, reagendá acá 👉 [tu link de agenda]. ¡Nos vemos!\",\"template_wa\":null},{\"orden\":2,\"canal\":\"whatsapp\",\"delay_horas\":2,\"ancla\":\"reunion\",\"asunto\":null,\"cuerpo\":\"Hola, en un par de horas tenemos nuestra reunión. ¿Confirmamos que llegás bien? Cualquier cosa avisame por acá.\",\"proveedor\":\"no_oficial\",\"template_wa\":null}]"
+  }
+]

@@ -1,9 +1,16 @@
 // =============================================================================
-// ReunionesCard — R1/R2 del lead, organizadas POR REUNIÓN (presentacional)
+// ReunionesCard — R1/R2 del lead, organizadas POR REUNIÓN
 // =============================================================================
 // Cada reunión es un bloque: fecha + asistencia (+ calificado en R1) + sus
 // grabaciones de Fathom + las respuestas del formulario de Calendly de ESA
 // agenda (R1 y R2 tienen forms propios). Al pie, el equipo y la confirmación.
+//
+// ⚠️ YA NO ES SÓLO PRESENTACIONAL: fecha, asistencia, calificado, closer, setter
+// y confirmación de pago se CORRIGEN ACÁ, con un click sobre el valor. «Que ya no
+// exista el botón de "editar" … sino que simplemente le doy click arriba y ya
+// puedo sobre escribir» (Martín, 05/10/2026). Los gestos y sus candados viven en
+// `./CampoEditable` y el catálogo en `app/crm/campo-inline.ts`; esta tarjeta sólo
+// dice qué campo va en qué renglón y cuándo NO se puede tocar.
 //
 // ⚠️ Y DEBAJO, EN SU PROPIO APARTADO, lo que salió de la LLAMADA. Decisión del
 // dueño (04/10/2026): «las respuestas del Calendly son diferentes, debería haber
@@ -12,74 +19,53 @@
 // apartado dice de dónde salió (el de la llamada lo firma MaKo).
 
 import type { CSSProperties, ReactNode } from 'react';
-import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead, FathomLink, RespuestaQA } from '@/lib/leads';
 import type { MiembroEquipo } from '../actions';
-import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { AgendarR2 } from './AgendarR2';
 import { InsightsLlamadaCard } from './InsightsLlamadaCard';
+// Los campos que se editan EN EL LUGAR (fecha, sí/no, persona). Acá NO hay modo
+// edición: cada dato se corrige donde se lee. Ver app/crm/campo-inline.ts.
+import { FechaEditable, TriEditable, PersonaEditable } from './CampoEditable';
+// El candado de «calificado» es UNO y vive en lib/calificado-reunion.ts: esta
+// tarjeta y la de Tracking tienen que bloquear en el mismo caso.
+import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 // El mismo criterio que reparte los análisis entre R1 y R2 decide acá en qué
 // bloque va cada grabación. Con dos copias, el día que alguien acepte otra
 // etiqueta el link queda en un bloque y su análisis en el otro.
 import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
 
-const iniciales = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
-
-// Nombre del closer/setter con foto del equipo si matchea (por nombre o 1er nombre).
-function Persona({ label, nombre, equipo, hint }: { label: string; nombre: string | null; equipo: MiembroEquipo[]; hint?: string }) {
-  const n = nombre?.trim() || '';
-  const low = n.toLowerCase();
-  const u = n ? equipo.find((m) => m.nombre.toLowerCase() === low || m.nombre.toLowerCase().split(' ')[0] === low.split(' ')[0]) : undefined;
-  return (
-    <div>
-      <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
-        {n ? (
-          <>
-            {esMaKo(n) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={MAKO_STAR_URI} alt="" width={22} height={22} style={{ borderRadius: '50%', display: 'block' }} title="MaKo — nutrición automática" />
-            ) : u?.foto_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={u.foto_url} alt="" width={22} height={22} style={{ borderRadius: '50%', display: 'block' }} referrerPolicy="no-referrer" />
-            ) : (
-              <span aria-hidden style={{ width: 22, height: 22, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{iniciales(u?.nombre || n)}</span>
-            )}
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{u?.nombre || n}</span>
-          </>
-        ) : (
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--faint)' }}>{hint || '—'}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-const chip = (v: boolean | null, si: string, no: string): ReactNode =>
-  v === true ? <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 999, color: 'var(--good)', background: 'var(--good-bg)' }}>{si}</span>
-  : v === false ? <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 999, color: 'var(--bad)', background: 'var(--bad-bg)' }}>{no}</span>
-  : <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 999, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)' }}>Sin marcar</span>;
-
-function BloqueReunion({ titulo, reunion, fecha, chips, fathom, respuestas }: {
+function BloqueReunion({ titulo, leadId, campoFecha, fecha, fallbackFecha = null, chips, fathom, respuestas, reunion }: {
   titulo: string;
-  reunion: 'R1' | 'R2';
+  leadId: number;
+  campoFecha: 'fecha_junta_1' | 'fecha_junta_2';
+  /** La fecha de LA REUNIÓN (la columna que se edita). */
   fecha: string | null;
+  /** Lo que se muestra si la reunión todavía no tiene fecha propia (la de agendamiento). */
+  fallbackFecha?: string | null;
   chips: ReactNode;
   fathom: FathomLink[];
   respuestas: RespuestaQA[];
+  reunion: 'R1' | 'R2';
 }) {
   return (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{titulo}</span>
-          <span style={{ fontFamily: MONO, fontSize: 12.5, color: fecha ? 'var(--dim)' : 'var(--faint)' }}>{fecha ? fmtDDMMYYYY(fecha) : 'sin fecha'}</span>
+          <FechaEditable
+            leadId={leadId}
+            campo={campoFecha}
+            valor={fecha}
+            fallback={fallbackFecha}
+            titulo={`Fecha de la ${titulo.toLowerCase()}`}
+            estilo={{ fontFamily: MONO, fontSize: 12.5, color: fecha || fallbackFecha ? 'var(--dim)' : 'var(--faint)' }}
+          />
         </div>
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>{chips}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>{chips}</div>
       </div>
 
       {fathom.length > 0 && (
@@ -139,8 +125,26 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
         <BloqueReunion
           titulo="Reunión 1"
           reunion="R1"
-          fecha={lead.fecha_junta_1 ?? lead.fecha_agenda}
-          chips={<>{chip(lead.asistio_j1, 'Asistió', 'No asistió')}{lead.asistio_j1 === true && chip(lead.calificado, 'Calificado', 'No calificado')}</>}
+          leadId={lead.id}
+          campoFecha="fecha_junta_1"
+          fecha={lead.fecha_junta_1}
+          fallbackFecha={lead.fecha_agenda}
+          chips={<>
+            {/* ⚠️ LA ASISTENCIA NO SE PUEDE MARCAR SIN FECHA DE REUNIÓN, y por eso acá
+                ni se ofrece: `updateLead` fuerza `asistio_j1` a null cuando no hay
+                `fecha_junta_1`, o sea que el click guardaría y el chip volvería solo a
+                «Sin marcar». La salida está al lado — la fecha de arriba se corrige con
+                un click y con eso esto se habilita. */}
+            <TriEditable leadId={lead.id} campo="asistio_j1" valor={lead.asistio_j1} si="Asistió" no="No asistió" titulo="¿Asistió a la reunión 1?" bloqueado={!lead.fecha_junta_1} />
+            {/* ⚠️ «Calificado» YA NO SE ESCONDE CUANDO NO ASISTIÓ, y no es un detalle:
+                el MISMO dato se marca ahora en la pestaña Tracking (hay funnels sin
+                reuniones, y es la señal que viaja a Meta). Si acá apareciera y
+                desapareciera con otra condición, la misma pregunta tendría dos
+                respuestas según la pestaña. Las dos usan el mismo control, la misma
+                columna y el mismo candado: sólo se bloquea cuando CONSTA que no vino,
+                que es el único caso en que `updateLead` descarta el dato. */}
+            <TriEditable leadId={lead.id} campo="calificado" valor={lead.calificado} si="Calificado" no="No calificado" titulo="¿Era un lead calificado?" bloqueado={calificadoSeDescarta(lead)} />
+          </>}
           fathom={fathomR1}
           respuestas={r1}
         />
@@ -148,8 +152,10 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
           <BloqueReunion
             titulo="Reunión 2"
             reunion="R2"
+            leadId={lead.id}
+            campoFecha="fecha_junta_2"
             fecha={lead.fecha_junta_2}
-            chips={chip(lead.asistio_j2, 'Asistió', 'No asistió')}
+            chips={<TriEditable leadId={lead.id} campo="asistio_j2" valor={lead.asistio_j2} si="Asistió" no="No asistió" titulo="¿Asistió a la reunión 2?" bloqueado={!lead.fecha_junta_2} />}
             fathom={fathomR2}
             respuestas={r2}
           />
@@ -179,15 +185,31 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
       {/* Closer · Setter · Confirmación en recuadros que llegan hasta el ancho. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginTop: 16 }}>
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
-          {/* Closer: si está vacío pero Fathom detectó uno, lo mostramos como sugerencia. */}
-          <Persona label="Closer" nombre={lead.closer || closerDetectado || null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
+          {/* Closer: si está vacío pero Fathom detectó uno, lo ofrecemos como sugerencia
+              en el lugar del valor — elegirlo del desplegable es lo que lo guarda. */}
+          <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Closer</span>
+          <div style={{ marginTop: 3 }}>
+            <PersonaEditable leadId={lead.id} campo="closer" valor={lead.closer ?? null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
+          </div>
         </div>
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
-          <Persona label="Setter" nombre={lead.setter ?? null} equipo={equipo} />
+          <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Setter</span>
+          <div style={{ marginTop: 3 }}>
+            <PersonaEditable leadId={lead.id} campo="setter" valor={lead.setter ?? null} equipo={equipo} />
+          </div>
         </div>
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span>
-          <div style={{ fontSize: 14, fontWeight: 600, color: lead.fecha_confirmacion ? 'var(--ink)' : 'var(--faint)', marginTop: 3 }}>{lead.fecha_confirmacion ? fmtDDMMYYYY(lead.fecha_confirmacion) : '—'}</div>
+          <div style={{ marginTop: 3 }}>
+            <FechaEditable
+              leadId={lead.id}
+              campo="fecha_confirmacion"
+              valor={lead.fecha_confirmacion}
+              titulo="Fecha en que confirmó el pago"
+              vacio="—"
+              estilo={{ fontSize: 14, fontWeight: 600, color: lead.fecha_confirmacion ? 'var(--ink)' : 'var(--faint)' }}
+            />
+          </div>
         </div>
       </div>
     </section>
