@@ -12,7 +12,7 @@
 // =============================================================================
 
 import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, preparaUnaReunion, secuenciasParaElLead } from '@/lib/nutricion-familias';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { getVslEngagementMap } from '@/lib/leads';
@@ -1157,6 +1157,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   const porId = new Map(secuencias.map((s) => [s.id, s]));
+  // El nombre del negocio, UNA vez por corrida y no por lead: es del workspace, no de
+  // la fila. Si no se puede leer, `{{negocio}}` sale crudo (no vacío) — ver
+  // `valoresVariablesLead`.
+  const negocio = await getWorkspace((await getWorkspaceActual()) ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
 
   // Cola PAGINADA: los 'omitido'/'saltado' no consumen cupo, así que una sola
   // ventana de cupo*3 podía llenarse de filas sin envío real y postergar los
@@ -1356,7 +1360,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // patrón que WhatsApp detecta para restringir un número — y además se
         // lee como un bot. Sortear no cuesta nada; redactar por lead costaría
         // una llamada de IA por mensaje.
-        const cuerpoNO = aplicarVariables(textoDelPaso(paso), valoresVariablesLead(lead ?? {}));
+        const cuerpoNO = aplicarVariables(textoDelPaso(paso), valoresVariablesLead(lead ?? {}, { negocio }));
         // Paso de NOTA DE VOZ (reunión 31/07): el binario sale de la biblioteca
         // del workspace. Si el audio no está o no se puede bajar, NO degradamos
         // a texto en silencio (mandaría un mensaje que nadie escribió): falla y
@@ -1468,7 +1472,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
                 language: paso.template_idioma ?? 'es_MX',
                 // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
                 // la plantilla usa las que necesite.
-                bodyParams: valoresVariablesLead(lead),
+                bodyParams: valoresVariablesLead(lead, { negocio }),
               },
             });
             estado = r.ok ? 'enviado' : 'fallo';
@@ -1489,7 +1493,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           nota = 'remitente sandbox: verifica tu dominio de envío';
           backoffHoras = 24; // config pendiente: 1 reintento/día
         } else {
-          const vars = valoresVariablesLead(lead);
+          const vars = valoresVariablesLead(lead, { negocio });
           const cuerpo = aplicarVariables(paso.cuerpo, vars);
           const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
           const unsubUrl = buildUnsubscribeUrl(insc.lead_id);

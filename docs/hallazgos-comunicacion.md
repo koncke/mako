@@ -7595,3 +7595,209 @@ por QUÉ CONEXIÓN sale ese mensaje** — son dos productos distintos con el mis
 **banear**. Lo que la protege no es una ventana, es el ritmo y el contenido (no mandar
 cientos de mensajes idénticos, no escribirle a quien nunca escribió). Eso ya está medido
 en esta casa con la línea de MaKo y es la restricción real del editor.
+
+## ManyChat a fondo: el molde del nodo, lo que NO hay que copiar, y las 13 cosas que ellos tienen (05/10/2026)
+
+Pedido de Martín: *«Quiero que investigues a fondo la documentación y todo lo que
+encuentres de Manychat, para que lo repliquemos y utilicemos a nuestro favor… buenas
+practicas… que otras cosas que no estamos teniendo en cuenta que manychat ya tiene»*.
+
+**Cómo se midió, porque decide cuánto creerle:** 25 agentes, 7 ángulos (modelo de datos,
+editor, IA, disparadores, WhatsApp, buenas prácticas, y el cruce contra nuestro código),
+151 hallazgos, de los que se extrajeron **130 afirmaciones verificables y se contrastaron
+una por una contra la fuente: 75 sostenidas, 55 caídas**. Donde el contraste refutó al
+barrido, **gana el contraste, porque midió**. Cuatro cosas del primer barrido NO se usaron
+y vale anotarlas porque son modos de falla que se repiten:
+
+- **La «prueba» de un renombre por el slug de una URL no prueba nada.** Zendesk redirige
+  CUALQUIER slug al canónico mientras el id numérico esté bien, así que
+  `/articles/14281196200604-Totally-Made-Up-Slug` devuelve 301 al título de hoy. Las URLs
+  que el barrido citaba como «las nuevas» eran **enlaces internos rancios** del propio
+  Help Center, y la dirección del redirect probaba lo contrario.
+- Un catálogo «de 7 tipos de paso, en este orden» que no está en la fuente citada.
+- Un tope («seis variaciones del Randomizer») que no existe en la documentación.
+- El esquema del Dynamic Block como UN molde: son **dos páginas disjuntas**
+  (Facebook/Messenger vs Instagram/WhatsApp/Telegram) y el objeto compuesto que describía
+  el barrido no es construible.
+
+Y una corrección de especie, para no vendernos humo: **lo que ManyChat publica es el
+formato del MENSAJE, no el grafo del flujo.** Su modelo de datos de flujo no está
+publicado en ninguna parte, y su API pública expone el objeto `Flow` con TRES campos
+(`ns`, `name`, `folder_id`): no hay forma de crear, leer ni editar un flujo por programa.
+
+### El árbol, y la lección de nombres
+
+`Automation → Step/Node → Block`: tres niveles, no cuatro. «Flow» es el nombre viejo que
+sobrevive en la UI («Flow Builder») y, lo caro, **en su API pública para siempre**
+(`flow_ns`). *El nombre del contrato se elige ANTES de publicarlo.* «Sequence» no es un
+paso: es otra entidad (un drip agendado) fuera del lienzo — igual que acá.
+
+Dos decisiones suyas de FORMA que sí valen, y las dos van en la misma dirección:
+
+- **Data Collection NO es un paso del lienzo: es contenido DENTRO del nodo de mensaje**,
+  porque la pregunta y la captura son el mismo acto conversacional. Separarlos obliga a
+  cablear dos nodos para hacer una pregunta.
+- **UN paso de acción contiene VARIAS acciones** («Each Actions step can include multiple
+  tasks»). Un nodo por acción vuelve el lienzo ilegible.
+
+### ⚠️ Para WhatsApp, ManyChat NO es el molde: es el techo de la API de Meta
+
+Su referencia de canales le prohíbe a WhatsApp el video, el audio, los archivos, las
+galerías y los quick replies; y su matriz de bloques por canal **no menciona WhatsApp en
+ninguna fila** (mientras su artículo de botones sí le da 3 botones por mensaje: sus dos
+fuentes oficiales se contradicen). Eso no es un límite de producto: es el límite de la vía
+oficial. **Nuestro canal de empresa va por Evolution y `lib/evolution-envio.ts` ya manda
+audio, imagen, video y documentos** — o sea que copiar su catálogo sería heredar una
+restricción que no tenemos, en el único terreno donde somos MÁS capaces que ellos.
+
+### El molde de nuestro nodo de mensaje (fijo por default, IA como CAMPO)
+
+```
+{
+  orden, canal, proveedor, requiere?, variantes?,        // sin cambios
+  cuando: { delay_horas, ancla?: 'reunion' },
+  tipo?: 'texto' | 'audio' | 'media' | 'ia',             // AUSENTE = 'texto'
+  cuerpo,                                                 // SIEMPRE presente
+  audio_id?,                                              // 'audio'
+  media_id?, caption?,                                    // 'media'
+  ia?: { instruccion, limite_caracteres, cascada: 'gratis'|'paga', usa_escenarios }
+}
+```
+
+⚠️ **LA IA ES UN CAMPO DEL NODO DE MENSAJE, NO UN TIPO DE NODO.** ManyChat eligió lo
+contrario (su AI Step es un paso del lienzo) y para nosotros eso se paga **cinco veces**:
+un tipo de nodo nuevo hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
+(`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
+`app/chatbot/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
+—que **reconstruye cada paso campo por campo y borra lo que no conoce**—. Un `tipo` nuevo
+adentro del paso de mensaje agrega UNA rama; un nodo nuevo agrega cinco puertas, y la
+quinta ya costó las `variantes` borradas en silencio.
+
+Las otras tres reglas del molde, cada una con su precedente ya pagado acá:
+
+1. **`cuerpo` no se mueve adentro de un sub-objeto y es OBLIGATORIO también en `ia`**: es
+   el texto que sale si el modelo falla. El motor ya tiene la doctrina para el caso
+   inverso en la rama de audio (si el binario no está, **falla y reintenta, no degrada a
+   texto en silencio**, «mandaría un mensaje que nadie escribió»). Con IA la salida es la
+   opuesta — el fallback SÍ lo escribió alguien, el dueño — así que **se manda, y se
+   registra el fallo**. Lo prohibido es el silencio.
+2. **La cascada es parte del dato y arranca GRATIS.** El porqué de que existan `variantes`
+   ya está escrito en el motor: sortear «no cuesta nada; redactar por lead costaría una
+   llamada de IA por mensaje». `cascada: 'paga'` es una elección explícita del dueño.
+3. ⚠️ **FALTA UNA COLUMNA Y ES CONDICIÓN DE ENTRADA: `nutricion_envios.texto_enviado`.**
+   Hoy el log guarda `asunto`, `proveedor_id` y `error`, **no el cuerpo**. Con texto fijo
+   se reconstruye leyendo el paso; con IA, no: el mensaje existió una vez y nadie lo puede
+   volver a leer. **Un nodo IA sin esa columna es un sistema que le habla a los leads del
+   dueño y no le deja auditarlo.** Va antes del nodo, no después.
+
+### Los adjuntos: el transporte ya está hecho, lo que falta es el CAMPO
+
+El dueño puede mandar un PDF a mano desde el inbox y **no puede ponerlo en una
+secuencia**: `PasoSecuencia` admite `tipo: 'texto' | 'audio'` y nada más. Lo que falta, en
+orden:
+
+1. **Por REFERENCIA, no embebido.** Se copia el patrón del audio (`audio_id` contra la
+   biblioteca del workspace, `lib/setting-audios.ts`): `media_id` + `caption?`. Es MEJOR
+   que ManyChat, donde el adjunto vive en el bloque — así el mismo PDF de precios se usa
+   en diez secuencias y se cambia en un lugar. Y es **lo único compatible con
+   `setSecuenciaPasos`**: un base64 metido en el jsonb del paso se pierde en el primer
+   guardado hecho desde otra pantalla, igual que se perdían las `variantes`.
+2. **`caption` corto viaja CON el archivo** (`enviarMediaYEspejar` ya lo acepta); el
+   `cuerpo` largo sale como segundo mensaje en el mismo toque, que es lo que ya hace el pie
+   del audio «que el guard anti-ban de 20 h frenaría» si fuera un paso aparte. Esa
+   distinción se toma a propósito, no se hereda.
+3. **Media fuerza `proveedor: 'no_oficial'`**, igual que el audio: por la vía oficial el
+   paso exige `template_wa` y una plantilla aprobada no lleva un adjunto arbitrario.
+   **Media + oficial es una configuración imposible, así que es una validación AL GUARDAR**
+   — hoy se descubriría recién en el log del cron.
+4. **La burbuja del nodo lo dibuja** (thumbnail para imagen, nombre con ícono para
+   documento). Sin eso el lienzo deja de ser un editor y vuelve a ser un diagrama.
+5. ⚠️ **EL LINK ES EL ADJUNTO QUE NADIE CUENTA, Y ES EL QUE ESTÁ PEOR.** El email mide
+   clics (`nutricion_envios.clic_at` por el webhook de Resend); **WhatsApp no mide nada**.
+   «Mandá el VSL por WhatsApp» es literalmente el caso de uso de la casa y hoy no se sabe
+   si alguien lo abre.
+
+**Lo que NO hay que portar:** Card y Gallery. Son formatos de Messenger/Instagram, la
+propia doc de ManyChat las excluye de WhatsApp, y un carrusel de 10 imágenes en un CRM de
+WhatsApp es un bloque que se dibuja y no sale.
+
+### Las 13 cosas que ManyChat tiene y nosotros no
+
+| Qué | Por qué importa | Qué tan lejos |
+|---|---|---|
+| **Probar un flujo DE VERDAD.** El simulador es un ESPEJO del motor, no el motor | No ejecuta nada de lo que decide qué sale: el guard anti-ban de 20 h, el tope de 40/día, la ventana 9-21, las condiciones `requiere`, el sorteo de variantes, borrador vs envío, el canal apagado. **Un flujo puede pasar la simulación entera y en producción dejar al lead sin un solo mensaje.** Y desde el lienzo no hay forma de probar nada. ManyChat tiene el agujero por el otro lado y lo confiesa («su preview no renderiza variables… intentional»): acá no hay a quién copiar | Medio: un «Probarme a mí» que corra el MOTOR con el teléfono del dueño como lead de prueba. Lo caro es el lead de prueba, que no puede contaminar métricas ni cohortes |
+| **Editar una secuencia con leads adentro CORRE los mensajes** | `nutricion_inscripciones.paso_actual` es un ÍNDICE POSICIONAL y el motor lee `sec.pasos[paso_actual]`. Borrar o reordenar un paso con leads en vuelo les manda el mensaje de OTRO paso, o les saltea uno, **sin que nada avise**. Es el bug más barato de causar del editor: lo dispara el gesto más común, borrar un mensaje que no gustó | Cerca y mecánico: id estable por paso y guardar el id, no el índice. Mientras no esté, lo mínimo es avisar en el panel: «3 leads están esperando después de este mensaje» |
+| **Disparar por lo que la PERSONA hace** | Todos nuestros disparadores son cohortes de estado barridas por un cron; el webhook de Evolution **no enrola a nadie**. Falta la palabra clave («PRECIO» y arranca el flujo), el link/QR de entrada, el mensaje de un número desconocido. ManyChat resuelve el empate entre keywords por **ORDEN DE LISTA** (gana el de arriba, reordenable arrastrando) con fallback obligatorio al Default Reply: la decisión más simple posible, y la correcta — no inventaron un puntaje de especificidad que nadie puede depurar | Lejos y estructural: el disparador por evento necesita que el webhook entrante pueda enrolar, con dedup y contador por contacto |
+| **Valores globales del negocio (sus Bot Fields)** | Un paso resuelve CUATRO variables y todas son del lead. No hay `{{precio}}`, `{{link_agenda}}`, `{{horario}}`. Es el que resuelve «cambió el precio»: sin él el dueño edita cada paso de cada secuencia a mano y el día que se olvida de uno manda el precio viejo | Cerca, y la mejor relación esfuerzo/beneficio de la lista: `lib/variables-aviso.ts` + `lib/variables-resolver.ts` ya existen **para los avisos al dueño** y el motor de nutrición no los usa |
+| **Capturar un dato del lead en medio del flujo** | No existe: el nodo «Pregunta N» del lienzo es decorativo (muestra las preguntas de la estrategia y no guarda nada). Su Data Collection está documentado completo y **las tres cosas que siempre se olvidan son justo las que nos faltarían**: sin timeout el lead que no contesta queda colgado para siempre, sin tope de reintentos el bot pregunta eternamente, y sin la puerta de escape («mientras espera, ninguna keyword dispara nada EXCEPTO stop y unsubscribe») el dueño tiene un problema legal, no de comodidad | Lejos: pide campos personalizados por lead |
+| **Métricas por PASO** | Hoy sólo hay por secuencia: el dueño ve «mandé 300 y me contestaron 12» y no puede saber en cuál de los tres mensajes se cae la gente, que es la única pregunta que lleva a una acción. ManyChat las pone EN la tarjeta del paso (Overall / Waiting / Passed). «Cuántos están parados acá ahora» es, además, lo que hace segura la edición | **Muy cerca, el ítem más barato de la lista:** `nutricion_envios` YA tiene la columna `paso`. Es un group-by que nadie escribió y un renglón en la tarjeta |
+| **La ventana horaria del lead, y la espera contra una fecha** | ⚠️ La ventana de envío está **HARDCODEADA 9-21 con `TZ_OFFSET_MX = -6`**: un cliente argentino manda a las 11 y a las 23 hora local y nadie lo eligió. ManyChat lo hace en la zona DEL CONTACTO con fallback a la cuenta, más días de la semana. Y una regla que no se le ocurre a nadie solo: si un admin interviene y pausa, **la pausa SE SUMA al delay** | Cerca para la ventana: el repo ya tiene `tzDeWorkspace` y `partesEn`; es cambiar tres constantes por una lectura. Medio para la fecha dinámica |
+| **Un motor de reglas EDITABLE (evento → condición → acción, sin lienzo)** | Es la decisión de arquitectura que no estamos contemplando: **que NO todo va al lienzo.** Tenemos el motor con las reglas escritas a mano en `lib/crm-auto.ts` (y en dry-run); el dueño no puede crear «cuando a un lead le cambia X, hacé Y». Si forzás eso al lienzo, termina con 30 flujos de un nodo. **Las dos defensas suyas se copian tal cual:** debounce de 30 s por (regla, contacto), y las acciones en LOTE **no disparan reglas a propósito** — sin eso, un cambio masivo de etapa en nuestro CRM dispara miles de mensajes | Medio: los eventos de lead ya se loguean (`logLeadEvent`) y el motor de avisos existe. Falta la tabla de reglas del usuario y la pantalla |
+| **Validación al activar** | Hoy se guarda y ya. Un cuerpo vacío, un «Sigue con» que apunta a una secuencia borrada, un paso de audio sin audio, un paso oficial sin `template_wa`: todos se guardan y **todos fallan recién en el log del cron**. El lienzo ya sabe detectar uno de esos casos (dibuja el nodo `ir-a` roto) pero mirarlo es optativo. ManyChat lo cierra en el «Set Live»: bloquea y marca en rojo | Cerca: una función pura `problemasDeSecuencia(pasos, estrategia, secuencias)` enganchada al toggle `activa`. El borrador/publicado completo es más caro y probablemente no haga falta con 2,2 pasos por secuencia |
+| **Un paso de ACCIÓN, y las acciones de CRM** | Nuestros efectos secundarios están clavados en el desenlace (mover de etapa, encadenar otra secuencia): **no hay forma de hacer nada en medio del flujo**. Su catálogo es la lista de lo que un flujo de CRM necesita y la mitad es CRM puro: marcar la conversación abierta/cerrada, **asignarla**, **avisar al responsable**, setear un campo, request externo. Y falta la primitiva más barata de todas: **etiquetas en el lead** — «marcalo como interesado» hoy no es expresable | Medio |
+| **Re-nutrir a un lead que volvió** | `UNIQUE (lead_id, secuencia_id)`: un lead que ya pasó por «Reactivación» **no puede volver a entrar nunca**. ManyChat tiene la misma trampa pero **por decisión**; a nosotros nos salió por una restricción de esquema, y ya nos obligó a un workaround en producción (el hand-off devuelve la inscripción a `activa` en vez de cerrarla «porque si se cerrara, ese lead nunca podría volver a entrar y quedaría mudo para siempre»). Para un CRM, donde el lead que vuelve es el mejor lead, esto es al revés | Cerca pero delicado: la clave pasa a (lead, secuencia, intento) con historial, y la política de cuándo se puede repetir se decide a propósito |
+| **Los DOS ajustes del quick reply** (no los botones) | «Follow up if contact hasn't engaged» (hasta 24 h) y «Retry if reply isn't a Quick Reply» (hasta 5): **son los dos agujeros por donde se escapan todas las conversaciones**, y los resolvieron como CONFIGURACIÓN del botón, no como pasos extra del lienzo. No tenemos ni el follow-up si no contesta ni el reintento si contesta cualquier cosa | Los botones, lejos y dudosos (por Evolution el soporte es inestable, y un botón que no se dibuja en el teléfono es peor que no tenerlo). **Los dos ajustes están cerca y no necesitan botones**: dos campos del paso y dos ramas del motor |
+| **Duplicar una secuencia** | No existe «duplicar» en ninguna parte: para armar la variante de algo que ya funciona hay que rehacerlo a mano | Muy cerca (un insert con clave nueva). Hay que decidir qué se arrastra: ManyChat avisa que duplicar NO copia las dependencias |
+
+### Lo que NO hay que copiar (y ya está decidido)
+
+- ⚠️ **REFERENCIAR COSAS POR NOMBRE.** ManyChat apunta a nodos, tags y campos por su
+  nombre visible y lo admite roto en su propia doc: «If there are multiple nodes with
+  similar names inside of the same Flow, transition behavior would not meet
+  expectations». Renombrar rompe el flujo en silencio. **Nosotros estamos a mitad de
+  camino y hay que terminar de salir:** `desenlace.logradoSecuencia` guarda la CLAVE de la
+  secuencia (ya nos obligó a dibujar el nodo `ir-a` roto) y `paso_actual` es una POSICIÓN.
+  Id estables, etiqueta visible aparte.
+- **El drag-to-connect y guardar la posición de los nodos.** Ya está decidido en contra y
+  con medición (el mapa de transiciones del funnel se construyó, el dueño lo llamó
+  «rebuscado» y se borró el 29/09). No conviene volver a discutirlo.
+- **La subrutina que NO espera.** Su Start Automation «will not pause to wait for the
+  contact's input»: convierte cualquier sub-flujo con una pregunta en un bug mudo.
+- **El A/B testing (Randomizer).** Reparte por lotes y lo confiesa: 1000 contactos
+  terminan 400/400/200. Con 2,2 pasos por secuencia no hay volumen para que un A/B diga
+  nada, y `variantes` ya resuelve el problema real (no mandar el mismo texto palabra por
+  palabra, que es lo que WhatsApp usa para restringir un número).
+- **El secretismo de su API.** No exponen el flujo, y eso les da barrera de salida y les
+  cuesta migración. Nuestros pasos son un jsonb legible: exponerlos es diferencial de
+  venta («te traés tus flujos»). Lo que sí se copia es el ORDEN: primero el contrato de
+  EJECUCIÓN (disparar una secuencia para un lead, setear un campo), que es el 90% de lo
+  que un integrador necesita.
+- **«Una vez enviada, la única forma de pararla es borrarla».** No tienen kill switch por
+  contacto. Nosotros estamos mejor por diseño (cola, borradores, inscripción con estado),
+  así que **pausar o sacar a UNA persona de una secuencia es barato y hay que tenerlo** —
+  no heredar su limitación.
+- **El preview que no renderiza variables, «This behavior is intentional».** Es justo lo
+  contrario de la regla escrita de nuestro lienzo (el nodo muestra el mensaje tal cual le
+  llega a la persona).
+
+### Dos contradicciones NUESTRAS que salieron del cruce
+
+1. ⚠️ **EL LIENZO RESUELVE UN TOKEN QUE EL MOTOR NO RESUELVE.** `VistaMensaje`
+   (`app/chatbot/FlujoLienzo.tsx`) hace `.replace(/\{\{\s*negocio\s*\}\}/g, negocio)` para
+   dibujar la burbuja; el envío usa `aplicarVariables` con el catálogo de
+   `lib/template-vars.ts`, que tiene CUATRO claves y ninguna es `negocio` — y deja literal
+   lo que no conoce. **Un paso que diga «te escribo de {{negocio}}» se ve perfecto en el
+   editor y al lead le llega con las llaves puestas.** Está latente (el generador de MaKo
+   sólo usa variables del catálogo), o sea que es una trampa esperando a la primera
+   persona que lo escriba a mano. **La previsualización de un editor no puede resolver
+   nada que el motor no resuelva.**
+2. **`requiere: 'sin_respuesta'` dice «solo si no contestó» y el motor no tiene rama para
+   eso**: cae de largo y el paso sale igual. Ya está documentado y sigue abierto, con **7
+   pasos así en producción**. Vale repetirlo acá porque es el caso de prueba del primer
+   ítem de la tabla: cualquier «probar el flujo» que no ejecute el motor real va a dar por
+   bueno un flujo que hace otra cosa.
+
+Y dos de ManyChat que valen como lección general:
+
+- **Su protección estrella produce flujos que no entregan.** El motor BLOQUEA los envíos
+  fuera de la ventana de 24 h —correcto— pero «a Smart Delay does not reopen the 24-hour
+  window» y **el editor no lo avisa**: una espera de más de 24 h seguida de un mensaje
+  normal es un flujo roto que sólo se descubre en producción. La lección doble: **bloquear
+  en el MOTOR y avisar en el EDITOR**; tener sólo lo primero es lo que tenemos.
+- **Dos números oficiales distintos para el mismo rate limit** (su spec dice 20 qps, su
+  artículo 25 RPS). Si algún día nos integramos, el número bueno es el que el servidor
+  haga cumplir — y el castigo no es un 429 con backoff: «Manychat may stop processing
+  requests for 24 hours».
+
+**Vive en:** `lib/nutricion.ts` · `lib/template-vars.ts` · `app/chatbot/FlujoLienzo.tsx` ·
+`lib/flujo-conversacion.ts` · `lib/evolution-envio.ts` · `supabase/migrations/0034_nutricion.sql`

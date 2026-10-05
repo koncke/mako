@@ -6351,3 +6351,57 @@ es el camino que ya guarda el borrador al desmontar.
 **Y la regla general: cuando cambies CUÁNDO se monta un componente, grepeá sus
 `useState(props.…)`.** Pasar de «se abre» a «siempre visible» no toca una línea del
 componente y le cambia el ciclo de vida entero.
+
+# Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
+
+Cuando a un paso del lienzo le falta una capacidad —que el mensaje lo escriba la IA, que
+lleve un archivo, que espere una respuesta— la salida que aparece primero es un tipo de
+nodo nuevo. ManyChat eligió eso (su AI Step es un paso del lienzo) y acá se paga cinco
+veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
+(`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
+`app/chatbot/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
+—que **reconstruye cada paso campo por campo y borra lo que no conoce**—. La quinta puerta
+ya costó las `variantes` borradas en silencio.
+
+**La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
+adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa
+(esperar, bifurcar, saltar). Y el discriminante va **ausente = el caso de siempre**
+(`tipo?: 'texto' | 'audio' | 'media' | 'ia'`, sin valor = texto): cero migración, cero
+campo nuevo en la pantalla para quien sólo escribe texto, y las filas que ya están siguen
+válidas sin tocar una.
+
+Tres corolarios, los tres con precedente pagado:
+
+- **El campo de siempre no se mueve adentro de un sub-objeto.** `cuerpo` es obligatorio
+  también en el modo IA, porque es el texto que sale si el modelo falla — y el fallback
+  tiene que ser algo que una persona escribió. La doctrina de la rama de audio es la
+  inversa y por el mismo motivo: si el binario no está, **falla y reintenta, no degrada a
+  texto en silencio** («mandaría un mensaje que nadie escribió»). Lo prohibido, en los dos
+  casos, es el silencio: un fallback que se usa se REGISTRA.
+- ⚠️ **UN ADJUNTO VA POR REFERENCIA A UNA BIBLIOTECA, NUNCA EMBEBIDO EN EL PASO.** Es lo
+  único compatible con un saneo que reconstruye campo por campo: un base64 metido en el
+  jsonb del paso se pierde en el primer guardado hecho desde otra pantalla. Y de paso es
+  mejor producto — el mismo PDF de precios se usa en diez secuencias y se cambia en un
+  lugar. El molde es `audio_id` (`lib/setting-audios.ts`).
+- **Una combinación IMPOSIBLE es una validación al guardar, no una nota en la
+  documentación.** Un paso con adjunto por la vía oficial exige `template_wa`, y una
+  plantilla aprobada por Meta no lleva un archivo arbitrario: media + oficial no se puede
+  guardar. Sin esa puerta, el dueño lo descubre en el log de un cron.
+
+# La previsualización de un editor no puede resolver un token que el motor NO resuelve
+
+Un editor que dibuja «cómo le va a llegar» y un motor que manda son dos resolvedores del
+mismo texto, y el día que no coinciden el que miente es el que la persona mira.
+
+Medido el 05/10/2026: `VistaMensaje` (`app/chatbot/FlujoLienzo.tsx`) resolvía
+`{{negocio}}` con un `replace` propio para pintar la burbuja, y el envío usa
+`aplicarVariables` con el catálogo de `lib/template-vars.ts`, que tenía CUATRO claves y
+ninguna era `negocio` — dejando literal lo que no conoce. **Un paso que diga «te escribo
+de {{negocio}}» se veía perfecto en el editor y al lead le llegaba con las llaves
+puestas.** No da error, y lo que se rompe es la única cosa que el editor prometía.
+
+- **Un token lo resuelve UNA función, y la pantalla llama a ésa.** Si la pantalla necesita
+  resolver algo más, se agrega al catálogo del motor; nunca se parchea el preview.
+- **Y lo que el motor no puede resolver, el selector no lo OFRECE** (ya es regla de la
+  casa). Un token escrito a mano que llega literal al cliente es el mismo bug por la otra
+  puerta.

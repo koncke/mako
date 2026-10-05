@@ -18,21 +18,47 @@ export const VARIABLES_LEAD: VarLead[] = [
   { key: 'empresa', label: 'Empresa', ejemplo: 'Acme', descripcion: 'Empresa del lead (si la tenemos)' },
 ];
 
-const KEYS = new Set(VARIABLES_LEAD.map((v) => v.key));
+/**
+ * Lo que NO sale del lead, sino del WORKSPACE. Va aparte a propósito: el lead lo trae
+ * la fila, y esto lo tiene que PASAR el emisor (una lectura por corrida, no por lead).
+ *
+ * ⚠️ EXISTE PORQUE EL EDITOR YA LO RESOLVÍA Y EL MOTOR NO. `VistaMensaje`
+ * (app/chatbot/FlujoLienzo.tsx) pinta la burbuja con un `replace` de `{{negocio}}`
+ * propio; el envío pasa por `aplicarVariables` con este catálogo, que tenía cuatro
+ * claves y ninguna era ésta — y lo desconocido queda LITERAL. O sea que un paso que
+ * dijera «te escribo de {{negocio}}» se veía perfecto en el editor y al lead le
+ * llegaba con las llaves puestas. Medido el 05/10/2026 (ManyChat a fondo), y estaba
+ * latente: el generador de MaKo sólo usa variables del catálogo, así que esperaba a
+ * la primera persona que lo escribiera a mano.
+ */
+export const VARIABLES_NEGOCIO: VarLead[] = [
+  { key: 'negocio', label: 'Tu negocio', ejemplo: 'Inmobiliaria del Valle', descripcion: 'El nombre de tu negocio, como está cargado en MaKo' },
+];
+
+const KEYS = new Set([...VARIABLES_LEAD, ...VARIABLES_NEGOCIO].map((v) => v.key));
 export const esVariableConocida = (k: string): boolean => KEYS.has(k);
 
 // Rellena TODAS las variables del catálogo a partir del lead. El template usa las
 // que necesite; las demás se ignoran. nombre = 1er token, apellido = el resto.
-export function valoresVariablesLead(lead: { nombre?: string | null; empresa?: string | null }): Record<string, string> {
+export function valoresVariablesLead(
+  lead: { nombre?: string | null; empresa?: string | null },
+  ctx?: { negocio?: string | null },
+): Record<string, string> {
   const full = (lead.nombre ?? '').trim().replace(/\s+/g, ' ');
   const parts = full ? full.split(' ') : [];
   const nombre = parts[0] ?? '';
   const apellido = parts.slice(1).join(' ');
+  const negocio = (ctx?.negocio ?? '').trim();
   return {
     nombre,
     nombre_completo: full,
     apellido,
     empresa: (lead.empresa ?? '').trim(),
+    // ⚠️ SÓLO SI HAY VALOR. Con la clave puesta en vacío, `{{negocio}}` se reemplaza
+    // por nada y el mensaje sale cojo sin que nadie se entere; sin la clave queda
+    // CRUDO, que se ve. Es la misma doctrina que la zona horaria del resolvedor de
+    // avisos: «sin zona no se inventa una hora, los dos tokens quedan crudos».
+    ...(negocio ? { negocio } : {}),
   };
 }
 
