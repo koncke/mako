@@ -21,6 +21,7 @@ import { chatCheapCascade, CASCADA_GRATIS } from './ai-cheap';
 import { renderPrompt } from './prompt-render';
 import { getVozGuia } from './nutricion-generator';
 import { getSecuenciasConStats, setSecuenciaPasos, type PasoSecuencia } from './nutricion';
+import { piezasCriticas } from './texto-critico';
 
 /** Cuántas formas alternativas por mensaje. */
 const POR_PASO = 4;
@@ -51,13 +52,8 @@ function parseJsonLoose(raw: string): Record<string, unknown> {
   return {};
 }
 
-/** Los placeholders y enlaces que la variante NO puede perder. */
-function piezasCriticas(texto: string): string[] {
-  return [
-    ...(texto.match(/\{\{[^}]+\}\}/g) ?? []),
-    ...(texto.match(/https?:\/\/\S+/g) ?? []),
-  ];
-}
+// `piezasCriticas` vive en lib/texto-critico.ts: el paso en modo IA hace la misma pregunta
+// sobre lo que escribe el modelo, y una regla copiada en dos archivos es la que se queda vieja.
 
 /**
  * Variantes de UN texto. Descarta las que pierden un placeholder o un enlace:

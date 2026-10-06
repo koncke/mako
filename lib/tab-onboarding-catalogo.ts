@@ -129,11 +129,15 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     //  · «WhatsApp oficial» ×3 — el oficial salió del producto (tarea #832).
     //  · «Tu email» ×2 — /email tiene su propia tab y su propio onboarding.
     //  · «Tu forma de escribir» — es el único que produce un dato sin otra casa (la guía
-    //    de voz). Decisión de Martín: no va al entrar, va la primera vez que se enciende
-    //    la IA en una tarjeta del lienzo. Hasta que esa opción exista, la pantalla sigue
-    //    en `OnboardingChatAgent.tsx`, sin montar.
+    //    de voz). Decisión de Martín (05/10): «que ese tutorial se habilite la primera vez
+    //    que se intente poner una tarjeta de chat y activar la opción de "IA"». Vuelve a
+    //    la lista OPCIONAL —no decide el `status`, así que la tab no vuelve a pedir
+    //    onboarding al entrar— y la abre el lienzo con `soloPaso` al tildar «Lo adapta
+    //    MaKo» (app/chatbot/SecuenciaPerfil.tsx). Tiene que estar ACÁ igual: sin la key
+    //    en la lista, `marcarPasoTab` la rechaza y el paso no se puede cerrar nunca.
     pasos: [
       { key: 'wa_no_oficial', label: 'Tu WhatsApp' },
+      { key: 'contexto', label: 'Tu forma de escribir', opcional: true },
     ],
     href: '/chatbot',
   },

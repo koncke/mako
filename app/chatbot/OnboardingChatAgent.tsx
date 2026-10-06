@@ -14,12 +14,12 @@
 // `app/email/OnboardingCanalEmail.tsx` (tab 'email'). Está parametrizado por tab y los
 // pasos se comparten, así que escanear el QR en una lo deja hecho en la otra.
 //
-// ⚠️ EL PASO «Tu forma de escribir» (contexto) QUEDÓ SIN PANTALLA: era exclusivo de la
-// lista 'setting', que ahora tiene un solo paso. Produce la GUÍA DE VOZ, que gobierna todo
-// lo que MaKo redacta, así que NO se borra. Decisión de Martín (05/10): vuelve en el
-// momento en que hace falta — la primera vez que se encienda la opción de IA en una
-// tarjeta del lienzo. Cuando esa opción exista, se extrae ese paso a su propio componente.
-// Lo mismo corre para 'voz', 'ensayo' y 'aprobar': su código sigue acá y no lo abre nadie.
+// ⚠️ EL PASO «Tu forma de escribir» (contexto) LO ABRE EL LIENZO, con `soloPaso`. Produce
+// la GUÍA DE VOZ, que gobierna todo lo que MaKo redacta. Decisión de Martín (05/10): va en
+// el momento en que hace falta — la primera vez que se tilda «Lo adapta MaKo» en una
+// tarjeta de chat (app/chatbot/SecuenciaPerfil.tsx). Vive en la lista 'setting' como
+// OPCIONAL, así que no vuelve a pedir onboarding al entrar a la tab.
+// 'voz', 'ensayo' y 'aprobar' siguen sin pantalla: su código sigue acá y no lo abre nadie.
 // =============================================================================
 // Aplica la metodología de .claude/skills/tab-onboarding (Conectar → Contexto →
 // Ensayo) con el MISMO chrome que el onboarding global (WizardShell fullscreen +
@@ -273,7 +273,14 @@ function textoDesenlace(e: Escenario, d: Desenlace): string {
   return 'La conversación se agotó sin definirse. Este caso termina aquí.';
 }
 
-export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () => void; tab?: 'setting' | 'whatsapp' | 'email' }) {
+/**
+ * `soloPaso`: el wizard muestra UN paso y se cierra al terminarlo. Lo usa el lienzo del
+ * Chatbot para abrir «Tu forma de escribir» la primera vez que se tilda la IA en una
+ * tarjeta (decisión de Martín, 05/10). Con `soloPaso` la pieza ya no vive en el `main`
+ * de una tab sino ENCIMA del lienzo, así que deja de ser `embebido` y pasa a ser el
+ * overlay fijo del WizardShell — quien lo monta lo portalea al `body`.
+ */
+export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { onListo: () => void; tab?: 'setting' | 'whatsapp' | 'email'; soloPaso?: PasoKey }) {
   const [def, setDef] = useState<Def | null>(null);
   const [estado, setEstado] = useState<Estado | null>(null);
   const [idx, setIdx] = useState(0);
@@ -374,9 +381,17 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     try {
       const j = await (await fetch(`/api/chat-agent/onboarding?tab=${tab}`, { cache: 'no-store' })).json();
       if (!j.ok) { setErr(j.error || 'No se pudo cargar el onboarding.'); return; }
-      setDef(j.def); setEstado(j.estado);
+      // Con `soloPaso` la lista se recorta a ese paso: así el «N de M», el `enUltimo`
+      // y el cierre al marcarlo salen solos, sin una rama aparte en cada uno.
+      // ⚠️ Si el paso no está en la lista del server, NO se cae al wizard entero: se
+      // dice. Abrir el recorrido completo encima del lienzo sería otra pantalla.
+      const def = soloPaso
+        ? { ...j.def, pasos: (j.def?.pasos ?? []).filter((p: { key: string }) => p.key === soloPaso) }
+        : j.def;
+      if (soloPaso && !def.pasos.length) { setErr('Este paso no está disponible.'); return; }
+      setDef(def); setEstado(j.estado);
       // Retomar donde quedó: primer paso sin hacer.
-      const i = (j.def?.pasos ?? []).findIndex((p: { key: string }) => !j.estado?.steps?.[p.key]?.done);
+      const i = (def?.pasos ?? []).findIndex((p: { key: string }) => !j.estado?.steps?.[p.key]?.done);
       setIdx(i < 0 ? 0 : i);
     } catch { setErr('Sin conexión — recarga la página.'); }
   }, []);
@@ -413,7 +428,11 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     })();
   }, [def, idx, canales, canalesErr]);
 
-  const pasoKey = (def?.pasos[idx]?.key ?? 'wa_no_oficial') as PasoKey;
+  // ⚠️ Mientras `def` no llegó, el paso es `soloPaso` y no el del QR. Con el default del
+  // recorrido entero, abrir «Tu forma de escribir» desde el lienzo disparaba en la primera
+  // pasada el efecto del WhatsApp (`evoApi('estado')`, un POST a Evolution) sobre un paso
+  // que esta pantalla nunca iba a mostrar. Lo cazó el arnés del 06/10 bloqueando escrituras.
+  const pasoKey = (def?.pasos[idx]?.key ?? soloPaso ?? 'wa_no_oficial') as PasoKey;
   const enUltimo = !!def && idx === def.pasos.length - 1;
   const esOpcional = !!def?.pasos[idx]?.opcional;
   const pasoKeyRef = useRef<PasoKey>(pasoKey);
@@ -1040,17 +1059,24 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
     ? 'Guardar y terminar el ensayo'
     : desenlace ? 'Siguiente caso' : 'Guardar caso y seguir';
 
-  const slides = [
-    { t: 'Tu voz, no una plantilla', d: 'El primer mensaje que recibe un lead es un audio tuyo. Eso es lo que consigue que respondan.' },
-    { t: 'Nada sale sin tu aprobación', d: 'Se arma todo aquí, lo pruebas en tu teléfono y se activa solo cuando lo indiques.' },
-  ];
+  // Abierto desde el interruptor de IA, el panel habla de ESO: las slides del recorrido
+  // entero hablan de audios, que no tienen nada que ver con lo que se está por hacer.
+  const slides = soloPaso === 'contexto'
+    ? [
+      { t: 'Escribe como tú', d: 'MaKo aprende tu tono de tus chats reales.' },
+      { t: 'Tu texto manda', d: 'Si MaKo no puede, sale el mensaje que escribiste.' },
+    ]
+    : [
+      { t: 'Tu voz, no una plantilla', d: 'El primer mensaje que recibe un lead es un audio tuyo. Eso es lo que consigue que respondan.' },
+      { t: 'Nada sale sin tu aprobación', d: 'Se arma todo aquí, lo pruebas en tu teléfono y se activa solo cuando lo indiques.' },
+    ];
 
   return (
     <WizardShell
       fullscreen
-      embebido
+      embebido={!soloPaso}
       titulo={def?.titulo ?? 'Chatbot'}
-      total={def?.pasos.length ?? 5}
+      total={def?.pasos.length ?? (soloPaso ? 1 : 5)}
       idx={idx}
       // En la vista de preguntas el título es la PREGUNTA: es lo que hay que
       // contestar, y repetir "Tu forma de escribir" ahí no dice nada.
@@ -1074,7 +1100,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
       error={err}
       puedeAvanzar={puedeAvanzar}
       enUltimo={enUltimo}
-      confirmLabel="Listo, entrar al Chatbot"
+      confirmLabel={soloPaso ? 'Listo' : 'Listo, entrar al Chatbot'}
       // En el ensayo el pie no "pasa": CIERRA el caso y lo guarda. Decirlo es lo
       // que evita que se lea como saltearlo.
       siguienteLabel={pasoKey === 'ensayo' && !ensayoTerminado ? labelEnsayo : undefined}
@@ -1126,7 +1152,7 @@ export function OnboardingChatAgent({ onListo, tab = 'setting' }: { onListo: () 
           )}
         </div>
       )}
-      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chatbot" slides={slides} eyebrow="✦ Dejemos tu Chatbot listo" />}
+      escenario={<PanelMarketing servicioKey="whatsapp" nombre="Chatbot" slides={slides} eyebrow={soloPaso === 'contexto' ? '✦ Para que MaKo escriba' : '✦ Dejemos tu Chatbot listo'} />}
     >
       {/* WHATSAPP NO OFICIAL — el QR se genera y se escanea en este mismo paso */}
       {pasoKey === 'wa_no_oficial' && (

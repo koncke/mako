@@ -23,6 +23,8 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow, sondearSocket } from '@/lib/evolution';
 import { canalNoOficial, proveedorDelPaso } from '@/lib/nutricion-canal';
+// Sólo el TIPO: el valor se importa dinámico adentro del motor (ciclo vía nutricion-generator).
+import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
 import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
 import { secuenciasDeEtapa, secuenciasDeEntrega, TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
@@ -50,7 +52,14 @@ export type PasoSecuencia = {
   // dueño). 'audio' exige audio_id de la biblioteca (lib/setting-audios.ts) y
   // sale SIEMPRE por el canal no oficial: un audio no cabe en una plantilla de
   // Meta. Sin tipo = 'texto' (todo lo anterior sigue igual).
-  tipo?: 'texto' | 'audio';
+  //
+  // 'ia' (pedido de Martín, 05/10/2026: «haz el interruptor de IA»): el mensaje lo
+  // reescribe MaKo para cada lead al mandarlo (lib/paso-ia.ts). El `cuerpo` sigue
+  // siendo obligatorio: es la BASE que dice qué hay que lograr y el RESPALDO que sale
+  // si el modelo falla. Es un campo del paso y no un nodo nuevo, a propósito — ver
+  // AGENTS.md, «Un TIPO DE NODO nuevo son CINCO puertas». Sólo vive en el canal no
+  // oficial: una plantilla aprobada por Meta no se puede reescribir.
+  tipo?: 'texto' | 'audio' | 'ia';
   audio_id?: number | null;
   // Condición para que el paso salga (reunión 31/07). 'respondio' = el lead ya
   // contestó al menos una vez: es la regla del lead magnet ("¿lo querés? es
@@ -311,9 +320,15 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
       ...(p.ancla === 'reunion' ? { ancla: 'reunion' as const } : {}),
       // Paso de nota de voz: exige audio de la biblioteca (si no, degrada a texto).
+      // Paso en modo IA: sólo por WhatsApp no oficial. Por la vía oficial sale una
+      // plantilla que aprobó Meta, y reescribirla es mandar algo que nadie aprobó; por
+      // email no hay ruta en el motor. En esos casos se guarda como texto, que es lo
+      // que el motor iba a hacer igual — sin un `tipo` que prometa otra cosa.
       ...(p.tipo === 'audio' && Number(p.audio_id)
         ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
-        : {}),
+        : p.tipo === 'ia' && p.canal !== 'email' && proveedorDelPaso(p) === 'no_oficial'
+          ? { tipo: 'ia' as const }
+          : {}),
       ...(p.requiere === 'respondio' || p.requiere === 'sin_respuesta' || p.requiere === 'ya_contactado' || p.requiere === 'primer_contacto'
         ? { requiere: p.requiere as PasoSecuencia['requiere'] }
         : {}),
@@ -1589,6 +1604,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // la cabeza del ORDER BY para siempre (starvation + una fila de fallo por
       // corrida). 4h para fallos transitorios; 24h para los casi-permanentes.
       let backoffHoras = 4;
+      // Qué texto se despachó y quién lo escribió (mig 0197). Lo llenan las ramas que
+      // mandan texto propio; una plantilla oficial queda en null, porque lo que sale
+      // ahí lo arma Meta con sus parámetros. En un `fallo` es el texto que se INTENTÓ.
+      let textoEnviado: string | null = null;
+      let textoAutor: AutorTexto | null = null;
 
       if (canalApagado) {
         // Queda un paso posterior enviable → este se omite y la cadencia sigue.
@@ -1603,7 +1623,24 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // patrón que WhatsApp detecta para restringir un número — y además se
         // lee como un bot. Sortear no cuesta nada; redactar por lead costaría
         // una llamada de IA por mensaje.
-        const cuerpoNO = aplicarVariables(textoDelPaso(paso), valoresVariablesLead(lead ?? {}, { negocio }));
+        const varsNO = valoresVariablesLead(lead ?? {}, { negocio });
+        const cuerpoNO = aplicarVariables(textoDelPaso(paso), varsNO);
+        // PASO EN MODO IA: el texto se escribe recién en la rama que lo manda, DESPUÉS
+        // de cada guarda que corta el envío (sin teléfono, línea caída, bloqueado,
+        // borrador pendiente). Escribirlo arriba gastaría una llamada por lead en
+        // mensajes que no salen. El modelo recibe el `cuerpo` CRUDO —con sus
+        // placeholders— y las variables se aplican a lo que devuelve: así la
+        // validación de lib/texto-critico.ts puede ver si perdió un {{lead_nombre}}.
+        // Si falla, sale `cuerpoNO`, que es lo que habría salido sin el interruptor.
+        // Import dinámico: lib/paso-ia → nutricion-generator → este archivo es un ciclo.
+        const escribirTexto = async (): Promise<{ texto: string; autor: AutorTexto; motivo?: string }> => {
+          if (paso.tipo !== 'ia') return { texto: cuerpoNO, autor: 'fijo' };
+          const { escribirPasoIA } = await import('@/lib/paso-ia');
+          const r = await escribirPasoIA({ cuerpo: paso.cuerpo, leadId: lead?.id ?? null });
+          return r.autor === 'ia'
+            ? { texto: aplicarVariables(r.texto, varsNO), autor: 'ia' }
+            : { texto: cuerpoNO, autor: 'fallback', motivo: r.motivo };
+        };
         // Paso de NOTA DE VOZ (reunión 31/07): el binario sale de la biblioteca
         // del workspace. Si el audio no está o no se puede bajar, NO degradamos
         // a texto en silencio (mandaría un mensaje que nadie escribió): falla y
@@ -1636,6 +1673,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // nunca llegaba. Sale como segundo mensaje inmediato, en el mismo
             // toque — no como paso aparte, que el guard anti-ban de 20h frenaría.
             if (r.ok && cuerpoNO.trim()) {
+              textoEnviado = cuerpoNO; textoAutor = 'fijo';
               await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id })
                 .catch(() => { /* el audio ya salió: el pie es un extra, no puede tumbar el envío */ });
             }
@@ -1656,7 +1694,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           }
         } else if (sec.envio_automatico || await esLeadCliente(lead.id)) {
           // Misma excepción que la rama del audio, de arriba.
-          const r = await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id });
+          const t = await escribirTexto();
+          textoEnviado = t.texto; textoAutor = t.autor;
+          // El respaldo NO es silencioso: el motivo queda en la fila aunque el envío
+          // salga bien. Un error del envío lo pisa abajo, que es lo más urgente de leer.
+          if (t.motivo) nota = `IA no usada: ${t.motivo}`;
+          const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id });
           estado = r.ok ? 'enviado' : 'fallo';
           if (!r.ok) nota = r.error;
         } else if (await tieneBorradorNutriPendiente(lead.id)) {
@@ -1668,8 +1711,13 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
           continue;
         } else {
-          // Lead caliente → BORRADOR (el setter lo manda con 1 clic).
-          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: cuerpoNO, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id });
+          // Lead caliente → BORRADOR (el setter lo manda con 1 clic). En modo IA el
+          // borrador ya trae el texto adaptado: es la tercera capa de control, una
+          // persona lo lee antes de que salga.
+          const t = await escribirTexto();
+          textoEnviado = t.texto; textoAutor = t.autor;
+          if (t.motivo) nota = `IA no usada: ${t.motivo}`;
+          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id });
           estado = 'borrador';
         }
       } else if (waOn && paso.canal === 'whatsapp') {
@@ -1738,6 +1786,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         } else {
           const vars = valoresVariablesLead(lead, { negocio });
           const cuerpo = aplicarVariables(paso.cuerpo, vars);
+          textoEnviado = cuerpo; textoAutor = 'fijo';
           const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
           const unsubUrl = buildUnsubscribeUrl(insc.lead_id);
           const r = await sendEmail({
@@ -1780,6 +1829,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // la causa («el número está desconectado desde el 3/09») estaba escrita
         // en una variable a diez líneas del insert.
         error: nota ?? null,
+        // Mig 0197 — ver la cabecera del .sql: sin esto no se puede saber qué le llegó
+        // a un lead, y un respaldo usado se leería como un envío de la IA.
+        texto_enviado: textoEnviado,
+        texto_autor: textoAutor,
       });
 
       if (estado === 'fallo') {

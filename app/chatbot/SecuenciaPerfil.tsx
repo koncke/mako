@@ -9,6 +9,8 @@
 // a tu teléfono/mail). Setter = solo lectura (sin botones de escritura).
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { EditorCron, SelectorDisparo, CRON_DEFAULT } from '@/app/_components/EditorCron';
 import type { CronAviso } from '@/lib/cron-aviso';
@@ -18,6 +20,10 @@ import { FlujoLienzo } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+
+// El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
+// se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
+const OnboardingChatAgent = dynamic(() => import('./OnboardingChatAgent').then((m) => m.OnboardingChatAgent), { ssr: false });
 
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
@@ -177,9 +183,13 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    * la foto ANTERIOR porque es lo que rehacer necesita; sin eso, rehacer no tendría de
    * dónde sacar el estado que se deshizo.
    */
+  // «Tu forma de escribir» abierto encima del lienzo (ver `setModoIA`). Va ANTES de la
+  // pila porque la apaga: con el tutorial delante, un Ctrl+Z fuera de un campo de texto
+  // deshacía el lienzo de atrás — y lo primero que deshacía era la casilla recién tildada.
+  const [guiaVoz, setGuiaVoz] = useState(false);
   const { apilar, deshacer, rehacer, puedeDeshacer, puedeRehacer } = usePilaDeshacer<PasoSecuenciaDto[]>(
     (foto) => { const antes = pasos; setPasos(foto); return antes; },
-    { activa: rolAdmin },
+    { activa: rolAdmin && !guiaVoz },
   );
   /** Una foto ANTES de cada cambio: apilar después deja el deshacer un paso corrido. */
   const antesDeCambiar = () => apilar(pasos.map((p) => ({ ...p })));
@@ -294,6 +304,31 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
     setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : {
       ...p, variantes: (p.variantes ?? []).filter((_, k) => k !== i),
     })));
+
+  /**
+   * «Lo adapta MaKo» en un paso (pedido de Martín, 05/10: «haz el interruptor de IA»).
+   * Es estado local, como el texto: se guarda con «Publicar» y entra a la pila de
+   * deshacer. Apagarlo vuelve a `texto` y el paso sale con el cuerpo, como siempre.
+   *
+   * ⚠️ LA PRIMERA VEZ ABRE «Tu forma de escribir». Decisión de Martín: «que ese
+   * tutorial se habilite la primera vez que se intente poner una tarjeta de chat y
+   * activar la opción de "IA"». «Primera vez» es «el paso todavía no está hecho», y se
+   * pregunta al server en el momento: un flag en el navegador no sabe si la guía ya se
+   * armó desde otra pestaña o desde otro usuario del mismo negocio. Si la pregunta
+   * falla, NO se abre nada: la IA escribe igual con un registro neutro, y un tutorial
+   * que salta por un error de red se lee como que la casilla hace otra cosa.
+   */
+  const setModoIA = (orden: number, on: boolean) => {
+    antesDeCambiar();
+    setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : { ...p, tipo: on ? 'ia' as const : 'texto' as const })));
+    if (!on) return;
+    void (async () => {
+      try {
+        const j = await (await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' })).json();
+        if (j.ok && !j.estado?.steps?.contexto?.done) setGuiaVoz(true);
+      } catch { /* sin red no se abre: ver arriba */ }
+    })();
+  };
 
   /** Un paso nuevo al final, de WhatsApp no oficial (el default seguro). */
   const agregarPaso = () => setPasos((prev) => [...prev, {
@@ -532,6 +567,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         onAudio={(orden, id) => void setAudioDePaso(orden, id)}
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onEditarVariante={editarVariante} onQuitarVariante={quitarVariante}
+        onModoIA={rolAdmin ? setModoIA : undefined}
         onModo={setModo} onDesenlace={setDesenlace} onAntiguedad={setAntiguedad}
         onAbrirSecuencia={onAbrirClave}
         onAgregarTras={agregarTras}
@@ -687,6 +723,15 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         )}
       />
       {err && <div style={{ flex: 'none', margin: '8px 14px 0', padding: '9px 12px', borderRadius: 9, fontSize: 13, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>}
+      {/* «Tu forma de escribir», encima de todo. Al `body` porque el lienzo vive adentro
+          de contenedores con `transform` y `overflow`, y un `position: fixed` nacido ahí
+          adentro se dibuja recortado o debajo (AGENTS.md: un sticky con z-index le
+          clampea el z-index a lo que nace adentro). La casilla queda tildada igual: sin
+          guía, MaKo escribe con un registro neutro. */}
+      {guiaVoz && typeof document !== 'undefined' && createPortal(
+        <OnboardingChatAgent soloPaso="contexto" onListo={() => setGuiaVoz(false)} />,
+        document.body,
+      )}
     </div>
   );
 }

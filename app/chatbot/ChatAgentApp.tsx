@@ -34,7 +34,8 @@ export type PasoSecuenciaDto = {
   orden: number; canal: 'email' | 'whatsapp'; delay_horas: number;
   asunto: string | null; preheader?: string | null; cuerpo: string;
   proveedor?: 'oficial' | 'no_oficial'; template_wa: string | null; ancla?: 'reunion';
-  tipo?: 'texto' | 'audio'; audio_id?: number | null;
+  /** 'ia' = MaKo reescribe el mensaje para cada lead (lib/paso-ia.ts); `cuerpo` es la base y el respaldo. */
+  tipo?: 'texto' | 'audio' | 'ia'; audio_id?: number | null;
   /**
    * Condición para que el paso salga. La UI la NECESITA: los dos audios de
    * apertura de la post-agenda son mutuamente excluyentes y sin mostrarlo la

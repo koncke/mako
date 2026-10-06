@@ -54,6 +54,7 @@ import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
 import { SETTING_ENSAYO_SYSTEM_TEMPLATE } from '@/app/api/chat-agent/onboarding/ensayo/route';
 import { VOZ_SEGMENTAR_TEMPLATE, VOZ_ANALISIS_SYSTEM_TEMPLATE, VOZ_ANALISIS_USER_TEMPLATE, VOZ_PREGUNTAS_TEMPLATE } from './chat-agent-voz';
 import { VARIANTES_SYSTEM_TEMPLATE } from './secuencias-variantes';
+import { PASO_IA_SYSTEM_TEMPLATE } from './paso-ia';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -424,6 +425,13 @@ export const REGISTRY: Group[] = [
         variables: [v('voz', 'guía de voz destilada del negocio')], scope: 'static-only', sensitive: false,
         default: VARIANTES_SYSTEM_TEMPLATE,
         context: 'El mismo mensaje dicho de formas distintas, generadas UNA vez al armar la secuencia. Sin esto el motor manda el texto idéntico a todos, que es lo que WhatsApp busca para restringir un número. No borres la regla de conservar los placeholders y los enlaces: una variante que los pierde sale sin personalizar o promete un link que no manda.',
+      },
+      {
+        key: 'chatbot.paso-ia', source: 'override',
+        label: 'Paso de secuencia en modo IA (system)', kind: 'system', dynamic: true,
+        variables: [v('voz', 'guía de voz destilada del negocio')], scope: 'static-only', sensitive: false,
+        default: PASO_IA_SYSTEM_TEMPLATE,
+        context: 'Reescribe el mensaje de un paso para cada persona, al momento de mandarlo, cuando la tarjeta tiene la IA prendida. No borres la regla de dejar los placeholders, los links y los números TAL CUAL: el motor lo comprueba (lib/texto-critico.ts) y, si se pierde uno, el mensaje sale con el texto base en vez del escrito. Y no lo pases a voseo: le llega al cliente del negocio, no a Martín.',
       },
       {
         key: 'setting.ensayo', source: 'override',

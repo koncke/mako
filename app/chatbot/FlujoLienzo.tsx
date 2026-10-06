@@ -37,6 +37,8 @@ import { Lienzo, TarjetaNodo, inpLienzo, rotuloLienzo } from '@/app/_components/
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { BURBUJA_SALIENTE } from '@/app/whatsapp/_shared/BurbujaMaKo';
 import { PasoAudioControl } from './PasoAudioControl';
+import { Checkbox } from '@/app/_ui';
+import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import {
   grafoDeSecuencia, CONDICION_TXT, CONDICIONES_VIVAS,
   type NodoFlujo, type PasoParaGrafo, type EstrategiaParaGrafo,
@@ -49,7 +51,7 @@ const SANS = "'Geist', sans-serif";
 export function FlujoLienzo({
   pasos, estrategia, etiquetaEtapa, secuencias, audios, negocio, rolAdmin, busy,
   onEditarPaso, onAgregarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError,
-  onEditarVariante, onQuitarVariante,
+  onEditarVariante, onQuitarVariante, onModoIA,
   onModo, onDesenlace, onAntiguedad, onAbrirSecuencia,
   chrome, herramientas, pie, editorEntrada, onAgregarTras, insetIzq,
 }: {
@@ -70,6 +72,8 @@ export function FlujoLienzo({
   onError: (m: string) => void;
   onEditarVariante: (orden: number, i: number, val: string) => void;
   onQuitarVariante: (orden: number, i: number) => void;
+  /** Prender o apagar «Lo adapta MaKo» en un paso. Sin esta prop la casilla no se dibuja. */
+  onModoIA?: (orden: number, on: boolean) => void;
   onModo: (m: ModoRespuesta) => void;
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
@@ -128,6 +132,7 @@ export function FlujoLienzo({
           onEditarPaso={onEditarPaso} onQuitarPaso={(o) => { onQuitarPaso(o); setSel(null); }}
           onAudio={onAudio} onAudioNuevo={onAudioNuevo} onError={onError}
           onEditarVariante={onEditarVariante} onQuitarVariante={onQuitarVariante}
+          onModoIA={onModoIA}
           onModo={onModo} onDesenlace={onDesenlace} onAntiguedad={onAntiguedad}
           onAbrirSecuencia={onAbrirSecuencia}
           editorEntrada={editorEntrada}
@@ -156,6 +161,11 @@ function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audio
   const texto = (paso.cuerpo || '').replace(/\{\{\s*negocio\s*\}\}/g, negocio);
   return (
     <>
+      {/* Sin esto, una tarjeta en modo IA y una fija se ven idénticas: la burbuja
+          muestra el texto BASE, y lo que le llega a cada lead es otra cosa. */}
+      {paso.tipo === 'ia' && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--mako-ink)', marginBottom: 5 }}>✦ Lo adapta MaKo</div>
+      )}
       {paso.canal === 'email' && paso.asunto && (
         <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 5 }}>Asunto: {paso.asunto}</div>
       )}
@@ -171,7 +181,7 @@ function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audio
 function EditorDeNodo({
   nodo, paso, estrategia, secuencias, audios, rolAdmin, busy,
   onEditarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError, onEditarVariante, onQuitarVariante,
-  onModo, onDesenlace, onAntiguedad, onAbrirSecuencia, editorEntrada,
+  onModoIA, onModo, onDesenlace, onAntiguedad, onAbrirSecuencia, editorEntrada,
 }: {
   nodo: NodoFlujo; paso: PasoSecuenciaDto | null; estrategia: EstrategiaParaGrafo;
   secuencias: ReadonlyArray<{ clave: string; nombre: string }>;
@@ -183,6 +193,7 @@ function EditorDeNodo({
   onError: (m: string) => void;
   onEditarVariante: (orden: number, i: number, val: string) => void;
   onQuitarVariante: (orden: number, i: number) => void;
+  onModoIA?: (orden: number, on: boolean) => void;
   onModo: (m: ModoRespuesta) => void;
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
@@ -256,7 +267,24 @@ function EditorDeNodo({
                   style={{ ...inpLienzo, marginBottom: 10 }} />
               </>
             )}
-            <label style={rotuloLienzo}>El mensaje</label>
+            {/* ⚠️ LA CASILLA SÓLO DONDE EL MOTOR LA HONRA: WhatsApp no oficial. Por la
+                vía oficial sale una plantilla que aprobó Meta, y por email no hay rama de
+                IA — y `setSecuenciaPasos` le saca el `tipo: 'ia'` a esos pasos al guardar,
+                así que dibujarla ahí sería un control que se des-tilda solo. Por eso la
+                condición es la MISMA función que usa el saneo, no una copia.
+                Checkbox y no Switch: se guarda con «Publicar», y un switch promete que
+                el cambio ya pasó (app/_ui/Toggle.tsx). */}
+            {onModoIA && paso.canal === 'whatsapp' && proveedorDelPaso(paso) === 'no_oficial' && (
+              <div style={{ marginBottom: 10 }}>
+                <Checkbox
+                  checked={paso.tipo === 'ia'} disabled={busy}
+                  onChange={(v) => onModoIA(paso.orden, v)}
+                  label="Lo adapta MaKo"
+                  hint={paso.tipo === 'ia' ? 'Si MaKo no puede, sale tu texto.' : undefined}
+                />
+              </div>
+            )}
+            <label style={rotuloLienzo}>{paso.tipo === 'ia' ? 'Qué tiene que decir' : 'El mensaje'}</label>
             {/* Un textarea y no el `Autocrece` de la burbuja: aquél crece hasta el
                 alto del texto —correcto DENTRO de una burbuja, donde una barra de
                 scroll es un cuerpo extraño— y acá el editor tiene alto propio. */}
