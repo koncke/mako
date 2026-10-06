@@ -25,9 +25,11 @@ import {
   findLeadByContacto,
   setFechaJunta2,
   cancelarJuntaEnLead,
+  guardarLinkDeReunion,
   saveLeadRespuestas,
   logLeadEvent,
 } from '@/lib/leads';
+import { linkDeReunion, juntaQueSeCancela } from '@/lib/recordatorio-lead';
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { hoyEnTijuana } from '@/lib/date-utils';
@@ -306,6 +308,8 @@ export async function POST(request: NextRequest) {
           if (lead) {
             // NUNCA crear desde una J2: solo seteamos fecha_junta_2 del lead existente.
             await setFechaJunta2(lead.id, fechaJ2, startTimeIso);
+            // El link para entrar, para el recordatorio al lead (mig 0204). Aparte y sin tirar.
+            await guardarLinkDeReunion(lead.id, 'R2', linkDeReunion(payload.scheduled_event?.location));
             // El form de la R2 tiene sus propias respuestas: se guardan POR reunión
             // (antes se descartaban — solo existían columnas para el set de R1).
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
@@ -422,6 +426,11 @@ export async function POST(request: NextRequest) {
           visitor_id,
         });
 
+        // El link para entrar a la R1, para el recordatorio al lead (mig 0204). Va en un update
+        // APARTE de `upsertLeadFromCalendly` y no tira: sin la migración puesta, la reserva
+        // tiene que entrar igual (ver `guardarLinkDeReunion`).
+        await guardarLinkDeReunion(lead.id, 'R1', linkDeReunion(payload.scheduled_event?.location));
+
         // Set de respuestas de la R1 por reunión (las columnas del lead quedan
         // como legacy/compat; la ficha lee lead_respuestas primero).
         await saveLeadRespuestas(lead.id, 'R1', qa, fechaJ1);
@@ -511,6 +520,13 @@ export async function POST(request: NextRequest) {
         // el hoy es justo lo que rompe los bordes del día (ver isoToFechaTijuana).
         const fechaCancelada = isoToFechaTijuana(startTimeIso);
         const cambio = await cancelarJuntaEnLead(lead, fechaCancelada, hoyEnTijuana());
+        // El link de la reunión cancelada se borra; `junta_X_at` NO (corrección del refutador del
+        // #17: en null, la regla T1 del CRM propone No Show sobre la R1 cancelada). El recordatorio
+        // al lead ya no sale porque mira `fecha_junta_X`, que la cancelación sí pone en null.
+        // Se compara el INSTANTE: si la reserva nueva de una reagenda llegó primero, la fila ya
+        // tiene el horario nuevo y su link no se toca.
+        const cualLink = juntaQueSeCancela(lead, startTimeIso);
+        if (cualLink) await guardarLinkDeReunion(lead.id, cualLink, null);
         // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
         const tipoCancelada = clasificarJunta(payload.scheduled_event, cfgJuntas) === 'j2' ? 'R2' : 'R1';
         await emitirDelCatalogo('reunion-cancelada', {

@@ -1600,6 +1600,33 @@ export async function cancelarJuntaEnLead(
 }
 
 /**
+ * Guarda (o borra, con `url: null`) el link para ENTRAR a la R1/R2 (mig 0204). Lo usa el
+ * recordatorio al lead (lib/reunion-recordatorio.ts) para mandar el link de la reunión.
+ *
+ * ⚠️ ES UN UPDATE APARTE Y NUNCA TIRA, a propósito. PostgREST rechaza el update ENTERO si una
+ * columna no existe: metido en el payload de `upsertLeadFromCalendly`, un deploy que llegue antes
+ * que la migración haría que NINGUNA reserva entre al CRM, para guardar un link. Separado, lo peor
+ * que pasa sin la migración es que el recordatorio salga sin link.
+ *
+ * Y se escribe SIEMPRE que entra una reserva, también en null: una reserva nueva sin link (una
+ * llamada por teléfono) no puede heredar el link de la reunión anterior de ese lead.
+ */
+export async function guardarLinkDeReunion(leadId: number, cual: 'R1' | 'R2', url: string | null): Promise<boolean> {
+  try {
+    const col = cual === 'R2' ? 'junta_2_url' : 'junta_1_url';
+    const { error } = await (await getTenantDb()).from('leads').update({ [col]: url }).eq('id', leadId);
+    if (error) {
+      console.error(`[leads] no pude guardar el link de la ${cual} del lead ${leadId}: ${error.message}`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error(`[leads] no pude guardar el link de la ${cual} del lead ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
+
+/**
  * Upsert por teléfono O email — usado por el webhook de Calendly.
  *
  * - Match (4B-bis): busca primero por telefono_normalizado, después por

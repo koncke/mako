@@ -94,6 +94,15 @@ export type CalendlyInviteePayload = {
     // name: nombre visible del tipo de evento. Se usan para distinguir J1/J2.
     event_type?: string;
     name?: string;
+    // Dónde es la reunión. `join_url` es el link para ENTRAR (Meet, Zoom…); una reunión
+    // presencial o por teléfono trae `location` y no `join_url`. El recordatorio al lead lo
+    // guarda en `junta_X_url` (mig 0204) — lo lee `linkDeReunion` (lib/recordatorio-lead.ts).
+    location?: {
+      type?: string;
+      join_url?: string;
+      location?: string;
+      status?: string;
+    } | null;
   };
   questions_and_answers?: Array<{
     question?: string;

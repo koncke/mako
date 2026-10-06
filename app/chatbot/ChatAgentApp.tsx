@@ -25,6 +25,7 @@ import { SecuenciaWizard } from './SecuenciaWizard';
 import { SimuladorWhatsApp } from './SimuladorWhatsApp';
 import type { CronAviso } from '@/lib/cron-aviso';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
+import { RecordatorioReunion } from './RecordatorioReunion';
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
@@ -468,6 +469,7 @@ function ChatAgentInner() {
       )}
 
       {rolAdmin && <HandoffsPanel handoffs={handoffs} onCambio={() => void load()} />}
+      {rolAdmin && <RecordatorioReunion />}
 
 
       {error && (

@@ -17,12 +17,25 @@ import 'server-only';
 //
 // Y la marca lleva el ISO adentro a propósito: si el lead REAGENDA, la fecha
 // cambia, la key es otra y el recordatorio del horario nuevo sí sale.
+//
+// Desde el 06/10/2026 el archivo tiene un SEGUNDO emisor, para el LEAD
+// (`mandarRecordatoriosAlLead`, más abajo): 24 h, 1 h y 15 min antes, con el link.
 // =============================================================================
 
-import { getTenantDb } from './workspace';
-import { getSetting, setSetting } from './settings';
+import { getTenantDb, runWithWorkspace } from './workspace';
+import { getSettingEstricto, setSetting, cambiarSettingSi } from './settings';
+import { getSupabaseServer } from './supabase';
 import { emitirDelCatalogo } from './avisos';
 import { textoAvisoPreLlamada } from './lead-resumen';
+import { envioWhatsappHabilitado } from './envio-flags';
+import { enviarYEspejar } from './evolution-envio';
+import { estaBloqueado } from './evolution-block';
+import { normalizarTelefono } from './leads';
+import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
+import {
+  KEY_RECORDATORIO, TOQUES, TOLERANCIA_MIN as TOLERANCIA_LEAD_MIN, configDeRecordatorio, juntasDe, leadAbierto,
+  toquesVencidos, estadoDeLaMarca, textoDelToque, type ConfigRecordatorio, type CualReunion, type Toque,
+} from './recordatorio-lead';
 
 /**
  * Cuánto antes avisa. Treinta minutos es el hueco donde el aviso todavía sirve:
@@ -111,7 +124,10 @@ export async function mandarRecordatoriosDeReunion(ws: number): Promise<Resultad
     const key = keyMarca(lead.id, cual, iso);
     // Ante un error leyendo la marca se SALTEA (el catch devuelve 'error', que es
     // truthy): mejor perderse un recordatorio que mandar el mismo tres veces.
-    if (await getSetting(key).catch(() => 'error')) { out.yaAvisadas += 1; continue; }
+    // ⚠️ Con `getSetting` ese catch NO CORRÍA NUNCA: `getSetting` se come el error y
+    // devuelve null, o sea «no hay marca» → mandaba otra vez. Va el estricto, que tira
+    // (medido al escribir el recordatorio al lead, 06/10/2026).
+    if (await getSettingEstricto(key).catch(() => 'error')) { out.yaAvisadas += 1; continue; }
 
     try {
       const minutos = Math.max(0, Math.round((Date.parse(iso) - ahora) / 60_000));
@@ -136,4 +152,173 @@ export async function mandarRecordatoriosDeReunion(ws: number): Promise<Resultad
   }
 
   return out;
+}
+
+// =============================================================================
+// El recordatorio AL LEAD: 24 h, 1 h y 15 min antes, con el link de la reunión
+// =============================================================================
+// Lo de arriba le avisa al DUEÑO. Esto le escribe al LEAD, por WhatsApp, desde la línea no
+// oficial del negocio. Cuándo vence cada toque y qué dice vive en lib/recordatorio-lead.ts
+// (puro, con test); acá se lee, se marca y se manda.
+//
+// ⚠️⚠️ CHOCA CON UNA REGLA DURA, Y ES UNA EXCEPCIÓN DECIDIDA. lib/evolution-envio.ts (y la mig
+// 0074) dicen: a un lead que NO PAGÓ nunca se le manda automático directo, va a un BORRADOR que
+// el setter manda con un clic. Esto le escribe directo a leads que no pagaron. Lo decidió Martín
+// el 06/10/2026 («A: 24h, 1h y 15min con link, ws1, apago n8n»): son los recordatorios que ya
+// le llegaban a esos mismos leads desde n8n, a alguien que AGENDÓ (o sea que ya escribió, que es
+// lo que protege a una línea no oficial: no escribirle primero a quien nunca escribió). Y es
+// OPT-IN POR WORKSPACE: nace apagado y sólo `activo === true` en el setting de ESE negocio lo
+// prende. No es un default de la plataforma ni se le prende a nadie más por herencia.
+//
+// ⚠️ NO SE HEREDA DEL DUEÑO. `getSetting` lee el workspace del contexto y, FUERA de uno, cae al
+// dueño (lib/settings.ts → `wsActual`); un cron que se olvide el `runWithWorkspace` le leería a
+// cada cliente el interruptor de Mauricio. Por eso `leerConfigRecordatorio` pregunta con el
+// `workspace_id` EXPLÍCITO y nunca por el contexto: que el ws1 lo prenda no le escribe a los
+// leads de nadie más.
+//
+// ⚠️ Y MANDA SÓLO CON EL ENVÍO DEL NEGOCIO PRENDIDO (`envioWhatsappHabilitado`, el mismo
+// interruptor que respetan la nutrición y el curso): uno solo para todo lo que le escribe a un
+// lead, o el negocio lo apaga y esto le sigue escribiendo igual. No recibe `ws`: lee el contexto,
+// así que va adentro del `runWithWorkspace`.
+//
+// CÓMO NO MANDA DOS VECES: una marca por TOQUE (`claveToque`: lead, R1/R2, el ISO de la reunión y
+// los minutos), con compare-and-set ANTES de mandar (`reclamado:`) para que dos corridas del
+// mismo tick no manden las dos —Evolution retiene el HTTP hasta 9 s con su `delay`, y el 27/09 eso
+// dejó 21 pares duplicados en los avisos programados—, y la marca de `enviado:` DESPUÉS del envío
+// ok. Si el envío falla, la marca queda en `fallo:` y la corrida siguiente lo reintenta mientras
+// siga dentro de la tolerancia; pasada, el toque se pierde.
+
+export type RecordatorioEnSeco = { leadId: number; cual: CualReunion; min: number; conLink: boolean; texto: string };
+
+export type ResultadoAlLead = {
+  ws: number;
+  /** El interruptor del negocio (`chatbot.recordatorio_reunion.activo`). */
+  activo: boolean;
+  /** `envio_whatsapp_enabled` del negocio. null = no se llegó a mirar. */
+  envio: boolean | null;
+  /** Toques vencidos en esta corrida. */
+  vencidos: number;
+  enviados: number;
+  /** Ya enviados (o tomados por otra corrida): la marca los frenó. */
+  yaEnviados: number;
+  /** Por qué NO salió, por motivo. */
+  omitidos: Record<string, number>;
+  /** Los que no entraron en el tiempo de la corrida: los toma la siguiente si siguen en ventana. */
+  sinTiempo: number;
+  errores: string[];
+  /** Sólo con `dry`: lo que mandaría. */
+  enSeco?: RecordatorioEnSeco[];
+};
+
+/** Columnas que lee el emisor. `junta_X_url` es de la mig 0204: sin ella, el select ENTERO falla. */
+const COLS_LEAD_RECORDATORIO =
+  'id, nombre, telefono, estado_lead, junta_1_at, junta_2_at, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, junta_1_url, junta_2_url';
+
+type FilaLeadRecordatorio = {
+  id: number; nombre: string | null; telefono: string | null; estado_lead: string | null;
+  junta_1_at: string | null; junta_2_at: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null;
+  asistio_j1: boolean | null; asistio_j2: boolean | null; junta_1_url: string | null; junta_2_url: string | null;
+};
+
+const msgErr = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * La configuración del recordatorio de ESE workspace, con el `workspace_id` explícito (ver la
+ * cabecera: no se hereda del dueño). Un error de lectura TIRA: «no pude leer» no es «apagado» para
+ * la pantalla que lo muestra, y el cron lo cuenta como error en vez de callarlo.
+ */
+export async function leerConfigRecordatorio(ws: number): Promise<ConfigRecordatorio> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings').select('value')
+    .eq('workspace_id', ws).eq('key', KEY_RECORDATORIO)
+    .maybeSingle();
+  if (error) throw new Error(`No pude leer el recordatorio de la reunión: ${error.message}`);
+  return configDeRecordatorio((data?.value as string | undefined) ?? null);
+}
+
+/**
+ * Manda los recordatorios al lead de UN workspace. Con `dry` no reclama ni manda nada: devuelve
+ * en `enSeco` lo que mandaría (y lo calcula aunque el interruptor esté apagado, que es para lo
+ * que sirve: mirarlo un día antes de prenderlo).
+ */
+export async function mandarRecordatoriosAlLead(
+  ws: number,
+  opts: { dry?: boolean; ahora?: Date; deadlineMs?: number } = {},
+): Promise<ResultadoAlLead> {
+  return runWithWorkspace(ws, async () => {
+    const res: ResultadoAlLead = {
+      ws, activo: false, envio: null, vencidos: 0, enviados: 0, yaEnviados: 0, omitidos: {}, sinTiempo: 0, errores: [],
+      ...(opts.dry ? { enSeco: [] } : {}),
+    };
+    const omitir = (motivo: string) => { res.omitidos[motivo] = (res.omitidos[motivo] ?? 0) + 1; };
+
+    let cfg: ConfigRecordatorio;
+    try { cfg = await leerConfigRecordatorio(ws); }
+    catch (e) { res.errores.push(msgErr(e)); return res; }
+    res.activo = cfg.activo;
+    // Apagado: ni se mira la base. Es lo que pasa en casi todos los negocios en casi todas las
+    // corridas, y este cron corre cada 10 minutos.
+    if (!cfg.activo && !opts.dry) return res;
+
+    res.envio = await envioWhatsappHabilitado().catch(() => false);
+    if (!res.envio && !opts.dry) return res;
+
+    const ahora = opts.ahora ?? new Date();
+    const t = ahora.getTime();
+    const desde = ahora.toISOString();
+    const hasta = new Date(t + (Math.max(...TOQUES) + TOLERANCIA_LEAD_MIN) * 60_000).toISOString();
+    // Las DOS reuniones en una vuelta, como el aviso de arriba. Son las de las próximas 24 h de un
+    // negocio: no llegan a las 1000 filas del tope de PostgREST.
+    const { data, error } = await (await getTenantDb())
+      .from('leads').select(COLS_LEAD_RECORDATORIO)
+      .or(`and(junta_1_at.gt.${desde},junta_1_at.lte.${hasta}),and(junta_2_at.gt.${desde},junta_2_at.lte.${hasta})`);
+    if (error) { res.errores.push(`no pude leer las reuniones: ${error.message}`); return res; }
+
+    let tz: string | null = null;
+    for (const lead of (data ?? []) as FilaLeadRecordatorio[]) {
+      if (!leadAbierto(lead.estado_lead)) continue;
+      const vencidos = toquesVencidos({ leadId: lead.id, juntas: juntasDe(lead), ahora: t });
+      for (const v of vencidos) {
+        res.vencidos += 1;
+        const telefono = normalizarTelefono(lead.telefono);
+        if (!telefono) { omitir('sin teléfono'); continue; }
+
+        let marca: string | null;
+        try { marca = await getSettingEstricto(v.clave); }
+        catch (e) { res.errores.push(`lead ${lead.id}: no pude leer la marca (${msgErr(e)})`); continue; }
+        const estado = estadoDeLaMarca(marca);
+        if (estado === 'tomada') { res.yaEnviados += 1; continue; }
+
+        if (await estaBloqueado(telefono)) { omitir('contacto bloqueado'); continue; }
+
+        tz ??= await tzDeWorkspace(ws).catch(() => TZ_DEFAULT);
+        const texto = textoDelToque({
+          plantilla: cfg.textos[v.min as Toque], nombre: lead.nombre,
+          inicio: new Date(v.inicio), ahora, tz, link: v.link,
+        });
+        if (!texto) { omitir('texto vacío'); continue; }
+
+        if (opts.dry) { res.enSeco!.push({ leadId: lead.id, cual: v.cual, min: v.min, conLink: Boolean(v.link), texto }); continue; }
+        if (opts.deadlineMs && Date.now() > opts.deadlineMs) { res.sinTiempo += 1; continue; }
+
+        // El reclamo ANTES de mandar, con compare-and-set: de dos corridas, gana una.
+        const reclamo = `reclamado:${new Date().toISOString()}`;
+        const gano = await cambiarSettingSi(v.clave, estado === 'libre' ? null : marca, reclamo).catch(() => false);
+        if (!gano) { res.yaEnviados += 1; continue; }
+
+        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id })
+          .catch((e): { ok: false; error: string } => ({ ok: false, error: msgErr(e) }));
+        if (r.ok) {
+          // La marca de ENVIADO va después del envío ok, nunca antes.
+          await setSetting(v.clave, `enviado:${new Date().toISOString()}`).catch((e) =>
+            console.error(`[recordatorio-lead] ws=${ws} lead=${lead.id}: salió y no pude marcarlo (${msgErr(e)})`));
+          res.enviados += 1;
+        } else {
+          await cambiarSettingSi(v.clave, reclamo, `fallo:${new Date().toISOString()}`).catch(() => false);
+          res.errores.push(`lead ${lead.id} ${v.cual} ${v.min} min: ${r.error ?? 'no salió'}`);
+        }
+      }
+    }
+    return res;
+  });
 }
