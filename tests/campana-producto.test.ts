@@ -364,7 +364,10 @@ test('el modal va por PORTAL: abierto desde el pop-up no puede ser su descendien
 test('asignar PREGUNTA si va a mover leads o a sacarle la campaña a otro producto, y sólo entonces', () => {
   // Una campaña nueva (cero leads) se asigna con un clic; una de 896 leads no.
   const m = sinComentarios(leer('app/crm/CampanasModal.tsx'));
-  assert.match(m, /if \(!previa\.aTraer && !otro\) \{ setOcupada\(null\); await asignar\(item, true\); return; \}/);
+  // La regla vive en lib/campana-asignar.ts (la comparte la tabla de Ads Manager, y la
+  // ejecuta tests/campana-asignar.test.ts); acá se fija que el modal pase por ella.
+  assert.match(m, /if \(!hayQuePreguntar\(previa\.aTraer, otro\)\) \{ setOcupada\(null\); await asignar\(item, true\); return; \}/);
+  assert.match(m, /\.\.\.preguntaAsignar\(\{ producto: nombreProducto, aTraer: previa\.aTraer, desde: otro/);
 });
 
 test('el «⋯» de la columna de ENTRADA ofrece las campañas, y sólo esa columna', () => {

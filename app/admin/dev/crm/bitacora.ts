@@ -825,5 +825,33 @@ export const BITACORA: Hito[] = [
       "La pregunta depende de un número del server; en ese cliente la previa dio 0 y el clic asignó directo. No se movió ningún lead y se revirtió en el acto.",
       "**Regla**: antes de hacer clic donde la rama la decide un dato del server, ese dato se mide con una lectura, y el clic va donde la rama esperada está garantizada."
     ]
+  },
+  {
+    "fecha": "5 oct",
+    "hora": "23:54",
+    "chat": "Ads Manager",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Elegir el producto al crear la campaña, y asignarla desde la tabla de Ads Manager",
+    "puntos": [
+      "Es el punto 4 del pedido de las 22:37, que el chat del CRM le pasó al de Ads Manager con el contrato: reusar las acciones de `app/crm/campanas-actions.ts`, sin segunda implementación ni escritura del setting.",
+      "**Al crear**: selector opcional en la revisión, por defecto «sin producto». Si la asignación falla, la campaña queda creada y se avisa: no se revierte.",
+      "**En la tabla**: columna «Producto (CRM)» en campañas y conjuntos, con la misma pregunta que el CRM y su «Deshacer». Sólo se dibuja si quien mira puede asignar.",
+      "La regla de cuándo se pregunta y qué dice quedó en `lib/campana-asignar.ts`, y el modal del CRM pasó a importarla: una sola copia."
+    ],
+    "commits": [
+      {
+        "sha": "07073522",
+        "msg": "Elegir el producto al crear la campana, y asignarla desde la tabla de Ads Manager",
+        "lineas": 349,
+        "archivos": 5
+      }
+    ],
+    "archivos": [
+      "app/ads-manager/ProductoCelda.tsx — la celda de producto de la tabla",
+      "app/ads-manager/NuevaCampanaModal.tsx — el selector al crear",
+      "lib/campana-asignar.ts — cuándo se pregunta y qué dice la pregunta (puro, con test)"
+    ]
   }
 ];

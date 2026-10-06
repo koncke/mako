@@ -35,6 +35,7 @@ import { Modal, Confirm, Spinner, Toast, useToast, SANS, MONO } from '@/app/_ui'
 import Link from '@/app/_ui/Link';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import type { CampanaAsignada } from '@/lib/campana-config';
+import { hayQuePreguntar, preguntaAsignar } from '@/lib/campana-asignar';
 import {
   campanasDelProductoAction, previaCampanaAction, asignarCampanaAction, quitarCampanaAction,
   deshacerAsignacionAction, type EstadoCampanas, type FilaCampana,
@@ -62,7 +63,7 @@ const TH: CSSProperties = {
 
 type Orden = 'nombre' | 'estado' | 'leads';
 type Item = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaId?: string };
-type Pide = { item: Item; n: number; detalle: string; desde: string | null };
+type Pide = { item: Item } & ReturnType<typeof preguntaAsignar>;
 
 export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCerrar, onCambio }: {
   /** El producto. `null` = el del negocio — y quien monta normaliza el id numérico del
@@ -208,12 +209,13 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
     }
     if (!previa.ok) { setOcupada(null); show(previa.error, undefined, 'bad'); return; }
     const otro = dondeVa.has(item.id) ? nombreDe(dondeVa.get(item.id)!) : null;
-    // Sin leads que mover y sin sacársela a otro producto, no hay nada que decidir.
-    if (!previa.aTraer && !otro) { setOcupada(null); await asignar(item, true); return; }
+    // CUÁNDO se pregunta y QUÉ dice la pregunta salen de lib/campana-asignar.ts: la tabla de
+    // Ads Manager hace la misma, y dos copias de una regla de producto divergen.
+    if (!hayQuePreguntar(previa.aTraer, otro)) { setOcupada(null); await asignar(item, true); return; }
     setOcupada(null);
     setPide({
-      item, n: previa.aTraer, desde: otro,
-      detalle: previa.porProducto.map((p) => `${p.n} de ${p.nombre}`).join(', '),
+      item,
+      ...preguntaAsignar({ producto: nombreProducto, aTraer: previa.aTraer, desde: otro, porProducto: previa.porProducto }),
     });
   };
 
@@ -376,12 +378,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
 
       {pide && (
         <Confirm
-          title={pide.n ? `¿Traer ${pide.n} ${pide.n === 1 ? 'lead' : 'leads'} de «${pide.item.nombre}»?` : `¿Pasar «${pide.item.nombre}» a ${nombreProducto}?`}
-          message={[
-            pide.n ? `${pide.detalle}.` : '',
-            pide.desde ? `Los nuevos dejan de entrar a ${pide.desde}.` : '',
-          ].filter(Boolean).join(' ')}
-          confirmLabel={pide.n ? `Traer ${pide.n}` : 'Pasar'} cancelLabel="No asignar" tone="primary"
+          title={pide.titulo} message={pide.mensaje}
+          confirmLabel={pide.confirmar} cancelLabel={pide.cancelar} tone="primary"
           onConfirm={() => { const it = pide.item; setPide(null); void asignar(it, true); }}
           onCancel={() => setPide(null)} />
       )}
