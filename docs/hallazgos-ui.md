@@ -3412,3 +3412,44 @@ uno — y la firma del encuadre lleva el inset adentro, o cambiarlo no reencuadr
 panel del nodo sólo existe con un nodo seleccionado, así que una verificación que no abre
 un nodo da verde sobre el control tapado. Es la misma familia que «un `sticky` roto se ve
 igual que uno sano hasta que scrolleás».
+
+## Una casilla que aparece con el hover se ANIMA con CSS, y el `&&` de React no puede (05/10/2026)
+
+*«Copiá la animación de aparición del checkbox para la selección de múltiples tarjetas que
+hizo el CRM. Es una animación que aparece detrás del título y que se desplaza el título
+cuando paso el cursor.»* Las tarjetas del Plan (tarea y proyecto) ya mostraban la casilla
+al pasar el cursor, pero con `{onElegir && (hover || haySeleccion) && <input>}` sobre un
+`useState` de hover: **aparecía de golpe y el título saltaba**. No hay transición que
+escribir ahí: un nodo que no existía no tiene de dónde animarse.
+
+La cura es la regla del CRM (`.mk-sel-tarjeta` en `app/globals.css`, ancho 0 → 15 con
+`margin-right: -8px` → 0 y opacidad), con la casilla SIEMPRE montada y la tarjeta como
+`.mk-tarjeta-sel`. Es UNA regla para el CRM, Customer Success y el Plan: el selector de la
+tarjeta lo commiteó la sesión de CS y este commit le sumó `[data-seleccionando='1']`,
+porque en el Plan con algo elegido se ven TODAS (así se agrega la segunda sin apuntarle a
+una casilla invisible). Lo fija `tests/plan-casilla-tarjeta.test.ts`.
+
+⚠️ **Las dos cosas del inline que la rompen sin error**: un `width` en el `style` de la
+casilla le gana a la clase (queda siempre ancha, con la opacidad animando: se ve arreglado
+sin estarlo), y un `margin` —aunque sea `'3px 0 0'` para alinearla con el título— **borra
+el `margin-right: -8px`** que cancela el `gap` de la fila. El alineo vertical va como
+`marginTop` suelto. Y la fila tiene que tener `gap: 8`, que es lo que ese `-8` cancela.
+
+### Dos trampas de la MEDICIÓN, que costaron más que el cambio
+
+Medido en la app real con Playwright, la casilla «no se abría con el hover». No era el
+código:
+
+1. **El «reposo» del mouse en (5, 5) cae sobre la barra lateral, y la barra se DESPLIEGA
+   con el hover** y tapa la primera columna del tablero. Después, el mouse que «iba a la
+   tarjeta» en x = 229 estaba encima del menú desplegado (`elementFromPoint` devolvía el
+   div con «General Plan CRM Ads Manager…»). El reposo va en una esquina vacía, lejos de la
+   barra.
+2. **El scroll del tablero es SUAVE**: leer la posición 300 ms después de `scrollIntoView`
+   da una tarjeta que todavía se mueve. Con 900 ms se estabiliza.
+
+Y `locator.hover()` de Playwright se colgaba 30 s esperando «estabilidad» por lo mismo:
+con mouse por coordenadas y las dos esperas, Chromium y WebKit dieron idéntico — reposo
+0 px de casilla y el título sin sangría; hover +23 px.
+
+**Vive en:** app/plan/board/BoardShell.tsx · app/globals.css · tests/plan-casilla-tarjeta.test.ts · *2026-10-05*

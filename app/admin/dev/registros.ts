@@ -48,6 +48,7 @@ import { PARTES as REELS_PARTES, BITACORA as REELS_BITACORA } from './reels/bita
 import { PARTES as SELFHEALINGDEV_PARTES, BITACORA as SELFHEALINGDEV_BITACORA } from './self-healing-dev-agent/bitacora';
 import { PARTES as METAPLATFORM_PARTES, BITACORA as METAPLATFORM_BITACORA } from './meta-platform/bitacora';
 import { PARTES as CONFIGURACIONES_PARTES, BITACORA as CONFIGURACIONES_BITACORA } from './configuraciones/bitacora';
+import { PARTES as PLAN_PARTES, BITACORA as PLAN_BITACORA } from './plan/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
   admin: { partes: ADMIN_PARTES, bitacora: ADMIN_BITACORA },
@@ -90,6 +91,7 @@ const REGISTROS: Record<string, Registro> = {
   'reels': { partes: REELS_PARTES, bitacora: REELS_BITACORA },
   'self-healing-dev-agent': { partes: SELFHEALINGDEV_PARTES, bitacora: SELFHEALINGDEV_BITACORA },
   'meta-platform': { partes: METAPLATFORM_PARTES, bitacora: METAPLATFORM_BITACORA },
+  plan: { partes: PLAN_PARTES, bitacora: PLAN_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

@@ -3178,6 +3178,54 @@ Lo que NO se saca, porque no es fricción sino utilidad: el buscador, los filtro
 y el orden. Con 70 proyectos una lista plana es un scroll donde encontrar «Feature: Landing
 Analyst» es leer de a uno.
 
+### Y volvió doce días después por la puerta que esa lista no miraba: CARGAR (05/10/2026)
+
+*«Habíamos dicho de sacar absolutamente toda la fricción al agregar tareas y me salta esto
+luego de intentar agregar tareas del fathom.»* El modal de una reunión, al apretar «Agregar
+6 al plan», se convertía en un wizard: «¿Para cuándo tiene que estar resuelto el aislamiento
+de datos…?», con calendario y cuatro atajos.
+
+La enumeración del 23/09 se hizo sobre el **alta a mano** (tarea, proyecto, prioridad,
+cambiar de proyecto), con `grep` de `WizardShell` / `IntroBody`. Y el alta tiene **otra
+puerta, que es la más usada**: lo que entra de afuera —una reunión, WhatsApp, Claude, el
+botón de proyecto vacío—, que no pasa por ninguna de esas pantallas. **El patrón no era «el
+Perro pregunta en el alta», era «el alta pregunta», y tenía tres caras y cuatro productores:**
+
+| Dónde | Qué hacía |
+|---|---|
+| `app/plan/board/TareasRecibidasModal.tsx` | «Agregar» llamaba a la IA para armar preguntas sobre lo elegido y las mostraba de a una |
+| `app/plan/revisar/[id]/RevisarPropuesta.tsx` | preguntas + repreguntas «para profundizar» + tareas extra salidas de lo contestado |
+| `lib/reunion-auto.ts` · `lib/plan-proyecto-vacio.ts` · `lib/mako-doer-acciones.ts` · la API de MaKo | las GENERABAN: el cron por cada reunión, el proyecto vacío, la tool de WhatsApp y `sugerir_preguntas_tareas` |
+
+Se fue todo junto (`d763c2b9`). El borrador nace con `notas: []` en `crearPropuesta`, que es
+el choke point de todos los productores, y `preguntas` salió del TIPO del draft: el
+compilador listó solo a los diez que las pasaban, incluidos tres scripts viejos. Lo cuida
+`tests/alta-sin-preguntas.test.ts` (ocho guards, uno por puerta, probados rompiéndolos).
+
+⚠️ **Lo que esas preguntas contestaban ya lo decide el Perro solo**: la fecha (mig 0114) y la
+prioridad, que se cambian a mano en el detalle. Por eso no había nada que reemplazar: lo
+que el modelo no pudo deducir va escrito en el `detalle` de la tarea, que es lo que el
+Perro lee.
+
+⚠️ **Y la pregunta que faltó el 23/09, y que vale para la próxima vez que se saque un patrón:
+¿por cuántas PUERTAS entra lo que este patrón frena?** Un `grep` del componente encuentra las
+pantallas que lo dibujan; no encuentra al cron que fabrica el contenido que esas pantallas
+van a mostrar. Acá la pantalla que lo mostraba ni siquiera era del Perro: era el modal de
+una reunión.
+
+**Lo que quedó SIN hacer:**
+- `PreguntaCampo` (`app/plan/board/guardian-form.tsx`) quedó **sin call site**: sus dos únicos
+  usuarios eran las dos pantallas de arriba. Y de `lib/preguntas-contrato.ts`, `CONTRATO_TIPOS_PREGUNTA`
+  y `JSON_PREGUNTAS` no los lee nadie y `apuntarSobre` / `ayudaDePregunta` sólo sus tests. No se
+  borraron en la misma pasada para no agrandar el diff; si nadie vuelve a necesitarlos, se van.
+- La columna `plan_propuestas.notas` y `plan_propuestas.revision` (el acta) siguen en la base:
+  los borradores viejos las tienen llenas y nadie las lee. No hay migración.
+- No se verificó en un navegador CON CLICK, porque «Agregar» crea tareas reales en producción.
+  El cambio es quitar un paso (el botón llama a `aplicar()`, la misma función que corría al
+  final del wizard), y el guard fija ese cableado.
+
+**Vive en:** app/plan/board/TareasRecibidasModal.tsx · app/plan/revisar/[id]/RevisarPropuesta.tsx · lib/plan-propuesta.ts · lib/reunion-auto.ts · lib/plan-proyecto-vacio.ts · lib/mako-doer-acciones.ts · lib/api-mako/areas/plan.def.ts · lib/agente-skill.ts · .claude/skills/plan-tareas/SKILL.md · *2026-10-05*
+
 ### Cuatro reportes sobre el mismo bloque, y el diagnóstico real lo dio él en una línea
 
 «Sigue roto lo de prioridad» se reportó **cuatro veces**. Yo arreglé, en orden: dónde estaba

@@ -2404,6 +2404,12 @@ El mensaje trae el dato que sirve: el **puerto real** del server vivo (3111 en e
 momento) y su PID. **No se mata**: puede ser la sesión de la otra cuenta trabajando. Se
 usa el que ya está.
 
+⚠️ **Pero «vivo» no es «contesta».** El 05/10/2026 el server ajeno escuchaba en 3010
+(`Get-NetTCPConnection` lo mostraba) y no devolvía nada ni a `/login` en 150 s, por IPv4 ni
+por IPv6. Antes de medir contra el server de otro, un `curl --max-time 20`; si no contesta,
+no se lo mata —es de otra sesión— y se levanta uno propio desde un worktree (ver «Las tres
+cosas que hay que recrear a mano»).
+
 ### 2. `?ws=3` NO sirve para verificar una tab nueva: el onboarding la tapa
 
 El Cliente de Prueba tiene el onboarding **pendiente**, así que `guardOnboarding()`
@@ -2545,9 +2551,21 @@ propio lock de dev server. Las tres cosas que hay que recrear a mano, y las tres
 formas distintas:
 
 1. **`node_modules`** — el junction de NTFS (`mklink /J`) **no le sirve a Turbopack**: falla con
-   `Symlink [project]/node_modules is invalid, it points out of the filesystem root`. La salida
-   es `next dev --webpack`, que sí sigue el symlink. La flag existe en Next 16 aunque Turbopack
-   sea el default.
+   `Symlink [project]/node_modules is invalid, it points out of the filesystem root`.
+   ⚠️ **`next dev --webpack` YA NO ES LA SALIDA** (medido el 05/10/2026): arranca y cada página
+   contesta 500 con `UnhandledSchemeError: Reading from "node:crypto" is not handled by
+   plugins` — la app está escrita para Turbopack. La salida que anda es la que ya estaba en
+   [hallazgos-comunicacion.md](hallazgos-comunicacion.md): el worktree como HERMANO del clon
+   (en el scratchpad, el ancestro común con el clon sería `C:\Users\marti` entero, y
+   Turbopack vigilaría eso) y, **sólo en el `next.config.ts` de esa
+   copia descartable**, `turbopack.root` subido a la carpeta que contiene a los dos
+   (`path.resolve(__dirname, '..')`). Con eso arrancó en 1,3 s y sirvió `/plan/agencia`.
+   ⚠️ **Y AL DESARMARLO, EL JUNCTION SE SACA PRIMERO Y SOLO:** `[System.IO.Directory]::Delete(
+   ruta, $false)` sobre el enlace (verificando antes que `LinkType` sea `Junction`), y recién
+   ahí el worktree. Un borrado recursivo con el junction puesto sigue el enlace y vacía el
+   `node_modules` del clon principal. `Remove-Item` sobre el junction dio
+   `NullReferenceException`, y la carpeta del worktree necesita el prefijo `\\?\` (rutas
+   largas de `.next/`).
 2. **`.env.local`** — está en `.gitignore`, así que el worktree nace sin él y la app arranca sin
    credenciales. Se copia.
 3. **El puerto** — `next start` y `next dev` compiten igual. `EADDRINUSE` se lee como si el
