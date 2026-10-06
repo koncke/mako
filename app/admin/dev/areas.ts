@@ -66,6 +66,7 @@ export const RUTAS_DE_ENTORNO: readonly string[] = [
   '.git/hooks/pre-push', // el hook no se versiona; AGENTS.md dice cómo recrearlo
   '.env.local',          // secretos, y apunta a la base de PRODUCCIÓN
   '.vercel/',            // la deja `vercel link`, es de quien linkeó
+  '.claude/settings.local.json', // permisos de ESTA máquina; está en .gitignore
 ];
 
 export type EstadoArea = 'listo' | 'parcial' | 'por-construir';
