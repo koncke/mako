@@ -6128,3 +6128,36 @@ tablero ya filtrado a ese cliente. Las tareas y proyectos ya llevaban `clienteLe
   de progreso y el Exportar ignoran el filtro. Las dos son decisiones de producto.
 
 **Vive en:** `app/plan/board/BoardShell.tsx`, `app/plan/board/filtro-cliente.ts`, `app/plan/agencia/page.tsx`, `app/plan/PlanBoard.tsx`, `app/plan/TodoBoard.tsx`.
+
+## `updated_at` no distingue al Perro de una persona: lo que distingue es el ACTOR (05/10/2026)
+
+**Vive en:** `plan_tareas.updated_at` y `plan_tareas.historial` · la regla que lo pide está en
+AGENTS.md → «la fuente más nueva puede ser el TABLERO MISMO»
+
+La regla de no pisar lo que una persona tocó después de que un plan se decidió es correcta y
+está escrita porque ya se pagó (el 03/10 una corrida le escribió fechas encima a diez
+proyectos que Martín había depurado catorce minutos antes). Lo que no estaba escrito es cómo
+se contesta esa pregunta, y la forma obvia —`updated_at` posterior al arranque de la corrida—
+**marca como «tocada a mano» a todas las tarjetas del tablero**.
+
+Medido al cerrar las cinco tarjetas de esta corrida: las cinco traían
+`updated_at = 2026-10-06T01:05:58`, **idéntico al milisegundo entre ellas**, y la primera
+entrada del historial decía `MaKo la priorizó — score N`. O sea el cron del Perro re-curvando,
+que por diseño toca el tablero entero. Un guard sobre `updated_at` habría frenado la corrida
+sobre las cinco y mandado a preguntarle a Martín por un cambio que no hizo.
+
+Lo que contesta la pregunta de verdad son dos campos y hay que mirar los dos:
+
+- **El `actor` de la primera entrada del historial.** `ia` es MaKo (el Perro, una ampliación de
+  contexto, un cierre por commits); `user` es una persona. Es el mismo campo que ya usa el
+  deshacer para no ofrecer un toast por cada tarjeta que toca el Perro.
+- **`score_manual`**, que es lo único que significa «esto lo decidió el dueño discutiéndolo» y
+  que por eso una corrida automática no escribe nunca.
+
+Las dos señales juntas, y el timestamp sólo para acotar la ventana: un `updated_at` reciente
+con `actor: 'ia'` es el cron haciendo su trabajo, y lo que hay que frenar es un `updated_at`
+reciente con `actor: 'user'`.
+
+⚠️ **Y la pista que lo delata en dos segundos: cinco filas con el MISMO timestamp al
+milisegundo no las tocó una persona.** Nadie edita cinco tarjetas en el mismo milisegundo; eso
+es un `update` en lote. Vale para cualquier auditoría del tablero, no sólo para este caso.

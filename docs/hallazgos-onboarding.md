@@ -1536,3 +1536,42 @@ importar `tabDeUrl` del componente —**el bug real**—, un `'use client'` impo
 
 **Vive en:** `app/onboarding/tabs-catalogo.ts` · `app/onboarding/page.tsx` ·
 `tests/frontera-use-client.test.ts` · *2026-09-29 crm-etapas-popup*
+
+## El onboarding de /chatbot se comía el primer clic de la tab (05/10/2026)
+
+**Vive en:** `app/chatbot/ChatAgentApp.tsx` · `app/chatbot/OnboardingChatAgent.tsx` ·
+`lib/tab-onboarding-catalogo.ts`
+
+Tarjeta #833. Ese onboarding se escribió cuando `/chatbot` era una pantalla que **presentaba**
+el editor: lo primero que hacía era preguntar «¿querés el recorrido guiado o lo configuro
+solo?» (`ElegirRecorrido`) y después encadenaba siete pasos. Hoy la tab **ES** la grilla de
+secuencias con su lienzo, así que esa pregunta se come el primer clic de todo el mundo para
+ofrecer un tour de una pantalla que ya está a la vista.
+
+Qué pasó con cada paso viejo, que es la parte que no se deduce del diff:
+
+| Paso | Dónde quedó |
+|---|---|
+| `wa_no_oficial` (vincular el número) | **es la pantalla de entrada**: si no hay WhatsApp, la tab muestra el QR inline de `EvolutionConnect` y una línea de texto |
+| `wa_oficial`, `wa_oficial_num`, `wa_oficial_plantilla` | se fueron con la tarjeta #832: el canal oficial no se ofrece más |
+| `contexto` (el contexto del negocio) | ya vive en su propia tab, y compartía la clave con Instagram (ver la colisión más arriba) |
+| `ensayo` (previsualizar un borrador) | el simulador está adentro del editor, en el lienzo |
+| **`guia_voz` («Tu forma de escribir»)** | **NO era obsoleto y no tenía otra casa** |
+
+La guía de voz es el único que seguía haciendo falta: sin ella la IA escribe con una voz que
+nadie eligió. Y la decisión de Martín fue que **no va en la puerta**: *«sería bueno que ese
+tutorial se habilite la primera vez que se intente poner una tarjeta de chat y activar la
+opción de "IA", entonces ahí viene ese paso»*. Queda anotado en el encabezado de
+`OnboardingChatAgent.tsx` y pendiente de que exista ese interruptor en el nodo del mensaje.
+
+**La regla que queda:** cuando una tab deja de PRESENTAR una herramienta y pasa a SER la
+herramienta, su onboarding deja de ser un wizard y se convierte en su **estado vacío** —una
+pantalla, lo que falta, y el control que lo arregla ahí mismo. Lo que no se puede hacer es
+dejar el wizard adelante: una pregunta antes del contenido es fricción para el 100% de las
+visitas, incluidas todas las que vienen después de la primera.
+
+⚠️ **Y el componente no se borra con la ruta que lo montaba.** `OnboardingChatAgent.tsx`
+sigue vivo porque lo montan `app/whatsapp/OnboardingCanalWhatsApp.tsx` y
+`app/email/OnboardingCanalEmail.tsx`. Next hace ruta de un `page.tsx`, no de lo que ese
+`page.tsx` importaba: antes de borrar un componente de esa carpeta, `grep` de quién más lo
+importa. Su encabezado ahora dice quién lo monta y quién no.

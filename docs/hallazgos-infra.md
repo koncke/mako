@@ -4102,3 +4102,55 @@ contra el server.
 - **Completar `TABLAS_RESET` cambió el alcance del RESET**, no sólo el del borrado. Es lo
   correcto —hoy el ws3 «vaciado» arrastraba 24 tablas— pero es un cambio de radio que
   nadie pidió.
+
+## Hay una QUINTA forma de navegar: el link que se MANDA afuera (05/10/2026)
+
+**Vive en:** `lib/app-url.ts` (`linkApp`) · `lib/workspace.ts` (`wsEnContexto`) · el guard en
+`tests/link-con-workspace.test.ts`
+
+El síntoma: a Martín le llegó un aviso de MaKo, lo abrió, y la app le contestó **«este lead
+no es de esta cuenta»** sobre un lead que sí era suyo. El diagnóstico obvio —y el que decía
+la tarjeta #834 del tablero— era que el chatbot cruzaba workspaces y mandaba las
+automatizaciones de un cliente a otro. No era eso.
+
+La causa: el link del aviso se armaba a mano, `${APP_BASE_URL}/crm/<id>/resumen`, **sin el
+`?ws=`**. El cartel sale de una guardia que se agregó en agosto (`bd366a46`) y es correcta;
+lo que pasa es que el aviso viaja al teléfono de alguien que puede tener la app parada en
+OTRO workspace, y sin el parámetro el link abre la pantalla en el de la pestaña. Se lee como
+una fuga entre clientes y es, al revés, un destino que falta.
+
+AGENTS.md contaba **CUATRO** formas de navegar (un `<Link>`, un `fetch` a /api, un
+`redirect()` del server, un `window.location.href`) y avisaba, con el caso del 16/08, que
+«contar tres es el error que ya se cometió». La quinta no es navegación desde adentro de la
+app: es **un link que sale en un mensaje y se abre desde afuera**, donde el parámetro es lo
+único que dice de quién son los datos. Ninguna de las cuatro la cubre, y por eso el barrido
+de los 26 `redirect()` la dejó viva.
+
+Eran **22 links en 15 archivos**: los dos webhooks de agenda, el opt-in de la landing, las
+dos rutas del agente, cinco áreas de la API de MaKo y siete libs (avisos de lead, el doer,
+las recurrentes, las dos de reuniones, los dos seeds del todo y el resolvedor de variables).
+
+```ts
+export function linkApp(ruta: string, ws: number | null): string {
+  return `${APP_BASE_URL}${conWs(ruta, ws)}`;
+}
+```
+
+- **Con `ws` en null devuelve el link tal cual**, no uno con `ws=null` pegado. Un cron que
+  todavía no itera inquilinos no tiene workspace, y un link sin parámetro abre donde la
+  persona esté —que es lo de antes— mientras uno con `null` abre una pantalla vacía.
+- ⚠️ **`wsEnContexto()` NO mira las cookies**: devuelve el store de `runWithWorkspace` y
+  nada más. Existe para que un helper sincrónico que arma un link inline no tenga que
+  volverse async y arrastrar a sus catorce llamadores. No reemplaza a `getWorkspaceActual()`,
+  que es el que resuelve de verdad en un request.
+- **El guard mira el FUENTE y no los tipos**, porque esto no es un error de tipos: un
+  template literal con la URL pegada compila perfecto. Busca `${APP_BASE_URL}/<ruta de
+  inquilino>` en `lib/` y `app/api/`, y deja afuera dos archivos con su motivo escrito:
+  `lib/mako-doer-in.ts` (es el PROMPT que describe la forma de una URL, no un link que sale)
+  y `lib/app-url.ts` (es donde vive el helper).
+- Probado rompiéndolo: devolviendo `/crm/${id}` a mano en `linkResumenLead` cae el primero
+  (2 pasan / 1 falla, nombrando `lib/lead-resumen.ts → /crm`).
+
+**La regla que queda, y es la que gobierna código nuevo:** antes de dar por cerrado un
+barrido de navegación se enumeran las CINCO, y la quinta se busca por otro patrón que las
+demás — no hay `redirect` ni `<Link>` que grepear, hay una interpolación de `APP_BASE_URL`.

@@ -8031,3 +8031,88 @@ cubría cuatro columnas y ahora seis: verificar esta pantalla ESCRIBE en producc
 respaldo que cubre 4 de 6 deja restaurar con confianza y mal — que es exactamente lo que
 ya pasó la vez anterior, cuando le faltaba `producto_id`. El `cron` es jsonb y va al
 driver como OBJETO (`sql.json`), nunca como texto.
+
+## Los tres crons de reporte no iteran inquilinos: sale UN reporte, el del dueño (05/10/2026)
+
+**Vive en:** `app/api/cron/reporte-diario/route.ts` · `-horario` · `-semanal` ·
+`lib/perfil.ts` (`getContactoReportes`, `getNotifPrefs`)
+
+**SIN HACER, y no es código: es una decisión.** Queda escrito porque es la otra mitad de
+«#834: el chatbot cruza workspaces» y porque el síntoma se parece al de un bug.
+
+Los tres crons llaman a `getContactoReportes()` y `getNotifPrefs()` **sin envolver nada en
+`runWithWorkspace`**. Y en un cron no hay cookie de sesión, así que `getWorkspaceActual()`
+cae al dueño por contrato explícito (`lib/workspace.ts`: «Sin sesión resuelta … cron /
+webhook / público → dueño», `return tieneCookieSesion ? null : OWNER_WS`). O sea que los
+tres leen el interruptor, el teléfono y el mail **del ws1**, componen el reporte del ws1 y
+lo despachan al ws1.
+
+Consecuencias, las dos:
+
+1. **El reporte de los demás clientes no existe.** Sus preferencias de notificación y su
+   contacto son decorativos para este camino: la pantalla los deja configurar y nada los
+   lee. Es el modo de falla de siempre — no da error, no sale el mensaje, y «no salió» es
+   indistinguible de «no había nada que avisar».
+2. **El que SÍ sale es el del dueño, y es el que llegó a Martín.** Por eso al mirar un
+   reporte parecía que los datos de un cliente se le habían mandado a otro.
+
+Es exactamente la familia de `emitirDelCatalogo` (ver AGENTS.md → «en una función que
+acepta `ws` por parámetro, resolverlo es la primera línea del cuerpo»), un escalón más
+arriba: acá no es que el `ws` se resuelva tarde, es que **no hay `ws` en ningún lado**.
+
+⚠️ **Por qué no se prendió en la misma corrida:** iterar inquilinos acá no es un refactor,
+es **empezar a mandar WhatsApps y mails de verdad** a los clientes que tengan el reporte
+activo (hoy ws11 y ws13, entre otros). Es hacia afuera y lo decide Martín. Lo que falta,
+cuando se decida, son tres cosas y ninguna es grande: envolver cada cron en un bucle sobre
+los workspaces activos con `runWithWorkspace`, que el fallo de uno no corte a los demás, y
+contar cuántos salieron en la respuesta del cron — sin ese contador, un cron que no
+despachó nada y uno que despachó nueve se ven iguales.
+
+## Vincular DOS líneas de WhatsApp: el espejo ya está listo, el que manda no (05/10/2026)
+
+**Vive en:** `supabase/migrations/0072_evolution_instancias.sql` · `lib/evolution.ts`
+(`instanceNameDeWs`) · `lib/evolution-mensajes.ts` (`getConversacionesNoOficial`)
+
+**SIN HACER.** Es la tarjeta #831 del tablero y lo que sigue es el costo medido, para que
+no se empiece por la mitad — media implementación acá **manda desde la línea equivocada**,
+que es peor que no tenerla.
+
+Lo que YA soporta dos líneas:
+
+- **`wa_mensajes` tiene `instance_name`** desde la mig 0073: el espejo de mensajes está
+  guardado por línea, no por workspace.
+- **`webhook_routing` es `(servicio, identificador) → workspace`**, así que N instancias de
+  un mismo workspace son N filas apuntando al mismo lugar. No hay que tocarlo.
+
+Lo que NO:
+
+| Qué | Dónde | Por qué bloquea |
+|---|---|---|
+| `unique (workspace_id)` en `evolution_instancias` | mig 0072 | la base prohíbe la segunda línea. Pasa a `unique (workspace_id, instance_name)` + una columna que diga cuál es la de por default |
+| `instanceNameDeWs(ws) = 'mako_ws<id>'` | `lib/evolution.ts:41` | el nombre de la instancia se **deriva del workspace**, así que no hay dónde decir «esta línea». **26 call sites** en tres archivos (`evolution.ts`, `evolution-mensajes.ts`, `evolution-media.ts`) |
+| `getConversacionesNoOficial` | `lib/evolution-mensajes.ts:265` | lee el espejo **sin seleccionar `instance_name`** y agrupa por teléfono en todo el workspace: con dos líneas, los dos hilos del mismo contacto se funden en uno y la bandeja no puede decir por cuál entró |
+| El envío y el motor del chatbot | `lib/evolution-envio.ts`, `lib/nutricion.ts` | eligen la instancia a partir del workspace, o sea que **siempre mandan por la primera** |
+| El QR, la sonda y el chip de salud | `app/whatsapp/EvolutionConnect.tsx`, `lib/evolution-sonda.ts` | son por workspace: hoy no hay dónde dibujar «la línea 2 está caída» |
+
+El orden que no deja un estado intermedio peligroso: **primero la migración y el selector de
+línea en la lectura** (bandeja filtrando por instancia, con el hilo separado), y recién
+después el envío. Al revés —poder vincular dos líneas antes de que el que manda sepa
+elegir— da exactamente el bug que la tarjeta quiere evitar.
+
+## Esconder una integración son DOS lugares, y el deep link es el tercero (05/10/2026)
+
+**Vive en:** `lib/integraciones.ts` · `app/whatsapp/page.tsx` · `app/whatsapp/WhatsAppApp.tsx`
+
+Pedido de la tarjeta #832: retirar WhatsApp Oficial (Cloud API) de MaKo. Sacarlo de la
+grilla de `/integraciones` no alcanza, y la lista no es obvia:
+
+1. **La tarjeta de `/integraciones`**, que ahora sólo se dibuja si el workspace YA tiene el
+   token de Chatwoot guardado — en positivo, para no romperle la pantalla a quien lo usa.
+2. **El botón del canal en `/whatsapp`**, que decide además con qué canal ABRE la tab.
+3. ⚠️ **El deep link.** `?canal=oficial` seguía resolviendo al canal escondido, así que un
+   link viejo —un aviso ya mandado, un marcador— abría una pantalla que para ese cliente ya
+   no existe. Se ignora cuando el canal no se muestra.
+
+Y un cuarto que no es de la pantalla: **los pasos del onboarding** (`wa_oficial*` en
+`lib/tab-onboarding-catalogo.ts`). Un paso que pide conectar algo que ya no se ofrece es un
+onboarding que no se puede terminar.

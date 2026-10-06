@@ -630,7 +630,7 @@ un fail-closed silencioso que se lee como «el botón no hace nada». Medido con
 27/09/2026: supabase-js devuelve `number`. Si esa lectura sale algún día por otro camino,
 se vuelve a medir.
 
-# Hay CUATRO formas de navegar, y las cuatro llevan el `?ws=`
+# Hay CINCO formas de navegar, y las cinco llevan el `?ws=`
 
 | Cómo | Con qué |
 |---|---|
@@ -638,6 +638,7 @@ se vuelve a medir.
 | Una llamada a `/api` | sale sola: el parche de `app/_components/WsFetch.tsx` |
 | Un `redirect()` del server | **`rutaConWs`** (`lib/workspace.ts`) |
 | Un `window.location.href` | **`conWs(destino, useWs())`** (`lib/ws-tab.ts`) |
+| **Un link que se MANDA afuera** (un aviso, un mail, un mensaje de WhatsApp) | **`linkApp(ruta, ws)`** (`lib/app-url.ts`) |
 
 Si alguna pierde la pestaña, **la forma en que falla no se parece a un bug: te deja
 mirando otra cuenta.**
@@ -650,6 +651,27 @@ corren siempre adentro del modo agencia. Antes de dar por cerrado un barrido de
 navegación, enumerá las cuatro y buscá cada una por separado — un `grep` de `redirect('/`
 no ve un `window.location`, y tampoco ve un `redirect(\`/x/${id}\`)` con template literal
 (ése también se escapó).
+
+⚠️ **Y LA QUINTA SE DESCUBRIÓ EL 05/10/2026, con la regla de arriba ya escrita.** Las
+cuatro de la tabla son navegaciones desde ADENTRO de la app; un link que viaja en un aviso
+se abre desde AFUERA, y ahí el parámetro es lo único que dice de quién son los datos. A
+Martín le llegó un aviso, lo abrió, y la app le contestó **«este lead no es de esta cuenta»**
+sobre un lead que sí era suyo: el link se armaba `${APP_BASE_URL}/crm/<id>/resumen` a mano,
+sin `?ws=`, y abría la pantalla en el workspace de la pestaña. Eran **22 links en 15
+archivos**, y se lee como una fuga entre clientes cuando es un destino que falta.
+
+- **Va por `linkApp(ruta, ws)`**, que es `APP_BASE_URL` + `conWs`. Con `ws` en null devuelve
+  el link tal cual: un cron que todavía no itera inquilinos no tiene workspace, y un link
+  sin parámetro abre donde la persona esté, mientras uno con `ws=null` abre una pantalla
+  vacía.
+- **El `ws` sale de `wsEnContexto()`** (`lib/workspace.ts`), que lee el store de
+  `runWithWorkspace` sin `await`. ⚠️ Fuera de ese contexto devuelve `null` y **no mira las
+  cookies**: no reemplaza a `getWorkspaceActual()`.
+- **Y se busca por otro patrón que las cuatro de arriba**: acá no hay `redirect` ni `<Link>`
+  que grepear, hay una interpolación de `APP_BASE_URL`. Lo fija
+  `tests/link-con-workspace.test.ts`, que barre `lib/` y `app/api/` sobre el FUENTE —un
+  template literal con la URL pegada compila perfecto— y deja afuera, con su motivo escrito,
+  el prompt que describe la forma de una URL y el archivo donde vive el helper.
 
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`

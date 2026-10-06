@@ -511,4 +511,61 @@ export const BITACORA: Hito[] = [
     ],
     commits: [],
   },
+  {
+    fecha: "5 oct", hora: "21:30", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Cinco tarjetas del tablero, y la pregunta de si el onboarding del chatbot sirve de algo",
+    pedido: "Quiero que soluciones estas tareas del plan: 1. Ocultar o retirar la integración de WhatsApp Oficial (Cloud API) en MaKo 2. Permitir vincular múltiples líneas de WhatsApp en MaKo 3. Corregir el bug del chatbot que cruza workspaces y envía automatizaciones erróneas 4. Habilitar la opción de agregar contactos al CRM directo desde el Chatbot de MaKo 5. Eliminar el flujo de onboarding obsoleto en la pestaña del chatbot. Sobre todo en el onboarding del chatbot, revisa si todo es obsoleto ya que lo hacemos con la vista de grilla o si hay algo importante que mantener y lo decidimos aquí",
+    puntos: [
+      "La quinta traía la pregunta adentro, y era la correcta: de los siete pasos viejos, seis eran obsoletos y UNO no («Tu forma de escribir», la guía de voz — sin ella la IA escribe con una voz que nadie eligió).",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "21:45", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "La guía de voz NO va en la puerta: va cuando se prende la IA en una tarjeta",
+    pedido: "Sería bueno que ese tutorial se habilite la primera vez que se intente poner una tarjeta de chat y activar la opción de «IA», entonces ahí viene ese paso.",
+    puntos: [
+      "Contestó la única decisión que quedaba abierta del punto 5. Queda anotado en el encabezado de OnboardingChatAgent.tsx y pendiente de que el interruptor de IA exista en el nodo del mensaje.",
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "22:52", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Tres de las cinco: el Oficial sale de la vista, el onboarding viejo se cae y los avisos salen con su workspace",
+    puntos: [
+      "El #834 («el chatbot cruza workspaces y manda automatizaciones erróneas») NO era el chatbot. El cartel «este lead no es de esta cuenta» sobre un lead propio lo produce una guardia de agosto perfectamente correcta; lo que faltaba era el ?ws= en el link del aviso, que se armaba interpolando APP_BASE_URL + la ruta a mano. El aviso llega al teléfono con la app parada en otro workspace y abre la pantalla ahí. Eran 22 links en 15 archivos.",
+      "Y eso descubrió una QUINTA forma de navegar, con la regla de las cuatro ya escrita en AGENTS.md y con su propio aviso de que «contar tres es el error que ya se cometió». Las cuatro son navegaciones desde ADENTRO de la app; un link que viaja en un mensaje se abre desde AFUERA, y ahí el parámetro es lo único que dice de quién son los datos. Va por linkApp(ruta, ws), con guard sobre el FUENTE porque un template literal con la URL pegada compila perfecto.",
+      "El onboarding de /chatbot se escribió cuando la tab PRESENTABA el editor: preguntaba «¿querés el recorrido guiado?» antes de mostrar nada. Hoy la tab ES la grilla, así que esa pregunta se comía el primer clic de todos. Queda una sola pantalla de entrada —el QR inline si no hay WhatsApp— y se convierte en el editor sin recargar cuando el canal queda conectado. La regla: cuando una tab deja de presentar una herramienta y pasa a SER la herramienta, su onboarding deja de ser un wizard y se vuelve su estado vacío.",
+      "Esconder el canal Oficial son TRES lugares y el tercero es el que se olvida: la tarjeta de /integraciones (sólo si el workspace ya tiene el token guardado, en positivo, para no romperle la pantalla a quien lo usa), el botón del canal en /whatsapp, y el DEEP LINK ?canal=oficial, que seguía abriendo una pantalla que para ese cliente ya no existe. El cuarto no es de la pantalla: los pasos wa_oficial* del catálogo de onboarding, porque un paso que pide conectar algo que ya no se ofrece es un onboarding que no se puede terminar.",
+    ],
+    commits: [
+      { sha: "2d991183", msg: "Chatbot/WhatsApp: se esconde el Oficial, se cae el onboarding viejo y los avisos salen con su workspace", lineas: 1002, archivos: 30 },
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "23:22", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Agregar al CRM desde la conversación: existía en una bandeja de dos",
+    puntos: [
+      "«Allá funciona y acá no», pero sin nadie que lo reportara: el alta desde el chat se escribió en el #381 para la bandeja OFICIAL y la NO OFICIAL —la que usa el chatbot y la que quedó por default— no la tenía. Medido en el ws1 contra producción: de 225 conversaciones, 52 ya son lead, 33 no tienen teléfono (grupos) y 140 quedaban sin salida. En 23 de esas 140 WhatsApp no da nombre, así que el lead nace con el teléfono como nombre y por eso se abre la ficha EDITABLE en el acto: es el momento en que una persona ve el dato antes de que valga.",
+      "De paso, el choque de duplicado dejó de TIRARSE. Un throw de una server action llega al navegador como un mensaje genérico (Next redacta el error en producción), así que los ids que LeadDuplicadoError trae adentro justamente para ofrecer «abre el que ya tienes» se perdían en el camino. Ahora devuelve { id } | ChoqueDeLead, el contrato que el alta del tablero ya había resuelto así, y el armado del choque dejó de estar copiado en dos lugares.",
+      "El leadId se escribe en el estado local en el acto: la conversación se enlaza sola al lead por teléfono, pero en la PRÓXIMA carga, así que sin eso el botón seguía ofreciendo el alta sobre un contacto que ya estaba y el segundo clic chocaba con el duplicado que acababa de crear.",
+      "Verificado en el navegador SIN apretarlo —crearía un lead de verdad en el CRM de un cliente real— midiendo que el clic en el centro del botón LLEGUE a él (elementFromPoint devuelve el propio botón) y recorriendo las dos ramas con datos reales. Dos mediciones mías salieron mal primero, y las dos daban un resultado plausible: la heurística de filas clickeó el chip de conexión y abrió su panel encima del rail, y enumerar las conversaciones con querySelectorAll('button') devolvió 0 porque las filas de esa lista no son botones.",
+    ],
+    commits: [
+      { sha: "3ce45ab1", msg: "Agregar al CRM desde la conversación, también en la bandeja no oficial", lineas: 214, archivos: 4 },
+    ],
+  },
+  {
+    fecha: "5 oct", hora: "23:40", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "cosecha",
+    titulo: "Las dos que NO se hicieron, con el costo medido, y por qué ninguna es código",
+    puntos: [
+      "#831 (vincular varias líneas): el espejo YA está listo —wa_mensajes tiene instance_name desde la mig 0073— y webhook_routing soporta N filas por workspace. Lo que bloquea: el unique (workspace_id) de evolution_instancias, que instanceNameDeWs(ws) DERIVE el nombre del workspace (26 call sites en tres archivos), que la bandeja agrupe por teléfono sin mirar la instancia (los dos hilos del mismo contacto se funden en uno) y que el envío y el motor del chatbot elijan la instancia a partir del ws, o sea que siempre mandan por la primera. El orden que no deja un estado peligroso: migración y lectura por línea primero, el envío después. Al revés da exactamente el bug que la tarjeta quiere evitar.",
+      "#834, la otra mitad: los tres crons de reporte no envuelven nada en runWithWorkspace, y sin cookie de sesión el workspace cae al dueño por contrato explícito de lib/workspace.ts. Sale UN reporte, el del ws1 —el que llegó a Martín, y por el que parecía que los datos de un cliente se mandaban a otro— y las preferencias de notificación de los demás clientes son decorativas para ese camino. No se prendió porque no es un refactor: es empezar a mandar WhatsApps y mails de verdad a ws11 y ws13. Lo decide Martín.",
+      "Cosechado en docs/hallazgos-infra.md (la quinta forma de navegar), -comunicacion.md (los crons, el costo de las dos líneas y los tres lugares de esconder una integración), -crm.md (el throw que borra los ids y las 140 conversaciones sin salida) y -onboarding.md (dónde quedó cada paso viejo). La regla de la quinta forma va en AGENTS.md, que es lo que todos leen antes de escribir.",
+    ],
+    commits: [],
+  },
 ];

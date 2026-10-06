@@ -6554,3 +6554,133 @@ saber si la campaña tiene que ganarle a la landing o dejarla decidir. Es «ante
   productos a la vez necesita otro modelo (una fila por participación) — y con dos embudos
   vivos, `nutricion_secuencias.funnel_id` no lo lee nadie y la misma persona recibiría los
   WhatsApps de los dos.
+
+### Traer los leads que la campaña YA tiene (segunda tanda, 05/10/2026)
+
+**Vive en:** `lib/campana-atribucion.ts` (qué lead es de qué campaña, y cuáles se mueven) ·
+`lib/campana-traer.ts` (el movimiento) · `app/crm/campanas-actions.ts` · `app/crm/CampanasModal.tsx`
+
+Pedido de Martín: «Es importante que si selecciono una campaña, me traiga todos los leads. No
+solo los futuros». Y la sección, que giraba un spinner en lugar de dibujarse, pasó a ser una
+tabla en un modal (buscador, filtros, orden, conjuntos desplegables), abierta desde la sección y
+desde el «⋯» de la columna de entrada.
+
+- **`leads.meta_campaign_id` nació ese mismo día: lo viejo no lo tiene.** La campaña de un lead
+  histórico se RECONSTRUYE con datos exactos que ya estaban: `utm_campaign` cuando es un id, y el
+  ANUNCIO (`meta_ad_id` del formulario, `utm_content` de la landing) cruzado con
+  `marketing_metrics_daily`, que tiene anuncio, conjunto y campaña en la misma fila. Medido:
+  1.105 de 1.148 leads de Meta del cliente más grande (96%), 277 de 299 en otro, 36 de 36 en un
+  tercero. **El nombre de la campaña no agrega NINGUNO**, así que no se matchea por nombre.
+- ⚠️ **TRAER NO ES `moverLeadsAFunnelAction`, Y USARLA HABRÍA SIDO EL ERROR CARO.** Esa acción
+  pone a cada lead en la ENTRADA del embudo nuevo, que es correcto para traer a UNA persona a
+  empezar de cero. Para la historia de una campaña es destructivo: un lead que ya pagó volvería a
+  «Lead entrante», y con 896 leads de una sola campaña (medido) el tablero entero se resetea.
+  `moverEnLote` cambia SÓLO `funnel_id`; si la etapa guardada no existe en el embudo nuevo, el
+  tablero lo ubica por lo que hizo y le pone el chip de «fuera del embudo» (`crm-map.ts`).
+- **La precedencia conjunto > campaña vale también para lo viejo**, y se calcula con la
+  configuración YA guardada: si un conjunto de esa campaña está en otro producto, sus leads se
+  quedan allá — igual que los que entren mañana. Traer y rutear no se pueden contradecir.
+- **La lista de Meta no alcanza para ofrecer campañas.** Trae las de HOY: una campaña borrada, o
+  una cuenta que se desconectó, no aparece, y sus leads siguen en el CRM. La tabla completa con
+  los nombres de las métricas, así que también sirve con Meta caído o sin conectar.
+- ⚠️ **Asignar pregunta si va a mover leads, y sólo entonces.** Una campaña nueva (cero leads)
+  se asigna con un clic —el «sin fricción» que se pidió es para ésas—; una vieja dice «¿Traer
+  896 leads…?» con de qué producto salen. Después queda el «Deshacer» (devuelve cada lead a SU
+  producto y la campaña a donde estaba, no a «sin asignar»).
+
+### La trampa de verificar esto en un cliente real
+
+⚠️ **Hacer clic en una fila «para ver la pregunta» ESCRIBIÓ en la config de un cliente.** La
+pregunta depende de un número que calcula el server (cuántos leads se moverían), y en el cliente
+más grande todos los leads de esa campaña ya estaban en el producto principal: la previa dio 0, no
+hubo pregunta, y el clic asignó la campaña. No se movió ningún lead y se revirtió en el acto (la
+fila del setting no existía antes: se borró). **La regla: antes de hacer clic en un control cuyo
+camino lo decide un dato del server, ese dato se MIDE con una lectura** (`planDeTraida` por `tsx`),
+y el clic va donde la rama esperada está garantizada — acá, el producto «Prueba», donde la previa
+daba 10.
+
+- **ws3 y ws9 no sirven para probar el CRM**: el primero cae al onboarding global y el segundo a
+  la activación de la tab. Por eso `moverEnLote` vive en `lib/` y no adentro de la acción: se
+  ejerció por `tsx --conditions=react-server` contra leads sembrados en ws9 (mover, historial,
+  segundo plan = 0, devolver) y se borró lo sembrado.
+- **En dev el modal tardó 19 s en llenarse y no es el server**: las tres lecturas suman ~2 s en
+  paralelo (544 + 741 + 963 ms), pero el modo estricto llama dos veces a la acción y las server
+  actions se encolan. En producción es una sola llamada.
+
+### Lo que quedó SIN hacer de esta tanda
+
+- **«Solo los nuevos» no existe.** Si alguien quiere asignar una campaña vieja SIN traer su
+  historia, hoy no puede: la pregunta ofrece «Traer N» o «No asignar». Se dejó así porque el
+  pedido fue traerlos todos; si aparece el caso, es un segundo botón en la misma pregunta
+  (`asignarCampanaAction(…, traer = false)` ya existe).
+- **Crear la campaña con su producto, y asignar desde la tabla de Ads Manager**, se le pasó al
+  chat de Ads Manager con el contrato: reusar `asignarCampanaAction` y `lib/campana-config.ts`,
+  no una segunda implementación.
+- **Que una campaña caiga en otra etapa que no sea la entrada** (p. ej. «Agenda llamada») quedó
+  como pregunta a Martín, con la recomendación de no hacerlo: la etapa la decide lo que el lead
+  HACE (agendar, asistir, pagar), y eso ya se automatiza.
+
+## Un `throw` de una server action borra los ids del duplicado (05/10/2026)
+
+**Vive en:** `app/crm/actions.ts` → `crearLeadDesdeWhatsappAction`, `choqueDeLead` ·
+el guard en `tests/inbox-agregar-al-crm.test.ts`
+
+`LeadDuplicadoError` trae las coincidencias adentro **justamente** para que la pantalla
+pueda ofrecer «abre el que ya tienes» en vez de un cartel — está escrito así en el
+comentario de `ChoqueDeLead`. Lo que ese razonamiento no cubre es que una server action que
+TIRA llega al navegador como un mensaje genérico: Next redacta el error en producción, así
+que los ids se pierden en el camino y lo único que queda del otro lado es un string.
+
+El alta desde una conversación de WhatsApp tiraba. Ahora devuelve `{ id } | ChoqueDeLead`,
+el mismo contrato que el alta del tablero ya había resuelto así, y el armado del choque
+—que estaba copiado adentro de `crearLeadEnTableroAction`— pasó a una función que usan los
+dos caminos: con una copia por camino, el día que cambie cómo se nombra un embudo lo arregla
+uno solo.
+
+Y con el dato de vuelta, la pantalla puede decidir: **con UN solo candidato se abre ÉSE**
+—lo identifica el teléfono, que es la misma llave con la que la conversación busca su
+lead— y **con varios no se elige el primero**, se dice con quién choca (es la regla de la
+casa: «si hay más de un candidato, no se elige el primero»).
+
+## El alta desde el chat existía en una bandeja de dos (05/10/2026)
+
+**Vive en:** `app/whatsapp/EmpresaInbox.tsx` (`agregarAlCrm`) · `app/whatsapp/WhatsAppApp.tsx`
+
+Tarjeta #830. «Agregar al CRM» desde una conversación se había escrito en el #381 **para la
+bandeja oficial** (Chatwoot). La no oficial (Evolution) —que es la que usa el chatbot y la
+que el 05/10 quedó por default— no lo tenía, así que para alguien que escribió por WhatsApp
+y no estaba en el CRM la única salida era irse a `/crm` y cargarlo a mano con el teléfono
+copiado. El mecanismo estaba completo; le faltaba una pantalla.
+
+Medido en el ws1 contra producción, con las 225 conversaciones del espejo:
+
+| | cuántas | qué ofrece la ficha lateral |
+|---|---|---|
+| ya tienen lead | 52 | «Ver detalle del lead» |
+| **con teléfono y sin lead** | **140** | antes: «Buscar en CRM» (o sea, nada) |
+| sin teléfono (grupos) | 33 | «Buscar en CRM», que ahí sí es lo correcto |
+
+De esas 140, en **23** WhatsApp no da nombre y el `nombre` ES el teléfono. El lead nace con
+eso y por eso se abre **la ficha editable en el acto**: es el momento en que una persona ve
+el dato antes de que valga, que es lo que la confirmación existe para hacer.
+
+⚠️ **El `leadId` se escribe en el estado local en el acto.** La conversación se enlaza sola
+al lead por teléfono, pero en la PRÓXIMA carga (`resolverLeadIdsPorTelefono`): sin eso el
+botón sigue ofreciendo el alta sobre un contacto que ya está, y el segundo clic choca con el
+duplicado que acaba de crear. Se actualizan las tres copias —`convs`, `busqLeads` y el
+`convsCache` del módulo—, igual que hace el bloqueo de contacto.
+
+⚠️ **Y el lead nace con `funnel_id` en NULL**, que es donde el tablero dibuja a los del
+embudo del negocio (`funnelId == null ? q.is('funnel_id', null)`). Es el comportamiento que
+ya tenía el alta de la bandeja oficial y no se cambió acá: si alguien está mirando OTRO
+producto, el lead no aparece en ese tablero. Es la misma decisión pendiente que los leads
+fuera del embudo, no un bug nuevo — pero conviene saberlo antes de reportarlo como «lo
+agregué y no está».
+
+**Cómo se verificó, sin apretarlo:** el botón crea un lead de verdad en el CRM de un cliente
+real (el entorno local apunta a producción), así que el arnés mide que el control EXISTA,
+esté habilitado y que **el clic en su centro LLEGUE a él** —`elementFromPoint` devuelve el
+propio botón— y recorre las dos ramas con datos reales: «Teresa De Jesus» (lead 21) ofrece
+«Ver detalle» y «Ellie Burgueño» (sin lead) ofrece el alta. Las filas de la lista **no son
+`<button>`**, así que enumerarlas por `querySelectorAll('button')` devuelve 0 y se lee como
+«la bandeja está vacía»: se clickean por texto.
