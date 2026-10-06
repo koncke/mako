@@ -7112,3 +7112,115 @@ las plantillas de oferta que hoy no están ingestadas»), y no existe ningún í
 fonéticos para las siglas de los cursos — hoy cada búsqueda paga la trampa del ASR de nuevo.
 
 **Vive en:** `app/conocimientos/curso-*.ts` (`recursos[]`) · `public/cono-tx/` · *2026-09-25*
+
+## El call site del botón de compartir era CÓDIGO MUERTO, y leer el archivo decía que estaba (06/10/2026)
+
+**Vive en:** `app/conocimientos/CursoPortal.tsx` · `app/conocimientos/CursoReplica.tsx` ·
+`app/conocimientos/Compartir.tsx` · `app/conocimientos/catalogo.ts` ·
+guard en `tests/conocimientos-compartir.test.ts`
+
+**El síntoma.** Martín: *«Me falta el botón de compartir con link cada curso, no solo todos
+los cursos»*.
+
+**El diagnóstico obvio, y era el equivocado.** Leer el código contestaba que la capacidad
+YA EXISTÍA, y las tres piezas estaban bien:
+
+| | |
+|---|---|
+| `Conocimientos.tsx:93` | pasa `<Compartir recurso="curso" recursoId={curso.slug} …/>` a `CursoPortal` |
+| `CursoPortal:985` | se lo pasa al `Hub` |
+| `Hub:392` | lo dibuja en `.al-hero-top`, arriba a la derecha |
+
+De ahí salió la conclusión «adentro de cada curso ya está, lo que falta es desde la
+grilla». Mitad cierta: faltaba la grilla, **y adentro de un curso tampoco había botón.**
+La línea que lo explica está 30 líneas ARRIBA del `Hub` y no nombra a `compartir`:
+
+```tsx
+if (curso.replica) return <CursoReplica curso={curso} onSalir={salir} />;   // ⛔ sin compartir
+```
+
+Y `replica: true` **no es un flag por curso**: lo pone el catálogo para TODOS
+(`catalogo.ts:1623`, con su porqué escrito — «un flag que hay que acordarse de poner deja
+al próximo curso naciendo con la vista vieja»). O sea que ese `return` es el único camino
+de un curso abierto, el `Hub` no se alcanza nunca, y su `{compartir}` es código muerto.
+
+**Lo que lo encontró fue el navegador, no el archivo**: abrir un curso y contar los
+botones. `.al-hero-top` → **0 nodos**. Y es un `grep` de una línea el que lo habría
+delatado antes de razonar: `grep -n compartir CursoPortal.tsx` lista `985` (el Hub) y **no**
+`956` (la réplica). La regla que ya está en AGENTS.md —«al agregar un campo, grepeá el CALL
+SITE; si aparece una sola vez, no lo lee nadie»— tiene su espejo acá: **un call site que
+existe puede no ejecutarse, y eso no se ve en el grep: hay que mirar qué rama corta
+antes.** Un `return` temprano convierte en código muerto a todo lo que lee el prop de
+abajo, sin que el compilador diga nada (el prop es opcional).
+
+**Y la pregunta que lo cierra en segundos:** para toda capacidad que se reporta como
+faltante y «está escrita», contar los nodos en el navegador antes de leer una línea. Son
+dos minutos y descarta la clase entera.
+
+### El modal `position: fixed` no promete la ventana: lo acota su ancestro
+
+La mitad cara del arreglo, y es la que no da error. `.cmp-ov` declara
+`position: fixed; inset: 0; z-index: 120`, y las dos cosas se las come cualquier ancestro
+posicionado:
+
+- uno con **`z-index`** abre un contexto de apilamiento y le clampea el 120 contra SU nivel;
+- uno con **`transform`** pasa a ser el **bloque contenedor** del `fixed`, así que el
+  `inset: 0` se mide contra ÉSE y no contra la ventana.
+
+Los dos ancestros nuevos de este botón los tienen: el de la tarjeta es un `span` absolute
+con `z-index: 2` que se mueve en el hover, y la barra del curso es
+`position: sticky; z-index: 20` (`public/cono-doc/ugc.css:1938`).
+
+Medido sin el portal: el modal abría **detrás de las tarjetas de más abajo** y el
+navegador contestaba que «Cerrar» estaba *visible y habilitado* mientras el clic no le
+llegaba nunca —`<span class="al-rescard-resumen"> … intercepts pointer events`, 51
+reintentos—. No hay error, no hay consola, y en pantalla se lee como un modal que no se
+cierra. Es la misma familia que el pop-up de prioridad abierto desde una barra sticky, y
+la cura es la misma: **`createPortal` al `body`**, con lo que da igual desde dónde se abra.
+
+⚠️ **No hace falta un `montado`.** El overlay sólo se renderiza con `abierto === true`, y
+eso sólo pasa por un click, o sea del lado del cliente: en el SSR nunca se toca
+`document`. Un `useState(false)` + `if (!montado) return null` acá sería el estado que,
+según la otra regla de esta casa, deja un efecto sin volver a correr.
+
+### El control va HERMANO de la tarjeta, no adentro
+
+`Card` **es** un `<button>` (`CursoPortal.tsx:132`). Un botón adentro de otro no es HTML
+válido: el navegador reparenta y el de adentro deja de recibir clicks — o sea un botón que
+existe, se ve, está habilitado y no hace nada. Va en un `.al-rescard-wrap`
+(`position: relative; display: flex`) con el control `absolute` encima, y la tarjeta con
+`flex: 1` para que siga llenando su celda de la grilla.
+
+⚠️ **Y el lift del hover lo escucha el ENVOLTORIO, no la tarjeta.** Con
+`.al-rescard:hover`, pasar el cursor por el botón no la levanta —el puntero está sobre un
+hermano— y las dos piezas se despegan a mitad del gesto. Los valores son los mismos que ya
+usaba `.al-rescard:hover`: no cambia el movimiento, cambia **quién lo escucha**.
+
+### Lo medido en el navegador
+
+132 tarjetas · 132 envoltorios · 132 botones compactos; el clic abre el modal del curso
+correcto (`Compartir «Anuncio Ganador - Jan Schroeder»`), el overlay cuelga de `<BODY>` y
+mide 1440x900 en una ventana de 1440x900, el «Cerrar» recibe el clic, y la URL **no cambia**
+(el hit-test no cae en la tarjeta). Adentro del curso: 1 botón en la barra, mismo
+comportamiento. Hover: tarjeta y botón en `matrix(1,0,0,1,-2,-3)` los dos, tanto con el
+cursor sobre la tarjeta como sobre el botón. Cero errores de página.
+
+### El guard, probado rompiéndolo
+
+`tests/conocimientos-compartir.test.ts`, 6 tests. Con todo en su lugar **6 pass / 0 fail**;
+cada rotura tumba SU test y sólo el suyo (**5 / 1** las seis veces): montar `<CursoReplica>`
+sin `compartir`, sacar el `{compartir}` de la barra, montar la tarjeta pelada, meter el
+control adentro del `<Card>`, pasar `compartir` desde `PortalCompartido`, y devolver el
+overlay inline en vez de por `createPortal`.
+
+⚠️ Dos cosas que costaron una vuelta cada una al escribirlo, y valen para cualquier guard
+de esta familia:
+
+- **El cierre de un bloque es lo que ABRE el siguiente, no un `</div>` contado a mano.**
+  Sacar los comentarios cambia los saltos y la sangría, así que un ancla que los incluya
+  encuentra el archivo del disco y no el que el test está leyendo. El ancla de la barra del
+  curso pasó a ser `<div className="ugc-content">`.
+- **El recorte no puede ser un `slice(i, i + N)`:** en este archivo `compartir` aparece en
+  el `Selector` y en el `Hub`, que están a 600 líneas, y un recorte generoso hace que el
+  guard de la grilla pase leyendo **el call site muerto**. Y se afirma el largo del bloque:
+  si mañana mide el doble, está mirando otra cosa.

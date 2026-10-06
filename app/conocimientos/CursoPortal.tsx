@@ -155,10 +155,22 @@ export function Card({ badge, nota, titulo, desc, resumen, onClick, ariaLabel, i
 // el link compartido de la tab entera (`/compartido/<token>`). La lista llega
 // por prop porque no es la misma en los dos lados — Branding no se puede servir
 // sin login (ver `CURSOS_COMPARTIBLES` en catalogo.ts).
-export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
+export function Selector({ cursos, enter, compartir, compartirDe, sinMarca, foco }: {
   cursos: Curso[];
   enter: (slug: string) => void;
   compartir?: ReactNode;
+  /**
+   * El botón de compartir de UN curso, desde la grilla.
+   *
+   * Es una función y no un nodo porque hay uno por tarjeta. Y viene inyectada —como
+   * `compartir`— por la misma razón: la vista pública no lo pasa, así que no se
+   * re-comparte lo que te compartieron y ese código no llega al invitado.
+   *
+   * ⚠️ El control es HERMANO de la tarjeta, nunca un hijo: `Card` ES un `<button>` y
+   * un botón adentro de otro no es HTML válido — el navegador reparenta y el de
+   * adentro deja de recibir clicks.
+   */
+  compartirDe?: (c: Curso) => ReactNode;
   /** Un link repartido afuera no lleva el nombre de la casa. Es un booleano y no
    *  el texto del rótulo a propósito: así los dos rótulos viven en ESTE archivo y
    *  no se puede escribir un tercero desde otra pantalla. */
@@ -308,10 +320,22 @@ export function Selector({ cursos, enter, compartir, sinMarca, foco }: {
         <section className="al-sec" key={nombreCat}>
           <div className="al-seclabel"><span>{nombreCat}</span><span className="al-vol">{list.length} curso{list.length > 1 ? 's' : ''}</span></div>
           <div className="al-grid">
-            {list.map((c) => (
-              <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} resumen={c.resumen} img={c.portada}
-                ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
-            ))}
+            {list.map((c) => {
+              const tarjeta = (
+                <Card key={c.slug} badge="Curso" titulo={c.titulo} desc={c.cardDesc} resumen={c.resumen} img={c.portada}
+                  ariaLabel={`Entrar a ${c.titulo}`} onClick={() => enter(c.slug)} />
+              );
+              // Sin `compartirDe` la tarjeta va PELADA, sin el envoltorio: la vista
+              // pública no tiene nada que apoyar encima y una caja vacía de más cambia
+              // el layout de la grilla sin que nadie la haya pedido.
+              if (!compartirDe) return tarjeta;
+              return (
+                <div className="al-rescard-wrap" key={c.slug}>
+                  {tarjeta}
+                  <span className="al-cardshare">{compartirDe(c)}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
       ))}
@@ -929,7 +953,12 @@ export default function CursoPortal({ curso, vista, nav, salir, backLabel, compa
   // CURSO y no un caso especial escrito acá — el día que haya un segundo curso así,
   // se marca y ya está.
   if (curso.replica) {
-    return <CursoReplica curso={curso} onSalir={salir} />;
+    // ⚠️ `compartir` VIAJA ACÁ, y es el único lugar donde se ve. El catálogo pone
+    // `replica: true` en TODOS los cursos, así que este return corta antes del `Hub`
+    // —que también lo dibuja— y ese call site es código muerto. Mientras el prop no
+    // bajaba por esta rama, adentro de un curso no había botón de compartir en
+    // ninguna parte: la capacidad existía y nadie la podía usar.
+    return <CursoReplica curso={curso} onSalir={salir} compartir={compartir} />;
   }
 
   // ⚠️ NINGÚN «Volver» de este portal usa el Atrás del navegador. Los tres navegan
@@ -1125,6 +1154,23 @@ export const CSS = `
 .cono .al-rescard-thumb img{ display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
 .cono .al-rescard-go{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--lime-ink); display:inline-flex; align-items:center; gap:6px; margin-top:4px; }
 .cono .al-rescard:hover .al-arr{ transform:translateX(3px); }
+
+/* Compartir UN curso desde la grilla.
+   La tarjeta ES un button, así que el control va HERMANO y apoyado encima con un
+   envoltorio relativo. La esquina es abajo a la derecha, la única libre en las dos
+   variantes de tarjeta: arriba vive el badge, arriba a la derecha la miniatura llega
+   al ras del borde, y abajo a la izquierda está el Abrir.
+   ⚠️ El lift de hover lo dispara el ENVOLTORIO y no la tarjeta. Con el :hover de la
+   tarjeta, pasar el cursor por el botón no la levanta —el puntero está sobre un
+   hermano— y el botón se despegaría de la tarjeta a mitad del gesto. Los dos valores
+   son los mismos que al-rescard:hover ya usa: esto no cambia el movimiento, cambia
+   QUIÉN lo escucha. */
+.cono .al-rescard-wrap{ position:relative; display:flex; }
+.cono .al-rescard-wrap > .al-rescard{ flex:1; min-width:0; }
+.cono .al-rescard-wrap:hover > .al-rescard{ transform:translate(-2px,-3px); box-shadow:var(--shadow-stamp); }
+.cono .al-rescard-wrap:hover .al-arr{ transform:translateX(3px); }
+.cono .al-cardshare{ position:absolute; right:14px; bottom:13px; z-index:2; transition:transform .14s ease; }
+.cono .al-rescard-wrap:hover > .al-cardshare{ transform:translate(-2px,-3px); }
 .cono .al-arr{ transition:transform .14s ease; }
 
 /* Detalle */

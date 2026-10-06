@@ -73,6 +73,10 @@ export default function Conocimientos() {
       cursos={TODOS}
       enter={(slug) => ir({ curso: slug })}
       compartir={<Compartir recurso="conocimientos" etiqueta="Conocimientos — todos los cursos" nota={NOTA_TAB} />}
+      // Compartir UN curso sin tener que entrar. El mismo recurso y el mismo
+      // `recursoId` que el botón de adentro del curso, así que los dos enlaces
+      // aparecen en la misma lista de «quién tiene acceso».
+      compartirDe={(c) => <Compartir recurso="curso" recursoId={c.slug} etiqueta={c.titulo} compacto />}
     />
   );
   // "Análisis de Negocio" es una vista INTERACTIVA (form + modales de fases), no

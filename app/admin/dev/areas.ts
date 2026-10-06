@@ -945,6 +945,11 @@ export const AREAS: AreaDev[] = [
       'app/conocimientos/CursoPortal.tsx', 'app/conocimientos/CursoReplica.tsx',
       'app/conocimientos/catalogo.ts', 'app/conocimientos/curso.ts',
       'app/conocimientos/curso-vsl.ts', 'app/conocimientos/curso-producto-app.ts',
+      // Faltaban las tres el 06/10/2026, con el aviso de arriba ya escrito: el botón de
+      // Compartir del portal, la vista del link repartido y el guard del área. Es la
+      // MISMA omisión, una vuelta después — un `vive` no se queja de lo que le falta.
+      'app/conocimientos/Compartir.tsx', 'app/compartido/[token]/PortalCompartido.tsx',
+      'tests/conocimientos-compartir.test.ts',
       'app/compartido/[token]/CursoCompartido.tsx',
       'public/cono-tx', 'public/cono-doc', 'public/cono-ugc', 'public/cono-portadas',
       'scripts/curso-comun.mjs', 'scripts/curso-perfil.ps1', 'scripts/curso-sniff.mjs',

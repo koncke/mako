@@ -15,6 +15,7 @@
 // sobre negro — ilegible.
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type Invitado = {
   id: number; email: string; nombre: string | null; gravatar: string; token_prefijo: string;
@@ -82,8 +83,16 @@ function Avatar({ inv }: { inv: { nombre: string | null; email: string; gravatar
  * se puede leer del título: "Compartir «Curso X»" se explica solo, "Compartir
  * «Conocimientos»" no dice cuántos cursos son ni qué queda afuera.
  */
-export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
+export default function Compartir({ recurso, recursoId = '', etiqueta, nota, compacto }: {
   recurso: string; recursoId?: string; etiqueta: string; nota?: string;
+  /**
+   * `compacto` es el botón para una TARJETA de la grilla, no otro componente.
+   *
+   * Lo único que cambia es el tamaño del disparador: el modal, los dos modos y la
+   * lista de invitados son los mismos. Un segundo componente «CompartirChico» sería
+   * la copia que se queda vieja — acá ya pasó con el contrato del `detalle`.
+   */
+  compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<'link' | 'invitados'>('link');
@@ -217,11 +226,28 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
 
   return (
     <>
-      <button type="button" className="cmp-btn" onClick={() => { setAbierto(true); setNuevo(null); setError(null); setSumaResultado(null); }}>
+      <button type="button" className={`cmp-btn${compacto ? ' chico' : ''}`}
+        title={compacto ? `Compartir «${etiqueta}» por link` : undefined}
+        onClick={() => { setAbierto(true); setNuevo(null); setError(null); setSumaResultado(null); }}>
         Compartir
       </button>
 
-      {abierto && (
+      {/* ⚠️ EL MODAL VA AL `body`, NO DONDE VIVE EL BOTÓN.
+          `.cmp-ov` es `position: fixed; inset: 0; z-index: 120`, y eso promete la
+          ventana entera — pero las dos cosas se las come cualquier ancestro
+          posicionado: uno con `z-index` abre un contexto de apilamiento y le clampea
+          el 120 contra SU nivel, y uno con `transform` pasa a ser el bloque
+          contenedor del `fixed`, así que el `inset: 0` se mide contra ESE y no contra
+          la ventana.
+          Medido el 06/10/2026 al colgar este botón de una tarjeta de la grilla (un
+          span absolute con z-index 2 que se mueve en el hover): el modal abría
+          DETRÁS de las tarjetas de más abajo. No da error y no se ve mal — el
+          navegador contesta que el botón «Cerrar» está visible y habilitado, y el
+          clic no le llega nunca (`.al-rescard-resumen … intercepts pointer events`).
+          Es la misma familia que el pop-up de prioridad abierto desde una barra
+          sticky. Con el portal el modal no tiene ancestro que lo acote y da igual
+          desde dónde se abra. */}
+      {abierto && createPortal((
         <div className="cmp-ov" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setAbierto(false); }}>
           <div className="cmp-box">
             <h3 className="cmp-h">Compartir «{etiqueta}»</h3>
@@ -391,13 +417,18 @@ export default function Compartir({ recurso, recursoId = '', etiqueta, nota }: {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       <style jsx>{`
         .cmp-btn { font-family: var(--mono, ui-monospace), monospace; font-size: 12px; letter-spacing: .05em; text-transform: uppercase;
           color: var(--ink, #1a1a1a); background: var(--lime, #C8F169); border: 1.5px solid var(--ink, #1a1a1a);
           border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: .14s; }
         .cmp-btn:hover { box-shadow: 3px 3px 0 var(--ink, #1a1a1a); transform: translate(-1px,-1px); }
+        /* El de una tarjeta de la grilla. Dice "Compartir" igual: un ícono solo en una
+           esquina no se entiende, y el techo de texto de pantalla no se viola con una
+           palabra. El hover se apaga porque la tarjeta ya se mueve sola al pasar. */
+        .cmp-btn.chico { font-size: 10px; letter-spacing: .06em; padding: 4px 8px; border-width: 1px; border-radius: 6px; }
+        .cmp-btn.chico:hover { box-shadow: 2px 2px 0 var(--ink, #1a1a1a); transform: none; }
         .cmp-ov { position: fixed; inset: 0; z-index: 120; background: rgba(24,26,22,.44); display: grid; place-items: center; padding: 20px; }
         .cmp-box { width: min(560px, 100%); max-height: 88vh; overflow: auto; background: var(--card, #fffdf7);
           color: var(--ink, #1a1a1a); border: 1.5px solid var(--ink, #1a1a1a); border-radius: 14px; padding: 22px; box-shadow: 6px 6px 0 rgba(24,26,22,.16); }

@@ -384,4 +384,33 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md — el push que NO genera build: `vercel ls` no lo detecta (su primera fila decía Ready por el deploy de otro commit). La pregunta correcta no es «¿el último deploy está listo?» sino «¿producción sirve MI byte?», y se contesta con un curl contra el archivo que cambiaste',
     ],
   },
+  {
+    fecha: '6 oct', hora: '20:40', chat: '—', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Compartir por link CADA curso, no solo todos los cursos',
+    pedido: 'Me falta el botón de compartir con link cada curso, no solo todos los cursos',
+    puntos: [
+      'El botón que había compartía la tab ENTERA (`recurso: conocimientos`, alcance `todo`). Para repartir un curso suelto no había ninguno — ni en la grilla ni adentro del curso.',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '21:20', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El botón por curso, en los dos lugares — y su call site viejo era código muerto',
+    puntos: [
+      '**En la grilla**, uno por tarjeta (`compartirDe` en `Selector`), y **adentro del curso**, en la barra de arriba al lado del nombre. Los dos usan el MISMO `Compartir` con el mismo `recurso`/`recursoId`, así que los dos enlaces caen en la misma lista de «quién tiene acceso»; lo único que cambia es el tamaño del disparador (`compacto`).',
+      '⚠️ **El diagnóstico obvio era el equivocado, y decía que ya estaba.** `Hub` dibuja `{compartir}` en su hero y `Conocimientos.tsx` se lo pasa a `CursoPortal`: leer ese camino contesta «adentro de cada curso ya está». Lo que no nombra a `compartir` en ninguna línea es el `return` de 30 líneas más arriba — `if (curso.replica) return <CursoReplica …/>` — y `replica: true` lo pone el CATÁLOGO para todos los cursos, no curso por curso. O sea que el hub no se alcanza nunca y su call site era **código muerto**: la capacidad estaba escrita y adentro de un curso no había forma de usarla.',
+      '**Lo encontró el navegador, no el archivo:** abrir un curso y contar los nodos de `.al-hero-top` → **0**. Y un `grep -n compartir CursoPortal.tsx` lo delataba antes de razonar (lista el 985 del hub y no el 956 de la réplica). La regla de la casa «grepeá el call site» tiene su espejo: **un call site que existe puede no ejecutarse, y eso no se ve en el grep — hay que mirar qué rama corta antes.**',
+      '⚠️ **Y el modal se iba DETRÁS de las tarjetas.** `.cmp-ov` es `fixed; inset: 0; z-index: 120` y eso promete la ventana entera, pero se lo come cualquier ancestro posicionado: con `z-index` le clampea el 120 contra SU nivel, y con `transform` pasa a ser el bloque contenedor del `fixed`. Los dos ancestros nuevos los tienen (el de la tarjeta es un span absolute que se mueve en el hover; la barra del curso es `sticky; z-index: 20`). Medido: el navegador decía que «Cerrar» estaba visible y habilitado y el clic no le llegaba nunca. Va con `createPortal` al `body`.',
+      '**El control es HERMANO de la tarjeta, nunca un hijo:** `Card` ES un `<button>`, y uno adentro de otro no recibe clicks. Y el lift del hover lo escucha el ENVOLTORIO, o pasar el cursor por el botón no levanta la tarjeta y las dos piezas se despegan a mitad del gesto.',
+      '**Medido en el navegador:** 132 tarjetas / 132 botones; el modal abre con el curso correcto, cuelga de `<BODY>`, mide 1440x900 en una ventana de 1440x900, cierra, y la URL no cambia (el clic no cae en la tarjeta). Adentro del curso, 1 botón con el mismo comportamiento. Cero errores de página. 0 errores de tipos y 4100 tests en verde.',
+    ],
+    archivos: [
+      'app/conocimientos/CursoPortal.tsx — `compartirDe` en `Selector`, el `.al-rescard-wrap` que apoya el control sobre la tarjeta, y el `compartir` que ahora SÍ baja a `CursoReplica`',
+      'app/conocimientos/CursoReplica.tsx — lo dibuja en `.ugc-topbar`, al lado del nombre del curso. El estilo va en línea a propósito: `public/cono-doc/ugc.css` es una hoja GENERADA del origen y una regla escrita ahí se la come la próxima regeneración',
+      'app/conocimientos/Compartir.tsx — el prop `compacto` (mismo componente, otro tamaño) y el overlay por `createPortal(…, document.body)`',
+      'tests/conocimientos-compartir.test.ts — 6 guards, probados rompiéndolos: cada rotura tumba SU test y sólo el suyo (5/1 las seis veces)',
+      'docs/hallazgos-conocimiento.md — la entrada con las tres trampas y lo medido',
+    ],
+  },
 ];

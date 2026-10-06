@@ -28,7 +28,7 @@
  * que no llevan a ningun lado.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePosicion, type Posicion } from './posicion';
 import { TIPO_BADGE } from './CursoPortal';
 import { Miniatura } from './Miniatura';
@@ -117,7 +117,22 @@ type Modulo = { n: number; nombre: string; clases: Clase[]; portada: string | nu
  */
 type Vista = Posicion;
 
-export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir?: () => void }) {
+export default function CursoReplica({ curso, onSalir, compartir }: {
+  curso: Curso;
+  onSalir?: () => void;
+  /**
+   * El botón de compartir ESTE curso, inyectado desde afuera como en el resto del
+   * portal: la vista pública no lo pasa, así que no se re-comparte lo que te
+   * compartieron y ese código no llega al invitado.
+   *
+   * ⚠️ `Hub` ya lo dibujaba y nunca se vio, porque `replica: true` está puesto para
+   * TODOS los cursos en el catálogo y `CursoPortal` corta en esta vista antes de
+   * llegar al hub. O sea que la capacidad estaba escrita y su único call site era
+   * código muerto; adentro de un curso no había forma de compartirlo. Lo reportó
+   * Martín el 06/10/2026 — «me falta el botón de compartir con link cada curso».
+   */
+  compartir?: ReactNode;
+}) {
   const cssListo = useCssDelOrigen();
 
   /**
@@ -359,6 +374,14 @@ export default function CursoReplica({ curso, onSalir }: { curso: Curso; onSalir
                 <span className="ugc-topbar-curso-t">{curso.titulo}</span>
                 <span className="ugc-topbar-curso-n">{curso.clases.length} clases</span>
               </div>
+              {/* Al lado del nombre del curso, que es el contexto de esta pantalla: el
+                  botón comparte ESTE curso y no la tab, así que va pegado a lo que
+                  nombra. Es el mismo lugar que ocupa en la grilla el de «todos los
+                  cursos» — arriba a la derecha.
+                  El `flex: none` y el estilo en línea son a propósito: `.ugc-topbar`
+                  vive en `public/cono-doc/ugc.css`, que es una hoja GENERADA del origen,
+                  y una regla escrita ahí se la come la próxima regeneración. */}
+              {compartir && <span style={{ flex: 'none', display: 'inline-flex' }}>{compartir}</span>}
             </div>
 
             <div className="ugc-content">
