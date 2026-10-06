@@ -785,32 +785,44 @@ export async function leadsDeProductoAction(funnelId: number | null): Promise<{ 
     return { filas: [], total: 0 };
   }
 }
+/**
+ * Traduce un fallo del alta a lo que la pantalla puede OFRECER.
+ *
+ * Vive acá y no en `lib/leads` porque resolver el nombre del producto es una lectura del
+ * workspace y el módulo de duplicados es puro a propósito. Y vive en UNA función porque
+ * la usan los DOS caminos de alta —el tablero y la conversación de WhatsApp—: con una
+ * copia por camino, el día que cambie cómo se nombra un embudo lo arregla uno solo.
+ */
+async function choqueDeLead(e: unknown): Promise<ChoqueDeLead> {
+  if (!(e instanceof LeadDuplicadoError)) {
+    return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.', coincidencias: [] };
+  }
+  // El nombre del producto se resuelve ACÁ y no en `lib/leads`: la lista de embudos
+  // es una lectura del workspace y el módulo de duplicados es puro a propósito.
+  const funnels = await listarFunnels().catch(() => []);
+  const porId = new Map(funnels.map((f) => [f.id, f.nombre]));
+  // ⚠️ `null` ES EL EMBUDO DEL NEGOCIO, no «sin producto». Medido: `leads.funnel_id`
+  // está en NULL en las 1.530 filas de producción, así que éste es el caso NORMAL y
+  // no el raro. Se resuelve al `es_default`, que es donde el tablero los dibuja.
+  const delNegocio = funnels.find((f) => f.esDefault) ?? null;
+  const nombreDe = (fid: number | null) => (fid == null ? delNegocio?.nombre ?? null : porId.get(fid) ?? null);
+  return {
+    error: e.message,
+    coincidencias: e.coincidencias.map((c) => ({
+      id: c.lead.id,
+      nombre: (c.lead.nombre ?? '').trim() || 'Sin nombre',
+      funnelId: c.lead.funnel_id ?? null,
+      producto: nombreDe(c.lead.funnel_id ?? null),
+      motivo: c.texto,
+    })),
+  };
+}
+
 export async function crearLeadEnTableroAction(formData: FormData, funnelId?: number | null, permitirDuplicado?: boolean): Promise<{ id: number } | ChoqueDeLead> {
   try {
     return await altaDeLead(formData, funnelId, permitirDuplicado);
   } catch (e) {
-    if (e instanceof LeadDuplicadoError) {
-      // El nombre del producto se resuelve ACÁ y no en `lib/leads`: la lista de embudos
-      // es una lectura del workspace y el módulo de duplicados es puro a propósito.
-      const funnels = await listarFunnels().catch(() => []);
-      const porId = new Map(funnels.map((f) => [f.id, f.nombre]));
-      // ⚠️ `null` ES EL EMBUDO DEL NEGOCIO, no «sin producto». Medido: `leads.funnel_id`
-      // está en NULL en las 1.530 filas de producción, así que éste es el caso NORMAL y
-      // no el raro. Se resuelve al `es_default`, que es donde el tablero los dibuja.
-      const delNegocio = funnels.find((f) => f.esDefault) ?? null;
-      const nombreDe = (fid: number | null) => (fid == null ? delNegocio?.nombre ?? null : porId.get(fid) ?? null);
-      return {
-        error: e.message,
-        coincidencias: e.coincidencias.map((c) => ({
-          id: c.lead.id,
-          nombre: (c.lead.nombre ?? '').trim() || 'Sin nombre',
-          funnelId: c.lead.funnel_id ?? null,
-          producto: nombreDe(c.lead.funnel_id ?? null),
-          motivo: c.texto,
-        })),
-      };
-    }
-    return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.', coincidencias: [] };
+    return await choqueDeLead(e);
   }
 }
 
@@ -890,22 +902,32 @@ export async function createLeadAction(formData: FormData): Promise<void> {
  * estaba en el CRM. Usa la MISMA vía que el alta manual (createLead) + asegura el
  * contacto en Chatwoot. Devuelve el id para abrir la ficha en el acto. La
  * conversación se enlaza sola al lead por teléfono en la próxima carga.
+ *
+ * ⚠️ DEVUELVE EL CHOQUE, NO LO TIRA. Un `throw` de una server action llega al navegador
+ * como un mensaje genérico —Next redacta el error en producción—, así que los ids que
+ * `LeadDuplicadoError` trae adentro justamente para poder ofrecer «abre el que ya tienes»
+ * se perdían en el camino y lo único que la pantalla podía hacer era un cartel. Es el
+ * mismo contrato que el alta del tablero (`ChoqueDeLead`), que ya lo resolvió así.
  */
-export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string): Promise<number> {
+export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: string): Promise<{ id: number } | ChoqueDeLead> {
   const n = (nombre ?? '').trim();
   const t = (telefono ?? '').trim();
-  if (!n) throw new Error('Falta el nombre del contacto.');
-  if (!t) throw new Error('Falta el teléfono del contacto.');
+  if (!n) return { error: 'Falta el nombre del contacto.', coincidencias: [] };
+  if (!t) return { error: 'Falta el teléfono del contacto.', coincidencias: [] };
   // De dónde vino: de una conversación del inbox, o sea que ya hay un hilo abierto
   // con esta persona. No dice QUIÉN escribió primero —desde acá no se puede saber, y
   // un dato que se afirma sin medirlo es peor que la columna vacía—: dice por qué
   // puerta entró, que es lo que separa a este lead de los 1.000 de una lista en frío.
-  const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id });
-  if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/whatsapp');
-  return created.id;
+  try {
+    const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id });
+    if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
+    bust(TAG.leads);
+    revalidatePath('/crm');
+    revalidatePath('/whatsapp');
+    return { id: created.id };
+  } catch (e) {
+    return await choqueDeLead(e);
+  }
 }
 
 /**

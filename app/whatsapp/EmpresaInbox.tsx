@@ -24,6 +24,7 @@ import { Avatar } from './_shared/Avatar';
 import { Ticks } from './_shared/Ticks';
 import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
+import { crearLeadDesdeWhatsappAction } from '../crm/actions';
 import { useNotifications } from '../_components/NotificationsProvider';
 import { useConfirm } from '../_components/useConfirm';
 import { AudioPlay } from './_shared/AudioPlay';
@@ -125,6 +126,7 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [hiding, setHiding] = useState(false);
   const [chatBusy, setChatBusy] = useState<'sync' | 'clear' | null>(null); // sync/borrar por-chat
+  const [creandoLead, setCreandoLead] = useState(false); // alta del contacto en el CRM (#830)
   const [ocultarConfirm, setOcultarConfirm] = useState(false); // modal de confirmación de ocultar
   const [verOcultos, setVerOcultos] = useState(false); // vista "ver ocultos" para desocultar
   const [search, setSearch] = useState('');
@@ -373,6 +375,42 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
         setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache = upd(convsCache);
       } else setSendErr(j.error || 'No se pudo cambiar el bloqueo.');
     } finally { setBlocking(false); }
+  }
+
+  /**
+   * Sube el contacto de esta conversación al CRM (#830).
+   *
+   * La bandeja OFICIAL ya lo tenía desde el #381 y la no oficial —que es la que quedó por
+   * default— no, así que para un contacto que escribió por WhatsApp y no está en el CRM la
+   * única salida era irse a /crm a cargarlo a mano con el teléfono copiado.
+   *
+   * ⚠️ El `leadId` se escribe en el estado EN EL ACTO. La conversación se enlaza sola al
+   * lead por teléfono, pero en la PRÓXIMA carga: sin esto el botón sigue diciendo «Agregar
+   * al CRM» sobre un contacto que ya está, y el segundo clic choca con el duplicado.
+   */
+  async function agregarAlCrm() {
+    const sc = findConv(sel);
+    if (!sc?.telefono) return;
+    setCreandoLead(true); setSendErr(null);
+    try {
+      // El nombre es el que WhatsApp da (y si no dio ninguno, el teléfono): se abre la
+      // ficha editable al toque, que es donde se corrige sin dar una vuelta más.
+      const r = await crearLeadDesdeWhatsappAction(sc.nombre || sc.telefono, sc.telefono);
+      // Si ya estaba, con UN solo candidato ése ES el lead de este teléfono (la misma
+      // llave con la que la conversación lo busca). Con varios no se elige el primero.
+      // Escrito con `else` y no con un ternario a propósito: ahí la respuesta queda
+      // estrechada a ChoqueDeLead y se le puede leer el motivo, que es justo el campo que
+      // el tipo del éxito no tiene (el typecheck lo marcó con el ternario puesto).
+      let id: number | null = null;
+      if ('id' in r) id = r.id;
+      else if (r.coincidencias.length === 1) id = r.coincidencias[0].id;
+      else { setSendErr(r.error); return; }
+      const upd = (arr: Conv[]) => arr.map((c) => (c.chatJid === sc.chatJid ? { ...c, leadId: id } : c));
+      setConvs((prev) => upd(prev)); setBusqLeads((prev) => upd(prev)); convsCache = upd(convsCache);
+      setDetalleLeadId(id);
+    } catch (e) {
+      setSendErr(e instanceof Error ? e.message : 'No se pudo agregar al CRM.');
+    } finally { setCreandoLead(false); }
   }
 
   // Sincronizar SOLO este chat (traer su historial de Evolution al espejo).
@@ -657,6 +695,11 @@ export function EmpresaInbox({ puedeChatbot = true }: { puedeChatbot?: boolean }
             {etapaChip(selConv.etapaKey, selConv.etapaLabel) && (() => { const ch = etapaChip(selConv.etapaKey, selConv.etapaLabel)!; return <div style={{ marginTop: '10px' }}><span style={ch.style}><span style={ch.dot}></span>{ch.label}</span></div>; })()}
             {selConv.leadId ? (
               <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
+            ) : selConv.telefono ? (
+              /* #830: el contacto no está en el CRM → alta directa con nombre + teléfono. */
+              <button type="button" disabled={creandoLead} onClick={() => void agregarAlCrm()}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: creandoLead ? 'default' : 'pointer' }}
+              >{creandoLead ? 'Agregando…' : '+ Agregar al CRM'}</button>
             ) : (
               <Link href="/crm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}

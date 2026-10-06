@@ -1194,8 +1194,14 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial }: { puedeChatbot: boolean
                   if (!sel?.telefono) return;
                   setCreandoLead(true);
                   try {
-                    const id = await crearLeadDesdeWhatsappAction(sel.contacto || 'Contacto', sel.telefono);
-                    setDetalleLeadId(id);
+                    const r = await crearLeadDesdeWhatsappAction(sel.contacto || 'Contacto', sel.telefono);
+                    // Ya estaba en el CRM: con UN solo candidato se abre ÉSE —lo identifica
+                    // el teléfono, la misma llave con la que la conversación busca su lead—.
+                    // Con varios no se elige el primero: se dice con quién choca.
+                    const ya = 'id' in r ? null : r.coincidencias.length === 1 ? r.coincidencias[0] : null;
+                    if ('id' in r) setDetalleLeadId(r.id);
+                    else if (ya) setDetalleLeadId(ya.id);
+                    else alert(r.error);
                   } catch (e) {
                     alert(`No se pudo agregar al CRM: ${e instanceof Error ? e.message : 'error'}`);
                   } finally {
