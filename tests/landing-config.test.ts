@@ -7,7 +7,20 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conLanding, funnelIdDeLanding, landingDe, MAX_LANDINGS, parsearConfig, sinLanding, urlsDe, type LandingConfig } from '../lib/landing-config';
+import { conLanding, funnelIdsDeLanding, landingDe, MAX_LANDINGS, parsearConfig, sinLanding, urlsDe, type LandingConfig } from '../lib/landing-config';
+
+/**
+ * El fuente SIN sus comentarios, para los `doesNotMatch`.
+ *
+ * ⚠️ HACE FALTA, y lo probó este mismo archivo: la convención de la casa es
+ * explicar en el comentario lo que se SACÓ —acá, que el selector de página ya no
+ * escribe `funnelIds`—, así que un guard de «esto no está» se acusa a sí mismo.
+ * Las líneas van ANTES que los bloques: un `/*` dentro de un `//` abriría un
+ * bloque que se cierra páginas abajo y se come el código del medio.
+ */
+const sinComentarios = (src: string) => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('⚠️ MIGRA el formato viejo sin perder nada', () => {
   // Hasta hoy se guardaba una lista de strings. Una migración que exija convertir
@@ -121,81 +134,110 @@ test('CABLEADO: el análisis viaja como ARRAY, no como Set', () => {
 });
 
 // =============================================================================
-// El PRODUCTO de cada landing (04/10/2026)
+// Los PRODUCTOS de cada landing (04/10/2026, y VARIOS desde el 06/10/2026)
 // =============================================================================
-// Decisión de Martín: «la configuración que falta es que el pixel deberíamos
-// poder ASIGNAR a un PRODUCTO. Con la implementación que hicimos, para que
-// lleguen los leads a ese CRM y no a otro».
+// Decisión de Martín el 04/10: «la configuración que falta es que el pixel
+// deberíamos poder ASIGNAR a un PRODUCTO. Con la implementación que hicimos, para
+// que lleguen los leads a ese CRM y no a otro».
 //
-// ⚠️ DOS SUJETOS EN CADA PRUEBA: una landing CON producto y otra SIN. Con una
+// Y el 06/10: «no solo se debería poder seleccionar 1 producto, si quiero puedo
+// seleccionar más de 1», con la semántica que eligió él — «el lead entra a TODOS
+// los productos», o sea una FICHA por producto, la misma persona en N tableros.
+//
+// ⚠️ DOS SUJETOS EN CADA PRUEBA: una landing CON productos y otra SIN. Con una
 // sola, una resolución cableada al embudo por defecto —o una que devuelva siempre
 // el mismo número— pasa todas las pruebas.
 
-test('el producto es de la PÁGINA: una landing con producto y otra sin', () => {
+test('los productos son de la PÁGINA: una landing con productos y otra sin', () => {
   const cfgs = parsearConfig(JSON.stringify([
-    { url: 'https://vende-cursos.com', funnelId: 7 },
+    { url: 'https://vende-cursos.com', funnelIds: [7, 9] },
     { url: 'https://vende-inmuebles.com' },
   ]));
-  assert.equal(funnelIdDeLanding(cfgs, 'https://vende-cursos.com'), 7);
-  // Sin asignar es `null`, y `null` es el embudo DEL NEGOCIO: es donde caen hoy
-  // todos los leads de landing y donde tienen que seguir cayendo.
-  assert.equal(funnelIdDeLanding(cfgs, 'https://vende-inmuebles.com'), null);
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://vende-cursos.com'), [7, 9]);
+  // Sin asignar es la lista VACÍA, y vacía significa el embudo DEL NEGOCIO: es
+  // donde caen hoy todos los leads de landing y donde tienen que seguir cayendo.
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://vende-inmuebles.com'), []);
   // Y una página que el cliente no declaró tampoco inventa un producto.
-  assert.equal(funnelIdDeLanding(cfgs, 'https://otra.com'), null);
-  assert.equal(funnelIdDeLanding(cfgs, null), null);
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://otra.com'), []);
+  assert.deepEqual(funnelIdsDeLanding(cfgs, null), []);
 
   // Se compara NORMALIZADO en las dos puntas: la lista guardada está normalizada
   // y lo que llega en el opt-in es `location.href`, con su barra, su hash y los
   // UTM de la campaña. Un `===` crudo diría «esta página no tiene producto» sobre
   // la página que lo tiene.
-  assert.equal(funnelIdDeLanding(cfgs, 'https://vende-cursos.com/?utm_source=ig#form'), 7);
-  assert.equal(funnelIdDeLanding(cfgs, 'VENDE-CURSOS.com'), 7);
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'https://vende-cursos.com/?utm_source=ig#form'), [7, 9]);
+  assert.deepEqual(funnelIdsDeLanding(cfgs, 'VENDE-CURSOS.com'), [7, 9]);
 });
 
-// PROBADO ROMPIENDOLO: cambiando el `idFila(...)` de `parsearConfig` por un cast
-// crudo, este archivo pasa de **pass 17 / fail 0** a **pass 16 / fail 1**.
-test('⚠️ el id puede llegar como STRING (bigint) y la basura no pasa', () => {
+// PROBADO ROMPIENDOLO: cambiando el `idFila(...)` de `idsLimpios` por un cast
+// crudo, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+test('⚠️ el id puede llegar como STRING (bigint), la basura no pasa y no hay repetidos', () => {
   // `funnels.id` es bigint y en este repo ya se midió que según el driver vuelve
-  // como texto. Un `funnelId: "7"` que se guarde tal cual haría que el `===` del
-  // validador diera false SIEMPRE: nadie entraría nunca a su producto.
-  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelId":"7"}]'),
-    [{ url: 'https://a.com', funnelId: 7 }]);
-  for (const v of ['0', '-3', '1.5', 'siete', '', 'null']) {
-    assert.deepEqual(parsearConfig(`[{"url":"https://a.com","funnelId":${JSON.stringify(v)}}]`),
-      [{ url: 'https://a.com' }], `«${v}» no es un id de fila`);
-  }
-  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelId":0}]'), [{ url: 'https://a.com' }]);
+  // como texto. Un `funnelIds: ["7"]` que se guarde tal cual haría que el `===`
+  // del validador diera false SIEMPRE: nadie entraría nunca a su producto.
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelIds":["7",9]}]'),
+    [{ url: 'https://a.com', funnelIds: [7, 9] }]);
+  // Lo que no es un id de fila se cae, y si no queda ninguno la página no trae
+  // el campo: vacío y ausente son lo mismo acá, y así no hay dos formas de
+  // decir «sin producto».
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelIds":["0","-3","1.5","siete","",null,0]}]'),
+    [{ url: 'https://a.com' }]);
+  // Y uno repetido es UNA ficha, no dos: dos fichas idénticas en el mismo tablero
+  // son el bug que el `includes` de `idsLimpios` evita.
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelIds":[7,7,"7"]}]'),
+    [{ url: 'https://a.com', funnelIds: [7] }]);
+  // Un valor que no es lista tampoco inventa nada.
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelIds":7}]'), [{ url: 'https://a.com' }]);
 });
 
-// PROBADO ROMPIENDOLO: cambiando `: base?.funnelId;` por `: undefined;` en
-// `conLanding`, este archivo pasa de **pass 17 / fail 0** a **pass 16 / fail 1**.
-test('⚠️ corregir la URL NO desasigna el producto, y el 0 sí', () => {
+// PROBADO ROMPIENDOLO: borrando las dos líneas del `funnelId` de `idsDeFila`,
+// este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+test('⚠️ se lee el formato de UN producto: lo guardado antes no se pierde', () => {
+  // Medido contra producción el 06/10/2026: cuatro workspaces tienen
+  // `landing.config` y ninguna de sus seis páginas trae producto asignado, así que
+  // hoy esto no arregla ninguna fila. Entre medir y desplegar hay un rato, y lo que
+  // se perdería es exactamente a qué CRM entran los leads de esa página — en
+  // silencio, porque un lead que cae al embudo del negocio no da ningún error.
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelId":7}]'),
+    [{ url: 'https://a.com', funnelIds: [7] }]);
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelId":"7"}]'),
+    [{ url: 'https://a.com', funnelIds: [7] }]);
+  // La lista NUEVA manda sobre el campo viejo: si están los dos, el viejo es un
+  // resto del formato anterior y no una segunda opinión.
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelId":7,"funnelIds":[9]}]'),
+    [{ url: 'https://a.com', funnelIds: [9] }]);
+});
+
+// PROBADO ROMPIENDOLO: cambiando `: base?.funnelIds ?? [];` por `: [];` en
+// `conLanding`, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+test('⚠️ corregir la URL NO desasigna los productos, y la lista vacía sí', () => {
   // Es la misma trampa que ya mordió con `clarityProjectId` y con `esVsl`:
   // `conLanding` reconstruye la fila campo por campo, así que un campo que el
   // mapper no conserva se apaga solo en el próximo guardado de cualquier otro.
-  const base = parsearConfig('[{"url":"https://a.com","funnelId":7},{"url":"https://b.com","funnelId":9}]');
+  const base = parsearConfig('[{"url":"https://a.com","funnelIds":[7]},{"url":"https://b.com","funnelIds":[9]}]');
 
   const renombrada = conLanding(base, 'https://a-nueva.com', {}, 'https://a.com');
-  assert.deepEqual(renombrada, [{ url: 'https://a-nueva.com', funnelId: 7 }, { url: 'https://b.com', funnelId: 9 }]);
+  assert.deepEqual(renombrada, [{ url: 'https://a-nueva.com', funnelIds: [7] }, { url: 'https://b.com', funnelIds: [9] }]);
 
-  // Guardar OTRO campo tampoco lo toca.
+  // Guardar OTRO campo tampoco los toca.
   const conClarity = conLanding(base, 'https://a.com', { clarityProjectId: 'ABC' });
-  assert.equal(funnelIdDeLanding(conClarity ?? [], 'https://a.com'), 7);
-  // …y no le toca el producto a la vecina.
-  assert.equal(funnelIdDeLanding(conClarity ?? [], 'https://b.com'), 9);
+  assert.deepEqual(funnelIdsDeLanding(conClarity ?? [], 'https://a.com'), [7]);
+  // …y no le toca los productos a la vecina.
+  assert.deepEqual(funnelIdsDeLanding(conClarity ?? [], 'https://b.com'), [9]);
 
-  // Lo único que desasigna es un 0 explícito, y solo a ESA página.
-  const sinProducto = conLanding(base, 'https://a.com', { funnelId: 0 });
-  assert.equal(funnelIdDeLanding(sinProducto ?? [], 'https://a.com'), null);
-  assert.equal(funnelIdDeLanding(sinProducto ?? [], 'https://b.com'), 9);
+  // Lo único que desasigna es la lista vacía, y solo a ESA página.
+  const sinProducto = conLanding(base, 'https://a.com', { funnelIds: [] });
+  assert.deepEqual(funnelIdsDeLanding(sinProducto ?? [], 'https://a.com'), []);
+  assert.deepEqual(funnelIdsDeLanding(sinProducto ?? [], 'https://b.com'), [9]);
 
-  // Y reasignar pisa solo el valor.
-  const movida = conLanding(base, 'https://a.com', { funnelId: 9 });
-  assert.equal(funnelIdDeLanding(movida ?? [], 'https://a.com'), 9);
+  // Y agregar un producto no pisa el que ya estaba: la pantalla manda la lista
+  // entera, así que esto es lo que ve el usuario al marcar la segunda casilla.
+  const dos = conLanding(base, 'https://a.com', { funnelIds: [7, 9] });
+  assert.deepEqual(funnelIdsDeLanding(dos ?? [], 'https://a.com'), [7, 9]);
 });
 
 // PROBADO ROMPIENDOLO: cambiando `return elegido.esDefault ? null : id;` por
-// `return id;`, este archivo pasa de **pass 17 / fail 0** a **pass 16 / fail 1**.
+// `return id;`, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
 test('CABLEADO: el EMBUDO DEL NEGOCIO se escribe como null, nunca con su id', () => {
   // ⚠️ `listLeadsDeFunnel(null)` pide los leads del tablero por defecto con
   // `.is('funnel_id', null)`, así que un lead nacido con el ID del embudo por
@@ -215,22 +257,54 @@ test('CABLEADO: el EMBUDO DEL NEGOCIO se escribe como null, nunca con su id', ()
   assert.ok(/from '@\/lib\/landing-funnel'/.test(acc), 'la pantalla ofrece lo que la ruta resuelve, no su propia lista');
 });
 
-// PROBADO ROMPIENDOLO: cambiando `otros.length > 0` por `true` en
-// SelectorLanding.tsx, este archivo pasa de **pass 17 / fail 0** a
-// **pass 16 / fail 1**.
-test('CABLEADO: la pantalla donde se asigna es la del Pixel, el paso 1', () => {
-  // No hay pantalla nueva: se asigna donde ya se elige la página y se copia el
-  // código. El rótulo es el PRODUCTO y no el nombre del embudo — «Funnel
-  // principal» lo puso la migración 0170 y es el mismo en todos los workspaces.
-  const sel = leer('../app/integraciones/SelectorLanding.tsx');
-  assert.ok(/getProductosAction\(\)/.test(sel), 'el selector tiene que pedir los productos');
-  assert.ok(/asignarProducto/.test(sel), 'y tiene que poder guardarlos');
-  assert.ok(/funnelId: Number\(v\) \|\| 0/.test(sel), 'el 0 es lo que desasigna: `undefined` sería «no lo toques»');
-  // ⚠️ Con UN solo producto no se dibuja: un desplegable de un elemento no ofrece
-  // una decisión, ofrece confirmar la única que hay.
-  assert.ok(/otros\.length > 0/.test(sel), 'con un solo producto no hay nada que elegir');
-  // ⚠️ Y el valor guardado entra a la lista aunque ya no se pueda elegir: un
-  // `<select>` cuyo `value` no está entre sus opciones no muestra nada y el primer
-  // click escribe la primera.
-  assert.ok(/huerfano/.test(sel), 'un producto archivado no puede borrar la asignación con el primer click');
+// PROBADO ROMPIENDOLO: cambiando los cuatro `return [null]` de `funnelsDeLanding`
+// por `return []`, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+test('⚠️ CABLEADO: la lista de embudos NUNCA vuelve vacía', () => {
+  // Es la mitad del contrato que no se ve en el tipo: quien llama crea UNA FICHA
+  // POR ELEMENTO, así que una lista vacía haría que un opt-in no cree NINGÚN lead
+  // — y perder a la persona es infinitamente peor que ponerla en el embudo
+  // equivocado. Los cuatro caminos a `[null]` son: sin página, sin asignación,
+  // todos los asignados muertos, y la lectura que falló.
+  const lib = leer('../lib/landing-funnel.ts');
+  assert.ok(/if \(!pagina\) return \[null\];/.test(lib), 'sin página no se inventa un producto, pero el lead entra igual');
+  assert.ok(/if \(!ids\.length\) return \[null\];/.test(lib), 'una landing sin productos cae exactamente donde cae hoy');
+  assert.ok(/return out\.length \? out : \[null\];/.test(lib), 'con todos los embudos archivados el lead tiene que entrar igual');
+  assert.ok(/catch \(e\)[\s\S]{0,250}return \[null\];/.test(lib), 'una lectura que falla no puede dejar al lead sin CRM');
+  // Y sin repetidos: con el default elegido dos veces saldrían dos fichas
+  // idénticas en el mismo tablero.
+  assert.ok(/if \(!out\.includes\(valor\)\) out\.push\(valor\);/.test(lib), 'dos veces el mismo embudo son dos fichas iguales');
+});
+
+// PROBADO ROMPIENDOLO: cambiando `funnelIds: ids` por `funnelIds: []` en
+// AsignarProducto.tsx, este archivo pasa de **pass 18 / fail 0** a
+// **pass 17 / fail 1**.
+test('CABLEADO: los productos se asignan en el PASO 2, y se puede marcar más de uno', () => {
+  // Pedido de Martín el 06/10/2026: «tiene que ser otro paso en la configuración
+  // del pixel asignar PRODUCTO, ponlo como segundo paso… no solo se debería poder
+  // seleccionar 1 producto».
+  const paso = leer('../app/integraciones/AsignarProducto.tsx');
+  assert.ok(/getProductosAction\(\)/.test(paso), 'el paso tiene que pedir los productos');
+  assert.ok(/<Checkbox/.test(paso), 'más de uno se marca con casillas, no con un desplegable');
+  assert.ok(/funnelIds: ids/.test(paso), 'y guarda la lista ENTERA: es lo que permite que la vacía desasigne');
+  // ⚠️ El valor guardado se dibuja aunque el embudo ya no se pueda elegir: si no
+  // se dibujara, su casilla no existiría y el primer guardado de cualquier otra
+  // lo borraría sin que nadie lo toque.
+  assert.ok(/huerfanos/.test(paso), 'un producto archivado no puede borrarse solo al marcar otro');
+  // ⚠️ Y el paso se dibuja SIEMPRE, también con un solo producto: un paso numerado
+  // que no muestra nada deja un hueco en la numeración, que se lee como una
+  // pantalla rota. Con uno solo se dice dónde se crean los demás.
+  assert.ok(/créalos en tu CRM/.test(paso), 'con un solo producto hay que decir dónde se crean los otros');
+
+  // Y está montado como el paso 2, con los demás renumerados.
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  assert.ok(/<Paso n=\{2\} titulo="¿Qué producto vende\?">/.test(board), 'el producto es el paso 2');
+  assert.ok(/<AsignarProducto elegida=\{elegida\} \/>/.test(board), 'y el paso 2 monta el componente');
+  assert.ok(/<Paso n=\{3\} titulo="Copia el código/.test(board), 'el código pasa a ser el 3');
+
+  // ⚠️ Y EL PASO 1 DEJÓ DE DECIDIRLO. Con las dos pantallas leyendo el campo,
+  // la que se arregle segunda se queda vieja — es la regla de «una cosa, un lugar»
+  // aplicada a una mudanza: lo que se muda se SACA de donde estaba.
+  const sel = sinComentarios(leer('../app/integraciones/SelectorLanding.tsx'));
+  assert.ok(!/funnelIds/.test(sel), 'el selector de página no puede seguir escribiendo los productos');
+  assert.ok(!/getProductosAction/.test(sel), 'ni seguir pidiéndolos');
 });

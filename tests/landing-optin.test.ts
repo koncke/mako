@@ -1736,12 +1736,53 @@ test('el lead NACE en el embudo de su landing', () => {
   assert.ok(bloque.length < 2500, `el bloque del alta mide ${bloque.length}: se está leyendo de más`);
   assert.ok(/funnel_id: funnelDelLead/.test(bloque), 'sin esto el lead cae siempre al embudo del negocio, diga lo que diga la landing');
   // Y lo resuelve el módulo compartido, no un lector propio de la ruta.
-  assert.ok(/funnelDeLanding\(ws, paginaOptin\)/.test(src), 'la resolución vive en lib/landing-funnel.ts, con la pantalla leyendo lo mismo');
+  assert.ok(/funnelsDeLanding\(ws, paginaOptin\)/.test(src), 'la resolución vive en lib/landing-funnel.ts, con la pantalla leyendo lo mismo');
   // Y la campaña asignada MANDA sobre la landing (05/10/2026), resuelta por el módulo
   // compartido y no por un lector propio de la ruta. Si este orden se diera vuelta, una
   // campaña asignada a un producto dejaría de enrutar en cuanto su landing tenga otro.
   assert.ok(/funnelDeCampana\(\{ campaignId: atrib\.utm_campaign, adId: atrib\.utm_content \}\)/.test(src), 'el opt-in tiene que preguntar por la campaña con el utm_campaign');
-  assert.ok(/porCampana\.asignada \? porCampana\.funnelId : funnelDeLaLanding/.test(src), 'la campaña asignada manda; sin asignar decide la landing');
+  // ⚠️ Y la campaña asignada es UNA, la landing puede ser VARIAS: asignar una
+  // campaña a un producto es decir a qué producto van sus leads, no a cuáles.
+  assert.ok(/porCampana\.asignada \? \[porCampana\.funnelId\] : funnelesDeLaLanding/.test(src), 'la campaña asignada manda, y manda a UN producto; sin asignar decide la landing');
+});
+
+// PROBADO ROMPIENDOLO: borrando `permitirDuplicado: true` del createLead de las
+// fichas extra, este archivo pasa de **pass 67 / fail 0** a **pass 66 / fail 1**.
+test('⚠️ con VARIOS productos nace UNA FICHA POR PRODUCTO', () => {
+  // Semántica elegida por Martín el 06/10/2026: «el lead entra a TODOS los
+  // productos». Un lead vive en UN embudo —`leads.funnel_id` es una columna— así
+  // que la misma persona en tres productos son TRES fichas, cada una moviéndose
+  // por sus etapas.
+  const src = RUTA();
+  assert.ok(/for \(const f of funnelesDelLead\.slice\(1\)\)/.test(src), 'sin el fan-out, la landing con tres productos sigue creando un solo lead');
+
+  // ⚠️ `permitirDuplicado` NO es opcional acá: `createLead` corre
+  // `duplicadosDeLead` por nombre, email y teléfono, así que la SEGUNDA ficha
+  // encontraría a la primera y tiraría `LeadDuplicadoError` — y en esta ruta un
+  // alta que falla cae a propuesta, o sea que el fan-out dejaría a la persona
+  // esperando un click que nadie sabe que hay que dar.
+  assert.ok(/funnel_id: f, permitirDuplicado: true/.test(src), 'la segunda ficha choca con la primera: sin esto el fan-out cae a propuesta');
+
+  // ⚠️ Y CADA EXTRA ES BEST-EFFORT, con su propio try: si falla una, la persona YA
+  // está en el CRM, así que caer a propuesta crearía un borrador de alguien que ya
+  // entró. Se registra y se sigue.
+  const i = src.indexOf('funnelesDelLead.slice(1)');
+  const bucle = src.slice(i, src.indexOf('emitirDelCatalogo', i));
+  // El recorte tiene que ser el del bucle y nada mas: si manana mide 3.000, esta
+  // mirando otra cosa y el assert de abajo dejo de probar lo que dice.
+  assert.ok(bucle.length < 1200, `el bloque del fan-out mide ${bucle.length}: se esta leyendo de mas`);
+  assert.ok(/try \{/.test(bucle) && /catch \(e\)/.test(bucle), 'un producto que falla no puede tumbar al lead que ya entró');
+  assert.ok(/no pudo entrar al producto/.test(src), 'lo que se descarta queda escrito: sin el log, una ficha que falta no se distingue de una que no se pidió');
+
+  // ⚠️ Lo que es de la PERSONA se arma UNA sola vez: con dos literales al lado, el
+  // día que se agregue un campo va a entrar en uno solo y las fichas van a
+  // diferir en silencio. Es la misma regla que «va en los dos caminos».
+  assert.ok(/const datosDelLead = \{/.test(src), 'un segundo literal del mismo lead es la segunda versión del mismo lead');
+  assert.ok((src.match(/\.\.\.datosDelLead/g) ?? []).length === 2, 'las dos altas tienen que salir del MISMO objeto');
+
+  // Y el aviso lo DICE: lleva al principal, así que sin esta línea nadie sabe que
+  // hay más fichas de la misma persona en otros tableros.
+  assert.ok(/Entró a \$\{tambien\.length \+ 1\} productos/.test(src), 'con varios productos el aviso tiene que decirlo');
 });
 
 // PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de
@@ -1754,9 +1795,15 @@ test('⚠️ una landing SIN producto cae exactamente donde cae hoy', () => {
   // insert, y en esta ruta un alta que falla cae a propuesta: el lead que entraba
   // solo pasaría a esperar un click que nadie sabe que hay que dar.
   const lib = leer('../lib/landing-funnel.ts');
-  assert.ok(/if \(!pagina\) return null;/.test(lib), 'sin página no se inventa un producto');
-  assert.ok(/if \(!elegido\) return null;/.test(lib), 'un embudo que ya no está en la lista cae al del negocio, no rompe el alta');
-  assert.ok(/catch \(e\)[\s\S]{0,200}return null;/.test(lib), 'una lectura que falla no puede cambiar a qué CRM entra el lead');
+  // ⚠️ Desde el 06/10/2026 la tolerancia devuelve `[null]` y no `null`: la lista
+  // NUNCA vuelve vacía, porque quien llama crea una ficha por elemento y una lista
+  // vacía haría que el opt-in no cree NINGÚN lead. Perder a la persona es
+  // infinitamente peor que ponerla en el embudo equivocado.
+  assert.ok(/if \(!pagina\) return \[null\];/.test(lib), 'sin página no se inventa un producto, pero el lead entra igual');
+  assert.ok(/if \(!ids\.length\) return \[null\];/.test(lib), 'una landing sin productos cae exactamente donde cae hoy');
+  assert.ok(/if \(!elegido\) continue;/.test(lib), 'un embudo que ya no está en la lista se saltea, no rompe el alta');
+  assert.ok(/return out\.length \? out : \[null\];/.test(lib), 'con todos los embudos archivados el lead tiene que entrar igual');
+  assert.ok(/catch \(e\)[\s\S]{0,250}return \[null\];/.test(lib), 'una lectura que falla no puede dejar al lead sin CRM');
 });
 
 const DOSESP = String.fromCharCode(10) + '  ';

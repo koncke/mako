@@ -19,6 +19,7 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { snippetDeLandingAction } from './landing-config-actions';
 import { SelectorLanding } from './SelectorLanding';
+import { AsignarProducto } from './AsignarProducto';
 import { Button } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
@@ -1054,7 +1055,7 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
         Instala el Pixel de MaKo en tu página
       </h4>
 
-      {/* ⚠️ TRES PASOS, SEPARADOS DE VERDAD. Antes eran tres bloques uno abajo del
+      {/* ⚠️ CUATRO PASOS, SEPARADOS DE VERDAD. Antes eran tres bloques uno abajo del
           otro sin nada que dijera que eran pasos distintos, y el primero —que es
           OPCIONAL— se leía como parte del segundo. Cada uno lleva su número, una
           línea que lo separa del anterior y aire suficiente para que se vea que
@@ -1090,7 +1091,18 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
 
       {elegida && (
       <div key={elegida}>
-      <Paso n={2} titulo="Copia el código y pégalo en tu página">
+      {/* ⚠️ EL PRODUCTO ES EL PASO 2, y lo pidió Martín así el 06/10/2026: «tiene
+          que ser otro paso en la configuración del pixel asignar PRODUCTO, ponlo
+          como segundo paso». Va ANTES del código y el orden no es estético: a qué
+          CRM entran los leads es la decisión que define para qué sirve el Pixel en
+          esta página, y colgada al pie del paso 1 —donde vivía— se leía como un
+          detalle opcional. El código que se copia no depende de esto, así que
+          mover el paso no puede dejar a nadie con un snippet viejo. */}
+      <Paso n={2} titulo="¿Qué producto vende?">
+        <AsignarProducto elegida={elegida} />
+      </Paso>
+
+      <Paso n={3} titulo="Copia el código y pégalo en tu página">
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
@@ -1445,7 +1457,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
                   preguntar cuál probar: la misma pregunta dos veces, y con dos
                   respuestas que podían diferir. */}
               {landingModal && (
-                <Paso n={3} key={landingModal} titulo="Comprueba que está funcionando">
+                <Paso n={4} key={landingModal} titulo="Comprueba que está funcionando">
                   <ProbarTracking landingFija={landingModal} />
                 </Paso>
               )}

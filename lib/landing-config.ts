@@ -36,9 +36,16 @@ export type LandingConfig = {
    */
   clarityProjectId?: string;
   /**
-   * El EMBUDO al que entran los leads de ESTA pagina — o sea, el PRODUCTO que
-   * vende. `undefined` = no asignado, y entonces el lead cae donde cae hoy: el
-   * embudo del negocio (`leads.funnel_id = null`).
+   * Los EMBUDOS a los que entran los leads de ESTA pagina — o sea, los PRODUCTOS
+   * que vende. Vacio o ausente = no asignado, y entonces el lead cae donde cae
+   * hoy: el embudo del negocio (`leads.funnel_id = null`).
+   *
+   * ⚠️ ES UNA LISTA desde el 06/10/2026, y el lead entra a TODOS. Pedido de
+   * Martin: «no solo se deberia poder seleccionar 1 producto, si quiero puedo
+   * seleccionar mas de 1», y la semantica la eligio el: una landing con tres
+   * productos crea TRES fichas de la misma persona, una por embudo, cada una
+   * moviendose por sus etapas. Un lead vive en UN embudo —`leads.funnel_id` es
+   * una columna— asi que «entra a los tres» no puede ser una fila: son tres.
    *
    * ⚠️ POR QUE CUELGA DE LA URL Y NO DEL TOKEN. El token es UNO por workspace y
    * es determinista —`tokenDeterminista(ws)` es un HMAC de `landing:<ws>` y se
@@ -55,11 +62,20 @@ export type LandingConfig = {
    * ⚠️ Y puede llegar como STRING: `funnels.id` es `bigint`, y en este repo ya
    * se midio que segun el driver eso vuelve como texto. Se sanea al parsear.
    */
-  funnelId?: number;
+  funnelIds?: number[];
 };
 
 export const CONFIG_KEY = 'landing.config';
 export const MAX_LANDINGS = 12;
+/**
+ * Tope de productos por landing. NO es una regla de producto: es una cota contra
+ * un setting corrompido —esto es texto libre en `app_settings`— y esta puesta muy
+ * por encima de cualquier catalogo real (medido el 06/10/2026: el workspace con
+ * mas embudos tiene TRES, y nueve de diez tienen uno). Un tope cerca de lo real
+ * descartaria en silencio una eleccion de la persona, que es justo lo que no
+ * puede pasar aca.
+ */
+export const MAX_PRODUCTOS = 50;
 
 const limpio = (v: unknown, max: number): string =>
   (typeof v === 'string' ? v : '').trim().slice(0, max);
@@ -68,6 +84,33 @@ const limpio = (v: unknown, max: number): string =>
 const idFila = (v: unknown): number | undefined => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
   return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+};
+
+/** Una lista de ids, saneada: sin basura, sin repetidos y con tope. */
+const idsLimpios = (v: unknown): number[] => {
+  const out: number[] = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    const n = idFila(x);
+    if (n && !out.includes(n)) out.push(n);
+  }
+  return out.slice(0, MAX_PRODUCTOS);
+};
+
+/**
+ * Los productos de una fila guardada, aceptando el formato de UN solo producto.
+ *
+ * ⚠️ LA COMPATIBILIDAD NO ES OPCIONAL aunque hoy no haya ninguna fila con
+ * `funnelId` (medido contra produccion el 06/10/2026: cuatro workspaces tienen
+ * `landing.config` y ninguna de sus seis paginas trae producto asignado). Entre
+ * medir y desplegar hay un rato, y lo que se perderia es exactamente a que CRM
+ * entran los leads de esa pagina — en silencio, porque un lead que cae al embudo
+ * del negocio no da ningun error.
+ */
+const idsDeFila = (x: Record<string, unknown>): number[] => {
+  const lista = idsLimpios(x.funnelIds);
+  if (lista.length) return lista;
+  const uno = idFila(x.funnelId);
+  return uno ? [uno] : [];
 };
 
 /**
@@ -92,21 +135,21 @@ export function parsearConfig(crudo: string | null): LandingConfig[] {
     const pid = typeof x === 'object' && x
       ? limpio((x as Record<string, unknown>).clarityProjectId, 40).toLowerCase()
       : '';
-    const fid = typeof x === 'object' && x ? idFila((x as Record<string, unknown>).funnelId) : undefined;
-    out.push({ url, ...(pid ? { clarityProjectId: pid } : {}), ...(fid ? { funnelId: fid } : {}) });
+    const fids = typeof x === 'object' && x ? idsDeFila(x as Record<string, unknown>) : [];
+    out.push({ url, ...(pid ? { clarityProjectId: pid } : {}), ...(fids.length ? { funnelIds: fids } : {}) });
   }
   return out.slice(0, MAX_LANDINGS);
 }
 
 /**
- * A que embudo entran los leads de esta pagina. `null` = no se asigno ninguno.
+ * A que embudos entran los leads de esta pagina. Vacio = no se asigno ninguno.
  *
  * Es la parte que se puede equivocar —comparar dos URLs que son la misma con
  * distinta barra final— y por eso vive aca, sin `server-only` y con test. Quien
- * la llama todavia tiene que validar que ese embudo exista y este activo.
+ * la llama todavia tiene que validar que esos embudos existan y esten activos.
  */
-export function funnelIdDeLanding(configs: LandingConfig[], url: string | null | undefined): number | null {
-  return landingDe(configs, url)?.funnelId ?? null;
+export function funnelIdsDeLanding(configs: LandingConfig[], url: string | null | undefined): number[] {
+  return landingDe(configs, url)?.funnelIds ?? [];
 }
 
 /** La landing elegida, o null. Compara normalizado en las dos puntas. */
@@ -121,7 +164,10 @@ export function landingDe(configs: LandingConfig[], url: string | null | undefin
  * ⚠️ `clarityProjectId: undefined` significa «no lo toques», no «bórralo». Es la
  * misma regla que ya mordió con `esVsl` en los videos: guardar la URL corregida
  * de una landing no puede desconectarle Clarity, porque renombrar no contesta esa
- * pregunta. Lo mismo vale para `funnelId`, y ahi lo que borra es un `0`.
+ * pregunta. Lo mismo vale para `funnelIds`: ausente es «no los toques» y lo que
+ * DESASIGNA es la lista vacia. (Con un solo producto eso se escribia con un `0`
+ * explicito, que era un centinela; una lista vacia dice lo mismo sin inventar un
+ * valor que significa otra cosa.)
  */
 export function conLanding(
   actuales: LandingConfig[],
@@ -136,17 +182,17 @@ export function conLanding(
   const pid = parcial.clarityProjectId !== undefined
     ? limpio(parcial.clarityProjectId, 40).toLowerCase()
     : base?.clarityProjectId ?? '';
-  // Misma regla que `clarityProjectId`: `undefined` es «no lo toques». Lo que
-  // BORRA la asignacion es un `0` explicito — corregirle la URL a una landing no
-  // puede desasignarle el producto, que es la trampa de un mapper que reconstruye
-  // la fila campo por campo.
-  const fid = parcial.funnelId !== undefined
-    ? idFila(parcial.funnelId)
-    : base?.funnelId;
+  // Misma regla que `clarityProjectId`: `undefined` es «no los toques». Lo que
+  // BORRA la asignacion es la lista VACIA — corregirle la URL a una landing no
+  // puede desasignarle los productos, que es la trampa de un mapper que
+  // reconstruye la fila campo por campo.
+  const fids = parcial.funnelIds !== undefined
+    ? idsLimpios(parcial.funnelIds)
+    : base?.funnelIds ?? [];
   const fila: LandingConfig = {
     url: nueva,
     ...(pid ? { clarityProjectId: pid } : {}),
-    ...(fid ? { funnelId: fid } : {}),
+    ...(fids.length ? { funnelIds: fids } : {}),
   };
   // Se conserva la POSICIÓN al editar: en un desplegable, que un renglón salte al
   // final porque le corregiste una letra es desconcertante.

@@ -17,8 +17,7 @@ import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { mismaPagina } from '@/lib/landing-paginas';
 import type { LandingConfig } from '@/lib/landing-config';
-import { borrarLandingAction, getLandingsAction, getProductosAction, guardarLandingAction } from './landing-config-actions';
-import type { ProductoAsignable } from '@/lib/landing-funnel';
+import { borrarLandingAction, getLandingsAction, guardarLandingAction } from './landing-config-actions';
 
 const NUEVA = '__nueva__';
 
@@ -37,8 +36,6 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
   const [texto, setTexto] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // Los productos del negocio, para poder decir «esta landing vende este».
-  const [productos, setProductos] = useState<ProductoAsignable[]>([]);
 
   useEffect(() => {
     onCargando?.(true);
@@ -63,16 +60,6 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
     return () => { vivo = false; };
   }, [onCargando]);
 
-  // Los productos no gobiernan nada de lo que viene abajo, así que no entran en
-  // `onCargando`: si tardan, lo único que falta un instante es este desplegable.
-  useEffect(() => {
-    let vivo = true;
-    getProductosAction()
-      .then((p) => { if (vivo) setProductos(p); })
-      .catch(() => { /* sin productos, no se ofrece asignar */ });
-    return () => { vivo = false; };
-  }, []);
-
   // Con UNA sola landing no hay nada que elegir: se selecciona sola. Un
   // desplegable de un elemento es un paso que solo existe para ser confirmado.
   useEffect(() => {
@@ -90,37 +77,11 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
     setNueva(false); setTexto('');
   };
 
-  // ── A que PRODUCTO es esta landing ─────────────────────────────────────────
-  // Pedido de Martin, 04/10/2026: «la configuracion que falta es que el pixel
-  // deberiamos poder ASIGNAR a un PRODUCTO. Con la implementacion que hicimos,
-  // para que lleguen los leads a ese CRM y no a otro».
-  //
-  // Va ACA y no en una pantalla nueva: esto es el paso 1, donde la persona ya
-  // eligio de que pagina esta hablando, y «de que producto es» es una propiedad
-  // de esa pagina igual que su proyecto de Clarity.
-  const cfg = landings.find((l) => mismaPagina(l.url, elegida)) ?? null;
-  // ⚠️ EL DEL NEGOCIO NO SE OFRECE COMO OPCION PROPIA. Un lead del embudo por
-  // defecto se guarda con `funnel_id = null` —asi lo busca su tablero— asi que
-  // asignarlo por su id lo sacaria de la unica pantalla que el cliente mira.
-  // Aca es el valor VACIO, rotulado con su nombre para que se sepa donde caen.
-  const delNegocio = productos.find((p) => p.esDefault) ?? null;
-  const otros = productos.filter((p) => !p.esDefault);
-  // ⚠️ El valor guardado entra a la lista aunque ya no se pueda elegir. Un
-  // `<select>` cuyo `value` no esta entre sus opciones no muestra nada y el
-  // primer click escribe la primera: un embudo archivado borraria la asignacion
-  // sin que nadie la toque.
-  const asignado = cfg?.funnelId ?? null;
-  const huerfano = asignado != null && !productos.some((p) => p.id === asignado);
-
-  const asignarProducto = async (v: string) => {
-    if (!elegida) return;
-    setOcupado(true); setErr(null);
-    // `0` es lo que DESASIGNA (ausente seria «no lo toques», ver `conLanding`).
-    const r = await guardarLandingAction(elegida, { funnelId: Number(v) || 0 });
-    setOcupado(false);
-    if (!r.ok) { setErr(r.error); return; }
-    setLandings(r.landings);
-  };
+  // ⚠️ A QUE PRODUCTO ES ESTA LANDING YA NO SE PREGUNTA ACA. Vivia al pie de este
+  // paso como un desplegable, y el 06/10/2026 Martin lo mudo a un paso propio —el
+  // 2— y lo volvio multiple: `app/integraciones/AsignarProducto.tsx`. El porque
+  // esta ahi; lo que importa de este lado es que este componente ya no lee ni
+  // escribe `funnelIds`, asi que dos pantallas no pueden decidir lo mismo.
 
   const borrar = async (url: string) => {
     setOcupado(true); setErr(null);
@@ -176,25 +137,6 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
           <Button variant="secondary" size="sm" onClick={() => { setNueva(false); setTexto(''); }}>Cancelar</Button>
         </div>
       )}
-      {/* Solo cuando hay OTRO producto al que mandar los leads: con uno solo, el
-          desplegable no ofrece una decision — ofrece confirmar la unica que hay. */}
-      {elegida && !nueva && otros.length > 0 && (
-        <div style={{ marginTop: 13 }}>
-          <Select
-            label="Producto"
-            hint="Sus leads entran a este CRM."
-            value={asignado != null ? String(asignado) : ''}
-            onChange={(v) => { void asignarProducto(v); }}
-            disabled={ocupado}
-            options={[
-              { value: '', label: delNegocio?.nombre ?? 'El del negocio' },
-              ...otros.map((p) => ({ value: String(p.id), label: p.nombre })),
-              ...(huerfano ? [{ value: String(asignado), label: 'Producto archivado', sub: 'sus leads entran al del negocio' }] : []),
-            ]}
-          />
-        </div>
-      )}
-
       {err && <div style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
     </div>
   );

@@ -56,13 +56,14 @@ export async function getProductosAction(): Promise<ProductoAsignable[]> {
 /**
  * Agrega o actualiza una landing. `anterior` convierte «guardar» en «editar».
  *
- * ⚠️ `funnelId` sigue la misma regla que `clarityProjectId`: ausente es «no lo
- * toques», y lo que DESASIGNA es un `0`. Sin eso, corregirle la URL a una landing
- * le borraria el producto, porque `conLanding` reconstruye la fila campo por campo.
+ * ⚠️ `funnelIds` sigue la misma regla que `clarityProjectId`: ausente es «no los
+ * toques», y lo que DESASIGNA es la lista VACIA. Sin eso, corregirle la URL a una
+ * landing le borraria los productos, porque `conLanding` reconstruye la fila campo
+ * por campo.
  */
 export async function guardarLandingAction(
   url: string,
-  parcial: { clarityProjectId?: string; funnelId?: number } = {},
+  parcial: { clarityProjectId?: string; funnelIds?: number[] } = {},
   anterior?: string | null,
 ): Promise<LandingsResult> {
   try {

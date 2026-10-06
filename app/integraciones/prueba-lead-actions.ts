@@ -31,7 +31,7 @@ import { requireRolWs } from '@/lib/tab-access';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { createLead } from '@/lib/leads';
 import { replayDePrueba } from '@/lib/replay-leer';
-import { funnelDeLanding } from '@/lib/landing-funnel';
+import { funnelPrincipalDeLanding } from '@/lib/landing-funnel';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 
 /**
@@ -77,10 +77,16 @@ export async function leadDePruebaAction(marcador: string | null): Promise<LeadD
   const sesion = await replayDePrueba(marcador).catch(() => null);
   if (!sesion) return { ok: false, error: 'Todavía no llegó la grabación de esta prueba.' };
 
-  // A qué CRM entra, con la MISMA función que usa el opt-in: con dos lectores, el
+  // A qué CRM entra, con el MISMO módulo que usa el opt-in: con dos lectores, el
   // lead de prueba podría caer en un tablero distinto al de los leads de verdad de
   // esa página, y entonces la prueba estaría probando otra cosa.
-  const funnelId = await funnelDeLanding(ws, sesion.landingUrl);
+  //
+  // ⚠️ Y VA A UNO SOLO, el principal, aunque la página venda varios. Es lo que
+  // pidió Martín —«que se cree un lead de PRUEBA en el CRM en ese producto»,
+  // singular— y además es lo correcto: un opt-in de verdad se reparte a todos los
+  // productos porque esa persona es un lead de cada uno; una fila de diagnóstico
+  // repetida N veces es ruido en N tableros para mirar UNA grabación.
+  const funnelId = await funnelPrincipalDeLanding(ws, sesion.landingUrl);
 
   const db = await getTenantDb();
 

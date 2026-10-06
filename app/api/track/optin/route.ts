@@ -34,7 +34,7 @@ import { createLead, duplicadosDeLead } from '@/lib/leads';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault } from '@/lib/funnels';
 import { normalizarUrl } from '@/lib/landing-paginas';
-import { funnelDeLanding } from '@/lib/landing-funnel';
+import { funnelsDeLanding } from '@/lib/landing-funnel';
 import { funnelDeCampana } from '@/lib/campana-funnel';
 import { textoDuplicado } from '@/lib/leads-duplicados';
 import { wsEnContexto, getTenantDb, runWithWorkspace } from '@/lib/workspace';
@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
   // token que asignar, y colgarlo de ahi seria decir «todas mis landings venden
   // lo mismo». La pagina si distingue, y esa tabla ya existe POR PAGINA desde que
   // `clarityProjectId` necesito lo mismo (lib/landing-config.ts).
-  const funnelDeLaLanding = await funnelDeLanding(ws, paginaOptin);
+  const funnelesDeLaLanding = await funnelsDeLanding(ws, paginaOptin);
   // ── Y LA CAMPAÑA, que MANDA cuando está asignada (05/10/2026) ──────────────
   // Pedido de Martín: «si asigno a un producto una campaña que va a Landing 1… eso
   // debe medirse en el detalle del lead». O sea que el mapeo es campaña → producto, y
@@ -297,13 +297,21 @@ export async function POST(req: NextRequest) {
   // enrutaba el formulario de Meta y no la landing de esa misma campaña.
   const porCampana = await runWithWorkspace(ws, () => funnelDeCampana({ campaignId: atrib.utm_campaign, adId: atrib.utm_content }))
     .catch(() => ({ asignada: false as const }));
-  const funnelDelLead = porCampana.asignada ? porCampana.funnelId : funnelDeLaLanding;
+  // ⚠️ LA CAMPAÑA ASIGNADA ES **UNA**, la landing puede ser VARIAS. Asignar una
+  // campaña a un producto es decir a qué producto van sus leads, no a cuáles: el
+  // mapeo es campaña → producto y tiene un solo destino. Así que cuando manda la
+  // campaña, la lista es de uno — y la landing con tres productos no la amplía.
+  const funnelesDelLead: Array<number | null> = porCampana.asignada ? [porCampana.funnelId] : funnelesDeLaLanding;
 
   const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
 
   if (!dup.length) {
     try {
-      const lead = await runWithWorkspace(ws, () => createLead({
+      // ⚠️ LO QUE ES DE LA PERSONA SE ARMA UNA SOLA VEZ. Con varios productos hay
+      // VARIAS fichas de la misma persona y lo único que cambia entre ellas es a
+      // qué embudo entran: un segundo literal al lado sería la segunda versión del
+      // mismo lead, y el día que se agregue un campo va a entrar en una sola.
+      const datosDelLead = {
         nombre: nombre ?? email ?? telefono ?? 'Sin nombre',
         email, telefono,
         empresa: txt(body.empresa) ?? txt(body.company),
@@ -320,11 +328,45 @@ export async function POST(req: NextRequest) {
         // se agrega en uno solo se apaga solo: el guardado siguiente es un upsert de la
         // fila armada desde acá, así que lo que este objeto no traiga sale como null.
         fbclid: atrib.fbclid,
+      };
+      // El PRIMERO es el principal: es el que lleva el aviso, el que da el id de la
+      // respuesta y el único cuyo fallo cae a propuesta. `funnelesDelLead` nunca
+      // viene vacío (ver `funnelsDeLanding`), así que el `?? null` es para el
+      // compilador y no un caso real — y si lo fuera, `null` es el embudo del
+      // negocio, o sea entrar igual.
+      const funnelDelLead = funnelesDelLead[0] ?? null;
+      const lead = await runWithWorkspace(ws, () => createLead({
+        ...datosDelLead,
         // El CRM al que entra. `null` NO es «sin producto»: es el embudo DEL
         // NEGOCIO, que es donde caen hoy los 1.530 leads de la base. Una landing
         // sin producto asignado sigue cayendo exactamente ahi.
         funnel_id: funnelDelLead,
       }));
+
+      // ⚠️ UNA FICHA MÁS POR CADA PRODUCTO EXTRA, y es la semántica que eligió
+      // Martín el 06/10/2026: «el lead entra a TODOS los productos». Un lead vive
+      // en UN embudo —`leads.funnel_id` es una columna— así que la misma persona en
+      // tres productos son TRES fichas, cada una moviéndose por sus etapas.
+      //
+      // ⚠️ `permitirDuplicado` NO es opcional acá: `createLead` corre
+      // `duplicadosDeLead` por nombre, email y teléfono, así que la SEGUNDA ficha
+      // encontraría a la primera y tiraría `LeadDuplicadoError` — y en esta ruta un
+      // alta que falla cae a propuesta, o sea que el fan-out dejaría a la persona
+      // esperando un click. El duplicado ya se chequeó arriba, contra el CRM entero.
+      //
+      // ⚠️ Y CADA UNA ES BEST-EFFORT, con su propio try. Si falla una extra, la
+      // persona YA está en el CRM: caer a propuesta ahí crearía un borrador de
+      // alguien que ya entró. Se registra y se sigue — lo que se pierde es una
+      // ficha secundaria, no el lead.
+      const tambien: number[] = [];
+      for (const f of funnelesDelLead.slice(1)) {
+        try {
+          const otro = await runWithWorkspace(ws, () => createLead({ ...datosDelLead, funnel_id: f, permitirDuplicado: true }));
+          tambien.push(otro.id);
+        } catch (e) {
+          console.error(`[track:optin] ws=${ws} lead=${lead.id} no pudo entrar al producto ${f ?? 'del negocio'}:`, e instanceof Error ? e.message : e);
+        }
+      }
       await runWithWorkspace(ws, () =>
         emitirDelCatalogo('lead-de-landing', {
           ws,
@@ -343,12 +385,16 @@ export async function POST(req: NextRequest) {
             email ? `✉️ ${email}` : null,
             resumenForm,
             hayAtribucion(atrib) ? `📢 ${[atrib.utm_campaign, atrib.utm_content].filter(Boolean).join(' · ') || atrib.utm_source}` : null,
+            // Con varios productos se DICE, y corto: el aviso lleva al principal y
+            // sin esta línea quien lo abre no tiene cómo saber que hay más fichas de
+            // la misma persona en otros tableros.
+            tambien.length ? `🗂️ Entró a ${tambien.length + 1} productos` : null,
             `👉 ${linkApp(`/crm/${lead.id}`, wsEnContexto())}`,
           ].filter(Boolean).join('\n'),
         }),
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
-      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo`);
-      return ok({ lead: lead.id, creado: true });
+      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo${tambien.length ? ` (+${tambien.length} productos: ${tambien.join(',')})` : ''}`);
+      return ok({ lead: lead.id, creado: true, ...(tambien.length ? { tambien } : {}) });
     } catch (e) {
       // ⚠️ Si el alta falla, NO se pierde la persona: cae a propuesta, que es
       // exactamente para lo que existe. Un error del CRM no puede convertirse en
