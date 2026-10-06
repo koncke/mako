@@ -125,7 +125,13 @@ export function LlamadasCliente({ llamadas }: { llamadas: LlamadaCliente[] | nul
 const CSS = `
 /* Dos columnas en la ficha ancha: los datos y las notas. En una ventana angosta las notas
    bajan. */
-.fr{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+/* ⚠️ LAS DOS CAJAS MIDEN LO MISMO (06/10/2026): «que el apartado de NOTAS tenga el mismo
+   tamaño que el recuadro de al lado». La fila se estira a la más alta (align-items:stretch)
+   y la caja de las Notas, que vive adentro de un envoltorio, llena su celda: sin el
+   height:100% se estiraba el envoltorio y la caja seguía del alto de su contenido. */
+.fr{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:stretch; }
+.fr-notas{ display:flex; flex-direction:column; min-width:0; }
+.fr-notas > section{ flex:1; box-sizing:border-box; }
 @media (max-width: 900px){ .fr{ grid-template-columns:minmax(0,1fr); } }
 
 /* Las llamadas: una lista, la fecha adelante para que se lea de arriba abajo como lo que es,

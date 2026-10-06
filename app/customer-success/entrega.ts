@@ -68,6 +68,12 @@ export type CarteraEnEntrega =
        * tablero muestra sólo a los que tienen fila: de menos, nunca a todos en todos.
        */
       casaPorLead: Record<number, number | null>;
+      /**
+       * El orden MANUAL de cada columna (mig 0196): producto → etapa → leads en el orden en
+       * que se arrastraron. Vale sólo con «Ordenar: Manual»; con otro criterio manda ése.
+       * Vacío = nadie ordenó nada todavía.
+       */
+      ordenPorServicio: Record<number, Record<string, number[]>>;
     }
   | { ok: false; error: string };
 
@@ -161,14 +167,17 @@ async function casaDeLaCartera(
 ): Promise<Record<number, number | null>> {
   try {
     const db = await getTenantDb();
-    const filas = await leerTodo<{ id: number; funnel_id: number | null }>(db, 'leads', 'id, funnel_id',
-      { orden: 'id', eq: { estado_lead: 'ganado' } });
+    const [filas, fuera] = await Promise.all([
+      leerTodo<{ id: number; funnel_id: number | null }>(db, 'leads', 'id, funnel_id',
+        { orden: 'id', eq: { estado_lead: 'ganado' } }),
+      fueraDe(),
+    ]);
     const out: Record<number, number | null> = {};
     for (const l of filas) {
       const tieneFilas = ofrecidos.some((p) => porServicio[p]?.[l.id] !== undefined);
       out[l.id] = casaDeCliente({
         funnelId: l.funnel_id == null ? null : Number(l.funnel_id),
-        funnelDefault, productoDeFunnel, ofrecidos, tieneFilas,
+        funnelDefault, productoDeFunnel, ofrecidos, tieneFilas, fuera: fuera.get(l.id),
       });
     }
     return out;
@@ -176,6 +185,75 @@ async function casaDeLaCartera(
     console.warn('[entrega] no pude leer el embudo de los clientes:', e instanceof Error ? e.message : e);
     return {};
   }
+}
+
+/**
+ * De qué productos sacaron a cada cliente (`cliente_entrega_fuera`, mig 0196): lead → productos.
+ *
+ * ⚠️ TIRA si no puede leer, y quien llama decide. Leído como «nadie está fuera», un cliente
+ * que se sacó de su casa volvería a aparecer ahí — la decisión de una persona revertida por
+ * una consulta caída.
+ */
+async function fueraDe(leadId?: number): Promise<Map<number, number[]>> {
+  const db = await getTenantDb();
+  const filas = await leerTodo<{ id: number; lead_id: number; producto_id: number }>(db, 'cliente_entrega_fuera',
+    'id, lead_id, producto_id', { orden: 'id', ...(leadId != null ? { eq: { lead_id: leadId } } : {}) });
+  const out = new Map<number, number[]>();
+  for (const f of filas) {
+    const k = Number(f.lead_id);
+    out.set(k, [...(out.get(k) ?? []), Number(f.producto_id)]);
+  }
+  return out;
+}
+
+/**
+ * El orden manual de las columnas (`cliente_entrega_orden`, mig 0196): producto → etapa → leads.
+ *
+ * Nunca tira: sin la lectura, cada columna va en el orden de «Ordenar», que es lo que había
+ * antes de que existiera el orden manual — de menos, nunca algo inventado.
+ */
+async function ordenDe(productos: readonly number[]): Promise<Record<number, Record<string, number[]>>> {
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('cliente_entrega_orden')
+      .select('producto_id, etapa, lead_ids').in('producto_id', [...productos]);
+    if (error) throw new Error(error.message);
+    const out: Record<number, Record<string, number[]>> = {};
+    for (const f of (data ?? []) as Array<{ producto_id: number; etapa: string; lead_ids: Array<number | string> | null }>) {
+      (out[Number(f.producto_id)] ??= {})[f.etapa] = (f.lead_ids ?? []).map(Number);
+    }
+    return out;
+  } catch (e) {
+    console.warn('[entrega] no pude leer el orden manual de las columnas:', e instanceof Error ? e.message : e);
+    return {};
+  }
+}
+
+/**
+ * Los productos de UN cliente, calculados en el server con la MISMA regla que la pantalla.
+ * Lo usa «Quitar de este producto» antes de escribir: el botón sólo se ofrece con dos o más
+ * productos, pero esconder un botón no protege nada.
+ */
+export async function productosDelCliente(leadId: number): Promise<{ productos: number[]; casa: number | null }> {
+  const { productos, productoDeFunnel, funnelDefault } = await productosOfrecibles();
+  const ofrecidos = productos.map((p) => p.id);
+  if (!ofrecidos.length) return { productos: [], casa: null };
+  const db = await getTenantDb();
+  const [{ data: lead, error: e1 }, { data: filas, error: e2 }, fuera] = await Promise.all([
+    db.from('leads').select('funnel_id').eq('id', leadId).maybeSingle(),
+    db.from('cliente_entrega').select('producto_id').eq('lead_id', leadId),
+    fueraDe(leadId),
+  ]);
+  if (e1 || e2) throw new Error((e1 ?? e2)!.message);
+  const conFila = new Set(((filas ?? []) as Array<{ producto_id: number }>).map((f) => Number(f.producto_id)));
+  const funnelId = (lead as { funnel_id: number | null } | null)?.funnel_id;
+  const casa = casaDeCliente({
+    funnelId: funnelId == null ? null : Number(funnelId),
+    funnelDefault, productoDeFunnel, ofrecidos,
+    tieneFilas: ofrecidos.some((p) => conFila.has(p)),
+    fuera: fuera.get(leadId),
+  });
+  return { productos: ofrecidos.filter((p) => p === casa || conFila.has(p)), casa };
 }
 
 /**
@@ -190,7 +268,7 @@ async function casaDeLaCartera(
 export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
   try {
     const { productos, principales, productoDeFunnel, funnelDefault } = await productosOfrecibles();
-    if (!productos.length) return { ok: true, servicios: [], porServicio: {}, secuenciasPorServicio: {}, casaPorLead: {} };
+    if (!productos.length) return { ok: true, servicios: [], porServicio: {}, secuenciasPorServicio: {}, casaPorLead: {}, ordenPorServicio: {} };
 
     const ids = productos.map((p) => p.id);
     const catalogos = await entregasDeProductos(ids);
@@ -222,8 +300,11 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
         principal: principales.has(p.id),
       };
     });
-    const casaPorLead = await casaDeLaCartera(ids, productoDeFunnel, funnelDefault, porServicio);
-    return { ok: true, servicios, porServicio, secuenciasPorServicio: Object.fromEntries(secs), casaPorLead };
+    const [casaPorLead, ordenPorServicio] = await Promise.all([
+      casaDeLaCartera(ids, productoDeFunnel, funnelDefault, porServicio),
+      ordenDe(ids),
+    ]);
+    return { ok: true, servicios, porServicio, secuenciasPorServicio: Object.fromEntries(secs), casaPorLead, ordenPorServicio };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer la entrega de tus servicios.' };
   }

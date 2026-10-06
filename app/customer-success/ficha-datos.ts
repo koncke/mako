@@ -147,6 +147,9 @@ export type ContactoFicha = {
   /** `leads.web` (mig 0194): la «Web» que reemplazó a «Dirección» en la Información
    *  principal del CRM, que es la que se monta en el Resumen. */
   web: string | null;
+  /** `leads.foto_auto_url` (mig 0195): la foto de WhatsApp COPIADA a nuestro bucket por el cron
+   *  del CRM. No vence, así que se prueba antes que el proxy de WhatsApp en vivo. */
+  fotoGuardada: string | null;
 };
 
 /**

@@ -429,7 +429,7 @@ export function TablaClientes({
              salida sin arrastre — con el teclado, o en una tabla larga donde el grupo de
              destino está tres pantallas más abajo. */
           <td data-parar style={td}>
-            <Dropdown value={k} options={menuEtapa.options} columns={menuEtapa.columns} alContenido placeholder="Etapa borrada"
+            <Dropdown value={k} options={menuEtapa.options} alContenido placeholder="Etapa borrada"
               ariaLabel={`Mover «${nombre}» de etapa`}
               onChange={(v) => { if (v && v !== k) onMover(c.leadId, v); }}
               buttonStyle={{

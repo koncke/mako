@@ -64,11 +64,13 @@
 //     las tarjetas, como el `Fragment` del Plan), y no pegado adentro del de la tarjeta
 //     con un margen propio: el aire lo pone el `gap` de la lista, que es el mismo arriba
 //     y abajo.
-// Y una diferencia que se dejó A PROPÓSITO, porque copiarla sería mentir: el hueco del
-// Plan sigue la ALTURA del cursor porque allá el lugar se respeta (el número sale de
-// dónde soltaste). Acá no hay orden dentro de una etapa —la columna se dibuja en el orden
-// de la lista—, así que el hueco va donde la tarjeta VA a aparecer (`dondeCae`, en
-// LoteClientes.tsx). Seguir al cursor era prometer «acá» y dejarla «allá».
+// ⛔ HASTA EL 06/10/2026 HABÍA UNA DIFERENCIA A PROPÓSITO: el hueco no seguía al cursor
+// sino que iba donde la tarjeta IBA a aparecer (`dondeCae`), porque la columna no tenía
+// orden propio y seguir al cursor era prometer «acá» y dejarla «allá». Martín: «si a un
+// cliente lo arrastro abajo de otro, no se ve esa animación», y al preguntarle si esa
+// posición se guarda: «Se guarda + "Manual"». Ahora la columna TIENE orden
+// (`cliente_entrega_orden`, mig 0196) y el hueco sigue al cursor como en el Plan y el CRM
+// (./orden-manual.ts). Soltar ahí es donde queda, y «Ordenar» pasa a «Manual».
 // Lo que ya era igual y no se tocó: la copia (el MISMO hook), la tarjeta de origen sin
 // ningún cambio, el `dragover` como único reloj del auto-scroll, y la limpieza en
 // `dragend` Y en `drop`. Lo que el Plan tiene y acá NO: el arrastre con el DEDO
@@ -111,7 +113,8 @@ import { tiempoEnEtapa } from './en-etapa';
 // el `transform` sobre un ref, el listener en captura, el auto-scroll adentro del
 // `dragover`— viajó con el código en vez de volver a escribirse.
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
-import { quienesViajan, dondeCae } from './LoteClientes';
+import { quienesViajan } from './LoteClientes';
+import { indiceEnColumna, antesDeQuien } from './orden-manual';
 
 /** Dónde está un cliente en esta entrega. */
 export type Asignacion = { etapa: string; etapa_desde: string; por: string };
@@ -124,8 +127,8 @@ export type Asignacion = { etapa: string; etapa_desde: string; por: string };
 export function KanbanEntrega({
   etapas, fases, fase, origen, servicio, clientes, asignacion, numeroDe,
   trabajoDe, tableroOk, cuentas,
-  onMover, onAbrir, onEquipo, onNuevoCliente, onError,
-  seleccion, onSeleccion, onMoverLote,
+  onSoltar, onAbrir, onEquipo, onNuevoCliente, onError,
+  seleccion, onSeleccion,
 }: {
   etapas: EtapaEntrega[];
   /**
@@ -162,7 +165,16 @@ export function KanbanEntrega({
    *  afirmación sobre su trabajo, y si la lectura falló nadie la hizo. */
   tableroOk: boolean;
   cuentas?: CuentasProp;
-  onMover: (leadId: number, etapa: string) => void;
+  /**
+   * Se soltó lo que viajaba en ESA columna, ANTES de ese cliente (`null` = al final).
+   *
+   * ⚠️ UN SOLO CALLBACK PARA MOVER Y REORDENAR (06/10/2026): soltar en otra columna es un
+   * movimiento de etapa Y un lugar en la columna nueva, y soltar en la misma es sólo el
+   * lugar. Las dos cosas las decide la pantalla, que es la que tiene la columna ENTERA (este
+   * tablero ve sólo lo que el buscador dejó) y el deshacer. Un lote viaja junto: lo que la
+   * persona decidió es la selección entera.
+   */
+  onSoltar: (leadIds: number[], etapa: string, antesDe: number | null) => void;
   onAbrir: (leadId: number) => void;
   onEquipo: (leadId: number) => void;
   /**
@@ -177,11 +189,6 @@ export function KanbanEntrega({
   /** Los clientes marcados. Vive AFUERA: es la misma selección que la tabla. */
   seleccion: ReadonlySet<number>;
   onSeleccion: (next: Set<number>) => void;
-  /**
-   * Soltar una tarjeta MARCADA con más de una marcada: se mueven todas juntas, con UN
-   * deshacer (lo arma la pantalla). Llega sólo con los que de verdad cambian de etapa.
-   */
-  onMoverLote: (leadIds: number[], etapa: string) => void;
 }) {
   /**
    * Lo que está en la mano, EN UN REF: qué clientes viajan (el agarrado, o el lote).
@@ -202,10 +209,23 @@ export function KanbanEntrega({
    * DÓNDE VA A CAER: la columna Y el índice exacto. Sólo se repinta cuando CAMBIA.
    *
    * ⚠️ ES LO QUE CONVIERTE «la estoy soltando en esta columna» EN «la estoy soltando
-   * ACÁ». Y el índice sale de los DATOS (`dondeCae`), no de la altura del cursor: ver la
-   * cabecera del archivo.
+   * ACÁ». Desde el 06/10/2026 el índice sale de la ALTURA DEL CURSOR, como en el CRM y en el
+   * Plan («si a un cliente lo arrastro abajo de otro, no se ve esa animación»): la columna
+   * tiene orden manual y soltar ahí es donde la tarjeta queda (./orden-manual.ts).
    */
   const [ins, setIns] = useState<{ etapa: string; idx: number } | null>(null);
+  /**
+   * LOS PUNTOS MEDIOS DE LAS TARJETAS DE CADA COLUMNA, MEDIDOS UNA VEZ AL AGARRAR y en
+   * coordenadas del CONTENIDO (página + scroll de la columna).
+   *
+   * ⚠️ UNA VEZ: leer el layout de las tarjetas en cada `dragover` es lo que el Plan pagó siete
+   * veces (el gesto se siente pegajoso), y además con el hueco abierto las tarjetas de abajo se
+   * corren: medidas en vivo, el índice oscilaría entre dos valores.
+   * ⚠️ DEL CONTENIDO: cada columna tiene su scroll y el auto-scroll del gesto lo mueve. Lo medido
+   * contra la ventana apuntaría a otra tarjeta después de correr la columna; el `dragover`
+   * suma lo mismo del otro lado, así que la comparación se sostiene (la cuenta del CRM).
+   */
+  const medios = useRef<Record<string, number[]>>({});
   const riel = useRef<HTMLDivElement | null>(null);
 
   // ⛔ ACÁ VIVÍA EL ESTADO DE LA FASE (`fasePedida` y su `faseVista` derivada), y se mudó
@@ -240,13 +260,6 @@ export function KanbanEntrega({
   );
 
   /**
-   * El lugar de cada cliente en la lista, que es el orden en que el reparto llena cada
-   * columna. Es lo que `dondeCae` necesita para saber dónde aparece uno que llega: la
-   * columna NO tiene orden propio, tiene el de la lista.
-   */
-  const posicionDe = useMemo(() => new Map(clientes.map((c, i) => [c.leadId, i])), [clientes]);
-
-  /**
    * LAS COLUMNAS QUE SE DIBUJAN. El filtro por fase es del RENDER, no del reparto.
    *
    * ⚠️ POR ESO `repartirEnEtapas` SIGUE RECIBIENDO LAS ETAPAS ENTERAS. Pasarle la lista
@@ -263,17 +276,17 @@ export function KanbanEntrega({
 
   // ── El gesto ───────────────────────────────────────────────────────────────
 
-  /**
-   * En qué etapa está HOY un cliente, con la misma regla que el reparto: sin fila (o con
-   * la etapa vacía) está en la primera.
-   *
-   * ⛔ ACÁ VIVÍAN LOS PUNTOS MEDIOS DE CADA TARJETA, medidos al agarrar en coordenadas de
-   * página y del contenido de cada columna, para que el hueco siguiera la altura del
-   * cursor. Se fueron con esa idea (ver la cabecera): el hueco ya no depende de dónde
-   * está el mouse sino de dónde va a aparecer la tarjeta, así que durante el gesto no se
-   * lee layout de ninguna tarjeta — que era además lo que más cuidaba ese bloque.
-   */
-  const etapaActual = (leadId: number) => (asignacion[leadId]?.etapa ?? '').trim() || (etapas[0]?.key ?? '');
+  /** Al agarrar: los puntos medios de TODAS las columnas, una sola vez (ver `medios`). */
+  function medirColumnas() {
+    const out: Record<string, number[]> = {};
+    for (const col of riel.current?.querySelectorAll<HTMLElement>('[data-etapa]') ?? []) {
+      const cuerpo = col.querySelector<HTMLElement>('[data-cuerpo]');
+      const dy = window.scrollY + (cuerpo?.scrollTop ?? 0);
+      out[col.dataset.etapa ?? ''] = [...(cuerpo?.querySelectorAll<HTMLElement>('[data-tarjeta]') ?? [])]
+        .map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 + dy; });
+    }
+    medios.current = out;
+  }
 
   /**
    * La copia que sigue al cursor sale del molde del Plan. LOS DOS EMPUJES se quedan acá, y
@@ -324,10 +337,12 @@ export function KanbanEntrega({
     try { montarCopia(tarjeta, e.clientX - r.left, e.clientY - r.top); }
     finally { marca?.remove(); }
     montarEmpuje();
+    medirColumnas();
   }
 
   function soltarGesto() {
     enMano.current = null;
+    medios.current = {};
     setIns(null);
     pararScroll();
     soltarCopia();
@@ -381,12 +396,28 @@ export function KanbanEntrega({
       const dir = e.clientX < r.left + BORDE ? -1 : e.clientX > r.right - BORDE ? 1 : 0;
       if (dir !== 0) el.scrollLeft += dir * 18;
     };
+    /**
+     * ⚠️ EL `dragenter` SE ACEPTA ADENTRO DE UNA COLUMNA, o soltar ENCIMA DEL HUECO se puede
+     * perder. Desde el 06/10 el hueco sigue al cursor, así que aparece JUSTO DEBAJO de él: el
+     * elemento bajo el cursor cambia sin que el mouse se mueva, y en esa vuelta Chromium
+     * dispara `dragenter` y NO `dragover`; si el `dragenter` no se canceló, soltar ahí no llega.
+     * Lo midió el agente del editor de etapas en el arnés (0 de 2 drops sobre el hueco sin esto,
+     * 2 de 2 con esto) y el kanban abre su hueco de la misma forma.
+     * Sólo adentro de `[data-etapa]`: aceptarlo en toda la página no habilita soltar (eso lo
+     * decide el `dragover` de la columna), pero tampoco tiene por qué.
+     */
+    const aceptarEntrada = (e: DragEvent) => {
+      if (enMano.current == null) return;
+      if ((e.target as Element | null)?.closest?.('[data-etapa]')) e.preventDefault();
+    };
     const fin = () => {
       document.removeEventListener('dragover', empujeDelRiel, true);
+      document.removeEventListener('dragenter', aceptarEntrada, true);
       document.removeEventListener('dragend', fin, true);
       document.removeEventListener('drop', fin, true);
       if (quitarEmpuje.current === fin) quitarEmpuje.current = null;
     };
+    document.addEventListener('dragenter', aceptarEntrada, true);
     document.addEventListener('dragover', empujeDelRiel, true);
     document.addEventListener('dragend', fin, true);
     document.addEventListener('drop', fin, true);
@@ -410,20 +441,24 @@ export function KanbanEntrega({
     if (dir !== 0) cuerpo.scrollTop += dir * 18;
   }
 
+  /**
+   * Soltar en una columna. El índice es el del hueco que se estaba dibujando (lo último que
+   * vio la persona); sin hueco en esa columna —soltar sin haber pasado por un `dragover` de
+   * ella—, al final.
+   *
+   * ⚠️ EL ÍNDICE SE LEE ANTES DE `soltarGesto()`, que borra el hueco. Y sale del estado de ESTE
+   * render: el `dragover` que lo puso ya re-renderizó, así que el handler lo ve.
+   *
+   * Qué se mueve y si cambió algo lo decide la pantalla (`onSoltar`): soltar donde ya estaba
+   * no es un cambio y no se guarda ni se anuncia (`mismaLista`).
+   */
   function soltarEn(key: string) {
     const mano = enMano.current;
+    const idx = ins?.etapa === key ? ins.idx : Number.MAX_SAFE_INTEGER;
     soltarGesto();
     if (!mano) return;
-    // Soltar donde ya estaba no es un movimiento, y el choke point también lo ignora:
-    // cortar acá evita el viaje y el cartel de «se movió» sobre algo que no se movió.
-    // En un lote se mandan SÓLO los que cambian, así el toast cuenta lo que pasó.
-    const mueven = mano.ids.filter((id) => etapaActual(id) !== key);
-    if (!mueven.length) return;
-    // ⚠️ UN LOTE VA POR `onMoverLote` AUNQUE AL FINAL CAMBIE UNO SOLO: la persona decidió
-    // sobre la selección entera, y lo que deshace es esa decisión — un deshacer por
-    // cliente dejaría arriba el que vuelve UNO.
-    if (mano.ids.length > 1) onMoverLote(mueven, key);
-    else onMover(mueven[0], key);
+    const dibujadas = (porEtapa[key] ?? []).map((c) => c.leadId);
+    onSoltar(mano.ids, key, antesDeQuien(dibujadas, idx, mano.ids));
   }
 
   /** Marcar o desmarcar uno. La selección se devuelve ENTERA: la guarda la pantalla. */
@@ -496,11 +531,10 @@ export function KanbanEntrega({
               style={{ borderTop: `3px solid ${color}`, ...(destino ? { borderLeftColor: color, borderRightColor: color, borderBottomColor: color } : null) }}
               /* `preventDefault` es lo que HABILITA el drop: sin él el navegador lo
                  rechaza y no pasa nada, que se lee como que el arrastre no anda.
-                 ⚠️ Y SE HABILITA TAMBIÉN EN LA COLUMNA DE ORIGEN, aunque soltar ahí no
-                 mueva a nadie: con el drop rechazado el sistema dibuja el cursor de
-                 «prohibido» en cuanto se agarra la tarjeta —el cursor arranca sobre su
-                 propia columna—, y eso se lee como que el arrastre no anda. Lo que dice
-                 «acá no pasa nada» es que esa columna no se tiñe ni abre hueco. */
+                 ⚠️ Y SE HABILITA TAMBIÉN EN LA COLUMNA DE ORIGEN, que desde el 06/10 abre su
+                 hueco igual que las otras: soltar ahí REORDENA (orden manual). Antes no
+                 movía a nadie y se habilitaba igual, porque con el drop rechazado el sistema
+                 dibuja el cursor de «prohibido» apenas se agarra la tarjeta. */
               onDragOver={(ev) => {
                 const mano = enMano.current;
                 if (mano == null) return;
@@ -508,12 +542,11 @@ export function KanbanEntrega({
                 ev.dataTransfer.dropEffect = 'move';
                 const cuerpo = ev.currentTarget.querySelector<HTMLElement>('[data-cuerpo]');
                 empujarColumna(cuerpo, ev.clientY);
-                const idx = dondeCae(e.key, mano.ids, etapaActual, cards.map((c) => c.leadId),
-                  (id) => posicionDe.get(id) ?? Number.MAX_SAFE_INTEGER);
+                // La altura del cursor en las MISMAS coordenadas en que se midió (`medios`).
+                const y = ev.clientY + window.scrollY + (cuerpo?.scrollTop ?? 0);
+                const idx = indiceEnColumna(medios.current[e.key] ?? [], y);
                 // Y sólo se re-renderiza cuando el destino cambia DE VERDAD.
-                setIns((p) => (idx === null
-                  ? (p?.etapa === e.key ? null : p)
-                  : (p && p.etapa === e.key && p.idx === idx ? p : { etapa: e.key, idx })));
+                setIns((p) => (p && p.etapa === e.key && p.idx === idx ? p : { etapa: e.key, idx }));
               }}
               onDragLeave={(ev) => {
                 if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) {

@@ -34,6 +34,21 @@
 //    más cercano adentro de ella (`destinoEn`): con el lugar más cercano a secas, el título
 //    de la caja de abajo seguía apuntando al final de la de arriba. Con el teclado, Alt+↑ /
 //    Alt+↓ sobre la fila hace lo mismo un lugar por vez, cruzando de caja en los bordes.
+//  · DONDE VA A CAER SE ABRE UN HUECO (`.ee-hueco`): «al arrastrar, copia la misma animación
+//    que tenemos en el CRM o ahí mismo en las tarjetas de clientes, ya que si lo estoy
+//    arrastrando se tiene que ver donde va a caer» (Martín, 06/10/2026). Antes era una LÍNEA
+//    de 2 px arriba de la fila, y la copia que sigue al cursor la tapaba casi siempre: con
+//    el cursor en el medio de la fila agarrada, la copia cubre justo la franja donde cae la
+//    línea. El hueco es la pieza del kanban de clientes (`.ke-hueco`, KanbanEntrega.tsx) y
+//    del Plan: punteado de 2 px del color que la etapa VA a tener ahí, fondo de ese color
+//    al 7 % y el alto de UNA fila, y las filas de abajo se corren para dejarle lugar. Al
+//    arrastrar una fase entera, lo mismo entre cajas: un hueco del alto de una caja chica.
+//
+//    ⚠️ Y NO SE ABRE DONDE SOLTAR NO CAMBIA NADA (`cambiaAlSoltar`): la fila agarrada sigue
+//    en su lugar —al nodo origen no se le toca el tamaño— y ESO es lo que dice «se queda
+//    acá». Con el hueco ahí, desde el primer píxel del gesto la fila de origen saltaba una
+//    fila para abajo debajo de la copia y volvía al cruzar su mitad: la misma razón por la
+//    que la caja de origen no se enciende.
 //
 // Lo que NO cambió del molde del CRM (app/crm/EtapasModal.tsx): caja de 760 con alto FIJO,
 // el título es un input que renombra el producto, el pie es sólo «Eliminar producto» en rojo
@@ -106,8 +121,8 @@
 // el tablero («si lo muevo muy al costado, se sale del contenedor... y deja de desplazar»)
 // aplicado acá antes de que se reporte: el destino y el empuje del scroll salen sólo de la
 // ALTURA del cursor, así que irse de costado —sobre el borde del modal o afuera— sigue
-// moviendo la marca y scrolleando el cuerpo. Y el `drop` se resuelve en `document` también:
-// soltar fuera de la lista suelta en la marca que se ve, no se pierde el gesto.
+// moviendo el hueco y scrolleando el cuerpo. Y el `drop` se resuelve en `document` también:
+// soltar fuera de la lista suelta en el hueco que se ve, no se pierde el gesto.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // LAS FASES
@@ -125,9 +140,9 @@
 // la fase.
 //
 // ⚠️ LAS FASES TAMBIÉN SE REORDENAN: se arrastra el título (y viaja la caja entera), o
-// Alt+↑ / Alt+↓ sobre su nombre. El destino es el HUECO entre dos cajas, que se marca con
-// una línea. Un grupo con etapas se mueve entre los que tienen etapas y nunca antes del de
-// la entrada; uno vacío, entre los vacíos.
+// Alt+↑ / Alt+↓ sobre su nombre. El destino es el espacio entre dos cajas (`.ee-entre`), y
+// ahí se abre el hueco. Un grupo con etapas se mueve entre los que tienen etapas y nunca
+// antes del de la entrada; uno vacío, entre los vacíos.
 
 import {
   Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState,
@@ -150,14 +165,12 @@ const MAX_LABEL = 40;
 /** El mismo tope que el título del editor del CRM y que `renombrarServicioAction`. */
 const MAX_NOMBRE = 60;
 
-/**
- * La línea de 2 px que dice dónde va a caer una etapa: en el hueco de ARRIBA de la fila.
- * Una sombra de afuera y no una de adentro: adentro se dibujaba sobre el borde redondeado
- * de la fila blanca y se leía como un borde de color, no como un lugar entre dos filas.
- */
-const MARCA: CSSProperties = { boxShadow: '0 -3px 0 -1px var(--primary)' };
-/** El hueco entre dos cajas, cuando es el destino de una FASE: la línea va al medio. */
-const HUECO_MARCADO: CSSProperties = { background: 'linear-gradient(var(--primary), var(--primary)) center / 100% 2px no-repeat' };
+/** El alto de una fila. Es también el del HUECO de una etapa: «el hueco mide lo que una
+ *  fila», y con dos números sueltos el primer retoque los separa. */
+const FILA = 38;
+/** El alto de una caja chica (sólo su título): el de «Nueva fase» y el del hueco de una
+ *  FASE entre dos cajas. */
+const CAJA_CHICA = 48;
 const PUNTO: CSSProperties = { width: 9, height: 9, flex: 'none', borderRadius: '50%' };
 const INPUT: CSSProperties = {
   flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 500, fontSize: 14, color: 'var(--ink)',
@@ -187,8 +200,9 @@ const SOLO_LECTOR: CSSProperties = {
  * conservar la forma de la fila (o de la caja entera, si lo que viaja es una fase).
  *
  * ⚠️ LA CAJA QUE SE ENCIENDE NO CAMBIA DE TAMAÑO: el borde es de 1 px siempre y el anillo
- * de más es una sombra. Los lugares del arrastre se miden al agarrar; un borde que engorda
- * al ser destino correría todo lo de abajo y la marca apuntaría a otro lado.
+ * de más es una sombra. Los lugares del arrastre se miden al agarrar, SIN el hueco; lo
+ * único que corre las filas a propósito es el hueco, y `medir` lo apaga para leer. Un
+ * borde que engorda al ser destino correría todo lo de abajo sin que `medir` lo sepa.
  *
  * ⚠️ TODO ALINEA CONTRA LA MISMA COLUMNA: el asa de una fila, la del título de una fase, el
  * hueco de «Nueva etapa» y el de «Nueva fase» caen a 14 px del borde de afuera de la caja
@@ -202,12 +216,27 @@ const CSS = [
   '.ee-modal .mk-modal__h{align-self:stretch}',
   // La CAJA de una fase: el gris que hace que las filas no floten sobre el blanco.
   '.ee-caja{display:flex;flex-direction:column;gap:4px;padding:4px 6px 6px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);transition:border-color .12s,box-shadow .12s,background-color .12s}',
-  // El DESTINO de un arrastre que cambia de fase: la caja entera, no sólo una línea.
+  // El DESTINO de un arrastre que cambia de fase: la caja entera, además del hueco.
   '.ee-caja.ee-destino{border-color:var(--primary);background:var(--primary-bg);box-shadow:0 0 0 1px var(--primary)}',
-  '.ee-hueco{height:12px;flex:none}',
+  // El espacio entre dos cajas. Es flex para que el margen del hueco de una fase no se
+  // escape por arriba y por abajo (en un bloque, los márgenes del hijo colapsan con el padre).
+  '.ee-entre{flex:none;display:flex;flex-direction:column;min-height:12px}',
   '.ee-fila,.ee-fase{display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:9px;border:1px solid transparent;font-family:' + SANS + '}',
   // Las etapas son filas BLANCAS adentro de la caja gris.
-  '.ee-fila{min-height:38px;background:var(--surface);border-color:var(--border)}',
+  '.ee-fila{min-height:' + FILA + 'px;background:var(--surface);border-color:var(--border)}',
+  // EL HUECO: donde va a caer lo que se arrastra. La pieza de .ke-hueco (el kanban de
+  // clientes) y del Plan, con el alto de una fila y el radio de una fila. El color va
+  // inline: es el de la fase destino.
+  '.ee-hueco{flex:none;height:' + FILA + 'px;border-radius:9px;border:2px dashed var(--primary);transition:height .12s}',
+  // El de una FASE, entre dos cajas: el alto y el radio de una caja chica, con el aire de
+  // siempre arriba y abajo.
+  '.ee-entre>.ee-hueco{height:' + CAJA_CHICA + 'px;border-radius:12px;margin:12px 0}',
+  // En una caja vacía el hueco va EN LUGAR del texto, como el guion de una columna vacía
+  // del Plan: los dos dicen «acá», y juntos la caja crecía una fila entera.
+  '.ee-hueco+.ee-vacia{display:none}',
+  // Mientras se mide, la lista se lee como si no hubiera hueco (ver medir).
+  '.ee-midiendo .ee-hueco{display:none}',
+  '.ee-midiendo .ee-hueco+.ee-vacia{display:block}',
   '.ee-fila:hover,.ee-fila:focus-within{border-color:var(--border-strong)}',
   '.ee-fase{min-height:36px}',
   '.ee-oculto{opacity:0;transition:opacity .12s}',
@@ -220,7 +249,7 @@ const CSS = [
   // «Nueva fase»: una caja de mentira, punteada, gris y apagada, que se ilumina con el
   // cursor. El molde es «Crear nuevo proyecto» del Plan. Mide 48, lo mismo que la caja que
   // aparece al apretarla (título de 36 + padding 10 + borde 2): con 46, abrirla corría todo.
-  '.ee-fase-nueva{display:flex;align-items:center;gap:8px;width:100%;min-height:48px;padding:0 12.5px;border:1.5px dashed var(--border-strong);border-radius:12px;background:transparent;font:600 13.5px/1.2 ' + SANS + ';color:var(--faint);text-align:left;opacity:.85;cursor:pointer;transition:border-color .12s,color .12s,opacity .12s}',
+  '.ee-fase-nueva{display:flex;align-items:center;gap:8px;width:100%;min-height:' + CAJA_CHICA + 'px;padding:0 12.5px;border:1.5px dashed var(--border-strong);border-radius:12px;background:transparent;font:600 13.5px/1.2 ' + SANS + ';color:var(--faint);text-align:left;opacity:.85;cursor:pointer;transition:border-color .12s,color .12s,opacity .12s}',
   '.ee-fase-nueva:hover,.ee-fase-nueva:focus-visible{border-color:var(--primary);color:var(--primary);opacity:1}',
   '.ee-punto{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;border-radius:50%;cursor:pointer}',
   '.ee-punto:hover>span,.ee-punto:focus-visible>span{outline:2px solid var(--border-strong);outline-offset:2px}',
@@ -436,7 +465,7 @@ type Confirmar = {
   tono?: 'danger' | 'primary'; hacer: () => void;
 };
 /** Lo que se está arrastrando: una etapa, o una fase entera desde su título. */
-type Agarre = { tipo: 'etapa'; key: string } | { tipo: 'fase'; clave: string };
+export type Agarre ={ tipo: 'etapa'; key: string } | { tipo: 'fase'; clave: string };
 /** Dónde va a caer: un lugar de un grupo, o un lugar entre grupos. */
 export type Destino = { tipo: 'etapa'; grupo: string; slot: number } | { tipo: 'fase'; slot: number };
 /** Un lugar donde se puede soltar, a su altura en coordenadas del CONTENIDO del cuerpo. */
@@ -483,6 +512,29 @@ export function destinoEn(lugares: readonly Lugar[], cajas: readonly CajaMedida[
   const grupo = caja?.grupo;
   const adentro = grupo === undefined ? [] : lugares.filter((l) => l.d.tipo === 'etapa' && l.d.grupo === grupo);
   return cercano(adentro.length ? adentro : lugares);
+}
+
+/**
+ * ¿Soltar `a` en `d` CAMBIA lo que se guarda? Es lo que decide si se abre el hueco.
+ *
+ * Los lugares que no cambian nada son dos por fila —arriba y abajo de sí misma— y el de la
+ * entrada en su propio grupo (ver «Y NO SE ABRE DONDE SOLTAR NO CAMBIA NADA» arriba). Se
+ * contesta con el MODELO y no con índices: así no hay una segunda copia de las reglas de
+ * `llevarEtapa` (la entrada, el piso, el índice corrido) que se pueda desincronizar.
+ *
+ * ⚠️ SE COMPARA EL ORDEN QUE SE GUARDA (`enOrden`), no la lista cruda: una lista que llega
+ * con un grupo PARTIDO sale de `llevarEtapa` agrupada aunque la etapa no se mueva, y
+ * comparando crudo esa lista abría el hueco pegado a la fila de origen.
+ */
+export function cambiaAlSoltar(
+  lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], a: Agarre, d: Destino,
+): boolean {
+  const despues = a.tipo === 'etapa' && d.tipo === 'etapa'
+    ? enOrden(llevarEtapa(lista, fases, a.key, d.grupo, d.slot), fases)
+    : a.tipo === 'fase' && d.tipo === 'fase' ? llevarFase(lista, fases, a.clave, d.slot) : null;
+  if (!despues) return false;
+  const antes = enOrden(lista, fases);
+  return firmaDe(despues.etapas, despues.fases) !== firmaDe(antes.etapas, antes.fases);
 }
 
 export function EtapasEntregaModal({
@@ -873,8 +925,14 @@ export function EtapasEntregaModal({
   // La foto que sigue al cursor la dibuja el SISTEMA OPERATIVO y ninguna regla CSS la
   // gobierna: se le pasa una VACÍA y la copia la dibujamos nosotros, movida con
   // `transform` sobre un ref. El destino sale de los LUGARES medidos al agarrar (el borde
-  // de arriba de cada fila y de cada «Nueva etapa», o el medio de cada hueco entre cajas)
+  // de arriba de cada fila y de cada «Nueva etapa», o el medio de cada espacio entre cajas)
   // y de las CAJAS: ver `destinoEn`.
+  //
+  // ⚠️ CON EL HUECO ABIERTO, LO DE ABAJO SE CORRE — y por eso las medidas NO se vuelven a
+  // leer en el `dragover`: el cursor se compara contra las del agarre, que es lo que hace el
+  // CRM con `medidasTarjetas`. Releyéndolas, el hueco empuja la fila de abajo debajo del
+  // cursor, el lugar más cercano pasa a ser otro, el hueco se muda, la fila vuelve, y el
+  // destino oscila entre dos lugares en cada evento.
   const copia = useRef<HTMLElement | null>(null);
   /** Los lugares donde se puede soltar, con su altura EN COORDENADAS DEL CONTENIDO del
    *  cuerpo (`+ scrollTop`): si el cuerpo se corre durante el gesto, siguen valiendo. */
@@ -905,13 +963,32 @@ export function EtapasEntregaModal({
     copia.current = null;
   }, []);
 
-  /** Mide los lugares válidos para lo que se agarró. Corre al agarrar y otra vez cuando
-   *  aparece «Sin fase» como destino (un render después). */
+  /**
+   * Mide los lugares válidos para lo que se agarró. Corre al agarrar y otra vez cuando
+   * aparece «Sin fase» como destino (un render después).
+   *
+   * ⚠️ SE MIDE CON EL HUECO APAGADO (`.ee-midiendo`). La segunda medida llega con el
+   * `setTimeout` del agarre, y nada garantiza que llegue ANTES del primer `dragover`: si el
+   * hueco ya está abierto, todo lo que queda debajo se mide una fila más abajo y el destino
+   * apunta a otro lado el resto del gesto. Apagarlo, leer y volver a prenderlo es síncrono:
+   * no se pinta nada en el medio.
+   *
+   * ⚠️ Y EL SCROLL SE DEVUELVE. Sin el hueco el contenido es más corto, y si el cuerpo
+   * estaba scrolleado hasta el fondo el navegador recorta `scrollTop` — que no vuelve solo
+   * cuando el hueco reaparece. La base de las medidas se lee DESPUÉS de apagarlo, que es la
+   * que vale para los rectángulos de ese momento.
+   */
   const medir = useCallback(() => {
     const a = agarrada.current;
     const raiz = listaRef.current;
     if (!a || !raiz) return;
-    const base = raiz.closest<HTMLElement>('.mk-modal__cuerpo')?.scrollTop ?? 0;
+    const sc = raiz.closest<HTMLElement>('.mk-modal__cuerpo');
+    const scroll = sc?.scrollTop ?? 0;
+    // Sólo si HAY un hueco: la primera medida corre adentro del `dragstart`, y ahí no se
+    // toca el DOM que no haga falta tocar.
+    const conHueco = !!raiz.querySelector('.ee-hueco');
+    if (conHueco) raiz.classList.add('ee-midiendo');
+    const base = sc?.scrollTop ?? 0;
     const { lista: l, tramos: t } = estado.current;
     const out: Lugar[] = [];
     const cs: CajaMedida[] = [];
@@ -933,14 +1010,17 @@ export function EtapasEntregaModal({
       }
     } else {
       const rango = rangoDeFase(gruposDe(l, t), a.clave);
-      if (!rango) return;
-      // El lugar de una fase es el HUECO entre dos cajas, y cuenta su MEDIO.
-      for (const el of raiz.querySelectorAll<HTMLElement>('[data-fslot]')) {
+      // El lugar de una fase es el ESPACIO entre dos cajas, y cuenta su MEDIO.
+      if (rango) for (const el of raiz.querySelectorAll<HTMLElement>('[data-fslot]')) {
         const slot = Number(el.dataset.fslot);
         if (slot < rango[0] || slot > rango[1]) continue;
         const r = el.getBoundingClientRect();
         out.push({ d: { tipo: 'fase', slot }, y: r.top + r.height / 2 + base });
       }
+    }
+    if (conHueco) {
+      raiz.classList.remove('ee-midiendo');
+      if (sc && sc.scrollTop !== scroll) sc.scrollTop = scroll;
     }
     lugares.current = out;
     cajas.current = cs;
@@ -1008,9 +1088,27 @@ export function EtapasEntregaModal({
       }
       const y = ev.clientY + (sc?.scrollTop ?? 0);
       const mejor = destinoEn(lugares.current, cajas.current, y);
+      // Sólo se repinta cuando el destino CAMBIA: lo de arriba corre en cada evento, esto
+      // no. El soltar usa el destino tal cual; lo que se DIBUJA es `null` donde soltar no
+      // cambia nada (ver «Y NO SE ABRE…» en el encabezado).
+      if (mismoDestino(destinoRef.current, mejor)) return;
       destinoRef.current = mejor;
-      // Sólo se repinta cuando el destino CAMBIA.
-      setDestino((p) => (mismoDestino(p, mejor) ? p : mejor));
+      const { lista: l, tramos: t } = estado.current;
+      setDestino(mejor && cambiaAlSoltar(l, t, a, mejor) ? mejor : null);
+    };
+    /**
+     * ⚠️ EL `dragenter` TAMBIÉN SE ACEPTA, o soltar ENCIMA DEL HUECO se pierde. Cuando el
+     * elemento bajo el cursor CAMBIA, Chromium dispara `dragenter` y `dragleave` y NO
+     * `dragover` en esa vuelta (lo deja para la siguiente), y lo que decide si se puede
+     * soltar en esa vuelta es si el `dragenter` se canceló. El hueco aparece justo debajo
+     * del cursor, así que el elemento cambia sin que el mouse se mueva: MEDIDO en el arnés
+     * (06/10/2026), con el cursor quieto sobre el hueco recién abierto el `drop` no llegaba
+     * —sólo `dragend`— y el guardado no salía; con esta línea, sale.
+     */
+    const entra = (ev: globalThis.DragEvent) => {
+      if (!agarrada.current) return;
+      ev.preventDefault();
+      if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
     };
     const alSoltar = (ev: globalThis.DragEvent) => {
       if (!agarrada.current) return;
@@ -1019,10 +1117,12 @@ export function EtapasEntregaModal({
       aplicarDestino();
     };
     const fin = () => limpiarDrag();
+    document.addEventListener('dragenter', entra, true);
     document.addEventListener('dragover', sobre, true);
     document.addEventListener('drop', alSoltar, true);
     document.addEventListener('dragend', fin, true);
     soltarListeners.current = () => {
+      document.removeEventListener('dragenter', entra, true);
       document.removeEventListener('dragover', sobre, true);
       document.removeEventListener('drop', alSoltar, true);
       document.removeEventListener('dragend', fin, true);
@@ -1042,17 +1142,36 @@ export function EtapasEntregaModal({
   const grupos = gruposDe(lista, tramos, arrastraEtapa);
   /** Los grupos SIN el «Sin fase» de mentira: los lugares entre grupos cuentan sobre éstos. */
   const nGrupos = gruposDe(lista, tramos).length;
-  const marcaEtapa = (grupo: string, slot: number) =>
-    destino?.tipo === 'etapa' && destino.grupo === grupo && destino.slot === slot;
-  const marcaFase = (slot: number) => destino?.tipo === 'fase' && destino.slot === slot;
+  const agarradaEtapa = arrastrando?.tipo === 'etapa' ? lista.find((e) => e.key === arrastrando.key) ?? null : null;
+  const agarradaFase = arrastrando?.tipo === 'fase' ? tramos.find((f) => f.key === arrastrando.clave) ?? null : null;
   /** La caja que se ENCIENDE: la del destino, sólo si es OTRA que la de la etapa agarrada.
-   *  Reordenar adentro de la misma caja ya lo dice la línea; encenderla desde el primer
+   *  Reordenar adentro de la misma caja ya lo dice el hueco; encenderla desde el primer
    *  píxel del gesto —que es lo que pasaría, porque el destino arranca siendo la suya— es
    *  una caja azul que no dice nada. */
-  const agarradaEn = arrastrando?.tipo === 'etapa'
-    ? (() => { const x = lista.find((e) => e.key === arrastrando.key); return x ? grupoDe(x, tramos) : null; })()
-    : null;
+  const agarradaEn = agarradaEtapa ? grupoDe(agarradaEtapa, tramos) : null;
   const cajaDestino = destino?.tipo === 'etapa' && destino.grupo !== agarradaEn ? destino.grupo : null;
+  /**
+   * EL HUECO (ver el encabezado). Del color que lo arrastrado VA a tener ahí: el de la fase
+   * destino, o el propio de la etapa si cae «Sin fase» — el punto de la fila cambia a ése
+   * al soltar, y el hueco lo anticipa. Hasta que llega `arrastrando` (un tick después del
+   * agarre) no se sabe qué viaja: el de la casa.
+   *
+   * ⚠️ `color-mix` Y NO EL SUFIJO HEX del kanban (`color + '12'`): ése sólo vale con un hex
+   * de 6 dígitos, y con cualquier otra cosa —el `var()` de acá abajo— el navegador descarta
+   * el fondo entero en silencio.
+   */
+  const hueco = (color: string) => (
+    <div className="ee-hueco" aria-hidden
+      style={{ borderColor: color, background: 'color-mix(in srgb, ' + color + ' 7%, transparent)' }} />
+  );
+  const huecoEtapa = (grupo: string, slot: number) => (
+    destino?.tipo === 'etapa' && destino.grupo === grupo && destino.slot === slot
+      ? hueco(agarradaEtapa ? colorDeEtapa(conFase(agarradaEtapa, grupo), tramos) : 'var(--primary)')
+      : null
+  );
+  const huecoFase = (slot: number) => (
+    destino?.tipo === 'fase' && destino.slot === slot ? hueco(agarradaFase?.dot ?? 'var(--primary)') : null
+  );
 
   return (
     <div className="crm-hover ee-modal" style={{ display: 'contents' }}>
@@ -1174,12 +1293,13 @@ export function EtapasEntregaModal({
 
             return (
               <Fragment key={'c:' + (g.clave || '_')}>
-                {/* El hueco entre dos cajas: es el lugar de un arrastre de FASE («antes del
-                    grupo gi»). El de «Sin fase» de mentira no cuenta: sólo existe mientras
-                    se arrastra una etapa. */}
+                {/* El espacio entre dos cajas: es el lugar de un arrastre de FASE («antes
+                    del grupo gi»), y ahí adentro se abre su hueco. El de «Sin fase» de
+                    mentira no cuenta: sólo existe mientras se arrastra una etapa. */}
                 {gi > 0 && (
-                  <div className="ee-hueco" aria-hidden data-fslot={sueltaDeMentira ? undefined : gi}
-                    style={marcaFase(gi) ? HUECO_MARCADO : undefined} />
+                  <div className="ee-entre" aria-hidden data-fslot={sueltaDeMentira ? undefined : gi}>
+                    {!sueltaDeMentira && huecoFase(gi)}
+                  </div>
                 )}
                 <div className={'ee-caja' + (cajaDestino === g.clave ? ' ee-destino' : '')}
                   data-caja={g.clave} data-grupo-fase={fase?.key}
@@ -1195,8 +1315,14 @@ export function EtapasEntregaModal({
                     const editando = renombrando === 'e:' + e.key;
                     // La entrada se arrastra sólo para cambiar de fase: sin fases no tiene a dónde.
                     const arrastrable = (!entra || hayFases) && !editando;
+                    // ⚠️ EL HUECO VA PRIMERO Y EN EL MISMO `Fragment`, con la fila siempre en
+                    // el segundo lugar: así abrirlo o cerrarlo no remonta la fila, y la fila
+                    // agarrada es el nodo ORIGEN del gesto — remontada, el `dragend` le llega
+                    // a un nodo suelto y no a `document`.
                     return (
-                      <div key={'e:' + e.key} className="ee-fila"
+                      <Fragment key={'e:' + e.key}>
+                      {huecoEtapa(g.clave, k)}
+                      <div className="ee-fila"
                         data-etapa={e.key} data-grupo={g.clave} data-slot={k}
                         draggable={arrastrable}
                         onPointerDown={(ev) => { origen.current = ev.target; }}
@@ -1208,7 +1334,6 @@ export function EtapasEntregaModal({
                           cursor: arrastrable ? 'grab' : 'default',
                           // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
                           outline: arrastrando?.tipo === 'etapa' && arrastrando.key === e.key ? '1px solid var(--border-strong)' : 'none',
-                          ...(marcaEtapa(g.clave, k) ? MARCA : null),
                         }}>
                         <span className={'ee-asa' + (arrastrable ? ' ee-oculto' : '')} aria-hidden
                           title={arrastrable ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
@@ -1253,26 +1378,30 @@ export function EtapasEntregaModal({
                             onClick={() => sacar(e)}><CerrarIcon /></AccionFila>
                         ) : <span style={{ width: 28, flex: 'none' }} aria-hidden />}
                       </div>
+                      </Fragment>
                     );
                   })}
 
-                  {/* Una caja vacía es un destino: dice que se le pueden soltar etapas. */}
+                  {/* Una caja vacía es un destino: dice que se le pueden soltar etapas. Su
+                      hueco va JUSTO ANTES del texto, que la hoja esconde mientras el hueco
+                      esté (`.ee-hueco+.ee-vacia`) — el texto sigue en el DOM porque es su
+                      lugar medido (`data-slot`). */}
                   {g.etapas.length === 0 && (
-                    <div className="ee-vacia" data-grupo={g.clave} data-slot={0}
-                      // El destino vacío se marca entero (no con la línea): no hay fila contra
-                      // la cual dibujarla. `--primary-bg` y no `--primary-weak`, que es un azul
-                      // de relleno y tapaba el texto (medido en el arnés: azul sobre azul).
-                      style={marcaEtapa(g.clave, 0) ? { background: 'var(--surface)', color: 'var(--primary)', borderColor: 'var(--primary)' } : undefined}>
-                      {sueltaDeMentira ? 'Suelta aquí para sacarla de su fase' : 'Arrastra etapas aquí'}
-                    </div>
+                    <>
+                      {huecoEtapa(g.clave, 0)}
+                      <div className="ee-vacia" data-grupo={g.clave} data-slot={0}>
+                        {sueltaDeMentira ? 'Suelta aquí para sacarla de su fase' : 'Arrastra etapas aquí'}
+                      </div>
+                    </>
                   )}
 
                   {/* «Nueva etapa» es la ÚLTIMA fila de su caja, y es también el lugar de «al
-                      final». La caja de mentira no lo lleva: no es un grupo de verdad. */}
+                      final»: su hueco va arriba de ella, debajo de la última fila. La caja de
+                      mentira no lo lleva: no es un grupo de verdad. */}
+                  {g.etapas.length > 0 && huecoEtapa(g.clave, g.etapas.length)}
                   {!sueltaDeMentira && (
                     <div data-grupo={g.clave}
-                      data-slot={g.etapas.length > 0 ? g.etapas.length : undefined}
-                      style={g.etapas.length > 0 && marcaEtapa(g.clave, g.etapas.length) ? MARCA : undefined}>
+                      data-slot={g.etapas.length > 0 ? g.etapas.length : undefined}>
                       <NuevoRenglon tipo="etapa" grupo={fase?.label ?? null} onCrear={(v) => agregarEtapa(v, g.clave || undefined)} />
                     </div>
                   )}
@@ -1282,8 +1411,9 @@ export function EtapasEntregaModal({
           })}
           {/* El lugar «después de la última caja» de un arrastre de fase. */}
           {hayFases && (
-            <div className="ee-hueco" aria-hidden data-fslot={nGrupos}
-              style={marcaFase(nGrupos) ? HUECO_MARCADO : undefined} />
+            <div className="ee-entre" aria-hidden data-fslot={nGrupos}>
+              {huecoFase(nGrupos)}
+            </div>
           )}
         </div>
 

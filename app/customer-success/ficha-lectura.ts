@@ -25,6 +25,7 @@ type FilaLead = {
   id: number;
   telefono: string | null;
   web: string | null;
+  foto_auto_url: string | null;
   fathom_links: unknown;
   fecha_junta_1: string | null;
   fecha_junta_2: string | null;
@@ -66,7 +67,7 @@ export async function lecturaDeFichas(leadIds: readonly number[]): Promise<Lectu
 
   const [leads, grabaciones] = await Promise.all([
     leerTodo<FilaLead>(db, 'leads',
-      'id, telefono, web, fathom_links, fecha_junta_1, fecha_junta_2',
+      'id, telefono, web, foto_auto_url, fathom_links, fecha_junta_1, fecha_junta_2',
       { orden: 'id', eq: { estado_lead: 'ganado' } })
       .catch((e) => { console.error('[cs-ficha] no pude leer los leads:', e instanceof Error ? e.message : e); return null; }),
     // ⚠️ `test` AFUERA y nada más: es la única categoría que el propio Closing Analyst
@@ -92,6 +93,7 @@ export async function lecturaDeFichas(leadIds: readonly number[]): Promise<Lectu
     contacto![id] = {
       telefono: l.telefono?.trim() || null,
       web: l.web?.trim() || null,
+      fotoGuardada: l.foto_auto_url?.trim() || null,
     };
   }
 

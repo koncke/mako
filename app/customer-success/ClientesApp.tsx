@@ -27,7 +27,7 @@ import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
-import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, entraEnVentana, opcionesDeFase, faseVigente, columnasVisibles, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
+import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, ORDEN_LABEL, entraEnVentana, opcionesDeFase, faseVigente, columnasVisibles, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
 import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
 import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
@@ -37,10 +37,19 @@ import { conteoDeEtapas, relojDeVuelta, repartirEnEtapas, type EtapaEntrega, typ
 import { TablaClientes } from './TablaClientes';
 import { LoteClientes } from './LoteClientes';
 import { esDelProducto } from './pertenencia';
-import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction } from './actions';
+import { ordenarManual, columnaConInsercion, mismaLista } from './orden-manual';
+import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction, quitarDeProductoAction, volverAProductoAction, ordenarEtapaAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
+
+/**
+ * «Ordenar» de ESTA pantalla: los criterios de la barra más «Manual» (mig 0196). Va acá y no en
+ * `ORDEN_LABEL` porque la barra también la monta /admin, que no tiene kanban ni nada que
+ * arrastrar: ofrecerle «Manual» sería un criterio que no ordena nada.
+ */
+type OrdenCS = OrdenClientes | 'manual';
+const ORDEN_CS: Record<OrdenCS, string> = { ...ORDEN_LABEL, manual: 'Manual' };
 
 /**
  * Los filtros de la barra SIN los de la cuenta de MaKo. «Con / Sin cuenta de MaKo» es parte
@@ -116,7 +125,22 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   const [filtro, setFiltro] = useState<FiltroClientes>('todos');
   const [cuando, setCuando] = useState('siempre');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
-  const [orden, setOrden] = useState<OrdenClientes>('nombre');
+  /**
+   * El criterio de «Ordenar». Además de los de la barra, `'manual'`: el orden que se arma
+   * arrastrando (mig 0196). «Se guarda + "Manual"» (Martín, 06/10/2026).
+   *
+   * ⚠️ ARRANCA EN «MANUAL» SI ALGUIEN YA ORDENÓ ALGO. El criterio vive en el estado y no en la
+   * URL; arrancando siempre en «Nombre», el orden que se armó arrastrando desaparecería en cada
+   * F5 — se leería como que no se guardó, que es justo lo que se eligió que haga.
+   */
+  const [orden, setOrden] = useState<OrdenCS>(() =>
+    entrega?.ok && Object.values(entrega.ordenPorServicio).some((p) => Object.values(p).some((l) => l.length)) ? 'manual' : 'nombre');
+  /**
+   * Con «Manual», el criterio que ordena a los que la lista manual todavía no nombra (los que
+   * nadie arrastró). Es el que estaba elegido al pasar a «Manual»: así las columnas que nadie
+   * tocó no saltan de orden al soltar una tarjeta en otra.
+   */
+  const [ordenPrevio, setOrdenPrevio] = useState<OrdenClientes>('nombre');
   const { toast, show, clear } = useToast();
 
   // ── La entrega de un servicio (el kanban) ────────────────────────────
@@ -202,6 +226,44 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    */
   const lista = [...clientes].map(conImagen);
 
+  /**
+   * EL CRITERIO de «Ordenar», AFUERA del filtro: lo usan lo que se ve (`visibles`) y la columna
+   * ENTERA que se guarda al arrastrar con un buscador puesto (`soltarEnColumna`) — con dos
+   * comparadores, la lista guardada y la dibujada pondrían a los mismos en otro orden.
+   * Con «Manual», ordena por el criterio que estaba antes (`ordenPrevio`): es el de los que
+   * la lista manual no nombra.
+   */
+  const criterio: OrdenClientes = orden === 'manual' ? ordenPrevio : orden;
+  const cmp = (a: ClienteCruce, b: ClienteCruce) => {
+    if (criterio === 'abiertas') return (resumenDe(b.leadId)?.abiertas ?? 0) - (resumenDe(a.leadId)?.abiertas ?? 0);
+    if (criterio === 'proyectos') return (resumenDe(b.leadId)?.proyectos ?? 0) - (resumenDe(a.leadId)?.proyectos ?? 0);
+    // Antigüedad = el orden de alta, que es el que numera. Sale del `leadId`.
+    // Cuándo se ganó, con la fecha REAL (`leads.fecha_cierre`). Antes salía del
+    // número de cliente, que es el orden de CARGA al CRM: dos ganados el mismo mes
+    // podían salir a diez lugares de distancia. Los que no tienen fecha van al final
+    // en las dos direcciones — «no sé cuándo» no es ni lo más nuevo ni lo más viejo.
+    if (criterio === 'antiguedad') {
+      const fa = a.fechaCierre ? Date.parse(a.fechaCierre) : NaN;
+      const fb = b.fechaCierre ? Date.parse(b.fechaCierre) : NaN;
+      if (Number.isNaN(fa) && Number.isNaN(fb)) return 0;
+      if (Number.isNaN(fa)) return 1;
+      if (Number.isNaN(fb)) return -1;
+      return fb - fa;
+    }
+    // El nombre es el único que se lee natural de la A a la Z, así que su «mayor
+    // primero» es la Z: se invierte acá para que la dirección signifique lo mismo
+    // en los cuatro criterios.
+    return nombreDe(b).localeCompare(nombreDe(a), 'es');
+  };
+  // ⚠️ EL CRITERIO SE CALCULA «MAYOR PRIMERO» Y LA DIRECCION LO DA VUELTA AL FINAL.
+  // Así el sentido es UNA decisión y no hay que acordarse de invertir cada rama,
+  // que es como se cuela un orden que va al revés sólo para un criterio.
+  const signo = dir === 'asc' ? -1 : 1;
+  // Desempate SIEMPRE por nombre: sin él, dos clientes con la misma cantidad de
+  // tareas se intercambian de lugar en cada render y la grilla parpadea.
+  const porCriterio = (cs: ClienteCruce[]): ClienteCruce[] =>
+    [...cs].sort((a, b) => signo * cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
+
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
     const pasa = (c: ClienteCruce) => {
@@ -221,37 +283,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     // La ventana va APARTE del filtro: son dos preguntas («cuáles» y «de cuándo»);
     // combinarlas en una lista obliga a escribir el producto cartesiano de las dos.
     const enVentana = (c: ClienteCruce) => entraEnVentana(c.fechaCierre, cuando);
-    const cmp = (a: ClienteCruce, b: ClienteCruce) => {
-      if (orden === 'abiertas') return (resumenDe(b.leadId)?.abiertas ?? 0) - (resumenDe(a.leadId)?.abiertas ?? 0);
-      if (orden === 'proyectos') return (resumenDe(b.leadId)?.proyectos ?? 0) - (resumenDe(a.leadId)?.proyectos ?? 0);
-      // Antigüedad = el orden de alta, que es el que numera. Sale del `leadId`.
-      // Cuándo se ganó, con la fecha REAL (`leads.fecha_cierre`). Antes salía del
-      // número de cliente, que es el orden de CARGA al CRM: dos ganados el mismo mes
-      // podían salir a diez lugares de distancia. Los que no tienen fecha van al final
-      // en las dos direcciones — «no sé cuándo» no es ni lo más nuevo ni lo más viejo.
-      if (orden === 'antiguedad') {
-        const fa = a.fechaCierre ? Date.parse(a.fechaCierre) : NaN;
-        const fb = b.fechaCierre ? Date.parse(b.fechaCierre) : NaN;
-        if (Number.isNaN(fa) && Number.isNaN(fb)) return 0;
-        if (Number.isNaN(fa)) return 1;
-        if (Number.isNaN(fb)) return -1;
-        return fb - fa;
-      }
-      // El nombre es el único que se lee natural de la A a la Z, así que su «mayor
-      // primero» es la Z: se invierte acá para que la dirección signifique lo mismo
-      // en los cuatro criterios.
-      return nombreDe(b).localeCompare(nombreDe(a), 'es');
-    };
-    // ⚠️ EL CRITERIO SE CALCULA «MAYOR PRIMERO» Y LA DIRECCION LO DA VUELTA AL FINAL.
-    // Así el sentido es UNA decisión y no hay que acordarse de invertir cada rama,
-    // que es como se cuela un orden que va al revés sólo para un criterio.
-    const signo = dir === 'asc' ? -1 : 1;
-    // Desempate SIEMPRE por nombre: sin él, dos clientes con la misma cantidad de
-    // tareas se intercambian de lugar en cada render y la grilla parpadea.
-    return lista.filter((c) => pasa(c) && enVentana(c))
-      .sort((a, b) => signo * cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
+    return porCriterio(lista.filter((c) => pasa(c) && enVentana(c)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientes, imgs, q, filtro, orden, cuando, dir, tablero]);
+  }, [clientes, imgs, q, filtro, orden, ordenPrevio, cuando, dir, tablero]);
   /** Cuántos tienen algo abierto. Con el tablero caído no se cuenta nada: sería un 0
    *  con cara de dato sobre una lectura que falló. */
   const conTrabajo = tablero.ok ? lista.filter((c) => (resumenDe(c.leadId)?.abiertas ?? 0) > 0).length : 0;
@@ -331,12 +365,33 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * ⚠️ SOBRE LA ASIGNACIÓN CON LO MOVIDO ENCIMA, no sobre las filas del server: «Agregar a
    * este producto» desde la ficha lo mete al tablero en el acto, y su deshacer lo saca.
    */
-  const casa = entrega?.ok ? entrega.casaPorLead : {};
+  /**
+   * La CASA de cada cliente con lo quitado en esta sesión encima: «Quitar de este producto»
+   * sobre su casa la anula (`cliente_entrega_fuera`), y la pantalla lo tiene que ver en el acto,
+   * no al próximo `revalidatePath`. Mismo trato que `movs` para las filas.
+   */
+  const [casaMovs, setCasaMovs] = useState<Record<number, number | null>>({});
+  const casa: Record<number, number | null> = { ...(entrega?.ok ? entrega.casaPorLead : {}), ...casaMovs };
   const asigServicio = servicio ? asignacionDe(servicio.productoId) : {};
   const delServicio = (cs: ClienteCruce[]): ClienteCruce[] => (servicio
     ? cs.filter((c) => esDelProducto(c.leadId, servicio.productoId, casa, asigServicio))
     : cs);
-  const visiblesServ = delServicio(visibles);
+
+  /**
+   * EL ORDEN MANUAL (mig 0196), con lo arrastrado en esta sesión encima. Clave
+   * `producto:etapa` → la lista de la columna entera.
+   */
+  const [ordenMovs, setOrdenMovs] = useState<Record<string, number[]>>({});
+  const listaManual = (prodId: number, etapa: string): number[] | undefined =>
+    ordenMovs[`${prodId}:${etapa}`] ?? (entrega?.ok ? entrega.ordenPorServicio[prodId]?.[etapa] : undefined);
+  /** Su etapa en el servicio que se mira, con la regla del reparto: sin fila, la primera. */
+  const etapaEnServicio = (leadId: number): string =>
+    (asigServicio[leadId]?.etapa ?? '').trim() || (servicio?.etapas[0]?.key ?? '');
+  /** Con «Manual», cada columna en su orden guardado; los que no figuran, después (ver `ordenPrevio`). */
+  const conManual = (cs: ClienteCruce[]): ClienteCruce[] => (orden === 'manual' && servicio
+    ? ordenarManual(cs, (c) => c.leadId, (c) => etapaEnServicio(c.leadId), (e) => listaManual(servicio.productoId, e))
+    : cs);
+  const visiblesServ = conManual(delServicio(visibles));
   const listaServ = delServicio(lista);
 
   /**
@@ -515,6 +570,101 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   }
 
   /**
+   * SOLTAR EN UNA COLUMNA: mueve de etapa a los que vienen de otra y guarda el lugar donde
+   * cayeron (orden manual, mig 0196). «Se guarda + "Manual"» (Martín, 06/10/2026).
+   *
+   * ⚠️ LA COLUMNA QUE SE GUARDA ES LA ENTERA, también los que el buscador o un filtro
+   * esconden: guardar sólo lo que se ve mandaría a los escondidos al final. Por eso el kanban
+   * manda un VECINO («antes de Juan») y no un número: «el tercero» de lo que se ve no es el
+   * tercero de la columna.
+   *
+   * ⚠️ Y SOLTAR DONDE YA ESTABA NO ES UN CAMBIO: no se guarda, no se anuncia y no pasa
+   * «Ordenar» a «Manual» — que un gesto que no movió nada cambie el criterio de la pantalla
+   * se leería como que la app se reacomodó sola.
+   *
+   * Un movimiento de etapa ofrece SU deshacer (el de `moverEntrega` / `moverLote`); un
+   * reordenamiento en la misma columna ofrece uno que devuelve la lista y el criterio de antes.
+   */
+  function soltarEnColumna(ids: number[], etapa: string, antesDe: number | null) {
+    if (!servicio || !ids.length) return;
+    const prodId = servicio.productoId;
+    const columna = conManual(porCriterio(listaServ))
+      .filter((c) => etapaEnServicio(c.leadId) === etapa).map((c) => c.leadId);
+    const nueva = columnaConInsercion(columna, ids, antesDe);
+    const mueven = ids.filter((id) => etapaEnServicio(id) !== etapa);
+    if (!mueven.length && mismaLista(nueva, columna)) return;
+
+    const criterioAntes = orden;
+    if (orden !== 'manual') { setOrdenPrevio(orden); setOrden('manual'); }
+    const clave = `${prodId}:${etapa}`;
+    const previa = listaManual(prodId, etapa) ?? null;
+    setOrdenMovs((v) => ({ ...v, [clave]: nueva }));
+    // ⚠️ UN LOTE VA POR `moverLote` AUNQUE AL FINAL CAMBIE UNO SOLO: la persona decidió sobre
+    // la selección entera, y lo que deshace es esa decisión.
+    if (mueven.length) {
+      if (ids.length > 1) moverLote(mueven, etapa, prodId);
+      else moverEntrega(mueven[0], etapa, prodId);
+    }
+    setMal('');
+    empezar(async () => {
+      // ⚠️ UNA ACCIÓN QUE NO LLEGA (sin red) RECHAZA LA PROMESA, y adentro de una transición eso
+      // tumba la pantalla entera («Esta pantalla se rompió al dibujarse»). Medido en el arnés
+      // abortando el pedido (06/10/2026). Se ataja como un error más.
+      const r = await ordenarEtapaAction(prodId, etapa, nueva)
+        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo guardar el orden.' }));
+      if (!r.ok) {
+        setMal(r.error);
+        setOrdenMovs((v) => ({ ...v, [clave]: previa ?? [] }));
+        return;
+      }
+      if (mueven.length) return;
+      show('Reordenado', () => {
+        clear();
+        setOrdenMovs((v) => ({ ...v, [clave]: previa ?? [] }));
+        if (criterioAntes !== 'manual') setOrden(criterioAntes);
+        empezar(async () => {
+          const d = await ordenarEtapaAction(prodId, etapa, previa ?? [])
+            .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo deshacer.' }));
+          if (!d.ok) setMal(d.error);
+        });
+      });
+    });
+  }
+
+  /**
+   * «Quitar de este producto» desde la ficha (06/10/2026). El server decide si se puede (dos o
+   * más productos) y CÓMO (borrar la fila, o marcar «fuera» si era su casa); la pantalla
+   * refleja lo mismo en el acto. El deshacer lo devuelve con su etapa y SU reloj.
+   */
+  function quitarDeProducto(leadId: number, prodId: number) {
+    setMal('');
+    empezar(async () => {
+      const r = await quitarDeProductoAction(leadId, prodId)
+        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo quitar.' }));
+      if (!r.ok) { setMal(r.error); return; }
+      if (r.eraCasa) setCasaMovs((v) => ({ ...v, [leadId]: null }));
+      setMovs((v) => ({ ...v, [claveMov(leadId, prodId)]: null }));
+      show('Quitado del producto', () => {
+        clear();
+        empezar(async () => {
+          const d = await volverAProductoAction(leadId, prodId, r.etapa, r.reloj)
+            .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo devolver.' }));
+          if (!d.ok) { setMal(d.error); return; }
+          if (r.eraCasa) setCasaMovs((v) => ({ ...v, [leadId]: prodId }));
+          setMovs((v) => {
+            const n = { ...v };
+            // Con fila, vuelve a ella con su reloj; sin fila, se borra la marca de «sacado» y
+            // manda lo que diga el server (que ya no tiene fila: está en la primera por regla).
+            if (r.etapa) n[claveMov(leadId, prodId)] = { etapa: r.etapa, etapa_desde: r.reloj ?? new Date().toISOString(), por: 'CRM' };
+            else delete n[claveMov(leadId, prodId)];
+            return n;
+          });
+        });
+      });
+    });
+  }
+
+  /**
    * Las etapas del servicio elegido, como las dejo el editor.
    *
    * ⚠️ LAS FASES VIAJAN EN LA MISMA LLAMADA. El server reemplaza el `data` entero, asi
@@ -626,8 +776,11 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
                 }}
               />
             ) : undefined}
-            filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
-            cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
+            filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenCS)}
+            /* «Manual» sólo con un servicio elegido: sin columnas no hay nada que arrastrar. Y con
+               «Manual» no se ofrece el sentido: el orden es el que se armó, no tiene «al revés». */
+            ordenes={servicio ? ORDEN_CS : ORDEN_LABEL}
+            cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={orden === 'manual' ? undefined : setDir}
             /* La FASE, como una sección más de «Filtrar» y sólo en el kanban: la tabla no
                esconde columnas, así que ahí la opción no cambiaría nada de lo que se ve. Sin
                fases (o con una sola), `opcionesDeFase` devuelve vacío y la sección no está. */
@@ -695,14 +848,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               trabajoDe={resumenDe}
               tableroOk={tablero.ok}
               cuentas={cuentas}
-              onMover={(leadId, etapa) => moverEntrega(leadId, etapa, servicio.productoId)}
+              onSoltar={soltarEnColumna}
               onAbrir={(leadId) => { setAbrirEn(null); setAbiertoId(leadId); }}
               onEquipo={(leadId) => { setAbrirEn('equipo'); setAbiertoId(leadId); }}
               onNuevoCliente={(etapa) => setCreando(etapa)}
               onError={setMal}
               seleccion={sel}
               onSeleccion={setSel}
-              onMoverLote={(leadIds, etapa) => moverLote(leadIds, etapa, servicio.productoId)}
             />
           ) : (
             <TablaClientes filas={visiblesServ} numeroDe={numeroDe} resumenDe={resumenDe}
@@ -747,6 +899,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             servicios, asignacionDe, casa,
             inicial: servicio?.productoId ?? null,
             onMover: (etapa, prodId) => moverEntrega(abierto.leadId, etapa, prodId),
+            onQuitar: (prodId) => quitarDeProducto(abierto.leadId, prodId),
           } : undefined}
           tabInicial={abrirEn}
           onImagen={(cambio) => guardarImagen(abierto.leadId, cambio)}

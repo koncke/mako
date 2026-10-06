@@ -107,6 +107,8 @@ const TENANT_TABLES = new Set<string>([
   // filas por workspace, así que olvidarse el .eq ya no da «no encuentra» — da el
   // tablero de Customer Success de OTRO cliente, con sus clientes adentro.
   'producto_entrega', 'cliente_entrega',
+  // Y las dos de la 0196: quién se sacó de su producto y el orden manual de cada columna.
+  'cliente_entrega_fuera', 'cliente_entrega_orden',
   // Las insistencias vivas (mig 0180): un aviso que vuelve hasta que alguien dice «lo vi».
   // Va acá porque la fila es del workspace cuyo grupo recibe el mensaje — y porque el
   // techo que protege SU línea de WhatsApp no puede depender de leer la de otro.

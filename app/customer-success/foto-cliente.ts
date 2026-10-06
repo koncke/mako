@@ -26,6 +26,7 @@ export function useFotoCliente(c: Pick<ClienteCruce, 'icono' | 'avatarUrl' | 'fi
   return useFotoContacto({
     icono: c.icono, avatarUrl: c.avatarUrl,
     telefono: c.ficha?.contacto?.telefono ?? null,
+    fotoGuardada: c.ficha?.contacto?.fotoGuardada ?? null,
     fotoEmail: c.ficha?.fotoEmail ?? null,
   });
 }

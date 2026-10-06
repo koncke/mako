@@ -78,7 +78,7 @@ import { readFileSync } from 'node:fs';
 // Las dos reglas puras del arrastre en lote. Se importan del archivo de la BARRA y no del
 // kanban porque el kanban no se puede importar desde node: arrastra módulos con
 // `server-only` (medido: «This module cannot be imported from a Client Component»).
-import { quienesViajan, dondeCae } from '../app/customer-success/LoteClientes';
+import { quienesViajan } from '../app/customer-success/LoteClientes';
 // Las tres reglas de la sección «Fase» del filtro. BarraClientes sí se importa desde node
 // (tests/filtros-cartera.test.ts ya lo hace): no arrastra nada con `server-only`.
 import { columnasVisibles, opcionesDeFase, faseVigente } from '../app/customer-success/BarraClientes';
@@ -211,15 +211,20 @@ test('el arrastre puede llegar al fondo de una columna que scrollea', () => {
   // entregando durante un arrastre nativo.
   const over = bloque(RENDER, 'onDragOver={(ev) => {', 'onDragLeave');
   assert.match(over, /empujarColumna\(cuerpo, ev\.clientY\)/);
-  // ⛔ ACÁ SE FIJABA QUE LA ALTURA DEL CURSOR SUMARA EL `scrollTop` DE LA COLUMNA, y se
-  // fue el 05/10/2026 con la idea que cuidaba: el hueco ya NO sigue al cursor. En el Plan
-  // el lugar donde soltás se respeta (el número sale de ahí); acá una etapa no tiene orden
-  // propio —la columna se dibuja en el orden de la lista—, así que un hueco que siguiera
-  // la altura prometía «acá» y la tarjeta aparecía «allá». Lo que se fija ahora es lo
-  // contrario: el índice sale de los DATOS (`dondeCae`) y no se lee layout de tarjetas.
-  // ROTO: el índice calculado con un número fijo en vez de `dondeCae` → 14 pass / 1 fail.
-  assert.match(over, /dondeCae\(e\.key, mano\.ids, etapaActual,/, 'el hueco va donde la tarjeta VA a aparecer');
-  assert.doesNotMatch(sinComentarios(KANBAN), /medidas\.current/, 'sin puntos medios: no se mide la altura de ninguna tarjeta');
+  // ⚠️ EL HUECO VOLVIÓ A SEGUIR AL CURSOR (06/10/2026): «si a un cliente lo arrastro abajo de
+  // otro, no se ve esa animación», y la posición SE GUARDA (orden manual, mig 0196). Del 05 al
+  // 06/10 el índice salía de los datos (`dondeCae`) porque la columna no tenía orden propio.
+  // La altura del cursor se compara en las MISMAS coordenadas en que se midió: página +
+  // scroll de la columna. Sin el `scrollTop`, después del auto-scroll el hueco apunta a otra
+  // tarjeta.
+  assert.match(over, /const y = ev\.clientY \+ window\.scrollY \+ \(cuerpo\?\.scrollTop \?\? 0\);/);
+  assert.match(over, /indiceEnColumna\(medios\.current\[e\.key\] \?\? \[\], y\)/);
+  // Y los puntos medios se miden UNA vez, al agarrar — nunca en el `dragover`.
+  assert.doesNotMatch(sinComentarios(over), /getBoundingClientRect/, 'medir en cada dragover: el gesto se siente pegajoso y el índice oscila');
+  const agarrar = sinComentarios(bloque(KANBAN, '  function agarrar(', '  function soltarGesto('));
+  assert.match(agarrar, /medirColumnas\(\);/);
+  const medir = bloque(KANBAN, '  function medirColumnas() {', '\n  }\n');
+  assert.match(medir, /const dy = window\.scrollY \+ \(cuerpo\?\.scrollTop \?\? 0\);/);
 });
 
 // «Si lo muevo muy al costado, se sale del contenedor del kanban y deja de desplazar, eso
@@ -230,7 +235,13 @@ test('el arrastre puede llegar al fondo de una columna que scrollea', () => {
 // Ver el pie del archivo para las roturas medidas.
 test('el empuje horizontal escucha en DOCUMENT, en captura, y se suelta al terminar', () => {
   const fn = bloque(KANBAN, '  function montarEmpuje() {', '\n  }\n');
-  assert.ok(fn.length > 400 && fn.length < 1_600, `montarEmpuje mide ${fn.length}`);
+  assert.ok(fn.length > 400 && fn.length < 2_600, `montarEmpuje mide ${fn.length}`);
+  // ⚠️ Y ACEPTA EL `dragenter` adentro de una columna (06/10/2026): el hueco aparece debajo del
+  // cursor quieto, y en esa vuelta Chromium manda `dragenter` sin `dragover` — sin cancelarlo,
+  // soltar sobre el hueco recién abierto se pierde. Sólo en columnas, nunca en toda la página.
+  assert.match(fn, /document\.addEventListener\('dragenter', aceptarEntrada, true\);/);
+  assert.match(fn, /document\.removeEventListener\('dragenter', aceptarEntrada, true\);/);
+  assert.match(fn, /closest\?\.\('\[data-etapa\]'\)\) e\.preventDefault\(\);/);
   assert.match(fn, /document\.addEventListener\('dragover', empujeDelRiel, true\);/,
     'en el riel, el evento se corta apenas el cursor sale de su caja');
   // Se suelta en `dragend` Y en `drop`, los dos: si no, queda empujando después de soltar.
@@ -240,8 +251,11 @@ test('el empuje horizontal escucha en DOCUMENT, en captura, y se suelta al termi
   // La cuenta del CRM, contra la caja del RIEL: pasado el borde sigue siendo verdadera.
   assert.match(fn, /e\.clientX < r\.left \+ BORDE \? -1 : e\.clientX > r\.right - BORDE \? 1 : 0/);
   assert.match(fn, /el\.scrollLeft \+= dir \* 18/);
-  // ⚠️ Sin `preventDefault`: habilitaría soltar en CUALQUIER punto de la página.
-  assert.doesNotMatch(sinComentarios(fn), /preventDefault/);
+  // ⚠️ El EMPUJE (el `dragover` de document) sin `preventDefault`: habilitaría soltar en
+  // CUALQUIER punto de la página. (El `dragenter` de abajo sí lo lleva, y sólo en columnas.)
+  const empuje = fn.slice(fn.indexOf('const empujeDelRiel'), fn.indexOf('const aceptarEntrada'));
+  assert.ok(empuje.length > 100, `el empuje mide ${empuje.length}`);
+  assert.doesNotMatch(sinComentarios(empuje), /preventDefault/);
   // Se monta al agarrar y se suelta con el gesto y al desmontar.
   const agarrar = sinComentarios(bloque(KANBAN, '  function agarrar(', '  function soltarGesto('));
   assert.match(agarrar, /montarEmpuje\(\);/, 'sin call site, la capacidad está escrita y el gesto muerto');
@@ -260,10 +274,9 @@ test('el empuje horizontal escucha en DOCUMENT, en captura, y se suelta al termi
 //     la selección entera) → 14 pass / 1 fail.
 //   · `quienesViajan` devolviendo la selección sin filtrar por la lista (movía ids que la
 //     búsqueda escondió) → 14 pass / 1 fail.
-//   · `dondeCae` sin el filtro de los que ya están en el destino (la columna de origen
-//     abría hueco y prometía un movimiento que no ocurre) → 14 pass / 1 fail.
-//   · `soltarEn` mandando un lote por `onMover` (doce toasts, el de arriba deshace UNO)
-//     → 14 pass / 1 fail.
+//   · (`dondeCae` y `soltarEn` por `onMoverLote` se fueron el 06/10/2026: soltar ahora
+//     manda los que viajan y el vecino a la pantalla, `onSoltar`, que mueve y ordena — sus
+//     guardas viven en tests/cs-orden-manual.test.ts.)
 //   Restaurado: 15 pass / 0 fail.
 
 test('qué viaja: la agarrada sola, salvo que esté MARCADA con otras', () => {
@@ -278,29 +291,11 @@ test('qué viaja: la agarrada sola, salvo que esté MARCADA con otras', () => {
   assert.deepEqual(quienesViajan(30, new Set([30, 99]), lista), [30]);
 });
 
-test('dónde cae: donde la tarjeta VA a aparecer, o en ningún lado', () => {
-  const pos = new Map([[1, 0], [2, 1], [3, 2], [4, 3], [5, 4]]);
-  const posicion = (id: number) => pos.get(id) ?? Number.MAX_SAFE_INTEGER;
-  const etapa = new Map([[1, 'a'], [2, 'b'], [3, 'a'], [4, 'b'], [5, 'a']]);
-  const etapaDe = (id: number) => etapa.get(id) ?? 'a';
-  // La 3 (posición 2) entra a «b», donde están la 2 (pos 1) y la 4 (pos 3): cae en el medio.
-  assert.equal(dondeCae('b', [3], etapaDe, [2, 4], posicion), 1);
-  // La 5 (pos 4) entra a «b»: cae al final.
-  assert.equal(dondeCae('b', [5], etapaDe, [2, 4], posicion), 2);
-  // Soltar en su propia etapa no mueve a nadie: no hay hueco que dibujar.
-  assert.equal(dondeCae('a', [3], etapaDe, [1, 3, 5], posicion), null);
-  // En un lote cuenta el PRIMERO que de verdad se mueve: la 2 ya está en «b».
-  assert.equal(dondeCae('b', [1, 2, 5], etapaDe, [2, 4], posicion), 0);
-  assert.equal(dondeCae('b', [2, 4], etapaDe, [2, 4], posicion), null);
-});
-
-test('soltar un lote va por onMoverLote, y sólo con los que cambian de etapa', () => {
+test('soltar manda lo que viaja y el VECINO del hueco; lo que viaja se decide al agarrar', () => {
   const fn = bloque(KANBAN, '  function soltarEn(', '\n  }');
-  assert.match(fn, /const mueven = mano\.ids\.filter\(\(id\) => etapaActual\(id\) !== key\);/);
-  assert.match(fn, /if \(mano\.ids\.length > 1\) onMoverLote\(mueven, key\);/,
-    'un lote es UN deshacer, aunque al final cambie uno solo');
-  assert.match(fn, /else onMover\(mueven\[0\], key\);/);
-  // Y lo que viaja se decide al AGARRAR, con la selección de afuera.
+  // El índice se lee ANTES de `soltarGesto()`, que borra el hueco.
+  assert.ok(fn.indexOf('const idx = ins?.etapa === key') < fn.indexOf('soltarGesto();'), 'el índice se lee después de borrar el hueco');
+  assert.match(fn, /onSoltar\(mano\.ids, key, antesDeQuien\(dibujadas, idx, mano\.ids\)\);/);
   const agarrar = bloque(KANBAN, '  function agarrar(', '\n  }');
   assert.match(agarrar, /quienesViajan\(leadId, seleccion, clientes\.map\(\(c\) => c\.leadId\)\)/);
 });
@@ -426,6 +421,14 @@ const EDITOR_CODIGO = sinComentarios(EDITOR);
 // con el archivo de ese momento (41 tests, con las secciones de los otros paquetes; la
 // base, 41 pass / 0 fail), y las CATORCE dieron 40 pass / 1 fail cayendo EXACTAMENTE el test de su rótulo
 // `ROTO (06/10)`. Restaurado de memoria y comparado byte a byte: 41 / 0.
+//
+// ⚠️ Y LA CUARTA, EL 06/10/2026 A LA TARDE: la LÍNEA que marcaba dónde cae lo arrastrado pasó
+// a ser un HUECO que corre las filas (ver «El hueco», abajo). Un guard de acá codificaba el
+// dibujo anterior y se reescribió: «un solo punteado» (ahora: las reglas punteadas son el
+// hueco y «Nueva fase»). Los cuatro del hueco son nuevos. CATORCE roturas más, cada una sola
+// sobre el archivo real (arnés `ed3/romper.cjs` del scratchpad), con la base en 44 / 0: las
+// catorce dieron 43 pass / 1 fail cayendo exactamente su test, y restaurado de memoria y
+// comparado byte a byte, 44 / 0.
 
 // ROTO: 1 y 2 de la lista de arriba. Y del rediseño (05/10/2026), cada una sola → 34 pass /
 // 1 fail: el efecto mandando `{ etapas: limpias, fases: tramos }` sin `enOrden`, y la firma
@@ -625,11 +628,17 @@ test('las filas van calladas: la ✕ y el asa aparecen sólo con el cursor o el 
   assert.doesNotMatch(EDITOR_CODIGO, /<select\b/);
   assert.doesNotMatch(EDITOR_CODIGO, /MoverPartido/);
   assert.doesNotMatch(EDITOR_CODIGO, /uppercase/);
-  // ⚠️ El punteado es UNO, el de «Nueva fase» (06/10/2026): «dashed» no se prohíbe entero,
-  // se cuenta. ROTO (06/10): `.ee-mas` con `border:1px dashed var(--border-strong)` (vuelve
-  // el recuadro punteado al pie de cada caja) → 40 pass / 1 fail.
-  assert.equal((EDITOR_CODIGO.match(/dashed/g) ?? []).length, 1, 'un solo punteado');
-  assert.match(hoja, /'\.ee-fase-nueva\{[^']*dashed/);
+  // ⚠️ En reposo el punteado es UNO, el de «Nueva fase» (06/10/2026): «dashed» no se prohíbe
+  // entero, se cuenta. ROTO (06/10): `.ee-mas` con `border:1px dashed var(--border-strong)`
+  // (vuelve el recuadro punteado al pie de cada caja) → 40 pass / 1 fail.
+  // Desde el hueco (06/10, tarde) hay DOS reglas punteadas: «Nueva fase» y `.ee-hueco`, que
+  // sólo existe durante un arrastre. Lo que se cuida es lo mismo: que el pie de cada caja no
+  // vuelva a ser un recuadro. ROTO otra vez con el `.ee-mas` punteado → 43 pass / 1 fail.
+  // Hasta la `}` de la regla y no hasta la comilla: varias se cortan para meter una constante
+  // (`' + FILA + '`), y con `[^']*` el punteado de esas quedaba afuera (medido: `[]`).
+  const punteadas = [...hoja.matchAll(/'(\.[^{']+)\{([^}]*)\}/g)].filter((m) => m[2].includes('dashed')).map((m) => m[1]);
+  assert.deepEqual(punteadas, ['.ee-hueco', '.ee-fase-nueva'], 'punteados: el hueco y «Nueva fase», nada más');
+  assert.equal((EDITOR_CODIGO.match(/dashed/g) ?? []).length, 2);
 });
 
 // ROTO (05/10/2026), cada una sola:
@@ -696,7 +705,9 @@ test('«Agregar fase» va ARRIBA de todo; «Agregar etapa», al pie de cada grup
 
 // ── Las cajas (06/10/2026) ──────────────────────────────────────────────────
 
-/** El texto desde la apertura de la CAJA de un grupo hasta el cierre de su `Fragment`. */
+/** El texto desde la apertura de la CAJA de un grupo hasta el primer `</Fragment>`.
+ *  ⚠️ Desde el hueco (06/10) ése es el de la PRIMERA FILA, no el de la caja: alcanza para la
+ *  apertura de la caja, que es lo único que se le pregunta; para lo de adentro, `cajaJsx`. */
 const CAJA = () => bloque(EDITOR_CODIGO, "<div className={'ee-caja'", '</Fragment>');
 
 /**
@@ -801,6 +812,8 @@ test('«Nueva fase» es una fase de mentira, y abierta sigue siendo una caja', (
 // con el cursor sobre el TÍTULO de «Contexto y Norte», esa caja se encendió (fondo
 // `--primary-bg`, borde `--primary`), la línea quedó arriba de «Contexto» y el cuerpo que se
 // habría guardado la ponía primera de esa fase (`criterio:f_contexto contexto:f_contexto …`).
+// El mismo gesto con el HUECO (06/10, tarde): la caja encendida, el hueco de 38 px antes de
+// «Contexto», las filas de abajo +42 y el mismo guardado.
 test('soltar en OTRA caja la ENCIENDE, y el destino sale primero de la caja', () => {
   assert.match(EDITOR_CODIGO, /const cajaDestino = destino\?\.tipo === 'etapa' && destino\.grupo !== agarradaEn \? destino\.grupo : null;/);
   assert.match(CAJA(), /className=\{'ee-caja' \+ \(cajaDestino === g\.clave \? ' ee-destino' : ''\)\}/);
@@ -843,6 +856,176 @@ test('destinoEn: el título de la caja de abajo apunta a ESA caja, no al final d
   const huecos = [{ d: { tipo: 'fase' as const, slot: 1 }, y: 106 }, { d: { tipo: 'fase' as const, slot: 2 }, y: 226 }];
   assert.deepEqual(destinoEn(huecos, [], 150), { tipo: 'fase', slot: 1 });
   assert.equal(destinoEn([], [], 10), null);
+});
+
+// ── El hueco (06/10/2026, tarde) ────────────────────────────────────────────
+// «En el editor de etapas, al arrastrar, copia la misma animación que tenemos en el CRM o
+// ahí mismo en las tarjetas de clientes, ya que si lo estoy arrastrando se tiene que ver
+// donde va a caer» (Martín). La línea de 2 px se fue: la tapaba la copia que sigue al cursor.
+//
+// MEDIDO en /customer-success?ws=1 (Chromium headless, los guardados abortados; arnés en el
+// scratchpad, `ed3/verificar.cjs`), DURANTE el gesto:
+//   · reordenar «contexto» a 3 px arriba de «norte»: UN hueco, en «Contexto y Norte» antes de
+//     «norte», de 38 px (lo que una fila), `2px dashed` del color de la fase, radio 9; «norte»,
+//     «criterio» e «instalado» corridos 42 px (38 + el gap de 4), «pas» y la fila de origen 0.
+//     18 movimientos de 1 px sobre el mismo destino: el hueco no se mudó y la lista tuvo 0
+//     mutaciones. Guardado abortado: `pas contexto norte`.
+//   · «criterio» sobre el TÍTULO de «Contexto y Norte»: hueco antes de «contexto», la caja
+//     encendida, todo lo de abajo +42; guardado `criterio:f_contexto contexto …`.
+//   · «palancas» a la caja vacía de «Sin fase», llegando por el AUTO-SCROLL (421 → 523 px, el
+//     fondo): el hueco en lugar del texto (`.ee-vacia` en `display:none`), del color PROPIO de
+//     la etapa; guardado `… instalado:f_cierre palancas:` (sin fase).
+//   · la fase «Tablero y Ritmo» al espacio entre «Inicio» y «Contexto»: hueco de 48 px, el
+//     espacio de 12 a 72 y las cuatro cajas de abajo +60; guardado con las fases
+//     `f_inicio f_tablero f_contexto f_criterio f_cierre`.
+//   · en el primer píxel del gesto (etapa o fase), y con la entrada dentro de su caja: 0 huecos.
+//   · después de soltar o de cancelar: 0 huecos, 0 cajas encendidas, la copia sacada.
+
+// ROTO (06/10, tarde), cada una sola → 43 pass / 1 fail, cae este test:
+//   · `cambiaAlSoltar` comparando la lista CRUDA (sin `enOrden` sobre lo que devuelve
+//     `llevarEtapa`): con una lista que llega partida, el hueco se abre pegado a la fila de
+//     origen como si soltarla ahí la moviera.
+//   · `sobre` con `setDestino(mejor)` (sin preguntar si cambia algo): vuelve el hueco del
+//     primer píxel, que corre la fila de origen debajo de la copia.
+//   · `sobre` sin el `if (mismoDestino(destinoRef.current, mejor)) return;`: un `setState` y
+//     un `cambiaAlSoltar` por evento, 60 por segundo.
+test('el hueco se abre sólo donde soltar CAMBIA algo, y se repinta sólo si el destino cambia', async () => {
+  const { cambiaAlSoltar, llevarEtapa } = await modeloEditor();
+  const et = (key: string) => ({ tipo: 'etapa' as const, key });
+  const en = (grupo: string, slot: number) => ({ tipo: 'etapa' as const, grupo, slot });
+  // «b1» es la primera de B: arriba y abajo de sí misma no la mueven; más abajo, sí.
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('b1'), en('f_b', 0)), false, 'arriba de sí misma');
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('b1'), en('f_b', 1)), false, 'abajo de sí misma');
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('b1'), en('f_b', 2)), true);
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('b1'), en('f_a', 2)), true, 'a otra caja, siempre');
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('s1'), en('', 0)), false);
+  // La entrada: su propio lugar no cambia nada; el primero de otra caja, sí.
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('en'), en('f_a', 0)), false);
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('en'), en('f_b', 0)), true);
+  // Una fase: los dos espacios que la rodean no la mueven.
+  const fb = { tipo: 'fase' as const, clave: 'f_b' };
+  const entre = (slot: number) => ({ tipo: 'fase' as const, slot });
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, fb, entre(1)), false);
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, fb, entre(2)), false);
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, fb, entre(3)), true);
+  assert.equal(cambiaAlSoltar(LISTA_ED, FASES_ED, et('b1'), entre(3)), false, 'tipos cruzados: nada');
+  // Una lista que llega PARTIDA (b1 de B entre dos de A): `llevarEtapa` la devuelve agrupada
+  // aunque b1 no se mueva, y eso NO es un cambio — lo que se guarda pasa por `enOrden` igual.
+  const partida = [etEd('en', 'f_a'), etEd('b1', 'f_b'), etEd('a1', 'f_a'), etEd('s1')];
+  assert.notEqual(verEd(llevarEtapa(partida, FASES_ED, 'b1', 'f_b', 0)), verEd(partida), 'la premisa');
+  assert.equal(cambiaAlSoltar(partida, FASES_ED, et('b1'), en('f_b', 0)), false);
+
+  // El cableado: el soltar usa el destino tal cual; lo que se DIBUJA pasa por el modelo, y
+  // sólo cuando el destino cambia.
+  const sobre = sinComentarios(bloque(EDITOR, '    const sobre = (ev: globalThis.DragEvent) => {', '\n    };'));
+  const corte = sobre.indexOf('if (mismoDestino(destinoRef.current, mejor)) return;');
+  assert.notEqual(corte, -1, 'sin esto, un setState por dragover');
+  assert.ok(corte < sobre.indexOf('setDestino('), 'la salida temprana va ANTES del setState');
+  assert.match(sobre, /setDestino\(mejor && cambiaAlSoltar\(l, t, a, mejor\) \? mejor : null\);/);
+  assert.equal((sobre.match(/setDestino\(/g) ?? []).length, 1);
+});
+
+// ROTO (06/10, tarde), cada una sola → 43 pass / 1 fail, cae este test:
+//   · `.ee-hueco` con `height:12px` (el alto del espacio entre cajas que antes llevaba ese
+//     nombre): el hueco no mide una fila y la copia lo tapa entero.
+//   · el hueco de una fila DESPUÉS de la fila (`<div className="ee-fila" …>` y recién ahí
+//     `{huecoEtapa(g.clave, k)}`): se dibuja una fila más abajo de donde cae.
+//   · el hueco de la caja vacía DESPUÉS del texto: `.ee-hueco+.ee-vacia` deja de calzar y la
+//     caja muestra el hueco Y «Arrastra etapas aquí», una fila más alta.
+//   · el fondo con el sufijo hex del kanban (`color + '12'`): con el `var(--primary)` de
+//     respaldo el navegador descarta el fondo en silencio.
+//   · la línea de vuelta (`boxShadow: '0 -3px 0 -1px var(--primary)'` en la fila destino).
+test('donde va a caer se abre un HUECO del alto de una fila (o de una caja chica), y no hay línea', async () => {
+  const hoja = bloque(EDITOR, 'const CSS = [', "].join('\\n');");
+  const regla = (sel: string) => {
+    const m = hoja.match(new RegExp("'" + sel.replace(/[.>+]/g, (c) => '\\' + c) + "\\{([^}]*)\\}"));
+    assert.ok(m, `falta la regla ${sel}`);
+    return m[1];
+  };
+  // El hueco mide lo que una fila, con UNA constante para los dos: el patrón de `.ke-hueco`.
+  const hueco = regla('.ee-hueco');
+  assert.match(hueco, /height:' \+ FILA \+ 'px/);
+  assert.match(hueco, /border:2px dashed /);
+  assert.match(hueco, /border-radius:9px/);
+  assert.match(hueco, /transition:height \.12s/);
+  assert.match(regla('.ee-fila'), /min-height:' \+ FILA \+ 'px/);
+  assert.match(EDITOR_CODIGO, /const FILA = 38;/);
+  // El de una fase: lo que una caja chica (la de «Nueva fase»), con aire arriba y abajo.
+  assert.match(regla('.ee-entre>.ee-hueco'), /height:' \+ CAJA_CHICA \+ 'px;border-radius:12px;margin:12px 0/);
+  assert.match(regla('.ee-fase-nueva'), /min-height:' \+ CAJA_CHICA \+ 'px/);
+  assert.match(regla('.ee-entre'), /display:flex/, 'en un bloque, el margen del hueco se escapa del espacio');
+  // En una caja vacía va EN LUGAR del texto.
+  assert.match(regla('.ee-hueco+.ee-vacia'), /^display:none$/);
+
+  // Dónde se dibuja: ARRIBA de la fila del lugar, en el mismo `Fragment`… (La caja PARSEADA:
+  // `CAJA()` corta en el primer `</Fragment>`, y desde el hueco ése es el de la fila.)
+  const caja = await cajaJsx();
+  const filas = bloque(caja, '{g.etapas.map((e, k) => {', 'className="ee-fila"');
+  assert.match(filas, /<Fragment key=\{'e:' \+ e\.key\}>\s*\{huecoEtapa\(g\.clave, k\)\}\s*<div $/);
+  // …justo antes del texto de una caja vacía, y arriba de «Nueva etapa» (el lugar «al final»)…
+  assert.match(caja, /\{huecoEtapa\(g\.clave, 0\)\}\s*<div className="ee-vacia"/);
+  const alFinal = caja.indexOf('{g.etapas.length > 0 && huecoEtapa(g.clave, g.etapas.length)}');
+  assert.notEqual(alFinal, -1);
+  assert.ok(alFinal < caja.indexOf('<NuevoRenglon tipo="etapa"'));
+  // …y el de una fase ADENTRO del espacio entre dos cajas (y el de después de la última).
+  assert.match(EDITOR_CODIGO, /<div className="ee-entre" aria-hidden data-fslot=\{sueltaDeMentira \? undefined : gi\}>\s*\{!sueltaDeMentira && huecoFase\(gi\)\}/);
+  assert.match(EDITOR_CODIGO, /<div className="ee-entre" aria-hidden data-fslot=\{nGrupos\}>\s*\{huecoFase\(nGrupos\)\}/);
+
+  // Del color que la etapa VA a tener ahí, y con un fondo que vale para cualquier color.
+  assert.match(EDITOR_CODIGO, /colorDeEtapa\(conFase\(agarradaEtapa, grupo\), tramos\)/);
+  assert.match(EDITOR_CODIGO, /background: 'color-mix\(in srgb, ' \+ color \+ ' 7%, transparent\)'/);
+  assert.doesNotMatch(EDITOR_CODIGO, /color \+ '12'|\$\{color\}12/);
+
+  // Y la línea no vuelve: ni la sombra de la fila ni el degradé del espacio entre cajas.
+  assert.doesNotMatch(EDITOR_CODIGO, /0 -3px 0 -1px|linear-gradient\(var\(--primary\)/);
+});
+
+// MEDIDO (06/10, tarde): el `setTimeout(0)` del agarre —el que monta «Sin fase» y dispara la
+// SEGUNDA medida— llega cuando quiere. En una corrida el timer salió a los 27 ms pero React
+// recién lo pintó a los 80, EN EL MISMO RENDER que el primer hueco: `medir` corrió con el
+// hueco abierto (`huecos=1` al tocar la clase). Para reproducirlo a voluntad, el arnés
+// (`ed3/carrera.cjs`) atrasa ese timer a 400 ms —lo que AGENTS.md mide en un arrastre nativo,
+// los timers congelados—: se agarra «contexto», el primer `dragover` abre el hueco antes de
+// «norte», y después se baja a 3 px arriba de donde estaba «palancas».
+//   · ROTO, sin `raiz.classList.add('ee-midiendo')`: la segunda medida leyó «palancas» en 558
+//     en vez de 516 (+42, el hueco), y el hueco y el guardado cayeron UNA FILA ARRIBA, antes
+//     de «criterio» (`norte contexto:f_criterio criterio palancas`). → y en este test,
+//     43 pass / 1 fail.
+//   · Sano: la misma lectura dio 516 con el hueco en `display:none`, y cayó antes de
+//     «palancas» (`criterio contexto:f_criterio palancas`).
+// ROTO también, cada una sola → 43 / 1: sin las reglas `.ee-midiendo` de la hoja, y sin
+// devolver el `scrollTop` al prender el hueco otra vez.
+test('los lugares se miden SIN el hueco, aunque la segunda medida llegue con él abierto', () => {
+  const medir = sinComentarios(bloque(EDITOR, '  const medir = useCallback(() => {', '\n  }, []);'));
+  const apaga = medir.indexOf("if (conHueco) raiz.classList.add('ee-midiendo');");
+  const prende = medir.indexOf("raiz.classList.remove('ee-midiendo');");
+  assert.notEqual(apaga, -1, 'se apaga el hueco antes de leer');
+  assert.notEqual(prende, -1, 'y se prende después');
+  const lecturas = [...medir.matchAll(/getBoundingClientRect\(\)/g)].map((m) => m.index!);
+  assert.ok(lecturas.length >= 3);
+  assert.ok(lecturas.every((i) => i > apaga && i < prende), 'TODAS las lecturas, con el hueco apagado');
+  // La base del scroll se lee ya apagado (vale para esos rectángulos), y el scroll se devuelve.
+  assert.ok(medir.indexOf('const base = sc?.scrollTop ?? 0;') > apaga);
+  assert.match(medir.slice(prende), /if \(sc && sc\.scrollTop !== scroll\) sc\.scrollTop = scroll;/);
+  const hoja = bloque(EDITOR, 'const CSS = [', "].join('\\n');");
+  assert.match(hoja, /'\.ee-midiendo \.ee-hueco\{display:none\}'/);
+  assert.match(hoja, /'\.ee-midiendo \.ee-hueco\+\.ee-vacia\{display:block\}'/, 'y el texto de la caja vacía, que es su lugar medido, vuelve');
+  // La segunda medida sigue existiendo: «Sin fase» aparece un render después del agarre.
+  assert.match(EDITOR_CODIGO, /useLayoutEffect\(\(\) => \{ if \(arrastrando\) medir\(\); \}, \[arrastrando, medir\]\);/);
+});
+
+// MEDIDO (06/10, tarde): soltar con el cursor QUIETO sobre el hueco recién abierto (el escenario
+// de «tablero» sobre «Nueva etapa» de otra caja, `ed3/diag-c2.cjs`). ROTO, sin el listener de
+// `dragenter`: 2 de 2 gestos terminaron en `dragend` sin `drop` —el log: `dragenter` al hueco,
+// ningún `dragover` después— y 0 guardados; soltando 30 px más abajo, sobre «Nueva etapa»
+// corrida, sí llegaba. Sano: 2 de 2 con `drop` y su guardado. → y en este test, 43 pass /
+// 1 fail. ROTO también: el `dragenter` sin su `removeEventListener` → 43 / 1.
+test('soltar ENCIMA del hueco no se pierde: el dragenter también se acepta', () => {
+  const agarrar = sinComentarios(bloque(EDITOR, '  const agarrar = (e: DragReact<HTMLElement>, a: Agarre) => {', '\n  // Si el editor se cierra'));
+  assert.match(agarrar, /document\.addEventListener\('dragenter', entra, true\);/);
+  assert.match(agarrar, /document\.removeEventListener\('dragenter', entra, true\);/);
+  const entra = bloque(agarrar, '    const entra = (ev: globalThis.DragEvent) => {', '\n    };');
+  assert.match(entra, /if \(!agarrada\.current\) return;\s*ev\.preventDefault\(\);/);
 });
 
 // ── El write path ───────────────────────────────────────────────────────────
@@ -979,8 +1162,13 @@ test('la barra y el chip de la tabla usan el MISMO menú de etapas, del ancho de
   const tabla = sinComentarios(leer('app/customer-success/TablaClientes.tsx'));
   assert.match(lote, /export function opcionesDeEtapas\(/);
   assert.match(tabla, /opcionesDeEtapas\(etapas \?\? \[\], fases\)/);
-  assert.match(tabla, /columns=\{menuEtapa\.columns\} alContenido/);
-  assert.match(lote, /columns=\{menu\.columns\}\s*alContenido/);
+  assert.match(tabla, /options=\{menuEtapa\.options\} alContenido/);
+  assert.match(lote, /options=\{menu\.options\}\s*alContenido/);
+  // Y SIN GRUPOS POR FASE (06/10/2026): «que solo aparezcan las etapas». Ningún llamador
+  // vuelve a pasar `columns`, que es lo que el primitive dibuja como títulos de grupo.
+  for (const src of [lote, tabla, sinComentarios(leer('app/customer-success/FichaEntrega.tsx'))]) {
+    assert.doesNotMatch(src, /columns=\{menu(Etapa)?\.columns\}/, 'volvió el menú agrupado por fase');
+  }
   // Y la tabla no vuelve a armar su propia lista con la fase como subtítulo.
   assert.doesNotMatch(tabla, /sub: faseDe\(/);
 });

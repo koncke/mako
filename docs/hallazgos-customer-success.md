@@ -3549,7 +3549,118 @@ línea está colgada — mientras tanto se ven las iniciales.
 - Pagos e Historial piden sus datos al abrir la tab (con su giro), igual que las Notas: es la
   excepción a «la ficha no tiene estado de carga», porque bajar el lead entero y sus cuotas de
   catorce clientes en cada carga sería pagar la lectura para una tab que se abre de a una.
-- No hay «Quitar de este producto» en la ficha: sacar a un cliente de un producto que NO es su
-  casa sólo se puede deshaciendo el «Agregar». Y la casa no se puede sacar desde acá (es su
-  embudo del CRM).
+- ~~No hay «Quitar de este producto» en la ficha~~ Hecho el mismo 06/10 (ver la sección de
+  abajo), incluida la casa.
 - El autor de los movimientos de entrega en el Historial es «CRM» y no la persona (arriba).
+
+## Quitar de un producto, el orden manual y el hueco que sigue al cursor (06/10/2026, tarde)
+
+Cuatro pedidos: «Quitar de este producto» sólo con más de un producto; el menú de etapas sin
+dividir por fases; las Notas del mismo alto que la caja de al lado; y el hueco al arrastrar en
+el editor de etapas y dentro de una columna del kanban («si a un cliente lo arrastro abajo de
+otro, no se ve esa animación»).
+
+### Sacar a un cliente de su CASA no se puede hacer borrando nada
+
+La casa de un cliente (el producto de su embudo del CRM) se DERIVA (`casaDeCliente`), así que
+«Quitar» sobre ella no tiene fila que borrar: hace falta decir «éste no». Va en una tabla
+APARTE (`cliente_entrega_fuera`, mig 0196) y no en una columna de `cliente_entrega`, a
+propósito: todo lo que lee `cliente_entrega` —el tablero, la nutrición, el choke point— entiende
+«hay fila» como «está en esta etapa». Una fila con `fuera = true` sería un cliente en una etapa
+en la que no está, en cada lector que no se enteró.
+
+- El server vuelve a contar los productos con la MISMA regla (`productosDelCliente`) antes de
+  quitar: con uno solo lo dejaría en ningún tablero. La cruz sólo se dibuja con dos o más, pero
+  esconder un botón no protege nada.
+- Si era su casa SIN fila, el choke point no deja historial (no hay nada que mover ni borrar):
+  la línea «Entrega: X» la escribe la acción (`historialDeProducto`).
+- El respaldo «sin casa ni filas → el primer producto» saltea los productos de los que lo
+  sacaron: si no, se lo devolvería al que se lo acaban de sacar.
+- ⚠️ **No se probó de punta a punta en el navegador**: hace falta un cliente en dos productos, el
+  Cliente de Prueba (ws3) no tiene clientes ni productos, y armarlo en un cliente real deja dos
+  líneas en su historial. Lo cubren los tests (el guard de «dos o más» de los dos lados) y la
+  lectura del código.
+
+**Vive en:** `app/customer-success/actions.ts` (`quitarDeProductoAction`, `volverAProductoAction`)
+· `app/customer-success/entrega.ts` · `app/customer-success/pertenencia.ts` · *2026-10-06*
+
+### El hueco no seguía al cursor A PROPÓSITO, y para que lo siga hubo que guardar el orden
+
+Del 05 al 06/10 el hueco del kanban iba donde la tarjeta IBA a aparecer (`dondeCae`), porque
+una columna no tenía orden propio: seguir al cursor era prometer «acá» y dejarla «allá». El
+pedido no se podía cumplir sólo con el dibujo, así que se preguntó si la posición se guarda
+(«Se guarda + "Manual"»). Ahora sí: `cliente_entrega_orden` (mig 0196) guarda la lista de cada
+columna, y «Ordenar» suma «Manual».
+
+- ⚠️ **El CRM dibuja el mismo hueco y NO guarda la posición**: soltar en la misma columna no hace
+  nada (`handleDrop` en `app/crm/CrmBoard.tsx` corta si la etapa no cambia). O sea que ahí el
+  hueco promete un lugar que no se respeta. No se tocó; queda dicho.
+- **Una lista por (producto, etapa) y no una posición por cliente**: la mayoría de los clientes
+  no tiene fila en `cliente_entrega` (está en la primera etapa por regla), y una posición por
+  cliente obligaría a escribirle una fila —con un reloj de etapa que arranca hoy— a cada uno que
+  se reordene.
+- **La pantalla guarda la columna ENTERA y el kanban manda un VECINO** («antes de Juan»), no un
+  número: con un buscador puesto, «el tercero» de lo que se ve no es el tercero de la columna, y
+  guardar lo visible mandaba a los escondidos al final.
+- **La lista puede nombrar a quien ya no está en la columna** (se movió, se quitó): no se poda,
+  se ignora al leer. Por eso la clave de orden es la posición en la lista de SU etapa actual.
+- **«Manual» arranca solo si alguien ya ordenó algo**: el criterio vive en el estado, y
+  arrancando siempre en «Nombre» el orden guardado desaparecía en cada F5 — que se lee como que
+  no se guardó. Y con «Manual», los que la lista no nombra van en el criterio que estaba antes
+  (`ordenPrevio`), o las columnas que nadie tocó saltarían de orden al soltar en otra.
+- Los puntos medios se miden UNA vez al agarrar, en coordenadas de página + scroll de la
+  columna (la cuenta del CRM): con el hueco abierto las tarjetas de abajo se corren y medir en
+  cada `dragover` hace oscilar el índice.
+
+**Vive en:** `app/customer-success/orden-manual.ts` · `app/customer-success/KanbanEntrega.tsx`
+(`medirColumnas`, `soltarEn`) · `app/customer-success/ClientesApp.tsx` (`soltarEnColumna`) ·
+*2026-10-06*
+
+### El menú de etapas es UNO y por eso cambió en los tres lugares
+
+`opcionesDeEtapas` lo usan la cabecera de la ficha, el chip de la tabla y «Mover a…». Sacar los
+títulos de fase ahí los saca de los tres, que es lo que se busca: tres menús para la misma
+pregunta se terminan armando distinto (ya pasó el 05/10). La fase se sigue viendo en el punto de
+color de cada etapa.
+
+### Un hueco que aparece debajo del cursor quieto se come el drop (lo encontró el editor)
+
+El editor de etapas pasó de una línea a un hueco del alto de una fila (lo hizo un agente, con 7
+escenarios medidos en el navegador y 14 roturas probadas). Al abrir el hueco JUSTO debajo del
+cursor, el elemento bajo el cursor cambia sin que el mouse se mueva, y en esa vuelta Chromium
+dispara `dragenter`/`dragleave` y **no** `dragover`: lo que decide si se puede soltar ahí es si el
+`dragenter` se canceló. Sin cancelarlo, 0 de 2 drops sobre el hueco recién abierto llegaron (sólo
+`dragend`); cancelándolo, 2 de 2.
+
+- ⚠️ **La trampa conocida del arnés «el `dragover` llega un movimiento tarde» tiene ESTA causa** y
+  no es sólo del headless: es el elemento que cambió.
+- El kanban de clientes abre su hueco de la misma forma desde que sigue al cursor: se le puso el
+  mismo `dragenter` aceptado, sólo adentro de `[data-etapa]`.
+- **Sin hacer:** el CRM (`app/crm/CrmBoard.tsx`) y el Plan (`app/plan/board/BoardShell.tsx`) abren
+  huecos igual y sólo cancelan `dragover`. Probablemente tengan el mismo drop perdido; no se midió.
+- El hueco del editor NO se abre donde soltar no cambia nada (arriba o abajo de la propia fila):
+  si no, en el primer píxel la fila de origen saltaba debajo de la copia (`cambiaAlSoltar`).
+- **`setTimeout(0)` en el `dragstart` no garantiza «un render después»**: el timer salió a los 27 ms
+  y React pintó ese estado a los 80, en el mismo render que el primer hueco. Por eso la medida
+  apaga el hueco mientras lee (`.ee-midiendo`): medida con el hueco abierto, el destino caía una
+  fila arriba.
+- Trampas de los tests: saber si algo está «adentro» de un elemento JSX se mira con el compilador
+  (`cajaJsx`), y un regex `[^']*` sobre una hoja con `' + FILA + '` adentro devuelve vacío.
+
+**Vive en:** `app/customer-success/EtapasEntregaModal.tsx` · `app/customer-success/KanbanEntrega.tsx`
+(`aceptarEntrada`) · *2026-10-06*
+
+### Una acción que no llega tumba la pantalla entera
+
+Abortando el guardado en el arnés, la pantalla pasó a «Esta pantalla se rompió al dibujarse»:
+una server action sin red RECHAZA la promesa, y adentro de una transición (`useTransition`) eso
+llega al error boundary. Es lo que vería alguien que se queda sin red justo al soltar. Los
+handlers nuevos (`soltarEnColumna`, `quitarDeProducto`) lo atajan como un error más.
+**Sin hacer:** los handlers viejos de `ClientesApp.tsx` (`moverEntrega`, `moverLote`,
+`sacarEntrega`, `guardarImagen`) tienen la misma forma y no lo atajan.
+
+### Notas del mismo alto: el que se estiraba era el envoltorio
+
+Con `align-items:stretch` en la grilla, la celda de las Notas se estiraba pero la caja de adentro
+(`NotasCard`, que trae su propio `section`) seguía del alto de su contenido: el envoltorio va en
+columna flex y la caja con `flex:1`. Medido: 310 px las dos.

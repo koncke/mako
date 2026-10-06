@@ -60,6 +60,30 @@ test('sin casa que se ofrezca: si tiene filas vive donde lo pusieron, si no cae 
   assert.equal(casaDeCliente({ funnelId: null, funnelDefault: null, productoDeFunnel: new Map(), ofrecidos: [], tieneFilas: false }), null);
 });
 
+test('sacado de su casa (cliente_entrega_fuera): la casa deja de valer, y el respaldo la saltea', () => {
+  // «Quitar de este producto» sobre su casa: no hay fila que borrar, queda una marca.
+  assert.equal(casaDeCliente({ funnelId: null, funnelDefault: 1, productoDeFunnel: FUNNELS, ofrecidos: OFRECIDOS, tieneFilas: true, fuera: [1] }), null);
+  // Sin filas, el respaldo del primer producto no lo devuelve al que lo sacaron.
+  assert.equal(casaDeCliente({ funnelId: null, funnelDefault: 1, productoDeFunnel: FUNNELS, ofrecidos: OFRECIDOS, tieneFilas: false, fuera: [1] }), 13);
+  // Sacarlo de OTRO producto no toca su casa.
+  assert.equal(casaDeCliente({ funnelId: null, funnelDefault: 1, productoDeFunnel: FUNNELS, ofrecidos: OFRECIDOS, tieneFilas: true, fuera: [13] }), 1);
+});
+
+test('«Quitar de este producto»: sólo con DOS o más, y el server vuelve a contar', () => {
+  const FE = sinComentarios(leer('app/customer-success/FichaEntrega.tsx'));
+  assert.match(FE, /const varios = suyos\.length > 1;/);
+  assert.match(FE, /acciones: suyo && varios\s*\?/, 'quitar con un solo producto lo dejaría en ningún tablero');
+  const ACC = sinComentarios(leer('app/customer-success/actions.ts'));
+  const ini = ACC.indexOf('export async function quitarDeProductoAction');
+  const fn = ACC.slice(ini, ACC.indexOf('export async function', ini + 10));
+  assert.match(fn, /if \(productos\.length < 2\) return \{ ok: false/);
+  // Si era su CASA no hay fila que borrar: va la marca de «fuera».
+  assert.match(fn, /if \(eraCasa\) \{\s*const \{ error \} = await db\.from\('cliente_entrega_fuera'\)/);
+  // Y la lectura de la cartera la tiene en cuenta (con la MISMA función).
+  const ENT = sinComentarios(leer('app/customer-success/entrega.ts'));
+  assert.match(ENT, /funnelDefault, productoDeFunnel, ofrecidos, tieneFilas, fuera: fuera\.get\(l\.id\),/);
+});
+
 test('una clave HEREDADA del prototipo no es una fila', () => {
   // `in` contestaría que sí para «toString»; la pertenencia mira claves propias.
   assert.equal(esDelProducto(Number('NaN'), 13, {}, {}), false);
@@ -71,7 +95,8 @@ test('una clave HEREDADA del prototipo no es una fila', () => {
 const APP = sinComentarios(leer('app/customer-success/ClientesApp.tsx'));
 
 test('el kanban, la tabla, «N de M» y el conteo del editor salen de los clientes DEL producto', () => {
-  assert.match(APP, /const visiblesServ = delServicio\(visibles\);/);
+  // (Con «Manual», además ordenado: `conManual` no saca a nadie, sólo reordena.)
+  assert.match(APP, /const visiblesServ = conManual\(delServicio\(visibles\)\);/);
   assert.match(APP, /const listaServ = delServicio\(lista\);/);
   assert.match(APP, /cs\.filter\(\(c\) => esDelProducto\(c\.leadId, servicio\.productoId, casa, asigServicio\)\)/);
   assert.match(APP, /<KanbanEntrega[\s\S]*?clientes=\{visiblesServ\}/, 'el kanban dibuja a la cartera entera');
@@ -86,7 +111,7 @@ test('el kanban, la tabla, «N de M» y el conteo del editor salen de los client
 test('la casa la calcula el server con la MISMA función, y viaja con la entrega', () => {
   const ENT = sinComentarios(leer('app/customer-success/entrega.ts'));
   assert.match(ENT, /out\[l\.id\] = casaDeCliente\(\{/);
-  assert.match(ENT, /return \{ ok: true, servicios, porServicio, secuenciasPorServicio: Object\.fromEntries\(secs\), casaPorLead \};/);
+  assert.match(ENT, /return \{ ok: true, servicios, porServicio, secuenciasPorServicio: Object\.fromEntries\(secs\), casaPorLead, ordenPorServicio \};/);
 });
 
 test('la ficha agrega a un producto por el MISMO camino que el kanban', () => {
@@ -104,3 +129,7 @@ test('la ficha agrega a un producto por el MISMO camino que el kanban', () => {
 //   2. `casaDeCliente` sin `if (opts.tieneFilas) return null;` → 19/1: «sin casa que se ofrezca…».
 //   3. `<TablaClientes filas={visibles}` → 19/1: «el kanban, la tabla, N de M…».
 //   4. `nTotal={lista.length}` → 19/1: el mismo.
+// Y la tanda de «Quitar» (06/10, tarde), corrida junto con cs-orden-manual (baseline 17/0):
+//   5. `casaDeCliente` sin mirar `fuera` → 16/1: «sacado de su casa…».
+//   6. la cruz de «Quitar» con UN solo producto (`suyos.length > 0`) → 16/1: «Quitar… sólo con DOS».
+//   7. el server sin el `productos.length < 2` → 16/1: el mismo.

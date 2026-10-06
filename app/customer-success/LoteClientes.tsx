@@ -56,8 +56,8 @@
 // =============================================================================
 
 import type { ReactNode } from 'react';
-import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
-import { colorDeEtapa, faseDe, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { colorDeEtapa, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -88,38 +88,9 @@ export function quienesViajan(agarrado: number, seleccion: ReadonlySet<number>, 
   return lote.length > 1 ? lote : [agarrado];
 }
 
-/**
- * DÓNDE CAE, en la columna `destino`: el índice exacto donde va a aparecer, o `null` si
- * soltar ahí no mueve a nadie (todos los que viajan ya están en esa etapa).
- *
- * ⚠️ SALE DE LOS DATOS Y NO DE LA ALTURA DEL CURSOR, y ésa es la diferencia con el Plan
- * que no se ve. En el Plan la posición SE RESPETA: el número de la tarjeta sale de dónde
- * la soltaste (`scoreEntre`). Acá no hay orden dentro de una etapa —la columna se dibuja
- * en el orden de la lista, que decide la barra (nombre, antigüedad…)—, así que un hueco
- * que siguiera al cursor prometería un lugar que el tablero no honra: «la solté acá y
- * quedó allá», que es exactamente el reporte que el Plan ya pagó. El hueco va donde la
- * tarjeta VA a aparecer.
- *
- * Con varias viajando, el hueco marca dónde cae la PRIMERA (en el orden de la lista): un
- * hueco por cliente sería un tablero que se reacomoda entero mientras se arrastra.
- *
- * `columna` son los ids que hoy dibuja esa columna; `posicion` es el lugar de cada id en
- * la lista (el mismo orden que usó el reparto).
- */
-export function dondeCae(
-  destino: string,
-  ids: readonly number[],
-  etapaDe: (id: number) => string,
-  columna: readonly number[],
-  posicion: (id: number) => number,
-): number | null {
-  const mueven = ids.filter((id) => etapaDe(id) !== destino);
-  if (!mueven.length) return null;
-  const primera = Math.min(...mueven.map(posicion));
-  let idx = 0;
-  for (const id of columna) if (posicion(id) < primera) idx++;
-  return idx;
-}
+// ⛔ ACÁ VIVÍA `dondeCae`: el hueco del kanban iba donde la tarjeta IBA a aparecer, porque
+// la columna no tenía orden propio. Se fue el 06/10/2026, cuando la columna pasó a tener
+// orden manual y el hueco a seguir al cursor (./orden-manual.ts).
 
 // ── Los íconos ───────────────────────────────────────────────────────────────────────
 // En la familia de `IconoTacho` y de `CalendarioLote` del Plan: viewBox 16, trazo 1.5,
@@ -186,35 +157,21 @@ function BtnIcono({ rotulo, texto, tono = 'dim', onClick, children }: {
 }
 
 /**
- * Las etapas como opciones del desplegable, AGRUPADAS POR FASE cuando el servicio tiene
- * fases. Sin fases es una lista plana: un grupo de un solo título es ruido.
+ * Las etapas como opciones del desplegable: UNA LISTA, en el orden de las columnas.
  *
- * ⚠️ LOS GRUPOS SIGUEN EL ORDEN DE LAS COLUMNAS, no el de la lista de fases: el menú se
- * lee de arriba abajo como el tablero se lee de izquierda a derecha. Las etapas sin fase
- * (o con una fase que ya no existe, que `colorDeEtapa` también trata como suelta) van en
- * «Sin fase», en el lugar donde aparece la primera.
+ * ⚠️ SIN GRUPOS POR FASE, a pedido (06/10/2026): «que el desplegable de etapas NO esté
+ * dividido por las fases, que solo aparezcan las etapas». Hasta ese día cada fase era un
+ * título con sus etapas abajo, y con cinco fases sobre nueve etapas el menú era más
+ * títulos que opciones. La fase sigue viéndose: el punto de cada etapa lleva el color de
+ * su fase (`colorDeEtapa`), que es el mismo que pinta la columna.
  *
- * ⚠️ ES EL MENÚ DE «MOVER A UNA ETAPA» EN LAS DOS VISTAS: lo usan esta barra y el chip de la
- * columna Etapa de la tabla. Hasta el 05/10/2026 la tabla armaba el suyo —una lista plana
- * con la fase repetida debajo de cada etapa, cinco de nueve a la vista— y la barra éste:
- * la misma pregunta con dos menús distintos. Se monta con `alContenido` en el `Dropdown`,
- * o una sola columna sale con los 500 px de un menú a varias.
+ * ⚠️ ES EL MENÚ DE «MOVER A UNA ETAPA» EN TODOS LADOS: lo usan esta barra, el chip de la
+ * columna Etapa de la tabla y el desplegable de la cabecera de la ficha. Tres menús para la
+ * misma pregunta se terminan armando distinto, y eso ya pasó una vez (la tabla tenía el suyo
+ * hasta el 05/10). Se monta con `alContenido` en el `Dropdown`.
  */
-export function opcionesDeEtapas(etapas: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { options?: DropdownOption[]; columns?: DropdownGroup[][] } {
-  const opcion = (e: EtapaEntrega): DropdownOption => ({ value: e.key, label: e.label, color: colorDeEtapa(e, fases) });
-  if (!fases.length) return { options: etapas.map(opcion) };
-  const grupos: DropdownGroup[] = [];
-  const porClave = new Map<string, DropdownGroup>();
-  for (const e of etapas) {
-    const f = faseDe(fases, e.fase);
-    const clave = f?.key ?? '';
-    let g = porClave.get(clave);
-    if (!g) { g = { title: f?.label ?? 'Sin fase', options: [] }; porClave.set(clave, g); grupos.push(g); }
-    g.options.push(opcion(e));
-  }
-  // UNA columna con los grupos uno debajo del otro: en varias columnas el menú se parte
-  // en filas de dos y la tercera fase queda sola abajo, estirada a lo ancho.
-  return { columns: [grupos] };
+export function opcionesDeEtapas(etapas: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { options: DropdownOption[] } {
+  return { options: etapas.map((e) => ({ value: e.key, label: e.label, color: colorDeEtapa(e, fases) })) };
 }
 
 export function LoteClientes({ elegidos, etapas, fases, onMover, onSiguiente, onExportar, onTodos, onLimpiar, visibles, puedeAvanzar = true }: {
@@ -322,7 +279,6 @@ export function LoteClientes({ elegidos, etapas, fases, onMover, onSiguiente, on
                 icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoMover /></span>}
                 buttonStyle={{ height: 34, padding: '0 8px', borderRadius: 9, gap: 4, fontSize: 12.5 }}
                 options={menu.options}
-                columns={menu.columns}
                 alContenido
                 onChange={(v) => { if (v) onMover(v); }} />
             </span>

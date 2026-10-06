@@ -45,7 +45,9 @@ import { autoasignar } from './trabajo';
 import { crearUsuario, buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
-import { guardarEtapasEntrega } from '@/lib/entrega-servicio';
+import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
+import { campoEntrega } from '@/lib/servicio-etapas';
+import { productosDelCliente } from './entrega';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { renombrarFunnel, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
@@ -512,6 +514,153 @@ export async function sacarDeEntregaAction(leadId: number, productoId: number): 
     return { ok: true, etapa: r.etapa };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sacar de la entrega.' };
+  }
+}
+
+/**
+ * «Quitar de este producto» (06/10/2026): «solo para los leads que estén en más de 1
+ * producto».
+ *
+ * Dos caminos según CÓMO es de ese producto (app/customer-success/pertenencia.ts):
+ *   · por una FILA de entrega → se borra la fila (`sacarClienteDeEntrega`, con su historial);
+ *   · porque es su CASA (el embudo del CRM) → la casa se deriva y no hay nada que borrar, así
+ *     que se escribe en `cliente_entrega_fuera` (mig 0196). Si además tenía fila, se borra.
+ *
+ * ⚠️ EL SERVER VUELVE A CONTAR los productos con la misma regla que la pantalla
+ * (`productosDelCliente`): con uno solo, sacarlo lo dejaría en ningún tablero — que es lo que
+ * el pedido excluye. Esconder el botón no protege nada.
+ *
+ * Devuelve lo necesario para DESHACER: la etapa y el reloj de la fila que había, y si era su
+ * casa. Deshacer sin el reloj volvería a arrancarlo hoy (ver `relojDeVuelta`).
+ */
+export async function quitarDeProductoAction(leadId: number, productoId: number): Promise<
+  { ok: true; eraCasa: boolean; etapa: string | null; reloj: string | null } | { ok: false; error: string }
+> {
+  try {
+    if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
+    const { productos, casa } = await productosDelCliente(leadId);
+    if (!productos.includes(productoId)) return { ok: false, error: 'No está en ese producto.' };
+    if (productos.length < 2) return { ok: false, error: 'Es su único producto.' };
+
+    const db = await getTenantDb();
+    const { data: fila, error: errFila } = await db.from('cliente_entrega')
+      .select('etapa, etapa_desde').eq('lead_id', leadId).eq('producto_id', productoId).maybeSingle();
+    if (errFila) return { ok: false, error: errFila.message };
+    const previa = fila as { etapa: string; etapa_desde: string } | null;
+    const eraCasa = casa === productoId;
+
+    if (eraCasa) {
+      const { error } = await db.from('cliente_entrega_fuera')
+        .upsert([{ lead_id: leadId, producto_id: productoId, por: await autorActual() }],
+          { onConflict: 'workspace_id,lead_id,producto_id', ignoreDuplicates: true });
+      if (error) return { ok: false, error: error.message };
+    }
+    if (previa) {
+      // El borrado de la fila deja SU línea de historial y cierra lo que esa etapa tenía
+      // agendado: es el mismo camino que el deshacer del primer movimiento.
+      const r = await sacarClienteDeEntrega(leadId, productoId);
+      if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo quitar.' };
+    } else {
+      // Sin fila no hay nada que el choke point registre, y salir de un producto es un hecho:
+      // la línea se escribe acá, con la etapa en la que estaba por regla (la primera).
+      await historialDeProducto(leadId, productoId, 'salio');
+    }
+    revalidatePath('/customer-success');
+    return { ok: true, eraCasa, etapa: previa?.etapa ?? null, reloj: previa?.etapa_desde ?? null };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo quitar.' };
+  }
+}
+
+/**
+ * El DESHACER de «Quitar de este producto»: lo devuelve como estaba. Si era su casa se borra
+ * la marca de «fuera»; si tenía fila, se repone con su etapa y SU reloj.
+ */
+export async function volverAProductoAction(leadId: number, productoId: number, etapa: string | null, reloj: string | null): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  try {
+    if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
+    const db = await getTenantDb();
+    const { error } = await db.from('cliente_entrega_fuera').delete().eq('lead_id', leadId).eq('producto_id', productoId);
+    if (error) return { ok: false, error: error.message };
+    if (etapa) {
+      const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio: reloj });
+      if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo devolver.' };
+    } else {
+      await historialDeProducto(leadId, productoId, 'volvio');
+    }
+    revalidatePath('/customer-success');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo devolver.' };
+  }
+}
+
+/**
+ * La línea de historial de entrar o salir de un producto que era su CASA y no tenía fila:
+ * el único caso que el choke point no registra, porque no hay fila que mover ni borrar.
+ * Mismo formato que el resto («Entrega: <producto>», la etapa de un lado y `null` del otro).
+ * No tira: el rastro no puede frenar lo que ya se hizo.
+ */
+async function historialDeProducto(leadId: number, productoId: number, que: 'salio' | 'volvio'): Promise<void> {
+  try {
+    const db = await getTenantDb();
+    const { data: prods } = await db.from('productos').select('nombre').eq('id', productoId).limit(1);
+    const nombre = ((prods ?? []) as Array<{ nombre: string }>)[0]?.nombre ?? '';
+    const primera = (await entregaDeProducto(productoId)).etapas[0]?.label ?? null;
+    const { error } = await db.from('lead_audit').insert([{
+      lead_id: leadId, campo: campoEntrega(nombre),
+      valor_anterior: que === 'salio' ? primera : null,
+      valor_nuevo: que === 'salio' ? null : primera,
+      autor: await autorActual(),
+    }]);
+    if (error) console.error(`[cs] no pude registrar en el historial la ${que === 'salio' ? 'salida' : 'vuelta'} del cliente ${leadId}: ${error.message}`);
+  } catch (e) {
+    console.error('[cs] no pude escribir el historial del producto:', e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * El ORDEN MANUAL de una columna del kanban (mig 0196): «se guarda + Manual» (06/10/2026).
+ *
+ * Recibe la LISTA ENTERA de la columna, no un cambio: un orden no se puede expresar como
+ * «movelo uno más abajo» si otra pestaña movió a otro en el medio. La arma la pantalla con
+ * TODOS los clientes de esa columna —también los que un filtro esconde—, así reordenar con
+ * una búsqueda puesta no los manda al final.
+ *
+ * ⚠️ SÓLO CLIENTES DE ESTE WORKSPACE y una etapa que el producto tiene: los ids viajan desde
+ * el navegador. Lo que no pasa se descarta en silencio (un id ajeno no es un error de quien
+ * arrastra: es un id que no tiene por qué estar).
+ */
+export async function ordenarEtapaAction(productoId: number, etapa: string, leadIds: number[]): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  try {
+    if (!Number.isFinite(productoId) || productoId <= 0 || typeof etapa !== 'string' || !etapa) return { ok: false, error: 'Falta la columna.' };
+    const pedidos = [...new Set((Array.isArray(leadIds) ? leadIds : []).map(Number).filter((n) => Number.isFinite(n) && n > 0))].slice(0, 2000);
+    const entrega = await entregaDeProducto(productoId);
+    if (!entrega.etapas.some((e) => e.key === etapa)) return { ok: false, error: 'Esa etapa ya no existe.' };
+    const db = await getTenantDb();
+    const { data: prods, error: errProd } = await db.from('productos').select('id').eq('id', productoId).limit(1);
+    if (errProd) return { ok: false, error: errProd.message };
+    if (!(prods ?? []).length) return { ok: false, error: 'Ese producto no es tuyo.' };
+    let validos: number[] = [];
+    if (pedidos.length) {
+      const { data, error } = await db.from('leads').select('id').in('id', pedidos).eq('estado_lead', 'ganado');
+      if (error) return { ok: false, error: error.message };
+      const ok = new Set(((data ?? []) as Array<{ id: number }>).map((l) => Number(l.id)));
+      validos = pedidos.filter((id) => ok.has(id));
+    }
+    const { error } = await db.from('cliente_entrega_orden').upsert(
+      [{ producto_id: productoId, etapa, lead_ids: validos, updated_at: new Date().toISOString() }],
+      { onConflict: 'workspace_id,producto_id,etapa' },
+    );
+    if (error) return { ok: false, error: error.message };
+    revalidatePath('/customer-success');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar el orden.' };
   }
 }
 

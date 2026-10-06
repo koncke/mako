@@ -34,7 +34,7 @@
 // avisar de que la lista tiene un duplicado o perdió una tabla crítica.
 
 /**
- * Las 91 tablas de inquilino, en orden alfabético.
+ * Las 93 tablas de inquilino, en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -45,7 +45,7 @@ export const TABLAS_DE_INQUILINO = [
   'ad_transcripts', 'adset_budget_daily', 'agente_consentimiento', 'agente_sesiones',
   'anthropic_usage', 'api_llamadas', 'app_settings', 'archivero_files',
   'avisos_cola', 'branding_assets', 'chart_chats', 'chart_sessions',
-  'chat_agent_handoffs', 'cliente_entrega', 'closing_analyses', 'closing_jobs',
+  'chat_agent_handoffs', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs',
   'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria',
   'cs_clientes', 'cs_respuestas', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',

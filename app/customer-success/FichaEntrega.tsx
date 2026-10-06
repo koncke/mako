@@ -37,6 +37,8 @@ export type EntregaFicha = {
   /** El producto que se está mirando en el tablero de atrás: si es suyo, abre en ése. */
   inicial: number | null;
   onMover: (etapa: string, productoId: number) => void;
+  /** «Quitar de este producto». Se ofrece sólo con dos o más (ver abajo). */
+  onQuitar: (productoId: number) => void;
 };
 
 export function FichaEntrega({ leadId, nombre, e }: { leadId: number; nombre: string; e: EntregaFicha }) {
@@ -57,11 +59,24 @@ export function FichaEntrega({ leadId, nombre, e }: { leadId: number; nombre: st
   // ⚠️ LOS PRODUCTOS EN LOS QUE NO ESTÁ SE OFRECEN IGUAL, con su aclaración en gris: el
   // pedido es justamente poder ponerlo en otro. Sin el `sub`, elegir uno y ver «Agregar a…»
   // en vez de su etapa se leería como que se perdió.
-  const productos: DropdownOption[] = e.servicios.map((x) => ({
-    value: String(x.productoId),
-    label: x.nombre,
-    sub: suyos.some((y) => y.productoId === x.productoId) ? undefined : 'No está',
-  }));
+  //
+  // ⚠️ «QUITAR DE ESTE PRODUCTO» VIVE EN EL RENGLÓN DE CADA PRODUCTO SUYO, y sólo con DOS o
+  // más: «agregá "Quitar de este producto", pero solo para los leads que estén en más de 1
+  // producto» (Martín, 06/10/2026). Con uno solo, quitarlo lo dejaría en ningún tablero. Es el
+  // patrón del primitive para mantener una lista desde el desplegable (`acciones` del renglón),
+  // y el server vuelve a contar antes de escribir.
+  const varios = suyos.length > 1;
+  const productos: DropdownOption[] = e.servicios.map((x) => {
+    const suyo = suyos.some((y) => y.productoId === x.productoId);
+    return {
+      value: String(x.productoId),
+      label: x.nombre,
+      sub: suyo ? undefined : 'No está',
+      acciones: suyo && varios
+        ? [{ icono: <IconoQuitar />, title: 'Quitar de este producto', tone: 'bad' as const, cierra: true, onClick: () => e.onQuitar(x.productoId) }]
+        : undefined,
+    };
+  });
 
   return (
     <span className="fe">
@@ -73,7 +88,7 @@ export function FichaEntrega({ leadId, nombre, e }: { leadId: number; nombre: st
           buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
       )}
       {!s.etapas.length ? null : esSuyo ? (
-        <Dropdown value={etapa} options={menu.options} columns={menu.columns} alContenido
+        <Dropdown value={etapa} options={menu.options} alContenido
           placeholder="Etapa borrada" align="right" ariaLabel={`Etapa de ${nombre} en ${s.nombre}`}
           onChange={(v) => { if (v && v !== etapa) e.onMover(v, s.productoId); }}
           buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
@@ -84,6 +99,16 @@ export function FichaEntrega({ leadId, nombre, e }: { leadId: number; nombre: st
       )}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </span>
+  );
+}
+
+/** Una cruz chica, del molde de los íconos de la barra de lote (viewBox 16, trazo 1.5). */
+function IconoQuitar() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor"
+      strokeWidth={1.5} strokeLinecap="round" aria-hidden>
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
   );
 }
 

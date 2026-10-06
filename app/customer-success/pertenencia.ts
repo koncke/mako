@@ -46,12 +46,20 @@ export function casaDeCliente(opts: {
   ofrecidos: readonly number[];
   /** ¿Tiene alguna fila de entrega en un producto ofrecido? */
   tieneFilas: boolean;
+  /**
+   * Los productos de los que alguien lo SACÓ (`cliente_entrega_fuera`, mig 0196). «Quitar de
+   * este producto» sobre su casa no puede borrar nada —la casa se deriva— así que deja una
+   * fila ahí, y la casa deja de valer. Tampoco cuentan para el respaldo del primer producto:
+   * lo sacaron de ése a propósito.
+   */
+  fuera?: readonly number[];
 }): number | null {
+  const fuera = opts.fuera ?? [];
   const f = opts.funnelId ?? opts.funnelDefault;
   const p = f != null ? opts.productoDeFunnel.get(f) : undefined;
-  if (p != null && opts.ofrecidos.includes(p)) return p;
+  if (p != null && opts.ofrecidos.includes(p) && !fuera.includes(p)) return p;
   if (opts.tieneFilas) return null;
-  return opts.ofrecidos[0] ?? null;
+  return opts.ofrecidos.find((x) => !fuera.includes(x)) ?? null;
 }
 
 /**
