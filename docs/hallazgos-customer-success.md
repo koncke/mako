@@ -3928,3 +3928,32 @@ sus consumidores se lee como evidencia de que existen.** Se cuentan los `import`
   quien retome `/conocimientos`, porque es la pantalla con alumnos reales que más cambia.
 - **`email_verified === false` en el callback de Google** (ver arriba): endurecerlo a `!== true`
   es una línea y toca el login de todos.
+
+---
+
+### «Ya se le mandó el acceso» sobre un mail que no salió (06/10/2026)
+
+**Síntoma:** al aprobar la cuenta de un cliente nuevo (`app/api/admin/agencia/route.ts`) o al
+crear a alguien desde una agencia (`app/api/admin/agencia/altas/route.ts`), la pantalla decía
+«Se le mandó el acceso» aunque el mail NO hubiera salido — remitente de prueba, Resend que
+rechaza, dirección inválida.
+
+**Causa:** `invitarPorEmail` devuelve **SIEMPRE un objeto** (`{ enviado, error }`), también
+cuando falla. Las dos rutas decidían el cartel con `inv ? ok : warn`, o sea con la
+existencia del resultado, que es verdad siempre. El caso verde y el rojo eran la misma rama.
+
+**Vive en:** `app/api/admin/agencia/route.ts` · `app/api/admin/agencia/altas/route.ts` ·
+`lib/invitaciones.ts` (el contrato del retorno). Guard en `tests/curso-invitar.test.ts`
+(«los avisos de aprobación de agencia miran `enviado`»), que busca sobre el texto SIN
+comentarios y distingue el `?` de un ternario del `?.` del encadenado opcional.
+
+**La regla:** cuando una función devuelve un objeto con el veredicto adentro, el veredicto
+es un CAMPO (`.enviado`, `.ok`), nunca la truthiness del objeto. Es «`res.ok` no es salió
+bien» (AGENTS.md) del lado de nuestras propias funciones — y es el peor lugar para un verde
+falso: le dice al dueño que el cliente ya tiene su acceso, así que nadie lo reenvía y el
+cliente se queda sin entrar sin que nada lo diga.
+
+Ahora el aviso dice además POR QUÉ no salió (`inv.error`), y manda a reenviarlo desde el
+equipo. Entró en `c0e2570b` junto con el curso, porque el test que lo cuida vive en el
+archivo de la invitación al curso: se separó mal al principio y lo delató el worktree
+limpio (ver «Invitar al cliente al curso», más arriba).
