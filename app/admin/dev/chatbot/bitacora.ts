@@ -622,4 +622,48 @@ export const BITACORA: Hito[] = [
       { sha: "0936f1da", msg: "Varias líneas de WhatsApp por negocio: el desplegable de la bandeja y «Sale por» en el chatbot", lineas: 1730, archivos: 29 },
     ],
   },
+  {
+    fecha: "6 oct", hora: "11:19", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Revisar el proyecto Chatbot del Plan e implementarlo todo",
+    pedido: "Quiero que revises el proyecto de Chatbot en el PLAN y que implementes y soluciones TODO...\nSi tienes preguntas de algunas tareas hazlas, pero si ya sabes como hacerlo, avanza",
+    puntos: [
+      "Eran 20 tarjetas abiertas. Antes de tocar nada, un relevo de cinco lectores (uno por área, con un refutador por lote) clasificó cada una: código claro, decisión de Martín, mixta, hecha u obsoleta.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "12:46", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El setter lee la charla real, el formulario y el caso, y sigue la charla después del primer mensaje",
+    puntos: [
+      "Cuatro tarjetas salían de lo mismo: el modo asistido le pasaba al setter UN turno suelto. Ahora lee los últimos 20 mensajes por la línea a la que escribió el lead, lo que contestó en el formulario de la agenda y la guía del caso en el que encajó; la insistencia se cuenta antes de llamar al modelo (#360, #361, #358).",
+      "Del segundo mensaje en adelante MaKo no contestaba (#788): la charla sigue abierta 7 días desde el último intercambio, con UN borrador por lead. Los errores del setter dicen por qué no hay borrador (#380).",
+      "En /chatbot: la puerta del QR y la «primera vez» de «Tu forma de escribir» miran el dato y no un tilde (#745), un aviso cuando el envío de WhatsApp está apagado (#328), «Sale sola» de vuelta en el lienzo (#786) y los audios que ya no vuelven a 0 mientras suenan (#350).",
+    ],
+    commits: [
+      { sha: "ba138b5a", msg: "Chatbot: el setter lee la charla real, el formulario y el caso, y sigue la charla después del primer mensaje", lineas: 1220, archivos: 19 },
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "12:51", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Las decisiones de las tarjetas del Chatbot",
+    pedido: "Chatbot details — Envio ws1: Prenderlo · Recordatorios lead: A: 24h, 1h y 15min con link, ws1, apago n8n · Cobranza: C: nada al cliente · Respuesta sola: C: solo confirmar y reprogramar · Casos post agenda: B: vio el video, precio, la reunión, cambiar día · Post agenda ia: A: sí, sale solo · Reagenda: b: también con reunión nueva · Bienvenida sale sola: Sale sola · Residuo: b: email a los 884 y WhatsApp a los ~80 con reunión · Linea caida: c: solo al cliente · Reportes: b: solo el semanal para los clientes · Guion audio: c: guion con IA gratis · Instagram: C: sacar la tab · Tope bienvenida horas: 72",
+    puntos: [
+      "Las contestó en un solo formulario con trece preguntas, cada una con su opción recomendada. Siete de las respuestas fueron la recomendada; las otras seis cambiaron el alcance (la cobranza no le escribe al cliente, la reagenda también con reunión nueva, el aviso de línea caída sólo al cliente, el guion con IA, sacar Instagram entero y un tope de 72 h).",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "13:25", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "correccion",
+    titulo: "Los 19 de la revisión, MaKo contesta solo en los casos que lo piden, y el formulario en el panel «Consejo»",
+    puntos: [
+      "Una revisión adversarial de 6 agentes sobre el lote anterior confirmó 19 defectos antes de prender el envío. El más grave: reemplazar un borrador pisaba su texto bajo el mismo id, y «Enviar» mandaba una respuesta que nadie leyó. Ahora se descarta el viejo y se crea otro.",
+      "#787 decidido «solo confirmar y reprogramar»: un caso con «contesta solo» sale sin borrador, pero cada condición es una puerta (envío prendido, nada de plata ni números, sin links sin completar, 3 por lead al día, de 9 a 21, nunca a un lead recién descalificado).",
+      "Hecho en el ws1 por decisión de Martín: el envío de WhatsApp prendido, el texto de las 24 h de la post-agenda en «Lo adapta MaKo» y la bienvenida prendida con tope de 72 h y «Sale sola». Los 4 casos de la post-agenda quedaron como 8 propuestas para confirmar en /mako/revisar, probados antes en memoria contra el clasificador (7 de 7).",
+    ],
+    commits: [
+      { sha: "f7354fa6", msg: "Chatbot: los 19 de la revisión, MaKo contesta solo en los casos que lo piden, y el formulario en el panel «Consejo»", lineas: 965, archivos: 28 },
+    ],
+  },
 ];

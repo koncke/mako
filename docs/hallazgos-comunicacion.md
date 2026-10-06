@@ -8389,3 +8389,96 @@ la línea por default. Lo que conviene llevarse para la próxima feature «de un
 
 Ver docs/hallazgos-infra.md → «La conexión directa a la base es sólo IPv6». Costó media hora
 porque se leyó como un corte de red.
+
+## El setter con la charla de verdad — y la revisión que lo frenó antes de salir (06/10/2026)
+
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `charlaDelLead`, `seguirCharla`,
+`asistirRespuesta`), `lib/setter-conversacion.ts` (las decisiones puras), `lib/setting-simulador.ts`,
+`lib/conversacion-repeticion.ts`, `lib/evolution-envio.ts` (`guardarBorradorSetter`,
+`anotarPasoEnviado`), `lib/wa-historial.ts`, mig 0203. Commits `ba138b5a` y `f7354fa6`.
+
+Proyecto «Feature: Chatbot» del plan, pedido de Martín: «revisa el proyecto de Chatbot en el
+PLAN y implementa y soluciona TODO». Cuatro tarjetas salían de lo mismo: el modo asistido le
+pasaba al setter **UN turno suelto** (`[{ de: 'lead', texto }]`).
+
+- **#360**: el corte por insistencia exige tres mensajes del lead; con un turno no podía dar
+  nunca. Y se contaba DESPUÉS de llamar al modelo: el servidor ya sabía que había que cerrar y el
+  texto que volvía era igual la cuarta rebatida. Ahora se cuenta antes y lo que se pide es la
+  despedida.
+- **#361**: repreguntaba lo que el lead ya había contestado en el formulario de la agenda.
+  ⚠️ **El diagnóstico de la tarjeta apuntaba al módulo equivocado**: `AdvisorLead` y su tope de
+  40 mensajes son del panel «Consejo» que usa una PERSONA; el que redacta la respuesta a un lead
+  es `responderSimulador`, y no veía ni el formulario ni la charla. Arreglar el tope de 40 no
+  habría cambiado nada.
+- **#358**: el `comoResponder` de cada caso («la guía del borrador») sólo se ESCRIBÍA; no lo
+  leía nadie que redacte.
+- **#788**: del segundo mensaje en adelante MaKo no contestaba — al primero la inscripción pasa
+  a 'respondio' y en menos de una hora el desenlace la cierra como lograda. Medido en el ws1: 10
+  de 11 leads que escribieron en 30 días mandaron más de un mensaje, o sea que era el caso normal.
+
+### Lo que cazó la revisión adversarial (19 confirmados, 2 descartados) antes de prender nada
+
+Se pusheó con el envío del ws1 todavía apagado, y la revisión corrió sobre el commit. Lo que
+conviene llevarse, porque generaliza:
+
+- **Reemplazar el texto de un borrador bajo el MISMO id hace que «Enviar» mande algo que nadie
+  leyó.** «Enviar» y «Descartar» van por id y el envío manda lo que la base tiene al hacer clic.
+  El dueño mira la respuesta A, el lead escribe de nuevo, la fila pasa a decir B (quizás una
+  despedida) y sale B. Reemplazar es descartar el viejo y crear otro: el clic sobre el viejo
+  contesta «ya no está pendiente». Va como regla en AGENTS.md.
+- **Lo que se aprueba a mano no existía para el motor.** Con «Sale sola» apagado cada paso queda
+  como borrador; al mandarlo sólo se tocaba `wa_borradores` y `nutricion_envios` seguía en
+  'borrador'. El desenlace medía el silencio sobre «nunca salió nada» y la charla decía «la
+  secuencia todavía no le había mandado nada» sobre alguien a quien se le mandó cada paso.
+  `anotarPasoEnviado` lo cierra en el oficial y en el no oficial.
+- **`updated_at` no es «hubo charla».** Lo escriben el motor, el desenlace y el destrabe de pasos;
+  usarlo de respaldo abría charlas que nunca existieron y, con dos secuencias pausadas, elegía la
+  equivocada. Charla = el setter atendió un intercambio (`conversacion_ultima_at`).
+- **Un cierre es de la charla con el LEAD, no de una inscripción**: si se cierra en una secuencia,
+  otra asistida del mismo lead no la reabre.
+- **Contar insistencia por MENSAJES cierra la charla de quien escribe en ráfaga.** «Está caro» /
+  «muy caro» / «carísimo» seguidos, sin respuesta en el medio, ya eran «la tercera vez». Se cuenta
+  por RONDAS (lo que el lead dijo entre dos respuestas del negocio) y un «gracias» repetido no es
+  una objeción.
+- **Con la charla abierta, todo lo que corría «en la primera respuesta» corre en CADA mensaje.**
+  La calificación pisaba el `calificado` que una persona había fijado en el CRM; ahora sólo
+  escribe sobre un null (compare-and-set). Es la pregunta a hacerse al abrir un camino que antes
+  pasaba una vez.
+- **Dos mensajes seguidos son dos redacciones en paralelo**, y la del viejo podía guardar después
+  que la del nuevo. Antes de guardar se relee el último entrante; si hay uno más nuevo, se sale.
+  ⚠️ Por Chatwoot el entrante no se espeja, así que esa relectura sólo protege al no oficial.
+
+### #787: MaKo contesta solo, pero sólo donde se decidió
+
+Decisión de Martín: «solo confirmar y reprogramar; el precio siempre en borrador». Es el único
+lugar donde la IA le escribe a un lead caliente sin aprobación, contra la regla dura de
+`lib/evolution-envio.ts`, así que cada condición es una puerta (`puedeContestarSolo`, pura): el caso
+con `contestaSolo`, la charla sin terminar mal, el envío del negocio prendido, el texto sin plata
+ni números de tres cifras, sin un `[tu link…]` ni una variable sin completar, 3 por lead en 24 h,
+de 9 a 21 en la zona del negocio, el número sin bloquear y el lead no recién descalificado. «El
+precio va en borrador» se mira en el TEXTO y no sólo en el caso: un caso mal configurado no la
+saltea. Sale por el MISMO borrador (`enviarBorrador` lo reclama atómico).
+
+### Dos diagnósticos obvios que eran los equivocados
+
+- **#328 «el envío se apagó al re-vincular la línea»**: falso. `revertirEstadoNoOficial` sólo
+  apaga si NO hay canal oficial, y el ws1 lo tiene desde el 16/07. Lo apagó una persona (la
+  pastilla de /whatsapp, probablemente) y no queda registrado quién: por eso el aviso nuevo de
+  /chatbot dice QUE está apagado y no inventa POR QUÉ.
+- **#745 «el onboarding saltea pasos»**: lo que pasaba es que la puerta del QR y la «primera vez»
+  de «Tu forma de escribir» leían un TILDE guardado una vez. El ws9 tenía el tilde con cero líneas
+  y veía el lienzo sin número; Código Inmobiliario tenía el tilde sin guía de voz y la IA escribía
+  sin guía. El dato gana al tilde (`lib/chatbot-puerta.ts`).
+
+### Lo que quedó escrito en producción (ws1, Mauricio) y lo que sigue abierto
+
+- Decidido por Martín y hecho el 06/10: el envío de WhatsApp del ws1 PRENDIDO (había 0
+  inscripciones activas: no salió nada en el acto); el texto de las 24 h de 212 y 213 en «Lo
+  adapta MaKo»; la bienvenida 198 prendida, con tope de 72 h y «Sale sola». Los 4 casos de la
+  post-agenda (dos con «contesta solo») se probaron EN MEMORIA contra el clasificador antes de
+  proponerlos (7 de 7, incluidos los dos que tienen que ir a una persona) y quedaron como 8
+  propuestas en /mako/revisar: hasta que Martín las confirme, todo mensaje de un agendado va a
+  hand-off.
+- SIN HACER: las 5 inscripciones de ws1 que dicen «no respondió» sin que se les haya mandado nada
+  (181-185) — no está decidido si se corrigen; la relectura anti-mensaje-viejo no cubre Chatwoot;
+  el aviso rojo de /chatbot sigue mirando sólo la línea por default.

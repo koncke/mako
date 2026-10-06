@@ -4034,6 +4034,22 @@ cliente —, y no da error: el mensaje sale.
 - **El nombre de una línea nueva nunca se reusa** (sufijo al azar): el espejo de una línea
   quitada se queda, y un nombre reusado lo hereda.
 
+# Lo que una persona aprueba por id no cambia bajo ese id: reemplazar es descartar y crear otro
+
+Un borrador, una propuesta, una pendiente: si la pantalla manda «Enviar» o «Aprobar» con el ID y
+el server ejecuta lo que la fila tiene AL HACER CLIC, pisar el contenido de esa fila hace que la
+persona apruebe algo que no leyó. Medido en la revisión del 06/10/2026 sobre el borrador del
+setter: el dueño mira la respuesta A, el lead escribe de nuevo, la fila pasa a decir B —quizás una
+despedida— y el clic manda B. Es «un canal propone y una persona confirma» roto sin que nada falle.
+
+- **Reemplazar = pasar la fila vieja a 'descartado' e insertar otra con id nuevo.** El clic sobre
+  la vieja contesta «ya no está pendiente» y la pantalla muestra la nueva. Molde:
+  `guardarBorradorSetter` (lib/evolution-envio.ts).
+- **Y si un índice único limita a una pendiente por sujeto, se descarta ANTES de insertar**; el
+  `23505` de dos escrituras en paralelo se resuelve con una vuelta más, no pisando.
+- **La alternativa, si la fila tiene que conservar el id**: que el cliente mande lo que vio (el
+  texto o su `updated_at`) y el claim lo exija en el `WHERE`.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que
