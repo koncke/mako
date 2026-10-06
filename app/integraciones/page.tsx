@@ -80,7 +80,7 @@ export default async function IntegracionesPage() {
       health={health}
       metaError={metaError}
       incidentes={incidentes}
-      snippetLanding={snippetLanding} clarityConectado={!!(await clarityProjectId(ws ?? undefined).catch(() => null))}
+      snippetLanding={snippetLanding}
       landingVieja={landingVieja}
       cuotas={cuotas}
       agenteToken={agenteToken}

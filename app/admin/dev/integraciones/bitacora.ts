@@ -358,4 +358,25 @@ export const BITACORA: Hito[] = [
       'app/instagram/OnboardingInstagram.tsx — el aviso en el paso de Zernio, sobre el camino de key propia',
     ],
   },
+  {
+    fecha: '6 oct', hora: '00:45', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Clarity se reemplazó: que deje de pedirse y que la prueba lo mida',
+    pedido: '«Hemos reemplazado completamente a Clarity con la última versión del pixel de MaKo, entonces te pido que revises ese trabajo, si ya está al 100%... Y que ajustes eso en integraciones, primero no pidiendo más el paso de conectar clarity y segundo en la prueba, se tiene que poder medir eso también, y claro que ya en la prueba no se mencione más a clarity.»',
+    puntos: [
+      '**La revisión dio que SÍ está vivo de punta a punta**, y casi se reporta lo contrario: la foto de producción mostraba dos sesiones sin sellar, `eventos: 0`, ocho lotes vivos y cero objetos en el bucket. Tenían 4 y 7 minutos, y el cron que sella corre cada 10. Doce minutos después: sellada 03:40:06, 82 eventos, 1 objeto, lotes borrados. El detalle está en docs/hallazgos-landing.md.',
+      'La migración 0191 figuraba **«sin aplicar»** en su propio documento de diseño y está aplicada desde entonces — con el bucket privado y su tope de 2 MiB. Corregido ahí, que es donde lo va a leer el próximo.',
+      'El paso 2 de la instalación («Mapas de Calor y Grabaciones») se fue entero: el flujo quedó en tres pasos y `ConfigClarity.tsx` se borró porque no lo montaba nadie más. Con él se fue la prop `clarityConectado`, que atravesaba cuatro firmas para alimentar sólo a ese bloque.',
+      'La prueba del Pixel ahora **mide su propia grabación**: el marcador `?mko_test=…` ya viajaba y el grabador lo guarda en `replay_sesiones.prueba`, así que `replayDePrueba` la encuentra. Verificado contra la sesión real sellada esa madrugada: 72 s, 82 eventos, `lista: true`; con un marcador inventado, null.',
+      '⚠️ **Lo que NO quedó**: desde la prueba no se puede VER la grabación. El reproductor vive en la ficha del lead y una prueba no tiene lead; un botón que no lleva a ningún lado es peor que ninguno. Sacarlo del CRM arrastra `useTzWorkspace` y su server action, y eso es una decisión aparte.',
+      '⚠️ **Y lo que falta decidir**: el snippet sigue pudiendo embeber Clarity si el workspace tiene la credencial (`app/integraciones/page.tsx`), y la tarjeta del servicio sigue en el catálogo. Hoy no afecta a nadie —ningún workspace tiene un `clarityProjectId` activo; lo único que queda son restos de `datos_mau` en el ws4— pero si Clarity se reemplazó del todo, eso también se saca.',
+    ],
+    archivos: [
+      'app/integraciones/IntegracionesBoard.tsx — fuera el paso de Clarity, pasos renumerados 1-2-3',
+      'app/integraciones/ProbarTracking.tsx — el estado de la grabación propia, sin una sola mención a Clarity',
+      'app/api/integraciones/landing/estado/route.ts — `chequeoGrabacion`, con su caso `na` para la grabación apagada',
+      'lib/replay-leer.ts — `replayDePrueba`, la grabación de una prueba por su marcador',
+      'docs/replay-diseno.md — la migración ya no figura sin aplicar',
+    ],
+  },
 ];

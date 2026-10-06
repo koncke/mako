@@ -3105,6 +3105,69 @@ es el comportamiento correcto y es, exactamente, no grabar nada.
 
 ---
 
+### ⚠️ Una grabación sin sellar NO es un sellado roto: el cron corre cada 10 minutos
+
+**Síntoma / el casi-reporte.** Al revisar si el replay propio estaba al 100%, la foto de
+producción daba esto: dos sesiones en `replay_sesiones`, las dos con `sellada_at` en null,
+`storage_path` en null, **`eventos: 0`**, ocho filas vivas en `replay_lotes` —el buffer que
+se borra al sellar— y **cero objetos en el bucket `replays`**. Leído de una, eso es
+exactamente la forma de «el grabador anda, el receptor anda, y el sellado no existe»: la
+cadena cortada en el único paso que convierte una grabación en algo que se puede mirar.
+
+**Y era falso.** Las sesiones tenían **4 y 7 minutos de vida**, y `/api/cron/replay-purga`
+—que es quien sella— corre `*/10 * * * *`. Medido doce minutos después, sin tocar una línea:
+`sellada_at` puesto a las 03:40:06, `storage_path` sí, **82 eventos**, 1 objeto en el bucket
+y los lotes de esa sesión borrados. El pipeline estaba entero.
+
+**Por qué engaña tanto, y es lo que hay que recordar:** el índice se escribe en la INGESTA
+(cuando llega el primer lote) y se COMPLETA en el sellado. O sea que una sesión recién
+grabada tiene fila con `eventos: 0` y sin cuerpo —un estado legítimo que dura hasta 10
+minutos— y se ve idéntica a una que nunca se va a sellar. `eventos: 0` no es «no grabó
+nada»: es «todavía no se contó».
+
+**La regla: antes de llamar rota a una etapa que dispara un cron, restá la hora.** Si lo
+medido es más nuevo que el período del cron, la única lectura honesta es «pendiente», y la
+medición se repite pasado un tick. Es la misma familia que «un reporte sobre el árbol se
+FECHA o no se entiende», aplicada a un pipeline asincrónico.
+
+**Y el corolario del que verifica:** la segunda medición tiene que traer el RELOJ al lado
+del dato. La primera relectura de este caso se corrió a los 40 segundos de la primera y dio
+igual —obvio—, y eso casi se lee como confirmación. Lo que la cerró fue imprimir
+`new Date().toISOString()` junto a cada `fin_at`.
+
+**Lo que quedó SIN hacer:** una sesión HUÉRFANA —la que cerró el navegador de golpe y nunca
+mandó `fin_at`— sigue con sus lotes esperando la ventana del barrido; medida acá, la segunda
+sesión quedó así. No es un bug (el cron lo contempla), pero no hay ninguna pantalla que
+distinga «esperando su ventana» de «se perdió», y la única forma de saberlo hoy es consultar
+la base.
+
+**Vive en:** app/api/cron/replay-purga/route.ts · lib/replay-ingesta.ts (`sellarPendientes`,
+`barrerLotesHuerfanos`) · lib/replay-leer.ts · supabase/migrations/0191_replay_de_sesion.sql ·
+*2026-10-06, revisión del reemplazo de Clarity*
+
+### La prueba del Pixel mide su PROPIA grabación, y ya no nombra a Clarity
+
+El probador tenía un link «Ver la grabación de esta prueba en Clarity →» y una advertencia
+de que tardaba entre 30 minutos y 2 horas. Con el replay propio eso sobra: el marcador
+`?mko_test=…` ya viaja en la URL y el grabador lo guarda en `replay_sesiones.prueba`, así
+que la prueba puede CONTESTAR si se grabó en vez de mandar a buscarla afuera.
+
+Queda como un chequeo más de la misma lista —no como un bloque aparte— porque la pantalla ya
+sabe contar cuántos aplican, y un panel propio sería un segundo lugar donde el mismo
+diagnóstico puede decir otra cosa. Y tiene **tres** respuestas, no dos: con la grabación
+apagada en ese espacio `na` («no se grabó porque nadie lo pidió», y marcarlo en rojo mandaría
+a repegar un código perfecto), `falta` si no llegó, y `ok` si llegó — diciendo en el detalle
+si ya se puede ver o si todavía se está guardando, que es un estado normal de hasta 10
+minutos y no un error.
+
+**Lo que quedó SIN hacer:** desde la prueba no se puede VER la grabación. El reproductor vive
+en la ficha del lead (`app/crm/lead-view/GrabacionModal.tsx`, 180 líneas) y una prueba no
+tiene lead; ofrecer un botón que no lleva a ningún lado es peor que no ofrecerlo. Para que
+exista ahí hay que sacar ese modal del CRM, y arrastra `useTzWorkspace` y su server action.
+
+**Vive en:** app/integraciones/ProbarTracking.tsx · app/api/integraciones/landing/estado/route.ts
+(`chequeoGrabacion`) · lib/replay-leer.ts (`replayDePrueba`) · *2026-10-06*
+
 ## La analítica POR PÁGINA del Pixel: lo que ya estaba medido y no miraba nadie
 
 **Vive en:** `lib/landing-pulso.ts` (puro, con test) · `lib/landing-pulso-server.ts` (la

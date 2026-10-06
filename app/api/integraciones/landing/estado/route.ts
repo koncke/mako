@@ -20,7 +20,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, runWithWorkspace } from '@/lib/workspace';
 import { landingUltimoEvento, landingDiagnostico, videosDetectados, getVideosLanding, getVideosOcultos, verificarPagina } from '@/lib/landing-token';
-import { urlSesionesDePrueba } from '@/lib/clarity';
+import { replayDePrueba } from '@/lib/replay-leer';
+import { configDeReplay } from '@/lib/replay-ingesta';
+import type { SesionDeLead } from '@/lib/replay-ficha';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +52,35 @@ async function resolverContexto(): Promise<Contexto | { error: string; status: n
     return { ws: OWNER_WS };
   }
   return { ws: wsActual };
+}
+
+/**
+ * El chequeo de «¿se grabó esta prueba?».
+ *
+ * ⚠️ TRES RESPUESTAS, NO DOS, y el `na` es la que más importa: con la grabación
+ * APAGADA en este espacio no falta nada —no se grabó porque nadie lo pidió— y
+ * marcarlo en rojo mandaría a repegar un código que está perfecto. Es la regla
+ * de la casa: «no puedo hacer X» no es «X está mal».
+ *
+ * Y una grabación que llegó pero todavía no se puede VER no es una falla: el
+ * cuerpo se sella en el cron (cada 10 minutos). El chequeo mide que el grabador
+ * ande, que es lo que la prueba puede afirmar ahora mismo; lo otro se dice en el
+ * detalle en vez de inventarle un estado.
+ */
+function chequeoGrabacion(marcador: string | null, g: SesionDeLead | null, activo: boolean | null) {
+  const base = { id: 'grabacion', label: 'Grabación de la sesión' };
+  if (activo === false) return { ...base, estado: 'na' as const, detalle: 'Está apagada para este espacio de trabajo.' };
+  if (activo === null) return { ...base, estado: 'na' as const, detalle: 'No pude leer si está encendida.' };
+  if (!marcador) return { ...base, estado: 'na' as const, detalle: 'Esta prueba no lleva marcador.' };
+  if (!g) return { ...base, estado: 'falta' as const, detalle: 'Todavía no llegó la grabación de esta prueba.' };
+  const seg = `${Math.round(g.segundos)}s`;
+  return {
+    ...base,
+    estado: 'ok' as const,
+    detalle: g.lista
+      ? `Grabada: ${seg}, ${g.eventos} eventos. Ya se puede ver desde la ficha del lead.`
+      : `Grabada: ${seg}. Se puede ver en unos minutos, cuando termine de guardarse.`,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -89,8 +120,22 @@ export async function GET(req: NextRequest) {
           getVideosOcultos(),
         ]),
       );
-      const urlPrueba = await runWithWorkspace(ctx.ws, () => urlSesionesDePrueba(req.nextUrl.searchParams.get('prueba'))).catch(() => null);
-      return NextResponse.json({ ok: true, ...d, videosDetectados: detectados, videos: guardados, videosOcultos: ocultos, urlPrueba });
+      // LA GRABACIÓN DE ESTA PRUEBA. Antes esto era un link a Clarity; ahora la
+      // grabación es propia, así que la prueba puede DECIR si llegó en vez de
+      // mandar a buscarla a otra pantalla. El marcador ya viaja en la URL de la
+      // página y el grabador lo guarda en `replay_sesiones.prueba`.
+      const marcador = req.nextUrl.searchParams.get('prueba');
+      const [grabacion, cfgReplay] = await runWithWorkspace(ctx.ws, () =>
+        Promise.all([
+          replayDePrueba(marcador).catch(() => null),
+          configDeReplay().catch(() => null),
+        ]),
+      );
+      // Va como UN chequeo más de la misma lista: la pantalla ya sabe contar
+      // cuántos aplican y cuántos no, y un bloque aparte sería un segundo lugar
+      // donde el mismo diagnóstico puede decir otra cosa.
+      const chequeos = [...(d.chequeos ?? []), chequeoGrabacion(marcador, grabacion, cfgReplay?.activo ?? null)];
+      return NextResponse.json({ ok: true, ...d, chequeos, videosDetectados: detectados, videos: guardados, videosOcultos: ocultos, grabacion });
     }
     const estado = await runWithWorkspace(ctx.ws, () => landingUltimoEvento());
     return NextResponse.json({ ok: true, ...estado });

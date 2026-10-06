@@ -13,6 +13,7 @@
 // pega una vez y queda congelado ahí para siempre).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import type { SesionDeLead } from '@/lib/replay-ficha';
 import { enumerar, haceCuanto, nombresDe, type Cambios } from '@/lib/landing-snapshot';
 import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
@@ -36,8 +37,8 @@ type Diag = {
   videosDetectados: VideoDetectado[]; videos: VideoLanding[];
   /** Los que el negocio marcó como «no son de mi página». */
   videosOcultos?: string[];
-  /** Link a las grabaciones de ESTA prueba en Clarity, o null. */
-  urlPrueba?: string | null;
+  /** La grabación propia de ESTA prueba, o null si todavía no llegó. */
+  grabacion?: SesionDeLead | null;
 };
 
 const hora = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '--:--:--' : d.toLocaleTimeString('es-MX', { hour12: false }); };
@@ -297,7 +298,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     try {
       const r = await fetch(`/api/integraciones/landing/estado?diag=1${pr ? `&prueba=${encodeURIComponent(pr)}` : ''}${landingFija ? `&landing=${encodeURIComponent(landingFija)}` : ''}${piezas.length ? `&piezas=${encodeURIComponent(piezas.join(','))}` : ''}`, { cache: 'no-store' }).then((x) => x.json());
       if (r?.ok) {
-        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [], videosOcultos: r.videosOcultos ?? [], urlPrueba: r.urlPrueba ?? null };
+        const d: Diag = { eventos: r.eventos ?? [], chequeos: r.chequeos ?? [], veredicto: r.veredicto ?? '', urls: r.urls ?? [], codigoViejo: !!r.codigoViejo, ultima: r.ultima ?? null, videosDetectados: r.videosDetectados ?? [], videos: r.videos ?? [], videosOcultos: r.videosOcultos ?? [], grabacion: r.grabacion ?? null };
         (guardarEn ?? setDiag)(d);
         setErr(null);
       } else setErr(r?.error ?? 'No se pudo consultar');
@@ -852,20 +853,21 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
         })}
       </div>
 
-      {/* ⚠️ LA GRABACIÓN DE ESTA PRUEBA. El marcador ya viaja a Clarity como
-          etiqueta, así que su panel puede filtrar por él igual que por el lead.
-          Sin esto había que buscar la propia sesión entre las de todo el mundo — y
-          a los 40 minutos, que es lo que Clarity tarda en procesarla, ya nadie se
-          acuerda de cuál era. */}
-      {diag?.urlPrueba && (
-        <a href={diag.urlPrueba} target="_blank" rel="noopener noreferrer"
-          style={{ display: 'inline-block', marginTop: 12, fontSize: 12.5, fontWeight: 650, color: 'var(--primary)' }}>
-          Ver la grabación de esta prueba en Clarity →
-        </a>
-      )}
-      {diag?.urlPrueba && (
-        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4, lineHeight: 1.5 }}>
-          Clarity tarda entre 30 minutos y 2 horas en procesarla. Te aviso por WhatsApp cuando esté lista.
+      {/* ⚠️ LA GRABACIÓN DE ESTA PRUEBA, que ahora es PROPIA. Antes esto era un
+          link al panel de Clarity y una advertencia de que tardaba entre 30
+          minutos y 2 horas. El estado de si llegó lo dice el chequeo «Grabación
+          de la sesión», que sale del server junto con los demás; acá queda sólo
+          el renglón que cambia mientras se mira: se está guardando → ya está.
+
+          ⚠️ Y NO HAY BOTÓN PARA VERLA todavía: el reproductor vive en la ficha
+          del lead (app/crm/lead-view/GrabacionModal.tsx) y una prueba no tiene
+          lead. Ofrecer un botón que no lleva a ningún lado es peor que no
+          ofrecerlo — para que exista acá hay que sacar ese modal del CRM. */}
+      {diag?.grabacion && (
+        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 12, lineHeight: 1.5 }}>
+          {diag.grabacion.lista
+            ? `Grabé esta prueba: ${Math.round(diag.grabacion.segundos)}s.`
+            : `Grabé esta prueba: ${Math.round(diag.grabacion.segundos)}s. Se termina de guardar en unos minutos.`}
         </div>
       )}
       {err && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}

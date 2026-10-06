@@ -894,12 +894,12 @@ export const AREAS: AreaDev[] = [
     estado: 'listo', verEnApp: '/integraciones',
     alcance: 'El estado de los servicios conectados (medidor de salud, «Requiere tu atención», servicios por categoría), el Costo de MaKo por proveedor y proceso, el historial de problemas de Meta, y el Pixel de MaKo: instalarlo sobre la página elegida, activarle Clarity, nombrar sus videos y probarlo en vivo.',
     // ⚠️ Este `vive` declaraba SIETE archivos y por eso el trabajo de agosto era
-    // medio invisible: todo el recorrido del Pixel (SelectorLanding, ConfigClarity,
+    // medio invisible: todo el recorrido del Pixel (SelectorLanding,
     // NombrarVideos, las server actions, la ventana de prueba) y sus libs
     // (landing-analisis, landing-config, landing-paginas, landing-videos, clarity)
     // no estaban en ninguna área. Es la regla de AGENTS.md «Una ruta que apunta a
     // la nada»: la omisión no da error, da un punto ciego.
-    vive: ['app/integraciones/page.tsx', 'app/integraciones/IntegracionesBoard.tsx', 'app/integraciones/ServicioConfigForm.tsx', 'app/integraciones/ProbarTracking.tsx', 'app/integraciones/SelectorLanding.tsx', 'app/integraciones/ConfigClarity.tsx', 'app/integraciones/NombrarVideos.tsx', 'app/integraciones/landing-actions.ts', 'app/integraciones/landing-config-actions.ts', 'app/integraciones/escuchando/page.tsx', 'app/api/integraciones/credencial/route.ts', 'app/api/integraciones/landing', 'app/api/anthropic-usage/route.ts', 'app/api/cron/clarity-vigilante/route.ts', 'lib/metodo-catalogo.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-verificar.ts', 'lib/servicio-slides.ts', 'lib/clarity.ts', 'lib/landing-config.ts', 'lib/landing-paginas.ts', 'lib/landing-analisis.ts', 'lib/landing-videos.ts'],
+    vive: ['app/integraciones/page.tsx', 'app/integraciones/IntegracionesBoard.tsx', 'app/integraciones/ServicioConfigForm.tsx', 'app/integraciones/ProbarTracking.tsx', 'app/integraciones/SelectorLanding.tsx', 'app/integraciones/NombrarVideos.tsx', 'app/integraciones/landing-actions.ts', 'app/integraciones/landing-config-actions.ts', 'app/integraciones/escuchando/page.tsx', 'app/api/integraciones/credencial/route.ts', 'app/api/integraciones/landing', 'app/api/anthropic-usage/route.ts', 'app/api/cron/clarity-vigilante/route.ts', 'lib/metodo-catalogo.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-verificar.ts', 'lib/servicio-slides.ts', 'lib/clarity.ts', 'lib/landing-config.ts', 'lib/landing-paginas.ts', 'lib/landing-analisis.ts', 'lib/landing-videos.ts'],
     proyectos: ['Feature: Integraciones'],
   },
   {

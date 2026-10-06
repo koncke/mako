@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useSearchParams } from 'next/navigation';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
-import { ConfigClarity } from './ConfigClarity';
 import { snippetDeLandingAction } from './landing-config-actions';
 import { SelectorLanding } from './SelectorLanding';
 import { Button } from '@/app/_ui';
@@ -154,7 +153,7 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, clarityConectado = false, cuotas = [], agenteToken, appUrl }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteToken, appUrl }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
@@ -163,9 +162,6 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   snippetLanding?: string | null;
   /** El código pegado en su página es de una versión vieja (lo sabe el beacon). */
   landingVieja?: boolean;
-  /** Si este workspace ya conectó Clarity. Lo resuelve el server: la credencial
-   *  no puede viajar al cliente, solo el hecho de que existe. */
-  clarityConectado?: boolean;
   /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
   cuotas?: CuotaProv[];
   /** Token del agente externo (Claude Code). null = todavía no acuñó ninguno. */
@@ -479,7 +475,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           gcal={gcal}
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
-          snippetLanding={snippetLanding} clarityConectado={clarityConectado}
+          snippetLanding={snippetLanding}
           agenteToken={agenteToken ?? null}
           appUrl={appUrl ?? ''}
           onClose={() => setModal(null)}
@@ -973,8 +969,8 @@ function PasosCargando() {
   );
 }
 
-function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }: {
-  snippet: string | null; clarityConectado?: boolean;
+function CodigoLanding({ snippet, elegida, onElegir }: {
+  snippet: string | null;
   /** La landing elegida vive en el MODAL, no acá: el paso 4 se renderiza fuera
    *  de este componente y necesita la misma respuesta. */
   elegida: string | null; onElegir: (u: string | null) => void;
@@ -1094,14 +1090,7 @@ function CodigoLanding({ snippet, clarityConectado = false, elegida, onElegir }:
 
       {elegida && (
       <div key={elegida}>
-      <Paso n={2}>
-        {/* Clarity va ANTES del código y el orden no es estético: su bloque se
-            arma cuando se GENERA el snippet, así que conectarlo después deja al
-            cliente con un código que no lo trae y nada que se lo diga. */}
-        <ConfigClarity conectado={clarityConectado} onListo={() => routerLanding.refresh()} />
-      </Paso>
-
-      <Paso n={3} titulo="Copia el código y pégalo en tu página">
+      <Paso n={2} titulo="Copia el código y pégalo en tu página">
 
       {/* LA MISMA BARRA que una credencial, pero oscura y con el código adentro.
           Antes eran tres piezas sueltas —un bloque de código, dos botones y un
@@ -1268,13 +1257,13 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, clarityConectado = false, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
+function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;
   /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
   gcal: GoogleCalendarStatus | null;
-  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; clarityConectado?: boolean; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   // El workspace de la pestaña, para que el OAuth de Google sepa a QUIÉN le está
   // conectando la agenda: es un redirect de página entera y el `?ws=` no viaja solo.
@@ -1448,7 +1437,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>
-              <CodigoLanding snippet={snippetLanding ?? null} clarityConectado={clarityConectado}
+              <CodigoLanding snippet={snippetLanding ?? null}
                 elegida={landingModal} onElegir={setLandingModal} />
               {/* ⚠️ EL PASO 4 NO EXISTE HASTA QUE HAY LANDING ELEGIDA. Mientras
                   el estado vivía adentro de CodigoLanding —y el paso 4 se
@@ -1456,7 +1445,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
                   preguntar cuál probar: la misma pregunta dos veces, y con dos
                   respuestas que podían diferir. */}
               {landingModal && (
-                <Paso n={4} key={landingModal} titulo="Comprueba que está funcionando">
+                <Paso n={3} key={landingModal} titulo="Comprueba que está funcionando">
                   <ProbarTracking landingFija={landingModal} />
                 </Paso>
               )}

@@ -5,7 +5,9 @@ Fijate de cómo solucionar el tema del almacenamiento.»
 
 Esto es el contrato que siguen los tres paquetes que construyen el replay. El código vive
 en **`lib/replay-contrato.ts`** (tipos, constantes y decisiones puras, sin `server-only`) y
-la migración es **`supabase/migrations/0191_replay_de_sesion.sql`** — **sin aplicar**.
+la migración es **`supabase/migrations/0191_replay_de_sesion.sql`**, **aplicada**: medido el
+06/10/2026 contra producción, existen `replay_lotes`, `replay_sesiones` y el bucket privado
+`replays` con su `file_size_limit` en 2 MiB.
 
 Los tres paquetes son: el **grabador** (pegado en la página de un tercero, no se puede
 tocar después), el **receptor** (`/api/track/replay`) y el **reproductor** (dentro de MaKo).

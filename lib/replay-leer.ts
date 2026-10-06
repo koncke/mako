@@ -137,6 +137,43 @@ export async function replayDeLead(
   return { sesiones, vacio, retencionDias: cfg.retencionDias };
 }
 
+/**
+ * La grabación de UNA prueba del Pixel, por su marcador (`?mko_test=…`).
+ *
+ * El grabador ya guarda el marcador en `replay_sesiones.prueba` —viaja en la URL
+ * de la página— así que la prueba puede encontrar SU propia grabación sin que
+ * nadie la busque entre las de todo el mundo. Eso es lo que antes resolvía la
+ * etiqueta de Clarity.
+ *
+ * Devuelve `null` por las dos razones de siempre y NO las distingue a propósito:
+ * acá «todavía no llegó» y «no se pudo leer» mandan a hacer lo mismo —esperar— y
+ * el que decide qué frase sale es el chequeo, que mira además si el evento de
+ * `pageview` llegó. Un replay sin `storage_path` sale igual, con `lista: false`:
+ * esa sesión está grabando o esperando el sellado, y las dos son un estado
+ * legítimo de una prueba que recién se hizo.
+ */
+export async function replayDePrueba(marcador: string | null): Promise<SesionDeLead | null> {
+  if (!marcador) return null;
+  const db = await getTenantDb();
+  const { data, error } = await db
+    .from('replay_sesiones')
+    .select('id, inicio, segundos, eventos, corte, storage_path')
+    .eq('prueba', marcador)
+    .order('inicio', { ascending: false })
+    .limit(1);
+  if (error) return null;
+  const f = ((data ?? []) as FilaSesion[])[0];
+  if (!f) return null;
+  return {
+    id: f.id,
+    inicio: f.inicio,
+    segundos: Math.max(0, Number(f.segundos) || 0),
+    eventos: Math.max(0, Number(f.eventos) || 0),
+    corte: f.corte === 'tiempo' || f.corte === 'bytes' ? f.corte : null,
+    lista: !!f.storage_path,
+  };
+}
+
 /** Lo que puede salir mal al traer el cuerpo de una sesión. Cada uno, su frase. */
 export type FalloDeCuerpo = 'id_invalido' | 'no_existe' | 'sin_sellar' | 'storage' | 'ilegible';
 
