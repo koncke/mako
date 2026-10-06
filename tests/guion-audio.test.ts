@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   revisarGuion, limpiarGuion, entradaDeGuion, hayDeDondeEscribir, bloqueSecuencia,
-  pasoAVoz, pasoATexto, guionParaLeer, sinGuion, palabrasDe,
+  pasoAVoz, pasoATexto, guionParaLeer, sinGuion, palabrasDe, guionVigente, textoDelNegocio,
   GUION_PASO_SYSTEM_TEMPLATE, FEATURE_GUION_AUDIO, GUION_PALABRAS, type PasoConVoz,
 } from '../lib/guion-audio';
+import { textoDelPaso } from '../lib/nutricion-canal';
 import { CATALOGO_MODELOS, PROVEEDORES_PAGOS } from '../lib/model-catalogo';
 import { renderTemplate } from '../lib/prompt-render-pure';
 
@@ -44,6 +45,18 @@ import { renderTemplate } from '../lib/prompt-render-pure';
 // (14) la feature fuera del catálogo                    → 1 rojo
 // (15) el control ignorando el texto del mensaje (`guion`) → 1 rojo
 // Las demás quedaron en verde en cada corrida (21 de 22, o 20 en la primera).
+//
+// La revisión adversarial (06/10/2026) sumó 7 tests y los rompió igual, con el mismo
+// arnés: sin romper 29 de 29; cada rotura dejó 28 pases y 1 rojo, el suyo, y al restaurar
+// volvió a 29 de 29.
+//  (R1) `textoDelPaso` sorteando también en un audio        → «el pie vacío llega vacío…»
+//  (R2) `pasoAVoz` sin restaurar `vozPrevia`                 → «voz → texto → voz…»
+//  (R3) `guionVigente` ignorando de qué texto salió           → «el guion de MaKo vale sólo…»
+//  (R4) `textoDelNegocio` sin objetivo ni preguntas           → «lo que la secuencia declara…»
+//  (R5) el control mostrando `guionIA` sin `guionVigente`     → «el control ata el guion…»
+//  (R6) la ruta con el `delNegocio` de antes                  → «la ruta mide las prohibiciones…»
+//  (R7) `sinGuion` dejando pasar `vozPrevia`                  → «el guion no viaja al guardar…»
+//  (R8) el motor armando el pie sin `textoDelPaso`            → «el motor usa el `textoDelPaso`…»
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 const leer = (rel: string) => readFileSync(RAIZ + rel, 'utf8').replace(/\r\n/g, '\n');
@@ -139,6 +152,28 @@ test('el pedido se sanea: sin objeto no es un pedido de paso, y lo largo se reco
   assert.equal(hayDeDondeEscribir(entradaDeGuion({ objetivo: 'reactivar' })!), true);
 });
 
+// ⟵ ROTURA (R4, revisión adversarial): `textoDelNegocio` sin el objetivo ni las preguntas → rojo.
+test('lo que la secuencia declara cuenta como del negocio: ni sus números ni su objetivo son inventos', () => {
+  const e = entradaDeGuion({ texto: '', objetivo: 'agendar', gancho: '', preguntas: ['¿Facturas más de 10 mil al mes?'] })!;
+  const del = textoDelNegocio(e);
+  // P2 de las prohibiciones del onboarding es /\b(agend\w+|…)\b/: con el objetivo afuera,
+  // un negocio sin link de agenda rechazaba todo guion que dijera «agendemos».
+  assert.match(del, /\bagend\w+/);
+  const conNumero = `${BUENO} Si facturas más de 10 mil al mes, esto es para ti.`;
+  assert.deepEqual(revisarGuion(conNumero, del), { ok: true }, 'el 10 lo escribió el negocio en sus preguntas');
+  // El rótulo de 'preparar' («Preparar para la llamada») es texto del producto: no entra.
+  assert.doesNotMatch(textoDelNegocio(entradaDeGuion({ objetivo: 'preparar' })!), /llamada/);
+  // Y el pie también es del negocio.
+  assert.match(textoDelNegocio(entradaDeGuion({ pie: 'Agenda aquí: https://cal.com/x' })!), /Agenda aquí/);
+});
+
+test('la ruta mide las prohibiciones y los números contra `textoDelNegocio`', () => {
+  const gdp = bloque(sinComentarios(leer('app/api/chat-agent/onboarding/guion-audio/route.ts')), 'async function guionDePaso(', '\n}\n');
+  assert.match(gdp, /const delNegocio = textoDelNegocio\(e\);/);
+  assert.match(gdp, /&& !p\.re\.test\(delNegocio\)\);/);
+  assert.match(gdp, /const permitido = \[delNegocio, perfil\]\.join\('\\n'\);/);
+});
+
 test('el objetivo llega al modelo con su NOMBRE, no con el valor interno', () => {
   const b = bloqueSecuencia({ objetivo: 'agendar', gancho: 'Guía de 5 pasos', preguntas: ['¿A qué te dedicas?'] });
   assert.match(b, /Objetivo: Agendar una reunión\./);
@@ -196,6 +231,56 @@ test('el guion no viaja al guardar: el server no lo conoce y lo tiraría sin avi
   const limpio = sinGuion(pasoAVoz(TEXTO, 42));
   assert.equal('guion' in limpio, false);
   assert.equal(limpio.audio_id, 42);
+  // Lo mismo para cómo estaba partido el paso al volver a texto.
+  const vuelta = sinGuion(pasoATexto({ ...pasoAVoz(TEXTO, 42), cuerpo: 'https://x.co/v' }));
+  assert.equal('vozPrevia' in vuelta, false);
+  assert.equal('guion' in vuelta, false);
+});
+
+// ⟵ ROTURA (R2, revisión adversarial): `pasoAVoz` sin restaurar `vozPrevia` → rojo.
+test('voz → texto → voz sin tocar el texto deja cada cosa en su lugar: el link sigue siendo el pie', () => {
+  // El camino real: el desplegable del grabador, «Grabar uno nuevo…», pasa el paso a
+  // texto (`onElegir(null)`) y grabar lo vuelve a voz.
+  const conPie = { ...pasoAVoz(TEXTO, 42), cuerpo: 'Te dejo el video: https://x.co/v' };
+  const otraVez = pasoAVoz(pasoATexto(conPie), 7);
+  assert.equal(otraVez.cuerpo, 'Te dejo el video: https://x.co/v', 'sin esto el link dejaba de salir: quedaba metido en el guion');
+  assert.equal(otraVez.guion, 'Hola, ¿pudiste ver el video?');
+  assert.equal(otraVez.audio_id, 7);
+  assert.equal(otraVez.vozPrevia, null);
+  // Un paso de voz sin guion (el que viene guardado): vuelve con su pie y nada para leer.
+  const guardado: Paso = { orden: 2, canal: 'whatsapp', tipo: 'audio', audio_id: 9, cuerpo: 'https://x.co/v' };
+  const ida = pasoAVoz(pasoATexto(guardado), 9);
+  assert.equal(ida.cuerpo, 'https://x.co/v');
+  assert.equal(guionParaLeer(ida), '');
+  // Si en el medio editaron el texto, el texto entero es lo que se lee y el pie arranca vacío.
+  const editado = { ...pasoATexto(conPie), cuerpo: 'Otro texto, escrito a mano.' };
+  const voz2 = pasoAVoz(editado, 7);
+  assert.equal(voz2.cuerpo, '');
+  assert.equal(voz2.guion, 'Otro texto, escrito a mano.');
+});
+
+// ⟵ ROTURA (R1, revisión adversarial): `textoDelPaso` sorteando también en un audio → rojo.
+test('el pie vacío llega vacío: un paso de audio no sortea variantes del texto que había antes', () => {
+  // Lo que pasa de verdad al guardar: `setSecuenciaPasos` mergea las variantes POR ORDEN,
+  // así que un mensaje que tenía variantes las conserva al pasar a voz.
+  const variantes = ['¿Llegaste a ver el video?', '¿Pudiste mirar el video que te mandé?'];
+  const guardado = { ...sinGuion(pasoAVoz(TEXTO, 42)), variantes };
+  for (let i = 0; i < 40; i++) {
+    assert.equal(textoDelPaso(guardado), '', 'el motor mandaba una variante del texto viejo como pie: el audio y lo mismo por escrito');
+  }
+  // Con un pie puesto, sale SIEMPRE el pie (el sorteo mandaba el link una de cada N veces).
+  const conPie = { ...guardado, cuerpo: 'https://x.co/v' };
+  for (let i = 0; i < 40; i++) assert.equal(textoDelPaso(conPie), 'https://x.co/v');
+  // Un mensaje de texto sigue sorteando entre su cuerpo y sus variantes.
+  const salen = new Set(Array.from({ length: 200 }, () => textoDelPaso({ ...TEXTO, variantes })));
+  assert.deepEqual([...salen].sort(), [TEXTO.cuerpo, ...variantes].sort());
+});
+
+test('el motor usa el `textoDelPaso` que tiene test, no una copia propia', () => {
+  const motor = sinComentarios(leer('lib/nutricion.ts'));
+  assert.doesNotMatch(motor, /function textoDelPaso\(/, 'una segunda copia vuelve a sortear en los audios');
+  assert.match(motor, /import \{[^}]*\btextoDelPaso\b[^}]*\} from '@\/lib\/nutricion-canal';/);
+  assert.match(motor, /const cuerpoNO = aplicarVariables\(textoDelPaso\(paso\), varsNO\);/);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,7 +370,27 @@ test('«Para leer» se dibuja ARRIBA del grabador y afuera de su ternario: se ve
   assert.ok(leerIdx >= 0, 'el rótulo «Para leer» no está en el bloque del audio');
   assert.ok(cuerpo.includes('{paraLeer}'), 'el texto para leer no se dibuja');
   assert.ok(leerIdx < cuerpo.indexOf('{voz.recording ? ('), 'si queda debajo o adentro del ternario, desaparece al grabar');
-  assert.match(CONTROL, /const paraLeer = \(guionIA \?\? guion \?\? ''\)\.trim\(\);/);
+  assert.match(CONTROL, /const paraLeer = \(deMaKo \?\? guion \?\? ''\)\.trim\(\);/);
+});
+
+// ⟵ ROTURA (R3, revisión adversarial): `guionVigente` ignorando `de` → rojo.
+test('el guion de MaKo vale sólo para el texto del que salió', () => {
+  const ia = { texto: 'Lo que escribió MaKo.', de: 'Hola, ¿pudiste ver el video?' };
+  assert.equal(guionVigente(ia, 'Hola, ¿pudiste ver el video?'), 'Lo que escribió MaKo.');
+  // «↻ Reescribir» o editar el mensaje: el guion era de otro texto y no se muestra.
+  assert.equal(guionVigente(ia, 'Te escribo por la reunión del jueves.'), null);
+  assert.equal(guionVigente(null, 'x'), null);
+});
+
+// ⟵ ROTURA (R5, revisión adversarial): el control mostrando `guionIA` sin pasar por
+//   `guionVigente`, o atándolo a la transcripción del audio → rojo.
+test('el control ata el guion de MaKo al TEXTO del mensaje y no a la transcripción', () => {
+  assert.match(CONTROL, /const delMensaje = guion\?\.trim\(\) \?\? '';/);
+  assert.match(CONTROL, /const deMaKo = guionVigente\(guionIA, delMensaje\);/);
+  const pedir = bloque(CONTROL, 'async function pedirGuion()', '\n  }\n');
+  assert.match(pedir, /const de = delMensaje;/);
+  assert.match(pedir, /setGuionIA\(\{ texto: j\.guion, de \}\);/);
+  assert.match(CONTROL, /: deMaKo \? '✦ Otra versión' : '✦ Escríbeme el guion'\}/);
 });
 
 test('el botón sale sólo con `paraGuion`, y pide desde el MENSAJE (no desde la versión anterior)', () => {

@@ -31,11 +31,12 @@ import type { SecuenciaDto, Opcion, PasoSecuenciaDto, AudioSetting } from './Cha
 import { PasoAudioControl } from './PasoAudioControl';
 import { DESENLACE_VACIO, type Desenlace, type Estrategia } from '@/lib/setting-estrategia';
 import { contextoDe } from '@/lib/etapas-contexto';
-import { pasoAVoz, pasoATexto, guionParaLeer, sinGuion } from '@/lib/guion-audio';
+import { pasoAVoz, pasoATexto, guionParaLeer, sinGuion, type PasoConVoz } from '@/lib/guion-audio';
 
-/** Un mensaje del borrador. `guion` es el texto que había antes de pasarlo a voz: vive
- *  sólo acá y `sinGuion` lo saca al guardar (lib/guion-audio.ts). */
-type PasoBorrador = PasoSecuenciaDto & { guion?: string | null };
+/** Un mensaje del borrador. `guion` es el texto que había antes de pasarlo a voz y
+ *  `vozPrevia` cómo estaba partido al volver a texto: viven sólo acá y `sinGuion` los
+ *  saca al guardar (lib/guion-audio.ts). */
+type PasoBorrador = PasoSecuenciaDto & Pick<PasoConVoz, 'guion' | 'vozPrevia'>;
 
 const MONO = "'Geist Mono', monospace";
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };

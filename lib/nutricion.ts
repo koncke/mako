@@ -23,7 +23,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { listarLineas, sondearSocket, type LineaRow } from '@/lib/evolution';
 import { lineaPorDefault, elegirLinea } from '@/lib/lineas-whatsapp';
-import { canalNoOficial, proveedorDelPaso, type CanalNoOficial } from '@/lib/nutricion-canal';
+import { canalNoOficial, proveedorDelPaso, textoDelPaso, type CanalNoOficial } from '@/lib/nutricion-canal';
 // Sólo el TIPO: el valor se importa dinámico adentro del motor (ciclo vía nutricion-generator).
 import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad } from '@/lib/setting-estrategia';
@@ -314,18 +314,11 @@ export async function setSecuenciaLinea(id: number, linea: string | null): Promi
   if (error) throw new Error(`setSecuenciaLinea: ${error.message}`);
 }
 
-/**
- * El texto que sale en ESTE envío: una de las variantes del paso, al azar, o el
- * cuerpo original si no tiene. El sorteo va acá y no en el que llama para que
- * cualquier canal que mande texto lo herede sin acordarse.
- */
-export function textoDelPaso(paso: Pick<PasoSecuencia, 'cuerpo' | 'variantes'>): string {
-  const vs = (paso.variantes ?? []).filter((v) => typeof v === 'string' && v.trim());
-  if (!vs.length) return paso.cuerpo;
-  // El cuerpo original entra al sorteo: es la versión que el dueño aprobó.
-  const pool = [paso.cuerpo, ...vs].filter((t) => t.trim());
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+// `textoDelPaso` (qué texto sale en este envío, y el sorteo entre variantes) se mudó
+// a lib/nutricion-canal.ts: es una decisión pura y acá, con `server-only` por
+// `getTenantDb`, ningún test la podía ejecutar. Un paso de AUDIO no sortea: su
+// cuerpo es el pie, y sus variantes son las del texto que había antes (#748).
+export { textoDelPaso };
 
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Promise<void> {
   const supabase = (await getTenantDb());

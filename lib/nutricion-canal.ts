@@ -86,3 +86,33 @@ export function proveedorDelPaso(p: {
   if (p.proveedor === 'no_oficial') return 'no_oficial';
   return p.template_wa ? 'oficial' : 'no_oficial';
 }
+
+/**
+ * El texto que sale en ESTE envío: una de las variantes del paso, al azar, o el
+ * cuerpo original si no tiene. El sorteo va acá y no en el que llama para que
+ * cualquier canal que mande texto lo herede sin acordarse. (Vivía en
+ * lib/nutricion.ts; se mudó acá, que no tiene `server-only`, para que tenga test.)
+ *
+ * ⚠️ UN PASO DE AUDIO NO SORTEA: su `cuerpo` es el PIE —lo que va por escrito junto
+ * a la nota de voz, casi siempre un link— y sus variantes, si las tiene, son las del
+ * TEXTO que había antes de pasarlo a voz. `setSecuenciaPasos` las conserva por orden
+ * (`variantesPrevias`) aunque el paso haya cambiado de tipo, así que un mensaje que
+ * se pasaba a voz en el wizard —con el pie vaciado a propósito (lib/guion-audio.ts,
+ * `pasoAVoz`, #748)— salía igual con una variante del texto viejo de pie: el lead
+ * recibía el audio y además lo mismo por escrito. Con un pie puesto, el sorteo
+ * mandaba el link una de cada N veces. La condición es la MISMA que usa el motor
+ * para decidir que el paso es una nota de voz.
+ */
+export function textoDelPaso(paso: {
+  tipo?: string | null;
+  audio_id?: unknown;
+  cuerpo: string;
+  variantes?: string[] | null;
+}): string {
+  if (paso.tipo === 'audio' && Number(paso.audio_id) > 0) return paso.cuerpo;
+  const vs = (paso.variantes ?? []).filter((v) => typeof v === 'string' && v.trim());
+  if (!vs.length) return paso.cuerpo;
+  // El cuerpo original entra al sorteo: es la versión que el dueño aprobó.
+  const pool = [paso.cuerpo, ...vs].filter((t) => t.trim());
+  return pool[Math.floor(Math.random() * pool.length)];
+}

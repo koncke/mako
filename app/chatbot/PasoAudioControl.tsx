@@ -28,6 +28,7 @@ import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRec
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import { Spinner } from '@/app/_ui';
+import { guionVigente } from '@/lib/guion-audio';
 import type { AudioSetting } from './ChatAgentApp';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 
@@ -58,7 +59,11 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
   const [grabando, setGrabando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [fase, setFase] = useState<string | null>(null);
-  const [guionIA, setGuionIA] = useState<string | null>(null);
+  // El guion de MaKo y el texto del que salió. Se dibuja sólo mientras ese texto siga
+  // siendo el del mensaje: el wizard reusa este control al «↻ Reescribir» (sus filas van
+  // por índice) y al editar el texto, y sin el `de` quedaba a la vista el guion de un
+  // mensaje que ya no es éste.
+  const [guionIA, setGuionIA] = useState<{ texto: string; de: string } | null>(null);
   const [pidiendo, setPidiendo] = useState(false);
 
   const subir = useCallback(async (blob: Blob, secs: number) => {
@@ -86,13 +91,19 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
 
   const voz = useVoiceRecorder(subir, onError);
   const audio = audioId ? audios.find((a) => a.id === audioId) ?? null : null;
-  const paraLeer = (guionIA ?? guion ?? '').trim();
+  // El guion de MaKo se ata al TEXTO del mensaje (`guion`), no a la transcripción del
+  // audio: ésa cambia con cada grabación, y el guion se tiene que poder volver a leer
+  // para grabar otra vez.
+  const delMensaje = guion?.trim() ?? '';
+  const deMaKo = guionVigente(guionIA, delMensaje);
+  const paraLeer = (deMaKo ?? guion ?? '').trim();
 
   // Siempre desde el texto del MENSAJE (o lo que dice hoy su audio), nunca desde la
   // versión anterior de MaKo: pedir otra sobre la otra la va alejando del mensaje.
   async function pedirGuion() {
     if (!paraGuion || pidiendo) return;
     setPidiendo(true);
+    const de = delMensaje;
     try {
       const r = await fetch(RUTA_GUION, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -107,7 +118,7 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
       });
       const j = await r.json().catch(() => null) as { ok?: boolean; guion?: string; error?: string } | null;
       if (!j?.ok || !j.guion) { onError(j?.error || 'MaKo no pudo escribir el guion.'); return; }
-      setGuionIA(j.guion);
+      setGuionIA({ texto: j.guion, de });
     } catch (e) {
       onError(e instanceof Error && e.name === 'TimeoutError' ? 'MaKo tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
     } finally { setPidiendo(false); }
@@ -149,7 +160,7 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
               {paraGuion && (
                 <button type="button" disabled={disabled || pidiendo} onClick={() => void pedirGuion()}
                   style={{ ...btn, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--mako-ink)' }}>
-                  {pidiendo ? <><Spinner size={12} /> Escribiendo…</> : guionIA ? '✦ Otra versión' : '✦ Escríbeme el guion'}
+                  {pidiendo ? <><Spinner size={12} /> Escribiendo…</> : deMaKo ? '✦ Otra versión' : '✦ Escríbeme el guion'}
                 </button>
               )}
             </div>

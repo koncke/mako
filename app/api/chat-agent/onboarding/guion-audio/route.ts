@@ -28,7 +28,7 @@ import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada, type ProvN
 import { overrideDeFeature } from '@/lib/model-registry';
 import {
   FEATURE_GUION_AUDIO, GUION_PASO_SYSTEM_TEMPLATE, entradaDeGuion, hayDeDondeEscribir,
-  bloqueSecuencia, limpiarGuion, revisarGuion, type EntradaGuion,
+  bloqueSecuencia, limpiarGuion, revisarGuion, textoDelNegocio, type EntradaGuion,
 } from '@/lib/guion-audio';
 import { getPromptText, renderPrompt } from '@/lib/prompt-render';
 import { perfilNegocioTexto } from '@/lib/onboarding';
@@ -210,8 +210,9 @@ async function guionDePaso(e: EntradaGuion): Promise<Response> {
   // Las prohibiciones del onboarding valen igual —un audio no puede decir «dejaste tus
   // datos en el anuncio» si el negocio no corre anuncios—, MENOS las que el propio
   // mensaje ya rompe: si el negocio escribió «tu llamada de mañana», decirlo en voz alta
-  // no es un invento, es el mensaje.
-  const delNegocio = [e.texto, e.pie, e.gancho].join('\n');
+  // no es un invento, es el mensaje. «El propio mensaje» incluye lo que la SECUENCIA
+  // declara (objetivo y preguntas): ver `textoDelNegocio`.
+  const delNegocio = textoDelNegocio(e);
   const prohibidas = PROHIBICIONES.filter((p) => p.aplica(entradas, canal, evento) && !p.re.test(delNegocio));
 
   const system = await renderPrompt('chatbot.guion-audio', GUION_PASO_SYSTEM_TEMPLATE, {
@@ -231,7 +232,7 @@ async function guionDePaso(e: EntradaGuion): Promise<Response> {
   ].filter(Boolean).join('\n\n');
 
   // Los números que el guion puede decir salen de lo que escribió el negocio.
-  const permitido = [e.texto, e.gancho, perfil].join('\n');
+  const permitido = [delNegocio, perfil].join('\n');
   const r = await escribir({
     system, user, motivo: 'Guion de una nota de voz de la secuencia',
     revisar: (t) => {

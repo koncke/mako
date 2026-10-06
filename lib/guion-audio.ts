@@ -164,6 +164,18 @@ export function revisarGuion(guion: string, permitido: string): VeredictoGuion {
 // y lo descartaría sin avisar: vive sólo en el borrador del wizard, y `sinGuion` lo saca
 // antes de guardar para que no viaje un campo que el server tira. Volver a texto lo
 // restaura dentro de la misma sesión, no después.
+//
+// ⚠️ Y EL PIE VACÍO SÓLO ES VACÍO SI EL MOTOR NO LO RELLENA: un paso que tenía variantes
+// las conserva al pasar a voz (`setSecuenciaPasos` las mergea por orden), y el motor
+// sorteaba una como pie. Lo corta `textoDelPaso` (lib/nutricion-canal.ts): un audio no
+// sortea.
+//
+// ⚠️ Y LA VUELTA ES SIN PÉRDIDA, EN LAS DOS DIRECCIONES. Volver a texto junta el guion y
+// el pie en el cuerpo; si después se vuelve a voz sin haber tocado ese texto, cada cosa
+// regresa a su lugar (`vozPrevia`). Sin eso, voz → texto → voz metía el pie entero en el
+// guion y lo vaciaba: el link que la persona había escrito dejaba de salir y aparecía en
+// «Para leer». Es el camino del desplegable del grabador: «Grabar uno nuevo…» pasa el
+// paso a texto (`onElegir(null)`) y grabar lo vuelve a voz.
 
 export type PasoConVoz = {
   tipo?: 'texto' | 'audio' | 'ia';
@@ -172,34 +184,67 @@ export type PasoConVoz = {
   proveedor?: 'oficial' | 'no_oficial';
   /** Sólo en el borrador: el texto que había antes de pasarlo a voz. */
   guion?: string | null;
+  /** Sólo en el borrador: cómo estaba partido el paso de voz cuando se volvió a texto. */
+  vozPrevia?: { guion: string; pie: string } | null;
 };
+
+const juntar = (guion: string, pie: string): string => [guion.trim(), pie.trim()].filter(Boolean).join('\n\n');
 
 /** El paso pasa a nota de voz con `audioId`. Si ya era de voz, sólo cambia el audio: su cuerpo ES el pie. */
 export function pasoAVoz<P extends PasoConVoz>(p: P, audioId: number): P {
   if (p.tipo === 'audio') return { ...p, audio_id: audioId };
+  // Si el texto es exactamente el que dejó `pasoATexto`, nadie lo tocó: vuelve partido
+  // como estaba. Si lo editaron, el texto entero es lo que se lee y el pie arranca vacío.
+  const previa = p.vozPrevia && p.cuerpo === juntar(p.vozPrevia.guion, p.vozPrevia.pie) ? p.vozPrevia : null;
   return {
     ...p,
     tipo: 'audio' as const,
     audio_id: audioId,
     proveedor: 'no_oficial' as const,
-    cuerpo: '',
-    guion: p.cuerpo.trim() ? p.cuerpo : (p.guion ?? null),
+    cuerpo: previa ? previa.pie : '',
+    guion: previa ? (previa.guion || null) : (p.cuerpo.trim() ? p.cuerpo : (p.guion ?? null)),
+    vozPrevia: null,
   };
 }
 
 /** De vuelta a texto: lo que se había movido al guion vuelve al cuerpo, y el pie que se escribió no se pierde. */
 export function pasoATexto<P extends PasoConVoz>(p: P): P {
   if (p.tipo !== 'audio') return p;
-  const cuerpo = [p.guion?.trim(), p.cuerpo.trim()].filter(Boolean).join('\n\n');
-  return { ...p, tipo: 'texto' as const, audio_id: null, cuerpo, guion: null };
+  const guion = p.guion?.trim() ?? '';
+  return { ...p, tipo: 'texto' as const, audio_id: null, cuerpo: juntar(guion, p.cuerpo), guion: null, vozPrevia: { guion, pie: p.cuerpo } };
 }
+
+/**
+ * El guion que escribió MaKo, sólo si salió del texto que el mensaje tiene AHORA. El
+ * control de grabar lo guarda con el texto del que salió (`de`): el wizard reusa el
+ * control al «↻ Reescribir» y al editar el mensaje, y sin esto «Para leer» mostraba el
+ * guion de un mensaje que ya no es el que se va a mandar.
+ */
+export const guionVigente = (ia: { texto: string; de: string } | null, base: string): string | null =>
+  (ia && ia.de === base ? ia.texto : null);
 
 /** Lo que se lee al grabar: antes de pasarlo a voz es el texto del mensaje; después, el que se movió. */
 export const guionParaLeer = (p: PasoConVoz): string => (p.tipo === 'audio' ? (p.guion ?? '') : p.cuerpo);
 
-/** El paso sin el guion, para guardarlo: el server no lo conoce. */
-export function sinGuion<P extends PasoConVoz>(p: P): Omit<P, 'guion'> {
-  const { guion: _guion, ...resto } = p;
-  void _guion;
+/** El paso sin lo que vive sólo en el borrador, para guardarlo: el server no lo conoce. */
+export function sinGuion<P extends PasoConVoz>(p: P): Omit<P, 'guion' | 'vozPrevia'> {
+  const { guion: _guion, vozPrevia: _previa, ...resto } = p;
+  void _guion; void _previa;
   return resto;
+}
+
+/**
+ * Lo que ESCRIBIÓ o ELIGIÓ el negocio para este mensaje: el texto, el pie, el gancho, las
+ * preguntas y el objetivo de la secuencia. De acá salen los números que el guion puede
+ * decir, y es contra esto que una prohibición del onboarding se da por rota «por el propio
+ * mensaje». Sin el objetivo y las preguntas, una secuencia con objetivo «agendar» en un
+ * negocio sin link de agenda rechazaba cualquier guion que dijera «agendemos» —lo que la
+ * propia secuencia pide— con un «prueba de nuevo» que no podía andar nunca.
+ *
+ * ⚠️ El objetivo va por su VALOR ('agendar'), no por su rótulo: el de 'preparar' dice
+ * «Preparar para la llamada», que es texto del producto y no del negocio, y le abriría
+ * la palabra «llamada» a un negocio presencial.
+ */
+export function textoDelNegocio(e: Pick<EntradaGuion, 'texto' | 'pie' | 'gancho' | 'objetivo' | 'preguntas'>): string {
+  return [e.texto, e.pie, e.gancho, e.objetivo, ...e.preguntas].filter(Boolean).join('\n');
 }
