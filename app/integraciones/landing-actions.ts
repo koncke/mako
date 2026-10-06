@@ -16,6 +16,7 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { contarEventosDePrueba } from '@/lib/landing-token';
 import { configDeReplay } from '@/lib/replay-ingesta';
+import { programarAnalisisDeclaradas } from '@/lib/landing-analyst-auto';
 import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
 import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos, conOculto, sinOculto } from '@/lib/landing-videos';
 
@@ -45,6 +46,8 @@ export async function guardarPaginaAction(url: string, anterior?: string | null)
     const nuevas = conPagina(paginas, url, anterior);
     if (!nuevas) return { ok: false, error: 'Esa dirección no parece una página web.' };
     await setSetting(PAGINAS_KEY, JSON.stringify(nuevas));
+    // El formato viejo también declara una página: Landing Analyst la analiza sola.
+    await programarAnalisisDeclaradas();
     revalidatePath('/integraciones');
     return { ok: true, paginas: nuevas, ocultas };
   } catch (e) {

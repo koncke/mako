@@ -17,13 +17,16 @@
 // se paga si nadie la abre (la pide su propio endpoint al montarse).
 // =============================================================================
 
-import { useCallback, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import Link from '@/app/_ui/Link';
 import { Tabs } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { MakoLogo } from '../_components/MakoBrand';
 import { PulsoPaginas } from './PulsoPaginas';
+import { GRAMATICA } from '@/lib/mako-gramatica';
+import { analisisCortado } from '@/lib/landing-url';
+import { MapaDeCalor } from './MapaDeCalor';
 import type { LandingViewData, LandingAnalysisRow, LandingHallazgo, Severidad, Tone } from '@/lib/landing-analyst';
 
 const MONO = "'Geist Mono', monospace";
@@ -206,7 +209,9 @@ function Hallazgo({ h }: { h: LandingHallazgo }) {
 
 // ── vista principal ──────────────────────────────────────────────────────────
 
-export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; errorMsg: string | null }) {
+type Vista = 'copy' | 'pulso' | 'mapa';
+
+export function LandingAnalystApp({ data, errorMsg, vistaInicial = 'copy' }: { data: LandingViewData; errorMsg: string | null; vistaInicial?: Vista }) {
   const router = useRouter();
   const { landings, sinAnalizar, kpis } = data;
 
@@ -214,7 +219,14 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
   const [corriendo, setCorriendo] = useState<string | null>(null);
   const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: string } | null>(null);
   const [selUrl, setSelUrl] = useState<string | null>(landings[0]?.url ?? null);
-  const [vista, setVista] = useState<'copy' | 'pulso'>('copy');
+  const [vista, setVista] = useState<Vista>(vistaInicial);
+  // La pestaña se escribe de vuelta en la URL (router de app/_ui/Link: conserva el
+  // ?ws=), así el link que se copia abre la pestaña que se está viendo.
+  const cambiarVista = useCallback((id: string) => {
+    const v: Vista = id === 'pulso' || id === 'mapa' ? id : 'copy';
+    setVista(v);
+    router.replace(v === 'copy' ? '/landing-analyst' : `/landing-analyst?tab=${v}`, { scroll: false });
+  }, [router]);
   // Página que no se pudo leer sola: se ofrece pegar el texto en vez de dejar
   // al usuario contra la pared. `pegar.url` es la que quedó esperando su copy.
   const [pegar, setPegar] = useState<{ url: string; texto: string } | null>(null);
@@ -223,6 +235,17 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
     () => landings.find((l) => l.url === selUrl) ?? landings[0] ?? null,
     [landings, selUrl],
   );
+
+  // ⚠️ UN ANÁLISIS AUTOMÁTICO CORRE POR DETRÁS (lo dispara guardar una página en el
+  // Pixel), así que la pantalla no se entera sola de que terminó. Mientras haya uno
+  // en curso —y no cortado— se refresca cada 15 s; sin ninguno, no se sondea nada.
+  const actualizadoDe = (l: LandingAnalysisRow) => (l as LandingAnalysisRow & { updated_at?: string }).updated_at ?? null;
+  const enCurso = landings.some((l) => l.status === 'pendiente' && !analisisCortado(l.status, actualizadoDe(l), Date.now()));
+  useEffect(() => {
+    if (!enCurso) return;
+    const t = setInterval(() => router.refresh(), 15_000);
+    return () => clearInterval(t);
+  }, [enCurso, router]);
 
   const analizar = useCallback(async (raw: string, texto?: string) => {
     const target = raw.trim();
@@ -296,9 +319,9 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
 
         <div style={{ marginTop: 18 }}>
           <Tabs
-            tabs={[{ id: 'copy', label: 'Diagnóstico' }, { id: 'pulso', label: 'Lo que mide tu Pixel' }]}
+            tabs={[{ id: 'copy', label: 'Diagnóstico' }, { id: 'pulso', label: 'Lo que mide tu Pixel' }, { id: 'mapa', label: 'Mapa de calor' }]}
             activa={vista}
-            onCambio={(id) => setVista(id === 'pulso' ? 'pulso' : 'copy')}
+            onCambio={cambiarVista}
           />
         </div>
 
@@ -383,6 +406,10 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
         <div style={{ padding: '0 32px' }}>
           <PulsoPaginas />
         </div>
+      ) : vista === 'mapa' ? (
+        <div style={{ padding: '0 32px' }}>
+          <MapaDeCalor />
+        </div>
       ) : landings.length === 0 ? (
         <div style={{ padding: '0 32px' }}>
           <div style={{ ...card, padding: 40, textAlign: 'center', maxWidth: 560, margin: '30px auto 0' }}>
@@ -413,6 +440,8 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
                     </div>
                     {l.status === 'error'
                       ? <span style={{ fontSize: 10.5, fontFamily: MONO, padding: '3px 8px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)' }}>ERROR</span>
+                      : l.status === 'pendiente'
+                      ? <span style={{ fontSize: 10.5, fontFamily: MONO, padding: '3px 8px', borderRadius: 999, background: 'var(--mako-bg, var(--surface-2))', color: 'var(--mako-ink, var(--dim))', flex: 'none' }}>{GRAMATICA.analizando.rotulo.toUpperCase()}</span>
                       : <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 700, color: scoreColor(l.score), flex: 'none' }}>{fmtScore(l.score)}</span>}
                   </div>
                   {l.veredicto && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 7, lineHeight: 1.4 }}>{l.veredicto}</div>}
@@ -423,7 +452,15 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
 
           {/* DETALLE */}
           <section style={{ flex: 1, minWidth: 380, display: 'grid', gap: 16 }}>
-            {!sel ? null : sel.status === 'error' ? (
+            {!sel ? null : sel.status === 'pendiente' ? (
+              <div style={{ ...card, borderLeft: '3px solid var(--mako, var(--primary))' }}>
+                <div style={{ ...eyebrow, marginBottom: 8 }}>{analisisCortado(sel.status, actualizadoDe(sel), Date.now()) ? 'Se cortó' : `${GRAMATICA.analizando.rotulo} · tu página`}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12.5, marginBottom: 12, color: 'var(--dim)' }}>{sel.url}</div>
+                {analisisCortado(sel.status, actualizadoDe(sel), Date.now())
+                  ? <button type="button" style={btnSuave} disabled={ocupado} onClick={() => analizar(sel.url)}>Reintentar</button>
+                  : <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0 }}>Tarda unos minutos. Puedes cerrar esta pantalla.</p>}
+              </div>
+            ) : sel.status === 'error' ? (
               <div style={{ ...card, borderLeft: '3px solid var(--bad)' }}>
                 <div style={{ ...eyebrow, marginBottom: 8 }}>No se pudo analizar</div>
                 <div style={{ fontFamily: MONO, fontSize: 12.5, marginBottom: 12, color: 'var(--dim)' }}>{sel.url}</div>

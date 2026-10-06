@@ -42,6 +42,10 @@
       "schedule": "50 13 * * *"
     },
     {
+      "path": "/api/cron/landing-analyst-auto",
+      "schedule": "20 * * * *"
+    },
+    {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
     },

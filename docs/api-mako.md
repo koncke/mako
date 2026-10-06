@@ -5821,11 +5821,11 @@ curl -s -X POST "https://hola-mako.com/api/v1/landing/ocultar_video" -H "Authori
 
 ### `POST /api/v1/landing/guardar_landing` — Agregar o corregir una landing
 
-Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se analiza sola en Landing Analyst, por detrás. Tope: 12 landings.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** la lista de landings declaradas (app_settings landing.config)
+- **Escribe:** la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su análisis en Landing Analyst (landing_analyses), con la cascada gratis del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**

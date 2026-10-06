@@ -13,10 +13,9 @@
 // referrers) ya vive en el bloque «Lo que hace la gente» del diagnóstico: acá se
 // agrega lo que NADIE estaba mirando, no se repite lo que ya se ve.
 //
-// ⚠️ EL MAPA DE CALOR DE PUNTOS NO ES ESTO. Para pintar dónde se hace clic en la
-// página hacen falta las coordenadas del clic, y hoy el Pixel no las guarda
-// (`vsl_events.detalle` tiene el destino, no el x/y). Esta pantalla es la mitad
-// que ya se puede contestar con lo que está medido desde hace meses.
+// ⚠️ EL MAPA DE CALOR DE PUNTOS NO ES ESTO: vive en su propia pestaña
+// (MapaDeCalor.tsx), desde el 06/10/2026, dibujado sobre la foto de la página.
+// Esta pantalla contesta las dos preguntas que no necesitan la foto.
 //
 // ⚠️ Y UN CERO NO SE DIBUJA NUNCA SOBRE UNA LECTURA QUE FALLÓ. `fallas` dice qué
 // bloque no se pudo leer y ese bloque lo dice en pantalla, en vez de mostrar un

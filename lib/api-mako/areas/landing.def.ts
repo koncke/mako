@@ -283,13 +283,13 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Agregar o corregir una landing',
-    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Tope: 12 landings.',
+    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se analiza sola en Landing Analyst, por detrás. Tope: 12 landings.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la página, con o sin https.' },
       { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
-    escribe: 'la lista de landings declaradas (app_settings landing.config)',
+    escribe: 'la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su análisis en Landing Analyst (landing_analyses), con la cascada gratis del negocio',
   },
   {
     id: 'borrar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,

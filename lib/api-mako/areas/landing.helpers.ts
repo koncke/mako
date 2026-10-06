@@ -32,6 +32,7 @@ import { VIDEOS_KEY, VIDEOS_OCULTOS_KEY, parsearVideos, parsearOcultos, type Vid
 import { LANDING_TOKEN_KEY } from '@/lib/landing-token';
 import type { LandingAnalysisRow } from '@/lib/landing-analyst';
 import type { LandingDraft } from '@/lib/landing-writer';
+import { programarAnalisisDeclaradas } from '@/lib/landing-analyst-auto';
 
 // ── 1. Las listas del negocio ────────────────────────────────────────────────
 
@@ -47,6 +48,8 @@ export async function leerLandings(): Promise<{ landings: LandingConfig[]; forma
 
 export async function escribirLandings(lista: LandingConfig[]): Promise<void> {
   await setSetting(CONFIG_KEY, JSON.stringify(lista));
+  // Una página que MaKo declara se analiza sola, igual que desde la pantalla.
+  await programarAnalisisDeclaradas();
 }
 
 export async function leerVideosEstricto(): Promise<VideoLanding[]> {

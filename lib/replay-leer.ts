@@ -97,9 +97,14 @@ export async function replayDeLead(
   const db = await getTenantDb();
 
   const [idx, sv] = await Promise.all([
+    // ⚠️ SIN LAS DESCARTADAS (06/10/2026). Una sesión `corta` o `vacia` no se sella
+    // nunca (storage_path null), así que la ficha la dibujaba «Se está guardando»
+    // PARA SIEMPRE, sin botón, y contaba como grabación: un lead con una sola sesión
+    // descartada veía esa fila en vez de la frase del vacío. Medido: 2 de 15 en el ws1.
     db.from('replay_sesiones')
       .select('id, inicio, segundos, eventos, corte, storage_path')
       .eq('visitor_id', visitorId)
+      .is('descarte', null)
       .order('inicio', { ascending: false })
       .limit(TOPE_SESIONES),
     // La versión del snippet con la que midió ESTE lead. `landing_visits.sv` existe

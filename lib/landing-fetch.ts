@@ -27,6 +27,7 @@ import { lookup } from 'node:dns/promises';
 import { isIP, type LookupFunction } from 'node:net';
 import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
+import { normalizarUrl } from './landing-url';
 
 /** Techo de descarga: una landing de texto no pesa más que esto. */
 const MAX_BYTES = 2_000_000;
@@ -47,36 +48,10 @@ const UA = 'Mozilla/5.0 (compatible; MaKoLandingAnalyst/1.0; +https://hola-mako.
 // Normalización de la URL (la ENTIDAD de landing_analyses)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * URL canónica de una landing: es lo que se guarda en `landing_analyses.url` y
- * lo que se compara contra `landing_visits.landing_url`. Sin esto, la misma
- * página con `?utm_source=fb` y sin él serían dos entidades distintas y el cruce
- * con el comportamiento no encontraría nada.
- *
- * SE TIRA EL QUERYSTRING ENTERO, no una lista de params conocidos. Se intentó lo
- * segundo y no alcanza: medido contra producción (5/8/2026), el workspace de un
- * cliente tenía **24 "landings" distintas que en realidad eran 2 páginas** — el
- * parámetro de compartir de Facebook (`?sfnsn=`) y el de preview de Lovable
- * (`__lovable_load_id`, distinto EN CADA CARGA) fabricaban una entidad nueva por
- * visita. Una lista de bloqueo siempre va un tracker atrás; la lista de permitidos
- * correcta para una landing es "ninguno".
- *
- * El precio: un sitio que sirva contenido DISTINTO según el query (`?v=b` de un
- * A/B, page builders viejos que rutean por query) colapsa a una sola entidad. Es
- * el intercambio consciente hasta que exista el soporte de A/B y multi-landing,
- * que hoy es una tarea a futuro del plan.
- */
-export function normalizarUrl(input: string): string {
-  const bruto = input.trim();
-  const conEsquema = /^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`;
-  const u = new URL(conEsquema);
-  u.hostname = u.hostname.toLowerCase().replace(/^www\./, '');
-  u.hash = '';
-  u.search = '';
-  if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
-  if (u.port === '80' || u.port === '443') u.port = '';
-  return u.toString().replace(/\/$/, '');
-}
+// La normalización de la entidad que se analiza vive en lib/landing-url.ts desde el
+// 06/10/2026 (sin `server-only`, para que tenga test y la use el análisis
+// automático). Se re-exporta: sigue habiendo UNA.
+export { normalizarUrl };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Baranda SSRF

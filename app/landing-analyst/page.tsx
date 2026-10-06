@@ -26,8 +26,15 @@ const EMPTY: LandingViewData = {
   lastSync: null,
 };
 
-export default async function LandingAnalystPage() {
+// La pestaña viaja en `?tab=` y se lee ACÁ, en el server (regla de la casa): si
+// sólo la leyera el navegador, el link que se copia no sería la pestaña que se ve.
+const VISTAS = ['copy', 'pulso', 'mapa'] as const;
+type Vista = (typeof VISTAS)[number];
+
+export default async function LandingAnalystPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await requireRolWs([], { nav: 'landing-an' });
+  const { tab } = await searchParams;
+  const vista: Vista = (VISTAS as readonly string[]).includes(tab ?? '') ? (tab as Vista) : 'copy';
 
   let data: LandingViewData = EMPTY;
   let errorMsg: string | null = null;
@@ -37,5 +44,5 @@ export default async function LandingAnalystPage() {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
 
-  return <LandingAnalystApp data={data} errorMsg={errorMsg} />;
+  return <LandingAnalystApp data={data} errorMsg={errorMsg} vistaInicial={vista} />;
 }

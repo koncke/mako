@@ -372,8 +372,12 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'landing-analyst', titulo: 'Landing Analyst', familia: 'Analyze', grupo: 'Analysts',
     estado: 'listo', verEnApp: '/landing-analyst',
-    alcance: 'Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza.',
-    vive: ['app/landing-analyst/page.tsx', 'app/landing-analyst/LandingAnalystApp.tsx', 'lib/landing-analyst.ts', 'app/api/landing-analyst/'],
+    alcance: 'Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza. Desde el 06/10/2026 analiza SOLA cada página que se declara en el Pixel (por detrás, con un cron de red) y tiene el MAPA DE CALOR: los toques dibujados sobre la foto de la página que guarda una grabación.',
+    vive: ['app/landing-analyst/page.tsx', 'app/landing-analyst/LandingAnalystApp.tsx', 'lib/landing-analyst.ts', 'app/api/landing-analyst/',
+      'app/landing-analyst/PulsoPaginas.tsx', 'app/landing-analyst/MapaDeCalor.tsx',
+      'lib/landing-mapa.ts', 'lib/landing-mapa-foto.ts', 'lib/landing-mapa-server.ts',
+      'lib/landing-url.ts', 'lib/landing-analyst-auto.ts', 'app/api/cron/landing-analyst-auto/route.ts',
+      'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts'],
     proyectos: ['Feature: Landing Analyst'],
   },
   {
@@ -470,6 +474,10 @@ export const AREAS: AreaDev[] = [
       'supabase/migrations/0191_replay_de_sesion.sql', 'scripts/replay-libs.mjs',
       'app/crm/lead-view/GrabacionCard.tsx', 'app/crm/lead-view/GrabacionModal.tsx',
       'lib/lead-de-prueba.ts', 'lib/landing-config-leer.ts',
+      // El aviso fijo «Actualiza el Pixel» y el ancla del clic (Pixel v22), 06/10/2026.
+      'lib/pixel-aviso.ts', 'app/api/integraciones/landing/version/route.ts',
+      'app/_components/AvisoPixelViejo.tsx', 'app/_components/EsquinaAvisos.tsx',
+      'supabase/migrations/0201_clic_anclado.sql', 'tests/pixel-aviso.test.ts', 'tests/landing-clic-anclado.test.ts',
     ],
     hallazgos: 'hallazgos-landing',
     nota: 'El beacon responde 200 aunque descarte el evento (falla en silencio por diseño) y el player de Panda no manda la duración en cada tick: el % se deriva server-side y un abandono sin % se guarda NULL, nunca 0. El vigilante NO puede usar correrPorWorkspace(\'landing\') porque «landing conectada» se define como «hay eventos recientes» — se excluiría justo al workspace roto; itera por landing_token.',

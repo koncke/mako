@@ -18,6 +18,7 @@ import { type Cambios } from '@/lib/landing-snapshot';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { getWorkspaceActual } from '@/lib/workspace';
+import { programarAnalisisDeclaradas } from '@/lib/landing-analyst-auto';
 
 export type LandingsResult = { ok: true; landings: LandingConfig[] } | { ok: false; error: string };
 
@@ -52,6 +53,10 @@ export async function guardarLandingAction(
     const nuevas = conLanding(await leer(), url, parcial, anterior);
     if (!nuevas) return { ok: false, error: 'Esa dirección no parece una página web.' };
     await setSetting(CONFIG_KEY, JSON.stringify(nuevas));
+    // Una página nueva en el Pixel se analiza sola, por detrás (pedido de Martín,
+    // 06/10/2026). Es un cálculo —las declaradas sin análisis—, así que guardar los
+    // productos de una página que ya está no dispara nada.
+    await programarAnalisisDeclaradas();
     revalidatePath('/integraciones');
     return { ok: true, landings: nuevas };
   } catch (e) {

@@ -13,10 +13,11 @@
 // meses, que ya se pagó una vez. Las seis causas y su frase viven en
 // `lib/replay-ficha.ts`, puras y con test; acá sólo se dibujan.
 //
-// ⚠️ Y LA PANTALLA NO INVENTA DÓNDE SE ARREGLA. Sólo `pixel_viejo` lleva link, que
-// es el único caso con una pantalla que de verdad lo resuelve. El interruptor
-// `landing.replay` todavía no tiene UI, así que su frase no lleva botón: un botón
-// que lleva a un lugar donde no está la respuesta es peor que ninguno.
+// ⚠️ Y LA PANTALLA NO INVENTA DÓNDE SE ARREGLA. Cada frase lleva link sólo si hay
+// una pantalla que de verdad lo resuelve: `pixel_viejo` (repegar el código) y, desde
+// el 06/10/2026, la grabación apagada (el interruptor «Grabar las visitas» del
+// Pixel). Un botón que lleva a un lugar donde no está la respuesta es peor que
+// ninguno.
 
 import { useState, type CSSProperties } from 'react';
 import Link from '@/app/_ui/Link';

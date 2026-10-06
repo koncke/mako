@@ -588,6 +588,15 @@ async function guardarFallo(url: string, mensaje: string, extra: Partial<Landing
   await upsertRow(filaError(url, mensaje, extra));
 }
 
+/**
+ * Un análisis que quedó en `pendiente` y no terminó (el trabajo de fondo murió).
+ * Pasa a error con un motivo que la pantalla ofrece reintentar. Usa `guardarFallo`,
+ * así un análisis bueno anterior no se pisa.
+ */
+export async function marcarAnalisisCortado(url: string, motivo = 'El análisis se cortó antes de terminar. Vuelve a intentarlo.'): Promise<void> {
+  await guardarFallo(url, motivo);
+}
+
 export type AnalizarResultado =
   | { ok: true; row: LandingAnalysisRow }
   /** `pegable`: la página no se puede leer sola, pero pegando el texto sí se analiza. */
@@ -615,7 +624,7 @@ const MSG_SPA = (palabras: number) =>
  * se hace igual, y la fila queda con `bloqueada: true` para no olvidar que ese
  * copy no salió de la página (la pantalla lo dice).
  */
-export async function analizarLanding(urlInput: string, copyManual?: string): Promise<AnalizarResultado> {
+export async function analizarLanding(urlInput: string, copyManual?: string, opts: { origen?: 'auto' } = {}): Promise<AnalizarResultado> {
   let url: string;
   try { url = normalizarUrl(urlInput); }
   catch { return { ok: false, error: 'Esa no es una dirección válida. Pega la URL completa de tu landing.', url: urlInput }; }
@@ -670,7 +679,11 @@ export async function analizarLanding(urlInput: string, copyManual?: string): Pr
   // paso que bloquea es haber analizado una página, y el del seguimiento se
   // marca solo cuando el beacon efectivamente reportó esta URL. Nunca rompe el
   // análisis: si el estado no se puede escribir, la tab ya hizo su trabajo.
-  try {
+  //
+  // ⚠️ Y UN ANÁLISIS AUTOMÁTICO NO LO MARCA (06/10/2026): lo disparó guardar una
+  // página en el Pixel, no la persona usando la tab. Darlo por hecho sería cerrarle
+  // el onboarding a alguien que nunca abrió Landing Analyst.
+  if (opts.origen !== 'auto') try {
     const { marcarPasoTab } = await import('./tab-onboarding-state');
     await marcarPasoTab('landing-an', 'analizar');
     if (comp.hay_datos) await marcarPasoTab('landing-an', 'seguimiento');

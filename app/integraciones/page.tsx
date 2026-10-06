@@ -21,6 +21,11 @@ import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// ⚠️ 300 y no el default: guardar una página nueva en el Pixel la analiza POR
+// DETRÁS con `after()`, y el `after()` de una server action vive dentro del
+// maxDuration de la PÁGINA que la llama (docs/hallazgos-infra.md). Con el
+// default, el análisis de Landing Analyst moría a mitad de camino.
+export const maxDuration = 300;
 
 export default async function IntegracionesPage() {
   await requireRolWs([], { nav: 'integraciones' });
