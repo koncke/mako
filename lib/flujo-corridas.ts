@@ -11,6 +11,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace } from './workspace';
+import { getSupabaseServer } from './supabase';
 import type { CtxFlujo } from './flujos';
 
 export type Corrida = {
@@ -73,7 +74,18 @@ export async function abrirCorrida(
  * la congelaba para siempre sin que nada lo dijera.
  */
 export async function corridasVencidas(limite = 50): Promise<Array<Corrida & { ws: number }>> {
-  const db = await getTenantDb();
+  // ⚠️ CRUDO Y SIN SCOPE A PROPÓSITO: es la ÚNICA lectura cross-workspace del drenador, y
+  // sirve para saber a quién hay que visitar. Con `getTenantDb()` —lo que había— el cron
+  // corre sin sesión, el workspace cae al dueño por contrato, y la tabla está en
+  // TENANT_TABLES: o sea que el drenador sólo veía las corridas del ws1. El Delay y el
+  // Condicional de los demás clientes NO DESPERTABAN NUNCA, sin un solo error — un
+  // «esperar 2 horas» que espera para siempre. Lo encontró el relevo del 06/10/2026.
+  //
+  // Es el mismo molde que el cron de insistencias (app/api/cron/insistencias/route.ts):
+  // cada fila trae su `workspace_id`, y TODO lo que toca datos después corre adentro de un
+  // `runWithWorkspace(c.ws, …)` (`retomarCorrida`, en lib/flujos.ts). Leer acá con el service
+  // role no le da a nadie una fila ajena: sólo decide a qué workspace hay que ir.
+  const db = getSupabaseServer();
   const ahora = new Date().toISOString();
   const { data, error } = await db.from('flujo_corridas')
     .select('id, workspace_id, aviso_id, paso, desde_at, respondio_at, ctx')

@@ -20,14 +20,28 @@ import { getWorkspaceActual, OWNER_WS } from './workspace';
 import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 
-type Cfg = { apiBase: string; token: string; inbox: number };
+// `inbox` es `null` cuando el workspace no lo declaró. Antes caía a `3`, y ese número decide
+// POR QUÉ LÍNEA sale un mensaje y DE QUÉ bandeja se listan las conversaciones: un default
+// ahí no es una comodidad, es mandar por el WhatsApp de otro sin que nada lo diga. Se lee
+// siempre por `inboxWA(c)`, que falla con el motivo. Medido el 06/10/2026: los dos
+// workspaces con Chatwoot (ws1 y ws4) lo tienen declarado, así que no le rompe nada a nadie.
+type Cfg = { apiBase: string; token: string; inbox: number | null };
+
+/** El inbox de WhatsApp del workspace, o un error que dice qué falta. */
+function inboxWA(c: Cfg): number {
+  if (c.inbox == null) {
+    throw new Error('Falta el ID del inbox de WhatsApp (CHATWOOT_WA_INBOX_ID): sin eso no se sabe por qué línea sale el mensaje.');
+  }
+  return c.inbox;
+}
 
 async function cfg(): Promise<Cfg> {
   const [base, account, token, inboxRaw] = await Promise.all([
     credWs('CHATWOOT_BASE_URL'), credWs('CHATWOOT_ACCOUNT_ID'),
     credWs('CHATWOOT_API_TOKEN'), credWs('CHATWOOT_WA_INBOX_ID'),
   ]);
-  const inbox = Number(inboxRaw ?? '3');
+  const n = Number((inboxRaw ?? '').trim());
+  const inbox = Number.isInteger(n) && n > 0 ? n : null;
   if (!base || !account || !token) {
     throw new Error('Chatwoot no configurado (CHATWOOT_BASE_URL / _ACCOUNT_ID / _API_TOKEN)');
   }
@@ -113,7 +127,7 @@ type ConvResp = { id?: number; payload?: { id?: number } };
 async function crearConversacion(c: Cfg, contactId: number): Promise<number> {
   const r = await cwFetch<ConvResp>(
     `${c.apiBase}/conversations`,
-    { method: 'POST', body: JSON.stringify({ contact_id: contactId, inbox_id: c.inbox }) },
+    { method: 'POST', body: JSON.stringify({ contact_id: contactId, inbox_id: inboxWA(c) }) },
     c.token,
   );
   const id = r.id ?? r.payload?.id;
@@ -230,7 +244,7 @@ function mapConv(cv: ConvRaw): ChatwootConversation {
 export async function listConversations(maxPages = 12): Promise<ChatwootConversation[]> {
   const c = await cfg();
   const url = (page: number) =>
-    `${c.apiBase}/conversations?inbox_id=${c.inbox}&status=all&assignee_type=all&page=${page}`;
+    `${c.apiBase}/conversations?inbox_id=${inboxWA(c)}&status=all&assignee_type=all&page=${page}`;
 
   const first = await cwFetch<ConvListResp>(url(1), { method: 'GET' }, c.token);
   const firstPayload = first.data?.payload ?? first.payload ?? [];
@@ -351,7 +365,7 @@ export async function contactoEnInboxWA(contactId: number): Promise<boolean> {
   if (!Number.isInteger(contactId) || contactId <= 0) return false;
   const c = await cfg();
   const convs = await contactConversaciones(c, contactId);
-  return convs.some((cv) => cv.inboxId === c.inbox);
+  return convs.some((cv) => cv.inboxId === inboxWA(c));
 }
 
 // ── Bloquear / desbloquear contacto (lo mismo que el botón del dashboard) ─────
@@ -391,10 +405,15 @@ export async function markContactRead(contactId: number): Promise<void> {
 // Conversación abierta del contacto (o la más reciente, o una nueva).
 async function crearOReusarConversacion(c: Cfg, contactId: number): Promise<number> {
   try {
-    const convs = await contactConversaciones(c, contactId);
-    if (convs.length) {
-      const abierta = convs.find((x) => x.status === 'open');
-      const elegida = abierta ?? convs.sort((a, b) => b.last_activity_at - a.last_activity_at)[0];
+    // ⚠️ SÓLO LAS DE ESTE INBOX. Un contacto de Chatwoot puede tener conversaciones en varias
+    // bandejas (otro canal, otra línea); reusar la primera abierta mandaba el mensaje por la
+    // que el negocio no eligió, y el envío volvía «ok» igual. Lo encontró el relevo de la capa
+    // de notificaciones del 06/10/2026; los otros dos lectores del archivo ya filtraban así.
+    const inbox = inboxWA(c);
+    const propias = (await contactConversaciones(c, contactId)).filter((x) => x.inboxId === inbox);
+    if (propias.length) {
+      const abierta = propias.find((x) => x.status === 'open');
+      const elegida = abierta ?? propias.sort((a, b) => b.last_activity_at - a.last_activity_at)[0];
       if (elegida) return elegida.id;
     }
   } catch {
@@ -451,7 +470,7 @@ export async function ensureContactoWhatsapp(
     const c = await cfg();
     const contactId = await buscarOCrearContacto(c, tel, nombre);
     const convs = await contactConversaciones(c, contactId).catch(() => [] as ContactConv[]);
-    if (!convs.some((cv) => cv.inboxId === c.inbox)) {
+    if (!convs.some((cv) => cv.inboxId === inboxWA(c))) {
       await crearConversacion(c, contactId);
     }
     return contactId;
@@ -586,7 +605,7 @@ export async function getWabaConfig(): Promise<WabaConfig> {
   const cached = _wabaCache.get(ws);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
   const c = await cfg();
-  const r = await cwFetch<ProviderConfigResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
+  const r = await cwFetch<ProviderConfigResp>(`${c.apiBase}/inboxes/${inboxWA(c)}`, { method: 'GET' }, c.token);
   const pc = r.provider_config ?? {};
   if (!pc.api_key || !pc.business_account_id) {
     throw new Error('El inbox de Chatwoot no tiene provider_config de WhatsApp Cloud (api_key / business_account_id).');
@@ -633,7 +652,7 @@ type InboxResp = { message_templates?: TplRaw[] };
 
 export async function getApprovedTemplates(): Promise<TemplateInfo[]> {
   const c = await cfg();
-  const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
+  const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${inboxWA(c)}`, { method: 'GET' }, c.token);
   return (r.message_templates ?? [])
     .filter((t) => (t.status ?? '').toUpperCase() === 'APPROVED')
     .map((t) => {
@@ -657,9 +676,9 @@ export async function getApprovedTemplates(): Promise<TemplateInfo[]> {
 // si la plantilla no está en su lista todavía.
 async function ensureTemplateSynced(c: Cfg, name: string): Promise<void> {
   try {
-    const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
+    const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${inboxWA(c)}`, { method: 'GET' }, c.token);
     if ((r.message_templates ?? []).some((t) => t.name === name)) return; // ya está sincronizada
-    await cwFetch(`${c.apiBase}/inboxes/${c.inbox}/sync_templates`, { method: 'POST' }, c.token);
+    await cwFetch(`${c.apiBase}/inboxes/${inboxWA(c)}/sync_templates`, { method: 'POST' }, c.token);
     await new Promise((res) => setTimeout(res, 4000)); // darle tiempo al sync de Chatwoot
   } catch { /* si falla, intentamos enviar igual */ }
 }

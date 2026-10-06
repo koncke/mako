@@ -15,10 +15,11 @@ import { readFileSync } from 'node:fs';
 // ⚠️ Se lee el FUENTE sin comentarios, porque la convención de la casa es explicar en el
 // comentario lo que se sacó — y entonces un `doesNotMatch` se acusa a sí mismo.
 //
-// Probado rompiéndolo CUATRO veces (06/10/2026), 2 pasan / 1 falla cada una y el motivo
-// nombra la aserción: (1) el acuse con el `ws` de la instancia, (2) el acuse sin su
-// fail-closed, (3) el remitente otra vez por `getEmailFrom()`, (4) el envío fuera del
-// workspace de la plataforma. ⚠️ La CUARTA pasó en VERDE la primera vez: el `assert.match`
+// Probado rompiéndolo SIETE veces (06/10/2026), cada una con UN solo test en rojo y el
+// motivo nombrando la aserción: (1) el acuse con el `ws` de la instancia, (2) el acuse sin
+// su fail-closed, (3) el remitente otra vez por `getEmailFrom()`, (4) el envío fuera del
+// workspace de la plataforma, (5) Chatwoot devuelto al inbox `?? '3'`, (6) reusar una
+// conversación sin filtrar por inbox, (7) el drenador de corridas devuelto a getTenantDb. ⚠️ La CUARTA pasó en VERDE la primera vez: el `assert.match`
 // del `runWithWorkspace` se satisfacía con el del PREFLIGHT de más arriba en el mismo
 // archivo. Por eso ahora se exige adentro del bloque de `invitar` — un guard que lee el
 // archivo entero encuentra lo que el archivo dice de sí, no lo que hace la función.
@@ -104,4 +105,43 @@ test('el mail de «te compartieron material» lo firma la PLATAFORMA, no el clie
   const pre = bloque(src, 'const correo = await runWithWorkspace', 'return NextResponse.json({ ok: true, shares: conInvitados, correo })');
   assert.match(pre, /resendConfigurado\(\)/, 'el preflight sigue mirando si hay key');
   assert.match(pre, /remitente: EMAIL_MAKO/, 'lo que la pantalla muestra como remitente es el de la plataforma');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. Por qué línea de Chatwoot sale un mensaje
+// ─────────────────────────────────────────────────────────────────────────────
+// Dos defectos en el mismo camino, y los dos deciden la LÍNEA: `cfg()` caía al inbox `3`
+// cuando el workspace no lo declaraba, y `crearOReusarConversacion` reusaba cualquier
+// conversación abierta del contacto sin mirar de qué bandeja era. Escribir ahí manda el
+// mensaje por donde el negocio no lo eligió, y el envío vuelve «ok» igual.
+test('Chatwoot no tiene inbox por default, y reusar una conversación mira que sea de ESE inbox', () => {
+  const src = sinComentarios(leer('lib/chatwoot.ts'));
+  assert.doesNotMatch(src, /\?\?\s*'3'/, 'volvió el inbox por default: un número cableado decide por qué WhatsApp sale el mensaje');
+  assert.match(src, /function inboxWA\(c: Cfg\): number \{/, 'el inbox se lee por un lector que falla con su motivo');
+  assert.doesNotMatch(src.replace(/function inboxWA[\s\S]*?\n\}/, ''), /\bc\.inbox\b/,
+    'alguien lee `c.inbox` directo: con el inbox sin declarar sale `null` en una URL en vez de un error que diga qué falta');
+
+  const reuso = bloque(src, 'async function crearOReusarConversacion(', 'return crearConversacion(c, contactId);');
+  assert.match(reuso, /\.filter\(\(x\) => x\.inboxId === inbox\)/, 'reusar tiene que elegir SÓLO entre las conversaciones de este inbox');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. El drenador de corridas de flujo
+// ─────────────────────────────────────────────────────────────────────────────
+// Un cron corre sin sesión, el workspace cae al dueño, y `flujo_corridas` está en
+// TENANT_TABLES: con `getTenantDb()` el drenador sólo veía las corridas del ws1, así que el
+// Delay y el Condicional de los demás clientes no despertaban nunca. La lectura de
+// DESCUBRIMIENTO va cruda, y lo que toca datos corre en el workspace de cada fila.
+test('el drenador de corridas descubre las de TODOS los workspaces y ejecuta cada una en el suyo', () => {
+  const src = sinComentarios(leer('lib/flujo-corridas.ts'));
+  const vencidas = bloque(src, 'export async function corridasVencidas(', '\n}\n');
+  assert.match(vencidas, /const db = getSupabaseServer\(\);/, 'el descubrimiento tiene que ser cross-workspace');
+  assert.doesNotMatch(vencidas, /getTenantDb\(\)/, 'con getTenantDb el cron sólo ve las corridas del dueño');
+  assert.match(vencidas, /ws: \(f as Fila\)\.workspace_id/, 'cada corrida tiene que llevar SU workspace');
+
+  // ⚠️ La otra mitad, sin la cual leer crudo SÍ sería un cruce: que cada corrida se ejecute
+  // adentro de su propio workspace.
+  const retomar = bloque(sinComentarios(leer('lib/flujos.ts')), 'export async function retomarCorrida(', 'catch (e)');
+  assert.match(retomar, /runWithWorkspace\(ws, \(\) => listarFlujosActivos\(\)\)/);
+  assert.match(retomar, /runWithWorkspace\(ws, \(\) => ejecutarPasos\(/);
 });
