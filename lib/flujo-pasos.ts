@@ -19,9 +19,9 @@
 //
 // ── LA CONDICIÓN QUE EXISTE DE VERDAD, Y POR QUÉ SE LLAMA ASÍ ────────────────
 // ⚠️ El motor de avisos NO ve si el LEAD contestó: sus mensajes salen al grupo de
-// MaKo del dueño (`aviso_dueno`), y lo que va al lead sale por la cola de
-// confirmación. La única señal de respuesta que este motor puede observar es la que
-// ya corta las insistencias: alguien acusó recibo EN EL GRUPO
+// MaKo del dueño (`aviso_dueno`), y al lead no le sale nada (decisión del 06/10/2026:
+// «nada al cliente»; ver lib/flujos.ts). La única señal de respuesta que este motor
+// puede observar es la que ya corta las insistencias: alguien acusó recibo EN EL GRUPO
 // (`esAcuse` → `cerrarPorAcuse`, app/api/webhooks/evolution/route.ts).
 //
 // Por eso la condición se llama `contestaron` y la tarjeta dice «si alguien contestó

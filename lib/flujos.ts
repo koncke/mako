@@ -8,8 +8,14 @@
 //
 // Pasos:
 //   · mensaje/aviso_dueno  → lo manda al grupo de MaKo del dueño (IA adapta el texto).
-//   · mensaje/wa_lead + accion → van por la COLA DE CONFIRMACIÓN (mako_acciones_
-//     pendientes): MaKo propone y el dueño confirma con un "sí" (nunca dispara solo).
+//   · mensaje/wa_lead      → NO SE MANDA (decisión de Martín, 06/10/2026: «C: nada al
+//     cliente»). Hasta ese día este comentario decía que iba por la cola de confirmación
+//     y que el dueño lo confirmaba con un «sí»: la pendiente se creaba, y al confirmarla
+//     `confirmarPendiente` la cerraba como «operación desconocida», porque ninguna
+//     operación del registro ejecuta `flujo_wa_lead`. Ver la rama, abajo.
+//   · accion               → deja una pendiente `flujo_<acción>` en el grupo. ⚠️ Tiene el
+//     mismo problema que tenía wa_lead —ningún área del registro declara esos tipos— y
+//     es otra tarjeta: no se tocó acá.
 // Best-effort: nunca lanza (no debe romper el webhook).
 
 import 'server-only';
@@ -193,16 +199,18 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       await enviarAlGrupoMaKo(ws, texto);
       return;
     }
-    // wa_lead → SIEMPRE por confirmación (regla del negocio: nunca disparar auto al lead).
-    const jid = await getGrupoJidMaKo(ws);
-    if (jid) {
-      await crearPendiente(ws, {
-        grupoJid: jid, tipo: 'flujo_wa_lead',
-        payload: { flujoId, leadId: ctx.leadId ?? null, texto: paso.texto },
-        resumen: `Mandarle un WhatsApp a ${ctx.leadNombre ?? `lead #${ctx.leadId}`}: "${paso.texto.slice(0, 60)}"`,
-        origen: `flujo:${flujoId}`, ttlMin: 240,
-      });
-    }
+    // ⛔ wa_lead NO SE MANDA, Y LO DICE EN VEZ DE PROMETERLO. Decisión de Martín,
+    // 06/10/2026: «C: nada al cliente» — la cobranza (y cualquier flujo de un aviso) le
+    // avisa sólo al grupo del dueño. Hasta ese día esta rama dejaba en el grupo una
+    // pendiente «Mandarle un WhatsApp a …» que ninguna operación del registro sabía
+    // ejecutar: el dueño contestaba «sí» y `confirmarPendiente` la cerraba como
+    // «operación desconocida». Una pendiente que pide permiso para algo que no va a
+    // pasar es peor que ninguna.
+    //
+    // Medido el 06/10/2026: ningún store de plantillas tiene un paso así y el lienzo no
+    // ofrece crearlo (app/agencia/FlujoAviso.tsx). Sólo puede llegar en un flujo armado a
+    // mano por la API, y para ése queda la línea del log.
+    console.warn(`[flujos] ${flujoId}: el paso «mensaje al lead» no se manda (decisión del 06/10/2026: nada al cliente)${ctx.leadId ? ` · lead #${ctx.leadId}` : ''}`);
     return;
   }
   if (paso.tipo === 'accion') {

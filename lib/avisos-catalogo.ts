@@ -711,10 +711,20 @@ https://hola-mako.com/plan — MaKo`,
     ejemplo: `💬 *Mensaje nuevo* de Carla (+52 686 399…): "Hola, ¿sigue disponible la promo?". Lleva 12 min sin respuesta. — MaKo`,
   },
   {
-    id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso',
-    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'no',
-    disparador: 'Sesión Evolution o inbox Chatwoot caído / QR expirado.',
-    ejemplo: `🔴 *Se cayó tu WhatsApp no oficial* (el número por QR). Dejó de recibir y mandar hace 15 min — los leads que escriben ahora no llegan a nadie. Reconecta escaneando el QR de nuevo. — MaKo`,
+    /**
+     * ⚠️ PRENDIDO POR DEFECTO, Y NO ES OPCIONAL. Sin `porDefecto` un mensaje nace APAGADO
+     * (`estaPrendida`, lib/plantillas.ts) y `emitirDelCatalogo` no lo manda en ningún
+     * workspace: el vigilante de líneas correría, mediría la caída y se callaría.
+     *
+     * Lo dispara lib/lineas-vigilante.ts desde el 06/10/2026 (decisión de Martín: «c: solo
+     * al cliente»), con el texto armado por código (lib/linea-vigilancia.ts) porque sale de
+     * lo que se midió: qué línea, si WhatsApp cerró la sesión o fue un corte, y desde cuándo.
+     * El ejemplo es ficticio, a propósito.
+     */
+    id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'El cron de alertas (cada 10 min) prueba cada línea de WhatsApp por QR del negocio. Si dos pruebas seguidas la dan caída, avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó no avisa.',
+    ejemplo: `🔴 *Se desconectó tu WhatsApp* (+52 55 1234 5678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo`,
   },
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',
@@ -751,7 +761,10 @@ https://hola-mako.com/plan — MaKo`,
   // ── COBRANZA / CASH ────────────────────────────────────────────────────────
   {
     id: 'cuota-vencida', titulo: 'Cuota vencida → cobrar', categoria: 'accion', porDefecto: 'on',
-    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'si',
+    // ⚠️ `requiereRespuesta: false` desde el 06/10/2026: con `true` la vista previa del
+    // mensaje dibujaba al dueño contestando «Sí, adelante 👍» y a MaKo «Listo, lo hago
+    // ahora», o sea la misma promesa muerta del «¿Le escribo el recordatorio?» (abajo).
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead', 'cuota'],
     /**
      * ⚠️ LA CADENCIA POR DEFECTO, Y SE EDITA EN EL LIENZO. Martín, 04/10/2026: «Para eso
@@ -761,12 +774,13 @@ https://hola-mako.com/plan — MaKo`,
      * repartidos en cinco días. Deja margen para el que paga tarde sin volverse
      * insistente, y el tope existe porque insistir para siempre lo apaga entero.
      *
-     * ⚠️ LOS DOS SALEN AL GRUPO DE MaKo (`aviso_dueno`), no al cliente. Es lo que él
-     * pidió —«recordatorios a clientes como en el grupo de MaKo en WhatsApp»— y además
-     * es lo único que hoy FUNCIONA: el paso `wa_lead` deja una pendiente de tipo
-     * `flujo_wa_lead` que `confirmarPendiente` no sabe ejecutar («operación
-     * desconocida»), medido y escrito en docs/hallazgos-comunicacion.md. Poner ese paso
-     * acá sería dibujar un recordatorio al cliente que muere al confirmarlo.
+     * ⚠️ LOS DOS SALEN AL GRUPO DE MaKo (`aviso_dueno`), no al cliente, y desde el
+     * 06/10/2026 es una DECISIÓN y no una limitación: Martín, «C: nada al cliente» — la
+     * cobranza le avisa sólo al grupo del dueño. Hasta ese día este comentario decía que
+     * era «lo único que hoy funciona», porque el paso `wa_lead` dejaba una pendiente
+     * `flujo_wa_lead` que `confirmarPendiente` cerraba como «operación desconocida». Con
+     * la decisión, ese paso ya no crea nada (lib/flujos.ts) y no queda un mensaje al
+     * cliente que arreglar.
      *
      * ⚠️ Y NO USAN `{{cuota_dias}}`: ese dato es la FOTO del día de la entrada y viaja
      * con la corrida, así que tres días después diría «1 día» sobre un atraso de cuatro.
@@ -788,14 +802,20 @@ https://hola-mako.com/plan — MaKo`,
     // una cuenta REAL del tablero: quien abre esta pantalla ve la cobranza de otro, y
     // quien lo cuenta en una reunión lo cuenta como propio — pasó, y está medido en
     // docs/hallazgos-comunicacion.md (lo que alguien LEE de la pantalla compartida).
-    ejemplo: `💸 *Cobranza*: la cuota {{cuota_numero}} de {{lead_nombre}} venció hace {{cuota_dias}} — *{{cuota_monto}} sin cobrar*.\n\n¿Le escribo el recordatorio? — MaKo`,
+    //
+    // ⛔ Y YA NO PREGUNTA «¿Le escribo el recordatorio?». Este ejemplo ES el texto que sale
+    // al grupo cuando el negocio no escribió el suyo (`referenciaResuelta`), y detrás de la
+    // pregunta no había nada que escuchara la respuesta: el dueño contestaba «sí» y no
+    // pasaba nada. Con la decisión del 06/10/2026 —nada al cliente— la pregunta no tiene
+    // ninguna respuesta posible, así que se fue. Lo mismo en `cuota-por-vencer`.
+    ejemplo: `💸 *Cobranza*: la cuota {{cuota_numero}} de {{lead_nombre}} venció hace {{cuota_dias}} — *{{cuota_monto}} sin cobrar*. Si ya se cobró, márcalo en su ficha. — MaKo`,
   },
   {
     id: 'cuota-por-vencer', titulo: 'Cuota por vencer (recordatorio proactivo)', categoria: 'aviso',
-    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: true, yaImplementado: 'si',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead', 'cuota'],
     disparador: 'El cron de cobranza, el día antes del vencimiento. Una vez por cuota.',
-    ejemplo: `🟡 Mañana vence la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}). Avisarle hoy sale más barato que perseguirlo después.\n\n¿Le escribo? — MaKo`,
+    ejemplo: `🟡 Mañana vence la cuota {{cuota_numero}} de {{lead_nombre}} ({{cuota_monto}}). Avisarle hoy sale más barato que perseguirlo después. — MaKo`,
   },
   {
     id: 'pago-recibido', titulo: 'Pago recibido / cash collected', categoria: 'aviso',

@@ -21,6 +21,7 @@ import { reclamarEspaciado } from './espaciado';
 import { estadoAviso } from './perfil';
 import { frecuenciaEfectiva, idDeMensaje } from './disparador-mensaje';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { destinosDelReporte } from './reporte-destino';
 
 
 export type ResultadoDespacho = {
@@ -57,9 +58,13 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
 
   // contador). `perfil` sigue trayendo el principal porque lo usan el nombre del
   // saludo y la apertura de la ventana de 24h; el reparto sale de la lista.
-  const dest = await getDestinatarios();
-  const telefonos = dest.telefonos.length > 0 ? dest.telefonos : (perfil.telefono ? [perfil.telefono] : []);
-  const emails = dest.emails.length > 0 ? dest.emails : (perfil.email ? [perfil.email] : []);
+  //
+  // ⚠️ `wsRep` y `getDestinatarios()` resuelven el workspace del CONTEXTO, y el `?? OWNER_WS`
+  // sólo vale fuera de todo `runWithWorkspace`. Desde el 06/10/2026 el cron semanal llama
+  // esto adentro del workspace de CADA cliente: ahí los dos son del cliente, nunca del ws1.
+  // La regla de «la lista y, si está vacía, el contacto suelto» vive en lib/reporte-destino.ts
+  // porque el cron la necesita ANTES, para decidir si saltear al que no tiene a quién.
+  const { telefonos, emails } = destinosDelReporte(await getDestinatarios(), perfil);
   const waQuiere = canal.wa && telefonos.length > 0;
 
   // 1) Feed in-app (bitácora durable + cola de reintento de WhatsApp).
@@ -131,9 +136,15 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
 
 // Reintenta los reportes que quedaron con canal_wa='pendiente' (ventana cerrada
 // al generarlos). Se llama desde el cron horario tras mandar la apertura del día.
+//
+// ⚠️ MEDIDO EL 06/10/2026: la tabla `notificaciones` (mig 0048) NO EXISTE en producción
+// (PGRST205), así que `crearNotificacion` devuelve null y esta cola está vacía siempre. Y
+// la 0048 no le pone `workspace_id` ni la tabla está en TENANT_TABLES: aplicada tal cual,
+// `pendientesWhatsapp()` traería los semanales pendientes de TODOS los clientes, y este
+// flush —que corre en el contexto del dueño— se los mandaría a los teléfonos del ws1.
+// Antes de aplicarla: `workspace_id` en la tabla y el filtro en la lectura.
 export async function flushPendientesWhatsapp(perfil: ContactoReportes): Promise<{ enviados: number; pendientes: number }> {
-  const dest = await getDestinatarios();
-  const telefonos = dest.telefonos.length > 0 ? dest.telefonos : (perfil.telefono ? [perfil.telefono] : []);
+  const { telefonos } = destinosDelReporte(await getDestinatarios(), perfil);
   if (telefonos.length === 0) return { enviados: 0, pendientes: 0 };
   const pend = await pendientesWhatsapp();
   let enviados = 0;

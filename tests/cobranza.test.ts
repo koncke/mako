@@ -145,7 +145,7 @@ test('⚠️ la cadencia por defecto existe, sale al GRUPO y no usa el dato que 
   assert.ok(mensajes.length <= 3, 'insistir más de tres veces es lo que hace que alguien apague el aviso entero');
   for (const m of mensajes) {
     assert.equal(m.tipo === 'mensaje' && m.canal, 'aviso_dueno',
-      'un paso del default le escribe al LEAD: hoy esa pendiente muere con «operación desconocida»');
+      'un paso del default le escribe al LEAD: la cobranza no le escribe al cliente (decisión del 06/10/2026)');
     // ⚠️ El dato que envejece no puede estar en un paso que sale días después.
     assert.ok(m.tipo === 'mensaje' && !m.texto.includes(`{{${CLAVE_QUE_ENVEJECE}}}`),
       'un recordatorio diría los días de atraso del día de la entrada');
@@ -207,4 +207,42 @@ test('⚠️ la tarjeta de un recordatorio al GRUPO no dice «le escribe al lead
   assert.ok(!/lead/i.test(alGrupo?.titulo ?? ''), `el título dice «${alGrupo?.titulo}» sobre un mensaje al grupo`);
   assert.equal(alLead?.tipo, 'mensaje-lead', 'y el que SÍ va al lead dejó de decirlo');
   assert.match(alLead?.titulo ?? '', /lead/i);
+});
+
+// ── Nada al cliente: las promesas que no tenían nada detrás ─────────────────
+// Decisión de Martín, 06/10/2026: «C: nada al cliente» — la cobranza le avisa sólo al
+// grupo del dueño, que es lo que ya funcionaba. Lo que había que sacar eran dos promesas
+// muertas: el «¿Le escribo el recordatorio?» del aviso, que nadie escuchaba, y la pendiente
+// `flujo_wa_lead` del paso «mensaje al lead», que al confirmarla se cerraba como «operación
+// desconocida».
+//
+// ⚠️ PROBADOS ROMPIÉNDOLOS, 06/10/2026, con un arnés que restaura DE MEMORIA: devolverle a
+// la rama la `crearPendiente` de `flujo_wa_lead` · sacarle el log a la rama · devolver el
+// «¿Le escribo el recordatorio?» al ejemplo · devolverle `requiereRespuesta: true` a
+// `cuota-por-vencer`. Las cuatro se cazan, 1 fallo y 12 pases cada una (13 tests).
+
+const sinComentariosDe = (src: string): string => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('⛔ el paso «mensaje al lead» no deja una pendiente que nadie puede ejecutar', () => {
+  const src = sinComentariosDe(leer('../lib/flujos.ts'));
+  assert.ok(!/flujo_wa_lead/.test(src), 'volvió la pendiente `flujo_wa_lead`: el dueño contesta «sí» y no pasa nada');
+  const ini = src.indexOf("if (paso.tipo === 'mensaje')");
+  const rama = src.slice(ini, src.indexOf("if (paso.tipo === 'accion')", ini));
+  assert.ok(ini > 0 && rama.length > 100 && rama.length < 1500, `el recorte de la rama del mensaje mide ${rama.length}: mira otra cosa`);
+  assert.ok(!/crearPendiente\(/.test(rama), 'la rama del mensaje volvió a pedirle permiso al dueño para algo que no va a pasar');
+  // Y lo DICE: un paso que no hace nada y no deja rastro se ve igual que uno que anduvo.
+  assert.match(rama, /console\.(warn|error)\([^)]*no se manda/, 'el paso al lead dejó de decir que no se manda');
+});
+
+test('⛔ los avisos de cobranza no preguntan «¿Le escribo?»: no hay nada detrás', () => {
+  // El ejemplo ES el texto que sale al grupo cuando el negocio no escribió el suyo.
+  for (const id of ['cuota-vencida', 'cuota-por-vencer']) {
+    const cat = CATALOGO_AVISOS.find((c) => c.id === id);
+    assert.ok(cat, `no encuentro «${id}» en el catálogo`);
+    assert.ok(!/¿\s*le escribo/i.test(cat.ejemplo), `«${id}» vuelve a ofrecer escribirle al cliente`);
+    // Con `true`, la vista previa dibuja al dueño contestando «sí» y a MaKo «lo hago ahora».
+    assert.equal(cat.requiereRespuesta, false, `la vista previa de «${id}» promete una respuesta que nadie atiende`);
+  }
 });

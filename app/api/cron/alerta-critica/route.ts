@@ -22,6 +22,7 @@ import { getMetaAccountHealth } from '@/lib/meta-health';
 import { registrarEstadoMeta } from '@/lib/meta-health-history';
 import { insistirAlertasCriticas } from '@/lib/alerta-critica';
 import { vigilarVozMaKo } from '@/lib/canal-vigilante';
+import { vigilarLineasClientes } from '@/lib/lineas-vigilante';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -46,6 +47,20 @@ export async function GET(request: NextRequest) {
   });
   if (voz && !voz.viva) console.error(`[cron:alerta-critica] ⛔ LA VOZ DE MAKO ESTÁ CAÍDA (aviso: ${voz.aviso})`);
 
+  // ⚠️ Y LAS LÍNEAS DE LOS CLIENTES, que hasta el 06/10/2026 no las miraba nadie: la del
+  // ws1 estuvo muerta 26 días (03/09 → 29/09) sin un solo aviso. Ésta sí avisa por
+  // WhatsApp —sale por la voz de MaKo al grupo del cliente, no por la línea caída— y sólo
+  // al cliente (decisión del 06/10/2026). Va después de la voz: si la voz está caída, el
+  // aviso no llega, y eso ya lo grita el mail de arriba. Best-effort, como la voz.
+  const lineas = await vigilarLineasClientes().catch((e) => {
+    console.error(`[cron:alerta-critica] no se pudieron vigilar las líneas de los clientes: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  });
+  if (lineas?.error) console.error(`[cron:alerta-critica] líneas de clientes: ${lineas.error}`);
+  for (const l of lineas?.lineas ?? []) {
+    if (l.que === 'avisar' || l.error) console.log(`[cron:alerta-critica] línea ${l.linea} (ws ${l.ws}) ${l.sondeo} → ${l.que}${l.llego === false ? ' (NO llegó)' : ''}${l.error ? ` — ${l.error}` : ''}`);
+  }
+
   try {
     // Compartido entre las iteraciones: dos workspaces pueden apuntar a la MISMA
     // cuenta de Meta (le pasa al Cliente de Prueba, que tiene copia de las
@@ -69,10 +84,10 @@ export async function GET(request: NextRequest) {
       }
       return res;
     });
-    return Response.json({ ok: true, voz, workspaces, ms: Date.now() - t0 });
+    return Response.json({ ok: true, voz, lineas, workspaces, ms: Date.now() - t0 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cron:alerta-critica] error: ${message}`);
-    return Response.json({ ok: false, error: message }, { status: 500 });
+    return Response.json({ ok: false, error: message, voz, lineas }, { status: 500 });
   }
 }
