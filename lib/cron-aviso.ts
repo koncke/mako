@@ -250,3 +250,40 @@ export function proximaOcurrencia(c: CronAviso, anterior: Date, tz: string, ahor
   // en el pasado — que es lo que dispararía un envío por tick para siempre.
   return new Date(ahora.getTime() + 86_400_000);
 }
+
+// ── QUÉ PUEDE SALIR POR TIEMPO ──────────────────────────────────────────────
+
+export type MotivoNoAgendable = 'sin-texto' | 'ejemplo';
+
+/**
+ * ¿Este texto puede salir POR TIEMPO? `null` si sí; el motivo si no.
+ *
+ * ⚠️ POR TIEMPO SALE EL TEXTO TAL CUAL, y para un mensaje del catálogo que nadie
+ * reescribió ese texto es el `ejemplo` — o sea DATOS DE MUESTRA, por definición del
+ * campo. Un aviso de evento (un recordatorio, una cuota, un lead nuevo) arma su texto
+ * real en el código, con el evento en la mano; el agendado no tiene ningún evento, así
+ * que mandaba el molde. Medido el 06/10/2026: el grupo de Leila recibió cuatro días
+ * seguidos, a las 9:00, «En 30 min tienes la R2 con…» y un lead real de OTRO cliente,
+ * porque el ejemplo de `reunion-recordatorio` lo nombraba.
+ *
+ * Se compara contra el ejemplo de FÁBRICA y no contra «¿hay override?» a propósito: un
+ * override idéntico al ejemplo sigue siendo el ejemplo, y lo que se pregunta es qué
+ * texto sale, no quién lo tocó. Lo llaman las DOS puntas —el que agenda y el que
+ * manda—, así que no pueden contestar distinto.
+ *
+ * Lo que esto NO caza: un texto propio que es la FOTO de un dato (un reporte con los
+ * números de una semana vieja). Eso no se distingue mirando el texto; ver
+ * docs/hallazgos-comunicacion.md.
+ */
+export function motivoNoAgendable(texto: string | null | undefined, ejemploDeFabrica?: string | null): MotivoNoAgendable | null {
+  const t = (texto ?? '').trim();
+  if (!t) return 'sin-texto';
+  if (ejemploDeFabrica && t === ejemploDeFabrica.trim()) return 'ejemplo';
+  return null;
+}
+
+/** Lo que lee quien intenta agendar. Corto: el porqué está arriba. */
+export const TEXTO_NO_AGENDABLE: Record<MotivoNoAgendable, string> = {
+  'sin-texto': 'Sin texto no se agenda.',
+  ejemplo: 'El texto de ejemplo no se agenda: publica el tuyo.',
+};

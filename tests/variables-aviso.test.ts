@@ -25,6 +25,7 @@ import {
   variablesOfrecidas,
 } from '../lib/variables-aviso';
 import { valoresDelLead, plata, fecha } from '../lib/variables-del-lead';
+import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
 import type { Lead } from '../lib/leads';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -37,6 +38,9 @@ const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'u
 const REALES = [
   'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
   'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
+  // Un lead de un cliente: el ejemplo de `reunion-recordatorio` lo nombraba, y un agendado
+  // se lo mandó al grupo de otro (06/10/2026).
+  'Francisco Ramos', 'Dental Ramos',
 ];
 const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
@@ -385,6 +389,25 @@ test('⚠️ NINGÚN ejemplo del catálogo nombra a una persona o un negocio REA
     for (const r of REALES) {
       assert.ok(!sinAcentos(v.ejemplo).includes(sinAcentos(r)),
         `el ejemplo de ${v.key} nombra a ${r}, que es real: esa pantalla la abren los demás clientes`);
+    }
+  }
+});
+
+
+test('⚠️ NINGÚN ejemplo de un AVISO del catálogo nombra a una persona o un negocio REAL', () => {
+  // El catálogo de variables tenía su guard y el de los avisos no, y era el más caro: el
+  // `ejemplo` de un aviso no sólo se DIBUJA en la pantalla que abren todos — hasta el
+  // 06/10/2026 un agendado por tiempo lo MANDABA tal cual. Así le llegó al grupo de Leila,
+  // cuatro días, «En 30 min tienes la R2 con» un lead real de otro cliente. Y el barrido
+  // encontró un segundo: «Mau <> Martín» en el de las reuniones de equipo.
+  //
+  // PROBADO ROMPIÉNDOLO: devolviendo «Francisco Ramos (Dental Ramos)» al ejemplo de
+  // `reunion-recordatorio` → 1 fallo; devolviendo «Mau <> Martín» → 1 fallo.
+  assert.ok(CATALOGO_AVISOS.length > 40, 'el catálogo vino vacío: el guard no miró nada');
+  for (const c of CATALOGO_AVISOS) {
+    for (const r of REALES) {
+      assert.ok(!sinAcentos(c.ejemplo).includes(sinAcentos(r)),
+        `el ejemplo del aviso ${c.id} nombra a ${r}, que es real: se dibuja en la pantalla de todos`);
     }
   }
 });

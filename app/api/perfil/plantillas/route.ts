@@ -22,7 +22,7 @@ import {
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo, resetTextoPlantilla,
   setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
-import { getProgramado, setProgramado } from '@/lib/avisos-programados';
+import { getProgramado, setProgramado, NoAgendable } from '@/lib/avisos-programados';
 import { acusesDe, setAcuses } from '@/lib/insistencias';
 
 import { esFlujoValido } from '@/lib/flujos-tipos';
@@ -184,7 +184,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, programado: await getProgramado(b.id) });
       case 'cron-set':
         if (!b.id) return faltaId();
-        return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) });
+        // Un texto de ejemplo no se agenda: es un 400 con el motivo, no el 500 de una
+        // escritura que falló (ver `motivoNoAgendable` en lib/cron-aviso.ts).
+        try { return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) }); }
+        catch (e) { if (e instanceof NoAgendable) return NextResponse.json({ ok: false, error: e.message }, { status: 400 }); throw e; }
       /**
        * LAS PALABRAS QUE CORTAN LOS RECORDATORIOS. Son del NEGOCIO —el webhook que
        * las compara recibe un mensaje del grupo y no sabe a cuál de los avisos le

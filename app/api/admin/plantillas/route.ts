@@ -12,7 +12,7 @@ import {
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
   setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
 } from '@/lib/plantillas';
-import { getProgramado, setProgramado } from '@/lib/avisos-programados';
+import { getProgramado, setProgramado, NoAgendable } from '@/lib/avisos-programados';
 import { acusesDe, setAcuses } from '@/lib/insistencias';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
@@ -87,7 +87,12 @@ export async function POST(req: NextRequest) {
     }
     /* El cron por TIEMPO. `cron: null` desagenda. */
     case 'cron-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, programado: await getProgramado(b.id) }); }
-    case 'cron-set': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) }); }
+    case 'cron-set': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      // Un texto de ejemplo no se agenda: es un 400 con el motivo, no el 500 de una escritura que falló.
+      try { return NextResponse.json({ ok: true, programado: await setProgramado(b.id, b.cron ?? null) }); }
+      catch (e) { if (e instanceof NoAgendable) return NextResponse.json({ ok: false, error: e.message }, { status: 400 }); throw e; }
+    }
     /* Las palabras que cortan los recordatorios: del workspace, no del mensaje. */
     case 'acuses-get': { const ws = await getWorkspaceActual(); return NextResponse.json({ ok: true, acuses: ws == null ? [] : await acusesDe(ws) }); }
     case 'acuses-set': {

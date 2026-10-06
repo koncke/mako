@@ -580,8 +580,12 @@ Conviene que le marques tú: +52 55 4874 2149
     id: 'reunion-recordatorio', titulo: 'Recordatorio de reunión próxima', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron reunion-recordatorio (cada 10 min): junta_1_at/junta_2_at a menos de 30 minutos, con el lead abierto y la asistencia sin marcar. Una marca por reunión evita repetirlo.',
+    // ⚠️ FICTICIO POR REGLA. Nombraba a un lead real de un cliente, y un agendado por
+    // tiempo se lo mandó al grupo de OTRO cuatro días seguidos (06/10/2026). Hoy un
+    // ejemplo no puede salir por tiempo (`motivoNoAgendable`), pero se sigue dibujando
+    // en la pantalla que abren todos.
     ejemplo: `━━ 🗓️ REUNIÓN ━━
-⏰ En 30 min tienes la *R2* con *Francisco Ramos* (Dental Ramos).
+⏰ En 30 min tienes la *R2* con *Laura Gil* (Clínica Gil).
 
 👉 Mira el resumen del lead:
 https://hola-mako.com/crm/482/resumen
@@ -647,7 +651,7 @@ https://hola-mako.com/crm/482/resumen
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron fathom-plan: caen grabaciones nuevas de reuniones de EQUIPO, MaKo las lee y deja los borradores pendientes en el plan. UN aviso por corrida, no uno por reunión.',
-    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntras una vez, revisas todo junto y con un toque quedan cargadas. — MaKo`,
+    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Ana <> Pablo* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntras una vez, revisas todo junto y con un toque quedan cargadas. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',

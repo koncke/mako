@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import {
   sanearCron, textoCron, partesEn, instanteDe, proximaOcurrencia,
-  UNIDADES, CADA_MAX, DIA_MES_MAX, type CronAviso,
+  UNIDADES, CADA_MAX, DIA_MES_MAX, motivoNoAgendable, TEXTO_NO_AGENDABLE, type CronAviso,
 } from '../lib/cron-aviso';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -317,4 +317,67 @@ test('⚠️ TIEMPO y ACCIÓN no se pueden editar los dos a la vez', () => {
   const elegir = src.slice(desde, src.indexOf('};', desde));
   assert.match(elegir, /disparador: \{ tipo: 'manual' \}/, 'elegir TIEMPO dejó de apagar la acción');
   assert.match(elegir, /onCron\(null\)/, 'elegir ACCIÓN dejó de apagar el tiempo');
+});
+
+// ── EL TEXTO DE EJEMPLO NO SALE POR TIEMPO ──────────────────────────────────
+
+test('⚠️ EL TEXTO DE EJEMPLO NO SE AGENDA: es dato de muestra, no un mensaje', () => {
+  // Medido el 06/10/2026: un «Por tiempo» sobre `reunion-recordatorio` le mandó al grupo
+  // de Leila, cuatro días a las 9:00, el EJEMPLO del catálogo — un recordatorio de
+  // reunión con un lead real de otro cliente. Por tiempo sale el texto tal cual, y para
+  // un mensaje que nadie reescribió ese texto es el molde con datos de muestra.
+  //
+  // PROBADO ROMPIÉNDOLO: con `motivoNoAgendable` devolviendo siempre null → pass 27 ·
+  // fail 1 (este test). Restaurado → 28 en verde.
+  const EJ = 'En 30 min tienes la *R2* con *Laura Gil*.';
+  assert.equal(motivoNoAgendable(EJ, EJ), 'ejemplo', 'el ejemplo de fábrica pasó como agendable');
+  assert.equal(motivoNoAgendable(`  ${EJ}\n`, EJ), 'ejemplo', 'un espacio de más lo hizo pasar');
+  assert.equal(motivoNoAgendable('   ', EJ), 'sin-texto', 'un texto vacío se agendó');
+  assert.equal(motivoNoAgendable('Revisa tu agenda de hoy.', EJ), null, 'un texto propio dejó de poder agendarse');
+  // Una plantilla propia no tiene ejemplo de fábrica: su texto lo escribió alguien.
+  assert.equal(motivoNoAgendable('Carga los gastos del mes.', null), null, 'una plantilla propia dejó de poder agendarse');
+  for (const t of Object.values(TEXTO_NO_AGENDABLE)) assert.ok(t.length <= 60, `el motivo en pantalla es largo: «${t}»`);
+});
+
+test('⚠️ LAS DOS PUNTAS PREGUNTAN: el que agenda se niega y el que manda no manda', () => {
+  // Agendar mira el texto PUBLICADO al guardar el horario; mandar lo vuelve a mirar en
+  // cada tick, porque el texto puede volver al de fábrica DESPUÉS (alguien lo restaura).
+  // Y el drenador pregunta sobre la MISMA variable que manda: si la guarda mirara una
+  // lectura y el envío otra, podrían contestar distinto.
+  //
+  // PROBADO ROMPIÉNDOLO, de a una: el `if (motivo)` del drenador apagado, el `throw new
+  // NoAgendable` de `setProgramado` sacado, y `referenciaPlantilla(...)` mandado en vez de
+  // `crudo` → las tres dan pass 27 · fail 1 (este test).
+  const src = sinComentarios(leer('../lib/avisos-programados.ts'));
+  const dren = src.slice(src.indexOf('export async function drenarProgramados'));
+  const iGuarda = dren.indexOf('if (motivo)');
+  assert.ok(iGuarda > 0 && iGuarda < dren.indexOf('emitirAviso('), 'el drenador manda sin preguntar si es el ejemplo');
+  assert.match(dren, /motivoNoAgendable\(crudo,/, 'la guarda dejó de mirar el texto que se manda');
+  assert.match(dren, /conVariables\(crudo,/, 'lo que se manda dejó de ser lo que la guarda miró');
+  assert.ok(!/referenciaPlantilla/.test(src), 'volvió una segunda lectura del texto, aparte de la guarda');
+
+  const set = src.slice(src.indexOf('export async function setProgramado'), src.indexOf('export async function drenarProgramados'));
+  const iNiega = set.indexOf('throw new NoAgendable');
+  assert.ok(iNiega > 0 && iNiega < set.indexOf('.upsert('), 'el agendado guarda el horario sin mirar el texto');
+  // Y desagendar NO pasa por la guarda: sacar un horario tiene que andar siempre.
+  assert.ok(set.indexOf(".delete()") < iNiega, 'desagendar quedó detrás de la guarda');
+});
+
+test('Las dos rutas contestan la negativa como un 400 con el motivo', () => {
+  // Sin esto, la de la agencia (que no tiene un try afuera) devolvía el 500 de Next en
+  // HTML y la pantalla mostraba un error de JSON en vez del motivo.
+  //
+  // PROBADO ROMPIÉNDOLO: la ruta de la agencia sin el `instanceof NoAgendable`, y la
+  // pantalla sin el `setIntencion(null)` → las dos dan pass 27 · fail 1 (este test).
+  for (const r of ['../app/api/admin/plantillas/route.ts', '../app/api/perfil/plantillas/route.ts']) {
+    const src = sinComentarios(leer(r));
+    const caso = src.slice(src.indexOf("case 'cron-set'"), src.indexOf("case 'acuses-"));
+    assert.match(caso, /instanceof NoAgendable/, `${r} no distingue la negativa`);
+    assert.match(caso, /status: 400/, `${r} contesta la negativa con otro código`);
+  }
+  // Y la pantalla vuelve atrás la intención cuando el server se niega.
+  const ui = leer('../app/agencia/FlujoAviso.tsx');
+  const desde = ui.indexOf('const elegir =');
+  const elegir = ui.slice(desde, ui.indexOf('\n  };', desde));
+  assert.match(elegir, /ok === false\) setIntencion\(null\)/, '«Por tiempo» queda elegido sin horario cuando se niega');
 });

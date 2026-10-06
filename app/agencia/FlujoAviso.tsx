@@ -155,7 +155,7 @@ export function FlujoAviso({
     if (r?.ok) setAcusesTxt(((r.acuses as string[] | undefined) ?? ACUSES).join(', '));
   }
 
-  async function guardarCron(c: CronAviso | null) {
+  async function guardarCron(c: CronAviso | null): Promise<boolean> {
     // ⚠️ SE REVIERTE SI FALLA, y esta regla viene heredada del control que esta
     // sección reemplazó (`Disparador.tsx`, que hacía `setMin(previo)`): sin ella el
     // desplegable queda diciendo un horario que no se guardó, y no hay forma de
@@ -169,6 +169,7 @@ export function FlujoAviso({
     if (r?.ok) { setCron(sanearCron(p?.cron ?? null)); setTz(p?.tz ?? null); }
     else setCron(previo);
     setBusy(false);
+    return !!r?.ok;
   }
 
   /**
@@ -410,7 +411,7 @@ function EditorDelAviso({
   insistir: Extract<Paso, { tipo: 'insistir' }> | null;
   cron: CronAviso | null;
   tz: string | null;
-  onCron: (c: CronAviso | null) => void;
+  onCron: (c: CronAviso | null) => Promise<boolean> | void;
   acusesTxt: string;
   onAcuses: (v: string, soloPintar?: boolean) => void;
   onTexto: (v: string) => void;
@@ -652,7 +653,7 @@ function Opcion({ activa, onClick, disabled, children }: {
  */
 function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
   base: Flujo; cron: CronAviso | null; tz: string | null;
-  guardando: boolean; onFlujo: (f: Flujo | null) => void; onCron: (c: CronAviso | null) => void;
+  guardando: boolean; onFlujo: (f: Flujo | null) => void; onCron: (c: CronAviso | null) => Promise<boolean> | void;
 }) {
   const evento = base.disparador.tipo === 'evento' ? base.disparador.evento : '';
   const guardado: ModoDisparo = cron ? 'tiempo' : evento ? 'accion' : null;
@@ -684,7 +685,13 @@ function SeccionCron({ base, cron, tz, guardando, onFlujo, onCron }: {
     // dejaría un mensaje disparado por las dos cosas con la pantalla diciendo una.
     if (m !== 'accion' && evento) onFlujo({ ...base, disparador: { tipo: 'manual' } });
     if (m !== 'tiempo' && cron) onCron(null);
-    if (m === 'tiempo' && !cron) onCron(CRON_DEFAULT);
+    // ⚠️ SI EL AGENDADO SE NIEGA, LA INTENCIÓN VUELVE ATRÁS. Pasa con el texto de
+    // ejemplo (`motivoNoAgendable`): el server contesta el motivo, `guardarCron`
+    // revierte el horario, y sin esto quedaba «Por tiempo» elegido sin nada abajo —
+    // un botón que se prendió y no hizo nada.
+    if (m === 'tiempo' && !cron) {
+      void Promise.resolve(onCron(CRON_DEFAULT)).then((ok) => { if (ok === false) setIntencion(null); });
+    }
   };
 
   return (

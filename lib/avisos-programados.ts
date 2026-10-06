@@ -17,10 +17,27 @@ import 'server-only';
 
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { tzDeWorkspace } from './timezone';
-import { referenciaPlantilla, plantillaActiva, getPlantilla } from './plantillas';
+import { plantillaActiva, getPlantilla } from './plantillas';
 import { emitirAviso } from './avisos';
-import { proximaOcurrencia, sanearCron, type CronAviso } from './cron-aviso';
+import { proximaOcurrencia, sanearCron, motivoNoAgendable, TEXTO_NO_AGENDABLE, type CronAviso, type MotivoNoAgendable } from './cron-aviso';
 import { conVariables } from './variables-resolver';
+import { CATALOGO_AVISOS } from './avisos-catalogo';
+
+/** El ejemplo de fábrica de un mensaje del catálogo; `null` para una plantilla propia. */
+const ejemploDeFabrica = (avisoId: string): string | null =>
+  CATALOGO_AVISOS.find((c) => c.id === avisoId)?.ejemplo ?? null;
+
+/**
+ * El agendado se negó: el texto que saldría es el de ejemplo, o no hay texto. Es su
+ * propia clase para que la ruta lo conteste como un 400 con el motivo, y no como el
+ * 500 de una escritura que falló.
+ */
+export class NoAgendable extends Error {
+  constructor(readonly motivo: MotivoNoAgendable) {
+    super(TEXTO_NO_AGENDABLE[motivo]);
+    this.name = 'NoAgendable';
+  }
+}
 
 export type Programado = {
   avisoId: string;
@@ -77,6 +94,11 @@ export async function setProgramado(avisoId: string, cron: unknown): Promise<Pro
     await db.from('avisos_programados').delete().eq('aviso_id', avisoId);
     return null;
   }
+  // ⚠️ SE NIEGA ANTES DE ESCRIBIR, y desagendar (arriba) no pasa por acá: sacar un
+  // horario tiene que andar siempre. El texto que se mira es el PUBLICADO —el que el
+  // drenador mandaría—, no el borrador que la persona tenga abierto.
+  const motivo = motivoNoAgendable((await getPlantilla(avisoId))?.ejemplo, ejemploDeFabrica(avisoId));
+  if (motivo) throw new NoAgendable(motivo);
   const tz = await tzDeWorkspace(ws).catch(() => 'America/Tijuana');
   const ahora = new Date();
   // El ancla de la PRIMERA vez es ahora: no hay ocurrencia anterior de la que colgarse.
@@ -144,13 +166,24 @@ export async function drenarProgramados(): Promise<{ enviados: number; saltados:
     if (!(await plantillaActiva(f.aviso_id))) { saltados++; continue; }
     try {
       const p = await getPlantilla(f.aviso_id);
+      // ⚠️ EL TEXTO DE EJEMPLO NO SALE, aunque la fila ya esté agendada. El agendado se
+      // niega a guardarlo, pero el texto puede volver al de fábrica DESPUÉS (alguien lo
+      // restaura, o la fila es de antes de esta guarda): así le llegó a Leila, cuatro
+      // días, un recordatorio con un lead real de otro cliente. Se pregunta sobre el
+      // MISMO texto que se manda abajo — `p.ejemplo` es lo que `referenciaPlantilla`
+      // devolvía —, así que la guarda y el envío no pueden mirar dos cosas distintas.
+      const crudo = p?.ejemplo ?? '';
+      const motivo = motivoNoAgendable(crudo, ejemploDeFabrica(f.aviso_id));
+      if (motivo) {
+        saltados++;
+        console.warn(`[avisos-programados] ${f.aviso_id}: no sale por tiempo (${motivo})`);
+        continue;
+      }
       // ⚠️ ACÁ NO HAY MODELO, y por eso este camino es el correcto para las variables:
       // un dato exacto que pasa por un LLM deja de ser exacto, y un link mal copiado
       // abre la ficha de OTRO lead sin verse roto. Éste sustituye con código.
       const ws = await getWorkspaceActual();
-      const texto = ws == null
-        ? await referenciaPlantilla(f.aviso_id)
-        : await conVariables(await referenciaPlantilla(f.aviso_id), { ws });
+      const texto = ws == null ? crudo : await conVariables(crudo, { ws });
       await emitirAviso({
         tipo: f.aviso_id,
         titulo: p?.titulo ?? f.aviso_id,
