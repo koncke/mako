@@ -279,6 +279,23 @@ export function OnboardingInstagram({ conexionInicial, tutorialZernio: TUTORIAL_
               >
                 Guardar API key de Zernio
               </Button>
+              {/* El tope del plan gratis de Zernio, donde se decide pagarlo.
+                  ⚠️ A PROPÓSITO NO LLEVA CONTADOR. `listAccounts` filtra por el
+                  profile del workspace y por `platform: 'instagram'`, así que no ve
+                  ni las cuentas de los otros workspaces de la cuenta de Zernio de la
+                  plataforma ni las de otras redes que el cliente tenga en la suya:
+                  cualquier «N de 2» que saliera de ahí contaría de MENOS, que es
+                  decirle que le queda lugar cuando no. El límite es de la cuenta de
+                  Zernio, no del profile. Es una advertencia, no un medidor.
+
+                  ⚠️ Y NO DICE CUÁNTO COBRA, a propósito. Las dos fuentes que tenemos no
+                  coinciden: la nota del 15/08/2026 dice US$6 por cuenta al mes y la clienta
+                  que lo sufrió reportó ~US$16 (tarea #829). Un precio ajeno no es un dato
+                  hasta que alguien lo verifica contra la página del proveedor ESE día, y el
+                  número no hace falta para el aviso: lo accionable es el TOPE. */}
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center' }}>
+                Zernio incluye 2 cuentas conectadas. Desde la 3.ª empieza a cobrarte, aunque no la uses.
+              </div>
             </>
           )}
           <Contexto eyebrow="Por qué este paso">

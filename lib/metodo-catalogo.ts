@@ -273,7 +273,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // integracionConectada('zernio') solo dé true con key PROPIA; el estado
       // real del canal (¿hay cuenta de IG conectada?) se mide por señal real
       // (fila en zernio_workspace + cuenta conectada), como la landing.
-      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true, nota: 'Opcional. Si lo dejas vacío, MaKo usa la cuenta de la plataforma y tu Instagram funciona igual. Con tu propia key, ese consumo se factura a tu cuenta de Zernio.' },
+      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true, nota: 'Opcional. Si lo dejas vacío, MaKo usa la cuenta de la plataforma y tu Instagram funciona igual. Con tu propia key, ese consumo se factura a tu cuenta de Zernio. ⚠️ Zernio incluye 2 cuentas conectadas; desde la 3.ª te cobra por cada una, aunque no la uses.' },
     ],
     tutorial: {
       url: 'https://zernio.com',
