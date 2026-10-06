@@ -340,4 +340,22 @@ export const BITACORA: Hito[] = [
       'scripts/probe-calendly-sin-ruteo.ts — solo lectura: cuenta quién conectó y no tiene por dónde entrar',
     ],
   },
+  {
+    fecha: '5 oct', hora: '22:20', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tope de 2 cuentas de Zernio, que no se decía en ninguna pantalla',
+    puntos: [
+      'Sale de la tarea #829 del tablero, que lo trae de la llamada con Leila: ella vio cargos que no reconocía en su tarjeta por VINCULAR redes, sin usarlas — «aparecieron cargos de Cernio y de Wok y no los usé, o sea, simplemente los vinculé». Zernio incluye 2 cuentas conectadas y cobra de la 3.ª en adelante, y el producto no lo decía en ningún lado.',
+      'Va en DOS lugares y los dos son permanentes: la nota del campo «API key de Zernio» (`lib/metodo-catalogo.ts`), que `ServicioConfigForm` dibuja bajo el input —es la que pedía el «Listo cuando» de la tarjeta—, y el paso de Zernio del onboarding de /instagram, pegado al camino «conecta tu propia cuenta», que es el que recorrió ella.',
+      '⚠️ **NO dice cuánto cobra, a propósito.** Las dos fuentes se contradicen: la nota del 15/08 dice US$6 por cuenta al mes y Leila reportó ~US$16. Un precio ajeno no es un dato hasta verificarlo contra la página del proveedor ESE día, y el número no hace falta para el aviso: lo accionable es el TOPE. Queda como tarea nueva en la propuesta de cierre.',
+      '⚠️ **Y NO lleva contador, que es lo primero que uno escribe.** `listAccounts` filtra por el profile del workspace y por `platform: instagram`, así que no ve ni las cuentas de los otros workspaces de la cuenta de Zernio de la PLATAFORMA ni las de otras redes que el cliente tenga en la SUYA. Cualquier «N de 2» sacado de ahí contaría de MENOS — o sea le diría que le queda lugar cuando no. El límite es de la cuenta de Zernio, no del profile: es una advertencia, no un medidor.',
+    ],
+    commits: [
+      { sha: '507b63e9', msg: 'El tope de 2 cuentas de Zernio, dicho donde se decide y donde se pega la key (#829)', lineas: 19, archivos: 2 },
+    ],
+    archivos: [
+      'lib/metodo-catalogo.ts — la nota del campo ZERNIO_API_KEY, que se dibuja siempre bajo el input',
+      'app/instagram/OnboardingInstagram.tsx — el aviso en el paso de Zernio, sobre el camino de key propia',
+    ],
+  },
 ];
