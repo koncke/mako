@@ -14,7 +14,7 @@ import { chatClaude } from '@/lib/anthropic';
 import { getActivePersona, MAKO_NUCLEO } from '@/lib/mako-prompts';
 import { getAnswers, perfilNegocioTexto } from '@/lib/onboarding';
 import { getTenantDb } from '@/lib/workspace';
-import { getSetting, setSetting } from '@/lib/settings';
+import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { getPromptText, renderPrompt, contenidoNoConfiable } from '@/lib/prompt-render';
 import { getSecuenciasConStats, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { metodologiaDeArea } from '@/lib/mako-knowledge';
@@ -91,6 +91,16 @@ async function marcaDeclarada(): Promise<string> {
 export async function getVozGuia(): Promise<string | null> {
   const v = await getSetting(KEY_VOZ);
   return v && v.trim() ? v : null;
+}
+
+/**
+ * ¿Hay guía de voz? Para decidir si se abre «Tu forma de escribir» (#745): un error de
+ * lectura TIRA, porque `getVozGuia` lo convierte en «no hay» y el tutorial saltaría sobre
+ * un negocio que ya la tiene.
+ */
+export async function hayVozGuiaEstricto(): Promise<boolean> {
+  const v = await getSettingEstricto(KEY_VOZ);
+  return !!(v && v.trim());
 }
 
 export async function setVozGuia(texto: string): Promise<void> {

@@ -40,6 +40,7 @@ import { renderPrompt } from './prompt-render';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import { getVozGuia } from './nutricion-generator';
 import { mensajesRecientesDelLead } from './wa-historial';
+import { bloqueFormulario, SEGURIDAD_FORMULARIO } from './setter-conversacion';
 import { respetaElOriginal } from './texto-critico';
 
 /** Cuántos mensajes de la conversación ve el modelo: contexto, no un historial entero. */
@@ -82,6 +83,22 @@ function limpiar(t: string): string {
  * acotada por envío (la regla de admisión de la casa: una lectura por entidad que el texto
  * nombra), y si falla se escribe sin contexto en vez de no escribir.
  */
+/**
+ * Lo que la persona contestó al agendar (#324). Para un lead que nunca le escribió al
+ * negocio —el que recibe el texto de las 24 h de la post-agenda, que sale sólo si no
+ * contestó— es lo ÚNICO suyo que hay: sin esto, «adaptado» era una paráfrasis del base.
+ * '' si no hay o la lectura falla: se escribe igual, sin el bloque.
+ */
+async function formularioDelLead(leadId: number): Promise<string> {
+  try {
+    const { getLead, getLeadRespuestas } = await import('./leads');
+    const lead = await getLead(leadId);
+    return lead ? bloqueFormulario(await getLeadRespuestas(lead), 'paso') : '';
+  } catch {
+    return '';
+  }
+}
+
 async function conversacionReciente(leadId: number): Promise<string> {
   // El lector es el mismo que usa el setter (lib/wa-historial.ts): dos `select` iguales
   // escritos por separado son dos lugares donde la misma regla se queda vieja.
@@ -101,20 +118,25 @@ export async function escribirPasoIA(args: { cuerpo: string; leadId: number | nu
   const base = (args.cuerpo ?? '').trim();
   if (!base) return { texto: args.cuerpo ?? '', autor: 'fallback', motivo: 'el paso no tiene mensaje base' };
 
-  const [voz, conversacion] = await Promise.all([
+  const [voz, conversacion, formulario] = await Promise.all([
     getVozGuia().catch(() => null),
     args.leadId ? conversacionReciente(args.leadId) : Promise.resolve(''),
+    args.leadId ? formularioDelLead(args.leadId) : Promise.resolve(''),
   ]);
-  const system = await renderPrompt('chatbot.paso-ia', PASO_IA_SYSTEM_TEMPLATE, {
+  let system = await renderPrompt('chatbot.paso-ia', PASO_IA_SYSTEM_TEMPLATE, {
     voz: voz || '(sin guía de voz todavía: registro neutro, cercano y directo)',
   });
+  // Afuera del template registrado: un override guardado de 'chatbot.paso-ia' no conoce el
+  // bloque del formulario y su cláusula de seguridad la perdería en silencio.
+  if (formulario) system += `\n\n${SEGURIDAD_FORMULARIO}`;
   const user = [
     `MENSAJE BASE:\n${base}`,
     conversacion
       ? `CONVERSACIÓN RECIENTE (de la más vieja a la más nueva):\n${contenidoNoConfiable(conversacion, 'conversacion')}`
       : 'No hay conversación previa con esta persona.',
+    formulario,
     'Escribe la versión para esta persona.',
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 
   const errores: string[] = [];
   let crudo = '';

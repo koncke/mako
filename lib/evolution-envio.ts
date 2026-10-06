@@ -146,52 +146,85 @@ export async function crearBorrador(input: {
 }
 
 /**
+ * Descarta el borrador 'setter-asistido' pendiente de un lead. Devuelve cuántos descartó.
+ *
+ * Un borrador del setter contesta UN mensaje. Cuando el lead escribió otra cosa —la charla
+ * pasó a una persona (hand-off), se cerró, o la redacción nueva falló—, el pendiente
+ * contesta un mensaje viejo, y aprobarlo es mandarle algo fuera de tiempo (#788).
+ */
+export async function descartarBorradorSetter(leadId: number): Promise<number> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('wa_borradores')
+    .update({ estado: 'descartado' })
+    .eq('lead_id', leadId).eq('origen', 'setter-asistido').eq('estado', 'pendiente')
+    .select('id');
+  if (error) throw new Error(`descartarBorradorSetter: ${error.message}`);
+  return (data ?? []).length;
+}
+
+/**
  * El borrador que deja el setter del modo asistido: UNO pendiente por lead (#788).
  *
  * Con la charla abierta, cada mensaje del lead redacta una respuesta nueva. Apilarlas
  * deja N borradores para la misma persona —y el setter que aprueba el primero manda una
- * respuesta a un mensaje viejo—, así que si ya hay uno se REEMPLAZA su texto: la
- * redacción nueva vio la charla más completa. Es el molde de Instagram
- * (lib/ig-chatbot.ts, `generarBorradorIg`).
+ * respuesta a un mensaje viejo—, así que el anterior se DESCARTA y se crea uno nuevo.
  *
- * ⚠️ BUSCAR-Y-DESPUÉS-INSERTAR TIENE CARRERA: dos mensajes en paralelo lo hacen dos veces.
- * La guarda es el índice único parcial de la mig 0203; si el insert choca con él, el
- * otro ya creó el borrador y se reemplaza ése. A diferencia de `crearBorrador`, el error
- * se LEE y vuelve: un borrador que no se guardó no puede anunciarse como «te dejé uno».
+ * ⚠️ SE DESCARTA Y SE CREA OTRO, NUNCA SE PISA EL TEXTO DEL MISMO ID. «Enviar» y
+ * «Descartar» van por id y el envío manda el texto que tiene la base al momento del
+ * clic: pisarlo hacía que el dueño, mirando la respuesta A, mandara la B —quizás una
+ * despedida— sin haberla leído nunca. Con un id nuevo, el clic sobre el viejo contesta
+ * «el borrador ya no está pendiente» y la bandeja muestra el nuevo. Medido en la revisión
+ * adversarial del 06/10/2026, antes de salir a producción.
+ *
+ * ⚠️ DOS MENSAJES EN PARALELO: la guarda es el índice único parcial de la mig 0203. Si el
+ * insert choca con él, el otro ya creó el suyo: se descarta ése y se reintenta UNA vez. A
+ * diferencia de `crearBorrador`, el error se LEE y vuelve: un borrador que no se guardó no
+ * puede anunciarse como «te dejé uno».
  */
 export async function guardarBorradorSetter(input: {
   leadId: number; telefono: string; texto: string; secuenciaId: number; linea: string | null;
 }): Promise<{ ok: true; id: number; reemplazo: boolean } | { ok: false; error: string }> {
   const supabase = await getTenantDb();
   const telefono = (input.telefono || '').replace(/\D/g, '');
-  const reemplazar = async (): Promise<{ ok: true; id: number; reemplazo: boolean } | null | { ok: false; error: string }> => {
-    const { data, error } = await supabase.from('wa_borradores')
-      .select('id').eq('lead_id', input.leadId).eq('origen', 'setter-asistido').eq('estado', 'pendiente')
-      .order('created_at', { ascending: false }).limit(1);
-    if (error) return { ok: false, error: error.message };
-    const previo = ((data ?? []) as Array<{ id: number }>)[0];
-    if (!previo) return null;
-    const { error: upErr } = await supabase.from('wa_borradores')
-      .update({ texto: input.texto, telefono, secuencia_id: input.secuenciaId, instance_name: input.linea })
-      .eq('id', previo.id).eq('estado', 'pendiente');
-    if (upErr) return { ok: false, error: upErr.message };
-    return { ok: true, id: previo.id, reemplazo: true };
-  };
-
-  const primero = await reemplazar();
-  if (primero) return primero;
-  const { data: ins, error } = await supabase.from('wa_borradores').insert({
+  const fila = {
     lead_id: input.leadId, telefono, chat_jid: null, texto: input.texto,
     origen: 'setter-asistido', secuencia_id: input.secuenciaId, paso: null, inscripcion_id: null,
     instance_name: input.linea, estado: 'pendiente',
-  }).select('id').single();
-  if (!error && ins) return { ok: true, id: (ins as { id: number }).id, reemplazo: false };
-  // 23505: otro mensaje del mismo lead ganó la carrera y ya lo creó. Se reemplaza ése.
-  if (error?.code === '23505') {
-    const segundo = await reemplazar();
-    if (segundo) return segundo;
+  };
+  let reemplazo = false;
+  for (let intento = 0; intento < 2; intento++) {
+    try { reemplazo = (await descartarBorradorSetter(input.leadId)) > 0 || reemplazo; }
+    catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+    const { data: ins, error } = await supabase.from('wa_borradores').insert(fila).select('id').single();
+    if (!error && ins) return { ok: true, id: (ins as { id: number }).id, reemplazo };
+    // 23505: otro mensaje del mismo lead ganó la carrera y ya creó el suyo. Una vuelta más.
+    if (error?.code !== '23505') return { ok: false, error: error?.message ?? 'no se guardó el borrador' };
   }
-  return { ok: false, error: error?.message ?? 'no se guardó el borrador' };
+  return { ok: false, error: 'otro mensaje del mismo lead está guardando su borrador' };
+}
+
+/**
+ * Un borrador de un PASO de secuencia que una persona aprobó y salió: su fila de
+ * `nutricion_envios` pasa de 'borrador' a 'enviado'.
+ *
+ * ⚠️ SIN ESTO, LO QUE SE APRUEBA A MANO NO EXISTE PARA EL MOTOR. Con «Sale sola» apagado
+ * cada paso queda como borrador, y cuando el dueño lo manda sólo se tocaba wa_borradores:
+ * el desenlace medía el silencio sobre «nunca salió nada» y la charla del setter (#788)
+ * decía «la secuencia todavía no le había mandado nada» sobre alguien a quien se le
+ * mandó cada paso. Best-effort: el mensaje ya salió, esto es su registro.
+ */
+export async function anotarPasoEnviado(borradorId: number): Promise<void> {
+  try {
+    const supabase = await getTenantDb();
+    const { data } = await supabase.from('wa_borradores').select('inscripcion_id, paso').eq('id', borradorId).maybeSingle();
+    const b = data as { inscripcion_id: number | null; paso: number | null } | null;
+    if (b?.inscripcion_id == null || b.paso == null) return;
+    await supabase.from('nutricion_envios')
+      .update({ estado: 'enviado' })
+      .eq('inscripcion_id', b.inscripcion_id).eq('paso', b.paso).eq('estado', 'borrador');
+  } catch (e) {
+    console.error(`[evolution-envio] anotar el paso del borrador ${borradorId}:`, e);
+  }
 }
 
 export async function contarBorradores(): Promise<number> {
@@ -243,6 +276,7 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
     return { ok: false, error: r.error };
   }
   await supabase.from('wa_borradores').update({ estado: 'enviado', enviado_at: ahoraISO(), enviado_por: porEmail }).eq('id', id);
+  await anotarPasoEnviado(id);
   return { ok: true };
 }
 

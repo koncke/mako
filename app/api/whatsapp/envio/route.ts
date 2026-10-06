@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
 import { envioWhatsappHabilitado, setEnvioWhatsapp } from '@/lib/envio-flags';
 import { integracionConectada } from '@/lib/credenciales';
-import { getInstanciaRow } from '@/lib/evolution';
+import { listarLineas } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,15 +31,18 @@ async function guard(): Promise<{ ws: number } | { error: Response }> {
 }
 
 async function estadoActual(): Promise<Record<string, unknown>> {
-  const [habilitado, oficial, inst] = await Promise.all([
+  // CUALQUIER línea conectada cuenta, no sólo la de por default: con varias líneas por
+  // negocio (mig 0198), un negocio con la de por default caída y otra andando no podía
+  // prender el envío («Primero conecta un número») aunque tuviera por dónde mandar.
+  const [habilitado, oficial, lineas] = await Promise.all([
     envioWhatsappHabilitado(),
     integracionConectada('whatsapp'),
-    getInstanciaRow(),
+    listarLineas().catch(() => []),
   ]);
   return {
     envioHabilitado: habilitado,
     oficialConectado: oficial,
-    evolutionConectado: inst?.estado === 'conectado',
+    evolutionConectado: lineas.some((l) => l.estado === 'conectado'),
   };
 }
 

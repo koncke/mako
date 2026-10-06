@@ -4267,6 +4267,7 @@ PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y
 | `titulo` | string | sí | cómo se llama el caso: «Pregunta el precio». |
 | `cuando` | string | sí | cuándo aplica, en palabras del negocio. Es lo que lee el clasificador. |
 | `comoResponder` | string | no | qué contestar: la guía del borrador, no el texto literal. |
+| `contestaSolo` | boolean | no | true: si el mensaje encaja en este caso, MaKo le contesta solo en vez de dejar un borrador. Sólo para casos que no tocan plata (confirmar, cambiar el día): una respuesta que habla de precio o trae un link sin completar queda en borrador igual. Default false. |
 
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/chatbot/agregar_escenario_secuencia" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \

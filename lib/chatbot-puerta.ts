@@ -44,6 +44,32 @@ export function abreEnQR(p: { onboarding: OnboardingChatbot; canal: string }): b
 }
 
 /**
+ * La puerta en un `load()` que NO es el primero (revisión del 06/10/2026).
+ *
+ * `load()` corre otra vez cada vez que se guarda algo (asignar un audio, publicar). Con la
+ * puerta recalculada en cada uno, una lectura de la línea que justo daba 'conectando' o
+ * 'desconocido' —o un corte de red— sacaba al dueño del lienzo a mitad de una edición y lo
+ * mandaba al QR. Una vez que el lienzo está a la vista, sólo lo cambia un 'sin_vincular'
+ * COMPROBADO: es la única lectura que dice que no hay número.
+ */
+export function puertaAlRecargar(p: { actual: boolean | null; calculada: boolean; canal: string }): boolean {
+  if (p.actual === false && p.canal !== 'sin_vincular') return false;
+  return p.calculada;
+}
+
+/**
+ * ¿Hay que marcar el paso «Tu WhatsApp» porque la línea YA está conectada?
+ *
+ * Quien vinculó por /whatsapp, o antes de que /chatbot marcara el paso, quedó con la
+ * línea conectada y el tilde pendiente. La puerta ya no lo mira, pero sí lo mira el orden
+ * del onboarding: «Tu forma de escribir» contestaba «falta completar Tu WhatsApp» al
+ * terminarla. Se rellena al cargar, con el mismo POST que usa el QR.
+ */
+export function marcarWhatsappAlCargar(p: { onboarding: OnboardingChatbot; canal: string }): boolean {
+  return p.onboarding === 'pendiente' && p.canal === 'conectado';
+}
+
+/**
  * ¿Tildar «Lo adapta MaKo» abre «Tu forma de escribir»?
  *
  * Sólo si el server CONTESTÓ que no hay guía. Si la pregunta falla, no se abre nada: la

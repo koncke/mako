@@ -33,6 +33,26 @@ function leadDe(body: Record<string, unknown>): AdvisorLead {
   };
 }
 
+/**
+ * Suma lo que el lead contestó en el formulario de la agenda (#361). El `leadId` lo manda
+ * la bandeja; `getLead` va por `getTenantDb`, así que un id de OTRO negocio devuelve null y
+ * no entra nada. Si falla, el panel aconseja igual, sin el bloque.
+ */
+async function conFormulario(lead: AdvisorLead, body: Record<string, unknown>): Promise<AdvisorLead> {
+  const leadId = typeof body.leadId === 'number' && Number.isInteger(body.leadId) && body.leadId > 0 ? body.leadId : null;
+  if (!leadId) return lead;
+  try {
+    const [{ getLead, getLeadRespuestas }, { bloqueFormulario }] = await Promise.all([
+      import('@/lib/leads'), import('@/lib/setter-conversacion'),
+    ]);
+    const fila = await getLead(leadId);
+    const formulario = fila ? bloqueFormulario(await getLeadRespuestas(fila), 'asesor') : '';
+    return formulario ? { ...lead, formulario } : lead;
+  } catch {
+    return lead;
+  }
+}
+
 /** Sesión de asesoría del contacto (una por contacto); se crea al primer chat. */
 async function sesionDeContacto(groupId: string, contacto: string, crear: boolean) {
   const chartKey = chartKeyDe(groupId);
@@ -58,7 +78,7 @@ export async function POST(req: NextRequest) {
   try {
     switch (body.action) {
       case 'recommend': {
-        const recomendacion = await recomendarMensajes(leadDe(body));
+        const recomendacion = await recomendarMensajes(await conFormulario(leadDe(body), body));
         return Response.json({ ok: true, recomendacion });
       }
       case 'history': {
@@ -72,7 +92,7 @@ export async function POST(req: NextRequest) {
         const groupId = typeof body.groupId === 'string' ? body.groupId : '';
         const mensaje = typeof body.mensaje === 'string' ? body.mensaje.trim() : '';
         if (!groupId || !mensaje) return Response.json({ ok: false, error: 'falta groupId o mensaje' }, { status: 400 });
-        const lead = leadDe(body);
+        const lead = await conFormulario(leadDe(body), body);
         const s = await sesionDeContacto(groupId, lead.contacto, true);
         if (!s) return Response.json({ ok: false, error: 'no se pudo abrir la sesión' }, { status: 500 });
         const historial = (await getSessionMessages(s.id)).map((m) => ({ role: m.role, content: m.content }));

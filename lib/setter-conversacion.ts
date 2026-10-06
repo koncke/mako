@@ -24,7 +24,25 @@ import { contenidoNoConfiable } from './prompt-render-pure';
 export const TURNOS_DE_CONTEXTO = 20;
 
 /** Una fila de `wa_mensajes`, con lo único que el setter necesita. */
-export type FilaMensaje = { from_me: boolean; texto: string | null; tipo: string | null };
+export type FilaMensaje = { from_me: boolean; texto: string | null; tipo: string | null; wa_timestamp?: string | null };
+
+/**
+ * Cuándo entró el último mensaje DEL LEAD de estas filas (ms), o null si no hay.
+ *
+ * Sirve para no contestar un mensaje viejo (#788): dos mensajes seguidos disparan dos
+ * redacciones en paralelo, y la del primero —que tarda lo mismo— podía guardar su borrador
+ * DESPUÉS de la del segundo. Antes de guardar se relee: si entró algo más nuevo, esta
+ * redacción ya no contesta lo último y se descarta; la del mensaje nuevo se encarga.
+ */
+export function ultimoEntranteMs(filas: FilaMensaje[] | null | undefined): number | null {
+  let max: number | null = null;
+  for (const f of filas ?? []) {
+    if (f.from_me || f.tipo === 'evento' || f.tipo === 'otro') continue;
+    const t = Date.parse(f.wa_timestamp ?? '');
+    if (Number.isFinite(t) && (max == null || t > max)) max = t;
+  }
+  return max;
+}
 
 /** Lo que dice un mensaje sin texto, según quién lo mandó. */
 function sinTexto(tipo: string | null, deNosotros: boolean): string {
@@ -72,7 +90,12 @@ export function conTurnoActual(historial: TurnoSim[], texto: string | null | und
   if (!actual) {
     return ultimo?.de === 'lead' ? historial : [...historial, { de: 'lead', texto: '(el lead respondió sin texto)' }];
   }
-  if (ultimo?.de === 'lead' && normal(ultimo.texto) === normal(actual)) return historial;
+  // ⚠️ SE CORTA EN EL MENSAJE QUE SE CONTESTA, no sólo se mira el último. Si después de él
+  // hay otros turnos (el lead mandó otro, o alguien ya le contestó a mano), agregarlo de nuevo
+  // al final hacía que el modelo contestara un mensaje viejo como si fuera el último.
+  for (let i = historial.length - 1; i >= 0; i--) {
+    if (historial[i].de === 'lead' && normal(historial[i].texto) === normal(actual)) return historial.slice(0, i + 1);
+  }
   return [...historial, { de: 'lead', texto: actual }];
 }
 
@@ -89,15 +112,22 @@ export type RespuestasFormulario = { R1: Array<{ q: string; a: string }>; R2: Ar
  * «¿facturás +$20M MXN?» y no un monto, y `colaboradores` es texto libre («Un chingo»):
  * sirven para no volver a preguntar, no para repetírselas al lead.
  */
-export function bloqueFormulario(r: RespuestasFormulario | null | undefined): string {
+const ENCABEZADO_FORMULARIO = {
+  setter: 'LO QUE ESTA PERSONA YA CONTESTÓ EN EL FORMULARIO DE LA AGENDA (no se lo vuelvas a preguntar; si una pregunta de cualificación ya está contestada aquí, sáltala y usa la respuesta). Sirve para no repetir preguntas: no le cites las respuestas ni sus números.',
+  // El paso en modo IA (#324): el de las 24 h de la post-agenda sale SÓLO si el lead no
+  // contestó nada, así que el formulario es lo único suyo que hay. Y un número citado lo
+  // frena la validación (lib/texto-critico.ts): el paso caería al texto fijo.
+  paso: 'LO QUE ESTA PERSONA CONTESTÓ AL AGENDAR (sirve para el tono y para no preguntarle lo que ya dijo; no cites sus respuestas ni escribas ningún número que salga de aquí).',
+  // El panel «Consejo» de la bandeja: lo lee una PERSONA, así que acá sí se puede citar.
+  asesor: 'LO QUE ESTE LEAD CONTESTÓ EN EL FORMULARIO DE LA AGENDA (úsalo: no recomiendes preguntarle lo que ya dijo).',
+} as const;
+
+export function bloqueFormulario(r: RespuestasFormulario | null | undefined, para: keyof typeof ENCABEZADO_FORMULARIO = 'setter'): string {
   const filas = [...(r?.R1 ?? []), ...(r?.R2 ?? [])]
     .filter((x) => x?.q?.trim() && x?.a?.trim())
     .map((x) => `${x.q.trim()} → ${x.a.trim().slice(0, 300)}`);
   if (!filas.length) return '';
-  return [
-    'LO QUE ESTA PERSONA YA CONTESTÓ EN EL FORMULARIO DE LA AGENDA (no se lo vuelvas a preguntar; si una pregunta de cualificación ya está contestada aquí, sáltala y usa la respuesta). Sirve para no repetir preguntas: no le cites las respuestas ni sus números.',
-    contenidoNoConfiable(filas.join('\n'), 'formulario'),
-  ].join('\n');
+  return [ENCABEZADO_FORMULARIO[para], contenidoNoConfiable(filas.join('\n'), 'formulario')].join('\n');
 }
 
 /**
@@ -141,6 +171,60 @@ export function pedidoFinal(porInsistir: boolean): string {
 /** Por qué terminó una charla del setter. Se guarda en `nutricion_inscripciones.conversacion_cierre`. */
 export type CierreConversacion = 'fin_bien' | 'fin_mal' | 'insistencia';
 
+// ── #787: ¿la respuesta del setter puede salir SOLA? ─────────────────────────
+
+/** Cuántas respuestas automáticas puede recibir un lead en 24 h. Lo que pase de ahí va a borrador. */
+export const TOPE_RESPUESTAS_SOLAS_24H = 3;
+/** Horario (local del negocio) en que MaKo contesta solo. Fuera de él, borrador. */
+export const HORARIO_RESPUESTA_SOLA = { desde: 9, hasta: 21 } as const;
+
+/** Un link sin completar («[tu link de agenda]») o una variable que nadie reemplazó. */
+const SIN_COMPLETAR = /\[[^\]]*\]|\{\{|\{\s*[a-z_]+\s*\}/i;
+/**
+ * Plata. «El precio siempre en borrador» (Martín, 06/10) es una regla sobre lo que SALE, así
+ * que se mira el TEXTO y no sólo el caso: un caso mal configurado, o una respuesta que se
+ * fue a hablar de precio, no sale sola igual. Cualquier número de tres cifras o más entra
+ * acá también — un monto, un teléfono o una cuenta no se mandan sin que una persona los vea.
+ */
+const HABLA_DE_PLATA = /\$|\b(precios?|costos?|cuesta|cuestan|pesos|mxn|usd|d[oó]lar(es)?|pag[oa]r?|pagos|inversi[oó]n|invertir|descuentos?|tarifas?|mensualidad(es)?)\b|\d{3,}/i;
+
+/**
+ * ¿La respuesta que redactó el setter sale sola, o queda como borrador? (#787)
+ *
+ * Decisión de Martín (06/10/2026): «solo confirmar y reprogramar; el precio siempre en
+ * borrador». Es el ÚNICO lugar del producto donde la IA le escribe a un lead caliente sin
+ * que una persona lo apruebe, contra la regla dura de lib/evolution-envio.ts (a leads que no
+ * pagaron, borrador) — por eso cada condición es una puerta y cualquiera cierra:
+ *
+ *  · el caso tiene `contestaSolo` (nace apagado; lo prende quien carga el caso);
+ *  · la charla no terminó mal (una despedida la ve una persona);
+ *  · el envío real de WhatsApp del negocio está prendido (el mismo interruptor del motor);
+ *  · el texto no trae un link sin completar ni habla de plata;
+ *  · el lead no está bloqueado, no pasó el tope de 24 h y es horario del negocio.
+ *
+ * `motivo` es por qué NO salió, para el aviso al dueño. Pura: tiene test.
+ */
+export function puedeContestarSolo(p: {
+  escenario: EscenarioSecuencia | null | undefined;
+  texto: string;
+  cierre: CierreConversacion | null;
+  envioHabilitado: boolean;
+  automaticasUltimas24h: number;
+  horaLocal: number;
+  bloqueado: boolean;
+}): { ok: true } | { ok: false; motivo: string | null } {
+  // Sin el caso prendido no hay nada que explicar: es el borrador de siempre.
+  if (p.escenario?.contestaSolo !== true) return { ok: false, motivo: null };
+  if (p.cierre === 'fin_mal' || p.cierre === 'insistencia') return { ok: false, motivo: 'es una despedida' };
+  if (!p.envioHabilitado) return { ok: false, motivo: 'el envío de WhatsApp está apagado' };
+  if (p.bloqueado) return { ok: false, motivo: 'el número está bloqueado' };
+  if (SIN_COMPLETAR.test(p.texto)) return { ok: false, motivo: 'trae un link o un dato sin completar' };
+  if (HABLA_DE_PLATA.test(p.texto)) return { ok: false, motivo: 'habla de precio o de un número' };
+  if (p.automaticasUltimas24h >= TOPE_RESPUESTAS_SOLAS_24H) return { ok: false, motivo: `ya le contesté solo ${TOPE_RESPUESTAS_SOLAS_24H} veces hoy` };
+  if (!(p.horaLocal >= HORARIO_RESPUESTA_SOLA.desde && p.horaLocal < HORARIO_RESPUESTA_SOLA.hasta)) return { ok: false, motivo: 'es fuera de horario' };
+  return { ok: true };
+}
+
 // ── #788: ¿la charla con este lead sigue abierta? ───────────────────────────
 
 /** Cuántos días después del último intercambio el setter deja de contestar solo. */
@@ -159,6 +243,11 @@ export type InscCharla = {
   tieneEnviado: boolean;
   /** ¿La secuencia es de modo 'asistido'? Las demás no redactan nada. */
   asistida: boolean;
+  /**
+   * ¿El dueño pausó la secuencia (o la archivó)? Una charla de una secuencia pausada no se
+   * SIGUE sola; la primera respuesta sí se atiende, como siempre (es un borrador, no un envío).
+   */
+  pausada: boolean;
   /**
    * Si la secuencia prepara una reunión: ¿todavía hay una por delante? `null` = no es de
    * esa familia y no hace falta. Sin reunión futura, el guion de «preparar» no aplica:
@@ -193,11 +282,23 @@ export function conversacionAbierta(inscs: InscCharla[], ahoraMs: number): Vered
   if (!asistidas.length) return { abierta: false, motivo: null };
 
   const ventanaMs = DIAS_CHARLA_ABIERTA * 24 * 3_600_000;
-  const ultimo = (i: InscCharla) => Date.parse(i.conversacion_ultima_at ?? i.updated_at ?? '') || 0;
+  const ms = (iso: string | null | undefined) => Date.parse(iso ?? '') || 0;
+  // ⚠️ SIN `conversacion_ultima_at` NO HUBO CHARLA. El respaldo a `updated_at` abría charlas
+  // que nunca existieron: lo escriben el motor, el desenlace y el destrabe de pasos por
+  // razones que no son «el setter contestó», y con dos secuencias pausadas la de
+  // `updated_at` más nuevo podía ser la equivocada. Charla = el setter atendió un intercambio.
+  const ultimo = (i: InscCharla) => ms(i.conversacion_ultima_at);
+  // ⚠️ UN CIERRE ES DE LA CHARLA CON EL LEAD, no de una inscripción. Si el setter cerró en
+  // una secuencia, otra secuencia asistida del mismo lead no la reabre: sólo vale una charla
+  // cuyo último intercambio sea POSTERIOR al último cierre.
+  const ultimoCierre = Math.max(0, ...asistidas.map((i) => ms(i.conversacion_cerrada_at)));
   const candidatas = asistidas
     .filter((i) => (i.estado === 'respondio' || i.estado === 'completada')
       && (i.desenlace == null || i.desenlace === 'logrado')
       && !i.conversacion_cerrada_at
+      && !i.pausada
+      && i.conversacion_ultima_at != null
+      && ultimo(i) > ultimoCierre
       && i.tieneEnviado
       && i.reunionFutura !== false
       && ahoraMs - ultimo(i) <= ventanaMs)
@@ -205,11 +306,28 @@ export function conversacionAbierta(inscs: InscCharla[], ahoraMs: number): Vered
   if (candidatas.length) return { abierta: true, insc: candidatas[0] };
 
   // Por qué no: el motivo de la más reciente, que es la que el dueño tiene en la cabeza.
-  const masReciente = [...asistidas].sort((a, b) => ultimo(b) - ultimo(a))[0];
+  const reciente = (i: InscCharla) => Math.max(ms(i.conversacion_ultima_at), ms(i.conversacion_cerrada_at), ms(i.updated_at));
+  const masReciente = [...asistidas].sort((a, b) => reciente(b) - reciente(a))[0];
   if (masReciente.estado === 'handoff') return { abierta: false, motivo: 'la charla la está siguiendo una persona' };
-  if (masReciente.conversacion_cerrada_at) return { abierta: false, motivo: 'la charla ya se había cerrado' };
+  if (masReciente.conversacion_cerrada_at || ultimoCierre > 0) return { abierta: false, motivo: 'la charla ya se había cerrado' };
+  if (masReciente.pausada) return { abierta: false, motivo: 'la secuencia está pausada' };
   if (masReciente.reunionFutura === false) return { abierta: false, motivo: 'su reunión ya pasó' };
   if (!masReciente.tieneEnviado) return { abierta: false, motivo: 'la secuencia todavía no le había mandado nada' };
-  if (ahoraMs - ultimo(masReciente) > ventanaMs) return { abierta: false, motivo: `pasaron más de ${DIAS_CHARLA_ABIERTA} días desde la última charla` };
+  if (masReciente.conversacion_ultima_at && ahoraMs - ultimo(masReciente) > ventanaMs) {
+    return { abierta: false, motivo: `pasaron más de ${DIAS_CHARLA_ABIERTA} días desde la última charla` };
+  }
   return { abierta: false, motivo: 'la secuencia ya había terminado con este lead' };
+}
+
+/**
+ * ¿El setter atiende esta inscripción cuando el lead CONTESTA? (#788)
+ *
+ * Es la otra puerta: la de la primera respuesta (una inscripción que estaba activa, o una
+ * ya terminada que el lead contesta tarde). Antes se atendían todas sin preguntar, y una
+ * respuesta tardía a una secuencia pausada, cerrada o cuya reunión ya pasó redactaba con
+ * el guion de «preparar» para una llamada que no existe. Las mismas guardas que la charla
+ * abierta, menos la ventana (acá el intercambio es éste).
+ */
+export function atiendeAlResponder(i: Pick<InscCharla, 'asistida' | 'conversacion_cerrada_at' | 'reunionFutura'>): boolean {
+  return i.asistida && !i.conversacion_cerrada_at && i.reunionFutura !== false;
 }

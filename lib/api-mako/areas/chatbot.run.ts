@@ -605,10 +605,14 @@ export const RUNNERS: Runners = {
       if (!s) return { error: noExiste(id) };
       const est = parseEstrategia(s.estrategia);
       if (!est) return { error: `La secuencia «${s.nombre}» no tiene estrategia: guárdala primero con guardar_estrategia_secuencia.` };
-      const escenario: EscenarioSecuencia = { titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder') };
+      // `contestaSolo` sólo con un `true` literal (#787): el default es el borrador de siempre.
+      const escenario: EscenarioSecuencia = {
+        titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder'),
+        ...(input.contestaSolo === true ? { contestaSolo: true } : {}),
+      };
       const reemplaza = est.escenarios.some((x) => x.titulo === escenario.titulo);
       if (!reemplaza && est.escenarios.length >= 30) return { error: `La secuencia «${s.nombre}» ya tiene 30 casos, el máximo.` };
-      return { payload: { secuenciaId: id, escenario }, resumen: `${reemplaza ? 'Reemplazar' : 'Agregar'} el caso «${escenario.titulo}» en «${s.nombre}»` };
+      return { payload: { secuenciaId: id, escenario }, resumen: `${reemplaza ? 'Reemplazar' : 'Agregar'} el caso «${escenario.titulo}» en «${s.nombre}»${escenario.contestaSolo ? ' (MaKo contesta solo)' : ''}` };
     },
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);

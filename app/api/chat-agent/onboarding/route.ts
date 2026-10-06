@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     // prender «Lo adapta MaKo» (#745): el tilde del paso no lo dice, porque se marca
     // aunque no se haya escrito ninguna guía. `null` = no se pudo leer (no se abre nada).
     const guiaVoz = TAB === 'setting'
-      ? await import('@/lib/nutricion-generator').then((m) => m.getVozGuia()).then((g) => g != null).catch(() => null)
+      ? await import('@/lib/nutricion-generator').then((m) => m.hayVozGuiaEstricto()).catch(() => null)
       : null;
     return Response.json({ ok: true, estado: await getEstadoTab(TAB), def: tabOnboardingDef(TAB), guiaVoz });
   } catch (e) {

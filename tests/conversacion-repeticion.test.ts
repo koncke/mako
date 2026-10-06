@@ -5,7 +5,28 @@
 // determinista y del lado del servidor.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { insisteConLoMismo, parecido } from '../lib/conversacion-repeticion';
+import { insisteConLoMismo, insistenciaRebatida, parecido } from '../lib/conversacion-repeticion';
+
+// ── Por RONDAS (revisión del 06/10/2026, con la charla real del modo asistido) ──
+// Probado rompiéndolo: contando por mensajes y no por rondas → 1 rojo (el de la ráfaga);
+// sin sacar la cortesía → 1 rojo (el del «gracias»).
+const L = (texto: string) => ({ de: 'lead' as const, texto });
+const N = (texto: string) => ({ de: 'negocio' as const, texto });
+
+test('rondas: tres mensajes seguidos sin respuesta NO son «la tercera vez»', () => {
+  assert.equal(insistenciaRebatida([N('Te dejo el video'), L('está muy caro'), L('me parece caro'), L('sigue caro')]), false);
+});
+
+test('rondas: la misma objeción después de dos respuestas del negocio SÍ cierra', () => {
+  assert.equal(insistenciaRebatida([
+    L('está muy caro'), N('Lo vemos en la llamada'), L('igual me parece caro'), N('Ahí te explico las formas de pago'), L('sigue caro'),
+  ]), true);
+});
+
+test('rondas: un «gracias» repetido no es una objeción, y lo que pone el sistema no cuenta', () => {
+  assert.equal(insistenciaRebatida([L('gracias'), N('A ti'), L('muchas gracias'), N('Nos vemos'), L('gracias!')]), false);
+  assert.equal(insistenciaRebatida([L('(mandó un audio)'), N('ok'), L('(mandó un audio)'), N('ok'), L('(mandó un audio)')]), false);
+});
 
 test('la misma objeción dicha de tres formas SÍ cuenta como insistir', () => {
   // El caso real que reportó el dueño.

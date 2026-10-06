@@ -59,3 +59,46 @@ export function insisteConLoMismo(mensajesDelLead: string[], veces = 3): boolean
   const iguales = dichos.filter((m) => parecido(ultimo, m) >= UMBRAL_REPETICION).length;
   return iguales >= veces;
 }
+
+/** Un turno de una charla, como lo arma el setter. */
+type Turno = { de: 'lead' | 'negocio'; texto: string };
+
+/** Lo que el sistema pone en lugar de un mensaje sin texto: «(mandó un audio)», «(le mandamos…)». */
+const RELLENO = /^\([\s\S]*\)$/;
+
+/** Palabras que no son una objeción: un «gracias» repetido no es insistir con lo mismo. */
+const CORTESIA = new Set(['gracias', 'muchas', 'okay', 'vale', 'perfecto', 'perfecta', 'listo', 'lista', 'sale', 'genial', 'excelente', 'bien', 'dale', 'hola', 'buenas', 'buenos', 'dias', 'tardes', 'noches', 'claro', 'sip', 'entendido', 'enterado', 'super', 'saludos', 'igualmente']);
+
+function soloCortesia(texto: string): boolean {
+  const limpio = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9ñ\s]/g, ' ');
+  const sueltas = limpio.split(/\s+/).filter((p) => p.length > 2);
+  return sueltas.every((p) => CORTESIA.has(p));
+}
+
+/**
+ * ¿El lead repite la MISMA objeción después de que el negocio ya se la respondió dos veces?
+ *
+ * Es `insisteConLoMismo` contado por RONDAS y no por mensajes (revisión del 06/10/2026, con la
+ * charla real del modo asistido). Por mensajes, tres mensajes seguidos del lead que nadie
+ * contestó todavía —«está caro» / «muy caro» / «carísimo», en ráfaga— ya contaban como
+ * «insiste por tercera vez»: MaKo redactaba una despedida y cerraba la charla de alguien que
+ * sólo escribe en varios mensajes. Una ronda es lo que el lead dijo entre dos respuestas del
+ * negocio, junto; tres rondas parecidas exigen dos respuestas en el medio, que es lo que pidió
+ * el dueño («lo entiendo 1, 2, incluso 3 veces rebatir la objeción»).
+ *
+ * Fuera de la cuenta: lo que el sistema pone por un mensaje sin texto («(mandó un audio)») y
+ * las rondas que son pura cortesía (un «gracias» repetido no es una objeción).
+ */
+export function insistenciaRebatida(turnos: Turno[], veces = 3): boolean {
+  const rondas: string[] = [];
+  let actual: string[] = [];
+  const cerrar = () => { if (actual.length) { rondas.push(actual.join(' ')); actual = []; } };
+  for (const t of turnos) {
+    if (t.de === 'negocio') { cerrar(); continue; }
+    const texto = t.texto.trim();
+    if (!texto || RELLENO.test(texto)) continue;
+    actual.push(texto);
+  }
+  cerrar();
+  return insisteConLoMismo(rondas.filter((r) => !soloCortesia(r)), veces);
+}

@@ -351,6 +351,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'cómo se llama el caso: «Pregunta el precio».' },
       { nombre: 'cuando', tipo: 'string', obligatorio: true, max: 600, descripcion: 'cuándo aplica, en palabras del negocio. Es lo que lee el clasificador.' },
       { nombre: 'comoResponder', tipo: 'string', max: 1000, descripcion: 'qué contestar: la guía del borrador, no el texto literal.' },
+      { nombre: 'contestaSolo', tipo: 'boolean', descripcion: 'true: si el mensaje encaja en este caso, MaKo le contesta solo en vez de dejar un borrador. Sólo para casos que no tocan plata (confirmar, cambiar el día): una respuesta que habla de precio o trae un link sin completar queda en borrador igual. Default false.' },
     ],
     reversible: true, escribe: 'agrega un escenario a nutricion_secuencias.estrategia.escenarios',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },

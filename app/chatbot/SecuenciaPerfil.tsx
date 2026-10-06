@@ -8,7 +8,7 @@
 // pausar, abrir el wizard para que MaKo redacte, y probarla DE VERDAD (te llega
 // a tu teléfono/mail). Setter = solo lectura (sin botones de escritura).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
@@ -52,6 +52,14 @@ const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
   padding: '7px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
 };
+
+/**
+ * «Tu forma de escribir» se ofrece UNA vez por visita: quien la cierra sin escribir guía no
+ * la ve en cada casilla. Vive en el MÓDULO y no en un ref: el perfil se remonta al cambiar de
+ * secuencia, y un ref la volvía a ofrecer en cada una (revisión del 06/10/2026). Con un F5 se
+ * vuelve a ofrecer, que es lo que «una vez por visita» quiere decir.
+ */
+const guiaOfrecida = { enLaVisita: false };
 
 export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onAbrirClave, onElegir, onNueva, onProbar, onClose, onCambio, onWizard }: {
   secuencia: SecuenciaDto;
@@ -188,8 +196,6 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   // pila porque la apaga: con el tutorial delante, un Ctrl+Z fuera de un campo de texto
   // deshacía el lienzo de atrás — y lo primero que deshacía era la casilla recién tildada.
   const [guiaVoz, setGuiaVoz] = useState(false);
-  /** «Tu forma de escribir» se ofrece UNA vez por visita: quien la cierra sin escribir guía no la ve en cada casilla. */
-  const guiaOfrecida = useRef(false);
   const { apilar, deshacer, rehacer, puedeDeshacer, puedeRehacer } = usePilaDeshacer<PasoSecuenciaDto[]>(
     (foto) => { const antes = pasos; setPasos(foto); return antes; },
     { activa: rolAdmin && !guiaVoz },
@@ -329,11 +335,11 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   const setModoIA = (orden: number, on: boolean) => {
     antesDeCambiar();
     setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : { ...p, tipo: on ? 'ia' as const : 'texto' as const })));
-    if (!on || guiaOfrecida.current) return;
+    if (!on || guiaOfrecida.enLaVisita) return;
     void (async () => {
       try {
         const j = await (await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' })).json();
-        if (abrirGuiaVoz(j)) { guiaOfrecida.current = true; setGuiaVoz(true); }
+        if (abrirGuiaVoz(j)) { guiaOfrecida.enLaVisita = true; setGuiaVoz(true); }
       } catch { /* sin red no se abre: ver arriba */ }
     })();
   };

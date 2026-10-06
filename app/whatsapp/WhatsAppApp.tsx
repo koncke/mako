@@ -1334,7 +1334,7 @@ function WhatsAppInner({ puedeChatbot, mostrarOficial, puedeAgregarLinea }: { pu
             <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
             {sel ? (
               <WhatsAppAdvisor
-                grupo={{ id: sel.id, contacto: sel.contacto, empresa: sel.empresa, etapaLabel: sel.etapaLabel }}
+                grupo={{ id: sel.id, contacto: sel.contacto, empresa: sel.empresa, etapaLabel: sel.etapaLabel, leadId: sel.leadId }}
                 mensajes={mensajes}
                 ventanaAbierta={ventanaAbierta}
                 onUsar={(t) => setDraft(draft.trim() ? `${draft.replace(/\s+$/, '')}\n\n${t}` : t)}

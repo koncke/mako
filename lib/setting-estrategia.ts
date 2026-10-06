@@ -116,6 +116,14 @@ export type EscenarioSecuencia = {
   cuando: string;
   /** Qué contestar. Es la guía del borrador, no el texto literal. */
   comoResponder: string;
+  /**
+   * Si el mensaje encaja en ESTE caso, MaKo le contesta solo en vez de dejar un borrador
+   * (#787). Decisión de Martín (06/10/2026): «solo confirmar y reprogramar»; el precio va
+   * siempre en borrador. Nace apagado y sólo un `true` literal lo prende; aun prendido,
+   * `puedeContestarSolo` (lib/setter-conversacion.ts) frena lo que hable de plata, traiga
+   * un link sin completar o pase el tope por lead y por horario.
+   */
+  contestaSolo?: boolean;
 };
 
 const escenariosDe = (raw: unknown): EscenarioSecuencia[] => {
@@ -127,7 +135,10 @@ const escenariosDe = (raw: unknown): EscenarioSecuencia[] => {
     const titulo = typeof o.titulo === 'string' ? o.titulo.trim() : '';
     const cuando = typeof o.cuando === 'string' ? o.cuando.trim() : '';
     const comoResponder = typeof o.comoResponder === 'string' ? o.comoResponder.trim() : '';
-    if (titulo && cuando) out.push({ titulo, cuando, comoResponder });
+    // ⚠️ EL SANEO RECONSTRUYE CAMPO POR CAMPO: un campo que no se lee acá vuelve ausente
+    // en cada guardado. Sólo se escribe la clave cuando está prendido, así los casos de
+    // siempre quedan idénticos.
+    if (titulo && cuando) out.push({ titulo, cuando, comoResponder, ...(o.contestaSolo === true ? { contestaSolo: true } : {}) });
   }
   return out.slice(0, 30);
 };

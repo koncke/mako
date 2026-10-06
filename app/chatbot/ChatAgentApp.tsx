@@ -27,7 +27,16 @@ import type { CronAviso } from '@/lib/cron-aviso';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
-import { abreEnQR, type OnboardingChatbot } from '@/lib/chatbot-puerta';
+import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
+
+/** Cuánto se conserva la URL firmada de un audio ya cargado: la firma dura 12 h (lib/setting-audios.ts). */
+const URL_AUDIO_VIGENTE_MS = 10 * 3_600_000;
+
+/** El POST que marca «Tu WhatsApp» en el onboarding de la tab (lo usan el QR y el relleno al cargar). */
+const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
+});
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -167,13 +176,19 @@ function ChatAgentInner() {
   const [prendiendo, setPrendiendo] = useState(false);
   const [errEnvio, setErrEnvio] = useState<string | null>(null);
 
+  /** Cuándo se firmó la URL que se está mostrando de cada audio (ver el merge de abajo). */
+  const firmaAudio = useRef(new Map<number, number>());
+
   const load = useCallback(async () => {
     // El estado de la línea, para la puerta del QR (#745): se decide abajo, con el onboarding.
     let estadoCanal = 'desconocido';
+    let errorCarga: string | null = null;
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
-      if (!j.ok) { setError(j.error || 'No se pudieron cargar las secuencias de mensajes.'); setSecuencias([]); return; }
+      // ⚠️ SIN `return`: cortar acá dejaba la pantalla en «Abriendo tu Chatbot…» para siempre,
+      // porque la puerta se decide más abajo. Con el error puesto, la pantalla lo muestra.
+      if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las secuencias de mensajes.'; throw new Error(errorCarga ?? ''); }
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
       setObjetivos(j.objetivos ?? []); setEtapas(j.etapas ?? []); setLeadMagnets(j.leadMagnets ?? []);
@@ -185,21 +200,31 @@ function ChatAgentInner() {
       setEnvioWa(typeof j.envioWhatsapp === 'boolean' ? j.envioWhatsapp : null);
       setError(null);
     } catch {
-      setError('Sin conexión — recarga la página.'); setSecuencias([]);
+      setError(errorCarga ?? 'Sin conexión — recarga la página.');
+      setSecuencias([]);
     }
     // Biblioteca de audios (admin-only: el 403 del setter deja la lista vacía).
     //
     // ⚠️ LA URL DE UN AUDIO YA CARGADO SE CONSERVA (#350). Cada `load()` vuelve a firmar
     // todas las URLs, y `load()` corre apenas se asigna un audio a un paso: el reproductor
     // del audio recién grabado cambiaba de `src` y volvía a 0 mientras sonaba. Es el
-    // anti-parpadeo de la bandeja (EmpresaInbox): la firma dura 12 h, sobra para una visita.
+    // anti-parpadeo de la bandeja (EmpresaInbox). Pero la firma VENCE a las 12 h: la URL
+    // vieja se conserva sólo mientras le quedan horas, y después se toma la nueva.
     try {
       const ra = await fetch('/api/chat-agent/audios', { cache: 'no-store' });
       const ja = await ra.json();
       if (ja.ok) {
+        const ahora = Date.now();
         setAudios((prev) => {
           const urlPorId = new Map(prev.filter((a) => a.url).map((a) => [a.id, a.url] as const));
-          return ((ja.audios ?? []) as AudioSetting[]).map((a) => (a.url && urlPorId.has(a.id) ? { ...a, url: urlPorId.get(a.id)! } : a));
+          return ((ja.audios ?? []) as AudioSetting[]).map((a) => {
+            const firmada = firmaAudio.current.get(a.id);
+            if (a.url && urlPorId.has(a.id) && firmada != null && ahora - firmada < URL_AUDIO_VIGENTE_MS) {
+              return { ...a, url: urlPorId.get(a.id)! };
+            }
+            firmaAudio.current.set(a.id, ahora);
+            return a;
+          });
         });
       }
     } catch { /* sin audios */ }
@@ -218,12 +243,18 @@ function ChatAgentInner() {
       // ⚠️ EL ESTADO DE LA LÍNEA GANA AL TILDE (#745). El tilde de «Tu WhatsApp» se
       // guardaba una vez y nadie lo volvía a comparar: el ws9 lo tiene desde el 05/08 con
       // cero líneas, y veía el lienzo sin número. La regla vive en lib/chatbot-puerta.ts.
-      setEnOnboarding(abreEnQR({ onboarding, canal: estadoCanal }));
+      // Y una vez a la vista el lienzo, un recargue no lo cambia salvo un 'sin_vincular'.
+      const calculada = abreEnQR({ onboarding, canal: estadoCanal });
+      setEnOnboarding((actual) => puertaAlRecargar({ actual, calculada, canal: estadoCanal }));
+      // La línea ya conectada con el paso pendiente (vinculó por /whatsapp): se marca, o
+      // «Tu forma de escribir» contesta «falta completar Tu WhatsApp» al terminarla.
+      if (marcarWhatsappAlCargar({ onboarding, canal: estadoCanal })) void marcarPasoWhatsapp().catch(() => {});
     } catch (e) {
       // Sin red tampoco se afirma que está listo: se muestra el onboarding, que
       // es reversible (se sigue de largo), en vez del dashboard, que no lo es.
+      // Salvo que el lienzo ya esté a la vista: un corte de red no saca a nadie de una edición.
       console.error('[chatbot] no se pudo leer el estado del onboarding:', e);
-      setEnOnboarding(true);
+      setEnOnboarding((actual) => puertaAlRecargar({ actual, calculada: true, canal: estadoCanal }));
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -302,15 +333,16 @@ function ChatAgentInner() {
         </div>
         <EvolutionConnect inline onEstado={(e) => {
           if (e !== 'conectado') return;
+          // El canal se da por conectado EN EL ACTO: si no, el lienzo abría con el aviso rojo
+          // de «todavía no vinculaste tu WhatsApp» hasta que volviera el `load()`.
+          setCanal({ estado: 'conectado', desde: null });
           setEnOnboarding(false);
           // Vincular desde ACÁ también marca el paso (#745): antes sólo cambiaba el estado
           // local, y lo demás que lee el tilde (lo que MaKo sabe del negocio, «¿está listo?»)
-          // seguía diciendo «falta Tu WhatsApp» sobre un número conectado.
-          void fetch('/api/chat-agent/onboarding', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
-          }).catch(() => { /* si falla, el lienzo abre igual: la puerta mira la línea, no el tilde */ })
-            .finally(() => { void load(); });
+          // seguía diciendo «falta Tu WhatsApp» sobre un número conectado. En paralelo con el
+          // recargue: si falla, el lienzo abre igual (la puerta mira la línea, no el tilde).
+          void marcarPasoWhatsapp().catch(() => {});
+          void load();
         }} />
       </main>
     );
@@ -420,7 +452,7 @@ function ChatAgentInner() {
           dos secuencias activas. No se dice POR QUÉ se apagó: no queda registrado quién lo
           tocó, y una causa inventada es peor que ninguna. Con la línea caída no va: el aviso
           rojo de arriba ya dice que no sale nada. */}
-      {!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa) && (
+      {!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp')) && (
         <div style={{ flex: 'none', background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--warn)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
           <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>

@@ -14,7 +14,7 @@ import { resumenFunnel } from './mako-context';
 import { getVozGuia } from './nutricion-generator';
 import { getSecuenciasConStats } from './nutricion';
 import { parseEstrategia, type EscenarioSecuencia } from './setting-estrategia';
-import { insisteConLoMismo } from './conversacion-repeticion';
+import { insistenciaRebatida } from './conversacion-repeticion';
 import {
   bloqueEscenario, bloqueFormulario, pedidoFinal, REGLA_NO_REPREGUNTAR, SEGURIDAD_FORMULARIO,
   type CierreConversacion,
@@ -225,8 +225,10 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   // ⚠️ Y SE CUENTA ANTES DE LLAMAR AL MODELO (#360). Se contaba después: el desenlace
   // salía 'negativo' y el texto que volvía era igual la cuarta rebatida, también en el
   // simulador. Con la cuenta adelante, lo que se le pide ES la despedida.
-  const delLead = historial.filter((t) => t.de === 'lead').map((t) => t.texto);
-  const porInsistir = insisteConLoMismo(delLead);
+  //
+  // ⚠️ Y SE CUENTA POR RONDAS (`insistenciaRebatida`): tres mensajes seguidos del lead que
+  // nadie contestó no son «la tercera vez»; tienen que haber dos respuestas en el medio.
+  const porInsistir = insistenciaRebatida(historial);
 
   const { chatCheapCascade, CASCADA_GRATIS, errorDeCascada } = await import('./ai-cheap');
   const errores: string[] = [];

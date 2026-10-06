@@ -17,6 +17,7 @@ import { metodologiaDeArea } from './mako-knowledge';
 import { META_RULES_TEXT } from './meta-rules';
 import { VARIABLES_LEAD } from './template-vars';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
+import { SEGURIDAD_FORMULARIO } from './setter-conversacion';
 
 export type WaMsg = { saliente: boolean; texto: string | null };
 export type AdvisorLead = {
@@ -25,6 +26,12 @@ export type AdvisorLead = {
   etapaLabel?: string | null;
   ventanaAbierta: boolean;
   mensajes: WaMsg[];
+  /**
+   * Lo que el lead contestó en el formulario de la agenda, ya armado como bloque de
+   * contenido no confiable (lib/setter-conversacion.ts). Lo resuelve el route con el
+   * `leadId` (#361): sin esto el panel recomendaba preguntar lo que el lead ya contestó.
+   */
+  formulario?: string;
 };
 
 export type Sugerencia = { angulo: string; tono: string; texto: string; guion_voz?: string };
@@ -176,7 +183,11 @@ export async function recomendarMensajes(lead: AdvisorLead): Promise<Recomendaci
     ventana: ventanaTexto(lead.ventanaAbierta),
     transcript: contenidoNoConfiable(t, 'conversacion'),
   });
-  const raw = await chatClaude(system, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 6000, feature: 'wa-advisor' });
+  // El formulario va DESPUÉS del render, fuera del template registrado: un override
+  // guardado de 'wa.advisor.recommend.user' no tiene ese slot y lo perdería en silencio.
+  const conFormulario = lead.formulario ? `${user}\n\n${lead.formulario}` : user;
+  const sistema = lead.formulario ? `${system}\n\n${SEGURIDAD_FORMULARIO}` : system;
+  const raw = await chatClaude(sistema, [{ role: 'user', content: conFormulario }], { effort: 'high', maxTokens: 6000, feature: 'wa-advisor' });
   const o = tomarJSON(raw);
   const sugerencias: Sugerencia[] = Array.isArray(o?.sugerencias)
     ? (o!.sugerencias as Record<string, unknown>[])
@@ -198,7 +209,7 @@ export async function chatAdvisor(lead: AdvisorLead, historial: ClaudeMsg[], men
 
 CONVERSACIÓN ACTUAL CON EL LEAD (${[lead.contacto, lead.empresa].filter(Boolean).join(' · ')} · etapa: ${lead.etapaLabel || 'sin etapa'} · ventana 24h: ${ventanaTexto(lead.ventanaAbierta)}):
 ${contenidoNoConfiable(t, 'conversacion')}
-
+${lead.formulario ? `\n${lead.formulario}\n\n${SEGURIDAD_FORMULARIO}\n` : ''}
 Responde lo que te pide Martín sobre este lead. Si te pide un mensaje, dalo listo para copiar/pegar. Sé breve.`;
   return chatClaude(system, [...historial, { role: 'user', content: mensaje }], { effort: 'high', maxTokens: 2000, feature: 'wa-advisor-chat' });
 }

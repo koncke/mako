@@ -12,7 +12,7 @@
 // (fail-closed, jamás enviar por un canal que el cliente no activó).
 
 import 'server-only';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
 
@@ -28,6 +28,24 @@ async function flag(key: string, envDeploy: string | undefined): Promise<boolean
   // getSetting ya resuelve al dueño). Cliente sin setting → apagado.
   const ws = await getWorkspaceActual();
   return (ws === OWNER_WS || ws == null) && envDeploy === 'true';
+}
+
+/**
+ * Igual que `flag`, pero un error de lectura TIRA en vez de leerse como «apagado».
+ * Para la pantalla que AFIRMA el estado (el aviso de /chatbot): `getSetting` convierte un
+ * 5xx en null, y sin esto «no pude leer» salía como «el envío está apagado».
+ */
+async function flagEstricto(key: string, envDeploy: string | undefined): Promise<boolean> {
+  const v = await getSettingEstricto(key);
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  const ws = await getWorkspaceActual();
+  return (ws === OWNER_WS || ws == null) && envDeploy === 'true';
+}
+
+/** `envioWhatsappHabilitado` para mostrar: un error de lectura tira (ver `flagEstricto`). */
+export function envioWhatsappHabilitadoEstricto(): Promise<boolean> {
+  return flagEstricto(KEY_ENVIO_WHATSAPP, process.env.NUTRICION_SEND_ENABLED);
 }
 
 /** ¿Este workspace tiene habilitado el envío REAL de email (Resend)? */

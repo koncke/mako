@@ -18,7 +18,7 @@ type Sugerencia = { angulo: string; tono: string; texto: string; guion_voz?: str
 type Recomendacion = { diagnostico: string; etapa: string; ventana_nota: string; sugerencias: Sugerencia[] };
 type Msg = { role: 'user' | 'assistant'; content: string };
 
-export type AdvisorGrupo = { id: string; contacto: string; empresa?: string | null; etapaLabel?: string | null };
+export type AdvisorGrupo = { id: string; contacto: string; empresa?: string | null; etapaLabel?: string | null; /** Con él el panel lee lo que el lead contestó en el formulario de la agenda (#361). */ leadId?: number | null };
 type WaMsgLite = { saliente: boolean; texto: string | null };
 
 const SUGS_CHAT = ['Hazlo más corto', 'Dame una versión con nota de voz', '¿Cómo manejo la objeción de precio?', 'Reescribilo más cálido'];
@@ -82,6 +82,7 @@ export function WhatsAppAdvisor({
     contacto: grupo.contacto,
     empresa: grupo.empresa ?? null,
     etapaLabel: grupo.etapaLabel ?? null,
+    leadId: grupo.leadId ?? null,
     ventanaAbierta,
     mensajes: mensajesRef.current.map((m) => ({ saliente: m.saliente, texto: m.texto })),
   });

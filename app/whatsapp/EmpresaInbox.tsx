@@ -745,7 +745,7 @@ export function EmpresaInbox({ puedeChatbot = true, linea = null }: { puedeChatb
             )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
             <WhatsAppAdvisor
-              grupo={{ id: selConv.chatJid, contacto: selConv.nombre, empresa: selConv.empresa, etapaLabel: selConv.etapaLabel }}
+              grupo={{ id: selConv.chatJid, contacto: selConv.nombre, empresa: selConv.empresa, etapaLabel: selConv.etapaLabel, leadId: selConv.leadId }}
               mensajes={msgs.map((m) => ({ saliente: m.fromMe, texto: m.texto }))}
               ventanaAbierta={true}
               onUsar={(t) => setDraft((d) => (d.trim() ? `${d.replace(/\s+$/, '')}\n\n${t}` : t))}

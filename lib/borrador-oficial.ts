@@ -34,7 +34,7 @@ import { listConversations, contactoIdPorTelefono, sendToContact } from '@/lib/c
 import { integracionConectada } from '@/lib/credenciales';
 import { listarLineas } from '@/lib/evolution';
 import { lineaPorDefault } from '@/lib/lineas-whatsapp';
-import { enviarBorrador } from '@/lib/evolution-envio';
+import { enviarBorrador, anotarPasoEnviado } from '@/lib/evolution-envio';
 import { MOTIVO_FUERA_DE_VENTANA, venceVentana24h, ventanaAbierta24h } from '@/lib/ventana-24h';
 
 /** Últimos 10 dígitos: la MISMA clave con que agrupa por persona el inbox oficial. */
@@ -190,6 +190,8 @@ async function mandarPorOficial(b: BorradorFila, porEmail: string): Promise<{ ok
   await db.from('wa_borradores')
     .update({ estado: 'enviado', enviado_at: new Date().toISOString(), enviado_por: porEmail })
     .eq('id', b.id);
+  // El paso de la secuencia que este borrador llevaba cuenta como enviado (lib/evolution-envio.ts).
+  await anotarPasoEnviado(b.id);
   return { ok: true };
 }
 
