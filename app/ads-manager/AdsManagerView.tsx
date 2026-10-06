@@ -11,16 +11,13 @@
 // el rendimiento (senales) + CRM enriquecen las columnas.
 
 import { getSenalesRecon, type SenalRecon } from '@/lib/queries';
-import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
-import { FechaFiltro } from '../_components/FechaFiltro';
-import { Icon } from '../_components/icons';
+import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha } from '@/lib/date-utils';
 import { CampanasBrowser } from './CampanasBrowser';
 import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const MONO = "'Geist Mono', monospace";
 
 export async function AdsManagerView({
   searchParams,
@@ -54,26 +51,16 @@ export async function AdsManagerView({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
-            Estado + rendimiento · {fmtDDMMYYYY(rangoDesde)} – {fmtDDMMYYYY(rangoHasta)}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="grid" size={34} /></span>
-            <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Manager</h1>
-          </div>
-        </div>
-        <FechaFiltro hoyReal={hoyReal} />
-      </header>
-
       {perfError && (
         <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
           <span style={{ fontSize: 13.5, color: 'var(--warn)', fontWeight: 600 }}>Sin datos de rendimiento.</span>
           <span style={{ fontSize: 13, color: 'var(--dim)' }}> Mostrando solo el estado de entrega en vivo; las columnas de gasto/agendas/cierres quedan en “—”.</span>
         </div>
       )}
-      <CampanasBrowser senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} />
+      {/* El título va ADENTRO del browser: el botón de «Nueva campaña» tiene que vivir en
+          la misma fila que él (pedido del 05/10) y esa fila la dibuja un componente de
+          cliente, porque los botones abren modales con estado. */}
+      <CampanasBrowser senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} hoyReal={hoyReal} />
     </main>
   );
 }

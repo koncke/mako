@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
-import { MakoStar, MakoWord } from '../_components/MakoBrand';
+import { MakoStar } from '../_components/MakoBrand';
 import { TIPO_DE_CAMBIO_USD_MXN, mxnAUsd } from '@/lib/config';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
@@ -30,7 +30,9 @@ import { resolverAd, synthSenal } from './ad-resolver';
 import { ProductoCelda } from './ProductoCelda';
 import { campanasAsignadasAction, type ProductoNombre } from '../crm/campanas-actions';
 import type { CampanaAsignada } from '@/lib/campana-config';
-import { Toast, useToast } from '@/app/_ui';
+import { Modal, Toast, useToast } from '@/app/_ui';
+import { Icon } from '../_components/icons';
+import { MenuAcciones, FiltrosMenu } from './BarraAcciones';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
@@ -139,7 +141,7 @@ const adIdDeLaUrl = (): string | null => {
   return m ? decodeURIComponent(m[1]) : null;
 };
 
-export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null }) {
+export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyReal }: { senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null; hoyReal: string }) {
   const [health, setHealth] = useState<MetaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
   // un desplegable que no puede escribir se lee como que la app está rota.
   const [asig, setAsig] = useState<{ productos: ProductoNombre[]; asignadas: CampanaAsignada[] } | null>(null);
   const { toast: toastProd, show: showProd, clear: clearProd } = useToast(7000);
-  const [colsOpen, setColsOpen] = useState(false);
+  const [elegirCampana, setElegirCampana] = useState(false);
 
   // escrituras
   const [optimistic, setOptimistic] = useState<Map<string, { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number; name?: string }>>(new Map());
@@ -557,8 +559,30 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
         .adsTable tbody tr.rowHover:hover td{background:var(--surface-2)}
         .adsTable tbody tr.rowHover:hover .stickyName{background:var(--surface-2)}
       ` }} />
-      {/* sub-tabs */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
+      {/* cabecera: el título y, a la derecha del todo, crear + el resto de las acciones */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="grid" size={34} /></span>
+          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Manager</h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button type="button" onClick={() => { setNuevaModo('nueva'); setNuevaOpen(true); }} title="Crear una campaña nueva con MaKo"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 12, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 10px rgba(47,111,237,.25)' }}>
+            <MakoStar size={14} color="#fff" /> Nueva campaña
+          </button>
+          <MenuAcciones acciones={[
+            { label: 'Subir creativos a una campaña', sub: 'Se agregan en pausa; la campaña no se toca', onClick: () => { setNuevaModo('existente'); setNuevaOpen(true); } },
+            { label: 'Agregar conjunto a una campaña', sub: 'Un conjunto nuevo, en pausa', onClick: () => setElegirCampana(true) },
+            { label: 'Analizar con Meta', sub: 'Recomendaciones y oportunity score', onClick: () => setRecosOpen(true) },
+            { label: 'Ordenar nombres', sub: 'Propone una nomenclatura y la aplica', onClick: () => setRenameOpen(true) },
+            { label: 'Actualizar estado', sub: 'Vuelve a preguntarle a Meta', onClick: () => cargar() },
+          ]} />
+        </div>
+      </header>
+
+      {/* sub-tabs + el filtro, a la misma altura */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {tabs.map((t) => {
           const on = tab === t.key;
           return (
@@ -570,27 +594,17 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
           );
         })}
       </div>
-
-      {/* toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => { setNuevaModo('nueva'); setNuevaOpen(true); }} title="Crear una campaña nueva con MaKo"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(47,111,237,.25)' }}>
-          <MakoStar size={13} color="#fff" /> Nueva campaña
-        </button>
-        <button type="button" onClick={() => { setNuevaModo('existente'); setNuevaOpen(true); }} title="Subir creativos como anuncios nuevos dentro de una campaña que ya existe (se agregan en pausa; la campaña no se toca)"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-          ⬆ Subir creativos a una campaña
-        </button>
-        <MakoMenu actions={[
-          { label: 'Analizar con Meta', sub: 'Recomendaciones y oportunity score', onClick: () => setRecosOpen(true) },
-          { label: 'Ordenar nombres', sub: 'Propone una nomenclatura y la aplica', onClick: () => setRenameOpen(true) },
-        ]} />
-        <Dropdown value={estado} options={ESTADO_OPCIONES} onChange={(v) => setEstado(v as EstadoFiltro)} ariaLabel="Filtrar por estado" width={220} />
-        <ColumnsButton open={colsOpen} setOpen={setColsOpen} configurables={configurables} visibleCols={visibleCols} setVisibleCols={setVisibleCols} />
-        {(selCamp.size > 0 || selAdset.size > 0) && (
-          <button type="button" onClick={() => { setSelCamp(new Set()); setSelAdset(new Set()); setSelAd(new Set()); }} style={{ fontSize: 13, color: 'var(--dim)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>✕ Limpiar selección</button>
-        )}
-        <button type="button" onClick={() => cargar()} style={{ marginLeft: 'auto', padding: '9px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>↻ Actualizar estado</button>
+        <div style={{ paddingBottom: 6 }}>
+          <FiltrosMenu
+            hoyReal={hoyReal}
+            estado={estado}
+            opcionesEstado={ESTADO_OPCIONES}
+            onEstado={(v) => setEstado(v as EstadoFiltro)}
+            columnas={configurables.filter((c) => !ALWAYS_ON.includes(c.id)).map((c) => ({ id: c.id, label: c.label }))}
+            visibles={visibleCols}
+            onColumna={(id) => setVisibleCols((v) => ({ ...v, [id]: !v[id as ColId] }))}
+          />
+        </div>
       </div>
 
       {loading && <div style={{ fontSize: 14, color: 'var(--faint)', padding: '20px 4px' }}>Cargando estado de Meta…</div>}
@@ -680,10 +694,6 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
         </>
       )}
 
-      <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 4 }}>
-        Estado en vivo de Meta + rendimiento del rango cruzado con cierres/cash del CRM. Presupuesto y gasto en USD (convertidos de la moneda de la cuenta al tipo de cambio actual). Las escrituras requieren un token con permiso de administración.
-      </footer>
-
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 90, maxWidth: 560, background: 'var(--ink)', color: 'var(--surface)', borderRadius: 12, padding: '14px 18px', boxShadow: '0 16px 40px rgba(18,21,27,.4)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <span style={{ fontSize: 13.5, lineHeight: 1.4 }}>{toast}</span>
@@ -705,6 +715,25 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
       {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
       {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
+      {elegirCampana && (
+        <Modal titulo="¿A qué campaña?" onCerrar={() => setElegirCampana(false)} ancho={480}>
+          <Dropdown
+            value=""
+            placeholder="Elige una campaña"
+            options={(health?.campaigns ?? []).map((c) => ({ value: c.id, label: nameOf(c) }))}
+            onChange={(id) => {
+              const c = (health?.campaigns ?? []).find((x) => x.id === id);
+              if (!c) return;
+              const campCode = nameOf(c).match(/^\d+/)?.[0] ?? '000';
+              const kids = (health?.adsets ?? []).filter((a) => a.parentId === c.id);
+              setElegirCampana(false);
+              setAddConjuntoCamp({ id: c.id, name: `${campCode}.${pad(nextSuffix(kids, 'num'), 2)} Conjunto` });
+            }}
+            width="100%"
+            search
+          />
+        </Modal>
+      )}
       <Toast state={toastProd} onClose={clearProd} />
     </div>
   );
@@ -911,39 +940,7 @@ function ProblemaModal({ ads, accountId, onClose, onEditAd }: { ads: ProblemAd[]
 }
 
 // ── popover de columnas ──
-function ColumnsButton({ open, setOpen, configurables, visibleCols, setVisibleCols }: { open: boolean; setOpen: (b: boolean) => void; configurables: ColDef[]; visibleCols: Record<ColId, boolean>; setVisibleCols: (f: (v: Record<ColId, boolean>) => Record<ColId, boolean>) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', onDoc); return () => document.removeEventListener('mousedown', onDoc);
-  }, [open, setOpen]);
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen(!open)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>▦ Columnas</button>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 220, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 8 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', padding: '4px 8px 8px' }}>Mostrar columnas</div>
-          {configurables.map((c) => {
-            const forced = ALWAYS_ON.includes(c.id);
-            const on = forced || visibleCols[c.id];
-            return (
-              <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', borderRadius: 8, cursor: forced ? 'default' : 'pointer', fontSize: 13.5, color: forced ? 'var(--faint)' : 'var(--ink)' }}>
-                <input type="checkbox" checked={on} disabled={forced} onChange={() => setVisibleCols((v) => ({ ...v, [c.id]: !v[c.id] }))} style={{ cursor: forced ? 'default' : 'pointer' }} />
-                {c.label}
-              </label>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── modal "Analizar (Meta)" — espejo honesto del edge de recomendaciones ──
-// El edge de CUENTA no manda `title`/`message`/`importance`: manda el texto en
-// `recommendation_content.body`, el gancho en `lift_estimate` y un link al Ads
-// Manager. La forma la normaliza lib/meta-recos-cuenta.ts.
 type RecoUI = { titulo: string; detalle: string; lift?: string | null; importancia: string; entidades?: number; url?: string | null };
 type RecosResp = { ok: boolean; opportunityScore?: number | null; recomendaciones?: RecoUI[]; empty?: boolean; reason?: string; message?: string };
 function RecosModal({ onClose }: { onClose: () => void }) {
@@ -1005,40 +1002,6 @@ function RecosModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── botón negro de MaKo con menú de acciones (Analizar / Ordenar nombres) ──
-function MakoMenu({ actions }: { actions: Array<{ label: string; sub?: string; onClick: () => void }> }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDoc); document.addEventListener('keydown', onEsc);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
-  }, [open]);
-  return (
-    <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="Acciones con MaKo"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(18,21,27,.18)' }}>
-        <MakoStar size={14} /><MakoWord>MaKo</MakoWord>
-        <span style={{ fontSize: 10, opacity: 0.85, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
-      </button>
-      {open && (
-        <div role="menu" style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 270, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
-          {actions.map((a) => (
-            <button key={a.label} type="button" role="menuitem" onClick={() => { setOpen(false); a.onClick(); }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</span>
-              {a.sub && <span style={{ fontSize: 12, color: 'var(--dim)' }}>{a.sub}</span>}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
