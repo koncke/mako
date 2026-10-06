@@ -11,6 +11,7 @@
 
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 
 /** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
@@ -21,7 +22,10 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
   // '/compartido' es material que se le pasa a alguien de afuera: sin sesión no
   // debe ver el sidebar (con los nombres de las tabs internas) ni disparar los
   // pollers de la app, que además le devolverían 401 en bucle.
-  return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/');
+  // `/mi-curso` es el cliente de un negocio mirando SU curso con la cookie de alumno
+  // (lib/alumno-sesion.ts): no tiene `mako_session`, así que es «alguien de afuera» igual
+  // que un link de /compartido — sin sidebar y sin los pollers del WhatsApp del negocio.
+  return p === '/' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO;
 }
 
 /**

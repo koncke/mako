@@ -1,0 +1,221 @@
+'use client';
+
+// =============================================================================
+// InvitarAlCurso — invitar a un cliente al curso, y en qué quedó su invitación
+// =============================================================================
+// Pedido de Martín (06/10/2026): «Al igual que en la vista de Agencia, se debería poder INVITAR
+// al cliente a MaKo para que tenga acceso al curso».
+//
+// LA FORMA es la de «Abrir cuenta» de la vista de Agencia (../CuentaDeMaKo.tsx): un botón que
+// abre un modal que pide el email —prellenado con el del CRM y obligatorio—, por portal al body,
+// `anidada`, con el estado visible y la opción de reenviar. LO DE ADENTRO es otra cosa: no se
+// crea workspace, ni cuenta, ni hay aprobación cruzada (es el mismo negocio y el que invita es el
+// dueño). Lo que se da es el acceso al CURSO, un link firmado (lib/curso-acceso.ts), y el mail
+// lleva el link de entrada de la versión vigente.
+//
+// ⚠️ LO USAN DOS PANTALLAS, y por eso vive acá y no adentro de una: la caja «Acceso al curso» de
+// la ficha (../FichaCurso.tsx) y la columna «Acceso» de la tabla Avance (./AvanceCurso.tsx). Con
+// el modal escrito dos veces, uno de los dos se queda sin el «sólo si salió».
+//
+// ⚠️ EL MODAL VA POR PORTAL AL BODY. En la ficha se abre adentro de OTRO modal (la ficha es un
+// `contenedor`): montado ahí sería un descendiente de su DOM y la pila de modales lo apagaría
+// con él. Y en la tabla vive adentro de una celda `sticky`/con scroll, que es un contexto de
+// apilamiento: el z-index del modal se resolvería contra ella (AGENTS.md, la regla del sticky).
+//
+// ⚠️ SI EL MAIL NO SALIÓ, EL MODAL NO SE CIERRA: se queda abierto con el motivo. Cerrarlo y
+// pintar «Invitado» sería el falso éxito de los avisos de aprobación de agencia; y cerrarlo con
+// un error abajo, en una celda de la tabla, es un error que nadie lee.
+
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Button, Field, Input, Modal, useOkFlash, type ButtonVariant } from '@/app/_ui';
+import { emailUtilizable } from '@/lib/agencia-altas';
+import { habilitarAccesoCursoAction, invitarAlCursoAction } from '../curso-ficha-actions';
+import {
+  estadoDeInvitacion, fraseInvitacion,
+  type AccesoFicha, type AccesoInvitacion, type AvisoInvitacionCurso,
+} from '../curso-ficha-lectura';
+
+const msg = (e: unknown, def: string) => (e instanceof Error ? e.message : def);
+
+/**
+ * El botón «Invitar» (o «Reenviar invitación» si ya se lo invitó) y su modal.
+ *
+ * `onListo(acceso, aviso)`: cada vez que el server contestó. `acceso` es el releído (`null` =
+ * no se pudo releer: quien llama se queda con el que tenía) y `aviso` viene SÓLO cuando el
+ * modal se cerró con algo que decir (el mail salió pero no quedó anotado): si el mail no salió,
+ * el motivo se dice adentro del modal, que se queda abierto.
+ */
+export function BotonInvitar({ leadId, nombre, emailCrm, acceso, onListo, variant = 'secondary' }: {
+  leadId: number;
+  nombre: string;
+  /** El email del CRM, con el que se prellena. Se pide IGUAL: puede ser el del contacto comercial. */
+  emailCrm: string | null | undefined;
+  acceso: AccesoInvitacion | null;
+  onListo: (acceso: AccesoFicha | null, aviso: AvisoInvitacionCurso | null) => void;
+  variant?: ButtonVariant;
+}) {
+  const id = useId();
+  const [abierto, setAbierto] = useState(false);
+  const [correo, setCorreo] = useState('');
+  const [mandando, setMandando] = useState(false);
+  const mandandoRef = useRef(false);
+  const [error, setError] = useState('');
+  const enviada = useOkFlash();
+
+  /**
+   * ⚠️ `onCerrar` ESTABLE, no una flecha nueva en cada render. El efecto de `Modal` depende de
+   * `onCerrar`: con una identidad nueva por tecla, su limpieza devuelve el foco al botón de atrás
+   * y vuelve a enfocar la caja — o sea que el campo pierde el foco con cada letra. Lo que mira si
+   * hay un envío en curso va por ref para no cambiar la identidad.
+   */
+  const cerrar = useCallback(() => { if (!mandandoRef.current) setAbierto(false); }, []);
+
+  // ⚠️ EL FOCO AL CAMPO VA DESPUÉS DEL DEL MODAL. `Modal` enfoca su caja al montarse, y eso corre
+  // DESPUÉS del `autoFocus` del input (los efectos van después del commit): el campo quedaba sin
+  // foco. Este efecto es del padre del modal, así que corre después del suyo.
+  useEffect(() => {
+    if (abierto) (document.getElementById(id) as HTMLInputElement | null)?.focus();
+  }, [abierto, id]);
+  const estado = estadoDeInvitacion(acceso);
+  const reenviar = estado.tipo === 'invitado';
+  const quien = nombre || 'este cliente';
+  const sirve = emailUtilizable(correo);
+
+  const abrir = () => {
+    // Reenviar arranca con la dirección a la que ya se mandó; invitar, con la del CRM.
+    setCorreo((estado.tipo === 'invitado' ? estado.email : null) ?? emailCrm ?? '');
+    setError('');
+    setAbierto(true);
+  };
+
+  async function mandar() {
+    if (!sirve || mandandoRef.current) return;
+    mandandoRef.current = true;
+    setMandando(true);
+    setError('');
+    try {
+      const r = await invitarAlCursoAction(leadId, correo);
+      if (!r.ok) { setError(r.error); return; }
+      if (!r.enviado) {
+        // El acceso pudo haber nacido igual (se crea antes de mandar): se pinta, sin aviso.
+        onListo(r.acceso, null);
+        setError(r.aviso.texto);
+        return;
+      }
+      setAbierto(false);
+      enviada.flash();
+      onListo(r.acceso, r.aviso.tono === 'warn' ? r.aviso : null);
+    } catch (e) {
+      setError(msg(e, 'No se pudo invitar.'));
+    } finally {
+      mandandoRef.current = false;
+      setMandando(false);
+    }
+  }
+
+  return (
+    <>
+      <Button size="sm" variant={variant} ok={enviada.ok} okLabel="Enviada" onClick={abrir}
+        title={reenviar ? `Mandarle otra vez el acceso a ${quien}` : `Mandarle a ${quien} su acceso al curso`}>
+        {reenviar ? 'Reenviar invitación' : 'Invitar'}
+      </Button>
+      {abierto && createPortal(
+        <Modal
+          titulo={reenviar ? `Reenviar a ${quien}` : `Invitar a ${quien}`}
+          encabezado="Acceso al curso"
+          ancho={440}
+          /* ⚠️ `anidada`: en la ficha se abre DESDE un control de la ficha y es parte de la misma
+             tarea, así que la de atrás se sigue viendo. Sin esto la ficha desaparece y parece
+             que el botón la cerró. En la tabla no hay nada atrás y no cambia nada. */
+          anidada
+          onCerrar={cerrar}
+          pie={
+            <>
+              <Button variant="secondary" disabled={mandando} onClick={cerrar}>Cancelar</Button>
+              {/* El botón dice LO QUE PASA: se le escribe a alguien, y eso no se deshace. */}
+              <Button variant="primary" loading={mandando} disabled={!sirve} onClick={() => void mandar()}>
+                Mandar invitación
+              </Button>
+            </>
+          }
+        >
+          {/* La consecuencia, pegada al campo y ANTES del click. Si algo falla, el motivo
+              ocupa su lugar. */}
+          <Field label={`Email de ${nombre || 'el cliente'}`} htmlFor={id} hint="Le llega un correo con su acceso." error={error || undefined}>
+            <Input id={id} type="email" value={correo} placeholder="persona@empresa.com"
+              onChange={(e) => setCorreo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void mandar(); }} />
+          </Field>
+        </Modal>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+/**
+ * La columna «Acceso» de la tabla Avance: el estado de su invitación en una frase y el botón
+ * que le corresponde (Invitar / Reenviar invitación / Volver a habilitar).
+ *
+ * `onAcceso`: el acceso como quedó después de invitar o habilitar, para que la fila lo pinte sin
+ * esperar a que la página se vuelva a leer.
+ */
+export function CeldaAcceso({ leadId, nombre, emailCrm, acceso, onAcceso }: {
+  leadId: number;
+  nombre: string;
+  emailCrm: string | null | undefined;
+  /** `null` = no se pudo leer: no se ofrece nada (no se invita a ciegas). */
+  acceso: AccesoInvitacion | null;
+  onAcceso: (a: AccesoFicha) => void;
+}) {
+  const [habilitando, setHabilitando] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!acceso) return <span className="av-vacio">—</span>;
+  const estado = estadoDeInvitacion(acceso);
+  const frase = fraseInvitacion(estado);
+
+  async function habilitar() {
+    setHabilitando(true);
+    setError('');
+    try {
+      const r = await habilitarAccesoCursoAction(leadId);
+      if (!r.ok) setError(r.error);
+      else onAcceso(r.acceso);
+    } catch (e) {
+      setError(msg(e, 'No se pudo habilitar.'));
+    } finally {
+      setHabilitando(false);
+    }
+  }
+
+  return (
+    <span className="ia-celda">
+      {frase && (
+        // ⚠️ La fecha de «Invitado · 6 oct» se formatea en el NAVEGADOR (su zona horaria).
+        <span suppressHydrationWarning className={estado.tipo === 'cortado' ? 'av-mal' : 'ia-frase'} title={frase}>{frase}</span>
+      )}
+      {estado.tipo === 'cortado' ? (
+        // El link que sale después es NUEVO: los viejos siguen sin abrir (la versión subió al cortar).
+        <Button size="sm" variant="tertiary" loading={habilitando} onClick={() => void habilitar()}>Volver a habilitar</Button>
+      ) : (
+        <BotonInvitar leadId={leadId} nombre={nombre} emailCrm={emailCrm} acceso={acceso} variant="tertiary"
+          onListo={(a, aviso) => { if (a) onAcceso(a); setError(aviso?.texto ?? ''); }} />
+      )}
+      {error && <span className="av-mal ia-mal" title={error}>{error}</span>}
+    </span>
+  );
+}
+
+/** La hoja de la celda. La monta, una vez, la tabla que usa `CeldaAcceso`. */
+export function EstiloInvitar() {
+  return <style dangerouslySetInnerHTML={{ __html: CSS }} />;
+}
+
+// ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la mitad.
+const CSS = `
+.ia-celda{ display:inline-flex; align-items:center; gap:8px; }
+.ia-frase{ font-size:var(--fs-meta); color:var(--dim); max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ia-mal{ max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+`;

@@ -115,9 +115,12 @@ export async function POST(req: NextRequest) {
       } else {
         const ws = await getWorkspace(clienteWs);
         const inv = await invitarPorEmail({ email: admin.email, nombre: admin.nombre, workspace: ws?.nombre, rolWs: admin.rol_ws });
-        aviso = inv
+        // ⚠️ `inv.enviado`, NO `inv`: `invitarPorEmail` devuelve SIEMPRE un objeto, también
+        // cuando el mail no salió (remitente de prueba, Resend que rechaza). Con `inv ? …` la
+        // pantalla decía «Se le mandó el acceso» sobre un mail que nunca existió (06/10/2026).
+        aviso = inv.enviado
           ? { tono: 'ok', texto: `Aprobado. Se le mandó el acceso a ${admin.email}.` }
-          : { tono: 'warn', texto: `Aprobado, pero no pude mandarle el acceso a ${admin.email}. Reenvíaselo desde su equipo.` };
+          : { tono: 'warn', texto: `Aprobado, pero no pude mandarle el acceso a ${admin.email}${inv.error ? ` (${inv.error})` : ''}. Reenvíaselo desde su equipo.` };
       }
     } catch (e) {
       aviso = { tono: 'warn', texto: `Aprobado, pero falló el aviso al cliente: ${e instanceof Error ? e.message : String(e)}` };

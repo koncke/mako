@@ -21,7 +21,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
-import { esPublica, esPublicaSoloLeer } from './lib/rutas-publicas';
+import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -199,6 +199,15 @@ export function proxy(req: NextRequest) {
     // o el beacon del VSL no pueden elegir workspace mandándolo a mano.
     return seguir(req);
   }
+
+  // El alumno del curso (/mi-curso): una rama propia, en POSITIVO y exacta. Pasa SIN
+  // `mako_session` porque la página se autentica sola con `mako_alumno` (y la revalida contra la
+  // base en cada pedido); todo lo demás sigue cayendo en el gate de abajo, así que esa cookie no
+  // abre ninguna otra cosa. Una acción del servidor o un POST ahí se corta: el porqué, en
+  // `decidirRutaAlumno` (lib/rutas-publicas.ts).
+  const alumno = decidirRutaAlumno(pathname, req.method, req.headers.has('next-action'));
+  if (alumno === 'prohibido') return new NextResponse('Forbidden', { status: 403 });
+  if (alumno === 'pasa') return seguir(req);
 
   // CSRF: las APIs internas se autentican por COOKIE, así que una mutación
   // cross-site desde el navegador de un usuario logueado llevaría su cookie. Un

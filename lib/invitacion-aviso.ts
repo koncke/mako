@@ -1,5 +1,6 @@
 // =============================================================================
 // invitacion-aviso — qué se le dice EN LA PANTALLA a quien dio de alta a alguien
+// (y, abajo, el texto del mail que invita a un cliente al curso de un servicio)
 // =============================================================================
 // ⚠️ ESTE MÓDULO NO LLEVA `server-only`, A PROPÓSITO. Lo importan las pantallas de
 // /admin y de /equipo, que son client components — y además así se puede testear, que
@@ -49,4 +50,51 @@ export function avisoInvitacion(inv: ResultadoInvitacion | null | undefined, ema
   const porque = inv?.error ? ` (${inv.error})` : '';
   const link = inv?.enlace ? ` Pásale este link: ${inv.enlace}` : '';
   return { tono: 'warn', texto: `Creado, pero el mail de acceso NO salió${porque}. Avísale tú a ${e}.${link}` };
+}
+
+// ── La invitación al CURSO de un servicio ─────────────────────────────────────
+// Pedido de Martín (06/10/2026): «Al igual que en la vista de Agencia, se debería poder
+// INVITAR al cliente a MaKo para que tenga acceso al curso». El acceso al curso NO es una
+// cuenta (lib/curso-acceso.ts): es un link firmado. Este mail le lleva ESE link.
+//
+// ⚠️ EL TEXTO VIVE ACÁ Y NO ADENTRO DE lib/invitaciones.ts porque ese módulo es `server-only`
+// y ningún test lo puede ejecutar: lo único que se le podía pedir era una regex sobre el
+// fuente. Acá se arma y se PRUEBA (tests/curso-invitar.test.ts): el asunto, el neutro con tú
+// y que el link de entrada esté adentro.
+//
+// ⚠️ LO LEE UN CLIENTE MEXICANO DE OTRO NEGOCIO (Mauricio). Español neutro con TÚ, nunca
+// voseo, y SIN JERGA de MaKo: no sabe qué es MaKo ni le importa. Sí dice de qué negocio es el
+// programa, o lo más razonable que puede hacer con un mail de una marca que no conoce es
+// tratarlo como spam.
+//
+// ⚠️ Y EL LINK VA EN EL CUERPO, no en un botón, igual que el mail de acceso a una cuenta: el
+// botón de `renderEmailHtml` se dibuja DESPUÉS de todo el cuerpo, así que la línea de Google
+// quedaba ARRIBA del botón principal. Con el link en el texto, el orden es el de lectura y la
+// versión de texto plano dice exactamente lo mismo que la HTML.
+
+/** El mail de la invitación al curso. `entrarConGoogle` es la URL del login (linkApp('/login')). */
+export function textoInvitacionCurso(p: {
+  nombre?: string | null;
+  /** El nombre del producto, o los productos con curso unidos con «y». */
+  programa: string;
+  /** El negocio que lo imparte (el nombre del workspace). */
+  negocio?: string | null;
+  /** El link de ENTRADA de la versión vigente del acceso. */
+  enlace: string;
+  entrarConGoogle: string;
+}): { asunto: string; preheader: string; cuerpo: string } {
+  const primer = (p.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  const programa = p.programa.trim() || 'tu programa';
+  const de = p.negocio?.trim() ? ` de ${p.negocio.trim()}` : '';
+  const cuerpo = [
+    primer ? `Hola ${primer},` : 'Hola,',
+    '',
+    `Tu acceso al programa ${programa}${de} ya está listo.`,
+    '',
+    'Entra desde aquí:',
+    p.enlace,
+    '',
+    `También puedes entrar en ${p.entrarConGoogle} con Google si este correo es de Google.`,
+  ].join('\n');
+  return { asunto: `Tu acceso a ${programa}`, preheader: `Tu acceso a ${programa} ya está listo.`, cuerpo };
 }

@@ -1,125 +1,99 @@
 # Retomar: Customer Success
 
-**Dónde quedó:** 05/10, 11:30. Sesión `7a6bc4be`. Cierre por cambio de cuenta
-(`claude2` → `claude1`), con el árbol en verde y todo pusheado y desplegado.
+**Dónde quedó:** 06/10, 18:30. Sesión `7a6bc4be` (cuenta `claude1`). Cerró el trabajo del
+**curso con invitación** que otra sesión dejó a medias, sin commitear, al quedarse sin cuota.
 
-## Lo que SÍ está hecho y desplegado
+## ⚠️ Lo que cambió desde el relevo anterior, y lo cambia todo
 
-La tab tiene el **kanban de la entrega de un servicio** andando de punta a punta, y es la
-vista por defecto. Diez commits del 05/10, el último `50a2a672`, **Ready en producción**
-(verificado con `vercel ls`).
+**La decisión grande YA ESTÁ TOMADA.** El relevo del 05/10 decía que dónde vivía el programa de
+Mauricio «seguía sin decidir». Se decidió el 06/10: **el curso vive EN MaKo, colgado de las etapas
+de la entrega, y Whop salió del producto.** El pedido literal de Martín (7 puntos, incluido
+«implementa todo esto, no preguntes») está sin resumir en la bitácora de
+`/admin/dev/customer-success`, hito «6 oct 12:38». El detalle de esa tanda, en
+[`docs/relevo/instagram-afuera-y-curso.md`](instagram-afuera-y-curso.md).
+
+Y el **mensaje de 4 preguntas a Mauricio** quedó medio desactualizado: dos de las cuatro eran
+sobre Whop (¿sus clientes entran gratis?, ¿quién los da de alta?), que ya no está. No sé si se
+mandó: preguntale a Martín antes de mandarlo, y si sigue en pie, sacale las dos de Whop.
+
+## Lo que SÍ está hecho
 
 | Qué | Dónde vive |
 |---|---|
-| Las dos tablas (`producto_entrega`, `cliente_entrega`) | `supabase/migrations/0188_entrega_servicio.sql` — **aplicada a prod** |
-| El catálogo PURO (etapas, FASES, el reparto, el conteo) | `lib/servicio-etapas.ts` |
-| El ÚNICO camino de escritura de `cliente_entrega` | `lib/cs-mover-etapa.ts` |
-| Las lecturas del server | `lib/entrega-servicio.ts` · `app/customer-success/entrega.ts` |
-| El tablero, los chips de fase y el arrastre | `app/customer-success/KanbanEntrega.tsx` |
-| El editor de etapas (molde del CRM, guarda solo) | `app/customer-success/EtapasEntregaModal.tsx` |
-| La pantalla y la barra (compartida con `/admin`) | `app/customer-success/ClientesApp.tsx` · `BarraClientes.tsx` |
-| El arrastre importado del Plan | `app/plan/board/arrastre-copia.ts` |
-| Los guards de cableado (11, probados rompiéndolos) | `tests/cs-kanban-fases.test.ts` |
-| El modelo (33 tests) | `tests/servicio-etapas.test.ts` |
+| El kanban de la entrega por producto, con FASES | `app/customer-success/KanbanEntrega.tsx` · `lib/servicio-etapas.ts` · mig 0188 |
+| El curso: la tab, el portal, la ficha y el paso de etapa | `app/customer-success/curso/` · `lib/curso*.ts` · mig 0202 — el ws1 tiene 107 clases cargadas |
+| **La invitación al curso y la cookie del alumno** (06/10 tarde) | `lib/alumno-sesion.ts` · `lib/alumno-acceso.ts` · `app/mi-curso/` · `app/api/compartido/curso/entrar/` · mig 0206 (**aplicada**) |
 
-**Las siete decisiones que gobiernan la tab** están en la memoria `cs-ficha-cliente`, y la
-cosecha completa de las dos tandas del 05/10 al final de
-[`docs/hallazgos-customer-success.md`](../hallazgos-customer-success.md). La bitácora de
-`/admin/dev/customer-success` tiene los cinco hitos del día con **el pedido literal de
-Martín**, sin resumir.
+Las decisiones que gobiernan la tab —son 14— están en la memoria `cs-ficha-cliente`. La cosecha
+de cada tanda, en [`docs/hallazgos-customer-success.md`](../hallazgos-customer-success.md): la de
+la invitación es la subsección «Invitar al cliente al curso: la cookie del alumno».
 
 ## Lo que falta, en orden
 
-1. **Las secuencias de nutrición no se disparan por la etapa de entrega.** Es lo único
-   grande que quedó a medias del modelo: `moverClienteDeEtapa` ya llama a
-   `enrolarPorEvento(leadId, 'entrega', { etapa, productoId })`, pero el motor espera un
-   **EMBUDO** donde esto tiene un **PRODUCTO** (`CtxEvento.funnelId`), y `secuenciasDeEtapa`
-   compara la etapa con `===` contra las claves del embudo. El choque entre los dos
-   defaults es CERO hoy, así que no rompe nada: simplemente no dispara. El detalle está en
-   la cosecha.
-2. **La ficha no es linkeable.** Qué cliente está abierto vive en estado de React, así que
-   un F5 la cierra y un link copiado no lleva a nada. Un `?cliente=<leadId>` leído en el
-   server lo resuelve.
-3. **Los chips de fase son UNA fase a la vez, con un «Todas».** Lo elegí así porque con
-   interruptores independientes (como el CRM) se puede apagar el último y quedarte con el
-   tablero vacío sin nada que lo explique. **Martín no lo confirmó**: si lo prefiere igual
-   al CRM, es un cambio chico y hay que agregarle la guarda de «no se puede apagar la
-   última».
-4. `catalogoAsignable` sigue sin call site en `app/customer-success/trabajo.ts`.
-5. El botón ✨ del tablero todavía puede abrir la bienvenida a mano encima de la ficha.
+1. ⚠️ **Prender `envio_whatsapp_enabled` en el ws1.** Es el interruptor entre «está hecho» y «está
+   funcionando»: apagado desde el 29/09, así que a ninguno de los 14 clientes de Mauricio le llega
+   el link, la etapa nueva ni los avisos de las llamadas. **La invitación por MAIL no depende de
+   ese flag**: sale por Resend aunque el WhatsApp esté apagado. Es decisión de Martín.
+2. **Nadie fue invitado todavía** (0 invitaciones, medido el 06/10 18:05). La invitación no se
+   probó de punta a punta con un email real.
+3. **El PAS fuera de orden**: el kanban lo pone tercero y la planilla de Mauricio después de
+   Tablero y Ritmo, a propósito. Se arregla moviendo la etapa en el editor (las clases viajan
+   solas). Lo decide Martín.
+4. **Los 14 clientes de Mauricio están todos en Bienvenida**: falta ubicarlos en su etapa real.
+5. **`app/_cursos/` está SIN ENCHUFAR** (ver abajo). Termina de enchufarse o se borra.
+6. Las secuencias de nutrición no se disparan por la etapa de entrega; la ficha no es linkeable;
+   el onboarding de la tab Curso; lo que MaKo puede leer del curso por la API. El resto, en la
+   memoria `cs-ficha-cliente`, sección «Lo que quedó SIN hacer».
 
-## La decisión grande que sigue sin tomar
+## ⚠️ Lo que hay en el árbol y NO es de esta área — no lo commitees
 
-⚠️ El **programa de Customer Success de Mauricio** — Whop + 44 clases + el formulario de
-114 preguntas + la reescritura post-junta — **salió del producto entero el 26/09** con
-`07d07139` y `5c4846f7` (el pedido fue «desde 0, no tomes en cuenta lo de Mauricio»). Su
-fase 1.1 tenía fecha 27/09, o sea que venció hace una semana.
+Al 06/10 18:30 el clon tenía ~50 archivos sin commitear de otras sesiones. Los que tocan bordes de
+esta área:
 
-Sólo se recupera de git: **`07d07139^`**. **Dónde vive ahora SIGUE SIN DECIDIR** — no se
-tocó en la sesión del 05/10, que fue entera sobre el kanban de la entrega.
+- **`app/_cursos/` (+ el campo `extra` de `app/conocimientos/posicion.ts`)**: una extracción del
+  dibujo de un curso cuya cabecera dice que la montan tres pantallas, y que tiene **CERO
+  `import`**. Se dejó afuera A PROPÓSITO: nada depende de ella y commitearla dejaría una cabecera
+  que miente. Quien la retome toca `/conocimientos`, que tiene alumnos reales.
+- **`lib/workspace.ts` y `lib/tablas-de-inquilino.ts`**: traen sólo `lead_funnel` (mig 0207), que
+  es del **CRM**.
+- **`AGENTS.md`**: trae «LO PRIMERO AL ABRIR», de la sesión de Estrategia 2 Cuentas.
+- **`tests/crm-auto-asistencia.test.ts` está ROJO** sobre el árbol compartido: alguien cambió en
+  `lib/crm-auto.ts` el texto `Asistió R…` por `Asistió ${reunion}` y el guard busca el literal. Es
+  del CRM/Fathom. El pre-push no corre tests, así que no frena a nadie, pero aparece en todo
+  `npm test`.
+- **Un archivo vacío llamado `=`** en la raíz del repo (06/10 11:16, 0 bytes): huele a un `>` que se
+  escapó en un comando. No es de nadie que se sepa; no lo borres sin preguntar.
 
-Empezá por ahí: presentale a Martín las opciones de dónde puede vivir. **No toques código
-todavía.**
+## Las trampas que más tiempo ahorran en esta tab
 
-## Lo otro que está trabado, y tampoco se movió
-
-El **mensaje de 4 preguntas a Mauricio SIGUE SIN MANDARSE**: ¿grabó algo y dónde está?,
-¿la planilla es el documento de temarios?, ¿cuándo termina las plantillas P0-P11?, ¿sus
-clientes entran gratis a Whop y quién los da de alta? **No hay llamada con él hasta el
-15/10**, así que todo lo que dependa de Mauricio se destraba por mensaje o no se destraba.
-
-## Las tres trampas que más tiempo ahorran en esta tab
-
-1. ⚠️ **El reparto de clientes en columnas es DERIVADO, no sembrado**: un cliente sin fila
-   en `cliente_entrega` está en la PRIMERA etapa, y la regla vive en UNA función
-   (`repartirEnEtapas`) que usan el tablero Y el conteo del editor. **Toda función que
-   aplique esa regla necesita el UNIVERSO de clientes, no las filas de la tabla** — se pagó
-   el 05/10 con un editor que decía «0 clientes» sobre una columna con 5 tarjetas, y ese 0
-   apagaba el «¿seguro?» al borrarla. La regla general quedó en `AGENTS.md`.
-2. ⚠️ **Los dos templates de estilos (`KanbanEntrega` y `EtapasEntregaModal`) no admiten
-   NI UN backtick adentro**, ni en un comentario. La convención de la casa es nombrar una
-   clase entre backticks y eso **cierra la cadena a la mitad**: la pantalla contesta 200 con
-   el layout entero y sin una sola fila, y el typecheck señala líneas que no tienen nada que
-   ver. Pasó dos veces el 05/10. El chequeo, antes del typecheck:
-   `node -e "const s=require('fs').readFileSync(RUTA,'utf8');const i=s.indexOf('const CSS = ');console.log((s.slice(i).match(/\`/g)||[]).length)"` — **dos** es lo correcto.
-3. ⚠️ **Verificar esta tab en el navegador ESCRIBE en producción.** Para el kanban hace
-   falta un producto activo y leads `ganado`, y el ws3 (Cliente de Prueba) **está en cero**:
-   hay que sembrarlo y devolverlo a cero. Y ojo con `onboarding.state`: el ws3 no la tiene,
-   así que `/customer-success` redirige a `/onboarding` hasta que se la cree — y **restaurar
-   es BORRARLA**, no dejarla en un valor. Los scripts de sembrar y limpiar quedaron en el
-   scratchpad de la sesión `7a6bc4be`; se reescriben en diez minutos leyendo esta nota.
-
-## Dónde leyó y escribió esta sesión
-
-`docs/hallazgos-customer-success.md` + su fila en `docs/hallazgos.md` · `AGENTS.md` (dos
-reglas nuevas: el `doesNotMatch` sin comentarios, y «una regla DERIVADA necesita el
-UNIVERSO») · `app/admin/dev/customer-success/bitacora.ts` · memoria `cs-ficha-cliente`.
+1. ⚠️ **El alumno del curso NUNCA recibe `mako_session` ni una fila en `usuarios`.** Está medido:
+   con una fila, leía el CRM de Mauricio. Tiene su cookie propia, que el proxy no toma por sesión,
+   y lo único que abre es `/mi-curso`. **Si alguien propone «darle una cuenta de MaKo con rol de
+   alumno», es esto lo que rompe.**
+2. ⚠️ **Antes de declarar ajeno un hunk, grepeá qué TEST lo nombra.** El 06/10 dejé afuera dos
+   arreglos de `app/api/admin/agencia/*` por «no ser del curso», y los delató un test del curso que
+   los cuidaba. La forma de que salga sola: verificar el conjunto en un **worktree limpio con SÓLO
+   lo tuyo** (`git worktree add --detach`, junction a `node_modules` con PowerShell). Ojo: ahí
+   falla `tests/dev-areas.test.ts` por un archivo local (`.claude/settings.local.json`) que un
+   worktree no tiene — eso es del entorno, no tuyo.
+3. ⚠️ **El reparto de clientes en columnas es DERIVADO**: un cliente sin fila en `cliente_entrega`
+   está en la PRIMERA etapa. Toda función que aplique esa regla necesita el UNIVERSO de clientes,
+   no las filas.
+4. ⚠️ **Los templates de estilos de `KanbanEntrega` y `EtapasEntregaModal` no admiten NI UN
+   backtick**, ni en un comentario: cierra la cadena a la mitad y el typecheck señala otra línea.
+5. ⚠️ **Verificar esta tab ESCRIBE en producción.** El ws3 está en cero; abrir la pestaña Curso de
+   un cliente le CREA su fila de `curso_accesos` (hay que borrarla después).
 
 ---
 
 ## Lo que vale para cualquier chat de este relevo
 
-- ⚠️ **A partir de este relevo somos `claude1` (Mauricio)**, no `claude2`. Antes de firmar
-  un commit releé el marcador: `head -1 ~/.claude/cuenta-activa.txt`. Lo que te inyectó el
-  hook al arrancar es una **foto** y no se entera si Martín cambia de cuenta con la sesión
-  abierta.
-- El trailer `Claude-Cuenta:` va **pegado** a `Co-Authored-By:`, sin línea en blanco: git
-  sólo parsea el último bloque contiguo.
-- **Suele haber TRES sesiones sobre el mismo clon, no dos.** `git status` antes de
-  commitear, siempre por **ruta explícita** y también en el `git commit -- <rutas>`, nunca
-  `git add -A`. Al 05/10 quedaba sucio `lib/workspace.ts`, que es la feature de `replay`
-  (mig 0191) de otra sesión: **no es de Customer Success, no la toques**.
-- ⚠️ **Un reporte sobre el árbol se FECHA o no se entiende.** El 05/10 llegó un aviso de
-  que mi edición bloqueaba el push de todo el repo; era una foto de la ventana en la que
-  estaba tipeando un refactor, y cinco minutos después el typecheck daba 0. Si el pre-push
-  da rojo, lo PRIMERO es `git status --short` de los archivos que el error nombra.
-- ⚠️ **`/tmp` ES COMPARTIDO ENTRE LAS TRES SESIONES** (es
-  `C:\Users\marti\AppData\Local\Temp`, 3.593 entradas). Todo temporal va al scratchpad
-  de tu sesión. Lo caro no es leer la salida de otro chat: es `git commit -F /tmp/msg.txt`,
-  que con una colisión commitea el mensaje de otra sesión con tu diff adentro y sale bien.
-  La regla entera está en `AGENTS.md`; lo del 05/10 se verificó y quedó correcto.
-- ⚠️ **Bootear local ESCRIBE en la Supabase de PRODUCCIÓN.** Un blur del detalle guarda en
-  el tablero real de Mauricio.
-- ⚠️ **`ws3` está EN CERO** (y volvió a cero el 05/10 después de la verificación). El clon
-  con datos es **`ws4` «Cliente de Diseño»** (300 leads).
-- El estado completo de los 16 días anteriores está en [`docs/relevo.md`](../relevo.md).
+- **Somos `claude1` (Mauricio).** Antes de firmar releé `head -1 ~/.claude/cuenta-activa.txt`: lo
+  que inyecta el hook al arrancar es una foto.
+- El trailer `Claude-Cuenta:` va **pegado** a `Co-Authored-By:`, sin línea en blanco.
+- **Suele haber varias sesiones sobre el mismo clon.** `git status` antes de commitear, y
+  `git commit -- <rutas>` por ruta explícita: un commit pelado se lleva el índice entero.
+- ⚠️ **`/tmp` es compartido entre las sesiones.** Todo temporal va al scratchpad de tu sesión;
+  `git commit -F /tmp/msg.txt` puede commitear el mensaje de otra.
+- ⚠️ **Un reporte sobre el árbol se FECHA o no se entiende**, y se vuelve a medir antes de mandarlo.
+- ⚠️ **Bootear local ESCRIBE en la Supabase de PRODUCCIÓN.**

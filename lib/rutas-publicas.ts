@@ -158,6 +158,37 @@ export const esPublicaDeEscritura = (pathname: string) =>
 export const esPublicaSoloLectura = (pathname: string) =>
   matchea(PUBLICOS_SOLO_LECTURA, pathname) && !esPublicaDeEscritura(pathname);
 
+// ── El alumno del curso: UNA ruta, exacta, y fuera de PUBLICOS ──────────────────
+// «Invitar al cliente a MaKo para que tenga acceso al curso» (Martín, 06/10/2026). El alumno
+// NUNCA recibe `mako_session` (el porqué, medido, en lib/alumno-sesion.ts): tiene su cookie
+// `mako_alumno`, que el proxy no toma por sesión, así que todo lo interno le sigue dando 401 o
+// «a /login» por construcción. Lo único que se le abre es `/mi-curso`, que se autentica sola.
+//
+// ⚠️ NO VA EN PUBLICOS, y no es un detalle: estar ahí significa «no lee cookie», y el early-return
+// se saltea el chequeo de Origin. Esta página SÍ lee una cookie. Por eso es una rama aparte del
+// proxy, en POSITIVO y con match EXACTO (`/mi-curso/x` no hereda nada), y sólo de LECTURA.
+//
+// ⚠️ Y SÓLO GET/HEAD: cortar el header `next-action` NO alcanza. Next 16 trata como acción del
+// servidor también un POST multipart o urlencoded SIN ese header (`getServerActionRequestMetadata`,
+// node_modules/next/dist/server/lib/server-action-request-meta.js: isMultipartAction), y si la
+// acción no vive en el worker de esta página la reenvía al que la tenga. Las pantallas del alumno
+// escriben por route handlers (/api/compartido/curso/*), así que acá no hay nada que postear.
+
+/** La pantalla del alumno. Una sola, exacta. */
+export const RUTA_ALUMNO = '/mi-curso';
+
+/**
+ * Qué hace el proxy con un pedido a la ruta del alumno. `null` = no es esa ruta (sigue el gate de
+ * siempre); `'pasa'` = se deja pasar SIN `mako_session` (la página mira su cookie); `'prohibido'` =
+ * 403 (una acción del servidor o cualquier método que no sea leer).
+ */
+export function decidirRutaAlumno(pathname: string, metodo: string, conAccion: boolean): 'pasa' | 'prohibido' | null {
+  if (pathname !== RUTA_ALUMNO) return null;
+  if (conAccion) return 'prohibido';
+  const m = metodo.toUpperCase();
+  return m === 'GET' || m === 'HEAD' ? 'pasa' : 'prohibido';
+}
+
 /**
  * ¿Esta ruta pública sólo se puede LEER (GET/HEAD/OPTIONS)? Las de la lista de sólo lectura,
  * y además TODA PÁGINA pública (lo que no es `/api/`).

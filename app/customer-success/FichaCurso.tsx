@@ -4,14 +4,21 @@
 // FichaCurso — la pestaña «Curso» de la ficha de un cliente
 // =============================================================================
 // Pedido de Martín (06/10/2026): «Dentro del Detail de los clientes de Mauricio se tiene que
-// ver este CURSO». Tres cosas, y es la pregunta que contesta cada una:
-//   · El AVANCE: sus etapas en orden con la actual marcada, y por clase cuánto vio, en qué
-//     quedó su tarea y —al abrirla— lo que contestó. Es el «quién miró tal clase, quién
-//     completó la tarea» que Martín le prometió a Mauricio el 9/9.
-//   · Su ACCESO: el link personal al portal (no es una cuenta: ver lib/curso-acceso.ts),
+// ver este CURSO». Cuatro cosas, y es la pregunta que contesta cada una:
+//   · ARRIBA, SU FILA DE AVANCE, de un vistazo: la MISMA fila que tiene en la tabla Avance de
+//     la tab Curso (./curso/FilaAvance.tsx, mismas celdas y mismos números). Pedido del mismo
+//     día: «el "Avence" del curso debería también verse en el detail de cada cliente».
+//   · El AVANCE clase por clase: sus etapas en orden con la actual marcada, y por clase cuánto
+//     vio, en qué quedó su tarea y —al abrirla— lo que contestó. Es el «quién miró tal clase,
+//     quién completó la tarea» que Martín le prometió a Mauricio el 9/9.
+//   · Su ACCESO: invitarlo por mail (./curso/InvitarAlCurso.tsx, «al igual que en la vista de
+//     Agencia»), el link personal al portal (no es una cuenta: ver lib/curso-acceso.ts),
 //     copiarlo, mandárselo, cortarlo y volver a habilitarlo.
 //   · Las LLAMADAS de la entrega: de cada una salen el aviso del día antes y el de después
 //     (lo manda el cron, lib/curso-mensajes.ts). Acá se anotan y se ve si salieron.
+//
+// ⚠️ ABRIR ESTA PESTAÑA NO LE DA ACCESO A NADIE: sólo lee (ver ./curso-ficha-actions.ts). El
+// acceso nace al invitar, copiar el link o mandarlo por WhatsApp.
 //
 // ⚠️ PIDE SUS DATOS AL ABRIRSE, como Pagos e Historial: es la excepción a la regla de la ficha
 // (todo con el HTML) y por la misma razón — bajar el avance clase por clase de toda la cartera
@@ -32,17 +39,20 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Confirm, Input, Select, Spinner, useOkFlash } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import type { Sesion } from '@/lib/curso-datos';
-import type { EstadoTarea } from '@/lib/curso';
+import { ROTULO_TAREA, type EstadoTarea } from '@/lib/curso';
 import type { EntregaFicha } from './FichaEntrega';
 import {
   cursoDeClienteAction, aprobarTareaCursoAction, mandarLinkCursoAction, cortarAccesoCursoAction,
-  habilitarAccesoCursoAction, agendarLlamadaCursoAction, borrarLlamadaCursoAction,
+  habilitarAccesoCursoAction, agendarLlamadaCursoAction, borrarLlamadaCursoAction, linkDelCursoAction,
 } from './curso-ficha-actions';
 import {
-  ROTULO_TAREA, avisosDeSesion, contestoAlgo, estadoDeTarea, fechaHoraLocal, fraseResumen, isoDeLocal,
-  respuestaDe, resumenDeEtapa, rotuloVisto,
-  type AccesoFicha, type BloqueRespuesta, type ClaseFicha, type CursoDeCliente, type EtapaFicha, type ProductoFicha,
+  avisosDeSesion, contestoAlgo, estadoDeInvitacion, estadoDeTarea, fechaHoraLocal, fraseIngresos, fraseInvitacion,
+  fraseResumen, isoDeLocal, respuestaDe, resumenDeEtapa, rotuloVisto,
+  type AccesoFicha, type AvisoInvitacionCurso, type BloqueRespuesta, type ClaseFicha, type CursoDeCliente,
+  type EtapaFicha, type ProductoFicha,
 } from './curso-ficha-lectura';
+import { CabezaAvance, CeldasAvance, EstiloAvance } from './curso/FilaAvance';
+import { BotonInvitar } from './curso/InvitarAlCurso';
 
 type Carga = 'cargando' | { ok: false; error: string } | { ok: true; curso: CursoDeCliente };
 
@@ -98,15 +108,50 @@ export function FichaCurso({ leadId, entrega }: {
     ?? productos.find((p) => p.productoId === entrega?.inicial) ?? productos[0] ?? null;
 
   return (
-    <div className="fcu">
-      <div className="fcu-main">
-        <Avance leadId={leadId} curso={curso} prod={prod} onElegir={setElegido} editar={editar} />
+    <div className="fcu-raiz">
+      {/* El producto arriba de TODO: la fila de avance y las etapas de abajo son de ése. */}
+      {prod && (
+        <div className="fcu-cab">
+          {productos.length > 1 ? (
+            <Select value={String(prod.productoId)} ariaLabel="Producto" width={260}
+              options={productos.map((p) => ({ value: String(p.productoId), label: p.nombre }))}
+              onChange={(v) => setElegido(Number(v))} />
+          ) : <h4 className="fcu-prod">{prod.nombre}</h4>}
+        </div>
+      )}
+      {prod && <ResumenAvance prod={prod} acceso={curso.acceso} />}
+      <div className="fcu">
+        <div className="fcu-main">
+          <Avance leadId={leadId} curso={curso} prod={prod} editar={editar} />
+        </div>
+        <aside className="fcu-lado">
+          {(curso.acceso || curso.errorAcceso) && <Acceso leadId={leadId} curso={curso} editar={editar} />}
+          <Llamadas leadId={leadId} curso={curso} productoId={prod?.productoId ?? null} editar={editar} />
+        </aside>
       </div>
-      <aside className="fcu-lado">
-        {(curso.acceso || curso.errorAcceso) && <Acceso leadId={leadId} curso={curso} editar={editar} />}
-        <Llamadas leadId={leadId} curso={curso} productoId={prod?.productoId ?? null} editar={editar} />
-      </aside>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+    </div>
+  );
+}
+
+// ── Su fila de avance, de un vistazo ──────────────────────────────────────────
+
+/**
+ * La fila que este cliente tiene en la tabla Avance de la tab Curso, con las MISMAS celdas
+ * (./curso/FilaAvance.tsx) y los MISMOS números (`avanceDeCliente`, armado en el server): su
+ * etapa con su color, las tareas enviadas sobre las que hay en cada etapa (verde = la etapa está
+ * completa, la regla que lo mueve), cuánto vio de su etapa y su último ingreso.
+ */
+function ResumenAvance({ prod, acceso }: { prod: ProductoFicha; acceso: AccesoFicha | null }) {
+  const { etapas, fila } = prod.avance;
+  if (!etapas.length) return null;
+  return (
+    <div className="mk-scroll-x fcu-avance">
+      <table className="av">
+        <thead><tr><CabezaAvance etapas={etapas} /></tr></thead>
+        <tbody><tr><CeldasAvance etapas={etapas} fila={{ ...fila, acceso }} /></tr></tbody>
+      </table>
+      <EstiloAvance />
     </div>
   );
 }
@@ -133,8 +178,8 @@ function conEstado(c: CursoDeCliente, claseId: number, estado: EstadoTarea): Cur
   };
 }
 
-function Avance({ leadId, curso, prod, onElegir, editar }: {
-  leadId: number; curso: CursoDeCliente; prod: ProductoFicha | null; onElegir: (productoId: number) => void; editar: Editar;
+function Avance({ leadId, curso, prod, editar }: {
+  leadId: number; curso: CursoDeCliente; prod: ProductoFicha | null; editar: Editar;
 }) {
   /** `${producto}:${etapa}` → abierta. Sin entrada, abre sólo la ACTUAL (y si tiene clases). */
   const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
@@ -148,7 +193,6 @@ function Avance({ leadId, curso, prod, onElegir, editar }: {
   if (!curso.productos.length || !prod) {
     return <p className="fcu-nada">Sus productos todavía no tienen clases. <Link className="fcu-ir" href="/customer-success/curso">Se cargan en Curso →</Link></p>;
   }
-  const productos = curso.productos;
 
   async function revisar(c: ClaseFicha, aprobada: boolean) {
     setRevisando(c.id);
@@ -168,13 +212,6 @@ function Avance({ leadId, curso, prod, onElegir, editar }: {
 
   return (
     <>
-      <div className="fcu-cab">
-        {productos.length > 1 ? (
-          <Select value={String(prod.productoId)} ariaLabel="Producto" width={260}
-            options={productos.map((p) => ({ value: String(p.productoId), label: p.nombre }))}
-            onChange={(v) => onElegir(Number(v))} />
-        ) : <h4 className="fcu-prod">{prod.nombre}</h4>}
-      </div>
       {error && <p className="fcu-mal">No se guardó. {error}</p>}
 
       <ol className="fcu-etapas">
@@ -283,19 +320,54 @@ function Bloque({ b }: { b: BloqueRespuesta }) {
 
 // ── El acceso ─────────────────────────────────────────────────────────────────
 
+/**
+ * Su acceso al curso: en qué quedó su invitación, si entró, y lo que se puede hacer.
+ *
+ * ⚠️ LOS ESTADOS, UNA FRASE CADA UNO (la regla de la casa): «Sin invitar», «Invitado a X · 6 oct»
+ * o «Acceso cortado», y abajo «Todavía no entró» / «Entró N veces · última…». Salen de
+ * `estadoDeInvitacion` y `fraseInvitacion` (./curso-ficha-lectura.ts), las MISMAS que la
+ * columna «Acceso» de la tabla Avance: con dos redacciones, la ficha y la tabla dirían cosas
+ * distintas del mismo cliente.
+ */
 function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeCliente; editar: Editar }) {
   const copiado = useOkFlash();
   const enviado = useOkFlash();
-  const [ocupado, setOcupado] = useState<'mandar' | 'cortar' | 'habilitar' | null>(null);
+  const [ocupado, setOcupado] = useState<'copiar' | 'mandar' | 'cortar' | 'habilitar' | null>(null);
   const [preguntaCortar, setPreguntaCortar] = useState(false);
   const [error, setError] = useState('');
+  /** Lo que dejó la invitación cuando el mail salió pero algo quedó por decir (no se anotó). */
+  const [aviso, setAviso] = useState<AvisoInvitacionCurso | null>(null);
   const a = curso.acceso;
 
   const poner = (acceso: AccesoFicha) => editar((c) => ({ ...c, acceso, errorAcceso: undefined }));
 
-  async function copiar(link: string) {
+  /**
+   * Copia su link. Si todavía no tiene acceso (nunca se lo invitó ni se le mandó nada), lo CREA
+   * primero: copiar un link es dárselo.
+   *
+   * ⚠️ SI EL PORTAPAPELES NO DEJA, EL LINK QUEDA A LA VISTA. Después de esperar al server, Safari
+   * puede negarse a escribir en el portapapeles (el permiso dura lo que dura el click); el link
+   * ya está pintado arriba, así que se dice dónde está en vez de un «no pude» sin salida.
+   */
+  async function copiar() {
     setError('');
-    try { await navigator.clipboard.writeText(link); copiado.flash(); } catch { setError('No pude copiar.'); }
+    let link = a?.link ?? null;
+    if (!link) {
+      setOcupado('copiar');
+      try {
+        const r = await linkDelCursoAction(leadId);
+        if (!r.ok) { setError(r.error); return; }
+        poner(r.acceso);
+        link = r.acceso.link;
+      } catch (e) {
+        setError(msg(e, 'No pude armar su link.'));
+        return;
+      } finally {
+        setOcupado(null);
+      }
+    }
+    if (!link) return;
+    try { await navigator.clipboard.writeText(link); copiado.flash(); } catch { setError('No pude copiar. Cópialo de arriba.'); }
   }
   async function mandar() {
     setOcupado('mandar');
@@ -303,7 +375,11 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
     try {
       const r = await mandarLinkCursoAction(leadId);
       if (!r.ok) setError(`No se mandó. ${r.error}`);
-      else enviado.flash();
+      else {
+        enviado.flash();
+        // Mandar puede haber creado su acceso: se pinta como quedó.
+        if (r.acceso) poner(r.acceso);
+      }
     } catch (e) {
       setError(msg(e, 'No se mandó.'));
     } finally {
@@ -325,38 +401,54 @@ function Acceso({ leadId, curso, editar }: { leadId: number; curso: CursoDeClien
     }
   }
 
+  const invitacion = a ? estadoDeInvitacion(a) : null;
+
   return (
     <section className="fcu-sec">
       <h4 className="fcu-tit">Acceso al curso</h4>
-      {!a ? (
+      {!a || !invitacion ? (
         <p className="fcu-nada">No pude leer su acceso. {curso.errorAcceso}</p>
-      ) : a.revocado ? (
-        <>
-          <p className="fcu-txt">Acceso cortado.</p>
-          <div className="fcu-bots">
-            {/* El link que sale de acá es NUEVO: los viejos siguen sin abrir (la versión subió al cortar). */}
-            <Button size="sm" variant="secondary" loading={ocupado === 'habilitar'} onClick={() => void cambiar('habilitar')}>
-              Volver a habilitar
-            </Button>
-          </div>
-        </>
-      ) : !a.link ? (
-        // Sin AUTH_SECRET no hay firma: se dice eso, no «cortado».
-        <p className="fcu-nada">No pude armar su link.</p>
       ) : (
         <>
-          <code className="fcu-link" title={a.link}>{a.link}</code>
-          <div className="fcu-bots">
-            <Button size="sm" variant="secondary" ok={copiado.ok} okLabel="Copiado" onClick={() => void copiar(a.link!)}>Copiar</Button>
-            <Button size="sm" variant="secondary" ok={enviado.ok} okLabel="Enviado" loading={ocupado === 'mandar'}
-              onClick={() => void mandar()}>
-              Mandar por WhatsApp
-            </Button>
-            <Button size="sm" variant="tertiary" loading={ocupado === 'cortar'} onClick={() => setPreguntaCortar(true)}>Cortar acceso</Button>
-          </div>
+          <p className={`fcu-estado${a.revocado ? ' is-mal' : ''}`} title={fraseInvitacion(invitacion)}>{fraseInvitacion(invitacion)}</p>
+          {/* Sin acceso todavía no hay ingresos que contar: «Sin invitar» alcanza. */}
+          {a.existe && <p className="fcu-meta">{fraseIngresos(a)}</p>}
+          {a.revocado ? (
+            <div className="fcu-bots">
+              {/* El link que sale de acá es NUEVO: los viejos siguen sin abrir (la versión subió al cortar). */}
+              <Button size="sm" variant="secondary" loading={ocupado === 'habilitar'} onClick={() => void cambiar('habilitar')}>
+                Volver a habilitar
+              </Button>
+            </div>
+          ) : (
+            <>
+              {a.link ? <code className="fcu-link" title={a.link}>{a.link}</code>
+                // Con acceso y sin link es que no hay secreto para firmar (AUTH_SECRET): se dice
+                // eso, no «cortado».
+                : a.existe ? <p className="fcu-nada">No pude armar su link.</p> : null}
+              <div className="fcu-bots">
+                {/* «Reenviar invitación» manda el link de la versión VIGENTE: después de cortar y
+                    habilitar, el que le llegó antes ya no abre. */}
+                <BotonInvitar leadId={leadId} nombre={curso.nombre} emailCrm={curso.emailCrm} acceso={a}
+                  variant={invitacion.tipo === 'invitado' ? 'secondary' : 'primary'}
+                  onListo={(acc, av) => { if (acc) poner(acc); setAviso(av); }} />
+                <Button size="sm" variant="secondary" ok={copiado.ok} okLabel="Copiado" loading={ocupado === 'copiar'}
+                  onClick={() => void copiar()}>
+                  Copiar link
+                </Button>
+                <Button size="sm" variant="secondary" ok={enviado.ok} okLabel="Enviado" loading={ocupado === 'mandar'}
+                  onClick={() => void mandar()}>
+                  Mandar por WhatsApp
+                </Button>
+                {a.existe && (
+                  <Button size="sm" variant="tertiary" loading={ocupado === 'cortar'} onClick={() => setPreguntaCortar(true)}>Cortar acceso</Button>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
-      {a && <p className="fcu-meta">{a.ingresos ? `Entró ${a.ingresos} ${a.ingresos === 1 ? 'vez' : 'veces'} · última ${fechaHoraLocal(a.ultimoIngresoAt) ?? '—'}` : 'Todavía no entró.'}</p>}
+      {aviso && <p className={aviso.tono === 'ok' ? 'fcu-meta' : 'fcu-mal'}>{aviso.texto}</p>}
       {/* El motivo VUELVE TAL CUAL del envío (lib/curso-mensajes.ts): «no se mandó» sin el
           porqué no deja hacer nada al respecto. */}
       {error && <p className="fcu-mal">{error}</p>}
@@ -488,8 +580,12 @@ function Llamadas({ leadId, curso, productoId, editar }: {
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la mitad y la
 // pestaña contesta 200 sin estilos (AGENTS.md).
 const CSS = `
-/* Dos columnas en la ficha ancha: el avance y, al costado, el acceso y las llamadas. En una
-   ventana angosta el costado baja. */
+/* Arriba, a todo el ancho: el producto y su fila de avance (nueve etapas no entran en la
+   columna angosta). Abajo, dos columnas en la ficha ancha: las etapas y, al costado, el acceso
+   y las llamadas. En una ventana angosta el costado baja. */
+.fcu-raiz{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+.fcu-avance{ border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.fcu-avance .av tr:last-child td{ border-bottom:0; }
 .fcu{ display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:28px; align-items:start; }
 @media (max-width: 980px){ .fcu{ grid-template-columns:minmax(0,1fr); } }
 .fcu-main{ min-width:0; }
@@ -499,12 +595,11 @@ const CSS = `
 .fcu-cargando{ display:flex; align-items:center; gap:8px; }
 .fcu-mal{ margin:8px 2px; font-size:13px; color:var(--bad); }
 .fcu-meta{ margin:6px 0 0; font-size:12.5px; color:var(--dim); overflow-wrap:anywhere; }
-.fcu-txt{ margin:0; font-size:13.5px; color:var(--ink); }
 .fcu-sin{ font-size:12.5px; color:var(--faint); }
 .fcu-ir{ margin-left:6px; font-weight:600; color:var(--primary); text-decoration:none; white-space:nowrap; }
 .fcu-ir:hover{ text-decoration:underline; }
 
-.fcu-cab{ display:flex; align-items:center; gap:10px; margin:4px 0 6px; }
+.fcu-cab{ display:flex; align-items:center; gap:10px; margin:4px 0 0; }
 .fcu-prod{ margin:0; font-size:14px; font-weight:650; color:var(--ink); }
 
 /* Las etapas: una lista con filete, no una pila de cajas. */
@@ -556,8 +651,11 @@ const CSS = `
 /* El costado: dos cajas, porque son dos cosas que se hacen (dar acceso, agendar). */
 .fcu-sec{ border:1px solid var(--border); border-radius:12px; padding:14px 16px; background:var(--surface); }
 .fcu-tit{ margin:0 0 10px; font-size:11px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
-.fcu-link{ display:block; padding:8px 10px; border-radius:8px; background:var(--surface-2); font-size:12px;
+.fcu-link{ display:block; margin-top:10px; padding:8px 10px; border-radius:8px; background:var(--surface-2); font-size:12px;
   color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* El estado de la invitación: una frase, la primera cosa de la caja. */
+.fcu-estado{ margin:0; font-size:13.5px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fcu-estado.is-mal{ color:var(--bad); }
 .fcu-bots{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 .fcu-form{ display:flex; flex-direction:column; gap:8px; }
 .fcu-form > button{ align-self:flex-start; }

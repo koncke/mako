@@ -145,16 +145,30 @@ export async function guardarTarea(leadId: number, clase: Clase, raw: unknown, e
 
 // ── El acceso del cliente ─────────────────────────────────────────────────────
 
-type FilaAcceso = { lead_id: number; version: number; revocado_at: string | null; ingresos: number; ultimo_ingreso_at: string | null };
-export type EstadoAcceso = { version: number; revocado: boolean; ingresos: number; ultimoIngresoAt: string | null };
+type FilaAcceso = {
+  lead_id: number; version: number; revocado_at: string | null; ingresos: number; ultimo_ingreso_at: string | null;
+  email: string | null; invitacion_enviada_at: string | null; invitado_por: string | null;
+};
+/**
+ * El acceso de un cliente. ⚠️ «Tiene fila» NO es «lo invitaron» (mig 0206): lo que lo dice es
+ * `invitacionEnviadaAt`, que se escribe sólo si el mail salió.
+ */
+export type EstadoAcceso = {
+  version: number; revocado: boolean; ingresos: number; ultimoIngresoAt: string | null;
+  email: string | null; invitacionEnviadaAt: string | null; invitadoPor: string | null;
+};
+const COLS_ACCESO = 'lead_id, version, revocado_at, ingresos, ultimo_ingreso_at, email, invitacion_enviada_at, invitado_por';
 
 /** El acceso de un cliente, sin crearlo. `null` = nunca se le dio. */
 export async function accesoDe(leadId: number): Promise<EstadoAcceso | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('curso_accesos').select('lead_id, version, revocado_at, ingresos, ultimo_ingreso_at').eq('lead_id', leadId).maybeSingle();
+  const { data, error } = await db.from('curso_accesos').select(COLS_ACCESO).eq('lead_id', leadId).maybeSingle();
   if (error) throw new Error(error.message);
   const f = data as FilaAcceso | null;
-  return f ? { version: f.version, revocado: f.revocado_at != null, ingresos: f.ingresos ?? 0, ultimoIngresoAt: f.ultimo_ingreso_at } : null;
+  return f ? {
+    version: f.version, revocado: f.revocado_at != null, ingresos: f.ingresos ?? 0, ultimoIngresoAt: f.ultimo_ingreso_at,
+    email: f.email ?? null, invitacionEnviadaAt: f.invitacion_enviada_at ?? null, invitadoPor: f.invitado_por ?? null,
+  } : null;
 }
 
 /**
@@ -178,6 +192,19 @@ export async function linkDeAcceso(leadId: number, ws: number, porQuien: string 
 
 /** La URL pública del portal para un token. Sin `?ws=`: el workspace viaja adentro de la firma. */
 export const urlDeToken = (token: string): string => linkApp(`/compartido/curso/${token}`, null);
+
+/**
+ * Deja escrito que la invitación SALIÓ: a qué dirección, cuándo y quién. Lo llama quien manda el
+ * mail DESPUÉS de que el envío contestó bien — nunca antes, o «Invitado» mentiría sobre un mail que
+ * no llegó (el falso éxito que tienen los avisos de aprobación de agencia).
+ */
+export async function marcarInvitacion(leadId: number, email: string, porQuien: string | null): Promise<void> {
+  const db = await getTenantDb();
+  const { error } = await db.from('curso_accesos')
+    .update({ email: email.trim().toLowerCase(), invitacion_enviada_at: new Date().toISOString(), invitado_por: porQuien })
+    .eq('lead_id', leadId);
+  if (error) throw new Error(error.message);
+}
 
 /** Corta el acceso: sube la versión (todos los links mandados dejan de abrir) y lo marca revocado. */
 export async function revocarAcceso(leadId: number): Promise<void> {

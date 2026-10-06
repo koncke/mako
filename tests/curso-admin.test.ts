@@ -171,7 +171,10 @@ test('avanceDeCliente: tareas enviadas por etapa, y el % sólo sobre los videos 
   ];
   const prog = new Map([[1, { pct: 80, estado: 'enviada' as const }], [3, { pct: 0, estado: 'pendiente' as const }]]);
   const a = avanceDeCliente(cs, ['bienvenida', 'contexto'], 'bienvenida', prog);
-  assert.deepEqual(a.porEtapa, { bienvenida: { enviadas: 1, total: 2 }, contexto: { enviadas: 0, total: 1 } });
+  // `completa` es la regla que MUEVE al cliente (las obligatorias): sin obligatorias, nunca.
+  assert.deepEqual(a.porEtapa, { bienvenida: { enviadas: 1, total: 2, completa: false }, contexto: { enviadas: 0, total: 1, completa: false } });
+  const c = avanceDeCliente([clase(1, { tarea: 'A', obligatoria: true }), clase(2, { tarea: 'B' })], ['bienvenida'], 'bienvenida', new Map([[1, { pct: 0, estado: 'enviada' as const }]]));
+  assert.deepEqual(c.porEtapa.bienvenida, { enviadas: 1, total: 2, completa: true }, 'la obligatoria enviada cierra la etapa aunque falte otra');
   // (80 + 0) / 2 medibles = 40. El de Drive NO entra al promedio: se cuenta aparte.
   assert.equal(a.pctVisto, 40);
   assert.equal(a.videosSinMedir, 1);

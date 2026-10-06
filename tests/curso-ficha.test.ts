@@ -10,7 +10,8 @@
 //
 // PROBADO ROMPIÉNDOLO (06/10/2026): baseline 14 pass / 0 fail, y ONCE roturas de a una,
 // restauradas de memoria (nunca con git): las once dieron 13 pass / 1 fail, cada una en el test
-// que le toca. La tabla está al final del archivo.
+// que le toca. Con la fila de Avance y la invitación (misma fecha, segunda tanda) el baseline
+// pasó a 18 y se sumaron cuatro roturas más. La tabla está al final del archivo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -116,14 +117,48 @@ test('«Completa» es la regla que mueve al cliente: todas las OBLIGATORIAS envi
   const a = clase(1, { tarea: 'x', obligatoria: true });
   const b = clase(2, { tarea: 'y' });
   const r1 = resumenDeEtapa([ficha(a, prog(1, { estado: 'enviada' })), ficha(b)]);
-  assert.deepEqual(r1, { clases: 2, tareas: 2, enviadas: 1, revisadas: 0, completa: true });
+  assert.deepEqual(r1, { clases: 2, tareas: 2, enviadas: 1, completa: true });
   assert.equal(fraseResumen(r1), '1/2 tareas');
-  // Envió TODO pero ninguna es obligatoria: no se completa sola (lib/curso.ts).
+  // Envió TODO pero ninguna es obligatoria: no se completa sola (lib/curso.ts). Y una revisada
+  // cuenta como enviada (se envió antes de que alguien la revise).
   const r2 = resumenDeEtapa([ficha(clase(3, { tarea: 'z' }), prog(3, { estado: 'aprobada' }))]);
   assert.equal(r2.completa, false);
-  assert.equal(r2.revisadas, 1);
+  assert.equal(r2.enviadas, 1);
   assert.equal(fraseResumen(r2), '1/1 tarea');
   assert.equal(fraseResumen(resumenDeEtapa([ficha(clase(4))])), 'Sin tareas');
+});
+
+// ── La fila de Avance de la ficha (pedido del 06/10: «el Avance… en el detail de cada cliente») ──
+
+test('la fila de Avance de la ficha sale de avanceDeCliente: «listo» es la regla que mueve, no «envió todo»', () => {
+  const etapas = [{ key: 'e1', label: 'Bienvenida', color: '#123456' }, { key: 'e2', label: 'Contexto' }];
+  const clases = [
+    // e1: una obligatoria enviada y una normal sin enviar → COMPLETA con 1/2.
+    clase(1, { etapa: 'e1', tarea: 'x', obligatoria: true }), clase(2, { etapa: 'e1', tarea: 'y' }),
+    // e2: las dos enviadas pero ninguna obligatoria → NO completa con 2/2.
+    clase(3, { etapa: 'e2', tarea: 'z' }), clase(4, { etapa: 'e2', tarea: 'w' }),
+    // SU etapa es e2: un video medible visto al 40% y otro sin abrir → 20, no 40. El de e1, visto
+    // entero, no entra (el % es el de SU etapa: la etapa NO es la primera, a propósito).
+    clase(5, { etapa: 'e2', videoTipo: 'youtube', videoUrl: 'https://youtu.be/abc' }),
+    clase(6, { etapa: 'e2', videoTipo: 'youtube', videoUrl: 'https://youtu.be/def' }),
+    clase(7, { etapa: 'e1', videoTipo: 'youtube', videoUrl: 'https://youtu.be/ghi' }),
+  ];
+  const progreso = new Map([
+    [1, prog(1, { estado: 'enviada' })], [3, prog(3, { estado: 'enviada' })], [4, prog(4, { estado: 'aprobada' })],
+    [5, prog(5, { pct: 40, segundosMax: 40, duracionSeg: 100, vistoAt: 'x' })],
+    [7, prog(7, { pct: 100, segundosMax: 100, duracionSeg: 100, vistoAt: 'x' })],
+  ]);
+  const p = armarProducto({ productoId: 1, nombre: 'NqE', etapas, clases, progreso, etapaActual: 'e2' });
+  assert.ok(p);
+  if (!p) return;
+  assert.deepEqual(p.avance.etapas, [{ key: 'e1', label: 'Bienvenida', color: '#123456' }, { key: 'e2', label: 'Contexto', color: 'var(--faint)' }]);
+  assert.equal(p.avance.fila.etapa, 'e2');
+  assert.deepEqual(p.avance.fila.porEtapa.e1, { total: 2, enviadas: 1, completa: true });
+  assert.deepEqual(p.avance.fila.porEtapa.e2, { total: 2, enviadas: 2, completa: false });
+  assert.equal(p.avance.fila.pctVisto, 20, 'el % es de los medibles de SU etapa, y uno sin abrir cuenta 0');
+  // El resumen de cada etapa de la lista de abajo dice lo mismo que la fila de arriba.
+  assert.equal(p.etapas[0].resumen.completa, p.avance.fila.porEtapa.e1.completa);
+  assert.equal(p.etapas[1].resumen.completa, p.avance.fila.porEtapa.e2.completa);
 });
 
 test('el curso de un producto: TODAS las etapas en el orden de la entrega, la actual marcada', () => {
@@ -187,8 +222,22 @@ test('un aviso marcado con su motivo («sin teléfono») no se pinta «enviado»
 
 const FICHA = sinComentarios(leer('app/customer-success/FichaCliente.tsx'));
 const CURSO = sinComentarios(leer('app/customer-success/FichaCurso.tsx'));
+// El modal de invitar vive aparte porque lo usan la ficha Y la tabla Avance: sus actions tienen
+// su call site ahí, no en FichaCurso.
+const INVITAR = sinComentarios(leer('app/customer-success/curso/InvitarAlCurso.tsx'));
+const FILA = sinComentarios(leer('app/customer-success/curso/FilaAvance.tsx'));
+const TABLA = sinComentarios(leer('app/customer-success/curso/AvanceCurso.tsx'));
+const LECTURA = sinComentarios(leer('app/customer-success/curso-ficha-lectura.ts'));
 const ACC_CRUDO = leer('app/customer-success/curso-ficha-actions.ts');
 const ACC = sinComentarios(ACC_CRUDO);
+
+/** El cuerpo de una función exportada del archivo de actions, hasta la siguiente. */
+const cuerpoDe = (n: string) => {
+  const ini = ACC.indexOf(`export async function ${n}(`);
+  assert.ok(ini >= 0, `no está ${n}`);
+  const fin = ACC.indexOf('export async function', ini + 10);
+  return ACC.slice(ini, fin < 0 ? undefined : fin);
+};
 
 test('la ficha MONTA la pestaña Curso: la tab, su panel y el componente', () => {
   assert.match(FICHA, /\{ id: 'prioridades', label: 'Tareas' \},\s*\{ id: 'curso', label: 'Curso' \},/, 'la tab «Curso», después de Tareas');
@@ -207,19 +256,47 @@ test('curso-ficha-actions.ts es `use server` y SÓLO exporta funciones async', (
 
 test('cada action pasa por la PUERTA antes de hacer nada, y cada una tiene su call site', () => {
   const nombres = [...ACC.matchAll(/^export async function (\w+)\(/gm)].map((m) => m[1]);
+  assert.ok(nombres.includes('invitarAlCursoAction') && nombres.includes('linkDelCursoAction'), 'faltan las actions de invitar y de copiar el link');
   for (const n of nombres) {
-    const ini = ACC.indexOf(`export async function ${n}(`);
-    const fin = ACC.indexOf('export async function', ini + 10);
-    const cuerpo = ACC.slice(ini, fin < 0 ? undefined : fin);
-    assert.match(cuerpo, /const p = await puerta\(leadId\);\s*if \(!p\.ok\) return p;/, `${n} no pregunta la puerta`);
+    assert.match(cuerpoDe(n), /const p = await puerta\(leadId\);\s*if \(!p\.ok\) return p;/, `${n} no pregunta la puerta`);
     // Una capacidad sin call site es una salida huérfana (AGENTS.md).
-    assert.ok(new RegExp(`\\b${n}\\(`).test(CURSO), `${n} no la llama nadie en FichaCurso`);
+    assert.ok(new RegExp(`\\b${n}\\(`).test(CURSO + INVITAR), `${n} no la llama nadie en FichaCurso ni en InvitarAlCurso`);
   }
   // La puerta: sesión, capa y cliente GANADO de este workspace, en positivo.
   const puertaSrc = ACC.slice(ACC.indexOf('async function puerta('), ACC.indexOf('async function accesoActual('));
   assert.match(puertaSrc, /getRolWsEfectivo\(\)\) == null/);
   assert.match(puertaSrc, /tabEnCapa\('customer-success', await getCapaActual\(\)\)/);
   assert.match(puertaSrc, /\.eq\('id', leadId\)\.eq\('estado_lead', 'ganado'\)/);
+});
+
+test('ABRIR la ficha no crea el acceso: sólo invitar, copiar y mandar lo crean', () => {
+  // Hasta el 06/10 `cursoDeClienteAction` llamaba a `linkDeAcceso`, que hace upsert de la fila:
+  // mirar la pestaña le daba acceso a alguien, y «Sin invitar» no se podía distinguir de
+  // «alguien abrió su ficha».
+  assert.doesNotMatch(cuerpoDe('cursoDeClienteAction'), /linkDeAcceso\(/, 'abrir la pestaña volvió a crear el acceso');
+  const accesoActual = ACC.slice(ACC.indexOf('async function accesoActual('), ACC.indexOf('async function cursosDelCliente('));
+  assert.ok(accesoActual.length > 0 && accesoActual.length < 1500, 'no encontré accesoActual/aFicha');
+  assert.doesNotMatch(accesoActual, /linkDeAcceso\(/, 'leer el acceso no puede escribirlo');
+  assert.match(accesoActual, /firmarAccesoCurso\(/, 'el link se FIRMA al leer, no se crea');
+  assert.match(cuerpoDe('linkDelCursoAction'), /linkDeAcceso\(/);
+  assert.match(cuerpoDe('invitarAlCursoAction'), /linkDeAcceso\(/);
+});
+
+test('la ficha y la tabla dibujan la MISMA fila de Avance, y «listo» es `completa`', () => {
+  // Las celdas viven en FilaAvance.tsx y las montan las dos pantallas.
+  for (const [nombre, src] of [['FichaCurso', CURSO], ['AvanceCurso', TABLA]] as const) {
+    assert.match(src, /<CabezaAvance etapas=\{etapas\} \/>/, `${nombre} no usa la cabecera compartida`);
+    assert.match(src, /<CeldasAvance etapas=\{etapas\} fila=\{/, `${nombre} no usa las celdas compartidas`);
+  }
+  assert.match(FILA, /\$\{c\.completa \? ' is-listo' : ''\}/, 'el verde de una etapa dejó de ser la regla que mueve al cliente');
+  assert.doesNotMatch(FILA + TABLA, /enviadas >= c\.total/, 'volvió el «listo = envió todo»');
+  // Los rótulos son los de lib/curso.ts, no una copia de la ficha.
+  assert.doesNotMatch(LECTURA, /ROTULO_TAREA\s*[:=]/, 'la ficha volvió a tener su propio rótulo de tarea');
+  assert.match(CURSO, /import \{ ROTULO_TAREA, type EstadoTarea \} from '@\/lib\/curso';/);
+  assert.doesNotMatch(LECTURA, /'Sin medir'/, '«Sin medir» se escribe con ROTULO_SIN_MEDIR');
+  // La tabla tiene la columna «Acceso» con su celda.
+  assert.match(TABLA, /<th>Acceso<\/th>/);
+  assert.match(TABLA, /<CeldaAcceso leadId=\{f\.leadId\}/);
 });
 
 test('la fecha de la llamada sale del navegador YA en ISO, y vuelve a mostrarse en local', () => {
@@ -243,3 +320,9 @@ test('la fecha de la llamada sale del navegador YA en ISO, y vuelve a mostrarse 
 //   9. FichaCurso sin llamar a `mandarLinkCursoAction`             → el mismo («no la llama nadie»)
 //  10. FichaCurso mandando `cuando` (el valor crudo) y no `iso`    → «la fecha de la llamada sale…»
 //  11. medicionDe con `v.hay ? 'medible'` (ignora si se mide)      → «"sin medir" y "sin video"…»
+// Segunda tanda (baseline 18 pass / 0 fail; scratchpad u3-romper.mjs):
+//  12. cursoDeClienteAction con `linkDeAcceso(leadId, ws)` al abrir → 17/1 «ABRIR la ficha no crea…»
+//  13. FilaAvance con `c.enviadas >= c.total ? ' is-listo'`          → 17/1 «la ficha y la tabla dibujan la MISMA fila…»
+//  14. resumenDeEtapa con `completa: k.enviadas === k.tareas`         → 16/2 «"Completa" es la regla…» y «la fila de Avance…»
+//  15. armarProducto midiendo el visto de `keys[0]` y no de su etapa → 17/1 «la fila de Avance…» (con la etapa actual
+//      en la PRIMERA, esta rotura daba 18/0: por eso el test pone al cliente en la segunda)

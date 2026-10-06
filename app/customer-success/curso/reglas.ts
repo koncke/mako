@@ -13,7 +13,7 @@
 // mida cuánto del vídeo se vieron, cuáles tareas completaron».
 
 import {
-  videoDeLink, sanearCampos, tieneTarea, reproductorDeClase,
+  videoDeLink, sanearCampos, tieneTarea, reproductorDeClase, conteoDeEtapa, vistoDeEtapa,
   type Campo, type Clase, type EstadoTarea, type TipoClase, type VideoTipo,
 } from '@/lib/curso';
 
@@ -344,18 +344,13 @@ export function etapaDelCliente(etapas: readonly string[], etapaDeSuFila: string
 }
 
 export type ProgresoLigero = { pct: number; estado: EstadoTarea };
-export type CeldaEtapa = { enviadas: number; total: number };
-
-const enviada = (e: EstadoTarea | undefined) => e === 'enviada' || e === 'aprobada';
+export type CeldaEtapa = { enviadas: number; total: number; completa: boolean };
 
 /**
  * Lo que la tabla dice de un cliente: cuántas tareas envió en cada etapa y cuánto vio de los
- * videos de SU etapa.
- *
- * ⚠️ EL % ES SOBRE LOS VIDEOS QUE SE PUEDEN MEDIR, y uno que no abrió cuenta 0: «vio el 50%»
- * tiene que querer decir «de lo que le toca ver ahora». Los de Drive/Loom no entran al promedio
- * (no hay forma de saber cuánto se vio) y se cuentan aparte, para que la pantalla diga «sin
- * medir» en vez de un número que los ignora sin avisar. `null` = su etapa no tiene videos medibles.
+ * videos de SU etapa. Los números salen de `conteoDeEtapa` y `vistoDeEtapa` (lib/curso.ts), los
+ * mismos que usan la ficha y el portal: `completa` es la regla que MUEVE al cliente (las
+ * obligatorias enviadas), no «enviadas === total».
  */
 export function avanceDeCliente(
   clases: readonly Clase[],
@@ -364,22 +359,15 @@ export function avanceDeCliente(
   progreso: ReadonlyMap<number, ProgresoLigero> | undefined,
 ): { porEtapa: Record<string, CeldaEtapa>; pctVisto: number | null; videosSinMedir: number } {
   const porEtapa: Record<string, CeldaEtapa> = {};
+  const estadoDe = (id: number) => progreso?.get(id)?.estado;
   for (const e of etapas) {
-    const tareas = clases.filter((c) => c.etapa === e && tieneTarea(c));
-    porEtapa[e] = { total: tareas.length, enviadas: tareas.filter((c) => enviada(progreso?.get(c.id)?.estado)).length };
+    const k = conteoDeEtapa(clases.filter((c) => c.etapa === e), estadoDe);
+    porEtapa[e] = { total: k.tareas, enviadas: k.enviadas, completa: k.completa };
   }
-  let pctVisto: number | null = null;
-  let videosSinMedir = 0;
-  if (etapaActual) {
-    const conVideo = clases.filter((c) => c.etapa === etapaActual).map((c) => ({ c, v: videoDeClase(c) })).filter((x) => x.v.hay);
-    const medibles = conVideo.filter((x) => x.v.medible);
-    videosSinMedir = conVideo.length - medibles.length;
-    if (medibles.length) {
-      const suma = medibles.reduce((s, x) => s + (progreso?.get(x.c.id)?.pct ?? 0), 0);
-      pctVisto = Math.round(suma / medibles.length);
-    }
-  }
-  return { porEtapa, pctVisto, videosSinMedir };
+  const visto = etapaActual
+    ? vistoDeEtapa(clases.filter((c) => c.etapa === etapaActual), (id) => progreso?.get(id)?.pct)
+    : { pct: null, sinMedir: 0 };
+  return { porEtapa, pctVisto: visto.pct, videosSinMedir: visto.sinMedir };
 }
 
 /** El acceso del cliente a su portal, como lo dibuja la tabla. */

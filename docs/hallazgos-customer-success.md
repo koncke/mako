@@ -3793,6 +3793,108 @@ la logística; cada etapa la cierra su última Demostración (la regla «Secuenc
 - **Con seis `tsc --noEmit` a la vez sobre el clon, uno completo pasó los 10 minutos.** Un tsconfig
   en el scratchpad con `extends` del repo y `files` con lo propio contesta lo tuyo en ~80 s.
 
+### Invitar al cliente al curso: la cookie del alumno (06/10/2026, tarde)
+
+> «Al igual que en la vista de Agencia, se debería poder INVITAR al cliente a MaKo para que tenga
+> acceso al curso.» (Martín, 06/10/2026)
+
+Cierra el punto 6 del pedido de las 12:38 («un nivel de acceso especial que sólo ellos tienen»),
+que la primera pasada había resuelto sólo con el link firmado. El invitado entra a `/mi-curso` con
+una cookie PROPIA, `mako_alumno` (`al1.<ws>.<lead>.<version>.<exp>.<firma>`, 30 días), por el link
+del mail o entrando con Google con el email al que se lo invitó. `/mi-curso` dibuja exactamente lo
+mismo que `/compartido/curso/<token>`: la cookie se traduce al token `c1.` de esa misma (ws, lead,
+versión), así que no hay una segunda credencial que revocar.
+
+**Vive en:** `lib/alumno-sesion.ts` · `lib/alumno-acceso.ts` · `app/mi-curso/` ·
+`app/api/compartido/curso/entrar/route.ts` · la rama `decidirRutaAlumno` de `proxy.ts` y
+`lib/rutas-publicas.ts` · `app/api/auth/callback/google/route.ts` ·
+`app/customer-success/curso/InvitarAlCurso.tsx` · `supabase/migrations/0206_curso_invitacion.sql`
+(**aplicada a prod**, medido el 06/10 18:05; 0 invitaciones enviadas a esa hora).
+
+⚠️ **EL ALUMNO NUNCA RECIBE `mako_session` NI UNA FILA EN `usuarios`, y no es prudencia: está
+medido.** Para el proxy una sesión válida pasa por todas las rutas que no son `/admin`,
+`requireRolWs` manda un rol desconocido a `/crm`, `getRolWsEfectivo` cae a `'admin'`, y 98 APIs más
+las 53 acciones de `app/crm/actions.ts` no miran el rol. **Con una fila en `usuarios`, el alumno
+leía el CRM de Mauricio.** Con una cookie que el proxy no toma por sesión, todo lo interno le da
+401 o «a /login» POR CONSTRUCCIÓN, sin tener que auditar ruta por ruta.
+
+**Lo que se verificó leyendo el código, antes de commitear una superficie de seguridad que escribió
+otra sesión:**
+
+- La firma lleva prefijo propio y se calcula sobre `alumno:<cuerpo>`, así ninguna otra firma de la
+  casa (la sesión, la impersonación, la agencia, el `c1.` del link) sirve como ésta. El `exp` va
+  FIRMADO —reescribir la cookie no la estira—, compara en tiempo constante y nunca firma con un
+  secreto vacío.
+- **La firma no alcanza y no se cree**: `resolverAcceso` (versión vigente, no revocado, lead
+  `ganado`) corre en CADA pedido, adentro de `runWithWorkspace(ws de la firma)`. Y aísla porque
+  `curso_accesos` ya estaba en las tablas de inquilino: si no, `getTenantDb()` sería passthrough.
+- **La rama del proxy devuelve temprano, y eso era lo que había que mirar**: una salida antes del
+  resto del middleware podría saltearse el borrado del header interno de workspace. No lo saltea
+  porque `seguir()` lo borra primero y sólo lo repone con una sesión de admin, que el alumno no
+  tiene. La rama es exacta (`/mi-curso/x` no hereda), en positivo y sólo GET/HEAD, así que nada que
+  mute pasa sin el chequeo de Origin.
+- El callback de Google sólo llega a la rama del alumno para quien NO está en `usuarios` —un
+  suspendido incluido: `buscarUsuarioPorEmail` no filtra por estado—, pone sólo la cookie del alumno
+  e ignora el `oauth_next`.
+
+⚠️ **Y una que se reporta y NO se tocó: el callback rechaza con `email_verified === false`, o sea
+que deja pasar el campo AUSENTE.** Hoy es seguro porque usa el endpoint OIDC
+(`openidconnect.googleapis.com/v1/userinfo` con `openid email`), que siempre lo devuelve. Pero es
+fail-open, y es PREVIO a este trabajo: es el mismo chequeo del login de cualquier usuario, así que
+endurecerlo a `!== true` es cambiar la puerta de todos y no se hace de paso. Si alguien cambia el
+endpoint al de v2 (`oauth2/v2/userinfo`, donde el campo se llama `verified_email`), el chequeo deja
+de mirar nada y un email no verificado entra como el usuario —o el alumno— que se llame así.
+
+#### ⚠️ El diagnóstico que hice mal: «estos dos hunks son de otra sesión»
+
+Al separar mi trabajo del de las otras tres sesiones, dejé afuera los dos arreglos de
+`app/api/admin/agencia/*` porque no hablaban del curso: son del flujo de aprobación de agencias.
+**Los delató el worktree aislado**: sin ellos, fallaba un test de MI propio archivo
+(`tests/curso-invitar.test.ts`, «los avisos de aprobación de agencia miran `enviado`»). Eran parte
+del mismo refactor de `lib/invitaciones.ts`, escritos y guardados juntos.
+
+El arreglo en sí es real: `invitarPorEmail` devuelve SIEMPRE un objeto —también cuando el mail no
+salió—, así que `invitacion ? ok : warn` decía «Ya se le mandó el acceso» sobre un mail que nunca
+existió.
+
+**La regla: antes de declarar ajeno un hunk, grepeá qué TEST lo nombra.** El tema del hunk dice de
+qué habla; el test que lo cuida dice a qué unidad de trabajo pertenece, que es lo que decide en qué
+commit va. Y la forma de que salga sola es verificar el conjunto en un worktree limpio con SÓLO lo
+tuyo: lo que falte, falla.
+
+#### ⚠️ Una extracción que se anuncia montada y no la monta nadie
+
+`app/_cursos/` (`CursoUgc.tsx`, `reglas.ts`, `tipos.ts`) es el dibujo de un curso extraído para que
+lo compartan tres pantallas, y su cabecera lo dice con nombres: `app/conocimientos/CursoReplica.tsx`,
+el portal del alumno y la vista de Mauricio. **Tiene CERO `import` reales.** La única mención fuera
+de la carpeta es un COMENTARIO en `app/conocimientos/posicion.ts`, que además le agrega un campo
+`extra` que queda inerte.
+
+**No se commiteó.** Nada de lo demás depende de ella (el worktree aislado compila y pasa sin la
+carpeta), y commitearla habría dejado en el repo un módulo con una cabecera que miente sobre quién
+lo usa. Queda en el árbol, sin trackear, para quien termine el enchufe — que toca `/conocimientos`,
+o sea cursos con alumnos de verdad.
+
+Es «escribir la salida no es ofrecerla» (AGENTS.md) con una vuelta más: **una cabecera que ENUMERA
+sus consumidores se lee como evidencia de que existen.** Se cuentan los `import`, nunca la prosa.
+
+#### Trampas chicas que quedaron medidas
+
+- **El índice de la 0206 no lo usa la consulta que existe para él.** Es sobre `lower(email)` y el
+  callback busca con `.eq('email', e)`, que no lo matchea. No es un bug —la columna se guarda en
+  minúsculas (`marcarInvitacion` es el único que la escribe), así que la igualdad acierta— y la
+  tabla tiene una fila por cliente. Si crece, va `.eq` contra la expresión o un índice sobre la
+  columna pelada.
+- **El link de entrada admite un login-CSRF de bajo impacto**: un sitio ajeno puede disparar el GET
+  con el token de OTRO alumno y dejarle esa cookie a la víctima. No cruza datos entre negocios —la
+  víctima vería el curso del otro, no al revés, y hace falta un token válido— y es el mismo modelo
+  de cualquier link mágico. Anotado, no arreglado.
+- **`tests/dev-areas.test.ts` falla en cualquier clon nuevo o worktree**: un área declara en su
+  `vive[]` el archivo `.claude/settings.local.json`, que es LOCAL y no se versiona. En el clon de
+  siempre pasa porque el archivo está; en un worktree, falla. Es una guarda que contesta sobre el
+  disco y no sobre lo que se publica (la familia que AGENTS.md ya tiene escrita). No es de esta
+  área: vive en `app/admin/dev/areas.ts`.
+
 ### Sin hacer
 
 - **Compare-and-set en `moverClienteDeEtapa`** (`lib/cs-mover-etapa.ts`): si el cliente manda las
@@ -3819,3 +3921,10 @@ la logística; cada etapa la cierra su última Demostración (la regla «Secuenc
   `WHOP_*` en `.env.local`, inertes. En el tablero del super admin, las #659 y #660 (Whop) siguen
   abiertas: van por propuesta. Y el panel de `/admin/dev/customer-success` (roadmap-cs) todavía
   dibuja Whop como pieza viva.
+- **Nadie fue invitado todavía** (0 invitaciones el 06/10 18:05), y el mail sale por Resend y NO
+  depende de `envio_whatsapp_enabled`: invitar a un cliente de Mauricio le llega aunque el WhatsApp
+  del ws1 siga apagado. No se probó de punta a punta con un email real.
+- **`app/_cursos/` está sin enchufar** (ver arriba): termina de enchufarse o se borra. Lo decide
+  quien retome `/conocimientos`, porque es la pantalla con alumnos reales que más cambia.
+- **`email_verified === false` en el callback de Google** (ver arriba): endurecerlo a `!== true`
+  es una línea y toca el login de todos.

@@ -92,11 +92,14 @@ export async function POST(req: NextRequest) {
       email: u.email, nombre: u.nombre, workspace: ws?.nombre, rolWs: u.rol_ws,
     }).catch(() => null);
 
+    // ⚠️ `invitacion?.enviado`, NO `invitacion`: `invitarPorEmail` devuelve SIEMPRE un objeto,
+    // también cuando el mail no salió. Con `invitacion ? …` decía «Ya se le mandó el acceso»
+    // sobre un mail que nunca existió (06/10/2026). El `.catch(() => null)` cubre que tire.
     return NextResponse.json({
       ok: true, alta: fila, usuario: u, invitacion,
-      aviso: invitacion
+      aviso: invitacion?.enviado
         ? { tono: 'ok', texto: `${u.email} entra como ${ROTULO_ROL[fila.rol_ws as RolAlta] ?? fila.rol_ws}. Ya se le mandó el acceso.` }
-        : { tono: 'warn', texto: `${u.email} quedó creado, pero no se le pudo mandar el acceso. Reenvíaselo desde su equipo.` },
+        : { tono: 'warn', texto: `${u.email} quedó creado, pero no se le pudo mandar el acceso${invitacion?.error ? ` (${invitacion.error})` : ''}. Reenvíaselo desde su equipo.` },
     });
   } catch (e) {
     // La cuenta no se creó y el pedido ya está reclamado como 'aprobada'. Se dice con

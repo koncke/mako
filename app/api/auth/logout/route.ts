@@ -11,9 +11,14 @@
 // se sigue limpiando a propósito: la cookie vieja puede estar viva en el browser
 // de cualquiera que haya usado la contraseña maestra, y su valor ERA el secreto.
 // Esto la barre.
+//
+// Y la del alumno del curso (mako_alumno, lib/alumno-sesion.ts): no es una sesión de MaKo, pero
+// en un navegador compartido es la que deja ver el curso de otro. Va con las MISMAS opciones con
+// las que se pone (`opcionesCookieAlumno`): con otro `path`, el navegador no la borra.
 
 import { NextResponse } from 'next/server';
 import { EMAIL_COOKIE, IMPERSONATE_COOKIE, LEGACY_COOKIE, SESSION_COOKIE } from '@/lib/auth-session';
+import { ALUMNO_COOKIE, opcionesCookieAlumno } from '@/lib/alumno-sesion';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,5 +36,6 @@ export async function POST() {
   res.cookies.set({ name: LEGACY_COOKIE, ...base });
   res.cookies.set({ name: IMPERSONATE_COOKIE, ...base });
   res.cookies.set({ name: EMAIL_COOKIE, ...base, httpOnly: false });
+  res.cookies.set({ name: ALUMNO_COOKIE, value: '', maxAge: 0, ...opcionesCookieAlumno() });
   return res;
 }

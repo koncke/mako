@@ -204,6 +204,22 @@ export function reproductorDeClase(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'vi
   return { video: { tipo: 'iframe', embed }, medible: false };
 }
 
+/**
+ * Cuánto vio de los videos de UNA etapa: el promedio sobre los que se pueden MEDIR, y uno que no
+ * abrió cuenta 0 («vio el 50%» quiere decir «de lo que le toca ver»). Los de Drive/Loom no entran
+ * al promedio y se cuentan aparte, para que la pantalla diga «Sin medir» en vez de un número que
+ * los ignora. `pct: null` = la etapa no tiene videos medibles. Lo usan la tab (Avance) y la ficha.
+ */
+export function vistoDeEtapa<T extends Pick<Clase, 'id' | 'videoTipo' | 'videoUrl' | 'videoPath'>>(
+  clasesDeEtapa: readonly T[],
+  pctDe: (claseId: number) => number | undefined,
+): { pct: number | null; sinMedir: number; medibles: number } {
+  const conVideo = clasesDeEtapa.map((c) => ({ c, r: reproductorDeClase(c) })).filter((x) => x.r.video != null);
+  const medibles = conVideo.filter((x) => x.r.medible);
+  const pct = medibles.length ? Math.round(medibles.reduce((s, x) => s + (pctDe(x.c.id) ?? 0), 0) / medibles.length) : null;
+  return { pct, sinMedir: conVideo.length - medibles.length, medibles: medibles.length };
+}
+
 // ── La tarea ──────────────────────────────────────────────────────────────────
 
 /** ¿La clase pide algo? Una instrucción de llenado o un formulario. */
@@ -215,6 +231,45 @@ export const obligatoriasDe = <T extends Pick<Clase, 'obligatoria' | 'tarea' | '
   clases.filter((c) => c.obligatoria && tieneTarea(c));
 
 const enviada = (e: EstadoTarea | undefined) => e === 'enviada' || e === 'aprobada';
+
+/** ¿La tarea cuenta como hecha? Enviada o ya revisada (una revisada se envió antes). */
+export const tareaEnviada = enviada;
+
+/**
+ * Cómo se NOMBRA el estado de una tarea, en las tres pantallas (el portal, la tab y la ficha).
+ * «aprobada» se dice «Revisada»: es lo que hace el botón del equipo, y el alumno no aprueba nada.
+ * Hasta el 06/10/2026 el portal decía «Aprobada» y la ficha «Revisada» sobre la misma fila.
+ */
+export const ROTULO_TAREA: Record<EstadoTarea, string> = { pendiente: 'Pendiente', enviada: 'Enviada', aprobada: 'Revisada' };
+
+/** Lo que se dice de un video que no se puede medir (Drive, Loom). Nunca «0%»: se leería «no lo vio». */
+export const ROTULO_SIN_MEDIR = 'Sin medir';
+
+/**
+ * Los números de UNA etapa para un cliente, escritos UNA vez. Hasta el 06/10/2026 el «X de Y»
+ * estaba escrito tres veces (el portal, la tab y la ficha) con dos criterios de «completa»: la tab
+ * pintaba lista una etapa con todas las tareas enviadas, y lo que mueve al cliente es
+ * `etapaCompleta` (las OBLIGATORIAS). Ahora todas las pantallas cuentan acá.
+ *
+ *   · `tareas` / `enviadas`: TODAS las que piden algo — lo que se le muestra a la persona.
+ *   · `obligatorias` / `obligatoriasEnviadas`: las que cierran la etapa.
+ *   · `completa`: la regla que MUEVE al cliente (`etapaCompleta`), no «enviadas === tareas».
+ */
+export type ConteoEtapa = { tareas: number; enviadas: number; obligatorias: number; obligatoriasEnviadas: number; completa: boolean };
+export function conteoDeEtapa<T extends Pick<Clase, 'id' | 'obligatoria' | 'tarea' | 'campos'>>(
+  clasesDeEtapa: readonly T[],
+  estadoDe: (claseId: number) => EstadoTarea | undefined,
+): ConteoEtapa {
+  const conTarea = clasesDeEtapa.filter((c) => tieneTarea(c));
+  const ob = obligatoriasDe(clasesDeEtapa);
+  return {
+    tareas: conTarea.length,
+    enviadas: conTarea.filter((c) => enviada(estadoDe(c.id))).length,
+    obligatorias: ob.length,
+    obligatoriasEnviadas: ob.filter((c) => enviada(estadoDe(c.id))).length,
+    completa: etapaCompleta(clasesDeEtapa, estadoDe),
+  };
+}
 
 /**
  * ¿El cliente completó la etapa? = ENVIÓ todas sus tareas obligatorias.

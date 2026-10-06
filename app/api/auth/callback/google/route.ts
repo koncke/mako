@@ -9,6 +9,9 @@
 //     activo (bootstrap: esos emails son los dueños actuales del deploy).
 //   · no existe, sin allowlist y la tabla está VACÍA → primer login se vuelve
 //     admin (bootstrap de una instancia nueva).
+//   · no está en usuarios pero lo INVITARON a un curso con ese email → entra
+//     como ALUMNO: cookie `mako_alumno` y a /mi-curso. NUNCA una sesión de MaKo
+//     (el porqué, medido, en lib/alumno-sesion.ts).
 //   · cualquier otro caso → no-autorizado. Los usuarios nuevos se agregan
 //     desde /admin.
 //
@@ -22,6 +25,8 @@ import { EMAIL_COOKIE, SESSION_COOKIE, SESSION_DIAS, crearToken, destinoSeguro }
 import { buscarUsuarioPorEmail, contarUsuarios, crearUsuario, registrarLogin, type Usuario } from '@/lib/usuarios';
 import { googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
 import { runWithWorkspace } from '@/lib/workspace';
+import { accesoInvitadoPorEmail, ponerCookieAlumno } from '@/lib/alumno-acceso';
+import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 
 export const dynamic = 'force-dynamic';
 
@@ -156,7 +161,24 @@ export async function GET(req: NextRequest) {
     if (!email || ui.email_verified === false) return fail('no-autorizado');
 
     const usuario = await resolverConFallback(email);
-    if (!usuario) return fail('no-autorizado');
+    if (!usuario) {
+      // ── El alumno de un curso ──────────────────────────────────────────────
+      // Sólo llega acá quien NO es usuario de MaKo: `usuarios` gana siempre, y
+      // `accesoInvitadoPorEmail` lo vuelve a preguntar (un suspendido también cae en
+      // este `null` y no se puede colar como alumno). Lo que entra es la cookie del
+      // alumno y NADA más: ni `mako_session`, ni `mako_email`, ni `registrarLogin`.
+      //
+      // ⚠️ Va a /mi-curso IGNORANDO `oauth_next`: el destino lo pidió una pantalla
+      // interna (el `?next=` de un rebote del proxy) y el alumno no tiene ninguna.
+      // El state ya se validó arriba, igual que para cualquier login.
+      const alumno = await accesoInvitadoPorEmail(email);
+      if (!alumno) return fail('no-autorizado');
+      const res = NextResponse.redirect(new URL(RUTA_ALUMNO, url.origin));
+      if (!ponerCookieAlumno(res, alumno)) return fail('config');
+      res.cookies.set({ name: 'oauth_state', value: '', maxAge: 0, path: '/' });
+      res.cookies.set({ name: 'oauth_next', value: '', maxAge: 0, path: '/' });
+      return res;
+    }
 
     // usuario.id === 0 es el admin de fallback (DB no disponible): no persiste
     // login y su sesión no se re-chequea contra la base (sub break-glass).

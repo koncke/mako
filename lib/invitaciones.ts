@@ -30,7 +30,7 @@ import { sendEmail, renderEmailHtml } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
 import type { RolWorkspace } from './auth-session';
-import type { ResultadoInvitacion } from './invitacion-aviso';
+import { textoInvitacionCurso, type ResultadoInvitacion } from './invitacion-aviso';
 
 // El tipo y el texto que lee la persona viven en `invitacion-aviso` (sin `server-only`,
 // para que lo importen las pantallas y los tests). Acá se re-exporta para que quien manda
@@ -64,6 +64,83 @@ const QUE_VAS_A_HACER: Record<string, string> = {
   [AGENCIA]: 'Vas a poder gestionar los clientes de la agencia desde MaKo.',
 };
 
+// ── El núcleo: un mail de la PLATAFORMA ───────────────────────────────────────
+// Lo comparten los dos mails de acceso de acá abajo (la cuenta de MaKo y el curso de un
+// servicio). Antes del 06/10/2026 todo esto vivía adentro de `invitarPorEmail`, y el curso
+// iba a necesitar las mismas cuatro cosas: el corte del remitente de prueba, el envío en el
+// workspace de la plataforma con su firma, el maquetado, y «se anota sólo si salió». Con dos
+// copias, la segunda nace sin el corte del sandbox — que es el que evita el éxito falso.
+
+type MailDePlataforma = { to: string; asunto: string; preheader: string; cuerpo: string; tag: string };
+
+/**
+ * Manda un mail de la plataforma. NUNCA tira: devuelve si salió y, si no, por qué.
+ *
+ * `alSalir` corre SÓLO si el envío contestó bien, y su error NO se propaga: el mail YA salió,
+ * y devolver «no salió» porque falló el registro haría que alguien lo reenvíe a mano.
+ *
+ * ⚠️ `alSalir` CORRE AFUERA DEL WORKSPACE DE LA PLATAFORMA, en el de quien llama. El envío se
+ * hace adentro de `runWithWorkspace(wsSuperAdmin)`, y una escritura con `getTenantDb()` ahí
+ * adentro caería en el inquilino de la plataforma y no en el del cliente: no da error, escribe
+ * en otro lado (o en ningún lado).
+ */
+async function enviarDePlataforma(
+  m: MailDePlataforma,
+  alSalir?: () => Promise<void>,
+): Promise<{ enviado: true } | { enviado: false; error: string }> {
+  // ⚠️ EL PREFLIGHT DEL SANDBOX NO ES DECORACIÓN. Con el remitente sin configurar, Resend
+  // acepta el envío contra `@resend.dev` y responde OK — o sea que el sistema informa
+  // «mail enviado» y a la persona no le llega nada. Un éxito falso es peor que un error:
+  // nadie lo va a auditar. Se corta antes y se dice por qué.
+  //
+  // Se mira REMITENTE_MAKO y no `remitenteEsSandbox()`, que resuelve el del workspace
+  // actual: acá el remitente no depende de ningún workspace, así que preguntarle a uno
+  // sería chequear una cosa distinta de la que se va a usar.
+  if (/@resend\.dev$/i.test(EMAIL_MAKO)) {
+    return { enviado: false, error: 'el correo de MaKo todavía no está configurado (remitente de prueba)' };
+  }
+
+  // El envío corre en el workspace del SUPER-ADMIN, que es la plataforma. No en el del
+  // cliente (no tiene key ni dominio verificado) ni en `OWNER_WS`, que a pesar del nombre es
+  // un cliente — ver REMITENTE_MAKO arriba. Como ese workspace no tiene credencial propia de
+  // Resend, `resendKey()` cae en la key del env, que es la de MaKo: exactamente lo que se
+  // quiere.
+  const r = await runWithWorkspace(await wsSuperAdmin(), async () => {
+    const html = renderEmailHtml({
+      subject: m.asunto,
+      bodyText: m.cuerpo,
+      preheader: m.preheader,
+      fromName: 'MaKo',
+      // Sin `unsubscribeUrl` a propósito: no es marketing, es un acceso que alguien pidió.
+      // Un link de baja acá invita a darse de baja de su propia herramienta.
+    });
+    return await sendEmail({
+      to: m.to,
+      // `from` EXPLÍCITO: sin esto, `sendEmail` resuelve el remitente del workspace en
+      // curso y el mail de la plataforma volvería a depender de la config de un cliente.
+      from: REMITENTE_MAKO,
+      // Redundante HOY —responder ya va al `from`— y puesto igual: es lo que hace que el
+      // botón «Responder» y el «escríbenos a…» del cuerpo no se puedan separar nunca. El
+      // día que el remitente pase a ser un no-reply, esta línea sigue llevando la
+      // respuesta a una casilla que alguien lee.
+      replyTo: EMAIL_MAKO,
+      subject: m.asunto,
+      html,
+      text: m.cuerpo,
+      tags: [{ name: 'tipo', value: m.tag }],
+    });
+  });
+
+  if (!r.ok) return { enviado: false, error: r.error || 'Resend rechazó el envío' };
+
+  if (alSalir) {
+    try { await alSalir(); } catch (e) {
+      console.error('[invitaciones] el mail salió pero no se pudo registrar:', e instanceof Error ? e.message : e);
+    }
+  }
+  return { enviado: true };
+}
+
 /**
  * Le avisa por mail a una persona que su cuenta ya existe.
  *
@@ -82,100 +159,87 @@ export async function invitarPorEmail(u: {
   const destino = (u.email ?? '').trim().toLowerCase();
   if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace };
 
-  // ⚠️ EL PREFLIGHT DEL SANDBOX NO ES DECORACIÓN. Con el remitente sin configurar, Resend
-  // acepta el envío contra `@resend.dev` y responde OK — o sea que el sistema informa
-  // «mail enviado» y a la persona no le llega nada. Un éxito falso es peor que un error:
-  // nadie lo va a auditar. Se corta antes y se dice por qué.
-  //
-  // Se mira REMITENTE_MAKO y no `remitenteEsSandbox()`, que resuelve el del workspace
-  // actual: acá el remitente no depende de ningún workspace, así que preguntarle a uno
-  // sería chequear una cosa distinta de la que se va a usar.
-  if (/@resend\.dev$/i.test(EMAIL_MAKO)) {
-    return { enviado: false, error: 'el correo de MaKo todavía no está configurado (remitente de prueba)', enlace };
-  }
+  const nombre = (u.nombre ?? '').trim().split(' ')[0];
+  const hola = nombre ? `Hola ${nombre},` : 'Hola,';
+  // `rolWs === null` es el admin de agencia, no el dueño de un negocio: ver el ⚠️ de
+  // QUE_VAS_A_HACER. El `??` final es solo por si mañana aparece un rol sin línea propia.
+  const queHace = QUE_VAS_A_HACER[u.rolWs ?? AGENCIA] ?? QUE_VAS_A_HACER[AGENCIA];
+  const deQuien = u.workspace ? ` para ${u.workspace}` : '';
 
-  // El envío corre en el workspace del SUPER-ADMIN, que es la plataforma. No en el del
-  // cliente recién creado (no tiene key ni dominio verificado) ni en `OWNER_WS`, que a
-  // pesar del nombre es un cliente — ver REMITENTE_MAKO arriba. Como ese workspace no
-  // tiene credencial propia de Resend, `resendKey()` cae en la key del env, que es la de
-  // MaKo: exactamente lo que se quiere.
-  return runWithWorkspace(await wsSuperAdmin(), async () => {
-    const nombre = (u.nombre ?? '').trim().split(' ')[0];
-    const hola = nombre ? `Hola ${nombre},` : 'Hola,';
-    // `rolWs === null` es el admin de agencia, no el dueño de un negocio: ver el ⚠️ de
-    // QUE_VAS_A_HACER. El `??` final es solo por si mañana aparece un rol sin línea propia.
-    const queHace = QUE_VAS_A_HACER[u.rolWs ?? AGENCIA] ?? QUE_VAS_A_HACER[AGENCIA];
-    const deQuien = u.workspace ? ` para ${u.workspace}` : '';
+  // El cuerpo va en texto plano y `renderEmailHtml` lo maqueta y convierte las URLs en
+  // links. Corto a propósito: un mail de acceso que explica el producto entierra lo
+  // único que tiene que pasar ahí, que es entrar.
+  const bodyText = [
+    hola,
+    '',
+    `Tu cuenta de MaKo${deQuien} ya está lista. ${queHace}`,
+    '',
+    'Entra desde aquí:',
+    enlace,
+    '',
+    // ⚠️ ESTA LÍNEA EVITA EL MODO DE FALLA MÁS PROBABLE, y por lejos. Quien da de alta
+    // tipea el email a mano; si la persona entra con OTRA cuenta de Google, el callback
+    // no encuentra su fila y le dice «esa cuenta no está autorizada» — un mensaje que no
+    // se puede accionar si no sabe cuál era la buena.
+    `Importante: entra con Google usando exactamente esta dirección: ${destino}`,
+    '',
+    // ⚠️ ACÁ DECÍA EL EMAIL DE QUIEN LO DIO DE ALTA, Y ESO MANDABA EL PROBLEMA AL LUGAR
+    // EQUIVOCADO. Lo que falla en este mail es entrar —una cuenta de Google que no
+    // matchea, un link que no abre, un dominio que rebota— y eso lo arregla MaKo, no el
+    // admin del cliente que sumó a su closer. Peor: si el que dio el alta fue un cliente,
+    // le estábamos poniendo a él la mesa de ayuda de nuestro producto.
+    `Si algo no funciona, escríbenos a ${EMAIL_MAKO}.`,
+  ].join('\n');
 
-    // El cuerpo va en texto plano y `renderEmailHtml` lo maqueta y convierte las URLs en
-    // links. Corto a propósito: un mail de acceso que explica el producto entierra lo
-    // único que tiene que pasar ahí, que es entrar.
-    const bodyText = [
-      hola,
-      '',
-      `Tu cuenta de MaKo${deQuien} ya está lista. ${queHace}`,
-      '',
-      'Entra desde aquí:',
-      enlace,
-      '',
-      // ⚠️ ESTA LÍNEA EVITA EL MODO DE FALLA MÁS PROBABLE, y por lejos. Quien da de alta
-      // tipea el email a mano; si la persona entra con OTRA cuenta de Google, el callback
-      // no encuentra su fila y le dice «esa cuenta no está autorizada» — un mensaje que no
-      // se puede accionar si no sabe cuál era la buena.
-      `Importante: entra con Google usando exactamente esta dirección: ${destino}`,
-      '',
-      // ⚠️ ACÁ DECÍA EL EMAIL DE QUIEN LO DIO DE ALTA, Y ESO MANDABA EL PROBLEMA AL LUGAR
-      // EQUIVOCADO. Lo que falla en este mail es entrar —una cuenta de Google que no
-      // matchea, un link que no abre, un dominio que rebota— y eso lo arregla MaKo, no el
-      // admin del cliente que sumó a su closer. Peor: si el que dio el alta fue un cliente,
-      // le estábamos poniendo a él la mesa de ayuda de nuestro producto.
-      `Si algo no funciona, escríbenos a ${EMAIL_MAKO}.`,
-    ].join('\n');
+  const r = await enviarDePlataforma(
+    { to: destino, asunto: 'Tu acceso a MaKo', preheader: 'Tu cuenta ya está lista. Entra con Google.', cuerpo: bodyText, tag: 'invitacion' },
+    async () => {
+      // ⚠️ SE ESTAMPA SOLO SI SALIÓ (por eso va en `alSalir`). La columna contesta «¿ya se le
+      // avisó?», así que marcarla en el intento la convierte en «¿lo intentamos?», que no le
+      // sirve a nadie: el botón de reenviar quedaría diciendo que ya se mandó algo que nunca
+      // llegó.
+      //
+      // `.select('id')` no es cosmético: sin él, «se estampó» y «no encontré a quién
+      // estampar» devuelven las dos `error: null` y se ven IGUAL. Y el segundo caso deja el
+      // chip diciendo «sin avisar» para siempre sobre alguien a quien SÍ le llegó el mail.
+      // (Que no pise a otra persona ya está garantizado: `usuarios_email_key` es UNIQUE.)
+      // Va por `getSupabaseServer` y no por el inquilino: `usuarios` es de la plataforma.
+      const { data, error } = await getSupabaseServer()
+        .from('usuarios').update({ invitacion_enviada_at: new Date().toISOString() })
+        .eq('email', destino).select('id');
+      if (error) throw new Error(error.message);
+      if (!data?.length) console.error(`[invitaciones] mail enviado a ${destino}, pero no hay fila en usuarios con ese email`);
+    },
+  );
+  return r.enviado ? { enviado: true, enlace } : { enviado: false, error: r.error, enlace };
+}
 
-    const html = renderEmailHtml({
-      subject: 'Tu acceso a MaKo',
-      bodyText,
-      preheader: 'Tu cuenta ya está lista. Entra con Google.',
-      fromName: 'MaKo',
-      // Sin `unsubscribeUrl` a propósito: no es marketing, es el acceso a una cuenta que
-      // alguien pidió. Un link de baja acá invita a darse de baja de su propia herramienta.
-    });
-
-    const r = await sendEmail({
-      to: destino,
-      // `from` EXPLÍCITO: sin esto, `sendEmail` resuelve el remitente del workspace en
-      // curso y el mail de la plataforma volvería a depender de la config de un cliente.
-      from: REMITENTE_MAKO,
-      // Redundante HOY —responder ya va al `from`— y puesto igual: es lo que hace que el
-      // botón «Responder» y el «escríbenos a…» del cuerpo no se puedan separar nunca. El
-      // día que el remitente pase a ser un no-reply, esta línea sigue llevando la
-      // respuesta a una casilla que alguien lee.
-      replyTo: EMAIL_MAKO,
-      subject: 'Tu acceso a MaKo',
-      html,
-      text: bodyText,
-      tags: [{ name: 'tipo', value: 'invitacion' }],
-    });
-
-    if (!r.ok) return { enviado: false, error: r.error || 'Resend rechazó el envío', enlace };
-
-    // ⚠️ SE ESTAMPA SOLO SI SALIÓ. La columna contesta «¿ya se le avisó?», así que
-    // marcarla en el intento la convierte en «¿lo intentamos?», que no le sirve a nadie:
-    // el botón de reenviar quedaría diciendo que ya se mandó algo que nunca llegó.
-    //
-    // Y el error de guardar NO se propaga: el mail YA salió. Devolver `enviado:false`
-    // porque falló el registro haría que quien mira la pantalla escriba a mano un aviso
-    // que la persona ya tiene, y reenviar duplicaría el mensaje.
-    // `.select('id')` no es cosmético: sin él, «se estampó» y «no encontré a quién
-    // estampar» devuelven las dos `error: null` y se ven IGUAL. Y el segundo caso deja el
-    // chip diciendo «sin avisar» para siempre sobre alguien a quien SÍ le llegó el mail.
-    // (Que no pise a otra persona ya está garantizado: `usuarios_email_key` es UNIQUE.)
-    const { data, error } = await getSupabaseServer()
-      .from('usuarios').update({ invitacion_enviada_at: new Date().toISOString() })
-      .eq('email', destino).select('id');
-    if (error) console.error('[invitaciones] el mail salió pero no se pudo registrar:', error.message);
-    else if (!data?.length) console.error(`[invitaciones] mail enviado a ${destino}, pero no hay fila en usuarios con ese email`);
-
-    return { enviado: true, enlace };
-  });
+/**
+ * Invita a un cliente al CURSO del servicio que compró (pedido del 06/10/2026). El acceso es
+ * un link firmado, no una cuenta (lib/curso-acceso.ts): este mail le lleva el link de
+ * ENTRADA de la versión vigente. El texto vive en `textoInvitacionCurso`
+ * (lib/invitacion-aviso.ts), que tiene test.
+ *
+ * NUNCA tira, igual que la de arriba.
+ *
+ * ⚠️ NO ANOTA NADA. Quien la llama (la action de la ficha) escribe en `curso_accesos` DESPUÉS
+ * de que esto vuelva con `enviado: true`, y lo hace AFUERA de acá a propósito: el envío corre
+ * adentro del workspace de la plataforma, y esa tabla se escribe con el inquilino del cliente
+ * puesto. Anotarlo acá adentro sería escribir en el workspace equivocado sin un error.
+ */
+export async function invitarAlCursoPorEmail(p: {
+  email: string;
+  nombre?: string | null;
+  programa: string;
+  negocio?: string | null;
+  /** El link de entrada (lo arma quien llama, con `linkApp`). */
+  enlace: string;
+  /** El login de MaKo, para quien prefiera entrar con Google (con `linkApp('/login')`). */
+  entrarConGoogle: string;
+}): Promise<ResultadoInvitacion> {
+  const destino = (p.email ?? '').trim().toLowerCase();
+  if (!destino) return { enviado: false, error: 'no hay email al que escribirle', enlace: p.enlace };
+  const t = textoInvitacionCurso(p);
+  const r = await enviarDePlataforma({ to: destino, asunto: t.asunto, preheader: t.preheader, cuerpo: t.cuerpo, tag: 'invitacion-curso' });
+  return r.enviado ? { enviado: true, enlace: p.enlace } : { enviado: false, error: r.error, enlace: p.enlace };
 }

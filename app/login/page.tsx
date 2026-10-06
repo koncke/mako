@@ -19,6 +19,8 @@ import { Suspense } from 'react';
 import { LoginForm } from './LoginForm';
 import { YaLogueado } from './YaLogueado';
 import { getUsuarioActual } from '@/lib/auth';
+import { hayAlumnoVigente } from '@/lib/alumno-acceso';
+import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 import { previewDeDestino } from '@/lib/preview-links';
 import { APP_BASE_URL } from '@/lib/app-url';
 
@@ -56,6 +58,16 @@ export async function generateMetadata(
 
 export default async function LoginPage() {
   const sesion = await getUsuarioActual();
+  // El alumno de un curso (cookie `mako_alumno`, lib/alumno-sesion.ts) no tiene sesión de MaKo:
+  // cualquier ruta interna lo rebota acá. En vez de mandarlo a un Google que no le abre nada
+  // nuevo, se le ofrece volver a SU programa. La sesión de MaKo gana: si hay las dos, manda
+  // YaLogueado.
+  //
+  // ⚠️ «Entrar con otra cuenta» NO es decorativo: sin él, quien tenga la cookie de alumno en un
+  // navegador que también usa para MaKo (Martín o Mauricio probando una invitación) se queda en
+  // esta pantalla sin forma de loguearse, porque el botón de Google no se dibuja. Va directo al
+  // OAuth (GET), sin borrar la cookie: entrar como usuario no la necesita borrada.
+  const alumno = sesion ? false : await hayAlumnoVigente();
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#14161B', padding: '20px' }}>
       <div style={{ width: '100%', maxWidth: '380px', background: '#F5F7FA', borderRadius: '18px', border: '1px solid rgba(0,0,0,.08)', padding: '34px 30px', boxShadow: '0 12px 40px rgba(0,0,0,.35)' }}>
@@ -65,6 +77,18 @@ export default async function LoginPage() {
         </div>
         {sesion ? (
           <YaLogueado nombre={sesion.nombre} email={sesion.email} />
+        ) : alumno ? (
+          <>
+            <a
+              href={RUTA_ALUMNO}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '14px', padding: '12px', borderRadius: '11px', background: '#2F6FED', color: '#fff', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
+            >
+              Ir a tu programa
+            </a>
+            <a href="/api/auth/google?next=%2Finicio" style={{ display: 'block', marginTop: '14px', textAlign: 'center', fontSize: '13px', color: '#5B6472' }}>
+              Entrar con otra cuenta
+            </a>
+          </>
         ) : (
           <>
             <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>Entra al dashboard.</div>

@@ -557,4 +557,32 @@ export const BITACORA: Hito[] = [
       "scripts/curso-cargar-programa.ts \u2014 la carga idempotente del programa de Mauricio",
     ],
   },
+  {
+    fecha: "6 oct", hora: "\u2014", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Invitar al cliente a MaKo para que entre a su curso",
+    pedido: "Al igual que en la vista de Agencia, se deber\u00eda poder INVITAR al cliente a MaKo para que tenga acceso al curso.",
+    puntos: [
+      "Cierra el punto 6 del pedido de las 12:38 (\u00abun nivel de acceso especial que s\u00f3lo ellos tienen\u00bb), que la primera pasada hab\u00eda resuelto s\u00f3lo con el link firmado. La hora del pedido no est\u00e1 en ning\u00fan commit: el trabajo arranca antes de las 15:40, que es cuando naci\u00f3 la migraci\u00f3n 0206.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "18:30", chat: "Customer Success", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El alumno entra con SU cookie, nunca con una sesi\u00f3n de MaKo \u2014 y lo que se verific\u00f3 antes de commitear la superficie",
+    puntos: [
+      "\u26a0\ufe0f EL ALUMNO NUNCA RECIBE `mako_session` NI UNA FILA EN `usuarios`, y est\u00e1 medido: una sesi\u00f3n v\u00e1lida pasa por todas las rutas que no son /admin, un rol desconocido cae a 'admin', y 98 APIs m\u00e1s las 53 acciones de crm/actions.ts no miran el rol. Con una fila en `usuarios`, el alumno le\u00eda el CRM de Mauricio. Tiene su propia cookie (`mako_alumno`), que el proxy no toma por sesi\u00f3n: todo lo interno le da 401 POR CONSTRUCCI\u00d3N, y lo \u00fanico que se le abre es /mi-curso, en una rama exacta y s\u00f3lo de lectura.",
+      "Lo escribi\u00f3 una sesi\u00f3n que se qued\u00f3 sin cuota antes de commitear, y lo cerr\u00f3 otra. Antes de commitear una superficie de seguridad ajena se verific\u00f3 el C\u00d3DIGO y no los comentarios: la firma con prefijo propio y el `exp` firmado; `resolverAcceso` en cada pedido adentro del workspace de la firma (y que `curso_accesos` ya estaba acotada, o habr\u00eda sido passthrough); y que la rama del proxy que devuelve temprano NO se saltea el borrado del header interno de workspace.",
+      "\u26a0\ufe0f EL DIAGN\u00d3STICO QUE SE HIZO MAL: al separar este trabajo del de otras tres sesiones, dos arreglos de app/api/admin/agencia/* quedaron afuera por \u00abno ser del curso\u00bb. Los delat\u00f3 verificar el conjunto en un worktree limpio: fallaba un test del PROPIO archivo del curso que los cuidaba. El tema de un hunk dice de qu\u00e9 habla; el test que lo cuida dice a qu\u00e9 commit va.",
+      "Qued\u00f3 AFUERA a prop\u00f3sito app/_cursos/: una extracci\u00f3n cuya cabecera nombra tres pantallas que la montan y que tiene CERO `import`. Y se report\u00f3 sin tocar el `email_verified === false` del callback de Google, que deja pasar el campo ausente: es previo, y endurecerlo cambia el login de todos.",
+    ],
+    archivos: [
+      "lib/alumno-sesion.ts \u2014 la firma de la cookie, pura y con test",
+      "lib/alumno-acceso.ts \u2014 la revalidaci\u00f3n en cada pedido y el login por email invitado",
+      "app/mi-curso/ \u2014 la pantalla del alumno, que dibuja lo mismo que el portal del link",
+      "app/api/compartido/curso/entrar/route.ts \u2014 el link del mail: deja la cookie y lleva a /mi-curso",
+      "proxy.ts + lib/rutas-publicas.ts \u2014 `decidirRutaAlumno`: la \u00fanica ruta que esa cookie abre",
+      "app/customer-success/curso/InvitarAlCurso.tsx \u2014 el bot\u00f3n de la ficha",
+    ],
+  },
 ];

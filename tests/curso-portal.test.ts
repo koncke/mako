@@ -216,7 +216,14 @@ const sinComentarios = (src: string) => src
 const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8'));
 
 // En POSITIVO: una ruta nueva bajo esta carpeta falla acá hasta que alguien decide que cumple.
-const RUTAS = { progreso: 'POST', tarea: 'POST', video: 'GET' } as const;
+// `entrar` (06/10/2026) es el link del mail de invitación: verifica el token y deja la cookie del
+// alumno (lib/alumno-acceso.ts). Cumple lo mismo que las otras —la firma primero, resolverAcceso
+// primero— y no recibe ninguna clase, así que es la única exenta de `claseDelAlumno`.
+// Probado rompiéndolo (06/10/2026, scratchpad/u2/roturas-portal.cjs): sacar `entrar` de RUTAS,
+// sacar la exención, leer la base antes de resolverAcceso en `entrar` y leer el ws del pedido dan
+// 20 / 1 cada uno (cae SU test). Restaurado: 21 / 0.
+const RUTAS = { progreso: 'POST', tarea: 'POST', video: 'GET', entrar: 'GET' } as const;
+const SIN_CLASE: ReadonlySet<string> = new Set(['entrar']);
 
 test('las rutas del portal son exactamente éstas', () => {
   const hay = readdirSync(DIR_RUTAS, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
@@ -244,7 +251,7 @@ test('cada ruta: el workspace sale de la firma y lo primero adentro de runWithWo
       if (i >= 0) assert.ok(i > iResolver, `${r}: ${lectura} corre antes de resolverAcceso`);
     }
     // Toda clase pedida pasa por claseDelAlumno (que valida existencia + producto del alumno).
-    assert.ok(src.includes('claseDelAlumno('), `${r}: la clase se valida contra el alumno`);
+    if (!SIN_CLASE.has(r)) assert.ok(src.includes('claseDelAlumno('), `${r}: la clase se valida contra el alumno`);
   }
 });
 

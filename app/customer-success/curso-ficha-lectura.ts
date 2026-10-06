@@ -15,10 +15,20 @@
 // ⚠️ Los TIPOS de lib/curso-datos.ts (que es `server-only`) entran con `import type`: se borran
 // al compilar, así que ni el navegador ni el test cargan ese módulo.
 
-import { PCT_VISTO, etapaCompleta, tieneTarea, type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores } from '@/lib/curso';
+//
+// ⚠️ LOS CONTEOS Y LOS RÓTULOS NO SE ESCRIBEN ACÁ: salen de lib/curso.ts (`conteoDeEtapa`,
+// `reproductorDeClase`, `ROTULO_TAREA`, `ROTULO_SIN_MEDIR`), que es lo que también usan la tab y
+// el portal. Hasta el 06/10/2026 esta ficha tenía su propio «X de Y», su propio «Revisada» y su
+// propio «medible», y la tab pintaba «lista» una etapa con otra regla que la de acá.
+
+import {
+  PCT_VISTO, ROTULO_SIN_MEDIR, conteoDeEtapa, reproductorDeClase, tieneTarea,
+  type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores,
+} from '@/lib/curso';
 import type { Sesion } from '@/lib/curso-datos';
 import { motivoDeFase } from '@/lib/curso-mensajes-texto';
-import { videoDeClase } from './curso/reglas';
+import { avanceDeCliente } from './curso/reglas';
+import type { DatosAvance, EtapaVista } from './curso/FilaAvance';
 
 // ── El video: ¿se puede medir? ───────────────────────────────────────────────
 
@@ -33,13 +43,13 @@ import { videoDeClase } from './curso/reglas';
 export type Medicion = 'medible' | 'sin-medir' | 'sin-video';
 
 export function medicionDe(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'videoPath'>): Medicion {
-  // ⚠️ LA REGLA ES LA DE LA TAB CURSO (`videoDeClase`, ./curso/reglas.ts), no una copia: esa
-  // tabla promedia «cuánto vio» sobre los videos MEDIBLES, y si esta ficha decidiera «medible»
-  // por su cuenta, el mismo cliente tendría un % allá sobre videos que acá dicen «sin medir».
-  // Las dos preguntan al LINK (`videoDeLink`), no a la etiqueta guardada.
-  const v = videoDeClase(c);
-  if (!v.hay) return 'sin-video';
-  return v.medible ? 'medible' : 'sin-medir';
+  // ⚠️ LA REGLA ES LA DEL REPRODUCTOR (`reproductorDeClase`, lib/curso.ts), no una copia: la tab
+  // promedia «cuánto vio» sobre los videos MEDIBLES con esa misma función (`vistoDeEtapa`), y si
+  // esta ficha decidiera «medible» por su cuenta, el mismo cliente tendría un % allá sobre videos
+  // que acá dicen «sin medir». Pregunta al LINK, no a la etiqueta guardada.
+  const r = reproductorDeClase(c);
+  if (!r.video) return 'sin-video';
+  return r.medible ? 'medible' : 'sin-medir';
 }
 
 export type Tono = 'good' | 'dim' | 'faint';
@@ -53,22 +63,22 @@ export type Tono = 'good' | 'dim' | 'faint';
  */
 export function rotuloVisto(m: Medicion, p: Progreso | null | undefined): { texto: string; tono: Tono } {
   if (m === 'sin-video') return { texto: 'Sin video', tono: 'faint' };
-  if (m === 'sin-medir') return { texto: p?.vistoAt ? 'Abierta, sin medir' : 'Sin medir', tono: 'faint' };
+  if (m === 'sin-medir') return { texto: p?.vistoAt ? `Abierta, ${ROTULO_SIN_MEDIR.toLowerCase()}` : ROTULO_SIN_MEDIR, tono: 'faint' };
   if (!p || (!p.vistoAt && !(p.segundosMax > 0))) return { texto: 'Sin abrir', tono: 'faint' };
-  if (!p.duracionSeg || !(p.duracionSeg > 0)) return { texto: 'Sin medir', tono: 'faint' };
+  if (!p.duracionSeg || !(p.duracionSeg > 0)) return { texto: ROTULO_SIN_MEDIR, tono: 'faint' };
   return { texto: `${p.pct}%`, tono: p.pct >= PCT_VISTO ? 'good' : 'dim' };
 }
 
 // ── La tarea ──────────────────────────────────────────────────────────────────
 
-/** En qué quedó su tarea. `null` = la clase no pide nada (no hay tarea que mirar). */
+/**
+ * En qué quedó su tarea. `null` = la clase no pide nada (no hay tarea que mirar).
+ * Cómo se NOMBRA cada estado no vive acá: es `ROTULO_TAREA` de lib/curso.ts.
+ */
 export function estadoDeTarea(c: Pick<Clase, 'tarea' | 'campos'>, p: Progreso | null | undefined): EstadoTarea | null {
   if (!tieneTarea(c)) return null;
   return p?.estado ?? 'pendiente';
 }
-
-/** «Aprobada» se dibuja como «Revisada»: es lo que hace el botón que la pone así. */
-export const ROTULO_TAREA: Record<EstadoTarea, string> = { pendiente: 'Pendiente', enviada: 'Enviada', aprobada: 'Revisada' };
 
 // ── Lo que contestó ───────────────────────────────────────────────────────────
 
@@ -204,7 +214,6 @@ export type ResumenEtapa = {
   tareas: number;
   /** Enviadas o revisadas: lo que cuenta para cerrar la etapa es ENVIAR. */
   enviadas: number;
-  revisadas: number;
   /** La regla del paso automático (`etapaCompleta`): envió TODAS las obligatorias. */
   completa: boolean;
 };
@@ -212,23 +221,16 @@ export type ResumenEtapa = {
 /**
  * El resumen de una etapa: cuántas tareas envió y si con eso la etapa está completa.
  *
- * ⚠️ «COMPLETA» SALE DE `etapaCompleta`, LA MISMA REGLA QUE MUEVE AL CLIENTE, y no de contar
- * acá «enviadas === tareas». Con dos reglas, la ficha diría «completa» sobre una etapa en la
- * que el paso automático no lo movió (o al revés) — y una etapa sin obligatorias NO se completa
- * sola, aunque haya enviado todo lo que tenía (lib/curso.ts explica por qué).
+ * ⚠️ SALE DE `conteoDeEtapa` (lib/curso.ts), EL MISMO QUE USAN LA TABLA AVANCE Y EL PORTAL, y
+ * «completa» es la regla que MUEVE al cliente (las obligatorias enviadas), no «enviadas ===
+ * tareas». Con dos reglas, la ficha diría «completa» sobre una etapa en la que el paso
+ * automático no lo movió (o al revés) — y una etapa sin obligatorias NO se completa sola,
+ * aunque haya enviado todo lo que tenía (lib/curso.ts explica por qué).
  */
 export function resumenDeEtapa(clases: readonly ClaseFicha[]): ResumenEtapa {
-  const conTarea = clases.filter((c) => tieneTarea(c));
   const estado = new Map(clases.map((c) => [c.id, c.progreso?.estado]));
-  const enviadas = conTarea.filter((c) => { const e = estado.get(c.id); return e === 'enviada' || e === 'aprobada'; }).length;
-  const revisadas = conTarea.filter((c) => estado.get(c.id) === 'aprobada').length;
-  return {
-    clases: clases.length,
-    tareas: conTarea.length,
-    enviadas,
-    revisadas,
-    completa: etapaCompleta(clases, (id) => estado.get(id)),
-  };
+  const k = conteoDeEtapa(clases, (id) => estado.get(id));
+  return { clases: clases.length, tareas: k.tareas, enviadas: k.enviadas, completa: k.completa };
 }
 
 /** «2/3 tareas», o «Sin tareas». El «Completa» va aparte, como chip. */
@@ -252,6 +254,13 @@ export type ProductoFicha = {
   nombre: string;
   etapaActual: string | null;
   etapas: EtapaFicha[];
+  /**
+   * La FILA de la tabla Avance de la tab Curso, para este cliente (pedido del 06/10/2026: «el
+   * Avance del curso debería también verse en el detail de cada cliente»). Las etapas con su
+   * color y los números de `avanceDeCliente` (./curso/reglas.ts): la MISMA cuenta que la tabla,
+   * así que la ficha y la tab no pueden decir dos cosas distintas del mismo cliente.
+   */
+  avance: { etapas: EtapaVista[]; fila: Omit<DatosAvance, 'acceso'> };
 };
 
 /** La clave del grupo de las clases cuya etapa ya no existe. No choca con una clave real:
@@ -272,7 +281,8 @@ export const ETAPA_HUERFANA = '~sin-etapa';
 export function armarProducto(p: {
   productoId: number;
   nombre: string;
-  etapas: ReadonlyArray<{ key: string; label: string }>;
+  /** `color` = el de la etapa en el kanban (`colorDeEtapa`, con sus fases). */
+  etapas: ReadonlyArray<{ key: string; label: string; color?: string }>;
   clases: readonly Clase[];
   progreso: ReadonlyMap<number, Progreso>;
   etapaActual: string | null;
@@ -299,21 +309,123 @@ export function armarProducto(p: {
   if (sueltas.length) {
     etapas.push({ key: ETAPA_HUERFANA, label: 'Sin etapa', actual: false, huerfana: true, clases: sueltas, resumen: resumenDeEtapa(sueltas) });
   }
-  return { productoId: p.productoId, nombre: p.nombre, etapaActual: p.etapaActual, etapas };
+  // La fila de Avance: la misma función que arma la tabla de la tab (page.tsx), con las MISMAS
+  // entradas — las clases del producto, las claves de la entrega, la etapa actual y el progreso.
+  // Las huérfanas no entran (la tabla tampoco las cuenta: no tienen columna).
+  const keys = p.etapas.map((e) => e.key);
+  const a = avanceDeCliente(p.clases, keys, p.etapaActual, p.progreso);
+  const avance = {
+    etapas: p.etapas.map((e) => ({ key: e.key, label: e.label, color: e.color ?? 'var(--faint)' })),
+    fila: { etapa: p.etapaActual, porEtapa: a.porEtapa, pctVisto: a.pctVisto, videosSinMedir: a.videosSinMedir },
+  };
+  return { productoId: p.productoId, nombre: p.nombre, etapaActual: p.etapaActual, etapas, avance };
 }
 
 // ── El acceso y las llamadas ──────────────────────────────────────────────────
 
 /**
- * Su acceso al portal. `link: null` con `revocado: false` = no hay secreto para firmar
- * (AUTH_SECRET): se dice así, no como «cortado».
+ * Lo que hace falta para decir en qué quedó la INVITACIÓN de un cliente al curso, venga de la
+ * ficha (`AccesoFicha`) o de una fila de la tabla Avance.
+ *
+ * ⚠️ `undefined` EN LOS DOS CAMPOS DE LA INVITACIÓN ES «NO LO SÉ», NO «NUNCA SE INVITÓ». La tabla
+ * Avance arma su acceso en la página de la tab, y si esa lectura no trae la invitación (mig 0206),
+ * pintar «Sin invitar» sería afirmar algo que nadie leyó — sobre alguien a quien quizás sí le
+ * llegó el mail. `null` sí es «nunca».
  */
-export type AccesoFicha = {
-  link: string | null;
+export type AccesoInvitacion = {
+  /** `false` = nunca se le dio acceso (no tiene fila en `curso_accesos`). */
+  existe: boolean;
   revocado: boolean;
   ingresos: number;
   ultimoIngresoAt: string | null;
+  /** A qué dirección salió la invitación. */
+  email?: string | null;
+  /** Cuándo SALIÓ el mail (se escribe sólo si salió). */
+  invitacionEnviadaAt?: string | null;
 };
+
+/**
+ * Su acceso al portal, como lo dibuja la ficha.
+ *
+ * ⚠️ ABRIR LA FICHA YA NO CREA EL ACCESO (06/10/2026). Antes, mirar la pestaña escribía la fila
+ * (versión 1, habilitada), así que «tiene fila» no decía nada y la tabla Avance no podía
+ * distinguir «nunca se lo invitó» de «alguien abrió su ficha». Ahora la fila nace sólo al
+ * invitar, copiar el link o mandarlo por WhatsApp. Por eso `existe`.
+ *
+ * `link`: el link del portal de la versión VIGENTE, firmado al leer (no escribe nada). `null` con
+ * `existe` y sin `revocado` = no hay secreto para firmar (AUTH_SECRET): se dice así, no como
+ * «cortado».
+ */
+export type AccesoFicha = AccesoInvitacion & {
+  link: string | null;
+  email: string | null;
+  invitacionEnviadaAt: string | null;
+};
+
+export type EstadoInvitacion =
+  | { tipo: 'cortado' }
+  | { tipo: 'invitado'; email: string | null; enviadaAt: string }
+  | { tipo: 'sin-invitar' }
+  /** Quien armó el acceso no leyó la invitación: no se afirma nada. */
+  | { tipo: 'no-se' };
+
+/**
+ * En qué quedó su invitación. CORTADO GANA: un acceso cortado no abre aunque se le haya
+ * mandado el mail, y lo que hay que hacer ahí es habilitarlo, no reenviar.
+ */
+export function estadoDeInvitacion(a: AccesoInvitacion | null | undefined): EstadoInvitacion {
+  if (!a) return { tipo: 'no-se' };
+  if (a.revocado) return { tipo: 'cortado' };
+  // Sin fila no hay invitación posible: `marcarInvitacion` escribe sobre la fila del acceso.
+  if (!a.existe) return { tipo: 'sin-invitar' };
+  if (typeof a.invitacionEnviadaAt === 'string' && a.invitacionEnviadaAt) {
+    return { tipo: 'invitado', email: a.email ?? null, enviadaAt: a.invitacionEnviadaAt };
+  }
+  return a.invitacionEnviadaAt === null ? { tipo: 'sin-invitar' } : { tipo: 'no-se' };
+}
+
+/** Un día, en la hora local de quien mira: «6 oct». */
+function fechaCortaLocal(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(d);
+}
+
+/** La frase del estado de la invitación. Una sola frase, y vacía cuando no se sabe. */
+export function fraseInvitacion(e: EstadoInvitacion): string {
+  if (e.tipo === 'cortado') return 'Acceso cortado';
+  if (e.tipo === 'sin-invitar') return 'Sin invitar';
+  if (e.tipo === 'no-se') return '';
+  const cuando = fechaCortaLocal(e.enviadaAt);
+  return `Invitado${e.email ? ` a ${e.email}` : ''}${cuando ? ` · ${cuando}` : ''}`;
+}
+
+/** Si ya entró al portal. Lo cuenta el portal en cada navegación de documento (no las vistas previas). */
+export function fraseIngresos(a: Pick<AccesoInvitacion, 'ingresos' | 'ultimoIngresoAt'>): string {
+  if (!a.ingresos) return 'Todavía no entró';
+  return `Entró ${a.ingresos} ${a.ingresos === 1 ? 'vez' : 'veces'} · última ${fechaHoraLocal(a.ultimoIngresoAt) ?? '—'}`;
+}
+
+export type AvisoInvitacionCurso = { tono: 'ok' | 'warn'; texto: string };
+
+/**
+ * Qué se le dice a quien invitó, después de intentarlo.
+ *
+ * ⚠️ SALE DE `enviado`, NUNCA DE QUE HAYA UN RESULTADO. `invitarAlCursoPorEmail` devuelve
+ * SIEMPRE un objeto —también cuando el mail no salió (remitente de prueba, Resend que rechaza)—,
+ * así que un `inv ? ok : warn` dice «enviada» sobre un mail que no existe. Es exactamente el
+ * falso éxito que tenían los dos avisos de aprobación de agencia (app/api/admin/agencia/route.ts
+ * y altas/route.ts), arreglados en la misma tanda.
+ *
+ * Y `anotado` aparte: si el mail salió y no se pudo anotar, la ficha va a seguir diciendo «Sin
+ * invitar» — hay que decirlo, o alguien lo reenvía y le llegan dos.
+ */
+export function avisoInvitacionCurso(inv: { enviado: boolean; error?: string } | null | undefined, anotado: boolean): AvisoInvitacionCurso {
+  if (!inv?.enviado) return { tono: 'warn', texto: `No salió el correo${inv?.error ? `: ${inv.error}` : ''}.` };
+  if (!anotado) return { tono: 'warn', texto: 'Salió el correo, pero no quedó anotado.' };
+  return { tono: 'ok', texto: 'Invitación enviada.' };
+}
 
 /**
  * Lo que lee la pestaña Curso, en UNA action al abrirse.
@@ -322,10 +434,13 @@ export type AccesoFicha = {
  * un vacío: con un solo valor, una lectura caída de las llamadas diría «sin llamadas agendadas»
  * y alguien agendaría otra encima. Es la regla de `FichaExtra` (./ficha-datos.ts).
  *
- * `acceso: null` sin error = no hay curso (ningún producto suyo tiene clases): no se le arma un
- * link a un portal vacío.
+ * `acceso: null` sin error = no hay curso (ningún producto suyo tiene clases): no se lo invita
+ * a un portal vacío.
  */
 export type CursoDeCliente = {
+  /** Su nombre y el email del CRM: el título del modal de invitar y con qué viene prellenado. */
+  nombre: string;
+  emailCrm: string | null;
   productos: ProductoFicha[] | null;
   errorProductos?: string;
   acceso: AccesoFicha | null;
