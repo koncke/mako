@@ -1047,10 +1047,19 @@ de proceso no lo hace.
 `automation.leandrotejado.space`, sólo `invitee.created`): el workflow «WhatsApp Reminders for
 Calendly» no recibe reservas nuevas desde entonces. Corrige la memoria que lo daba prendido.
 
-**SIN HACER (escribe en prod):** recrear la suscripción (`scripts/arreglar-webhook-calendly.ts`,
-primero con `--dry`), recuperar las 4 reservas con `scripts/backfill-calendly.ts` —ojo con
-`avisarFusion`, justo arriba—, y cambiar la rama de proceso del route para que un
-error que no es transitorio no devuelva 5xx.
+**HECHO el 06/10/2026 15:50, con el OK de Martín:** la suscripción se recreó (`active`, la prueba
+firmada da 400 con la clave del ws y 401 con una inventada) y el backfill desde el 20/09 trajo 3
+leads nuevos y completó 1. El aviso `lead-fusionado` se apagó para la corrida y se devolvió
+exactamente como estaba (ya venía apagado por herencia).
+
+⚠️ **Y el backfill NO guarda el link de la reunión** (`junta_X_url`, mig 0204): sólo el webhook en
+vivo lo escribe. Las dos reservas recuperadas con reunión por delante se completaron a mano con el
+`join_url` de la API de Calendly; un backfill futuro deja a esos leads con recordatorios SIN el
+renglón del link. Va en `scripts/backfill-calendly.ts` con `guardarLinkDeReunion` y
+`linkDeReunion(event.location)`.
+
+**SIN HACER:** cambiar la rama de proceso del route para que un error que no es transitorio no
+devuelva 5xx — si no, el próximo evento envenenado la vuelve a apagar.
 
 **Vive en:** app/api/webhooks/calendly/route.ts (la rama `invitee.canceled` y el `catch` de proceso) · scripts/arreglar-webhook-calendly.ts · scripts/backfill-calendly.ts · *2026-10-06 wf_fe0d104c-25c, implementador y revisor de #17*
 

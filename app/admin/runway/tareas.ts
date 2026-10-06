@@ -1,5 +1,6 @@
 // =============================================================================
-// Las tareas de «Feature: CRM» para el runway — ABIERTAS Y CERRADAS
+// Las tareas de un proyecto del tablero para el runway — ABIERTAS Y CERRADAS
+// (hoy «Feature: CRM» y «Feature: Chatbot»)
 // =============================================================================
 // ⚠️ POR QUÉ NO USA `roadmapDe` (app/admin/dev/roadmap.ts). Ese lector filtra con
 // `.lt('progress', 100)` EN LA CONSULTA, así que una tarea cerrada deja de existir
@@ -24,22 +25,24 @@ export type TareaCrm = {
 
 /** El proyecto del tablero del que cuelga todo el CRM. */
 export const PROYECTO_CRM = 'Feature: CRM';
+/** El del Chatbot: su apartado (06/10) lista lo que se hizo de cada tarjeta. */
+export const PROYECTO_CHATBOT = 'Feature: Chatbot';
 
 /**
- * Todas las tareas del proyecto, ordenadas por prioridad como el tablero.
+ * Todas las tareas de un proyecto, ordenadas por prioridad como el tablero.
  *
  * Sin caché a propósito: esta pantalla se abre de a una por vez y lo que se mira
  * acá es si una tarea ya se cerró — un TTL de 30 s sobre eso es exactamente el
  * tiempo en que alguien cierra algo, mira la pantalla y no lo ve.
  */
-export async function tareasDelCrm(ws: number): Promise<TareaCrm[]> {
+export async function tareasDelProyecto(ws: number, proyecto: string): Promise<TareaCrm[]> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     const [{ data: proys }, { data: tareas }] = await Promise.all([
       db.from('plan_proyectos').select('id, name'),
       db.from('plan_tareas').select('num, title, labels, score, progress'),
     ]);
-    const ids = new Set((proys ?? []).filter((p) => p.name === PROYECTO_CRM).map((p) => p.id as string));
+    const ids = new Set((proys ?? []).filter((p) => p.name === proyecto).map((p) => p.id as string));
     if (!ids.size) return [];
     return (tareas ?? [])
       .filter((t) => (((t.labels as string[] | null) ?? []).some((id) => ids.has(id))))
@@ -52,3 +55,5 @@ export async function tareasDelCrm(ws: number): Promise<TareaCrm[]> {
       .sort((a, b) => b.score - a.score);
   });
 }
+
+export const tareasDelCrm = (ws: number) => tareasDelProyecto(ws, PROYECTO_CRM);

@@ -25,7 +25,8 @@ import { Pagina, PageHeader } from '@/app/_ui';
 import {
   MEDIDO, DESDE, HASTA, HITOS, CIFRAS, ESCALONES, CUENTA,
   CRM_VEREDICTOS, CRM_NUEVA, CRM_DECISIONES, VEREDICTO_LABEL,
-  type Veredicto,
+  CHATBOT_MEDIDO, CHATBOT_TAREAS, CHATBOT_EN_PRODUCCION, CHATBOT_TE_TOCA,
+  type Veredicto, type EstadoChatbot,
 } from './datos';
 // El chip de prioridad es EL MISMO del tablero: la banda y el color salen de
 // `board/types`, no de una copia. Si mañana «alta» deja de ser 75, esta pantalla
@@ -34,7 +35,7 @@ import { prioFromScore, PCOLOR } from '@/app/plan/board/types';
 // Las tareas salen del tablero, ABIERTAS Y CERRADAS: una terminada tiene que poder
 // verse marcada, y el lector de /admin/dev las filtra en la consulta.
 import { wsDelBoard } from '@/app/admin/dev/roadmap';
-import { tareasDelCrm } from './tareas';
+import { tareasDelCrm, tareasDelProyecto, PROYECTO_CHATBOT } from './tareas';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +123,27 @@ function Decision({ v, hecha }: { v: Veredicto | null; hecha?: boolean }) {
   );
 }
 
+/**
+ * El estado de una tarjeta del Chatbot. «Cerrada» sale del TABLERO y gana: el resto es lo
+ * que dice `datos.ts`, que es lo que se hizo el 06/10 — no si la tarjeta ya se cerró.
+ */
+const TONO_BOT: Record<EstadoChatbot | 'cerrada', { t: string; fg: string; bg: string }> = {
+  cerrada: { t: '✓ Cerrada', fg: '#fff', bg: 'var(--good)' },
+  lista: { t: 'Lista para cerrar', fg: 'var(--primary)', bg: 'color-mix(in srgb, var(--primary) 11%, transparent)' },
+  falta: { t: 'Falta algo', fg: 'var(--bad)', bg: 'color-mix(in srgb, var(--bad) 11%, transparent)' },
+};
+
+function EstadoBot({ e }: { e: EstadoChatbot | 'cerrada' | null }) {
+  if (!e) return <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>sin revisar</span>;
+  const t = TONO_BOT[e];
+  return (
+    <span style={{
+      display: 'inline-block', whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
+      fontSize: 12.5, fontWeight: 700, color: t.fg, background: t.bg,
+    }}>{t.t}</span>
+  );
+}
+
 export default async function RunwayPage() {
   // El mismo guard que /admin/docs: es el rol de AGENCIA, no `rol_ws` —que vale
   // 'admin' para el dueño de CADA workspace y abriría esto a todos los clientes.
@@ -165,6 +187,24 @@ export default async function RunwayPage() {
     { k: 'se posponen', n: cuenta('pospone'), bg: 'var(--surface-2)', ink: 'var(--ink)' },
     { k: 'se funden en otra', n: cuenta('va'), bg: 'var(--primary)', ink: '#fff' },
   ];
+
+  // ── El Chatbot (06/10): el mismo reparto que el CRM ──
+  // El título, la prioridad y si está cerrada salen del tablero; lo que se hizo, de
+  // `datos.ts`. Entran las tarjetas que se trabajaron y las abiertas que aparezcan
+  // después (marcadas «sin revisar»): las cerradas de antes no son de esta foto.
+  const BOT = (await tareasDelProyecto(wsDelBoard(admin.ws), PROYECTO_CHATBOT))
+    .filter((t) => CHATBOT_TAREAS[t.num] || t.progreso < 100)
+    .map((t) => {
+      const d = CHATBOT_TAREAS[t.num];
+      const estado: EstadoChatbot | 'cerrada' | null = t.progreso >= 100 ? 'cerrada' : d?.estado ?? null;
+      return { num: t.num, titulo: t.titulo, score: t.score, estado, hizo: d?.hizo ?? '', falta: d?.falta ?? '' };
+    });
+  const REPARTO_BOT = [
+    { k: 'cerradas', n: BOT.filter((f) => f.estado === 'cerrada').length, bg: 'var(--good)', ink: '#fff' },
+    { k: 'listas para cerrar', n: BOT.filter((f) => f.estado === 'lista').length, bg: 'var(--primary)', ink: '#fff' },
+    { k: 'con algo pendiente', n: BOT.filter((f) => f.estado === 'falta').length, bg: 'var(--bad)', ink: '#fff' },
+    { k: 'sin revisar', n: BOT.filter((f) => f.estado === null).length, bg: 'var(--surface-2)', ink: 'var(--ink)' },
+  ].filter((r) => r.n > 0);
 
   return (
     <Pagina ancho="completo">
@@ -424,6 +464,99 @@ export default async function RunwayPage() {
       {/* ── lo que decide Martín ── */}
       <h2 style={h2}>Lo que tienes que decidir</h2>
       <div style={caja}><Lista items={CRM_DECISIONES} /></div>
+
+      {/* ── el Chatbot: lo que se hizo el 06/10 ── */}
+      <h2 id="chatbot" style={{ ...h2, margin: '56px 0 14px' }}>El Chatbot · lo que se hizo el {CHATBOT_MEDIDO}</h2>
+      <div style={caja}>
+        <div style={{ display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden', gap: 2 }}>
+          {REPARTO_BOT.map((r) => (
+            <div key={r.k} style={{
+              flex: r.n, background: r.bg, color: r.ink, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 13, fontWeight: 700, minWidth: 0, fontVariantNumeric: 'tabular-nums',
+            }}>{r.n}</div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 11, fontSize: 13, color: 'var(--dim)' }}>
+          {REPARTO_BOT.map((r) => (
+            <span key={r.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <span aria-hidden style={{ width: 12, height: 12, borderRadius: 4, background: r.bg, display: 'inline-block' }} />
+              <strong style={{ color: 'var(--ink)' }}>{r.n}</strong> {r.k}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ ...caja, padding: 0, overflow: 'hidden', marginTop: 14 }}>
+        <div className="mk-scroll-x" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 860 }}>
+            <thead>
+              <tr>
+                {[
+                  { t: 'Tarea', w: '30%' }, { t: 'Prioridad', w: '1%' }, { t: 'Estado', w: '1%' },
+                  { t: 'Qué se hizo', w: '' }, { t: 'Qué falta', w: '20%' },
+                ].map((c) => (
+                  <th key={c.t} style={{
+                    ...rotulo, textAlign: 'left', padding: '11px 14px', fontWeight: 600,
+                    borderBottom: '1px solid var(--border)', width: c.w || undefined, whiteSpace: 'nowrap',
+                  }}>{c.t}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {BOT.map((f) => (
+                <tr key={f.num} style={f.estado === 'cerrada' ? { color: 'var(--dim)' } : undefined}>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', lineHeight: 1.4 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>#{f.num}</span>{' '}
+                    {f.titulo}
+                  </td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums', color: PCOLOR[prioFromScore(f.score)],
+                      border: `1px solid ${PCOLOR[prioFromScore(f.score)]}`,
+                      background: `color-mix(in srgb, ${PCOLOR[prioFromScore(f.score)]} 10%, transparent)`,
+                    }}>{f.score}</span>
+                  </td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)' }}>
+                    <EstadoBot e={f.estado} />
+                  </td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', lineHeight: 1.4 }}>
+                    {f.hizo || <span style={{ color: 'var(--faint)' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', color: 'var(--dim)', lineHeight: 1.4 }}>
+                    {/* Cerrada: lo que faltaba ya no es trabajo pendiente. */}
+                    {f.estado === 'cerrada' ? '' : f.falta}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 style={h2}>Lo que quedó en producción</h2>
+      <div style={caja}><Lista items={CHATBOT_EN_PRODUCCION} /></div>
+
+      <h2 style={h2}>Lo que te toca del Chatbot</h2>
+      <div style={caja}>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {CHATBOT_TE_TOCA.map((x) => (
+            <li key={x.t} style={{ position: 'relative', paddingLeft: 17, fontSize: 14, lineHeight: 1.5 }}>
+              <span aria-hidden style={{
+                position: 'absolute', left: 0, top: 8, width: 6, height: 6, borderRadius: '50%', background: 'var(--faint)',
+              }} />
+              <Marcado t={x.t} />
+              {/* Un `<a>` y no el Link de la casa: esta pantalla no manda JavaScript, y el
+                  `?ws=` ya viaja escrito en el destino. */}
+              {x.href && (
+                <a href={x.href} style={{
+                  marginLeft: 10, whiteSpace: 'nowrap', fontSize: 13, fontWeight: 600, color: 'var(--primary)',
+                }}>{x.boton ?? 'Abrir'} →</a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
 
     </Pagina>
   );

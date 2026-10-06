@@ -209,3 +209,74 @@ export const CRM_DECISIONES = [
   '**«Agente: CRM automático»** sigue vivo con 0 tareas y parte en dos la respuesta a «¿dónde está lo del CRM?». ¿Se tacha?',
 ];
 
+// =============================================================================
+// El Chatbot — lo que se hizo con cada tarjeta del proyecto (06/10/2026)
+// =============================================================================
+// Pedido de Martín (06/10): «son muchos cambios, quiero que al finalizar todo me hagas un
+// apartado en runway para que yo pueda visualizar todo lo que se hizo de chatbot».
+//
+// ⚠️ EL MISMO REPARTO QUE EL CRM: el título y la prioridad salen del tablero en cada
+// carga, y «Cerrada» sale del `progress` de la tarjeta — nunca de este archivo. Lo único
+// propio de acá es QUÉ SE HIZO y QUÉ FALTA, que no vive en ninguna tabla.
+//
+// ⚠️ `lista` NO es «cerrada»: dice que el trabajo está en producción y la tarjeta espera
+// que Martín confirme el borrador del Plan. Cuando la cierre, la pantalla dice «Cerrada»
+// sola; si la reabre, vuelve a decir lo de acá.
+//
+// El detalle técnico, en docs/hallazgos-comunicacion.md → «Las seis tarjetas del Chatbot
+// en paralelo» y «El setter con la charla de verdad».
+
+export const CHATBOT_MEDIDO = '6 de octubre de 2026';
+
+/** El borrador del Plan que cierra lo hecho (ws del tablero del super admin). */
+export const CHATBOT_BORRADOR = '/plan/revisar/propmux0tymnjpd37?ws=9';
+/** Las propuestas de los casos de la post-agenda (#358), en el negocio de Mauricio. */
+export const CHATBOT_CASOS = '/mako/revisar?ws=1';
+
+export type EstadoChatbot = 'lista' | 'falta';
+
+export const CHATBOT_TAREAS: Record<number, { estado: EstadoChatbot; hizo: string; falta?: string }> = {
+  834: { estado: 'lista', hizo: 'Los avisos ya no se cruzan entre negocios y el semanal sale a cada cliente con lo suyo' },
+  328: { estado: 'falta', hizo: 'La línea de Mauricio está conectada y el envío prendido', falta: 'Ver salir el primer audio con la próxima agenda' },
+  784: { estado: 'lista', hizo: 'Se vigila cada línea de cada negocio y el aviso le llega al dueño de esa línea' },
+  790: { estado: 'falta', hizo: 'WhatsApp escalonado a 63 con reunión y mail a 884 formularios: armados y apagados', falta: 'Corregir el remitente (dice «MaKo») y decidir cuándo se prende' },
+  19: { estado: 'lista', hizo: 'La cobranza sale al grupo del dueño; al cliente nada, como decidiste' },
+  789: { estado: 'lista', hizo: 'Con una reunión nueva, la post-agenda vuelve a salir' },
+  17: { estado: 'falta', hizo: 'A las 24 h, 1 h y 15 min, con el link para entrar. Prendido para Mauricio', falta: 'Apagar el workflow de n8n' },
+  748: { estado: 'lista', hizo: '«Para leer» al grabar un audio, con el guion que escribe MaKo gratis' },
+  360: { estado: 'lista', hizo: 'MaKo deja de insistir cuando el lead rebate tres veces, y cierra la charla' },
+  786: { estado: 'lista', hizo: 'La bienvenida está prendida, sale sola y tiene tope de 72 h' },
+  361: { estado: 'lista', hizo: 'El setter lee lo que el lead contestó al agendar y no se lo vuelve a preguntar' },
+  745: { estado: 'lista', hizo: 'El onboarding mira lo que hay (la línea, la guía de voz) y no un tilde guardado' },
+  358: { estado: 'falta', hizo: 'Los 4 casos de la post-agenda, probados contra el clasificador (7 de 7)', falta: 'Confirmar las 8 propuestas' },
+  787: { estado: 'lista', hizo: 'Sale sola sólo al confirmar o cambiar el día; el precio va siempre a borrador' },
+  788: { estado: 'lista', hizo: 'MaKo contesta del segundo mensaje en adelante: la charla sigue abierta 7 días' },
+  380: { estado: 'lista', hizo: 'Cuando no hay borrador, el aviso dice por qué' },
+  324: { estado: 'lista', hizo: 'El mensaje de las 24 h de la post-agenda lo adapta MaKo para cada lead' },
+  356: { estado: 'lista', hizo: 'Obsoleta: el ensayo con notas de voz ya no existe' },
+  792: { estado: 'lista', hizo: 'El Chatbot es sólo WhatsApp. Instagram salió del producto' },
+  350: { estado: 'lista', hizo: 'El audio ya no vuelve a 0 mientras suena' },
+};
+
+/** Lo que se escribió en producción para que esto ande. Pasado, con su número. */
+export const CHATBOT_EN_PRODUCCION = [
+  '**El webhook de Calendly de Mauricio volvió**: estaba apagado desde el 21/09. Entraron las 3 reservas que faltaban; dos tienen la reunión por delante (9/10 y 13/10).',
+  '**Prendido para Mauricio**: el envío de WhatsApp, el recordatorio al lead y la bienvenida.',
+  '**El mensaje de las 24 h** de la post-agenda lo escribe MaKo para cada lead.',
+  '**El residuo quedó armado y apagado**: la secuencia de WhatsApp y el mail en borrador.',
+  '**El semanal** les llega a los clientes desde el lunes 12/10, por mail.',
+];
+
+/** Lo que le queda a Martín. Lo que tiene link, lo lleva al lado. */
+export const CHATBOT_TE_TOCA: Array<{ t: string; href?: string; boton?: string }> = [
+  { t: '**Confirma el borrador del Plan**: cierra 16 tarjetas, cada una con su prueba.', href: CHATBOT_BORRADOR, boton: 'Abrir el borrador' },
+  { t: '**Confirma los 8 casos** de la post-agenda. Hasta entonces, un agendado que contesta va a una persona.', href: CHATBOT_CASOS, boton: 'Abrir las propuestas' },
+  { t: '**Apaga el workflow de n8n** «WhatsApp Reminders for Calendly». Hoy no manda nada, pero duplicaría si alguien recrea su conexión.' },
+  { t: '**Corrige el remitente de Mauricio** antes de mandar el mail del residuo: hoy dice «MaKo».' },
+  { t: '**Rota la key de Fathom** (FATHOM_API_KEY_MARTIN): quedó impresa en la salida de un agente.' },
+  { t: '**Decide** si el residuo sale solo o como borrador, y qué pasa con los 29 que quedaron afuera.' },
+  { t: '**Decide** si un lead que faltó a la R1 y vuelve a agendar recibe recordatorios (hoy no).' },
+  { t: '**Decide** qué se hace con las llaves de Zernio de dos clientes y con el proyecto Instagram del tablero.' },
+  { t: '**Decide** si se avisa cuando la línea vuelve, y si el cliente puede apagar el aviso de línea caída.' },
+];
+

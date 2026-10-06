@@ -8527,8 +8527,11 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   simula el tipeo y `evFetch` corta a los 30 s: marcarlo `fallo` lo re-mandaba en la corrida
   siguiente. Timeout, abort y conexión cortada se marcan `incierto:` y cuentan como tomados — un
   recordatorio de menos, nunca uno doble.
-- **SIN HACER:** recrear la suscripción de Calendly y recuperar las 4 reservas perdidas (escribe
-  en prod; dos todavía vienen: 10/10 01:00 UTC y 13/10 17:00 UTC). **Cal.com no guarda el link**
+- **HECHO el 06/10 (OK de Martín):** la suscripción de Calendly se recreó, entraron las reservas
+  perdidas (las dos con reunión por delante, con su link puesto a mano porque el backfill no lo
+  guarda) y el recordatorio quedó PRENDIDO para Mauricio. El simulacro antes de prender mostró el
+  texto con el link en el toque de 24 h y en el de 15 min. Falta que Martín apague el workflow de n8n.
+- **SIN HACER:** **Cal.com no guarda el link**
   (`app/api/webhooks/calcom/route.ts`), así que el ws13 recibiría el recordatorio sin ese renglón.
   **Un lead que faltó a la R1 y vuelve a agendar por Calendly no recibe recordatorios**:
   `upsertLeadFromCalendly` no toca `asistio_j1` (es manual) y el emisor saltea toda reunión con la
@@ -8602,9 +8605,10 @@ lote). Integrado en `79b4aa95`. Lo que sigue es lo que NO se ve leyendo el códi
   `OWNER_WS` vista desde el cliente. Se arregla antes de mandar.
 - **MaKo listaba el segmento y no podía usarlo**: el enum de `email.def.ts` no lo tenía. Ahora sí,
   con un test que cruza los segmentos contra las cuatro operaciones.
-- **SIN HACER:** sembrar la secuencia `residuo-sin-cierre` APAGADA en el ws1 (con
-  `antiguedad_max_horas` en null, o `aTiempo` los descarta a todos) y decidir si sale sola; armar
-  el broadcast en BORRADOR; corregir el remitente. El orden dentro de una corrida sigue siendo por
+- **HECHO el 06/10 («Dejarlo preparado»):** la secuencia `residuo-sin-cierre` quedó en el ws1
+  APAGADA y sin estrategia (sin `envio_automatico` ni `antiguedad_max_horas`: cada mensaje sale de
+  borrador para el setter), y el mail al segmento de formularios, en BORRADOR. **SIN HACER:**
+  corregir el remitente y decidir cuándo se prende y si sale sola. El orden dentro de una corrida sigue siendo por
   `proximo_envio_at`, no por prioridad (como mucho una hora de demora para la post-agenda).
 
 ### Los avisos: el semanal, la línea caída y la cobranza (#834, #784, #19)

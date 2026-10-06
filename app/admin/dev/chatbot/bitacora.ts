@@ -713,4 +713,38 @@ export const BITACORA: Hito[] = [
       "AGENTS.md suma cinco reglas para código nuevo: un webhook contesta 5xx sólo a lo transitorio, retirar una pantalla incluye quién lee lo que escribía, los tests que leen fuente normalizan el fin de línea, el copy con la key del cliente va por la cascada que tiene Gemini, y después de borrar una ruta se regeneran sus tipos.",
     ],
   },
+  {
+    fecha: "6 oct", hora: "15:45", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Lo que quedaba para decidir: Calendly, el recordatorio, el residuo y la reagenda",
+    pedido: "Calendly: Recrear y recuperar · Recordatorio: Prenderlo ya · Residuo: Dejarlo preparado · Reagenda: Está bien así",
+    puntos: [
+      "Cuatro preguntas en un formulario al cerrar el proyecto. Tres fueron la opción recomendada; en el recordatorio eligió prenderlo ya en vez de simular un día.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "15:50", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Un apartado en Runway con todo lo que se hizo del Chatbot",
+    pedido: "Y son muchos cambios, quiero que al finalizar todo me hagas un apartado en runway para que yo pueda visualizar todo lo que se hizo de chatbot",
+    puntos: [
+      "Va al final de /admin/runway, con ancla propia: /admin/runway#chatbot.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "15:58", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Calendly de vuelta, el recordatorio prendido, el residuo armado y el apartado del Chatbot en Runway",
+    puntos: [
+      "El webhook de Calendly de Mauricio se recreó (estaba apagado desde el 21/09) y entraron las 3 reservas que faltaban, sin avisarle a Mauricio. Las dos con reunión por delante quedaron con su link, que el backfill no guarda.",
+      "El recordatorio al lead quedó prendido para Mauricio después de un simulacro: a las 24 h y a los 15 min sale con el link para entrar.",
+      "El residuo quedó armado y apagado: la secuencia de WhatsApp sin salir sola y el mail en borrador. Falta corregir el remitente.",
+      "/admin/runway#chatbot muestra las 20 tarjetas con lo que se hizo y lo que falta. Cuando una se cierra en el tablero, dice «Cerrada» sola.",
+    ],
+    archivos: [
+      "app/admin/runway/datos.ts — CHATBOT_TAREAS: qué se hizo y qué falta de cada tarjeta",
+      "app/admin/runway/tareas.ts — tareasDelProyecto: las tarjetas abiertas y cerradas del tablero",
+      "app/admin/runway/page.tsx — la sección del Chatbot",
+    ],
+  },
 ];
