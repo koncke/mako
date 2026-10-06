@@ -28,11 +28,13 @@ type ProblemAd = { id: string; name: string; issues: Issue[]; statusLabel: strin
 import type { CrossData } from './EntityDetalle';
 import { resolverAd, synthSenal } from './ad-resolver';
 import { ProductoCelda } from './ProductoCelda';
-import { campanasAsignadasAction, type ProductoNombre } from '../crm/campanas-actions';
+import { campanasAsignadasAction, previaCampanaAction, asignarCampanaAction, quitarCampanaAction, deshacerAsignacionAction, type ProductoNombre } from '../crm/campanas-actions';
 import type { CampanaAsignada } from '@/lib/campana-config';
-import { Modal, Toast, useToast } from '@/app/_ui';
+import type { Movido } from '../crm/campanas-actions';
+import { hayQuePreguntar, valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
+import { Confirm, Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '../_components/icons';
-import { MenuAcciones, FiltrosMenu } from './BarraAcciones';
+import { MenuAcciones, FiltrosMenu, BarraLoteAds } from './BarraAcciones';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
@@ -123,8 +125,8 @@ type Row = {
   adsetName: string | null;
 };
 
-const th: CSSProperties = { padding: '11px 14px', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--surface)' };
-const td: CSSProperties = { padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
+const th: CSSProperties = { padding: '9px 12px', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 3 };
+const td: CSSProperties = { padding: '7px 12px', fontSize: 13, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
 
 // El detalle de un anuncio es direccionable: /ads-manager/<ad_id>. La URL se
 // mantiene sincronizada con lo que tenés abierto, así el link se puede copiar,
@@ -164,6 +166,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const [asig, setAsig] = useState<{ productos: ProductoNombre[]; asignadas: CampanaAsignada[] } | null>(null);
   const { toast: toastProd, show: showProd, clear: clearProd } = useToast(7000);
   const [elegirCampana, setElegirCampana] = useState(false);
+  const [pideLote, setPideLote] = useState<{ valor: string; funnelId: number | null; nombre: string; aTraer: number; n: number } | null>(null);
 
   // escrituras
   const [optimistic, setOptimistic] = useState<Map<string, { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number; name?: string }>>(new Map());
@@ -459,6 +462,70 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     avisarFallos(results, 'activar');
     cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   };
+  // Presupuesto en lote. Sólo donde se edita en ESTE nivel (CBO→campaña, ABO→conjunto):
+  // postear el resto sería pedirle a Meta algo que va a rechazar, y el aviso dice cuántos
+  // quedaron afuera — un lote que hace menos de lo que se le pidió y no lo dice es el
+  // «éxito falso» de siempre.
+  const bulkPresupuesto = async (mxn: number) => {
+    const elegidas = sorted.filter((r) => selSet.has(r.node.id));
+    const puede = elegidas.filter((r) => r.node.budgetLevel === r.level);
+    for (const r of puede) await writeBudget(r.level as Level, r.node.id, mxn);
+    const afuera = elegidas.length - puede.length;
+    setToast(afuera > 0
+      ? `Presupuesto cambiado en ${puede.length}. ${afuera} quedaron afuera: su presupuesto se edita en el otro nivel.`
+      : `Presupuesto cambiado en ${puede.length}.`);
+  };
+
+  // Producto en lote. Pregunta UNA vez con el total —doce confirmaciones no son una
+  // decisión— y deja UN deshacer, no N (la regla de la barra de lote del plan).
+  const bulkProducto = async (valor: string) => {
+    if (!asig) return;
+    const elegidas = sorted.filter((r) => selSet.has(r.node.id) && r.level !== 'ad');
+    if (!elegidas.length) return;
+    const items = elegidas.map((r) => ({
+      tipo: (r.level === 'campaign' ? 'campana' : 'conjunto') as 'campana' | 'conjunto',
+      id: r.node.id, nombre: nameOf(r.node),
+      campanaId: r.level === 'adset' ? (r.node.parentId ?? undefined) : undefined,
+    }));
+
+    if (valor === '') {
+      const antes = items.map((i) => asignadaDe.get(i.id)).filter(Boolean) as CampanaAsignada[];
+      for (const i of items) await quitarCampanaAction(i.id).then((r) => { if (r.ok) setAsig((v) => (v ? { ...v, asignadas: r.asignadas } : v)); });
+      showProd(`${antes.length} sin producto`, async () => {
+        for (const a of antes) await asignarCampanaAction(a.funnelId, { tipo: a.tipo, id: a.id, nombre: a.nombre, campanaId: a.campanaId }, false)
+          .then((r) => { if (r.ok) setAsig((v) => (v ? { ...v, asignadas: r.asignadas } : v)); });
+      });
+      return;
+    }
+
+    const funnelId = funnelDeValor(valor);
+    const nombreProd = asig.productos.find((p) => p.id === funnelId)?.nombre ?? 'el producto';
+    const previas = await Promise.all(items.map((i) => previaCampanaAction(funnelId, i).catch(() => null)));
+    const aTraer = previas.reduce((n, p) => n + (p && p.ok ? p.aTraer : 0), 0);
+    const enOtro = items.some((i) => { const a = asignadaDe.get(i.id); return !!a && a.funnelId !== funnelId; });
+    if (hayQuePreguntar(aTraer, enOtro ? 'otro producto' : null)) {
+      setPideLote({ valor, funnelId, nombre: nombreProd, aTraer, n: items.length });
+      return;
+    }
+    await aplicarProductoLote(funnelId, items, nombreProd);
+  };
+
+  const aplicarProductoLote = async (funnelId: number | null, items: Array<{ tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaId?: string }>, nombreProd: string) => {
+    const hechos: Array<{ id: string; antes: CampanaAsignada | null; movidos: Movido[] }> = [];
+    let movidos = 0;
+    for (const i of items) {
+      const r = await asignarCampanaAction(funnelId, i, true);
+      if (!r.ok) { showProd(r.error, undefined, 'bad'); continue; }
+      setAsig((v) => (v ? { ...v, asignadas: r.asignadas } : v));
+      hechos.push({ id: i.id, antes: r.antes, movidos: r.movidos });
+      movidos += r.movidos.length;
+    }
+    showProd(movidos ? `${movidos} leads a ${nombreProd}` : `${hechos.length} en ${nombreProd}`, async () => {
+      for (const h of hechos) await deshacerAsignacionAction(h.id, h.antes, h.movidos)
+        .then((r) => { if (r.ok) setAsig((v) => (v ? { ...v, asignadas: r.asignadas } : v)); });
+    });
+  };
+
   // Eliminar (solo PAUSADAS, con confirmación). Borrar campaña cascadea conjuntos/anuncios.
   const bulkDelete = async () => {
     const ids = [...selSet];
@@ -529,7 +596,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   };
 
   // columnas visibles para la tab actual
-  const hayCol = (c: ColDef) => (!c.levels || c.levels.includes(level)) && (c.id !== 'producto' || !!asig);
+  const hayCol = (c: ColDef) => (!c.levels || c.levels.includes(level)) && (c.id !== 'producto' || (!!asig && asig.productos.length > 1));
   const cols = ALL_COLS.filter((c) => hayCol(c) && (ALWAYS_ON.includes(c.id) || visibleCols[c.id]));
   const configurables = ALL_COLS.filter(hayCol);
 
@@ -555,7 +622,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       <style dangerouslySetInnerHTML={{ __html: `
         .adsTable{border-collapse:separate;border-spacing:0}
         .adsTable .stickyName{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--border)}
-        .adsTable thead .stickyName{z-index:4}
+        .adsTable thead .stickyName{z-index:5;background:var(--surface-2)}
         .adsTable tbody tr.rowHover:hover td{background:var(--surface-2)}
         .adsTable tbody tr.rowHover:hover .stickyName{background:var(--surface-2)}
       ` }} />
@@ -624,26 +691,22 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
             </div>
           )}
 
-          {/* barra de acciones masivas */}
+          {/* barra de acciones masivas — sin «Limpiar»: el checkbox de la cabecera ya suelta todo */}
           {selSet.size > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--ink)', color: 'var(--surface)', borderRadius: 12, padding: '10px 16px' }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{selSet.size} seleccionado{selSet.size === 1 ? '' : 's'}</span>
-              <button type="button" onClick={() => bulkStatus('ACTIVE')} style={bulkBtn}>Activar</button>
-              <button type="button" onClick={() => bulkStatus('PAUSED')} style={bulkBtn}>Pausar</button>
-              {confirmDel ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>¿Eliminar {selSet.size}?</span>
-                  <button type="button" onClick={bulkDelete} style={{ ...bulkBtn, background: 'var(--bad)', borderColor: 'transparent' }}>Sí, eliminar</button>
-                  <button type="button" onClick={() => setConfirmDel(false)} style={bulkBtn}>No</button>
-                </span>
-              ) : (
-                <button type="button" onClick={() => setConfirmDel(true)} style={bulkBtn} title="Solo campañas pausadas">🗑 Eliminar</button>
-              )}
-              <button type="button" onClick={() => setSelSet(new Set())} style={{ ...bulkBtn, marginLeft: 'auto', opacity: 0.8 }}>Limpiar</button>
-            </div>
+            <BarraLoteAds
+              n={selSet.size}
+              nivel={level}
+              todosActivos={sorted.filter((r) => selSet.has(r.node.id)).every((r) => effStatusOf(r.node) === 'ACTIVE')}
+              trabajando={writing.size > 0}
+              onEstado={(next) => bulkStatus(next)}
+              onPresupuesto={level === 'ad' ? undefined : bulkPresupuesto}
+              productos={level === 'ad' || !asig || asig.productos.length <= 1 ? null : [{ value: '', label: 'Sin asignar' }, ...asig.productos.map((p) => ({ value: valorDeProducto(p.id), label: p.nombre }))]}
+              onProducto={level === 'ad' || !asig ? undefined : bulkProducto}
+              onEliminar={level === 'campaign' ? bulkDelete : undefined}
+            />
           )}
 
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflowX: 'auto' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'auto', maxHeight: '68vh' }}>
             <table className="adsTable" style={{ width: '100%', minWidth: 760 }}>
               <thead>
                 <tr>
@@ -678,6 +741,9 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
                         item={{ tipo: r.level === 'campaign' ? 'campana' : 'conjunto', id: r.node.id, nombre: nameOf(r.node), campanaId: r.level === 'adset' ? (r.node.parentId ?? undefined) : undefined }}
                         productos={asig.productos}
                         asignada={asignadaDe.get(r.node.id)}
+                        heredadoDe={r.level === 'adset' && !asignadaDe.get(r.node.id) && r.node.parentId
+                          ? (asig.productos.find((p) => p.id === asignadaDe.get(r.node.parentId!)?.funnelId)?.nombre ?? null)
+                          : null}
                         onAsignadas={(a) => setAsig((v) => (v ? { ...v, asignadas: a } : v))}
                         show={showProd}
                       />
@@ -733,6 +799,28 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
             search
           />
         </Modal>
+      )}
+      {pideLote && (
+        <Confirm
+          title={pideLote.aTraer > 0 ? `¿Traer ${pideLote.aTraer} ${pideLote.aTraer === 1 ? 'lead' : 'leads'} a «${pideLote.nombre}»?` : `¿Mover ${pideLote.n} a «${pideLote.nombre}»?`}
+          message={pideLote.aTraer > 0
+            ? `Se mueven de su producto actual al nuevo. Los que entren desde ahora van a «${pideLote.nombre}».`
+            : 'Los leads que ya entraron se quedan donde están; sólo cambia a dónde van los nuevos.'}
+          confirmLabel={pideLote.aTraer > 0 ? `Traer ${pideLote.aTraer}` : 'Mover'}
+          cancelLabel="No asignar"
+          tone="primary"
+          onConfirm={() => {
+            const items = sorted.filter((r) => selSet.has(r.node.id) && r.level !== 'ad').map((r) => ({
+              tipo: (r.level === 'campaign' ? 'campana' : 'conjunto') as 'campana' | 'conjunto',
+              id: r.node.id, nombre: nameOf(r.node),
+              campanaId: r.level === 'adset' ? (r.node.parentId ?? undefined) : undefined,
+            }));
+            const pl = pideLote;
+            setPideLote(null);
+            void aplicarProductoLote(pl.funnelId, items, pl.nombre);
+          }}
+          onCancel={() => setPideLote(null)}
+        />
       )}
       <Toast state={toastProd} onClose={clearProd} />
     </div>

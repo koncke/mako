@@ -212,3 +212,108 @@ export function FiltrosMenu({ hoyReal, estado, opcionesEstado, onEstado, columna
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La barra de la selección múltiple
+// ─────────────────────────────────────────────────────────────────────────────
+// Pedido de Martín (05/10/2026): «faltan muchas otras acciones en lote… utilizar iconos
+// porque serán muchas… "Activar y pausar" son dos botones que podría ser uno, como un botón
+// de arrastre típico de activo o pausa», y que no haya ningún «Limpiar selección» —el
+// checkbox de la cabecera ya selecciona todo y lo suelta, como en el plan.
+//
+// Anatomía, la misma que la barra del plan: a la IZQUIERDA con qué estás trabajando, en el
+// MEDIO lo que cambia, y nada a la derecha. Lo que una selección NO puede hacer no se
+// dibuja: un control que no se puede cumplir se lee como que la app está rota.
+//
+// ⚠️ EL INTERRUPTOR ES UNO Y DICE EL ESTADO DEL LOTE. Encendido sólo si TODOS están
+// activos: con una mezcla, apagado — y tocarlo los activa a todos, que es lo que alguien
+// espera de un control que ve apagado. Dos botones separados obligaban a saber de antemano
+// en qué estado estaba cada uno.
+// =============================================================================
+
+export type LoteNivel = 'campaign' | 'adset' | 'ad';
+
+const NOMBRE: Record<LoteNivel, [string, string]> = {
+  campaign: ['campaña', 'campañas'],
+  adset: ['conjunto', 'conjuntos'],
+  ad: ['anuncio', 'anuncios'],
+};
+
+const chip: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 34, padding: '0 12px',
+  borderRadius: 10, border: '1px solid rgba(243,245,248,.22)', background: 'rgba(243,245,248,.08)',
+  color: 'var(--surface)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+};
+
+export function BarraLoteAds({ n, nivel, todosActivos, trabajando, onEstado, onPresupuesto, productos, onProducto, onEliminar }: {
+  n: number;
+  nivel: LoteNivel;
+  /** Encendido = los N están activos. Con una mezcla va apagado. */
+  todosActivos: boolean;
+  trabajando?: boolean;
+  onEstado: (next: 'ACTIVE' | 'PAUSED') => void;
+  /** Sólo donde el presupuesto se edita en ESTE nivel (CBO→campaña, ABO→conjunto). */
+  onPresupuesto?: (mxn: number) => void;
+  productos?: Array<{ value: string; label: string }> | null;
+  onProducto?: (valor: string) => void;
+  /** Meta sólo deja borrar lo que está en pausa, así que esto no siempre se puede. */
+  onEliminar?: () => void;
+}) {
+  const [modo, setModo] = useState<null | 'presupuesto' | 'producto' | 'eliminar'>(null);
+  const [monto, setMonto] = useState('');
+  const [sing, plur] = NOMBRE[nivel];
+
+  const icono = (titulo: string, glifo: string, onClick: () => void, activo: boolean) => (
+    <button type="button" title={titulo} aria-label={titulo} onClick={onClick} disabled={trabajando}
+      style={{ ...chip, width: 38, padding: 0, background: activo ? 'rgba(243,245,248,.22)' : 'rgba(243,245,248,.08)', fontSize: 15, cursor: trabajando ? 'wait' : 'pointer' }}>
+      {glifo}
+    </button>
+  );
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--ink)', color: 'var(--surface)', borderRadius: 14, padding: '10px 14px' }}>
+      <span style={{ fontSize: 14, fontWeight: 600, marginRight: 2 }}>{n} {n === 1 ? sing : plur}</span>
+
+      {/* un solo interruptor: encendido = los N activos */}
+      <button type="button" role="switch" aria-checked={todosActivos} disabled={trabajando}
+        title={todosActivos ? `Pausar ${n === 1 ? sing : plur}` : `Activar ${n === 1 ? sing : plur}`}
+        onClick={() => onEstado(todosActivos ? 'PAUSED' : 'ACTIVE')}
+        style={{ ...chip, padding: '0 10px 0 6px', cursor: trabajando ? 'wait' : 'pointer' }}>
+        <span style={{ width: 34, height: 19, borderRadius: 999, background: todosActivos ? 'var(--good)' : 'rgba(243,245,248,.28)', position: 'relative', transition: 'background .15s', flex: 'none' }}>
+          <span style={{ position: 'absolute', top: 2, left: todosActivos ? 17 : 2, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
+        </span>
+        {todosActivos ? 'Activas' : 'En pausa'}
+      </button>
+
+      {onPresupuesto && icono('Cambiar presupuesto diario', '💲', () => setModo((m) => (m === 'presupuesto' ? null : 'presupuesto')), modo === 'presupuesto')}
+      {productos && productos.length > 0 && onProducto && icono('Asignar a un producto del CRM', '🎯', () => setModo((m) => (m === 'producto' ? null : 'producto')), modo === 'producto')}
+      {onEliminar && icono('Eliminar (sólo lo que está en pausa)', '🗑', () => setModo((m) => (m === 'eliminar' ? null : 'eliminar')), modo === 'eliminar')}
+
+      {modo === 'presupuesto' && onPresupuesto && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <input autoFocus inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.,]/g, ''))}
+            placeholder="Diario, en la moneda de la cuenta"
+            style={{ height: 34, width: 220, padding: '0 10px', borderRadius: 10, border: '1px solid rgba(243,245,248,.25)', background: 'rgba(243,245,248,.10)', color: 'var(--surface)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+          <button type="button" disabled={!Number(monto.replace(',', '.'))} onClick={() => { onPresupuesto(Number(monto.replace(',', '.'))); setModo(null); setMonto(''); }}
+            style={{ ...chip, background: 'var(--primary)', borderColor: 'transparent' }}>Aplicar a {n}</button>
+        </span>
+      )}
+
+      {modo === 'producto' && productos && onProducto && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {productos.map((p) => (
+            <button key={p.value} type="button" onClick={() => { onProducto(p.value); setModo(null); }} style={chip}>{p.label}</button>
+          ))}
+        </span>
+      )}
+
+      {modo === 'eliminar' && onEliminar && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13 }}>Sólo se eliminan las pausadas.</span>
+          <button type="button" onClick={() => { onEliminar(); setModo(null); }} style={{ ...chip, background: 'var(--bad)', borderColor: 'transparent' }}>Eliminar {n}</button>
+          <button type="button" onClick={() => setModo(null)} style={chip}>No eliminar</button>
+        </span>
+      )}
+    </div>
+  );
+}

@@ -31,11 +31,21 @@ export type ItemCampana = { tipo: 'campana' | 'conjunto'; id: string; nombre: st
 
 type Pide = { funnelId: number | null; producto: string; aTraer: number; desde: string | null; porProducto: PorProducto[] };
 
-export function ProductoCelda({ item, productos, asignada, onAsignadas, show, disabled }: {
+export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignadas, show, disabled }: {
   item: ItemCampana;
   productos: ProductoNombre[];
   /** La fila de este id en el mapa, si está asignada. */
   asignada: CampanaAsignada | undefined;
+  /**
+   * El producto que este conjunto HEREDA de su campaña, si no tiene uno propio.
+   *
+   * ⚠️ No es cosmético: el ruteo ya funciona así (`funnelIdDeCampana`: el conjunto gana
+   * sólo si tiene asignación propia, si no manda la campaña), y la celda decía «Sin
+   * asignar» sobre un conjunto cuyos leads SÍ entran a un producto. Eso se lee como que
+   * la asignación de la campaña no alcanzó, y lleva a asignar de nuevo conjunto por
+   * conjunto — justo la fricción que este pedido vino a sacar.
+   */
+  heredadoDe?: string | null;
   onAsignadas: (asignadas: CampanaAsignada[]) => void;
   show: (msg: string, onUndo?: () => void, tono?: 'bad') => void;
   disabled?: boolean;
@@ -108,7 +118,7 @@ export function ProductoCelda({ item, productos, asignada, onAsignadas, show, di
   };
 
   const opciones = [
-    { value: '', label: 'Sin asignar' },
+    { value: '', label: heredadoDe ? `${heredadoDe} · por su campaña` : 'Sin asignar' },
     ...productos.map((p) => ({ value: valorDe(p.id), label: p.nombre })),
   ];
   const txt = pide ? preguntaAsignar(pide) : null;
