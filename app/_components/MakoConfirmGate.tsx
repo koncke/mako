@@ -208,8 +208,12 @@ function Tarjeta() {
 
   const cuantos = `${items.length} ${items.length === 1 ? 'lead' : 'leads'}`;
   const total = items.length + sinMarcar;
+  // ⚠️ YA NO ES `fixed` (06/10/2026): la esquina es un contenedor compartido
+  // (app/_components/EsquinaAvisos.tsx) que la apila con «Actualiza el Pixel». Dos
+  // piezas fijas en la misma esquina se pisan; en columna, cuando ésta se abre, la
+  // de arriba sube con ella.
   const marco: CSSProperties = {
-    position: 'fixed', right: 20, bottom: 20, zIndex: 65, fontFamily: SANS,
+    position: 'relative', pointerEvents: 'auto', fontFamily: SANS,
     width: abierta ? 'min(380px, calc(100vw - 32px))' : 'auto',
     background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14,
     boxShadow: '0 14px 40px rgba(18,21,27,.22)', overflow: 'hidden',
@@ -228,7 +232,7 @@ function Tarjeta() {
   }
 
   return (
-    <section aria-label={`A revisar: ${total}`} style={{ ...marco, display: 'flex', flexDirection: 'column', maxHeight: 'min(520px, calc(100vh - 40px))' }}>
+    <section aria-label={`A revisar: ${total}`} style={{ ...marco, display: 'flex', flexDirection: 'column', maxHeight: 'min(520px, calc(100vh - 40px))', flex: '0 1 auto', minHeight: 0 }}>
       <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px', borderBottom: '1px solid var(--border)' }}>
         <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>Mk</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>

@@ -6,6 +6,8 @@ import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
+import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
+import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { HideOnPublicLanding } from './_components/PublicRouteGate';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -171,7 +173,13 @@ export default async function RootLayout({
                   («no significa que desaparezca, pero no quiero que interrumpa»). Y desde el
                   30/09 lee `useSearchParams` —el producto viaja en `?funnel=`, no en el
                   pathname— así que va envuelto en el Suspense que Next exige. */}
-              <MakoConfirmGate />
+              {/* ⚠️ La esquina de abajo a la derecha es UN contenedor (06/10/2026): «A
+                  revisar» y «Actualiza el Pixel» van apilados ahí adentro para no
+                  pisarse. Ver app/_components/EsquinaAvisos.tsx. */}
+              <EsquinaAvisos>
+                <AvisoPixelViejo />
+                <MakoConfirmGate />
+              </EsquinaAvisos>
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

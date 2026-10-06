@@ -48,6 +48,7 @@ import { REPLAY_CONFIG_KEY, REPLAY_LIB_VERSION, grabaA, parsearReplay } from '@/
 import { getSetting, setSetting } from '@/lib/settings';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { canonizarVideoId } from '@/lib/video-id';
+import { esPreviewDeEditor } from '@/lib/landing-paginas';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,8 +129,18 @@ async function stampVisitorOnLead(token: string, visitorId: string): Promise<voi
  *
  * Un snippet sin `sv` es de la v1 (anterior al versionado). Se anota como 1 y no
  * como «desconocido»: es exactamente el que hay que avisarle que actualice.
+ *
+ * ⚠️ NI EL EDITOR NI LOCALHOST ANOTAN (06/10/2026). La versión es del WORKSPACE y
+ * gana el último evento, así que una visita desde la vista previa del constructor
+ * —que suele correr el código viejo un rato más— la bajaba de nuevo después de
+ * que la página publicada ya mandaba la nueva. Medido en el ws1: v14 desde el
+ * preview a las 03:28 y v21 desde la página a las 03:30. Con el aviso fijo de «tu
+ * Pixel quedó viejo» que se apoya en este número, eso era prenderle el aviso a
+ * quien ya repegó. Lo que se mide de esas visitas no cambia: sólo no votan.
  */
-async function anotarVersionSnippet(sv: unknown): Promise<void> {
+async function anotarVersionSnippet(sv: unknown, landingUrl?: unknown): Promise<void> {
+  const url = typeof landingUrl === 'string' ? landingUrl : '';
+  if (url && (esPreviewDeEditor(url) || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url))) return;
   const n = Number(sv);
   const version = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
   const guardada = Number(await getSetting(SNIPPET_VERSION_KEY));
@@ -158,6 +169,15 @@ type Payload = {
   clic_y?: unknown;
   ancho_ventana?: unknown; // ancho del viewport en px CSS
   alto_pagina?: unknown;   // alto del documento en px CSS
+  // ── El ANCLA del clic (mig 0201, snippet v22) ───────────────────────────────
+  // El punto de página no alcanza para ubicar un toque sobre una foto: el alto del
+  // documento varía hasta un 32% en la misma página y el mismo ancho. El elemento
+  // tocado sí se ubica igual en cualquier foto donde exista.
+  sel?: unknown;           // ruta CSS corta del elemento, SIN texto
+  rel_x?: unknown;         // dónde dentro de su caja, en milésimos (0..1000)
+  rel_y?: unknown;
+  alto_ventana?: unknown;  // alto del viewport: la línea del pliegue
+  fijo?: unknown;          // el elemento (o un ancestro) es fixed/sticky
   /** Marcador de sesión de prueba (?mko_test=). NULL en el tráfico real. */
   prueba?: unknown;  // título del video de Panda, si la landing lo puede leer
   landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
@@ -215,7 +235,7 @@ export async function POST(request: NextRequest) {
     // día —los eventos llegan igual y la integración queda en verde— y una mejora
     // no le llega nunca a quien ya lo tenía pegado. Best-effort: nunca rompe el
     // beacon, que es lo que de verdad importa.
-    void anotarVersionSnippet(payload.sv).catch(() => {});
+    void anotarVersionSnippet(payload.sv, payload.landing_url).catch(() => {});
     return procesar(payload, visitorId, ip);
   });
 }
@@ -248,6 +268,21 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
   // número no sirve.
   const pixel = (v: unknown, max: number): number | null =>
     typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? Math.round(v) : null;
+
+  // Una posición DENTRO de un elemento, en milésimos. Fuera de 0..1000 no es un
+  // redondeo de más: es otra cosa, y se guarda NULL por la misma razón que pixel().
+  const milesimo = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000 ? Math.round(v) : null;
+
+  // La ruta CSS del elemento tocado. El snippet la arma con etiquetas,
+  // :nth-of-type(n), #id y « > »; cualquier carácter fuera de esa forma es un
+  // payload que no salió del snippet (el beacon es público), y no se guarda.
+  const selector = (v: unknown): string | null => {
+    if (typeof v !== 'string') return null;
+    const s = v.trim();
+    if (!s || s.length > 200) return null;
+    return /^[A-Za-z0-9 >#:()_-]+$/.test(s) ? s : null;
+  };
 
   // Visita a la landing → tabla propia (landing_visits), NO vsl_events.
   // Se intercepta antes de la coerción a 'play' de tipos desconocidos.
@@ -406,6 +441,17 @@ async function procesar(payload: Payload, visitorId: string, ip: string): Promis
       clic_y: pixel(payload.clic_y, 500_000),
       ancho_ventana: pixel(payload.ancho_ventana, 50_000),
       alto_pagina: pixel(payload.alto_pagina, 500_000),
+      // EL ANCLA (mig 0201, snippet v22): el elemento tocado y dónde dentro de él.
+      // Es lo que ubica un toque sobre una foto de la página sin depender del alto
+      // del documento. El selector viaja SIN texto por diseño del snippet; acá se
+      // sanea igual por forma, porque el beacon es público: sólo caracteres de una
+      // ruta CSS, y si trae otra cosa no se guarda (NULL), no se recorta.
+      sel: selector(payload.sel),
+      rel_x: milesimo(payload.rel_x),
+      rel_y: milesimo(payload.rel_y),
+      alto_ventana: pixel(payload.alto_ventana, 50_000),
+      // NULL —y no false— cuando no viene: un Pixel anterior a la v22 no lo midió.
+      fijo: payload.fijo === true ? true : payload.fijo === false ? false : null,
       prueba: texto(payload.prueba, 40),
       // De qué página vino ESTE evento (mig 0137, snippet v12). Antes solo lo
       // decían las visitas, así que con dos landings los videos y los clics de

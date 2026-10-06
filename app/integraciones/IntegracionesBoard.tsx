@@ -38,6 +38,7 @@ import { Icon } from '../_components/icons';
 import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
+import { ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -200,7 +201,13 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   const abrir = searchParams.get('abrir');
   const yaAbierto = useRef(false);
   useEffect(() => {
-    if (!abrir || yaAbierto.current) return;
+    // ⚠️ Sin parámetro se REARMA (06/10/2026). La ref se ponía en true la primera vez
+    // y no volvía nunca, así que estando ya en /integraciones un segundo
+    // `?abrir=landing` —el aviso fijo «Actualiza el Pixel» de la esquina— no abría
+    // nada: un botón que no hace nada. El `replace` de abajo borra el parámetro, y
+    // ese render vuelve a dejar la puerta abierta para el próximo.
+    if (!abrir) { yaAbierto.current = false; return; }
+    if (yaAbierto.current) return;
     if (!integraciones.some((i) => i.key === abrir) && !SYNTHETIC[abrir]) return;
     yaAbierto.current = true;
     setModal({ t: 'svc', key: abrir });
@@ -479,7 +486,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           // configurar" (lo que diría el ámbar por defecto) manda al usuario a
           // buscar una credencial que no existe: acá lo que falta es un permiso.
           chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso'
-            : modal.key === 'landing' && landingVieja ? 'Actualiza el Pixel'
+            : modal.key === 'landing' && landingVieja ? ROTULO_PIXEL_VIEJO
             : undefined}
           gcal={gcal}
           health={health} metaError={metaError} usage={usage}

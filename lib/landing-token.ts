@@ -123,8 +123,16 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       contesta el servidor en la respuesta del pageview (`landing.replay`, por
  *       workspace), y mientras diga que no, la librería ni se baja. Los campos
  *       tapados viajan tapados desde la primera línea. Ver docs/replay-diseno.md.
+ *  22 — el clic viaja ANCLADO AL ELEMENTO que se tocó (la ruta CSS corta, sin
+ *       texto, y dónde dentro de su caja), con el alto de la ventana y la marca de
+ *       si el elemento es fijo (06/10/2026). Es lo que el mapa de calor de Landing
+ *       Analyst necesita para ubicar un toque sobre una foto de la página: el punto
+ *       de página de la v20 depende del alto del documento, que medido varía hasta
+ *       un 32% en la misma página y el mismo ancho. Y es el primer código SIN el tag
+ *       de Clarity: una página repegada con la v21 antes del 06/10 a las 07:23 UTC
+ *       todavía lo trae adentro, y con la versión en 21 contaba como al día.
  */
-export const SNIPPET_VERSION = 21;
+export const SNIPPET_VERSION = 22;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -154,12 +162,17 @@ export async function snippetDesactualizado(): Promise<{ viejo: boolean; instala
  * andar. Al subir SNIPPET_VERSION, sumá su renglón acá.
  */
 const NOVEDADES: Record<number, string> = {
-  // ⚠️ El renglón de la 21 NO repite el de la 20 a propósito: `novedadesDesde()`
-  // junta todos los que faltan con un «·», así que quien está en la 14 —el caso
-  // real: el workspace con 7.052 visitas— lee las dos cosas y vuelve a pegar el
-  // código UNA sola vez. Repetirlas acá le mostraría dos veces lo mismo a quien ya
-  // está en la 20.
-  21: 'la grabación de la sesión: poder mirar lo que hizo cada persona en tu página —dónde se detuvo, qué intentó tocar, en qué punto se fue—, que es lo que hoy se tiene que ir a buscar a otra herramienta. Llega APAGADA: se prende una vez desde la app y vale para todo tu negocio, y lo que alguien escribe en un formulario viaja tapado, así que no queda grabado',
+  // ⚠️ Cada renglón NO repite los de al lado a propósito: `novedadesDesde()`
+  // junta los que faltan, de la más nueva a la más vieja, así que quien está en
+  // una versión muy vieja lee lo más importante primero y vuelve a pegar el código
+  // UNA sola vez.
+  //
+  // ⚠️ Y NINGÚN RENGLÓN AFIRMA SI ALGO ESTÁ PRENDIDO O APAGADO. El mismo texto lo
+  // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
+  // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
+  // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  22: 'el mapa de calor de tu página: en qué parte exacta toca la gente, dibujado sobre tu página y separado en celular y computadora',
+  21: 'la grabación de cada visita: mirar lo que hizo cada persona en tu página —dónde se detuvo, qué intentó tocar, en qué punto se fue— desde su ficha en el CRM. Lo que alguien escribe en un formulario viaja tapado, así que no queda grabado',
   20: 'EN QUÉ PUNTO de tu página toca cada persona, que es lo que hace falta para dibujar el mapa de calor. Hasta ahora se guardaba a dónde iba cada clic y nunca dónde se hizo, así que no se podía pintar sobre tu página; y los toques en algo que no es un botón —una foto que parece clickeable, un precio que la gente aprieta esperando que pase algo— se tiraban, cuando son lo que más te dice qué está confundiendo a la gente',
   19: 'hasta dónde baja cada persona en tu página. Hasta ahora se sabía quién entró, qué video vio y qué botón apretó, y nada de cuánto leyó: quien se fue arriba sin leer la oferta y quien llegó hasta el final y no la apretó se veían iguales, y son dos problemas distintos',
   18: 'la retención de tu VSL cuando usa un reproductor moderno: se estaba midiendo dos veces, como si fueran dos videos distintos, así que las reproducciones salían al doble y la curva partida en dos',
@@ -181,9 +194,21 @@ const NOVEDADES: Record<number, string> = {
   7: 'la medición de tu video cuando no usas Panda: con un reproductor común no se registraba ni una reproducción',
 };
 
-export function novedadesDesde(instalada: number): string {
-  const l = Object.entries(NOVEDADES).filter(([v]) => Number(v) > instalada).map(([, t]) => t);
-  return l.join(' · ') || 'mejoras de medición';
+export function novedadesDesde(instalada: number, max = 3): string {
+  // ⚠️ DE LA MÁS NUEVA A LA MÁS VIEJA, Y CORTADA. `Object.entries` recorre las
+  // claves numéricas de MENOR a mayor aunque el literal esté escrito al revés, así
+  // que la novedad más nueva —la que justifica el aviso— salía ÚLTIMA: medido el
+  // 06/10/2026, entre el 66% y el 84% de un texto de 1.042 a 2.240 caracteres que
+  // se manda por WhatsApp. Las tres más nuevas alcanzan para dar el motivo; el
+  // resto se cuenta.
+  const l = Object.entries(NOVEDADES)
+    .map(([v, t]) => [Number(v), t] as const)
+    .filter(([v]) => v > instalada)
+    .sort((a, b) => b[0] - a[0])
+    .map(([, t]) => t);
+  if (!l.length) return 'mejoras de medición';
+  const resto = l.length - max;
+  return l.slice(0, max).join(' · ') + (resto > 0 ? ` · y ${resto} ${resto === 1 ? 'mejora más' : 'mejoras más'}` : '');
 }
 
 /** Servicio bajo el que se indexa el token en webhook_routing. */
@@ -972,8 +997,14 @@ export async function landingDiagnostico(
   // bajar: el gate por host era correcto para el salto a la v16 —que solo le
   // cambiaba algo a quien aloja el video afuera— y con la v19 puesto deja mudo
   // justo el caso general. Se pregunta por la version, no por las piezas.
-  const VERSION_DEL_SCROLL = 19;
-  const ganaConLaNueva = instalada < VERSION_DEL_SCROLL
+  //
+  // ⚠️ Y LA v22 TAMBIÉN LE SIRVE A TODAS: ancla el clic para el mapa de calor, y es
+  // el primer código sin el tag de Clarity. Por eso el corte es la ÚLTIMA versión
+  // que le sirve a todas, no la del scroll: con 19, una página en la 21 leía «para
+  // esta página miden igual, no hay apuro» sobre la única versión que le saca el
+  // tag de un tercero.
+  const ULTIMA_PARA_TODAS = 22;
+  const ganaConLaNueva = instalada < ULTIMA_PARA_TODAS
     || !piezas || piezas.some((p) => HOSTS_DE_LA_V16.includes(p));
   const codigoViejo = instalada > 0 && instalada < SNIPPET_VERSION && ganaConLaNueva;
 
@@ -2472,7 +2503,10 @@ export function landingSnippet(token: string): string {
         // el nombre, el mail o el teléfono de quien está mirando. La etiqueta del
         // elemento (DIV, IMG, INPUT) dice todo lo que el mapa necesita y no identifica
         // a nadie; una coordenada tampoco.
-        enviar({ tipo_evento: 'clic_vacio', detalle: etiquetaDe(tocado), clic_x: punto.x, clic_y: punto.y, ancho_ventana: punto.vw, alto_pagina: punto.dh });
+        var dv = { tipo_evento: 'clic_vacio', detalle: etiquetaDe(tocado), clic_x: punto.x, clic_y: punto.y, ancho_ventana: punto.vw, alto_pagina: punto.dh };
+        var av = anclaDe(tocado, ev);
+        if (av) { dv.sel = av.sel; dv.rel_x = av.rx; dv.rel_y = av.ry; dv.alto_ventana = av.vh; dv.fijo = av.fijo; }
+        enviar(dv);
         return;
       }
       if (CLICKS >= 40) return;
@@ -2497,10 +2531,67 @@ export function landingSnippet(token: string): string {
       // Las coordenadas se SUMAN cuando las hay: un clic disparado por código no
       // tiene punto y el evento tiene que salir igual, porque para el embudo ese
       // clic ocurrió. Mandar un 0 inventaría una mancha en la esquina.
-      if (punto) { d.clic_x = punto.x; d.clic_y = punto.y; d.ancho_ventana = punto.vw; d.alto_pagina = punto.dh; }
+      if (punto) {
+        d.clic_x = punto.x; d.clic_y = punto.y; d.ancho_ventana = punto.vw; d.alto_pagina = punto.dh;
+        // El ancla sólo con punto real: un clic disparado por código no tiene dónde.
+        var a = anclaDe(el, ev);
+        if (a) { d.sel = a.sel; d.rel_x = a.rx; d.rel_y = a.ry; d.alto_ventana = a.vh; d.fijo = a.fijo; }
+      }
       enviar(d);
     } catch (e) {}
   }, true);
+
+  // ⚠️ Y DESDE LA v22 EL CLIC VIAJA ANCLADO AL ELEMENTO. El punto de página
+  // depende del alto del documento, que en la misma página y al mismo ancho varía
+  // hasta un tercio (imágenes que cargan, bloques que se abren): sobre una foto de
+  // la página, un toque en el botón del precio caía cientos de píxeles más arriba
+  // o más abajo. El elemento no se mueve así: «el segundo botón de esa sección, a
+  // un tercio de su ancho» se ubica igual en cualquier foto donde ese botón esté.
+  //
+  // La ruta va con etiquetas y su posición entre hermanas, hasta el primer
+  // ancestro con id. SIN TEXTO, por la misma regla del toque al vacío: el texto de
+  // la zona tocada puede ser el nombre de quien mira.
+  function selDe(el) {
+    var partes = [];
+    var n = el;
+    var anclada = false;
+    for (var i = 0; n && n.nodeType === 1 && i < 8; i++) {
+      var t = String(n.tagName || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+      if (!t) return '';
+      if (t === 'html' || t === 'body') { anclada = true; break; }
+      if (n.id && /^[A-Za-z][\\w-]{0,40}$/.test(n.id)) { partes.unshift('#' + n.id); anclada = true; break; }
+      var k = 1;
+      var h = n.previousElementSibling;
+      while (h) { if (h.tagName === n.tagName) k++; h = h.previousElementSibling; }
+      partes.unshift(t + ':nth-of-type(' + k + ')');
+      n = n.parentElement;
+    }
+    if (!partes.length) return '';
+    var s = partes.join(' > ');
+    if (anclada && partes[0].charAt(0) !== '#') s = 'body > ' + s;
+    return s.length <= 200 ? s : '';
+  }
+  function anclaDe(el, ev) {
+    try {
+      if (!el || !el.getBoundingClientRect) return null;
+      var r = el.getBoundingClientRect();
+      if (!r || r.width < 1 || r.height < 1) return null;
+      if (typeof ev.clientX !== 'number' || typeof ev.clientY !== 'number') return null;
+      var rx = Math.round(Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * 1000);
+      var ry = Math.round(Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) * 1000);
+      // Un botón flotante (el de WhatsApp, un sello del constructor) se mueve con la
+      // pantalla: su punto de página cambia con el scroll y, sin esta marca, mancha
+      // la página a lo largo con toques que fueron todos en el mismo botón.
+      var fijo = false;
+      for (var n = el, i = 0; n && n.nodeType === 1 && i < 12; i++, n = n.parentElement) {
+        var pos = window.getComputedStyle ? window.getComputedStyle(n).position : '';
+        if (pos === 'fixed' || pos === 'sticky') { fijo = true; break; }
+      }
+      var sel = selDe(el);
+      if (!sel) return null;
+      return { sel: sel, rx: rx, ry: ry, vh: Math.round(window.innerHeight || 0), fijo: fijo };
+    } catch (e) { return null; }
+  }
 
   // ── SCROLL ──────────────────────────────────────────────────────────────────
   // HASTA DONDE BAJO LA PERSONA EN LA PAGINA. Faltaba la otra mitad de la visita:

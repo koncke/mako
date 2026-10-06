@@ -173,7 +173,10 @@ test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
   assert.ok(/tracking-desactualizado/.test(cron), 'falta el aviso por WhatsApp');
   // El aviso dice QUÉ se pierde: «actualizá» a secas es una tarea sin motivo, y
   // menos todavía cuando lo que tiene puesto funciona.
-  assert.ok(/novedadesDesde\(instalada\)/.test(cron), 'el aviso tiene que decir qué se está perdiendo, no solo que actualice');
+  // ⚠️ Desde el 06/10/2026 se cuenta desde la página MÁS atrasada (`minima`), no
+  // desde el setting del workspace: medido en el ws11, el setting decía 18 y una
+  // de sus páginas seguía en la 15.
+  assert.ok(/novedadesDesde\(minima\)/.test(cron), 'el aviso tiene que decir qué se está perdiendo, contado desde la página más atrasada');
 
   // Cada versión nueva tiene que traer su renglón de novedades, o el aviso sale
   // diciendo «mejoras de medición» —el fallback— que no le dice nada a nadie.
@@ -250,7 +253,10 @@ test('el aviso de código viejo: rótulo propio, texto determinista y link que a
 test('la pantalla también lo dice (no solo el WhatsApp)', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   assert.ok(/i\.key === 'landing' && landingVieja\) return 'warn'/.test(board), 'con el código viejo la integración no puede seguir en verde');
-  assert.ok(/'Actualiza el Pixel'/.test(board), 'el chip tiene que decir qué hacer');
+  // ⚠️ El rótulo vive en lib/pixel-aviso.ts desde el 06/10/2026: lo comparten el chip
+  // del modal y el aviso fijo de la esquina, y dos copias del mismo texto divergen.
+  assert.ok(/landingVieja \? ROTULO_PIXEL_VIEJO/.test(board), 'el chip tiene que decir qué hacer');
+  assert.ok(/ROTULO_PIXEL_VIEJO = 'Actualiza el Pixel'/.test(leer('../lib/pixel-aviso.ts')), 'el rótulo dice qué hacer');
   // El deep-link: abre el modal, scrollea, y limpia el parámetro para que un F5
   // no reabra lo que la persona ya cerró.
   assert.ok(/searchParams\.get\('abrir'\)/.test(board), 'falta leer el parámetro del deep-link');

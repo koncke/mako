@@ -544,8 +544,14 @@ Conviene que le marques tú: +52 55 4874 2149
     ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tienes que confirmar tú, así revisas el teléfono antes de que valga. Ábrela aquí 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
   },
   {
-    id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso',
+    id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // ⚠️ PRENDIDO POR DEFAULT desde el 06/10/2026. El 28/09 (e22a633e) todo aviso sin
+    // `porDefecto` pasó a nacer apagado, y éste quedó afuera de los que se rescataron:
+    // medido, la última vez que salió fue el 28/09, a nadie, mientras tres clientes
+    // tenían un código anterior a la grabación de visitas. Martín pidió usarlo para
+    // eso: «sería bueno que utilices el mensaje de WhatsApp de notificación que la
+    // landing quedó vieja». Es 'on' y no 'siempre': se puede apagar.
     // El hermano silencioso de 'tracking-apagado', y MÁS difícil de ver: acá el
     // tracking NO está muerto. Los eventos llegan, la integración está en verde y
     // todo parece bien — pero el snippet quedó CONGELADO en el HTML del cliente el
@@ -554,7 +560,7 @@ Conviene que le marques tú: +52 55 4874 2149
     // Por eso el aviso dice QUÉ se está perdiendo y no solo «actualizá»: sin eso
     // es una tarea sin motivo, y una tarea sin motivo no la hace nadie.
     disparador: 'Cron diario: el beacon reporta una versión de snippet anterior a la actual (SNIPPET_VERSION).',
-    ejemplo: `🟡 El Pixel que tienes instalado en tu página es de una versión vieja, así que te estás perdiendo lo nuevo: *ahora captura solo el formulario* y te manda a esa gente al CRM. Copia el código de nuevo en Integraciones → Landing y vuelve a pegarlo. Son dos minutos. — MaKo`,
+    ejemplo: `🟡 Tu página tiene un código viejo del Pixel y por eso no graba las visitas. *Qué te estás perdiendo:* el mapa de calor de tu página y la grabación de cada visita. *Cómo se arregla* (2 minutos): entra aquí, elige esa página, copia el código y vuelve a pegarlo donde estaba. — MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',

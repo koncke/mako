@@ -22,7 +22,9 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { getSetting } from '@/lib/settings';
-import { LANDING_TOKEN_KEY, novedadesDesde, snippetDesactualizado, verificarPagina } from '@/lib/landing-token';
+import { LANDING_TOKEN_KEY, SNIPPET_VERSION, novedadesDesde, snippetDesactualizado, verificarPagina } from '@/lib/landing-token';
+import { REPLAY_CONFIG_KEY, parsearReplay } from '@/lib/replay-contrato';
+import { REPLAY_DESDE_SNIPPET } from '@/lib/replay-ficha';
 import { CONFIG_KEY, parsearConfig, urlsDe } from '@/lib/landing-config';
 import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
 
@@ -56,6 +58,19 @@ const HORAS_APAGADO = 48;
 
 /** Que no repita el mismo aviso todos los días mientras dura el apagón. */
 const DEDUP_MIN = 60 * 24 * 3;
+
+/**
+ * Cada cuánto se insiste con «tu Pixel quedó viejo»: una vez por semana.
+ *
+ * ⚠️ MENOS UNA HORA, a propósito. El cron corre una vez por día a la misma hora y
+ * la ventana se mide al segundo: con 72 h exactas el tercer día caía segundos ANTES
+ * del corte y el aviso salía cada CUATRO días (medido en el ws1: 13, 17, 21 y 25/09).
+ * Con 7 días justos pasaría lo mismo y saldría cada ocho.
+ *
+ * Y va con `dedupKey` de la VERSIÓN: cuando sale una versión nueva, el aviso de esa
+ * versión sale enseguida aunque el de la anterior haya salido ayer.
+ */
+const DEDUP_VIEJO_MIN = 60 * 24 * 7 - 60;
 
 type Estado = { ws: number; ultima: string | null; horas: number | null; aviso: boolean; snippet?: number; cambios?: number };
 
@@ -218,15 +233,35 @@ export async function GET(req: NextRequest) {
             // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico:
             // callarse porque no se sabe cuál sería perder el aviso entero.
             const atrasadas: string[] = [];
+            let minima = instalada;
             for (const u of suyas.slice(0, 8)) {
               const v = await verificarPagina(u).catch(() => null);
-              if (v?.instalada && v.vieja) atrasadas.push(v.url);
+              if (v?.instalada && v.vieja) {
+                atrasadas.push(v.url);
+                // Las novedades se cuentan desde la página MÁS atrasada, no desde el
+                // setting del workspace (gana el último evento): medido en el ws11, el
+                // setting decía 18 y una de sus páginas seguía en la 15.
+                if (typeof v.version === 'number' && v.version < minima) minima = v.version;
+              }
             }
-            const cuales = atrasadas.length === 1
-              ? `Tu página *${atrasadas[0]}* tiene una versión vieja del Pixel.`
-              : atrasadas.length > 1
-                ? `Estas páginas tienen una versión vieja del Pixel:${NL}${atrasadas.map((u) => `• ${u}`).join(NL)}`
-                : 'El código que tienes instalado es de una versión vieja.';
+            // ⚠️ LA RAZÓN VA PRIMERO, y sólo si es VERDAD para este negocio. Con la
+            // grabación prendida y un código anterior al grabador, lo que se pierde es
+            // concreto: las visitas no se graban. Es la primera línea porque es la que
+            // queda cuando el resumen diario recorta cada aviso a un renglón.
+            const replay = parsearReplay(await getSetting(REPLAY_CONFIG_KEY).catch(() => null));
+            const razon = replay.activo && minima < REPLAY_DESDE_SNIPPET
+              ? (atrasadas.length > 1
+                ? 'Tus páginas tienen un código viejo del Pixel y por eso no graban las visitas.'
+                : 'Tu página tiene un código viejo del Pixel y por eso no graba las visitas.')
+              : null;
+            const lista = atrasadas.map((u) => `• ${u}`).join(NL);
+            const cuales = razon
+              ? (atrasadas.length === 1 ? `La página: *${atrasadas[0]}*` : atrasadas.length > 1 ? `Las páginas:${NL}${lista}` : '')
+              : atrasadas.length === 1
+                ? `Tu página *${atrasadas[0]}* tiene una versión vieja del Pixel.`
+                : atrasadas.length > 1
+                  ? `Estas páginas tienen una versión vieja del Pixel:${NL}${lista}`
+                  : 'El código que tienes instalado es de una versión vieja.';
             // ⚠️ Va `texto` y NO `contexto`: con `contexto` el mensaje lo REDACTA
             // el modelo, y acá viaja un LINK exacto. La regla de la casa es
             // textual: «un DATO EXACTO que pasa por las manos de un LLM deja de
@@ -236,11 +271,13 @@ export async function GET(req: NextRequest) {
             // gastar por una variación que nadie pidió.
             await emitirDelCatalogo('tracking-desactualizado', {
               ws: w.id,
-              dedupTtlMin: DEDUP_MIN,
+              dedupTtlMin: DEDUP_VIEJO_MIN,
+              dedupKey: `v${SNIPPET_VERSION}`,
               texto: [
-                cuales,
+                ...(razon ? [razon] : []),
+                ...(cuales ? [cuales] : []),
                 '',
-                `*Qué te estás perdiendo:* ${novedadesDesde(instalada)}.`,
+                `*Qué te estás perdiendo:* ${novedadesDesde(minima)}.`,
                 '',
                 `*Cómo se arregla* (2 minutos): entra aquí, elige ${atrasadas.length > 1 ? 'cada página' : 'esa página'}, copia el código y vuelve a pegarlo donde estaba.`,
                 linkLanding(w.id),
