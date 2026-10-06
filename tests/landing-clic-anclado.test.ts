@@ -119,3 +119,17 @@ test('el saneo del selector sólo acepta la forma de una ruta CSS', () => {
   assert.ok(!re.test('a[href="x"]'));
   assert.ok(!re.test("div'><script>"));
 });
+
+test('⚠️ un selector que no llega a body ni a un id NO se manda: apuntaría a otro elemento', () => {
+  // Revisión del 06/10/2026: a más de 8 niveles sin un id, `selDe` mandaba el sufijo que
+  // juntó, y en un sitio con el mismo botón repetido ese sufijo coincide con los dos —
+  // `querySelector` devuelve el primero. Sin selector, el toque cae a su punto.
+  //
+  // PROBADO ROMPIÉNDOLO: sacando el `|| !anclada` del snippet → 5 pasan / 1 falla (éste).
+  const bloque = funcionesDelAncla(snippetEmitido());
+  const f = new Function('window', bloque + '\nreturn { selDe };')({ innerHeight: 800, getComputedStyle: () => ({ position: 'static' }) });
+  let n: N = { nodeType: 1, tagName: 'BODY', parentElement: null, previousElementSibling: null };
+  for (let i = 0; i < 10; i++) n = { nodeType: 1, tagName: 'DIV', parentElement: n, previousElementSibling: null };
+  const a: N = { nodeType: 1, tagName: 'A', parentElement: n, previousElementSibling: null };
+  assert.equal(f.selDe(a), '', 'un selector sin anclar viaja y el mapa lo resuelve contra otro elemento');
+});

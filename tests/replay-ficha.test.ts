@@ -47,6 +47,7 @@ import {
   REPLAY_MINIMO_EVENTOS,
   duracionCorta,
   motivoDelVacio,
+  noGrabanTodas,
   parsearCuerpo,
   textoDelCorte,
   textoDelVacio,
@@ -279,4 +280,20 @@ test('el reproductor se carga a pedido y desde una ruta nuestra', () => {
   // Y no por un CDN de un tercero: esta pantalla tiene la cookie de sesión del
   // equipo y los datos de los clientes a la vista.
   assert.doesNotMatch(src, /https?:\/\/(cdn|unpkg|jsdelivr)/);
+});
+
+test('⚠️ «no graban las visitas» es verdad para CADA página nombrada, no para la más vieja', () => {
+  // Revisión del 06/10/2026: el WhatsApp de «quedó viejo» decía «Tus páginas … no graban
+  // las visitas» con una en la v21 —que graba— y otra en la v18, porque decidía con la
+  // versión más baja de la lista.
+  //
+  // PROBADO ROMPIÉNDOLO: con `some` en vez de `every` → 1 falla (este test); con la
+  // versión desconocida contando como vieja → 1 falla. Restaurado → en verde.
+  const r = REPLAY_DESDE_SNIPPET;
+  assert.equal(noGrabanTodas([r, r - 3], r - 3), false, 'una página que graba quedó bajo «no graban»');
+  assert.equal(noGrabanTodas([r - 1, r - 3], r - 1), true);
+  assert.equal(noGrabanTodas([r - 3, null], r - 3), false, 'una versión que no se sabe autorizó a afirmar');
+  // Sin páginas nombradas el mensaje es el genérico, y decide la del workspace.
+  assert.equal(noGrabanTodas([], r - 1), true);
+  assert.equal(noGrabanTodas([], r), false);
 });

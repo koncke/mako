@@ -177,7 +177,9 @@ export function ChatHilo({
   const puedeComponer = !readOnly && (!!onEnviarTexto || !!onEnviarArchivo);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, borderTop: `3px solid ${accent}`, overflow: 'hidden' }}>
+    // `data-esquina-ocupada` cuando hay composer: su «Enviar» vive en el rincón de abajo a la
+    // derecha, y la esquina de los avisos (EsquinaAvisos) sube para no taparlo.
+    <div data-esquina-ocupada={puedeComponer ? '' : undefined} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, borderTop: `3px solid ${accent}`, overflow: 'hidden' }}>
       {header && <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>{header}</div>}
 
       <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface-2)' }}>

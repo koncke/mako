@@ -82,6 +82,22 @@ export function ubicarPorAncla(t: Pick<ToqueMapa, 'rx' | 'ry'>, caja: { left: nu
   return { x: caja.left + (t.rx / 1000) * caja.width, y: caja.top + (t.ry / 1000) * caja.height };
 }
 
+/**
+ * El selector del toque, sólo si está ANCLADO (`body > …` o `#id`); si no, `null`.
+ *
+ * ⚠️ Un selector suelto no identifica un elemento. El Pixel sube como mucho 8 niveles
+ * buscando `body` o un id, y si no llega manda el sufijo que juntó — que en un sitio de
+ * Elementor con el mismo botón repetido coincide con los DOS, y `querySelector` devuelve
+ * el primero: todos los toques del segundo se dibujaban sobre el primero, y el ranking
+ * los fundía en una fila (revisión del 06/10/2026). El Pixel dejó de mandarlo, pero el
+ * código que ya está pegado en las páginas lo sigue mandando: por eso se corta acá, que
+ * es por donde pasan todos, y el toque cae a su punto.
+ */
+export function selAnclado(sel: string | null | undefined): string | null {
+  if (!sel) return null;
+  return sel.startsWith('body > ') || sel.startsWith('#') ? sel : null;
+}
+
 export type FilaRanking = { clave: string; etiqueta: string; sel: string | null; toques: number; personas: number };
 
 /**

@@ -94,3 +94,17 @@ test('el cron de red existe y está agendado', () => {
   assert.ok(vercel.crons.some((c) => c.path === '/api/cron/landing-analyst-auto'), 'sin el cron, lo que se cortó o entró por otro lado no se analiza nunca');
   assert.match(sinComentarios(leer('app/api/cron/landing-analyst-auto/route.ts')), /asegurarAnalisisDeDeclaradas\(\{ deadline \}\)/);
 });
+
+test('⚠️ «Buscar mis páginas» no vuelve a analizar una página que se está analizando', () => {
+  // El análisis automático reclama la fila como 'pendiente' y tarda minutos; el sync la
+  // tomaba como un fallo y la misma página se analizaba dos veces, pagando dos veces la IA
+  // (revisión del 06/10/2026). Se reintenta sólo la que se cortó.
+  //
+  // PROBADO ROMPIÉNDOLO: con `enCurso` devolviendo siempre false → 7 pasan / 1 falla (éste).
+  const src = sinComentarios(leer('lib/landing-analyst.ts'));
+  const sync = src.slice(src.indexOf('export async function syncLandings'), src.indexOf('let analizadas = 0'));
+  assert.ok(sync.length > 200 && sync.length < 2500, `el recorte quedó en ${sync.length}: está mirando otra cosa`);
+  assert.match(sync, /f\.status === 'pendiente' && !analisisCortado\(f\.status, f\.updated_at, ahora\)/, 'un pendiente reciente volvió a contar como fallo');
+  assert.match(sync, /filas\.filter\(\(f\) => !enCurso\(f\)\)/, 'refrescar todo vuelve a correr el que está corriendo');
+  assert.match(sync, /\(f\.status === 'pendiente' && !enCurso\(f\)\)/, 'los reintentos toman un pendiente en curso');
+});

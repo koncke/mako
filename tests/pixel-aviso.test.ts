@@ -20,6 +20,7 @@
 //   · el layout monta los dos avisos FUERA del contenedor       -> 6 / 1
 //   · MakoConfirmGate vuelve a `position: 'fixed'`              -> 6 / 1
 //   · se saca el rearme de la ref en IntegracionesBoard         -> 6 / 1
+// (el de la esquina que no tapa se agregó después y lleva su rotura adentro)
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -91,4 +92,26 @@ test('«A revisar» ya no es fixed: la posición la pone la esquina', () => {
 test('estando ya en /integraciones, el link vuelve a abrir el modal', () => {
   const src = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
   assert.match(src, /if \(!abrir\) \{ yaAbierto\.current = false; return; \}/, 'sin rearmar la ref, un segundo ?abrir=landing no abre nada');
+});
+
+test('⚠️ la esquina NO tapa el «Publicar» del lienzo ni el «Enviar» de un chat, y va debajo de los modales', () => {
+  // La revisión del 06/10/2026 lo midió en Chrome: en /chatbot el lienzo llega al borde de
+  // la ventana y su «Publicar» vive a 12 px del rincón; la pastilla, que no se cierra, le
+  // caía encima (un clic en «Publicar» abría /integraciones). Y con z 65 quedaba encima de
+  // cinco modales de z 60. Medido con la marca puesta: la pastilla sube a 64 px y el centro
+  // de «Publicar» vuelve a ser «Publicar».
+  //
+  // PROBADO ROMPIÉNDOLO, de a una: el contenedor con `bottom: 20` fijo, con `zIndex: 65`,
+  // sin la regla de globals.css, el lienzo sin la marca y el chat sin la marca → las cinco
+  // dan 7 pasan / 1 falla (este test).
+  const esq = sinComentarios(leer('app/_components/EsquinaAvisos.tsx'));
+  assert.match(esq, /bottom: 'var\(--esquina-abajo, 20px\)'/, 'la esquina dejó de poder subir');
+  const z = Number(esq.match(/zIndex: (\d+)/)?.[1]);
+  assert.ok(z > 0 && z < 60, `la esquina tiene z ${z}: queda encima de los modales de z 60`);
+  assert.match(leer('app/globals.css'), /:root:has\(\[data-esquina-ocupada\]\) \{ --esquina-abajo: \d+px; \}/,
+    'nadie hace subir la esquina');
+  assert.match(sinComentarios(leer('app/_components/Lienzo.tsx')), /accion && <div data-no-pan data-esquina-ocupada/,
+    'el «Publicar» del lienzo no se declara: la pastilla le cae encima');
+  assert.match(sinComentarios(leer('app/whatsapp/_shared/ChatHilo.tsx')), /data-esquina-ocupada=\{puedeComponer/,
+    'el «Enviar» de un chat no se declara: la pastilla le cae encima');
 });

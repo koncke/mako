@@ -19,8 +19,9 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CORTE_MOVIL, colorDeCalor, dispositivoDe, rankingDe, ubicarPorAncla, ubicarPorPunto, type ToqueMapa } from '../lib/landing-mapa';
-import { congelarVh, fotoDeEventos, htmlDeFoto, type NodoFoto } from '../lib/landing-mapa-foto';
+import { readFileSync } from 'node:fs';
+import { CORTE_MOVIL, colorDeCalor, dispositivoDe, rankingDe, selAnclado, ubicarPorAncla, ubicarPorPunto, type ToqueMapa } from '../lib/landing-mapa';
+import { congelarVh, congelarVhEnHoja, fotoDeEventos, htmlDeFoto, type NodoFoto } from '../lib/landing-mapa-foto';
 
 const toque = (p: Partial<ToqueMapa>): ToqueMapa => ({
   tipo: 'clic_vacio', x: 0, y: 0, vw: 400, dh: 4000, sel: null, rx: null, ry: null, vh: null, fijo: null, etiqueta: 'vacio: DIV', p: 0, ...p,
@@ -135,4 +136,45 @@ test('la rampa del calor es de tonos cálidos vecinos, de transparente a opaco',
 
 test('un toque sin ancla y sin alto de documento usa su y tal cual (no inventa una escala)', () => {
   assert.deepEqual(ubicarPorPunto(toque({ x: 100, y: 300, vw: 400, dh: null }), 400, 4000, 'movil'), { x: 100, y: 300 });
+});
+
+test('⚠️ un selector suelto (del código ya pegado) no ancla ni agrupa: cae al punto', () => {
+  // El snippet dejó de mandarlo, pero las páginas que ya tienen pegada la v22 vieja lo
+  // siguen mandando: el corte vive en el server, por donde pasan todos.
+  //
+  // PROBADO ROMPIÉNDOLO: con `selAnclado` devolviendo el selector tal cual → 1 falla (éste).
+  assert.equal(selAnclado('body > section:nth-of-type(2) > a:nth-of-type(1)'), 'body > section:nth-of-type(2) > a:nth-of-type(1)');
+  assert.equal(selAnclado('#precio > span:nth-of-type(1)'), '#precio > span:nth-of-type(1)');
+  assert.equal(selAnclado('section:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1)'), null);
+  assert.equal(selAnclado(null), null);
+  const src = readFileSync(new URL('../lib/landing-mapa-server.ts', import.meta.url), 'utf8');
+  assert.match(src, /sel: selAnclado\(f\.sel\)/, 'el server volvió a pasar el selector crudo');
+});
+
+test('⚠️ el congelado de vh no toca los SELECTORES: una clase de Tailwind sigue coincidiendo', () => {
+  // `.h-\[50vh\]` pasaba a `.h-\[400px\]` y su regla desaparecía de la foto.
+  //
+  // PROBADO ROMPIÉNDOLO: con `congelarVhEnHoja` llamando a `congelarVh` sobre la hoja
+  // entera → 1 falla (éste).
+  const css = '.h-\\[50vh\\]{height:50vh}@media (min-height:50vh){.x{top:10vh}}';
+  assert.equal(congelarVhEnHoja(css, 800), '.h-\\[50vh\\]{height:400px}@media (min-height:50vh){.x{top:80px}}');
+});
+
+test('⚠️ el panel del mapa se mide cuando el marco APARECE, venga primero lo que venga', () => {
+  // Con un efecto colgado de `[fondo]`, si la foto llegaba antes que los toques el marco
+  // todavía no existía, nadie lo observaba, y la computadora se dibujaba a tamaño real.
+  //
+  // PROBADO ROMPIÉNDOLO: devolviendo el `useEffect(..., [fondo])` con `marcoRef.current`
+  // → 1 falla (éste).
+  const src = readFileSync(new URL('../app/landing-analyst/MapaDeCalor.tsx', import.meta.url), 'utf8');
+  assert.match(src, /const marcoRef = useCallback\(\(el: HTMLDivElement \| null\) =>/, 'el marco dejó de medirse con una ref de función');
+  assert.doesNotMatch(src, /marcoRef\.current/, 'volvió la lectura del marco desde un efecto');
+});
+
+test('⚠️ la foto de fondo se busca en las sesiones de ESA página, no en las 200 más nuevas del negocio', () => {
+  // PROBADO ROMPIÉNDOLO: sacando el `.ilike('landing_url', …)` → 1 falla (éste).
+  const src = readFileSync(new URL('../lib/landing-mapa-server.ts', import.meta.url), 'utf8');
+  const f = src.slice(src.indexOf('export async function fondoDelMapa'));
+  const iIlike = f.indexOf(".ilike('landing_url'");
+  assert.ok(iIlike > 0 && iIlike < f.indexOf('.limit('), 'la página se filtra después del tope');
 });

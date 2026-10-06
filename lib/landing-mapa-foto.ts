@@ -93,6 +93,20 @@ export function congelarVh(css: string, altoVentana: number): string {
 }
 
 /**
+ * Lo mismo sobre una HOJA entera, y sólo adentro de los bloques de declaraciones.
+ *
+ * ⚠️ `congelarVh` sobre la hoja cruda también reescribía los SELECTORES: una clase de
+ * Tailwind con valor arbitrario (`.h-\[50vh\]`) pasaba a `.h-\[400px\]`, dejaba de
+ * coincidir con el elemento, y su regla desaparecía de la foto sin un error (revisión
+ * del 06/10/2026). Un selector o una condición de `@media` no son medidas: se tocan
+ * sólo los bloques más internos, que son los que traen las declaraciones.
+ */
+export function congelarVhEnHoja(css: string, altoVentana: number): string {
+  if (!(altoVentana > 0)) return css;
+  return css.replace(/\{[^{}]*\}/g, (bloque) => congelarVh(bloque, altoVentana));
+}
+
+/**
  * La foto como un documento HTML, listo para un `srcdoc` SIN scripts.
  *
  * Lo que hace con cada cosa, y por qué:
@@ -150,7 +164,7 @@ export function htmlDeFoto(foto: FotoDePagina): string {
         const t = n.textContent ?? '';
         // El texto de un <style> es CSS: va sin escapar (escapar rompería los
         // selectores con > y los content: "…"), pero sin dejar que lo cierre.
-        partes.push(enEstilo || n.isStyle ? congelarVh(t, vh).replace(/<\/(style)/gi, '<\\/$1') : escTexto(t));
+        partes.push(enEstilo || n.isStyle ? congelarVhEnHoja(t, vh).replace(/<\/(style)/gi, '<\\/$1') : escTexto(t));
         return;
       }
       case CDATA:
@@ -162,14 +176,14 @@ export function htmlDeFoto(foto: FotoDePagina): string {
         if (!tag || FUERA.has(tag)) return;
         const { texto, css } = atributos(tag, n.attributes);
         if (tag === 'link' && css != null) {
-          partes.push(`<style>${congelarVh(css, vh).replace(/<\/(style)/gi, '<\\/$1')}</style>`);
+          partes.push(`<style>${congelarVhEnHoja(css, vh).replace(/<\/(style)/gi, '<\\/$1')}</style>`);
           return;
         }
         partes.push(`<${tag}${texto}>`);
         if (VACIAS.has(tag)) return;
         const esEstilo = tag === 'style';
         if (esEstilo && css != null && !(n.childNodes ?? []).length) {
-          partes.push(congelarVh(css, vh).replace(/<\/(style)/gi, '<\\/$1'));
+          partes.push(congelarVhEnHoja(css, vh).replace(/<\/(style)/gi, '<\\/$1'));
         }
         for (const h of n.childNodes ?? []) escribir(h, esEstilo);
         partes.push(`</${tag}>`);

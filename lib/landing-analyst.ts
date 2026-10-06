@@ -27,6 +27,7 @@ import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
 import { esPreviewDeEditor } from './landing-paginas';
+import { analisisCortado } from './landing-url';
 // La profundidad del VSL NO se calcula acá: se reusa el módulo que ya resolvió
 // el problema (mig 0121 — el player de Panda no le da la duración al navegador,
 // así que el dato crudo son los segundos y el % se deriva). Su regla, que este
@@ -742,9 +743,18 @@ export async function syncLandings(opts: { max?: number; timeBudgetMs?: number; 
   const viejasPrimero = (a: { updated_at: string | null }, b: { updated_at: string | null }) =>
     (a.updated_at ?? '').localeCompare(b.updated_at ?? '');
 
+  // ⚠️ UNA FILA 'pendiente' RECIENTE ES UN ANÁLISIS EN CURSO, no uno que falló. El
+  // análisis automático reclama la fila como 'pendiente' y tarda minutos: si «Buscar mis
+  // páginas» la tomaba en ese rato, la misma página se analizaba DOS veces, y cada una
+  // paga su IA (revisión del 06/10/2026). Se reintenta sólo la que se cortó — la misma
+  // vara de 15 minutos que usa la pantalla para decir «Se cortó». Y `force` tampoco la
+  // pisa: refrescar todo no es correr dos veces la que está corriendo.
+  const ahora = Date.now();
+  const enCurso = (f: { status: string; updated_at: string | null }) =>
+    f.status === 'pendiente' && !analisisCortado(f.status, f.updated_at, ahora);
   const cola = (opts.force
-    ? [...filas]
-    : filas.filter((f) => f.status === 'error' || f.status === 'pendiente')
+    ? filas.filter((f) => !enCurso(f))
+    : filas.filter((f) => f.status === 'error' || (f.status === 'pendiente' && !enCurso(f)))
   ).sort(viejasPrimero).map((f) => f.url);
 
   let analizadas = 0, errores = 0, hechasEnCorrida = 0;

@@ -1074,6 +1074,10 @@ details[open] > summary .chev {
    Ojo con la sidebar: es `sticky top:0; height:100vh`. Sin correrle el tope y
    descontarle la altura, queda 44px más larga que la ventana y su última fila
    —el perfil— se va abajo del borde. */
+/* La esquina de los avisos (app/_components/EsquinaAvisos.tsx) sube cuando la pantalla
+   tiene un control propio en el rincón de abajo a la derecha: «Publicar» del lienzo,
+   «Enviar» de un chat. 64 px deja libre un botón de 44 a 12 del borde. */
+:root:has([data-esquina-ocupada]) { --esquina-abajo: 64px; }
 :root { --barra-agencia: 0px; }
 [data-barra-agencia] { --barra-agencia: 50px; }
 /* La alerta de la voz de MaKo caída (AlertaVozMaKo, 64px) se SUMA a este mismo hueco en

@@ -2566,7 +2566,7 @@ export function landingSnippet(token: string): string {
       partes.unshift(t + ':nth-of-type(' + k + ')');
       n = n.parentElement;
     }
-    if (!partes.length) return '';
+    if (!partes.length || !anclada) return '';
     var s = partes.join(' > ');
     if (anclada && partes[0].charAt(0) !== '#') s = 'body > ' + s;
     return s.length <= 200 ? s : '';

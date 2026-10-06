@@ -643,7 +643,8 @@ export function Lienzo({
           )}
         </div>
 
-        {accion && <div data-no-pan style={{ position: 'absolute', right: 12, bottom: 12 }}>{accion}</div>}
+        {/* `data-esquina-ocupada`: la esquina de los avisos sube para no taparlo (EsquinaAvisos). */}
+        {accion && <div data-no-pan data-esquina-ocupada style={{ position: 'absolute', right: 12, bottom: 12 }}>{accion}</div>}
 
         {/* EL EDITOR. Va acá adentro y en coordenadas de PANTALLA: si viviera en la
             capa transformada, el zoom le cambiaría el tamaño a los inputs. */}

@@ -50,6 +50,25 @@ import { REPLAY_PISO_SEGUNDOS, REPLAY_TOPE_SEGUNDOS, grabacionVencio, type Repla
  */
 export const REPLAY_DESDE_SNIPPET = 21;
 
+/**
+ * ¿Se puede decir «por eso no graban las visitas» de TODAS las páginas que nombra un
+ * aviso? `versiones` son las de las páginas nombradas (`null` = no se pudo saber).
+ *
+ * ⚠️ «Atrasada» y «no graba» son dos umbrales: una página en la v21 está atrasada
+ * respecto de la v22 y GRABA. El WhatsApp de «quedó viejo» calculaba la frase con la
+ * versión MÁS BAJA de la lista y la aplicaba a toda la lista, así que con una página en
+ * la 21 y otra en la 18 afirmaba que las dos no graban (revisión del 06/10/2026). Y va
+ * a pasar en cada subida de versión.
+ *
+ * Por eso es verdad sólo si lo es para cada una, y una versión que no se sabe no
+ * autoriza a afirmar nada. Sin páginas nombradas el mensaje es el genérico y decide la
+ * versión del workspace, que es lo único que hay.
+ */
+export function noGrabanTodas(versiones: ReadonlyArray<number | null>, instaladaWs: number): boolean {
+  if (!versiones.length) return instaladaWs < REPLAY_DESDE_SNIPPET;
+  return versiones.every((v) => typeof v === 'number' && v < REPLAY_DESDE_SNIPPET);
+}
+
 /** Por qué esta ficha no tiene ninguna grabación para mostrar. */
 export type ReplayVacio =
   | 'sin_visitor'

@@ -24,7 +24,7 @@ import { listarWorkspaces, runWithWorkspace, getTenantDb } from '@/lib/workspace
 import { getSetting } from '@/lib/settings';
 import { LANDING_TOKEN_KEY, SNIPPET_VERSION, novedadesDesde, snippetDesactualizado, verificarPagina } from '@/lib/landing-token';
 import { REPLAY_CONFIG_KEY, parsearReplay } from '@/lib/replay-contrato';
-import { REPLAY_DESDE_SNIPPET } from '@/lib/replay-ficha';
+import { noGrabanTodas } from '@/lib/replay-ficha';
 import { CONFIG_KEY, parsearConfig, urlsDe } from '@/lib/landing-config';
 import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
 
@@ -233,11 +233,13 @@ export async function GET(req: NextRequest) {
             // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico:
             // callarse porque no se sabe cuál sería perder el aviso entero.
             const atrasadas: string[] = [];
+            const versionesAtrasadas: Array<number | null> = [];
             let minima = instalada;
             for (const u of suyas.slice(0, 8)) {
               const v = await verificarPagina(u).catch(() => null);
               if (v?.instalada && v.vieja) {
                 atrasadas.push(v.url);
+                versionesAtrasadas.push(typeof v.version === 'number' ? v.version : null);
                 // Las novedades se cuentan desde la página MÁS atrasada, no desde el
                 // setting del workspace (gana el último evento): medido en el ws11, el
                 // setting decía 18 y una de sus páginas seguía en la 15.
@@ -248,8 +250,10 @@ export async function GET(req: NextRequest) {
             // grabación prendida y un código anterior al grabador, lo que se pierde es
             // concreto: las visitas no se graban. Es la primera línea porque es la que
             // queda cuando el resumen diario recorta cada aviso a un renglón.
+            // ⚠️ Y TIENE QUE SER VERDAD PARA CADA PÁGINA NOMBRADA, no para la más vieja:
+            // con `minima` decía «no graban» de una página en la v21, que graba.
             const replay = parsearReplay(await getSetting(REPLAY_CONFIG_KEY).catch(() => null));
-            const razon = replay.activo && minima < REPLAY_DESDE_SNIPPET
+            const razon = replay.activo && noGrabanTodas(versionesAtrasadas, instalada)
               ? (atrasadas.length > 1
                 ? 'Tus páginas tienen un código viejo del Pixel y por eso no graban las visitas.'
                 : 'Tu página tiene un código viejo del Pixel y por eso no graba las visitas.')

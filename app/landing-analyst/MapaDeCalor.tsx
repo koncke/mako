@@ -155,7 +155,24 @@ export function MapaDeCalor() {
   const ranking = useMemo(() => rankingDe(toques), [toques]);
 
   // ── El lienzo: foto + calor, en la misma capa escalada ─────────────────────
-  const marcoRef = useRef<HTMLDivElement>(null);
+  /**
+   * ⚠️ EL PANEL SE MIDE CON UNA REF DE FUNCIÓN, no con un efecto. El marco recién se monta
+   * cuando llegaron los TOQUES, y la foto llega por otro pedido: con el efecto colgado de
+   * `[fondo]`, si la foto contestaba primero el efecto corría sin marco, salía sin
+   * observar, y al montarse el marco nadie lo medía (revisión del 06/10/2026). En
+   * computadora eso dibujaba la página a tamaño real, cortada a la mitad; al pasar de
+   * celular a computadora, diminuta. La ref de función corre cada vez que el nodo se monta,
+   * venga primero lo que venga.
+   */
+  const roMarco = useRef<ResizeObserver | null>(null);
+  const marcoRef = useCallback((el: HTMLDivElement | null) => {
+    roMarco.current?.disconnect();
+    roMarco.current = null;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setAnchoPanel(el.clientWidth));
+    ro.observe(el);
+    roMarco.current = ro;
+  }, []);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [anchoPanel, setAnchoPanel] = useState(0);
@@ -167,14 +184,6 @@ export function MapaDeCalor() {
   // el alto medido coincidía con el de la ventana, los toques quedaban ubicados por
   // su punto aproximado aunque trajeran el ancla.
   const [fotoLista, setFotoLista] = useState(0);
-
-  useEffect(() => {
-    const el = marcoRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setAnchoPanel(el.clientWidth));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [fondo]);
 
   const W = fondo?.ok ? fondo.ancho : 0;
   const H = altoDoc || (fondo?.ok ? fondo.alto : 0);

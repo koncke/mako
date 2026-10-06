@@ -21,7 +21,7 @@ import { normalizarUrl, esPreviewDeEditor } from './landing-paginas';
 import { landingsDelWorkspace } from './landing-config-leer';
 import { verificarPagina } from './landing-token';
 import { cuerpoDeSesion } from './replay-leer';
-import { dispositivoDe, MAPA_DIAS, type Dispositivo, type ToqueMapa } from './landing-mapa';
+import { dispositivoDe, MAPA_DIAS, selAnclado, type Dispositivo, type ToqueMapa } from './landing-mapa';
 import { fotoDeEventos, htmlDeFoto } from './landing-mapa-foto';
 
 /**
@@ -112,7 +112,8 @@ export async function datosDelMapa(urlCruda: string, disp: Dispositivo, dias = M
     toques.push({
       tipo: f.tipo_evento as ToqueMapa['tipo'],
       x: f.clic_x as number, y: f.clic_y as number, vw: f.ancho_ventana as number, dh: f.alto_pagina,
-      sel: f.sel, rx: f.rel_x, ry: f.rel_y, vh: f.alto_ventana, fijo: f.fijo,
+      // Sólo el selector anclado: uno suelto apunta a otro elemento (ver `selAnclado`).
+      sel: selAnclado(f.sel), rx: f.rel_x, ry: f.rel_y, vh: f.alto_ventana, fijo: f.fijo,
       // El clic a un botón trae su destino; el toque al vacío sólo la etiqueta del
       // elemento (sin texto, por privacidad desde el snippet).
       etiqueta: (f.detalle ?? '').slice(0, 120) || (f.tipo_evento === 'clic_vacio' ? 'vacio' : 'clic'),
@@ -158,12 +159,20 @@ const TOPE_INTENTOS = 12;
 export async function fondoDelMapa(urlCruda: string, disp: Dispositivo): Promise<FondoDelMapa> {
   const url = norm(urlCruda);
   if (!url) return { ok: false, motivo: 'sin_grabaciones' };
+  // ⚠️ LA PÁGINA SE FILTRA EN LA CONSULTA, no después. Antes se traían las 200 sesiones
+  // más nuevas de TODO el workspace y recién ahí se buscaba la página: a una con poco
+  // tráfico al lado de otra con mucho se le decía «no hay grabación» teniéndolas
+  // (revisión del 06/10/2026). El `ilike` trae CANDIDATOS —sin `www.`, con el query que
+  // sea— y quién es esta página lo sigue decidiendo `norm` con una igualdad exacta.
+  const u = new URL(url);
+  const pista = `${u.hostname.replace(/^www\./, '')}${u.pathname}`.replace(/[\\%_]/g, (c) => `\\${c}`);
   const db = await getTenantDb();
   const { data, error } = await db
     .from('replay_sesiones')
     .select('id, landing_url, inicio')
     .not('storage_path', 'is', null)
     .is('descarte', null)
+    .ilike('landing_url', `%${pista}%`)
     // ⚠️ LAS PRUEBAS SÍ SIRVEN DE FONDO (06/10/2026). Para contar toques no (es quien
     // estaba probando el Pixel), pero la foto de la página es la misma: medido en el
     // ws1, la ÚNICA grabación de computadora de su portada era la de la prueba, y
