@@ -15,6 +15,10 @@ import {
   parsearCampanas, conCampana, sinCampana, funnelIdDeCampana, asignadasDe, esIdMeta,
   type CampanaAsignada,
 } from '../lib/campana-config';
+import {
+  mapaDeAnuncios, campanaDeLead, leadsATraer, conteoPorCampana, campanasDeMetricas,
+  type LeadAtribuible,
+} from '../lib/campana-atribucion';
 
 const C = (id: string, funnelId: number | null, nombre = `camp ${id}`): CampanaAsignada =>
   ({ tipo: 'campana', id, nombre, funnelId });
@@ -231,7 +235,7 @@ test('las acciones que ESCRIBEN leen el setting en modo estricto', () => {
   // guardado BORRA todas las demás asignaciones del workspace.
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   assert.doesNotMatch(acc, /leerCampanasAsignadas\(\)/, 'la lectura tolerante no puede alimentar una escritura');
-  for (const f of ['asignarCampanaAction', 'quitarCampanaAction']) {
+  for (const f of ['asignarCampanaAction', 'quitarCampanaAction', 'deshacerAsignacionAction']) {
     const i = acc.indexOf(`export async function ${f}(`);
     const b = acc.slice(i, acc.indexOf('\nexport ', i + 1));
     assert.match(b, /await leerCampanasAsignadasEstricto\(\)/, `${f} no lee estricto`);
@@ -247,4 +251,135 @@ test('el conjunto se deriva del anuncio SÓLO si hay un conjunto asignado que pu
   // Y se deriva de la BASE, no de Meta: esta es una ruta pública.
   assert.match(src, /from\('marketing_metrics_daily'\)/);
   assert.doesNotMatch(src, /graph\.facebook\.com/);
+});
+
+// ── Traer los leads que YA existen (05/10/2026) ──────────────────────────────
+// «Es importante que si selecciono una campaña, me traiga todos los leads. No solo los
+// futuros» (Martín). La atribución de lo viejo es pura y se EJECUTA.
+
+const CAMP = '120000000000000001';
+const CAMP2 = '120000000000000002';
+const ADSET = '230000000000000001';
+const ADSET2 = '230000000000000002';
+const AD = '340000000000000001';
+const AD2 = '340000000000000002';
+const anuncios = mapaDeAnuncios([
+  { ad_id: AD, campaign_id: CAMP, adset_id: ADSET },
+  { ad_id: AD, campaign_id: CAMP, adset_id: ADSET }, // otro día del mismo anuncio
+  { ad_id: AD2, campaign_id: CAMP, adset_id: ADSET2 },
+  { ad_id: null, campaign_id: CAMP2, adset_id: null }, // fila sin anuncio: no entra al mapa
+]);
+const L = (id: number, funnel_id: number | null, x: Partial<LeadAtribuible>): LeadAtribuible => ({ id, funnel_id, ...x });
+
+test('campanaDeLead: el dato más directo gana, y un utm con NOMBRE no cuenta', () => {
+  assert.deepEqual(campanaDeLead(L(1, null, { meta_campaign_id: CAMP2, meta_ad_id: AD }), anuncios),
+    { campaignId: CAMP2, adsetId: ADSET }, 'lo que escribió Graph le gana al anuncio');
+  assert.deepEqual(campanaDeLead(L(2, null, { utm_content: AD2 }), anuncios), { campaignId: CAMP, adsetId: ADSET2 },
+    'el anuncio de la landing da la campaña Y el conjunto');
+  assert.equal(campanaDeLead(L(3, null, { utm_campaign: 'Campaña de verano' }), anuncios).campaignId, null);
+  assert.equal(campanaDeLead(L(4, null, { utm_campaign: CAMP2 }), anuncios).campaignId, CAMP2);
+});
+
+// PROBADO ROMPIÉNDOLO, de a uno y restaurando de memoria (05/10/2026). Cada rotura tumba
+// EXACTAMENTE su test, 27 pass / 1 fail: `(l.funnel_id ?? null)` cambiado por `l.funnel_id`;
+// sin el filtro de conjuntosDeOtro; un `pipeline_stage` dentro de moverEnLote; la sección
+// llamando a la acción lenta; la opción del ⋯ fuera de su condición de entrada;
+// `useState(true)` en vez de `useState(!declarado)`; guardar cerrando el panel otra vez; y el
+// modal sin portal. Después de mudar `moverEnLote` a lib/campana-traer.ts, otra tanda (28 / 1
+// cada una): un `pipeline_stage` ahí, una columna más en su `.update()`, y la pregunta del
+// modal condicionada sólo a `!otro` (asignaría 896 leads sin preguntar).
+test('leadsATraer: los de la campaña que NO están ya en el destino — el principal es null', () => {
+  const leads = [
+    L(1, null, { meta_ad_id: AD }),            // en el principal → se trae
+    L(2, 7, { utm_content: AD2 }),             // en otro producto → se trae
+    L(3, 9, { meta_campaign_id: CAMP }),       // ya está en el destino → no
+    L(4, null, { meta_campaign_id: CAMP2 }),   // otra campaña → no
+    { id: 5, funnel_id: undefined as unknown as null, utm_campaign: CAMP }, // sin funnel_id leído
+  ];
+  assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, 9, leads, anuncios).map((l) => l.id), [1, 2, 5]);
+  // Destino = el principal (null): el lead 1 y el 5 ya están ahí.
+  assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, null, leads, anuncios).map((l) => l.id), [2, 3]);
+});
+
+test('leadsATraer: los de un conjunto asignado a OTRO producto se quedan allá (conjunto > campaña)', () => {
+  const leads = [L(1, null, { meta_ad_id: AD }), L(2, null, { meta_ad_id: AD2 })];
+  // ADSET2 está asignado a otro producto: la campaña trae sólo los de ADSET.
+  assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, 9, leads, anuncios, new Set([ADSET2])).map((l) => l.id), [1]);
+  // Y asignar el conjunto trae sólo los suyos.
+  assert.deepEqual(leadsATraer({ tipo: 'conjunto', id: ADSET2 }, 9, leads, anuncios).map((l) => l.id), [2]);
+});
+
+test('conteoPorCampana cuenta campaña y conjunto en una pasada', () => {
+  const n = conteoPorCampana([L(1, null, { meta_ad_id: AD }), L(2, 3, { utm_content: AD2 }), L(3, null, {})], anuncios);
+  assert.equal(n.get(CAMP), 2);
+  assert.equal(n.get(ADSET), 1);
+  assert.equal(n.get(ADSET2), 1);
+});
+
+test('campanasDeMetricas: toda campaña con un día de datos, con el primer nombre que no esté vacío', () => {
+  const r = campanasDeMetricas([
+    { ad_id: AD, campaign_id: CAMP, campaign_name: '', adset_id: ADSET, adset_name: null },
+    { ad_id: AD, campaign_id: CAMP, campaign_name: 'Verano', adset_id: ADSET, adset_name: 'Mujeres' },
+    { ad_id: null, campaign_id: 'no es un id', campaign_name: 'X', adset_id: null, adset_name: null },
+  ]);
+  assert.deepEqual(r.campanas, [{ id: CAMP, nombre: 'Verano' }]);
+  assert.deepEqual(r.conjuntos, [{ id: ADSET, nombre: 'Mujeres', campanaId: CAMP }]);
+});
+
+test('traer los leads de una campaña cambia el PRODUCTO, no la etapa', () => {
+  // Es lo contrario de `moverLeadsAFunnelAction` y a propósito: la historia de una campaña
+  // no vuelve a empezar — un lead que ya pagó sigue en Ganado.
+  const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
+  const traer = sinComentarios(leer('lib/campana-traer.ts'));
+  for (const [quien, src] of [['la acción', acc], ['lib/campana-traer.ts', traer]] as const) {
+    assert.doesNotMatch(src, /setPipelineStage|pipeline_stage|moverLeadsAFunnelAction/, `${quien} toca la etapa`);
+  }
+  // `moverEnLote` es la última función del archivo: el bloque va hasta el final.
+  const b = traer.slice(traer.indexOf('export async function moverEnLote('));
+  assert.ok(b.length > 200 && b.length < 3000, `el bloque de moverEnLote mide ${b.length}: está mirando otra cosa`);
+  assert.match(b, /\.update\(\{ funnel_id: a \}\)\.in\('id', tanda\)/, 'mueve en lote, sólo el funnel_id');
+  assert.match(b, /from\('lead_audit'\)\.insert\(filas\)/, 'y deja el rastro en el historial');
+  // Y la lista de qué mover la calcula el SERVER: la pantalla manda la campaña, no ids.
+  const asignar = acc.slice(acc.indexOf('export async function asignarCampanaAction('));
+  assert.match(asignar.slice(0, asignar.indexOf('\nexport ', 1)), /planDeTraida\(d\.id, item, nueva\)/,
+    'se calcula con la configuración YA guardada (conjunto > campaña)');
+});
+
+test('la sección del pop-up no espera a Meta: lee sólo lo asignado', () => {
+  // «la sección siempre debe estar presente»: el giro va adentro de la tabla, no en lugar
+  // de la sección. La lectura lenta (Meta + leads) es del modal.
+  const sec = sinComentarios(leer('app/crm/CampanasDelProducto.tsx'));
+  assert.doesNotMatch(sec, /campanasDelProductoAction|Spinner/);
+  assert.match(sec, /campanasAsignadasAction\(\)/);
+  const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
+  const i = acc.indexOf('export async function campanasAsignadasAction(');
+  assert.doesNotMatch(acc.slice(i, acc.indexOf('\nexport ', i + 1)), /campanasYConjuntos|leadsYMetricas/);
+});
+
+test('el modal va por PORTAL: abierto desde el pop-up no puede ser su descendiente', () => {
+  const m = sinComentarios(leer('app/crm/CampanasModal.tsx'));
+  assert.match(m, /createPortal\(cuerpo, document\.body\)/);
+});
+
+test('asignar PREGUNTA si va a mover leads o a sacarle la campaña a otro producto, y sólo entonces', () => {
+  // Una campaña nueva (cero leads) se asigna con un clic; una de 896 leads no.
+  const m = sinComentarios(leer('app/crm/CampanasModal.tsx'));
+  assert.match(m, /if \(!previa\.aTraer && !otro\) \{ setOcupada\(null\); await asignar\(item, true\); return; \}/);
+});
+
+test('el «⋯» de la columna de ENTRADA ofrece las campañas, y sólo esa columna', () => {
+  const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
+  assert.match(b, /\.\.\.\(c\.kind === 'entrada' \? \[\{ value: 'campanas', label: 'Campañas de Meta' \}\] : \[\]\)/);
+  assert.match(b, /if \(v === 'campanas'\) \{ setCampanasAbierto\(true\); return; \}/);
+  assert.match(b, /funnelActivo == null \|\| funnels\.find\(\(f\) => f\.id === funnelActivo\)\?\.esDefault \? null : funnelActivo/,
+    'el principal va como null');
+});
+
+test('«cómo entra tu gente» ya declarado arranca PLEGADO, y guardar lo pliega', () => {
+  const e = sinComentarios(leer('app/crm/EmbudoEntradas.tsx'));
+  assert.match(e, /useState\(!declarado\)/);
+  assert.match(e, /if \(r\.ok\) \{ setEditando\(false\); onGuardado\?\.\(\); \}/);
+  // Y guardar ya no cierra el panel: abajo viven las campañas.
+  const m = sinComentarios(leer('app/crm/EtapasModal.tsx'));
+  assert.doesNotMatch(m, /onGuardado=\{\(\) => \{[^}]*setEntradasAbierto\(false\)/);
 });

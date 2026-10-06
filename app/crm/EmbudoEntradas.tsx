@@ -51,6 +51,12 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
   const [err, setErr] = useState<string | null>(null);
 
   const declarado = initial.length > 0;
+  // ⚠️ DECLARADO = PLEGADO. «Una vez que marco las opciones de "Marca hasta tres." y le doy
+  // guardar, debería ocultarse esas opciones, y como mucho quedar editable sutilmente»
+  // (Martín, 05/10/2026). Ya declarado, la lista de cinco casillas es una pregunta que ya
+  // se contestó ocupando media caja: se muestra la RESPUESTA y un «Cambiar» chico. Sin
+  // declarar, se abre la lista, porque ahí sí hay algo que hacer.
+  const [editando, setEditando] = useState(!declarado);
   const pideEvento = fechaFijaDelEvento(canal);
   const sucio = JSON.stringify([...sel].sort()) !== JSON.stringify([...initial].sort())
     || (pideEvento && (lugar !== (initialEvento?.lugar ?? '')
@@ -70,7 +76,10 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
         ? { lugar: lugar.trim() || null, dias, hora: hora.trim() || null, tz: null, cupo: cupo.trim() ? Number(cupo) : null }
         : null;
       const r = await declararEntradasAction(sel, evento, funnelId);
-      if (r.ok) onGuardado?.();
+      // Se pliega acá y no sólo por el remonte que provoca `onGuardado` al recargar: si la
+      // recarga tarda o falla, la respuesta ya quedó guardada y la lista no tiene por qué
+      // seguir abierta.
+      if (r.ok) { setEditando(false); onGuardado?.(); }
       else setErr(r.error);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -87,6 +96,34 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
   // ⚠️ Y SE FUE EL EYEBROW «TU SESIÓN» (MONO, mayúsculas, 10,5 px). Es el patrón de kicker
   // que AGENTS.md prohíbe para cualquier pieza nueva, y era el único texto en monospace
   // adentro de una fila. Los tres campos de abajo se presentan solos.
+  if (!editando) {
+    const evTxt = pideEvento
+      ? [lugar.trim(), DIAS.filter((d) => dias.includes(d.n)).map((d) => d.l).join(' '), hora.trim()].filter(Boolean).join(' · ')
+      : '';
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {sel.map((id) => ENTRADAS[id]).filter(Boolean).map((e) => (
+              <span key={e.id} title={e.desc} style={{
+                padding: '4px 10px', borderRadius: 99, fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
+                border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)',
+              }}>{e.label}</span>
+            ))}
+          </div>
+          {evTxt && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{evTxt}</span>}
+        </div>
+        <button type="button" onClick={() => setEditando(true)}
+          style={{
+            flex: 'none', padding: '4px 6px', border: 'none', background: 'none', cursor: 'pointer',
+            fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', textDecoration: 'underline', textUnderlineOffset: 3,
+          }}>
+          Cambiar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* ⚠️ «Marca hasta tres» VA ARRIBA, no al lado del botón: es la regla de la lista, y
@@ -180,6 +217,18 @@ export function EmbudoEntradas({ initial, initialEvento, canal, funnelId, onGuar
           }}>
           {busy ? 'Guardando…' : 'Guardar'}
         </button>
+        {/* Volver sin guardar sólo existe si había algo guardado a qué volver. */}
+        {declarado && !busy && (
+          <button type="button"
+            onClick={() => {
+              setSel(initial); setLugar(initialEvento?.lugar ?? ''); setDias(initialEvento?.dias ?? []);
+              setHora(initialEvento?.hora ?? ''); setCupo(initialEvento?.cupo != null ? String(initialEvento.cupo) : '');
+              setErr(null); setEditando(false);
+            }}
+            style={{ padding: '9px 6px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)' }}>
+            Dejar como estaba
+          </button>
+        )}
         {err && <span style={{ fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
       </div>
     </div>

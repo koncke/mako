@@ -2170,3 +2170,9 @@
 }
 /* Un botón que YA trae su propia sombra no la pierde: la suya primero, el velo encima. */
 .crm-hover button.mk-btn:hover:not(:disabled) { box-shadow: none; }
+
+/* Una fila de la tabla de campañas (app/crm/CampanasModal.tsx) se asigna con un clic en
+   cualquier parte, así que reacciona entera. Velo y no `background`: la fila asignada
+   trae su tinte inline y el hover no se lo puede tapar. */
+.mk-fila-campana { transition: box-shadow .13s ease; }
+.mk-fila-campana:hover { box-shadow: inset 0 0 0 999px var(--velo-hover); }

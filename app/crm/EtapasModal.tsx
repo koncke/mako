@@ -538,8 +538,8 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         ⚠️ Y CUANDO ESTÁ ABIERTO, EL LÁPIZ ES LA ✕ DE CERRAR: «si le doy al
                         lapiz, debería aparecer una X de cerrar, y si cierro ahí nuevamente el
                         lapiz». No hace falta estado nuevo —el toggle es el mismo
-                        `entradasAbierto`—, así que el TERCER camino que cierra el panel
-                        (guardar, que llama `onGuardado`) también devuelve el lápiz solo. Y la
+                        `entradasAbierto`—. (Guardar lo cerraba también hasta el 05/10/2026;
+                        ya no, porque abajo viven las campañas: ver `onGuardado`.) Y la
                         etiqueta cambia con el ícono: `AccionFila` usa el mismo string para el
                         `aria-label` y el `title`, y una ✕ que dice «Configurar» miente. */}
                     {esEntrada(e) ? (
@@ -584,7 +584,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         key={`${emb.id}:${emb.entradas.join(',')}`}
                         initial={emb.entradas} initialEvento={emb.evento} canal={extras?.canal ?? null}
                         funnelId={funnelId ?? undefined}
-                        onGuardado={() => { void cargar(); setEntradasAbierto(false); router.refresh(); }}
+                        // ⚠️ GUARDAR YA NO CIERRA EL PANEL: desde el 05/10/2026 abajo viven las
+                        // campañas, y cerrar al guardar las escondía justo cuando se termina de
+                        // contestar lo de arriba. Lo que se pliega es la lista de casillas
+                        // (EmbudoEntradas muestra la respuesta y un «Cambiar»).
+                        onGuardado={() => { void cargar(); router.refresh(); }}
                       />
                       {/* LAS CAMPAÑAS QUE ENTRAN A ESTE PRODUCTO (05/10/2026). Van en la
                           misma caja que «cómo entra tu gente» porque contestan lo mismo

@@ -67,6 +67,7 @@ import type { ReagendarResultado, StageMoveData } from './actions';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
+import { CampanasModal } from './CampanasModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
@@ -1561,6 +1562,11 @@ export function CrmBoard({
   // de abrir el buscador de archivos del sistema sin avisar qué va a pasar).
   const [exportar, setExportar] = useState(false);
   const [importar, setImportar] = useState(false);
+  // La tabla de campañas de Meta del producto que se está mirando, abierta desde el «⋯» de
+  // la columna de entrada. Si en el medio se trajeron leads, al cerrar se refresca: si no,
+  // el tablero sigue sin los que acaban de llegar.
+  const [campanasAbierto, setCampanasAbierto] = useState(false);
+  const cambiaronCampanas = useRef(false);
   // El alta lleva A DÓNDE va: `etapa: null` = el botón del header (cae donde el alta lo
   // ponga), una clave = el placeholder de esa columna (pedido 7).
   /**
@@ -2055,6 +2061,11 @@ export function CrmBoard({
                       },
                     ],
                   }] : []),
+                  // «En la opción de los 3 puntos de "Lead entrante" debería estar la opción
+                  // para asignar una campaña» (Martín, 05/10/2026). Sólo en la ENTRADA: es la
+                  // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
+                  // sección en el pop-up del embudo.
+                  ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Campañas de Meta' }] : []),
                   { value: 'renombrar', label: 'Cambiar el nombre' },
                   // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
                   // 29/09/2026). Sigue insertando DESPUÉS de esta: el rótulo explicaba el
@@ -2081,6 +2092,7 @@ export function CrmBoard({
                   ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa' }] : []),
                 ]}
                 onChange={(v) => {
+                  if (v === 'campanas') { setCampanasAbierto(true); return; }
                   if (v === 'renombrar') { setRenombrando(c.key); return; }
                   if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
                   if (v === 'eliminar') void quitarColumna(c);
@@ -2584,6 +2596,18 @@ export function CrmBoard({
       )}
 
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
+      {campanasAbierto && (
+        <CampanasModal
+          // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con
+          // ese número la tabla no reconocería sus propias campañas como «Este».
+          funnelId={funnelActivo == null || funnels.find((f) => f.id === funnelActivo)?.esDefault ? null : funnelActivo}
+          nombreProducto={nombreDeFunnel(funnelActivo)}
+          onCambio={() => { cambiaronCampanas.current = true; }}
+          onCerrar={() => {
+            setCampanasAbierto(false);
+            if (cambiaronCampanas.current) { cambiaronCampanas.current = false; router.refresh(); }
+          }} />
+      )}
       {importar && <ImportarLeadsModal funnelId={funnelActivo} productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))} onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
       {/* ⚠️ LA SEMILLA VA SÓLO SI EL POP-UP ABRE SOBRE EL EMBUDO QUE SE ESTÁ MIRANDO.
