@@ -24,7 +24,6 @@ import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
 import { lecturaDeFichas } from './ficha-lectura';
-import { entregasDe } from './ficha-datos';
 import type { ClienteCruce } from './cruce';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { AdminView } from '@/app/admin/AdminView';
@@ -33,7 +32,7 @@ import { clientesAprobados } from '@/lib/agencia-cartera';
 import { capaDef } from '@/lib/capas';
 import { listarWorkspaces } from '@/lib/workspace';
 import { listarUsuarios } from '@/lib/usuarios';
-import { caraDeUsuario } from '@/lib/gravatar';
+import { caraDeUsuario, urlGravatar } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -231,10 +230,9 @@ export default async function CustomerSuccessPage() {
   /**
    * CADA CLIENTE, CON LO QUE DIBUJA SU FICHA (Resumen y Llamadas).
    *
-   * ⚠️ LA ETAPA SALE DE LA MISMA LECTURA QUE EL KANBAN (`entrega`) y con la misma regla
-   * (`entregasDe` delega en `repartirEnEtapas`): con otra fuente, la tarjeta y el Resumen
-   * del mismo cliente podrían decir dos etapas distintas. Lo que se mueve en el kanban
-   * llega acá por el `revalidatePath` de la acción, igual que al tablero.
+   * ⚠️ LA ETAPA YA NO VIAJA ACÁ (06/10/2026): la ficha la muestra en un desplegable que lee
+   * la MISMA asignación que el kanban, con lo movido en la sesión encima (FichaEntrega). Una
+   * foto armada acá diría la etapa de antes de moverlo.
    */
   const fichas = await lecturaFichas;
   const clientesConFicha: ClienteCruce[] = clientes.map((c) => ({
@@ -242,7 +240,8 @@ export default async function CustomerSuccessPage() {
     ficha: {
       contacto: fichas.contacto ? (fichas.contacto[c.leadId] ?? null) : null,
       llamadas: fichas.llamadas ? (fichas.llamadas[c.leadId] ?? []) : null,
-      entregas: entrega.ok ? entregasDe(c.leadId, entrega.servicios, entrega.porServicio) : null,
+      // La cara de su email, si nadie le eligió una (ver app/customer-success/foto-cliente.ts).
+      fotoEmail: c.email?.trim() ? urlGravatar(c.email, 176) : null,
     },
   }));
 

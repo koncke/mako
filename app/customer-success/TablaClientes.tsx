@@ -42,6 +42,7 @@ import { Marca } from '@/app/_components/Marca';
 import { Dropdown } from '@/app/components/Dropdown';
 import { colorDe } from './ClienteCard';
 import { opcionesDeEtapas } from './LoteClientes';
+import { useFotoCliente } from './foto-cliente';
 import { tiempoEnEtapa } from './en-etapa';
 import { repartirEnEtapas, colorDeEtapa, faseDe, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 // ⚠️ EL MISMO MOLDE DE ARRASTRE QUE EL PLAN Y QUE EL KANBAN DE ESTA PANTALLA, importado y no
@@ -83,6 +84,13 @@ const conAlfa = (color: string, alfa: string, sinHex: string) => (HEX6.test(colo
  *
  * Devuelve la función que la saca; es idempotente.
  */
+/** La cara del cliente en su fila. Es un componente porque la foto automática es un hook,
+ *  y un hook no se llama adentro del `map` de las filas. */
+function CaraFila({ c, nombre }: { c: ClienteCruce; nombre: string }) {
+  const foto = useFotoCliente(c);
+  return <Marca icono={c.icono ?? c.avatarUrl} foto={foto} nombre={nombre} tam={26} y={c.avatarY} color={colorDe(nombre)} />;
+}
+
 function montarCopiaFila(tr: HTMLTableRowElement, clientX: number, clientY: number, cuantos: number): () => void {
   const r = tr.getBoundingClientRect();
   const fondo = getComputedStyle(tr).backgroundColor;
@@ -409,8 +417,7 @@ export function TablaClientes({
         </td>
         <td style={td}>
           <span className="tc-quien">
-            <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={26}
-              y={c.avatarY} color={colorDe(nombre)} />
+            <CaraFila c={c} nombre={nombre} />
             <span className="tc-nom">{nombre}</span>
             <span className="tc-num">Cliente {numeroDe.get(c.leadId) ?? 0}</span>
           </span>

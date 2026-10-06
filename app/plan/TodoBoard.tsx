@@ -7,6 +7,7 @@
 // Tarea↔BoardTask / Categoria↔Label y el Repo que persiste contra la API.
 // En demo (local sin Supabase) el Repo muta en memoria.
 
+import type { ReactNode } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
 import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore } from './board/types';
@@ -54,9 +55,11 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
   /** Sólo esa vista y sin el selector de vistas. Ver `soloVista` en `BoardShell`. */
   soloVista?: 'prioridades';
+  /** Va en el lugar del «⋮» con `soloVista`. Ver `accionEnLugarDelMenu` en `BoardShell`. */
+  accionEnLugarDelMenu?: ReactNode;
   /** El cliente del filtro, leído en el server desde `?cliente=`. Ver `clienteInicial` en `BoardShell`. */
   clienteInicial?: number | null;
   /**
@@ -185,5 +188,5 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
   // tablero general esconde el tablero de la ficha sin decir por qué.
   const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
-  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} />;
+  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} accionEnLugarDelMenu={accionEnLugarDelMenu} />;
 }

@@ -3421,5 +3421,116 @@ contra 0).
   (`crearConGuardian` / `crearProyecto` en `app/plan/board/BoardShell.tsx`).
 - `app/admin/FichaWorkspace.tsx` (la ficha de la plataforma) sigue con «Equipo» como vista
   extra del tablero.
-- Los números del Resumen son los de cuando se abrió la ficha; no siguen en vivo lo que se
-  edita en Prioridades.
+- ~~Los números del Resumen no siguen en vivo lo que se edita en Prioridades.~~ Se fue con el
+  renglón «Trabajo» el 06/10 (ver la sección de abajo).
+
+## Clientes por producto, la ficha con las tabs del CRM y el editor por cajas (06/10/2026)
+
+El pedido: el editor de etapas con las fases como contenedores y «Nueva fase» arriba, opaca;
+«Prioridades» pasa a «Tareas» con «Ver en el Plan» donde estaba el «⋮»; la Entrega del
+Resumen se va y quedan dos desplegables (producto y etapa) como en el CRM; el Resumen son los
+datos de la «Información principal» del CRM; la foto sale de WhatsApp o del email; y las tabs
+Pagos e Historial. Y una respuesta suya que cambió el modelo: «un cliente puede estar en
+varios productos, lo mismo que el CRM… pero en el producto de PRUEBA debería estar vacío».
+
+### Cada tablero dibujaba a la cartera ENTERA, y nadie lo había preguntado
+
+«Prueba» mostraba a los 14 clientes de Negocio que Escala en Bienvenida. No era un dato mal
+cargado (Prueba no tenía ni una fila en `cliente_entrega`): era la regla «un cliente sin fila
+está en la primera etapa» (`repartirEnEtapas`), que nunca preguntó **de qué producto** era el
+cliente. Con un solo producto no se nota; con dos, todos están en todos.
+
+La regla que quedó (`app/customer-success/pertenencia.ts`): un cliente es de un producto si es
+su **CASA** —el producto de su embudo del CRM, `leads.funnel_id`, con NULL = el embudo
+principal como en el CRM— **o** si tiene una fila ahí. Sin casa que se ofrezca y sin filas,
+cae al primer producto ofrecido: en Código Inmobiliario el embudo principal no está atado a
+ningún producto, y sin ese respaldo sus cuatro clientes no aparecían en ningún tablero.
+
+- **Se aplica UNA vez y salen de ahí los cuatro universos del producto**: el kanban, la tabla,
+  «N de M» y el conteo del editor de etapas (`visiblesServ` / `listaServ` en ClientesApp). Con
+  uno filtrado y otro no, el editor avisaría que sacar una columna se lleva clientes que el
+  tablero no muestra — la misma familia que el «0 contra 5» del 05/10.
+- **Y se pregunta sobre la asignación CON LO MOVIDO EN LA SESIÓN** (`asignacionDe`), no sobre
+  las filas del server: «＋ Agregar a…» lo mete al tablero en el acto y su deshacer
+  (`sacarEntrega`, que borra la fila que acaba de nacer) lo saca.
+- Medido en el navegador: Negocio que Escala 14, Prueba 0; Código Inmobiliario Entrada 4, Core
+  0, Premium 0.
+
+**Vive en:** `app/customer-success/pertenencia.ts` · `app/customer-success/entrega.ts`
+(`casaDeLaCartera`) · `app/customer-success/ClientesApp.tsx` · *2026-10-06*
+
+### La etapa de la ficha no puede ser una foto del server
+
+El renglón «Entrega» del Resumen salía de `entregasDe`, calculado en `page.tsx` con lo que
+traía el server. Para un desplegable que MUEVE eso miente: después de moverlo, la foto dice la
+etapa de antes hasta el próximo `revalidatePath`. Los desplegables nuevos (`FichaEntrega.tsx`)
+leen la misma `asignacionDe` que el kanban y mueven por el mismo `moverEntrega` (deshacer,
+reloj e historial incluidos). `entregasDe`, `conteoDeTrabajo` y `fraseConteo` se fueron con sus
+renglones, y sus tests con ellos.
+
+El desplegable de producto **elige qué entrega se mira, no mueve al cliente** — al revés que el
+del CRM, donde un lead vive en UN embudo y elegir otro lo muda. Acá mover sería sacarlo de un
+producto que nadie pidió tocar.
+
+**Vive en:** `app/customer-success/FichaEntrega.tsx` · *2026-10-06*
+
+### Renombrar al cliente desde su ficha no dejaba historial
+
+`guardarDatosClienteAction` escribía `leads` a pelo, así que la tab Historial —que es el
+`AuditHistory` del CRM, sobre `lead_audit`— no mostraba que alguien había cambiado el nombre o
+la empresa desde Customer Success. Va el mismo `logLeadChanges` que usa la ficha del CRM, con el
+antes y el después LEÍDOS. Los movimientos de etapa ya dejaban su «Entrega: <producto>» desde
+el choke point.
+
+**Lo que sigue a medias:** el choke point firma esos movimientos como `CRM` (`POR_PERSONA`), no
+con el email de quien movió, así que el Historial dice «CRM» y no la persona.
+
+**Vive en:** `app/customer-success/actions.ts` · `lib/cs-mover-etapa.ts` · *2026-10-06*
+
+### La foto automática: el `onError` de `Marca` no deja encadenar
+
+El pedido era WhatsApp primero y, si no tiene, el email. `Marca` cae DIRECTO a las iniciales en
+el `onError`, así que con ella no hay forma de pasar de la primera candidata a la segunda.
+`foto-cliente.ts` prueba cada una con un `Image()` y a `Marca` le llega sólo la que cargó (el
+navegador la sirve de caché: el proxy contesta con `max-age`).
+
+- **Lo que la persona eligió gana siempre**: con `icono` o `avatar_url` no se busca nada.
+- **El `<img>` no pasa por el parche de fetch que agrega el `?ws=`**: sin `conWs`, el super
+  admin mirando a un cliente le pediría la foto a la línea de WhatsApp de SU workspace.
+- El Gravatar sale armado del server (`ficha.fotoEmail`): el hash usa `node:crypto`.
+
+**Vive en:** `app/customer-success/foto-cliente.ts` · *2026-10-06*
+
+### El editor por cajas (lo hizo un agente, verificado en el navegador)
+
+- **Saber si algo está «adentro» de un elemento JSX buscando texto da verdes falsos**: el
+  primer guard buscaba «Nueva etapa» antes del último `</div>` del recorte, y ese `</div>` era
+  el de la propia fila. Contar `<div` contra `</div>` tampoco, porque los atributos traen `=>`.
+  Se parsea con el compilador de TypeScript (`cajaJsx` en tests/cs-kanban-fases.test.ts).
+- **Al soltar una etapa en OTRA caja, su nodo se desmonta y el `dragend` no llega a
+  `document`**: la limpieza va en el `drop`.
+- **El destino se elige primero por la caja bajo el cursor** y después por el hueco más cercano
+  adentro (`destinoEn`): con sólo el hueco más cercano, el cursor sobre el título de la caja de
+  abajo caía al final de la de arriba.
+
+### Trampas de la verificación
+
+- **Abortar `autoasignar` (el POST con cuerpo `[]` que la página dispara sola al montar) manda
+  la página a «pantalla rota»**: no es un bug, es el arnés. Las lecturas de un solo número
+  (notas, historial, pagos de un cliente) se dejan pasar; lo demás se aborta.
+- **`scrollIntoViewIfNeeded` sobre un nodo del modal scrollea la PÁGINA** (~50 px) y la caja
+  leída antes queda vieja: el `mouse.down` agarra otra fila. Se scrollea sólo
+  `.mk-modal__cuerpo`.
+- **Un dev server que se muere a mitad de escribir deja `.next/dev` corrupto**, y desde ahí
+  TODO `/api` da 404 — incluido el dev-login, que se lee como «hay una env de Vercel puesta» y
+  no lo era. La cura y el detalle, en `docs/hallazgos-infra.md`.
+
+### Lo que quedó SIN hacer
+
+- Pagos e Historial piden sus datos al abrir la tab (con su giro), igual que las Notas: es la
+  excepción a «la ficha no tiene estado de carga», porque bajar el lead entero y sus cuotas de
+  catorce clientes en cada carga sería pagar la lectura para una tab que se abre de a una.
+- No hay «Quitar de este producto» en la ficha: sacar a un cliente de un producto que NO es su
+  casa sólo se puede deshaciendo el «Agregar». Y la casa no se puede sacar desde acá (es su
+  embudo del CRM).
+- El autor de los movimientos de entrega en el Historial es «CRM» y no la persona (arriba).

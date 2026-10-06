@@ -33,7 +33,10 @@ import { getTenantDb, adminDeWorkspaceActual, crearWorkspace } from '@/lib/works
 import { getSupabaseServer } from '@/lib/supabase';
 import { esAgencia } from '@/lib/agencia';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
-import { createLead, updateLead } from '@/lib/leads';
+import { createLead, updateLead, getLead, logLeadChanges, type Lead } from '@/lib/leads';
+import { getPagosByLead, type Pago } from '@/lib/pagos';
+import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { getUsuarioActual } from '@/lib/auth';
 // La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
@@ -44,7 +47,7 @@ import { emailUtilizable, emailNormalizado } from '@/lib/agencia-altas';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
 import { guardarEtapasEntrega } from '@/lib/entrega-servicio';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
-import { renombrarFunnel, archivarFunnel } from '@/lib/funnels';
+import { renombrarFunnel, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 
 /** ¿Este lead es un cliente DE ESTE workspace? Fail-closed: sin esto, un POST
@@ -57,6 +60,44 @@ async function clienteDelWorkspace(leadId: number): Promise<{ id: number; nombre
   const { data } = await db.from('leads')
     .select('id, nombre, email').eq('id', leadId).eq('estado_lead', 'ganado').maybeSingle();
   return (data as { id: number; nombre: string; email: string | null } | null) ?? null;
+}
+
+/** Quién firma en el historial: el email de quien está logueado, como en el CRM (se
+ *  resuelve a nombre y foto al leer). Sin sesión con email, 'CRM'. */
+async function autorActual(): Promise<string> {
+  try {
+    return (await getUsuarioActual())?.email?.trim() || 'CRM';
+  } catch {
+    return 'CRM';
+  }
+}
+
+/**
+ * La venta y las cuotas de un cliente, para la tab «Pagos» de su ficha.
+ *
+ * Pedido de Martín (06/10/2026): «sería bueno que traigas la tab de Pagos directamente,
+ * como está en el CRM». Se monta el MISMO `DealDetailsCard` que la ficha del CRM, y ése
+ * pide el lead ENTERO y sus pagos — por eso esto devuelve `Lead` y no un recorte: con un
+ * recorte el componente dibujaría `undefined` en los campos que nadie mapeó.
+ *
+ * ⚠️ SE PIDE AL ABRIR LA TAB, no con el HTML de la página. Es la excepción a la regla de la
+ * ficha (ver su cabecera) y es la misma que ya tienen las Notas y el Historial, que también
+ * se reusan del CRM con su lectura adentro: bajar las ~60 columnas de cada lead y todas sus
+ * cuotas para catorce clientes, en cada carga de la cartera, para una tab que se abre de a
+ * una, es pagar la lectura entera siempre.
+ */
+export async function pagosDeClienteAction(leadId: number): Promise<{ ok: true; lead: Lead; pagos: Pago[]; etapas: Stage[] } | { ok: false; error: string }> {
+  try {
+    if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es de este workspace.' };
+    const [lead, pagos] = await Promise.all([getLead(leadId), getPagosByLead(leadId)]);
+    if (!lead) return { ok: false, error: 'No encontré a este cliente.' };
+    // Las etapas de SU embudo del CRM, para que el Historial pinte «Etapa» con su rótulo y
+    // su color (sin ellas muestra la clave cruda). Las mismas que lee la ficha del CRM.
+    const etapas = await getPipelineStagesDeLead(lead).catch(() => [] as Stage[]);
+    return { ok: true, lead, pagos, etapas: etapas.length ? etapas : DEFAULT_STAGES };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude leer sus pagos.' };
+  }
 }
 
 // ⚠️ SE FUERON CUATRO ACTIONS MÁS EL 27/09/2026, CON EL BOTÓN QUE LAS LLAMABA.
@@ -237,9 +278,17 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
     if (!Object.keys(upd).length) return { ok: false, error: 'No había nada que cambiar.' };
 
     const db = await getTenantDb();
+    // ⚠️ CON HISTORIAL (06/10/2026): «es importante que se registre historial en los
+    // clientes de Customer Success». Esto escribía `leads` a pelo, así que renombrar a un
+    // cliente desde su ficha no dejaba rastro en la tab Historial — que es la MISMA del CRM
+    // (`AuditHistory`). Va el mismo `logLeadChanges` que usa la ficha del CRM, con el
+    // antes y el después leídos, nunca supuestos.
+    const antes = await getLead(leadId).catch(() => null);
     const { data, error } = await db.from('leads').update(upd).eq('id', leadId)
       .select('nombre, empresa').single();
     if (error) return { ok: false, error: error.message };
+    const despues = await getLead(leadId).catch(() => null);
+    await logLeadChanges(leadId, antes, despues, await autorActual()).catch(() => {});
 
     revalidatePath('/customer-success');
     const fila = data as { nombre: string | null; empresa: string | null };

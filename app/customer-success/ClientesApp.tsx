@@ -36,6 +36,7 @@ import type { CarteraEnEntrega } from './entrega';
 import { conteoDeEtapas, relojDeVuelta, repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
 import { LoteClientes } from './LoteClientes';
+import { esDelProducto } from './pertenencia';
 import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
@@ -318,7 +319,28 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
   };
 
   /**
-   * LOS QUE ESTÁN EN PANTALLA: `visibles` menos los que la fase elegida esconde.
+   * LOS CLIENTES DE ESTE PRODUCTO: su casa (el embudo del CRM) o una fila ahí.
+   *
+   * ⚠️ ANTES CADA TABLERO DIBUJABA A LA CARTERA ENTERA, y por eso «Prueba» mostraba a los
+   * 14 clientes de Negocio que Escala en Bienvenida (06/10/2026, «en el producto de PRUEBA
+   * debería estar vacío»). La regla vive en ./pertenencia.ts; acá se aplica UNA vez y de acá
+   * salen los cuatro universos que cuelgan del producto: el kanban, la tabla, «N de M» y el
+   * conteo del editor de etapas. Con uno filtrado y otro no, el editor avisaría que sacar
+   * una columna se lleva clientes que el tablero no muestra.
+   *
+   * ⚠️ SOBRE LA ASIGNACIÓN CON LO MOVIDO ENCIMA, no sobre las filas del server: «Agregar a
+   * este producto» desde la ficha lo mete al tablero en el acto, y su deshacer lo saca.
+   */
+  const casa = entrega?.ok ? entrega.casaPorLead : {};
+  const asigServicio = servicio ? asignacionDe(servicio.productoId) : {};
+  const delServicio = (cs: ClienteCruce[]): ClienteCruce[] => (servicio
+    ? cs.filter((c) => esDelProducto(c.leadId, servicio.productoId, casa, asigServicio))
+    : cs);
+  const visiblesServ = delServicio(visibles);
+  const listaServ = delServicio(lista);
+
+  /**
+   * LOS QUE ESTÁN EN PANTALLA: `visiblesServ` menos los que la fase elegida esconde.
    *
    * ⚠️ HACE FALTA DESDE QUE LA FASE ES UN FILTRO DE «Filtrar». Mientras fue una fila de
    * chips adentro del tablero, la pantalla no sabía que había columnas escondidas, y
@@ -336,14 +358,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    * tal cual.
    */
   const enPantalla = ((): ClienteCruce[] => {
-    if (!enKanban || !servicio || faseVista === null) return visibles;
-    const asig = asignacionDe(servicio.productoId);
-    const { porEtapa } = repartirEnEtapas(servicio.etapas, visibles, (c) => asig[c.leadId]?.etapa);
+    if (!enKanban || !servicio || faseVista === null) return visiblesServ;
+    const { porEtapa } = repartirEnEtapas(servicio.etapas, visiblesServ, (c) => asigServicio[c.leadId]?.etapa);
     const ids = new Set<number>();
     for (const e of columnasVisibles(servicio.etapas, servicio.fases, faseVista)) {
       for (const c of porEtapa[e.key] ?? []) ids.add(c.leadId);
     }
-    return visibles.filter((c) => ids.has(c.leadId));
+    return visiblesServ.filter((c) => ids.has(c.leadId));
   })();
   /** Los elegidos que la pantalla está mostrando, en el orden en que se ven. */
   const elegidosVisibles = enPantalla.filter((c) => sel.has(c.leadId)).map((c) => c.leadId);
@@ -613,7 +634,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             fases={enKanban ? opcionesFase : undefined} fase={faseVista} onFase={setFasePedida}
             /* ⚠️ `enPantalla` Y NO `visibles`: con una fase elegida, «N de M» tiene que
                contar lo que el riel dibuja. */
-            nVisibles={enPantalla.length} nTotal={lista.length}
+            nVisibles={enPantalla.length} nTotal={listaServ.length}
             /* ⚠️ EL PROGRESO DE UNA CARTERA NO ES «TAREAS HECHAS». El plan cuenta lo
                completado; acá lo que importa es cuántos clientes tienen trabajo
                abierto — un cliente sin nada abierto no está «listo», está enfriándose,
@@ -668,8 +689,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               fase={faseVista}
               origen={servicio.origen}
               servicio={servicio.nombre}
-              clientes={visibles}
-              asignacion={asignacionDe(servicio.productoId)}
+              clientes={visiblesServ}
+              asignacion={asigServicio}
               numeroDe={numeroDe}
               trabajoDe={resumenDe}
               tableroOk={tablero.ok}
@@ -684,13 +705,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               onMoverLote={(leadIds, etapa) => moverLote(leadIds, etapa, servicio.productoId)}
             />
           ) : (
-            <TablaClientes filas={visibles} numeroDe={numeroDe} resumenDe={resumenDe}
+            <TablaClientes filas={visiblesServ} numeroDe={numeroDe} resumenDe={resumenDe}
               tableroOk={tablero.ok}
               /* Con un servicio elegido la tabla se agrupa por SUS etapas y se arrastra
                  entre ellas; sin servicio queda plana, como antes. */
               etapas={servicio ? servicio.etapas : null}
               fases={servicio ? servicio.fases : []}
-              asignacion={servicio ? asignacionDe(servicio.productoId) : {}}
+              asignacion={asigServicio}
               onMover={(leadId, etapa) => { if (servicio) moverEntrega(leadId, etapa, servicio.productoId); }}
               onMoverLote={(leadIds, etapa) => { if (servicio) moverLote(leadIds, etapa, servicio.productoId); }}
               seleccion={sel}
@@ -701,8 +722,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               existe deja una tabla vacía, y una tabla vacía se lee como que se borró la
               cartera. En el kanban no va: ahí lo dice cada columna, y un renglón más
               debajo de cinco «Sin clientes» es repetir lo mismo seis veces. */}
-          {visibles.length === 0 && !enKanban && (
-            <p className="cl-nada">Ningún cliente coincide con lo que buscaste.</p>
+          {/* Un producto sin clientes no es una búsqueda sin resultados: son dos frases. */}
+          {visiblesServ.length === 0 && !enKanban && (
+            <p className="cl-nada">{listaServ.length === 0 ? 'Este producto todavía no tiene clientes.' : 'Ningún cliente coincide con lo que buscaste.'}</p>
           )}
         </>
       )}
@@ -721,6 +743,11 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           user={user}
           clientes={clientes}
           cuentas={cuentas}
+          entrega={entrega?.ok ? {
+            servicios, asignacionDe, casa,
+            inicial: servicio?.productoId ?? null,
+            onMover: (etapa, prodId) => moverEntrega(abierto.leadId, etapa, prodId),
+          } : undefined}
           tabInicial={abrirEn}
           onImagen={(cambio) => guardarImagen(abierto.leadId, cambio)}
           onCerrar={() => { setAbiertoId(null); setAbrirEn(null); }}
@@ -733,8 +760,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           /* Desde una COLUMNA el cliente nace y se mueve a esa etapa en el acto; desde
              la tabla no hay etapa que elegir, así que se deja el camino de siempre
              (el modal recarga) en vez de inventar una. */
-          onCreado={creando && servicio
-            ? (leadId) => moverEntrega(leadId, creando, servicio.productoId)
+          /* ⚠️ Y DESDE LA TABLA DE UN PRODUCTO QUE NO ES EL PRINCIPAL, nace en su primera
+             etapa. Un cliente nuevo nace en el embudo principal, así que su casa es el
+             producto principal (ver ./pertenencia.ts): creado mirando otro, desaparecería
+             de la pantalla en la que se lo acaba de crear. */
+          onCreado={servicio && (creando || (!servicio.principal && servicio.etapas[0]))
+            ? (leadId) => moverEntrega(leadId, creando || servicio.etapas[0].key, servicio.productoId)
             : undefined}
         />
       )}
@@ -757,11 +788,12 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
              0 puesto el Confirm no se dispara y la columna se va con cinco clientes
              adentro, en silencio. La funcion estaba bien; lo que se le pasaba, no.
 
-             ⚠️ Y SOBRE LA CARTERA ENTERA (`clientes`), NO SOBRE `visibles`: con un
-             filtro o una busqueda puesta, lo que el editor avisa al sacar una columna
-             dejaria de contar a los que el buscador escondio. */
+             ⚠️ Y SOBRE LOS CLIENTES DEL PRODUCTO (`listaServ`), NO SOBRE `visibles`: con
+             un filtro o una busqueda puesta, lo que el editor avisa al sacar una columna
+             dejaria de contar a los que el buscador escondio. Y no sobre la cartera
+             entera: un cliente de otro producto no esta en ninguna columna de este. */
           conteo={conteoDeEtapas(servicio.etapas,
-            clientes.map((c) => asignacionDe(servicio.productoId)[c.leadId]?.etapa))}
+            listaServ.map((c) => asigServicio[c.leadId]?.etapa))}
           /* ⚠️ `undefined` y `null` NO son lo mismo acá: sin la lectura (el server no
              la trajo) y con la lectura caída, el editor tiene que decir las dos veces
              que no pudo revisar — nunca «ninguna». Por eso el `??` cae a `null`. */

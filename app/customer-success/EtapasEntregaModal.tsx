@@ -9,19 +9,31 @@
 // selector de fase con cara de campo de texto en cada fila, flechas, ✕ y un recuadro
 // punteado de «Agregar etapa» después de cada grupo — todo dibujado todo el tiempo).
 //
-// LO QUE QUEDÓ, y es lo que hay que conservar:
-//  · UNA LISTA QUE SE LEE DE ARRIBA ABAJO COMO EL TABLERO SE LEE DE IZQUIERDA A DERECHA.
-//    Las fases son TÍTULOS de grupo (punto de color + nombre), sin cajas ni versalitas.
-//  · LAS FILAS VAN CALLADAS: punto, nombre y el número de clientes en gris. La ✕ y el asa
-//    de arrastre aparecen SÓLO con el cursor encima o con el foco adentro (`.ee-oculto`).
+// Y al día siguiente, sobre esa versión (fases como títulos sueltos, filas con sólo un
+// punto, «+ Fase» y «+ Etapa» como texto, todo sobre blanco): «No hagas que el editor sea
+// totalmente blanco que parezca que están flotando las cosas, eso no se entiende... Yo lo
+// que pienso es que las fases sean contenedores grandes, y que el botón de nueva fase sea
+// como una fase arriba del todo, así como hacemos lo de "Nuevo proyecto" que es como mas
+// gris y opaco» (Martín, 06/10/2026).
+//
+// LO QUE HAY, y es lo que hay que conservar:
+//  · CADA FASE ES UNA CAJA (`.ee-caja`: `--surface-2`, borde y radio propios) con su título
+//    arriba —punto de color y nombre— y sus etapas ADENTRO, como filas blancas. La última
+//    fila de la caja es «Nueva etapa». Las etapas sin fase tienen su propia caja, «Sin
+//    fase»; sin ninguna fase es UNA caja sin título. Nada flota sobre el blanco del modal.
+//  · «NUEVA FASE» ES UNA FASE DE MENTIRA, ARRIBA DE TODO: una caja con la forma de las
+//    otras, punteada, gris y apagada, que se ilumina con el cursor. Es el molde de «Crear
+//    nuevo proyecto» del Plan (app/plan/board/BoardShell.tsx). Arriba y no abajo: «agregar
+//    fase debería estar arriba del todo», pedido anterior que sigue valiendo.
+//  · LAS ACCIONES VAN CALLADAS: la ✕ y el asa de arrastre aparecen SÓLO con el cursor
+//    encima o con el foco adentro (`.ee-oculto`), en las filas y en el título de una fase
+//    (nombre, color, sacarla). Sacar una fase NO borra sus etapas: quedan «Sin fase».
 //  · ORDENAR Y CAMBIAR DE FASE SON EL MISMO GESTO: se arrastra la fila, y soltarla adentro
-//    de otro grupo la pasa a esa fase. Eso es lo que sacó el selector de cada fila y las
-//    flechas. Con el teclado, Alt+↑ / Alt+↓ sobre la fila hace lo mismo un lugar por vez,
-//    cruzando de grupo en los bordes — sin un solo botón más dibujado.
-//  · «+ Etapa» es texto al pie de cada grupo y «+ Fase» uno solo, ARRIBA («agregar fase
-//    debería estar arriba del todo, no abajo», pedido anterior que sigue valiendo).
-//  · Las acciones de una fase (nombre, color, sacarla) también aparecen sólo con el cursor.
-//    Sacar una fase NO borra sus etapas: quedan «Sin fase».
+//    de OTRA caja la pasa a esa fase — esa caja se ENCIENDE mientras sea el destino. El
+//    destino sale primero de la CAJA que está a la altura del cursor y recién ahí del lugar
+//    más cercano adentro de ella (`destinoEn`): con el lugar más cercano a secas, el título
+//    de la caja de abajo seguía apuntando al final de la de arriba. Con el teclado, Alt+↑ /
+//    Alt+↓ sobre la fila hace lo mismo un lugar por vez, cruzando de caja en los bordes.
 //
 // Lo que NO cambió del molde del CRM (app/crm/EtapasModal.tsx): caja de 760 con alto FIJO,
 // el título es un input que renombra el producto, el pie es sólo «Eliminar producto» en rojo
@@ -105,18 +117,20 @@
 // (Martín). Es el mismo modelo que el CRM ya tiene con Activo / Nutrición / Descartado.
 //
 // ⚠️ UNA ETAPA SIN FASE ES EL CASO NORMAL, no un hueco por llenar. Sin ninguna fase esta
-// pantalla es una lista sola, sin títulos de grupo.
+// pantalla es una sola caja, sin título.
 //
-// ⚠️ UNA FASE VACÍA NO TIENE LUGAR EN EL TABLERO, así que se dibuja al final con un «arrastra
-// etapas aquí». Y «Sin fase» aparece como destino mientras se arrastra aunque no tenga
-// ninguna etapa: es la única forma de sacar una etapa de su fase sin borrar la fase.
+// ⚠️ UNA FASE VACÍA NO TIENE LUGAR EN EL TABLERO, así que su caja se dibuja al final con un
+// «arrastra etapas aquí». Y la caja «Sin fase» aparece como destino mientras se arrastra
+// aunque no tenga ninguna etapa: es la única forma de sacar una etapa de su fase sin borrar
+// la fase.
 //
-// ⚠️ LAS FASES TAMBIÉN SE REORDENAN (era lo que había quedado SIN hacer): se arrastra el
-// título, o Alt+↑ / Alt+↓ sobre su nombre. Un grupo con etapas se mueve entre los que tienen
-// etapas y nunca antes del de la entrada; uno vacío, entre los vacíos.
+// ⚠️ LAS FASES TAMBIÉN SE REORDENAN: se arrastra el título (y viaja la caja entera), o
+// Alt+↑ / Alt+↓ sobre su nombre. El destino es el HUECO entre dos cajas, que se marca con
+// una línea. Un grupo con etapas se mueve entre los que tienen etapas y nunca antes del de
+// la entrada; uno vacío, entre los vacíos.
 
 import {
-  useCallback, useEffect, useLayoutEffect, useRef, useState,
+  Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState,
   type CSSProperties, type DragEvent as DragReact, type KeyboardEvent as TeclaReact, type ReactNode,
 } from 'react';
 import { Modal, Confirm, Toast, useToast } from '@/app/_ui';
@@ -136,8 +150,14 @@ const MAX_LABEL = 40;
 /** El mismo tope que el título del editor del CRM y que `renombrarServicioAction`. */
 const MAX_NOMBRE = 60;
 
-/** La línea de 2 px que dice dónde va a caer lo que se está arrastrando. */
-const MARCA: CSSProperties = { boxShadow: 'inset 0 2px 0 0 var(--primary)' };
+/**
+ * La línea de 2 px que dice dónde va a caer una etapa: en el hueco de ARRIBA de la fila.
+ * Una sombra de afuera y no una de adentro: adentro se dibujaba sobre el borde redondeado
+ * de la fila blanca y se leía como un borde de color, no como un lugar entre dos filas.
+ */
+const MARCA: CSSProperties = { boxShadow: '0 -3px 0 -1px var(--primary)' };
+/** El hueco entre dos cajas, cuando es el destino de una FASE: la línea va al medio. */
+const HUECO_MARCADO: CSSProperties = { background: 'linear-gradient(var(--primary), var(--primary)) center / 100% 2px no-repeat' };
 const PUNTO: CSSProperties = { width: 9, height: 9, flex: 'none', borderRadius: '50%' };
 const INPUT: CSSProperties = {
   flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 500, fontSize: 14, color: 'var(--ink)',
@@ -164,28 +184,47 @@ const SOLO_LECTOR: CSSProperties = {
  *
  * ⚠️ Las clases van con el prefijo `ee-` y SIN colgar de `.ee-modal`: la copia que sigue al
  * cursor durante un arrastre es un clon pegado al `body`, afuera del modal, y tiene que
- * conservar la forma de la fila.
+ * conservar la forma de la fila (o de la caja entera, si lo que viaja es una fase).
+ *
+ * ⚠️ LA CAJA QUE SE ENCIENDE NO CAMBIA DE TAMAÑO: el borde es de 1 px siempre y el anillo
+ * de más es una sombra. Los lugares del arrastre se miden al agarrar; un borde que engorda
+ * al ser destino correría todo lo de abajo y la marca apuntaría a otro lado.
+ *
+ * ⚠️ TODO ALINEA CONTRA LA MISMA COLUMNA: el asa de una fila, la del título de una fase, el
+ * hueco de «Nueva etapa» y el de «Nueva fase» caen a 14 px del borde de afuera de la caja
+ * (1 de borde + 6 de padding + 1 de borde + 6 de padding), así los puntos quedan uno debajo
+ * del otro. Por eso el título lleva un borde transparente y «Nueva fase» 12,5 de padding
+ * contra su borde de 1,5.
  *
  * Sin backticks adentro de esta cadena, ni en un comentario: la cierran a la mitad.
  */
 const CSS = [
   '.ee-modal .mk-modal__h{align-self:stretch}',
-  '.ee-fila,.ee-fase{display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:9px;font-family:' + SANS + '}',
-  '.ee-fila{min-height:38px}',
-  '.ee-fase{min-height:32px;margin-top:16px}',
-  '.ee-fase:first-child{margin-top:2px}',
-  '.ee-fila:hover,.ee-fila:focus-within,.ee-fase:hover,.ee-fase:focus-within{background:var(--surface-2)}',
-  // «Sin fase» no tiene nada que hacer con el cursor: un velo ahí promete una acción.
-  '.ee-fase.ee-quieta:hover{background:none}',
+  // La CAJA de una fase: el gris que hace que las filas no floten sobre el blanco.
+  '.ee-caja{display:flex;flex-direction:column;gap:4px;padding:4px 6px 6px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);transition:border-color .12s,box-shadow .12s,background-color .12s}',
+  // El DESTINO de un arrastre que cambia de fase: la caja entera, no sólo una línea.
+  '.ee-caja.ee-destino{border-color:var(--primary);background:var(--primary-bg);box-shadow:0 0 0 1px var(--primary)}',
+  '.ee-hueco{height:12px;flex:none}',
+  '.ee-fila,.ee-fase{display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:9px;border:1px solid transparent;font-family:' + SANS + '}',
+  // Las etapas son filas BLANCAS adentro de la caja gris.
+  '.ee-fila{min-height:38px;background:var(--surface);border-color:var(--border)}',
+  '.ee-fila:hover,.ee-fila:focus-within{border-color:var(--border-strong)}',
+  '.ee-fase{min-height:36px}',
   '.ee-oculto{opacity:0;transition:opacity .12s}',
   '.ee-fila:hover .ee-oculto,.ee-fila:focus-within .ee-oculto,.ee-fase:hover .ee-oculto,.ee-fase:focus-within .ee-oculto{opacity:1}',
   '@media (hover:none){.ee-oculto{opacity:1}}',
   '.ee-asa{width:12px;flex:none;display:inline-flex;align-items:center;justify-content:center;color:var(--faint)}',
-  '.ee-mas{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:none;background:none;border-radius:7px;padding:5px 8px;font:500 13px/1.2 ' + SANS + ';color:var(--faint);cursor:pointer;transition:color .12s}',
-  '.ee-mas:hover{color:var(--primary)}',
+  // «Nueva etapa»: la última fila de la caja, apagada hasta que se le pasa el cursor.
+  '.ee-mas{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:0 7px;border:none;background:none;border-radius:9px;font:500 13px/1.2 ' + SANS + ';color:var(--faint);text-align:left;cursor:pointer;transition:color .12s}',
+  '.ee-mas:hover,.ee-mas:focus-visible{color:var(--primary)}',
+  // «Nueva fase»: una caja de mentira, punteada, gris y apagada, que se ilumina con el
+  // cursor. El molde es «Crear nuevo proyecto» del Plan. Mide 48, lo mismo que la caja que
+  // aparece al apretarla (título de 36 + padding 10 + borde 2): con 46, abrirla corría todo.
+  '.ee-fase-nueva{display:flex;align-items:center;gap:8px;width:100%;min-height:48px;padding:0 12.5px;border:1.5px dashed var(--border-strong);border-radius:12px;background:transparent;font:600 13.5px/1.2 ' + SANS + ';color:var(--faint);text-align:left;opacity:.85;cursor:pointer;transition:border-color .12s,color .12s,opacity .12s}',
+  '.ee-fase-nueva:hover,.ee-fase-nueva:focus-visible{border-color:var(--primary);color:var(--primary);opacity:1}',
   '.ee-punto{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;border-radius:50%;cursor:pointer}',
   '.ee-punto:hover>span,.ee-punto:focus-visible>span{outline:2px solid var(--border-strong);outline-offset:2px}',
-  '.ee-vacia{margin:0 0 0 26px;padding:6px 8px;border-radius:8px;font:400 12.5px/1.3 ' + SANS + ';color:var(--faint)}',
+  '.ee-vacia{margin:0;padding:10px 8px;border-radius:9px;border:1px solid transparent;font:400 12.5px/1.3 ' + SANS + ';color:var(--faint);text-align:center}',
 ].join('\n');
 
 /** El botoncito de una acción por fila (el de app/crm/EtapasModal.tsx). Sin texto: el
@@ -399,11 +438,52 @@ type Confirmar = {
 /** Lo que se está arrastrando: una etapa, o una fase entera desde su título. */
 type Agarre = { tipo: 'etapa'; key: string } | { tipo: 'fase'; clave: string };
 /** Dónde va a caer: un lugar de un grupo, o un lugar entre grupos. */
-type Destino = { tipo: 'etapa'; grupo: string; slot: number } | { tipo: 'fase'; slot: number };
+export type Destino = { tipo: 'etapa'; grupo: string; slot: number } | { tipo: 'fase'; slot: number };
+/** Un lugar donde se puede soltar, a su altura en coordenadas del CONTENIDO del cuerpo. */
+export type Lugar = { d: Destino; y: number };
+/** La caja de un grupo, de arriba abajo, en las mismas coordenadas que los lugares. */
+export type CajaMedida = { grupo: string; top: number; bottom: number };
 
 const mismoDestino = (a: Destino | null, b: Destino | null) =>
   a === b || (!!a && !!b && a.tipo === b.tipo && a.slot === b.slot
     && (a.tipo === 'fase' || (b.tipo === 'etapa' && a.grupo === b.grupo)));
+
+/**
+ * El destino de un arrastre a la altura `y`: primero la CAJA, después el lugar.
+ *
+ * ⚠️ EL LUGAR MÁS CERCANO A SECAS NO ALCANZA CON CAJAS. Entre la última fila de una caja y la
+ * primera de la de abajo están el pie de la primera, su padding, el hueco y el TÍTULO de la
+ * segunda: con el cursor sobre ese título —que es donde uno apunta para «meterla en esta
+ * fase»— el lugar más cercano podía seguir siendo el final de la caja de ARRIBA. Así que se
+ * elige la caja que contiene la altura (o, en un hueco entre dos, la más cercana) y recién
+ * ahí el lugar más cercano DE ESA caja. Sin cajas (el arrastre de una fase entera, que cae
+ * entre cajas) es el más cercano de todos.
+ *
+ * Una caja sin lugares válidos no se elige: se cae al más cercano de todos, que es lo que
+ * había antes y nunca deja el gesto sin destino.
+ */
+export function destinoEn(lugares: readonly Lugar[], cajas: readonly CajaMedida[], y: number): Destino | null {
+  const cercano = (ls: readonly Lugar[]): Destino | null => {
+    let mejor: Destino | null = null;
+    let dist = Infinity;
+    for (const l of ls) {
+      const d = Math.abs(l.y - y);
+      if (d < dist) { dist = d; mejor = l.d; }
+    }
+    return mejor;
+  };
+  let caja = cajas.find((c) => y >= c.top && y <= c.bottom) ?? null;
+  if (!caja) {
+    let dist = Infinity;
+    for (const c of cajas) {
+      const d = y < c.top ? c.top - y : y - c.bottom;
+      if (d < dist) { dist = d; caja = c; }
+    }
+  }
+  const grupo = caja?.grupo;
+  const adentro = grupo === undefined ? [] : lugares.filter((l) => l.d.tipo === 'etapa' && l.d.grupo === grupo);
+  return cercano(adentro.length ? adentro : lugares);
+}
 
 export function EtapasEntregaModal({
   servicio, etapas, fases, conteo, secuencias, onGuardar, onRenombrar, onEliminar, onCerrar,
@@ -793,11 +873,14 @@ export function EtapasEntregaModal({
   // La foto que sigue al cursor la dibuja el SISTEMA OPERATIVO y ninguna regla CSS la
   // gobierna: se le pasa una VACÍA y la copia la dibujamos nosotros, movida con
   // `transform` sobre un ref. El destino sale de los LUGARES medidos al agarrar (el borde
-  // de arriba de cada fila y de cada «+ Etapa»), el más cercano a la altura del cursor.
+  // de arriba de cada fila y de cada «Nueva etapa», o el medio de cada hueco entre cajas)
+  // y de las CAJAS: ver `destinoEn`.
   const copia = useRef<HTMLElement | null>(null);
   /** Los lugares donde se puede soltar, con su altura EN COORDENADAS DEL CONTENIDO del
    *  cuerpo (`+ scrollTop`): si el cuerpo se corre durante el gesto, siguen valiendo. */
-  const lugares = useRef<Array<{ d: Destino; y: number }>>([]);
+  const lugares = useRef<Lugar[]>([]);
+  /** Las cajas de los grupos, en las mismas coordenadas. Vacío al arrastrar una fase. */
+  const cajas = useRef<CajaMedida[]>([]);
   const destinoRef = useRef<Destino | null>(null);
   /** Dónde arrancó el gesto: desde un control no se arrastra la fila. */
   const origen = useRef<EventTarget | null>(null);
@@ -815,6 +898,7 @@ export function EtapasEntregaModal({
     setDestino(null);
     setArrastrando(null);
     lugares.current = [];
+    cajas.current = [];
     destinoRef.current = null;
     agarrada.current = null;
     copia.current?.remove();
@@ -829,8 +913,13 @@ export function EtapasEntregaModal({
     if (!a || !raiz) return;
     const base = raiz.closest<HTMLElement>('.mk-modal__cuerpo')?.scrollTop ?? 0;
     const { lista: l, tramos: t } = estado.current;
-    const out: Array<{ d: Destino; y: number }> = [];
+    const out: Lugar[] = [];
+    const cs: CajaMedida[] = [];
     if (a.tipo === 'etapa') {
+      for (const el of raiz.querySelectorAll<HTMLElement>('[data-caja]')) {
+        const r = el.getBoundingClientRect();
+        cs.push({ grupo: el.dataset.caja ?? '', top: r.top + base, bottom: r.bottom + base });
+      }
       const grupoEntrada = l[0] ? grupoDe(l[0], t) : '';
       const agarroEntrada = l[0]?.key === a.key;
       for (const el of raiz.querySelectorAll<HTMLElement>('[data-slot]')) {
@@ -845,13 +934,16 @@ export function EtapasEntregaModal({
     } else {
       const rango = rangoDeFase(gruposDe(l, t), a.clave);
       if (!rango) return;
+      // El lugar de una fase es el HUECO entre dos cajas, y cuenta su MEDIO.
       for (const el of raiz.querySelectorAll<HTMLElement>('[data-fslot]')) {
         const slot = Number(el.dataset.fslot);
         if (slot < rango[0] || slot > rango[1]) continue;
-        out.push({ d: { tipo: 'fase', slot }, y: el.getBoundingClientRect().top + base });
+        const r = el.getBoundingClientRect();
+        out.push({ d: { tipo: 'fase', slot }, y: r.top + r.height / 2 + base });
       }
     }
     lugares.current = out;
+    cajas.current = cs;
   }, []);
 
   useLayoutEffect(() => { if (arrastrando) medir(); }, [arrastrando, medir]);
@@ -874,7 +966,8 @@ export function EtapasEntregaModal({
   const agarrar = (e: DragReact<HTMLElement>, a: Agarre) => {
     const desde = origen.current instanceof Element ? origen.current : null;
     if (desde?.closest('[data-nodrag]')) { e.preventDefault(); return; }
-    const nodo = e.currentTarget;
+    // Lo que se agarra de una fase es su TÍTULO, pero lo que viaja es la caja entera.
+    const nodo = a.tipo === 'fase' ? (e.currentTarget.closest<HTMLElement>('[data-caja]') ?? e.currentTarget) : e.currentTarget;
     e.dataTransfer.setData('text/plain', a.tipo === 'etapa' ? a.key : a.clave);
     e.dataTransfer.effectAllowed = 'move';
     try {
@@ -889,7 +982,8 @@ export function EtapasEntregaModal({
     const clon = nodo.cloneNode(true) as HTMLElement;
     Object.assign(clon.style, {
       position: 'fixed', top: '0', left: '0', width: `${r.width}px`, margin: '0',
-      background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '10px',
+      background: a.tipo === 'fase' ? 'var(--surface-2)' : 'var(--surface)',
+      border: '1px solid var(--border-strong)', borderRadius: a.tipo === 'fase' ? '12px' : '10px',
       boxShadow: '0 18px 40px rgba(18,21,27,.34)', pointerEvents: 'none', zIndex: '3000',
       transform: `translate3d(${r.left}px, ${r.top}px, 0)`, transition: 'none', opacity: '1',
     });
@@ -913,12 +1007,7 @@ export function EtapasEntregaModal({
         else if (ev.clientY > rs.bottom - borde) sc.scrollTop += Math.min(22, Math.ceil((ev.clientY - rs.bottom + borde) / 3));
       }
       const y = ev.clientY + (sc?.scrollTop ?? 0);
-      let mejor: Destino | null = null;
-      let dist = Infinity;
-      for (const l of lugares.current) {
-        const d = Math.abs(l.y - y);
-        if (d < dist) { dist = d; mejor = l.d; }
-      }
+      const mejor = destinoEn(lugares.current, cajas.current, y);
       destinoRef.current = mejor;
       // Sólo se repinta cuando el destino CAMBIA.
       setDestino((p) => (mismoDestino(p, mejor) ? p : mejor));
@@ -956,9 +1045,14 @@ export function EtapasEntregaModal({
   const marcaEtapa = (grupo: string, slot: number) =>
     destino?.tipo === 'etapa' && destino.grupo === grupo && destino.slot === slot;
   const marcaFase = (slot: number) => destino?.tipo === 'fase' && destino.slot === slot;
-  /** Con fases, las filas van corridas bajo su título: es lo que hace que un grupo se lea
-   *  como grupo sin dibujarle una caja alrededor. */
-  const sangria = hayFases ? 18 : 0;
+  /** La caja que se ENCIENDE: la del destino, sólo si es OTRA que la de la etapa agarrada.
+   *  Reordenar adentro de la misma caja ya lo dice la línea; encenderla desde el primer
+   *  píxel del gesto —que es lo que pasaría, porque el destino arranca siendo la suya— es
+   *  una caja azul que no dice nada. */
+  const agarradaEn = arrastrando?.tipo === 'etapa'
+    ? (() => { const x = lista.find((e) => e.key === arrastrando.key); return x ? grupoDe(x, tramos) : null; })()
+    : null;
+  const cajaDestino = destino?.tipo === 'etapa' && destino.grupo !== agarradaEn ? destino.grupo : null;
 
   return (
     <div className="crm-hover ee-modal" style={{ display: 'contents' }}>
@@ -1007,179 +1101,190 @@ export function EtapasEntregaModal({
             directo (ui.css), así que «+ Fase» y la lista sueltos quedaban separados por un
             hueco de 40 px que nadie puso. */}
         <div>
-        {/* «Agregar fase debería estar arriba del todo»: uno solo, como texto. */}
-        <div style={{ marginBottom: 8 }}>
+        {/* «Nueva fase» es una fase de mentira ARRIBA de todo (ver el encabezado). */}
+        <div style={{ marginBottom: 12 }}>
           <NuevoRenglon tipo="fase" onCrear={agregarFase} />
         </div>
 
         <div ref={listaRef} style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* ⚠️ PLANA, NO UN `<div>` POR GRUPO: títulos, filas y «+ Etapa» son hermanos con
-              su clave. Así una fila que cambia de grupo es el MISMO nodo de React (no se
-              desmonta, no pierde lo que tenía) y los lugares del arrastre se miden de una
-              sola lista. */}
-          {grupos.flatMap((g, gi) => {
+          {/* ⚠️ UNA CAJA POR GRUPO. Antes la lista era PLANA a propósito —títulos, filas y
+              «+ Etapa» hermanos— para que una fila que cambia de grupo fuera el mismo nodo de
+              React. Con cajas, esa fila se DESMONTA de una y se monta en la otra, y no pierde
+              nada: todo lo suyo vive en el editor (`renombrando`, `colorDe`), y el foco que
+              un Alt+↑/↓ deja en el aire lo devuelve `enfocar` por `data-foco`. Los lugares
+              del arrastre se siguen midiendo de UNA consulta sobre toda la lista
+              (`querySelectorAll`), así que el anidado no les cambia nada. */}
+          {grupos.map((g, gi) => {
             const fase = g.clave ? tramos.find((f) => f.key === g.clave) ?? null : null;
             const sueltaDeMentira = !g.clave && g.etapas.length === 0;
             // Se mueve si tiene a dónde: un rango de N lugares son N-1 posiciones finales.
             const rango = fase ? rangoDeFase(gruposDe(lista, tramos), fase.key) : null;
             const fasePuedeMoverse = !!rango && rango[1] - rango[0] >= 2;
-            const nodos: ReactNode[] = [];
+            const viaja = !!fase && arrastrando?.tipo === 'fase' && arrastrando.clave === fase.key;
 
-            // El título del grupo existe sólo si hay fases: sin ninguna, es una lista sola.
-            // «Sin fase» también se rotula, o sus etapas se leerían como parte del de arriba.
-            if (hayFases) {
-              nodos.push(fase ? (
-                <div key={'h:' + fase.key} className="ee-fase" data-grupo-fase={fase.key}
-                  data-fslot={sueltaDeMentira ? undefined : gi}
-                  draggable={fasePuedeMoverse && renombrando !== 'f:' + fase.key}
-                  onPointerDown={(ev) => { origen.current = ev.target; }}
-                  onDragStart={(ev) => agarrar(ev, { tipo: 'fase', clave: fase.key })}
-                  onDragEnd={limpiarDrag}
-                  onKeyDown={(ev) => teclaFase(ev, fase)}
-                  style={{
-                    cursor: fasePuedeMoverse ? 'grab' : 'default',
-                    outline: arrastrando?.tipo === 'fase' && arrastrando.clave === fase.key ? '1px solid var(--border-strong)' : 'none',
-                    ...(marcaFase(gi) ? MARCA : null),
-                  }}>
-                  <span className={'ee-asa' + (fasePuedeMoverse ? ' ee-oculto' : '')} aria-hidden
-                    title={fasePuedeMoverse ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
-                    {fasePuedeMoverse && <AsaIcon />}
-                  </span>
-                  <button type="button" className="ee-punto" data-nodrag data-paleta-de={fase.key}
-                    aria-label={'Color de ' + fase.label} title="Cambiar el color" aria-expanded={colorDe === fase.key}
-                    onClick={() => setColorDe((c) => (c === fase.key ? null : fase.key))}>
-                    <span style={{ ...PUNTO, background: fase.dot }} />
-                  </button>
-                  {renombrando === 'f:' + fase.key ? (
-                    <input
-                      autoFocus defaultValue={fase.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={fase.label}
-                      aria-label={'Nombre de la fase ' + fase.label}
-                      onBlur={(ev) => guardarNombreFase(fase, ev.target.value)}
-                      onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
-                      style={{ ...INPUT, fontSize: 13, fontWeight: 600 }}
-                    />
-                  ) : (
-                    <>
-                      <button type="button" data-nodrag data-foco={'f:' + fase.key}
-                        onClick={() => setRenombrando('f:' + fase.key)}
-                        title={'Cambiar el nombre de ' + fase.label} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                        style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--dim)', background: 'none', border: 'none', borderRadius: 6, padding: '4px 2px', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                      >{fase.label}</button>
-                      <span style={{ flex: 1 }} />
-                    </>
+            // El título existe sólo si hay fases: sin ninguna, es una caja sola sin nombre.
+            // «Sin fase» también se rotula, o sus etapas se leerían como de otra fase.
+            const titulo = !hayFases ? null : fase ? (
+              <div className="ee-fase"
+                draggable={fasePuedeMoverse && renombrando !== 'f:' + fase.key}
+                onPointerDown={(ev) => { origen.current = ev.target; }}
+                onDragStart={(ev) => agarrar(ev, { tipo: 'fase', clave: fase.key })}
+                onDragEnd={limpiarDrag}
+                onKeyDown={(ev) => teclaFase(ev, fase)}
+                style={{ cursor: fasePuedeMoverse ? 'grab' : 'default' }}>
+                <span className={'ee-asa' + (fasePuedeMoverse ? ' ee-oculto' : '')} aria-hidden
+                  title={fasePuedeMoverse ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
+                  {fasePuedeMoverse && <AsaIcon />}
+                </span>
+                <button type="button" className="ee-punto" data-nodrag data-paleta-de={fase.key}
+                  aria-label={'Color de ' + fase.label} title="Cambiar el color" aria-expanded={colorDe === fase.key}
+                  onClick={() => setColorDe((c) => (c === fase.key ? null : fase.key))}>
+                  <span style={{ ...PUNTO, background: fase.dot }} />
+                </button>
+                {renombrando === 'f:' + fase.key ? (
+                  <input
+                    autoFocus defaultValue={fase.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={fase.label}
+                    aria-label={'Nombre de la fase ' + fase.label}
+                    onBlur={(ev) => guardarNombreFase(fase, ev.target.value)}
+                    onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                    style={{ ...INPUT, fontSize: 13.5, fontWeight: 600 }}
+                  />
+                ) : (
+                  <>
+                    <button type="button" data-nodrag data-foco={'f:' + fase.key}
+                      onClick={() => setRenombrando('f:' + fase.key)}
+                      title={'Cambiar el nombre de ' + fase.label} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                      style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', background: 'none', border: 'none', borderRadius: 6, padding: '4px 2px', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >{fase.label}</button>
+                    <span style={{ flex: 1 }} />
+                  </>
+                )}
+                <AccionFila className="ee-oculto" etiqueta={'Sacar la fase ' + fase.label}
+                  onClick={() => sacarFase(fase)}><CerrarIcon /></AccionFila>
+              </div>
+            ) : (
+              <div className="ee-fase">
+                <span className="ee-asa" aria-hidden />
+                <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
+                  <span style={{ ...PUNTO, boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' }} />
+                </span>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--faint)', padding: '4px 2px' }}>Sin fase</span>
+              </div>
+            );
+
+            return (
+              <Fragment key={'c:' + (g.clave || '_')}>
+                {/* El hueco entre dos cajas: es el lugar de un arrastre de FASE («antes del
+                    grupo gi»). El de «Sin fase» de mentira no cuenta: sólo existe mientras
+                    se arrastra una etapa. */}
+                {gi > 0 && (
+                  <div className="ee-hueco" aria-hidden data-fslot={sueltaDeMentira ? undefined : gi}
+                    style={marcaFase(gi) ? HUECO_MARCADO : undefined} />
+                )}
+                <div className={'ee-caja' + (cajaDestino === g.clave ? ' ee-destino' : '')}
+                  data-caja={g.clave} data-grupo-fase={fase?.key}
+                  // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
+                  style={viaja ? { outline: '1px solid var(--border-strong)', outlineOffset: 2 } : undefined}>
+                  {titulo}
+                  {fase && colorDe === fase.key && (
+                    <Paleta actual={fase.dot} onElegir={(i) => colorDeFase(fase, i)} onCerrar={() => setColorDe(null)} />
                   )}
-                  <AccionFila className="ee-oculto" etiqueta={'Sacar la fase ' + fase.label}
-                    onClick={() => sacarFase(fase)}><CerrarIcon /></AccionFila>
-                </div>
-              ) : (
-                <div key="h:_" className="ee-fase ee-quieta" data-fslot={sueltaDeMentira ? undefined : gi}
-                  style={marcaFase(gi) ? MARCA : undefined}>
-                  <span className="ee-asa" aria-hidden />
-                  <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
-                    <span style={{ ...PUNTO, boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' }} />
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--faint)', padding: '4px 2px' }}>Sin fase</span>
-                </div>
-              ));
-              if (fase && colorDe === fase.key) {
-                nodos.push(<Paleta key={'p:' + fase.key} actual={fase.dot}
-                  onElegir={(i) => colorDeFase(fase, i)} onCerrar={() => setColorDe(null)} />);
-              }
-            }
 
-            g.etapas.forEach((e, k) => {
-              const entra = esEntrada(e);
-              const editando = renombrando === 'e:' + e.key;
-              // La entrada se arrastra sólo para cambiar de fase: sin fases no tiene a dónde.
-              const arrastrable = (!entra || hayFases) && !editando;
-              nodos.push(
-                <div key={'e:' + e.key} className="ee-fila"
-                  data-etapa={e.key} data-grupo={g.clave} data-slot={k}
-                  draggable={arrastrable}
-                  onPointerDown={(ev) => { origen.current = ev.target; }}
-                  onDragStart={(ev) => agarrar(ev, { tipo: 'etapa', key: e.key })}
-                  onDragEnd={limpiarDrag}
-                  onKeyDown={(ev) => teclaEtapa(ev, e)}
-                  title={entra ? 'Aquí empieza todo cliente nuevo' : undefined}
-                  style={{
-                    paddingLeft: 6 + sangria,
-                    cursor: arrastrable ? 'grab' : 'default',
-                    // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
-                    outline: arrastrando?.tipo === 'etapa' && arrastrando.key === e.key ? '1px solid var(--border-strong)' : 'none',
-                    ...(marcaEtapa(g.clave, k) ? MARCA : null),
-                  }}>
-                  <span className={'ee-asa' + (arrastrable ? ' ee-oculto' : '')} aria-hidden
-                    title={arrastrable ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
-                    {arrastrable && <AsaIcon />}
-                  </span>
-                  <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
-                    <span style={{ ...PUNTO, background: colorDeEtapa(e, tramos) }} />
-                  </span>
-                  {editando ? (
-                    <input
-                      autoFocus defaultValue={e.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={e.label}
-                      aria-label={'Nombre de ' + e.label}
-                      onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
-                      onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
-                      style={INPUT}
-                    />
-                  ) : (
-                    // ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO: «solo si clickeo en el texto
-                    // del título de esa etapa debería abrirme el input, no en toda la
-                    // fila». El botón NO estira; el hueco lo llena el span.
-                    <>
-                      <button type="button" data-nodrag data-foco={'e:' + e.key}
-                        onClick={() => setRenombrando('e:' + e.key)}
-                        title={`Cambiar el nombre de ${e.label}`} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                        style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 500, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', borderRadius: 6, padding: '4px 2px', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                      >{e.label}</button>
-                      <span style={{ flex: 1 }} />
-                    </>
+                  {g.etapas.map((e, k) => {
+                    const entra = esEntrada(e);
+                    const editando = renombrando === 'e:' + e.key;
+                    // La entrada se arrastra sólo para cambiar de fase: sin fases no tiene a dónde.
+                    const arrastrable = (!entra || hayFases) && !editando;
+                    return (
+                      <div key={'e:' + e.key} className="ee-fila"
+                        data-etapa={e.key} data-grupo={g.clave} data-slot={k}
+                        draggable={arrastrable}
+                        onPointerDown={(ev) => { origen.current = ev.target; }}
+                        onDragStart={(ev) => agarrar(ev, { tipo: 'etapa', key: e.key })}
+                        onDragEnd={limpiarDrag}
+                        onKeyDown={(ev) => teclaEtapa(ev, e)}
+                        title={entra ? 'Aquí empieza todo cliente nuevo' : undefined}
+                        style={{
+                          cursor: arrastrable ? 'grab' : 'default',
+                          // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
+                          outline: arrastrando?.tipo === 'etapa' && arrastrando.key === e.key ? '1px solid var(--border-strong)' : 'none',
+                          ...(marcaEtapa(g.clave, k) ? MARCA : null),
+                        }}>
+                        <span className={'ee-asa' + (arrastrable ? ' ee-oculto' : '')} aria-hidden
+                          title={arrastrable ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
+                          {arrastrable && <AsaIcon />}
+                        </span>
+                        <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
+                          <span style={{ ...PUNTO, background: colorDeEtapa(e, tramos) }} />
+                        </span>
+                        {editando ? (
+                          <input
+                            autoFocus defaultValue={e.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={e.label}
+                            aria-label={'Nombre de ' + e.label}
+                            onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
+                            onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                            style={INPUT}
+                          />
+                        ) : (
+                          // ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO: «solo si clickeo en el texto
+                          // del título de esa etapa debería abrirme el input, no en toda la
+                          // fila». El botón NO estira; el hueco lo llena el span.
+                          <>
+                            <button type="button" data-nodrag data-foco={'e:' + e.key}
+                              onClick={() => setRenombrando('e:' + e.key)}
+                              title={`Cambiar el nombre de ${e.label}`} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                              style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 500, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', borderRadius: 6, padding: '4px 2px', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            >{e.label}</button>
+                            <span style={{ flex: 1 }} />
+                          </>
+                        )}
+                        <span title="Clientes en esta columna"
+                          style={{ flex: 'none', minWidth: 22, textAlign: 'right', fontSize: 12.5, fontWeight: 500, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>
+                          {conteo[e.key] ?? 0}
+                        </span>
+                        {/* ⚠️ LA ENTRADA NO LLEVA ✕ (ver el encabezado), pero su lugar se guarda:
+                            sin el hueco, su número quedaría corrido respecto de los de las otras
+                            filas. Con el mínimo justo la ✕ se APAGA y lo dice en el title: un
+                            botón que no hace nada y no explica por qué se lee como roto. */}
+                        {!entra ? (
+                          <AccionFila className="ee-oculto"
+                            etiqueta={lista.length <= MINIMO ? `Hacen falta al menos ${MINIMO} etapas` : 'Sacar ' + e.label}
+                            disabled={lista.length <= MINIMO}
+                            onClick={() => sacar(e)}><CerrarIcon /></AccionFila>
+                        ) : <span style={{ width: 28, flex: 'none' }} aria-hidden />}
+                      </div>
+                    );
+                  })}
+
+                  {/* Una caja vacía es un destino: dice que se le pueden soltar etapas. */}
+                  {g.etapas.length === 0 && (
+                    <div className="ee-vacia" data-grupo={g.clave} data-slot={0}
+                      // El destino vacío se marca entero (no con la línea): no hay fila contra
+                      // la cual dibujarla. `--primary-bg` y no `--primary-weak`, que es un azul
+                      // de relleno y tapaba el texto (medido en el arnés: azul sobre azul).
+                      style={marcaEtapa(g.clave, 0) ? { background: 'var(--surface)', color: 'var(--primary)', borderColor: 'var(--primary)' } : undefined}>
+                      {sueltaDeMentira ? 'Suelta aquí para sacarla de su fase' : 'Arrastra etapas aquí'}
+                    </div>
                   )}
-                  <span title="Clientes en esta columna"
-                    style={{ flex: 'none', minWidth: 22, textAlign: 'right', fontSize: 12.5, fontWeight: 500, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>
-                    {conteo[e.key] ?? 0}
-                  </span>
-                  {/* ⚠️ LA ENTRADA NO LLEVA ✕ (ver el encabezado), pero su lugar se guarda:
-                      sin el hueco, su número quedaría corrido respecto de los de las otras
-                      filas. Con el mínimo justo la ✕ se APAGA y lo dice en el title: un
-                      botón que no hace nada y no explica por qué se lee como roto. */}
-                  {!entra ? (
-                    <AccionFila className="ee-oculto"
-                      etiqueta={lista.length <= MINIMO ? `Hacen falta al menos ${MINIMO} etapas` : 'Sacar ' + e.label}
-                      disabled={lista.length <= MINIMO}
-                      onClick={() => sacar(e)}><CerrarIcon /></AccionFila>
-                  ) : <span style={{ width: 28, flex: 'none' }} aria-hidden />}
-                </div>,
-              );
-            });
 
-            // Un grupo vacío es un destino: dice que se le pueden soltar etapas.
-            if (g.etapas.length === 0) {
-              nodos.push(
-                <div key={'v:' + (g.clave || '_')} className="ee-vacia" data-grupo={g.clave} data-slot={0}
-                  // El destino vacío se marca entero (no con la línea): no hay fila contra la cual
-                  // dibujarla. `--primary-bg` y no `--primary-weak`, que es un azul de relleno y
-                  // tapaba el texto (medido en el arnés: azul sobre azul).
-                  style={{ marginLeft: 26 + sangria, ...(marcaEtapa(g.clave, 0) ? { background: 'var(--primary-bg)', color: 'var(--primary)', boxShadow: 'inset 0 0 0 1.5px var(--primary)' } : null) }}>
-                  {sueltaDeMentira ? 'Suelta aquí para sacarla de su fase' : 'Arrastra etapas aquí'}
-                </div>,
-              );
-            }
-            // «+ Etapa» al pie de cada grupo, y es también el lugar de «al final».
-            if (!sueltaDeMentira) {
-              nodos.push(
-                <div key={'n:' + (g.clave || '_')} data-grupo={g.clave}
-                  data-slot={g.etapas.length > 0 ? g.etapas.length : undefined}
-                  style={{ display: 'flex', flexDirection: 'column', paddingLeft: sangria, ...(g.etapas.length > 0 && marcaEtapa(g.clave, g.etapas.length) ? MARCA : null) }}>
-                  <NuevoRenglon tipo="etapa" grupo={fase?.label ?? null} onCrear={(v) => agregarEtapa(v, g.clave || undefined)} />
-                </div>,
-              );
-            }
-            return nodos;
+                  {/* «Nueva etapa» es la ÚLTIMA fila de su caja, y es también el lugar de «al
+                      final». La caja de mentira no lo lleva: no es un grupo de verdad. */}
+                  {!sueltaDeMentira && (
+                    <div data-grupo={g.clave}
+                      data-slot={g.etapas.length > 0 ? g.etapas.length : undefined}
+                      style={g.etapas.length > 0 && marcaEtapa(g.clave, g.etapas.length) ? MARCA : undefined}>
+                      <NuevoRenglon tipo="etapa" grupo={fase?.label ?? null} onCrear={(v) => agregarEtapa(v, g.clave || undefined)} />
+                    </div>
+                  )}
+                </div>
+              </Fragment>
+            );
           })}
-          {/* El lugar «después del último grupo» de un arrastre de fase. */}
-          {hayFases && <div data-fslot={nGrupos} style={{ height: 8, ...(marcaFase(nGrupos) ? MARCA : null) }} />}
+          {/* El lugar «después de la última caja» de un arrastre de fase. */}
+          {hayFases && (
+            <div className="ee-hueco" aria-hidden data-fslot={nGrupos}
+              style={marcaFase(nGrupos) ? HUECO_MARCADO : undefined} />
+          )}
         </div>
 
         <span aria-live="polite" style={SOLO_LECTOR}>{aviso}</span>
@@ -1234,7 +1339,8 @@ function Paleta({ actual, onElegir, onCerrar }: { actual: string; onElegir: (i: 
         if (e.currentTarget.contains(a) || a?.closest?.('[data-paleta-de]')) return;
         onCerrar();
       }}
-      style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 6px 8px 50px' }}>
+      // El primer color cae debajo del punto de la fase (ver «TODO ALINEA» en la hoja).
+      style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '2px 6px 6px 27px' }}>
       {NEW_STAGE_PALETTE.map((dot, i) => (
         <button key={dot} type="button" data-nodrag aria-label={'Color ' + (i + 1)} aria-pressed={dot === actual}
           onClick={() => onElegir(i)}
@@ -1249,12 +1355,21 @@ function Paleta({ actual, onElegir, onCerrar }: { actual: string; onElegir: (i: 
 }
 
 /**
- * «+ Etapa» / «+ Fase»: texto, y al apretarlo pide el nombre ahí mismo.
+ * «Nueva etapa» / «Nueva fase»: al apretarlo pide el nombre ahí mismo.
  *
  * Antes se creaba una «Nueva etapa» sin preguntar y había que renombrarla después — dos
  * pasos para lo que es uno, y mientras tanto una columna con un nombre que no significa
- * nada. Y antes de eso era un recuadro punteado por grupo: seis recuadros en una lista de
- * nueve filas eran la mitad de lo que se veía.
+ * nada.
+ *
+ * Las dos tienen la FORMA de lo que van a crear: «Nueva etapa» es la última fila de su
+ * caja, y «Nueva fase» es una caja de mentira —punteada, gris, apagada— que se ilumina con
+ * el cursor (el molde de «Crear nuevo proyecto» del Plan). Abierta, la de fase sigue
+ * siendo una caja con su título por escribir, y la de etapa una fila blanca: lo que se
+ * escribe aparece donde va a quedar.
+ *
+ * ⚠️ EL PUNTEADO ES UNO SOLO, el de «Nueva fase». Un recuadro punteado por grupo —lo que
+ * había antes del 05/10— eran seis recuadros en una lista de nueve filas, la mitad de lo
+ * que se veía.
  *
  * ⚠️ EL INPUT ES NO CONTROLADO, a propósito: el Escape lo resuelve el editor desde
  * `window` escribiéndole el valor vacío y soltando el foco. Con un input controlado ese
@@ -1269,11 +1384,11 @@ function NuevoRenglon({ tipo, grupo, onCrear }: { tipo: 'etapa' | 'fase'; grupo?
     if (guardar && t) onCrear(t);
   };
   if (abierto) {
-    return (
-      <div className="ee-fila" style={{ background: 'var(--surface-2)' }}>
-        {!fase && <span className="ee-asa" aria-hidden />}
+    const renglon = (
+      <div className={fase ? 'ee-fase' : 'ee-fila'}>
+        <span className="ee-asa" aria-hidden />
         <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
-          <span style={{ ...PUNTO, ...(fase ? { boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' } : { background: '#5B6472' }) }} />
+          <span style={{ ...PUNTO, ...(fase ? { boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' } : { background: 'var(--faint)' }) }} />
         </span>
         <input
           autoFocus maxLength={MAX_LABEL} data-ee-esc=""
@@ -1281,17 +1396,18 @@ function NuevoRenglon({ tipo, grupo, onCrear }: { tipo: 'etapa' | 'fase'; grupo?
           aria-label={fase ? 'Nombre de la fase nueva' : 'Nombre de la etapa nueva'}
           onBlur={(e) => cerrar(true, e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          style={INPUT}
+          style={fase ? { ...INPUT, fontSize: 13.5, fontWeight: 600 } : INPUT}
         />
       </div>
     );
+    return fase ? <div className="ee-caja">{renglon}</div> : renglon;
   }
   return (
-    <button type="button" className="ee-mas" onClick={() => setAbierto(true)}
-      aria-label={fase ? 'Agregar fase' : grupo ? 'Agregar etapa a ' + grupo : 'Agregar etapa'}
-      // «+ Fase» alinea su texto con el del título; «+ Etapa», su «+» con los puntos.
-      style={{ marginLeft: fase ? -8 : 20 }}>
-      <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>+</span>{fase ? 'Fase' : 'Etapa'}
+    <button type="button" className={fase ? 'ee-fase-nueva' : 'ee-mas'} onClick={() => setAbierto(true)}
+      aria-label={fase ? 'Agregar fase' : grupo ? 'Agregar etapa a ' + grupo : 'Agregar etapa'}>
+      <span className="ee-asa" aria-hidden />
+      <span aria-hidden style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center', fontSize: fase ? 17 : 15, lineHeight: 1 }}>+</span>
+      {fase ? 'Nueva fase' : 'Nueva etapa'}
     </button>
   );
 }

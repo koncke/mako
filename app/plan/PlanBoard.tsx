@@ -8,7 +8,7 @@
 // combina (1-100, comparado contra todo el resto) y una RAZÓN que lo explica. Las
 // tareas pueden vivir en varios proyectos. Toda la UI vive en board/BoardShell.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
 import { repoPlan, apiPlan } from './board/repo-plan';
@@ -732,9 +732,11 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
   /** Sólo esa vista y sin el selector de vistas. Ver `soloVista` en `BoardShell`. */
   soloVista?: 'prioridades';
+  /** Va en el lugar del «⋮» con `soloVista`. Ver `accionEnLugarDelMenu` en `BoardShell`. */
+  accionEnLugarDelMenu?: ReactNode;
   /** El cliente del filtro, leído en el server desde `?cliente=`. Ver `clienteInicial` en `BoardShell`. */
   clienteInicial?: number | null;
   /**
@@ -789,7 +791,7 @@ export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInic
   // asignado. Es el mismo bug que `prefs.ts` documenta entre workspaces, un nivel más
   // adentro. Y al revés también: lo que filtrás mirando a un cliente no le cambia la vista
   // a `/plan`.
-  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} />;
+  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} accionEnLugarDelMenu={accionEnLugarDelMenu} />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

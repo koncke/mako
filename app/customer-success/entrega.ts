@@ -16,6 +16,8 @@ import { getTenantDb } from '@/lib/workspace';
 import { secuenciasPorEtapaDeEntrega } from '@/lib/nutricion';
 import { entregasDeProductos, clientesEnEntrega, type ClienteEnEntrega } from '@/lib/entrega-servicio';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
+import { leerTodo } from '@/lib/supabase-paginado';
+import { casaDeCliente } from './pertenencia';
 
 /** Un servicio que se puede entregar, con las columnas de SU entrega. */
 export type Servicio = {
@@ -56,6 +58,16 @@ export type CarteraEnEntrega =
        * universo de etapas es de acá, no de la nutrición.
        */
       secuenciasPorServicio: Record<number, Record<string, number> | null>;
+      /**
+       * El producto de la CASA de cada cliente ganado: el de su embudo del CRM
+       * (`casaDeCliente`, ./pertenencia.ts). Un cliente es de un producto si es su casa o
+       * si tiene una fila ahí — ver la cabecera de pertenencia.ts.
+       *
+       * ⚠️ `null` = no tiene casa que se ofrezca y vive sólo donde lo pusieron. Un lead
+       * ausente del mapa (la lectura de embudos falló) también da `null`, y entonces cada
+       * tablero muestra sólo a los que tienen fila: de menos, nunca a todos en todos.
+       */
+      casaPorLead: Record<number, number | null>;
     }
   | { ok: false; error: string };
 
@@ -78,17 +90,35 @@ export type CarteraEnEntrega =
  * Nunca tira: si la vista falla, se cae a «activos» como antes — mostrar de más es
  * recuperable; un tablero vacío sobre una lectura caída afirma que no hay servicios.
  */
-async function productosOfrecibles(): Promise<{ productos: Awaited<ReturnType<typeof listProductos>>; principales: Set<number> }> {
+type Ofrecibles = {
+  productos: Awaited<ReturnType<typeof listProductos>>;
+  principales: Set<number>;
+  /** embudo → producto, para la CASA de cada cliente. El primero del catálogo si un
+   *  embudo vende varios. */
+  productoDeFunnel: Map<number, number>;
+  /** El embudo principal, si está atado a algún producto (si no, no resuelve nada). */
+  funnelDefault: number | null;
+};
+
+async function productosOfrecibles(): Promise<Ofrecibles> {
   const productos = await listProductos(true);
   const principales = new Set<number>();
-  if (!productos.length) return { productos, principales };
+  const productoDeFunnel = new Map<number, number>();
+  let funnelDefault: number | null = null;
+  if (!productos.length) return { productos, principales, productoDeFunnel, funnelDefault };
   try {
     const db = await getTenantDb();
     const ids = productos.map((p) => p.id);
     const { data: vp, error } = await db.from('v_funnel_productos').select('funnel_id, producto_id').in('producto_id', ids);
     if (error) throw new Error(error.message);
     const links = (vp ?? []) as Array<{ funnel_id: number; producto_id: number }>;
-    if (!links.length) return { productos, principales };
+    if (!links.length) return { productos, principales, productoDeFunnel, funnelDefault };
+    // En el orden del catálogo, para que un embudo que vende dos productos caiga siempre
+    // en el mismo — y en el mismo que el selector muestra primero.
+    const orden = new Map(productos.map((p, i) => [p.id, i]));
+    for (const l of [...links].sort((a, b) => (orden.get(Number(a.producto_id)) ?? 0) - (orden.get(Number(b.producto_id)) ?? 0))) {
+      if (!productoDeFunnel.has(Number(l.funnel_id))) productoDeFunnel.set(Number(l.funnel_id), Number(l.producto_id));
+    }
     const fids = [...new Set(links.map((l) => Number(l.funnel_id)))];
     const { data: fs, error: e2 } = await db.from('funnels').select('id, activo, es_default').in('id', fids);
     if (e2) throw new Error(e2.message);
@@ -98,6 +128,7 @@ async function productosOfrecibles(): Promise<{ productos: Awaited<ReturnType<ty
     // la pantalla lo necesita para no dibujar un botón cuya única respuesta es «no».
     const defaults = new Set(filasF.filter((f) => f.es_default === true).map((f) => Number(f.id)));
     for (const l of links) if (defaults.has(Number(l.funnel_id))) principales.add(Number(l.producto_id));
+    funnelDefault = [...defaults][0] ?? null;
     // producto → ¿tiene AL MENOS un embudo vivo? Los que no tienen ninguno no entran
     // al mapa y se ofrecen igual (ver arriba).
     const algunoVivo = new Map<number, boolean>();
@@ -105,10 +136,45 @@ async function productosOfrecibles(): Promise<{ productos: Awaited<ReturnType<ty
       const pid = Number(l.producto_id);
       algunoVivo.set(pid, (algunoVivo.get(pid) ?? false) || (vivo.get(Number(l.funnel_id)) ?? false));
     }
-    return { productos: productos.filter((p) => algunoVivo.get(p.id) !== false), principales };
+    return { productos: productos.filter((p) => algunoVivo.get(p.id) !== false), principales, productoDeFunnel, funnelDefault };
   } catch (e) {
     console.warn('[entrega] no pude cruzar productos con embudos; se ofrecen todos los activos:', e instanceof Error ? e.message : e);
-    return { productos, principales };
+    return { productos, principales, productoDeFunnel, funnelDefault };
+  }
+}
+
+/**
+ * La casa de cada cliente ganado (ver `casaDeCliente`).
+ *
+ * ⚠️ UNA LECTURA DE `leads` APARTE, y no un campo más de `clientesGanados()`: esa lista la
+ * comparten el picker del tablero y /admin, y el embudo de un cliente sólo le importa a
+ * esta pantalla. Paginada por `id` (más de 1000 ganados no es imposible).
+ *
+ * Nunca tira: si falla, el mapa vuelve vacío y cada tablero muestra sólo a los que tienen
+ * fila — de menos y no a todos en todos, que era el bug.
+ */
+async function casaDeLaCartera(
+  ofrecidos: readonly number[],
+  productoDeFunnel: ReadonlyMap<number, number>,
+  funnelDefault: number | null,
+  porServicio: Readonly<Record<number, Readonly<Record<number, unknown>>>>,
+): Promise<Record<number, number | null>> {
+  try {
+    const db = await getTenantDb();
+    const filas = await leerTodo<{ id: number; funnel_id: number | null }>(db, 'leads', 'id, funnel_id',
+      { orden: 'id', eq: { estado_lead: 'ganado' } });
+    const out: Record<number, number | null> = {};
+    for (const l of filas) {
+      const tieneFilas = ofrecidos.some((p) => porServicio[p]?.[l.id] !== undefined);
+      out[l.id] = casaDeCliente({
+        funnelId: l.funnel_id == null ? null : Number(l.funnel_id),
+        funnelDefault, productoDeFunnel, ofrecidos, tieneFilas,
+      });
+    }
+    return out;
+  } catch (e) {
+    console.warn('[entrega] no pude leer el embudo de los clientes:', e instanceof Error ? e.message : e);
+    return {};
   }
 }
 
@@ -123,8 +189,8 @@ async function productosOfrecibles(): Promise<{ productos: Awaited<ReturnType<ty
  */
 export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
   try {
-    const { productos, principales } = await productosOfrecibles();
-    if (!productos.length) return { ok: true, servicios: [], porServicio: {}, secuenciasPorServicio: {} };
+    const { productos, principales, productoDeFunnel, funnelDefault } = await productosOfrecibles();
+    if (!productos.length) return { ok: true, servicios: [], porServicio: {}, secuenciasPorServicio: {}, casaPorLead: {} };
 
     const ids = productos.map((p) => p.id);
     const catalogos = await entregasDeProductos(ids);
@@ -156,7 +222,8 @@ export async function carteraEnEntrega(): Promise<CarteraEnEntrega> {
         principal: principales.has(p.id),
       };
     });
-    return { ok: true, servicios, porServicio, secuenciasPorServicio: Object.fromEntries(secs) };
+    const casaPorLead = await casaDeLaCartera(ids, productoDeFunnel, funnelDefault, porServicio);
+    return { ok: true, servicios, porServicio, secuenciasPorServicio: Object.fromEntries(secs), casaPorLead };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer la entrega de tus servicios.' };
   }

@@ -16,104 +16,16 @@
 // Notas, que se REUSAN del CRM tal cual (`NotasCard`) y traen su propia lectura — una
 // segunda forma de guardar notas sería la copia que diverge.
 
-import { repartirEnEtapas, colorDeEtapa, faseDe, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { etiquetaEsR2, urlComparable } from '@/lib/insights-llamada-reparto';
-import { esRecurrente } from '@/lib/plan-recurrentes';
-import { estaPendiente } from '@/lib/todo-estados';
 import { hrefPlanDeCliente } from '@/app/plan/board/filtro-cliente';
-import type { TrabajoDeCliente } from './trabajo';
 
-// ── La entrega: en qué etapa de cada servicio está ────────────────────────────
+// ⛔ ACÁ VIVÍAN `entregasDe` (la etapa de cada servicio, para el renglón «Entrega» del
+// Resumen) y `conteoDeTrabajo` / `fraseConteo` (el renglón «Trabajo»). Se fueron el 06/10/2026
+// con esos dos renglones: la etapa pasó a los desplegables de la cabecera, que leen la
+// asignación CON LO MOVIDO EN LA SESIÓN (./FichaEntrega.tsx) — una foto del server ahí
+// diría una etapa vieja después de moverlo—, y el trabajo se mira en la tab Tareas.
 
-/** En qué etapa de UN servicio está el cliente, como lo dibuja el Resumen. */
-export type EntregaDeCliente = {
-  productoId: number;
-  servicio: string;
-  /** El rótulo de la etapa. `null` = su fila apunta a una etapa que el catálogo ya no
-   *  tiene (alguien borró esa columna): se dice, no se le inventa otra. */
-  etapa: string | null;
-  /** El rótulo de su fase, si la etapa pertenece a una. */
-  fase: string | null;
-  /** El color con el que el kanban pinta esa columna. Sale de `colorDeEtapa`, nunca de acá. */
-  color: string | null;
-  /** Desde cuándo está ahí (`etapa_desde`). `null` = nunca se movió: su reloj no arrancó. */
-  desde: string | null;
-};
-
-type FilaEntrega = { etapa: string; etapa_desde: string };
-type ServicioEntrega = { productoId: number; nombre: string; etapas: readonly EtapaEntrega[]; fases: readonly FaseEntrega[] };
-
-/**
- * Dónde está este cliente en cada servicio.
- *
- * ⚠️ LA MISMA REGLA QUE EL KANBAN, DELEGADA Y NO COPIADA. Un cliente sin fila está en la
- * PRIMERA etapa (`repartirEnEtapas`), y una fila con una etapa que ya no existe es un
- * huérfano. Si esto decidiera por su cuenta, la tarjeta del kanban diría «Onboarding» y el
- * Resumen del MISMO cliente diría «sin etapa» — dos vistas de la misma cartera contando
- * cosas distintas, que es lo que el dueño ya reportó como «Jamás puede ser eso».
- *
- * Y va UN renglón por servicio, todos: el kanban de cada servicio dibuja a la cartera
- * entera, así que el Resumen no puede elegir cuáles mostrar sin contradecirlo.
- */
-export function entregasDe(
-  leadId: number,
-  servicios: readonly ServicioEntrega[],
-  porServicio: Readonly<Record<number, Readonly<Record<number, FilaEntrega>>>>,
-): EntregaDeCliente[] {
-  const out: EntregaDeCliente[] = [];
-  for (const s of servicios) {
-    const fila = porServicio[s.productoId]?.[leadId] ?? null;
-    const { porEtapa, huerfanos } = repartirEnEtapas(s.etapas, [leadId], () => fila?.etapa ?? null);
-    if (huerfanos.length) {
-      out.push({ productoId: s.productoId, servicio: s.nombre, etapa: null, fase: null, color: null, desde: fila?.etapa_desde ?? null });
-      continue;
-    }
-    const e = s.etapas.find((x) => porEtapa[x.key]?.includes(leadId));
-    // Sin etapas no hay tablero, y entonces tampoco hay qué decir de ese servicio.
-    if (!e) continue;
-    out.push({
-      productoId: s.productoId, servicio: s.nombre,
-      etapa: e.label, fase: faseDe(s.fases, e.fase)?.label ?? null,
-      color: colorDeEtapa(e, s.fases),
-      // Sin fila, el reloj no arrancó: un «recién» ahí sería afirmar algo que nadie midió.
-      desde: fila?.etapa_desde ?? null,
-    });
-  }
-  return out;
-}
-
-// ── El trabajo: cuántos proyectos, tareas y recurrentes ──────────────────────
-
-export type ConteoTrabajo = { proyectos: number; tareas: number; recurrentes: number };
-
-/**
- * Los tres números del Resumen, sacados de las MISMAS filas que dibuja «Prioridades».
- *
- * ⚠️ NO DEL CRUCE DE LA TARJETA (`tableroDeLaCartera`), y es a propósito: la tarjeta
- * también ata por NOMBRE de proyecto, y este bloque lleva un botón al Plan filtrado a este
- * cliente, que filtra por la CLAVE. Con el cruce, el número de acá podía prometer trabajo
- * que el Plan no le muestra.
- *
- * «Tareas» son las ABIERTAS y con fin; las recurrentes van aparte y no se cuentan como
- * pendiente (mig 0163). El criterio de «abierta» es el de los dos tableros: en el del dueño
- * sale del avance, en el del cliente del estado (`estaPendiente`, que deja afuera lo que el
- * criterio no dejó pasar).
- */
-export function conteoDeTrabajo(t: TrabajoDeCliente): ConteoTrabajo {
-  let tareas = 0, recurrentes = 0;
-  if (t.dueno) {
-    for (const x of t.tareas) {
-      if (esRecurrente(x)) { recurrentes++; continue; }
-      if (x.progress < 100) tareas++;
-    }
-    return { proyectos: t.proyectos.length, tareas, recurrentes };
-  }
-  for (const x of t.tareas) {
-    if (esRecurrente(x)) { recurrentes++; continue; }
-    if (estaPendiente(x.estado)) tareas++;
-  }
-  return { proyectos: t.categorias.length, tareas, recurrentes };
-}
+// ── El Plan del cliente ───────────────────────────────────────────────────────
 
 /**
  * El Plan con el filtro de ESTE cliente puesto. La URL la arma el tablero (`hrefPlanDeCliente`,
@@ -123,12 +35,6 @@ export function conteoDeTrabajo(t: TrabajoDeCliente): ConteoTrabajo {
  * admin aterrizaría en SU plan.
  */
 export const rutaPlanDeCliente = (leadId: number): string => hrefPlanDeCliente(leadId);
-
-/** «1 proyecto · 3 tareas · 2 recurrentes». Siempre los tres: un cero también es un dato. */
-export function fraseConteo(n: ConteoTrabajo): string {
-  const p = (k: number, uno: string, varios: string) => `${k} ${k === 1 ? uno : varios}`;
-  return [p(n.proyectos, 'proyecto', 'proyectos'), p(n.tareas, 'tarea', 'tareas'), p(n.recurrentes, 'recurrente', 'recurrentes')].join(' · ');
-}
 
 // ── Las llamadas ──────────────────────────────────────────────────────────────
 
@@ -231,14 +137,16 @@ function diaValido(s: string | null | undefined): string | null {
 
 // ── Lo que viaja en cada cliente ─────────────────────────────────────────────
 
-/** Los datos del lead que la grilla no necesita y la ficha sí. */
+/** Los datos del lead que la grilla no necesita y la ficha sí.
+ *
+ * ⚠️ SÓLO EL TELÉFONO desde el 06/10/2026: la venta, lo cobrado y el inicio del servicio se
+ * fueron del Resumen y viven en la tab Pagos (el `DealDetailsCard` del CRM, que lee el lead
+ * entero al abrirse). Traerlos con el HTML para no dibujarlos era bajarlos para nadie. */
 export type ContactoFicha = {
   telefono: string | null;
-  /** `leads.monto_cierre_usd`: el valor con el que se cerró la venta. */
-  montoCierreUsd: number | null;
-  /** `leads.total_cobrado_usd`: lo cobrado, derivado de los pagos (Fase 8-bis). */
-  totalCobradoUsd: number | null;
-  fechaInicioServicio: string | null;
+  /** `leads.web` (mig 0194): la «Web» que reemplazó a «Dirección» en la Información
+   *  principal del CRM, que es la que se monta en el Resumen. */
+  web: string | null;
 };
 
 /**
@@ -246,11 +154,12 @@ export type ContactoFicha = {
  *
  * ⚠️ CADA MITAD TIENE SU `null`, y no es lo mismo que vacío. `llamadas: []` es «no tiene
  * ninguna» y `llamadas: null` es «no se pudo leer»: con un solo valor, una lectura caída le
- * diría a alguien que nunca habló con su cliente. Lo mismo `entregas` (la lectura de la
- * entrega falló) y `contacto` (la de leads).
+ * diría a alguien que nunca habló con su cliente. Lo mismo `contacto` (la lectura de leads).
  */
 export type FichaExtra = {
   contacto: ContactoFicha | null;
   llamadas: LlamadaCliente[] | null;
-  entregas: EntregaDeCliente[] | null;
+  /** Su Gravatar, armado en el server (`urlGravatar`, con `d=404`). Es la SEGUNDA cara que
+   *  se prueba si nadie eligió una: primero va la de WhatsApp (./foto-cliente.ts). */
+  fotoEmail?: string | null;
 };

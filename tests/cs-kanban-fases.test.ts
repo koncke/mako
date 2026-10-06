@@ -412,6 +412,20 @@ const EDITOR_CODIGO = sinComentarios(EDITOR);
 // 1 fail con el archivo de ese momento (35 tests, con las secciones de los otros paquetes).
 // Restaurado de memoria y comparado byte a byte: 35 pass / 0 fail. El arnés que las corre
 // es un script fuera del repo (scratchpad de la sesión), por la regla de los `tmp-`.
+//
+// ⚠️ Y LA TERCERA, EL 06/10/2026: «No hagas que el editor sea totalmente blanco que parezca
+// que están flotando las cosas... que las fases sean contenedores grandes, y que el botón de
+// nueva fase sea como una fase arriba del todo, así como hacemos lo de "Nuevo proyecto"». Cada
+// fase pasó a ser una CAJA con sus filas adentro y «Nueva etapa» como última fila, y «Nueva
+// fase» una caja de mentira punteada y apagada arriba de todo. Dos guards de acá abajo
+// codificaban el dibujo anterior y se reescribieron: «nada punteado» (ahora: UN punteado, el
+// de «Nueva fase») y «las filas salen de `g.etapas.forEach(`» (ahora un `map` adentro de la
+// caja). Los de las cajas son nuevos, y el destino por caja (`destinoEn`) se EJECUTA.
+//
+// PROBADOS ROMPIÉNDOLOS (06/10/2026), cada rotura sola, con el resto restaurado. Se midieron
+// con el archivo de ese momento (41 tests, con las secciones de los otros paquetes; la
+// base, 41 pass / 0 fail), y las CATORCE dieron 40 pass / 1 fail cayendo EXACTAMENTE el test de su rótulo
+// `ROTO (06/10)`. Restaurado de memoria y comparado byte a byte: 41 / 0.
 
 // ROTO: 1 y 2 de la lista de arriba. Y del rediseño (05/10/2026), cada una sola → 34 pass /
 // 1 fail: el efecto mandando `{ etapas: limpias, fases: tramos }` sin `enOrden`, y la firma
@@ -607,11 +621,15 @@ test('las filas van calladas: la ✕ y el asa aparecen sólo con el cursor o el 
   // La ✕ de la etapa y la de la fase.
   assert.equal((EDITOR_CODIGO.match(/<AccionFila className="ee-oculto"/g) ?? []).length, 2);
   // Lo que se fue con el rediseño no vuelve: el selector de fase por fila, las flechas, el
-  // recuadro punteado y los rótulos en versalitas.
+  // recuadro punteado POR GRUPO y los rótulos en versalitas.
   assert.doesNotMatch(EDITOR_CODIGO, /<select\b/);
   assert.doesNotMatch(EDITOR_CODIGO, /MoverPartido/);
-  assert.doesNotMatch(EDITOR_CODIGO, /dashed/);
   assert.doesNotMatch(EDITOR_CODIGO, /uppercase/);
+  // ⚠️ El punteado es UNO, el de «Nueva fase» (06/10/2026): «dashed» no se prohíbe entero,
+  // se cuenta. ROTO (06/10): `.ee-mas` con `border:1px dashed var(--border-strong)` (vuelve
+  // el recuadro punteado al pie de cada caja) → 40 pass / 1 fail.
+  assert.equal((EDITOR_CODIGO.match(/dashed/g) ?? []).length, 1, 'un solo punteado');
+  assert.match(hoja, /'\.ee-fase-nueva\{[^']*dashed/);
 });
 
 // ROTO (05/10/2026), cada una sola:
@@ -669,10 +687,162 @@ test('«Agregar fase» va ARRIBA de todo; «Agregar etapa», al pie de cada grup
   assert.ok(fase < EDITOR_CODIGO.indexOf('<div ref={listaRef}'), '«agregar fase debería estar arriba del todo, no abajo»');
   // ⚠️ El ancla se afirma ANTES de comparar: un `indexOf` que no encuentra da -1, y «algo
   // está después de -1» es verdad siempre (ROTO, 05/10/2026: `forEach` → `map` en el
-  // editor → 34 pass / 1 fail con esta línea; sin ella, verde).
-  const filas = EDITOR_CODIGO.indexOf('g.etapas.forEach(');
+  // editor → 34 pass / 1 fail con esta línea; sin ella, verde). Desde el 06/10 las filas
+  // son un `map` ADENTRO de la caja: el ancla se mudó con ellas.
+  const filas = EDITOR_CODIGO.indexOf('{g.etapas.map((e, k) => {');
   assert.notEqual(filas, -1);
   assert.ok(EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="etapa"') > filas);
+});
+
+// ── Las cajas (06/10/2026) ──────────────────────────────────────────────────
+
+/** El texto desde la apertura de la CAJA de un grupo hasta el cierre de su `Fragment`. */
+const CAJA = () => bloque(EDITOR_CODIGO, "<div className={'ee-caja'", '</Fragment>');
+
+/**
+ * La CAJA como ELEMENTO, parseada con el compilador: lo que está ADENTRO de ella de verdad.
+ *
+ * ⚠️ NO SE PUEDE CONTESTAR CON TEXTO. La primera versión miraba que «Nueva etapa» estuviera
+ * antes del último `</div>` del recorte. MEDIDO (06/10/2026, en memoria): con las filas
+ * sacadas de la caja Y con «Nueva etapa» sacada de la caja, daba VERDE las dos veces — el
+ * último `</div>` del recorte es el del propio renglón de «Nueva etapa», que siempre está
+ * después de todo. Contar `<div` y `</div>` tampoco: los atributos llevan flechas (`=>`) y
+ * un `>` no distingue una cosa de la otra.
+ */
+async function cajaJsx(): Promise<string> {
+  const ts = (await import('typescript')).default;
+  const sf = ts.createSourceFile('modal.tsx', EDITOR, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let out = '';
+  const ver = (n: import('typescript').Node): void => {
+    if (!out && ts.isJsxElement(n) && n.openingElement.getText(sf).startsWith("<div className={'ee-caja'")) out = n.getText(sf);
+    ts.forEachChild(n, ver);
+  };
+  ver(sf);
+  return out;
+}
+
+// ROTO (06/10), cada una sola → 40 pass / 1 fail:
+//   · «Nueva etapa» afuera de la caja (el `</div>` de la caja arriba de su renglón): vuelve
+//     a flotar suelto debajo del grupo, que es lo que se pidió que no pasara.
+//   · las filas afuera de la caja (el `</div>` arriba del `map`).
+//   Las dos daban VERDE con la versión de texto de este guard (ver `cajaJsx`).
+test('cada fase es una CAJA: su título arriba, sus etapas adentro y «Nueva etapa» al final', async () => {
+  const caja = await cajaJsx();
+  assert.ok(caja.length > 3_000 && caja.length < 14_000, `la caja mide ${caja.length}`);
+  // Lo de adentro, en orden: título, (paleta), filas, (vacía), «Nueva etapa».
+  const titulo = caja.indexOf('{titulo}');
+  const filas = caja.indexOf('{g.etapas.map((e, k) => {');
+  const nueva = caja.indexOf('<NuevoRenglon tipo="etapa"');
+  for (const [n, i] of Object.entries({ titulo, filas, nueva })) assert.notEqual(i, -1, `falta ${n} ADENTRO de la caja`);
+  assert.ok(titulo < filas && filas < nueva, 'título → filas → «Nueva etapa»');
+  // La caja dice de qué grupo es: es lo que mide el arrastre (`data-caja`) y lo que trae a
+  // la vista una fase recién creada (`data-grupo-fase`).
+  assert.match(caja, /data-caja=\{g\.clave\} data-grupo-fase=\{fase\?\.key\}/);
+  // Un solo grupo por caja: las filas se dibujan de `g.etapas`, no de la lista entera.
+  assert.doesNotMatch(caja, /lista\.map\(/);
+});
+
+// ROTO (06/10), cada una sola → 40 pass / 1 fail:
+//   · `.ee-caja` con `background:#F5F7FA` (un hex: en oscuro queda una caja clara).
+//   · `.ee-fila` sin su `background:var(--surface)` (las filas vuelven a flotar sobre gris).
+//   · `.ee-fase-nueva` sin su regla de hover (no se ilumina con el cursor).
+//   · `.ee-caja.ee-destino` con `border-width:2px` (la caja que se enciende ENGORDA y corre
+//     todo lo de abajo, con los lugares del arrastre ya medidos).
+test('las cajas son superficies de la casa, y «Nueva fase» se ilumina con el cursor', () => {
+  const hoja = bloque(EDITOR, 'const CSS = [', "].join('\\n');");
+  const regla = (sel: string) => {
+    const m = hoja.match(new RegExp("'" + sel.replace(/\./g, '\\.') + "\\{([^}]*)\\}"));
+    assert.ok(m, `falta la regla ${sel}`);
+    return m[1];
+  };
+  // Tokens, nunca un hex: el modo oscuro y las paletas redefinen TOKENS (AGENTS.md).
+  assert.doesNotMatch(hoja, /#[0-9a-fA-F]{3,8}\b/, 'ni un color escrito a mano en la hoja');
+  assert.doesNotMatch(bloque(EDITOR_CODIGO, 'function NuevoRenglon(', '\n}\n'), /#[0-9a-fA-F]{3,8}\b/);
+  const caja = regla('.ee-caja');
+  assert.match(caja, /background:var\(--surface-2\)/);
+  assert.match(caja, /border:1px solid var\(--border\)/);
+  assert.match(caja, /border-radius:12px/);
+  assert.match(regla('.ee-fila'), /background:var\(--surface\)/, 'las filas son BLANCAS adentro de la caja gris');
+  // «Nueva fase»: apagada y punteada, como «Crear nuevo proyecto» del Plan…
+  const nueva = regla('.ee-fase-nueva');
+  assert.match(nueva, /border:1\.5px dashed var\(--border-strong\)/);
+  assert.match(nueva, /color:var\(--faint\)/);
+  assert.match(nueva, /opacity:\.85/);
+  assert.match(nueva, /border-radius:12px/, 'con la forma de una caja de fase');
+  // …y se ILUMINA con el cursor (y con el foco del teclado).
+  assert.match(hoja, /'\.ee-fase-nueva:hover,\.ee-fase-nueva:focus-visible\{border-color:var\(--primary\);color:var\(--primary\);opacity:1\}'/);
+  // La caja que se enciende como destino no cambia de TAMAÑO: color y anillo de sombra.
+  const destino = regla('.ee-caja.ee-destino');
+  assert.match(destino, /border-color:var\(--primary\)/);
+  assert.match(destino, /box-shadow:/);
+  assert.doesNotMatch(destino, /border(-width)?:|padding|margin/, 'nada que cambie la medida');
+});
+
+// ROTO (06/10), cada una sola → 40 pass / 1 fail:
+//   · `NuevoRenglon` con `className="ee-mas"` también para la fase (vuelve el «+ Fase» de
+//     texto suelto).
+//   · la fase abierta sin su caja (`return renglon;` en los dos casos).
+test('«Nueva fase» es una fase de mentira, y abierta sigue siendo una caja', () => {
+  const nr = bloque(EDITOR_CODIGO, 'function NuevoRenglon(', '\n}\n');
+  assert.match(nr, /className=\{fase \? 'ee-fase-nueva' : 'ee-mas'\}/);
+  assert.match(nr, /return fase \? <div className="ee-caja">\{renglon\}<\/div> : renglon;/,
+    'lo que se escribe aparece donde va a quedar');
+  // Texto corto y neutro.
+  assert.match(nr, /\{fase \? 'Nueva fase' : 'Nueva etapa'\}/);
+});
+
+// ROTO (06/10), cada una sola → 40 pass / 1 fail:
+//   · `cajaDestino` sin `destino.grupo !== agarradaEn` (la caja de origen se enciende desde
+//     el primer píxel del gesto).
+//   · la caja sin `' ee-destino'` (soltar en otra fase no se ve hasta soltar).
+//   · `medir` sin juntar las `[data-caja]` (las cajas quedan vacías y el destino vuelve al
+//     lugar más cercano a secas).
+// Y MEDIDO en /customer-success?ws=1 (Chromium, los POST abortados): arrastrando «Criterio»
+// con el cursor sobre el TÍTULO de «Contexto y Norte», esa caja se encendió (fondo
+// `--primary-bg`, borde `--primary`), la línea quedó arriba de «Contexto» y el cuerpo que se
+// habría guardado la ponía primera de esa fase (`criterio:f_contexto contexto:f_contexto …`).
+test('soltar en OTRA caja la ENCIENDE, y el destino sale primero de la caja', () => {
+  assert.match(EDITOR_CODIGO, /const cajaDestino = destino\?\.tipo === 'etapa' && destino\.grupo !== agarradaEn \? destino\.grupo : null;/);
+  assert.match(CAJA(), /className=\{'ee-caja' \+ \(cajaDestino === g\.clave \? ' ee-destino' : ''\)\}/);
+  const medir = bloque(EDITOR, '  const medir = useCallback(() => {', '\n  }, []);');
+  assert.match(medir, /querySelectorAll<HTMLElement>\('\[data-caja\]'\)/);
+  assert.match(medir, /cajas\.current = cs;/);
+  const sobre = bloque(EDITOR, '    const sobre = (ev: globalThis.DragEvent) => {', '\n    };');
+  assert.match(sobre, /const mejor = destinoEn\(lugares\.current, cajas\.current, y\);/);
+});
+
+// ROTO (06/10), cada una sola → 40 pass / 1 fail:
+//   · `destinoEn` ignorando las cajas (`return cercano(lugares)`): el título de la caja de
+//     abajo apunta al final de la de arriba.
+//   · sin el respaldo (`cercano(adentro)` a secas): una caja sin lugares deja el gesto sin
+//     destino.
+test('destinoEn: el título de la caja de abajo apunta a ESA caja, no al final de la de arriba', async () => {
+  const { destinoEn } = await modeloEditor();
+  // Dos cajas: A (0-100), con su fila en 10 y su «Nueva etapa» (el lugar «al final») en 74;
+  // B (112-220), con su título de 112 a 152 y su primera fila en 160.
+  const lugares = [
+    { d: { tipo: 'etapa' as const, grupo: 'a', slot: 0 }, y: 10 },
+    { d: { tipo: 'etapa' as const, grupo: 'a', slot: 1 }, y: 74 },
+    { d: { tipo: 'etapa' as const, grupo: 'b', slot: 0 }, y: 160 },
+  ];
+  const cajas = [{ grupo: 'a', top: 0, bottom: 100 }, { grupo: 'b', top: 112, bottom: 220 }];
+  // El cursor en 116 está sobre el TÍTULO de B. El lugar más cercano a secas es el final de
+  // A (a 42 contra 44): sin mirar la caja, «meterla en B» la dejaba al final de A.
+  assert.deepEqual(destinoEn(lugares, cajas, 116), { tipo: 'etapa', grupo: 'b', slot: 0 });
+  assert.deepEqual(destinoEn(lugares, cajas, 90), { tipo: 'etapa', grupo: 'a', slot: 1 }, 'adentro de A, el más cercano de A');
+  // En el hueco entre dos cajas, la caja más cercana (110: a 10 de A y a 2 de B, y otra vez
+  // el lugar más cercano a secas sería el de A).
+  assert.deepEqual(destinoEn(lugares, cajas, 104), { tipo: 'etapa', grupo: 'a', slot: 1 });
+  assert.deepEqual(destinoEn(lugares, cajas, 110), { tipo: 'etapa', grupo: 'b', slot: 0 });
+  // Arriba de todo y abajo de todo: la caja de la punta.
+  assert.deepEqual(destinoEn(lugares, cajas, -40), { tipo: 'etapa', grupo: 'a', slot: 0 });
+  assert.deepEqual(destinoEn(lugares, cajas, 400), { tipo: 'etapa', grupo: 'b', slot: 0 });
+  // Una caja sin lugares válidos no deja el gesto sin destino: cae al más cercano de todos.
+  assert.deepEqual(destinoEn(lugares.slice(0, 2), cajas, 150), { tipo: 'etapa', grupo: 'a', slot: 1 });
+  // Sin cajas (el arrastre de una FASE, que cae ENTRE cajas) es el más cercano a secas.
+  const huecos = [{ d: { tipo: 'fase' as const, slot: 1 }, y: 106 }, { d: { tipo: 'fase' as const, slot: 2 }, y: 226 }];
+  assert.deepEqual(destinoEn(huecos, [], 150), { tipo: 'fase', slot: 1 });
+  assert.equal(destinoEn([], [], 10), null);
 });
 
 // ── El write path ───────────────────────────────────────────────────────────
@@ -695,16 +865,18 @@ test('las fases se escriben en el MISMO upsert que las etapas', () => {
 // ROTO: `Object.values(asignacionDe(...)).map((a) => a.etapa)` de vuelta → 9 pass / 1 fail.
 // Es el bug medido en el navegador: 8 clientes, 3 filas, el tablero con 5 tarjetas en la
 // primera columna y el editor diciendo 0 — o sea el «¿seguro?» que no se dispara.
-test('el editor cuenta CLIENTES de la cartera entera, no filas', () => {
+test('el editor cuenta CLIENTES del producto, no filas', () => {
   const app = leer('app/customer-success/ClientesApp.tsx');
   const mount = bloque(app, '<EtapasEntregaModal', 'onCerrar=');
   const conteo = bloque(mount, 'conteo={conteoDeEtapas(', ')}');
   // Una entrada por CLIENTE: la regla «sin fila, primera etapa» es DERIVADA, así que a
   // quien no aparece en la lista no hay de dónde derivársela.
-  assert.match(conteo, /clientes\.map\(\(c\) => asignacionDe\(servicio\.productoId\)\[c\.leadId\]\?\.etapa\)/);
+  assert.match(conteo, /listaServ\.map\(\(c\) => asigServicio\[c\.leadId\]\?\.etapa\)/);
   assert.doesNotMatch(sinComentarios(conteo), /Object\.values/, 'eso cuenta FILAS, no clientes');
-  // ⚠️ Y sobre `clientes` (la cartera entera), nunca sobre `visibles`: con una búsqueda
-  // puesta, el aviso al sacar una columna dejaría afuera a los que el buscador escondió.
+  // ⚠️ Y sobre los clientes DEL PRODUCTO sin filtrar (`listaServ`, 06/10/2026), nunca sobre
+  // `visibles`: con una búsqueda puesta, el aviso al sacar una columna dejaría afuera a los
+  // que el buscador escondió. Ni sobre la cartera entera: un cliente de otro producto no
+  // está en ninguna columna de éste (tests/cs-pertenencia.test.ts).
   assert.doesNotMatch(sinComentarios(conteo), /visibles/);
 });
 

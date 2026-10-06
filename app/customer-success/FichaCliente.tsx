@@ -33,12 +33,17 @@
 // ⚠️ Y DEL TABLERO QUEDA SÓLO «PRIORIDADES» (05/10/2026). «Para que no sea tan confuso y
 // copiar toda la tab de PLAN en el detail, dejar solo la sección de "PRIORIDADES" y Tareas,
 // Proyectos y Recurrentes que se vean en la tab de Plan, y que haya un botón que te
-// redirija con el filtro ya puesto». La ficha pasó a tener SU fila de tabs —Resumen ·
-// Prioridades · Llamadas · Equipo— y el tablero se monta con `soloVista="prioridades"`,
-// que le apaga su propio selector: sigue habiendo UNA fila, ahora la de la ficha. Lo demás
-// del trabajo de este cliente se mira en el Plan, con «Ver en el Plan» del Resumen.
+// redirija con el filtro ya puesto». La ficha pasó a tener SU fila de tabs y el tablero se
+// monta con `soloVista="prioridades"`, que le apaga su propio selector: sigue habiendo UNA
+// fila, ahora la de la ficha.
+//
+// ⚠️ Y DESDE EL 06/10 LAS TABS SON Resumen · Tareas · Pagos · Llamadas · Historial · Equipo.
+// «Prioridades» pasó a llamarse «Tareas» y lleva «Ver en el Plan» donde el tablero tenía su
+// «⋮» («no cumple función allí»); Pagos e Historial son los del CRM («como está en el CRM»,
+// «es importante que se registre historial en los clientes de Customer Success»). Y la
+// etapa y el producto viven en la cabecera, como en el CRM (./FichaEntrega.tsx).
 
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Modal, Tabs, type Tab } from '@/app/_ui';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
@@ -54,13 +59,19 @@ import { TodoBoard } from '../plan/TodoBoard';
 import type { ClienteCruce } from './cruce';
 import type { TrabajoDeCliente } from './trabajo';
 import { colorDe } from './ClienteCard';
-import { guardarDatosClienteAction } from './actions';
+import { guardarDatosClienteAction, pagosDeClienteAction } from './actions';
 import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente, type AltaPedida } from './CuentaDeMaKo';
-import { ResumenCliente, LlamadasCliente } from './FichaPestanas';
+import { ResumenCliente, LlamadasCliente, PagosCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
+import { FichaEntrega, type EntregaFicha } from './FichaEntrega';
+import { rutaPlanDeCliente } from './ficha-datos';
+import { useFotoCliente } from './foto-cliente';
 import { ROTULO_ALTA, ROTULO_ROL, ROLES_ALTA, emailUtilizable, type EstadoAlta, type RolAlta } from '@/lib/agencia-altas';
 
-export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicial, onImagen, onCerrar }: {
+export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, tabInicial, onImagen, onCerrar }: {
   c: ClienteCruce;
+  /** Los productos, en cuáles está y cómo moverlo (la cabecera). Sin servicios —o con la
+   *  lectura de la entrega caída— no se dibuja nada: el banner de la página ya lo dice. */
+  entrega?: EntregaFicha;
   /** Su número de cliente. NO es el id del lead. */
   n: number;
   /** SU trabajo, leído y MAPEADO por el server. `null` = no se pudo leer. */
@@ -164,10 +175,14 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
    */
   const pestanas: Tab[] = [
     { id: 'resumen', label: 'Resumen' },
-    { id: 'prioridades', label: 'Prioridades' },
+    // ⚠️ EL ID SIGUE SIENDO `prioridades` aunque el rótulo diga «Tareas»: es la VISTA del
+    // tablero que se monta adentro (`soloVista`), y `tabInicial` la puede pedir por id.
+    { id: 'prioridades', label: 'Tareas' },
+    { id: 'pagos', label: 'Pagos' },
     // El badge cuenta lo que hay sin tener que entrar. `undefined` (no se pudo leer) no
     // dibuja número: un 0 ahí afirmaría que nunca habló con su cliente.
     { id: 'llamadas', label: 'Llamadas', badge: c.ficha?.llamadas?.length },
+    { id: 'historial', label: 'Historial' },
     ...(verCuentas ? [{ id: 'equipo', label: 'Equipo', badge: equipo?.length }] : []),
   ];
   const existe = (id: string | null | undefined): id is string => pestanas.some((p) => p.id === id);
@@ -196,6 +211,20 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
     setAbiertas((s) => (s.has(id) ? s : new Set([...s, id])));
   };
 
+  /**
+   * Lo que leen Pagos e Historial: UNA lectura, la primera vez que se abre cualquiera de
+   * las dos. Abrir la ficha en Resumen no la paga.
+   */
+  const [crm, setCrm] = useState<DatosCrm | null>(null);
+  const pideCrm = abiertas.has('pagos') || abiertas.has('historial');
+  useEffect(() => {
+    if (!pideCrm || crm !== null) return;
+    setCrm('cargando');
+    void pagosDeClienteAction(c.leadId)
+      .then(setCrm)
+      .catch((e) => setCrm({ ok: false, error: e instanceof Error ? e.message : 'No pude leer sus datos.' }));
+  }, [pideCrm, crm, c.leadId]);
+
   /** Renombrar al cliente o cambiarle la empresa. ⚠️ Escribe en `leads`, o sea en el
    *  CRM: no hay tabla de clientes, un cliente es un lead ganado. */
   function guardarDatos(cambio: { nombre?: string; empresa?: string | null }) {
@@ -214,7 +243,13 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
 
   const nombre = c.nombre.trim() || 'Sin nombre';
   const color = colorDe(nombre);
+  /** Su WhatsApp o su email, si nadie le eligió una foto (./foto-cliente.ts). */
+  const fotoAuto = useFotoCliente(c);
   const clienteFijo = { leadId: c.leadId, nombre };
+  /** Al Plan, NO a una copia: con el filtro de este cliente puesto y en Tareas. Va con el
+   *  `Link` de la casa, que preserva el `?ws=` — sin eso el super admin terminaría en SU
+   *  plan y no en el de este cliente. */
+  const verEnPlan = <Link className="fc-plan" href={rutaPlanDeCliente(c.leadId)}>Ver en el Plan →</Link>;
 
   /** La foto sube por el mismo route multipart que las portadas y se aplica sola: una
    *  imagen subida que después hay que elegir es un paso de más. */
@@ -295,7 +330,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
             <button type="button" className="fc-av"
               onClick={(e) => { const b = e.currentTarget; setAnclaFoto((a) => (a ? null : b)); }}
               title="Cambiar la foto" aria-label={`Cambiar la foto de ${nombre}`}>
-              <Marca icono={c.icono ?? c.avatarUrl} nombre={nombre} tam={88} y={c.avatarY} color={color} />
+              <Marca icono={c.icono ?? c.avatarUrl} foto={fotoAuto} nombre={nombre} tam={88} y={c.avatarY} color={color} />
               <span className="fc-avcap">{subiendoFoto ? '…' : 'Foto'}</span>
             </button>
             <span className="fc-txt">
@@ -346,6 +381,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
                 alineado a la derecha, sutil». No hace falta empujarlo —`.fc-txt`
                 declara `flex:1` y él `flex:none`— ni alinearlo: `.fc-fila` alinea
                 por la BASE, así que queda a la altura del renglón del nombre solo. */}
+            {/* EL PRODUCTO Y LA ETAPA, a la derecha como en la cabecera del CRM. */}
+            {entrega && entrega.servicios.length > 0 && <FichaEntrega leadId={c.leadId} nombre={nombre} e={entrega} />}
             <CuentaDeMaKo c={c} cuentas={cuentas} onError={setMal} />
           </span>
         </span>
@@ -375,7 +412,7 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
         <Tabs tabs={pestanas} activa={activa} onCambio={cambiarPestana} />
 
         <Panel id="resumen" activa={activa} abiertas={abiertas}>
-          <ResumenCliente c={c} trabajo={trabajo} />
+          <ResumenCliente c={c} />
         </Panel>
 
         <Panel id="prioridades" activa={activa} abiertas={abiertas}>
@@ -392,22 +429,30 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, tabInicia
             // server (de donde salen estas filas) sin desmontar el árbol del navegador.
             //
             // ⚠️ `soloVista="prioridades"`: sin su selector. Las otras tres vistas del
-            // tablero se miran en el Plan («Ver en el Plan», en el Resumen), y con el
-            // selector puesto volvería a haber dos filas de tabs, una arriba de la otra.
+            // tablero se miran en el Plan («Ver en el Plan», donde el tablero tenía su «⋮»),
+            // y con el selector puesto volvería a haber dos filas de tabs.
             <PlanBoard user={user} tareas={trabajo.tareas} proyectos={trabajo.proyectos}
               vacio={false} clientes={clientes} clienteFijo={clienteFijo} embebido
-              soloVista="prioridades"
+              soloVista="prioridades" accionEnLugarDelMenu={verEnPlan}
               onRecargar={() => router.refresh()} />
           ) : (
             <TodoBoard tareas={trabajo.tareas} categorias={trabajo.categorias} demo={false}
               user={user} clientes={clientes} clienteFijo={clienteFijo} embebido
-              soloVista="prioridades"
+              soloVista="prioridades" accionEnLugarDelMenu={verEnPlan}
               onRecargar={() => router.refresh()} />
           )}
         </Panel>
 
+        <Panel id="pagos" activa={activa} abiertas={abiertas}>
+          <PagosCliente datos={crm ?? 'cargando'} />
+        </Panel>
+
         <Panel id="llamadas" activa={activa} abiertas={abiertas}>
           <LlamadasCliente llamadas={c.ficha?.llamadas} />
+        </Panel>
+
+        <Panel id="historial" activa={activa} abiertas={abiertas}>
+          <HistorialCliente leadId={c.leadId} datos={crm ?? 'cargando'} />
         </Panel>
 
         {verCuentas && (
@@ -559,6 +604,12 @@ const CSS = `
 .fc-crm{ margin-left:10px; font-size:12.5px; font-weight:600; color:var(--primary);
   text-decoration:none; white-space:nowrap; vertical-align:middle; }
 .fc-crm:hover{ text-decoration:underline; }
+/* «Ver en el Plan», en el lugar del «⋮» del tablero: un botón con borde y del mismo alto
+   que los controles de esa fila, para que no se lea como un link suelto en una barra. */
+.fc-plan{ flex:none; display:inline-flex; align-items:center; height:38px; padding:0 14px;
+  border:1px solid var(--border-strong); border-radius:9px; background:var(--surface);
+  font-size:13px; font-weight:600; color:var(--primary); text-decoration:none; white-space:nowrap; }
+.fc-plan:hover{ border-color:var(--primary); }
 
 /* ⚠️ EL AVATAR MONTA SOBRE LA BANDA; EL NOMBRE, NO. Con un margin-top negativo en la
    fila entera sube TODO —avatar y texto—, y el nombre queda escrito sobre la foto: con un

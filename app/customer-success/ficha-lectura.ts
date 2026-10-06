@@ -24,22 +24,13 @@ import { llamadasDe, type ContactoFicha, type FilaGrabacion, type LlamadaCliente
 type FilaLead = {
   id: number;
   telefono: string | null;
-  monto_cierre_usd: number | string | null;
-  total_cobrado_usd: number | string | null;
-  fecha_inicio_servicio: string | null;
+  web: string | null;
   fathom_links: unknown;
   fecha_junta_1: string | null;
   fecha_junta_2: string | null;
 };
 
 type FilaClosing = FilaGrabacion & { recording_id: number; lead_id: number };
-
-/** Un `numeric` de Postgres puede llegar como texto según el camino: se normaliza acá. */
-const num = (v: unknown): number | null => {
-  if (v == null || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
 
 const tandas = <T,>(xs: readonly T[], n: number): T[][] => {
   const out: T[][] = [];
@@ -75,7 +66,7 @@ export async function lecturaDeFichas(leadIds: readonly number[]): Promise<Lectu
 
   const [leads, grabaciones] = await Promise.all([
     leerTodo<FilaLead>(db, 'leads',
-      'id, telefono, monto_cierre_usd, total_cobrado_usd, fecha_inicio_servicio, fathom_links, fecha_junta_1, fecha_junta_2',
+      'id, telefono, web, fathom_links, fecha_junta_1, fecha_junta_2',
       { orden: 'id', eq: { estado_lead: 'ganado' } })
       .catch((e) => { console.error('[cs-ficha] no pude leer los leads:', e instanceof Error ? e.message : e); return null; }),
     // ⚠️ `test` AFUERA y nada más: es la única categoría que el propio Closing Analyst
@@ -100,9 +91,7 @@ export async function lecturaDeFichas(leadIds: readonly number[]): Promise<Lectu
     crudos.set(id, l);
     contacto![id] = {
       telefono: l.telefono?.trim() || null,
-      montoCierreUsd: num(l.monto_cierre_usd),
-      totalCobradoUsd: num(l.total_cobrado_usd),
-      fechaInicioServicio: l.fecha_inicio_servicio ?? null,
+      web: l.web?.trim() || null,
     };
   }
 

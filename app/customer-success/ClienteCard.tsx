@@ -29,6 +29,7 @@ import type { ResumenTrabajo } from './trabajo';
 import { TarjetaEntidad, PieNumeros, PieTexto, colorDe } from '@/app/_components/TarjetaEntidad';
 import { Dropdown } from '@/app/components/Dropdown';
 import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
+import { useFotoCliente } from './foto-cliente';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 
 // `colorDe` vivía acá y se fue con el molde, porque lo usan las dos pantallas. Se
@@ -77,6 +78,8 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
   onError: (m: string) => void;
 }) {
   const nombre = c.nombre.trim() || 'Sin nombre';
+  /** Su WhatsApp o su email, si nadie le eligió una foto (./foto-cliente.ts). */
+  const fotoAuto = useFotoCliente(c);
   /**
    * ⚠️ TODO LO DE LA CUENTA DE MaKo CUELGA DE `cuentas.visible`, Y DE NADA MÁS. «La tab de
    * "Equipo" y en general todo lo que tenga que ver con invitar a MaKo, debería solo verse
@@ -155,7 +158,7 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
       nombre={nombre}
       bajada={c.empresa?.trim() || `Cliente ${n}`}
       portada={c.portada} portadaY={c.portadaY}
-      icono={c.icono ?? c.avatarUrl} avatarY={c.avatarY}
+      icono={c.icono ?? c.avatarUrl} avatarY={c.avatarY} foto={fotoAuto}
       color={colorDe(nombre)}
       onAbrir={onAbrir}
       etiqueta={`Abrir la ficha de ${nombre}`}

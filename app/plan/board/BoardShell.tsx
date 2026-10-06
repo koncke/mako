@@ -205,8 +205,18 @@ function Marco({ embebido, children }: { embebido: boolean; children: ReactNode 
   return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
 }
 
-export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, nombreCliente }: {
+export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, nombreCliente, accionEnLugarDelMenu }: {
   board: Board;
+  /**
+   * LO QUE VA EN EL LUGAR DE LOS BOTONES DE ACCIÓN (el «⋮» plegado), sólo con `soloVista`.
+   *
+   * Pedido de Martín sobre la ficha de un cliente (06/10/2026): «pon ese botón de ver en el
+   * plan en el lugar donde está el botón de 3 puntos, que no debería estar más, ya que no
+   * cumple función allí». Adentro de la ficha el tablero muestra sólo Prioridades de UN
+   * cliente: «Tareas sin fecha», las reuniones, importar y exportar son del Plan entero y se
+   * hacen allá. El que la monta pasa el link; sin `soloVista` se ignora.
+   */
+  accionEnLugarDelMenu?: ReactNode;
   /**
    * DIBUJÁ SÓLO ESTA VISTA, Y SIN EL SELECTOR DE VISTAS. Lo usa la ficha de un cliente en
    * Customer Success: «dejar solo la sección de PRIORIDADES… y Tareas, Proyectos y
@@ -1454,7 +1464,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             «+» que los despliega al costado. Antes se dibujaban encima de «Filtrar». */}
         {/* El progreso NO se pierde al plegarse: viaja al menú, arriba de todo. Un dato
             que desaparece porque no hay lugar es esconder sin pista. */}
-        <BarraAcciones compacto={compacto} progreso={progresoDeLaVista} acciones={[
+        {soloVista && accionEnLugarDelMenu ? accionEnLugarDelMenu : <BarraAcciones compacto={compacto} progreso={progresoDeLaVista} acciones={[
           /* ⚠ en TODAS las vistas (no solo kanban): es la ÚNICA puerta al modal, que ya no se
              abre solo (08-T46). Avisa con el NÚMERO, como el ✨ de al lado, y no titila: un
              ícono que late en cada entrada es el mismo «picarle» con otra forma. */
@@ -1518,7 +1528,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} />,
             menu: { icono: <DescargarIcon />, label: 'Exportar el tablero',
               desc: 'Baja las tareas y los proyectos a un archivo', onClick: () => setExportar(true) } },
-        ]} />
+        ]} />}
 
       </header>
 
