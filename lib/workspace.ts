@@ -145,10 +145,10 @@ const TENANT_TABLES = new Set<string>([
   'replay_sesiones', 'replay_lotes',
   'review_queue', 'script_analyses', 'script_drafts', 'service_incidents', 'setting_audios',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
-  // Canal Instagram vía Zernio (mig 0136). zernio_workspace es el mapeo
-  // ws→profile: lib/zernio.ts lo lee con el cliente crudo y ws EXPLÍCITO (corre
-  // en webhooks/crons), pero va acá igual para que cualquier lectura por
-  // getTenantDb quede scopeada.
+  // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
+  // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
+  // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que
+  // salgan scopeadas y no con las filas de todos.
   'contenido_posts', 'ig_conversaciones', 'ig_mensajes', 'zernio_workspace',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
   // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta

@@ -6,30 +6,31 @@
 // Izquierda: el pedido (tema + objetivo + duración) y el historial. Derecha: el
 // guion LEGIBLE PARA GRABAR — gancho, escenas numeradas con locución y cámara,
 // moraleja, CTA, caption con el corte de los 125 caracteres marcado — con
-// «Copiar el guion», «Enviar a publicación» (borrador en /instagram) y el
-// ajuste con feedback.
+// «Copiar el guion» y el ajuste con feedback.
+//
+// ⚠️ Hasta el 06/10/2026 había además «Enviar a publicación» (un borrador en el
+// programador de /instagram) y un paso «Tu cuenta de Instagram». Salieron con la
+// tab Instagram (decisión de Martín): el guion se copia y se publica a mano.
 //
 // El onboarding de la tab es un checklist adentro de la app, no un wizard que
-// la tapa: nada de esta tab bloquea (la cuenta de Instagram es un aviso suave)
-// y el ensayo ES generar el primer guion.
+// la tapa: nada de esta tab bloquea y el ensayo ES generar el primer guion.
 
 import { useCallback, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import {
-  Pagina, PageHeader, Section, Eyebrow, Button, ButtonLink, Field, Textarea,
-  Select, Alert, EmptyState, Tag, Status, Mako, MONO,
+  Pagina, PageHeader, Section, Eyebrow, Button, Field, Textarea,
+  Select, Alert, EmptyState, Tag, Mako, MONO,
 } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { CAPTION_VISIBLE, LIMITES_REEL } from '@/lib/ig-formatos';
 import type { PiezaGuardada, EstadoContextoReels } from './reels-datos';
 import { OBJETIVOS_REEL, DURACIONES_REEL, guionATexto } from './reel-pedido';
-import { generarReelAction, enviarAPublicacionAction } from './actions';
+import { generarReelAction } from './actions';
 
 export type OnboardingReels = {
   pendiente: boolean;
   contexto: EstadoContextoReels;
   ensayoHecho: boolean;
-  ig: { conectada: boolean; username: string | null };
 } | null;
 
 const card: CSSProperties = {
@@ -83,11 +84,6 @@ function ChecklistOnboarding({ ob }: { ob: NonNullable<OnboardingReels> }) {
           ? 'Generado. La tab quedó probada con tus datos.'
           : 'Pide el primero aquí abajo: es la prueba de que la tab funciona con tu negocio.'}
       </PasoRow>
-      <PasoRow done={ob.ig.conectada} titulo="Tu cuenta de Instagram">
-        {ob.ig.conectada
-          ? <>Conectada{ob.ig.username ? <> (@{ob.ig.username})</> : null}. Los borradores que envíes se completan y programan en <Link href="/instagram" style={{ color: 'var(--primary)', fontWeight: 600 }}>Instagram</Link>.</>
-          : <>Opcional para escribir: los guiones no la necesitan. Para publicar los borradores, conéctala en <Link href="/instagram" style={{ color: 'var(--primary)', fontWeight: 600 }}>Instagram</Link>.</>}
-      </PasoRow>
     </Section>
   );
 }
@@ -103,11 +99,7 @@ function BloqueGuion({ rotulo, children }: { rotulo: string; children: ReactNode
   );
 }
 
-function VistaGuion({ item, onEnviar, enviando }: {
-  item: PiezaGuardada;
-  onEnviar: () => void;
-  enviando: boolean;
-}) {
+function VistaGuion({ item }: { item: PiezaGuardada }) {
   const p = item.pieza;
   const [copiado, setCopiado] = useState(false);
   const copiar = useCallback(async () => {
@@ -130,20 +122,12 @@ function VistaGuion({ item, onEnviar, enviando }: {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 7 }}>
             {p.objetivo && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>{p.objetivo}</span>}
             <Tag>{p.duracionEstimadaSeg} s · máx {LIMITES_REEL.maxSeg} s</Tag>
-            {item.borradorId != null && <Status tono="good">En publicación</Status>}
           </div>
         </div>
         <div className="mk-row" style={{ flex: 'none' }}>
           <Button variant="secondary" icon={<Icon name="copy" size={14} />} onClick={copiar}>
             {copiado ? 'Copiado ✓' : 'Copiar el guion'}
           </Button>
-          {item.borradorId == null ? (
-            <Button variant="primary" loading={enviando} onClick={onEnviar}>
-              Enviar a publicación
-            </Button>
-          ) : (
-            <ButtonLink href="/instagram" variant="secondary">Ver el borrador en Instagram →</ButtonLink>
-          )}
         </div>
       </div>
 
@@ -204,8 +188,6 @@ function VistaGuion({ item, onEnviar, enviando }: {
             {p.palabraClave && (
               <p style={{ margin: '8px 0 0', fontSize: 'var(--fs-sm)', color: 'var(--dim)', lineHeight: 1.55 }}>
                 Palabra clave: <strong style={{ color: 'var(--ink)' }}>{p.palabraClave}</strong>.
-                {' '}La respuesta automática comment→DM se configura en la tab{' '}
-                <Link href="/instagram" style={{ color: 'var(--primary)', fontWeight: 600 }}>Instagram</Link>.
               </p>
             )}
           </>
@@ -253,7 +235,6 @@ export function ReelsApp({ historialInicial, onboarding }: {
   // equivocado (regla de la skill de onboarding, vale para toda la tab).
   const [busyGenerar, setBusyGenerar] = useState(false);
   const [busyAjustar, setBusyAjustar] = useState(false);
-  const [busyEnviar, setBusyEnviar] = useState(false);
   const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: ReactNode } | null>(null);
 
   const generando = busyGenerar || busyAjustar;
@@ -292,23 +273,6 @@ export function ReelsApp({ historialInicial, onboarding }: {
       setAviso({ tono: 'bad', texto: e instanceof Error ? e.message : String(e) });
     } finally { setBusyAjustar(false); }
   }, [actual, feedback, tema, objetivo, duracion, busyAjustar, aplicarResultado]);
-
-  const enviar = useCallback(async () => {
-    if (!actual || busyEnviar) return;
-    setBusyEnviar(true); setAviso(null);
-    try {
-      const r = await enviarAPublicacionAction(actual.id);
-      if (!r.ok) { setAviso({ tono: 'bad', texto: r.error }); return; }
-      setHistorial(r.historial);
-      setActual((a) => (a && a.id === actual.id ? { ...a, borradorId: r.borradorId } : a));
-      setAviso({
-        tono: 'good',
-        texto: <>Borrador creado. Sube el video y prográmalo en <Link href={r.href} style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Instagram</Link> — el guion viaja como notas de producción dentro de la caption.</>,
-      });
-    } catch (e) {
-      setAviso({ tono: 'bad', texto: e instanceof Error ? e.message : String(e) });
-    } finally { setBusyEnviar(false); }
-  }, [actual, busyEnviar]);
 
   return (
     <Pagina>
@@ -388,7 +352,6 @@ export function ReelsApp({ historialInicial, onboarding }: {
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
                       <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{fechaCorta(h.at)}</span>
-                      {h.borradorId != null && <Status tono="good">En publicación</Status>}
                     </div>
                   </button>
                 ))}
@@ -421,7 +384,7 @@ export function ReelsApp({ historialInicial, onboarding }: {
             />
           ) : (
             <>
-              <VistaGuion item={actual} onEnviar={enviar} enviando={busyEnviar} />
+              <VistaGuion item={actual} />
 
               {/* Ajuste con feedback */}
               <div style={{ ...card, background: 'var(--surface-2)' }}>

@@ -1,26 +1,25 @@
 'use server';
 
 // =============================================================================
-// /reels — server actions: generar el guion y enviarlo a publicación
+// /reels — server actions: generar el guion
 // =============================================================================
-// El motor es lib/ig-writer.ts (generarPieza) y el puente a contenido_posts es
-// lib/ig-contenido.ts (crearBorradorPublicacion): acá solo se guarda el guard,
-// el historial y el marcado del onboarding de la tab. Ambos verifican el `ws`
-// en POSITIVO contra el del request; el guard de rol vive acá (patrón ctxAdmin
-// de app/instagram/actions.ts — la agencia sin impersonar corta con error, nunca
-// cae al dueño).
+// El motor es lib/ig-writer.ts (generarPieza): acá solo se guarda el guard, el
+// historial y el marcado del onboarding de la tab. El `ws` se verifica en
+// POSITIVO contra el del request y el guard de rol vive acá (ctxAdmin: la agencia
+// sin impersonar corta con error, nunca cae al dueño).
+//
+// Hasta el 06/10/2026 había un «Enviar a publicación» que dejaba el guion como
+// borrador en el programador de /instagram (lib/ig-contenido.ts). Salió con la tab
+// Instagram (decisión de Martín): la pieza se copia y se publica a mano.
 
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { generarPieza } from '@/lib/ig-writer';
-import { crearBorradorPublicacion } from '@/lib/ig-contenido';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import {
-  estadoContextoReels, guardarEnHistorial, leerHistorial, marcarEnviada,
+  estadoContextoReels, guardarEnHistorial, leerHistorial,
   type PiezaGuardada,
 } from './reels-datos';
-import { componerPedido, guionATexto, type PedidoReel } from './reel-pedido';
-
-const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { componerPedido, type PedidoReel } from './reel-pedido';
 
 /** Rol admin del workspace + ws concreto, o error honesto. */
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -90,38 +89,4 @@ export async function generarReelAction(
   const historial = await guardarEnHistorial(item);
   await marcarOnboardingTrasGenerar();
   return { ok: true, item, historial };
-}
-
-export type EnviarReelOut =
-  | { ok: true; borradorId: number; href: string; historial: PiezaGuardada[] }
-  | { ok: false; error: string };
-
-/**
- * Crea el borrador en contenido_posts (tipo 'reel', estado 'borrador') con la
- * caption de la pieza y el guion completo como notas de producción, y devuelve
- * a dónde seguir (/instagram: ahí se sube el video y se programa).
- *
- * Idempotente por pieza: si esta entrada del historial YA tiene borrador, se
- * devuelve el existente en vez de crear un duplicado con el doble click.
- */
-export async function enviarAPublicacionAction(id: string): Promise<EnviarReelOut> {
-  const ctx = await ctxAdmin();
-  if (!ctx.ok) return ctx;
-  try {
-    const historial = await leerHistorial();
-    const item = historial.find((e) => e.id === id);
-    if (!item) return { ok: false, error: 'No encontré ese guion en el historial. Genera la pieza de nuevo.' };
-    if (item.borradorId) return { ok: true, borradorId: item.borradorId, href: '/instagram', historial };
-
-    const out = await crearBorradorPublicacion(ctx.ws, {
-      tipo: 'reel',
-      caption: item.pieza.caption,
-      notas: guionATexto(item.pieza),
-    });
-    if (!out.ok) return out;
-    const nuevo = await marcarEnviada(id, out.id);
-    return { ok: true, borradorId: out.id, href: out.href, historial: nuevo };
-  } catch (e) {
-    return { ok: false, error: msg(e) };
-  }
 }

@@ -5,11 +5,14 @@
 // =============================================================================
 // Izquierda: el pedido (tema/objetivo + tipo) y el historial de la sesión.
 // Derecha: la pieza — slides como tarjetas navegables con edición inline,
-// caption editable y «Enviar a publicación» (borrador en contenido_posts; la
-// media y la programación se completan en /instagram).
+// caption editable y «Copiar el carrusel».
 //
-// El motor vive en lib/ig-writer.ts y el puente en lib/ig-contenido.ts: acá solo
-// UI + server actions propias (./actions.ts). Los límites técnicos y la
+// ⚠️ Hasta el 06/10/2026 el cierre era «Enviar a publicación» (un borrador en el
+// programador de /instagram) con un aviso para conectar la cuenta. Salieron con la
+// tab Instagram (decisión de Martín): la pieza se copia y se publica a mano.
+//
+// El motor vive en lib/ig-writer.ts: acá solo UI + server actions propias
+// (./actions.ts). Los límites técnicos y la
 // doctrina salen de lib/ig-formatos.ts (fuente única) — incluida la doctrina
 // NEGATIVA de hashtags: los cursos los descartan como palanca, así que la tab no
 // los inventa; lo dice en pantalla en vez de rellenar con números de manual.
@@ -22,7 +25,7 @@ import { Dropdown } from '../components/Dropdown';
 import { CAPTION_MAX, CAPTION_VISIBLE, LIMITES_CARRUSEL, LIMITES_IMAGEN } from '@/lib/ig-formatos';
 // `import type` de un módulo server-only: se borra al compilar, no arrastra nada.
 import type { PiezaCarrusel } from '@/lib/ig-writer';
-import { enviarAPublicacionAction, generarCarruselAction, type TipoCarrusel } from './actions';
+import { generarCarruselAction, type TipoCarrusel } from './actions';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -42,16 +45,16 @@ const rolDeSlide = (i: number, total: number) =>
   i === 0 ? 'Portada · gancho' : i === total - 1 ? 'Cierre · moraleja + CTA' : 'Desarrollo';
 
 /**
- * Notas de producción que viajan con el borrador (anexadas a la caption con
- * rótulo visible — ver lib/ig-contenido.ts). Las arma el CÓDIGO desde la pieza
- * editada, no el modelo: un dato exacto no se le vuelve a pedir a un LLM.
+ * El guion del carrusel como texto, para «Copiar el carrusel». Lo arma el CÓDIGO
+ * desde la pieza editada, no el modelo: un dato exacto no se le vuelve a pedir a un
+ * LLM.
  */
 function notasDe(p: PiezaCarrusel): string {
   return [
     `Objetivo: ${p.objetivo || '—'}`,
     p.cta ? `CTA (última slide): ${p.cta}` : 'Sin CTA: pieza solo de alcance.',
     p.palabraClave ? `Palabra clave comment→DM: ${p.palabraClave}` : '',
-    p.cta ? `Primer comentario sugerido (firstComment al publicar): ${p.cta}` : '',
+    p.cta ? `Primer comentario sugerido: ${p.cta}` : '',
     `Imágenes finales SOLO ${LIMITES_IMAGEN.formato} (un PNG rebota) · ${LIMITES_CARRUSEL.itemsMin}-${LIMITES_CARRUSEL.itemsMax} slides.`,
     '',
     ...p.slides.map((s, i) =>
@@ -62,13 +65,13 @@ function notasDe(p: PiezaCarrusel): string {
 type ItemHistorial = { at: string; pedido: string; pieza: PiezaCarrusel };
 
 export function CarouselsApp({
-  igConectada, perfilCargado, piezaInicial = null,
-}: { igConectada: boolean; perfilCargado: boolean; piezaInicial?: PiezaCarrusel | null }) {
+  perfilCargado, piezaInicial = null,
+}: { perfilCargado: boolean; piezaInicial?: PiezaCarrusel | null }) {
   const [pedido, setPedido] = useState('');
   const [tipo, setTipo] = useState<TipoCarrusel>('educativo');
   const [pieza, setPieza] = useState<PiezaCarrusel | null>(piezaInicial);
   const [slideIdx, setSlideIdx] = useState(0);
-  const [estado, setEstado] = useState<'listo' | 'generando' | 'enviando'>('listo');
+  const [estado, setEstado] = useState<'listo' | 'generando'>('listo');
   const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: React.ReactNode } | null>(null);
   // Historial de la SESIÓN (memoria de página, se pierde al recargar — no hay
   // tabla genérica de historial de writers y una migración acá colisionaría con
@@ -93,24 +96,14 @@ export function CarouselsApp({
     } finally { setEstado('listo'); }
   }, [pedido, tipo]);
 
-  const enviar = useCallback(async () => {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = useCallback(async () => {
     if (!pieza) return;
-    setEstado('enviando'); setAviso(null);
     try {
-      const r = await enviarAPublicacionAction({ caption: pieza.caption, notas: notasDe(pieza) });
-      if (!r.ok) throw new Error(r.error);
-      setAviso({
-        tono: 'good',
-        texto: (
-          <>
-            Borrador #{r.id} creado. La media y la programación se completan en{' '}
-            <Link href={r.href} style={{ color: 'inherit', fontWeight: 700 }}>Instagram →</Link>
-          </>
-        ),
-      });
-    } catch (e) {
-      setAviso({ tono: 'bad', texto: e instanceof Error ? e.message : String(e) });
-    } finally { setEstado('listo'); }
+      await navigator.clipboard.writeText(`${notasDe(pieza)}\n\nCaption:\n${pieza.caption}`);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2200);
+    } catch { /* el navegador no permitió copiar; el texto queda a la vista */ }
   }, [pieza]);
 
   const editarSlide = useCallback((i: number, campo: 'texto' | 'visual', valor: string) => {
@@ -181,12 +174,6 @@ export function CarouselsApp({
                 <Link href="/onboarding" style={{ color: 'var(--primary)', fontWeight: 600 }}>Complétalo aquí →</Link>
               </div>
             )}
-            {!igConectada && (
-              <div style={{ marginTop: 9, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                Para publicar lo que escribas, falta la cuenta de Instagram.{' '}
-                <Link href="/instagram" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conéctala en Instagram →</Link>
-              </div>
-            )}
           </div>
 
           {/* Historial de la sesión */}
@@ -194,7 +181,7 @@ export function CarouselsApp({
             <div style={card}>
               <div style={{ ...eyebrow, marginBottom: 4 }}>Piezas de esta sesión</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 10 }}>
-                Se pierden al recargar la página. Lo que quieras conservar, envíalo a publicación.
+                Se pierden al recargar la página. Lo que quieras conservar, cópialo.
               </div>
               <div style={{ display: 'grid', gap: 8 }}>
                 {historial.map((h, i) => (
@@ -236,7 +223,7 @@ export function CarouselsApp({
               <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto', maxWidth: 420 }}>
                 Escribe el guion completo —portada-gancho, texto por slide, notas de diseño y
                 caption— usando tu oferta, tu cliente ideal y tu funnel. Después editas cada
-                slide y envías la pieza a publicación.
+                slide y copias la pieza.
               </p>
             </div>
           ) : (
@@ -262,8 +249,8 @@ export function CarouselsApp({
                     <div style={eyebrow}>CTA de la última slide</div>
                     <div style={{ fontSize: 14, marginTop: 5, lineHeight: 1.5 }}>{pieza.cta}</div>
                     <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>
-                      Primer comentario sugerido al publicar (firstComment): el mismo CTA, para
-                      anclar la palabra clave apenas salga el post.
+                      Primer comentario sugerido: el mismo CTA, para anclar la palabra clave
+                      apenas salga el post.
                     </div>
                   </div>
                 )}
@@ -362,26 +349,21 @@ export function CarouselsApp({
                 </div>
               </div>
 
-              {/* Enviar a publicación */}
+              {/* Copiar la pieza */}
               <div style={{ ...card, background: 'var(--surface-2)' }}>
-                <div style={{ ...eyebrow, marginBottom: 10 }}>Enviar a publicación</div>
-                <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.55 }}>
-                  Crea el borrador en Instagram con la caption y el guion como notas de
-                  producción. Ahí subes las imágenes y programas.
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 8 }}>
-                  Las imágenes finales van SOLO en {LIMITES_IMAGEN.formato} (un PNG rebota) ·{' '}
+                <div style={{ ...eyebrow, marginBottom: 10 }}>Para publicar</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+                  Imágenes SOLO en {LIMITES_IMAGEN.formato} (un PNG rebota) ·{' '}
                   {LIMITES_CARRUSEL.itemsMin} a {LIMITES_CARRUSEL.itemsMax} ítems, se puede mezclar imagen y video ·
                   aspecto recomendado {LIMITES_IMAGEN.aspectoRecomendado}.
                 </div>
                 <Button
                   variant="secondary"
-                  onClick={() => void enviar()}
-                  loading={estado === 'enviando'}
+                  onClick={() => void copiar()}
                   disabled={ocupado}
                   style={{ marginTop: 14 }}
                 >
-                  {estado === 'enviando' ? 'Creando el borrador…' : 'Enviar a publicación'}
+                  {copiado ? 'Copiado ✓' : 'Copiar el carrusel'}
                 </Button>
               </div>
             </>

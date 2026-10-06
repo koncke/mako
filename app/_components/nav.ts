@@ -138,11 +138,12 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
       ],
-      // Las conversaciones. Sin desplegable: son tres, y son de todos los días.
+      // Las conversaciones. Sin desplegable: son dos, y son de todos los días.
+      // Instagram salió el 06/10/2026 (decisión de Martín: 0 DMs en su historia):
+      // /instagram redirige a /chatbot y tests/sin-instagram.test.ts cuida que no vuelva.
       [
         { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
-        { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', match: starts('/instagram') },
       ],
     ],
     grupos: [

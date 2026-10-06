@@ -53,7 +53,9 @@ const COMPARTIDAS_A_PROPOSITO: Record<string, string> = {
   //  · el WhatsApp OFICIAL salió del producto (#832): `wa_oficial`, `wa_oficial_plantilla` y
   //    `wa_oficial_prueba` no están en ninguna tab.
   // Quedan declaradas abajo SOLO si vuelven a aparecer en dos listas a la vez.
-  conectar: 'La cuenta de Instagram conectada, que la usan Instagram, Reels y Stories.',
+  // 06/10/2026 — se fue `conectar` (la cuenta de Instagram, que compartían Instagram,
+  // Reels y Stories): la tab Instagram salió del producto y Reels y Stories ya no
+  // piden ninguna cuenta.
 };
 
 test('ninguna key de paso aparece en dos tabs sin estar declarada como compartida', () => {
@@ -99,16 +101,8 @@ test('lo declarado como compartido existe de verdad en más de una tab', () => {
   );
 });
 
-test('los pasos de Instagram no comparten key con el Chat Agent', () => {
-  // El caso medido, fijado por su nombre para que el arreglo no se pueda deshacer
-  // sin que el test lo diga. Los tres tests de arriba lo cubren en general; éste
-  // deja el POR QUÉ pegado al caso.
-  const ig = TAB_ONBOARDINGS.instagram.pasos.map((p) => p.key);
-  const setting = new Set(TAB_ONBOARDINGS.setting.pasos.map((p) => p.key));
-  const cruce = ig.filter((k) => setting.has(k) && !(k in COMPARTIDAS_A_PROPOSITO));
-  assert.deepEqual(
-    cruce, [],
-    'El ensayo de Instagram previsualiza un DM: si lo marca el Chat Agent, el '
-    + 'auto-respondedor se enciende sin que nadie haya leído una sola respuesta.',
-  );
-});
+// Acá vivía «los pasos de Instagram no comparten key con el Chat Agent», que fijaba
+// por su nombre el caso medido del 03/09/2026. La tab Instagram salió del producto el
+// 06/10/2026 (decisión de Martín) y con ella su onboarding: el caso general lo siguen
+// cubriendo los dos tests de arriba, y que la tab no vuelva lo cuida
+// tests/sin-instagram.test.ts.

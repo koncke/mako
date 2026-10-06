@@ -4010,6 +4010,13 @@ Lo que se sigue de eso al escribir código nuevo del editor:
 con razón (`lib/ventana-24h.ts`). Lo que la decisión fija es el ALCANCE — son dos canales,
 y el del chatbot no es el oficial.
 
+**Y el Chatbot es SÓLO WhatsApp: Instagram se sacó del producto el 06/10/2026** (decisión de
+Martín, «C: sacar la tab»: 0 DMs y 0 publicaciones en toda su historia). Se borraron la tab,
+su bandeja, su programador, el puente de los DMs al setter y sus 21 operaciones de la API de
+MaKo; `/instagram` redirige a `/chatbot` y el webhook de Zernio contesta 200 sin procesar
+nada. Las tablas quedan. Sumarle un canal al Chatbot es una decisión del dueño, no un
+arreglo: `tests/sin-instagram.test.ts` falla si algo vuelve a cablear Instagram.
+
 # Un negocio tiene VARIAS líneas de WhatsApp: por cuál sale un mensaje lo decide `elegirLinea`
 
 Desde el 06/10/2026 (`0936f1da`, migs 0198+0199) `evolution_instancias` tiene N filas por

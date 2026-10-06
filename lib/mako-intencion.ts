@@ -428,7 +428,6 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,
   email: /\b(e-?mails?|correos?|mails?|broadcasts?|newsletter|remitente|dominio de env)/i,
   chatbot: /\b(secuencias?|nutrici[oó]n|chatbot|bot\b|seguimiento autom|handoff)/i,
-  instagram: /\b(instagram|ig\b|dms?\b)/i,
   metricas: /\b(m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada)/i,
   experimentos: /\b(experimentos?|hip[oó]tesis|retro\b|retrospectiva|conclusi[oó]n)/i,
   landing: /\b(landing|p[aá]gina|p[ií]xel|pixel|tracking|vsl)/i,

@@ -1,30 +1,27 @@
 'use client';
 
 // =============================================================================
-// OnboardingCarousels — las 3 etapas de la tab (Conectar → Contexto → Ensayo)
+// OnboardingCarousels — las 2 etapas de la tab (Contexto → Ensayo)
 // =============================================================================
-// WizardShell embebido (misma pieza que el onboarding de Instagram, SIN tapar el
-// sidebar). El estado vive en app_settings vía lib/tab-onboarding-state.ts
-// ('carousels', keys con prefijo carousels_ para no colisionar con los pasos
-// compartidos de otras tabs).
+// WizardShell embebido (SIN tapar el sidebar). El estado vive en app_settings vía
+// lib/tab-onboarding-state.ts ('carousels', keys con prefijo carousels_ para no
+// colisionar con los pasos compartidos de otras tabs).
 //
-// Conectar acá NO bloquea (a diferencia de /instagram): escribir guiones no
-// necesita la cuenta — la cuenta recién hace falta al PUBLICAR, que vive en
-// /instagram. Por eso el paso es un aviso suave con link, y el wizard deja
-// avanzar siempre. El ensayo ES la primera pieza generada.
+// No hay etapa «Conectar»: escribir un carrusel no necesita ninguna cuenta. Hasta
+// el 06/10/2026 había un paso «Tu cuenta de Instagram» que linkeaba a /instagram;
+// salió con esa tab (decisión de Martín). El ensayo ES la primera pieza generada.
 
 import { useCallback, useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
 import { Button } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
-import { Icon } from '../_components/icons';
 import type { PiezaCarrusel } from '@/lib/ig-writer';
 import { CarouselsApp } from './CarouselsApp';
 import { generarCarruselAction, marcarPasoCarouselsAction } from './actions';
 
 const MONO = "'Geist Mono', monospace";
 
-const PASOS = ['conectar', 'contexto', 'ensayo'] as const;
+const PASOS = ['contexto', 'ensayo'] as const;
 type Paso = (typeof PASOS)[number];
 
 const PEDIDO_MUESTRA =
@@ -42,13 +39,13 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
   );
 }
 
-export function OnboardingCarousels({ igConectada, perfilCargado }: { igConectada: boolean; perfilCargado: boolean }) {
+export function OnboardingCarousels({ perfilCargado }: { perfilCargado: boolean }) {
   // Estado de CLIENTE y no router.refresh(): refrescar re-corre el guard del
   // server y devuelve el mismo wizard — «Lo configuro después» y la ✕ tienen
-  // que llevar a la tab de verdad (mismo porqué que OnboardingInstagram).
+  // que llevar a la tab de verdad.
   const [salir, setSalir] = useState(false);
 
-  const [paso, setPaso] = useState<Paso>('conectar');
+  const [paso, setPaso] = useState<Paso>('contexto');
   const [error, setError] = useState<string | null>(null);
   const [busyPaso, setBusyPaso] = useState(false);
 
@@ -66,14 +63,13 @@ export function OnboardingCarousels({ igConectada, perfilCargado }: { igConectad
     setPieza(r.pieza);
   }, [pedido]);
 
-  if (salir) return <CarouselsApp igConectada={igConectada} perfilCargado={perfilCargado} piezaInicial={pieza} />;
+  if (salir) return <CarouselsApp perfilCargado={perfilCargado} piezaInicial={pieza} />;
 
   const idx = PASOS.indexOf(paso);
   const puedeAvanzar = paso === 'ensayo' ? Boolean(pieza) : true;
 
   const avanzar = async () => {
     setError(null);
-    if (paso === 'conectar') { setPaso('contexto'); return; }
     if (paso === 'contexto') {
       setBusyPaso(true);
       const r = await marcarPasoCarouselsAction('carousels_contexto');
@@ -92,17 +88,11 @@ export function OnboardingCarousels({ igConectada, perfilCargado }: { igConectad
     setSalir(true);
   };
 
-  const pregunta = paso === 'conectar'
-    ? 'Tu cuenta de Instagram'
-    : paso === 'contexto'
-      ? 'Contexto del negocio'
-      : 'Tu primer carrusel';
+  const pregunta = paso === 'contexto' ? 'Contexto del negocio' : 'Tu primer carrusel';
 
-  const sub = paso === 'conectar'
-    ? 'Para escribir carruseles no hace falta la cuenta conectada — solo para publicarlos.'
-    : paso === 'contexto'
-      ? undefined
-      : 'Describe una pieza y mira cómo MaKo la escribe slide a slide con los datos de tu negocio.';
+  const sub = paso === 'contexto'
+    ? undefined
+    : 'Describe una pieza y mira cómo MaKo la escribe slide a slide con los datos de tu negocio.';
 
   return (
     <WizardShell
@@ -132,40 +122,6 @@ export function OnboardingCarousels({ igConectada, perfilCargado }: { igConectad
         </button>
       }
     >
-      {paso === 'conectar' && (
-        <>
-          {igConectada ? (
-            // La recompensa es el estado real, no un tilde suelto.
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
-              <Icon name="check" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Cuenta de Instagram conectada</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Los borradores que envíes a publicación se completan y programan en Instagram.</div>
-              </div>
-            </div>
-          ) : (
-            // Aviso SUAVE, sin bloquear: la conexión vive en /instagram y este
-            // wizard no la duplica (una sola puerta de entrada para el canal).
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
-              <Icon name="instagram" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Sin cuenta de Instagram conectada</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-                  Puedes escribir igual. Para publicar,{' '}
-                  <Link href="/instagram" style={{ color: 'var(--primary-strong)', fontWeight: 600 }}>conéctala en Instagram →</Link>
-                </div>
-              </div>
-            </div>
-          )}
-          <Contexto eyebrow="Por qué no es obligatorio">
-            Esta tab escribe el guion del carrusel: portada-gancho, texto por slide, notas de
-            diseño y caption. Todo eso se produce sin la cuenta. La conexión recién importa
-            al enviar la pieza a publicación, y ese paso vive en la tab Instagram — donde se
-            conecta una sola vez para todas las tabs de contenido.
-          </Contexto>
-        </>
-      )}
-
       {paso === 'contexto' && (
         perfilCargado ? (
           <Contexto eyebrow="Esto ya lo tengo de ti">
@@ -209,9 +165,8 @@ export function OnboardingCarousels({ igConectada, perfilCargado }: { igConectad
             </div>
           )}
           <Contexto eyebrow="Qué sigue después">
-            Al terminar entras a la tab completa: ahí editas el texto de cada slide, ajustas
-            la caption y envías la pieza a publicación como borrador — la media se completa
-            y se programa en Instagram. La pieza de muestra te espera lista para seguir.
+            Al terminar entras a la tab completa: ahí editas cada slide y la caption, y
+            copias la pieza para publicarla. La de muestra te espera lista.
           </Contexto>
         </>
       )}

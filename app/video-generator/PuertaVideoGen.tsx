@@ -9,8 +9,7 @@
 // Refrescar vuelve a correr el guard del server —que sigue diciendo «pendiente»,
 // porque el ensayo lo cierra aprobar un escenario— y devuelve el mismo wizard.
 // O sea: «Lo configuro después» no llevaría a ningún lado, que es el modo de
-// falla que ya está documentado en `OnboardingCarousels` y en
-// `OnboardingInstagram`.
+// falla que ya está documentado en `OnboardingCarousels`.
 //
 // La tab entera llega como `children` YA RENDERIZADA por el server: así el
 // wizard no la monta hasta que hace falta, y salir no dispara ni una consulta.

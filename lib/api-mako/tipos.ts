@@ -25,9 +25,11 @@
 // lo verifica leyendo el archivo destino de cada import.
 // =============================================================================
 
-/** Las áreas son las TABS donde vive el código, no los temas. Cerrado a propósito. */
+/** Las áreas son las TABS donde vive el código, no los temas. Cerrado a propósito.
+ *  `instagram` salió el 06/10/2026 con su tab (decisión de Martín): sus 21 operaciones
+ *  hablaban de una bandeja y un programador que ya no existen. */
 export const AREAS = [
-  'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot', 'instagram',
+  'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
   'integraciones', 'equipo', 'cs', 'mako',
 ] as const;
@@ -42,7 +44,6 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   whatsapp: { titulo: 'WhatsApp', tab: 'WhatsApp', ruta: '/whatsapp' },
   email: { titulo: 'Email', tab: 'Email', ruta: '/email' },
   chatbot: { titulo: 'Chatbot y secuencias', tab: 'Chatbot', ruta: '/chatbot' },
-  instagram: { titulo: 'Instagram', tab: 'Instagram', ruta: '/instagram' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/marketing' },
   experimentos: { titulo: 'Experiments y Retro', tab: 'Experiments', ruta: '/experimentos' },
   landing: { titulo: 'Landing (Analyst, Generator y tracking)', tab: 'Landing Analyst', ruta: '/landing-analyst' },

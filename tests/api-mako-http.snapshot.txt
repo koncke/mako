@@ -11,7 +11,6 @@ agregar_nota_lead
 agregar_objetivo_custom
 analisis_negocio
 analizar_llamadas_lead
-apagar_auto_respuesta_instagram
 apagar_kpi
 archivar_secuencia
 asegurar_plantilla_reporte
@@ -37,7 +36,6 @@ buscar_tutorial
 cambiar_espera_paso
 cancelar_accion
 cancelar_programacion_broadcast
-cancelar_programacion_instagram
 catalogo_angulos_guion
 catalogo_estructuras_guion
 catalogo_metricas_experimento
@@ -47,7 +45,6 @@ cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead
 comparar_agendas_meta_crm
-config_instagram
 configurar_aviso_whatsapp
 configurar_reporte
 configurar_seccion_reporte
@@ -59,8 +56,6 @@ contar_leads_por_etapa
 contar_segmento_email
 contexto_etapa
 contexto_negocio
-crear_borrador_instagram
-crear_borrador_publicacion_instagram
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_contacto_chatwoot_lead
@@ -100,7 +95,6 @@ escribir_guion_anuncio
 esta_aviso_activo
 estado_analisis_lead
 estado_canal_whatsapp_chatbot
-estado_conexion_instagram
 estado_contexto_contenido
 estado_crm_automatico
 estado_email
@@ -109,11 +103,8 @@ estado_experimentos
 estado_gate_retro
 estado_onboarding_chatbot
 estado_onboarding_contenido
-estado_onboarding_instagram
 estado_onboarding_video
 estado_plantillas_meta
-estado_publicacion_zernio
-estado_zernio_instagram
 etapa_inbox_de_lead
 etapas_para_secuencia
 evaluar_crm_automatico
@@ -213,7 +204,6 @@ listar_productos
 listar_propuestas_revisar
 listar_proyectos_plan
 listar_proyectos_vacios
-listar_publicaciones_instagram
 listar_publicaciones_mako_meta
 listar_publicos_meta
 listar_recomendaciones_meta
@@ -235,7 +225,6 @@ listar_videos_panda
 marcar_asistencia_reunion
 marcar_calificado
 marcar_pago_cobrado
-marcar_paso_onboarding_instagram
 marcar_reunion_manual
 medicion_experimento
 medir_fuente_kpi
@@ -253,8 +242,6 @@ panorama_closing
 plan_retro
 plantillas_meta_de_secuencia
 posponer_item_plan_retro
-prender_auto_respuesta_instagram
-preview_media_instagram
 probar_conexion_integracion
 programar_broadcast
 proponer_agendar_reunion
@@ -295,7 +282,6 @@ reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
 recomendar_formatos_creativo
 reconciliar_plantillas
-refrescar_publicacion_instagram
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email

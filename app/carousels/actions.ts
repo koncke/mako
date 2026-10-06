@@ -3,20 +3,21 @@
 // =============================================================================
 // Server actions de la tab Carousels (Content Machine)
 // =============================================================================
-// El motor es lib/ig-writer.ts (generarPieza) y el puente al programador de
-// Instagram es lib/ig-contenido.ts (crearBorradorPublicacion): acá NO se
-// reimplementa nada de eso. Esta capa solo:
+// El motor es lib/ig-writer.ts (generarPieza): acá NO se reimplementa. Esta capa
+// solo:
 //   · guarda el rol (admin del workspace) y resuelve el ws con
 //     getWorkspaceActual() — nunca ?ws=; agencia sin impersonar → ws null →
-//     error honesto, jamás caer al dueño (patrón ctxAdmin de app/instagram),
+//     error honesto, jamás caer al dueño (ctxAdmin),
 //   · colorea el pedido con el tipo elegido (ver GUIA_TIPO),
 //   · marca el onboarding de la tab (la primera pieza generada ES el ensayo,
 //     patrón landing-an: la tab se configura usándola).
+//
+// Hasta el 06/10/2026 había un «Enviar a publicación» (borrador en el programador
+// de /instagram, vía lib/ig-contenido.ts): salió con la tab Instagram.
 
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { generarPieza, type PiezaCarrusel } from '@/lib/ig-writer';
-import { crearBorradorPublicacion } from '@/lib/ig-contenido';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -38,9 +39,9 @@ const GUIA_TIPO: Record<TipoCarrusel, string> = {
 };
 
 /**
- * Contexto de una acción de la tab: rol admin del workspace + ws concreto.
- * Mismo criterio que ctxAdmin de app/instagram/actions.ts: la agencia SIN
- * impersonar tiene ws null y acá se corta con error en vez de caer al dueño.
+ * Contexto de una acción de la tab: rol admin del workspace + ws concreto. La
+ * agencia SIN impersonar tiene ws null y acá se corta con error en vez de caer al
+ * dueño.
  */
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') {
@@ -80,27 +81,7 @@ export async function generarCarruselAction(
 }
 
 /**
- * «Enviar a publicación»: crea el borrador en contenido_posts (estado
- * 'borrador', sin tocar Zernio) vía lib/ig-contenido. Las notas de producción
- * (guion slide a slide) viajan anexadas a la caption con rótulo visible — el
- * porqué está documentado en crearBorradorPublicacion.
- */
-export async function enviarAPublicacionAction(
-  input: { caption: string; notas: string },
-): Promise<{ ok: true; id: number; href: string } | { ok: false; error: string }> {
-  const ctx = await ctxAdmin();
-  if (!ctx.ok) return ctx;
-  return crearBorradorPublicacion(ctx.ws, {
-    tipo: 'carrusel',
-    caption: input?.caption ?? '',
-    notas: input?.notas ?? '',
-  });
-}
-
-/**
- * Marca un paso del onboarding de la tab (los del wizard). El paso opcional
- * 'carousels_instagram' no se marca a mano: es un aviso, no una tarea — la
- * conexión real vive en /instagram y se prueba allá.
+ * Marca un paso del onboarding de la tab (los del wizard).
  */
 export async function marcarPasoCarouselsAction(
   paso: 'carousels_contexto' | 'carousels_ensayo',

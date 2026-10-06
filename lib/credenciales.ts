@@ -285,6 +285,10 @@ export class KeyDePlataformaError extends Error {
  * El guard vive ACÁ —el choke point por el que pasan TODOS los caminos de
  * guardado (/integraciones, /metodo, onboarding, datos-mau, actions)— y no en
  * cada UI: cerrar cuatro caminos deja el quinto (regla del veto en el fetch).
+ *
+ * lib/zernio.ts se borró el 06/10/2026 con la tab Instagram y la tarjeta de Zernio
+ * salió de /integraciones. La guarda queda igual: no cuesta nada, y el ws11 y el
+ * ws13 todavía tienen su propia key cargada.
  */
 const BYOK_NUNCA_PLATAFORMA: ReadonlySet<string> = new Set(['ZERNIO_API_KEY']);
 

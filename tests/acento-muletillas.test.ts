@@ -121,7 +121,7 @@ test('la tab del generador de video tiene su onboarding', () => {
 
 test('todos sus pasos van con prefijo `vg_`', () => {
   // ⚠️ `contexto`/`ensayo` pelados COLISIONAN vía el registro compartido de pasos
-  // con el Chat Agent y con Instagram: terminar el ensayo acá marcaría «Ensayo de
+  // con el Chat Agent: terminar el ensayo acá marcaría «Ensayo de
   // conversación» del Chat Agent como hecho. Es un gotcha ya documentado en el
   // catálogo y ya cometido dos veces.
   for (const p of TAB_ONBOARDINGS['video-generator'].pasos) {

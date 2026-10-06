@@ -62,9 +62,9 @@ export function componerPedido(input: PedidoReel, anterior?: PiezaReel): string 
 }
 
 // ── El guion como texto plano ────────────────────────────────────────────────
-// Lo usan «Copiar el guion» (client) y las NOTAS DE PRODUCCIÓN del borrador que
-// viaja a /instagram (server). El formato es para LEER GRABANDO: bloques cortos,
-// sin JSON.
+// Lo usa «Copiar el guion». El formato es para LEER GRABANDO: bloques cortos, sin
+// JSON. (Hasta el 06/10/2026 también viajaba como notas de producción al programador
+// de /instagram, que salió con esa tab.)
 
 export function guionATexto(p: PiezaReel): string {
   const lineas: string[] = [
@@ -86,7 +86,7 @@ export function guionATexto(p: PiezaReel): string {
   if (p.moraleja) lineas.push('MORALEJA', p.moraleja, '');
   if (p.cta) {
     lineas.push('CTA', p.cta);
-    if (p.palabraClave) lineas.push(`Palabra clave: ${p.palabraClave} (el comment→DM se configura en la tab Instagram)`);
+    if (p.palabraClave) lineas.push(`Palabra clave: ${p.palabraClave}`);
     lineas.push('');
   }
   if (p.caption) lineas.push('CAPTION', p.caption);

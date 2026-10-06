@@ -45,7 +45,6 @@ import { huellaGuion } from '@/lib/guiones-normalizar';
 import { cierreDeGuion, ctaInventado, fidelidad } from '@/lib/guion-cierre';
 import { getEstadoTab, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import { limitesDe, CAPTION_MAX, CAPTION_VISIBLE, LIMITES_IMAGEN, type FormatoIg } from '@/lib/ig-formatos';
-import { crearBorradorPublicacion } from '@/lib/ig-contenido';
 import { estadoContextoReels } from '@/app/reels/reels-datos';
 import { getSettingEstricto } from '@/lib/settings';
 import { escribirGuionAuto, escribirGuionConDecisiones, bloquesDeGuion, tzSinResolver, diaEnTz, getRazonesEstricto, leerMatrizEstricta, grabadoComoDe, huellaTexto, conTope } from './contenido.helpers';
@@ -457,7 +456,7 @@ export const RUNNERS: Runners = {
         limites: limitesDe(formato),
         caption: { max_caracteres: CAPTION_MAX, visibles_antes_de_mas: CAPTION_VISIBLE },
         imagen: LIMITES_IMAGEN,
-        nota: 'maxSeg/videoMaxSeg en segundos, maxMB en megabytes. interactivosPorApi false = stickers, encuestas y links se agregan a mano en la app después de publicar. El cupo diario de publicaciones se lee de Instagram en vivo, no está aquí.',
+        nota: 'maxSeg/videoMaxSeg en segundos, maxMB en megabytes. interactivosPorApi false = stickers, encuestas y links se agregan a mano en la app de Instagram. MaKo no publica en Instagram: la pieza se publica a mano.',
       });
     },
   },
@@ -670,24 +669,6 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Borrado ${rotuloGuion(r.celda, r.guion)}.`, datos: { celdaId: r.celda.id, guionId: r.guion.id } };
     },
   },
-
-  crear_borrador_instagram: {
-    preparar: async (input): Promise<Preparado> => {
-      const tipo = str(input, 'tipo');
-      if (tipo !== 'reel' && tipo !== 'carrusel' && tipo !== 'story') return { error: '«tipo» tiene que ser reel, carrusel o story.' };
-      const caption = str(input, 'caption');
-      if (!caption) return { error: 'Falta la caption.', faltan: ['caption'] };
-      const notas = str(input, 'notas');
-      return {
-        payload: { tipo, caption, ...(notas ? { notas } : {}) },
-        resumen: `Dejar un borrador de ${tipo} en el programador de Instagram con la caption «${corta(caption.replace(/\s+/g, ' '), 120)}»${notas ? ` y ${palabras(notas)} palabras de notas de producción al final (hay que borrarlas antes de publicar)` : ''}. No publica nada.`,
-      };
-    },
-    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
-      const tipo = str(payload, 'tipo') as FormatoIg;
-      const r = await crearBorradorPublicacion(ctx.ws, { tipo, caption: str(payload, 'caption'), notas: str(payload, 'notas') || undefined });
-      if (!r.ok) return { ok: false, resumen: r.error };
-      return { ok: true, resumen: `Borrador #${r.id} de ${tipo} guardado. La media se sube y se programa en la tab Instagram.`, datos: { borradorId: r.id, href: r.href } };
-    },
-  },
+  // `crear_borrador_instagram` salió el 06/10/2026 con la tab Instagram: dejaba un
+  // borrador en un programador que ya no existe (contenido_posts sin pantalla).
 };

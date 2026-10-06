@@ -8,9 +8,8 @@
 //
 // Refrescar vuelve a correr el guard del server —que sigue diciendo «pendiente»
 // hasta que el último paso se anota— y devuelve el mismo wizard. Es el modo de
-// falla que ya está documentado en `PuertaVideoGen`, `OnboardingCarousels` y
-// `OnboardingInstagram`; acá se copia la salida que funciona en vez de descubrirlo
-// una cuarta vez.
+// falla que ya está documentado en `PuertaVideoGen` y `OnboardingCarousels`; acá
+// se copia la salida que funciona en vez de descubrirlo una cuarta vez.
 //
 // La tab entera llega como `children` YA RENDERIZADA por el server: así el wizard
 // no la monta hasta que hace falta, y salir no dispara ni una consulta.

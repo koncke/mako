@@ -52,7 +52,9 @@ const PUBLICAS: Array<{ ruta: string; porque: string }> = [
   { ruta: '/api/', porque: 'endpoints: webhooks que se registran en un proveedor, el píxel de tracking, el baja de un correo, la imagen de OG. No son pantallas.' },
   { ruta: '/inicio', porque: 'el mail de invitación: quien lo abre todavía no tiene sesión, y un `?ws=` sólo lo honra `proxy.ts` para un admin firmado.' },
   { ruta: '/agencia', porque: 'la vista de la AGENCIA, que es de plataforma y no de un inquilino; el aviso sale al grupo de MaKo.' },
-  { ruta: '/instagram?conectado=1', porque: 'es el redirect_uri del OAuth: tiene que coincidir carácter por carácter con el registrado en el proveedor, así que un parámetro extra lo rompe.' },
+  // `/instagram?conectado=1` (el redirect_uri del OAuth de Zernio) salió el 06/10/2026
+  // con la tab Instagram: ya no hay quien arme esa URL, y una excusa sin dueño termina
+  // tapando un link futuro que empiece igual.
   { ruta: '/replay/', porque: 'un asset estático que baja el navegador de un visitante de la landing de un cliente.' },
 ];
 

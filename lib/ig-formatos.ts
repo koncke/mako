@@ -3,8 +3,9 @@
 // =============================================================================
 // «Una cosa, un lugar»: los límites técnicos de publicar vía Zernio y la
 // metodología destilada de los cursos viven ACÁ, y los importan los writers
-// (lib/ig-writer.ts), el puente al programador (lib/ig-contenido.ts) y la UI de
-// las tabs Reels/Carousels/Stories.
+// (lib/ig-writer.ts) y la UI de las tabs Reels/Carousels/Stories. (El puente al
+// programador de /instagram, lib/ig-contenido.ts, salió el 06/10/2026 con esa tab:
+// MaKo ya no publica, la persona sube la pieza a mano.)
 //
 // SIN `server-only` a propósito: los textos de metodología van adentro de
 // prompts (server) pero los límites también los muestra la UI (client), y un
@@ -18,7 +19,8 @@
 // =============================================================================
 
 /** Los tres formatos que escriben las tabs. Los valores son EXACTAMENTE los del
- *  check de `contenido_posts.tipo` (mig 0136): se insertan tal cual. */
+ *  check de `contenido_posts.tipo` (mig 0136), aunque desde el 06/10/2026 ya no
+ *  los inserta nadie: la tabla quedó sin pantalla con la tab Instagram. */
 export type FormatoIg = 'reel' | 'carrusel' | 'story';
 
 export const FORMATOS_IG: FormatoIg[] = ['reel', 'carrusel', 'story'];

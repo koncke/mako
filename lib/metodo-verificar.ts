@@ -423,34 +423,6 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: r?.name ? `Conectado como ${r.name}.` : 'Token válido.', facts };
   },
 
-  // ⚠️ ZERNIO TAMPOCO TENÍA PING, y el bug ya estaba vivo: quien intentara conectar
-  // Instagram veía «servicio inválido No la guardé» y no podía guardar la key. Lo
-  // encontró el test de los tres registros (tests/integracion-tres-registros.test.ts),
-  // escrito a raíz del mismo problema en Cal.com.
-  async zernio(v) {
-    const key = (v.ZERNIO_API_KEY ?? '').trim();
-    // ⚠️ La key es OPCIONAL a propósito: sin key propia, lib/zernio.ts cae a la de
-    // plataforma y el aislamiento lo da el profile por workspace. Así que «sin key»
-    // NO es un error — es el modo normal, y decirle que falta algo sería mentirle.
-    if (!key) {
-      return { ok: true, detalle: 'Sin key propia: Instagram funciona con la cuenta de la agencia.',
-        facts: [{ k: 'Cuenta', v: 'La de la agencia (compartida)' }] };
-    }
-    const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    });
-    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde tu panel de Zernio.' };
-    if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
-    const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
-    return {
-      ok: true,
-      detalle: 'Key válida — Zernio accesible.',
-      facts: perfiles.length
-        ? [{ k: 'Perfiles en tu cuenta', v: perfiles.map((x) => x.name).filter(Boolean).join(' · ') || String(perfiles.length), c: 'var(--good)' }]
-        : [{ k: 'Perfiles en tu cuenta', v: 'Ninguno todavía', c: 'var(--warn)' }],
-    };
-  },
-
   // ⚠️ ESTE ES EL TERCER REGISTRO, Y ME LO SALTEÉ. El aviso de más arriba lo dice
   // con todas las letras y aun así la integración de Cal.com salió a producción con
   // el catálogo y los campos puestos y SIN verificador: el tilde de cada campo

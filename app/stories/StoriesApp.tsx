@@ -4,8 +4,11 @@
 // StoriesApp — MaKo escribe el día de stories
 // =============================================================================
 // Izquierda: el pedido (objetivo del día + la idea) y el historial de la sesión.
-// Derecha: la secuencia como storyboard vertical y el botón que la manda a
-// contenido_posts como borradores (uno por frame), a completar en /instagram.
+// Derecha: la secuencia como storyboard vertical y «Copiar la secuencia».
+//
+// ⚠️ Hasta el 06/10/2026 el botón la mandaba como borradores (uno por frame) al
+// programador de /instagram, con un aviso para conectar la cuenta. Salieron con la
+// tab Instagram (decisión de Martín): la secuencia se copia y se publica a mano.
 //
 // El historial NO persiste: el patrón writer del repo no tiene tabla genérica de
 // historial (landing_drafts es propia del Landing Generator) y una migración
@@ -13,13 +16,12 @@
 // de la sesión de página, dicho honesto en la UI (anotado en pendientes).
 
 import { useCallback, useState, type CSSProperties } from 'react';
-import Link from '@/app/_ui/Link';
-import { Pagina, PageHeader, Banner, Alert, Button } from '@/app/_ui';
+import { Pagina, PageHeader, Alert, Button } from '@/app/_ui';
 import { MakoLogo } from '../_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';
 import { Storyboard } from './Storyboard';
 import { OBJETIVOS_STORIES, empujaADm, type ObjetivoStories } from './objetivos';
-import { generarSecuenciaAction, enviarSecuenciaAction } from './actions';
+import { generarSecuenciaAction } from './actions';
 import type { PiezaStory } from '@/lib/ig-writer';
 
 const MONO = "'Geist Mono', monospace";
@@ -31,13 +33,33 @@ const areaTexto: CSSProperties = { width: '100%', minHeight: 110, padding: '12px
 
 type ItemHistorial = { pieza: PiezaStory; objetivo: ObjetivoStories; at: string };
 
-export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: boolean; piezaInicial?: PiezaStory | null }) {
+/**
+ * La secuencia como texto, para «Copiar la secuencia». La arma el CÓDIGO desde la
+ * pieza, no el modelo: un dato exacto no se le vuelve a pedir a un LLM.
+ */
+function secuenciaATexto(p: PiezaStory): string {
+  const ultimo = p.frames.length - 1;
+  return [
+    `STORIES DEL DÍA: ${p.idea}`,
+    ...p.frames.map((f, i) => [
+      `FRAME ${i + 1} · ${f.tipo}`,
+      f.texto ? `Texto: ${f.texto}` : '',
+      f.indicacion ? `Producción: ${f.indicacion}` : '',
+      f.interactivoManual ? 'Interactivo: se agrega a mano en la app.' : '',
+      i === ultimo && (p.cta || p.palabraClave)
+        ? `Cierre: ${[p.cta, p.palabraClave ? `palabra clave ${p.palabraClave}` : ''].filter(Boolean).join(' · ')}`
+        : '',
+    ].filter(Boolean).join('\n')),
+  ].join('\n\n');
+}
+
+export function StoriesApp({ piezaInicial = null }: { piezaInicial?: PiezaStory | null }) {
   const [objetivo, setObjetivo] = useState<ObjetivoStories>('conexion');
   const [pedido, setPedido] = useState('');
   const [pieza, setPieza] = useState<PiezaStory | null>(piezaInicial);
   const [historial, setHistorial] = useState<ItemHistorial[]>([]);
-  const [estado, setEstado] = useState<'listo' | 'generando' | 'enviando'>('listo');
-  const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: string; href?: string } | null>(null);
+  const [estado, setEstado] = useState<'listo' | 'generando'>('listo');
+  const [aviso, setAviso] = useState<{ tono: 'bad' | 'good'; texto: string } | null>(null);
 
   const ocupado = estado !== 'listo';
 
@@ -52,19 +74,15 @@ export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: 
     setHistorial((h) => [{ pieza: r.pieza, objetivo, at: new Date().toISOString() }, ...h]);
   }, [pedido, objetivo, ocupado]);
 
-  const enviar = useCallback(async () => {
-    if (!pieza || ocupado) return;
-    setEstado('enviando');
-    setAviso(null);
-    const r = await enviarSecuenciaAction(pieza);
-    setEstado('listo');
-    if (!r.ok) { setAviso({ tono: 'bad', texto: r.error }); return; }
-    setAviso({
-      tono: 'good',
-      texto: r.aviso ?? `${r.creados} ${r.creados === 1 ? 'borrador creado' : 'borradores creados'} en la tab Instagram.`,
-      href: r.href,
-    });
-  }, [pieza, ocupado]);
+  const [copiado, setCopiado] = useState(false);
+  const copiar = useCallback(async () => {
+    if (!pieza) return;
+    try {
+      await navigator.clipboard.writeText(secuenciaATexto(pieza));
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2200);
+    } catch { /* el navegador no permitió copiar; el texto queda a la vista */ }
+  }, [pieza]);
 
   const interactivos = pieza ? pieza.frames.filter((f) => f.interactivoManual).length : 0;
 
@@ -74,13 +92,6 @@ export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: 
         titulo="Stories"
         proposito="Secuencias de stories listas para grabar: una idea por día, frame por frame."
       />
-
-      {!igConectada && (
-        <Banner tono="warn" accion={{ label: 'Conectar en Instagram', href: '/instagram' }}>
-          No hay una cuenta de Instagram conectada. Puedes escribir las secuencias igual;
-          para publicarlas, conecta la cuenta en la tab Instagram.
-        </Banner>
-      )}
 
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 18 }}>
         {/* ── El pedido ── */}
@@ -97,8 +108,7 @@ export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: 
             />
             {empujaADm(objetivo) && (
               <div style={{ marginTop: 9, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                El último frame va a pedir responder la story con una palabra clave: esas
-                respuestas llegan al inbox de la tab Instagram.
+                El último frame va a pedir responder la story con una palabra clave.
               </div>
             )}
 
@@ -146,7 +156,7 @@ export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: 
               </div>
               <div style={{ marginTop: 10, fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
                 Este historial vive solo en esta sesión: lo que quieras conservar,
-                envíalo a publicación.
+                cópialo.
               </div>
             </div>
           )}
@@ -155,7 +165,7 @@ export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: 
         {/* ── La secuencia ── */}
         <section style={{ flex: 1, minWidth: 340, display: 'grid', gap: 14 }}>
           {aviso && (
-            <Alert tono={aviso.tono} accion={aviso.href ? { label: 'Completar media en Instagram', href: aviso.href } : undefined}>
+            <Alert tono={aviso.tono}>
               {aviso.texto}
             </Alert>
           )}
@@ -182,32 +192,20 @@ export function StoriesApp({ igConectada, piezaInicial = null }: { igConectada: 
               {interactivos > 0 && (
                 <Alert tono="info">
                   {interactivos === 1 ? 'Un frame usa un elemento interactivo' : `${interactivos} frames usan elementos interactivos`}
-                  {' '}(encuesta, pregunta o slider). La API de Meta no los publica: se agregan
-                  a mano en la app de Instagram después de publicar cada story.
+                  {' '}(encuesta, pregunta o slider): se agregan a mano en la app de Instagram
+                  al publicar cada story.
                 </Alert>
               )}
 
               <div style={{ ...card, display: 'grid', gap: 10 }}>
-                {/* La consecuencia, pegada al botón y antes del click. */}
-                <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)' }}>
-                  Crea {pieza.frames.length} {pieza.frames.length === 1 ? 'borrador' : 'borradores'} de story en la tab
-                  Instagram — uno por frame. Ahí subes la media de cada uno y lo programas o publicas.
-                </div>
                 <Button
                   variant="secondary"
-                  onClick={() => void enviar()}
-                  loading={estado === 'enviando'}
+                  onClick={() => void copiar()}
                   disabled={ocupado}
                   style={{ justifySelf: 'start' }}
                 >
-                  Enviar {pieza.frames.length} {pieza.frames.length === 1 ? 'frame' : 'frames'} a publicación
+                  {copiado ? 'Copiado ✓' : 'Copiar la secuencia'}
                 </Button>
-                {!igConectada && (
-                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                    Los borradores se crean igual sin cuenta conectada; para publicarlos,{' '}
-                    <Link href="/instagram" style={{ color: 'var(--primary)', fontWeight: 600 }}>conecta Instagram</Link>.
-                  </div>
-                )}
               </div>
             </>
           )}

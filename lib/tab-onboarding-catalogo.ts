@@ -142,79 +142,37 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     href: '/chatbot',
   },
 
-  // ── Instagram: decidir la cuenta de Zernio, conectar, contexto y ensayo ──
-  // ORDEN: acá lo aburrido (Zernio y el OAuth) va PRIMERO porque bloquea de
-  // verdad — sin la decisión de Zernio tomada no hay API con la que hablar, y
-  // sin cuenta conectada el inbox y el compositor no tienen nada que mostrar
-  // (la excepción prevista por la regla de la skill). Los dos primeros pasos NO
-  // se marcan a mano: se derivan de señales reales (estado vivo, no recordado) —
-  // `zernio` de la key BYOK propia o de la fila en zernio_workspace, `conectar`
-  // de los facts de la cuenta que devuelve Zernio. El contexto no pide nada
-  // nuevo: muestra lo que la app ya sabe del negocio. El ensayo previsualiza el
-  // borrador del chatbot con un DM simulado.
-  instagram: {
-    key: 'instagram',
-    titulo: 'Configuración de Instagram',
-    nombre: 'Instagram',
-    pasos: [
-      { key: 'zernio', label: 'Conexión con Zernio' },
-      { key: 'conectar', label: 'Tu cuenta de Instagram' },
-      // ⚠️ CON PREFIJO `ig_`, Y ESTO ERA UNA COLISIÓN VIVA.
-      //
-      // Eran `contexto` y `ensayo` a secas, las MISMAS keys que usa el Chat
-      // Agent. Y el registro compartido no distingue de qué tab vino un paso: un
-      // workspace que terminaba el onboarding de /chatbot llegaba a /instagram con
-      // los dos ya en verde, sin haber visto ninguna de las dos pantallas.
-      //
-      // Lo caro es el segundo: el ensayo de Instagram previsualiza el borrador de
-      // un DM, y saltearlo enciende el auto-respondedor sin que nadie haya leído
-      // una sola respuesta. Que es exactamente lo que un ensayo existe para
-      // impedir.
-      //
-      // Medido el 03/09/2026: el ws11 tiene `instagram.contexto` con el timestamp
-      // 2026-08-10T20:36:51.948Z, y el `contexto` del Chatbot con
-      // 2026-08-10T20:36:52.603Z — 0,6 s después. Lo marcó /chatbot. El ws13 está
-      // igual.
-      //
-      // El def de `carousels` de acá abajo ya había esquivado esta trampa y la dejó
-      // escrita; este quedó atrás. Es «una regla aplicada en un lugar de dos no está
-      // implementada, está documentada».
-      { key: 'ig_contexto', label: 'Contexto del negocio' },
-      { key: 'ig_ensayo', label: 'Ensayo de respuesta' },
-    ],
-  },
+  // ── Instagram: la tab se RETIRÓ el 06/10/2026 (decisión de Martín) ──
+  // No hay def: una tab que no existe no tiene onboarding que terminar, y una def
+  // viva la haría aparecer en «te falta configurar» (tabsPorConfigurar itera este
+  // catálogo). Lo que queda en app_settings (`onboarding.tab.instagram` del ws11 y
+  // del ws13) no lo lee nadie. Sus keys llevaban prefijo `ig_` por la colisión que
+  // documenta tests/onboarding-keys-colision.test.ts; se fueron con la tab.
 
-  // ── Carousels (Content Machine): escribir no necesita la cuenta conectada ──
-  // Orden estándar de la skill (lo aburrido al final… y acá ni siquiera al
-  // final): conectar Instagram NO bloquea —los guiones se escriben igual y la
-  // cuenta recién hace falta al PUBLICAR, que vive en /instagram— así que el
-  // paso es opcional y la tab solo lo muestra como aviso con link. El ensayo se
-  // marca solo desde la primera pieza generada (patrón landing-an: la tab se
-  // configura usándola).
+  // ── Carousels (Content Machine): se configura usándose ──
+  // El ensayo se marca solo desde la primera pieza generada (patrón landing-an: la
+  // tab se configura usándola). Hasta el 06/10/2026 había un paso opcional
+  // `carousels_instagram` («Tu cuenta de Instagram»): salió con la tab Instagram,
+  // porque ya no hay dónde conectarla ni a dónde mandar la pieza.
   // ⚠️ Keys con prefijo `carousels_` a propósito: 'contexto'/'ensayo' a secas
-  // COLISIONAN vía KEY_PASOS_COMPARTIDOS con el Chatbot y con Instagram
-  // (gotcha conocido, ver el def de instagram) — un paso que NO es la misma
-  // configuración no comparte key.
+  // COLISIONAN vía KEY_PASOS_COMPARTIDOS con el Chatbot (gotcha conocido) — un paso
+  // que NO es la misma configuración no comparte key.
   carousels: {
     key: 'carousels',
     titulo: 'Configuración de Carousels',
     nombre: 'Carousels',
     pasos: [
-      { key: 'carousels_instagram', label: 'Tu cuenta de Instagram', opcional: true },
       { key: 'carousels_contexto', label: 'Contexto del negocio' },
       { key: 'carousels_ensayo', label: 'Tu primer carrusel' },
     ],
   },
 
   // ── Reels: el writer de guiones se configura usándose ──
-  // ORDEN (regla de la skill): el valor primero, la plomería al final. Escribir
-  // guiones NO exige la cuenta conectada, así que `conectar` es OPCIONAL y va
-  // último: es el MISMO paso de la tab instagram (registro compartido) — si la
-  // cuenta ya se conectó allá, acá aparece hecho, y publicar el borrador es lo
-  // único que la necesita. Los otros dos pasos van con keys namespaced
-  // (`reels_*`) a propósito: las keys peladas `contexto`/`ensayo` ya COLISIONAN
-  // entre instagram y setting vía el registro compartido (gotcha conocido) y no
-  // son la misma configuración que esta tab.
+  // Las keys van namespaced (`reels_*`) a propósito: las peladas `contexto`/`ensayo`
+  // COLISIONAN con el Chatbot vía el registro compartido (gotcha conocido) y no son
+  // la misma configuración que esta tab. Hasta el 06/10/2026 había un tercer paso
+  // opcional, `conectar` («Tu cuenta de Instagram», compartido con la tab Instagram):
+  // salió con ella.
   // `reels_contexto` se deriva del perfil del negocio (estado vivo, lo marca la
   // page al detectarlo); `reels_ensayo` lo marca la primera pieza generada.
   reels: {
@@ -224,7 +182,6 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     pasos: [
       { key: 'reels_contexto', label: 'Contexto del negocio' },
       { key: 'reels_ensayo', label: 'Tu primer guion' },
-      { key: 'conectar', label: 'Tu cuenta de Instagram', opcional: true },
     ],
   },
 
@@ -281,9 +238,8 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // inferencia de la zona horaria, que es lo que se venía usando en silencio.
   //
   // ⚠️ Keys con prefijo `vg_` a propósito: `contexto`/`ensayo` pelados COLISIONAN
-  // vía KEY_PASOS_COMPARTIDOS con el Chatbot y con Instagram (gotcha ya
-  // documentado arriba) — un paso que no es la misma configuración no comparte
-  // key.
+  // vía KEY_PASOS_COMPARTIDOS con el Chatbot (gotcha ya documentado arriba) — un
+  // paso que no es la misma configuración no comparte key.
   'video-generator': {
     key: 'video-generator',
     titulo: 'Configuración del generador de video',
@@ -350,23 +306,18 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   },
 
   // ── Stories: el writer de secuencias de stories ──
-  // `conectar` es OPCIONAL a propósito: escribir el guion de un día de stories
-  // no necesita la cuenta de Instagram — publicarlo sí, y eso pasa en
-  // /instagram. Y es EL MISMO paso `conectar` de la tab instagram (registro
-  // compartido de KEY_PASOS_COMPARTIDOS): si la cuenta ya se conectó allá, acá
-  // aparece hecho solo — es la misma cuenta, no dos configuraciones. Esta tab
-  // NUNCA lo marca por su cuenta (se deriva del estado vivo de /instagram).
-  // Los otros dos pasos van namespaced (stories_*) adrede: unos `contexto` /
-  // `ensayo` pelados colisionarían vía el registro compartido con instagram y
-  // con el Chatbot, y terminar el ensayo de Stories marcaría «Ensayo de
-  // conversación» del Chatbot como hecho (el gotcha ya documentado de
-  // KEY_PASOS_COMPARTIDOS).
+  // Hasta el 06/10/2026 el primer paso era `conectar` («Tu cuenta de Instagram»,
+  // opcional y compartido con la tab Instagram): salió con ella, porque ya no hay
+  // dónde conectar la cuenta ni a dónde mandar los frames.
+  // Los dos pasos van namespaced (stories_*) adrede: unos `contexto` / `ensayo`
+  // pelados colisionarían vía el registro compartido con el Chatbot, y terminar el
+  // ensayo de Stories marcaría «Ensayo de conversación» del Chatbot como hecho (el
+  // gotcha ya documentado de KEY_PASOS_COMPARTIDOS).
   stories: {
     key: 'stories',
     titulo: 'Configuración de Stories',
     nombre: 'Stories',
     pasos: [
-      { key: 'conectar', label: 'Tu cuenta de Instagram', opcional: true },
       { key: 'stories_contexto', label: 'Contexto del negocio' },
       { key: 'stories_ensayo', label: 'Tu primera secuencia' },
     ],

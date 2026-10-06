@@ -360,7 +360,7 @@ export async function glosarioPropio(): Promise<{ terminos: Array<{ termino: str
 
 // ── Tabs por configurar (app/api/onboarding/listo, solo la lista `config`) ───
 
-const ORDEN_CONFIG = ['ads-writer', 'video-generator', 'whatsapp', 'setting', 'instagram', 'carousels', 'reels', 'stories', 'email'];
+const ORDEN_CONFIG = ['ads-writer', 'video-generator', 'whatsapp', 'setting', 'carousels', 'reels', 'stories', 'email'];
 
 export async function tabsPorConfigurar(capa: CapaDef): Promise<Array<{ key: string; titulo: string; href: string }>> {
   const config: Array<{ key: string; titulo: string; href: string }> = [];

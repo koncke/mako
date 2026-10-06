@@ -37,7 +37,7 @@ export const runtime = 'nodejs';
  * Una tab que no esté acá igual aparece, al final: la lista ORDENA, no filtra. Que
  * agregar un onboarding nuevo lo esconda de esta pantalla sería el peor default.
  */
-const ORDEN_CONFIG = ['ads-writer', 'video-generator', 'whatsapp', 'setting', 'instagram', 'carousels', 'reels', 'stories', 'email'];
+const ORDEN_CONFIG = ['ads-writer', 'video-generator', 'whatsapp', 'setting', 'carousels', 'reels', 'stories', 'email'];
 
 export async function GET() {
   const ws = await resolverWsAdmin();

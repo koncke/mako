@@ -260,39 +260,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  {
-    key: 'zernio',
-    nombre: 'Instagram (Zernio)',
-    categoria: 'Mensajería',
-    paraQue: 'DMs de Instagram, publicaciones programadas y automatizaciones de comentarios (comentario → DM).',
-    campos: [
-      // BYOK con respaldo de plataforma: `opcional` a propósito — sin key propia,
-      // lib/zernio.ts usa la cuenta de Zernio de la agencia (env ZERNIO_API_KEY,
-      // excepción documentada estilo Resend Opción A) y el aislamiento lo da el
-      // PROFILE por workspace que crea ensureProfile(). OJO: eso hace que
-      // integracionConectada('zernio') solo dé true con key PROPIA; el estado
-      // real del canal (¿hay cuenta de IG conectada?) se mide por señal real
-      // (fila en zernio_workspace + cuenta conectada), como la landing.
-      { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true, opcional: true, nota: 'Opcional. Si lo dejas vacío, MaKo usa la cuenta de la plataforma y tu Instagram funciona igual. Con tu propia key, ese consumo se factura a tu cuenta de Zernio. ⚠️ Zernio incluye 2 cuentas conectadas; desde la 3.ª te cobra por cada una, aunque no la uses.' },
-    ],
-    tutorial: {
-      url: 'https://zernio.com',
-      urlLabel: 'Zernio',
-      pasos: [
-        'Para qué sirve: para que el consumo de tu Instagram —los mensajes directos, las publicaciones programadas y las respuestas automáticas a comentarios— se facture a tu propia cuenta en vez de a la de la plataforma. Es opcional y la mayoría puede omitirlo.',
-        'Para omitirlo, cierra esta ventana y listo: no hay nada que guardar. Tu Instagram funciona igual, porque MaKo usa la cuenta de la plataforma, y el campo vacío no te va a estar reclamando nada.',
-        'Zernio es el servicio que conecta Instagram por detrás; por eso aparece su nombre aquí.',
-        'Entra a zernio.com y crea una cuenta, o entra a la tuya si ya la tienes. El plan de arranque es gratis y no pide tarjeta.',
-        'Ya dentro de Zernio, abre "Settings" (es "Configuración": el panel está en inglés).',
-        'Toca "API Keys".',
-        'Toca "Create API Key".',
-        'Copia la key en ese mismo momento: se muestra UNA sola vez y después no hay forma de volver a verla. Si la pierdes, borras esa y creas otra.',
-        'Pégala en el campo "API key de Zernio" y guarda.',
-        'Después, desde MaKo, conecta tu cuenta de Instagram. Tiene que ser una cuenta de empresa o de creador: Instagram no permite que un programa publique ni responda desde una cuenta personal.',
-        'El cambio es gratis, se hace desde la app de Instagram y no te borra nada: busca en la configuración de tu perfil la opción de pasar a "cuenta profesional". Si no la encuentras, escribe "profesional" en el buscador de la configuración.',
-      ],
-    },
-  },
+  // Instagram (Zernio) salió el 06/10/2026 con la tab Instagram: ver tests/sin-instagram.test.ts.
   {
     key: 'email',
     nombre: 'Email (Resend)',

@@ -103,15 +103,15 @@ test('la rama de GitHub no viaja en el form genérico', () => {
   assert.ok(/ssr: false/.test(form), 'sin ssr:false el componente se renderiza en el server y su código vuelve');
 });
 
-test('los tres que lo importaban lo reciben por props', () => {
+test('los que lo importaban lo reciben por props', () => {
   // No alcanza con que no importen: hay que comprobar que el dato SIGUE llegando,
   // o el arreglo habría sido borrar la funcionalidad.
   const board = leer(join(RAIZ, 'app', 'integraciones', 'IntegracionesBoard.tsx'));
   assert.ok(/i\.soloServidor/.test(board) && /i\.paraQue/.test(board),
     'la grilla tiene que leer los dos campos de la Integracion que le llega del server');
 
-  const ig = leer(join(RAIZ, 'app', 'instagram', 'OnboardingInstagram.tsx'));
-  assert.ok(/tutorialZernio/.test(ig), 'el onboarding de Instagram tiene que recibir el tutorial por props');
+  // El tercero era app/instagram/OnboardingInstagram.tsx (el tutorial de Zernio por
+  // props). Se borró el 06/10/2026 con la tab Instagram: tests/sin-instagram.test.ts.
 
   const wizard = leer(join(RAIZ, 'app', 'metodo', 'MetodoWizard.tsx'));
   assert.ok(/servicios: SERVICIOS_METODO/.test(wizard), 'el wizard tiene que recibir el catálogo por props');

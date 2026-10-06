@@ -4,16 +4,16 @@
 import Link from '@/app/_ui/Link';
 
 // =============================================================================
-// OnboardingStories — las 3 etapas de la tab (Conectar → Contexto → Ensayo)
+// OnboardingStories — las 2 etapas de la tab (Contexto → Ensayo)
 // =============================================================================
 // Con el WizardShell embebido (sin tapar el sidebar: de una tab siempre se
 // puede salir a otra). El estado vive en app_settings vía
 // lib/tab-onboarding-state.ts ('stories').
 //
 // Acá el orden de la skill se respeta tal cual (nada bloquea de verdad):
-//   · Conectar NO bloquea — escribir el guion de un día de stories no necesita
-//     la cuenta de Instagram; publicarlo sí, y eso pasa en /instagram. Se
-//     muestra el estado vivo con un aviso suave y el link, sin frenar.
+//   · No hay etapa «Conectar»: escribir un día de stories no necesita ninguna
+//     cuenta. Hasta el 06/10/2026 había un paso «Tu cuenta de Instagram» que
+//     mandaba a /instagram; salió con esa tab (decisión de Martín).
 //   · Contexto no pide nada nuevo: muestra lo que la app ya sabe del negocio
 //     (lo que ya se sabe no se pregunta) y dice qué falta y dónde se completa.
 //   · Ensayo = generar la primera secuencia de muestra. El paso lo cierra el
@@ -21,8 +21,7 @@ import Link from '@/app/_ui/Link';
 
 import { useCallback, useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
-import { Button, ButtonLink } from '@/app/_ui';
-import { Icon } from '../_components/icons';
+import { Button } from '@/app/_ui';
 import { Dropdown } from '../components/Dropdown';
 import { StoriesApp } from './StoriesApp';
 import { Storyboard } from './Storyboard';
@@ -33,7 +32,7 @@ import type { PiezaStory } from '@/lib/ig-writer';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-const PASOS = ['conectar', 'contexto', 'ensayo'] as const;
+const PASOS = ['contexto', 'ensayo'] as const;
 type Paso = (typeof PASOS)[number];
 
 /** Caja de contexto del paso (molde de la skill: surface-2 + eyebrow mono). */
@@ -49,13 +48,13 @@ function Contexto({ eyebrow, children }: { eyebrow: string; children: React.Reac
 }
 
 export function OnboardingStories({
-  igConectada, gruposListos, gruposFaltan,
-}: { igConectada: boolean; gruposListos: string[]; gruposFaltan: string[] }) {
+  gruposListos, gruposFaltan,
+}: { gruposListos: string[]; gruposFaltan: string[] }) {
   // Estado de CLIENTE y no router.refresh(): refrescar re-corre el guard del
   // server y devuelve el mismo wizard — «Lo configuro después» y la ✕ tienen
-  // que llevar a la tab de verdad (mismo porqué que OnboardingInstagram).
+  // que llevar a la tab de verdad.
   const [salir, setSalir] = useState(false);
-  const [paso, setPaso] = useState<Paso>('conectar');
+  const [paso, setPaso] = useState<Paso>('contexto');
   const [error, setError] = useState<string | null>(null);
 
   // Busy POR ACCIÓN (regla de la skill: un solo busy compartido pone
@@ -77,16 +76,15 @@ export function OnboardingStories({
     setPieza(r.pieza);
   }, [objetivo, pedido]);
 
-  if (salir) return <StoriesApp igConectada={igConectada} piezaInicial={pieza} />;
+  if (salir) return <StoriesApp piezaInicial={pieza} />;
 
   const idx = PASOS.indexOf(paso);
-  // Conectar no bloquea (aviso suave) y el contexto tampoco (el brief degrada
-  // sin romper): lo único que exige algo es el ensayo — la primera secuencia.
+  // El contexto no bloquea (el brief degrada sin romper): lo único que exige algo
+  // es el ensayo — la primera secuencia.
   const puedeAvanzar = paso === 'ensayo' ? Boolean(pieza) : true;
 
   const avanzar = async () => {
     setError(null);
-    if (paso === 'conectar') { setPaso('contexto'); return; }
     if (paso === 'contexto') {
       setBusyPaso(true);
       const r = await marcarContextoStoriesAction();
@@ -99,17 +97,11 @@ export function OnboardingStories({
   // `stories_ensayo` ya lo cerró el server al generar: confirmar solo sale.
   const confirmar = () => { setError(null); setSalir(true); };
 
-  const pregunta = paso === 'conectar'
-    ? 'Tu cuenta de Instagram'
-    : paso === 'contexto'
-      ? 'Contexto del negocio'
-      : 'Tu primera secuencia';
+  const pregunta = paso === 'contexto' ? 'Contexto del negocio' : 'Tu primera secuencia';
 
-  const sub = paso === 'conectar'
-    ? 'Las secuencias se escriben sin la cuenta; se necesita solo para publicarlas.'
-    : paso === 'contexto'
-      ? undefined
-      : 'Elige el objetivo del día, cuenta la idea y mira la secuencia que MaKo arma.';
+  const sub = paso === 'contexto'
+    ? undefined
+    : 'Elige el objetivo del día, cuenta la idea y mira la secuencia que MaKo arma.';
 
   return (
     <WizardShell
@@ -139,34 +131,6 @@ export function OnboardingStories({
         </button>
       }
     >
-      {paso === 'conectar' && (
-        <>
-          {igConectada ? (
-            // La recompensa es el estado real, no un tilde suelto.
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
-              <Icon name="check" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 14.5 }}>Cuenta de Instagram conectada</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Los borradores que envíes a publicación ya tienen dónde salir.</div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ alignSelf: 'center' }}>
-              <ButtonLink href="/instagram" variant="secondary">
-                Conectar en la tab Instagram
-              </ButtonLink>
-            </div>
-          )}
-          <Contexto eyebrow="Por qué este paso no bloquea">
-            Esta tab escribe el guion del día: qué mostrar en cada frame, el texto en
-            pantalla y la indicación de producción. Para eso no hace falta ninguna
-            conexión. La cuenta de Instagram entra en juego recién al publicar los
-            borradores, y eso se hace desde la tab Instagram — puedes conectarla ahora o
-            cuando tengas la primera secuencia lista.
-          </Contexto>
-        </>
-      )}
-
       {paso === 'contexto' && (
         <>
           {gruposListos.length > 0 ? (
@@ -229,10 +193,9 @@ export function OnboardingStories({
           )}
           <Contexto eyebrow="Qué acabas de armar">
             Cada secuencia es un día completo de stories: una sola idea, el bloque se sube
-            junto y cada frame cambia de formato. Desde la tab puedes mandarla a
-            publicación: se crea un borrador por frame en la tab Instagram, donde subes la
-            media y programas. Lo interactivo (encuestas, preguntas, sliders) se agrega a
-            mano en la app de Instagram — la API no lo publica.
+            junto y cada frame cambia de formato. Desde la tab la copias para grabarla. Lo
+            interactivo (encuestas, preguntas, sliders) se agrega a mano en la app de
+            Instagram.
           </Contexto>
         </>
       )}

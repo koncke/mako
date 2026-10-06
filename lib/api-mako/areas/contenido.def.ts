@@ -14,8 +14,9 @@
 //     (celdaId, guionId), nunca solo por guionId.
 //   · Los catálogos con los que MaKo escribe (ángulos, estructuras, formatos, los
 //     siguientes pasos del funnel) y el estado del onboarding de cada tab.
-//   · El borrador de publicación de Instagram (contenido_posts), la primitiva a la
-//     que llegan las tres tabs de orgánico.
+//   · ⚠️ Ya NO el borrador de publicación de Instagram (`crear_borrador_instagram`):
+//     salió el 06/10/2026 con la tab Instagram (decisión de Martín). Las tres tabs de
+//     orgánico escriben la pieza y la persona la publica a mano.
 //
 // Decisiones:
 //   · Los nombres internos («la matriz») NO aparecen en lo que lee el cliente: se
@@ -39,9 +40,11 @@
 //     entra en la URL).
 //   · ⚠️ escribir_guion_anuncio se confirma en /mako/revisar/[id], que HOY no exporta
 //     maxDuration: una escritura con IA de ~50 s puede cortarse ahí (deuda fuera del área).
-//   · `gating.tab`: 'ads-writer' para todo lo de anuncios; 'instagram' para el
-//     borrador de publicación. `rolMinimo: 'admin'` en todo lo de anuncios: las rutas
-//     y server actions de estas tabs ya exigen admin del workspace.
+//   · `gating.tab`: 'ads-writer' para todo lo de anuncios; 'reels' para los límites
+//     de formato de Instagram (era 'instagram', una tab que ya no existe: una
+//     `gating.tab` sin tab no la ve ninguna capa con lista de tabs). `rolMinimo:
+//     'admin'` en todo lo de anuncios: las rutas y server actions de estas tabs ya
+//     exigen admin del workspace.
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
@@ -50,7 +53,6 @@ import { ESTADOS_GUION } from '@/lib/guion-estado';
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 const G_ADS = { tab: 'ads-writer', rolMinimo: 'admin' } as const;
-const G_IG = { tab: 'instagram', rolMinimo: 'admin' } as const;
 
 /** Los estados del pipeline de un guion. lib/guion-estado.ts NO lleva server-only (vive
  *  aparte de razones.ts justamente para esto), así que se importa: una copia a mano se
@@ -198,11 +200,11 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'limites_formato_instagram', area: 'contenido', tipo: 'lectura',
     titulo: 'Límites técnicos de Instagram',
-    descripcion: 'Los límites técnicos de publicar un formato de Instagram por la integración: reel (duración máxima en segundos, peso en MB, códec), carrusel (2 a 10 elementos, mezcla de imagen y video) o story (9:16, duración y peso, y que stickers, encuestas y links NO salen por API: se agregan a mano después de publicar). Incluye el tope de caption y que las imágenes van solo en JPEG. Úsalo para «¿puedo poner una encuesta en la story?» o «¿cuánto puede durar el reel?». El cupo diario de publicaciones no está aquí: se lee de Instagram en vivo.',
+    descripcion: 'Los límites técnicos de cada formato de Instagram: reel (duración máxima en segundos, peso en MB, códec), carrusel (2 a 10 elementos, mezcla de imagen y video) o story (9:16, duración y peso, y que stickers, encuestas y links se agregan a mano en la app). Incluye el tope de caption y que las imágenes van solo en JPEG. Úsalo para «¿puedo poner una encuesta en la story?» o «¿cuánto puede durar el reel?». MaKo no publica en Instagram: la persona sube la pieza a mano.',
     parametros: [
       { nombre: 'formato', tipo: 'string', obligatorio: true, enum: ['reel', 'carrusel', 'story'], descripcion: 'El formato a consultar.' },
     ],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'instagram' },
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'reels' },
   },
 
   // ── Acciones chat: una entidad identificada, reversible o regenerable ──────
@@ -287,18 +289,5 @@ export const DEFS: readonly OperacionDef[] = [
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     escribe: 'quita un guion del anuncio en app_settings mako.razones (relee antes de escribir)',
     canales: TODOS, costo: 'gratis', gating: G_ADS,
-  },
-  {
-    id: 'crear_borrador_instagram', area: 'contenido', tipo: 'accion',
-    titulo: 'Borrador de publicación de Instagram',
-    descripcion: 'Deja listo un borrador en el programador de Instagram (tipo reel, carrusel o story) con la caption y, aparte, las notas de producción (guion, escenas, indicaciones), que se anexan al final de la caption con un rótulo que pide borrarlas antes de publicar. No publica ni sube nada: la media se sube y se programa después en la tab Instagram. Úsalo cuando la persona quiere guardar para publicar una pieza ya escrita. Deja un link para revisar y confirmar.',
-    parametros: [
-      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['reel', 'carrusel', 'story'], descripcion: 'Tipo de publicación.' },
-      { nombre: 'caption', tipo: 'string', obligatorio: true, max: 2200, descripcion: 'La caption de la publicación (tope de Instagram: 2200 caracteres).' },
-      { nombre: 'notas', tipo: 'string', max: 8000, descripcion: 'Notas de producción: el guion o las escenas, para quien graba o diseña.' },
-    ],
-    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
-    escribe: 'inserta una fila en contenido_posts con estado borrador y media vacía',
-    canales: TODOS, costo: 'gratis', gating: G_IG,
   },
 ];

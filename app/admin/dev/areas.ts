@@ -283,10 +283,12 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'instagram', titulo: 'Instagram', familia: 'Operate', grupo: 'Comunicación',
-    estado: 'parcial', verEnApp: '/instagram',
-    alcance: 'El canal de Instagram, construido el 15/08 sobre Zernio (que envuelve la Graph API): conectar la cuenta, bandeja de DMs que se contestan como borrador del Chat Agent, y publicaciones de feed/reel/story/carrusel con la programación nativa del proveedor. Falta el webhook para el cliente con key propia: hoy BYOK publica pero no recibe.',
-    vive: ['app/instagram/page.tsx', 'app/instagram/InstagramApp.tsx', 'app/instagram/InboxDms.tsx', 'app/instagram/Publicaciones.tsx', 'app/instagram/OnboardingInstagram.tsx', 'app/instagram/actions.ts', 'app/instagram/ig-datos.ts', 'lib/zernio.ts', 'lib/ig-chatbot.ts', 'lib/ig-contenido.ts', 'app/api/webhooks/zernio/route.ts', 'supabase/migrations/0136_instagram_zernio.sql', 'app/_components/nav.ts', 'lib/plan-proyectos-catalogo.ts'],
+    estado: 'listo',
+    alcance: 'RETIRADA el 06/10/2026 por decisión de Martín («C: sacar la tab»): la bandeja de DMs, el programador de publicaciones y el puente de los DMs al Chatbot salieron del producto. Lo que queda: /instagram redirige a /chatbot (por los links viejos) y el webhook de Zernio contesta 200 sin procesar nada.',
+    vive: ['app/instagram/page.tsx', 'app/api/webhooks/zernio/route.ts', 'supabase/migrations/0136_instagram_zernio.sql', 'tests/sin-instagram.test.ts'],
     proyectos: ['Feature: Instagram'],
+    hallazgos: 'hallazgos-comunicacion',
+    nota: 'Se retiró el 06/10/2026 por decisión de Martín: en toda su historia hubo 0 DMs y 0 publicaciones (ig_conversaciones, ig_mensajes y contenido_posts vacías). Dos workspaces —ws11 y ws13— llegaron a conectar Zernio y todavía tienen su ZERNIO_API_KEY, su fila en zernio_workspace y su ruteo en webhook_routing: nadie los lee. Las TABLAS quedan (sin migración de drop). El webhook sigue vivo a propósito: la URL puede estar registrada en Zernio, y un 404 lo haría reintentar cada evento. Reels, Carousels y Stories siguen como writers: la pieza se copia, ya no va a ningún programador. Si Instagram vuelve, es una decisión del dueño, y tests/sin-instagram.test.ts falla hasta que se tome.',
   },
   {
     slug: 'onboarding', titulo: 'Onboarding Wizard', familia: 'Operate', grupo: 'Onboarding',
@@ -404,7 +406,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'chat-analyst', titulo: 'Chat Analyst', familia: 'Analyze', grupo: 'Analysts',
     estado: 'por-construir', verEnApp: '/chat-analyst',
-    alcance: 'Lo que Closing Analyst hace con las llamadas, pero con las conversaciones (WhatsApp, Email, Instagram): dónde se cae el chat, qué objeción aparece y qué responde mejor. Hoy es ComingSoon; visible para rol setter.',
+    alcance: 'Lo que Closing Analyst hace con las llamadas, pero con las conversaciones (WhatsApp y Email): dónde se cae el chat, qué objeción aparece y qué responde mejor. Hoy es ComingSoon; visible para rol setter.',
     vive: ['app/chat-analyst/page.tsx', 'app/_components/ComingSoon.tsx'],
     proyectos: ['Feature: Chat Analyst'],
   },
@@ -501,7 +503,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'chatbot', titulo: 'Chatbot', familia: 'Sales Machine',
     estado: 'listo', agente: true, verEnApp: '/chatbot',
-    alcance: 'El cockpit del agente que conversa: secuencias de mensajes con estrategia, simulación como lead, métricas y hand-off al humano. Su H1 en pantalla todavía dice «Chat Agent».',
+    alcance: 'El agente que conversa, SÓLO por WhatsApp y por la línea NO oficial del negocio (Evolution: sin ventana de 24 h ni plantillas). Lo primero: recordarle al lead la reunión agendada. Además, secuencias por etapa del CRM para la masa, simulación como lead, métricas y hand-off al humano. Instagram quedó afuera el 06/10/2026 (decisión de Martín: 0 DMs en su historia).',
     vive: ['app/chatbot/page.tsx', 'app/chatbot/ChatAgentApp.tsx', 'app/chat-bot/page.tsx', 'app/chat-agent/page.tsx', 'app/setting/page.tsx', 'lib/setting-estrategia.ts', 'lib/nutricion.ts', 'app/api/chat-agent/secuencias/route.ts', 'app/chatbot/FlujoLienzo.tsx', 'app/chatbot/SecuenciaPerfil.tsx', 'lib/flujo-conversacion.ts', 'app/_components/Lienzo.tsx', 'lib/lienzo-grafo.ts'],
     proyectos: ['Agente: Chatbot'],
   },
@@ -635,7 +637,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
     estado: 'parcial', verEnApp: '/reels',
-    alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → borrador en /instagram. Falta historial durable y que los prompts sean editables desde /configuraciones.',
+    alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',
     // ⚠️ Este `vive` declaraba DOS rutas y una de ellas era app/_components/nav.ts,
     // que es de las más calientes del repo: el Change History derivado se queda con
     // los últimos 12 commits, así que nav.ts se los comía TODOS. Medido el 17/08 en
@@ -645,7 +647,7 @@ export const AREAS: AreaDev[] = [
     vive: [
       'app/reels/page.tsx', 'app/reels/ReelsApp.tsx', 'app/reels/actions.ts',
       'app/reels/reel-pedido.ts', 'app/reels/reels-datos.ts',
-      'lib/ig-writer.ts', 'lib/ig-formatos.ts', 'lib/ig-contenido.ts',
+      'lib/ig-writer.ts', 'lib/ig-formatos.ts',
       'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
     ],
     proyectos: ['Feature: Reels'],
@@ -655,7 +657,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'carousels', titulo: 'Carousels', familia: 'Content Machine', grupo: 'Instagram',
     estado: 'parcial', verEnApp: '/carousels',
-    alcance: 'El carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → borrador en /instagram. El historial se pierde al recargar y los prompts todavía no son editables.',
+    alcance: 'El carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → «Copiar el carrusel». El borrador en /instagram salió el 06/10/2026 con esa tab. El historial se pierde al recargar y los prompts todavía no son editables.',
     // ⚠️ Mismo caso que reels: el `vive` declaraba DOS rutas, una de ellas
     // app/_components/nav.ts, y el Change History derivado (últimos 12 commits) se
     // llenaba con commits de la barra. Medido el 17/08: el bloque `"carousels"` de
@@ -663,21 +665,21 @@ export const AREAS: AreaDev[] = [
     vive: [
       'app/carousels/page.tsx', 'app/carousels/CarouselsApp.tsx',
       'app/carousels/OnboardingCarousels.tsx', 'app/carousels/actions.ts',
-      'lib/ig-writer.ts', 'lib/ig-formatos.ts', 'lib/ig-contenido.ts',
+      'lib/ig-writer.ts', 'lib/ig-formatos.ts',
       'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
     ],
     proyectos: ['Feature: Carousels'],
     hallazgos: 'hallazgos-comunicacion',
-    nota: 'El motor (lib/ig-writer.ts) y la metodología (lib/ig-formatos.ts) los comparte con Reels y Stories: tocarlos impacta las tres. Lo propio de esta tab: METODOLOGIA_CARRUSEL abre con un AVISO de que los cursos comprados casi no tienen material de carrusel —la taxonomía educativo/storytelling/venta de actions.ts es criterio general, NO doctrina de curso—; el saneo RECHAZA con menos de 2 slides y RECORTA con más de 10, a propósito y por motivos distintos; y quedan dos desvíos respecto de sus tabs hermanas: el paso `carousels_instagram` nunca se marca (reels y stories usan la key compartida `conectar`) y CarouselsApp.tsx importa solo Pagina y Button de app/_ui, estilando el resto a mano.',
+    nota: 'El motor (lib/ig-writer.ts) y la metodología (lib/ig-formatos.ts) los comparte con Reels y Stories: tocarlos impacta las tres. Lo propio de esta tab: METODOLOGIA_CARRUSEL abre con un AVISO de que los cursos comprados casi no tienen material de carrusel —la taxonomía educativo/storytelling/venta de actions.ts es criterio general, NO doctrina de curso—; el saneo RECHAZA con menos de 2 slides y RECORTA con más de 10, a propósito y por motivos distintos; y queda un desvío respecto de sus tabs hermanas: CarouselsApp.tsx importa solo Pagina y Button de app/_ui, estilando el resto a mano. (El paso `carousels_instagram`, que nunca se marcaba, salió el 06/10/2026 con la tab Instagram.)',
   },
   {
     slug: 'stories', titulo: 'Stories', familia: 'Content Machine', grupo: 'Instagram',
     estado: 'parcial', verEnApp: '/stories',
-    alcance: 'El DÍA de stories de Instagram: una sola idea, el objetivo (conexión / venta / interacción), el storyboard frame por frame con su indicación de producción, y cada frame como borrador en /instagram. Construida el 15/08 sobre el motor compartido con Reels y Carousels; sin historial durable (la secuencia vive en memoria de la página) y con los prompts todavía no editables.',
+    alcance: 'El DÍA de stories de Instagram: una sola idea, el objetivo (conexión / venta / interacción), el storyboard frame por frame con su indicación de producción, y «Copiar la secuencia» (hasta el 06/10/2026 cada frame iba como borrador a /instagram; salió con esa tab). Construida el 15/08 sobre el motor compartido con Reels y Carousels; sin historial durable (la secuencia vive en memoria de la página) y con los prompts todavía no editables.',
     vive: [
       'app/stories/page.tsx', 'app/stories/StoriesApp.tsx', 'app/stories/Storyboard.tsx',
       'app/stories/actions.ts', 'app/stories/objetivos.ts', 'app/stories/OnboardingStories.tsx',
-      'lib/ig-formatos.ts', 'lib/ig-writer.ts', 'lib/ig-contenido.ts',
+      'lib/ig-formatos.ts', 'lib/ig-writer.ts',
       'app/_components/nav.ts',
     ],
     proyectos: ['Feature: Stories'],
@@ -860,7 +862,7 @@ export const AREAS: AreaDev[] = [
     alcance: 'La cuenta de Instagram propia de MaKo: perfil, bio, reels, historias, destacadas y calendario de publicación. No hay nada en el repo, ni siquiera una sección en el doc de estrategia.',
     vive: [],
     proyectos: ['Vender MaKo: Orgánico Instagram'],
-    nota: 'HOMONIMIA PELIGROSA: app/instagram/page.tsx sí existe, pero es un <ComingSoon> del PRODUCTO (una tab del cliente), no la cuenta propia — quien busque por nombre va a aterrizar ahí y va a creer que encontró el área. Lo único de MaKo es el proyecto «Vender MaKo: Orgánico Instagram» declarado en lib/plan-proyectos-catalogo.ts:182 y, de refilón, el canal D «Orgánico + Lead Magnet» del doc de estrategia, que es genérico (los mismos creativos de la campaña + ManyChat) y está en la lista de futuros.',
+    nota: 'HOMONIMIA PELIGROSA: app/instagram/page.tsx sí existe, pero era la tab del PRODUCTO (se retiró el 06/10/2026 y hoy redirige a /chatbot), no la cuenta propia — quien busque por nombre va a aterrizar ahí y va a creer que encontró el área. Lo único de MaKo es el proyecto «Vender MaKo: Orgánico Instagram» declarado en lib/plan-proyectos-catalogo.ts:182 y, de refilón, el canal D «Orgánico + Lead Magnet» del doc de estrategia, que es genérico (los mismos creativos de la campaña + ManyChat) y está en la lista de futuros.',
   },
   {
     slug: 'gtm-youtube', titulo: 'GTM: YouTube', familia: 'Business', grupo: 'Go-to-Market',

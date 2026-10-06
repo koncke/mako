@@ -2,8 +2,9 @@
 // reels-datos — historial de guiones y estado del contexto de la tab Reels
 // =============================================================================
 // HISTORIAL: no hay tabla genérica de "piezas generadas" en el repo (el recon lo
-// confirmó: landing_drafts es del Landing Generator y contenido_posts guarda
-// solo lo ENVIADO a publicación). En vez de una migración nueva —que colisiona
+// confirmó: landing_drafts es del Landing Generator, y contenido_posts guardaba
+// solo lo ENVIADO a la tab Instagram, que salió el 06/10/2026). En vez de una
+// migración nueva —que colisiona
 // con la numeración de otras corridas— el historial vive como JSON en
 // app_settings, el molde bendecido del repo para estado por-workspace sin
 // migración (mismo criterio que lib/tab-onboarding-state.ts y
@@ -32,8 +33,9 @@ export type PiezaGuardada = {
   pedido: string;
   pieza: PiezaReel;
   at: string;
-  /** id de la fila en contenido_posts si ya se envió a publicación. */
-  borradorId?: number;
+  // Hasta el 06/10/2026 llevaba `borradorId` (la fila de contenido_posts si se había
+  // enviado a publicación). Salió con la tab Instagram; las entradas viejas que lo
+  // traigan no rompen nada: `esEntrada` no lo mira y nadie lo lee.
 };
 
 const esEntrada = (e: unknown): e is PiezaGuardada => {
@@ -58,14 +60,6 @@ export async function leerHistorial(): Promise<PiezaGuardada[]> {
 export async function guardarEnHistorial(item: PiezaGuardada): Promise<PiezaGuardada[]> {
   const actual = await leerHistorial();
   const nuevo = [item, ...actual.filter((e) => e.id !== item.id)].slice(0, MAX_HISTORIAL);
-  await setSetting(KEY_HISTORIAL_REELS, JSON.stringify(nuevo));
-  return nuevo;
-}
-
-/** Anota en el historial que la pieza ya tiene su borrador en contenido_posts. */
-export async function marcarEnviada(id: string, borradorId: number): Promise<PiezaGuardada[]> {
-  const actual = await leerHistorial();
-  const nuevo = actual.map((e) => (e.id === id ? { ...e, borradorId } : e));
   await setSetting(KEY_HISTORIAL_REELS, JSON.stringify(nuevo));
   return nuevo;
 }

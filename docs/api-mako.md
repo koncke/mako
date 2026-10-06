@@ -26,13 +26,12 @@
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_secuencia_mensajes` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
-- **Instagram** (`instagram`): `estado_conexion_instagram` · `estado_zernio_instagram` · `config_instagram` · `estado_onboarding_instagram` · `listar_publicaciones_instagram` · `estado_publicacion_zernio` · `preview_media_instagram` · `crear_borrador_publicacion_instagram` · `cancelar_programacion_instagram` · `refrescar_publicacion_instagram` · `prender_auto_respuesta_instagram` · `apagar_auto_respuesta_instagram` · `marcar_paso_onboarding_instagram`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
-- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `crear_borrador_instagram`
+- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
@@ -4338,258 +4337,6 @@ curl -s -X POST "https://hola-mako.com/api/v1/chatbot/crear_lead_magnet" -H "Aut
   --data-binary '{"nombre":"…","enlace":"…"}'
 ```
 
-## Instagram — `instagram`
-
-Tab **Instagram** (`/instagram`). 7 lecturas · 6 acciones.
-
-### `GET /api/v1/instagram/estado_conexion_instagram` — Estado de conexión de Instagram
-
-Dice si el canal de Instagram está listo: si hay key de Zernio utilizable, cómo quedó la decisión de cuenta de Zernio (propia, plataforma o sin resolver) y la cuenta de Instagram conectada (@usuario). Úsala ANTES de hablar de publicar o de DMs: sin cuenta conectada no hay a dónde publicar ni desde dónde contestar. Si la decisión de Zernio está sin resolver no consulta Zernio y devuelve cuenta null.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** externo
-- **Solo el administrador del workspace.**
-- **Requiere conectada:** zernio
-- **Requiere la tab:** instagram
-
-_Sin parámetros._
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/estado_conexion_instagram" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/instagram/estado_zernio_instagram` — Cuenta de Zernio del workspace
-
-Solo la decisión del paso «Conexión con Zernio», sin llamar a Zernio: «propia» (el negocio pegó su API key), «plataforma» (usa la cuenta de MaKo) o null (sin resolver), y si la plataforma tiene cuenta disponible. Sirve para diagnosticar por qué el canal no anda cuando Zernio no responde; para el estado completo usa estado_conexion_instagram.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-_Sin parámetros._
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/estado_zernio_instagram" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/instagram/config_instagram` — Respuesta automática de DMs
-
-Dice si MaKo contesta SOLA los DMs de Instagram (flag de auto-respuesta, apagado por defecto) y si el paso de ensayo del onboarding está hecho. Pregúntalo antes de generar un borrador: con la auto-respuesta prendida y la ventana de 24 h vigente, el borrador se ENVÍA al lead sin que nadie lo lea.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-_Sin parámetros._
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/config_instagram" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/instagram/estado_onboarding_instagram` — Onboarding de la tab Instagram
-
-Los pasos del onboarding de /instagram (conexión con Zernio, cuenta de Instagram, contexto del negocio, ensayo de respuesta) con cuáles están hechos y cuándo. Los dos primeros se derivan de señales reales al abrir la tab. Úsala para saber si puedes ofrecer el canal o si primero hay que terminar de configurarlo en /instagram.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-_Sin parámetros._
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/estado_onboarding_instagram" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/instagram/listar_publicaciones_instagram` — Publicaciones de Instagram
-
-Las publicaciones del planificador de /instagram: tipo (feed, reel, story, carrusel), caption, cuánta media lleva, estado (borrador, programado, publicando, publicado, parcial, error), fecha programada, fecha de publicación y el error si falló. Sirve para «¿qué tengo programado esta semana?» o «¿por qué no salió el reel?». Filtra sobre las 100 más recientes. El estado local puede estar viejo si el webhook no llegó: contrástalo con estado_publicacion_zernio.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `estado` | string (borrador \\| programado \\| publicando \\| publicado \\| parcial \\| error) | no | solo las que están en este estado. |
-| `tipo` | string (feed \\| reel \\| story \\| carrusel) | no | solo este formato. |
-| `limite` | number | no | cuántas devolver como máximo (default 30). |
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/listar_publicaciones_instagram" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/instagram/estado_publicacion_zernio` — Estado vivo de una publicación
-
-Lee en Zernio, ahora mismo, el estado de una publicación que ya se mandó a programar o publicar: estado general, fecha programada y, por plataforma, si salió, cuándo y el enlace al post. No escribe nada: para dejar el estado local al día usa refrescar_publicacion_instagram. Un borrador local nunca pasó por Zernio y no tiene estado vivo.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** externo
-- **Solo el administrador del workspace.**
-- **Requiere conectada:** zernio
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `publicacionId` | number | sí | id local de la publicación (de listar_publicaciones_instagram). |
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/estado_publicacion_zernio?publicacionId=%E2%80%A6" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/instagram/preview_media_instagram` — Ver la media de una publicación
-
-Devuelve un enlace temporal (5 minutos) para ver un archivo de media de una publicación, guardado en el almacenamiento privado del negocio. Úsala para mostrarle a la persona la media de una publicación (p. ej. antes de hablar de programarla o para revisar qué salió). El path sale del campo media de listar_publicaciones_instagram y empieza con el número del workspace; uno de otro workspace se rechaza. No guardes el enlace: pídelo de nuevo cuando haga falta.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `path` | string | sí | path del archivo tal cual aparece en media[].path (p. ej. «12/3f2c….jpg»). |
-
-```bash
-curl -s "https://hola-mako.com/api/v1/instagram/preview_media_instagram?path=%E2%80%A6" -H "Authorization: Bearer $TOKEN"
-```
-
-### `POST /api/v1/instagram/crear_borrador_publicacion_instagram` — Guardar borrador de publicación
-
-PROPONE guardar un reel, carrusel o story como BORRADOR en el planificador de /instagram, con su caption y notas de producción opcionales. No publica ni toca Zernio: la media y la fecha se completan después en /instagram. Se confirma en una pantalla porque la caption es texto largo que conviene leer y corregir. Cada propuesta confirmada crea un borrador nuevo, y hoy ese borrador no se borra ni se edita desde MaKo ni desde /instagram: no la propongas dos veces. Para un post de feed no aplica.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** crea una fila en contenido_posts en estado borrador, sin media (las notas van anexadas al final de la caption)
-- **Reversible:** no
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `tipo` | string (reel \\| carrusel \\| story) | sí | formato de la publicación. |
-| `caption` | string | sí | el texto del post (Instagram admite hasta 2200 caracteres). |
-| `notas` | string | no | notas de producción (guion, escenas); se anexan a la caption con un rótulo que pide borrarlas antes de publicar. |
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/instagram/crear_borrador_publicacion_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{"tipo":"…","caption":"…"}'
-```
-
-### `POST /api/v1/instagram/cancelar_programacion_instagram` — Cancelar una publicación programada
-
-Cancela una publicación PROGRAMADA: la borra de Zernio para que no salga y la deja como borrador local (conserva caption y media). Solo funciona con publicaciones en estado programado; si Zernio ya la publicó, no se puede y se actualiza el estado. Un post ya publicado no se despublica desde MaKo. No se deshace: para volver a programarla hay que armar el post de nuevo en /instagram. Necesita el publicacionId.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** borra el post programado en Zernio y pasa contenido_posts a borrador (sin zernio_post_id ni fecha)
-- **Reversible:** no
-- **Costo:** externo
-- **Solo el administrador del workspace.**
-- **Requiere conectada:** zernio
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `publicacionId` | number | sí | id local de la publicación (de listar_publicaciones_instagram). |
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/instagram/cancelar_programacion_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{"publicacionId":0}'
-```
-
-### `POST /api/v1/instagram/refrescar_publicacion_instagram` — Sincronizar estado de una publicación
-
-Relee la publicación en Zernio y deja el estado local al día (publicado, error, parcial y fecha de publicación) sin esperar el webhook. Solo para publicaciones en «publicando» o «programado»: úsala cuando una lleva rato en «publicando» o sigue «programado» pasada la hora. Si el post ya está en error, no la uses: el motivo detallado ya está en listar_publicaciones_instagram. Si solo quieres mirar el estado vivo sin escribir, usa estado_publicacion_zernio. Necesita el publicacionId.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** actualiza estado, publicado_at y error de la fila en contenido_posts (conserva el motivo de fallo que ya tenía)
-- **Reversible:** sí
-- **Costo:** externo
-- **Solo el administrador del workspace.**
-- **Requiere conectada:** zernio
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `publicacionId` | number | sí | id local de la publicación (de listar_publicaciones_instagram). |
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/instagram/refrescar_publicacion_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{"publicacionId":0}'
-```
-
-### `POST /api/v1/instagram/prender_auto_respuesta_instagram` — Prender la auto-respuesta de DMs
-
-PROPONE prender la respuesta automática de DMs de Instagram: cada borrador que MaKo redacta para un DM entrante se ENVÍA solo mientras la ventana de 24 h esté abierta, sin que nadie lo lea. Se confirma en pantalla porque convierte el canal en un bot que le escribe a personas reales, y la pantalla avisa si el ensayo del onboarding no está hecho. Revisa antes config_instagram.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** guarda el flag ig_auto_respuesta del workspace en app_settings en true
-- **Reversible:** sí
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-_Sin parámetros._
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/instagram/prender_auto_respuesta_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{}'
-```
-
-### `POST /api/v1/instagram/apagar_auto_respuesta_instagram` — Apagar la auto-respuesta de DMs
-
-Apaga la respuesta automática de DMs de Instagram: desde ahí cada borrador que MaKo redacta espera que una persona lo envíe desde la bandeja. Es el modo por defecto y el de menor riesgo. Úsala cuando la persona quiere revisar cada respuesta antes de que salga, o antes de rehacer un borrador con generar_borrador_dm_instagram.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** guarda el flag ig_auto_respuesta del workspace en app_settings en false
-- **Reversible:** sí
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-_Sin parámetros._
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/instagram/apagar_auto_respuesta_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{}'
-```
-
-### `POST /api/v1/instagram/marcar_paso_onboarding_instagram` — Marcar paso del onboarding
-
-Da por hecho el paso «Contexto del negocio» del onboarding de /instagram, cuando la persona ya revisó lo que MaKo sabe de su negocio. Exige los pasos anteriores (Zernio y cuenta conectada). El paso de ensayo NO se marca desde aquí: existe para que alguien vea una respuesta real en /instagram antes de prender la auto-respuesta.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** queda **pendiente** (vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** marca el paso en app_settings (onboarding.tab.instagram y el registro compartido de pasos)
-- **Reversible:** sí
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `paso` | string (ig_contexto) | sí | el paso a marcar: ig_contexto. |
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/instagram/marcar_paso_onboarding_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{"paso":"…"}'
-```
-
 ## Dashboard y análisis — `metricas`
 
 Tab **Dashboard** (`/marketing`). 20 lecturas · 0 acciones.
@@ -6178,7 +5925,7 @@ curl -s "https://hola-mako.com/api/v1/negocio/ver_estado_onboarding" -H "Authori
 
 ### `GET /api/v1/negocio/listar_tabs_por_configurar` — Tabs que faltan configurar
 
-Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Chatbot, Instagram, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.
+Las tabs que el plan del negocio incluye y que todavía no terminó de configurar (Ads Writer, Video Generator, WhatsApp, Chatbot, Email…), en el orden en que conviene hacerlas y con el link a cada una. Lista vacía = no le falta configurar ninguna. Úsala para «¿qué me falta configurar?» después del onboarding.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -6629,7 +6376,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/negocio/reiniciar_personalidad" -H
 
 ## Content Machine — `contenido`
 
-Tab **Ads Writer** (`/ads-writer`). 12 lecturas · 7 acciones.
+Tab **Ads Writer** (`/ads-writer`). 12 lecturas · 6 acciones.
 
 ### `GET /api/v1/contenido/listar_anuncios_planteados` — Anuncios planteados del negocio
 
@@ -6826,12 +6573,12 @@ curl -s "https://hola-mako.com/api/v1/contenido/estado_onboarding_contenido?tab=
 
 ### `GET /api/v1/contenido/limites_formato_instagram` — Límites técnicos de Instagram
 
-Los límites técnicos de publicar un formato de Instagram por la integración: reel (duración máxima en segundos, peso en MB, códec), carrusel (2 a 10 elementos, mezcla de imagen y video) o story (9:16, duración y peso, y que stickers, encuestas y links NO salen por API: se agregan a mano después de publicar). Incluye el tope de caption y que las imágenes van solo en JPEG. Úsalo para «¿puedo poner una encuesta en la story?» o «¿cuánto puede durar el reel?». El cupo diario de publicaciones no está aquí: se lee de Instagram en vivo.
+Los límites técnicos de cada formato de Instagram: reel (duración máxima en segundos, peso en MB, códec), carrusel (2 a 10 elementos, mezcla de imagen y video) o story (9:16, duración y peso, y que stickers, encuestas y links se agregan a mano en la app). Incluye el tope de caption y que las imágenes van solo en JPEG. Úsalo para «¿puedo poner una encuesta en la story?» o «¿cuánto puede durar el reel?». MaKo no publica en Instagram: la persona sube la pieza a mano.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere la tab:** instagram
+- **Requiere la tab:** reels
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -6978,29 +6725,6 @@ Elimina UN guion de su anuncio, identificado por celdaId y guionId, sin tocar lo
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/contenido/borrar_guion_anuncio" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   --data-binary '{"celdaId":"3f1c2a9e-7b1d-4c55-9a0e-2d6f7e8a9b10","guionId":"b2c4d6e8-1a3b-4c5d-8e9f-0a1b2c3d4e5f","huella":"9f86d081884c7d65"}'
-```
-
-### `POST /api/v1/contenido/crear_borrador_instagram` — Borrador de publicación de Instagram
-
-Deja listo un borrador en el programador de Instagram (tipo reel, carrusel o story) con la caption y, aparte, las notas de producción (guion, escenas, indicaciones), que se anexan al final de la caption con un rótulo que pide borrarlas antes de publicar. No publica ni sube nada: la media se sube y se programa después en la tab Instagram. Úsalo cuando la persona quiere guardar para publicar una pieza ya escrita. Deja un link para revisar y confirmar.
-
-- **Alcance mínimo del token:** proponer
-- **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** inserta una fila en contenido_posts con estado borrador y media vacía
-- **Reversible:** sí
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** instagram
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `tipo` | string (reel \\| carrusel \\| story) | sí | Tipo de publicación. |
-| `caption` | string | sí | La caption de la publicación (tope de Instagram: 2200 caracteres). |
-| `notas` | string | no | Notas de producción: el guion o las escenas, para quien graba o diseña. |
-
-```bash
-curl -s -X POST "https://hola-mako.com/api/v1/contenido/crear_borrador_instagram" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  --data-binary '{"tipo":"…","caption":"…"}'
 ```
 
 ## Video Generator — `video`
@@ -7244,7 +6968,7 @@ Para UNA integración: para qué sirve, si está conectada, qué campos pide (cu
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicio` | string | sí | key de la integración (meta, whatsapp, email, zernio, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
+| `servicio` | string | sí | key de la integración (meta, whatsapp, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
 
 ```bash
 curl -s "https://hola-mako.com/api/v1/integraciones/ver_integracion?servicio=fathom" -H "Authorization: Bearer $TOKEN"

@@ -369,7 +369,8 @@ test('el borrador del setter se reemplaza con OTRO id, y un paso aprobado a mano
   assert.ok(sinComentarios(leer('lib/borrador-oficial.ts')).includes('await anotarPasoEnviado(b.id);'));
 });
 
-test('Instagram le pasa al setter el lead y el caso (#361, #358)', () => {
-  const ig = sinComentarios(leer('lib/ig-chatbot.ts'));
-  assert.match(ig, /responderSimulador\(secuencia\.id, historial, \{\s*leadId: conv\.lead_id, escenario: clas\.escenario/);
-});
+// El test «Instagram le pasa al setter el lead y el caso (#361, #358)» leía
+// lib/ig-chatbot.ts, que se borró el 06/10/2026 con la tab Instagram (decisión de
+// Martín: el Chatbot es SÓLO WhatsApp). Que no vuelva lo cuida
+// tests/sin-instagram.test.ts; el camino de WhatsApp lo sigue fijando el test de
+// asistirRespuesta de más arriba.
