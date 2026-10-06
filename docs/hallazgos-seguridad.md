@@ -531,6 +531,34 @@ el equipo del cliente. Guard correcto: `getSesionAdmin()`.
 
 ---
 
+### ⚠️ El login con Google rechaza el email NO verificado, pero deja pasar el que no dice nada
+
+**Síntoma.** Ninguno visible: el login anda. Lo encontró el 06/10/2026 la sesión de Customer
+Success revisando el portal del alumno, que reusa este callback.
+
+**Causa.** `app/api/auth/callback/google/route.ts:156`:
+
+```ts
+if (!email || ui.email_verified === false) return fail('no-autorizado');
+```
+
+Compara contra `false`, así que **un `email_verified` AUSENTE pasa** — es fail-open. Hoy es seguro
+por una razón que no está en esa línea: el callback pide `userinfo` al endpoint OIDC
+(`openidconnect.googleapis.com/v1/userinfo`) con los scopes `openid email`, y ese endpoint
+**siempre** devuelve el campo. La garantía vive en el endpoint y el scope, no en el chequeo:
+el día que alguien cambie el endpoint, los scopes o el proveedor, el chequeo sigue «pasando».
+
+**Por qué no se arregló de paso.** Es el login de TODOS los usuarios, no sólo del alumno, y es
+previo a ese trabajo. Endurecerlo a `ui.email_verified !== true` es correcto pero cambia la puerta
+de entrada de la app entera: va como cambio propio, con su prueba, no metido adentro de otra tanda.
+
+**Regla.** Un chequeo de seguridad compara contra el valor que **habilita**, nunca contra el que
+**prohibe**: `!== true`, no `=== false`. Lo segundo convierte «no sé» en «sí», que es el mismo
+modo de falla que `getTenantDb()` con una tabla que no está en `TENANT_TABLES`.
+
+**Vive en:** `app/api/auth/callback/google/route.ts:156` · lo usa también la rama del alumno del
+portal del curso (`lib/alumno-sesion.ts`).
+
 ## Credenciales y cifrado
 
 Las credenciales viven **por workspace en /integraciones**, no como env vars de Vercel
