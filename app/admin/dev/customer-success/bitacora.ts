@@ -458,4 +458,28 @@ export const BITACORA: Hito[] = [
       "tests/cs-kanban-fases.test.ts \u2014 el guard, probado rompi\u00e9ndolo",
     ],
   },
+  {
+    fecha: "5 oct", hora: "23:27", chat: "Customer Success", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "La casilla del CRM, las fases al filtro, el editor y la ficha por pesta\u00f1as",
+    pedido: "1. Quiero que copies la animaci\u00f3n de aparici\u00f3n del checkbox para la selecci\u00f3n de multiples tarjetas que hizo el CRM. Es una animaci\u00f3n que aparece detr\u00e1s del t\u00edtulo y que se desplaza el t\u00edtulo cuando paso el cursor.\n2. Como terminaron siendo muchas fases, es mejor que lo pongas como un filtro directamente, porque no queda bien que est\u00e9n todos esos botones.\n3. No me gusta el dise\u00f1o de las fases y las etapas... Es muy confuso, vuelve a dise\u00f1arlo, hazlo de la mejor manera que te parezca pero que sea simple de entender, minimalista.\n4. En el detail de un cliente, la tab de \"Equipo\" y en general todo lo que tenga que ver con invitar a MaKo, deber\u00eda solo verse si la cuenta es AGENCIA, sino, no deber\u00edan estar esas opciones.\n5. Se me ocurre agregar una tab de \"Resumen\" antes de \"Prioridades\", que contenga los datos m\u00e1s importantes del cliente... Un apartado de \"Notas\" para que el usuario pueda escribir lo que quiera sobre ese cliente. Y tal vez otra tab con las llamadas de fathom que se tuvo con ese cliente... Qu\u00e9 otras cosas piensas que ser\u00edan importantes ver en un detail de Customer Success?... Tal vez pienso que para que no sea tan confuso y copiar toda la tab de PLAN en el detail, dejar solo la secci\u00f3n de \"PRIORIDADES\" y Tareas, Proyectos y Recurrentes que se vean en la tab de Plan, y que haya un bot\u00f3n que te redirija con el filtro ya puesto para ver solo las tareas o proyectos de ese cliente...\n6. Te pas\u00f3 lo mismo que al CRM, si intento desplazar una tarjeta... Es: \"Tambi\u00e9n revisa el desplazamiento de la tarjeta, si lo muevo muy al costado, se sale del contenedor del kanaban y deja de desplazar, eso no debe pasar, porque es incomodo, si desplazo muy al costado a\u00fan debe seguir funcionando el scroll\"",
+    puntos: [
+      "CUATRO AGENTES SOBRE ARCHIVOS SEPARADOS (kanban, editor, ficha, Plan) y la integraci\u00f3n a mano. Lo que cruzaba de un \u00e1rea a otra lo enchuf\u00f3 el orquestador: el bot\u00f3n \u00abVer en el Plan\u00bb usa la URL que arma el tablero (`hrefPlanDeCliente`) y no una copia del nombre del par\u00e1metro, y aterriza en Tareas.",
+      "\u26a0\ufe0f \u00abCLIENTE DESDE\u00bb Y EL FILTRO \u00abCU\u00c1NDO\u00bb LE\u00cdAN UN CAMPO QUE NADIE LLENABA. `lib/clientes-ganados.ts` seleccionaba `fecha_cierre` desde el 28/09 y nunca la mapeaba: el filtro dejaba 0 clientes en cualquier ventana durante una semana. El diagn\u00f3stico obvio (\u00abese cliente no tiene la fecha cargada\u00bb) era falso.",
+      "LAS LLAMADAS DE LA ENTREGA NO EST\u00c1N EN `fathom_links` (s\u00f3lo R1/R2 de venta, sin fecha) sino en `closing_analyses`: la pesta\u00f1a une las dos fuentes. Y esconder \u00abEquipo\u00bb no proteg\u00eda nada: la p\u00e1gina le\u00eda el equipo de otro inquilino sin mirar si el workspace era agencia.",
+      "LA FASE EN \u00abFILTRAR\u00bb DESTAP\u00d3 DOS DEFINICIONES DE \u00abSIN FASE\u00bb y un lote que mov\u00eda clientes de fases escondidas; ahora decide una funci\u00f3n y todo act\u00faa sobre lo que se ve. El editor guarda el ORDEN QUE SE VE, y la firma inicial pasa por el mismo orden o abrir una lista partida la guardaba.",
+      "Coordinado con la sesi\u00f3n del Plan, que tocaba los mismos dos archivos: se commite\u00f3 s\u00f3lo la l\u00ednea gen\u00e9rica de `globals.css` y s\u00f3lo los hunks propios de `BoardShell.tsx`, con el \u00edndice y no con `git commit -- <rutas>` (que habr\u00eda subido la versi\u00f3n del \u00e1rbol con el trabajo ajeno).",
+    ],
+    commits: [
+      { sha: "41566563", msg: "Customer Success: casilla del CRM, fases al filtro, editor nuevo y la ficha por pestañas", lineas: 4265, archivos: 30 },
+    ],
+    archivos: [
+      "app/customer-success/KanbanEntrega.tsx \u2014 la casilla del CRM y el empuje del riel en document",
+      "app/customer-success/BarraClientes.tsx \u2014 la fase dentro de \u00abFiltrar\u00bb (columnasVisibles)",
+      "app/customer-success/EtapasEntregaModal.tsx \u2014 el editor redise\u00f1ado: una lista, el orden que se ve",
+      "app/customer-success/FichaPestanas.tsx \u2014 Resumen y Llamadas de la ficha",
+      "app/plan/board/filtro-cliente.ts \u2014 el filtro de cliente del Plan y ?cliente=",
+      "lib/clientes-ganados.ts \u2014 fechaCierre, que se seleccionaba y no se mapeaba",
+    ],
+  },
 ];
