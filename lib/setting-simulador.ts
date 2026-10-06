@@ -133,7 +133,7 @@ export type SimularResult =
 
 export type OpcionesSetter = {
   /**
-   * El lead de verdad (modo asistido, Instagram). Con él entra lo que contestó en el
+   * El lead de verdad (modo asistido). Con él entra lo que contestó en el
    * formulario de la agenda (#361). El simulador no lo pasa: ahí el «lead» es el dueño.
    */
   leadId?: number | null;

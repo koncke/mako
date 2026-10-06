@@ -125,7 +125,7 @@ const errorKpiParaModelo = (e: string): string =>
 
 /** Fuentes que comparan un timestamp contra `${desde}` / `${hasta}T23:59:59.999Z`: el
  *  borde del día es el de UTC, no el de la zona del negocio (lib/objectives-fuentes.ts). */
-const FUENTES_BORDE_UTC = new Set(['leads_nuevos', 'vsl_plays', 'contenido_publicado']);
+const FUENTES_BORDE_UTC = new Set(['leads_nuevos', 'vsl_plays']);
 /** cashUsd y soldUsd no paginan (lib/objectives-fuentes.ts): con más de 1000 filas en el
  *  rango PostgREST corta sin error y la suma sale de menos. Un trimestre no llega. */
 const FUENTES_SIN_PAGINAR = new Set(['cash_usd', 'sold_usd']);

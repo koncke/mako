@@ -176,7 +176,7 @@ curl -s "https://hola-mako.com/api/v1/general/listar_fuentes_kpi" -H "Authorizat
 
 ### `GET /api/v1/general/medir_fuente_kpi` — Medir una fuente en un rango
 
-Lee UNA fuente automática del catálogo en un rango de fechas, con la MISMA definición que usa el tablero de KPIs. Rango máximo: 366 días, salvo cash_usd y sold_usd, que admiten hasta 92 (su lectura no pagina y un rango mayor podría sumar de menos). Devuelve `valor: null` con el motivo si no pudo leer: nunca cero por error. Úsala para preguntas puntuales como «¿cuántas llamadas analizamos esta semana?» sin tener un KPI creado. Las fechas son días calendario; leads_nuevos, vsl_plays y contenido_publicado cortan los bordes del día en UTC, no en la zona del negocio (la salida lo advierte). Usa ver_trimestre_actual si necesitas el hoy.
+Lee UNA fuente automática del catálogo en un rango de fechas, con la MISMA definición que usa el tablero de KPIs. Rango máximo: 366 días, salvo cash_usd y sold_usd, que admiten hasta 92 (su lectura no pagina y un rango mayor podría sumar de menos). Devuelve `valor: null` con el motivo si no pudo leer: nunca cero por error. Úsala para preguntas puntuales como «¿cuántas llamadas analizamos esta semana?» sin tener un KPI creado. Las fechas son días calendario; leads_nuevos y vsl_plays cortan los bordes del día en UTC, no en la zona del negocio (la salida lo advierte). Usa ver_trimestre_actual si necesitas el hoy.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -186,7 +186,7 @@ Lee UNA fuente automática del catálogo en un rango de fechas, con la MISMA def
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `fuenteId` | string (inversion_usd \\| agendas \\| leads_nuevos \\| cierres \\| cash_usd \\| sold_usd \\| llamadas_analizadas \\| vsl_plays \\| contenido_publicado) | sí | id de la fuente (de listar_fuentes_kpi). |
+| `fuenteId` | string (inversion_usd \\| agendas \\| leads_nuevos \\| cierres \\| cash_usd \\| sold_usd \\| llamadas_analizadas \\| vsl_plays) | sí | id de la fuente (de listar_fuentes_kpi). |
 | `desde` | string | sí | Inicio del rango, inclusive, YYYY-MM-DD. |
 | `hasta` | string | sí | Fin del rango, inclusive, YYYY-MM-DD. |
 
@@ -377,7 +377,7 @@ Propone crear (sin id) o editar (con id) un KPI: nombre, cadencia, compromiso po
 | `cadencia` | string (diaria \\| semanal) | no | Período del compromiso: por día o por semana (lunes a domingo). Obligatorio al crear. |
 | `compromiso` | number | no | Cuánto por período. 0 deja el KPI sin configurar (nunca verde). Obligatorio al crear. |
 | `fuente` | string (auto \\| manual) | no | auto = lo mide MaKo desde una fuente del catálogo; manual = lo registra la persona. Obligatorio al crear. |
-| `fuenteId` | string (inversion_usd \\| agendas \\| leads_nuevos \\| cierres \\| cash_usd \\| sold_usd \\| llamadas_analizadas \\| vsl_plays \\| contenido_publicado) | no | Solo si fuente = auto: id de listar_fuentes_kpi. |
+| `fuenteId` | string (inversion_usd \\| agendas \\| leads_nuevos \\| cierres \\| cash_usd \\| sold_usd \\| llamadas_analizadas \\| vsl_plays) | no | Solo si fuente = auto: id de listar_fuentes_kpi. |
 | `unidad` | string (usd \\| cantidad) | no | Solo para KPIs manuales (en los automáticos la fija la fuente). Al crear, default cantidad; al editar, omitir = queda la actual. |
 | `objectiveId` | string | no | id del objetivo del que cuelga (de listar_objetivos). Al crear, omitir = KPI suelto. Al editar, omitir = sigue colgando de donde estaba; «ninguno» lo descuelga a propósito. |
 | `umbralVerde` | number | no | % del compromiso a partir del cual es verde. Al crear, default 100; al editar, omitir = queda el actual. |

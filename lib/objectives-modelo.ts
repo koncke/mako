@@ -362,7 +362,12 @@ const FUENTES_DEF = [
   { id: 'sold_usd', label: 'Firmado', unidad: 'usd', que: 'Monto de los cierres del período. Comprometido, todavía no cobrado.' },
   { id: 'llamadas_analizadas', label: 'Llamadas analizadas', unidad: 'cantidad', que: 'Grabaciones que MaKo procesó en el período.' },
   { id: 'vsl_plays', label: 'Reproducciones del VSL', unidad: 'cantidad', que: 'Veces que alguien le dio play al VSL en el período.' },
-  { id: 'contenido_publicado', label: 'Contenido publicado', unidad: 'cantidad', que: 'Piezas publicadas desde Content Machine en el período.' },
+  // ⚠️ `contenido_publicado` (las piezas que el programador de /instagram dejaba en
+  // `contenido_posts` con estado 'publicado') salió el 06/10/2026 con la tab Instagram.
+  // Sin la tab nada escribe esa tabla, así que la fuente contaba 0 para siempre y el
+  // candidato de abajo la sembraba con un compromiso de 7 por semana: un KPI en rojo
+  // por un problema nuestro. Un KPI viejo que la nombre cae en «fuente desconocida»
+  // (leerFuente), que es lo que la regla de arriba pide para una fuente sacada.
 ] as const satisfies readonly FuenteDef[];
 
 /**
@@ -452,12 +457,9 @@ export const CANDIDATOS_KPI: CandidatoKpi[] = [
     porque: 'Revisar las llamadas es lo que sube la tasa de cierre sin gastar un peso más.',
     paraCuello: ['conversion', 'oferta'],
   },
-  {
-    nombre: 'Contenido publicado', cadencia: 'semanal', compromiso: 7, unidad: 'cantidad',
-    fuente: 'auto', fuenteId: 'contenido_publicado',
-    porque: 'El orgánico solo compone si sale sí o sí todas las semanas.',
-    paraCuello: ['foco', 'delegacion'],
-  },
+  // Acá iba «Contenido publicado» (automático, 7 por semana): salió el 06/10/2026 con
+  // la fuente `contenido_publicado` (ver FUENTES_DEF). Volverlo manual es una decisión
+  // de producto, no un arreglo.
   {
     nombre: 'Seguimientos hechos', cadencia: 'diaria', compromiso: 5, unidad: 'cantidad',
     fuente: 'manual',

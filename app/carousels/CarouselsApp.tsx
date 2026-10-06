@@ -55,7 +55,9 @@ function notasDe(p: PiezaCarrusel): string {
     p.cta ? `CTA (última slide): ${p.cta}` : 'Sin CTA: pieza solo de alcance.',
     p.palabraClave ? `Palabra clave comment→DM: ${p.palabraClave}` : '',
     p.cta ? `Primer comentario sugerido: ${p.cta}` : '',
-    `Imágenes finales SOLO ${LIMITES_IMAGEN.formato} (un PNG rebota) · ${LIMITES_CARRUSEL.itemsMin}-${LIMITES_CARRUSEL.itemsMax} slides.`,
+    // Sin «SOLO JPEG (un PNG rebota)»: eso lo exige la API de publicación (Zernio), y
+    // desde el 06/10/2026 la pieza se sube a mano en la app, que acepta PNG.
+    `Entre ${LIMITES_CARRUSEL.itemsMin} y ${LIMITES_CARRUSEL.itemsMax} slides.`,
     '',
     ...p.slides.map((s, i) =>
       `Slide ${i + 1} — ${rolDeSlide(i, p.slides.length)}\n  Texto en la imagen: ${s.texto || '—'}\n  Diseño: ${s.visual || '—'}`),
@@ -352,8 +354,9 @@ export function CarouselsApp({
               {/* Copiar la pieza */}
               <div style={{ ...card, background: 'var(--surface-2)' }}>
                 <div style={{ ...eyebrow, marginBottom: 10 }}>Para publicar</div>
+                {/* Sin «SOLO JPEG (un PNG rebota)»: era el tope de la API de publicación,
+                    y la pieza se sube a mano en la app (ver notasDe). */}
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-                  Imágenes SOLO en {LIMITES_IMAGEN.formato} (un PNG rebota) ·{' '}
                   {LIMITES_CARRUSEL.itemsMin} a {LIMITES_CARRUSEL.itemsMax} ítems, se puede mezclar imagen y video ·
                   aspecto recomendado {LIMITES_IMAGEN.aspectoRecomendado}.
                 </div>

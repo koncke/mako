@@ -178,11 +178,8 @@ const LECTORES: Record<FuenteId, Lector> = {
     { col: 'created_at', op: 'gte', val: desde },
     { col: 'created_at', op: 'lte', val: finDeDia(hasta) },
   ]),
-  contenido_publicado: (desde, hasta) => contar('contenido_posts', [
-    { col: 'estado', op: 'eq', val: 'publicado' },
-    { col: 'publicado_at', op: 'gte', val: desde },
-    { col: 'publicado_at', op: 'lte', val: finDeDia(hasta) },
-  ]),
+  // `contenido_publicado` (contaba `contenido_posts` publicados) salió el 06/10/2026
+  // con la tab Instagram: ver FUENTES_DEF en lib/objectives-modelo.ts.
 };
 
 /**

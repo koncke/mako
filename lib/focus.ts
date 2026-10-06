@@ -158,7 +158,6 @@ const CAPACIDAD_POR_FUENTE: Record<string, string> = {
   sold_usd: 'crm-lead',
   llamadas_analizadas: 'llamadas',
   vsl_plays: 'landing-diagnosticar',
-  contenido_publicado: 'copy-ads',
 };
 
 function destinoDeKpi(k: KpiParaFoco): { href: string; label: string } {

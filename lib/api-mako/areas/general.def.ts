@@ -91,7 +91,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'medir_fuente_kpi', area: 'general', tipo: 'lectura',
     titulo: 'Medir una fuente en un rango',
-    descripcion: 'Lee UNA fuente automática del catálogo en un rango de fechas, con la MISMA definición que usa el tablero de KPIs. Rango máximo: 366 días, salvo cash_usd y sold_usd, que admiten hasta 92 (su lectura no pagina y un rango mayor podría sumar de menos). Devuelve `valor: null` con el motivo si no pudo leer: nunca cero por error. Úsala para preguntas puntuales como «¿cuántas llamadas analizamos esta semana?» sin tener un KPI creado. Las fechas son días calendario; leads_nuevos, vsl_plays y contenido_publicado cortan los bordes del día en UTC, no en la zona del negocio (la salida lo advierte). Usa ver_trimestre_actual si necesitas el hoy.',
+    descripcion: 'Lee UNA fuente automática del catálogo en un rango de fechas, con la MISMA definición que usa el tablero de KPIs. Rango máximo: 366 días, salvo cash_usd y sold_usd, que admiten hasta 92 (su lectura no pagina y un rango mayor podría sumar de menos). Devuelve `valor: null` con el motivo si no pudo leer: nunca cero por error. Úsala para preguntas puntuales como «¿cuántas llamadas analizamos esta semana?» sin tener un KPI creado. Las fechas son días calendario; leads_nuevos y vsl_plays cortan los bordes del día en UTC, no en la zona del negocio (la salida lo advierte). Usa ver_trimestre_actual si necesitas el hoy.',
     parametros: [
       { nombre: 'fuenteId', tipo: 'string', obligatorio: true, enum: FUENTES, descripcion: 'id de la fuente (de listar_fuentes_kpi).' },
       { nombre: 'desde', tipo: 'string', obligatorio: true, max: 10, descripcion: 'Inicio del rango, inclusive, YYYY-MM-DD.', ejemplo: '2026-09-01' },

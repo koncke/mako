@@ -37,6 +37,16 @@
 //   · `zernio: { letter: 'Z', … }` de vuelta en ServicioVisual.tsx → el de los cuatro registros.
 //   · el redirect apuntando a '/whatsapp' → el de la ruta vieja.
 // Restaurado: 6 pass / 0 fail.
+//
+// Y la revisión adversarial del mismo día (cuatro roturas más, 7 tests):
+//   · el lector `contenido_publicado: … contar('contenido_posts', …)` de vuelta en
+//     lib/objectives-fuentes.ts → 6 / 1, cae el barrido. Con el patrón viejo
+//     (`.from('<tabla>')`) la MISMA rotura daba 7 / 0: el agujero por el que se coló.
+//   · las excepciones de lib/workspace.ts y lib/tablas-de-inquilino.ts apagadas → 6 / 1,
+//     el barrido nombra las cuatro líneas de las listas de scoping.
+//   · la fuente `contenido_publicado` de vuelta en FUENTES_DEF → 6 / 1, cae el de los KPI.
+//   · sólo el candidato que la siembra de vuelta en CANDIDATOS_KPI → 6 / 1, el mismo.
+// Restaurado: 7 pass / 0 fail.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -47,6 +57,7 @@ import { REGISTRO } from '../lib/api-mako/registro';
 import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
 import { FAMILIAS, itemsDe } from '../app/_components/nav';
 import { POST } from '../app/api/webhooks/zernio/route';
+import { CANDIDATOS_KPI, FUENTES_KPI } from '../lib/objectives-modelo';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -61,8 +72,9 @@ const EXCEPTUADOS = [
   /^app\/conocimientos\//,
 ];
 
-// Lo que CABLEA la tab retirada, en positivo. No se busca la palabra suelta.
-const CABLEADO: Array<[RegExp, string]> = [
+// Lo que CABLEA la tab retirada, en positivo. No se busca la palabra suelta. El tercer
+// elemento, si está, son los archivos donde ESE patrón está a propósito (con su motivo).
+const CABLEADO: Array<[RegExp, string, string[]?]> = [
   [/from ['"](@\/lib\/(zernio|ig-chatbot|ig-contenido)|\.{1,2}\/(lib\/)?(zernio|ig-chatbot|ig-contenido))['"]/, 'un import de un módulo de Instagram que se borró'],
   // Con `../` y no `./`: app/admin/dev/registros.ts importa './instagram/bitacora', que
   // es la bitácora del ÁREA (la historia), no la carpeta de la tab.
@@ -70,7 +82,13 @@ const CABLEADO: Array<[RegExp, string]> = [
   [/['"`]\/instagram\b/, 'un link a /instagram (redirige a /chatbot: lo que prometía ya no existe)'],
   [/['"`]\/api\/instagram\//, 'la ruta de envío de DMs'],
   [/zernio\.com/, 'la API de Zernio'],
-  [/\.from\(['"](ig_conversaciones|ig_mensajes|contenido_posts|zernio_workspace)['"]\)/, 'una lectura o escritura de las tablas de Instagram'],
+  // El nombre de la tabla como CADENA, no sólo adentro de `.from(...)`: la fuente de KPI
+  // `contenido_publicado` (lib/objectives-fuentes.ts) contaba `contenido_posts` con
+  // `contar('contenido_posts', …)` y la versión con `.from(` la dejaba pasar (revisión del
+  // 06/10/2026). Las dos listas de scoping de inquilino las nombran A PROPÓSITO: las
+  // tablas quedan en la base, y si alguien vuelve a leerlas tienen que salir scopeadas.
+  [/['"`](ig_conversaciones|ig_mensajes|contenido_posts|zernio_workspace)['"`]/, 'una lectura o escritura de las tablas de Instagram',
+    ['lib/workspace.ts', 'lib/tablas-de-inquilino.ts']],
   [/ig_auto_respuesta|KEY_IG_AUTO_RESPUESTA/, 'el flag de la respuesta automática de DMs'],
 ];
 
@@ -85,7 +103,10 @@ test('nada en app/ ni lib/ vuelve a cablear la tab Instagram', () => {
   const hallazgos: string[] = [];
   for (const f of archivos) {
     sinComentarios(leer(f)).split('\n').forEach((l, i) => {
-      for (const [re, que] of CABLEADO) if (re.test(l)) hallazgos.push(`${f}:${i + 1} — ${que}: ${l.trim().slice(0, 110)}`);
+      for (const [re, que, salvo] of CABLEADO) {
+        if (salvo?.includes(f)) continue;
+        if (re.test(l)) hallazgos.push(`${f}:${i + 1} — ${que}: ${l.trim().slice(0, 110)}`);
+      }
     });
   }
   assert.deepEqual(hallazgos, [], 'Instagram volvió a cablearse. Si es a propósito, es una decisión del dueño, no un arreglo.');
@@ -149,6 +170,17 @@ test('ni el nav, ni el onboarding, ni la API de MaKo ofrecen la tab', () => {
   const ops = REGISTRO.map((d) => d.id).filter((id) => /instagram|zernio/.test(id) && id !== 'limites_formato_instagram');
   assert.deepEqual(ops, [], 'volvió una operación de Instagram a la API de MaKo');
   assert.ok(!REGISTRO.some((d) => d.gating?.tab === 'instagram'), 'una operación gateada por una tab que no existe no la ve ninguna capa con lista');
+});
+
+test('ningún KPI cuenta lo que escribía la tab retirada', () => {
+  // `contenido_publicado` contaba las filas de `contenido_posts` publicadas, que sólo
+  // escribía el programador de /instagram. Sin la tab daba 0 para siempre, y el candidato
+  // «Contenido publicado» la sembraba con un compromiso de 7 por semana: un KPI en rojo
+  // por un problema nuestro. Que no se vuelva a leer la tabla lo cuida el barrido de
+  // arriba; esto cuida que el catálogo no la vuelva a ofrecer con el mismo nombre.
+  assert.ok(!FUENTES_KPI.some((f) => f.id === 'contenido_publicado'), 'volvió la fuente contenido_publicado');
+  assert.deepEqual(CANDIDATOS_KPI.filter((c) => c.fuenteId === 'contenido_publicado').map((c) => c.nombre), [],
+    'un candidato sembraría un KPI que no puede contar nada');
 });
 
 test('Zernio no está en ninguno de los registros de una integración', () => {
