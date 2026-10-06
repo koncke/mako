@@ -27,6 +27,7 @@ import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
 import type { BoardTask, Label } from '../board/types';
 import { PlanBoard } from '../PlanBoard';
 import type { Dep } from '../board/dependencias';
+import { leerClienteDeUrl } from '../board/filtro-cliente';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -38,10 +39,23 @@ export const revalidate = 0;
  * —ves Prioridades y salta a Kanban— y encima React avisa por hidratación desalineada.
  * Leyéndola acá, el primer HTML ya viene con la vista correcta.
  */
-export default async function PlanAgenciaPage({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
-  const { vista } = await searchParams;
+export default async function PlanAgenciaPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const vista = typeof params.vista === 'string' ? params.vista : undefined;
   const sesion = await getUsuarioActual();
-  if (sesion?.rol !== 'admin' || (await estaImpersonando())) redirect(await rutaConWs('/plan'));
+  // ⚠️ EL QUERY VIAJA CON EL REDIRECT, también en esta dirección. Es el espejo del reenvío de
+  // /plan → /plan/agencia (ver app/plan/page.tsx): un admin IMPERSONANDO que abre un link de
+  // éstos —`?cliente=`, `?tarea=`— caía en /plan pelado, sin el filtro ni la tarjeta, y sin un
+  // error que lo explique.
+  if (sesion?.rol !== 'admin' || (await estaImpersonando())) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (typeof v === 'string') sp.set(k, v);
+      else if (Array.isArray(v) && v[0]) sp.set(k, v[0]);
+    }
+    const qs = sp.toString();
+    redirect(await rutaConWs(`/plan${qs ? `?${qs}` : ''}`));
+  }
 
   // Nombre + foto del usuario logueado (para el change history del board).
   let user = { nombre: '', avatarUrl: '' };
@@ -61,5 +75,5 @@ export default async function PlanAgenciaPage({ searchParams }: { searchParams: 
   // tablero entero es el peor intercambio posible.
   const clientes = await clientesGanadosOVacio();
 
-  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} clientes={clientes} />;
+  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} clientes={clientes} clienteInicial={leerClienteDeUrl(params.cliente)} />;
 }

@@ -34,6 +34,8 @@
 // componente cliente que pinta el rótulo de cómo se ató cada cosa.
 // =============================================================================
 
+import type { FichaExtra } from './ficha-datos';
+
 /** Cómo quedó atado un proyecto a un cliente. El orden es de más duro a más blando. */
 export type ComoAto =
   /** `cliente_lead_id` en una de sus tareas: es una CLAVE, no un parecido. */
@@ -64,6 +66,16 @@ export type ClienteCruce = {
   /** Cuando se gano (`leads.fecha_cierre`). Es la unica fecha real que tiene un
    *  cliente: `created_at` es cuando entro como LEAD, que es otra cosa. */
   fechaCierre?: string | null;
+  /**
+   * Lo que dibujan el «Resumen» y las «Llamadas» de su ficha: contacto, plata, llamadas y
+   * en qué etapa de cada servicio está. El cruce tampoco lo mira; viaja acá porque la
+   * ficha recibe al cliente entero y así no hace falta un prop más en cada pantalla que la
+   * monta. Lo arma `page.tsx` (ver ./ficha-datos.ts).
+   *
+   * Ausente = la pantalla que lo montó no lo trae. Cada mitad adentro tiene su propio
+   * `null` de «no se pudo leer», distinto de un vacío.
+   */
+  ficha?: FichaExtra;
 };
 /**
  * Un proyecto del tablero, para cruzar.

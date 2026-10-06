@@ -734,6 +734,7 @@ textarea.mako-field {
   transition: width .13s ease, margin-right .13s ease, opacity .13s ease;
 }
 .mk-tarjeta-lead:hover .mk-sel-tarjeta,
+.mk-tarjeta-sel:hover .mk-sel-tarjeta,
 .mk-sel-tarjeta:focus-visible,
 .mk-sel-tarjeta[data-marcada='1'] { width: 15px; margin-right: 0; opacity: 1; }
 

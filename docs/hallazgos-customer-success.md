@@ -3272,7 +3272,6 @@ vista. Ahora es una función (`opcionesDeEtapas`) y un menú.
 
 ### Lo que el workflow dejó SIN hacer, y sigue así
 
-- Reordenar fases en el editor (las nuevas van al final).
 - Arrastre con el dedo: el táctil del Plan (`app/plan/board/arrastre-tactil.ts`) está tipado
   contra sus columnas de prioridad.
 - La copia de FILA del arrastre está duplicada entre `TablaClientes.tsx` y
@@ -3310,3 +3309,117 @@ arrastre ignora lo que no nació adentro de la tarjeta en el DOM.
 
 **Vive en:** `app/customer-success/CuentaDeMaKo.tsx`, `app/customer-success/KanbanEntrega.tsx`
 (`agarrar`). Guard en `tests/cs-kanban-fases.test.ts`.
+
+## Los seis puntos de la noche del 05/10: casilla del CRM, fases al filtro, editor, ficha por pestañas
+
+El pedido fueron seis puntos (texto literal en `app/admin/dev/customer-success/bitacora.ts`).
+Lo construyeron cuatro agentes en paralelo sobre archivos separados, y la integración y la
+verificación en el navegador sobre Mauricio (ws1) y Código Inmobiliario (ws13) se hicieron
+después. Lo que costó entender:
+
+### «Cliente desde» y el filtro «Cuándo» leían un campo que nadie llenaba
+
+El Resumen de la ficha decía «—» en todos los clientes, y el diagnóstico obvio («ese cliente
+no tiene la fecha de cierre cargada») era falso. `lib/clientes-ganados.ts` pide la columna
+`fecha_cierre` desde `98bbce3e` (28/09) y **nunca la copiaba a `fechaCierre`**: el campo era
+`undefined` para todos. Por eso también el filtro «Cuándo» de la barra dejaba **0 clientes**
+en cualquier ventana que no fuera «Siempre», desde hacía una semana. El typecheck no lo ve
+porque el campo es opcional en `ClienteRef`. Es «escribir la salida no es ofrecerla» del lado
+de la lectura: seleccionar una columna no es leerla.
+
+**Vive en:** `lib/clientes-ganados.ts`.
+
+### «Llamadas» con `fathom_links` mostraba la mitad equivocada
+
+La fuente obvia, `leads.fathom_links`, sólo tiene las llamadas de VENTA (R1 y R2, como
+`{label, url}`, sin fecha). Las sesiones de la ENTREGA —lo que le importa a Customer Success—
+están en `closing_analyses` (`category = 'entrega_servicio'`, con `call_date` y duración).
+Medido con TEXX en el ws1: 18 llamadas ahí. La pestaña une las dos fuentes sin repetir la
+misma grabación.
+
+**Vive en:** `app/customer-success/ficha-datos.ts` (`llamadasDe`), `app/customer-success/ficha-lectura.ts`.
+
+### Esconder la pestaña «Equipo» no protegía nada
+
+`page.tsx` leía la cartera de la agencia —y con ella `listarUsuarios`, que es GLOBAL— con sólo
+tener filas aprobadas, aunque el workspace ya no fuera agencia. Una agencia a la que se le
+quitó el permiso seguía recibiendo en el HTML el equipo de otro inquilino. Ahora la lectura
+cuelga de `esAg`, igual que lo que se dibuja (`cuentas.visible = esAg`, pedido de Martín: «todo
+lo que tenga que ver con invitar a MaKo, debería solo verse si la cuenta es AGENCIA»). Y el
+filtro «Con / Sin cuenta de MaKo» de la barra se va con lo demás fuera de una agencia.
+
+**Vive en:** `app/customer-success/page.tsx`, `app/customer-success/ClientesApp.tsx`.
+
+### La fase en «Filtrar» destapó dos definiciones de «Sin fase» y un lote que actuaba a ciegas
+
+- Los chips **ofrecían** «Sin fase» contando las etapas con una fase BORRADA y la **dibujaban**
+  con `(e.fase ?? '') === ''`: con una sola etapa así, elegir «Sin fase» dejaba el riel en
+  blanco. Ahora decide una función (`columnasVisibles`) en las dos puntas, y una fase sin
+  columnas no se ofrece.
+- Con una fase elegida, la pantalla no sabía qué columnas estaban escondidas: «Seleccionar
+  todos» + «Mover a» movía clientes de fases que no se veían. Lo cierra `enPantalla` (lo
+  visible menos los clientes de las columnas escondidas), que usan el contador, el exportar y
+  la barra de lote.
+
+**Vive en:** `app/customer-success/BarraClientes.tsx`, `app/customer-success/ClientesApp.tsx`.
+
+### `.ke-card > * { width: 100% }` volvió a morder
+
+El numerito que lleva la copia del arrastre cuando viajan varios es hijo directo de la
+tarjeta y tomó el ancho entero: 275 px en vez de 27. Es la misma regla que estiró la casilla
+vieja hace unas horas. Antes de colgar algo de `.ke-card`, se le da `width: auto`.
+
+### El editor guarda el ORDEN QUE SE VE
+
+El rediseño (una lista, las fases como títulos, las acciones sólo al pasar el mouse, y
+ordenar y cambiar de fase con el mismo gesto: arrastrar o Alt+↑/↓) obligó a una regla que
+antes faltaba: el selector de fase viejo dejaba los grupos PARTIDOS en el tablero (cambiarle
+la fase a una etapa la dejaba en su lugar). Ahora cada guardado manda los grupos contiguos y
+las fases en el orden de las columnas (`enOrden`), y **la firma inicial pasa por el mismo
+`enOrden`**: sin eso, abrir el editor sobre una lista partida la guardaba (medido: 1 guardado
+contra 0).
+
+**Vive en:** `app/customer-success/EtapasEntregaModal.tsx`.
+
+### La ficha por pestañas: dos trampas del Modal
+
+- Las reglas del cuerpo del `Modal` (`ui.css`) le ponen padding y filete a cada hijo directo,
+  y el selector `+` cuenta igual a un hermano escondido con `display: none`: con las pestañas
+  como hijos sueltos aparecía una segunda raya. Va un único envoltorio.
+- Una pestaña DESMONTADA devolvería el tablero con datos viejos (`useBoard` siembra su estado
+  de las props una vez). Por eso se montan la primera vez que se abren y después sólo se
+  esconden.
+
+### Trampas del arnés y de correr cuatro agentes sobre el mismo árbol
+
+- **El scratchpad compartido con el mismo prefijo** hizo que un agente pisara el arnés de
+  roturas de otro y lo ejecutara: 17 roturas sobre `BoardShell.tsx` restauradas por un arnés
+  ajeno. Terminó bien porque ese arnés restauraba sólo el pedazo roto, no el archivo entero.
+  **Cada agente de un workflow necesita su propio sub-prefijo**, y un arnés que rompe código
+  restaura reemplazando el pedazo y no reescribiendo una copia vieja del archivo (pisaría el
+  trabajo del vecino que siguió editando).
+- **Restaurar «de memoria» puede fallar en Windows**: `writeFileSync` contestó
+  `UNKNOWN: unknown error, open` con OneDrive o el dev server tomando el archivo, y
+  `FichaCliente.tsx` quedó roto hasta restaurarlo a mano. El arnés reintenta, relee para
+  confirmar y guarda una copia previa.
+- **En Playwright headless cada `dragover` llega un movimiento tarde**: una foto tomada
+  durante el arrastre muestra la marca del lugar anterior aunque el drop caiga bien. Un
+  `mouse.move` de 1 px antes de leer.
+- **Las columnas del kanban también llevan `data-etapa`**: un selector suelto en un script
+  agarra el tablero que está detrás del modal.
+- **Un `mouse.down` sobre una fila fuera del área visible del cuerpo del modal cae en el
+  fondo**, y el `Modal` se cierra. Primero `scrollIntoViewIfNeeded`.
+- **Una medición «en reposo» con el cursor encima de la tarjeta mide el hover**: Playwright
+  deja el mouse donde terminó el paso anterior.
+
+### Lo que quedó SIN hacer
+
+- La fase NO filtra la vista tabla (sólo se ofrece en kanban): `TablaClientes.tsx`.
+- Arrastre con el dedo, en el kanban y en el editor (HTML5 DnD no anda en táctil).
+- Lo que se CREA en el Plan con el filtro de cliente puesto no nace asignado a ese cliente,
+  y desaparece del tablero filtrado al cerrarlo. Decisión de producto pendiente
+  (`crearConGuardian` / `crearProyecto` en `app/plan/board/BoardShell.tsx`).
+- `app/admin/FichaWorkspace.tsx` (la ficha de la plataforma) sigue con «Equipo» como vista
+  extra del tablero.
+- Los números del Resumen son los de cuando se abrió la ficha; no siguen en vivo lo que se
+  edita en Prioridades.

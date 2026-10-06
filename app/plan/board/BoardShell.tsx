@@ -24,6 +24,10 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 // sale del módulo compartido que también leen el server y Customer Success.
 import { AsignarClienteModal, ClienteChip } from './AsignarCliente';
 import { clienteDe, ROTULO_CLIENTE, SIN_CLIENTE, type ClienteRef } from '@/lib/plan-clientes';
+// «SÓLO LO DE ESTE CLIENTE» (05/10/2026): el filtro que pone el botón «Ver en el Plan» de la
+// ficha. La regla de qué es de un cliente vive ahí y no acá, para que el filtro y la ficha no
+// puedan contestar distinto.
+import { PARAM_CLIENTE, proyectosDelCliente, tareaEsDelCliente, nombreDelCliente, opcionesDeCliente } from './filtro-cliente';
 // LA PORTADA de un proyecto (mig 0173). El selector es EL MISMO que usa la ficha de un
 // cliente: la pregunta «¿qué se ve arriba?» se contesta en un solo lugar o se contesta de
 // dos formas distintas según de dónde la abriste.
@@ -201,8 +205,41 @@ function Marco({ embebido, children }: { embebido: boolean; children: ReactNode 
   return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
 }
 
-export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar }: {
+export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, nombreCliente }: {
   board: Board;
+  /**
+   * DIBUJÁ SÓLO ESTA VISTA, Y SIN EL SELECTOR DE VISTAS. Lo usa la ficha de un cliente en
+   * Customer Success: «dejar solo la sección de PRIORIDADES… y Tareas, Proyectos y
+   * Recurrentes que se vean en la tab de Plan» (05/10/2026). La ficha dibuja sus propias
+   * tabs (Resumen, Prioridades, …), así que el selector del tablero adentro sería una
+   * segunda fila de tabs debajo de la primera — el error que ya se corrigió dos veces
+   * (ver `vistaExtra`).
+   *
+   * ⚠️ SE VA EL SELECTOR Y TAMBIÉN EL LOGO DEL PLAN: los dos son la identidad de la
+   * PANTALLA /plan, y adentro de la ficha la identidad es la del cliente. Los botones de
+   * acción (fecha que falta, reuniones, importar, exportar) se quedan: hacen algo.
+   *
+   * ⚠️ GANA SOBRE `vistaInicial` y deja a `vistaExtra` sin puerta: sin selector no hay
+   * cómo llegar a otra vista, y eso es exactamente lo que se pidió. Ausente, no cambia nada.
+   */
+  soloVista?: 'prioridades';
+  /**
+   * EL CLIENTE CON EL QUE ARRANCA FILTRADO, LEÍDO EN EL SERVER desde `?cliente=` (las dos
+   * páginas de /plan). Mismo trato que `vistaInicial` y por el mismo motivo: si se leyera
+   * de `window` después de hidratar, cada F5 de un link filtrado mostraría el tablero
+   * ENTERO medio segundo y después saltaría.
+   *
+   * ⚠️ EMBEBIDO SE IGNORA: la URL de la pantalla que lo contiene no es la de este tablero
+   * (ver `embebido`), y la ficha ya le pasa las filas filtradas.
+   */
+  clienteInicial?: number | null;
+  /**
+   * DE QUIÉN SON LAS FILAS QUE TRAE, cuando las trae filtradas de afuera (la ficha de un
+   * cliente: `clienteFijo` en PlanBoard/TodoBoard). Sólo cambia los dos VACÍOS de
+   * Prioridades: adentro de la ficha de un cliente sin trabajo, «no queda ninguna tarea
+   * abierta en todo el plan» es falso — el plan tiene; el que no tiene es él.
+   */
+  nombreCliente?: string;
   /**
    * Los clientes elegibles: los leads GANADOS del workspace (mig 0172). Los lee la PÁGINA
    * en el server y bajan como prop — no hay endpoint de búsqueda de leads y no hace falta
@@ -304,8 +341,11 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // ⚠️ Y `vistaInicial` PUEDE SER LA EXTRA. `vistaValida` sólo conoce las cuatro
   // literales, así que sin este `??` un deep-link a la vista de más («ver su equipo»)
   // abría Prioridades y el control que llevaba ahí se leía como roto.
+  // ⚠️ Y `soloVista` LE GANA A LAS DOS: sin selector no hay forma de salir de la vista con la
+  // que se arranca, así que arrancar en otra dejaría la pantalla clavada en algo que nadie pidió.
   const [view, setView] = useState<Vista | string>(
-    vistaValida(vistaInicial)
+    soloVista
+    ?? vistaValida(vistaInicial)
     ?? (vistaExtra && vistaInicial === vistaExtra.id ? vistaExtra.id : 'prioridades'),
   );
   /**
@@ -392,6 +432,23 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // Es un Set y no un valor unico porque «hoy Y esta semana» es una pregunta legitima
   // —lo urgente mas lo que se viene— y con un radio habria que elegir una.
   const [fCuando, setFCuando] = usePrefSet<Cuando>('tablero.cuando', esCuando);
+  /**
+   * EL CLIENTE DEL FILTRO (un leadId), o `null`. UNO SOLO: «¿de quién es esto?» tiene una
+   * respuesta por tarjeta, y el botón que lo pone («Ver en el Plan», en la ficha) habla de UN
+   * cliente.
+   *
+   * ⚠️ `useState` Y NO `usePref`, Y ES LA DECISIÓN ENTERA. Los filtros de arriba se recuerdan
+   * porque son PREFERENCIAS («siempre miro lo activo»); éste es una DECISIÓN de esta visita
+   * («ahora quiero ver lo de Brigitte»). Restaurado en silencio la próxima vez, el Plan
+   * abriría mostrando sólo un cliente sin que nadie lo haya pedido hoy — la trampa de la casa
+   * «localStorage restaura una PREFERENCIA, nunca pisa una DECISIÓN». Lo ponen la URL
+   * (`clienteInicial`, leído en el server) o el menú «Filtrar», y mientras está puesto vive en
+   * la URL (ver «LA URL ES EL ESTADO DE LA PANTALLA», más abajo).
+   *
+   * ⚠️ EMBEBIDO NACE EN `null` Y EL MENÚ NO LO OFRECE: adentro de la ficha las filas ya son de
+   * ese cliente, y un filtro que devuelve la misma lista se lee como un control roto.
+   */
+  const [fCliente, setFCliente] = useState<number | null>(embebido ? null : (clienteInicial ?? null));
   const [sortMode, setSortMode] = usePref<OrdenModo>('orden.modo', 'score', esUnoDe('score', 'creacion', 'deadline', 'az')); // orden de tareas/proyectos
   const [sortDir, setSortDir] = usePref<'desc' | 'asc'>('orden.dir', 'desc', esUnoDe('desc', 'asc')); // dirección: desc = mayor/más nuevo primero
   // TARJETAS o TABLA, una preferencia por vista. «Sí me parece bien que haya una vista
@@ -536,7 +593,11 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // no se puede empezar nada hoy es un norte que no sirve. Si todo está frenado se cae al
   // criterio de siempre en vez de dejar la card vacía — y ahí el tablero ya está diciendo
   // otra cosa (que la cadena está trabada), que se ve en los candados.
-  const objetivoPrincipal = porScore.find((l) => proyArrancable(l.id)) ?? porScore.find((l) => tienePendientes(l.id)) ?? porScore[0] ?? null;
+  // Una FUNCIÓN y no la expresión suelta: Prioridades filtrada a un cliente elige SU objetivo
+  // con este mismo criterio (ver `objetivoVista`), y dos copias del criterio del norte son
+  // dos nortes el día que alguien toque una.
+  const elegirObjetivo = (ls: Label[]) => ls.find((l) => proyArrancable(l.id)) ?? ls.find((l) => tienePendientes(l.id)) ?? ls[0] ?? null;
+  const objetivoPrincipal = elegirObjetivo(porScore);
   const topProjectId = objetivoPrincipal?.id ?? null;
   // ── "Datos sin marcar" (feedback jul-19): el deadline (opcional), en UN modal batch.
   // Reemplaza al gauntlet card-by-card que auto-popeaba de a una. Persistimos qué se ignoró. (El «no volver a pedir» de
@@ -745,7 +806,30 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome]);
-  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter);
+  /**
+   * EL FILTRO DE CLIENTE, COMO PREDICADO: uno para tareas y uno para proyectos, y los llaman
+   * TODAS las vistas — `passes` (Tareas, Kanban y tabla), las dos listas de Recurrentes, la
+   * grilla y la tabla de Proyectos (`ProyectosView`) y Prioridades (`pendientesTodas` y el
+   * objetivo). Es la regla de este archivo para la barra de filtros: un predicado por
+   * pregunta, o el filtro nuevo funciona en una vista y en la otra no.
+   *
+   * Los proyectos del cliente se calculan UNA vez por render (no por tarjeta): con 550
+   * tareas, preguntarlo adentro de cada `filter` es la diferencia que se siente al tipear.
+   */
+  const filtroCli = useMemo(() => {
+    if (fCliente == null) return null;
+    const proys = proyectosDelCliente(labels, fCliente);
+    return { tarea: (t: BoardTask) => tareaEsDelCliente(t, fCliente, proys), proyecto: (l: Label) => proys.has(l.id) };
+  }, [labels, fCliente]);
+  const pasaCliente = (t: BoardTask) => !filtroCli || filtroCli.tarea(t);
+  const pasaClienteProy = (l: Label) => !filtroCli || filtroCli.proyecto(l);
+  /** Cómo se llama el cliente del filtro. Con un id que no está en la cartera igual filtra,
+   *  con un nombre de respaldo: ver el porqué en `nombreDelCliente`. */
+  const nombreFiltroCli = fCliente == null ? null : nombreDelCliente(fCliente, clientes, [...tasks, ...labels]);
+  /** La capa «Cliente» del menú «Filtrar». `undefined` embebido: ver `fCliente`. */
+  const opcionesCli = useMemo(() => (embebido ? [] : opcionesDeCliente(clientes, [...tasks, ...labels])), [embebido, clientes, tasks, labels]);
+  const menuCli: FiltroCliente | undefined = embebido ? undefined : { opciones: opcionesCli, valor: fCliente, nombre: nombreFiltroCli, set: setFCliente };
+  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter) && pasaCliente(t);
   /**
    * LO QUE SE VE EN «TAREAS» (Kanban y tabla): el universo CON FIN, salvo que estés
    * buscando.
@@ -790,10 +874,12 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l)))
     && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo))
     && pasaEstado(t.progress, doneFilter)
+    && pasaCliente(t)
   ));
   const proyRecurrentesVisibles = losProyectosRecurrentes.filter((l) => (
     (!q || coincide(`${l.pid ?? ''} ${(l.pid ?? '').replace(/^P/i, '')} ${l.name}`, q.replace(/^#/, '')))
     && (fLabels.size === 0 || fLabels.has(l.id))
+    && pasaClienteProy(l)
   ));
   // ── El header: SIEMPRE PLEGADO ───────────────────────────────────────────────
   //
@@ -833,7 +919,20 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // valga menos —su score no se toca, y en el Kanban sigue donde estaba—: es que hoy no se
   // puede empezar, y una lista de «hacé esto» con cosas que no se pueden hacer es peor que
   // una lista corta. Lo que sí sube es lo que las DESTRABA, por la urgencia heredada.
-  const pendientesTodas = conFin.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps));
+  const pendientesTodas = conFin.filter((t) => t.progress < 100 && !estaBloqueada(t.id, estDeps) && pasaCliente(t));
+  /**
+   * EL NORTE DE ESTA VISTA. Sin filtro es el Objetivo Principal del tablero, igual que
+   * siempre. Con el filtro de cliente es el mejor proyecto DE ESE CLIENTE, con el mismo
+   * criterio (`elegirObjetivo`) — que es lo que ya muestra su ficha, donde el tablero sólo
+   * tiene sus filas.
+   *
+   * ⚠️ `topProjectId` NO CAMBIA CON EL FILTRO, y es a propósito: ése decide en qué COLUMNA
+   * cae cada tarjeta del Kanban (`displayPrio`), y un filtro que mueve tarjetas de columna no
+   * filtra: reordena. Esto es sólo lo que Prioridades dibuja a la izquierda y con qué
+   * desempata.
+   */
+  const objetivoVista = filtroCli ? elegirObjetivo(porScore.filter(pasaClienteProy)) : objetivoPrincipal;
+  const topVistaId = objetivoVista?.id ?? null;
   // ⚠️ MANDA LA BANDA, Y EL PROYECTO TOP DESEMPATA ADENTRO DE ELLA.
   //
   // Acá entraban primero TODAS las pendientes del proyecto top ordenadas por score y el
@@ -849,7 +948,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // que es el mismo con el que después se ordena.
   const urg = (t: BoardTask) => estDeps.urgencia[t.id] ?? t.score;
   const banda = (t: BoardTask) => PRIOS.indexOf(prioFromScore(urg(t)));   // 0 = alta … 3 = a futuro
-  const esDelTop = (t: BoardTask) => (topProjectId ? t.labels.includes(topProjectId) : false);
+  const esDelTop = (t: BoardTask) => (topVistaId ? t.labels.includes(topVistaId) : false);
   const enPrio = [...pendientesTodas]
     .sort((a, b) => banda(a) - banda(b) || Number(esDelTop(b)) - Number(esDelTop(a)) || scoreProy(b) - scoreProy(a) || urg(b) - urg(a))
     .slice(0, MAX_PRIORIDAD);
@@ -944,7 +1043,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // pestaña del cliente y terminás mirando otra cuenta.
   //
   // ⚠️ Y NO SE ESCRIBE EMBEBIDO: la URL de `/customer-success` no es la de este tablero.
-  const urlEstado = `${view}|${openId ?? ''}|${openProj ?? ''}`;
+  // ⚠️ EL CLIENTE DEL FILTRO TAMBIÉN, y es lo que lo hace honesto: con `?cliente=` en la URL
+  // pero sin escribirlo de vuelta, sacar el filtro con la ✕ y apretar F5 lo volvía a poner —
+  // un filtro que se restaura solo, que es justo lo que `useState` (y no `usePref`) evita.
+  const urlEstado = `${view}|${openId ?? ''}|${openProj ?? ''}|${fCliente ?? ''}`;
   const urlPrev = useRef<string | null>(null);
   useEffect(() => {
     if (embebido) return;
@@ -960,10 +1062,11 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       if (view === 'prioridades') sp.delete('vista'); else sp.set('vista', view);
       if (openId) sp.set('tarea', openId); else sp.delete('tarea');
       if (openProj) sp.set('proyecto', openProj); else sp.delete('proyecto');
+      if (fCliente != null) sp.set(PARAM_CLIENTE, String(fCliente)); else sp.delete(PARAM_CLIENTE);
       const qs = sp.toString();
       window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
     } catch { /* sin URL no se pierde nada: el estado vive en React igual */ }
-  }, [urlEstado, view, openId, openProj, embebido]);
+  }, [urlEstado, view, openId, openProj, fCliente, embebido]);
 
   const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
@@ -1258,19 +1361,21 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           el más chico de los tres. Como pantalla no cambia nada. */}
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 10, padding: embebido ? '4px 30px 12px' : '20px 30px 16px', flexWrap: 'wrap', minWidth: 0 }}>
         {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
+        {/* ⚠️ CON `soloVista` NO SE DIBUJAN NI EL LOGO NI LAS TABS: la pantalla que monta el
+            tablero trae las suyas (ver el prop). */}
+        {!soloVista && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flex: 'none' }}>
           <PlanIcon size={38} />
           {/* La PALABRA cede cuando no entra; el ícono no. Son ~110px que valen más como
               buscador que como rótulo de una pantalla en la que ya estás. */}
           {!compacto && <span style={{ fontSize: 40, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.025em', lineHeight: 1 }}>Plan</span>}
-        </div>
+        </div>}
         {/* tabs */}
-        <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
+        {!soloVista && <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
           {[...VISTAS.map((v) => ({ id: v as string, label: v === 'proyectos' ? repo.labelPlural : (v as string) })),
             ...(vistaExtra ? [{ id: vistaExtra.id, label: vistaExtra.label }] : [])].map((v) => (
             <button key={v.id} onClick={() => setView(v.id)} style={{ border: 'none', background: view === v.id ? 'var(--surface)' : 'transparent', color: view === v.id ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v.id ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v.id ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v.label}</button>
           ))}
-        </div>
+        </div>}
         {/* De acá a la derecha. DOS grupos, y el orden importa:
             · el VARIABLE (progreso + buscar + filtrar) cambia según la vista;
             · el FIJO (avisos, MaKo, Fathom, subir, exportar) va SIEMPRE último y en el
@@ -1286,6 +1391,26 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             se achica: el header entero puede entrar perfecto y ser ESTE el que se queda
             sin lugar — su contenido se sale y se dibuja encima de los botones. */}
         <div data-grupo-vista style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        {/* EL FILTRO DE CLIENTE, A LA VISTA Y CON SU ✕, EN TODAS LAS VISTAS.
+            ⚠️ No alcanza con el número de «Filtrar»: Prioridades no dibuja ese botón, y es
+            justo la vista en la que el filtro cambia el norte y las cinco tarjetas. Un filtro
+            que se aplica sin verse es un tablero que miente sobre lo que hay — y el que llega
+            por «Ver en el Plan» tiene que leer de quién es lo que está mirando sin abrir nada.
+            Y el número solo no dice QUIÉN: el chip dice el nombre. */}
+        {nombreFiltroCli != null && (
+          <span data-filtro-cliente title={`Sólo lo de ${nombreFiltroCli}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 4px 0 12px', borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, flex: 'none' }}>
+            <span style={{ flex: 'none', fontWeight: 500, color: 'var(--dim)' }}>{ROTULO_CLIENTE}</span>
+            {/* ⚠️ `flex: none` EN EL CHIP Y EL TOPE EN EL NOMBRE, no al revés. Con el chip
+                cediendo (`0 1 auto`) el grupo lo aplastaba aunque sobrara lugar en el
+                header —medido: «Leila» salía como «L…» a 1500 px—, porque el buscador
+                declara una base más grande que su contenido y el que cede es el vecino. El
+                dato no cede; un nombre largo se corta solo, en su tope. */}
+            <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreFiltroCli}</span>
+            <button type="button" onClick={() => setFCliente(null)} aria-label="Quitar el filtro de cliente" title="Quitar el filtro"
+              style={{ flex: 'none', width: 24, height: 24, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontSize: 13, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontFamily: SANS }}>✕</button>
+          </span>
+        )}
         {/* El progreso es un DATO, no un control: cuando no entra todo, es lo primero que
             cede el lugar (los botones hacen algo; este solo informa). */}
         {!compacto && view === 'tareas' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
@@ -1318,12 +1443,12 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             «Filtrar» siguen afuera, por lo que dice el comentario de arriba: sus tres
             preguntas se derivan del deadline y del score. */}
         {(view === 'tareas' || view === 'proyectos' || view === 'recurrentes') && <VistaToggle tabla={tabla} onSet={setTabla} />}
-        {view === 'tareas' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
-        {view === 'proyectos' && <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />}
+        {view === 'tareas' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} cliente={menuCli} />}
+        {view === 'proyectos' && <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} cliente={menuCli} />}
         {/* ⚠️ SIN «CUÁNDO» Y SIN ORDENAR: los dos salen del deadline, y una recurrente no
             tiene. Dibujarlos acá sería ofrecer tres controles que devuelven la lista igual.
             Quedan los que sí contestan algo: por proyecto, por origen y por estado. */}
-        {view === 'recurrentes' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} />}
+        {view === 'recurrentes' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} cliente={menuCli} />}
         </div>
         {/* Los botones de acción, PLEGABLES: cuando no entran se esconden detrás de un
             «+» que los despliega al costado. Antes se dibujaban encima de «Filtrar». */}
@@ -1406,7 +1531,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           El patrón que sí funciona en los dos: el padre es columna y el hijo estira
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
       <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
+        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoVista} cliente={nombreFiltroCli ?? nombreCliente ?? null} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* ⚠️ EL BOTÓN DE CREAR, QUE ACÁ NO ESTABA. «Falta el botón de crear tarea en la
@@ -1437,7 +1562,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
               onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido) => setSoltada({ entidad: 'tarea', id, destino, sugerido })} />)}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} pasaCliente={pasaClienteProy} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
           onSoltarTarea={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
@@ -3413,7 +3538,12 @@ function ColHeader({ p, count }: { p: Prio; count: number }) {
 
 // ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
 // 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
-function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
+function Prioridades({ tasks, board, objetivo, cliente = null, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null;
+  /** El cliente cuyo trabajo se está mirando —el del filtro, o el de la ficha que monta el
+   *  tablero—, o `null`. Sólo cambia los dos VACÍOS: ahí «no queda ninguna tarea en todo el
+   *  plan» sería falso — el plan tiene; el que no tiene es este cliente. */
+  cliente?: string | null;
+  onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
   return (
     // FLUIDA, no de ancho fijo. Antes era `maxWidth: 1060` + una columna clavada en
     // 336px y una media query a 840: con el zoom del navegador (que cambia el ancho en
@@ -3454,7 +3584,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
             vive en celdas de 320 minimo. */}
         <div className="mako-prio-obj" style={{ flex: '0 1 380px', maxWidth: 420, minWidth: 280, display: 'flex' }}>
           {objetivo ? <ObjetivoCard objetivo={objetivo} prog={projProgress(board.tasks, objetivo.id)} onOpen={() => onOpenProj(objetivo.id)} /> : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Crea un proyecto y el perro elige el norte.</div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>{cliente ? `${cliente} no tiene proyectos.` : 'Todavía no hay un Objetivo Principal. Crea un proyecto y el perro elige el norte.'}</div>
           )}
         </div>
         {/* DERECHA — las 3 tareas en prioridad. `flex: 2 1 380px`: crece el doble que
@@ -3474,7 +3604,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
               {/* Acá SOLO se llega con el plan entero terminado: la lista se completa con
                   lo mejor del resto de los proyectos, así que si está vacía es que no
                   queda ni una tarea abierta. Decirlo así y no "todavía no hay ninguna". */}
-              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>No queda ninguna tarea abierta en todo el plan. Crea una nueva o saca los pendientes de tu última reunión.</div>
+              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>{cliente ? `${cliente} no tiene tareas abiertas.` : 'No queda ninguna tarea abierta en todo el plan. Crea una nueva o saca los pendientes de tu última reunión.'}</div>
             </div>
           )}
           {tasks.map((t, i) => {
@@ -3562,10 +3692,20 @@ const ORIGEN_OPS: Array<[string, string]> = [
   ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reunión · Fathom'], ['claude-code', '⌨️ Claude Code'],
   ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
 ];
-type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando';
-function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, fCuando, setFCuando, sortMode, setSortMode, sortDir, setSortDir, soloIcono }: {
+type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando' | 'cliente';
+/**
+ * La capa «Cliente» del menú. UNA elección (radio) y no un `Set` como las demás: «¿de quién
+ * es?» tiene una respuesta por tarjeta, y el link que la pone habla de un cliente.
+ *
+ * ⚠️ NO ES UNA PREFERENCIA: el estado vive en `BoardShell` como `useState`, no en `usePref`
+ * (ver `fCliente`). El menú sólo lo muestra y lo cambia.
+ */
+type FiltroCliente = { opciones: Array<{ leadId: number; nombre: string }>; valor: number | null; nombre: string | null; set: (v: number | null) => void };
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, fCuando, setFCuando, sortMode, setSortMode, sortDir, setSortDir, soloIcono, cliente }: {
   /** sin lugar: queda el embudo solo (la palabra son ~55px). */
   soloIcono?: boolean;
+  /** La capa «Cliente». Ausente = no se dibuja (embebido, ver `fCliente`). */
+  cliente?: FiltroCliente;
   labels?: Label[]; fLabels?: Set<string>; setFLabels?: (s: Set<string>) => void;
   doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
   fOrigen?: Set<string>; setFOrigen?: (s: Set<string>) => void;
@@ -3593,8 +3733,12 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
    */
   const [ordenProy, setOrdenProy] = usePref<OrdenModo>('filtro.proyectos.orden', 'az', esUnoDe('score', 'deadline', 'creacion', 'az'));
   const [dirProy, setDirProy] = usePref<'desc' | 'asc'>('filtro.proyectos.dir', 'asc', esUnoDe('desc', 'asc'));
+  const [buscaCli, setBuscaCli] = useState('');
   const cerrar = () => { setOpen(false); setVista('root'); };
-  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
+  // ⚠️ EL CLIENTE CUENTA EN EL NÚMERO DEL BOTÓN, y «Limpiar» también lo saca: es un filtro
+  // más de esta barra, y un botón que dice «sin filtros» con el tablero filtrado miente.
+  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0) + (cliente?.valor != null ? 1 : 0);
+  const limpiarTodo = () => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setDoneFilter('all'); cliente?.set(null); };
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
   const toggleOrigen = (tipo: string) => { if (!fOrigen || !setFOrigen) return; const c = new Set(fOrigen); if (c.has(tipo)) c.delete(tipo); else c.add(tipo); setFOrigen(c); };
   const toggleCuando = (v: Cuando) => { if (!fCuando || !setFCuando) return; const c = new Set(fCuando); if (c.has(v)) c.delete(v); else c.add(v); setFCuando(c); };
@@ -3622,6 +3766,10 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   cats.push({ key: 'estado', label: 'Estado', resumen: estadoLabel, activo: doneFilter !== 'all' });
   if (labels && labels.length > 0) cats.push({ key: 'proyecto', label: 'Proyecto', resumen: proyResumen, activo: !!fLabels?.size });
   if (fOrigen && setFOrigen) cats.push({ key: 'origen', label: 'Origen', resumen: origenResumen, activo: !!fOrigen.size });
+  // Sin clientes no se dibuja: una capa con sólo «Todos» es un control que no hace nada.
+  // Salvo que el filtro YA esté puesto (un link con un id sin cartera): ahí tiene que poder
+  // verse y sacarse también desde acá.
+  if (cliente && (cliente.opciones.length > 0 || cliente.valor != null)) cats.push({ key: 'cliente', label: ROTULO_CLIENTE, resumen: cliente.nombre ?? 'Todos', activo: cliente.valor != null });
 
   const catRow: CSSProperties = { ...rowBtn, justifyContent: 'space-between', padding: '10px 9px' };
   const resumenTxt = (activo: boolean): CSSProperties => ({ fontSize: 12, color: activo ? 'var(--primary)' : 'var(--faint)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 });
@@ -3640,7 +3788,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
           // de los de 38x38: tres alturas en la misma fila. La caja es la MISMA siempre.
           height: 38, width: soloIcono ? 38 : undefined, padding: soloIcono ? 0 : '0 13px', flex: 'none', whiteSpace: 'nowrap', background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />{!soloIcono && 'Filtrar'}
-        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
+        {n > 0 && <span onClick={(e) => { e.stopPropagation(); limpiarTodo(); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
         <span onClick={cerrar} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
@@ -3658,7 +3806,7 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                 </button>
               ))}
               {n > 0 && (
-                <button onClick={() => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setDoneFilter('all'); }}
+                <button onClick={limpiarTodo}
                   style={{ ...rowBtn, justifyContent: 'center', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 10, color: 'var(--primary)', fontWeight: 600 }}>
                   Limpiar filtros ({n})
                 </button>
@@ -3736,6 +3884,37 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                   <span>{CUANDO_LABEL[v]}</span>
                 </button>
               ))}
+              {/* UNA ELECCIÓN, con radios: «Todos» saca el filtro. El buscador aparece recién
+                  con más de ocho, como el de proyectos con setenta: con catorce clientes una
+                  lista se lee de un vistazo, con cuarenta ya es un scroll. */}
+              {vista === 'cliente' && cliente && (() => {
+                const qc = buscaCli.trim().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+                const sinAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+                // El elegido entra aunque no esté en la cartera ni lo encuentre el buscador:
+                // si la lista escondiera lo que está filtrando, la pantalla mentiría.
+                const base = cliente.valor != null && !cliente.opciones.some((o) => o.leadId === cliente.valor)
+                  ? [{ leadId: cliente.valor, nombre: cliente.nombre ?? `Cliente #${cliente.valor}` }, ...cliente.opciones]
+                  : cliente.opciones;
+                const lista = base.filter((o) => o.leadId === cliente.valor || !qc || sinAcento(o.nombre).includes(qc));
+                return (
+                  <>
+                    {base.length > 8 && (
+                      <input value={buscaCli} onChange={(e) => setBuscaCli(e.target.value)} autoFocus placeholder="Buscar cliente…"
+                        style={{ width: '100%', padding: '7px 9px', marginBottom: 6, borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }} />
+                    )}
+                    <button onClick={() => cliente.set(null)} style={{ ...rowBtn, background: cliente.valor == null ? 'var(--primary-bg)' : 'transparent', fontWeight: cliente.valor == null ? 700 : 500 }}>
+                      <span style={radio(cliente.valor == null)} /><span>Todos</span>
+                    </button>
+                    {lista.length === 0 && <div style={{ padding: '10px 9px', fontSize: 12, color: 'var(--faint)' }}>Ninguno coincide.</div>}
+                    {lista.map((o) => (
+                      <button key={o.leadId} onClick={() => cliente.set(o.leadId)} style={{ ...rowBtn, background: cliente.valor === o.leadId ? 'var(--primary-bg)' : 'transparent', fontWeight: cliente.valor === o.leadId ? 700 : 500 }}>
+                        <span style={radio(cliente.valor === o.leadId)} />
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.nombre}</span>
+                      </button>
+                    ))}
+                  </>
+                );
+              })()}
               {vista === 'origen' && ORIGEN_OPS.map(([tipo, label]) => (
                 <button key={tipo} onClick={() => toggleOrigen(tipo)} style={rowBtn}>
                   <span style={check(!!fOrigen?.has(tipo))}>{fOrigen?.has(tipo) ? '✓' : ''}</span>
@@ -4951,7 +5130,10 @@ function GrupoRecurrente({ rotulo, n, children }: { rotulo: string; n: number; c
   );
 }
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, campos, fOrigen, sortMode, sortDir, tabla, onSoltar }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string;
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, campos, fOrigen, pasaCliente, sortMode, sortDir, tabla, onSoltar }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string;
+  /** El filtro de cliente del header, el MISMO predicado que usan las otras vistas
+   *  (`pasaClienteProy` en `BoardShell`): esta vista filtra adentro y no podía verlo. */
+  pasaCliente: (l: Label) => boolean;
   /** DÓNDE mira la búsqueda. Es la MISMA elección que gobierna la de tareas (el chevrón al
    *  lado de la lupa), que esta vista ignoraba: buscar acá miraba siempre el detalle, las
    *  notas y los títulos de las tareas de adentro, hubiera pedido eso o no. */
@@ -5083,6 +5265,9 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
     // deja el orden que traía `ordenados` — el del header — sin volver a compararlo.
     .sort((a, b) => a.esc - b.esc)
     .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)) || tieneTareasDe(l.id))
+    // ⚠️ Y SÓLO LOS QUE LO DECLARAN, a diferencia del origen de arriba: un proyecto NO es de
+    // un cliente por tener una tarea suya adentro (la misma regla que su ficha).
+    .filter(({ l }) => pasaCliente(l))
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter))
     // ⚠️ LO TERMINADO VA AL FONDO, igual que en la tabla. Mismo criterio y misma función
     // (`proyectoTerminado`), porque el bug era justamente que cada vista tenía el suyo:

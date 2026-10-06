@@ -27,19 +27,29 @@ import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
-import { BarraClientes, CUANDO_LABEL, entraEnVentana, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
+import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, entraEnVentana, opcionesDeFase, faseVigente, columnasVisibles, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
 import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
 import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
 import { SelectorServicio } from './SelectorServicio';
 import type { CarteraEnEntrega } from './entrega';
-import { conteoDeEtapas, relojDeVuelta, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
+import { conteoDeEtapas, relojDeVuelta, repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
 import { LoteClientes } from './LoteClientes';
 import { guardarImagenClienteAction, autoasignarAction, moverEntregaAction, sacarDeEntregaAction, guardarEtapasEntregaAction, crearServicioAction, moverEntregaLoteAction, renombrarServicioAction, eliminarServicioAction } from './actions';
 
 /** Lo que se le cambió a un cliente sin recargar la página. */
 type Imagen = { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null };
+
+/**
+ * Los filtros de la barra SIN los de la cuenta de MaKo. «Con / Sin cuenta de MaKo» es parte
+ * de invitar a MaKo, y desde el 05/10/2026 eso sólo existe en una AGENCIA («todo lo que
+ * tenga que ver con invitar a MaKo, debería solo verse si la cuenta es AGENCIA»): en otro
+ * workspace el filtro preguntaría por algo que la pantalla no ofrece en ningún lado.
+ */
+const FILTRO_SIN_CUENTAS = Object.fromEntries(
+  Object.entries(FILTRO_LABEL).filter(([k]) => k !== 'con-cuenta' && k !== 'sin-cuenta'),
+) as Partial<typeof FILTRO_LABEL>;
 
 export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, entrega, puedeEditarEtapas = false }: {
   /** Los leads GANADOS del workspace, en orden de `id` — o sea, de antigüedad como
@@ -129,6 +139,20 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
    *  escribiría dos veces y el día que una de las dos cambie, el renglón de «no
    *  encontré» aparece sobre un tablero o desaparece sobre una tabla. */
   const enKanban = vista === 'kanban' && Boolean(servicio);
+  /**
+   * QUÉ FASE DEL TABLERO SE ESTÁ MIRANDO. `null` = todas, `''` = las columnas sueltas.
+   *
+   * ⚠️ VIVE ACÁ Y NO EN EL KANBAN desde que dejó de ser una fila de chips arriba del riel
+   * y pasó a ser una sección de «Filtrar» (05/10/2026): el control es de la BARRA, y la
+   * barra y el tablero son hermanos. Lo pedido se guarda tal cual y lo que se DIBUJA sale
+   * de `faseVigente`: cambiar a un servicio que no tiene esa fase no la borra, la ignora.
+   *
+   * ⚠️ Y SIGUE SIENDO UN FILTRO DEL RENDER: el kanban la usa para elegir columnas y nunca
+   * se la pasa al reparto (ver `visibles` en KanbanEntrega).
+   */
+  const [fasePedida, setFasePedida] = useState<string | null>(null);
+  const opcionesFase = servicio ? opcionesDeFase(servicio.etapas, servicio.fases) : [];
+  const faseVista = faseVigente(fasePedida, opcionesFase);
   const [editandoEtapas, setEditandoEtapas] = useState(false);
   /**
    * LO QUE SE MOVIO ACA ADENTRO, encima de lo que trajo el server.
@@ -227,8 +251,6 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
       .sort((a, b) => signo * cmp(a, b) || nombreDe(a).localeCompare(nombreDe(b), 'es'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientes, imgs, q, filtro, orden, cuando, dir, tablero]);
-  /** Los elegidos que la pantalla está mostrando, en el orden en que se ven. */
-  const elegidosVisibles = visibles.filter((c) => sel.has(c.leadId)).map((c) => c.leadId);
   /** Cuántos tienen algo abierto. Con el tablero caído no se cuenta nada: sería un 0
    *  con cara de dato sobre una lectura que falló. */
   const conTrabajo = tablero.ok ? lista.filter((c) => (resumenDe(c.leadId)?.abiertas ?? 0) > 0).length : 0;
@@ -294,6 +316,37 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
     }
     return out;
   };
+
+  /**
+   * LOS QUE ESTÁN EN PANTALLA: `visibles` menos los que la fase elegida esconde.
+   *
+   * ⚠️ HACE FALTA DESDE QUE LA FASE ES UN FILTRO DE «Filtrar». Mientras fue una fila de
+   * chips adentro del tablero, la pantalla no sabía que había columnas escondidas, y
+   * «Seleccionar todos» de la barra de lote elegía también a los clientes de las fases que
+   * no se veían — y «Mover a…» los movía. Es la regla que la barra de lote ya tenía
+   * escrita («el lote actúa sobre los elegidos que se ven»), y la fase era la puerta por la
+   * que se colaba lo que no se ve. Con la fase en el filtro, el contador «N de M» y el
+   * exportar también tienen que contar lo mismo que se dibuja.
+   *
+   * ⚠️ Y SE CUENTA CON LAS MISMAS DOS FUNCIONES QUE DIBUJAN: `repartirEnEtapas` (un
+   * cliente sin fila está en la primera) y `columnasVisibles` (qué es «de la fase»). Con
+   * una cuenta propia, el contador diría un número y el riel mostraría otro.
+   *
+   * Sin fase elegida —o fuera del kanban, donde la tabla no filtra columnas— es `visibles`
+   * tal cual.
+   */
+  const enPantalla = ((): ClienteCruce[] => {
+    if (!enKanban || !servicio || faseVista === null) return visibles;
+    const asig = asignacionDe(servicio.productoId);
+    const { porEtapa } = repartirEnEtapas(servicio.etapas, visibles, (c) => asig[c.leadId]?.etapa);
+    const ids = new Set<number>();
+    for (const e of columnasVisibles(servicio.etapas, servicio.fases, faseVista)) {
+      for (const c of porEtapa[e.key] ?? []) ids.add(c.leadId);
+    }
+    return visibles.filter((c) => ids.has(c.leadId));
+  })();
+  /** Los elegidos que la pantalla está mostrando, en el orden en que se ven. */
+  const elegidosVisibles = enPantalla.filter((c) => sel.has(c.leadId)).map((c) => c.leadId);
 
   /**
    * Mueve un cliente de etapa en la entrega de un servicio.
@@ -519,6 +572,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
         <>
           <BarraClientes
             q={q} onQ={setQ} vista={vista} onVista={setVista}
+            filtros={cuentas?.visible ? FILTRO_LABEL : FILTRO_SIN_CUENTAS}
             /* ⚠️ LAS VISTAS QUE ESTA PANTALLA PUEDE DIBUJAR, en positivo. Sin servicios
                —o con la lectura de la entrega caída— el kanban no se ofrece: un botón que
                abre una pantalla vacía se lee como que la app está rota. Con una sola
@@ -553,7 +607,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             ) : undefined}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenClientes)}
             cuandos={CUANDO_LABEL} cuando={cuando} onCuando={setCuando} dir={dir} onDir={setDir}
-            nVisibles={visibles.length} nTotal={lista.length}
+            /* La FASE, como una sección más de «Filtrar» y sólo en el kanban: la tabla no
+               esconde columnas, así que ahí la opción no cambiaría nada de lo que se ve. Sin
+               fases (o con una sola), `opcionesDeFase` devuelve vacío y la sección no está. */
+            fases={enKanban ? opcionesFase : undefined} fase={faseVista} onFase={setFasePedida}
+            /* ⚠️ `enPantalla` Y NO `visibles`: con una fase elegida, «N de M» tiene que
+               contar lo que el riel dibuja. */
+            nVisibles={enPantalla.length} nTotal={lista.length}
             /* ⚠️ EL PROGRESO DE UNA CARTERA NO ES «TAREAS HECHAS». El plan cuenta lo
                completado; acá lo que importa es cuántos clientes tienen trabajo
                abierto — un cliente sin nada abierto no está «listo», está enfriándose,
@@ -565,7 +625,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
               total: lista.length,
               label: 'con trabajo',
             }}
-            onExportar={() => exportarCSV(visibles, numeroDe, resumenDe)}
+            onExportar={() => exportarCSV(enPantalla, numeroDe, resumenDe)}
             onImportar={() => { window.location.href = '/crm?importar=1'; }} />
 
           {/* ⚠️ SIN SERVICIOS NO HAY TABLERO POSIBLE, Y SE DICE ANTES DE LA VISTA.
@@ -588,14 +648,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
           {elegidosVisibles.length > 0 && (
             <LoteClientes
               elegidos={elegidosVisibles.length}
-              visibles={visibles.length}
+              visibles={enPantalla.length}
               etapas={servicio ? servicio.etapas : null}
               fases={servicio ? servicio.fases : []}
               puedeAvanzar={Boolean(servicio && elegidosVisibles.some((id) => siguienteDe(id, servicio.productoId)))}
               onMover={(etapa) => { if (servicio) moverLote(elegidosVisibles, etapa, servicio.productoId); }}
               onSiguiente={() => { if (servicio) moverLote(elegidosVisibles, (id) => siguienteDe(id, servicio.productoId), servicio.productoId); }}
-              onExportar={() => exportarCSV(visibles.filter((c) => sel.has(c.leadId)), numeroDe, resumenDe)}
-              onTodos={() => setSel(new Set(visibles.map((c) => c.leadId)))}
+              onExportar={() => exportarCSV(enPantalla.filter((c) => sel.has(c.leadId)), numeroDe, resumenDe)}
+              onTodos={() => setSel(new Set(enPantalla.map((c) => c.leadId)))}
               onLimpiar={() => setSel(new Set())}
             />
           )}
@@ -604,6 +664,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, cuentas, 
             <KanbanEntrega
               etapas={servicio.etapas}
               fases={servicio.fases}
+              /* Ya VIGENTE: una fase que este servicio no tiene llega como `null` (todas). */
+              fase={faseVista}
               origen={servicio.origen}
               servicio={servicio.nombre}
               clientes={visibles}

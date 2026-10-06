@@ -732,7 +732,11 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+  /** Sólo esa vista y sin el selector de vistas. Ver `soloVista` en `BoardShell`. */
+  soloVista?: 'prioridades';
+  /** El cliente del filtro, leído en el server desde `?cliente=`. Ver `clienteInicial` en `BoardShell`. */
+  clienteInicial?: number | null;
   /**
    * ⚠️ ESTE TABLERO VIVE ADENTRO DE OTRA PANTALLA (hoy, la ficha de un cliente). Apaga el
    * uso de la URL como estado: ver `embebido` en `BoardShell`. Es una prop y no se deduce
@@ -785,7 +789,7 @@ export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInic
   // asignado. Es el mismo bug que `prefs.ts` documenta entre workspaces, un nivel más
   // adentro. Y al revés también: lo que filtrás mirando a un cliente no le cambia la vista
   // a `/plan`.
-  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} />;
+  return <BoardShell board={board} scope={clienteFijo ? `agencia:cli${clienteFijo.leadId}` : 'agencia'} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

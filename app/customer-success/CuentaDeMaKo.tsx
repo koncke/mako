@@ -20,9 +20,13 @@
 //
 // ⚠️ Y NO LO VE CUALQUIERA. Antes dibujaba «Sin cuenta» para todo el mundo —o
 // sea, para TODO workspace que no fuera agencia, que es el default— y eso es una
-// afirmación sobre algo que a ese cliente no le incumbe. Ahora se dibuja sólo
-// para el super admin y para una agencia habilitada, y lo decide el SERVER
-// (`cuentas.visible`, app/customer-success/page.tsx).
+// afirmación sobre algo que a ese cliente no le incumbe. Lo decide el SERVER
+// (`cuentas.visible`, app/customer-success/page.tsx) y desde el 05/10/2026 es UNA
+// condición: que el workspace que se está mirando sea una AGENCIA. «Todo lo que tenga
+// que ver con invitar a MaKo, debería solo verse si la cuenta es AGENCIA». Antes era
+// «super admin o agencia», y con eso el super admin parado en un cliente común veía
+// un control que ese cliente no tiene. `superAdmin` sigue existiendo, pero elige la
+// PUERTA de entrada (abajo), no si el control se dibuja.
 //
 // ⚠️ DOS MECANISMOS, DOS ELEMENTOS, y no es un descuido:
 //   · La AGENCIA entra por `POST /api/agencia/entrar`, que le acuña la cookie
@@ -52,7 +56,9 @@ export type CuentasProp = {
   estadoPorWs: Record<number, string>;
   /** Puede abrirle cuenta a un cliente: agencia habilitada + admin de este workspace. */
   puedeAbrir: boolean;
-  /** Quién ve este control: sólo el super admin y una agencia habilitada. */
+  /** Si se dibuja TODO lo de cuentas y equipo (este control, la tab «Equipo», pedir y sumar
+   *  gente): sólo cuando el workspace que se mira es una agencia. Es del workspace, no de
+   *  quien mira — ver page.tsx. */
   visible: boolean;
   /** Decide el mecanismo de entrada, no el permiso. */
   superAdmin: boolean;

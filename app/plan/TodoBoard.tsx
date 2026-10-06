@@ -54,7 +54,11 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+  /** Sólo esa vista y sin el selector de vistas. Ver `soloVista` en `BoardShell`. */
+  soloVista?: 'prioridades';
+  /** El cliente del filtro, leído en el server desde `?cliente=`. Ver `clienteInicial` en `BoardShell`. */
+  clienteInicial?: number | null;
   /**
    * ⚠️ ESTE TABLERO VIVE ADENTRO DE OTRA PANTALLA (hoy, la ficha de un cliente). Apaga el
    * uso de la URL como estado: ver `embebido` en `BoardShell`. Es una prop y no se deduce
@@ -181,5 +185,5 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
   // tablero general esconde el tablero de la ficha sin decir por qué.
   const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
-  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} />;
+  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} />;
 }

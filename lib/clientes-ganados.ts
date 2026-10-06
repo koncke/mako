@@ -48,6 +48,11 @@ export async function clientesGanados(): Promise<ClienteRef[]> {
     clienteWs: l.cliente_ws,
     // Para prellenar el alta de su cuenta, que desde el 28/09 exige el email.
     email: l.email,
+    // Cuándo se ganó. Se SELECCIONABA desde 98bbce3e (28/09) y no se mapeaba, así que era
+    // `undefined` para todos: el filtro «Cuándo» de Customer Success dejaba 0 clientes en
+    // cualquier ventana y el Resumen de la ficha decía «—». El typecheck no lo ve porque el
+    // campo es opcional (05/10/2026).
+    fechaCierre: l.fecha_cierre,
   }));
 }
 

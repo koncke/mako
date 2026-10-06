@@ -37,9 +37,29 @@ export function colorDe(nombre: string): string {
 
 export function TarjetaEntidad({
   nombre, bajada, portada, portadaY, icono, avatarY, color, foto,
-  chips, pie, acciones, onAbrir, etiqueta,
+  chips, pie, acciones, onAbrir, etiqueta, antesDelNombre,
 }: {
   nombre: string;
+  /**
+   * Algo pegado ADELANTE del nombre, en su mismo renglón. Lo usa el kanban de la entrega
+   * para la casilla de selección, que es la del CRM (`.mk-sel-tarjeta` en globals.css):
+   * ancho 0 en reposo, 15 px al pasar el cursor, y el nombre se corre lo que ella crece.
+   *
+   * ⚠️ VA EN UNA FILA PROPIA CON `gap: 8`, NO SUELTO EN `.cl-n`. Esa regla cancela el gap
+   * de su fila con un `margin-right: -8px` —un gap se aplica igual delante de un elemento
+   * de ancho cero—, y `.cl-n` tiene `gap: 7`: suelto ahí, el nombre quedaría 1 px corrido
+   * hacia la izquierda en reposo. Y cambiar el 7 de `.cl-n` movería los chips de TODAS las
+   * tarjetas, incluidas las de /admin, que no pasan nada por acá.
+   *
+   * ⚠️ Y ES LO ÚNICO DEL RENGLÓN QUE RECIBE CLICKS. Todo el contenido de la tarjeta va en
+   * `pointer-events: none` para que el click en cualquier lado lo agarre `.cl-abrir`; sin
+   * devolvérselos, la casilla se vería y no se podría tildar. El envoltorio es
+   * `display: contents` para que lo de adentro sea hijo DIRECTO de la fila (si no, su
+   * `margin-right` negativo cae adentro de una caja de ancho cero y el gap vuelve).
+   *
+   * Sin esto, la tarjeta es exactamente la de siempre: el nombre no se envuelve en nada.
+   */
+  antesDelNombre?: ReactNode;
   /** El renglón chico debajo del nombre. */
   bajada?: ReactNode;
   /** Su portada (mig 0173) y su encuadre (0174). Sin portada va el degradado del color. */
@@ -78,7 +98,12 @@ export function TarjetaEntidad({
       <span className="cl-avwrap"><Marca icono={icono} foto={foto} nombre={nombre} tam={44} y={avatarY} color={color} /></span>
 
       <span className="cl-n">
-        {nombre}
+        {antesDelNombre != null ? (
+          <span className="cl-n-fila">
+            <span className="cl-n-antes">{antesDelNombre}</span>
+            <span>{nombre}</span>
+          </span>
+        ) : nombre}
         {chips && <span className="cl-chips">{chips}</span>}
       </span>
       {bajada != null && <span className="cl-e">{bajada}</span>}
@@ -218,6 +243,12 @@ export const CSS_TARJETA = `
   font-size:15.5px; font-weight:640; letter-spacing:-.01em; line-height:1.25;
   color:var(--ink); overflow-wrap:anywhere; }
 .cl-chips{ display:inline-flex; align-items:center; gap:6px; }
+/* Lo que va ADELANTE del nombre (ver antesDelNombre). El gap es 8 y no el 7 de .cl-n
+   porque la casilla del CRM lo cancela con un margin-right de -8: con 7, el nombre
+   quedaria 1 px corrido en reposo. Arriba y no al centro, como en el CRM: con un nombre
+   de dos renglones la casilla va con el primero. */
+.cl-n-fila{ display:inline-flex; align-items:flex-start; gap:8px; min-width:0; }
+.cl-n-antes{ display:contents; pointer-events:auto; }
 /* El chip del PLAN. /admin lo pinta con el chip() de sus estilos y acá va por clase
    porque la tarjeta del cliente no importa ese modulo — mismos colores, mismo tamano. */
 .cl-plan{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;

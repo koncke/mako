@@ -47,6 +47,29 @@
 //
 // ⚠️ Y LA PRIMERA CORRIDA DE ESTE ARCHIVO FALLÓ TRES VECES por la trampa que `sinComentarios`
 // documenta: los guards de «esto NO está» encontraban lo que el archivo dice DE SÍ.
+//
+// LA TANDA DE LA CASILLA DEL CRM, LA FASE EN «Filtrar» Y EL EMPUJE EN `document` (05/10/2026,
+// noche). PROBADOS ROMPIÉNDOLOS con un arnés que muta en memoria y restaura de memoria. Se
+// midió con la sección del EDITOR a medio reescribir por otra tanda en paralelo (base: 28
+// pass / 2 fail, los dos del editor), así que lo que se fija es que cada rotura sume
+// EXACTAMENTE el fallo de su test y ningún otro:
+//   · el empuje en el riel y no en `document` / sin `montarEmpuje()` en `agarrar` / sin
+//     soltarlo en `drop` / el riel con `onDragOver` otra vez → 27 / 3, cae «el empuje…».
+//   · `visibles` con el filtro viejo `(e.fase ?? '') === fase` → 27 / 3, cae «el reparto…».
+//   · `width: 15` en el style de la casilla / sin `data-marcada` / la tarjeta sin
+//     `mk-tarjeta-sel` → 27 / 3, cae «la casilla es la del CRM…».
+//   · `.cl-n-fila` con gap 7 / `.cl-n-antes` sin `pointer-events` / el nombre envuelto aunque
+//     no haya slot → 27 / 3, cae «la tarjeta compartida…».
+//   · «Sin fase» sin las columnas de una fase borrada → 27 / 3, cae «columnasVisibles…».
+//   · `opcionesDeFase` sin el filtro de columnas → 26 / 4: caen «opcionesDeFase…» Y
+//     «faseVigente…», y está bien que sean dos — ofrecer «Sin fase» sin sueltas es lo que
+//     deja que lo vigente sea un riel vacío. Sin el mínimo de dos → 27 / 3.
+//   · `faseVigente` devolviendo lo pedido → 27 / 3. El botón sin contar la fase / `limpiar`
+//     sin `onFase(null)` → 27 / 3, cae «"Filtrar" cuenta la fase…».
+//   · al kanban `fase={fasePedida}` / «Seleccionar todos» con `visibles` / la sección también
+//     en la tabla → 27 / 3, cae «la fase vive en la PANTALLA…».
+//   Restaurado: 28 / 2, la base. (El ancla del primero de la última línea tuvo que llevar el
+//   `\r\n`: ClientesApp.tsx es CRLF en el árbol y LF en HEAD.)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -56,6 +79,10 @@ import { readFileSync } from 'node:fs';
 // kanban porque el kanban no se puede importar desde node: arrastra módulos con
 // `server-only` (medido: «This module cannot be imported from a Client Component»).
 import { quienesViajan, dondeCae } from '../app/customer-success/LoteClientes';
+// Las tres reglas de la sección «Fase» del filtro. BarraClientes sí se importa desde node
+// (tests/filtros-cartera.test.ts ya lo hace): no arrastra nada con `server-only`.
+import { columnasVisibles, opcionesDeFase, faseVigente } from '../app/customer-success/BarraClientes';
+import type { EtapaEntrega, FaseEntrega } from '../lib/servicio-etapas';
 
 // ⚠️ SIN LOS `\r`: las anclas de `bloque` llevan `\n`, y con `core.autocrlf=true` un clon
 // nuevo o un worktree trae estos archivos en CRLF — ahí las anclas no calzan y el guard
@@ -103,8 +130,9 @@ function bloque(src: string, abre: string, cierra: string): string {
 // ── El tablero ──────────────────────────────────────────────────────────────
 
 const KANBAN = leer('app/customer-success/KanbanEntrega.tsx');
-/** El cuerpo del componente, sin la hoja de estilos ni los chips. */
-const RENDER = bloque(KANBAN, '  const { porEtapa, huerfanos } = useMemo(', 'function FasesChips');
+/** El cuerpo del componente, sin la hoja de estilos. ⚠️ El cierre era `function
+ *  FasesChips`, que se fue con los chips el 05/10/2026: ahora es el arranque de la hoja. */
+const RENDER = bloque(KANBAN, '  const { porEtapa, huerfanos } = useMemo(', 'const CSS = `');
 /** La hoja, sola. */
 const HOJA = bloque(KANBAN, 'const CSS = `', '\n`;');
 
@@ -117,7 +145,10 @@ test('el recorte del render y el de la hoja son lo que digo que son', () => {
   // ⚠️ El techo subió de 16.000 a 24.000 el 05/10/2026 con la SELECCIÓN y el arrastre en
   // LOTE (la casilla, `quienesViajan`, `dondeCae` y su prosa): el render medía ~19.000 y
   // el recorte sigue yendo de la misma ancla a la misma ancla. No es «mirar otra cosa».
-  assert.ok(RENDER.length > 3_000 && RENDER.length < 24_000, `el render mide ${RENDER.length}`);
+  // ⚠️ Y de 24.000 a 30.000 el mismo día, con la casilla del CRM y el empuje del riel en
+  // `document` (los dos con su porqué al lado): midió 23.488, pegado al techo viejo. Los
+  // chips de fase salieron del archivo, así que el cierre del recorte pasó a ser la hoja.
+  assert.ok(RENDER.length > 3_000 && RENDER.length < 30_000, `el render mide ${RENDER.length}`);
   assert.ok(HOJA.length > 2_000 && HOJA.length < 12_000, `la hoja mide ${HOJA.length}`);
   assert.doesNotMatch(RENDER, /const CSS/, 'el render no puede incluir la hoja');
   assert.doesNotMatch(HOJA, /useMemo/, 'la hoja no puede incluir el render');
@@ -128,8 +159,10 @@ test('el reparto recibe las etapas ENTERAS, no las filtradas por fase', () => {
   const reparto = bloque(RENDER, 'repartirEnEtapas(', ')');
   assert.match(reparto, /repartirEnEtapas\(\s*etapas\s*,/, 'tiene que recibir `etapas`');
   assert.doesNotMatch(reparto, /visibles/, 'con las filtradas, los de las columnas escondidas son huérfanos');
-  // Y el filtro existe, pero del lado del render: si no existiera, los chips no harían nada.
-  assert.match(RENDER, /const visibles = faseVista === null \? etapas : etapas\.filter/);
+  // Y el filtro existe, pero del lado del render: si no existiera, elegir una fase en
+  // «Filtrar» no haría nada. Lo decide la MISMA función con la que el filtro arma sus
+  // opciones, con la fase que llega por prop.
+  assert.match(RENDER, /const visibles = columnasVisibles\(etapas, fases, fase\);/);
   assert.match(RENDER, /\{visibles\.map\(/, 'lo que se dibuja son las visibles');
 });
 
@@ -189,6 +222,37 @@ test('el arrastre puede llegar al fondo de una columna que scrollea', () => {
   assert.doesNotMatch(sinComentarios(KANBAN), /medidas\.current/, 'sin puntos medios: no se mide la altura de ninguna tarjeta');
 });
 
+// «Si lo muevo muy al costado, se sale del contenedor del kanban y deja de desplazar, eso
+// no debe pasar» (Martín, 05/10/2026). El empuje colgaba del `onDragOver` del riel, y con
+// el cursor fuera de su caja el navegador dejaba de mandarle el evento. Es el arreglo del
+// CRM (`empujeDelRiel`, commit abbb7a12) con una diferencia que viene del gesto: allá vive
+// en un estado y se monta con un efecto; acá vive en un ref y se monta en el `dragstart`.
+// Ver el pie del archivo para las roturas medidas.
+test('el empuje horizontal escucha en DOCUMENT, en captura, y se suelta al terminar', () => {
+  const fn = bloque(KANBAN, '  function montarEmpuje() {', '\n  }\n');
+  assert.ok(fn.length > 400 && fn.length < 1_600, `montarEmpuje mide ${fn.length}`);
+  assert.match(fn, /document\.addEventListener\('dragover', empujeDelRiel, true\);/,
+    'en el riel, el evento se corta apenas el cursor sale de su caja');
+  // Se suelta en `dragend` Y en `drop`, los dos: si no, queda empujando después de soltar.
+  assert.match(fn, /document\.addEventListener\('dragend', fin, true\);/);
+  assert.match(fn, /document\.addEventListener\('drop', fin, true\);/);
+  assert.match(fn, /document\.removeEventListener\('dragover', empujeDelRiel, true\);/);
+  // La cuenta del CRM, contra la caja del RIEL: pasado el borde sigue siendo verdadera.
+  assert.match(fn, /e\.clientX < r\.left \+ BORDE \? -1 : e\.clientX > r\.right - BORDE \? 1 : 0/);
+  assert.match(fn, /el\.scrollLeft \+= dir \* 18/);
+  // ⚠️ Sin `preventDefault`: habilitaría soltar en CUALQUIER punto de la página.
+  assert.doesNotMatch(sinComentarios(fn), /preventDefault/);
+  // Se monta al agarrar y se suelta con el gesto y al desmontar.
+  const agarrar = sinComentarios(bloque(KANBAN, '  function agarrar(', '  function soltarGesto('));
+  assert.match(agarrar, /montarEmpuje\(\);/, 'sin call site, la capacidad está escrita y el gesto muerto');
+  const soltar = bloque(KANBAN, '  function soltarGesto() {', '\n  }');
+  assert.match(soltar, /quitarEmpuje\.current\?\.\(\);/);
+  assert.match(sinComentarios(KANBAN), /useEffect\(\(\) => \(\) => quitarEmpuje\.current\?\.\(\), \[\]\);/);
+  // ⚠️ EL EMPUJE EN UN SOLO LUGAR: con el del riel también, correría al doble encima.
+  assert.match(CODIGO, /<div className="ke-riel" ref=\{riel\}>/);
+  assert.doesNotMatch(sinComentarios(KANBAN), /autoScroll/);
+});
+
 // ── La selección y el arrastre en LOTE ────────────────────────────────────────
 
 // PROBADOS ROMPIÉNDOLOS (05/10/2026), cada rotura cazada por el test que le toca:
@@ -241,15 +305,61 @@ test('soltar un lote va por onMoverLote, y sólo con los que cambian de etapa', 
   assert.match(agarrar, /quienesViajan\(leadId, seleccion, clientes\.map\(\(c\) => c\.leadId\)\)/);
 });
 
-test('la casilla vive en el ENVOLTORIO y se ve al hover o con algo marcado', () => {
-  // Adentro de la tarjeta no se podría apretar: `TarjetaEntidad` apaga los clicks de
-  // todo menos `.cl-acc`.
-  const tarjeta = bloque(RENDER, '<div data-tarjeta', '<ClienteCard');
-  assert.match(tarjeta, /<input type="checkbox" checked=\{elegida\} onChange=\{\(\) => alternar\(c\.leadId\)\}/);
-  assert.match(RENDER, /className=\{`ke\$\{seleccion\.size > 0 \? ' ke-hay-sel' : ''\}`\}/);
-  assert.match(HOJA, /\.ke-card:hover \.ke-sel, \.ke-hay-sel \.ke-sel \{ display: inline-flex; \}/);
+// ⛔ ACÁ SE FIJABA LA CASILLA VIEJA —una pastilla absoluta en el envoltorio, a la vista en
+// todas mientras hubiera algo marcado (`ke-hay-sel`)— y se reescribió el 05/10/2026 con el
+// pedido de copiar la del CRM. Lo que se fija ahora son las tres cosas que, sin ellas, la
+// del CRM se ve «arreglada» sin estarlo (tests/crm-casilla-tarjeta.test.ts las midió allá):
+// el ancho NO va inline, la casilla es hija directa de una fila de gap 8, y la revela el
+// hover de la tarjeta por la MISMA regla de globals.css.
+test('la casilla es la del CRM: adelante del nombre, sin ancho inline y con la misma regla', () => {
+  const casilla = bloque(RENDER, 'antesDelNombre={', 'chipExtra=');
+  assert.match(casilla, /className="mk-sel-tarjeta"/);
+  assert.match(casilla, /data-marcada=\{elegida \? '1' : '0'\}/, 'marcada, sigue a la vista sin el cursor');
+  assert.match(casilla, /onClick=\{\(ev\) => \{ ev\.stopPropagation\(\); alternar\(c\.leadId\); \}\}/);
+  assert.match(casilla, /onPointerDown=\{\(ev\) => ev\.stopPropagation\(\)\}/);
+  const estilo = bloque(casilla, 'style={{', '}}');
+  assert.doesNotMatch(estilo, /\bwidth\s*:/, 'un width inline le gana a .mk-sel-tarjeta y deja el nombre corrido');
+  // La revela el hover de la tarjeta por el gancho GENÉRICO, no por un selector propio.
+  assert.match(RENDER, /className=\{`ke-card mk-tarjeta-sel\$\{elegida \? ' ke-card-elegida' : ''\}`\}/);
+  const css = leer('app/globals.css');
+  const revela = bloque(css, '.mk-tarjeta-lead:hover .mk-sel-tarjeta,', '}');
+  assert.match(revela, /\.mk-tarjeta-sel:hover \.mk-sel-tarjeta,/);
+  assert.match(revela, /width: 15px; margin-right: 0; opacity: 1;/);
+  // Y la vieja no vuelve: ni la pastilla ni la clase que la mostraba en todas.
+  assert.doesNotMatch(sinComentarios(KANBAN), /ke-hay-sel|\bke-sel\b/);
   // Y el hueco es el del Plan: 64 de alto, no el alto entero de una tarjeta.
   assert.match(bloque(HOJA, '.ke-hueco {', '}'), /height: 64px/);
+});
+
+// La otra mitad de la casilla vive en la tarjeta COMPARTIDA (también la monta /admin). Lo
+// que se fija: el slot va en una fila PROPIA de gap 8 —el `-8` de la regla lo cancela; con
+// el 7 de `.cl-n` el nombre quedaría 1 px corrido en reposo— y le devuelve los clicks que
+// el resto del contenido no recibe. Sin slot, el nombre no se envuelve en nada.
+test('la tarjeta compartida hace lugar a la casilla sin tocar a quien no la pasa', () => {
+  const src = leer('app/_components/TarjetaEntidad.tsx');
+  const nombre = bloque(src, '<span className="cl-n">', '{chips &&');
+  assert.match(nombre, /\{antesDelNombre != null \? \(/);
+  assert.match(nombre, /<span className="cl-n-antes">\{antesDelNombre\}<\/span>/);
+  assert.match(nombre, /\) : nombre\}/, 'sin slot, el nombre va pelado como siempre');
+  const css = bloque(src, 'export const CSS_TARJETA = `', '\n`;');
+  assert.match(bloque(css, '.cl-n-fila{', '}'), /gap:8px/);
+  assert.match(bloque(css, '.cl-n-antes{', '}'), /display:contents; pointer-events:auto;/,
+    'sin esto la casilla se ve y no se puede tildar');
+  // Y el gap de `.cl-n`, que comparten TODAS las tarjetas, no se tocó.
+  assert.match(bloque(css, '.cl-n{', '}'), /gap:7px/);
+});
+
+// El número que lleva la copia cuando viajan varios se cuelga como hijo DIRECTO de
+// `.ke-card`, y `.ke-card > *` le da `width: 100%`. MEDIDO en el navegador (05/10/2026)
+// arrastrando dos marcadas: con la regla, 27 px; sacándola de la hoja en vivo, 275 px —
+// una barra negra con un «2» a la izquierda cruzando la tarjeta entera. Lo cubría a medias
+// la regla de la casilla vieja (`.ke-card > .ke-sel`), que nombraba a la casilla y no al
+// número; al irse la casilla quedó dicho para el que de verdad lo necesita.
+// ROTO: sin `.ke-card > .ke-lleva { width: auto; }` → 35 pass / 1 fail sobre una base de
+// 36 / 0; cae sólo éste.
+test('el número de la copia no se estira al ancho de la tarjeta', () => {
+  assert.match(HOJA, /\.ke-card > \* \{ width: 100%; \}/, 'si esta regla se va, este guard sobra');
+  assert.match(HOJA, /\.ke-card > \.ke-lleva \{ width: auto; \}/);
 });
 
 // ── El editor ───────────────────────────────────────────────────────────────
@@ -258,9 +368,16 @@ const EDITOR = leer('app/customer-success/EtapasEntregaModal.tsx');
 /** El editor sin prosa: lo que de verdad se ejecuta. */
 const EDITOR_CODIGO = sinComentarios(EDITOR);
 
-// ⚠️ ESTA SECCIÓN SE REESCRIBIÓ EL 05/10/2026, con el editor copiado del CRM («fijate el
-// diseño de ese editable en el CRM y copialo tal cual»). Dos cosas que se fijaban antes
-// dejaron de ser ciertas A PROPÓSITO, y conviene saber por qué antes de «arreglarlas»:
+// ⚠️ ESTA SECCIÓN SE REESCRIBIÓ DOS VECES EL 05/10/2026. La segunda, con el editor
+// REDISEÑADO («no me gusta el diseño de las fases y las etapas... es muy confuso, vuelve a
+// diseñarlo... simple de entender, minimalista»): UNA lista, las fases como títulos, la ✕ y
+// el asa sólo con el cursor, y ordenar y cambiar de fase como EL MISMO gesto (arrastrar, o
+// Alt+↑/↓). Se fueron a propósito, y no hay que «devolverlas»: el selector de fase de cada
+// fila, las flechas (`MoverPartido`), `mover`/`soltarEn`/`aFase` y el recuadro punteado.
+// Lo que las reemplaza es PURO y se EJECUTA acá (`llevarEtapa`, `pasoDeEtapa`, `enOrden`,
+// `llevarFase`), no sólo se busca en el texto.
+//
+// La primera reescritura (el editor copiado del CRM) dejó tres cosas que siguen valiendo:
 //  · `if (primera.current)` era la guarda contra guardar al montar, y NO GUARDABA NADA:
 //    Next 16 corre el App Router en Strict Mode y cada efecto corre DOS veces al montar —
 //    la segunda ya encuentra la bandera en false—. MEDIDO con el editor de HEAD en
@@ -281,28 +398,48 @@ const EDITOR_CODIGO = sinComentarios(EDITOR);
 //   3. sin el `useEffect(() => () => enviar(), [enviar])` (cerrar pierde lo último).
 //   4. los envíos en paralelo (`Promise.resolve().then` en vez de la cola).
 //   5. `sacar` sin `if (!partes.length)` (pregunta aunque no haya nada que perder).
-//   6. `mover` sin la guarda de la entrada (otra columna pasa por encima de la primera).
-//   7. `aFase` moviendo la entrada de lugar al cambiarle la fase.
-//   8. `mover` intercambiando con el vecino de la lista GLOBAL (la flecha no hace nada).
+//   6-8. (eran `mover` / `aFase` / `soltarEn`, que se fueron con el rediseño: las guardas
+//      de la entrada viven ahora en `llevarEtapa` y se prueban EJECUTÁNDOLA, abajo).
 //   9. el Escape escuchado en burbuja (`false`): llega después del del Modal.
 //  10. sin el `if (hayPregunta)`: el Escape de la pregunta cierra el editor.
 //  11. `guardarNombre` mandando el nombre aunque no haya cambiado.
 //  12. «+ Agregar fase» abajo de la lista.
 //  13. el pie dibujado sin `onEliminar`.
-//   Las trece dieron 20 pass / 1 fail, y el que cae es siempre el de su rótulo `ROTO:`.
-//   Restaurado (de memoria, nunca con `git checkout`): 21 pass / 0 fail.
+//   Las de la primera reescritura dieron 20 pass / 1 fail con el archivo de entonces.
+//
+// Y LAS DEL REDISEÑO (05/10/2026, noche): DIECINUEVE roturas, cada una sola, cada una
+// cazada por exactamente el test de su rótulo `ROTO`, y las diecinueve dieron 34 pass /
+// 1 fail con el archivo de ese momento (35 tests, con las secciones de los otros paquetes).
+// Restaurado de memoria y comparado byte a byte: 35 pass / 0 fail. El arnés que las corre
+// es un script fuera del repo (scratchpad de la sesión), por la regla de los `tmp-`.
 
-// ROTO: 1 y 2 de la lista de arriba.
+// ROTO: 1 y 2 de la lista de arriba. Y del rediseño (05/10/2026), cada una sola → 34 pass /
+// 1 fail: el efecto mandando `{ etapas: limpias, fases: tramos }` sin `enOrden`, y la firma
+// inicial sin `enOrden` — ésta MEDIDA en el arnés (Chromium + Strict Mode, una lista con un
+// grupo partido): rota, abrir y esperar 1,6 s → 1 guardado; restaurada → 0.
 test('el editor guarda solo, y NO al montar', () => {
   const efecto = bloque(EDITOR, '    if (lista.length < MINIMO)', '  }, [lista, tramos, enviar]);');
   assert.ok(efecto.length > 300 && efecto.length < 1_500, `el efecto mide ${efecto.length}`);
   assert.match(efecto, /if \(firma === enviada\.current\) \{ pendiente\.current = null; return; \}/,
     'sin esto, abrir y cerrar marca el servicio como DECLARADO');
   assert.match(efecto, /setTimeout\(enviar, RESPIRO_MS\)/, 'con un respiro: renombrar es una tecla por letra');
-  assert.match(efecto, /pendiente\.current = \{ etapas: limpias, fases: tramos, firma \}/,
+  // Una lista que no se puede guardar lo DICE, pero eso se calcula al dibujar: un `setMal`
+  // adentro del efecto quedaba puesto hasta el próximo guardado bueno (y es el error de
+  // `react-hooks/set-state-in-effect`). ROTO (05/10/2026): el `setMal` de vuelta en el
+  // efecto → 35 pass / 1 fail (el archivo ya tenía 36 tests); restaurado, 36 / 0.
+  assert.doesNotMatch(efecto, /setMal\(/);
+  assert.match(EDITOR_CODIGO, /const invalida = lista\.length < MINIMO/);
+  assert.match(EDITOR_CODIGO, /\{\(invalida \|\| mal\) && <p style=\{ERROR\}>\{invalida \|\| mal\}<\/p>\}/);
+  // Lo que se manda es EL ORDEN QUE SE VE (los grupos uno detrás del otro), y las fases
+  // viajan en la MISMA llamada.
+  assert.match(efecto, /const orden = enOrden\(limpias, tramos\);\s*const firma = firmaDe\(orden\.etapas, orden\.fases\);/);
+  assert.match(efecto, /pendiente\.current = \{ etapas: orden\.etapas, fases: orden\.fases, firma \}/,
     'las fases viajan en la MISMA llamada');
   // La firma de partida es la de lo que vino del server: con una vacía, montar ya «cambió».
-  assert.match(EDITOR_CODIGO, /const \[firmaInicial\] = useState\(\(\) => firmaDe\(limpiar\(etapas\) \?\? etapas, fases\)\);/);
+  // ⚠️ Y EN EL MISMO ORDEN: sin `enOrden` acá, una lista que llega con un grupo PARTIDO
+  // «cambia» al abrir y se guarda sin que nadie toque nada (medido en el arnés: 1 guardado).
+  const inicial = bloque(EDITOR, '  const [firmaInicial] = useState(() => {', '\n  });');
+  assert.match(inicial, /const o = enOrden\(limpiar\(etapas\) \?\? etapas, fases\);\s*return firmaDe\(o\.etapas, o\.fases\);/);
   assert.match(EDITOR_CODIGO, /const enviada = useRef\(firmaInicial\);/);
   assert.doesNotMatch(EDITOR_CODIGO, /primera\.current/, 'una bandera de «primer render» no sobrevive a Strict Mode');
   const envio = bloque(EDITOR, '  const enviar = useCallback(', '  }, []);');
@@ -347,25 +484,153 @@ test('sacar una columna con gente adentro avisa ANTES, y con el número', () => 
   assert.equal((fn.match(/hacer\(\)/g) ?? []).length, 1, 'preguntar después de sacar no es preguntar');
 });
 
-// ROTO: 6, 7 y 8 de la lista de arriba.
-test('la primera etapa es la ENTRADA, y mover es DENTRO del grupo que se ve', () => {
-  // «Un cliente sin fila está en la PRIMERA etapa» es DERIVADO: mover otra columna arriba
-  // pasaba a todos esos clientes a ella, en silencio. Ni se mueve ni se le pasa por encima.
-  const mover = bloque(EDITOR, '  const mover = (key: string, d: -1 | 1) => setLista((v) => {', '\n  });');
-  assert.match(mover, /if \(lugares\[p\] === 0 \|\| lugares\[q\] === 0\) return v;/);
-  const soltar = bloque(EDITOR, '  const soltarEn = (key: string, grupo: string, destino: number) => setLista((v) => {', '\n  });');
-  assert.match(soltar, /if \(v\[0\]\?\.key === key\) return v;/);
-  assert.match(soltar, /const piso = lugares\[0\] === 0 \? 1 : 0;/);
-  const aFase = bloque(EDITOR, '  const aFase = (key: string, fase: string | undefined) => setLista((v) => {', '\n  });');
-  assert.match(aFase, /if \(i === 0\) return v\.map/, 'cambiarle la fase a la entrada no la mueve de lugar');
-  // Ni flechas ni ✕ en la entrada.
-  assert.match(EDITOR_CODIGO, /\{!entra && \(k > piso \|\| k < g\.etapas\.length - 1\) \? \(\s*<MoverPartido/);
-  assert.match(EDITOR_CODIGO, /\{!entra \? \(\s*<AccionFila/);
-  // Y la flecha permuta DENTRO del grupo: con el vecino de la lista global, bajar una
-  // etapa cuyo vecino es de otra fase no movía nada en pantalla.
-  assert.match(mover, /const lugares = lugaresDe\(v, grupoDe\(e, tramos\), tramos\);/);
+// ── El modelo de la lista del editor: se EJECUTA ────────────────────────────
+// Se importa adentro de cada test y no arriba del archivo: los imports de arriba son de
+// todo el archivo, y el modal se importa en node sin problema (medido: ~0,5 s, sin
+// `server-only`). Los nombres llevan `Ed` porque otra sección ya declara `E` y `F`.
+const modeloEditor = () => import('../app/customer-success/EtapasEntregaModal');
+type EtapaEd = { key: string; label: string; tone: 'info'; dot: string; fase?: string };
+const etEd = (key: string, fase?: string): EtapaEd => ({ key, label: key, tone: 'info', dot: '#000000', ...(fase ? { fase } : {}) });
+const faEd = (key: string) => ({ key, label: key, tone: 'info' as const, dot: '#111111' });
+/** La lista como se lee: «clave:fase», separadas por espacio. */
+const verEd = (l: readonly { key: string; fase?: string }[]) => l.map((e) => e.key + (e.fase ? ':' + e.fase : '')).join(' ');
+// La entrada en A, una más en A, dos en B y una suelta.
+const LISTA_ED = [etEd('en', 'f_a'), etEd('a1', 'f_a'), etEd('b1', 'f_b'), etEd('b2', 'f_b'), etEd('s1')];
+const FASES_ED = [faEd('f_a'), faEd('f_b')];
+
+// ROTO (05/10/2026), cada una sola, con el resto restaurado:
+//   · `llevarEtapa` con `const piso = 0` (algo cae ANTES de la entrada) → 34 pass / 1 fail.
+//   · la entrada que cambia de grupo SIN subir su grupo (`return aplanar(grupos)`) → 34/1.
+//   · `conFase` dejando `fase: undefined` en vez de borrarla → 34/1.
+//   · `pasoDeEtapa` sin cruzar de grupo en el borde (`return [...lista]`) → 34/1.
+test('ordenar y cambiar de fase son el MISMO gesto, y nada va antes de la entrada', async () => {
+  const { llevarEtapa, pasoDeEtapa } = await modeloEditor();
+  // Soltar adentro de OTRO grupo la pasa a esa fase, en el lugar donde se soltó.
+  assert.equal(verEd(llevarEtapa(LISTA_ED, FASES_ED, 'b2', 'f_a', 1)), 'en:f_a b2:f_a a1:f_a b1:f_b s1');
+  // En el grupo de la entrada, el lugar 0 no existe: cae después de ella.
+  assert.equal(verEd(llevarEtapa(LISTA_ED, FASES_ED, 'b1', 'f_a', 0)), 'en:f_a b1:f_a a1:f_a b2:f_b s1');
+  // Dentro del mismo grupo, el lugar se cuenta CON la arrastrada adentro (soltar «antes de
+  // la fila 3» con la 1 agarrada).
+  assert.equal(verEd(llevarEtapa(LISTA_ED, FASES_ED, 'b1', 'f_b', 2)), 'en:f_a a1:f_a b2:f_b b1:f_b s1');
+  // «Sin fase» le SACA la clave, no la deja en `undefined`.
+  const suelta = llevarEtapa(LISTA_ED, FASES_ED, 'a1', '', 1);
+  assert.equal(verEd(suelta), 'en:f_a b1:f_b b2:f_b s1 a1');
+  assert.equal('fase' in suelta.find((e) => e.key === 'a1')!, false);
+  // Un grupo que no existe no se inventa.
+  assert.equal(verEd(llevarEtapa(LISTA_ED, FASES_ED, 'a1', 'f_zz', 0)), verEd(LISTA_ED));
+  // La ENTRADA no cambia de lugar: va PRIMERA de la otra fase y esa fase pasa arriba.
+  assert.equal(verEd(llevarEtapa(LISTA_ED, FASES_ED, 'en', 'f_b', 2)), 'en:f_b b1:f_b b2:f_b a1:f_a s1');
+  assert.equal(verEd(llevarEtapa(LISTA_ED, FASES_ED, 'en', 'f_a', 1)), verEd(LISTA_ED), 'en su propio grupo no tiene a dónde ir');
+
+  // El teclado: un lugar por vez, y en el borde pasa al grupo de al lado.
+  assert.equal(verEd(pasoDeEtapa(LISTA_ED, FASES_ED, 'b1', -1)), 'en:f_a a1:f_a b1:f_a b2:f_b s1');
+  // Al bajar del último de un grupo cae PRIMERO en el siguiente: en pantalla queda donde
+  // estaba y lo que cambia es el título de arriba.
+  assert.equal(verEd(pasoDeEtapa(LISTA_ED, FASES_ED, 'a1', 1)), 'en:f_a a1:f_b b1:f_b b2:f_b s1');
+  assert.equal(verEd(pasoDeEtapa(LISTA_ED, FASES_ED, 'a1', -1)), verEd(LISTA_ED), 'no pasa por encima de la entrada');
+  assert.equal(verEd(pasoDeEtapa(LISTA_ED, FASES_ED, 's1', 1)), verEd(LISTA_ED), 'la última no tiene a dónde bajar');
+  // La entrada recorre las fases: «Sin fase» primero, después cada una en su orden.
+  assert.equal(verEd(pasoDeEtapa(LISTA_ED, FASES_ED, 'en', 1)), 'en:f_b b1:f_b b2:f_b a1:f_a s1');
+  assert.equal(verEd(pasoDeEtapa(LISTA_ED, FASES_ED, 'en', -1)), 'en s1 a1:f_a b1:f_b b2:f_b');
+});
+
+// ROTO (05/10/2026): `enOrden` sin ordenar las fases (`fases: [...fases]`) → 34 pass / 1 fail.
+// ROTO: `gruposDe` sin el «Sin fase» vacío de `conSueltas` → 34 pass / 1 fail.
+test('lo que se guarda es el orden que se VE, y «Sin fase» existe como destino', async () => {
+  const { enOrden, gruposDe } = await modeloEditor();
+  // Un grupo PARTIDO (lo que dejaba el selector de antes: b1 de B entre dos de A) se guarda
+  // junto, y las fases en el orden en que aparecen las columnas.
+  const partida = [etEd('en', 'f_a'), etEd('b1', 'f_b'), etEd('a1', 'f_a'), etEd('s1')];
+  const o = enOrden(partida, [faEd('f_b'), faEd('f_a')]);
+  assert.equal(verEd(o.etapas), 'en:f_a a1:f_a b1:f_b s1');
+  assert.deepEqual(o.fases.map((f) => f.key), ['f_a', 'f_b']);
+  // Sobre una lista que ya está en orden no cambia nada: abrir y cerrar no escribe.
+  assert.equal(verEd(enOrden(LISTA_ED, FASES_ED).etapas), verEd(LISTA_ED));
+  // Una fase VACÍA va al final (no tiene lugar en el tablero), y «Sin fase» aparece como
+  // destino sólo si se pide y si no hay ninguna etapa suelta.
+  const todas = [etEd('en', 'f_a'), etEd('b1', 'f_b')];
+  assert.deepEqual(gruposDe(todas, [...FASES_ED, faEd('f_c')]).map((g) => g.clave), ['f_a', 'f_b', 'f_c']);
+  assert.deepEqual(gruposDe(todas, FASES_ED, true).map((g) => g.clave), ['f_a', 'f_b', '']);
+  assert.deepEqual(gruposDe(LISTA_ED, FASES_ED, true).map((g) => g.clave), ['f_a', 'f_b', ''], 'no lo duplica');
+  assert.deepEqual(gruposDe([etEd('x'), etEd('y')], [], true).map((g) => g.clave), [''], 'sin fases, ni lo agrega');
+});
+
+// ROTO (05/10/2026): `rangoDeFase` con `gi < 0` en vez de `gi <= 0` (el grupo de la entrada
+// se puede mover) → 34 pass / 1 fail.
+test('las fases se reordenan, pero el grupo de la entrada queda primero', async () => {
+  const { llevarFase, pasoDeFase, rangoDeFase, gruposDe } = await modeloEditor();
+  const g = gruposDe(LISTA_ED, FASES_ED);
+  assert.equal(rangoDeFase(g, 'f_a'), null, 'el de la entrada no se mueve');
+  assert.equal(rangoDeFase(g, ''), null, '«Sin fase» no se arrastra');
+  assert.deepEqual(rangoDeFase(g, 'f_b'), [1, 3]);
+  assert.equal(verEd(llevarFase(LISTA_ED, FASES_ED, 'f_b', 3).etapas), 'en:f_a a1:f_a s1 b1:f_b b2:f_b');
+  assert.equal(verEd(pasoDeFase(LISTA_ED, FASES_ED, 'f_b', -1).etapas), verEd(LISTA_ED), 'no sube por encima de la entrada');
+  // Una vacía se mueve entre las vacías: cambia el orden de las FASES, no de las etapas.
+  const F4 = [...FASES_ED, faEd('f_c'), faEd('f_d')];
+  assert.deepEqual(rangoDeFase(gruposDe(LISTA_ED, F4), 'f_d'), [3, 5]);
+  assert.deepEqual(llevarFase(LISTA_ED, F4, 'f_d', 3).fases.map((f) => f.key), ['f_a', 'f_b', 'f_d', 'f_c']);
+});
+
+// ROTO (05/10/2026), cada una sola:
+//   · `medir` tratando a la entrada como a las demás (`grupo === grupoEntrada && slot === 0`
+//     para todas): la entrada no podía cambiar de fase arrastrándola → 34 pass / 1 fail.
+//   · `agregarEtapa` con `return [...v, nueva]` (la nueva al final de TODO) → 34/1.
+//   · el soltar de la etapa sin `llevarEtapa` → 34/1.
+test('la pantalla usa el modelo: soltar, el teclado, agregar y la entrada', () => {
+  const soltar = bloque(EDITOR, '  const aplicarDestino = () => {', '\n  };');
+  assert.match(soltar, /setLista\(llevarEtapa\(l, t, a\.key, d\.grupo, d\.slot\)\);/);
+  assert.match(soltar, /const r = llevarFase\(l, t, a\.clave, d\.slot\);/);
+  const tecla = bloque(EDITOR, '  const teclaEtapa = (', '\n  };');
+  assert.match(tecla, /if \(!ev\.altKey \|\| \(ev\.key !== 'ArrowUp' && ev\.key !== 'ArrowDown'\)\) return;/);
+  assert.match(tecla, /pasoDeEtapa\(lista, tramos, e\.key, ev\.key === 'ArrowUp' \? -1 : 1\)/);
+  assert.match(bloque(EDITOR, '  const teclaFase = (', '\n  };'), /pasoDeFase\(lista, tramos, f\.key,/);
+  // Dónde se puede soltar: la entrada SÓLO en el lugar 0 de un grupo (cambia de fase y queda
+  // primera); lo demás, en cualquier lado menos antes de ella.
+  const medir = bloque(EDITOR, '  const medir = useCallback(() => {', '\n  }, []);');
+  assert.match(medir, /if \(agarroEntrada \? slot !== 0 : \(grupo === grupoEntrada && slot === 0\)\) continue;/);
+  // Una etapa nueva cae al final de SU grupo.
   const agregar = bloque(EDITOR, '  const agregarEtapa = (label: string, fase?: string) => {', '\n  };');
-  assert.match(agregar, /lugaresDe\(v, fase \?\? '', tramos\)/, 'una etapa nueva cae al final de SU grupo');
+  assert.match(agregar, /return aplanar\(gruposDe\(\[\.\.\.v, nueva\], tramos\)\);/);
+  // La entrada no tiene ✕ (ni se quita), y su arrastre existe sólo si hay fases a las que ir.
+  assert.match(EDITOR_CODIGO, /\{!entra \? \(\s*<AccionFila/);
+  assert.match(EDITOR_CODIGO, /const arrastrable = \(!entra \|\| hayFases\) && !editando;/);
+});
+
+// ROTO (05/10/2026), cada una sola:
+//   · la ✕ de la etapa sin `className="ee-oculto"` (dibujada siempre) → 34 pass / 1 fail.
+//   · la regla `:focus-within` sacada de la hoja (con Tab, la ✕ no aparece nunca) → 34/1.
+test('las filas van calladas: la ✕ y el asa aparecen sólo con el cursor o el foco', () => {
+  const hoja = bloque(EDITOR, 'const CSS = [', "].join('\\n');");
+  assert.match(hoja, /'\.ee-oculto\{opacity:0;/, 'con opacity y no display: guarda su lugar y recibe el foco');
+  assert.match(hoja, /\.ee-fila:hover \.ee-oculto,\.ee-fila:focus-within \.ee-oculto/);
+  assert.match(hoja, /@media \(hover:none\)\{\.ee-oculto\{opacity:1\}\}/, 'sin cursor no hay cómo descubrirlas');
+  // La ✕ de la etapa y la de la fase.
+  assert.equal((EDITOR_CODIGO.match(/<AccionFila className="ee-oculto"/g) ?? []).length, 2);
+  // Lo que se fue con el rediseño no vuelve: el selector de fase por fila, las flechas, el
+  // recuadro punteado y los rótulos en versalitas.
+  assert.doesNotMatch(EDITOR_CODIGO, /<select\b/);
+  assert.doesNotMatch(EDITOR_CODIGO, /MoverPartido/);
+  assert.doesNotMatch(EDITOR_CODIGO, /dashed/);
+  assert.doesNotMatch(EDITOR_CODIGO, /uppercase/);
+});
+
+// ROTO (05/10/2026), cada una sola:
+//   · el `drop` escuchado en la lista y no en `document` (soltar afuera se pierde) → 34/1.
+//   · el empuje del scroll condicionado a `ev.clientX < rs.right` (de costado deja de
+//     scrollear, que es el pedido 6 sobre el tablero) → 34 pass / 1 fail.
+// Y MEDIDO en /customer-success?ws=1 (Chromium, los POST abortados): arrastrando «Criterio»
+// con el cursor en x=1430 —afuera del modal de 760, por la derecha— la marca se dibujó y el
+// cuerpo que se habría guardado la ponía en «Contexto y Norte»; con el cursor abajo y al
+// costado, afuera, el cuerpo del modal scrolleó de 0 a 387 px.
+test('el arrastre escucha en DOCUMENT y sólo le importa la ALTURA del cursor', () => {
+  const agarrar = bloque(EDITOR, '  const agarrar = (e: DragReact<HTMLElement>, a: Agarre) => {', '\n  // Si el editor se cierra');
+  assert.match(agarrar, /document\.addEventListener\('dragover', sobre, true\);/);
+  assert.match(agarrar, /document\.addEventListener\('drop', alSoltar, true\);/);
+  assert.doesNotMatch(EDITOR_CODIGO, /onDragOver=|onDrop=/, 'nada del gesto puede depender de estar ENCIMA de la lista');
+  const empuje = bloque(EDITOR, '      const sc = scroller();\n      if (sc) {', '      const y = ev.clientY');
+  assert.match(empuje, /if \(ev\.clientY < rs\.top \+ borde\)/);
+  assert.match(empuje, /else if \(ev\.clientY > rs\.bottom - borde\)/);
+  assert.doesNotMatch(empuje, /clientX/);
 });
 
 // ROTO: 9 y 10 de la lista de arriba. MEDIDO con el editor de HEAD: Escape en el nombre
@@ -377,6 +642,10 @@ test('el Escape de un campo o de la pregunta no cierra el editor', () => {
   assert.match(EDITOR_CODIGO, /window\.addEventListener\('keydown', alTeclear, true\);/);
   const tecla = bloque(EDITOR, '    const alTeclear = (ev: KeyboardEvent) => {', '\n    };');
   assert.match(tecla, /if \(hayPregunta\) \{ ev\.stopPropagation\(\); setConfirmar\(null\); return; \}/);
+  // ROTO (05/10/2026): sin esta línea, Escape con la paleta de una fase abierta cerraba el
+  // editor entero → 34 pass / 1 fail.
+  assert.match(tecla, /if \(hayPaleta\) \{ ev\.stopPropagation\(\); setColorDe\(null\); return; \}/);
+  assert.match(tecla, /if \(agarrada\.current\) \{ ev\.stopPropagation\(\); return; \}/, 'a mitad de un arrastre, tampoco');
   assert.match(tecla, /el\.value = el\.dataset\.eeEsc;\s*el\.blur\(\);/);
   // Los cuatro campos llevan la marca: el título, el nombre de una etapa, el de una fase y
   // el renglón nuevo.
@@ -398,7 +667,12 @@ test('«Agregar fase» va ARRIBA de todo; «Agregar etapa», al pie de cada grup
   assert.notEqual(fase, -1);
   assert.equal(EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="fase"', fase + 1), -1, 'uno solo');
   assert.ok(fase < EDITOR_CODIGO.indexOf('<div ref={listaRef}'), '«agregar fase debería estar arriba del todo, no abajo»');
-  assert.ok(EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="etapa"') > EDITOR_CODIGO.indexOf('{g.etapas.map('));
+  // ⚠️ El ancla se afirma ANTES de comparar: un `indexOf` que no encuentra da -1, y «algo
+  // está después de -1» es verdad siempre (ROTO, 05/10/2026: `forEach` → `map` en el
+  // editor → 34 pass / 1 fail con esta línea; sin ella, verde).
+  const filas = EDITOR_CODIGO.indexOf('g.etapas.forEach(');
+  assert.notEqual(filas, -1);
+  assert.ok(EDITOR_CODIGO.indexOf('<NuevoRenglon tipo="etapa"') > filas);
 });
 
 // ── El write path ───────────────────────────────────────────────────────────
@@ -445,6 +719,80 @@ test('el botón de filtrar DICE «Filtrar»', () => {
   const css = bloque(barra, '.bc-btn{', '}');
   assert.doesNotMatch(css, /width:38px/);
   assert.match(css, /padding:0 13px/);
+});
+
+// ── La FASE, como una sección de «Filtrar» ──────────────────────────────────
+//
+// «Como terminaron siendo muchas fases, es mejor que lo pongas como un filtro directamente,
+// porque no queda bien que estén todos esos botones» (Martín, 05/10/2026). Las tres
+// funciones son la definición de la opción y se EJECUTAN acá: un guard de cableado contesta
+// «¿está enchufado?», nunca «¿hace lo que dice?».
+
+const E = (key: string, fase?: string) => ({ key, label: key, tone: 'neutral', dot: '#123456', ...(fase ? { fase } : {}) }) as unknown as EtapaEntrega;
+const F = (key: string) => ({ key, label: key.toUpperCase(), tone: 'neutral', dot: '#abcdef' }) as unknown as FaseEntrega;
+
+test('columnasVisibles: «Sin fase» incluye las que apuntan a una fase BORRADA', () => {
+  const fases = [F('f1'), F('f2')];
+  const etapas = [E('a', 'f1'), E('b', 'f2'), E('c'), E('d', 'f_borrada')];
+  assert.deepEqual(columnasVisibles(etapas, fases, null).map((e) => e.key), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(columnasVisibles(etapas, fases, 'f1').map((e) => e.key), ['a']);
+  // La rotura de los chips viejos: ofrecían «Sin fase» por `d` y filtraban por `fase === ''`.
+  assert.deepEqual(columnasVisibles(etapas, fases, '').map((e) => e.key), ['c', 'd']);
+});
+
+test('opcionesDeFase: sólo lo que dibuja algo, y nada con menos de dos', () => {
+  const fases = [F('f1'), F('f2'), F('vacia')];
+  // `vacia` no tiene columnas: elegirla dejaría el riel en blanco. Y sin sueltas no hay «Sin fase».
+  const op = opcionesDeFase([E('a', 'f1'), E('b', 'f2')], fases);
+  assert.deepEqual(op.map((o) => o.valor), ['f1', 'f2']);
+  assert.deepEqual(op[0], { valor: 'f1', label: 'F1', color: '#abcdef' });
+  // Con una suelta, «Sin fase» va al final.
+  assert.deepEqual(opcionesDeFase([E('a', 'f1'), E('c')], fases).map((o) => o.valor), ['f1', '']);
+  // Una sola fase elige lo mismo que «Todas»: no hay sección.
+  assert.deepEqual(opcionesDeFase([E('a', 'f1'), E('b', 'f1')], fases), []);
+  // Sin fases, el caso normal: la barra sigue igual que siempre.
+  assert.deepEqual(opcionesDeFase([E('a'), E('b')], []), []);
+});
+
+test('faseVigente: lo que el servicio no ofrece se mira como «todas»', () => {
+  const op = opcionesDeFase([E('a', 'f1'), E('b', 'f2')], [F('f1'), F('f2')]);
+  assert.equal(faseVigente(null, op), null);
+  assert.equal(faseVigente('f2', op), 'f2');
+  // La fase de OTRO servicio: la pantalla no se desmonta al cambiar de servicio.
+  assert.equal(faseVigente('f9', op), null);
+  // «Sin fase» elegida en un servicio que no tiene sueltas: nunca un riel vacío.
+  assert.equal(faseVigente('', op), null);
+});
+
+test('la fase vive en la PANTALLA, entra por «Filtrar» y llega vigente al kanban', () => {
+  const app = sinComentarios(leer('app/customer-success/ClientesApp.tsx'));
+  assert.match(app, /const \[fasePedida, setFasePedida\] = useState<string \| null>\(null\);/);
+  assert.match(app, /const faseVista = faseVigente\(fasePedida, opcionesFase\);/);
+  // La sección sólo en el kanban: la tabla no esconde columnas.
+  assert.match(app, /fases=\{enKanban \? opcionesFase : undefined\} fase=\{faseVista\} onFase=\{setFasePedida\}/);
+  const kanban = bloque(app, '<KanbanEntrega', '/>');
+  assert.match(kanban, /fase=\{faseVista\}/, 'lo que se pidió, NO: lo que este servicio ofrece');
+  // Y lo que se cuenta, se exporta y se elige en lote es lo que el riel dibuja.
+  assert.match(app, /const elegidosVisibles = enPantalla\.filter\(/);
+  assert.match(app, /onTodos=\{\(\) => setSel\(new Set\(enPantalla\.map\(/, '«Seleccionar todos» no puede elegir a los de una fase escondida');
+  assert.match(app, /nVisibles=\{enPantalla\.length\}/);
+  // Los chips no vuelven, ni su estado adentro del tablero.
+  assert.doesNotMatch(sinComentarios(KANBAN), /FasesChips|ke-fases|fasePedida/);
+});
+
+test('«Filtrar» cuenta la fase SÓLO si ofrece la sección, y limpiar la devuelve a «Todas»', () => {
+  const barra = leer('app/customer-success/BarraClientes.tsx');
+  const menu = sinComentarios(bloque(barra, 'function MenuFiltro(', '\n/* Los dos íconos del menú'));
+  assert.match(menu, /const hayFases = !!fases && fases\.length > 0 && !!onFase;/);
+  assert.match(menu, /const faseOn = hayFases && fase != null \?/);
+  assert.match(menu, /\+ \(faseOn \? 1 : 0\);/, 'una fase elegida es un filtro puesto: el botón lo dice');
+  assert.match(menu, /\.\.\.\(hayFases \? \[\{ key: 'fase' as const, label: 'Fase'/, 'en /admin no hay fases');
+  const limpiar = bloque(menu, 'const limpiar = () => {', '};');
+  assert.match(limpiar, /onFase\?\.\(null\);/);
+  assert.match(limpiar, /onCuando\?\.\('siempre'\);/);
+  // El número del botón y «Limpiar filtros» llaman a la MISMA función.
+  assert.match(menu, /onClick=\{\(e\) => \{ e\.stopPropagation\(\); limpiar\(\); \}\}/);
+  assert.match(menu, /onClick=\{limpiar\}>Limpiar filtros/);
 });
 
 // ── El menú de «mover a una etapa» es UNO ───────────────────────────────────

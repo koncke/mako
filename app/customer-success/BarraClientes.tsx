@@ -30,6 +30,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
+import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 
 /**
  * Las formas de mirar la misma lista. Es UN valor y no un booleano por vista: con
@@ -114,6 +115,74 @@ export function entraEnVentana(iso: string | null | undefined, cuando: string): 
   return Number.isFinite(tope) ? dias <= tope : true;
 }
 
+// ── La FASE: qué columnas del tablero de entrega se ven ──────────────────────────
+//
+// «Como terminaron siendo muchas fases, es mejor que lo pongas como un filtro
+// directamente, porque no queda bien que estén todos esos botones» (Martín, 05/10/2026).
+// Hasta ese día eran chips arriba del riel del kanban, uno por fase y con su conteo.
+// Ahora es una sección más de «Filtrar», y las tres reglas de abajo viven acá —y no en
+// el kanban ni en la pantalla— porque son la definición de la opción: qué se ofrece y
+// qué significa haberla elegido. El kanban dibuja con `columnasVisibles` y la pantalla
+// valida con `faseVigente`; ninguno de los dos vuelve a escribir la regla.
+
+/** Una opción de la sección «Fase». `valor` es la clave de la fase, o `''` para las
+ *  columnas sueltas; «Todas» no es una opción de la lista: es la ausencia de filtro. */
+export type OpcionFase = { valor: string; label: string; color: string | null };
+
+/**
+ * Las columnas que se ven con `fase` elegida. `null` = todas.
+ *
+ * ⚠️ «SIN FASE» SON LAS QUE NO TIENEN UNA FASE QUE EXISTA, no sólo las que no tienen el
+ * campo. Una etapa puede apuntar a una fase que se borró, y para su color ya es suelta
+ * (`colorDeEtapa` cae a su color propio). Los chips viejos la contaban como suelta para
+ * OFRECER «Sin fase» y la filtraban por `e.fase === ''` para DIBUJAR — con una sola
+ * columna así, elegir «Sin fase» dejaba el tablero en blanco. Es una función y la usan las
+ * dos puntas.
+ */
+export function columnasVisibles(
+  etapas: readonly EtapaEntrega[],
+  fases: readonly FaseEntrega[],
+  fase: string | null,
+): EtapaEntrega[] {
+  if (fase === null) return [...etapas];
+  if (fase === '') return etapas.filter((e) => !e.fase || !fases.some((f) => f.key === e.fase));
+  return etapas.filter((e) => e.fase === fase);
+}
+
+/**
+ * Lo que la sección «Fase» ofrece, en el orden del catálogo y con «Sin fase» al final.
+ *
+ * ⚠️ SÓLO LAS QUE DIBUJAN ALGO. Una fase sin columnas —recién creada, o a la que le
+ * sacaron la última— se ofrecía igual en los chips, y elegirla dejaba el riel vacío sin
+ * nada que lo explicara. Se pregunta con `columnasVisibles`, que es lo que se va a dibujar.
+ *
+ * ⚠️ Y CON MENOS DE DOS NO HAY SECCIÓN (`[]`). Con una sola fase, elegirla muestra lo
+ * mismo que «Todas»: un filtro cuyas dos respuestas son iguales es un control que no
+ * hace nada, y eso se lee como que la app está rota. Sin fases, tampoco: es el caso
+ * normal, y la barra sigue igual que siempre.
+ */
+export function opcionesDeFase(etapas: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): OpcionFase[] {
+  if (!fases.length) return [];
+  const todas: OpcionFase[] = [
+    ...fases.map((f) => ({ valor: f.key, label: f.label, color: f.dot })),
+    { valor: '', label: 'Sin fase', color: null },
+  ];
+  const ofrecidas = todas.filter((o) => columnasVisibles(etapas, fases, o.valor).length > 0);
+  return ofrecidas.length >= 2 ? ofrecidas : [];
+}
+
+/**
+ * La fase que de verdad se mira: la pedida, si este servicio la ofrece; si no, `null`.
+ *
+ * ⚠️ SE DERIVA, NO SE CORRIGE CON UN EFECTO. La pantalla NO se desmonta al cambiar de
+ * servicio, así que lo elegido en uno sobrevive al pasar a otro — y ahí puede no existir.
+ * Tratarlo como «todas» en el render nunca deja el riel en blanco, y no le pisa la
+ * elección a nadie: al volver al servicio de antes, la fase vuelve con él.
+ */
+export function faseVigente(pedida: string | null, opciones: readonly OpcionFase[]): string | null {
+  return pedida !== null && opciones.some((o) => o.valor === pedida) ? pedida : null;
+}
+
 export const FILTRO_LABEL: Record<FiltroClientes, string> = {
   todos: 'Todos',
   'con-trabajo': 'Con trabajo abierto',
@@ -140,6 +209,7 @@ export function BarraClientes({
   nVisibles, nTotal, progreso, placeholder = 'Buscar por nombre o empresa…',
   filtros = FILTRO_LABEL, ordenes = ORDEN_LABEL, filtroBase = 'todos', ordenBase = 'nombre',
   cuandos, cuando = 'siempre', onCuando, dir = 'desc', onDir,
+  fases, fase = null, onFase,
   accionesExtra = [],
 }: {
   q: string;
@@ -193,6 +263,18 @@ export function BarraClientes({
    *  y «Nombre al revés» no son dos criterios: es uno con dos sentidos. */
   dir?: 'asc' | 'desc';
   onDir?: (d: 'asc' | 'desc') => void;
+  /**
+   * Las fases del tablero de entrega que se pueden mirar de a una (`opcionesDeFase`), la
+   * elegida (`null` = todas) y cómo cambiarla.
+   *
+   * ⚠️ OPCIONAL Y EN POSITIVO: la sección existe sólo si la pantalla la manda con algo
+   * adentro. /admin monta esta misma barra sobre una lista de WORKSPACES, que no tienen
+   * etapas de entrega, y Customer Success la manda sólo en la vista de kanban — la tabla
+   * no filtra columnas, y una opción que no cambia nada de lo que se ve se lee como rota.
+   */
+  fases?: readonly OpcionFase[];
+  fase?: string | null;
+  onFase?: (v: string | null) => void;
   /** Más filas para los tres puntos, además de exportar e importar. */
   accionesExtra?: AccionPlegable[];
 }) {
@@ -219,7 +301,8 @@ export function BarraClientes({
 
       <MenuFiltro filtro={filtro} onFiltro={onFiltro} orden={orden} onOrden={onOrden}
         filtros={filtros} ordenes={ordenes} filtroBase={filtroBase} ordenBase={ordenBase}
-        cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir} />
+        cuandos={cuandos} cuando={cuando} onCuando={onCuando} dir={dir} onDir={onDir}
+        fases={fases} fase={fase} onFase={onFase} />
 
       {/* ⚠️ EL CONTADOR SÓLO APARECE CUANDO LA VISTA ESTÁ RECORTADA. «3 de 12» con los
           12 a la vista no informa nada; con un filtro puesto es lo único que dice por
@@ -321,29 +404,52 @@ function usePlegable() {
  * ⚠️ Y EL BADGE CUENTA LO QUE NO ES EL DEFAULT, no las categorías. Con «Nombre» y
  * «Todos» puestos no hay nada filtrado, así que el botón no puede decir 2.
  */
-function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtroBase, ordenBase, cuandos, cuando, onCuando, dir, onDir }: {
+function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtroBase, ordenBase, cuandos, cuando, onCuando, dir, onDir, fases, fase, onFase }: {
   filtro: string; onFiltro: (v: string) => void;
   orden: string; onOrden: (v: string) => void;
   filtros: Record<string, string>; ordenes: Record<string, string>;
   filtroBase: string; ordenBase: string;
   cuandos?: Record<string, string>; cuando?: string; onCuando?: (v: string) => void;
   dir?: 'asc' | 'desc'; onDir?: (d: 'asc' | 'desc') => void;
+  fases?: readonly OpcionFase[]; fase?: string | null; onFase?: (v: string | null) => void;
 }) {
   const { open, setOpen, ref } = usePlegable();
-  const [vista, setVista] = useState<'root' | 'mostrar' | 'orden' | 'cuando'>('root');
+  const [vista, setVista] = useState<'root' | 'mostrar' | 'orden' | 'cuando' | 'fase'>('root');
   const hayCuando = !!cuandos && !!cuando && cuando !== 'siempre';
-  const n = (filtro !== filtroBase ? 1 : 0) + (orden !== ordenBase ? 1 : 0) + (hayCuando ? 1 : 0);
+  /**
+   * ⚠️ LA SECCIÓN Y SU CUENTA SALEN DE LA MISMA CONDICIÓN. La fase elegida sólo cuenta en
+   * el número del botón si la sección está ofrecida: con la pantalla en la vista de tabla
+   * (que no manda `fases`), el riel no está filtrando nada y un «1» en el botón diría lo
+   * contrario. La elección no se pierde: vuelve al volver al kanban.
+   */
+  const hayFases = !!fases && fases.length > 0 && !!onFase;
+  const faseOn = hayFases && fase != null ? fases!.find((o) => o.valor === fase) ?? null : null;
+  const n = (filtro !== filtroBase ? 1 : 0) + (orden !== ordenBase ? 1 : 0) + (hayCuando ? 1 : 0) + (faseOn ? 1 : 0);
 
   // Al cerrarse, vuelve a la raíz: reabrirlo adentro de una categoría es aparecer en
   // un lugar que nadie eligió.
   useEffect(() => { if (!open) setVista('root'); }, [open]);
 
+  /**
+   * Limpiar es devolver CADA categoría a su base, las cuatro, y es UNA función: el número
+   * del botón y «Limpiar filtros» del panel la llaman igual. ⛔ El del panel devolvía
+   * 'todos' y 'nombre' escritos a mano en vez de la base que llega por prop, y se olvidaba
+   * de la ventana de tiempo: con «Cuándo» puesto, limpiar dejaba el número del botón en 1.
+   */
+  const limpiar = () => { onFiltro(filtroBase); onOrden(ordenBase); onCuando?.('siempre'); onFase?.(null); };
+
   const cats = [
     { key: 'mostrar' as const, label: 'Mostrar', resumen: filtros[filtro], activo: filtro !== filtroBase },
+    // La fase va al lado de «Mostrar» porque contesta lo mismo —qué se ve—, sólo que de
+    // columnas y no de clientes. Y sólo existe si la pantalla la ofrece (ver `fases`).
+    ...(hayFases ? [{ key: 'fase' as const, label: 'Fase', resumen: faseOn?.label ?? 'Todas', activo: !!faseOn }] : []),
     { key: 'orden' as const, label: 'Ordenar', resumen: ordenes[orden], activo: orden !== ordenBase },
     // La ventana de tiempo sólo existe si la pantalla tiene una fecha que filtrar.
     ...(cuandos ? [{ key: 'cuando' as const, label: 'Cuándo', resumen: cuandos[cuando ?? 'siempre'], activo: hayCuando }] : []),
   ];
+  /** El rótulo del «‹ volver», que es el de la categoría abierta. ⛔ Era un ternario de
+   *  dos ramas y «Cuándo» volvía diciendo «‹ Ordenar». */
+  const volverA = cats.find((c) => c.key === vista)?.label ?? 'Volver';
 
   return (
     <div ref={ref} className="bc-pop">
@@ -361,7 +467,7 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
             activo con el panel cerrado es una lista recortada sin explicación. */}
         {n > 0 && (
           <span className="bc-badge" title="Limpiar"
-            onClick={(e) => { e.stopPropagation(); onFiltro(filtroBase); onOrden(ordenBase); onCuando?.('siempre'); }}>{n}</span>
+            onClick={(e) => { e.stopPropagation(); limpiar(); }}>{n}</span>
         )}
       </button>
       {open && (
@@ -379,13 +485,13 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
               ))}
               {n > 0 && (
                 <button type="button" className="bc-limpiar"
-                  onClick={() => { onFiltro('todos'); onOrden('nombre'); }}>Limpiar filtros ({n})</button>
+                  onClick={limpiar}>Limpiar filtros ({n})</button>
               )}
             </>
           ) : (
             <>
               <button type="button" className="bc-volver" onClick={() => setVista('root')}>
-                ‹ {vista === 'mostrar' ? 'Mostrar' : 'Ordenar'}
+                ‹ {volverA}
               </button>
               {/* ⚠️ LOS RENGLONES SALEN DE LOS DICCIONARIOS QUE LLEGAN POR PROP, no de
                   los de Customer Success. Estaban cableados a FILTRO_LABEL/ORDEN_LABEL
@@ -397,6 +503,22 @@ function MenuFiltro({ filtro, onFiltro, orden, onOrden, filtros, ordenes, filtro
                 <button key={k} type="button" className={`bc-op${filtro === k ? ' on' : ''}`}
                   onClick={() => { onFiltro(k); setVista('root'); setOpen(false); }}>{filtros[k]}</button>
               ))}
+              {/* UNA fase a la vez, con «Todas» de verdad: es la ausencia de filtro, no una
+                  opción más, así que no puede quedar el riel sin columnas. El punto es el
+                  color de la fase, el mismo que la línea de arriba de sus columnas. */}
+              {vista === 'fase' && hayFases && (
+                <>
+                  <button type="button" className={`bc-op${faseOn ? '' : ' on'}`}
+                    onClick={() => { onFase?.(null); setVista('root'); setOpen(false); }}>Todas</button>
+                  {fases!.map((o) => (
+                    <button key={o.valor || '__sueltas'} type="button" className={`bc-op${faseOn?.valor === o.valor ? ' on' : ''}`}
+                      onClick={() => { onFase?.(o.valor); setVista('root'); setOpen(false); }}>
+                      <span className="bc-dot" style={{ background: o.color ?? 'var(--border-strong)' }} aria-hidden />
+                      {o.label}
+                    </button>
+                  ))}
+                </>
+              )}
               {vista === 'cuando' && Object.keys(cuandos ?? {}).map((k) => (
                 <button key={k} type="button" className={`bc-op${cuando === k ? ' on' : ''}`}
                   onClick={() => { onCuando?.(k); setVista('root'); setOpen(false); }}>{(cuandos ?? {})[k]}</button>
@@ -497,6 +619,10 @@ const CSS = `
 .bc-dir button.on{ border-color:var(--primary); color:var(--primary); background:var(--primary-bg); }
 .bc-op:hover{ background:var(--surface-2); color:var(--ink); }
 .bc-op.on{ color:var(--primary); font-weight:600; }
+/* El punto de color de una fase, adelante de su nombre. «Sin fase» va en el gris del
+   borde: no tiene color propio, y un hueco ahi corre el texto respecto de las demas. */
+.bc-dot{ display:inline-block; width:8px; height:8px; border-radius:999px; margin-right:8px;
+  vertical-align:middle; position:relative; top:-1px; }
 .bc-desc{ display:block; font-size:11.5px; color:var(--faint); margin-top:1px; }
 
 /* La fila de una categoria: nombre a la izquierda, valor y chevron a la derecha. Es

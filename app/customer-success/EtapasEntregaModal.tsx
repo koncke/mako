@@ -1,37 +1,35 @@
 'use client';
 
 // =============================================================================
-// EtapasEntregaModal — el editor de la ENTREGA de un producto, con la cara del CRM
+// EtapasEntregaModal — el editor de la ENTREGA de un producto: UNA lista
 // =============================================================================
-// «Fijate el diseño de ese editable en el CRM y copialo tal cual. El tamaño del
-// contenedor, los botones, etc...» y «agregar fase debería estar arriba del todo, no
-// abajo. Y tal como en el editable del CRM, debería poder cambiar el nombre del
-// producto, y se debe cambiar en todos lados» (Martín, 05/10/2026).
+// «No me gusta el diseño de las fases y las etapas... Es muy confuso, vuelve a diseñarlo,
+// hazlo de la mejor manera que te parezca pero que sea simple de entender, minimalista»
+// (Martín, 05/10/2026, sobre la versión copiada del CRM: rótulos de fase en versalitas, un
+// selector de fase con cara de campo de texto en cada fila, flechas, ✕ y un recuadro
+// punteado de «Agregar etapa» después de cada grupo — todo dibujado todo el tiempo).
 //
-// EL MOLDE ES app/crm/EtapasModal.tsx, PIEZA POR PIEZA, y lo que se copia son los
-// NÚMEROS, no la idea: caja de 760 con alto FIJO `min(85vh, 620px)` y sin filetes; el
-// título es un input de 21 px que renombra al salir; cada etapa es una `caja` (radio 10,
-// fondo surface-2) con su `fila` transparente encima; el nombre es un botón que NO
-// estira; las flechas son `MoverPartido` y la ✕ es `CerrarIcon` en un botón de 28 — los
-// dos IMPORTADOS del CRM y no copiados, porque dos copias de un control divergen en el
-// primer ajuste y acá se ven a un clic de distancia. El pie es sólo «Eliminar producto»
-// en rojo, a la izquierda. Las filas se arrastran. Y el velo de hover es el del CRM
-// (`.crm-hover`, app/_ui/ui.css): allá lo hereda el modal del `<main>` de la ruta, acá
-// no hay nada arriba que lo ponga, así que lo pone el envoltorio.
+// LO QUE QUEDÓ, y es lo que hay que conservar:
+//  · UNA LISTA QUE SE LEE DE ARRIBA ABAJO COMO EL TABLERO SE LEE DE IZQUIERDA A DERECHA.
+//    Las fases son TÍTULOS de grupo (punto de color + nombre), sin cajas ni versalitas.
+//  · LAS FILAS VAN CALLADAS: punto, nombre y el número de clientes en gris. La ✕ y el asa
+//    de arrastre aparecen SÓLO con el cursor encima o con el foco adentro (`.ee-oculto`).
+//  · ORDENAR Y CAMBIAR DE FASE SON EL MISMO GESTO: se arrastra la fila, y soltarla adentro
+//    de otro grupo la pasa a esa fase. Eso es lo que sacó el selector de cada fila y las
+//    flechas. Con el teclado, Alt+↑ / Alt+↓ sobre la fila hace lo mismo un lugar por vez,
+//    cruzando de grupo en los bordes — sin un solo botón más dibujado.
+//  · «+ Etapa» es texto al pie de cada grupo y «+ Fase» uno solo, ARRIBA («agregar fase
+//    debería estar arriba del todo, no abajo», pedido anterior que sigue valiendo).
+//  · Las acciones de una fase (nombre, color, sacarla) también aparecen sólo con el cursor.
+//    Sacar una fase NO borra sus etapas: quedan «Sin fase».
 //
-// LO QUE ESTE EDITOR TIENE Y EL DEL CRM NO, Y SE CONSERVA: las FASES con su color, el
-// selector de fase por fila, el conteo de clientes por columna, el aviso de secuencias
-// pegado a la ✕, y que guarda solo (no hay botón de guardar: «no existe el botón de
-// "No cambiar nada" o el de guardar… Se guarda automáticamente»).
+// Lo que NO cambió del molde del CRM (app/crm/EtapasModal.tsx): caja de 760 con alto FIJO,
+// el título es un input que renombra el producto, el pie es sólo «Eliminar producto» en rojo
+// a la izquierda, y el velo de hover es el de `.crm-hover` (app/_ui/ui.css) — allá lo pone el
+// `<main>` de la ruta, acá no hay nada arriba que lo ponga, así que lo pone el envoltorio.
 //
-// ⚠️ SIN TABS. El del CRM tiene «Etapas / Nutrición» porque allá la nutrición es una
-// lista EDITABLE (agregar, quitar, de qué etapa sale). Acá lo único que hay de las
-// secuencias es CUÁNTAS apuntan a cada etapa: una tab con eso sería una lista de
-// números sin un solo control, y un control vacío se lee como roto. El número vive
-// donde decide algo — en el aviso de la ✕ —, y las secuencias se editan en Chatbot.
-//
-// ⚠️ «AGREGAR FASE» VA ARRIBA DE TODO, en el lugar donde el CRM tiene sus tabs; «+
-// Agregar etapa» queda donde lo tiene el CRM, al pie de la lista (uno por grupo).
+// ⚠️ SIN TABS. Lo único que hay de las secuencias es CUÁNTAS apuntan a cada etapa, y ese
+// número vive donde decide algo: en el aviso de la ✕. Las secuencias se editan en Chatbot.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // LAS DECISIONES QUE NO SE VEN, cada una con lo que rompía
@@ -51,6 +49,15 @@
 // mandaría contra la de lo último que se mandó no depende de cuántas veces corra el
 // efecto, y de paso no escribe cuando alguien deshace a mano lo que acababa de hacer.
 //
+// ⚠️ LO QUE SE GUARDA ES EL ORDEN QUE SE VE (`enOrden`). El tablero tiene UN orden y las
+// fases sólo lo agrupan; con el modelo de antes un grupo podía quedar PARTIDO en el tablero
+// (cambiarle la fase a una etapa la dejaba en su lugar: «A, X, B, C» con X de otra fase)
+// mientras el editor lo dibujaba junto. Ahora cada cambio manda los grupos uno detrás del
+// otro, y las fases en ese mismo orden — así el filtro de fases del tablero las lista como
+// aparecen las columnas. ⚠️ Y LA FIRMA INICIAL SE CALCULA SOBRE ESE MISMO ORDEN: si no, una
+// lista que llega partida del server «cambiaba» al abrir y se guardaba sin que nadie tocara
+// nada, que es justo lo que la comparación de firmas viene a impedir.
+//
 // ⚠️ CERRAR NO PIERDE LO ÚLTIMO. Con el respiro, renombrar una columna y cerrar en el
 // mismo medio segundo limpiaba el timer en el desmonte y el nombre no se guardaba nunca,
 // sin un error. El desmonte manda lo pendiente. Y los guardados van EN FILA: dos upserts
@@ -60,22 +67,19 @@
 // que esta sesión vio, las que están y las que se sacaron: si se reusara, los clientes
 // que estaban en la etapa vieja reaparecerían dentro de la nueva, en una columna a la
 // que nadie los movió. El «Deshacer» del toast sí devuelve la MISMA clave: es la misma
-// etapa que vuelve, no una nueva con su nombre.
+// etapa que vuelve, no una nueva con su nombre. Y entran también las fases a las que
+// APUNTA una etapa aunque ya no existan: una fase nueva con esa clave se llevaría a esas
+// etapas adentro sin que nadie las mueva.
 //
-// ⚠️ LA PRIMERA ETAPA ES LA ENTRADA, y se trata como la del CRM: no se mueve, no se
-// quita y nada va antes de ella. Acá no es un gusto: «un cliente SIN fila está en la
-// PRIMERA etapa» es una regla DERIVADA (lib/servicio-etapas.ts), así que mover otra
-// columna arriba pasaba EN SILENCIO a todos los clientes sin fila a esa columna, y
-// sacarla los pasaba a la segunda — con el aviso de la ✕ diciendo «quedan sin columna»,
-// que era falso para ellos. Con la entrada fija, el número del aviso es exacto: en
-// cualquier otra columna sólo cuentan los que tienen fila ahí.
-//
-// ⚠️ MOVER ES DENTRO DEL GRUPO QUE SE VE. El orden del tablero es UNO, y las fases lo
-// agrupan sólo en esta pantalla: una flecha que intercambiaba con el vecino de la lista
-// GLOBAL no movía nada en un grupo cuando el vecino era de otra fase. Ahora las flechas y
-// el arrastre permutan las etapas del grupo entre los lugares que el grupo ya ocupa, y
-// una etapa nueva —o una que cambia de fase— cae al final de su grupo también en el
-// tablero. Los grupos se dibujan en el orden en que aparecen en el tablero.
+// ⚠️ LA PRIMERA ETAPA ES LA ENTRADA: no se mueve, no se quita y nada va antes de ella.
+// No es un gusto: «un cliente SIN fila está en la PRIMERA etapa» es una regla DERIVADA
+// (lib/servicio-etapas.ts), así que mover otra columna arriba pasaba EN SILENCIO a todos
+// los clientes sin fila a esa columna, y sacarla los pasaba a la segunda — con el aviso de
+// la ✕ diciendo «quedan sin columna», que era falso para ellos. Con la entrada fija, el
+// número del aviso es exacto: en cualquier otra columna sólo cuentan los que tienen fila.
+// Lo que SÍ puede cambiar es su FASE (antes era el selector de su fila): se arrastra a otro
+// grupo y cae PRIMERA de ese grupo, y ese grupo pasa a dibujarse primero — la columna
+// sigue siendo la primera del tablero. Dentro de su grupo no tiene a dónde ir.
 //
 // ⚠️ EL ESCAPE ADENTRO DE UN CAMPO NO PUEDE LLEGAR AL MODAL. `Modal` escucha la tecla en
 // `document` y en CAPTURA, o sea ANTES que cualquier `onKeyDown` de un input, y además
@@ -83,7 +87,15 @@
 // `stopPropagation` que había en el input no podía evitarlo porque nunca le llegaba la
 // tecla. Lo mismo con el «¿seguro?»: `Confirm` escucha en `document` también, así que un
 // Escape cerraba la pregunta Y el editor. El único lugar que llega antes que `document`
-// es `window` en captura: ahí se frena, y el campo vuelve a su valor.
+// es `window` en captura: ahí se frena, y el campo vuelve a su valor. La paleta de color
+// de una fase se cierra por el mismo camino.
+//
+// ⚠️ EL ARRASTRE ESCUCHA EN `document`, NO EN LA LISTA. Es el pedido 6 del mismo día sobre
+// el tablero («si lo muevo muy al costado, se sale del contenedor... y deja de desplazar»)
+// aplicado acá antes de que se reporte: el destino y el empuje del scroll salen sólo de la
+// ALTURA del cursor, así que irse de costado —sobre el borde del modal o afuera— sigue
+// moviendo la marca y scrolleando el cuerpo. Y el `drop` se resuelve en `document` también:
+// soltar fuera de la lista suelta en la marca que se ve, no se pierde el gesto.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // LAS FASES
@@ -93,15 +105,23 @@
 // (Martín). Es el mismo modelo que el CRM ya tiene con Activo / Nutrición / Descartado.
 //
 // ⚠️ UNA ETAPA SIN FASE ES EL CASO NORMAL, no un hueco por llenar. Sin ninguna fase esta
-// pantalla se ve exactamente como la del CRM: sin rótulos de grupo y sin selector.
+// pantalla es una lista sola, sin títulos de grupo.
+//
+// ⚠️ UNA FASE VACÍA NO TIENE LUGAR EN EL TABLERO, así que se dibuja al final con un «arrastra
+// etapas aquí». Y «Sin fase» aparece como destino mientras se arrastra aunque no tenga
+// ninguna etapa: es la única forma de sacar una etapa de su fase sin borrar la fase.
+//
+// ⚠️ LAS FASES TAMBIÉN SE REORDENAN (era lo que había quedado SIN hacer): se arrastra el
+// título, o Alt+↑ / Alt+↓ sobre su nombre. Un grupo con etapas se mueve entre los que tienen
+// etapas y nunca antes del de la entrada; uno vacío, entre los vacíos.
 
 import {
-  useCallback, useEffect, useRef, useState,
-  type CSSProperties, type DragEvent as DragReact, type ReactNode,
+  useCallback, useEffect, useLayoutEffect, useRef, useState,
+  type CSSProperties, type DragEvent as DragReact, type KeyboardEvent as TeclaReact, type ReactNode,
 } from 'react';
 import { Modal, Confirm, Toast, useToast } from '@/app/_ui';
 import { CerrarIcon } from '@/app/crm/iconos';
-import { MoverPartido } from '@/app/crm/MoverPartido';
+import { NEW_STAGE_PALETTE } from '@/lib/pipeline';
 import {
   nuevaClaveEtapa, nuevaClaveFase, colorNuevaEtapa, normalizarEtapas, colorDeEtapa,
   type EtapaEntrega, type FaseEntrega,
@@ -116,51 +136,90 @@ const MAX_LABEL = 40;
 /** El mismo tope que el título del editor del CRM y que `renombrarServicioAction`. */
 const MAX_NOMBRE = 60;
 
-/** La línea de 2 px que dice dónde va a caer la etapa que se está arrastrando. */
+/** La línea de 2 px que dice dónde va a caer lo que se está arrastrando. */
 const MARCA: CSSProperties = { boxShadow: 'inset 0 2px 0 0 var(--primary)' };
-const MARCA_FIN: CSSProperties = { boxShadow: 'inset 0 -2px 0 0 var(--primary)' };
-/** La caja de una etapa: el fondo y el radio viven acá, la fila va transparente encima. */
-const CAJA: CSSProperties = { borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' };
-const FILA: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px' };
 const PUNTO: CSSProperties = { width: 9, height: 9, flex: 'none', borderRadius: '50%' };
 const INPUT: CSSProperties = {
-  flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)',
+  flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 500, fontSize: 14, color: 'var(--ink)',
   background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7,
   padding: '4px 8px', outline: 'none',
 };
-/** El rótulo de un grupo: chico y en versalitas, como las bandas del tablero. */
-const ROTULO_FASE: CSSProperties = {
-  fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.07em',
-  textTransform: 'uppercase', color: 'var(--dim)',
+/** Lo que se lee pero no se ve (el aviso de un movimiento con el teclado). */
+const SOLO_LECTOR: CSSProperties = {
+  position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap',
 };
 
 /**
+ * La hoja del editor.
+ *
  * ⚠️ EL TÍTULO ESTIRA. `.mk-modal__tit` es una columna flex con `align-items: flex-start`,
  * así que el `<h2>` mide lo que mide su contenido — y un `<input>` no mide su texto: su
  * ancho natural sale del atributo `size` (20) contado en el dígito «0» de la fuente
- * activa. Medido en esta casa el 29/09: con eso un nombre de 20 y pico de letras se corta
- * según el motor y según si la webfont ya llegó. Estirado, el input ocupa la cabecera.
+ * activa. Estirado, el input ocupa la cabecera.
+ *
+ * ⚠️ LO QUE APARECE CON EL CURSOR VA CON `opacity`, NO CON `display`: así el asa y la ✕
+ * guardan su lugar (el número de clientes no salta de columna al pasar el cursor) y siguen
+ * recibiendo el foco del teclado — `:focus-within` las muestra cuando se llega con Tab. En
+ * una pantalla sin cursor (`hover: none`) van siempre visibles: no hay cómo descubrirlas.
+ *
+ * ⚠️ Las clases van con el prefijo `ee-` y SIN colgar de `.ee-modal`: la copia que sigue al
+ * cursor durante un arrastre es un clon pegado al `body`, afuera del modal, y tiene que
+ * conservar la forma de la fila.
  *
  * Sin backticks adentro de esta cadena, ni en un comentario: la cierran a la mitad.
  */
-const CSS = '.ee-modal .mk-modal__h{align-self:stretch}';
+const CSS = [
+  '.ee-modal .mk-modal__h{align-self:stretch}',
+  '.ee-fila,.ee-fase{display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:9px;font-family:' + SANS + '}',
+  '.ee-fila{min-height:38px}',
+  '.ee-fase{min-height:32px;margin-top:16px}',
+  '.ee-fase:first-child{margin-top:2px}',
+  '.ee-fila:hover,.ee-fila:focus-within,.ee-fase:hover,.ee-fase:focus-within{background:var(--surface-2)}',
+  // «Sin fase» no tiene nada que hacer con el cursor: un velo ahí promete una acción.
+  '.ee-fase.ee-quieta:hover{background:none}',
+  '.ee-oculto{opacity:0;transition:opacity .12s}',
+  '.ee-fila:hover .ee-oculto,.ee-fila:focus-within .ee-oculto,.ee-fase:hover .ee-oculto,.ee-fase:focus-within .ee-oculto{opacity:1}',
+  '@media (hover:none){.ee-oculto{opacity:1}}',
+  '.ee-asa{width:12px;flex:none;display:inline-flex;align-items:center;justify-content:center;color:var(--faint)}',
+  '.ee-mas{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:none;background:none;border-radius:7px;padding:5px 8px;font:500 13px/1.2 ' + SANS + ';color:var(--faint);cursor:pointer;transition:color .12s}',
+  '.ee-mas:hover{color:var(--primary)}',
+  '.ee-punto{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;border-radius:50%;cursor:pointer}',
+  '.ee-punto:hover>span,.ee-punto:focus-visible>span{outline:2px solid var(--border-strong);outline-offset:2px}',
+  '.ee-vacia{margin:0 0 0 26px;padding:6px 8px;border-radius:8px;font:400 12.5px/1.3 ' + SANS + ';color:var(--faint)}',
+].join('\n');
 
 /** El botoncito de una acción por fila (el de app/crm/EtapasModal.tsx). Sin texto: el
  *  `aria-label` y el `title` llevan la frase. */
-function AccionFila({ etiqueta, onClick, disabled, children }: {
-  etiqueta: string; onClick: () => void; disabled?: boolean; children: ReactNode;
+function AccionFila({ etiqueta, onClick, disabled, className, children }: {
+  etiqueta: string; onClick: () => void; disabled?: boolean; className?: string; children: ReactNode;
 }) {
   return (
     <button
       type="button" onClick={onClick} disabled={disabled} aria-label={etiqueta} title={etiqueta} data-nodrag
+      className={className}
       style={{
         width: 28, height: 28, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 8, border: '1px solid transparent', background: 'transparent', fontFamily: SANS, fontSize: 13,
-        color: disabled ? 'var(--faint)' : 'var(--dim)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
+        color: disabled ? 'var(--faint)' : 'var(--dim)', cursor: disabled ? 'default' : 'pointer',
       }}
     >{children}</button>
   );
 }
+
+/** El asa de arrastre: seis puntos. Decorativa — el gesto es de toda la fila. */
+function AsaIcon() {
+  return (
+    <svg width="8" height="13" viewBox="0 0 8 13" fill="currentColor" aria-hidden>
+      <circle cx="1.6" cy="1.6" r="1.3" /><circle cx="6.4" cy="1.6" r="1.3" />
+      <circle cx="1.6" cy="6.5" r="1.3" /><circle cx="6.4" cy="6.5" r="1.3" />
+      <circle cx="1.6" cy="11.4" r="1.3" /><circle cx="6.4" cy="11.4" r="1.3" />
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EL MODELO DE LA LISTA (puro: lo ejecuta tests/cs-kanban-fases.test.ts)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** A qué grupo se dibuja una etapa. `''` = sin fase (o con una fase que ya no existe,
  *  que es la misma regla que `colorDeEtapa`: cae a lo suyo). */
@@ -168,11 +227,157 @@ function grupoDe(e: EtapaEntrega, fases: readonly FaseEntrega[]): string {
   return e.fase && fases.some((f) => f.key === e.fase) ? e.fase : '';
 }
 
-/** Los lugares de la lista GLOBAL que ocupa un grupo, en orden. */
-function lugaresDe(lista: readonly EtapaEntrega[], grupo: string, fases: readonly FaseEntrega[]): number[] {
-  const out: number[] = [];
-  lista.forEach((e, i) => { if (grupoDe(e, fases) === grupo) out.push(i); });
+/** Un grupo de la lista: una fase (o «Sin fase», `''`) con sus etapas en orden. */
+export type GrupoEditor = { clave: string; etapas: EtapaEntrega[] };
+
+/**
+ * Los grupos en el orden en que se dibujan: los que tienen etapas, en el orden en que
+ * aparecen en el tablero; después las fases vacías, en su orden.
+ *
+ * `conSueltas` agrega «Sin fase» VACÍO al final si hay fases y ninguna etapa está suelta:
+ * es el destino de un arrastre o de un Alt+↓ que quiere sacar una etapa de su fase.
+ */
+export function gruposDe(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], conSueltas = false): GrupoEditor[] {
+  const orden: string[] = [];
+  const por = new Map<string, EtapaEntrega[]>();
+  for (const e of lista) {
+    const g = grupoDe(e, fases);
+    if (!por.has(g)) { por.set(g, []); orden.push(g); }
+    por.get(g)!.push(e);
+  }
+  for (const f of fases) if (!por.has(f.key)) { por.set(f.key, []); orden.push(f.key); }
+  if (conSueltas && fases.length > 0 && !por.has('')) { por.set('', []); orden.push(''); }
+  return orden.map((clave) => ({ clave, etapas: por.get(clave)! }));
+}
+
+/** Los grupos, uno detrás del otro: la lista del tablero que corresponde a lo que se ve. */
+function aplanar(grupos: readonly GrupoEditor[]): EtapaEntrega[] {
+  return grupos.flatMap((g) => g.etapas);
+}
+
+/**
+ * Lo que se GUARDA: las etapas en el orden en que se dibujan y las fases en ese mismo
+ * orden. Ver «LO QUE SE GUARDA ES EL ORDEN QUE SE VE» en el encabezado.
+ */
+export function enOrden(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[]): { etapas: EtapaEntrega[]; fases: FaseEntrega[] } {
+  const grupos = gruposDe(lista, fases);
+  const orden = grupos.map((g) => g.clave);
+  return {
+    etapas: aplanar(grupos),
+    fases: [...fases].sort((a, b) => orden.indexOf(a.key) - orden.indexOf(b.key)),
+  };
+}
+
+/** La etapa con la fase de su grupo nuevo. `''` le SACA la fase (no la deja en `undefined`). */
+function conFase(e: EtapaEntrega, grupo: string): EtapaEntrega {
+  const out: EtapaEntrega = { ...e };
+  if (grupo) out.fase = grupo; else delete out.fase;
   return out;
+}
+
+/**
+ * Llevar una etapa al lugar `slot` del grupo `grupo` — ordenar y cambiar de fase son esto.
+ *
+ * `slot` cuenta los lugares del grupo COMO SE VEN, con la etapa todavía adentro si es del
+ * mismo grupo: soltar «antes de la fila 3» es `slot` 3 aunque la arrastrada sea la 1.
+ *
+ * ⚠️ NADA VA ANTES DE LA ENTRADA: en el grupo de la entrada el piso es 1. Y la entrada no
+ * cambia de lugar: si va a otro grupo cae PRIMERA y ese grupo pasa a dibujarse primero.
+ * Un grupo que no existe no se inventa: se devuelve la lista como estaba.
+ */
+export function llevarEtapa(
+  lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], key: string, grupo: string, slot: number,
+): EtapaEntrega[] {
+  const i = lista.findIndex((e) => e.key === key);
+  if (i < 0) return [...lista];
+  const e = lista[i];
+  const grupos = gruposDe(lista, fases, true).map((g) => ({ clave: g.clave, etapas: [...g.etapas] }));
+  const destino = grupos.find((g) => g.clave === grupo);
+  const origen = grupos.find((g) => g.etapas.includes(e));
+  if (!destino || !origen) return [...lista];
+  const pos = origen.etapas.indexOf(e);
+  if (i === 0) {
+    if (destino === origen) return [...lista];
+    origen.etapas.splice(pos, 1);
+    destino.etapas.unshift(conFase(e, grupo));
+    return aplanar([destino, ...grupos.filter((g) => g !== destino)]);
+  }
+  // El índice se corre uno cuando la etapa venía de más arriba en el mismo grupo.
+  let at = destino === origen && slot > pos ? slot - 1 : slot;
+  origen.etapas.splice(pos, 1);
+  const piso = destino.etapas[0]?.key === lista[0]?.key ? 1 : 0;
+  at = Math.max(piso, Math.min(at, destino.etapas.length));
+  destino.etapas.splice(at, 0, destino === origen ? e : conFase(e, grupo));
+  return aplanar(grupos);
+}
+
+/**
+ * Alt+↑ / Alt+↓ sobre una etapa: un lugar por vez, y en el borde del grupo pasa al de al
+ * lado (o sea, cambia de fase). La entrada no se mueve: recorre las fases — «Sin fase»
+ * primero y después cada fase en su orden —, que es lo que hacía el selector de su fila.
+ */
+export function pasoDeEtapa(lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], key: string, dir: -1 | 1): EtapaEntrega[] {
+  const i = lista.findIndex((e) => e.key === key);
+  if (i < 0) return [...lista];
+  const grupos = gruposDe(lista, fases, true);
+  const gi = grupos.findIndex((g) => g.etapas.some((x) => x.key === key));
+  const g = grupos[gi];
+  if (i === 0) {
+    const opciones = ['', ...fases.map((f) => f.key)];
+    const j = opciones.indexOf(g.clave) + dir;
+    if (j < 0 || j >= opciones.length) return [...lista];
+    return llevarEtapa(lista, fases, key, opciones[j], 0);
+  }
+  const k = g.etapas.findIndex((x) => x.key === key);
+  const piso = g.etapas[0]?.key === lista[0]?.key ? 1 : 0;
+  if (dir === -1) {
+    if (k > piso) return llevarEtapa(lista, fases, key, g.clave, k - 1);
+    const antes = grupos[gi - 1];
+    return antes ? llevarEtapa(lista, fases, key, antes.clave, antes.etapas.length) : [...lista];
+  }
+  if (k < g.etapas.length - 1) return llevarEtapa(lista, fases, key, g.clave, k + 2);
+  const despues = grupos[gi + 1];
+  return despues ? llevarEtapa(lista, fases, key, despues.clave, 0) : [...lista];
+}
+
+/**
+ * Hasta dónde se puede mover un GRUPO entero (`slot` = «antes del grupo N», contado con él
+ * adentro). Uno con etapas, entre los que tienen etapas y nunca antes del de la entrada (el
+ * 0); uno vacío, entre los vacíos — una fase vacía no tiene lugar en el tablero. `null` = no
+ * se mueve: el grupo de la entrada, «Sin fase», o uno que no existe.
+ */
+export function rangoDeFase(grupos: readonly GrupoEditor[], clave: string): [number, number] | null {
+  const gi = grupos.findIndex((g) => g.clave === clave);
+  if (gi <= 0 || !clave) return null;
+  const llenos = grupos.filter((g) => g.etapas.length > 0).length;
+  return grupos[gi].etapas.length > 0 ? [1, llenos] : [llenos, grupos.length];
+}
+
+/** Llevar una fase entera (su título y sus etapas) a `slot`. Ver `rangoDeFase`. */
+export function llevarFase(
+  lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], clave: string, slot: number,
+): { etapas: EtapaEntrega[]; fases: FaseEntrega[] } {
+  const grupos = gruposDe(lista, fases);
+  const rango = rangoDeFase(grupos, clave);
+  if (!rango) return { etapas: [...lista], fases: [...fases] };
+  const gi = grupos.findIndex((g) => g.clave === clave);
+  let at = Math.max(rango[0], Math.min(slot, rango[1]));
+  if (at > gi) at -= 1;
+  const resto = grupos.filter((_, j) => j !== gi);
+  resto.splice(at, 0, grupos[gi]);
+  const orden = resto.map((g) => g.clave);
+  return {
+    etapas: aplanar(resto),
+    fases: [...fases].sort((a, b) => orden.indexOf(a.key) - orden.indexOf(b.key)),
+  };
+}
+
+/** Alt+↑ / Alt+↓ sobre el nombre de una fase. */
+export function pasoDeFase(
+  lista: readonly EtapaEntrega[], fases: readonly FaseEntrega[], clave: string, dir: -1 | 1,
+): { etapas: EtapaEntrega[]; fases: FaseEntrega[] } {
+  const gi = gruposDe(lista, fases).findIndex((g) => g.clave === clave);
+  return llevarFase(lista, fases, clave, dir === -1 ? gi - 1 : gi + 2);
 }
 
 /** El mismo saneo que corre en el server, antes de mandar: así el error se ve acá y no
@@ -191,6 +396,14 @@ type Confirmar = {
   titulo: string; cuerpo: string; boton: string; cancelar: string;
   tono?: 'danger' | 'primary'; hacer: () => void;
 };
+/** Lo que se está arrastrando: una etapa, o una fase entera desde su título. */
+type Agarre = { tipo: 'etapa'; key: string } | { tipo: 'fase'; clave: string };
+/** Dónde va a caer: un lugar de un grupo, o un lugar entre grupos. */
+type Destino = { tipo: 'etapa'; grupo: string; slot: number } | { tipo: 'fase'; slot: number };
+
+const mismoDestino = (a: Destino | null, b: Destino | null) =>
+  a === b || (!!a && !!b && a.tipo === b.tipo && a.slot === b.slot
+    && (a.tipo === 'fase' || (b.tipo === 'etapa' && a.grupo === b.grupo)));
 
 export function EtapasEntregaModal({
   servicio, etapas, fases, conteo, secuencias, onGuardar, onRenombrar, onEliminar, onCerrar,
@@ -228,31 +441,41 @@ export function EtapasEntregaModal({
   const [lista, setLista] = useState<EtapaEntrega[]>(() => etapas.map((e) => ({ ...e })));
   const [tramos, setTramos] = useState<FaseEntrega[]>(() => fases.map((f) => ({ ...f })));
   /**
-   * TODAS las claves que esta sesión vio — etapas y fases, incluidas las que se sacaron.
+   * TODAS las claves que esta sesión vio — etapas y fases, incluidas las que se sacaron, y
+   * las fases a las que apunta una etapa aunque la fase ya no exista.
    *
    * ⚠️ NO SE DERIVA DE LA LISTA: justamente las borradas son las que ya no están ahí, y
    * son las que no se pueden reusar. Van las dos familias juntas porque una fase y una
    * etapa pueden llamarse igual, y el prefijo `f_` es lo único que las separa.
    */
-  const [vistas, setVistas] = useState<string[]>(
-    () => [...etapas.map((e) => e.key), ...fases.map((f) => f.key)],
-  );
+  const [vistas, setVistas] = useState<string[]>(() => [
+    ...etapas.map((e) => e.key), ...fases.map((f) => f.key),
+    ...etapas.flatMap((e) => (e.fase ? [e.fase] : [])),
+  ]);
   /** Error al guardar las etapas. */
   const [mal, setMal] = useState('');
   /** Error al renombrar o eliminar el producto. Va aparte: son dos escrituras distintas. */
   const [malProducto, setMalProducto] = useState('');
   /** Qué nombre está abierto para editar: `e:<clave>` una etapa, `f:<clave>` una fase. */
   const [renombrando, setRenombrando] = useState<string | null>(null);
+  /** La fase con la paleta de color abierta. */
+  const [colorDe, setColorDe] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<Confirmar | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  /** Lo que dice el lector de pantalla después de un Alt+↑ / Alt+↓. */
+  const [aviso, setAviso] = useState('');
   const { toast, show, clear } = useToast();
   const listaRef = useRef<HTMLDivElement | null>(null);
 
   // ── El guardado automático ───────────────────────────────────────────────────
   const guardarRef = useRef(onGuardar);
   useEffect(() => { guardarRef.current = onGuardar; }, [onGuardar]);
-  /** La firma de lo que vino del server: abrir y cerrar sin tocar nada no escribe. */
-  const [firmaInicial] = useState(() => firmaDe(limpiar(etapas) ?? etapas, fases));
+  /** La firma de lo que vino del server, EN EL ORDEN QUE SE VE: abrir y cerrar sin tocar
+   *  nada no escribe, aunque la lista llegue con un grupo partido. */
+  const [firmaInicial] = useState(() => {
+    const o = enOrden(limpiar(etapas) ?? etapas, fases);
+    return firmaDe(o.etapas, o.fases);
+  });
   /** Lo último que se le PIDIÓ al server, y lo último que CONFIRMÓ. */
   const enviada = useRef(firmaInicial);
   const confirmada = useRef(firmaInicial);
@@ -278,15 +501,23 @@ export function EtapasEntregaModal({
     });
   }, []);
 
+  /** Lo que impide guardar la lista como está. Se CALCULA, no se dispara desde el efecto:
+   *  así se va sola apenas la lista vuelve a valer (antes quedaba puesta hasta el próximo
+   *  guardado bueno) y el efecto no repinta dentro de sí mismo. */
+  const invalida = lista.length < MINIMO
+    ? `Hacen falta al menos ${MINIMO} etapas.`
+    : limpiar(lista) ? '' : 'Esas etapas no se pueden guardar.';
+
   useEffect(() => {
-    if (lista.length < MINIMO) { setMal(`Hacen falta al menos ${MINIMO} etapas.`); return; }
+    if (lista.length < MINIMO) return;
     const limpias = limpiar(lista);
-    if (!limpias) { setMal('Esas etapas no se pueden guardar.'); return; }
-    const firma = firmaDe(limpias, tramos);
+    if (!limpias) return;
+    const orden = enOrden(limpias, tramos);
+    const firma = firmaDe(orden.etapas, orden.fases);
     // Sin cambios respecto de lo último que se mandó, no hay nada que escribir: cubre el
     // montaje (las dos corridas de Strict Mode incluidas) y el deshacer a mano.
     if (firma === enviada.current) { pendiente.current = null; return; }
-    pendiente.current = { etapas: limpias, fases: tramos, firma };
+    pendiente.current = { etapas: orden.etapas, fases: orden.fases, firma };
     const t = setTimeout(enviar, RESPIRO_MS);
     return () => clearTimeout(t);
   }, [lista, tramos, enviar]);
@@ -366,9 +597,7 @@ export function EtapasEntregaModal({
     const key = nuevaClaveEtapa(label, vistas);
     setLista((v) => {
       const nueva: EtapaEntrega = { key, label, ...colorNuevaEtapa(v.length), ...(fase ? { fase } : {}) };
-      const lugares = lugaresDe(v, fase ?? '', tramos);
-      const ult = lugares[lugares.length - 1];
-      return ult === undefined ? [...v, nueva] : [...v.slice(0, ult + 1), nueva, ...v.slice(ult + 1)];
+      return aplanar(gruposDe([...v, nueva], tramos));
     });
     setVistas((v) => [...v, key]);
   };
@@ -422,56 +651,6 @@ export function EtapasEntregaModal({
     });
   };
 
-  /** Mover una etapa DENTRO de su grupo, entre los lugares que el grupo ya ocupa. */
-  const mover = (key: string, d: -1 | 1) => setLista((v) => {
-    const e = v.find((x) => x.key === key);
-    if (!e) return v;
-    const lugares = lugaresDe(v, grupoDe(e, tramos), tramos);
-    const p = lugares.findIndex((j) => v[j].key === key);
-    const q = p + d;
-    if (p < 0 || q < 0 || q >= lugares.length) return v;
-    // Ni se mueve la entrada ni se le pasa por encima.
-    if (lugares[p] === 0 || lugares[q] === 0) return v;
-    const out = [...v];
-    [out[lugares[p]], out[lugares[q]]] = [out[lugares[q]], out[lugares[p]]];
-    return out;
-  });
-
-  /** Soltar una etapa arrastrada en el lugar `destino` de su grupo. */
-  const soltarEn = (key: string, grupo: string, destino: number) => setLista((v) => {
-    if (v[0]?.key === key) return v;
-    const lugares = lugaresDe(v, grupo, tramos);
-    const miembros = lugares.map((j) => v[j]);
-    const i = miembros.findIndex((x) => x.key === key);
-    if (i < 0) return v;
-    const piso = lugares[0] === 0 ? 1 : 0;
-    // El índice se corre uno cuando la etapa venía de más arriba, o soltar hacia abajo
-    // cae un lugar antes. Y nunca por encima de la entrada.
-    const pos = Math.max(piso, i < destino ? destino - 1 : destino);
-    if (pos === i) return v;
-    const resto = miembros.filter((x) => x.key !== key);
-    const nuevo = [...resto.slice(0, pos), miembros[i], ...resto.slice(pos)];
-    const out = [...v];
-    lugares.forEach((j, k) => { out[j] = nuevo[k]; });
-    return out;
-  });
-
-  /**
-   * Cambiar la fase de una etapa: cae al final del grupo nuevo, también en el tablero.
-   * La entrada cambia de color pero NO de lugar: es donde cae todo cliente sin fila.
-   */
-  const aFase = (key: string, fase: string | undefined) => setLista((v) => {
-    const i = v.findIndex((e) => e.key === key);
-    if (i < 0) return v;
-    const movida: EtapaEntrega = { ...v[i], fase };
-    if (i === 0) return v.map((e, j) => (j === 0 ? movida : e));
-    const resto = v.filter((_, j) => j !== i);
-    const lugares = lugaresDe(resto, fase && tramos.some((f) => f.key === fase) ? fase : '', tramos);
-    const ult = lugares[lugares.length - 1];
-    if (ult === undefined) return v.map((e, j) => (j === i ? movida : e));
-    return [...resto.slice(0, ult + 1), movida, ...resto.slice(ult + 1)];
-  });
-
   // ── Las fases ───────────────────────────────────────────────────────────────
   /** La fase recién creada, para traerla a la vista: nace al final, lejos del botón. */
   const faseNueva = useRef<string | null>(null);
@@ -485,20 +664,27 @@ export function EtapasEntregaModal({
     setVistas((v) => [...v, key]);
   };
 
+  /** El cuerpo del modal: el ÚNICO que scrollea. */
+  const scroller = useCallback(() => listaRef.current?.closest<HTMLElement>('.mk-modal__cuerpo') ?? null, []);
+  /** Traer un nodo a la vista. ⚠️ A MANO Y SOBRE EL CUERPO DEL MODAL, no con
+   *  `scrollIntoView`: ése scrollea TODOS los ancestros, incluidos los que tienen
+   *  `overflow: hidden`, y ahí lo que se ve y dónde cae el clic dejan de coincidir. */
+  const aLaVista = useCallback((el: HTMLElement) => {
+    const sc = scroller();
+    if (!sc) return;
+    const r = el.getBoundingClientRect();
+    const rs = sc.getBoundingClientRect();
+    if (r.bottom > rs.bottom) sc.scrollTop += r.bottom - rs.bottom + 8;
+    else if (r.top < rs.top) sc.scrollTop -= rs.top - r.top + 8;
+  }, [scroller]);
+
   useEffect(() => {
     const key = faseNueva.current;
     if (!key) return;
     faseNueva.current = null;
-    // ⚠️ A MANO Y SOBRE EL CUERPO DEL MODAL, no con `scrollIntoView`: ése scrollea TODOS
-    // los ancestros, incluidos los que tienen `overflow: hidden`, y ahí lo que se ve y
-    // dónde cae el clic dejan de coincidir.
-    const sc = listaRef.current?.closest<HTMLElement>('.mk-modal__cuerpo');
     const el = listaRef.current?.querySelector<HTMLElement>(`[data-grupo-fase="${key}"]`);
-    if (!sc || !el) return;
-    const r = el.getBoundingClientRect();
-    const rs = sc.getBoundingClientRect();
-    if (r.bottom > rs.bottom) sc.scrollTop += r.bottom - rs.bottom + 8;
-  }, [tramos]);
+    if (el) aLaVista(el);
+  }, [tramos, aLaVista]);
 
   const guardarNombreFase = (f: FaseEntrega, valor: string) => {
     const limpio = valor.trim().replace(/\s+/g, ' ');
@@ -507,13 +693,18 @@ export function EtapasEntregaModal({
     setTramos((v) => v.map((x) => (x.key === f.key ? { ...x, label: limpio } : x)));
   };
 
+  const colorDeFase = (f: FaseEntrega, i: number) => {
+    setColorDe(null);
+    setTramos((v) => v.map((x) => (x.key === f.key ? { ...x, ...colorNuevaEtapa(i) } : x)));
+  };
+
   /** Sacar una fase NO borra sus etapas: quedan sueltas, con su color propio. */
   const sacarFase = (f: FaseEntrega) => {
     const miembros = lista.filter((e) => e.fase === f.key).map((e) => e.key);
     const i = tramos.findIndex((x) => x.key === f.key);
     const hacer = () => {
       setTramos((v) => v.filter((x) => x.key !== f.key));
-      setLista((v) => v.map((e) => (e.fase === f.key ? { ...e, fase: undefined } : e)));
+      setLista((v) => v.map((e) => (e.fase === f.key ? conFase(e, '') : e)));
       show(`Quitada «${f.label}»`, () => {
         setTramos((v) => (v.some((x) => x.key === f.key) ? v : [...v.slice(0, i), f, ...v.slice(i)]));
         setLista((v) => v.map((e) => (miembros.includes(e.key) && !e.fase ? { ...e, fase: f.key } : e)));
@@ -531,13 +722,61 @@ export function EtapasEntregaModal({
     });
   };
 
+  // ── El teclado: Alt+↑ / Alt+↓ (ver el encabezado) ───────────────────────────
+  /** El nombre que tiene que recuperar el foco después de un movimiento: la fila puede
+   *  haber cambiado de lugar en el DOM, y un nodo movido pierde el foco. */
+  const enfocar = useRef<string | null>(null);
+  useEffect(() => {
+    const k = enfocar.current;
+    if (!k) return;
+    enfocar.current = null;
+    const el = listaRef.current?.querySelector<HTMLElement>(`[data-foco="${k}"]`);
+    if (!el) return;
+    if (document.activeElement !== el) el.focus({ preventScroll: true });
+    aLaVista(el);
+  }, [lista, tramos, aLaVista]);
+
+  const teclaEtapa = (ev: TeclaReact<HTMLElement>, e: EtapaEntrega) => {
+    if (!ev.altKey || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
+    if (ev.target instanceof HTMLInputElement) return;
+    ev.preventDefault();
+    const nueva = pasoDeEtapa(lista, tramos, e.key, ev.key === 'ArrowUp' ? -1 : 1);
+    const g = gruposDe(nueva, tramos).find((x) => x.etapas.some((y) => y.key === e.key));
+    // En el borde no hay a dónde: ni se repinta ni se anuncia un movimiento que no pasó.
+    if (!g || firmaDe(nueva, tramos) === firmaDe(lista, tramos)) return;
+    enfocar.current = 'e:' + e.key;
+    setLista(nueva);
+    const fase = tramos.find((f) => f.key === g.clave)?.label;
+    const lugar = (g.etapas.findIndex((y) => y.key === e.key) + 1) + ' de ' + g.etapas.length;
+    setAviso(e.label + (tramos.length ? ' en ' + (fase ?? 'Sin fase') : '') + ', ' + lugar);
+  };
+
+  const teclaFase = (ev: TeclaReact<HTMLElement>, f: FaseEntrega) => {
+    if (!ev.altKey || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
+    if (ev.target instanceof HTMLInputElement) return;
+    ev.preventDefault();
+    const r = pasoDeFase(lista, tramos, f.key, ev.key === 'ArrowUp' ? -1 : 1);
+    if (firmaDe(r.etapas, r.fases) === firmaDe(lista, tramos)) return;
+    enfocar.current = 'f:' + f.key;
+    setLista(r.etapas);
+    setTramos(r.fases);
+    setAviso(f.label + ', ' + (r.fases.findIndex((x) => x.key === f.key) + 1) + ' de ' + r.fases.length);
+  };
+
   // ── El Escape, antes que el modal (ver el encabezado) ───────────────────────
+  /** Lo que se está arrastrando (ver «El arrastre», más abajo). */
+  const agarrada = useRef<Agarre | null>(null);
   const hayPregunta = confirmar !== null;
+  const hayPaleta = colorDe !== null;
   useEffect(() => {
     const alTeclear = (ev: KeyboardEvent) => {
       if (ev.key !== 'Escape') return;
       // Con el «¿seguro?» abierto, el Escape cierra SÓLO la pregunta.
       if (hayPregunta) { ev.stopPropagation(); setConfirmar(null); return; }
+      // Con la paleta de una fase abierta, cierra SÓLO la paleta.
+      if (hayPaleta) { ev.stopPropagation(); setColorDe(null); return; }
+      // A mitad de un arrastre, el Escape lo cancela el navegador: no puede cerrar el editor.
+      if (agarrada.current) { ev.stopPropagation(); return; }
       // En un campo de este editor, devuelve el valor y suelta el foco: el `onBlur` de
       // cada campo ya sabe que un valor sin cambios no se guarda.
       const el = ev.target;
@@ -548,53 +787,106 @@ export function EtapasEntregaModal({
     };
     window.addEventListener('keydown', alTeclear, true);
     return () => window.removeEventListener('keydown', alTeclear, true);
-  }, [hayPregunta]);
+  }, [hayPregunta, hayPaleta]);
 
-  // ── El arrastre, con el molde del CRM (y el de las filas del plan) ───────────
+  // ── El arrastre ─────────────────────────────────────────────────────────────
   // La foto que sigue al cursor la dibuja el SISTEMA OPERATIVO y ninguna regla CSS la
   // gobierna: se le pasa una VACÍA y la copia la dibujamos nosotros, movida con
-  // `transform` sobre un ref. Se arrastra DENTRO del grupo: cambiar de fase es el
-  // selector de la fila, y un mismo gesto para dos cosas es una sorpresa.
-  const agarrada = useRef<{ key: string; grupo: string } | null>(null);
+  // `transform` sobre un ref. El destino sale de los LUGARES medidos al agarrar (el borde
+  // de arriba de cada fila y de cada «+ Etapa»), el más cercano a la altura del cursor.
   const copia = useRef<HTMLElement | null>(null);
-  const medios = useRef<number[]>([]);
+  /** Los lugares donde se puede soltar, con su altura EN COORDENADAS DEL CONTENIDO del
+   *  cuerpo (`+ scrollTop`): si el cuerpo se corre durante el gesto, siguen valiendo. */
+  const lugares = useRef<Array<{ d: Destino; y: number }>>([]);
+  const destinoRef = useRef<Destino | null>(null);
   /** Dónde arrancó el gesto: desde un control no se arrastra la fila. */
   const origen = useRef<EventTarget | null>(null);
-  const [ins, setIns] = useState<number | null>(null);
-  const [arrastrando, setArrastrando] = useState<{ key: string; grupo: string } | null>(null);
+  /** Quita los listeners de `document` del gesto en curso. */
+  const soltarListeners = useRef<(() => void) | null>(null);
+  const [destino, setDestino] = useState<Destino | null>(null);
+  const [arrastrando, setArrastrando] = useState<Agarre | null>(null);
+  /** Lo que leen los listeners nativos, que no ven el render de ahora. */
+  const estado = useRef({ lista, tramos });
+  useEffect(() => { estado.current = { lista, tramos }; }, [lista, tramos]);
 
-  const scroller = () => listaRef.current?.closest<HTMLElement>('.mk-modal__cuerpo') ?? null;
-
-  const limpiarDrag = () => {
-    setIns(null);
+  const limpiarDrag = useCallback(() => {
+    soltarListeners.current?.();
+    soltarListeners.current = null;
+    setDestino(null);
     setArrastrando(null);
-    medios.current = [];
+    lugares.current = [];
+    destinoRef.current = null;
     agarrada.current = null;
     copia.current?.remove();
     copia.current = null;
+  }, []);
+
+  /** Mide los lugares válidos para lo que se agarró. Corre al agarrar y otra vez cuando
+   *  aparece «Sin fase» como destino (un render después). */
+  const medir = useCallback(() => {
+    const a = agarrada.current;
+    const raiz = listaRef.current;
+    if (!a || !raiz) return;
+    const base = raiz.closest<HTMLElement>('.mk-modal__cuerpo')?.scrollTop ?? 0;
+    const { lista: l, tramos: t } = estado.current;
+    const out: Array<{ d: Destino; y: number }> = [];
+    if (a.tipo === 'etapa') {
+      const grupoEntrada = l[0] ? grupoDe(l[0], t) : '';
+      const agarroEntrada = l[0]?.key === a.key;
+      for (const el of raiz.querySelectorAll<HTMLElement>('[data-slot]')) {
+        const grupo = el.dataset.grupo ?? '';
+        const slot = Number(el.dataset.slot);
+        // La entrada sólo cambia de grupo y cae primera (su propio lugar queda como el
+        // «no la muevo»: sin él, soltarla donde estaba la llevaría al grupo de al lado);
+        // lo demás, nunca antes de ella.
+        if (agarroEntrada ? slot !== 0 : (grupo === grupoEntrada && slot === 0)) continue;
+        out.push({ d: { tipo: 'etapa', grupo, slot }, y: el.getBoundingClientRect().top + base });
+      }
+    } else {
+      const rango = rangoDeFase(gruposDe(l, t), a.clave);
+      if (!rango) return;
+      for (const el of raiz.querySelectorAll<HTMLElement>('[data-fslot]')) {
+        const slot = Number(el.dataset.fslot);
+        if (slot < rango[0] || slot > rango[1]) continue;
+        out.push({ d: { tipo: 'fase', slot }, y: el.getBoundingClientRect().top + base });
+      }
+    }
+    lugares.current = out;
+  }, []);
+
+  useLayoutEffect(() => { if (arrastrando) medir(); }, [arrastrando, medir]);
+
+  const aplicarDestino = () => {
+    const a = agarrada.current;
+    const d = destinoRef.current;
+    limpiarDrag();
+    if (!a || !d) return;
+    const { lista: l, tramos: t } = estado.current;
+    if (a.tipo === 'etapa' && d.tipo === 'etapa') {
+      setLista(llevarEtapa(l, t, a.key, d.grupo, d.slot));
+    } else if (a.tipo === 'fase' && d.tipo === 'fase') {
+      const r = llevarFase(l, t, a.clave, d.slot);
+      setLista(r.etapas);
+      setTramos(r.fases);
+    }
   };
 
-  const agarrar = (e: DragReact<HTMLDivElement>, key: string, grupo: string) => {
+  const agarrar = (e: DragReact<HTMLElement>, a: Agarre) => {
     const desde = origen.current instanceof Element ? origen.current : null;
     if (desde?.closest('[data-nodrag]')) { e.preventDefault(); return; }
-    const fila = e.currentTarget;
-    e.dataTransfer.setData('text/plain', key);
+    const nodo = e.currentTarget;
+    e.dataTransfer.setData('text/plain', a.tipo === 'etapa' ? a.key : a.clave);
     e.dataTransfer.effectAllowed = 'move';
     try {
       const vacio = document.createElement('canvas');
       vacio.width = 1; vacio.height = 1;
       e.dataTransfer.setDragImage(vacio, 0, 0);
     } catch { /* si no deja, queda la del navegador */ }
+    agarrada.current = a;
+    medir();
 
-    // ⚠️ EN COORDENADAS DEL CONTENIDO del cuerpo del modal (`+ scrollTop`): si el cuerpo se
-    // corre durante el gesto, los puntos medios medidos al agarrar siguen valiendo.
-    const sc = scroller();
-    const base = sc?.scrollTop ?? 0;
-    medios.current = [...(listaRef.current?.querySelectorAll<HTMLElement>(`[data-etapa][data-grupo="${grupo}"]`) ?? [])]
-      .map((f) => { const r = f.getBoundingClientRect(); return r.top + r.height / 2 + base; });
-
-    const r = fila.getBoundingClientRect();
-    const clon = fila.cloneNode(true) as HTMLElement;
+    const r = nodo.getBoundingClientRect();
+    const clon = nodo.cloneNode(true) as HTMLElement;
     Object.assign(clon.style, {
       position: 'fixed', top: '0', left: '0', width: `${r.width}px`, margin: '0',
       background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '10px',
@@ -605,37 +897,68 @@ export function EtapasEntregaModal({
     copia.current = clon;
 
     const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    const seguir = (ev: globalThis.DragEvent) => {
-      if (!copia.current) { document.removeEventListener('dragover', seguir, true); return; }
-      copia.current.style.transform = `translate3d(${ev.clientX - dx}px, ${ev.clientY - dy}px, 0)`;
+    // ⚠️ TODO VA EN `dragover`: durante un arrastre nativo el navegador congela los timers
+    // y `requestAnimationFrame`, y sólo sigue entregando este evento.
+    const sobre = (ev: globalThis.DragEvent) => {
+      if (!agarrada.current) return;
+      ev.preventDefault();
+      if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+      if (copia.current) copia.current.style.transform = `translate3d(${ev.clientX - dx}px, ${ev.clientY - dy}px, 0)`;
+      // El empuje del cuerpo: sólo la ALTURA cuenta, el cursor puede estar afuera de costado.
+      const sc = scroller();
+      if (sc) {
+        const rs = sc.getBoundingClientRect();
+        const borde = 40;
+        if (ev.clientY < rs.top + borde) sc.scrollTop -= Math.min(22, Math.ceil((rs.top + borde - ev.clientY) / 3));
+        else if (ev.clientY > rs.bottom - borde) sc.scrollTop += Math.min(22, Math.ceil((ev.clientY - rs.bottom + borde) / 3));
+      }
+      const y = ev.clientY + (sc?.scrollTop ?? 0);
+      let mejor: Destino | null = null;
+      let dist = Infinity;
+      for (const l of lugares.current) {
+        const d = Math.abs(l.y - y);
+        if (d < dist) { dist = d; mejor = l.d; }
+      }
+      destinoRef.current = mejor;
+      // Sólo se repinta cuando el destino CAMBIA.
+      setDestino((p) => (mismoDestino(p, mejor) ? p : mejor));
     };
-    document.addEventListener('dragover', seguir, true);
-    const fin = () => {
-      document.removeEventListener('dragover', seguir, true);
-      document.removeEventListener('dragend', fin, true);
-      document.removeEventListener('drop', fin, true);
-      copia.current?.remove();
-      copia.current = null;
+    const alSoltar = (ev: globalThis.DragEvent) => {
+      if (!agarrada.current) return;
+      // ⚠️ Y SE FRENA EL DEFAULT: soltar sobre un campo de texto pegaría la clave adentro.
+      ev.preventDefault();
+      aplicarDestino();
     };
+    const fin = () => limpiarDrag();
+    document.addEventListener('dragover', sobre, true);
+    document.addEventListener('drop', alSoltar, true);
     document.addEventListener('dragend', fin, true);
-    document.addEventListener('drop', fin, true);
-    agarrada.current = { key, grupo };
+    soltarListeners.current = () => {
+      document.removeEventListener('dragover', sobre, true);
+      document.removeEventListener('drop', alSoltar, true);
+      document.removeEventListener('dragend', fin, true);
+    };
     // Al nodo ORIGEN no se le toca el tamaño: se marca. Y en el tick siguiente, porque el
     // navegador saca la foto del arrastre al terminar este handler.
-    setTimeout(() => setArrastrando({ key, grupo }), 0);
+    setTimeout(() => { if (agarrada.current === a) setArrastrando(a); }, 0);
   };
 
-  // ── Los grupos, en el orden en que aparecen en el tablero ───────────────────
+  // Si el editor se cierra a mitad de un gesto, los listeners de `document` se van con él.
+  useEffect(() => () => { soltarListeners.current?.(); copia.current?.remove(); }, []);
+
+  // ── Lo que se dibuja ────────────────────────────────────────────────────────
   const hayFases = tramos.length > 0;
-  const orden: string[] = [];
-  for (const e of lista) { const g = grupoDe(e, tramos); if (!orden.includes(g)) orden.push(g); }
-  // Las fases todavía vacías no tienen lugar en el tablero: van al final, en su orden.
-  for (const f of tramos) if (!orden.includes(f.key)) orden.push(f.key);
-  const grupos = orden.map((g) => ({
-    clave: g,
-    fase: g ? tramos.find((f) => f.key === g) ?? null : null,
-    etapas: lista.filter((e) => grupoDe(e, tramos) === g),
-  }));
+  const arrastraEtapa = arrastrando?.tipo === 'etapa';
+  // Mientras se arrastra una etapa, «Sin fase» existe como destino aunque esté vacío.
+  const grupos = gruposDe(lista, tramos, arrastraEtapa);
+  /** Los grupos SIN el «Sin fase» de mentira: los lugares entre grupos cuentan sobre éstos. */
+  const nGrupos = gruposDe(lista, tramos).length;
+  const marcaEtapa = (grupo: string, slot: number) =>
+    destino?.tipo === 'etapa' && destino.grupo === grupo && destino.slot === slot;
+  const marcaFase = (slot: number) => destino?.tipo === 'fase' && destino.slot === slot;
+  /** Con fases, las filas van corridas bajo su título: es lo que hace que un grupo se lea
+   *  como grupo sin dibujarle una caja alrededor. */
+  const sangria = hayFases ? 18 : 0;
 
   return (
     <div className="crm-hover ee-modal" style={{ display: 'contents' }}>
@@ -680,177 +1003,189 @@ export function EtapasEntregaModal({
           ) : undefined
         }
       >
-        {/* «Agregar fase debería estar arriba del todo»: en el lugar de las tabs del CRM. */}
-        <NuevoRenglon tipo="fase" onCrear={agregarFase} />
-
-        <div ref={listaRef} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
-          onDragOver={(e) => {
-            const a = agarrada.current;
-            if (!a) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            // El empuje del cuerpo va ACÁ: durante un arrastre nativo el navegador congela
-            // los timers y `requestAnimationFrame`, y sólo sigue entregando `dragover`.
-            const sc = scroller();
-            if (sc) {
-              const rs = sc.getBoundingClientRect();
-              if (e.clientY < rs.top + 36) sc.scrollTop -= 10;
-              else if (e.clientY > rs.bottom - 36) sc.scrollTop += 10;
-            }
-            const y = e.clientY + (sc?.scrollTop ?? 0);
-            const m = medios.current;
-            let idx = m.length;
-            for (let i = 0; i < m.length; i++) { if (y < m[i]) { idx = i; break; } }
-            // La marca nunca se dibuja por encima de la entrada: prometer un destino que
-            // el drop va a corregir es peor que no dibujarla.
-            const piso = entrada && grupoDe(lista[0], tramos) === a.grupo ? 1 : 0;
-            if (idx < piso) idx = piso;
-            // Sólo se repinta cuando el destino CAMBIA.
-            setIns((p) => (p === idx ? p : idx));
-          }}
-          onDrop={(e) => {
-            const a = agarrada.current;
-            if (!a) return;
-            e.preventDefault();
-            const destino = ins ?? medios.current.length;
-            limpiarDrag();
-            soltarEn(a.key, a.grupo, destino);
-          }}
-          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns(null); }}
-        >
-          {grupos.map((g) => {
-            const piso = g.etapas[0] && esEntrada(g.etapas[0]) ? 1 : 0;
-            return (
-              <div key={g.clave || '__sueltas'} data-grupo-fase={g.clave}
-                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {/* El rótulo del grupo existe sólo si hay fases: sin ninguna, la lista es
-                    la del CRM. «Sin fase» también se rotula, o sus etapas se leerían como
-                    parte del grupo de arriba. */}
-                {hayFases && (g.fase ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 2px 2px' }}>
-                    <span style={{ ...PUNTO, background: g.fase.dot }} aria-hidden />
-                    {renombrando === 'f:' + g.fase.key ? (
-                      <input
-                        autoFocus defaultValue={g.fase.label} maxLength={MAX_LABEL} data-ee-esc={g.fase.label}
-                        aria-label={'Nombre de la fase ' + g.fase.label}
-                        onBlur={(ev) => guardarNombreFase(g.fase!, ev.target.value)}
-                        onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
-                        style={{ ...INPUT, fontSize: 13 }}
-                      />
-                    ) : (
-                      <>
-                        <button type="button" onClick={() => setRenombrando('f:' + g.fase!.key)}
-                          title={'Cambiar el nombre de ' + g.fase.label}
-                          style={{ ...ROTULO_FASE, flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', background: 'none', border: 'none', padding: '4px 0', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                        >{g.fase.label}</button>
-                        <span style={{ flex: 1 }} />
-                      </>
-                    )}
-                    <AccionFila etiqueta={'Sacar la fase ' + g.fase.label}
-                      onClick={() => sacarFase(g.fase!)}><CerrarIcon /></AccionFila>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 2px 2px', minHeight: 30 }}>
-                    <span style={{ ...PUNTO, boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' }} aria-hidden />
-                    <span style={ROTULO_FASE}>Sin fase</span>
-                  </div>
-                ))}
-
-                {g.etapas.map((e, k) => {
-                  const entra = esEntrada(e);
-                  const editando = renombrando === 'e:' + e.key;
-                  const marca = arrastrando?.grupo === g.clave && ins !== null
-                    ? (ins === k ? MARCA : ins === k + 1 && k === g.etapas.length - 1 ? MARCA_FIN : null)
-                    : null;
-                  // ⚠️ EL RADIO, EL FONDO, LA MARCA DEL ARRASTRE Y EL BORDE DEL NODO AGARRADO
-                  // VIVEN EN LA CAJA, no en la fila. Y `data-etapa` va en la fila: de ahí
-                  // salen los puntos medios del drop.
-                  return (
-                      <div key={e.key} style={{
-                        ...CAJA,
-                        // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
-                        outline: arrastrando?.key === e.key ? '1px solid var(--border-strong)' : 'none',
-                        ...marca,
-                      }}>
-                        <div data-etapa data-grupo={g.clave}
-                          draggable={!entra && !editando}
-                          onPointerDown={(ev) => { origen.current = ev.target; }}
-                          onDragStart={(ev) => agarrar(ev, e.key, g.clave)}
-                          onDragEnd={limpiarDrag}
-                          title={entra ? 'Aquí empieza todo cliente nuevo' : undefined}
-                          style={{ ...FILA, cursor: entra ? 'default' : 'grab' }}>
-                          <span style={{ ...PUNTO, background: colorDeEtapa(e, tramos) }} aria-hidden />
-                          {editando ? (
-                            <input
-                              autoFocus defaultValue={e.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={e.label}
-                              aria-label={'Nombre de ' + e.label}
-                              onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
-                              onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
-                              style={INPUT}
-                            />
-                          ) : (
-                            // ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO: «solo si clickeo en el texto
-                            // del título de esa etapa debería abrirme el input, no en toda la
-                            // fila». El botón NO estira; el hueco lo llena el span.
-                            <>
-                              <button type="button" data-nodrag onClick={() => setRenombrando('e:' + e.key)}
-                                title={`Cambiar el nombre de ${e.label}`}
-                                style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: '4px 0', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                              >{e.label}</button>
-                              <span style={{ flex: 1 }} />
-                            </>
-                          )}
-                          <span title="Clientes en esta columna"
-                            style={{ flex: 'none', minWidth: 22, textAlign: 'center', fontFamily: SANS, fontSize: 11.5, fontWeight: 700, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>
-                            {conteo[e.key] ?? 0}
-                          </span>
-                          {/* El selector de fase existe sólo si hay fases: con ninguna, es un
-                              control con una sola opción. */}
-                          {hayFases && (
-                            <select value={e.fase && tramos.some((f) => f.key === e.fase) ? e.fase : ''}
-                              aria-label={'Fase de ' + e.label} data-nodrag
-                              onChange={(ev) => aFase(e.key, ev.target.value || undefined)}
-                              style={{ flex: 'none', maxWidth: 116, fontFamily: SANS, fontSize: 12, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, padding: '3px 6px', cursor: 'pointer' }}>
-                              <option value="">Sin fase</option>
-                              {tramos.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-                            </select>
-                          )}
-                          {/* ⚠️ LA ENTRADA NO LLEVA FLECHAS NI ✕ (ver el encabezado). Tres
-                              controles apagados se leen como que la app está rota.
-
-                              ⚠️ PERO SU LUGAR SE GUARDA. Lo que el CRM no tiene es una columna
-                              de NÚMEROS a la izquierda de los controles: sin el hueco, el
-                              conteo y la fase de la entrada —o de una etapa sola en su grupo,
-                              que tampoco tiene a dónde moverse— quedaban corridos 92 px a la
-                              derecha de los de las otras filas. Medido en el navegador. */}
-                          {!entra && (k > piso || k < g.etapas.length - 1) ? (
-                            <MoverPartido label={e.label}
-                              puedeAntes={k > piso} puedeDespues={k < g.etapas.length - 1}
-                              onAntes={() => mover(e.key, -1)} onDespues={() => mover(e.key, 1)} />
-                          ) : <span style={{ width: 56, flex: 'none' }} aria-hidden />}
-                          {/* ⚠️ Con el mínimo justo la ✕ se APAGA y lo dice en el title: un
-                              botón que no hace nada y no explica por qué se lee como roto. */}
-                          {!entra ? (
-                            <AccionFila
-                              etiqueta={lista.length <= MINIMO ? `Hacen falta al menos ${MINIMO} etapas` : 'Sacar ' + e.label}
-                              disabled={lista.length <= MINIMO}
-                              onClick={() => sacar(e)}><CerrarIcon /></AccionFila>
-                          ) : <span style={{ width: 28, flex: 'none' }} aria-hidden />}
-                        </div>
-                      </div>
-                  );
-                })}
-
-                {/* «Agregar etapa si le paso el cursor debería reaccionar y al apretarle
-                    como mínimo que me pida el nombre de la nueva etapa». */}
-                <NuevoRenglon tipo="etapa" onCrear={(v) => agregarEtapa(v, g.clave || undefined)} />
-              </div>
-            );
-          })}
+        {/* ⚠️ UN SOLO BLOQUE: `.mk-modal__cuerpo` le da 18 px arriba y abajo a CADA hijo
+            directo (ui.css), así que «+ Fase» y la lista sueltos quedaban separados por un
+            hueco de 40 px que nadie puso. */}
+        <div>
+        {/* «Agregar fase debería estar arriba del todo»: uno solo, como texto. */}
+        <div style={{ marginBottom: 8 }}>
+          <NuevoRenglon tipo="fase" onCrear={agregarFase} />
         </div>
 
+        <div ref={listaRef} style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* ⚠️ PLANA, NO UN `<div>` POR GRUPO: títulos, filas y «+ Etapa» son hermanos con
+              su clave. Así una fila que cambia de grupo es el MISMO nodo de React (no se
+              desmonta, no pierde lo que tenía) y los lugares del arrastre se miden de una
+              sola lista. */}
+          {grupos.flatMap((g, gi) => {
+            const fase = g.clave ? tramos.find((f) => f.key === g.clave) ?? null : null;
+            const sueltaDeMentira = !g.clave && g.etapas.length === 0;
+            // Se mueve si tiene a dónde: un rango de N lugares son N-1 posiciones finales.
+            const rango = fase ? rangoDeFase(gruposDe(lista, tramos), fase.key) : null;
+            const fasePuedeMoverse = !!rango && rango[1] - rango[0] >= 2;
+            const nodos: ReactNode[] = [];
+
+            // El título del grupo existe sólo si hay fases: sin ninguna, es una lista sola.
+            // «Sin fase» también se rotula, o sus etapas se leerían como parte del de arriba.
+            if (hayFases) {
+              nodos.push(fase ? (
+                <div key={'h:' + fase.key} className="ee-fase" data-grupo-fase={fase.key}
+                  data-fslot={sueltaDeMentira ? undefined : gi}
+                  draggable={fasePuedeMoverse && renombrando !== 'f:' + fase.key}
+                  onPointerDown={(ev) => { origen.current = ev.target; }}
+                  onDragStart={(ev) => agarrar(ev, { tipo: 'fase', clave: fase.key })}
+                  onDragEnd={limpiarDrag}
+                  onKeyDown={(ev) => teclaFase(ev, fase)}
+                  style={{
+                    cursor: fasePuedeMoverse ? 'grab' : 'default',
+                    outline: arrastrando?.tipo === 'fase' && arrastrando.clave === fase.key ? '1px solid var(--border-strong)' : 'none',
+                    ...(marcaFase(gi) ? MARCA : null),
+                  }}>
+                  <span className={'ee-asa' + (fasePuedeMoverse ? ' ee-oculto' : '')} aria-hidden
+                    title={fasePuedeMoverse ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
+                    {fasePuedeMoverse && <AsaIcon />}
+                  </span>
+                  <button type="button" className="ee-punto" data-nodrag data-paleta-de={fase.key}
+                    aria-label={'Color de ' + fase.label} title="Cambiar el color" aria-expanded={colorDe === fase.key}
+                    onClick={() => setColorDe((c) => (c === fase.key ? null : fase.key))}>
+                    <span style={{ ...PUNTO, background: fase.dot }} />
+                  </button>
+                  {renombrando === 'f:' + fase.key ? (
+                    <input
+                      autoFocus defaultValue={fase.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={fase.label}
+                      aria-label={'Nombre de la fase ' + fase.label}
+                      onBlur={(ev) => guardarNombreFase(fase, ev.target.value)}
+                      onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                      style={{ ...INPUT, fontSize: 13, fontWeight: 600 }}
+                    />
+                  ) : (
+                    <>
+                      <button type="button" data-nodrag data-foco={'f:' + fase.key}
+                        onClick={() => setRenombrando('f:' + fase.key)}
+                        title={'Cambiar el nombre de ' + fase.label} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                        style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--dim)', background: 'none', border: 'none', borderRadius: 6, padding: '4px 2px', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      >{fase.label}</button>
+                      <span style={{ flex: 1 }} />
+                    </>
+                  )}
+                  <AccionFila className="ee-oculto" etiqueta={'Sacar la fase ' + fase.label}
+                    onClick={() => sacarFase(fase)}><CerrarIcon /></AccionFila>
+                </div>
+              ) : (
+                <div key="h:_" className="ee-fase ee-quieta" data-fslot={sueltaDeMentira ? undefined : gi}
+                  style={marcaFase(gi) ? MARCA : undefined}>
+                  <span className="ee-asa" aria-hidden />
+                  <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
+                    <span style={{ ...PUNTO, boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' }} />
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--faint)', padding: '4px 2px' }}>Sin fase</span>
+                </div>
+              ));
+              if (fase && colorDe === fase.key) {
+                nodos.push(<Paleta key={'p:' + fase.key} actual={fase.dot}
+                  onElegir={(i) => colorDeFase(fase, i)} onCerrar={() => setColorDe(null)} />);
+              }
+            }
+
+            g.etapas.forEach((e, k) => {
+              const entra = esEntrada(e);
+              const editando = renombrando === 'e:' + e.key;
+              // La entrada se arrastra sólo para cambiar de fase: sin fases no tiene a dónde.
+              const arrastrable = (!entra || hayFases) && !editando;
+              nodos.push(
+                <div key={'e:' + e.key} className="ee-fila"
+                  data-etapa={e.key} data-grupo={g.clave} data-slot={k}
+                  draggable={arrastrable}
+                  onPointerDown={(ev) => { origen.current = ev.target; }}
+                  onDragStart={(ev) => agarrar(ev, { tipo: 'etapa', key: e.key })}
+                  onDragEnd={limpiarDrag}
+                  onKeyDown={(ev) => teclaEtapa(ev, e)}
+                  title={entra ? 'Aquí empieza todo cliente nuevo' : undefined}
+                  style={{
+                    paddingLeft: 6 + sangria,
+                    cursor: arrastrable ? 'grab' : 'default',
+                    // Al nodo ORIGEN no se le toca el tamaño: se marca con un borde.
+                    outline: arrastrando?.tipo === 'etapa' && arrastrando.key === e.key ? '1px solid var(--border-strong)' : 'none',
+                    ...(marcaEtapa(g.clave, k) ? MARCA : null),
+                  }}>
+                  <span className={'ee-asa' + (arrastrable ? ' ee-oculto' : '')} aria-hidden
+                    title={arrastrable ? 'Arrastra o usa Alt+↑ ↓' : undefined}>
+                    {arrastrable && <AsaIcon />}
+                  </span>
+                  <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
+                    <span style={{ ...PUNTO, background: colorDeEtapa(e, tramos) }} />
+                  </span>
+                  {editando ? (
+                    <input
+                      autoFocus defaultValue={e.label} maxLength={MAX_LABEL} data-nodrag data-ee-esc={e.label}
+                      aria-label={'Nombre de ' + e.label}
+                      onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
+                      onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                      style={INPUT}
+                    />
+                  ) : (
+                    // ⚠️ EL INPUT ABRE SÓLO DESDE EL TEXTO: «solo si clickeo en el texto
+                    // del título de esa etapa debería abrirme el input, no en toda la
+                    // fila». El botón NO estira; el hueco lo llena el span.
+                    <>
+                      <button type="button" data-nodrag data-foco={'e:' + e.key}
+                        onClick={() => setRenombrando('e:' + e.key)}
+                        title={`Cambiar el nombre de ${e.label}`} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                        style={{ flex: '0 1 auto', minWidth: 0, maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 500, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', borderRadius: 6, padding: '4px 2px', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      >{e.label}</button>
+                      <span style={{ flex: 1 }} />
+                    </>
+                  )}
+                  <span title="Clientes en esta columna"
+                    style={{ flex: 'none', minWidth: 22, textAlign: 'right', fontSize: 12.5, fontWeight: 500, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>
+                    {conteo[e.key] ?? 0}
+                  </span>
+                  {/* ⚠️ LA ENTRADA NO LLEVA ✕ (ver el encabezado), pero su lugar se guarda:
+                      sin el hueco, su número quedaría corrido respecto de los de las otras
+                      filas. Con el mínimo justo la ✕ se APAGA y lo dice en el title: un
+                      botón que no hace nada y no explica por qué se lee como roto. */}
+                  {!entra ? (
+                    <AccionFila className="ee-oculto"
+                      etiqueta={lista.length <= MINIMO ? `Hacen falta al menos ${MINIMO} etapas` : 'Sacar ' + e.label}
+                      disabled={lista.length <= MINIMO}
+                      onClick={() => sacar(e)}><CerrarIcon /></AccionFila>
+                  ) : <span style={{ width: 28, flex: 'none' }} aria-hidden />}
+                </div>,
+              );
+            });
+
+            // Un grupo vacío es un destino: dice que se le pueden soltar etapas.
+            if (g.etapas.length === 0) {
+              nodos.push(
+                <div key={'v:' + (g.clave || '_')} className="ee-vacia" data-grupo={g.clave} data-slot={0}
+                  // El destino vacío se marca entero (no con la línea): no hay fila contra la cual
+                  // dibujarla. `--primary-bg` y no `--primary-weak`, que es un azul de relleno y
+                  // tapaba el texto (medido en el arnés: azul sobre azul).
+                  style={{ marginLeft: 26 + sangria, ...(marcaEtapa(g.clave, 0) ? { background: 'var(--primary-bg)', color: 'var(--primary)', boxShadow: 'inset 0 0 0 1.5px var(--primary)' } : null) }}>
+                  {sueltaDeMentira ? 'Suelta aquí para sacarla de su fase' : 'Arrastra etapas aquí'}
+                </div>,
+              );
+            }
+            // «+ Etapa» al pie de cada grupo, y es también el lugar de «al final».
+            if (!sueltaDeMentira) {
+              nodos.push(
+                <div key={'n:' + (g.clave || '_')} data-grupo={g.clave}
+                  data-slot={g.etapas.length > 0 ? g.etapas.length : undefined}
+                  style={{ display: 'flex', flexDirection: 'column', paddingLeft: sangria, ...(g.etapas.length > 0 && marcaEtapa(g.clave, g.etapas.length) ? MARCA : null) }}>
+                  <NuevoRenglon tipo="etapa" grupo={fase?.label ?? null} onCrear={(v) => agregarEtapa(v, g.clave || undefined)} />
+                </div>,
+              );
+            }
+            return nodos;
+          })}
+          {/* El lugar «después del último grupo» de un arrastre de fase. */}
+          {hayFases && <div data-fslot={nGrupos} style={{ height: 8, ...(marcaFase(nGrupos) ? MARCA : null) }} />}
+        </div>
+
+        <span aria-live="polite" style={SOLO_LECTOR}>{aviso}</span>
         {malProducto && <p style={ERROR}>{malProducto}</p>}
-        {mal && <p style={ERROR}>{mal}</p>}
+        {(invalida || mal) && <p style={ERROR}>{invalida || mal}</p>}
+        </div>
       </Modal>
 
       {/* Cuando SÍ hay algo que perder, se pregunta con un DIÁLOGO, pegado al click. */}
@@ -878,38 +1213,71 @@ const ERROR: CSSProperties = {
 };
 
 /**
- * El renglón punteado que pide el nombre ahí mismo: el `NuevaEtapa` del CRM.
+ * La paleta de una fase: los diez colores del CRM, en línea debajo del título.
+ *
+ * ⚠️ EN LÍNEA Y NO FLOTANDO: un popover adentro del cuerpo del modal (que scrollea) se
+ * recorta contra su borde, y sacarlo por portal pide ubicarlo a mano y registrarlo en la
+ * pila de capas. Diez puntos en un renglón no necesitan nada de eso. Se cierra al elegir,
+ * con Escape (desde `window`, ver el encabezado) o cuando el foco se va.
+ */
+function Paleta({ actual, onElegir, onCerrar }: { actual: string; onElegir: (i: number) => void; onCerrar: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]') ?? ref.current?.querySelector<HTMLElement>('button');
+    el?.focus();
+  }, []);
+  return (
+    <div ref={ref} role="group" aria-label="Color de la fase"
+      onBlur={(e) => {
+        const a = e.relatedTarget as HTMLElement | null;
+        // Al punto que la abrió no: su click ya la cierra, y cerrarla acá la reabriría.
+        if (e.currentTarget.contains(a) || a?.closest?.('[data-paleta-de]')) return;
+        onCerrar();
+      }}
+      style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 6px 8px 50px' }}>
+      {NEW_STAGE_PALETTE.map((dot, i) => (
+        <button key={dot} type="button" data-nodrag aria-label={'Color ' + (i + 1)} aria-pressed={dot === actual}
+          onClick={() => onElegir(i)}
+          style={{
+            width: 18, height: 18, flex: 'none', borderRadius: '50%', border: 'none', padding: 0, background: dot, cursor: 'pointer',
+            // El elegido con `outline`: el velo de hover de `.crm-hover` usa `box-shadow`.
+            outline: dot === actual ? '2px solid ' + dot : 'none', outlineOffset: 2,
+          }} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * «+ Etapa» / «+ Fase»: texto, y al apretarlo pide el nombre ahí mismo.
  *
  * Antes se creaba una «Nueva etapa» sin preguntar y había que renombrarla después — dos
  * pasos para lo que es uno, y mientras tanto una columna con un nombre que no significa
- * nada.
+ * nada. Y antes de eso era un recuadro punteado por grupo: seis recuadros en una lista de
+ * nueve filas eran la mitad de lo que se veía.
  *
  * ⚠️ EL INPUT ES NO CONTROLADO, a propósito: el Escape lo resuelve el editor desde
  * `window` escribiéndole el valor vacío y soltando el foco. Con un input controlado ese
  * valor no llegaría al estado de React y el blur crearía igual lo que se quiso cancelar.
- *
- * `fase` va arriba de todo y mide lo que dice; `etapa` ocupa el ancho de la lista.
  */
-function NuevoRenglon({ tipo, onCrear }: { tipo: 'etapa' | 'fase'; onCrear: (v: string) => void }) {
+function NuevoRenglon({ tipo, grupo, onCrear }: { tipo: 'etapa' | 'fase'; grupo?: string | null; onCrear: (v: string) => void }) {
   const [abierto, setAbierto] = useState(false);
-  const [hover, setHover] = useState(false);
   const fase = tipo === 'fase';
   const cerrar = (guardar: boolean, v: string) => {
     setAbierto(false);
-    setHover(false);
     const t = v.trim().replace(/\s+/g, ' ');
     if (guardar && t) onCrear(t);
   };
   if (abierto) {
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px', borderRadius: 10,
-        background: 'var(--surface-2)', ...(fase ? { marginBottom: 18 } : null),
-      }}>
-        <span style={{ ...PUNTO, background: '#5B6472' }} aria-hidden />
+      <div className="ee-fila" style={{ background: 'var(--surface-2)' }}>
+        {!fase && <span className="ee-asa" aria-hidden />}
+        <span style={{ width: 18, flex: 'none', display: 'inline-flex', justifyContent: 'center' }} aria-hidden>
+          <span style={{ ...PUNTO, ...(fase ? { boxShadow: 'inset 0 0 0 1.5px var(--border-strong)' } : { background: '#5B6472' }) }} />
+        </span>
         <input
           autoFocus maxLength={MAX_LABEL} data-ee-esc=""
-          placeholder={fase ? '¿Cómo se llama la fase?' : '¿Cómo se llama?'}
+          placeholder={fase ? 'Nombre de la fase' : 'Nombre de la etapa'}
           aria-label={fase ? 'Nombre de la fase nueva' : 'Nombre de la etapa nueva'}
           onBlur={(e) => cerrar(true, e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
@@ -919,22 +1287,11 @@ function NuevoRenglon({ tipo, onCrear }: { tipo: 'etapa' | 'fase'; onCrear: (v: 
     );
   }
   return (
-    <button
-      type="button"
-      onClick={() => setAbierto(true)}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{
-        ...(fase ? { display: 'flex', width: 'fit-content', marginBottom: 18, padding: '8px 14px' } : { marginTop: 2, padding: '10px 12px' }),
-        borderRadius: 10,
-        border: '1px dashed ' + (hover ? 'var(--primary)' : 'var(--border-strong)'),
-        background: hover ? 'var(--primary-weak)' : 'none',
-        color: hover ? 'var(--primary)' : 'var(--dim)',
-        fontFamily: SANS, fontSize: 13.5, fontWeight: 600,
-        cursor: 'pointer', textAlign: 'left',
-        transition: 'background .12s, border-color .12s, color .12s',
-      }}
-    >
-      {fase ? '+ Agregar fase' : '+ Agregar etapa'}
+    <button type="button" className="ee-mas" onClick={() => setAbierto(true)}
+      aria-label={fase ? 'Agregar fase' : grupo ? 'Agregar etapa a ' + grupo : 'Agregar etapa'}
+      // «+ Fase» alinea su texto con el del título; «+ Etapa», su «+» con los puntos.
+      style={{ marginLeft: fase ? -8 : 20 }}>
+      <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>+</span>{fase ? 'Fase' : 'Etapa'}
     </button>
   );
 }

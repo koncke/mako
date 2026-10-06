@@ -36,7 +36,7 @@ import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-avis
 // tabla, la ficha y el picker de clientes del tablero).
 export { colorDe };
 
-export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, accionExtra, onAbrir, onEquipo, onError }: {
+export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, accionExtra, antesDelNombre, onAbrir, onEquipo, onError }: {
   c: ClienteCruce;
   /** Su número de cliente: «Cliente 1». No es el id del lead — ver `NumeroCliente`. */
   n: number;
@@ -65,13 +65,34 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
    * desborda en vez de bajar a su renglón.
    */
   accionExtra?: ReactNode;
+  /**
+   * Algo pegado adelante del nombre, en su renglón: la casilla de selección del kanban.
+   * Pasa derecho a `TarjetaEntidad`, que es la que sabe cómo hacerle lugar sin correr el
+   * nombre en reposo y cómo devolverle los clicks (ver su `antesDelNombre`).
+   */
+  antesDelNombre?: ReactNode;
   onAbrir: () => void;
   /** Abre la ficha directamente en la tab «Equipo». */
   onEquipo: () => void;
   onError: (m: string) => void;
 }) {
   const nombre = c.nombre.trim() || 'Sin nombre';
-  const ws = c.clienteWs ?? null;
+  /**
+   * ⚠️ TODO LO DE LA CUENTA DE MaKo CUELGA DE `cuentas.visible`, Y DE NADA MÁS. «La tab de
+   * "Equipo" y en general todo lo que tenga que ver con invitar a MaKo, debería solo verse
+   * si la cuenta es AGENCIA, sino, no deberían estar esas opciones» (Martín, 05/10/2026).
+   * Quién es agencia lo decide el SERVER (`cuentas.visible`, app/customer-success/page.tsx);
+   * acá se aplica en UN lugar: sin él no hay cuenta del cliente que mirar, así que no hay
+   * plan, ni equipo, ni «Reenviar el acceso», ni «Ver su equipo», ni el control de la
+   * cuenta.
+   *
+   * ⛔ ANTES el chip del PLAN y el equipo se leían de `planPorWs`/`equipoPorWs` sin mirar
+   * `visible`: el menú sí lo miraba, el chip no. Hoy esos mapas llegan vacíos cuando no hay
+   * cartera aprobada, así que no se veía — pero eso es cómo los arma el server, no una regla
+   * de la tarjeta. El día que un mapa llegue con algo sin `visible`, el chip aparecía solo.
+   */
+  const conCuentas = cuentas?.visible === true;
+  const ws = conCuentas ? (c.clienteWs ?? null) : null;
   const plan = ws ? cuentas?.planPorWs?.[ws] : undefined;
   const equipo = ws ? cuentas?.equipoPorWs?.[ws] : undefined;
 
@@ -138,6 +159,7 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
       color={colorDe(nombre)}
       onAbrir={onAbrir}
       etiqueta={`Abrir la ficha de ${nombre}`}
+      antesDelNombre={antesDelNombre}
       /* El PLAN de su cuenta de MaKo, cuando tiene una. «Estas tarjetas de clientes
          también deben tener el plan, cada uno, con normalidad» (27/09/2026) — es el
          mismo chip que la grilla de la plataforma, sacado de la misma `capaDef`. */
@@ -169,17 +191,17 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
         </>
       }
       /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. `cuentas.visible` lo decide el
-         SERVER (page.tsx): una agencia habilitada y el super admin. Dibujarlos para un
-         cliente común sería ofrecerle entrar a una cuenta que no existe. */
-      acciones={cuentas?.visible || accionExtra ? (
+         SERVER (page.tsx): desde el 05/10/2026, que este workspace sea una AGENCIA. Dibujarlos
+         para un negocio que no lo es sería ofrecerle entrar a una cuenta que no existe. */
+      acciones={conCuentas || accionExtra ? (
         <>
-          {cuentas?.visible && <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />}
+          {conCuentas && cuentas && <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />}
           <span style={{ flex: 1 }} />
           {/* ⚠️ SIN OPCIONES NO SE DIBUJA. `Dropdown` no tiene rama de lista vacía: con
               `options={[]}` igual pinta el botón y abre un popover en blanco, que se lee
               como una app rota. Pasa de verdad — un cliente sin cuenta y sin equipo no
               tiene ninguna. */}
-          {cuentas?.visible && opciones.length > 0 && (
+          {conCuentas && opciones.length > 0 && (
             <Dropdown
               value="" resetAfterSelect align="right" placeholder="Acciones"
               ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}

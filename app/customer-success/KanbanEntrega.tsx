@@ -19,10 +19,12 @@
 // de tarjetas DEJÓ DE EXISTIR en esta pantalla, así que si el kanban dibujara otra cosa,
 // la tarjeta de cliente no se vería en ningún lado.
 //
-// Lo propio de esta pantalla entra por los dos huecos que `ClienteCard` ofrece:
+// Lo propio de esta pantalla entra por los huecos que `ClienteCard` ofrece:
 // `chipExtra` (hace cuánto que no se mueve, que es de DÓNDE ESTÁ y no del cliente — la
-// misma persona tiene uno distinto en cada servicio) y `accionExtra` (sacarlo de la
-// entrega).
+// misma persona tiene uno distinto en cada servicio) y `antesDelNombre` (la casilla de
+// selección, que es la del CRM). `accionExtra` también existe y hoy no lo usa nadie
+// acá: sacar a alguien de la entrega dejó de ser un botón el día que todo cliente pasó
+// a estar en alguna columna.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // EL ARRASTRE: imagen VACÍA y la copia la dibujamos nosotros
@@ -43,7 +45,8 @@
 //
 // Y el auto-scroll horizontal va adentro del `dragover`: durante un arrastre nativo el
 // navegador congela `requestAnimationFrame` y los timers, así que un auto-scroll sobre
-// rAF mueve 0 px.
+// rAF mueve 0 px. ⚠️ Y ESE `dragover` ES EL DE `document`, NO EL DEL RIEL: ver
+// `montarEmpuje`, que es el arreglo que el CRM ya había hecho para el mismo reporte.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // IGUAL AL DEL PLAN (05/10/2026): lo que se comparó y lo que se cerró
@@ -74,21 +77,31 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // LA SELECCIÓN Y EL ARRASTRE EN LOTE
 // ─────────────────────────────────────────────────────────────────────────────
-// La casilla aparece al pasar el mouse o cuando ya hay algo marcado, como en el Kanban
-// del Plan: en una tarjeta es un control más compitiendo con todo lo demás, y apareciendo
-// al hover no le saca lugar a nada hasta que hace falta. La selección vive AFUERA (la
-// guarda la pantalla), porque es UNA para el kanban y la tabla: conmutar de vista no la
-// pierde.
+// La casilla es LA DEL CRM, la misma pieza y la misma regla (`.mk-sel-tarjeta`, en
+// app/globals.css): «copia la animación de aparición del checkbox para la selección de
+// múltiples tarjetas que hizo el CRM… aparece detrás del título y desplaza el título
+// cuando paso el cursor» (Martín, 05/10/2026). En reposo mide CERO —el nombre no está
+// corrido—, al pasar el cursor crece a 15 px y empuja el nombre, y marcada se queda a
+// la vista. Entra adelante del nombre por el slot `antesDelNombre` de la tarjeta.
+//
+// ⛔ ANTES ERA UNA PASTILLA ABSOLUTA ENCIMA DE LA BANDA, con una clase en el contenedor
+// que la mostraba en TODAS las tarjetas mientras hubiera algo marcado (la regla del
+// Plan). Se fue entera con el pedido: la del CRM sólo se ve en la tarjeta del cursor y en
+// las marcadas.
+//
+// La selección vive AFUERA (la guarda la pantalla), porque es UNA para el kanban y la
+// tabla: conmutar de vista no la pierde.
 //
 // ⚠️ Arrastrar una tarjeta MARCADA, con más de una marcada, se lleva a todas
 // (`quienesViajan`), y la copia lo dice con el número en la esquina. Arrastrar una que no
 // está marcada se lleva sólo a ésa.
 
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo } from './trabajo';
 import { ClienteCard } from './ClienteCard';
+import { columnasVisibles } from './BarraClientes';
 import { repartirEnEtapas, colorDeEtapa, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { tiempoEnEtapa } from './en-etapa';
 // ⚠️ EL MISMO MOLDE QUE EL PLAN, no una copia. «La animación de arrastrar tarjetas por
@@ -109,7 +122,7 @@ export type Asignacion = { etapa: string; etapa_desde: string; por: string };
 // cliente podían decir dos cosas distintas, y la regla de los 21 días vivía dos veces.
 
 export function KanbanEntrega({
-  etapas, fases, origen, servicio, clientes, asignacion, numeroDe,
+  etapas, fases, fase, origen, servicio, clientes, asignacion, numeroDe,
   trabajoDe, tableroOk, cuentas,
   onMover, onAbrir, onEquipo, onNuevoCliente, onError,
   seleccion, onSeleccion, onMoverLote,
@@ -120,9 +133,21 @@ export function KanbanEntrega({
    *
    * «En todo programa existen "fases", por ejemplo, Fase 1: "Cimientos" y dentro están
    * las etapas» (Martín, 05/10/2026). Vacío es el caso normal y no cambia nada de lo que
-   * se dibuja: sin fases, cada columna usa su color propio y los chips no existen.
+   * se dibuja: sin fases, cada columna usa su color propio.
    */
   fases: FaseEntrega[];
+  /**
+   * QUÉ FASE SE ESTÁ MIRANDO. `null` = todas, `''` = las columnas sueltas.
+   *
+   * ⚠️ LO ELIGE LA PANTALLA, NO EL TABLERO. Hasta el 05/10/2026 era una fila de chips
+   * arriba del riel («Todas 14 · Inicio 14 · Contexto y Norte 0 · …»), con su estado acá
+   * adentro; Martín: «como terminaron siendo muchas fases, es mejor que lo pongas como un
+   * filtro directamente, porque no queda bien que estén todos esos botones». Ahora es una
+   * sección más de «Filtrar» (BarraClientes), y el valor llega ya VIGENTE (`faseVigente`):
+   * una fase que no existe en este servicio llega como `null`, así que el riel nunca queda
+   * en blanco por mirar una fase de otro servicio.
+   */
+  fase: string | null;
   /** `default` = nadie configuró estas columnas. La pantalla lo DICE. */
   origen: 'declarado' | 'default';
   servicio: string;
@@ -183,25 +208,22 @@ export function KanbanEntrega({
   const [ins, setIns] = useState<{ etapa: string; idx: number } | null>(null);
   const riel = useRef<HTMLDivElement | null>(null);
 
+  // ⛔ ACÁ VIVÍA EL ESTADO DE LA FASE (`fasePedida` y su `faseVista` derivada), y se mudó
+  // a la pantalla con los chips (05/10/2026): el filtro ahora está en «Filtrar», que es de
+  // la barra, y la barra no es hija de este tablero. Las dos reglas que cuidaba viajaron
+  // con él a `faseVigente` (BarraClientes): una fase que ya no existe cuenta como
+  // «todas», y es UNA fase a la vez con un «Todas» de verdad.
+
   /**
-   * QUÉ FASE SE ESTÁ MIRANDO. `null` = todas, `''` = las columnas sueltas.
-   *
-   * ⚠️ ES UN VALOR ELEGIDO Y NO UNA COPIA DE LAS FASES, así que cambiar de servicio no lo
-   * deja viejo: este componente NO se desmonta al cambiar de servicio, y un
-   * `useState(props.fases)` seguiría mostrando los tramos del anterior. Lo único que hace
-   * falta es que una fase borrada no vacíe el tablero, y eso se deriva abajo.
-   *
-   * ⚠️ Y ES UNA SOLA FASE A LA VEZ, con un «Todas» de verdad, en vez de los interruptores
-   * independientes del CRM. Ahí hacen falta tres guardas para que nadie apague la última
-   * —con cero bandas el tablero queda vacío y no hay nada en pantalla que lo explique— y
-   * con «Todas» ese estado no se puede producir. El pedido también es éste: «solo ver las
-   * columnas de esa fase».
+   * Cómo se SUELTA el empuje horizontal del gesto en curso, o `null` si no hay ninguno.
+   * Un ref y no un estado por lo mismo que `enMano`: lo monta el `dragstart`, y un estado
+   * se aplicaría un frame después de que el primer `dragover` ya pasó.
    */
-  const [fasePedida, setFasePedida] = useState<string | null>(null);
-  /** Una fase que ya no existe se trata como «todas»: nunca deja el tablero en blanco. */
-  const faseVista = fasePedida !== null && (fasePedida === '' || fases.some((f) => f.key === fasePedida))
-    ? fasePedida
-    : null;
+  const quitarEmpuje = useRef<(() => void) | null>(null);
+  // Si el tablero se desmonta a mitad de un arrastre (cambiar de vista con el teclado, un
+  // `revalidatePath` que cambia de servicio), el listener de `document` no puede quedar
+  // vivo empujando un riel que ya no existe.
+  useEffect(() => () => quitarEmpuje.current?.(), []);
 
   /**
    * Cada cliente en su columna.
@@ -231,8 +253,13 @@ export function KanbanEntrega({
    * filtrada haría que todos los clientes de las columnas escondidas salieran como
    * HUÉRFANOS, y el pie del tablero anunciaría «12 clientes están en una etapa que ya no
    * existe» — una afirmación falsa, producida por mirar una fase.
+   *
+   * ⚠️ Y QUÉ COLUMNAS SON «DE LA FASE» LO DECIDE `columnasVisibles`, la MISMA función con
+   * la que el filtro arma sus opciones. Con dos reglas pasaba esto: «Sin fase» se ofrecía
+   * por una columna que apuntaba a una fase BORRADA y el riel la filtraba por
+   * `e.fase === ''`, o sea que elegirla dejaba el tablero en blanco.
    */
-  const visibles = faseVista === null ? etapas : etapas.filter((e) => (e.fase ?? '') === faseVista);
+  const visibles = columnasVisibles(etapas, fases, fase);
 
   // ── El gesto ───────────────────────────────────────────────────────────────
 
@@ -253,7 +280,8 @@ export function KanbanEntrega({
    * `empujarScroll` del hook NO se usa a propósito:
    *
    * · el HORIZONTAL es del riel, y `scrollerDe` sólo mira `overflowY` — un riel
-   *   `overflow-x: auto` no es un scroller para él y devuelve la ventana;
+   *   `overflow-x: auto` no es un scroller para él y devuelve la ventana (y escucha en
+   *   `document`, no en el riel: ver `montarEmpuje`);
    * · el VERTICAL es de la columna BAJO EL CURSOR, y `scrollerDe` resuelve el scroller UNA
    *   vez en el `dragstart`, con la tarjeta de ORIGEN: en el Plan eso es la página (o el
    *   cuerpo del modal) y da igual, pero acá cada columna tiene su propio scroll, así que
@@ -295,6 +323,7 @@ export function KanbanEntrega({
     }
     try { montarCopia(tarjeta, e.clientX - r.left, e.clientY - r.top); }
     finally { marca?.remove(); }
+    montarEmpuje();
   }
 
   function soltarGesto() {
@@ -302,20 +331,66 @@ export function KanbanEntrega({
     setIns(null);
     pararScroll();
     soltarCopia();
+    quitarEmpuje.current?.();
   }
 
   /**
-   * El empuje HORIZONTAL del riel. Va adentro del `dragover` por lo mismo que el vertical:
-   * durante un arrastre nativo el navegador congela `requestAnimationFrame` y los timers, y
-   * lo único que sigue entregando es este evento.
+   * EL EMPUJE HORIZONTAL DEL RIEL VIVE EN `document` Y EN CAPTURA, no en el riel.
+   *
+   * ⚠️ «Te pasó lo mismo que al CRM, si intento desplazar una tarjeta… si lo muevo muy al
+   * costado, se sale del contenedor del kanban y deja de desplazar, eso no debe pasar»
+   * (Martín, 05/10/2026). Y era exactamente lo del CRM: el empuje colgaba del `onDragOver`
+   * del DIV que scrollea, así que en cuanto el cursor salía de su caja —pasando el borde
+   * de la derecha, por la barra lateral, o por arriba y por abajo del riel— el navegador
+   * dejaba de mandarle `dragover` y el tablero se frenaba en seco. Lo incómodo es justo el
+   * caso en que más falta hace: para llegar a una columna que está fuera de la vista hay
+   * que llevar el cursor AL borde, y el borde es donde el evento se cortaba.
+   *
+   * El arreglo es el del CRM (`empujeDelRiel` en app/crm/CrmBoard.tsx, commit abbb7a12):
+   * la cuenta no cambia —pasado el borde, `clientX < left + BORDE` sigue siendo
+   * verdadera—; lo único que cambia es que el evento LLEGUE. Es la regla que AGENTS.md ya
+   * tenía para la copia que sigue al cursor, aplicada al otro efecto del mismo gesto.
+   *
+   * ⚠️ VA ADENTRO DEL `dragover` Y NO EN UN rAF NI UN TIMER: durante un arrastre nativo el
+   * navegador congela los dos (medido: 0 px en 1,2 s sobre el borde). Lo único que sigue
+   * entregando es este evento, y llega aunque el cursor esté quieto.
+   *
+   * ⚠️ SE MONTA EN EL `dragstart` Y NO EN UN EFECTO, a diferencia del CRM: allá el gesto
+   * vive en un estado (`dragId`) y acá en un ref (`enMano`, ver arriba por qué), y un ref
+   * no dispara efectos. Se suelta en `dragend` Y en `drop`, los dos —y en `soltarGesto`, y
+   * al desmontar—, o queda empujando el riel después de soltar.
+   *
+   * ⚠️ EL EMPUJE QUEDA EN UN SOLO LUGAR: el riel ya no tiene `onDragOver`. Con los dos, el
+   * tablero correría al DOBLE de velocidad con el cursor encima y a velocidad normal apenas
+   * sale, que se siente como un tirón.
+   *
+   * ⚠️ Y ESTE `dragover` NO LLEVA `preventDefault()`: eso habilitaría soltar sobre
+   * CUALQUIER punto de la página, incluida la barra lateral, y ahí soltar tiene que seguir
+   * sin hacer nada. Lo que habilita el drop son las columnas, y sólo ellas.
+   *
+   * El empuje VERTICAL no se muda: es de la columna que está bajo el cursor, y fuera de
+   * una columna no hay ninguna que empujar.
    */
-  function autoScroll(e: React.DragEvent) {
-    const el = riel.current;
-    if (!el || enMano.current == null) return;
-    const r = el.getBoundingClientRect();
-    const BORDE = 110;
-    const dir = e.clientX < r.left + BORDE ? -1 : e.clientX > r.right - BORDE ? 1 : 0;
-    if (dir !== 0) el.scrollLeft += dir * 18;
+  function montarEmpuje() {
+    quitarEmpuje.current?.();
+    const empujeDelRiel = (e: DragEvent) => {
+      const el = riel.current;
+      if (!el || enMano.current == null) return;
+      const r = el.getBoundingClientRect();
+      const BORDE = 110;
+      const dir = e.clientX < r.left + BORDE ? -1 : e.clientX > r.right - BORDE ? 1 : 0;
+      if (dir !== 0) el.scrollLeft += dir * 18;
+    };
+    const fin = () => {
+      document.removeEventListener('dragover', empujeDelRiel, true);
+      document.removeEventListener('dragend', fin, true);
+      document.removeEventListener('drop', fin, true);
+      if (quitarEmpuje.current === fin) quitarEmpuje.current = null;
+    };
+    document.addEventListener('dragover', empujeDelRiel, true);
+    document.addEventListener('dragend', fin, true);
+    document.addEventListener('drop', fin, true);
+    quitarEmpuje.current = fin;
   }
 
   /**
@@ -365,10 +440,7 @@ export function KanbanEntrega({
   }
 
   return (
-    // `ke-hay-sel` deja la casilla a la vista en TODAS las tarjetas mientras haya algo
-    // marcado, como `haySeleccion` en el Kanban del Plan: con una marcada, la casilla de
-    // la de al lado no puede depender de pasarle el mouse.
-    <div className={`ke${seleccion.size > 0 ? ' ke-hay-sel' : ''}`}>
+    <div className="ke">
       {/* ⛔ ACÁ HUBO UNA CABECERA Y YA NO HAY NINGUNA (05/10/2026). Se fueron, en este
           orden: «N de M clientes en esta entrega» —que dejó de tener sentido el día que
           TODOS los clientes entran al tablero—, «Etapas de ejemplo · Define las tuyas»
@@ -378,13 +450,15 @@ export function KanbanEntrega({
           edita las etapas de CUALQUIERA de los servicios, no sólo del que estás mirando.
           Un renglón entero para un solo link era, además, el único que separaba la barra
           del tablero. */}
-      {/* ⚠️ LOS CHIPS VAN ARRIBA DEL RIEL Y NO EN LA BARRA. Son una propiedad del TABLERO
-          —qué columnas se ven— y no un filtro de la cartera: el mismo criterio por el que
-          el CRM tiene sus tres bandas al lado del tablero y no adentro de «Filtrar». */}
-      <FasesChips fases={fases} etapas={etapas} porEtapa={porEtapa}
-        vista={faseVista} onVista={setFasePedida} />
+      {/* ⛔ ACÁ IBAN LOS CHIPS DE FASE, y se fueron a «Filtrar» (05/10/2026). Estaban
+          arriba del riel con el porqué de que eran «una propiedad del TABLERO y no un
+          filtro de la cartera»; Martín los descartó por la cantidad, no por el criterio:
+          «como terminaron siendo muchas fases, es mejor que lo pongas como un filtro
+          directamente». Con ocho fases eran ocho botones en su propio renglón. */}
 
-      <div className="ke-riel" ref={riel} onDragOver={autoScroll}>
+      {/* ⚠️ SIN `onDragOver`: el empuje horizontal escucha en `document` (`montarEmpuje`),
+          porque el del riel se cortaba apenas el cursor salía de su caja. */}
+      <div className="ke-riel" ref={riel}>
         {visibles.map((e) => {
           const cards = porEtapa[e.key] ?? [];
           const color = colorDeEtapa(e, fases);
@@ -486,29 +560,48 @@ export function KanbanEntrega({
                           un `scale`, y los tres se reportaron como ruido — con la copia
                           siguiendo al cursor Y el hueco marcando el destino, atenuar el
                           original hace aparecer la misma tarjeta tres veces. */}
-                      <div data-tarjeta className={`ke-card${elegida ? ' ke-card-elegida' : ''}`}
+                      {/* ⚠️ `mk-tarjeta-sel` ES LO QUE REVELA LA CASILLA AL PASAR EL CURSOR:
+                          es el gancho genérico de la regla `.mk-sel-tarjeta` en globals.css,
+                          el mismo que usa el Plan. No hay un selector propio de esta pantalla
+                          a propósito — dos selectores para la misma animación son dos lugares
+                          que tocar el día que cambie. */}
+                      <div data-tarjeta className={`ke-card mk-tarjeta-sel${elegida ? ' ke-card-elegida' : ''}`}
                         draggable
                         onDragStart={(ev) => agarrar(ev, c.leadId)}
                         onDragEnd={soltarGesto}
                       >
-                        {/* LA CASILLA, como la de la tarjeta del Plan: al pasar el mouse o
-                            cuando ya hay algo marcado (la hoja decide cuándo se ve).
-                            ⚠️ VA EN EL ENVOLTORIO Y NO ADENTRO DE LA TARJETA: `TarjetaEntidad`
-                            pone todo su contenido en `pointer-events: none` salvo `.cl-acc`,
-                            así que una casilla dibujada adentro se vería y no se podría
-                            apretar. Acá es hermana de la tarjeta, encima de su banda.
-                            ⚠️ Y EN UNA PASTILLA CON FONDO: la banda puede ser una foto o un
-                            degradado oscuro, y una casilla pelada encima no se ve. */}
-                        <label className="ke-sel" title="Seleccionar" onClick={(ev) => ev.stopPropagation()}>
-                          <input type="checkbox" checked={elegida} onChange={() => alternar(c.leadId)}
-                            aria-label={`Seleccionar a ${nombre}`} />
-                        </label>
                         <ClienteCard
                           c={c} n={numeroDe.get(c.leadId) ?? 0}
                           trabajo={trabajoDe(c.leadId)} tableroOk={tableroOk}
                           cuentas={cuentas} onError={onError}
                           onAbrir={() => onAbrir(c.leadId)}
                           onEquipo={() => onEquipo(c.leadId)}
+                          /* LA CASILLA DEL CRM, tal cual (CrmBoard.tsx, la tarjeta del lead):
+                             adelante del nombre y en su renglón, de ancho 0 hasta el hover.
+                             · `onClick` con `stopPropagation` y no `onChange`: el click en la
+                               tarjeta ABRE la ficha, y tildar no puede abrir nada. (Acá la
+                               ficha la abre `.cl-abrir`, que no es ancestro de la casilla, así
+                               que el click no le llega; el freno queda por el envoltorio
+                               arrastrable y por lo que se le cuelgue mañana.)
+                             · `onPointerDown` frenado: la tarjeta entera es `draggable`.
+                             · `data-marcada`: tildada sigue a la vista sin el cursor encima,
+                               o la barra de lote diría «3» sin forma de saber cuáles.
+                             · ⚠️ SIN `width` EN EL STYLE: lo gobierna la clase, que lo lleva de
+                               0 a 15. Un ancho en línea le gana y deja el nombre corrido por
+                               defecto, con la opacidad animando — se ve arreglado sin estarlo.
+                             Los clicks le llegan porque el slot de la tarjeta se los devuelve
+                             (`.cl-n-antes`): el resto del contenido va en `pointer-events: none`. */
+                          antesDelNombre={
+                            <input type="checkbox" checked={elegida}
+                              className="mk-sel-tarjeta"
+                              data-marcada={elegida ? '1' : '0'}
+                              onPointerDown={(ev) => ev.stopPropagation()}
+                              onClick={(ev) => { ev.stopPropagation(); alternar(c.leadId); }}
+                              onChange={() => { /* lo hace el onClick: ver arriba */ }}
+                              title={elegida ? `Quitar «${nombre}» de la selección` : `Seleccionar «${nombre}»`}
+                              aria-label={elegida ? `Quitar «${nombre}» de la selección` : `Seleccionar «${nombre}»`}
+                              style={{ height: 15, marginTop: 2, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
+                          }
                           chipExtra={desde && (
                             <span className={`ke-chip${trabado ? ' ke-chip-trabado' : ''}`}>
                               {trabado ? `${desde.replace(/^hace /, '')} sin moverse` : desde}
@@ -546,70 +639,9 @@ export function KanbanEntrega({
   );
 }
 
-/**
- * Los chips de fase: cuáles columnas se ven.
- *
- * Es la anatomía de `BandasToggle` del CRM (grupo en `--surface-2`, un segmento por
- * tramo, su punto de color y su conteo), con una diferencia que viene del modelo: acá
- * «Todas» es una opción de verdad y se elige UNA, así que no hace falta la guarda de «no
- * se puede apagar la última» ni existe el estado de cero columnas.
- *
- * ⚠️ NO SE DIBUJA SI NO HAY FASES. Un grupo con un solo botón que ya está encendido es un
- * control que no hace nada, y eso se lee como que la app está rota.
- */
-function FasesChips({ fases, etapas, porEtapa, vista, onVista }: {
-  fases: FaseEntrega[];
-  etapas: EtapaEntrega[];
-  porEtapa: Record<string, unknown[]>;
-  vista: string | null;
-  onVista: (v: string | null) => void;
-}) {
-  if (!fases.length) return null;
-  const cuantos = (clave: string | null) => etapas
-    .filter((e) => clave === null || (e.fase ?? '') === clave)
-    .reduce((n, e) => n + (porEtapa[e.key]?.length ?? 0), 0);
-  // Las sueltas sólo aparecen si hay alguna: un botón que siempre dice 0 es ruido fijo.
-  const sueltas = etapas.some((e) => !e.fase || !fases.some((f) => f.key === e.fase));
-  const items: { clave: string | null; label: string; color: string | null }[] = [
-    { clave: null, label: 'Todas', color: null },
-    ...fases.map((f) => ({ clave: f.key, label: f.label, color: f.dot })),
-    ...(sueltas ? [{ clave: '', label: 'Sin fase', color: null }] : []),
-  ];
-  return (
-    <div className="ke-fases">
-      {items.map((it) => {
-        const on = vista === it.clave;
-        return (
-          <button key={it.clave ?? '__todas'} type="button" aria-pressed={on}
-            onClick={() => onVista(it.clave)}
-            title={on ? 'Es lo que estás viendo' : 'Ver sólo ' + it.label}
-            className={on ? 'ke-fase-on' : undefined}
-            style={on && it.color ? { background: it.color, borderColor: it.color } : undefined}>
-            {it.color && <span className="ke-fase-dot" style={{ background: on ? '#fff' : it.color }} aria-hidden />}
-            {it.label}
-            <span className="ke-fase-n">{cuantos(it.clave)}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 const CSS = `
 .ke { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 
-/* Los chips de fase, con la anatomia de las bandas del CRM. */
-.ke-fases { display: inline-flex; flex: none; align-self: flex-start; align-items: center; gap: 3px;
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px;
-  max-width: 100%; flex-wrap: wrap; }
-.ke-fases button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px;
-  border: 1px solid transparent; background: transparent; color: var(--dim); cursor: pointer;
-  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-.ke-fases button:hover { color: var(--ink); }
-/* El activo SIN color de fase (Todas, Sin fase) va en tinta, igual que el segmento del CRM. */
-.ke-fase-on { background: var(--ink) !important; border-color: var(--ink) !important; color: var(--on-ink) !important; }
-.ke-fase-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.ke-fase-n { font-size: 11px; font-weight: 700; opacity: .85; font-variant-numeric: tabular-nums; }
 .ke-arriba { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ke-cuenta { font-size: 12.5px; color: var(--dim); }
 .ke-default { font-size: 12.5px; color: var(--dim); }
@@ -688,7 +720,8 @@ const CSS = `
 .ke-cards { list-style: none; margin: 0; padding: 0 2px 0 0; display: flex; flex-direction: column; gap: 10px;
   flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 /* El envoltorio que se arrastra. La tarjeta de adentro trae su propia caja.
-   El position relative es para la casilla, que se monta encima de la banda. */
+   El position relative es para el numero que lleva la copia (ke-lleva), que se cuelga
+   de la esquina. */
 .ke-card { position: relative; display: flex; border-radius: 18px; }
 .ke-card > * { width: 100%; }
 /* ⚠️ EL CURSOR SE PONE A MANO. El botón que TarjetaEntidad monta en inset: 0 para
@@ -706,20 +739,16 @@ const CSS = `
    escala): la regla medida del Plan. Aca habia una regla de anillo para el origen que
    ninguna tarjeta usaba, y se fue. */
 
-/* LA CASILLA DE SELECCION: escondida hasta pasar el mouse, o a la vista en todas
-   mientras haya algo marcado (ke-hay-sel), como la del Kanban del Plan. Va en una
-   pastilla con fondo porque la banda puede ser una foto o un degradado oscuro.
-   El z-index le gana al contenido de la tarjeta (z 1) y al boton que la cubre (z 0).
-   ⚠️ EL width: auto NO ES REDUNDANTE: la casilla es hija DIRECTA de .ke-card, y la
-   regla de arriba (.ke-card > *, width 100%) la estiraba al ancho de la tarjeta — una
-   franja blanca de 274 px sobre la banda (medido: right -10px, width = la tarjeta).
-   Por eso el selector lleva .ke-card adelante: tiene que ganarle en especificidad. */
-.ke-card > .ke-sel { width: auto; }
-.ke-sel { position: absolute; top: 10px; left: 10px; z-index: 3; display: none;
-  align-items: center; justify-content: center; padding: 4px; border-radius: 7px;
-  background: var(--surface); box-shadow: 0 1px 4px rgba(18,21,27,.22); cursor: pointer; }
-.ke-sel input { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: var(--primary); }
-.ke-card:hover .ke-sel, .ke-hay-sel .ke-sel { display: inline-flex; }
+/* ⛔ ACA VIVIA LA CASILLA EN PASTILLA (ke-sel), absoluta encima de la banda y a la
+   vista en todas las tarjetas mientras hubiera algo marcado (ke-hay-sel). Se fue el
+   05/10/2026: ahora es la casilla del CRM, adelante del nombre, y su regla vive UNA vez
+   en globals.css (.mk-sel-tarjeta, revelada por .mk-tarjeta-sel:hover).
+   ⚠️ Y LA TRAMPA QUE ESA REGLA DOCUMENTABA SIGUE VIVA PARA EL NUMERO DE LA COPIA: todo
+   hijo DIRECTO de .ke-card hereda el width 100% de arriba, y ke-lleva se cuelga ahi.
+   Sin esto, el numero de la copia mide lo que la tarjeta (con la casilla vieja se
+   midio: una franja blanca de 274 px sobre la banda). El selector lleva .ke-card
+   adelante porque tiene que ganarle en especificidad. */
+.ke-card > .ke-lleva { width: auto; }
 /* La tarjeta MARCADA, con los dos valores de la del Plan: fondo primary-bg y borde
    primary. Va despues de la regla que la da vuelta a surface-2, que la pisaria. */
 .ke-card-elegida .cl-card, .ke-card-elegida .cl-card:hover { background: var(--primary-bg); border-color: var(--primary); }

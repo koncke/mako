@@ -6099,3 +6099,32 @@ había pedido a la corrida en ese momento, y deshacerlo por mi cuenta sería la 
 el otro sentido. Queda dicho para que lo decida él.
 
 **Vive en:** `scripts/revertir-deadlines-resucitados.ts` · `scripts/revertir-deadlines-del-roadmap.ts` · `scripts/probe-deadlines-tocados.ts` · *2026-10-04*
+
+## El filtro de cliente del Plan y `?cliente=` (05/10/2026)
+
+Lo pidió la ficha de un cliente en Customer Success: un botón «Ver en el Plan» que abre el
+tablero ya filtrado a ese cliente. Las tareas y proyectos ya llevaban `clienteLeadId` (mig
+0172), pero «Filtrar» no ofrecía filtrar por cliente y ninguna URL lo ponía.
+
+- **Es estado de SESIÓN, nunca `usePref`.** Un filtro de cliente restaurado de `localStorage`
+  en la próxima visita es un tablero que muestra un tercio de lo que hay sin que nadie lo haya
+  pedido hoy («`localStorage` restaura una preferencia, nunca pisa una decisión»). Se pone con
+  la URL o a mano, se ve como un chip con su ✕ en TODAS las vistas —Prioridades no dibuja
+  «Filtrar», y es justo donde el filtro cambia el norte— y se escribe de vuelta en la URL:
+  con `?cliente=` leído pero no reescrito, sacar el filtro y apretar F5 lo volvía a poner.
+- **La URL la arma el tablero** (`hrefPlanDeCliente` en `app/plan/board/filtro-cliente.ts`) y
+  la ficha la importa. La ficha tenía su propia copia del nombre del parámetro, que además
+  aterrizaba en Prioridades —lo mismo que ya muestra la ficha—; va a «Tareas».
+- **La vuelta `/plan/agencia` → `/plan` perdía el query**, así que el link llegaba sin el
+  filtro. Arreglado en `app/plan/agencia/page.tsx`.
+- **El chip del cliente salía «L…» con el header sobrado**: tenía `flex: 0 1 auto` junto a
+  `BuscadorTareas`, que declara una `flex-basis` (280) mayor que su contenido, y el algoritmo
+  encoge al vecino. Se declaró quién cede: `flex: none` en el chip y tope + elipsis sólo en el
+  nombre.
+- **`soloVista`** dibuja una sola vista sin su selector (la ficha trae sus pestañas): sin
+  eso hay dos filas de tabs, que es lo que se sacó el 29/09. Y los vacíos de Prioridades
+  dicen el nombre del cliente en vez de «en todo el plan».
+- **Sin hacer:** lo que se CREA con el filtro puesto no nace asignado al cliente, y el chip
+  de progreso y el Exportar ignoran el filtro. Las dos son decisiones de producto.
+
+**Vive en:** `app/plan/board/BoardShell.tsx`, `app/plan/board/filtro-cliente.ts`, `app/plan/agencia/page.tsx`, `app/plan/PlanBoard.tsx`, `app/plan/TodoBoard.tsx`.

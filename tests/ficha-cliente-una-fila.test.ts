@@ -37,22 +37,38 @@ const leer = (p: string) => readFileSync(resolve(import.meta.dirname, p), 'utf8'
 const ficha = () => leer('../app/customer-success/FichaCliente.tsx');
 const shell = () => leer('../app/plan/board/BoardShell.tsx');
 
-test('la ficha de un cliente NO dibuja una segunda fila de tabs', () => {
-  // El board ya trae su selector. Otro arriba, a 8 px, obliga a aprender cuál manda.
-  const f = ficha();
-  assert.ok(!/<Tabs\b/.test(f), 'volvió la fila de tabs propia de la ficha');
-  assert.ok(!/\bTabs\b[^\n]*from '@\/app\/_ui'/.test(f), 'sigue importando Tabs');
+// ⚠️ Y EL 05/10/2026 LA FILA CAMBIÓ DE DUEÑO, sin volver a ser dos. «Dejar solo la sección
+// de "PRIORIDADES"… y que haya un botón que te redirija» al Plan: el tablero se monta con
+// `soloVista="prioridades"` (sin su selector) y la ficha dibuja la suya —Resumen ·
+// Prioridades · Llamadas · Equipo—. Y «Equipo» pasó a existir sólo si el workspace es una
+// AGENCIA (`cuentas.visible`): sigue siendo la MISMA ficha para todos los que miran, porque
+// esa condición es del workspace y no de la persona. Los tres primeros tests se reescribieron
+// ese día para fijar eso; las roturas de abajo de cada uno son de esa reescritura.
+const sinComentarios = (src: string) => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('la ficha de un cliente dibuja UNA fila de tabs: la suya, con el tablero sin selector', () => {
+  // Dos filas, a 8 px, obligan a aprender cuál manda. Desde el 05/10 la de la ficha es la
+  // única: cada tablero montado adentro va con su selector apagado.
+  const f = sinComentarios(ficha());
+  assert.equal((f.match(/<Tabs\b/g) ?? []).length, 1, 'la ficha tiene que dibujar exactamente UNA fila');
+  const boards = f.match(/<(PlanBoard|TodoBoard)\b[\s\S]*?\/>/g) ?? [];
+  assert.equal(boards.length, 2, `esperaba los dos tableros, hay ${boards.length}`);
+  for (const b of boards) assert.match(b, /soloVista="prioridades"/, 'un tablero volvió a traer su selector: dos filas de tabs');
 });
 
-test('EL QUE IMPORTA: la vista Equipo se pasa SIN condición', () => {
-  // Cualquier condición acá hace que la MISMA ficha se vea distinta según quién mire, y
-  // ése fue el reporte: «¿me estás mostrando algo diferente al inspeccionar?».
-  const f = ficha();
-  const usos = f.match(/vistaExtra=\{[^}]*\}/g) ?? [];
-  assert.ok(usos.length >= 2, `esperaba los dos boards con la vista extra, hay ${usos.length}`);
-  for (const u of usos) {
-    assert.equal(u, 'vistaExtra={vistaEquipo}', `la vista Equipo está condicionada: ${u}`);
-  }
+test('EL QUE IMPORTA: «Equipo» cuelga del WORKSPACE, no de quién mira ni de lo que tenga', () => {
+  // Cualquier condición sobre la persona o el contenido hace que la MISMA ficha se vea
+  // distinta según quién mire, y ése fue el reporte: «¿me estás mostrando algo diferente al
+  // inspeccionar?». `cuentas.visible` es «este workspace es agencia» (page.tsx).
+  const f = sinComentarios(ficha());
+  const tab = /\.\.\.\((\w+) \? \[\{ id: 'equipo'[^\n]*/.exec(f);
+  assert.ok(tab, 'no encontré la tab «Equipo»');
+  assert.equal(tab[1], 'verCuentas', `la tab «Equipo» cuelga de otra cosa: ${tab[0]}`);
+  assert.match(f, /const verCuentas = Boolean\(cuentas\?\.visible\);/);
+  assert.ok(!/superAdmin|puedePedir|equipo\?\.length \?|hayEquipo/.test(tab[0].replace(/badge: equipo\?\.length/, '')),
+    `la tab «Equipo» volvió a depender de quién mira o de lo que tiene: ${tab[0]}`);
 });
 
 test('y el permiso de PEDIR un alta sigue siendo del que mira', () => {
@@ -64,14 +80,28 @@ test('y el permiso de PEDIR un alta sigue siendo del que mira', () => {
   assert.ok(/puedePedir=\{puedePedir\}/.test(f), 'el botón de pedir dejó de depender de ese corte');
 });
 
-test('el equipo se muestra aunque el tablero no se haya podido leer', () => {
+test('el equipo no depende del tablero: un tablero ilegible no se lo lleva puesto', () => {
   // No depende del tablero: perderlo por una lectura caída sería esconder lo único que
-  // quedó legible. Y es justo el caso del cliente con cero usuarios.
-  const f = ficha();
-  const i = f.indexOf('No pude leer su tablero');
-  assert.ok(i > 0, 'se fue el mensaje de tablero ilegible');
-  assert.ok(/vistaEquipo\.contenido/.test(f.slice(i, i + 400)), 'sin tablero, el equipo desaparece');
+  // quedó legible. Y es justo el caso del cliente con cero usuarios. Desde el 05/10 vive en
+  // su propia tab, así que lo que se fija es que el «no pude leer» quede ADENTRO de
+  // Prioridades y el equipo afuera.
+  const f = sinComentarios(ficha());
+  const ini = f.indexOf('<Panel id="prioridades"');
+  const fin = f.indexOf('</Panel>', ini);
+  assert.ok(ini > 0 && fin > ini, 'no encontré el panel de Prioridades');
+  const prioridades = f.slice(ini, fin);
+  assert.ok(prioridades.length < 2_000, `el panel de Prioridades mide ${prioridades.length}: estoy mirando otra cosa`);
+  assert.match(prioridades, /No pude leer su tablero/, 'se fue el mensaje de tablero ilegible');
+  assert.ok(!/EquipoDelCliente/.test(prioridades), 'el equipo volvió a vivir adentro de la rama del tablero');
+  assert.ok(f.indexOf('<Panel id="equipo"') > fin, 'el equipo no tiene su propia tab');
 });
+
+// ⚠️ PROBADO ROMPIÉNDOLO, la reescritura del 05/10/2026 (baseline del archivo: 10 / 0):
+//   1. sacar `soloVista="prioridades"` del TodoBoard → 9 / 1 («…UNA fila de tabs…»).
+//   2. la tab con `cuentas?.superAdmin ?` en vez de `verCuentas ?` → 9 / 1 («EL QUE
+//      IMPORTA…»).
+//   3. el `<EquipoDelCliente …/>` adentro del panel de Prioridades → 9 / 1 («el equipo no
+//      depende del tablero…»).
 
 test('un deep-link a la vista extra la abre, y no cae en Prioridades', () => {
   // `vistaValida` sólo conoce las cuatro literales del board. Sin la rama que acepta el

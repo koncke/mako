@@ -14,6 +14,7 @@ import { getWorkspaceActual, estaImpersonando, rutaConWs } from '@/lib/workspace
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
+import { leerClienteDeUrl } from './board/filtro-cliente';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -89,12 +90,15 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   // La vista viaja en `?vista=` y se lee ACÁ, en el server: si el board la corrigiera
   // después de hidratar, cada refresh sería un parpadeo de Prioridades. Mismo trato que el
   // tablero del dueño — la persistencia de la pantalla no es una comodidad de super-admin.
-  const { vista } = await searchParams;
+  // `?cliente=` va por el MISMO camino que `?vista=` y por la misma razón: leído acá, el primer
+  // HTML ya viene filtrado (lo pone el botón «Ver en el Plan» de la ficha de un cliente). El
+  // reenvío de arriba ya lo lleva hasta /plan/agencia para el super admin.
+  const { vista, cliente } = await searchParams;
   // Los clientes del workspace para el picker del detalle (mig 0172). `…OVacio` y no
   // `clientesGanados` a secas: si la consulta de leads falla, el tablero se tiene que
   // dibujar igual con el picker vacío. Que un error leyendo el CRM deje a alguien sin su
   // tablero entero es el peor intercambio posible.
   const clientes = await clientesGanadosOVacio();
 
-  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} />;
+  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)} />;
 }

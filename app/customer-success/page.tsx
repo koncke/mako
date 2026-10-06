@@ -23,6 +23,9 @@ import { ClientesApp } from './ClientesApp';
 import { getPerfil } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
+import { lecturaDeFichas } from './ficha-lectura';
+import { entregasDe } from './ficha-datos';
+import type { ClienteCruce } from './cruce';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
 import { AdminView } from '@/app/admin/AdminView';
 import { carteraDeAgencia, esAgencia, altasDeAgencia } from '@/lib/agencia';
@@ -104,6 +107,16 @@ export default async function CustomerSuccessPage() {
   // de otro.
   //
   // ⚠️ Y SI FALLA, FALLA VISIBLE: `{ ok: false }`, nunca una lista vacía.
+  // Lo que el Resumen y las Llamadas de cada ficha necesitan y la grilla no: teléfono,
+  // plata y grabaciones. Arranca ACÁ y se espera más abajo, en paralelo con el resto: son
+  // dos consultas sobre la cartera entera y no dependen de nada de lo que sigue. Nunca
+  // tira — lo que no pudo leer viaja como `null` (ver ./ficha-lectura.ts).
+  const lecturaFichas = lecturaDeFichas(clientes.map((c) => c.leadId))
+    .catch((e) => {
+      console.error('[cs] no pude leer los datos de las fichas:', mensaje(e));
+      return { contacto: null, llamadas: null };
+    });
+
   const tablero = clientes.length
     ? await tableroDeLaCartera(clientes).catch((e) => ({ ok: false as const, error: mensaje(e) }))
     : ({ ok: true as const, porLead: {}, huerfanos: [], sinProyecto: 0 });
@@ -146,7 +159,13 @@ export default async function CustomerSuccessPage() {
   const agenciaWs = await getWorkspaceActual();
   const esSuper = (await getSesionAdmin()) != null;
   const esAg = await esAgencia(agenciaWs);
-  const cartera = agenciaWs ? await carteraDeAgencia(agenciaWs) : [];
+  // ⚠️ LA CARTERA SE LEE SÓLO SI ESTE WORKSPACE ES AGENCIA (05/10/2026). De ella cuelgan
+  // las dos lecturas que CRUZAN de inquilino (el plan y el equipo de cada cliente, abajo),
+  // y antes corrían con que hubiera filas aprobadas — o sea también para una agencia a la
+  // que el super admin ya le sacó el permiso (`agencias`, mig 0176), cuyas filas de
+  // `agencia_clientes` siguen ahí. Esconder la tab no alcanzaba: el equipo de otro
+  // inquilino viajaba igual en el HTML. Son dos decisiones y la primera manda.
+  const cartera = esAg && agenciaWs ? await carteraDeAgencia(agenciaWs) : [];
 
   // ⚠️ EL PLAN Y EL EQUIPO DE CADA CLIENTE, SÓLO DE LOS APROBADOS. «Estas tarjetas de
   // clientes también deben tener el plan, cada uno, con normalidad… el resto de cosas
@@ -177,11 +196,22 @@ export default async function CustomerSuccessPage() {
     // de Customer Success podría crear workspaces en la plataforma; sin la
     // segunda, podría hacerlo un closer.
     puedeAbrir: esAg && (await adminDeWorkspaceActual()) != null,
-    // ⚠️ QUIÉN VE EL CONTROL, y es lo que faltaba. Antes lo veía todo el mundo y
-    // a la mayoría le decía «Sin cuenta» — una afirmación sobre algo que a un
-    // cliente común no le incumbe. «Solamente deberían ver esa sección los
-    // usuarios de agencia y super admin» (27/09/2026).
-    visible: esSuper || esAg,
+    // ⚠️ QUIÉN VE TODO LO DE CUENTAS Y EQUIPO: SÓLO UNA AGENCIA. De esto cuelgan
+    // «Inspeccionar» / «Abrir cuenta» (CuentaDeMaKo), la tab «Equipo» de la ficha, «Pedir
+    // sumar…» y «Sumar a alguien».
+    //
+    // Era `esSuper || esAg` desde el 27/09 («solamente deberían ver esa sección los
+    // usuarios de agencia y super admin») y el 05/10/2026 se cerró a la mitad: «la tab de
+    // "Equipo" y en general todo lo que tenga que ver con invitar a MaKo, debería solo
+    // verse si la cuenta es AGENCIA, sino, no deberían estar esas opciones».
+    //
+    // ⚠️ Y PREGUNTA POR EL WORKSPACE QUE SE MIRA, NO POR QUIÉN MIRA. Con `esSuper` adentro,
+    // el super admin parado en un cliente común veía controles que ese cliente no tiene —
+    // la misma pantalla distinta según quién mire, que es lo que el dueño ya reportó como
+    // lo más grave («¿me estás mostrando algo diferente al inspeccionar de lo que realmente
+    // ven los usuarios?»). Parado en una agencia lo sigue viendo todo: `esAg` es del
+    // workspace. `superAdmin` sigue abajo, y elige la PUERTA, no el permiso.
+    visible: esAg,
     // El MECANISMO, no el permiso: el super admin entra por `?ws=` (su contexto
     // es la pestaña) y una agencia por la cookie firmada. `getSesionAdmin`
     // contesta por la SESIÓN, que es justo lo que hace falta acá — sigue siendo
@@ -198,9 +228,27 @@ export default async function CustomerSuccessPage() {
     puedePedirAltas: esAg && (await adminDeWorkspaceActual()) != null,
   };
 
+  /**
+   * CADA CLIENTE, CON LO QUE DIBUJA SU FICHA (Resumen y Llamadas).
+   *
+   * ⚠️ LA ETAPA SALE DE LA MISMA LECTURA QUE EL KANBAN (`entrega`) y con la misma regla
+   * (`entregasDe` delega en `repartirEnEtapas`): con otra fuente, la tarjeta y el Resumen
+   * del mismo cliente podrían decir dos etapas distintas. Lo que se mueve en el kanban
+   * llega acá por el `revalidatePath` de la acción, igual que al tablero.
+   */
+  const fichas = await lecturaFichas;
+  const clientesConFicha: ClienteCruce[] = clientes.map((c) => ({
+    ...c,
+    ficha: {
+      contacto: fichas.contacto ? (fichas.contacto[c.leadId] ?? null) : null,
+      llamadas: fichas.llamadas ? (fichas.llamadas[c.leadId] ?? []) : null,
+      entregas: entrega.ok ? entregasDe(c.leadId, entrega.servicios, entrega.porServicio) : null,
+    },
+  }));
+
   return (
     <ClientesApp
-      clientes={clientes}
+      clientes={clientesConFicha}
       tablero={tablero}
       trabajo={trabajo}
       user={{ nombre: perfil.nombre, avatarUrl: perfil.avatarUrl }}
