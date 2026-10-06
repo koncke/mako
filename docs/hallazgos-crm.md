@@ -6603,6 +6603,12 @@ daba 10.
   la activación de la tab. Por eso `moverEnLote` vive en `lib/` y no adentro de la acción: se
   ejerció por `tsx --conditions=react-server` contra leads sembrados en ws9 (mover, historial,
   segundo plan = 0, devolver) y se borró lo sembrado.
+  - (06/10, segunda vez que se paga) **El que SÍ dibuja el CRM es el ws4, «Cliente de Diseño»**:
+    300 leads de mentira (`@prueba.local`) y el onboarding cerrado. ⚠️ **Pero comparte el token y
+    el PIXEL de Meta del ws1**: ahí se puede MIRAR y reordenar dentro de una columna (sólo escribe
+    `lead_orden`), y NO mover de columna — un cambio de etapa puede mandarle un evento falso al
+    pixel de un cliente real. Los leads de prueba se siembran con `pipeline_stage` puesto por SQL
+    (no pasa por la app, no dispara nada) en una columna vacía, y se borran al terminar.
 - **En dev el modal tardó 19 s en llenarse y no es el server**: las tres lecturas suman ~2 s en
   paralelo (544 + 741 + 963 ms), pero el modo estricto llama dos veces a la acción y las server
   actions se encolan. En producción es una sola llamada.
@@ -6807,4 +6813,49 @@ en Customer Success, no aquí.»
   ws11). Para que el botón tenga a quién aplicarse hay que decidir el modelo: participación en
   varios productos (con el riesgo de que dos secuencias de nutrición le escriban a la vez) o tratar
   las fichas duplicadas de la misma persona como «está en dos». Lo decide Martín.
+  ⚠️ **En Customer Success SÍ existe** (mig 0196, `cliente_entrega_fuera`): ahí un cliente puede
+  estar en varios productos (su casa del CRM + filas de `cliente_entrega`) y el mismo pedido se
+  implementó en esa pantalla. Lo que falta es sólo la versión del CRM.
 - **Customer Success no pasa todavía `fotoGuardada`** a `useFotoContacto`: avisado el 06/10.
+
+## Soltar una tarjeta adentro de su columna la deja ahí: el orden manual (06/10/2026)
+
+**Vive en:** `app/crm/orden-kanban.ts` (puro, con test) · `app/crm/orden-actions.ts` ·
+`lib/crm-orden.ts` · `app/crm/CrmBoard.tsx` (`handleDrop`, `reordenarColumna`) ·
+`app/crm/CrmToolbar.tsx` (`OrdenFiltro`) · mig 0200
+
+Síntoma (pedido de Martín, llegó por el chat de Customer Success): el hueco del arrastre seguía al
+cursor también en la MISMA columna, y `handleDrop` cortaba con `effStage(lead) === stageKey`, así
+que la tarjeta volvía a su lugar. **Un hueco que promete un lugar que no se respeta.** La regla de
+Martín: «es como poner un ORDENAMIENTO dentro de filtros… volver a ordenar por fecha… y si quiero
+volver a la posición que había dejado las tarjetas es simplemente quitar filtros».
+
+- **«Manual» es la BASE cuando hay algo arrastrado**, no un filtro puesto: así «Limpiar» vuelve a
+  las posiciones arrastradas y el número de «Filtrar» no cuenta lo que la persona misma armó. Y
+  se CALCULA (`ordenElegido ?? base`, por embudo) en vez de inicializarse: con un `useState` fijo
+  lo arrastrado desaparecía en cada F5 y el criterio de un embudo quedaba puesto en el otro.
+- **Se guarda la columna ENTERA con un VECINO**, no un índice: con un filtro o el buscador puesto,
+  «el tercero» de lo que se ve no es el tercero de la columna. Dónde cae y cómo queda la columna
+  son la pieza de Customer Success (`app/customer-success/orden-manual.ts`), importada.
+- ⚠️ **UNA DIFERENCIA A PROPÓSITO CON CUSTOMER SUCCESS: los que la lista no nombra van ARRIBA.**
+  La lista se guarda entera al arrastrar, así que los únicos que no figuran son los que llegaron
+  después. A una columna de entrega casi no entra nadie; al CRM entran leads todos los días, y al
+  final quedaban enterrados debajo de la columna que alguien ordenó una vez.
+- **`funnel_id` NULL es el embudo del negocio**, igual que en `leads`, así que el índice único va
+  con `NULLS NOT DISTINCT` (Postgres 15+, prod corre 17.6). Sin eso el `upsert` no choca contra
+  nada y cada arrastre en el embudo del negocio insertaría una fila nueva.
+- **En otra columna, el lugar se guarda recién cuando el movimiento SE HACE** (los dos caminos:
+  directo y tras la confirmación). Si se cancela, no hay lugar que respetar.
+- ⚠️ **EL DIAGNÓSTICO PRESTADO NO APLICABA.** Customer Success midió en su editor de etapas que
+  soltar con el cursor quieto sobre el hueco se perdía (0 de 2) y lo arregló cancelando el
+  `dragenter`. En el CRM se midió antes de copiar el arreglo: **4 de 4 drops llegaron** con el
+  cursor quieto sobre el hueco, así que no se agregó. Un arreglo sin un caso que lo muestre no se
+  puede verificar, y deja código que nadie sabe por qué está.
+
+### Lo que quedó SIN hacer
+
+- **Las etapas con diálogo propio** (Nutrición - Manual, las de agenda) no guardan el lugar donde
+  cayó la tarjeta: entra por fecha de llegada.
+- **El CRM no arrastra un LOTE** (sólo una tarjeta), así que el orden manual tampoco.
+- **Una etapa borrada deja su fila en `lead_orden`**: no molesta (se lee por etapa viva) y no se
+  poda.

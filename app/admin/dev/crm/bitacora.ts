@@ -1004,5 +1004,45 @@ export const BITACORA: Hito[] = [
       "supabase/migrations/0195_lead_foto_guardada.sql — leads.foto_auto_url / foto_auto_at",
       "app/crm/LeadSheet.tsx — la fila de controles del pop-up"
     ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "10:41",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "Arrastrar dentro de la columna: el orden manual (llegó por el chat de Customer Success)",
+    "pedido": "cuando se hace esto, es como poner un \"ORDENAMIENTO\" dentro de filtros... normalmente se ordena por orden de llegada. Para quitar eso y volver a antes, simplemente es volver a ordenar por fecha y listo. Y luego si quiero volver a la posición que había dejado las tarjetas es simplemente quitar filtros.",
+    "puntos": []
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "11:16",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Soltar una tarjeta adentro de su columna la deja ahí, y «Ordenar» pasa a «Manual»",
+    "puntos": [
+      "Se guarda la columna entera con un vecino (mig 0200, `lead_orden`), con «Reordenado» y su deshacer.",
+      "«Filtrar» gana «Ordenar»: Manual / Fecha de llegada. Con algo arrastrado, «Manual» es la base y «Limpiar» vuelve a él.",
+      "⚠️ A diferencia de Customer Success, los leads que llegan después del último arrastre van arriba: al CRM entran todos los días.",
+      "⚠️ El «drop perdido» que midió Customer Success no se reprodujo en el CRM (4 de 4 llegaron): ese arreglo no se copió."
+    ],
+    "commits": [
+      {
+        "sha": "1703c786",
+        "msg": "CRM: arrastrar una tarjeta dentro de su columna la deja ahí, y «Ordenar» pasa a «Manual»",
+        "lineas": 542,
+        "archivos": 11
+      }
+    ],
+    "archivos": [
+      "app/crm/orden-kanban.ts — cómo se ordena cada columna (puro, con test)",
+      "app/crm/orden-actions.ts — guardar la columna",
+      "lib/crm-orden.ts — leerla",
+      "supabase/migrations/0200_lead_orden.sql — lead_orden"
+    ]
   }
 ];
