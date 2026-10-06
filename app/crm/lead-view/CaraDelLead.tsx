@@ -12,16 +12,18 @@
 import { Marca } from '@/app/_components/Marca';
 import { useFotoContacto } from '@/app/_components/foto-contacto';
 
-export function CaraDelLead({ nombre, telefono, fotoEmail, icono, avatarUrl, tam = 46, color }: {
+export function CaraDelLead({ nombre, telefono, fotoEmail, fotoGuardada, icono, avatarUrl, tam = 46, color }: {
   nombre: string;
   telefono: string | null;
   fotoEmail: string | null;
+  /** La copia de su foto de WhatsApp en nuestro bucket (`leads.foto_auto_url`). */
+  fotoGuardada?: string | null;
   icono?: string | null;
   avatarUrl?: string | null;
   tam?: number;
   /** El color de la etapa: tiñe las iniciales mientras no haya foto. */
   color?: string;
 }) {
-  const foto = useFotoContacto({ icono, avatarUrl, telefono, fotoEmail });
+  const foto = useFotoContacto({ icono, avatarUrl, telefono, fotoEmail, fotoGuardada });
   return <Marca icono={icono ?? avatarUrl ?? null} foto={foto} nombre={nombre} tam={tam} cuadrado color={color} />;
 }

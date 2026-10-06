@@ -238,7 +238,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, padding: 'clamp(18px,4vw,24px) clamp(16px,4vw,28px) 12px' }}>
           <div style={{ display: 'flex', gap: 14, minWidth: 0 }}>
             {/* La cara: lo elegido → WhatsApp → Gravatar → iniciales (CaraDelLead). */}
-            <CaraDelLead nombre={lead.nombre} telefono={lead.telefono} fotoEmail={fotoEmail} icono={lead.icono} avatarUrl={lead.avatar_url} color={chip.fg} />
+            <CaraDelLead nombre={lead.nombre} telefono={lead.telefono} fotoEmail={fotoEmail} fotoGuardada={lead.foto_auto_url} icono={lead.icono} avatarUrl={lead.avatar_url} color={chip.fg} />
             <div style={{ minWidth: 0 }}>
               <div style={{ marginBottom: 5 }}><span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{sm?.label ?? lead.estado_lead}</span></div>
               <h2 id="leadsheet-title" style={{ fontWeight: 600, fontSize: 'clamp(20px,5vw,27px)', letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)', lineHeight: 1.1 }}>{lead.nombre}</h2>
@@ -246,27 +246,25 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--faint)', marginTop: 4 }}>Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</div>
             </div>
           </div>
-          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-            <button onClick={onClose} aria-label="Cerrar" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
-            {/* ⚠️ EL PRODUCTO, como en la ruta /crm/[id] y ANTES de la etapa (la etapa es una
-                posición DENTRO de un producto). Faltaba acá: «En el detalle del lead, en el
-                pop-up, falta el desplegable de productos, por si quiero poner a ese lead en
-                otros productos» (Martín, 06/10/2026). Es el MISMO componente. */}
-            <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} />
-            <Dropdown value={stageKey} options={stageOptions} onChange={pickStage} align="right" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
-            {/* ⚠️ DEBAJO DEL DESPLEGABLE DE ETAPA, no en su propia franja. Ocupaba un renglón
-                de ancho completo arriba de las tabs para decir un número — y era el renglón
-                que empujaba las pestañas y el contenido hacia abajo en TODOS los leads con
-                algo sin marcar (el 98%).
-            
-                Acá arriba comparte la columna con la etapa, que es la otra cosa que se
-                decide de un lead sin bajar: «está en Ganado y le faltan 6 datos» se lee de
-                un vistazo, en el lugar donde ya se estaba mirando. Y no cuesta alto: entra
-                en el hueco que el bloque del nombre ya dejaba libre a la derecha. */}
-            {faltantes.length > 0 && (
+          <button onClick={onClose} aria-label="Cerrar" style={{ flex: 'none', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconX /></button>
+        </div>
+
+        {/* ⚠️ LA FILA DE CONTROLES, debajo de la cabecera y no apilada a su derecha. Estaban
+            en una columna —✕, «Producto» + desplegable, etapa, «N sin marcar»— y Martín
+            (06/10/2026): «Los 2 desplegables uno abajo del otro, el texto de "producto" y
+            encima "2 sin marcar Solucionar →" está todo amontonado». Ahora es UN renglón:
+            producto (con su ícono en vez del rótulo, como la barra de lote del tablero) y
+            etapa a la izquierda —producto antes, porque la etapa es una posición DENTRO de un
+            producto—, y el aviso de datos sin marcar a la derecha. Si no entra, envuelve: el
+            aviso baja pegado a la derecha. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '0 clamp(16px,4vw,28px) 14px' }}>
+          <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} rotulo={false} />
+          <Dropdown value={stageKey} options={stageOptions} onChange={pickStage} align="left" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
+          {faltantes.length > 0 && (
+            <span style={{ marginLeft: 'auto' }}>
               <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
-            )}
-          </div>
+            </span>
+          )}
         </div>
 
         {/* tabs + cuerpo scrolleable */}

@@ -199,7 +199,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     // derecha.
     <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
       <div style={{ minWidth: 0, flex: '1 1 320px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        <CaraDelLead nombre={nombre} telefono={lead.telefono} fotoEmail={fotoEmail} icono={lead.icono} avatarUrl={lead.avatar_url} tam={56} color={chip.fg} />
+        <CaraDelLead nombre={nombre} telefono={lead.telefono} fotoEmail={fotoEmail} fotoGuardada={lead.foto_auto_url} icono={lead.icono} avatarUrl={lead.avatar_url} tam={56} color={chip.fg} />
         <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
           <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>

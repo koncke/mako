@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { esGrabacionDeEntrega } from '../lib/insights-llamada-reparto';
-import { hrefDeWeb, candidatasDeFoto } from '../lib/contacto-lead';
+import { hrefDeWeb, candidatasDeFoto, venceFotoWa, numeroCanonico, fotosVigentes, leadsParaGuardarFoto } from '../lib/contacto-lead';
 import { emojiDe } from './_emoji';
 
 const leer = (p: string) => readFileSync(p, 'utf8');
@@ -111,7 +111,7 @@ test('la cara va en la CABECERA de las dos puertas, y la tarjeta ya no dibuja ot
 // PROBADO ROMPIÉNDOLO: con `nombre: f.nombre` de vuelta en la ruta, cae.
 test('el pop-up tiene el desplegable de producto, y las dos puertas muestran el nombre del PRODUCTO', () => {
   const sheet = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  assert.match(sheet, /<ProductoDelLead leadId=\{lead\.id\} funnelId=\{lead\.funnel_id \?\? null\} productos=\{productos\} \/>/);
+  assert.match(sheet, /<ProductoDelLead leadId=\{lead\.id\} funnelId=\{lead\.funnel_id \?\? null\} productos=\{productos\} rotulo=\{false\} \/>/);
   assert.ok(sheet.indexOf('<ProductoDelLead') < sheet.indexOf('ariaLabel="Cambiar etapa"'), 'el producto va ANTES de la etapa');
   for (const f of ['app/crm/actions.ts', 'app/crm/[id]/page.tsx']) {
     assert.match(sinComentarios(leer(f)), /nombre: f\.producto\?\.trim\(\) \|\| f\.nombre/, `${f} muestra «Funnel principal»`);
@@ -154,4 +154,76 @@ test('las pantallas de la ficha y de las campañas no tienen emoji (íconos o na
   ];
   const malos = archivos.map((f) => ({ f, e: emojiDe(leer(f)) })).filter((x) => x.e).map((x) => `${x.f}: ${x.e!.join(' ')}`);
   assert.deepEqual(malos, []);
+});
+
+// ── La foto GUARDADA (mig 0195, «Sí, guarda las fotos sin problemas») ───────────
+const oe = (ms: number) => Math.floor(ms / 1000).toString(16);
+const AHORA = Date.parse('2026-10-06T12:00:00Z');
+const urlWa = (venceMs: number, n = 1) => `https://pps.whatsapp.net/v/t61/foto${n}.jpg?oh=x&oe=${oe(venceMs)}`;
+
+test('el vencimiento de una foto de WhatsApp sale de su `oe` (segundos en hex)', () => {
+  assert.equal(venceFotoWa(urlWa(AHORA + 5 * 86_400_000)), Math.floor((AHORA + 5 * 86_400_000) / 1000) * 1000);
+  assert.equal(venceFotoWa('https://pps.whatsapp.net/x.jpg'), null);
+  assert.equal(venceFotoWa('no es una url'), null);
+});
+
+test('52·1·10 y 52·10 son la MISMA línea', () => {
+  assert.equal(numeroCanonico('5215512345678'), '525512345678');
+  assert.equal(numeroCanonico('+52 55 1234 5678'), '525512345678');
+  assert.equal(numeroCanonico('123'), null);
+});
+
+// PROBADO ROMPIÉNDOLO: sin la marca de 'ambigua', la colisión le pone a un lead la foto de
+// otro número y cae; sin el filtro de vencidas, entra la URL muerta y cae.
+test('fotos vigentes: sin vencidas, sin colisiones de número, y entre dos de la misma línea la que vence más tarde', () => {
+  const f = fotosVigentes([
+    { telefono: '5215512345678', fotoUrl: urlWa(AHORA + 2 * 86_400_000, 1) },
+    { telefono: '525512345678', fotoUrl: urlWa(AHORA + 9 * 86_400_000, 2) },   // misma línea, vence después
+    { telefono: '5219990000001', fotoUrl: urlWa(AHORA - 3600_000, 3) },         // vencida
+    { telefono: '525511112222', fotoUrl: urlWa(AHORA + 5 * 86_400_000, 4) },    // dos números distintos
+    { telefono: '15511112222', fotoUrl: urlWa(AHORA + 5 * 86_400_000, 5) },     // con los mismos 10 últimos
+  ], AHORA);
+  assert.equal(f.get('5512345678'), urlWa(AHORA + 9 * 86_400_000, 2));
+  assert.equal(f.has('9990000001'), false, 'una foto vencida no se puede bajar');
+  assert.equal(f.has('5511112222'), false, 'dos personas bajo la misma clave: no se elige ninguna');
+});
+
+test('se guarda la foto de quien no tiene copia o la tiene vieja (30 días), y de nadie más', () => {
+  const fotos = new Map([['5512345678', 'https://pps.whatsapp.net/a.jpg']]);
+  const leads = [
+    { id: 1, telefono: '+52 55 1234 5678', foto_auto_at: null },
+    { id: 2, telefono: '5512345678', foto_auto_at: new Date(AHORA - 3 * 86_400_000).toISOString() },  // reciente
+    { id: 3, telefono: '5512345678', foto_auto_at: new Date(AHORA - 40 * 86_400_000).toISOString() }, // vieja
+    { id: 4, telefono: '5599999999', foto_auto_at: null },                                            // sin foto
+  ];
+  assert.deepEqual(leadsParaGuardarFoto(leads, fotos, AHORA).map((x) => x.id), [1, 3]);
+});
+
+test('la ficha usa la foto GUARDADA antes que WhatsApp en vivo y que el email; lo elegido sigue ganando', () => {
+  const c = candidatasDeFoto({ fotoGuardada: 'https://x.supabase.co/storage/v1/object/public/avatars/leads/1/9.jpg?v=1', telefono: '5215555555555', fotoEmail: 'https://www.gravatar.com/avatar/abc?d=404' }, 1);
+  assert.equal(c.length, 3);
+  assert.match(c[0], /\/avatars\/leads\/1\/9\.jpg/);
+  assert.deepEqual(candidatasDeFoto({ avatarUrl: 'https://x/elegida.jpg', fotoGuardada: 'https://x/auto.jpg' }, 1), []);
+});
+
+test('el cron escribe en `foto_auto_url` —nunca en la cara elegida— y está agendado', () => {
+  const lib = sinComentarios(leer('lib/fotos-contacto.ts'));
+  assert.match(lib, /update\(\{ foto_auto_url: url, foto_auto_at:/);
+  assert.doesNotMatch(lib, /avatar_url|icono/);
+  assert.match(lib, /AbortSignal\.timeout\(8000\)/, 'una descarga colgada no puede llevarse el cron');
+  const cron = JSON.parse(leer('vercel.json')).crons as { path: string }[];
+  assert.ok(cron.some((c) => c.path === '/api/cron/fotos-contacto'), 'sin la entrada en vercel.json el cron no corre nunca');
+  assert.ok(existsSync('supabase/migrations/0195_lead_foto_guardada.sql'));
+  for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(sinComentarios(leer(f)), /fotoGuardada=\{lead\.foto_auto_url\}/, `${f} no pasa la foto guardada`);
+  }
+});
+
+// ── La cabecera del pop-up: una fila de controles, no una columna amontonada ────
+// PROBADO ROMPIÉNDOLO: con el rótulo de vuelta (`rotulo` sin `{false}`), cae.
+test('el pop-up pone producto y etapa en UNA fila debajo de la cabecera, con el aviso a la derecha', () => {
+  const s = sinComentarios(leer('app/crm/LeadSheet.tsx'));
+  assert.match(s, /productos=\{productos\} rotulo=\{false\} \/>/, 'el producto va con su ícono, sin la palabra suelta');
+  assert.match(s, /<span style=\{\{ marginLeft: 'auto' \}\}>\s*<DatosSinMarcarCard/, 'el aviso va a la derecha de la fila');
+  assert.doesNotMatch(s, /flexDirection: 'column', alignItems: 'flex-end', gap: 8 \}\}>\s*<button onClick=\{onClose\}/, 'volvió la columna apilada');
 });

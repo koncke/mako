@@ -37,13 +37,27 @@ import { moverLeadAFunnelAction } from '../actions';
 
 const SANS = "'Geist', sans-serif";
 
+function IconoProducto() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20.6 7.8 12 3 3.4 7.8 12 12.6z" /><path d="M3.4 7.8v8.4L12 21v-8.4" /><path d="M20.6 7.8v8.4L12 21" />
+    </svg>
+  );
+}
+
 export type ProductoOpcion = { id: number; nombre: string; esDefault: boolean };
 
-export function ProductoDelLead({ leadId, funnelId, productos }: {
+export function ProductoDelLead({ leadId, funnelId, productos, rotulo = true }: {
   leadId: number;
   /** En cuál está. `null` = el del negocio. */
   funnelId: number | null;
   productos: ProductoOpcion[];
+  /**
+   * Con `false`, sin la palabra «Producto» al lado: va el ícono adentro del botón, como en
+   * la barra de lote del tablero. Es lo que usa la fila de controles del pop-up, donde el
+   * rótulo suelto quedaba «todo amontonado» (Martín, 06/10/2026).
+   */
+  rotulo?: boolean;
 }) {
   const router = useRouter();
   const [mover, setMover] = useState<ProductoOpcion | null>(null);
@@ -64,7 +78,7 @@ export function ProductoDelLead({ leadId, funnelId, productos }: {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)' }}>Producto</span>
+        {rotulo && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)' }}>Producto</span>}
         <Dropdown
           value={String(actual?.id ?? '')}
           options={opciones}
@@ -77,7 +91,9 @@ export function ProductoDelLead({ leadId, funnelId, productos }: {
             setMover(destino);
           }}
           ariaLabel={`Producto de este lead: ${actual?.nombre ?? 'el del negocio'}`}
-          align="right"
+          align={rotulo ? 'right' : 'left'}
+          icono={rotulo ? undefined : <span title="Producto" style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
+          buttonStyle={rotulo ? undefined : { fontSize: 13, fontWeight: 600 }}
         />
       </div>
       {err && <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--bad)' }}>{err}</span>}

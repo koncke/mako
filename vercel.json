@@ -132,6 +132,10 @@
     {
       "path": "/api/cron/replay-purga",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/fotos-contacto",
+      "schedule": "40 9 * * *"
     }
   ]
 }

@@ -93,6 +93,9 @@ export type Lead = {
    *  la foto automática (WhatsApp / Gravatar), que se calcula al leer y nunca se escribe acá. */
   avatar_url?: string | null;
   icono?: string | null;
+  /** La copia de su foto de WhatsApp en nuestro bucket (mig 0195, la escribe el cron
+   *  fotos-contacto). Respaldo de las iniciales: lo elegido gana. */
+  foto_auto_url?: string | null;
 
   fecha_agenda: string | null;        // YYYY-MM-DD
   fecha_junta_1: string | null;
