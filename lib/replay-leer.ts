@@ -70,7 +70,7 @@ export async function replayDeLead(
   visitorId: string | null,
   ultimaActividadISO: string | null,
 ): Promise<ReplayEnLaFicha> {
-  // El apagador primero: es lo único que se lee igual con o sin visitor_id, y su
+  // La configuración primero: es lo único que se lee igual con o sin visitor_id, y su
   // retención es el número que la pantalla escribe en el caso «vencida».
   let leyoTodo = true;
   let crudo: string | null = null;
@@ -81,7 +81,6 @@ export async function replayDeLead(
     visitorId,
     leyoTodo,
     hayGrabaciones: false,
-    activo: cfg.activo,
     snippetDelLead: null as number | null,
     ultimaActividadISO,
     ahoraISO: new Date().toISOString(),

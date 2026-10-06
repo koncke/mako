@@ -25,7 +25,6 @@ import { type NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { getSetting, setSetting } from '@/lib/settings';
-import { configDeReplay } from '@/lib/replay-ingesta';
 import { asegurarLeadDePrueba } from '@/lib/lead-de-prueba';
 import { linkApp } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
@@ -79,11 +78,8 @@ export async function GET(req: NextRequest) {
   for (const w of workspaces) {
     try {
       const r = await runWithWorkspace(w.id, async (): Promise<Resultado | null> => {
-        // Con la grabación apagada en este negocio no hay nada que avisar: la
-        // prueba (los eventos en vivo) funciona igual y la pantalla ya lo dice.
-        const cfg = await configDeReplay().catch(() => null);
-        if (!cfg?.activo) return null;
-
+        // La grabación está siempre prendida desde el 06/10/2026 (ya no hay apagador
+        // que mirar): lo que decide si hay algo que avisar es si llegó una sesión.
         const db = await getTenantDb();
         const desde = new Date(Date.now() - VENTANA_H * 3_600_000).toISOString();
         const { data, error } = await db

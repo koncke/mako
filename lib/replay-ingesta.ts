@@ -127,13 +127,14 @@ async function contarDescarte(sesionId: string, previos: number): Promise<void> 
  * y recién al final la escritura.
  */
 export async function recibirLote(lote: LoteEntrante): Promise<ResultadoLote> {
-  // ── 0. El apagador. Apagado por default y sólo un `true` literal prende. ──
+  // ── 0. El muestreo. Desde el 06/10/2026 la grabación está siempre prendida (ya
+  // no hay apagador, ver lib/replay-contrato.ts): lo único que puede dejar afuera a
+  // un visitante es el muestreo, o que no traiga visitor_id. ──
   const cfg = parsearReplay(await getSetting(REPLAY_CONFIG_KEY));
   if (!grabaA(cfg, lote.visitorId)) {
-    // Sin log: con el apagador en false esto contesta a CADA lote de CADA
-    // visitante, y un `console.warn` por evento es ruido que además tapa los
-    // avisos que sí importan. El grabador tiene que parar cuando lee esto.
-    return { ok: true, guardado: false, ignorado: cfg.activo ? 'fuera del muestreo' : 'apagado' };
+    // Sin log: con el muestreo bajo esto contesta a CADA lote de CADA visitante que
+    // quedó afuera, y un `console.warn` por evento es ruido que tapa lo que importa.
+    return { ok: true, guardado: false, ignorado: 'fuera del muestreo' };
   }
 
   if (!sesionIdValido(lote.sesionId)) return { ok: true, guardado: false, ignorado: 'sesion invalida' };

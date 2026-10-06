@@ -8,13 +8,13 @@ import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
-import { getOrCreateLandingToken, landingSnippet, snippetDesactualizado } from '@/lib/landing-token';
+import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
+import { estadoPixel } from '@/lib/pixel-estado';
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { productosAsignables } from '@/lib/landing-funnel';
-import { configDeReplay } from '@/lib/replay-ingesta';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
@@ -66,7 +66,11 @@ export default async function IntegracionesPage() {
   // seguía diciendo «Conectada», que es la mitad que la persona mira. Un semáforo
   // que no puede expresar «anda, pero hay algo que hacer» obliga a que el aviso
   // sea el único canal, y un aviso se archiva.
-  const landingVieja = ws == null ? false : (await snippetDesactualizado().catch(() => ({ viejo: false }))).viejo;
+  //
+  // ⚠️ Y ES EL MISMO VEREDICTO QUE EL AVISO FIJO DE LA ESQUINA (`estadoPixel`). Con dos
+  // lecturas distintas, la pastilla decía «Actualiza el Pixel» y el modal al que lleva
+  // decía otra cosa — o al revés, que es peor.
+  const landingVieja = ws == null ? false : (await estadoPixel().catch(() => ({ viejo: false }))).viejo;
 
   // Cuota GRATIS consumida hoy por cada IA barata (para el gauge "cuánto queda"
   // de cada proveedor y para el aviso proactivo de rotación). Nunca rompe la página.
@@ -91,14 +95,9 @@ export default async function IntegracionesPage() {
   // falló —`productosAsignables` se traga el error y devuelve `[]`—, y dibujar
   // sobre eso «no tenés productos» sería afirmar algo falso con la pantalla. Se
   // baja `null` y el paso dice que no pudo leer.
-  //
-  // Y si la grabación de las visitas está prendida: el interruptor se pinta con su
-  // estado de verdad en el primer frame. `null` = no se pudo leer, que NO es
-  // «apagada» — dibujarlo apagado sería afirmar algo que no se sabe.
-  const [landingsPixel, productosPixel, grabandoPixel] = ws == null ? [null, null, null] : await Promise.all([
+  const [landingsPixel, productosPixel] = ws == null ? [null, null] : await Promise.all([
     landingsDelWorkspace().catch(() => null),
     productosAsignables().then((l) => (l.length ? l : null)).catch(() => null),
-    configDeReplay().then((c) => c.activo).catch(() => null),
   ]);
 
   return (
@@ -112,7 +111,7 @@ export default async function IntegracionesPage() {
       cuotas={cuotas}
       agenteToken={agenteToken}
       appUrl={APP_URL}
-      pixel={{ landings: landingsPixel, productos: productosPixel, grabando: grabandoPixel }}
+      pixel={{ landings: landingsPixel, productos: productosPixel }}
     />
   );
 }

@@ -445,26 +445,31 @@ export const sesionIdValido = (id: unknown): id is string =>
  */
 export const REPLAY_CONFIG_KEY = 'landing.replay';
 
+/**
+ * ⚠️ YA NO HAY APAGADOR: la grabación está SIEMPRE prendida (decisión de Martín,
+ * 06/10/2026, textual: «elimina lo de "Grabar las visitas" eso por default debe estar
+ * siempre activado»).
+ *
+ * Hasta ese día esto era `activo: boolean`, apagado por default, con un interruptor en
+ * el modal del Pixel. El campo se SACÓ del tipo, y no se dejó en `true`: un campo que
+ * vale siempre lo mismo es un interruptor que miente, y el compilador fue el que listó
+ * los once lugares que lo miraban (la ficha decía «la grabación está apagada», la
+ * ingesta descartaba con motivo «apagado», el chequeo del Pixel pintaba un renglón de
+ * apagado). Ninguno puede volver a pasar, así que ninguno queda.
+ *
+ * Lo que una fila guardada traiga en `activo` se IGNORA al leerla: los cuatro negocios
+ * que lo tenían en true siguen igual, y los que no tenían fila pasan a grabar.
+ *
+ * Lo que sí sigue siendo perilla, sin pantalla: el muestreo (para bajarlo sin desplegar
+ * si un cliente recibe una avalancha) y la retención.
+ */
 export type ReplayConfig = {
-  activo: boolean;
   /** 0 a 100. Qué porcentaje de los visitantes se graba. */
   muestreo: number;
   retencionDias: number;
 };
 
-/**
- * ⚠️ APAGADO POR DEFECTO, y esto no es prudencia: es la única postura defendible.
- *
- * Un sistema que graba personas no puede quedar encendido porque hubo un deploy.
- * Nadie en el camino —ni el visitante, ni el cliente, ni nosotros— apretó un botón
- * que diga «grabá». El orden de despliegue es: migración, código (apagado en
- * todos), y recién después se prende UN workspace a mano.
- *
- * `muestreo: 100` dentro del default no contradice nada: cuando el apagador está
- * en false, no se graba a nadie.
- */
 export const REPLAY_CONFIG_DEFAULT: ReplayConfig = {
-  activo: false,
   muestreo: 100,
   retencionDias: REPLAY_RETENCION_DIAS,
 };
@@ -476,12 +481,9 @@ const enRango = (v: unknown, min: number, max: number, porDefecto: number): numb
 };
 
 /**
- * Lee el apagador, y un JSON roto NO prende nada.
- *
- * Mismo molde tolerante que `parsearConfig` (lib/landing-config.ts): lo que no se
- * entiende cae al default y nadie pierde su configuración. La diferencia es para
- * qué lado cae: ahí el default es «no tiene páginas», acá es **apagado**. Un
- * parseo que falla hacia «grabá» es la peor forma posible de fallar.
+ * Lee el muestreo y la retención. Mismo molde tolerante que `parsearConfig`
+ * (lib/landing-config.ts): lo que no se entiende cae al default y nadie pierde su
+ * configuración. Un `activo` guardado de antes del 06/10/2026 se ignora.
  */
 export function parsearReplay(crudo: string | null): ReplayConfig {
   if (!crudo?.trim()) return { ...REPLAY_CONFIG_DEFAULT };
@@ -490,8 +492,6 @@ export function parsearReplay(crudo: string | null): ReplayConfig {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return { ...REPLAY_CONFIG_DEFAULT };
   const o = x as Record<string, unknown>;
   return {
-    // `=== true` y no un truthy: un `"no"` o un `0` no pueden prender esto.
-    activo: o.activo === true,
     muestreo: enRango(o.muestreo, 0, 100, REPLAY_CONFIG_DEFAULT.muestreo),
     retencionDias: enRango(o.retencionDias, 1, REPLAY_RETENCION_MAX_DIAS, REPLAY_RETENCION_DIAS),
   };
@@ -527,7 +527,6 @@ export function huellaDeVisitante(s: string): number {
  * avalancha de tráfico.
  */
 export function grabaA(cfg: ReplayConfig, visitorId: string): boolean {
-  if (!cfg.activo) return false;
   if (!visitorId) return false;
   if (cfg.muestreo >= 100) return true;
   if (cfg.muestreo <= 0) return false;

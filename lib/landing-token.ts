@@ -41,6 +41,7 @@ import { distintosPorExclusion, listaPostgrest } from './ids-con-filas';
 // contrato. Un tope distinto del lado del server descarta la cola de cada sesión y
 // nadie se entera (ver lib/replay-contrato.ts).
 import { REPLAY_LOTE_MAX_BYTES } from './replay-sellado';
+import { versionServida } from './pixel-servido';
 import {
   REPLAY_VERSION,
   REPLAY_OPCIONES_RRWEB,
@@ -977,9 +978,16 @@ export async function landingDiagnostico(
   // recien actualizada es el mismo falso positivo, al reves.
   const { instalada: instaladaDelWs } = await snippetDesactualizado();
   const svDeLaPagina = urlLanding ? await verificarPagina(urlLanding).catch(() => null) : null;
-  const instalada = svDeLaPagina?.instalada && typeof svDeLaPagina.version === 'number'
-    ? Math.max(svDeLaPagina.version, instaladaDelWs)
-    : instaladaDelWs;
+  // ⚠️ Y LO QUE LA PÁGINA SIRVE HOY también entra al máximo (06/10/2026). Sin esto,
+  // quien acaba de republicar con el código nuevo apretaba «Comprobar» y el primer
+  // renglón le decía que tenía la versión vieja: la última visita era de antes. Sólo
+  // puede SUBIR el número —un HTML que no se pudo leer no baja nada—, igual que el setting.
+  const servida = urlLanding ? await versionServida(urlLanding, { minimo: SNIPPET_VERSION }).catch(() => null) : null;
+  const instalada = Math.max(
+    svDeLaPagina?.instalada && typeof svDeLaPagina.version === 'number' ? svDeLaPagina.version : 0,
+    instaladaDelWs,
+    servida ?? 0,
+  );
 
   // ⚠️ Y EL BLOQUEO SOLO FRENA SI ESTA PAGINA GANA ALGO CON LA VERSION NUEVA.
   // Antes alcanzaba con que el numero fuera menor, asi que al subir a v16 los

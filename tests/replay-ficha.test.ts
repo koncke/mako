@@ -63,7 +63,6 @@ const base: SenalesDelVacio = {
   visitorId: 'v-1',
   leyoTodo: true,
   hayGrabaciones: false,
-  activo: true,
   snippetDelLead: REPLAY_DESDE_SNIPPET,
   ultimaActividadISO: diasAtras(1),
   ahoraISO: AHORA,
@@ -72,10 +71,8 @@ const base: SenalesDelVacio = {
 
 // ── El vacío: quién gana a quién ─────────────────────────────────────────────
 
-test('una grabación que existe gana sobre el apagador y sobre todo lo demás', () => {
-  // Apagar la grabación hoy no borra lo que ya se grabó: esconderlo sería tirar un
-  // dato por una configuración de ahora.
-  assert.equal(motivoDelVacio({ ...base, hayGrabaciones: true, activo: false, snippetDelLead: 1 }), null);
+test('una grabación que existe gana sobre todo lo demás', () => {
+  assert.equal(motivoDelVacio({ ...base, hayGrabaciones: true, snippetDelLead: 1 }), null);
 });
 
 test('sin visitor_id la respuesta no depende de ninguna consulta', () => {
@@ -83,20 +80,10 @@ test('sin visitor_id la respuesta no depende de ninguna consulta', () => {
   // que va a contestar lo mismo siempre es el candado sin llave.
   assert.equal(motivoDelVacio({ ...base, visitorId: null }), 'sin_visitor');
   assert.equal(motivoDelVacio({ ...base, visitorId: null, leyoTodo: false }), 'sin_visitor');
-  assert.equal(motivoDelVacio({ ...base, visitorId: null, activo: false }), 'sin_visitor');
 });
 
 test('una lectura que falló NO afirma que no hay grabaciones', () => {
   assert.equal(motivoDelVacio({ ...base, leyoTodo: false }), 'no_se_pudo_leer');
-  // Y gana sobre el apagador: si no se pudo leer el apagador, decir «está apagado»
-  // es afirmar una configuración que nadie leyó.
-  assert.equal(motivoDelVacio({ ...base, leyoTodo: false, activo: false }), 'no_se_pudo_leer');
-});
-
-test('con el apagador en false NO se manda a repegar el código', () => {
-  // Las dos cosas son ciertas, y repegar el snippet con el interruptor apagado no
-  // cambia nada: primero se dice la que destraba.
-  assert.equal(motivoDelVacio({ ...base, activo: false, snippetDelLead: REPLAY_DESDE_SNIPPET - 1 }), 'apagado');
 });
 
 test('el código viejo se acusa SÓLO cuando se sabe qué versión midió', () => {
@@ -131,7 +118,7 @@ test('una fecha que no se puede leer no vence nada', () => {
 // ── El copy: una frase, y link sólo donde hay algo que apretar ───────────────
 
 test('cada causa tiene su frase, y ninguna está vacía', () => {
-  const causas = ['sin_visitor', 'no_se_pudo_leer', 'apagado', 'pixel_viejo', 'vencida', 'sin_grabacion'] as const;
+  const causas = ['sin_visitor', 'no_se_pudo_leer', 'pixel_viejo', 'vencida', 'sin_grabacion'] as const;
   const vistas = new Set<string>();
   for (const c of causas) {
     const t = textoDelVacio(c, 30);
@@ -143,17 +130,13 @@ test('cada causa tiene su frase, y ninguna está vacía', () => {
   }
 });
 
-// PROBADO ROMPIENDOLO: devolviendo `donde: null` al caso `apagado` en
+// PROBADO ROMPIENDOLO: devolviendo `donde: null` al caso `pixel_viejo` en
 // lib/replay-ficha.ts, este test falla.
-test('llevan link SOLO los dos vacíos que tienen algo que hacer: apagada y código viejo', () => {
-  // Los dos van al Pixel de MaKo, que es donde se arreglan los dos.
+test('lleva link SOLO el vacío que tiene algo que hacer: el código viejo', () => {
+  // Va al Pixel de MaKo, que es donde se arregla. Hasta el 06/10/2026 también lo
+  // llevaba «apagada» —al interruptor «Grabar las visitas»—; ese caso ya no existe:
+  // la grabación no tiene apagador.
   assert.equal(textoDelVacio('pixel_viejo', 30).donde?.href, '/integraciones?abrir=landing');
-  // ⚠️ `apagado` LLEVA LINK desde el 06/10/2026. Hasta ese día este test lo exigía
-  // SIN link, y con razón: el interruptor `landing.replay` no tenía pantalla, y un
-  // botón que lleva a donde la respuesta NO está es peor que ninguno. Con Clarity
-  // fuera del producto se construyó el interruptor («Grabar las visitas», en el
-  // Pixel), así que ahora sí hay a dónde mandar.
-  assert.equal(textoDelVacio('apagado', 30).donde?.href, '/integraciones?abrir=landing');
   for (const c of ['sin_visitor', 'no_se_pudo_leer', 'vencida', 'sin_grabacion'] as const) {
     assert.equal(textoDelVacio(c, 30).donde, null, c);
   }

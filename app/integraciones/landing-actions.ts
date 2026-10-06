@@ -15,7 +15,6 @@ import { requireRolWs } from '@/lib/tab-access';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { contarEventosDePrueba } from '@/lib/landing-token';
-import { configDeReplay } from '@/lib/replay-ingesta';
 import { programarAnalisisDeclaradas } from '@/lib/landing-analyst-auto';
 import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
 import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos, conOculto, sinOculto } from '@/lib/landing-videos';
@@ -168,17 +167,14 @@ export async function finPruebaAction(prueba: string): Promise<{ ok: boolean }> 
     if (!eventos) return { ok: true };
 
     const ws = (await getWorkspaceActual()) ?? undefined;
-    // ⚠️ SE PROMETE EL AVISO DE LA GRABACIÓN SÓLO SI VA A LLEGAR. Hasta el
-    // 06/10/2026 este mensaje prometía «el link de Clarity» a TODO negocio, lo
-    // tuviera conectado o no — y el cron que lo mandaba cortaba sin Clarity, así
-    // que a los demás no les llegaba nunca. Ahora la grabación es propia y el aviso
-    // lo manda `prueba-grabacion` sólo con la grabación prendida: se pregunta lo
-    // mismo que él antes de prometerlo.
-    const grabando = (await configDeReplay().catch(() => null))?.activo === true;
+    // ⚠️ SE PROMETE EL AVISO DE LA GRABACIÓN PORQUE VA A LLEGAR: el que lo manda es
+    // `prueba-grabacion`, y desde el 06/10/2026 la grabación está siempre prendida.
+    // Hasta ese día se preguntaba el interruptor antes de prometerlo; antes todavía,
+    // el mensaje prometía «el link de Clarity» a todo negocio y no le llegaba a nadie.
     await emitirDelCatalogo('prueba-recibida', {
       ws,
       // El texto lo arma el CÓDIGO: acá viaja un conteo exacto y un dominio.
-      texto: `Listo, recibí tu prueba del Pixel${pagina ? ` en *${pagina}*` : ''}: ${eventos} ${eventos === 1 ? 'evento' : 'eventos'}.${grabando ? ' Te aviso cuando la grabación esté lista.' : ''}`,
+      texto: `Listo, recibí tu prueba del Pixel${pagina ? ` en *${pagina}*` : ''}: ${eventos} ${eventos === 1 ? 'evento' : 'eventos'}. Te aviso cuando la grabación esté lista.`,
     });
     return { ok: true };
   } catch {

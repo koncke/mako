@@ -8,8 +8,7 @@
 // poder testearla. Acá queda el acceso al setting, el analizador y el gate.
 
 import { revalidatePath } from 'next/cache';
-import { getSetting, setSetting } from '@/lib/settings';
-import { REPLAY_CONFIG_KEY, parsearReplay } from '@/lib/replay-contrato';
+import { setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
 import { CONFIG_KEY, conLanding, landingDe, sinLanding, type LandingConfig } from '@/lib/landing-config';
 import { mirarLanding } from '@/lib/landing-vigilancia';
@@ -59,36 +58,6 @@ export async function guardarLandingAction(
     await programarAnalisisDeclaradas();
     revalidatePath('/integraciones');
     return { ok: true, landings: nuevas };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
-  }
-}
-
-/**
- * Prende o apaga la grabación de las visitas, para TODO el negocio.
- *
- * ⚠️ HASTA EL 06/10/2026 NO EXISTÍA, y estaba prometido: la v21 del Pixel le
- * anunció a cada cliente por WhatsApp que la grabación «llega APAGADA: se prende
- * una vez desde la app», y la única forma de prenderla era escribir el setting a
- * mano en la base. Con Clarity fuera del producto, este interruptor es lo que
- * reemplaza a «conectar Clarity»: sin él, ningún negocio podía tener grabaciones.
- *
- * ⚠️ ES DEL NEGOCIO, NO DE LA PÁGINA, a propósito y está escrito en el contrato
- * (lib/replay-contrato.ts): grabar personas es una decisión de quien tiene la
- * relación con ellas, y una por página permitiría prenderla en una sin darse cuenta.
- *
- * Se conserva el resto de la configuración (muestreo, retención): se lee, se toca
- * SOLO `activo` y se escribe entera. Un `{activo}` pelado borraría la retención que
- * alguien eligió, porque `parsearReplay` la volvería al default.
- */
-export async function guardarGrabacionAction(activo: boolean): Promise<{ ok: true; activo: boolean } | { ok: false; error: string }> {
-  try {
-    await requireRolWs([], { nav: 'integraciones' });
-    const actual = parsearReplay(await getSetting(REPLAY_CONFIG_KEY));
-    const nueva = { ...actual, activo: activo === true };
-    await setSetting(REPLAY_CONFIG_KEY, JSON.stringify(nueva));
-    revalidatePath('/integraciones');
-    return { ok: true, activo: nueva.activo };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }

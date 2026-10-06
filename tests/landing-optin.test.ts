@@ -264,8 +264,11 @@ test('la pantalla también lo dice (no solo el WhatsApp)', () => {
   assert.ok(/id=\{`svc-\$\{i\.key\}`\}/.test(board), 'sin ancla en la tarjeta, el scroll no tiene a dónde ir');
   assert.ok(/q\.delete\('abrir'\)/.test(board), 'el parámetro se limpia: si queda, un F5 reabre el modal cerrado');
 
+  // ⚠️ Desde el 06/10/2026 la pantalla lee el MISMO veredicto que el aviso fijo de la
+  // esquina (`estadoPixel`: por página y mirando lo que sirve la página), no el setting
+  // del workspace. Con dos lecturas, la pastilla y el modal al que lleva se contradecían.
   const page = leer('../app/integraciones/page.tsx');
-  assert.ok(/snippetDesactualizado\(\)/.test(page), 'el dato ya existía y nadie lo leía en la pantalla');
+  assert.ok(/estadoPixel\(\)/.test(page), 'el dato ya existía y nadie lo leía en la pantalla');
 });
 
 test('la prueba del código chequea el formulario, y la versión NO se adivina', () => {
@@ -1210,8 +1213,9 @@ test('la grabación de la prueba se avisa cuando se terminó de GUARDAR', () => 
   const cron = leer('../app/api/cron/prueba-grabacion/route.ts');
   assert.ok(/\.from\('replay_sesiones'\)/.test(cron), 'el aviso tiene que salir de la grabación propia');
   assert.ok(/\.not\('storage_path', 'is', null\)/.test(cron), 'sin esto se avisa de una grabación que todavía no se puede ver');
-  // Sin la grabación prendida en el negocio no hay nada que avisar.
-  assert.ok(/if \(!cfg\?\.activo\) return null;/.test(cron), 'con la grabación apagada no se promete nada');
+  // ⚠️ Desde el 06/10/2026 la grabación está siempre prendida: el cron ya no mira un
+  // apagador (si volviera, frenaría el aviso en los negocios que nunca lo tocaron).
+  assert.ok(!/cfg\?\.activo|configDeReplay/.test(cron), 'volvió el apagador de la grabación al aviso de la prueba');
   // El link va a la ficha del lead PRUEBA, que es donde vive el reproductor, y lo
   // arma el código (la quinta forma de navegar: un link que se MANDA afuera).
   assert.ok(/asegurarLeadDePrueba\(w\.id, marcador\)/.test(cron), 'sin el lead no hay a dónde mandar');

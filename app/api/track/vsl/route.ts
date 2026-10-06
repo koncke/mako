@@ -44,6 +44,7 @@ import type { NextRequest } from 'next/server';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { LANDING_SERVICIO, SNIPPET_VERSION_KEY } from '@/lib/landing-token';
+import { VERSIONES_POR_PAGINA_KEY, anotarVersionDePagina, clavePagina, parsearMapaVersiones } from '@/lib/pixel-aviso';
 import { REPLAY_CONFIG_KEY, REPLAY_LIB_VERSION, grabaA, parsearReplay } from '@/lib/replay-contrato';
 import { getSetting, setSetting } from '@/lib/settings';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
@@ -138,11 +139,24 @@ async function stampVisitorOnLead(token: string, visitorId: string): Promise<voi
  * Pixel quedó viejo» que se apoya en este número, eso era prenderle el aviso a
  * quien ya repegó. Lo que se mide de esas visitas no cambia: sólo no votan.
  */
-async function anotarVersionSnippet(sv: unknown, landingUrl?: unknown): Promise<void> {
+async function anotarVersionSnippet(sv: unknown, landingUrl?: unknown, tipo?: unknown): Promise<void> {
   const url = typeof landingUrl === 'string' ? landingUrl : '';
   if (url && (esPreviewDeEditor(url) || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url))) return;
   const n = Number(sv);
   const version = Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+  // ⚠️ Y LA DE CADA PÁGINA, sólo en el pageview (06/10/2026). El setting de arriba es
+  // del workspace y gana el último evento: con dos páginas en versiones distintas, el
+  // aviso fijo de «Actualiza el Pixel» se prendía y se apagaba según qué página recibió
+  // la última visita. El mapa por página es lo que lee `estadoPixel` (lib/pixel-estado.ts).
+  // En el pageview y no en cada evento: la versión no cambia a mitad de una visita, y
+  // así es una lectura más por página vista y no por clic.
+  if (tipo === 'pageview') {
+    const clave = clavePagina(url);
+    if (clave) {
+      const nuevo = anotarVersionDePagina(parsearMapaVersiones(await getSetting(VERSIONES_POR_PAGINA_KEY)), clave, version, new Date().toISOString());
+      if (nuevo) await setSetting(VERSIONES_POR_PAGINA_KEY, JSON.stringify(nuevo));
+    }
+  }
   const guardada = Number(await getSetting(SNIPPET_VERSION_KEY));
   if (guardada === version) return;
   await setSetting(SNIPPET_VERSION_KEY, String(version));
@@ -235,7 +249,7 @@ export async function POST(request: NextRequest) {
     // día —los eventos llegan igual y la integración queda en verde— y una mejora
     // no le llega nunca a quien ya lo tenía pegado. Best-effort: nunca rompe el
     // beacon, que es lo que de verdad importa.
-    void anotarVersionSnippet(payload.sv, payload.landing_url).catch(() => {});
+    void anotarVersionSnippet(payload.sv, payload.landing_url, payload.tipo_evento).catch(() => {});
     return procesar(payload, visitorId, ip);
   });
 }

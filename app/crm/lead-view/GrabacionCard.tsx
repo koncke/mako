@@ -14,10 +14,8 @@
 // `lib/replay-ficha.ts`, puras y con test; acá sólo se dibujan.
 //
 // ⚠️ Y LA PANTALLA NO INVENTA DÓNDE SE ARREGLA. Cada frase lleva link sólo si hay
-// una pantalla que de verdad lo resuelve: `pixel_viejo` (repegar el código) y, desde
-// el 06/10/2026, la grabación apagada (el interruptor «Grabar las visitas» del
-// Pixel). Un botón que lleva a un lugar donde no está la respuesta es peor que
-// ninguno.
+// una pantalla que de verdad lo resuelve: `pixel_viejo` (repegar el código). Un
+// botón que lleva a un lugar donde no está la respuesta es peor que ninguno.
 
 import { useState, type CSSProperties } from 'react';
 import Link from '@/app/_ui/Link';

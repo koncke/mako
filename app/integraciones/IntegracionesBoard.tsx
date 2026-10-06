@@ -19,10 +19,9 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
-import { guardarGrabacionAction } from './landing-config-actions';
 import type { LandingConfig } from '@/lib/landing-config';
 import type { ProductoAsignable } from '@/lib/landing-funnel';
-import { Button, Switch } from '@/app/_ui';
+import { Button } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
@@ -923,7 +922,7 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
 }
 
 /** Las páginas y los productos del Pixel, tal como los resuelve el server. */
-type DatosPixel = { landings: LandingConfig[] | null; productos: ProductoAsignable[] | null; grabando: boolean | null };
+type DatosPixel = { landings: LandingConfig[] | null; productos: ProductoAsignable[] | null };
 
 
 function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
@@ -946,22 +945,6 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
   // eran además DOS lecturas de lo mismo en la cola serial de las server actions.
   // Arranca con lo que resolvió el server: el primer frame ya trae todo.
   const [landings, setLandings] = useState<LandingConfig[]>(pixel?.landings ?? []);
-  // La grabación de las visitas, del NEGOCIO (no de la página). Arranca con lo que
-  // leyó el server; `null` = no se pudo leer, y entonces no se dibuja un interruptor
-  // que afirme «apagada».
-  const [grabando, setGrabando] = useState<boolean | null>(pixel?.grabando ?? null);
-  const [guardandoGrabacion, setGuardandoGrabacion] = useState(false);
-  const [errGrabacion, setErrGrabacion] = useState<string | null>(null);
-  const cambiarGrabacion = async (v: boolean) => {
-    if (guardandoGrabacion) return;
-    setGuardandoGrabacion(true); setErrGrabacion(null);
-    const antes = grabando;
-    setGrabando(v);   // optimista: el interruptor responde al toque
-    const r = await guardarGrabacionAction(v).catch(() => null);
-    setGuardandoGrabacion(false);
-    if (!r || !r.ok) { setGrabando(antes); setErrGrabacion(r && !r.ok ? r.error : 'No se pudo guardar.'); return; }
-    setGrabando(r.activo);
-  };
   // ⚠️ EL CÓDIGO ES UNO SOLO PARA TODAS LAS PÁGINAS. Hasta el 06/10/2026 se pedía
   // uno por página porque cada una podía llevar su propio proyecto de Clarity
   // adentro; sin Clarity, es el que resuelve el server y no hay nada que pedir.
@@ -1018,20 +1001,9 @@ function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
         Instala el Pixel de MaKo en tu página
       </h4>
 
-      {/* ⚠️ LA GRABACIÓN DE LAS VISITAS VA ARRIBA DE LOS PASOS, no adentro de uno: es
-          del NEGOCIO y no de la página que se elige en el paso 1, así que puesta en un
-          paso se leería como «grabar esta página». Reemplaza a «conectar Clarity»
-          (06/10/2026): sin este interruptor ningún negocio podía tener grabaciones.
-          Sin rótulo de ayuda, por la regla del texto corto: dónde se miran lo enseña
-          la prueba, que tiene el botón «Ver la grabación». */}
-      {grabando === null ? (
-        <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>No pude leer si la grabación está prendida.</div>
-      ) : (
-        <div>
-          <Switch checked={grabando} onChange={(v) => { void cambiarGrabacion(v); }} disabled={guardandoGrabacion} label="Grabar las visitas" />
-          {errGrabacion && <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--bad)' }}>{errGrabacion}</div>}
-        </div>
-      )}
+      {/* ⚠️ ACÁ ESTABA EL INTERRUPTOR «Grabar las visitas», y se fue el 06/10/2026 por
+          pedido textual: «elimina lo de "Grabar las visitas" eso por default debe estar
+          siempre activado». La grabación ya no tiene apagador (lib/replay-contrato.ts). */}
 
       {/* ⚠️ CUATRO PASOS, SEPARADOS DE VERDAD. Antes eran tres bloques uno abajo del
           otro sin nada que dijera que eran pasos distintos, y el primero —que es

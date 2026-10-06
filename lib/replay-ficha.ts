@@ -73,7 +73,6 @@ export function noGrabanTodas(versiones: ReadonlyArray<number | null>, instalada
 export type ReplayVacio =
   | 'sin_visitor'
   | 'no_se_pudo_leer'
-  | 'apagado'
   | 'pixel_viejo'
   | 'vencida'
   | 'sin_grabacion';
@@ -82,12 +81,10 @@ export type ReplayVacio =
 export type SenalesDelVacio = {
   /** El `visitor_id` del lead. null = entró a mano o por formulario de Meta. */
   visitorId: string | null;
-  /** false = alguna de las dos lecturas (el índice o el apagador) FALLÓ. */
+  /** false = alguna de las dos lecturas (el índice o la configuración) FALLÓ. */
   leyoTodo: boolean;
   /** ¿Hay al menos una sesión en el índice? */
   hayGrabaciones: boolean;
-  /** El apagador del workspace (`landing.replay`). */
-  activo: boolean;
   /** La versión de snippet con la que midió ESTE lead. null = no se sabe. */
   snippetDelLead: number | null;
   /** Lo último que este visitante hizo en la página. null = no se sabe. */
@@ -102,17 +99,15 @@ export type SenalesDelVacio = {
  *
  * ⚠️ EL ORDEN NO ES ESTÉTICO: es el orden en que las causas se TAPAN entre sí.
  *
- *   · Una grabación que existe gana sobre todo lo demás, incluido el apagador: si
- *     el negocio apagó la grabación ayer, lo que ya se grabó sigue estando y
- *     esconderlo sería tirar un dato por una configuración de hoy.
+ *   · Una grabación que existe gana sobre todo lo demás.
  *   · «Este lead no trae identificador» va antes que «no pude leer»: es un hecho
  *     que no depende de ninguna consulta —el lead entró a mano o por un formulario
  *     de Meta— y no cambia si la lectura se arregla. Decir «no pude leer» ahí manda
  *     a reintentar algo que va a contestar lo mismo siempre.
  *   · «No pude leer» va antes que cualquier afirmación de ausencia. Es la regla de
  *     la casa: no poder leer un dato no es un valor del dato.
- *   · El apagador va antes que el pixel: con el interruptor en false, repegar el
- *     código no cambia NADA, así que mandar a repegarlo es trabajo inútil.
+ *   · Desde el 06/10/2026 no hay apagador: la grabación está siempre prendida
+ *     (lib/replay-contrato.ts), así que el caso «apagado» ya no existe y se sacó.
  *   · La retención va después del pixel: si la página nunca tuvo el grabador, no
  *     hubo nada que vencer — decir «ya la borramos» inventaría una grabación.
  */
@@ -120,7 +115,6 @@ export function motivoDelVacio(s: SenalesDelVacio): ReplayVacio | null {
   if (s.hayGrabaciones) return null;
   if (!s.visitorId) return 'sin_visitor';
   if (!s.leyoTodo) return 'no_se_pudo_leer';
-  if (!s.activo) return 'apagado';
   // `null` es «no se sabe» y NO acusa: un lead que entró por un formulario de Meta
   // no tiene visitas con `sv`, y ahí el código de la página no es el problema.
   if (s.snippetDelLead != null && s.snippetDelLead < REPLAY_DESDE_SNIPPET) return 'pixel_viejo';
@@ -141,11 +135,6 @@ export type TextoVacio = {
 /**
  * La frase de cada caso, y el link SÓLO donde hay algo que hacer.
  *
- * ⚠️ `apagado` LLEVA LINK desde el 06/10/2026. Hasta ese día no lo llevaba, y no
- * era un olvido: el interruptor no tenía pantalla —se prendía con `setSetting`— y
- * un botón habría llevado a donde no estaba. Ahora vive en el Pixel de MaKo
- * («Grabar las visitas», /integraciones), y el link va acá y en ningún otro lado.
- *
  * ⚠️ Y `vencida` NO AFIRMA QUE HUBO UNA. Cuando la purga borra, borra también la
  * fila del índice: desde esta pantalla no hay forma de distinguir «existió y se
  * venció» de «nunca hubo». La frase dice la condición —su visita es más vieja que
@@ -158,11 +147,6 @@ export function textoDelVacio(motivo: ReplayVacio, retencionDias: number): Texto
       return { que: 'Este lead no trae identificador: no hay con qué cruzar una grabación.', donde: null };
     case 'no_se_pudo_leer':
       return { que: 'No pude leer sus grabaciones. No significa que no haya.', donde: null };
-    case 'apagado':
-      return {
-        que: 'La grabación de las visitas está apagada en este negocio.',
-        donde: { texto: 'Prender la grabación', href: '/integraciones?abrir=landing' },
-      };
     case 'pixel_viejo':
       return {
         que: 'El código de tu página es anterior a la grabación, así que esa visita no se grabó.',

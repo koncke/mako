@@ -26,7 +26,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PIXEL_MINIMO_AVISO, pixelParaActualizar, RUTA_PIXEL } from '../lib/pixel-aviso';
+import {
+  PIXEL_MINIMO_AVISO, pixelParaActualizar, RUTA_PIXEL,
+  clavePagina, versionEnHtml, anotarVersionDePagina, veredictoPixel, paraMirar, parsearMapaVersiones,
+} from '../lib/pixel-aviso';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -114,4 +117,93 @@ test('⚠️ la esquina NO tapa el «Publicar» del lienzo ni el «Enviar» de u
     'el «Publicar» del lienzo no se declara: la pastilla le cae encima');
   assert.match(sinComentarios(leer('app/whatsapp/_shared/ChatHilo.tsx')), /data-esquina-ocupada=\{puedeComponer/,
     'el «Enviar» de un chat no se declara: la pastilla le cae encima');
+});
+
+// ── «Ya publiqué y sigue apareciendo»: la versión POR PÁGINA, y lo que SIRVE la página ──
+
+const snip = (sv: number | null) =>
+  `<script>(function () {\n  var ENDPOINT = 'https://hola-mako.com/api/track/vsl';\n${sv == null ? '' : `  var SV = ${sv};\n`}})();</script>`;
+
+test('⚠️ la versión que SIRVE la página se lee del HTML, y si hay dos copias gana la vieja', () => {
+  // Medido el 06/10/2026: la portada del ws1 ya servía `var SV = 22;` y MaKo seguía
+  // diciendo 21, porque sólo se enteraba por las visitas.
+  //
+  // PROBADO ROMPIÉNDOLO: con `Math.max` en vez de `Math.min` → 1 falla (éste).
+  assert.equal(versionEnHtml(`<html>${snip(22)}</html>`), 22);
+  // Pegar el nuevo sin sacar el viejo deja los dos corriendo: eso no es «al día».
+  assert.equal(versionEnHtml(`${snip(21)}${snip(22)}`), 21);
+  // Con nuestro endpoint y sin versión es un código anterior al versionado.
+  assert.equal(versionEnHtml(snip(null)), 1);
+  // Sin nuestro endpoint, un `var SV` cualquiera no dice nada: puede entrar por un
+  // administrador de etiquetas y no estar en el HTML.
+  assert.equal(versionEnHtml('<script>var SV = 22;</script>'), null);
+  assert.equal(versionEnHtml(''), null);
+});
+
+test('la clave de una página es la misma para el beacon y para el aviso', () => {
+  assert.equal(clavePagina('https://www.Ejemplo.com/landing/?utm_source=fb#arriba'), 'ejemplo.com/landing');
+  assert.equal(clavePagina('ejemplo.com'), 'ejemplo.com');
+  assert.equal(clavePagina('https://ejemplo.com/'), 'ejemplo.com');
+  assert.equal(clavePagina('localhost'), null);
+  assert.equal(clavePagina(''), null);
+});
+
+test('el mapa por página se escribe sólo cuando cambia, y tiene techo', () => {
+  // Lo escribe un endpoint PÚBLICO: sin techo, cualquiera que lea el código fuente
+  // de la página lo infla con URLs inventadas.
+  //
+  // PROBADO ROMPIÉNDOLO: sin el recorte del tope → 1 falla (éste).
+  const t = (n: number) => `2026-10-06T10:${String(n).padStart(2, '0')}:00.000Z`;
+  assert.equal(anotarVersionDePagina({ 'a.com': { v: 22, t: t(1) } }, 'a.com', 22, t(2)), null, 'escribió sin cambio');
+  assert.deepEqual(anotarVersionDePagina({}, 'a.com', 22, t(1)), { 'a.com': { v: 22, t: t(1) } });
+  let m = {};
+  for (let i = 0; i < 5; i++) m = anotarVersionDePagina(m, `p${i}.com`, 22, t(i), 3) ?? m;
+  assert.deepEqual(Object.keys(m).sort(), ['p2.com', 'p3.com', 'p4.com'], 'el tope no sacó las más viejas');
+  assert.deepEqual(parsearMapaVersiones('{"a.com":{"v":"21","t":"x"},"b.com":{"v":-1}}'), { 'a.com': { v: 21, t: 'x' } });
+  assert.deepEqual(parsearMapaVersiones('no es json'), {});
+});
+
+test('⚠️ el veredicto: se apaga al republicar, y no se apaga por la ÚLTIMA visita de OTRA página', () => {
+  const P = 'https://multiplicatusresultados.com';
+  // El caso del reporte: el setting dice 21, ninguna visita nueva, y la página ya sirve
+  // la 22 → no hay que pedir nada.
+  //
+  // PROBADO ROMPIÉNDOLO, de a una: ignorando `servidas` → 1 falla (éste); decidiendo
+  // con el setting del negocio en vez de la página → 1 falla (éste).
+  assert.equal(veredictoPixel({ guardada: '21', mapa: {}, paginas: [P], servidas: { 'multiplicatusresultados.com': 22 } }).viejo, false);
+  // Sin poder leer la página, manda lo que dicen sus visitas, y si no hay, el negocio.
+  assert.equal(veredictoPixel({ guardada: '21', mapa: {}, paginas: [P], servidas: { 'multiplicatusresultados.com': null } }).viejo, true);
+  // Dos páginas: el último evento vino de la nueva (setting 22) y la otra sigue en la
+  // 15. Con el setting del workspace el aviso se apagaba; por página, no.
+  const dos = veredictoPixel({
+    guardada: '22',
+    mapa: { 'a.com': { v: 22, t: '' }, 'b.com': { v: 15, t: '' } },
+    paginas: ['https://a.com', 'https://b.com'],
+  });
+  assert.equal(dos.viejo, true, 'el último evento de otra página apagó el aviso');
+  assert.equal(dos.instalada, 15);
+  // Nunca pegó el Pixel (sin fila de versión) → no hay aviso, por más páginas que tenga.
+  assert.equal(veredictoPixel({ guardada: null, mapa: {}, paginas: [P] }).viejo, false);
+  // Sin páginas declaradas, decide la versión del negocio.
+  assert.equal(veredictoPixel({ guardada: '18', mapa: {}, paginas: [] }).viejo, true);
+  // Sólo se va a mirar lo que, sin mirarlo, daría viejo.
+  assert.deepEqual(paraMirar({ guardada: '22', mapa: { 'a.com': { v: 22, t: '' }, 'b.com': { v: 15, t: '' } }, paginas: ['https://a.com', 'https://b.com'] }), ['https://b.com']);
+});
+
+test('⚠️ el cableado: el beacon anota cada página en el pageview, y los tres lectores miran la página', () => {
+  // PROBADO ROMPIÉNDOLO, de a una: el beacon sin el `tipo === 'pageview'`, la ruta del
+  // aviso volviendo al setting, el WhatsApp sin mirar lo que sirve la página y el
+  // diagnóstico sin la versión servida → las cuatro dan 1 falla (éste).
+  const beacon = sinComentarios(leer('app/api/track/vsl/route.ts'));
+  const anotar = beacon.slice(beacon.indexOf('async function anotarVersionSnippet('), beacon.indexOf('type Payload'));
+  assert.match(anotar, /if \(tipo === 'pageview'\) \{[\s\S]*anotarVersionDePagina\(/, 'el beacon dejó de anotar la versión de cada página');
+  assert.match(beacon, /anotarVersionSnippet\(payload\.sv, payload\.landing_url, payload\.tipo_evento\)/, 'el beacon no le pasa el tipo de evento');
+  const ruta = sinComentarios(leer('app/api/integraciones/landing/version/route.ts'));
+  assert.match(ruta, /runWithWorkspace\(ws, \(\) => estadoPixel\(\)\)/, 'el aviso volvió a decidir con el setting del workspace');
+  assert.doesNotMatch(ruta, /getSetting\(SNIPPET_VERSION_KEY\)/, 'el aviso volvió a decidir con el setting del workspace');
+  const cron = sinComentarios(leer('app/api/cron/tracking-vigilante/route.ts'));
+  const iServida = cron.indexOf('versionServida(v.url');
+  assert.ok(iServida > 0 && iServida < cron.indexOf('atrasadas.push(v.url)'), 'el WhatsApp nombra la página sin mirar lo que sirve');
+  const token = sinComentarios(leer('lib/landing-token.ts'));
+  assert.match(token, /const instalada = Math\.max\([\s\S]{0,200}servida \?\? 0,/, 'el diagnóstico dejó de sumar la versión servida');
 });

@@ -250,6 +250,16 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
   throw new Error('La página redirige demasiadas veces.');
 }
 
+/**
+ * El HTML que SIRVE una página, con las mismas barandas que el análisis: la IP clavada
+ * (sin rebinding), el tope de tamaño mientras se lee y el plazo. Lo usa el aviso del
+ * Pixel para leer qué versión del código va a recibir el próximo visitante
+ * (`lib/pixel-servido.ts`). Tira si no se pudo bajar: «no pude leer» no es un valor.
+ */
+export async function htmlDePagina(urlInput: string): Promise<string> {
+  return (await bajarHtml(normalizarUrl(urlInput))).html;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Extracción del copy
 // ─────────────────────────────────────────────────────────────────────────────

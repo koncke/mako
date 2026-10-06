@@ -30,6 +30,7 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   cabeEnLaSesion,
   grabaA,
@@ -85,30 +86,43 @@ test('no se graban el canvas ni las fuentes, y sí la hoja de estilos', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El apagador
+// Siempre prendida (06/10/2026: ya no hay apagador)
 // ─────────────────────────────────────────────────────────────────────────────
-test('⚠️ APAGADO por defecto, y un JSON roto no prende nada', () => {
-  assert.equal(REPLAY_CONFIG_DEFAULT.activo, false);
-  for (const v of [null, '', '   ', 'no es json', '[]', '[{"activo":true}]', '"activo"', '7']) {
-    assert.equal(parsearReplay(v).activo, false, `«${v}» no puede prender la grabación`);
+test('⚠️ la grabación está SIEMPRE prendida: un «activo:false» guardado de antes no la apaga', () => {
+  // Decisión de Martín, textual: «elimina lo de "Grabar las visitas" eso por default
+  // debe estar siempre activado». Hasta ese día era un interruptor apagado por default,
+  // y los negocios sin fila (cinco de nueve) no grababan aunque tuvieran el Pixel nuevo.
+  //
+  // PROBADO ROMPIENDOLO: devolviendo `if (!cfg.activo) return false` a `grabaA` (con
+  // el campo de vuelta en el tipo y en `parsearReplay`) → 2 fallan: éste y el del reparto
+  // del muestreo, que con el apagador de vuelta deja de grabar al 100 %.
+  assert.ok(!('activo' in REPLAY_CONFIG_DEFAULT), 'volvió el apagador al default');
+  for (const v of [null, '', 'no es json', '[]', '{"activo":false}', '{"activo":"no"}', '{"muestreo":100}']) {
+    const cfg = parsearReplay(v);
+    assert.ok(!('activo' in cfg), `«${v}» devolvió un apagador`);
+    assert.equal(grabaA(cfg, 'a1b2c3d4-0000-0000-0000-000000000001'), true, `«${v}» dejó de grabar`);
   }
 });
 
-test('solo un true de verdad prende: ningún truthy alcanza', () => {
-  assert.equal(parsearReplay('{"activo":true}').activo, true);
-  for (const v of ['"si"', '1', '"true"', '{}', 'null']) {
-    assert.equal(parsearReplay(`{"activo":${v}}`).activo, false, `activo:${v} no puede prender`);
-  }
+test('y el interruptor ya no tiene pantalla ni action', () => {
+  // Sacarlo del contrato y dejar el control sería un interruptor que no hace nada.
+  //
+  // PROBADO ROMPIENDOLO: volviendo a poner el rótulo en el modal → 1 falla (éste).
+  const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const board = sinComentarios(readFileSync(new URL('../app/integraciones/IntegracionesBoard.tsx', import.meta.url), 'utf8'));
+  assert.doesNotMatch(board, /Grabar las visitas/, 'volvió el interruptor al modal del Pixel');
+  const acciones = sinComentarios(readFileSync(new URL('../app/integraciones/landing-config-actions.ts', import.meta.url), 'utf8'));
+  assert.doesNotMatch(acciones, /guardarGrabacionAction/, 'volvió la action que lo guardaba');
 });
 
 test('el muestreo y la retención se acotan, no se creen', () => {
-  assert.equal(parsearReplay('{"activo":true,"muestreo":999}').muestreo, 100);
-  assert.equal(parsearReplay('{"activo":true,"muestreo":-5}').muestreo, 0);
-  assert.equal(parsearReplay('{"activo":true,"muestreo":"30"}').muestreo, 30);
-  assert.equal(parsearReplay('{"activo":true,"muestreo":"ay"}').muestreo, 100);
-  assert.equal(parsearReplay('{"activo":true,"retencionDias":0}').retencionDias, 1);
-  assert.equal(parsearReplay('{"activo":true,"retencionDias":99999}').retencionDias, 365);
-  assert.equal(parsearReplay('{"activo":true}').retencionDias, REPLAY_RETENCION_DIAS);
+  assert.equal(parsearReplay('{"muestreo":999}').muestreo, 100);
+  assert.equal(parsearReplay('{"muestreo":-5}').muestreo, 0);
+  assert.equal(parsearReplay('{"muestreo":"30"}').muestreo, 30);
+  assert.equal(parsearReplay('{"muestreo":"ay"}').muestreo, 100);
+  assert.equal(parsearReplay('{"retencionDias":0}').retencionDias, 1);
+  assert.equal(parsearReplay('{"retencionDias":99999}').retencionDias, 365);
+  assert.equal(parsearReplay('{}').retencionDias, REPLAY_RETENCION_DIAS);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,7 +132,7 @@ test('⚠️ el muestreo es DETERMINISTA por visitante, no azar por página', ()
   // Con Math.random() la misma persona entra al 30 % en la landing y queda afuera
   // en la página de gracias: media sesión guardada, que muestra a alguien que se
   // va y esconde que volvió.
-  const cfg = { activo: true, muestreo: 30, retencionDias: 30 };
+  const cfg = { muestreo: 30, retencionDias: 30 };
   const uno = grabaA(cfg, 'a1b2c3d4-0000-0000-0000-000000000001');
   for (let i = 0; i < 50; i++) {
     assert.equal(grabaA(cfg, 'a1b2c3d4-0000-0000-0000-000000000001'), uno);
@@ -130,15 +144,13 @@ test('⚠️ el muestreo es DETERMINISTA por visitante, no azar por página', ()
 test('el muestreo reparte parecido a lo que dice, y 0 y 100 son absolutos', () => {
   const ids = Array.from({ length: 2000 }, (_, i) => `v-${i}-${i * 7919}`);
   const cuenta = (m: number) =>
-    ids.filter((v) => grabaA({ activo: true, muestreo: m, retencionDias: 30 }, v)).length;
+    ids.filter((v) => grabaA({ muestreo: m, retencionDias: 30 }, v)).length;
   assert.equal(cuenta(100), 2000);
   assert.equal(cuenta(0), 0);
   const mitad = cuenta(50) / 2000;
   assert.ok(mitad > 0.44 && mitad < 0.56, `al 50 % dio ${(mitad * 100).toFixed(1)} %`);
-  // El apagador manda sobre el muestreo.
-  assert.equal(grabaA({ activo: false, muestreo: 100, retencionDias: 30 }, 'v1'), false);
   // Sin visitor_id no se graba: no habría a qué atar la grabación.
-  assert.equal(grabaA({ activo: true, muestreo: 100, retencionDias: 30 }, ''), false);
+  assert.equal(grabaA({ muestreo: 100, retencionDias: 30 }, ''), false);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

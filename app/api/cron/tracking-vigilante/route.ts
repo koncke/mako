@@ -23,8 +23,8 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { getSetting } from '@/lib/settings';
 import { LANDING_TOKEN_KEY, SNIPPET_VERSION, novedadesDesde, snippetDesactualizado, verificarPagina } from '@/lib/landing-token';
-import { REPLAY_CONFIG_KEY, parsearReplay } from '@/lib/replay-contrato';
 import { noGrabanTodas } from '@/lib/replay-ficha';
+import { versionServida } from '@/lib/pixel-servido';
 import { CONFIG_KEY, parsearConfig, urlsDe } from '@/lib/landing-config';
 import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
 
@@ -235,9 +235,17 @@ export async function GET(req: NextRequest) {
             const atrasadas: string[] = [];
             const versionesAtrasadas: Array<number | null> = [];
             let minima = instalada;
+            let yaSirvenLaNueva = 0;
             for (const u of suyas.slice(0, 8)) {
               const v = await verificarPagina(u).catch(() => null);
               if (v?.instalada && v.vieja) {
+                // ⚠️ ANTES DE NOMBRARLA, SE MIRA LO QUE SIRVE (06/10/2026). La versión de
+                // `verificarPagina` es la de la última VISITA: quien acaba de republicar
+                // sigue «viejo» hasta que entra alguien, y este WhatsApp le pedía repegar
+                // algo que ya había repegado. Si la página ya sirve el código actual, no
+                // se nombra. Si no se pudo leer, manda la visita, como antes.
+                const servida = await versionServida(v.url, { minimo: SNIPPET_VERSION });
+                if (servida != null && servida >= SNIPPET_VERSION) { yaSirvenLaNueva++; continue; }
                 atrasadas.push(v.url);
                 versionesAtrasadas.push(typeof v.version === 'number' ? v.version : null);
                 // Las novedades se cuentan desde la página MÁS atrasada, no desde el
@@ -246,14 +254,17 @@ export async function GET(req: NextRequest) {
                 if (typeof v.version === 'number' && v.version < minima) minima = v.version;
               }
             }
+            // Todas las que daban viejas ya sirven el código nuevo: no hay nada que pedir.
+            // Sin esto caía al texto genérico de abajo, que acusa sin nombrar ninguna página.
+            if (!atrasadas.length && yaSirvenLaNueva > 0) return { ws: w.id, ultima, horas, aviso: false, snippet: instalada, cambios };
             // ⚠️ LA RAZÓN VA PRIMERO, y sólo si es VERDAD para este negocio. Con la
             // grabación prendida y un código anterior al grabador, lo que se pierde es
             // concreto: las visitas no se graban. Es la primera línea porque es la que
             // queda cuando el resumen diario recorta cada aviso a un renglón.
             // ⚠️ Y TIENE QUE SER VERDAD PARA CADA PÁGINA NOMBRADA, no para la más vieja:
-            // con `minima` decía «no graban» de una página en la v21, que graba.
-            const replay = parsearReplay(await getSetting(REPLAY_CONFIG_KEY).catch(() => null));
-            const razon = replay.activo && noGrabanTodas(versionesAtrasadas, instalada)
+            // con `minima` decía «no graban» de una página en la v21, que graba. (La
+            // grabación está siempre prendida desde el 06/10/2026: ya no se pregunta.)
+            const razon = noGrabanTodas(versionesAtrasadas, instalada)
               ? (atrasadas.length > 1
                 ? 'Tus páginas tienen un código viejo del Pixel y por eso no graban las visitas.'
                 : 'Tu página tiene un código viejo del Pixel y por eso no graba las visitas.')
