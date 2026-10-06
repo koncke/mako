@@ -15,9 +15,8 @@
 //     solo tiene getLandingViewData (barre landing_visits entero) y listarAnalizadas
 //     (esconde los que fallaron).
 //  3. Una versión guardada por id: lib/landing-writer solo lista.
-//  4. El caché del resumen de Clarity: su clave está exportada desde la RUTA del
-//     cron (app/api/cron/clarity-vigilante), que no se importa desde aquí.
-//  5. El visitante y la última actividad de un lead, para el link de Clarity: la
+//  4. (Acá vivía el caché del resumen de Clarity, que se fue el 06/10/2026.)
+//  5. El visitante y la última actividad de un lead, para sus grabaciones: la
 //     ficha del CRM lo arma inline en app/crm/actions.ts.
 //
 // Todo pasa por getTenantDb() / settings: corre adentro de runWithWorkspace(ctx.ws).
@@ -131,20 +130,6 @@ export async function borradorPorId(id: number): Promise<LandingDraft | null> {
     .select('id, pedido, objetivo, basado_en_url, spec, titulo, created_at').eq('id', id).maybeSingle();
   if (error) throw new Error(`api-mako: borradorPorId falló: ${error.message}`);
   return (data as unknown as LandingDraft | null) ?? null;
-}
-
-// ── 4. El caché del resumen de Clarity ──────────────────────────────────────
-
-/** Copia de CLARITY_RESUMEN_KEY (app/api/cron/clarity-vigilante/route.ts). */
-const CLARITY_RESUMEN_KEY = 'clarity.resumen';
-
-export async function resumenClarityCacheado(): Promise<Record<string, unknown> | null> {
-  const crudo = await getSetting(CLARITY_RESUMEN_KEY);
-  if (!crudo) return null;
-  try {
-    const v: unknown = JSON.parse(crudo);
-    return v && typeof v === 'object' ? (v as Record<string, unknown>) : null;
-  } catch { return null; }
 }
 
 // ── 5. El visitante de un lead ──────────────────────────────────────────────

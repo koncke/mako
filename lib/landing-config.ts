@@ -9,12 +9,13 @@
 // veces: el código puede estar al día en la de ventas y viejo en la de webinar, y
 // le decimos lo mismo de las dos; Clarity puede estar conectado en una y no en la
 // otra, y le ofrecemos el mismo botón. El dueño lo dijo con estas palabras: «tal
-// vez en una landing aún no pegue el token y el ID de Clarity y en otra sí».
+// vez en una landing aún no pegue el token y el ID de Clarity y en otra sí» (el
+// 06/10/2026 Clarity salió del producto; la regla quedó, y hoy lo que es de cada
+// página son sus productos).
 //
 // Así que la landing deja de ser un string en una lista y pasa a ser la ENTIDAD
 // que lleva su propio estado. Lo que se elige en el paso 1 gobierna todo lo que
-// viene después — incluido el código que se copia, porque el bloque de Clarity
-// lleva el id de ESE proyecto.
+// viene después.
 //
 // ⚠️ Sin `server-only`: lo que se puede equivocar es el saneo y la MIGRACIÓN del
 // formato viejo, y tiene que poder testearse sin base de datos.
@@ -26,15 +27,11 @@ import { normalizarUrl } from './landing-paginas';
 export type LandingConfig = {
   /** URL normalizada. Es la identidad: no puede haber dos con la misma. */
   url: string;
-  /**
-   * El proyecto de Clarity de ESTA página.
-   *
-   * Va acá y no en las credenciales del workspace porque un proyecto de Clarity
-   * es de un sitio: con dos landings son dos proyectos, y guardarlo por
-   * workspace hacía que la segunda escribiera en el proyecto de la primera —
-   * mezclando las grabaciones de dos negocios distintos en un mismo panel.
-   */
-  clarityProjectId?: string;
+  // ⚠️ ACÁ VIVÍA `clarityProjectId`, el proyecto de Microsoft Clarity de cada
+  // página, y se fue el 06/10/2026 con Clarity entero: la grabación de las visitas
+  // la hace MaKo (lib/replay-*). Una fila guardada que todavía lo traiga se lee
+  // igual —`parsearConfig` reconstruye campo por campo y lo que no conoce lo
+  // ignora—, así que no hizo falta migrar nada.
   /**
    * Los EMBUDOS a los que entran los leads de ESTA pagina — o sea, los PRODUCTOS
    * que vende. Vacio o ausente = no asignado, y entonces el lead cae donde cae
@@ -52,7 +49,7 @@ export type LandingConfig = {
    * guarda en el unico setting `landing_token` (lib/landing-token.ts)—, asi que
    * colgar el producto de el seria decir «todas mis landings venden lo mismo»:
    * no hay un segundo token que asignar. La pagina si distingue, y esta tabla ya
-   * existe POR PAGINA por la misma razon que `clarityProjectId` (ver la cabecera).
+   * existe POR PAGINA (ver la cabecera).
    *
    * ⚠️ NO es la fuente de verdad de que el embudo exista: el numero se guarda
    * tal cual y quien lo USA lo valida contra los embudos vivos del workspace. Un
@@ -117,7 +114,7 @@ const idsDeFila = (x: Record<string, unknown>): number[] => {
  * Lee la configuración, y MIGRA el formato viejo sin perder nada.
  *
  * ⚠️ Acepta las dos formas a propósito: `["https://a.com"]` (la lista de strings
- * que se guardó hasta hoy) y `[{url, clarityProjectId}]`. Una migración que exija
+ * que se guardó hasta hoy) y `[{url, …}]`. Una migración que exija
  * convertir la base primero es una migración que deja a alguien sin sus páginas
  * el día que se despliega — y acá el costo de tolerar las dos formas es una
  * línea.
@@ -132,11 +129,8 @@ export function parsearConfig(crudo: string | null): LandingConfig[] {
     // Formato viejo: un string suelto.
     const url = normalizarUrl(typeof x === 'string' ? x : limpio((x as Record<string, unknown>)?.url, 500));
     if (!url || out.some((c) => c.url === url)) continue;
-    const pid = typeof x === 'object' && x
-      ? limpio((x as Record<string, unknown>).clarityProjectId, 40).toLowerCase()
-      : '';
     const fids = typeof x === 'object' && x ? idsDeFila(x as Record<string, unknown>) : [];
-    out.push({ url, ...(pid ? { clarityProjectId: pid } : {}), ...(fids.length ? { funnelIds: fids } : {}) });
+    out.push({ url, ...(fids.length ? { funnelIds: fids } : {}) });
   }
   return out.slice(0, MAX_LANDINGS);
 }
@@ -161,11 +155,10 @@ export function landingDe(configs: LandingConfig[], url: string | null | undefin
 /**
  * Agrega o actualiza una landing. `parcial` solo pisa lo que trae.
  *
- * ⚠️ `clarityProjectId: undefined` significa «no lo toques», no «bórralo». Es la
+ * ⚠️ `funnelIds: undefined` significa «no los toques», no «borralos». Es la
  * misma regla que ya mordió con `esVsl` en los videos: guardar la URL corregida
- * de una landing no puede desconectarle Clarity, porque renombrar no contesta esa
- * pregunta. Lo mismo vale para `funnelIds`: ausente es «no los toques» y lo que
- * DESASIGNA es la lista vacia. (Con un solo producto eso se escribia con un `0`
+ * de una landing no puede desasignarle los productos, porque renombrar no contesta
+ * esa pregunta. Lo que DESASIGNA es la lista vacia. (Con un solo producto eso se escribia con un `0`
  * explicito, que era un centinela; una lista vacia dice lo mismo sin inventar un
  * valor que significa otra cosa.)
  */
@@ -179,11 +172,7 @@ export function conLanding(
   if (!nueva) return null;
   const prev = anterior ? normalizarUrl(anterior) : null;
   const base = actuales.find((c) => c.url === (prev ?? nueva));
-  const pid = parcial.clarityProjectId !== undefined
-    ? limpio(parcial.clarityProjectId, 40).toLowerCase()
-    : base?.clarityProjectId ?? '';
-  // Misma regla que `clarityProjectId`: `undefined` es «no los toques». Lo que
-  // BORRA la asignacion es la lista VACIA — corregirle la URL a una landing no
+  // `undefined` es «no los toques». Lo que BORRA la asignacion es la lista VACIA — corregirle la URL a una landing no
   // puede desasignarle los productos, que es la trampa de un mapper que
   // reconstruye la fila campo por campo.
   const fids = parcial.funnelIds !== undefined
@@ -191,7 +180,6 @@ export function conLanding(
     : base?.funnelIds ?? [];
   const fila: LandingConfig = {
     url: nueva,
-    ...(pid ? { clarityProjectId: pid } : {}),
     ...(fids.length ? { funnelIds: fids } : {}),
   };
   // Se conserva la POSICIÓN al editar: en un desplegable, que un renglón salte al

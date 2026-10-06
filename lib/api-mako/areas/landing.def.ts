@@ -84,10 +84,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_codigo_pixel', area: 'landing', tipo: 'lectura',
     titulo: 'Código del Pixel para pegar',
-    descripcion: 'El código del Pixel de MaKo para pegar en la landing. Por la API devuelve el <script> completo (casi 90 mil caracteres); por WhatsApp y en la app devuelve el link a Integraciones → Landing, donde se copia, con la versión y el largo del código (un chat no puede transportar ese texto entero). Con la URL de una landing declarada lleva el proyecto de Clarity de ESA página; sin id propio, o sin URL, hereda el del negocio. Úsala cuando el cliente pida el código o cuando una verificación diga que su versión quedó vieja. Si el negocio nunca abrió Integraciones → Landing, el código todavía no existe y la respuesta lo dice.',
-    parametros: [
-      { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing para la que es el código (de listar_landings). Opcional.' },
-    ],
+    descripcion: 'El código del Pixel de MaKo para pegar en la landing. Es el MISMO para todas las páginas del negocio. Por la API devuelve el <script> completo (casi 90 mil caracteres); por WhatsApp y en la app devuelve el link a Integraciones → Landing, donde se copia, con la versión y el largo del código (un chat no puede transportar ese texto entero). Úsala cuando el cliente pida el código o cuando una verificación diga que su versión quedó vieja. Si el negocio nunca abrió Integraciones → Landing, el código todavía no existe y la respuesta lo dice.',
+    parametros: [],
     salida: 'texto', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
   {
@@ -124,30 +122,30 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
+  // ⚠️ LAS GRABACIONES SON DE MAKO desde el 06/10/2026. Estas dos operaciones
+  // devolvían un link al panel de Microsoft Clarity; ahora leen la grabación
+  // PROPIA (lib/replay-leer.ts). Lo que NO viaja nunca es el cuerpo de una sesión
+  // —el DOM de la página con lo que tipeó la persona—: sólo el metadato y el link a
+  // la ficha, que es donde vive el reproductor. Y `ver_resumen_clarity` se fue sin
+  // reemplazo: era el resumen de Clarity (bots, clics de enojo) y ninguna pantalla
+  // lo usaba; el scroll y los clics los mide el Pixel por página.
   {
     id: 'ver_grabaciones_prueba', area: 'landing', tipo: 'lectura',
-    titulo: 'Grabaciones de una prueba',
-    descripcion: 'El link al panel de Microsoft Clarity filtrado por las grabaciones de UNA prueba del Pixel. Úsala después de terminar una prueba, pasados 45 minutos. El link filtra los últimos 3 días. Es un link, no datos: Clarity no deja exportar grabaciones, y tarda entre 30 minutos y 2 horas en procesar una sesión, así que un panel vacío recién terminada la prueba no es un error. Devuelve null si el negocio no conectó Clarity.',
+    titulo: 'Grabación de una prueba',
+    descripcion: 'Si la prueba del Pixel quedó grabada, cuánto duró y si ya se puede ver. La grabación se termina de guardar unos minutos después de la prueba: «lista: false» recién terminada no es un error. Para mirarla, la persona aprieta «Ver la grabación» en Integraciones → Landing (manda el link). Devuelve grabada: false si no llegó o si la grabación está apagada en el negocio.',
     parametros: [
       { nombre: 'prueba', tipo: 'string', obligatorio: true, max: 80, descripcion: 'El marcador de la prueba (el valor de ?mko_test=).' },
     ],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: { ...G_INTEG, integracion: 'clarity' },
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
   {
     id: 'ver_grabaciones_lead', area: 'landing', tipo: 'lectura',
     titulo: 'Grabaciones de la visita de un lead',
-    descripcion: 'El link al panel de Microsoft Clarity con las grabaciones de lo que hizo UN lead en la landing, filtrado por su identificador de visitante. Clarity las borra a los 30 días de la última actividad: si ya pasaron, lo dice en vez de dar un link que abre vacío. Úsala cuando pregunten «¿qué hizo esta persona en mi página?». Necesita el id del lead.',
+    descripcion: 'Las grabaciones de lo que hizo UN lead en la landing: cuántas hay, cuándo, cuánto duró cada una y si ya se pueden ver, con el link a su ficha, donde se miran. Si no hay ninguna, dice POR QUÉ (grabación apagada, código viejo en la página, visita anterior a la retención…). Úsala cuando pregunten «¿qué hizo esta persona en mi página?». Necesita el id del lead.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'El id del lead.' },
     ],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'crm', integracion: 'clarity' },
-  },
-  {
-    id: 'ver_resumen_clarity', area: 'landing', tipo: 'lectura',
-    titulo: 'Resumen de Clarity del negocio',
-    descripcion: 'El último resumen de Microsoft Clarity que guardó el control diario: sesiones, sesiones de bots, % de sesiones con clics de enojo y con clics muertos, y profundidad de scroll promedio, con los días que cubre y cuándo se tomó. NO consulta Clarity en el momento (la cuota es de 10 consultas por día): si el resumen es viejo o tiene error, dilo. Es del proyecto de Clarity del negocio, no de una landing puntual. No requiere parámetros.',
-    parametros: [],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: { ...G_INTEG, integracion: 'clarity' },
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'crm' },
   },
 
   // ── Lecturas: los videos ────────────────────────────────────────────────────
@@ -285,12 +283,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Agregar o corregir una landing',
-    descripcion: 'Declara una página como del negocio, corrige su URL (con `anterior`) o le asigna su proyecto de Clarity. Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X», «cambié el dominio» o «conecta Clarity en esta landing». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Tope: 12 landings.',
+    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Tope: 12 landings.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la página, con o sin https.' },
-      { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva su Clarity.' },
-      { nombre: 'clarityProjectId', tipo: 'string', max: 200, descripcion: 'El id del proyecto de Clarity de ESTA página, o la URL del panel de Clarity (se extrae el id). Si se omite, no se toca.' },
-      { nombre: 'quitarClarity', tipo: 'boolean', descripcion: 'true le quita el proyecto de Clarity propio a la página (vuelve a heredar el del negocio).' },
+      { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
     escribe: 'la lista de landings declaradas (app_settings landing.config)',
@@ -298,7 +294,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'borrar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Quitar una landing declarada',
-    descripcion: 'Saca una página de las declaradas por el negocio, y con ella su proyecto de Clarity propio. No borra visitas, eventos ni diagnósticos. Úsala cuando el dueño dio de baja una página. Se puede volver a agregar con guardar_landing, pero el id de Clarity hay que volver a cargarlo. Deja un link para confirmar.',
+    descripcion: 'Saca una página de las declaradas por el negocio, y con ella los productos que tenía asignados. No borra visitas, eventos ni diagnósticos. Úsala cuando el dueño dio de baja una página. Se puede volver a agregar con guardar_landing, pero los productos hay que volver a asignarlos. Deja un link para confirmar.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La landing a quitar (de listar_landings).' },
     ],

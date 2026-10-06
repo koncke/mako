@@ -69,7 +69,7 @@ async function resolverContexto(): Promise<Contexto | { error: string; status: n
  */
 function chequeoGrabacion(marcador: string | null, g: SesionDeLead | null, activo: boolean | null) {
   const base = { id: 'grabacion', label: 'Grabación de la sesión' };
-  if (activo === false) return { ...base, estado: 'na' as const, detalle: 'Está apagada para este espacio de trabajo.' };
+  if (activo === false) return { ...base, estado: 'na' as const, detalle: 'Está apagada. Préndela arriba, en «Grabar las visitas».' };
   if (activo === null) return { ...base, estado: 'na' as const, detalle: 'No pude leer si está encendida.' };
   if (!marcador) return { ...base, estado: 'na' as const, detalle: 'Esta prueba no lleva marcador.' };
   if (!g) return { ...base, estado: 'falta' as const, detalle: 'Todavía no llegó la grabación de esta prueba.' };

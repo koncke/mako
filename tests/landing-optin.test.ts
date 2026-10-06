@@ -818,7 +818,9 @@ test('los chequeos van en el orden del EMBUDO, y la versión primero', () => {
   // ve TODO el mundo para comprobar que su Pixel mide, y ahí no entra el problema
   // particular de un cliente — menos todavía nombrando el video de otra persona.
   // La detección sigue existiendo; lo que se fue es su lugar en este guion.
-  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin', 'clarity']);
+  // (El séptimo, de Clarity, se fue el 06/10/2026: la grabación de la prueba la
+  // contesta `chequeoGrabacion`, en la ruta de estado.)
+  assert.deepEqual(ids, ['version', 'pageview', 'play', 'profundidad', 'click', 'optin']);
 
   // Y en una PRUEBA los textos hablan de la prueba, no de las últimas 24 h: quien
   // acaba de apretar play no quiere que le contesten con una estadística del día.
@@ -1175,52 +1177,52 @@ test('un play AUTOMÁTICO no cuenta como que alguien reprodujo', () => {
   assert.ok(/El video arrancó solo \(autoplay\)/.test(panel), 'el feed no distingue el play automático');
 });
 
-test('el código que se copia es de LA PÁGINA, no del workspace', () => {
-  // Un proyecto de Clarity es por SITIO. Con un solo código para las dos landings
-  // del mismo cliente, las grabaciones de ambas caen en la misma lista y ahí ya no
-  // se sabe cuál es cuál — que es exactamente lo que el paso 1 vino a evitar.
-  const acciones = leer('../app/integraciones/landing-config-actions.ts');
-  assert.ok(/export async function snippetDeLandingAction/.test(acciones), 'no hay forma de pedir el código de una landing');
-  // El id propio GANA sobre el del workspace, y sin id propio HEREDA: el caso
-  // normal es una sola página, y ahí pedir que se configure dos veces lo mismo es
-  // pedir el error.
-  assert.ok(/propio \?\? \(await clarityProjectId\(ws\)/.test(acciones), 'el id de la landing tiene que ganarle al del workspace');
-
+test('el código que se copia es UNO para todas las páginas, y se copia lo que se muestra', () => {
+  // ⚠️ AL REVÉS HASTA EL 06/10/2026: el código era POR PÁGINA, porque cada una
+  // podía llevar su propio proyecto de Clarity adentro, y la pantalla lo pedía con
+  // una server action al elegir la landing. Clarity salió del producto, el código
+  // quedó igual para todas, y pedirlo por action era un viaje más en la cola serial.
+  const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const acciones = sinComentarios(leer('../app/integraciones/landing-config-actions.ts'));
+  assert.ok(!/snippetDeLandingAction/.test(acciones), 'ya no hay código por página que pedir');
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
-  assert.ok(/snippetDeLandingAction\(elegida\)/.test(board), 'la pantalla no pide el código de la landing elegida');
-  // ⚠️ Y lo que se COPIA es lo mismo que se MUESTRA. Copiar `snippet` mientras la
-  // pantalla pinta otro es la peor variante: se ve bien y se pega lo que no es.
+  assert.ok(!/snippetDeLandingAction/.test(sinComentarios(board)), 'la pantalla no tiene nada que pedir al elegir la landing');
+  // ⚠️ Y lo que se COPIA es lo mismo que se MUESTRA. Copiar una cosa mientras la
+  // pantalla pinta otra es la peor variante: se ve bien y se pega lo que no es.
   assert.ok(/await navigator\.clipboard\.writeText\(codigo\)/.test(board), 'se copia una cosa y se muestra otra');
-  assert.ok(/const codigo = snippetLanding \?\? snippet/.test(board), 'sin el de la landing tiene que quedar el genérico, no un vacío');
+  assert.ok(/const codigo = snippet;/.test(board), 'el código es el que resolvió el server');
 });
 
-test('la grabación de la prueba se avisa cuando Clarity terminó de procesarla', () => {
-  // El link es correcto desde el primer segundo y no sirve para nada durante la
-  // primera media hora: Clarity procesa en lote y no tiene webhook. Quien prueba
-  // abre el link, no encuentra nada, y concluye que esto no funciona.
-  const clarity = leer('../lib/clarity.ts');
-  assert.ok(/export async function urlSesionesDePrueba/.test(clarity), 'no hay link a las sesiones de una prueba');
-
+// PROBADO ROMPIENDOLO: sacando el `.not('storage_path', 'is', null)` del cron,
+// este test falla — es la línea que impide mandar un link a algo que todavía no se
+// puede ver.
+test('la grabación de la prueba se avisa cuando se terminó de GUARDAR', () => {
+  // ⚠️ HASTA EL 06/10/2026 este cron era de Clarity: esperaba 45 minutos a que
+  // Microsoft procesara la sesión (no tenía webhook) y mandaba a su panel. Con la
+  // grabación propia no hay que adivinar: está lista cuando el sellado le escribió
+  // `storage_path`, y el link lleva DIRECTO a mirarla.
   const cron = leer('../app/api/cron/prueba-grabacion/route.ts');
-  // ⚠️ Se espera ANTES de prometer. El costo de los dos errores no es el mismo:
-  // avisar tarde cuesta media hora; avisar temprano manda a alguien a una lista
-  // vacía, que es el problema que este cron viene a resolver.
-  assert.ok(/const PROCESADO_MIN = \d+/.test(cron), 'no se espera a que Clarity procese');
-  // Un solo aviso con la lista: el dedup de emitirDelCatalogo es por TIPO, así que
-  // dos pruebas seguidas mandarían la primera y perderían la segunda en silencio.
+  assert.ok(/\.from\('replay_sesiones'\)/.test(cron), 'el aviso tiene que salir de la grabación propia');
+  assert.ok(/\.not\('storage_path', 'is', null\)/.test(cron), 'sin esto se avisa de una grabación que todavía no se puede ver');
+  // Sin la grabación prendida en el negocio no hay nada que avisar.
+  assert.ok(/if \(!cfg\?\.activo\) return null;/.test(cron), 'con la grabación apagada no se promete nada');
+  // El link va a la ficha del lead PRUEBA, que es donde vive el reproductor, y lo
+  // arma el código (la quinta forma de navegar: un link que se MANDA afuera).
+  assert.ok(/asegurarLeadDePrueba\(w\.id, marcador\)/.test(cron), 'sin el lead no hay a dónde mandar');
+  assert.ok(/linkApp\(`\/crm\/\$\{id\}`, w\.id\)/.test(cron), 'el link que sale afuera lleva el workspace');
+  // ⚠️ De la más vieja a la más nueva: el lead PRUEBA se reusa y se le repunta el
+  // visitante, así que la última en escribir tiene que ser la más nueva.
+  assert.ok(/\[\.\.\.pendientes\]\.reverse\(\)/.test(cron), 'procesando la más nueva primero, la ficha muestra una prueba vieja');
+  // Un solo aviso con la lista: el dedup de emitirDelCatalogo es por TIPO.
   assert.equal((cron.match(/emitirDelCatalogo\(/g) ?? []).length, 1, 'un aviso por prueba pierde todas menos la primera');
-  // Y no se repite cada 15 minutos durante 12 horas.
   assert.ok(/setSetting\(AVISADAS_KEY/.test(cron), 'sin memoria, el mismo aviso sale 48 veces');
+  assert.ok(!/clarity/i.test(cron.replace(/^[ \t]*\/\/.*$/gm, '')), 'el cron volvió a depender de Clarity');
 
-  // El cron TIENE QUE ESTAR REGISTRADO o no corre nunca, y nada lo dice: la ruta
-  // existe, el código está bien, y el aviso no sale jamás.
+  // El cron TIENE QUE ESTAR REGISTRADO, y cada 15 minutos.
   const vercel = leer('../vercel.json');
   assert.ok(/"\/api\/cron\/prueba-grabacion"/.test(vercel), 'el cron no está registrado en vercel.json');
-  // Cada 15 minutos y no una vez por día: una prueba de las 15:00 avisada al día
-  // siguiente es un aviso que no sirve.
   assert.ok(/"\*\/15 \* \* \* \*"/.test(vercel), 'una prueba avisada al día siguiente ya no le importa a nadie');
 
-  // Y el aviso vive en el catálogo, que es lo que gobierna la voz y la plantilla.
   const cat = leer('../lib/avisos-catalogo.ts');
   assert.ok(/id: 'prueba-grabada'/.test(cat), 'el aviso no está en el catálogo');
   assert.ok(/'prueba-grabada': 'landing'/.test(cat), 'el aviso no tiene área');
@@ -1417,54 +1419,23 @@ test('el redirect de Panda se DETECTA, pero no vive en los pasos de la prueba', 
   assert.ok(!/videoRedirect|redirigeA|manda a otro/.test(bloque), 'la configuración de un tercero no es un paso de la prueba');
 });
 
-test('la ficha del lead lleva a su grabación Y al mapa de calor', () => {
-  const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
-  // ⚠️ EL RÓTULO CAMBIÓ EL 05/10/2026, y el bloque entero bajó al final de la
-  // tarjeta y más chico. «Ver el video de lo que hizo» era un botón grande de
-  // acento arriba de todo, y con eso la ficha se leía como si la app tuviera que
-  // mostrar la grabación adentro — no puede: Clarity responde
-  // `X-Frame-Options: SAMEORIGIN`. Se reportó como que el producto no mide nada:
-  // «aún no se está mostrando la grabación, los clicks, aún sigue redirigiendo a
-  // clarity». Lo que faltaba era el ORDEN, no el botón: ahora dice qué es y dónde
-  // se abre. El orden lo fija `tests/crm-tracking-ficha.test.ts`.
-  assert.ok(/Ver su grabación/.test(card), 'falta el acceso a su grabación');
-  assert.ok(/Se abre en Clarity/.test(card), 'el botón tiene que decir que se abre afuera');
-  assert.ok(/Mapa de calor de la página/.test(card), 'falta el mapa de calor');
-  // ⚠️ El rótulo distingue de quién es cada cosa: el mapa de calor es de TODOS los
-  // visitantes —Clarity agrega y no se puede filtrar por persona— y un botón al
-  // lado de «su grabación» se leería como que también es de él.
-  assert.ok(/no de este lead/.test(card), 'hay que decir que el mapa no es de esta persona');
-  // ⚠️ AL REVÉS DESDE EL 27/09/2026: la glosa «Se abren en Clarity. Una grabación
-  // tarda hasta 2 horas en aparecer y se borra a los 30 días» se SACÓ por pedido
-  // explícito de Martín. Existía para avisar del retraso antes de que el click
-  // fallara, y era un párrafo permanente bajo dos botones para explicar un caso
-  // que casi nunca se da — el techo de una glosa es una frase (ver AGENTS.md, «La
-  // pantalla dice QUÉ pasó»). Lo que la reemplaza es el mensaje que sale CUANDO
-  // pasa: «Su grabación ya no existe: Clarity las guarda 30 días», que tiene su
-  // propio test más abajo. La aserción queda invertida para que no vuelva sola.
-  // Probada rompiéndola: pegando «tarda hasta 2 horas en aparecer» de vuelta en la
-  // tarjeta, 0 pasan y 1 falla; restaurada, 1 pasa y 0 fallan.
-  assert.ok(!/tarda hasta 2 horas en aparecer/.test(card), 'la glosa del retraso se sacó a pedido: el aviso va cuando la grabación YA no está, no como nota al pie permanente');
-  // ⚠️ Y EL ID, COPIABLE. Reportado el 2026-08-16: el link abre Clarity pero NO
-  // llega filtrado —Clarity descarta los parámetros de filtro que no reconoce y
-  // muestra las 35 sesiones del proyecto—, así que el botón prometía «lo que hizo
-  // ÉL» y entregaba «lo que hizo todo el mundo». Hasta que el link filtre solo,
-  // el id a mano es lo que vuelve utilizable la pantalla.
-  //
-  // ⚠️ PERO DESDE EL 05/10/2026 NO SE DIBUJA: el renglón «Su ID para el filtro de
-  // Clarity» con el uuid crudo a la vista es ruido técnico en la ficha de una
-  // PERSONA, y competía con el recorrido. Sigue accesible —en un botón que lo
-  // copia, con el `title` diciendo dónde se pega— que es para lo único que sirve.
-  // La aserción queda INVERTIDA para que el uuid no vuelva solo a la pantalla.
-  assert.ok(!/>\s*\{visitorId\}\s*</.test(card), 'el uuid no se dibuja: se copia');
-  assert.ok(/navigator\.clipboard\?\.writeText\(visitorId\)/.test(card), 'el id tiene que ser copiable: se pega en el filtro de Clarity');
-  // ⚠️ «dónde se pega» NO se puede comprobar acá: el `leer` de este archivo NO saca
-  // los comentarios, y el comentario que EXPLICA el `title` contiene las mismas
-  // palabras — probado, da verde con el `title` vaciado. Vive en
-  // `tests/crm-tracking-ficha.test.ts`, que lee el fuente sin prosa.
-  // El dato tiene que llegar por los DOS caminos que arman la ficha.
-  assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/actions.ts')), 'el mapa no llega por el camino del sheet');
-  assert.ok(/urlPanel\(undefined, 'heatmaps'\)/.test(leer('../app/crm/[id]/page.tsx')), 'el mapa no llega por el camino de la página');
+test('la ficha del lead no manda a Clarity: la grabación se mira adentro', () => {
+  // ⚠️ HASTA EL 06/10/2026 este test pedía lo contrario: «Ver su grabación» y «Mapa
+  // de calor de la página», dos links al panel de Microsoft Clarity, y un botón para
+  // copiar el id del visitante y pegarlo en su filtro. Se fueron con Clarity entero
+  // —«no quiero saber nada más de clarity, quiero que MaKo haga todo»—: la
+  // grabación la hace MaKo y se mira en la propia ficha (`GrabacionCard`).
+  const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const card = sinComentarios(leer('../app/crm/lead-view/ComportamientoCard.tsx'));
+  assert.ok(!/Clarity/.test(card), 'la ficha volvió a hablar de Clarity');
+  assert.ok(!/CopiarId|navigator\.clipboard/.test(card), 'volvió el botón para pegar un id en el filtro de otra herramienta');
+  assert.ok(/<GrabacionCard replay=\{replay\} \/>/.test(card), 'la grabación propia se mira adentro de la ficha');
+  // Y las DOS puertas que arman la misma ficha dejaron de pedir los links: con una
+  // sola, la ficha mostraría cosas distintas según por dónde se abra.
+  for (const ruta of ['../app/crm/actions.ts', '../app/crm/[id]/page.tsx', '../app/crm/LeadSheet.tsx']) {
+    const f = sinComentarios(leer(ruta));
+    assert.ok(!/urlSesionesDeLead|urlPanel|urlClarity|urlMapaCalor/.test(f), `${ruta}: sigue pidiendo los links de Clarity`);
+  }
 });
 
 test('los pasos del Pixel se separan de verdad', () => {
@@ -1483,31 +1454,12 @@ test('los pasos del Pixel se separan de verdad', () => {
   assert.ok(Number(mt![1]) >= 28, 'con menos de eso los pasos se siguen leyendo pegados');
 });
 
-test('la grabación no se ofrece cuando Clarity ya la borró', () => {
-  // ⚠️ Reportado por el dueño y CONFIRMADO con datos: el botón aparecía con solo
-  // tener identificador, sin mirar de cuándo era la visita. Clarity borra a los
-  // 30 días. Medido el 2026-08-16 en el workspace 1: de 36 leads con seguimiento,
-  // **12 eran más viejos que la retención** (el más antiguo del 31/3), y a los 12
-  // se les ofrecía una grabación que no puede existir. Quien la abre cae en un
-  // panel sin nada y concluye, razonablemente, que la medición no funciona.
-  const cl = leer('../lib/clarity.ts');
-  assert.ok(/export const DIAS_RETENCION = 30;/.test(cl), 'la retención tiene que ser un dato con nombre, no un número suelto');
-  assert.ok(/export function grabacionVigente/.test(cl), 'falta la regla');
-  // Se mira la ÚLTIMA actividad y no el alta: alguien de marzo que volvió ayer sí
-  // tiene grabación.
-  assert.ok(/ultimaActividad: string \| Date \| null \| undefined/.test(cl), 'la fecha de alta no dice cuándo estuvo');
-
-  for (const ruta of ['../app/crm/[id]/page.tsx', '../app/crm/actions.ts']) {
-    const f = leer(ruta);
-    assert.ok(/grabacionVigente\(ultimaActividad\)/.test(f), `${ruta}: el link no está gateado por la retención`);
-    assert.ok(/\.map\(\(e\) => e\.ts\)\.sort\(\)\.at\(-1\)/.test(f), `${ruta}: hay que mirar el evento más NUEVO`);
-  }
-
-  // ⚠️ Y no se esconde en silencio: acá SÍ hubo algo que ver, y decir por qué ya
-  // no está es lo que evita que se lea como que nunca funcionó.
-  const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
-  assert.ok(/Su grabación ya no existe: Clarity las guarda 30 días/.test(card), 'la ausencia se explica');
-});
+// ⚠️ ACÁ HABÍA UN TEST, «la grabación no se ofrece cuando Clarity ya la borró», que
+// fijaba el gate de los 30 días de Microsoft (`grabacionVigente`). Se fue el
+// 06/10/2026 con Clarity: la retención de las grabaciones ahora es de MaKo, la
+// aplica sola el cron `replay-purga`, y su vacío explicado («su última visita es
+// anterior a los días que guardamos») lo cubren tests/replay-ficha.test.ts y
+// tests/replay-contrato.test.ts.
 
 test('el analizador no se lee a SÍ MISMO ni al chrome del hosting', () => {
   // ⚠️ Medido el 2026-08-16 sobre una landing real: el analizador decía que tenía
@@ -1564,38 +1516,34 @@ test('pausa, retoma y fin también en el reproductor de Panda', () => {
   assert.ok(/e\.fin = true;/.test(lib), 'el fin tiene que ser idempotente');
 });
 
-test('mientras se resuelve la landing, debajo hay un indicador que se VE', () => {
-  // ⚠️ Reportado TRES veces. La primera: «pareciera un bug» — sin página elegida,
-  // todo lo que va debajo del paso 1 no existe. La segunda y la tercera: «aún no
-  // aparece el loader», sobre un loader que ya estaba puesto y se renderizaba.
+// PROBADO ROMPIENDOLO: devolviendo `getLandingsAction()` al efecto de
+// SelectorLanding.tsx, este archivo pasa de **pass 67 / fail 0** a
+// **pass 66 / fail 1**.
+test('el paso 1 llega con sus páginas: no hay nada que esperar ni indicador que mostrar', () => {
+  // ⚠️ ESTE TEST CUIDABA LO CONTRARIO HASTA EL 06/10/2026: un esqueleto con su
+  // texto («Buscando tus páginas…»), un piso de 450 ms para que se llegara a ver y
+  // el aviso de arranque y apagado. Lo habían reportado TRES veces —«pareciera un
+  // bug», y dos «aún no aparece el loader»—, y las tres causas eran reales.
   //
-  // Las dos causas del segundo reporte, y ninguna era la lógica:
-  //   · las barras usaban `--surface-2`, que sobre el fondo blanco del modal es
-  //     casi el mismo color: el esqueleto estaba y no se distinguía del vacío;
-  //   · la consulta tarda tan poco que aparecía y desaparecía sin verse.
-  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
-  assert.ok(/function PasosCargando/.test(board), 'falta el indicador');
-  // Un indicador que no se distingue del fondo no es un indicador.
-  assert.ok(/background: 'var\(--border\)'/.test(board), 'sobre el modal blanco, --surface-2 es invisible');
-  // Y dice QUÉ está pasando: un esqueleto solo dice «algo viene».
-  assert.ok(/Buscando tus páginas…/.test(board), 'sin texto, esperar y romperse se ven igual');
-
-  // ⚠️ SOLO mientras se resuelve. Sin ninguna página cargada la pelota está del
-  // lado de la persona —tiene que completar el paso 1— y un indicador de carga
-  // ahí es una promesa falsa que además gira para siempre.
-  assert.ok(/\{!elegida && eligiendo && <PasosCargando \/>\}/.test(board),
-    'sin páginas cargadas no va indicador: ahí falta que la persona elija');
-
+  // Lo que cambió es que la espera dejó de existir. La lista la pedía el paso 1
+  // con una server action al montarse, y esa action era el PRIMER viaje de una cola
+  // de tres en serie que hacía esperar al paso 2 (Next las despacha de a una). Ahora
+  // las páginas bajan resueltas del server (`app/integraciones/page.tsx`), así que
+  // un indicador de carga sería una promesa falsa sobre algo que no está cargando.
   const sel = leer('../app/integraciones/SelectorLanding.tsx');
-  assert.ok(/onCargando\?\.\(true\)/.test(sel), 'no avisa que arrancó');
-  // ⚠️ UN PISO DE TIEMPO, al revés de lo habitual: lo normal es RETRASAR un loader
-  // para que una consulta rápida no lo haga parpadear; acá la consulta tarda tan
-  // poco que el cambio de estado no se llega a percibir.
-  assert.ok(/450 - \(Date\.now\(\) - arranque\)/.test(sel), 'sin un piso de tiempo el indicador parpadea y no se ve');
-  assert.ok(/if \(vivo\) onCargando\?\.\(false\)/.test(sel), 'un indicador sin apagado es una pantalla colgada');
+  const selCodigo = sel.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/getLandingsAction/.test(selCodigo), 'el paso 1 no pide sus páginas: le llegan');
+  assert.ok(!/onCargando/.test(selCodigo), 'y no hay carga que avisar');
+  assert.ok(/landings: LandingConfig\[\];/.test(sel), 'la lista entra por props');
 
-  const css = leer('../app/globals.css');
-  assert.ok(/@keyframes mkGirar/.test(css) && /@keyframes mkPulso/.test(css), 'faltan las animaciones');
+  const board = leer('../app/integraciones/IntegracionesBoard.tsx');
+  const boardCodigo = board.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/PasosCargando/.test(boardCodigo), 'sin espera, el esqueleto no tiene a quién tapar');
+  // ⚠️ Y con UNA sola página el modal abre con ella elegida desde el primer render:
+  // elegirla en un efecto la elegía después del primer pintado, y los pasos 2 a 4
+  // aparecían un instante tarde — que es la mitad del «pareciera un bug» original.
+  assert.ok(/pixel\?\.landings\?\.length === 1 \? pixel\.landings\[0\]\.url : null/.test(board),
+    'con una sola página, el modal arranca con ella elegida');
 });
 
 test('un video que no es de tu página se puede sacar de la lista, sin borrar la medición', () => {

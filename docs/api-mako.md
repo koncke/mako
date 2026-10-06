@@ -29,7 +29,7 @@
 - **Instagram** (`instagram`): `estado_conexion_instagram` · `estado_zernio_instagram` · `config_instagram` · `estado_onboarding_instagram` · `listar_publicaciones_instagram` · `estado_publicacion_zernio` · `preview_media_instagram` · `crear_borrador_publicacion_instagram` · `cancelar_programacion_instagram` · `refrescar_publicacion_instagram` · `prender_auto_respuesta_instagram` · `apagar_auto_respuesta_instagram` · `marcar_paso_onboarding_instagram`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
-- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `ver_resumen_clarity` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
+- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `crear_borrador_instagram`
@@ -5415,7 +5415,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/experimentos/borrar_retro" -H "Aut
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Landing Analyst** (`/landing-analyst`). 20 lecturas · 7 acciones.
+Tab **Landing Analyst** (`/landing-analyst`). 19 lecturas · 7 acciones.
 
 ### `GET /api/v1/landing/listar_landings` — Landings declaradas del negocio
 
@@ -5487,7 +5487,7 @@ curl -s "https://hola-mako.com/api/v1/landing/verificar_pagina_pixel?url=%E2%80%
 
 ### `GET /api/v1/landing/ver_codigo_pixel` — Código del Pixel para pegar
 
-El código del Pixel de MaKo para pegar en la landing. Por la API devuelve el <script> completo (casi 90 mil caracteres); por WhatsApp y en la app devuelve el link a Integraciones → Landing, donde se copia, con la versión y el largo del código (un chat no puede transportar ese texto entero). Con la URL de una landing declarada lleva el proyecto de Clarity de ESA página; sin id propio, o sin URL, hereda el del negocio. Úsala cuando el cliente pida el código o cuando una verificación diga que su versión quedó vieja. Si el negocio nunca abrió Integraciones → Landing, el código todavía no existe y la respuesta lo dice.
+El código del Pixel de MaKo para pegar en la landing. Es el MISMO para todas las páginas del negocio. Por la API devuelve el <script> completo (casi 90 mil caracteres); por WhatsApp y en la app devuelve el link a Integraciones → Landing, donde se copia, con la versión y el largo del código (un chat no puede transportar ese texto entero). Úsala cuando el cliente pida el código o cuando una verificación diga que su versión quedó vieja. Si el negocio nunca abrió Integraciones → Landing, el código todavía no existe y la respuesta lo dice.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** texto
@@ -5495,9 +5495,7 @@ El código del Pixel de MaKo para pegar en la landing. Por la API devuelve el <s
 - **Solo el administrador del workspace.**
 - **Requiere la tab:** integraciones
 
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `url` | string | no | La landing para la que es el código (de listar_landings). Opcional. |
+_Sin parámetros._
 
 ```bash
 curl -s "https://hola-mako.com/api/v1/landing/ver_codigo_pixel" -H "Authorization: Bearer $TOKEN"
@@ -5575,15 +5573,14 @@ Cuántos eventos dejó una prueba del Pixel (la visita cuenta como uno) y en qu�
 curl -s "https://hola-mako.com/api/v1/landing/contar_eventos_prueba?prueba=%E2%80%A6" -H "Authorization: Bearer $TOKEN"
 ```
 
-### `GET /api/v1/landing/ver_grabaciones_prueba` — Grabaciones de una prueba
+### `GET /api/v1/landing/ver_grabaciones_prueba` — Grabación de una prueba
 
-El link al panel de Microsoft Clarity filtrado por las grabaciones de UNA prueba del Pixel. Úsala después de terminar una prueba, pasados 45 minutos. El link filtra los últimos 3 días. Es un link, no datos: Clarity no deja exportar grabaciones, y tarda entre 30 minutos y 2 horas en procesar una sesión, así que un panel vacío recién terminada la prueba no es un error. Devuelve null si el negocio no conectó Clarity.
+Si la prueba del Pixel quedó grabada, cuánto duró y si ya se puede ver. La grabación se termina de guardar unos minutos después de la prueba: «lista: false» recién terminada no es un error. Para mirarla, la persona aprieta «Ver la grabación» en Integraciones → Landing (manda el link). Devuelve grabada: false si no llegó o si la grabación está apagada en el negocio.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere conectada:** clarity
 - **Requiere la tab:** integraciones
 
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -5592,23 +5589,6 @@ El link al panel de Microsoft Clarity filtrado por las grabaciones de UNA prueba
 
 ```bash
 curl -s "https://hola-mako.com/api/v1/landing/ver_grabaciones_prueba?prueba=%E2%80%A6" -H "Authorization: Bearer $TOKEN"
-```
-
-### `GET /api/v1/landing/ver_resumen_clarity` — Resumen de Clarity del negocio
-
-El último resumen de Microsoft Clarity que guardó el control diario: sesiones, sesiones de bots, % de sesiones con clics de enojo y con clics muertos, y profundidad de scroll promedio, con los días que cubre y cuándo se tomó. NO consulta Clarity en el momento (la cuota es de 10 consultas por día): si el resumen es viejo o tiene error, dilo. Es del proyecto de Clarity del negocio, no de una landing puntual. No requiere parámetros.
-
-- **Alcance mínimo del token:** lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere conectada:** clarity
-- **Requiere la tab:** integraciones
-
-_Sin parámetros._
-
-```bash
-curl -s "https://hola-mako.com/api/v1/landing/ver_resumen_clarity" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### `GET /api/v1/landing/listar_videos_landing` — Videos nombrados y el VSL
@@ -5841,7 +5821,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/landing/ocultar_video" -H "Authori
 
 ### `POST /api/v1/landing/guardar_landing` — Agregar o corregir una landing
 
-Declara una página como del negocio, corrige su URL (con `anterior`) o le asigna su proyecto de Clarity. Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X», «cambié el dominio» o «conecta Clarity en esta landing». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Tope: 12 landings.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -5854,9 +5834,7 @@ Declara una página como del negocio, corrige su URL (con `anterior`) o le asign
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `url` | string | sí | La dirección de la página, con o sin https. |
-| `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva su Clarity. |
-| `clarityProjectId` | string | no | El id del proyecto de Clarity de ESTA página, o la URL del panel de Clarity (se extrae el id). Si se omite, no se toca. |
-| `quitarClarity` | boolean | no | true le quita el proyecto de Clarity propio a la página (vuelve a heredar el del negocio). |
+| `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos. |
 
 ```bash
 curl -s -X POST "https://hola-mako.com/api/v1/landing/guardar_landing" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -5865,7 +5843,7 @@ curl -s -X POST "https://hola-mako.com/api/v1/landing/guardar_landing" -H "Autho
 
 ### `POST /api/v1/landing/borrar_landing` — Quitar una landing declarada
 
-Saca una página de las declaradas por el negocio, y con ella su proyecto de Clarity propio. No borra visitas, eventos ni diagnósticos. Úsala cuando el dueño dio de baja una página. Se puede volver a agregar con guardar_landing, pero el id de Clarity hay que volver a cargarlo. Deja un link para confirmar.
+Saca una página de las declaradas por el negocio, y con ella los productos que tenía asignados. No borra visitas, eventos ni diagnósticos. Úsala cuando el dueño dio de baja una página. Se puede volver a agregar con guardar_landing, pero los productos hay que volver a asignarlos. Deja un link para confirmar.
 
 - **Alcance mínimo del token:** proponer
 - **Confirmación:** deja una **propuesta** y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.

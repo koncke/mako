@@ -31,9 +31,7 @@ import { upsertRouting, wsPorIdentificador } from './webhook-routing';
 import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos } from './landing-videos';
 import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
-import { clarityProjectId } from './clarity';
 import { catalogoPanda } from './panda';
-import { bloqueClarity } from './clarity';
 import { esEventoDeVideo } from './vsl-retencion';
 import { estadoVideo } from './landing-analisis';
 import { enumerar } from './landing-snapshot';
@@ -603,7 +601,7 @@ export type EventoDiag = {
 };
 
 export type ChequeoDiag = {
-  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin' | 'clarity';
+  id: 'version' | 'pageview' | 'play' | 'profundidad' | 'click' | 'optin';
   label: string;
   estado: 'ok' | 'falta' | 'viejo' | 'na';
   detalle: string;
@@ -791,7 +789,6 @@ export async function landingDiagnostico(
   // La señal es lo que la página YA mandó: si nunca llegó un play, esa página no
   // tiene video que midamos y el punto no aplica. No es esconder un problema: es
   // no inventar uno.
-  const clarityPid = await clarityProjectId().catch(() => null);
   // ⚠️ Lo que la página NO tiene no se pide. El analizador ya sabe si hay botones
   // propios: sin esta línea, a una landing cuyo CTA es un Calendly embebido se le
   // pedía «hace clic en tus botones» para siempre.
@@ -1148,13 +1145,12 @@ export async function landingDiagnostico(
         : 'Aún no llega ningún clic. Si tu página no tiene botones propios —por ejemplo, si su llamado a la acción es una agenda embebida— es normal.' },
     // El paso 5 se arma arriba: es UNO solo con dos identidades.
     { id: 'optin', ...paso5 },
-    // Clarity es opcional, así que sin conectar va 'na' y no 'falta': un punto en
-    // rojo por algo que se eligió no usar es ruido.
-    { id: 'clarity', label: 'Grabaciones y mapas de calor',
-      estado: !clarityPid ? 'na' : 'ok',
-      detalle: !clarityPid
-        ? 'No lo activaste. Si lo activas en el paso 1, cada lead va a tener el video de lo que hizo en tu página.'
-        : 'Activo. En la ficha de cada lead vas a ver el botón para abrir su grabación. Clarity tarda entre 30 minutos y 2 horas en mostrarla.' },
+    // ⚠️ ACÁ HABÍA UN CHEQUEO DE CLARITY («Grabaciones y mapas de calor») y se fue
+    // el 06/10/2026 con Clarity entero. Ya mentía antes de irse: mandaba a
+    // activarlo «en el paso 1», y el paso 1 del Pixel es elegir la página — Clarity
+    // no se configuraba en ninguno de los cuatro. La grabación de la prueba la
+    // contesta ahora `chequeoGrabacion`, con la grabación PROPIA
+    // (app/api/integraciones/landing/estado/route.ts).
   ];
 
   // El total sale de la LISTA, no de un número escrito al lado. Estuvo en «de 4»
@@ -1215,7 +1211,7 @@ export async function landingDiagnostico(
  * del día en que se copió: un arreglo acá NO llega solo a producción, hay que
  * volver a pegarlo. Así se perdieron 18 días de medición (15/jul → 3/ago 2026).
  */
-export function landingSnippet(token: string, clarityProjectId: string | null = null): string {
+export function landingSnippet(token: string): string {
   // La ruta de la librería del grabador sale del contrato, PARTIDA por el número de
   // versión: la versión la dice el servidor en cada visita, no el snippet. Es la
   // única forma de que arreglar el grabador no exija que el cliente vuelva a pegar
@@ -2582,7 +2578,6 @@ export function landingSnippet(token: string, clarityProjectId: string | null = 
   if (document.readyState === 'complete') setTimeout(mirarScroll, 500);
   else window.addEventListener('load', function () { setTimeout(mirarScroll, 500); });
 
-${bloqueClarity(clarityProjectId)}
   // ── AGENDÓ ────────────────────────────────────────────────────────────────
   // ⚠️ EL EVENTO QUE FALTABA, y para un negocio que vende por llamada es EL
   // evento: la reserva. Lo que pasa adentro del iframe de Calendly es de otro

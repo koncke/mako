@@ -79,23 +79,11 @@ export const DEFS: Def[] = [
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
   // estadoLanding). El usuario no pega credenciales: copia un <script> con su
   // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).
-  // Clarity va SEPARADO del Pixel a propósito, aunque los dos vivan en el mismo
-  // <script>. Son dos preguntas distintas: el Pixel siempre está (es nuestro y no
-  // se puede apagar) y Clarity es OPCIONAL y con la cuenta del cliente. Fundirlos
-  // haría que apagar uno apague el otro, y que el semáforo de la medición propia
-  // dependa de una credencial ajena.
-  //
-  // El PROJECT_ID no es un secreto: viaja en el HTML de la página del cliente,
-  // como cualquier pixel. El TOKEN de la Data Export API sí lo es —da acceso de
-  // lectura a las métricas de ese proyecto— y por eso va por guardarCredencial(),
-  // cifrado y por workspace. Nunca en el código ni en una env de la plataforma:
-  // cada cliente trae el suyo.
-  // ⚠️ `oculto`: Clarity NO tiene tarjeta propia en la grilla. Su configuración
-  // vive DENTRO del modal del Pixel, como primer paso opcional — es el mismo
-  // <script>, así que una tarjeta aparte obligaría a instalar dos veces y a
-  // entender que son dos cosas. Sigue en el catálogo porque es lo que le dice a
-  // la ruta de credenciales qué campos acepta.
-  { key: 'clarity', nombre: 'Microsoft Clarity', categoria: 'Datos', descripcion: 'Mapas de calor y grabaciones de sesión de tu página, atados a cada lead.', envs: ['CLARITY_PROJECT_ID', 'CLARITY_API_TOKEN'], oculto: true },
+  // ⚠️ ACÁ ESTABA MICROSOFT CLARITY, y se fue el 06/10/2026: la grabación de cada
+  // visita la hace MaKo (lib/replay-*), atada al lead y sin mandarle los datos de
+  // los visitantes de un cliente a un tercero. Pedido de Martín: «no quiero saber
+  // nada más de clarity, quiero que MaKo haga todo». Era además la ÚNICA entrada
+  // con `oculto`: el mecanismo queda (es genérico) y hoy no lo usa ninguna.
   { key: 'landing', nombre: 'Pixel de MaKo', categoria: 'Datos', descripcion: 'Mide las visitas, los videos y los clics de tu página, esté donde esté.', envs: [] },
   // Claude: como la landing, no se configura con una API key — se instala una skill del
   // lado del usuario y se conecta con un token. Su estado se mide por señal REAL (¿generó
@@ -131,8 +119,9 @@ export function defsVisibles(defs: Def[], o: { cats: string[] | null; ocultas: S
     ...(o.cats == null ? delNegocio : delNegocio.filter((d) => o.cats!.includes(d.categoria))),
     // `oculto` NO es lo mismo que `ocultas`: aquello es una preferencia del
     // workspace (qué tarjetas no quiere ver) y esto es una propiedad de la
-    // integración — Clarity no tiene tarjeta porque se configura DENTRO del
-    // modal del Pixel, y ningún workspace puede hacerla aparecer.
+    // integración — una que no tiene tarjeta propia y ningún workspace puede
+    // hacerla aparecer. (La única que lo usaba era Clarity, que se fue el
+    // 06/10/2026.)
   ].filter((d) => !d.oculto && !o.ocultas.has(d.key));
 }
 

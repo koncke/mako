@@ -142,11 +142,18 @@ test('cada causa tiene su frase, y ninguna está vacía', () => {
   }
 });
 
-test('el ÚNICO vacío con link es el del código viejo', () => {
+// PROBADO ROMPIENDOLO: devolviendo `donde: null` al caso `apagado` en
+// lib/replay-ficha.ts, este test falla.
+test('llevan link SOLO los dos vacíos que tienen algo que hacer: apagada y código viejo', () => {
+  // Los dos van al Pixel de MaKo, que es donde se arreglan los dos.
   assert.equal(textoDelVacio('pixel_viejo', 30).donde?.href, '/integraciones?abrir=landing');
-  for (const c of ['sin_visitor', 'no_se_pudo_leer', 'apagado', 'vencida', 'sin_grabacion'] as const) {
-    // ⚠️ `apagado` incluido: el interruptor `landing.replay` todavía no tiene
-    // pantalla. Un botón que lleva a donde la respuesta NO está es peor que ninguno.
+  // ⚠️ `apagado` LLEVA LINK desde el 06/10/2026. Hasta ese día este test lo exigía
+  // SIN link, y con razón: el interruptor `landing.replay` no tenía pantalla, y un
+  // botón que lleva a donde la respuesta NO está es peor que ninguno. Con Clarity
+  // fuera del producto se construyó el interruptor («Grabar las visitas», en el
+  // Pixel), así que ahora sí hay a dónde mandar.
+  assert.equal(textoDelVacio('apagado', 30).donde?.href, '/integraciones?abrir=landing');
+  for (const c of ['sin_visitor', 'no_se_pudo_leer', 'vencida', 'sin_grabacion'] as const) {
     assert.equal(textoDelVacio(c, 30).donde, null, c);
   }
 });
@@ -218,15 +225,16 @@ test('los DOS parents le pasan las grabaciones a ComportamientoCard', () => {
   }
 });
 
-test('la tarjeta monta la grabación DESPUÉS del recorrido y ANTES de lo externo', () => {
+test('la tarjeta monta la grabación DESPUÉS del recorrido', () => {
   const src = leer('app/crm/lead-view/ComportamientoCard.tsx');
   const recorrido = src.indexOf('<TrackingTimelineCard');
   const grabacion = src.indexOf('<GrabacionCard');
-  const externo = src.indexOf('{externo && (');
-  assert.ok(recorrido > 0 && grabacion > 0 && externo > 0);
-  // El orden de las secciones lo decidió Martín: lo nuestro primero, Clarity último.
+  assert.ok(recorrido > 0 && grabacion > 0);
+  // El orden de las secciones lo decidió Martín: lo nuestro primero. (Hasta el
+  // 06/10/2026 la grabación iba además ANTES de «Fuera de MaKo», los links a
+  // Clarity; esa sección se fue con Clarity entero.)
   assert.ok(recorrido < grabacion, 'la grabación quedó antes del recorrido');
-  assert.ok(grabacion < externo, 'la grabación quedó después de «Fuera de MaKo»');
+  assert.ok(!src.includes('{externo && ('), 'volvió la sección de lo externo');
 });
 
 test('la tarjeta se calla el ÚNICO vacío que la ficha ya explica arriba', () => {

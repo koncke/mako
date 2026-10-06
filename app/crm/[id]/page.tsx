@@ -6,7 +6,6 @@
 // el editor del DEAL, que es lo único que sigue teniendo pantalla propia.
 
 import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
-import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
 import { replayDeLead } from '@/lib/replay-leer';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
@@ -64,7 +63,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos, videosLanding, urlClarityLead, urlMapaCalorProyecto, pixelPuesto] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos, videosLanding, pixelPuesto] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
@@ -75,10 +74,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     getLeadInsights(idNum),
     getTrackingEvents(lead.visitor_id),
     getVideosLanding(),
-    urlSesionesDeLead(lead.visitor_id).catch(() => null),
-    // El mapa de calor es del PROYECTO, no del lead: Clarity agrega los clics de
-    // todos los visitantes y no permite filtrarlo por persona.
-    urlPanel(undefined, 'heatmaps').catch(() => null),
   // ¿El Pixel de MaKo está midiendo? Es para el VACÍO de la tarjeta de tracking:
   // sin código pegado, «sin eventos» no es un lead que no interactuó, es un negocio
   // que todavía no mide — y eso se arregla en otra pantalla. Misma señal que el
@@ -87,20 +82,15 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     landingRecibioEventos().catch(() => true),
   ]);
 
-  // ⚠️ EL LINK A LA GRABACIÓN SE GATEA POR LA RETENCIÓN, no por «tiene
-  // identificador». Clarity borra a los 30 días: sobre un lead más viejo, el
-  // botón abre su panel sin nada y se lee como que la medición no funciona.
-  // Se mira la ÚLTIMA actividad —no el alta— porque alguien de marzo que volvió
-  // ayer sí tiene grabación.
+  // La ÚLTIMA actividad —no el alta— porque alguien de marzo que volvió ayer
+  // tiene grabación de ayer. La lee `replayDeLead` para explicar un vacío («su
+  // última visita es anterior a los días que guardamos»), no para filtrar.
   const ultimaActividad = trackingEventos.length
     ? trackingEventos.map((e) => e.ts).sort().at(-1) ?? null
     : lead.created_at;
-  const grabacionVigente_ = grabacionVigente(ultimaActividad);
-  const urlClarityVigente = grabacionVigente_ ? urlClarityLead : null;
-  const grabacionVencida = !!urlClarityLead && !grabacionVigente_;
-  // La grabación PROPIA va con `ultimaActividad`, el mismo dato que gatea el link de
-  // Clarity: dos tarjetas de la misma pantalla no pueden contradecirse sobre cuándo
-  // entró esta persona por última vez. No tira nunca, y distingue «no pude leer».
+  // ⚠️ ACÁ SE GATEABAN LOS LINKS A MICROSOFT CLARITY, y se fueron el 06/10/2026
+  // con Clarity entero (ver el mismo comentario en app/crm/actions.ts, que es la
+  // otra puerta de esta MISMA ficha). `replayDeLead` no tira nunca.
   const [respuestas, insightGen, equipo, funnels, replay] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction(), listarFunnels().catch(() => []), replayDeLead(lead.visitor_id, ultimaActividad)]);
   // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
   // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
@@ -266,8 +256,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               // medición era cierta y contestaba otra pregunta: es su pantalla y la lee como
               // una frase, de dónde vino → qué hizo → evento por evento.
               //
-              // «Actividad registrada» NO se monta acá: va adentro de ComportamientoCard,
-              // que es lo que mantiene a Clarity al final. Lo fija `tests/crm-tracking-ficha.test.ts`.
+              // «Actividad registrada» NO se monta acá: va adentro de ComportamientoCard.
+              // Lo fija `tests/crm-tracking-ficha.test.ts`.
               //
               // ⚠️ Y ESTE MONTAJE Y EL DE `app/crm/LeadSheet.tsx` TIENEN QUE QUEDAR IGUALES:
               // es la MISMA ficha por dos puertas, y ya se pagó que una se quedara con la
@@ -276,7 +266,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
                   <CalificacionCard lead={lead} />
-                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} urlClarity={urlClarityVigente} urlMapaCalor={urlMapaCalorProyecto} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} replay={replay} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} replay={replay} />
                 </>
               ),
             },

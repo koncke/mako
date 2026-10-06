@@ -1,32 +1,33 @@
 // =============================================================================
-// Cron: prueba-grabacion — avisa cuando la grabación de una prueba ya está lista
+// Cron: prueba-grabacion — avisa cuando la grabación de una prueba ya se puede ver
 // =============================================================================
-// Al terminar una prueba del Pixel, la pantalla ofrece el link a la grabación de
-// ESA sesión en Clarity. El link es correcto desde el primer segundo y no sirve
-// para nada durante la primera media hora: Clarity procesa las sesiones en lote,
-// tarda entre 30 minutos y 2 horas, y **no tiene webhook**. Quien prueba abre el
-// link enseguida, no encuentra nada, y saca la conclusión más razonable —«esto no
-// funciona»— sobre algo que sí funciona y todavía no llegó.
+// Al terminar una prueba del Pixel, quien probó suele cerrar la pantalla. La
+// grabación de esa visita queda guardándose —el cuerpo se sella en el cron
+// `replay-purga`, cada 10 minutos— y para cuando está lista ya no hay nadie
+// mirando. Por eso el aviso, y por eso por WhatsApp: es el único canal que llega
+// cuando la pantalla ya no está abierta.
 //
-// Volver más tarde tampoco es una opción realista: para entonces la pantalla se
-// cerró, el marcador de la prueba es una cadena al azar que nadie se aprendió, y
-// esa sesión quedó mezclada con el tráfico real de todo el día.
-//
-// Por eso el aviso, y por eso por WhatsApp: es el único canal que llega cuando la
-// pantalla ya no está abierta.
+// ⚠️ HASTA EL 06/10/2026 ESTE CRON ERA DE CLARITY, y por eso esperaba 45 minutos:
+// Microsoft procesaba las sesiones en lote, tardaba entre 30 minutos y 2 horas y
+// no tenía webhook. Con la grabación PROPIA no hay que adivinar: una sesión está
+// lista cuando tiene `storage_path`, que es lo que escribe el sellado. Se avisa en
+// el primer tick después de eso, y con un link que lleva DIRECTO a mirarla — la
+// ficha del lead PRUEBA de esa página (`lib/lead-de-prueba.ts`), donde vive el
+// reproductor. El de Clarity mandaba a un panel ajeno con login aparte.
 //
 // ⚠️ CADA 15 MINUTOS Y NO UNA VEZ POR DÍA. Los otros vigilantes de landing corren
-// a las 13:50 porque contestan preguntas de días («¿el código quedó viejo?»,
-// «¿esta grabación se borra esta semana?»). Este contesta una de minutos: una
-// prueba hecha a las 15:00 avisada al día siguiente es un aviso que no sirve —
-// para entonces ya se probó de nuevo, o se dio por roto.
+// a las 13:50 porque contestan preguntas de días («¿el código quedó viejo?»). Este
+// contesta una de minutos: una prueba hecha a las 15:00 avisada al día siguiente es
+// un aviso que no sirve — para entonces ya se probó de nuevo, o se dio por roto.
 // =============================================================================
 
 import { type NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { getSetting, setSetting } from '@/lib/settings';
-import { clarityProjectId, urlSesionesDePrueba } from '@/lib/clarity';
+import { configDeReplay } from '@/lib/replay-ingesta';
+import { asegurarLeadDePrueba } from '@/lib/lead-de-prueba';
+import { linkApp } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
@@ -36,18 +37,7 @@ export const revalidate = 0;
 export const AVISADAS_KEY = 'landing.pruebas_avisadas';
 
 /**
- * Cuántos minutos hay que esperar antes de prometer que la grabación está.
- *
- * Microsoft documenta «hasta 2 horas» para que una sesión aparezca en el panel, y
- * en la práctica son ~30. Se toma el piso alto (45) a propósito: **el costo de los
- * dos errores no es el mismo.** Avisar tarde cuesta media hora de espera; avisar
- * temprano manda a alguien a una lista vacía, que es exactamente el problema que
- * este cron viene a resolver — y esa persona no vuelve a intentar.
- */
-const PROCESADO_MIN = 45;
-
-/**
- * Y hasta cuándo se mira para atrás. Una prueba de hace dos días ya no le importa
+ * Hasta cuándo se mira para atrás. Una prueba de hace dos días ya no le importa
  * a nadie, y avisar por ella —después de un despliegue, por ejemplo— sería sacar
  * del cajón algo que la persona ya dio por terminado.
  */
@@ -68,7 +58,7 @@ function leerMarcadores(crudo: string | null): string[] {
   } catch { return []; }
 }
 
-type Fila = { prueba: string | null; landing_url: string | null; created_at: string };
+type Fila = { prueba: string | null; landing_url: string | null; inicio: string };
 type Resultado = { ws: number; avisadas: number };
 
 export async function GET(req: NextRequest) {
@@ -89,27 +79,26 @@ export async function GET(req: NextRequest) {
   for (const w of workspaces) {
     try {
       const r = await runWithWorkspace(w.id, async (): Promise<Resultado | null> => {
-        // Sin Clarity conectado no hay grabación que prometer. El resto de la
-        // prueba (los eventos en vivo) funciona igual y no se avisa por nada.
-        if (!(await clarityProjectId(w.id))) return null;
+        // Con la grabación apagada en este negocio no hay nada que avisar: la
+        // prueba (los eventos en vivo) funciona igual y la pantalla ya lo dice.
+        const cfg = await configDeReplay().catch(() => null);
+        if (!cfg?.activo) return null;
 
         const db = await getTenantDb();
         const desde = new Date(Date.now() - VENTANA_H * 3_600_000).toISOString();
-        const hasta = new Date(Date.now() - PROCESADO_MIN * 60_000).toISOString();
-        const { data } = await db
-          .from('landing_visits')
-          .select('prueba, landing_url, created_at')
+        const { data, error } = await db
+          .from('replay_sesiones')
+          .select('prueba, landing_url, inicio')
           .not('prueba', 'is', null)
-          .gte('created_at', desde)
-          // ⚠️ El corte va sobre el ÚLTIMO evento de la prueba, no sobre el
-          // primero: la sesión se sigue grabando mientras la persona navega, así
-          // que el reloj de Clarity arranca cuando la sesión TERMINA. Como se
-          // pide `<= hasta` y después se agrupa quedándose con el más nuevo de
-          // cada marcador, una prueba que todavía está en curso no entra: su
-          // último evento es reciente y la excluye la misma condición.
-          .lte('created_at', hasta)
-          .order('created_at', { ascending: false })
+          // ⚠️ LISTA = SELLADA. Una sesión sin `storage_path` está grabando o
+          // esperando el sellado: el link abriría una ficha con la sesión en la
+          // lista y nada que reproducir, que es exactamente lo que este aviso
+          // existe para no hacer.
+          .not('storage_path', 'is', null)
+          .gte('inicio', desde)
+          .order('inicio', { ascending: false })
           .limit(200);
+        if (error) throw new Error(`replay_sesiones: ${error.message}`);
 
         const filas = (data ?? []) as Fila[];
         if (!filas.length) return null;
@@ -126,25 +115,29 @@ export async function GET(req: NextRequest) {
         const pendientes = [...porPrueba.entries()].filter(([m]) => !yaAvisadas.includes(m));
         if (!pendientes.length) return null;
 
-        // ⚠️ UN SOLO AVISO CON LA LISTA, igual que en clarity-vigilante y por la
-        // misma razón dura: el dedup de `emitirDelCatalogo` es por TIPO, así que
-        // dos pruebas seguidas mandarían el primer mensaje y perderían el segundo
-        // en silencio. Acá además es lo normal: probar dos veces seguidas —una,
-        // corregir, otra— es exactamente cómo se usa esto.
-        const links: Array<{ url: string; donde: string }> = [];
-        for (const [marcador, fila] of pendientes) {
-          const url = await urlSesionesDePrueba(marcador, w.id);
-          if (!url) continue;
-          links.push({ url, donde: dominio(fila.landing_url) });
+        // ⚠️ DE LA MÁS VIEJA A LA MÁS NUEVA, y no al revés. El lead PRUEBA de una
+        // página se REUSA y a cada prueba se le repunta el visitante: procesando la
+        // más nueva primero, la última en escribir sería la más vieja, y la ficha
+        // mostraría una prueba anterior a la que se está avisando.
+        //
+        // ⚠️ Y UN LINK POR LEAD, no por prueba: dos pruebas de la misma página
+        // terminan en el mismo PRUEBA, y dos links iguales en un mensaje se leen
+        // como un error de quien lo armó.
+        const porLead = new Map<number, string>();
+        for (const [marcador, fila] of [...pendientes].reverse()) {
+          const lead = await asegurarLeadDePrueba(w.id, marcador);
+          if (!lead.ok) continue;
+          porLead.set(lead.leadId, dominio(fila.landing_url));
         }
+        const links = [...porLead.entries()].map(([id, donde]) => ({ donde, url: linkApp(`/crm/${id}`, w.id) }));
         if (!links.length) return null;
 
+        // El texto lo arma el CÓDIGO: acá viajan links con un id, y un dato exacto
+        // que pasa por un modelo deja de ser exacto.
         const texto = links.length === 1
-          ? `Ya está lista la grabación de la prueba que hiciste en *${links[0].donde}*. Puedes ver el video de lo que hiciste y el mapa de calor 👉 ${links[0].url}`
-          : `Ya están listas las grabaciones de tus ${links.length} pruebas del Pixel:${NL}${links.map((l) => `• *${l.donde}* 👉 ${l.url}`).join(NL)}`;
+          ? `Ya puedes ver la grabación de tu prueba en *${links[0].donde}* 👉 ${links[0].url}`
+          : `Ya puedes ver las grabaciones de tus pruebas:${NL}${links.map((l) => `• *${l.donde}* 👉 ${l.url}`).join(NL)}`;
 
-        // El texto lo arma el CÓDIGO: acá viajan URLs con un marcador al azar, y
-        // un dato exacto que pasa por un modelo deja de ser exacto.
         const r = await emitirDelCatalogo('prueba-grabada', { ws: w.id, texto });
 
         // ⚠️ SE MARCAN AVISADAS PASE LO QUE PASE con el envío. Si el aviso falló

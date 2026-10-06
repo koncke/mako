@@ -15,7 +15,7 @@
 // dominaba la pantalla era lo externo, así que lo propio no se veía.
 //
 // Ahora el recorrido se monta ACÁ ADENTRO, pegado a los números que lo resumen, y
-// lo de Clarity queda al final y más chico. `TrackingTimelineCard` dejó de
+// lo de Clarity quedó al final y más chico (hasta que se fue entero, ver abajo). `TrackingTimelineCard` dejó de
 // montarse suelta en los dos lugares: si volviera, la misma ficha mostraría el
 // recorrido dos veces.
 //
@@ -29,10 +29,16 @@
 // a quedar apretada, lo que se acorta es lo de arriba, nunca el orden.
 //
 // Queda entonces: Origen (en los montajes) → Comportamiento → Actividad registrada
-// → Fuera de MaKo. Lo externo sigue último, que es lo que el reporte vino a cerrar.
+// → la grabación de su visita.
+//
+// ⚠️ Y YA NO HAY «FUERA DE MAKO». Era la última sección: dos links a Microsoft
+// Clarity (su grabación y el mapa de calor del proyecto) y un botón para copiar el
+// id del visitante y pegarlo en el filtro de Clarity. Se fue el 06/10/2026 con
+// Clarity entero —«no quiero saber nada más de clarity, quiero que MaKo haga
+// todo»—: la grabación la hace MaKo y se mira acá adentro (`GrabacionCard`).
 //
 // 'use client' porque esta tarjeta tiene controles propios (el pop-up para
-// nombrar un video, el botón que copia el id). Era un módulo sin directiva, así
+// nombrar un video). Era un módulo sin directiva, así
 // que en /crm/[id] —una página de server— el `onClick` del id viajaba como
 // función en la carga RSC.
 //
@@ -58,14 +64,6 @@ const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 const miniCard: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' };
-
-/**
- * La tarjeta de lo EXTERNO: más chica que las nuestras a propósito.
- *
- * Menos padding y sin el fondo de superficie: es la última de la columna y lo que
- * tiene adentro se abre fuera de MaKo, así que no puede competir con el recorrido.
- */
-const cardExterna: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' };
 
 const colorDe = (pct: number | null) =>
   pct == null ? 'var(--faint)' : pct >= 60 ? 'var(--good)' : pct >= 30 ? 'var(--accent)' : 'var(--bad)';
@@ -123,7 +121,7 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
 
 export function ComportamientoCard({
   visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], eventos = [], pixelPuesto = true,
-  urlClarity = null, urlMapaCalor = null, visitorId = null, grabacionVencida = false, replay = null,
+  replay = null,
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -135,23 +133,6 @@ export function ComportamientoCard({
   eventos?: TrackingEvent[];
   /** ¿El Pixel de MaKo está midiendo? Sólo lo usa el vacío del recorrido. */
   pixelPuesto?: boolean;
-  /** Link a las grabaciones de ESTA persona en Clarity, ya filtrado por su
-   *  visitor_id. null si el workspace no conectó Clarity o el lead no tiene
-   *  identificador — un botón que no puede abrir nada es peor que ninguno. */
-  urlClarity?: string | null;
-  /** El mapa de calor de la PÁGINA. Es de todos los visitantes, no de este lead:
-   *  Clarity agrega los clics de todo el mundo y no se puede filtrar por persona.
-   *  Va igual acá porque es la pregunta que sigue —«¿y el resto qué hace?»— y
-   *  buscarla obligaba a salir de la ficha y navegar el panel de Clarity a mano. */
-  urlMapaCalor?: string | null;
-  /** El `visitor_id`, que es lo que la landing le manda a Clarity con
-   *  `clarity("identify", …)`. Es la llave para encontrar a ESTA persona entre
-   *  miles de sesiones anónimas. */
-  visitorId?: string | null;
-  /** La grabación existió pero Clarity ya la borró (más de 30 días). Es distinto
-   *  de «no hay link»: acá SÍ hubo algo que ver, y decirlo evita que la persona
-   *  crea que la medición nunca funcionó. */
-  grabacionVencida?: boolean;
   /** Las grabaciones PROPIAS de esta persona, o por qué no hay ninguna. Lo resuelve
    *  el server (`replayDeLead`, lib/replay-leer.ts): necesita el apagador del
    *  workspace y el índice scopeado, que el navegador no puede leer.
@@ -203,16 +184,6 @@ export function ComportamientoCard({
   const faltanNombres = varios && nombrables.some((v) => !rotuloDe(vids, v.videoId, v.titulo).propio);
   const sinDatos = !visitas && !plays && maxPct == null;
 
-  // ⚠️ SE LINKEA, NO SE EMBEBE. Clarity responde `X-Frame-Options: SAMEORIGIN`, así
-  // que el navegador rechaza el iframe: no hay forma de meter su reproductor acá
-  // adentro, y un proxy para esquivarlo sería reenviar la sesión del cliente a un
-  // tercero. Lo honesto es abrir SU panel — ya filtrado por esta persona, que es la
-  // mitad del valor: sin el filtro lleva a una lista de miles de sesiones anónimas.
-  //
-  // ⚠️ Y VA AL FINAL Y MÁS CHICO. Eran dos botones grandes arriba de todo, y por eso
-  // la ficha se leía como si la app tuviera que mostrar el video adentro. La frase de
-  // abajo dice dónde se abre, que es lo único que faltaba para que no prometa nada.
-  const externo = !!(urlClarity || urlMapaCalor || grabacionVencida);
 
   return (
     <>
@@ -301,64 +272,9 @@ export function ComportamientoCard({
           veces (lo fija `tests/crm-tracking-ficha.test.ts`). */}
       <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />
 
-      {/* La grabación PROPIA, después de lo nuestro y ANTES de «Fuera de MaKo»: es
-          lo único que el replay propio compra sobre Clarity, y lo externo sigue
-          último. Con `null` no se dibuja: ver el prop. */}
+      {/* La grabación de su visita, después del recorrido. Con `null` no se
+          dibuja: ver el prop. */}
       {replay && <GrabacionCard replay={replay} />}
-
-      {externo && (
-        <section style={cardExterna}>
-          <div style={{ ...sectLabel, marginBottom: 6 }}>Fuera de MaKo</div>
-          <p style={{ fontSize: 12, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>
-            Se abre en Clarity, en otra pestaña.
-          </p>
-          {/* ⚠️ LA AUSENCIA SE EXPLICA. Antes el botón aparecía con solo tener
-              identificador, sin importar de cuándo era la visita — y Clarity borra
-              las grabaciones a los 30 días. Quien lo apretaba sobre un lead de hace
-              tres meses caía en su panel sin nada y concluía, razonablemente, que la
-              medición no anda. Esconderlo a secas repetiría el problema por el otro
-              lado: acá SÍ hubo algo que ver, y hay que decir por qué ya no está. */}
-          {grabacionVencida && (
-            <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8, lineHeight: 1.55 }}>
-              Su grabación ya no existe: Clarity las guarda 30 días y esta visita es anterior.
-              Lo que sí queda es todo lo de arriba, que es nuestro y no vence.
-            </p>
-          )}
-          {(urlClarity || urlMapaCalor) && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10, alignItems: 'center' }}>
-              {/* Se nombra la diferencia en el propio rótulo: el mapa de calor NO es
-                  de esta persona —Clarity agrega los clics de todos y no se puede
-                  filtrar por alguien—, y un botón sin rótulo al lado de su grabación
-                  se leería como que sí. */}
-              {urlClarity && (
-                <a href={urlClarity} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 9,
-                    border: '1px solid var(--border-strong)', background: 'var(--surface)',
-                    fontSize: 12, fontWeight: 600, color: 'var(--dim)', textDecoration: 'none' }}>
-                  Ver su grabación →
-                </a>
-              )}
-              {urlMapaCalor && (
-                <a href={urlMapaCalor} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 9,
-                    border: '1px solid var(--border-strong)', background: 'var(--surface)',
-                    fontSize: 12, fontWeight: 600, color: 'var(--dim)', textDecoration: 'none' }}>
-                  Mapa de calor de la página →
-                </a>
-              )}
-              {/* ⚠️ EL ID QUEDA COPIABLE Y DEJA DE DIBUJARSE. El link abre el panel de
-                  Clarity pero NO llega filtrado por esta persona: Clarity descarta los
-                  parámetros de filtro que no reconoce y muestra la lista entera, así que
-                  sin el id el botón prometía «lo que hizo ÉL» y entregaba «lo que hizo
-                  todo el mundo». Pegar el uuid crudo en la ficha de una PERSONA es ruido
-                  técnico que competía con el recorrido, así que ahora viaja en un botón:
-                  Clarity hashea lo que se pega y lo cruza contra sus datos, o sea que el
-                  id crudo sigue siendo exactamente lo que hay que darle. */}
-              {urlClarity && visitorId && <CopiarId visitorId={visitorId} />}
-            </div>
-          )}
-        </section>
-      )}
 
       {nombrando && (
         <NombrarVideosModal
@@ -372,34 +288,5 @@ export function ComportamientoCard({
         />
       )}
     </>
-  );
-}
-
-/**
- * El id del visitante, para pegarlo en el filtro de Clarity.
- *
- * El `title` dice dónde se pega: Filtros → Filtros personalizados → ID de usuario
- * personalizado. Va ahí y no en la pantalla porque es una instrucción de otra
- * herramienta, y un `title` no ocupa un píxel.
- *
- * ⚠️ Y CONFIRMA. Un botón de copiar que no dice nada es indistinguible de uno que
- * no hizo nada: el portapapeles no se ve.
- */
-function CopiarId({ visitorId }: { visitorId: string }) {
-  const [copiado, setCopiado] = useState(false);
-  useEffect(() => {
-    if (!copiado) return;
-    const t = setTimeout(() => setCopiado(false), 1600);
-    return () => clearTimeout(t);
-  }, [copiado]);
-  return (
-    <button type="button"
-      title="Copia su ID. En Clarity: Filtros → Filtros personalizados → ID de usuario personalizado"
-      onClick={() => { void navigator.clipboard?.writeText(visitorId).then(() => setCopiado(true)).catch(() => {}); }}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 9, cursor: 'pointer',
-        border: '1px solid var(--border)', background: 'var(--surface)', fontFamily: 'inherit',
-        fontSize: 12, fontWeight: 600, color: copiado ? 'var(--good)' : 'var(--faint)' }}>
-      {copiado ? 'Copiado' : 'Copiar su ID'}
-    </button>
   );
 }

@@ -371,7 +371,6 @@ ver_proyecto_plan
 ver_publico_conjunto_meta
 ver_puente_flow
 ver_rendimiento_anuncios
-ver_resumen_clarity
 ver_revenue_mensual
 ver_revenue_periodo
 ver_salud_cuenta_meta

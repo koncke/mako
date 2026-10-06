@@ -42,10 +42,6 @@
       "schedule": "50 13 * * *"
     },
     {
-      "path": "/api/cron/clarity-vigilante",
-      "schedule": "55 13 * * *"
-    },
-    {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
     },

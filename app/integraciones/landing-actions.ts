@@ -15,6 +15,7 @@ import { requireRolWs } from '@/lib/tab-access';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { contarEventosDePrueba } from '@/lib/landing-token';
+import { configDeReplay } from '@/lib/replay-ingesta';
 import { OCULTAS_KEY, PAGINAS_KEY, conOculta, conPagina, parsearOcultas, parsearPaginas, sinPagina } from '@/lib/landing-paginas';
 import { VIDEOS_KEY, conVideo, parsearVideos, sinVideo, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos, conOculto, sinOculto } from '@/lib/landing-videos';
 
@@ -137,10 +138,9 @@ const CERRADAS_KEY = 'landing.pruebas_cerradas';
  * Se terminó una prueba: avisar que quedó registrada y que la grabación viene.
  *
  * ⚠️ ESTE MENSAJE VA AL TERMINAR, no cuando la grabación está lista — de eso se
- * ocupa el cron `prueba-grabacion`, que manda el link 45 minutos después. Este
+ * ocupa el cron `prueba-grabacion`, que manda el link cuando se terminó de guardar. Este
  * cierra el bucle EN EL MOMENTO: quien termina de probar cierra la ventana y se
- * queda sin ninguna señal de que lo que hizo quedó registrado, y 45 minutos de
- * silencio con la pantalla ya cerrada se parecen mucho a que no pasó nada.
+ * queda sin ninguna señal de que lo que hizo quedó registrado.
  *
  * ⚠️ IDEMPOTENTE POR MARCADOR, y hace falta: la prueba puede terminar por dos
  * caminos a la vez —cerrar la ventana y apretar «Terminar»— y los dos llaman acá.
@@ -165,10 +165,17 @@ export async function finPruebaAction(prueba: string): Promise<{ ok: boolean }> 
     if (!eventos) return { ok: true };
 
     const ws = (await getWorkspaceActual()) ?? undefined;
+    // ⚠️ SE PROMETE EL AVISO DE LA GRABACIÓN SÓLO SI VA A LLEGAR. Hasta el
+    // 06/10/2026 este mensaje prometía «el link de Clarity» a TODO negocio, lo
+    // tuviera conectado o no — y el cron que lo mandaba cortaba sin Clarity, así
+    // que a los demás no les llegaba nunca. Ahora la grabación es propia y el aviso
+    // lo manda `prueba-grabacion` sólo con la grabación prendida: se pregunta lo
+    // mismo que él antes de prometerlo.
+    const grabando = (await configDeReplay().catch(() => null))?.activo === true;
     await emitirDelCatalogo('prueba-recibida', {
       ws,
       // El texto lo arma el CÓDIGO: acá viaja un conteo exacto y un dominio.
-      texto: `Listo, recibí tu prueba del Pixel${pagina ? ` en *${pagina}*` : ''}: ${eventos} ${eventos === 1 ? 'evento' : 'eventos'}. La grabación de Clarity se está procesando y te mando el link apenas esté (suele tardar entre 30 minutos y 2 horas).`,
+      texto: `Listo, recibí tu prueba del Pixel${pagina ? ` en *${pagina}*` : ''}: ${eventos} ${eventos === 1 ? 'evento' : 'eventos'}.${grabando ? ' Te aviso cuando la grabación esté lista.' : ''}`,
     });
     return { ok: true };
   } catch {

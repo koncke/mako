@@ -17,10 +17,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useSearchParams } from 'next/navigation';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
-import { snippetDeLandingAction } from './landing-config-actions';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
-import { Button } from '@/app/_ui';
+import { guardarGrabacionAction } from './landing-config-actions';
+import type { LandingConfig } from '@/lib/landing-config';
+import type { ProductoAsignable } from '@/lib/landing-funnel';
+import { Button, Switch } from '@/app/_ui';
 import { MakoStar } from '../_components/MakoBrand';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
@@ -154,7 +156,7 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteToken, appUrl }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, landingVieja = false, cuotas = [], agenteToken, appUrl, pixel }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
@@ -169,6 +171,12 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   agenteToken?: string | null;
   /** URL absoluta de la app, para embeberla en la skill que se copia. */
   appUrl?: string;
+  /**
+   * Lo que el Pixel necesita para pintar sus pasos 1 y 2 en el PRIMER frame,
+   * resuelto en el server (`page.tsx`). Antes lo pedían los pasos con server
+   * actions, en serie. `null` en cualquiera de los dos = no se pudo leer.
+   */
+  pixel?: DatosPixel;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -477,6 +485,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
+          pixel={pixel}
           agenteToken={agenteToken ?? null}
           appUrl={appUrl ?? ''}
           onClose={() => setModal(null)}
@@ -906,72 +915,13 @@ function Paso({ n, titulo, sep = true, children }: { n: number; titulo?: string;
   );
 }
 
-/**
- * El hueco de abajo del paso 1, que son DOS huecos distintos.
- *
- * ⚠️ NO ES DECORACIÓN. Sin página elegida, todo lo que va debajo del paso 1 no
- * existe: la pantalla queda con un título, un desplegable y nada más, que es
- * exactamente como se ve algo roto. El dueño lo reportó así — «pareciera un bug».
- *
- * ⚠️ Y SON DOS SITUACIONES QUE NO SE PUEDEN PINTAR IGUAL, que es lo que falló en
- * el primer intento: se puso un esqueleto solo para el rato en que se consulta la
- * lista, y ese rato dura milisegundos y no lo ve nadie. El hueco que se ve de
- * verdad es el otro — el desplegable esperando que ELIJAS—, y ahí no hay nada
- * cargando: un spinner giraría para siempre, prometiendo algo que no va a llegar
- * solo.
- *
- * Por eso la misma pieza con dos rótulos: mientras carga, el esqueleto pelado;
- * cuando la pelota está del lado de la persona, el esqueleto Y la frase que dice
- * qué falta hacer.
- *
- * Tiene la MISMA anatomía que `Paso` —el número, el aire, el ancho— para que
- * cuando llegue el contenido no salte nada de lugar.
- */
-function PasosCargando() {
-  // ⚠️ El relleno va con `--border`, NO con `--surface-2`. La primera versión usó
-  // el gris de superficie y sobre el fondo blanco del modal las barras quedaban
-  // casi invisibles: el esqueleto estaba puesto, se renderizaba, y aun así la
-  // pantalla se veía vacía. Un indicador que no se distingue del fondo no es un
-  // indicador.
-  const barra = (w: string, h = 13): CSSProperties => ({
-    width: w, height: h, borderRadius: 6, background: 'var(--border)',
-    animation: 'mkPulso 1.2s ease-in-out infinite',
-  });
-  return (
-    <div>
-      {/* Que se lea QUÉ está pasando. Un esqueleto solo dice «algo viene»; con la
-          frase, además dice qué — y es la diferencia entre esperar y pensar que
-          se rompió. */}
-      <p style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span aria-hidden style={{
-          width: 13, height: 13, borderRadius: 999, flex: 'none',
-          border: '2px solid var(--border-strong)', borderTopColor: 'var(--primary)',
-          animation: 'mkGirar .7s linear infinite',
-        }} />
-        Buscando tus páginas…
-      </p>
-      {[2, 3].map((n) => (
-        <section key={n} aria-hidden style={{ paddingTop: 26, marginTop: 30, borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <span style={{
-              flex: 'none', width: 26, height: 26, borderRadius: 999,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
-              fontSize: 12.5, fontWeight: 700, color: 'var(--faint)',
-            }}>{n}</span>
-            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={barra('42%', 15)} />
-              <div style={barra('100%', n === 3 ? 46 : 30)} />
-            </div>
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
+/** Las páginas y los productos del Pixel, tal como los resuelve el server. */
+type DatosPixel = { landings: LandingConfig[] | null; productos: ProductoAsignable[] | null; grabando: boolean | null };
 
-function CodigoLanding({ snippet, elegida, onElegir }: {
+
+function CodigoLanding({ snippet, pixel, elegida, onElegir }: {
   snippet: string | null;
+  pixel?: DatosPixel;
   /** La landing elegida vive en el MODAL, no acá: el paso 4 se renderiza fuera
    *  de este componente y necesita la misma respuesta. */
   elegida: string | null; onElegir: (u: string | null) => void;
@@ -983,26 +933,32 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
   const [abierto, setAbierto] = useState(false);
   const [verificando, setVerificando] = useState(false);
   const [estado, setEstado] = useState<{ ok: boolean; text: string } | null>(null);
-  // ⚠️ EL CÓDIGO ES DE LA PÁGINA, NO DEL WORKSPACE. El que baja del server es el
-  // genérico —se arma antes de que exista una elección—; en cuanto hay una, se
-  // pide el suyo, que puede traer OTRO proyecto de Clarity. Con dos landings, el
-  // código genérico manda las grabaciones de las dos al mismo proyecto y quedan
-  // mezcladas en una lista donde ya no se distingue cuál es cuál.
-  const [snippetLanding, setSnippetLanding] = useState<string | null>(null);
-  // Mientras el selector resuelve cuál es la página, lo de abajo todavía no puede
-  // existir: qué código se copia y qué se chequea dependen de esa respuesta.
-  const [eligiendo, setEligiendo] = useState(true);
-  useEffect(() => {
-    if (!elegida) { setSnippetLanding(null); return; }
-    let vivo = true;
-    snippetDeLandingAction(elegida)
-      .then((c) => { if (vivo) setSnippetLanding(c); })
-      // Si falla, se queda el genérico: es el mismo token y el mismo tracking —
-      // lo único que puede faltar es el bloque de Clarity de ESA página.
-      .catch(() => { if (vivo) setSnippetLanding(null); });
-    return () => { vivo = false; };
-  }, [elegida]);
-  const codigo = snippetLanding ?? snippet;
+  // ⚠️ LAS PÁGINAS VIVEN ACÁ, y no en cada paso. Las lee el paso 1 (para elegir) y
+  // el paso 2 (para saber qué productos tiene la elegida), y las escriben los dos.
+  // Con una copia en cada uno, guardar en el paso 2 dejaba al 1 con la vieja —y
+  // eran además DOS lecturas de lo mismo en la cola serial de las server actions.
+  // Arranca con lo que resolvió el server: el primer frame ya trae todo.
+  const [landings, setLandings] = useState<LandingConfig[]>(pixel?.landings ?? []);
+  // La grabación de las visitas, del NEGOCIO (no de la página). Arranca con lo que
+  // leyó el server; `null` = no se pudo leer, y entonces no se dibuja un interruptor
+  // que afirme «apagada».
+  const [grabando, setGrabando] = useState<boolean | null>(pixel?.grabando ?? null);
+  const [guardandoGrabacion, setGuardandoGrabacion] = useState(false);
+  const [errGrabacion, setErrGrabacion] = useState<string | null>(null);
+  const cambiarGrabacion = async (v: boolean) => {
+    if (guardandoGrabacion) return;
+    setGuardandoGrabacion(true); setErrGrabacion(null);
+    const antes = grabando;
+    setGrabando(v);   // optimista: el interruptor responde al toque
+    const r = await guardarGrabacionAction(v).catch(() => null);
+    setGuardandoGrabacion(false);
+    if (!r || !r.ok) { setGrabando(antes); setErrGrabacion(r && !r.ok ? r.error : 'No se pudo guardar.'); return; }
+    setGrabando(r.activo);
+  };
+  // ⚠️ EL CÓDIGO ES UNO SOLO PARA TODAS LAS PÁGINAS. Hasta el 06/10/2026 se pedía
+  // uno por página porque cada una podía llevar su propio proyecto de Clarity
+  // adentro; sin Clarity, es el que resuelve el server y no hay nada que pedir.
+  const codigo = snippet;
   const tokens = useMemo(() => (codigo ? resaltar(codigo) : []), [codigo]);
 
   // "Verificar" = el "Probar conexión" de la landing. No hay API ajena contra la
@@ -1055,6 +1011,21 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
         Instala el Pixel de MaKo en tu página
       </h4>
 
+      {/* ⚠️ LA GRABACIÓN DE LAS VISITAS VA ARRIBA DE LOS PASOS, no adentro de uno: es
+          del NEGOCIO y no de la página que se elige en el paso 1, así que puesta en un
+          paso se leería como «grabar esta página». Reemplaza a «conectar Clarity»
+          (06/10/2026): sin este interruptor ningún negocio podía tener grabaciones.
+          Sin rótulo de ayuda, por la regla del texto corto: dónde se miran lo enseña
+          la prueba, que tiene el botón «Ver la grabación». */}
+      {grabando === null ? (
+        <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>No pude leer si la grabación está prendida.</div>
+      ) : (
+        <div>
+          <Switch checked={grabando} onChange={(v) => { void cambiarGrabacion(v); }} disabled={guardandoGrabacion} label="Grabar las visitas" />
+          {errGrabacion && <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--bad)' }}>{errGrabacion}</div>}
+        </div>
+      )}
+
       {/* ⚠️ CUATRO PASOS, SEPARADOS DE VERDAD. Antes eran tres bloques uno abajo del
           otro sin nada que dijera que eran pasos distintos, y el primero —que es
           OPCIONAL— se leía como parte del segundo. Cada uno lleva su número, una
@@ -1062,13 +1033,12 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
           terminó. El número no es decoración: es lo que dice que hay un orden y
           que este es el que corresponde. */}
       {/* ⚠️ ELEGIR LA LANDING ES EL PASO 1, y no es un reordenamiento cosmético:
-          gobierna todo lo que viene después. El código que se copia, si Clarity
-          está conectado, si el Pixel está al día y qué pasos tiene la prueba son
-          DISTINTOS en cada página. Mientras se elegía al final, la pantalla
+          gobierna todo lo que viene después. Qué productos vende, si el Pixel
+          está al día y qué pasos tiene la prueba son DISTINTOS en cada página. Mientras se elegía al final, la pantalla
           afirmaba cosas sobre «tu página» sin saber cuál — y con dos publicadas,
           la mitad de esas afirmaciones eran falsas. */}
       <Paso n={1} titulo="¿Cuál de tus páginas?" sep={false}>
-        <SelectorLanding elegida={elegida} onElegir={onElegir} onCargando={setEligiendo} />
+        <SelectorLanding elegida={elegida} onElegir={onElegir} landings={landings} onLandings={setLandings} />
       </Paso>
 
       {/* Los pasos que dependen de la elección no se dibujan hasta que hay una.
@@ -1076,18 +1046,17 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
           para copiar algo que puede estar mal.
 
           ⚠️ Y van con `key={elegida}`: al cambiar de landing los pasos se MONTAN
-          DE NUEVO en vez de conservar su estado. Sin eso quedaban a la vista las
-          claves de Clarity de la anterior —el formulario recuerda lo que tenía—
-          y la persona las leía como si fueran de la página que acaba de elegir.
+          DE NUEVO en vez de conservar su estado. Sin eso quedaba a la vista la
+          configuración de la anterior —un formulario recuerda lo que tenía— y la
+          persona la leía como si fuera de la página que acaba de elegir.
           Un loader habría tapado el síntoma; lo que hacía falta es tirar el
           estado viejo, que además es instantáneo. */}
       {/* Mientras no haya página elegida, el espacio se sostiene igual. Con
           elección, el contenido real entra derecho y no se ve un parpadeo. */}
-      {/* ⚠️ SOLO MIENTRAS SE RESUELVE, nunca cuando no hay ninguna página cargada:
-          ahí la pelota está del lado de la persona —tiene que completar el paso
-          1— y un indicador de carga sobre algo que no está cargando es una
-          promesa falsa que además gira para siempre. */}
-      {!elegida && eligiendo && <PasosCargando />}
+      {/* ⚠️ ACÁ HABÍA UN ESQUELETO («Buscando tus páginas…») mientras el paso 1
+          resolvía la lista con una server action. Desde el 06/10/2026 la lista
+          baja resuelta del server, así que no hay nada que esperar: un indicador
+          de carga sobre algo que no está cargando es una promesa falsa. */}
 
       {elegida && (
       <div key={elegida}>
@@ -1099,7 +1068,8 @@ function CodigoLanding({ snippet, elegida, onElegir }: {
           detalle opcional. El código que se copia no depende de esto, así que
           mover el paso no puede dejar a nadie con un snippet viejo. */}
       <Paso n={2} titulo="¿Qué producto vende?">
-        <AsignarProducto elegida={elegida} />
+        <AsignarProducto elegida={elegida} productos={pixel?.productos ?? null}
+          landings={landings} onLandings={setLandings} />
       </Paso>
 
       <Paso n={3} titulo="Copia el código y pégalo en tu página">
@@ -1269,13 +1239,13 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
+function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota, snippetLanding, pixel, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad';
   /** Reemplaza la palabra del chip cuando el estado tiene un nombre propio ("Falta permiso"). */
   chipWord?: string;
   /** Permiso real de la agenda de Google (lo pide el board una vez, ver arriba). */
   gcal: GoogleCalendarStatus | null;
-  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+  health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; pixel?: DatosPixel; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   // El workspace de la pestaña, para que el OAuth de Google sepa a QUIÉN le está
   // conectando la agenda: es un redirect de página entera y el `?ws=` no viaja solo.
@@ -1286,7 +1256,14 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
   const gcalRechazada = !!gcal?.puede && !gcal.conectado;
   const [desconectando, setDesconectando] = useState(false);
   // La landing que gobierna los pasos 2, 3 y 4 del Pixel.
-  const [landingModal, setLandingModal] = useState<string | null>(null);
+  //
+  // ⚠️ CON UNA SOLA PÁGINA, ARRANCA ELEGIDA. El paso 1 la elegía solo en un efecto,
+  // o sea DESPUÉS del primer pintado: el modal abría con los pasos 2 a 4 ausentes y
+  // aparecían un instante después. Como las páginas ya bajan resueltas del server,
+  // se puede saber en el primer render — y entonces el modal se pinta entero de una.
+  const [landingModal, setLandingModal] = useState<string | null>(
+    pixel?.landings?.length === 1 ? pixel.landings[0].url : null,
+  );
   const base = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
     : { bg: 'var(--bad-bg)', fg: 'var(--bad)', word: 'Requiere atención' };
@@ -1449,7 +1426,7 @@ function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage, cuota
             <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>
-              <CodigoLanding snippet={snippetLanding ?? null}
+              <CodigoLanding snippet={snippetLanding ?? null} pixel={pixel}
                 elegida={landingModal} onElegir={setLandingModal} />
               {/* ⚠️ EL PASO 4 NO EXISTE HASTA QUE HAY LANDING ELEGIDA. Mientras
                   el estado vivía adentro de CodigoLanding —y el paso 4 se

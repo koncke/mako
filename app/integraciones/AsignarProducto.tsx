@@ -7,124 +7,105 @@
 // configuración del pixel asignar PRODUCTO, ponlo como segundo paso… Y no solo se
 // debería poder seleccionar 1 producto, si quiero puedo seleccionar más de 1.»
 //
-// ⚠️ ANTES VIVÍA ADENTRO DEL PASO 1, como un desplegable debajo del selector de
-// página, y la razón escrita era buena: «es una propiedad de esa página igual que
-// su proyecto de Clarity». Lo que ese razonamiento no mide es la JERARQUÍA — a
-// qué CRM entran los leads no es un detalle de la página, es la decisión que
-// define para qué sirve el Pixel en ella. Colgado de un desplegable al pie del
-// paso 1, se leía como opcional; y cuando el workspace tenía un solo producto no
-// se dibujaba nada, así que nadie sabía que la pregunta existía.
+// Y la segunda vuelta, el mismo día, con cuatro cosas que esta pantalla hace por
+// eso y que no se ven leyendo el código:
 //
-// ⚠️ Y EL PASO SE DIBUJA SIEMPRE, también con un solo producto. Un paso numerado
-// que no muestra nada deja un hueco en la numeración, que se lee como una pantalla
-// rota; y con un producto solo, lo que hay que decir no es nada: es DÓNDE se
-// crean los demás. Es la regla de la casa sobre los estados vacíos — una frase,
-// qué falta y dónde se arregla.
+// 1. «Tardó mucho en encontrar mis productos… si son 2 literalmente.» Pedía sus
+//    datos con server actions al montarse, y Next despacha las actions DE A UNA:
+//    eran tres viajes en serie antes de la primera casilla. Ahora los productos y
+//    las páginas bajan por props desde el server (`app/integraciones/page.tsx`) y
+//    este paso se pinta en el primer frame. La única action que queda es GUARDAR.
+//
+// 2. «Hazlo también dentro de un desplegable.» Es el desplegable de la casa con la
+//    elección múltiple (`varios` en app/components/Dropdown.tsx), no uno propio.
+//
+// 3. «Elimina el texto…» Se fue el párrafo que explicaba qué hace marcar varios.
+//    El porqué vive acá: la pantalla dice qué está elegido y nada más.
+//
+// 4. «Sí o sí se debe marcar 1. Y si el workspace tiene solo 1 producto, que ya
+//    aparezca marcado.» Por eso «sin marcar ninguno» dejó de existir como estado:
+//    sin nada guardado se MUESTRA marcado el del negocio —que es exactamente a
+//    dónde van hoy esos leads (`funnelsDeLanding` → `[null]`)—, y el último que
+//    queda no se puede desmarcar. Es un CÁLCULO y no una escritura: abrir la
+//    pantalla no guarda una decisión que nadie tomó.
+// =============================================================================
 
-import { useEffect, useState } from 'react';
-import Link from '@/app/_ui/Link';
-import { Checkbox } from '@/app/_ui';
+import { useState } from 'react';
+import { Select } from '@/app/_ui';
 import { mismaPagina } from '@/lib/landing-paginas';
 import type { LandingConfig } from '@/lib/landing-config';
 import type { ProductoAsignable } from '@/lib/landing-funnel';
-import { getLandingsAction, getProductosAction, guardarLandingAction } from './landing-config-actions';
+import { alternarValor } from '@/app/components/dropdown-varios';
+import { guardarLandingAction } from './landing-config-actions';
 
-export function AsignarProducto({ elegida }: { elegida: string | null }) {
-  const [productos, setProductos] = useState<ProductoAsignable[]>([]);
-  const [landings, setLandings] = useState<LandingConfig[]>([]);
-  const [cargando, setCargando] = useState(true);
+export function AsignarProducto({ elegida, productos, landings, onLandings }: {
+  elegida: string | null;
+  /** Los productos del workspace, resueltos en el server. `null` = no se pudieron leer. */
+  productos: ProductoAsignable[] | null;
+  /** Las landings con su configuración. Es el MISMO estado que usa el paso 1. */
+  landings: LandingConfig[];
+  onLandings: (l: LandingConfig[]) => void;
+}) {
   const [ocupado, setOcupado] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    let vivo = true;
-    void Promise.all([getProductosAction().catch(() => []), getLandingsAction().catch(() => [])])
-      .then(([p, l]) => { if (vivo) { setProductos(p); setLandings(l); } })
-      .finally(() => { if (vivo) setCargando(false); });
-    return () => { vivo = false; };
-  }, []);
+  // ⚠️ SIN PRODUCTOS NO ES «NO TENÉS»: es que no se pudo leer. Un workspace siempre
+  // tiene su embudo del negocio, así que el server baja `null` cuando la lista viene
+  // vacía, y dibujar acá una casilla marcada sobre nada sería inventar el dato.
+  if (!productos) {
+    return <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>No pude leer tus productos. Recarga la página.</div>;
+  }
 
   const cfg = landings.find((l) => mismaPagina(l.url, elegida)) ?? null;
-  const elegidos = cfg?.funnelIds ?? [];
+  const guardados = cfg?.funnelIds ?? [];
+  const delNegocio = productos.find((p) => p.esDefault) ?? productos[0];
+
+  // Lo que se MUESTRA marcado. Sin nada guardado es el del negocio, porque ahí es
+  // donde entran hoy esos leads: mostrarlo vacío afirmaría que no van a ningún lado.
+  const marcados = guardados.length ? guardados : [delNegocio.id];
 
   // ⚠️ EL VALOR GUARDADO ENTRA A LA LISTA AUNQUE EL EMBUDO YA NO SE PUEDA ELEGIR.
-  // Un producto archivado no se ofrece (`productosAsignables` filtra por activo),
-  // y si no se dibujara, su casilla no existiría: la persona no vería que está
-  // asignado y el primer guardado de cualquier otra casilla lo borraría sin que
-  // nadie lo toque. Se muestra marcado y diciendo qué le pasa.
-  const huerfanos = elegidos.filter((id) => !productos.some((p) => p.id === id));
+  // Un producto archivado no se ofrece, y si no se dibujara su renglón, el primer
+  // guardado de cualquier otro lo borraría sin que nadie lo toque. Se muestra
+  // marcado y diciendo qué le pasa, y se puede desmarcar.
+  const huerfanos = guardados.filter((id) => !productos.some((p) => p.id === id));
 
-  const guardar = async (ids: number[]) => {
-    if (!elegida) return;
+  const opciones = [
+    ...productos.map((p) => ({ value: String(p.id), label: p.nombre })),
+    ...huerfanos.map((id) => ({ value: String(id), label: 'Producto archivado', sub: 'Sus leads entran al del negocio' })),
+  ];
+
+  const alternar = async (v: string) => {
+    // ⚠️ El menú NO se cierra al tocar (es elección múltiple), así que se puede
+    // tocar otro renglón mientras el primero se guarda. Sin esta guarda salen dos
+    // guardados con el conjunto viejo y el segundo pisa al primero.
+    if (!elegida || ocupado) return;
+    // La MISMA regla del mínimo que usa el desplegable para no dejar desmarcar el
+    // último: con una acá y otra allá, la primera vez que difieran se guarda un
+    // conjunto que el menú no deja ver.
+    const ids = alternarValor(marcados.map(String), v, 1).map(Number);
+    if (ids.length === marcados.length && ids.every((x, i) => x === marcados[i])) return;
     setOcupado(true); setErr(null);
-    // La lista VACÍA es lo que DESASIGNA (ausente sería «no los toques», ver
-    // `conLanding`). Por eso se manda siempre la lista entera y no un delta.
+    // Se manda la lista ENTERA: es lo que hace que la vacía desasigne (ausente
+    // sería «no los toques», ver `conLanding`) — aunque desde acá nunca se manda
+    // vacía, por la regla del mínimo.
     const r = await guardarLandingAction(elegida, { funnelIds: ids });
     setOcupado(false);
     if (!r.ok) { setErr(r.error); return; }
-    setLandings(r.landings);
+    onLandings(r.landings);
   };
-
-  const alternar = (id: number, marcado: boolean) => {
-    const ids = marcado ? [...elegidos, id] : elegidos.filter((x) => x !== id);
-    void guardar(ids);
-  };
-
-  if (cargando) {
-    return <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Buscando tus productos…</div>;
-  }
-
-  // Un solo producto (o ninguno): no hay nada que elegir y sí algo que decir.
-  if (productos.filter((p) => !p.esDefault).length === 0 && !huerfanos.length) {
-    const unico = productos.find((p) => p.esDefault) ?? productos[0] ?? null;
-    return (
-      <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, maxWidth: '64ch' }}>
-        {unico
-          ? <>Sus leads entran a <strong style={{ color: 'var(--ink)' }}>{unico.nombre}</strong>, que es el único producto que tienes.</>
-          : <>Sus leads entran al CRM de tu negocio.</>}
-        {' '}Si vendes más de uno, <Link href="/crm" style={{ color: 'var(--primary)', fontWeight: 600 }}>créalos en tu CRM</Link> y vuelve aquí a marcarlos.
-      </div>
-    );
-  }
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 11, lineHeight: 1.55, maxWidth: '64ch' }}>
-        Los leads de esta página entran al CRM de los productos que marques. Si marcas varios, la misma
-        persona aparece en el tablero de cada uno.
-      </p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {productos.map((pr) => (
-          <Checkbox
-            key={pr.id}
-            checked={elegidos.includes(pr.id)}
-            onChange={(v) => alternar(pr.id, v)}
-            disabled={ocupado}
-            label={pr.nombre}
-            hint={pr.esDefault ? 'El CRM de tu negocio' : undefined}
-          />
-        ))}
-        {huerfanos.map((id) => (
-          <Checkbox
-            key={id}
-            checked
-            onChange={(v) => alternar(id, v)}
-            disabled={ocupado}
-            label="Producto archivado"
-            hint="Sus leads entran al CRM de tu negocio. Destíldalo para sacarlo."
-          />
-        ))}
-      </div>
-
-      {/* Sin ninguna marcada no falta nada: se dice DÓNDE caen, que es la pregunta
-          que la persona tiene en la cabeza mirando las casillas vacías. */}
-      {elegidos.length === 0 && (
-        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>
-          Sin marcar ninguno, sus leads entran al CRM de tu negocio.
-        </div>
-      )}
-
+      <Select
+        ariaLabel="Productos de esta página"
+        options={opciones}
+        value=""
+        varios={marcados.map(String)}
+        minimo={1}
+        onChange={(v) => { void alternar(v); }}
+        disabled={ocupado}
+      />
       {err && <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--bad)' }}>{err}</div>}
     </div>
   );

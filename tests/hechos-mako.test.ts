@@ -18,11 +18,26 @@ const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'u
 const H = hechosMako('https://hola-mako.com');
 
 test('Los hechos desmienten explícitamente lo que MaKo había inventado', () => {
-  assert.match(H, /CLARITY[^.]*NO TIENE NADA QUE VER CON META/i,
-    'se perdió la corrección del caso real: Clarity no necesita el pixel de Meta');
+  // ⚠️ Desde el 06/10/2026 las grabaciones son de MaKo y no de Clarity, así que la
+  // corrección del caso real se dice sobre ellas: el modo de falla —«las
+  // grabaciones necesitan el pixel de Meta»— no dependía de qué herramienta grabara.
+  assert.match(H, /GRABACIONES[^.]*NO TIENEN NADA QUE VER CON META/i,
+    'se perdió la corrección del caso real: las grabaciones no necesitan el pixel de Meta');
   assert.match(H, /nunca lo digas/i, 'la corrección dejó de ser una prohibición explícita');
   // Y la contracara: qué SÍ pasa con el pixel de Meta, o MaKo se queda muda.
   assert.match(H, /Conversions API|CAPI/i, 'no dice que MaKo manda las conversiones desde el servidor');
+});
+
+// PROBADO ROMPIENDOLO: borrando el renglón «MAKO YA NO USA MICROSOFT CLARITY» de
+// lib/hechos-mako.ts, este test falla. Los clientes siguen preguntando por Clarity
+// —un cliente lo pidió por WhatsApp el mismo día del retiro— y sin el hecho, MaKo
+// los mandaría a conectarlo.
+test('MaKo sabe que ya no usa Clarity, y no manda a nadie a conectarlo', () => {
+  assert.match(H, /MAKO YA NO USA MICROSOFT CLARITY/, 'sin el hecho, MaKo manda a conectar una herramienta que ya no existe');
+  assert.match(H, /No le pidas que conecte Clarity/, 'la prohibición explícita se perdió');
+  // Y el link que le daba a los clientes para «conectar Clarity» no abría nada desde
+  // antes del retiro: la tarjeta estaba oculta. No puede volver.
+  assert.ok(!H.includes('abrir=clarity'), 'un link a una tarjeta que no existe');
 });
 
 test('La base del link la pone el CÓDIGO, no el modelo', () => {

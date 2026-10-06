@@ -29,8 +29,8 @@ test('⚠️ MIGRA el formato viejo sin perder nada', () => {
   assert.deepEqual(parsearConfig('["https://a.com/","https://b.com"]'),
     [{ url: 'https://a.com' }, { url: 'https://b.com' }]);
   // Y el formato nuevo, con su config propia.
-  assert.deepEqual(parsearConfig('[{"url":"https://a.com","clarityProjectId":"ABC123"}]'),
-    [{ url: 'https://a.com', clarityProjectId: 'abc123' }]);
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","funnelIds":[7]}]'),
+    [{ url: 'https://a.com', funnelIds: [7] }]);
   // Mezclados, que es como va a estar la base durante la transición.
   assert.equal(parsearConfig('["https://a.com",{"url":"https://b.com"}]').length, 2);
 });
@@ -48,32 +48,32 @@ test('la URL es la identidad: normalizada y sin repetir', () => {
   assert.equal(landingDe([], null), null);
 });
 
-test('cada landing lleva SU proyecto de Clarity', () => {
-  // ⚠️ Un proyecto de Clarity es de un sitio. Guardarlo por workspace hacía que
-  // la segunda landing escribiera en el proyecto de la primera, mezclando las
-  // grabaciones de dos negocios distintos en un mismo panel.
+test('cada landing lleva SUS productos', () => {
+  // La configuración es de la PÁGINA: asignarle productos a una no puede tocar la
+  // otra. (Hasta el 06/10/2026 este test usaba el proyecto de Clarity de cada
+  // página como ejemplo; Clarity salió del producto y la regla quedó.)
   let l: LandingConfig[] = [];
-  l = conLanding(l, 'https://a.com', { clarityProjectId: 'aaa111' }) ?? l;
+  l = conLanding(l, 'https://a.com', { funnelIds: [7] }) ?? l;
   l = conLanding(l, 'https://b.com') ?? l;
-  assert.equal(landingDe(l, 'https://a.com')?.clarityProjectId, 'aaa111');
-  assert.equal(landingDe(l, 'https://b.com')?.clarityProjectId, undefined);
-  // Conectar la segunda no toca la primera.
-  l = conLanding(l, 'https://b.com', { clarityProjectId: 'bbb222' }) ?? l;
-  assert.equal(landingDe(l, 'https://a.com')?.clarityProjectId, 'aaa111');
-  assert.equal(landingDe(l, 'https://b.com')?.clarityProjectId, 'bbb222');
+  assert.deepEqual(landingDe(l, 'https://a.com')?.funnelIds, [7]);
+  assert.equal(landingDe(l, 'https://b.com')?.funnelIds, undefined);
+  // Asignarle a la segunda no toca la primera.
+  l = conLanding(l, 'https://b.com', { funnelIds: [9] }) ?? l;
+  assert.deepEqual(landingDe(l, 'https://a.com')?.funnelIds, [7]);
+  assert.deepEqual(landingDe(l, 'https://b.com')?.funnelIds, [9]);
 });
 
-// ⚠️ LA MISMA REGLA QUE YA MORDIÓ CON `esVsl` EN LOS VIDEOS: `undefined` es «no
-// lo toques», no «borralo». Corregir la URL de una landing no puede
-// desconectarle Clarity, porque renombrar no contesta esa pregunta.
-test('corregir la URL NO desconecta Clarity', () => {
-  const antes = [{ url: 'https://a.com', clarityProjectId: 'aaa111' }];
-  const despues = conLanding(antes, 'https://nueva.com', {}, 'https://a.com');
-  assert.equal(despues?.[0].url, 'https://nueva.com');
-  assert.equal(despues?.[0].clarityProjectId, 'aaa111', 'renombrar no contesta «cuál es tu proyecto»');
-  // Y desconectar explícitamente sí se puede.
-  const sin = conLanding(antes, 'https://a.com', { clarityProjectId: '' });
-  assert.equal(sin?.[0].clarityProjectId, undefined);
+// PROBADO ROMPIENDOLO: reponiendo en `parsearConfig` la lectura de
+// `clarityProjectId`, este test falla (la fila vuelve con el campo).
+test('⚠️ una fila guardada con el proyecto de Clarity se lee igual, sin él', () => {
+  // Clarity salió del producto el 06/10/2026 y no se migró ninguna fila: las que
+  // todavía traen `clarityProjectId` se tienen que leer sanas —con su URL y sus
+  // productos— y el campo viejo se cae solo. Si la lectura tirara la fila entera
+  // por un campo que no conoce, el cliente se quedaría sin su página.
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","clarityProjectId":"aaa111","funnelIds":[7]}]'),
+    [{ url: 'https://a.com', funnelIds: [7] }]);
+  assert.deepEqual(parsearConfig('[{"url":"https://a.com","clarityProjectId":"aaa111"}]'),
+    [{ url: 'https://a.com' }]);
 });
 
 test('editar conserva la POSICIÓN', () => {
@@ -101,7 +101,7 @@ test('hay tope', () => {
 });
 
 test('lo que se guarda vuelve a leerse igual', () => {
-  const orig = conLanding(conLanding([], 'https://a.com', { clarityProjectId: 'aaa111' }) ?? [], 'https://b.com') ?? [];
+  const orig = conLanding(conLanding([], 'https://a.com', { funnelIds: [7, 9] }) ?? [], 'https://b.com') ?? [];
   assert.deepEqual(parsearConfig(JSON.stringify(orig)), orig);
 });
 
@@ -116,9 +116,16 @@ test('CABLEADO: la migración es PEREZOSA, nadie se queda sin sus páginas', () 
   // despliegue no deja la lista vacía, y la primera vez que se toque algo queda
   // migrado — sin un script que haya que acordarse de correr, que es como se
   // migran a medias las cosas.
+  // ⚠️ Desde el 06/10/2026 la migración vive en `lib/landing-config-leer.ts`, que es
+  // el lector que comparten el server de la pantalla y las actions que guardan.
+  const lector = leer('../lib/landing-config-leer.ts');
+  assert.ok(/parsearPaginas\(await getSetting\(PAGINAS_KEY\)\)/.test(lector), 'sin el respaldo al formato viejo, el despliegue vacía la lista');
+  // Y las dos puertas que lo usan siguen detrás del gate de la tab: el lector no
+  // lo lleva adentro a propósito, para no pagarlo dos veces en cada guardado.
   const acc = leer('../app/integraciones/landing-config-actions.ts');
-  assert.ok(/parsearPaginas\(await getSetting\(PAGINAS_KEY\)\)/.test(acc), 'sin el respaldo al formato viejo, el despliegue vacía la lista');
-  assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\)/.test(acc), 'las landings son config del cliente: van detrás del gate de la tab');
+  assert.ok(/requireRolWs\(\[\], \{ nav: 'integraciones' \}\);\s+return landingsDelWorkspace\(\);/.test(acc), 'las actions leen detrás del gate');
+  const page = leer('../app/integraciones/page.tsx');
+  assert.ok(/await requireRolWs\(\[\], \{ nav: 'integraciones' \}\);/.test(page), 'la pantalla también');
 });
 
 test('CABLEADO: el análisis viaja como ARRAY, no como Set', () => {
@@ -127,10 +134,6 @@ test('CABLEADO: el análisis viaja como ARRAY, no como Set', () => {
   // piezas vacía sin ningún error.
   const acc = leer('../app/integraciones/landing-config-actions.ts');
   assert.ok(/piezas: \[\.\.\.a\.piezas\]/.test(acc), 'el Set se pierde al cruzar al cliente');
-  // Y devuelve lo que la landing DECLARA y lo que MaKo tiene guardado, para poder
-  // compararlos: «esta página tiene el Clarity de otro proyecto» solo se puede
-  // decir teniendo los dos.
-  assert.ok(/clarityGuardado/.test(acc), 'sin el guardado no se puede detectar un id que no corresponde');
 });
 
 // =============================================================================
@@ -170,7 +173,7 @@ test('los productos son de la PÁGINA: una landing con productos y otra sin', ()
 });
 
 // PROBADO ROMPIENDOLO: cambiando el `idFila(...)` de `idsLimpios` por un cast
-// crudo, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+// crudo, este archivo pasa de **pass 23 / fail 0** a **pass 22 / fail 1** (medido de nuevo el 06/10/2026, con el archivo en 23 tests).
 test('⚠️ el id puede llegar como STRING (bigint), la basura no pasa y no hay repetidos', () => {
   // `funnels.id` es bigint y en este repo ya se midió que según el driver vuelve
   // como texto. Un `funnelIds: ["7"]` que se guarde tal cual haría que el `===`
@@ -191,7 +194,7 @@ test('⚠️ el id puede llegar como STRING (bigint), la basura no pasa y no hay
 });
 
 // PROBADO ROMPIENDOLO: borrando las dos líneas del `funnelId` de `idsDeFila`,
-// este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+// este archivo pasa de **pass 23 / fail 0** a **pass 22 / fail 1** (medido de nuevo el 06/10/2026, con el archivo en 23 tests).
 test('⚠️ se lee el formato de UN producto: lo guardado antes no se pierde', () => {
   // Medido contra producción el 06/10/2026: cuatro workspaces tienen
   // `landing.config` y ninguna de sus seis páginas trae producto asignado, así que
@@ -209,7 +212,7 @@ test('⚠️ se lee el formato de UN producto: lo guardado antes no se pierde', 
 });
 
 // PROBADO ROMPIENDOLO: cambiando `: base?.funnelIds ?? [];` por `: [];` en
-// `conLanding`, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+// `conLanding`, este archivo pasa de **pass 23 / fail 0** a **pass 22 / fail 1** (medido de nuevo el 06/10/2026, con el archivo en 23 tests).
 test('⚠️ corregir la URL NO desasigna los productos, y la lista vacía sí', () => {
   // Es la misma trampa que ya mordió con `clarityProjectId` y con `esVsl`:
   // `conLanding` reconstruye la fila campo por campo, así que un campo que el
@@ -219,11 +222,11 @@ test('⚠️ corregir la URL NO desasigna los productos, y la lista vacía sí',
   const renombrada = conLanding(base, 'https://a-nueva.com', {}, 'https://a.com');
   assert.deepEqual(renombrada, [{ url: 'https://a-nueva.com', funnelIds: [7] }, { url: 'https://b.com', funnelIds: [9] }]);
 
-  // Guardar OTRO campo tampoco los toca.
-  const conClarity = conLanding(base, 'https://a.com', { clarityProjectId: 'ABC' });
-  assert.deepEqual(funnelIdsDeLanding(conClarity ?? [], 'https://a.com'), [7]);
+  // Guardar sin nombrar los productos tampoco los toca.
+  const sinCambios = conLanding(base, 'https://a.com', {});
+  assert.deepEqual(funnelIdsDeLanding(sinCambios ?? [], 'https://a.com'), [7]);
   // …y no le toca los productos a la vecina.
-  assert.deepEqual(funnelIdsDeLanding(conClarity ?? [], 'https://b.com'), [9]);
+  assert.deepEqual(funnelIdsDeLanding(sinCambios ?? [], 'https://b.com'), [9]);
 
   // Lo único que desasigna es la lista vacía, y solo a ESA página.
   const sinProducto = conLanding(base, 'https://a.com', { funnelIds: [] });
@@ -236,8 +239,8 @@ test('⚠️ corregir la URL NO desasigna los productos, y la lista vacía sí',
   assert.deepEqual(funnelIdsDeLanding(dos ?? [], 'https://a.com'), [7, 9]);
 });
 
-// PROBADO ROMPIENDOLO: cambiando `return elegido.esDefault ? null : id;` por
-// `return id;`, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+// PROBADO ROMPIENDOLO: cambiando `const valor = elegido.esDefault ? null : id;` por
+// `const valor = id;` en lib/landing-funnel.ts, este archivo pasa de **pass 23 / fail 0** a **pass 22 / fail 1** (medido de nuevo el 06/10/2026, con el archivo en 23 tests).
 test('CABLEADO: el EMBUDO DEL NEGOCIO se escribe como null, nunca con su id', () => {
   // ⚠️ `listLeadsDeFunnel(null)` pide los leads del tablero por defecto con
   // `.is('funnel_id', null)`, así que un lead nacido con el ID del embudo por
@@ -253,12 +256,14 @@ test('CABLEADO: el EMBUDO DEL NEGOCIO se escribe como null, nunca con su id', ()
   assert.ok(/runWithWorkspace\(ws,/.test(lib), 'sin pinnear el ws, lee la config del inquilino del contexto');
   // La pantalla y la ruta leen el MISMO módulo: con dos lectores, la pantalla
   // puede ofrecer un producto al que el lead nunca llega.
-  const acc = leer('../app/integraciones/landing-config-actions.ts');
-  assert.ok(/from '@\/lib\/landing-funnel'/.test(acc), 'la pantalla ofrece lo que la ruta resuelve, no su propia lista');
+  // (Desde el 06/10/2026 quien ofrece la lista es el server de la pantalla, no
+  // una action: los productos bajan por props.)
+  const page = leer('../app/integraciones/page.tsx');
+  assert.ok(/from '@\/lib\/landing-funnel'/.test(page), 'la pantalla ofrece lo que la ruta resuelve, no su propia lista');
 });
 
-// PROBADO ROMPIENDOLO: cambiando los cuatro `return [null]` de `funnelsDeLanding`
-// por `return []`, este archivo pasa de **pass 19 / fail 0** a **pass 18 / fail 1**.
+// PROBADO ROMPIENDOLO: cambiando `return out.length ? out : [null];` por
+// `return out;` en `funnelsDeLanding`, este archivo pasa de **pass 23 / fail 0** a **pass 22 / fail 1** (medido de nuevo el 06/10/2026, con el archivo en 23 tests).
 test('⚠️ CABLEADO: la lista de embudos NUNCA vuelve vacía', () => {
   // Es la mitad del contrato que no se ve en el tipo: quien llama crea UNA FICHA
   // POR ELEMENTO, así que una lista vacía haría que un opt-in no cree NINGÚN lead
@@ -275,36 +280,103 @@ test('⚠️ CABLEADO: la lista de embudos NUNCA vuelve vacía', () => {
   assert.ok(/if \(!out\.includes\(valor\)\) out\.push\(valor\);/.test(lib), 'dos veces el mismo embudo son dos fichas iguales');
 });
 
-// PROBADO ROMPIENDOLO: cambiando `funnelIds: ids` por `funnelIds: []` en
-// AsignarProducto.tsx, este archivo pasa de **pass 18 / fail 0** a
-// **pass 17 / fail 1**.
-test('CABLEADO: los productos se asignan en el PASO 2, y se puede marcar más de uno', () => {
-  // Pedido de Martín el 06/10/2026: «tiene que ser otro paso en la configuración
-  // del pixel asignar PRODUCTO, ponlo como segundo paso… no solo se debería poder
-  // seleccionar 1 producto».
-  const paso = leer('../app/integraciones/AsignarProducto.tsx');
-  assert.ok(/getProductosAction\(\)/.test(paso), 'el paso tiene que pedir los productos');
-  assert.ok(/<Checkbox/.test(paso), 'más de uno se marca con casillas, no con un desplegable');
-  assert.ok(/funnelIds: ids/.test(paso), 'y guarda la lista ENTERA: es lo que permite que la vacía desasigne');
-  // ⚠️ El valor guardado se dibuja aunque el embudo ya no se pueda elegir: si no
-  // se dibujara, su casilla no existiría y el primer guardado de cualquier otra
-  // lo borraría sin que nadie lo toque.
-  assert.ok(/huerfanos/.test(paso), 'un producto archivado no puede borrarse solo al marcar otro');
-  // ⚠️ Y el paso se dibuja SIEMPRE, también con un solo producto: un paso numerado
-  // que no muestra nada deja un hueco en la numeración, que se lee como una
-  // pantalla rota. Con uno solo se dice dónde se crean los demás.
-  assert.ok(/créalos en tu CRM/.test(paso), 'con un solo producto hay que decir dónde se crean los otros');
+// =============================================================================
+// El PASO 2, segunda vuelta (06/10/2026)
+// =============================================================================
+// Martín, textual: «El paso de los productos tardó mucho en encontrar mis
+// productos... No entiendo porque si son 2 literalmente. Y hazlo también dentro de
+// un desplegable. Y elimina el texto de "Los leads de esta página entran al CRM…".
+// Y no entiendo lo de "Sin marcar ninguno…", si o si se debe marcar 1. Y en todo
+// caso si el workspace tiene solo 1 producto, que ya aparezca marcado.»
+//
+// ⚠️ UN TEST POR AFIRMACIÓN, no uno que junte las cinco: un guard que mira todo
+// junto dice que algo se rompió y no cuál.
 
-  // Y está montado como el paso 2, con los demás renumerados.
+// PROBADO ROMPIENDOLO: cambiando `funnelIds: ids` por `funnelIds: []` en
+// AsignarProducto.tsx, este archivo pasa de **pass 23 / fail 0** a
+// **pass 22 / fail 1**.
+test('CABLEADO: el paso 2 es el desplegable de la casa, eligiendo VARIOS', () => {
+  const paso = sinComentarios(leer('../app/integraciones/AsignarProducto.tsx'));
+  // El desplegable de la casa con la elección múltiple, no uno propio ni casillas
+  // sueltas: «hazlo también dentro de un desplegable».
+  assert.ok(/<Select/.test(paso), 'el paso es un desplegable');
+  assert.ok(/varios=\{marcados\.map\(String\)\}/.test(paso), 'que elige VARIOS, con lo que se muestra marcado');
+  assert.ok(!/<Checkbox/.test(paso), 'sin casillas sueltas fuera del desplegable');
+  // Guarda la lista ENTERA: es lo que permite que la vacía desasigne.
+  assert.ok(/funnelIds: ids/.test(paso), 'guarda la lista entera');
+  // ⚠️ El valor guardado se dibuja aunque el embudo ya no se pueda elegir: si no,
+  // el primer guardado de cualquier otro lo borraría sin que nadie lo toque.
+  assert.ok(/huerfanos/.test(paso), 'un producto archivado no puede borrarse solo al marcar otro');
+});
+
+// PROBADO ROMPIENDOLO: cambiando `minimo={1}` por `minimo={0}`, este archivo pasa
+// de **pass 23 / fail 0** a **pass 22 / fail 1**. Y cambiando
+// `guardados.length ? guardados : [delNegocio.id]` por `guardados`, lo mismo.
+test('⚠️ CABLEADO: SIEMPRE hay uno marcado — el del negocio cuando no hay nada guardado', () => {
+  // «si o si se debe marcar 1… si el workspace tiene solo 1 producto, que ya
+  // aparezca marcado». Sin nada guardado, los leads van al CRM del negocio
+  // (`funnelsDeLanding` → `[null]`), así que eso es lo que se MUESTRA marcado. Es
+  // un cálculo, no una escritura: abrir la pantalla no guarda nada.
+  const paso = sinComentarios(leer('../app/integraciones/AsignarProducto.tsx'));
+  assert.ok(/const marcados = guardados\.length \? guardados : \[delNegocio\.id\];/.test(paso),
+    'sin nada guardado se muestra marcado el del negocio');
+  assert.ok(/minimo=\{1\}/.test(paso), 'el desplegable no deja desmarcar el último');
+  // Y el que guarda usa la MISMA regla del mínimo que el que dibuja.
+  assert.ok(/alternarValor\(marcados\.map\(String\), v, 1\)/.test(paso), 'el guardado respeta el mismo mínimo');
+});
+
+// PROBADO ROMPIENDOLO: devolviendo el párrafo «Los leads de esta página entran al
+// CRM de los productos que marques…» al JSX, este archivo pasa de
+// **pass 23 / fail 0** a **pass 22 / fail 1**.
+test('el paso 2 no explica: los dos textos que el dueño pidió sacar no vuelven', () => {
+  // Se mira el fuente SIN comentarios: el comentario que cuenta que se sacaron
+  // los nombra, y un guard sobre el archivo entero se acusaría a sí mismo.
+  const paso = sinComentarios(leer('../app/integraciones/AsignarProducto.tsx'));
+  assert.ok(!/entran al CRM de los productos que marques/.test(paso), 'el párrafo explicativo se fue');
+  assert.ok(!/Sin marcar ninguno/.test(paso), '«sin marcar ninguno» no es un estado que exista');
+});
+
+// PROBADO ROMPIENDOLO: devolviendo el `useEffect` con `getProductosAction()` a
+// AsignarProducto.tsx, este archivo pasa de **pass 23 / fail 0** a
+// **pass 22 / fail 1**.
+test('⚠️ CABLEADO: los productos y las páginas bajan del SERVER, no de una action', () => {
+  // Medido el 06/10/2026: tres server actions EN SERIE antes de la primera
+  // casilla —Next las despacha de a una, así que un Promise.all no las paraleliza—,
+  // 11 a 13 idas y vueltas a la base para traer dos filas.
+  const page = leer('../app/integraciones/page.tsx');
+  assert.ok(/productosAsignables\(\)/.test(page), 'el server resuelve los productos');
+  assert.ok(/landingsDelWorkspace\(\)/.test(page), 'y las páginas');
+  // ⚠️ Una lista vacía es una lectura que falló (todo workspace tiene su embudo del
+  // negocio), y baja como `null` para que el paso diga que no pudo leer en vez de
+  // afirmar que no hay productos.
+  assert.ok(/l\.length \? l : null/.test(page), 'vacío baja como null, no como «no tenés productos»');
+
+  const paso = sinComentarios(leer('../app/integraciones/AsignarProducto.tsx'));
+  assert.ok(!/useEffect/.test(paso), 'el paso 2 no espera nada al montarse');
+  assert.ok(!/getProductosAction|getLandingsAction/.test(paso), 'ni pide sus datos por action');
+  const sel = sinComentarios(leer('../app/integraciones/SelectorLanding.tsx'));
+  assert.ok(!/getLandingsAction/.test(sel), 'el paso 1 tampoco: era el primer viaje de la cola');
+
+  // Y las dos actions de lectura se fueron con su único motivo: una salida que
+  // nadie pide es la forma de falla que esta casa ya pagó.
+  const acc = sinComentarios(leer('../app/integraciones/landing-config-actions.ts'));
+  assert.ok(!/export async function getProductosAction/.test(acc), 'la action de productos ya no tiene a quién servir');
+  assert.ok(!/export async function getLandingsAction/.test(acc), 'la de páginas tampoco');
+});
+
+test('CABLEADO: el paso 2 está montado como el 2, y comparte las páginas con el 1', () => {
   const board = leer('../app/integraciones/IntegracionesBoard.tsx');
   assert.ok(/<Paso n=\{2\} titulo="¿Qué producto vende\?">/.test(board), 'el producto es el paso 2');
-  assert.ok(/<AsignarProducto elegida=\{elegida\} \/>/.test(board), 'y el paso 2 monta el componente');
-  assert.ok(/<Paso n=\{3\} titulo="Copia el código/.test(board), 'el código pasa a ser el 3');
+  assert.ok(/<Paso n=\{3\} titulo="Copia el código/.test(board), 'el código es el 3');
+  // ⚠️ El MISMO estado de páginas para los dos pasos: con una copia en cada uno,
+  // guardar en el 2 dejaba al 1 mostrando la configuración vieja.
+  assert.ok(/<SelectorLanding elegida=\{elegida\} onElegir=\{onElegir\} landings=\{landings\} onLandings=\{setLandings\} \/>/.test(board),
+    'el paso 1 lee y escribe el estado compartido');
+  assert.ok(/<AsignarProducto elegida=\{elegida\} productos=\{pixel\?\.productos \?\? null\}\s+landings=\{landings\} onLandings=\{setLandings\} \/>/.test(board),
+    'el paso 2 también, y recibe los productos del server');
 
-  // ⚠️ Y EL PASO 1 DEJÓ DE DECIDIRLO. Con las dos pantallas leyendo el campo,
-  // la que se arregle segunda se queda vieja — es la regla de «una cosa, un lugar»
-  // aplicada a una mudanza: lo que se muda se SACA de donde estaba.
+  // ⚠️ Y EL PASO 1 DEJÓ DE DECIDIR LOS PRODUCTOS: lo que se muda se SACA de donde
+  // estaba, o la que se arregle segunda se queda vieja.
   const sel = sinComentarios(leer('../app/integraciones/SelectorLanding.tsx'));
-  assert.ok(!/funnelIds/.test(sel), 'el selector de página no puede seguir escribiendo los productos');
-  assert.ok(!/getProductosAction/.test(sel), 'ni seguir pidiéndolos');
+  assert.ok(!/funnelIds/.test(sel), 'el selector de página no puede escribir los productos');
 });

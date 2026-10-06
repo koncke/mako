@@ -19,7 +19,7 @@ export type { DropdownOption as SelectOption, DropdownGroup as SelectGroup };
 
 export function Select({
   label, hint, error, required, options, columns, value, onChange, placeholder,
-  width, disabled, search, style, ariaLabel,
+  width, disabled, search, style, ariaLabel, varios, minimo,
 }: {
   label?: string;
   hint?: ReactNode;
@@ -37,6 +37,10 @@ export function Select({
   search?: boolean;
   style?: React.CSSProperties;
   ariaLabel?: string;
+  /** Elegir VARIOS: ver la prop del mismo nombre en app/components/Dropdown.tsx. */
+  varios?: string[];
+  /** Con `varios`: cuántos tienen que quedar marcados. */
+  minimo?: number;
 }) {
   const id = useId();
   return (
@@ -50,6 +54,8 @@ export function Select({
         width={width ?? '100%'}
         disabled={disabled}
         search={search}
+        varios={varios}
+        minimo={minimo}
         ariaLabel={ariaLabel ?? label}
         buttonStyle={{
           minHeight: 'var(--touch)',

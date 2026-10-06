@@ -9,7 +9,6 @@
 // de onboarding (/api/onboarding, admin-cliente) — el GUARD lo pone cada ruta.
 
 import 'server-only';
-import { normalizarProjectId } from './clarity';
 import { CALCOM_API, calcomHeaders } from './calcom';
 import { credWs } from './credenciales';
 import { claveBaseDe } from './ia-keys';
@@ -406,47 +405,6 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       : { k: 'Programas cargados', v: 'Ninguno todavía', c: 'var(--warn)' });
 
     return { ok: true, detalle: 'Key válida — Whop accesible.', facts };
-  },
-
-  // ⚠️ SIN ESTO LA BARRA DICE «servicio inválido». Es el TERCER registro que
-  // necesita una integración: el catálogo de tarjetas, el del método (qué campos
-  // pide) y este (cómo se comprueba). El tilde prueba ANTES de guardar, así que
-  // faltando el verificador no se puede guardar nada — y el mensaje culpa al
-  // servicio, no al verificador que falta.
-  async clarity(v) {
-    // ⚠️ SE ACEPTA LA URL ENTERA. El lugar donde todo el mundo tiene el id a mano
-    // es la barra de direcciones del panel, no Settings → Overview — y antes eso
-    // rebotaba con «eso no parece un ID». Un formulario que entiende lo que la
-    // persona tenía a mano vale más que uno que exige el formato correcto.
-    const pid = normalizarProjectId(v.CLARITY_PROJECT_ID);
-    if (!pid) {
-      return { ok: false, error: (v.CLARITY_PROJECT_ID ?? '').trim()
-        ? 'No reconozco ese ID. Pega el código corto o la dirección completa del panel de Clarity.'
-        : 'Falta el ID del proyecto.' };
-    }
-    const token = (v.CLARITY_API_TOKEN ?? '').trim();
-    // Sin token todavía, el ID igual se guarda: el token se pega en el campo de
-    // abajo y frenar acá obligaría a cargarlos en un orden que nadie adivina.
-    if (!token) return { ok: true, detalle: 'ID válido. Falta el token para traer el resumen.' };
-
-    const { status, body } = await fetchJson('https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=1', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (status === 401) return { ok: false, error: 'El token no es válido o venció.' };
-    // ⚠️ El 402 es la CUOTA agotada (10 consultas por día), no un token malo. Sin
-    // distinguirlo, el mensaje manda a regenerar un token que está perfecto.
-    if (status === 402) return { ok: true, detalle: 'Guardado. Hoy ya se usaron las 10 consultas diarias de Clarity, así que el resumen llega mañana.' };
-    if (status >= 400) return { ok: false, error: `Clarity respondió ${status}.` };
-    const filas = Array.isArray(body) ? body : [];
-    const traf = filas.find((x: Record<string, unknown>) => x.metricName === 'Traffic') as { information?: Array<Record<string, unknown>> } | undefined;
-    const ses = Number(traf?.information?.[0]?.totalSessionCount);
-    return {
-      ok: true,
-      detalle: 'Conectado.',
-      facts: Number.isFinite(ses)
-        ? [{ k: 'Sesiones ayer', v: String(ses), c: ses > 0 ? 'var(--good)' : 'var(--warn)' }]
-        : undefined,
-    };
   },
 
   async panda(v) {

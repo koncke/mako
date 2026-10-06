@@ -189,7 +189,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'quarter-planificar': 'plata',
 
   'tracking-apagado': 'landing', 'tracking-desactualizado': 'landing', 'lead-de-landing': 'landing',
-  'clarity-grabacion-por-vencer': 'landing', 'prueba-grabada': 'landing',
+  'prueba-grabada': 'landing',
   'landing-cambio': 'landing',
   'prueba-recibida': 'landing',
   'wa-desconectado': 'sistema',
@@ -474,52 +474,40 @@ https://hola-mako.com/integraciones
     disparador: 'Al instante: un webhook de Meta o Calendly encuentra un lead existente y lo actualiza en vez de crear uno nuevo.',
     ejemplo: `🟡 Entró un contacto por *Calendly* y lo sumé a *Marina Olvera*, que ya tenías (mismo teléfono). Si no era la misma persona, avísame y lo separo 👉 https://hola-mako.com/crm/1842 — MaKo`,
   },
-  {
-    id: 'clarity-grabacion-por-vencer', titulo: 'Una grabación está por borrarse', categoria: 'accion',
-    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
-    // ⚠️ Clarity guarda las grabaciones 30 días y después las tira. Las marcadas
-    // como FAVORITAS sobreviven 13 meses — pero marcarlas es una acción manual en
-    // su panel: no hay endpoint, así que el sistema no lo puede hacer solo.
-    //
-    // Este aviso es lo único que convierte 30 días en 13 meses para lo que
-    // importa. Y avisa SOLO por leads: las grabaciones anónimas son miles y
-    // ninguna importa; la de alguien que dejó sus datos es la que alguien va a
-    // querer ver dentro de tres meses, justo antes de una llamada.
-    //
-    // Cinco días de margen, no uno: un aviso el día 29 llega cuando ya no hay
-    // tiempo de hacer nada, y el aviso existe para que se haga algo.
-    disparador: 'Cron diario: un lead con grabación en Clarity cumple 25 días (de los 30 que dura).',
-    ejemplo: `🟡 La grabación de *Marina Olvera* se borra en 4 días. Si te sirve para después, entra y márcala como favorita: así se guarda 13 meses en vez de 30 días 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?CustomUserId=… — MaKo`,
-  },
+  // ⚠️ ACÁ ESTABA `clarity-grabacion-por-vencer` («Una grabación está por
+  // borrarse»), y se fue el 06/10/2026 con Clarity entero. Existía porque Clarity
+  // tiraba las grabaciones a los 30 días y marcarlas como favoritas era manual en
+  // su panel. La grabación propia no lo necesita: la retención es nuestra y la
+  // aplica sola el cron `replay-purga`, sin pedirle nada a nadie.
   {
     id: 'prueba-recibida', titulo: 'Recibimos tu prueba del Pixel', categoria: 'aviso',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ VA AL TERMINAR, no cuando la grabación está lista — para eso está
-    // `prueba-grabada`, que llega 45 minutos después con el link. Este cierra el
-    // bucle EN EL MOMENTO: quien termina de probar cierra la ventana y se queda
-    // sin ninguna señal de que lo que hizo quedó registrado, y 45 minutos de
-    // silencio con la pantalla ya cerrada se parecen mucho a que no pasó nada.
+    // `prueba-grabada`, que llega con el link cuando la grabación se terminó de
+    // guardar. Este cierra el bucle EN EL MOMENTO: quien termina de probar cierra
+    // la ventana y se queda sin ninguna señal de que lo que hizo quedó registrado.
+    //
+    // ⚠️ Y NO PROMETE UN LINK DE CLARITY, que es lo que decía hasta el 06/10/2026
+    // —y le prometía a TODO negocio, tuviera Clarity conectado o no: a los que no,
+    // el link no les llegaba nunca—. Ahora promete el aviso sólo si la grabación
+    // está prendida en ese negocio (ver `finPruebaAction`).
     //
     // Es la diferencia entre esperar y dudar, y cuesta un mensaje.
     disparador: 'Al terminar una prueba del Pixel: se cierra la ventana de la prueba o se aprieta «Terminar».',
-    ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. La grabación de Clarity se está procesando y te mando el link apenas esté (suele tardar entre 30 minutos y 2 horas) — MaKo`,
+    ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. Te aviso cuando la grabación esté lista — MaKo`,
   },
   {
     id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
-    // ⚠️ EL AVISO EXISTE PORQUE LA ESPERA NO SE PUEDE MOSTRAR EN PANTALLA.
+    // ⚠️ EL AVISO EXISTE PORQUE QUIEN PRUEBA YA CERRÓ LA PANTALLA. La grabación de
+    // la prueba se termina de guardar unos minutos después (el sellado corre cada
+    // 10), y para entonces nadie está mirando. El link lleva DIRECTO a mirarla: la
+    // ficha del lead PRUEBA de esa página, que es donde vive el reproductor.
     //
-    // Al terminar una prueba del Pixel, la grabación de esa sesión tarda entre 30
-    // minutos y 2 horas en aparecer en Clarity: el procesamiento es de ellos y no
-    // hay webhook. Con solo el link en la pantalla, el que prueba abre Clarity al
-    // toque, no encuentra nada, y saca la conclusión más razonable —«esto no
-    // funciona»— sobre algo que sí funciona y todavía no llegó.
-    //
-    // Y volver más tarde no es una opción realista: para entonces la pantalla se
-    // cerró, el marcador de la prueba no se lo aprendió nadie de memoria, y su
-    // grabación queda mezclada con las de todo el tráfico real de ese día.
-    disparador: 'Cron cada 15 minutos: terminó una prueba del Pixel y ya pasó el tiempo de procesamiento de Clarity.',
-    ejemplo: `🟢 Ya está la grabación de la prueba que hiciste en *tupagina.com*: puedes ver el video de lo que hiciste y el mapa de calor 👉 https://clarity.microsoft.com/projects/view/abc123/impressions?mko_prueba=… — MaKo`,
+    // Hasta el 06/10/2026 era de Clarity, esperaba 45 minutos a que Microsoft
+    // procesara la sesión y mandaba a su panel, con login aparte.
+    disparador: 'Cron cada 15 minutos: la grabación de una prueba del Pixel se terminó de guardar. Sólo si la grabación está prendida en el negocio.',
+    ejemplo: `🟢 Ya puedes ver la grabación de tu prueba en *tupagina.com* 👉 https://hola-mako.com/crm/1842 — MaKo`,
   },
   {
     id: 'lead-no-confirmo', titulo: 'Agendó, no confirmó y hay que llamarlo', categoria: 'accion', porDefecto: 'on',

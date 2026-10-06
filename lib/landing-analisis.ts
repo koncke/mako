@@ -179,14 +179,12 @@ export type AnalisisLanding = {
   tokenPixel: string | null;
   /** La versión del snippet instalada EN ESTA PÁGINA. */
   versionPixel: number | null;
-  /** El proyecto de Clarity que trae la página, si lo trae. */
-  clarityProjectId: string | null;
   ok: boolean;
   error: string | null;
 };
 
 const VACIO = (url: string, error: string | null): AnalisisLanding =>
-  ({ url, piezas: new Set(), videos: [], tokenPixel: null, versionPixel: null, clarityProjectId: null, ok: false, error });
+  ({ url, piezas: new Set(), videos: [], tokenPixel: null, versionPixel: null, ok: false, error });
 
 /**
  * El id que el snippet le pone a un <video> nativo.
@@ -418,8 +416,6 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   if (sv) a.versionPixel = Number(sv[1]);
   // Los espacios del snippet son opcionales: un minificador los saca, y el
   // regex con espacios fijos no encontraba nada en una página comprimida.
-  const cl = /clarity\.ms\/tag\/([a-z0-9]+)|"clarity"\s*,\s*"script"\s*,\s*"([a-z0-9]+)"/i.exec(h);
-  if (cl) a.clarityProjectId = (cl[1] || cl[2] || '').toLowerCase() || null;
 
   // Lo del bundle se suma DESPUÉS y solo con los detectores de arriba: nunca
   // puede quitar una pieza que el HTML sí tenía.

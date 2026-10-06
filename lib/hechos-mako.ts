@@ -7,9 +7,11 @@
 //   «Clarity usa el Pixel de Meta para grabar eventos y mapas de calor»
 //   «Si querés datos reales de tu landing, el Pixel de Meta es obligatorio»
 //
-// Las dos son FALSAS. Clarity es de Microsoft, no tiene nada que ver con Meta, y
-// **viaja adentro del propio snippet de MaKo** (`bloqueClarity` en
-// lib/landing-token.ts). Después le dictó un `<script>` de Meta con un id de
+// Las dos eran FALSAS. Clarity es de Microsoft, no tenía nada que ver con Meta, y
+// **viajaba adentro del propio snippet de MaKo**. (El 06/10/2026 Clarity salió del
+// producto: las grabaciones las hace MaKo, y los hechos de abajo hablan de ésas.
+// El caso sigue acá porque el modo de falla —un modelo sin hechos inventa los
+// hechos— no depende de qué herramienta grabe.) Después le dictó un `<script>` de Meta con un id de
 // juguete (`1234567890123456`) y le dijo que poniendo una variable de entorno en
 // Vercel «ya tenés el Pixel instalado», que tampoco es cierto: una env var no
 // instala nada si el código no la lee.
@@ -45,11 +47,12 @@
  */
 export const hechosMako = (base: string): string => `CÓMO FUNCIONA MAKO (hechos verificados — es lo ÚNICO que puedes afirmar sobre la herramienta):
 
-· EL CÓDIGO DE LA LANDING ("pixel de MaKo", lib/landing-token.ts). Es UN solo <script> que se pega en la página del cliente. Mide: visitas, reproducción y profundidad del video, clics, formularios y reservas de Calendly/Cal.com. Adentro viaja TAMBIÉN Microsoft Clarity si el cliente lo conectó.
-· CLARITY (grabaciones y mapas de calor) NO TIENE NADA QUE VER CON META. Es de Microsoft y va ADENTRO del código de MaKo: si el cliente pegó el código de MaKo y conectó Clarity, graba. ⛔ Es FALSO que Clarity necesite el pixel de Meta — nunca lo digas.
-· SI UNA GRABACIÓN DE CLARITY VIENE VACÍA, las causas reales son: el código no está pegado en esa página, está pegado una versión VIEJA (MaKo lo avisa solo), o Clarity todavía está procesando (tarda entre 30 min y 2 h).
+· EL CÓDIGO DE LA LANDING ("pixel de MaKo", lib/landing-token.ts). Es UN solo <script> que se pega en la página del cliente, el mismo para todas sus páginas. Mide: visitas, reproducción y profundidad del video, clics, scroll, formularios y reservas de Calendly/Cal.com. Y si la grabación está prendida en el negocio, también GRABA cada visita.
+· LAS GRABACIONES DE LAS VISITAS LAS HACE MAKO y NO TIENEN NADA QUE VER CON META: viajan adentro del mismo código de MaKo y se miran en la ficha de cada lead, en su CRM. Se prenden una sola vez para todo el negocio, en /integraciones (el Pixel de MaKo). ⛔ Es FALSO que necesiten el pixel de Meta — nunca lo digas.
+· MAKO YA NO USA MICROSOFT CLARITY. Si el cliente pregunta por Clarity o por «las grabaciones de Clarity», dile que ahora las grabaciones las hace MaKo y se ven en la ficha de cada lead. ⛔ No le pidas que conecte Clarity ni le mandes a su panel.
+· SI UN LEAD NO TIENE GRABACIÓN, las causas reales son: la grabación está apagada en el negocio, la página tiene pegado un código VIEJO (anterior a la versión 21: hay que volver a pegarlo, y MaKo lo avisa solo), la visita es más vieja que los días que se guardan, o se está terminando de guardar (unos minutos).
 · EL PIXEL DE META NO SE PEGA EN LA LANDING PARA QUE MAKO MIDA. MaKo le manda las conversiones a Meta desde el SERVIDOR, por Conversions API, con el META_PIXEL_ID que el cliente cargó en /integraciones (lib/meta-capi.ts, disparado en lib/leads.ts y en el webhook de Calendly). Pegarlo en la landing suma señal de navegador para retargeting y públicos — es OPCIONAL y es una decisión del cliente, no un requisito de MaKo.
-· DÓNDE SE CONFIGURA CADA COSA: todo en /integraciones. USA ESTAS URLS TAL CUAL, no las reescribas ni les cambies el dominio: ${base}/integraciones?abrir=meta · ${base}/integraciones?abrir=gemini · ${base}/integraciones?abrir=landing · ${base}/integraciones?abrir=clarity. Cada tarjeta trae el tutorial OFICIAL, paso a paso, escrito por el equipo.
+· DÓNDE SE CONFIGURA CADA COSA: todo en /integraciones. USA ESTAS URLS TAL CUAL, no las reescribas ni les cambies el dominio: ${base}/integraciones?abrir=meta · ${base}/integraciones?abrir=gemini · ${base}/integraciones?abrir=landing. Cada tarjeta trae el tutorial OFICIAL, paso a paso, escrito por el equipo.
 
 ⚠️ ANTES DE EXPLICAR UN "CÓMO SE HACE", PREGUNTATE DÓNDE SE HACE. Son dos cosas distintas y confundirlas es lo que hizo que MaKo escribiera sesenta líneas inventadas:
 · "¿Cómo hago X EN MAKO?" (conectar Meta, cargar una key, sacar el código de la landing) → la tarjeta de /integraciones de arriba, que trae el tutorial oficial del equipo.

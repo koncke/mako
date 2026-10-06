@@ -150,38 +150,20 @@ test('la pestaña se lee de dónde vino → qué hizo → evento por evento', ()
 });
 
 // ── 2 · Lo externo va DESPUÉS, y más chico ───────────────────────────────────
-test('el bloque de Clarity va después del recorrido y no compite con él', () => {
+// PROBADO ROMPIENDOLO: devolviendo «Se abre en Clarity» al JSX de la tarjeta,
+// este test falla.
+test('ya no hay nada «fuera de MaKo»: la ficha no manda a Clarity', () => {
+  // ⚠️ ESTA SECCIÓN FIJABA LO CONTRARIO HASTA EL 06/10/2026: que el bloque de
+  // Clarity fuera DESPUÉS del recorrido y más chico, que dijera «Se abre en
+  // Clarity», y que el id del visitante quedara copiable para pegarlo en su filtro.
+  // Todo eso se fue con Clarity entero: la grabación la hace MaKo y se mira en la
+  // misma ficha. Lo que se fija ahora es que no vuelva.
   const card = leer(CARD);
-  // El ancla va en CÓDIGO: la palabra «Clarity» aparece en los comentarios y en el
-  // `title` del botón que copia el id, así que buscarla no distingue las dos
-  // posiciones que este test quiere distinguir.
-  const iRecorrido = card.indexOf('<TrackingTimelineCard');
-  const iExterno = card.indexOf('<section style={cardExterna}>');
-  assert.ok(iRecorrido >= 0, 'el recorrido');
-  assert.ok(iExterno >= 0, 'el bloque externo tiene su propia caja, más chica');
-  assert.ok(iExterno > iRecorrido, 'lo externo va DESPUÉS: era lo que dominaba la pantalla');
-
-  // Y DICE dónde se abre. Sin esa frase la ficha se lee como si la app debiera
-  // mostrar la grabación adentro — y no puede: Clarity responde
-  // `X-Frame-Options: SAMEORIGIN` y el navegador rechaza el iframe.
-  assert.ok(/Se abre en Clarity/.test(card), 'una frase corta que dice que se abre afuera');
-
-  // Nada de embeber ni de proxiar: ya se descartó dos veces con evidencia.
-  assert.ok(!/<iframe/.test(card), 'no hay iframe de Clarity, y no puede haberlo');
-
-  // Los dos botones dejaron de ser el acento de la pantalla.
-  assert.ok(!/background: 'var\(--primary-bg\)'/.test(card), 'ningún botón a Clarity pintado de acento');
-});
-
-test('el uuid del visitante queda copiable y deja de dibujarse', () => {
-  const card = leer(CARD);
-  // Era `<code>{visitorId}</code>` con el uuid a la vista en la ficha de una
-  // PERSONA: ruido técnico que competía con el recorrido. Sigue accesible, en un
-  // botón, porque el link a Clarity no llega filtrado solo.
-  assert.ok(!/>\s*\{visitorId\}\s*</.test(card), 'el uuid no se dibuja');
-  assert.ok(!/Su ID para el filtro de Clarity/.test(card), 'ni su renglón');
-  assert.ok(/writeText\(visitorId\)/.test(card), 'pero se puede copiar');
-  assert.ok(/Filtros personalizados/.test(card), 'y el title dice dónde se pega');
+  assert.ok(!/Fuera de MaKo/.test(card), 'volvió la sección de lo externo');
+  assert.ok(!/Se abre en Clarity|Mapa de calor de la página/.test(card), 'volvió un link al panel de Clarity');
+  assert.ok(!/writeText\(visitorId\)/.test(card), 'volvió el botón para pegar el id en el filtro de otra herramienta');
+  // Y lo que se descartó dos veces con evidencia sigue descartado.
+  assert.ok(!/<iframe/.test(card), 'no hay iframe de nada externo');
 });
 
 // ── 3 · El pop-up para nombrar, en la ficha ──────────────────────────────────

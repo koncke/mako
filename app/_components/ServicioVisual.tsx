@@ -53,13 +53,12 @@ export const ICON: Record<string, IconDef> = {
   // GitHub: el mark oficial en blanco sobre su negro de marca (#181717).
   github: { sym: 'ic-github', bg: '#181717' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
-  // Zernio y Clarity no tenían entrada y caían en el fallback — que hasta hoy era el
+  // Zernio no tenía entrada y caía en el fallback — que hasta hoy era el
   // logo de Supabase, o sea el de otra marca. No conseguimos sus vectores oficiales,
   // así que van letter-mark sobre su color: la regla de arriba, la misma que Whop.
   // Zernio: su producto acá es Instagram, pero la credencial es de Zernio y el
   // letter-mark tiene que decir de quién es la cuenta que se está conectando.
   zernio: { letter: 'Z', bg: '#6D4AFF' },
-  clarity: { letter: 'C', bg: '#0078D4' },   // Clarity es de Microsoft: su azul.
   // Whop: no tenemos su vector oficial, así que va letter-mark sobre su naranja
   // de marca (#FF6243). La regla de arriba: una inicial honesta antes que un
   // logo inventado.

@@ -9,61 +9,43 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
+import { REPLAY_CONFIG_KEY, parsearReplay } from '@/lib/replay-contrato';
 import { requireRolWs } from '@/lib/tab-access';
-import { CONFIG_KEY, conLanding, landingDe, parsearConfig, sinLanding, type LandingConfig } from '@/lib/landing-config';
+import { CONFIG_KEY, conLanding, landingDe, sinLanding, type LandingConfig } from '@/lib/landing-config';
 import { mirarLanding } from '@/lib/landing-vigilancia';
 import { urlsDe } from '@/lib/landing-config';
 import { type Cambios } from '@/lib/landing-snapshot';
-import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
+import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
-import { clarityProjectId } from '@/lib/clarity';
 import { getWorkspaceActual } from '@/lib/workspace';
-import { productosAsignables, type ProductoAsignable } from '@/lib/landing-funnel';
 
 export type LandingsResult = { ok: true; landings: LandingConfig[] } | { ok: false; error: string };
 
 async function leer(): Promise<LandingConfig[]> {
   await requireRolWs([], { nav: 'integraciones' });
-  const nuevo = parsearConfig(await getSetting(CONFIG_KEY));
-  if (nuevo.length) return nuevo;
-  // ⚠️ MIGRACIÓN PEREZOSA. Mientras nadie haya guardado en el formato nuevo, se
-  // leen las páginas viejas. Así el despliegue no deja a nadie con la lista
-  // vacía, y la primera vez que toque algo queda migrado — sin un script que
-  // haya que acordarse de correr, que es como se migran a medias las cosas.
-  return parsearConfig(JSON.stringify(parsearPaginas(await getSetting(PAGINAS_KEY))));
+  return landingsDelWorkspace();
 }
 
-export async function getLandingsAction(): Promise<LandingConfig[]> {
-  return leer().catch(() => []);
-}
-
-/**
- * Los productos que se le pueden asignar a una landing.
- *
- * Sale de `lib/landing-funnel.ts`, el MISMO modulo que usa la ruta del opt-in
- * para resolver a que CRM entra el lead: con dos lectores, la pantalla podria
- * ofrecer un producto al que el lead nunca llega.
- */
-export async function getProductosAction(): Promise<ProductoAsignable[]> {
-  try {
-    await requireRolWs([], { nav: 'integraciones' });
-    return await productosAsignables();
-  } catch {
-    return [];
-  }
-}
+// ⚠️ ACÁ HABÍA DOS ACTIONS DE LECTURA —`getLandingsAction` y `getProductosAction`—
+// y se fueron el 06/10/2026 junto con su único motivo: el paso 1 y el paso 2 del
+// Pixel las pedían al montarse, y como Next despacha las server actions DE A UNA,
+// eran tres viajes en serie antes de la primera casilla. Ahora las dos listas las
+// resuelve el server en `app/integraciones/page.tsx` y bajan por props. Lo que
+// queda acá son las ESCRITURAS, que son lo único que de verdad tiene que ser una
+// action. Si algo vuelve a necesitar leerlas desde el navegador, la pregunta es
+// por qué no le llegan por props.
 
 /**
  * Agrega o actualiza una landing. `anterior` convierte «guardar» en «editar».
  *
- * ⚠️ `funnelIds` sigue la misma regla que `clarityProjectId`: ausente es «no los
- * toques», y lo que DESASIGNA es la lista VACIA. Sin eso, corregirle la URL a una
+ * ⚠️ `funnelIds` ausente es «no los toques», y lo que DESASIGNA es la lista
+ * VACIA. Sin eso, corregirle la URL a una
  * landing le borraria los productos, porque `conLanding` reconstruye la fila campo
  * por campo.
  */
 export async function guardarLandingAction(
   url: string,
-  parcial: { clarityProjectId?: string; funnelIds?: number[] } = {},
+  parcial: { funnelIds?: number[] } = {},
   anterior?: string | null,
 ): Promise<LandingsResult> {
   try {
@@ -72,6 +54,36 @@ export async function guardarLandingAction(
     await setSetting(CONFIG_KEY, JSON.stringify(nuevas));
     revalidatePath('/integraciones');
     return { ok: true, landings: nuevas };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
+  }
+}
+
+/**
+ * Prende o apaga la grabación de las visitas, para TODO el negocio.
+ *
+ * ⚠️ HASTA EL 06/10/2026 NO EXISTÍA, y estaba prometido: la v21 del Pixel le
+ * anunció a cada cliente por WhatsApp que la grabación «llega APAGADA: se prende
+ * una vez desde la app», y la única forma de prenderla era escribir el setting a
+ * mano en la base. Con Clarity fuera del producto, este interruptor es lo que
+ * reemplaza a «conectar Clarity»: sin él, ningún negocio podía tener grabaciones.
+ *
+ * ⚠️ ES DEL NEGOCIO, NO DE LA PÁGINA, a propósito y está escrito en el contrato
+ * (lib/replay-contrato.ts): grabar personas es una decisión de quien tiene la
+ * relación con ellas, y una por página permitiría prenderla en una sin darse cuenta.
+ *
+ * Se conserva el resto de la configuración (muestreo, retención): se lee, se toca
+ * SOLO `activo` y se escribe entera. Un `{activo}` pelado borraría la retención que
+ * alguien eligió, porque `parsearReplay` la volvería al default.
+ */
+export async function guardarGrabacionAction(activo: boolean): Promise<{ ok: true; activo: boolean } | { ok: false; error: string }> {
+  try {
+    await requireRolWs([], { nav: 'integraciones' });
+    const actual = parsearReplay(await getSetting(REPLAY_CONFIG_KEY));
+    const nueva = { ...actual, activo: activo === true };
+    await setSetting(REPLAY_CONFIG_KEY, JSON.stringify(nueva));
+    revalidatePath('/integraciones');
+    return { ok: true, activo: nueva.activo };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
   }
@@ -94,9 +106,6 @@ export type AnalisisResult = {
   piezas: string[];
   tokenPixel: string | null;
   versionPixel: number | null;
-  clarityProjectId: string | null;
-  /** El proyecto que ESTA landing tiene declarado en MaKo, para poder comparar. */
-  clarityGuardado: string | null;
   /** Los videos que la PÁGINA tiene, con su URL. Es lo que permite verlos sin
    *  esperar a que un visitante reproduzca uno. */
   videos: Array<{ id: string; url: string; tipo: string }>;
@@ -134,8 +143,6 @@ export async function analizarLandingAction(url: string): Promise<AnalisisResult
     piezas: [...a.piezas],
     tokenPixel: a.tokenPixel,
     versionPixel: a.versionPixel,
-    clarityProjectId: a.clarityProjectId,
-    clarityGuardado: landingDe(guardadas, url)?.clarityProjectId ?? null,
     // `pieza` es la del catálogo de hosts (`video-wistia`, `video-drive`…); viaja
     // como `tipo` porque es el nombre con el que ya cruzaba al cliente, y ahí solo
     // se usan el id y la URL.
@@ -144,23 +151,8 @@ export async function analizarLandingAction(url: string): Promise<AnalisisResult
   };
 }
 
-/**
- * El código a copiar para UNA landing.
- *
- * ⚠️ El snippet NO es del workspace: es de la página. Lo que cambia es el bloque
- * de Clarity, y cambia porque un proyecto de Clarity es por SITIO — dos landings
- * del mismo cliente son dos proyectos, y emitir el mismo id en las dos mezcla las
- * grabaciones de ambas en una sola lista donde ya no se sabe cuál es cuál.
- *
- * El id de la landing gana sobre el del workspace; sin id propio, hereda. La
- * herencia es a propósito: el caso normal es una sola página, y ahí pedir que se
- * configure dos veces lo mismo es pedir el error.
- */
-export async function snippetDeLandingAction(url: string | null): Promise<string | null> {
-  await requireRolWs([], { nav: 'integraciones' });
-  const ws = await getWorkspaceActual();
-  if (ws == null) return null;
-  const propio = url ? (await leer().catch(() => [] as LandingConfig[]).then((l) => landingDe(l, url)?.clarityProjectId ?? null)) : null;
-  const pid = propio ?? (await clarityProjectId(ws).catch(() => null));
-  return landingSnippet(await getOrCreateLandingToken(ws), pid);
-}
+// ⚠️ ACÁ VIVÍA `snippetDeLandingAction`, el código a copiar POR PÁGINA, y se fue el
+// 06/10/2026 con Clarity: lo único que cambiaba de una página a otra era el
+// proyecto de Clarity que viajaba adentro. Sin eso, el código es el mismo para
+// todas las páginas del negocio y lo resuelve el server en `page.tsx` — pedirlo
+// por action era un viaje más en la cola serial de las server actions.

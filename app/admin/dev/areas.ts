@@ -447,19 +447,29 @@ export const AREAS: AreaDev[] = [
     vive: [
       'app/api/track/vsl/route.ts', 'app/api/track/optin/route.ts',
       'lib/landing-token.ts', 'lib/landing-paginas.ts', 'lib/landing-videos.ts',
-      'lib/landing-analisis.ts', 'lib/landing-config.ts', 'lib/vsl-retencion.ts', 'lib/panda.ts', 'lib/clarity.ts',
+      'lib/landing-analisis.ts', 'lib/landing-config.ts', 'lib/vsl-retencion.ts', 'lib/panda.ts',
       'app/integraciones/ProbarTracking.tsx', 'app/integraciones/NombrarVideos.tsx',
       'app/integraciones/escuchando/page.tsx', 'app/integraciones/landing-actions.ts',
       'app/integraciones/landing-config-actions.ts', 'app/api/integraciones/landing/estado/route.ts',
       'app/integraciones/prueba-lead-actions.ts', 'lib/landing-funnel.ts', 'lib/replay-leer.ts',
       'app/integraciones/AsignarProducto.tsx', 'app/integraciones/SelectorLanding.tsx',
-      'app/api/cron/tracking-vigilante/route.ts', 'app/api/cron/clarity-vigilante/route.ts',
+      'app/api/cron/tracking-vigilante/route.ts',
       'app/api/cron/prueba-grabacion/route.ts',
       'supabase/migrations/0121_vsl_events_segundos.sql', 'supabase/migrations/0133_vsl_events_detalle.sql',
       'supabase/migrations/0134_marcador_de_prueba.sql', 'supabase/migrations/0135_landing_visits_sv.sql',
       'supabase/migrations/0136_vsl_events_auto.sql', 'supabase/migrations/0137_vsl_events_landing_url.sql',
       'tests/vsl-retencion.test.ts', 'tests/landing-optin.test.ts',
-      'tests/landing-paginas.test.ts', 'tests/landing-videos.test.ts', 'tests/clarity.test.ts',
+      'tests/landing-paginas.test.ts', 'tests/landing-videos.test.ts',
+      // ⚠️ LA GRABACIÓN PROPIA, declarada el 06/10/2026 junto con la salida de Clarity.
+      // Hasta ese día Clarity tenía SEIS entradas en este archivo y lo que lo reemplaza
+      // tenía UNA (`lib/replay-leer.ts`): el Change History del área no veía ni un
+      // commit del replay. La omisión no da error, da un punto ciego — y justo sobre lo
+      // que el dueño acababa de pedir que hiciera MaKo entera.
+      'lib/replay-contrato.ts', 'lib/replay-ingesta.ts', 'lib/replay-sellado.ts', 'lib/replay-ficha.ts',
+      'app/api/track/replay/route.ts', 'app/api/cron/replay-purga/route.ts', 'app/api/cron/prueba-grabacion/route.ts',
+      'supabase/migrations/0191_replay_de_sesion.sql', 'scripts/replay-libs.mjs',
+      'app/crm/lead-view/GrabacionCard.tsx', 'app/crm/lead-view/GrabacionModal.tsx',
+      'lib/lead-de-prueba.ts', 'lib/landing-config-leer.ts',
     ],
     hallazgos: 'hallazgos-landing',
     nota: 'El beacon responde 200 aunque descarte el evento (falla en silencio por diseño) y el player de Panda no manda la duración en cada tick: el % se deriva server-side y un abandono sin % se guarda NULL, nunca 0. El vigilante NO puede usar correrPorWorkspace(\'landing\') porque «landing conectada» se define como «hay eventos recientes» — se excluiría justo al workspace roto; itera por landing_token.',
@@ -894,14 +904,14 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'integraciones', titulo: 'Integraciones', familia: 'Platform',
     estado: 'listo', verEnApp: '/integraciones',
-    alcance: 'El estado de los servicios conectados (medidor de salud, «Requiere tu atención», servicios por categoría), el Costo de MaKo por proveedor y proceso, el historial de problemas de Meta, y el Pixel de MaKo: instalarlo sobre la página elegida, activarle Clarity, nombrar sus videos y probarlo en vivo.',
+    alcance: 'El estado de los servicios conectados (medidor de salud, «Requiere tu atención», servicios por categoría), el Costo de MaKo por proveedor y proceso, el historial de problemas de Meta, y el Pixel de MaKo: instalarlo sobre la página elegida, asignarle sus productos, prender la grabación de las visitas, nombrar sus videos y probarlo en vivo.',
     // ⚠️ Este `vive` declaraba SIETE archivos y por eso el trabajo de agosto era
     // medio invisible: todo el recorrido del Pixel (SelectorLanding,
     // NombrarVideos, las server actions, la ventana de prueba) y sus libs
-    // (landing-analisis, landing-config, landing-paginas, landing-videos, clarity)
+    // (landing-analisis, landing-config, landing-paginas, landing-videos; clarity se fue el 06/10/2026)
     // no estaban en ninguna área. Es la regla de AGENTS.md «Una ruta que apunta a
     // la nada»: la omisión no da error, da un punto ciego.
-    vive: ['app/integraciones/page.tsx', 'app/integraciones/IntegracionesBoard.tsx', 'app/integraciones/ServicioConfigForm.tsx', 'app/integraciones/ProbarTracking.tsx', 'app/integraciones/SelectorLanding.tsx', 'app/integraciones/NombrarVideos.tsx', 'app/integraciones/landing-actions.ts', 'app/integraciones/landing-config-actions.ts', 'app/integraciones/escuchando/page.tsx', 'app/api/integraciones/credencial/route.ts', 'app/api/integraciones/landing', 'app/api/anthropic-usage/route.ts', 'app/api/cron/clarity-vigilante/route.ts', 'lib/metodo-catalogo.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-verificar.ts', 'lib/servicio-slides.ts', 'lib/clarity.ts', 'lib/landing-config.ts', 'lib/landing-paginas.ts', 'lib/landing-analisis.ts', 'lib/landing-videos.ts'],
+    vive: ['app/integraciones/page.tsx', 'app/integraciones/IntegracionesBoard.tsx', 'app/integraciones/ServicioConfigForm.tsx', 'app/integraciones/ProbarTracking.tsx', 'app/integraciones/SelectorLanding.tsx', 'app/integraciones/NombrarVideos.tsx', 'app/integraciones/landing-actions.ts', 'app/integraciones/landing-config-actions.ts', 'app/integraciones/escuchando/page.tsx', 'app/api/integraciones/credencial/route.ts', 'app/api/integraciones/landing', 'app/api/anthropic-usage/route.ts', 'lib/metodo-catalogo.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-verificar.ts', 'lib/servicio-slides.ts', 'lib/landing-config.ts', 'lib/landing-paginas.ts', 'lib/landing-analisis.ts', 'lib/landing-videos.ts'],
     proyectos: ['Feature: Integraciones'],
   },
   {

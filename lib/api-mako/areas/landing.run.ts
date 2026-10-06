@@ -33,7 +33,9 @@ import {
 import { analizarLanding as detectarPiezas, estadoVideo, hostDePieza } from '@/lib/landing-analisis';
 import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
-import { clarityProjectId, normalizarProjectId, urlSesionesDePrueba, urlSesionesDeLead, grabacionVigente, DIAS_RETENCION } from '@/lib/clarity';
+import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
+import { textoDelVacio } from '@/lib/replay-ficha';
+import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
 import { urlsDescubiertas, getComportamiento, analizarLanding, borrarAnalisis } from '@/lib/landing-analyst';
 import { listarDrafts, borrarDraft } from '@/lib/landing-writer';
@@ -41,7 +43,7 @@ import { specAMarkdown, objetivoLabel } from '@/lib/landing-spec';
 import {
   leerLandings, escribirLandings, leerVideosEstricto, escribirVideos, leerOcultosEstricto, escribirOcultos,
   tokenPixelExistente, videoVisto, pandaConectado, analisisDe, listarAnalisisCompacto, borradorPorId,
-  resumenClarityCacheado, visitaDeLead,
+  visitaDeLead,
 } from './landing.helpers';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
@@ -93,7 +95,7 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const { landings, formato } = await leerLandings();
       return json({
-        landings: landings.map((l) => ({ url: l.url, clarity_project_id_propio: l.clarityProjectId ?? null })),
+        landings: landings.map((l) => ({ url: l.url, productos: l.funnelIds ?? [] })),
         total: landings.length, tope: MAX_LANDINGS,
         ...(formato === 'viejo' && landings.length ? { nota: 'Lista leída del formato anterior: se migra sola la primera vez que se guarde una landing.' } : {}),
         ...(landings.length ? {} : { nota: 'El negocio no declaró ninguna landing todavía.' }),
@@ -164,33 +166,25 @@ export const RUNNERS: Runners = {
           afuera: Math.max(0, d.eventos.length - ULTIMOS),
         },
         ventana: prueba ? `los eventos de la prueba ${prueba}` : 'últimas 24 horas',
-        nota: 'estado «na» = no aplica a esta página. Los eventos van sin el detalle y las páginas sin sus parámetros (pueden traer nombres de quien dejó sus datos). Los detalles hablan de la pantalla de Integraciones («el código de arriba», «el paso 1»): si hace falta el código, usa ver_codigo_pixel o manda el link a Integraciones → Landing. El chequeo de Clarity mira solo si el negocio tiene proyecto conectado, no si hay grabaciones.',
+        nota: 'estado «na» = no aplica a esta página. Los eventos van sin el detalle y las páginas sin sus parámetros (pueden traer nombres de quien dejó sus datos). Los detalles hablan de la pantalla de Integraciones («el código de arriba», «el paso 1»): si hace falta el código, usa ver_codigo_pixel o manda el link a Integraciones → Landing.',
       });
     },
   },
 
   ver_codigo_pixel: {
-    leer: async (input, ctx: Ctx) => {
+    leer: async (_input, ctx: Ctx) => {
       const token = await tokenPixelExistente();
       if (!token) return errorLectura('El código del Pixel de este negocio todavía no se generó. Se genera la primera vez que alguien abre Integraciones → Landing en MaKo.');
-      const url = str(input, 'url');
-      let propio: string | null = null;
-      if (url) {
-        const { landings } = await leerLandings();
-        const l = landingDe(landings, url);
-        if (!l) return errorLectura(`«${url}» no es una landing declarada. Declaradas: ${landings.map((x) => x.url).join(', ') || 'ninguna'}.`);
-        propio = l.clarityProjectId ?? null;
-      }
-      const pid = propio ?? (await clarityProjectId(ctx.ws).catch(() => null));
-      const codigo = landingSnippet(token, pid);
+      // ⚠️ EL MISMO PARA TODAS LAS PÁGINAS desde el 06/10/2026: lo único que cambiaba
+      // de una a otra era el proyecto de Clarity que viajaba adentro.
+      const codigo = landingSnippet(token);
       if (ctx.canal === 'http') return codigo;
       // Por chat NO viaja: son ~86 mil caracteres (medido), ningún recorte de tool
       // result los corta, un modelo no los puede copiar a un mensaje y en el doer
       // de WhatsApp revientan el techo de tokens del turno siguiente.
       return json({
         link: linkIntegracionesLanding(), version: SNIPPET_VERSION, largo_caracteres: codigo.length,
-        landing: url ?? null, clarity_project_id: pid,
-        nota: 'El código no viaja por el chat: es demasiado largo para copiarlo en un mensaje. Manda el link: en Integraciones → Landing la persona lo copia con un botón (si tiene varias landings, que elija la misma URL ahí).',
+        nota: 'El código no viaja por el chat: es demasiado largo para copiarlo en un mensaje. Manda el link: en Integraciones → Landing la persona lo copia con un botón. Es el mismo código para todas sus páginas.',
       });
     },
   },
@@ -234,7 +228,6 @@ export const RUNNERS: Runners = {
           es_de_este_negocio: a.tokenPixel ? (token ? a.tokenPixel === token : null) : null,
           version: a.versionPixel, version_actual: SNIPPET_VERSION,
         },
-        clarity_en_pagina: a.clarityProjectId, clarity_declarado: l.clarityProjectId ?? null,
         nota: 'estado_video «no-reconocido» no afirma que la página no tenga video: puede tener uno que MaKo todavía no sabe ver. Un Pixel que se inyecta por GTM o desde el JavaScript puede no encontrarse en el HTML.',
       });
     },
@@ -265,14 +258,18 @@ export const RUNNERS: Runners = {
   },
 
   ver_grabaciones_prueba: {
-    leer: async (input, ctx: Ctx) => {
+    leer: async (input) => {
       const prueba = str(input, 'prueba') ?? '';
-      const link = await urlSesionesDePrueba(prueba, ctx.ws);
+      const g = await replayDePrueba(prueba).catch(() => null);
+      if (!g) {
+        return json({ prueba, grabada: false, nota: 'Todavía no llegó la grabación de esta prueba, o la grabación está apagada en este negocio. Los eventos de la prueba se ven aparte (contar_eventos_prueba).' });
+      }
       return json({
-        prueba, link,
-        nota: link
-          ? 'Clarity tarda entre 30 minutos y 2 horas en procesar una sesión: un panel vacío recién terminada la prueba no es un error. El link filtra los últimos 3 días; para una prueba más vieja cambia el rango en el panel.'
-          : 'El negocio no conectó Clarity (falta el id del proyecto).',
+        prueba, grabada: true, segundos: g.segundos, eventos: g.eventos, lista: g.lista,
+        link: linkIntegracionesLanding(),
+        nota: g.lista
+          ? 'Ya se puede ver: en Integraciones → Landing, la prueba tiene el botón «Ver la grabación», que abre la ficha del lead PRUEBA de esa página.'
+          : 'Llegó y se está terminando de guardar (unos minutos): todavía no se puede ver, y no es un error.',
       });
     },
   },
@@ -282,28 +279,18 @@ export const RUNNERS: Runners = {
       const leadId = num(input, 'leadId') ?? 0;
       const v = await visitaDeLead(leadId);
       if (!v.existe) return errorLectura(`No existe el lead ${leadId} en este negocio.`);
-      if (!v.visitorId) return json({ leadId, link: null, motivo: 'Este lead no tiene visita registrada por el Pixel (no se lo pudo unir a una visita de la landing).' });
-      const link = await urlSesionesDeLead(v.visitorId, ctx.ws);
-      if (!link) return json({ leadId, link: null, motivo: 'El negocio no conectó Clarity (falta el id del proyecto).' });
-      if (!grabacionVigente(v.ultimaActividad)) {
-        return json({ leadId, link: null, ultima_actividad: v.ultimaActividad, motivo: `Su última actividad fue hace más de ${DIAS_RETENCION} días: Clarity ya borró esas grabaciones.` });
+      const r = await replayDeLead(v.visitorId, v.ultimaActividad);
+      const ficha = linkApp(`/crm/${leadId}`, ctx.ws);
+      if (!r.sesiones.length) {
+        // El POR QUÉ no hay ninguna sale del MISMO texto que la ficha: con dos
+        // redacciones, MaKo y la pantalla le darían dos explicaciones distintas.
+        const vacio = r.vacio ? textoDelVacio(r.vacio, r.retencionDias) : null;
+        return json({ leadId, grabaciones: 0, motivo: vacio?.que ?? 'No hay grabaciones de esta persona.', ficha });
       }
-      return json({ leadId, link, ultima_actividad: v.ultimaActividad, nota: `Clarity guarda las grabaciones ${DIAS_RETENCION} días desde la última actividad.` });
-    },
-  },
-
-  ver_resumen_clarity: {
-    leer: async () => {
-      const r = await resumenClarityCacheado();
-      if (!r) return json({ hay_resumen: false, nota: 'Todavía no hay un resumen guardado: el control diario no corrió, o el negocio no conectó Clarity (token y proyecto).' });
-      const n = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
       return json({
-        hay_resumen: true, ok: r.ok === true, error: typeof r.error === 'string' ? r.error : null,
-        sesiones: n(r.sesiones), sesiones_bots: n(r.bots),
-        pct_sesiones_con_clics_de_enojo: n(r.rageClicks), pct_sesiones_con_clics_muertos: n(r.deadClicks),
-        scroll_promedio_pct: n(r.scrollPromedio),
-        ventana: { dias: n(r.dias), tomado: typeof r.ts === 'string' ? r.ts : null },
-        nota: 'null = Clarity no lo dio, no es 0. Si el control de hoy falló, este es el último resumen bueno: mira «tomado».',
+        leadId, grabaciones: r.sesiones.length, ficha,
+        sesiones: r.sesiones.map((x) => ({ cuando: x.inicio, segundos: x.segundos, se_puede_ver: x.lista })),
+        nota: `Se miran en su ficha (link). MaKo guarda las grabaciones ${r.retencionDias} días.`,
       });
     },
   },
@@ -641,28 +628,12 @@ export const RUNNERS: Runners = {
       const existente = landingDe(landings, anterior ?? url);
       // conLanding recorta a MAX_LANDINGS en silencio: la nueva se caería del final.
       if (!existente && landings.length >= MAX_LANDINGS) return { error: `Ya hay ${MAX_LANDINGS} landings declaradas, el tope. Quita una antes (borrar_landing).`, disponibles: landings.map((l) => l.url) };
-      const pidCrudo = str(input, 'clarityProjectId');
-      const quitar = bool(input, 'quitarClarity') === true;
-      if (pidCrudo && quitar) return { error: 'Pide asignar un proyecto de Clarity o quitarlo, no las dos cosas.' };
-      let clarityProjectId: string | undefined;
-      if (pidCrudo) {
-        const pid = normalizarProjectId(pidCrudo);
-        if (!pid) return { error: 'Ese id de Clarity no tiene la forma de un id de proyecto. Pide el link del panel de Clarity (clarity.microsoft.com/projects/view/…).' };
-        clarityProjectId = pid;
-      } else if (quitar) clarityProjectId = '';
       const partes = [anterior && anterior !== url ? `Corregir la landing ${anterior} → ${url}` : existente ? `Actualizar la landing ${url}` : `Declarar la landing ${url}`];
-      if (clarityProjectId) partes.push(`con el proyecto de Clarity ${clarityProjectId}`);
-      if (clarityProjectId === '') partes.push('sin proyecto de Clarity propio (hereda el del negocio)');
-      if (!existente && !clarityProjectId) partes.push('(sin Clarity propio: hereda el del negocio)');
       if (anterior && anterior !== url && landingDe(landings, url)) {
-        // conLanding deduplica quedándose con la PRIMERA por posición: se calcula acá
-        // qué Clarity sobrevive en vez de dar por hecho que se conserva el de `anterior`.
-        const fusion = conLanding(landings, url, clarityProjectId !== undefined ? { clarityProjectId } : {}, anterior);
-        const queda = fusion ? landingDe(fusion, url)?.clarityProjectId ?? null : null;
-        partes.push(`— ${url} ya estaba declarada: quedan fusionadas en una, ${queda ? `con el proyecto de Clarity ${queda}` : 'sin proyecto de Clarity propio'}`);
+        partes.push(`— ${url} ya estaba declarada: quedan fusionadas en una`);
       }
       return {
-        payload: { url, ...(anterior ? { anterior } : {}), ...(clarityProjectId !== undefined ? { clarityProjectId } : {}) },
+        payload: { url, ...(anterior ? { anterior } : {}) },
         resumen: partes.join(' ') + '.',
       };
     },
@@ -670,9 +641,8 @@ export const RUNNERS: Runners = {
       try {
         const url = String(payload.url ?? '');
         const anterior = typeof payload.anterior === 'string' ? payload.anterior : null;
-        const parcial = typeof payload.clarityProjectId === 'string' ? { clarityProjectId: payload.clarityProjectId } : {};
         const { landings } = await leerLandings();
-        const nuevas = conLanding(landings, url, parcial, anterior);
+        const nuevas = conLanding(landings, url, {}, anterior);
         if (!nuevas) return { ok: false, resumen: 'Esa dirección no parece una página web.' };
         if (!landingDe(nuevas, url)) return { ok: false, resumen: `No se pudo: ya hay ${MAX_LANDINGS} landings declaradas.` };
         await escribirLandings(nuevas);
@@ -692,7 +662,7 @@ export const RUNNERS: Runners = {
       if (!l) return { error: `«${crudo}» no es una landing declarada.`, disponibles: landings.map((x) => x.url) };
       return {
         payload: { url: l.url },
-        resumen: `Quitar la landing ${l.url} de las declaradas${l.clarityProjectId ? ` (y su proyecto de Clarity ${l.clarityProjectId}, que habría que volver a cargar)` : ''}. No se borran visitas, eventos ni diagnósticos.`,
+        resumen: `Quitar la landing ${l.url} de las declaradas${l.funnelIds?.length ? ' (y los productos que tenía asignados, que habría que volver a asignar)' : ''}. No se borran visitas, eventos ni diagnósticos.`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {

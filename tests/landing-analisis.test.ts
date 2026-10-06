@@ -153,12 +153,13 @@ test('detecta cómo capta esa página, que es lo que cambia los pasos', () => {
 });
 
 test('lee el estado del Pixel EN ESA PÁGINA', () => {
-  const html = `<script>var TOKEN = 'mko_abc123'; var SV = 9; (function(c,l,a,r,i){})(window,document,"clarity","script","y2vjnv3kr3");</script>`;
+  const html = `<script>var TOKEN = 'mko_abc123'; var SV = 9;</script>`;
   const a = A(html);
   assert.ok(a.piezas.has('pixel'));
   assert.equal(a.tokenPixel, 'mko_abc123');
   assert.equal(a.versionPixel, 9);
-  assert.equal(a.clarityProjectId, 'y2vjnv3kr3');
+  // (Hasta el 06/10/2026 el análisis también leía el proyecto de Clarity de la
+  // página. Clarity salió del producto: ya no hay nada que comparar.)
   // ⚠️ El token permite decir «esta landing tiene el código de OTRO workspace»,
   // que pasa al copiar y pegar entre clientes y es invisible de cualquier otra
   // forma: los eventos llegan, pero al CRM equivocado.

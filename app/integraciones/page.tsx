@@ -5,7 +5,6 @@
 // historial de estados negativos + el Saldo de IA.
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
-import { clarityProjectId } from '@/lib/clarity';
 import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
@@ -13,6 +12,9 @@ import { getOrCreateLandingToken, landingSnippet, snippetDesactualizado } from '
 import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
+import { landingsDelWorkspace } from '@/lib/landing-config-leer';
+import { productosAsignables } from '@/lib/landing-funnel';
+import { configDeReplay } from '@/lib/replay-ingesta';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
@@ -52,11 +54,7 @@ export default async function IntegracionesPage() {
   // se resuelve acá y baja como prop. Idempotente: se genera la primera vez.
   // Sin workspace (admin de agencia sin impersonar) no hay landing que medir.
   const ws = await getWorkspaceActual();
-  // El snippet lleva Clarity ADENTRO si este workspace lo conectó. Un solo
-  // <script> para pegar: pedirle al cliente que pegue dos es garantizar que la
-  // mitad pegue uno solo y que después nadie sepa cuál falta.
-  const snippetLanding = ws == null ? null
-    : landingSnippet(await getOrCreateLandingToken(ws), await clarityProjectId(ws).catch(() => null));
+  const snippetLanding = ws == null ? null : landingSnippet(await getOrCreateLandingToken(ws));
 
   // ¿El código pegado en su página se quedó atrás? El dato ya existía (lo anota el
   // beacon) pero solo lo leía el cron: el aviso salía por WhatsApp y la pantalla
@@ -74,6 +72,30 @@ export default async function IntegracionesPage() {
   // aprieta el botón. null = todavía no generó ninguno.
   const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
 
+  // ── LO QUE EL PIXEL NECESITA PARA PINTARSE, EN EL PRIMER FRAME ─────────────
+  // Las páginas del workspace (paso 1) y los productos que se les pueden asignar
+  // (paso 2). Antes los pedían los dos pasos con server actions al montarse, y
+  // como Next las despacha DE A UNA eran tres viajes en serie antes de la primera
+  // casilla — medido el 06/10/2026, 11 a 13 idas y vueltas a la base para traer dos
+  // filas. El dueño lo vio: «tardó mucho en encontrar mis productos».
+  //
+  // Van en PARALELO entre sí: acá sí son dos promesas de verdad, no dos actions.
+  //
+  // ⚠️ `null` NO ES `[]`. Un workspace siempre tiene su embudo del negocio (índice
+  // único en `funnels`), así que una lista de productos VACÍA es una lectura que
+  // falló —`productosAsignables` se traga el error y devuelve `[]`—, y dibujar
+  // sobre eso «no tenés productos» sería afirmar algo falso con la pantalla. Se
+  // baja `null` y el paso dice que no pudo leer.
+  //
+  // Y si la grabación de las visitas está prendida: el interruptor se pinta con su
+  // estado de verdad en el primer frame. `null` = no se pudo leer, que NO es
+  // «apagada» — dibujarlo apagado sería afirmar algo que no se sabe.
+  const [landingsPixel, productosPixel, grabandoPixel] = ws == null ? [null, null, null] : await Promise.all([
+    landingsDelWorkspace().catch(() => null),
+    productosAsignables().then((l) => (l.length ? l : null)).catch(() => null),
+    configDeReplay().then((c) => c.activo).catch(() => null),
+  ]);
+
   return (
     <IntegracionesBoard
       integraciones={integraciones}
@@ -85,6 +107,7 @@ export default async function IntegracionesPage() {
       cuotas={cuotas}
       agenteToken={agenteToken}
       appUrl={APP_URL}
+      pixel={{ landings: landingsPixel, productos: productosPixel, grabando: grabandoPixel }}
     />
   );
 }

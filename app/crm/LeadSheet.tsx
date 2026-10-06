@@ -53,7 +53,7 @@ function IconX() {
 }
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, urlClarity, urlMapaCalor, grabacionVencida, replay, productos, fotoEmail } = data;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = data;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -281,13 +281,13 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // medición era cierta y contestaba otra pregunta: es su pantalla y la lee como
               // una frase, de dónde vino → qué hizo → evento por evento.
               //
-              // «Actividad registrada» NO se monta acá: va adentro de ComportamientoCard,
-              // que es lo que mantiene a Clarity al final. Lo fija `tests/crm-tracking-ficha.test.ts`.
+              // «Actividad registrada» NO se monta acá: va adentro de ComportamientoCard.
+              // Lo fija `tests/crm-tracking-ficha.test.ts`.
               //
               // ⚠️ Y ESTE MONTAJE Y EL DE `app/crm/[id]/page.tsx` TIENEN QUE QUEDAR IGUALES:
               // es la MISMA ficha por dos puertas, y ya se pagó que una se quedara con la
               // versión anterior.
-              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} urlClarity={urlClarity} urlMapaCalor={urlMapaCalor} visitorId={lead.visitor_id} grabacionVencida={grabacionVencida} replay={replay} /></> },
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} replay={replay} /></> },
               { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
               // ⚠️ SOLO CUANDO TIENE ALGO ADENTRO. En 1.124 de 1.138 leads esta
               // pestaña no decía más que «está vacía» —y con tres redacciones

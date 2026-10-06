@@ -25,7 +25,6 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
-import { normalizarProjectId } from '@/lib/clarity';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
 
 export const dynamic = 'force-dynamic';
@@ -250,20 +249,12 @@ export async function POST(req: NextRequest) {
         if (!envsDelServicio.has(env)) continue; // whitelist estricta: ignora envs ajenas
         let v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue; // input vacío nunca pisa una guardada
-        // ⚠️ El id de Clarity se guarda NORMALIZADO. La verificación acepta que
-        // pegues la dirección entera del panel —que es donde todo el mundo lo
-        // tiene a mano— pero lo que se guarda tiene que ser el id pelado: es lo
-        // que va en el <script> de la página del cliente y en el link del lead.
-        // Verificar una cosa y guardar otra es cómo se llega a una credencial que
-        // pasó la prueba y no funciona.
-        if (env === 'CLARITY_PROJECT_ID') {
-          const pid = normalizarProjectId(v);
-          if (!pid) continue;
-          v = pid;
-        }
-        // ⚠️ Y la cuenta de Meta, por EXACTAMENTE el mismo motivo — el comentario
-        // de acá arriba describía este bug dos años antes de que pasara, sobre la
-        // otra credencial. Business Manager le muestra al cliente `1357728489…` y
+        // ⚠️ La cuenta de Meta se guarda NORMALIZADA. La regla es general:
+        // verificar una cosa y guardar otra es cómo se llega a una credencial que
+        // pasó la prueba y no funciona. (Hasta el 06/10/2026 la misma regla
+        // protegía el id de Clarity, que se fue del producto, y su comentario
+        // describía este bug antes de que pasara.)
+        // Business Manager le muestra al cliente `1357728489…` y
         // la Graph API solo entiende `act_1357728489…`; el ping de verificación
         // normalizaba y el guardado no, así que la prueba daba verde sobre un
         // valor que nunca se almacenó. Un cliente estuvo desde el 19/8 con la

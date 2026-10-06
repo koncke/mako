@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties , type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { puedeApagar, rotuloDeVarios } from './dropdown-varios';
 
 const SANS = "'Geist', sans-serif";
 
@@ -28,6 +29,15 @@ function OptAvatar({ url, name, size = 22, cuadrado = false }: { url: string | n
   return <span aria-hidden style={{ width: size, height: size, borderRadius: radio, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(size * 0.42), fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{optIniciales(name)}</span>;
 }
 
+/**
+ * La elección MÚLTIPLE, cuando el desplegable la tiene prendida (prop `varios`).
+ *
+ * Va como UN objeto y no como dos parámetros sueltos: `renderOption` ya recibe siete
+ * posicionales, y un octavo y un noveno que siempre viajan juntos son la forma de que
+ * un call site pase uno y se olvide del otro.
+ */
+type Varios = { valores: string[]; minimo: number };
+
 // Botón de una opción del menú (compartido por la lista plana y las columnas).
 //
 // En columnas el `sub` se omite POR DEFECTO: el título del grupo ya da ese contexto. Lo
@@ -44,10 +54,35 @@ function renderOption(
   close: () => void,
   enColumna: boolean,
   conSub = false,
+  varios?: Varios,
 ) {
-  const on = !resetAfterSelect && o.value === value;
+  // Con `varios`, «elegido» es estar EN el conjunto; sin él, ser EL valor — y ése es el
+  // camino de siempre, intacto para las decenas de pantallas que no eligen varios.
+  const on = varios ? varios.valores.includes(o.value) : !resetAfterSelect && o.value === value;
+  // ⚠️ EL ÚLTIMO QUE QUEDA NO SE PUEDE APAGAR. Es lo que hace que «tiene que quedar al
+  // menos uno» sea una propiedad del control y no una validación al guardar: un
+  // desplegable que deja vaciarse y después dice «no podés» es un control que miente
+  // durante un click.
+  const bloqueado = !!varios && !puedeApagar(varios.valores, o.value, varios.minimo);
   const cuerpo = (
     <>
+      {/* ⚠️ EN ELECCIÓN MÚLTIPLE VA UNA CASILLA, y SIN TILDE. Hace falta una: el botón
+          no puede decir cuáles están marcados uno por uno, y sin ella un renglón
+          «prendido» se lee igual que el renglón sobre el que está el cursor. Pero sin
+          el ✓, por el pedido de Martín del 29/09/2026 sobre este mismo desplegable —«no
+          pongas un check»—: lo marcado se dice RELLENANDO la casilla, que es un portador
+          distinto del peso del texto y no repite el que él sacó. Lo fija
+          tests/funnel-estructura.test.ts («sin tilde»). */}
+      {varios && (
+        <span aria-hidden style={{
+          width: 15, height: 15, flex: 'none', borderRadius: 4,
+          border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+          background: on ? 'var(--primary)' : 'transparent',
+          // ⚠️ El último marcado NO se aclara aunque no se pueda desmarcar: pálida, la
+          // casilla se leía como desmarcada (visto en el navegador el 06/10/2026). Que
+          // está bloqueada lo dicen el cursor y el `title` del renglón.
+        }} />
+      )}
       {o.avatar !== undefined && <OptAvatar url={o.avatar} name={o.label} size={22} cuadrado={o.avatarCuadrado} />}
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
@@ -64,7 +99,7 @@ function renderOption(
   const estilo: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
     padding: '9px 11px', borderRadius: 8, border: 'none',
-    cursor: o.disabled ? 'default' : 'pointer',
+    cursor: o.disabled || bloqueado ? 'default' : 'pointer',
     background: on ? 'var(--surface-2)' : 'transparent',
     color: o.crear || o.sutil ? 'var(--faint)' : 'var(--ink)',
     fontFamily: SANS, fontSize: o.sutil ? 12.5 : 13.5,
@@ -82,7 +117,15 @@ function renderOption(
     ...(o.sutil ? { borderTop: '1px solid var(--border)', borderRadius: 0, textAlign: 'center', marginTop: 4, padding: '8px 11px 3px' } : null),
     transition: 'color .12s, opacity .12s',
   };
-  const elegir = () => { if (!o.disabled) { onChange(o.value); close(); } };
+  // Con `varios` se ALTERNA y el menú NO se cierra: marcar tres productos no puede costar
+  // abrir el desplegable tres veces. Quien llama recibe el valor tocado y arma el
+  // conjunto — el componente no guarda estado propio de la selección, igual que con un
+  // solo valor.
+  const elegir = () => {
+    if (o.disabled) return;
+    if (varios) { if (!bloqueado) onChange(o.value); return; }
+    onChange(o.value); close();
+  };
 
   // ⚠️ SÓLO LAS ACCIONES: el renglón no lleva rótulo ni parte clicable propia — son DOS
   // BOTONES en una línea. «El botón de mover no debería tener la palabra mover, solo las
@@ -119,6 +162,11 @@ function renderOption(
   if (!o.acciones?.length) {
     return (
       <button key={o.value} type="button" disabled={o.disabled} onClick={elegir}
+        // Un renglón que se prende y se apaga es un botón de dos estados: `aria-pressed`
+        // dice cuál, sin tener que declararle un rol a éste solo (ningún renglón de este
+        // menú declara el suyo, y uno solo con rol es peor que ninguno).
+        aria-pressed={varios ? on : undefined}
+        title={bloqueado ? 'Tiene que quedar al menos uno' : undefined}
         // El de CREAR no cambia de fondo: se enciende. Apagado dice «esto todavía no
         // existe»; encendido, «esto se puede hacer».
         onMouseEnter={(e) => {
@@ -245,6 +293,8 @@ export function Dropdown({
   alContenido = false,
   portalTo,
   icono,
+  varios,
+  minimo = 0,
 }: {
   value: string;
   options?: DropdownOption[];
@@ -339,6 +389,25 @@ export function Dropdown({
    * hace que un emoji suelto no deje a nadie afuera.
    */
   botonLabel?: ReactNode;
+  /**
+   * ELEGIR VARIOS. Con esto cada renglón se PRENDE o se APAGA, el menú NO se cierra al
+   * tocar, y `onChange` recibe el valor tocado — quien llama arma el conjunto. `value` se
+   * ignora.
+   *
+   * Existe por el paso 2 del Pixel (app/integraciones/AsignarProducto.tsx): una landing
+   * puede vender varios productos, y el pedido fue textual, «hazlo también dentro de un
+   * desplegable». Va ACÁ y no en un componente propio por la regla de app/_ui/Select.tsx:
+   * «si necesitás algo que el Dropdown no hace, se lo agregás AL Dropdown, no escribís un
+   * segundo».
+   *
+   * ⚠️ Sólo cubre los renglones PLANOS. Un renglón con `acciones` o `soloAcciones` sigue
+   * eligiendo uno y cerrando: no hay hoy ningún desplegable que necesite las dos cosas, y
+   * mezclar «alternar» con «borrar este renglón» en la misma fila es una pregunta de
+   * diseño que no se contesta en una línea.
+   */
+  varios?: string[];
+  /** Con `varios`: cuántos tienen que quedar marcados. El renglón que lo rompería no se apaga. */
+  minimo?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -434,7 +503,17 @@ export function Dropdown({
   const flat = secciones ? secciones.flatMap((g) => g.options)
     : columns ? columns.flat().flatMap((g) => g.options)
     : (options ?? []);
-  const selected = resetAfterSelect ? undefined : flat.find((o) => o.value === value);
+  const selected = resetAfterSelect || varios ? undefined : flat.find((o) => o.value === value);
+  // ⚠️ CON VARIOS, EL BOTÓN DICE CUÁLES — no «2 seleccionados». Un número obliga a abrir
+  // el menú para saber qué se eligió, que es justo lo que el botón de un desplegable
+  // existe para ahorrar. Con tres o más no entran: van los dos primeros y cuántos más.
+  // El orden es el del CONJUNTO y no el de la lista: el primero que se marcó es el que el
+  // botón nombra primero, y es el mismo «principal» que usa quien guarda.
+  const marcados = varios
+    ? varios.map((v) => flat.find((o) => o.value === v)).filter((o): o is DropdownOption => !!o)
+    : [];
+  const rotuloVarios = rotuloDeVarios(marcados.map((o) => o.label));
+  const elegidoVisible = !!selected || marcados.length > 0;
 
   // Búsqueda: aparece sola pasadas las 8 opciones. Filtra por título Y subtítulo
   // (en las listas de personas el dato que uno recuerda suele ser el subtítulo).
@@ -474,7 +553,7 @@ export function Dropdown({
   const btn: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)',
-    background: 'var(--surface)', color: selected ? 'var(--ink)' : 'var(--dim)',
+    background: 'var(--surface)', color: elegidoVisible ? 'var(--ink)' : 'var(--dim)',
     fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', outline: 'none',
     width: width ?? 'auto', opacity: disabled ? 0.6 : 1, ...buttonStyle,
   };
@@ -486,7 +565,7 @@ export function Dropdown({
           {icono && <span style={{ flex: 'none', display: 'flex', color: 'var(--faint)' }}>{icono}</span>}
           {selected?.avatar !== undefined && <OptAvatar url={selected.avatar} name={selected.label} size={20} cuadrado={selected.avatarCuadrado} />}
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{botonLabel ?? (selected ? selected.label : placeholder)}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{botonLabel ?? (selected ? selected.label : rotuloVarios ?? placeholder)}</span>
         </span>
         {/* ⚠️ UN MENÚ DE ACCIONES NO LLEVA FLECHA. La flecha dice «acá se elige un valor
             y el elegido queda escrito»; un menú de tres puntos dice «acá hay cosas para
@@ -498,7 +577,7 @@ export function Dropdown({
         )}
       </button>
       {open && pos && createPortal(
-        <div ref={menuRef} role="listbox" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : 360, maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : 'min(480px, calc(100dvh - 40px))') : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
+        <div ref={menuRef} role="listbox" aria-multiselectable={varios ? true : undefined} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: columns && !alContenido ? 'min(500px, calc(100vw - 24px))' : 'max-content', maxWidth: columns && !alContenido ? undefined : 360, maxHeight: columns ? (alContenido ? Math.max(200, Math.min(560, pos.espacio ?? 560)) : 'min(480px, calc(100dvh - 40px))') : 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
           {conBusqueda && (
             // Queda PEGADA arriba: en una lista larga el buscador tiene que
             // seguir a la vista mientras se scrollea, o deja de servir.
@@ -516,7 +595,7 @@ export function Dropdown({
               (seccVisibles ?? []).map((g) => (
                 <div key={g.title}>
                   <div style={rotuloGrupo}>{g.title}</div>
-                  {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
+                  {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
                 </div>
               ))
             ) : abierta ? (
@@ -525,7 +604,7 @@ export function Dropdown({
                   style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 }}>
                   ‹ {abierta.title}
                 </button>
-                {abierta.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
+                {abierta.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
               </>
             ) : (
               (seccVisibles ?? []).map((g) => (
@@ -547,7 +626,7 @@ export function Dropdown({
                   {col.map((g) => (
                     <div key={g.title}>
                       <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', padding: '8px 11px 4px' }}>{g.title}</div>
-                      {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), true, subEnColumnas))}
+                      {g.options.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), true, subEnColumnas, varios ? { valores: varios, minimo } : undefined))}
                     </div>
                   ))}
                 </div>
@@ -555,7 +634,7 @@ export function Dropdown({
             </div>
           ) : (
             <>
-              {optsVisibles.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false))}
+              {optsVisibles.map((o) => renderOption(o, value, resetAfterSelect, onChange, () => setOpen(false), false, false, varios ? { valores: varios, minimo } : undefined))}
               {(options ?? []).length === 0 && <div style={{ padding: '9px 11px', fontSize: 13, color: 'var(--faint)' }}>Sin opciones</div>}
             </>
           )}

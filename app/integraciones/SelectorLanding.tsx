@@ -3,10 +3,10 @@
 // =============================================================================
 // SelectorLanding — el PASO 1: cuál de tus páginas estás configurando
 // =============================================================================
-// ⚠️ VA PRIMERO PORQUE GOBIERNA TODO LO DEMÁS. El código que se copia, si Clarity
-// está conectado, si el Pixel está al día, qué pasos tiene la prueba: todo eso es
-// distinto en cada landing. El dueño lo dijo así: «tal vez en una landing aún no
-// pegue el token y el ID de Clarity y en otra sí».
+// ⚠️ VA PRIMERO PORQUE GOBIERNA TODO LO DEMÁS. Qué productos vende, si el Pixel
+// está al día, qué pasos tiene la prueba: todo eso es distinto en cada landing.
+// El dueño lo dijo así: «tal vez en una landing aún no pegue el token y el ID de
+// Clarity y en otra sí» (Clarity salió del producto el 06/10/2026; la regla quedó).
 //
 // Mientras la landing se elegía al FINAL, la pantalla afirmaba cosas sobre «tu
 // página» sin saber cuál — y con dos publicadas, la mitad de esas afirmaciones
@@ -17,48 +17,32 @@ import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { mismaPagina } from '@/lib/landing-paginas';
 import type { LandingConfig } from '@/lib/landing-config';
-import { borrarLandingAction, getLandingsAction, guardarLandingAction } from './landing-config-actions';
+import { borrarLandingAction, guardarLandingAction } from './landing-config-actions';
 
 const NUEVA = '__nueva__';
 
-export function SelectorLanding({ elegida, onElegir, onCargando }: {
+export function SelectorLanding({ elegida, onElegir, landings, onLandings }: {
   elegida: string | null;
   onElegir: (url: string | null) => void;
-  /** Avisa mientras se está resolviendo cuál es la página. Lo necesita el paso 1
-   *  para que lo de abajo muestre un esqueleto en vez de la nada: con una sola
-   *  landing guardada, la elección la hace este componente solo, y entre que el
-   *  modal abre y la lista llega hay un rato en que la pantalla está vacía y
-   *  parece rota. */
-  onCargando?: (b: boolean) => void;
+  /**
+   * Las páginas del workspace. Llegan resueltas desde el server y el estado vive
+   * en el PADRE, porque el paso 2 lee la misma lista: con una copia en cada paso,
+   * guardar en uno dejaba al otro mostrando la configuración vieja.
+   */
+  landings: LandingConfig[];
+  onLandings: (l: LandingConfig[]) => void;
 }) {
-  const [landings, setLandings] = useState<LandingConfig[]>([]);
   const [nueva, setNueva] = useState(false);
   const [texto, setTexto] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    onCargando?.(true);
-    // ⚠️ UN PISO DE TIEMPO, y va al revés de lo habitual. Lo normal es RETRASAR
-    // un loader para que una consulta rápida no lo haga parpadear; acá el
-    // problema es el opuesto: la consulta tarda tan poco que el hueco de abajo
-    // aparece y desaparece sin que se llegue a ver, y lo que queda es la
-    // sensación de que la pantalla se dibujó mal. El dueño lo reportó dos veces
-    // seguidas —«aún no aparece el loader»— sobre un loader que sí estaba.
-    // 450 ms es el piso para que un cambio de estado se perciba como tal.
-    const arranque = Date.now();
-    let vivo = true;
-    getLandingsAction()
-      .then((l) => { if (vivo) setLandings(l); })
-      .catch(() => { /* sin lista, se agrega */ })
-      .finally(() => {
-        const falta = Math.max(0, 450 - (Date.now() - arranque));
-        // Se apaga SIEMPRE, también si falló: un esqueleto que no termina nunca
-        // es peor que la pantalla vacía que vino a tapar.
-        setTimeout(() => { if (vivo) onCargando?.(false); }, falta);
-      });
-    return () => { vivo = false; };
-  }, [onCargando]);
+  // ⚠️ ACÁ HABÍA UNA LECTURA CON UN PISO DE 450 ms, y se fue el 06/10/2026. El
+  // piso existía para que el esqueleto de abajo no parpadeara —el dueño había
+  // reportado dos veces «aún no aparece el loader»—, pero la lectura misma era el
+  // primero de TRES viajes en serie que hacían esperar al paso 2: Next despacha las
+  // server actions de a una. La lista ahora baja resuelta desde el server, así que
+  // no hay nada que esperar, ni esqueleto que sostener, ni piso que medir.
 
   // Con UNA sola landing no hay nada que elegir: se selecciona sola. Un
   // desplegable de un elemento es un paso que solo existe para ser confirmado.
@@ -71,7 +55,7 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
     const r = await guardarLandingAction(texto);
     setOcupado(false);
     if (!r.ok) { setErr(r.error); return; }
-    setLandings(r.landings);
+    onLandings(r.landings);
     // Se queda elegida la que se acaba de agregar: es lo que se venía a hacer.
     onElegir(r.landings.find((l) => mismaPagina(l.url, texto))?.url ?? null);
     setNueva(false); setTexto('');
@@ -88,7 +72,7 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
     const r = await borrarLandingAction(url);
     setOcupado(false);
     if (!r.ok) { setErr(r.error); return; }
-    setLandings(r.landings);
+    onLandings(r.landings);
     if (mismaPagina(url, elegida)) onElegir(null);
   };
 
@@ -112,9 +96,6 @@ export function SelectorLanding({ elegida, onElegir, onCargando }: {
                 ...landings.map((l) => ({
                   value: l.url,
                   label: l.url,
-                  // Se dice de un vistazo qué tiene CADA una: es la información
-                  // que vuelve útil tener varias.
-                  sub: l.clarityProjectId ? 'con grabaciones' : undefined,
                   acciones: [{
                     icono: <span aria-hidden style={{ fontSize: 13 }}>✕</span>,
                     title: 'Quitar esta página',

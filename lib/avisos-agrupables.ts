@@ -32,7 +32,6 @@ export const AVISOS_AGRUPABLES: ReadonlySet<string> = new Set([
   'objetivo-en-riesgo',            // el ritmo del trimestre, no el de hoy
   'meta-alcanzada',                // una felicitación no urge
   'tracking-desactualizado',       // el Pixel viejo: hay que repegarlo, no corriendo
-  'clarity-grabacion-por-vencer',  // una grabación que vence en días
   'landing-cambio',                // le cambiaron una pieza a la landing
   'prueba-grabada',                // quedó grabada una prueba
   'lead-fusionado',                // «lo sumé a X, que ya tenías»: informativo

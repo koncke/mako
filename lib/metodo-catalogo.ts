@@ -668,53 +668,6 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
-    // ⚠️ Clarity NO tiene tarjeta propia en /integraciones (va oculta en el
-    // catálogo de integraciones) pero SÍ tiene que estar acá: este es el catálogo
-    // que le dice a la barra de credenciales qué campos pedir y qué pasos mostrar
-    // en el «?». Faltando esto, la pantalla respondía «servicio inválido» — el
-    // formulario existía y no tenía de dónde sacar sus campos.
-    key: 'clarity',
-    nombre: 'Microsoft Clarity',
-    categoria: 'Datos',
-    paraQue: 'Mapas de calor y grabaciones de sesión de tu página, atados a cada lead.',
-    campos: [
-      // El ID del proyecto NO es secreto: viaja en el HTML de la página, como
-      // cualquier pixel. Mostrarlo enmascarado escondería justo el dato que
-      // permite distinguir de un vistazo un proyecto de otro.
-      { env: 'CLARITY_PROJECT_ID', label: 'ID del proyecto', placeholder: 'abcd1234ef', nota: 'Unos 10 caracteres entre letras y números. Está en clarity.microsoft.com → engranaje "Settings" → "Overview" → "Project ID". No es secreto: viaja dentro de tu página, como cualquier pixel.' },
-      // El token sí lo es: da lectura a las métricas del proyecto. Y es OPCIONAL
-      // a propósito — sin él funcionan las grabaciones y los mapas, que son el
-      // 90% del valor; solo se pierde el resumen de números dentro de MaKo.
-      // ⚠️ OBLIGATORIO, y lo era desde el principio: sin token no hay resumen, y
-      // sin resumen MaKo no sabe cuántas sesiones hubo ni cuándo se vencen las
-      // grabaciones — o sea que el aviso de «esto se borra en 5 días» no puede
-      // existir. Marcarlo opcional dejaba conectar a medias una integración que a
-      // medias no sirve, y el que la conectaba así no se enteraba nunca.
-      { env: 'CLARITY_API_TOKEN', label: 'Token de Data Export', secreto: true, placeholder: 'eyJhbGciOi…', nota: 'Obligatorio. Está en "Settings" → "Data Export" → "Generate new API token". Solo lo puede crear el administrador del proyecto, y se muestra UNA sola vez. Sin esto no hay resumen de sesiones ni aviso de grabaciones por vencer.' },
-    ],
-    tutorial: {
-      url: 'https://clarity.microsoft.com',
-      urlLabel: 'Microsoft Clarity',
-      pasos: [
-        'Para qué sirve: ves la grabación en video de lo que hizo cada persona en tu página, y un mapa de dónde hicieron clic. Todo eso queda pegado a la ficha del lead en tu CRM.',
-        'Son dos datos y los dos hacen falta: el "ID del proyecto" y el "Token de Data Export". Con uno solo, MaKo no puede contarte cuántas sesiones hubo ni avisarte antes de que Clarity borre las grabaciones viejas.',
-        'Entra a clarity.microsoft.com y toca "Sign in". Puedes entrar con tu cuenta de Microsoft, de Google o de Facebook: no hace falta crear una contraseña nueva.',
-        'Toca "New project" y ponle el nombre de tu negocio.',
-        'Escribe la dirección de tu página (por ejemplo tunegocio.com) y crea el proyecto. Es gratis y sin límite de visitas.',
-        'Arriba a la derecha toca el engranaje, que dice "Settings".',
-        'Abre el menú de Settings (en el celular es el botón de las tres rayitas, arriba) y entra a "Overview".',
-        'Ahí hay un dato que dice "Project ID": son unos 10 caracteres entre letras y números. Cópialo y pégalo en el campo "ID del proyecto".',
-        'Sin salir de Settings, en el mismo menú entra a "Data Export".',
-        'Toca "Generate new API token". Si no ves ese botón es porque tu usuario no es administrador del proyecto: solo el administrador puede crear tokens, así que pídeselo a quien creó el proyecto.',
-        'Ponle un nombre al token: entre 4 y 32 caracteres y sin espacios (por ejemplo MaKo). Clarity rechaza los espacios.',
-        'Copia el token y pégalo en el campo "Token de Data Export". Se muestra UNA sola vez: si cierras esa ventana, tienes que generar otro.',
-        'No tienes que pegar ningún código de Clarity en tu página, pero sí tiene que estar puesto el Pixel de MaKo: Clarity viaja adentro de él.',
-        'Si todavía no pusiste el Pixel, Clarity no graba nada aunque en MaKo figure conectado. Lo encuentras en esta misma pantalla de Integraciones, en el bloque "Instala el Pixel de MaKo en tu página".',
-        'Si ya lo tenías puesto de antes, cópialo y pégalo otra vez ahora: el que está en tu página quedó congelado el día que lo pegaste y no trae Clarity.',
-      ],
-    },
-  },
-  {
     key: 'panda',
     nombre: 'Panda Video',
     categoria: 'Datos',
@@ -1504,42 +1457,13 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // paso 1, cómo crear el webhook. La ayuda del servicio contesta «cómo conecto
   // esto»; la del campo contesta «qué pongo ACÁ», que es la pregunta que se hace
   // quien tiene el cursor adentro del input.
-  // ⚠️ SIN ENTRADA ACA, EL «?» DE CADA CAMPO ABRE EL MISMO TEXTO. En clarity,
-  // whop y github los dos campos no tenian ayuda propia, asi que los dos abrian
+  // ⚠️ SIN ENTRADA ACA, EL «?» DE CADA CAMPO ABRE EL MISMO TEXTO. En clarity
+  // (que salió del producto el 06/10/2026), whop y github los dos campos no
+  // tenian ayuda propia, asi que los dos abrian
   // el tutorial entero del servicio — el cliente lo reporto como «la guia de cada
   // cosa aparece siempre el mismo». La del servicio contesta «como conecto esto»;
   // la del campo, «que pongo ACA», que es la pregunta de quien tiene el cursor
   // adentro del input.
-  CLARITY_PROJECT_ID: {
-    pasos: [
-      'Para qué sirve: identifica cuál de tus sitios es el tuyo dentro de Clarity. Es el primero de los dos datos que hacen falta.',
-      'Entra a clarity.microsoft.com e inicia sesión con tu cuenta de Microsoft, de Google o de Facebook. Es gratis y sin límite de visitas.',
-      'Si todavía no tienes un proyecto, toca "New project", escribe el nombre de tu negocio y la dirección de tu página, y créalo. Un "proyecto" es la carpeta donde Clarity guarda las grabaciones de ese sitio.',
-      'Abre tu proyecto.',
-      'Mira la dirección de la página: dice algo como clarity.microsoft.com/projects/view/abc123xyz/dashboard',
-      'El ID es ese código corto que va después de "view": en el ejemplo, abc123xyz.',
-      'Pégalo en el campo "ID del proyecto". También puedes pegar la dirección completa: MaKo se queda con la parte que necesita.',
-      'No hace falta que pegues ningún código en tu página: el Pixel de MaKo ya lleva el de Clarity adentro cuando este campo está lleno.',
-    ],
-    url: 'https://clarity.microsoft.com',
-    urlLabel: 'Microsoft Clarity',
-  },
-  CLARITY_API_TOKEN: {
-    pasos: [
-      'Para qué sirve: es lo que deja a MaKo traer el resumen de lo que pasó en tu página. Hace falta: sin esto, la conexión queda a medias.',
-      'Entra a clarity.microsoft.com y abre tu proyecto, el mismo del campo de arriba.',
-      'Arriba a la derecha toca el engranaje de "Settings".',
-      'En el menú de la izquierda entra a "Data export".',
-      'Toca "Generate new API token".',
-      'Ponle un nombre al token: entre 4 y 32 caracteres, sin espacios (por ejemplo MaKo). Clarity rechaza los espacios.',
-      'Toca "Generate".',
-      'Copia el token y pégalo en el campo "Token de Data Export". Se muestra UNA sola vez: si cierras esa ventana, tienes que generar otro.',
-      'Ten en cuenta que Clarity solo deja pedir ese resumen 10 veces por día. MaKo lo pide una vez al día, así que no lo vas a notar.',
-      'Y ojo con esto, porque no avisa: Clarity borra las grabaciones a los 30 días. Con este token puesto, MaKo te avisa antes de que una grabación se venza.',
-    ],
-    url: 'https://clarity.microsoft.com',
-    urlLabel: 'Microsoft Clarity → Settings',
-  },
   WHOP_API_KEY: {
     pasos: [
       'Para qué sirve: es lo que deja a MaKo ver quién compró, quién sigue pagando y quién se dio de baja, sin que entres a Whop.',

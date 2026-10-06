@@ -8,7 +8,6 @@
 // =============================================================================
 
 import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
-import { urlSesionesDeLead, urlPanel, grabacionVigente } from '@/lib/clarity';
 import { replayDeLead } from '@/lib/replay-leer';
 import type { ReplayEnLaFicha } from '@/lib/replay-ficha';
 import type { VideoLanding } from '@/lib/landing-videos';
@@ -159,13 +158,6 @@ export type LeadFullData = {
   vslEng: VslEngagement;
   /** El catálogo `landing.videos`: cómo llama el negocio a cada video. */
   videos: VideoLanding[];
-  /** Link a las grabaciones de ESTA persona en Clarity, o null. Se resuelve en el
-   *  server porque necesita la credencial del workspace, que el cliente no ve. */
-  urlClarity: string | null;
-  /** El mapa de calor de la página, que es del PROYECTO y no de este lead. */
-  urlMapaCalor: string | null;
-  /** Existió pero Clarity ya la borró. Distinto de «nunca hubo». */
-  grabacionVencida: boolean;
   /** Las grabaciones PROPIAS (rrweb) de esta persona, o POR QUÉ no hay ninguna.
    *  Se resuelve en el server: necesita el apagador del workspace y el índice
    *  scopeado por cliente, que el navegador no puede leer. */
@@ -202,7 +194,7 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, urlClarity, urlMapaCalor, pixelPuesto] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, pixelPuesto] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
@@ -213,9 +205,6 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
     getVideosLanding(),
-    urlSesionesDeLead(lead.visitor_id).catch(() => null),
-    // Del PROYECTO: Clarity agrega los clics de todos y no se filtra por persona.
-    urlPanel(undefined, 'heatmaps').catch(() => null),
   // ¿El Pixel de MaKo está midiendo? Es para el VACÍO de la tarjeta de tracking:
   // sin código pegado, «sin eventos» no es un lead que no interactuó, es un negocio
   // que todavía no mide — y eso se arregla en otra pantalla. Misma señal que el
@@ -224,21 +213,16 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     landingRecibioEventos().catch(() => true),
   ]);
 
-  // ⚠️ EL LINK A LA GRABACIÓN SE GATEA POR LA RETENCIÓN, no por «tiene
-  // identificador». Clarity borra a los 30 días: sobre un lead más viejo, el
-  // botón abre su panel sin nada y se lee como que la medición no funciona.
-  // Se mira la ÚLTIMA actividad —no el alta— porque alguien de marzo que volvió
-  // ayer sí tiene grabación.
+  // La ÚLTIMA actividad —no el alta— porque alguien de marzo que volvió ayer
+  // tiene grabación de ayer. La lee `replayDeLead` para explicar un vacío («su
+  // última visita es anterior a los días que guardamos»), no para filtrar.
   const ultimaActividad = tracking.length
     ? tracking.map((e) => e.ts).sort().at(-1) ?? null
     : lead.created_at;
-  const grabacionVigente_ = grabacionVigente(ultimaActividad);
-  const urlClarityVigente = grabacionVigente_ ? urlClarity : null;
-  const grabacionVencida = !!urlClarity && !grabacionVigente_;
-  // La grabación propia va DESPUÉS de `ultimaActividad`, que es el mismo dato con el
-  // que se gatea el link de Clarity: así las dos tarjetas de la misma pantalla no
-  // pueden contradecirse sobre cuándo fue la última vez que esta persona entró.
-  // Nunca rompe la ficha: `replayDeLead` no tira y distingue «no pude leer».
+  // ⚠️ ACÁ SE GATEABAN LOS LINKS A MICROSOFT CLARITY (la grabación y el mapa de
+  // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
+  // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
+  // `replayDeLead` no tira y distingue «no pude leer».
   const [respuestas, insightGen, equipo, grabable, replay, funnels] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction(), encuentroGrabable(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => [])]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
@@ -256,7 +240,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre, esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, urlClarity: urlClarityVigente, urlMapaCalor, grabacionVencida, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

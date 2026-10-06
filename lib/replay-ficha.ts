@@ -122,11 +122,10 @@ export type TextoVacio = {
 /**
  * La frase de cada caso, y el link SÓLO donde hay algo que hacer.
  *
- * ⚠️ `apagado` NO LLEVA LINK, y no es un olvido: el interruptor `landing.replay`
- * todavía no tiene pantalla —se prende con `setSetting`—, así que un botón acá
- * llevaría a una pantalla donde no está. «Si no sabés DÓNDE está algo, el mensaje
- * dice qué pasó y se calla» (AGENTS.md). El día que exista la pantalla, el link va
- * acá y en ningún otro lado.
+ * ⚠️ `apagado` LLEVA LINK desde el 06/10/2026. Hasta ese día no lo llevaba, y no
+ * era un olvido: el interruptor no tenía pantalla —se prendía con `setSetting`— y
+ * un botón habría llevado a donde no estaba. Ahora vive en el Pixel de MaKo
+ * («Grabar las visitas», /integraciones), y el link va acá y en ningún otro lado.
  *
  * ⚠️ Y `vencida` NO AFIRMA QUE HUBO UNA. Cuando la purga borra, borra también la
  * fila del índice: desde esta pantalla no hay forma de distinguir «existió y se
@@ -141,7 +140,10 @@ export function textoDelVacio(motivo: ReplayVacio, retencionDias: number): Texto
     case 'no_se_pudo_leer':
       return { que: 'No pude leer sus grabaciones. No significa que no haya.', donde: null };
     case 'apagado':
-      return { que: 'La grabación de sesión está apagada en este negocio.', donde: null };
+      return {
+        que: 'La grabación de las visitas está apagada en este negocio.',
+        donde: { texto: 'Prender la grabación', href: '/integraciones?abrir=landing' },
+      };
     case 'pixel_viejo':
       return {
         que: 'El código de tu página es anterior a la grabación, así que esa visita no se grabó.',

@@ -86,7 +86,9 @@ function llamadasACreateLead(src: string): string[] {
 }
 
 /** Las cuatro altas, por archivo. Son las que crean un lead que nadie escribió solo. */
-const ALTAS = ['app/crm/actions.ts', 'app/customer-success/actions.ts', 'app/integraciones/prueba-lead-actions.ts'];
+// La quinta vive en lib/ desde el 06/10/2026: la llaman el botón de la prueba y el
+// cron que avisa por WhatsApp, y el alta no puede depender de quién tenga la sesión.
+const ALTAS = ['app/crm/actions.ts', 'app/customer-success/actions.ts', 'lib/lead-de-prueba.ts'];
 
 test('las cuatro altas estampan `origen_lead`: ninguna crea un lead sin procedencia', () => {
   let total = 0;
@@ -111,7 +113,7 @@ test('las cuatro altas estampan `origen_lead`: ninguna crea un lead sin proceden
   // el comentario de arriba pide: queda escrito que el camino nuevo se revisó.
   //
   // Probado rompiéndolo el 06/10/2026: sacándole el `origen_lead:` al createLead de
-  // `prueba-lead-actions.ts` quedan 5 pases y 2 fallos (éste y el del catálogo).
+  // `prueba-lead-actions.ts` (hoy en `lib/lead-de-prueba.ts`) quedan 5 pases y 2 fallos (éste y el del catálogo).
   assert.equal(total, 5, `son 5 altas conocidas y encontré ${total}: revisa la nueva`);
 });
 
