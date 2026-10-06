@@ -3297,6 +3297,41 @@ async function _getAdNameMap(): Promise<Record<string, string>> {
 }
 
 /**
+ * Anuncio → su campaña y su conjunto, sacado de las métricas (que tienen los tres ids en la
+ * misma fila desde la 0009). Es lo que permite filtrar el CRM por CAMPAÑA también a los
+ * leads del formulario de Meta, que traen el anuncio y no la campaña: `meta_campaign_id`
+ * se empezó a escribir el 05/10/2026 y lo anterior no lo tiene.
+ *
+ * Un objeto y no un `Map`, porque pasa por `cachedRead` y se serializa. Quien lo use lo
+ * convierte con `new Map(Object.entries(…))` (ver `campanaDeLead`, lib/campana-atribucion.ts).
+ */
+export const getAnunciosMap = cachedRead('getAnunciosMap', _getAnunciosMap, { tags: [TAG.marketing], revalidate: TTL.cron });
+async function _getAnunciosMap(): Promise<Record<string, { campaignId: string | null; adsetId: string | null }>> {
+  const supabase = (await getTenantDb());
+  const map: Record<string, { campaignId: string | null; adsetId: string | null }> = {};
+  try {
+    await leerPorPaginas<{ ad_id: string; campaign_id: string | null; adset_id: string | null }>(
+      supabase, T_METRICAS, 'id, fecha, ad_id, campaign_id, adset_id',
+      (filas) => {
+        // La primera fila que trae el dato gana: un anuncio no cambia de campaña.
+        for (const r of filas) {
+          const prev = map[r.ad_id];
+          map[r.ad_id] = { campaignId: prev?.campaignId ?? r.campaign_id ?? null, adsetId: prev?.adsetId ?? r.adset_id ?? null };
+        }
+      },
+      {
+        orden: ORDEN_METRICAS,
+        eq: { plataforma: 'meta' },
+        filtros: (q) => q.not('ad_id', 'is', null),
+      },
+    );
+  } catch (e) {
+    throw new Error(`getAnunciosMap falló: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return map;
+}
+
+/**
  * Nombre del anuncio a mostrar: prefiere el nombre FRESCO resuelto por
  * meta_ad_id (refleja renames); cae al denormalizado meta_ad_name / adset.
  */

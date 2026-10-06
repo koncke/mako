@@ -26,16 +26,21 @@
 // =============================================================================
 
 import { esIdMeta } from './campana-config';
+import { adIdDeLead } from './atribucion-url';
 
 /** Lo que el cruce necesita de cada lead. */
 export type LeadAtribuible = {
   id: number;
-  funnel_id: number | null;
+  funnel_id?: number | null;
   meta_campaign_id?: string | null;
   adset_id_origen?: string | null;
   meta_ad_id?: string | null;
   utm_campaign?: string | null;
   utm_content?: string | null;
+  /** Los nombres que Graph escribió al ingestar. Sólo para MOSTRAR: nunca deciden de qué
+   *  campaña es un lead (ver la cabecera). */
+  meta_campaign_name?: string | null;
+  meta_ad_name?: string | null;
 };
 
 /** Una fila de `marketing_metrics_daily`. */
@@ -196,3 +201,67 @@ export function campanasDeMetricas(filas: FilaConNombre[]): {
     conjuntos: [...conj].map(([id, v]) => ({ id, ...v })),
   };
 }
+
+/** De qué campaña y de qué creativo (anuncio) vino un lead, para el filtro del CRM. */
+export type OrigenAds = {
+  /** La clave del filtro: el id de la campaña, o `n:<nombre>` si sólo se sabe el nombre. */
+  campanaKey: string | null;
+  campanaNombre: string | null;
+  anuncioKey: string | null;
+  anuncioNombre: string | null;
+};
+
+/**
+ * La campaña y el creativo de un lead, con su nombre, para filtrar el CRM.
+ *
+ * Pedido de Martín (06/10/2026): «en el CRM pon un filtro por creativo o por campaña, para
+ * ver de qué ads vinieron los leads».
+ *
+ * ⚠️ LA CLAVE ES EL ID, Y EL NOMBRE SÓLO SE MUESTRA. La campaña sale de `campanaDeLead`
+ * (lo que decide el producto de un lead, con su orden de datos), y el anuncio de
+ * `adIdDeLead`, el mismo que arma el deep-link de la ficha. Filtrar por NOMBRE juntaría dos
+ * campañas que se llaman igual y partiría en dos una que se renombró; con el id, una
+ * campaña renombrada sigue siendo una fila del filtro, con su nombre de hoy (`campMap`).
+ * Sólo cuando no hay id y sí un nombre —un lead viejo con el nombre denormalizado— la clave
+ * es `n:<nombre>`, para no tirarlo a «Sin campaña» habiendo un dato.
+ */
+export function origenAds(
+  l: LeadAtribuible,
+  anuncios: Map<string, Anuncio>,
+  campMap: Record<string, string>,
+  adMap: Record<string, string>,
+): OrigenAds {
+  const limpio = (v: string | null | undefined) => (v ?? '').trim() || null;
+  const campId = campanaDeLead(l, anuncios).campaignId;
+  const campNombreGuardado = limpio(l.meta_campaign_name)
+    ?? (limpio(l.utm_campaign) && !esIdMeta(l.utm_campaign) ? limpio(l.utm_campaign) : null);
+  const adId = adIdDeLead(l.meta_ad_id ?? null, l.utm_content ?? null, adMap);
+  const adNombreGuardado = limpio(l.meta_ad_name);
+  return {
+    campanaKey: campId ?? (campNombreGuardado ? `n:${campNombreGuardado}` : null),
+    campanaNombre: campId ? (campMap[campId] ?? campNombreGuardado ?? `Campaña ${campId}`) : campNombreGuardado,
+    anuncioKey: adId ?? (adNombreGuardado ? `n:${adNombreGuardado}` : null),
+    anuncioNombre: adId ? (adMap[adId] ?? adNombreGuardado ?? `Anuncio ${adId}`) : adNombreGuardado,
+  };
+}
+
+/** Las opciones de un filtro: una por clave, con su nombre y cuántos leads tiene, de la
+ *  que más tiene a la que menos. `null` va al final como «Sin …», y sólo si hay. */
+export function opcionesDeFiltro(
+  pares: { key: string | null; nombre: string | null }[],
+  sinRotulo: string,
+): { value: string; label: string; n: number }[] {
+  const m = new Map<string, { label: string; n: number }>();
+  let sin = 0;
+  for (const p of pares) {
+    if (!p.key) { sin += 1; continue; }
+    const prev = m.get(p.key);
+    m.set(p.key, { label: prev?.label ?? (p.nombre || p.key), n: (prev?.n ?? 0) + 1 });
+  }
+  const out = [...m].map(([value, v]) => ({ value, ...v })).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'es'));
+  if (sin) out.push({ value: SIN_ORIGEN_ADS, label: sinRotulo, n: sin });
+  return out;
+}
+
+/** La clave de «Sin campaña» / «Sin creativo». No es un id de Meta ni empieza con `n:`. */
+export const SIN_ORIGEN_ADS = '__sin';

@@ -9,6 +9,7 @@ import { deriveStageKey } from '@/lib/pipeline';
 import type { Lead } from '@/lib/leads';
 import { origenLista, SIN_ORIGEN_LISTA } from './origen-lead';
 import type { CrmLead } from './CrmBoard';
+import { origenAds, type Anuncio } from '@/lib/campana-atribucion';
 
 export type VisitasMap = Map<string, { total_visitas: number; dias_distintos: number }>;
 
@@ -48,7 +49,13 @@ export function calendlyDe(l: Lead): { q: string; a: string }[] {
   return pairs.filter(([, a]) => !!a && a.trim()).map(([q, a]) => ({ q, a: a as string }));
 }
 
-export function mapToCrmLead(l: Lead, campMap: Record<string, string>, validStageKeys?: Set<string>): CrmLead {
+export function mapToCrmLead(
+  l: Lead,
+  campMap: Record<string, string>,
+  validStageKeys?: Set<string>,
+  /** Para el filtro por campaña y por creativo. Sin esto, los cuatro campos van en null. */
+  atrib?: { anuncios: Map<string, Anuncio>; adMap: Record<string, string> },
+): CrmLead {
   // Etapa efectiva: el override manual SOLO si sigue existiendo en el funnel
   // actual; si el override quedó huérfano (etapa eliminada del funnel), se ignora
   // y se usa la etapa derivada de los campos del lead.
@@ -79,6 +86,7 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, validStag
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',
     origin: origenLegible(l, campMap),
+    ...(atrib ? origenAds(l, atrib.anuncios, campMap, atrib.adMap) : { campanaKey: null, campanaNombre: null, anuncioKey: null, anuncioNombre: null }),
     stage,
     created: fmtDay(l.created_at) ?? '—',
     monto: l.monto_cierre_usd ?? 0,

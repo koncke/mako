@@ -104,7 +104,9 @@ import {
   type CrmVista,
   type FiltroAbierto,
   type FiltroCat,
+  type ListaFiltro,
 } from './CrmToolbar';
+import { opcionesDeFiltro, SIN_ORIGEN_ADS } from '@/lib/campana-atribucion';
 
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
@@ -122,6 +124,12 @@ export type CrmLead = {
   email: string;
   company: string;
   origin: string;
+  /** De qué campaña y de qué creativo vino (lib/campana-atribucion.ts → `origenAds`). La
+   *  clave es el id; `null` = no se sabe. Alimentan los filtros «Campaña» y «Creativo». */
+  campanaKey?: string | null;
+  campanaNombre?: string | null;
+  anuncioKey?: string | null;
+  anuncioNombre?: string | null;
   stage: string;
   derivedStage: string;
   /** La etapa guardada que este funnel ya no contiene. null = está donde dice. */
@@ -409,6 +417,10 @@ export function CrmBoard({
   // Multi-selección: el set VACÍO significa "todas" (no hay valor centinela 'todos').
   const [stageFilter, setStageFilter] = useState<Set<string>>(() => new Set());
   const [originFilter, setOriginFilter] = useState<Set<string>>(() => new Set());
+  // «Un filtro por creativo o por campaña, para ver de qué ads vinieron los leads»
+  // (Martín, 06/10/2026). Mismo modelo que los otros: vacío = todas.
+  const [campanaFilter, setCampanaFilter] = useState<Set<string>>(() => new Set());
+  const [creativoFilter, setCreativoFilter] = useState<Set<string>>(() => new Set());
   const [filtroAbierto, setFiltroAbierto] = useState<FiltroAbierto>(null);
   // ?pendientes=1 mantiene el worklist abierto: al volver de una ficha (Solucionar)
   // se restaura la vista de "Datos sin marcar" con su scroll (restauración de Next).
@@ -1421,18 +1433,50 @@ export function CrmBoard({
   // Cada categoría es un Set: vacío = sin filtrar (todas). Con valores, el lead pasa
   // si coincide con CUALQUIERA de los elegidos (OR dentro de la categoría, AND entre
   // categorías) — es lo que espera cualquiera que marque tres etapas a la vez.
-  const matches = (l: CrmLead) => {
+  // `salvo` deja afuera UNA categoría: es lo que usan las opciones de esa misma categoría
+  // para contar sobre lo que dejan pasar las DEMÁS (ver `opcionesCreativo`).
+  const matches = (l: CrmLead, salvo?: 'campana' | 'creativo') => {
     // Buscar como busca una persona (sin acentos, por palabras sueltas, por #id):
     // la regla vive en lib/buscar-texto, no acá — ver «Una cosa, un lugar».
     if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone], search)) return false;
     if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
     if (originFilter.size > 0 && !originFilter.has(l.origin)) return false;
+    // `null` entra por la opción «Sin campaña» / «Sin creativo», que tiene su clave propia.
+    if (salvo !== 'campana' && campanaFilter.size > 0 && !campanaFilter.has(l.campanaKey ?? SIN_ORIGEN_ADS)) return false;
+    if (salvo !== 'creativo' && creativoFilter.size > 0 && !creativoFilter.has(l.anuncioKey ?? SIN_ORIGEN_ADS)) return false;
     return true;
   };
-  const filtered = leads.filter(matches);
+  const filtered = leads.filter((l) => matches(l));
   const originOptions = useMemo(() => [...new Set(leads.map((l) => l.origin))].filter(Boolean).sort((a, b) => a.localeCompare(b)), [leads]);
-  const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || search.trim().length > 0;
-  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setSearch(''); };
+  // Las opciones salen de los leads de ESTE tablero, con cuántos tiene cada una: una
+  // campaña que no trajo a nadie acá no es una opción que filtre algo.
+  //
+  // ⚠️ Y SE CUENTAN SOBRE LO QUE DEJAN PASAR LOS DEMÁS FILTROS: con una campaña elegida,
+  // «Creativo» lista los anuncios de ESA campaña, que es justo la pregunta («de qué ads
+  // vinieron»). Lo ya elegido se queda en la lista aunque cuente cero, o quedaría tildado
+  // sin forma de destildarlo desde acá.
+  const facetas = (salvo: 'campana' | 'creativo', sel: Set<string>, sinRotulo: string) => {
+    const pares = leads.filter((l) => matches(l, salvo)).map((l) => (salvo === 'campana'
+      ? { key: l.campanaKey ?? null, nombre: l.campanaNombre ?? null }
+      : { key: l.anuncioKey ?? null, nombre: l.anuncioNombre ?? null }));
+    const op = opcionesDeFiltro(pares, sinRotulo);
+    for (const v of sel) {
+      if (op.some((o) => o.value === v)) continue;
+      const l = leads.find((x) => (salvo === 'campana' ? x.campanaKey : x.anuncioKey) === v);
+      op.push({ value: v, label: (salvo === 'campana' ? l?.campanaNombre : l?.anuncioNombre) ?? (v === SIN_ORIGEN_ADS ? sinRotulo : v), n: 0 });
+    }
+    return op;
+  };
+  const opcionesCampana = facetas('campana', campanaFilter, 'Sin campaña');
+  const opcionesCreativo = facetas('creativo', creativoFilter, 'Sin creativo');
+  // ⚠️ Si TODOS caen en «Sin …» (un negocio sin Meta), la categoría no se ofrece: una sola
+  // opción que es todo el tablero no filtra nada.
+  const listasFiltro: ListaFiltro[] = [
+    { cat: 'campana', label: 'Campaña', todas: 'Todas', opciones: opcionesCampana.some((o) => o.value !== SIN_ORIGEN_ADS) ? opcionesCampana : [], sel: campanaFilter, set: setCampanaFilter },
+    { cat: 'creativo', label: 'Creativo', todas: 'Todos', opciones: opcionesCreativo.some((o) => o.value !== SIN_ORIGEN_ADS) ? opcionesCreativo : [], sel: creativoFilter, set: setCreativoFilter },
+  ];
+  const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || campanaFilter.size > 0 || creativoFilter.size > 0 || search.trim().length > 0;
+  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); };
 
   /**
    * EL ORDEN DE LA TABLA. Es lo que separa una tabla de una lista: el plan ordena por
@@ -2334,6 +2378,7 @@ export function CrmBoard({
             stages={stages}
             etapas={stageFilter} setEtapas={setStageFilter}
             origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
+            listas={listasFiltro}
             abierto={filtroAbierto} setAbierto={setFiltroAbierto}
           />
         </>}
@@ -2356,6 +2401,7 @@ export function CrmBoard({
           stages={stages}
           etapas={stageFilter} setEtapas={setStageFilter}
           origen={originFilter} setOrigen={setOriginFilter}
+          listas={listasFiltro}
           onAbrir={abrirFiltro}
         />
       )}

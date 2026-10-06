@@ -9,6 +9,8 @@ import { getPipelineStagesDefault, getFunnelTransitionsDefault, getFunnelDe, lis
 import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
+  getAnunciosMap,
+  getAdNameMap,
   getJuntasProximas,
   getPendientesDeMarcar,
   type JuntaProxima,
@@ -111,6 +113,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     ),
   ).then((r) => r.filter((x): x is string => Boolean(x)));
   const pEquipo = getEquipoAction().catch(() => [] as MiembroEquipo[]);
+  // De qué campaña y de qué creativo vino cada lead, para el filtro del tablero. Arranca en
+  // la misma ola que el resto (no en serie) y, si falla, el filtro se queda sin opciones:
+  // no puede tumbar el CRM.
+  const pAtrib = Promise.all([
+    getAnunciosMap().catch(() => ({}) as Record<string, { campaignId: string | null; adsetId: string | null }>),
+    getAdNameMap().catch(() => ({}) as Record<string, string>),
+  ]);
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
@@ -166,7 +175,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   pendientesRaw = pendientesRaw.filter((p) => idsDelFunnel.has(p.lead_id));
 
   const validStageKeys = new Set(stages.map((s) => s.key));
-  const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys));
+  const [anunciosObj, adMap] = await pAtrib;
+  const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
+  const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
   const juntas: CrmJunta[] = juntasRaw.map((j) => ({
     id: `${j.lead_id}-${j.tipo}`,

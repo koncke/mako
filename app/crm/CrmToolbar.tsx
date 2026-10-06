@@ -45,7 +45,24 @@ const SANS = "'Geist', sans-serif";
 /** Vista del tablero. "pendientes" (datos sin marcar) es UNA VISTA: reemplaza el board entero. */
 export type CrmVista = 'kanban' | 'tabla' | 'pendientes';
 /** Categorías del menú de filtros. El buscador NO es una categoría (no genera chip). */
-export type FiltroCat = 'etapa' | 'origen';
+export type FiltroCat = 'etapa' | 'origen' | 'campana' | 'creativo';
+
+/**
+ * Una categoría del menú que es una LISTA de valores con su conteo (campaña, creativo).
+ *
+ * Pedido de Martín (06/10/2026): «en el CRM pon un filtro por creativo o por campaña, para
+ * ver de qué ads vinieron los leads». Va genérica para que las dos —y la próxima— pasen por
+ * el mismo dibujo del menú y del chip, en vez de sumar dos pares de props por categoría.
+ */
+export type ListaFiltro = {
+  cat: FiltroCat;
+  label: string;
+  /** El resumen sin nada elegido («Todas» / «Todos»). */
+  todas: string;
+  opciones: { value: string; label: string; n: number }[];
+  sel: Set<string>;
+  set: (s: Set<string>) => void;
+};
 /** Estado del panel de filtros: null = cerrado; 'root' = las categorías; el resto = drill-down. */
 export type FiltroAbierto = 'root' | FiltroCat | null;
 
@@ -408,22 +425,28 @@ export function BandasToggle({ bandas, onToggle, conteo }: {
 // contenido reemplaza el panel EN EL MISMO LUGAR con un "‹ volver". Nunca hay más
 // de una categoría en pantalla, así el panel no crece con el catálogo del cliente.
 
-export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, setOrigen, abierto, setAbierto }: {
+export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, setOrigen, listas = [], abierto, setAbierto }: {
   stages: Stage[];
   etapas: Set<string>;
   setEtapas: (s: Set<string>) => void;
   origenes: string[];
   origen: Set<string>;
   setOrigen: (s: Set<string>) => void;
+  /** Las categorías de lista (campaña, creativo). Una sin opciones no se ofrece. */
+  listas?: ListaFiltro[];
   abierto: FiltroAbierto;
   setAbierto: (v: FiltroAbierto) => void;
 }) {
   const open = abierto !== null;
-  const cerrar = () => setAbierto(null);
+  const [buscar, setBuscar] = useState('');
+  const cerrar = () => { setAbierto(null); setBuscar(''); };
   useEscape(open, cerrar);
 
-  const n = etapas.size + origen.size;
-  const limpiar = () => { setEtapas(new Set()); setOrigen(new Set()); };
+  // Un filtro de lista sin ninguna opción es un control que no puede cambiar nada: no se
+  // dibuja (p. ej. un negocio sin Meta no tiene campañas).
+  const vivas = listas.filter((l) => l.opciones.length > 0);
+  const n = etapas.size + origen.size + listas.reduce((a, l) => a + l.sel.size, 0);
+  const limpiar = () => { setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) l.set(new Set()); };
   const toggleEtapa = (k: string) => { const c = new Set(etapas); if (c.has(k)) c.delete(k); else c.add(k); setEtapas(c); };
   const toggleOrigen = (o: string) => { const c = new Set(origen); if (c.has(o)) c.delete(o); else c.add(o); setOrigen(c); };
 
@@ -441,7 +464,22 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   const cats: Array<{ key: FiltroCat; label: string; resumen: string; activo: boolean }> = [
     { key: 'etapa', label: 'Etapa', resumen: resumen(etapas, etapaLabel), activo: etapas.size > 0 },
     { key: 'origen', label: 'Origen', resumen: origen.size === 0 ? 'Todos' : origen.size === 1 ? [...origen][0] : `${origen.size} elegidos`, activo: origen.size > 0 },
+    ...vivas.map((l) => ({
+      key: l.cat, label: l.label, activo: l.sel.size > 0,
+      resumen: l.sel.size === 0 ? l.todas : l.sel.size === 1 ? (l.opciones.find((o) => o.value === [...l.sel][0])?.label ?? '1 elegida') : `${l.sel.size} elegidas`,
+    })),
   ];
+  const lista = vivas.find((l) => l.cat === abierto) ?? null;
+  const textoBuscar = buscar.trim().toLowerCase();
+  const opcionesLista = lista
+    ? lista.opciones.filter((o) => !textoBuscar || o.label.toLowerCase().includes(textoBuscar) || o.value.includes(textoBuscar))
+    : [];
+  const toggleLista = (v: string) => {
+    if (!lista) return;
+    const c = new Set(lista.sel);
+    if (c.has(v)) c.delete(v); else c.add(v);
+    lista.set(c);
+  };
 
   return (
     <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
@@ -465,7 +503,7 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
                   app/_ui/ui.css) ya lo pone. Escribirlo acá con e.currentTarget.style
                   le gana a la regla y quedan dos hovers peleando. */}
               {cats.map((c) => (
-                <button key={c.key} type="button" onClick={() => setAbierto(c.key)} style={catRow}>
+                <button key={c.key} type="button" onClick={() => { setBuscar(''); setAbierto(c.key); }} style={catRow}>
                   <span style={{ fontWeight: 600 }}>{c.label}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                     <span style={resumenTxt(c.activo)} title={c.resumen}>{c.resumen}</span>
@@ -482,10 +520,25 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
             </>
           ) : (
             <>
-              <button type="button" onClick={() => setAbierto('root')} style={backBtn}>
+              <button type="button" onClick={() => { setBuscar(''); setAbierto('root'); }} style={backBtn}>
                 <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>‹</span>
-                {abierto === 'etapa' ? 'Etapa' : 'Origen'}
+                {abierto === 'etapa' ? 'Etapa' : abierto === 'origen' ? 'Origen' : (lista?.label ?? '')}
               </button>
+              {/* Con muchas campañas o anuncios, buscar es lo que hace usable la lista. */}
+              {lista && lista.opciones.length > 8 && (
+                <input autoFocus value={buscar} onChange={(e) => setBuscar(e.target.value)}
+                  placeholder={`Buscar ${lista.label.toLowerCase()}`} aria-label={`Buscar ${lista.label.toLowerCase()}`}
+                  style={{ width: '100%', boxSizing: 'border-box', margin: '2px 0 6px', padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, outline: 'none' }} />
+              )}
+              {lista && (opcionesLista.length === 0
+                ? <div style={{ padding: '10px 9px', fontSize: 12.5, color: 'var(--faint)' }}>Ninguna con esa búsqueda.</div>
+                : opcionesLista.map((o) => (
+                  <button key={o.value} type="button" onClick={() => toggleLista(o.value)} style={rowBtn} title={o.label}>
+                    <span style={check(lista.sel.has(o.value))}>{lista.sel.has(o.value) ? '✓' : ''}</span>
+                    <span style={{ ...texto, flex: 1 }}>{o.label}</span>
+                    <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{o.n}</span>
+                  </button>
+                )))}
               {abierto === 'etapa' && stages.map((s) => (
                 <button key={s.key} type="button" onClick={() => toggleEtapa(s.key)} style={rowBtn} title={s.label}>
                   <span style={check(etapas.has(s.key))}>{etapas.has(s.key) ? '✓' : ''}</span>
@@ -513,12 +566,13 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
 // Un chip por VALOR se desbordaba con cinco etapas elegidas y empujaba el tablero
 // media pantalla para abajo. El cuerpo del chip reabre el menú en esa categoría;
 // la × limpia la categoría entera.
-export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAbrir }: {
+export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, listas = [], onAbrir }: {
   stages: Stage[];
   etapas: Set<string>;
   setEtapas: (s: Set<string>) => void;
   origen: Set<string>;
   setOrigen: (s: Set<string>) => void;
+  listas?: ListaFiltro[];
   onAbrir: (cat: FiltroCat) => void;
 }) {
   const etapaLabel = (k: string) => stages.find((s) => s.key === k)?.label ?? k;
@@ -530,6 +584,11 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAb
   if (origen.size > 0) {
     const vals = [...origen];
     chips.push({ cat: 'origen', titulo: 'Origen', texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => setOrigen(new Set()) });
+  }
+  for (const l of listas) {
+    if (!l.sel.size) continue;
+    const vals = [...l.sel].map((v) => l.opciones.find((o) => o.value === v)?.label ?? v);
+    chips.push({ cat: l.cat, titulo: l.label, texto: vals[0] + (vals.length > 1 ? ` +${vals.length - 1}` : ''), completo: vals.join(', '), limpiar: () => l.set(new Set()) });
   }
   if (chips.length === 0) return null;
 
@@ -548,7 +607,7 @@ export function FiltroChips({ stages, etapas, setEtapas, origen, setOrigen, onAb
           </button>
         </span>
       ))}
-      <button type="button" onClick={() => { setEtapas(new Set()); setOrigen(new Set()); }}
+      <button type="button" onClick={() => { setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) l.set(new Set()); }}
         style={{ padding: '5px 10px', borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
         Limpiar
       </button>
