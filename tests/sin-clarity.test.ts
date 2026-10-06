@@ -16,11 +16,13 @@
 // después (al revés, un `/*` adentro de un `//` se come el código del medio).
 //
 // ⚠️ Y SE EXCEPTÚA POR NOMBRE, con su motivo, lo que NO es producto:
-//   · el registro de /admin/dev (bitácoras, áreas, historial generado) y el
-//     catálogo de /admin/docs: es la HISTORIA de qué se pidió y qué se hizo, y la
-//     entrada que documenta este retiro nombra lo que se retiró;
-//   · app/conocimientos/: el contenido de los cursos usa «clarity» como palabra en
-//     inglés («then clarity») adentro de prompts de video.
+//   · el registro de /admin/dev (bitácoras, áreas, historial generado): es la
+//     HISTORIA de qué se pidió y qué se hizo, y la entrada que documenta este
+//     retiro nombra lo que se retiró;
+//   · app/conocimientos/: es contenido de cursos de TERCEROS. Usa «clarity» como
+//     palabra en inglés adentro de prompts de video, y hay lecciones que enseñan
+//     Microsoft Clarity como herramienta (curso-master-escala-100k.ts): el curso
+//     es de quien lo dicta, no una integración de MaKo.
 // Es el mismo patrón que tests/funnel-estructura.test.ts usó para el retiro de /funnel.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,7 +40,6 @@ const EXCEPTUADOS = [
   /^app\/admin\/dev\/.*bitacora\.ts$/,
   /^app\/admin\/dev\/areas\.ts$/,
   /^app\/admin\/dev\/_historial\.generado\.ts$/,
-  /^app\/admin\/docs\/catalogo\.ts$/,
   /^app\/conocimientos\//,
 ];
 

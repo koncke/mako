@@ -41,7 +41,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_landings', area: 'landing', tipo: 'lectura',
     titulo: 'Landings declaradas del negocio',
-    descripcion: 'Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y, si lo tiene, el id del proyecto de Clarity de ESA página (sin id propio hereda el del negocio). Úsala antes de cualquier operación que pida la URL de una landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.',
+    descripcion: 'Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads. Úsala antes de cualquier operación que pida la URL de una landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
@@ -73,7 +73,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_diagnostico_pixel', area: 'landing', tipo: 'lectura',
     titulo: 'Chequeos del Pixel en vivo',
-    descripcion: 'Los chequeos del probador del Pixel sobre las últimas 24 horas (o sobre una prueba puntual): ¿llegan las visitas?, ¿se reproduce el video?, ¿se mide el avance?, ¿se registran los clics y los formularios?, ¿el código está al día?, ¿está conectado Clarity (a nivel negocio)? Cada chequeo viene con estado ok, falta, viejo o na (no aplica) y un veredicto de una línea. Úsala para contestar «¿por qué no se mide X en mi página?». No contesta preguntas de semanas: la ventana es de 24 horas.',
+    descripcion: 'Los chequeos del probador del Pixel sobre las últimas 24 horas (o sobre una prueba puntual): ¿llegan las visitas?, ¿se reproduce el video?, ¿se mide el avance?, ¿se registran los clics y los formularios?, ¿el código está al día? Cada chequeo viene con estado ok, falta, viejo o na (no aplica) y un veredicto de una línea. Úsala para contestar «¿por qué no se mide X en mi página?». No contesta preguntas de semanas: la ventana es de 24 horas.',
     parametros: [
       { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing a revisar. Sin ella habla del negocio entero, y con dos páginas puede ser cierto para una y falso para la otra.' },
       { nombre: 'prueba', tipo: 'string', max: 80, descripcion: 'El marcador de una prueba (el valor de ?mko_test= con el que se abrió la página). Acota los eventos a esa prueba.' },
@@ -100,7 +100,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'detectar_piezas_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Qué tiene una landing',
-    descripcion: 'Baja una landing declarada y detecta qué tiene: videos (y de qué host, y si el Pixel los puede medir), formulario, agenda embebida, botón de WhatsApp, botones; si trae el Pixel de ESTE negocio y de qué versión, y qué proyecto de Clarity trae pegado. Úsala antes de ver_diagnostico_pixel (sus piezas) o cuando pregunten «¿MaKo ve mi video?». Solo acepta URLs de listar_landings. Si la página no se pudo leer (403, timeout) dice «no sé», nunca «no tiene». No guarda nada: para lo que se recordó de la última mirada usa ver_cambios_landing.',
+    descripcion: 'Baja una landing declarada y detecta qué tiene: videos (y de qué host, y si el Pixel los puede medir), formulario, agenda embebida, botón de WhatsApp, botones; si trae el Pixel de ESTE negocio y de qué versión. Úsala antes de ver_diagnostico_pixel (sus piezas) o cuando pregunten «¿MaKo ve mi video?». Solo acepta URLs de listar_landings. Si la página no se pudo leer (403, timeout) dice «no sé», nunca «no tiene». No guarda nada: para lo que se recordó de la última mirada usa ver_cambios_landing.',
     parametros: [P_URL_DECLARADA],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_INTEG, lenta: true,
   },

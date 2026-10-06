@@ -4,7 +4,7 @@
 // Son asserts sobre el FUENTE, no sobre el comportamiento, y es a propósito:
 // lib/meta-ads-create.ts y lib/workspace.ts llevan `server-only`, así que ningún
 // test de node:test los puede importar. El precedente del repo es el mismo
-// (tests/alerta-critica.test.ts, tests/clarity.test.ts).
+// (tests/alerta-critica.test.ts).
 //
 // Cada assert fija una regresión que YA se puede escribir sin que nada falle:
 // compila, pasa los otros 1924 tests, y deja el archivo cableado a la cuenta de

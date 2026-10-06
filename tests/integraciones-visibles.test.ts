@@ -59,10 +59,8 @@ test('no se duplica ninguna: plataforma y negocio son conjuntos disjuntos', () =
   const keys = suyas.map((d) => d.key);
   assert.equal(keys.length, new Set(keys).size, 'hay una integración repetida');
   // ⚠️ Menos las OCULTAS, que no son una preferencia del workspace sino una
-  // propiedad de la integración: Clarity no tiene tarjeta porque se configura
-  // dentro del modal del Pixel, y ni el super-admin puede hacerla aparecer.
+  // propiedad de la integración: ni el super-admin puede hacerlas aparecer.
   assert.equal(keys.length, DEFS_TEST.filter((d) => !d.oculto).length, 'el super-admin sin filtro de capa las ve todas menos las ocultas');
-  assert.ok(!keys.includes('clarity'), 'Clarity no puede tener tarjeta propia: se configura dentro del Pixel');
 });
 
 test('el catálogo declara al menos una de plataforma, y GitHub es una', () => {

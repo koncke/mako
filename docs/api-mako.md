@@ -5419,7 +5419,7 @@ Tab **Landing Analyst** (`/landing-analyst`). 19 lecturas · 7 acciones.
 
 ### `GET /api/v1/landing/listar_landings` — Landings declaradas del negocio
 
-Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y, si lo tiene, el id del proyecto de Clarity de ESA página (sin id propio hereda el del negocio). Úsala antes de cualquier operación que pida la URL de una landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.
+Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads. Úsala antes de cualquier operación que pida la URL de una landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
@@ -5521,7 +5521,7 @@ curl -s "https://hola-mako.com/api/v1/landing/ver_novedades_pixel?instalada=%E2%
 
 ### `GET /api/v1/landing/detectar_piezas_landing` — Qué tiene una landing
 
-Baja una landing declarada y detecta qué tiene: videos (y de qué host, y si el Pixel los puede medir), formulario, agenda embebida, botón de WhatsApp, botones; si trae el Pixel de ESTE negocio y de qué versión, y qué proyecto de Clarity trae pegado. Úsala antes de ver_diagnostico_pixel (sus piezas) o cuando pregunten «¿MaKo ve mi video?». Solo acepta URLs de listar_landings. Si la página no se pudo leer (403, timeout) dice «no sé», nunca «no tiene». No guarda nada: para lo que se recordó de la última mirada usa ver_cambios_landing.
+Baja una landing declarada y detecta qué tiene: videos (y de qué host, y si el Pixel los puede medir), formulario, agenda embebida, botón de WhatsApp, botones; si trae el Pixel de ESTE negocio y de qué versión. Úsala antes de ver_diagnostico_pixel (sus piezas) o cuando pregunten «¿MaKo ve mi video?». Solo acepta URLs de listar_landings. Si la página no se pudo leer (403, timeout) dice «no sé», nunca «no tiene». No guarda nada: para lo que se recordó de la última mirada usa ver_cambios_landing.
 
 - **Alcance mínimo del token:** lectura
 - **Devuelve:** json
