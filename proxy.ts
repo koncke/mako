@@ -21,7 +21,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
-import { esPublica, esPublicaSoloLectura } from './lib/rutas-publicas';
+import { esPublica, esPublicaSoloLeer } from './lib/rutas-publicas';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -188,7 +188,10 @@ export function proxy(req: NextRequest) {
   // Las rutas públicas pasan siempre (tienen su propia auth por firma/secret).
   // Se evalúa primero para que ni el modo fail-closed las toque.
   if (esPublica(pathname)) {
-    const soloLectura = esPublicaSoloLectura(pathname);
+    // ⚠️ TODA PÁGINA pública es de sólo lectura, no sólo las de la lista: una página que
+    // acepta POST ejecuta server actions SIN SESIÓN contra el ws1 (medido el 06/10/2026; el
+    // porqué completo en `esPublicaSoloLeer`, lib/rutas-publicas.ts).
+    const soloLectura = esPublicaSoloLeer(pathname);
     if (soloLectura && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       return new NextResponse('Method Not Allowed', { status: 405 });
     }

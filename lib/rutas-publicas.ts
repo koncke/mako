@@ -157,3 +157,29 @@ export const esPublicaDeEscritura = (pathname: string) =>
 
 export const esPublicaSoloLectura = (pathname: string) =>
   matchea(PUBLICOS_SOLO_LECTURA, pathname) && !esPublicaDeEscritura(pathname);
+
+/**
+ * ¿Esta ruta pública sólo se puede LEER (GET/HEAD/OPTIONS)? Las de la lista de sólo lectura,
+ * y además TODA PÁGINA pública (lo que no es `/api/`).
+ *
+ * ⚠️ UNA PÁGINA PÚBLICA QUE ACEPTA POST EJECUTA SERVER ACTIONS SIN SESIÓN. Medido el 06/10/2026
+ * en local: un POST a `/login` (y a `/privacidad`, `/terminos`, `/vsl`) con el header
+ * `next-action` de `listConfirmacionesAction`, SIN cookie y SIN Origin, contestó 200 con las
+ * confirmaciones pendientes del CRM del ws1 — nombres de leads, cambios y el `revert` para
+ * deshacerlos. Tres cosas se suman: el early-return de abajo se saltea el chequeo de Origin;
+ * Next REENVÍA la acción a cualquier worker que la tenga (o sea que por esa puerta entra
+ * CUALQUIER server action de la app, no sólo las del layout); y sin cookie
+ * `getWorkspaceActual()` cae al dueño (el ws1, un cliente).
+ *
+ * Y no alcanza con cortar el header `next-action`: Next también procesa una acción que llega
+ * como POST de formulario (multipart o urlencoded) con el id en el CUERPO, sin header — es el
+ * camino de los formularios sin JavaScript. Ése no se midió ejecutándolo (una acción de
+ * lectura no devuelve su resultado por ahí: Next re-dibuja la página), y el corte lo cubre
+ * igual: una página pública no acepta otro método que leer. Después del arreglo, las seis
+ * páginas públicas contestan 405 por los dos caminos y el GET sigue en 200. Ninguna lo
+ * necesita: lo que escribe sin sesión son route handlers bajo `/api/` (webhooks, track, el
+ * portal del alumno), que no procesan acciones. Si alguna vez una página pública necesita un
+ * POST, se agrega acá por nombre y con su porqué — nunca abriendo el método para todas.
+ */
+export const esPublicaSoloLeer = (pathname: string) =>
+  esPublicaSoloLectura(pathname) || (esPublica(pathname) && !pathname.startsWith('/api/'));

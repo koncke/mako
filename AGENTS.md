@@ -3331,6 +3331,29 @@ positivo los `route.ts` que puede tener (ver «Una capacidad nueva de MaKo se DE
 
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md).
 
+## ⚠️ Una PÁGINA pública sólo se lee: si acepta POST, ejecuta server actions sin sesión
+
+Medido el 06/10/2026 en local: un POST **sin cookie y sin Origin** a `/login` con el header
+`next-action` de `listConfirmacionesAction` contestó 200 con las confirmaciones pendientes del
+CRM del ws1 —nombres de leads, cambios y el `revert` para deshacerlos—. Lo mismo por
+`/privacidad`, `/terminos` y `/vsl`. Se suman tres cosas, y ninguna sola es el bug:
+
+- el early-return de las rutas públicas se saltea el chequeo de Origin;
+- **Next REENVÍA una acción a cualquier worker que la tenga**, así que por la puerta de una
+  página pública entra CUALQUIER server action de la app, no sólo las de esa página;
+- sin cookie, `getWorkspaceActual()` cae al dueño (`OWNER_WS`, el ws1, un cliente).
+
+**La regla, en positivo y en el proxy:** toda página pública (lo que no es `/api/`) acepta sólo
+GET/HEAD/OPTIONS (`esPublicaSoloLeer`, `lib/rutas-publicas.ts`). No alcanza con cortar el header:
+Next también procesa una acción que llega como formulario multipart con el id en el cuerpo. Lo que
+escribe sin sesión son route handlers bajo `/api/`, que no procesan acciones. Una página pública
+nueva que de verdad necesite un POST se agrega por nombre, con su porqué.
+
+Y el segundo corte, para no depender de la ruta: **una server action que monta el LAYOUT raíz
+exige sesión adentro** — su id viaja en todas las páginas. Lo fija
+`tests/acciones-sin-sesion.test.ts`. El detalle, en
+[docs/hallazgos-seguridad.md](docs/hallazgos-seguridad.md).
+
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
 Todo lo que llega de afuera —Claude, WhatsApp, una automatización, un formulario— deja

@@ -7,6 +7,18 @@ import { listPendientes, resolverConfirmacion, type MakoConfirmacion } from '@/l
 import { listarFunnels } from '@/lib/funnels';
 import { getUsuarioActual } from '@/lib/auth';
 
+/**
+ * ⚠️ SIN SESIÓN NO HAY NADA QUE LISTAR NI RESOLVER. Las dos acciones las monta el LAYOUT raíz
+ * (MakoConfirmGate), así que su id viaja en todas las páginas — y sin cookie
+ * `getWorkspaceActual()` cae al dueño (el ws1). Medido el 06/10/2026: un POST sin cookie a
+ * `/login` devolvía las confirmaciones pendientes del CRM del ws1. El corte de fondo es el proxy
+ * (una página pública sólo se lee, `esPublicaSoloLeer`); éste es el segundo, para que la acción
+ * no dependa de por qué ruta llegó.
+ */
+async function haySesion(): Promise<boolean> {
+  try { return Boolean(await getUsuarioActual()); } catch { return false; }
+}
+
 async function autorActual(): Promise<string> {
   try {
     const s = await getUsuarioActual();
@@ -45,6 +57,7 @@ export type AlcanceConfirmaciones = 'todo' | { funnel: number | null };
  * mostrar la lista EQUIVOCADA, no la de otro cliente.
  */
 export async function listConfirmacionesAction(alcance: AlcanceConfirmaciones = 'todo'): Promise<MakoConfirmacion[]> {
+  if (!(await haySesion())) return [];
   if (alcance === 'todo') return listPendientes();
   const funnels = await listarFunnels().catch(() => []);
   const pedido = Number.isInteger(alcance.funnel) && (alcance.funnel ?? 0) > 0 ? alcance.funnel : null;
@@ -57,6 +70,7 @@ export async function listConfirmacionesAction(alcance: AlcanceConfirmaciones = 
 /** Resuelve una confirmación: 'confirmar' | 'rechazar' | 'op:<key>'. */
 export async function resolverConfirmacionAction(id: number, decision: string): Promise<{ ok: boolean; error?: string }> {
   try {
+    if (!(await haySesion())) return { ok: false, error: 'Sin sesión.' };
     const autor = await autorActual();
     await resolverConfirmacion(id, decision, autor);
     revalidatePath('/crm');

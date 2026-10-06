@@ -1279,3 +1279,55 @@ invisible**. Los dos que caen son justo los que necesitan la segunda agencia par
   un reintento no ejecute dos veces— pero deja una fila que dice «aprobada» y un
   `usuario_id` en null. Esa combinación es lo que habría que barrer alguna vez. Vive en
   `app/api/admin/agencia/altas/route.ts`.
+
+## Server actions sin sesión por una página pública (06/10/2026)
+
+**Vive en:** `proxy.ts` (la rama de `esPublica`), `lib/rutas-publicas.ts` (`esPublicaSoloLeer`),
+`app/crm/mako-confirm-actions.ts`, `tests/acciones-sin-sesion.test.ts`.
+
+**Síntoma (medido en local, nunca en producción):** un `POST /login` con el header `next-action`
+de `listConfirmacionesAction`, cuerpo `[]`, **sin cookie y sin Origin**, contestó 200 con las
+confirmaciones pendientes del CRM del ws1: id, lead, nombre del lead, el cambio aplicado y el
+`revert` para deshacerlo. Igual por `/privacidad`, `/terminos` y `/vsl`. La de escritura de al
+lado (`resolverConfirmacionAction`) no se ejecutó a propósito: el dev server local escribe en la
+base de producción, y corre por el mismo camino — confirma o revierte cambios en leads de un
+cliente.
+
+**La causa son tres cosas que solas no alcanzan:**
+
+1. El proxy deja pasar las rutas públicas por un early-return que se saltea el chequeo de Origin,
+   y sólo limitaba el MÉTODO en las de la lista de sólo lectura (`/compartido`). `/login`,
+   `/privacidad`, `/terminos`, `/vsl` y `/vsl-assets` aceptaban POST.
+2. **Next reenvía una server action a cualquier worker que la tenga.** El manifest decía que
+   `listConfirmacionesAction` vivía en los workers de `/plan` y `/conocimientos`, no en el de
+   `/login`, y el POST a `/login` la ejecutó igual. O sea que por la puerta de una página pública
+   entraba CUALQUIER acción de la app — el relevo de auth ya había marcado que
+   `deleteLeadAction` y `exportLeadsAction` no miran ni la sesión.
+3. Sin cookie, `getWorkspaceActual()` devuelve `OWNER_WS` (el ws1, un cliente) — lo correcto
+   para un cron o un webhook, y lo que convierte esto en una fuga de un cliente real.
+
+⚠️ **El diagnóstico obvio era el corto:** «cortar el header `next-action` en las rutas
+públicas». Next también procesa una acción que llega como POST de formulario (multipart o
+urlencoded) con `$ACTION_ID_<id>` en el cuerpo, sin header: es el camino de los formularios sin
+JavaScript. Ese camino no se pudo medir ejecutándolo (una acción de lectura no devuelve su
+resultado por ahí: Next re-dibuja la página), pero existe, y un corte por header lo dejaba
+abierto.
+
+**El arreglo, en dos capas:**
+
+- **Una página pública sólo se lee** (`esPublicaSoloLeer`): todo lo que no es `/api/` acepta
+  GET/HEAD/OPTIONS y nada más. Ninguna página pública usaba POST (se enumeró: las de `app/login`,
+  `app/vsl`, `app/compartido`, `app/privacidad`, `app/terminos` no importan acciones; lo que
+  escribe sin sesión son route handlers bajo `/api/`). Después: 405 en las seis páginas, con el
+  header y por multipart; los GET en 200; `POST /api/track/vsl` sigue en 200.
+- **Las acciones que monta el layout raíz exigen sesión adentro** (`haySesion()` en
+  `listConfirmacionesAction` y `resolverConfirmacionAction`): su id viaja en todas las páginas, y
+  no pueden depender de por qué ruta llegaron. `conectarPuenteAction` (la otra del layout) ya
+  exigía admin.
+
+**Sin hacer:** las otras acciones que no miran la sesión (`deleteLeadAction`,
+`exportLeadsAction` en `app/crm/actions.ts`, y las que encuentre un barrido) quedan cubiertas por
+el proxy —sin sesión ya no llegan— pero no tienen su propia guarda; con una sesión de CUALQUIER
+rol corren acotadas a su workspace. Y los más de 40 `?? OWNER_WS` que hacen que un workspace nulo
+termine leyendo el ws1 siguen ahí. **No se verificó en producción** antes del arreglo; después del
+deploy se comprueba que las páginas públicas contesten 405 a un POST.
