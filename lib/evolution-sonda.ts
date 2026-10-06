@@ -57,8 +57,27 @@ export function veredictoSondeo(r: { ok: boolean; status?: number; error?: strin
   if (!r.status) return 'sin_respuesta';
   const e = r.error ?? '';
   if (esSesionCaida(e)) return 'muerto';
-  if (r.status === 404 && /does not exist/i.test(e)) return 'muerto';
+  if (esInstanciaInexistente(r)) return 'muerto';
   return 'sin_respuesta';
+}
+
+/**
+ * ¿Evolution dijo que la instancia NO EXISTE? Es uno de los dos «muerto» de arriba, y no
+ * significa lo mismo que el otro.
+ *
+ * ⚠️ «Connection Closed» es una sesión que existe y se cayó: la zombi del 403, el corte que
+ * puede volver solo. «No existe» es que no hay ninguna sesión que caerse. Para soltar o
+ * recrear una línea da igual —las dos están muertas—, pero para AVISARLE a un cliente «se
+ * cayó tu WhatsApp» no: `desconectar()` (lib/evolution.ts) borra la instancia en Evolution
+ * y, si era la línea de por default, conserva su fila en «desconectado» con
+ * `ultima_conexion_at` intacto. Sin esta distinción, el negocio que desvincula su número a
+ * propósito recibe «se cortó tu WhatsApp» cada 24 h para siempre (revisión del 06/10/2026,
+ * lib/linea-vigilancia.ts).
+ *
+ * Vive acá y la usa `veredictoSondeo` para que «no existe» se reconozca en UN lugar.
+ */
+export function esInstanciaInexistente(r: { status?: number; error?: string | null }): boolean {
+  return r.status === 404 && /does not exist/i.test(r.error ?? '');
 }
 
 /**

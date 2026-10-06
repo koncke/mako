@@ -28,7 +28,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { sondearSocketDetalle, motivoCaida } from './evolution';
-import type { Sondeo } from './evolution-sonda';
+import { esInstanciaInexistente, type Sondeo } from './evolution-sonda';
 import { instanciaVoz } from './mako-grupo';
 import { getSettingEstricto, setSetting } from './settings';
 import { listarWorkspaces, runWithWorkspace, wsSuperAdmin } from './workspace';
@@ -108,7 +108,10 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
   }
 
   const decision = decidirLinea({
-    sondeo: d.sondeo, vinculadaAlgunaVez: !!f.ultima_conexion_at, marcas, ahoraMs: Date.now(),
+    sondeo: d.sondeo, vinculadaAlgunaVez: !!f.ultima_conexion_at,
+    // `desconectar()` borra la instancia y deja la fila de la de por default: eso no es una caída.
+    sinInstancia: esInstanciaInexistente({ status: d.status, error: d.detalle }),
+    marcas, ahoraMs: Date.now(),
   });
   const base = { ws, linea, sondeo: d.sondeo, que: decision.que };
   const ahora = new Date().toISOString();

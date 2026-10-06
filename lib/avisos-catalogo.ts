@@ -723,7 +723,7 @@ https://hola-mako.com/plan — MaKo`,
      */
     id: 'wa-desconectado', titulo: 'WhatsApp de empresa desconectado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'El cron de alertas (cada 10 min) prueba cada línea de WhatsApp por QR del negocio. Si dos pruebas seguidas la dan caída, avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó no avisa.',
+    disparador: 'El cron de alertas (cada 10 min) prueba cada línea de WhatsApp por QR del negocio. Si dos pruebas seguidas la dan caída, avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
     ejemplo: `🔴 *Se desconectó tu WhatsApp* (+52 55 1234 5678). WhatsApp cerró la sesión del dispositivo vinculado el 3 de octubre: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR: https://hola-mako.com/whatsapp — MaKo`,
   },
   {

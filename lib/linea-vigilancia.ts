@@ -21,6 +21,14 @@
 //     socket (medido con la voz el 11/09/2026: salían «re-escanea» y «volvió» seguidos).
 //   · UNA LÍNEA QUE NUNCA SE VINCULÓ NO SE «CAYÓ». Es un alta a medio terminar: la del ws13
 //     existe desde el 18/08 con `ultima_conexion_at` en null y la sonda la da muerta.
+//   · NI UNA QUE EL NEGOCIO DESVINCULÓ. «Desvincular» (`desconectar`, lib/evolution.ts) borra
+//     la instancia en Evolution y, si era la de por default, deja su fila en «desconectado»
+//     con `ultima_conexion_at` puesto: la sonda contesta 404 «does not exist», que también es
+//     `muerto`. Sin este corte, quien soltó su número a propósito recibía «se cortó tu
+//     WhatsApp» cada 24 h para siempre (revisión del 06/10/2026). La caída de verdad —la
+//     zombi del 403, el corte— deja la instancia viva en Evolution: medido el 25/09/2026, una
+//     llevaba 22 días así. Lo que distingue las dos es `esInstanciaInexistente`
+//     (lib/evolution-sonda.ts).
 //   · AL VOLVER se limpian las marcas, sin mensaje: la decisión fue avisar la caída, y un
 //     «volvió» pide un mensaje propio en el catálogo (queda anotado como pendiente).
 //
@@ -55,11 +63,22 @@ export function decidirLinea(e: {
   sondeo: Sondeo;
   /** `ultima_conexion_at` de la fila: si alguna vez estuvo conectada. */
   vinculadaAlgunaVez: boolean;
+  /**
+   * La sonda contestó que la instancia NO EXISTE en Evolution (`esInstanciaInexistente`). Es
+   * una línea que el negocio desvinculó, no una que se cayó: no hay sesión que reconectar.
+   * Obligatorio a propósito: un vigilante que se olvide de pasarlo vuelve a avisarle al que
+   * soltó su número.
+   */
+  sinInstancia: boolean;
   marcas: MarcasLinea;
   ahoraMs: number;
 }): DecisionLinea {
+  const hayMarcas = !!(e.marcas.desde || e.marcas.avisado);
   if (e.sondeo === 'sin_respuesta') return { que: 'nada' };
-  if (e.sondeo === 'vivo') return e.marcas.desde || e.marcas.avisado ? { que: 'limpiar' } : { que: 'nada' };
+  if (e.sondeo === 'vivo') return hayMarcas ? { que: 'limpiar' } : { que: 'nada' };
+  // Va antes que todo lo de «muerto»: si la línea estaba caída y avisada y después el negocio
+  // la desvinculó para volver a escanear, las marcas se van — el próximo «se cayó» empieza de cero.
+  if (e.sinInstancia) return hayMarcas ? { que: 'limpiar' } : { que: 'nada' };
   if (!e.vinculadaAlgunaVez) return { que: 'nada' };
   const desde = e.marcas.desde ? Date.parse(e.marcas.desde) : NaN;
   if (Number.isNaN(desde)) return { que: 'fijar_desde' };

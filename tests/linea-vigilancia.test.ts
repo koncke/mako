@@ -24,6 +24,13 @@
 //   · poner la marca de «ya avisé» aunque el aviso no haya llegado
 //   · sacarle el `porDefecto: 'on'` al aviso del catálogo
 //
+// ⚠️ Y LA LÍNEA DESVINCULADA (revisión adversarial del 06/10/2026). `desconectar()` borra la
+// instancia en Evolution y deja la fila de la de por default con `ultima_conexion_at` puesto;
+// la sonda da 404 «does not exist» = `muerto`, y el negocio que soltó su número a propósito
+// recibía «se cortó tu WhatsApp» cada 24 h para siempre. Probado rompiéndolo, 1 fallo y 9
+// pases cada una (10 tests): sacar el corte `sinInstancia` de `decidirLinea` · que el
+// vigilante le pase `sinInstancia: false`.
+//
 // Correr: node --import tsx --test tests/linea-vigilancia.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,34 +53,34 @@ test('⚠️ «no pude preguntar» no es «está caída»: no toca ninguna marca
   // Con Evolution inalcanzable la sonda da `sin_respuesta`. Un aviso que manda a
   // re-escanear una línea sana la TUMBA.
   for (const marcas of [sinMarcas, { desde: haceMin(60), avisado: null }, { desde: haceMin(3000), avisado: haceMin(2000) }]) {
-    assert.deepEqual(decidirLinea({ sondeo: 'sin_respuesta', vinculadaAlgunaVez: true, marcas, ahoraMs: AHORA }), { que: 'nada' });
+    assert.deepEqual(decidirLinea({ sondeo: 'sin_respuesta', vinculadaAlgunaVez: true, sinInstancia: false, marcas, ahoraMs: AHORA }), { que: 'nada' });
   }
 });
 
 test('una línea que nunca se vinculó no «se cae»', () => {
   // La del ws13: creada el 18/08, `ultima_conexion_at` en null, y la sonda la da muerta.
-  assert.deepEqual(decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: false, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'nada' });
+  assert.deepEqual(decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: false, sinInstancia: false, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'nada' });
 });
 
 test('⚠️ hacen falta DOS mediciones: la primera sólo fija el «desde»', () => {
   // Un reinicio de Evolution deja las instancias unos segundos sin socket.
-  assert.deepEqual(decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'fijar_desde' });
+  assert.deepEqual(decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: false, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'fijar_desde' });
   assert.deepEqual(
-    decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, marcas: { desde: 'basura', avisado: null }, ahoraMs: AHORA }),
+    decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: 'basura', avisado: null }, ahoraMs: AHORA }),
     { que: 'fijar_desde' }, 'un «desde» ilegible tiene que volver a medirse, no confirmar nada');
   // Dos corridas pegadas (un reintento del cron) no confirman: tiene que pasar CONFIRMAR_MIN.
   assert.deepEqual(
-    decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, marcas: { desde: haceMin(CONFIRMAR_MIN - 1), avisado: null }, ahoraMs: AHORA }),
+    decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: haceMin(CONFIRMAR_MIN - 1), avisado: null }, ahoraMs: AHORA }),
     { que: 'nada' });
   assert.deepEqual(
-    decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, marcas: { desde: haceMin(12), avisado: null }, ahoraMs: AHORA }),
+    decidirLinea({ sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: haceMin(12), avisado: null }, ahoraMs: AHORA }),
     { que: 'avisar' });
 });
 
 test('⚠️ la cadencia es la decidida: una vez, y después cada 24 h', () => {
   assert.equal(CADA_MIN_LINEA, 24 * 60);
   const caida = (avisadoHaceMin: number) => decidirLinea({
-    sondeo: 'muerto', vinculadaAlgunaVez: true,
+    sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: false,
     marcas: { desde: haceMin(5000), avisado: haceMin(avisadoHaceMin) }, ahoraMs: AHORA,
   });
   assert.deepEqual(caida(10), { que: 'nada' });
@@ -83,10 +90,24 @@ test('⚠️ la cadencia es la decidida: una vez, y después cada 24 h', () => {
   assert.ok(DEDUP_LINEA_MIN < CADA_MIN_LINEA, 'el dedup del catálogo es más largo que la cadencia: la come');
 });
 
+test('⛔ una línea que el negocio DESVINCULÓ no «se cae»: no avisa nunca', () => {
+  // `desconectar()` borra la instancia en Evolution y, si era la de por default, deja su fila
+  // en «desconectado» con `ultima_conexion_at` puesto. La sonda contesta 404 «does not
+  // exist» = `muerto`. Sin el corte, «se cortó tu WhatsApp» cada 24 h a quien soltó su número.
+  const desvinculada = (marcas: { desde: string | null; avisado: string | null }) => decidirLinea({
+    sondeo: 'muerto', vinculadaAlgunaVez: true, sinInstancia: true, marcas, ahoraMs: AHORA,
+  });
+  assert.deepEqual(desvinculada(sinMarcas), { que: 'nada' }, 'la primera medición sobre una línea soltada ya fija un «desde»');
+  // Con el «desde» viejo de antes de soltarla, tampoco avisa: el caso que más se repite.
+  assert.deepEqual(desvinculada({ desde: haceMin(60), avisado: null }), { que: 'limpiar' });
+  assert.deepEqual(desvinculada({ desde: haceMin(5000), avisado: haceMin(24 * 60 + 1) }), { que: 'limpiar' },
+    'una línea soltada vuelve a recibir el aviso de las 24 h');
+});
+
 test('al volver se limpian las marcas; sin marcas, no se escribe nada', () => {
-  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'nada' });
-  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, marcas: { desde: haceMin(30), avisado: null }, ahoraMs: AHORA }), { que: 'limpiar' });
-  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, marcas: { desde: null, avisado: haceMin(30) }, ahoraMs: AHORA }), { que: 'limpiar' });
+  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: sinMarcas, ahoraMs: AHORA }), { que: 'nada' });
+  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: haceMin(30), avisado: null }, ahoraMs: AHORA }), { que: 'limpiar' });
+  assert.deepEqual(decidirLinea({ sondeo: 'vivo', vinculadaAlgunaVez: true, sinInstancia: false, marcas: { desde: null, avisado: haceMin(30) }, ahoraMs: AHORA }), { que: 'limpiar' });
 });
 
 test('⚠️ el texto manda a re-escanear SÓLO cuando WhatsApp cerró la sesión (401/403)', () => {
@@ -123,6 +144,9 @@ test('⚠️ el vigilante recorre las FILAS, deja afuera la voz y le avisa SÓLO
   assert.match(src, /instanciaVoz\(\{ estricto: true \}\)/, 'la voz se lee tolerante: un 5xx la confunde con la línea de un cliente');
   assert.match(src, /f\.instance_name !== voz/, 'la voz de MaKo entró a la lista de líneas de clientes');
   assert.match(src, /f\.workspace_id !== plataforma/, 'las líneas de la plataforma entraron como si fueran de un cliente');
+  // Lo que separa «se cayó» de «la soltaron» sale de lo que contestó ESTA sonda.
+  assert.match(src, /sinInstancia: esInstanciaInexistente\(\{ status: d\.status, error: d\.detalle \}\)/,
+    'el vigilante no le dice a la decisión que la instancia no existe: le avisa al que desvinculó su número');
   // «c: solo al cliente»: por su catálogo, en SU workspace, sin mail a la agencia.
   assert.match(src, /emitirDelCatalogo\('wa-desconectado', \{\s*ws,/, 'el aviso dejó de salir por el catálogo del cliente');
   assert.ok(!/alDueno|sendEmail|avisarPorEmail|EMAILS_ALERTA_VOZ/.test(src),

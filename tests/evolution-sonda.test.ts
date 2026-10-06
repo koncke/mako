@@ -16,7 +16,7 @@
 // el mensaje anidado, las muertas dando «muerto», y el 404 de ruta que no suelta una viva.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mensajeEvolution, veredictoSondeo, esSesionCaida } from '../lib/evolution-sonda';
+import { mensajeEvolution, veredictoSondeo, esSesionCaida, esInstanciaInexistente } from '../lib/evolution-sonda';
 
 // ── Bodies medidos el 11/09/2026, copiados de la respuesta cruda ────────────────
 // Zombi en `open`, cerrada por WhatsApp (403) y nunca vinculada: las tres, este mismo.
@@ -61,4 +61,20 @@ test('esSesionCaida reconoce las dos formas de la sesión caída, y no un grupo 
   assert.ok(esSesionCaida('Evolution 428: Precondition Required'));
   // Esto lo contesta un socket VIVO al pedirle un grupo inexistente (medido el 11/09).
   assert.ok(!esSesionCaida('["Error fetching group","Error: item-not-found"]'));
+});
+
+// 06/10/2026. De los dos «muerto», sólo «no existe» es una línea que el negocio desvinculó
+// (`desconectar()` borra la instancia): el vigilante de líneas no le avisa a ése «se cayó tu
+// WhatsApp». La sesión caída sigue siendo otra cosa, y la ruta inexistente no es ninguna.
+// PROBADO ROMPIÉNDOLO, 06/10/2026, restaurando de memoria: con `esInstanciaInexistente`
+// mirando sólo el texto (sin exigir el 404) cae este test, por el 500 que trae «does not
+// exist»; y con `veredictoSondeo` sin llamarla cae «una instancia que no existe da
+// "muerto"». 1 fallo y 6 pases cada una (7 tests).
+test('esInstanciaInexistente separa «no hay instancia» de «la sesión se cayó»', () => {
+  assert.ok(esInstanciaInexistente(fallo(404, SIN_INSTANCIA_404)));
+  assert.ok(!esInstanciaInexistente(fallo(500, SIN_SOCKET_500)), 'una zombi del 403 pasó a contar como desvinculada');
+  assert.ok(!esInstanciaInexistente(fallo(404, RUTA_INEXISTENTE_404)));
+  assert.ok(!esInstanciaInexistente({ status: 500, error: '["The \\"x\\" instance does not exist"]' }),
+    'el texto solo, sin el 404, no alcanza');
+  assert.ok(!esInstanciaInexistente({ status: 0, error: null }));
 });
