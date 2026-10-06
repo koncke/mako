@@ -194,6 +194,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: GEMINI(), pii: true, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
   { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: GEMINI() },
   { feature: 'post-llamada', label: 'Follow-up post-llamada (borrador de WhatsApp)', grupo: 'Copywriting', def: GEMINI(), pii: true, nota: 'Redacta el WhatsApp post-llamada con el análisis del Closing Analyst, en la voz del negocio. Queda como borrador para el setter (nunca sale automático). ⚠️ Lleva PII: va con la key PAGA de Gemini, que no entrena (la free sí).' },
+  // El guion para LEER al grabar la nota de voz de un mensaje (#748, «guion con IA
+  // gratis»). Iba por chatClaude con este tag SIN fila acá ni en CLAUDE_PERMITIDO, así
+  // que el veto lo cortaba mudo. La ruta (app/api/chat-agent/onboarding/guion-audio) lee
+  // el override como pin y, sin él, recorre CASCADA_DOCS: Gemini primero, nunca Claude.
+  { feature: 'setting-guion-audio', label: 'Guion para leer al grabar un audio (Chatbot)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Escribe en la voz del negocio lo que se dice en la nota de voz de un mensaje, a partir de su texto y del objetivo de la secuencia. Sin PII: el mismo audio le llega a todos. Si se fija Claude aquí, la ruta lo ignora y sigue gratis.' },
   { feature: 'nutri-destilar-voz', label: 'MaKo aprende tu voz (nutrición)', grupo: 'Copywriting', def: GEMINI() },
   { feature: 'nutri-generar', label: 'MaKo escribe la secuencia de nutrición', grupo: 'Copywriting', def: GEMINI() },
   { feature: 'email-generar', label: 'Escribir email de nutrición', grupo: 'Copywriting', def: GEMINI() },

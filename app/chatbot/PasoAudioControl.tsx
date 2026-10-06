@@ -11,18 +11,35 @@
 // La biblioteca sigue existiendo por debajo (setting_audios): un audio grabado
 // acá queda disponible para cualquier otra secuencia, y los que ya estén
 // grabados aparecen en la lista. Lo que desaparece es tener que ir a buscarla.
+//
+// ── «PARA LEER» (#748, «guion con IA gratis») ─────────────────────────────────
+// Mientras se graba, arriba del grabador va lo que hay que decir: el texto del
+// mensaje (el wizard lo pasa en `guion`) o el que escribe MaKo con «Escríbeme el
+// guion». Ese botón sólo se dibuja si quien monta pasa `paraGuion`: es lo que MaKo
+// necesita saber de la secuencia, y sin eso no tiene de dónde escribir.
+//
+// El guion de MaKo vive en el estado de ESTE control y no se guarda en ningún lado:
+// es material para leer en voz alta, no parte del mensaje. Por eso quien lo monta
+// sobre varios pasos con la MISMA posición (el editor del lienzo) le pone `key`: si
+// no, el guion de un mensaje se quedaría dibujado al abrir el siguiente.
 
 import { useCallback, useState, type CSSProperties } from 'react';
 import { useVoiceRecorder, VoiceRecorderBar } from '../whatsapp/_shared/VoiceRecorder';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '@/app/_components/icons';
+import { Spinner } from '@/app/_ui';
 import type { AudioSetting } from './ChatAgentApp';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 
 const btn: CSSProperties = { padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
 const btnOn: CSSProperties = { ...btn, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)' };
 
-export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, onError, disabled }: {
+/** La ruta del guion: la misma que escribe el del onboarding (una cosa, un lugar). */
+const RUTA_GUION = '/api/chat-agent/onboarding/guion-audio';
+/** La ruta corta a los 60 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
+const ESPERA_GUION_MS = 65_000;
+
+export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, onError, disabled, guion, paraGuion }: {
   /** Para el título por defecto del audio nuevo. */
   orden: number;
   audios: AudioSetting[];
@@ -33,10 +50,16 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
   onGrabado: (a: AudioSetting) => void;
   onError: (m: string) => void;
   disabled?: boolean;
+  /** El texto del mensaje, para leer mientras se graba. */
+  guion?: string;
+  /** Lo que MaKo necesita para escribir el guion. Sin esto, no hay botón. */
+  paraGuion?: { objetivo?: string | null; gancho?: string | null; preguntas?: string[]; pie?: string };
 }) {
   const [grabando, setGrabando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [fase, setFase] = useState<string | null>(null);
+  const [guionIA, setGuionIA] = useState<string | null>(null);
+  const [pidiendo, setPidiendo] = useState(false);
 
   const subir = useCallback(async (blob: Blob, secs: number) => {
     setSubiendo(true);
@@ -63,6 +86,32 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
 
   const voz = useVoiceRecorder(subir, onError);
   const audio = audioId ? audios.find((a) => a.id === audioId) ?? null : null;
+  const paraLeer = (guionIA ?? guion ?? '').trim();
+
+  // Siempre desde el texto del MENSAJE (o lo que dice hoy su audio), nunca desde la
+  // versión anterior de MaKo: pedir otra sobre la otra la va alejando del mensaje.
+  async function pedirGuion() {
+    if (!paraGuion || pidiendo) return;
+    setPidiendo(true);
+    try {
+      const r = await fetch(RUTA_GUION, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paso: {
+          texto: guion?.trim() || audio?.transcript?.trim() || '',
+          pie: paraGuion.pie ?? '',
+          objetivo: paraGuion.objetivo ?? '',
+          gancho: paraGuion.gancho ?? '',
+          preguntas: paraGuion.preguntas ?? [],
+        } }),
+        signal: AbortSignal.timeout(ESPERA_GUION_MS),
+      });
+      const j = await r.json().catch(() => null) as { ok?: boolean; guion?: string; error?: string } | null;
+      if (!j?.ok || !j.guion) { onError(j?.error || 'MaKo no pudo escribir el guion.'); return; }
+      setGuionIA(j.guion);
+    } catch (e) {
+      onError(e instanceof Error && e.name === 'TimeoutError' ? 'MaKo tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
+    } finally { setPidiendo(false); }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -85,6 +134,25 @@ export function PasoAudioControl({ orden, audios, audioId, onElegir, onGrabado, 
               buttonStyle={{ padding: '7px 11px', fontSize: 12.5 }}
               options={[{ value: '', label: 'Grabar uno nuevo…' }, ...audios.map((a) => ({ value: String(a.id), label: `🎙 ${a.titulo}` }))]}
             />
+          )}
+
+          {/* ARRIBA del grabador, y afuera del ternario de abajo: se tiene que ver
+              MIENTRAS se graba, que es cuando se lee. */}
+          {(paraLeer || paraGuion) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '10px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)' }}>
+              {paraLeer && (
+                <>
+                  <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Para leer</div>
+                  <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{paraLeer}</div>
+                </>
+              )}
+              {paraGuion && (
+                <button type="button" disabled={disabled || pidiendo} onClick={() => void pedirGuion()}
+                  style={{ ...btn, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--mako-ink)' }}>
+                  {pidiendo ? <><Spinner size={12} /> Escribiendo…</> : guionIA ? '✦ Otra versión' : '✦ Escríbeme el guion'}
+                </button>
+              )}
+            </div>
           )}
 
           {voz.recording ? (

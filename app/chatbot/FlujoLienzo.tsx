@@ -271,10 +271,16 @@ function EditorDeNodo({
   if (nodo.tipo === 'mensaje' && paso) {
     return (
       <>
+        {/* `key` por paso: el editor es UNO y se reusa al tocar otro nodo, y el guion que
+            escribió MaKo vive en el estado del control — sin la key, el de un mensaje se
+            quedaba dibujado en el siguiente. El cuerpo de un paso de audio es su PIE (lo
+            que va por escrito), así que MaKo lo recibe como tal y no como algo para leer. */}
         {paso.tipo === 'audio' ? (
           <PasoAudioControl
+            key={`audio-${paso.orden}`}
             orden={paso.orden} audios={audios} audioId={paso.audio_id ?? null} disabled={busy}
             onElegir={(id) => onAudio(paso.orden, id)} onGrabado={onAudioNuevo} onError={onError}
+            paraGuion={{ objetivo: estrategia?.objetivo, gancho: estrategia?.gancho, preguntas: estrategia?.preguntas, pie: paso.cuerpo }}
           />
         ) : (
           <>

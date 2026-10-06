@@ -39,7 +39,9 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
   onBorrado: (id: number) => void;
   onError: (m: string) => void;
 }) {
-  const [guion, setGuion] = useState<{ bullets: string[]; ejemplo: string } | null>(null);
+  // `aviso`: por qué no hay ejemplo. La ruta ya no lo calla (#748): antes el veto de
+  // Claude cortaba la llamada y esta tarjeta quedaba con las viñetas sin decir nada.
+  const [guion, setGuion] = useState<{ bullets: string[]; ejemplo: string; aviso?: string } | null>(null);
   const [cargandoGuion, setCargandoGuion] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [fase, setFase] = useState<string | null>(null);
@@ -55,8 +57,8 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clave: def.clave }),
         })).json();
-        if (j.ok) setGuion({ bullets: j.bullets ?? def.guion, ejemplo: j.ejemplo ?? '' });
-        else setGuion({ bullets: def.guion, ejemplo: '' });
+        if (j.ok) setGuion({ bullets: j.bullets ?? def.guion, ejemplo: j.ejemplo ?? '', aviso: j.aviso });
+        else setGuion({ bullets: def.guion, ejemplo: '', aviso: j.error });
       } catch {
         // Sin IA el paso sigue siendo usable: quedan las viñetas del catálogo.
         setGuion({ bullets: def.guion, ejemplo: '' });
@@ -137,6 +139,9 @@ export function GrabadorAudioPaso({ def, grabado, abierto, onToggle, onGrabado, 
                   <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Ejemplo en tu voz · léelo tal cual</div>
                   <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.65 }}>{guion.ejemplo}</div>
                 </div>
+              )}
+              {!guion.ejemplo && guion.aviso && (
+                <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>{guion.aviso}</div>
               )}
             </>
           )}

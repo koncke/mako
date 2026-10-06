@@ -55,6 +55,7 @@ import { SETTING_ENSAYO_SYSTEM_TEMPLATE } from '@/app/api/chat-agent/onboarding/
 import { VOZ_SEGMENTAR_TEMPLATE, VOZ_ANALISIS_SYSTEM_TEMPLATE, VOZ_ANALISIS_USER_TEMPLATE, VOZ_PREGUNTAS_TEMPLATE } from './chat-agent-voz';
 import { VARIANTES_SYSTEM_TEMPLATE } from './secuencias-variantes';
 import { PASO_IA_SYSTEM_TEMPLATE } from './paso-ia';
+import { GUION_PASO_SYSTEM_TEMPLATE } from './guion-audio';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
@@ -432,6 +433,13 @@ export const REGISTRY: Group[] = [
         variables: [v('voz', 'guía de voz destilada del negocio')], scope: 'static-only', sensitive: false,
         default: PASO_IA_SYSTEM_TEMPLATE,
         context: 'Reescribe el mensaje de un paso para cada persona, al momento de mandarlo, cuando la tarjeta tiene la IA prendida. No borres la regla de dejar los placeholders, los links y los números TAL CUAL: el motor lo comprueba (lib/texto-critico.ts) y, si se pierde uno, el mensaje sale con el texto base en vez del escrito. Y no lo pases a voseo: le llega al cliente del negocio, no a Martín.',
+      },
+      {
+        key: 'chatbot.guion-audio', source: 'override',
+        label: 'Guion para leer al grabar un audio (system)', kind: 'system', dynamic: true,
+        variables: [v('perfil', 'perfil del negocio'), v('secuencia', 'objetivo + gancho + preguntas de la secuencia'), v('voz', 'guía de voz destilada del negocio')], scope: 'static-only', sensitive: false,
+        default: GUION_PASO_SYSTEM_TEMPLATE,
+        context: 'El botón «Escríbeme el guion» al grabar la nota de voz de un mensaje: lo que el dueño lee en voz alta. No borres las reglas de no leer links ni datos entre llaves, ni el largo de 30 a 60 segundos: el código lo comprueba (lib/guion-audio.ts → revisarGuion) y descarta el guion que no cumple. Y no lo pases a voseo: lo escucha el cliente del negocio.',
       },
       {
         key: 'setting.ensayo', source: 'override',

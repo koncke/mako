@@ -31,6 +31,11 @@ import type { SecuenciaDto, Opcion, PasoSecuenciaDto, AudioSetting } from './Cha
 import { PasoAudioControl } from './PasoAudioControl';
 import { DESENLACE_VACIO, type Desenlace, type Estrategia } from '@/lib/setting-estrategia';
 import { contextoDe } from '@/lib/etapas-contexto';
+import { pasoAVoz, pasoATexto, guionParaLeer, sinGuion } from '@/lib/guion-audio';
+
+/** Un mensaje del borrador. `guion` es el texto que había antes de pasarlo a voz: vive
+ *  sólo acá y `sinGuion` lo saca al guardar (lib/guion-audio.ts). */
+type PasoBorrador = PasoSecuenciaDto & { guion?: string | null };
 
 const MONO = "'Geist Mono', monospace";
 const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
@@ -88,7 +93,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
   const [pregNueva, setPregNueva] = useState('');
   const [sugerencias, setSugerencias] = useState<string[]>([]);
   const [desenlace, setDesenlace] = useState<Desenlace>(existente?.estrategia?.desenlace ?? { ...DESENLACE_VACIO });
-  const [draft, setDraft] = useState<PasoSecuenciaDto[] | null>(null);
+  const [draft, setDraft] = useState<PasoBorrador[] | null>(null);
   const [prueba, setPrueba] = useState<{ enviadosWa: number; enviadosEmail: number; avisos: string[] } | null>(null);
 
   const ctx = contextoDe(etapa);
@@ -187,7 +192,7 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
   }
 
   async function guardarCopy(id: number): Promise<boolean> {
-    const r = await fetch('/api/mako/nutricion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'aplicar', secuenciaId: id, pasos: draft }) });
+    const r = await fetch('/api/mako/nutricion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'aplicar', secuenciaId: id, pasos: draft?.map(sinGuion) }) });
     const j = await r.json();
     if (!j.ok) { setErr(j.error || 'No se pudo guardar el copy.'); return false; }
     return true;
@@ -427,7 +432,11 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
               </div>
 
               {/* Texto o nota de voz, decidido MENSAJE POR MENSAJE y grabado
-                  acá mismo. El email no admite audio. */}
+                  acá mismo. El email no admite audio.
+                  ⚠️ AL PASARLO A VOZ, EL TEXTO SE VUELVE EL GUION Y EL PIE QUEDA VACÍO
+                  (#748). Antes el cuerpo se conservaba y el motor lo manda como pie: el
+                  lead recibía el audio y además el mismo texto escrito. El pase lo hace
+                  `pasoAVoz` y la vuelta `pasoATexto`, sin perder ni el texto ni el pie. */}
               {p.canal === 'whatsapp' && (
                 <div style={{ marginBottom: 9 }}>
                   <PasoAudioControl
@@ -435,13 +444,13 @@ export function SecuenciaWizard({ secuenciaId: secInicial, secuencias, objetivos
                     audios={audios}
                     audioId={p.tipo === 'audio' ? (p.audio_id ?? null) : null}
                     onElegir={(id) => setDraft((prev) => prev?.map((x, k) => (k === i
-                      ? (id
-                        ? { ...x, tipo: 'audio' as const, audio_id: id, proveedor: 'no_oficial' as const }
-                        : { ...x, tipo: 'texto' as const, audio_id: null })
+                      ? (id ? pasoAVoz(x, id) : pasoATexto(x))
                       : x)) ?? prev)}
                     onGrabado={onAudioNuevo}
                     onError={setErr}
                     disabled={busy != null}
+                    guion={guionParaLeer(p)}
+                    paraGuion={{ objetivo, gancho, preguntas, pie: p.tipo === 'audio' ? p.cuerpo : '' }}
                   />
                 </div>
               )}
