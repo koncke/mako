@@ -34,7 +34,13 @@ export async function GET(req: NextRequest) {
   if (g) return g;
   const TAB = tabDe(new URL(req.url).searchParams.get('tab'));
   try {
-    return Response.json({ ok: true, estado: await getEstadoTab(TAB), def: tabOnboardingDef(TAB) });
+    // `guiaVoz`: ¿el negocio ya tiene «Tu forma de escribir»? Lo pregunta el lienzo al
+    // prender «Lo adapta MaKo» (#745): el tilde del paso no lo dice, porque se marca
+    // aunque no se haya escrito ninguna guía. `null` = no se pudo leer (no se abre nada).
+    const guiaVoz = TAB === 'setting'
+      ? await import('@/lib/nutricion-generator').then((m) => m.getVozGuia()).then((g) => g != null).catch(() => null)
+      : null;
+    return Response.json({ ok: true, estado: await getEstadoTab(TAB), def: tabOnboardingDef(TAB), guiaVoz });
   } catch (e) {
     console.error(`[api:setting/onboarding GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

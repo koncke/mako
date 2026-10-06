@@ -33,6 +33,7 @@ import { generarVariantes } from '@/lib/secuencias-variantes';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
 import { getEntregables, setEntregables } from '@/lib/entregable';
 import { getInstanciaRow, motivoCaida } from '@/lib/evolution';
+import { envioWhatsappHabilitado } from '@/lib/envio-flags';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -106,6 +107,9 @@ export async function GET() {
       leadMagnets: leadMagnets.map((l) => ({ id: l.id, nombre: l.nombre })),
       negocio: wsRow?.nombre ?? '', huecos, handoffs: await handoffsPendientes().catch(() => []),
       canal,
+      // El interruptor del envío REAL (#328). Lo leía sólo /whatsapp, y el comentario de
+      // WhatsAppApp ya decía que venía acá: no venía. `null` = no se pudo leer.
+      envioWhatsapp: await envioWhatsappHabilitado().catch(() => null),
     });
   } catch (e) {
     console.error(`[api:setting/secuencias GET] ${msg(e)}`);

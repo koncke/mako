@@ -8,7 +8,7 @@
 // pausar, abrir el wizard para que MaKo redacte, y probarla DE VERDAD (te llega
 // a tu teléfono/mail). Setter = solo lectura (sin botones de escritura).
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
@@ -20,6 +20,7 @@ import { FlujoLienzo } from './FlujoLienzo';
 import { Dropdown } from '@/app/components/Dropdown';
 import { DESENLACE_VACIO, type Desenlace, type ModoRespuesta, type Objetivo } from '@/lib/setting-estrategia';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from '@/lib/nutricion-etapa';
+import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -187,6 +188,8 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
   // pila porque la apaga: con el tutorial delante, un Ctrl+Z fuera de un campo de texto
   // deshacía el lienzo de atrás — y lo primero que deshacía era la casilla recién tildada.
   const [guiaVoz, setGuiaVoz] = useState(false);
+  /** «Tu forma de escribir» se ofrece UNA vez por visita: quien la cierra sin escribir guía no la ve en cada casilla. */
+  const guiaOfrecida = useRef(false);
   const { apilar, deshacer, rehacer, puedeDeshacer, puedeRehacer } = usePilaDeshacer<PasoSecuenciaDto[]>(
     (foto) => { const antes = pasos; setPasos(foto); return antes; },
     { activa: rolAdmin && !guiaVoz },
@@ -312,20 +315,25 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
    *
    * ⚠️ LA PRIMERA VEZ ABRE «Tu forma de escribir». Decisión de Martín: «que ese
    * tutorial se habilite la primera vez que se intente poner una tarjeta de chat y
-   * activar la opción de "IA"». «Primera vez» es «el paso todavía no está hecho», y se
-   * pregunta al server en el momento: un flag en el navegador no sabe si la guía ya se
-   * armó desde otra pestaña o desde otro usuario del mismo negocio. Si la pregunta
-   * falla, NO se abre nada: la IA escribe igual con un registro neutro, y un tutorial
-   * que salta por un error de red se lee como que la casilla hace otra cosa.
+   * activar la opción de "IA"». «Primera vez» es «el negocio todavía no tiene guía de
+   * voz», y se pregunta al server en el momento: un flag en el navegador no sabe si la
+   * guía ya se armó desde otra pestaña o desde otro usuario del mismo negocio. Si la
+   * pregunta falla, NO se abre nada: la IA escribe igual con un registro neutro, y un
+   * tutorial que salta por un error de red se lee como que la casilla hace otra cosa.
+   *
+   * ⚠️ SE PREGUNTA POR LA GUÍA, NO POR EL TILDE DEL PASO (#745). El tilde se marca aunque
+   * no se haya escrito ninguna guía, y el ws9 y Código Inmobiliario lo tenían sin guía:
+   * la IA escribía con un registro neutro y el tutorial no se abría nunca. La regla vive
+   * en lib/chatbot-puerta.ts (`abrirGuiaVoz`).
    */
   const setModoIA = (orden: number, on: boolean) => {
     antesDeCambiar();
     setPasos((prev) => prev.map((p) => (p.orden !== orden ? p : { ...p, tipo: on ? 'ia' as const : 'texto' as const })));
-    if (!on) return;
+    if (!on || guiaOfrecida.current) return;
     void (async () => {
       try {
         const j = await (await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' })).json();
-        if (j.ok && !j.estado?.steps?.contexto?.done) setGuiaVoz(true);
+        if (abrirGuiaVoz(j)) { guiaOfrecida.current = true; setGuiaVoz(true); }
       } catch { /* sin red no se abre: ver arriba */ }
     })();
   };
@@ -610,6 +618,7 @@ export function SecuenciaPerfil({ secuencia, objetivos, etiquetaEtapa, rolAdmin,
         onEditarVariante={editarVariante} onQuitarVariante={quitarVariante}
         onModoIA={rolAdmin ? setModoIA : undefined}
         onModo={setModo} onDesenlace={setDesenlace} onAntiguedad={setAntiguedad}
+        onEnvioAuto={rolAdmin ? setEnvioAuto : undefined}
         onAbrirSecuencia={onAbrirClave}
         onAgregarTras={agregarTras}
         insetIzq={insetIzq}

@@ -13,8 +13,12 @@ import { perfilNegocioTexto } from './onboarding';
 import { resumenFunnel } from './mako-context';
 import { getVozGuia } from './nutricion-generator';
 import { getSecuenciasConStats } from './nutricion';
-import { parseEstrategia } from './setting-estrategia';
+import { parseEstrategia, type EscenarioSecuencia } from './setting-estrategia';
 import { insisteConLoMismo } from './conversacion-repeticion';
+import {
+  bloqueEscenario, bloqueFormulario, pedidoFinal, REGLA_NO_REPREGUNTAR, SEGURIDAD_FORMULARIO,
+  type CierreConversacion,
+} from './setter-conversacion';
 
 export const SETTING_SIMULADOR_SYSTEM_TEMPLATE = `Eres MaKo actuando como el SETTER del negocio en una conversación de WhatsApp con un lead. Tu trabajo: cualificar y llevar al lead a dar el siguiente paso, como lo haría el mejor setter humano del equipo.
 
@@ -47,32 +51,54 @@ CONTEXTO: esto es un SIMULADOR — el "lead" es el dueño del negocio probando l
 export type TurnoSim = { de: 'lead' | 'negocio'; texto: string };
 
 /**
+ * Lo que el lead contestó en el formulario de la agenda, como bloque para el prompt (#361).
+ * Vacío si no hay lead, no contestó nada o la lectura falla: sin el bloque el setter
+ * escribe igual, nunca deja de escribir por esto.
+ */
+async function formularioDelLead(leadId: number | null | undefined): Promise<string> {
+  if (!leadId) return '';
+  try {
+    // Import dinámico: leads.ts es grande y este módulo lo carga el webhook de cada mensaje.
+    const { getLead, getLeadRespuestas } = await import('./leads');
+    const lead = await getLead(leadId);   // getTenantDb: un id de otro negocio devuelve null
+    if (!lead) return '';
+    return bloqueFormulario(await getLeadRespuestas(lead));
+  } catch {
+    return '';
+  }
+}
+
+/**
  * ¿Este lead califica según el criterio de la secuencia de mensajes? (reunión 31/07: "si no
  * son calificadas en chat, ya tenemos que cancelar las llamadas"). Clasificación
  * simple → IA barata. Devuelve null si no hay criterio cargado o no alcanza la
  * evidencia: NUNCA descalifica por las dudas.
+ *
+ * `opts.leadId` suma lo que contestó en el formulario como evidencia DICHA por el lead
+ * (#361): «factura menos de lo que pide el programa» está ahí, no en la charla.
  */
-export async function evaluarCalificacion(secuenciaId: number, historial: TurnoSim[]): Promise<{ califica: boolean | null; razon: string }> {
+export async function evaluarCalificacion(secuenciaId: number, historial: TurnoSim[], opts?: { leadId?: number | null }): Promise<{ califica: boolean | null; razon: string }> {
   const secs = await getSecuenciasConStats();
   const sec = secs.find((s) => s.id === secuenciaId);
   const est = sec ? parseEstrategia(sec.estrategia) : null;
   if (!est || (!est.criterio.califica.length && !est.criterio.descalifica.length)) {
     return { califica: null, razon: 'la secuencia de mensajes todavía no tiene criterio de calificación' };
   }
+  const formulario = await formularioDelLead(opts?.leadId);
   const charla = historial.slice(-14).map((t) => `${t.de === 'lead' ? 'LEAD' : 'NEGOCIO'}: ${t.texto}`).join('\n');
   // Cascada, no `chatCheap`: con un solo proveedor, un 429 tiraba el error para
   // arriba y la calificación no se hacía teniendo otras cuatro IA gratis cargadas.
   const { chatCheapCascade } = await import('./ai-cheap');
   const raw = await chatCheapCascade({
-    system: 'Clasificas si un lead califica según un criterio. Devuelves EXCLUSIVAMENTE un objeto JSON {"califica":"si"|"no"|"no_se","razon":"..."} sin markdown. Ante la duda, "no_se".',
+    system: `Clasificas si un lead califica según un criterio. Devuelves EXCLUSIVAMENTE un objeto JSON {"califica":"si"|"no"|"no_se","razon":"..."} sin markdown. Ante la duda, "no_se".${formulario ? `\n\n${SEGURIDAD_FORMULARIO}` : ''}`,
     user: `CRITERIO DEL NEGOCIO
 Califica si: ${est.criterio.califica.join(' · ') || '(sin reglas)'}
 NO califica si: ${est.criterio.descalifica.join(' · ') || '(sin reglas)'}
 
 CONVERSACIÓN
 ${charla}
-
-¿El lead califica? Responde "no" SOLO si hay evidencia explícita de una regla de descalificación en lo que DIJO el lead. Si no hay evidencia suficiente, "no_se".`,
+${formulario ? `\n${formulario}\n` : ''}
+¿El lead califica? Responde "no" SOLO si hay evidencia explícita de una regla de descalificación en lo que DIJO el lead (en la charla o en el formulario). Si no hay evidencia suficiente, "no_se".`,
     json: true, feature: 'setting-calificar', maxTokens: 300,
   });
   try {
@@ -101,11 +127,28 @@ const MARCA_FIN = /\[\s*FIN\s*:\s*(BIEN|MAL)\s*\]/i;
 
 export type DesenlaceSim = 'positivo' | 'negativo';
 export type SimularResult =
-  | { ok: true; respuesta: string; desenlace: DesenlaceSim | null }
+  /** `cierre` dice POR QUÉ terminó cuando hay desenlace: lo guarda el modo asistido (#360). */
+  | { ok: true; respuesta: string; desenlace: DesenlaceSim | null; cierre: CierreConversacion | null }
   | { ok: false; error: string };
 
-/** Respuesta de MaKo-setter al último mensaje del lead en el simulador. */
-export async function responderSimulador(secuenciaId: number, historial: TurnoSim[]): Promise<SimularResult> {
+export type OpcionesSetter = {
+  /**
+   * El lead de verdad (modo asistido, Instagram). Con él entra lo que contestó en el
+   * formulario de la agenda (#361). El simulador no lo pasa: ahí el «lead» es el dueño.
+   */
+  leadId?: number | null;
+  /** El caso en el que encajó el mensaje: su `comoResponder` guía el borrador (#358). */
+  escenario?: EscenarioSecuencia | null;
+  /**
+   * Qué estaba haciendo MaKo, para el mensaje de error (#380). El default es el del
+   * simulador; en producción es un lead real y decir «el ensayo» ahí era mentirle al dueño.
+   */
+  tema?: string;
+};
+
+/** Respuesta de MaKo-setter al último mensaje del lead (el simulador y el modo asistido). */
+export async function responderSimulador(secuenciaId: number, historial: TurnoSim[], opts: OpcionesSetter = {}): Promise<SimularResult> {
+  const tema = opts.tema ?? 'contestar en el ensayo';
   const secs = await getSecuenciasConStats();
   const sec = secs.find((s) => s.id === secuenciaId);
   if (!sec) return { ok: false, error: 'Esa secuencia no existe en este workspace.' };
@@ -119,7 +162,7 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
       : '',
     est?.gancho ? `Gancho para ofrecer: ${est.gancho}.` : 'Sin gancho definido — no inventes uno.',
     est?.preguntas.length
-      ? `Preguntas de cualificación (en este orden, de a una): ${est.preguntas.map((p, i) => `${i + 1}) ${p}`).join(' ')}`
+      ? `Preguntas de cualificación (en este orden, de a una): ${est.preguntas.map((p, i) => `${i + 1}) ${p}`).join(' ')}\n${REGLA_NO_REPREGUNTAR}`
       : 'Sin preguntas de cualificación definidas.',
     // Criterio: lo que decide si esta charla termina en llamada o en despedida.
     est?.criterio.califica.length ? `CALIFICA si: ${est.criterio.califica.join(' · ')}` : '',
@@ -132,11 +175,12 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
     est ? 'NO se va a cumplir cuando: el lead dice que no le interesa, pide que no le escriban más, o repite la misma objeción después de que ya se la respondiste dos veces.' : '',
   ].filter(Boolean).join('\n');
 
-  const [persona, voz, perfil, funnel] = await Promise.all([
+  const [persona, voz, perfil, funnel, formulario] = await Promise.all([
     getActivePersona().catch(() => ''),
     getVozGuia().catch(() => null),
     perfilNegocioTexto().catch(() => ''),
     resumenFunnel().catch(() => ''),
+    formularioDelLead(opts.leadId),
   ]);
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
   const systemBase = await renderPrompt('setting.simulador', SETTING_SIMULADOR_SYSTEM_TEMPLATE, {
@@ -146,6 +190,13 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   let system = `${persona}\n\n${nucleo}\n\n${systemBase}`.trim();
   if (perfil) system += `\n\nPERFIL DEL NEGOCIO:\n${perfil}`;
   if (funnel) system += `\n\nFUNNEL DEL NEGOCIO:\n${funnel}`;
+  // Los tres bloques del lead van DESPUÉS del render y no como slots del template
+  // registrado: un override guardado de 'setting.simulador' no tiene esos slots, y los
+  // perdería en silencio. Mismo criterio que el perfil y el funnel de arriba. (La regla de
+  // no repreguntar va pegada a la línea de las preguntas, arriba, por la misma razón.)
+  if (formulario) system += `\n\n${formulario}\n\n${SEGURIDAD_FORMULARIO}`;
+  const caso = bloqueEscenario(opts.escenario);
+  if (caso) system += `\n\n${caso}`;
 
   // Historial → mensajes (lead = user, negocio = assistant). Tope defensivo.
   const turnos = historial.slice(-30).map((t) => ({
@@ -166,33 +217,40 @@ export async function responderSimulador(secuenciaId: number, historial: TurnoSi
   const transcripcion = turnos
     .map((t) => `${t.role === 'user' ? 'LEAD' : 'NEGOCIO'}: ${t.content}`)
     .join('\n');
+
+  // EL CORTE POR INSISTENCIA LO DECIDE EL SERVIDOR, no el modelo. Se le pidió en
+  // el prompt que cerrara a la tercera repetición de la misma objeción y siguió
+  // rebatiendo las cuatro: un modelo no lleva la cuenta de nada. Acá se cuenta.
+  //
+  // ⚠️ Y SE CUENTA ANTES DE LLAMAR AL MODELO (#360). Se contaba después: el desenlace
+  // salía 'negativo' y el texto que volvía era igual la cuarta rebatida, también en el
+  // simulador. Con la cuenta adelante, lo que se le pide ES la despedida.
+  const delLead = historial.filter((t) => t.de === 'lead').map((t) => t.texto);
+  const porInsistir = insisteConLoMismo(delLead);
+
   const { chatCheapCascade, CASCADA_GRATIS, errorDeCascada } = await import('./ai-cheap');
   const errores: string[] = [];
   const respuesta = await chatCheapCascade({
     system,
-    user: `${transcripcion}\n\nEscribe la respuesta del NEGOCIO al último mensaje del lead. Solo el texto del mensaje, nada más.`,
+    user: `${transcripcion}\n\n${pedidoFinal(porInsistir)}`,
     maxTokens: 500, feature: 'setting-simulador', motivo: 'Respuesta del setter',
     provs: CASCADA_GRATIS, erroresOut: errores,
   });
   // «MaKo no respondió. Vuelve a intentarlo.» era verdad y no servía para nada: si lo
   // que pasó es que se acabó la cuota, reintentar no arregla nada y el usuario lo
   // descubre reintentando diez veces.
-  if (!respuesta || !respuesta.trim()) return { ok: false, error: await errorDeCascada(errores, 'contestar en el ensayo') };
+  if (!respuesta || !respuesta.trim()) return { ok: false, error: await errorDeCascada(errores, tema) };
   const marca = respuesta.match(MARCA_FIN);
   const limpio = respuesta.replace(MARCA_FIN, '').trim();
-  if (!limpio) return { ok: false, error: 'MaKo no respondió. Vuelve a intentarlo.' };
+  // El modelo contestó SÓLO el marcador de cierre: entendió que la charla terminó y no
+  // escribió el mensaje. Es otro caso que «no respondió» y reintentar no lo cambia (#380).
+  if (!limpio) return { ok: false, error: 'MaKo dio la charla por terminada sin escribir el mensaje.' };
 
-  // EL CORTE POR INSISTENCIA LO DECIDE EL SERVIDOR, no el modelo. Se le pidió en
-  // el prompt que cerrara a la tercera repetición de la misma objeción y siguió
-  // rebatiendo las cuatro: un modelo no lleva la cuenta de nada. Acá se cuenta.
-  const delLead = historial.filter((t) => t.de === 'lead').map((t) => t.texto);
-  const porInsistir = insisteConLoMismo(delLead);
-
-  return {
-    ok: true,
-    respuesta: limpio,
-    desenlace: marca
-      ? (marca[1].toUpperCase() === 'BIEN' ? 'positivo' : 'negativo')
-      : (porInsistir ? 'negativo' : null),
-  };
+  const desenlace: DesenlaceSim | null = marca
+    ? (marca[1].toUpperCase() === 'BIEN' ? 'positivo' : 'negativo')
+    : (porInsistir ? 'negativo' : null);
+  const cierre: CierreConversacion | null = marca
+    ? (desenlace === 'positivo' ? 'fin_bien' : 'fin_mal')
+    : (porInsistir ? 'insistencia' : null);
+  return { ok: true, respuesta: limpio, desenlace, cierre };
 }

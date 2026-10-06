@@ -154,8 +154,12 @@ export async function generarBorradorIg(ws: number, conversacionId: number): Pro
     // MaKo redacta con el MISMO motor del asistido de WhatsApp. responderSimulador
     // acepta el historial completo (lead=user, negocio=assistant): se le pasa la
     // conversación real, no un turno suelto.
+    // Con el lead (lo que contestó en el formulario, #361) y el caso en el que encajó (su
+    // `comoResponder` guía el borrador, #358): los mismos dos que pasa el asistido de WhatsApp.
     const { responderSimulador } = await import('./setting-simulador');
-    const r = await responderSimulador(secuencia.id, historial);
+    const r = await responderSimulador(secuencia.id, historial, {
+      leadId: conv.lead_id, escenario: clas.escenario, tema: 'redactar la respuesta a tu lead',
+    });
     if (!r.ok) return { ok: false, motivo: r.error };
 
     const vigente = ventanaVigente(conv.ventana_expira_at);

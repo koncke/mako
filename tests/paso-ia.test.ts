@@ -209,9 +209,10 @@ test('la casilla sale sólo donde el saneo conserva el modo, con la MISMA funci�
 test('la primera vez que se tilda, el lienzo PREGUNTA si falta la voz y abre sólo ese paso', () => {
   const perfil = sinComentarios(leer('app/chatbot/SecuenciaPerfil.tsx'));
   const fn = bloque(perfil, 'const setModoIA = (orden: number, on: boolean) => {', '\n  };');
-  assert.match(fn, /if \(!on\) return;/, 'apagar la IA no tiene por qué abrir nada');
+  assert.match(fn, /if \(!on \|\| guiaOfrecida\.current\) return;/, 'apagar la IA no tiene por qué abrir nada');
   assert.match(fn, /fetch\('\/api\/chat-agent\/onboarding\?tab=setting'/);
-  assert.match(fn, /if \(j\.ok && !j\.estado\?\.steps\?\.contexto\?\.done\) setGuiaVoz\(true\)/);
+  // Pregunta por la GUÍA, no por el tilde del paso (#745): el tilde se marca sin guía escrita.
+  assert.match(fn, /if \(abrirGuiaVoz\(j\)\) \{ guiaOfrecida\.current = true; setGuiaVoz\(true\); \}/);
   assert.match(perfil, /<OnboardingChatAgent soloPaso="contexto" onListo=\{\(\) => setGuiaVoz\(false\)\} \/>/);
   assert.match(perfil, /onModoIA=\{rolAdmin \? setModoIA : undefined\}/);
   // Con el tutorial encima, el Ctrl+Z del lienzo de atrás no corre.

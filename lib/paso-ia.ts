@@ -39,7 +39,7 @@ import { chatCheapCascade, CASCADA_GRATIS } from './ai-cheap';
 import { renderPrompt } from './prompt-render';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import { getVozGuia } from './nutricion-generator';
-import { getTenantDb } from './workspace';
+import { mensajesRecientesDelLead } from './wa-historial';
 import { respetaElOriginal } from './texto-critico';
 
 /** Cuántos mensajes de la conversación ve el modelo: contexto, no un historial entero. */
@@ -83,22 +83,13 @@ function limpiar(t: string): string {
  * nombra), y si falla se escribe sin contexto en vez de no escribir.
  */
 async function conversacionReciente(leadId: number): Promise<string> {
-  try {
-    const db = await getTenantDb();
-    const { data, error } = await db.from('wa_mensajes')
-      .select('from_me, texto, tipo, wa_timestamp')
-      .eq('lead_id', leadId)
-      .neq('tipo', 'evento')
-      .order('wa_timestamp', { ascending: false })
-      .limit(MENSAJES_DE_CONTEXTO);
-    if (error || !data?.length) return '';
-    return (data as Array<{ from_me: boolean; texto: string | null; tipo: string | null }>)
-      .reverse()
-      .map((m) => `${m.from_me ? 'NEGOCIO' : 'PERSONA'}: ${(m.texto ?? '').trim() || `[${m.tipo ?? 'mensaje'}]`}`)
-      .join('\n');
-  } catch {
-    return '';
-  }
+  // El lector es el mismo que usa el setter (lib/wa-historial.ts): dos `select` iguales
+  // escritos por separado son dos lugares donde la misma regla se queda vieja.
+  const filas = await mensajesRecientesDelLead(leadId, { limite: MENSAJES_DE_CONTEXTO });
+  if (!filas?.length) return '';
+  return filas
+    .map((m) => `${m.from_me ? 'NEGOCIO' : 'PERSONA'}: ${(m.texto ?? '').trim() || `[${m.tipo ?? 'mensaje'}]`}`)
+    .join('\n');
 }
 
 /**

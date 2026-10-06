@@ -27,6 +27,7 @@ import type { CronAviso } from '@/lib/cron-aviso';
 import { HandoffsPanel, type Handoff } from './HandoffsPanel';
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
+import { abreEnQR, type OnboardingChatbot } from '@/lib/chatbot-puerta';
 import type { Estrategia } from '@/lib/setting-estrategia';
 import type { MetricasSecuencia, PuntoSerie } from '@/lib/setting-metricas';
 
@@ -156,8 +157,19 @@ function ChatAgentInner() {
   // del WhatsApp en el onboarding, donde afirmar «desconectado» sobre un corte
   // momentaneo mandaba a re-escanear un QR que no hacia falta.
   const canalCaido = canal.estado === 'desconectado' || canal.estado === 'sin_vincular';
+  /**
+   * ¿El envío REAL de WhatsApp de este negocio está prendido? (#328). Es un interruptor
+   * aparte de la línea: con la línea conectada y esto en `false` no sale nada, y la
+   * pantalla no lo decía — el ws1 estuvo así desde el 29/09 con dos secuencias activas.
+   * `null` = no se sabe todavía (o no se pudo leer): no se afirma nada.
+   */
+  const [envioWa, setEnvioWa] = useState<boolean | null>(null);
+  const [prendiendo, setPrendiendo] = useState(false);
+  const [errEnvio, setErrEnvio] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // El estado de la línea, para la puerta del QR (#745): se decide abajo, con el onboarding.
+    let estadoCanal = 'desconocido';
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
@@ -169,15 +181,27 @@ function ChatAgentInner() {
       setHuecos(j.huecos ?? []); setHandoffs(j.handoffs ?? []); setTz(j.tz ?? null);
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
+      estadoCanal = typeof j.canal?.estado === 'string' ? j.canal.estado : 'desconocido';
+      setEnvioWa(typeof j.envioWhatsapp === 'boolean' ? j.envioWhatsapp : null);
       setError(null);
     } catch {
       setError('Sin conexión — recarga la página.'); setSecuencias([]);
     }
     // Biblioteca de audios (admin-only: el 403 del setter deja la lista vacía).
+    //
+    // ⚠️ LA URL DE UN AUDIO YA CARGADO SE CONSERVA (#350). Cada `load()` vuelve a firmar
+    // todas las URLs, y `load()` corre apenas se asigna un audio a un paso: el reproductor
+    // del audio recién grabado cambiaba de `src` y volvía a 0 mientras sonaba. Es el
+    // anti-parpadeo de la bandeja (EmpresaInbox): la firma dura 12 h, sobra para una visita.
     try {
       const ra = await fetch('/api/chat-agent/audios', { cache: 'no-store' });
       const ja = await ra.json();
-      if (ja.ok) setAudios(ja.audios ?? []);
+      if (ja.ok) {
+        setAudios((prev) => {
+          const urlPorId = new Map(prev.filter((a) => a.url).map((a) => [a.id, a.url] as const));
+          return ((ja.audios ?? []) as AudioSetting[]).map((a) => (a.url && urlPorId.has(a.id) ? { ...a, url: urlPorId.get(a.id)! } : a));
+        });
+      }
     } catch { /* sin audios */ }
     // ¿La tab arranca en su onboarding? (403 del setter → la ve normal)
     try {
@@ -188,11 +212,13 @@ function ChatAgentInner() {
       // no se pudo saber si el onboarding está completo, mostrar el dashboard es
       // afirmar que sí lo está. Es la misma regla que el paso del WhatsApp
       // oficial: «no pudimos preguntarlo» no es «está listo».
-      const falta = jo.ok ? jo.estado?.status !== 'done' : ro.status !== 403;
-      // Con un solo paso en el catálogo («Tu WhatsApp»), esto es literalmente
-      // «¿hay línea vinculada?»: el paso lo marca y lo DESMARCA `lib/evolution.ts`
-      // contra el estado real de la instancia, no un tilde que alguien apretó.
-      setEnOnboarding(falta);
+      const onboarding: OnboardingChatbot = jo.ok
+        ? (jo.estado?.status === 'done' ? 'hecho' : 'pendiente')
+        : (ro.status === 403 ? 'sin_permiso' : 'no_se_pudo');
+      // ⚠️ EL ESTADO DE LA LÍNEA GANA AL TILDE (#745). El tilde de «Tu WhatsApp» se
+      // guardaba una vez y nadie lo volvía a comparar: el ws9 lo tiene desde el 05/08 con
+      // cero líneas, y veía el lienzo sin número. La regla vive en lib/chatbot-puerta.ts.
+      setEnOnboarding(abreEnQR({ onboarding, canal: estadoCanal }));
     } catch (e) {
       // Sin red tampoco se afirma que está listo: se muestra el onboarding, que
       // es reversible (se sigue de largo), en vez del dashboard, que no lo es.
@@ -274,9 +300,37 @@ function ChatAgentInner() {
           <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.025em', margin: 0, color: 'var(--ink)' }}>Chatbot</h1>
           <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>Vincula tu WhatsApp y esta pantalla pasa a ser el editor de tus secuencias.</p>
         </div>
-        <EvolutionConnect inline onEstado={(e) => { if (e === 'conectado') { setEnOnboarding(false); void load(); } }} />
+        <EvolutionConnect inline onEstado={(e) => {
+          if (e !== 'conectado') return;
+          setEnOnboarding(false);
+          // Vincular desde ACÁ también marca el paso (#745): antes sólo cambiaba el estado
+          // local, y lo demás que lee el tilde (lo que MaKo sabe del negocio, «¿está listo?»)
+          // seguía diciendo «falta Tu WhatsApp» sobre un número conectado.
+          void fetch('/api/chat-agent/onboarding', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
+          }).catch(() => { /* si falla, el lienzo abre igual: la puerta mira la línea, no el tilde */ })
+            .finally(() => { void load(); });
+        }} />
       </main>
     );
+  }
+
+  /** Prende el envío real de WhatsApp (#328). Lo valida el server: exige un número conectado. */
+  async function prenderEnvio() {
+    setPrendiendo(true); setErrEnvio(null);
+    try {
+      const r = await fetch('/api/whatsapp/envio', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: true }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { setErrEnvio(j.error || 'No se pudo prender.'); return; }
+      setEnvioWa(Boolean(j.envioHabilitado));
+    } catch {
+      setErrEnvio('Sin conexión.');
+    } finally {
+      setPrendiendo(false);
+    }
   }
 
   return (
@@ -357,6 +411,27 @@ function ChatAgentInner() {
             )}
           </div>
           <Link href="/whatsapp" style={{ ...btnDark, textDecoration: 'none', whiteSpace: 'nowrap' }}>Volver a conectarlo</Link>
+        </div>
+      )}
+
+      {/* EL ENVÍO APAGADO CON LAS SECUENCIAS EN VERDE (#328). Es un interruptor aparte de
+          la línea: con el número conectado y esto apagado no sale nada, y sólo se veía en la
+          pastilla de /whatsapp. Medido el 06/10: el ws1 lo tenía apagado desde el 29/09 con
+          dos secuencias activas. No se dice POR QUÉ se apagó: no queda registrado quién lo
+          tocó, y una causa inventada es peor que ninguna. Con la línea caída no va: el aviso
+          rojo de arriba ya dice que no sale nada. */}
+      {!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa) && (
+        <div style={{ flex: 'none', background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--warn)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
+          <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
+            <strong>El envío de WhatsApp está apagado.</strong> Tus secuencias activas no mandan nada.
+            {errEnvio && <span style={{ color: 'var(--bad)' }}> {errEnvio}</span>}
+          </div>
+          {rolAdmin && (
+            <button onClick={() => void prenderEnvio()} disabled={prendiendo} style={{ ...btnDark, whiteSpace: 'nowrap', opacity: prendiendo ? 0.6 : 1 }}>
+              {prendiendo ? 'Prendiendo…' : 'Prender el envío'}
+            </button>
+          )}
         </div>
       )}
 

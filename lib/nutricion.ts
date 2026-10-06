@@ -1951,7 +1951,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // automatizan los primeros audios y la conversación la sigue un humano.
 // `opts.linea`: por qué línea de WhatsApp escribió el lead (la instancia del webhook). El borrador
 // del modo asistido le contesta por ESA: es el número con el que venía hablando.
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null }): Promise<number> {
+// `opts.origen`: por dónde llegó. Sólo importa para el aviso de una charla que el setter ya no
+// sigue (#788): por el oficial, el webhook de Chatwoot avisa CADA mensaje por su cuenta, y un
+// segundo aviso sería ruido; por el no oficial, ése es el único aviso que hay.
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' }): Promise<number> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
@@ -1961,6 +1964,38 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     .select('id, secuencia_id');
   if (error) throw new Error(`pausarPorRespuesta: ${error.message}`);
   const pausadas = (data ?? []) as Array<{ id: number; secuencia_id: number }>;
+
+  // RESPUESTA A UNA SECUENCIA QUE YA TERMINÓ (#788). Una inscripción 'completada' sin
+  // desenlace ya mandó todo y está esperando: o contesta o vence el silencio. Si contesta
+  // y acá no se anota, doce horas después `evaluarDesenlaces` la da por fallida — la pasa
+  // a no_responde, mueve al lead y le avisa al dueño «le escribí N veces y no contestó»
+  // sobre alguien que SÍ contestó. Se anota como 'respondio', igual que una activa.
+  //
+  // ⚠️ SÓLO SI LE SALIÓ ALGO. Una 'completada' también puede ser una que se cerró SIN
+  // mandar nada (la reunión ya pasó, el tope de antigüedad): ahí no hay nada que el lead
+  // esté contestando, y marcarla 'respondio' la daría por lograda sin haber hecho nada.
+  let tardias: Array<{ id: number; secuencia_id: number }> = [];
+  try {
+    const { data: comp } = await supabase
+      .from('nutricion_inscripciones')
+      .select('id, secuencia_id')
+      .eq('lead_id', leadId).eq('estado', 'completada').is('desenlace', null);
+    const completadas = (comp ?? []) as Array<{ id: number; secuencia_id: number }>;
+    if (completadas.length) {
+      const { enviosPorInscripcion } = await import('@/lib/nutricion-envios-resumen');
+      const salio = await enviosPorInscripcion(supabase, completadas.map((c) => c.id));
+      const conEnvio = completadas.filter((c) => salio.has(c.id));
+      if (conEnvio.length) {
+        const { data: upd } = await supabase
+          .from('nutricion_inscripciones')
+          .update({ estado: 'respondio', updated_at: ahoraISO() })
+          .in('id', conEnvio.map((c) => c.id))
+          .eq('estado', 'completada').is('desenlace', null)   // compare-and-set: nadie la movió entre medio
+          .select('id, secuencia_id');
+        tardias = (upd ?? []) as Array<{ id: number; secuencia_id: number }>;
+      }
+    }
+  } catch (e) { console.error(`[nutricion] respuesta a secuencia terminada, lead ${leadId}:`, e); }
 
   // PASOS CONDICIONALES (reunión 31/07): un paso con requiere='respondio' está
   // esperando justamente esto — el caso del lead magnet ("¿lo querés? es gratis"
@@ -1989,30 +2024,108 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     } catch (e) { console.error('[nutricion] destrabe de pasos condicionales falló:', e); }
   }
 
-  if (pausadas.length) {
-    // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
-    // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
-    try { await asistirRespuesta(leadId, pausadas.map((p) => p.secuencia_id), opts?.texto, opts?.linea ?? null); }
-    catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
+  // Best-effort y en segundo plano conceptual: que un fallo del asistido NUNCA
+  // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
+  const respondidas = [...pausadas, ...tardias];
+  let atendida = false;
+  if (respondidas.length) {
+    try { atendida = await asistirRespuesta(leadId, respondidas.map((p) => p.secuencia_id), opts?.texto, opts?.linea ?? null); }
+    catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); atendida = true; }
   }
-  return pausadas.length;
+  // DEL SEGUNDO MENSAJE EN ADELANTE no hay inscripción activa: la charla se busca (#788).
+  if (!atendida) {
+    try { await seguirCharla(leadId, opts?.texto, opts?.linea ?? null, opts?.origen ?? 'oficial'); }
+    catch (e) { console.error(`[nutricion] seguir la charla del lead ${leadId} falló:`, e); }
+  }
+  return respondidas.length;
+}
+
+/**
+ * El lead escribió y no tenía ninguna inscripción activa: ¿hay una charla del setter que
+ * seguir? (#788). La decisión es `conversacionAbierta` (lib/setter-conversacion.ts); acá se
+ * juntan los datos que pide — qué secuencias son asistidas, si les salió algo, y si la
+ * reunión que preparan sigue por delante.
+ *
+ * Si la charla está cerrada (la sigue una persona, terminó, venció o la reunión pasó), el
+ * setter no contesta y se le EXPLICA al dueño por qué — una vez por lead cada 12 h, no
+ * una por mensaje. Sin ese aviso, por el no oficial el lead escribía y nadie se enteraba.
+ */
+async function seguirCharla(leadId: number, texto: string | undefined, linea: string | null, origen: 'no_oficial' | 'oficial'): Promise<void> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase
+    .from('nutricion_inscripciones')
+    .select('id, secuencia_id, estado, desenlace, updated_at, conversacion_ultima_at, conversacion_cerrada_at')
+    .eq('lead_id', leadId);
+  if (error) throw new Error(`seguirCharla: ${error.message}`);
+  const filas = (data ?? []) as Array<{
+    id: number; secuencia_id: number; estado: string; desenlace: string | null;
+    updated_at: string | null; conversacion_ultima_at: string | null; conversacion_cerrada_at: string | null;
+  }>;
+  if (!filas.length) return;
+
+  const [{ parseEstrategia: parse }, { conversacionAbierta }, { enviosPorInscripcion }] = await Promise.all([
+    import('@/lib/setting-estrategia'),
+    import('@/lib/setter-conversacion'),
+    import('@/lib/nutricion-envios-resumen'),
+  ]);
+  const secs = new Map((await getSecuenciasConStats()).map((s) => [s.id, s]));
+  const salio = await enviosPorInscripcion(supabase, filas.map((f) => f.id));
+  const { data: leadRow } = await supabase
+    .from('leads').select('nombre, junta_1_at, fecha_junta_1, junta_2_at, fecha_junta_2').eq('id', leadId).maybeSingle();
+  const juntas = leadRow as (JuntasLead & { nombre?: string | null }) | null;
+  const hayReunion = reunionFuturaMs(juntas) != null;
+
+  const v = conversacionAbierta(filas.map((f) => {
+    const sec = secs.get(f.secuencia_id);
+    return {
+      ...f,
+      tieneEnviado: salio.has(f.id),
+      // Pausada por el dueño = no contesta sola, aunque la charla estuviera abierta.
+      asistida: !!sec && sec.activa && parse(sec.estrategia)?.modo === 'asistido',
+      reunionFutura: sec && preparaUnaReunion(sec.trigger_tipo) ? hayReunion : null,
+    };
+  }), Date.now());
+
+  if (v.abierta) {
+    await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea);
+    return;
+  }
+  if (!v.motivo || origen !== 'no_oficial') return;
+  const { emitirDelCatalogo } = await import('@/lib/avisos');
+  const quien = juntas?.nombre?.trim() || `lead ${leadId}`;
+  await emitirDelCatalogo('wa-mensaje-entrante', {
+    ws: (await getWorkspaceActual()) ?? undefined,
+    dedupKey: `lead:${leadId}:charla-cerrada`,
+    dedupTtlMin: 60 * 12,
+    texto: `💬 *${quien} te escribió.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
+  });
 }
 
 /**
  * Modo asistido: avisa al dueño que el lead respondió y le deja el borrador de
  * respuesta que redactó MaKo con la secuencia de mensajes (mismo cerebro del simulador).
- * Silencioso si ninguna de las secuencias pausadas es 'asistido'.
+ * Devuelve false (sin hacer nada) si ninguna de las secuencias es 'asistido'.
  */
-async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null): Promise<void> {
+async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null): Promise<boolean> {
   const { parseEstrategia } = await import('@/lib/setting-estrategia');
   const secs = await getSecuenciasConStats();
   // La secuencia de mensajes asistida más específica que venía corriendo para este lead.
   const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && parseEstrategia(s.estrategia)?.modo === 'asistido');
-  if (!secuencia) return;
+  if (!secuencia) return false;
 
   const supabase = await getTenantDb();
   const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono').eq('id', leadId).maybeSingle();
   const lead = leadRow as { id: number; nombre: string | null; telefono: string | null } | null;
+  const linea = lineaEntrante ?? secuencia.instance_name;
+
+  // LA CHARLA DE VERDAD, no un turno suelto (#360, #361). Con un solo turno el corte por
+  // insistencia no podía dar nunca (exige tres mensajes del lead) y el setter repreguntaba
+  // lo que ya le habían contestado. Se lee la charla por la línea a la que escribió; si la
+  // lectura falla, se sigue con el mensaje de hoy, como antes.
+  const { historialDeMensajes, conTurnoActual, TURNOS_DE_CONTEXTO } = await import('@/lib/setter-conversacion');
+  const { mensajesRecientesDelLead } = await import('@/lib/wa-historial');
+  const filas = await mensajesRecientesDelLead(leadId, { limite: TURNOS_DE_CONTEXTO + 5, linea: lineaEntrante });
+  const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto);
 
   // 0) HAND-OFF, y va PRIMERO: antes de redactar nada hay que saber si esto es
   //    un caso que la secuencia sabe manejar. Si el lead planteó algo que no
@@ -2034,37 +2147,71 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
       motivo: clas.motivo,
       leadNombre: lead?.nombre, secuenciaNombre: secuencia.nombre,
     });
-    return;
+    return true;
   }
+
+  // El intercambio cuenta para la ventana de la charla (#788): siete días desde ACÁ.
+  await supabase.from('nutricion_inscripciones')
+    .update({ conversacion_ultima_at: ahoraISO() })
+    .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
 
   // 1) MaKo redacta la respuesta (import dinámico: setting-simulador importa
-  //    este módulo, un import estático cerraría el ciclo).
+  //    este módulo, un import estático cerraría el ciclo). Con el caso en el que encajó
+  //    (#358: su `comoResponder` guía el borrador) y el lead (#361: su formulario).
   let sugerida: string | null = null;
+  let cierre: 'fin_bien' | 'fin_mal' | 'insistencia' | null = null;
+  // Por qué NO hay borrador, para decirlo en el aviso (#380). Antes el fallo se tragaba
+  // en un `catch {}` y el dueño recibía «respondió» sin borrador y sin saber por qué.
+  let sinBorrador = '';
   try {
     const { responderSimulador } = await import('@/lib/setting-simulador');
-    const r = await responderSimulador(secuencia.id, [{ de: 'lead', texto: texto?.trim() || '(el lead respondió sin texto)' }]);
-    if (r.ok) sugerida = r.respuesta;
-  } catch { /* sin sugerencia: igual avisamos */ }
-
-  // 2) Borrador para aprobar con un clic (misma bandeja que el resto).
-  if (sugerida && lead?.telefono) {
-    const { crearBorrador } = await import('@/lib/evolution-envio');
-    await crearBorrador({
-      leadId, telefono: lead.telefono, texto: sugerida,
-      origen: 'setter-asistido', secuenciaId: secuencia.id, paso: null, inscripcionId: null,
-      // Por la línea a la que escribió el lead; si no se sabe (vino por el oficial), la de la
-      // secuencia. Sin esto salía por la de por default: un número que ese lead no conoce.
-      linea: lineaEntrante ?? secuencia.instance_name,
+    const r = await responderSimulador(secuencia.id, historial, {
+      leadId, escenario: clas.escenario, tema: 'redactar la respuesta a tu lead',
     });
+    if (r.ok) { sugerida = r.respuesta; cierre = r.cierre; }
+    else sinBorrador = r.error;
+  } catch (e) {
+    sinBorrador = e instanceof Error ? e.message.slice(0, 200) : 'falló la redacción';
   }
 
-  // 3) ¿Califica? (reunión 31/07: ninguna llamada con no calificados). Si hay
+  // 2) UN borrador por lead para aprobar con un clic (misma bandeja que el resto): si ya
+  //    había uno pendiente, se reemplaza (#788).
+  let borradorOk = false;
+  if (sugerida && lead?.telefono) {
+    const { guardarBorradorSetter } = await import('@/lib/evolution-envio');
+    const g = await guardarBorradorSetter({
+      leadId, telefono: lead.telefono, texto: sugerida, secuenciaId: secuencia.id,
+      // Por la línea a la que escribió el lead; si no se sabe (vino por el oficial), la de la
+      // secuencia. Sin esto salía por la de por default: un número que ese lead no conoce.
+      linea,
+    });
+    borradorOk = g.ok;
+    if (!g.ok) sinBorrador = `no se guardó el borrador (${g.error.slice(0, 120)})`;
+  } else if (sugerida && !lead?.telefono) {
+    sinBorrador = 'el lead no tiene teléfono cargado';
+  }
+
+  // 3) LA CHARLA TERMINÓ (#360): el lead aceptó, dijo que no, o repitió por tercera vez la
+  //    misma objeción. Se anota y no se vuelve a abrir sola: el próximo mensaje de este lead
+  //    lo contesta una persona (y el aviso lo explica).
+  if (cierre) {
+    await supabase.from('nutricion_inscripciones')
+      .update({ conversacion_cierre: cierre, conversacion_cerrada_at: ahoraISO() })
+      .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
+    try {
+      const { logLeadEvent } = await import('@/lib/leads');
+      const porque = cierre === 'fin_bien' ? 'el lead aceptó' : cierre === 'fin_mal' ? 'el lead dijo que no' : 'repitió la misma objeción por tercera vez';
+      await logLeadEvent(leadId, 'Setting', `MaKo cerró la charla: ${porque}`, 'MaKo');
+    } catch { /* el historial es un extra: el cierre ya quedó */ }
+  }
+
+  // 4) ¿Califica? (reunión 31/07: ninguna llamada con no calificados). Si hay
   //    evidencia de descalificación, se marca el lead y se AVISA para cancelar
   //    la reunión — cancelarla sola sería una acción externa irreversible.
   let alertaDescalifica = '';
   try {
     const { evaluarCalificacion } = await import('@/lib/setting-simulador');
-    const ev = await evaluarCalificacion(secuencia.id, [{ de: 'lead', texto: texto?.trim() || '' }]);
+    const ev = await evaluarCalificacion(secuencia.id, historial, { leadId });
     if (ev.califica === false) {
       await supabase.from('leads').update({ calificado: false, updated_at: ahoraISO() }).eq('id', leadId);
       const { logLeadEvent } = await import('@/lib/leads');
@@ -2073,15 +2220,19 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
     }
   } catch { /* la calificación es un extra: nunca bloquea el aviso */ }
 
-  // 4) Aviso al dueño — el único que pidió Mauricio: "avisame si responden".
+  // 5) Aviso al dueño — el único que pidió Mauricio: "avisame si responden".
   //
   // El `ws` va EXPLÍCITO. Sin él, emitirAviso cae a OWNER_WS: el lead de un
   // cliente respondía y el aviso le llegaba al grupo de la AGENCIA en vez de al
   // del cliente — que además no se entera de que le contestaron.
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = lead?.nombre?.trim() || `lead ${leadId}`;
+  const borrador = borradorOk && sugerida
+    ? `\n\n${cierre === 'insistencia' || cierre === 'fin_mal' ? 'Te dejé la despedida lista para aprobar' : 'Te dejé un borrador listo para aprobar'}:\n${sugerida.slice(0, 300)}`
+    : sinBorrador ? `\n\nNo pude dejarte un borrador: ${sinBorrador}` : '';
   await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: (await getWorkspaceActual()) ?? undefined,
-    texto: `💬 *${quien} respondió* a la secuencia de mensajes «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${sugerida ? `\n\nTe dejé un borrador listo para aprobar:\n${sugerida.slice(0, 300)}` : ''}${alertaDescalifica}\n\n— MaKo`,
+    texto: `💬 *${quien} respondió* a la secuencia de mensajes «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
   });
+  return true;
 }

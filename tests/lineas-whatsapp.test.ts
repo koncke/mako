@@ -174,10 +174,14 @@ test('una línea extra se borra SÓLO si Evolution borró la instancia, y «la d
 test('todo borrador de una secuencia lleva su línea, y uno con línea nunca cae al oficial', () => {
   const nutri = sinComentarios(leer('lib/nutricion.ts'));
   const llamadas = nutri.split('crearBorrador({').slice(1).map((s) => s.slice(0, 400));
-  assert.ok(llamadas.length >= 3);
+  // Dos: el del asistido pasó a `guardarBorradorSetter` (uno por lead, #788), que se mira abajo.
+  assert.ok(llamadas.length >= 2);
   for (const c of llamadas) assert.match(c, /linea:/, `un crearBorrador del motor sin línea sale por la de por default: ${c.slice(0, 80)}`);
   // El asistido contesta por la línea a la que escribió el lead.
-  assert.match(sinComentarios(leer('lib/evolution-mensajes.ts')), /pausarPorRespuesta\(leadId, \{ texto: texto \?\? undefined, linea: instance \}\)/);
+  assert.match(sinComentarios(leer('lib/evolution-mensajes.ts')), /pausarPorRespuesta\(leadId, \{ texto: texto \?\? undefined, linea: instance, origen: 'no_oficial' \}\)/);
+  // El borrador del setter (uno por lead, #788) también sale por la línea: la que escribió el lead o la de la secuencia.
+  assert.match(nutri, /guardarBorradorSetter\(\{[\s\S]{0,300}?linea,\s*\}\)/);
+  assert.match(nutri, /const linea = lineaEntrante \?\? secuencia\.instance_name;/);
   const bo = sinComentarios(leer('lib/borrador-oficial.ts'));
   const loop = bloque(bo, 'for (const b of borradores) {\n    if (b.linea) {', '\n  }\n  if (!sinLinea.length)');
   assert.doesNotMatch(loop.slice(0, loop.indexOf('} else if')), /sinLinea\.push/, 'un borrador que nombra su línea no puede seguir al camino del oficial');

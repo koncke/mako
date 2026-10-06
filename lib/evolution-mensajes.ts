@@ -199,7 +199,9 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   // dependa de una implicación a tres saltos de distancia.)
   if (!esGrupo && !fromMe && leadId && tipo !== 'evento' && tipo !== 'otro') {
     // El texto va para el modo asistido: MaKo redacta el borrador de respuesta.
-    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance }); } catch { /* no fatal */ }
+    // `origen`: por el no oficial, el aviso de una charla que el setter ya no sigue es el
+    // ÚNICO aviso de este mensaje (Chatwoot avisa cada uno por su cuenta). Ver pausarPorRespuesta.
+    try { await pausarPorRespuesta(leadId, { texto: texto ?? undefined, linea: instance, origen: 'no_oficial' }); } catch { /* no fatal */ }
   }
 }
 

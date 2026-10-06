@@ -145,6 +145,55 @@ export async function crearBorrador(input: {
   }
 }
 
+/**
+ * El borrador que deja el setter del modo asistido: UNO pendiente por lead (#788).
+ *
+ * Con la charla abierta, cada mensaje del lead redacta una respuesta nueva. Apilarlas
+ * deja N borradores para la misma persona —y el setter que aprueba el primero manda una
+ * respuesta a un mensaje viejo—, así que si ya hay uno se REEMPLAZA su texto: la
+ * redacción nueva vio la charla más completa. Es el molde de Instagram
+ * (lib/ig-chatbot.ts, `generarBorradorIg`).
+ *
+ * ⚠️ BUSCAR-Y-DESPUÉS-INSERTAR TIENE CARRERA: dos mensajes en paralelo lo hacen dos veces.
+ * La guarda es el índice único parcial de la mig 0203; si el insert choca con él, el
+ * otro ya creó el borrador y se reemplaza ése. A diferencia de `crearBorrador`, el error
+ * se LEE y vuelve: un borrador que no se guardó no puede anunciarse como «te dejé uno».
+ */
+export async function guardarBorradorSetter(input: {
+  leadId: number; telefono: string; texto: string; secuenciaId: number; linea: string | null;
+}): Promise<{ ok: true; id: number; reemplazo: boolean } | { ok: false; error: string }> {
+  const supabase = await getTenantDb();
+  const telefono = (input.telefono || '').replace(/\D/g, '');
+  const reemplazar = async (): Promise<{ ok: true; id: number; reemplazo: boolean } | null | { ok: false; error: string }> => {
+    const { data, error } = await supabase.from('wa_borradores')
+      .select('id').eq('lead_id', input.leadId).eq('origen', 'setter-asistido').eq('estado', 'pendiente')
+      .order('created_at', { ascending: false }).limit(1);
+    if (error) return { ok: false, error: error.message };
+    const previo = ((data ?? []) as Array<{ id: number }>)[0];
+    if (!previo) return null;
+    const { error: upErr } = await supabase.from('wa_borradores')
+      .update({ texto: input.texto, telefono, secuencia_id: input.secuenciaId, instance_name: input.linea })
+      .eq('id', previo.id).eq('estado', 'pendiente');
+    if (upErr) return { ok: false, error: upErr.message };
+    return { ok: true, id: previo.id, reemplazo: true };
+  };
+
+  const primero = await reemplazar();
+  if (primero) return primero;
+  const { data: ins, error } = await supabase.from('wa_borradores').insert({
+    lead_id: input.leadId, telefono, chat_jid: null, texto: input.texto,
+    origen: 'setter-asistido', secuencia_id: input.secuenciaId, paso: null, inscripcion_id: null,
+    instance_name: input.linea, estado: 'pendiente',
+  }).select('id').single();
+  if (!error && ins) return { ok: true, id: (ins as { id: number }).id, reemplazo: false };
+  // 23505: otro mensaje del mismo lead ganó la carrera y ya lo creó. Se reemplaza ése.
+  if (error?.code === '23505') {
+    const segundo = await reemplazar();
+    if (segundo) return segundo;
+  }
+  return { ok: false, error: error?.message ?? 'no se guardó el borrador' };
+}
+
 export async function contarBorradores(): Promise<number> {
   const supabase = await getTenantDb();
   const { count } = await supabase.from('wa_borradores').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente');

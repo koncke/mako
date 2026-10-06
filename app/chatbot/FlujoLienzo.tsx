@@ -52,7 +52,7 @@ export function FlujoLienzo({
   pasos, estrategia, etiquetaEtapa, secuencias, audios, negocio, rolAdmin, busy,
   onEditarPaso, onAgregarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError,
   onEditarVariante, onQuitarVariante, onModoIA,
-  onModo, onDesenlace, onAntiguedad, onAbrirSecuencia,
+  onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia,
   chrome, herramientas, pie, editorEntrada, onAgregarTras, insetIzq,
 }: {
   pasos: PasoSecuenciaDto[];
@@ -77,6 +77,8 @@ export function FlujoLienzo({
   onModo: (m: ModoRespuesta) => void;
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
+  /** Prender o apagar «Sale sola» (`envio_automatico`). Sin esta prop el interruptor no se dibuja. */
+  onEnvioAuto?: (on: boolean) => void;
   /** Abrir OTRA secuencia: es el «Go To», y tiene que llevar de verdad. */
   onAbrirSecuencia: (clave: string) => void;
   /** El título, el interruptor y «Probar»: FLOTAN sobre el lienzo, arriba a la
@@ -133,7 +135,7 @@ export function FlujoLienzo({
           onAudio={onAudio} onAudioNuevo={onAudioNuevo} onError={onError}
           onEditarVariante={onEditarVariante} onQuitarVariante={onQuitarVariante}
           onModoIA={onModoIA}
-          onModo={onModo} onDesenlace={onDesenlace} onAntiguedad={onAntiguedad}
+          onModo={onModo} onDesenlace={onDesenlace} onAntiguedad={onAntiguedad} onEnvioAuto={onEnvioAuto}
           onAbrirSecuencia={onAbrirSecuencia}
           editorEntrada={editorEntrada}
         />
@@ -181,7 +183,7 @@ function VistaMensaje({ paso, audios, negocio }: { paso: PasoSecuenciaDto; audio
 function EditorDeNodo({
   nodo, paso, estrategia, secuencias, audios, rolAdmin, busy,
   onEditarPaso, onQuitarPaso, onAudio, onAudioNuevo, onError, onEditarVariante, onQuitarVariante,
-  onModoIA, onModo, onDesenlace, onAntiguedad, onAbrirSecuencia, editorEntrada,
+  onModoIA, onModo, onDesenlace, onAntiguedad, onEnvioAuto, onAbrirSecuencia, editorEntrada,
 }: {
   nodo: NodoFlujo; paso: PasoSecuenciaDto | null; estrategia: EstrategiaParaGrafo;
   secuencias: ReadonlyArray<{ clave: string; nombre: string }>;
@@ -197,6 +199,7 @@ function EditorDeNodo({
   onModo: (m: ModoRespuesta) => void;
   onDesenlace: (d: Desenlace) => void;
   onAntiguedad: (h: number | null) => void;
+  onEnvioAuto?: (on: boolean) => void;
   onAbrirSecuencia: (clave: string) => void;
   /** Lo que se edita en el nodo de ENTRADA: QUÉ dispara la secuencia. Ver FlujoLienzo. */
   editorEntrada?: ReactNode;
@@ -245,6 +248,22 @@ function EditorDeNodo({
         <p style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45, marginTop: 7, marginBottom: 0 }}>
           Vacío: le escribe a cualquiera que esté en la etapa.
         </p>
+        {/* «SALE SOLA» VOLVIÓ (#786). Su único control vivía en EstrategiaWizard, y desde el
+            05/10 nada abre ese wizard: el lienzo dejaba editar el tope y prender la secuencia,
+            pero no si los mensajes salen solos — y sin esto, a un lead que no pagó cada mensaje
+            le queda como BORRADOR (la regla dura de lib/evolution-envio.ts). Va en la tarjeta
+            de entrada porque es de la secuencia entera, no de un paso. Checkbox y no Switch:
+            se guarda con «Publicar», como «Lo adapta MaKo». */}
+        {onEnvioAuto && (
+          <div style={{ marginTop: 14 }}>
+            <Checkbox
+              checked={estrategia?.envio_automatico === true} disabled={busy}
+              onChange={(v) => onEnvioAuto(v)}
+              label="Sale sola"
+              hint={estrategia?.envio_automatico === true ? undefined : 'Apagado: cada mensaje queda como borrador.'}
+            />
+          </div>
+        )}
       </>
     );
   }
