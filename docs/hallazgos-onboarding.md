@@ -1575,3 +1575,32 @@ sigue vivo porque lo montan `app/whatsapp/OnboardingCanalWhatsApp.tsx` y
 `app/email/OnboardingCanalEmail.tsx`. Next hace ruta de un `page.tsx`, no de lo que ese
 `page.tsx` importaba: antes de borrar un componente de esa carpeta, `grep` de quién más lo
 importa. Su encabezado ahora dice quién lo monta y quién no.
+
+## «Tu forma de escribir» volvió, sólo, y el wizard recortado a un paso disparaba el del QR (06/10/2026)
+
+**Vive en:** `app/chatbot/OnboardingChatAgent.tsx` (`soloPaso`) · `lib/tab-onboarding-catalogo.ts`
+(`setting`) · `app/chatbot/SecuenciaPerfil.tsx` (`setModoIA`)
+
+La entrada del 05/10 dejaba la guía de voz sin pantalla hasta que existiera el interruptor de IA.
+Ya existe: tildar «Lo adapta MaKo» en una tarjeta de chat pregunta al server si el paso
+`contexto` está hecho y, si no, abre SÓLO ese paso del wizard, encima del lienzo.
+
+- **El paso vuelve al catálogo `setting` como OPCIONAL.** Tiene que estar en la lista —sin la
+  key, `marcarPasoTab` la rechaza y el paso no se puede cerrar nunca— y no puede ser obligatorio:
+  la tab volvería a pedir onboarding a todo el que ya la tenía lista. Con `opcional`, el `status`
+  no lo cuenta (medido en el ws1: sigue `done`, con su guía del 02/08).
+- **«Primera vez» se pregunta al server en el momento**, no se guarda en el navegador: la guía
+  puede haberse armado desde otra pestaña o desde otro usuario del mismo negocio. Si la pregunta
+  falla, no se abre nada — la IA escribe igual, con un registro neutro.
+- **Con `soloPaso` el WizardShell deja de ser `embebido`** (pasa al overlay fijo) y se portalea al
+  `body`: adentro del lienzo, un `position: fixed` nace recortado por los contenedores de arriba.
+- **Y con el tutorial encima se apaga la pila de deshacer del lienzo.** Si no, un Ctrl+Z fuera de
+  un campo de texto deshacía el lienzo de atrás, y lo primero que deshacía era la casilla.
+
+⚠️ **Lo que cazó el navegador: un wizard RECORTADO hereda los efectos del paso por default
+mientras carga.** `pasoKey` caía a `'wa_no_oficial'` mientras `def` no llegaba, y el efecto de
+ese paso corre en la primera pasada: abrir «Tu forma de escribir» mandaba un `POST
+/api/whatsapp/evolution` (`action: 'estado'`) para un paso que esa pantalla nunca iba a mostrar.
+El default es `soloPaso` cuando lo hay. **Lo encontró el arnés porque ABORTABA toda request que
+no fuera GET** y las listaba: una verificación que sólo mira la pantalla no lo ve, porque la
+pantalla se dibuja perfecta.

@@ -3325,3 +3325,24 @@ medición rota. Partiendo el camino en dos (la query y el `embed()`) apareció
 tiene datos es la señal; creerle habría cerrado la búsqueda sobre una fuga viva.
 
 **Vive en:** `lib/rag-prestamo.ts` (sin `server-only`, para que haya test) · `lib/mako-knowledge.ts` → los tres lectores de `wsParaRag` · *2026-10-04*
+
+## Un placeholder adentro de un PROMPT va literal: `renderTemplate` no tiene escape (06/10/2026)
+
+**Vive en:** `lib/prompt-render-pure.ts` (`renderTemplate`) · el primer caso, `lib/paso-ia.ts`
+
+Un prompt que tiene que MOSTRARLE al modelo un placeholder —«deja el `{{lead_nombre}}` tal cual,
+lo completa el sistema»— lo escribe tal cual. `renderTemplate` reemplaza sólo los slots que
+recibe en `vars` (`/\{\{(\w+)\}\}/`, y únicamente si la clave está) y deja todo lo demás literal,
+así que `{{lead_nombre}}` llega intacto mientras nadie pase un slot con ese nombre.
+
+La primera versión del prompt del paso en modo IA inventó un escape (`{{"{{"}}lead_nombre{{"}}"}}`)
+que no existe en ninguna parte: el modelo recibía la basura entera. No da error, y el prompt se
+lee bien en el fuente si uno cree que el escape existe.
+
+- **Antes de escapar algo en un template, mirá qué reconoce el que lo renderiza.** Acá la
+  respuesta es una línea de regex.
+- ⚠️ **Y no nombres un slot como un placeholder que el prompt tiene que mostrar.** Si mañana
+  alguien pasa `lead_nombre` en `vars`, el prompt deja de enseñar la regla y pasa a mostrar un
+  nombre real.
+- El guard ejecuta `renderTemplate` sobre el template y pregunta si los placeholders llegan
+  (`tests/paso-ia.test.ts`).

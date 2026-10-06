@@ -2367,6 +2367,13 @@ WABA que no es**.
 inquilino no es un default, es una fuga. `cfg()` debería tirar igual que con base/account/token, o
 resolverlo en vivo listando los inboxes de la cuenta (que es lo que ya hace `metodo-verificar`).
 
+**✅ RESUELTO el 06/10/2026 (`260bff7d`).** `cfg()` ya no inventa: el inbox queda en `null` y
+`inboxWA()` tira con un mensaje que nombra el campo, igual que los otros tres. Y la reutilización
+de una conversación existente filtra por inbox — antes podía colgar el mensaje de un cliente en la
+conversación de ese contacto en OTRO inbox. Medido antes de cambiarlo: sólo ws1 y ws4 declaran
+inbox, y son los únicos con token de Chatwoot, así que tirar en vez de inventar no le cortó el
+canal a nadie. Detalle en «Que jamás se crucen los mensajes entre clientes» (06/10).
+
 **Vive en:** lib/chatwoot.ts:30 (cfg) · lib/metodo-catalogo.ts:100 y :139 · *2026-07-16
 ~censo-features-onboarding + 2026-08-05 ~auditoria-ruleta-hidratacion-credenciales*
 
@@ -8116,3 +8123,108 @@ grilla de `/integraciones` no alcanza, y la lista no es obvia:
 Y un cuarto que no es de la pantalla: **los pasos del onboarding** (`wa_oficial*` en
 `lib/tab-onboarding-catalogo.ts`). Un paso que pide conectar algo que ya no se ofrece es un
 onboarding que no se puede terminar.
+
+## Que jamás se crucen los mensajes entre clientes: seis familias (06/10/2026)
+
+**Vive en:** `lib/variables-resolver.ts` · `lib/avisos.ts` · `lib/api-mako/link.ts` ·
+`app/api/webhooks/evolution/route.ts` · `lib/mako-doer-in.ts` (`wsDeGrupoJid`) ·
+`app/api/compartir/route.ts` · `lib/chatwoot.ts` · `lib/flujo-corridas.ts` · `lib/plantillas.ts` ·
+guards en `tests/link-con-workspace.test.ts` y `tests/cruce-notificaciones.test.ts`
+
+Pedido de Martín (06/10): *«es MUY importante que jamás se choquen las notificaciones entre
+workspace, eso es gravísimo»*. Lo disparó un link de un aviso, y se trató como una auditoría de
+la capa entera: todo lo que sale de MaKo hacia afuera, y de qué workspace saca su identidad, sus
+datos y su destino. Salieron seis familias, y **sólo dos movían estado de un cliente a otro**:
+
+| Familia | Qué pasaba | Cómo quedó |
+|---|---|---|
+| Links sin `?ws=` | 25 links en 13 archivos que el guard de la quinta forma de navegar NO VEÍA | `linkApp(ruta, ws)` / `linkPantalla(ruta, ws?)`; el guard lista las rutas PÚBLICAS en positivo y exime por bloque |
+| ⚠️ El acuse de un grupo | marcaba «respondió» con el workspace de la INSTANCIA —la línea de MaKo, mapeada al ws1— y no con el del grupo | un mapa por grupo, `wsDeGrupoJid(jid)`, y fail-closed: sin workspace no se marca nada |
+| ⚠️ La invitación de /compartir | salía firmada por el ws1 (un cliente) con su remitente | `runWithWorkspace(wsSuperAdmin(), …)` + `REMITENTE_MAKO` explícito, y el preflight mira lo que se va a usar |
+| El inbox de Chatwoot | inventaba el `3` (el de Mauricio) y reusaba conversaciones de otro inbox | tira si falta, filtra por inbox (entrada de más arriba, ✅ RESUELTO) |
+| El drenador de corridas | leía con `getTenantDb`: desde un cron (sin cookie = ws1) sólo veía las del dueño, y las esperas de los demás no despertaban nunca | `getSupabaseServer()` para encontrar, `runWithWorkspace` por fila para retomar |
+| La herencia del store de mensajes | la base era `OWNER_WS`: siete workspaces veían como ejemplo un `reporte-semanal` con los números reales de Mauricio | la base es `wsSuperAdmin()`; el ws1 queda como un inquilino más |
+
+### Por qué el guard de los links estaba en verde
+
+`tests/link-con-workspace.test.ts` existía desde el 05/10 y daba verde sobre los 25. Era ciego a
+dos formas que compilan igual de bien: **la ruta guardada en una variable** (`const r = '/crm'`
+y después `${APP_BASE_URL}${r}`) y **la URL armada en una constante de módulo** con template
+literal. Y eximía por ARCHIVO: un archivo con una excusa legítima en una línea dejaba pasar todo
+lo demás que tuviera. Las tres correcciones valen para cualquier guard que busque un patrón en
+el fuente:
+
+- **Se enumera lo PERMITIDO, no lo prohibido.** Una lista de rutas públicas (las que no tienen
+  workspace) contra la que se compara todo; lo que no está, falla.
+- **Una ruta en una variable es una falla**, no un «no sé»: el guard no puede saber qué vale, y
+  el que la escribió sí puede pasarla por `linkApp`.
+- **Se exime por BLOQUE** —la función, con su cierre real— y nunca por archivo.
+
+### Lo que NO se hizo, y es decisión de Martín
+
+- **Los crons de reporte por cliente** (ya anotado el 05/10 más arriba): prenderlos manda
+  WhatsApps y mails de verdad a otros negocios. Hoy sale UN reporte, el del dueño, y no cruza a
+  nadie: el riesgo de cruce estaba en los links, no en el envío.
+- **Cuatro workspaces sin ningún canal de aviso.** No es un cruce —no les llega nada a ellos ni a
+  otros—, pero es la otra mitad de «que cada uno reciba lo suyo».
+- **La tabla `notificaciones` nunca se aplicó en producción** (anotado el 23/09). Un aviso que no
+  sale por WhatsApp sigue sin quedar en ningún lado.
+
+## El paso en modo IA: «Lo adapta MaKo» en la tarjeta de chat (06/10/2026)
+
+**Vive en:** `lib/paso-ia.ts` · `lib/texto-critico.ts` · `lib/nutricion.ts` (`escribirTexto` en la
+rama no oficial, el saneo de `setSecuenciaPasos`, el insert de `nutricion_envios`) ·
+`app/chatbot/FlujoLienzo.tsx` · `app/chatbot/SecuenciaPerfil.tsx` · mig 0197 ·
+`tests/paso-ia.test.ts`
+
+Pedido de Martín (05/10): *«haz el interruptor de IA»*, y que «Tu forma de escribir» se abra *«la
+primera vez que se intente poner una tarjeta de chat y activar la opción de "IA"»*.
+
+**El diseño, en cuatro decisiones:**
+
+1. **Un `tipo: 'ia'` adentro del paso, no un nodo nuevo** (AGENTS.md, «un tipo de nodo son cinco
+   puertas»). El `cuerpo` sigue siendo obligatorio: es la BASE que dice qué hay que lograr y el
+   RESPALDO que sale si el modelo falla.
+2. **Sólo por WhatsApp no oficial.** Por la vía oficial sale una plantilla que aprobó Meta, y
+   reescribirla es mandar algo que nadie aprobó. El saneo le saca el tipo a cualquier otro paso
+   **y la casilla se dibuja con la MISMA función que usa el saneo** (`proveedorDelPaso`): con
+   condiciones distintas, la casilla se des-tildaría sola al guardar.
+3. **La IA se escribe después de cada guarda que corta el envío** —sin teléfono, línea caída,
+   bloqueado, borrador pendiente—. Arriba, gastaría una llamada por lead en mensajes que no salen.
+4. **El modelo recibe el cuerpo CRUDO**, con sus placeholders, y las variables se aplican a lo que
+   devuelve. Con el texto ya resuelto, la validación no podría ver si perdió el `{{nombre}}`.
+
+**Las tres capas de control**, porque el costo que `secuencias-variantes.ts` había nombrado para
+no hacer esto era «nadie aprobó ese texto»: la cascada GRATIS (cuota, nunca plata), la validación
+determinista de `respetaElOriginal` (placeholder, link y números; si falla, sale el texto de la
+persona) y el borrador para el lead que no pagó. Y **el respaldo no es silencioso**: cada envío
+guarda `texto_enviado` y `texto_autor` (`fijo` / `ia` / `fallback`), y el motivo del respaldo va
+a `error` aunque el envío salga bien.
+
+### Tres trampas que aparecieron construyéndolo
+
+- **`aplicarVariables` acepta `{nombre}` además de `{{nombre}}`**, y la lista de piezas críticas
+  (que vivía copiada en `secuencias-variantes.ts`) sólo miraba las dobles. Una reescritura que
+  perdía un `{nombre}` pasaba la validación y el mensaje salía sin el nombre. La lista ahora usa
+  la misma gramática que el que reemplaza, y vive en un solo lugar (`lib/texto-critico.ts`). ⚠️ Y
+  `{ y }` —una palabra sola entre llaves, con espacios— **también es un token** para esa función.
+- **El test de «el año de un link no es un número del mensaje» pasó en VERDE con el corte roto.**
+  Preguntaba por `respetaElOriginal`, donde el link tiene que salir IGUAL en las dos versiones,
+  así que sus dígitos aparecen de los dos lados y la comparación no puede ver la diferencia. Se
+  pregunta a `numerosDe` directo. Es la regla de «un test que no probaste rompiéndolo», y esta vez
+  la rotura la cazó.
+- **El prompt traía un escape inventado** (`{{"{{"}}lead_nombre{{"}}"}}`). `renderTemplate` no
+  tiene sintaxis de escape: reemplaza los slots que recibe y deja el resto literal, así que el
+  escape le llegaba al modelo como basura. Ver `docs/hallazgos-ia.md`.
+
+### Lo que quedó SIN hacer
+
+- **Tiempo del cron.** `procesarEnvios` manda hasta 6 por corrida y por workspace, y cada paso en
+  modo IA es una llamada a la cascada. Con muchos pasos IA en muchos workspaces, el cron de 300 s
+  se puede quedar corto; hoy no hay ningún paso IA en producción. Si pasa, el corte va por un tope
+  de pasos IA por corrida, no por apagar la IA.
+- **Mirar si la IA sirve.** El índice `idx_nutri_envios_autor` existe para contestar «¿cuántas
+  veces salió el respaldo?», y no hay pantalla que lo muestre.
+- **La conversación de contexto se lee por lead, no por línea** (`conversacionReciente` en
+  `lib/paso-ia.ts`). Con varias líneas de WhatsApp (el #831) hay que decidir si el modelo ve todo
+  lo hablado con esa persona o sólo lo de la línea que manda.

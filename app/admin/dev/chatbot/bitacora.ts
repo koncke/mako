@@ -568,4 +568,44 @@ export const BITACORA: Hito[] = [
     ],
     commits: [],
   },
+  {
+    fecha: "6 oct", hora: "01:30", chat: "Chatbot", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Que jamás se crucen los mensajes entre clientes, el interruptor de IA y varias líneas de WhatsApp",
+    pedido: "1. Es MUY importante que jamás se choquen las notificaciones entre workspace, eso es gravisimo, altera toda la ciberseguridad y datos sensibles de clientes... Solucionalo\n2. Si, haz el interruptor de IA... \n3. Si, haz que los usuarios puedan escanear varios QR, tener varios WhatsApp... Y es la misma dinámica que \"Productos\" en el CRM... Un desplegable que cambia el Kanaban, bueno acá un desplegable que cambiaría el chat. Y dentro del chatbot una opción para seleccionar de que número sale esa automatización.",
+    puntos: [
+      "El punto 1 se trató como una auditoría de la capa entera, no como el link que lo disparó: todo lo que sale de MaKo hacia afuera —avisos, mails, WhatsApp, links— y de qué workspace saca su identidad y sus datos.",
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "03:10", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Seis cruces entre clientes, cerrados: links, acuse del webhook, mail de la plataforma, inbox, corridas y herencia de mensajes",
+    puntos: [
+      "Los LINKS: quedaban 25 armados sin su ?ws= en 13 archivos que el guard no veía, porque era ciego a dos formas —la ruta guardada en una variable y la URL armada en una constante—. El guard ahora lista las rutas PÚBLICAS en positivo y exime por BLOQUE, no por archivo.",
+      "Dos cruces que movían estado de un cliente a otro, no sólo un destino: el acuse de un grupo de WhatsApp marcaba «respondió» con el workspace de la INSTANCIA (la línea de MaKo, mapeada al dueño) y no con el del grupo; y la invitación de /compartir salía firmada por el ws1 —un cliente— en vez de por la plataforma.",
+      "Chatwoot inventaba el inbox 3 (el de Mauricio) cuando un cliente no declaraba el suyo, y al reusar una conversación no miraba de qué inbox era. Ahora tira con un mensaje que nombra el campo. Medido antes: sólo ws1 y ws4 declaran inbox y son los únicos con token, así que no se le cortó el canal a nadie.",
+      "El drenador de las corridas de flujo leía con getTenantDb, así que desde un cron (sin cookie = ws1) sólo veía las del dueño: las esperas de los demás clientes no despertaban nunca. Y el store de mensajes heredaba del ws1: siete workspaces veían como ejemplo un reporte con los números reales de Mauricio. La base pasó a ser la plataforma.",
+      "SIN HACER, y es una decisión: los crons de reporte por cliente (prenderlos manda WhatsApps y mails de verdad a otros negocios), los cuatro workspaces sin ningún canal de aviso, y la tabla notificaciones que nunca se aplicó en producción.",
+    ],
+    commits: [
+      { sha: "e307a6a6", msg: "Todo link que sale lleva su workspace, y el guard dejó de ser ciego a dos formas", lineas: 286, archivos: 16 },
+      { sha: "626325a5", msg: "Dos cruces REALES entre clientes: el acuse del webhook y el mail de la plataforma", lineas: 203, archivos: 5 },
+      { sha: "260bff7d", msg: "Por qué línea sale un mensaje lo decide el workspace, y el drenador ve a todos", lineas: 109, archivos: 3 },
+      { sha: "157a302a", msg: "Los clientes heredan los mensajes de la PLATAFORMA, no de Mauricio", lineas: 66, archivos: 2 },
+    ],
+  },
+  {
+    fecha: "6 oct", hora: "03:41", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El interruptor de IA: «Lo adapta MaKo» en la tarjeta de chat, y la guía de voz la primera vez",
+    puntos: [
+      "Es un tipo del paso (tipo: 'ia') y no un nodo nuevo. El texto que se escribe pasa a ser la BASE y el RESPALDO: al mandarlo, MaKo lo reescribe para esa persona con la voz del negocio y la conversación reciente. Sólo por WhatsApp no oficial —una plantilla de Meta no se reescribe— y la casilla sale con la MISMA función que usa el saneo, para que no se des-tilde sola al guardar.",
+      "Tres capas de control: la cascada GRATIS (se gasta cuota, nunca plata), una validación determinista que tira la reescritura si pierde un placeholder, un link o un número, y el borrador para el lead que no pagó. Cada envío guarda qué texto salió y quién lo escribió (mig 0197), así un respaldo usado no se lee como un envío de la IA.",
+      "La primera vez que se tilda, si el negocio no tiene guía de voz, se abre sólo ese paso del wizard viejo, encima del lienzo. Volvió al catálogo como opcional: la tab no vuelve a pedir onboarding. Verificado en el navegador con todas las escrituras bloqueadas, y ese bloqueo cazó un POST a Evolution que el wizard disparaba mientras cargaba.",
+    ],
+    commits: [
+      { sha: "8b37cb84", msg: "El interruptor de IA en la tarjeta de chat: MaKo adapta el mensaje a cada lead", lineas: 755, archivos: 12 },
+    ],
+  },
 ];
