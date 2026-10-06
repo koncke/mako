@@ -826,11 +826,11 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'legal-compliance', titulo: 'Legal & Compliance', familia: 'Business', grupo: 'Legal',
-    estado: 'por-construir',
-    alcance: 'Los papeles del negocio: términos, privacidad, tratamiento de datos, LLC y fiscal. Cero código: no hay /terminos ni /privacidad, y el footer de la landing pública no linkea ninguno.',
-    vive: [],
+    estado: 'parcial',
+    alcance: 'Los papeles del negocio: términos, privacidad, tratamiento de datos, LLC y fiscal. /privacidad y /terminos EXISTEN desde el 5/09 y el pie de la landing los linkea; falta lo que depende de decisiones del dueño (responsable legal, jurisdicción) y lo que exige cobrar (/reembolsos y las cláusulas de suscripción).',
+    vive: ['app/privacidad/page.tsx', 'app/privacidad/extension/page.tsx', 'app/terminos/page.tsx', 'app/_legal/LegalShell.tsx', 'app/vsl/Landing.tsx', 'lib/rutas-publicas.ts', 'docs/hallazgos-integraciones.md'],
     proyectos: ['Legal y fiscal'],
-    nota: 'Verificado: no existe ninguna ruta legal bajo app/, no hay PDFs ni textos en public/, y el bloque FOOTER de app/vsl/landing-html.ts es solo el logo — sin un solo link. La landing /vsl es pública y agenda por Calendly (datos personales de un tercero) sin términos ni política de privacidad a la vista. Antecedente útil: el Perro repartía lo legal por palabra suelta (los ToS caían en «Vender MaKo: Landing y VSL», la LLC en «Cobros y planes»); scripts/mover-legales.ts las reubicó al proyecto «Legal y fiscal» del catálogo (lib/plan-proyectos-catalogo.ts:176), que es transversal y explícitamente NO es la pantalla de cobros.',
+    nota: '⚠️ Esta ficha decía «Cero código: no hay /terminos ni /privacidad» y lo afirmó durante UN MES después de que dejara de ser cierto: las dos páginas y el pie de la landing salieron el 5/09 (b8247937→d6eb4cc5) y el `vive[]` vacío hacía que el panel de historial de esta área naciera sin un solo commit. Es la regla «una ruta que apunta a la nada», del lado del que CREA el código: quien escribe la ruta actualiza el área, o el área miente sola. Lo que SÍ falta hoy: los tres datos que no salen del código (responsable legal, jurisdicción, edad mínima) siguen como SUPUESTO marcado al tope de las dos páginas, esperando al dueño desde el 5/09; y `app/terminos/page.tsx` afirma «No hay cobros automáticos dentro del producto», que deja de ser cierto el día que exista la pasarela — ahí hacen falta /reembolsos y las cláusulas de suscripción, renovación y cancelación que pide el merchant of record. Antecedente útil: el Perro repartía lo legal por palabra suelta (los ToS caían en «Vender MaKo: Landing y VSL», la LLC en «Cobros y planes»); scripts/mover-legales.ts las reubicó al proyecto «Legal y fiscal» del catálogo (lib/plan-proyectos-catalogo.ts:176), que es transversal y explícitamente NO es la pantalla de cobros.',
   },
   {
     slug: 'account-offboarding', titulo: 'Account Offboarding', familia: 'Business', grupo: 'Legal',
