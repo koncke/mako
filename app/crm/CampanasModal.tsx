@@ -24,9 +24,13 @@
 //   · EN LOTE: la barra que aparece arriba con lo tildado.
 //
 // Asignar TRAE LOS LEADS que esa campaña ya tiene en el CRM («si selecciono una campaña,
-// me traiga todos los leads. No solo los futuros»), y pregunta sólo si va a mover leads o
+// me traiga todos los leads. No solo los futuros»), y pregunta sólo si va a traer leads o
 // a sacársela a otro producto: la regla es UNA (lib/campana-asignar.ts) y la usan las tres
 // puertas (esta barra, la celda de cada fila y la tabla de Ads Manager).
+//
+// ⚠️ TRAER ES AGREGAR, NO MOVER (06/10/2026): cada lead sigue en el producto donde estaba
+// y además aparece en éste, en su etapa de entrada (app/crm/campanas-actions.ts). Por eso
+// el toast dice «traídos» y no «movidos», y el deshacer saca SÓLO a los que se agregaron.
 //
 // ⚠️ VA POR PORTAL AL `body`. Una de sus puertas es el pop-up del embudo, y montado
 // adentro de esa caja sería un DESCENDIENTE suyo en el DOM: la pila de modales apaga al
@@ -211,13 +215,19 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, onCer
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       actualizar(r.asignadas);
       setSel(new Set());
+      // `movidos` son los AGREGADOS: el nombre quedó por la tabla de Ads Manager (ver el tipo
+      // `Movido` en campanas-actions.ts). Nadie salió de su producto.
       const n = r.movidos.length;
       // El toast dice QUÉ pasó, en tres o cuatro palabras (AGENTS.md); el porqué vive acá.
       // UN deshacer para todo el lote: es la unidad en la que la persona decidió.
-      show(n ? `${n} ${n === 1 ? 'lead traído' : 'leads traídos'}` : `${items.length} ${items.length === 1 ? 'asignada' : 'asignadas'}`, async () => {
+      // ⚠️ Y los que NO se pudieron agregar se dicen: con `agregarLoteAProducto` un ítem
+      // puede fallar entero (producto sin etapas) y un «Asignadas» pelado escondería que sus
+      // leads no llegaron.
+      const base = n ? `${n} ${n === 1 ? 'lead traído' : 'leads traídos'}` : `${items.length} ${items.length === 1 ? 'asignada' : 'asignadas'}`;
+      show(r.fallaron ? `${base} · ${r.fallaron} sin traer` : base, async () => {
         const d = await deshacerLoteAction(r.previos, r.movidos);
         if (d.ok) actualizar(d.asignadas); else show(d.error, undefined, 'bad');
-      });
+      }, r.fallaron ? 'bad' : undefined);
     } catch {
       show('No se pudo asignar', undefined, 'bad');
     } finally {

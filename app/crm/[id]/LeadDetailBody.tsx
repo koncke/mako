@@ -12,9 +12,12 @@
 // donde el deal se lee (tab Pagos).
 //
 // La etapa se cambia con el desplegable del header, que abre el mismo wizard
-// progresivo del Kanban. "Volver" usa el historial del navegador.
+// progresivo del Kanban. ⚠️ Es la etapa del producto EN VISTA (06/10/2026, mig 0207): si se
+// mira un producto donde el lead está AGREGADO, el desplegable es el de ese tablero y mover
+// escribe sólo su fila, sin wizard (ver lead-view/ProductoDelLead.tsx). "Volver" usa el
+// historial del navegador.
 
-import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { deleteLeadAction } from '../actions';
@@ -27,7 +30,7 @@ import type { MiembroEquipo } from '../actions';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditarDeal } from './EditarDeal';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
-import { ProductoDelLead, type ProductoOpcion } from '../lead-view/ProductoDelLead';
+import { ProductoDelLead, EtapaEnProducto, useProductosDeLaFicha, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { CaraDelLead } from '../lead-view/CaraDelLead';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
@@ -84,11 +87,14 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   /** Equipo del workspace (para los desplegables de setter/closer del wizard). */
   equipo?: MiembroEquipo[];
   /**
-   * Los productos del workspace, para el desplegable de «en cuál vive este lead».
+   * Los productos del workspace, para el desplegable de «en cuáles está este lead».
    *
    * Pedido de Martín: «Dentro del detail de un lead debería salir el mismo desplegable
    * de productos». Con uno solo no se dibuja: un desplegable de una opción promete una
    * decisión que no existe.
+   *
+   * Es la FOTO con la que el botón se dibuja al toque: en cuáles está y con qué etapa lo
+   * trae la ficha misma (`productosDeLaFichaAction`), que es lo único que lo sabe.
    */
   productos?: ProductoOpcion[];
 }) {
@@ -114,6 +120,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditandoDeal(true); }
   const salirEdicion = () => { setEditandoDeal(false); if (initialEdit || initialSolucionar) router.replace(pathname); };
   const chip = CHIP[chipTone] || CHIP.neutral;
+  // En qué productos está y cuál se mira. Acá no hace falta releer nada si cambia la casa: el
+  // `router.refresh()` que hace la ficha después de cada cambio le trae el lead de nuevo.
+  const fichaProd = useProductosDeLaFicha({ leadId: lead.id, casa: lead.funnel_id, foto: productos });
+  const agregado = fichaProd.vista && !fichaProd.vista.esCasa ? fichaProd.vista : null;
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -167,9 +177,15 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       .filter((s) => (s.band ?? 'pipeline') === band)
       .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
       .map((s) => ({ value: s.key, label: s.label, color: s.dot }));
-  const stageSelector: ReactNode = (
+  // ⚠️ ES LA ETAPA DEL PRODUCTO QUE SE MIRA: en un producto agregado, las de ESE tablero
+  // (`EtapaEnProducto`). Mientras no se sabe cuál se mira, espera (`etapaEnEspera`).
+  const stageSelector: ReactNode = agregado ? (
+    <EtapaEnProducto ficha={fichaProd} producto={agregado} width={250} align="right" columnas />
+  ) : (
     <Dropdown
-      value={currentStage}
+      value={fichaProd.esperando ? '' : currentStage}
+      placeholder="Etapa"
+      disabled={fichaProd.esperando}
       align="right"
       width={250}
       ariaLabel="Etapa del lead (elige otra para mover)"
@@ -222,7 +238,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           {/* El producto va ANTES de la etapa: la etapa es una posición DENTRO de un
               embudo, así que leer «Mentoría · Agenda R1» en ese orden es leer la frase
               completa. Al revés, la etapa cuelga de un embudo que todavía no se nombró. */}
-          <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} />
+          <ProductoDelLead ficha={fichaProd} />
           {stageSelector}
           {/* ⚠️ ACÁ ESTABA EL BOTÓN «✎ Editar», y se fue el 05/10/2026 (pedido DOS veces).
               No se cambió por un lápiz: los 15 campos que ese formulario editaba se editan

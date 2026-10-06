@@ -53,15 +53,15 @@ import { listLeadsDeFunnel, contarLeadsDeFunnel,
   type TrackingEvent,
   type RespuestaQA,
   type EstadoLead,
-  moverLeadDeFunnel,
   enriquecerLead,
 } from '@/lib/leads';
-import { LeadDuplicadoError } from '@/lib/leads-duplicados';
+import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
+import { casaReal } from '@/lib/lead-funnel-reglas';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
   renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
-  productosPorFunnel } from '@/lib/funnels';
+  productosPorFunnel, idDelFunnelDefault } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
 import {
@@ -710,13 +710,27 @@ export async function crearProductoAction(nombre: string, canal?: string | null)
  * ⚠️ NO ES UN STRING. Antes esta action devolvía `{ error }` pelado, así que las
  * coincidencias —que `LeadDuplicadoError` trae adentro justamente para esto— se tiraban
  * en el `catch` y la pantalla sólo podía mostrar una frase. Sin los ids no hay forma de
- * ofrecer «abre el que ya tienes» ni «muévelo a este producto», que es lo que pidió
+ * ofrecer «abre el que ya tienes» ni «agrégalo a este producto», que es lo que pidió
  * Martín: «que le advierta que el lead ya existe y que le pregunte si lo quiere traer».
  */
 export type ChoqueDeLead = {
   error: string;
   /** Con quién choca. Vacío = el error no es un duplicado. */
-  coincidencias: Array<{ id: number; nombre: string; funnelId: number | null; producto: string | null; motivo: string }>;
+  coincidencias: Array<{
+    id: number; nombre: string;
+    /** Su CASA (`leads.funnel_id`, NULL = el del negocio). */
+    funnelId: number | null;
+    /** El nombre de su casa. */
+    producto: string | null;
+    motivo: string;
+    /**
+     * ¿Ya está en el producto desde donde se da el alta? Por su casa o por una fila (mig
+     * 0207). Lo decide `estaEnProducto` y no la pantalla comparando `funnelId` crudo: esa
+     * comparación decía «está en otro producto» sobre un lead AGREGADO a éste, y le ofrecía
+     * agregarlo donde ya estaba.
+     */
+    estaAca: boolean;
+  }>;
 };
 
 /** Un lead de otro producto, como lo dibuja la tabla de «traer». */
@@ -726,12 +740,61 @@ export type LeadParaTraer = {
   email: string | null;
   telefono: string | null;
   empresa: string | null;
-  /** La etapa donde está HOY, ya resuelta a su nombre. */
+  /** La etapa donde está HOY en ESE producto, ya resuelta a su nombre. */
   etapa: string;
   /** La clave de esa etapa, para poder filtrar sin comparar textos. */
   etapaKey: string;
   creado: string | null;
+  /**
+   * ¿Ya está en el producto de DESTINO (por casa o por fila)? Se dibuja marcado y no se
+   * puede tildar: agregarlo no escribiría nada, y un «Agregar 12» que agrega 9 se lee como
+   * que tres fallaron.
+   */
+  yaEsta: boolean;
 };
+
+/**
+ * La etapa donde el TABLERO dibuja a un lead: el override (`pipeline_stage`) si ese embudo
+ * lo tiene, si no la derivada. Es la regla de `mapToCrmLead` (app/crm/crm-map.ts), y la
+ * comparten el «traer» y el conteo del pop-up para no contar distinto de lo que se ve.
+ *
+ * ⚠️ PARA UN AGREGADO (mig 0207) `pipeline_stage` YA ES LA ETAPA DE SU FILA: la pone
+ * `listLeadsDeFunnel`. O sea que esta misma regla lo cuenta en la columna de ESTE tablero
+ * y no en la que su casa derivaría.
+ */
+function etapaComoTablero(l: Lead, validas: ReadonlySet<string>): string {
+  return l.pipeline_stage && validas.has(l.pipeline_stage)
+    ? l.pipeline_stage
+    : deriveStageKey(l as unknown as StageDerivable);
+}
+
+/**
+ * De estos leads, cuáles YA están en el producto `destinoId` (id real): por su CASA o por una
+ * fila de `lead_funnel`. Es el MISMO criterio con el que `agregarLoteAProducto`
+ * (lib/lead-funnel.ts) saltea a los que ya están, así que lo que acá se marca «ya está» es
+ * exactamente lo que agregar no tocaría.
+ *
+ * Tandas de 200: cada consulta devuelve a lo sumo 200 filas (una por lead), lejos del techo
+ * de 1.000 de PostgREST. Tira si una lectura falla: «no pude leer» no es «no está».
+ */
+async function yaEstanEnProducto(ids: number[], destinoId: number, defaultId: number | null): Promise<Set<number>> {
+  const db = await getTenantDb();
+  const out = new Set<number>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    const [casas, filas] = await Promise.all([
+      db.from('leads').select('id, funnel_id').in('id', tanda),
+      db.from('lead_funnel').select('lead_id').eq('funnel_id', destinoId).in('lead_id', tanda),
+    ]);
+    if (casas.error) throw new Error('No se pudo leer la casa de los leads: ' + casas.error.message);
+    if (filas.error) throw new Error('No se pudo leer en qué productos están: ' + filas.error.message);
+    for (const l of (casas.data ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
+      if (casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId) === destinoId) out.add(Number(l.id));
+    }
+    for (const f of (filas.data ?? []) as Array<{ lead_id: number | string }>) out.add(Number(f.lead_id));
+  }
+  return out;
+}
 
 /**
  * Los leads de UN producto, para elegir cuáles traer a otro.
@@ -748,20 +811,36 @@ export type LeadParaTraer = {
  * ⚠️ Y SE PAGINA CON `leerTodo`: un producto con 1.146 leads —el ws1 tiene exactamente eso—
  * toca el techo de 1.000 filas de PostgREST y devolvería 1.000 redondo, que es un número
  * plausible. Acá el tope es de la PANTALLA y se dice cuántos quedaron afuera.
+ *
+ * ⚠️ LA LISTA INCLUYE A LOS AGREGADOS DE ESE PRODUCTO (mig 0207): `listLeadsDeFunnel` los
+ * trae con la etapa de su fila. Y con `destino` (que es `null` para el del negocio, por eso
+ * se distingue de `undefined`) se marca `yaEsta` a los que ya están ALLÁ por casa o por
+ * fila. Si esa lectura falla no se marca a nadie: agregar igual saltea a los que ya están,
+ * así que lo peor es un tilde que no escribe nada.
  */
-export async function leadsDeProductoAction(funnelId: number | null): Promise<{ filas: LeadParaTraer[]; total: number }> {
+export async function leadsDeProductoAction(funnelId: number | null, destino?: number | null): Promise<{ filas: LeadParaTraer[]; total: number }> {
   try {
-    const [leads, cfg] = await Promise.all([
+    const [leads, cfg, defaultId] = await Promise.all([
       listLeadsDeFunnel(funnelId),
       funnelId != null ? getFunnelDe(funnelId) : getFunnelDefault(),
+      idDelFunnelDefault(),
     ]);
     const stages = cfg.origen === 'error' ? DEFAULT_STAGES : cfg.stages;
+    const validas = new Set(stages.map((st) => st.key));
+    let yaEstan = new Set<number>();
+    const destinoId = destino === undefined ? null : casaReal(destino, defaultId);
+    if (destinoId != null && leads.length) {
+      try {
+        yaEstan = await yaEstanEnProducto(leads.map((l) => l.id), destinoId, defaultId);
+      } catch (e) {
+        console.error('[leadsDeProducto] no pude saber quiénes ya están en el destino:', e instanceof Error ? e.message : e);
+      }
+    }
     const filas = leads.map((l) => {
       // El override manual gana sobre lo derivado, igual que en el tablero — pero sólo si
       // ESTE embudo tiene esa etapa: una clave de otro embudo se dibujaría como una
       // columna que no existe.
-      const override = l.pipeline_stage && stages.some((st) => st.key === l.pipeline_stage) ? l.pipeline_stage : null;
-      const key = override ?? deriveStageKey(l as unknown as StageDerivable);
+      const key = etapaComoTablero(l, validas);
       const meta = stages.length ? stageMeta(stages, key) : null;
       return {
         id: l.id,
@@ -772,6 +851,7 @@ export async function leadsDeProductoAction(funnelId: number | null): Promise<{ 
         etapa: meta?.label ?? key,
         etapaKey: key,
         creado: l.created_at ?? null,
+        yaEsta: yaEstan.has(l.id),
       };
     });
     return { filas, total: filas.length };
@@ -787,8 +867,11 @@ export async function leadsDeProductoAction(funnelId: number | null): Promise<{ 
  * workspace y el módulo de duplicados es puro a propósito. Y vive en UNA función porque
  * la usan los DOS caminos de alta —el tablero y la conversación de WhatsApp—: con una
  * copia por camino, el día que cambie cómo se nombra un embudo lo arregla uno solo.
+ *
+ * `funnelActual` es el producto desde donde se da el alta (`null` = el del negocio): contra
+ * él se decide `estaAca` de cada coincidencia — por su casa o por una fila (mig 0207).
  */
-async function choqueDeLead(e: unknown): Promise<ChoqueDeLead> {
+async function choqueDeLead(e: unknown, funnelActual: number | null): Promise<ChoqueDeLead> {
   if (!(e instanceof LeadDuplicadoError)) {
     return { error: e instanceof Error ? e.message : 'No se pudo crear el lead.', coincidencias: [] };
   }
@@ -801,6 +884,23 @@ async function choqueDeLead(e: unknown): Promise<ChoqueDeLead> {
   // no el raro. Se resuelve al `es_default`, que es donde el tablero los dibuja.
   const delNegocio = funnels.find((f) => f.esDefault) ?? null;
   const nombreDe = (fid: number | null) => (fid == null ? delNegocio?.nombre ?? null : porId.get(fid) ?? null);
+  // Los OTROS productos de cada coincidencia (sus filas de `lead_funnel`). Si la lectura
+  // falla quedan vacíos: lo peor es ofrecer «Agregarlo aquí» sobre alguien que ya está, y
+  // agregar ahí no escribe nada (`agregarAProducto` sale si ya está, por casa o por fila).
+  const productosDe = new Map<number, number[]>();
+  const ids = e.coincidencias.map((c) => c.lead.id);
+  if (ids.length) {
+    try {
+      const { data, error } = await (await getTenantDb()).from('lead_funnel').select('lead_id, funnel_id').in('lead_id', ids);
+      if (error) throw new Error(error.message);
+      for (const f of (data ?? []) as Array<{ lead_id: number | string; funnel_id: number | string }>) {
+        const lid = Number(f.lead_id);
+        productosDe.set(lid, [...(productosDe.get(lid) ?? []), Number(f.funnel_id)]);
+      }
+    } catch (err) {
+      console.error('[crm] choqueDeLead: no pude leer los productos de las coincidencias:', err instanceof Error ? err.message : err);
+    }
+  }
   return {
     error: e.message,
     coincidencias: e.coincidencias.map((c) => ({
@@ -809,6 +909,7 @@ async function choqueDeLead(e: unknown): Promise<ChoqueDeLead> {
       funnelId: c.lead.funnel_id ?? null,
       producto: nombreDe(c.lead.funnel_id ?? null),
       motivo: c.texto,
+      estaAca: estaEnProducto({ funnel_id: c.lead.funnel_id ?? null, productos: productosDe.get(c.lead.id) ?? [] }, funnelActual, delNegocio?.id ?? null),
     })),
   };
 }
@@ -817,73 +918,20 @@ export async function crearLeadEnTableroAction(formData: FormData, funnelId?: nu
   try {
     return await altaDeLead(formData, funnelId, permitirDuplicado);
   } catch (e) {
-    return await choqueDeLead(e);
+    return await choqueDeLead(e, funnelId ?? null);
   }
 }
 
-/**
- * Mueve un lead que ya existe al producto que se está mirando.
- *
- * Es la salida del pedido de Martín: «si se detecta que se está agregando un lead nuevo,
- * pero que ya está en otro funnel… que le pregunte si lo quiere traer».
- *
- * ⚠️ MUEVE, NO COPIA — y el botón tiene que decirlo con esa palabra. Hoy el producto de
- * un lead es UNA columna (`leads.funnel_id`), así que la persona no puede estar en dos
- * tableros a la vez: traerla acá es sacarla de allá, con su recorrido entero (etapa,
- * fechas de reunión, montos). Copiarla exigiría que el RECORRIDO sea una entidad aparte
- * de la PERSONA, que es la tabla que todavía no existe. Decir «traer» sobre un movimiento
- * destructivo es la clase de promesa que se descubre cuando ya no se puede deshacer.
- */
-/**
- * Mover VARIOS leads a un producto, de una.
- *
- * Es el «importar leads de otro producto» del pedido 8: traer diez de a uno es la
- * fricción que el pop-up de importar vino a sacar.
- *
- * ⚠️ NO ES ATÓMICO Y LO DICE: devuelve cuántos entraron y cuántos no. Envolverlo en una
- * transacción exigiría una función en la base; contar y reportar cuesta una línea y no
- * miente. Lo que NO puede pasar es devolver «listo» sobre diez cuando entraron seis.
- */
-export async function moverLeadsAFunnelAction(ids: number[], funnelId: number | null): Promise<{ movidos: number; fallaron: number }> {
-  let movidos = 0;
-  let fallaron = 0;
-  const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
-  const entrada = cfg.stages.find((st) => st.kind === 'entrada') ?? cfg.stages[0];
-  for (const id of ids) {
-    try {
-      await moverLeadDeFunnel(id, funnelId);
-      // La etapa se escribe aparte y su fallo NO cuenta como fallo del movimiento: el
-      // lead YA cambió de producto, y decir que no se movió mandaría a hacerlo otra vez.
-      if (entrada) await setPipelineStage(id, entrada.key).catch(() => {});
-      movidos += 1;
-    } catch {
-      fallaron += 1;
-    }
-  }
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  return { movidos, fallaron };
-}
-export async function moverLeadAFunnelAction(leadId: number, funnelId: number | null): Promise<{ ok: true } | { error: string }> {
-  try {
-    await moverLeadDeFunnel(leadId, funnelId);
-    // ⚠️ Y ENTRA POR LA PUERTA, no con la etapa que traía. Es literal del pedido («que lo
-    // cargue automáticamente como lead entrante») y además es lo único que no miente: la
-    // etapa de un embudo es una CLAVE suya, y la del embudo A puede no existir en el B.
-    // Sin esto el lead cae en una columna que su nuevo tablero no tiene y se dibuja como
-    // «fuera del embudo» — un lead recién traído que aparece roto.
-    const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
-    const entrada = cfg.stages.find((st) => st.kind === 'entrada') ?? cfg.stages[0];
-    // Si el embudo no declara entrada NO se inventa una: mover es el hecho, la etapa es
-    // una comodidad, y escribir una clave al azar sería peor que dejarlo donde cayó.
-    if (entrada) await setPipelineStage(leadId, entrada.key);
-    bust(TAG.leads);
-    revalidatePath('/crm');
-    return { ok: true };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo mover el lead.' };
-  }
-}
+// ⛔ ACÁ VIVÍAN `moverLeadAFunnelAction` y `moverLeadsAFunnelAction`, BORRADAS EL 06/10/2026.
+// Le cambiaban la CASA al lead (`moverLeadDeFunnel`) y lo reseteaban a la etapa de entrada
+// con `setPipelineStage`: el lead desaparecía del tablero donde lo trabajaban, y a un Ganado
+// le pisaban la etapa con la venta, el CRM automático y el CAPI colgando de ahí. Martín: «Le
+// acabo de dar a un lead a "Mover a prueba" y se desapareció del producto principal de
+// Mauricio. Eso JAMÁS debe pasar... No se debe "Mover" se debe agregar al otro producto».
+// Los cuatro caminos que las llamaban (traer de otro producto, la barra de lote, el
+// «Moverlo aquí» del alta y el desplegable de la ficha) AGREGAN ahora con las actions de
+// app/crm/lead-funnel-actions.ts (mig 0207): una fila más, la casa intacta. Lo fija
+// tests/leads-por-producto.test.ts: si vuelven, cae.
 
 export async function createLeadAction(formData: FormData): Promise<void> {
   const created = await altaDeLead(formData);
@@ -921,7 +969,8 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
     revalidatePath('/whatsapp');
     return { id: created.id };
   } catch (e) {
-    return await choqueDeLead(e);
+    // `null`: el alta desde WhatsApp nace en el producto del negocio (no pasa `funnel_id`).
+    return await choqueDeLead(e, null);
   }
 }
 
@@ -2068,10 +2117,15 @@ export async function guardarCampoLeadAction(id: number, campo: string, valor: V
     await saveLeadMeta(id, { [campo]: v as string | null });
   } else {
     await updateLead(id, { [campo]: v } as Parameters<typeof updateLead>[1]);
-    // ⚠️ RESCATE DEL MONTO. `updateLead` fuerza monto/fecha de cierre a null cuando
-    // `cerro != true`, haya mandado el caller lo que haya mandado — y un lead en
-    // «Facturando» tiene monto con `cerro` null (lo escribe lib/pagos.ts directo).
-    // Sin esto, corregirle «asistió a R1» le borraba la venta en silencio.
+    // ⚠️ RESCATE DEL MONTO. Hasta el 06/10/2026 `updateLead` forzaba monto/fecha de
+    // cierre a null cuando `cerro != true`, mandara el caller lo que mandara — y un lead
+    // en «Facturando» tiene monto con `cerro` null (lo escribe lib/pagos.ts directo):
+    // corregirle «asistió a R1» le borraba la venta en silencio.
+    // Desde entonces la coerción sólo corre si el caller tocó un campo que decide la
+    // venta (`desenlaceAlGuardar`, lib/lead-desenlace.ts), y ningún campo inline lo es:
+    // este bloque ya no rescata nada y reescribe los mismos valores. Se queda como red
+    // por si alguien vuelve a poner la regla vieja; sacarlo es tocar también
+    // `montoEnRiesgo` (app/crm/campo-inline.ts) y tests/crm-campo-inline.test.ts.
     if (montoEnRiesgo(before)) {
       const { error } = await (await getTenantDb())
         .from('leads')
@@ -2695,12 +2749,21 @@ export async function extrasDelEmbudoAction(funnelId?: number): Promise<ExtrasDe
     // lo mismo, y acá la diferencia es toda la feature.
     const out: Record<string, number> = {};
     for (const st of cfg.stages) out[st.key] = 0;
-    // ⚠️ `deriveStageKey` es un switch PURO sobre las columnas del lead: no mira el funnel.
-    // Por eso un lead puede caer en una clave que ESTE embudo ya no tiene — y eso está bien,
-    // es lo que el tablero marca como «fuera del embudo». Acá suma igual: lo que se pregunta
-    // es si quitar la etapa deja gente afuera, y un lead en una clave huérfana ya lo está.
+    // ⚠️ SE CUENTA CON LA REGLA QUE DIBUJA LA TARJETA (`etapaComoTablero`: el override si
+    // este embudo lo tiene, si no la derivada), no con `deriveStageKey` solo. Hasta el
+    // 06/10/2026 se contaba con la derivada, y eso dejaba en CERO a dos clases de columna
+    // con gente adentro — o sea que se quitaban sin preguntar:
+    //   · las etapas PROPIAS del cliente: `deriveStageKey` es un switch cerrado sobre las
+    //     columnas del lead y nunca devuelve una clave que el cliente inventó; a esas se
+    //     llega SÓLO por `pipeline_stage`. Medido ese día: 1.067 de 1.161 leads del ws1
+    //     tienen un override distinto de su derivada.
+    //   · los AGREGADOS (mig 0207): `listLeadsDeFunnel` los trae con la etapa de su FILA en
+    //     `pipeline_stage`, y la derivada saldría de las columnas de su CASA.
+    // Una clave que el embudo ya no tiene cae a la derivada (como en el tablero) y suma
+    // igual: lo que se pregunta es si quitar la etapa deja gente afuera.
+    const validas = new Set(cfg.stages.map((st) => st.key));
     for (const l of leads) {
-      const k = deriveStageKey(l as unknown as StageDerivable);
+      const k = etapaComoTablero(l, validas);
       out[k] = (out[k] ?? 0) + 1;
     }
     return { conteos: out, leads: leads.length, canal: canalEfectivo(cfg.canal, diag?.canal) };

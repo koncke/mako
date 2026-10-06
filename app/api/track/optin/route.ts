@@ -32,7 +32,10 @@ import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { createLead, duplicadosDeLead } from '@/lib/leads';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
-import { getFunnelDefault } from '@/lib/funnels';
+import { getFunnelDefault, idDelFunnelDefault } from '@/lib/funnels';
+import { agregarAProducto } from '@/lib/lead-funnel';
+import { casaParaEscribir, casaReal } from '@/lib/lead-funnel-reglas';
+import { AUTOR_SISTEMA } from '@/lib/etapa-historial';
 import { normalizarUrl } from '@/lib/landing-paginas';
 import { funnelsDeLanding } from '@/lib/landing-funnel';
 import { funnelDeCampana } from '@/lib/campana-funnel';
@@ -307,11 +310,25 @@ export async function POST(req: NextRequest) {
 
   if (!dup.length) {
     try {
-      // ⚠️ LO QUE ES DE LA PERSONA SE ARMA UNA SOLA VEZ. Con varios productos hay
-      // VARIAS fichas de la misma persona y lo único que cambia entre ellas es a
-      // qué embudo entran: un segundo literal al lado sería la segunda versión del
-      // mismo lead, y el día que se agregue un campo va a entrar en una sola.
-      const datosDelLead = {
+      // El id REAL del producto del negocio. Hace falta para las dos traducciones
+      // del modelo de varios productos (mig 0207): en `leads.funnel_id` ese producto
+      // se escribe NULL y en `lead_funnel` va con su id. Una lectura que falla no
+      // tumba el alta: con `null`, la casa se escribe tal cual llegó (para el negocio
+      // ya llega en null) y lo único que se pierde es poder AGREGAR el producto del
+      // negocio como extra, que queda registrado abajo.
+      const defaultId = await runWithWorkspace(ws, () => idDelFunnelDefault()).catch(() => null);
+      // El PRIMERO es la CASA del lead: es el que lleva el aviso, el que da el id de
+      // la respuesta y el único cuyo fallo cae a propuesta. `funnelesDelLead` nunca
+      // viene vacío (ver `funnelsDeLanding`), así que el `?? null` es para el
+      // compilador y no un caso real — y si lo fuera, `null` es el embudo del
+      // negocio, o sea entrar igual.
+      //
+      // ⚠️ Se escribe con `casaParaEscribir`, SIEMPRE: el tablero del negocio pide
+      // sus leads con `.is('funnel_id', null)`, así que un lead nacido con el ID del
+      // default no aparece en NINGÚN tablero. `funnelsDeLanding` ya lo devuelve en
+      // null; esto lo garantiza en el punto de escritura, que es donde vale.
+      const funnelDelLead = casaParaEscribir(funnelesDelLead[0] ?? null, defaultId);
+      const lead = await runWithWorkspace(ws, () => createLead({
         nombre: nombre ?? email ?? telefono ?? 'Sin nombre',
         email, telefono,
         empresa: txt(body.empresa) ?? txt(body.company),
@@ -328,41 +345,48 @@ export async function POST(req: NextRequest) {
         // se agrega en uno solo se apaga solo: el guardado siguiente es un upsert de la
         // fila armada desde acá, así que lo que este objeto no traiga sale como null.
         fbclid: atrib.fbclid,
-      };
-      // El PRIMERO es el principal: es el que lleva el aviso, el que da el id de la
-      // respuesta y el único cuyo fallo cae a propuesta. `funnelesDelLead` nunca
-      // viene vacío (ver `funnelsDeLanding`), así que el `?? null` es para el
-      // compilador y no un caso real — y si lo fuera, `null` es el embudo del
-      // negocio, o sea entrar igual.
-      const funnelDelLead = funnelesDelLead[0] ?? null;
-      const lead = await runWithWorkspace(ws, () => createLead({
-        ...datosDelLead,
         // El CRM al que entra. `null` NO es «sin producto»: es el embudo DEL
         // NEGOCIO, que es donde caen hoy los 1.530 leads de la base. Una landing
         // sin producto asignado sigue cayendo exactamente ahi.
         funnel_id: funnelDelLead,
       }));
 
-      // ⚠️ UNA FICHA MÁS POR CADA PRODUCTO EXTRA, y es la semántica que eligió
-      // Martín el 06/10/2026: «el lead entra a TODOS los productos». Un lead vive
-      // en UN embudo —`leads.funnel_id` es una columna— así que la misma persona en
-      // tres productos son TRES fichas, cada una moviéndose por sus etapas.
+      // ⚠️ UNA PERSONA, UNA FICHA: cada producto extra se AGREGA, no se clona.
+      // Hasta el 06/10/2026 acá había un `createLead` por producto extra con
+      // `permitirDuplicado: true`, o sea N fichas de la misma persona — y eso la
+      // partía en N: Calendly y Meta actualizan sólo la más vieja, la nutrición le
+      // escribía N veces, las métricas la contaban doble y el CAPI mandaba un
+      // QualifiedLead por ficha. Con la mig 0207 un lead vive en VARIOS productos: la
+      // casa es `leads.funnel_id` y cada otro es una fila de `lead_funnel` en la etapa
+      // de entrada de ESE tablero (`agregarAProducto`, lib/lead-funnel.ts).
       //
-      // ⚠️ `permitirDuplicado` NO es opcional acá: `createLead` corre
-      // `duplicadosDeLead` por nombre, email y teléfono, así que la SEGUNDA ficha
-      // encontraría a la primera y tiraría `LeadDuplicadoError` — y en esta ruta un
-      // alta que falla cae a propuesta, o sea que el fan-out dejaría a la persona
-      // esperando un click. El duplicado ya se chequeó arriba, contra el CRM entero.
+      // ⚠️ Por eso la regla de AGENTS.md «Un alta que pasa a crear N filas choca con
+      // su propio chequeo de duplicados» YA NO APLICA ACÁ: hay UN alta, que pasa por
+      // el chequeo de siempre, y ningún `permitirDuplicado`. Lo que sí sigue de esa
+      // regla es la otra mitad: CADA PRODUCTO EXTRA ES BEST-EFFORT, con su propio
+      // try. Si falla uno, la persona YA está en el CRM, y caer a propuesta crearía
+      // un borrador de alguien que ya entró. Se registra CUÁL falló y se sigue.
       //
-      // ⚠️ Y CADA UNA ES BEST-EFFORT, con su propio try. Si falla una extra, la
-      // persona YA está en el CRM: caer a propuesta ahí crearía un borrador de
-      // alguien que ya entró. Se registra y se sigue — lo que se pierde es una
-      // ficha secundaria, no el lead.
+      // ⚠️ El producto del negocio, cuando NO es la casa, va en `lead_funnel` con su
+      // ID REAL: `funnelsDeLanding` lo devuelve como `null` (que es como se escribe
+      // en la casa) y `casaReal` lo traduce. Sin ese id no hay a qué agregarlo.
+      //
+      // Agregar escribe SÓLO la fila y una línea de historial (decisión v1): no
+      // inscribe en nutrición, no toca la etiqueta de WhatsApp ni el CAPI. Todo eso
+      // sigue a la casa, que es justo lo que corta el «N veces» de arriba. El autor
+      // va explícito: esta ruta no tiene sesión, y la landing de MaKo vive en el
+      // mismo dominio — con la cookie de un admin probándola, el historial diría que
+      // lo agregó él.
+      //
+      // `tambien` junta IDS DE PRODUCTO (ya no de fichas): los que se agregaron de
+      // verdad. Si ya estaba (`agregado: false`), no cuenta para el aviso.
       const tambien: number[] = [];
       for (const f of funnelesDelLead.slice(1)) {
+        const real = casaReal(f, defaultId);
         try {
-          const otro = await runWithWorkspace(ws, () => createLead({ ...datosDelLead, funnel_id: f, permitirDuplicado: true }));
-          tambien.push(otro.id);
+          if (real == null) throw new Error('no se pudo leer el id del producto del negocio');
+          const r = await runWithWorkspace(ws, () => agregarAProducto(lead.id, real, { autor: AUTOR_SISTEMA }));
+          if (r.agregado) tambien.push(real);
         } catch (e) {
           console.error(`[track:optin] ws=${ws} lead=${lead.id} no pudo entrar al producto ${f ?? 'del negocio'}:`, e instanceof Error ? e.message : e);
         }
@@ -385,16 +409,18 @@ export async function POST(req: NextRequest) {
             email ? `✉️ ${email}` : null,
             resumenForm,
             hayAtribucion(atrib) ? `📢 ${[atrib.utm_campaign, atrib.utm_content].filter(Boolean).join(' · ') || atrib.utm_source}` : null,
-            // Con varios productos se DICE, y corto: el aviso lleva al principal y
-            // sin esta línea quien lo abre no tiene cómo saber que hay más fichas de
-            // la misma persona en otros tableros.
+            // Con varios productos se DICE, y corto: el link lleva a la ficha (que es
+            // UNA) y sin esta línea quien lo abre no tiene cómo saber que esa persona
+            // ya está también en los tableros de otros productos. Cuenta sólo los que
+            // se agregaron de verdad, más la casa.
             tambien.length ? `🗂️ Entró a ${tambien.length + 1} productos` : null,
             `👉 ${linkApp(`/crm/${lead.id}`, wsEnContexto())}`,
           ].filter(Boolean).join('\n'),
         }),
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
-      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo${tambien.length ? ` (+${tambien.length} productos: ${tambien.join(',')})` : ''}`);
-      return ok({ lead: lead.id, creado: true, ...(tambien.length ? { tambien } : {}) });
+      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo${tambien.length ? ` (+ agregado a los productos ${tambien.join(',')})` : ''}`);
+      // `productos` son ids de PRODUCTO, no de fichas: la persona es UNA (`lead`).
+      return ok({ lead: lead.id, creado: true, ...(tambien.length ? { productos: tambien } : {}) });
     } catch (e) {
       // ⚠️ Si el alta falla, NO se pierde la persona: cae a propuesta, que es
       // exactamente para lo que existe. Un error del CRM no puede convertirse en
@@ -411,8 +437,9 @@ export async function POST(req: NextRequest) {
   // declaracion es peor que su ausencia: se lee como que ya funciona.
   //
   // Mientras tanto el duplicado cae en el embudo del negocio, que es donde cae
-  // hoy — y ahi lo decide una PERSONA que esta mirando el CRM, con
-  // `moverLeadDeFunnel` a un click. Lo que falta para cerrarlo es un `funnel_id`
+  // hoy — y ahi lo decide una PERSONA que esta mirando el CRM, agregandolo a su
+  // producto desde el desplegable de la ficha (`agregarAProductoAction`, que suma
+  // el producto sin sacarlo del negocio). Lo que falta para cerrarlo es un `funnel_id`
   // en `FilaImport` (app/crm/leads-importar.ts) y pasarlo al `createLead` del
   // importador (app/crm/actions.ts).
   const { id, nueva } = await crearPropuesta({

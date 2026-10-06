@@ -1,16 +1,26 @@
 // =============================================================================
-// campana-traer — traer al producto los leads que una campaña YA tiene en el CRM
+// campana-traer — qué leads de una campaña hay que AGREGAR a un producto
 // =============================================================================
-// Lo que hace de verdad el «traer» de app/crm/campanas-actions.ts. Vive acá y no en la
-// acción para que se pueda ejercer contra la base sin una sesión de Next: la acción es la
-// puerta (quién puede, qué producto), esto es el trabajo.
+// Lo que calcula el «traer» de app/crm/campanas-actions.ts. Vive acá y no en la acción
+// para que se pueda ejercer contra la base sin una sesión de Next: la acción es la puerta
+// (quién puede, qué producto), esto es el trabajo.
 //
-// La regla de QUÉ leads se mueven es pura y vive en lib/campana-atribucion.ts.
+// ⚠️ DESDE EL 06/10/2026 TRAER ES AGREGAR, NO MOVER. Acá vivía `moverEnLote`, que
+// reescribía `leads.funnel_id` y con eso SACABA al lead del producto donde estaba. Martín:
+// «No se debe "Mover" se debe agregar al otro producto». La escritura ahora es
+// `agregarLoteAProducto` (lib/lead-funnel.ts, mig 0207): una fila de `lead_funnel` por
+// lead, en la etapa de entrada del destino, y la casa no se toca. `moverEnLote` se borró
+// porque se quedó sin call sites; si vuelve a hacer falta mover una casa en lote, la regla
+// de cómo se escribe el producto del negocio está en `casaParaEscribir`.
+//
+// La regla de QUÉ leads se agregan es pura y vive en lib/campana-atribucion.ts.
 // =============================================================================
 
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
+import { idDelFunnelDefault } from './funnels';
+import { casaParaEscribir } from './lead-funnel-reglas';
 import type { CampanaAsignada } from './campana-config';
 import {
   mapaDeAnuncios, repartirPorItem,
@@ -30,7 +40,24 @@ export async function leadsYMetricas(): Promise<{ leads: LeadAtribuible[]; metri
   return { leads, metricas, anuncios: mapaDeAnuncios(metricas) };
 }
 
-/** Qué leads se moverían al asignar `item` a `destino`, con la configuración `asignadas`.
+/**
+ * Los leads que YA están en un producto por una FILA de `lead_funnel` (no por su casa).
+ *
+ * ⚠️ «No pude leer» NO es «no hay ninguno»: con un `[]` por una lectura caída, la previa
+ * contaría como nuevos a los que ya están y la pregunta diría un número de más. Tira, y la
+ * acción lo dice. (El alta en sí no depende de esto: `agregarLoteAProducto` vuelve a
+ * mirar las filas antes de escribir.)
+ */
+async function agregadosDe(funnelIdReal: number): Promise<Set<number>> {
+  const db = await getTenantDb();
+  const filas = await leerTodo<{ lead_id: number | string }>(db, 'lead_funnel', 'id, lead_id', {
+    orden: 'id',
+    filtros: (q) => q.eq('funnel_id', funnelIdReal),
+  });
+  return new Set(filas.map((f) => Number(f.lead_id)));
+}
+
+/** Qué leads se agregarían al asignar `item` a `destino`, con la configuración `asignadas`.
  *  Lo calcula el SERVER siempre: la pantalla manda qué campaña, nunca una lista de ids. */
 export async function planDeTraida(
   destino: number | null,
@@ -40,56 +67,30 @@ export async function planDeTraida(
   return (await planDeTraidaLote(destino, [item], asignadas)).get(item.id) ?? [];
 }
 
-/** El plan para VARIAS campañas o conjuntos a la vez (la barra de lote de la tabla), con
- *  una sola lectura de leads y métricas. Cada lead queda en UN grupo: ver `repartirPorItem`. */
+/**
+ * El plan para VARIAS campañas o conjuntos a la vez (la barra de lote de la tabla), con
+ * una sola lectura de leads y métricas. Cada lead queda en UN grupo: ver `repartirPorItem`.
+ *
+ * `destino` va como lo escribe el CRM: `null` = el producto del negocio. Las filas de
+ * `lead_funnel`, en cambio, lo guardan con su id REAL, así que acá se traducen los dos
+ * lados: el `funnel_id` de cada lead pasa por `casaParaEscribir` (un lead con el id del
+ * default escrito —el bug que esa función cierra— es del negocio, no de «otro producto») y
+ * las filas se buscan con el id real.
+ */
 export async function planDeTraidaLote(
   destino: number | null,
   items: { tipo: 'campana' | 'conjunto'; id: string }[],
   asignadas: CampanaAsignada[],
 ): Promise<Map<string, LeadAtribuible[]>> {
-  const { leads, anuncios } = await leadsYMetricas();
+  const [{ leads, anuncios }, defaultId] = await Promise.all([leadsYMetricas(), idDelFunnelDefault()]);
+  const destinoReal = destino ?? defaultId;
+  const enDestino = destinoReal == null ? new Set<number>() : await agregadosDe(destinoReal);
+  const normalizados = leads.map((l) => ({
+    ...l,
+    funnel_id: casaParaEscribir(l.funnel_id == null ? null : Number(l.funnel_id), defaultId),
+  }));
   const conjuntosDeOtro = new Set(
     asignadas.filter((a) => a.tipo === 'conjunto' && a.funnelId !== destino).map((a) => a.id),
   );
-  return repartirPorItem(items, destino, leads, anuncios, conjuntosDeOtro);
-}
-
-const LOTE = 200;
-
-/**
- * Mueve leads de producto EN LOTE y deja una línea en el historial de cada uno.
- *
- * ⚠️ SÓLO CAMBIA EL PRODUCTO, NO LA ETAPA — y es lo contrario de lo que hace
- * `moverLeadsAFunnelAction` (app/crm/actions.ts), a propósito. Aquélla trae a UNA persona
- * a empezar de cero en otro embudo, y por eso la pone en la entrada. Ésta trae la HISTORIA
- * de una campaña: un lead que ya pagó tiene que seguir en Ganado, no volver a «Lead
- * entrante». Si su etapa guardada no existe en el embudo nuevo, el tablero lo ubica por lo
- * que hizo y le pone el chip de «fuera del embudo» (app/crm/crm-map.ts): no se pierde nada.
- *
- * Devuelve los ids que la base CONFIRMÓ haber movido (`.select('id')`), no los pedidos: un
- * lead borrado en el medio no puede figurar como traído, ni volver en un deshacer.
- */
-export async function moverEnLote(ids: number[], a: number | null, porQue: string): Promise<{ movidos: number[]; fallaron: number }> {
-  const db = await getTenantDb();
-  const movidos: number[] = [];
-  let fallaron = 0;
-  for (let i = 0; i < ids.length; i += LOTE) {
-    const tanda = ids.slice(i, i + LOTE);
-    const { data, error } = await db.from('leads').update({ funnel_id: a }).in('id', tanda).select('id');
-    if (error) { fallaron += tanda.length; continue; }
-    const ok = (data ?? []).map((r) => Number((r as { id: number | string }).id));
-    movidos.push(...ok);
-    fallaron += tanda.length - ok.length;
-  }
-  // El historial va en lote también: quinientas inserciones de a una son quinientos viajes.
-  // Mismo formato que `logLeadEvent` (lib/leads.ts). Si falla, el movimiento ya pasó y no se
-  // deshace por un renglón de historial.
-  for (let i = 0; i < movidos.length; i += LOTE) {
-    const filas = movidos.slice(i, i + LOTE).map((id) => ({
-      lead_id: id, campo: 'Producto', valor_anterior: null, valor_nuevo: porQue, autor: 'CRM',
-    }));
-    const { error } = await db.from('lead_audit').insert(filas);
-    if (error) console.error('[campanas] historial falló:', error.message);
-  }
-  return { movidos, fallaron };
+  return repartirPorItem(items, destino, normalizados, anuncios, conjuntosDeOtro, enDestino);
 }

@@ -39,7 +39,13 @@ test('la regla T1 le pasa marcarAsistencia, en vez de dejar que `?? true` decida
 
 test('la fila de «Asistió» sólo se dibuja si la asistencia se marcó de verdad', () => {
   const asist = t1.slice(t1.indexOf('cambios:'));
-  assert.match(asist, /markedAsistencia[\s\S]*?Asisti[óo] R/, 'la fila de asistencia tiene que colgar de markedAsistencia');
+  // El rótulo de la reunión sale del embudo desde el 06/10/2026 (`rotuloReunion`, cae a
+  // «R1»/«R2»): la fila dice `Asistió ${reunion}` y no «Asistió R1» fijo. Es sólo lo que
+  // se DIBUJA en la confirmación: el historial sigue escribiendo «Asistió R1» desde
+  // `AUDIT_FIELDS` (lib/leads.ts), que es la clave con la que se deshace una línea.
+  // Probado rompiendo lib/crm-auto.ts (06/10/2026): la fila colgando de `true` en vez de
+  // `markedAsistencia` → 4 pases / 1 fallo; el rótulo cambiado a otra palabra → 4 / 1.
+  assert.match(asist, /markedAsistencia[\s\S]*?Asisti[óo] (?:R|\$\{reunion\})/, 'la fila de asistencia tiene que colgar de markedAsistencia');
   // ⚠️ El «no aparece la fila fija» NO se puede escribir como un `doesNotMatch` del
   // texto de la fila: la fila sigue ahí, adentro del ternario. Lo que distingue a la
   // versión buena de la vieja es que la lista se ARMA con spreads condicionales.

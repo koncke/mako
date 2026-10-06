@@ -16,7 +16,7 @@ import { CHIP, BAND_LABEL, deriveStageKey, stageMeta, nutricionPositivaDe, type 
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { deleteLeadInlineAction, type LeadFullData } from './actions';
+import { deleteLeadInlineAction, getLeadFullAction, type LeadFullData } from './actions';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
@@ -26,7 +26,7 @@ import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { CaraDelLead } from './lead-view/CaraDelLead';
-import { ProductoDelLead } from './lead-view/ProductoDelLead';
+import { ProductoDelLead, EtapaEnProducto, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 // «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
@@ -53,11 +53,24 @@ function IconX() {
 }
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = data;
+  // ⚠️ LA FICHA SE RELEE CUANDO CAMBIA LA CASA DEL LEAD. Sus datos los trajo una action al abrir
+  // (LeadEditModal) y el `router.refresh()` no los toca: si desde el desplegable de productos se
+  // quita la casa, la etapa, las etapas y el chip de acá serían los del producto anterior. Sólo
+  // vale mientras sea el MISMO lead: si la ficha pasa a mostrar otro, mandan sus datos.
+  const [fresca, setFresca] = useState<LeadFullData | null>(null);
+  const vigente = fresca && fresca.lead.id === data.lead.id ? fresca : data;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
+  // En qué productos está y cuál se mira (ver lead-view/ProductoDelLead.tsx). La etapa de la fila
+  // de controles es la del producto EN VISTA: la de la casa, o la de su fila en un producto agregado.
+  const fichaProd = useProductosDeLaFicha({
+    leadId: lead.id, casa: lead.funnel_id, foto: productos,
+    onCasaCambiada: () => { void getLeadFullAction(lead.id).then((x) => { if (x) setFresca(x); }).catch(() => {}); },
+  });
+  const agregado = fichaProd.vista && !fichaProd.vista.esCasa ? fichaProd.vista : null;
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -258,8 +271,13 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             producto—, y el aviso de datos sin marcar a la derecha. Si no entra, envuelve: el
             aviso baja pegado a la derecha. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '0 clamp(16px,4vw,28px) 14px' }}>
-          <ProductoDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} productos={productos} rotulo={false} />
-          <Dropdown value={stageKey} options={stageOptions} onChange={pickStage} align="left" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />
+          <ProductoDelLead ficha={fichaProd} rotulo={false} />
+          {/* ⚠️ LA ETAPA ES LA DEL PRODUCTO QUE SE MIRA. En la casa, el selector de siempre (con su
+              wizard); en un producto agregado, las etapas de ESE tablero, y moverla escribe sólo su
+              fila. Mientras no se sabe cuál se mira, espera: ver `etapaEnEspera`. */}
+          {agregado
+            ? <EtapaEnProducto ficha={fichaProd} producto={agregado} width={210} />
+            : <Dropdown value={fichaProd.esperando ? '' : stageKey} placeholder="Etapa" disabled={fichaProd.esperando} options={stageOptions} onChange={pickStage} align="left" width={210} ariaLabel="Cambiar etapa" buttonStyle={{ fontSize: 13, fontWeight: 600 }} />}
           {faltantes.length > 0 && (
             <span style={{ marginLeft: 'auto' }}>
               <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />

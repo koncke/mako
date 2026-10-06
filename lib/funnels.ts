@@ -29,6 +29,8 @@ import 'server-only';
 import type { Stage, FunnelTransition } from './pipeline';
 import { DEFAULT_PIPELINE, mergeFunnelData, suppressedInicial } from './pipeline';
 import { getTenantDb } from './workspace';
+import { leerTodo } from './supabase-paginado';
+import { casaParaEscribir } from './lead-funnel-reglas';
 // El mapeo fila → FunnelConfig vive en un módulo PURO para que se pueda testear
 // sin Supabase: ahí está la regla de que `origen` sale de `declarado`.
 import { buildFunnel, filaAFunnel, COLS, FUNNEL_DEFAULT_NOMBRE, type FilaFunnel, type FunnelConfig, type FunnelResumen } from './funnel-fila';
@@ -47,6 +49,18 @@ async function filaDefault(): Promise<FilaFunnel | null | undefined> {
     return undefined;   // undefined = falló la lectura; null = no hay fila. No es lo mismo.
   }
   return ((data ?? []) as unknown as FilaFunnel[])[0] ?? null;
+}
+
+/**
+ * El id del producto del NEGOCIO (el funnel `es_default`). `null` si no hay fila o falló.
+ *
+ * Lo necesita el modelo de varios productos (mig 0207): en `leads.funnel_id` ese producto se
+ * escribe NULL, pero en `lead_funnel` va con su id, y los dos lados se traducen con
+ * `casaParaEscribir` / `casaReal` (lib/lead-funnel-reglas.ts).
+ */
+export async function idDelFunnelDefault(): Promise<number | null> {
+  const fila = await filaDefault();
+  return fila ? Number(fila.id) : null;
 }
 
 export async function getFunnelDefault(): Promise<FunnelConfig> {
@@ -370,6 +384,19 @@ export async function archivarFunnel(funnelId: number): Promise<void> {
  * fila — simplemente no aparecen en ninguna pantalla, para siempre. Las personas no son
  * configuración: vuelven al embudo del negocio.
  *
+ * ⚠️ Y VUELVEN CON `funnel_id = NULL`, NO CON EL ID DEL NEGOCIO. El tablero del negocio pide
+ * sus leads con `.is('funnel_id', null)`: hasta el 06/10/2026 el rescate escribía el id del
+ * default y los rescatados no aparecían en NINGÚN tablero — el mismo agujero que el rescate
+ * venía a cerrar, por la otra puerta. Toda escritura de la casa pasa por `casaParaEscribir`
+ * (lib/lead-funnel-reglas.ts).
+ *
+ * ⚠️ Y LOS OTROS PRODUCTOS DEL LEAD (mig 0207). Las filas de `lead_funnel` de ESTE embudo se
+ * van solas (`on delete cascade`). Lo que no se va solo es la fila que un rescatado tuviera
+ * en el producto del negocio: al volver, ése pasa a ser su casa, y nunca hay fila para la
+ * casa. Su etapa de esa fila pasa a ser la del lead —estaba en esa columna del tablero del
+ * negocio y ahí se queda; con la etapa del embudo borrado caería a «fuera del embudo»— y la
+ * fila se borra. Es lo mismo que hace `quitarDeProducto` al promover una fila a casa.
+ *
  * ⚠️ Y ESTO SÍ BORRA, EN CASCADA, lo que era del embudo: sus secuencias de nutrición y su
  * ligazón con las ofertas (las dos FKs son `on delete cascade`). Eso está bien —son
  * configuración de un producto que deja de existir— y es lo que hace que esta función sea
@@ -389,10 +416,30 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
   // eliminar de verdad exija DOS decisiones en dos momentos: nada se pierde de un clic.
   if (fila.activo) throw new Error('Primero hay que eliminarlo del tablero; recién después se puede borrar para siempre.');
 
-  // El embudo del negocio, que es a donde vuelve su gente.
+  // El embudo del negocio, que es a donde vuelve su gente. Su id hace falta para las filas
+  // de `lead_funnel`; en `leads.funnel_id` se escribe NULL (`casaParaEscribir` del default
+  // contra sí mismo es null siempre, a propósito: que se lea por qué).
   const { data: defs } = await supabase
     .from('funnels').select('id').eq('es_default', true).eq('activo', true).limit(1);
-  const destino = ((defs ?? []) as Array<{ id: number }>)[0]?.id ?? null;
+  const crudo = ((defs ?? []) as Array<{ id: number | string }>)[0]?.id;
+  const idNegocio = crudo == null ? null : Number(crudo);
+  const destino = casaParaEscribir(idNegocio, idNegocio);
+
+  // Los que vuelven y YA estaban también en el producto del negocio, con su etapa de ahí.
+  // Se lee ANTES de tocar nada: si esto falla, no se escribió una sola fila.
+  const etapaEnNegocio = new Map<number, string>();
+  if (idNegocio != null) {
+    const suyos = await leerTodo<{ id: number | string }>(supabase, 'leads', 'id', {
+      orden: 'id', filtros: (q) => q.eq('funnel_id', funnelId),
+    });
+    const ids = suyos.map((l) => Number(l.id));
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data: fs, error: eF } = await supabase.from('lead_funnel')
+        .select('lead_id, etapa').eq('funnel_id', idNegocio).in('lead_id', ids.slice(i, i + 200));
+      if (eF) throw new Error(`No se pudo leer en qué otros productos está su gente: ${eF.message}`);
+      for (const f of (fs ?? []) as Array<{ lead_id: number | string; etapa: string }>) etapaEnNegocio.set(Number(f.lead_id), f.etapa);
+    }
+  }
 
   // ⚠️ EL RESCATE VA PRIMERO. Al revés, si el borrado sale bien y el rescate falla, los
   // leads quedan apuntando a un embudo que ya no existe y no hay forma de encontrarlos:
@@ -401,6 +448,32 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
     .from('leads').update({ funnel_id: destino }).eq('funnel_id', funnelId).select('id');
   if (eMov) throw new Error(`No se pudo poner a salvo a sus leads: ${eMov.message}`);
   const rescatados = ((movidos ?? []) as unknown[]).length;
+
+  // Nunca hay fila para la casa: la del negocio de los rescatados pasa a ser su etapa y se
+  // borra. Después del rescate y sin tirar —la gente ya está a salvo, y un reintento no
+  // podría volver a encontrarlos—: si falla queda una fila de más, que el tablero ya
+  // deduplica (`agregadosDelTablero`) y `productosDe` ignora. Se registra.
+  if (idNegocio != null && etapaEnNegocio.size) {
+    const porEtapa = new Map<string, number[]>();
+    for (const [id, etapa] of etapaEnNegocio) {
+      const ids = porEtapa.get(etapa) ?? [];
+      ids.push(id);
+      porEtapa.set(etapa, ids);
+    }
+    for (const [etapa, ids] of porEtapa) {
+      for (let i = 0; i < ids.length; i += 200) {
+        const { error: eE } = await supabase.from('leads')
+          .update({ pipeline_stage: etapa }).in('id', ids.slice(i, i + 200)).is('funnel_id', null);
+        if (eE) console.error(`[funnels] rescate: la etapa del negocio no se copió (${ids.length} leads): ${eE.message}`);
+      }
+    }
+    const todos = [...etapaEnNegocio.keys()];
+    for (let i = 0; i < todos.length; i += 200) {
+      const { error: eB } = await supabase.from('lead_funnel')
+        .delete().eq('funnel_id', idNegocio).in('lead_id', todos.slice(i, i + 200));
+      if (eB) console.error(`[funnels] rescate: quedaron filas del negocio sobre su propia casa: ${eB.message}`);
+    }
+  }
 
   const { data: borradas, error: eDel } = await supabase.from('funnels').delete().eq('id', funnelId).select('id');
   if (eDel) throw new Error(`No se pudo borrar el producto: ${eDel.message}`);

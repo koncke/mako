@@ -1,6 +1,13 @@
 // =============================================================================
-// Un lead vive en UN producto, y `funnel_id` NULL es el producto del negocio
+// Un lead tiene UNA casa (`funnel_id`, NULL = el producto del negocio) y se AGREGA a otros
 // =============================================================================
+// ⚠️ DESDE EL 06/10/2026 (mig 0207) LA CASA YA NO ES «EL» PRODUCTO DEL LEAD. Pedido de
+// Martín, textual: «Le acabo de dar a un lead a "Mover a prueba" y se desapareció del
+// producto principal de Mauricio. Eso JAMÁS debe pasar... No se debe "Mover" se debe
+// agregar al otro producto». La casa sigue siendo `leads.funnel_id` y cada OTRO producto
+// donde está es una fila de `lead_funnel`. Lo de abajo sobre NULL sigue valiendo entero:
+// es la casa la que se escribe NULL para el del negocio.
+//
 // Medido contra producción el 30/09/2026, antes de escribir una línea:
 //
 //   · `leads.funnel_id` está en NULL en las **1.530 filas** de los 6 workspaces con
@@ -21,10 +28,22 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { buscarDuplicados, textoDuplicado, enOtroProducto, type LeadExistente } from '../lib/leads-duplicados';
+import { buscarDuplicados, textoDuplicado, enOtroProducto, estaEnProducto, type LeadExistente } from '../lib/leads-duplicados';
 
 const RAIZ = join(import.meta.dirname, '..');
-const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8');
+// ⚠️ Normalizado a LF ANTES de buscar: el repo está mezclado por archivo (AGENTS.md) y un
+// worktree recién checkouteado llega en CRLF.
+const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
+
+/** Una función de primer nivel hasta su cierre REAL (la `}` en la columna 0), no un número
+ *  de caracteres elegido a ojo: con un recorte fijo el guard lee la función de al lado. */
+const bloque = (src: string, firma: string): string => {
+  const i = src.indexOf(firma);
+  assert.ok(i >= 0, `no encontré «${firma}»`);
+  const fin = src.indexOf('\n}\n', i);
+  assert.ok(fin > i, `no encontré el cierre de «${firma}»`);
+  return src.slice(i, fin + 2);
+};
 
 /** El fuente sin comentarios: la convención de la casa es explicar en el comentario
  *  justo lo que el guard prohíbe, y si no se sacan el guard se acusa a sí mismo.
@@ -101,15 +120,23 @@ test('⚠️ y el lector que hace que eso sea cierto sigue tratando NULL como el
     'el CONTADOR y la LISTA dejaron de mirar lo mismo: uno diría 1.146 y el otro 0');
 });
 
-test('⚠️ `funnel_id` tiene UN solo escritor después del alta, y se llama mover', () => {
-  // Un lead que cambia de producto cambia en qué tablero lo ve la gente. Si eso se
-  // puede escribir desde cualquier lado, un día un update de otra cosa se lo lleva
-  // puesto y el lead desaparece de la pantalla donde alguien lo estaba trabajando.
+test('⚠️ la CASA (`funnel_id`) no la escribe un update genérico: sólo el camino declarado', () => {
+  // Un lead que cambia de casa cambia en qué tablero lo ve la gente. Si eso se puede
+  // escribir desde cualquier lado, un día un update de otra cosa se lo lleva puesto y el
+  // lead desaparece de la pantalla donde alguien lo estaba trabajando.
   //
-  // Probado rompiéndolo: se agrega `funnel_id` a `LeadUpdateInput` -> 6 / 1.
+  // ⚠️ DESDE EL 06/10/2026 EL ESCRITOR NO ES «MOVER»: los cuatro caminos que movían ahora
+  // AGREGAN (mig 0207) y la casa sólo cambia cuando se QUITA al lead de su casa y otra fila
+  // pasa a serlo (`quitarDeProducto`, lib/lead-funnel.ts), siempre por `casaParaEscribir`
+  // —que escribe NULL para el del negocio—. `moverLeadDeFunnel` (lib/leads.ts) quedó sin
+  // call sites ese día.
+  //
+  // Probado rompiéndolo: se agrega `funnel_id` a `LeadUpdateInput` -> cae; la promoción de
+  // `quitarDeProducto` escribe el id crudo sin `casaParaEscribir` -> cae.
   const ld = limpio(leer('lib/leads.ts'));
-  assert.match(ld, /export async function moverLeadDeFunnel/,
-    'se fue la única puerta declarada para mover un lead de producto');
+  const lf = limpio(leer('lib/lead-funnel.ts'));
+  assert.match(lf, /funnel_id: casaParaEscribir\(nueva\.funnelId, defaultId\)/,
+    'la promoción de la casa dejó de escribir con `casaParaEscribir`: el id del negocio escrito saca al lead de su tablero');
 
   // El tipo del update genérico NO puede declararlo: sería una segunda puerta, y
   // silenciosa, porque cualquier formulario que mande el campo lo escribiría.
@@ -158,7 +185,45 @@ test('⚠️ NULL y el id del embudo por defecto son EL MISMO LUGAR', () => {
   // puede leer como «está en otro lado».
   const sinColumna = { lead: { id: 2, nombre: 'B', email: null, telefono_normalizado: null } as LeadExistente, motivo: 'email' as const, texto: 'x' };
   assert.equal(enOtroProducto(sinColumna, null), false,
-    'un lead cuya columna no viajó se lee como «en otro producto»: el aviso ofrecería moverlo a donde ya está');
+    'un lead cuya columna no viajó se lee como «en otro producto»: el aviso ofrecería agregarlo a donde ya está');
+});
+
+test('⚠️ «está en este producto» es por CASA o por FILA (mig 0207), y el id del negocio escrito es el negocio', () => {
+  // «No se debe "Mover" se debe agregar al otro producto» (Martín, 06/10/2026). Con eso un
+  // lead puede estar acá SIN que acá sea su casa: comparar sólo `funnel_id` le ofrecería
+  // «Agregarlo aquí» a alguien que ya está agregado. Y `moverLeadDeFunnel` escribe el id
+  // CRUDO del default, así que sin traducir los dos lados un lead con el id del negocio
+  // escrito, mirado desde el negocio, saldría como «en otro producto».
+  //
+  // Probado rompiéndolo (los números, abajo en el comentario del archivo de la tanda):
+  //   · `estaEnProducto` sin el chequeo de las filas            -> este test cae
+  //   · `estaEnProducto` comparando `funnel_id` crudo, sin `casaReal` -> este test cae
+  const DEF = 5;
+  const casaX: Pick<LeadExistente, 'funnel_id' | 'productos'> = { funnel_id: 14, productos: [22] };
+  assert.equal(estaEnProducto(casaX, 14, DEF), true, 'mirando su casa, está');
+  assert.equal(estaEnProducto(casaX, 22, DEF), true, 'mirando un producto donde está AGREGADO, está');
+  assert.equal(estaEnProducto(casaX, 30, DEF), false, 'mirando un producto donde no está, no está');
+  assert.equal(estaEnProducto(casaX, null, DEF), false, 'su casa es otro y no tiene fila del negocio: no está en el negocio');
+
+  // El producto del negocio, cuando NO es la casa, va en la fila con su id real.
+  const agregadoAlNegocio = { funnel_id: 14, productos: [DEF] };
+  assert.equal(estaEnProducto(agregadoAlNegocio, null, DEF), true,
+    'agregado al negocio (fila con el id del default) y mirando el negocio (null): está');
+
+  // El id del default escrito en la casa ES el negocio.
+  assert.equal(estaEnProducto({ funnel_id: DEF }, null, DEF), true,
+    'casa con el id del negocio escrito, mirando el negocio: está (sin `casaReal` diría que no)');
+  assert.equal(estaEnProducto({ funnel_id: null }, DEF, DEF), true,
+    'casa NULL, mirando el negocio por su id: está');
+
+  // Sin saber el default, una fila no puede ser «el negocio»: no se inventa.
+  assert.equal(estaEnProducto({ funnel_id: 14, productos: [DEF] }, null), false,
+    'sin defaultId, «mirando null» no puede matchear una fila: no se adivina qué id es el negocio');
+
+  // Y el inverso con el nombre de siempre.
+  const c = { lead: { id: 9, nombre: 'Ana', email: null, telefono_normalizado: null, funnel_id: 14, productos: [22] } as LeadExistente, motivo: 'email' as const, texto: 'x' };
+  assert.equal(enOtroProducto(c, 22, DEF), false, 'agregado acá: NO está «en otro producto» en el sentido de «no está acá»');
+  assert.equal(enOtroProducto(c, 30, DEF), true);
 });
 
 test('⚠️ el alta devuelve las COINCIDENCIAS, no un string, y sólo una persona autoriza el duplicado', () => {
@@ -183,10 +248,26 @@ test('⚠️ el alta devuelve las COINCIDENCIAS, no un string, y sólo una perso
     'alguien puso `permitirDuplicado` en true por default: el anti-duplicado dejó de existir');
 
   // Y la pantalla ofrece las tres salidas.
+  // ⚠️ La del medio AGREGA desde el 06/10/2026 (mig 0207): «No se debe "Mover" se debe
+  // agregar al otro producto». Probado rompiéndolo: volver a «Moverlo aquí» con
+  // `moverLeadAFunnelAction` -> cae acá.
   const nf = limpio(leer('app/crm/new/NewLeadForm.tsx'));
-  for (const salida of ['Abrir', 'Moverlo aquí', 'Crear igual']) {
+  for (const salida of ['Abrir', 'Agregarlo aquí', 'Crear igual']) {
     assert.ok(nf.includes(salida), `la pantalla del duplicado perdió la salida «${salida}»`);
   }
+  assert.ok(!nf.includes('Moverlo aquí'), 'volvió «Moverlo aquí»: el alta tiene que AGREGAR al producto, nunca mover');
+  assert.ok(!/moverLeadAFunnelAction/.test(nf), 'el alta volvió a MOVER al lead (le cambia la casa y le resetea la etapa)');
+  assert.match(nf, /agregarAProductoAction\(c\.id, destino\)/, '«Agregarlo aquí» dejó de llamar a agregarAProductoAction');
+  // Y aparece sólo si NO está acá — por casa O por fila, decidido en el server. Un
+  // `c.funnelId !==` crudo le ofrecía agregarlo a alguien que ya estaba agregado.
+  assert.match(nf, /enModal && !c\.estaAca &&/, '«Agregarlo aquí» dejó de colgar de `estaAca`');
+  assert.ok(!/c\.funnelId\s*!==/.test(nf), 'la pantalla volvió a decidir con el `funnelId` crudo de la casa');
+  // El choque se decide contra el producto desde donde se da el alta, con la regla pura.
+  const ch = bloque(ac, 'async function choqueDeLead(');
+  assert.match(ch, /choqueDeLead\(e: unknown, funnelActual: number \| null\)/, 'el choque dejó de saber desde qué producto se da el alta');
+  assert.match(ch, /from\('lead_funnel'\)/, 'el choque dejó de leer las FILAS de las coincidencias: un agregado saldría como «no está acá»');
+  assert.match(ch, /estaAca: estaEnProducto\(/, '`estaAca` dejó de salir de `estaEnProducto`');
+  assert.match(ac, /return await choqueDeLead\(e, funnelId \?\? null\);/, 'el alta del tablero dejó de pasarle su producto al choque');
   // «Traer de otro producto» va APARTE del formulario, que es como se pidió.
   // ⚠️ EL BOTÓN NO ABRE NADA EN EL FORM: avisa al padre, que cambia la VISTA del modal.
   //    «Cuando le doy, debe reemplazar al formulario de arriba, con un botón de atrás
@@ -301,19 +382,114 @@ test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la 
   assert.match(mod, /<TraerDeOtroProducto/, 'el modal de importar se escribió su propio traedor otra vez');
   assert.ok(!/function TraerDeProducto\b/.test(mod), 'volvió el traedor propio del importador');
   const tr = limpio(leer('app/crm/TraerDeOtroProducto.tsx'));
-  assert.match(tr, /moverLeadsAFunnelAction/, 'traer de otro producto dejó de mover en lote');
+  // ⚠️ AGREGA EN LOTE, NO MUEVE (06/10/2026, mig 0207). Probado rompiéndolo: volver a
+  // importar `moverLeadsAFunnelAction` -> cae acá (y además no compila: se borró).
+  assert.match(tr, /agregarLoteAProductoAction\(sel, destino\)/, 'traer de otro producto dejó de AGREGAR en lote');
+  assert.ok(!/moverLeadsAFunnelAction/.test(tr), 'traer de otro producto volvió a MOVER: le saca el lead al tablero donde estaba');
+  // Y UN deshacer, que borra sólo lo que este lote creó.
+  assert.match(tr, /quitarLoteDeProductoAction\(agregados, destino\)/, 'el «traer» perdió su deshacer');
   // Las tres cosas que Martín pidió ver en esa pantalla.
   assert.match(tr, /Traer de/, 'se fue el selector de DE QUÉ producto traer');
   assert.match(tr, /Buscar por nombre, email o teléfono/, 'se fue la barra de búsqueda');
   assert.match(tr, /Todas las etapas/, 'se fue el filtro por etapa');
   assert.match(tr, /alternarTodos/, 'se fue la selección múltiple');
   // ⚠️ Y «tildar todos» tilda lo VISIBLE, no lo que hay: con un filtro puesto, llevarse lo
-  //    escondido mueve gente que la persona no vio.
-  assert.match(tr, /const ids = enPantalla\.map/,
+  //    escondido agrega gente que la persona no vio. Y de lo visible, sólo lo TILDABLE: los
+  //    que ya están acá (`yaEsta`) no entran.
+  assert.match(tr, /const tildables = enPantalla\.filter\(\(f\) => !f\.yaEsta\)/,
+    '«tildar todos» dejó de saltear a los que YA están en este producto');
+  assert.match(tr, /const ids = tildables\.map/,
     '«tildar todos» volvió a mirar la lista entera en vez de lo que está en pantalla');
   // El lote dice lo que ENTRÓ y lo que no: «listo» sobre diez cuando entraron seis manda a
   // buscar los cuatro a un tablero donde no están.
+  assert.match(tr, /onTraidos\(agregados\.length, r\.fallaron,/,
+    'el «traer» dejó de reportar cuántos ENTRARON (no cuántos se tildaron) y cuántos fallaron');
+});
+
+test('⚠️ ningún camino del CRM MUEVE un lead de producto: todos AGREGAN (06/10/2026)', () => {
+  // «Le acabo de dar a un lead a "Mover a prueba" y se desapareció del producto principal de
+  // Mauricio. Eso JAMÁS debe pasar... No se debe "Mover" se debe agregar al otro producto»
+  // (Martín). `moverLeadAFunnelAction` y `moverLeadsAFunnelAction` le cambiaban la casa al
+  // lead y lo reseteaban a la etapa de entrada —a un Ganado le pisaban la etapa con la venta
+  // colgando—, y las llamaban CUATRO caminos: «traer de otro producto», la barra de lote, el
+  // «Moverlo aquí» del alta y el desplegable de la ficha. Los cuatro agregan; las dos se
+  // borraron.
+  //
+  // Probado rompiéndolo (números en el comentario del archivo):
+  //   · se devuelve `moverLeadsAFunnelAction` a actions.ts            -> cae
+  //   · un archivo de app/ vuelve a importar `moverLeadAFunnelAction`  -> cae
+  //   · la barra de lote vuelve a preguntar «¿Mover N a X?»            -> cae
+  //   · la barra de lote pierde el deshacer                            -> cae
   const ac = limpio(leer('app/crm/actions.ts'));
-  assert.match(ac, /return \{ movidos, fallaron \};/,
-    'el movimiento en lote volvió a devolver un booleano: no puede decir cuántos entraron');
+  for (const nombre of ['moverLeadsAFunnelAction', 'moverLeadAFunnelAction']) {
+    assert.ok(!new RegExp(`function ${nombre}\\b`).test(ac),
+      `volvió \`${nombre}\`: mover le saca el lead al tablero donde estaba y le resetea la etapa`);
+  }
+
+  // Nadie las LLAMA ni las IMPORTA en código (app/ y lib/, sin comentarios). Se busca la
+  // llamada o el import y no la palabra: la bitácora de /admin/dev cita una adentro de un
+  // string (`app/admin/dev/crm/bitacora.ts`), y eso es historia, no un call site.
+  // El `includes` crudo va PRIMERO a propósito: sacar comentarios de los ~2.000 fuentes del
+  // repo tardaba 34 s; así sólo se limpian los que nombran la palabra.
+  const usa = (src: string, nombre: string) =>
+    new RegExp(`\\b${nombre}\\s*\\(|import\\s*(type\\s*)?\\{[^}]*\\b${nombre}\\b`).test(src);
+  const fuentes = execFileSync('git', ['ls-files', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
+    .split(/\r?\n/).map((f) => f.trim()).filter((f) => /\.(ts|tsx)$/.test(f));
+  assert.ok(fuentes.length > 200, `git ls-files devolvió ${fuentes.length}: esto no corrió en el repo`);
+  for (const nombre of ['moverLeadsAFunnelAction', 'moverLeadAFunnelAction']) {
+    const quienes = fuentes.filter((f) => {
+      const crudo = leer(f);
+      return crudo.includes(nombre) && usa(limpio(crudo), nombre);
+    });
+    assert.deepEqual(quienes, [], `alguien volvió a llamar a \`${nombre}\`: ese camino tiene que AGREGAR (lead-funnel-actions)`);
+  }
+
+  // La barra de lote AGREGA, al toque, con UN deshacer.
+  const lote = limpio(leer('app/crm/AccionesLoteLeads.tsx'));
+  assert.match(lote, /agregarLoteAProductoAction\(ids, funnelId\)/, 'la acción de lote «Producto» dejó de agregar');
+  assert.match(lote, /quitarLoteDeProductoAction\(agregados, funnelId\)/, 'la acción de lote «Producto» perdió su deshacer');
+  assert.match(lote, /deshacer\?: \(\) => Promise<void>/, 'el resultado de lote dejó de poder llevar UN deshacer al padre');
+  assert.ok(!/tipo: 'producto'/.test(lote),
+    'la barra volvió a PREGUNTAR antes de agregar: sumar es reversible y se deshace desde el aviso');
+});
+
+test('⚠️ el traer MARCA a los que ya están en el destino, y el conteo del pop-up ve a los agregados', () => {
+  // Dos lecturas que con el modelo nuevo (mig 0207) contaban de menos:
+  //   · la lista de «traer» no sabía quién YA estaba en el destino (por casa o por fila), y
+  //     «Agregar 12» agregaba 9 sin decir por qué;
+  //   · el conteo por etapa del pop-up contaba con `deriveStageKey` solo, que mira las
+  //     columnas de la CASA: un agregado en una etapa de este tablero no sumaba ahí, y la
+  //     etapa con gente agregada decía 0 — o sea que se quitaba sin preguntar. Lo mismo le
+  //     pasaba a toda etapa PROPIA del cliente, a la que sólo se llega por `pipeline_stage`.
+  //
+  // Probado rompiéndolo (números en el comentario del archivo):
+  //   · `extrasDelEmbudoAction` vuelve a `deriveStageKey(l …)` -> cae
+  //   · `yaEstanEnProducto` deja de leer las filas del destino  -> cae
+  const ac = limpio(leer('app/crm/actions.ts'));
+
+  const regla = bloque(ac, 'function etapaComoTablero(');
+  assert.match(regla, /l\.pipeline_stage && validas\.has\(l\.pipeline_stage\)/,
+    'la etapa del tablero dejó de preferir el override válido (para un agregado, la etapa de su fila)');
+
+  const extras = bloque(ac, 'export async function extrasDelEmbudoAction(');
+  assert.match(extras, /const k = etapaComoTablero\(l, validas\);/,
+    'el conteo por etapa dejó de usar la regla que dibuja la tarjeta: los agregados y las etapas propias vuelven a contar 0');
+  assert.ok(!/deriveStageKey\(/.test(extras), 'el conteo volvió a `deriveStageKey` solo');
+  assert.match(extras, /for \(const st of cfg\.stages\) out\[st\.key\] = 0;/,
+    'el conteo dejó de inicializarse con TODAS las etapas: una vacía vuelve a leerse como «no sé»');
+
+  const ya = bloque(ac, 'async function yaEstanEnProducto(');
+  assert.match(ya, /from\('lead_funnel'\)\.select\('lead_id'\)\.eq\('funnel_id', destinoId\)/,
+    'el «ya está» dejó de mirar las FILAS del destino');
+  assert.match(ya, /casaReal\(/, 'el «ya está» dejó de traducir la casa NULL al producto del negocio');
+
+  const lista = bloque(ac, 'export async function leadsDeProductoAction(');
+  assert.match(lista, /leadsDeProductoAction\(funnelId: number \| null, destino\?: number \| null\)/,
+    'la lista de traer dejó de saber a qué producto se agrega');
+  assert.match(lista, /yaEsta: yaEstan\.has\(l\.id\)/, 'la lista de traer dejó de marcar a los que ya están');
+  assert.match(lista, /etapaComoTablero\(l, validas\)/, 'la lista de traer y el tablero dejaron de ubicar al lead con la misma regla');
+
+  // Y la pantalla manda el destino.
+  const tr = limpio(leer('app/crm/TraerDeOtroProducto.tsx'));
+  assert.match(tr, /leadsDeProductoAction\(pedido, destino\)/, 'la pantalla de traer dejó de mandar el destino');
 });

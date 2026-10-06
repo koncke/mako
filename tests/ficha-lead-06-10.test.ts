@@ -16,7 +16,9 @@ import { esGrabacionDeEntrega } from '../lib/insights-llamada-reparto';
 import { hrefDeWeb, candidatasDeFoto, venceFotoWa, numeroCanonico, fotosVigentes, leadsParaGuardarFoto } from '../lib/contacto-lead';
 import { emojiDe } from './_emoji';
 
-const leer = (p: string) => readFileSync(p, 'utf8');
+// Normalizado: LeadSheet.tsx es CRLF y los demás LF (AGENTS.md: todo test que lee fuente
+// normaliza los saltos ANTES de buscar).
+const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 // ── 6. Entrega ≠ R2 ───────────────────────────────────────────────────────────
@@ -108,10 +110,17 @@ test('la cara va en la CABECERA de las dos puertas, y la tarjeta ya no dibuja ot
 });
 
 // ── 1. El producto en el pop-up, con el NOMBRE del producto ─────────────────────
-// PROBADO ROMPIÉNDOLO: con `nombre: f.nombre` de vuelta en la ruta, cae.
+// ⚠️ DESDE EL MISMO 06/10 EL DESPLEGABLE YA NO MUEVE: dice en cuáles productos está el lead
+// (mig 0207). Ya no recibe `funnelId` ni `productos`: recibe el estado de
+// `useProductosDeLaFicha`, que toma los productos como FOTO. Lo nuevo lo fija
+// tests/lead-funnel-ficha.test.ts; acá sigue lo de este pedido (que esté y en qué orden).
+//
+// PROBADO ROMPIÉNDOLO: con `nombre: f.nombre` de vuelta en la ruta, cae; y sin
+// `foto: productos` en el pop-up, cae (1 fallo, 17 pases; medido el 06/10/2026).
 test('el pop-up tiene el desplegable de producto, y las dos puertas muestran el nombre del PRODUCTO', () => {
   const sheet = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  assert.match(sheet, /<ProductoDelLead leadId=\{lead\.id\} funnelId=\{lead\.funnel_id \?\? null\} productos=\{productos\} rotulo=\{false\} \/>/);
+  assert.match(sheet, /<ProductoDelLead ficha=\{fichaProd\} rotulo=\{false\} \/>/);
+  assert.match(sheet, /useProductosDeLaFicha\(\{\s*leadId: lead\.id, casa: lead\.funnel_id, foto: productos,/, 'el desplegable se dibuja al toque con los productos que la ficha ya tiene');
   assert.ok(sheet.indexOf('<ProductoDelLead') < sheet.indexOf('ariaLabel="Cambiar etapa"'), 'el producto va ANTES de la etapa');
   for (const f of ['app/crm/actions.ts', 'app/crm/[id]/page.tsx']) {
     assert.match(sinComentarios(leer(f)), /nombre: f\.producto\?\.trim\(\) \|\| f\.nombre/, `${f} muestra «Funnel principal»`);
@@ -220,10 +229,11 @@ test('el cron escribe en `foto_auto_url` —nunca en la cara elegida— y está 
 });
 
 // ── La cabecera del pop-up: una fila de controles, no una columna amontonada ────
-// PROBADO ROMPIÉNDOLO: con el rótulo de vuelta (`rotulo` sin `{false}`), cae.
+// PROBADO ROMPIÉNDOLO: con el rótulo de vuelta (`rotulo` sin `{false}`), cae (2 fallos, 16 pases:
+// éste y el del desplegable de arriba; 06/10/2026, con la prop nueva `ficha`).
 test('el pop-up pone producto y etapa en UNA fila debajo de la cabecera, con el aviso a la derecha', () => {
   const s = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  assert.match(s, /productos=\{productos\} rotulo=\{false\} \/>/, 'el producto va con su ícono, sin la palabra suelta');
+  assert.match(s, /<ProductoDelLead ficha=\{fichaProd\} rotulo=\{false\} \/>/, 'el producto va con su ícono, sin la palabra suelta');
   assert.match(s, /<span style=\{\{ marginLeft: 'auto' \}\}>\s*<DatosSinMarcarCard/, 'el aviso va a la derecha de la fila');
   assert.doesNotMatch(s, /flexDirection: 'column', alignItems: 'flex-end', gap: 8 \}\}>\s*<button onClick=\{onClose\}/, 'volvió la columna apilada');
 });

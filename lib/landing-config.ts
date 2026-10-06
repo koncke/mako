@@ -39,10 +39,10 @@ export type LandingConfig = {
    *
    * ⚠️ ES UNA LISTA desde el 06/10/2026, y el lead entra a TODOS. Pedido de
    * Martin: «no solo se deberia poder seleccionar 1 producto, si quiero puedo
-   * seleccionar mas de 1», y la semantica la eligio el: una landing con tres
-   * productos crea TRES fichas de la misma persona, una por embudo, cada una
-   * moviendose por sus etapas. Un lead vive en UN embudo —`leads.funnel_id` es
-   * una columna— asi que «entra a los tres» no puede ser una fila: son tres.
+   * seleccionar mas de 1». Hasta la mig 0207 eso creaba TRES fichas de la misma
+   * persona (un lead vivia en UN embudo); desde el 06/10/2026 el lead es UNO: su
+   * casa es el primer producto y entra a los otros como filas de `lead_funnel`
+   * (`agregarAProducto`), cada una moviendose por las etapas de su tablero.
    *
    * ⚠️ POR QUE CUELGA DE LA URL Y NO DEL TOKEN. El token es UNO por workspace y
    * es determinista —`tokenDeterminista(ws)` es un HMAC de `landing:<ws>` y se

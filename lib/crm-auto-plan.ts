@@ -137,6 +137,36 @@ export type AutoLead = {
   updated_at: string | null;
 };
 
+/**
+ * Cómo llamó el DUEÑO a sus dos reuniones: el rótulo de las etapas `kind: 'reunion'` de
+ * su embudo, en orden (`j1` = la primera, `j2` = la segunda — el mismo índice que
+ * `reunionesDe` + `slotPorIndice` de lib/funnel-etapas.ts le asignan a
+ * `fecha_junta_1/asistio_j1` y `fecha_junta_2/asistio_j2`).
+ *
+ * Existe porque el motor escribía «R1»/«R2» a mano en el texto que lee el dueño (la
+ * descripción, el historial, la confirmación), y un negocio que vende con UNA
+ * «1ª sesión sin costo» no tiene ninguna «R1»: es el nombre interno de una columna
+ * nuestra, y un texto que necesita glosario está en otro idioma (AGENTS.md).
+ *
+ * ⚠️ ES SÓLO TEXTO. Lo que identifica a la reunión sigue siendo `which` ('j1'/'j2'):
+ * de ahí cuelgan la clave anti-loop `T1:j1`/`T1:j2` de mako_confirmaciones, las
+ * columnas `asistio_j1/_j2` y las etapas `noshow_r1/_r2`. Un rótulo NO decide nada:
+ * si se lo usara como clave, renombrar la etapa re-propondría todas las T1 ya
+ * resueltas.
+ */
+export type RotulosReunion = { j1?: string; j2?: string };
+
+/**
+ * El nombre de la reunión `which` como lo escribió el dueño, o «R1»/«R2» si su embudo
+ * no la nombra (rótulo ausente, vacío, o un embudo con una sola reunión que no tiene
+ * `j2`). El fallback es el texto de siempre, así que sin rótulos el resultado es
+ * IDÉNTICO al de antes de que existieran.
+ */
+export function rotuloReunion(which: 'j1' | 'j2', rotulos?: RotulosReunion | null): string {
+  const r = rotulos?.[which]?.trim();
+  return r || (which === 'j1' ? 'R1' : 'R2');
+}
+
 /** Días enteros entre una fecha/ISO pasada y hoy (0 si falta la fecha). */
 function diasEntre(hoyISO: string, isoAntes: string | null): number {
   if (!isoAntes) return 0;
@@ -159,8 +189,18 @@ function diasEntre(hoyISO: string, isoAntes: string | null): number {
  *   · T3 cuelga de `nutricion_manual_deadline`, una fecha que una PERSONA escribió para
  *     ESE lead. Un plazo de etapa encima sería el código contradiciendo una decisión, que
  *     es el modo de falla que esta casa ya pagó.
+ *
+ * `rotulos` es cómo se llaman las reuniones en el embudo del dueño (ver RotulosReunion):
+ * SOLO cambia las palabras de la descripción de T1. Sin él —o con un rótulo vacío— cae a
+ * «R1»/«R2» y el resultado es idéntico al de siempre.
  */
-export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.now(), umbrales: AutoUmbrales = AUTO_UMBRALES): AutoAccion[] {
+export function planLeadAuto(
+  l: AutoLead,
+  hoyISO: string,
+  nowMs: number = Date.now(),
+  umbrales: AutoUmbrales = AUTO_UMBRALES,
+  rotulos?: RotulosReunion | null,
+): AutoAccion[] {
   const out: AutoAccion[] = [];
   const nombre = l.nombre?.trim() || `Lead ${l.id}`;
   const hoy = hoyISO.slice(0, 10);
@@ -175,16 +215,20 @@ export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.n
 
   if (l.estado_lead === 'abierto') {
     // T1 — reunión pasada sin asistencia marcada → revisar Fathom.
+    // El NOMBRE de la reunión sale del embudo del dueño (`rotulos`); `which` sigue siendo
+    // 'j1'/'j2' porque es la llave de todo lo demás (ver RotulosReunion).
     const r1 = l.fecha_junta_1 ?? l.fecha_agenda;
     if (l.asistio_j1 == null && reunionPasada(l.junta_1_at, r1)) {
+      const reunion = rotuloReunion('j1', rotulos);
       out.push({
         regla: 'T1', tipo: 'reunion_check', leadId: l.id, lead: nombre, which: 'j1', resolver: 'fathom', confirmar: true,
-        descripcion: `R1 del ${r1?.slice(0, 10) ?? l.junta_1_at?.slice(0, 10) ?? 'la fecha agendada'} sin marcar → buscar grabación en Fathom: si aparece asistió (marca todo), si no No Show R1`,
+        descripcion: `${reunion} del ${r1?.slice(0, 10) ?? l.junta_1_at?.slice(0, 10) ?? 'la fecha agendada'} sin marcar → buscar grabación en Fathom: si aparece asistió (marca todo), si no No Show ${reunion}`,
       });
     } else if (l.asistio_j1 === true && l.fecha_junta_2 && l.asistio_j2 == null && reunionPasada(l.junta_2_at, l.fecha_junta_2)) {
+      const reunion = rotuloReunion('j2', rotulos);
       out.push({
         regla: 'T1', tipo: 'reunion_check', leadId: l.id, lead: nombre, which: 'j2', resolver: 'fathom', confirmar: true,
-        descripcion: `R2 del ${l.fecha_junta_2.slice(0, 10)} sin marcar → buscar grabación en Fathom: si aparece asistió → Facturando, si no No Show R2`,
+        descripcion: `${reunion} del ${l.fecha_junta_2.slice(0, 10)} sin marcar → buscar grabación en Fathom: si aparece asistió → Facturando, si no No Show ${reunion}`,
       });
     }
 

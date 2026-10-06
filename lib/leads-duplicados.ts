@@ -22,6 +22,10 @@
 // acentos, un apodo) y tiene que poder testearse sin base de datos.
 // =============================================================================
 
+// La casa como id real (NULL = el producto del negocio). Es puro y sin `server-only`, igual
+// que este módulo: se importa en vez de reescribir la misma traducción por segunda vez.
+import { casaReal } from './lead-funnel-reglas';
+
 /** Los datos que alcanzan para preguntar «¿este ya está?». */
 export type CandidatoLead = {
   nombre?: string | null;
@@ -50,6 +54,15 @@ export type LeadExistente = {
    * sin que el aviso mejore para ellos.
    */
   funnel_id?: number | null;
+  /**
+   * Los OTROS productos donde está, por id real: las filas de `lead_funnel` (mig 0207).
+   * La casa NO va acá (nunca hay fila para la casa). No es una columna de `leads`: lo pega
+   * quien lo sepa leer (el choque del alta, `choqueDeLead` en app/crm/actions.ts).
+   *
+   * ⚠️ Ausente es «no sé», y se trata como «sólo su casa»: lo peor que pasa es ofrecer
+   * agregarlo a un producto donde ya está, y agregar ahí no escribe nada.
+   */
+  productos?: number[];
 };
 
 /**
@@ -66,17 +79,41 @@ export type Coincidencia = {
 };
 
 /**
- * ¿La coincidencia está en OTRO producto que el que se está mirando?
+ * ¿El lead YA está en el producto que se está mirando? Por su CASA (`funnel_id`) o por una
+ * fila de `lead_funnel` (mig 0207). Es la pregunta que decide si el alta ofrece «Agregarlo
+ * aquí»: «No se debe "Mover" se debe agregar al otro producto» (Martín, 06/10/2026), así
+ * que estar en OTRO producto ya no excluye estar en éste.
  *
  * ⚠️ `null` Y EL ID DEL EMBUDO POR DEFECTO SON EL MISMO LUGAR. Medido contra producción el
  * 30/09/2026: `leads.funnel_id` está en NULL en las 1.530 filas de los 6 workspaces, y el
  * tablero del embudo del negocio los lista justamente con `is('funnel_id', null)`. Comparar
- * los dos números crudos diría «está en otro producto» sobre cada lead del negocio.
+ * los dos números crudos diría «está en otro producto» sobre cada lead del negocio. Y al
+ * revés: `moverLeadDeFunnel` escribe el id crudo (incluido el del default), así que sin
+ * `defaultId` un lead con el id del negocio escrito, mirado desde el negocio, saldría como
+ * «en otro producto». Con `defaultId` los dos lados se traducen con `casaReal`.
  */
-export function enOtroProducto(c: Coincidencia, funnelActual: number | null | undefined): boolean {
-  const suyo = c.lead.funnel_id ?? null;
-  const mirando = funnelActual ?? null;
-  return suyo !== mirando;
+export function estaEnProducto(
+  lead: Pick<LeadExistente, 'funnel_id' | 'productos'>,
+  funnelActual: number | null | undefined,
+  defaultId?: number | null,
+): boolean {
+  const def = defaultId ?? null;
+  const casa = casaReal(lead.funnel_id ?? null, def);
+  const mirando = casaReal(funnelActual ?? null, def);
+  if (casa === mirando) return true;
+  // Una fila nombra SIEMPRE un id real: el producto del negocio, cuando no es la casa, va
+  // con su id (la FK no admite NULL). Con `mirando` sin resolver (no se supo el default)
+  // ninguna fila puede ser «éste».
+  return mirando != null && (lead.productos ?? []).some((id) => Number(id) === mirando);
+}
+
+/**
+ * ¿La coincidencia NO está en el producto que se está mirando? El inverso de
+ * `estaEnProducto`, con el nombre que ya tenía. «Está en otro producto» quiere decir «no está
+ * en ÉSTE»: puede estar en éste y en otros a la vez, y entonces da `false`.
+ */
+export function enOtroProducto(c: Coincidencia, funnelActual: number | null | undefined, defaultId?: number | null): boolean {
+  return !estaEnProducto(c.lead, funnelActual, defaultId);
 }
 
 const limpio = (s: unknown): string => (typeof s === 'string' ? s.trim() : '');

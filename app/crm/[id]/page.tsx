@@ -95,6 +95,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // Los productos para el desplegable de la ficha. Sólo el id, el nombre y si es el del
   // negocio: lo demás no lo necesita la pantalla y bajaría la config entera de cada embudo
   // al navegador.
+  // ⚠️ ES LA FOTO, no la respuesta (06/10/2026, mig 0207): con esto el botón se dibuja al
+  // toque con el nombre correcto, y EN CUÁLES está el lead —con la etapa de cada uno— lo
+  // pide la ficha misma (`useProductosDeLaFicha` → `productosDeLaFichaAction`). Antes el
+  // desplegable recibía además `funnelId` y movía; ya no recibe ni una cosa ni la otra.
   // ⚠️ EL NOMBRE DEL PRODUCTO, no el del embudo: el desplegable decía «Funnel principal», que
   // es el nombre que puso la migración y el mismo en todos los workspaces (captura de Martín,
   // 06/10/2026). Mismo criterio que el selector del tablero.

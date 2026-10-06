@@ -35,6 +35,9 @@ import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
 import { calificadoSeDescarta } from './calificado-reunion';
+// Qué deriva `updateLead` del desenlace (estado ↔ cerro, motivo, venta) y CUÁNDO:
+// puro y con test (tests/updatelead-no-borra-venta.test.ts).
+import { desenlaceAlGuardar } from './lead-desenlace';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
 import { juntaACancelar } from './recordatorio-lead';
 import type { Stage } from './pipeline';
@@ -42,7 +45,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
 // LEAD (no el del negocio): lo que valida un movimiento son los requisitos del
 // recorrido de ESE lead.
-import { getPipelineStagesDeLead } from './funnels';
+import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
@@ -86,6 +89,13 @@ export type Lead = {
    * a recibir `undefined` — que no es lo mismo que `null`.
    */
   funnel_id?: number | null;
+  /**
+   * NO es una columna: lo pone `listLeadsDeFunnel` cuando el lead está en ese tablero como
+   * AGREGADO (una fila de `lead_funnel`, mig 0207) y no porque sea su casa. Trae el id del
+   * producto, y en ese caso `pipeline_stage` ya viene reemplazado por la etapa de la fila.
+   * Mover su tarjeta escribe la fila, nunca la etapa de su casa.
+   */
+  de_fila?: number | null;
   email: string | null;
   telefono: string | null;
   empresa: string | null;
@@ -360,7 +370,42 @@ export async function listLeadsDeFunnel(funnelId: number | null): Promise<Lead[]
     orden: 'id',
     filtros: (q) => (funnelId == null ? q.is('funnel_id', null) : q.eq('funnel_id', funnelId)),
   });
-  return filas.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+  // ⚠️ Y LOS AGREGADOS (mig 0207): los leads cuya casa es OTRO producto pero que están acá por
+  // una fila de `lead_funnel`. Van con la etapa de ESA fila puesta en `pipeline_stage` y la
+  // marca `de_fila`, para que el tablero los dibuje en su columna de acá y mover su tarjeta
+  // escriba la fila y no la casa. El producto del negocio, en la tabla, va con su id.
+  const agregados = await agregadosDelTablero(supabase, funnelId, new Set(filas.map((l) => l.id)));
+  return [...filas, ...agregados].sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+}
+
+/**
+ * Los leads que están en este tablero por una fila de `lead_funnel` (no por su casa), con la
+ * etapa de la fila. Nunca tira: si la tabla no está (deploy sin la 0207) o la lectura falla,
+ * el tablero muestra lo de siempre — de menos, nunca algo inventado.
+ */
+async function agregadosDelTablero(supabase: SupabaseClient, funnelId: number | null, yaEstan: Set<number>): Promise<Lead[]> {
+  try {
+    const id = funnelId ?? (await idDelFunnelDefault());
+    if (id == null) return [];
+    const { data, error } = await supabase.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', id);
+    if (error) throw new Error(error.message);
+    const etapa = new Map<number, string>();
+    for (const f of (data ?? []) as Array<{ lead_id: number | string; etapa: string }>) {
+      const lid = Number(f.lead_id);
+      if (!yaEstan.has(lid)) etapa.set(lid, f.etapa);
+    }
+    if (!etapa.size) return [];
+    const ids = [...etapa.keys()];
+    const leads: Lead[] = [];
+    for (let i = 0; i < ids.length; i += 200) {
+      const tanda = await leerTodo<Lead>(supabase, 'leads', LISTA_COLS, { orden: 'id', filtros: (q) => q.in('id', ids.slice(i, i + 200)) });
+      leads.push(...tanda);
+    }
+    return leads.map((l) => ({ ...l, pipeline_stage: etapa.get(l.id) ?? l.pipeline_stage, de_fila: id }));
+  } catch (e) {
+    console.warn('[leads] no pude leer los agregados del tablero:', e instanceof Error ? e.message : e);
+    return [];
+  }
 }
 /**
  * CUÁNTOS leads tiene un funnel. Sin traerlos.
@@ -380,7 +425,13 @@ export async function contarLeadsDeFunnel(funnelId: number | null): Promise<numb
   // ⚠️ Un error NO es «cero leads». Devolver 0 acá haría que la pantalla dijera «este
   // embudo no tiene leads» sobre uno lleno, y con eso alguien lo archiva tranquilo.
   if (error) throw new Error('No se pudo contar los leads del embudo: ' + error.message);
-  return count ?? 0;
+  // Y los AGREGADOS (mig 0207): también están en ese tablero. Contarlos de menos haría que un
+  // embudo con gente pareciera vacío justo antes de archivarlo.
+  const id = funnelId ?? (await idDelFunnelDefault());
+  if (id == null) return count ?? 0;
+  const ag = await supabase.from('lead_funnel').select('id', { count: 'exact', head: true }).eq('funnel_id', id);
+  if (ag.error) throw new Error('No se pudo contar los leads agregados al embudo: ' + ag.error.message);
+  return (count ?? 0) + (ag.count ?? 0);
 }
 async function _listLeads(): Promise<Lead[]> {
   const supabase = (await getTenantDb());
@@ -814,8 +865,15 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
  * - Si fecha_junta_1 es null → asistio_j1 se fuerza a null.
  * - Si consta que NO asistió a una R1 con fecha → calificado se fuerza a null.
  *   Sin reunión, «calificado» se conserva: ver lib/calificado-reunion.ts.
- * - Si cerro != true → monto_cierre_usd y fecha_cierre se fuerzan a null.
- * - Si cerro = true sin monto → error.
+ * - El desenlace (estado_lead ↔ cerro, motivo y venta) lo decide
+ *   lib/lead-desenlace.ts, y SÓLO si el caller tocó un campo que lo decide:
+ *   · con estado_lead / cerro / monto_cierre_usd / fecha_cierre: si cerro != true,
+ *     monto_cierre_usd y fecha_cierre se fuerzan a null; si cerro = true, el monto
+ *     (opcional) tiene que ser positivo y la fecha de cierre se completa con hoy.
+ *   · con estado_lead / cerro / motivo_perdida: el motivo sólo sobrevive en
+ *     perdido o descalificado.
+ *   Corregir cualquier otro campo (una asistencia, la fecha de una reunión) no
+ *   toca la venta.
  */
 export async function updateLead(
   id: number,
@@ -831,37 +889,21 @@ export async function updateLead(
   const merged = { ...actual, ...input };
 
   // ───────────────────────────────────────────────────────────────────
-  // Sincronización estado_lead <-> cerro (Fase 8)
+  // El desenlace: estado_lead <-> cerro, motivo y venta (Fase 8)
   // ───────────────────────────────────────────────────────────────────
   // estado_lead es la fuente de verdad del desenlace; cerro se deriva para no
-  // romper las queries de Revenue que todavía leen cerro.
-  //   ganado        -> cerro = true
-  //   perdido/descal -> cerro = false
-  //   abierto       -> cerro = null
-  // Si el caller NO mandó estado_lead pero sí cerro (compat con flujos viejos),
-  // derivamos el estado desde cerro.
-  if (input.estado_lead !== undefined) {
-    if (merged.estado_lead === 'ganado') merged.cerro = true;
-    // perdido / descalificado / no_responde: desenlaces que NO cerraron venta.
-    else if (
-      merged.estado_lead === 'perdido' ||
-      merged.estado_lead === 'descalificado' ||
-      merged.estado_lead === 'no_responde'
-    )
-      merged.cerro = false;
-    else merged.cerro = null; // abierto
-  } else if (input.cerro !== undefined) {
-    if (merged.cerro === true) merged.estado_lead = 'ganado';
-    else if (merged.cerro === false) {
-      // cerro=false puede ser perdido o descalificado; conservamos descalificado
-      // si ya estaba, si no, default perdido.
-      merged.estado_lead = actual.estado_lead === 'descalificado' ? 'descalificado' : 'perdido';
-    } else merged.estado_lead = 'abierto';
-  }
-  // motivo solo tiene sentido en perdido/descalificado
-  if (merged.estado_lead !== 'perdido' && merged.estado_lead !== 'descalificado') {
-    merged.motivo_perdida = null;
-  }
+  // romper las queries de Revenue que todavía leen cerro. La regla entera vive en
+  // un módulo puro con test (lib/lead-desenlace.ts) y se aplica acá UNA vez.
+  //
+  // ⚠️ CADA COERCIÓN SE APLICA SÓLO SI EL CALLER TOCÓ UN CAMPO QUE LA DECIDE. Antes
+  // `cerro != true` vaciaba monto y fecha de cierre en CADA guardado: corregirle
+  // «asistió a R1» a un lead en «Facturando» (venta cargada directo por
+  // lib/pagos.ts o por el editor del deal, con `cerro` en null) le borraba la venta
+  // en silencio, y lo mismo el «Deshacer» del historial. Un movimiento de etapa
+  // (`setPipelineStage`) manda siempre `estado_lead`, así que ése sí la sigue
+  // limpiando al pasar un Ganado a una etapa abierta. Puede tirar
+  // («monto_cierre_usd debe ser positivo»), y tira ANTES de escribir nada.
+  Object.assign(merged, desenlaceAlGuardar(actual, input, new Date().toISOString().slice(0, 10)));
 
   // Aplicar reglas de coherencia
   if (!merged.fecha_junta_1) {
@@ -874,22 +916,6 @@ export async function updateLead(
   // que la ficha y el canal de MaKo no escriban su propia copia.
   if (calificadoSeDescarta(merged)) {
     merged.calificado = null;
-  }
-  if (merged.cerro !== true) {
-    merged.monto_cierre_usd = null;
-    merged.fecha_cierre = null;
-  } else {
-    // cerro = true. Monto OPCIONAL (se puede definir luego con el plan de pagos).
-    // Así mover una card a "Ganado" siempre sincroniza el estado; antes, sin
-    // monto, lanzaba error y la card quedaba en Ganado con estado != ganado.
-    if (merged.monto_cierre_usd != null && merged.monto_cierre_usd <= 0) {
-      throw new Error('monto_cierre_usd debe ser positivo');
-    }
-    // fecha_cierre opcional pero recomendada — si no viene, usar fecha actual
-    if (!merged.fecha_cierre) {
-      const hoy = new Date().toISOString().slice(0, 10);
-      merged.fecha_cierre = hoy;
-    }
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -2364,7 +2390,7 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
  * hay sesión, y si no MaKo — porque entonces lo movió el sistema (cron, webhook,
  * WhatsApp). Nunca lanza: en un cron no hay cookies que leer.
  */
-async function autorDelMovimiento(explicito?: string): Promise<string> {
+export async function autorDelMovimiento(explicito?: string): Promise<string> {
   if (explicito?.trim()) return explicito.trim();
   try {
     const s = await getUsuarioActual();

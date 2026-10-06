@@ -23,7 +23,7 @@ import { PanelActivacion } from '../_components/PanelActivacion';
 import { tabActivacion } from '@/lib/tab-activacion';
 import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
-import { mapToCrmLead } from './crm-map';
+import { mapToCrmLead, etapasDelTablero } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
 import { leerOrdenManual } from '@/lib/crm-orden';
 
@@ -174,11 +174,19 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   //
   // Se acotan acá y no en las consultas porque las dos las usan otras pantallas que SÍ
   // quieren el negocio entero.
-  const idsDelFunnel = new Set(leads.map((l) => l.id));
-  juntasRaw = juntasRaw.filter((j) => idsDelFunnel.has(j.lead_id));
-  pendientesRaw = pendientesRaw.filter((p) => idsDelFunnel.has(p.lead_id));
+  //
+  // ⚠️ Y SE ACOTAN A LOS LEADS CUYA CASA ES ESTE TABLERO, no a todas las tarjetas. Desde la
+  // mig 0207 el tablero dibuja también a los AGREGADOS (`de_fila`: están acá por una fila de
+  // `lead_funnel`, su casa es otro producto). Las reuniones y los «datos sin marcar» salen de
+  // `fecha_junta_*`, `asistio_j*`, `pipeline_stage` y el plazo de la nutrición manual, que son
+  // el recorrido de la CASA: mostrarlos acá ofrecería marcar la asistencia o resolver la
+  // nutrición de otro producto desde este tablero, y «Solucionar» escribiría la casa.
+  const idsDeLaCasa = new Set(leads.filter((l) => l.de_fila == null).map((l) => l.id));
+  juntasRaw = juntasRaw.filter((j) => idsDeLaCasa.has(j.lead_id));
+  pendientesRaw = pendientesRaw.filter((p) => idsDeLaCasa.has(p.lead_id));
 
-  const validStageKeys = new Set(stages.map((s) => s.key));
+  // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
+  const validStageKeys = etapasDelTablero(stages);
   const [[anunciosObj, adMap], ordenManual] = await Promise.all([pAtrib, pOrden]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));

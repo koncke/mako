@@ -38,8 +38,13 @@
 //     gesto que el Kanban ya ofrece de a uno arrastrando.
 //   · CLOSER y SETTER. Es el dato que mas se repite en un lote de leads y ya tenia
 //     su camino en lote (`BulkHigiene`), pero SOLO para rellenar vacios.
-//   · PRODUCTO. `moverLeadsAFunnelAction` ya existia y era batch de nacimiento; lo
-//     unico que le faltaba era desde donde llamarla sin abrir otra pantalla.
+//   · PRODUCTO. ⚠️ AGREGA, NO MUEVE (desde el 06/10/2026). Nacio llamando a
+//     `moverLeadsAFunnelAction`, que le cambiaba la casa a cada lead y lo sacaba del
+//     tablero donde estaba; Martin: «No se debe "Mover" se debe agregar al otro
+//     producto». Ahora es `agregarLoteAProductoAction` (mig 0207): una fila por lead
+//     en la etapa de entrada de ese producto, la casa intacta. Y como sumar no saca a
+//     nadie de ningun lado, actua AL TOQUE y deja UN Deshacer para el lote entero
+//     (el molde de Customer Success), que borra solo las filas que este lote creo.
 //
 // Y una que se dejo AFUERA a proposito: meter los seleccionados en una secuencia
 // de nutricion. Esa es la unica de la lista que MANDA MENSAJES, y la linea de
@@ -47,11 +52,12 @@
 // API (ver AGENTS.md). Un boton que dispara N conversaciones de una no es una
 // accion en lote mas — necesita su propia pantalla, con el ritmo a la vista.
 //
-// ⚠️ TODA ACCION PREGUNTA ANTES, NOMBRANDO EL NUMERO. No es ceremonia: la barra
-// escribe sobre filas que pueden no estar todas a la vista (en el Kanban se tilda
-// en cuatro columnas y se scrollea), y ninguna de las cuatro tiene deshacer en
-// lote. Es el molde que ya usa `BulkHigiene` en el propio CrmBoard («Asignar
-// Setter "Mauricio" a 12 leads»).
+// ⚠️ TODA ACCION QUE NO SE DESHACE PREGUNTA ANTES, NOMBRANDO EL NUMERO. No es
+// ceremonia: la barra escribe sobre filas que pueden no estar todas a la vista (en el
+// Kanban se tilda en cuatro columnas y se scrollea), y etapa, closer/setter y borrar
+// no tienen deshacer en lote. Es el molde que ya usa `BulkHigiene` en el propio
+// CrmBoard («Asignar Setter "Mauricio" a 12 leads»). PRODUCTO es la excepcion porque
+// SI tiene deshacer (ver arriba): preguntar ahi seria friccion sobre algo reversible.
 // =============================================================================
 
 import { useState, useTransition } from 'react';
@@ -63,9 +69,9 @@ import type { MiembroEquipo } from './actions';
 import {
   moverLeadsDeEtapaAction,
   eliminarLeadsAction,
-  moverLeadsAFunnelAction,
   bulkFillLeadFieldAction,
 } from './actions';
+import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 
 /** Lo minimo que la barra necesita de un lead. No recibe el `CrmLead` entero a
  *  proposito: lo unico que mira es a quien va a escribirle y que tiene puesto. */
@@ -80,7 +86,16 @@ export type LeadDeLote = {
 export type ProductoDeLote = { id: number; nombre: string; esDefault: boolean };
 
 /** Lo que una accion le deja al padre para que lo cante en un toast. */
-export type ResultadoLote = { texto: string; hubo: boolean };
+export type ResultadoLote = {
+  texto: string;
+  hubo: boolean;
+  /**
+   * UN deshacer para el lote entero, cuando la accion lo tiene (hoy: agregar a un
+   * producto). El padre lo cuelga del «Deshacer» de su aviso: la barra se desmonta al
+   * limpiar la seleccion, asi que un aviso propio moriria con ella. Tira si no pudo.
+   */
+  deshacer?: () => Promise<void>;
+};
 
 const btnIcono: CSSProperties = { cursor: 'pointer' };
 const estiloDrop: CSSProperties = { height: 34, padding: '0 10px', borderRadius: 9, gap: 5, fontSize: 12.5 };
@@ -118,7 +133,6 @@ function IconoTacho() {
 type Pendiente =
   | { tipo: 'etapa'; stage: Stage }
   | { tipo: 'persona'; campo: 'closer' | 'setter'; valor: string; pisa: number }
-  | { tipo: 'producto'; funnelId: number | null; nombre: string }
   | { tipo: 'borrar' };
 
 export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo }: {
@@ -146,15 +160,49 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   // igual que rellenarle el hueco a ocho que no.
   const conValor = (campo: 'closer' | 'setter') => elegidos.filter((l) => (l[campo] ?? '').trim()).length;
 
-  // Los productos a los que se puede mover: todos menos el que se esta mirando.
-  // `esDefault` viaja como `null`, que es como el embudo del negocio se escribe en
-  // `leads.funnel_id` (ver lib/landing-funnel.ts: escribirlo con su id lo saca del
-  // unico tablero que el cliente mira).
+  // Los productos a los que se puede agregar: todos menos el que se esta mirando (ahi
+  // ya estan todos los tildados). `esDefault` viaja como `null`, que es como las
+  // actions de lead-funnel nombran al producto del negocio (lo traducen a su id).
   const destinos = productos
     .map((p) => ({ fid: p.esDefault ? null : p.id, nombre: p.nombre }))
     .filter((p) => p.fid !== funnelActivo);
 
   const cerrar = () => setPide(null);
+
+  /**
+   * Agregar los tildados a un producto, AL TOQUE. Los que ya estaban ahi (por casa o por
+   * fila) los saltea el server y se cuentan aparte: «12 agregados» sobre 15 tildados sin
+   * decir por que se leeria como tres fallos.
+   */
+  const agregarA = (funnelId: number | null, nombre: string) => {
+    start(async () => {
+      try {
+        const r = await agregarLoteAProductoAction(ids, funnelId);
+        if (!r.ok) {
+          onListo({ texto: r.error, hubo: false });
+        } else {
+          const n = r.agregados.length;
+          const yaEstaban = Math.max(0, ids.length - n - r.fallaron);
+          const ya = yaEstaban ? ` · ${yaEstaban} ya ${yaEstaban === 1 ? 'estaba' : 'estaban'}` : '';
+          const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
+          const agregados = r.agregados;
+          onListo({
+            texto: n ? `${n} a ${nombre}${ya}${mal}` : `Ya estaban en ${nombre}${mal}`,
+            hubo: n > 0,
+            deshacer: n
+              ? async () => {
+                const q = await quitarLoteDeProductoAction(agregados, funnelId);
+                if (!q.ok) throw new Error(q.error);
+              }
+              : undefined,
+          });
+        }
+      } catch (e) {
+        onListo({ texto: e instanceof Error ? e.message : 'No se pudo', hubo: false });
+      }
+      onLimpiar();
+    });
+  };
 
   const ejecutar = () => {
     if (!pide) return;
@@ -171,10 +219,6 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           const r = await bulkFillLeadFieldAction(pide.campo, pide.valor, ids, true);
           const campo = pide.campo === 'closer' ? 'Closer' : 'Setter';
           onListo({ texto: `${campo} «${pide.valor}» en ${r.updated}`, hubo: r.updated > 0 });
-        } else if (pide.tipo === 'producto') {
-          const r = await moverLeadsAFunnelAction(ids, pide.funnelId);
-          const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
-          onListo({ texto: `${r.movidos} a ${pide.nombre}${mal}`, hubo: r.movidos > 0 });
         } else {
           const r = await eliminarLeadsAction(ids);
           const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
@@ -230,16 +274,18 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               onChange={(v) => { if (v) setPide({ tipo: 'persona', campo, valor: v, pisa: conValor(campo) }); }} />
           ))}
 
-          {/* Mover de producto: solo si hay OTRO adonde ir. */}
+          {/* Agregar a otro producto: solo si hay OTRO adonde ir. Sin pregunta: suma y
+              se deshace desde el aviso. */}
           {destinos.length > 0 && (
             <Dropdown
-              value="" resetAfterSelect placeholder="Producto" ariaLabel={`Mover ${cuantos} a otro producto`}
+              value="" resetAfterSelect placeholder="Producto" ariaLabel={`Agregar ${cuantos} a otro producto`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
               buttonStyle={estiloDrop}
               options={destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre }))}
               onChange={(v) => {
+                if (corriendo) return;
                 const fid = v === 'default' ? null : Number(v);
-                setPide({ tipo: 'producto', funnelId: fid, nombre: destinos.find((p) => p.fid === fid)?.nombre ?? 'otro producto' });
+                agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro producto');
               }} />
           )}
         </div>
@@ -273,13 +319,6 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             ? `${pide.pisa} ${pide.pisa === 1 ? 'ya tenía otro y se reemplaza' : 'ya tenían otro y se reemplazan'}.`
             : 'Ninguno lo tiene puesto todavía.'}
           confirmLabel="Asignar" tone="primary" loading={corriendo}
-          onConfirm={ejecutar} onCancel={cerrar} />
-      )}
-      {pide?.tipo === 'producto' && (
-        <Confirm
-          title={`¿Mover ${cuantos} a ${pide.nombre}?`}
-          message="Salen de este tablero y aparecen en el de ese producto."
-          confirmLabel="Mover" tone="primary" loading={corriendo}
           onConfirm={ejecutar} onCancel={cerrar} />
       )}
       {pide?.tipo === 'borrar' && (

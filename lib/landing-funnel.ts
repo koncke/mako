@@ -61,8 +61,10 @@ export async function productosAsignables(): Promise<ProductoAsignable[]> {
 /**
  * A que embudos entra un lead que llego por ESTA pagina.
  *
- * ⚠️ DEVUELVE UNA LISTA Y NUNCA ESTA VACIA: quien llama crea UNA FICHA POR
- * ELEMENTO. `[null]` es «solo el del negocio», que es donde caen hoy TODOS los
+ * ⚠️ DEVUELVE UNA LISTA Y NUNCA ESTA VACIA: quien llama crea el lead con el PRIMER
+ * elemento (su casa, escrita con `casaParaEscribir`) y AGREGA el resto con
+ * `agregarAProducto` (lib/lead-funnel.ts, mig 0207). Hasta el 06/10/2026 creaba una
+ * ficha por elemento. `[null]` es «solo el del negocio», que es donde caen hoy TODOS los
  * leads de landing — y son cuatro caminos a `[null]`, los cuatro correctos:
  *   · la pagina no tiene productos asignados (el caso de todos los clientes de hoy);
  *   · los embudos asignados ya no existen o se archivaron;
@@ -101,7 +103,7 @@ export async function funnelsDeLanding(ws: number, pagina: string | null): Promi
         // de decir lo mismo y solo una la encuentra el CRM.
         const valor = elegido.esDefault ? null : id;
         // Sin repetidos: con el default elegido DOS veces (su id y, mañana, otra
-        // forma de nombrarlo) saldrian dos fichas identicas en el mismo tablero.
+        // forma de nombrarlo) el segundo seria un `agregarAProducto` que no hace nada.
         if (!out.includes(valor)) out.push(valor);
       }
       // Todos los asignados estaban muertos: no es «sin producto» por eleccion de

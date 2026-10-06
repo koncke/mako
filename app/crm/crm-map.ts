@@ -10,8 +10,28 @@ import type { Lead } from '@/lib/leads';
 import { origenLista, SIN_ORIGEN_LISTA } from './origen-lead';
 import type { CrmLead } from './CrmBoard';
 import { origenAds, type Anuncio } from '@/lib/campana-atribucion';
+import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 
 export type VisitasMap = Map<string, { total_visitas: number; dias_distintos: number }>;
+
+/**
+ * Las columnas de ESTE tablero, y cuál es la de ENTRADA.
+ *
+ * Es el `Set` de claves de siempre (el mapper sólo pregunta `.has`) con un dato más: por qué
+ * columna se entra a este producto. Lo necesitan los AGREGADOS (mig 0207, `Lead.de_fila`):
+ * si la etapa de su fila ya no existe acá, caen a la entrada — no a la etapa derivada, que
+ * sale del recorrido de su CASA (ver `mapToCrmLead`).
+ *
+ * Viaja pegado al `Set` y no como un quinto parámetro para que la página siga llamando al
+ * mapper con la misma firma; lo arma ESTA función, así que la entrada sale siempre de
+ * `etapaDeEntrada` (lib/lead-funnel-reglas.ts), la misma regla con la que `agregarAProducto`
+ * elige la etapa de una fila nueva.
+ */
+export type EtapasDelTablero = Set<string> & { entrada?: string | null };
+
+export function etapasDelTablero(stages: readonly { key: string; kind?: string | null }[]): EtapasDelTablero {
+  return Object.assign(new Set(stages.map((s) => s.key)), { entrada: etapaDeEntrada(stages) });
+}
 
 
 export function origenLegible(lead: Lead, campMap: Record<string, string>): string {
@@ -52,20 +72,45 @@ export function calendlyDe(l: Lead): { q: string; a: string }[] {
 export function mapToCrmLead(
   l: Lead,
   campMap: Record<string, string>,
-  validStageKeys?: Set<string>,
+  /** Las columnas del tablero. Con `etapasDelTablero(stages)` trae además la de entrada. */
+  validStageKeys?: Set<string> | EtapasDelTablero,
   /** Para el filtro por campaña y por creativo. Sin esto, los cuatro campos van en null. */
   atrib?: { anuncios: Map<string, Anuncio>; adMap: Record<string, string> },
 ): CrmLead {
   // Etapa efectiva: el override manual SOLO si sigue existiendo en el funnel
   // actual; si el override quedó huérfano (etapa eliminada del funnel), se ignora
-  // y se usa la etapa derivada de los campos del lead.
+  // y se usa la etapa derivada de los campos del lead — salvo un AGREGADO, abajo.
   const override = l.pipeline_stage;
-  const derived = deriveStageKey(l);
   const huerfano = !!override && !!validStageKeys && !validStageKeys.has(override);
+  /**
+   * ⚠️ UN AGREGADO (`de_fila`, mig 0207) NO SE DERIVA. Está en este tablero por una fila de
+   * `lead_funnel` y su `pipeline_stage` ya viene reemplazado por la etapa de ESA fila
+   * (`listLeadsDeFunnel`). La derivada sale de SUS campos —asistencias, fechas de reunión,
+   * `estado_lead`—, que son el recorrido de su CASA: un lead ganado en el producto principal
+   * y agregado ayer a otro se dibujaría acá en «Ganado» con el avance de otro producto, que
+   * es exactamente lo que el modelo de varios productos vino a separar.
+   *
+   * Si la etapa de su fila ya no existe en este embudo, cae a la ETAPA DE ENTRADA, que es por
+   * donde se entra a un producto (la misma regla que eligió la etapa al agregarlo). Y el dato
+   * no se borra: `stageFuera` lo sigue diciendo en la tarjeta, como para cualquier huérfano.
+   */
+  const deFila = l.de_fila != null ? Number(l.de_fila) : null;
+  // Con un `Set` pelado (sin `etapasDelTablero`) la entrada es la primera columna, que es
+  // también lo que `etapaDeEntrada` contesta cuando ninguna se declara de entrada.
+  const entrada = (validStageKeys as EtapasDelTablero | undefined)?.entrada
+    ?? (validStageKeys ? validStageKeys.values().next().value : undefined)
+    ?? null;
+  const derived = deFila == null
+    ? deriveStageKey(l)
+    : (override && !huerfano ? override : (entrada ?? override ?? ''));
   const stage = override && (!validStageKeys || validStageKeys.has(override)) ? override : derived;
   return {
     id: l.id,
-    derivedStage: derived,   // posición REAL en el funnel (ignora override manual) — la usa el worklist
+    ...(deFila != null ? { deFila } : {}),
+    // Posición REAL en el funnel (ignora override manual) — la usa el worklist. Para un
+    // agregado es la de su fila: el worklist es del recorrido de la casa y no lo mira
+    // (app/crm/page.tsx lo acota), y una derivada acá sería el avance de otro producto.
+    derivedStage: derived,
     /**
      * La etapa que el lead DICE tener y que este funnel ya no contiene.
      *

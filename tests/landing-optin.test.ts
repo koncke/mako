@@ -1685,6 +1685,8 @@ test('cerrar la ventana de la prueba la TERMINA, y avisa', () => {
 
 // PROBADO ROMPIENDOLO: borrando la linea `funnel_id: funnelDeLaLanding,` del
 // `createLead`, este archivo pasa de **pass 66 / fail 0** a **pass 65 / fail 1**.
+// Re-medido el 06/10/2026, ya con el alta única y la casa por `casaParaEscribir`
+// (la línea hoy es `funnel_id: funnelDelLead,`): **66 / 0 → 65 / 1**.
 test('el lead NACE en el embudo de su landing', () => {
   const src = RUTA();
   // ⚠️ Se mira el bloque del `createLead`, no el archivo: la palabra `funnel`
@@ -1708,43 +1710,79 @@ test('el lead NACE en el embudo de su landing', () => {
   assert.ok(/porCampana\.asignada \? \[porCampana\.funnelId\] : funnelesDeLaLanding/.test(src), 'la campaña asignada manda, y manda a UN producto; sin asignar decide la landing');
 });
 
-// PROBADO ROMPIENDOLO: borrando `permitirDuplicado: true` del createLead de las
-// fichas extra, este archivo pasa de **pass 67 / fail 0** a **pass 66 / fail 1**.
-test('⚠️ con VARIOS productos nace UNA FICHA POR PRODUCTO', () => {
-  // Semántica elegida por Martín el 06/10/2026: «el lead entra a TODOS los
-  // productos». Un lead vive en UN embudo —`leads.funnel_id` es una columna— así
-  // que la misma persona en tres productos son TRES fichas, cada una moviéndose
-  // por sus etapas.
-  const src = RUTA();
-  assert.ok(/for \(const f of funnelesDelLead\.slice\(1\)\)/.test(src), 'sin el fan-out, la landing con tres productos sigue creando un solo lead');
+// =============================================================================
+// ⚠️ Con VARIOS productos la persona es UNA (Martín, 06/10/2026)
+// =============================================================================
+// «Le acabo de dar a un lead a "Mover a prueba" y se desapareció del producto
+// principal de Mauricio. Eso JAMÁS debe pasar... No se debe "Mover" se debe
+// agregar al otro producto».
+//
+// Hasta ese día este opt-in hacía un `createLead` por producto extra con
+// `permitirDuplicado: true`: N fichas de la misma persona. Calendly y Meta
+// actualizan sólo la más vieja, la nutrición le escribía N veces, las métricas la
+// contaban doble y el CAPI mandaba un QualifiedLead por ficha. Con la mig 0207 un
+// lead vive en VARIOS productos: la casa es `leads.funnel_id` y cada otro es una
+// fila de `lead_funnel` (`agregarAProducto`, lib/lead-funnel.ts).
+//
+// Se mira el código SIN comentarios: el comentario de la ruta cuenta, con razón,
+// la historia del `permitirDuplicado` que se sacó, y un `doesNotMatch` sobre el
+// archivo entero se acusaría a sí mismo.
+const sinComentariosRuta = (src: string) => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')    // las líneas PRIMERO
+  .replace(/\/\*[\s\S]*?\*\//g, '');   // y los bloques después
 
-  // ⚠️ `permitirDuplicado` NO es opcional acá: `createLead` corre
-  // `duplicadosDeLead` por nombre, email y teléfono, así que la SEGUNDA ficha
-  // encontraría a la primera y tiraría `LeadDuplicadoError` — y en esta ruta un
-  // alta que falla cae a propuesta, o sea que el fan-out dejaría a la persona
-  // esperando un click que nadie sabe que hay que dar.
-  assert.ok(/funnel_id: f, permitirDuplicado: true/.test(src), 'la segunda ficha choca con la primera: sin esto el fan-out cae a propuesta');
+// PROBADO ROMPIENDOLO (06/10/2026), cada rotura aplicada al route.ts y restaurada
+// de memoria; el archivo entero estaba en **pass 66 / fail 0** antes de cada una:
+//   · devolver el bucle viejo (`createLead({ ...datos, funnel_id: f,
+//     permitirDuplicado: true })` en vez de `agregarAProducto`) → 65 / 1;
+//   · escribir la casa sin `casaParaEscribir` (`funnelesDelLead[0] ?? null`) → 65 / 1;
+//   · sacar el `try` del bucle (un producto que falla tumba el alta) → 65 / 1;
+//   · contar todo como agregado (`tambien.push(real)` sin `if (r.agregado)`) → 65 / 1;
+//   · pasar `f` crudo en vez de `casaReal(f, defaultId)` → 65 / 1;
+//   · sacar el `{ autor: AUTOR_SISTEMA }` → 65 / 1.
+test('⚠️ con VARIOS productos la persona es UNA: los extra se AGREGAN, no se clonan', () => {
+  const codigo = sinComentariosRuta(RUTA());
 
-  // ⚠️ Y CADA EXTRA ES BEST-EFFORT, con su propio try: si falla una, la persona YA
-  // está en el CRM, así que caer a propuesta crearía un borrador de alguien que ya
-  // entró. Se registra y se sigue.
-  const i = src.indexOf('funnelesDelLead.slice(1)');
-  const bucle = src.slice(i, src.indexOf('emitirDelCatalogo', i));
-  // El recorte tiene que ser el del bucle y nada mas: si manana mide 3.000, esta
-  // mirando otra cosa y el assert de abajo dejo de probar lo que dice.
-  assert.ok(bucle.length < 1200, `el bloque del fan-out mide ${bucle.length}: se esta leyendo de mas`);
-  assert.ok(/try \{/.test(bucle) && /catch \(e\)/.test(bucle), 'un producto que falla no puede tumbar al lead que ya entró');
-  assert.ok(/no pudo entrar al producto/.test(src), 'lo que se descarta queda escrito: sin el log, una ficha que falta no se distingue de una que no se pidió');
+  // UN alta, y ninguna puerta abierta al duplicado: con una sola ficha no hay nada
+  // con qué chocar, así que `permitirDuplicado` sólo podría volver con el bucle viejo.
+  assert.equal((codigo.match(/createLead\(/g) ?? []).length, 1, 'un segundo createLead es una segunda ficha de la misma persona');
+  assert.ok(!/permitirDuplicado/.test(codigo), 'sin N fichas no hay nada que «permitir»: si vuelve, volvió el clon');
 
-  // ⚠️ Lo que es de la PERSONA se arma UNA sola vez: con dos literales al lado, el
-  // día que se agregue un campo va a entrar en uno solo y las fichas van a
-  // diferir en silencio. Es la misma regla que «va en los dos caminos».
-  assert.ok(/const datosDelLead = \{/.test(src), 'un segundo literal del mismo lead es la segunda versión del mismo lead');
-  assert.ok((src.match(/\.\.\.datosDelLead/g) ?? []).length === 2, 'las dos altas tienen que salir del MISMO objeto');
+  // La CASA se escribe con `casaParaEscribir`: el tablero del negocio pide sus
+  // leads con `.is('funnel_id', null)`, y un lead con el id del default escrito no
+  // aparece en NINGÚN tablero. La lectura del default no puede tumbar el alta.
+  assert.ok(/const defaultId = await runWithWorkspace\(ws, \(\) => idDelFunnelDefault\(\)\)\.catch\(\(\) => null\);/.test(codigo),
+    'el id del producto del negocio se lee una vez, y si falla el lead entra igual');
+  assert.ok(/const funnelDelLead = casaParaEscribir\(funnelesDelLead\[0\] \?\? null, defaultId\);/.test(codigo),
+    'la casa se escribe con casaParaEscribir, o el producto del negocio puede quedar con su id y sin tablero');
 
-  // Y el aviso lo DICE: lleva al principal, así que sin esta línea nadie sabe que
-  // hay más fichas de la misma persona en otros tableros.
-  assert.ok(/Entró a \$\{tambien\.length \+ 1\} productos/.test(src), 'con varios productos el aviso tiene que decirlo');
+  // El bucle de los EXTRA. «El bloque» es su cierre real (hasta el aviso), no un
+  // número de caracteres; y se afirma el largo, por si mañana mira otra cosa.
+  const i = codigo.indexOf('for (const f of funnelesDelLead.slice(1))');
+  assert.ok(i > 0, 'no se encontró el bucle de los productos extra');
+  const bucle = codigo.slice(i, codigo.indexOf('emitirDelCatalogo', i));
+  assert.ok(bucle.length < 800, `el bucle mide ${bucle.length}: se está leyendo de más`);
+  assert.ok(!/createLead\(/.test(bucle), 'un producto extra NO es una ficha nueva');
+  // El producto del negocio, cuando no es la casa, va en lead_funnel con su ID
+  // REAL: `funnelsDeLanding` lo devuelve en null, y `agregarAProducto` pide un id.
+  assert.ok(/const real = casaReal\(f, defaultId\);/.test(bucle), 'el null del negocio se traduce a su id real antes de agregarlo');
+  // El autor va explícito: la ruta no tiene sesión y la landing de MaKo vive en
+  // el mismo dominio, así que la cookie de un admin firmaría el historial.
+  assert.ok(/agregarAProducto\(lead\.id, real, \{ autor: AUTOR_SISTEMA \}\)/.test(bucle), 'se AGREGA con el autor del sistema');
+  // BEST-EFFORT, cada uno con su try: la persona YA está en el CRM, y caer a
+  // propuesta crearía un borrador de alguien que ya entró.
+  const iTry = bucle.indexOf('try {');
+  const iAgregar = bucle.indexOf('agregarAProducto(');
+  const iCatch = bucle.indexOf('catch (e)');
+  assert.ok(iTry > 0 && iTry < iAgregar && iAgregar < iCatch, 'el agregado vive adentro de SU try, dentro del bucle');
+  assert.ok(/no pudo entrar al producto/.test(bucle), 'lo que falla queda escrito, con cuál fue');
+  // Sólo cuenta lo que se agregó DE VERDAD: si ya estaba, el aviso no puede decir
+  // que entró a un producto más.
+  assert.ok(/if \(r\.agregado\) tambien\.push\(real\);/.test(bucle), 'un «ya estaba» no suma al aviso');
+
+  // Y el aviso lo DICE: el link lleva a la ficha (que es UNA), y sin esta línea
+  // nadie sabe que esa persona ya está también en otros tableros.
+  assert.ok(/Entró a \$\{tambien\.length \+ 1\} productos/.test(codigo), 'con varios productos el aviso tiene que decirlo');
 });
 
 // PROBADO ROMPIENDOLO: borrando `if (!elegido) return null;` de
@@ -1758,9 +1796,10 @@ test('⚠️ una landing SIN producto cae exactamente donde cae hoy', () => {
   // solo pasaría a esperar un click que nadie sabe que hay que dar.
   const lib = leer('../lib/landing-funnel.ts');
   // ⚠️ Desde el 06/10/2026 la tolerancia devuelve `[null]` y no `null`: la lista
-  // NUNCA vuelve vacía, porque quien llama crea una ficha por elemento y una lista
-  // vacía haría que el opt-in no cree NINGÚN lead. Perder a la persona es
-  // infinitamente peor que ponerla en el embudo equivocado.
+  // NUNCA vuelve vacía, porque quien llama crea el lead con el PRIMER elemento (su
+  // casa) y agrega el resto como productos extra — una lista vacía haría que el
+  // opt-in no cree NINGÚN lead. Perder a la persona es infinitamente peor que
+  // ponerla en el embudo equivocado.
   assert.ok(/if \(!pagina\) return \[null\];/.test(lib), 'sin página no se inventa un producto, pero el lead entra igual');
   assert.ok(/if \(!ids\.length\) return \[null\];/.test(lib), 'una landing sin productos cae exactamente donde cae hoy');
   assert.ok(/if \(!elegido\) continue;/.test(lib), 'un embudo que ya no está en la lista se saltea, no rompe el alta');

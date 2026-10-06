@@ -110,6 +110,7 @@ import { opcionesDeFiltro, SIN_ORIGEN_ADS } from '@/lib/campana-atribucion';
 import { antesDeQuien, columnaConInsercion, mismaLista } from '@/app/customer-success/orden-manual';
 import { ordenarKanbanManual, ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
 import { ordenarColumnaCrmAction } from './orden-actions';
+import { moverEtapaEnProductoAction } from './lead-funnel-actions';
 
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
@@ -134,6 +135,15 @@ export type CrmLead = {
   anuncioKey?: string | null;
   anuncioNombre?: string | null;
   stage: string;
+  /**
+   * El producto en el que este lead es un AGREGADO (mig 0207): está en este tablero por una
+   * fila de `lead_funnel` y no porque sea su casa. Ausente = este tablero ES su casa.
+   *
+   * ⚠️ CAMBIA QUÉ ESCRIBE MOVER SU TARJETA. Con `deFila`, soltarla en otra columna escribe la
+   * etapa de ESA fila (`moverEtapaEnProductoAction`) y nada más: ni `setLeadStageAction`, ni
+   * la nutrición manual, ni la agenda, ni las señales a Meta, que son del recorrido de la casa.
+   */
+  deFila?: number;
   derivedStage: string;
   /** La etapa guardada que este funnel ya no contiene. null = está donde dice. */
   stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
@@ -811,6 +821,70 @@ export function CrmBoard({
   const idASoltar = useRef<number | null>(null);
 
   /**
+   * Mover la tarjeta de un AGREGADO (`lead.deFila`, mig 0207) a otra columna de ESTE producto.
+   *
+   * «No se debe "Mover" se debe agregar al otro producto» (Martín, 06/10/2026). Un agregado
+   * está acá por una fila de `lead_funnel`; su casa es otro producto y sigue su propio
+   * recorrido. Por eso esto escribe SÓLO la etapa de la fila (`moverEtapaEnProductoAction`,
+   * que deja una línea de historial) y NO pasa por `persistStage`: `setLeadStageAction`
+   * tocaría `pipeline_stage`, `estado_lead`, el monto y el CAPI de calificado DE LA CASA.
+   *
+   * ⚠️ Y NO ABRE NINGÚN DIÁLOGO. La nutrición manual (su plazo), la agenda de Calendly y la
+   * confirmación con las señales a Meta son del recorrido de la casa: el motor, MaKo y las
+   * métricas leen sólo la casa (decisión v1 del modelo, lib/lead-funnel.ts), así que pedirlos
+   * acá sería pedir datos que nadie va a usar — o peor, escribirlos sobre otro producto.
+   *
+   * Optimista con vuelta atrás si la acción falla, y el aviso trae Deshacer que vuelve a
+   * llamar a la MISMA acción con la etapa anterior: deshacer escribe en el server.
+   */
+  const moverEnProducto = (lead: CrmLead, producto: number, stageKey: string, guardarLugar: () => void) => {
+    const id = lead.id;
+    const from = effStage(lead);
+    const previo = localStage[id];
+    const destino = findStage(stages, stageKey).label;
+    /** Devuelve la tarjeta a donde la pantalla la tenía antes de este movimiento. */
+    const volverPantalla = () => setLocalStage((m) => {
+      const n = { ...m };
+      if (previo === undefined) delete n[id]; else n[id] = previo;
+      return n;
+    });
+    setLocalStage((m) => ({ ...m, [id]: stageKey }));
+    startTransition(async () => {
+      // ⚠️ UNA ACCIÓN QUE NO LLEGA (sin red) RECHAZA LA PROMESA, y adentro de una transición eso
+      // tumba la pantalla entera: se ataja como un error más (igual que `reordenarColumna`).
+      const r = await moverEtapaEnProductoAction(id, producto, stageKey)
+        .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo mover.' }));
+      if (!r.ok) {
+        volverPantalla();
+        mostrarAviso('No se pudo mover', undefined, 'bad');
+        return;
+      }
+      // A dónde vuelve el Deshacer: la etapa que la fila tenía, si sigue existiendo en este
+      // embudo; si era una huérfana (la tarjeta se dibujaba en la entrada), la columna de
+      // donde salió — la acción rechaza una etapa que el producto no tiene.
+      const volverA = stageKeys.has(r.antes) ? r.antes : from;
+      mostrarAviso(`Movido a ${destino}`, () => {
+        setLocalStage((m) => ({ ...m, [id]: volverA }));
+        startTransition(async () => {
+          const d = await moverEtapaEnProductoAction(id, producto, volverA)
+            .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'No se pudo deshacer.' }));
+          if (!d.ok) {
+            setLocalStage((m) => ({ ...m, [id]: stageKey }));
+            mostrarAviso('No se pudo deshacer', undefined, 'bad');
+            return;
+          }
+          router.refresh();
+        });
+      });
+      router.refresh();
+    });
+    // El lugar en la columna, igual que un movimiento de la casa: con la tarjeta ya en su
+    // columna nueva. Si la acción de arriba falla, la tarjeta vuelve y el orden guardado sólo
+    // la nombra en una columna donde no está, que el orden manual ignora.
+    guardarLugar();
+  };
+
+  /**
    * `antesDe` = DÓNDE cayó adentro de la columna: antes de qué lead (`null` = al final). Lo
    * manda el arrastre, que es el único que dibujó un hueco; el alta desde el placeholder no
    * lo manda (`undefined`) y entonces el orden no se toca.
@@ -834,6 +908,11 @@ export function CrmBoard({
     // abren un diálogo propio (el plazo de la manual, la agenda) no lo guardan: la tarjeta
     // entra por fecha de llegada, como siempre.
     const guardarLugar = antesDe !== undefined ? () => reordenarColumna(id, stageKey, antesDe, true) : () => {};
+    // ⚠️ UN AGREGADO VA ANTES QUE TODO DIÁLOGO: lo que sigue (la nutrición manual, la agenda,
+    // las señales a Meta) es del recorrido de la CASA. Ver `moverEnProducto`. El producto va
+    // como `deFila` y no como `funnelActivo`: es el id REAL de la fila (el del negocio ya
+    // resuelto, que `funnelActivo` nombra como null), y nombra a este mismo tablero.
+    if (lead.deFila != null) { moverEnProducto(lead, lead.deFila, stageKey, guardarLugar); return; }
     if (stageKey === 'manual') { openManualNutri(id); return; }
     if (esEtapaCalendly(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
@@ -2544,7 +2623,20 @@ export function CrmBoard({
             equipo={equipo}
             funnelActivo={funnelActivo}
             onLimpiar={limpiarSel}
-            onListo={(r) => { mostrarAviso(r.texto); router.refresh(); }}
+            // ⚠️ EL DESHACER DEL LOTE LO CUELGA EL TABLERO, no la barra: la barra se desmonta
+            // al limpiar la selección y un aviso suyo moriría con ella. Hoy lo trae «agregar a
+            // un producto» (mig 0207), que borra sólo las filas que ese lote creó. Deshacer
+            // escribe en el server; si no puede, se dice.
+            onListo={(r) => {
+              const deshacer = r.deshacer;
+              mostrarAviso(r.texto, deshacer ? () => {
+                startTransition(async () => {
+                  try { await deshacer(); } catch { mostrarAviso('No se pudo deshacer', undefined, 'bad'); }
+                  router.refresh();
+                });
+              } : undefined);
+              router.refresh();
+            }}
             estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
         </div>
       )}

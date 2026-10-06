@@ -13,15 +13,26 @@
 // paso de la otra — por eso acá hay un «Atrás» y no un «Cancelar»: se vuelve al alta, no
 // se cierra el modal.
 //
-// ⚠️ MUEVE, NO COPIA, y el botón lo dice con esa palabra. El producto de un lead es UNA
-// columna (`leads.funnel_id`), así que traer a alguien acá es sacarlo de allá con su
-// recorrido entero. Y entra por la etapa de ENTRADA del embudo destino: la etapa del
-// embudo de origen es una clave SUYA y puede no existir acá — conservarla dibujaría al
-// recién llegado como «fuera del embudo».
+// ⚠️ AGREGA, NO MUEVE, y el botón lo dice con esa palabra. Hasta el 06/10/2026 esto movía
+// (`moverLeadsAFunnelAction`, borrada ese día): le cambiaba la casa al lead y lo sacaba del
+// tablero donde lo trabajaban, con la etapa reseteada. Martín: «Le acabo de dar a un lead a
+// "Mover a prueba" y se desapareció del producto principal de Mauricio. Eso JAMÁS debe
+// pasar... No se debe "Mover" se debe agregar al otro producto». Ahora es
+// `agregarLoteAProductoAction` (mig 0207): una fila por lead en la etapa de ENTRADA de este
+// producto, y su casa —con su etapa, su venta y su nutrición— no se toca.
+//
+// ⚠️ LA LISTA DE ORIGEN TRAE A SUS AGREGADOS, y los que YA están acá (por casa o por fila)
+// salen marcados y sin casilla: agregarlos no escribiría nada, y un «Agregar 12» que agrega
+// 9 se lee como que tres fallaron.
+//
+// ⚠️ EL DESHACER VIAJA AL PADRE: este componente se desmonta al terminar (el modal se
+// cierra), así que un aviso propio moriría con él. `onTraidos` recibe la función que borra
+// SÓLO las filas que este lote creó, y el padre la cuelga del «Deshacer» de su aviso.
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { leadsDeProductoAction, moverLeadsAFunnelAction, type LeadParaTraer } from './actions';
+import { leadsDeProductoAction, type LeadParaTraer } from './actions';
+import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -49,7 +60,12 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
   destino: number | null;
   /** Volver al formulario de alta. No cierra el modal. */
   onAtras: () => void;
-  onTraidos: (movidos: number, fallaron: number) => void;
+  /**
+   * Terminó. `agregados` son los que ENTRARON (no los tildados), `fallaron` los que no
+   * pudieron, y `deshacer` borra sólo las filas que este lote creó — va colgado del
+   * «Deshacer» del aviso del padre. Ausente cuando no se agregó nadie.
+   */
+  onTraidos: (agregados: number, fallaron: number, deshacer?: () => Promise<void>) => void;
 }) {
   // ⚠️ El de destino se saca de la lista: «traer de este producto a este producto» no es
   // una opción, es un control que no hace nada. Y `null` resuelve al del negocio, que es
@@ -66,11 +82,11 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
   const [q, setQ] = useState('');
   const [etapa, setEtapa] = useState('');
   const [sel, setSel] = useState<number[]>([]);
-  const [moviendo, startMover] = useTransition();
+  const [agregando, startAgregar] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
   // Al cambiar de producto se recarga TODO y se limpia la selección: arrastrar ids de un
-  // producto a la lista de otro es mover gente que la persona ya no está mirando.
+  // producto a la lista de otro es agregar gente que la persona ya no está mirando.
   useEffect(() => {
     if (origen == null) { setFilas([]); return; }
     let vivo = true;
@@ -78,11 +94,12 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     setSel([]);
     setEtapa('');
     const pedido = origen === (delNegocio?.id ?? -1) ? null : origen;
-    void leadsDeProductoAction(pedido)
+    // El destino viaja para que el server marque a los que YA están acá (`yaEsta`).
+    void leadsDeProductoAction(pedido, destino)
       .then((r) => { if (vivo) setFilas(r.filas); })
       .catch(() => { if (vivo) setFilas([]); });
     return () => { vivo = false; };
-  }, [origen, delNegocio?.id]);
+  }, [origen, delNegocio?.id, destino]);
 
   /** Las etapas que de verdad hay en esta lista: un filtro con opciones vacías no filtra nada. */
   const etapas = useMemo(() => {
@@ -103,13 +120,15 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
 
   const enPantalla = visibles.slice(0, TOPE);
   const ocultos = visibles.length - enPantalla.length;
-  const todosTildados = enPantalla.length > 0 && enPantalla.every((f) => sel.includes(f.id));
+  /** Lo que se puede tildar: los que ya están acá no entran en «todos». */
+  const tildables = enPantalla.filter((f) => !f.yaEsta);
+  const todosTildados = tildables.length > 0 && tildables.every((f) => sel.includes(f.id));
 
   const alternar = (id: number) => setSel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const alternarTodos = () => {
     // ⚠️ Tilda lo VISIBLE, no lo que hay. Con un filtro puesto, un «todos» que se lleve lo
-    // que está escondido mueve gente que la persona no vio.
-    const ids = enPantalla.map((f) => f.id);
+    // que está escondido agrega gente que la persona no vio.
+    const ids = tildables.map((f) => f.id);
     setSel((p) => (todosTildados ? p.filter((x) => !ids.includes(x)) : [...new Set([...p, ...ids])]));
   };
 
@@ -123,7 +142,7 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     return (
       <div>
         <p style={{ fontFamily: SANS, fontSize: 14, color: 'var(--dim)', margin: 0 }}>
-          Solo tienes este producto. Crea otro para poder traer leads de ahí.
+          Solo tienes este producto. Crea otro para poder agregar leads de ahí.
         </p>
         <button type="button" onClick={onAtras} style={btnAtras}>← Atrás</button>
       </div>
@@ -171,8 +190,9 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
             <tr>
               <th style={{ ...th, width: 34, padding: '10px 0 7px 12px' }}>
                 <input type="checkbox" checked={todosTildados} onChange={alternarTodos}
+                  disabled={!tildables.length}
                   aria-label="Tildar todos los de la lista"
-                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
+                  style={{ width: 16, height: 16, cursor: tildables.length ? 'pointer' : 'default', accentColor: 'var(--primary)' }} />
               </th>
               <th style={th}>Nombre</th>
               <th style={th}>Empresa</th>
@@ -183,16 +203,26 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
           </thead>
           <tbody>
             {enPantalla.map((f) => {
-              const on = sel.includes(f.id);
+              // ⚠️ El que YA está acá se ve, pero no se tilda: esconderlo haría que buscarlo
+              // contestara «nadie», y dejarlo tildable promete un agregado que no pasa.
+              const on = !f.yaEsta && sel.includes(f.id);
               return (
-                <tr key={f.id} onClick={() => alternar(f.id)}
-                  style={{ cursor: 'pointer', background: on ? 'var(--primary-weak)' : 'transparent' }}>
+                <tr key={f.id} onClick={f.yaEsta ? undefined : () => alternar(f.id)}
+                  title={f.yaEsta ? 'Ya está en este producto' : undefined}
+                  style={{ cursor: f.yaEsta ? 'default' : 'pointer', background: on ? 'var(--primary-weak)' : 'transparent', opacity: f.yaEsta ? 0.55 : 1 }}>
                   <td style={{ ...td, padding: '9px 0 9px 12px' }}>
-                    <input type="checkbox" checked={on} readOnly tabIndex={-1}
-                      aria-label={`Traer a ${f.nombre}`}
-                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)', pointerEvents: 'none' }} />
+                    <input type="checkbox" checked={on} readOnly tabIndex={-1} disabled={f.yaEsta}
+                      aria-label={f.yaEsta ? `${f.nombre} ya está en este producto` : `Agregar a ${f.nombre}`}
+                      style={{ width: 16, height: 16, cursor: f.yaEsta ? 'default' : 'pointer', accentColor: 'var(--primary)', pointerEvents: 'none' }} />
                   </td>
-                  <td style={{ ...td, fontWeight: 600 }}>{f.nombre}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>
+                    {f.nombre}
+                    {f.yaEsta && (
+                      <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>
+                        Ya está
+                      </span>
+                    )}
+                  </td>
                   <td style={{ ...td, color: 'var(--dim)' }}>{f.empresa || '—'}</td>
                   <td style={{ ...td, color: 'var(--dim)' }}>{f.email || '—'}</td>
                   <td style={{ ...td, color: 'var(--dim)' }}>{f.telefono || '—'}</td>
@@ -226,24 +256,35 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button type="button" onClick={onAtras} disabled={moviendo} style={btnAtras}>← Atrás</button>
+        <button type="button" onClick={onAtras} disabled={agregando} style={btnAtras}>← Atrás</button>
         <span style={{ flex: 1 }} />
         {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
-        <button type="button" disabled={moviendo || !sel.length}
-          onClick={() => startMover(async () => {
+        <button type="button" disabled={agregando || !sel.length}
+          onClick={() => startAgregar(async () => {
             setErr(null);
-            const r = await moverLeadsAFunnelAction(sel, destino);
-            if (!r.movidos && r.fallaron) { setErr('No se pudo mover ninguno.'); return; }
-            onTraidos(r.movidos, r.fallaron);
+            // Sin «¿estás seguro?»: agregar no saca a nadie de ningún lado, y el padre ofrece
+            // Deshacer (el molde de Customer Success).
+            const r = await agregarLoteAProductoAction(sel, destino);
+            if (!r.ok) { setErr(r.error); return; }
+            if (!r.agregados.length && r.fallaron) { setErr('No se pudo agregar ninguno.'); return; }
+            const agregados = r.agregados;
+            // El deshacer TIRA si no pudo: el padre tiene que poder decir «No se pudo
+            // deshacer» en vez de dar por vuelto algo que sigue escrito.
+            onTraidos(agregados.length, r.fallaron, agregados.length
+              ? async () => {
+                const q = await quitarLoteDeProductoAction(agregados, destino);
+                if (!q.ok) throw new Error(q.error);
+              }
+              : undefined);
           })}
           style={{
             padding: '11px 22px', borderRadius: 10, border: 'none',
             background: 'var(--primary)', color: '#fff', fontFamily: SANS,
             fontSize: 14, fontWeight: 700,
-            cursor: moviendo || !sel.length ? 'default' : 'pointer',
-            opacity: moviendo || !sel.length ? 0.45 : 1,
+            cursor: agregando || !sel.length ? 'default' : 'pointer',
+            opacity: agregando || !sel.length ? 0.45 : 1,
           }}>
-          {moviendo ? 'Moviendo…' : sel.length ? `Mover ${sel.length} aquí` : 'Mover aquí'}
+          {agregando ? 'Agregando…' : sel.length ? `Agregar ${sel.length} aquí` : 'Agregar aquí'}
         </button>
       </div>
     </div>

@@ -18,7 +18,8 @@
 
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import { createLeadAction, crearLeadEnTableroAction, moverLeadAFunnelAction, type ChoqueDeLead } from '../actions';
+import { createLeadAction, crearLeadEnTableroAction, type ChoqueDeLead } from '../actions';
+import { agregarAProductoAction, quitarDeProductoAction } from '../lead-funnel-actions';
 
 const SANS = "'Geist', sans-serif";
 const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
@@ -29,6 +30,15 @@ export function NewLeadForm({ enModal }: {
   enModal?: {
     onCerrar: () => void;
     onCreado: (id: number) => void;
+    /**
+     * Se AGREGÓ a este producto un lead que ya existía («Agregarlo aquí»), en vez de crear
+     * uno. Va aparte de `onCreado` porque el aviso no es el mismo («Lead creado» sobre
+     * alguien que ya estaba miente), y trae el deshacer: saca al lead SÓLO de este producto
+     * (`quitarDeProductoAction`) — ausente si ya estaba y no se escribió nada.
+     *
+     * Ausente = se usa `onCreado`, que abre la ficha igual.
+     */
+    onAgregado?: (id: number, deshacer?: () => Promise<void>) => void;
     /** El funnel que se está mirando. null = el del negocio. */
     funnelId?: number | null;
     /**
@@ -117,7 +127,7 @@ export function NewLeadForm({ enModal }: {
           detecta que se está agregando un lead nuevo, pero que ya está en otro funnel…
           que le advierta que el lead ya existe y que le pregunte si lo quiere traer».
           Por eso acá van las TRES salidas y no un texto rojo: abrir el que ya está,
-          moverlo a este producto, o crearlo igual sabiendo con quién choca. */}
+          agregarlo a este producto, o crearlo igual sabiendo con quién choca. */}
       {choque && (
         <div style={{ borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg)', padding: '13px 16px' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{err}</div>
@@ -129,17 +139,29 @@ export function NewLeadForm({ enModal }: {
                 <span style={{ flex: 1 }} />
                 <Link href={`/crm/${c.id}`} target="_blank"
                   style={{ flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Abrir</Link>
-                {/* ⚠️ Dice MOVER y no «traer» porque eso es lo que hace: el producto de un
-                    lead es una sola columna, así que sale del tablero donde está. */}
-                {enModal && c.funnelId !== (enModal.funnelId ?? null) && (
+                {/* ⚠️ Dice AGREGAR y no «mover» porque eso es lo que hace desde el 06/10/2026
+                    (mig 0207): suma una fila en ESTE producto y su casa no se toca. Antes
+                    movía, y un lead «traído» desaparecía del producto principal de Mauricio:
+                    «Eso JAMÁS debe pasar» (Martín). Y sólo aparece si NO está acá, por casa
+                    o por fila: lo decide el server (`estaAca`, con `estaEnProducto`), no un
+                    `funnelId !==` crudo que decía «en otro producto» sobre un agregado. */}
+                {enModal && !c.estaAca && (
                   <button type="button" disabled={guardando}
                     onClick={() => startGuardar(async () => {
-                      const r = await moverLeadAFunnelAction(c.id, enModal.funnelId ?? null);
-                      if ('error' in r) { setErr(r.error); return; }
-                      enModal.onCreado(c.id);
+                      const destino = enModal.funnelId ?? null;
+                      const r = await agregarAProductoAction(c.id, destino);
+                      if (!r.ok) { setErr(r.error); return; }
+                      const deshacer = r.agregado
+                        ? async () => {
+                          const q = await quitarDeProductoAction(c.id, destino);
+                          if (!q.ok) throw new Error(q.error);
+                        }
+                        : undefined;
+                      if (enModal.onAgregado) enModal.onAgregado(c.id, deshacer);
+                      else enModal.onCreado(c.id);
                     })}
                     style={{ flex: 'none', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    Moverlo aquí
+                    Agregarlo aquí
                   </button>
                 )}
               </div>

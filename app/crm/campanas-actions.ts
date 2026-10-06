@@ -9,6 +9,14 @@
 // que ya existen en lib/campana-atribucion.ts; acá sólo hay puertas: quién puede, qué se
 // valida, qué se devuelve.
 //
+// ⚠️ TRAER LOS LEADS DE UNA CAMPAÑA LOS AGREGA AL PRODUCTO, NO LOS MUEVE (06/10/2026).
+// Hasta ese día `asignarLoteAction` con `traer` reescribía `leads.funnel_id` y sacaba a
+// cada lead del producto donde estaba. Martín: «Le acabo de dar a un lead a "Mover a
+// prueba" y se desapareció del producto principal de Mauricio. Eso JAMÁS debe pasar... No
+// se debe "Mover" se debe agregar al otro producto». Ahora es `agregarLoteAProducto`
+// (lib/lead-funnel.ts): la casa queda donde estaba y el destino gana una fila de
+// `lead_funnel` en su etapa de entrada. Y el deshacer borra SÓLO las filas que agregó.
+//
 // ⚠️ EN UN ARCHIVO `'use server'` SÓLO SE EXPORTAN FUNCIONES ASYNC (y tipos, que se
 // borran al compilar). Un `export const` tipa perfecto y TIRA EL BUILD — ya pasó el
 // 05/10/2026 en app/crm/actions.ts. Ver AGENTS.md.
@@ -21,7 +29,8 @@ import { productosAsignables } from '@/lib/landing-funnel';
 import { leerCampanasAsignadasEstricto, guardarCampanasAsignadas } from '@/lib/campana-funnel';
 import { conCampana, sinCampana, esIdMeta, type CampanaAsignada } from '@/lib/campana-config';
 import { conteoPorCampana, campanasDeMetricas } from '@/lib/campana-atribucion';
-import { leadsYMetricas, planDeTraidaLote, moverEnLote } from '@/lib/campana-traer';
+import { leadsYMetricas, planDeTraidaLote } from '@/lib/campana-traer';
+import { agregarLoteAProducto, quitarLoteDeProducto } from '@/lib/lead-funnel';
 import { TAG } from '@/lib/cache';
 
 export type ProductoNombre = { id: number | null; nombre: string };
@@ -83,13 +92,16 @@ async function productosConNull(): Promise<ProductoNombre[]> {
  * existe» — o sea que desde el lápiz no se podía asignar nada al principal. Lo encontró
  * la revisión adversarial del 05/10/2026. Si mañana otra pantalla monta el selector sin
  * normalizar, el server no se deja confundir.
+ *
+ * Devuelve además el id REAL (`real`, también el del negocio) y el nombre: el mapa de
+ * campañas guarda el del negocio como `null`, pero las filas de `lead_funnel` —que es
+ * donde se agregan los leads— lo guardan con su id (mig 0207).
  */
-async function destino(funnelId: number | null): Promise<{ ok: true; id: number | null } | { ok: false }> {
+async function destino(funnelId: number | null): Promise<{ ok: true; id: number | null; real: number; nombre: string } | { ok: false }> {
   const vivos = await productosAsignables();
-  if (funnelId == null) return vivos.some((f) => f.esDefault) ? { ok: true, id: null } : { ok: false };
-  const f = vivos.find((x) => x.id === funnelId);
+  const f = funnelId == null ? vivos.find((x) => x.esDefault) : vivos.find((x) => x.id === funnelId);
   if (!f) return { ok: false };
-  return { ok: true, id: f.esDefault ? null : f.id };
+  return { ok: true, id: f.esDefault ? null : f.id, real: f.id, nombre: f.nombre };
 }
 
 /** Tope de la rama de Meta. La acción entera corta a los 60 s, y un Meta colgado no
@@ -165,8 +177,18 @@ type Item = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaI
 /** Lo que había antes en el mapa para cada id que se tocó: lo que necesita el deshacer. */
 export type Previo = { id: string; antes: CampanaAsignada | null };
 
-/** Lo que se movió, para poder devolverlo. */
-export type Movido = { id: number; desde: number | null };
+/**
+ * Un lead que se AGREGÓ a un producto, para poder sacarlo con el deshacer: el lead y el id
+ * REAL del producto (el del negocio también va con su id, como en `lead_funnel`).
+ *
+ * ⚠️ SE SIGUE LLAMANDO `Movido` (y el campo `movidos`) SÓLO POR COMPATIBILIDAD: lo importan
+ * la tabla de Ads Manager (app/ads-manager/CampanasBrowser.tsx) y su celda
+ * (ProductoCelda.tsx), que lo devuelven tal cual al deshacer. Desde el 06/10/2026 NO es un
+ * movimiento: la casa del lead no cambia. La forma vieja (`{ id, desde }`) que pueda traer
+ * una pestaña abierta antes del deploy no tiene `a`, y el deshacer la IGNORA — no saca a
+ * nadie de ningún lado por un payload que no dice de dónde.
+ */
+export type Movido = { id: number; a: number };
 
 type PorProducto = { id: number | null; nombre: string; n: number };
 
@@ -199,9 +221,10 @@ function conItems(actuales: CampanaAsignada[], items: Item[], dest: number | nul
 }
 
 /**
- * Cuántos leads traería asignar estas campañas o conjuntos a un producto, de qué productos
- * salen, y de qué productos se las saca. Es lo que decide si la pantalla pregunta (con cero
- * no hay nada que decidir) y lo que dice la pregunta.
+ * Cuántos leads traería asignar estas campañas o conjuntos a un producto, en qué productos
+ * están HOY (su casa: no salen de ahí, se suman al destino), y de qué productos se les saca
+ * la campaña. Es lo que decide si la pantalla pregunta (con cero no hay nada que decidir) y
+ * lo que dice la pregunta. Los que ya están en el destino —por casa o por fila— no cuentan.
  */
 export async function previaLoteAction(
   funnelId: number | null,
@@ -247,11 +270,16 @@ export async function previaCampanaAction(
 }
 
 /**
- * Asigna campañas o conjuntos a un producto. Si alguno estaba en otro, se MUEVE (la clave
- * es el id: no puede quedar en dos). El mapa se escribe UNA vez para todo el lote.
+ * Asigna campañas o conjuntos a un producto. Si alguno estaba en otro, la ASIGNACIÓN se
+ * mueve (la clave es el id: una campaña no puede rutear a dos). El mapa se escribe UNA vez
+ * para todo el lote.
  *
- * Con `traer`, además trae TODOS sus leads que ya están en el CRM: «si selecciono una
- * campaña, me traiga todos los leads. No solo los futuros» (Martín, 05/10/2026).
+ * Con `traer`, además AGREGA al producto TODOS sus leads que ya están en el CRM: «si
+ * selecciono una campaña, me traiga todos los leads. No solo los futuros» (Martín,
+ * 05/10/2026). Agregar, no mover: cada lead sigue en su casa y suma una fila de
+ * `lead_funnel` en la etapa de entrada del destino («No se debe "Mover" se debe agregar al
+ * otro producto», 06/10/2026). Lo que eso NO toca —etapa de la casa, estado, monto, CAPI,
+ * nutrición, etiqueta de WhatsApp— está escrito en lib/lead-funnel.ts.
  */
 export async function asignarLoteAction(
   funnelId: number | null,
@@ -286,11 +314,26 @@ export async function asignarLoteAction(
       for (const it of lote) {
         const grupo = plan.get(it.id) ?? [];
         if (!grupo.length) continue;
-        const desde = new Map(grupo.map((l) => [l.id, l.funnel_id ?? null]));
         const nombre = String(it.nombre || it.id).slice(0, 120);
-        const r = await moverEnLote(grupo.map((l) => l.id), d.id, `Lo trajo ${it.tipo === 'conjunto' ? 'el conjunto' : 'la campaña'} «${nombre}»`);
-        movidos = movidos.concat(r.movidos.map((id) => ({ id, desde: desde.get(id) ?? null })));
-        fallaron += r.fallaron;
+        // Se agrega con el id REAL del destino (el del negocio también: en `lead_funnel` va
+        // con su id). `agregarLoteAProducto` vuelve a saltear a los que ya están —por casa o
+        // por fila—, así que una carrera con otra pestaña no duplica, y devuelve SÓLO los que
+        // la base confirmó: el deshacer no puede sacar a alguien que no agregó este lote.
+        // ⚠️ UN `try` POR ÍTEM: `agregarLoteAProducto` TIRA (producto sin etapas, archivado
+        // en el medio) y `moverEnLote` no tiraba nunca. Sin esto, el error del segundo ítem
+        // se lleva puesto el `movidos` del primero —que ya se escribió— y su deshacer
+        // desaparece. Se cuenta como fallado y la pantalla lo dice.
+        try {
+          const r = await agregarLoteAProducto(
+            grupo.map((l) => l.id), d.real,
+            `Agregado a «${d.nombre}» por ${it.tipo === 'conjunto' ? 'el conjunto' : 'la campaña'} «${nombre}»`,
+          );
+          movidos = movidos.concat(r.agregados.map((id) => ({ id, a: d.real })));
+          fallaron += r.fallaron;
+        } catch (e) {
+          console.error('[campanas] no se pudieron agregar los leads de', it.id, e instanceof Error ? e.message : e);
+          fallaron += grupo.length;
+        }
       }
       if (movidos.length) { bust(); revalidatePath('/crm'); }
     }
@@ -318,16 +361,21 @@ const TOPE_DESHACER = 5000;
 
 /**
  * Deshace una asignación (de una o de un lote): devuelve cada campaña a donde estaba (o la
- * saca) y devuelve cada lead que se trajo al producto de donde salió. Con `movidos` vacío,
- * es el deshacer de QUITAR.
+ * saca) y saca de ese producto a cada lead que el lote AGREGÓ. Con `agregados` vacío, es el
+ * deshacer de QUITAR.
  *
  * ⚠️ «DONDE ESTABA», NO «SIN ASIGNAR». Si la campaña venía de otro producto, deshacer
  * tiene que devolvérsela; sacarla la dejaría sin dueño y sus leads nuevos caerían al
  * principal, que es un estado que nadie eligió.
+ *
+ * ⚠️ SÓLO LAS FILAS QUE ESE LOTE CREÓ. `quitarLoteDeProducto` borra la fila de
+ * `lead_funnel` de cada id que se le pasa, y los ids son los que `agregarLoteAProducto`
+ * confirmó haber escrito: un lead que ya estaba agregado antes no viaja en la lista y no
+ * se toca. Nunca toca una casa: deshacer no puede dejar a nadie sin producto.
  */
 export async function deshacerLoteAction(
   previos: Previo[],
-  movidos: Movido[],
+  agregados: Movido[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
   const lista = (Array.isArray(previos) ? previos : []).filter((p) => esIdMeta(p?.id)).slice(0, TOPE_LOTE);
@@ -344,21 +392,21 @@ export async function deshacerLoteAction(
     }
     await guardarCampanasAsignadas(nueva);
 
-    // Cada lead vuelve a SU producto. Se agrupan por destino para mover en lote, y un
-    // destino que ya no existe se saltea: esos leads se quedan donde están.
-    const mov = (Array.isArray(movidos) ? movidos : []).slice(0, TOPE_DESHACER)
-      .filter((m) => Number.isInteger(m?.id) && m.id > 0);
-    const porDestino = new Map<number | null, number[]>();
-    for (const m of mov) {
-      const k = m.desde ?? null;
-      porDestino.set(k, [...(porDestino.get(k) ?? []), m.id]);
+    // Cada lead sale del producto al que se lo AGREGÓ. Se agrupan por producto para borrar
+    // en lote. Un payload sin `a` (la forma vieja, de una pestaña de antes del deploy) se
+    // ignora: sin el producto no hay qué fila borrar, y adivinarlo sería sacarlo de otro.
+    const ags = (Array.isArray(agregados) ? agregados : []).slice(0, TOPE_DESHACER)
+      .filter((m) => Number.isInteger(m?.id) && m.id > 0 && Number.isInteger(m?.a) && m.a > 0);
+    const porProducto = new Map<number, number[]>();
+    for (const m of ags) {
+      const ids = porProducto.get(m.a) ?? [];
+      ids.push(m.id);
+      porProducto.set(m.a, ids);
     }
     let alguno = false;
-    for (const [k, ids] of porDestino) {
-      const d = await destino(k);
-      if (!d.ok) continue;
-      const r = await moverEnLote(ids, d.id, 'Volvió: se deshizo la asignación de la campaña');
-      if (r.movidos.length) alguno = true;
+    for (const [a, ids] of porProducto) {
+      const n = await quitarLoteDeProducto(ids, a, 'Se deshizo: lo había agregado una campaña');
+      if (n) alguno = true;
     }
     if (alguno) { bust(); revalidatePath('/crm'); }
     return { ok: true, asignadas: nueva };
@@ -371,13 +419,13 @@ export async function deshacerLoteAction(
 export async function deshacerAsignacionAction(
   id: string,
   antes: CampanaAsignada | null,
-  movidos: Movido[],
+  agregados: Movido[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
-  return deshacerLoteAction([{ id, antes }], movidos);
+  return deshacerLoteAction([{ id, antes }], agregados);
 }
 
 /** Saca campañas o conjuntos: sus leads nuevos vuelven a caer donde caían antes. Los que
- *  ya trajeron se quedan donde están — sacar una campaña no reordena el CRM. */
+ *  ya trajeron siguen agregados — sacar una campaña no reordena el CRM. */
 export async function quitarLoteAction(
   ids: string[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[]; previos: Previo[] } | { ok: false; error: string }> {

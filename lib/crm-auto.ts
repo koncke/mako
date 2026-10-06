@@ -20,6 +20,7 @@ import 'server-only';
 import { getLead, updateLead, moverLeadAuto, applyFathomRecording, logLeadEvent } from './leads';
 import { pipelineStageOf, MAKO_SETTER } from './pipeline';
 import { getPipelineStagesDefault } from './funnels';
+import { reunionesDe } from './funnel-etapas';
 import { encuentroGrabable } from './encuentro-ws';
 import { getTenantDb, runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
@@ -30,8 +31,8 @@ import { crearConfirmacion, type CrearConfirmacionInput } from './mako-confirmac
 import { crmAutoHabilitado } from './envio-flags';
 import { emitirDelCatalogo } from './avisos';
 import {
-  AUTO_UMBRALES, planLeadAuto, plazoDeEtapa, sanearPlazosPorEtapa, resumenEstancados,
-  type AutoAccion, type AutoLead, type AutoReglaId, type AutoUmbrales, type EstancadoAplicado,
+  AUTO_UMBRALES, planLeadAuto, plazoDeEtapa, sanearPlazosPorEtapa, resumenEstancados, rotuloReunion,
+  type AutoAccion, type AutoLead, type AutoReglaId, type AutoUmbrales, type EstancadoAplicado, type RotulosReunion,
 } from './crm-auto-plan';
 
 // El planificador PURO (AUTO_UMBRALES/AutoAccion/AutoLead/planLeadAuto) vive en
@@ -70,7 +71,7 @@ async function umbralesDelWorkspace(): Promise<AutoUmbrales> {
     const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d);
     // El embudo se lee de la caché de la corrida (la misma que usa `etapaDibujable`): no
     // suma una query por workspace. `null` = no se pudo leer → no se descarta nada.
-    const { plazos, descartes } = sanearPlazosPorEtapa(u.porEtapa, await etapasDelWs());
+    const { plazos, descartes } = sanearPlazosPorEtapa(u.porEtapa, (await etapasDelWs())?.etiquetas);
     if (descartes.length) console.warn(`[crm-auto] plazos por etapa descartados: ${descartes.join(' · ')}`);
     return {
       diasLeadSinAgenda: num(u.diasLeadSinAgenda, AUTO_UMBRALES.diasLeadSinAgenda),
@@ -97,7 +98,11 @@ export async function evaluarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Pro
     umbralesDelWorkspace(),
   ]);
   const nowMs = Date.now();
-  const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO, nowMs, umbrales));
+  // Cómo llamó el dueño a sus reuniones, para que T1 no le hable de «R1» a quien vende
+  // una «1ª sesión sin costo». Sale de la caché del embudo (la misma que ya leyó
+  // `umbralesDelWorkspace`), así que no suma una query; sin embudo legible → R1/R2.
+  const rotulos = (await etapasDelWs())?.reuniones;
+  const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO, nowMs, umbrales, rotulos));
   const porRegla = acciones.reduce<Record<string, number>>((a, x) => { a[x.regla] = (a[x.regla] ?? 0) + 1; return a; }, {});
   return { acciones, totalLeads: leads.length, porRegla };
 }
@@ -226,17 +231,31 @@ async function moverAuto(
 // Guarda key → RÓTULO, no sólo las keys. El rótulo hace falta porque el aviso de abajo lo
 // lee un dueño: «noresp» o «st0» son nombres internos y quien abre el WhatsApp no tiene de
 // dónde sacarlos (AGENTS.md: «el nombre interno de una cosa no es el nombre de la cosa»).
+// Y por la MISMA razón guarda cómo se llaman las dos reuniones (`reuniones`): T1 las nombra
+// en la descripción, el historial y la confirmación.
 // `null` = no se pudo leer el embudo.
-const etapasPorWs = new Map<number, Map<string, string> | null>();
+type EtapasWs = { etiquetas: Map<string, string>; reuniones: RotulosReunion };
+const etapasPorWs = new Map<number, EtapasWs | null>();
 
-/** Las etapas del embudo de este workspace (key → rótulo), cacheadas por corrida. */
-async function etapasDelWs(): Promise<Map<string, string> | null> {
+/**
+ * Las etapas del embudo de este workspace (key → rótulo) y los rótulos de sus dos
+ * reuniones, cacheadas por corrida.
+ *
+ * Las reuniones salen de `reunionesDe` (lib/funnel-etapas.ts), que es la fuente ÚNICA del
+ * mapeo «la reunión N del embudo → j1/j2»: un segundo filtro por `kind` acá podría
+ * contar distinto y nombrar la R2 con el rótulo de la R1. Un rótulo vacío NO cae a la key
+ * (`agenda` es un nombre interno): queda ausente y `rotuloReunion` dice «R1»/«R2».
+ */
+async function etapasDelWs(): Promise<EtapasWs | null> {
   const ws = await getWorkspaceActual();
   if (ws == null) return null;
   if (!etapasPorWs.has(ws)) {
     try {
       const stages = await getPipelineStagesDefault();
-      etapasPorWs.set(ws, new Map(stages.map((x) => [x.key, x.label || x.key])));
+      const etiquetas = new Map(stages.map((x) => [x.key, x.label || x.key]));
+      const [k1, k2] = reunionesDe(stages);
+      const rotulo = (k: string | undefined) => (k ? stages.find((x) => x.key === k)?.label?.trim() || undefined : undefined);
+      etapasPorWs.set(ws, { etiquetas, reuniones: { j1: rotulo(k1), j2: rotulo(k2) } });
     } catch (e) {
       console.error(`[crm-auto] no pude leer el embudo del ws ${ws}: ${e instanceof Error ? e.message : String(e)}`);
       etapasPorWs.set(ws, null);
@@ -249,7 +268,7 @@ async function etapaDibujable(key: string): Promise<boolean> {
   // Sin workspace resuelto no hay embudo contra el que comparar: se abstiene.
   if ((await getWorkspaceActual()) == null) return true;
   const etapas = await etapasDelWs();
-  return !etapas || etapas.has(key);
+  return !etapas || etapas.etiquetas.has(key);
 }
 
 /** Asigna a MaKo como setter de una nutrición automática — y lo deja registrado. */
@@ -317,6 +336,14 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     const asistField = which === 'j1' ? 'asistio_j1' : 'asistio_j2';
     const prevAsist = which === 'j1' ? lead.asistio_j1 : lead.asistio_j2;
     if (prevAsist != null) return 'skip'; // ya lo marcó un humano entre medio
+    // ⚠️ EL NOMBRE DE LA REUNIÓN ES SÓLO TEXTO: cómo la llamó el dueño en su embudo, o
+    // «R1»/«R2» si no la nombró. Lo que la identifica sigue siendo `which`, y `clave` se
+    // queda en `T1:${which}`: es la llave anti-loop de mako_confirmaciones. Medido el
+    // 06/10/2026: el ws1 tiene 35 confirmaciones T1 bajo 'T1:j1'/'T1:j2' (32 resueltas, 3
+    // pendientes). Derivar la clave del rótulo las re-propondría todas y movería leads a
+    // No Show — con el envío de WhatsApp del ws1 prendido, eso son mensajes a leads reales.
+    // Por lo mismo `asistField`, `noshow_r1/_r2` y el revert no miran el rótulo.
+    const reunion = rotuloReunion(which, (await etapasDelWs())?.reuniones);
     const prevStage = lead.pipeline_stage ?? null;
     const prevFechaJ1 = lead.fecha_junta_1;
     const auto = await buscarReunionesAutomatico(lead);
@@ -351,22 +378,22 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       // confirmación que no cambió un dato es ruido en la bandeja del dueño.
       if (!markedAsistencia && !addedLink) return 'skip';
       await logRegla(a.leadId, 'T1', markedAsistencia
-        ? `asistencia a ${which === 'j1' ? 'R1' : 'R2'} tomada de la grabación de Fathom (${a.descripcion})`
-        : `grabación de ${which === 'j1' ? 'R1' : 'R2'} enganchada a la ficha; la asistencia queda sin marcar (${a.descripcion})`);
+        ? `asistencia a ${reunion} tomada de la grabación de Fathom (${a.descripcion})`
+        : `grabación de ${reunion} enganchada a la ficha; la asistencia queda sin marcar (${a.descripcion})`);
       const revert: Record<string, unknown> = { [asistField]: prevAsist, pipeline_stage: prevStage };
       if (which === 'j1' && prevFechaJ1 !== lead.fecha_junta_1) revert.fecha_junta_1 = prevFechaJ1;
       if (addedLink) revert.fathom_remove_url = fathom.url; // revert quirúrgico: quita solo este link, no pisa el array
       return confirmarOCompensar(a.leadId, {
         leadId: a.leadId, leadNombre: lead.nombre, regla: 'T1', tipo: a.tipo, clave,
         titulo: markedAsistencia
-          ? `Asistencia ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`
-          : `Grabación de ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`,
+          ? `Asistencia ${reunion} de ${lead.nombre ?? 'lead'}`
+          : `Grabación de ${reunion} de ${lead.nombre ?? 'lead'}`,
         detalle: a.descripcion, aplicado: true,
         // Cada fila cuelga de que ESO haya pasado. Una fila que afirma un cambio
         // que no ocurrió es peor que no mostrarla: la persona confirma a ciegas.
         cambios: [
           ...(markedAsistencia
-            ? [{ campo: which === 'j1' ? 'Asistió R1' : 'Asistió R2', antes: 'Sin marcar', despues: 'Sí (grabación en Fathom)' }]
+            ? [{ campo: `Asistió ${reunion}`, antes: 'Sin marcar', despues: 'Sí (grabación en Fathom)' }]
             : []),
           ...(addedLink ? [{ campo: 'Grabación Fathom', antes: null, despues: fathom.label || 'agregada' }] : []),
         ],
@@ -404,12 +431,12 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
       which === 'j1' ? { asistio_j1: false } : { asistio_j2: false },
     );
     if (!movido) return 'skip';
-    await logRegla(a.leadId, 'T1', `→ No Show ${which === 'j1' ? 'R1' : 'R2'}: no apareció ninguna grabación en Fathom (${a.descripcion})`);
+    await logRegla(a.leadId, 'T1', `→ No Show ${reunion}: no apareció ninguna grabación en Fathom (${a.descripcion})`);
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T1', tipo: a.tipo, clave,
-      titulo: `No Show ${which === 'j1' ? 'R1' : 'R2'} de ${lead.nombre ?? 'lead'}`,
+      titulo: `No Show ${reunion} de ${lead.nombre ?? 'lead'}`,
       detalle: a.descripcion, aplicado: true,
-      cambios: [{ campo: which === 'j1' ? 'Asistió R1' : 'Asistió R2', antes: 'Sin marcar', despues: 'No asistió → No Show' }],
+      cambios: [{ campo: `Asistió ${reunion}`, antes: 'Sin marcar', despues: 'No asistió → No Show' }],
       revert: { [asistField]: prevAsist, pipeline_stage: prevStage },
     });
   }
@@ -494,7 +521,7 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
 async function avisarEstancados(aplicadas: EstancadoAplicado[]): Promise<boolean> {
   try {
     const etapas = await etapasDelWs();
-    const texto = resumenEstancados(aplicadas, (k) => etapas?.get(k) ?? k);
+    const texto = resumenEstancados(aplicadas, (k) => etapas?.etiquetas.get(k) ?? k);
     if (!texto) return false;
     const ws = (await getWorkspaceActual()) ?? undefined;
     const r = await emitirDelCatalogo('crm-lead-estancado', { ws, texto, dedupTtlMin: 1200 });

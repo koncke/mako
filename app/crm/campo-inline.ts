@@ -205,9 +205,12 @@ export function ponerLinkFathom(
 /**
  * ¿Guardar por `updateLead` le va a BORRAR el monto de cierre a este lead?
  *
- * ⚠️ ESTO NO ES PARANOIA, ES UNA REGLA QUE YA ESTÁ ESCRITA EN `updateLead`: «si
- * cerro != true → monto_cierre_usd y fecha_cierre se fuerzan a null», y se aplica
- * mire el caller lo que mire — aunque sólo haya mandado `asistio_j1`.
+ * ⚠️ ESTO NO ERA PARANOIA, ERA UNA REGLA ESCRITA EN `updateLead`: «si cerro != true
+ * → monto_cierre_usd y fecha_cierre se fuerzan a null», y se aplicaba mirara el
+ * caller lo que mirara — aunque sólo hubiera mandado `asistio_j1`. Desde el
+ * 06/10/2026 se aplica sólo si el caller tocó un campo que decide la venta
+ * (`desenlaceAlGuardar`, lib/lead-desenlace.ts), así que el rescate de
+ * `guardarCampoLeadAction` quedó como red: reescribe los mismos valores.
  *
  * Y hay leads a los que eso les saca un número real: `lib/pagos.ts` y el editor
  * del deal escriben `monto_cierre_usd` DIRECTO, sin pasar por `updateLead`, así

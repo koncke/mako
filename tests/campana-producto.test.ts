@@ -5,6 +5,11 @@
 // lo que cuelga de Supabase y de Meta se fija leyendo el bloque, no el archivo.
 //
 // PROBADO ROMPIÉNDOLO — los números están al lado de cada test que los tiene.
+//
+// ⚠️ DESDE EL 06/10/2026 TRAER LOS LEADS DE UNA CAMPAÑA LOS AGREGA, NO LOS MUEVE. Martín:
+// «No se debe "Mover" se debe agregar al otro producto». La asignación de la CAMPAÑA sí
+// se mueve (una campaña rutea a un solo producto); sus LEADS no salen de donde están: el
+// destino gana una fila de `lead_funnel` (mig 0207, lib/lead-funnel.ts).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -19,6 +24,7 @@ import {
   mapaDeAnuncios, campanaDeLead, leadsATraer, conteoPorCampana, campanasDeMetricas, repartirPorItem,
   type LeadAtribuible,
 } from '../lib/campana-atribucion';
+import { casaParaEscribir } from '../lib/lead-funnel-reglas';
 
 const C = (id: string, funnelId: number | null, nombre = `camp ${id}`): CampanaAsignada =>
   ({ tipo: 'campana', id, nombre, funnelId });
@@ -54,7 +60,7 @@ test('el funnelId llega como STRING (bigint) y se sanea a número; basura → nu
   assert.deepEqual(r.map((x) => x.funnelId), [13, null, null, null]);
 });
 
-// ── Asignar es MOVER ─────────────────────────────────────────────────────────
+// ── La ASIGNACIÓN de una campaña se mueve (sus leads, no: ver más abajo) ─────
 
 test('asignar una campaña que ya está en otro producto la MUEVE, conservando su lugar', () => {
   const antes = [C('111111111111', 1), C('222222222222', 2), C('333333333333', 3)];
@@ -121,7 +127,7 @@ test('asignadasDe: cada campaña con sus conjuntos debajo, y los sueltos al fina
 
 // ── Las dos puertas de Meta piden los MISMOS ids ─────────────────────────────
 
-const leer = (p: string) => readFileSync(p, 'utf8');
+const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 // Las líneas se vacían pero se CONSERVAN (los bloques dejan sus saltos): así el número
 // de línea que reporta un guard es el del archivo de verdad.
 const sinComentarios = (s: string) => s
@@ -227,7 +233,7 @@ test('el pop-up monta el selector con el principal como null, no con su id', () 
   assert.match(src, /<CampanasDelProducto funnelId=\{emb\.esDefault \? null : emb\.id\}/);
   // Y el server se defiende igual: traduce el id del principal a null antes de validar.
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
-  assert.match(acc, /return \{ ok: true, id: f\.esDefault \? null : f\.id \}/);
+  assert.match(acc, /return \{ ok: true, id: f\.esDefault \? null : f\.id, real: f\.id,/);
 });
 
 test('las acciones que ESCRIBEN leen el setting en modo estricto', () => {
@@ -288,12 +294,10 @@ test('campanaDeLead: el dato más directo gana, y un utm con NOMBRE no cuenta', 
 
 // PROBADO ROMPIÉNDOLO, de a uno y restaurando de memoria (05/10/2026). Cada rotura tumba
 // EXACTAMENTE su test, 27 pass / 1 fail: `(l.funnel_id ?? null)` cambiado por `l.funnel_id`;
-// sin el filtro de conjuntosDeOtro; un `pipeline_stage` dentro de moverEnLote; la sección
-// llamando a la acción lenta; la opción del ⋯ fuera de su condición de entrada;
-// `useState(true)` en vez de `useState(!declarado)`; guardar cerrando el panel otra vez; y el
-// modal sin portal. Después de mudar `moverEnLote` a lib/campana-traer.ts, otra tanda (28 / 1
-// cada una): un `pipeline_stage` ahí, una columna más en su `.update()`, y la pregunta del
-// modal condicionada sólo a `!otro` (asignaría 896 leads sin preguntar).
+// sin el filtro de conjuntosDeOtro; la sección llamando a la acción lenta; la opción del ⋯
+// fuera de su condición de entrada; `useState(true)` en vez de `useState(!declarado)`;
+// guardar cerrando el panel otra vez; y el modal sin portal. (Las roturas de `moverEnLote`
+// de esa tanda ya no aplican: se borró el 06/10, ver «traer AGREGA» más abajo.)
 test('leadsATraer: los de la campaña que NO están ya en el destino — el principal es null', () => {
   const leads = [
     L(1, null, { meta_ad_id: AD }),            // en el principal → se trae
@@ -305,6 +309,24 @@ test('leadsATraer: los de la campaña que NO están ya en el destino — el prin
   assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, 9, leads, anuncios).map((l) => l.id), [1, 2, 5]);
   // Destino = el principal (null): el lead 1 y el 5 ya están ahí.
   assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, null, leads, anuncios).map((l) => l.id), [2, 3]);
+});
+
+// PROBADO ROMPIÉNDOLO (06/10/2026, restaurando de memoria): sin la línea
+// `if (enDestino.has(l.id)) return false;` de leadsATraer → 33 pass / 1 fail, y cae sólo
+// éste. (Todas las roturas del 06/10 se midieron salteando el barrido de `use server`, que
+// tarda ~40 s y no mira nada de esto: la base da 34 / 0.)
+test('leadsATraer: el que YA está en el destino por una FILA de lead_funnel no se vuelve a traer', () => {
+  const leads = [
+    L(1, null, { meta_ad_id: AD }),            // casa = el principal, sin fila en 9 → se trae
+    L(2, 7, { utm_content: AD2 }),             // casa = 7, YA agregado a 9 → no
+    L(3, null, { meta_campaign_id: CAMP }),    // casa = el principal, YA agregado a 9 → no
+  ];
+  const enDestino = new Set([2, 3]);
+  assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, 9, leads, anuncios, new Set(), enDestino).map((l) => l.id), [1]);
+  // Y el lote pasa la misma lista: si no, la barra contaría de más lo que el alta no escribe.
+  assert.deepEqual(repartirPorItem([{ tipo: 'campana', id: CAMP }], 9, leads, anuncios, new Set(), enDestino).get(CAMP)?.map((l) => l.id), [1]);
+  // Sin la lista (las llamadas viejas), el comportamiento de antes: sólo cuenta la casa.
+  assert.deepEqual(leadsATraer({ tipo: 'campana', id: CAMP }, 9, leads, anuncios).map((l) => l.id), [1, 2, 3]);
 });
 
 test('leadsATraer: los de un conjunto asignado a OTRO producto se quedan allá (conjunto > campaña)', () => {
@@ -332,23 +354,66 @@ test('campanasDeMetricas: toda campaña con un día de datos, con el primer nomb
   assert.deepEqual(r.conjuntos, [{ id: ADSET, nombre: 'Mujeres', campanaId: CAMP }]);
 });
 
-test('traer los leads de una campaña cambia el PRODUCTO, no la etapa', () => {
-  // Es lo contrario de `moverLeadsAFunnelAction` y a propósito: la historia de una campaña
-  // no vuelve a empezar — un lead que ya pagó sigue en Ganado.
+// ── Traer AGREGA, no mueve (06/10/2026) ──────────────────────────────────────
+// «Le acabo de dar a un lead a "Mover a prueba" y se desapareció del producto principal de
+// Mauricio. Eso JAMÁS debe pasar... No se debe "Mover" se debe agregar al otro producto»
+// (Martín). Hasta ese día `moverEnLote` reescribía `leads.funnel_id`: traer una campaña
+// SACABA a sus leads del principal. Ahora la casa no se toca y el destino gana una fila.
+//
+// PROBADO ROMPIÉNDOLO, de a uno y restaurando de memoria (base 34 / 0 sin el barrido de
+// `use server`): los números de cada rotura están en el comentario de su test.
+
+// PROBADO ROMPIÉNDOLO: con `moverEnLote` devuelto a lib/campana-traer.ts y llamado desde la
+// acción (`.from('leads').update({ funnel_id: a })`) → 33 / 1; con `agregarLoteAProducto`
+// recibiendo `d.id` (null para el principal) en vez de `d.real` → 33 / 1; con el deshacer
+// sin el filtro de `m.a` → 33 / 1. En las tres cae sólo éste.
+test('traer los leads de una campaña los AGREGA (lead_funnel): no toca la casa ni la etapa', () => {
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   const traer = sinComentarios(leer('lib/campana-traer.ts'));
   for (const [quien, src] of [['la acción', acc], ['lib/campana-traer.ts', traer]] as const) {
+    // Ni la etapa (la de la casa sigue siendo suya)...
     assert.doesNotMatch(src, /setPipelineStage|pipeline_stage|moverLeadsAFunnelAction/, `${quien} toca la etapa`);
+    // ...ni la casa: nadie escribe `leads`.
+    assert.doesNotMatch(src, /from\('leads'\)\s*\.update\(|update\(\{\s*funnel_id/, `${quien} vuelve a MOVER: reescribe leads.funnel_id`);
+    assert.doesNotMatch(src, /moverEnLote/, `${quien}: volvió moverEnLote`);
   }
-  // `moverEnLote` es la última función del archivo: el bloque va hasta el final.
-  const b = traer.slice(traer.indexOf('export async function moverEnLote('));
-  assert.ok(b.length > 200 && b.length < 3000, `el bloque de moverEnLote mide ${b.length}: está mirando otra cosa`);
-  assert.match(b, /\.update\(\{ funnel_id: a \}\)\.in\('id', tanda\)/, 'mueve en lote, sólo el funnel_id');
-  assert.match(b, /from\('lead_audit'\)\.insert\(filas\)/, 'y deja el rastro en el historial');
-  // Y la lista de qué mover la calcula el SERVER: la pantalla manda la campaña, no ids.
-  const asignar = acc.slice(acc.indexOf('export async function asignarLoteAction('));
-  assert.match(asignar.slice(0, asignar.indexOf('\nexport ', 1)), /planDeTraidaLote\(d\.id, lote, nueva\)/,
-    'se calcula con la configuración YA guardada (conjunto > campaña)');
+  const bloque = (nombre: string) => {
+    const i = acc.indexOf(`export async function ${nombre}(`);
+    assert.ok(i >= 0, `no está ${nombre}`);
+    return acc.slice(i, acc.indexOf('\nexport ', i + 1));
+  };
+  const asignar = bloque('asignarLoteAction');
+  // Se calcula con la configuración YA guardada (conjunto > campaña)...
+  assert.match(asignar, /planDeTraidaLote\(d\.id, lote, nueva\)/, 'se calcula con la configuración YA guardada (conjunto > campaña)');
+  // ...se agrega con el id REAL del destino: el principal va a lead_funnel con su id, nunca null...
+  assert.match(asignar, /agregarLoteAProducto\(\s*grupo\.map\(\(l\) => l\.id\), d\.real,/, 'se agrega con el id REAL del destino');
+  // ...el deshacer recibe SÓLO lo que la base confirmó haber agregado, con su producto...
+  assert.match(asignar, /r\.agregados\.map\(\(id\) => \(\{ id, a: d\.real \}\)\)/);
+  // ...y un ítem que tira no se lleva puesto el deshacer de los anteriores.
+  assert.match(asignar, /\} catch \(e\) \{[^}]*fallaron \+= grupo\.length;/, 'un ítem que falla tiene que contarse, no tumbar el lote');
+
+  const deshacer = bloque('deshacerLoteAction');
+  assert.match(deshacer, /quitarLoteDeProducto\(ids, a,/, 'el deshacer borra las filas que agregó');
+  // Un payload sin `a` (la forma vieja) no saca a nadie: adivinar el producto sería sacarlo de otro.
+  assert.match(deshacer, /Number\.isInteger\(m\?\.a\) && m\.a > 0/, 'el deshacer acepta un agregado sin producto');
+});
+
+// PROBADO ROMPIÉNDOLO: con `repartirPorItem(...)` llamado sin `enDestino` → 33 / 1; sin el
+// paso por `casaParaEscribir` → 33 / 1. En las dos cae sólo éste.
+test('el plan sabe quién YA está en el destino por fila, y lee el principal como null', () => {
+  const traer = sinComentarios(leer('lib/campana-traer.ts'));
+  const i = traer.indexOf('export async function planDeTraidaLote(');
+  const plan = traer.slice(i);
+  assert.ok(i > 0 && plan.length < 2500, `el bloque de planDeTraidaLote mide ${plan.length}: está mirando otra cosa`);
+  // Las filas se buscan con el id REAL (el principal también tiene id en lead_funnel)...
+  assert.match(plan, /const destinoReal = destino \?\? defaultId;/);
+  assert.match(plan, /await agregadosDe\(destinoReal\)/);
+  // ...y la lista llega a la regla pura.
+  assert.match(plan, /repartirPorItem\(items, destino, normalizados, anuncios, conjuntosDeOtro, enDestino\)/);
+  // Un lead con el id del principal ESCRITO es del principal (el bug que casaParaEscribir cierra).
+  assert.match(plan, /funnel_id: casaParaEscribir\(/);
+  // Y la lectura de filas pagina: lead_funnel crece con el uso y el techo de 1000 no avisa.
+  assert.match(traer, /leerTodo<\{ lead_id: number \| string \}>\(db, 'lead_funnel'/);
 });
 
 test('la sección del pop-up no espera a Meta: lee sólo lo asignado', () => {
@@ -360,6 +425,12 @@ test('la sección del pop-up no espera a Meta: lee sólo lo asignado', () => {
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   const i = acc.indexOf('export async function campanasAsignadasAction(');
   assert.doesNotMatch(acc.slice(i, acc.indexOf('\nexport ', i + 1)), /campanasYConjuntos|leadsYMetricas/);
+});
+
+// PROBADO ROMPIÉNDOLO: con el toast de vuelta a `show(base, …)` sin los fallados → 33 / 1.
+test('el toast del lote dice cuántos NO se pudieron traer', () => {
+  const m = sinComentarios(leer('app/crm/CampanasModal.tsx'));
+  assert.match(m, /show\(r\.fallaron \? `\$\{base\} · \$\{r\.fallaron\} sin traer` : base,/);
 });
 
 test('el modal va por PORTAL: abierto desde el pop-up no puede ser su descendiente', () => {
@@ -422,4 +493,36 @@ test('«cómo entra tu gente» ya declarado arranca PLEGADO, y guardar lo pliega
   // Y guardar ya no cierra el panel: abajo viven las campañas.
   const m = sinComentarios(leer('app/crm/EtapasModal.tsx'));
   assert.doesNotMatch(m, /onGuardado=\{\(\) => \{[^}]*setEntradasAbierto\(false\)/);
+});
+
+// ── Borrar un producto para siempre: su gente vuelve al negocio con NULL (06/10/2026) ──
+// El tablero del negocio pide `.is('funnel_id', null)`: el rescate escribía el ID del
+// default y los rescatados no aparecían en NINGÚN tablero. Y desde la mig 0207 un rescatado
+// puede tener además una fila en el producto del negocio, que al volver es su casa — y
+// nunca hay fila para la casa.
+//
+// PROBADO ROMPIÉNDOLO: con `const destino = idNegocio;` → 33 / 1; sin el borrado de la fila
+// del negocio → 33 / 1; con la lectura de esas filas DESPUÉS del rescate (ya no encuentra a
+// nadie: todos tienen funnel_id null) → 33 / 1. En las tres cae sólo éste.
+test('eliminarFunnelDefinitivo: rescata con funnel_id NULL y borra la fila del negocio de los rescatados', () => {
+  // La regla se EJECUTA: el default contra sí mismo se escribe null, haya default o no.
+  assert.equal(casaParaEscribir(12, 12), null);
+  assert.equal(casaParaEscribir(null, null), null);
+  assert.equal(casaParaEscribir(7, 12), 7, 'otro producto se escribe con su id');
+
+  const fn = sinComentarios(leer('lib/funnels.ts'));
+  const i = fn.indexOf('export async function eliminarFunnelDefinitivo(');
+  const def = fn.slice(i, fn.indexOf('\nexport ', i + 1));
+  assert.ok(i > 0 && def.length > 500 && def.length < 6000, `el bloque mide ${def.length}: está mirando otra cosa`);
+  assert.match(def, /const destino = casaParaEscribir\(idNegocio, idNegocio\);/, 'el rescate no pasa por casaParaEscribir');
+  assert.doesNotMatch(def, /funnel_id: idNegocio/, 'el rescate escribe el ID del negocio: quedan fuera de todo tablero');
+  const iLee = def.indexOf(".from('lead_funnel')\n        .select('lead_id, etapa')");
+  const iRescate = def.indexOf('update({ funnel_id: destino })');
+  const iBorraFila = def.indexOf(".from('lead_funnel')\n        .delete().eq('funnel_id', idNegocio)");
+  const iBorraFunnel = def.indexOf(".from('funnels').delete()");
+  assert.ok(iLee > 0 && iRescate > iLee, 'las filas del negocio se leen ANTES del rescate (después ya no se encuentra a nadie)');
+  assert.ok(iBorraFila > iRescate, 'la fila del negocio de los rescatados no se borra (fila para la casa)');
+  assert.ok(iBorraFunnel > iBorraFila, 'el producto se borra antes de terminar con su gente');
+  // Y su etapa en el negocio pasa a ser la del lead, como al promover una fila a casa.
+  assert.match(def, /update\(\{ pipeline_stage: etapa \}\)\.in\('id', ids\.slice\(i, i \+ 200\)\)\.is\('funnel_id', null\)/);
 });

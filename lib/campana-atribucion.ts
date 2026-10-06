@@ -114,18 +114,24 @@ export function conteoPorCampana(leads: LeadAtribuible[], anuncios: Map<string, 
 }
 
 /**
- * Qué leads hay que MOVER al asignar una campaña o un conjunto a un producto.
+ * Qué leads hay que AGREGAR al destino al asignar una campaña o un conjunto a un producto.
  *
- * Son los de esa campaña (o conjunto) que todavía no están en el destino, MENOS los que
- * la regla de ruteo mandaría a otro lado: si la campaña va a A pero uno de sus conjuntos
- * está asignado a B, los leads de ese conjunto son de B. Es la misma precedencia que usa
- * `funnelIdDeCampana` para los que entran (conjunto > campaña), así que traer lo viejo y
- * rutear lo nuevo no se pueden contradecir: un lead histórico termina donde terminaría si
- * entrara hoy.
+ * ⚠️ AGREGAR, NO MOVER (06/10/2026). Hasta ese día esto decía «mover», y traer los leads
+ * de una campaña los SACABA del producto donde estaban — del principal de Mauricio, en el
+ * caso que lo destapó. Martín: «No se debe "Mover" se debe agregar al otro producto». Desde
+ * la mig 0207 un lead puede estar en varios productos: su CASA (`leads.funnel_id`) no se
+ * toca y el destino gana una fila de `lead_funnel` (lib/lead-funnel.ts).
+ *
+ * Son los de esa campaña (o conjunto) que todavía no están en el destino —ni por casa ni
+ * por fila—, MENOS los que la regla de ruteo mandaría a otro lado: si la campaña va a A
+ * pero uno de sus conjuntos está asignado a B, los leads de ese conjunto son de B. Es la
+ * misma precedencia que usa `funnelIdDeCampana` para los que entran (conjunto > campaña),
+ * así que traer lo viejo y rutear lo nuevo no se pueden contradecir.
  *
  * ⚠️ El destino va con `null` = el producto del negocio, que es como lo escribe el CRM
  * (`leads.funnel_id IS NULL`). Comparar contra el id numérico del principal daría «todos
- * hay que moverlos» sobre leads que ya están ahí.
+ * hay que agregarlos» sobre leads que ya están ahí. `enDestino`, en cambio, son ids de
+ * LEADS (los que tienen fila en el destino), así que no tiene esa trampa.
  */
 export function leadsATraer(
   item: { tipo: 'campana' | 'conjunto'; id: string },
@@ -134,9 +140,12 @@ export function leadsATraer(
   anuncios: Map<string, Anuncio>,
   /** Los conjuntos asignados a OTRO producto que no es el destino. */
   conjuntosDeOtro: ReadonlySet<string> = new Set(),
+  /** Los leads que YA están en el destino por una fila de `lead_funnel` (no por su casa). */
+  enDestino: ReadonlySet<number> = new Set(),
 ): LeadAtribuible[] {
   return leadsDe(item, leads, anuncios).filter((l) => {
-    if ((l.funnel_id ?? null) === destino) return false;
+    if ((l.funnel_id ?? null) === destino) return false;   // ya es su casa
+    if (enDestino.has(l.id)) return false;                  // ya está agregado
     if (item.tipo === 'campana') {
       const adset = campanaDeLead(l, anuncios).adsetId;
       if (adset && conjuntosDeOtro.has(adset)) return false;
@@ -160,11 +169,12 @@ export function repartirPorItem(
   leads: LeadAtribuible[],
   anuncios: Map<string, Anuncio>,
   conjuntosDeOtro: ReadonlySet<string> = new Set(),
+  enDestino: ReadonlySet<number> = new Set(),
 ): Map<string, LeadAtribuible[]> {
   const vistos = new Set<number>();
   const out = new Map<string, LeadAtribuible[]>();
   for (const item of items) {
-    const suyos = leadsATraer(item, destino, leads, anuncios, conjuntosDeOtro).filter((l) => !vistos.has(l.id));
+    const suyos = leadsATraer(item, destino, leads, anuncios, conjuntosDeOtro, enDestino).filter((l) => !vistos.has(l.id));
     for (const l of suyos) vistos.add(l.id);
     out.set(item.id, suyos);
   }
