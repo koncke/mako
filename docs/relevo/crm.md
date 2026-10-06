@@ -1,5 +1,39 @@
 # Relevo — CRM
 
+## ⚡ Actualización del 06/10/2026, 19:00 — sesión CRM, cuenta claude2
+
+**Lo que hay que saber primero:** `lead_funnel` (un lead en VARIOS productos, mig 0207) está
+**commiteado** (`f26c0a94`) y verificado en el navegador. Lo había escrito la sesión de claude1
+con nueve agentes y se cortó la cuota a mitad de la verificación: nada estaba commiteado. El
+porqué del modelo y sus trampas: `docs/hallazgos-crm.md` → «Un lead en VARIOS productos».
+
+- **Qué es:** la casa de un lead sigue en `leads.funnel_id` + `pipeline_stage`; cada otro
+  producto es una fila de `lead_funnel` con su etapa. «Agregar», nunca «mover»: ficha (X / ＋),
+  tablero, lote, «Traer», alta, campañas y el opt-in de la landing. Todo lo demás (métricas,
+  CAPI, MaKo, nutrición, Customer Success) lee sólo la casa.
+- **El lead que se movió por error** (Fernando Muñoz, 2381, ws1) ya está de vuelta en el producto
+  principal y en «Agenda R2».
+- **Calendly y la fuga de `dispararEvento`** salieron de la misma corrida y son de la sesión de
+  **Chatbot**, que los está terminando. No están en `f26c0a94`.
+
+**Decisiones de Martín que quedaron abiertas** (detalle en el hallazgo):
+1. Ganar en un producto AGREGADO no marca ganado al lead (la venta no existe hasta que ese
+   producto sea la casa).
+2. La casa de un opt-in con varios productos es el primero tildado: ¿alcanza o hace falta marcar
+   el principal?
+3. Mover entre dos etapas abiertas (Facturando → Falta pago) limpia la venta: ¿sólo cuando el
+   estado cambia?
+4. ¿El monto de cierre puede vivir en un lead abierto? (hoy su «Deshacer» no hace nada).
+5. Dos Ganados sin fecha de cierre (ws1 y ws13): se completan a mano.
+
+**Sin hacer y sin decisión pendiente:** la COHORTE del panel lateral (abajo, punto 1) sigue
+abierta; el duplicado del opt-in no lleva los productos; `AGENTS.md` sigue citando el opt-in
+viejo como ejemplo de «un alta que crea N filas».
+
+_Lo que sigue abajo es el relevo del 05/10 y vale como historia._
+
+---
+
 **Escrito el 05/10/2026 por la sesión `claude2` (CRM), al agotarse la cuota.**
 Lo lee la sesión de la otra cuenta: es el único canal entre las dos.
 

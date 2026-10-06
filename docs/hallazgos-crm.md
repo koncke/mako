@@ -6859,3 +6859,109 @@ volver a la posición que había dejado las tarjetas es simplemente quitar filtr
 - **El CRM no arrastra un LOTE** (sólo una tarjeta), así que el orden manual tampoco.
 - **Una etapa borrada deja su fila en `lead_orden`**: no molesta (se lee por etapa viva) y no se
   poda.
+
+## Un lead en VARIOS productos: `lead_funnel` — «agregar», nunca «mover» (06/10/2026)
+
+**Vive en:** `supabase/migrations/0207_lead_funnel.sql` · `lib/lead-funnel-reglas.ts` (puro,
+con test) · `lib/lead-funnel.ts` · `app/crm/lead-funnel-actions.ts` ·
+`app/crm/lead-view/ProductoDelLead.tsx` · `app/crm/CrmBoard.tsx` (`moverEnProducto`) ·
+`app/crm/crm-map.ts` · `lib/leads.ts` (`listLeadsDeFunnel`, `agregadosDelTablero`) ·
+`app/api/track/optin/route.ts` · `app/crm/campanas-actions.ts` · `lib/campana-traer.ts`
+
+Síntoma (Martín, 06/10 15:28): «Le acabo de dar a un lead a "Mover a prueba" y se desapareció
+del producto principal de Mauricio. Eso JAMÁS debe pasar». El lead (2381, ws1) además había
+perdido la etapa: de «Agenda R2» a «Lead». Se devolvió a mano ese mismo día.
+
+**Causa:** el modelo viejo era «un lead = una columna `leads.funnel_id`». Con eso, estar en dos
+productos sólo se podía hacer de dos formas, y las dos rompían: MOVER (resetea la etapa y, en un
+Ganado, le limpiaba la venta) o CLONAR (el opt-in con N productos creaba N fichas de la misma
+persona: Calendly y Meta actualizaban sólo la más vieja, la nutrición le escribía N veces, las
+métricas contaban doble y el CAPI mandaba un QualifiedLead por ficha).
+
+**El modelo que quedó:**
+- **La CASA** sigue siendo `leads.funnel_id` (NULL = el producto del negocio) + `pipeline_stage`.
+  Métricas, CAPI, CRM automático, MaKo, nutrición, la etiqueta de WhatsApp y Customer Success
+  leen SÓLO la casa. Es la decisión v1, y es lo que hizo posible cambiar el modelo sin tocar a
+  ninguno de ellos.
+- **Cada OTRO producto** es una fila de `lead_funnel` con la etapa de ESE tablero. Nunca hay fila
+  para la casa.
+- **Quitar la casa promueve la fila más vieja** (su producto y su etapa pasan a `leads`). No se
+  deja la casa vacía con una marca de «fuera», como hace Customer Success: `funnel_id` lo leen la
+  nutrición, las confirmaciones de MaKo, Customer Success y el dedup, y los cuatro lo seguirían
+  tratando como de ese producto.
+- **Mover la tarjeta de un agregado escribe sólo su fila**, sin abrir ningún diálogo: la nutrición
+  manual, la agenda y las señales a Meta son del recorrido de la casa.
+
+⚠️ **EL PRODUCTO DEL NEGOCIO SE ESCRIBE DE DOS FORMAS, Y SÓLO UNA LO ENCUENTRA EL TABLERO.** Como
+casa va NULL (el tablero del negocio pide `.is('funnel_id', null)`); como fila va con su id real
+(la FK no admite NULL). Escribir el id del default en `leads.funnel_id` deja al lead **fuera de
+TODOS los tableros**, con el producto correcto escrito en la fila y sin un error. Ya lo hacían dos
+caminos antes de este cambio (el desplegable de la ficha al «devolver» un lead y el rescate de
+`eliminarFunnelDefinitivo`). Toda escritura de la casa pasa por `casaParaEscribir`; medido en el
+navegador: quitar la casa 22 con el negocio como fila dejó `funnel_id = NULL`.
+
+⚠️ **«ESTÁ EN ESTE PRODUCTO» ES POR CASA O POR FILA, y cada lector que lo pregunta tiene que mirar
+las dos.** Se fueron encontrando de a uno: el dedup del alta (`enOtroProducto`, `choqueDeLead`),
+«Traer de otro producto» (marca a los que ya están), el lote, la traída de campañas
+(`leadsATraer`), la validación del orden manual (`orden-actions.ts`, que si no descartaba a los
+agregados en silencio) y el conteo por etapa (`extrasDelEmbudoAction`: sin sumar las filas, una
+etapa con gente agregada decía 0 y se borraba **sin preguntar**). El próximo lector que pregunte
+«¿quién está en este producto?» por `leads.funnel_id` solo, mide la mitad.
+
+**`getTenantDb()` es fail-open, y la 0207 lo sabía:** `lead_funnel` entró a `TENANT_TABLES` y a
+`TABLAS_DE_INQUILINO` en el mismo commit que la tabla. Medido: la fila que creó el navegador nació
+con `workspace_id = 4`, el del cliente que se estaba mirando.
+
+### Tres cosas que salieron del mismo trabajo
+
+- **`updateLead` le borraba la venta a cualquiera al corregir otro campo** (la entrada de arriba,
+  «`updateLead` LE BORRA EL MONTO…»): la cura de fondo quedó HECHA. La decisión se mudó a
+  `lib/lead-desenlace.ts` (pura, con test) y la coerción corre sólo si el caller tocó un campo que
+  decide la venta. ⚠️ El diagnóstico obvio («sólo borra el monto») se quedaba corto: la regla vieja
+  también le INVENTABA la fecha de cierre de hoy a un Ganado sin fecha en la siguiente corrección
+  cualquiera, y le BLOQUEABA toda edición a un Ganado con monto ≤ 0 guardado por otro camino.
+  ⚠️ Y la trampa: «tocó `estado_lead`» no es «lo cambió». `setPipelineStage` manda `estado_lead`
+  en cada movimiento, así que mover entre dos etapas ABIERTAS (Facturando → Falta pago) sigue
+  limpiando la venta. Decisión de Martín, abajo. El rescate local `montoEnRiesgo` quedó como red
+  (reescribe los mismos valores) y su comentario dice por qué.
+- **El CRM automático nombra las reuniones como el embudo** (`rotuloReunion`, cae a R1/R2), pero
+  sólo en el TEXTO de la confirmación. ⚠️ El historial sigue escribiendo «Asistió R1» desde
+  `AUDIT_FIELDS`, y `revertAuditChangeAction` deshace una línea buscando ESE literal
+  (`REVERTIBLES`, `case 'Asistió R1'`). Si alguien pasa el rótulo del embudo a `AUDIT_FIELDS`, el
+  «Deshacer» de esas líneas deja de funcionar sin un error. La clave anti-loop `T1:j1` tampoco se
+  tocó (cambiarla re-propone las T1 ya resueltas del ws1).
+- **Cómo se verificó:** en el navegador, sobre el ws4 con un producto de prueba que después se
+  borró: agregar (antes «＋ / No está» y sin X; después X en los dos), arrastrar en el producto
+  agregado (Lead → Facturando, la casa intacta, cero diálogos), quitar + deshacer (la fila vuelve
+  con su etapa y su fecha de entrada), quitar la CASA (promueve) y el lote con su deshacer (borra
+  sólo las filas que creó). Las trampas del entorno de esa verificación están en
+  `docs/hallazgos-infra.md` → «Verificar en un worktree».
+
+### Lo que quedó SIN hacer
+
+- **Ganar en un producto AGREGADO no marca al lead como ganado.** Es la v1 a propósito (la casa
+  manda), pero tiene una consecuencia de producto: si alguien compra el segundo producto, la venta
+  no existe para Revenue, el CAPI ni Customer Success hasta que ese producto sea la casa. Decide
+  Martín.
+- **La casa de un opt-in con varios productos es el PRIMERO tildado** en la configuración de la
+  landing. ¿Alcanza el orden, o hace falta marcar el principal? Decide Martín.
+- **Mover entre dos etapas abiertas sigue limpiando la venta** (ver arriba): ¿se limpia sólo
+  cuando el estado CAMBIA (Ganado → abierta)? Es una línea en `setPipelineStage`. Decide Martín.
+- **El «Deshacer» de «Monto de cierre» sobre un lead abierto no hace nada**, porque el monto es un
+  campo que decide la venta y el lead no tiene `cerro`. ¿El monto puede vivir en un lead abierto
+  (como ya lo escriben `lib/pagos.ts` y el editor del deal)? Decide Martín.
+- **Dos Ganados sin `fecha_cierre`** (uno en el ws1, uno en el ws13): antes cualquier corrección
+  les ponía la de hoy; ahora no les inventa nada. Se completan a mano.
+- **El camino del duplicado del opt-in no lleva los productos**: entra al negocio y una persona lo
+  agrega desde la ficha. Falta `funnelIds` en `FilaImport` (`app/crm/leads-importar.ts`) y en el
+  importador (`app/crm/actions.ts`).
+- **`AGENTS.md` → «Un alta que pasa a crear N filas…» sigue citando el opt-in** como ejemplo
+  medido, y ese código ya no existe. La regla sigue valiendo; falta la línea que lo diga
+  (archivo compartido: se coordina antes).
+- **Calendly (los 5xx que apagaban la suscripción) y la fuga de `dispararEvento`** (los flujos del
+  ws1 corriendo con eventos de otros clientes) salieron de la misma corrida y los terminó la sesión
+  de Chatbot: ver `docs/hallazgos-comunicacion.md`.
+
+_Corrida del 06/10/2026: el núcleo lo escribió la sesión de claude1 y nueve agentes las pantallas;
+la cuota se cortó a mitad de la verificación (4 de 9 devolvieron resultado). La integración, la
+prueba en el navegador, el commit (`f26c0a94`) y esta cosecha los hizo la sesión de claude2._

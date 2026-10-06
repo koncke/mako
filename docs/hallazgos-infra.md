@@ -4351,3 +4351,48 @@ filtrando con `existsSync` como ya hacen `sin-clarity` y `sin-whop`.
 Y un `sinComentarios` que borra los bloques `/* … */` enteros corre los números de línea: el guard
 nombra otra línea (medido: `:99` sobre la 128). Se vacía el bloque conservando sus saltos
 (`m.replace(/[^\n]/g, '')`); `sin-clarity` todavía tiene el corrimiento.
+
+## Verificar en un worktree: el dev server compartido, Turbopack y una corrida cortada por cuota (06/10/2026)
+
+**Vive en:** `next.config.ts` (`turbopack.root`) · `.next/dev/logs/next-development.log` ·
+el scratchpad de la sesión
+
+Medido el 06/10/2026 al verificar en el navegador un cambio de 42 archivos del CRM, con seis
+sesiones sobre el clon.
+
+- **Next 16 no deja levantar un segundo `next dev` en el mismo directorio** («Another next dev
+  server is already running», con el PID y el puerto del otro). Y el que estaba corriendo, de otra
+  sesión, contestaba **500 a todo**: sus workers se habían muerto («Jest worker encountered 2 child
+  process exceptions, exceeding retry limit»), así que la página llegaba sin cuerpo y sin un solo
+  control. Leído desde afuera es «mi cambio rompió la ficha». El log del server lo dice en una
+  línea: `tail .next/dev/logs/next-development.log`. No se mata el server de otra sesión.
+- **La salida es un worktree con HEAD + SÓLO los archivos propios**, que además contesta la
+  pregunta que importa antes de commitear: si lo que se va a publicar compila sin el trabajo a
+  medias de las otras sesiones. Tres trampas para levantar ahí un dev server, las tres medidas:
+  1. **Turbopack rechaza el junction a `node_modules`**: «Symlink [project]/node_modules is
+     invalid, it points out of the filesystem root». La raíz es `turbopack.root`, que
+     `next.config.ts` fija en `__dirname` a propósito. En el worktree (y SÓLO ahí, sin
+     commitearlo) va un ancestro común de los dos: `root: 'C:/Users/marti'`.
+  2. **Con el worktree adentro del scratchpad, Turbopack muere por largo de ruta** («path length
+     for file … .next\dev\server\chunks\…»). El scratchpad ya tiene ~140 caracteres antes de
+     empezar. El worktree va en una ruta corta (`C:\Users\marti\<nombre>`) y se borra al terminar.
+  3. **`next dev --webpack` no sirve en este repo**: «Reading from "node:crypto" is not handled by
+     plugins». No es una alternativa.
+  Para el typecheck y los tests el worktree anda sin nada de esto; los guards que barren con
+  `git ls-files` necesitan los archivos nuevos en el índice DEL WORKTREE (`git add` ahí no toca
+  el del clon).
+- ⚠️ **UNA CORRIDA CORTADA POR CUOTA PUEDE DEJAR UNA ROTURA APLICADA EN EL FUENTE.** Los arneses
+  que prueban un test rompiéndolo escriben la rotura, corren y restauran de memoria; si la cuota
+  corta entre «escribir» y «restaurar», el archivo queda roto **y compila**. Antes de seguir con lo
+  que dejó una corrida cortada, se cruza cada rotura del arnés contra el archivo: el ancla
+  original tiene que aparecer una vez y la versión rota cero. Acá las 14 estaban restauradas, y la
+  única que dio «sospechosa» era una segunda llamada legítima con el mismo texto que la rotura.
+  Que el typecheck y los tests den verde **no** lo contesta: una rotura de lógica tipa perfecto.
+- ⚠️ **Y «failed» en el journal de una corrida no dice «no hizo nada».** Cinco de nueve agentes
+  figuraban como fallados y los cinco tenían el trabajo terminado en disco: los cortó la cuota en
+  la verificación final, antes de devolver. Lo que hay que leer es la cola de SU transcript
+  (`subagents/workflows/<runId>/agent-*.jsonl`), no el veredicto.
+- **Los subagentes de una misma corrida comparten el scratchpad de la sesión que los lanza.** Uno
+  encontró su `romper.mjs` pisado por el de otro agente; sin mirarlo, su arnés habría corrido el
+  script ajeno sobre sus archivos. En una corrida multi-agente, cada agente trabaja en una
+  SUBCARPETA con su nombre.

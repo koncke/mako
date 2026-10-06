@@ -3491,6 +3491,12 @@ cuando llegó: hay que volver a la prueba.
 
 ### ⚠️ Un alta que se REPARTE a N filas choca con su propio chequeo de duplicados
 
+> ⚠️ **Reemplazado el 06/10/2026 (mig 0207).** El opt-in ya no crea N fichas: crea UN lead
+> (su casa es el primer producto) y agrega los otros como filas de `lead_funnel`
+> (`agregarAProducto`), así que en su código ya no queda ningún `permitirDuplicado`. Lo de abajo
+> describe el código anterior; la regla general sigue valiendo para un alta que de verdad
+> necesite N filas. Ver `docs/hallazgos-crm.md` → «Un lead en VARIOS productos».
+
 Decisión de Martín el 06/10/2026 sobre el Pixel: una landing puede vender VARIOS productos
 y **«el lead entra a TODOS»**. Un lead vive en UN embudo —`leads.funnel_id` es una columna—
 así que «entra a los tres» no puede ser una fila: son TRES fichas de la misma persona, una

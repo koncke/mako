@@ -1044,5 +1044,47 @@ export const BITACORA: Hito[] = [
       "lib/crm-orden.ts — leerla",
       "supabase/migrations/0200_lead_orden.sql — lead_orden"
     ]
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "15:28",
+    "chat": "Funnel y oferta del CRM",
+    "cuenta": "claude1",
+    "actor": "martin",
+    "tipo": "prompt",
+    "titulo": "«Mover a prueba» sacó un lead del producto principal: agregar, nunca mover",
+    "pedido": "1. Le acabo de dar a un lead a \"Mover a prueba\" y se desapareció del producto principal de Mauricio. Eso JAMÁS debe pasar... No se debe \"Mover\" se debe agregar al otro producto... Y para eso en el desplegable, tal como lo hacemos en Customer Success, cuando está en más de 2 productos, salta el botón de X para sacarlo de alguno... Y si hay productos en los que no está, en lugar del botón de X, un ícono que indique que se lo peude agregar. Solucionalo y que me aparezca nuevamente el lead que moví...\n2. De todo lo que te dije, revisa si nos quedó algo pendiente o algo que yo deba decidir para avanzar.\n3. Revisa el proyecto CRM del plan, y todo lo que puedas finalizar, hazlo. Y lo que si o si requiera que preguntes, preguntame.",
+    "puntos": []
+  },
+  {
+    "fecha": "6 oct",
+    "hora": "18:49",
+    "chat": "CRM",
+    "cuenta": "claude2",
+    "actor": "claude",
+    "tipo": "implementacion",
+    "titulo": "Un lead en varios productos: la casa sigue en el lead y cada otro producto es una fila (mig 0207)",
+    "puntos": [
+      "Ficha (pop-up y ruta): X donde está (con 2+), ＋ donde no está; la etapa de al lado es la del producto que se mira.",
+      "Tablero, lote, «Traer», alta, campañas y opt-in de la landing AGREGAN; se borraron las dos acciones que movían.",
+      "⚠️ El producto del negocio se escribe NULL como casa y con su id como fila: con el id, el lead desaparecía de todos los tableros.",
+      "Viajan juntos: updateLead ya no borra la venta al corregir otro campo, y el CRM automático nombra las reuniones como el embudo.",
+      "Verificado en el navegador sobre el ws4 (agregar, arrastrar, quitar la casa, el lote y sus deshacer). El lead que se había movido ya estaba de vuelta."
+    ],
+    "commits": [
+      {
+        "sha": "f26c0a94",
+        "msg": "CRM: un lead está en VARIOS productos — «agregar», nunca «mover» (mig 0207)",
+        "lineas": 3841,
+        "archivos": 42
+      }
+    ],
+    "archivos": [
+      "supabase/migrations/0207_lead_funnel.sql — lead_funnel",
+      "lib/lead-funnel-reglas.ts — en qué productos está y qué se puede hacer (puro, con test)",
+      "lib/lead-funnel.ts — agregar, quitar (promueve la casa), mover en un producto, lote",
+      "app/crm/lead-view/ProductoDelLead.tsx — el desplegable de la ficha",
+      "lib/lead-desenlace.ts — cuándo se toca la venta al guardar"
+    ]
   }
 ];
