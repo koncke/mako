@@ -4,6 +4,44 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# LO PRIMERO AL ABRIR: si te preguntan «¿en qué quedamos?», leé `docs/relevo.md`
+
+Martín trabaja con **dos cuentas de Claude** y se pasa de una a la otra cuando se le acaban
+los tokens. Al entrar, abre un chat y pregunta **«en qué quedamos»** — y el 100% del trabajo
+intermedio lo hizo la otra cuenta, no vos. Contestar desde lo que viviste en ESTA sesión es
+contestar sobre el 0%.
+
+**`docs/relevo.md` es la respuesta.** Se pisa en cada traspaso y siempre describe la ventana
+que acaba de cerrar: qué se hizo, qué quedó a medio hacer y con qué archivo, y qué espera una
+decisión suya. Al lado, `docs/relevo/` tiene un briefing por área o por chat, y su
+`README.md` dice cuál le toca a cada uno.
+
+⚠️ **Esta regla existe porque faltaba y se pagó.** El 05/10/2026 la cuenta 2 dejó el relevo
+escrito y avisado; aun así, la sesión que entró tuvo que **descubrirlo sola** mirando fechas
+de modificación en `docs/`. Nada en este archivo mandaba a leerlo. Un traspaso que depende de
+que el que entra tenga la corazonada de buscarlo no es un traspaso.
+
+El orden, y son tres comandos:
+
+1. `cat docs/relevo.md` — la ventana anterior, completa.
+2. `git log --oneline -20` y `ls -lt docs/hallazgos-*.md` — qué se tocó DESPUÉS de ese relevo.
+3. El `docs/hallazgos-<área>.md` del área que vayas a tocar.
+
+⚠️ **El relevo es material de SEGUNDA MANO** y él mismo lo dice: sale de leer lo que la otra
+cuenta escribió, no de releer el árbol. Antes de actuar sobre una afirmación suya,
+verificala — y si algo contradice lo que medís, mandá tu medición y decilo.
+
+Y al revés, cuando la ventana se cierra: **el relevo lo escribe cada chat sobre lo suyo**, no
+un lector que no estuvo. El que hizo el trabajo es la única fuente de primera mano; a un
+briefing ajeno, a lo sumo, se le pegan arriba las correcciones medidas.
+
+⚠️ **Y el relevo se COMMITEA en cuanto se escribe, no al final de la tanda.** El final de la
+tanda es justo lo que la cuota se come. El 06/10/2026 la cuenta 1 escribió seis briefings entre
+las 16:30 y las 16:53 — 1.461 líneas, uno por área — y se quedó sin tokens antes del commit:
+quedaron `??` en `docs/relevo/`, a un `git clean` de desaparecer, y la cuenta que entró no los
+veía en el repo. Se rescataron en `035931f7`. Un relevo sin commitear no es un relevo: es un
+borrador en el disco de una sesión que ya no existe.
+
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
 `next build` tiene `typescript.ignoreBuildErrors: true` (ver next.config.ts). **No es
