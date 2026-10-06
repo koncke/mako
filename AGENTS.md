@@ -383,6 +383,24 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   tail -5`,** y si al commitear alguien se te adelantó, renumerá **antes** de pushear. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
+- ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
+  stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
+  mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430
+  líneas (`app/crm/[id]/EditLeadForm.tsx`) que la sesión del CRM había stageado — minutos
+  después de que el mismo autor les advirtiera eso a cuatro chats. **Para acotar de verdad, la
+  ruta va AL COMMIT:** `git commit <ruta> [<ruta>…] -F <msg>`, que ignora el resto del índice.
+  Un archivo nuevo no se puede commitear por ruta sin estar trackeado: `git add -N <ruta>`
+  primero (intent-to-add, no lo stagea). Y antes de pushear, `git show --stat HEAD` dice qué
+  salió de verdad.
+
+- ⚠️ **Y `git push` publica los commits locales de TODAS las sesiones, no sólo los tuyos.**
+  Es la misma rama del mismo clon. El 06/10/2026 una sesión retenía un commit de docs para no
+  taparle a su deploy anterior la señal de si compilaba, y el push de otra sesión lo publicó
+  igual (`c0e2570b..6e2350f3` con el commit ajeno en el medio). Zafó porque ese deploy ya estaba
+  Ready. **No existe «retener un commit» en un clon compartido**: si algo no tiene que salir
+  todavía, no se commitea — se deja en el árbol o en un worktree propio. Y quien pushea mira
+  `git log origin/main..HEAD` antes, porque ahí puede haber trabajo de otros.
+
 - **Rojo que no es tuyo y al minuto está verde.** Dos sesiones distintas corrieron el
   typecheck sobre un archivo que la tercera estaba tipeando: una vio cuatro errores de
   sintaxis y la otra, un minuto después, cero, sin que nadie tocara nada. Una de las dos
