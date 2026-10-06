@@ -145,3 +145,26 @@ test('el drenador de corridas descubre las de TODOS los workspaces y ejecuta cad
   assert.match(retomar, /runWithWorkspace\(ws, \(\) => listarFlujosActivos\(\)\)/);
   assert.match(retomar, /runWithWorkspace\(ws, \(\) => ejecutarPasos\(/);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. De quién heredan los mensajes los clientes
+// ─────────────────────────────────────────────────────────────────────────────
+// El store de plantillas se hereda campo por campo, y la base era `OWNER_WS` — el ws1, que
+// es MAURICIO, un cliente. Medido contra producción el 06/10/2026: siete workspaces sin
+// store propio heredaban un `reporte-semanal` cuyo texto traía sus números reales («$640 ·
+// 92 leads · CPL $6,9 · 4 cierres») y que el editor de cada uno dibuja como ejemplo.
+//
+// Probado rompiéndolo: devolviendo `leerStoreDe(OWNER_WS)` como base, este test cae
+// nombrando la herencia de un cliente.
+test('los clientes heredan los mensajes de la PLATAFORMA, nunca de otro cliente', () => {
+  const src = sinComentarios(leer('lib/plantillas.ts'));
+  const par = bloque(src, 'async function leerPar(', 'async function leerStore(');
+  assert.match(par, /wsSuperAdmin\(\)/, 'la base de la herencia tiene que ser el workspace de la plataforma');
+  assert.match(par, /leerStoreDe\(base\)/, 'se hereda del store de la base resuelta, no de un número');
+  assert.doesNotMatch(par, /OWNER_WS/, 'la base volvió a ser el ws1, que es un CLIENTE: sus textos le llegan a todos los demás');
+  // Y el borrador sigue sin heredarse (lo fija también tests/flujo-aviso.test.ts).
+  assert.match(par, /borrador: _sinHeredar/, 'el borrador de la base no se hereda nunca');
+
+  // «No pude resolver el workspace» no es «el del dueño» en ninguna escritura del store.
+  assert.doesNotMatch(src, /getWorkspaceActual\(\)\)\s*\?\?\s*OWNER_WS/, 'un workspace sin resolver cae al ws1 y escribe sobre un cliente que nadie estaba mirando');
+});

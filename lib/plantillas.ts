@@ -11,7 +11,7 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
-import { runWithWorkspace, OWNER_WS, getWorkspaceActual } from './workspace';
+import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { chatClaude } from './anthropic';
 import { CATALOGO_AVISOS, esAvisoDelCliente, type AvisoCatalogo, type CategoriaAviso } from './avisos-catalogo';
 import { esFlujoValido, type Flujo } from './flujos-tipos';
@@ -165,20 +165,38 @@ async function leerStorePropio(): Promise<Store> {
  * en la misma operación.
  */
 async function leerPar(): Promise<{ propio: Store; efectivo: Store }> {
-  const ws = await getWorkspaceActual();
-  if (ws === OWNER_WS) {
+  // ⚠️ LA BASE DE LA HERENCIA ES LA PLATAFORMA (`wsSuperAdmin()`), NO `OWNER_WS`. El ws1 es
+  // MAURICIO, UN CLIENTE, y su store era el default de todos los demás campo por campo: lo
+  // que él editaba en SU pantalla le llegaba a cada cliente como el texto de fábrica.
+  //
+  // Medido contra producción el 06/10/2026: siete workspaces sin store propio (5, 9, 10, 11,
+  // 14, 15 y 17) heredaban del ws1 un `reporte-semanal` cuyo texto traía SUS NÚMEROS REALES
+  // —«$640 · 92 leads · CPL $6,9 · 4 cierres»— y que `aVista` dibuja como el ejemplo de ese
+  // mensaje en el editor de cada uno. O sea: los datos de negocio de un cliente, a la vista
+  // de los otros siete. Es la regla de «OWNER_WS NO es la plataforma» de AGENTS.md, y el
+  // ejemplo de UI con datos de un cliente real que esa misma regla ya prohíbe.
+  //
+  // Mover la base no le cambia el comportamiento AUTOMÁTICO a ningún cliente, y eso también
+  // se midió antes de tocarlo: lo demás que se heredaba era un interruptor en `false` sobre
+  // un aviso que ya nace apagado, un espaciado en 0 (que es el default), y cuatro flujos con
+  // disparador MANUAL — que no corren solos. El store de la plataforma hoy está vacío, así
+  // que los clientes pasan a heredar el catálogo de fábrica, que es lo que dice el código.
+  //
+  // El ws1 queda como un inquilino más: sus ediciones son suyas y de nadie más.
+  const [ws, base] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
+  if (ws === base) {
     const propio = await leerStorePropio();
-    return { propio, efectivo: propio };   // al dueño no se le hereda nada: su store ES el default
+    return { propio, efectivo: propio };   // a la plataforma no se le hereda nada: su store ES el default
   }
-  const [propio, base] = await Promise.all([leerStorePropio(), leerStoreDe(OWNER_WS)]);
+  const [propio, baseStore] = await Promise.all([leerStorePropio(), leerStoreDe(base)]);
   const efectivo: Store = {};
-  for (const id of new Set([...Object.keys(base), ...Object.keys(propio)])) {
+  for (const id of new Set([...Object.keys(baseStore), ...Object.keys(propio)])) {
     // ⚠️ EL BORRADOR NO SE HEREDA, y es el único campo con esa excepción. Lo del
     // dueño es el DEFAULT de todos, y un borrador no es un default: es trabajo a
     // medio escribir de UNA persona. Heredado, cada cliente abriría el mensaje con
     // un «Sin publicar» y un texto que nunca tipeó — y al apretar Publicar estaría
     // publicando en SU negocio el borrador de la agencia.
-    const { borrador: _sinHeredar, ...heredable } = base[id] ?? {};
+    const { borrador: _sinHeredar, ...heredable } = baseStore[id] ?? {};
     efectivo[id] = { ...heredable, ...(propio[id] ?? {}) };
   }
   return { propio, efectivo };
@@ -301,9 +319,14 @@ export async function setFlujo(id: string, flujo: Flujo | null): Promise<Flujo |
   const teniaInsistir = antes?.pasos.some((p) => p.tipo === 'insistir') ?? false;
   const tieneInsistir = flujo?.pasos.some((p) => p.tipo === 'insistir') ?? false;
   if (teniaInsistir && !tieneInsistir) {
-    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
-    const { cerrarPorConfiguracion } = await import('./insistencias');
-    await cerrarPorConfiguracion(ws, id).catch(() => 0);
+    // ⚠️ Sin workspace NO se cierra nada. Antes caía a `OWNER_WS`, o sea que sacarle el
+    // paso de insistir a un mensaje sin un workspace resuelto cerraba las insistencias del
+    // ws1 — una escritura sobre un cliente que nadie estaba mirando.
+    const ws = await getWorkspaceActual();
+    if (ws != null) {
+      const { cerrarPorConfiguracion } = await import('./insistencias');
+      await cerrarPorConfiguracion(ws, id).catch(() => 0);
+    }
   }
   // Lo que quedó guardado, para que el handler conteste sin volver a leer. Es el flujo
   // efectivo de esta entrada: si se borró, el de fábrica vuelve a mandar.
