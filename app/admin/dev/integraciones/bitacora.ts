@@ -5,12 +5,13 @@
 // conectado funciona. La grilla de servicios por categoría, la barra de
 // credencial (BYOK), el «Costo de MaKo», el botón de conectar su Claude, y —lo
 // que se llevó casi todo agosto— el Pixel de MaKo: instalarlo, elegir sobre qué
-// página, activarle Clarity, nombrar sus videos y probarlo en vivo.
+// página, asignarle el producto, prender la grabación, nombrar sus videos y
+// probarlo en vivo. (Clarity vivió acá hasta el 6/10/2026; salió del producto.)
 // Vive en: app/integraciones/ (page, IntegracionesBoard, ServicioConfigForm,
-// SelectorLanding, ConfigClarity, ProbarTracking, NombrarVideos, escuchando/,
+// SelectorLanding, AsignarProducto, ProbarTracking, NombrarVideos, escuchando/,
 // landing-actions, landing-config-actions), app/api/integraciones/*,
 // lib/integraciones-catalogo.ts, lib/metodo-catalogo.ts, lib/metodo-verificar.ts,
-// lib/servicio-slides.ts, lib/clarity.ts, lib/landing-config.ts,
+// lib/servicio-slides.ts, lib/landing-config.ts, lib/landing-config-leer.ts,
 // lib/landing-paginas.ts, lib/landing-analisis.ts, lib/landing-videos.ts.
 //
 // De dónde salió esto: los mensajes de commit de este repo, que son largos y
@@ -33,7 +34,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Conectar tu Claude', detalle: 'Token del agente con la pantalla del trato + el tutorial de 4 pasos, el mismo que monta /second-brain', estado: 'hecha' },
   { titulo: 'El Pixel de MaKo', detalle: 'UN código que mide visita, video, clics, opt-in y agenda · elegir la página es el paso 1 y gobierna todo lo demás', estado: 'hecha' },
   { titulo: 'Probar el Pixel en vivo', detalle: 'Ventana de MaKo apoyada sobre la landing · chequeos que se adaptan a lo que la página tiene · marcador para ver SOLO tu prueba', estado: 'hecha' },
-  { titulo: 'Mapas de calor y grabaciones (Clarity)', detalle: 'BYOK adentro del mismo snippet · link a la grabación desde la ficha del lead · cron que cachea el resumen y avisa antes de que se borre', estado: 'hecha' },
+  { titulo: 'Grabar las visitas', detalle: 'Clarity salió del producto el 6/10: graba MaKo, con el interruptor del Pixel · falta que los clientes repeguen el código, y decidir si hace falta el mapa de calor', estado: 'sigue' },
   { titulo: 'Identificar tus videos', detalle: 'Nombre propio, título real de Panda y ocultar los ajenos · falta que la curva de retención se filtre por video: la capacidad existe hace meses y nadie se la pasa', estado: 'sigue' },
   { titulo: 'Dar de alta un servicio sin cuatro listas', detalle: 'Hoy una integración se declara en el catálogo, en CAT_ORDER, en capas.ts, en el de íconos y en el del método; olvidar una la deja invisible y sin error', estado: 'cola' },
 ];
@@ -414,6 +415,41 @@ export const BITACORA: Hito[] = [
       'lib/landing-config.ts — `funnelIds`, con lectura del formato de uno solo',
       'lib/landing-funnel.ts — `funnelsDeLanding` y `funnelPrincipalDeLanding`',
       'app/api/track/optin/route.ts — una ficha por producto, las extras best-effort',
+    ],
+  },
+  {
+    fecha: '6 oct', hora: '05:51', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El paso 2 tarda y es un desplegable; y Clarity fuera del todo',
+    pedido: '«1. El paso de los productos tardó mucho en encontrar mis productos... No entiendo porque si son 2 literalmente. Y hazlo también dentro de un desplegable. Y elimina el texto de "Los leads de esta página entran al CRM de los productos que marques. Si marcas varios, la misma persona aparece en el tablero de cada uno." Y no entiendo lo de "Sin marcar ninguno, sus leads entran al CRM de tu negocio.", si o si se debe marcar 1. Y en todo caso si el workspace tiene solo 1 producto, que ya aparezca marcado.\n\n2. Reemplaza a clarity al 100% fijate el trabajo que ya se hizo y terminalo, no quiero saber nada mas de clarity, quiero que MaKo haga todo.»',
+    puntos: [
+      'El punto 2 lo pidió sobre una afirmación del hito de las 00:45 que era FALSA: «ningún workspace tiene un `clarityProjectId` activo». Se había medido el campo por PÁGINA y el código leía la credencial del WORKSPACE. La corrección está en el hito siguiente.',
+    ],
+    archivos: [],
+  },
+  {
+    fecha: '6 oct', hora: '07:23', chat: 'Integraciones', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El paso 2 sin esperas y en un desplegable · Clarity fuera, la grabación con interruptor',
+    commits: [
+      { sha: 'cecf78c9', msg: 'Pixel: el paso 2 sin esperas y en un desplegable, y Clarity fuera del producto', lineas: 3259, archivos: 49 },
+    ],
+    puntos: [
+      '**El paso 2 tardaba por tres server actions EN SERIE**, no por los datos: las páginas del paso 1, y productos + páginas otra vez en un `Promise.all` que no paraleliza (Next despacha las actions de a una). Ahora el server las resuelve en `page.tsx` y bajan por props: el paso aparece en el primer frame, medido en el navegador.',
+      'El desplegable es el de la casa (`Dropdown` con `varios` + `minimo`), no uno nuevo. Siempre hay uno marcado y es un CÁLCULO —sin nada guardado se muestra el embudo del negocio—, así que abrir la pantalla no guarda una decisión que nadie tomó. Sin tilde: la casilla se rellena (pedido del 29/09).',
+      '⚠️ **Corrección del hito de las 00:45.** Clarity NO estaba muerto en datos: credencial viva en 5 workspaces, 3 de ellos clientes (Leila, Código Inmobiliario, P2P Consulting), con resumen de ayer. Y el reemplazo no estaba prendido para ninguno: la grabación propia sólo corría en el ws1, y los tres usan el Pixel v15 a v18, anterior al grabador (v21).',
+      'Por eso el orden: primero el interruptor «Grabar las visitas» —la v21 lo había PROMETIDO por WhatsApp y no existía—, después la grabación prendida en esos tres negocios (se revierte con el interruptor), y recién ahí Clarity fuera: los cuatro registros, el snippet, la ficha, dos crons, un aviso y la operación de la API de MaKo.',
+      'Sin subir la versión del Pixel, medido: los tres ya están por debajo de la v21 y les llega el aviso de repegar; al hacerlo reciben el código sin Clarity.',
+      '⚠️ **Lo que quedó**: hasta que repeguen el código, su página sigue cargando el tag de Microsoft y MaKo no los graba. El mapa de calor no tiene reemplazo (los datos ya se capturan; la vista es una decisión). Y quedan restos inertes en la base y en Vercel. Todo escrito en docs/hallazgos-landing.md.',
+    ],
+    archivos: [
+      'app/integraciones/page.tsx — páginas, productos y estado de la grabación resueltos en el server',
+      'lib/landing-config-leer.ts — la lectura de las páginas, sin sesión adentro',
+      'app/components/Dropdown.tsx · app/components/dropdown-varios.ts — elección múltiple con mínimo',
+      'app/integraciones/AsignarProducto.tsx — el paso 2 en desplegable, siempre con uno marcado',
+      'app/integraciones/IntegracionesBoard.tsx — el interruptor «Grabar las visitas»',
+      'lib/lead-de-prueba.ts · app/api/cron/prueba-grabacion/route.ts — el aviso cuando la grabación de la prueba quedó guardada',
+      'tests/sin-clarity.test.ts — que no vuelva a cablearse',
     ],
   },
 ];

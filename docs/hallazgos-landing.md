@@ -1735,6 +1735,9 @@ la landing elegida (`lib/landing-token.ts:696`) y pinta el renglón con eso (`:1
 landing con Clarity propio en un workspace sin Clarity sale «No lo activaste», al lado de un
 código que sí lo trae.
 
+*2026-10-06:* resuelto por desaparición — Clarity salió del producto, y con él el chequeo y el
+proyecto por página. El código es ahora uno solo para todas las páginas del negocio.
+
 **Vive en:** `lib/landing-config.ts` · `lib/landing-analisis.ts` ·
 `app/integraciones/SelectorLanding.tsx` · `app/api/cron/tracking-vigilante/route.ts`
 
@@ -3104,6 +3107,82 @@ es el comportamiento correcto y es, exactamente, no grabar nada.
 **Vive en:** `tests/landing-optin.test.ts` · `lib/landing-token.ts` (`enviar`)
 
 ---
+
+### ⚠️ «Clarity está muerto en datos» era falso: se midió el campo que el código NO leía
+
+**Síntoma / el diagnóstico equivocado.** El 06/10/2026, revisando si el reemplazo de Clarity
+estaba al 100%, se le dijo a Martín que sus restos eran «código vivo, datos muertos: ningún
+workspace tiene un `clarityProjectId` activo». Con eso él pidió sacarlo entero.
+
+**Y era falso.** Se había medido `landing.config[].clarityProjectId` —el proyecto POR PÁGINA,
+que sí tenía cero filas— y no lo que leía el código que corría: `credWs('CLARITY_PROJECT_ID')`,
+la credencial del WORKSPACE (`lib/clarity.ts`). Medido después contra producción: **5
+workspaces con credencial viva y 3 de ellos clientes** (Leila, Código Inmobiliario, P2P
+Consulting), con el resumen de ayer escrito por el cron (116 sesiones en uno). Y un cliente
+lo estaba pidiendo por WhatsApp: «Avisame cuando el mapa de calor y grabación de clarity estén
+listos».
+
+**La regla, que quedó en AGENTS.md:** para afirmar que un cambio no afecta a nadie, se mide lo
+que LEE el código que corre — no un campo con el mismo nombre en otro lado. Es la familia de
+«un grep sobre un archivo contesta "ese archivo no lo hace", nunca "nadie lo hace"».
+
+**Y el reemplazo no estaba encendido para los clientes**, que es lo que de verdad decidía el
+orden. La grabación propia sólo estaba prendida en el ws1 (a mano, en la base: no había
+pantalla). Y los tres clientes corrían el Pixel **v15 a v18**, cuando el grabador existe recién
+desde la **v21**: aunque se prendiera, no grababa nada hasta que repegaran el código. Sacar
+Clarity sin eso era dejarlos sin grabaciones, no reemplazarlas.
+
+**Lo que se hizo, en orden:** (1) el interruptor «Grabar las visitas» en el Pixel, que la v21
+ya le había PROMETIDO a cada cliente por WhatsApp («se prende una vez desde la app») y no
+existía; (2) la grabación prendida en los tres negocios que tenían Clarity (es la misma
+decisión que tomaron al conectarlo, y se revierte con el interruptor); (3) recién ahí, Clarity
+fuera: los cuatro registros, el snippet, la ficha, los dos crons, el aviso, la API de MaKo.
+
+**Y la versión del Pixel NO se subió, medido:** los tres clientes ya están por debajo de la
+v21, así que ya les llega el aviso de repegar; cuando lo hagan reciben el código sin Clarity.
+Subirla le habría mandado a todos los negocios un aviso que no les cambia nada.
+
+**Lo que quedó SIN hacer:**
+- **Los clientes tienen que REPEGAR el código.** Hasta que lo hagan, su página sigue cargando
+  el tag de Microsoft (el id viaja horneado en su HTML) y MaKo no los graba. El ws1 también:
+  su landing principal corre la **v14** (7.793 visitas en 30 días contra 32 de la v21).
+- **El MAPA DE CALOR es lo único de Clarity sin reemplazo.** Los datos ya se capturan desde la
+  v20 (en qué punto toca cada persona); falta la vista. `docs/heatmaps-decision.md` (15/08)
+  había decidido que agrega poco — es una decisión de Martín, no un pendiente técnico.
+- **Restos en datos, inertes:** 10 credenciales `CLARITY_*` en 5 workspaces, los settings
+  `clarity.resumen` (5) y `mako.aviso.last.clarity-grabacion-por-vencer` (3), y el
+  `CLARITY_API_TOKEN` en `.env.local` y en Vercel. Ningún código los lee; ver
+  `hallazgos-integraciones.md` → por qué las credenciales ya no se pueden borrar desde la UI.
+- **`guardar_landing` de la API de MaKo no expone los productos** (`funnelIds`): la pantalla
+  los asigna y MaKo no puede. Es un hueco del registro, no de Clarity.
+
+**Vive en:** app/integraciones/IntegracionesBoard.tsx (`cambiarGrabacion`) ·
+app/integraciones/landing-config-actions.ts (`guardarGrabacionAction`) · lib/replay-ficha.ts ·
+app/api/cron/prueba-grabacion/route.ts · lib/lead-de-prueba.ts · tests/sin-clarity.test.ts ·
+*2026-10-06*
+
+### El paso 2 tardaba por TRES server actions en serie, no por los datos
+
+Martín: «tardó mucho en encontrar mis productos… si son 2 literalmente». Medido: al abrir el
+Pixel salían `getLandingsAction` (paso 1) y `getProductosAction` + `getLandingsAction` otra vez
+(paso 2, en un `Promise.all`) — y el `Promise.all` no paraleliza nada, porque Next despacha las
+server actions DE A UNA (regla ya escrita en AGENTS.md). Tres viajes en serie, 11 a 13 idas y
+vueltas a la base para traer dos filas, mientras la pantalla mostraba un «Buscando tus
+productos…» escrito.
+
+La cura no fue acelerar nada: fue no preguntar. Las páginas y los productos los resuelve el
+server en `page.tsx`, en paralelo con lo que ya resolvía, y bajan por props. Medido en el
+navegador: el paso 2 aparece en el primer frame (1,2 s desde el click, con el modal incluido).
+
+- **Una lista vacía de productos es una lectura que falló**, no «no tenés productos»: todo
+  workspace tiene su embudo del negocio. El server baja `null` y el paso lo dice.
+- **Las páginas viven en el padre de los pasos 1 y 2.** Eran dos copias del mismo estado, y
+  guardar en uno dejaba al otro con la vieja.
+- **Con una sola página el modal arranca con ella elegida**: elegirla en un efecto la elegía
+  después del primer pintado, y los pasos 2 a 4 aparecían tarde.
+
+**Vive en:** app/integraciones/page.tsx · lib/landing-config-leer.ts ·
+app/integraciones/AsignarProducto.tsx · app/components/Dropdown.tsx (`varios`) · *2026-10-06*
 
 ### La grabación de una prueba se MIRA con un lead PRUEBA, no sacando el reproductor del CRM
 

@@ -3364,6 +3364,23 @@ formulario ✓» y era **cierto** — le faltaba el segundo verbo: llegó ¿y **
 proceso que tiene un paso humano en el medio, el estado sale del paso que **falta**, no del
 que se cumplió.
 
+# Para decir «esto no afecta a nadie», se mide lo que LEE el código que corre
+
+No un campo con el mismo nombre. Medido el 06/10/2026: se le afirmó a Martín que Microsoft
+Clarity estaba «muerto en datos» porque `landing.config[].clarityProjectId` —el proyecto POR
+PÁGINA— tenía cero filas. El código que corría leía otra cosa: la credencial del WORKSPACE
+(`credWs('CLARITY_PROJECT_ID')`), viva en 5 workspaces, 3 de ellos clientes con tráfico. Con
+esa afirmación él decidió sacarlo entero; el retiro salió bien porque antes de borrar se midió
+de nuevo, y se encontró que además el reemplazo no estaba prendido para ninguno de esos
+clientes.
+
+- **Antes de afirmarlo, `grep` del LECTOR**: qué función decide si la feature corre, y qué
+  consulta hace. Recién ahí se cuenta en la base.
+- **Y «muerto en código» y «muerto en datos» son dos mediciones**, cada una con su número. Una
+  sola dicha como las dos es la forma en que se cuela esto.
+- **El olor:** dos lugares donde vive «el mismo» dato (por workspace y por página, el global y
+  el override). Si medís uno, decí cuál.
+
 # Un alta que pasa a crear N filas choca con su propio chequeo de duplicados
 
 Cuando una función que creaba UNA fila pasa a crear varias de la misma entidad —el mismo

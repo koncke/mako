@@ -16,6 +16,30 @@ es MEDIOS, **US$0,045/min contra US$0,00067 del texto — 67×**, y eso no se pu
 costear para todos. Un mapeo de 76 agentes encontró 61 problemas confirmados, 28
 de ellos bloqueantes. Estos son los que no se ven leyendo el código.
 
+### Sacar una integración: los cuatro registros juntos, y sus credenciales quedan huérfanas
+
+Medido el 06/10/2026 sacando Microsoft Clarity del producto. Una integración son tres
+registros más el logo (AGENTS.md) y, al SACARLA, el orden importa en las dos direcciones que
+los guards miran por separado: sin el ping primero, /metodo contesta «servicio inválido» sobre
+un formulario que todavía existe; sin el logo primero, el guard de los tres registros falla
+sobre una integración que sigue declarada. Por eso salen los cuatro en el mismo commit.
+
+**Lo que no se ve:** `ENVS_METODO` (lib/metodo-catalogo.ts) es la lista blanca de lo que la
+ruta de credenciales deja **borrar y revelar**. Sacando el servicio del catálogo, una fila ya
+guardada en `credenciales` queda cifrada y **sin forma de borrarla desde la pantalla**. Con
+Clarity son 10 filas en 5 workspaces, inertes —ningún código las lee—; si hace falta borrarlas,
+es por SQL. Es lo mismo que lib/integraciones.ts ya advierte del WhatsApp oficial: esconder una
+integración no la apaga, la vuelve inmanejable.
+
+**Y un umbral que pasaba por uno:** `tests/tutoriales-legibles.test.ts` exigía más de 300
+textos de tutorial y, sin los 15 de Clarity, quedaron 301. Se bajó a 250 con el porqué: es un
+piso contra un extractor ROTO, y a uno del margen la próxima limpieza de copy lo habría tirado
+con un mensaje que manda a arreglar el extractor.
+
+**Vive en:** lib/integraciones-catalogo.ts · lib/metodo-catalogo.ts · lib/metodo-verificar.ts ·
+app/_components/ServicioVisual.tsx · app/api/integraciones/credencial/route.ts ·
+tests/tutoriales-legibles.test.ts · *2026-10-06*
+
 ### 1. `soloPlataforma` está DOS veces y hace dos cosas distintas
 
 `lib/integraciones-catalogo.ts` decide si se **dibuja** la tarjeta.

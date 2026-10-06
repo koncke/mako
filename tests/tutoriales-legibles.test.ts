@@ -75,7 +75,12 @@ test('el copy de cara al cliente está en español neutro', () => {
   // `entra` y `toca` —que son el imperativo de TÚ, justo lo que queremos— y gritó
   // sobre 134 textos correctos. Un chequeo que grita sobre texto sano se apaga.
   const literales = [...ZONA_SERVICIOS.matchAll(/^ {4,8}'((?:[^'\\]|\\.){25,})',?$/gm)].map((m) => m[1]);
-  assert.ok(literales.length > 300, `solo se leyeron ${literales.length} textos: el extractor quedó viejo`);
+  // ⚠️ El umbral es un piso contra un EXTRACTOR roto, no un conteo del catálogo. Estaba en
+  // 300 y el 06/10/2026, al salir Clarity del producto con sus 15 textos, quedaron 301:
+  // pasaba por UNO, y la próxima limpieza de copy lo habría tirado con un mensaje que
+  // manda a arreglar el extractor, que está bien. 250 deja margen para el copy y sigue
+  // muy por encima de lo que lee un extractor roto (cero, o un puñado).
+  assert.ok(literales.length > 250, `solo se leyeron ${literales.length} textos: el extractor quedó viejo`);
 
   const PROHIBIDO: Array<[RegExp, string]> = [
     [/\b(pegá|copiá|tocá|entrá|mirá|andá|dejalo|marcalo|pegalo|pegala|copiala|guardalo|buscala|creala|ponele|tenés|querés|podés)\b/, 'voseo'],
