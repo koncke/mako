@@ -21,7 +21,7 @@
 import 'server-only';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { sendEmail, renderEmailHtml } from './resend';
-import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
+import { linkApp, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { emailDuenoWorkspace } from './usuarios';
 import { capaDef, type CapaId } from './capas';
 import type { ResultadoAvisoPlan } from './plan-aviso';
@@ -71,7 +71,7 @@ export async function avisarCambioDePlan(args: {
         ? ['Lo que no entra en este plan deja de aparecer en tu panel. Nada de lo que cargaste se borra.', '']
         : []),
       'Entra desde aquí:',
-      `${APP_BASE_URL}/inicio`,
+      linkApp('/inicio', args.ws),
       '',
       // El contacto de ayuda es el de MaKo y nunca el de quien hizo el cambio: es la
       // misma corrección que ya está escrita en `invitaciones.ts`.

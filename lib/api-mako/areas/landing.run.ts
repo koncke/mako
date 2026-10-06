@@ -23,7 +23,7 @@ import { conLanding, sinLanding, landingDe, MAX_LANDINGS } from '@/lib/landing-c
 import { normalizarUrl as normalizarPagina } from '@/lib/landing-paginas';
 import { isIP } from 'node:net';
 import { normalizarUrl as normalizarAnalisis, validarDestino } from '@/lib/landing-fetch';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkPantalla } from '../link';
 import { conVideo, sinVideo, conOculto, sinOculto, vslDe, MAX_VIDEOS } from '@/lib/landing-videos';
 import {
   landingUltimoEvento, landingRecibioEventos, snippetDesactualizado, SNIPPET_VERSION, LANDING_VENTANA_DIAS,
@@ -79,7 +79,9 @@ const hostNoPublico = (url: string): boolean => {
   } catch { return true; }
 };
 
-const LINK_INTEGRACIONES_LANDING = `${APP_BASE_URL}/integraciones?abrir=landing`;
+// ⚠️ ES UNA FUNCIÓN Y NO UNA CONSTANTE: en el tope del módulo todavía no hay ningún
+// workspace en contexto, así que una const se evaluaría con `ws = null` para siempre.
+const linkIntegracionesLanding = (): string => linkPantalla('/integraciones?abrir=landing');
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const fechaValida = (s: string): boolean => FECHA.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
@@ -186,7 +188,7 @@ export const RUNNERS: Runners = {
       // result los corta, un modelo no los puede copiar a un mensaje y en el doer
       // de WhatsApp revientan el techo de tokens del turno siguiente.
       return json({
-        link: LINK_INTEGRACIONES_LANDING, version: SNIPPET_VERSION, largo_caracteres: codigo.length,
+        link: linkIntegracionesLanding(), version: SNIPPET_VERSION, largo_caracteres: codigo.length,
         landing: url ?? null, clarity_project_id: pid,
         nota: 'El código no viaja por el chat: es demasiado largo para copiarlo en un mensaje. Manda el link: en Integraciones → Landing la persona lo copia con un botón (si tiene varias landings, que elija la misma URL ahí).',
       });

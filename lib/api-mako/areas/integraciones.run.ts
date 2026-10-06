@@ -38,7 +38,7 @@ import { cuotasProveedores, cuentasDe } from '@/lib/ia-cuotas';
 import { getUsageSummary } from '@/lib/anthropic-usage';
 import { tabActivacion } from '@/lib/tab-activacion';
 import { getAgenteToken } from '@/lib/agente-token';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
 
 const J = (o: unknown): string => JSON.stringify(o);
@@ -47,7 +47,7 @@ const fallo = (error: string, disponibles?: unknown): SalidaLectura =>
 const str = (input: Record<string, unknown>, k: string): string =>
   (typeof input[k] === 'string' ? (input[k] as string).trim().toLowerCase() : '');
 const r4 = (n: number): number => Math.round(n * 10000) / 10000;
-const linkIntegracion = (key: string): string => `${APP_BASE_URL}/integraciones?abrir=${encodeURIComponent(key)}`;
+const linkIntegracion = (key: string): string => linkPantalla(`/integraciones?abrir=${encodeURIComponent(key)}`);
 
 export const RUNNERS: Runners = {
   ver_integraciones: {
@@ -236,7 +236,7 @@ export const RUNNERS: Runners = {
         que_falta: t.queFalta,
         ademas: t.ademas ?? null,
         a_donde_ir: t.cta
-          ? { texto: t.cta.label.replace(/\s*→\s*$/, ''), url: `${APP_BASE_URL}${t.cta.href}` }
+          ? { texto: t.cta.label.replace(/\s*→\s*$/, ''), url: linkPantalla(t.cta.href, ctx.ws) }
           : { texto: 'Conectar la integración', url: linkIntegracion(t.servicio ?? '') },
         nota: 'integracion_conectada true no garantiza datos: lee «ademas».',
       });

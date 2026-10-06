@@ -31,7 +31,7 @@ import { tzActual } from './timezone';
 import { analisisNegocio } from './analisis-negocio';
 import { analisisAMarkdown } from './analisis-modelo';
 import { reporteMetricas, metricasAMarkdown } from './metricas-negocio';
-import { APP_BASE_URL as APP_URL } from './app-url';
+import { linkApp } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
@@ -345,8 +345,10 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const ws = await getWorkspaceActual();
       const esDueno = ws != null && tableroDeCapa((await getWorkspace(ws))?.capa) === 'dueno';
       const rutaPlan = esDueno ? '/plan/agencia' : '/plan';
-      const linkTarea = (id: string) => `${APP_URL}${rutaPlan}?tarea=${id}`;
-      const linkProy = (id: string) => `${APP_URL}${rutaPlan}?proyecto=${id}`;
+      // Con el `ws` de dos líneas arriba: estos dos links los pega MaKo en un WhatsApp y
+      // abren el tablero, que es una pantalla de inquilino.
+      const linkTarea = (id: string) => linkApp(`${rutaPlan}?tarea=${id}`, ws);
+      const linkProy = (id: string) => linkApp(`${rutaPlan}?proyecto=${id}`, ws);
       if (esDueno) {
         // El board del dueño ya vive en la DB (mig 0093), no en la foto de localStorage:
         // leemos plan_tareas EN VIVO. Los `id` son los reales del board → sirven para

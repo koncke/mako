@@ -297,7 +297,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
 async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string): Promise<boolean> {
   try {
     const wsCorreo = a.alDueno === true ? await wsSuperAdmin().catch(() => a.ws ?? OWNER_WS) : (a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS);
-    const [{ getDestinatariosDe }, { sendEmail }, { renderEmailHtml }, { REMITENTE_MAKO, EMAIL_MAKO, APP_BASE_URL }] = await Promise.all([
+    const [{ getDestinatariosDe }, { sendEmail }, { renderEmailHtml }, { REMITENTE_MAKO, EMAIL_MAKO, linkApp }] = await Promise.all([
       import('./notif-destinatarios'), import('./resend'), import('./email-html'), import('./app-url'),
     ]);
     const dest = await getDestinatariosDe(wsCorreo);
@@ -311,7 +311,11 @@ async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string):
     const asunto = a.asuntoEmail?.trim() || a.titulo;
     const html = renderEmailHtml({
       subject: asunto, titulo: a.titulo, bodyText: cuerpo, marca: 'mako',
-      cta: a.link ? { texto: 'Verlo en MaKo', url: a.link.startsWith('http') ? a.link : `${APP_BASE_URL}${a.link}` } : undefined,
+      // El botón del correo es el link de TODOS los avisos del catálogo: acá se pegaba
+      // la base a mano y salía sin `?ws=`, así que quien tiene acceso a más de un
+      // workspace —el super admin, una agencia con cartera— aterrizaba en la pantalla
+      // del cliente que tuviera la cookie puesta, no en el del aviso que acaba de leer.
+      cta: a.link ? { texto: 'Verlo en MaKo', url: a.link.startsWith('http') ? a.link : linkApp(a.link, wsCorreo) } : undefined,
     });
     // Uno por destinatario, no en copia: son personas distintas del mismo negocio y
     // no tienen por qué verse los mails entre ellas (igual que los reportes).

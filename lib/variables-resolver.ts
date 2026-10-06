@@ -21,7 +21,7 @@ import 'server-only';
 import { linkApp, APP_BASE_URL } from './app-url';
 import { RUTA_DE_LINK, resolverVariables, necesitaFichaDelLead } from './variables-aviso';
 import { tzDeWorkspace } from './timezone';
-import { wsEnContexto, getWorkspace } from './workspace';
+import { getWorkspace } from './workspace';
 import { partesEn } from './cron-aviso';
 import { valoresDelLead } from './variables-del-lead';
 
@@ -41,8 +41,16 @@ export type CtxVariables = { ws: number; leadId?: number | null; leadNombre?: st
  */
 export async function valoresDeVariables(ctx: CtxVariables, texto?: string, datos?: Record<string, string>): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const [k, ruta] of Object.entries(RUTA_DE_LINK)) out[k] = `${APP_BASE_URL}${ruta}`;
-  if (ctx.leadId) out.link_lead = linkApp(`/crm/${ctx.leadId}/resumen`, wsEnContexto());
+  // ⚠️ EL WORKSPACE SALE DE `ctx.ws`, NO DE `wsEnContexto()`. Es la misma pregunta
+  // contestada dos veces en dos líneas, y por eso una salía bien y la otra no: el
+  // barrido del 05/10 arregló el `link_lead` de abajo y no vio este `for`, porque el
+  // guard sólo reconoce la ruta cuando es un LITERAL pegado a `${APP_BASE_URL}` y acá
+  // viene de una variable. Y `ctx.ws` es `number`, así que no puede quedar en null:
+  // `wsEnContexto()` devuelve null fuera de un `runWithWorkspace`, que es exactamente
+  // el caso del drenador de agendados (lib/avisos-programados.ts, que resuelve con
+  // `getWorkspaceActual()` y no envuelve nada) — ahí el link salía pelado igual.
+  for (const [k, ruta] of Object.entries(RUTA_DE_LINK)) out[k] = linkApp(ruta, ctx.ws);
+  if (ctx.leadId) out.link_lead = linkApp(`/crm/${ctx.leadId}/resumen`, ctx.ws);
   if (ctx.leadNombre) out.lead_nombre = ctx.leadNombre;
   try {
     const tz = await tzDeWorkspace(ctx.ws);

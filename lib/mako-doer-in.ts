@@ -39,7 +39,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
-import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
+import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
@@ -953,7 +953,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             detalle: crudo,
           }],
         });
-        linkBorrador = `${APP_URL}/plan/revisar/${id}`;
+        // Este link sale por WhatsApp y abre una pantalla de inquilino, así que lleva su
+        // `?ws=`. El guard de los links no lo veía porque exime este archivo ENTERO —el
+        // prompt de abajo describe la FORMA de una URL y no es un link que sale—, y una
+        // exención por archivo tapa también las líneas que sí mandan.
+        linkBorrador = linkApp(`/plan/revisar/${id}`, wsData);
         console.error(`[mako-doer-in] ws=${wsData} guardado CRUDO en ${id}: la IA no pudo y el mensaje no se tira`);
         return linkBorrador;
       } catch (eC) {
@@ -1536,7 +1540,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // números son de Mauricio, y para cualquier otro cliente esa pantalla es un 404.
     const informe = rangosPedidos.map((r) => informeParaRango(r.desde, r.hasta)).find(Boolean) ?? null;
     if (informe && respuesta.trim() && !respuesta.includes(informe.ruta) && (await esWorkspaceDueno().catch(() => false))) {
-      respuesta = `${respuesta.trim()}\n\n📊 ${informe.titulo}: ${APP_URL}${informe.ruta}`;
+      // El link del informe sale por WhatsApp y abre una pantalla de inquilino, así que va
+      // con su `?ws=`. Lo encontró el guard de los links al dejar de ser ciego a la forma
+      // con la ruta en una VARIABLE, que es justo la que tenía acá.
+      respuesta = `${respuesta.trim()}\n\n📊 ${informe.titulo}: ${linkApp(informe.ruta, wsData)}`;
     }
 
     if (linkBorrador) {

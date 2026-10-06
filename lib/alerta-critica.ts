@@ -43,7 +43,7 @@ import { getSetting, setSetting } from './settings';
 import { credWs } from './credenciales';
 import { emitirAviso, emitirDelCatalogo } from './avisos';
 import { encabezadoAviso } from './avisos-catalogo';
-import { APP_BASE_URL } from './app-url';
+import { linkApp } from './app-url';
 import { textoAlerta, textoRecuperada, causaDe } from './alerta-critica-texto';
 
 /**
@@ -224,7 +224,7 @@ ${textoRecuperada()}`,
           .titular.replace(/\*/g, ''),
         texto: `${encabezadoAviso('meta-cuenta-frenada')}\n${textoAlerta(
           { statusLabel: inc.status_label, disableReason: inc.disable_reason, entregaFrenada: inc.entrega_frenada, confirmado: inc.confirmado },
-          minAbierto, veces, `${APP_BASE_URL}/integraciones`,
+          minAbierto, veces, linkApp('/integraciones', ws),
         )}`,
         categoria: 'aviso',
         semaforo: 'rojo',

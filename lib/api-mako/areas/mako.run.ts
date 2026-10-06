@@ -18,7 +18,8 @@ import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
 import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
-import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { linkApp } from '@/lib/app-url';
+import { linkPantalla } from '../link';
 
 const num = (input: Record<string, unknown>, k: string): number | null => {
   const v = input[k];
@@ -107,7 +108,7 @@ export const RUNNERS: Runners = {
       const p = await pendientePorId(id);
       const claves = clavesDelCanal(ctx);
       if (!p || (claves && !claves.includes(p.grupoJid))) {
-        return fallo(`No encuentro la acción #${id} entre las que se ven desde este canal. Por la API solo se ven las que se propusieron por la API; lo propuesto por WhatsApp o desde la app se revisa en ${APP_BASE_URL}${RUTA_BANDEJA}.`);
+        return fallo(`No encuentro la acción #${id} entre las que se ven desde este canal. Por la API solo se ven las que se propusieron por la API; lo propuesto por WhatsApp o desde la app se revisa en ${linkPantalla(RUTA_BANDEJA)}.`);
       }
       // La lectura no barre vencidas (eso escribe): una 'pendiente' con vence_at en el
       // pasado se informa como vencida, que es lo que ve cualquier confirmación.
@@ -122,7 +123,7 @@ export const RUNNERS: Runners = {
       const nota = vencida
         ? 'Venció sin que nadie la confirmara: ya no se puede confirmar. Si todavía hace falta, vuelve a proponerla.'
         : cortada
-          ? `Se confirmó y la ejecución nunca dejó resultado: pudo haber escrito a medias. NO la vuelvas a proponer sin revisar antes en MaKo si se hizo (${APP_BASE_URL}${RUTA_BANDEJA}).`
+          ? `Se confirmó y la ejecución nunca dejó resultado: pudo haber escrito a medias. NO la vuelvas a proponer sin revisar antes en MaKo si se hizo (${linkPantalla(RUTA_BANDEJA)}).`
           : colgada
             ? 'Se confirmó y todavía no hay resultado: puede estar ejecutándose o haberse cortado. Vuelve a consultarla en unos minutos antes de proponerla otra vez.'
             : null;
@@ -133,7 +134,7 @@ export const RUNNERS: Runners = {
         resultado: resultadoPendiente(p.resultado, ctx),
         origen: etiquetaDeCanal(p.grupoJid), canal: canalDeClave(p.grupoJid),
         creada_utc: p.createdAt, vence_utc: p.venceAt, resuelta_utc: p.resueltoAt,
-        bandeja: `${APP_BASE_URL}${RUTA_BANDEJA}`,
+        bandeja: linkPantalla(RUTA_BANDEJA),
       });
     },
   },
@@ -153,12 +154,12 @@ export const RUNNERS: Runners = {
         ? { otras_fuera_de_la_api: total - vis, nota_fuera: 'Por la API solo se listan las propuestas que hizo la API; el resto se revisa en la bandeja.' }
         : {});
       return json({
-        bandeja: `${APP_BASE_URL}${PANTALLA_DE_PROPUESTA.accion.bandeja}`,
+        bandeja: linkPantalla(PANTALLA_DE_PROPUESTA.accion.bandeja),
         pendientes: {
           tope: TOPE_PROPUESTAS, recortado: ps.length >= TOPE_PROPUESTAS, ...fuera(ps.length, psVis.length),
           propuestas: psVis.map((p) => ({
             id: p.id, ...opDe(p.datos), resumen: p.resumen, origen: p.origen,
-            url: `${APP_BASE_URL}${rutaDePropuesta(p.tipo, p.id)}`,
+            url: linkPantalla(rutaDePropuesta(p.tipo, p.id)),
             creada_utc: p.createdAt, horas_esperando: horasDesde(p.createdAt),
           })),
         },
@@ -168,7 +169,7 @@ export const RUNNERS: Runners = {
           propuestas: fallVis.map((f) => ({
             id: f.id, ...opDe(f.datos), resumen: f.resumen, origen: f.origen, sin_resultado: f.sinResultado,
             motivo: typeof f.resultado?.resumen === 'string' ? f.resultado.resumen : null,
-            url: `${APP_BASE_URL}${rutaDePropuesta('accion', f.id)}`, aplicada_utc: f.appliedAt,
+            url: linkPantalla(rutaDePropuesta('accion', f.id)), aplicada_utc: f.appliedAt,
           })),
         },
       });
@@ -180,9 +181,9 @@ export const RUNNERS: Runners = {
       if (!id) return fallo('Pasa el id de la propuesta (empieza con «prop»).');
       const p = await propuestaConAplicacion(id);
       if (!p || !propuestaVisible(p, ctx)) {
-        return fallo(`No encuentro la propuesta «${id}» entre las que se ven desde este canal. Por la API solo se ven las que propuso la API; el resto se revisa en ${APP_BASE_URL}${PANTALLA_DE_PROPUESTA.accion.bandeja}.`);
+        return fallo(`No encuentro la propuesta «${id}» entre las que se ven desde este canal. Por la API solo se ven las que propuso la API; el resto se revisa en ${linkPantalla(PANTALLA_DE_PROPUESTA.accion.bandeja)}.`);
       }
-      const url = `${APP_BASE_URL}${rutaDePropuesta(p.tipo === 'lead' ? 'lead' : 'accion', p.id)}`;
+      const url = linkPantalla(rutaDePropuesta(p.tipo === 'lead' ? 'lead' : 'accion', p.id));
       const base = { id: p.id, tipo: p.tipo, estado: p.estado, origen: p.origen, resumen: p.resumen, creada_utc: p.createdAt, url };
       if (p.tipo !== 'accion') {
         return json({ ...base, nota: 'Es una propuesta de contactos: sus datos se revisan en la pantalla del link, no por aquí.' });
@@ -230,16 +231,16 @@ export const RUNNERS: Runners = {
       const c = conteosR.status === 'fulfilled' ? conteosR.value : { acciones: null, leads: null, fallidas: null, crmAuto: null };
       const NULO = { nota: 'No se pudo leer esta bandeja: null no es cero.' };
       const nulo = (n: number | null) => (n == null ? NULO : {});
-      const bandejaAcciones = `${APP_BASE_URL}${PANTALLA_DE_PROPUESTA.accion.bandeja}`;
+      const bandejaAcciones = linkPantalla(PANTALLA_DE_PROPUESTA.accion.bandeja);
       const borradores = borradoresR.status === 'fulfilled' ? borradoresR.value : null;
       return json({
-        acciones_chat: { n: chat.total, n_confirmables_desde_este_canal: chat.delCanal, url: `${APP_BASE_URL}${RUTA_BANDEJA}`, ...nulo(chat.total) },
+        acciones_chat: { n: chat.total, n_confirmables_desde_este_canal: chat.delCanal, url: linkPantalla(RUTA_BANDEJA), ...nulo(chat.total) },
         acciones_revisar: { n: c.acciones, url: bandejaAcciones, ...nulo(c.acciones) },
         acciones_fallidas_al_aplicar: {
           n: c.fallidas, ventana_dias: DIAS_FALLIDAS, url: bandejaAcciones,
           ...(c.fallidas == null ? NULO : { nota: `Fallaron, o se empezaron a aplicar y no dejaron resultado en más de ${MIN_SIN_RESULTADO} min.` }),
         },
-        ...(tieneCrm ? { contactos: { n: c.leads, url: `${APP_BASE_URL}${PANTALLA_DE_PROPUESTA.lead.bandeja}`, ...nulo(c.leads) } } : {}),
+        ...(tieneCrm ? { contactos: { n: c.leads, url: linkPantalla(PANTALLA_DE_PROPUESTA.lead.bandeja), ...nulo(c.leads) } } : {}),
         ...(tienePlan ? {
           borradores_plan: borradores
             ? {
@@ -271,7 +272,7 @@ export const RUNNERS: Runners = {
       const visibles = pedidas.filter((c) => disponible(c.ruta));
       if (id && !visibles.length) return fallo(`«${id}» no está disponible en este negocio (su tab no está en el plan contratado o no la ve tu rol).`);
       return json({
-        capacidades: visibles.map((c) => ({ id: c.id, tab: c.tab, url: `${APP_BASE_URL}${c.ruta}`, que: c.que, como: c.como })),
+        capacidades: visibles.map((c) => ({ id: c.id, tab: c.tab, url: linkPantalla(c.ruta), que: c.que, como: c.como })),
         ...(visibles.length < pedidas.length ? { fuera_de_este_negocio: pedidas.length - visibles.length } : {}),
       });
     },

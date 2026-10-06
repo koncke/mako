@@ -238,9 +238,13 @@ test('el aviso de código viejo: rótulo propio, texto determinista y link que a
   const bloque = cron.slice(i, cron.indexOf('});', i));
   assert.ok(/texto:/.test(bloque), 'el mensaje tiene que ser determinista: el link no lo puede escribir el modelo');
   assert.ok(!/contexto:/.test(bloque), 'volvió el contexto: el modelo puede reescribir mal la URL');
-  assert.ok(/LINK_LANDING/.test(bloque), 'el aviso tiene que llevar el link exacto');
+  assert.ok(/linkLanding\(/.test(bloque), 'el aviso tiene que llevar el link exacto');
   assert.ok(/\/integraciones\?abrir=landing/.test(cron), 'el link tiene que abrir el LUGAR donde se resuelve, no la pantalla entera');
-  assert.ok(/APP_BASE_URL/.test(cron), 'en un WhatsApp un path no es clicable: el link va absoluto');
+  // ⚠️ Era `APP_BASE_URL` y pasó a `linkApp`, que es absoluto Y le pega el workspace. Lo
+  // segundo es lo que faltaba: el link era una CONST de módulo, donde no hay ningún ws, así
+  // que abría /integraciones en el workspace que resolviera la cookie de quien lo toca.
+  assert.ok(/linkApp\(/.test(cron), 'el link va absoluto y con su workspace: por linkApp, no pegando la base a mano');
+  assert.ok(/linkLanding = \(ws: number \| null\)/.test(cron), 'es una función del ws: una const de módulo no puede llevar el workspace');
 });
 
 test('la pantalla también lo dice (no solo el WhatsApp)', () => {

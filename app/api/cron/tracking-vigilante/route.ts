@@ -39,7 +39,7 @@ async function paginasDelWorkspace(): Promise<string[]> {
   if (nuevo.length) return nuevo;
   return parsearPaginas(await getSetting(PAGINAS_KEY));
 }
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkApp } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { mirarLanding } from '@/lib/landing-vigilancia';
 import { enumerar, hayCambios, nombresDe } from '@/lib/landing-snapshot';
@@ -130,7 +130,7 @@ async function revisarCambios(ws: number, suyas: string[]): Promise<number> {
       // si mañana cambia otra cosa, ese sí es un aviso nuevo.
       dedupKey: `landing-cambio:${url}:${[...cambios.nuevas, ...cambios.sacadas].sort().join(',')}`,
       dedupTtlMin: DEDUP_MIN,
-      texto: [...frases, '', LINK_LANDING].join(NL),
+      texto: [...frases, '', linkLanding(ws)].join(NL),
     });
   }
   return n;
@@ -144,7 +144,10 @@ async function revisarCambios(ws: number, suyas: string[]): Promise<number> {
  * de un aviso es el LUGAR donde se resuelve, no la sección que lo contiene.
  * Absoluto porque va adentro de un WhatsApp, donde un path no es clicable.
  */
-const LINK_LANDING = `${APP_BASE_URL}/integraciones?abrir=landing`;
+// ⚠️ ES UNA FUNCIÓN Y NO UNA CONSTANTE, y eso es el arreglo: en el tope del módulo no
+// existe ningún workspace, así que una const no puede llevar el `?ws=` ni aunque alguien
+// se acuerde. Los dos call sites ya tienen el suyo (`ws` y `w.id`).
+const linkLanding = (ws: number | null) => linkApp('/integraciones?abrir=landing', ws);
 
 export async function GET(req: NextRequest) {
   const denied = checkCronAuth(req);
@@ -240,7 +243,7 @@ export async function GET(req: NextRequest) {
                 `*Qué te estás perdiendo:* ${novedadesDesde(instalada)}.`,
                 '',
                 `*Cómo se arregla* (2 minutos): entra aquí, elige ${atrasadas.length > 1 ? 'cada página' : 'esa página'}, copia el código y vuelve a pegarlo donde estaba.`,
-                LINK_LANDING,
+                linkLanding(w.id),
               ].join('\n'),
             });
           }

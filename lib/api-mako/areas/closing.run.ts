@@ -28,7 +28,8 @@ import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { wsEnContexto, getWorkspaceActual } from '@/lib/workspace';
 import { getLead, logLeadEvent } from '@/lib/leads';
 import { credWs, integracionConectada } from '@/lib/credenciales';
-import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { linkApp } from '@/lib/app-url';
+import { linkPantalla } from '../link';
 import {
   DIMS7, leerLlamada, llamadasConProblemas, leadTieneLlamada,
   hayBorradorPostLlamadaReciente, ultimaLlamadaDelLead, enVentana, closersDe, factoresDe, tendenciaDe, embudoDe,
@@ -48,7 +49,7 @@ const str = (i: Record<string, unknown>, k: string): string | null => {
 const json = (o: unknown): string => JSON.stringify(o);
 const error = (content: string) => ({ content, isError: true });
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-const linkLlamada = (id: number): string => `${APP_BASE_URL}/closing?call=${id}`;
+const linkLlamada = (id: number): string => linkPantalla(`/closing?call=${id}`);
 const conSegundo = (url: string | null, t: number | undefined): string | null =>
   url && typeof t === 'number' && t >= 0 ? `${url}?timestamp=${Math.round(t)}` : url;
 const recorta = (s: string | null | undefined, n: number): string | null =>

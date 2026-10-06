@@ -40,7 +40,7 @@ import { crearPendiente, pendientesVigentes, pendientesDelWorkspace, reclamarPen
 import { crearPropuesta, getPropuesta, marcarAplicada, descartarPropuesta } from '@/lib/propuestas';
 import { ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { tzDeWorkspace } from '@/lib/timezone';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkPantalla } from '@/lib/api-mako/link';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { porId, gatingOk } from './registro';
 import { runnerDe } from './runners';
@@ -87,7 +87,7 @@ export async function proponerChat(def: AccionDef, payload: Record<string, unkno
     origen: origenDe(ctx), ttlMin: TTL_PENDIENTE_MIN,
   });
   if (id == null) return { error: 'No se pudo registrar la acción pendiente.' };
-  return { pendiente: { id, resumen, venceEnMin: TTL_PENDIENTE_MIN, url: `${APP_BASE_URL}${RUTA_BANDEJA}` } };
+  return { pendiente: { id, resumen, venceEnMin: TTL_PENDIENTE_MIN, url: linkPantalla(RUTA_BANDEJA, ctx.ws) } };
 }
 
 // ── pantalla genérica: dejar una propuesta con link ──────────────────────────
@@ -101,7 +101,7 @@ export async function proponerPantallaGenerica(def: AccionDef, input: Record<str
     resumen,
     datos: { operacion: def.id, payload: input, resumen, canal: ctx.canal },
   });
-  return { propuesta: { id, url: `${APP_BASE_URL}/mako/revisar/${id}`, nueva } };
+  return { propuesta: { id, url: linkPantalla(`/mako/revisar/${id}`, ctx.ws), nueva } };
 }
 
 /**

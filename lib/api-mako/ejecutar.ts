@@ -21,7 +21,7 @@
 
 import 'server-only';
 import { runWithWorkspace, getWorkspaceActual } from '@/lib/workspace';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { linkPantalla } from '@/lib/api-mako/link';
 import { porId, visible, type Vista } from './registro';
 import { runnerDe } from './runners';
 import { validarInput } from './validar';
@@ -140,7 +140,7 @@ function traducirLegado(crudo: string): Resultado {
   try { j = JSON.parse(crudo) as Record<string, unknown>; } catch { j = null; }
   if (!j || typeof j !== 'object') return { ok: false, status: 400, error: crudo };
   if (j.ok === true && typeof j.pendiente_id === 'number') {
-    return { ok: true, tipo: 'pendiente', pendiente: { id: j.pendiente_id, resumen: String(j.resumen ?? ''), venceEnMin: Number(j.vence_en_min ?? TTL_PENDIENTE_MIN), url: `${APP_BASE_URL}${RUTA_BANDEJA}` } };
+    return { ok: true, tipo: 'pendiente', pendiente: { id: j.pendiente_id, resumen: String(j.resumen ?? ''), venceEnMin: Number(j.vence_en_min ?? TTL_PENDIENTE_MIN), url: linkPantalla(RUTA_BANDEJA) } };
   }
   const { ok: _ok, error, faltan, ...resto } = j;
   void _ok;
